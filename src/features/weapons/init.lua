@@ -8,6 +8,7 @@
 --   server -> all     WPN_HIT  <pid> <victim> <hp>
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
+--   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --
 -- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
 -- its slot with brief protection.
@@ -46,6 +47,20 @@ local FEED_TIME = 3
 local function blocked(x, y)
   for _, f in ipairs(Features.list) do
     if f.blocksPoint and f:blocksPoint(x, y) then
+      return true
+    end
+  end
+  return false
+end
+
+--- Everything shootable that isn't a car belongs to some other feature, so
+--- ask them: a feature with a serverShotAt hook kills whatever of its own is
+--- standing at (x, y) and returns true if it did (the pedestrians do). The
+--- first one to answer swallows the bullet, which is why a single shot takes
+--- one pedestrian out of a crowd rather than the whole queue.
+local function shotSomething(server, x, y, by, angle)
+  for _, f in ipairs(Features.list) do
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle) then
       return true
     end
   end
@@ -252,6 +267,12 @@ Weapons.clientMessages = {
       Weapons.health[id] = hp
     end
   end,
+  WPN_STOP = function(_client, args)
+    local pid = tonumber(args[1])
+    if pid then
+      Weapons.projectiles[pid] = nil
+    end
+  end,
   WPN_SHOT = function(_client, args)
     local pid, owner = tonumber(args[1]), tonumber(args[2])
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
@@ -394,16 +415,19 @@ Weapons.serverMessages = {
 }
 
 --- Walk the projectile's path for this tick in small steps so fast shots
---- can't tunnel through a car. Returns the first player hit, if any, or
---- `true` when the shot hit a wall.
+--- can't tunnel through a car. Returns the first player hit, or the string
+--- "wall" / "soft" when something that isn't a player swallowed the shot (a
+--- building, a pedestrian), or nil when it flew on. Cars are tested before
+--- soft targets, so a pedestrian can't be used as a body shield.
 function Weapons:sweep(server, p, nx, ny)
   local dx, dy = nx - p.x, ny - p.y
   local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / SWEEP_STEP))
+  local angle = math.atan2(p.vy, p.vx)
   for s = 1, steps do
     local t = s / steps
     local px, py = p.x + dx * t, p.y + dy * t
     if blocked(px, py) then
-      return true
+      return "wall"
     end
     for id, player in pairs(server.players) do
       local st = self.sv.players[id]
@@ -412,6 +436,9 @@ function Weapons:sweep(server, p, nx, ny)
           return player
         end
       end
+    end
+    if shotSomething(server, px, py, p.owner, angle) then
+      return "soft"
     end
   end
   return nil
@@ -475,8 +502,13 @@ function Weapons:serverStep(server, dt)
     local nx, ny = p.x + p.vx * dt, p.y + p.vy * dt
     local victim = self:sweep(server, p, nx, ny)
     p.x, p.y = nx, ny
-    if victim == true then
-      table.remove(sv.projectiles, i) -- hit a wall; clients notice the same wall themselves
+    if victim == "wall" then
+      table.remove(sv.projectiles, i) -- clients notice the same wall themselves
+    elseif victim == "soft" then
+      -- Nothing on the client predicts a pedestrian stepping into a bullet,
+      -- so the streak has to be called back explicitly.
+      server:broadcast(Protocol.encode("WPN_STOP", p.id))
+      table.remove(sv.projectiles, i)
     elseif victim then
       self:hit(server, p, victim)
       table.remove(sv.projectiles, i)
