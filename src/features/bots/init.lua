@@ -14,6 +14,7 @@ local Features = require("src.features")
 local Net = require("src.net")
 local UI = require("src.ui")
 local Car = require("src.car")
+local Controls = require("src.controls")
 
 local Bots = {
   name = "bots",
@@ -52,6 +53,11 @@ local function stubPeer(id)
     return -id
   end
   return peer
+end
+
+function Bots:load()
+  Controls.register("bot-add", "Add a bot (host)", "b")
+  Controls.register("bot-remove", "Remove a bot (host)", "n")
 end
 
 -- Server ----------------------------------------------------------------
@@ -242,9 +248,9 @@ function Bots:keypressed(key, client)
   if not Net.isHost() then
     return
   end
-  if key == "b" then
+  if Controls.is("bot-add", key) then
     client:send(Protocol.encode("BOT_ADD"))
-  elseif key == "n" then
+  elseif Controls.is("bot-remove", key) then
     client:send(Protocol.encode("BOT_REMOVE"))
   end
 end
@@ -253,7 +259,9 @@ function Bots:drawHUD()
   if Net.isHost() then
     love.graphics.setFont(UI.fonts.small)
     love.graphics.setColor(0.6, 0.6, 0.65)
-    love.graphics.print("B: add bot   N: remove bot", 10, 82)
+    local add = Controls.name(Controls.bindings("bot-add")[1])
+    local remove = Controls.name(Controls.bindings("bot-remove")[1])
+    love.graphics.print(add .. ": add bot   " .. remove .. ": remove bot", 10, 82)
     love.graphics.setColor(1, 1, 1)
   end
 end

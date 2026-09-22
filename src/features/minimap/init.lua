@@ -8,6 +8,7 @@
 local Features = require("src.features")
 local Car = require("src.car")
 local UI = require("src.ui")
+local Controls = require("src.controls")
 
 local Minimap = {
   name = "minimap",
@@ -19,7 +20,6 @@ Minimap.width = 220 -- px on screen
 Minimap.margin = 12
 Minimap.alpha = 0.88
 Minimap.radarRange = 2400 -- px of world shown across the radar when there is no map
-Minimap.toggleKey = "tab"
 Minimap.visible = true
 
 local canvas, mapRef, scale, height = nil, nil, 1, 0
@@ -65,6 +65,10 @@ local function buildCanvas(map)
   return c
 end
 
+function Minimap:load()
+  Controls.register("minimap", "Toggle minimap", "tab")
+end
+
 function Minimap:enterGame()
   local city = Features.byName["city-map"]
   mapRef = city and city.map or nil
@@ -82,7 +86,7 @@ function Minimap:update(_dt, _client, cam)
 end
 
 function Minimap:keypressed(key)
-  if key == self.toggleKey then
+  if Controls.is("minimap", key) then
     self.visible = not self.visible
   end
 end
@@ -161,7 +165,7 @@ function Minimap:drawHUD(client)
   love.graphics.rectangle("line", 0, 0, self.width, height)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print("Tab: map", 0, -18)
+  love.graphics.print(Controls.name(Controls.bindings("minimap")[1]) .. ": map", 0, -18)
 
   love.graphics.pop()
   love.graphics.setColor(1, 1, 1)
