@@ -15,9 +15,10 @@ local UI = require("src.ui")
 local Weapons = {
   name = "weapons",
   priority = 950, -- after "vision" (900) so the camera is final when we aim
+  PROJECTILE_SPEED = 900, -- px/s; other features (bots) read this to lead their shots
 }
 
-local PROJECTILE_SPEED = 900 -- px/s, plus the firing car's velocity
+local PROJECTILE_SPEED = Weapons.PROJECTILE_SPEED -- shots fly exactly along the aim, regardless of car speed
 local PROJECTILE_TTL = 1.2 -- seconds
 local PROJECTILE_RADIUS = 3
 local FIRE_COOLDOWN = 0.2 -- seconds between shots
@@ -242,35 +243,55 @@ function Weapons:serverStart(server)
   self.sv = sv
 end
 
+--- A player (human or bot) added while the game is running.
+function Weapons:serverPlayerJoined(_server, player)
+  if self.sv and player.car and not self.sv.players[player.id] then
+    self.sv.players[player.id] = {
+      hp = MAX_HEALTH,
+      kills = 0,
+      spawn = { x = player.car.x, y = player.car.y, angle = player.car.angle },
+      lastFire = -math.huge,
+      protectedUntil = self.sv.time + SPAWN_PROTECTION,
+    }
+  end
+end
+
 function Weapons:serverPlayerLeft(_server, player)
   if self.sv then
     self.sv.players[player.id] = nil
   end
 end
 
+--- Fire a projectile for `player` toward `aim` (radians), subject to the
+--- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
+--- a shot was fired.
+function Weapons:serverFire(server, player, aim)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  local car = player.car
+  if not (st and car and aim) then
+    return false
+  end
+  if sv.time - st.lastFire < FIRE_COOLDOWN * 0.9 then
+    return false -- firing faster than allowed; drop it
+  end
+  st.lastFire = sv.time
+
+  local pid = sv.nextId
+  sv.nextId = pid + 1
+  local x = car.x + math.cos(aim) * MUZZLE_OFFSET
+  local y = car.y + math.sin(aim) * MUZZLE_OFFSET
+  local vx = math.cos(aim) * PROJECTILE_SPEED
+  local vy = math.sin(aim) * PROJECTILE_SPEED
+  sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = player.id, x = x, y = y, vx = vx, vy = vy, age = 0 }
+  server:broadcast(Protocol.encode("WPN_SHOT", pid, player.id,
+    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
+  return true
+end
+
 Weapons.serverMessages = {
   WPN_FIRE = function(server, player, args)
-    local sv = Weapons.sv
-    local st = sv and sv.players[player.id]
-    local car = player.car
-    local aim = tonumber(args[1])
-    if not (st and car and aim) then
-      return
-    end
-    if sv.time - st.lastFire < FIRE_COOLDOWN * 0.9 then
-      return -- firing faster than allowed; drop it
-    end
-    st.lastFire = sv.time
-
-    local pid = sv.nextId
-    sv.nextId = pid + 1
-    local x = car.x + math.cos(aim) * MUZZLE_OFFSET
-    local y = car.y + math.sin(aim) * MUZZLE_OFFSET
-    local vx = math.cos(aim) * PROJECTILE_SPEED + math.cos(car.angle) * car.speed
-    local vy = math.sin(aim) * PROJECTILE_SPEED + math.sin(car.angle) * car.speed
-    sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = player.id, x = x, y = y, vx = vx, vy = vy, age = 0 }
-    server:broadcast(Protocol.encode("WPN_SHOT", pid, player.id,
-      ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
+    Weapons:serverFire(server, player, tonumber(args[1]))
   end,
 }
 
