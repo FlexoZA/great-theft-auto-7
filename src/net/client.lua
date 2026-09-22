@@ -8,9 +8,11 @@ Client.__index = Client
 
 local CHANNELS = 2
 local RELIABLE = 0
+local STATE_CHANNEL = 1
 local CONNECT_TIMEOUT = 5 -- seconds
+local INPUT_INTERVAL = 1 / 30 -- seconds between INPUT packets
 
--- state: idle -> connecting -> connected -> lobby -> (disconnected | failed)
+-- state: idle -> connecting -> connected -> joined -> (disconnected | failed)
 
 function Client.new(playerName)
   return setmetatable({
@@ -24,6 +26,10 @@ function Client.new(playerName)
     players = {}, -- id -> { id, name }
     started = false,
     connectTimer = 0,
+    cars = {}, -- id -> { id, x, y, angle, speed, dx, dy, dangle } (d* = smoothed for drawing)
+    lastTick = 0,
+    inputSeq = 0,
+    inputTimer = 0,
   }, Client)
 end
 
@@ -69,9 +75,56 @@ function Client:update(dt)
         self.error = self.error or "connection closed"
       end
       self.players = {}
+      self.cars = {}
       self.myId = nil
     end
   end
+end
+
+--- Send the local input at a fixed rate. Call every frame with the frame dt.
+function Client:sendInput(throttle, steer, dt)
+  if self.state ~= "joined" or not self.peer then
+    return
+  end
+  self.inputTimer = self.inputTimer - dt
+  if self.inputTimer > 0 then
+    return
+  end
+  self.inputTimer = self.inputTimer + INPUT_INTERVAL
+  self.inputSeq = self.inputSeq + 1
+  self.peer:send(Protocol.encode("INPUT", self.inputSeq, throttle, steer), STATE_CHANNEL, "unreliable")
+end
+
+function Client:onState(args)
+  local tick = tonumber(args[1])
+  if not tick or tick <= self.lastTick then
+    return -- out of order, keep the newer snapshot
+  end
+  self.lastTick = tick
+  local seen = {}
+  for i = 2, #args - 4, 5 do
+    local id = tonumber(args[i])
+    local x, y = tonumber(args[i + 1]), tonumber(args[i + 2])
+    local angle, speed = tonumber(args[i + 3]), tonumber(args[i + 4])
+    if id and x and y and angle and speed then
+      local c = self.cars[id]
+      if c then
+        c.x, c.y, c.angle, c.speed = x, y, angle, speed
+      else
+        self.cars[id] = { id = id, x = x, y = y, angle = angle, speed = speed, dx = x, dy = y, dangle = angle }
+      end
+      seen[id] = true
+    end
+  end
+  for id in pairs(self.cars) do
+    if not seen[id] then
+      self.cars[id] = nil
+    end
+  end
+end
+
+function Client:myCar()
+  return self.myId and self.cars[self.myId] or nil
 end
 
 function Client:onMessage(data)
@@ -79,7 +132,7 @@ function Client:onMessage(data)
   if kind == "WELCOME" then
     self.myId = tonumber(args[1])
     self.serverName = args[2]
-    self.state = "lobby"
+    self.state = "joined"
   elseif kind == "JOIN" then
     local id = tonumber(args[1])
     if id then
@@ -89,7 +142,10 @@ function Client:onMessage(data)
     local id = tonumber(args[1])
     if id then
       self.players[id] = nil
+      self.cars[id] = nil
     end
+  elseif kind == "STATE" then
+    self:onState(args)
   elseif kind == "START" then
     self.started = true
   elseif kind == "REJECT" then
@@ -115,7 +171,7 @@ function Client:playerCount()
 end
 
 function Client:isConnected()
-  return self.state == "connected" or self.state == "lobby"
+  return self.state == "connected" or self.state == "joined"
 end
 
 function Client:disconnect()
@@ -128,6 +184,7 @@ function Client:disconnect()
   end
   self.state = "idle"
   self.players = {}
+  self.cars = {}
   self.myId = nil
 end
 

@@ -39,7 +39,7 @@ function Lobby:update(dt)
     return
   end
   if self.startButton then
-    self.startButton.enabled = client.state == "lobby"
+    self.startButton.enabled = client.state == "joined"
   end
 
   local x = UI.centerX(W)
@@ -69,7 +69,7 @@ function Lobby:draw()
     status = "Connecting to " .. tostring(client.address)
   elseif client.state == "connected" then
     status = "Joining"
-  elseif client.state == "lobby" then
+  elseif client.state == "joined" then
     status = Net.isHost() and ("Hosting on UDP port " .. Protocol.PORT) or "Waiting for the host to start"
   elseif client.state == "failed" or client.state == "disconnected" then
     love.graphics.setColor(1, 0.4, 0.4)
