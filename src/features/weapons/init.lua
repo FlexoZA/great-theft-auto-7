@@ -405,6 +405,7 @@ function Weapons:serverFire(server, player, aim)
   sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = player.id, x = x, y = y, vx = vx, vy = vy, age = 0 }
   server:broadcast(Protocol.encode("WPN_SHOT", pid, player.id,
     ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
+  Features.call("serverShotFired", server, player, x, y)
   return true
 end
 

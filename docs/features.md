@@ -160,9 +160,17 @@ it. Events in use:
 | --- | --- | --- |
 | `serverPlayerDamaged(server, victim, attacker, amount)` | weapons | A projectile hit. `attacker` may be nil if they left. |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
+| `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). |
+| `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians | Something died: kind is "car" or "pedestrian", `by` the killer's id. |
 
-Bots listen to both to decide who to fight. A trigger-area feature would
-raise its own event the same way.
+Bots listen to damage and collisions to decide who to fight; police listen
+to all of them to decide who is wanted. A trigger-area feature would raise
+its own event the same way.
+
+NPC drivers: `Features.byName.bots:spawnNpc(server, { name, x, y, angle, brain })`
+creates a server-side driver; `brain.think(server, npc, dt)` runs every tick
+and can use `Bots.driveTowards`, `Bots:cruise`, `Bots:fight` and
+`Bots.unstick`. Police is the worked example.
 
 ## Conventions between features
 
