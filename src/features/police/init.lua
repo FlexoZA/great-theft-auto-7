@@ -72,29 +72,61 @@ function Police:update(dt, client)
   end
 end
 
---- White body, dark doors, roof bar; lights strobe red/blue while chasing.
+--- White body, dark doors, and a siren bar across the roof: red half on the
+--- car's left, blue on its right. While chasing the halves strobe against
+--- each other and throw alternating red/blue light on the road.
+local STROBE_HZ = 9
+
 local function drawLivery(c, chasing)
+  local phase = math.floor(flash * STROBE_HZ) % 2 == 0
+  local half = Car.HEIGHT / 2 - 3
+
+  if chasing then
+    -- Light thrown on the ground, offset to the side that is lit.
+    local side = phase and -1 or 1
+    local ox, oy = -math.sin(c.dangle) * side * 10, math.cos(c.dangle) * side * 10
+    if phase then
+      love.graphics.setColor(1, 0.15, 0.15, 0.28)
+    else
+      love.graphics.setColor(0.25, 0.45, 1, 0.28)
+    end
+    love.graphics.circle("fill", c.dx + ox, c.dy + oy, 60)
+  end
+
   love.graphics.push()
   love.graphics.translate(c.dx, c.dy)
   love.graphics.rotate(c.dangle)
   love.graphics.setColor(0.92, 0.92, 0.94)
   love.graphics.rectangle("fill", -Car.WIDTH / 2, -Car.HEIGHT / 2, Car.WIDTH, Car.HEIGHT, 4)
   love.graphics.setColor(0.10, 0.10, 0.14)
-  love.graphics.rectangle("fill", -6, -Car.HEIGHT / 2, 12, Car.HEIGHT) -- doors
+  love.graphics.rectangle("fill", -8, -Car.HEIGHT / 2, 14, Car.HEIGHT) -- doors
   love.graphics.rectangle("fill", -Car.WIDTH / 2 + 2, -Car.HEIGHT / 2 + 4, 6, Car.HEIGHT - 8) -- boot stripe
   love.graphics.setColor(0.6, 0.8, 1)
-  love.graphics.rectangle("fill", 4, -Car.HEIGHT / 2 + 3, 10, Car.HEIGHT - 6) -- windscreen
-  -- light bar
-  local on = chasing and (math.floor(flash * 8) % 2 == 0)
-  love.graphics.setColor(chasing and (on and 1 or 0.4) or 0.5, 0.1, 0.1)
-  love.graphics.rectangle("fill", -3, -Car.HEIGHT / 2 - 1, 4, 5)
-  love.graphics.setColor(0.1, 0.2, chasing and (on and 0.4 or 1) or 0.5)
-  love.graphics.rectangle("fill", -3, Car.HEIGHT / 2 - 4, 4, 5)
-  love.graphics.pop()
+  love.graphics.rectangle("fill", 6, -Car.HEIGHT / 2 + 3, 10, Car.HEIGHT - 6) -- windscreen
+
+  -- Siren bar on the roof, spanning the car's width.
+  love.graphics.setColor(0.08, 0.08, 0.12)
+  love.graphics.rectangle("fill", -5, -half - 1, 10, half * 2 + 2, 2)
+  local redA, blueA = 0.45, 0.45
   if chasing then
-    love.graphics.setColor(on and 1 or 0.2, 0.2, on and 0.2 or 1, 0.18)
-    love.graphics.circle("fill", c.dx, c.dy, 46)
+    redA = phase and 1 or 0.25
+    blueA = phase and 0.25 or 1
   end
+  love.graphics.setColor(1, 0.15, 0.15, redA)
+  love.graphics.rectangle("fill", -4, -half, 8, half - 1)
+  love.graphics.setColor(0.25, 0.45, 1, blueA)
+  love.graphics.rectangle("fill", -4, 1, 8, half - 1)
+  if chasing then
+    -- hot centre of the lit half
+    if phase then
+      love.graphics.setColor(1, 0.8, 0.8, 0.9)
+      love.graphics.rectangle("fill", -2, -half + 2, 4, half - 5)
+    else
+      love.graphics.setColor(0.8, 0.9, 1, 0.9)
+      love.graphics.rectangle("fill", -2, 3, 4, half - 5)
+    end
+  end
+  love.graphics.pop()
   love.graphics.setColor(1, 1, 1)
 end
 
