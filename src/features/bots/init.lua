@@ -6,7 +6,9 @@
 -- waypoints and ignore players. Shoot one or ram one and it turns hostile
 -- towards you for a while, chasing, orbiting at a standoff distance and
 -- shooting through the weapons feature with lead and a little spread. It
--- calms down again once it has been left alone for `hostileTime` seconds.
+-- calms down again once it has been left alone for `hostileTime` seconds,
+-- when its target stays further than `giveUpDistance` for `giveUpTime`
+-- seconds, or when it gets wrecked (it respawns peaceful).
 -- Other features can provoke a bot too (a trigger area later):
 --   Features.byName.bots:provoke(server, botPlayer, playerId)
 --
@@ -36,6 +38,8 @@ Bots.spread = 0.08 -- radians of random aim error
 Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
 Bots.retargetEvery = 1.5 -- seconds
 Bots.hostileTime = 40 -- seconds a bot stays angry after the last provocation
+Bots.giveUpDistance = 1300 -- px; a target further than this is "away"
+Bots.giveUpTime = 8 -- seconds the target must stay away before the bot gives up
 Bots.ramSpeed = 120 -- closing speed (px/s) that counts as being rammed
 Bots.cruiseThrottle = 0.65 -- how hard a peaceful bot drives
 Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
@@ -91,6 +95,7 @@ function Bots:add(server, x, y, angle)
     ai = {
       hostileTo = nil, -- player id this bot is angry at
       hostileUntil = 0,
+      farFor = 0, -- seconds the target has been out of range
       waypoint = nil,
       waypointUntil = 0,
       retarget = 0,
@@ -179,6 +184,12 @@ function Bots:provoke(_server, bot, byId)
   end
   bot.ai.hostileTo = byId
   bot.ai.hostileUntil = now + self.hostileTime
+  bot.ai.farFor = 0
+end
+
+function Bots:calm(bot)
+  bot.ai.hostileTo = nil
+  bot.ai.farFor = 0
 end
 
 function Bots:serverPlayerDamaged(server, victim, attacker)
@@ -299,9 +310,21 @@ end
 function Bots:think(server, bot, dt)
   local ai = bot.ai
   if ai.hostileTo and now > ai.hostileUntil then
-    ai.hostileTo = nil -- forgiven
+    self:calm(bot) -- forgiven
   end
   local target = ai.hostileTo and server.players[ai.hostileTo]
+  if target and target.car and not target.car.hidden then
+    local dist = math.sqrt((target.car.x - bot.car.x) ^ 2 + (target.car.y - bot.car.y) ^ 2)
+    if dist > self.giveUpDistance then
+      ai.farFor = ai.farFor + dt
+      if ai.farFor >= self.giveUpTime then
+        self:calm(bot) -- they got away
+        target = nil
+      end
+    else
+      ai.farFor = 0
+    end
+  end
   if target and target.car and not target.car.hidden then
     self:fight(server, bot, target)
   else
@@ -318,6 +341,7 @@ function Bots:serverStep(server, dt)
       self:think(server, bot, dt)
     elseif bot.car then
       bot.input.throttle, bot.input.steer = 0, 0 -- wrecked: sit still until respawn
+      self:calm(bot) -- and come back peaceful
     end
   end
 end
