@@ -12,6 +12,11 @@
 --
 -- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
 -- its slot with brief protection.
+--
+-- A player need not be in their car: a feature that takes them out of it
+-- (on-foot) answers the `playerPose` / `clientPlayerPose` conventions, and
+-- then shots leave from their body, hits land on it, and the car they parked
+-- is not a target.
 
 local Protocol = require("src.net.protocol")
 local Car = require("src.car")
@@ -39,6 +44,8 @@ local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
 local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
+local FOOT_MUZZLE = 14 -- px from a body on foot, which is smaller than a car
+local FOOT_RADIUS = 8 -- px; how fat a player on foot is for hit tests
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
 
@@ -65,6 +72,36 @@ local function shotSomething(server, x, y, by, angle)
     end
   end
   return false
+end
+
+--- Where `player`'s body is on the host: their car, unless a feature has
+--- taken them out of it and answers the `playerPose` convention (the on-foot
+--- feature does). The third return says which of the two it is.
+local function bodyPose(server, player)
+  for _, f in ipairs(Features.list) do
+    if f.playerPose then
+      local x, y = f:playerPose(server, player)
+      if x then
+        return x, y, true
+      end
+    end
+  end
+  local car = player.car
+  return car.x, car.y, false
+end
+
+--- The same question on a client, where the answer is what is drawn: the
+--- `clientPlayerPose` convention, falling back to the car snapshot `c`.
+local function clientPose(client, id, c)
+  for _, f in ipairs(Features.list) do
+    if f.clientPlayerPose then
+      local x, y = f:clientPlayerPose(client, id)
+      if x then
+        return x, y
+      end
+    end
+  end
+  return c.dx, c.dy
 end
 
 -- Client state (also reset in enterGame) ------------------------------------
@@ -115,14 +152,15 @@ local function mouseToWorld(camera, me)
   return cx + (mx - w / 2) / s, cy + (my - h / 2) / s
 end
 
---- Angle from my car to the cursor, in world space.
+--- Angle from wherever I am -- car or feet -- to the cursor, in world space.
 function Weapons:aimAngle(client)
   local me = client:myCar()
   if not me then
     return nil
   end
+  local ox, oy = clientPose(client, client.myId, me)
   local wx, wy = mouseToWorld(self.camera, me)
-  return math.atan2(wy - me.dy, wx - me.dx)
+  return math.atan2(wy - oy, wx - ox)
 end
 
 function Weapons:tryFire(client)
@@ -204,10 +242,11 @@ function Weapons:drawAboveCars(client)
   love.graphics.setLineWidth(1)
 
   for id, c in pairs(client.cars) do
-    -- Health bar under the car.
+    -- Health bar under whoever owns the car, which is not always in it.
+    local px, py = clientPose(client, id, c)
     local hp = self.health[id] or MAX_HEALTH
     local bw, bh = Car.WIDTH, 4
-    local bx, by = c.dx - bw / 2, c.dy + Car.HEIGHT / 2 + 8
+    local bx, by = px - bw / 2, py + Car.HEIGHT / 2 + 8
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", bx - 1, by - 1, bw + 2, bh + 2)
     love.graphics.setColor(1 - hp / MAX_HEALTH, hp / MAX_HEALTH, 0.2)
@@ -215,7 +254,7 @@ function Weapons:drawAboveCars(client)
 
     if self.hitFlash[id] then
       love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
-      love.graphics.circle("line", c.dx, c.dy, Car.WIDTH * 0.7)
+      love.graphics.circle("line", px, py, Car.WIDTH * 0.7)
     end
     if self.showHitboxes then
       love.graphics.push()
@@ -338,7 +377,7 @@ Weapons.clientMessages = {
 -- Server ----------------------------------------------------------------
 
 function Weapons:serverStart(server)
-  local sv = { time = 0, projectiles = {}, nextId = 1, players = {} }
+  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, targets = {} }
   for id, p in pairs(server.players) do
     if p.car then
       sv.players[id] = {
@@ -403,8 +442,10 @@ function Weapons:serverFire(server, player, aim)
 
   local pid = sv.nextId
   sv.nextId = pid + 1
-  local x = car.x + math.cos(aim) * MUZZLE_OFFSET
-  local y = car.y + math.sin(aim) * MUZZLE_OFFSET
+  local bx, by, onFoot = bodyPose(server, player)
+  local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
+  local x = bx + math.cos(aim) * muzzle
+  local y = by + math.sin(aim) * muzzle
   local vx = math.cos(aim) * PROJECTILE_SPEED
   local vy = math.sin(aim) * PROJECTILE_SPEED
   sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = player.id, x = x, y = y, vx = vx, vy = vy, age = 0 }
@@ -420,27 +461,55 @@ Weapons.serverMessages = {
   end,
 }
 
+--- Everyone projectile `p` could hit, with where their body is this tick: a
+--- driver is their car, a player on foot a small circle where they stand, so
+--- the car they parked stops being a target. Returns the (reused) list and
+--- how many entries are live, the way the crowd does it.
+function Weapons:targets(server, p)
+  local list, n = self.sv.targets, 0
+  for id, player in pairs(server.players) do
+    local st = self.sv.players[id]
+    if st and player.car and not player.car.hidden and id ~= p.owner and self.sv.time >= st.protectedUntil then
+      n = n + 1
+      local e = list[n]
+      if not e then
+        e = {}
+        list[n] = e
+      end
+      e.player = player
+      e.x, e.y, e.onFoot = bodyPose(server, player)
+    end
+  end
+  return list, n
+end
+
 --- Walk the projectile's path for this tick in small steps so fast shots
 --- can't tunnel through a car. Returns the first player hit, or the string
 --- "wall" / "soft" when something that isn't a player swallowed the shot (a
---- building, a pedestrian), or nil when it flew on. Cars are tested before
+--- building, a pedestrian), or nil when it flew on. Players are tested before
 --- soft targets, so a pedestrian can't be used as a body shield.
 function Weapons:sweep(server, p, nx, ny)
   local dx, dy = nx - p.x, ny - p.y
   local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / SWEEP_STEP))
   local angle = math.atan2(p.vy, p.vx)
+  local targets, ntargets = self:targets(server, p)
   for s = 1, steps do
     local t = s / steps
     local px, py = p.x + dx * t, p.y + dy * t
     if blocked(px, py) then
       return "wall"
     end
-    for id, player in pairs(server.players) do
-      local st = self.sv.players[id]
-      if st and player.car and not player.car.hidden and id ~= p.owner and self.sv.time >= st.protectedUntil then
-        if Car.hitTest(player.car, px, py, PROJECTILE_RADIUS) then
-          return player
-        end
+    for i = 1, ntargets do
+      local e = targets[i]
+      local struck
+      if e.onFoot then
+        local ex, ey = px - e.x, py - e.y
+        struck = ex * ex + ey * ey <= (FOOT_RADIUS + PROJECTILE_RADIUS) ^ 2
+      else
+        struck = Car.hitTest(e.player.car, px, py, PROJECTILE_RADIUS)
+      end
+      if struck then
+        return e.player
       end
     end
     if shotSomething(server, px, py, p.owner, angle) then
@@ -471,7 +540,10 @@ function Weapons:hit(server, p, victim)
   st.deadUntil = sv.time + DEATH_TIME
   st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   local car = victim.car
-  local wx, wy = car.x, car.y -- where the wreck went up, before it parks at its slot
+  -- Where it went up, before the wreck parks at its slot: the car, or the
+  -- body if they were out of it (on-foot puts them back behind the wheel
+  -- when it hears the kill).
+  local wx, wy = bodyPose(server, victim)
   car.hidden = true -- core stops broadcasting it until we clear this
   car.x, car.y, car.angle = st.spawn.x, st.spawn.y, st.spawn.angle
   car:stop()
