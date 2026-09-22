@@ -11,6 +11,7 @@ Top-down driving game in Lua using LÖVE 11.5.
 ## Conventions
 - Lua 5.1 / LuaJIT semantics (LÖVE ships LuaJIT). No `goto`, no integer division `//`, no bit ops syntax.
 - Game code lives in `src/`, one module per file returning a table. Require with dotted paths: `require("src.car")`.
+- Screens are states in `src/states/` switched via `src/state.lua`. Networking is under `src/net/`; game code talks only to `Net.client` (the host runs its own client). Design in `docs/networking.md`.
 - Third-party libs are vendored under `lib/`, never edited in place.
 - 2-space indent, double quotes, 120-column lines (see `.stylua.toml`, `.luacheckrc`).
 - Keep `love.update(dt)` frame-rate independent: always scale by `dt`.
