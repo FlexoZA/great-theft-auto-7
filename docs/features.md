@@ -118,6 +118,20 @@ Horn.clientMessages = {
 return Horn
 ```
 
+## Sound volumes
+
+Register one channel per kind of sound in your `load` hook and scale every
+play by it; the settings screen then shows a slider for it automatically:
+
+```lua
+local Audio = require("src.audio")
+Audio.registerChannel("sirens", "Police sirens", 0.8, function()
+  Sounds.play("siren", 0, 0) -- preview when the slider moves
+end)
+...
+source:setVolume(Audio.volume("sirens")) -- includes the master level
+```
+
 ## Conventions between features
 
 Features stay decoupled by talking through the server's player tables and a

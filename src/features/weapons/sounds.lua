@@ -3,9 +3,10 @@
 -- relative to the listener (which the game state keeps at your car).
 
 local Synth = require("src.audio.synth")
+local Audio = require("src.audio")
 
 local Sounds = {
-  volume = 0.8,
+  volume = 0.8, -- default of the "weapons" channel
   refDistance = 260,
   maxDistance = 2200,
 }
@@ -21,6 +22,10 @@ local function make(seconds, build)
 end
 
 function Sounds.load()
+  Audio.registerChannel("weapons", "Guns and explosions", Sounds.volume, function()
+    Sounds.play("shot", 0, 0, 1)
+  end)
+
   -- Shot: a sharp crack. Noise snap plus a fast downward zap, driven for punch.
   bank.shot = make(0.16, function(buf)
     buf:noiseBurst(0, 0.12, { amp = 0.8, decay = 0.03 })
@@ -58,7 +63,7 @@ function Sounds.play(name, x, y, pitch)
   local s = base:clone()
   s:setPosition(x, 0, y)
   s:setPitch(pitch or 1)
-  s:setVolume(Sounds.volume)
+  s:setVolume(Audio.volume("weapons"))
   s:play()
   return s
 end
