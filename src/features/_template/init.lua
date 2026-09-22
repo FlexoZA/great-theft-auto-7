@@ -36,6 +36,11 @@ function MyFeature:drawHUD(client) end
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
+--- Asked while the core draws player `id`'s car: return true to suppress the
+--- name it prints over the car, because you draw that player yourself
+--- somewhere else (on-foot does, while they are out walking).
+function MyFeature:hidesCarLabel(client, id) end
+
 --- Messages from the server that the core doesn't know. `args` is the list of
 --- fields after the kind. Keys must not collide with core kinds or other
 --- features (the registry errors if they do).
