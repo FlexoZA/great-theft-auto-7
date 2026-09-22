@@ -39,6 +39,8 @@ One player hosts, everyone else joins. Both need to be on the same network.
   If none show up, type the host's IP address and click *Connect*.
 - The host must allow UDP ports **22122** (game) and **22123** (discovery) through
   their firewall. On Ubuntu/Mint: `sudo ufw allow 22122:22123/udp`.
+- The city is generated from a fixed seed in `src/features/city-map/layout.lua`, so it is
+  identical on every machine without sending anything.
 - Testing alone: run `love .` twice on one machine. Host in one, join in the other.
   Or just host and press Start: one AI bot spawns and comes for you (B adds more).
 
