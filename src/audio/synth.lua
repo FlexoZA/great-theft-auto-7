@@ -55,6 +55,7 @@ local function noise()
   seed = (seed * 16807) % 2147483647
   return seed / 2147483647 * 2 - 1
 end
+Synth.noise = noise
 
 -- Oscillators -----------------------------------------------------------------
 
@@ -105,6 +106,39 @@ function Buffer:tone(t0, dur, freq, o)
       phase = phase - 1
     end
     data[i] = data[i] + wave(phase) * amp * env
+  end
+end
+
+--- Add a tone whose pitch glides exponentially from f0 to f1 over `dur`,
+--- with an exponential amplitude decay. Good for kicks, zaps and booms.
+function Buffer:sweep(t0, dur, f0, f1, o)
+  local wave = WAVES[o.wave or "sine"]
+  local amp, decay = o.amp or 0.5, o.decay or dur / 3
+  local s0 = math.floor(t0 * RATE)
+  local s1 = math.min(self.n - 1, s0 + math.floor(dur * RATE))
+  local data = self.data
+  local phase = 0
+  local ratio = f1 / f0
+  for i = s0, s1 do
+    local t = (i - s0) / RATE
+    local f = f0 * ratio ^ (t / dur)
+    phase = phase + f / RATE
+    if phase >= 1 then
+      phase = phase - 1
+    end
+    data[i] = data[i] + wave(phase) * amp * math.exp(-t / decay)
+  end
+end
+
+--- Add a burst of white noise with exponential decay.
+function Buffer:noiseBurst(t0, dur, o)
+  local amp, decay = o.amp or 0.5, o.decay or dur / 3
+  local s0 = math.floor(t0 * RATE)
+  local s1 = math.min(self.n - 1, s0 + math.floor(dur * RATE))
+  local data = self.data
+  for i = s0, s1 do
+    local t = (i - s0) / RATE
+    data[i] = data[i] + noise() * amp * math.exp(-t / decay)
   end
 end
 

@@ -13,6 +13,7 @@ function Audio.playMenuTheme()
     local sd = require("src.audio.menu_theme").render()
     Audio.music = love.audio.newSource(sd, "static")
     Audio.music:setLooping(true)
+    Audio.music:setRelative(true) -- never positional: the game moves the listener around
     print(("menu theme: %.1fs of audio rendered in %.2fs"):format(sd:getDuration(), love.timer.getTime() - started))
   end
   Audio.music:setVolume(Audio.muted and 0 or Audio.volume)
