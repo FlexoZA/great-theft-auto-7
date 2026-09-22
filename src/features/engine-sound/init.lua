@@ -2,7 +2,8 @@
 -- follows its speed through four gears. Sources are positional, so other
 -- cars pan left/right and fade with distance from your car.
 --
--- Purely local: nothing is sent to the server.
+-- Purely local: nothing is sent to the server. The game state keeps the
+-- audio listener at your car (world y -> audio z), so x pans left/right.
 
 local Synth = require("src.audio.synth")
 local Car = require("src.car")
@@ -29,23 +30,28 @@ local loopData = nil
 local maxSpeed = Car.new(0, 0).maxSpeed
 local sources = {} -- car id -> { source, gear, pitch }
 
---- One seamless loop of engine rumble: saw + sub-octave square, a 4-stroke
---- amplitude wobble, soft drive, low-passed.
+--- One seamless loop of engine rumble: saw for the rasp, a sub-octave square
+--- and two sine fundamentals for the bass, a 4-stroke amplitude wobble, soft
+--- drive, low-passed.
 local function renderLoop()
   local buf = Synth.newBuffer(LOOP_SECONDS)
   local RATE = Synth.RATE
   local data = buf.data
+  local TWO_PI = 2 * math.pi
   for i = 0, buf.n - 1 do
     local t = i / RATE
     local p = (LOOP_BASE * t) % 1
     local sub = (LOOP_BASE * t / 2) % 1
-    local wobble = 1 + 0.35 * math.sin(2 * math.pi * LOOP_BASE / 2 * t)
-    local v = (2 * p - 1) * 0.55 + (sub < 0.5 and 0.35 or -0.35)
-    data[i] = v * wobble
+    local wobble = 1 + 0.35 * math.sin(TWO_PI * LOOP_BASE / 2 * t)
+    local rasp = (2 * p - 1) * 0.4
+    local bass = (sub < 0.5 and 0.4 or -0.4) -- sub-octave square, 28 Hz
+      + math.sin(TWO_PI * LOOP_BASE * t) * 0.6 -- fundamental, 56 Hz
+      + math.sin(TWO_PI * LOOP_BASE / 2 * t) * 0.35 -- sub sine, 28 Hz
+    data[i] = (rasp + bass) * wobble
   end
-  buf:drive(2.2)
-  buf:lowpass(900)
-  return buf:toSoundData(0.8)
+  buf:drive(2.0)
+  buf:lowpass(800)
+  return buf:toSoundData(0.85)
 end
 
 function Engine:load()
@@ -62,7 +68,6 @@ function Engine:exitGame()
     e.source:stop()
   end
   sources = {}
-  love.audio.setPosition(0, 0, 0)
 end
 
 local function ensureSource(id)
@@ -79,12 +84,6 @@ local function ensureSource(id)
 end
 
 function Engine:update(dt, client)
-  local me = client:myCar()
-  if me then
-    -- Listener at my car; world y maps to audio z so x still pans left/right.
-    love.audio.setPosition(me.dx, 0, me.dy)
-  end
-
   for id, c in pairs(client.cars) do
     local e = ensureSource(id)
     local frac = math.min(math.abs(c.speed) / maxSpeed, 1)
@@ -115,9 +114,10 @@ function Engine:update(dt, client)
   end
 end
 
---- For tests.
+--- For tests and offline demos.
 function Engine.sources()
   return sources
 end
+Engine.renderLoop = renderLoop
 
 return Engine
