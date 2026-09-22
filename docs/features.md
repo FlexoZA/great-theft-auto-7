@@ -216,7 +216,13 @@ couple of small conventions rather than requiring each other:
   asks before it fires (the shot leaves the body), before it tests a hit (the
   body is the target, and the car they parked is not) and before it draws a
   health bar. A feature that moves a player out of their car answers these;
-  one that shoots or draws players asks.
+  one that shoots or draws players asks. `Features.bodyPose(server, player)`
+  and `Features.clientBodyPose(client, id, carSnapshot)` do the asking for
+  you and fall back to the car: money, pickups, bots, police and weapons use
+  them, so anything that happens "to a player" happens to the body.
+- `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
+  hurt a player from any cause (cars run walkers over with it). Kills raise
+  `serverKill` with `angle` and `onFoot`.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.

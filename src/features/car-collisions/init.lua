@@ -6,8 +6,13 @@
 --
 -- `rammer` is the player whose car was moving into the other one faster.
 -- Bots use this to take offence at being rammed.
+--
+-- Players on foot (the `playerPose` convention) get run over: a car moving
+-- faster than `runOverSpeed` that touches a body deals `runOverDamage` scaled
+-- up with speed through Weapons:serverDamage, so a fast car is lethal.
 
 local Features = require("src.features")
+local Car = require("src.car")
 
 local CarCollisions = {
   name = "car-collisions",
@@ -17,6 +22,10 @@ local CarCollisions = {
 CarCollisions.radius = 11
 CarCollisions.offsets = { -12, 0, 12 }
 CarCollisions.damping = 0.55 -- speed kept by both cars on a closing hit
+CarCollisions.bodyRadius = 8 -- px; a player on foot, for the bumper test
+CarCollisions.runOverSpeed = 90 -- px/s; slower than this just nudges
+CarCollisions.runOverDamage = 60 -- at runOverSpeed, rising to 2x at full speed
+CarCollisions.runOverGrace = 0.6 -- seconds before the same car can hurt the same body again
 
 local function circles(car, out)
   local ca, sa = math.cos(car.angle), math.sin(car.angle)
@@ -76,7 +85,40 @@ local function resolvePair(a, b)
   return closing, van, -vbn
 end
 
+--- Cars hitting people on foot.
+function CarCollisions:runOver(server)
+  local weapons = Features.byName.weapons
+  if not weapons or not weapons.serverDamage then
+    return
+  end
+  self.hitAt = self.hitAt or {}
+  local now = love.timer.getTime()
+  for _, walker in pairs(server.players) do
+    if walker.car and not walker.car.hidden then
+      local bx, by, onFoot = Features.bodyPose(server, walker)
+      if onFoot then
+        for _, driver in pairs(server.players) do
+          local car = driver.car
+          if driver ~= walker and car and not car.hidden and math.abs(car.speed) >= self.runOverSpeed then
+            if Car.hitTest(car, bx, by, self.bodyRadius) then
+              local key = driver.id .. ":" .. walker.id
+              if (self.hitAt[key] or -1) + self.runOverGrace <= now then
+                self.hitAt[key] = now
+                local frac = math.min(1, math.abs(car.speed) / car.maxSpeed)
+                local amount = self.runOverDamage * (1 + frac)
+                local travel = car.speed >= 0 and car.angle or car.angle + math.pi
+                weapons:serverDamage(server, walker, driver, amount, travel)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
 function CarCollisions:serverStep(server)
+  self:runOver(server)
   local list = {}
   for _, p in pairs(server.players) do
     if p.car and not p.car.hidden then

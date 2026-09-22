@@ -255,7 +255,8 @@ local function nearestWanted(server, unit)
   for id in pairs(sv.wanted) do
     local p = server.players[id]
     if p and p.car and not p.car.hidden then
-      local d2 = (p.car.x - unit.car.x) ^ 2 + (p.car.y - unit.car.y) ^ 2
+      local bx, by = Features.bodyPose(server, p) -- them on foot, or their car
+      local d2 = (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2
       if d2 <= range * range and (not bestD2 or d2 < bestD2) then
         best, bestD2 = p, d2
       end

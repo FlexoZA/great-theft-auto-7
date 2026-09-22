@@ -317,9 +317,11 @@ end
 function Bots:fight(server, bot, target)
   local ai, car = bot.ai, bot.car
   local tc = target.car
-  local dx, dy = tc.x - car.x, tc.y - car.y
+  -- The target is where their body is: their car, or them on foot beside it.
+  local tx, ty, onFoot = Features.bodyPose(server, target)
+  local dx, dy = tx - car.x, ty - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
-  Bots.driveTowards(bot, tc.x, tc.y, 1, dist <= self.standoff)
+  Bots.driveTowards(bot, tx, ty, 1, dist <= self.standoff)
 
   ai.retarget = ai.retarget - server.dtLast
   if ai.retarget <= 0 then
@@ -336,8 +338,11 @@ function Bots:fight(server, bot, target)
     local Weapons = Features.byName.weapons
     if Weapons and Weapons.serverFire then
       local flight = dist / Weapons.PROJECTILE_SPEED
-      local px = tc.x + math.cos(tc.angle) * tc.speed * flight
-      local py = tc.y + math.sin(tc.angle) * tc.speed * flight
+      local px, py = tx, ty
+      if not onFoot then
+        px = tc.x + math.cos(tc.angle) * tc.speed * flight
+        py = tc.y + math.sin(tc.angle) * tc.speed * flight
+      end
       local aim = math.atan2(py - car.y, px - car.x) + (love.math.random() - 0.5) * 2 * self.spread
       Weapons:serverFire(server, bot, aim)
     end
