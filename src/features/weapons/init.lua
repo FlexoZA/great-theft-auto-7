@@ -467,7 +467,8 @@ function Weapons:hit(server, p, victim)
   local car = victim.car
   local wx, wy = car.x, car.y -- where the wreck went up, before it parks at its slot
   car.hidden = true -- core stops broadcasting it until we clear this
-  car.x, car.y, car.angle, car.speed = st.spawn.x, st.spawn.y, st.spawn.angle, 0
+  car.x, car.y, car.angle = st.spawn.x, st.spawn.y, st.spawn.angle
+  car:stop()
   server:broadcast(Protocol.encode("WPN_KILL", p.id, p.owner, victim.id, kills, DEATH_TIME))
   Features.call("serverKill", server, { kind = "car", x = wx, y = wy, by = p.owner, victim = victim.id })
 end
@@ -481,7 +482,8 @@ function Weapons:updateWrecks(server)
       if not car then
         st.deadUntil = nil
       elseif sv.time < st.deadUntil then
-        car.x, car.y, car.angle, car.speed = st.spawn.x, st.spawn.y, st.spawn.angle, 0
+        car.x, car.y, car.angle = st.spawn.x, st.spawn.y, st.spawn.angle
+        car:stop()
       else
         car.hidden = false
         st.deadUntil = nil

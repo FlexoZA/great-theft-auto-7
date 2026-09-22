@@ -98,7 +98,7 @@ function Server:step(dt)
   self.tick = self.tick + 1
   for _, p in pairs(self.players) do
     if p.car then
-      p.car:update(dt, p.input.throttle, p.input.steer)
+      p.car:update(dt, p.input.throttle, p.input.steer, p.input.handbrake)
     end
   end
   Features.call("serverStep", self, dt)
@@ -149,6 +149,7 @@ function Server:onInput(peer, args)
   player.lastSeq = seq
   player.input.throttle = clamp(tonumber(args[2]) or 0, -1, 1)
   player.input.steer = clamp(tonumber(args[3]) or 0, -1, 1)
+  player.input.handbrake = args[4] == "1"
 end
 
 function Server:onHello(peer, name)

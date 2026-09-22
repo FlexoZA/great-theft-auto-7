@@ -40,8 +40,8 @@ function Game:update(dt)
     return
   end
 
-  local throttle, steer = Car.readInput()
-  client:sendInput(throttle, steer, dt)
+  local throttle, steer, handbrake = Car.readInput()
+  client:sendInput(throttle, steer, dt, handbrake)
 
   local k = math.min(1, dt * SMOOTHING)
   for _, c in pairs(client.cars) do
@@ -103,7 +103,8 @@ function Game:draw()
   else
     love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
   end
-  love.graphics.print("Arrows/WASD to drive, Esc to leave", 10, 28)
+  local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
+  love.graphics.print("Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave", 10, 28)
 
   local text
   if client:isConnected() then

@@ -83,7 +83,7 @@ function Client:update(dt)
 end
 
 --- Send the local input at a fixed rate. Call every frame with the frame dt.
-function Client:sendInput(throttle, steer, dt)
+function Client:sendInput(throttle, steer, dt, handbrake)
   if self.state ~= "joined" or not self.peer then
     return
   end
@@ -93,7 +93,8 @@ function Client:sendInput(throttle, steer, dt)
   end
   self.inputTimer = self.inputTimer + INPUT_INTERVAL
   self.inputSeq = self.inputSeq + 1
-  self.peer:send(Protocol.encode("INPUT", self.inputSeq, throttle, steer), STATE_CHANNEL, "unreliable")
+  local msg = Protocol.encode("INPUT", self.inputSeq, throttle, steer, handbrake and 1 or 0)
+  self.peer:send(msg, STATE_CHANNEL, "unreliable")
 end
 
 function Client:onState(args)

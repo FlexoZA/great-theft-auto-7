@@ -99,12 +99,20 @@ function Collision.resolveCar(map, car)
     end
   end
   if hit then
-    local vx, vy = ca * car.speed, sa * car.speed
-    if vx * nx + vy * ny < 0 then
-      car.speed = -car.speed * 0.3 -- into the wall: bounce back a little
+    local len = math.sqrt(nx * nx + ny * ny)
+    nx, ny = nx / len, ny / len
+    local vx, vy = car.vx or ca * car.speed, car.vy or sa * car.speed
+    local into = vx * nx + vy * ny
+    if into < 0 then
+      -- Into the wall: remove the inward part and bounce back a little.
+      vx, vy = (vx - into * nx) * 0.6, (vy - into * ny) * 0.6
+      vx, vy = vx - nx * into * 0.3, vy - ny * into * 0.3
     else
-      car.speed = car.speed * 0.92 -- scraping along it
+      vx, vy = vx * 0.92, vy * 0.92 -- scraping along it
     end
+    car.vx, car.vy = vx, vy
+    car.speed = vx * ca + vy * sa
+    car.lastSpeed = car.speed
   end
   return hit
 end
