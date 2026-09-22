@@ -1,15 +1,16 @@
 -- The driving scene. All cars are simulated by the server; this state sends
--- local input, smooths the snapshots it receives, and draws everyone.
+-- local input, smooths the snapshots it receives, draws everyone, and gives
+-- features their hooks. Keep gameplay out of here: put it in src/features/.
 
 local State = require("src.state")
 local UI = require("src.ui")
 local Net = require("src.net")
 local Car = require("src.car")
+local Features = require("src.features")
 
 local Game = {}
 
 local SMOOTHING = 12 -- per second; higher = snappier, lower = smoother
-local GRID = 128
 
 local function angleDiff(target, current)
   return (target - current + math.pi) % (2 * math.pi) - math.pi
@@ -18,6 +19,11 @@ end
 function Game:enter()
   UI.load()
   self.camera = { x = 0, y = 0 }
+  Features.call("enterGame", Net.client)
+end
+
+function Game:exit()
+  Features.call("exitGame", Net.client)
 end
 
 function Game:update(dt)
@@ -42,20 +48,8 @@ function Game:update(dt)
   if me then
     self.camera.x, self.camera.y = me.dx, me.dy
   end
-end
 
-function Game:drawGrid()
-  local cam = self.camera
-  love.graphics.setColor(0.25, 0.25, 0.28)
-  local w, h = love.graphics.getDimensions()
-  local x0 = math.floor((cam.x - w) / GRID) * GRID
-  local y0 = math.floor((cam.y - h) / GRID) * GRID
-  for x = x0, cam.x + w, GRID do
-    love.graphics.line(x, cam.y - h, x, cam.y + h)
-  end
-  for y = y0, cam.y + h, GRID do
-    love.graphics.line(cam.x - w, y, cam.x + w, y)
-  end
+  Features.call("update", dt, client)
 end
 
 function Game:drawCars(client)
@@ -68,6 +62,7 @@ function Game:drawCars(client)
       love.graphics.printf(p.name, c.dx - 60, c.dy - Car.HEIGHT - 18, 120, "center")
     end
   end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Game:draw()
@@ -78,9 +73,12 @@ function Game:draw()
   local w, h = love.graphics.getDimensions()
   love.graphics.push()
   love.graphics.translate(math.floor(w / 2 - self.camera.x), math.floor(h / 2 - self.camera.y))
-  self:drawGrid()
+  Features.call("drawBelowCars", client, self.camera)
   self:drawCars(client)
+  Features.call("drawAboveCars", client, self.camera)
   love.graphics.pop()
+
+  Features.call("drawHUD", client)
 
   local me = client:myCar()
   love.graphics.setFont(UI.fonts.small)
@@ -104,7 +102,13 @@ function Game:keypressed(key)
   if key == "escape" then
     Net.shutdown()
     State.switch("menu")
+    return
   end
+  Features.call("keypressed", key, Net.client)
+end
+
+function Game:mousepressed(x, y, button)
+  Features.call("mousepressed", x, y, button, Net.client)
 end
 
 return Game

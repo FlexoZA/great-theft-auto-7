@@ -8,7 +8,7 @@ function State.switch(name, ...)
   if State.current and State.current.exit then
     State.current:exit()
   end
-  local s = require("src.states." .. name)
+  local s = type(name) == "table" and name or require("src.states." .. name)
   State.current = s
   State.name = name
   if s.enter then

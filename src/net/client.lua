@@ -2,6 +2,7 @@
 
 local enet = require("enet")
 local Protocol = require("src.net.protocol")
+local Features = require("src.features")
 
 local Client = {}
 Client.__index = Client
@@ -151,7 +152,19 @@ function Client:onMessage(data)
   elseif kind == "REJECT" then
     self.state = "failed"
     self.error = args[1] or "rejected"
+  else
+    Features.handleClientMessage(self, kind, args)
   end
+end
+
+--- Send a message to the server. Reliable by default; pass true for
+--- high-frequency state that may be dropped.
+function Client:send(msg, unreliable)
+  if not self.peer or not self:isConnected() then
+    return false
+  end
+  self.peer:send(msg, unreliable and STATE_CHANNEL or RELIABLE, unreliable and "unreliable" or "reliable")
+  return true
 end
 
 --- Players sorted by id (id 1 is the host).
