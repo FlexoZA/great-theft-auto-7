@@ -2,11 +2,15 @@
 -- positioned clone.
 
 local Synth = require("src.audio.synth")
+local Audio = require("src.audio")
 
 local Sounds = { volume = 0.7 }
 local base
 
 function Sounds.load()
+  Audio.registerChannel("pickups", "Pickups", Sounds.volume, function()
+    Sounds.play(0, 0)
+  end)
   local buf = Synth.newBuffer(0.4)
   buf:tone(0, 0.12, 660, { wave = "square", amp = 0.35, attack = 0.005, decay = 0.2, sustain = 0.3, release = 0.03 })
   buf:tone(0.11, 0.22, 990, {
@@ -24,7 +28,7 @@ function Sounds.play(x, y)
   end
   local s = base:clone()
   s:setPosition(x, 0, y)
-  s:setVolume(Sounds.volume)
+  s:setVolume(Audio.volume("pickups"))
   s:play()
 end
 

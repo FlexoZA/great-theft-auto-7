@@ -33,6 +33,9 @@ function Menu:enter()
     UI.button({ label = "Join LAN game", onClick = function()
       State.switch("browser", self:playerName())
     end }),
+    UI.button({ label = "Settings", onClick = function()
+      State.switch("settings")
+    end }),
     UI.button({ label = "Quit", onClick = function()
       love.event.quit()
     end }),
