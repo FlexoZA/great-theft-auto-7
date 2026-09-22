@@ -11,6 +11,7 @@
 local Protocol = require("src.net.protocol")
 local Car = require("src.car")
 local UI = require("src.ui")
+local Sounds = require("src.features.weapons.sounds")
 
 local Weapons = {
   name = "weapons",
@@ -39,6 +40,10 @@ Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.showHitboxes = false
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
+
+function Weapons:load()
+  Sounds.load()
+end
 
 function Weapons:enterGame()
   self.projectiles = {}
@@ -195,10 +200,15 @@ Weapons.clientMessages = {
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     if pid and x and y and vx and vy then
       Weapons.projectiles[pid] = { x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner }
+      Sounds.play("shot", x, y, 0.9 + love.math.random() * 0.2)
     end
   end,
-  WPN_HIT = function(_client, args)
+  WPN_HIT = function(client, args)
     local pid, victim, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local at = (pid and Weapons.projectiles[pid]) or (victim and client.cars[victim])
+    if at then
+      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+    end
     if pid then
       Weapons.projectiles[pid] = nil
     end
@@ -209,6 +219,10 @@ Weapons.clientMessages = {
   end,
   WPN_KILL = function(client, args)
     local pid, killer, victim, kills = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    local at = (pid and Weapons.projectiles[pid]) or (victim and client.cars[victim])
+    if at then
+      Sounds.play("explosion", at.x, at.y)
+    end
     if pid then
       Weapons.projectiles[pid] = nil
     end

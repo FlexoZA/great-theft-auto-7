@@ -28,6 +28,7 @@ end
 
 function Game:exit()
   Features.call("exitGame", Net.client)
+  love.audio.setPosition(0, 0, 0)
 end
 
 function Game:update(dt)
@@ -55,6 +56,9 @@ function Game:update(dt)
   local me = client:myCar()
   if me then
     self.camera.x, self.camera.y = me.dx, me.dy
+    -- Audio listener rides with the car. World y maps to audio z so that
+    -- positional sources pan left/right by x and fade with distance.
+    love.audio.setPosition(me.dx, 0, me.dy)
   end
 
   Features.call("update", dt, client, self.camera)
