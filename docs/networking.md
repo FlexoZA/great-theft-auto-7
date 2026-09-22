@@ -25,7 +25,7 @@ nothing to vendor or install.
 
 ## Milestones
 
-1. **Lobby**: Host button starts an ENet server on `0.0.0.0:22122` and a UDP
+1. **Lobby** (done): Host button starts an ENet server on `0.0.0.0:22122` and a UDP
    discovery responder on `22123`. Join button broadcasts, lists hosts, connects.
 2. **Movement sync**: clients send `{throttle, steer}` each tick. Server
    integrates all cars, broadcasts positions. Clients draw all cars.

@@ -18,6 +18,19 @@ Lua extension addon manager).
 make run        # or: love .
 ```
 
+## Multiplayer (LAN)
+
+One player hosts, everyone else joins. Both need to be on the same network.
+
+- **Host**: enter your name, click *Host LAN game*, wait for players, click *Start game*.
+- **Join**: click *Join LAN game*. Hosts on the network appear within a second or two.
+  If none show up, type the host's IP address and click *Connect*.
+- The host must allow UDP ports **22122** (game) and **22123** (discovery) through
+  their firewall. On Ubuntu/Mint: `sudo ufw allow 22122:22123/udp`.
+- Testing alone: run `love .` twice on one machine. Host in one, join in the other.
+
+Design and roadmap: [docs/networking.md](docs/networking.md).
+
 ## Other targets
 
 ```bash
@@ -90,9 +103,13 @@ nobody cherry-picks or pushes single commits to `main`.
 ## Layout
 
 ```
-main.lua      entry point (love.load / update / draw)
-conf.lua      window + module config
-src/          game code (require("src.car"))
+main.lua        entry point, forwards LÖVE callbacks to the current state
+conf.lua        window + module config
+src/state.lua   scene switcher
+src/states/     menu, browser (join), lobby, game
+src/net/        protocol, discovery, server, client, init (session)
+src/ui.lua      buttons and text fields
+src/car.lua     the car
 lib/          vendored third-party libraries
 assets/       images, sounds, fonts, maps
 ```
