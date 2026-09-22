@@ -27,6 +27,7 @@ make run        # or: love .
 | Mouse at screen edge | Pan the camera (zooms out as it drifts) |
 | C | Recentre the camera on your car |
 | F1 | Show hitboxes |
+| Tab | Toggle the minimap |
 | B / N | Add / remove an AI bot (host only) |
 | Esc | Leave the game |
 
