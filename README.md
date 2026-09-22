@@ -47,7 +47,7 @@ Several people work on this repo, so nobody pushes straight to `main`.
 | --- | --- | --- |
 | `main` | Stable, playable at all times. Your starting point for new work | **Christiaan (@FlexoZA) only**, by merging `staging` |
 | `staging` | Integration branch. All work lands here first | Any developer, via a reviewed pull request |
-| `feature/<name>`, `fix/<name>` | Your work in progress | You |
+| `feature/<name>`, `bug/<name>` | Your work in progress | You |
 
 ### New developer, first time
 
@@ -60,12 +60,13 @@ love .                                    # make sure it runs
 
 ### Day-to-day
 
-1. Branch from an up-to-date `main`:
+1. Branch from an up-to-date `main`. Use `feature/<name>` for new things and
+   `bug/<name>` for fixes, lowercase with hyphens:
 
    ```bash
    git checkout main
    git pull
-   git checkout -b feature/car-physics
+   git checkout -b feature/city-map
    ```
 
 2. Commit as you go. Run `luacheck .` and make sure `love .` still starts before you push.
@@ -73,7 +74,7 @@ love .                                    # make sure it runs
 3. Push your branch and open a pull request **into `staging`** (never `main`):
 
    ```bash
-   git push -u origin feature/car-physics
+   git push -u origin feature/city-map
    ```
 
 4. Get one review, then merge into `staging`. Delete your branch afterwards.

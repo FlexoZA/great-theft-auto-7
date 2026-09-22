@@ -4,6 +4,7 @@ local enet = require("enet")
 local Protocol = require("src.net.protocol")
 local Discovery = require("src.net.discovery")
 local Car = require("src.car")
+local Features = require("src.features")
 
 local Server = {}
 Server.__index = Server
@@ -55,6 +56,10 @@ function Server:playerCount()
   return n
 end
 
+function Server:send(player, msg, unreliable)
+  player.peer:send(msg, unreliable and 1 or RELIABLE, unreliable and "unreliable" or "reliable")
+end
+
 function Server:broadcast(msg, except)
   for _, p in pairs(self.players) do
     if p ~= except then
@@ -96,6 +101,7 @@ function Server:step(dt)
       p.car:update(dt, p.input.throttle, p.input.steer)
     end
   end
+  Features.call("serverStep", self, dt)
   self:broadcastState()
 end
 
@@ -123,6 +129,11 @@ function Server:onMessage(peer, data)
     self:onHello(peer, args[1])
   elseif kind == "INPUT" then
     self:onInput(peer, args)
+  else
+    local player = self.byPeer[peer:index()]
+    if player then
+      Features.handleServerMessage(self, player, kind, args)
+    end
   end
 end
 
@@ -176,6 +187,7 @@ function Server:onHello(peer, name)
     peer:send(Protocol.encode("JOIN", other.id, other.name), RELIABLE, "reliable")
   end
   self:broadcast(Protocol.encode("JOIN", id, player.name), player)
+  Features.call("serverPlayerJoined", self, player)
 end
 
 function Server:onDisconnect(peer)
@@ -187,6 +199,7 @@ function Server:onDisconnect(peer)
   self.byPeer[idx] = nil
   self.players[player.id] = nil
   self:broadcast(Protocol.encode("LEAVE", player.id))
+  Features.call("serverPlayerLeft", self, player)
 end
 
 function Server:start()
@@ -195,6 +208,7 @@ function Server:start()
   end
   self.started = true
   self:spawnCars()
+  Features.call("serverStart", self)
   self:broadcast(Protocol.encode("START"))
   self.host:flush()
 end
