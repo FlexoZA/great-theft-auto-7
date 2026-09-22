@@ -48,7 +48,8 @@ One player hosts, everyone else joins. Both need to be on the same network.
 - The city is generated from a fixed seed in `src/features/city-map/layout.lua`, so it is
   identical on every machine without sending anything.
 - Testing alone: run `love .` twice on one machine. Host in one, join in the other.
-  Or just host and press Start: one AI bot spawns and comes for you (B adds more).
+  Or just host and press Start: one AI bot cruises the city (B adds more). Bots are peaceful
+  until you shoot or ram them, then they hunt you for a while.
 
 Design and roadmap: [docs/networking.md](docs/networking.md).
 
