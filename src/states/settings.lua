@@ -1,13 +1,16 @@
 -- Settings screen. Sections down the left: Sound (a slider per volume
--- channel registered with src/audio) and Controls (primary and secondary
+-- channel registered with src/audio), Controls (primary and secondary
 -- binding per action registered with src/controls; click a slot, press a
--- key or mouse button). Changes apply and save immediately.
+-- key or mouse button) and Video (display mode, size, vsync and display
+-- toggles from src/video). Changes apply and save immediately.
 
 local State = require("src.state")
 local UI = require("src.ui")
 local Audio = require("src.audio")
 local Controls = require("src.controls")
+local Video = require("src.video")
 local Background = require("src.art.menu_background")
+local Settings = require("src.settings")
 
 local SettingsState = {}
 
@@ -18,7 +21,10 @@ local PREVIEW_GAP = 0.35 -- seconds between preview sounds while dragging
 SettingsState.sections = {
   { key = "sound", label = "Sound" },
   { key = "controls", label = "Controls" },
+  { key = "video", label = "Video" },
 }
+
+local ON_OFF = { { label = "On", value = true }, { label = "Off", value = false } }
 
 local ROW_H = 40
 
@@ -42,8 +48,10 @@ function SettingsState:enter()
   self.resetButton = UI.button({ label = "Reset to defaults", w = 200, onClick = function()
     if self.section == "sound" then
       Audio.resetVolumes()
-    else
+    elseif self.section == "controls" then
       Controls.reset()
+    else
+      Video.reset()
     end
     self:build()
   end })
@@ -55,7 +63,47 @@ end
 function SettingsState:build()
   self.sliders = {}
   self.rows = {}
+  self.cyclers = {}
   self.capturing = nil
+  if self.section == "video" then
+    local function toggle(label, key)
+      self.cyclers[#self.cyclers + 1] = UI.cycler({
+        label = label,
+        options = ON_OFF,
+        index = Video.get(key) and 1 or 2,
+        onChange = function(v)
+          Video.set(key, v)
+        end,
+      })
+    end
+    self.cyclers[#self.cyclers + 1] = UI.cycler({
+      label = "Display",
+      options = { { label = "Windowed", value = false }, { label = "Fullscreen", value = true } },
+      index = Video.get("fullscreen") and 2 or 1,
+      onChange = function(v)
+        Video.set("fullscreen", v)
+        self:build()
+      end,
+    })
+    local sizes = {}
+    for _, s in ipairs(Video.SIZES) do
+      sizes[#sizes + 1] = { label = s[1] .. " x " .. s[2], value = s }
+    end
+    self.cyclers[#self.cyclers + 1] = UI.cycler({
+      label = "Window size",
+      options = sizes,
+      index = Video.sizeIndex(),
+      enabled = not Video.get("fullscreen"),
+      onChange = function(s)
+        Settings.set("video.width", s[1])
+        Video.set("height", s[2])
+      end,
+    })
+    toggle("VSync", "vsync")
+    toggle("Show FPS", "showFps")
+    toggle("Screen shake", "screenShake")
+    toggle("Menu scanlines", "scanlines")
+  end
   if self.section == "controls" then
     for _, action in ipairs(Controls.actions) do
       local row = { action = action, buttons = {} }
@@ -120,6 +168,10 @@ function SettingsState:layout()
   for i, s in ipairs(self.sliders) do
     s.x, s.y, s.w = sx, py + 135 + (i - 1) * 64, sw
   end
+  for i, c in ipairs(self.cyclers) do
+    c.x, c.y, c.w = sx + sw - 320, py + 100 + (i - 1) * 48, 320
+    c.labelX = sx
+  end
   for i, row in ipairs(self.rows) do
     local y = py + 100 + (i - 1) * ROW_H
     row.y = y
@@ -170,9 +222,18 @@ function SettingsState:draw()
   love.graphics.setColor(0.5, 0.5, 0.55)
   if self.section == "sound" then
     love.graphics.print("Drag a slider to hear it. Saved automatically.", p.x + TABS_W + 30, p.y + 70)
+  elseif self.section == "video" then
+    love.graphics.print("Changes apply straight away. Saved automatically.", p.x + TABS_W + 30, p.y + 70)
   else
     love.graphics.print("Click a slot, then press a key or mouse button. Backspace clears it, Esc cancels.",
       p.x + TABS_W + 30, p.y + 70)
+  end
+
+  for _, c in ipairs(self.cyclers) do
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(1, 1, 1, c.enabled and 1 or 0.5)
+    love.graphics.print(c.label, c.labelX, c.y + 5)
+    c:draw()
   end
 
   for _, row in ipairs(self.rows) do
@@ -223,6 +284,11 @@ function SettingsState:mousepressed(x, y, button)
       if row.buttons[slot]:mousepressed(x, y, button) then
         return
       end
+    end
+  end
+  for _, c in ipairs(self.cyclers) do
+    if c:mousepressed(x, y, button) then
+      return
     end
   end
   for _, s in ipairs(self.sliders) do
