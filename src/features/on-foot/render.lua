@@ -69,7 +69,9 @@ function Render.sync(args)
     local id = tonumber(args[i])
     local x, y = tonumber(args[i + 1]), tonumber(args[i + 2])
     local angle, stamina = tonumber(args[i + 3]), tonumber(args[i + 4])
-    if id and x and y and angle and (Render.events[id] or -1) <= tick then
+    -- Strictly newer than the last OF_OUT/OF_IN: a snapshot from the same
+    -- tick as a removal was built before the death and must not undo it.
+    if id and x and y and angle and (Render.events[id] or -1) < tick then
       local p = Render.figures[id] or Render.spawn(id, x, y, angle)
       p.x, p.y, p.angle = x, y, angle
       p.stamina = stamina or p.stamina

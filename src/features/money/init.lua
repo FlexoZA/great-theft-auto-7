@@ -33,6 +33,7 @@ local Money = {
 Money.pedValue = 1 -- koins a flattened pedestrian drops (out of thin air)
 Money.carValue = 5 -- most koins a wrecked driver drops, out of their own wallet
 Money.radius = 30 -- px from car centre that counts as driving over one
+Money.footRadius = 18 -- px from a body on foot that counts as picking one up
 Money.scatter = 46 -- px; how wide a multi-koin drop spreads
 Money.lifetime = 30 -- seconds an uncollected koin lies in the road
 Money.maxCoins = 80 -- hard cap; the oldest is swept away to make room
@@ -348,7 +349,12 @@ function Money:serverStep(server, dt)
     else
       for _, player in pairs(server.players) do
         local car = player.car
-        if car and not car.hidden and (car.x - coin.x) ^ 2 + (car.y - coin.y) ^ 2 < r2 then
+        local bx, by, onFoot
+        if car then
+          bx, by, onFoot = Features.bodyPose(server, player)
+        end
+        local reach2 = onFoot and self.footRadius * self.footRadius or r2
+        if car and not car.hidden and (bx - coin.x) ^ 2 + (by - coin.y) ^ 2 < reach2 then
           local total = (sv.wallets[player.id] or 0) + 1
           sv.wallets[player.id] = total
           sv.coins[id] = nil

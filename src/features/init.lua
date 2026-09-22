@@ -110,6 +110,36 @@ function Features.handleServerMessage(server, player, kind, args)
   return false
 end
 
+--- Where a player's body is on the host: their car, unless a feature has
+--- taken them out of it and answers `playerPose` (on-foot does). Returns
+--- x, y, onFoot.
+function Features.bodyPose(server, player)
+  for _, f in ipairs(Features.list) do
+    if f.playerPose then
+      local x, y, angle = f:playerPose(server, player)
+      if x then
+        return x, y, true, angle
+      end
+    end
+  end
+  local car = player.car
+  return car.x, car.y, false, car.angle
+end
+
+--- The same on a client, where the answer is what is drawn; `c` is the car
+--- snapshot to fall back to. Returns x, y, onFoot.
+function Features.clientBodyPose(client, id, c)
+  for _, f in ipairs(Features.list) do
+    if f.clientPlayerPose then
+      local x, y = f:clientPlayerPose(client, id)
+      if x then
+        return x, y, true
+      end
+    end
+  end
+  return c.dx, c.dy, false
+end
+
 function Features.names()
   local out = {}
   for _, f in ipairs(Features.list) do

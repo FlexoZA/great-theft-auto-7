@@ -78,30 +78,14 @@ end
 --- taken them out of it and answers the `playerPose` convention (the on-foot
 --- feature does). The third return says which of the two it is.
 local function bodyPose(server, player)
-  for _, f in ipairs(Features.list) do
-    if f.playerPose then
-      local x, y = f:playerPose(server, player)
-      if x then
-        return x, y, true
-      end
-    end
-  end
-  local car = player.car
-  return car.x, car.y, false
+  return Features.bodyPose(server, player)
 end
 
 --- The same question on a client, where the answer is what is drawn: the
 --- `clientPlayerPose` convention, falling back to the car snapshot `c`.
 local function clientPose(client, id, c)
-  for _, f in ipairs(Features.list) do
-    if f.clientPlayerPose then
-      local x, y = f:clientPlayerPose(client, id)
-      if x then
-        return x, y
-      end
-    end
-  end
-  return c.dx, c.dy
+  local x, y = Features.clientBodyPose(client, id, c)
+  return x, y
 end
 
 -- Client state (also reset in enterGame) ------------------------------------
@@ -331,7 +315,7 @@ Weapons.clientMessages = {
     if at then
       Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
-    if pid then
+    if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
     end
     if victim and hp then
@@ -520,17 +504,30 @@ function Weapons:sweep(server, p, nx, ny)
 end
 
 function Weapons:hit(server, p, victim)
+  local angle = p.vx and math.atan2(p.vy, p.vx) or nil
+  self:damage(server, victim, p.owner, DAMAGE, p.id, angle)
+end
+
+--- Hurt a living player by `amount` from any cause. `byId` is the attacker's
+--- id (or nil), `pid` the projectile (0 when it wasn't a bullet), `angle`
+--- the direction the blow travelled, for gibs. Other features call
+--- Weapons:serverDamage; this is the shared path behind bullets too.
+function Weapons:damage(server, victim, byId, amount, pid, angle)
   local sv = self.sv
-  local st = sv.players[victim.id]
-  st.hp = st.hp - DAMAGE
+  local st = sv and sv.players[victim.id]
+  if not st or not victim.car or victim.car.hidden or st.deadUntil then
+    return false
+  end
+  pid = pid or 0
+  st.hp = st.hp - amount
   -- Let other features react (bots take offence at being shot).
-  Features.call("serverPlayerDamaged", server, victim, server.players[p.owner], DAMAGE)
+  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount)
   if st.hp > 0 then
-    server:broadcast(Protocol.encode("WPN_HIT", p.id, victim.id, st.hp))
-    return
+    server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
+    return true
   end
 
-  local killer = sv.players[p.owner]
+  local killer = byId and sv.players[byId]
   local kills = 0
   if killer then
     killer.kills = killer.kills + 1
@@ -544,11 +541,21 @@ function Weapons:hit(server, p, victim)
   -- body if they were out of it (on-foot puts them back behind the wheel
   -- when it hears the kill).
   local wx, wy = bodyPose(server, victim)
+  local wasOnFoot = select(3, bodyPose(server, victim))
   car.hidden = true -- core stops broadcasting it until we clear this
   car.x, car.y, car.angle = st.spawn.x, st.spawn.y, st.spawn.angle
   car:stop()
-  server:broadcast(Protocol.encode("WPN_KILL", p.id, p.owner, victim.id, kills, DEATH_TIME))
-  Features.call("serverKill", server, { kind = "car", x = wx, y = wy, by = p.owner, victim = victim.id })
+  server:broadcast(Protocol.encode("WPN_KILL", pid, byId or 0, victim.id, kills, DEATH_TIME))
+  Features.call("serverKill", server, {
+    kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot,
+  })
+  return true
+end
+
+--- Public: damage from something that isn't a bullet (a car running you
+--- over). Returns true if the victim was alive to take it.
+function Weapons:serverDamage(server, victim, attacker, amount, angle)
+  return self:damage(server, victim, attacker and attacker.id, amount, 0, angle)
 end
 
 --- Keep wrecks parked at their slot and bring them back when their time is up.
