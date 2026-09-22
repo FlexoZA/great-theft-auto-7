@@ -1,6 +1,8 @@
 -- Arcade car physics plus drawing. The same update runs on the server for
 -- every player; clients only draw what the server tells them.
 
+local Controls = require("src.controls")
+
 local Car = {}
 Car.__index = Car
 
@@ -32,23 +34,19 @@ function Car.new(x, y, angle)
   }, Car)
 end
 
-local function down(...)
-  return love.keyboard.isDown(...)
-end
-
---- Reads the local keyboard. Returns throttle, steer in [-1, 1].
+--- Reads the local driving controls. Returns throttle, steer in [-1, 1].
 function Car.readInput()
   local throttle, steer = 0, 0
-  if down("up", "w") then
+  if Controls.isDown("accelerate") then
     throttle = throttle + 1
   end
-  if down("down", "s") then
+  if Controls.isDown("brake") then
     throttle = throttle - 1
   end
-  if down("left", "a") then
+  if Controls.isDown("left") then
     steer = steer - 1
   end
-  if down("right", "d") then
+  if Controls.isDown("right") then
     steer = steer + 1
   end
   return throttle, steer

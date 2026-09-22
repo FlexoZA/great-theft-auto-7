@@ -46,12 +46,16 @@ function Button:draw()
   local hover = self.enabled and self:contains(love.mouse.getPosition())
   if not self.enabled then
     love.graphics.setColor(0.28, 0.28, 0.32)
-  elseif hover then
+  elseif hover or self.selected then
     love.graphics.setColor(0.36, 0.56, 0.92)
   else
     love.graphics.setColor(0.24, 0.40, 0.72)
   end
   love.graphics.rectangle("fill", self.x, self.y, self.w, self.h, 6)
+  if self.selected then
+    love.graphics.setColor(1, 1, 1, 0.9)
+    love.graphics.rectangle("fill", self.x, self.y + 4, 4, self.h - 8, 2)
+  end
   love.graphics.setColor(1, 1, 1, self.enabled and 1 or 0.5)
   love.graphics.setFont(UI.fonts.body)
   local th = UI.fonts.body:getHeight()
