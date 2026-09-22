@@ -81,6 +81,18 @@ function Car:update(dt, throttle, steer)
   self.y = self.y + math.sin(self.angle) * self.speed * dt
 end
 
+--- Hitbox: is the point (px, py), padded by `radius`, inside this car's
+--- rotated rectangle? Works on any table with x, y, angle (server cars and
+--- client snapshots alike).
+function Car.hitTest(car, px, py, radius)
+  radius = radius or 0
+  local dx, dy = px - car.x, py - car.y
+  local c, s = math.cos(-car.angle), math.sin(-car.angle)
+  local lx = dx * c - dy * s
+  local ly = dx * s + dy * c
+  return math.abs(lx) <= Car.WIDTH / 2 + radius and math.abs(ly) <= Car.HEIGHT / 2 + radius
+end
+
 function Car.colorFor(id)
   return PALETTE[(id - 1) % #PALETTE + 1]
 end

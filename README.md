@@ -18,6 +18,15 @@ Lua extension addon manager).
 make run        # or: love .
 ```
 
+## Controls
+
+| Key | Action |
+| --- | --- |
+| Arrows / WASD | Drive |
+| Left mouse | Fire toward the cursor |
+| F1 | Show hitboxes |
+| Esc | Leave the game |
+
 ## Multiplayer (LAN)
 
 One player hosts, everyone else joins. Both need to be on the same network.
