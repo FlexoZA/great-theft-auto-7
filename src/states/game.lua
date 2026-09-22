@@ -18,7 +18,8 @@ end
 
 function Game:enter()
   UI.load()
-  self.camera = { x = 0, y = 0 }
+  -- Features may move the camera and change its scale in their update hook.
+  self.camera = { x = 0, y = 0, scale = 1 }
   Features.call("enterGame", Net.client)
 end
 
@@ -49,7 +50,7 @@ function Game:update(dt)
     self.camera.x, self.camera.y = me.dx, me.dy
   end
 
-  Features.call("update", dt, client)
+  Features.call("update", dt, client, self.camera)
 end
 
 function Game:drawCars(client)
@@ -72,7 +73,9 @@ function Game:draw()
   end
   local w, h = love.graphics.getDimensions()
   love.graphics.push()
-  love.graphics.translate(math.floor(w / 2 - self.camera.x), math.floor(h / 2 - self.camera.y))
+  love.graphics.translate(math.floor(w / 2), math.floor(h / 2))
+  love.graphics.scale(self.camera.scale or 1)
+  love.graphics.translate(-math.floor(self.camera.x), -math.floor(self.camera.y))
   Features.call("drawBelowCars", client, self.camera)
   self:drawCars(client)
   Features.call("drawAboveCars", client, self.camera)

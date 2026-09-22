@@ -44,13 +44,16 @@ Runs on every machine, including the host (the host runs its own client).
 
 | Hook | When |
 | --- | --- |
-| `update(dt, client)` | Every frame in the game, after car snapshots are smoothed. |
+| `update(dt, client, camera)` | Every frame in the game, after car snapshots are smoothed. `camera` is `{ x, y, scale }`, already following the local player; move it or change its scale to steer the view (`vision` does). |
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken). |
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
+
+The same `camera` table reaches the draw hooks, so a feature that needs the
+visible world bounds divides the window size by `camera.scale`.
 
 Useful client fields: `client.cars[id]` (`x y angle speed` from the server,
 `dx dy dangle` smoothed for drawing), `client.players[id].name`,
@@ -85,7 +88,9 @@ Unreliable (`true`) for things sent every tick where only the latest matters.
 ## Example
 
 `src/features/grid/init.lua` draws the background grid in twelve lines using
-`drawBelowCars`. For a feature that talks to the server, the shape is:
+`drawBelowCars`; `src/features/vision/init.lua` is client-only too, panning and
+zooming the camera in `update` and drawing its own cursor in `drawHUD`. For a
+feature that talks to the server, the shape is:
 
 ```lua
 local Protocol = require("src.net.protocol")

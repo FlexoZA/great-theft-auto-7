@@ -22,8 +22,9 @@ function MyFeature:exitGame(client) end
 
 --- Every frame while in the game. client.cars, client.players, client.myId
 --- and client:myCar() are available. Send to the server with
---- client:send(Protocol.encode("KIND", ...)).
-function MyFeature:update(dt, client) end
+--- client:send(Protocol.encode("KIND", ...)). `camera` is { x, y, scale },
+--- already on the local player; move or scale it to steer the view.
+function MyFeature:update(dt, client, camera) end
 
 --- World-space drawing; the camera transform is already applied.
 function MyFeature:drawBelowCars(client, camera) end
