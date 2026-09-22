@@ -40,6 +40,12 @@ calls; lower runs and draws first.
 
 ### Client side
 
+Timing note: messages the server sends right after `START` (rosters,
+one-off announcements like `POL_UNIT` or `PK_SPAWN`) reach the client in the
+same burst as `START`, *before* `enterGame` runs. Don't clear such state in
+`enterGame`; clear it in `exitGame` instead.
+
+
 Runs on every machine, including the host (the host runs its own client).
 
 | Hook | When |

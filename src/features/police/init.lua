@@ -40,7 +40,11 @@ function Police:load()
   Sounds.load()
 end
 
-function Police:enterGame()
+-- POL_UNIT for every patrol car arrives in the same burst as START, just
+-- before the game state is entered, so nothing is cleared on the way in.
+function Police:enterGame() end
+
+function Police:exitGame()
   for _, u in pairs(self.units) do
     if u.siren then
       u.siren:stop()
@@ -48,10 +52,6 @@ function Police:enterGame()
   end
   self.units = {}
   self.wanted = {}
-end
-
-function Police:exitGame()
-  self:enterGame()
 end
 
 function Police:update(dt, client)
