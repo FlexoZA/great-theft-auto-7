@@ -33,6 +33,7 @@ local YELP_RANGE = 1100 -- px from your car; further away nobody hears it
 
 Pedestrians.roadkill = {} -- client side: player id -> pedestrians flattened
 Pedestrians.lastSync = 0 -- client side: newest server tick seen in a PED_SYNC
+Pedestrians.yelpTimer = 0 -- a PED_SYNC can land before enterGame runs
 
 -- Client --------------------------------------------------------------------
 

@@ -16,6 +16,7 @@ local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
+local Features = require("src.features")
 
 local Weapons = {
   name = "weapons",
@@ -36,6 +37,17 @@ local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
+
+--- Any feature may declare solid ground with a blocksPoint(x, y) hook (the
+--- city map does). Bullets stop there, on both server and client.
+local function blocked(x, y)
+  for _, f in ipairs(Features.list) do
+    if f.blocksPoint and f:blocksPoint(x, y) then
+      return true
+    end
+  end
+  return false
+end
 
 -- Client state (also reset in enterGame) ------------------------------------
 
@@ -125,7 +137,7 @@ function Weapons:update(dt, client, camera)
     p.x = p.x + p.vx * dt
     p.y = p.y + p.vy * dt
     p.age = p.age + dt
-    if p.age > PROJECTILE_TTL then
+    if p.age > PROJECTILE_TTL or blocked(p.x, p.y) then
       self.projectiles[pid] = nil
     end
   end
@@ -351,13 +363,17 @@ Weapons.serverMessages = {
 }
 
 --- Walk the projectile's path for this tick in small steps so fast shots
---- can't tunnel through a car. Returns the first player hit, if any.
+--- can't tunnel through a car. Returns the first player hit, if any, or
+--- `true` when the shot hit a wall.
 function Weapons:sweep(server, p, nx, ny)
   local dx, dy = nx - p.x, ny - p.y
   local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / SWEEP_STEP))
   for s = 1, steps do
     local t = s / steps
     local px, py = p.x + dx * t, p.y + dy * t
+    if blocked(px, py) then
+      return true
+    end
     for id, player in pairs(server.players) do
       local st = self.sv.players[id]
       if st and player.car and not player.car.hidden and id ~= p.owner and self.sv.time >= st.protectedUntil then
@@ -426,7 +442,9 @@ function Weapons:serverStep(server, dt)
     local nx, ny = p.x + p.vx * dt, p.y + p.vy * dt
     local victim = self:sweep(server, p, nx, ny)
     p.x, p.y = nx, ny
-    if victim then
+    if victim == true then
+      table.remove(sv.projectiles, i) -- hit a wall; clients notice the same wall themselves
+    elseif victim then
       self:hit(server, p, victim)
       table.remove(sv.projectiles, i)
     elseif p.age > PROJECTILE_TTL then

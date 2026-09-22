@@ -118,6 +118,25 @@ Horn.clientMessages = {
 return Horn
 ```
 
+## Conventions between features
+
+Features stay decoupled by talking through the server's player tables and a
+couple of small conventions rather than requiring each other:
+
+- `server.spawnPoints`: a map feature sets this in `serverStart` to a list of
+  `{ x, y, angle }` on drivable ground. Anything that spawns a car (bots)
+  uses it when present and falls back to its own placement otherwise.
+- `feature:blocksPoint(x, y)`: return true when a point is inside something
+  solid. Weapons checks every feature that defines it, so bullets stop at
+  walls without knowing which feature owns them.
+- `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
+  this for wrecks). The core respects it; other features should skip hidden
+  cars too.
+- `Features.byName.<name>` is the escape hatch when a feature genuinely
+  needs another (the city map pushes pedestrians out of buildings through
+  `Features.byName.pedestrians.crowd`). Check for nil: the other feature
+  may have been deleted.
+
 ## When the hooks aren't enough
 
 Add a hook to the core rather than reaching into it from a feature. Keep the
