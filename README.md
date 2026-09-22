@@ -32,7 +32,9 @@ make run        # or: love .
 | Esc | Leave the game |
 
 Every key above can be rebound under *Settings > Controls*, with a primary and a secondary
-binding per action. Volumes are under *Settings > Sound*. Both are saved to the LÖVE save directory.
+binding per action. Volumes are under *Settings > Sound*, and display mode, window size,
+VSync, FPS counter, screen shake and menu scanlines under *Settings > Video*. All are saved to
+the LÖVE save directory.
 
 ## Multiplayer (LAN)
 
