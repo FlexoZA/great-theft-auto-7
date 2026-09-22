@@ -39,7 +39,7 @@ end
 
 function Net.update(dt)
   if Net.server then
-    Net.server:update()
+    Net.server:update(dt)
   end
   if Net.client then
     Net.client:update(dt)
