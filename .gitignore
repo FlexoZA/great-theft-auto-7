@@ -1,0 +1,16 @@
+# Build output
+/build/
+*.love
+*.zip
+*.AppImage
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Lua tooling
+.luarc.local.json
+luac.out
