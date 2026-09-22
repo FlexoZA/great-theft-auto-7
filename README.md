@@ -23,6 +23,7 @@ make run        # or: love .
 | Key | Action |
 | --- | --- |
 | Arrows / WASD | Drive |
+| Space | Handbrake (hold while turning to slide) |
 | Left mouse | Fire toward the cursor |
 | Mouse at screen edge | Pan the camera (zooms out as it drifts) |
 | C | Recentre the camera on your car |

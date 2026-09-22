@@ -60,12 +60,18 @@ local function resolvePair(a, b)
     return 0, 1, 0
   end
   nx, ny = nx / len, ny / len
-  local van = (math.cos(a.angle) * a.speed) * nx + (math.sin(a.angle) * a.speed) * ny
-  local vbn = (math.cos(b.angle) * b.speed) * nx + (math.sin(b.angle) * b.speed) * ny
+  local avx, avy = a.vx or math.cos(a.angle) * a.speed, a.vy or math.sin(a.angle) * a.speed
+  local bvx, bvy = b.vx or math.cos(b.angle) * b.speed, b.vy or math.sin(b.angle) * b.speed
+  local van = avx * nx + avy * ny
+  local vbn = bvx * nx + bvy * ny
   local closing = van - vbn -- > 0 when a moves into b (or b into a)
   if closing > 0 then
-    a.speed = a.speed * CarCollisions.damping
-    b.speed = b.speed * CarCollisions.damping
+    local d = CarCollisions.damping
+    a.vx, a.vy = avx * d, avy * d
+    b.vx, b.vy = bvx * d, bvy * d
+    a.speed = a.vx * math.cos(a.angle) + a.vy * math.sin(a.angle)
+    b.speed = b.vx * math.cos(b.angle) + b.vy * math.sin(b.angle)
+    a.lastSpeed, b.lastSpeed = a.speed, b.speed
   end
   return closing, van, -vbn
 end
