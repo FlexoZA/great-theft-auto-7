@@ -75,6 +75,8 @@ function Bots:add(server, x, y, angle)
       retarget = 0,
       fireTimer = love.math.random() * self.fireInterval,
       orbitDir = love.math.random() < 0.5 and -1 or 1,
+      stuck = 0,
+      reverseFor = 0,
     },
   }
   nextNumber = nextNumber + 1
@@ -98,15 +100,31 @@ end
 function Bots:serverStart(server)
   bots = {}
   nextNumber = 1
-  -- Humans are lined up along x at y = 0 facing up; put bots ahead of them, facing back.
+  local humans = 0
+  for _ in pairs(server.players) do
+    humans = humans + 1
+  end
   for i = 1, self.startCount do
-    local x = (i - 1 - (self.startCount - 1) / 2) * 120
-    self:add(server, x, -450, math.pi / 2)
+    local spawns = server.spawnPoints
+    if spawns and #spawns > 0 then
+      -- A map is loaded: take the next free spawn point after the humans.
+      local s = spawns[(humans + i - 1) % #spawns + 1]
+      self:add(server, s.x, s.y, s.angle)
+    else
+      -- No map: humans are lined up along x at y = 0 facing up; put bots ahead, facing back.
+      local x = (i - 1 - (self.startCount - 1) / 2) * 120
+      self:add(server, x, -450, math.pi / 2)
+    end
   end
 end
 
---- Somewhere off to the side of the host's car (or the origin).
+--- A random map spawn point if there is a map, else off to the side of the host.
 local function spawnNearHost(server)
+  local spawns = server.spawnPoints
+  if spawns and #spawns > 0 then
+    local s = spawns[love.math.random(#spawns)]
+    return s.x, s.y, s.angle
+  end
   local host = server.players[HOST_ID]
   local hx, hy = 0, 0
   if host and host.car then
@@ -175,6 +193,22 @@ function Bots:think(server, bot, dt)
     input.throttle = -0.6 -- nose-to-nose and stuck: back out
   else
     input.throttle = 1
+  end
+
+  -- Wedged against a wall (throttle on, not moving): back out the other way for a moment.
+  if ai.reverseFor > 0 then
+    ai.reverseFor = ai.reverseFor - dt
+    input.throttle = -1
+    input.steer = -input.steer
+  elseif input.throttle > 0 and math.abs(car.speed) < 25 then
+    ai.stuck = ai.stuck + dt
+    if ai.stuck > 0.7 then
+      ai.stuck = 0
+      ai.reverseFor = 0.8 + love.math.random() * 0.6
+      ai.orbitDir = -ai.orbitDir
+    end
+  else
+    ai.stuck = 0
   end
 
   -- Shoot: lead the target by its velocity over the projectile's flight time.
