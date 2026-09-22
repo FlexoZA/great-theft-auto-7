@@ -102,6 +102,23 @@ function CityMap:serverStep(server)
   collidePedestrians(self.map)
 end
 
+--- Centre of a random road tile, optionally within `maxDist` of (nearX, nearY).
+--- Other features reach this via Features.byName["city-map"].
+function CityMap:randomRoadPoint(nearX, nearY, maxDist)
+  local map = self.map
+  for _ = 1, 60 do
+    local c = love.math.random(0, Layout.COLS - 1)
+    local r = love.math.random(0, Layout.ROWS - 1)
+    if map.tiles[c][r] == "road" then
+      local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
+      if not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist then
+        return x, y
+      end
+    end
+  end
+  return nil
+end
+
 --- For tests and other features.
 function CityMap.layout()
   return CityMap.map

@@ -448,6 +448,8 @@ function Weapons:hit(server, p, victim)
   local sv = self.sv
   local st = sv.players[victim.id]
   st.hp = st.hp - DAMAGE
+  -- Let other features react (bots take offence at being shot).
+  Features.call("serverPlayerDamaged", server, victim, server.players[p.owner], DAMAGE)
   if st.hp > 0 then
     server:broadcast(Protocol.encode("WPN_HIT", p.id, victim.id, st.hp))
     return
