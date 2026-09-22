@@ -28,6 +28,7 @@
 --   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
 --   server -> all     OF_OUT   <tick> <id> <x> <y> <facing>
 --   server -> all     OF_IN    <tick> <id>
+--   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
 --   server -> all     OF_STATE <tick> [<id> <x> <y> <facing> <stamina>]...  (unreliable)
 
 local Protocol = require("src.net.protocol")
@@ -299,6 +300,14 @@ OnFoot.clientMessages = {
   OF_STATE = function(_client, args)
     Render.sync(args)
   end,
+  --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
+  OF_GIB = function(_client, args)
+    local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and Features.byName.pedestrians then
+      require("src.features.pedestrians.gibs").splat(x, y, angle or 0)
+      require("src.features.pedestrians.sounds").play("splat", x, y, 0.8 + love.math.random() * 0.2)
+    end
+  end,
 }
 
 -- Server --------------------------------------------------------------------
@@ -329,6 +338,8 @@ end
 function OnFoot:serverKill(server, kill)
   if kill.kind == "car" and kill.victim and self.sv and self.sv.onFoot[kill.victim] then
     self.sv.onFoot[kill.victim] = nil
+    server:broadcast(Protocol.encode("OF_GIB", kill.victim, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
+      ("%.3f"):format(kill.angle or 0)))
     server:broadcast(Protocol.encode("OF_IN", server.tick, kill.victim))
   end
 end

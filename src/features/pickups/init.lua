@@ -23,6 +23,7 @@ local Pickups = {
 Pickups.count = 6 -- kits on the map at once
 Pickups.respawnTime = 20 -- seconds after one is taken before a new one appears
 Pickups.radius = 34 -- px from car centre that counts as driving over it
+Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 
 local KINDS = {
@@ -196,7 +197,12 @@ function Pickups:serverStep(server, dt)
   for id, it in pairs(sv.items) do
     for _, player in pairs(server.players) do
       local car = player.car
-      if car and not car.hidden and (car.x - it.x) ^ 2 + (car.y - it.y) ^ 2 < r2 then
+      local bx, by, onFoot
+      if car then
+        bx, by, onFoot = Features.bodyPose(server, player)
+      end
+      local reach2 = onFoot and self.footRadius * self.footRadius or r2
+      if car and not car.hidden and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach2 then
         local kind = KINDS[it.kind]
         if kind.apply(server, player) then
           sv.items[id] = nil
