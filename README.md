@@ -55,6 +55,7 @@ One player hosts, everyone else joins. Both need to be on the same network.
   Or just host and press Start: one AI bot cruises the city (B adds more). Bots are peaceful
   until you shoot or ram them, then they hunt you for a while. Two police cars patrol too:
   shoot, ram or run someone over where they can see it and you're wanted until the heat dies.
+  With inclusive mode on you start the game wanted, so shake the police first.
 
 Design and roadmap: [docs/networking.md](docs/networking.md).
 

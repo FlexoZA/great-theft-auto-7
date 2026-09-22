@@ -7,6 +7,9 @@
 -- Units are NPCs from the bots feature with a police brain. Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
+-- With inclusive mode on (the menu toggle), every human starts the game
+-- wanted with the whole force already in pursuit: get away first.
+--
 -- Messages
 --   server -> all  POL_UNIT   <id>              this player is a police car
 --   server -> all  POL_SIREN  <id> <0|1>        chasing state changed
@@ -17,6 +20,7 @@ local Features = require("src.features")
 local UI = require("src.ui")
 local Car = require("src.car")
 local Sounds = require("src.features.police.sounds")
+local Face = require("src.art.face")
 
 local Police = {
   name = "police",
@@ -30,6 +34,7 @@ Police.pursuitRange = 1400 -- px; a chasing unit keeps after you out to this dis
 Police.wantedTime = 25 -- seconds since the last crime before the heat is off
 Police.patrolThrottle = 0.45
 Police.ramCrime = 220 -- closing speed (px/s) of a ram that counts as a crime
+Police.hotStartTime = 30 -- seconds of heat everyone starts with in inclusive mode
 
 -- Client state --------------------------------------------------------------
 Police.units = {} -- id -> { siren = Source|nil, chasing = bool }
@@ -301,6 +306,20 @@ function Police:serverStart(server)
     unit.ai.chasing = false
     sv.units[#sv.units + 1] = unit
     server:broadcast(Protocol.encode("POL_UNIT", unit.id))
+  end
+
+  if Face.inclusive() then
+    -- Hot start: every human is wanted and every unit is already hunting.
+    for _, p in pairs(server.players) do
+      if not p.bot and p.car then
+        sv.wanted[p.id] = sv.time + self.hotStartTime
+        server:broadcast(Protocol.encode("POL_WANTED", p.id, 1))
+      end
+    end
+    for _, unit in ipairs(sv.units) do
+      unit.ai.chasing = true -- pursuit range from the first tick
+      server:broadcast(Protocol.encode("POL_SIREN", unit.id, 1))
+    end
   end
 end
 
