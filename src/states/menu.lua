@@ -5,17 +5,21 @@ local Protocol = require("src.net.protocol")
 local Audio = require("src.audio")
 local Controls = require("src.controls")
 local Logo = require("src.art.logo")
+local Face = require("src.art.face")
 local Background = require("src.art.menu_background")
 
 local Menu = {}
 
 local W = 260
 local LOGO_SCALE = 6
+local TOGGLE_W, TOGGLE_H = 210, 36
+local TOGGLE_MARGIN = 20
 
 local iconSet = false
 
 function Menu:enter()
   UI.load()
+  self:applyInclusive()
   Audio.playMenuTheme()
   if not iconSet then
     love.window.setIcon(Logo.icon())
@@ -41,6 +45,27 @@ function Menu:enter()
       love.event.quit()
     end }),
   }
+  self.inclusiveButton = UI.button({
+    w = TOGGLE_W,
+    h = TOGGLE_H,
+    label = self:inclusiveLabel(),
+    selected = Face.inclusive(),
+    onClick = function(b)
+      Face.setInclusive(not Face.inclusive())
+      b.selected = Face.inclusive()
+      b.label = self:inclusiveLabel()
+      self:applyInclusive()
+    end,
+  })
+end
+
+function Menu:inclusiveLabel()
+  return "Inclusive mode: " .. (Face.inclusive() and "on" or "off")
+end
+
+--- Inclusive mode swaps the menu theme along with the face.
+function Menu:applyInclusive()
+  Audio.setMenuTrack(Face.inclusive() and "rap" or "metal")
 end
 
 function Menu:playerName()
@@ -68,6 +93,8 @@ function Menu:layout()
   for i, b in ipairs(self.buttons) do
     b.x, b.y = colX, y + 60 + (i - 1) * 56
   end
+  self.inclusiveButton.x = w - TOGGLE_W - TOGGLE_MARGIN
+  self.inclusiveButton.y = TOGGLE_MARGIN
   self.faceX = math.floor(w * 0.68)
   self.faceY = math.floor(h * 0.52)
   self.faceScale = math.floor(math.min(h / 76, (w * 0.55) / 64))
@@ -95,6 +122,7 @@ function Menu:draw()
   for _, b in ipairs(self.buttons) do
     b:draw()
   end
+  self.inclusiveButton:draw()
 
   if self.error then
     love.graphics.setFont(UI.fonts.body)
@@ -125,6 +153,9 @@ end
 
 function Menu:mousepressed(x, y, button)
   self.nameField:mousepressed(x, y, button)
+  if self.inclusiveButton:mousepressed(x, y, button) then
+    return
+  end
   for _, b in ipairs(self.buttons) do
     if b:mousepressed(x, y, button) then
       return
