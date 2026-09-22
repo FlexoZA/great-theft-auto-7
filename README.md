@@ -27,6 +27,7 @@ make run        # or: love .
 | Mouse at screen edge | Pan the camera (zooms out as it drifts) |
 | C | Recentre the camera on your car |
 | F1 | Show hitboxes |
+| B / N | Add / remove an AI bot (host only) |
 | Esc | Leave the game |
 
 ## Multiplayer (LAN)
@@ -39,6 +40,7 @@ One player hosts, everyone else joins. Both need to be on the same network.
 - The host must allow UDP ports **22122** (game) and **22123** (discovery) through
   their firewall. On Ubuntu/Mint: `sudo ufw allow 22122:22123/udp`.
 - Testing alone: run `love .` twice on one machine. Host in one, join in the other.
+  Or just host and press Start: one AI bot spawns and comes for you (B adds more).
 
 Design and roadmap: [docs/networking.md](docs/networking.md).
 
