@@ -15,3 +15,9 @@ Top-down driving game in Lua using LÖVE 11.5.
 - 2-space indent, double quotes, 120-column lines (see `.stylua.toml`, `.luacheckrc`).
 - Keep `love.update(dt)` frame-rate independent: always scale by `dt`.
 - Assets go in `assets/<type>/` and are loaded once in `love.load`, not per frame.
+
+## Git workflow
+- `main` is release-only. Never commit or push to it directly.
+- Branch from `staging` (`feature/<name>` or `fix/<name>`), open pull requests into `staging`.
+- `staging` is promoted to `main` only via a pull request.
+- Run `luacheck .` before pushing.
