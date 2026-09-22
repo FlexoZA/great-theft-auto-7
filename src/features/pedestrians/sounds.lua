@@ -4,6 +4,7 @@
 -- game state keeps the listener at your car).
 
 local Synth = require("src.audio.synth")
+local Audio = require("src.audio")
 
 local Sounds = {
   splatVolume = 0.7,
@@ -23,6 +24,10 @@ local function make(seconds, build)
 end
 
 function Sounds.load()
+  Audio.registerChannel("pedestrians", "Pedestrians", 1, function()
+    Sounds.play("yelp", 0, 0, 1)
+  end)
+
   -- Splat: a wet burst over a short bony thud, all of it low and dull.
   bank.splat = make(0.34, function(buf)
     buf:sweep(0, 0.13, 240, 38, { wave = "sine", amp = 1.0, decay = 0.05 })
@@ -59,7 +64,7 @@ function Sounds.play(name, x, y, pitch, volume)
   local s = base:clone()
   s:setPosition(x, 0, y)
   s:setPitch(pitch or 1)
-  s:setVolume(volume or Sounds.splatVolume)
+  s:setVolume((volume or Sounds.splatVolume) * Audio.volume("pedestrians"))
   s:play()
   return s
 end

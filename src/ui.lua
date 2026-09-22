@@ -1,4 +1,4 @@
--- Tiny immediate-ish UI: buttons and a single-line text field.
+-- Tiny immediate-ish UI: buttons, a single-line text field and a slider.
 
 local utf8 = require("utf8")
 
@@ -134,6 +134,82 @@ function TextField:mousepressed(mx, my, button)
   if button == 1 then
     self.focused = self:contains(mx, my)
   end
+end
+
+-- Slider -----------------------------------------------------------------
+
+local Slider = {}
+Slider.__index = Slider
+
+--- UI.slider({ label=, value= (0..1), onChange=, x=, y=, w=, h= })
+--- Call update() every frame so dragging follows the mouse.
+function UI.slider(opts)
+  opts.x = opts.x or 0
+  opts.y = opts.y or 0
+  opts.w = opts.w or 300
+  opts.h = opts.h or 10
+  opts.value = opts.value or 0
+  opts.dragging = false
+  return setmetatable(opts, Slider)
+end
+
+function Slider:contains(mx, my)
+  return mx >= self.x - 8 and mx <= self.x + self.w + 8 and my >= self.y - 12 and my <= self.y + self.h + 12
+end
+
+function Slider:setFromMouse(mx)
+  local v = (mx - self.x) / self.w
+  v = math.max(0, math.min(1, v))
+  if v ~= self.value then
+    self.value = v
+    if self.onChange then
+      self.onChange(v)
+    end
+  end
+end
+
+function Slider:update()
+  if self.dragging then
+    if love.mouse.isDown(1) then
+      self:setFromMouse(love.mouse.getX())
+    else
+      self.dragging = false
+    end
+  end
+end
+
+function Slider:draw()
+  local hover = self.dragging or self:contains(love.mouse.getPosition())
+  if self.label then
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print(self.label, self.x, self.y - 30)
+    love.graphics.setColor(0.7, 0.7, 0.75)
+    love.graphics.printf(("%d%%"):format(math.floor(self.value * 100 + 0.5)), self.x, self.y - 30, self.w, "right")
+  end
+  love.graphics.setColor(0.10, 0.10, 0.12)
+  love.graphics.rectangle("fill", self.x, self.y, self.w, self.h, 3)
+  if hover then
+    love.graphics.setColor(0.36, 0.56, 0.92)
+  else
+    love.graphics.setColor(0.24, 0.40, 0.72)
+  end
+  love.graphics.rectangle("fill", self.x, self.y, self.w * self.value, self.h, 3)
+  local kx = self.x + self.w * self.value
+  love.graphics.setColor(0.10, 0.10, 0.12)
+  love.graphics.rectangle("fill", kx - 7, self.y - 7, 14, self.h + 14, 3)
+  love.graphics.setColor(hover and 1 or 0.85, hover and 1 or 0.85, hover and 1 or 0.88)
+  love.graphics.rectangle("fill", kx - 5, self.y - 5, 10, self.h + 10, 3)
+  love.graphics.setColor(1, 1, 1)
+end
+
+function Slider:mousepressed(mx, my, button)
+  if button == 1 and self:contains(mx, my) then
+    self.dragging = true
+    self:setFromMouse(mx)
+    return true
+  end
+  return false
 end
 
 return UI

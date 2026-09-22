@@ -31,6 +31,8 @@ make run        # or: love .
 | B / N | Add / remove an AI bot (host only) |
 | Esc | Leave the game |
 
+Volumes live under *Settings* on the menu and are saved to the LÖVE save directory.
+
 ## Multiplayer (LAN)
 
 One player hosts, everyone else joins. Both need to be on the same network.
