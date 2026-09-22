@@ -70,7 +70,9 @@ function Game:drawCars(client)
   for id, c in pairs(client.cars) do
     Car.draw(c.dx, c.dy, c.dangle, Car.colorFor(id))
     local p = client.players[id]
-    if p then
+    -- A feature may have taken the driver out of the car (on-foot). The car
+    -- then stands there unnamed and the feature labels the figure instead.
+    if p and not Features.any("hidesCarLabel", client, id) then
       love.graphics.setColor(1, 1, 1, id == client.myId and 1 or 0.8)
       love.graphics.printf(p.name, c.dx - 60, c.dy - Car.HEIGHT - 18, 120, "center")
     end

@@ -55,6 +55,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken). |
+| `hidesCarLabel(client, id)` | Asked while drawing player `id`'s car: return true to keep the core from printing their name over it, because your feature draws them elsewhere (on-foot does, while they are out walking). |
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
 
@@ -160,7 +161,9 @@ Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 
 A feature can raise an event for every other feature with
 `Features.call("hookName", ...)`; any feature defining that hook receives
-it. Events in use:
+it. `Features.any("hookName", ...)` is the yes/no version: it stops at the
+first feature whose hook returns true (the core asks `hidesCarLabel` that
+way). Events in use:
 
 | Event | Raised by | Meaning |
 | --- | --- | --- |
@@ -207,6 +210,13 @@ couple of small conventions rather than requiring each other:
   exist. `by` is the shooter's player id and `angle` the direction of
   travel, for gibs and scoring. Cars are tested first, so answering here
   never steals a hit from a player.
+- `feature:playerPose(server, player)` / `feature:clientPlayerPose(client, id)`:
+  return `x, y, angle` when a player is not behind the wheel, and nil when
+  they are. On-foot answers both while its owner is out of the car. Weapons
+  asks before it fires (the shot leaves the body), before it tests a hit (the
+  body is the target, and the car they parked is not) and before it draws a
+  health bar. A feature that moves a player out of their car answers these;
+  one that shoots or draws players asks.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.

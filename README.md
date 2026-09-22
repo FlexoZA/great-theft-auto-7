@@ -24,6 +24,9 @@ make run        # or: love .
 | --- | --- |
 | Arrows / WASD | Drive |
 | Space | Handbrake (hold while turning to slide) |
+| E | Get out of the car, and back in when you are standing next to it |
+| WASD on foot | Walk (world directions; you face the cursor) |
+| Shift | Sprint while on foot, until your stamina runs out |
 | Left mouse | Fire toward the cursor |
 | Mouse at screen edge | Pan the camera (zooms out as it drifts) |
 | C | Recentre the camera on your car |

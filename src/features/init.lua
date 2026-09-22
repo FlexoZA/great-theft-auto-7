@@ -78,6 +78,19 @@ function Features.call(name, ...)
   end
 end
 
+--- Ask every feature a yes/no question: true as soon as one hook answers
+--- true. For questions the core (or another feature) puts to all of them,
+--- like "is this player out of their car?".
+function Features.any(name, ...)
+  for _, f in ipairs(Features.list) do
+    local fn = f[name]
+    if fn and fn(f, ...) then
+      return true
+    end
+  end
+  return false
+end
+
 --- Returns true if a feature handled the message.
 function Features.handleClientMessage(client, kind, args)
   local entry = Features.clientMessages[kind]
