@@ -3,6 +3,7 @@ local UI = require("src.ui")
 local Net = require("src.net")
 local Protocol = require("src.net.protocol")
 local Audio = require("src.audio")
+local Controls = require("src.controls")
 local Logo = require("src.art.logo")
 local Background = require("src.art.menu_background")
 
@@ -103,7 +104,8 @@ function Menu:draw()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   love.graphics.print("LÖVE " .. love.getVersion(), 10, h - 22)
-  love.graphics.printf(Audio.muted and "M: music off" or "M: music on", 0, h - 22, w - 10, "right")
+  local muteKey = Controls.name(Controls.bindings("mute")[1])
+  love.graphics.printf(muteKey .. (Audio.muted and ": music off" or ": music on"), 0, h - 22, w - 10, "right")
 end
 
 function Menu:keypressed(key)
@@ -112,7 +114,7 @@ function Menu:keypressed(key)
     love.event.quit()
   elseif key == "return" then
     self:host()
-  elseif key == "m" and not self.nameField.focused then
+  elseif Controls.is("mute", key) and not self.nameField.focused then
     Audio.toggleMute()
   end
 end
