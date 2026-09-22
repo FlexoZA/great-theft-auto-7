@@ -117,13 +117,17 @@ nobody cherry-picks or pushes single commits to `main`.
 ## Layout
 
 ```
-main.lua        entry point, forwards LÖVE callbacks to the current state
-conf.lua        window + module config
-src/state.lua   scene switcher
-src/states/     menu, browser (join), lobby, game
-src/net/        protocol, discovery, server, client, init (session)
-src/ui.lua      buttons and text fields
-src/car.lua     the car
-lib/          vendored third-party libraries
-assets/       images, sounds, fonts, maps
+main.lua          entry point, loads features, forwards LÖVE callbacks
+conf.lua          window + module config
+src/features/     one folder per gameplay feature (yours go here)
+src/features/init.lua   the registry
+src/art/          pixel-art helpers, the 7 logo, the menu face and backdrop
+src/audio/        synth engine, menu theme, playback
+src/state.lua     scene switcher
+src/states/       menu, browser (join), lobby, game
+src/net/          protocol, discovery, server, client, init (session)
+src/ui.lua        buttons and text fields
+src/car.lua       car physics, hitbox and drawing
+lib/              vendored third-party libraries
+assets/           images, sounds, fonts, maps
 ```
