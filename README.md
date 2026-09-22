@@ -30,44 +30,54 @@ make build      # produces build/great-theft-auto-7.love
 
 Several people work on this repo, so nobody pushes straight to `main`.
 
-| Branch | Purpose | Who pushes |
+| Branch | Purpose | Who merges into it |
 | --- | --- | --- |
-| `main` | Stable, playable at all times | Nobody directly. Updated only by merging `staging` via a pull request |
-| `staging` | Integration branch. Everything lands here first | Feature branches, via pull request |
+| `main` | Stable, playable at all times. Your starting point for new work | **Christiaan (@FlexoZA) only**, by merging `staging` |
+| `staging` | Integration branch. All work lands here first | Any developer, via a reviewed pull request |
 | `feature/<name>`, `fix/<name>` | Your work in progress | You |
+
+### New developer, first time
+
+```bash
+git clone git@github.com:FlexoZA/great-theft-auto-7.git
+cd great-theft-auto-7
+sudo apt install love luajit lua-check   # Linux Mint / Ubuntu
+love .                                    # make sure it runs
+```
 
 ### Day-to-day
 
-1. Start from an up-to-date `staging`:
+1. Branch from an up-to-date `main`:
 
    ```bash
-   git checkout staging
+   git checkout main
    git pull
    git checkout -b feature/car-physics
    ```
 
 2. Commit as you go. Run `luacheck .` and make sure `love .` still starts before you push.
 
-3. Push your branch and open a pull request **into `staging`** (not `main`):
+3. Push your branch and open a pull request **into `staging`** (never `main`):
 
    ```bash
    git push -u origin feature/car-physics
    ```
 
-4. Get one review, then merge. Delete the branch afterwards.
+4. Get one review, then merge into `staging`. Delete your branch afterwards.
 
-5. If `staging` moved while you were working, bring it in before asking for review:
+5. If the pull request shows conflicts with `staging`, bring it in and push again:
 
    ```bash
    git fetch origin
-   git rebase origin/staging
+   git merge origin/staging
    ```
 
 ### Releasing to main
 
-When `staging` has been played and nothing is broken, open a pull request from
-`staging` into `main` and merge it. Never cherry-pick or push single commits to
-`main`.
+Only Christiaan merges `staging` into `main`, after playing the staging build
+and confirming nothing is broken. This is done with a pull request from
+`staging` into `main`. Nobody else opens or merges that pull request, and
+nobody cherry-picks or pushes single commits to `main`.
 
 ### Rules of thumb
 

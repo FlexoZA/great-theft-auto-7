@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] Target branch is `staging` (or this is a `staging` -> `main` release PR)
+- [ ] Target branch is `staging` (only @FlexoZA opens `staging` -> `main` release PRs)
 - [ ] `luacheck .` passes
 - [ ] `love .` starts and the change was played
 - [ ] No build output or editor files committed

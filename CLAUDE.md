@@ -17,7 +17,6 @@ Top-down driving game in Lua using LÖVE 11.5.
 - Assets go in `assets/<type>/` and are loaded once in `love.load`, not per frame.
 
 ## Git workflow
-- `main` is release-only. Never commit or push to it directly.
-- Branch from `staging` (`feature/<name>` or `fix/<name>`), open pull requests into `staging`.
-- `staging` is promoted to `main` only via a pull request.
+- `main` is release-only. Only Christiaan (@FlexoZA) merges into it, always from `staging`. Never commit or push to it directly.
+- Branch from `main` (`feature/<name>` or `fix/<name>`) and open pull requests into `staging`.
 - Run `luacheck .` before pushing.
