@@ -1,0 +1,175 @@
+-- Minimap: a small map in the bottom-right corner. Shows the city (drawn
+-- once from the city-map layout), every car as a dot in its colour, your car
+-- with a heading tick, and the rectangle the camera currently sees. Without
+-- the city-map feature it becomes a radar centred on you.
+--
+-- Purely local. Tab toggles it.
+
+local Features = require("src.features")
+local Car = require("src.car")
+local UI = require("src.ui")
+
+local Minimap = {
+  name = "minimap",
+  priority = 890, -- over the arrows (500), under the vision cursor (900)
+}
+
+-- Tuning ------------------------------------------------------------------
+Minimap.width = 220 -- px on screen
+Minimap.margin = 12
+Minimap.alpha = 0.88
+Minimap.radarRange = 2400 -- px of world shown across the radar when there is no map
+Minimap.toggleKey = "tab"
+Minimap.visible = true
+
+local canvas, mapRef, scale, height = nil, nil, 1, 0
+local camera = nil
+
+local C = {
+  asphalt = { 0.17, 0.17, 0.19 },
+  walk = { 0.40, 0.40, 0.43 },
+  grass = { 0.28, 0.46, 0.25 },
+  lot = { 0.22, 0.22, 0.24 },
+  frame = { 0.85, 0.85, 0.85 },
+}
+
+--- Draw the city layout into a canvas the size of the minimap.
+local function buildCanvas(map)
+  local T = 64
+  scale = Minimap.width / map.w
+  height = math.floor(map.h * scale)
+  local c = love.graphics.newCanvas(Minimap.width, height)
+  c:setFilter("nearest", "nearest")
+  love.graphics.push("all")
+  love.graphics.setCanvas(c)
+  love.graphics.clear(C.asphalt[1], C.asphalt[2], C.asphalt[3], 1)
+  love.graphics.scale(scale)
+  love.graphics.translate(-map.x0, -map.y0)
+  for _, b in ipairs(map.blocks) do
+    love.graphics.setColor(C.walk)
+    love.graphics.rectangle("fill", map.x0 + (b.tx - 1) * T, map.y0 + (b.ty - 1) * T, 8 * T, 8 * T)
+    if b.kind == "park" then
+      love.graphics.setColor(C.grass)
+      love.graphics.rectangle("fill", map.x0 + b.tx * T, map.y0 + b.ty * T, b.tw * T, b.th * T)
+    elseif b.kind == "lot" then
+      love.graphics.setColor(C.lot)
+      love.graphics.rectangle("fill", map.x0 + b.tx * T, map.y0 + b.ty * T, b.tw * T, b.th * T)
+    end
+  end
+  for _, b in ipairs(map.buildings) do
+    love.graphics.setColor(b.color)
+    love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  end
+  love.graphics.setCanvas()
+  love.graphics.pop()
+  return c
+end
+
+function Minimap:enterGame()
+  local city = Features.byName["city-map"]
+  mapRef = city and city.map or nil
+  if mapRef and not canvas and love.graphics then
+    canvas = buildCanvas(mapRef)
+  end
+  if not mapRef then
+    height = Minimap.width
+    scale = Minimap.width / Minimap.radarRange
+  end
+end
+
+function Minimap:update(_dt, _client, cam)
+  camera = cam
+end
+
+function Minimap:keypressed(key)
+  if key == self.toggleKey then
+    self.visible = not self.visible
+  end
+end
+
+--- World -> minimap pixel, relative to the minimap's top-left.
+local function project(x, y, me)
+  if mapRef then
+    return (x - mapRef.x0) * scale, (y - mapRef.y0) * scale
+  end
+  local cx, cy = me and me.dx or 0, me and me.dy or 0
+  return Minimap.width / 2 + (x - cx) * scale, height / 2 + (y - cy) * scale
+end
+
+function Minimap:drawHUD(client)
+  if not self.visible then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local x0 = w - self.width - self.margin
+  local y0 = h - height - self.margin
+  local me = client:myCar()
+
+  love.graphics.push()
+  love.graphics.translate(x0, y0)
+
+  -- Backing and map.
+  love.graphics.setColor(0, 0, 0, self.alpha * 0.6)
+  love.graphics.rectangle("fill", -3, -3, self.width + 6, height + 6)
+  if canvas then
+    love.graphics.setColor(1, 1, 1, self.alpha)
+    love.graphics.draw(canvas, 0, 0)
+  else
+    love.graphics.setColor(C.asphalt[1], C.asphalt[2], C.asphalt[3], self.alpha)
+    love.graphics.rectangle("fill", 0, 0, self.width, height)
+    love.graphics.setColor(1, 1, 1, 0.12)
+    love.graphics.circle("line", self.width / 2, height / 2, self.width / 4)
+    love.graphics.circle("line", self.width / 2, height / 2, self.width / 2)
+  end
+
+  -- Clip everything else to the map area.
+  love.graphics.setScissor(x0, y0, self.width, height)
+
+  -- Camera viewport.
+  if camera then
+    local s = camera.scale or 1
+    local vx, vy = project(camera.x - w / 2 / s, camera.y - h / 2 / s, me)
+    love.graphics.setColor(1, 1, 1, 0.35)
+    love.graphics.rectangle("line", vx, vy, w / s * scale, h / s * scale)
+  end
+
+  -- Cars.
+  for id, c in pairs(client.cars) do
+    local px, py = project(c.dx, c.dy, me)
+    local col = Car.colorFor(id)
+    if id == client.myId then
+      love.graphics.setColor(1, 1, 1)
+      love.graphics.circle("fill", px, py, 4.5)
+      love.graphics.setColor(col)
+      love.graphics.circle("fill", px, py, 3)
+      love.graphics.setColor(1, 1, 1)
+      love.graphics.setLineWidth(2)
+      love.graphics.line(px, py, px + math.cos(c.dangle) * 8, py + math.sin(c.dangle) * 8)
+      love.graphics.setLineWidth(1)
+    else
+      love.graphics.setColor(0, 0, 0, 0.7)
+      love.graphics.circle("fill", px, py, 4)
+      love.graphics.setColor(col)
+      love.graphics.circle("fill", px, py, 3)
+    end
+  end
+
+  love.graphics.setScissor()
+
+  -- Frame and label.
+  love.graphics.setColor(C.frame[1], C.frame[2], C.frame[3], self.alpha)
+  love.graphics.rectangle("line", 0, 0, self.width, height)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  love.graphics.print("Tab: map", 0, -18)
+
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- For tests.
+function Minimap.project(x, y, me)
+  return project(x, y, me)
+end
+
+return Minimap
