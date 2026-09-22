@@ -7,6 +7,7 @@ local UI = require("src.ui")
 local Net = require("src.net")
 local Car = require("src.car")
 local Features = require("src.features")
+local Audio = require("src.audio")
 
 local Game = {}
 
@@ -19,6 +20,7 @@ end
 
 function Game:enter()
   UI.load()
+  Audio.pauseMusic()
   -- Features may move the camera and change its scale in their update hook.
   self.camera = { x = 0, y = 0, scale = 1 }
   Features.call("enterGame", Net.client)

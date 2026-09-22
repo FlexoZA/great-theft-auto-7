@@ -2,6 +2,7 @@ local State = require("src.state")
 local UI = require("src.ui")
 local Net = require("src.net")
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 
 local Menu = {}
 
@@ -9,6 +10,7 @@ local W = 260
 
 function Menu:enter()
   UI.load()
+  Audio.playMenuTheme()
   if not self.nameField then
     local default = os.getenv("USER") or os.getenv("USERNAME") or "Player"
     self.nameField = UI.textField({ label = "Your name", value = default:sub(1, Protocol.MAX_NAME), focused = true })
@@ -74,6 +76,7 @@ function Menu:draw()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.5, 0.5, 0.55)
   love.graphics.print("LÖVE " .. love.getVersion(), 10, h - 22)
+  love.graphics.printf(Audio.muted and "M: music off" or "M: music on", 0, h - 22, w - 10, "right")
 end
 
 function Menu:keypressed(key)
@@ -82,6 +85,8 @@ function Menu:keypressed(key)
     love.event.quit()
   elseif key == "return" then
     self:host()
+  elseif key == "m" and not self.nameField.focused then
+    Audio.toggleMute()
   end
 end
 
