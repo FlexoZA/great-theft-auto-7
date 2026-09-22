@@ -4,14 +4,25 @@
 --   Audio.registerChannel("engine", "Vehicle engine", 0.7, previewFn)
 -- and scales what it plays by Audio.volume("engine"), which already includes
 -- the master level. Volumes persist through src/settings.lua.
+--
+-- The menu has more than one theme (see Audio.MENU_TRACKS); whoever owns the
+-- choice calls Audio.setMenuTrack. Each one is synthesised the first time it
+-- is asked for and kept, so switching back and forth is free.
 
 local Settings = require("src.settings")
 
 local Audio = {
-  music = nil,
+  music = nil, -- the source currently selected, playing or not
   muted = false,
   channels = {}, -- ordered: { key, label, default, preview }
   byKey = {},
+  tracks = {}, -- menu track key -> Source, rendered on demand
+  menuTrack = "metal",
+}
+
+Audio.MENU_TRACKS = {
+  metal = "src.audio.menu_theme",
+  rap = "src.audio.rap_theme",
 }
 
 function Audio.registerChannel(key, label, default, preview)
@@ -62,15 +73,40 @@ function Audio.applyMusic()
   end
 end
 
-function Audio.playMenuTheme()
-  if not Audio.music then
+--- The source for one menu track, synthesising it on first use.
+local function menuSource(key)
+  local src = Audio.tracks[key]
+  if not src then
     local started = love.timer.getTime()
-    local sd = require("src.audio.menu_theme").render()
-    Audio.music = love.audio.newSource(sd, "static")
-    Audio.music:setLooping(true)
-    Audio.music:setRelative(true) -- never positional: the game moves the listener around
-    print(("menu theme: %.1fs of audio rendered in %.2fs"):format(sd:getDuration(), love.timer.getTime() - started))
+    local sd = require(Audio.MENU_TRACKS[key]).render()
+    src = love.audio.newSource(sd, "static")
+    src:setLooping(true)
+    src:setRelative(true) -- never positional: the game moves the listener around
+    Audio.tracks[key] = src
+    print(("menu theme %s: %.1fs of audio rendered in %.2fs"):format(key, sd:getDuration(),
+      love.timer.getTime() - started))
   end
+  return src
+end
+
+--- Choose the menu theme. Swaps straight away when music is already playing.
+function Audio.setMenuTrack(key)
+  if key == Audio.menuTrack or not Audio.MENU_TRACKS[key] then
+    return
+  end
+  Audio.menuTrack = key
+  local wasPlaying = Audio.music and Audio.music:isPlaying()
+  if Audio.music then
+    Audio.music:stop()
+    Audio.music = nil
+  end
+  if wasPlaying then
+    Audio.playMenuTheme()
+  end
+end
+
+function Audio.playMenuTheme()
+  Audio.music = Audio.music or menuSource(Audio.menuTrack)
   Audio.applyMusic()
   if not Audio.music:isPlaying() then
     Audio.music:play()
