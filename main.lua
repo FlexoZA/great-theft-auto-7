@@ -4,8 +4,10 @@
 local State = require("src.state")
 local Net = require("src.net")
 local Features = require("src.features")
+local Video = require("src.video")
 
 function love.load()
+  Video.apply() -- saved display mode, size and vsync
   love.graphics.setBackgroundColor(0.16, 0.16, 0.18)
   love.graphics.setDefaultFilter("nearest", "nearest")
   love.keyboard.setKeyRepeat(true)

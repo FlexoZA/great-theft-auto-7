@@ -19,6 +19,7 @@ local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
 local Features = require("src.features")
 local Controls = require("src.controls")
+local Video = require("src.video")
 
 local Weapons = {
   name = "weapons",
@@ -281,14 +282,16 @@ Weapons.clientMessages = {
       Sounds.play("explosion", at.x, at.y)
       Explosions.spawn(at.x, at.y, victim and Car.colorFor(victim))
       local me = client:myCar()
-      if me then
+      if me and Video.get("screenShake") then
         local dist = math.sqrt((at.x - me.dx) ^ 2 + (at.y - me.dy) ^ 2)
         Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
       end
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
-      Explosions.addShake(SHAKE_MAX)
+      if Video.get("screenShake") then
+        Explosions.addShake(SHAKE_MAX)
+      end
     end
     if pid then
       Weapons.projectiles[pid] = nil

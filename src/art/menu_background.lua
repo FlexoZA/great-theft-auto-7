@@ -2,6 +2,7 @@
 -- itself, and CRT scanlines over everything.
 
 local Face = require("src.art.face")
+local Video = require("src.video")
 
 local Background = {}
 Background.__index = Background
@@ -43,9 +44,11 @@ function Background:draw(faceX, faceY, faceScale)
   self.face:draw(faceX, faceY, faceScale)
 
   -- Scanlines.
-  love.graphics.setColor(0, 0, 0, 0.18)
-  for y = 0, h, 4 do
-    love.graphics.rectangle("fill", 0, y, w, 1)
+  if Video.get("scanlines") then
+    love.graphics.setColor(0, 0, 0, 0.18)
+    for y = 0, h, 4 do
+      love.graphics.rectangle("fill", 0, y, w, 1)
+    end
   end
   love.graphics.setColor(1, 1, 1)
 end

@@ -8,6 +8,7 @@ local Net = require("src.net")
 local Car = require("src.car")
 local Features = require("src.features")
 local Audio = require("src.audio")
+local Video = require("src.video")
 
 local Game = {}
 
@@ -97,7 +98,11 @@ function Game:draw()
   local me = client:myCar()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("FPS %d  speed %.0f"):format(love.timer.getFPS(), me and me.speed or 0), 10, 10)
+  if Video.get("showFps") then
+    love.graphics.print(("FPS %d  speed %.0f"):format(love.timer.getFPS(), me and me.speed or 0), 10, 10)
+  else
+    love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
+  end
   love.graphics.print("Arrows/WASD to drive, Esc to leave", 10, 28)
 
   local text

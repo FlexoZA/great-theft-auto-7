@@ -1,4 +1,5 @@
--- Tiny immediate-ish UI: buttons, a single-line text field and a slider.
+-- Tiny immediate-ish UI: buttons, a single-line text field, a slider and a
+-- cycler (pick one of several options with arrows).
 
 local utf8 = require("utf8")
 
@@ -211,6 +212,79 @@ function Slider:mousepressed(mx, my, button)
   if button == 1 and self:contains(mx, my) then
     self.dragging = true
     self:setFromMouse(mx)
+    return true
+  end
+  return false
+end
+
+-- Cycler ------------------------------------------------------------------
+
+local Cycler = {}
+Cycler.__index = Cycler
+
+--- UI.cycler({ label=, options = { { label=, value= }, ... }, index=, onChange=(value), x=, y=, w=, h=, enabled= })
+function UI.cycler(opts)
+  opts.x = opts.x or 0
+  opts.y = opts.y or 0
+  opts.w = opts.w or 300
+  opts.h = opts.h or 32
+  opts.index = opts.index or 1
+  if opts.enabled == nil then
+    opts.enabled = true
+  end
+  return setmetatable(opts, Cycler)
+end
+
+function Cycler:step(delta)
+  local n = #self.options
+  self.index = (self.index - 1 + delta) % n + 1
+  if self.onChange then
+    self.onChange(self.options[self.index].value, self.index)
+  end
+end
+
+function Cycler:contains(mx, my)
+  return mx >= self.x and mx <= self.x + self.w and my >= self.y and my <= self.y + self.h
+end
+
+function Cycler:draw()
+  local arrowW = self.h
+  local hover = self.enabled and self:contains(love.mouse.getPosition())
+  if not self.enabled then
+    love.graphics.setColor(0.20, 0.20, 0.24)
+  elseif hover then
+    love.graphics.setColor(0.36, 0.56, 0.92)
+  else
+    love.graphics.setColor(0.24, 0.40, 0.72)
+  end
+  love.graphics.rectangle("fill", self.x, self.y, arrowW, self.h, 6)
+  love.graphics.rectangle("fill", self.x + self.w - arrowW, self.y, arrowW, self.h, 6)
+  love.graphics.setColor(0.10, 0.10, 0.12)
+  love.graphics.rectangle("fill", self.x + arrowW + 2, self.y, self.w - arrowW * 2 - 4, self.h, 4)
+  love.graphics.setFont(UI.fonts.body)
+  local th = UI.fonts.body:getHeight()
+  local ty = self.y + math.floor((self.h - th) / 2)
+  love.graphics.setColor(1, 1, 1, self.enabled and 1 or 0.5)
+  love.graphics.printf("<", self.x, ty, arrowW, "center")
+  love.graphics.printf(">", self.x + self.w - arrowW, ty, arrowW, "center")
+  love.graphics.printf(self.options[self.index].label, self.x + arrowW, ty, self.w - arrowW * 2, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
+function Cycler:mousepressed(mx, my, button)
+  if not self.enabled or not self:contains(mx, my) then
+    return false
+  end
+  if button == 1 then
+    local arrowW = self.h
+    if mx < self.x + arrowW then
+      self:step(-1)
+    else
+      self:step(1)
+    end
+    return true
+  elseif button == 2 then
+    self:step(-1)
     return true
   end
   return false
