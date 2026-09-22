@@ -2,6 +2,11 @@
 -- connection, so movement sync, hitboxes, health and respawns treat them
 -- exactly like humans.
 --
+-- This feature is also the NPC toolkit for others: Bots:spawnNpc() creates
+-- a driver with a custom `brain` (police uses one), and Bots.driveTowards,
+-- Bots.unstick, Bots:cruise and Bots:fight are the shared driving skills.
+-- The civilian bots below are just the default brain.
+--
 -- Bots are peaceful by default: they cruise the city between random road
 -- waypoints and ignore players. Shoot one or ram one and it turns hostile
 -- towards you for a while, chasing, orbiting at a standoff distance and
@@ -46,7 +51,8 @@ Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
 Bots.waypointTimeout = 25 -- seconds before giving up on a waypoint
 
 local HOST_ID = 1
-local bots = {} -- ordered list of bot players on the server
+local bots = {} -- civilian bots (the default brain), in spawn order
+local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
 local now = 0 -- server time, seconds since start
 
@@ -78,20 +84,21 @@ end
 
 -- Server ----------------------------------------------------------------
 
-function Bots:add(server, x, y, angle)
-  if #bots >= self.maxBots then
-    return nil
-  end
+--- Create any NPC driver. opts: name, x, y, angle, brain (table with
+--- think(server, npc, dt), optional), plus any extra fields to copy onto the
+--- player (e.g. police = true). Returns the player table.
+function Bots:spawnNpc(server, opts)
   local id = server.nextId
   server.nextId = id + 1
-  local bot = {
+  local npc = {
     id = id,
-    name = "Bot " .. nextNumber,
+    name = opts.name,
     peer = stubPeer(id),
     input = { throttle = 0, steer = 0 },
     lastSeq = 0,
-    car = Car.new(x, y, angle),
+    car = Car.new(opts.x, opts.y, opts.angle),
     bot = true,
+    brain = opts.brain,
     ai = {
       hostileTo = nil, -- player id this bot is angry at
       hostileUntil = 0,
@@ -105,26 +112,55 @@ function Bots:add(server, x, y, angle)
       reverseFor = 0,
     },
   }
+  for k, v in pairs(opts) do
+    if npc[k] == nil and k ~= "x" and k ~= "y" and k ~= "angle" then
+      npc[k] = v
+    end
+  end
+  server.players[id] = npc
+  npcs[#npcs + 1] = npc
+  server:broadcast(Protocol.encode("JOIN", id, npc.name))
+  Features.call("serverPlayerJoined", server, npc)
+  return npc
+end
+
+function Bots:removeNpc(server, npc)
+  for i = #npcs, 1, -1 do
+    if npcs[i] == npc then
+      table.remove(npcs, i)
+    end
+  end
+  for i = #bots, 1, -1 do
+    if bots[i] == npc then
+      table.remove(bots, i)
+    end
+  end
+  server.players[npc.id] = nil
+  server:broadcast(Protocol.encode("LEAVE", npc.id))
+  Features.call("serverPlayerLeft", server, npc)
+end
+
+--- A civilian bot (default brain).
+function Bots:add(server, x, y, angle)
+  if #bots >= self.maxBots then
+    return nil
+  end
+  local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle })
   nextNumber = nextNumber + 1
-  server.players[id] = bot
   bots[#bots + 1] = bot
-  server:broadcast(Protocol.encode("JOIN", id, bot.name))
-  Features.call("serverPlayerJoined", server, bot)
   return bot
 end
 
 function Bots:removeLast(server)
-  local bot = table.remove(bots)
-  if not bot then
-    return
+  local bot = bots[#bots]
+  if bot then
+    self:removeNpc(server, bot)
   end
-  server.players[bot.id] = nil
-  server:broadcast(Protocol.encode("LEAVE", bot.id))
-  Features.call("serverPlayerLeft", server, bot)
 end
 
 function Bots:serverStart(server)
   bots = {}
+  npcs = {}
   nextNumber = 1
   now = 0
   local humans = 0
@@ -205,7 +241,7 @@ function Bots:serverCarsCollided(server, rammer, rammed, closing)
 end
 
 function Bots:serverPlayerLeft(_server, player)
-  for _, bot in ipairs(bots) do
+  for _, bot in ipairs(npcs) do
     if bot.ai.hostileTo == player.id then
       bot.ai.hostileTo = nil
     end
@@ -215,7 +251,7 @@ end
 -- Driving -----------------------------------------------------------------
 
 --- Steer towards a world point; returns the distance to it.
-local function driveTowards(bot, tx, ty, throttle, orbit)
+function Bots.driveTowards(bot, tx, ty, throttle, orbit)
   local car, input, ai = bot.car, bot.input, bot.ai
   local dx, dy = tx - car.x, ty - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
@@ -233,7 +269,7 @@ local function driveTowards(bot, tx, ty, throttle, orbit)
 end
 
 --- Wedged against a wall (throttle on, not moving): back out the other way for a moment.
-local function unstick(bot, dt)
+function Bots.unstick(bot, dt)
   local car, input, ai = bot.car, bot.input, bot.ai
   if ai.reverseFor > 0 then
     ai.reverseFor = ai.reverseFor - dt
@@ -252,7 +288,7 @@ local function unstick(bot, dt)
   end
 end
 
-local function newWaypoint(bot)
+function Bots.newWaypoint(bot)
   local city = Features.byName["city-map"]
   local x, y
   if city and city.randomRoadPoint then
@@ -266,14 +302,15 @@ local function newWaypoint(bot)
   bot.ai.waypointUntil = now + Bots.waypointTimeout
 end
 
-function Bots:cruise(bot)
+--- Drive between random road waypoints at `throttle` (default cruiseThrottle).
+function Bots:cruise(bot, throttle)
   local ai = bot.ai
   if not ai.waypoint or now > ai.waypointUntil then
-    newWaypoint(bot)
+    Bots.newWaypoint(bot)
   end
-  local dist = driveTowards(bot, ai.waypoint.x, ai.waypoint.y, self.cruiseThrottle, false)
+  local dist = Bots.driveTowards(bot, ai.waypoint.x, ai.waypoint.y, throttle or self.cruiseThrottle, false)
   if dist < 110 then
-    newWaypoint(bot)
+    Bots.newWaypoint(bot)
   end
 end
 
@@ -282,7 +319,7 @@ function Bots:fight(server, bot, target)
   local tc = target.car
   local dx, dy = tc.x - car.x, tc.y - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
-  driveTowards(bot, tc.x, tc.y, 1, dist <= self.standoff)
+  Bots.driveTowards(bot, tc.x, tc.y, 1, dist <= self.standoff)
 
   ai.retarget = ai.retarget - server.dtLast
   if ai.retarget <= 0 then
@@ -330,18 +367,25 @@ function Bots:think(server, bot, dt)
   else
     self:cruise(bot)
   end
-  unstick(bot, dt)
+  Bots.unstick(bot, dt)
 end
 
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
-  for _, bot in ipairs(bots) do
-    if bot.car and not bot.car.hidden then
-      self:think(server, bot, dt)
-    elseif bot.car then
-      bot.input.throttle, bot.input.steer = 0, 0 -- wrecked: sit still until respawn
-      self:calm(bot) -- and come back peaceful
+  for _, npc in ipairs(npcs) do
+    if npc.car and not npc.car.hidden then
+      if npc.brain then
+        npc.brain.think(server, npc, dt)
+      else
+        self:think(server, npc, dt)
+      end
+    elseif npc.car then
+      npc.input.throttle, npc.input.steer = 0, 0 -- wrecked: sit still until respawn
+      self:calm(npc) -- and come back peaceful
+      if npc.brain and npc.brain.wrecked then
+        npc.brain.wrecked(server, npc)
+      end
     end
   end
 end
@@ -370,9 +414,14 @@ function Bots:drawHUD()
   end
 end
 
---- For tests and other features.
+--- Civilian bots, for tests and other features.
 function Bots.list()
   return bots
+end
+
+--- Every NPC driver.
+function Bots.npcs()
+  return npcs
 end
 
 return Bots
