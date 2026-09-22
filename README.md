@@ -36,6 +36,9 @@ binding per action. Volumes are under *Settings > Sound*, and display mode, wind
 VSync, FPS counter, screen shake and menu scanlines under *Settings > Video*. All are saved to
 the LÖVE save directory.
 
+*Inclusive mode*, the toggle at the top right of the main menu, gives the menu face dark skin
+and swaps the metal theme for a boom-bap hip-hop one. It is saved with everything else.
+
 ## Multiplayer (LAN)
 
 One player hosts, everyone else joins. Both need to be on the same network.
@@ -131,7 +134,7 @@ conf.lua          window + module config
 src/features/     one folder per gameplay feature (yours go here)
 src/features/init.lua   the registry
 src/art/          pixel-art helpers, the 7 logo, the menu face and backdrop
-src/audio/        synth engine, menu theme, playback
+src/audio/        synth engine, the two menu themes, playback
 src/state.lua     scene switcher
 src/states/       menu, browser (join), lobby, game
 src/net/          protocol, discovery, server, client, init (session)

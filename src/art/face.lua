@@ -3,19 +3,20 @@
 -- animates cheaply: skewed eyes that drift and twitch independently (left
 -- looks left, right looks right), blinks, a raised brow, and a knife
 -- clenched in the teeth.
+--
+-- Two skin palettes; inclusive mode (the menu toggle) picks the dark one and
+-- the choice is saved. Everything that isn't skin is shared between them.
 
 local Pixel = require("src.art.pixel")
+local Settings = require("src.settings")
 
 local Face = {}
 Face.__index = Face
 
 Face.W, Face.H = 64, 72
 
+-- Shared ink: eyes, blood, mouth, knife.
 local C = {
-  outline = { 0.08, 0.035, 0.05 },
-  skin = { 0.90, 0.78, 0.62 },
-  shade = { 0.76, 0.60, 0.44 },
-  hair = { 0.16, 0.09, 0.06 },
   white = { 0.96, 0.96, 0.92 },
   blood = { 0.80, 0.18, 0.18 },
   iris = { 0.55, 0.82, 0.25 },
@@ -28,6 +29,42 @@ local C = {
   handle = { 0.42, 0.24, 0.12 },
   ring = { 0.65, 0.55, 0.30 },
 }
+
+-- Skin palettes. `detail` draws the nose and scar, so it has to stay visible
+-- against `skin`; `outline` is the silhouette and the brows.
+local SKINS = {
+  {
+    outline = { 0.08, 0.035, 0.05 },
+    skin = { 0.90, 0.78, 0.62 },
+    shade = { 0.76, 0.60, 0.44 },
+    hair = { 0.16, 0.09, 0.06 },
+    detail = { 0.08, 0.035, 0.05 },
+  },
+  {
+    outline = { 0.05, 0.03, 0.04 },
+    skin = { 0.33, 0.20, 0.13 },
+    shade = { 0.22, 0.13, 0.09 },
+    hair = { 0.07, 0.05, 0.04 },
+    detail = { 0.14, 0.08, 0.06 },
+  },
+}
+
+local SETTING = "appearance.inclusive"
+
+--- The skin palette in use.
+local function skin()
+  return SKINS[Settings.get(SETTING, false) and 2 or 1]
+end
+
+--- Is inclusive mode on?
+function Face.inclusive()
+  return Settings.get(SETTING, false) and true or false
+end
+
+--- Turn inclusive mode on or off and save it.
+function Face.setInclusive(on)
+  Settings.set(SETTING, on and true or false)
+end
 
 local function color(c, a)
   love.graphics.setColor(c[1], c[2], c[3], a or 1)
@@ -84,6 +121,7 @@ end
 function Face:render()
   local t = self.t
   local cx = Face.W / 2
+  local S = skin()
 
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
@@ -92,7 +130,7 @@ function Face:render()
   love.graphics.setLineWidth(1)
 
   -- Hair: back mass and spikes.
-  color(C.hair)
+  color(S.hair)
   love.graphics.ellipse("fill", cx, 26, 25, 16)
   local spikes = {
     { 10, 4 }, { 17, -2 }, { 24, 1 }, { 31, -4 }, { 38, 0 }, { 45, -3 }, { 52, 3 }, { 57, 9 }, { 7, 12 },
@@ -103,28 +141,28 @@ function Face:render()
   end
 
   -- Ears.
-  color(C.outline)
+  color(S.outline)
   love.graphics.circle("fill", 10, 43, 5)
   love.graphics.circle("fill", 54, 43, 5)
-  color(C.skin)
+  color(S.skin)
   love.graphics.circle("fill", 10, 43, 4)
   love.graphics.circle("fill", 54, 43, 4)
-  color(C.shade)
+  color(S.shade)
   love.graphics.circle("fill", 10, 44, 2)
   love.graphics.circle("fill", 54, 44, 2)
 
   -- Head.
-  color(C.outline)
+  color(S.outline)
   love.graphics.ellipse("fill", cx, 42, 23, 27)
-  color(C.skin)
+  color(S.skin)
   love.graphics.ellipse("fill", cx, 42, 22, 26)
-  color(C.shade)
+  color(S.shade)
   love.graphics.ellipse("fill", cx - 2, 54, 18, 12) -- jaw shadow
-  color(C.skin)
+  color(S.skin)
   love.graphics.ellipse("fill", cx, 40, 20, 18)
 
   -- Fringe hanging over the forehead.
-  color(C.hair)
+  color(S.hair)
   love.graphics.ellipse("fill", cx, 22, 22, 7)
   spike(12, 24, 20, 24, 14, 32)
   spike(24, 24, 32, 24, 30, 30)
@@ -134,7 +172,7 @@ function Face:render()
   local blink = self.blink > 0
   local eyes = { { x = 22, y = 37, r = 8 }, { x = 43, y = 34, r = 6 } }
   for i, e in ipairs(eyes) do
-    color(C.outline)
+    color(S.outline)
     love.graphics.circle("fill", e.x, e.y, e.r + 1)
     color(C.white)
     love.graphics.circle("fill", e.x, e.y, e.r)
@@ -157,15 +195,15 @@ function Face:render()
     color(C.edge)
     love.graphics.rectangle("fill", px - 1, py - 2, 1, 1)
     if blink then
-      color(C.skin)
+      color(S.skin)
       love.graphics.circle("fill", e.x, e.y, e.r + 1)
-      color(C.outline)
+      color(S.outline)
       love.graphics.line(e.x - e.r, e.y, e.x + e.r, e.y)
     end
   end
 
   -- Brows: left slammed down (angry), right arched high (twitching).
-  color(C.outline)
+  color(S.outline)
   love.graphics.setLineWidth(2)
   love.graphics.line(13, 27, 30, 31)
   local lift = self.browTwitch > 0 and 2 or 0
@@ -173,6 +211,7 @@ function Face:render()
   love.graphics.setLineWidth(1)
 
   -- Scar on the right cheek.
+  color(S.detail)
   love.graphics.line(48, 40, 52, 50)
   love.graphics.line(48, 43, 51, 42)
   love.graphics.line(50, 47, 53, 46)
@@ -181,7 +220,7 @@ function Face:render()
   love.graphics.line(31, 42, 30, 47, 33, 47)
 
   -- Mouth: a wide manic grin.
-  color(C.outline)
+  color(S.outline)
   love.graphics.ellipse("fill", cx, 56, 15, 6)
   color(C.mouth)
   love.graphics.ellipse("fill", cx, 56, 14, 5)
@@ -193,13 +232,13 @@ function Face:render()
   love.graphics.push()
   love.graphics.translate(cx, 56)
   love.graphics.rotate(ka)
-  color(C.outline)
+  color(S.outline)
   love.graphics.polygon("fill", -32, 0, -22, -4, 12, -4, 12, 3, -22, 3)
   color(C.blade)
   love.graphics.polygon("fill", -30, 0, -22, -3, 11, -3, 11, 2, -22, 2)
   color(C.edge)
   love.graphics.line(-29, 0, -22, -3, 10, -3)
-  color(C.outline)
+  color(S.outline)
   love.graphics.rectangle("fill", 11, -5, 4, 9) -- guard
   love.graphics.rectangle("fill", 15, -3, 17, 6)
   color(C.handle)
@@ -217,7 +256,7 @@ function Face:render()
   end
 
   -- Stubble.
-  color(C.outline, 0.5)
+  color(S.outline, 0.5)
   for k = 0, 14 do
     local sx = 20 + (k * 7) % 24
     local sy = 60 + (k * 5) % 7
