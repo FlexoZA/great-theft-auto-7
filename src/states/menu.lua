@@ -19,6 +19,7 @@ local iconSet = false
 
 function Menu:enter()
   UI.load()
+  self:applyInclusive()
   Audio.playMenuTheme()
   if not iconSet then
     love.window.setIcon(Logo.icon())
@@ -53,12 +54,18 @@ function Menu:enter()
       Face.setInclusive(not Face.inclusive())
       b.selected = Face.inclusive()
       b.label = self:inclusiveLabel()
+      self:applyInclusive()
     end,
   })
 end
 
 function Menu:inclusiveLabel()
   return "Inclusive mode: " .. (Face.inclusive() and "on" or "off")
+end
+
+--- Inclusive mode swaps the menu theme along with the face.
+function Menu:applyInclusive()
+  Audio.setMenuTrack(Face.inclusive() and "rap" or "metal")
 end
 
 function Menu:playerName()
