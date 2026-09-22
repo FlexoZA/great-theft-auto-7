@@ -18,6 +18,8 @@ local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
 local Features = require("src.features")
+local Controls = require("src.controls")
+local Video = require("src.video")
 
 local Weapons = {
   name = "weapons",
@@ -64,6 +66,8 @@ Weapons.camera = nil -- last camera seen in update; needed to aim through pans a
 
 function Weapons:load()
   Sounds.load()
+  Controls.register("fire", "Fire", "mouse1")
+  Controls.register("hitboxes", "Show hitboxes", "f1")
 end
 
 function Weapons:enterGame()
@@ -117,21 +121,23 @@ function Weapons:tryFire(client)
 end
 
 function Weapons:mousepressed(_x, _y, button, client)
-  if button == 1 then
+  if Controls.isMouse("fire", button) then
     self:tryFire(client)
   end
 end
 
-function Weapons:keypressed(key)
-  if key == "f1" then
+function Weapons:keypressed(key, client)
+  if Controls.is("hitboxes", key) then
     self.showHitboxes = not self.showHitboxes
+  elseif Controls.is("fire", key) then
+    self:tryFire(client)
   end
 end
 
 function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
-  if love.mouse.isDown(1) then
+  if Controls.isDown("fire") then
     self:tryFire(client)
   end
   for pid, p in pairs(self.projectiles) do
@@ -210,7 +216,9 @@ function Weapons:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
   love.graphics.print(("HP %d   kills %d"):format(hp, kills), 10, 46)
   love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print("Left mouse: fire   F1: hitboxes", 10, 64)
+  local fireKey = Controls.name(Controls.bindings("fire")[1])
+  local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
+  love.graphics.print(fireKey .. ": fire   " .. boxKey .. ": hitboxes", 10, 64)
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -274,14 +282,16 @@ Weapons.clientMessages = {
       Sounds.play("explosion", at.x, at.y)
       Explosions.spawn(at.x, at.y, victim and Car.colorFor(victim))
       local me = client:myCar()
-      if me then
+      if me and Video.get("screenShake") then
         local dist = math.sqrt((at.x - me.dx) ^ 2 + (at.y - me.dy) ^ 2)
         Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
       end
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
-      Explosions.addShake(SHAKE_MAX)
+      if Video.get("screenShake") then
+        Explosions.addShake(SHAKE_MAX)
+      end
     end
     if pid then
       Weapons.projectiles[pid] = nil

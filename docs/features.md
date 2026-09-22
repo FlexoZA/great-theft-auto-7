@@ -118,6 +118,38 @@ Horn.clientMessages = {
 return Horn
 ```
 
+## Sound volumes
+
+Register one channel per kind of sound in your `load` hook and scale every
+play by it; the settings screen then shows a slider for it automatically:
+
+```lua
+local Audio = require("src.audio")
+Audio.registerChannel("sirens", "Police sirens", 0.8, function()
+  Sounds.play("siren", 0, 0) -- preview when the slider moves
+end)
+...
+source:setVolume(Audio.volume("sirens")) -- includes the master level
+```
+
+## Key bindings
+
+Never test raw keys in a feature. Register an action in `load` and ask the
+controls module; the Controls section of Settings then lists it and players
+can rebind it:
+
+```lua
+local Controls = require("src.controls")
+Controls.register("horn", "Sound the horn", "h") -- key, label, default (+ optional secondary)
+...
+function Horn:keypressed(key, client)
+  if Controls.is("horn", key) then ... end          -- key presses
+end
+Controls.isDown("horn")                            -- held, in update
+Controls.isMouse("horn", button)                   -- in mousepressed
+Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
+```
+
 ## Conventions between features
 
 Features stay decoupled by talking through the server's player tables and a

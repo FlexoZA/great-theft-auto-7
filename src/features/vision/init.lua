@@ -7,6 +7,7 @@
 -- player at scale 1, exactly as before.
 
 local Cursors = require("src.features.vision.cursors")
+local Controls = require("src.controls")
 
 local Vision = {
   name = "vision",
@@ -22,7 +23,7 @@ Vision.maxDistance = 700 -- how far the camera may drift from the player
 Vision.minZoom = 0.65 -- zoom once the camera is a full maxDistance away
 Vision.zoomRate = 4 -- how quickly the zoom follows that distance
 Vision.recenterRate = 9 -- how quickly the recentre key snaps back to the player
-Vision.recenterKey = "c"
+Vision.recenterKey = "c" -- default binding of the "recentre" action (rebind in Settings)
 
 -- Camera state, in world px from the player.
 Vision.offsetX = 0
@@ -33,6 +34,10 @@ Vision.cursors = Cursors
 Vision.cursor = "target"
 
 local recentering = false
+
+function Vision:load()
+  Controls.register("recentre", "Recentre camera", self.recenterKey)
+end
 
 --- Grab the mouse while driving; the menus need a normal cursor.
 function Vision:enterGame()
@@ -112,7 +117,7 @@ function Vision:update(dt, _client, camera)
 end
 
 function Vision:keypressed(key)
-  if self.enabled and key == self.recenterKey then
+  if self.enabled and Controls.is("recentre", key) then
     recentering = true
   end
 end

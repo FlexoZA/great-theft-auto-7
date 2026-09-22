@@ -7,6 +7,7 @@
 
 local Synth = require("src.audio.synth")
 local Car = require("src.car")
+local Audio = require("src.audio")
 
 local Engine = {
   name = "engine-sound",
@@ -14,7 +15,7 @@ local Engine = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Engine.volume = 0.7 -- overall level
+Engine.volume = 0.7 -- default level of the "engine" volume channel (settings can change it)
 Engine.idleVolume = 0.35 -- fraction of volume at standstill
 Engine.gears = { 0.22, 0.45, 0.72, 1.01 } -- top of each gear as a fraction of max speed
 Engine.idlePitch = 0.9
@@ -54,9 +55,31 @@ local function renderLoop()
   return buf:toSoundData(0.85)
 end
 
+--- A second of revving for the settings screen, cut from the loop.
+local function renderPreview()
+  local buf = Synth.newBuffer(0.9)
+  local n = loopData:getSampleCount()
+  local pos = 0
+  for i = 0, buf.n - 1 do
+    local t = i / Synth.RATE
+    local pitch = 1.0 + t * 1.4
+    pos = (pos + pitch) % n
+    local fade = math.min(1, t * 20, (0.9 - t) * 6)
+    buf.data[i] = loopData:getSample(math.floor(pos)) * fade
+  end
+  return buf:toSoundData(0.8)
+end
+
 function Engine:load()
   loopData = renderLoop()
   love.audio.setDistanceModel("inverseclamped")
+  local preview = renderPreview()
+  Audio.registerChannel("engine", "Vehicle engine", self.volume, function()
+    local s = love.audio.newSource(preview, "static")
+    s:setRelative(true)
+    s:setVolume(Audio.volume("engine"))
+    s:play()
+  end)
 end
 
 function Engine:enterGame()
@@ -102,7 +125,7 @@ function Engine:update(dt, client)
     local target = self.idlePitch + within * self.revRange + (e.gear - 1) * self.gearStep
     e.pitch = e.pitch + (target - e.pitch) * math.min(1, dt * 10)
     e.source:setPitch(e.pitch)
-    e.source:setVolume(self.volume * (self.idleVolume + (1 - self.idleVolume) * frac))
+    e.source:setVolume(Audio.volume("engine") * (self.idleVolume + (1 - self.idleVolume) * frac))
     e.source:setPosition(c.dx, 0, c.dy)
   end
 
