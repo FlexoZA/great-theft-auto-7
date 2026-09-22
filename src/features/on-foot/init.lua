@@ -215,6 +215,12 @@ end
 function OnFoot:update(dt, client, camera)
   Render.update(dt, client.myId)
   local me = self:me(client)
+  if me and not client:myCar() then
+    -- No car means wrecked: whatever stale snapshot left a figure here, we
+    -- are not standing anywhere. Drop it so the camera and input let go.
+    Render.remove(client.myId)
+    me = nil
+  end
   if not me then
     return
   end
