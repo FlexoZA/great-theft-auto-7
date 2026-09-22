@@ -108,7 +108,7 @@ end
 function Server:broadcastState()
   local parts = { self.tick }
   for _, p in pairs(self.players) do
-    if p.car then
+    if p.car and not p.car.hidden then -- features may hide a car (e.g. while wrecked)
       local c = p.car
       parts[#parts + 1] = p.id
       parts[#parts + 1] = ("%.1f"):format(c.x)

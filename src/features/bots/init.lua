@@ -133,7 +133,7 @@ Bots.serverMessages = {
 local function pickTarget(server, bot)
   local best, bestCost
   for id, p in pairs(server.players) do
-    if id ~= bot.id and p.car then
+    if id ~= bot.id and p.car and not p.car.hidden then
       local dx, dy = p.car.x - bot.car.x, p.car.y - bot.car.y
       local cost = math.sqrt(dx * dx + dy * dy) * (p.bot and 1.5 or 1) -- prefer humans
       if not bestCost or cost < bestCost then
@@ -194,8 +194,10 @@ end
 
 function Bots:serverStep(server, dt)
   for _, bot in ipairs(bots) do
-    if bot.car then
+    if bot.car and not bot.car.hidden then
       self:think(server, bot, dt)
+    elseif bot.car then
+      bot.input.throttle, bot.input.steer = 0, 0 -- wrecked: sit still until respawn
     end
   end
 end
