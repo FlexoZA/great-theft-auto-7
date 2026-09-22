@@ -7,6 +7,7 @@
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
+--   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --
 -- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
 -- its slot with brief protection.
@@ -237,6 +238,12 @@ local function playerName(client, id)
 end
 
 Weapons.clientMessages = {
+  WPN_HEALTH = function(_client, args)
+    local id, hp = tonumber(args[1]), tonumber(args[2])
+    if id and hp then
+      Weapons.health[id] = hp
+    end
+  end,
   WPN_SHOT = function(_client, args)
     local pid, owner = tonumber(args[1]), tonumber(args[2])
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
@@ -327,6 +334,20 @@ function Weapons:serverPlayerLeft(_server, player)
   if self.sv then
     self.sv.players[player.id] = nil
   end
+end
+
+--- Restore up to `amount` health to a living player. Returns true if any
+--- health was gained (so a pickup knows whether it was used). Other features
+--- reach this via Features.byName.weapons.
+function Weapons:serverHeal(server, player, amount)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not st or not player.car or player.car.hidden or st.hp >= MAX_HEALTH then
+    return false
+  end
+  st.hp = math.min(MAX_HEALTH, st.hp + amount)
+  server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
+  return true
 end
 
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
