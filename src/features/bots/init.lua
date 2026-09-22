@@ -1,8 +1,14 @@
--- Bots: AI drivers for testing. They live only on the server as fake players
--- with a stub connection, so movement sync, hitboxes, health and respawns
--- treat them exactly like humans. Each bot chases the nearest car, orbits it
--- at a standoff distance and shoots through the weapons feature with lead
--- and a little spread.
+-- Bots: AI drivers. They live only on the server as fake players with a stub
+-- connection, so movement sync, hitboxes, health and respawns treat them
+-- exactly like humans.
+--
+-- Bots are peaceful by default: they cruise the city between random road
+-- waypoints and ignore players. Shoot one or ram one and it turns hostile
+-- towards you for a while, chasing, orbiting at a standoff distance and
+-- shooting through the weapons feature with lead and a little spread. It
+-- calms down again once it has been left alone for `hostileTime` seconds.
+-- Other features can provoke a bot too (a trigger area later):
+--   Features.byName.bots:provoke(server, botPlayer, playerId)
 --
 -- Host keys: B adds a bot, N removes the last one.
 --
@@ -29,10 +35,16 @@ Bots.range = 650 -- px; won't shoot beyond this
 Bots.spread = 0.08 -- radians of random aim error
 Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
 Bots.retargetEvery = 1.5 -- seconds
+Bots.hostileTime = 40 -- seconds a bot stays angry after the last provocation
+Bots.ramSpeed = 120 -- closing speed (px/s) that counts as being rammed
+Bots.cruiseThrottle = 0.65 -- how hard a peaceful bot drives
+Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
+Bots.waypointTimeout = 25 -- seconds before giving up on a waypoint
 
 local HOST_ID = 1
 local bots = {} -- ordered list of bot players on the server
 local nextNumber = 1
+local now = 0 -- server time, seconds since start
 
 local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
@@ -77,7 +89,10 @@ function Bots:add(server, x, y, angle)
     car = Car.new(x, y, angle),
     bot = true,
     ai = {
-      target = nil,
+      hostileTo = nil, -- player id this bot is angry at
+      hostileUntil = 0,
+      waypoint = nil,
+      waypointUntil = 0,
       retarget = 0,
       fireTimer = love.math.random() * self.fireInterval,
       orbitDir = love.math.random() < 0.5 and -1 or 1,
@@ -106,6 +121,7 @@ end
 function Bots:serverStart(server)
   bots = {}
   nextNumber = 1
+  now = 0
   local humans = 0
   for _ in pairs(server.players) do
     humans = humans + 1
@@ -154,54 +170,60 @@ Bots.serverMessages = {
   end,
 }
 
-local function pickTarget(server, bot)
-  local best, bestCost
-  for id, p in pairs(server.players) do
-    if id ~= bot.id and p.car and not p.car.hidden then
-      local dx, dy = p.car.x - bot.car.x, p.car.y - bot.car.y
-      local cost = math.sqrt(dx * dx + dy * dy) * (p.bot and 1.5 or 1) -- prefer humans
-      if not bestCost or cost < bestCost then
-        best, bestCost = id, cost
-      end
-    end
-  end
-  return best
-end
+-- Provocation -------------------------------------------------------------
 
-function Bots:think(server, bot, dt)
-  local ai, car, input = bot.ai, bot.car, bot.input
-
-  ai.retarget = ai.retarget - dt
-  if ai.retarget <= 0 or not (ai.target and server.players[ai.target]) then
-    ai.target = pickTarget(server, bot)
-    ai.retarget = self.retargetEvery
-    if love.math.random() < 0.3 then
-      ai.orbitDir = -ai.orbitDir
-    end
-  end
-
-  local target = ai.target and server.players[ai.target]
-  if not (target and target.car) then
-    input.throttle, input.steer = 0.6, 0.4 -- nobody around: cruise in a circle
+--- Make `bot` hostile towards player `byId` (a human or another bot).
+function Bots:provoke(_server, bot, byId)
+  if not (bot and bot.bot and byId) or byId == bot.id then
     return
   end
+  bot.ai.hostileTo = byId
+  bot.ai.hostileUntil = now + self.hostileTime
+end
 
-  local tc = target.car
-  local dx, dy = tc.x - car.x, tc.y - car.y
-  local dist = math.sqrt(dx * dx + dy * dy)
-  local toTarget = math.atan2(dy, dx)
-
-  -- Drive: head for the target, or circle it once close.
-  local desired = dist > self.standoff and toTarget or (toTarget + ai.orbitDir * math.pi / 2)
-  local err = angleDiff(desired, car.angle)
-  input.steer = clamp(err / 0.4, -1, 1)
-  if math.abs(err) > 2.4 and dist < 120 then
-    input.throttle = -0.6 -- nose-to-nose and stuck: back out
-  else
-    input.throttle = 1
+function Bots:serverPlayerDamaged(server, victim, attacker)
+  if victim.bot and attacker then
+    self:provoke(server, victim, attacker.id)
   end
+end
 
-  -- Wedged against a wall (throttle on, not moving): back out the other way for a moment.
+function Bots:serverCarsCollided(server, rammer, rammed, closing)
+  if rammed.bot and closing >= self.ramSpeed then
+    self:provoke(server, rammed, rammer.id)
+  end
+end
+
+function Bots:serverPlayerLeft(_server, player)
+  for _, bot in ipairs(bots) do
+    if bot.ai.hostileTo == player.id then
+      bot.ai.hostileTo = nil
+    end
+  end
+end
+
+-- Driving -----------------------------------------------------------------
+
+--- Steer towards a world point; returns the distance to it.
+local function driveTowards(bot, tx, ty, throttle, orbit)
+  local car, input, ai = bot.car, bot.input, bot.ai
+  local dx, dy = tx - car.x, ty - car.y
+  local dist = math.sqrt(dx * dx + dy * dy)
+  local heading = math.atan2(dy, dx)
+  if orbit then
+    heading = heading + ai.orbitDir * math.pi / 2
+  end
+  local err = angleDiff(heading, car.angle)
+  input.steer = clamp(err / 0.4, -1, 1)
+  input.throttle = throttle
+  if math.abs(err) > 2.4 and dist < 120 and not orbit then
+    input.throttle = -0.6 -- nose-to-nose with the target: back out
+  end
+  return dist
+end
+
+--- Wedged against a wall (throttle on, not moving): back out the other way for a moment.
+local function unstick(bot, dt)
+  local car, input, ai = bot.car, bot.input, bot.ai
   if ai.reverseFor > 0 then
     ai.reverseFor = ai.reverseFor - dt
     input.throttle = -1
@@ -212,13 +234,55 @@ function Bots:think(server, bot, dt)
       ai.stuck = 0
       ai.reverseFor = 0.8 + love.math.random() * 0.6
       ai.orbitDir = -ai.orbitDir
+      ai.waypoint = nil -- pick somewhere else afterwards
     end
   else
     ai.stuck = 0
   end
+end
+
+local function newWaypoint(bot)
+  local city = Features.byName["city-map"]
+  local x, y
+  if city and city.randomRoadPoint then
+    x, y = city:randomRoadPoint(bot.car.x, bot.car.y, Bots.waypointRange)
+  end
+  if not x then
+    local a = love.math.random() * 2 * math.pi
+    x, y = bot.car.x + math.cos(a) * 600, bot.car.y + math.sin(a) * 600
+  end
+  bot.ai.waypoint = { x = x, y = y }
+  bot.ai.waypointUntil = now + Bots.waypointTimeout
+end
+
+function Bots:cruise(bot)
+  local ai = bot.ai
+  if not ai.waypoint or now > ai.waypointUntil then
+    newWaypoint(bot)
+  end
+  local dist = driveTowards(bot, ai.waypoint.x, ai.waypoint.y, self.cruiseThrottle, false)
+  if dist < 110 then
+    newWaypoint(bot)
+  end
+end
+
+function Bots:fight(server, bot, target)
+  local ai, car = bot.ai, bot.car
+  local tc = target.car
+  local dx, dy = tc.x - car.x, tc.y - car.y
+  local dist = math.sqrt(dx * dx + dy * dy)
+  driveTowards(bot, tc.x, tc.y, 1, dist <= self.standoff)
+
+  ai.retarget = ai.retarget - server.dtLast
+  if ai.retarget <= 0 then
+    ai.retarget = self.retargetEvery
+    if love.math.random() < 0.3 then
+      ai.orbitDir = -ai.orbitDir
+    end
+  end
 
   -- Shoot: lead the target by its velocity over the projectile's flight time.
-  ai.fireTimer = ai.fireTimer - dt
+  ai.fireTimer = ai.fireTimer - server.dtLast
   if ai.fireTimer <= 0 and dist < self.range then
     ai.fireTimer = self.fireInterval
     local Weapons = Features.byName.weapons
@@ -232,7 +296,23 @@ function Bots:think(server, bot, dt)
   end
 end
 
+function Bots:think(server, bot, dt)
+  local ai = bot.ai
+  if ai.hostileTo and now > ai.hostileUntil then
+    ai.hostileTo = nil -- forgiven
+  end
+  local target = ai.hostileTo and server.players[ai.hostileTo]
+  if target and target.car and not target.car.hidden then
+    self:fight(server, bot, target)
+  else
+    self:cruise(bot)
+  end
+  unstick(bot, dt)
+end
+
 function Bots:serverStep(server, dt)
+  now = now + dt
+  server.dtLast = dt
   for _, bot in ipairs(bots) do
     if bot.car and not bot.car.hidden then
       self:think(server, bot, dt)

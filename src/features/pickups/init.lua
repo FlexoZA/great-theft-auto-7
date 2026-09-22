@@ -145,15 +145,10 @@ local sv = nil -- { items = { id -> { kind, x, y } }, nextId, pending = { { at, 
 --- A random spot on a road tile (city map) or in a ring around the origin.
 local function roadSpot()
   local city = Features.byName["city-map"]
-  local map = city and city.map
-  if map then
-    local Layout = require("src.features.city-map.layout")
-    for _ = 1, 50 do
-      local c = love.math.random(0, Layout.COLS - 1)
-      local r = love.math.random(0, Layout.ROWS - 1)
-      if map.tiles[c][r] == "road" then
-        return map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
-      end
+  if city and city.randomRoadPoint then
+    local x, y = city:randomRoadPoint()
+    if x then
+      return x, y
     end
   end
   local a = love.math.random() * 2 * math.pi

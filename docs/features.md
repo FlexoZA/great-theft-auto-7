@@ -150,6 +150,20 @@ Controls.isMouse("horn", button)                   -- in mousepressed
 Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 ```
 
+## Events between features
+
+A feature can raise an event for every other feature with
+`Features.call("hookName", ...)`; any feature defining that hook receives
+it. Events in use:
+
+| Event | Raised by | Meaning |
+| --- | --- | --- |
+| `serverPlayerDamaged(server, victim, attacker, amount)` | weapons | A projectile hit. `attacker` may be nil if they left. |
+| `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
+
+Bots listen to both to decide who to fight. A trigger-area feature would
+raise its own event the same way.
+
 ## Conventions between features
 
 Features stay decoupled by talking through the server's player tables and a
