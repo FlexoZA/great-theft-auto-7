@@ -6,12 +6,16 @@
 --   client -> server  WPN_FIRE <aimAngle>
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>
---   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills>
+--   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
+--
+-- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
+-- its slot with brief protection.
 
 local Protocol = require("src.net.protocol")
 local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
+local Explosions = require("src.features.weapons.explosions")
 
 local Weapons = {
   name = "weapons",
@@ -26,6 +30,9 @@ local FIRE_COOLDOWN = 0.2 -- seconds between shots
 local DAMAGE = 20
 local MAX_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
+local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
+local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
+local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
@@ -39,6 +46,7 @@ Weapons.hitFlash = {} -- player id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.showHitboxes = false
+Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 
 function Weapons:load()
@@ -53,6 +61,8 @@ function Weapons:enterGame()
   self.feed = nil
   self.cooldown = 0
   self.camera = nil
+  self.deadTimer = 0
+  Explosions.clear()
 end
 
 function Weapons:exitGame()
@@ -132,9 +142,18 @@ function Weapons:update(dt, client, camera)
       self.feed = nil
     end
   end
+  self.deadTimer = math.max(0, self.deadTimer - dt)
+  Explosions.update(dt)
+  Explosions.shakeCamera(camera)
+end
+
+function Weapons:drawBelowCars()
+  Explosions.drawBelow()
 end
 
 function Weapons:drawAboveCars(client)
+  Explosions.drawAbove()
+
   -- Projectiles as short streaks along their direction of travel.
   love.graphics.setLineWidth(2)
   love.graphics.setColor(1, 0.9, 0.3)
@@ -186,6 +205,17 @@ function Weapons:drawHUD(client)
     love.graphics.setColor(1, 1, 1, math.min(1, self.feed.t))
     love.graphics.printf(self.feed.text, 0, 40, w, "center")
   end
+  if self.deadTimer > 0 then
+    local w, h = love.graphics.getDimensions()
+    love.graphics.setColor(0.5, 0, 0, 0.35)
+    love.graphics.rectangle("fill", 0, 0, w, h)
+    love.graphics.setFont(UI.fonts.title)
+    love.graphics.setColor(1, 0.3, 0.2)
+    love.graphics.printf("WRECKED", 0, h / 2 - 60, w, "center")
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -219,9 +249,20 @@ Weapons.clientMessages = {
   end,
   WPN_KILL = function(client, args)
     local pid, killer, victim, kills = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    local deathTime = tonumber(args[5]) or DEATH_TIME
     local at = (pid and Weapons.projectiles[pid]) or (victim and client.cars[victim])
     if at then
       Sounds.play("explosion", at.x, at.y)
+      Explosions.spawn(at.x, at.y, victim and Car.colorFor(victim))
+      local me = client:myCar()
+      if me then
+        local dist = math.sqrt((at.x - me.dx) ^ 2 + (at.y - me.dy) ^ 2)
+        Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
+      end
+    end
+    if victim == client.myId then
+      Weapons.deadTimer = deathTime
+      Explosions.addShake(SHAKE_MAX)
     end
     if pid then
       Weapons.projectiles[pid] = nil
@@ -319,7 +360,7 @@ function Weapons:sweep(server, p, nx, ny)
     local px, py = p.x + dx * t, p.y + dy * t
     for id, player in pairs(server.players) do
       local st = self.sv.players[id]
-      if st and player.car and id ~= p.owner and self.sv.time >= st.protectedUntil then
+      if st and player.car and not player.car.hidden and id ~= p.owner and self.sv.time >= st.protectedUntil then
         if Car.hitTest(player.car, px, py, PROJECTILE_RADIUS) then
           return player
         end
@@ -345,10 +386,30 @@ function Weapons:hit(server, p, victim)
     kills = killer.kills
   end
   st.hp = MAX_HEALTH
-  st.protectedUntil = sv.time + SPAWN_PROTECTION
+  st.deadUntil = sv.time + DEATH_TIME
+  st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   local car = victim.car
+  car.hidden = true -- core stops broadcasting it until we clear this
   car.x, car.y, car.angle, car.speed = st.spawn.x, st.spawn.y, st.spawn.angle, 0
-  server:broadcast(Protocol.encode("WPN_KILL", p.id, p.owner, victim.id, kills))
+  server:broadcast(Protocol.encode("WPN_KILL", p.id, p.owner, victim.id, kills, DEATH_TIME))
+end
+
+--- Keep wrecks parked at their slot and bring them back when their time is up.
+function Weapons:updateWrecks(server)
+  local sv = self.sv
+  for id, st in pairs(sv.players) do
+    if st.deadUntil then
+      local car = server.players[id] and server.players[id].car
+      if not car then
+        st.deadUntil = nil
+      elseif sv.time < st.deadUntil then
+        car.x, car.y, car.angle, car.speed = st.spawn.x, st.spawn.y, st.spawn.angle, 0
+      else
+        car.hidden = false
+        st.deadUntil = nil
+      end
+    end
+  end
 end
 
 function Weapons:serverStep(server, dt)
@@ -357,6 +418,7 @@ function Weapons:serverStep(server, dt)
     return
   end
   sv.time = sv.time + dt
+  self:updateWrecks(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]
