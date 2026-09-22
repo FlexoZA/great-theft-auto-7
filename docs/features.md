@@ -167,7 +167,10 @@ couple of small conventions rather than requiring each other:
   own message (pedestrians and weapons do); `kill` is
   `{ kind = "pedestrian" | "car", x, y, by = <killer player id>, victim = <player id> }`
   with `x, y` where it died, not where a wreck respawns. Money drops koins
-  there. Ignore kinds you don't care about; new kinds may appear.
+  there: a pedestrian is worth a fresh koin, while a wrecked car spills up to
+  five out of `victim`'s own wallet and nothing at all if it was empty, so
+  fill in `victim` for anything a player was driving. Ignore kinds you don't
+  care about; new kinds may appear.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.

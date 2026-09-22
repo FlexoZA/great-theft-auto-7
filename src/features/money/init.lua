@@ -1,8 +1,10 @@
 -- Money: Federal Commie Koins (Fck, plural Fcks) spilled by the dead.
--- Flatten a pedestrian and one Fck hits the tarmac; wreck a car and five
--- scatter around it. Nothing is owned until it is collected: drive over a
--- koin and it is yours, whoever made the mess, so the fastest car to a
--- fresh wreck takes the pile.
+-- Flatten a pedestrian and one Fck hits the tarmac. Wreck a car and the
+-- driver spills up to five koins out of their own pocket -- the lot if they
+-- were carrying fewer, nothing at all if they were broke, so there is no
+-- money in farming a player who has none. Nothing is owned until it is
+-- collected: drive over a koin and it is yours, whoever made the mess, so
+-- the fastest car to a fresh wreck takes the pile.
 --
 -- The server owns every koin: it decides where they land, who picked one up
 -- and when an uncollected one is swept away. Clients only draw them and keep
@@ -15,6 +17,7 @@
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
+--   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -27,8 +30,8 @@ local Money = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Money.pedValue = 1 -- koins a flattened pedestrian drops
-Money.carValue = 5 -- koins a wrecked car drops
+Money.pedValue = 1 -- koins a flattened pedestrian drops (out of thin air)
+Money.carValue = 5 -- most koins a wrecked driver drops, out of their own wallet
 Money.radius = 30 -- px from car centre that counts as driving over one
 Money.scatter = 46 -- px; how wide a multi-koin drop spreads
 Money.lifetime = 30 -- seconds an uncollected koin lies in the road
@@ -142,7 +145,11 @@ end
 function Money:drawAboveCars()
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
-    love.graphics.setColor(1, 0.85, 0.3, math.min(1, f.t))
+    if f.lost then
+      love.graphics.setColor(1, 0.35, 0.3, math.min(1, f.t))
+    else
+      love.graphics.setColor(1, 0.85, 0.3, math.min(1, f.t))
+    end
     love.graphics.printf(f.text, f.x - 60, f.y, 120, "center")
   end
   love.graphics.setColor(1, 1, 1)
@@ -187,6 +194,26 @@ Money.clientMessages = {
     local id = tonumber(args[1])
     if id then
       Money.coins[id] = nil
+    end
+  end,
+  FCK_PURSE = function(client, args)
+    local id, total = tonumber(args[1]), tonumber(args[2])
+    if not (id and total) then
+      return
+    end
+    local lost = (Money.wallets[id] or 0) - total
+    Money.wallets[id] = total
+    -- A hidden wreck stops moving, so its last drawn position is the spot
+    -- the koins rolled out at.
+    local car = client.cars[id]
+    if lost > 0 and car then
+      Money.floats[#Money.floats + 1] = {
+        x = car.dx,
+        y = car.dy - 30,
+        text = "-" .. Money.amount(lost),
+        t = FLOAT_TIME,
+        lost = true,
+      }
     end
   end,
 }
@@ -259,12 +286,30 @@ function Money:drop(server, x, y, count)
   end
 end
 
+--- Turn up to `most` of a player's koins out of their pocket and tell
+--- everyone what they have left. Returns how many actually came out, which
+--- is nothing at all for a player who was carrying nothing.
+function Money:spill(server, id, most)
+  local purse = (id and sv and sv.wallets[id]) or 0
+  local count = math.min(most, purse)
+  if count > 0 then
+    sv.wallets[id] = purse - count
+    server:broadcast(Protocol.encode("FCK_PURSE", id, purse - count))
+  end
+  return count
+end
+
 --- Something died somewhere: pay out. See the `serverKill` convention in
 --- docs/features.md. Kinds this feature doesn't price are ignored.
+---
+--- A pedestrian is loose change nobody owned. A driver is different: what
+--- lands on the tarmac comes out of the wallet they were driving around
+--- with, so killing the same broke player twice pays nothing.
 function Money:serverKill(server, kill)
-  local count = (kill.kind == "pedestrian" and self.pedValue) or (kill.kind == "car" and self.carValue)
-  if count then
-    self:drop(server, kill.x, kill.y, count)
+  if kill.kind == "pedestrian" then
+    self:drop(server, kill.x, kill.y, self.pedValue)
+  elseif kill.kind == "car" then
+    self:drop(server, kill.x, kill.y, self:spill(server, kill.victim, self.carValue))
   end
 end
 
