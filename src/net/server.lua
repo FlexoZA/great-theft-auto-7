@@ -3,13 +3,22 @@
 local enet = require("enet")
 local Protocol = require("src.net.protocol")
 local Discovery = require("src.net.discovery")
+local Car = require("src.car")
 
 local Server = {}
 Server.__index = Server
 
 Server.MAX_PLAYERS = 8
+Server.TICK = 1 / 30 -- simulation step, seconds
 local CHANNELS = 2
 local RELIABLE = 0
+local STATE_CHANNEL = 1
+local MAX_FRAME = 0.25 -- never simulate more than this per update (spiral of death guard)
+local SPAWN_SPACING = 80
+
+local function clamp(v, lo, hi)
+  return math.max(lo, math.min(hi, v))
+end
 
 function Server.new(hostName)
   local ok, host = pcall(enet.host_create, "*:" .. Protocol.PORT, Server.MAX_PLAYERS, CHANNELS)
@@ -26,6 +35,8 @@ function Server.new(hostName)
     nextId = 1,
     started = false,
     discoveryError = nil,
+    tick = 0,
+    accumulator = 0,
   }, Server)
 
   local responder, err = Discovery.newResponder(function()
@@ -52,7 +63,7 @@ function Server:broadcast(msg, except)
   end
 end
 
-function Server:update()
+function Server:update(dt)
   if self.responder then
     self.responder:update()
   end
@@ -68,13 +79,65 @@ function Server:update()
     end
     -- "connect" is ignored: a peer becomes a player once it sends HELLO.
   end
+
+  if self.started then
+    self.accumulator = math.min(self.accumulator + dt, MAX_FRAME)
+    while self.accumulator >= Server.TICK do
+      self.accumulator = self.accumulator - Server.TICK
+      self:step(Server.TICK)
+    end
+  end
+end
+
+function Server:step(dt)
+  self.tick = self.tick + 1
+  for _, p in pairs(self.players) do
+    if p.car then
+      p.car:update(dt, p.input.throttle, p.input.steer)
+    end
+  end
+  self:broadcastState()
+end
+
+function Server:broadcastState()
+  local parts = { self.tick }
+  for _, p in pairs(self.players) do
+    if p.car then
+      local c = p.car
+      parts[#parts + 1] = p.id
+      parts[#parts + 1] = ("%.1f"):format(c.x)
+      parts[#parts + 1] = ("%.1f"):format(c.y)
+      parts[#parts + 1] = ("%.3f"):format(c.angle)
+      parts[#parts + 1] = ("%.0f"):format(c.speed)
+    end
+  end
+  local msg = Protocol.encode("STATE", unpack(parts))
+  for _, p in pairs(self.players) do
+    p.peer:send(msg, STATE_CHANNEL, "unreliable")
+  end
 end
 
 function Server:onMessage(peer, data)
   local kind, args = Protocol.decode(data)
   if kind == "HELLO" then
     self:onHello(peer, args[1])
+  elseif kind == "INPUT" then
+    self:onInput(peer, args)
   end
+end
+
+function Server:onInput(peer, args)
+  local player = self.byPeer[peer:index()]
+  if not player then
+    return
+  end
+  local seq = tonumber(args[1])
+  if not seq or seq <= player.lastSeq then
+    return -- stale or garbage
+  end
+  player.lastSeq = seq
+  player.input.throttle = clamp(tonumber(args[2]) or 0, -1, 1)
+  player.input.steer = clamp(tonumber(args[3]) or 0, -1, 1)
 end
 
 function Server:onHello(peer, name)
@@ -96,7 +159,14 @@ function Server:onHello(peer, name)
 
   local id = self.nextId
   self.nextId = id + 1
-  local player = { id = id, name = Protocol.sanitizeName(name), peer = peer }
+  local player = {
+    id = id,
+    name = Protocol.sanitizeName(name),
+    peer = peer,
+    input = { throttle = 0, steer = 0 },
+    lastSeq = 0,
+    car = nil,
+  }
   self.players[id] = player
   self.byPeer[idx] = player
 
@@ -124,8 +194,23 @@ function Server:start()
     return
   end
   self.started = true
+  self:spawnCars()
   self:broadcast(Protocol.encode("START"))
   self.host:flush()
+end
+
+--- Line everyone up side by side at the origin, facing up.
+function Server:spawnCars()
+  local ids = {}
+  for id in pairs(self.players) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  local n = #ids
+  for i, id in ipairs(ids) do
+    local x = (i - 1 - (n - 1) / 2) * SPAWN_SPACING
+    self.players[id].car = Car.new(x, 0, -math.pi / 2)
+  end
 end
 
 function Server:close()

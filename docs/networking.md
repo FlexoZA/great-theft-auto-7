@@ -27,11 +27,27 @@ nothing to vendor or install.
 
 1. **Lobby** (done): Host button starts an ENet server on `0.0.0.0:22122` and a UDP
    discovery responder on `22123`. Join button broadcasts, lists hosts, connects.
-2. **Movement sync**: clients send `{throttle, steer}` each tick. Server
+2. **Movement sync** (done): clients send `{throttle, steer}` each tick. Server
    integrates all cars, broadcasts positions. Clients draw all cars.
 3. **Join/leave**: spawn on connect, remove on disconnect or timeout.
-4. **Polish**: client-side interpolation, host migration (maybe never), NAT
-   traversal for internet play (out of scope for now).
+4. **Polish**: client-side prediction for the local car (right now your own
+   car is drawn from server snapshots too, so remote players feel one
+   round-trip plus one tick behind their keys), host migration (maybe never),
+   NAT traversal for internet play (out of scope for now).
+
+## How movement sync works (milestone 2)
+
+- On Start the server creates a `Car` per player, lined up along x at
+  `SPAWN_SPACING` intervals around the origin, facing up.
+- Server steps the simulation at a fixed 30 Hz (`Server.TICK`) with an
+  accumulator, applying each player's latest input, then sends one `STATE`
+  packet per tick on channel 1, unreliable. ENet drops packets that arrive
+  out of order, and the client also ignores any tick older than the last.
+- Clients send `INPUT <seq> <throttle> <steer>` at 30 Hz on channel 1,
+  unreliable. The server ignores sequence numbers that go backwards.
+- Clients keep the latest snapshot as the target and ease the drawn position
+  toward it (`SMOOTHING` in `src/states/game.lua`). Cars missing from a
+  snapshot are removed.
 
 ## Message shapes (milestone 2)
 
