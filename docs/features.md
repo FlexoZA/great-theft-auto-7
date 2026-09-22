@@ -171,6 +171,14 @@ couple of small conventions rather than requiring each other:
   five out of `victim`'s own wallet and nothing at all if it was empty, so
   fill in `victim` for anything a player was driving. Ignore kinds you don't
   care about; new kinds may appear.
+- `feature:serverShotAt(server, x, y, radius, by, angle)`: a bullet is
+  passing through this point on the host. Kill whatever of your own is
+  standing within `radius` of it and return true, and the shot stops there;
+  return false and it flies on. Weapons walks its projectiles through every
+  feature that defines it, so a gun kills pedestrians without knowing they
+  exist. `by` is the shooter's player id and `angle` the direction of
+  travel, for gibs and scoring. Cars are tested first, so answering here
+  never steals a hit from a player.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.
