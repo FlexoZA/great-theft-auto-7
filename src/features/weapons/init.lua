@@ -77,6 +77,7 @@ Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
+Weapons.armed = false -- held fire only counts once the button has been seen released in-game
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 
 function Weapons:load()
@@ -94,6 +95,7 @@ function Weapons:enterGame()
   self.cooldown = 0
   self.camera = nil
   self.deadTimer = 0
+  self.armed = false -- the click on "Start game" is still held on the first frame
   Explosions.clear()
 end
 
@@ -152,7 +154,10 @@ end
 function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
-  if Controls.isDown("fire") then
+  local held = Controls.isDown("fire")
+  if not held then
+    self.armed = true
+  elseif self.armed then
     self:tryFire(client)
   end
   for pid, p in pairs(self.projectiles) do
