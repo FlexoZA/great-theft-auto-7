@@ -212,6 +212,22 @@ function Crowd:think(p, dt, cars, ncars)
   return hitBy
 end
 
+--- The first pedestrian standing within `radius` of (x, y), taken out of the
+--- crowd. Used for anything that kills one without a bumper (a bullet); the
+--- caller announces the death. Returns nil if nobody was there.
+function Crowd:take(x, y, radius)
+  local r2 = (radius + Crowd.RADIUS) ^ 2
+  for i = 1, self.n do
+    local p = self.peds[i]
+    local dx, dy = p.x - x, p.y - y
+    if dx * dx + dy * dy < r2 then
+      self:remove(i)
+      return p
+    end
+  end
+  return nil
+end
+
 --- Advance the whole crowd. Returns the (reused) list of this tick's kills.
 function Crowd:update(server, dt)
   local cars, ncars = self:collect(server)

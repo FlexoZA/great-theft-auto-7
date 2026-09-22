@@ -1,5 +1,5 @@
 -- Pedestrians: a crowd that wanders the streets, breaks for the kerb when a
--- car comes at it, and bursts into gibs when one connects.
+-- car comes at it, and bursts into gibs when a bumper or a bullet connects.
 --
 -- The host owns every pedestrian (crowd.lua): it spawns them in a ring just
 -- outside anyone's view, recycles the ones nobody can see, and decides who
@@ -137,6 +137,32 @@ function Pedestrians:serverPlayerLeft(_server, player)
   end
 end
 
+--- One dead pedestrian: score it for the killer, gib it on every screen, and
+--- let the other features price it (money drops a koin on the spot).
+--- `kill` is { id, x, y, angle, by }; `angle` is the direction the gibs fly.
+function Pedestrians:announce(server, kill)
+  local total = (self.scores[kill.by] or 0) + 1
+  self.scores[kill.by] = total
+  server:broadcast(Protocol.encode("PED_GIB", kill.id, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
+    ("%.3f"):format(kill.angle), kill.by, total))
+  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
+end
+
+--- A bullet passed through (x, y) on its way, fired by player `by` along
+--- `angle`. Drop whoever was standing there and say so, so the shot stops on
+--- them. The `serverShotAt` convention, see docs/features.md.
+function Pedestrians:serverShotAt(server, x, y, radius, by, angle)
+  if not (self.crowd and by) then
+    return false
+  end
+  local p = self.crowd:take(x, y, radius)
+  if not p then
+    return false
+  end
+  self:announce(server, { id = p.id, x = p.x, y = p.y, angle = angle or 0, by = by })
+  return true
+end
+
 --- One PED_SYNC line for the whole crowd. Pixel precision is plenty for a
 --- walking figure and keeps the packet small.
 local function syncMessage(crowd, tick)
@@ -159,11 +185,7 @@ function Pedestrians:serverStep(server, dt)
   end
 
   for _, kill in ipairs(crowd:update(server, dt)) do
-    local total = (self.scores[kill.by] or 0) + 1
-    self.scores[kill.by] = total
-    server:broadcast(Protocol.encode("PED_GIB", kill.id, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
-      ("%.3f"):format(kill.angle), kill.by, total))
-    Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
+    self:announce(server, kill)
   end
 
   self.syncIn = self.syncIn - 1
