@@ -4,6 +4,8 @@
 local Render = {
   peds = {}, -- id -> { x, y, dx, dy, angle, flee, bob }
   time = 0,
+  panicked = {}, -- pedestrians that started running in the last sync()...
+  panickedN = 0, -- ...and how many of them, so the table can be reused
 }
 
 local SMOOTHING = 10 -- per second, matching the feel of the car smoothing
@@ -25,12 +27,14 @@ local SKIN = { 0.92, 0.78, 0.63 }
 function Render.clear()
   Render.peds = {}
   Render.time = 0
+  Render.panickedN = 0
 end
 
 --- Apply a PED_SYNC payload: args[1] is the tick, then groups of four.
 function Render.sync(args)
   local peds = Render.peds
   local seen = {}
+  Render.panickedN = 0
   for i = 2, #args - 3, 4 do
     local id = tonumber(args[i])
     local x, y = tonumber(args[i + 1]), tonumber(args[i + 2])
@@ -40,7 +44,19 @@ function Render.sync(args)
         p = { dx = x, dy = y, angle = 0, bob = love.math.random() * 6 }
         peds[id] = p
       end
-      p.x, p.y, p.flee = x, y, args[i + 3] == "1"
+      local flee = args[i + 3] == "1"
+      if flee and not p.flee then
+        -- Just spotted a car: worth a yelp (init.lua decides).
+        local n = Render.panickedN + 1
+        local slot = Render.panicked[n]
+        if not slot then
+          slot = {}
+          Render.panicked[n] = slot
+        end
+        slot.id, slot.x, slot.y = id, x, y
+        Render.panickedN = n
+      end
+      p.x, p.y, p.flee = x, y, flee
       seen[id] = true
     end
   end

@@ -19,6 +19,7 @@ local UI = require("src.ui")
 local Crowd = require("src.features.pedestrians.crowd")
 local Render = require("src.features.pedestrians.render")
 local Gibs = require("src.features.pedestrians.gibs")
+local Sounds = require("src.features.pedestrians.sounds")
 
 local Pedestrians = {
   name = "pedestrians",
@@ -26,6 +27,9 @@ local Pedestrians = {
 }
 
 local SYNC_EVERY = 2 -- server ticks between PED_SYNC broadcasts
+local YELP_CHANCE = 0.4 -- how often a pedestrian who bolts cries out
+local YELP_GAP = 0.25 -- seconds between cries, so a crowd doesn't shriek at once
+local YELP_RANGE = 1100 -- px from your car; further away nobody hears it
 
 Pedestrians.roadkill = {} -- client side: player id -> pedestrians flattened
 Pedestrians.lastSync = 0 -- client side: newest server tick seen in a PED_SYNC
@@ -33,7 +37,7 @@ Pedestrians.lastSync = 0 -- client side: newest server tick seen in a PED_SYNC
 -- Client --------------------------------------------------------------------
 
 function Pedestrians:load()
-  Gibs.load()
+  Sounds.load()
 end
 
 function Pedestrians:enterGame()
@@ -41,6 +45,7 @@ function Pedestrians:enterGame()
   Gibs.clear()
   self.roadkill = {}
   self.lastSync = 0 -- a new host starts counting ticks from zero again
+  self.yelpTimer = 0
 end
 
 function Pedestrians:exitGame()
@@ -50,6 +55,26 @@ end
 function Pedestrians:update(dt)
   Render.update(dt)
   Gibs.update(dt)
+  self.yelpTimer = self.yelpTimer - dt
+end
+
+--- Let a few of the pedestrians who just bolted cry out. Only the ones near
+--- enough to hear, and never two at once, however big the stampede.
+function Pedestrians:panicCries(client)
+  local me = client:myCar()
+  if not me then
+    return
+  end
+  for i = 1, Render.panickedN do
+    local p = Render.panicked[i]
+    local dx, dy = p.x - me.dx, p.y - me.dy
+    if self.yelpTimer <= 0 and dx * dx + dy * dy < YELP_RANGE * YELP_RANGE then
+      if love.math.random() < YELP_CHANCE then
+        Sounds.panic(p.id, p.x, p.y)
+        self.yelpTimer = YELP_GAP
+      end
+    end
+  end
 end
 
 function Pedestrians:drawBelowCars(_client, camera)
@@ -69,13 +94,14 @@ function Pedestrians:drawHUD(client)
 end
 
 Pedestrians.clientMessages = {
-  PED_SYNC = function(_client, args)
+  PED_SYNC = function(client, args)
     local tick = tonumber(args[1])
     if not tick or tick <= Pedestrians.lastSync then
       return -- an unreliable packet that overtook a newer one
     end
     Pedestrians.lastSync = tick
     Render.sync(args)
+    Pedestrians:panicCries(client)
   end,
   PED_GIB = function(_client, args)
     local id = tonumber(args[1])
@@ -88,6 +114,7 @@ Pedestrians.clientMessages = {
       Render.remove(id) -- don't let them keep walking until the next sync
     end
     Gibs.splat(x, y, angle)
+    Sounds.play("splat", x, y, 0.88 + love.math.random() * 0.24)
     if killer and total then
       Pedestrians.roadkill[killer] = total
     end
