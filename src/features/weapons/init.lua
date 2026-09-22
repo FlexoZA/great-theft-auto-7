@@ -426,9 +426,11 @@ function Weapons:hit(server, p, victim)
   st.deadUntil = sv.time + DEATH_TIME
   st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   local car = victim.car
+  local wx, wy = car.x, car.y -- where the wreck went up, before it parks at its slot
   car.hidden = true -- core stops broadcasting it until we clear this
   car.x, car.y, car.angle, car.speed = st.spawn.x, st.spawn.y, st.spawn.angle, 0
   server:broadcast(Protocol.encode("WPN_KILL", p.id, p.owner, victim.id, kills, DEATH_TIME))
+  Features.call("serverKill", server, { kind = "car", x = wx, y = wy, by = p.owner, victim = victim.id })
 end
 
 --- Keep wrecks parked at their slot and bring them back when their time is up.

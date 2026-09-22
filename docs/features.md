@@ -129,6 +129,13 @@ couple of small conventions rather than requiring each other:
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
   solid. Weapons checks every feature that defines it, so bullets stop at
   walls without knowing which feature owns them.
+- `feature:serverKill(server, kill)`: the host tells every feature that
+  something died. The feature that owns the kill calls
+  `Features.call("serverKill", server, kill)` right after it broadcasts its
+  own message (pedestrians and weapons do); `kill` is
+  `{ kind = "pedestrian" | "car", x, y, by = <killer player id>, victim = <player id> }`
+  with `x, y` where it died, not where a wreck respawns. Money drops koins
+  there. Ignore kinds you don't care about; new kinds may appear.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.
