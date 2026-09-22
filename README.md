@@ -24,6 +24,8 @@ make run        # or: love .
 | --- | --- |
 | Arrows / WASD | Drive |
 | Left mouse | Fire toward the cursor |
+| Mouse at screen edge | Pan the camera (zooms out as it drifts) |
+| C | Recentre the camera on your car |
 | F1 | Show hitboxes |
 | Esc | Leave the game |
 

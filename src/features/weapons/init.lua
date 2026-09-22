@@ -14,7 +14,7 @@ local UI = require("src.ui")
 
 local Weapons = {
   name = "weapons",
-  priority = 50,
+  priority = 950, -- after "vision" (900) so the camera is final when we aim
 }
 
 local PROJECTILE_SPEED = 900 -- px/s, plus the firing car's velocity
@@ -37,6 +37,7 @@ Weapons.hitFlash = {} -- player id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.showHitboxes = false
+Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 
 function Weapons:enterGame()
   self.projectiles = {}
@@ -45,21 +46,33 @@ function Weapons:enterGame()
   self.hitFlash = {}
   self.feed = nil
   self.cooldown = 0
+  self.camera = nil
 end
 
 function Weapons:exitGame()
   self:enterGame()
 end
 
---- Angle from my car to the mouse. The camera is centred on my car, so this
---- is just the angle from the screen centre to the cursor.
-function Weapons:aimAngle(client)
-  if not client:myCar() then
-    return nil
-  end
+--- Mouse position in world space, inverting the game state's draw transform
+--- (centre, scale, translate by -camera). Falls back to a centred camera.
+local function mouseToWorld(camera, me)
   local mx, my = love.mouse.getPosition()
   local w, h = love.graphics.getDimensions()
-  return math.atan2(my - h / 2, mx - w / 2)
+  local cx, cy, s = me.dx, me.dy, 1
+  if camera then
+    cx, cy, s = camera.x, camera.y, camera.scale or 1
+  end
+  return cx + (mx - w / 2) / s, cy + (my - h / 2) / s
+end
+
+--- Angle from my car to the cursor, in world space.
+function Weapons:aimAngle(client)
+  local me = client:myCar()
+  if not me then
+    return nil
+  end
+  local wx, wy = mouseToWorld(self.camera, me)
+  return math.atan2(wy - me.dy, wx - me.dx)
 end
 
 function Weapons:tryFire(client)
@@ -86,7 +99,8 @@ function Weapons:keypressed(key)
   end
 end
 
-function Weapons:update(dt, client)
+function Weapons:update(dt, client, camera)
+  self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
   if love.mouse.isDown(1) then
     self:tryFire(client)
@@ -152,14 +166,6 @@ function Weapons:drawAboveCars(client)
 end
 
 function Weapons:drawHUD(client)
-  local mx, my = love.mouse.getPosition()
-  love.graphics.setColor(1, 1, 1, 0.8)
-  love.graphics.circle("line", mx, my, 8)
-  love.graphics.line(mx - 12, my, mx - 4, my)
-  love.graphics.line(mx + 4, my, mx + 12, my)
-  love.graphics.line(mx, my - 12, mx, my - 4)
-  love.graphics.line(mx, my + 4, mx, my + 12)
-
   love.graphics.setFont(UI.fonts.small)
   local hp = self.health[client.myId] or MAX_HEALTH
   local kills = self.kills[client.myId] or 0
