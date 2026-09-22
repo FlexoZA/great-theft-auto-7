@@ -62,7 +62,8 @@ function CityMap:serverStart(server)
   for i, id in ipairs(ids) do
     local s = self.map.spawns[(i - 1) % #self.map.spawns + 1]
     local car = server.players[id].car
-    car.x, car.y, car.angle, car.speed = s.x, s.y, s.angle, 0
+    car.x, car.y, car.angle = s.x, s.y, s.angle
+    car:stop()
   end
 end
 
