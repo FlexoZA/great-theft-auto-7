@@ -3,11 +3,14 @@
 
 local State = require("src.state")
 local Net = require("src.net")
+local Features = require("src.features")
 
 function love.load()
   love.graphics.setBackgroundColor(0.16, 0.16, 0.18)
   love.graphics.setDefaultFilter("nearest", "nearest")
   love.keyboard.setKeyRepeat(true)
+  Features.load()
+  print("features: " .. Features.names())
   State.switch("menu")
 end
 
