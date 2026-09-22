@@ -15,6 +15,7 @@
 --   server -> all  PED_GIB  <id> <x> <y> <angle> <killer> <total>
 
 local Protocol = require("src.net.protocol")
+local Features = require("src.features")
 local UI = require("src.ui")
 local Crowd = require("src.features.pedestrians.crowd")
 local Render = require("src.features.pedestrians.render")
@@ -162,6 +163,7 @@ function Pedestrians:serverStep(server, dt)
     self.scores[kill.by] = total
     server:broadcast(Protocol.encode("PED_GIB", kill.id, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
       ("%.3f"):format(kill.angle), kill.by, total))
+    Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
   end
 
   self.syncIn = self.syncIn - 1
