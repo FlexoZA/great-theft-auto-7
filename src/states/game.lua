@@ -11,6 +11,7 @@ local Features = require("src.features")
 local Game = {}
 
 local SMOOTHING = 12 -- per second; higher = snappier, lower = smoother
+local SNAP_DISTANCE = 200 -- a jump bigger than this is a teleport (respawn), don't ease it
 
 local function angleDiff(target, current)
   return (target - current + math.pi) % (2 * math.pi) - math.pi
@@ -40,9 +41,13 @@ function Game:update(dt)
 
   local k = math.min(1, dt * SMOOTHING)
   for _, c in pairs(client.cars) do
-    c.dx = c.dx + (c.x - c.dx) * k
-    c.dy = c.dy + (c.y - c.dy) * k
-    c.dangle = c.dangle + angleDiff(c.angle, c.dangle) * k
+    if math.abs(c.x - c.dx) > SNAP_DISTANCE or math.abs(c.y - c.dy) > SNAP_DISTANCE then
+      c.dx, c.dy, c.dangle = c.x, c.y, c.angle
+    else
+      c.dx = c.dx + (c.x - c.dx) * k
+      c.dy = c.dy + (c.y - c.dy) * k
+      c.dangle = c.dangle + angleDiff(c.angle, c.dangle) * k
+    end
   end
 
   local me = client:myCar()
