@@ -320,6 +320,14 @@ couple of small conventions rather than requiring each other:
   shoot this way. No cooldown is applied, so the caller paces its own fire.
 - `Features.byName.money:give(server, id, amount)`: put koins into a
   player's wallet, the other way round from `spend` (the cheats use it).
+- `Features.byName.buildings:serverGive(server, player, item, n)`: put up
+  to `n` of an item into a player's inventory, as many as fit; returns how
+  many went in. The other way round from `serverTake`.
+- `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
+  pickup on the ground right there, gone for good once taken. `kind` is a
+  pickups kind ("health", "stamina") or `"ammo-<gun key>"` for a box of
+  `amount` rounds that goes into the taker's inventory. Police drops pistol
+  rounds where an officer falls or a unit is wrecked.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and
