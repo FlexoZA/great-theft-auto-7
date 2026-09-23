@@ -122,7 +122,7 @@ end
 function Server:step(dt)
   self.tick = self.tick + 1
   for _, car in pairs(self.vehicles) do
-    if not car.hidden then
+    if not (car.hidden or car.stowed) then
       local driver = car.driver and self.players[car.driver]
       local input = driver and driver.input
       if input then
@@ -139,13 +139,14 @@ function Server:step(dt)
 end
 
 --- STATE <tick> <vehicles> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
---- Every vehicle in the world (a hidden one is out of it), then everyone on
---- foot. A player in neither list is driving something listed, or gone.
+--- Every vehicle in the world (a hidden or stowed one is out of it), then
+--- everyone on foot. A player in neither list is driving something listed,
+--- or gone.
 function Server:broadcastState()
   local parts = { self.tick, 0 }
   local nv = 0
   for id, c in pairs(self.vehicles) do
-    if not c.hidden then
+    if not (c.hidden or c.stowed) then
       nv = nv + 1
       parts[#parts + 1] = id
       parts[#parts + 1] = ("%.1f"):format(c.x)

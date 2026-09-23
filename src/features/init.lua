@@ -132,7 +132,8 @@ end
 --- shoots at, runs over, sells to or pays a player asks this first.
 function Features.present(player)
   local b = player.body
-  return b ~= nil and not b.dead and not (player.vehicle and player.vehicle.hidden)
+  local v = player.vehicle
+  return b ~= nil and not b.dead and not (v and (v.hidden or v.stowed))
 end
 
 function Features.names()

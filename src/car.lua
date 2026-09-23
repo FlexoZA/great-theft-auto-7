@@ -42,6 +42,7 @@ function Car.new(x, y, angle)
     driver = nil, -- player id behind the wheel, nil while parked
     color = 1, -- index into Car.PALETTE
     hidden = false, -- out of the world (a wreck waiting to respawn, a parked NPC)
+    stowed = false, -- out of the world too: put away on a map with no vehicles (on-foot)
     x = x or 0,
     y = y or 0,
     angle = angle or 0, -- radians, 0 = facing right
