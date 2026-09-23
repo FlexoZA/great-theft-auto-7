@@ -10,6 +10,11 @@
 --   speed     px/s a round flies
 --   streak    px; how long a round is drawn
 --   sound     name in sounds.lua, and a pitch around 1
+--   magazine  rounds between reloads
+--   reload    seconds a reload takes, and its sound in sounds.lua
+--
+-- Rounds come out of the player's inventory (the buildings feature keeps
+-- it: "ammo-<key>"), a magazine at a time.
 
 local Guns = {}
 
@@ -24,6 +29,9 @@ Guns.list = {
     streak = 10,
     sound = "shot",
     pitch = 1,
+    magazine = 15,
+    reload = 1.2,
+    reloadSound = "reload-pistol",
   },
   {
     key = "uzi",
@@ -35,6 +43,9 @@ Guns.list = {
     streak = 7,
     sound = "uzi",
     pitch = 1,
+    magazine = 30, -- a couple of seconds of spray
+    reload = 1.8,
+    reloadSound = "reload-uzi",
   },
 }
 
