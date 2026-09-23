@@ -83,10 +83,24 @@ function Collision.resolveCircle(map, x, y, r)
   return x, y, nil
 end
 
+--- Tuning for cars against walls. Everything is per second, so the feel
+--- does not depend on the server tick rate.
+Collision.restitution = 0.3 -- fraction of the impact speed bounced back off a wall
+Collision.scrape = 1.5 -- per second; how fast speed along a wall bleeds off while touching it
+Collision.deflect = 7 -- per second; how fast a glancing hit swings the nose along the wall
+
+--- Shortest signed turn from heading b to heading a.
+local function angleDiff(a, b)
+  return (a - b + math.pi) % (2 * math.pi) - math.pi
+end
+
 --- Cars are a capsule of three circles along their axis. Pushes the car out
---- of walls and kills or reverses its speed depending on the angle of impact.
---- Returns true when the car touched something.
-function Collision.resolveCar(map, car)
+--- of walls, kills the speed into the wall (bouncing a little of it back),
+--- keeps the speed along the wall apart from some scraping, and swings the
+--- nose along the wall on glancing hits so the car slides off instead of
+--- sticking. Returns true when the car touched something.
+function Collision.resolveCar(map, car, dt)
+  dt = dt or 1 / 30
   local ca, sa = math.cos(car.angle), math.sin(car.angle)
   local nx, ny, hit = 0, 0, false
   for _, off in ipairs({ -12, 0, 12 }) do
@@ -103,13 +117,28 @@ function Collision.resolveCar(map, car)
     nx, ny = nx / len, ny / len
     local vx, vy = car.vx or ca * car.speed, car.vy or sa * car.speed
     local into = vx * nx + vy * ny
+    -- Split the velocity into the part along the wall and the part into it.
+    local tx, ty = -ny, nx
+    local along = vx * tx + vy * ty
+    along = along * math.exp(-Collision.scrape * dt)
     if into < 0 then
-      -- Into the wall: remove the inward part and bounce back a little.
-      vx, vy = (vx - into * nx) * 0.6, (vy - into * ny) * 0.6
-      vx, vy = vx - nx * into * 0.3, vy - ny * into * 0.3
-    else
-      vx, vy = vx * 0.92, vy * 0.92 -- scraping along it
+      -- Into the wall: that part is gone, a little of it comes back as a bounce.
+      local speed = math.sqrt(vx * vx + vy * vy)
+      into = -into * Collision.restitution
+      -- Glancing hits swing the nose to run along the wall; the squarer the
+      -- hit, the less it swings.
+      if speed > 1e-3 and math.abs(along) > 1e-3 then
+        local glance = math.abs(along) / speed
+        local target = math.atan2(ty * along, tx * along) -- the wall, in the direction of travel
+        if car.speed < 0 then
+          target = target + math.pi -- reversing: the tail leads
+        end
+        local k = math.min(1, Collision.deflect * glance * dt)
+        car.angle = car.angle + angleDiff(target, car.angle) * k
+        ca, sa = math.cos(car.angle), math.sin(car.angle)
+      end
     end
+    vx, vy = tx * along + nx * into, ty * along + ny * into
     car.vx, car.vy = vx, vy
     car.speed = vx * ca + vy * sa
     car.lastSpeed = car.speed
