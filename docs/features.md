@@ -237,10 +237,10 @@ couple of small conventions rather than requiring each other:
   top a player up towards their ceiling. Both return true only if anything
   was gained, so a pickup that did nothing (full health, a drink taken from
   behind the wheel) can stay on the road. Pickups uses both.
-- `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
-  a wallet on the host, or take koins out of it all-or-nothing (false and
-  nothing happens when they can't cover it). A shop's half of a sale; upgrades
-  and real estate both pay with it.
+- `Features.byName.money:wallet(id)` / `money:spend(server, id, amount, label)`:
+  read a wallet on the host, or take koins out of it all-or-nothing (false
+  and a reason, and nothing happens, when they can't cover it). Every sale
+  goes through `spend`; see "Selling things for Fcks" below.
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
   broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
@@ -251,6 +251,35 @@ couple of small conventions rather than requiring each other:
   shoot this way. No cooldown is applied, so the caller paces its own fire.
 - `Features.byName.money:give(server, id, amount)`: put koins into a
   player's wallet, the other way round from `spend` (the cheats use it).
+
+## Selling things for Fcks
+
+Koins (Fcks) are the one currency: plots, city blocks and upgrades are
+bought with them today, buildings, guns and abilities next. A feature that
+sells something never touches a wallet itself; it does this:
+
+1. **Price it in your own tuning** (`Guns.price = 30`), and show it with
+   `Money.amount(n)` ("30 Fcks") wherever you draw a price tag.
+2. **On the client, refuse the obvious at once.** Before sending your buy
+   message, `if not money:canAfford(client, price)` show your own "can't
+   afford it" notice and stop; no round trip for an empty wallet. `money`
+   is `Features.byName.money`, and may be nil: then everything is free.
+3. **On the host, check your own conditions first, then pay, then grant.**
+   Standing in the right place, still for sale, not maxed out -- refuse
+   those with your own message. Only when the sale can go ahead call
+   `money:spend(server, player.id, price, "plot")`. It takes the koins all
+   or nothing and returns `true`, or `false, "broke"` (`"nogame"` before a
+   game starts): refuse with that reason and grant nothing. On `true`, grant
+   the thing and broadcast your own message about it (`RE_OWNER`, `UPG_LEVEL`).
+4. **That's it for feedback.** `spend` broadcasts `FCK_SPENT` with the
+   label, so every client's wallet total updates and "-30 Fcks  pistol"
+   floats over the buyer, whoever is watching. Your feature draws the thing
+   bought, not the payment.
+
+Never send a price from the client, never deduct on the client, and never
+call `spend` before your own checks pass -- it has already taken the koins
+by the time it returns. Upgrades (`src/features/upgrades`) is the worked
+example with a menu; real-estate is the one with a place to stand.
 - Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
