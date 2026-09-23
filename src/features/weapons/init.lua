@@ -13,6 +13,10 @@
 -- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
 -- its slot with brief protection.
 --
+-- Not every shot has a player behind it: Weapons:serverFireFrom puts a
+-- projectile into the world for whoever asks (the police officers on foot),
+-- owned by nobody, hurting anyone it hits and crediting no scoreboard.
+--
 -- A player need not be in their car: a feature that takes them out of it
 -- (on-foot) answers the `playerPose` / `clientPlayerPose` conventions, and
 -- then shots leave from their body, hits land on it, and the car they parked
@@ -48,6 +52,7 @@ local FOOT_MUZZLE = 14 -- px from a body on foot, which is smaller than a car
 local FOOT_RADIUS = 8 -- px; how fat a player on foot is for hit tests
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
+local NO_OWNER = 0 -- projectile owner for a shot no player fired (police on foot)
 
 --- Any feature may declare solid ground with a blocksPoint(x, y) hook (the
 --- city map does). Bullets stop there, on both server and client.
@@ -352,8 +357,13 @@ Weapons.clientMessages = {
     if killer and kills then
       Weapons.kills[killer] = kills
     end
-    if killer and victim then
-      Weapons.feed = { text = playerName(client, killer) .. " wrecked " .. playerName(client, victim), t = FEED_TIME }
+    if victim then
+      local name = playerName(client, victim)
+      local text = name .. " was wrecked" -- an ownerless shot: nobody to name
+      if killer and killer ~= NO_OWNER then
+        text = playerName(client, killer) .. " wrecked " .. name
+      end
+      Weapons.feed = { text = text, t = FEED_TIME }
     end
   end,
 }
@@ -409,6 +419,29 @@ function Weapons:serverHeal(server, player, amount)
   return true
 end
 
+--- Put a projectile into the world at (x, y), flying along `aim` (radians)
+--- and belonging to player `ownerId`. Pass 0 for a shot that belongs to no
+--- player: the police officers on foot fire this way, so their bullets hit
+--- everyone (nobody is the owner) and their kills go on nobody's scoreboard.
+--- No cooldown is applied here; the caller owns its own rate of fire.
+function Weapons:serverFireFrom(server, ownerId, x, y, aim)
+  local sv = self.sv
+  if not (sv and aim) then
+    return false
+  end
+  ownerId = ownerId or NO_OWNER
+  local pid = sv.nextId
+  sv.nextId = pid + 1
+  local vx = math.cos(aim) * PROJECTILE_SPEED
+  local vy = math.sin(aim) * PROJECTILE_SPEED
+  sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0 }
+  server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
+    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
+  -- `player` is nil for an ownerless shot; features that listen must allow it.
+  Features.call("serverShotFired", server, server.players[ownerId], x, y)
+  return true
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
 --- a shot was fired.
@@ -424,19 +457,9 @@ function Weapons:serverFire(server, player, aim)
   end
   st.lastFire = sv.time
 
-  local pid = sv.nextId
-  sv.nextId = pid + 1
   local bx, by, onFoot = bodyPose(server, player)
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
-  local x = bx + math.cos(aim) * muzzle
-  local y = by + math.sin(aim) * muzzle
-  local vx = math.cos(aim) * PROJECTILE_SPEED
-  local vy = math.sin(aim) * PROJECTILE_SPEED
-  sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = player.id, x = x, y = y, vx = vx, vy = vy, age = 0 }
-  server:broadcast(Protocol.encode("WPN_SHOT", pid, player.id,
-    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
-  Features.call("serverShotFired", server, player, x, y)
-  return true
+  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim)
 end
 
 Weapons.serverMessages = {
