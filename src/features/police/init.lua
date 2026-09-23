@@ -4,6 +4,11 @@
 -- every unit that can see you then chases and shoots, siren on, until the
 -- wanted time runs out with no new crimes, or you get wrecked.
 --
+-- Sight is a 30 degree cone out of the windscreen (vision.lua), and walls
+-- block it: a crime behind a building goes unseen, and a wanted player who
+-- breaks line of sight for a few seconds is lost. Clients draw every cone
+-- as a faint white fan, so you can see where you are being watched.
+--
 -- Units are NPCs from the bots feature with a police brain. Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
@@ -32,6 +37,7 @@ local Car = require("src.car")
 local Sounds = require("src.features.police.sounds")
 local Officers = require("src.features.police.officers")
 local Render = require("src.features.police.render")
+local Vision = require("src.features.police.vision")
 local Face = require("src.art.face")
 
 local Police = {
@@ -48,6 +54,7 @@ Police.patrolThrottle = 0.45
 Police.ramCrime = 220 -- closing speed (px/s) of a ram that counts as a crime
 Police.hotStartTime = 30 -- seconds of heat everyone starts with in inclusive mode
 Police.whistleRange = 1200 -- px; an officer blowing their whistle further away isn't heard
+Police.loseSightTime = 4 -- seconds a chasing unit keeps after someone it can no longer see
 
 local FOOT_SYNC_EVERY = 2 -- server ticks between POL_FOOT broadcasts
 
@@ -173,7 +180,30 @@ end
 
 --- Officers go under the cars, like the crowd: they are on the road, not
 --- above it, and a bumper passes over whatever is left of them.
-function Police:drawBelowCars(_client, camera)
+--- Every cone of vision on screen, then the officers. A cone is only worth
+--- drawing when its owner is near enough to the camera for it to show.
+local function drawCones(client, camera)
+  local w, h = love.graphics.getDimensions()
+  local s = camera.scale or 1
+  local reach = (math.sqrt(w * w + h * h) / 2) / s
+  local function near(x, y, range)
+    return (x - camera.x) ^ 2 + (y - camera.y) ^ 2 <= (reach + range) ^ 2
+  end
+  for id, u in pairs(Police.units) do
+    local c = client:vehicleOf(id)
+    if c and near(c.dx, c.dy, Police.sightRange) then
+      Vision.draw(c.dx, c.dy, c.dangle, Police.sightRange, u.chasing and 1 or 0)
+    end
+  end
+  for _, o in pairs(Render.officers) do
+    if o.hp > 0 and near(o.dx, o.dy, Officers.SIGHT) then
+      Vision.draw(o.dx, o.dy, o.angle, Officers.SIGHT, o.alert and 1 or 0)
+    end
+  end
+end
+
+function Police:drawBelowCars(client, camera)
+  drawCones(client, camera)
   Render.draw(camera, flash)
 end
 
@@ -246,8 +276,9 @@ end
 
 local function unitsInSight(x, y, range)
   local n = 0
-  for _, u in ipairs(sv.units) do
-    if u.car and not u.car.hidden and (u.car.x - x) ^ 2 + (u.car.y - y) ^ 2 <= range * range then
+  for _, u in pairs(sv.units) do
+    local car = u.car
+    if car and not car.hidden and Vision.canSee(car.x, car.y, car.angle, x, y, range) then
       n = n + 1
     end
   end
@@ -393,25 +424,47 @@ end
 
 local Brain = {}
 
-local function nearestWanted(server, unit)
+--- The wanted player this unit goes after: the nearest one it can see. A
+--- unit not yet chasing has to see them out of the windscreen; one already
+--- on a chase watches all round, out to pursuit range, and keeps after the
+--- last person it saw for loseSightTime once a building hides them.
+local function nearestWanted(server, unit, dt)
+  local ai = unit.ai
+  local chasing = ai.chasing
+  local range = chasing and Police.pursuitRange or Police.sightRange
   local best, bestD2
-  local range = unit.ai.chasing and Police.pursuitRange or Police.sightRange
   for id in pairs(sv.wanted) do
     local p = server.players[id]
     if p and Features.present(p) then
       local bx, by = Features.bodyPose(server, p) -- them on foot, or their car
-      local d2 = (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2
-      if d2 <= range * range and (not bestD2 or d2 < bestD2) then
+      local d2 = Vision.canSee(unit.car.x, unit.car.y, unit.car.angle, bx, by, range, chasing)
+      if d2 and (not bestD2 or d2 < bestD2) then
         best, bestD2 = p, d2
       end
     end
   end
-  return best
+  if best then
+    ai.lastSeen, ai.lostFor = best.id, 0
+    return best
+  end
+  -- Out of sight: stay on the last one for a while, if they are still about.
+  if chasing and ai.lastSeen then
+    local p = server.players[ai.lastSeen]
+    ai.lostFor = (ai.lostFor or 0) + dt
+    if p and sv.wanted[p.id] and Features.present(p) and ai.lostFor < Police.loseSightTime then
+      local bx, by = Features.bodyPose(server, p)
+      if (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2 <= Police.pursuitRange ^ 2 then
+        return p
+      end
+    end
+  end
+  ai.lastSeen = nil
+  return nil
 end
 
 function Brain.think(server, unit, dt)
   local B = bots()
-  local target = nearestWanted(server, unit)
+  local target = nearestWanted(server, unit, dt)
   local chasing = target ~= nil
   if chasing ~= (unit.ai.chasing or false) then
     unit.ai.chasing = chasing
@@ -463,6 +516,19 @@ function Police:serverStart(server)
     end
     for _, unit in ipairs(sv.units) do
       unit.ai.chasing = true -- pursuit range from the first tick
+      -- Onto the nearest human for the whole hot start, walls or not.
+      local nearest, nearD2
+      for id in pairs(sv.wanted) do
+        local p = server.players[id]
+        if p and p.body then
+          local bx, by = Features.bodyPose(server, p)
+          local d2 = (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2
+          if not nearD2 or d2 < nearD2 then
+            nearest, nearD2 = id, d2
+          end
+        end
+      end
+      unit.ai.lastSeen, unit.ai.lostFor = nearest, -self.hotStartTime
       server:broadcast(Protocol.encode("POL_SIREN", unit.id, 1))
     end
   end
