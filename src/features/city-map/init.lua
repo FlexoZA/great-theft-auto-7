@@ -218,10 +218,10 @@ local function collidePedestrians(map)
   end
 end
 
-function CityMap:serverStep(server)
+function CityMap:serverStep(server, dt)
   for _, car in pairs(server.vehicles) do
     if not car.hidden then
-      Collision.resolveCar(self.map, car)
+      Collision.resolveCar(self.map, car, dt)
     end
   end
   collidePedestrians(self.map)

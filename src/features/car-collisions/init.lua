@@ -1,6 +1,7 @@
 -- Car-to-car collisions on the server. Cars are capsules of three circles
--- (like the map collision); overlapping cars are pushed apart, both lose
--- speed, and every feature hears about it:
+-- (like the map collision); overlapping cars are pushed apart, they swap
+-- momentum along the line of impact (so a hit car is shoved and a pushing
+-- car keeps pushing), and every feature hears about it:
 --
 --   feature:serverCarsCollided(server, rammer, rammed, closingSpeed)
 --
@@ -21,7 +22,8 @@ local CarCollisions = {
 
 CarCollisions.radius = 11
 CarCollisions.offsets = { -12, 0, 12 }
-CarCollisions.damping = 0.55 -- speed kept by both cars on a closing hit
+CarCollisions.restitution = 0.35 -- bounciness of a hit: 0 = stick together, 1 = fully elastic
+CarCollisions.scrape = 1.5 -- per second; speed lost along the contact while the cars rub
 CarCollisions.bodyRadius = 8 -- px; a player on foot, for the bumper test
 CarCollisions.runOverSpeed = 90 -- px/s; slower than this just nudges
 CarCollisions.runOverDamage = 60 -- at runOverSpeed, rising to 2x at full speed
@@ -39,7 +41,7 @@ end
 local ca, cb = {}, {}
 
 --- Resolve one pair. Returns closing speed and the normal from a to b if they touched.
-local function resolvePair(a, b)
+local function resolvePair(a, b, dt)
   local r2 = CarCollisions.radius * 2
   circles(a, ca)
   circles(b, cb)
@@ -69,15 +71,21 @@ local function resolvePair(a, b)
     return 0, 1, 0
   end
   nx, ny = nx / len, ny / len
+  local tx, ty = -ny, nx
   local avx, avy = a.vx or math.cos(a.angle) * a.speed, a.vy or math.sin(a.angle) * a.speed
   local bvx, bvy = b.vx or math.cos(b.angle) * b.speed, b.vy or math.sin(b.angle) * b.speed
   local van = avx * nx + avy * ny
   local vbn = bvx * nx + bvy * ny
   local closing = van - vbn -- > 0 when a moves into b (or b into a)
   if closing > 0 then
-    local d = CarCollisions.damping
-    a.vx, a.vy = avx * d, avy * d
-    b.vx, b.vy = bvx * d, bvy * d
+    -- Equal masses: trade momentum along the normal, bouncing a little,
+    -- and rub off some of the speed along the contact.
+    local j = (1 + CarCollisions.restitution) * closing / 2
+    local rub = math.exp(-CarCollisions.scrape * dt)
+    local vat = (avx * tx + avy * ty) * rub
+    local vbt = (bvx * tx + bvy * ty) * rub
+    a.vx, a.vy = nx * (van - j) + tx * vat, ny * (van - j) + ty * vat
+    b.vx, b.vy = nx * (vbn + j) + tx * vbt, ny * (vbn + j) + ty * vbt
     a.speed = a.vx * math.cos(a.angle) + a.vy * math.sin(a.angle)
     b.speed = b.vx * math.cos(b.angle) + b.vy * math.sin(b.angle)
     a.lastSpeed, b.lastSpeed = a.speed, b.speed
@@ -120,7 +128,8 @@ end
 --- Every car in the world against every other, parked or not. The
 --- collision event names the drivers, so it is only raised when both cars
 --- have one.
-function CarCollisions:serverStep(server)
+function CarCollisions:serverStep(server, dt)
+  dt = dt or 1 / 30
   self:runOver(server)
   local list = {}
   for _, car in pairs(server.vehicles) do
@@ -131,7 +140,7 @@ function CarCollisions:serverStep(server)
   for i = 1, #list do
     for j = i + 1, #list do
       local a, b = list[i], list[j]
-      local closing, aInto, bInto = resolvePair(a, b)
+      local closing, aInto, bInto = resolvePair(a, b, dt)
       if closing and closing > 0 then
         local da, db = a.driver and server.players[a.driver], b.driver and server.players[b.driver]
         if da and db then
