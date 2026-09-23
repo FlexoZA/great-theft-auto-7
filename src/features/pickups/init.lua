@@ -3,7 +3,10 @@
 -- when present), decides who takes one and respawns it elsewhere later.
 -- Clients draw them and show a little "+50" when someone grabs one.
 --
--- Kinds live in KINDS; "health" heals through the weapons feature.
+-- Kinds live in KINDS: "health" (a medkit) heals through the weapons
+-- feature, "stamina" (an energy drink) refills the bar through on-foot. A
+-- kit that would do nothing -- a medkit at full health, a drink from behind
+-- the wheel -- stays where it is for whoever can use it.
 --
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y>
@@ -20,11 +23,13 @@ local Pickups = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Pickups.count = 6 -- kits on the map at once
+Pickups.count = 6 -- medkits on the map at once
+Pickups.staminaCount = 4 -- energy drinks on the map at once
 Pickups.respawnTime = 20 -- seconds after one is taken before a new one appears
 Pickups.radius = 34 -- px from car centre that counts as driving over it
 Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
+Pickups.staminaAmount = 60
 
 local KINDS = {
   health = {
@@ -37,6 +42,21 @@ local KINDS = {
       return true -- no weapons feature: take it anyway
     end,
     label = "+" .. 50,
+    color = { 0.4, 1, 0.4 },
+    pitch = 1,
+  },
+  stamina = {
+    --- Only a body on foot has a bar to fill; a driver leaves it lying.
+    apply = function(server, player)
+      local onFoot = Features.byName["on-foot"]
+      if onFoot and onFoot.serverRestoreStamina then
+        return onFoot:serverRestoreStamina(server, player, Pickups.staminaAmount)
+      end
+      return false -- no on-foot feature: nothing to fill, ever
+    end,
+    label = "+" .. 60 .. " stamina",
+    color = { 0.45, 0.85, 1 },
+    pitch = 1.25,
   },
 }
 
@@ -95,10 +115,35 @@ local function drawHealth(x, y, t)
   love.graphics.rectangle("fill", x - 4, y - 14, 8, 3) -- handle
 end
 
+--- An energy drink: a tall teal can with a yellow bolt on the label,
+--- bobbing over a cool glow.
+local function drawStamina(x, y, t)
+  local bob = math.sin(t * 3 + 1.7) * 2
+  local pulse = 0.5 + 0.5 * math.sin(t * 4 + 1.7)
+  love.graphics.setColor(0.4, 0.8, 1, 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 24 + pulse * 4)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - 7, y - 8 + 6, 14, 26, 3)
+  y = y + bob
+  love.graphics.setColor(0.08, 0.10, 0.12)
+  love.graphics.rectangle("fill", x - 9, y - 15, 18, 30, 4)
+  love.graphics.setColor(0.10, 0.45, 0.50)
+  love.graphics.rectangle("fill", x - 7, y - 13, 14, 26, 3)
+  love.graphics.setColor(0.75, 0.78, 0.82) -- the lid
+  love.graphics.rectangle("fill", x - 6, y - 13, 12, 3)
+  love.graphics.setColor(0.06, 0.28, 0.32) -- label band
+  love.graphics.rectangle("fill", x - 7, y - 6, 14, 14)
+  love.graphics.setColor(1, 0.9, 0.2) -- the bolt
+  love.graphics.polygon("fill", x + 2, y - 5, x - 3, y + 1, x, y + 1, x - 2, y + 6, x + 3, y - 1, x, y - 1)
+end
+
+local DRAW = { health = drawHealth, stamina = drawStamina }
+
 function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
-    if it.kind == "health" then
-      drawHealth(it.x, it.y, time)
+    local draw = DRAW[it.kind]
+    if draw then
+      draw(it.x, it.y, time)
     end
   end
   love.graphics.setColor(1, 1, 1)
@@ -107,7 +152,8 @@ end
 function Pickups:drawAboveCars()
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
-    love.graphics.setColor(0.4, 1, 0.4, math.min(1, f.t))
+    local c = f.color
+    love.graphics.setColor(c[1], c[2], c[3], math.min(1, f.t))
     love.graphics.printf(f.text, f.x - 60, f.y, 120, "center")
   end
   love.graphics.setColor(1, 1, 1)
@@ -126,13 +172,19 @@ Pickups.clientMessages = {
     local it = id and Pickups.items[id]
     if it then
       Pickups.items[id] = nil
-      Sounds.play(it.x, it.y)
       local kind = KINDS[it.kind]
+      Sounds.play(it.x, it.y, kind and kind.pitch)
+      -- Over the body that took it, which is not always the car.
       local car = by and client.cars[by]
+      local fx, fy = it.x, it.y
+      if car then
+        fx, fy = Features.clientBodyPose(client, by, car)
+      end
       Pickups.floats[#Pickups.floats + 1] = {
-        x = car and car.dx or it.x,
-        y = (car and car.dy or it.y) - 30,
+        x = fx,
+        y = fy - 30,
         text = kind and kind.label or "",
+        color = kind and kind.color or { 1, 1, 1 },
         t = 1.2,
       }
     end
@@ -184,6 +236,9 @@ function Pickups:serverStart(server)
   sv = { items = {}, nextId = 1, pending = {}, time = 0 }
   for _ = 1, self.count do
     spawnOne(server, "health")
+  end
+  for _ = 1, self.staminaCount do
+    spawnOne(server, "stamina")
   end
 end
 

@@ -22,12 +22,14 @@ function Sounds.load()
   base:setAttenuationDistances(300, 2200)
 end
 
-function Sounds.play(x, y)
+--- `pitch` tells the kinds apart: an energy drink rings a little higher.
+function Sounds.play(x, y, pitch)
   if not base then
     return
   end
   local s = base:clone()
   s:setPosition(x, 0, y)
+  s:setPitch(pitch or 1)
   s:setVolume(Audio.volume("pickups"))
   s:play()
 end
