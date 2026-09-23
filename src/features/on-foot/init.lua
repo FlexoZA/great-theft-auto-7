@@ -18,6 +18,10 @@
 --
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
+-- Tap one of them twice quickly and you dodge: a short dash that way,
+-- faster than a sprint, for some stamina and a moment's cooldown. The host
+-- does the dash (and refuses one you can't afford); your own is predicted
+-- like a step, so it feels instant, and everyone sees the dust.
 --
 -- Stamina has a ceiling per player, maxStamina to start with, and comes back
 -- at a rate per player, staminaRegen to start with; another feature can
@@ -28,6 +32,8 @@
 -- Messages
 --   client -> server  OF_TOGGLE
 --   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
+--   client -> server  OF_DODGE <dx> <dy>                         a double-tap: dash this way
+--   server -> all     OF_DODGED <id> <x> <y> <dx> <dy>           they dashed from here, this way
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
 --   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
@@ -56,6 +62,19 @@ OnFoot.radius = Body.RADIUS -- px; how fat you are against walls
 OnFoot.exitMaxSpeed = 140 -- px/s; no bailing out of a car at speed
 OnFoot.exitOffset = 34 -- px from the car centre you step out at
 OnFoot.enterReach = 26 -- px of padding around a car that counts as within reach
+OnFoot.dodgeDistance = 96 -- px a dodge carries you
+OnFoot.dodgeTime = 0.22 -- seconds it takes
+OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
+OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
+OnFoot.doubleTap = 0.28 -- seconds between two taps of a key that count as one double-tap
+
+-- The movement actions and the world direction each one dodges in.
+local DODGE_DIRS = {
+  { action = "left", x = -1, y = 0 },
+  { action = "right", x = 1, y = 0 },
+  { action = "accelerate", x = 0, y = -1 },
+  { action = "brake", x = 0, y = 1 },
+}
 
 local MOVE_INTERVAL = 1 / 30 -- seconds between OF_MOVE packets
 local CORRECTION = 6 -- per second; how fast prediction is pulled onto the server
@@ -138,7 +157,13 @@ OnFoot.stamina = {} -- player id -> stamina, as the host last said (walkers only
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
 OnFoot.hitbox = {} -- reused table for the "is that car within reach?" test
+OnFoot.dash = nil -- { x, y, t }: my own dodge under way, predicted
+OnFoot.dodgeReadyAt = 0 -- client time my next dodge may start
+OnFoot.lastTap = nil -- { action, at }: the last movement key press, for the double-tap
+OnFoot.tapReady = {} -- action -> true once its key has been seen up since the last press it counted
+OnFoot.puffs = {} -- { x, y, dx, dy, t }: dust where somebody dodged
 local spent = false -- my breath, for prediction: an emptied bar sprints again only once recovered
+local time = 0 -- client clock, seconds in the game
 
 function OnFoot:load()
   Controls.register("enter-exit", "Enter / exit vehicle", "e")
@@ -148,7 +173,11 @@ end
 function OnFoot:enterGame()
   self.moveTimer = 0
   self.moveSeq = 0
+  self.dash, self.lastTap, self.puffs = nil, nil, {}
+  self.tapReady = {}
+  self.dodgeReadyAt = 0
   spent = false
+  time = 0
 end
 
 function OnFoot:exitGame()
@@ -207,7 +236,17 @@ function OnFoot:predict(dt, client, me)
   -- walk ahead of it (the `held` convention, docs/features.md).
   local held = Features.any("held", client, client.myId)
   local sprinting = (mx ~= 0 or my ~= 0) and Controls.isDown("sprint") and stamina > 0 and not spent and not held
-  if (mx ~= 0 or my ~= 0) and not held then
+  if self.dash and not held then
+    -- Mid-dodge: the dash carries me, the keys don't.
+    local d = self.dash
+    local slice = math.min(dt, d.t) -- the last step only goes as far as is left
+    me.dx, me.dy = step(me.dx, me.dy, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    d.t = d.t - dt
+    if d.t <= 0 then
+      self.dash = nil
+    end
+    sprinting = true -- legs going: draw it running
+  elseif (mx ~= 0 or my ~= 0) and not held then
     me.dx, me.dy = step(me.dx, me.dy, mx, my, sprinting and self.sprintSpeed or self.walkSpeed, dt)
   end
   me.running = sprinting
@@ -236,9 +275,42 @@ function OnFoot:sendMove(dt, client, me)
   client:send(msg, true)
 end
 
+--- A double-tap: dash that way if I am on foot, free, rested enough and
+--- not still recovering from the last one. The host has the final word.
+function OnFoot:tryDodge(client, dir)
+  local me = self:me(client)
+  if not me or self.dash or time < self.dodgeReadyAt or Features.any("held", client, client.myId) then
+    return false
+  end
+  local stamina = self.stamina[client.myId] or self.maxOf[client.myId] or self.maxStamina
+  if stamina < self.dodgeStamina then
+    return false
+  end
+  self.dash = { x = dir.x, y = dir.y, t = self.dodgeTime }
+  self.dodgeReadyAt = time + self.dodgeCooldown
+  client:send(Protocol.encode("OF_DODGE", dir.x, dir.y))
+  return true
+end
+
 function OnFoot:update(dt, client, camera)
+  time = time + dt
+  -- A key held down repeats its press event; only a press after a release
+  -- is a tap. Note which movement keys are up right now.
+  for _, dir in ipairs(DODGE_DIRS) do
+    if not Controls.isDown(dir.action) then
+      self.tapReady[dir.action] = true
+    end
+  end
+  for i = #self.puffs, 1, -1 do
+    local puff = self.puffs[i]
+    puff.t = puff.t + dt
+    if puff.t > 0.45 then
+      table.remove(self.puffs, i)
+    end
+  end
   local me = self:me(client)
   if not me then
+    self.dash = nil
     return
   end
   self:predict(dt, client, me)
@@ -252,11 +324,45 @@ end
 function OnFoot:keypressed(key, client)
   if Controls.is("enter-exit", key) and client then
     client:send(Protocol.encode("OF_TOGGLE"))
+    return
+  end
+  -- A movement key: the second tap of the same one inside doubleTap dodges.
+  -- A press while the key is already down is the key repeating, not a tap.
+  for _, dir in ipairs(DODGE_DIRS) do
+    if Controls.is(dir.action, key) then
+      if self.tapReady[dir.action] == false then
+        return -- held down: a repeat
+      end
+      self.tapReady[dir.action] = false
+      local last = self.lastTap
+      if last and last.action == dir.action and time - last.at <= self.doubleTap then
+        self.lastTap = nil -- used up: a third tap starts over
+        if client then
+          self:tryDodge(client, dir)
+        end
+      else
+        self.lastTap = { action = dir.action, at = time }
+      end
+      return
+    end
   end
 end
 
+--- Dust kicked up where somebody dodged: a few puffs drifting back the way
+--- they came, fading.
 function OnFoot:drawAboveCars(_client, camera)
   self.view.x, self.view.y, self.view.scale = camera.x, camera.y, camera.scale or 1
+  for _, puff in ipairs(self.puffs) do
+    local k = puff.t / 0.45
+    for i = 0, 2 do
+      local d = 6 + i * 9 + k * 14
+      love.graphics.setColor(0.75, 0.72, 0.62, (1 - k) * 0.5)
+      local px = puff.x - puff.dx * d + (i - 1) * puff.dy * 5
+      local py = puff.y - puff.dy * d + (i - 1) * puff.dx * 5
+      love.graphics.circle("fill", px, py, 3 + k * 4 - i * 0.5, 8)
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function OnFoot:drawHUD(client)
@@ -278,7 +384,7 @@ function OnFoot:drawHUD(client)
     love.graphics.rectangle("fill", 70, 140, bw * frac, bh)
     love.graphics.setColor(0.8, 0.8, 0.85)
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
-    local hint = sprintKey .. ": sprint"
+    local hint = sprintKey .. ": sprint   double-tap: dodge"
     if self:vehicleInReach(client, me) then
       hint = key .. ": get in   " .. hint
     end
@@ -311,6 +417,12 @@ OnFoot.clientMessages = {
     end
   end,
   --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
+  OF_DODGED = function(_client, args)
+    local x, y, dx, dy = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
+    if x and y and dx and dy then
+      OnFoot.puffs[#OnFoot.puffs + 1] = { x = x, y = y, dx = dx, dy = dy, t = 0 }
+    end
+  end,
   OF_GIB = function(_client, args)
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
     if x and y and Features.byName.pedestrians then
@@ -326,7 +438,8 @@ OnFoot.sv = nil
 
 function OnFoot:serverStart()
   self.sv = {
-    walkers = {}, -- player id -> { stamina, max, regen, regenIn, spent, lastSeq, move }
+    walkers = {}, -- player id -> { stamina, max, regen, regenIn, spent, lastSeq, move, dash, dodgeReadyAt }
+    time = 0, -- seconds since the game started
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
     regen = {}, -- player id -> regen scale (absent = 1)
   }
@@ -363,6 +476,8 @@ function OnFoot:walker(player)
       spent = false,
       lastSeq = 0,
       move = { x = 0, y = 0, sprint = false },
+      dash = nil, -- { x, y, t } while dodging
+      dodgeReadyAt = 0,
     }
     self.sv.walkers[player.id] = st
   end
@@ -461,6 +576,7 @@ function OnFoot:getOut(server, player, force)
   local st = self:walker(player)
   st.stamina, st.spent, st.regenIn = st.max, false, 0
   st.move.x, st.move.y, st.move.sprint = 0, 0, false
+  st.dash = nil
   return true
 end
 
@@ -517,10 +633,50 @@ function OnFoot:walk(st, body, dt)
     end
   end
 
-  if len > 0 then
+  if st.dash then
+    -- Mid-dodge: the dash carries them, whatever the keys say.
+    local d = st.dash
+    local slice = math.min(dt, d.t) -- the last step only goes as far as is left
+    body.x, body.y = step(body.x, body.y, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    d.t = d.t - dt
+    if d.t <= 0 then
+      st.dash = nil
+    end
+    st.regenIn = self.regenDelay
+  elseif len > 0 then
     local speed = sprinting and self.sprintSpeed or self.walkSpeed
     body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
   end
+end
+
+--- A dodge for `player` in direction (dx, dy), if they are on foot, free,
+--- rested and not still recovering from the last one. Returns true if it
+--- started. Everyone hears OF_DODGED for the dust.
+function OnFoot:serverDodge(server, player, dx, dy)
+  local sv = self.sv
+  if not (sv and player.body) or player.vehicle or player.body.dead then
+    return false
+  end
+  if Features.any("serverHeld", server, player) then
+    return false -- held still (frozen)
+  end
+  local len = math.sqrt(dx * dx + dy * dy)
+  if len < 0.5 then
+    return false -- no direction
+  end
+  dx, dy = dx / len, dy / len
+  local st = self:walker(player)
+  if st.dash or sv.time < st.dodgeReadyAt or st.stamina < self.dodgeStamina then
+    return false
+  end
+  st.stamina = st.stamina - self.dodgeStamina
+  st.regenIn = self.regenDelay
+  st.dash = { x = dx, y = dy, t = self.dodgeTime }
+  st.dodgeReadyAt = sv.time + self.dodgeCooldown
+  local b = player.body
+  server:broadcast(Protocol.encode("OF_DODGED", player.id, ("%.0f"):format(b.x), ("%.0f"):format(b.y),
+    ("%.2f"):format(dx), ("%.2f"):format(dy)))
+  return true
 end
 
 function OnFoot:serverStep(server, dt)
@@ -528,6 +684,7 @@ function OnFoot:serverStep(server, dt)
   if not sv then
     return
   end
+  sv.time = sv.time + dt
   if not vehiclesAllowed() then
     -- Nobody drives here: anyone behind a wheel (just arrived, or just
     -- respawned in their car) is turned out where the car stands, and their
@@ -577,6 +734,12 @@ OnFoot.serverMessages = {
       OnFoot:getOut(server, player)
     else
       OnFoot:getIn(server, player)
+    end
+  end,
+  OF_DODGE = function(server, player, args)
+    local dx, dy = tonumber(args[1]), tonumber(args[2])
+    if dx and dy then
+      OnFoot:serverDodge(server, player, dx, dy)
     end
   end,
   OF_MOVE = function(_server, player, args)
