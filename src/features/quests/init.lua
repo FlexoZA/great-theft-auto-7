@@ -5,11 +5,16 @@
 -- takes the job takes the whole server with them. Decline and the star
 -- waits until you come back to it.
 --
--- One quest for now: the star in the middle of the city sends everyone out
--- to the outskirts, an empty field, where a blue star in the middle brings
--- everyone home again. What happens out there comes next. Add a quest to
+-- One quest so far: the star in the middle of the city sends everyone to
+-- Crazy Karen's cul-de-sac (the karen feature runs the fight), where a blue
+-- star by the entrance brings everyone home again. Add a quest to
 -- `Quests.list` and the star, the offer and the trip are all done here; a
--- quest marked `returns` is the way back and ends the one under way.
+-- quest marked `returns` is the way back and ends the one under way. What
+-- happens on the quest is another feature's business: this one raises
+-- `questStarted(client, quest, byId)` / `questEnded(client, quest)` on every
+-- machine and `serverQuestStarted(server, quest, player)` /
+-- `serverQuestEnded(server, quest)` on the host, and a feature that finishes
+-- the job calls `quests:serverComplete(server, questId)`.
 --
 -- The host decides: it checks the taker's body is on the star, that the
 -- star is on the map in play and that the destination exists, then
@@ -20,6 +25,7 @@
 --   client -> server  QST_ACCEPT <questId>
 --   server -> all     QST_MAP    <mapName>              (play on this map from now on; before QST_START)
 --   server -> all     QST_START  <questId> <playerId>   (who took the job)
+--   server -> all     QST_DONE   <questId>              (the job is done)
 --   server -> player  QST_NO     <reason>               (away | gone)
 
 local Protocol = require("src.net.protocol")
@@ -37,25 +43,28 @@ local Quests = {
 -- accepting takes everyone. Every name is a key of city-map's `maps`.
 -- `returns` marks the trip home: taking it ends the quest under way instead
 -- of starting one. `label` and `color` dress the star; `banner` is what
--- everyone reads when the trip happens (%s is the taker's name).
+-- everyone reads when the trip happens (%s is the taker's name). `boss`
+-- names the feature that owns the fight there (karen listens for its own).
 Quests.list = {
   {
-    id = "outskirts",
-    title = "Out of Town",
-    text = "Word is there's work going past the city limits. Round everyone up and head out to the outskirts.",
+    id = "karen",
+    title = "Crazy Karen is at it again, let's end this",
+    text = "She's out on her street again, screaming at the neighbourhood. "
+      .. "Get everyone over there and shut her up for good.",
     onMap = "city",
     x = 0, -- the middle of the city's central road
     y = 0,
-    map = "outskirts",
-    banner = "%s took the job. Welcome to The Outskirts.",
+    map = "culdesac",
+    boss = "karen",
+    banner = "%s took the job. Welcome to Karen's Cul-de-sac.",
   },
   {
     id = "home",
     title = "Back to the City",
-    text = "Nothing out here but grass. Call it a day and take everyone back into town.",
-    onMap = "outskirts",
-    x = 0, -- the middle of the field
-    y = 0,
+    text = "Done here. Call it a day and take everyone back into town.",
+    onMap = "culdesac",
+    x = 0, -- the entrance of the street
+    y = 800,
     map = "city",
     returns = true,
     label = "HOME",
@@ -76,7 +85,7 @@ Quests.starSize = 30 -- px, outer radius of the star
 local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
 local NOTICE_TIME = 2.5 -- seconds a refusal stays on the offer
 local BANNER_TIME = 4 -- seconds the "took the job" banner stays up
-local PANEL_W = 460
+local PANEL_W = 560
 local REASONS = {
   away = "Get back on the star to take it.",
   gone = "That job is off the table.",
@@ -103,6 +112,7 @@ end
 -- Client --------------------------------------------------------------------
 
 Quests.active = nil -- id of the quest everyone is on, from the host
+Quests.done = nil -- id of a quest finished on this trip (the star home is still the way back)
 Quests.prompt = nil -- the quest whose offer is up
 local declined = nil -- quest id turned down; forgotten once you leave its star
 local seenMap = nil -- the map the last frame was on, to notice arriving on another
@@ -118,7 +128,7 @@ end
 -- QST_MAP and QST_START for a quest under way arrive in the same burst as
 -- START, so the quest is only forgotten on the way out.
 function Quests:exitGame()
-  self.active, self.prompt, declined, seenMap = nil, nil, nil, nil
+  self.active, self.done, self.prompt, declined, seenMap = nil, nil, nil, nil, nil
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
 end
 
@@ -140,12 +150,11 @@ function Quests:update(dt, client)
     self.prompt, declined = nil, quest and quest.id or nil
   end
   seenMap = city and city.current or nil
-  local car = client:myCar()
-  if not (quest and car) then
+  local x, y = client:myPose()
+  if not (quest and x) then
     self.prompt, declined = nil, nil
     return
   end
-  local x, y = Features.clientBodyPose(client, client.myId, car)
   local d2 = dist2(x, y, quest.x, quest.y)
   if d2 > self.leaveRadius ^ 2 then
     self.prompt, declined = nil, nil -- drove off: the offer goes down and a no is forgotten
@@ -240,7 +249,9 @@ local function drawPrompt(quest)
   local inner = PANEL_W - 48
   local _, lines = UI.fonts.body:getWrap(quest.text, inner)
   local textH = #lines * UI.fonts.body:getHeight()
-  local ph = 24 + UI.fonts.small:getHeight() + 8 + UI.fonts.heading:getHeight() + 14 + textH + 44 + 26
+  local _, titleLines = UI.fonts.heading:getWrap(quest.title, inner)
+  local titleH = #titleLines * UI.fonts.heading:getHeight()
+  local ph = 24 + UI.fonts.small:getHeight() + 8 + titleH + 14 + textH + 44 + 26
   local px, py = math.floor((w - PANEL_W) / 2), math.floor((h - ph) / 2)
 
   love.graphics.setColor(0, 0, 0, 0.45)
@@ -257,8 +268,8 @@ local function drawPrompt(quest)
   y = y + UI.fonts.small:getHeight() + 8
   love.graphics.setFont(UI.fonts.heading)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.printf(quest.title, px, y, PANEL_W, "center")
-  y = y + UI.fonts.heading:getHeight() + 14
+  love.graphics.printf(quest.title, px + 24, y, inner, "center")
+  y = y + titleH + 14
   love.graphics.setFont(UI.fonts.body)
   love.graphics.setColor(0.85, 0.85, 0.88)
   love.graphics.printf(quest.text, px + 24, y, inner, "center")
@@ -284,8 +295,13 @@ function Quests:drawHUD(client)
     local city = cityMap()
     local where = city and city.map.title
     love.graphics.setFont(UI.fonts.small)
-    love.graphics.setColor(1, 0.85, 0.3)
     local label = "Quest: " .. (quest and quest.title or self.active)
+    if self.done == self.active then
+      love.graphics.setColor(0.5, 1, 0.6)
+      label = "Quest complete: " .. (quest and quest.title or self.active)
+    else
+      love.graphics.setColor(1, 0.85, 0.3)
+    end
     if where then
       label = label .. "  (" .. where .. ")"
     end
@@ -322,7 +338,9 @@ Quests.clientMessages = {
     if not quest then
       return
     end
+    local ended = Quests.active and Quests.byId[Quests.active]
     Quests.active = not quest.returns and quest.id or nil
+    Quests.done = nil
     Quests.prompt = nil -- `declined` is left alone: update sets it for the star we land next to
     local taker = client.players[by]
     local city = cityMap()
@@ -330,6 +348,21 @@ Quests.clientMessages = {
     local text = quest.banner or ("%s took the job. Welcome to " .. where .. ".")
     banner = { title = quest.title:upper(), text = text:format(taker and taker.name or "Someone") }
     bannerTimer = BANNER_TIME
+    if quest.returns then
+      if ended then
+        Features.call("questEnded", client, ended)
+      end
+    else
+      Features.call("questStarted", client, quest, by)
+    end
+  end,
+  QST_DONE = function(_client, args)
+    local quest = Quests.byId[args[1] or ""]
+    if quest then
+      Quests.done = quest.id
+      banner = { title = "JOB DONE", text = quest.title }
+      bannerTimer = BANNER_TIME
+    end
   end,
   QST_NO = function(_client, args)
     notice = REASONS[args[1]]
@@ -339,11 +372,27 @@ Quests.clientMessages = {
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { active = quest id or nil, by = player id }
+local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil }
 
 -- City-map (lower priority) has put the default map back by now.
 function Quests:serverStart()
-  sv = { active = nil, by = nil }
+  sv = { active = nil, by = nil, done = nil }
+end
+
+--- The job under way is finished (the karen feature says so when she goes
+--- down). Everyone hears it; the star home is still the way back.
+function Quests:serverComplete(server, questId)
+  if not (sv and sv.active == questId) then
+    return false
+  end
+  sv.done = questId
+  server:broadcast(Protocol.encode("QST_DONE", questId))
+  return true
+end
+
+--- The quest under way on the host, for other features; nil between jobs.
+function Quests:serverActive()
+  return sv and sv.active and self.byId[sv.active] or nil
 end
 
 --- Anyone added mid-game (a bot) hears which map is in play and what job
@@ -359,19 +408,25 @@ function Quests:serverPlayerJoined(server, player)
   if sv.active then
     server:send(player, Protocol.encode("QST_START", sv.active, sv.by))
   end
+  if sv.done then
+    server:send(player, Protocol.encode("QST_DONE", sv.done))
+  end
 end
 
 --- Is the player's body (not a wreck) on the star?
 local function onStar(server, player, quest)
+  if not Features.present(player) then
+    return false
+  end
   local x, y = Features.bodyPose(server, player)
-  return not player.car.hidden and dist2(x, y, quest.x, quest.y) <= (Quests.starRadius + SLACK) ^ 2
+  return dist2(x, y, quest.x, quest.y) <= (Quests.starRadius + SLACK) ^ 2
 end
 
 Quests.serverMessages = {
   QST_ACCEPT = function(server, player, args)
     local quest = Quests.byId[args[1] or ""]
     local city = cityMap()
-    if not (sv and quest and city and player.car) then
+    if not (sv and quest and city and player.body) then
       return
     end
     local reason
@@ -380,14 +435,22 @@ Quests.serverMessages = {
     elseif not onStar(server, player, quest) then
       reason = "away"
     else
+      local ended = sv.active and Quests.byId[sv.active]
       if quest.returns then
-        sv.active, sv.by = nil, nil
+        sv.active, sv.by, sv.done = nil, nil, nil
       else
-        sv.active, sv.by = quest.id, player.id
+        sv.active, sv.by, sv.done = quest.id, player.id, nil
       end
       city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
       server:broadcast(Protocol.encode("QST_MAP", quest.map))
       server:broadcast(Protocol.encode("QST_START", quest.id, player.id))
+      if quest.returns then
+        if ended then
+          Features.call("serverQuestEnded", server, ended)
+        end
+      else
+        Features.call("serverQuestStarted", server, quest, player)
+      end
       return
     end
     server:send(player, Protocol.encode("QST_NO", reason))

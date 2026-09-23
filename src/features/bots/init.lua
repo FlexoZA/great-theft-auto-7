@@ -26,7 +26,6 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Net = require("src.net")
 local UI = require("src.ui")
-local Car = require("src.car")
 local Controls = require("src.controls")
 
 local Bots = {
@@ -90,9 +89,11 @@ end
 
 -- Server ----------------------------------------------------------------
 
---- Create any NPC driver. opts: name, x, y, angle, brain (table with
+--- Create any NPC driver: a player with a body and a car of its own, seated
+--- (server:spawnPlayer). opts: name, x, y, angle, brain (table with
 --- think(server, npc, dt), optional), plus any extra fields to copy onto the
---- player (e.g. police = true). Returns the player table.
+--- player (e.g. police = true). Returns the player table. `npc.car` is the
+--- car it drives, so a brain reads and steers that.
 function Bots:spawnNpc(server, opts)
   local id = server.nextId
   server.nextId = id + 1
@@ -102,7 +103,6 @@ function Bots:spawnNpc(server, opts)
     peer = stubPeer(id),
     input = { throttle = 0, steer = 0 },
     lastSeq = 0,
-    car = Car.new(opts.x, opts.y, opts.angle),
     bot = true,
     brain = opts.brain,
     ai = {
@@ -124,6 +124,7 @@ function Bots:spawnNpc(server, opts)
     end
   end
   server.players[id] = npc
+  server:spawnPlayer(npc, opts.x, opts.y, opts.angle)
   npcs[#npcs + 1] = npc
   if not trafficWanted() then
     self:park(npc, true) -- born on a map with no traffic: wait out of sight
@@ -170,6 +171,8 @@ function Bots:removeNpc(server, npc)
       table.remove(bots, i)
     end
   end
+  server:unseat(npc)
+  server:removeVehicle(npc.car)
   server.players[npc.id] = nil
   server:broadcast(Protocol.encode("LEAVE", npc.id))
   Features.call("serverPlayerLeft", server, npc)
@@ -225,8 +228,8 @@ local function spawnNearHost(server)
   end
   local host = server.players[HOST_ID]
   local hx, hy = 0, 0
-  if host and host.car then
-    hx, hy = host.car.x, host.car.y
+  if host and host.body then
+    hx, hy = Features.bodyPose(server, host)
   end
   local a = love.math.random() * 2 * math.pi
   return hx + math.cos(a) * 500, hy + math.sin(a) * 500, a + math.pi
@@ -351,8 +354,8 @@ end
 
 function Bots:fight(server, bot, target)
   local ai, car = bot.ai, bot.car
-  local tc = target.car
-  -- The target is where their body is: their car, or them on foot beside it.
+  local tc = target.vehicle
+  -- The target is where their body is: the car they drive, or their feet.
   local tx, ty, onFoot = Features.bodyPose(server, target)
   local dx, dy = tx - car.x, ty - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
@@ -390,8 +393,9 @@ function Bots:think(server, bot, dt)
     self:calm(bot) -- forgiven
   end
   local target = ai.hostileTo and server.players[ai.hostileTo]
-  if target and target.car and not target.car.hidden then
-    local dist = math.sqrt((target.car.x - bot.car.x) ^ 2 + (target.car.y - bot.car.y) ^ 2)
+  if target and Features.present(target) then
+    local tx, ty = Features.bodyPose(server, target)
+    local dist = math.sqrt((tx - bot.car.x) ^ 2 + (ty - bot.car.y) ^ 2)
     if dist > self.giveUpDistance then
       ai.farFor = ai.farFor + dt
       if ai.farFor >= self.giveUpTime then
@@ -402,7 +406,7 @@ function Bots:think(server, bot, dt)
       ai.farFor = 0
     end
   end
-  if target and target.car and not target.car.hidden then
+  if target and Features.present(target) then
     self:fight(server, bot, target)
   else
     self:cruise(bot)

@@ -78,12 +78,11 @@ end
 --- One whistle when a nearby officer spots someone wanted. Only the nearest
 --- of them, however many turned round at once.
 function Police:whistles(client)
-  local me = client:myCar()
-  if not me then
+  local mx, my = client:myPose()
+  if not mx then
     Render.alertedN = 0
     return
   end
-  local mx, my = Features.clientBodyPose(client, client.myId, me)
   for i = 1, Render.alertedN do
     local o = Render.alerted[i]
     local dx, dy = o.x - mx, o.y - my
@@ -99,7 +98,7 @@ function Police:update(dt, client)
   flash = flash + dt
   Render.update(dt)
   for id, u in pairs(self.units) do
-    local c = client.cars[id]
+    local c = client:vehicleOf(id)
     if u.chasing and c then
       if not u.siren then
         u.siren = Sounds.newSiren()
@@ -180,7 +179,7 @@ end
 
 function Police:drawAboveCars(client)
   for id, u in pairs(self.units) do
-    local c = client.cars[id]
+    local c = client:vehicleOf(id)
     if c then
       drawLivery(c, u.chasing)
     end
@@ -265,7 +264,7 @@ local function witnessed(x, y)
 end
 
 function Police:setWanted(server, player)
-  if not (sv and player and not player.police and player.car) then
+  if not (sv and player and not player.police and player.body) then
     return
   end
   local wasWanted = sv.wanted[player.id] ~= nil
@@ -298,7 +297,7 @@ function Police:serverKill(server, kill)
 end
 
 function Police:serverCarsCollided(server, rammer, _rammed, closing)
-  if closing >= self.ramCrime and rammer.car and witnessed(rammer.car.x, rammer.car.y) then
+  if closing >= self.ramCrime and rammer.vehicle and witnessed(rammer.vehicle.x, rammer.vehicle.y) then
     self:setWanted(server, rammer)
   end
 end
@@ -374,7 +373,7 @@ local function nearestWanted(server, unit)
   local range = unit.ai.chasing and Police.pursuitRange or Police.sightRange
   for id in pairs(sv.wanted) do
     local p = server.players[id]
-    if p and p.car and not p.car.hidden then
+    if p and Features.present(p) then
       local bx, by = Features.bodyPose(server, p) -- them on foot, or their car
       local d2 = (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2
       if d2 <= range * range and (not bestD2 or d2 < bestD2) then
@@ -432,7 +431,7 @@ function Police:serverStart(server)
   if Face.inclusive() then
     -- Hot start: every human is wanted and every unit is already hunting.
     for _, p in pairs(server.players) do
-      if not p.bot and p.car then
+      if not p.bot and p.body then
         sv.wanted[p.id] = sv.time + self.hotStartTime
         server:broadcast(Protocol.encode("POL_WANTED", p.id, 1))
       end
@@ -451,7 +450,7 @@ function Police:serverStep(server, dt)
   sv.time = sv.time + dt
   for id, until_ in pairs(sv.wanted) do
     local p = server.players[id]
-    if not p or not p.car or p.car.hidden or sv.time >= until_ then
+    if not p or not Features.present(p) or sv.time >= until_ then
       self:clearWanted(server, id) -- got away, gave up, or got wrecked
     end
   end

@@ -1,4 +1,12 @@
 -- Game client. The hosting player also runs one of these against 127.0.0.1.
+--
+-- What it knows of the world mirrors the server: `vehicles` (every car in
+-- the world, with who is driving it) and `bodies` (every player on foot),
+-- both refreshed by STATE, plus `garage`, what VEHICLE said about each
+-- car's owner and colour. `pose(id)` answers where a player is drawn, in
+-- either. Each snapshot carries x, y, angle from the server and dx, dy,
+-- dangle eased towards them for drawing (the game state does the easing;
+-- a body with `predicted` set is moved by a feature instead).
 
 local enet = require("enet")
 local Protocol = require("src.net.protocol")
@@ -27,7 +35,9 @@ function Client.new(playerName)
     players = {}, -- id -> { id, name }
     started = false,
     connectTimer = 0,
-    cars = {}, -- id -> { id, x, y, angle, speed, dx, dy, dangle } (d* = smoothed for drawing)
+    vehicles = {}, -- vehicle id -> { id, owner, color, driver, x, y, angle, speed, dx, dy, dangle }
+    bodies = {}, -- player id -> { id, x, y, angle, dx, dy, dangle, predicted, running, bob }
+    garage = {}, -- vehicle id -> { owner, color }, from VEHICLE, kept while a wreck is out of STATE
     lastTick = 0,
     inputSeq = 0,
     inputTimer = 0,
@@ -76,7 +86,9 @@ function Client:update(dt)
         self.error = self.error or "connection closed"
       end
       self.players = {}
-      self.cars = {}
+      self.vehicles = {}
+      self.bodies = {}
+      self.garage = {}
       self.myId = nil
     end
   end
@@ -97,36 +109,101 @@ function Client:sendInput(throttle, steer, dt, handbrake)
   self.peer:send(msg, STATE_CHANNEL, "unreliable")
 end
 
+--- STATE <tick> <vehicles> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
 function Client:onState(args)
-  local tick = tonumber(args[1])
-  if not tick or tick <= self.lastTick then
+  local tick, nv = tonumber(args[1]), tonumber(args[2])
+  if not tick or not nv or tick <= self.lastTick then
     return -- out of order, keep the newer snapshot
   end
   self.lastTick = tick
   local seen = {}
-  for i = 2, #args - 4, 5 do
+  local i = 3
+  for _ = 1, nv do
     local id = tonumber(args[i])
     local x, y = tonumber(args[i + 1]), tonumber(args[i + 2])
-    local angle, speed = tonumber(args[i + 3]), tonumber(args[i + 4])
+    local angle, speed, driver = tonumber(args[i + 3]), tonumber(args[i + 4]), tonumber(args[i + 5])
+    i = i + 6
     if id and x and y and angle and speed then
-      local c = self.cars[id]
-      if c then
-        c.x, c.y, c.angle, c.speed = x, y, angle, speed
-      else
-        self.cars[id] = { id = id, x = x, y = y, angle = angle, speed = speed, dx = x, dy = y, dangle = angle }
+      local v = self.vehicles[id]
+      if not v then
+        local info = self.garage[id]
+        v = { id = id, owner = info and info.owner, color = info and info.color or 1, dx = x, dy = y, dangle = angle }
+        self.vehicles[id] = v
       end
+      v.x, v.y, v.angle, v.speed = x, y, angle, speed
+      v.driver = driver ~= 0 and driver or nil
       seen[id] = true
     end
   end
-  for id in pairs(self.cars) do
+  for id in pairs(self.vehicles) do
     if not seen[id] then
-      self.cars[id] = nil
+      self.vehicles[id] = nil -- a wreck waiting to come back, or gone for good
+    end
+  end
+  local walking = {}
+  while i <= #args - 3 do
+    local id = tonumber(args[i])
+    local x, y, facing = tonumber(args[i + 1]), tonumber(args[i + 2]), tonumber(args[i + 3])
+    i = i + 4
+    if id and x and y and facing then
+      local b = self.bodies[id]
+      if not b then
+        b = { id = id, dx = x, dy = y, dangle = facing, bob = love.math.random() * 6 }
+        self.bodies[id] = b
+      end
+      b.x, b.y, b.angle = x, y, facing
+      walking[id] = true
+    end
+  end
+  for id in pairs(self.bodies) do
+    if not walking[id] then
+      self.bodies[id] = nil -- got into something, or gone for the moment
     end
   end
 end
 
-function Client:myCar()
-  return self.myId and self.cars[self.myId] or nil
+--- The vehicle player `id` is driving, or nil.
+function Client:vehicleOf(id)
+  for _, v in pairs(self.vehicles) do
+    if v.driver == id then
+      return v
+    end
+  end
+  return nil
+end
+
+--- Where player `id` is drawn: on foot or in a vehicle. Returns x, y,
+--- onFoot, angle, or nil when they are not in the world just now (wrecked).
+function Client:pose(id)
+  local b = self.bodies[id]
+  if b then
+    return b.dx, b.dy, true, b.dangle
+  end
+  local v = self:vehicleOf(id)
+  if v then
+    return v.dx, v.dy, false, v.dangle
+  end
+  return nil
+end
+
+--- Is player `id` in the world (walking or driving) right now?
+function Client:present(id)
+  return self.bodies[id] ~= nil or self:vehicleOf(id) ~= nil
+end
+
+function Client:myVehicle()
+  return self.myId and self:vehicleOf(self.myId) or nil
+end
+
+function Client:myBody()
+  return self.myId and self.bodies[self.myId] or nil
+end
+
+function Client:myPose()
+  if not self.myId then
+    return nil
+  end
+  return self:pose(self.myId)
 end
 
 function Client:onMessage(data)
@@ -144,10 +221,25 @@ function Client:onMessage(data)
     local id = tonumber(args[1])
     if id then
       self.players[id] = nil
-      self.cars[id] = nil
+      self.bodies[id] = nil
     end
   elseif kind == "STATE" then
     self:onState(args)
+  elseif kind == "VEHICLE" then
+    local id, owner, color = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if id then
+      self.garage[id] = { owner = owner ~= 0 and owner or nil, color = color or 1 }
+      local v = self.vehicles[id]
+      if v then
+        v.owner, v.color = self.garage[id].owner, self.garage[id].color
+      end
+    end
+  elseif kind == "VEHICLE_GONE" then
+    local id = tonumber(args[1])
+    if id then
+      self.garage[id] = nil
+      self.vehicles[id] = nil
+    end
   elseif kind == "START" then
     self.started = true
   elseif kind == "REJECT" then
@@ -198,7 +290,9 @@ function Client:disconnect()
   end
   self.state = "idle"
   self.players = {}
-  self.cars = {}
+  self.vehicles = {}
+  self.bodies = {}
+  self.garage = {}
   self.myId = nil
 end
 

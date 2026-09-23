@@ -20,8 +20,9 @@ function MyFeature:exitGame(client) end
 
 -- Client side (runs on every machine, including the host) -------------------
 
---- Every frame while in the game. client.cars, client.players, client.myId
---- and client:myCar() are available. Send to the server with
+--- Every frame while in the game. client.vehicles, client.bodies,
+--- client.players, client.myId, client:pose(id), client:myPose() and
+--- client:myVehicle() are available. Send to the server with
 --- client:send(Protocol.encode("KIND", ...)). `camera` is { x, y, scale },
 --- already on the local player; move or scale it to steer the view.
 function MyFeature:update(dt, client, camera) end
@@ -36,10 +37,6 @@ function MyFeature:drawHUD(client) end
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
---- Asked while the core draws player `id`'s car: return true to suppress the
---- name it prints over the car, because you draw that player yourself
---- somewhere else (on-foot does, while they are out walking).
-function MyFeature:hidesCarLabel(client, id) end
 
 --- Asked every frame: 0..1 for how soft the world should be drawn (the HUD
 --- stays sharp). The core takes the highest answer from any feature and
@@ -55,8 +52,9 @@ MyFeature.clientMessages = {
 
 -- Server side (runs only on the host) ---------------------------------------
 
---- Game started; every player has a car at its spawn slot. Reposition them
---- here if your feature owns spawn points (server.players[id].car).
+--- Game started; every player has a body and their own car at its spawn
+--- slot, and sits in it. Reposition them here if your feature owns spawn
+--- points (server.players[id].body, .car; server:seat / server:unseat).
 function MyFeature:serverStart(server) end
 
 --- Fixed 30 Hz step, after car physics and before the STATE broadcast.

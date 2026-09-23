@@ -6,11 +6,14 @@
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
 -- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
--- traffic }) so the same generator builds every map the game knows
+-- traffic, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
 -- tile is "ground", no blocks. `crowd = false` and `traffic = false` keep
 -- pedestrians, officers and NPC cars off it (those features read the flags).
+-- `kind = "culdesac"` builds a suburban dead end instead of a grid: one
+-- street in from the bottom edge, a turning circle at the top, houses on
+-- their lawns either side (see `buildCuldesac`).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -36,6 +39,16 @@ local ROOFS = {
   { 0.30, 0.35, 0.50 }, -- steel blue
   { 0.45, 0.50, 0.35 }, -- olive
   { 0.40, 0.16, 0.16 }, -- dark red
+}
+
+-- Suburban roofs for the cul-de-sac: lighter and fussier than downtown.
+local HOUSES = {
+  { 0.82, 0.55, 0.60 }, -- dusty pink
+  { 0.60, 0.78, 0.70 }, -- mint
+  { 0.86, 0.80, 0.60 }, -- cream
+  { 0.58, 0.68, 0.84 }, -- powder blue
+  { 0.80, 0.66, 0.50 }, -- peach
+  { 0.66, 0.60, 0.78 }, -- lilac
 }
 
 local function isRoadIndex(i)
@@ -188,8 +201,82 @@ local function finish(map)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty } (every field
---- optional, defaulting to the city above) or just a seed.
+--- A suburban dead end. The street comes in from the bottom edge, two
+--- lanes with a sidewalk each side, and ends in a turning circle near the
+--- top; houses sit on lawns either side of it and around the circle, with
+--- a tree here and there. Everything off the tarmac is "ground" (lawn), so
+--- cars can cut across gardens, and the houses are solid like downtown's.
+--- Cars spawn in the street by the entrance and `map.cx, map.cy` is the
+--- entrance too; the circle's centre is `map.circleX, map.circleY`.
+local function buildCuldesac(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  local mid = math.floor(cols / 2) -- the street runs down columns mid-1 and mid
+  local circleR, circleRow = 4 * T, 10 -- turning circle: radius, and the tile row of its centre
+  local ccx, ccy = map.x0 + mid * T, map.y0 + circleRow * T + T / 2
+  map.circleX, map.circleY = ccx, ccy
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      local tx, ty = map.x0 + (c + 0.5) * T, map.y0 + (r + 0.5) * T
+      local d = math.sqrt((tx - ccx) ^ 2 + (ty - ccy) ^ 2)
+      local kind = "ground"
+      if d <= circleR or ((c == mid - 1 or c == mid) and r >= circleRow) then
+        kind = "road"
+      elseif d <= circleR + T or ((c == mid - 2 or c == mid + 1) and r >= circleRow) then
+        kind = "walk"
+      end
+      map.tiles[c][r] = kind
+    end
+  end
+
+  -- Houses: three each side of the street and five around the circle, each
+  -- three tiles square, set back a lawn's width from the sidewalk.
+  local function house(tc, tr, tw, th)
+    local b = {
+      x = map.x0 + tc * T,
+      y = map.y0 + tr * T,
+      w = tw * T,
+      h = th * T,
+      color = HOUSES[rng:random(#HOUSES)],
+      style = rng:random(3),
+      seed = rng:random(1000),
+    }
+    map.buildings[#map.buildings + 1] = b
+    map.solids[#map.solids + 1] = { x = b.x, y = b.y, w = b.w, h = b.h }
+  end
+  for _, r in ipairs({ circleRow + 4, circleRow + 9, circleRow + 14 }) do
+    house(mid - 6, r, 3, 3)
+    house(mid + 3, r, 3, 3)
+  end
+  house(mid - 1, circleRow - 9, 3, 3) -- top of the circle
+  house(mid - 8, circleRow - 6, 3, 3)
+  house(mid + 5, circleRow - 6, 3, 3)
+  house(mid - 9, circleRow - 1, 3, 3)
+  house(mid + 6, circleRow - 1, 3, 3)
+
+  -- Trees on the lawns, clear of the houses and the street.
+  for _, tc in ipairs({ { mid - 9, circleRow + 6 }, { mid + 8, circleRow + 8 }, { mid - 8, circleRow + 12 },
+    { mid + 9, circleRow + 13 }, { mid - 4, circleRow - 8 }, { mid + 4, circleRow - 8 } }) do
+    local x = map.x0 + (tc[1] + 0.5) * T + (rng:random() - 0.5) * 20
+    local y = map.y0 + (tc[2] + 0.5) * T + (rng:random() - 0.5) * 20
+    map.trees[#map.trees + 1] = { x = x, y = y }
+    map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
+  end
+
+  -- Spawns: parked on the verges either side of the entrance, nose to the
+  -- street, leaving the entrance itself (map.cx, map.cy) clear for a
+  -- quest's star. This is a street you walk up; the cars wait here.
+  map.cx, map.cy = ccx, map.y0 + (rows - 2.5) * T
+  for i = 0, 7 do
+    local y = map.y0 + (rows - 5) * T + i * 36
+    map.spawns[#map.spawns + 1] = { x = ccx - 158, y = y, angle = 0 }
+    map.spawns[#map.spawns + 1] = { x = ccx + 158, y = y, angle = math.pi }
+  end
+end
+
+--- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
+--- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
   if type(spec) ~= "table" then
     spec = { seed = spec }
@@ -200,12 +287,14 @@ function Layout.generate(spec)
   local empty = spec.empty or false
   local W, H = cols * T, rows * T
   local map = {
+    kind = spec.kind or "grid",
     cols = cols, -- original size in tiles; the city may grow past it
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
-    plots = spec.plots or (empty and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
+    vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
+    plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
     x0 = -W / 2, -- world x of tile column 0 (the original left edge)
     y0 = -H / 2,
     -- Tile bounds of the city (inclusive) and the same in world px. They
@@ -228,6 +317,13 @@ function Layout.generate(spec)
     solids = {}, -- { x, y, w, h } world px, top-left + size
     spawns = {}, -- { x, y, angle }
   }
+
+  if map.kind == "culdesac" then
+    buildCuldesac(map, rng)
+    map.fixed = map.solids
+    finish(map)
+    return map
+  end
 
   for c = 0, cols - 1 do
     map.tiles[c] = {}

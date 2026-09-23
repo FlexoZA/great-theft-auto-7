@@ -7,7 +7,7 @@
 -- `rammer` is the player whose car was moving into the other one faster.
 -- Bots use this to take offence at being rammed.
 --
--- Players on foot (the `playerPose` convention) get run over: a car moving
+-- Players on foot get run over: a car moving
 -- faster than `runOverSpeed` that touches a body deals `runOverDamage` scaled
 -- up with speed through Weapons:serverDamage, so a fast car is lethal.
 
@@ -94,19 +94,19 @@ function CarCollisions:runOver(server)
   self.hitAt = self.hitAt or {}
   local now = love.timer.getTime()
   for _, walker in pairs(server.players) do
-    if walker.car and not walker.car.hidden then
+    if Features.present(walker) then
       local bx, by, onFoot = Features.bodyPose(server, walker)
       if onFoot then
-        for _, driver in pairs(server.players) do
-          local car = driver.car
-          if driver ~= walker and car and not car.hidden and math.abs(car.speed) >= self.runOverSpeed then
+        for _, car in pairs(server.vehicles) do
+          if not car.hidden and math.abs(car.speed) >= self.runOverSpeed then
             if Car.hitTest(car, bx, by, self.bodyRadius) then
-              local key = driver.id .. ":" .. walker.id
+              local key = car.id .. ":" .. walker.id
               if (self.hitAt[key] or -1) + self.runOverGrace <= now then
                 self.hitAt[key] = now
                 local frac = math.min(1, math.abs(car.speed) / car.maxSpeed)
                 local amount = self.runOverDamage * (1 + frac)
                 local travel = car.speed >= 0 and car.angle or car.angle + math.pi
+                local driver = car.driver and server.players[car.driver] -- nil for a runaway parked car
                 weapons:serverDamage(server, walker, driver, amount, travel)
               end
             end
@@ -117,25 +117,31 @@ function CarCollisions:runOver(server)
   end
 end
 
+--- Every car in the world against every other, parked or not. The
+--- collision event names the drivers, so it is only raised when both cars
+--- have one.
 function CarCollisions:serverStep(server)
   self:runOver(server)
   local list = {}
-  for _, p in pairs(server.players) do
-    if p.car and not p.car.hidden then
-      list[#list + 1] = p
+  for _, car in pairs(server.vehicles) do
+    if not car.hidden then
+      list[#list + 1] = car
     end
   end
   for i = 1, #list do
     for j = i + 1, #list do
       local a, b = list[i], list[j]
-      local closing, aInto, bInto = resolvePair(a.car, b.car)
+      local closing, aInto, bInto = resolvePair(a, b)
       if closing and closing > 0 then
-        -- Whoever was moving into the other faster did the ramming.
-        local rammer, rammed = a, b
-        if bInto > aInto then
-          rammer, rammed = b, a
+        local da, db = a.driver and server.players[a.driver], b.driver and server.players[b.driver]
+        if da and db then
+          -- Whoever was moving into the other faster did the ramming.
+          local rammer, rammed = da, db
+          if bInto > aInto then
+            rammer, rammed = db, da
+          end
+          Features.call("serverCarsCollided", server, rammer, rammed, closing)
         end
-        Features.call("serverCarsCollided", server, rammer, rammed, closing)
       end
     end
   end

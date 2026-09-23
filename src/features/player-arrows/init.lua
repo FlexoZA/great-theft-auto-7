@@ -1,7 +1,8 @@
 -- Player arrows: while another player is off screen, a small arrow sits on the
--- edge of the window pointing at them. The arrow carries that player's car
--- colour and fades out the further away they are, so a distant player is a
--- faint hint and a near one is hard to miss.
+-- edge of the window pointing at them, wherever they are: their car or their
+-- feet. The arrow carries that player's colour and fades out the further
+-- away they are, so a distant player is a faint hint and a near one is hard
+-- to miss.
 --
 -- Purely local: it only reads the snapshots the client already has, sends
 -- nothing and has no server hooks. Delete the folder (or set
@@ -63,8 +64,8 @@ function Arrows:drawHUD(client)
   if not self.enabled or not camera or not client then
     return
   end
-  local me = client:myCar()
-  if not me then
+  local meX, meY = client:myPose()
+  if not meX then
     return
   end
 
@@ -78,16 +79,17 @@ function Arrows:drawHUD(client)
   local halfW = math.max(cx - self.margin, 1)
   local halfH = math.max(cy - self.margin, 1)
 
-  for id, c in pairs(client.cars) do
-    if id ~= client.myId then
-      local sx = (c.dx - camera.x) * scale + cx
-      local sy = (c.dy - camera.y) * scale + cy
+  for id in pairs(client.players) do
+    local px, py = client:pose(id)
+    if id ~= client.myId and px then
+      local sx = (px - camera.x) * scale + cx
+      local sy = (py - camera.y) * scale + cy
       local offScreen = sx < -slackX or sx > w + slackX or sy < -slackY or sy > h + slackY
       if offScreen then
         local dx, dy = sx - cx, sy - cy
         -- Push the direction out to whichever edge it meets first.
         local t = math.min(halfW / math.max(math.abs(dx), 0.001), halfH / math.max(math.abs(dy), 0.001))
-        local wx, wy = c.dx - me.dx, c.dy - me.dy
+        local wx, wy = px - meX, py - meY
         local alpha = self:alphaFor(math.sqrt(wx * wx + wy * wy))
         drawArrow(cx + dx * t, cy + dy * t, math.atan2(dy, dx), Car.colorFor(id), alpha)
       end

@@ -17,8 +17,9 @@
 --     limits; real-estate sells them. `map.version` changes whenever the city
 --     does, so anything drawn from it knows to redraw.
 --   feature:switchTo(name, server)  play on another map. On the host pass the
---     server: every car is put on the new map's spawn points. Raises the
---     `mapChanged(map, server)` event for every feature (docs/features.md).
+--     server: every player is put on the new map's spawn points in their own
+--     car. Raises the `mapChanged(map, server)` event for every feature
+--     (docs/features.md).
 --
 -- No network messages: the map is code, so nothing needs sending. A feature
 -- that grows the city, or switches it, tells every machine to do the same in
@@ -45,6 +46,13 @@ CityMap.maps = {
   -- about and no traffic, walls around it. Quests go here and come back.
   outskirts = {
     title = "The Outskirts", seed = 23, cols = 32, rows = 22, empty = true, crowd = false, traffic = false,
+  },
+  -- A suburban dead end where Crazy Karen lives: one street, a turning
+  -- circle, houses on lawns. Nobody about but her, and you face her on
+  -- foot: the cars stay parked on the verge by the entrance.
+  culdesac = {
+    title = "Karen's Cul-de-sac", kind = "culdesac", seed = 41, cols = 26, rows = 30,
+    crowd = false, traffic = false, vehicles = false,
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
@@ -77,22 +85,29 @@ function CityMap:reset()
   end
 end
 
---- Put every car on the map's spawn points, in player order, and publish
---- the list for anything else that spawns cars.
-function CityMap:placeCars(server)
+--- Put every player on the map's spawn points, in player order, each behind
+--- the wheel of their own car, and publish the list for anything else that
+--- spawns cars. A car they had borrowed stays where it was.
+function CityMap:placePlayers(server)
   server.spawnPoints = self.map.spawns
   local ids = {}
   for id, p in pairs(server.players) do
-    if p.car then
+    if p.body then
       ids[#ids + 1] = id
     end
   end
   table.sort(ids)
   for i, id in ipairs(ids) do
     local s = self.map.spawns[(i - 1) % #self.map.spawns + 1]
-    local car = server.players[id].car
-    car.x, car.y, car.angle = s.x, s.y, s.angle
-    car:stop()
+    local p = server.players[id]
+    server:unseat(p)
+    p.body.x, p.body.y, p.body.facing = s.x, s.y, s.angle
+    local own = p.car
+    if own then
+      own.x, own.y, own.angle = s.x, s.y, s.angle
+      own:stop()
+      server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
+    end
   end
 end
 
@@ -109,7 +124,7 @@ function CityMap:switchTo(name, server)
   self.map = generate(name)
   self.current = name
   if server then
-    self:placeCars(server)
+    self:placePlayers(server)
   end
   Features.call("mapChanged", self.map, server)
   return true
@@ -174,7 +189,7 @@ end
 --- Every game starts on the default map with every car on its central road.
 function CityMap:serverStart(server)
   self:reset()
-  self:placeCars(server)
+  self:placePlayers(server)
 end
 
 --- Keep pedestrians out of solids; bounce their heading off the wall.
@@ -204,9 +219,8 @@ local function collidePedestrians(map)
 end
 
 function CityMap:serverStep(server)
-  for _, player in pairs(server.players) do
-    local car = player.car
-    if car and not car.hidden then
+  for _, car in pairs(server.vehicles) do
+    if not car.hidden then
       Collision.resolveCar(self.map, car)
     end
   end

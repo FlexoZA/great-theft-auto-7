@@ -55,7 +55,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
-| `hidesCarLabel(client, id)` | Asked while drawing player `id`'s car: return true to keep the core from printing their name over it, because your feature draws them elsewhere (on-foot does, while they are out walking). |
+
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
@@ -63,9 +63,14 @@ Runs on every machine, including the host (the host runs its own client).
 The same `camera` table reaches the draw hooks, so a feature that needs the
 visible world bounds divides the window size by `camera.scale`.
 
-Useful client fields: `client.cars[id]` (`x y angle speed` from the server,
-`dx dy dangle` smoothed for drawing), `client.players[id].name`,
-`client.myId`, `client:myCar()`, `client:send(msg, unreliable)`.
+Useful client fields: `client.vehicles[vid]` (every car in the world:
+`x y angle speed driver` from the server, `owner color` from when it was
+spawned, `dx dy dangle` smoothed for drawing), `client.bodies[id]` (every
+player on foot: `x y angle`, `dx dy dangle`), `client.players[id].name`,
+`client.myId`, `client:pose(id)` (where a player is drawn: `x, y, onFoot,
+angle`, or nil while they are wrecked), `client:myPose()`,
+`client:myVehicle()`, `client:myBody()`, `client:vehicleOf(id)`,
+`client:send(msg, unreliable)`.
 
 ### Server side
 
@@ -74,13 +79,52 @@ Clients send intent; the server decides. Never trust a client message.
 
 | Hook | When |
 | --- | --- |
-| `serverStart(server)` | Game started, every player has a car at the default spawn slot. A map feature can move `server.players[id].car` to its own spawn points here. |
+| `serverStart(server)` | Game started, every player has a body and their own car at the default spawn slot and sits in it. A map feature moves them to its own spawn points here (city-map's `placePlayers`). |
 | `serverStep(server, dt)` | Fixed 30 Hz, after car physics, before the `STATE` broadcast. Collisions, projectiles, scoring. |
 | `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. |
 | `serverMessages = { KIND = function(server, player, args) end }` | A message from a client the core doesn't know. `player` is the verified sender. |
 
-Useful server fields: `server.players[id]` (`id name peer input car`),
-`server.tick`, `server:broadcast(msg, exceptPlayer)`, `server:send(player, msg, unreliable)`.
+Useful server fields: `server.players[id]` (`id name peer input body vehicle
+car`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
+exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
+vehicles" below.
+
+## Bodies and vehicles
+
+A player is a person. From the moment the game starts every player has a
+`body` (`src/body.lua`: `x y facing dead`), the game gives them a car of
+their own (`player.car`) and sits them in it. `player.vehicle` is whatever
+they are driving right now, nil on foot; it is usually their own car, but
+any car in the world can be driven by whoever climbs in. Every car in the
+world is in `server.vehicles`, keyed by its id, with `owner` (a player id or
+nil) and `driver` (a player id or nil).
+
+- `Features.bodyPose(server, player)` → `x, y, onFoot, angle`: where they
+  are, driving or walking. `Features.clientBodyPose(client, id)` is the same
+  on a client (nil while they are wrecked).
+- `Features.present(player)`: spawned, alive, and not sitting in a vehicle
+  that is out of the world (a wreck, a parked NPC). Anything that shoots at,
+  runs over, sells to or pays a player checks this first, on the host.
+- `server:seat(player, car)` / `server:unseat(player, x, y)`: in and out. A
+  car someone gets out of stops where it is for the next driver. On-foot
+  asks for these on E; weapons uses them around death.
+- `server:spawnVehicle(x, y, angle, owner)` / `server:removeVehicle(car)`:
+  a new car in the world (everyone hears `VEHICLE <vid> <owner> <color>`)
+  or one gone for good (`VEHICLE_GONE <vid>`). A feature that sells cars
+  spawns them this way. `server:spawnPlayer(player, x, y, angle)` gives a
+  player added mid-game (a bot) a body and a car of their own.
+- `car.hidden`: out of the world. The core leaves it out of STATE and
+  every feature skips it; weapons parks a dead player's own car this way
+  until they respawn, bots park NPCs with it on a map with no traffic. A
+  player sitting in a hidden car is not present. `car.stowed` is the same
+  for a map with no vehicles: on-foot stows every player's own car there
+  and brings them back on the next map with roads.
+- Death: weapons sets `body.dead`, hides their own car at its spawn slot and
+  leaves a borrowed car where it stands; after the death time they are
+  back at the slot in their own car.
+- `STATE <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...`:
+  every vehicle in the world, then everyone on foot. A player in neither
+  list is out of the world.
 
 ## Messages
 
@@ -119,7 +163,7 @@ Horn.serverMessages = {
 Horn.clientMessages = {
   HORN_HONKED = function(client, args)
     local id = tonumber(args[1])
-    -- play a sound at client.cars[id]
+    -- play a sound at client:pose(id)
   end,
 }
 
@@ -163,8 +207,7 @@ Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 A feature can raise an event for every other feature with
 `Features.call("hookName", ...)`; any feature defining that hook receives
 it. `Features.any("hookName", ...)` is the yes/no version: it stops at the
-first feature whose hook returns true (the core asks `hidesCarLabel` that
-way). Events in use:
+first feature whose hook returns true. Events in use:
 
 | Event | Raised by | Meaning |
 | --- | --- | --- |
@@ -173,6 +216,8 @@ way). Events in use:
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
 | `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
+| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second. |
+| `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -213,16 +258,12 @@ couple of small conventions rather than requiring each other:
   they go down). `by` is the shooter's player id and `angle` the direction of
   travel, for gibs and scoring; `by` is 0 for a shot no player fired. Cars
   are tested first, so answering here never steals a hit from a player.
-- `feature:playerPose(server, player)` / `feature:clientPlayerPose(client, id)`:
-  return `x, y, angle` when a player is not behind the wheel, and nil when
-  they are. On-foot answers both while its owner is out of the car. Weapons
-  asks before it fires (the shot leaves the body), before it tests a hit (the
-  body is the target, and the car they parked is not) and before it draws a
-  health bar. A feature that moves a player out of their car answers these;
-  one that shoots or draws players asks. `Features.bodyPose(server, player)`
-  and `Features.clientBodyPose(client, id, carSnapshot)` do the asking for
-  you and fall back to the car: money, pickups, bots, police and weapons use
-  them, so anything that happens "to a player" happens to the body.
+- `Features.bodyPose(server, player)` and `Features.clientBodyPose(client,
+  id)`: where a player is, driving or walking (see "Bodies and vehicles").
+  Weapons fires from there, lands hits there and draws the health bar
+  there; money, pickups, bots, police and Karen use them, so anything that
+  happens "to a player" happens to the body. A parked car is never a
+  target.
 - `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
   `serverKill` with `angle` and `onFoot`.
@@ -285,7 +326,9 @@ example with a menu; real-estate is the one with a place to stand.
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
 - Several maps: `city.maps` names every map the game can play on (each a
-  seed and size for the same generator, plus a title) and `city.current` is
+  seed and size for the same generator, plus a title; `kind = "culdesac"`
+  builds a suburban dead end instead of a grid, with `map.circleX, circleY`
+  at its turning circle) and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
   every car lands on the new map's spawn points, then `mapChanged` reaches
@@ -295,8 +338,13 @@ example with a menu; real-estate is the one with a place to stand.
   spec with `crowd = false` has no pedestrians or officers on foot
   (pedestrians and police read `map.crowd`), one with `traffic = false` has
   every NPC car parked out of sight while it is in play (bots reads
-  `map.traffic`). Pickups are scattered afresh and koins on the ground swept
-  on every switch.
+  `map.traffic`), and one with `vehicles = false` is walked: on-foot turns
+  everyone out beside their car and refuses to let them back in (Karen's
+  street). Pickups are scattered afresh and koins on the ground swept on
+  every switch.
+- Quests: `Features.byName.quests:serverComplete(server, questId)` marks the
+  job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
+  is the quest in play on the host. Karen calls the first when she goes down.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or

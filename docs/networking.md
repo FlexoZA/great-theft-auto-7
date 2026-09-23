@@ -37,25 +37,35 @@ nothing to vendor or install.
 
 ## How movement sync works (milestone 2)
 
-- On Start the server creates a `Car` per player, lined up along x at
-  `SPAWN_SPACING` intervals around the origin, facing up.
+- On Start the server gives every player a body and a `Car` of their own,
+  lined up along x at `SPAWN_SPACING` intervals around the origin, facing
+  up, and seats them.
 - Server steps the simulation at a fixed 30 Hz (`Server.TICK`) with an
-  accumulator, applying each player's latest input, then sends one `STATE`
-  packet per tick on channel 1, unreliable. ENet drops packets that arrive
-  out of order, and the client also ignores any tick older than the last.
+  accumulator, applying each driver's latest input to the car they are in
+  (a parked car rolls to a stop), then sends one `STATE` packet per tick on
+  channel 1, unreliable. ENet drops packets that arrive out of order, and
+  the client also ignores any tick older than the last.
 - Clients send `INPUT <seq> <throttle> <steer>` at 30 Hz on channel 1,
   unreliable. The server ignores sequence numbers that go backwards.
 - Clients keep the latest snapshot as the target and ease the drawn position
   toward it (`SMOOTHING` in `src/states/game.lua`). Cars missing from a
   snapshot are removed.
 
-## Message shapes (milestone 2)
+## Message shapes
 
 ```
-client -> server   INPUT  <seq> <throttle> <steer>
-server -> client   STATE  <tick> <id x y angle speed>...
-server -> client   JOIN   <id>       / LEAVE <id>
+client -> server   INPUT        <seq> <throttle> <steer> <handbrake>
+server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
+server -> client   VEHICLE      <vid> <owner> <color>      a car entered the world (owner 0 = nobody's)
+server -> client   VEHICLE_GONE <vid>
+server -> client   JOIN         <id> <name>  / LEAVE <id>
 ```
+
+The world is people and cars. STATE lists every car in the world with who
+is driving it (0 = parked), then every player on foot; a player in neither
+list is out of the world for the moment (wrecked). Clients keep what
+VEHICLE said about a car's owner and colour, since a wreck drops out of
+STATE and comes back.
 
 Use ENet channel 0 (reliable) for JOIN/LEAVE, channel 1 (unsequenced) for
 INPUT and STATE. Latest state wins; never queue old snapshots.

@@ -83,7 +83,7 @@ Cheats.clientMessages = {
 Cheats.serverMessages = {
   CHEAT = function(server, player, args)
     local run = Cheats.enabled and CODES[args[1] or ""]
-    if run and player.car then
+    if run and player.body then
       run(server, player)
       server:send(player, Protocol.encode("CHEAT_OK", args[1]))
     end
