@@ -217,7 +217,9 @@ The important numbers stand as a row of vertical bars in the bottom-left
 corner, one slot each: health (weapons, 0), stamina and the dodge (on-foot,
 1 and 2). Abilities are a row of circles along the bottom centre
 (`Abilities.hudSlots` of them; keep the strip from about h-80 down clear
-of centred text). Draw yours into
+of centred text). The minimap sits top right and the koin bottom right,
+with `Money:hudCoin()` giving its centre, radius and the y of the line
+under it (upgrades writes there). Draw yours into
 the next free slot with `UI.drawStatBar(slot, name, frac, color, value,
 valueColor, marks, alpha)`: the bar, `name` under it, `value` above, dimmed
 by `alpha` when the stat does not apply right now. It returns x, y, w, h.

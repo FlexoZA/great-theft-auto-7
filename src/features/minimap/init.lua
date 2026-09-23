@@ -19,6 +19,7 @@ local Minimap = {
 -- Tuning ------------------------------------------------------------------
 Minimap.width = 220 -- px on screen
 Minimap.margin = 12
+Minimap.top = 34 -- px from the top edge: under the connection line at the top right
 Minimap.alpha = 0.88
 Minimap.radarRange = 2400 -- px of world shown across the radar when there is no map
 Minimap.visible = true
@@ -138,7 +139,7 @@ function Minimap:drawHUD(client)
   end
   local w, h = love.graphics.getDimensions()
   local x0 = w - self.width - self.margin
-  local y0 = h - height - self.margin
+  local y0 = self.top
   local mx, my = client:myPose()
   local me = mx and { dx = mx, dy = my } or nil -- the radar's centre when there is no map
 
@@ -209,7 +210,7 @@ function Minimap:drawHUD(client)
   love.graphics.rectangle("line", 0, 0, self.width, height)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print(Controls.name(Controls.bindings("minimap")[1]) .. ": map", 0, -18)
+  love.graphics.print(Controls.name(Controls.bindings("minimap")[1]) .. ": map", 0, height + 6)
 
   love.graphics.pop()
   love.graphics.setColor(1, 1, 1)

@@ -223,8 +223,35 @@ function Upgrades:drawHUD(client)
   local openKey = Controls.name(Controls.bindings("upgrades")[1])
   love.graphics.setFont(UI.fonts.small)
   if not self.open then
-    love.graphics.setColor(0.6, 0.6, 0.65)
-    love.graphics.print(openKey .. ": upgrades", 10, 172)
+    -- Under the koin in the bottom-right corner: how many upgrades the
+    -- wallet covers right now, lit up when there are any.
+    local money = Features.byName.money
+    local purse = wallet(client)
+    local affordable = 0
+    for _, kind in ipairs(self.kinds) do
+      local cost = kind.costs[self:levelOf(client.myId, kind.key) + 1]
+      if cost and purse >= cost then
+        affordable = affordable + 1
+      end
+    end
+    local text, color
+    if affordable > 0 then
+      local pulse = 0.75 + 0.25 * math.sin(love.timer.getTime() * 4)
+      text = ("%s: %d upgrade%s affordable"):format(openKey, affordable, affordable == 1 and "" or "s")
+      color = { 0.5, 1, 0.55, pulse }
+    else
+      text, color = openKey .. ": upgrades", { 0.6, 0.6, 0.65 }
+    end
+    local font = UI.fonts.small
+    local x, y
+    if money and money.hudCoin then
+      local w = love.graphics.getWidth()
+      local _, _, _, below = money:hudCoin()
+      x, y = w - money.hud.margin - font:getWidth(text), below
+    else
+      x, y = 10, 172
+    end
+    UI.label(text, x, y, color)
     love.graphics.setColor(1, 1, 1)
     return
   end
