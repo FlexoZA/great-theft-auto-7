@@ -371,6 +371,19 @@ function RealEstate:serverStart()
   refreshPlots()
 end
 
+--- The city was swapped for another map (city-map's `mapChanged`; a quest
+--- does it). Its plots are the ones for sale now and whatever anyone owned
+--- stays behind, unpaid. On the host this clears the server's book as well
+--- as what its client draws; a client clears only its own.
+function RealEstate:mapChanged()
+  refreshPlots()
+  self.owners = {}
+  if sv then
+    sv.owners = {}
+  end
+  herePlot, hereSite, noticeTimer = nil, nil, 0
+end
+
 --- Someone joining mid-game gets the city as it has grown, then who owns what.
 function RealEstate:serverPlayerJoined(server, player)
   local _, map = cityMap()

@@ -33,6 +33,7 @@ make run        # or: love .
 | F1 | Show hitboxes |
 | Tab | Toggle the minimap |
 | B / N | Add / remove an AI bot (host only) |
+| Enter / Backspace | Accept / decline a quest, when you stop on its star |
 | Esc | Leave the game |
 
 Every key above can be rebound under *Settings > Controls*, with a primary and a secondary

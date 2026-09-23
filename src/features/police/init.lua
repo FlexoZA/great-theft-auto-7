@@ -457,9 +457,16 @@ function Police:serverStep(server, dt)
   end
 
   -- The beat, after the heat is settled so an officer hunts this tick's
-  -- wanted list, not the last one's.
-  for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
-    self:officerDown(server, kill) -- run down in the street
+  -- wanted list, not the last one's. No beat on a map with no crowd
+  -- (city-map's `map.crowd`); the patrol cars are bots' NPCs, and bots
+  -- parks those.
+  local city = Features.byName["city-map"]
+  if city and city.map and city.map.crowd == false then
+    sv.officers:clear() -- the next POL_FOOT, an empty one, sends them off every screen
+  else
+    for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
+      self:officerDown(server, kill) -- run down in the street
+    end
   end
   sv.footSync = sv.footSync - 1
   if sv.footSync <= 0 then

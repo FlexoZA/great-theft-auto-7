@@ -129,6 +129,14 @@ function Officers:spawn(x, y)
   return o
 end
 
+--- Everyone off duty at once (a map with no crowd).
+function Officers:clear()
+  for i = self.n, 1, -1 do
+    self.list[i] = nil
+  end
+  self.n = 0
+end
+
 function Officers:removeAt(i)
   local n = self.n
   self.list[i] = self.list[n]

@@ -64,6 +64,12 @@ local function angleDiff(target, current)
   return (target - current + math.pi) % (2 * math.pi) - math.pi
 end
 
+--- Does the map in play want NPC cars on it? (city-map's `map.traffic`)
+local function trafficWanted()
+  local city = Features.byName["city-map"]
+  return not (city and city.map and city.map.traffic == false)
+end
+
 --- Stands in for an ENet peer so core code can call peer:send etc.
 local function stubPeer(id)
   local peer = {}
@@ -119,9 +125,38 @@ function Bots:spawnNpc(server, opts)
   end
   server.players[id] = npc
   npcs[#npcs + 1] = npc
+  if not trafficWanted() then
+    self:park(npc, true) -- born on a map with no traffic: wait out of sight
+  end
   server:broadcast(Protocol.encode("JOIN", id, npc.name))
   Features.call("serverPlayerJoined", server, npc)
   return npc
+end
+
+--- Take an NPC off the road (hidden, still, peaceful; the core stops
+--- broadcasting it) or put it back. Parked ones stay hidden even when
+--- weapons brings a wreck back, until they are unparked.
+function Bots:park(npc, parked)
+  npc.parked = parked
+  npc.car.hidden = parked
+  if parked then
+    npc.car:stop()
+    npc.input.throttle, npc.input.steer = 0, 0
+    self:calm(npc)
+  end
+end
+
+--- Everyone was moved to another map (city-map's `mapChanged`; the host
+--- passes `server`, clients get nil). NPC drivers are parked out of sight
+--- on a map without traffic and back on the road, at the spawn points the
+--- map put them on, when there is traffic again.
+function Bots:mapChanged(map, server)
+  if not server then
+    return
+  end
+  for _, npc in ipairs(npcs) do
+    self:park(npc, not map.traffic)
+  end
 end
 
 function Bots:removeNpc(server, npc)
@@ -379,6 +414,9 @@ function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
   for _, npc in ipairs(npcs) do
+    if npc.parked then
+      npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
+    end
     if npc.car and not npc.car.hidden then
       if npc.brain then
         npc.brain.think(server, npc, dt)
