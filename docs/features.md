@@ -116,7 +116,9 @@ nil) and `driver` (a player id or nil).
 - `car.hidden`: out of the world. The core leaves it out of STATE and
   every feature skips it; weapons parks a dead player's own car this way
   until they respawn, bots park NPCs with it on a map with no traffic. A
-  player sitting in a hidden car is not present.
+  player sitting in a hidden car is not present. `car.stowed` is the same
+  for a map with no vehicles: on-foot stows every player's own car there
+  and brings them back on the next map with roads.
 - Death: weapons sets `body.dead`, hides their own car at its spawn slot and
   leaves a borrowed car where it stands; after the death time they are
   back at the slot in their own car.

@@ -13,7 +13,8 @@
 --
 -- A car you get out of stops where it is and stays there for anyone to
 -- take. On a map with no vehicles (city-map's `map.vehicles`), everyone is
--- turned out beside their car and nobody gets back in.
+-- turned out and their cars are stowed: out of the world, off every
+-- screen, until the group is back on a map with roads worth driving.
 --
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
@@ -468,11 +469,23 @@ function OnFoot:getIn(server, player)
   end
   local b = player.body
   for _, car in pairs(server.vehicles) do
-    if not car.driver and not car.hidden and Car.hitTest(car, b.x, b.y, self.enterReach) then
+    if not (car.driver or car.hidden or car.stowed) and Car.hitTest(car, b.x, b.y, self.enterReach) then
       return server:seat(player, car)
     end
   end
   return false
+end
+
+--- Back on a map with vehicles (city-map's `mapChanged`; the host passes
+--- `server`): every car stowed on the walking map is back in the world.
+--- City-map has already seated everyone in their own car at the spawns.
+function OnFoot:mapChanged(map, server)
+  if not (server and self.sv) or map.vehicles == false then
+    return
+  end
+  for _, car in pairs(server.vehicles) do
+    car.stowed = false
+  end
 end
 
 --- One walker's step: spend or regain stamina, then walk. Leaning on the
@@ -514,11 +527,17 @@ function OnFoot:serverStep(server, dt)
   end
   if not vehiclesAllowed() then
     -- Nobody drives here: anyone behind a wheel (just arrived, or just
-    -- respawned in their car) is turned out beside it. NPC drivers are
-    -- parked out of sight by bots and left alone.
+    -- respawned in their car) is turned out where the car stands, and their
+    -- own car is stowed out of the world. NPC drivers are parked out of
+    -- sight by bots and left alone.
     for _, player in pairs(server.players) do
-      if player.vehicle and not player.bot and Features.present(player) then
-        self:getOut(server, player, true)
+      if not player.bot and player.body and not player.body.dead then
+        if player.vehicle then
+          self:getOut(server, player, true)
+        end
+        if player.car then
+          player.car.stowed = true
+        end
       end
     end
   end
