@@ -7,6 +7,13 @@
 -- Units are NPCs from the bots feature with a police brain. Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
+-- The force also walks a beat: officers on foot (officers.lua) patrol the
+-- streets around the players, witness crimes exactly as a patrol car does,
+-- and draw a pistol on anyone wanted -- sprinting after them, shooting from
+-- where they stand. They are soft targets in return: shoot one and you are
+-- wanted on the spot, run one down and dispatch hears about it either way.
+-- Clients only draw what POL_FOOT tells them (render.lua).
+--
 -- With inclusive mode on (the menu toggle), every human starts the game
 -- wanted with the whole force already in pursuit: get away first.
 --
@@ -14,12 +21,17 @@
 --   server -> all  POL_UNIT   <id>              this player is a police car
 --   server -> all  POL_SIREN  <id> <0|1>        chasing state changed
 --   server -> all  POL_WANTED <playerId> <0|1>  wanted state changed
+--   server -> all  POL_FOOT   <tick> [<id> <x> <y> <facing> <alert> <hp>]...
+--                                               (unreliable, 15 Hz)
+--   server -> all  POL_DOWN   <id> <x> <y> <angle>   an officer went down
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Car = require("src.car")
 local Sounds = require("src.features.police.sounds")
+local Officers = require("src.features.police.officers")
+local Render = require("src.features.police.render")
 local Face = require("src.art.face")
 
 local Police = {
@@ -35,6 +47,9 @@ Police.wantedTime = 25 -- seconds since the last crime before the heat is off
 Police.patrolThrottle = 0.45
 Police.ramCrime = 220 -- closing speed (px/s) of a ram that counts as a crime
 Police.hotStartTime = 30 -- seconds of heat everyone starts with in inclusive mode
+Police.whistleRange = 1200 -- px; an officer blowing their whistle further away isn't heard
+
+local FOOT_SYNC_EVERY = 2 -- server ticks between POL_FOOT broadcasts
 
 -- Client state --------------------------------------------------------------
 Police.units = {} -- id -> { siren = Source|nil, chasing = bool }
@@ -57,10 +72,32 @@ function Police:exitGame()
   end
   self.units = {}
   self.wanted = {}
+  Render.clear()
+end
+
+--- One whistle when a nearby officer spots someone wanted. Only the nearest
+--- of them, however many turned round at once.
+function Police:whistles(client)
+  local me = client:myCar()
+  if not me then
+    Render.alertedN = 0
+    return
+  end
+  local mx, my = Features.clientBodyPose(client, client.myId, me)
+  for i = 1, Render.alertedN do
+    local o = Render.alerted[i]
+    local dx, dy = o.x - mx, o.y - my
+    if dx * dx + dy * dy < self.whistleRange * self.whistleRange then
+      Sounds.whistle(o.x, o.y)
+      break
+    end
+  end
+  Render.alertedN = 0
 end
 
 function Police:update(dt, client)
   flash = flash + dt
+  Render.update(dt)
   for id, u in pairs(self.units) do
     local c = client.cars[id]
     if u.chasing and c then
@@ -135,6 +172,12 @@ local function drawLivery(c, chasing)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Officers go under the cars, like the crowd: they are on the road, not
+--- above it, and a bumper passes over whatever is left of them.
+function Police:drawBelowCars(_client, camera)
+  Render.draw(camera, flash)
+end
+
 function Police:drawAboveCars(client)
   for id, u in pairs(self.units) do
     local c = client.cars[id]
@@ -175,6 +218,23 @@ Police.clientMessages = {
       Police.wanted[id] = on or nil
     end
   end,
+  POL_FOOT = function(client, args)
+    Render.sync(args)
+    Police:whistles(client)
+  end,
+  --- An officer went down: the pedestrians' gibs and splat, if that feature
+  --- is around, and stop drawing them before the next snapshot says so.
+  POL_DOWN = function(_client, args)
+    local id = tonumber(args[1])
+    local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if id then
+      Render.remove(id)
+    end
+    if x and y and Features.byName.pedestrians then
+      require("src.features.pedestrians.gibs").splat(x, y, angle or 0)
+      require("src.features.pedestrians.sounds").play("splat", x, y, 0.8 + love.math.random() * 0.2)
+    end
+  end,
 }
 
 -- Server ----------------------------------------------------------------
@@ -195,8 +255,13 @@ local function unitsInSight(x, y, range)
   return n
 end
 
+--- Did anyone in uniform see that? A patrol car within sight range, or an
+--- officer on the beat standing near enough to turn their head.
 local function witnessed(x, y)
-  return sv and unitsInSight(x, y, Police.sightRange) > 0
+  if not sv then
+    return false
+  end
+  return unitsInSight(x, y, Police.sightRange) > 0 or sv.officers:sees(x, y, Officers.SIGHT)
 end
 
 function Police:setWanted(server, player)
@@ -245,6 +310,61 @@ function Police:serverPlayerDamaged(server, victim, attacker)
   end
 end
 
+-- Officers on foot ----------------------------------------------------------
+
+--- An officer is down: splat them on every screen, let the other features
+--- price it (money pays out on kind "police"), and put the heat on whoever
+--- did it. Dispatch hears about a dead officer whether anyone watched or not.
+function Police:officerDown(server, kill)
+  server:broadcast(Protocol.encode("POL_DOWN", kill.id, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
+    ("%.3f"):format(kill.angle or 0)))
+  Features.call("serverKill", server, {
+    kind = "police", x = kill.x, y = kill.y, by = kill.by, angle = kill.angle,
+  })
+  self:setWanted(server, kill.by and server.players[kill.by])
+end
+
+--- A bullet passed through (x, y). Officers are soft targets the way
+--- pedestrians are (the `serverShotAt` convention), except that it takes a
+--- few rounds and the shooter is wanted from the moment they miss. The
+--- force's own bullets pass straight through: police don't shoot police.
+function Police:serverShotAt(server, x, y, radius, by, angle)
+  if not sv or by == Officers.OWNER then
+    return false
+  end
+  local o = sv.officers:at(x, y, radius)
+  if not o then
+    return false
+  end
+  o.hp = o.hp - Officers.SHOT_DAMAGE
+  self:setWanted(server, server.players[by])
+  if o.hp <= 0 then
+    sv.officers:remove(o)
+    self:officerDown(server, { id = o.id, x = o.x, y = o.y, angle = angle or 0, by = by })
+  end
+  return true
+end
+
+--- One POL_FOOT line for the whole beat. An empty one (just the tick) is
+--- worth sending: it tells clients the last officer walked off.
+function Police:syncOfficers(server)
+  local of = sv.officers
+  local parts = { server.tick }
+  for i = 1, of.n do
+    local o = of.list[i]
+    parts[#parts + 1] = o.id
+    parts[#parts + 1] = ("%.0f"):format(o.x)
+    parts[#parts + 1] = ("%.0f"):format(o.y)
+    parts[#parts + 1] = ("%.2f"):format(o.facing)
+    parts[#parts + 1] = o.target and 1 or 0
+    parts[#parts + 1] = ("%.0f"):format(math.max(0, o.hp))
+  end
+  local msg = Protocol.encode("POL_FOOT", unpack(parts))
+  for _, player in pairs(server.players) do
+    server:send(player, msg, true)
+  end
+end
+
 -- The police brain ----------------------------------------------------------
 
 local Brain = {}
@@ -289,7 +409,7 @@ function Brain.wrecked(server, unit)
 end
 
 function Police:serverStart(server)
-  sv = { units = {}, wanted = {}, time = 0 }
+  sv = { units = {}, wanted = {}, time = 0, officers = Officers.new(), footSync = 0 }
   local B = bots()
   if not B then
     return
@@ -334,6 +454,17 @@ function Police:serverStep(server, dt)
     if not p or not p.car or p.car.hidden or sv.time >= until_ then
       self:clearWanted(server, id) -- got away, gave up, or got wrecked
     end
+  end
+
+  -- The beat, after the heat is settled so an officer hunts this tick's
+  -- wanted list, not the last one's.
+  for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
+    self:officerDown(server, kill) -- run down in the street
+  end
+  sv.footSync = sv.footSync - 1
+  if sv.footSync <= 0 then
+    sv.footSync = FOOT_SYNC_EVERY
+    self:syncOfficers(server)
   end
 end
 

@@ -169,8 +169,8 @@ way). Events in use:
 | --- | --- | --- |
 | `serverPlayerDamaged(server, victim, attacker, amount)` | weapons | A projectile hit. `attacker` may be nil if they left. |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
-| `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). |
-| `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians | Something died: kind is "car" or "pedestrian", `by` the killer's id. |
+| `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
+| `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -196,20 +196,21 @@ couple of small conventions rather than requiring each other:
   something died. The feature that owns the kill calls
   `Features.call("serverKill", server, kill)` right after it broadcasts its
   own message (pedestrians and weapons do); `kill` is
-  `{ kind = "pedestrian" | "car", x, y, by = <killer player id>, victim = <player id> }`
+  `{ kind = "pedestrian" | "police" | "car", x, y, by = <killer player id>, victim = <player id> }`
   with `x, y` where it died, not where a wreck respawns. Money drops koins
-  there: a pedestrian is worth a fresh koin, while a wrecked car spills up to
-  five out of `victim`'s own wallet and nothing at all if it was empty, so
-  fill in `victim` for anything a player was driving. Ignore kinds you don't
-  care about; new kinds may appear.
+  there: a pedestrian is worth a fresh koin and an officer on foot three,
+  while a wrecked car spills up to five out of `victim`'s own wallet and
+  nothing at all if it was empty, so fill in `victim` for anything a player
+  was driving. Ignore kinds you don't care about; new kinds may appear.
 - `feature:serverShotAt(server, x, y, radius, by, angle)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
   return false and it flies on. Weapons walks its projectiles through every
   feature that defines it, so a gun kills pedestrians without knowing they
-  exist. `by` is the shooter's player id and `angle` the direction of
-  travel, for gibs and scoring. Cars are tested first, so answering here
-  never steals a hit from a player.
+  exist (police answers it too: officers on foot take a few rounds before
+  they go down). `by` is the shooter's player id and `angle` the direction of
+  travel, for gibs and scoring; `by` is 0 for a shot no player fired. Cars
+  are tested first, so answering here never steals a hit from a player.
 - `feature:playerPose(server, player)` / `feature:clientPlayerPose(client, id)`:
   return `x, y, angle` when a player is not behind the wheel, and nil when
   they are. On-foot answers both while its owner is out of the car. Weapons
@@ -223,6 +224,11 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
   `serverKill` with `angle` and `onFoot`.
+- `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim)`: put a
+  bullet into the world from something that is not a player behind the wheel.
+  Pass `0` as the owner for a shot that belongs to nobody -- it can hit
+  anyone, and its kills credit no scoreboard; the police officers on foot
+  shoot this way. No cooldown is applied, so the caller paces its own fire.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.
