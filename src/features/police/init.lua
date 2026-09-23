@@ -181,7 +181,8 @@ end
 --- Officers go under the cars, like the crowd: they are on the road, not
 --- above it, and a bumper passes over whatever is left of them.
 --- Every cone of vision on screen, then the officers. A cone is only worth
---- drawing when its owner is near enough to the camera for it to show.
+--- drawing when its owner is near enough to the camera for it to show;
+--- one whose owner is chasing or has drawn a gun strobes red and blue.
 local function drawCones(client, camera)
   local w, h = love.graphics.getDimensions()
   local s = camera.scale or 1
@@ -192,12 +193,12 @@ local function drawCones(client, camera)
   for id, u in pairs(Police.units) do
     local c = client:vehicleOf(id)
     if c and near(c.dx, c.dy, Police.sightRange) then
-      Vision.draw(c.dx, c.dy, c.dangle, Police.sightRange, u.chasing and 1 or 0)
+      Vision.draw(c.dx, c.dy, c.dangle, Police.sightRange, u.chasing, flash)
     end
   end
   for _, o in pairs(Render.officers) do
     if o.hp > 0 and near(o.dx, o.dy, Officers.SIGHT) then
-      Vision.draw(o.dx, o.dy, o.angle, Officers.SIGHT, o.alert and 1 or 0)
+      Vision.draw(o.dx, o.dy, o.angle, Officers.SIGHT, o.alert, flash)
     end
   end
 end

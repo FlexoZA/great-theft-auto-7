@@ -4,7 +4,8 @@
 -- same rule bullets follow, so a building that stops a shot hides you too.
 --
 -- Clients draw the cone as a faint white fan, clipped by the same walls, so
--- a player can see exactly where they are being watched.
+-- a player can see exactly where they are being watched; a cone with
+-- someone in its sights strobes red and blue.
 
 local Features = require("src.features")
 
@@ -87,10 +88,15 @@ end
 
 local fan = {} -- reused: the clipped end of each ray
 
+Vision.STROBE_HZ = 4 -- how fast a hunting cone flips between red and blue
+local WHITE = { 1, 1, 1 }
+local RED = { 1, 0.2, 0.2 }
+local BLUE = { 0.3, 0.5, 1 }
+
 --- The cone from (x, y) facing `facing`, out to `range`, as a faint white
---- fan that stops at walls. `glow` (0..1) brightens it (a unit that has
---- someone in its sights).
-function Vision.draw(x, y, facing, range, glow)
+--- fan that stops at walls. With `hunting` it strobes red and blue instead,
+--- `time` setting the phase: this one has someone in its sights.
+function Vision.draw(x, y, facing, range, hunting, time)
   local rays = Vision.RAYS
   local half = Vision.FOV / 2
   for i = 0, rays - 1 do
@@ -98,14 +104,18 @@ function Vision.draw(x, y, facing, range, glow)
     local ex, ey = Vision.reach(x, y, a, range)
     fan[i * 2 + 1], fan[i * 2 + 2] = ex, ey
   end
-  glow = glow or 0
-  love.graphics.setColor(1, 1, 1, Vision.FILL + 0.08 * glow)
+  local c, fill, edge = WHITE, Vision.FILL, Vision.EDGE
+  if hunting then
+    c = math.floor((time or 0) * Vision.STROBE_HZ) % 2 == 0 and RED or BLUE
+    fill, edge = Vision.FILL * 2.2, Vision.EDGE * 1.8
+  end
+  love.graphics.setColor(c[1], c[2], c[3], fill)
   for i = 1, rays - 1 do
     -- One triangle per pair of rays: each is convex, the whole fan may not be.
     love.graphics.polygon("fill", x, y, fan[i * 2 - 1], fan[i * 2], fan[i * 2 + 1], fan[i * 2 + 2])
   end
   love.graphics.setLineWidth(1)
-  love.graphics.setColor(1, 1, 1, Vision.EDGE + 0.2 * glow)
+  love.graphics.setColor(c[1], c[2], c[3], edge)
   love.graphics.line(x, y, fan[1], fan[2])
   love.graphics.line(x, y, fan[rays * 2 - 1], fan[rays * 2])
   love.graphics.setColor(1, 1, 1)
