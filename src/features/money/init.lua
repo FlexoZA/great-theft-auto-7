@@ -10,6 +10,11 @@
 -- and when an uncollected one is swept away. Clients only draw them and keep
 -- a running total for the HUD.
 --
+-- How close you have to get is a radius per player -- `radius` from a car,
+-- `footRadius` on foot -- times a reach that starts at 1 and that another
+-- feature can raise (upgrades sells it) through Money:serverSetReach. A
+-- player with more than the base reach sees it as a faint ring around them.
+--
 -- Drops arrive through the `serverKill` convention (docs/features.md): the
 -- feature that killed something calls it, this one turns that into koins.
 --
@@ -18,6 +23,7 @@
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
 --   server -> all  FCK_PURSE <playerId> <total>   (koins left the wallet: a death, a purchase)
+--   server -> all  FCK_REACH <playerId> <scale>   (their pickup radius changed)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -52,6 +58,7 @@ end
 
 Money.coins = {} -- id -> { x, y, age, seed }
 Money.wallets = {} -- player id -> koins collected
+Money.reach = {} -- player id -> pickup radius scale (absent = 1)
 Money.floats = {} -- { x, y, text, t }
 local time = 0
 local combo, comboTimer = 0, 0
@@ -71,6 +78,7 @@ end
 function Money:exitGame()
   self.coins = {}
   self.wallets = {}
+  self.reach = {}
   self.floats = {}
   combo, comboTimer = 0, 0
 end
@@ -137,7 +145,27 @@ local function drawCoin(coin)
   love.graphics.pop()
 end
 
-function Money:drawBelowCars()
+--- The reach ring: only for the local player, only once it is bigger than
+--- everyone starts with, so the upgrade shows and the road stays clean.
+local function drawReach(client)
+  local scale = Money.reach[client.myId]
+  local me = client:myCar()
+  if not (scale and scale > 1 and me) then
+    return
+  end
+  local x, y, onFoot = Features.clientBodyPose(client, client.myId, me)
+  local r = (onFoot and Money.footRadius or Money.radius) * scale
+  local pulse = 0.5 + 0.5 * math.sin(time * 3)
+  love.graphics.setColor(1, 0.85, 0.35, 0.05 + pulse * 0.04)
+  love.graphics.circle("fill", x, y, r)
+  love.graphics.setColor(1, 0.85, 0.35, 0.22 + pulse * 0.1)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.circle("line", x, y, r)
+  love.graphics.setLineWidth(1)
+end
+
+function Money:drawBelowCars(client)
+  drawReach(client)
   for _, coin in pairs(self.coins) do
     drawCoin(coin)
   end
@@ -198,6 +226,12 @@ Money.clientMessages = {
       Money.coins[id] = nil
     end
   end,
+  FCK_REACH = function(_client, args)
+    local id, scale = tonumber(args[1]), tonumber(args[2])
+    if id and scale then
+      Money.reach[id] = scale
+    end
+  end,
   FCK_PURSE = function(client, args)
     local id, total = tonumber(args[1]), tonumber(args[2])
     if not (id and total) then
@@ -222,7 +256,7 @@ Money.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { coins = { id -> { x, y, at } }, n, nextId, wallets, time }
+local sv = nil -- { coins = { id -> { x, y, at } }, n, nextId, wallets, reach, time }
 
 local function dropMessage(id, coin)
   return Protocol.encode("FCK_DROP", id, ("%.0f"):format(coin.x), ("%.0f"):format(coin.y))
@@ -319,7 +353,25 @@ function Money:serverKill(server, kill)
 end
 
 function Money:serverStart()
-  sv = { coins = {}, n = 0, nextId = 1, wallets = {}, time = 0 }
+  sv = { coins = {}, n = 0, nextId = 1, wallets = {}, reach = {}, time = 0 }
+end
+
+--- A player's pickup radius scale on the host, 1 to start with.
+function Money:reachOf(id)
+  return sv and sv.reach[id] or 1
+end
+
+--- Set how far a player's koins jump to them, as a multiple of the base
+--- radius, for the rest of the game. Other features reach this via
+--- Features.byName.money (upgrades does). Returns the scale set.
+function Money:serverSetReach(server, player, scale)
+  if not sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  sv.reach[player.id] = scale
+  server:broadcast(Protocol.encode("FCK_REACH", player.id, ("%.2f"):format(scale)))
+  return scale
 end
 
 --- Someone joining mid-game sees the koins already lying about.
@@ -335,6 +387,7 @@ end
 function Money:serverPlayerLeft(_server, player)
   if sv then
     sv.wallets[player.id] = nil
+    sv.reach[player.id] = nil
   end
 end
 
@@ -344,7 +397,6 @@ function Money:serverStep(server, dt)
   end
   sv.time = sv.time + dt
 
-  local r2 = self.radius * self.radius
   for id, coin in pairs(sv.coins) do
     if sv.time - coin.at >= self.lifetime then
       sv.coins[id] = nil
@@ -357,7 +409,8 @@ function Money:serverStep(server, dt)
         if car then
           bx, by, onFoot = Features.bodyPose(server, player)
         end
-        local reach2 = onFoot and self.footRadius * self.footRadius or r2
+        local reach = (onFoot and self.footRadius or self.radius) * (sv.reach[player.id] or 1)
+        local reach2 = reach * reach
         if car and not car.hidden and (bx - coin.x) ^ 2 + (by - coin.y) ^ 2 < reach2 then
           local total = (sv.wallets[player.id] or 0) + 1
           sv.wallets[player.id] = total

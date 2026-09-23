@@ -238,6 +238,9 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
   a wallet on the host, or take koins out of it all-or-nothing (false and
   nothing happens when they can't cover it). A shop's half of a sale.
+- `Features.byName.money:serverSetReach(server, player, scale)`: how far a
+  player's koins jump to them, as a multiple of the base radius; money
+  broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim)`: put a
   bullet into the world from something that is not a player behind the wheel.
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
