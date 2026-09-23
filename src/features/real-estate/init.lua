@@ -12,8 +12,8 @@
 -- few blocks past the original edge (Layout.GROW in city-map).
 --
 -- Leave the game and your plots go back on the market; the city keeps the
--- blocks it grew until the game ends. Plots are 6x6 tiles with survey stakes
--- every two tiles, the grid buildings that sell things will go on next.
+-- blocks it grew until the game ends. Plots are 6x6 tiles; the buildings
+-- feature puts something on the ones that have an owner.
 --
 -- The land comes from the city-map feature (blocks of kind "plot",
 -- city:grow); without it there is nothing to sell and this feature does
@@ -322,8 +322,10 @@ function RealEstate:drawHUD(client)
     local owner = self.owners[herePlot.id]
     if not owner then
       text, color = ("Plot for sale: %s.  %s: buy"):format(amount(self.price), key), { 1, 0.85, 0.3 }
+    elseif Features.byName.buildings then
+      text = nil -- buildings says what stands on a plot that has an owner
     elseif owner == client.myId then
-      text, color = "Your plot. Buildings coming soon.", { 0.6, 0.9, 0.6 }
+      text, color = "Your plot.", { 0.6, 0.9, 0.6 }
     else
       text, color = ownerName(client, owner) .. "'s plot", { 0.8, 0.8, 0.85 }
     end
@@ -470,7 +472,7 @@ RealEstate.serverMessages = {
   end,
 }
 
---- Who owns plot `id` on the host, or nil. For the buildings to come.
+--- Who owns plot `id` on the host, or nil. Buildings asks.
 function RealEstate:owner(id)
   return sv and sv.owners[id]
 end

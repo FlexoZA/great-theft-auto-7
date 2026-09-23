@@ -46,6 +46,53 @@ function Sounds.load()
     buf:lowpass(5000)
   end)
 
+  -- Reloads are built from small metal clicks: a sharp tick of noise over a
+  -- short ring, lower and duller for heavier parts.
+  local function click(buf, t, freq, amp)
+    buf:noiseBurst(t, 0.03, { amp = amp, decay = 0.006 })
+    buf:tone(t, 0.04, freq, { wave = "square", amp = amp * 0.35, attack = 0.001, decay = 0.012, sustain = 0 })
+  end
+  --- A slide or bolt dragged back: a rising scrape.
+  local function rack(buf, t, dur, f0, f1, amp)
+    buf:noiseBurst(t, dur, { amp = amp * 0.5, decay = dur })
+    buf:sweep(t, dur, f0, f1, { wave = "saw", amp = amp * 0.25, decay = dur })
+  end
+
+  -- Pistol reload (1.2 s): magazine out, magazine slapped in, slide racked
+  -- and let go.
+  bank["reload-pistol"] = make(1.2, function(buf)
+    click(buf, 0.02, 1900, 0.5) -- release catch
+    rack(buf, 0.08, 0.1, 700, 400, 0.4) -- magazine slides out
+    click(buf, 0.55, 900, 0.8) -- new magazine seated
+    click(buf, 0.58, 1300, 0.4)
+    rack(buf, 0.85, 0.12, 500, 1400, 0.6) -- slide back
+    click(buf, 0.99, 1700, 0.8) -- and home
+    buf:highpass(250)
+    buf:drive(1.6)
+    buf:lowpass(6000)
+  end)
+
+  -- Uzi reload (1.8 s): a longer magazine, a heavier seat, then the bolt
+  -- pulled back and snapped forward.
+  bank["reload-uzi"] = make(1.8, function(buf)
+    click(buf, 0.02, 1500, 0.5)
+    rack(buf, 0.08, 0.16, 600, 300, 0.45)
+    click(buf, 0.85, 700, 0.9) -- magazine rocked in
+    click(buf, 0.9, 1100, 0.5)
+    rack(buf, 1.3, 0.14, 400, 1100, 0.6) -- bolt back
+    click(buf, 1.45, 1200, 0.7)
+    click(buf, 1.58, 800, 0.9) -- bolt slams forward
+    buf:highpass(200)
+    buf:drive(1.8)
+    buf:lowpass(5500)
+  end)
+
+  -- Dry fire: the trigger clicking on an empty chamber.
+  bank.dry = make(0.06, function(buf)
+    click(buf, 0, 2400, 0.45)
+    buf:highpass(800)
+  end)
+
   -- Hit: a metallic clank on the target's bodywork.
   bank.hit = make(0.14, function(buf)
     buf:tone(0, 0.1, 1250, { wave = "sine", amp = 0.5, attack = 0.001, decay = 0.045, sustain = 0, release = 0.01 })

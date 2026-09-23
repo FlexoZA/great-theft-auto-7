@@ -1,0 +1,1345 @@
+-- Buildings: put something on the plot you bought, and let it work for you.
+--
+-- Every plot with an owner has a small square on the sidewalk in front of
+-- it. Stand on it (on foot or in a car) and press the buy key (F): on your
+-- own plot a menu lists what you can build (kinds.lua) and what it costs;
+-- once it is up, the same square opens the building's own menu. Anyone else
+-- uses the square to shop at a public building.
+--
+--   Parking Lot      earns 10 Fcks a minute, up to 100. Drive over it and the
+--                    takings are yours. Always private.
+--   Quarry Mine      digs iron, sulfur or minerals (you pick), up to 50.
+--   Ammo Factory     makes rounds for a gun you pick, up to 200, from iron
+--                    and sulfur.
+--   Weapons Factory  makes a gun you pick, up to 5, from iron.
+--   Health Factory   makes medkits, up to 5, from minerals. A medkit heals
+--                    you when you use it (H).
+--
+-- Buildings are solid: cars bounce off them, and walkers, pedestrians,
+-- officers and bullets stop at their walls (`blocksPoint`). The parking lot
+-- is the exception, being somewhere to drive. Anyone on foot inside the
+-- footprint when a building goes up is put on its square.
+--
+-- Factories run on materials: collect what your quarry dug (or buy it from
+-- someone else's), then stand on the factory's square and load its hopper
+-- from what you carry. A building with its inputs and room for another
+-- batch works on its own; the rest wait.
+--
+-- The owner collects what a building made into their inventory. A building
+-- set to public also sells to anyone on its square, one unit at a time, at
+-- the price its owner sets; the koins go straight to the owner. Private ones
+-- still work, for their owner alone.
+--
+-- A factory can buy its materials too. Its owner sets a price per material
+-- on the menu's prices page (0, the start, means it doesn't buy that one);
+-- anyone else on its square can then sell what they carry of it straight
+-- into the hopper, as much as fits and the owner's wallet covers, and the
+-- owner pays for it. Public or private makes no difference to buying.
+--
+-- The inventory (I) has slots: four to start with, more from the upgrade
+-- shop (Buildings:serverSetSlots). A slot holds one stack of one item
+-- (kinds.lua has the stack sizes); what doesn't fit stays in the building.
+-- It is kept by the host and told to each player alone. Weapons loads its
+-- magazines from the ammo in it (serverTake); guns are stock for now.
+--
+-- The plots come from real-estate; without it there is nothing to build on.
+-- A building belongs to whoever owns its plot: when the plot goes back on
+-- the market (they left) or the map changes, the building is gone.
+--
+-- Messages
+--   client -> server  BLD_BUILD   <plotId> <kind>
+--   client -> server  BLD_COLLECT <plotId>
+--   client -> server  BLD_LOAD    <plotId>
+--   client -> server  BLD_PUBLIC  <plotId>            (toggle)
+--   client -> server  BLD_PRODUCT <plotId>            (next product)
+--   client -> server  BLD_PRICE   <plotId> <+1|-1>
+--   client -> server  BLD_BUY     <plotId>
+--   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
+--   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
+--   client -> server  BLD_USE     <item>              (only "medkit" today)
+--   server -> all     BLD_STATE   <plotId> <kind> <owner> <public> <product> <price> <output>
+--                                 <progress> <running> <iron> <sulfur> <minerals>
+--                                 <pays for iron> <sulfur> <minerals>   (0 = not buying)
+--   server -> all     BLD_GONE    <plotId>
+--   server -> player  BLD_INV     <item> <count>
+--   server -> player  BLD_SLOTS   <slots>
+--   server -> player  BLD_NO      <reason>
+
+local Protocol = require("src.net.protocol")
+local Features = require("src.features")
+local Controls = require("src.controls")
+local UI = require("src.ui")
+local Car = require("src.car")
+local Kinds = require("src.features.buildings.kinds")
+local Render = require("src.features.buildings.render")
+local Collision = require("src.features.city-map.collision")
+local Layout = require("src.features.city-map.layout")
+
+local Buildings = {
+  name = "buildings",
+  priority = 26, -- draws just over real-estate's plots (25)
+}
+
+-- Tuning ------------------------------------------------------------------
+Buildings.medkitHeal = 50 -- health a medkit gives back
+Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
+Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
+
+local T = Layout.TILE
+local SLACK = 40 -- px the server allows for a player drawn a little behind where it is
+local INSET = 28 -- px between the plot's fence and the building
+local TOP = 56 -- px left at the top of the plot for real-estate's sign
+local PED_RADIUS = 6 -- px; how fat a pedestrian is against a wall, as city-map has it
+local NOTICE_TIME = 2.5
+local PRICE_MIN, PRICE_MAX = 1, 99
+local REASONS = {
+  away = "Stand on the square in front of it.",
+  notyours = "That isn't your plot.",
+  built = "There is already a building here.",
+  nobuilding = "There's nothing built here.",
+  broke = "You can't afford it.",
+  private = "That building is private.",
+  own = "It's yours: collect it instead.",
+  empty = "Nothing to collect yet.",
+  soldout = "Sold out. Come back later.",
+  nomaterials = "You aren't carrying anything it runs on.",
+  hopperfull = "Its hopper is full.",
+  stocked = "Collect what it made before switching.",
+  invfull = "Your inventory is full.",
+  notbuying = "It doesn't buy that.",
+  nothing = "You aren't carrying any of it.",
+  ownerbroke = "The owner can't afford to pay you.",
+  nomedkit = "You have no medkits.",
+  healthy = "You're already at full health.",
+}
+
+local function amount(n)
+  local money = Features.byName.money
+  return money and money.amount(n) or tostring(n)
+end
+
+local function realEstate()
+  return Features.byName["real-estate"]
+end
+
+local function plotById(id)
+  local re = realEstate()
+  return re and re.plots[id]
+end
+
+local function contains(r, x, y, slack)
+  slack = slack or 0
+  return x >= r.x - slack and x < r.x + r.w + slack and y >= r.y - slack and y < r.y + r.h + slack
+end
+
+--- The ground a building covers inside its plot.
+local function footprint(plot)
+  return { x = plot.x + INSET, y = plot.y + TOP, w = plot.w - 2 * INSET, h = plot.h - TOP - INSET }
+end
+
+--- The centre of a plot's square: on the sidewalk below it, halfway along.
+local function padOf(plot)
+  return plot.x + plot.w / 2, plot.y + plot.h + T / 2
+end
+
+local function onPad(plot, x, y, slack)
+  local px, py = padOf(plot)
+  local r = Buildings.padSize / 2 + (slack or 0)
+  return math.abs(x - px) <= r and math.abs(y - py) <= r
+end
+
+--- The item a building of `kind` makes when set to product `index`.
+local function productOf(kind, index)
+  return kind.products and kind.products[index]
+end
+
+--- Can building `b` make another batch right now: room for it and every
+--- input in the hopper? The parking lot runs until it is full.
+local function canRun(b, kind)
+  if kind.rate then
+    return b.output < kind.cap
+  end
+  if b.output + kind.batch > kind.cap then
+    return false
+  end
+  for item, n in pairs(kind.inputs) do
+    if (b.hopper[item] or 0) < n then
+      return false
+    end
+  end
+  return true
+end
+
+-- Walls ---------------------------------------------------------------------
+-- The footprints of every solid building, bucketed the way city-map buckets
+-- its own, so its collision code can push cars and pedestrians out of them.
+-- Rebuilt whenever a building goes up or comes down. The host reads its own
+-- book, a client what it was told; on the host they are the same.
+
+local sv = nil -- { buildings = { plot id -> record }, stock = { player id -> { item -> n } }, slots = { id -> n } }
+local walls = { list = {}, cells = {} }
+local wallsDirty = true
+
+local function markWalls()
+  wallsDirty = true
+end
+
+local function currentWalls()
+  if not wallsDirty then
+    return walls
+  end
+  wallsDirty = false
+  walls = { list = {}, cells = {} }
+  local CELL = Layout.CELL
+  for id, b in pairs(sv and sv.buildings or Buildings.buildings) do
+    local kind = Kinds.byKey[b.kind]
+    local plot = plotById(id)
+    if kind and not kind.walkable and plot then
+      local r = footprint(plot)
+      walls.list[#walls.list + 1] = r
+      for c = math.floor(r.x / CELL), math.floor((r.x + r.w) / CELL) do
+        walls.cells[c] = walls.cells[c] or {}
+        for row = math.floor(r.y / CELL), math.floor((r.y + r.h) / CELL) do
+          walls.cells[c][row] = walls.cells[c][row] or {}
+          table.insert(walls.cells[c][row], r)
+        end
+      end
+    end
+  end
+  return walls
+end
+
+--- The `blocksPoint` convention: bullets, walkers, officers and Karen stop here.
+function Buildings:blocksPoint(x, y)
+  for _, r in ipairs(currentWalls().list) do
+    if contains(r, x, y) then
+      return true
+    end
+  end
+  return false
+end
+
+-- Client --------------------------------------------------------------------
+
+Buildings.buildings = {} -- plot id -> { kind, owner, public, product, price, output, progress, running, hopper }
+Buildings.inventory = {} -- item -> count, mine
+Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
+Buildings.menu = false -- is the building menu open?
+Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices
+Buildings.bag = false -- is the inventory open?
+local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
+local notice, noticeTimer, noticeGood = nil, 0, false
+local time = 0
+
+function Buildings:load()
+  Controls.register("inventory", "Open / close the inventory", "i")
+  Controls.register("use-medkit", "Use a medkit", "h")
+  for i = 1, self.menuKeys do
+    Controls.register("building-" .. i, ("Building menu: option %d"):format(i), tostring(i))
+  end
+end
+
+-- BLD_STATE for buildings put up before we joined arrives in the same burst
+-- as START, so they are only forgotten on the way out.
+function Buildings:exitGame()
+  self.buildings, self.inventory, self.slots = {}, {}, Kinds.SLOTS
+  self.menu, self.bag = false, false
+  herePad, herePlot, notice, noticeTimer = nil, nil, nil, 0
+  markWalls()
+end
+
+local function say(text, good)
+  notice, noticeTimer, noticeGood = text, NOTICE_TIME, good or false
+end
+
+--- Is another feature's menu up (the upgrade shop)? Then ours stays shut.
+local function otherMenuOpen()
+  local shop = Features.byName.upgrades
+  return shop and shop.open
+end
+
+--- For weapons and anything else on the number keys: ours are taken while
+--- the menu is open (docs/features.md, `menuOpen`).
+function Buildings:menuOpen()
+  return self.menu
+end
+
+function Buildings:update(dt, client)
+  time = time + dt
+  noticeTimer = math.max(0, noticeTimer - dt)
+  local x, y = client:myPose()
+  herePad, herePlot = nil, nil
+  local re = realEstate()
+  if x and re then
+    for _, plot in ipairs(re.plots) do
+      if re.owners[plot.id] and onPad(plot, x, y) then
+        herePad = plot
+      elseif contains(plot, x, y) then
+        herePlot = plot
+      end
+    end
+  end
+  if not herePad or otherMenuOpen() then
+    self.menu = false
+  end
+  if not self.menu then
+    self.page = nil
+  end
+  -- Batches creep along between the host's reports.
+  for _, b in pairs(self.buildings) do
+    local kind = Kinds.byKey[b.kind]
+    if b.running and kind.time then
+      b.progress = math.min(1, b.progress + dt / kind.time)
+    end
+  end
+end
+
+local function affordable(client, price)
+  local money = Features.byName.money
+  if money and money.canAfford and not money:canAfford(client, price) then
+    say(REASONS.broke)
+    return false
+  end
+  return true
+end
+
+local function send(client, kind, ...)
+  client:send(Protocol.encode(kind, ...))
+end
+
+--- The rows of the menu for the square I am on: { label, run = function } or
+--- { label } for a line that can't be picked right now.
+function Buildings:menuRows(client)
+  local plot = herePad
+  local re = realEstate()
+  if not (plot and re) then
+    return {}
+  end
+  local owner = re.owners[plot.id]
+  local b = self.buildings[plot.id]
+  local rows = {}
+  local function row(label, run)
+    rows[#rows + 1] = { label = label, run = run }
+  end
+
+  if owner == client.myId and not b then
+    for _, kind in ipairs(Kinds.list) do
+      row(("Build %s  (%s)"):format(kind.name, amount(kind.cost)), function()
+        if affordable(client, kind.cost) then
+          send(client, "BLD_BUILD", plot.id, kind.key)
+        end
+      end)
+    end
+    return rows
+  end
+  if not b then
+    return rows
+  end
+  local kind = Kinds.byKey[b.kind]
+
+  if owner == client.myId then
+    if kind.rate then
+      return rows -- the parking lot pays out when you drive over it
+    elseif self.page == "prices" then
+      return self:priceRows(client, plot, b, kind)
+    end
+    local item = productOf(kind, b.product)
+    row(("Collect %s"):format(Kinds.label(item, b.output)), b.output > 0 and function()
+      send(client, "BLD_COLLECT", plot.id)
+    end or nil)
+    if next(kind.inputs) then
+      row("Load materials from your inventory", function()
+        send(client, "BLD_LOAD", plot.id)
+      end)
+    end
+    if #kind.products > 1 then
+      local nextItem = productOf(kind, b.product % #kind.products + 1)
+      row(("Switch to making %s"):format(Kinds.label(nextItem)), function()
+        send(client, "BLD_PRODUCT", plot.id)
+      end)
+    end
+    row(b.public and "Make it private" or "Open it to the public", function()
+      send(client, "BLD_PUBLIC", plot.id)
+    end)
+    row("Prices...", function()
+      self.page = "prices"
+    end)
+    return rows
+  end
+
+  if b.public then
+    local item = productOf(kind, b.product)
+    local n = math.min(kind.unit, b.output)
+    row(("Buy %s  (%s)"):format(Kinds.label(item, kind.unit), amount(b.price)), n > 0 and function()
+      if Kinds.room(self.inventory, self.slots, item) < n then
+        say(REASONS.invfull)
+      elseif affordable(client, b.price) then
+        send(client, "BLD_BUY", plot.id)
+      end
+    end or nil)
+  end
+  for _, input in ipairs(Kinds.inputList(kind)) do
+    local pays = b.pays[input.item] or 0
+    if pays > 0 then
+      local have = self.inventory[input.item] or 0
+      local room = Kinds.HOPPER - (b.hopper[input.item] or 0)
+      local label = ("Sell your %s  (%s each, takes %d)"):format(input.item, amount(pays), room)
+      row(label, have > 0 and room > 0 and function()
+        send(client, "BLD_SELL", plot.id, input.item)
+      end or nil)
+    end
+  end
+  return rows
+end
+
+--- The owner's prices page: what the building sells for, and what it pays
+--- for each material it runs on.
+function Buildings:priceRows(client, plot, b, kind)
+  local rows = {}
+  local function row(label, run)
+    rows[#rows + 1] = { label = label, run = run }
+  end
+  row(("Selling price -1  (now %s)"):format(amount(b.price)), function()
+    send(client, "BLD_PRICE", plot.id, -1)
+  end)
+  row("Selling price +1", function()
+    send(client, "BLD_PRICE", plot.id, 1)
+  end)
+  for _, input in ipairs(Kinds.inputList(kind)) do
+    local pays = b.pays[input.item] or 0
+    row(("Pay for %s -1  (now %s)"):format(input.item, pays > 0 and amount(pays) or "not buying"), function()
+      send(client, "BLD_OFFER", plot.id, input.item, -1)
+    end)
+    row(("Pay for %s +1"):format(input.item), function()
+      send(client, "BLD_OFFER", plot.id, input.item, 1)
+    end)
+  end
+  row("Back", function()
+    self.page = nil
+  end)
+  return rows
+end
+
+function Buildings:keypressed(key, client)
+  if Controls.is("inventory", key) then
+    self.bag = not self.bag
+    return
+  end
+  if Controls.is("use-medkit", key) and not self.menu then
+    if (self.inventory.medkit or 0) < 1 then
+      say(REASONS.nomedkit)
+    else
+      send(client, "BLD_USE", "medkit")
+    end
+    return
+  end
+  if Controls.is("buy", key) then
+    -- On a plot that is for sale real-estate sells it; the square in front
+    -- of one that has an owner is ours.
+    if herePad and not otherMenuOpen() then
+      self.menu = not self.menu
+      self.page = nil
+    end
+    return
+  end
+  if not self.menu then
+    return
+  end
+  local rows = self:menuRows(client)
+  for i = 1, self.menuKeys do
+    if Controls.is("building-" .. i, key) then
+      local r = rows[i]
+      if r and r.run then
+        r.run()
+      end
+      return
+    end
+  end
+end
+
+local function ownerName(client, id)
+  local p = client.players[id]
+  return p and p.name or "?"
+end
+
+--- The square on the sidewalk: the owner's colour, the building's initial
+--- (a plus on an empty plot), a green corner while it sells to the public.
+local function drawPad(plot, owner, b, lit)
+  local s = Buildings.padSize
+  local px, py = padOf(plot)
+  local c = Car.colorFor(owner)
+  local pulse = lit and 0.6 + 0.4 * math.abs(math.sin(time * 4)) or 0.85
+  love.graphics.setColor(0.12, 0.12, 0.14, pulse)
+  love.graphics.rectangle("fill", px - s / 2, py - s / 2, s, s, 4)
+  love.graphics.setColor(c[1], c[2], c[3], pulse)
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", px - s / 2, py - s / 2, s, s, 4)
+  local kind = b and Kinds.byKey[b.kind]
+  love.graphics.setColor(1, 1, 1, pulse)
+  love.graphics.setFont(UI.fonts.body)
+  local mark = kind and kind.name:sub(1, 1) or "+"
+  love.graphics.printf(mark, px - s / 2, py - UI.fonts.body:getHeight() / 2, s, "center")
+  if b and b.public then
+    love.graphics.setColor(0.3, 1, 0.4, pulse)
+    love.graphics.circle("fill", px + s / 2 - 5, py - s / 2 + 5, 4)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+function Buildings:drawBelowCars()
+  for id, b in pairs(self.buildings) do
+    local plot = plotById(id)
+    local kind = Kinds.byKey[b.kind]
+    if plot and kind then
+      Render.building(b, kind, footprint(plot), time)
+    end
+  end
+  local re = realEstate()
+  if re then
+    for _, plot in ipairs(re.plots) do
+      local owner = re.owners[plot.id]
+      if owner then
+        drawPad(plot, owner, self.buildings[plot.id], herePad == plot)
+      end
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- What a building is doing, in a few words.
+local function status(b, kind)
+  if kind.rate then
+    return b.output >= kind.cap and "Full: drive over it to collect" or "Earning"
+  end
+  if b.running then
+    return "Making " .. Kinds.label(productOf(kind, b.product))
+  end
+  if b.output + kind.batch > kind.cap then
+    return "Full"
+  end
+  local needs = {}
+  for _, input in ipairs(Kinds.inputList(kind)) do
+    needs[#needs + 1] = Kinds.label(input.item, input.n)
+  end
+  return "Idle: needs " .. table.concat(needs, " + ") .. " per batch"
+end
+
+--- The lines at the top of the menu that describe the building.
+local function infoLines(client, b, kind)
+  local lines = {}
+  local item = productOf(kind, b.product)
+  if kind.rate then
+    lines[#lines + 1] = ("Takings: %s of %s"):format(amount(math.floor(b.output)), amount(kind.cap))
+  else
+    lines[#lines + 1] = ("Stock: %s (most %d)"):format(Kinds.label(item, b.output), kind.cap)
+  end
+  lines[#lines + 1] = status(b, kind)
+  if b.owner == client.myId and next(kind.inputs or {}) then
+    local hop = {}
+    for _, input in ipairs(Kinds.inputList(kind)) do
+      hop[#hop + 1] = ("%s %d/%d"):format(input.item, b.hopper[input.item] or 0, Kinds.HOPPER)
+    end
+    lines[#lines + 1] = "Hopper: " .. table.concat(hop, ", ")
+  end
+  if not kind.private then
+    local per = kind.unit == 1 and Kinds.label(item) or Kinds.label(item, kind.unit)
+    lines[#lines + 1] = ("%s, %s per %s"):format(b.public and "Public" or "Private", amount(b.price), per)
+  end
+  local pays = {}
+  for _, input in ipairs(Kinds.inputList(kind)) do
+    if (b.pays[input.item] or 0) > 0 then
+      pays[#pays + 1] = ("%s %s"):format(input.item, amount(b.pays[input.item]))
+    end
+  end
+  if #pays > 0 then
+    lines[#lines + 1] = "Buys: " .. table.concat(pays, ", ")
+  end
+  return lines
+end
+
+--- Does building `b` pay for any material?
+local function buysAnything(b)
+  for _, price in pairs(b.pays) do
+    if price > 0 then
+      return true
+    end
+  end
+  return false
+end
+
+--- A dark panel with a gold rim and a title.
+local function panel(x, y, w, h, title)
+  love.graphics.setColor(0.10, 0.10, 0.13, 0.94)
+  love.graphics.rectangle("fill", x, y, w, h, 10)
+  love.graphics.setColor(1, 0.85, 0.3, 0.8)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", x, y, w, h, 10)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(UI.fonts.heading)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.printf(title, x, y + 12, w, "center")
+end
+
+--- The panel in the top-right corner (under the connection line) while the menu is open.
+local function drawMenu(self, client)
+  local re = realEstate()
+  local plot = herePad
+  local b = self.buildings[plot.id]
+  local kind = b and Kinds.byKey[b.kind]
+  local owner = re.owners[plot.id]
+  local title, lines
+  if kind then
+    title = kind.name
+    lines = infoLines(client, b, kind)
+    if owner ~= client.myId then
+      table.insert(lines, 1, ownerName(client, owner) .. "'s")
+    end
+  else
+    title = owner == client.myId and "Build on your plot" or (ownerName(client, owner) .. "'s plot")
+    lines = { owner == client.myId and "Pick a building." or "Nothing built here yet." }
+  end
+  local rows = self:menuRows(client)
+  if kind and #rows == 0 then
+    lines[#lines + 1] = owner == client.myId and "Drive over it to collect." or "Nothing to trade here."
+  end
+
+  local w = love.graphics.getWidth()
+  local pw = 380
+  local ph = 64 + #lines * 20 + #rows * 30 + 40
+  local px, py = w - pw - 16, 36
+  panel(px, py, pw, ph, title)
+
+  love.graphics.setFont(UI.fonts.small)
+  local y = py + 54
+  love.graphics.setColor(0.8, 0.8, 0.85)
+  for _, line in ipairs(lines) do
+    love.graphics.printf(line, px + 20, y, pw - 40, "left")
+    y = y + 20
+  end
+  y = y + 6
+  for i, r in ipairs(rows) do
+    local keyName = Controls.name(Controls.bindings("building-" .. i)[1])
+    local dim = r.run and 1 or 0.4
+    love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
+    love.graphics.rectangle("fill", px + 20, y, 24, 24, 5)
+    love.graphics.setColor(1, 1, 1, dim)
+    love.graphics.printf(keyName, px + 20, y + 4, 24, "center")
+    love.graphics.print(r.label, px + 54, y + 4)
+    y = y + 30
+  end
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  local key = Controls.name(Controls.bindings("buy")[1])
+  love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
+end
+
+--- My inventory as the stacks that fill its slots, materials first.
+local function stacks(inventory)
+  local items = {}
+  for _, m in ipairs(Kinds.materials) do
+    items[#items + 1] = m
+  end
+  local others = {}
+  for item in pairs(inventory) do
+    if not (item == "iron" or item == "sulfur" or item == "minerals") then
+      others[#others + 1] = item
+    end
+  end
+  table.sort(others)
+  for _, item in ipairs(others) do
+    items[#items + 1] = item
+  end
+  local out = {}
+  for _, item in ipairs(items) do
+    local left, stack = inventory[item] or 0, Kinds.stack(item)
+    while left > 0 do
+      out[#out + 1] = { item = item, n = math.min(stack, left) }
+      left = left - stack
+    end
+  end
+  return out
+end
+
+local COLS, CELL, GAP = 5, 76, 8
+
+--- The inventory panel on the left: a slot per box, locked ones greyed out.
+local function drawBag(self)
+  local rows = math.ceil(Kinds.MAX_SLOTS / COLS)
+  local pw = 2 * 24 + COLS * CELL + (COLS - 1) * GAP
+  local ph = 64 + rows * (CELL + GAP) + 62
+  local px, py = 16, 250
+  panel(px, py, pw, ph, "INVENTORY")
+  local list = stacks(self.inventory)
+  for i = 1, Kinds.MAX_SLOTS do
+    local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
+    local x, y = px + 24 + col * (CELL + GAP), py + 56 + row * (CELL + GAP)
+    local open = i <= self.slots
+    love.graphics.setColor(1, 1, 1, open and 0.10 or 0.03)
+    love.graphics.rectangle("fill", x, y, CELL, CELL, 6)
+    love.graphics.setColor(1, 1, 1, open and 0.35 or 0.12)
+    love.graphics.rectangle("line", x, y, CELL, CELL, 6)
+    local s = open and list[i]
+    if s then
+      Render.itemIcon(s.item, x + CELL / 2, y + 22)
+      love.graphics.setFont(UI.fonts.small)
+      love.graphics.setColor(0.85, 0.85, 0.9)
+      love.graphics.printf(Kinds.label(s.item), x + 2, y + 38, CELL - 4, "center")
+      love.graphics.setColor(1, 0.85, 0.3)
+      love.graphics.printf(tostring(s.n), x, y + 2, CELL - 5, "right")
+    elseif not open then
+      love.graphics.setColor(1, 1, 1, 0.2)
+      love.graphics.setFont(UI.fonts.small)
+      love.graphics.printf("locked", x, y + CELL / 2 - 8, CELL, "center")
+    end
+  end
+  -- Names of what I carry under the boxes, since icons only say so much.
+  love.graphics.setFont(UI.fonts.small)
+  local y = py + 56 + rows * (CELL + GAP) + 4
+  local hint
+  if self.slots < Kinds.MAX_SLOTS then
+    local shop = Controls.name(Controls.bindings("upgrades")[1])
+    hint = ("%d/%d slots used. More slots in the upgrade shop (%s)."):format(
+      math.min(#list, self.slots), self.slots, shop)
+  else
+    hint = ("%d/%d slots used."):format(math.min(#list, self.slots), self.slots)
+  end
+  love.graphics.setColor(0.8, 0.8, 0.85)
+  love.graphics.printf(hint, px + 20, y, pw - 40, "left")
+  local foot = Controls.name(Controls.bindings("inventory")[1]) .. ": close"
+  if (self.inventory.medkit or 0) > 0 then
+    foot = Controls.name(Controls.bindings("use-medkit")[1]) .. ": use a medkit   " .. foot
+  end
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  love.graphics.printf(foot, px, py + ph - 26, pw, "center")
+end
+
+--- A reminder of the inventory key, bottom left, while it is shut.
+local function drawBagHint(self)
+  local used = Kinds.slotsUsed(self.inventory)
+  local line = ("%s: inventory (%d/%d)"):format(Controls.name(Controls.bindings("inventory")[1]), used, self.slots)
+  if (self.inventory.medkit or 0) > 0 then
+    line = line .. "   " .. Controls.name(Controls.bindings("use-medkit")[1]) .. ": use medkit"
+  end
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.85, 0.8, 0.6)
+  love.graphics.print(line, 10, love.graphics.getHeight() - 28)
+end
+
+function Buildings:drawHUD(client)
+  local w, h = love.graphics.getDimensions()
+  if self.bag then
+    drawBag(self)
+  else
+    drawBagHint(self)
+  end
+  local re = realEstate()
+  local plot = herePad
+  local owner = plot and re and re.owners[plot.id]
+  if self.menu and owner then
+    drawMenu(self, client)
+  end
+
+  local text, color
+  local key = Controls.name(Controls.bindings("buy")[1])
+  if noticeTimer > 0 then
+    text, color = notice, noticeGood and { 0.5, 1, 0.6 } or { 1, 0.45, 0.4 }
+  elseif owner and not self.menu then
+    local b = self.buildings[plot.id]
+    local kind = b and Kinds.byKey[b.kind]
+    if owner == client.myId then
+      text = kind and ("Your %s.  %s: manage"):format(kind.name, key) or ("Your plot.  %s: build"):format(key)
+      color = { 0.6, 0.9, 0.6 }
+    elseif kind and (b.public or buysAnything(b)) then
+      local deals = {}
+      if b.public then
+        deals[#deals + 1] = "sells " .. Kinds.label(productOf(kind, b.product))
+      end
+      if buysAnything(b) then
+        deals[#deals + 1] = "buys materials"
+      end
+      text = ("%s's %s %s.  %s: trade"):format(ownerName(client, owner), kind.name, table.concat(deals, " and "), key)
+      color = { 1, 0.85, 0.3 }
+    else
+      text = ownerName(client, owner) .. "'s " .. (kind and (kind.name .. " (private)") or "plot")
+      color = { 0.8, 0.8, 0.85 }
+    end
+  elseif herePlot and re and re.owners[herePlot.id] == client.myId and not self.buildings[herePlot.id] then
+    text, color = "Your plot. Build from the square on the sidewalk.", { 0.6, 0.9, 0.6 }
+  end
+  if text then
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf(text, 1, h - 89, w, "center")
+    love.graphics.setColor(color)
+    love.graphics.printf(text, 0, h - 90, w, "center")
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- "+10 uzi ammo" over my head, through money's floating text when it is there.
+local function announceGain(client, item, gained)
+  local money = Features.byName.money
+  local text = "+" .. Kinds.label(item, gained)
+  if money and money.float then
+    money:float(client, client.myId, text)
+  else
+    say(text, true)
+  end
+end
+
+Buildings.clientMessages = {
+  BLD_STATE = function(_client, args)
+    local id, kind = tonumber(args[1]), Kinds.byKey[args[2]]
+    if not (id and kind) then
+      return
+    end
+    if not Buildings.buildings[id] then
+      markWalls()
+    end
+    Buildings.buildings[id] = {
+      kind = kind.key,
+      owner = tonumber(args[3]),
+      public = args[4] == "1",
+      product = tonumber(args[5]) or 1,
+      price = tonumber(args[6]) or 0,
+      output = tonumber(args[7]) or 0,
+      progress = tonumber(args[8]) or 0,
+      running = args[9] == "1",
+      hopper = { iron = tonumber(args[10]) or 0, sulfur = tonumber(args[11]) or 0, minerals = tonumber(args[12]) or 0 },
+      pays = { iron = tonumber(args[13]) or 0, sulfur = tonumber(args[14]) or 0, minerals = tonumber(args[15]) or 0 },
+    }
+  end,
+  BLD_GONE = function(_client, args)
+    local id = tonumber(args[1])
+    if id then
+      Buildings.buildings[id] = nil
+      markWalls()
+    end
+  end,
+  BLD_INV = function(client, args)
+    local item, n = args[1], tonumber(args[2])
+    if not (item and n) then
+      return
+    end
+    local before = Buildings.inventory[item] or 0
+    Buildings.inventory[item] = n > 0 and n or nil
+    if n > before then
+      announceGain(client, item, n - before)
+    end
+  end,
+  BLD_SLOTS = function(_client, args)
+    Buildings.slots = tonumber(args[1]) or Buildings.slots
+  end,
+  BLD_NO = function(_client, args)
+    if REASONS[args[1]] then
+      say(REASONS[args[1]])
+    end
+  end,
+}
+
+-- Server ----------------------------------------------------------------
+
+function Buildings:serverStart()
+  sv = { buildings = {}, stock = {}, slots = {} }
+  markWalls()
+end
+
+--- The map was swapped (a quest). Its plots start empty, so every building
+--- is gone; what players carry stays with them.
+function Buildings:mapChanged()
+  self.buildings = {}
+  self.menu = false
+  herePad, herePlot = nil, nil
+  if sv then
+    sv.buildings = {}
+  end
+  markWalls()
+end
+
+local function stateMessage(id, b)
+  return Protocol.encode("BLD_STATE", id, b.kind, b.owner, b.public and 1 or 0, b.product, b.price,
+    math.floor(b.output), ("%.2f"):format(b.progress / (Kinds.byKey[b.kind].time or 1)),
+    b.running and 1 or 0, b.hopper.iron or 0, b.hopper.sulfur or 0, b.hopper.minerals or 0,
+    b.pays.iron or 0, b.pays.sulfur or 0, b.pays.minerals or 0)
+end
+
+--- Work out whether it can run and tell everyone how the building stands.
+local function publish(server, id, b)
+  b.running = canRun(b, Kinds.byKey[b.kind])
+  server:broadcast(stateMessage(id, b))
+end
+
+local function removeBuilding(server, id)
+  sv.buildings[id] = nil
+  markWalls()
+  server:broadcast(Protocol.encode("BLD_GONE", id))
+end
+
+local function stockOf(id)
+  local s = sv.stock[id]
+  if not s then
+    s = {}
+    sv.stock[id] = s
+  end
+  return s
+end
+
+local function slotsOf(id)
+  return sv.slots[id] or Kinds.SLOTS
+end
+
+--- How many more of `item` player `id` can carry.
+local function roomFor(id, item)
+  return Kinds.room(stockOf(id), slotsOf(id), item)
+end
+
+--- Change what player `player` carries of `item` by `delta` and tell them.
+--- Callers check `roomFor` before adding.
+local function addStock(server, player, item, delta)
+  local s = stockOf(player.id)
+  local n = math.max(0, (s[item] or 0) + delta)
+  s[item] = n > 0 and n or nil
+  server:send(player, Protocol.encode("BLD_INV", item, n))
+end
+
+--- How many of `item` player `id` carries, on the host.
+function Buildings:serverCount(id, item)
+  return sv and sv.stock[id] and sv.stock[id][item] or 0
+end
+
+--- Take up to `n` of `item` out of `player`'s inventory and tell them.
+--- Returns how many were taken. Weapons loads its magazines this way.
+function Buildings:serverTake(server, player, item, n)
+  if not sv then
+    return 0
+  end
+  local taken = math.min(n, self:serverCount(player.id, item))
+  if taken > 0 then
+    addStock(server, player, item, -taken)
+  end
+  return taken
+end
+
+--- Give `player` `slots` inventory slots for the rest of the game (the
+--- upgrade shop does). Returns the number they have now.
+function Buildings:serverSetSlots(server, player, slots)
+  if not sv then
+    return nil
+  end
+  slots = math.max(1, math.min(Kinds.MAX_SLOTS, math.floor(slots)))
+  sv.slots[player.id] = slots
+  server:send(player, Protocol.encode("BLD_SLOTS", slots))
+  return slots
+end
+
+function Buildings:serverPlayerJoined(server, player)
+  if not sv then
+    return
+  end
+  for id, b in pairs(sv.buildings) do
+    server:send(player, stateMessage(id, b))
+  end
+end
+
+function Buildings:serverPlayerLeft(server, player)
+  if not sv then
+    return
+  end
+  sv.stock[player.id], sv.slots[player.id] = nil, nil
+  for id, b in pairs(sv.buildings) do
+    if b.owner == player.id then
+      removeBuilding(server, id)
+    end
+  end
+end
+
+--- Is the player's body on the square in front of `plot` (a little slack
+--- for lag)?
+local function standsOnPad(server, player, plot)
+  if not Features.present(player) then
+    return false
+  end
+  local x, y = Features.bodyPose(server, player)
+  return onPad(plot, x, y, SLACK)
+end
+
+--- The plot a message names, if the player is on its square; otherwise nil
+--- and the reason to send back.
+local function plotFor(server, player, args)
+  local re = realEstate()
+  local plot = re and re.plots[tonumber(args[1]) or 0]
+  if not (sv and plot and player.body) then
+    return nil
+  end
+  if not standsOnPad(server, player, plot) then
+    return nil, "away"
+  end
+  return plot
+end
+
+--- The building on a plot the player owns, or nil and a reason.
+local function ownBuilding(server, player, args)
+  local plot, reason = plotFor(server, player, args)
+  if not plot then
+    return nil, reason
+  end
+  local b = sv.buildings[plot.id]
+  if not b then
+    return nil, "nobuilding"
+  end
+  if b.owner ~= player.id then
+    return nil, "notyours"
+  end
+  return b, nil, plot.id
+end
+
+--- Anyone on foot standing where a new building went up is put on its
+--- square; walking can't step out of a wall. Cars are pushed out by the
+--- collision in serverStep.
+local function clearFootprint(server, plot)
+  local r = footprint(plot)
+  local px, py = padOf(plot)
+  for _, p in pairs(server.players) do
+    local body = p.body
+    if body and not p.vehicle and contains(r, body.x, body.y, T / 4) then
+      body.x, body.y = px, py
+    end
+  end
+end
+
+--- Run `handler(server, player, args)` and send back whatever reason it
+--- refuses with.
+local function refusing(handler)
+  return function(server, player, args)
+    local reason = handler(server, player, args)
+    if reason then
+      server:send(player, Protocol.encode("BLD_NO", reason))
+    end
+  end
+end
+
+Buildings.serverMessages = {
+  BLD_BUILD = refusing(function(server, player, args)
+    local plot, reason = plotFor(server, player, args)
+    local kind = Kinds.byKey[args[2]]
+    if not (plot and kind) then
+      return reason
+    end
+    if realEstate():owner(plot.id) ~= player.id then
+      return "notyours"
+    elseif sv.buildings[plot.id] then
+      return "built"
+    end
+    local money = Features.byName.money
+    if money and not money:spend(server, player.id, kind.cost, kind.name:lower()) then
+      return "broke"
+    end
+    local b = {
+      kind = kind.key,
+      owner = player.id,
+      public = false,
+      product = 1,
+      price = kind.price or 0,
+      pays = {}, -- material -> Fcks it pays for one; absent = not buying
+      output = 0,
+      progress = 0,
+      hopper = {},
+    }
+    sv.buildings[plot.id] = b
+    markWalls()
+    if not kind.walkable then
+      clearFootprint(server, plot)
+    end
+    publish(server, plot.id, b)
+  end),
+
+  BLD_COLLECT = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    if kind.rate then
+      return -- the parking lot pays out on its own
+    elseif b.output < 1 then
+      return "empty"
+    end
+    local item = productOf(kind, b.product)
+    local n = math.min(b.output, roomFor(player.id, item))
+    if n < 1 then
+      return "invfull"
+    end
+    addStock(server, player, item, n)
+    b.output = b.output - n
+    publish(server, id, b)
+    if b.output > 0 then
+      return "invfull" -- took what fit; the rest waits in the building
+    end
+  end),
+
+  BLD_LOAD = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    if not (kind.inputs and next(kind.inputs)) then
+      return
+    end
+    local s = stockOf(player.id)
+    local moved, room = false, false
+    for item in pairs(kind.inputs) do
+      local space = Kinds.HOPPER - (b.hopper[item] or 0)
+      local n = math.min(space, s[item] or 0)
+      room = room or space > 0
+      if n > 0 then
+        b.hopper[item] = (b.hopper[item] or 0) + n
+        addStock(server, player, item, -n)
+        moved = true
+      end
+    end
+    if not moved then
+      return room and "nomaterials" or "hopperfull"
+    end
+    publish(server, id, b)
+  end),
+
+  BLD_PUBLIC = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    if not Kinds.byKey[b.kind].private then
+      b.public = not b.public
+      publish(server, id, b)
+    end
+  end),
+
+  BLD_PRODUCT = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    if not (kind.products and #kind.products > 1) then
+      return
+    elseif b.output > 0 then
+      return "stocked"
+    end
+    b.product = b.product % #kind.products + 1
+    b.progress = 0
+    publish(server, id, b)
+  end),
+
+  BLD_PRICE = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    local delta = tonumber(args[2])
+    if not b then
+      return reason
+    end
+    if not (delta == 1 or delta == -1) or Kinds.byKey[b.kind].private then
+      return
+    end
+    b.price = math.max(PRICE_MIN, math.min(PRICE_MAX, b.price + delta))
+    publish(server, id, b)
+  end),
+
+  BLD_OFFER = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    local item, delta = args[2], tonumber(args[3])
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    if not (kind.inputs and kind.inputs[item] and (delta == 1 or delta == -1)) then
+      return
+    end
+    b.pays[item] = math.max(0, math.min(PRICE_MAX, (b.pays[item] or 0) + delta))
+    publish(server, id, b)
+  end),
+
+  BLD_SELL = refusing(function(server, player, args)
+    local plot, reason = plotFor(server, player, args)
+    if not plot then
+      return reason
+    end
+    local b = sv.buildings[plot.id]
+    local item = args[2]
+    local pays = b and b.pays[item] or 0
+    if not b then
+      return "nobuilding"
+    elseif b.owner == player.id then
+      return "own"
+    elseif pays < 1 then
+      return "notbuying"
+    end
+    local have = stockOf(player.id)[item] or 0
+    local n = math.min(have, Kinds.HOPPER - (b.hopper[item] or 0))
+    local money = Features.byName.money
+    if money then
+      n = math.min(n, math.floor(money:wallet(b.owner) / pays))
+    end
+    if have < 1 then
+      return "nothing"
+    elseif Kinds.HOPPER - (b.hopper[item] or 0) < 1 then
+      return "hopperfull"
+    elseif n < 1 then
+      return "ownerbroke"
+    end
+    if money then
+      if not money:spend(server, b.owner, n * pays, "bought " .. Kinds.label(item, n)) then
+        return "ownerbroke"
+      end
+      money:give(server, player.id, n * pays)
+    end
+    addStock(server, player, item, -n)
+    b.hopper[item] = (b.hopper[item] or 0) + n
+    publish(server, plot.id, b)
+  end),
+
+  BLD_BUY = refusing(function(server, player, args)
+    local plot, reason = plotFor(server, player, args)
+    if not plot then
+      return reason
+    end
+    local b = sv.buildings[plot.id]
+    local kind = b and Kinds.byKey[b.kind]
+    if not b then
+      return "nobuilding"
+    elseif b.owner == player.id then
+      return "own"
+    elseif kind.private or not b.public then
+      return "private"
+    end
+    local n = math.min(kind.unit, b.output)
+    if n < 1 then
+      return "soldout"
+    end
+    local item = productOf(kind, b.product)
+    if roomFor(player.id, item) < n then
+      return "invfull"
+    end
+    local money = Features.byName.money
+    if money then
+      if not money:spend(server, player.id, b.price, Kinds.label(item)) then
+        return "broke"
+      end
+      money:give(server, b.owner, b.price)
+    end
+    b.output = b.output - n
+    addStock(server, player, item, n)
+    publish(server, plot.id, b)
+  end),
+
+  BLD_USE = refusing(function(server, player, args)
+    if not sv or args[1] ~= "medkit" then
+      return
+    end
+    local s = stockOf(player.id)
+    if (s.medkit or 0) < 1 then
+      return "nomedkit"
+    end
+    local weapons = Features.byName.weapons
+    if not (weapons and weapons:serverHeal(server, player, Buildings.medkitHeal)) then
+      return "healthy"
+    end
+    addStock(server, player, "medkit", -1)
+  end),
+}
+
+--- Pay the parking lot's takings to its owner while they drive across it.
+local function payParking(server, id, b)
+  local money = Features.byName.money
+  local owner = server.players[b.owner]
+  local plot = plotById(id)
+  if not (money and owner and plot and owner.vehicle and b.output >= 1 and Features.present(owner)) then
+    return false
+  end
+  local x, y = Features.bodyPose(server, owner)
+  if not contains(plot, x, y) then
+    return false
+  end
+  local n = math.floor(b.output)
+  money:give(server, owner.id, n)
+  b.output = b.output - n
+  return true
+end
+
+--- Keep pedestrians out of the buildings, bouncing their heading off the
+--- wall the way city-map does for its own.
+local function collidePedestrians(w)
+  local peds = Features.byName.pedestrians
+  local crowd = peds and peds.crowd
+  if not crowd then
+    return
+  end
+  for i = 1, crowd.n do
+    local p = crowd.peds[i]
+    local x, y, nx, ny = Collision.resolveCircle(w, p.x, p.y, PED_RADIUS)
+    if nx then
+      p.x, p.y = x, y
+      local len = math.sqrt(nx * nx + ny * ny)
+      if len > 0 then
+        nx, ny = nx / len, ny / len
+        local dot = p.hx * nx + p.hy * ny
+        if dot < 0 then
+          p.hx, p.hy = p.hx - 2 * dot * nx, p.hy - 2 * dot * ny
+          p.heading = math.atan2(p.hy, p.hx)
+        end
+      end
+    end
+  end
+end
+
+--- Cars (players', bots', police) and pedestrians bounce off the walls.
+local function collide(server, dt)
+  local w = currentWalls()
+  if #w.list == 0 then
+    return
+  end
+  for _, car in pairs(server.vehicles) do
+    if not (car.hidden or car.stowed) then
+      Collision.resolveCar(w, car, dt)
+    end
+  end
+  collidePedestrians(w)
+end
+
+function Buildings:serverStep(server, dt)
+  if not sv then
+    return
+  end
+  local re = realEstate()
+  for id, b in pairs(sv.buildings) do
+    local kind = Kinds.byKey[b.kind]
+    if not (re and re:owner(id) == b.owner) then
+      -- The plot changed hands (or went back on the market): the building
+      -- went with the old owner.
+      removeBuilding(server, id)
+    elseif kind.rate then
+      local before = math.floor(b.output)
+      b.output = math.min(kind.cap, b.output + kind.rate * dt)
+      local paid = payParking(server, id, b)
+      if paid or math.floor(b.output) ~= before then
+        publish(server, id, b)
+      end
+    elseif b.running then
+      b.progress = b.progress + dt
+      if b.progress >= kind.time then
+        b.progress = 0
+        for item, n in pairs(kind.inputs) do
+          b.hopper[item] = b.hopper[item] - n
+        end
+        b.output = b.output + kind.batch
+        publish(server, id, b)
+      end
+    end
+  end
+  collide(server, dt)
+end
+
+--- For tests.
+function Buildings.server()
+  return sv
+end
+
+return Buildings

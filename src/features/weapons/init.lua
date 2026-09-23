@@ -7,6 +7,16 @@
 -- that player, with that gun's damage, rate of fire and scatter. The
 -- pistol hits hard and straight; the uzi sprays.
 --
+-- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
+-- reload key (R) refills the one in hand from the ammo in your inventory
+-- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
+-- pulling the trigger on an empty magazine reloads too. A reload takes a
+-- moment, sounds for everyone near, and is lost if you switch guns or die.
+-- Everyone starts with full magazines and no spare rounds, and comes back
+-- from the dead with a full pistol, so nobody is left unarmed for good.
+-- Without the buildings feature the reserve is bottomless. Bots, police
+-- and shots nobody owns never run dry.
+--
 -- People and cars have separate health. A shot at a driver dents the car;
 -- when a car has taken CAR_HEALTH it explodes and its driver bails out
 -- beside the wreck, alive and briefly protected, and carries on on foot.
@@ -21,6 +31,7 @@
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
+--   client -> server  WPN_RELOAD
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
@@ -30,6 +41,8 @@
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
+--   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
+--   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -124,6 +137,9 @@ Weapons.carFlash = {} -- vehicle id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
+Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
+Weapons.reloading = nil -- { gun, t, total } while my reload runs
+Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
@@ -133,6 +149,7 @@ function Weapons:load()
   Sounds.load()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
+  Controls.register("reload", "Reload", "r")
   for i, gun in ipairs(Guns.list) do
     Controls.register("weapon-" .. i, ("Weapon %d: %s"):format(i, gun.name), tostring(i))
   end
@@ -149,6 +166,12 @@ function Weapons:enterGame()
   self.feed = nil
   self.cooldown = 0
   self.gun = Guns.DEFAULT
+  self.mags = {}
+  for i, gun in ipairs(Guns.list) do
+    self.mags[i] = gun.magazine
+  end
+  self.reloading = nil
+  self.ammoNotice = nil
   self.camera = nil
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
@@ -181,15 +204,58 @@ function Weapons:aimAngle(client)
   return math.atan2(wy - oy, wx - ox)
 end
 
+--- Spare rounds for gun `index` in my inventory (bottomless without the
+--- buildings feature, as on the host).
+function Weapons:reserve(index)
+  local buildings = Features.byName.buildings
+  if not (buildings and buildings.inventory) then
+    return math.huge
+  end
+  return buildings.inventory["ammo-" .. Guns.at(index).key] or 0
+end
+
+local function notify(self, text)
+  self.ammoNotice = { text = text, t = 1.6 }
+end
+
+--- Ask the host to reload the gun in hand. Refused here when it can't
+--- happen: already reloading, magazine full, nothing to load.
+function Weapons:tryReload(client)
+  local gun = Guns.at(self.gun)
+  if self.reloading then
+    return
+  elseif (self.mags[self.gun] or 0) >= gun.magazine then
+    notify(self, "Magazine full")
+  elseif self:reserve(self.gun) < 1 then
+    notify(self, "No " .. gun.name .. " ammo")
+  else
+    client:send(Protocol.encode("WPN_RELOAD"))
+  end
+end
+
 function Weapons:tryFire(client)
-  if self.cooldown > 0 or Features.any("held", client, client.myId) then
-    return -- cooling down, or held still (frozen)
+  if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
+    return -- cooling down, reloading, or held still (frozen)
   end
   local aim = self:aimAngle(client)
   if not aim then
     return
   end
-  self.cooldown = Guns.at(self.gun).cooldown
+  local gun = Guns.at(self.gun)
+  self.cooldown = gun.cooldown
+  if (self.mags[self.gun] or 0) < 1 then
+    -- Click. Reload if there is anything to load, say so if not.
+    local x, y = client:myPose()
+    Sounds.play("dry", x, y)
+    self.armed = false -- one click per pull, not a buzz while held
+    if self:reserve(self.gun) > 0 then
+      self:tryReload(client)
+    else
+      notify(self, "Out of " .. gun.name .. " ammo")
+    end
+    return
+  end
+  self.mags[self.gun] = self.mags[self.gun] - 1
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
 
@@ -200,6 +266,7 @@ function Weapons:selectGun(client, index)
     return
   end
   self.gun = index
+  self.reloading = nil -- the host drops it too
   client:send(Protocol.encode("WPN_SELECT", index))
 end
 
@@ -214,10 +281,12 @@ function Weapons:keypressed(key, client)
     self.showHitboxes = not self.showHitboxes
   elseif Controls.is("fire", key) then
     self:tryFire(client)
+  elseif Controls.is("reload", key) then
+    self:tryReload(client)
   else
-    -- The number keys, unless the upgrade shop has them for the moment.
-    local shop = Features.byName.upgrades
-    if shop and shop.open then
+    -- The number keys, unless a menu (the upgrade shop, a building) has them
+    -- for the moment.
+    if Features.any("menuOpen", client) then
       return
     end
     for i in ipairs(Guns.list) do
@@ -262,6 +331,15 @@ function Weapons:update(dt, client, camera)
     end
   end
   self.deadTimer = math.max(0, self.deadTimer - dt)
+  if self.reloading then
+    self.reloading.t = self.reloading.t + dt -- the host says when it's done (WPN_MAG)
+  end
+  if self.ammoNotice then
+    self.ammoNotice.t = self.ammoNotice.t - dt
+    if self.ammoNotice.t <= 0 then
+      self.ammoNotice = nil
+    end
+  end
   Explosions.update(dt)
   Explosions.shakeCamera(camera)
 end
@@ -347,20 +425,43 @@ function Weapons:drawHUD(client)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
   local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
-  local hints = fireKey .. ": fire   " .. boxKey .. ": hitboxes   "
+  local reloadKey = Controls.name(Controls.bindings("reload")[1])
+  local hints = fireKey .. ": fire   " .. reloadKey .. ": reload   " .. boxKey .. ": hitboxes   "
   love.graphics.print(hints, 10, 64)
-  -- The guns on the same row, the one in hand lit up.
+  -- The guns on the same row, the one in hand lit up, each with what is in
+  -- its magazine and what is left to load.
   local font = UI.fonts.small
   local x = 10 + font:getWidth(hints)
   for i, gun in ipairs(Guns.list) do
-    local label = Controls.name(Controls.bindings("weapon-" .. i)[1]) .. ": " .. gun.name
-    if i == self.gun then
+    local spare = self:reserve(i)
+    local label = ("%s: %s %d/%d"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name,
+      self.mags[i] or 0, gun.magazine)
+    if spare ~= math.huge then
+      label = label .. (" +%d"):format(spare)
+    end
+    if i == self.gun and (self.mags[i] or 0) < 1 then
+      love.graphics.setColor(1, 0.45, 0.4)
+    elseif i == self.gun then
       love.graphics.setColor(1, 0.9, 0.3)
     else
       love.graphics.setColor(0.6, 0.6, 0.65)
     end
     love.graphics.print(label, x, 64)
     x = x + font:getWidth(label) + 14
+  end
+
+  -- A bar under the gun row while reloading; a word when there is a problem.
+  if self.reloading then
+    local r = self.reloading
+    local f = math.min(1, r.t / r.total)
+    love.graphics.setColor(0, 0, 0, 0.5)
+    love.graphics.rectangle("fill", x, 68, 90, 10)
+    love.graphics.setColor(1, 0.9, 0.3)
+    love.graphics.rectangle("fill", x, 68, 90 * f, 10)
+    love.graphics.print("reloading", x + 98, 64)
+  elseif self.ammoNotice then
+    love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
+    love.graphics.print(self.ammoNotice.text, x, 64)
   end
 
   if self.feed then
@@ -395,6 +496,28 @@ local function poseOf(client, id)
 end
 
 Weapons.clientMessages = {
+  WPN_MAG = function(_client, args)
+    local gun, rounds = tonumber(args[1]), tonumber(args[2])
+    if Guns.list[gun] and rounds then
+      Weapons.mags[gun] = rounds
+      if Weapons.reloading and Weapons.reloading.gun == gun then
+        Weapons.reloading = nil
+      end
+    end
+  end,
+  WPN_RELOADING = function(client, args)
+    local id, gun, seconds = tonumber(args[1]), Guns.list[tonumber(args[2]) or 0], tonumber(args[3])
+    if not (id and gun and seconds) then
+      return
+    end
+    local x, y = clientPose(client, id)
+    if x then
+      Sounds.play(gun.reloadSound, x, y)
+    end
+    if id == client.myId then
+      Weapons.reloading = { gun = gun.index, t = 0, total = seconds }
+    end
+  end,
   WPN_HEALTH = function(_client, args)
     local id, hp = tonumber(args[1]), tonumber(args[2])
     if id and hp then
@@ -538,6 +661,15 @@ Weapons.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
+--- Every gun loaded: how a player starts.
+local function fullMagazines()
+  local mags = {}
+  for i, gun in ipairs(Guns.list) do
+    mags[i] = gun.magazine
+  end
+  return mags
+end
+
 function Weapons:serverStart(server)
   local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {} }
   for id, p in pairs(server.players) do
@@ -547,6 +679,7 @@ function Weapons:serverStart(server)
         max = MAX_HEALTH,
         kills = 0,
         gun = Guns.DEFAULT,
+        mags = fullMagazines(),
         spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
         lastFire = -math.huge,
         protectedUntil = SPAWN_PROTECTION,
@@ -564,6 +697,7 @@ function Weapons:serverPlayerJoined(_server, player)
       max = MAX_HEALTH,
       kills = 0,
       gun = Guns.DEFAULT,
+      mags = fullMagazines(),
       spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
       lastFire = -math.huge,
       protectedUntil = self.sv.time + SPAWN_PROTECTION,
@@ -703,6 +837,16 @@ function Weapons:serverFire(server, player, aim)
   if Features.any("serverHeld", server, player) then
     return false -- held still (frozen): the trigger is stuck too
   end
+  local counted = not player.bot -- bots and police never run dry
+  if counted and (st.reloadUntil or (st.mags[st.gun] or 0) < 1) then
+    -- Reloading, or empty: nothing leaves the barrel. Put the shooter's
+    -- count right, in case their prediction ran ahead.
+    server:send(player, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun] or 0))
+    return false
+  end
+  if counted then
+    st.mags[st.gun] = st.mags[st.gun] - 1
+  end
   st.lastFire = sv.time
 
   local bx, by, onFoot = bodyPose(server, player)
@@ -711,13 +855,66 @@ function Weapons:serverFire(server, player, aim)
 end
 
 --- Hand `player` gun `index` on the host (bots could pick one this way).
+--- A reload under way is dropped.
 function Weapons:serverSelectGun(_server, player, index)
   local st = self.sv and self.sv.players[player.id]
   if not (st and Guns.list[index]) then
     return false
   end
+  if index ~= st.gun then
+    st.reloadUntil = nil
+  end
   st.gun = index
   return true
+end
+
+--- Spare rounds `player` carries for `gun` (bottomless without buildings).
+local function spareRounds(player, gun)
+  local buildings = Features.byName.buildings
+  if not (buildings and buildings.serverCount) then
+    return math.huge
+  end
+  return buildings:serverCount(player.id, "ammo-" .. gun.key)
+end
+
+--- Start reloading the gun `player` holds, if its magazine isn't full and
+--- they carry rounds for it. The rounds are taken when it finishes
+--- (finishReloads). Returns true if a reload began.
+function Weapons:serverReload(server, player)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil then
+    return false
+  end
+  local gun = Guns.at(st.gun)
+  if (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
+    return false
+  end
+  st.reloadUntil = sv.time + gun.reload
+  server:broadcast(Protocol.encode("WPN_RELOADING", player.id, st.gun, gun.reload))
+  return true
+end
+
+--- Fill the magazines whose reload is done from the shooter's inventory.
+function Weapons:finishReloads(server)
+  local sv = self.sv
+  for id, st in pairs(sv.players) do
+    if st.reloadUntil and sv.time >= st.reloadUntil then
+      st.reloadUntil = nil
+      local p = server.players[id]
+      local gun = Guns.at(st.gun)
+      local need = gun.magazine - (st.mags[st.gun] or 0)
+      local buildings = Features.byName.buildings
+      local got = need
+      if p and buildings and buildings.serverTake then
+        got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+      end
+      st.mags[st.gun] = (st.mags[st.gun] or 0) + got
+      if p then
+        server:send(p, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun]))
+      end
+    end
+  end
 end
 
 Weapons.serverMessages = {
@@ -726,6 +923,9 @@ Weapons.serverMessages = {
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))
+  end,
+  WPN_RELOAD = function(server, player)
+    Weapons:serverReload(server, player)
   end,
 }
 
@@ -855,6 +1055,7 @@ function Weapons:die(server, victim, byId, pid, angle)
   local st = sv.players[victim.id]
   local kills = self:creditKill(byId)
   st.hp = st.max
+  st.reloadUntil = nil
   st.deadUntil = sv.time + DEATH_TIME
   st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   -- Where it went up: the car they drove, or their feet.
@@ -992,6 +1193,9 @@ function Weapons:updateWrecks(server)
         st.deadUntil = nil
         p.body.dead = false
         p.body.x, p.body.y, p.body.facing = st.spawn.x, st.spawn.y, st.spawn.angle
+        -- Back with a loaded pistol, whatever else ran dry.
+        st.mags[Guns.DEFAULT] = math.max(st.mags[Guns.DEFAULT] or 0, Guns.at(Guns.DEFAULT).magazine)
+        server:send(p, Protocol.encode("WPN_MAG", Guns.DEFAULT, st.mags[Guns.DEFAULT]))
         if own then
           own.hidden = false
           own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
@@ -1012,6 +1216,7 @@ function Weapons:serverStep(server, dt)
   end
   sv.time = sv.time + dt
   self:updateWrecks(server)
+  self:finishReloads(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]

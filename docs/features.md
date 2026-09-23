@@ -228,6 +228,7 @@ first feature whose hook returns true. Events in use:
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
+| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop and the building menu answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -305,6 +306,11 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
   broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
+- Ammo: guns fire from a magazine (`magazine`, `reload` in `weapons/guns.lua`)
+  and reload from the player's inventory, `"ammo-<gun key>"`, through
+  `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
+  item, n)`. `weapons:serverFire` counts rounds for human players only; a
+  player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when
@@ -354,6 +360,17 @@ example with a menu; real-estate is the one with a place to stand.
 - Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
+- Buildings: `src/features/buildings` puts a building on a plot its owner
+  picks (parking lot, quarry, ammo, weapons and health factories; the
+  catalog is `kinds.lua`), used from a square on the sidewalk in front of
+  the plot. Owners set what a building sells for and what it pays for each
+  material it runs on; other players sell into its hopper from there. Buildings are solid (all but the parking lot): buildings pushes
+  cars and pedestrians out itself and answers `blocksPoint` for everything
+  else. The inventory lives there too, on the host, keyed by item
+  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
+  each; `buildings:serverSetSlots(server, player, n)` changes how many a
+  player has (upgrades sells them). Weapons reloads from the ammo in it;
+  guns are only stock so far.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`

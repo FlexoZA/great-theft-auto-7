@@ -1,13 +1,15 @@
 -- Upgrades: spend your Fcks on a bigger body and a longer arm. P opens the
 -- shop over the game; 1 buys the next level of health, 2 the next level of
 -- stamina, 3 the next level of koin reach (how far a koin jumps to you), 4
--- the next level of stamina regen (how fast it comes back), P closes it
--- again. Each level costs more than the last and there are five of each,
--- so a full set is a serious amount of roadkill.
+-- the next level of stamina regen (how fast it comes back), 5 another
+-- inventory slot (buildings), P closes it again. Each level costs more than
+-- the last and there are five of each, so a full set is a serious amount of
+-- roadkill.
 --
 -- The host owns the sale: it checks the wallet (money), takes the koins and
 -- raises the value through the feature that owns it -- weapons for health,
--- on-foot for stamina and its regen, money itself for reach -- which tell
+-- on-foot for stamina and its regen, money itself for reach, buildings for
+-- inventory slots -- which tell
 -- the clients whatever they need to know themselves. This feature only
 -- remembers the level each player is at and draws the shop.
 -- Nothing is bought on the client's say-so; a client that asks for what it
@@ -58,6 +60,11 @@ Upgrades.kinds = {
     action = "buy-regen", defaultKey = "4",
     show = function(v) return ("x%.1f regen"):format(v / 100) end,
   },
+  {
+    key = "slots", label = "Inventory slots", base = 4, step = 1, costs = { 4, 7, 10, 14, 18 },
+    action = "buy-slots", defaultKey = "5",
+    show = function(v) return ("%d slots"):format(v) end,
+  },
 }
 Upgrades.byKey = {}
 for i, k in ipairs(Upgrades.kinds) do
@@ -97,6 +104,11 @@ end
 function Upgrades:exitGame()
   self:enterGame()
   self.levels = {}
+end
+
+--- The number keys are the shop's while it is open (weapons asks).
+function Upgrades:menuOpen()
+  return self.open
 end
 
 function Upgrades:levelOf(id, key)
@@ -310,6 +322,11 @@ local function apply(server, player, kind, level)
     local onFoot = Features.byName["on-foot"]
     if onFoot and onFoot.serverSetStaminaRegen then
       onFoot:serverSetStaminaRegen(server, player, value / 100)
+    end
+  elseif kind.key == "slots" then
+    local buildings = Features.byName.buildings
+    if buildings and buildings.serverSetSlots then
+      buildings:serverSetSlots(server, player, value)
     end
   end
 end

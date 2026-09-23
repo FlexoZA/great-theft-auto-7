@@ -1,0 +1,229 @@
+-- Drawing the buildings, top down, inside the fence of the plot they stand
+-- on. Every kind is a few rectangles; the yard shows what is waiting to be
+-- collected, a light by the gate says public (green) or private (red), and
+-- a bar along the bottom fills while a batch is being made.
+
+local UI = require("src.ui")
+local Kinds = require("src.features.buildings.kinds")
+
+local Render = {}
+
+local COLORS = {
+  iron = { 0.55, 0.6, 0.68 },
+  sulfur = { 0.95, 0.85, 0.2 },
+  minerals = { 0.3, 0.8, 0.75 },
+}
+
+local function box(x, y, w, h, c, a)
+  love.graphics.setColor(c[1], c[2], c[3], a or 1)
+  love.graphics.rectangle("fill", x, y, w, h)
+end
+
+--- A roof with a darker rim and a few ridges.
+local function roof(x, y, w, h, c)
+  box(x + 6, y + 6, w, h, { 0, 0, 0 }, 0.35)
+  box(x, y, w, h, c)
+  love.graphics.setColor(c[1] * 0.7, c[2] * 0.7, c[3] * 0.7)
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", x, y, w, h)
+  love.graphics.setLineWidth(1)
+  for i = 1, 3 do
+    local ly = y + h * i / 4
+    love.graphics.line(x + 6, ly, x + w - 6, ly)
+  end
+end
+
+--- A chimney that smokes while the building works.
+local function chimney(x, y, running, time)
+  love.graphics.setColor(0.3, 0.28, 0.27)
+  love.graphics.circle("fill", x, y, 11)
+  love.graphics.setColor(0.12, 0.12, 0.12)
+  love.graphics.circle("fill", x, y, 6)
+  if running then
+    for i = 0, 2 do
+      local t = (time * 0.6 + i / 3) % 1
+      love.graphics.setColor(0.8, 0.8, 0.8, 0.5 * (1 - t))
+      love.graphics.circle("fill", x + t * 30, y - t * 40, 6 + t * 12)
+    end
+  end
+end
+
+--- Crates stacked in the yard, one per unit waiting (up to `most` shown).
+local function crates(x, y, n, most, c)
+  n = math.min(n, most)
+  for i = 0, n - 1 do
+    local cx, cy = x + (i % 5) * 20, y - math.floor(i / 5) * 20
+    box(cx, cy, 16, 16, c)
+    love.graphics.setColor(0, 0, 0, 0.4)
+    love.graphics.rectangle("line", cx, cy, 16, 16)
+    love.graphics.line(cx, cy, cx + 16, cy + 16)
+  end
+end
+
+local function parking(b, r)
+  box(r.x, r.y, r.w, r.h, { 0.2, 0.2, 0.22 })
+  love.graphics.setColor(0.9, 0.9, 0.85, 0.8)
+  love.graphics.setLineWidth(3)
+  local bays = 6
+  local bw = r.w / bays
+  for i = 0, bays do
+    love.graphics.line(r.x + i * bw, r.y, r.x + i * bw, r.y + r.h * 0.3)
+    love.graphics.line(r.x + i * bw, r.y + r.h, r.x + i * bw, r.y + r.h * 0.7)
+  end
+  -- The P sign in the middle and the takings beside it.
+  local cx, cy = r.x + r.w / 2, r.y + r.h / 2
+  box(cx - 22, cy - 22, 44, 44, { 0.15, 0.35, 0.8 })
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.setFont(UI.fonts.heading)
+  love.graphics.printf("P", cx - 22, cy - 16, 44, "center")
+  local stacks = math.min(10, math.ceil(b.output / 10))
+  for i = 0, stacks - 1 do
+    local kx = cx + 40 + (i % 5) * 16
+    local ky = cy + 10 - math.floor(i / 5) * 16
+    love.graphics.setColor(0.6, 0.45, 0.05)
+    love.graphics.circle("fill", kx, ky, 7)
+    love.graphics.setColor(1, 0.85, 0.2)
+    love.graphics.circle("fill", kx, ky - 2, 7)
+  end
+end
+
+local function quarry(b, kind, r, time)
+  box(r.x, r.y, r.w, r.h, { 0.62, 0.5, 0.36 })
+  -- The pit: terraces stepping down.
+  local cx, cy = r.x + r.w * 0.42, r.y + r.h / 2
+  for i = 0, 3 do
+    local s = 1 - i * 0.22
+    local shade = 0.55 - i * 0.1
+    love.graphics.setColor(shade, shade * 0.8, shade * 0.6)
+    love.graphics.ellipse("fill", cx, cy, r.w * 0.34 * s, r.h * 0.36 * s)
+  end
+  -- A digger that swings while it works.
+  local a = b.running and math.sin(time * 2) * 0.6 or 0
+  love.graphics.setColor(0.95, 0.7, 0.1)
+  love.graphics.rectangle("fill", cx - 10, cy - 8, 20, 16)
+  love.graphics.setLineWidth(4)
+  love.graphics.line(cx, cy, cx + math.cos(a) * 34, cy + math.sin(a) * 34)
+  -- A pile of each material; the one being dug is the big one.
+  for i, m in ipairs(kind.products) do
+    local px, py = r.x + r.w * 0.86, r.y + r.h * (0.2 + 0.3 * (i - 1))
+    local c = COLORS[m]
+    local size = (i == b.product and 10 + math.min(14, b.output * 0.5)) or 8
+    love.graphics.setColor(c[1] * 0.7, c[2] * 0.7, c[3] * 0.7)
+    love.graphics.circle("fill", px + 2, py + 2, size)
+    love.graphics.setColor(c)
+    love.graphics.circle("fill", px, py, size)
+  end
+end
+
+--- The emblem painted on a factory roof.
+local function emblem(key, cx, cy)
+  if key == "ammo" then
+    for i = -1, 1 do
+      local x = cx + i * 18
+      love.graphics.setColor(0.8, 0.6, 0.2)
+      love.graphics.rectangle("fill", x - 5, cy - 6, 10, 22)
+      love.graphics.setColor(0.7, 0.45, 0.2)
+      love.graphics.polygon("fill", x - 5, cy - 6, x + 5, cy - 6, x, cy - 18)
+    end
+  elseif key == "weapons" then
+    love.graphics.setColor(0.15, 0.15, 0.17)
+    love.graphics.rectangle("fill", cx - 26, cy - 8, 52, 12)
+    love.graphics.rectangle("fill", cx + 8, cy + 2, 12, 18)
+    love.graphics.rectangle("fill", cx - 6, cy + 2, 6, 10)
+  elseif key == "health" then
+    love.graphics.setColor(0.85, 0.12, 0.12)
+    love.graphics.rectangle("fill", cx - 8, cy - 24, 16, 48)
+    love.graphics.rectangle("fill", cx - 24, cy - 8, 48, 16)
+  end
+end
+
+local ROOFS = {
+  ammo = { 0.45, 0.42, 0.35 },
+  weapons = { 0.3, 0.32, 0.36 },
+  health = { 0.92, 0.92, 0.9 },
+}
+local CRATES = {
+  ammo = { 0.45, 0.5, 0.25 },
+  weapons = { 0.35, 0.3, 0.25 },
+  health = { 0.95, 0.95, 0.95 },
+}
+
+local function factory(b, kind, r, time)
+  box(r.x, r.y, r.w, r.h, { 0.55, 0.55, 0.52 }) -- concrete yard
+  local bx, by, bw, bh = r.x + 16, r.y + 10, r.w * 0.62, r.h * 0.62
+  roof(bx, by, bw, bh, ROOFS[kind.key])
+  emblem(kind.key, bx + bw / 2, by + bh / 2)
+  chimney(bx + bw - 22, by + 22, b.running, time)
+  -- Hoppers along the side, filled as far as they are loaded.
+  for i, input in ipairs(Kinds.inputList(kind)) do
+    local hx, hy = r.x + r.w - 46, r.y + 16 + (i - 1) * 56
+    local fill = (b.hopper[input.item] or 0) / Kinds.HOPPER
+    box(hx, hy, 30, 44, { 0.2, 0.2, 0.22 })
+    box(hx + 3, hy + 3 + 38 * (1 - fill), 24, 38 * fill, COLORS[input.item])
+  end
+  -- What is waiting to be collected, in crates by the gate.
+  local units = math.floor(b.output / kind.unit)
+  crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+end
+
+--- A small picture of an item, centred on (cx, cy), for the inventory.
+function Render.itemIcon(item, cx, cy)
+  local c = COLORS[item]
+  if c then
+    -- A heap of ore.
+    love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
+    love.graphics.circle("fill", cx - 6, cy + 4, 9)
+    love.graphics.circle("fill", cx + 7, cy + 5, 8)
+    love.graphics.setColor(c)
+    love.graphics.circle("fill", cx, cy - 2, 10)
+  elseif item:match("^ammo%-") then
+    for i = -1, 1 do
+      local x = cx + i * 9
+      love.graphics.setColor(0.8, 0.6, 0.2)
+      love.graphics.rectangle("fill", x - 3, cy - 4, 6, 14)
+      love.graphics.setColor(0.7, 0.45, 0.2)
+      love.graphics.polygon("fill", x - 3, cy - 4, x + 3, cy - 4, x, cy - 11)
+    end
+  elseif item:match("^gun%-") then
+    love.graphics.setColor(0.75, 0.75, 0.8)
+    love.graphics.rectangle("fill", cx - 14, cy - 6, 28, 7)
+    love.graphics.rectangle("fill", cx + 4, cy, 7, 11)
+  elseif item == "medkit" then
+    love.graphics.setColor(0.95, 0.95, 0.95)
+    love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
+    love.graphics.setColor(0.85, 0.12, 0.12)
+    love.graphics.rectangle("fill", cx - 3, cy - 7, 6, 14)
+    love.graphics.rectangle("fill", cx - 7, cy - 3, 14, 6)
+  end
+end
+
+--- Draw building `b` (the client's record) of `kind` inside rectangle `r`.
+function Render.building(b, kind, r, time)
+  if kind.key == "parking" then
+    parking(b, r)
+  elseif kind.key == "quarry" then
+    quarry(b, kind, r, time)
+  else
+    factory(b, kind, r, time)
+  end
+  -- The gate light, for anything that can be opened to the public.
+  if not kind.private then
+    local on = b.public
+    love.graphics.setColor(0, 0, 0, 0.5)
+    love.graphics.circle("fill", r.x + r.w - 14, r.y + r.h - 14, 9)
+    if on then
+      love.graphics.setColor(0.3, 1, 0.4)
+    else
+      love.graphics.setColor(1, 0.25, 0.2)
+    end
+    love.graphics.circle("fill", r.x + r.w - 14, r.y + r.h - 14, 6)
+  end
+  -- Progress on the batch under way.
+  if b.running and kind.time then
+    box(r.x, r.y + r.h + 4, r.w, 5, { 0, 0, 0 }, 0.5)
+    box(r.x, r.y + r.h + 4, r.w * math.min(1, b.progress), 5, { 1, 0.85, 0.3 })
+  end
+  love.graphics.setLineWidth(1)
+end
+
+return Render
