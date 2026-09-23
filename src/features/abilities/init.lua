@@ -34,7 +34,7 @@ local Abilities = {
 
 Abilities.slots = { Freeze } -- slot i is cast with action "ability-<i>"
 Abilities.defaultKeys = { "q" }
-Abilities.hudSlot = 2 -- first bar of the bottom-left cluster after on-foot's stamina and dodge
+Abilities.hudSlot = 3 -- first slot of the bottom-left row after health, stamina and the dodge
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -194,11 +194,7 @@ function Abilities:drawHUD(client)
   -- stamina and dodge bars. It empties when cast and fills back up through
   -- the cooldown with the seconds left above it; full and lit means ready,
   -- with the key under it.
-  local onFoot = Features.byName["on-foot"]
-  local bar = onFoot and onFoot.drawStatBar
-  if not bar then
-    return
-  end
+  local bar = UI.drawStatBar
   for i, ability in ipairs(self.slots) do
     local slot = self.hudSlot + i - 1
     local key = Controls.name(Controls.bindings("ability-" .. i)[1])

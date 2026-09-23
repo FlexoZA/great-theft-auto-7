@@ -68,13 +68,9 @@ OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
 OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
 OnFoot.doubleTap = 0.28 -- seconds between two taps of a key that count as one double-tap
 
--- The HUD's bottom-left cluster of vertical bars: stamina, then the dodge,
--- each `hudStep` apart; abilities carry the row on from the next slot.
-OnFoot.hudX = 24
-OnFoot.hudStep = 70 -- room for a name under each bar
-OnFoot.hudBarW = 28 -- px wide
-OnFoot.hudBarH = 100 -- px tall
-OnFoot.hudBottom = 58 -- px up from the bottom edge the bars stand on
+-- Slots in the HUD's bottom-left row of stat bars (UI.drawStatBar): health
+-- is 0 (weapons), then stamina and the dodge; abilities carry on from there.
+OnFoot.hudSlot = 1
 
 -- The movement actions and the world direction each one dodges in.
 local DODGE_DIRS = {
@@ -373,71 +369,49 @@ function OnFoot:drawAboveCars(_client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
---- The stamina bar's colour: green with plenty, amber when it is getting
---- low, red when nearly gone.
-local function staminaColor(frac)
-  if frac > 0.5 then
-    local k = (frac - 0.5) * 2
-    return { 0.4 + 0.6 * (1 - k), 0.85, 0.35 }
+--- The stamina and dodge bars of the bottom-left row. Dimmed while
+--- driving: nothing to spend them on until you step out.
+function OnFoot:drawStatBars(client, onFoot)
+  local alpha = onFoot and 1 or 0.45
+  local max = self.maxOf[client.myId] or self.maxStamina
+  local stamina = onFoot and (self.stamina[client.myId] or max) or max
+  local frac = math.max(0, math.min(1, stamina / max))
+  local color = UI.rampColor(frac)
+  local winded = onFoot and spent
+  if winded then
+    -- Winded: the bar throbs dim red until enough is back to sprint on.
+    color = { 0.9, 0.3, 0.3, 0.45 + 0.25 * math.sin(time * 8) }
   end
-  local k = frac * 2
-  return { 1, 0.35 + 0.5 * k, 0.3 }
-end
+  local readout = winded and "winded" or ("%d"):format(stamina)
+  UI.drawStatBar(self.hudSlot, "stamina", frac, color, readout, winded and { 1, 0.5, 0.45 } or { 1, 1, 1 },
+    { self.dodgeStamina / max }, alpha)
 
---- One bar of the bottom-left cluster: the value above, the bar, its
---- name under it. `value` may be nil.
-function OnFoot.drawStatBar(slot, name, frac, color, value, valueColor, marks)
-  local font = UI.fonts.small
-  local x = OnFoot.hudX + slot * OnFoot.hudStep
-  local w, h = OnFoot.hudBarW, OnFoot.hudBarH
-  local y = love.graphics.getHeight() - OnFoot.hudBottom - h
-  local cx = x + w / 2
-  love.graphics.setFont(font)
-  UI.vmeter(x, y, w, h, frac, color, marks)
-  UI.label(name, math.floor(cx - font:getWidth(name) / 2), y + h + 6, { 0.85, 0.85, 0.9 })
-  if value then
-    UI.label(value, math.floor(cx - font:getWidth(value) / 2), y - font:getHeight() - 2, valueColor)
+  -- The dodge: lit when one is there for the taking, filling back up
+  -- through the cooldown, dim red while there is no breath for one.
+  local cooling = onFoot and math.max(0, self.dodgeReadyAt - time) or 0
+  local dodgeColor, value, valueColor
+  if not onFoot then
+    dodgeColor = { 0.78, 0.65, 1, 0.9 }
+  elseif self.dash then
+    dodgeColor = { 1, 1, 1, 0.9 }
+  elseif stamina < self.dodgeStamina then
+    dodgeColor, value, valueColor = { 0.9, 0.3, 0.3, 0.4 }, "tired", { 1, 0.5, 0.45 }
+  elseif cooling > 0 then
+    dodgeColor, value, valueColor = { 1, 1, 1, 0.45 }, ("%.1f"):format(cooling), { 0.85, 0.85, 0.9 }
+  else
+    dodgeColor, value, valueColor = { 0.78, 0.65, 1, 0.9 }, "ready", { 0.85, 0.78, 1 }
   end
-  return x, y, w, h
+  local dfrac = self.dash and 1 or (1 - cooling / self.dodgeCooldown)
+  UI.drawStatBar(self.hudSlot + 1, "dodge", dfrac, dodgeColor, value, valueColor, nil, alpha)
 end
 
 function OnFoot:drawHUD(client)
   local key = Controls.name(Controls.bindings("enter-exit")[1])
   local me = self:me(client)
+  self:drawStatBars(client, me ~= nil)
   love.graphics.setFont(UI.fonts.small)
-
+  love.graphics.setColor(0.8, 0.8, 0.85)
   if me then
-    -- The bar grows with the ceiling, so an upgrade shows on the HUD; the
-    -- notch marks what a dodge costs.
-    local max = self.maxOf[client.myId] or self.maxStamina
-    local stamina = self.stamina[client.myId] or max
-    local frac = math.max(0, math.min(1, stamina / max))
-    local color = staminaColor(frac)
-    if spent then
-      -- Winded: the bar throbs dim red until enough is back to sprint on.
-      color = { 0.9, 0.3, 0.3, 0.45 + 0.25 * math.sin(time * 8) }
-    end
-    local readout = spent and "winded" or ("%d"):format(stamina)
-    self.drawStatBar(0, "stamina", frac, color, readout, spent and { 1, 0.5, 0.45 } or { 1, 1, 1 },
-      { self.dodgeStamina / max })
-
-    -- The dodge: lit when one is there for the taking, filling back up
-    -- through the cooldown, dim red while there is no breath for one.
-    local cooling = math.max(0, self.dodgeReadyAt - time)
-    local dodgeColor, value, valueColor
-    if self.dash then
-      dodgeColor = { 1, 1, 1, 0.9 }
-    elseif stamina < self.dodgeStamina then
-      dodgeColor, value, valueColor = { 0.9, 0.3, 0.3, 0.4 }, "tired", { 1, 0.5, 0.45 }
-    elseif cooling > 0 then
-      dodgeColor, value, valueColor = { 1, 1, 1, 0.45 }, ("%.1f"):format(cooling), { 0.85, 0.85, 0.9 }
-    else
-      dodgeColor, value, valueColor = { 0.78, 0.65, 1, 0.9 }, "ready", { 0.85, 0.78, 1 }
-    end
-    local dfrac = self.dash and 1 or (1 - cooling / self.dodgeCooldown)
-    self.drawStatBar(1, "dodge", dfrac, dodgeColor, value, valueColor)
-
-    love.graphics.setColor(0.8, 0.8, 0.85)
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
     local hint = sprintKey .. ": sprint   double-tap: dodge"
     if self:vehicleInReach(client, me) then
@@ -447,7 +421,6 @@ function OnFoot:drawHUD(client)
   else
     local car = client:myVehicle()
     if car and math.abs(car.speed) <= self.exitMaxSpeed then
-      love.graphics.setColor(0.8, 0.8, 0.85)
       love.graphics.print(key .. ": get out", 10, 136)
     end
   end

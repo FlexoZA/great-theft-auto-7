@@ -214,11 +214,13 @@ Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 ## HUD readouts
 
 The important numbers stand as a row of vertical bars in the bottom-left
-corner. On-foot owns the row: `OnFoot.drawStatBar(slot, name, frac, color,
-value, valueColor, marks)` draws one bar at `slot` (0 = stamina, 1 = dodge,
-abilities from `Abilities.hudSlot`) with its name under it and `value`
-above, and returns its x, y, w, h. Take the next free slot for a new stat.
-Behind it, `src/ui.lua` has the pieces, colours as `{ r, g, b[, a] }`:
+corner, one slot each: health (weapons, 0), stamina and the dodge (on-foot,
+1 and 2), then the abilities (from `Abilities.hudSlot`, 3). Draw yours into
+the next free slot with `UI.drawStatBar(slot, name, frac, color, value,
+valueColor, marks, alpha)`: the bar, `name` under it, `value` above, dimmed
+by `alpha` when the stat does not apply right now. It returns x, y, w, h.
+`UI.rampColor(frac)` is the green-amber-red of health and stamina. Behind
+it, colours as `{ r, g, b[, a] }`:
 
 ```lua
 UI.label("stamina", x, y, { 0.85, 0.85, 0.9 })      -- text with a dark shadow under it

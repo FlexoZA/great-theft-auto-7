@@ -361,4 +361,48 @@ function UI.vmeter(x, y, w, h, frac, color, marks)
   love.graphics.rectangle("line", x - 1.5, y - 1.5, w + 3, h + 3, 3)
 end
 
+-- The bottom-left row of stat bars ----------------------------------------
+-- Health, stamina, dodge, abilities: each feature draws its own bar into a
+-- numbered slot of the same row, so they line up as one readout.
+
+UI.statBar = {
+  x = 24, -- left edge of slot 0
+  step = 70, -- px between slots; room for a name under each bar
+  w = 28,
+  h = 100,
+  bottom = 58, -- px up from the bottom edge the bars stand on; the inventory line sits under
+}
+
+--- Green with plenty, amber when getting low, red when nearly gone.
+function UI.rampColor(frac)
+  frac = clamp01(frac)
+  if frac > 0.5 then
+    local k = (frac - 0.5) * 2
+    return { 0.4 + 0.6 * (1 - k), 0.85, 0.35 }
+  end
+  local k = frac * 2
+  return { 1, 0.35 + 0.5 * k, 0.3 }
+end
+
+--- One bar of the row at `slot` (0 is leftmost): `value` above it if
+--- given, the bar, `name` under it. `alpha` dims the whole thing (a stat
+--- that does not apply right now). Returns the bar's x, y, w, h.
+function UI.drawStatBar(slot, name, frac, color, value, valueColor, marks, alpha)
+  local font = UI.fonts.small
+  local sb = UI.statBar
+  local x, w, h = sb.x + slot * sb.step, sb.w, sb.h
+  local y = love.graphics.getHeight() - sb.bottom - h
+  local cx = x + w / 2
+  alpha = alpha or 1
+  love.graphics.setFont(font)
+  UI.vmeter(x, y, w, h, frac, { color[1], color[2], color[3], (color[4] or 1) * alpha }, marks)
+  UI.label(name, math.floor(cx - font:getWidth(name) / 2), y + h + 6, { 0.85, 0.85, 0.9, alpha })
+  if value then
+    local vc = valueColor or { 1, 1, 1 }
+    UI.label(value, math.floor(cx - font:getWidth(value) / 2), y - font:getHeight() - 2,
+      { vc[1], vc[2], vc[3], (vc[4] or 1) * alpha })
+  end
+  return x, y, w, h
+end
+
 return UI
