@@ -301,8 +301,10 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
   broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
-- `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim)`: put a
+- `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
+  `gun` is a table from `src/features/weapons/guns.lua` (the pistol when
+  left out); its damage, speed and scatter apply.
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
