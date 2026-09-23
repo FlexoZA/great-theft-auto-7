@@ -8,10 +8,12 @@
 --
 --   Parking Lot      earns 10 Fcks a minute, up to 100. Drive over it and the
 --                    takings are yours. Always private.
---   Quarry Mine      digs iron, sulfur or minerals (you pick), up to 50.
+--   Quarry Mine      digs iron, sulfur, minerals or copper (you pick), up to 50.
+--   Oil Well         pumps oil, or refines it into plastic on the spot, up to 50.
 --   Ammo Factory     makes rounds for a gun you pick, up to 200, from iron
---                    and sulfur.
---   Weapons Factory  makes a gun you pick, up to 5, from iron.
+--                    and sulfur; rockets (up to 20) take copper as well.
+--   Weapons Factory  makes a gun you pick, up to 5, from iron; the rocket
+--                    launcher takes copper, oil and plastic as well.
 --   Health Factory   makes medkits, up to 5, from minerals. A medkit heals
 --                    you when you use it (H).
 --
@@ -23,7 +25,9 @@
 -- Factories run on materials: collect what your quarry dug (or buy it from
 -- someone else's), then stand on the factory's square and load its hopper
 -- from what you carry. A building with its inputs and room for another
--- batch works on its own; the rest wait.
+-- batch works on its own; the rest wait. What a batch takes depends on the
+-- product (kinds.lua, `recipes`); the hopper holds every material any of its
+-- products needs, and loading fills it with what the one in hand needs.
 --
 -- The owner collects what a building made into their inventory. A building
 -- set to public also sells to anyone on its square, one unit at a time, at
@@ -58,8 +62,8 @@
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
 --   client -> server  BLD_USE     <item>              (only "medkit" today)
 --   server -> all     BLD_STATE   <plotId> <kind> <owner> <public> <product> <price> <output>
---                                 <progress> <running> <iron> <sulfur> <minerals>
---                                 <pays for iron> <sulfur> <minerals>   (0 = not buying)
+--                                 <progress> <running> <hopper, one per material>...
+--                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
@@ -153,16 +157,22 @@ local function productOf(kind, index)
   return kind.products and kind.products[index]
 end
 
+--- How building `b` of `kind` makes what it is set to (kinds.lua).
+local function recipeOf(b, kind)
+  return Kinds.recipe(kind, b.product)
+end
+
 --- Can building `b` make another batch right now: room for it and every
 --- input in the hopper? The parking lot runs until it is full.
 local function canRun(b, kind)
   if kind.rate then
     return b.output < kind.cap
   end
-  if b.output + kind.batch > kind.cap then
+  local r = recipeOf(b, kind)
+  if b.output + r.batch > r.cap then
     return false
   end
-  for item, n in pairs(kind.inputs) do
+  for item, n in pairs(r.inputs) do
     if (b.hopper[item] or 0) < n then
       return false
     end
@@ -225,7 +235,8 @@ Buildings.buildings = {} -- plot id -> { kind, owner, public, product, price, ou
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.menu = false -- is the building menu open?
-Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices
+Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices, "offer" for one material's
+Buildings.offerItem = nil -- the material the "offer" page sets a price for
 Buildings.bag = false -- is the inventory open?
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
@@ -289,7 +300,7 @@ function Buildings:update(dt, client)
   for _, b in pairs(self.buildings) do
     local kind = Kinds.byKey[b.kind]
     if b.running and kind.time then
-      b.progress = math.min(1, b.progress + dt / kind.time)
+      b.progress = math.min(1, b.progress + dt / recipeOf(b, kind).time)
     end
   end
 end
@@ -342,12 +353,14 @@ function Buildings:menuRows(client)
       return rows -- the parking lot pays out when you drive over it
     elseif self.page == "prices" then
       return self:priceRows(client, plot, b, kind)
+    elseif self.page == "offer" then
+      return self:offerRows(client, plot, b)
     end
     local item = productOf(kind, b.product)
     row(("Collect %s"):format(Kinds.label(item, b.output)), b.output > 0 and function()
       send(client, "BLD_COLLECT", plot.id)
     end or nil)
-    if next(kind.inputs) then
+    if next(kind.hopper) then
       row("Load materials from your inventory", function()
         send(client, "BLD_LOAD", plot.id)
       end)
@@ -369,8 +382,9 @@ function Buildings:menuRows(client)
 
   if b.public then
     local item = productOf(kind, b.product)
-    local n = math.min(kind.unit, b.output)
-    row(("Buy %s  (%s)"):format(Kinds.label(item, kind.unit), amount(b.price)), n > 0 and function()
+    local unit = recipeOf(b, kind).unit
+    local n = math.min(unit, b.output)
+    row(("Buy %s  (%s)"):format(Kinds.label(item, unit), amount(b.price)), n > 0 and function()
       if Kinds.room(self.inventory, self.slots, item) < n then
         say(REASONS.invfull)
       elseif affordable(client, b.price) then
@@ -378,22 +392,23 @@ function Buildings:menuRows(client)
       end
     end or nil)
   end
-  for _, input in ipairs(Kinds.inputList(kind)) do
-    local pays = b.pays[input.item] or 0
+  for _, item in ipairs(Kinds.hopperList(kind)) do
+    local pays = b.pays[item] or 0
     if pays > 0 then
-      local have = self.inventory[input.item] or 0
-      local room = Kinds.HOPPER - (b.hopper[input.item] or 0)
-      local label = ("Sell your %s  (%s each, takes %d)"):format(input.item, amount(pays), room)
+      local have = self.inventory[item] or 0
+      local room = Kinds.HOPPER - (b.hopper[item] or 0)
+      local label = ("Sell your %s  (%s each, takes %d)"):format(item, amount(pays), room)
       row(label, have > 0 and room > 0 and function()
-        send(client, "BLD_SELL", plot.id, input.item)
+        send(client, "BLD_SELL", plot.id, item)
       end or nil)
     end
   end
   return rows
 end
 
---- The owner's prices page: what the building sells for, and what it pays
---- for each material it runs on.
+--- The owner's prices page: what the building sells for, and a row per
+--- material it runs on that opens that material's own page (a factory can
+--- take four, too many to fit two rows each on the number keys).
 function Buildings:priceRows(client, plot, b, kind)
   local rows = {}
   local function row(label, run)
@@ -405,19 +420,33 @@ function Buildings:priceRows(client, plot, b, kind)
   row("Selling price +1", function()
     send(client, "BLD_PRICE", plot.id, 1)
   end)
-  for _, input in ipairs(Kinds.inputList(kind)) do
-    local pays = b.pays[input.item] or 0
-    row(("Pay for %s -1  (now %s)"):format(input.item, pays > 0 and amount(pays) or "not buying"), function()
-      send(client, "BLD_OFFER", plot.id, input.item, -1)
-    end)
-    row(("Pay for %s +1"):format(input.item), function()
-      send(client, "BLD_OFFER", plot.id, input.item, 1)
+  for _, item in ipairs(Kinds.hopperList(kind)) do
+    local pays = b.pays[item] or 0
+    row(("Pay for %s...  (now %s)"):format(item, pays > 0 and amount(pays) or "not buying"), function()
+      self.page, self.offerItem = "offer", item
     end)
   end
   row("Back", function()
     self.page = nil
   end)
   return rows
+end
+
+--- What the building pays for one material, up or down.
+function Buildings:offerRows(client, plot, b)
+  local item = self.offerItem
+  local pays = b.pays[item] or 0
+  return {
+    { label = ("Pay for %s -1  (now %s)"):format(item, pays > 0 and amount(pays) or "not buying"), run = function()
+      send(client, "BLD_OFFER", plot.id, item, -1)
+    end },
+    { label = ("Pay for %s +1"):format(item), run = function()
+      send(client, "BLD_OFFER", plot.id, item, 1)
+    end },
+    { label = "Back", run = function()
+      self.page = "prices"
+    end },
+  }
 end
 
 function Buildings:keypressed(key, client)
@@ -514,11 +543,12 @@ local function status(b, kind)
   if b.running then
     return "Making " .. Kinds.label(productOf(kind, b.product))
   end
-  if b.output + kind.batch > kind.cap then
+  local r = recipeOf(b, kind)
+  if b.output + r.batch > r.cap then
     return "Full"
   end
   local needs = {}
-  for _, input in ipairs(Kinds.inputList(kind)) do
+  for _, input in ipairs(Kinds.inputList(r)) do
     needs[#needs + 1] = Kinds.label(input.item, input.n)
   end
   return "Idle: needs " .. table.concat(needs, " + ") .. " per batch"
@@ -528,27 +558,28 @@ end
 local function infoLines(client, b, kind)
   local lines = {}
   local item = productOf(kind, b.product)
+  local r = recipeOf(b, kind)
   if kind.rate then
     lines[#lines + 1] = ("Takings: %s of %s"):format(amount(math.floor(b.output)), amount(kind.cap))
   else
-    lines[#lines + 1] = ("Stock: %s (most %d)"):format(Kinds.label(item, b.output), kind.cap)
+    lines[#lines + 1] = ("Stock: %s (most %d)"):format(Kinds.label(item, b.output), r.cap)
   end
   lines[#lines + 1] = status(b, kind)
-  if b.owner == client.myId and next(kind.inputs or {}) then
+  if b.owner == client.myId and next(kind.hopper) then
     local hop = {}
-    for _, input in ipairs(Kinds.inputList(kind)) do
-      hop[#hop + 1] = ("%s %d/%d"):format(input.item, b.hopper[input.item] or 0, Kinds.HOPPER)
+    for _, m in ipairs(Kinds.hopperList(kind)) do
+      hop[#hop + 1] = ("%s %d/%d"):format(m, b.hopper[m] or 0, Kinds.HOPPER)
     end
     lines[#lines + 1] = "Hopper: " .. table.concat(hop, ", ")
   end
   if not kind.private then
-    local per = kind.unit == 1 and Kinds.label(item) or Kinds.label(item, kind.unit)
+    local per = r.unit == 1 and Kinds.label(item, 1):gsub("^1 ", "") or Kinds.label(item, r.unit)
     lines[#lines + 1] = ("%s, %s per %s"):format(b.public and "Public" or "Private", amount(b.price), per)
   end
   local pays = {}
-  for _, input in ipairs(Kinds.inputList(kind)) do
-    if (b.pays[input.item] or 0) > 0 then
-      pays[#pays + 1] = ("%s %s"):format(input.item, amount(b.pays[input.item]))
+  for _, m in ipairs(Kinds.hopperList(kind)) do
+    if (b.pays[m] or 0) > 0 then
+      pays[#pays + 1] = ("%s %s"):format(m, amount(b.pays[m]))
     end
   end
   if #pays > 0 then
@@ -605,16 +636,26 @@ local function drawMenu(self, client)
 
   local w = love.graphics.getWidth()
   local pw = 380
-  local ph = 64 + #lines * 20 + #rows * 30 + 40
+  -- A long line (a factory that runs on four materials) wraps onto more.
+  local font = UI.fonts.small
+  local wrapped = 0
+  for _, line in ipairs(lines) do
+    local _, parts = font:getWrap(line, pw - 40)
+    wrapped = wrapped + math.max(1, #parts)
+  end
+  local ph = 64 + wrapped * 20 + #rows * 30 + 40
   local px, py = w - pw - 16, 36
   panel(px, py, pw, ph, title)
 
-  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setFont(font)
   local y = py + 54
   love.graphics.setColor(0.8, 0.8, 0.85)
   for _, line in ipairs(lines) do
-    love.graphics.printf(line, px + 20, y, pw - 40, "left")
-    y = y + 20
+    local _, parts = font:getWrap(line, pw - 40)
+    for _, part in ipairs(parts) do
+      love.graphics.print(part, px + 20, y)
+      y = y + 20
+    end
   end
   y = y + 6
   for i, r in ipairs(rows) do
@@ -640,7 +681,7 @@ local function stacks(inventory)
   end
   local others = {}
   for item in pairs(inventory) do
-    if not (item == "iron" or item == "sulfur" or item == "minerals") then
+    if not Kinds.isMaterial(item) then
       others[#others + 1] = item
     end
   end
@@ -795,6 +836,11 @@ Buildings.clientMessages = {
     if not Buildings.buildings[id] then
       markWalls()
     end
+    local hopper, pays, n = {}, {}, #Kinds.materials
+    for i, m in ipairs(Kinds.materials) do
+      hopper[m] = tonumber(args[9 + i]) or 0
+      pays[m] = tonumber(args[9 + n + i]) or 0
+    end
     Buildings.buildings[id] = {
       kind = kind.key,
       owner = tonumber(args[3]),
@@ -804,8 +850,8 @@ Buildings.clientMessages = {
       output = tonumber(args[7]) or 0,
       progress = tonumber(args[8]) or 0,
       running = args[9] == "1",
-      hopper = { iron = tonumber(args[10]) or 0, sulfur = tonumber(args[11]) or 0, minerals = tonumber(args[12]) or 0 },
-      pays = { iron = tonumber(args[13]) or 0, sulfur = tonumber(args[14]) or 0, minerals = tonumber(args[15]) or 0 },
+      hopper = hopper,
+      pays = pays,
     }
   end,
   BLD_GONE = function(_client, args)
@@ -856,10 +902,18 @@ function Buildings:mapChanged()
 end
 
 local function stateMessage(id, b)
-  return Protocol.encode("BLD_STATE", id, b.kind, b.owner, b.public and 1 or 0, b.product, b.price,
-    math.floor(b.output), ("%.2f"):format(b.progress / (Kinds.byKey[b.kind].time or 1)),
-    b.running and 1 or 0, b.hopper.iron or 0, b.hopper.sulfur or 0, b.hopper.minerals or 0,
-    b.pays.iron or 0, b.pays.sulfur or 0, b.pays.minerals or 0)
+  local kind = Kinds.byKey[b.kind]
+  local fields = {
+    id, b.kind, b.owner, b.public and 1 or 0, b.product, b.price, math.floor(b.output),
+    ("%.2f"):format(b.progress / (recipeOf(b, kind).time or 1)), b.running and 1 or 0,
+  }
+  for _, m in ipairs(Kinds.materials) do
+    fields[#fields + 1] = b.hopper[m] or 0
+  end
+  for _, m in ipairs(Kinds.materials) do
+    fields[#fields + 1] = b.pays[m] or 0
+  end
+  return Protocol.encode("BLD_STATE", unpack(fields))
 end
 
 --- Work out whether it can run and tell everyone how the building stands.
@@ -1052,7 +1106,7 @@ Buildings.serverMessages = {
       owner = player.id,
       public = false,
       product = 1,
-      price = kind.price or 0,
+      price = Kinds.recipe(kind, 1).price or 0,
       pays = {}, -- material -> Fcks it pays for one; absent = not buying
       output = 0,
       progress = 0,
@@ -1096,12 +1150,13 @@ Buildings.serverMessages = {
       return reason
     end
     local kind = Kinds.byKey[b.kind]
-    if not (kind.inputs and next(kind.inputs)) then
+    local inputs = recipeOf(b, kind).inputs
+    if not next(inputs) then
       return
     end
     local s = stockOf(player.id)
     local moved, room = false, false
-    for item in pairs(kind.inputs) do
+    for item in pairs(inputs) do
       local space = Kinds.HOPPER - (b.hopper[item] or 0)
       local n = math.min(space, s[item] or 0)
       room = room or space > 0
@@ -1139,8 +1194,15 @@ Buildings.serverMessages = {
     elseif b.output > 0 then
       return "stocked"
     end
+    local before = recipeOf(b, kind).price
     b.product = b.product % #kind.products + 1
     b.progress = 0
+    -- A product with a price of its own (rockets next to rounds) starts
+    -- there; between two alike, the owner's price stays.
+    local after = recipeOf(b, kind).price
+    if after ~= before then
+      b.price = after
+    end
     publish(server, id, b)
   end),
 
@@ -1164,7 +1226,7 @@ Buildings.serverMessages = {
       return reason
     end
     local kind = Kinds.byKey[b.kind]
-    if not (kind.inputs and kind.inputs[item] and (delta == 1 or delta == -1)) then
+    if not (kind.hopper and kind.hopper[item] and (delta == 1 or delta == -1)) then
       return
     end
     b.pays[item] = math.max(0, math.min(PRICE_MAX, (b.pays[item] or 0) + delta))
@@ -1224,7 +1286,7 @@ Buildings.serverMessages = {
     elseif kind.private or not b.public then
       return "private"
     end
-    local n = math.min(kind.unit, b.output)
+    local n = math.min(recipeOf(b, kind).unit, b.output)
     if n < 1 then
       return "soldout"
     end
@@ -1337,13 +1399,14 @@ function Buildings:serverStep(server, dt)
         publish(server, id, b)
       end
     elseif b.running then
+      local r = recipeOf(b, kind)
       b.progress = b.progress + dt
-      if b.progress >= kind.time then
+      if b.progress >= r.time then
         b.progress = 0
-        for item, n in pairs(kind.inputs) do
+        for item, n in pairs(r.inputs) do
           b.hopper[item] = b.hopper[item] - n
         end
-        b.output = b.output + kind.batch
+        b.output = b.output + r.batch
         publish(server, id, b)
       end
     end

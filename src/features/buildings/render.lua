@@ -12,6 +12,9 @@ local COLORS = {
   iron = { 0.55, 0.6, 0.68 },
   sulfur = { 0.95, 0.85, 0.2 },
   minerals = { 0.3, 0.8, 0.75 },
+  copper = { 0.85, 0.48, 0.25 },
+  oil = { 0.12, 0.1, 0.14 },
+  plastic = { 0.95, 0.55, 0.75 },
 }
 
 local function box(x, y, w, h, c, a)
@@ -104,8 +107,9 @@ local function quarry(b, kind, r, time)
   love.graphics.setLineWidth(4)
   love.graphics.line(cx, cy, cx + math.cos(a) * 34, cy + math.sin(a) * 34)
   -- A pile of each material; the one being dug is the big one.
+  local n = #kind.products
   for i, m in ipairs(kind.products) do
-    local px, py = r.x + r.w * 0.86, r.y + r.h * (0.2 + 0.3 * (i - 1))
+    local px, py = r.x + r.w * 0.86, r.y + r.h * (i - 0.5) / n
     local c = COLORS[m]
     local size = (i == b.product and 10 + math.min(14, b.output * 0.5)) or 8
     love.graphics.setColor(c[1] * 0.7, c[2] * 0.7, c[3] * 0.7)
@@ -113,6 +117,57 @@ local function quarry(b, kind, r, time)
     love.graphics.setColor(c)
     love.graphics.circle("fill", px, py, size)
   end
+end
+
+--- An oil well: a pumpjack nodding over the wellhead, a storage tank, and
+--- barrels of oil or bales of plastic by the gate.
+local function oilWell(b, kind, r, time)
+  box(r.x, r.y, r.w, r.h, { 0.42, 0.38, 0.3 }) -- packed dirt
+  -- Oil stains around the wellhead.
+  local wx, wy = r.x + r.w * 0.34, r.y + r.h * 0.45
+  love.graphics.setColor(0.1, 0.09, 0.1, 0.5)
+  love.graphics.ellipse("fill", wx, wy + 6, 34, 22)
+  -- The pumpjack: a beam on an A-frame, its head bobbing while it works.
+  local a = b.running and math.sin(time * 2.4) * 0.35 or 0
+  love.graphics.setColor(0.25, 0.25, 0.28)
+  love.graphics.polygon("fill", wx - 10, wy + 18, wx + 10, wy + 18, wx, wy - 4)
+  love.graphics.push()
+  love.graphics.translate(wx, wy - 4)
+  love.graphics.rotate(a)
+  love.graphics.setColor(0.95, 0.7, 0.1)
+  love.graphics.rectangle("fill", -44, -5, 70, 10)
+  love.graphics.setColor(0.2, 0.2, 0.22)
+  love.graphics.rectangle("fill", -52, -10, 12, 20) -- horsehead
+  love.graphics.rectangle("fill", 22, -8, 14, 16) -- counterweight
+  love.graphics.pop()
+  -- The tank: plastic comes out of the refinery drum on top of it.
+  local tx, ty = r.x + r.w * 0.72, r.y + r.h * 0.38
+  local tr = math.min(r.w, r.h) * 0.2
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.circle("fill", tx + 5, ty + 5, tr)
+  love.graphics.setColor(0.78, 0.78, 0.76)
+  love.graphics.circle("fill", tx, ty, tr)
+  love.graphics.setColor(0.6, 0.6, 0.58)
+  love.graphics.circle("line", tx, ty, tr * 0.7)
+  local item = kind.products[b.product]
+  if item == "plastic" then
+    love.graphics.setColor(COLORS.plastic)
+    love.graphics.circle("fill", tx, ty, tr * 0.4)
+  end
+  -- A flare stack that burns while it pumps.
+  local fx, fy = r.x + r.w * 0.9, r.y + 24
+  love.graphics.setColor(0.3, 0.3, 0.32)
+  love.graphics.circle("fill", fx, fy, 6)
+  if b.running then
+    local flick = 0.7 + 0.3 * math.sin(time * 17)
+    love.graphics.setColor(1, 0.55, 0.1, 0.8)
+    love.graphics.circle("fill", fx, fy, 7 * flick)
+    love.graphics.setColor(1, 0.9, 0.4)
+    love.graphics.circle("fill", fx, fy, 3 * flick)
+  end
+  -- What is waiting to be collected.
+  local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
+  crates(r.x + 20, r.y + r.h - 30, units, 10, COLORS[item] or COLORS.oil)
 end
 
 --- The emblem painted on a factory roof.
@@ -154,22 +209,56 @@ local function factory(b, kind, r, time)
   roof(bx, by, bw, bh, ROOFS[kind.key])
   emblem(kind.key, bx + bw / 2, by + bh / 2)
   chimney(bx + bw - 22, by + 22, b.running, time)
-  -- Hoppers along the side, filled as far as they are loaded.
-  for i, input in ipairs(Kinds.inputList(kind)) do
-    local hx, hy = r.x + r.w - 46, r.y + 16 + (i - 1) * 56
-    local fill = (b.hopper[input.item] or 0) / Kinds.HOPPER
-    box(hx, hy, 30, 44, { 0.2, 0.2, 0.22 })
-    box(hx + 3, hy + 3 + 38 * (1 - fill), 24, 38 * fill, COLORS[input.item])
+  -- Hoppers along the side, filled as far as they are loaded; squeezed
+  -- shorter when a factory takes more materials than fit at full size.
+  local list = Kinds.hopperList(kind)
+  local pitch = math.min(56, (r.h - 60) / math.max(1, #list))
+  local hh = pitch - 12
+  for i, m in ipairs(list) do
+    local hx, hy = r.x + r.w - 46, r.y + 16 + (i - 1) * pitch
+    local fill = (b.hopper[m] or 0) / Kinds.HOPPER
+    box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
+    box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
   end
   -- What is waiting to be collected, in crates by the gate.
-  local units = math.floor(b.output / kind.unit)
+  local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
   crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
 end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.
 function Render.itemIcon(item, cx, cy)
   local c = COLORS[item]
-  if c then
+  if item == "oil" then
+    -- A barrel.
+    love.graphics.setColor(0.2, 0.2, 0.24)
+    love.graphics.rectangle("fill", cx - 9, cy - 12, 18, 24, 3)
+    love.graphics.setColor(0.55, 0.5, 0.2)
+    love.graphics.rectangle("fill", cx - 9, cy - 5, 18, 3)
+    love.graphics.rectangle("fill", cx - 9, cy + 4, 18, 3)
+  elseif item == "plastic" then
+    -- A stack of sheets.
+    for i = 0, 2 do
+      love.graphics.setColor(c[1] * (0.7 + i * 0.15), c[2] * (0.7 + i * 0.15), c[3] * (0.7 + i * 0.15))
+      love.graphics.rectangle("fill", cx - 12 + i * 2, cy + 6 - i * 6, 22, 5, 2)
+    end
+  elseif item == "ammo-rocket" then
+    for i = -1, 1, 2 do
+      local x = cx + i * 7
+      love.graphics.setColor(0.4, 0.45, 0.3)
+      love.graphics.rectangle("fill", x - 3, cy - 8, 6, 18)
+      love.graphics.setColor(0.85, 0.2, 0.15)
+      love.graphics.polygon("fill", x - 3, cy - 8, x + 3, cy - 8, x, cy - 14)
+      love.graphics.setColor(0.3, 0.3, 0.3)
+      love.graphics.polygon("fill", x - 3, cy + 10, x - 6, cy + 13, x - 3, cy + 6)
+      love.graphics.polygon("fill", x + 3, cy + 10, x + 6, cy + 13, x + 3, cy + 6)
+    end
+  elseif item == "gun-rocket" then
+    love.graphics.setColor(0.35, 0.42, 0.3)
+    love.graphics.rectangle("fill", cx - 16, cy - 5, 32, 9, 2)
+    love.graphics.setColor(0.2, 0.22, 0.2)
+    love.graphics.rectangle("fill", cx - 3, cy + 3, 5, 8)
+    love.graphics.rectangle("fill", cx - 18, cy - 6, 4, 11)
+  elseif c then
     -- A heap of ore.
     love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
     love.graphics.circle("fill", cx - 6, cy + 4, 9)
@@ -203,6 +292,8 @@ function Render.building(b, kind, r, time)
     parking(b, r)
   elseif kind.key == "quarry" then
     quarry(b, kind, r, time)
+  elseif kind.key == "oil" then
+    oilWell(b, kind, r, time)
   else
     factory(b, kind, r, time)
   end
