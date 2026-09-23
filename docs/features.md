@@ -237,7 +237,8 @@ couple of small conventions rather than requiring each other:
   behind the wheel) can stay on the road. Pickups uses both.
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
   a wallet on the host, or take koins out of it all-or-nothing (false and
-  nothing happens when they can't cover it). A shop's half of a sale.
+  nothing happens when they can't cover it). A shop's half of a sale; upgrades
+  and real estate both pay with it.
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
   broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
@@ -246,10 +247,8 @@ couple of small conventions rather than requiring each other:
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
-- `Features.byName.money:charge(server, id, amount)`: take exactly `amount`
-  koins from a player's wallet to pay for something. All or nothing: returns
-  false and takes none if they can't afford it. Real estate sells land with it.
-  `money:give(server, id, amount)` is the other way round (the cheats use it).
+- `Features.byName.money:give(server, id, amount)`: put koins into a
+  player's wallet, the other way round from `spend` (the cheats use it).
 - Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
