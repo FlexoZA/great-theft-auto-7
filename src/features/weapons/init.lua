@@ -136,6 +136,7 @@ Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
+local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
@@ -423,10 +424,16 @@ function Weapons:drawHUD(client)
     line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or CAR_HEALTH, CAR_HEALTH)
   end
   love.graphics.print(line .. ("   kills %d"):format(kills), 10, 46)
-  -- Health stands first in the bottom-left row of stat bars.
+  -- Health stands first in the bottom-left row of stat bars: always red,
+  -- and flashing once it is down to under 30%.
   local frac = hp / max
-  UI.drawStatBar(self.hudSlot, "health", frac, UI.rampColor(frac), ("%d"):format(hp),
-    frac <= 0.25 and { 1, 0.5, 0.45 } or { 1, 1, 1 })
+  local color, valueColor = { 0.9, 0.2, 0.2 }, { 1, 1, 1 }
+  if frac < LOW_HEALTH then
+    local blink = 0.5 + 0.5 * math.sin(love.timer.getTime() * 12)
+    color = { 0.9 + 0.1 * blink, 0.2 + 0.3 * blink, 0.2 + 0.3 * blink, 0.55 + 0.45 * blink }
+    valueColor = { 1, 0.5 + 0.5 * blink, 0.45 + 0.55 * blink }
+  end
+  UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
