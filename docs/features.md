@@ -245,7 +245,7 @@ first feature whose hook returns true. Events in use:
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
 | `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
-| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second. |
+| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop and the building menu answer it. |
@@ -412,7 +412,9 @@ example with a menu; real-estate is the one with a place to stand.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`
-  at its turning circle) and `city.current` is
+  at its turning circle; `kind = "forest"` is trees and shrubs round a dirt
+  trail, with `map.trail`, `map.waypoints` (its clearings) and `map.lair`)
+  and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
   every car lands on the new map's spawn points, then `mapChanged` reaches
@@ -426,7 +428,9 @@ example with a menu; real-estate is the one with a place to stand.
   everyone out beside their car and refuses to let them back in (Karen's
   street). Pickups are scattered afresh and koins on the ground swept on
   every switch.
-- Quests: `Features.byName.quests:serverComplete(server, questId)` marks the
+- Quests: a map may carry several stars (`quests.list`, each with its own
+  `onMap`); the nearest one is on offer.
+  `Features.byName.quests:serverComplete(server, questId)` marks the
   job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
   is the quest in play on the host. Karen calls the first when she goes down.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
