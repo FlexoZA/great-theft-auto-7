@@ -146,6 +146,8 @@ Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
+local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
+Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
@@ -453,6 +455,17 @@ function Weapons:drawHUD(client)
     line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or CAR_HEALTH, CAR_HEALTH)
   end
   love.graphics.print(line .. ("   kills %d"):format(kills), 10, 46)
+  -- Health stands first in the bottom-left row of stat bars: always red,
+  -- and flashing once it is down to under 30%.
+  local frac = hp / max
+  local color, valueColor = { 0.9, 0.2, 0.2 }, { 1, 1, 1 }
+  if frac < LOW_HEALTH then
+    local blink = 0.5 + 0.5 * math.sin(love.timer.getTime() * 12)
+    color = { 0.9 + 0.1 * blink, 0.2 + 0.3 * blink, 0.2 + 0.3 * blink, 0.55 + 0.45 * blink }
+    valueColor = { 1, 0.5 + 0.5 * blink, 0.45 + 0.55 * blink }
+  end
+  UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
+  love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
   local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
@@ -485,11 +498,8 @@ function Weapons:drawHUD(client)
   if self.reloading then
     local r = self.reloading
     local f = math.min(1, r.t / r.total)
-    love.graphics.setColor(0, 0, 0, 0.5)
-    love.graphics.rectangle("fill", x, 68, 90, 10)
-    love.graphics.setColor(1, 0.9, 0.3)
-    love.graphics.rectangle("fill", x, 68, 90 * f, 10)
-    love.graphics.print("reloading", x + 98, 64)
+    UI.meter(x, 68, 90, 10, f, { 1, 0.9, 0.3 })
+    UI.label("reloading", x + 100, 64, { 1, 0.9, 0.3 })
   elseif self.ammoNotice then
     love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
     love.graphics.print(self.ammoNotice.text, x, 64)

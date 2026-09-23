@@ -290,4 +290,141 @@ function Cycler:mousepressed(mx, my, button)
   return false
 end
 
+-- HUD meters --------------------------------------------------------------
+-- Small readouts features draw in drawHUD, so they all look like one HUD.
+
+local function clamp01(v)
+  return v < 0 and 0 or (v > 1 and 1 or v)
+end
+
+--- Text with a dark shadow under it, so it reads on any road or roof.
+--- `color` is { r, g, b[, a] }; white if nil.
+function UI.label(text, x, y, color)
+  love.graphics.setColor(0, 0, 0, 0.7)
+  love.graphics.print(text, x + 1, y + 1)
+  if color then
+    love.graphics.setColor(color)
+  else
+    love.graphics.setColor(1, 1, 1)
+  end
+  love.graphics.print(text, x, y)
+end
+
+--- A horizontal meter: a dark trough with a lit fill `frac` (0..1) of the
+--- way across, in `color` = { r, g, b[, a] }. `marks` is an optional list
+--- of fractions to notch on the trough (a threshold worth seeing).
+function UI.meter(x, y, w, h, frac, color, marks)
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 4, 3)
+  local fill = math.floor(w * clamp01(frac) + 0.5)
+  if fill > 0 then
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x, y, fill, h, 1)
+    -- A lighter band along the top gives the fill some body.
+    love.graphics.setColor(1, 1, 1, 0.22)
+    love.graphics.rectangle("fill", x, y, fill, math.max(1, math.floor(h / 3)), 1)
+  end
+  if marks then
+    love.graphics.setColor(0, 0, 0, 0.6)
+    for _, m in ipairs(marks) do
+      local mx = x + math.floor(w * clamp01(m) + 0.5)
+      love.graphics.rectangle("fill", mx - 1, y, 2, h)
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 0.35)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", x - 1.5, y - 1.5, w + 3, h + 3, 3)
+end
+
+--- A vertical meter: a dark trough with a lit fill `frac` (0..1) of the
+--- way up from the bottom, in `color`. `marks` notches fractions on it.
+function UI.vmeter(x, y, w, h, frac, color, marks)
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 4, 3)
+  local fill = math.floor(h * clamp01(frac) + 0.5)
+  if fill > 0 then
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x, y + h - fill, w, fill, 1)
+    -- A lighter band up the left edge gives the fill some body.
+    love.graphics.setColor(1, 1, 1, 0.22)
+    love.graphics.rectangle("fill", x, y + h - fill, math.max(1, math.floor(w / 4)), fill, 1)
+  end
+  if marks then
+    love.graphics.setColor(0, 0, 0, 0.6)
+    for _, m in ipairs(marks) do
+      local my = y + h - math.floor(h * clamp01(m) + 0.5)
+      love.graphics.rectangle("fill", x, my - 1, w, 2)
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 0.35)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", x - 1.5, y - 1.5, w + 3, h + 3, 3)
+end
+
+--- A ring around (cx, cy): a dark disc, a faint track and a lit arc `frac`
+--- (0..1) of the way round clockwise from the top, in `color`. Full at 1.
+function UI.ring(cx, cy, radius, frac, color, width)
+  width = width or 4
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.circle("fill", cx, cy, radius + width / 2 + 1, 48)
+  love.graphics.setLineWidth(width)
+  love.graphics.setColor(1, 1, 1, 0.15)
+  love.graphics.circle("line", cx, cy, radius, 48)
+  frac = clamp01(frac)
+  if frac > 0 then
+    love.graphics.setColor(color)
+    local from = -math.pi / 2
+    if frac >= 1 then
+      love.graphics.circle("line", cx, cy, radius, 48)
+    else
+      love.graphics.arc("line", "open", cx, cy, radius, from, from + frac * 2 * math.pi, 48)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
+-- The bottom-left row of stat bars ----------------------------------------
+-- Health, stamina, dodge, abilities: each feature draws its own bar into a
+-- numbered slot of the same row, so they line up as one readout.
+
+UI.statBar = {
+  x = 24, -- left edge of slot 0
+  step = 70, -- px between slots; room for a name under each bar
+  w = 28,
+  h = 100,
+  bottom = 58, -- px up from the bottom edge the bars stand on; the inventory line sits under
+}
+
+--- Green with plenty, amber when getting low, red when nearly gone.
+function UI.rampColor(frac)
+  frac = clamp01(frac)
+  if frac > 0.5 then
+    local k = (frac - 0.5) * 2
+    return { 0.4 + 0.6 * (1 - k), 0.85, 0.35 }
+  end
+  local k = frac * 2
+  return { 1, 0.35 + 0.5 * k, 0.3 }
+end
+
+--- One bar of the row at `slot` (0 is leftmost): `value` above it if
+--- given, the bar, `name` under it. `alpha` dims the whole thing (a stat
+--- that does not apply right now). Returns the bar's x, y, w, h.
+function UI.drawStatBar(slot, name, frac, color, value, valueColor, marks, alpha)
+  local font = UI.fonts.small
+  local sb = UI.statBar
+  local x, w, h = sb.x + slot * sb.step, sb.w, sb.h
+  local y = love.graphics.getHeight() - sb.bottom - h
+  local cx = x + w / 2
+  alpha = alpha or 1
+  love.graphics.setFont(font)
+  UI.vmeter(x, y, w, h, frac, { color[1], color[2], color[3], (color[4] or 1) * alpha }, marks)
+  UI.label(name, math.floor(cx - font:getWidth(name) / 2), y + h + 6, { 0.85, 0.85, 0.9, alpha })
+  if value then
+    local vc = valueColor or { 1, 1, 1 }
+    UI.label(value, math.floor(cx - font:getWidth(value) / 2), y - font:getHeight() - 2,
+      { vc[1], vc[2], vc[3], (vc[4] or 1) * alpha })
+  end
+  return x, y, w, h
+end
+
 return UI
