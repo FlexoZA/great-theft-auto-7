@@ -230,6 +230,11 @@ couple of small conventions rather than requiring each other:
   a player's ceiling for the rest of the game (respawns keep it). Raising it
   tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
   `OF_MAX` so every HUD scales. Upgrades buys both with koins.
+- `Features.byName.weapons:serverHeal(server, player, amount)` and
+  `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
+  top a player up towards their ceiling. Both return true only if anything
+  was gained, so a pickup that did nothing (full health, a drink taken from
+  behind the wheel) can stay on the road. Pickups uses both.
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
   a wallet on the host, or take koins out of it all-or-nothing (false and
   nothing happens when they can't cover it). A shop's half of a sale.

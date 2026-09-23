@@ -350,6 +350,21 @@ function OnFoot:serverPlayerLeft(server, player)
   end
 end
 
+--- Give a walking player back up to `amount` stamina and their breath with
+--- it (a blown bar can sprint again at once). Returns true if any was
+--- gained, so a pickup knows whether it was used; false for a driver, who
+--- has no bar to fill, and the drink stays on the road for later. Other
+--- features reach this via Features.byName["on-foot"] (pickups does).
+function OnFoot:serverRestoreStamina(_server, player, amount)
+  local st = self.sv and self.sv.onFoot[player.id]
+  if not st or st.stamina >= st.max then
+    return false
+  end
+  st.stamina = math.min(st.max, st.stamina + amount)
+  st.spent = false
+  return true
+end
+
 --- A player's stamina ceiling on the host.
 function OnFoot:maxFor(id)
   return self.sv and self.sv.maxStamina[id] or self.maxStamina
