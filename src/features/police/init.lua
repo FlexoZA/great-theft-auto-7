@@ -4,7 +4,7 @@
 -- every unit that can see you then chases and shoots, siren on, until the
 -- wanted time runs out with no new crimes, or you get wrecked.
 --
--- Sight is a 30 degree cone out of the windscreen (vision.lua), and walls
+-- Sight is a 180 degree fan out of the windscreen (vision.lua), and walls
 -- block it: a crime behind a building goes unseen, and a wanted player who
 -- breaks line of sight for a few seconds is lost. Clients draw every cone
 -- as a faint white fan, so you can see where you are being watched.

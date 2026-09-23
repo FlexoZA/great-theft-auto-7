@@ -1,4 +1,4 @@
--- What the police can see: a cone `FOV` wide in front of a unit or an
+-- What the police can see: a fan `FOV` wide in front of a unit or an
 -- officer, out to a range, and only where nothing solid stands in the way.
 -- Walls come from every feature's `blocksPoint` (docs/features.md), the
 -- same rule bullets follow, so a building that stops a shot hides you too.
@@ -11,11 +11,11 @@ local Features = require("src.features")
 
 local Vision = {}
 
-Vision.FOV = math.rad(30) -- full width of the cone
+Vision.FOV = math.rad(180) -- full width of the cone: everything in front of the windscreen
 Vision.STEP = 14 -- px between line-of-sight samples
-Vision.RAYS = 9 -- rays across the cone when drawing it
-Vision.FILL = 0.11 -- alpha of the drawn cone
-Vision.EDGE = 0.28 -- alpha of its edges
+Vision.RAYS = math.ceil(Vision.FOV / math.rad(7.5)) + 1 -- rays across the cone when drawing it
+Vision.FILL = 0.07 -- alpha of the drawn cone
+Vision.EDGE = 0.22 -- alpha of its edges
 
 local TWO_PI = 2 * math.pi
 
@@ -107,7 +107,7 @@ function Vision.draw(x, y, facing, range, hunting, time)
   local c, fill, edge = WHITE, Vision.FILL, Vision.EDGE
   if hunting then
     c = math.floor((time or 0) * Vision.STROBE_HZ) % 2 == 0 and RED or BLUE
-    fill, edge = Vision.FILL * 2.2, Vision.EDGE * 1.8
+    fill, edge = Vision.FILL * 1.8, Vision.EDGE * 1.6
   end
   love.graphics.setColor(c[1], c[2], c[3], fill)
   for i = 1, rays - 1 do
