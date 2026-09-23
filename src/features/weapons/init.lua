@@ -155,8 +155,8 @@ function Weapons:aimAngle(client)
 end
 
 function Weapons:tryFire(client)
-  if self.cooldown > 0 then
-    return
+  if self.cooldown > 0 or Features.any("held", client, client.myId) then
+    return -- cooling down, or held still (frozen)
   end
   local aim = self:aimAngle(client)
   if not aim then
@@ -520,6 +520,9 @@ function Weapons:serverFire(server, player, aim)
   end
   if sv.time - st.lastFire < FIRE_COOLDOWN * 0.9 then
     return false -- firing faster than allowed; drop it
+  end
+  if Features.any("serverHeld", server, player) then
+    return false -- held still (frozen): the trigger is stuck too
   end
   st.lastFire = sv.time
 
