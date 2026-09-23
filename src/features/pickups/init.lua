@@ -178,11 +178,13 @@ Pickups.clientMessages = {
       Pickups.items[id] = nil
       local kind = KINDS[it.kind]
       Sounds.play(it.x, it.y, kind and kind.pitch)
-      -- Over the body that took it, which is not always the car.
-      local car = by and client.cars[by]
+      -- Over the body that took it, which is not always a car.
       local fx, fy = it.x, it.y
-      if car then
-        fx, fy = Features.clientBodyPose(client, by, car)
+      if by then
+        local px, py = client:pose(by)
+        if px then
+          fx, fy = px, py
+        end
       end
       Pickups.floats[#Pickups.floats + 1] = {
         x = fx,
@@ -215,8 +217,11 @@ end
 
 local function farFromCars(server, x, y)
   for _, p in pairs(server.players) do
-    if p.car and (p.car.x - x) ^ 2 + (p.car.y - y) ^ 2 < 200 ^ 2 then
-      return false
+    if p.body then
+      local bx, by = Features.bodyPose(server, p)
+      if (bx - x) ^ 2 + (by - y) ^ 2 < 200 ^ 2 then
+        return false
+      end
     end
   end
   return true
@@ -272,13 +277,12 @@ function Pickups:serverStep(server, dt)
   local r2 = self.radius * self.radius
   for id, it in pairs(sv.items) do
     for _, player in pairs(server.players) do
-      local car = player.car
       local bx, by, onFoot
-      if car then
+      if Features.present(player) then
         bx, by, onFoot = Features.bodyPose(server, player)
       end
       local reach2 = onFoot and self.footRadius * self.footRadius or r2
-      if car and not car.hidden and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach2 then
+      if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach2 then
         local kind = KINDS[it.kind]
         if kind.apply(server, player) then
           sv.items[id] = nil

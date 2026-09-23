@@ -318,7 +318,7 @@ end
 --- the reason it didn't happen ("maxed", "broke") as a second value.
 function Upgrades:serverBuy(server, player, key)
   local kind = self.byKey[key]
-  if not (sv and kind and player.car) then
+  if not (sv and kind and player.body) then
     return false, "unknown"
   end
   local levels = sv.levels[player.id] or {}

@@ -184,15 +184,14 @@ end
 function Officers:collect(server)
   local list, n = self.bodies, 0
   for id, player in pairs(server.players) do
-    local car = player.car
-    if car and not car.hidden then
+    if Features.present(player) then
       n = n + 1
       local e = list[n]
       if not e then
         e = {}
         list[n] = e
       end
-      e.id, e.player, e.car, e.police = id, player, car, player.police or false
+      e.id, e.player, e.car, e.police = id, player, player.vehicle, player.police or false
       e.x, e.y, e.onFoot = Features.bodyPose(server, player)
     end
   end
@@ -287,9 +286,9 @@ end
 --- Returns the kill, for the caller to announce.
 function Officers:trampled(o, dt, bodies, nbodies)
   for i = 1, nbodies do
-    local car = bodies[i].car
-    local speed = math.abs(car.speed)
-    if (car.x - o.x) ^ 2 + (car.y - o.y) ^ 2 < TOUCH2 and Car.hitTest(car, o.x, o.y, Officers.RADIUS) then
+    local car = bodies[i].car -- nil for a player on foot: no bumper to worry about
+    if car and (car.x - o.x) ^ 2 + (car.y - o.y) ^ 2 < TOUCH2 and Car.hitTest(car, o.x, o.y, Officers.RADIUS) then
+      local speed = math.abs(car.speed)
       if speed >= Officers.SPLAT_SPEED then
         local travel = car.speed >= 0 and car.angle or car.angle + math.pi
         return { id = o.id, x = o.x, y = o.y, angle = travel, by = bodies[i].id }

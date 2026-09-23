@@ -110,34 +110,29 @@ function Features.handleServerMessage(server, player, kind, args)
   return false
 end
 
---- Where a player's body is on the host: their car, unless a feature has
---- taken them out of it and answers `playerPose` (on-foot does). Returns
---- x, y, onFoot.
-function Features.bodyPose(server, player)
-  for _, f in ipairs(Features.list) do
-    if f.playerPose then
-      local x, y, angle = f:playerPose(server, player)
-      if x then
-        return x, y, true, angle
-      end
-    end
+--- Where a player's body is on the host: the vehicle they are driving, or
+--- their feet. Returns x, y, onFoot, angle.
+function Features.bodyPose(_server, player)
+  local car = player.vehicle
+  if car then
+    return car.x, car.y, false, car.angle
   end
-  local car = player.car
-  return car.x, car.y, false, car.angle
+  local b = player.body
+  return b.x, b.y, true, b.facing
 end
 
---- The same on a client, where the answer is what is drawn; `c` is the car
---- snapshot to fall back to. Returns x, y, onFoot.
-function Features.clientBodyPose(client, id, c)
-  for _, f in ipairs(Features.list) do
-    if f.clientPlayerPose then
-      local x, y = f:clientPlayerPose(client, id)
-      if x then
-        return x, y, true
-      end
-    end
-  end
-  return c.dx, c.dy, false
+--- The same on a client, where the answer is what is drawn. Returns x, y,
+--- onFoot, angle, or nil while they are out of the world (wrecked).
+function Features.clientBodyPose(client, id)
+  return client:pose(id)
+end
+
+--- Is a player in the world on the host: spawned, alive, and not sitting in
+--- a vehicle that is out of it (a wreck, a parked NPC)? Anything that
+--- shoots at, runs over, sells to or pays a player asks this first.
+function Features.present(player)
+  local b = player.body
+  return b ~= nil and not b.dead and not (player.vehicle and player.vehicle.hidden)
 end
 
 function Features.names()

@@ -19,7 +19,7 @@ Gameplay is built as features so several people can work without touching the sa
 - Features are discovered automatically. Do not register them anywhere, and do not edit `main.lua`.
 - Hooks, all optional: `load`, `enterGame`, `exitGame`, `update(dt, client)`, `drawBelowCars(client, camera)`, `drawAboveCars(client, camera)`, `drawHUD(client)`, `keypressed(key, client)`, `mousepressed(x, y, button, client)`, `serverStart(server)`, `serverStep(server, dt)`, `serverPlayerJoined(server, player)`, `serverPlayerLeft(server, player)`, plus `clientMessages` and `serverMessages` tables keyed by message kind.
 - Rule: anything that changes the world happens on the server (`server*` hooks); clients only send intent and draw. Never trust a client message.
-- Core files (`main.lua`, `src/net/`, `src/states/`, `src/audio/`, `src/art/`, `src/state.lua`, `src/ui.lua`, `src/car.lua`) are shared. Only change them when a feature genuinely needs a new hook, keep the change minimal, and call it out in the pull request.
+- Core files (`main.lua`, `src/net/`, `src/states/`, `src/audio/`, `src/art/`, `src/state.lua`, `src/ui.lua`, `src/car.lua`, `src/body.lua`) are shared. Only change them when a feature genuinely needs a new hook, keep the change minimal, and call it out in the pull request.
 - Check the file lists in this folder before creating something: if a feature or message kind with the same purpose exists, extend it instead.
 - Third-party libs are vendored under `lib/`, never edited in place.
 - 2-space indent, double quotes, 120-column lines (see `.stylua.toml`, `.luacheckrc`).

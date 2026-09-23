@@ -1,5 +1,9 @@
--- Arcade car physics plus drawing. The same update runs on the server for
--- every player; clients only draw what the server tells them.
+-- Arcade car physics plus drawing. A car is a vehicle in the world: the
+-- server keeps every one of them in `server.vehicles`, each with an `id`,
+-- an `owner` (the player it belongs to, or nil) and a `driver` (the player
+-- behind the wheel, or nil while it is parked). The same update runs on
+-- the server for every vehicle; clients only draw what the server tells
+-- them.
 --
 -- The car carries a world-space velocity (vx, vy). Each tick it is split
 -- into a forward part (throttle, brake, friction act on it) and a sideways
@@ -33,6 +37,11 @@ local PALETTE = {
 
 function Car.new(x, y, angle)
   return setmetatable({
+    id = nil, -- vehicle id, set by the server when it enters the world
+    owner = nil, -- player id it belongs to
+    driver = nil, -- player id behind the wheel, nil while parked
+    color = 1, -- index into Car.PALETTE
+    hidden = false, -- out of the world (a wreck waiting to respawn, a parked NPC)
     x = x or 0,
     y = y or 0,
     angle = angle or 0, -- radians, 0 = facing right
@@ -153,8 +162,21 @@ function Car.hitTest(car, px, py, radius)
   return math.abs(lx) <= Car.WIDTH / 2 + radius and math.abs(ly) <= Car.HEIGHT / 2 + radius
 end
 
+Car.PALETTE = PALETTE
+
+--- A player's colour: their figure on foot, their arrows, their own car.
 function Car.colorFor(id)
   return PALETTE[(id - 1) % #PALETTE + 1]
+end
+
+--- The palette index a player's own car is painted with.
+function Car.colorIndexFor(id)
+  return (id - 1) % #PALETTE + 1
+end
+
+--- The colour of a vehicle, by its palette index.
+function Car.paletteColor(index)
+  return PALETTE[((index or 1) - 1) % #PALETTE + 1]
 end
 
 function Car.draw(x, y, angle, color)

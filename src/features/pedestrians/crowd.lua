@@ -54,20 +54,21 @@ function Crowd.new()
   }, Crowd)
 end
 
---- Snapshot of every car, with the per-car maths the pedestrian loop needs.
---- Returns the (reused) table and how many entries are live.
+--- Snapshot of every car in the world, with the per-car maths the
+--- pedestrian loop needs. `id` is the driver, 0 for a car nobody is in (a
+--- runaway kill credits nobody). Returns the (reused) table and how many
+--- entries are live.
 function Crowd:collect(server)
   local cars, n = self.cars, 0
-  for id, player in pairs(server.players) do
-    local car = player.car
-    if car then
+  for _, car in pairs(server.vehicles) do
+    if not car.hidden then
       n = n + 1
       local e = cars[n]
       if not e then
         e = {}
         cars[n] = e
       end
-      e.id, e.car, e.x, e.y, e.speed = id, car, car.x, car.y, car.speed
+      e.id, e.car, e.x, e.y, e.speed = car.driver or 0, car, car.x, car.y, car.speed
       e.fast = math.abs(car.speed)
       -- Pedestrians care about where a car is going, which is backwards when
       -- it reverses; do that flip once here instead of once per pedestrian.

@@ -107,7 +107,8 @@ local function ensureSource(id)
 end
 
 function Engine:update(dt, client)
-  for id, c in pairs(client.cars) do
+  for id, c in pairs(client.vehicles) do
+    if c.driver then -- a parked car's engine is off
     local e = ensureSource(id)
     local frac = math.min(math.abs(c.speed) / maxSpeed, 1)
 
@@ -127,10 +128,12 @@ function Engine:update(dt, client)
     e.source:setPitch(e.pitch)
     e.source:setVolume(Audio.volume("engine") * (self.idleVolume + (1 - self.idleVolume) * frac))
     e.source:setPosition(c.dx, 0, c.dy)
+    end
   end
 
   for id, e in pairs(sources) do
-    if not client.cars[id] then
+    local c = client.vehicles[id]
+    if not (c and c.driver) then
       e.source:stop()
       sources[id] = nil
     end

@@ -63,13 +63,13 @@ end
 --- Let a few of the pedestrians who just bolted cry out. Only the ones near
 --- enough to hear, and never two at once, however big the stampede.
 function Pedestrians:panicCries(client)
-  local me = client:myCar()
-  if not me then
+  local mx, my = client:myPose()
+  if not mx then
     return
   end
   for i = 1, Render.panickedN do
     local p = Render.panicked[i]
-    local dx, dy = p.x - me.dx, p.y - me.dy
+    local dx, dy = p.x - mx, p.y - my
     if self.yelpTimer <= 0 and dx * dx + dy * dy < YELP_RANGE * YELP_RANGE then
       if love.math.random() < YELP_CHANCE then
         Sounds.panic(p.id, p.x, p.y)

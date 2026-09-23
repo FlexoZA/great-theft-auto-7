@@ -1,7 +1,8 @@
 -- Minimap: a small map in the bottom-right corner. Shows the city (drawn
--- once from the city-map layout), every car as a dot in its colour, your car
--- with a heading tick, and the rectangle the camera currently sees. Without
--- the city-map feature it becomes a radar centred on you.
+-- once from the city-map layout), every player as a dot in their colour
+-- (driving or walking), you with a heading tick, parked cars as small
+-- squares, and the rectangle the camera currently sees. Without the
+-- city-map feature it becomes a radar centred on you.
 --
 -- Purely local. Tab toggles it.
 
@@ -138,7 +139,8 @@ function Minimap:drawHUD(client)
   local w, h = love.graphics.getDimensions()
   local x0 = w - self.width - self.margin
   local y0 = h - height - self.margin
-  local me = client:myCar()
+  local mx, my = client:myPose()
+  local me = mx and { dx = mx, dy = my } or nil -- the radar's centre when there is no map
 
   love.graphics.push()
   love.graphics.translate(x0, y0)
@@ -168,24 +170,35 @@ function Minimap:drawHUD(client)
     love.graphics.rectangle("line", vx, vy, w / s * scale, h / s * scale)
   end
 
-  -- Cars.
-  for id, c in pairs(client.cars) do
-    local px, py = project(c.dx, c.dy, me)
-    local col = Car.colorFor(id)
-    if id == client.myId then
-      love.graphics.setColor(1, 1, 1)
-      love.graphics.circle("fill", px, py, 4.5)
-      love.graphics.setColor(col)
-      love.graphics.circle("fill", px, py, 3)
-      love.graphics.setColor(1, 1, 1)
-      love.graphics.setLineWidth(2)
-      love.graphics.line(px, py, px + math.cos(c.dangle) * 8, py + math.sin(c.dangle) * 8)
-      love.graphics.setLineWidth(1)
-    else
-      love.graphics.setColor(0, 0, 0, 0.7)
-      love.graphics.circle("fill", px, py, 4)
-      love.graphics.setColor(col)
-      love.graphics.circle("fill", px, py, 3)
+  -- Parked cars, small and in their colour.
+  for _, v in pairs(client.vehicles) do
+    if not v.driver then
+      local px, py = project(v.dx, v.dy, me)
+      love.graphics.setColor(Car.paletteColor(v.color))
+      love.graphics.rectangle("fill", px - 2, py - 2, 4, 4)
+    end
+  end
+  -- Players, driving or walking.
+  for id in pairs(client.players) do
+    local x, y, _, angle = client:pose(id)
+    if x then
+      local px, py = project(x, y, me)
+      local col = Car.colorFor(id)
+      if id == client.myId then
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.circle("fill", px, py, 4.5)
+        love.graphics.setColor(col)
+        love.graphics.circle("fill", px, py, 3)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.setLineWidth(2)
+        love.graphics.line(px, py, px + math.cos(angle) * 8, py + math.sin(angle) * 8)
+        love.graphics.setLineWidth(1)
+      else
+        love.graphics.setColor(0, 0, 0, 0.7)
+        love.graphics.circle("fill", px, py, 4)
+        love.graphics.setColor(col)
+        love.graphics.circle("fill", px, py, 3)
+      end
     end
   end
 

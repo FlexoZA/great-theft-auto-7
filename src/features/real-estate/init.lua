@@ -199,10 +199,9 @@ end
 function RealEstate:update(dt, client)
   time = time + dt
   noticeTimer = math.max(0, noticeTimer - dt)
-  local car = client:myCar()
+  local x, y = client:myPose()
   herePlot, hereSite = nil, nil
-  if car then
-    local x, y = Features.clientBodyPose(client, client.myId, car)
+  if x then
     hereSite = siteAt(x, y)
     herePlot = not hereSite and plotAt(x, y) or nil
   end
@@ -413,14 +412,17 @@ end
 
 --- Is the player's body (not a wreck) somewhere `test(x, y)` accepts?
 local function standsWhere(server, player, test)
+  if not Features.present(player) then
+    return false
+  end
   local x, y = Features.bodyPose(server, player)
-  return not player.car.hidden and test(x, y)
+  return test(x, y)
 end
 
 RealEstate.serverMessages = {
   RE_BUY = function(server, player, args)
     local plot = RealEstate.plots[tonumber(args[1]) or 0]
-    if not (sv and plot and player.car) then
+    if not (sv and plot and player.body) then
       return
     end
     local money = Features.byName.money
@@ -443,7 +445,7 @@ RealEstate.serverMessages = {
 
   RE_GROW = function(server, player, args)
     local bi, bj = tonumber(args[1]), tonumber(args[2])
-    if not (sv and bi and bj and player.car and cityMap()) then
+    if not (sv and bi and bj and player.body and cityMap()) then
       return
     end
     local site = findSite(bi, bj)
