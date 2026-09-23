@@ -443,6 +443,19 @@ function Money:spend(server, id, amount)
   return true
 end
 
+--- Put `amount` koins straight into a player's wallet, out of thin air (the
+--- cheats feature). Tells everyone the new total and returns it, or nil when
+--- no game is running.
+function Money:give(server, id, amount)
+  if not sv or amount <= 0 then
+    return nil
+  end
+  local total = self:wallet(id) + amount
+  sv.wallets[id] = total
+  server:broadcast(Protocol.encode("FCK_PURSE", id, total))
+  return total
+end
+
 --- For tests.
 function Money.server()
   return sv
