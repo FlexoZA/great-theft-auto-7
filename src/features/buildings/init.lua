@@ -919,6 +919,20 @@ function Buildings:serverTake(server, player, item, n)
   return taken
 end
 
+--- Put up to `n` of `item` into `player`'s inventory, as many as fit, and
+--- tell them. Returns how many went in (0 when they are full or there is
+--- no game). Pickups hands out dropped ammo this way.
+function Buildings:serverGive(server, player, item, n)
+  if not (sv and player.body) then
+    return 0
+  end
+  local given = math.min(n, roomFor(player.id, item))
+  if given > 0 then
+    addStock(server, player, item, given)
+  end
+  return given
+end
+
 --- Give `player` `slots` inventory slots for the rest of the game (the
 --- upgrade shop does). Returns the number they have now.
 function Buildings:serverSetSlots(server, player, slots)
