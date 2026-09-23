@@ -229,7 +229,9 @@ couple of small conventions rather than requiring each other:
   `Features.byName["on-foot"]:serverSetMaxStamina(server, player, max)`: raise
   a player's ceiling for the rest of the game (respawns keep it). Raising it
   tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
-  `OF_MAX` so every HUD scales. Upgrades buys both with koins.
+  `OF_MAX` so every HUD scales. `on-foot:serverSetStaminaRegen(server,
+  player, scale)` sets how fast stamina comes back, as a multiple of the
+  base rate (host only; nothing to draw). Upgrades buys all three with koins.
 - `Features.byName.weapons:serverHeal(server, player, amount)` and
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything

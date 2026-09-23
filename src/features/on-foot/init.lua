@@ -16,8 +16,11 @@
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
 --
--- Stamina has a ceiling per player, maxStamina to start with; another
--- feature can raise it (upgrades sells it) through OnFoot:serverSetMaxStamina.
+-- Stamina has a ceiling per player, maxStamina to start with, and comes back
+-- at a rate per player, staminaRegen to start with; another feature can
+-- raise either (upgrades sells both) through OnFoot:serverSetMaxStamina and
+-- OnFoot:serverSetStaminaRegen. Only the host needs the rate, so it is
+-- never sent; the bar the client sees already reflects it.
 --
 -- Conventions this feature answers (docs/features.md):
 --   playerPose / clientPlayerPose  where a player's body is when they are
@@ -334,8 +337,9 @@ OnFoot.clientMessages = {
 
 function OnFoot:serverStart()
   self.sv = {
-    onFoot = {}, -- player id -> { x, y, facing, stamina, max, ... }
+    onFoot = {}, -- player id -> { x, y, facing, stamina, max, regen, ... }
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
+    regen = {}, -- player id -> regen scale (absent = 1)
   }
 end
 
@@ -344,6 +348,7 @@ function OnFoot:serverPlayerLeft(server, player)
     return
   end
   self.sv.maxStamina[player.id] = nil
+  self.sv.regen[player.id] = nil
   if self.sv.onFoot[player.id] then
     self.sv.onFoot[player.id] = nil
     server:broadcast(Protocol.encode("OF_IN", server.tick, player.id))
@@ -368,6 +373,28 @@ end
 --- A player's stamina ceiling on the host.
 function OnFoot:maxFor(id)
   return self.sv and self.sv.maxStamina[id] or self.maxStamina
+end
+
+--- How fast a player's stamina comes back on the host, per second.
+function OnFoot:regenFor(id)
+  return self.staminaRegen * (self.sv and self.sv.regen[id] or 1)
+end
+
+--- Set how fast a player's stamina comes back, as a multiple of staminaRegen,
+--- for the rest of the game. Takes effect at once if they are out walking.
+--- Other features reach this via Features.byName["on-foot"] (upgrades does).
+--- Returns the scale set.
+function OnFoot:serverSetStaminaRegen(_server, player, scale)
+  if not self.sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  self.sv.regen[player.id] = scale
+  local st = self.sv.onFoot[player.id]
+  if st then
+    st.regen = self.staminaRegen * scale
+  end
+  return scale
 end
 
 --- Raise (or lower) a player's stamina ceiling to `max` for the rest of the
@@ -439,6 +466,7 @@ function OnFoot:getOut(server, player)
     facing = car.angle,
     stamina = max,
     max = max,
+    regen = self:regenFor(player.id),
     regenIn = 0,
     spent = false,
     lastSeq = 0,
@@ -477,7 +505,7 @@ function OnFoot:walk(st, dt)
   else
     st.regenIn = st.regenIn - dt
     if st.regenIn <= 0 then
-      st.stamina = math.min(st.max, st.stamina + self.staminaRegen * dt)
+      st.stamina = math.min(st.max, st.stamina + st.regen * dt)
       if st.spent and st.stamina >= self.recovered then
         st.spent = false
       end
