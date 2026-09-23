@@ -119,9 +119,18 @@ nil) and `driver` (a player id or nil).
   player sitting in a hidden car is not present. `car.stowed` is the same
   for a map with no vehicles: on-foot stows every player's own car there
   and brings them back on the next map with roads.
-- Death: weapons sets `body.dead`, hides their own car at its spawn slot and
-  leaves a borrowed car where it stands; after the death time they are
-  back at the slot in their own car.
+- Health: a person and a car are hurt separately. Weapons keeps hit points
+  per player (their body) and per car; damage to a driver lands on the
+  car. A wrecked car explodes and its human driver bails out beside it,
+  alive and briefly protected; the car is hidden for the death time and
+  comes back whole at its owner's slot (where it died, for a car nobody
+  owns). An NPC driver goes down with its car. Cars nobody is driving stop
+  bullets and take the damage too, so a parked car is cover and can be
+  blown up.
+- Death: when a player on foot runs out of health, weapons sets `body.dead`,
+  hides their own car at its spawn slot (whole again) and leaves a borrowed
+  car where it stands; after the death time they are back at the slot in
+  their own car.
 - `STATE <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...`:
   every vehicle in the world, then everyone on foot. A player in neither
   list is out of the world.
@@ -245,11 +254,14 @@ couple of small conventions rather than requiring each other:
   `Features.call("serverKill", server, kill)` right after it broadcasts its
   own message (pedestrians and weapons do); `kill` is
   `{ kind = "pedestrian" | "police" | "car", x, y, by = <killer player id>, victim = <player id> }`
-  with `x, y` where it died, not where a wreck respawns. Money drops koins
-  there: a pedestrian is worth a fresh koin and an officer on foot three,
-  while a wrecked car spills up to five out of `victim`'s own wallet and
-  nothing at all if it was empty, so fill in `victim` for anything a player
-  was driving. Ignore kinds you don't care about; new kinds may appear.
+  with `x, y` where it died, not where a wreck respawns. Kind "car" is
+  weapons' kind for a player: a wrecked car (`victim` is its driver, nil
+  for a parked one) or a player killed on foot (`onFoot = true`). Money
+  drops koins there: a pedestrian is worth a fresh koin and an officer on
+  foot three, while a wrecked car spills up to five out of `victim`'s own
+  wallet and nothing at all if it was empty, so fill in `victim` for
+  anything a player was driving. Ignore kinds you don't care about; new
+  kinds may appear.
 - `feature:serverShotAt(server, x, y, radius, by, angle)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
@@ -263,8 +275,8 @@ couple of small conventions rather than requiring each other:
   id)`: where a player is, driving or walking (see "Bodies and vehicles").
   Weapons fires from there, lands hits there and draws the health bar
   there; money, pickups, bots, police and Karen use them, so anything that
-  happens "to a player" happens to the body. A parked car is never a
-  target.
+  happens "to a player" happens to the body. A parked car is a target of
+  its own, never a stand-in for the player who left it.
 - `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
   `serverKill` with `angle` and `onFoot`.
@@ -279,7 +291,9 @@ couple of small conventions rather than requiring each other:
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything
   was gained, so a pickup that did nothing (full health, a drink taken from
-  behind the wheel) can stay on the road. Pickups uses both.
+  behind the wheel) can stay on the road. Pickups uses both. A heal fills
+  the body first and then the car they are driving;
+  `weapons:serverRepair(server, car, amount)` mends a car on its own.
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount, label)`:
   read a wallet on the host, or take koins out of it all-or-nothing (false
   and a reason, and nothing happens, when they can't cover it). Every sale

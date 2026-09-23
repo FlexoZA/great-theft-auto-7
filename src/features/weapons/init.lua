@@ -2,20 +2,33 @@
 -- cursor. The server owns projectiles, hit detection, health and respawns.
 -- Clients predict projectile flight from WPN_SHOT and draw everything.
 --
+-- People and cars have separate health. A shot at a driver dents the car;
+-- when a car has taken CAR_HEALTH it explodes and its driver bails out
+-- beside the wreck, alive and briefly protected, and carries on on foot.
+-- The wreck is gone for DEATH_TIME seconds and comes back whole at its
+-- owner's slot (or where it died, for a car nobody owns). A shot at someone
+-- on foot hurts them; at zero they die, and DEATH_TIME later they are back
+-- at their slot behind the wheel of their own car. NPC drivers (bots, police
+-- units) go down with their car, so their respawn is the same as ever.
+-- Cars nobody is driving can be shot too: they take the bullet, so a parked
+-- car is cover, and they blow up like any other.
+--
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy>
---   server -> all     WPN_HIT  <pid> <victim> <hp>
+--   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
+--   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
+--   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime>
+--   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --
--- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
--- its slot with brief protection.
---
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
+-- Every car has CAR_HEALTH; Weapons:serverHeal tops up the body first and
+-- then the car you are driving, so a health pack works from behind the wheel.
 --
 -- Not every shot has a player behind it: Weapons:serverFireFrom puts a
 -- projectile into the world for whoever asks (the police officers on foot),
@@ -46,6 +59,7 @@ local PROJECTILE_RADIUS = 3
 local FIRE_COOLDOWN = 0.2 -- seconds between shots
 local DAMAGE = 20
 local MAX_HEALTH = 100
+local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
 local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
@@ -99,8 +113,10 @@ end
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 Weapons.health = {} -- player id -> hp (absent = full)
 Weapons.maxHealth = {} -- player id -> ceiling (absent = MAX_HEALTH)
+Weapons.carHealth = {} -- vehicle id -> hp (absent = full)
 Weapons.kills = {} -- player id -> kills
-Weapons.hitFlash = {} -- player id -> seconds left
+Weapons.hitFlash = {} -- player id -> seconds left (on foot)
+Weapons.carFlash = {} -- vehicle id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 Weapons.showHitboxes = false
@@ -118,8 +134,10 @@ function Weapons:enterGame()
   self.projectiles = {}
   self.health = {}
   self.maxHealth = {}
+  self.carHealth = {}
   self.kills = {}
   self.hitFlash = {}
+  self.carFlash = {}
   self.feed = nil
   self.cooldown = 0
   self.camera = nil
@@ -197,11 +215,13 @@ function Weapons:update(dt, client, camera)
       self.projectiles[pid] = nil
     end
   end
-  for id, t in pairs(self.hitFlash) do
-    if t - dt <= 0 then
-      self.hitFlash[id] = nil
-    else
-      self.hitFlash[id] = t - dt
+  for _, flashes in ipairs({ self.hitFlash, self.carFlash }) do
+    for id, t in pairs(flashes) do
+      if t - dt <= 0 then
+        flashes[id] = nil
+      else
+        flashes[id] = t - dt
+      end
     end
   end
   if self.feed then
@@ -232,24 +252,30 @@ function Weapons:drawAboveCars(client)
   end
   love.graphics.setLineWidth(1)
 
-  for id in pairs(client.players) do
-    local px, py, onFoot = clientPose(client, id)
-    if px then
-      -- Health bar under whoever it is, driving or walking. It grows with
-      -- their ceiling, so an upgraded player looks it.
-      local max = self.maxHealth[id] or MAX_HEALTH
-      local hp = self.health[id] or max
-      local bw, bh = Car.WIDTH * math.sqrt(max / MAX_HEALTH), 4
-      local bx, by = px - bw / 2, py + (onFoot and 12 or Car.HEIGHT / 2 + 8)
-      love.graphics.setColor(0, 0, 0, 0.6)
-      love.graphics.rectangle("fill", bx - 1, by - 1, bw + 2, bh + 2)
-      love.graphics.setColor(1 - hp / max, hp / max, 0.2)
-      love.graphics.rectangle("fill", bx, by, bw * hp / max, bh)
-
-      if self.hitFlash[id] then
-        love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
-        love.graphics.circle("line", px, py, onFoot and FOOT_RADIUS * 2 or Car.WIDTH * 0.7)
-      end
+  local function bar(px, py, hp, max, bw, dy)
+    local bh = 4
+    local bx, by = px - bw / 2, py + dy
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", bx - 1, by - 1, bw + 2, bh + 2)
+    love.graphics.setColor(1 - hp / max, hp / max, 0.2)
+    love.graphics.rectangle("fill", bx, by, bw * hp / max, bh)
+  end
+  -- A bar under every car in the world, driven or not: the car's own health.
+  for vid, v in pairs(client.vehicles) do
+    bar(v.dx, v.dy, self.carHealth[vid] or CAR_HEALTH, CAR_HEALTH, Car.WIDTH, Car.HEIGHT / 2 + 8)
+    if self.carFlash[vid] then
+      love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
+      love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
+    end
+  end
+  -- And one under everyone on foot: theirs. It grows with their ceiling, so
+  -- an upgraded player looks it.
+  for id, b in pairs(client.bodies) do
+    local max = self.maxHealth[id] or MAX_HEALTH
+    bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
+    if self.hitFlash[id] then
+      love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
+      love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
     end
   end
   if self.showHitboxes then
@@ -280,7 +306,12 @@ function Weapons:drawHUD(client)
   local hp = self.health[client.myId] or max
   local kills = self.kills[client.myId] or 0
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("HP %d/%d   kills %d"):format(hp, max, kills), 10, 46)
+  local line = ("HP %d/%d"):format(hp, max)
+  local car = client:myVehicle()
+  if car then
+    line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or CAR_HEALTH, CAR_HEALTH)
+  end
+  love.graphics.print(line .. ("   kills %d"):format(kills), 10, 46)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
   local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
@@ -298,7 +329,7 @@ function Weapons:drawHUD(client)
     love.graphics.rectangle("fill", 0, 0, w, h)
     love.graphics.setFont(UI.fonts.title)
     love.graphics.setColor(1, 0.3, 0.2)
-    love.graphics.printf("WRECKED", 0, h / 2 - 60, w, "center")
+    love.graphics.printf("WASTED", 0, h / 2 - 60, w, "center")
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
@@ -358,6 +389,66 @@ Weapons.clientMessages = {
       Weapons.hitFlash[victim] = 0.15
     end
   end,
+  WPN_CARHIT = function(client, args)
+    local pid, vid, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local v = vid and client.vehicles[vid]
+    local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
+    if at then
+      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+    end
+    if pid and pid > 0 then
+      Weapons.projectiles[pid] = nil
+    end
+    if vid and hp then
+      Weapons.carHealth[vid] = hp
+      Weapons.carFlash[vid] = 0.15
+    end
+  end,
+  WPN_CARHP = function(_client, args)
+    local vid, hp = tonumber(args[1]), tonumber(args[2])
+    if vid and hp then
+      Weapons.carHealth[vid] = hp
+    end
+  end,
+  --- A car blew up. Its driver, if it had one, is standing beside it now.
+  WPN_WRECK = function(client, args)
+    local pid, killer, vid = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local driver, kills = tonumber(args[4]), tonumber(args[5])
+    local v = vid and client.vehicles[vid]
+    local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
+    if at then
+      Sounds.play("explosion", at.x, at.y)
+      Explosions.spawn(at.x, at.y, v and Car.paletteColor(v.color))
+      local mx, my = client:myPose()
+      if mx and Video.get("screenShake") then
+        local dist = math.sqrt((at.x - mx) ^ 2 + (at.y - my) ^ 2)
+        Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
+      end
+    end
+    if pid then
+      Weapons.projectiles[pid] = nil
+    end
+    if vid then
+      Weapons.carHealth[vid] = nil
+      Weapons.carFlash[vid] = 0.3
+    end
+    if killer and kills then
+      Weapons.kills[killer] = kills
+    end
+    local text
+    if driver and driver ~= 0 then
+      local name = playerName(client, driver) .. "'s car"
+      text = name .. " was wrecked"
+      if killer and killer ~= NO_OWNER then
+        text = playerName(client, killer) .. " wrecked " .. name
+      end
+    elseif killer and killer ~= NO_OWNER then
+      text = playerName(client, killer) .. " blew up a parked car"
+    end
+    if text then
+      Weapons.feed = { text = text, t = FEED_TIME }
+    end
+  end,
   WPN_KILL = function(client, args)
     local pid, killer, victim, kills = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
     local deathTime = tonumber(args[5]) or DEATH_TIME
@@ -389,9 +480,9 @@ Weapons.clientMessages = {
     end
     if victim then
       local name = playerName(client, victim)
-      local text = name .. " was wrecked" -- an ownerless shot: nobody to name
+      local text = name .. " was wasted" -- an ownerless shot: nobody to name
       if killer and killer ~= NO_OWNER then
-        text = playerName(client, killer) .. " wrecked " .. name
+        text = playerName(client, killer) .. " wasted " .. name
       end
       Weapons.feed = { text = text, t = FEED_TIME }
     end
@@ -401,7 +492,7 @@ Weapons.clientMessages = {
 -- Server ----------------------------------------------------------------
 
 function Weapons:serverStart(server)
-  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, targets = {} }
+  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {} }
   for id, p in pairs(server.players) do
     if p.body then
       sv.players[id] = {
@@ -458,11 +549,41 @@ end
 function Weapons:serverHeal(server, player, amount)
   local sv = self.sv
   local st = sv and sv.players[player.id]
-  if not st or not Features.present(player) or st.hp >= st.max then
+  if not st or not Features.present(player) then
     return false
   end
-  st.hp = math.min(st.max, st.hp + amount)
-  server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
+  if st.hp < st.max then
+    st.hp = math.min(st.max, st.hp + amount)
+    server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
+    return true
+  end
+  return player.vehicle ~= nil and self:serverRepair(server, player.vehicle, amount)
+end
+
+--- A car's health record, made the first time it is needed: every car
+--- starts whole.
+function Weapons:carState(car)
+  local cs = self.sv.cars[car.id]
+  if not cs then
+    cs = { hp = CAR_HEALTH, max = CAR_HEALTH, deadUntil = nil, spawn = nil }
+    self.sv.cars[car.id] = cs
+  end
+  return cs
+end
+
+--- Repair up to `amount` of a car's damage. Returns true if any was
+--- repaired. Other features reach this via Features.byName.weapons.
+function Weapons:serverRepair(server, car, amount)
+  local sv = self.sv
+  if not (sv and car) or car.hidden or car.stowed then
+    return false
+  end
+  local cs = self:carState(car)
+  if cs.deadUntil or cs.hp >= cs.max then
+    return false
+  end
+  cs.hp = math.min(cs.max, cs.hp + amount)
+  server:broadcast(Protocol.encode("WPN_CARHP", car.id, cs.hp))
   return true
 end
 
@@ -543,24 +664,37 @@ Weapons.serverMessages = {
 --- how many entries are live, the way the crowd does it.
 function Weapons:targets(server, p)
   local list, n = self.sv.targets, 0
+  local function entry()
+    n = n + 1
+    local e = list[n]
+    if not e then
+      e = {}
+      list[n] = e
+    end
+    return e
+  end
   for id, player in pairs(server.players) do
     local st = self.sv.players[id]
     if st and Features.present(player) and id ~= p.owner and self.sv.time >= st.protectedUntil then
-      n = n + 1
-      local e = list[n]
-      if not e then
-        e = {}
-        list[n] = e
-      end
-      e.player = player
+      local e = entry()
+      e.player, e.car = player, player.vehicle
       e.x, e.y, e.onFoot = bodyPose(server, player)
+    end
+  end
+  -- Cars nobody is driving stop bullets too, and take the damage.
+  for _, car in pairs(server.vehicles) do
+    if not (car.driver or car.hidden or car.stowed) then
+      local e = entry()
+      e.player, e.car = nil, car
+      e.x, e.y, e.onFoot = car.x, car.y, false
     end
   end
   return list, n
 end
 
 --- Walk the projectile's path for this tick in small steps so fast shots
---- can't tunnel through a car. Returns the first player hit, or the string
+--- can't tunnel through a car. Returns the first target entry hit (`player`
+--- for someone on foot or driving, `car` for the car), or the string
 --- "wall" / "soft" when something that isn't a player swallowed the shot (a
 --- building, a pedestrian), or nil when it flew on. Players are tested before
 --- soft targets, so a pedestrian can't be used as a body shield.
@@ -582,10 +716,10 @@ function Weapons:sweep(server, p, nx, ny)
         local ex, ey = px - e.x, py - e.y
         struck = ex * ex + ey * ey <= (FOOT_RADIUS + PROJECTILE_RADIUS) ^ 2
       else
-        struck = Car.hitTest(e.player.vehicle, px, py, PROJECTILE_RADIUS)
+        struck = Car.hitTest(e.car, px, py, PROJECTILE_RADIUS)
       end
       if struck then
-        return e.player
+        return e
       end
     end
     if shotSomething(server, px, py, p.owner, angle) then
@@ -595,9 +729,13 @@ function Weapons:sweep(server, p, nx, ny)
   return nil
 end
 
-function Weapons:hit(server, p, victim)
+function Weapons:hit(server, p, target)
   local angle = p.vx and math.atan2(p.vy, p.vx) or nil
-  self:damage(server, victim, p.owner, DAMAGE, p.id, angle)
+  if target.player then
+    self:damage(server, target.player, p.owner, DAMAGE, p.id, angle)
+  else
+    self:damageCar(server, target.car, p.owner, DAMAGE, p.id, angle)
+  end
 end
 
 --- Hurt a living player by `amount` from any cause. `byId` is the attacker's
@@ -610,6 +748,9 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
   if not st or not Features.present(victim) or st.deadUntil then
     return false
   end
+  if victim.vehicle then
+    return self:damageCar(server, victim.vehicle, byId, amount, pid, angle) -- the car takes it
+  end
   pid = pid or 0
   st.hp = st.hp - amount
   -- Let other features react (bots take offence at being shot).
@@ -618,21 +759,34 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
     server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
     return true
   end
+  self:die(server, victim, byId, pid, angle)
+  return true
+end
 
-  local killer = byId and sv.players[byId]
-  local kills = 0
-  if killer then
-    killer.kills = killer.kills + 1
-    kills = killer.kills
+--- Credit `byId` with a kill; returns their total (0 for nobody).
+function Weapons:creditKill(byId)
+  local killer = byId and self.sv.players[byId]
+  if not killer then
+    return 0
   end
+  killer.kills = killer.kills + 1
+  return killer.kills
+end
+
+--- The end of `victim`: out of the world until DEATH_TIME is up, then back
+--- at their slot in their own car. Their own car goes with them, a wreck
+--- waiting at the slot, whole again; a car they had borrowed is left where
+--- it stands for the next driver. NPC drivers die this way when their car
+--- is wrecked; a human bails out instead (see wreck).
+function Weapons:die(server, victim, byId, pid, angle)
+  local sv = self.sv
+  local st = sv.players[victim.id]
+  local kills = self:creditKill(byId)
   st.hp = st.max
   st.deadUntil = sv.time + DEATH_TIME
   st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   -- Where it went up: the car they drove, or their feet.
   local wx, wy, wasOnFoot = bodyPose(server, victim)
-  -- The body is out of the world until it respawns. Their own car goes
-  -- with them, a wreck waiting at their slot; a car they had borrowed is
-  -- left where it stands for the next driver.
   victim.body.dead = true
   local own = victim.car
   if victim.vehicle and victim.vehicle ~= own then
@@ -642,19 +796,88 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
     own.hidden = true -- the core stops broadcasting it until we clear this
     own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
     own:stop()
+    local cs = self:carState(own)
+    cs.hp, cs.deadUntil = cs.max, nil -- it comes back with them, whole
     if not victim.vehicle then
       server:seat(victim, own) -- the corpse rides the wreck back to the slot
     end
   end
-  server:broadcast(Protocol.encode("WPN_KILL", pid, byId or 0, victim.id, kills, DEATH_TIME))
+  server:broadcast(Protocol.encode("WPN_KILL", pid or 0, byId or 0, victim.id, kills, DEATH_TIME))
   Features.call("serverKill", server, {
     kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot,
   })
+end
+
+--- Dent a car by `amount`. Its driver, if any, hears about it the way they
+--- would a hit on foot (bots take offence). At zero it is wrecked.
+function Weapons:damageCar(server, car, byId, amount, pid, angle)
+  local sv = self.sv
+  if not (sv and car) or car.hidden or car.stowed then
+    return false
+  end
+  local cs = self:carState(car)
+  if cs.deadUntil then
+    return false
+  end
+  local driver = car.driver and server.players[car.driver]
+  if driver then
+    local st = sv.players[driver.id]
+    if not st or st.deadUntil or not Features.present(driver) then
+      return false
+    end
+  end
+  pid = pid or 0
+  cs.hp = cs.hp - amount
+  if driver then
+    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount)
+  end
+  if cs.hp > 0 then
+    server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp))
+    return true
+  end
+  self:wreck(server, car, byId, pid, angle)
   return true
 end
 
+--- A car blows up. A human driver bails out beside it, alive and briefly
+--- protected, and walks on; an NPC driver goes down with it (its brain
+--- knows how to wait out a wreck). The car is gone for DEATH_TIME and comes
+--- back whole at its owner's slot, or where it died if nobody owns it.
+function Weapons:wreck(server, car, byId, pid, angle)
+  local sv = self.sv
+  local cs = self:carState(car)
+  local driver = car.driver and server.players[car.driver]
+  local wx, wy = car.x, car.y
+  if driver and driver.bot then
+    return self:die(server, driver, byId, pid, angle)
+  end
+  local kills = driver and self:creditKill(byId) or 0
+  if driver then
+    local onFoot = Features.byName["on-foot"]
+    if onFoot and onFoot.getOut then
+      onFoot:getOut(server, driver, true)
+    else
+      server:unseat(driver)
+    end
+    sv.players[driver.id].protectedUntil = sv.time + SPAWN_PROTECTION
+  end
+  local owner = car.owner and sv.players[car.owner]
+  cs.hp = cs.max
+  cs.deadUntil = sv.time + DEATH_TIME
+  cs.spawn = owner and owner.spawn or { x = wx, y = wy, angle = car.angle }
+  car.hidden = true
+  car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
+  car:stop()
+  server:broadcast(Protocol.encode("WPN_WRECK", pid or 0, byId or 0, car.id, driver and driver.id or 0, kills,
+    DEATH_TIME))
+  Features.call("serverKill", server, {
+    kind = "car", x = wx, y = wy, by = byId, victim = driver and driver.id, angle = angle, onFoot = false,
+  })
+end
+
 --- Public: damage from something that isn't a bullet (a car running you
---- over). Returns true if the victim was alive to take it.
+--- over, Karen's slap). Lands on the car they are driving, or on them.
+--- Returns true if the victim was alive to take it.
 function Weapons:serverDamage(server, victim, attacker, amount, angle)
   return self:damage(server, victim, attacker and attacker.id, amount, 0, angle)
 end
@@ -663,6 +886,24 @@ end
 --- is up: alive again at the slot, behind the wheel of their own car.
 function Weapons:updateWrecks(server)
   local sv = self.sv
+  for vid, cs in pairs(sv.cars) do
+    local car = server.vehicles[vid]
+    if not car then
+      sv.cars[vid] = nil -- gone for good (its owner left)
+    elseif cs.deadUntil then
+      if sv.time < cs.deadUntil then
+        car.hidden = true
+        car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
+        car:stop()
+      else
+        cs.deadUntil, cs.hp = nil, cs.max
+        car.hidden = false
+        car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
+        car:stop()
+        server:broadcast(Protocol.encode("WPN_CARHP", car.id, cs.hp))
+      end
+    end
+  end
   for id, st in pairs(sv.players) do
     if st.deadUntil then
       local p = server.players[id]
