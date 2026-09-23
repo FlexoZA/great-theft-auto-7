@@ -22,7 +22,7 @@
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
---   server -> all  FCK_PURSE <playerId> <total>   (koins left the wallet: a death, a purchase)
+--   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death, spent or given)
 --   server -> all  FCK_REACH <playerId> <scale>   (their pickup radius changed)
 
 local Protocol = require("src.net.protocol")
