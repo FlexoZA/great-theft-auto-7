@@ -8,10 +8,14 @@
 --   server -> all     WPN_HIT  <pid> <victim> <hp>
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
+--   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --
 -- A wrecked car explodes, vanishes for DEATH_TIME seconds, then respawns at
 -- its slot with brief protection.
+--
+-- Health has a ceiling per player, MAX_HEALTH to start with; another feature
+-- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
 --
 -- Not every shot has a player behind it: Weapons:serverFireFrom puts a
 -- projectile into the world for whoever asks (the police officers on foot),
@@ -97,6 +101,7 @@ end
 
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 Weapons.health = {} -- player id -> hp (absent = full)
+Weapons.maxHealth = {} -- player id -> ceiling (absent = MAX_HEALTH)
 Weapons.kills = {} -- player id -> kills
 Weapons.hitFlash = {} -- player id -> seconds left
 Weapons.feed = nil -- { text, t }
@@ -115,6 +120,7 @@ end
 function Weapons:enterGame()
   self.projectiles = {}
   self.health = {}
+  self.maxHealth = {}
   self.kills = {}
   self.hitFlash = {}
   self.feed = nil
@@ -231,15 +237,17 @@ function Weapons:drawAboveCars(client)
   love.graphics.setLineWidth(1)
 
   for id, c in pairs(client.cars) do
-    -- Health bar under whoever owns the car, which is not always in it.
+    -- Health bar under whoever owns the car, which is not always in it. It
+    -- grows with their ceiling, so an upgraded player looks it.
     local px, py = clientPose(client, id, c)
-    local hp = self.health[id] or MAX_HEALTH
-    local bw, bh = Car.WIDTH, 4
+    local max = self.maxHealth[id] or MAX_HEALTH
+    local hp = self.health[id] or max
+    local bw, bh = Car.WIDTH * math.sqrt(max / MAX_HEALTH), 4
     local bx, by = px - bw / 2, py + Car.HEIGHT / 2 + 8
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", bx - 1, by - 1, bw + 2, bh + 2)
-    love.graphics.setColor(1 - hp / MAX_HEALTH, hp / MAX_HEALTH, 0.2)
-    love.graphics.rectangle("fill", bx, by, bw * hp / MAX_HEALTH, bh)
+    love.graphics.setColor(1 - hp / max, hp / max, 0.2)
+    love.graphics.rectangle("fill", bx, by, bw * hp / max, bh)
 
     if self.hitFlash[id] then
       love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
@@ -265,10 +273,11 @@ end
 
 function Weapons:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
-  local hp = self.health[client.myId] or MAX_HEALTH
+  local max = self.maxHealth[client.myId] or MAX_HEALTH
+  local hp = self.health[client.myId] or max
   local kills = self.kills[client.myId] or 0
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("HP %d   kills %d"):format(hp, kills), 10, 46)
+  love.graphics.print(("HP %d/%d   kills %d"):format(hp, max, kills), 10, 46)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
   local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
@@ -304,6 +313,12 @@ Weapons.clientMessages = {
     local id, hp = tonumber(args[1]), tonumber(args[2])
     if id and hp then
       Weapons.health[id] = hp
+    end
+  end,
+  WPN_MAX = function(_client, args)
+    local id, max = tonumber(args[1]), tonumber(args[2])
+    if id and max then
+      Weapons.maxHealth[id] = max
     end
   end,
   WPN_STOP = function(_client, args)
@@ -357,7 +372,7 @@ Weapons.clientMessages = {
       Weapons.projectiles[pid] = nil
     end
     if victim then
-      Weapons.health[victim] = MAX_HEALTH
+      Weapons.health[victim] = Weapons.maxHealth[victim] or MAX_HEALTH
       Weapons.hitFlash[victim] = 0.3
     end
     if killer and kills then
@@ -382,6 +397,7 @@ function Weapons:serverStart(server)
     if p.car then
       sv.players[id] = {
         hp = MAX_HEALTH,
+        max = MAX_HEALTH,
         kills = 0,
         spawn = { x = p.car.x, y = p.car.y, angle = p.car.angle },
         lastFire = -math.huge,
@@ -397,6 +413,7 @@ function Weapons:serverPlayerJoined(_server, player)
   if self.sv and player.car and not self.sv.players[player.id] then
     self.sv.players[player.id] = {
       hp = MAX_HEALTH,
+      max = MAX_HEALTH,
       kills = 0,
       spawn = { x = player.car.x, y = player.car.y, angle = player.car.angle },
       lastFire = -math.huge,
@@ -417,12 +434,32 @@ end
 function Weapons:serverHeal(server, player, amount)
   local sv = self.sv
   local st = sv and sv.players[player.id]
-  if not st or not player.car or player.car.hidden or st.hp >= MAX_HEALTH then
+  if not st or not player.car or player.car.hidden or st.hp >= st.max then
     return false
   end
-  st.hp = math.min(MAX_HEALTH, st.hp + amount)
+  st.hp = math.min(st.max, st.hp + amount)
   server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
   return true
+end
+
+--- Raise (or lower) a player's health ceiling to `max`, for the rest of the
+--- game: respawns come back with it. Raising it heals by the difference, so
+--- an upgrade is felt at once. Other features reach this via
+--- Features.byName.weapons (upgrades does). Returns the new ceiling, or nil
+--- for a player this feature doesn't know.
+function Weapons:serverSetMaxHealth(server, player, max)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not st then
+    return nil
+  end
+  max = math.max(1, math.floor(max))
+  local gained = max - st.max
+  st.max = max
+  st.hp = math.min(max, gained > 0 and st.hp + gained or st.hp)
+  server:broadcast(Protocol.encode("WPN_MAX", player.id, max))
+  server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
+  return max
 end
 
 --- Put a projectile into the world at (x, y), flying along `aim` (radians)
@@ -562,7 +599,7 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
     killer.kills = killer.kills + 1
     kills = killer.kills
   end
-  st.hp = MAX_HEALTH
+  st.hp = st.max
   st.deadUntil = sv.time + DEATH_TIME
   st.protectedUntil = st.deadUntil + SPAWN_PROTECTION
   local car = victim.car

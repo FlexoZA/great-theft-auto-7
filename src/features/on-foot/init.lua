@@ -16,6 +16,9 @@
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
 --
+-- Stamina has a ceiling per player, maxStamina to start with; another
+-- feature can raise it (upgrades sells it) through OnFoot:serverSetMaxStamina.
+--
 -- Conventions this feature answers (docs/features.md):
 --   playerPose / clientPlayerPose  where a player's body is when they are
 --                                  not behind the wheel; weapons fires from
@@ -30,6 +33,7 @@
 --   server -> all     OF_IN    <tick> <id>
 --   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
 --   server -> all     OF_STATE <tick> [<id> <x> <y> <facing> <stamina>]...  (unreliable)
+--   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -125,6 +129,7 @@ end
 -- Client --------------------------------------------------------------------
 
 OnFoot.view = { x = 0, y = 0, scale = 1 } -- last camera actually drawn with
+OnFoot.maxOf = {} -- player id -> stamina ceiling (absent = maxStamina)
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
 OnFoot.hitbox = {} -- reused table for the "am I next to my car?" test
@@ -141,6 +146,7 @@ end
 
 function OnFoot:exitGame()
   Render.clear()
+  self.maxOf = {}
   self.view.x, self.view.y, self.view.scale = 0, 0, 1
 end
 
@@ -248,8 +254,10 @@ function OnFoot:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
 
   if me then
-    local frac = math.max(0, math.min(1, (me.stamina or 0) / self.maxStamina))
-    local bw, bh = 120, 6
+    -- The bar grows with the ceiling, so an upgrade shows on the HUD.
+    local max = self.maxOf[client.myId] or self.maxStamina
+    local frac = math.max(0, math.min(1, (me.stamina or 0) / max))
+    local bw, bh = math.floor(120 * max / self.maxStamina), 6
     love.graphics.setColor(0.6, 0.6, 0.65)
     love.graphics.print("stamina", 10, 136)
     love.graphics.setColor(0, 0, 0, 0.6)
@@ -306,6 +314,12 @@ OnFoot.clientMessages = {
   OF_STATE = function(_client, args)
     Render.sync(args)
   end,
+  OF_MAX = function(_client, args)
+    local id, max = tonumber(args[1]), tonumber(args[2])
+    if id and max then
+      OnFoot.maxOf[id] = max
+    end
+  end,
   --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
   OF_GIB = function(_client, args)
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
@@ -319,14 +333,46 @@ OnFoot.clientMessages = {
 -- Server --------------------------------------------------------------------
 
 function OnFoot:serverStart()
-  self.sv = { onFoot = {} } -- player id -> { x, y, facing, stamina, ... }
+  self.sv = {
+    onFoot = {}, -- player id -> { x, y, facing, stamina, max, ... }
+    maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
+  }
 end
 
 function OnFoot:serverPlayerLeft(server, player)
-  if self.sv and self.sv.onFoot[player.id] then
+  if not self.sv then
+    return
+  end
+  self.sv.maxStamina[player.id] = nil
+  if self.sv.onFoot[player.id] then
     self.sv.onFoot[player.id] = nil
     server:broadcast(Protocol.encode("OF_IN", server.tick, player.id))
   end
+end
+
+--- A player's stamina ceiling on the host.
+function OnFoot:maxFor(id)
+  return self.sv and self.sv.maxStamina[id] or self.maxStamina
+end
+
+--- Raise (or lower) a player's stamina ceiling to `max` for the rest of the
+--- game. Raising it while they are out walking tops them up by the
+--- difference, so an upgrade is felt at once. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the new ceiling.
+function OnFoot:serverSetMaxStamina(server, player, max)
+  if not self.sv then
+    return nil
+  end
+  max = math.max(1, math.floor(max))
+  local st = self.sv.onFoot[player.id]
+  if st then
+    local gained = max - st.max
+    st.max = max
+    st.stamina = math.min(max, gained > 0 and st.stamina + gained or st.stamina)
+  end
+  self.sv.maxStamina[player.id] = max
+  server:broadcast(Protocol.encode("OF_MAX", player.id, max))
+  return max
 end
 
 --- Where `player` stands when they are not behind the wheel. The `playerPose`
@@ -371,11 +417,13 @@ function OnFoot:getOut(server, player)
   end
   local x, y = self:exitSpot(car)
   car:stop()
+  local max = self:maxFor(player.id)
   self.sv.onFoot[player.id] = {
     x = x,
     y = y,
     facing = car.angle,
-    stamina = self.maxStamina,
+    stamina = max,
+    max = max,
     regenIn = 0,
     spent = false,
     lastSeq = 0,
@@ -414,7 +462,7 @@ function OnFoot:walk(st, dt)
   else
     st.regenIn = st.regenIn - dt
     if st.regenIn <= 0 then
-      st.stamina = math.min(self.maxStamina, st.stamina + self.staminaRegen * dt)
+      st.stamina = math.min(st.max, st.stamina + self.staminaRegen * dt)
       if st.spent and st.stamina >= self.recovered then
         st.spent = false
       end
