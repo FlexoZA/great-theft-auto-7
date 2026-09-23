@@ -54,6 +54,13 @@ CityMap.maps = {
     title = "Karen's Cul-de-sac", kind = "culdesac", seed = 41, cols = 26, rows = 30,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- Deep woods where the wild man goes looking for aliens: a dirt trail
+  -- through five clearings, trees and shrubs everywhere else. Walked, like
+  -- Karen's street; nobody about.
+  forest = {
+    title = "Whispering Pines", kind = "forest", seed = 57, cols = 40, rows = 40,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

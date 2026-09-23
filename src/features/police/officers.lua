@@ -12,6 +12,7 @@
 -- beat is cheaper than a handful of pedestrians.
 
 local Features = require("src.features")
+local Vision = require("src.features.police.vision")
 local Car = require("src.car")
 
 local Officers = {}
@@ -27,6 +28,7 @@ Officers.HEALTH = 50 -- three bullets, the same as a pistol takes off a car
 Officers.SHOT_DAMAGE = 20 -- what one bullet does, matching the weapons feature
 Officers.SIGHT = 620 -- px; witnesses crimes and spots wanted players inside this
 Officers.PURSUE = 1150 -- px; keeps after someone already spotted out to here
+Officers.LOSE_SIGHT = 4 -- seconds they keep after someone a wall has hidden
 Officers.FIRE_RANGE = 520 -- px; won't shoot beyond this
 Officers.FIRE_INTERVAL = 0.9 -- seconds between shots
 Officers.SPREAD = 0.1 -- radians of aim error
@@ -167,12 +169,12 @@ function Officers:at(x, y, radius)
   return nil
 end
 
---- Is anyone standing within `range` of (x, y) to see what just happened?
+--- Is any officer within `range` of (x, y), facing it and with a clear
+--- view, to see what just happened?
 function Officers:sees(x, y, range)
-  local r2 = range * range
   for i = 1, self.n do
     local o = self.list[i]
-    if (o.x - x) ^ 2 + (o.y - y) ^ 2 <= r2 then
+    if Vision.canSee(o.x, o.y, o.facing, x, y, range) then
       return true
     end
   end
@@ -302,21 +304,43 @@ function Officers:trampled(o, dt, bodies, nbodies)
   return nil
 end
 
---- The nearest wanted player this officer can see, out to sight range, or to
---- pursuit range for one they are already after.
-function Officers.spot(o, wanted, bodies, nbodies)
-  local range = o.target and Officers.PURSUE or Officers.SIGHT
+--- The nearest wanted player this officer can see: in the cone in front of
+--- them out to sight range, or all round out to pursuit range for one they
+--- are already after. Once a building hides their quarry they keep after
+--- them for LOSE_SIGHT seconds, then give up. Returns the body and its
+--- squared distance.
+function Officers.spot(o, wanted, bodies, nbodies, dt)
+  local hunting = o.target ~= nil
+  local range = hunting and Officers.PURSUE or Officers.SIGHT
   local best, bestD2
   for i = 1, nbodies do
     local e = bodies[i]
     if wanted[e.id] and not e.police then
-      local d2 = (e.x - o.x) ^ 2 + (e.y - o.y) ^ 2
-      if d2 <= range * range and (not bestD2 or d2 < bestD2) then
+      local d2 = Vision.canSee(o.x, o.y, o.facing, e.x, e.y, range, hunting)
+      if d2 and (not bestD2 or d2 < bestD2) then
         best, bestD2 = e, d2
       end
     end
   end
-  return best, bestD2
+  if best then
+    o.lostFor = 0
+    return best, bestD2
+  end
+  if hunting and dt then
+    o.lostFor = (o.lostFor or 0) + dt
+    if o.lostFor < Officers.LOSE_SIGHT then
+      for i = 1, nbodies do
+        local e = bodies[i]
+        if e.id == o.target and wanted[e.id] then
+          local d2 = (e.x - o.x) ^ 2 + (e.y - o.y) ^ 2
+          if d2 <= Officers.PURSUE ^ 2 then
+            return e, d2
+          end
+        end
+      end
+    end
+  end
+  return nil
 end
 
 -- Population ----------------------------------------------------------------
@@ -415,7 +439,7 @@ function Officers:update(server, dt, wanted, anyWanted)
   local i = 1
   while i <= self.n do
     local o = self.list[i]
-    local target, d2 = Officers.spot(o, wanted, bodies, nbodies)
+    local target, d2 = Officers.spot(o, wanted, bodies, nbodies, dt)
     o.target = target and target.id or nil
     if o.frozen > 0 then
       o.frozen = o.frozen - dt -- frozen: neither hunts nor patrols
