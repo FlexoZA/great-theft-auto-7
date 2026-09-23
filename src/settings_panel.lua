@@ -1,8 +1,9 @@
 -- The settings panel: sections down the left -- Sound (a slider per volume
 -- channel registered with src/audio), Controls (primary and secondary
 -- binding per action registered with src/controls; click a slot, press a
--- key or mouse button) and Video (display mode, size, vsync and display
--- toggles from src/video). Changes apply and save immediately.
+-- key or mouse button), Video (display mode, size, vsync and display
+-- toggles from src/video) and Server (what the host sets for the game
+-- they run, from src/server_settings). Changes apply and save immediately.
 --
 -- It is hosted twice: by the settings screen (src/states/settings.lua) over
 -- the menu background, and by the pause menu in the game, over the blurred
@@ -17,6 +18,7 @@ local UI = require("src.ui")
 local Audio = require("src.audio")
 local Controls = require("src.controls")
 local Video = require("src.video")
+local ServerSettings = require("src.server_settings")
 local Settings = require("src.settings")
 
 local Panel = {}
@@ -36,6 +38,7 @@ Panel.sections = {
   { key = "sound", label = "Sound" },
   { key = "controls", label = "Controls" },
   { key = "video", label = "Video" },
+  { key = "server", label = "Server" },
 }
 
 local ON_OFF = { { label = "On", value = true }, { label = "Off", value = false } }
@@ -130,6 +133,20 @@ function Panel:build()
     toggle("Screen shake", "screenShake")
     toggle("Menu scanlines", "scanlines")
   end
+  if self.section == "server" then
+    local levels = {}
+    for _, d in ipairs(ServerSettings.DIFFICULTIES) do
+      levels[#levels + 1] = { label = d.label, value = d.key }
+    end
+    self.cyclers[#self.cyclers + 1] = UI.cycler({
+      label = "Bot difficulty",
+      options = levels,
+      index = ServerSettings.difficultyIndex(),
+      onChange = function(v)
+        ServerSettings.set("botDifficulty", v)
+      end,
+    })
+  end
   if self.section == "controls" then
     for _, action in ipairs(Controls.actions) do
       local row = { action = action, buttons = {} }
@@ -184,7 +201,7 @@ end
 function Panel:contentHeight()
   if self.section == "sound" then
     return #self.sliders * SLIDER_H
-  elseif self.section == "video" then
+  elseif self.section == "video" or self.section == "server" then
     return #self.cyclers * CYCLER_H
   end
   return #self.rows * ROW_H
@@ -274,6 +291,9 @@ function Panel:draw()
     love.graphics.print("Drag a slider to hear it. Saved automatically.", p.x + TABS_W + 30, p.y + 70)
   elseif self.section == "video" then
     love.graphics.print("Changes apply straight away. Saved automatically.", p.x + TABS_W + 30, p.y + 70)
+  elseif self.section == "server" then
+    love.graphics.print("For games you host. Applies at once, even mid-game. Saved automatically.",
+      p.x + TABS_W + 30, p.y + 70)
   else
     love.graphics.print("Click a slot, then press a key or mouse button. Backspace clears it, Esc cancels.",
       p.x + TABS_W + 30, p.y + 70)

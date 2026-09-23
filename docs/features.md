@@ -243,6 +243,10 @@ and can use `Bots.driveTowards`, `Bots:cruise`, `Bots:fight` and
 Features stay decoupled by talking through the server's player tables and a
 couple of small conventions rather than requiring each other:
 
+- `src/server_settings.lua`: choices the host makes for the game they run
+  (bot difficulty today), set on the Settings screen's Server tab and saved
+  with the other settings. Read them on the host, live, and never send them
+  to clients: bots read the difficulty every time they shoot.
 - `server.spawnPoints`: a map feature sets this in `serverStart` to a list of
   `{ x, y, angle }` on drivable ground. Anything that spawns a car (bots)
   uses it when present and falls back to its own placement otherwise.
