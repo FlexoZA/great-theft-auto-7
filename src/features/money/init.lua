@@ -17,7 +17,7 @@
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
---   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death)
+--   server -> all  FCK_PURSE <playerId> <total>   (koins left the wallet: a death, a purchase)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -375,6 +375,19 @@ end
 --- shop) can read it on the host.
 function Money:wallet(id)
   return sv and sv.wallets[id] or 0
+end
+
+--- Take `amount` koins out of a player's wallet, for a shop (upgrades). All
+--- or nothing: returns true and tells everyone the new total, or false and
+--- touches nothing when they can't cover it.
+function Money:spend(server, id, amount)
+  local purse = self:wallet(id)
+  if not sv or amount <= 0 or purse < amount then
+    return false
+  end
+  sv.wallets[id] = purse - amount
+  server:broadcast(Protocol.encode("FCK_PURSE", id, purse - amount))
+  return true
 end
 
 --- For tests.
