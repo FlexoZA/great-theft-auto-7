@@ -211,6 +211,20 @@ Controls.isMouse("horn", button)                   -- in mousepressed
 Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 ```
 
+## HUD readouts
+
+Draw meters and cooldowns with the helpers in `src/ui.lua`, so every
+feature's HUD looks like one HUD. All take colours as `{ r, g, b[, a] }`:
+
+```lua
+UI.label("stamina", x, y, { 0.85, 0.85, 0.9 })      -- text with a dark shadow under it
+UI.meter(x, y, w, h, frac, color, { 0.2 })          -- a bar `frac` full; optional notches
+UI.ring(cx, cy, radius, frac, color, width)         -- an arc `frac` of the way round from the top
+```
+
+On-foot draws stamina and the dodge at rows 136-154; abilities draws a row
+of rings from `Abilities.hudY` (208) down to about 272.
+
 ## Events between features
 
 A feature can raise an event for every other feature with

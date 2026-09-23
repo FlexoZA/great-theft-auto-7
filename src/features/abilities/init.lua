@@ -48,6 +48,7 @@ Abilities.time = 0
 Abilities.aiming = nil -- slot index while its key is held
 Abilities.spent = nil -- slot whose key must be released before it aims again (cancelled)
 Abilities.cooldowns = {} -- slot -> seconds left
+Abilities.readyFlash = {} -- slot -> seconds of "it's back" flash left on the HUD
 Abilities.effects = {} -- { ability, x, y, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
 
@@ -65,6 +66,7 @@ function Abilities:enterGame()
   self.aiming = nil
   self.spent = nil
   self.cooldowns = {}
+  self.readyFlash = {}
   self.effects = {}
   self.heldUntil = {}
 end
@@ -116,7 +118,15 @@ function Abilities:update(dt, client, camera)
   self.camera = camera
   self.time = self.time + dt
   for slot, left in pairs(self.cooldowns) do
-    self.cooldowns[slot] = left - dt > 0 and left - dt or nil
+    if left - dt > 0 then
+      self.cooldowns[slot] = left - dt
+    else
+      self.cooldowns[slot] = nil
+      self.readyFlash[slot] = 0.6
+    end
+  end
+  for slot, left in pairs(self.readyFlash) do
+    self.readyFlash[slot] = left - dt > 0 and left - dt or nil
   end
   for i = #self.effects, 1, -1 do
     local e = self.effects[i]
@@ -180,28 +190,54 @@ function Abilities:drawAboveCars(client)
 end
 
 function Abilities:drawHUD(client)
-  love.graphics.setFont(UI.fonts.small)
-  local y = self.hudY
+  -- One ring per slot along a row: the key inside it, the title under it.
+  -- The ring empties when cast and fills back up through the cooldown, with
+  -- the seconds left in the middle; full and lit means ready.
+  local small, body = UI.fonts.small, UI.fonts.body
+  local radius, slotW = 20, 72
+  local cy = self.hudY + radius + 4
   for i, ability in ipairs(self.slots) do
+    local cx = 10 + radius + 4 + (i - 1) * slotW
     local key = Controls.name(Controls.bindings("ability-" .. i)[1])
     local left = self.cooldowns[i]
-    local state
+    local c = ability.color
+    local flash = self.readyFlash[i]
+    local middle, middleColor, title, titleColor
     if left then
-      state = ("%.1fs"):format(left)
-      love.graphics.setColor(0.5, 0.5, 0.55)
-    elseif self.aiming == i then
-      state = "release to cast"
-      love.graphics.setColor(ability.color)
+      local frac = 1 - left / ability.cooldown
+      UI.ring(cx, cy, radius, frac, { c[1], c[2], c[3], 0.8 }, 5)
+      middle = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
+      middleColor = { 1, 1, 1 }
+      title = ability.title
+      titleColor = { 0.7, 0.7, 0.75 }
     else
-      state = "ready"
-      love.graphics.setColor(0.8, 0.8, 0.85)
+      -- Ready: a full ring, glowing softly, and a swelling burst the
+      -- moment it comes back.
+      if flash then
+        local k = flash / 0.6
+        love.graphics.setLineWidth(2)
+        love.graphics.setColor(c[1], c[2], c[3], 0.7 * k)
+        love.graphics.circle("line", cx, cy, radius + 4 + (1 - k) * 14, 48)
+        love.graphics.setLineWidth(1)
+      end
+      local pulse = self.aiming == i and (0.5 + 0.5 * math.sin(self.time * 10)) or 0
+      love.graphics.setColor(c[1], c[2], c[3], 0.18 + 0.25 * pulse)
+      love.graphics.circle("fill", cx, cy, radius + 6, 48)
+      UI.ring(cx, cy, radius, 1, c, 5)
+      middle = key
+      middleColor = { 1, 1, 1 }
+      title = self.aiming == i and "release to cast" or ability.title
+      titleColor = self.aiming == i and c or { 0.9, 0.9, 0.95 }
     end
-    love.graphics.print(("%s: %s   %s"):format(key, ability.title, state), 10, y)
-    y = y + 18
+    love.graphics.setFont(body)
+    local mw = body:getWidth(middle)
+    UI.label(middle, cx - math.floor(mw / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+    love.graphics.setFont(small)
+    UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + radius + 6, titleColor)
   end
   if self:held(client, client.myId) then
     local w = love.graphics.getWidth()
-    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setFont(body)
     local c = Freeze.color
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.printf("FROZEN", 1, 89, w, "center")

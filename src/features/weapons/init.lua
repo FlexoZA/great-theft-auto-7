@@ -454,11 +454,8 @@ function Weapons:drawHUD(client)
   if self.reloading then
     local r = self.reloading
     local f = math.min(1, r.t / r.total)
-    love.graphics.setColor(0, 0, 0, 0.5)
-    love.graphics.rectangle("fill", x, 68, 90, 10)
-    love.graphics.setColor(1, 0.9, 0.3)
-    love.graphics.rectangle("fill", x, 68, 90 * f, 10)
-    love.graphics.print("reloading", x + 98, 64)
+    UI.meter(x, 68, 90, 10, f, { 1, 0.9, 0.3 })
+    UI.label("reloading", x + 100, 64, { 1, 0.9, 0.3 })
   elseif self.ammoNotice then
     love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
     love.graphics.print(self.ammoNotice.text, x, 64)

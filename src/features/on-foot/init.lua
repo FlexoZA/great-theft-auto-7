@@ -365,23 +365,61 @@ function OnFoot:drawAboveCars(_client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The stamina bar's colour: green with plenty, amber when it is getting
+--- low, red when nearly gone.
+local function staminaColor(frac)
+  if frac > 0.5 then
+    local k = (frac - 0.5) * 2
+    return { 0.4 + 0.6 * (1 - k), 0.85, 0.35 }
+  end
+  local k = frac * 2
+  return { 1, 0.35 + 0.5 * k, 0.3 }
+end
+
 function OnFoot:drawHUD(client)
   local key = Controls.name(Controls.bindings("enter-exit")[1])
   local me = self:me(client)
-  love.graphics.setFont(UI.fonts.small)
+  local font = UI.fonts.small
+  love.graphics.setFont(font)
 
   if me then
-    -- The bar grows with the ceiling, so an upgrade shows on the HUD.
+    -- The bar grows with the ceiling, so an upgrade shows on the HUD. A
+    -- notch marks what a dodge costs.
     local max = self.maxOf[client.myId] or self.maxStamina
     local stamina = self.stamina[client.myId] or max
     local frac = math.max(0, math.min(1, stamina / max))
-    local bw, bh = math.floor(120 * max / self.maxStamina), 6
-    love.graphics.setColor(0.6, 0.6, 0.65)
-    love.graphics.print("stamina", 10, 136)
-    love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.rectangle("fill", 69, 139, bw + 2, bh + 2)
-    love.graphics.setColor(0.3 + 0.7 * (1 - frac), 0.75 * frac + 0.25, 0.3)
-    love.graphics.rectangle("fill", 70, 140, bw * frac, bh)
+    local bx, by, bw, bh = 74, 136, math.floor(160 * max / self.maxStamina), 12
+    local color = staminaColor(frac)
+    if spent then
+      -- Winded: the bar throbs dim red until enough is back to sprint on.
+      color = { 0.9, 0.3, 0.3, 0.45 + 0.25 * math.sin(time * 8) }
+    end
+    UI.label("stamina", 10, 134, { 0.85, 0.85, 0.9 })
+    UI.meter(bx, by, bw, bh, frac, color, { self.dodgeStamina / max })
+    local x = bx + bw + 10
+    local readout = spent and "winded" or ("%d"):format(stamina)
+    UI.label(readout, x, 134, spent and { 1, 0.5, 0.45 } or { 1, 1, 1 })
+    x = x + font:getWidth(spent and "winded" or ("%d"):format(max)) + 12
+
+    -- The dodge: lit when one is there for the taking, filling back up
+    -- through the cooldown, dim red while there is no breath for one.
+    local cooling = math.max(0, self.dodgeReadyAt - time)
+    local dw, dh = 54, bh
+    local dodgeColor, textColor
+    if self.dash then
+      dodgeColor, textColor = { 1, 1, 1, 0.9 }, { 0.1, 0.1, 0.12 }
+    elseif stamina < self.dodgeStamina then
+      dodgeColor, textColor = { 0.9, 0.3, 0.3, 0.35 }, { 1, 0.55, 0.5 }
+    elseif cooling > 0 then
+      dodgeColor, textColor = { 1, 1, 1, 0.45 }, { 0.85, 0.85, 0.9 }
+    else
+      dodgeColor, textColor = { 0.55, 0.8, 1, 0.9 }, { 0.05, 0.08, 0.12 }
+    end
+    local dfrac = self.dash and 1 or (1 - cooling / self.dodgeCooldown)
+    UI.meter(x, by, dw, dh, dfrac, dodgeColor)
+    love.graphics.setColor(textColor)
+    love.graphics.print("dodge", x + math.floor((dw - font:getWidth("dodge")) / 2), by - 3)
+
     love.graphics.setColor(0.8, 0.8, 0.85)
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
     local hint = sprintKey .. ": sprint   double-tap: dodge"

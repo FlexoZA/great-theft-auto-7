@@ -290,4 +290,72 @@ function Cycler:mousepressed(mx, my, button)
   return false
 end
 
+-- HUD meters --------------------------------------------------------------
+-- Small readouts features draw in drawHUD, so they all look like one HUD.
+
+local function clamp01(v)
+  return v < 0 and 0 or (v > 1 and 1 or v)
+end
+
+--- Text with a dark shadow under it, so it reads on any road or roof.
+--- `color` is { r, g, b[, a] }; white if nil.
+function UI.label(text, x, y, color)
+  love.graphics.setColor(0, 0, 0, 0.7)
+  love.graphics.print(text, x + 1, y + 1)
+  if color then
+    love.graphics.setColor(color)
+  else
+    love.graphics.setColor(1, 1, 1)
+  end
+  love.graphics.print(text, x, y)
+end
+
+--- A horizontal meter: a dark trough with a lit fill `frac` (0..1) of the
+--- way across, in `color` = { r, g, b[, a] }. `marks` is an optional list
+--- of fractions to notch on the trough (a threshold worth seeing).
+function UI.meter(x, y, w, h, frac, color, marks)
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 4, 3)
+  local fill = math.floor(w * clamp01(frac) + 0.5)
+  if fill > 0 then
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x, y, fill, h, 1)
+    -- A lighter band along the top gives the fill some body.
+    love.graphics.setColor(1, 1, 1, 0.22)
+    love.graphics.rectangle("fill", x, y, fill, math.max(1, math.floor(h / 3)), 1)
+  end
+  if marks then
+    love.graphics.setColor(0, 0, 0, 0.6)
+    for _, m in ipairs(marks) do
+      local mx = x + math.floor(w * clamp01(m) + 0.5)
+      love.graphics.rectangle("fill", mx - 1, y, 2, h)
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 0.35)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", x - 1.5, y - 1.5, w + 3, h + 3, 3)
+end
+
+--- A ring around (cx, cy): a dark disc, a faint track and a lit arc `frac`
+--- (0..1) of the way round clockwise from the top, in `color`. Full at 1.
+function UI.ring(cx, cy, radius, frac, color, width)
+  width = width or 4
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.circle("fill", cx, cy, radius + width / 2 + 1, 48)
+  love.graphics.setLineWidth(width)
+  love.graphics.setColor(1, 1, 1, 0.15)
+  love.graphics.circle("line", cx, cy, radius, 48)
+  frac = clamp01(frac)
+  if frac > 0 then
+    love.graphics.setColor(color)
+    local from = -math.pi / 2
+    if frac >= 1 then
+      love.graphics.circle("line", cx, cy, radius, 48)
+    else
+      love.graphics.arc("line", "open", cx, cy, radius, from, from + frac * 2 * math.pi, 48)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
 return UI
