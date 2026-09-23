@@ -19,7 +19,7 @@
 -- city:grow); without it there is nothing to sell and this feature does
 -- nothing. The server decides every sale: it checks the buyer is standing on
 -- the plot or the square, that it is still for sale and that they can pay
--- (through money:charge).
+-- (through money:spend).
 --
 -- Messages
 --   client -> server  RE_BUY    <plotId>
@@ -403,7 +403,7 @@ RealEstate.serverMessages = {
       reason = "away"
     elseif sv.owners[plot.id] then
       reason = "taken"
-    elseif money and not money:charge(server, player.id, RealEstate.price) then
+    elseif money and not money:spend(server, player.id, RealEstate.price) then
       reason = "broke"
     else
       sv.owners[plot.id] = player.id
@@ -427,7 +427,7 @@ RealEstate.serverMessages = {
       return onPad(site, x, y, SLACK)
     end) then
       reason = "away"
-    elseif money and not money:charge(server, player.id, RealEstate.growPrice) then
+    elseif money and not money:spend(server, player.id, RealEstate.growPrice) then
       reason = "broke"
     else
       local plot = grow(bi, bj)
