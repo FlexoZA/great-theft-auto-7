@@ -203,8 +203,11 @@ function OnFoot:predict(dt, client, me)
   elseif spent and stamina >= self.recovered then
     spent = false
   end
-  local sprinting = (mx ~= 0 or my ~= 0) and Controls.isDown("sprint") and stamina > 0 and not spent
-  if mx ~= 0 or my ~= 0 then
+  -- Held still by some feature (frozen): the host won't move me, so don't
+  -- walk ahead of it (the `held` convention, docs/features.md).
+  local held = Features.any("held", client, client.myId)
+  local sprinting = (mx ~= 0 or my ~= 0) and Controls.isDown("sprint") and stamina > 0 and not spent and not held
+  if (mx ~= 0 or my ~= 0) and not held then
     me.dx, me.dy = step(me.dx, me.dy, mx, my, sprinting and self.sprintSpeed or self.walkSpeed, dt)
   end
   me.running = sprinting
@@ -545,7 +548,9 @@ function OnFoot:serverStep(server, dt)
   for id, player in pairs(server.players) do
     if player.body and not player.vehicle and not player.body.dead then
       local st = self:walker(player)
-      self:walk(st, player.body, dt)
+      if not Features.any("serverHeld", server, player) then
+        self:walk(st, player.body, dt) -- a held walker (frozen) stays put
+      end
       n = n + 1
       parts[#parts + 1] = id
       parts[#parts + 1] = ("%.0f"):format(st.stamina)
@@ -564,6 +569,9 @@ OnFoot.serverMessages = {
   OF_TOGGLE = function(server, player)
     if not OnFoot.sv or not Features.present(player) then
       return -- wrecked, or the game hasn't started
+    end
+    if Features.any("serverHeld", server, player) then
+      return -- held still (frozen): no climbing in or out
     end
     if player.vehicle then
       OnFoot:getOut(server, player)

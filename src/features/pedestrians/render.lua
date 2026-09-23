@@ -2,7 +2,7 @@
 -- pedestrian towards it and draws them. Nothing here changes the world.
 
 local Render = {
-  peds = {}, -- id -> { x, y, dx, dy, angle, flee, bob }
+  peds = {}, -- id -> { x, y, dx, dy, angle, flee, frozen, bob }
   time = 0,
   panicked = {}, -- pedestrians that started running in the last sync()...
   panickedN = 0, -- ...and how many of them, so the table can be reused
@@ -23,6 +23,12 @@ local SHIRTS = {
   { 0.75, 0.50, 0.90 },
 }
 local SKIN = { 0.92, 0.78, 0.63 }
+local ICE = { 0.55, 0.85, 1.0 } -- the glaze over a frozen one
+
+--- A colour part way from `c` to ice.
+local function frosted(c, k)
+  return c[1] + (ICE[1] - c[1]) * k, c[2] + (ICE[2] - c[2]) * k, c[3] + (ICE[3] - c[3]) * k
+end
 
 function Render.clear()
   Render.peds = {}
@@ -56,7 +62,7 @@ function Render.sync(args)
         slot.id, slot.x, slot.y = id, x, y
         Render.panickedN = n
       end
-      p.x, p.y, p.flee = x, y, flee
+      p.x, p.y, p.flee, p.frozen = x, y, flee, args[i + 3] == "2"
       seen[id] = true
     end
   end
@@ -102,19 +108,31 @@ function Render.draw(camera)
     if x > left and x < right and y > top and y < bottom then
       local fx, fy = math.cos(p.angle), math.sin(p.angle)
       -- Sway across the direction of travel: a cheap two-legged waddle.
-      local swing = math.sin(t * (p.flee and 16 or 7) + p.bob) * (p.flee and 1.4 or 0.9)
+      local swing = p.frozen and 0 or math.sin(t * (p.flee and 16 or 7) + p.bob) * (p.flee and 1.4 or 0.9)
       local sx, sy = -fy * swing, fx * swing
 
       love.graphics.setColor(0, 0, 0, 0.25)
       love.graphics.circle("fill", x + 1.5, y + 1.5, BODY, 8)
-      love.graphics.setColor(SHIRTS[id % #SHIRTS + 1])
+      if p.frozen then
+        love.graphics.setColor(frosted(SHIRTS[id % #SHIRTS + 1], 0.6))
+      else
+        love.graphics.setColor(SHIRTS[id % #SHIRTS + 1])
+      end
       love.graphics.circle("fill", x + sx, y + sy, BODY, 8)
       if p.flee then -- arms flung out in panic
         love.graphics.circle("fill", x - fy * 4.5 - sx, y + fx * 4.5 - sy, 1.8, 6)
         love.graphics.circle("fill", x + fy * 4.5 - sx, y - fx * 4.5 - sy, 1.8, 6)
       end
-      love.graphics.setColor(SKIN)
+      if p.frozen then
+        love.graphics.setColor(frosted(SKIN, 0.6))
+      else
+        love.graphics.setColor(SKIN)
+      end
       love.graphics.circle("fill", x + fx * 1.8 + sx * 0.5, y + fy * 1.8 + sy * 0.5, HEAD, 7)
+      if p.frozen then
+        love.graphics.setColor(ICE[1], ICE[2], ICE[3], 0.35)
+        love.graphics.circle("fill", x, y, BODY + 3, 10)
+      end
     end
   end
   love.graphics.setColor(1, 1, 1)

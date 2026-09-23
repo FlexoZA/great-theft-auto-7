@@ -146,6 +146,7 @@ function Karen:spawnBoss(server, x, y)
     stuck = 0,
     sidestep = 0,
     side = 1,
+    frozen = 0, -- seconds left rooted to the spot
     rammed = {}, -- player id -> seconds before that car can hurt her again
   }
   server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), self.maxHealth, self.maxHealth))
@@ -178,6 +179,15 @@ end
 function Karen:mapChanged(_map, server)
   if server then
     self:removeBoss(server)
+  end
+end
+
+--- Something froze the world around (x, y) (the `serverFreezeArea` event):
+--- caught inside it, she stands there for `seconds`.
+function Karen:serverFreezeArea(_server, x, y, radius, seconds)
+  local b = sv and sv.boss
+  if b and (b.x - x) ^ 2 + (b.y - y) ^ 2 <= (radius + self.radius) ^ 2 then
+    b.frozen = math.max(b.frozen or 0, seconds)
   end
 end
 
@@ -278,7 +288,10 @@ function Karen:serverStep(server, dt)
   b.sayTimer = b.sayTimer - dt
 
   local target, d2, tx, ty, onFoot = nearestBody(server, b)
-  if target and d2 <= self.aggroRange ^ 2 then
+  if (b.frozen or 0) > 0 then
+    b.frozen = b.frozen - dt -- frozen: no charging, no slapping
+    b.charging = false
+  elseif target and d2 <= self.aggroRange ^ 2 then
     b.charging = true
     b.facing = math.atan2(ty - b.y, tx - b.x)
     local dist = math.sqrt(d2)

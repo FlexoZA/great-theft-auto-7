@@ -11,7 +11,7 @@
 -- them, which keeps a crowd of eighty to a few kilobytes a second.
 --
 -- Messages
---   server -> all  PED_SYNC <tick> [<id> <x> <y> <flee>]...   (unreliable, 15 Hz)
+--   server -> all  PED_SYNC <tick> [<id> <x> <y> <flee>]...   (unreliable, 15 Hz; flee is 2 for frozen)
 --   server -> all  PED_GIB  <id> <x> <y> <angle> <killer> <total>
 
 local Protocol = require("src.net.protocol")
@@ -173,9 +173,18 @@ local function syncMessage(crowd, tick)
     parts[#parts + 1] = p.id
     parts[#parts + 1] = ("%.0f"):format(p.x)
     parts[#parts + 1] = ("%.0f"):format(p.y)
-    parts[#parts + 1] = p.flee > 0 and 1 or 0
+    parts[#parts + 1] = p.frozen > 0 and 2 or (p.flee > 0 and 1 or 0)
   end
   return Protocol.encode("PED_SYNC", unpack(parts))
+end
+
+--- Something froze the world around (x, y) (the `serverFreezeArea` event,
+--- docs/features.md): everyone in the crowd standing inside stops for
+--- `seconds`, though a bumper still counts.
+function Pedestrians:serverFreezeArea(_server, x, y, radius, seconds)
+  if self.crowd then
+    self.crowd:freeze(x, y, radius, seconds)
+  end
 end
 
 --- Does the map in play have people on its streets? (city-map's `map.crowd`)
