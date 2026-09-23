@@ -450,6 +450,48 @@ function Weapons:worldBlur()
   return self.deadTimer > 0 and 1 or 0
 end
 
+--- The gun in hand and what is in its magazine, centred just above the
+--- ability circles: name, rounds over magazine size, spares; red when the
+--- magazine is empty, amber with a bar across the top while it reloads.
+function Weapons:drawMagazine()
+  local w, h = love.graphics.getDimensions()
+  local gun = Guns.list[self.gun]
+  if not gun then
+    return
+  end
+  local abilities = Features.byName.abilities
+  local top = abilities and abilities.hudTop and abilities:hudTop() or (h - 80)
+  local small, body = UI.fonts.small, UI.fonts.body
+  local y = top - 8 - body:getHeight()
+  local mag, spare = self.mags[self.gun] or 0, self:reserve(self.gun)
+  local count = self.infiniteAmmo and "inf" or ("%d/%d"):format(mag, gun.magazine)
+  local extra = (not self.infiniteAmmo and spare ~= math.huge) and (" +%d"):format(spare) or ""
+  local color
+  if self.reloading then
+    color = { 1, 0.9, 0.3 }
+  elseif not self.infiniteAmmo and mag < 1 then
+    color = { 1, 0.45, 0.4 }
+  else
+    color = { 1, 1, 1 }
+  end
+  local name = gun.name .. "  "
+  local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
+  local x = math.floor((w - nameW - countW - extraW) / 2)
+  local baseline = y + body:getHeight() - small:getHeight() - 1
+  love.graphics.setFont(small)
+  UI.label(name, x, baseline, { 0.75, 0.75, 0.8 })
+  love.graphics.setFont(body)
+  UI.label(count, x + nameW, y, color)
+  love.graphics.setFont(small)
+  UI.label(extra, x + nameW + countW, baseline, { 0.75, 0.75, 0.8 })
+  if self.reloading then
+    local r = self.reloading
+    local bw = 90
+    UI.meter(math.floor((w - bw) / 2), y - 8, bw, 4, math.min(1, r.t / r.total), color)
+  end
+  love.graphics.setFont(small)
+end
+
 function Weapons:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
@@ -513,6 +555,7 @@ function Weapons:drawHUD(client)
     love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
     love.graphics.print(self.ammoNotice.text, x, 64)
   end
+  self:drawMagazine()
 
   if self.feed then
     local w = love.graphics.getWidth()

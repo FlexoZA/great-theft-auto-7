@@ -906,7 +906,7 @@ end
 local function drawBossBar(b)
   local w, h = love.graphics.getDimensions()
   local bw, bh = 380, 14
-  local bx, by = math.floor((w - bw) / 2), h - 110 -- above the ability circles
+  local bx, by = math.floor((w - bw) / 2), h - 150 -- above the magazine line and the ability circles
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf("CRAZY KAREN", 1, by - 19, w, "center")
