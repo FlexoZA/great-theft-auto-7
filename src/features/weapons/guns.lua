@@ -13,6 +13,18 @@
 --   magazine  rounds between reloads
 --   reload    seconds a reload takes, and its sound in sounds.lua
 --
+-- Optional:
+--   ttl       seconds a round flies before it is spent (weapons' default otherwise)
+--   blast     { radius, damage, soft }: the round is a missile that explodes
+--             where it lands (or where it runs out of flight), hurting
+--             everything within `radius` px, `damage` at the centre falling
+--             to a third at the edge. `soft` is how many bullets' worth it
+--             does to each feature's soft targets (pedestrians, officers).
+--   stack     rounds that fit in one inventory slot (100 otherwise)
+--   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
+--   stock     rounds everyone starts the game with, the loaded magazine
+--             included (for testing a gun before it can be bought)
+--
 -- Rounds come out of the player's inventory (the buildings feature keeps
 -- it: "ammo-<key>"), a magazine at a time.
 
@@ -46,6 +58,25 @@ Guns.list = {
     magazine = 30, -- a couple of seconds of spray
     reload = 1.8,
     reloadSound = "reload-uzi",
+  },
+  {
+    key = "rocket",
+    name = "rocket launcher",
+    damage = 0, -- the blast does the damage, not the missile
+    cooldown = 0.8,
+    spread = 0,
+    speed = 520, -- slow enough to see it coming, and to trail smoke
+    streak = 0,
+    ttl = 1.8, -- about 940 px, then it goes off in mid-air
+    blast = { radius = 120, damage = 90, soft = 5 },
+    sound = "rocket",
+    pitch = 1,
+    magazine = 1,
+    reload = 2.2,
+    reloadSound = "reload-rocket",
+    stack = 20,
+    ammoName = "rocket",
+    stock = 5, -- for testing until the factories are up and running
   },
 }
 

@@ -7,6 +7,14 @@
 -- that player, with that gun's damage, rate of fire and scatter. The
 -- pistol hits hard and straight; the uzi sprays.
 --
+-- The rocket launcher fires a missile (a gun with a `blast` in guns.lua):
+-- it flies slower, trails smoke, and explodes where it hits a player, a car,
+-- a wall or a soft target, or in mid-air when its flight runs out. The blast
+-- hurts everyone and every car within its radius, the shooter included, less
+-- towards the edge, and takes out a few soft targets (pedestrians, officers,
+-- Karen's simps) around it through the `serverShotAt` convention.
+-- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
+--
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (R) refills the one in hand from the ammo in your inventory
 -- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
@@ -41,6 +49,7 @@
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
+--   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --
@@ -62,6 +71,7 @@ local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
+local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -176,6 +186,7 @@ function Weapons:enterGame()
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
   Explosions.clear()
+  Rockets.clear()
 end
 
 function Weapons:exitGame()
@@ -308,13 +319,26 @@ function Weapons:update(dt, client, camera)
     self:tryFire(client)
   end
   for pid, p in pairs(self.projectiles) do
+    local gun = Guns.at(p.gun)
     p.x = p.x + p.vx * dt
     p.y = p.y + p.vy * dt
     p.age = p.age + dt
-    if p.age > PROJECTILE_TTL or blocked(p.x, p.y) then
+    local spent = p.age > (gun.ttl or PROJECTILE_TTL) or blocked(p.x, p.y)
+    if gun.blast then
+      Rockets.trail(p, dt)
+      -- A missile goes off when the host says so (WPN_BOOM); until then it
+      -- sits where it struck. Dropped only if that message never comes.
+      if spent then
+        p.vx, p.vy = 0, 0
+      end
+      if p.age > (gun.ttl or PROJECTILE_TTL) + 1 then
+        self.projectiles[pid] = nil
+      end
+    elseif spent then
       self.projectiles[pid] = nil
     end
   end
+  Rockets.update(dt)
   for _, flashes in ipairs({ self.hitFlash, self.carFlash }) do
     for id, t in pairs(flashes) do
       if t - dt <= 0 then
@@ -349,16 +373,23 @@ function Weapons:drawBelowCars()
 end
 
 function Weapons:drawAboveCars(client)
+  Rockets.drawTrail()
   Explosions.drawAbove()
 
-  -- Projectiles as short streaks along their direction of travel.
+  -- Projectiles as short streaks along their direction of travel; missiles
+  -- as themselves.
   love.graphics.setLineWidth(2)
-  love.graphics.setColor(1, 0.9, 0.3)
+  local now = love.timer.getTime()
   for _, p in pairs(self.projectiles) do
-    local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
-    local streak = Guns.at(p.gun).streak
-    local nx, ny = p.vx / len * streak, p.vy / len * streak
-    love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
+    local gun = Guns.at(p.gun)
+    if gun.blast then
+      Rockets.drawMissile(p, now)
+    else
+      local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
+      local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
+      love.graphics.setColor(1, 0.9, 0.3)
+      love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
+    end
   end
   love.graphics.setLineWidth(1)
 
@@ -489,6 +520,18 @@ local function playerName(client, id)
   return p and p.name or ("#" .. tostring(id))
 end
 
+--- An explosion at (x, y) on this screen, with the camera shaking the
+--- nearer I am. `color` tints the debris.
+local function boom(client, x, y, color)
+  Sounds.play("explosion", x, y)
+  Explosions.spawn(x, y, color)
+  local mx, my = client:myPose()
+  if mx and Video.get("screenShake") then
+    local dist = math.sqrt((x - mx) ^ 2 + (y - my) ^ 2)
+    Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
+  end
+end
+
 --- Where a player is drawn, as a point, or nil while they are out of the world.
 local function poseOf(client, id)
   local x, y = clientPose(client, id)
@@ -541,8 +584,21 @@ Weapons.clientMessages = {
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     local gun = Guns.at(tonumber(args[7]))
     if pid and x and y and vx and vy then
-      Weapons.projectiles[pid] = { x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index }
+      Weapons.projectiles[pid] = {
+        x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
+      }
       Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
+    end
+  end,
+  --- A missile went off. Whatever it hurt follows as the usual hits, kills
+  --- and wrecks.
+  WPN_BOOM = function(client, args)
+    local pid, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if pid then
+      Weapons.projectiles[pid] = nil
+    end
+    if x and y then
+      boom(client, x, y, { 0.35, 0.38, 0.3 })
     end
   end,
   WPN_HIT = function(client, args)
@@ -587,13 +643,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at then
-      Sounds.play("explosion", at.x, at.y)
-      Explosions.spawn(at.x, at.y, v and Car.paletteColor(v.color))
-      local mx, my = client:myPose()
-      if mx and Video.get("screenShake") then
-        local dist = math.sqrt((at.x - mx) ^ 2 + (at.y - my) ^ 2)
-        Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
-      end
+      boom(client, at.x, at.y, v and Car.paletteColor(v.color))
     end
     if pid then
       Weapons.projectiles[pid] = nil
@@ -624,13 +674,7 @@ Weapons.clientMessages = {
     local deathTime = tonumber(args[5]) or DEATH_TIME
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at then
-      Sounds.play("explosion", at.x, at.y)
-      Explosions.spawn(at.x, at.y, victim and Car.colorFor(victim))
-      local mx, my = client:myPose()
-      if mx and Video.get("screenShake") then
-        local dist = math.sqrt((at.x - mx) ^ 2 + (at.y - my) ^ 2)
-        Explosions.addShake(SHAKE_MAX * math.max(0, 1 - dist / SHAKE_RADIUS))
-      end
+      boom(client, at.x, at.y, victim and Car.colorFor(victim))
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
@@ -687,10 +731,28 @@ function Weapons:serverStart(server)
     end
   end
   self.sv = sv
+  for _, p in pairs(server.players) do
+    self:giveStock(server, p)
+  end
+end
+
+--- Spare rounds of every gun with a `stock` (guns.lua) into a human player's
+--- inventory: the stock less the magazine they start with loaded. Bots never
+--- run dry, so they get none.
+function Weapons:giveStock(server, player)
+  local buildings = Features.byName.buildings
+  if player.bot or not (player.body and buildings and buildings.serverGive) then
+    return
+  end
+  for _, gun in ipairs(Guns.list) do
+    if gun.stock and gun.stock > gun.magazine then
+      buildings:serverGive(server, player, "ammo-" .. gun.key, gun.stock - gun.magazine)
+    end
+  end
 end
 
 --- A player (human or bot) added while the game is running.
-function Weapons:serverPlayerJoined(_server, player)
+function Weapons:serverPlayerJoined(server, player)
   if self.sv and player.body and not self.sv.players[player.id] then
     self.sv.players[player.id] = {
       hp = MAX_HEALTH,
@@ -702,6 +764,7 @@ function Weapons:serverPlayerJoined(_server, player)
       lastFire = -math.huge,
       protectedUntil = self.sv.time + SPAWN_PROTECTION,
     }
+    self:giveStock(server, player)
   end
 end
 
@@ -813,6 +876,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
   local vy = math.sin(aim) * gun.speed
   sv.projectiles[#sv.projectiles + 1] = {
     id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
+    ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
   }
   server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
     ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index))
@@ -967,8 +1031,9 @@ end
 --- can't tunnel through a car. Returns the first target entry hit (`player`
 --- for someone on foot or driving, `car` for the car), or the string
 --- "wall" / "soft" when something that isn't a player swallowed the shot (a
---- building, a pedestrian), or nil when it flew on. Players are tested before
---- soft targets, so a pedestrian can't be used as a body shield.
+--- building, a pedestrian), or nil when it flew on; then where it stopped.
+--- Players are tested before soft targets, so a pedestrian can't be used as
+--- a body shield.
 function Weapons:sweep(server, p, nx, ny)
   local dx, dy = nx - p.x, ny - p.y
   local steps = math.max(1, math.ceil(math.sqrt(dx * dx + dy * dy) / SWEEP_STEP))
@@ -978,7 +1043,7 @@ function Weapons:sweep(server, p, nx, ny)
     local t = s / steps
     local px, py = p.x + dx * t, p.y + dy * t
     if blocked(px, py) then
-      return "wall"
+      return "wall", px, py
     end
     for i = 1, ntargets do
       local e = targets[i]
@@ -990,14 +1055,70 @@ function Weapons:sweep(server, p, nx, ny)
         struck = Car.hitTest(e.car, px, py, PROJECTILE_RADIUS)
       end
       if struck then
-        return e
+        return e, px, py
       end
     end
     if shotSomething(server, px, py, p.owner, angle) then
-      return "soft"
+      return "soft", px, py
     end
   end
   return nil
+end
+
+--- Missile `p` goes off at (x, y). Everyone present and not protected within
+--- the blast radius is hurt, the shooter too, from `damage` at the centre
+--- down to a third at the edge (measured to the edge of a car or a body);
+--- cars nobody drives take it themselves. Soft targets get `soft` rounds'
+--- worth: each feature with a `serverShotAt` is asked that many times, so
+--- a crowd loses a few and Karen feels it.
+function Weapons:explode(server, p, x, y)
+  local sv = self.sv
+  local blast = p.blast
+  local R = blast.radius
+  server:broadcast(Protocol.encode("WPN_BOOM", p.id, ("%.1f"):format(x), ("%.1f"):format(y), R))
+  local function falloff(d)
+    return math.floor(blast.damage * (1 - (2 / 3) * math.min(1, d / R)) + 0.5)
+  end
+  -- Work out who is caught first, then hurt them: a wreck moves its driver.
+  local caught = {}
+  for id, player in pairs(server.players) do
+    local st = sv.players[id]
+    if st and Features.present(player) and sv.time >= st.protectedUntil then
+      local px, py, onFoot = bodyPose(server, player)
+      local reach = onFoot and FOOT_RADIUS or Car.WIDTH / 2
+      local d = math.max(0, math.sqrt((px - x) ^ 2 + (py - y) ^ 2) - reach)
+      if d <= R then
+        caught[#caught + 1] = { player = player, amount = falloff(d), angle = math.atan2(py - y, px - x) }
+      end
+    end
+  end
+  for _, car in pairs(server.vehicles) do
+    if not (car.driver or car.hidden or car.stowed) then
+      local d = math.max(0, math.sqrt((car.x - x) ^ 2 + (car.y - y) ^ 2) - Car.WIDTH / 2)
+      if d <= R then
+        caught[#caught + 1] = { car = car, amount = falloff(d), angle = math.atan2(car.y - y, car.x - x) }
+      end
+    end
+  end
+  local by = p.owner ~= NO_OWNER and p.owner or nil
+  for _, c in ipairs(caught) do
+    if c.player then
+      -- Blowing yourself up is nobody's kill.
+      self:damage(server, c.player, c.player.id ~= by and by or nil, c.amount, 0, c.angle)
+    else
+      self:damageCar(server, c.car, by, c.amount, 0, c.angle)
+    end
+  end
+  local angle = math.atan2(p.vy, p.vx)
+  for _, f in ipairs(Features.list) do
+    if f.serverShotAt then
+      for _ = 1, blast.soft or 0 do
+        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle) then
+          break
+        end
+      end
+    end
+  end
 end
 
 function Weapons:hit(server, p, target)
@@ -1222,9 +1343,13 @@ function Weapons:serverStep(server, dt)
     local p = sv.projectiles[i]
     p.age = p.age + dt
     local nx, ny = p.x + p.vx * dt, p.y + p.vy * dt
-    local victim = self:sweep(server, p, nx, ny)
+    local victim, hx, hy = self:sweep(server, p, nx, ny)
     p.x, p.y = nx, ny
-    if victim == "wall" then
+    if p.blast and (victim or p.age > p.ttl) then
+      -- A missile goes off at whatever stopped it, or where it ran out.
+      table.remove(sv.projectiles, i)
+      self:explode(server, p, hx or nx, hy or ny)
+    elseif victim == "wall" then
       table.remove(sv.projectiles, i) -- clients notice the same wall themselves
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
@@ -1234,7 +1359,7 @@ function Weapons:serverStep(server, dt)
     elseif victim then
       self:hit(server, p, victim)
       table.remove(sv.projectiles, i)
-    elseif p.age > PROJECTILE_TTL then
+    elseif p.age > p.ttl then
       table.remove(sv.projectiles, i)
     else
       i = i + 1
