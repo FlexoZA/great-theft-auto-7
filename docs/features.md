@@ -211,6 +211,26 @@ Controls.isMouse("horn", button)                   -- in mousepressed
 Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 ```
 
+## HUD readouts
+
+The important numbers stand as a row of vertical bars in the bottom-left
+corner, one slot each: health (weapons, 0), stamina and the dodge (on-foot,
+1 and 2). Abilities are a row of circles along the bottom centre
+(`Abilities.hudSlots` of them; keep the strip from about h-80 down clear
+of centred text). Draw yours into
+the next free slot with `UI.drawStatBar(slot, name, frac, color, value,
+valueColor, marks, alpha)`: the bar, `name` under it, `value` above, dimmed
+by `alpha` when the stat does not apply right now. It returns x, y, w, h.
+`UI.rampColor(frac)` is the green-amber-red of health and stamina. Behind
+it, colours as `{ r, g, b[, a] }`:
+
+```lua
+UI.label("stamina", x, y, { 0.85, 0.85, 0.9 })      -- text with a dark shadow under it
+UI.meter(x, y, w, h, frac, color, { 0.2 })          -- a bar `frac` full; optional notches
+UI.vmeter(x, y, w, h, frac, color, { 0.2 })         -- the same standing up, filling from the bottom
+UI.ring(cx, cy, radius, frac, color, width)         -- an arc `frac` of the way round from the top
+```
+
 ## Events between features
 
 A feature can raise an event for every other feature with
@@ -276,6 +296,9 @@ couple of small conventions rather than requiring each other:
   they go down). `by` is the shooter's player id and `angle` the direction of
   travel, for gibs and scoring; `by` is 0 for a shot no player fired. Cars
   are tested first, so answering here never steals a hit from a player.
+  A missile's blast (the rocket launcher) asks each feature up to its
+  `blast.soft` times at the blast centre with a wide radius, stopping at the
+  first false, so answer one target per call.
 - `Features.bodyPose(server, player)` and `Features.clientBodyPose(client,
   id)`: where a player is, driving or walking (see "Bodies and vehicles").
   Weapons fires from there, lands hits there and draws the health bar
@@ -311,6 +334,10 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
+  A gun with a `blast` (the rocket launcher) fires a missile that explodes
+  on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
+  player and car in the radius, the shooter included (`WPN_BOOM` draws it).
+  A gun's `stock` is how many rounds each human player starts the game with.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when
@@ -369,10 +396,13 @@ example with a menu; real-estate is the one with a place to stand.
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
 - Buildings: `src/features/buildings` puts a building on a plot its owner
-  picks (parking lot, quarry, ammo, weapons and health factories; the
-  catalog is `kinds.lua`), used from a square on the sidewalk in front of
+  picks (parking lot, quarry, oil well, ammo, weapons and health factories;
+  the catalog is `kinds.lua`), used from a square on the sidewalk in front of
   the plot. Owners set what a building sells for and what it pays for each
-  material it runs on; other players sell into its hopper from there. Buildings are solid (all but the parking lot): buildings pushes
+  material it runs on; other players sell into its hopper from there. A
+  product can have its own recipe (`recipes` in `kinds.lua`: rockets and the
+  rocket launcher need copper, oil and plastic on top of iron and sulfur);
+  add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
   (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
