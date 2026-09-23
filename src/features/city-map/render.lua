@@ -25,6 +25,16 @@ local C = {
   stake = { 0.85, 0.80, 0.70 },
   shadow = { 0, 0, 0, 0.35 },
   ac = { 0.60, 0.62, 0.64 },
+  forestFloor = { 0.20, 0.32, 0.17 },
+  moss = { 0.17, 0.28, 0.15 },
+  trail = { 0.42, 0.33, 0.22 },
+  trailDark = { 0.35, 0.27, 0.18 },
+  clearing = { 0.30, 0.44, 0.22 },
+  shrub = { 0.18, 0.40, 0.18 },
+  shrubLight = { 0.26, 0.50, 0.22 },
+  berry = { 0.70, 0.12, 0.20 },
+  pine = { 0.10, 0.27, 0.16 },
+  pineLight = { 0.16, 0.36, 0.20 },
 }
 
 local function color(c)
@@ -40,15 +50,16 @@ local function drawRoads(map)
   local P = Layout.PERIOD
   -- Tarmac and sidewalk, tile by tile: the city need not be a rectangle.
   -- Open ground gets a worn patch here and there so driving reads as moving.
+  local forest = map.kind == "forest"
   for c = map.c0, map.c1 do
     local col = map.tiles[c]
     for r = map.r0, map.r1 do
       local kind = col and col[r]
       if kind == "ground" then
-        color(C.ground)
+        color(forest and C.forestFloor or C.ground)
         love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
         if (c * 31 + r * 17) % 5 == 0 then
-          color(C.groundDark)
+          color(forest and C.moss or C.groundDark)
           love.graphics.rectangle("fill", map.x0 + c * T + (c * 7) % 24, map.y0 + r * T + (r * 11) % 24, 36, 28)
         end
       elseif kind then
@@ -192,16 +203,88 @@ local function drawBuildings(map)
   end
 end
 
+--- The forest's trail: clearings of lighter grass, then the dirt path
+--- joining them, worn darker down the middle.
+local function drawTrail(map)
+  for _, w in ipairs(map.waypoints) do
+    color(C.clearing)
+    love.graphics.circle("fill", w.x, w.y, (w == map.lair and map.lairRadius or map.clearing) - 20, 48)
+  end
+  for pass, c in ipairs({ C.trail, C.trailDark }) do
+    local width = pass == 1 and 56 or 22
+    color(c)
+    love.graphics.setLineWidth(width)
+    for i = 1, #map.trail - 1 do
+      local a, b = map.trail[i], map.trail[i + 1]
+      love.graphics.line(a.x, a.y, b.x, b.y)
+    end
+    for _, n in ipairs(map.trail) do
+      love.graphics.circle("fill", n.x, n.y, width / 2, 24)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- Bushes: a few overlapping blobs, some with berries.
+local function drawShrubs(map)
+  for _, s in ipairs(map.shrubs) do
+    color(C.shadow)
+    love.graphics.circle("fill", s.x + 4, s.y + 4, s.r)
+  end
+  for _, s in ipairs(map.shrubs) do
+    local r = s.r
+    color(C.shrub)
+    love.graphics.circle("fill", s.x, s.y, r)
+    love.graphics.circle("fill", s.x - r * 0.6, s.y + r * 0.3, r * 0.7)
+    love.graphics.circle("fill", s.x + r * 0.6, s.y + r * 0.2, r * 0.7)
+    color(C.shrubLight)
+    love.graphics.circle("fill", s.x - r * 0.25, s.y - r * 0.3, r * 0.45)
+    if s.berries then
+      color(C.berry)
+      love.graphics.circle("fill", s.x + r * 0.3, s.y - r * 0.1, 2)
+      love.graphics.circle("fill", s.x - r * 0.5, s.y + r * 0.4, 2)
+      love.graphics.circle("fill", s.x + r * 0.1, s.y + r * 0.5, 2)
+    end
+  end
+end
+
+--- A pine from above: stacked stars of needles, darkest at the rim.
+local function drawPine(t)
+  local r = t.r
+  for k, c in ipairs({ C.pine, C.pineLight, C.pine }) do
+    local rr = r * (1.08 - k * 0.28)
+    local pts = {}
+    for i = 0, 15 do
+      local a = i * math.pi / 8 + k * 0.2
+      local d = i % 2 == 0 and rr or rr * 0.72
+      pts[#pts + 1] = t.x + math.cos(a) * d
+      pts[#pts + 1] = t.y + math.sin(a) * d
+    end
+    color(c)
+    love.graphics.circle("fill", t.x, t.y, rr * 0.72)
+    for i = 0, 7 do
+      local j = i * 4
+      love.graphics.polygon("fill", t.x, t.y, pts[j + 1], pts[j + 2], pts[j + 3], pts[j + 4],
+        pts[(j + 4) % 32 + 1], pts[(j + 4) % 32 + 2])
+    end
+  end
+end
+
 local function drawTrees(map)
   for _, t in ipairs(map.trees) do
     color(C.shadow)
-    love.graphics.circle("fill", t.x + 8, t.y + 8, 24)
+    love.graphics.circle("fill", t.x + 8, t.y + 8, t.r or 24)
   end
   for _, t in ipairs(map.trees) do
-    color(C.canopy)
-    love.graphics.circle("fill", t.x, t.y, 24)
-    color(C.canopyLight)
-    love.graphics.circle("fill", t.x - 6, t.y - 6, 12)
+    if t.pine then
+      drawPine(t)
+    else
+      local r = t.r or 24
+      color(C.canopy)
+      love.graphics.circle("fill", t.x, t.y, r)
+      color(C.canopyLight)
+      love.graphics.circle("fill", t.x - r / 4, t.y - r / 4, r / 2)
+    end
   end
 end
 
@@ -217,8 +300,14 @@ function Render.build(map)
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
   drawRoads(map)
+  if map.trail then
+    drawTrail(map)
+  end
   drawParksAndLots(map)
   drawBuildings(map)
+  if map.shrubs then
+    drawShrubs(map)
+  end
   drawTrees(map)
   love.graphics.setCanvas()
   love.graphics.pop()

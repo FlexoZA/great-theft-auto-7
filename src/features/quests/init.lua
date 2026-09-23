@@ -5,9 +5,11 @@
 -- takes the job takes the whole server with them. Decline and the star
 -- waits until you come back to it.
 --
--- One quest so far: the star in the middle of the city sends everyone to
--- Crazy Karen's cul-de-sac (the karen feature runs the fight), where a blue
--- star by the entrance brings everyone home again. Add a quest to
+-- Two quests so far, both starring near the middle of the city: one sends
+-- everyone to Crazy Karen's cul-de-sac (the karen feature runs the fight),
+-- the other into the forest after a wild man hunting aliens (alien-hunt).
+-- A blue star by the entrance of each brings everyone home again. A map may
+-- have several stars; the nearest one is the one on offer. Add a quest to
 -- `Quests.list` and the star, the offer and the trip are all done here; a
 -- quest marked `returns` is the way back and ends the one under way. What
 -- happens on the quest is another feature's business: this one raises
@@ -59,12 +61,39 @@ Quests.list = {
     banner = "%s took the job. Welcome to Karen's Cul-de-sac.",
   },
   {
+    id = "alien-hunt",
+    title = "The truth is out there (in the woods)",
+    text = "A wild-eyed man with half his lunch down his shirt is waving you over. He swears aliens are "
+      .. "harvesting human hair to eat, and he knows where they land. Follow him into the forest.",
+    onMap = "city",
+    x = -320, -- up the north-south road just west of Karen's star
+    y = -220,
+    map = "forest",
+    boss = "alien-hunt",
+    label = "ALIENS?",
+    color = { 0.55, 1, 0.45 },
+    banner = "%s followed the wild man. Welcome to Whispering Pines.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
     onMap = "culdesac",
     x = 0, -- the entrance of the street
     y = 800,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-forest",
+    title = "Back to the City",
+    text = "Enough trees for one day. Take everyone back into town.",
+    onMap = "forest",
+    x = 0, -- the entrance of the trail, between the parked cars
+    y = 1164, -- city-map puts the forest entrance (map.cx, map.cy) here
     map = "city",
     returns = true,
     label = "HOME",
@@ -99,14 +128,19 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- The quest whose star is on the map in play (the way out, or the way home).
-local function offeredOn(current)
+--- The quest whose star on map `current` is nearest to (x, y), or the
+--- first one there when no position is given.
+local function offeredOn(current, x, y)
+  local best, bestD2
   for _, q in ipairs(Quests.list) do
     if q.onMap == current then
-      return q
+      local d2 = x and dist2(x, y, q.x, q.y) or 0
+      if not bestD2 or d2 < bestD2 then
+        best, bestD2 = q, d2
+      end
     end
   end
-  return nil
+  return best
 end
 
 -- Client --------------------------------------------------------------------
@@ -132,17 +166,18 @@ function Quests:exitGame()
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
 end
 
---- The quest whose star is on the map I am on, if any.
-function Quests:offered()
+--- The quest whose star on the map I am on is nearest (x, y), if any.
+function Quests:offered(x, y)
   local city = cityMap()
-  return city and offeredOn(city.current) or nil
+  return city and offeredOn(city.current, x, y) or nil
 end
 
 function Quests:update(dt, client)
   time = time + dt
   noticeTimer = math.max(0, noticeTimer - dt)
   bannerTimer = math.max(0, bannerTimer - dt)
-  local quest = self:offered()
+  local x, y = client:myPose()
+  local quest = self:offered(x, y)
   local city = cityMap()
   if city and seenMap and city.current ~= seenMap then
     -- Just arrived: the cars land beside this map's star, and nobody wants
@@ -150,7 +185,6 @@ function Quests:update(dt, client)
     self.prompt, declined = nil, quest and quest.id or nil
   end
   seenMap = city and city.current or nil
-  local x, y = client:myPose()
   if not (quest and x) then
     self.prompt, declined = nil, nil
     return
@@ -212,13 +246,18 @@ local function fillStar(cx, cy, R)
   return p
 end
 
---- The star on the road: a soft glow the size of the trigger, the star
+--- The stars on the road: a soft glow the size of the trigger, the star
 --- itself breathing slowly, and its name underneath.
 function Quests:drawBelowCars()
-  local quest = self:offered()
-  if not quest then
-    return
+  local city = cityMap()
+  for _, quest in ipairs(self.list) do
+    if city and quest.onMap == city.current then
+      self:drawStar(quest)
+    end
   end
+end
+
+function Quests:drawStar(quest)
   local pulse = 0.5 + 0.5 * math.sin(time * 2.5)
   local size = self.starSize * (0.92 + 0.08 * pulse)
   local c = quest.color or { 1, 0.85, 0.3 }

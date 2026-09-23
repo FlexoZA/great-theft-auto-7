@@ -13,7 +13,9 @@
 -- pedestrians, officers and NPC cars off it (those features read the flags).
 -- `kind = "culdesac"` builds a suburban dead end instead of a grid: one
 -- street in from the bottom edge, a turning circle at the top, houses on
--- their lawns either side (see `buildCuldesac`).
+-- their lawns either side (see `buildCuldesac`). `kind = "forest"` is open
+-- ground thick with trees and shrubs, a trail winding through clearings
+-- (see `buildForest`).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -275,6 +277,110 @@ local function buildCuldesac(map, rng)
   end
 end
 
+--- Distance from (x, y) to the segment a-b.
+local function segmentDist(x, y, ax, ay, bx, by)
+  local vx, vy = bx - ax, by - ay
+  local len2 = vx * vx + vy * vy
+  local t = len2 > 0 and math.max(0, math.min(1, ((x - ax) * vx + (y - ay) * vy) / len2)) or 0
+  return math.sqrt((x - ax - vx * t) ^ 2 + (y - ay - vy * t) ^ 2)
+end
+
+-- The forest trail, entrance to lair, as fractions of the map's half-size
+-- (so it scales with the map). `wp` marks the stops along it.
+local TRAIL = {
+  { 0, 0.78 },
+  { -0.14, 0.66 },
+  { -0.42, 0.56, wp = true },
+  { -0.24, 0.40 },
+  { 0.30, 0.30, wp = true },
+  { 0.30, 0.12 },
+  { -0.32, 0.00, wp = true },
+  { -0.36, -0.20 },
+  { 0.34, -0.32, wp = true },
+  { 0.24, -0.50 },
+  { 0, -0.68, wp = true },
+}
+
+--- A forest: open ground packed with trees and shrubs, a dirt trail
+--- winding up it from the entrance at the bottom through clearings to a
+--- big one near the top. `map.trail` is the trail ({ x, y, wp }),
+--- `map.waypoints` the clearings along it in order (the last is
+--- `map.lair`), `map.shrubs` bushes to draw (not solid: you push through
+--- them). Trees are solid trunks. Cars park either side of the entrance,
+--- which is `map.cx, map.cy`; it is a walking map.
+local function buildForest(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      map.tiles[c][r] = "ground"
+    end
+  end
+  local hw, hh = cols * T / 2, rows * T / 2
+  map.trail, map.waypoints, map.shrubs = {}, {}, {}
+  for _, n in ipairs(TRAIL) do
+    local node = { x = math.floor(n[1] * hw), y = math.floor(n[2] * hh), wp = n.wp }
+    map.trail[#map.trail + 1] = node
+    if node.wp then
+      map.waypoints[#map.waypoints + 1] = node
+    end
+  end
+  map.lair = map.waypoints[#map.waypoints]
+  map.cx, map.cy = map.trail[1].x, math.floor(hh - 1.8 * T)
+  map.clearing, map.lairRadius = 150, 380 -- px; radius kept free of trees
+
+  --- How far (x, y) is from the trail and its clearings; negative inside a clearing.
+  local function openness(x, y)
+    local d = math.huge
+    for i = 1, #map.trail - 1 do
+      local a, b = map.trail[i], map.trail[i + 1]
+      d = math.min(d, segmentDist(x, y, a.x, a.y, b.x, b.y))
+    end
+    for _, w in ipairs(map.waypoints) do
+      local r = w == map.lair and map.lairRadius or map.clearing
+      d = math.min(d, math.sqrt((x - w.x) ^ 2 + (y - w.y) ^ 2) - r)
+    end
+    if math.abs(x - map.cx) < 320 and y > map.cy - 330 then
+      d = -1 -- the car park at the entrance
+    end
+    return d
+  end
+
+  local margin = 40
+  local function spot()
+    return (rng:random() * 2 - 1) * (hw - margin), (rng:random() * 2 - 1) * (hh - margin)
+  end
+  for _ = 1, math.floor(cols * rows * 0.36) do
+    local x, y = spot()
+    if openness(x, y) > 70 then
+      local close = false
+      for _, t in ipairs(map.trees) do
+        if (t.x - x) ^ 2 + (t.y - y) ^ 2 < 46 * 46 then
+          close = true
+          break
+        end
+      end
+      if not close then
+        map.trees[#map.trees + 1] = { x = x, y = y, r = 18 + rng:random() * 12, pine = rng:random() < 0.45 }
+        map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
+      end
+    end
+  end
+  for _ = 1, math.floor(cols * rows * 0.2) do
+    local x, y = spot()
+    if openness(x, y) > 34 then
+      map.shrubs[#map.shrubs + 1] = { x = x, y = y, r = 8 + rng:random() * 7, berries = rng:random() < 0.25 }
+    end
+  end
+
+  for i = 0, 7 do
+    local y = map.cy - 250 + i * 36
+    map.spawns[#map.spawns + 1] = { x = map.cx - 200, y = y, angle = 0 }
+    map.spawns[#map.spawns + 1] = { x = map.cx + 200, y = y, angle = math.pi }
+  end
+end
+
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
 --- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
@@ -318,8 +424,12 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" then
-    buildCuldesac(map, rng)
+  if map.kind == "culdesac" or map.kind == "forest" then
+    if map.kind == "forest" then
+      buildForest(map, rng)
+    else
+      buildCuldesac(map, rng)
+    end
     map.fixed = map.solids
     finish(map)
     return map
