@@ -4,12 +4,18 @@
 -- Clients draw them and show a little "+50" when someone grabs one.
 --
 -- Kinds live in KINDS: "health" (a medkit) heals through the weapons
--- feature, "stamina" (an energy drink) refills the bar through on-foot. A
--- kit that would do nothing -- a medkit at full health, a drink from behind
--- the wheel -- stays where it is for whoever can use it.
+-- feature, "stamina" (an energy drink) refills the bar through on-foot,
+-- and "ammo-<gun>" (an ammo box) puts rounds into the inventory through
+-- buildings. A kit that would do nothing -- a medkit at full health, a
+-- drink from behind the wheel, a box for a full bag -- stays where it is
+-- for whoever can use it.
+--
+-- Ammo boxes are never scattered; they are dropped, where something died,
+-- through Pickups:serverDrop (police drops one for every officer or unit
+-- lost), and a drop is gone for good once taken.
 --
 -- Messages
---   server -> all  PK_SPAWN <id> <kind> <x> <y>
+--   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
 --   server -> all  PK_TAKE  <id> <playerId>
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
@@ -31,9 +37,43 @@ Pickups.radius = 34 -- px from car centre that counts as driving over it
 Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
+Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
 
-local KINDS = {
-  health = {
+local KINDS = {} -- kind key -> { apply, label, color, pitch }; see kindOf
+
+--- An ammo box for one gun: kind "ammo-<gun key>", the same key the
+--- inventory uses for the rounds. It goes into the inventory of whoever
+--- walks or drives over it (buildings keeps that); a full bag leaves it.
+local function ammoKind(key)
+  local gun = key:match("^ammo%-(.+)$")
+  return {
+    apply = function(server, player, item)
+      local buildings = Features.byName.buildings
+      if not (buildings and buildings.serverGive) then
+        return false -- nowhere to put it
+      end
+      return buildings:serverGive(server, player, key, item.amount or Pickups.ammoAmount) > 0
+    end,
+    label = function(item)
+      return "+" .. (item.amount or Pickups.ammoAmount) .. " " .. gun .. " ammo"
+    end,
+    color = { 1, 0.85, 0.35 },
+    pitch = 0.8,
+  }
+end
+
+--- The kind record for a kind key: the fixed ones, or an ammo box made
+--- (and kept) on first sight.
+local function kindOf(key)
+  local kind = KINDS[key]
+  if not kind and key:match("^ammo%-") then
+    kind = ammoKind(key)
+    KINDS[key] = kind
+  end
+  return kind
+end
+
+KINDS.health = {
     --- Returns true if the player actually used it.
     apply = function(server, player)
       local weapons = Features.byName.weapons
@@ -45,8 +85,8 @@ local KINDS = {
     label = "+" .. 50,
     color = { 0.4, 1, 0.4 },
     pitch = 1,
-  },
-  stamina = {
+}
+KINDS.stamina = {
     --- Only a body on foot has a bar to fill; a driver leaves it lying.
     apply = function(server, player)
       local onFoot = Features.byName["on-foot"]
@@ -58,7 +98,6 @@ local KINDS = {
     label = "+" .. 60 .. " stamina",
     color = { 0.45, 0.85, 1 },
     pitch = 1.25,
-  },
 }
 
 -- Client state --------------------------------------------------------------
@@ -138,11 +177,48 @@ local function drawStamina(x, y, t)
   love.graphics.polygon("fill", x + 2, y - 5, x - 3, y + 1, x, y + 1, x - 2, y + 6, x + 3, y - 1, x, y - 1)
 end
 
+--- An ammo box: an olive tin with a brass round on the lid, bobbing over
+--- a warm glow.
+local function drawAmmo(x, y, t)
+  local bob = math.sin(t * 3 + 0.9) * 2
+  local pulse = 0.5 + 0.5 * math.sin(t * 4 + 0.9)
+  love.graphics.setColor(1, 0.8, 0.3, 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 22 + pulse * 4)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - 11, y - 5 + 6, 22, 16, 2)
+  y = y + bob
+  love.graphics.setColor(0.12, 0.13, 0.08)
+  love.graphics.rectangle("fill", x - 13, y - 10, 26, 20, 3)
+  love.graphics.setColor(0.36, 0.42, 0.22)
+  love.graphics.rectangle("fill", x - 11, y - 8, 22, 16, 2)
+  love.graphics.setColor(0.25, 0.30, 0.15) -- the lid seam
+  love.graphics.rectangle("fill", x - 11, y - 2, 22, 2)
+  love.graphics.setColor(0.85, 0.65, 0.25) -- a round on the lid
+  love.graphics.rectangle("fill", x - 5, y - 6, 10, 3, 1)
+  love.graphics.setColor(0.65, 0.35, 0.2)
+  love.graphics.rectangle("fill", x + 3, y - 6, 3, 3, 1)
+  love.graphics.setColor(0.12, 0.13, 0.08)
+  love.graphics.rectangle("fill", x - 4, y - 13, 8, 3) -- handle
+end
+
 local DRAW = { health = drawHealth, stamina = drawStamina }
+
+--- How a kind is drawn: its own picture, or the ammo box for any ammo.
+local function drawerOf(key)
+  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or nil
+end
+
+--- What floats up when a kind is taken.
+local function labelOf(kind, item)
+  if type(kind.label) == "function" then
+    return kind.label(item)
+  end
+  return kind.label
+end
 
 function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
-    local draw = DRAW[it.kind]
+    local draw = drawerOf(it.kind)
     if draw then
       draw(it.x, it.y, time)
     end
@@ -165,7 +241,7 @@ Pickups.clientMessages = {
     local id, kind = tonumber(args[1]), args[2]
     local x, y = tonumber(args[3]), tonumber(args[4])
     if id and kind and x and y then
-      Pickups.items[id] = { kind = kind, x = x, y = y }
+      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]) }
     end
   end,
   PK_CLEAR = function()
@@ -176,7 +252,7 @@ Pickups.clientMessages = {
     local it = id and Pickups.items[id]
     if it then
       Pickups.items[id] = nil
-      local kind = KINDS[it.kind]
+      local kind = kindOf(it.kind)
       Sounds.play(it.x, it.y, kind and kind.pitch)
       -- Over the body that took it, which is not always a car.
       local fx, fy = it.x, it.y
@@ -189,7 +265,7 @@ Pickups.clientMessages = {
       Pickups.floats[#Pickups.floats + 1] = {
         x = fx,
         y = fy - 30,
-        text = kind and kind.label or "",
+        text = kind and labelOf(kind, it) or "",
         color = kind and kind.color or { 1, 1, 1 },
         t = 1.2,
       }
@@ -199,7 +275,7 @@ Pickups.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { items = { id -> { kind, x, y } }, nextId, pending = { { at, kind } } , time }
+local sv = nil -- { items = { id -> { kind, x, y, amount, dropped } }, nextId, pending = { { at, kind } } , time }
 
 --- A random spot on a road tile (city map) or in a ring around the origin.
 local function roadSpot()
@@ -239,6 +315,22 @@ local function spawnOne(server, kind)
   sv.nextId = id + 1
   sv.items[id] = { kind = kind, x = x, y = y }
   server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y)))
+end
+
+--- Drop a pickup of `kind` at (x, y) right now: an ammo box where an
+--- officer fell, say. `amount` is what an ammo box holds (ammoAmount when
+--- not given). A drop never respawns once taken. Other features reach
+--- this via Features.byName.pickups (police does). Returns the item's id,
+--- or nil before a game.
+function Pickups:serverDrop(server, kind, x, y, amount)
+  if not (sv and kindOf(kind)) then
+    return nil
+  end
+  local id = sv.nextId
+  sv.nextId = id + 1
+  sv.items[id] = { kind = kind, x = x, y = y, amount = amount, dropped = true }
+  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
+  return id
 end
 
 function Pickups:serverStart(server)
@@ -283,11 +375,13 @@ function Pickups:serverStep(server, dt)
       end
       local reach2 = onFoot and self.footRadius * self.footRadius or r2
       if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach2 then
-        local kind = KINDS[it.kind]
-        if kind.apply(server, player) then
+        local kind = kindOf(it.kind)
+        if kind and kind.apply(server, player, it) then
           sv.items[id] = nil
           server:broadcast(Protocol.encode("PK_TAKE", id, player.id))
-          sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
+          if not it.dropped then
+            sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
+          end
           break
         end
       end
