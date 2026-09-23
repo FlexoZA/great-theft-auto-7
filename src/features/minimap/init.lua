@@ -30,6 +30,7 @@ local C = {
   asphalt = { 0.17, 0.17, 0.19 },
   walk = { 0.40, 0.40, 0.43 },
   grass = { 0.28, 0.46, 0.25 },
+  ground = { 0.30, 0.40, 0.24 },
   lot = { 0.22, 0.22, 0.24 },
   plot = { 0.45, 0.37, 0.27 },
   frame = { 0.85, 0.85, 0.85 },
@@ -49,6 +50,16 @@ local function buildCanvas(map)
   love.graphics.clear(C.outside[1], C.outside[2], C.outside[3], 1)
   love.graphics.scale(scale)
   love.graphics.translate(-map.left, -map.top)
+  -- Open ground, tile by tile (an empty map has no blocks to draw).
+  love.graphics.setColor(C.ground)
+  for tc = map.c0, map.c1 do
+    local col = map.tiles[tc]
+    for tr = map.r0, map.r1 do
+      if col and col[tr] == "ground" then
+        love.graphics.rectangle("fill", map.x0 + tc * T, map.y0 + tr * T, T, T)
+      end
+    end
+  end
   -- Each block with the streets around it; the city grows block by block,
   -- so it need not be a rectangle.
   love.graphics.setColor(C.asphalt)

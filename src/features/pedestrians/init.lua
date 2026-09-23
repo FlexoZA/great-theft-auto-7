@@ -178,14 +178,24 @@ local function syncMessage(crowd, tick)
   return Protocol.encode("PED_SYNC", unpack(parts))
 end
 
+--- Does the map in play have people on its streets? (city-map's `map.crowd`)
+local function crowdWanted()
+  local city = Features.byName["city-map"]
+  return not (city and city.map and city.map.crowd == false)
+end
+
 function Pedestrians:serverStep(server, dt)
   local crowd = self.crowd
   if not crowd then
     return
   end
 
-  for _, kill in ipairs(crowd:update(server, dt)) do
-    self:announce(server, kill)
+  if crowdWanted() then
+    for _, kill in ipairs(crowd:update(server, dt)) do
+      self:announce(server, kill)
+    end
+  elseif crowd.n > 0 then
+    crowd:clear() -- the next sync, an empty one, tells every client they are gone
   end
 
   self.syncIn = self.syncIn - 1
