@@ -23,6 +23,7 @@
 --   client -> server  BOT_ADD / BOT_REMOVE   (host only)
 
 local Protocol = require("src.net.protocol")
+local ServerSettings = require("src.server_settings")
 local Features = require("src.features")
 local Net = require("src.net")
 local UI = require("src.ui")
@@ -36,12 +37,20 @@ local Bots = {
 -- Tuning ------------------------------------------------------------------
 Bots.startCount = 1 -- bots spawned when the game starts
 Bots.maxBots = 6
-Bots.fireInterval = 0.5 -- seconds between shots (weapons enforces its own cooldown too)
 Bots.range = 650 -- px; won't shoot beyond this
-Bots.spread = 0.08 -- radians of random aim error
 Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
 Bots.retargetEvery = 1.5 -- seconds
-Bots.hostileTime = 40 -- seconds a bot stays angry after the last provocation
+-- How well a bot fights, by the host's bot difficulty (src/server_settings,
+-- set on the Settings screen's Server tab). Police units fight through the
+-- same code, so it is their aim too.
+--   spread        radians of random aim error either side of the target
+--   fireInterval  seconds between shots (weapons enforces its own cooldown too)
+--   hostileTime   seconds a bot stays angry after the last provocation
+Bots.difficulties = {
+  easy = { spread = 0.24, fireInterval = 0.8, hostileTime = 25 },
+  normal = { spread = 0.14, fireInterval = 0.55, hostileTime = 40 },
+  hard = { spread = 0.05, fireInterval = 0.35, hostileTime = 60 },
+}
 Bots.giveUpDistance = 1300 -- px; a target further than this is "away"
 Bots.giveUpTime = 8 -- seconds the target must stay away before the bot gives up
 Bots.ramSpeed = 120 -- closing speed (px/s) that counts as being rammed
@@ -50,6 +59,12 @@ Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
 Bots.waypointTimeout = 25 -- seconds before giving up on a waypoint
 
 local HOST_ID = 1
+
+--- The numbers behind the host's chosen bot difficulty, read live so a
+--- change on the Settings screen takes effect mid-game.
+function Bots:difficulty()
+  return self.difficulties[ServerSettings.get("botDifficulty")] or self.difficulties.normal
+end
 local bots = {} -- civilian bots (the default brain), in spawn order
 local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
@@ -112,7 +127,7 @@ function Bots:spawnNpc(server, opts)
       waypoint = nil,
       waypointUntil = 0,
       retarget = 0,
-      fireTimer = love.math.random() * self.fireInterval,
+      fireTimer = love.math.random() * self:difficulty().fireInterval,
       orbitDir = love.math.random() < 0.5 and -1 or 1,
       stuck = 0,
       reverseFor = 0,
@@ -257,7 +272,7 @@ function Bots:provoke(_server, bot, byId)
     return
   end
   bot.ai.hostileTo = byId
-  bot.ai.hostileUntil = now + self.hostileTime
+  bot.ai.hostileUntil = now + self:difficulty().hostileTime
   bot.ai.farFor = 0
 end
 
@@ -372,7 +387,8 @@ function Bots:fight(server, bot, target)
   -- Shoot: lead the target by its velocity over the projectile's flight time.
   ai.fireTimer = ai.fireTimer - server.dtLast
   if ai.fireTimer <= 0 and dist < self.range then
-    ai.fireTimer = self.fireInterval
+    local skill = self:difficulty()
+    ai.fireTimer = skill.fireInterval
     local Weapons = Features.byName.weapons
     if Weapons and Weapons.serverFire then
       local flight = dist / Weapons.PROJECTILE_SPEED
@@ -381,7 +397,7 @@ function Bots:fight(server, bot, target)
         px = tc.x + math.cos(tc.angle) * tc.speed * flight
         py = tc.y + math.sin(tc.angle) * tc.speed * flight
       end
-      local aim = math.atan2(py - car.y, px - car.x) + (love.math.random() - 0.5) * 2 * self.spread
+      local aim = math.atan2(py - car.y, px - car.x) + (love.math.random() - 0.5) * 2 * skill.spread
       Weapons:serverFire(server, bot, aim)
     end
   end
