@@ -14,6 +14,23 @@ local Game = {}
 
 local SMOOTHING = 12 -- per second; higher = snappier, lower = smoother
 local SNAP_DISTANCE = 200 -- a jump bigger than this is a teleport (respawn), don't ease it
+local BLUR_RATE = 6 -- per second; how fast the world softens and clears again
+local BLUR_RADIUS = 3 -- px per pass at full strength (two passes each way)
+
+-- A separable 5-tap Gaussian, sampled between texels so it costs five reads.
+-- `dir` is one step along the pass in texture space, already scaled by the
+-- radius; the game draws horizontally then vertically.
+local BLUR_SHADER = [[
+  extern vec2 dir;
+  vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
+    vec4 sum = Texel(tex, uv) * 0.227027;
+    vec2 o1 = dir * 1.384615;
+    vec2 o2 = dir * 3.230769;
+    sum += (Texel(tex, uv + o1) + Texel(tex, uv - o1)) * 0.316216;
+    sum += (Texel(tex, uv + o2) + Texel(tex, uv - o2)) * 0.070270;
+    return sum * color;
+  }
+]]
 
 local function angleDiff(target, current)
   return (target - current + math.pi) % (2 * math.pi) - math.pi
@@ -24,6 +41,13 @@ function Game:enter()
   Audio.pauseMusic()
   -- Features may move the camera and change its scale in their update hook.
   self.camera = { x = 0, y = 0, scale = 1 }
+  self.focus = { x = 0, y = 0 } -- where the camera is anchored: the car, or where it last was
+  self.blur = 0 -- current softening of the world, 0..1, eased towards what features ask for
+  if not self.blurShader then
+    -- No shader support is not fatal: the world just stays sharp.
+    local ok, shader = pcall(love.graphics.newShader, BLUR_SHADER)
+    self.blurShader = ok and shader or false
+  end
   Features.call("enterGame", Net.client)
 end
 
@@ -54,15 +78,32 @@ function Game:update(dt)
     end
   end
 
+  -- The camera follows the car and stays put when there is no car to follow
+  -- (a wreck waiting to respawn). Features add their pans and shakes on top
+  -- every frame, so it is re-anchored every frame or they would pile up.
   local me = client:myCar()
   if me then
-    self.camera.x, self.camera.y = me.dx, me.dy
+    self.focus.x, self.focus.y = me.dx, me.dy
     -- Audio listener rides with the car. World y maps to audio z so that
     -- positional sources pan left/right by x and fade with distance.
     love.audio.setPosition(me.dx, 0, me.dy)
   end
+  self.camera.x, self.camera.y = self.focus.x, self.focus.y
 
   Features.call("update", dt, client, self.camera)
+
+  -- How soft a feature wants the world (weapons, while you are wrecked),
+  -- eased so it never snaps in or out.
+  local target = 0
+  for _, f in ipairs(Features.list) do
+    if f.worldBlur then
+      target = math.max(target, math.min(1, f:worldBlur(client) or 0))
+    end
+  end
+  self.blur = self.blur + (target - self.blur) * math.min(1, dt * BLUR_RATE)
+  if self.blur < 0.01 then
+    self.blur = 0
+  end
 end
 
 function Game:drawCars(client)
@@ -80,12 +121,8 @@ function Game:drawCars(client)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Game:draw()
-  local client = Net.client
-  if not client then
-    return
-  end
-  local w, h = love.graphics.getDimensions()
+--- The world through the camera: features below, cars, features above.
+function Game:drawWorld(client, w, h)
   love.graphics.push()
   love.graphics.translate(math.floor(w / 2), math.floor(h / 2))
   love.graphics.scale(self.camera.scale or 1)
@@ -94,6 +131,57 @@ function Game:draw()
   self:drawCars(client)
   Features.call("drawAboveCars", client, self.camera)
   love.graphics.pop()
+end
+
+--- Two window-sized canvases to blur through, rebuilt when the window changes.
+function Game:blurCanvases(w, h)
+  local c = self.canvases
+  if not c or c.w ~= w or c.h ~= h then
+    c = { w = w, h = h, a = love.graphics.newCanvas(w, h), b = love.graphics.newCanvas(w, h) }
+    self.canvases = c
+  end
+  return c.a, c.b
+end
+
+--- The world softened by `self.blur`: drawn into a canvas, then smeared
+--- horizontally and vertically, twice, before it reaches the screen. The
+--- HUD is drawn after this and stays sharp.
+function Game:drawWorldBlurred(client, w, h)
+  local a, b = self:blurCanvases(w, h)
+  local shader = self.blurShader
+  love.graphics.setCanvas(a)
+  love.graphics.clear(love.graphics.getBackgroundColor())
+  self:drawWorld(client, w, h)
+
+  local r = BLUR_RADIUS * self.blur
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.setShader(shader)
+  for _ = 1, 2 do
+    shader:send("dir", { r / w, 0 })
+    love.graphics.setCanvas(b)
+    love.graphics.clear()
+    love.graphics.draw(a)
+    shader:send("dir", { 0, r / h })
+    love.graphics.setCanvas(a)
+    love.graphics.clear()
+    love.graphics.draw(b)
+  end
+  love.graphics.setShader()
+  love.graphics.setCanvas()
+  love.graphics.draw(a)
+end
+
+function Game:draw()
+  local client = Net.client
+  if not client then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  if self.blur > 0 and self.blurShader then
+    self:drawWorldBlurred(client, w, h)
+  else
+    self:drawWorld(client, w, h)
+  end
 
   Features.call("drawHUD", client)
 
