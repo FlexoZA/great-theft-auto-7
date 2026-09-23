@@ -2,11 +2,12 @@
 -- local input, smooths the snapshots it receives, draws everyone, and gives
 -- features their hooks. Keep gameplay out of here: put it in src/features/.
 --
--- Esc opens the pause menu over the world: resume, leave the game (which
--- ends it for everyone when you are the host) or quit to the desktop. The
--- game is not actually paused -- nothing pauses in multiplayer -- but the
--- controls are suspended so nothing you press or click reaches the car or
--- the gun, the network keeps flowing, and the world blurs under the menu.
+-- Esc opens the pause menu over the world: resume, settings (the same
+-- panel as the main menu's, over the game), leave the game (which ends it
+-- for everyone when you are the host) or quit to the desktop. The game is
+-- not actually paused -- nothing pauses in multiplayer -- but the controls
+-- are suspended so nothing you press or click reaches the car or the gun,
+-- the network keeps flowing, and the world blurs under the menu.
 
 local State = require("src.state")
 local UI = require("src.ui")
@@ -16,6 +17,7 @@ local Features = require("src.features")
 local Audio = require("src.audio")
 local Video = require("src.video")
 local Controls = require("src.controls")
+local SettingsPanel = require("src.settings_panel")
 
 local Game = {}
 
@@ -59,6 +61,7 @@ function Game:enter()
     self.blurShader = ok and shader or false
   end
   self.paused = false
+  self.settingsOpen = false
   self.resumeGrace = 0
   Controls.suspend(false)
   self:buildMenu()
@@ -80,6 +83,9 @@ function Game:buildMenu()
     UI.button({ label = "Resume", w = MENU_W, onClick = function()
       self:setPaused(false)
     end }),
+    UI.button({ label = "Settings", w = MENU_W, onClick = function()
+      self:openSettings()
+    end }),
     UI.button({ label = Net.isHost() and "End game for everyone" or "Leave game", w = MENU_W, onClick = function()
       Net.shutdown()
       State.switch("menu")
@@ -90,6 +96,15 @@ function Game:buildMenu()
   }
 end
 
+--- The settings panel over the pause menu; Back (or Esc) returns to the menu.
+function Game:openSettings()
+  self.settings = self.settings or SettingsPanel.new({ onClose = function()
+    self.settingsOpen = false
+  end })
+  self.settings:build() -- live values may have changed since last time
+  self.settingsOpen = true
+end
+
 --- Open or close the menu. The mouse is handed back to the desktop while it
 --- is up (a feature may have grabbed and hidden it) and restored after.
 function Game:setPaused(on)
@@ -97,6 +112,7 @@ function Game:setPaused(on)
     return
   end
   self.paused = on
+  self.settingsOpen = false
   if on then
     self.mouseWas = { grabbed = love.mouse.isGrabbed(), visible = love.mouse.isVisible() }
     love.mouse.setGrabbed(false)
@@ -151,6 +167,9 @@ function Game:update(dt)
     if self.resumeGrace <= 0 and not self.paused then
       Controls.suspend(false)
     end
+  end
+  if self.paused and self.settingsOpen then
+    self.settings:update(dt)
   end
 
   -- With the controls suspended this reads as hands off the wheel, which is
@@ -275,7 +294,14 @@ function Game:draw()
   end
 
   if self.paused then
-    self:drawMenu() -- and no HUD under it: the menu is the whole screen
+    -- No HUD under it: the menu, or the settings panel, is the whole screen.
+    if self.settingsOpen then
+      love.graphics.setColor(0, 0, 0, 0.45)
+      love.graphics.rectangle("fill", 0, 0, w, h)
+      self.settings:draw()
+    else
+      self:drawMenu()
+    end
     return
   end
   Features.call("drawHUD", client)
@@ -304,6 +330,10 @@ function Game:draw()
 end
 
 function Game:keypressed(key)
+  if self.paused and self.settingsOpen then
+    self.settings:keypressed(key) -- Esc there closes the panel, not the menu
+    return
+  end
   if key == "escape" then
     self:setPaused(not self.paused)
     return
@@ -316,6 +346,10 @@ end
 
 function Game:mousepressed(x, y, button)
   if self.paused then
+    if self.settingsOpen then
+      self.settings:mousepressed(x, y, button)
+      return
+    end
     for _, b in ipairs(self.menu) do
       if b:mousepressed(x, y, button) then
         return
@@ -324,6 +358,12 @@ function Game:mousepressed(x, y, button)
     return
   end
   Features.call("mousepressed", x, y, button, Net.client)
+end
+
+function Game:wheelmoved(dx, dy)
+  if self.paused and self.settingsOpen then
+    self.settings:wheelmoved(dx, dy)
+  end
 end
 
 return Game

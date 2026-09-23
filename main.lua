@@ -51,6 +51,13 @@ function love.mousepressed(x, y, button)
   end
 end
 
+function love.wheelmoved(dx, dy)
+  local s = State.current
+  if s and s.wheelmoved then
+    s:wheelmoved(dx, dy)
+  end
+end
+
 function love.quit()
   Net.shutdown()
 end
