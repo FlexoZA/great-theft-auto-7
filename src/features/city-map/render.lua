@@ -18,6 +18,9 @@ local C = {
   canopyLight = { 0.28, 0.52, 0.24 },
   lot = { 0.22, 0.22, 0.24 },
   bay = { 0.75, 0.75, 0.72 },
+  dirt = { 0.45, 0.37, 0.27 },
+  dirtDark = { 0.39, 0.32, 0.23 },
+  stake = { 0.85, 0.80, 0.70 },
   shadow = { 0, 0, 0, 0.35 },
   ac = { 0.60, 0.62, 0.64 },
 }
@@ -32,14 +35,14 @@ end
 
 local function drawRoads(map)
   local T = Layout.TILE
-  color(C.asphalt)
-  love.graphics.rectangle("fill", map.x0, map.y0, map.w, map.h)
-
-  -- Sidewalk tiles.
-  for c = 0, Layout.COLS - 1 do
-    for r = 0, Layout.ROWS - 1 do
-      if map.tiles[c][r] ~= "road" then
-        color(C.walk)
+  local P = Layout.PERIOD
+  -- Tarmac and sidewalk, tile by tile: the city need not be a rectangle.
+  for c = map.c0, map.c1 do
+    local col = map.tiles[c]
+    for r = map.r0, map.r1 do
+      local kind = col and col[r]
+      if kind then
+        color(kind == "road" and C.asphalt or C.walk)
         love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
       end
     end
@@ -59,23 +62,23 @@ local function drawRoads(map)
     love.graphics.rectangle("line", x, y, w, h)
   end
 
-  -- Lane centrelines: dashed, skipping the crossroads.
+  -- Lane centrelines: dashed between the two lanes of each road, skipping
+  -- the crossroads.
   color(C.lane)
   love.graphics.setLineWidth(4)
-  local P = Layout.PERIOD
-  for k = 0, math.floor((Layout.COLS - 1) / P) do
-    local x = map.x0 + (k * P + 1) * T
-    for r = 0, Layout.ROWS - 1 do
-      if r % P >= 2 then
-        love.graphics.line(x, map.y0 + r * T + 12, x, map.y0 + r * T + T - 12)
-      end
-    end
+  local function road(c, r)
+    return map.tiles[c] and map.tiles[c][r] == "road"
   end
-  for k = 0, math.floor((Layout.ROWS - 1) / P) do
-    local y = map.y0 + (k * P + 1) * T
-    for c = 0, Layout.COLS - 1 do
-      if c % P >= 2 then
-        love.graphics.line(map.x0 + c * T + 12, y, map.x0 + c * T + T - 12, y)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if road(c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        if c % P == 1 and r % P >= 2 and road(c - 1, r) then
+          love.graphics.line(x, y + 12, x, y + T - 12)
+        end
+        if r % P == 1 and c % P >= 2 and road(c, r - 1) then
+          love.graphics.line(x + 12, y, x + T - 12, y)
+        end
       end
     end
   end
@@ -119,6 +122,21 @@ local function drawParksAndLots(map)
       end
       love.graphics.line(x + 20, y + 16, x + 20 + 7 * 48, y + 16)
       love.graphics.line(x + 20, y + h - 16, x + 20 + 7 * 48, y + h - 16)
+    elseif b.kind == "plot" then
+      -- Cleared ground waiting for a builder: packed dirt, a few worn
+      -- patches and survey stakes at every other tile corner.
+      color(C.dirt)
+      love.graphics.rectangle("fill", x, y, w, h)
+      color(C.dirtDark)
+      for i = 0, 4 do
+        love.graphics.rectangle("fill", x + 20 + (i * 83) % (w - 80), y + 24 + (i * 131) % (h - 70), 60, 36)
+      end
+      color(C.stake)
+      for i = 0, b.tw, 2 do
+        for j = 0, b.th, 2 do
+          love.graphics.rectangle("fill", x + i * T - 3, y + j * T - 3, 6, 6)
+        end
+      end
     end
   end
 end
@@ -182,11 +200,12 @@ function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
   canvas:setFilter("nearest", "nearest")
   love.graphics.push("all")
+  love.graphics.origin()
   love.graphics.setCanvas(canvas)
   love.graphics.clear(0, 0, 0, 0)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
-  love.graphics.translate(-map.x0, -map.y0)
+  love.graphics.translate(-map.left, -map.top)
   drawRoads(map)
   drawParksAndLots(map)
   drawBuildings(map)
@@ -198,7 +217,7 @@ end
 
 function Render.draw(map, canvas)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.draw(canvas, map.x0, map.y0, 0, 2, 2)
+  love.graphics.draw(canvas, map.left, map.top, 0, 2, 2)
 end
 
 return Render
