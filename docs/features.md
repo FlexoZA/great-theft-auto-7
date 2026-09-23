@@ -173,6 +173,8 @@ way). Events in use:
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
 | `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
+| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second. |
+| `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -285,7 +287,9 @@ example with a menu; real-estate is the one with a place to stand.
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host.
 - Several maps: `city.maps` names every map the game can play on (each a
-  seed and size for the same generator, plus a title) and `city.current` is
+  seed and size for the same generator, plus a title; `kind = "culdesac"`
+  builds a suburban dead end instead of a grid, with `map.circleX, circleY`
+  at its turning circle) and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
   every car lands on the new map's spawn points, then `mapChanged` reaches
@@ -295,8 +299,13 @@ example with a menu; real-estate is the one with a place to stand.
   spec with `crowd = false` has no pedestrians or officers on foot
   (pedestrians and police read `map.crowd`), one with `traffic = false` has
   every NPC car parked out of sight while it is in play (bots reads
-  `map.traffic`). Pickups are scattered afresh and koins on the ground swept
-  on every switch.
+  `map.traffic`), and one with `vehicles = false` is walked: on-foot turns
+  everyone out beside their car and refuses to let them back in (Karen's
+  street). Pickups are scattered afresh and koins on the ground swept on
+  every switch.
+- Quests: `Features.byName.quests:serverComplete(server, questId)` marks the
+  job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
+  is the quest in play on the host. Karen calls the first when she goes down.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or

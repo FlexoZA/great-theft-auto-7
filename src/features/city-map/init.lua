@@ -46,6 +46,13 @@ CityMap.maps = {
   outskirts = {
     title = "The Outskirts", seed = 23, cols = 32, rows = 22, empty = true, crowd = false, traffic = false,
   },
+  -- A suburban dead end where Crazy Karen lives: one street, a turning
+  -- circle, houses on lawns. Nobody about but her, and you face her on
+  -- foot: the cars stay parked on the verge by the entrance.
+  culdesac = {
+    title = "Karen's Cul-de-sac", kind = "culdesac", seed = 41, cols = 26, rows = 30,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

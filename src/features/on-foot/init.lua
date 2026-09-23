@@ -168,8 +168,18 @@ function OnFoot:cursorAngle(x, y)
   return math.atan2(self.view.y + (my - h / 2) / s - y, self.view.x + (mx - w / 2) / s - x)
 end
 
---- Is my car close enough to climb into?
+--- May anyone drive on the map in play? (city-map's `map.vehicles`; a
+--- quest's map can say no, and then everyone walks.)
+local function vehiclesAllowed()
+  local city = Features.byName["city-map"]
+  return not (city and city.map and city.map.vehicles == false)
+end
+
+--- Is my car close enough to climb into, on a map where I may?
 function OnFoot:carInReach(client, me)
+  if not vehiclesAllowed() then
+    return false
+  end
   local car = client:myCar()
   if not car then
     return false
@@ -466,9 +476,11 @@ function OnFoot:exitSpot(car)
   return car.x, car.y
 end
 
-function OnFoot:getOut(server, player)
+--- Step out beside the car. `force` ignores how fast it is going (a map
+--- with no vehicles turns everyone out the moment they are behind a wheel).
+function OnFoot:getOut(server, player, force)
   local car = player.car
-  if math.abs(car.speed) > self.exitMaxSpeed then
+  if not force and math.abs(car.speed) > self.exitMaxSpeed then
     return -- still moving too fast to step out
   end
   local x, y = self:exitSpot(car)
@@ -492,6 +504,9 @@ function OnFoot:getOut(server, player)
 end
 
 function OnFoot:getIn(server, player, st)
+  if not vehiclesAllowed() then
+    return -- not on this map: the cars stay where they are parked
+  end
   if not Car.hitTest(player.car, st.x, st.y, self.enterReach) then
     return -- too far from your car; walk back to it
   end
@@ -536,6 +551,16 @@ function OnFoot:serverStep(server, dt)
   local sv = self.sv
   if not sv then
     return
+  end
+  if not vehiclesAllowed() then
+    -- Nobody drives here: anyone behind a wheel (just arrived, or just
+    -- respawned in their car) is turned out beside it. NPC drivers are
+    -- parked out of sight by bots and left alone.
+    for id, player in pairs(server.players) do
+      if player.car and not player.car.hidden and not player.bot and not sv.onFoot[id] then
+        self:getOut(server, player, true)
+      end
+    end
   end
   local parts, n = { server.tick }, 0
   for id, st in pairs(sv.onFoot) do
