@@ -150,12 +150,11 @@ function Quests:update(dt, client)
     self.prompt, declined = nil, quest and quest.id or nil
   end
   seenMap = city and city.current or nil
-  local car = client:myCar()
-  if not (quest and car) then
+  local x, y = client:myPose()
+  if not (quest and x) then
     self.prompt, declined = nil, nil
     return
   end
-  local x, y = Features.clientBodyPose(client, client.myId, car)
   local d2 = dist2(x, y, quest.x, quest.y)
   if d2 > self.leaveRadius ^ 2 then
     self.prompt, declined = nil, nil -- drove off: the offer goes down and a no is forgotten
@@ -416,15 +415,18 @@ end
 
 --- Is the player's body (not a wreck) on the star?
 local function onStar(server, player, quest)
+  if not Features.present(player) then
+    return false
+  end
   local x, y = Features.bodyPose(server, player)
-  return not player.car.hidden and dist2(x, y, quest.x, quest.y) <= (Quests.starRadius + SLACK) ^ 2
+  return dist2(x, y, quest.x, quest.y) <= (Quests.starRadius + SLACK) ^ 2
 end
 
 Quests.serverMessages = {
   QST_ACCEPT = function(server, player, args)
     local quest = Quests.byId[args[1] or ""]
     local city = cityMap()
-    if not (sv and quest and city and player.car) then
+    if not (sv and quest and city and player.body) then
       return
     end
     local reason

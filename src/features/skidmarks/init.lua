@@ -17,7 +17,7 @@ Skidmarks.maxMarks = 800
 Skidmarks.width = 4
 
 local marks = {} -- { x1, y1, x2, y2, t }
-local last = {} -- car id -> { x, y, angle, time, lx, ly, rx, ry (rear wheels), skidding }
+local last = {} -- vehicle id -> { x, y, angle, time, lx, ly, rx, ry (rear wheels), skidding }
 
 local function rearWheels(x, y, angle)
   local ca, sa = math.cos(angle), math.sin(angle)
@@ -44,7 +44,7 @@ end
 
 function Skidmarks:update(dt, client)
   local now = love.timer.getTime()
-  for id, c in pairs(client.cars) do
+  for id, c in pairs(client.vehicles) do
     local prev = last[id]
     if not prev then
       local lx, ly, rx, ry = rearWheels(c.x, c.y, c.angle)
@@ -65,7 +65,7 @@ function Skidmarks:update(dt, client)
     end
   end
   for id in pairs(last) do
-    if not client.cars[id] then
+    if not client.vehicles[id] then
       last[id] = nil
     end
   end

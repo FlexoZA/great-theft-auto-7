@@ -169,11 +169,10 @@ end
 --- everyone starts with, so the upgrade shows and the road stays clean.
 local function drawReach(client)
   local scale = Money.reach[client.myId]
-  local me = client:myCar()
-  if not (scale and scale > 1 and me) then
+  local x, y, onFoot = client:myPose()
+  if not (scale and scale > 1 and x) then
     return
   end
-  local x, y, onFoot = Features.clientBodyPose(client, client.myId, me)
   local r = (onFoot and Money.footRadius or Money.radius) * scale
   local pulse = 0.5 + 0.5 * math.sin(time * 3)
   love.graphics.setColor(1, 0.85, 0.35, 0.05 + pulse * 0.04)
@@ -279,9 +278,11 @@ Money.clientMessages = {
 --- picks the colour: nil for gains, "spent" for a purchase, "lost" for
 --- koins that rolled out of a wreck.
 function Money:float(client, id, text, kind, x, y)
-  local car = id and client.cars[id]
-  if car then
-    x, y = Features.clientBodyPose(client, id, car)
+  if id then
+    local px, py = client:pose(id)
+    if px then
+      x, y = px, py
+    end
   end
   if not (x and y) then
     return
@@ -451,14 +452,13 @@ function Money:serverStep(server, dt)
       server:broadcast(Protocol.encode("FCK_GONE", id))
     else
       for _, player in pairs(server.players) do
-        local car = player.car
         local bx, by, onFoot
-        if car then
+        if Features.present(player) then
           bx, by, onFoot = Features.bodyPose(server, player)
         end
         local reach = (onFoot and self.footRadius or self.radius) * (sv.reach[player.id] or 1)
         local reach2 = reach * reach
-        if car and not car.hidden and (bx - coin.x) ^ 2 + (by - coin.y) ^ 2 < reach2 then
+        if bx and (bx - coin.x) ^ 2 + (by - coin.y) ^ 2 < reach2 then
           local total = (sv.wallets[player.id] or 0) + 1
           sv.wallets[player.id] = total
           sv.coins[id] = nil

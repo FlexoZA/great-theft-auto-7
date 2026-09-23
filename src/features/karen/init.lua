@@ -229,8 +229,7 @@ end
 local function nearestBody(server, b)
   local best, bestD2, bx, by, onFoot
   for _, p in pairs(server.players) do
-    local car = p.car
-    if car and not car.hidden then
+    if Features.present(p) then
       local x, y, foot = Features.bodyPose(server, p)
       local d2 = (x - b.x) ^ 2 + (y - b.y) ^ 2
       if not bestD2 or d2 < bestD2 then
@@ -248,8 +247,8 @@ function Karen:rams(server, b, dt)
     b.rammed[id] = t - dt
   end
   for id, p in pairs(server.players) do
-    local car = p.car
-    if car and not car.hidden and not select(3, Features.bodyPose(server, p)) then
+    local car = p.vehicle
+    if car and Features.present(p) then
       if Car.hitTest(car, b.x, b.y, self.radius) then
         local speed = math.abs(car.speed)
         local away = math.atan2(b.y - car.y, b.x - car.x)

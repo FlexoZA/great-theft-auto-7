@@ -1,17 +1,19 @@
--- On foot: E gets you out of your car and back into it. Out of the car you
--- walk at the pace of the crowd, sprint on Shift until your stamina runs out
--- (it comes back slowly), and keep your gun: shots leave from where you are
--- standing rather than from the car you parked.
+-- On foot: E gets you out of your car, and into any car within reach that
+-- nobody is driving. Out of a car you walk at the pace of the crowd, sprint
+-- on Shift until your stamina runs out (it comes back slowly), and keep
+-- your gun: shots leave from where you are standing.
 --
--- The host owns the walk. Clients send the direction they are pushing and
--- the way they are facing; the server moves them, keeps them out of
--- buildings, spends and regenerates stamina and broadcasts where everyone
--- is. The local player is predicted from the same numbers and eased back
+-- The body itself belongs to the core (src/body.lua): the server keeps one
+-- per player, STATE says who is on foot where, and the game state draws
+-- them. This feature is the walking: the host moves a walker with the
+-- direction they push and the way they face, keeps them out of buildings,
+-- spends and regenerates stamina, and seats and unseats them on request.
+-- The local player is predicted from the same numbers and eased back
 -- towards the server, so walking feels immediate on a slow link.
 --
--- The car you left stays parked where you left it: the server pins it every
--- tick, so the driving keys you press while walking can't drive it away.
--- Bullets pass through it while you are out; you are the target, not it.
+-- A car you get out of stops where it is and stays there for anyone to
+-- take. On a map with no vehicles (city-map's `map.vehicles`), everyone is
+-- turned out beside their car and nobody gets back in.
 --
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
@@ -22,28 +24,19 @@
 -- OnFoot:serverSetStaminaRegen. Only the host needs the rate, so it is
 -- never sent; the bar the client sees already reflects it.
 --
--- Conventions this feature answers (docs/features.md):
---   playerPose / clientPlayerPose  where a player's body is when they are
---                                  not behind the wheel; weapons fires from
---                                  there, hits land there
---   hidesCarLabel                  the parked car drops its name tag; the
---                                  figure carries it instead
---
 -- Messages
 --   client -> server  OF_TOGGLE
 --   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
---   server -> all     OF_OUT   <tick> <id> <x> <y> <facing>
---   server -> all     OF_IN    <tick> <id>
+--   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
 --   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
---   server -> all     OF_STATE <tick> [<id> <x> <y> <facing> <stamina>]...  (unreliable)
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Car = require("src.car")
+local Body = require("src.body")
 local UI = require("src.ui")
-local Render = require("src.features.on-foot.render")
 
 local OnFoot = {
   name = "on-foot",
@@ -58,10 +51,10 @@ OnFoot.sprintDrain = 22 -- stamina per second while sprinting (~4.5s flat out)
 OnFoot.staminaRegen = 9 -- stamina per second once you stop
 OnFoot.regenDelay = 1.2 -- seconds of not sprinting before it starts coming back
 OnFoot.recovered = 25 -- stamina needed before an emptied bar can sprint again
-OnFoot.radius = 7 -- px; how fat you are against walls
+OnFoot.radius = Body.RADIUS -- px; how fat you are against walls
 OnFoot.exitMaxSpeed = 140 -- px/s; no bailing out of a car at speed
 OnFoot.exitOffset = 34 -- px from the car centre you step out at
-OnFoot.enterReach = 26 -- px of padding around the car that counts as within reach
+OnFoot.enterReach = 26 -- px of padding around a car that counts as within reach
 
 local MOVE_INTERVAL = 1 / 30 -- seconds between OF_MOVE packets
 local CORRECTION = 6 -- per second; how fast prediction is pulled onto the server
@@ -69,6 +62,13 @@ local SNAP = 120 -- px; a correction bigger than this is a teleport
 
 local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
+end
+
+--- May anyone drive on the map in play? (city-map's `map.vehicles`; a
+--- quest's map can say no, and then everyone walks.)
+local function vehiclesAllowed()
+  local city = Features.byName["city-map"]
+  return not (city and city.map and city.map.vehicles == false)
 end
 
 --- Solid ground, through the `blocksPoint` convention (the city map owns it).
@@ -91,9 +91,9 @@ local function blockedAt(x, y)
   return false
 end
 
---- One step of walking, each axis on its own so a wall is slid along rather
---- than run into. Returns the new x, y. Shared by the host and the local
---- prediction so both agree on where a step ends.
+--- One step, each axis on its own so a wall is slid along rather than run
+--- into. Shared by the server's walk and the client's prediction so both
+--- agree on where a step ends.
 local function step(x, y, mx, my, speed, dt)
   local nx = x + mx * speed * dt
   if not blockedAt(nx, y) then
@@ -133,9 +133,11 @@ end
 
 OnFoot.view = { x = 0, y = 0, scale = 1 } -- last camera actually drawn with
 OnFoot.maxOf = {} -- player id -> stamina ceiling (absent = maxStamina)
+OnFoot.stamina = {} -- player id -> stamina, as the host last said (walkers only)
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
-OnFoot.hitbox = {} -- reused table for the "am I next to my car?" test
+OnFoot.hitbox = {} -- reused table for the "is that car within reach?" test
+local spent = false -- my breath, for prediction: an emptied bar sprints again only once recovered
 
 function OnFoot:load()
   Controls.register("enter-exit", "Enter / exit vehicle", "e")
@@ -145,17 +147,19 @@ end
 function OnFoot:enterGame()
   self.moveTimer = 0
   self.moveSeq = 0
+  spent = false
 end
 
 function OnFoot:exitGame()
-  Render.clear()
   self.maxOf = {}
+  self.stamina = {}
   self.view.x, self.view.y, self.view.scale = 0, 0, 1
+  spent = false
 end
 
---- Am I out of my car? Returns the figure, which carries dx, dy and stamina.
+--- Am I on foot? Returns my body snapshot, which carries dx, dy, dangle.
 function OnFoot:me(client)
-  return client.myId and Render.get(client.myId) or nil
+  return client:myBody()
 end
 
 --- Angle from (x, y) to the cursor, using the camera the last frame drew
@@ -168,45 +172,42 @@ function OnFoot:cursorAngle(x, y)
   return math.atan2(self.view.y + (my - h / 2) / s - y, self.view.x + (mx - w / 2) / s - x)
 end
 
---- May anyone drive on the map in play? (city-map's `map.vehicles`; a
---- quest's map can say no, and then everyone walks.)
-local function vehiclesAllowed()
-  local city = Features.byName["city-map"]
-  return not (city and city.map and city.map.vehicles == false)
-end
-
---- Is my car close enough to climb into, on a map where I may?
-function OnFoot:carInReach(client, me)
+--- A car nobody is driving, close enough to climb into, on a map where I may.
+function OnFoot:vehicleInReach(client, me)
   if not vehiclesAllowed() then
-    return false
-  end
-  local car = client:myCar()
-  if not car then
-    return false
+    return nil
   end
   local box = self.hitbox
-  box.x, box.y, box.angle = car.dx, car.dy, car.dangle
-  return Car.hitTest(box, me.dx, me.dy, self.enterReach)
+  for _, v in pairs(client.vehicles) do
+    if not v.driver then
+      box.x, box.y, box.angle = v.dx, v.dy, v.dangle
+      if Car.hitTest(box, me.dx, me.dy, self.enterReach) then
+        return v
+      end
+    end
+  end
+  return nil
 end
 
 --- Walk my own figure with the keys I am holding, then ease it back onto the
 --- server's last word so a disagreement never lasts.
-function OnFoot:predict(dt, me)
+function OnFoot:predict(dt, client, me)
+  me.predicted = true
   local mx, my = moveInput()
   -- The host's "get your breath back" rule, read off the stamina it sends,
   -- so prediction doesn't sprint while the host is still walking it off.
-  local stamina = me.stamina or 0
+  local stamina = self.stamina[client.myId] or self.maxOf[client.myId] or self.maxStamina
   if stamina <= 0 then
-    me.spent = true
-  elseif me.spent and stamina >= self.recovered then
-    me.spent = false
+    spent = true
+  elseif spent and stamina >= self.recovered then
+    spent = false
   end
-  local sprinting = (mx ~= 0 or my ~= 0) and Controls.isDown("sprint") and stamina > 0 and not me.spent
+  local sprinting = (mx ~= 0 or my ~= 0) and Controls.isDown("sprint") and stamina > 0 and not spent
   if mx ~= 0 or my ~= 0 then
     me.dx, me.dy = step(me.dx, me.dy, mx, my, sprinting and self.sprintSpeed or self.walkSpeed, dt)
   end
-  me.sprinting = sprinting
-  me.angle = self:cursorAngle(me.dx, me.dy)
+  me.running = sprinting
+  me.dangle = self:cursorAngle(me.dx, me.dy)
 
   local ex, ey = me.x - me.dx, me.y - me.dy
   if ex * ex + ey * ey > SNAP * SNAP then
@@ -227,25 +228,19 @@ function OnFoot:sendMove(dt, client, me)
   local mx, my = moveInput()
   local sprint = Controls.isDown("sprint") and 1 or 0
   local msg = Protocol.encode("OF_MOVE", self.moveSeq, ("%.3f"):format(mx), ("%.3f"):format(my), sprint,
-    ("%.3f"):format(me.angle))
+    ("%.3f"):format(me.dangle))
   client:send(msg, true)
 end
 
 function OnFoot:update(dt, client, camera)
-  Render.update(dt, client.myId)
   local me = self:me(client)
-  if me and not client:myCar() then
-    -- No car means wrecked: whatever stale snapshot left a figure here, we
-    -- are not standing anywhere. Drop it so the camera and input let go.
-    Render.remove(client.myId)
-    me = nil
-  end
   if not me then
     return
   end
-  self:predict(dt, me)
+  self:predict(dt, client, me)
   self:sendMove(dt, client, me)
-  -- The camera and the ears belong to the body, not to the parked car.
+  -- The camera and the ears belong to the predicted body, a step ahead of
+  -- where the game state anchored them this frame.
   camera.x, camera.y = me.dx, me.dy
   love.audio.setPosition(me.dx, 0, me.dy)
 end
@@ -256,9 +251,8 @@ function OnFoot:keypressed(key, client)
   end
 end
 
-function OnFoot:drawAboveCars(client, camera)
+function OnFoot:drawAboveCars(_client, camera)
   self.view.x, self.view.y, self.view.scale = camera.x, camera.y, camera.scale or 1
-  Render.draw(client, camera)
 end
 
 function OnFoot:drawHUD(client)
@@ -269,7 +263,8 @@ function OnFoot:drawHUD(client)
   if me then
     -- The bar grows with the ceiling, so an upgrade shows on the HUD.
     local max = self.maxOf[client.myId] or self.maxStamina
-    local frac = math.max(0, math.min(1, (me.stamina or 0) / max))
+    local stamina = self.stamina[client.myId] or max
+    local frac = math.max(0, math.min(1, stamina / max))
     local bw, bh = math.floor(120 * max / self.maxStamina), 6
     love.graphics.setColor(0.6, 0.6, 0.65)
     love.graphics.print("stamina", 10, 136)
@@ -280,12 +275,12 @@ function OnFoot:drawHUD(client)
     love.graphics.setColor(0.8, 0.8, 0.85)
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
     local hint = sprintKey .. ": sprint"
-    if self:carInReach(client, me) then
+    if self:vehicleInReach(client, me) then
       hint = key .. ": get in   " .. hint
     end
     love.graphics.print(hint, 10, 154)
   else
-    local car = client:myCar()
+    local car = client:myVehicle()
     if car and math.abs(car.speed) <= self.exitMaxSpeed then
       love.graphics.setColor(0.8, 0.8, 0.85)
       love.graphics.print(key .. ": get out", 10, 136)
@@ -294,38 +289,16 @@ function OnFoot:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
---- The core skips the name over a car whose driver is out walking; the
---- figure carries the name instead (see docs/features.md).
-function OnFoot:hidesCarLabel(_client, id)
-  return Render.get(id) ~= nil
-end
-
---- Where player `id`'s body is on this machine, or nil when they are driving.
---- Weapons aims and draws health from here.
-function OnFoot:clientPlayerPose(_client, id)
-  local p = Render.get(id)
-  if p then
-    return p.dx, p.dy, p.angle
-  end
-  return nil
-end
-
 OnFoot.clientMessages = {
-  OF_OUT = function(_client, args)
-    local tick, id = tonumber(args[1]), tonumber(args[2])
-    local x, y, facing = tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
-    if id and x and y then
-      Render.spawn(id, x, y, facing or 0, tick)
-    end
-  end,
-  OF_IN = function(_client, args)
-    local tick, id = tonumber(args[1]), tonumber(args[2])
-    if id then
-      Render.remove(id, tick)
-    end
-  end,
   OF_STATE = function(_client, args)
-    Render.sync(args)
+    local stamina = {}
+    for i = 2, #args - 1, 2 do
+      local id, s = tonumber(args[i]), tonumber(args[i + 1])
+      if id and s then
+        stamina[id] = s
+      end
+    end
+    OnFoot.stamina = stamina
   end,
   OF_MAX = function(_client, args)
     local id, max = tonumber(args[1]), tonumber(args[2])
@@ -343,55 +316,24 @@ OnFoot.clientMessages = {
   end,
 }
 
--- Server --------------------------------------------------------------------
+-- Server ----------------------------------------------------------------
+
+OnFoot.sv = nil
 
 function OnFoot:serverStart()
   self.sv = {
-    onFoot = {}, -- player id -> { x, y, facing, stamina, max, regen, ... }
+    walkers = {}, -- player id -> { stamina, max, regen, regenIn, spent, lastSeq, move }
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
     regen = {}, -- player id -> regen scale (absent = 1)
   }
 end
 
-function OnFoot:serverPlayerLeft(server, player)
-  if not self.sv then
-    return
+function OnFoot:serverPlayerLeft(_server, player)
+  if self.sv then
+    self.sv.walkers[player.id] = nil
+    self.sv.maxStamina[player.id] = nil
+    self.sv.regen[player.id] = nil
   end
-  self.sv.maxStamina[player.id] = nil
-  self.sv.regen[player.id] = nil
-  if self.sv.onFoot[player.id] then
-    self.sv.onFoot[player.id] = nil
-    server:broadcast(Protocol.encode("OF_IN", server.tick, player.id))
-  end
-end
-
---- Everyone was moved to another map (city-map's `mapChanged`; the host
---- passes `server`, clients get nil). A walker's car has gone to a spawn
---- point and the ground under their feet may be a building now, so they
---- are put back behind the wheel.
-function OnFoot:mapChanged(_map, server)
-  if not (server and self.sv) then
-    return
-  end
-  for id in pairs(self.sv.onFoot) do
-    self.sv.onFoot[id] = nil
-    server:broadcast(Protocol.encode("OF_IN", server.tick, id))
-  end
-end
-
---- Give a walking player back up to `amount` stamina and their breath with
---- it (a blown bar can sprint again at once). Returns true if any was
---- gained, so a pickup knows whether it was used; false for a driver, who
---- has no bar to fill, and the drink stays on the road for later. Other
---- features reach this via Features.byName["on-foot"] (pickups does).
-function OnFoot:serverRestoreStamina(_server, player, amount)
-  local st = self.sv and self.sv.onFoot[player.id]
-  if not st or st.stamina >= st.max then
-    return false
-  end
-  st.stamina = math.min(st.max, st.stamina + amount)
-  st.spent = false
-  return true
 end
 
 --- A player's stamina ceiling on the host.
@@ -404,17 +346,53 @@ function OnFoot:regenFor(id)
   return self.staminaRegen * (self.sv and self.sv.regen[id] or 1)
 end
 
+--- The host's walking record for a player, made the first time it is needed.
+function OnFoot:walker(player)
+  local st = self.sv.walkers[player.id]
+  if not st then
+    local max = self:maxFor(player.id)
+    st = {
+      stamina = max,
+      max = max,
+      regen = self:regenFor(player.id),
+      regenIn = 0,
+      spent = false,
+      lastSeq = 0,
+      move = { x = 0, y = 0, sprint = false },
+    }
+    self.sv.walkers[player.id] = st
+  end
+  return st
+end
+
+--- Give a walking player back up to `amount` stamina and their breath with
+--- it (a blown bar can sprint again at once). Returns true if any was
+--- gained, so a pickup knows whether it was used; false for a driver, who
+--- has no bar to fill, and the drink stays on the road for later. Other
+--- features reach this via Features.byName["on-foot"] (pickups does).
+function OnFoot:serverRestoreStamina(_server, player, amount)
+  if not self.sv or player.vehicle or not player.body then
+    return false
+  end
+  local st = self:walker(player)
+  if st.stamina >= st.max then
+    return false
+  end
+  st.stamina = math.min(st.max, st.stamina + amount)
+  st.spent = false
+  return true
+end
+
 --- Set how fast a player's stamina comes back, as a multiple of staminaRegen,
---- for the rest of the game. Takes effect at once if they are out walking.
---- Other features reach this via Features.byName["on-foot"] (upgrades does).
---- Returns the scale set.
+--- for the rest of the game. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the scale set.
 function OnFoot:serverSetStaminaRegen(_server, player, scale)
   if not self.sv then
     return nil
   end
   scale = math.max(0.1, scale)
   self.sv.regen[player.id] = scale
-  local st = self.sv.onFoot[player.id]
+  local st = self.sv.walkers[player.id]
   if st then
     st.regen = self.staminaRegen * scale
   end
@@ -422,15 +400,15 @@ function OnFoot:serverSetStaminaRegen(_server, player, scale)
 end
 
 --- Raise (or lower) a player's stamina ceiling to `max` for the rest of the
---- game. Raising it while they are out walking tops them up by the
---- difference, so an upgrade is felt at once. Other features reach this via
---- Features.byName["on-foot"] (upgrades does). Returns the new ceiling.
+--- game. Raising it tops them up by the difference, so an upgrade is felt
+--- at once. Other features reach this via Features.byName["on-foot"]
+--- (upgrades does). Returns the new ceiling.
 function OnFoot:serverSetMaxStamina(server, player, max)
   if not self.sv then
     return nil
   end
   max = math.max(1, math.floor(max))
-  local st = self.sv.onFoot[player.id]
+  local st = self.sv.walkers[player.id]
   if st then
     local gained = max - st.max
     st.max = max
@@ -441,24 +419,12 @@ function OnFoot:serverSetMaxStamina(server, player, max)
   return max
 end
 
---- Where `player` stands when they are not behind the wheel. The `playerPose`
---- convention; weapons fires from here and lands hits here.
-function OnFoot:playerPose(_server, player)
-  local st = self.sv and self.sv.onFoot[player.id]
-  if st then
-    return st.x, st.y, st.facing
-  end
-  return nil
-end
-
---- Wrecked while walking (weapons blew up the body): the corpse goes back
---- behind the wheel and respawns with the car, like any other death.
+--- Died on foot (weapons blew up the body): a splat where they stood. The
+--- respawn is weapons' business, the same as for a driver.
 function OnFoot:serverKill(server, kill)
-  if kill.kind == "car" and kill.victim and self.sv and self.sv.onFoot[kill.victim] then
-    self.sv.onFoot[kill.victim] = nil
+  if kill.kind == "car" and kill.onFoot and kill.victim then
     server:broadcast(Protocol.encode("OF_GIB", kill.victim, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
       ("%.3f"):format(kill.angle or 0)))
-    server:broadcast(Protocol.encode("OF_IN", server.tick, kill.victim))
   end
 end
 
@@ -479,60 +445,54 @@ end
 --- Step out beside the car. `force` ignores how fast it is going (a map
 --- with no vehicles turns everyone out the moment they are behind a wheel).
 function OnFoot:getOut(server, player, force)
-  local car = player.car
+  local car = player.vehicle
+  if not car then
+    return false
+  end
   if not force and math.abs(car.speed) > self.exitMaxSpeed then
-    return -- still moving too fast to step out
+    return false -- still moving too fast to step out
   end
   local x, y = self:exitSpot(car)
-  car:stop()
-  local max = self:maxFor(player.id)
-  self.sv.onFoot[player.id] = {
-    x = x,
-    y = y,
-    facing = car.angle,
-    stamina = max,
-    max = max,
-    regen = self:regenFor(player.id),
-    regenIn = 0,
-    spent = false,
-    lastSeq = 0,
-    move = { x = 0, y = 0, sprint = false },
-    car = { x = car.x, y = car.y, angle = car.angle }, -- where it stays parked
-  }
-  local fx, fy, facing = ("%.1f"):format(x), ("%.1f"):format(y), ("%.3f"):format(car.angle)
-  server:broadcast(Protocol.encode("OF_OUT", server.tick, player.id, fx, fy, facing))
+  server:unseat(player, x, y)
+  local st = self:walker(player)
+  st.stamina, st.spent, st.regenIn = st.max, false, 0
+  st.move.x, st.move.y, st.move.sprint = 0, 0, false
+  return true
 end
 
-function OnFoot:getIn(server, player, st)
-  if not vehiclesAllowed() then
-    return -- not on this map: the cars stay where they are parked
+--- Into the nearest car within reach that nobody is driving, on a map
+--- where anyone may drive.
+function OnFoot:getIn(server, player)
+  if not vehiclesAllowed() or not player.body then
+    return false
   end
-  if not Car.hitTest(player.car, st.x, st.y, self.enterReach) then
-    return -- too far from your car; walk back to it
+  local b = player.body
+  for _, car in pairs(server.vehicles) do
+    if not car.driver and not car.hidden and Car.hitTest(car, b.x, b.y, self.enterReach) then
+      return server:seat(player, car)
+    end
   end
-  self.sv.onFoot[player.id] = nil
-  server:broadcast(Protocol.encode("OF_IN", server.tick, player.id))
+  return false
 end
 
---- One player's step: spend or regain stamina, then walk. Leaning on the
+--- One walker's step: spend or regain stamina, then walk. Leaning on the
 --- sprint key with an empty bar keeps it empty; you get your breath back by
 --- letting go, not by running on.
-function OnFoot:walk(st, dt)
+function OnFoot:walk(st, body, dt)
   local mx, my = st.move.x, st.move.y
   local len = math.sqrt(mx * mx + my * my)
   local asking = len > 0 and st.move.sprint
   local sprinting = asking and st.stamina > 0 and not st.spent
-
-  if asking then
+  if sprinting then
+    st.stamina = math.max(0, st.stamina - self.sprintDrain * dt)
     st.regenIn = self.regenDelay
-    if sprinting then
-      st.stamina = math.max(0, st.stamina - self.sprintDrain * dt)
-      if st.stamina <= 0 then
-        st.spent = true -- blown: walk it off before you can sprint again
-      end
+    if st.stamina <= 0 then
+      st.spent = true
     end
+  elseif asking then
+    st.regenIn = self.regenDelay -- still leaning on it: no breath back yet
   else
-    st.regenIn = st.regenIn - dt
+    st.regenIn = math.max(0, st.regenIn - dt)
     if st.regenIn <= 0 then
       st.stamina = math.min(st.max, st.stamina + st.regen * dt)
       if st.spent and st.stamina >= self.recovered then
@@ -543,7 +503,7 @@ function OnFoot:walk(st, dt)
 
   if len > 0 then
     local speed = sprinting and self.sprintSpeed or self.walkSpeed
-    st.x, st.y = step(st.x, st.y, mx / len, my / len, speed, dt)
+    body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
   end
 end
 
@@ -556,28 +516,19 @@ function OnFoot:serverStep(server, dt)
     -- Nobody drives here: anyone behind a wheel (just arrived, or just
     -- respawned in their car) is turned out beside it. NPC drivers are
     -- parked out of sight by bots and left alone.
-    for id, player in pairs(server.players) do
-      if player.car and not player.car.hidden and not player.bot and not sv.onFoot[id] then
+    for _, player in pairs(server.players) do
+      if player.vehicle and not player.bot and Features.present(player) then
         self:getOut(server, player, true)
       end
     end
   end
   local parts, n = { server.tick }, 0
-  for id, st in pairs(sv.onFoot) do
-    local player = server.players[id]
-    if not player or not player.car then
-      sv.onFoot[id] = nil
-    else
-      self:walk(st, dt)
-      -- The car they left is furniture until they come back for it.
-      local car = player.car
-      car.x, car.y, car.angle = st.car.x, st.car.y, st.car.angle
-      car:stop()
+  for id, player in pairs(server.players) do
+    if player.body and not player.vehicle and not player.body.dead then
+      local st = self:walker(player)
+      self:walk(st, player.body, dt)
       n = n + 1
       parts[#parts + 1] = id
-      parts[#parts + 1] = ("%.1f"):format(st.x)
-      parts[#parts + 1] = ("%.1f"):format(st.y)
-      parts[#parts + 1] = ("%.3f"):format(st.facing)
       parts[#parts + 1] = ("%.0f"):format(st.stamina)
     end
   end
@@ -592,22 +543,20 @@ end
 
 OnFoot.serverMessages = {
   OF_TOGGLE = function(server, player)
-    local sv = OnFoot.sv
-    if not sv or not player.car or player.car.hidden then
+    if not OnFoot.sv or not Features.present(player) then
       return -- wrecked, or the game hasn't started
     end
-    local st = sv.onFoot[player.id]
-    if st then
-      OnFoot:getIn(server, player, st)
-    else
+    if player.vehicle then
       OnFoot:getOut(server, player)
+    else
+      OnFoot:getIn(server, player)
     end
   end,
   OF_MOVE = function(_server, player, args)
-    local st = OnFoot.sv and OnFoot.sv.onFoot[player.id]
-    if not st then
+    if not (OnFoot.sv and player.body) or player.vehicle then
       return -- they are driving; nothing to move
     end
+    local st = OnFoot:walker(player)
     local seq = tonumber(args[1])
     if not seq or seq <= st.lastSeq then
       return -- stale or garbage
@@ -616,7 +565,7 @@ OnFoot.serverMessages = {
     st.move.x = clamp(tonumber(args[2]) or 0, -1, 1)
     st.move.y = clamp(tonumber(args[3]) or 0, -1, 1)
     st.move.sprint = args[4] == "1"
-    st.facing = tonumber(args[5]) or st.facing
+    player.body.facing = tonumber(args[5]) or player.body.facing
   end,
 }
 

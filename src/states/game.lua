@@ -1,6 +1,7 @@
--- The driving scene. All cars are simulated by the server; this state sends
--- local input, smooths the snapshots it receives, draws everyone, and gives
--- features their hooks. Keep gameplay out of here: put it in src/features/.
+-- The driving scene. The world is simulated by the server; this state sends
+-- local input, smooths the snapshots it receives (every vehicle, everyone
+-- on foot), draws them, and gives features their hooks. Keep gameplay out
+-- of here: put it in src/features/.
 --
 -- Esc opens the pause menu over the world: resume, settings (the same
 -- panel as the main menu's, over the game), leave the game (which ends it
@@ -13,6 +14,7 @@ local State = require("src.state")
 local UI = require("src.ui")
 local Net = require("src.net")
 local Car = require("src.car")
+local Body = require("src.body")
 local Features = require("src.features")
 local Audio = require("src.audio")
 local Video = require("src.video")
@@ -178,7 +180,7 @@ function Game:update(dt)
   client:sendInput(throttle, steer, dt, handbrake)
 
   local k = math.min(1, dt * SMOOTHING)
-  for _, c in pairs(client.cars) do
+  for _, c in pairs(client.vehicles) do
     if math.abs(c.x - c.dx) > SNAP_DISTANCE or math.abs(c.y - c.dy) > SNAP_DISTANCE then
       c.dx, c.dy, c.dangle = c.x, c.y, c.angle
     else
@@ -187,16 +189,32 @@ function Game:update(dt)
       c.dangle = c.dangle + angleDiff(c.angle, c.dangle) * k
     end
   end
+  -- Walkers ease the same way; a feature that predicts one (on-foot, for
+  -- the local player) marks it and moves it itself.
+  for _, b in pairs(client.bodies) do
+    if not b.predicted then
+      local ex, ey = b.x - b.dx, b.y - b.dy
+      if ex * ex + ey * ey > SNAP_DISTANCE * SNAP_DISTANCE then
+        b.dx, b.dy, b.dangle = b.x, b.y, b.angle
+      else
+        local mx, my = ex * k, ey * k
+        b.dx, b.dy = b.dx + mx, b.dy + my
+        b.dangle = b.dangle + angleDiff(b.angle, b.dangle) * k
+        b.running = mx * mx + my * my > (dt * 90) ^ 2
+      end
+    end
+  end
 
-  -- The camera follows the car and stays put when there is no car to follow
-  -- (a wreck waiting to respawn). Features add their pans and shakes on top
-  -- every frame, so it is re-anchored every frame or they would pile up.
-  local me = client:myCar()
-  if me then
-    self.focus.x, self.focus.y = me.dx, me.dy
-    -- Audio listener rides with the car. World y maps to audio z so that
+  -- The camera follows me, driving or walking, and stays put while I am
+  -- out of the world (a wreck waiting to respawn). Features add their pans
+  -- and shakes on top every frame, so it is re-anchored every frame or they
+  -- would pile up.
+  local mx, my = client:myPose()
+  if mx then
+    self.focus.x, self.focus.y = mx, my
+    -- Audio listener rides with me. World y maps to audio z so that
     -- positional sources pan left/right by x and fade with distance.
-    love.audio.setPosition(me.dx, 0, me.dy)
+    love.audio.setPosition(mx, 0, my)
   end
   self.camera.x, self.camera.y = self.focus.x, self.focus.y
 
@@ -216,29 +234,49 @@ function Game:update(dt)
   end
 end
 
-function Game:drawCars(client)
+local function drawName(client, id, x, y)
+  local p = client.players[id]
+  if p then
+    love.graphics.setColor(1, 1, 1, id == client.myId and 1 or 0.8)
+    love.graphics.printf(p.name, x - 60, y, 120, "center")
+  end
+end
+
+--- Every vehicle in its own colour, the driver's name over it. A parked car
+--- is just a car.
+function Game:drawVehicles(client)
   love.graphics.setFont(UI.fonts.small)
-  for id, c in pairs(client.cars) do
-    Car.draw(c.dx, c.dy, c.dangle, Car.colorFor(id))
-    local p = client.players[id]
-    -- A feature may have taken the driver out of the car (on-foot). The car
-    -- then stands there unnamed and the feature labels the figure instead.
-    if p and not Features.any("hidesCarLabel", client, id) then
-      love.graphics.setColor(1, 1, 1, id == client.myId and 1 or 0.8)
-      love.graphics.printf(p.name, c.dx - 60, c.dy - Car.HEIGHT - 18, 120, "center")
+  for _, c in pairs(client.vehicles) do
+    Car.draw(c.dx, c.dy, c.dangle, Car.paletteColor(c.color))
+    if c.driver then
+      drawName(client, c.driver, c.dx, c.dy - Car.HEIGHT - 18)
     end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
---- The world through the camera: features below, cars, features above.
+--- Everyone on foot, in their colour, waddling as they go.
+function Game:drawBodies(client)
+  love.graphics.setFont(UI.fonts.small)
+  local t = love.timer.getTime()
+  for id, b in pairs(client.bodies) do
+    local swing = math.sin(t * (b.running and 16 or 8) + (b.bob or 0)) * (b.running and 1.5 or 0.9)
+    Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing)
+    drawName(client, id, b.dx, b.dy - 30)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The world through the camera: features below, vehicles and walkers,
+--- features above.
 function Game:drawWorld(client, w, h)
   love.graphics.push()
   love.graphics.translate(math.floor(w / 2), math.floor(h / 2))
   love.graphics.scale(self.camera.scale or 1)
   love.graphics.translate(-math.floor(self.camera.x), -math.floor(self.camera.y))
   Features.call("drawBelowCars", client, self.camera)
-  self:drawCars(client)
+  self:drawVehicles(client)
+  self:drawBodies(client)
   Features.call("drawAboveCars", client, self.camera)
   love.graphics.pop()
 end
@@ -306,7 +344,7 @@ function Game:draw()
   end
   Features.call("drawHUD", client)
 
-  local me = client:myCar()
+  local me = client:myVehicle()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
   if Video.get("showFps") then
