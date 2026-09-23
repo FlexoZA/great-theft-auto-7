@@ -74,6 +74,26 @@ function Money:canAfford(client, cost)
   return self:mine(client) >= cost
 end
 
+-- The coin on the HUD: bottom-right corner, the wallet beside it, a line
+-- under it that other features may use (upgrades says what you can afford).
+Money.hud = {
+  margin = 12, -- px from the right and bottom edges
+  radius = 40, -- coin radius
+  inscription = { "FEDERAL COMMIE", "KOINS" }, -- over the top of the rim, and under the bottom
+  color = { 0.96, 0.78, 0.26 },
+  rim = { 0.72, 0.52, 0.12 },
+}
+
+--- Where the coin is: its centre and radius, and the y of the text line
+--- under it, so a feature can write beneath the wallet.
+function Money:hudCoin()
+  local w, h = love.graphics.getDimensions()
+  local hud = self.hud
+  local lineH = UI.fonts.small:getHeight()
+  local cy = h - hud.margin - lineH - 4 - hud.radius
+  return w - hud.margin - hud.radius, cy, hud.radius, cy + hud.radius + 4
+end
+
 -- Client --------------------------------------------------------------------
 
 Money.coins = {} -- id -> { x, y, age, seed }
@@ -206,10 +226,69 @@ function Money:drawAboveCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- `text` letter by letter along a circle of `radius` about (cx, cy),
+--- centred on angle `middle`; `dir` 1 reads left to right over the top of
+--- the circle (letters upright), -1 left to right under the bottom.
+local function arcText(text, cx, cy, radius, middle, dir, font)
+  local n = #text
+  local scale = 0.8
+  local step = font:getWidth(text) / n * scale / radius -- one average letter's arc
+  for i = 1, n do
+    local ch = text:sub(i, i)
+    local a = middle + (i - (n + 1) / 2) * step * dir
+    love.graphics.print(ch, cx + math.cos(a) * radius, cy + math.sin(a) * radius, a + dir * math.pi / 2, scale,
+      scale, font:getWidth(ch) / 2, font:getHeight() / 2)
+  end
+end
+
+--- The coin: a gold disc with the inscription running round its rim and a
+--- star in the middle, the wallet in big figures to its left.
 function Money:drawHUD(client)
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(1, 0.85, 0.3)
-  love.graphics.print(Money.amount(self.wallets[client.myId] or 0), 10, 118)
+  local cx, cy, r, _ = self:hudCoin()
+  local hud = self.hud
+  local c, rim = hud.color, hud.rim
+
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.circle("fill", cx + 2, cy + 3, r, 48)
+  love.graphics.setColor(rim)
+  love.graphics.circle("fill", cx, cy, r, 48)
+  love.graphics.setColor(c)
+  love.graphics.circle("fill", cx, cy, r - 3, 48)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(rim[1], rim[2], rim[3], 0.8)
+  love.graphics.circle("line", cx, cy, r - 14, 48)
+  love.graphics.setColor(1, 1, 1, 0.35)
+  love.graphics.arc("line", "open", cx, cy, r - 5, math.pi * 1.1, math.pi * 1.6, 24)
+
+  -- The inscription: the first line reads round the top of the rim, the
+  -- second round the bottom, both upright.
+  local font = UI.fonts.small
+  love.graphics.setFont(font)
+  love.graphics.setColor(rim[1] * 0.7, rim[2] * 0.7, rim[3] * 0.7)
+  arcText(hud.inscription[1], cx, cy, r - 9, -math.pi / 2, 1, font)
+  arcText(hud.inscription[2], cx, cy, r - 9, math.pi / 2, -1, font)
+
+  -- A star in the middle. Concave, so it goes down as triangles.
+  local pts = {}
+  for i = 0, 9 do
+    local a = -math.pi / 2 + i * math.pi / 5
+    local sr = i % 2 == 0 and 12 or 4.8
+    pts[#pts + 1] = cx + math.cos(a) * sr
+    pts[#pts + 1] = cy + 1 + math.sin(a) * sr
+  end
+  love.graphics.setColor(0.85, 0.15, 0.12)
+  for _, tri in ipairs(love.math.triangulate(pts)) do
+    love.graphics.polygon("fill", tri)
+  end
+
+  -- The wallet, big, to the left of the coin.
+  local amount = tostring(self.wallets[client.myId] or 0)
+  local big = UI.fonts.heading
+  love.graphics.setFont(big)
+  local ax = cx - r - 10 - big:getWidth(amount)
+  local ay = cy - math.floor(big:getHeight() / 2)
+  UI.label(amount, ax, ay, c)
+  love.graphics.setFont(font)
   love.graphics.setColor(1, 1, 1)
 end
 
