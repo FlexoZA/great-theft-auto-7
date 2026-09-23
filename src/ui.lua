@@ -361,6 +361,28 @@ function UI.vmeter(x, y, w, h, frac, color, marks)
   love.graphics.rectangle("line", x - 1.5, y - 1.5, w + 3, h + 3, 3)
 end
 
+--- A ring around (cx, cy): a dark disc, a faint track and a lit arc `frac`
+--- (0..1) of the way round clockwise from the top, in `color`. Full at 1.
+function UI.ring(cx, cy, radius, frac, color, width)
+  width = width or 4
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.circle("fill", cx, cy, radius + width / 2 + 1, 48)
+  love.graphics.setLineWidth(width)
+  love.graphics.setColor(1, 1, 1, 0.15)
+  love.graphics.circle("line", cx, cy, radius, 48)
+  frac = clamp01(frac)
+  if frac > 0 then
+    love.graphics.setColor(color)
+    local from = -math.pi / 2
+    if frac >= 1 then
+      love.graphics.circle("line", cx, cy, radius, 48)
+    else
+      love.graphics.arc("line", "open", cx, cy, radius, from, from + frac * 2 * math.pi, 48)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
 -- The bottom-left row of stat bars ----------------------------------------
 -- Health, stamina, dodge, abilities: each feature draws its own bar into a
 -- numbered slot of the same row, so they line up as one readout.

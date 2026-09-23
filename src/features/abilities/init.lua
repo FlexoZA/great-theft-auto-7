@@ -34,7 +34,12 @@ local Abilities = {
 
 Abilities.slots = { Freeze } -- slot i is cast with action "ability-<i>"
 Abilities.defaultKeys = { "q" }
-Abilities.hudSlot = 3 -- first slot of the bottom-left row after health, stamina and the dodge
+-- The ability circles along the bottom centre of the screen: `hudSlots` of
+-- them, `hudStep` apart, empty ones dim until a release fills them.
+Abilities.hudSlots = 4
+Abilities.hudStep = 64
+Abilities.hudRadius = 24
+Abilities.hudBottom = 48 -- px up from the bottom edge to the circles' centres
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -190,39 +195,57 @@ function Abilities:drawAboveCars(client)
 end
 
 function Abilities:drawHUD(client)
-  -- One vertical bar per slot in the bottom-left cluster, after the
-  -- stamina and dodge bars. It empties when cast and fills back up through
-  -- the cooldown with the seconds left above it; full and lit means ready,
-  -- with the key under it.
-  local bar = UI.drawStatBar
-  for i, ability in ipairs(self.slots) do
-    local slot = self.hudSlot + i - 1
-    local key = Controls.name(Controls.bindings("ability-" .. i)[1])
-    local left = self.cooldowns[i]
-    local c = ability.color
-    local flash = self.readyFlash[i]
-    local name = key .. ": " .. ability.title
-    if left then
-      local value = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
-      bar(slot, name, 1 - left / ability.cooldown, { c[1], c[2], c[3], 0.6 }, value, { 1, 1, 1 })
+  -- A row of circles along the bottom centre, one per slot. The key sits
+  -- in the circle and the title under it; on cast the ring empties and
+  -- fills back up through the cooldown with the seconds left inside. Full
+  -- and lit means ready. Slots with no ability yet are just dim rings.
+  local small, body = UI.fonts.small, UI.fonts.body
+  local w, h = love.graphics.getDimensions()
+  local r, n = self.hudRadius, math.max(self.hudSlots, #self.slots)
+  local cy = h - self.hudBottom
+  local x0 = math.floor(w / 2 - (n - 1) * self.hudStep / 2)
+  for i = 1, n do
+    local cx = x0 + (i - 1) * self.hudStep
+    local ability = self.slots[i]
+    if not ability then
+      UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     else
-      local pulse = self.aiming == i and (0.5 + 0.5 * math.sin(self.time * 10)) or 0
-      local value = self.aiming == i and "release" or "ready"
-      local x, y, w, h = bar(slot, name, 1, { c[1], c[2], c[3], 0.75 + 0.25 * pulse }, value, c)
-      if flash then
-        -- Just back: a burst swelling out of the bar and fading.
-        local k = flash / 0.6
-        local grow = (1 - k) * 12
-        love.graphics.setLineWidth(2)
-        love.graphics.setColor(c[1], c[2], c[3], 0.8 * k)
-        love.graphics.rectangle("line", x - grow, y - grow, w + grow * 2, h + grow * 2, 4)
-        love.graphics.setLineWidth(1)
+      local key = Controls.name(Controls.bindings("ability-" .. i)[1])
+      local left = self.cooldowns[i]
+      local c = ability.color
+      local middle, middleColor, title, titleColor
+      if left then
+        UI.ring(cx, cy, r, 1 - left / ability.cooldown, { c[1], c[2], c[3], 0.85 }, 5)
+        middle = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
+        middleColor = { 1, 1, 1 }
+        title, titleColor = ability.title, { 0.7, 0.7, 0.75 }
+      else
+        local flash = self.readyFlash[i]
+        if flash then
+          -- Just back: a burst swelling out of the ring and fading.
+          local k = flash / 0.6
+          love.graphics.setLineWidth(2)
+          love.graphics.setColor(c[1], c[2], c[3], 0.8 * k)
+          love.graphics.circle("line", cx, cy, r + 5 + (1 - k) * 18, 48)
+          love.graphics.setLineWidth(1)
+        end
+        local aiming = self.aiming == i
+        local pulse = aiming and (0.5 + 0.5 * math.sin(self.time * 10)) or 0
+        love.graphics.setColor(c[1], c[2], c[3], 0.2 + 0.3 * pulse)
+        love.graphics.circle("fill", cx, cy, r + 6, 48)
+        UI.ring(cx, cy, r, 1, c, 5)
+        middle, middleColor = key, { 1, 1, 1 }
+        title = aiming and "release" or ability.title
+        titleColor = aiming and c or { 0.9, 0.9, 0.95 }
       end
+      love.graphics.setFont(body)
+      UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+      love.graphics.setFont(small)
+      UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, titleColor)
     end
   end
   if self:held(client, client.myId) then
-    local w = love.graphics.getWidth()
-    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setFont(body)
     local c = Freeze.color
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.printf("FROZEN", 1, 89, w, "center")

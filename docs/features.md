@@ -215,7 +215,9 @@ Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 
 The important numbers stand as a row of vertical bars in the bottom-left
 corner, one slot each: health (weapons, 0), stamina and the dodge (on-foot,
-1 and 2), then the abilities (from `Abilities.hudSlot`, 3). Draw yours into
+1 and 2). Abilities are a row of circles along the bottom centre
+(`Abilities.hudSlots` of them; keep the strip from about h-80 down clear
+of centred text). Draw yours into
 the next free slot with `UI.drawStatBar(slot, name, frac, color, value,
 valueColor, marks, alpha)`: the bar, `name` under it, `value` above, dimmed
 by `alpha` when the stat does not apply right now. It returns x, y, w, h.
@@ -226,6 +228,7 @@ it, colours as `{ r, g, b[, a] }`:
 UI.label("stamina", x, y, { 0.85, 0.85, 0.9 })      -- text with a dark shadow under it
 UI.meter(x, y, w, h, frac, color, { 0.2 })          -- a bar `frac` full; optional notches
 UI.vmeter(x, y, w, h, frac, color, { 0.2 })         -- the same standing up, filling from the bottom
+UI.ring(cx, cy, radius, frac, color, width)         -- an arc `frac` of the way round from the top
 ```
 
 ## Events between features
