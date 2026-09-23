@@ -1,6 +1,12 @@
 -- The driving scene. All cars are simulated by the server; this state sends
 -- local input, smooths the snapshots it receives, draws everyone, and gives
 -- features their hooks. Keep gameplay out of here: put it in src/features/.
+--
+-- Esc opens the pause menu over the world: resume, leave the game (which
+-- ends it for everyone when you are the host) or quit to the desktop. The
+-- game is not actually paused -- nothing pauses in multiplayer -- but the
+-- controls are suspended so nothing you press or click reaches the car or
+-- the gun, the network keeps flowing, and the world blurs under the menu.
 
 local State = require("src.state")
 local UI = require("src.ui")
@@ -9,12 +15,16 @@ local Car = require("src.car")
 local Features = require("src.features")
 local Audio = require("src.audio")
 local Video = require("src.video")
+local Controls = require("src.controls")
 
 local Game = {}
 
 local SMOOTHING = 12 -- per second; higher = snappier, lower = smoother
 local SNAP_DISTANCE = 200 -- a jump bigger than this is a teleport (respawn), don't ease it
 local BLUR_RATE = 6 -- per second; how fast the world softens and clears again
+local RESUME_GRACE = 0.15 -- seconds the controls stay suspended after the menu closes, so the click that
+-- closed it can't fire the gun
+local MENU_W = 300
 local BLUR_RADIUS = 3 -- px per pass at full strength (two passes each way)
 
 -- A separable 5-tap Gaussian, sampled between texels so it costs five reads.
@@ -48,12 +58,84 @@ function Game:enter()
     local ok, shader = pcall(love.graphics.newShader, BLUR_SHADER)
     self.blurShader = ok and shader or false
   end
+  self.paused = false
+  self.resumeGrace = 0
+  Controls.suspend(false)
+  self:buildMenu()
   Features.call("enterGame", Net.client)
 end
 
 function Game:exit()
+  self:setPaused(false)
+  self.resumeGrace = 0
+  Controls.suspend(false) -- no update is coming to run the grace out
   Features.call("exitGame", Net.client)
   love.audio.setPosition(0, 0, 0)
+end
+
+-- Pause menu ----------------------------------------------------------------
+
+function Game:buildMenu()
+  self.menu = {
+    UI.button({ label = "Resume", w = MENU_W, onClick = function()
+      self:setPaused(false)
+    end }),
+    UI.button({ label = Net.isHost() and "End game for everyone" or "Leave game", w = MENU_W, onClick = function()
+      Net.shutdown()
+      State.switch("menu")
+    end }),
+    UI.button({ label = "Quit to desktop", w = MENU_W, onClick = function()
+      love.event.quit()
+    end }),
+  }
+end
+
+--- Open or close the menu. The mouse is handed back to the desktop while it
+--- is up (a feature may have grabbed and hidden it) and restored after.
+function Game:setPaused(on)
+  if on == self.paused then
+    return
+  end
+  self.paused = on
+  if on then
+    self.mouseWas = { grabbed = love.mouse.isGrabbed(), visible = love.mouse.isVisible() }
+    love.mouse.setGrabbed(false)
+    love.mouse.setVisible(true)
+    Controls.suspend(true)
+  else
+    if self.mouseWas then
+      love.mouse.setGrabbed(self.mouseWas.grabbed)
+      love.mouse.setVisible(self.mouseWas.visible)
+      self.mouseWas = nil
+    end
+    self.resumeGrace = RESUME_GRACE -- Controls.suspend(false) once it runs out
+  end
+end
+
+function Game:layoutMenu()
+  local w, h = love.graphics.getDimensions()
+  local x = math.floor((w - MENU_W) / 2)
+  local y = math.floor(h / 2) - 40
+  for i, b in ipairs(self.menu) do
+    b.x, b.y = x, y + (i - 1) * 56
+  end
+end
+
+function Game:drawMenu()
+  local w, h = love.graphics.getDimensions()
+  self:layoutMenu()
+  love.graphics.setColor(0, 0, 0, 0.45)
+  love.graphics.rectangle("fill", 0, 0, w, h)
+  love.graphics.setFont(UI.fonts.title)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.printf("PAUSED", 0, math.floor(h / 2) - 130, w, "center")
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  love.graphics.printf("The game carries on without you: get back in it.", 0, math.floor(h / 2) - 72, w, "center")
+  for _, b in ipairs(self.menu) do
+    b:draw()
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Game:update(dt)
@@ -64,6 +146,15 @@ function Game:update(dt)
     return
   end
 
+  if self.resumeGrace > 0 then
+    self.resumeGrace = self.resumeGrace - dt
+    if self.resumeGrace <= 0 and not self.paused then
+      Controls.suspend(false)
+    end
+  end
+
+  -- With the controls suspended this reads as hands off the wheel, which is
+  -- what the server should hear while the menu is up.
   local throttle, steer, handbrake = Car.readInput()
   client:sendInput(throttle, steer, dt, handbrake)
 
@@ -94,7 +185,7 @@ function Game:update(dt)
 
   -- How soft a feature wants the world (weapons, while you are wrecked),
   -- eased so it never snaps in or out.
-  local target = 0
+  local target = self.paused and 1 or 0
   for _, f in ipairs(Features.list) do
     if f.worldBlur then
       target = math.max(target, math.min(1, f:worldBlur(client) or 0))
@@ -183,6 +274,10 @@ function Game:draw()
     self:drawWorld(client, w, h)
   end
 
+  if self.paused then
+    self:drawMenu() -- and no HUD under it: the menu is the whole screen
+    return
+  end
   Features.call("drawHUD", client)
 
   local me = client:myCar()
@@ -210,14 +305,24 @@ end
 
 function Game:keypressed(key)
   if key == "escape" then
-    Net.shutdown()
-    State.switch("menu")
+    self:setPaused(not self.paused)
     return
+  end
+  if self.paused then
+    return -- the menu owns the keyboard
   end
   Features.call("keypressed", key, Net.client)
 end
 
 function Game:mousepressed(x, y, button)
+  if self.paused then
+    for _, b in ipairs(self.menu) do
+      if b:mousepressed(x, y, button) then
+        return
+      end
+    end
+    return
+  end
   Features.call("mousepressed", x, y, button, Net.client)
 end
 

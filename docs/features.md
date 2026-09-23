@@ -54,7 +54,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
-| `keypressed(key, client)` | Key press in the game (Esc is taken). |
+| `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 | `hidesCarLabel(client, id)` | Asked while drawing player `id`'s car: return true to keep the core from printing their name over it, because your feature draws them elsewhere (on-foot does, while they are out walking). |
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
