@@ -90,6 +90,14 @@ function Crowd:spawn(x, y)
   return p
 end
 
+--- Everyone off the street at once (a map with no crowd).
+function Crowd:clear()
+  for i = self.n, 1, -1 do
+    self.peds[i] = nil
+  end
+  self.n = 0
+end
+
 function Crowd:remove(i)
   local n = self.n
   self.peds[i] = self.peds[n]

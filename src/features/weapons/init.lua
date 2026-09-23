@@ -422,6 +422,21 @@ function Weapons:serverPlayerJoined(_server, player)
   end
 end
 
+--- Everyone was moved to another map (city-map's `mapChanged`; the host
+--- passes `server`, clients get nil). The cars now stand on the new map's
+--- spawn points, so that is where wrecks come back from now.
+function Weapons:mapChanged(_map, server)
+  if not (server and self.sv) then
+    return
+  end
+  for id, st in pairs(self.sv.players) do
+    local p = server.players[id]
+    if p and p.car then
+      st.spawn = { x = p.car.x, y = p.car.y, angle = p.car.angle }
+    end
+  end
+end
+
 function Weapons:serverPlayerLeft(_server, player)
   if self.sv then
     self.sv.players[player.id] = nil

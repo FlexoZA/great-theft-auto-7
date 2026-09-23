@@ -5,17 +5,25 @@
 -- (with alleys), parks (with trees) or parking lots. Everything solid ends
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
--- World origin is the centre of the map; the central crossroads sits on it.
+-- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
+-- traffic }) so the same generator builds every map the game knows
+-- (city-map's `maps` table lists them); a bare number is the seed of a
+-- city-sized map. An `empty` map is open ground inside the same walls: every
+-- tile is "ground", no blocks. `crowd = false` and `traffic = false` keep
+-- pedestrians, officers and NPC cars off it (those features read the flags).
+--
+-- World origin is the centre of the map. The east-west road nearest the
+-- middle runs through it, and the cars spawn along that road.
 
 local Layout = {}
 
 Layout.TILE = 64
-Layout.COLS, Layout.ROWS = 52, 42 -- 3328 x 2688 px
+Layout.COLS, Layout.ROWS = 52, 42 -- 3328 x 2688 px, unless the spec says otherwise
 Layout.PERIOD = 10 -- tiles between road centrelines: 2 road + 8 block
 Layout.SEED = 7
 Layout.CELL = 256 -- collision bucket size, px
 -- Blocks (column, row of blocks) left empty as plots for sale: the four
--- corners of the city, each ringed by four streets.
+-- corners of the city, each ringed by four streets. A spec may list its own.
 Layout.PLOTS = { { 0, 0 }, { 4, 0 }, { 0, 3 }, { 4, 3 } }
 -- How many blocks the city may grow past its original edge on each side.
 -- Keeps the drawn map within a texture every graphics card can hold.
@@ -92,7 +100,7 @@ local function clearPlots(map)
     return kept
   end
   for _, block in ipairs(map.blocks) do
-    for _, p in ipairs(Layout.PLOTS) do
+    for _, p in ipairs(map.plots) do
       if block.bi == p[1] and block.bj == p[2] then
         block.kind = "plot"
         local x0, y0 = map.x0 + block.tx * T, map.y0 + block.ty * T
@@ -180,25 +188,38 @@ local function finish(map)
   end
 end
 
-function Layout.generate(seed)
-  local rng = love.math.newRandomGenerator(seed or Layout.SEED)
-  local T = Layout.TILE
-  local W, H = Layout.COLS * T, Layout.ROWS * T
+--- Build a map. `spec` is { seed, cols, rows, plots, empty } (every field
+--- optional, defaulting to the city above) or just a seed.
+function Layout.generate(spec)
+  if type(spec) ~= "table" then
+    spec = { seed = spec }
+  end
+  local rng = love.math.newRandomGenerator(spec.seed or Layout.SEED)
+  local T, P = Layout.TILE, Layout.PERIOD
+  local cols, rows = spec.cols or Layout.COLS, spec.rows or Layout.ROWS
+  local empty = spec.empty or false
+  local W, H = cols * T, rows * T
   local map = {
+    cols = cols, -- original size in tiles; the city may grow past it
+    rows = rows,
+    empty = empty, -- open ground: every tile "ground", nothing built on it
+    crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
+    plots = spec.plots or (empty and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
     x0 = -W / 2, -- world x of tile column 0 (the original left edge)
     y0 = -H / 2,
     -- Tile bounds of the city (inclusive) and the same in world px. They
     -- move when the city grows; the tile origin x0, y0 never does.
     c0 = 0,
-    c1 = Layout.COLS - 1,
+    c1 = cols - 1,
     r0 = 0,
-    r1 = Layout.ROWS - 1,
+    r1 = rows - 1,
     left = -W / 2,
     top = -H / 2,
     w = W,
     h = H,
     version = 1, -- bumped on every change, so drawings know to redo themselves
-    tiles = {}, -- [c][r] = "road" | "walk" | "core" (block interior); nil outside the city
+    tiles = {}, -- [c][r] = "road" | "walk" | "core" (block interior) | "ground" (open field); nil outside the city
     blocks = {}, -- { tx, ty, tw, th, bi, bj, kind = "buildings"|"park"|"lot"|"plot" }
     blockAt = {}, -- "bi,bj" -> block
     grown = {}, -- { bi, bj } in the order the city grew
@@ -208,10 +229,10 @@ function Layout.generate(seed)
     spawns = {}, -- { x, y, angle }
   }
 
-  for c = 0, Layout.COLS - 1 do
+  for c = 0, cols - 1 do
     map.tiles[c] = {}
-    for r = 0, Layout.ROWS - 1 do
-      map.tiles[c][r] = kindAt(c, r)
+    for r = 0, rows - 1 do
+      map.tiles[c][r] = empty and "ground" or kindAt(c, r)
     end
   end
 
@@ -222,11 +243,11 @@ function Layout.generate(seed)
     return map.y0 + ty * T
   end
 
-  -- Blocks: core is tiles 3..8 of each 10-tile period (6x6).
-  for bi = 0, math.floor((Layout.COLS - 1) / Layout.PERIOD) do
-    for bj = 0, math.floor((Layout.ROWS - 1) / Layout.PERIOD) do
-      local cx, cy = bi * Layout.PERIOD + 3, bj * Layout.PERIOD + 3
-      if cx + 6 <= Layout.COLS and cy + 6 <= Layout.ROWS then
+  -- Blocks: core is tiles 3..8 of each 10-tile period (6x6). None on open ground.
+  for bi = 0, empty and -1 or math.floor((cols - 1) / P) do
+    for bj = 0, math.floor((rows - 1) / P) do
+      local cx, cy = bi * P + 3, bj * P + 3
+      if cx + 6 <= cols and cy + 6 <= rows then
         local roll = rng:random()
         local block = { tx = cx, ty = cy, tw = 6, th = 6, bi = bi, bj = bj }
         if roll < 0.15 then
@@ -267,10 +288,20 @@ function Layout.generate(seed)
 
   clearPlots(map)
 
-  -- Spawns: both lanes of the central east-west road, either side of the crossroads.
+  -- Spawns: both lanes of the east-west road nearest the middle of the map,
+  -- either side of its centre. Road rows come in pairs at every PERIOD, so
+  -- the pair nearest the middle row is the one the origin sits on (or the
+  -- closest to it when the height is not a multiple of the period). Open
+  -- ground has no roads; the same rows serve, they are just grass there.
+  local roadRow = math.floor((math.floor(rows / 2) + P / 2) / P) * P
+  roadRow = math.max(0, math.min(roadRow, rows - 2))
+  map.cx, map.cy = 0, map.y0 + (roadRow + 1) * T -- the middle of that road, on the map's centre line
   for i = 0, 7 do
-    map.spawns[#map.spawns + 1] = { x = -120 - i * 90, y = 32, angle = 0 }
-    map.spawns[#map.spawns + 1] = { x = 120 + i * 90, y = -32, angle = math.pi }
+    local dx = 120 + i * 90
+    if dx + 60 < W / 2 then -- stay inside narrow maps
+      map.spawns[#map.spawns + 1] = { x = map.cx - dx, y = map.cy + 32, angle = 0 }
+      map.spawns[#map.spawns + 1] = { x = map.cx + dx, y = map.cy - 32, angle = math.pi }
+    end
   end
 
   map.fixed = map.solids -- buildings and trees; the walls are rebuilt as the city grows
@@ -283,8 +314,8 @@ end
 --- original edge. Returns the neighbour it would grow from, or nil.
 function Layout.canGrow(map, bi, bj)
   local P = Layout.PERIOD
-  local maxI = math.floor((Layout.COLS - 1) / P) - 1 + Layout.GROW
-  local maxJ = math.floor((Layout.ROWS - 1) / P) - 1 + Layout.GROW
+  local maxI = math.floor((map.cols - 1) / P) - 1 + Layout.GROW
+  local maxJ = math.floor((map.rows - 1) / P) - 1 + Layout.GROW
   if map.blockAt[bi .. "," .. bj] or bi < -Layout.GROW or bj < -Layout.GROW or bi > maxI or bj > maxJ then
     return nil
   end

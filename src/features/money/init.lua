@@ -391,6 +391,18 @@ function Money:serverStart()
   sv = { coins = {}, n = 0, nextId = 1, wallets = {}, reach = {}, time = 0 }
 end
 
+--- Everyone was moved to another map (city-map's `mapChanged`; the host
+--- passes `server`, clients get nil): koins lying on the old one are swept.
+function Money:mapChanged(_map, server)
+  if not (server and sv) then
+    return
+  end
+  for id in pairs(sv.coins) do
+    server:broadcast(Protocol.encode("FCK_GONE", id))
+  end
+  sv.coins, sv.n = {}, 0
+end
+
 --- A player's pickup radius scale on the host, 1 to start with.
 function Money:reachOf(id)
   return sv and sv.reach[id] or 1

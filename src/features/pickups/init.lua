@@ -11,6 +11,7 @@
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y>
 --   server -> all  PK_TAKE  <id> <playerId>
+--   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -167,6 +168,9 @@ Pickups.clientMessages = {
       Pickups.items[id] = { kind = kind, x = x, y = y }
     end
   end,
+  PK_CLEAR = function()
+    Pickups.items = {}
+  end,
   PK_TAKE = function(client, args)
     local id, by = tonumber(args[1]), tonumber(args[2])
     local it = id and Pickups.items[id]
@@ -234,6 +238,23 @@ end
 
 function Pickups:serverStart(server)
   sv = { items = {}, nextId = 1, pending = {}, time = 0 }
+  for _ = 1, self.count do
+    spawnOne(server, "health")
+  end
+  for _ = 1, self.staminaCount do
+    spawnOne(server, "stamina")
+  end
+end
+
+--- Everyone was moved to another map (city-map's `mapChanged`; the host
+--- passes `server`, clients get nil): what lay on the old roads is swept
+--- and a fresh set is scattered over the new map.
+function Pickups:mapChanged(_map, server)
+  if not (server and sv) then
+    return
+  end
+  sv.items, sv.pending = {}, {}
+  server:broadcast(Protocol.encode("PK_CLEAR"))
   for _ = 1, self.count do
     spawnOne(server, "health")
   end

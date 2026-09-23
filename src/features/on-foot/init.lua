@@ -355,6 +355,20 @@ function OnFoot:serverPlayerLeft(server, player)
   end
 end
 
+--- Everyone was moved to another map (city-map's `mapChanged`; the host
+--- passes `server`, clients get nil). A walker's car has gone to a spawn
+--- point and the ground under their feet may be a building now, so they
+--- are put back behind the wheel.
+function OnFoot:mapChanged(_map, server)
+  if not (server and self.sv) then
+    return
+  end
+  for id in pairs(self.sv.onFoot) do
+    self.sv.onFoot[id] = nil
+    server:broadcast(Protocol.encode("OF_IN", server.tick, id))
+  end
+end
+
 --- Give a walking player back up to `amount` stamina and their breath with
 --- it (a blown bar can sprint again at once). Returns true if any was
 --- gained, so a pickup knows whether it was used; false for a driver, who

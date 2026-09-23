@@ -18,6 +18,8 @@ local C = {
   canopyLight = { 0.28, 0.52, 0.24 },
   lot = { 0.22, 0.22, 0.24 },
   bay = { 0.75, 0.75, 0.72 },
+  ground = { 0.36, 0.46, 0.27 }, -- open field
+  groundDark = { 0.31, 0.40, 0.23 },
   dirt = { 0.45, 0.37, 0.27 },
   dirtDark = { 0.39, 0.32, 0.23 },
   stake = { 0.85, 0.80, 0.70 },
@@ -37,11 +39,19 @@ local function drawRoads(map)
   local T = Layout.TILE
   local P = Layout.PERIOD
   -- Tarmac and sidewalk, tile by tile: the city need not be a rectangle.
+  -- Open ground gets a worn patch here and there so driving reads as moving.
   for c = map.c0, map.c1 do
     local col = map.tiles[c]
     for r = map.r0, map.r1 do
       local kind = col and col[r]
-      if kind then
+      if kind == "ground" then
+        color(C.ground)
+        love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
+        if (c * 31 + r * 17) % 5 == 0 then
+          color(C.groundDark)
+          love.graphics.rectangle("fill", map.x0 + c * T + (c * 7) % 24, map.y0 + r * T + (r * 11) % 24, 36, 28)
+        end
+      elseif kind then
         color(kind == "road" and C.asphalt or C.walk)
         love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
       end
