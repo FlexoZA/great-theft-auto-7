@@ -7,6 +7,12 @@
 -- goes down she spills a pile of koins, far more than anything else drops,
 -- and the quest is done.
 --
+-- She also screams. Every so often she plants her feet and draws breath at
+-- whoever is nearest: a ring on the ground shows where the scream will
+-- land, and a moment later it does. Anyone caught inside is hurt and their
+-- screen swims for a few seconds (the `worldBlur` hook), so a scream is
+-- something to step out of, not stand in.
+--
 -- She is not alone: while she stands, her simps turn up (simps.lua), up to
 -- five at a time, each with a name that starts "Simpin". They run at the
 -- nearest player and punch; two pistol rounds drop one. Once she is down
@@ -28,6 +34,8 @@
 --   server -> all  KRN_SAY   <lineIndex>                          a rant, for the speech bubble
 --   server -> all  KRN_DOWN  <x> <y> <angle> <playerId>            she went down (0 = nobody's kill)
 --   server -> all  KRN_GONE                                       she left with the map
+--   server -> all  KRN_SCREAM_AIM <x> <y> <radius> <delay>          she is drawing breath: it lands here
+--   server -> all  KRN_SCREAM <x> <y> <radius> [<playerId>]...      it landed; these were caught in it
 --   server -> all  KRN_SIMP  <id> <name>                           a simp arrived (also to anyone joining)
 --   server -> all  KRN_SIMPS <tick> [<id> <x> <y> <facing> <hp> <swing>]...  (unreliable, 15 Hz; empty = all gone)
 --   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
@@ -41,6 +49,7 @@ local Car = require("src.car")
 local KarenFace = require("src.features.karen.face")
 local Theme = require("src.features.karen.theme")
 local Simps = require("src.features.karen.simps")
+local Sounds = require("src.features.karen.sounds")
 
 local Karen = {
   name = "karen",
@@ -62,6 +71,12 @@ Karen.ramDamageToCar = 12 -- hp the car loses hitting her
 Karen.drops = 30 -- koins she spills when she goes down (a pedestrian drops one, an officer three)
 Karen.introTime = 9 -- seconds the title screen stays up unless a key is pressed
 Karen.sayTime = 3.2 -- seconds a rant hangs over her head
+Karen.screamEvery = 8 -- seconds between screams
+Karen.screamRange = 520 -- px; she screams at anyone this close
+Karen.screamDelay = 1.2 -- seconds the ring shows before the scream lands
+Karen.screamRadius = 120 -- px; the area it lands on
+Karen.screamDamage = 20
+Karen.screamBlur = 3 -- seconds the screen swims for anyone caught
 
 -- What she is on about. None of it makes any sense; that is the point.
 Karen.lines = {
@@ -174,6 +189,8 @@ function Karen:spawnBoss(server, x, y)
     sidestep = 0,
     side = 1,
     frozen = 0, -- seconds left rooted to the spot
+    screamTimer = self.screamEvery * 0.6, -- the first comes a little sooner
+    scream = nil, -- { x, y, t } while she is drawing breath
     rammed = {}, -- player id -> seconds before that car can hurt her again
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
@@ -381,7 +398,23 @@ function Karen:serverStep(server, dt)
   if (b.frozen or 0) > 0 then
     b.frozen = b.frozen - dt -- frozen: no charging, no slapping
     b.charging = false
+  elseif b.scream then
+    -- Feet planted, drawing breath; when the time is up it lands.
+    b.charging = false
+    b.scream.t = b.scream.t - dt
+    if b.scream.t <= 0 then
+      self:scream(server, b)
+    end
   elseif target and d2 <= self.aggroRange ^ 2 then
+    b.screamTimer = b.screamTimer - dt
+    if b.screamTimer <= 0 and d2 <= self.screamRange ^ 2 then
+      b.screamTimer = self.screamEvery
+      b.scream = { x = tx, y = ty, t = self.screamDelay }
+      b.facing = math.atan2(ty - b.y, tx - b.x)
+      server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(tx), fmt(ty), self.screamRadius,
+        ("%.2f"):format(self.screamDelay)))
+      return self:finishStep(server, b, dt)
+    end
     b.charging = true
     b.facing = math.atan2(ty - b.y, tx - b.x)
     local dist = math.sqrt(d2)
@@ -412,7 +445,33 @@ function Karen:serverStep(server, dt)
     server:broadcast(Protocol.encode("KRN_SAY", love.math.random(#self.lines)))
   end
 
-  self:rams(server, b, dt)
+  self:finishStep(server, b, dt)
+end
+
+--- The scream lands: everyone inside the area is hurt and told so.
+function Karen:scream(server, b)
+  local sc = b.scream
+  b.scream = nil
+  local caught = {}
+  local weapons = Features.byName.weapons
+  for id, p in pairs(server.players) do
+    if Features.present(p) then
+      local x, y, onFoot = Features.bodyPose(server, p)
+      local pad = onFoot and 7 or Car.WIDTH / 2
+      if (x - sc.x) ^ 2 + (y - sc.y) ^ 2 <= (self.screamRadius + pad) ^ 2 then
+        caught[#caught + 1] = id
+        if weapons and weapons.serverDamage then
+          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x))
+        end
+      end
+    end
+  end
+  server:broadcast(Protocol.encode("KRN_SCREAM", fmt(sc.x), fmt(sc.y), self.screamRadius, unpack(caught)))
+end
+
+--- The rest of her tick: cars hitting her, and her state to everyone.
+function Karen:finishStep(server, b, dt)
+  self:rams(server, b, dt or 0)
   b = sv.boss
   if not b then
     return -- a ram finished her
@@ -439,6 +498,9 @@ Karen.intro = nil -- { t, line } while the title screen is up
 Karen.stain = nil -- { x, y, angle } where she went down
 Karen.simps = {} -- id -> { name, x, y, dx, dy, angle, hp, swing, bob }
 Karen.simpNames = {} -- id -> name, from KRN_SIMP (it lands before the first KRN_SIMPS)
+Karen.screamAim = nil -- { x, y, r, t, total } while a scream is coming
+Karen.screams = {} -- { x, y, r, t }: screams that just landed, for the rings
+Karen.screamed = 0 -- seconds my screen still swims
 local face, music = nil, nil
 local time, lastTick, lastSimpTick = 0, 0, 0
 
@@ -461,9 +523,14 @@ local function stopMusic()
   end
 end
 
+function Karen:load()
+  Sounds.load()
+end
+
 function Karen:exitGame()
   self.boss, self.intro, self.stain = nil, nil, nil
   self.simps, self.simpNames = {}, {}
+  self.screamAim, self.screams, self.screamed = nil, {}, 0
   lastTick, lastSimpTick = 0, 0
   stopMusic()
 end
@@ -483,6 +550,7 @@ function Karen:questEnded(_client, quest)
   if quest.boss == "karen" then
     self.intro, self.boss, self.stain = nil, nil, nil
     self.simps, self.simpNames = {}, {}
+    self.screamAim, self.screams, self.screamed = nil, {}, 0
     stopMusic()
   end
 end
@@ -510,6 +578,20 @@ function Karen:update(dt)
     end
     b.sayTimer = math.max(0, b.sayTimer - dt)
   end
+  if self.screamAim then
+    self.screamAim.t = self.screamAim.t - dt
+    if self.screamAim.t <= -0.5 then
+      self.screamAim = nil -- the landing never came (she went down first)
+    end
+  end
+  for i = #self.screams, 1, -1 do
+    local sc = self.screams[i]
+    sc.t = sc.t + dt
+    if sc.t > 0.7 then
+      table.remove(self.screams, i)
+    end
+  end
+  self.screamed = math.max(0, self.screamed - dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(self.simps) do
     local ex, ey = s.x - s.dx, s.y - s.dy
@@ -528,8 +610,13 @@ function Karen:keypressed()
   end
 end
 
+--- The title screen is soft; so is the world while a scream rings in my
+--- ears, easing back as it fades.
 function Karen:worldBlur()
-  return self.intro and 1 or 0
+  if self.intro then
+    return 1
+  end
+  return math.min(1, self.screamed / self.screamBlur * 1.5)
 end
 
 Karen.clientMessages = {
@@ -571,6 +658,28 @@ Karen.clientMessages = {
   end,
   KRN_GONE = function()
     Karen.boss = nil
+    Karen.screamAim = nil
+  end,
+  KRN_SCREAM_AIM = function(_client, args)
+    local x, y, r, delay = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and r and delay then
+      Karen.screamAim = { x = x, y = y, r = r, t = delay, total = delay }
+    end
+  end,
+  KRN_SCREAM = function(client, args)
+    local x, y, r = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if not (x and y and r) then
+      return
+    end
+    Karen.screamAim = nil
+    Karen.screams[#Karen.screams + 1] = { x = x, y = y, r = r, t = 0 }
+    local b = Karen.boss
+    Sounds.play("scream", b and b.dx or x, b and b.dy or y, 0.95 + love.math.random() * 0.1)
+    for i = 4, #args do
+      if tonumber(args[i]) == client.myId then
+        Karen.screamed = Karen.screamBlur
+      end
+    end
   end,
   KRN_SIMP = function(_client, args)
     local id, name = tonumber(args[1]), args[2]
@@ -627,10 +736,29 @@ Karen.clientMessages = {
 
 -- Drawing ---------------------------------------------------------------------
 
+--- The ring on the ground where a scream is about to land: it fills as
+--- she draws breath, so there is time to step out.
+local function drawScreamAim(aim)
+  local k = 1 - math.max(0, aim.t) / aim.total
+  local pulse = 0.5 + 0.5 * math.sin(time * 14)
+  love.graphics.setColor(0.95, 0.35, 0.6, 0.12 + 0.08 * pulse)
+  love.graphics.circle("fill", aim.x, aim.y, aim.r, 48)
+  love.graphics.setColor(0.95, 0.35, 0.6, 0.35)
+  love.graphics.circle("fill", aim.x, aim.y, aim.r * k, 48)
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(1, 0.55, 0.75, 0.6 + 0.4 * pulse)
+  love.graphics.circle("line", aim.x, aim.y, aim.r, 48)
+  love.graphics.setLineWidth(1)
+end
+
 --- Where she went down: a wide stain and what is left of the outfit.
 function Karen:drawBelowCars()
+  if self.screamAim then
+    drawScreamAim(self.screamAim)
+  end
   local s = self.stain
   if not s then
+    love.graphics.setColor(1, 1, 1)
     return
   end
   love.graphics.setColor(0.55, 0.08, 0.10, 0.85)
@@ -701,9 +829,26 @@ end
 --- Karen from above: a big body in a leopard-print top, arms out, a
 --- handbag, a blonde bob, sunglasses on the head. She waddles; charging,
 --- she waddles fast. Her simps are drawn first, so she is never under one.
+--- A scream that just landed: rings spreading out over the area.
+local function drawScream(sc)
+  local k = sc.t / 0.7
+  love.graphics.setLineWidth(3)
+  for i = 0, 2 do
+    local kk = k - i * 0.15
+    if kk > 0 and kk < 1 then
+      love.graphics.setColor(1, 0.55, 0.75, (1 - kk) * 0.9)
+      love.graphics.circle("line", sc.x, sc.y, sc.r * (0.2 + 0.9 * kk), 48)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
 function Karen:drawAboveCars()
   for _, s in pairs(self.simps) do
     drawSimp(s)
+  end
+  for _, sc in ipairs(self.screams) do
+    drawScream(sc)
   end
   local b = self.boss
   if not b then
