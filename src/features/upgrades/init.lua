@@ -1,12 +1,14 @@
--- Upgrades: spend your Fcks on a bigger body. P opens the shop over the
--- game; 1 buys the next level of health, 2 the next level of stamina, P
+-- Upgrades: spend your Fcks on a bigger body and a longer arm. P opens the
+-- shop over the game; 1 buys the next level of health, 2 the next level of
+-- stamina, 3 the next level of koin reach (how far a koin jumps to you), P
 -- closes it again. Each level costs more than the last and there are five
 -- of each, so a full set is a serious amount of roadkill.
 --
 -- The host owns the sale: it checks the wallet (money), takes the koins and
 -- raises the ceiling through the feature that owns it -- weapons for health,
--- on-foot for stamina -- which broadcast the new maximum themselves. This
--- feature only remembers the level each player is at and draws the shop.
+-- on-foot for stamina, money itself for reach -- which broadcast the new
+-- value themselves. This feature only remembers the level each player is
+-- at and draws the shop.
 -- Nothing is bought on the client's say-so; a client that asks for what it
 -- can't afford just hears a buzz.
 --
@@ -31,11 +33,25 @@ local Upgrades = {
 }
 
 -- Tuning ------------------------------------------------------------------
--- What each kind starts at, what a level adds, and what each level costs.
--- The cost list is as long as there are levels.
+-- What each kind starts at, what a level adds, how a value reads on the shop
+-- and what each level costs. The cost list is as long as there are levels.
+-- Reach is a percentage of the money feature's base pickup radius.
 Upgrades.kinds = {
-  { key = "health", label = "Health", unit = "HP", base = 100, step = 20, costs = { 5, 8, 12, 16, 20 } },
-  { key = "stamina", label = "Stamina", unit = "stamina", base = 100, step = 25, costs = { 4, 6, 9, 12, 15 } },
+  {
+    key = "health", label = "Health", base = 100, step = 20, costs = { 5, 8, 12, 16, 20 },
+    action = "buy-health", defaultKey = "1",
+    show = function(v) return ("%d HP"):format(v) end,
+  },
+  {
+    key = "stamina", label = "Stamina", base = 100, step = 25, costs = { 4, 6, 9, 12, 15 },
+    action = "buy-stamina", defaultKey = "2",
+    show = function(v) return ("%d stamina"):format(v) end,
+  },
+  {
+    key = "reach", label = "Koin reach", base = 100, step = 40, costs = { 3, 5, 8, 11, 14 },
+    action = "buy-reach", defaultKey = "3",
+    show = function(v) return ("x%.1f reach"):format(v / 100) end,
+  },
 }
 Upgrades.byKey = {}
 for i, k in ipairs(Upgrades.kinds) do
@@ -61,8 +77,9 @@ Upgrades.flashKind = nil
 function Upgrades:load()
   Sounds.load()
   Controls.register("upgrades", "Open / close the upgrade shop", "p")
-  Controls.register("buy-health", "Buy health (shop open)", "1")
-  Controls.register("buy-stamina", "Buy stamina (shop open)", "2")
+  for _, kind in ipairs(self.kinds) do
+    Controls.register(kind.action, "Buy " .. kind.label:lower() .. " (shop open)", kind.defaultKey)
+  end
 end
 
 function Upgrades:enterGame()
@@ -106,14 +123,11 @@ function Upgrades:keypressed(key, client)
   if not self.open or not client then
     return
   end
-  local kind
-  if Controls.is("buy-health", key) then
-    kind = "health"
-  elseif Controls.is("buy-stamina", key) then
-    kind = "stamina"
-  end
-  if kind then
-    self:tryBuy(client, kind)
+  for _, kind in ipairs(self.kinds) do
+    if Controls.is(kind.action, key) then
+      self:tryBuy(client, kind.key)
+      return
+    end
   end
 end
 
@@ -171,13 +185,13 @@ local function drawRow(self, kind, x, y, w, level, purse, keyName)
   end
 
   love.graphics.setFont(UI.fonts.small)
-  local now = valueAt(kind, level)
+  local now = kind.show(valueAt(kind, level))
   if maxed then
     love.graphics.setColor(1, 0.85, 0.3, 0.9)
-    love.graphics.printf(("%d %s   MAX"):format(now, kind.unit), x, y + 2, w, "right")
+    love.graphics.printf(now .. "   MAX", x, y + 2, w, "right")
   else
     love.graphics.setColor(1, 1, 1, dim)
-    love.graphics.printf(("%d -> %d %s"):format(now, valueAt(kind, level + 1), kind.unit), x, y + 2, w, "right")
+    love.graphics.printf(now .. " -> " .. kind.show(valueAt(kind, level + 1)), x, y + 2, w, "right")
     if affordable then
       love.graphics.setColor(1, 0.85, 0.3)
     else
@@ -198,7 +212,7 @@ function Upgrades:drawHUD(client)
   end
 
   local w, h = love.graphics.getDimensions()
-  local pw, ph = 400, 240
+  local pw, ph = 400, 110 + #self.kinds * 58 + 46
   local px, py = math.floor((w - pw) / 2), math.floor((h - ph) / 2)
   local purse = wallet(client)
 
@@ -218,8 +232,7 @@ function Upgrades:drawHUD(client)
 
   local rowX, rowW = px + 24, pw - 48
   for i, kind in ipairs(self.kinds) do
-    local action = kind.key == "health" and "buy-health" or "buy-stamina"
-    local keyName = Controls.name(Controls.bindings(action)[1])
+    local keyName = Controls.name(Controls.bindings(kind.action)[1])
     drawRow(self, kind, rowX, py + 84 + (i - 1) * 58, rowW, self:levelOf(client.myId, kind.key), purse, keyName)
   end
 
@@ -281,6 +294,11 @@ local function apply(server, player, kind, level)
     local onFoot = Features.byName["on-foot"]
     if onFoot and onFoot.serverSetMaxStamina then
       onFoot:serverSetMaxStamina(server, player, value)
+    end
+  elseif kind.key == "reach" then
+    local money = Features.byName.money
+    if money and money.serverSetReach then
+      money:serverSetReach(server, player, value / 100)
     end
   end
 end
