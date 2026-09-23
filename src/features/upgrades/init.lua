@@ -101,7 +101,7 @@ end
 --- Koins in my wallet, as the money feature last told me.
 local function wallet(client)
   local money = Features.byName.money
-  return money and money.wallets and money.wallets[client.myId] or 0
+  return money and money.mine and money:mine(client) or 0
 end
 
 function Upgrades:update(dt)
@@ -318,7 +318,7 @@ function Upgrades:serverBuy(server, player, key)
     return false, "maxed"
   end
   local money = Features.byName.money
-  if not (money and money.spend and money:spend(server, player.id, cost)) then
+  if not (money and money.spend and money:spend(server, player.id, cost, kind.label:lower())) then
     return false, "broke"
   end
   levels[key] = level + 1
