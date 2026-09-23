@@ -93,13 +93,28 @@ local function bindingDown(binding)
   return ok and down
 end
 
+--- While suspended (the pause menu is up) every action reads as neither
+--- held nor pressed, so a feature that only ever asks this module sees the
+--- player let go of everything without knowing why.
+Controls.suspended = false
+
+function Controls.suspend(on)
+  Controls.suspended = on and true or false
+end
+
 function Controls.isDown(key)
+  if Controls.suspended then
+    return false
+  end
   local b = Controls.bindings(key)
   return bindingDown(b[1]) or bindingDown(b[2])
 end
 
 --- Does a keypressed `keyConstant` belong to `action`?
 function Controls.is(key, keyConstant)
+  if Controls.suspended then
+    return false
+  end
   local b = Controls.bindings(key)
   return keyConstant ~= nil and (b[1] == keyConstant or b[2] == keyConstant)
 end

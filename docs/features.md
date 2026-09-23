@@ -54,7 +54,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
-| `keypressed(key, client)` | Key press in the game (Esc is taken). |
+| `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 | `hidesCarLabel(client, id)` | Asked while drawing player `id`'s car: return true to keep the core from printing their name over it, because your feature draws them elsewhere (on-foot does, while they are out walking). |
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
@@ -225,6 +225,19 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
   `serverKill` with `angle` and `onFoot`.
+- `Features.byName.weapons:serverSetMaxHealth(server, player, max)` and
+  `Features.byName["on-foot"]:serverSetMaxStamina(server, player, max)`: raise
+  a player's ceiling for the rest of the game (respawns keep it). Raising it
+  tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
+  `OF_MAX` so every HUD scales. Upgrades buys both with koins.
+- `Features.byName.weapons:serverHeal(server, player, amount)` and
+  `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
+  top a player up towards their ceiling. Both return true only if anything
+  was gained, so a pickup that did nothing (full health, a drink taken from
+  behind the wheel) can stay on the road. Pickups uses both.
+- `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
+  a wallet on the host, or take koins out of it all-or-nothing (false and
+  nothing happens when they can't cover it). A shop's half of a sale.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim)`: put a
   bullet into the world from something that is not a player behind the wheel.
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit

@@ -208,13 +208,13 @@ Money.clientMessages = {
     -- A hidden wreck stops moving, so its last drawn position is the spot
     -- the koins rolled out at.
     local car = client.cars[id]
-    if lost ~= 0 and car then
+    if lost > 0 and car then
       Money.floats[#Money.floats + 1] = {
         x = car.dx,
         y = car.dy - 30,
-        text = (lost > 0 and "-" or "+") .. Money.amount(math.abs(lost)),
+        text = "-" .. Money.amount(lost),
         t = FLOAT_TIME,
-        lost = lost > 0,
+        lost = true,
       }
     end
   end,
@@ -301,29 +301,6 @@ function Money:spill(server, id, most)
   return count
 end
 
---- Take exactly `amount` koins from a player's wallet to pay for something
---- (a shop, a plot of land). All or nothing: returns false and takes none if
---- they cannot afford it. Everyone is told the new total.
-function Money:charge(server, id, amount)
-  local purse = (id and sv and sv.wallets[id]) or 0
-  if amount < 0 or purse < amount then
-    return false
-  end
-  sv.wallets[id] = purse - amount
-  server:broadcast(Protocol.encode("FCK_PURSE", id, purse - amount))
-  return true
-end
-
---- Put `amount` koins straight into a player's wallet (a cheat, a prize).
-function Money:give(server, id, amount)
-  if not (sv and id and amount > 0) then
-    return
-  end
-  local total = (sv.wallets[id] or 0) + amount
-  sv.wallets[id] = total
-  server:broadcast(Protocol.encode("FCK_PURSE", id, total))
-end
-
 --- Something died somewhere: pay out. See the `serverKill` convention in
 --- docs/features.md. Kinds this feature doesn't price are ignored.
 ---
@@ -398,6 +375,19 @@ end
 --- shop) can read it on the host.
 function Money:wallet(id)
   return sv and sv.wallets[id] or 0
+end
+
+--- Take `amount` koins out of a player's wallet, for a shop (upgrades). All
+--- or nothing: returns true and tells everyone the new total, or false and
+--- touches nothing when they can't cover it.
+function Money:spend(server, id, amount)
+  local purse = self:wallet(id)
+  if not sv or amount <= 0 or purse < amount then
+    return false
+  end
+  sv.wallets[id] = purse - amount
+  server:broadcast(Protocol.encode("FCK_PURSE", id, purse - amount))
+  return true
 end
 
 --- For tests.
