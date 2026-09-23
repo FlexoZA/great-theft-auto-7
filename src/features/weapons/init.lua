@@ -23,7 +23,9 @@
 -- Everyone starts with full magazines and no spare rounds, and comes back
 -- from the dead with a full pistol, so nobody is left unarmed for good.
 -- Without the buildings feature the reserve is bottomless. Bots, police
--- and shots nobody owns never run dry.
+-- and shots nobody owns never run dry, and nor does a player handed
+-- infinite ammo (the cheats feature does it, Weapons:serverSetInfiniteAmmo):
+-- their magazines stay full and they never reload.
 --
 -- People and cars have separate health. A shot at a driver dents the car;
 -- when a car has taken CAR_HEALTH it explodes and its driver bails out
@@ -52,6 +54,7 @@
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
+--   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -152,6 +155,7 @@ Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own re
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
+Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
@@ -184,6 +188,7 @@ function Weapons:enterGame()
   end
   self.reloading = nil
   self.ammoNotice = nil
+  self.infiniteAmmo = false
   self.camera = nil
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
@@ -235,7 +240,7 @@ end
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
   local gun = Guns.at(self.gun)
-  if self.reloading then
+  if self.reloading or self.infiniteAmmo then
     return
   elseif (self.mags[self.gun] or 0) >= gun.magazine then
     notify(self, "Magazine full")
@@ -268,7 +273,9 @@ function Weapons:tryFire(client)
     end
     return
   end
-  self.mags[self.gun] = self.mags[self.gun] - 1
+  if not self.infiniteAmmo then
+    self.mags[self.gun] = self.mags[self.gun] - 1
+  end
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
 
@@ -443,6 +450,48 @@ function Weapons:worldBlur()
   return self.deadTimer > 0 and 1 or 0
 end
 
+--- The gun in hand and what is in its magazine, centred just above the
+--- ability circles: name, rounds over magazine size, spares; red when the
+--- magazine is empty, amber with a bar across the top while it reloads.
+function Weapons:drawMagazine()
+  local w, h = love.graphics.getDimensions()
+  local gun = Guns.list[self.gun]
+  if not gun then
+    return
+  end
+  local abilities = Features.byName.abilities
+  local top = abilities and abilities.hudTop and abilities:hudTop() or (h - 80)
+  local small, body = UI.fonts.small, UI.fonts.body
+  local y = top - 8 - body:getHeight()
+  local mag, spare = self.mags[self.gun] or 0, self:reserve(self.gun)
+  local count = self.infiniteAmmo and "inf" or ("%d/%d"):format(mag, gun.magazine)
+  local extra = (not self.infiniteAmmo and spare ~= math.huge) and (" +%d"):format(spare) or ""
+  local color
+  if self.reloading then
+    color = { 1, 0.9, 0.3 }
+  elseif not self.infiniteAmmo and mag < 1 then
+    color = { 1, 0.45, 0.4 }
+  else
+    color = { 1, 1, 1 }
+  end
+  local name = gun.name .. "  "
+  local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
+  local x = math.floor((w - nameW - countW - extraW) / 2)
+  local baseline = y + body:getHeight() - small:getHeight() - 1
+  love.graphics.setFont(small)
+  UI.label(name, x, baseline, { 0.75, 0.75, 0.8 })
+  love.graphics.setFont(body)
+  UI.label(count, x + nameW, y, color)
+  love.graphics.setFont(small)
+  UI.label(extra, x + nameW + countW, baseline, { 0.75, 0.75, 0.8 })
+  if self.reloading then
+    local r = self.reloading
+    local bw = 90
+    UI.meter(math.floor((w - bw) / 2), y - 8, bw, 4, math.min(1, r.t / r.total), color)
+  end
+  love.graphics.setFont(small)
+end
+
 function Weapons:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
@@ -480,7 +529,9 @@ function Weapons:drawHUD(client)
     local spare = self:reserve(i)
     local label = ("%s: %s %d/%d"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name,
       self.mags[i] or 0, gun.magazine)
-    if spare ~= math.huge then
+    if self.infiniteAmmo then
+      label = ("%s: %s inf"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name)
+    elseif spare ~= math.huge then
       label = label .. (" +%d"):format(spare)
     end
     if i == self.gun and (self.mags[i] or 0) < 1 then
@@ -504,6 +555,7 @@ function Weapons:drawHUD(client)
     love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
     love.graphics.print(self.ammoNotice.text, x, 64)
   end
+  self:drawMagazine()
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -556,6 +608,12 @@ Weapons.clientMessages = {
       if Weapons.reloading and Weapons.reloading.gun == gun then
         Weapons.reloading = nil
       end
+    end
+  end,
+  WPN_INFINITE = function(_client, args)
+    Weapons.infiniteAmmo = args[1] == "1"
+    if Weapons.infiniteAmmo then
+      Weapons.reloading, Weapons.ammoNotice = nil, nil
     end
   end,
   WPN_RELOADING = function(client, args)
@@ -911,7 +969,7 @@ function Weapons:serverFire(server, player, aim)
   if Features.any("serverHeld", server, player) then
     return false -- held still (frozen): the trigger is stuck too
   end
-  local counted = not player.bot -- bots and police never run dry
+  local counted = not (player.bot or st.infiniteAmmo) -- bots, police and cheaters never run dry
   if counted and (st.reloadUntil or (st.mags[st.gun] or 0) < 1) then
     -- Reloading, or empty: nothing leaves the barrel. Put the shooter's
     -- count right, in case their prediction ran ahead.
@@ -926,6 +984,34 @@ function Weapons:serverFire(server, player, aim)
   local bx, by, onFoot = bodyPose(server, player)
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
   return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun)
+end
+
+--- Turn infinite ammo on or off for `player`, for the rest of the game
+--- (death doesn't end it). On, every magazine is filled and any reload
+--- dropped; off, they carry on from full. Other features reach this via
+--- Features.byName.weapons (cheats does). Returns the new setting, or nil
+--- for a player this feature doesn't know.
+function Weapons:serverSetInfiniteAmmo(server, player, on)
+  local st = self.sv and self.sv.players[player.id]
+  if not st then
+    return nil
+  end
+  st.infiniteAmmo = on and true or nil
+  if on then
+    st.reloadUntil = nil
+    for i, gun in ipairs(Guns.list) do
+      st.mags[i] = gun.magazine
+      server:send(player, Protocol.encode("WPN_MAG", i, gun.magazine))
+    end
+  end
+  server:send(player, Protocol.encode("WPN_INFINITE", on and 1 or 0))
+  return on and true or false
+end
+
+--- Whether `player` has infinite ammo, on the host.
+function Weapons:serverHasInfiniteAmmo(player)
+  local st = self.sv and self.sv.players[player.id]
+  return st ~= nil and st.infiniteAmmo == true
 end
 
 --- Hand `player` gun `index` on the host (bots could pick one this way).
@@ -957,7 +1043,7 @@ end
 function Weapons:serverReload(server, player)
   local sv = self.sv
   local st = sv and sv.players[player.id]
-  if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil then
+  if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
   local gun = Guns.at(st.gun)

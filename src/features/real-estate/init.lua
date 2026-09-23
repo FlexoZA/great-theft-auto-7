@@ -333,9 +333,9 @@ function RealEstate:drawHUD(client)
   if text then
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.printf(text, 1, h - 89, w, "center")
+    love.graphics.printf(text, 1, h - 129, w, "center")
     love.graphics.setColor(color)
-    love.graphics.printf(text, 0, h - 90, w, "center")
+    love.graphics.printf(text, 0, h - 130, w, "center")
     love.graphics.setColor(1, 1, 1)
   end
 end

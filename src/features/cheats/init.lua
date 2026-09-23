@@ -5,7 +5,8 @@
 -- Add a code by adding an entry to CODES. Set Cheats.enabled to false to
 -- turn them all off.
 --
---   gimmekoin  +1000 Fcks
+--   gimmekoin     +1000 Fcks
+--   infiniteammo  magazines never run out, no reloading (type it again to stop)
 --
 -- The letters still reach every other feature as ordinary key presses, so
 -- typing a code that contains E steps out of the car if it is slow enough.
@@ -26,12 +27,20 @@ Cheats.enabled = true
 
 local SHOW_TIME = 2 -- seconds the "cheat on" banner stays up
 
---- code -> function(server, player) run on the host.
+--- code -> function(server, player) run on the host. It may return what the
+--- banner says instead of the code ("infinite ammo off").
 local CODES = {
   gimmekoin = function(server, player)
     local money = Features.byName.money
     if money then
       money:give(server, player.id, 1000)
+    end
+  end,
+  infiniteammo = function(server, player)
+    local weapons = Features.byName.weapons
+    if weapons and weapons.serverSetInfiniteAmmo then
+      local on = weapons:serverSetInfiniteAmmo(server, player, not weapons:serverHasInfiniteAmmo(player))
+      return on and "infinite ammo on" or "infinite ammo off"
     end
   end,
 }
@@ -84,8 +93,8 @@ Cheats.serverMessages = {
   CHEAT = function(server, player, args)
     local run = Cheats.enabled and CODES[args[1] or ""]
     if run and player.body then
-      run(server, player)
-      server:send(player, Protocol.encode("CHEAT_OK", args[1]))
+      local said = run(server, player)
+      server:send(player, Protocol.encode("CHEAT_OK", said or args[1]))
     end
   end,
 }

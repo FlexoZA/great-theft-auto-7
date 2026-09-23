@@ -194,6 +194,12 @@ function Abilities:drawAboveCars(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The y of the top of the circle row (their glow included), so a feature
+--- can sit something just above the abilities.
+function Abilities:hudTop()
+  return love.graphics.getHeight() - self.hudBottom - self.hudRadius - 8
+end
+
 function Abilities:drawHUD(client)
   -- A row of circles along the bottom centre, one per slot. The key sits
   -- in the circle and the title under it; on cast the ring empties and
