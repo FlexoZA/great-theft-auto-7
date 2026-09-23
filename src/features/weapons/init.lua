@@ -257,6 +257,12 @@ function Weapons:drawAboveCars(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Wrecked: the world goes soft under the WRECKED overlay, right where the
+--- car went up, until it respawns (the `worldBlur` hook, docs/features.md).
+function Weapons:worldBlur()
+  return self.deadTimer > 0 and 1 or 0
+end
+
 function Weapons:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
   local hp = self.health[client.myId] or MAX_HEALTH

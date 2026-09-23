@@ -57,6 +57,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `keypressed(key, client)` | Key press in the game (Esc is taken). |
 | `hidesCarLabel(client, id)` | Asked while drawing player `id`'s car: return true to keep the core from printing their name over it, because your feature draws them elsewhere (on-foot does, while they are out walking). |
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
+| `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
 
 The same `camera` table reaches the draw hooks, so a feature that needs the

@@ -41,6 +41,11 @@ function MyFeature:mousepressed(x, y, button, client) end
 --- somewhere else (on-foot does, while they are out walking).
 function MyFeature:hidesCarLabel(client, id) end
 
+--- Asked every frame: 0..1 for how soft the world should be drawn (the HUD
+--- stays sharp). The core takes the highest answer from any feature and
+--- eases towards it; weapons answers 1 while you are wrecked.
+function MyFeature:worldBlur(client) end
+
 --- Messages from the server that the core doesn't know. `args` is the list of
 --- fields after the kind. Keys must not collide with core kinds or other
 --- features (the registry errors if they do).
