@@ -225,6 +225,14 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
   `serverKill` with `angle` and `onFoot`.
+- `Features.byName.weapons:serverSetMaxHealth(server, player, max)` and
+  `Features.byName["on-foot"]:serverSetMaxStamina(server, player, max)`: raise
+  a player's ceiling for the rest of the game (respawns keep it). Raising it
+  tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
+  `OF_MAX` so every HUD scales. Upgrades buys both with koins.
+- `Features.byName.money:wallet(id)` / `money:spend(server, id, amount)`: read
+  a wallet on the host, or take koins out of it all-or-nothing (false and
+  nothing happens when they can't cover it). A shop's half of a sale.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim)`: put a
   bullet into the world from something that is not a player behind the wheel.
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
