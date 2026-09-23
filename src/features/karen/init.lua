@@ -7,6 +7,11 @@
 -- goes down she spills a pile of koins, far more than anything else drops,
 -- and the quest is done.
 --
+-- She is not alone: while she stands, her simps turn up (simps.lua), up to
+-- five at a time, each with a name that starts "Simpin". They run at the
+-- nearest player and punch; two pistol rounds drop one. Once she is down
+-- no more arrive, and the ones left keep swinging until they are dealt with.
+--
 -- The quests feature brings everyone to her street and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "karen": the host spawns her then, and every client puts up the title
@@ -23,6 +28,9 @@
 --   server -> all  KRN_SAY   <lineIndex>                          a rant, for the speech bubble
 --   server -> all  KRN_DOWN  <x> <y> <angle> <playerId>            she went down (0 = nobody's kill)
 --   server -> all  KRN_GONE                                       she left with the map
+--   server -> all  KRN_SIMP  <id> <name>                           a simp arrived (also to anyone joining)
+--   server -> all  KRN_SIMPS <tick> [<id> <x> <y> <facing> <hp> <swing>]...  (unreliable, 15 Hz; empty = all gone)
+--   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -32,6 +40,7 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local KarenFace = require("src.features.karen.face")
 local Theme = require("src.features.karen.theme")
+local Simps = require("src.features.karen.simps")
 
 local Karen = {
   name = "karen",
@@ -68,7 +77,9 @@ Karen.lines = {
   "I demand to speak to whoever is in charge of the wind.",
 }
 
-local SYNC_EVERY = 2 -- server ticks between KRN_STATE packets
+local SYNC_EVERY = 2 -- server ticks between KRN_STATE and KRN_SIMPS packets
+local SIMP_COLOR = { 0.45, 0.50, 0.62 } -- the hoodie
+local SIMP_SKIN = { 0.90, 0.76, 0.62 }
 local SMOOTHING = 10 -- per second, the crowd's easing
 local SNAP = 150 -- px; a jump this big is a spawn, not a step
 local BODY_COLOR = { 0.93, 0.35, 0.60 } -- the top
@@ -130,7 +141,23 @@ local function walk(b, angle, speed, dt)
 end
 
 function Karen:serverStart()
-  sv = { boss = nil, syncIn = 0 }
+  sv = { boss = nil, syncIn = 0, simps = Simps.new(), simpsOut = 0 }
+end
+
+--- Send the gang home: nothing left to draw on any screen.
+function Karen:clearSimps(server)
+  sv.simps:clear()
+  sv.simps.spawnIn = Simps.FIRST_AFTER
+  server:broadcast(Protocol.encode("KRN_SIMPS", server.tick))
+  sv.simpsOut = 0
+end
+
+--- One simp down: gibs on every screen, and the other features price it
+--- (money drops a koin, the same as a pedestrian).
+function Karen:simpDown(server, kill)
+  server:broadcast(Protocol.encode("KRN_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
+    kill.by or 0))
+  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
 end
 
 function Karen:spawnBoss(server, x, y)
@@ -149,6 +176,7 @@ function Karen:spawnBoss(server, x, y)
     frozen = 0, -- seconds left rooted to the spot
     rammed = {}, -- player id -> seconds before that car can hurt her again
   }
+  self:clearSimps(server) -- a fresh gang for a fresh fight
   server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), self.maxHealth, self.maxHealth))
 end
 
@@ -156,6 +184,9 @@ function Karen:removeBoss(server)
   if sv and sv.boss then
     sv.boss = nil
     server:broadcast(Protocol.encode("KRN_GONE"))
+  end
+  if sv and sv.simps.n > 0 then
+    self:clearSimps(server) -- they leave with her
   end
 end
 
@@ -196,6 +227,12 @@ function Karen:serverPlayerJoined(server, player)
   if b then
     server:send(player, Protocol.encode("KRN_SPAWN", fmt(b.x), fmt(b.y), math.max(0, b.hp), b.max))
   end
+  if sv then
+    for i = 1, sv.simps.n do
+      local s = sv.simps.list[i]
+      server:send(player, Protocol.encode("KRN_SIMP", s.id, s.name))
+    end
+  end
 end
 
 --- Take `amount` off her. `by` is the player who did it (nil for nobody).
@@ -225,13 +262,26 @@ function Karen:hurt(server, amount, by, angle)
 end
 
 --- A bullet passing through (x, y): the `serverShotAt` convention. She is
---- fat enough that it is hard to miss.
+--- fat enough that it is hard to miss; failing her, a simp standing there
+--- takes it.
 function Karen:serverShotAt(server, x, y, radius, by, angle)
-  local b = sv and sv.boss
-  if not b or (b.x - x) ^ 2 + (b.y - y) ^ 2 >= (radius + self.radius) ^ 2 then
+  if not sv then
     return false
   end
-  self:hurt(server, self.bulletDamage, by ~= 0 and by or nil, angle)
+  local b = sv.boss
+  if b and (b.x - x) ^ 2 + (b.y - y) ^ 2 < (radius + self.radius) ^ 2 then
+    self:hurt(server, self.bulletDamage, by ~= 0 and by or nil, angle)
+    return true
+  end
+  local s, i = sv.simps:at(x, y, radius)
+  if not s then
+    return false
+  end
+  local kill = sv.simps:hurt(s, Simps.SHOT_DAMAGE, by ~= 0 and by or nil, angle)
+  if kill then
+    sv.simps:removeAt(i)
+    self:simpDown(server, kill)
+  end
   return true
 end
 
@@ -279,8 +329,48 @@ function Karen:rams(server, b, dt)
   end
 end
 
+--- The gang's tick: arrivals while she stands, the hunt, and their sync.
+function Karen:stepSimps(server, dt)
+  local simps = sv.simps
+  if simps.n == 0 and not sv.boss and sv.simpsOut == 0 then
+    return
+  end
+  local kills, arrived = simps:update(server, dt, sv.boss)
+  if arrived then
+    server:broadcast(Protocol.encode("KRN_SIMP", arrived.id, arrived.name))
+  end
+  for _, kill in ipairs(kills) do
+    self:simpDown(server, kill)
+  end
+  if sv.syncIn <= 0 and (simps.n > 0 or sv.simpsOut > 0) then
+    local parts = { server.tick }
+    for i = 1, simps.n do
+      local s = simps.list[i]
+      parts[#parts + 1] = s.id
+      parts[#parts + 1] = ("%.0f"):format(s.x)
+      parts[#parts + 1] = ("%.0f"):format(s.y)
+      parts[#parts + 1] = ("%.2f"):format(s.facing)
+      parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
+      parts[#parts + 1] = s.swing > 0 and 1 or 0
+    end
+    local msg = Protocol.encode("KRN_SIMPS", unpack(parts))
+    for _, player in pairs(server.players) do
+      server:send(player, msg, true)
+    end
+    sv.simpsOut = simps.n
+  end
+end
+
 function Karen:serverStep(server, dt)
-  local b = sv and sv.boss
+  if not sv then
+    return
+  end
+  sv.syncIn = sv.syncIn - 1
+  if sv.syncIn < 0 then
+    sv.syncIn = SYNC_EVERY - 1
+  end
+  self:stepSimps(server, dt)
+  local b = sv.boss
   if not b then
     return
   end
@@ -328,9 +418,7 @@ function Karen:serverStep(server, dt)
     return -- a ram finished her
   end
 
-  sv.syncIn = sv.syncIn - 1
   if sv.syncIn <= 0 then
-    sv.syncIn = SYNC_EVERY
     local msg = Protocol.encode("KRN_STATE", server.tick, fmt(b.x), fmt(b.y), ("%.2f"):format(b.facing),
       math.max(0, math.floor(b.hp)), b.charging and 1 or 0)
     for _, player in pairs(server.players) do
@@ -349,8 +437,10 @@ end
 Karen.boss = nil -- { x, y, dx, dy, angle, hp, max, charging, say, sayTimer, bob }
 Karen.intro = nil -- { t, line } while the title screen is up
 Karen.stain = nil -- { x, y, angle } where she went down
+Karen.simps = {} -- id -> { name, x, y, dx, dy, angle, hp, swing, bob }
+Karen.simpNames = {} -- id -> name, from KRN_SIMP (it lands before the first KRN_SIMPS)
 local face, music = nil, nil
-local time, lastTick = 0, 0
+local time, lastTick, lastSimpTick = 0, 0, 0
 
 local function startMusic()
   if not music then
@@ -373,7 +463,8 @@ end
 
 function Karen:exitGame()
   self.boss, self.intro, self.stain = nil, nil, nil
-  lastTick = 0
+  self.simps, self.simpNames = {}, {}
+  lastTick, lastSimpTick = 0, 0
   stopMusic()
 end
 
@@ -391,6 +482,7 @@ end
 function Karen:questEnded(_client, quest)
   if quest.boss == "karen" then
     self.intro, self.boss, self.stain = nil, nil, nil
+    self.simps, self.simpNames = {}, {}
     stopMusic()
   end
 end
@@ -417,6 +509,15 @@ function Karen:update(dt)
       b.dx, b.dy = b.dx + ex * k, b.dy + ey * k
     end
     b.sayTimer = math.max(0, b.sayTimer - dt)
+  end
+  local k = math.min(1, dt * SMOOTHING)
+  for _, s in pairs(self.simps) do
+    local ex, ey = s.x - s.dx, s.y - s.dy
+    if ex * ex + ey * ey > SNAP * SNAP then
+      s.dx, s.dy = s.x, s.y
+    else
+      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
+    end
   end
 end
 
@@ -471,6 +572,57 @@ Karen.clientMessages = {
   KRN_GONE = function()
     Karen.boss = nil
   end,
+  KRN_SIMP = function(_client, args)
+    local id, name = tonumber(args[1]), args[2]
+    if id and name then
+      Karen.simpNames[id] = name
+      local s = Karen.simps[id]
+      if s then
+        s.name = name
+      end
+    end
+  end,
+  KRN_SIMPS = function(_client, args)
+    local tick = tonumber(args[1])
+    if not tick or tick <= lastSimpTick then
+      return
+    end
+    lastSimpTick = tick
+    local seen = {}
+    for i = 2, #args - 5, 6 do
+      local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
+      if id and x and y then
+        local s = Karen.simps[id]
+        if not s then
+          s = { name = Karen.simpNames[id] or Simps.PREFIX, dx = x, dy = y, bob = love.math.random() * 6 }
+          Karen.simps[id] = s
+        end
+        s.x, s.y = x, y
+        s.angle = tonumber(args[i + 3]) or s.angle or 0
+        s.hp = tonumber(args[i + 4]) or Simps.HEALTH
+        s.swing = args[i + 5] == "1"
+        seen[id] = true
+      end
+    end
+    for id in pairs(Karen.simps) do
+      if not seen[id] then
+        Karen.simps[id] = nil
+        Karen.simpNames[id] = nil
+      end
+    end
+  end,
+  KRN_SIMP_DOWN = function(_client, args)
+    local id = tonumber(args[1])
+    local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    if id then
+      Karen.simps[id] = nil
+      Karen.simpNames[id] = nil
+    end
+    if x and y and Features.byName.pedestrians then
+      require("src.features.pedestrians.gibs").splat(x, y, angle)
+      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    end
+  end,
 }
 
 -- Drawing ---------------------------------------------------------------------
@@ -513,12 +665,49 @@ local function drawBubble(x, y, text, alpha)
   love.graphics.printf(text, bx + 8, by + 6, w - 16, "center")
 end
 
+--- A simp from above: a hoodie, a head, and a fist out front while the
+--- punch lands. His name hangs over him, and a bar once he is hurt.
+local function drawSimp(s)
+  local x, y, r = s.dx, s.dy, Simps.RADIUS
+  local fx, fy = math.cos(s.angle), math.sin(s.angle)
+  local swing = math.sin(time * 12 + s.bob) * 1.2
+  local sx, sy = -fy * swing, fx * swing
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.circle("fill", x + 2, y + 2, r, 10)
+  love.graphics.setColor(SIMP_SKIN)
+  if s.swing then
+    love.graphics.circle("fill", x + fx * (r + 6), y + fy * (r + 6), 2.4, 6) -- the fist
+  end
+  love.graphics.circle("fill", x - fy * (r + 1) - sx, y + fx * (r + 1) - sy, 2, 6)
+  love.graphics.circle("fill", x + fy * (r + 1) + sx, y - fx * (r + 1) + sy, 2, 6)
+  love.graphics.setColor(SIMP_COLOR)
+  love.graphics.circle("fill", x + sx * 0.5, y + sy * 0.5, r, 10)
+  love.graphics.setColor(SIMP_SKIN)
+  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 3.2, 8)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(s.name, x - 59, y - r - 19, 120, "center")
+  love.graphics.setColor(0.85, 0.85, 0.95)
+  love.graphics.printf(s.name, x - 60, y - r - 20, 120, "center")
+  if s.hp < Simps.HEALTH then
+    local bw, f = 20, math.max(0, s.hp / Simps.HEALTH)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
+    love.graphics.setColor(1 - f, f, 0.2)
+    love.graphics.rectangle("fill", x - bw / 2, y + r + 4, bw * f, 2)
+  end
+end
+
 --- Karen from above: a big body in a leopard-print top, arms out, a
 --- handbag, a blonde bob, sunglasses on the head. She waddles; charging,
---- she waddles fast.
+--- she waddles fast. Her simps are drawn first, so she is never under one.
 function Karen:drawAboveCars()
+  for _, s in pairs(self.simps) do
+    drawSimp(s)
+  end
   local b = self.boss
   if not b then
+    love.graphics.setColor(1, 1, 1)
     return
   end
   local x, y, r = b.dx, b.dy, self.radius
