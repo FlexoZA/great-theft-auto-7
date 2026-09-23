@@ -23,6 +23,7 @@ Minimap.radarRange = 2400 -- px of world shown across the radar when there is no
 Minimap.visible = true
 
 local canvas, mapRef, scale, height = nil, nil, 1, 0
+local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas shows
 local camera = nil
 
 local C = {
@@ -30,7 +31,9 @@ local C = {
   walk = { 0.40, 0.40, 0.43 },
   grass = { 0.28, 0.46, 0.25 },
   lot = { 0.22, 0.22, 0.24 },
+  plot = { 0.45, 0.37, 0.27 },
   frame = { 0.85, 0.85, 0.85 },
+  outside = { 0.08, 0.08, 0.09 },
 }
 
 --- Draw the city layout into a canvas the size of the minimap.
@@ -41,18 +44,25 @@ local function buildCanvas(map)
   local c = love.graphics.newCanvas(Minimap.width, height)
   c:setFilter("nearest", "nearest")
   love.graphics.push("all")
+  love.graphics.origin()
   love.graphics.setCanvas(c)
-  love.graphics.clear(C.asphalt[1], C.asphalt[2], C.asphalt[3], 1)
+  love.graphics.clear(C.outside[1], C.outside[2], C.outside[3], 1)
   love.graphics.scale(scale)
-  love.graphics.translate(-map.x0, -map.y0)
+  love.graphics.translate(-map.left, -map.top)
+  -- Each block with the streets around it; the city grows block by block,
+  -- so it need not be a rectangle.
+  love.graphics.setColor(C.asphalt)
+  for _, b in ipairs(map.blocks) do
+    love.graphics.rectangle("fill", map.x0 + (b.tx - 3) * T, map.y0 + (b.ty - 3) * T, 12 * T, 12 * T)
+  end
   for _, b in ipairs(map.blocks) do
     love.graphics.setColor(C.walk)
     love.graphics.rectangle("fill", map.x0 + (b.tx - 1) * T, map.y0 + (b.ty - 1) * T, 8 * T, 8 * T)
     if b.kind == "park" then
       love.graphics.setColor(C.grass)
       love.graphics.rectangle("fill", map.x0 + b.tx * T, map.y0 + b.ty * T, b.tw * T, b.th * T)
-    elseif b.kind == "lot" then
-      love.graphics.setColor(C.lot)
+    elseif b.kind == "lot" or b.kind == "plot" then
+      love.graphics.setColor(C[b.kind])
       love.graphics.rectangle("fill", map.x0 + b.tx * T, map.y0 + b.ty * T, b.tw * T, b.th * T)
     end
   end
@@ -69,11 +79,16 @@ function Minimap:load()
   Controls.register("minimap", "Toggle minimap", "tab")
 end
 
-function Minimap:enterGame()
+--- Follow the city map, redrawing when it is replaced or grows.
+local function refresh()
   local city = Features.byName["city-map"]
   mapRef = city and city.map or nil
-  if mapRef and not canvas and love.graphics then
+  if mapRef and love.graphics and (drawnMap ~= mapRef or drawnVersion ~= mapRef.version) then
+    if canvas then
+      canvas:release()
+    end
     canvas = buildCanvas(mapRef)
+    drawnMap, drawnVersion = mapRef, mapRef.version
   end
   if not mapRef then
     height = Minimap.width
@@ -81,8 +96,13 @@ function Minimap:enterGame()
   end
 end
 
+function Minimap:enterGame()
+  refresh()
+end
+
 function Minimap:update(_dt, _client, cam)
   camera = cam
+  refresh()
 end
 
 function Minimap:keypressed(key)
@@ -94,7 +114,7 @@ end
 --- World -> minimap pixel, relative to the minimap's top-left.
 local function project(x, y, me)
   if mapRef then
-    return (x - mapRef.x0) * scale, (y - mapRef.y0) * scale
+    return (x - mapRef.left) * scale, (y - mapRef.top) * scale
   end
   local cx, cy = me and me.dx or 0, me and me.dy or 0
   return Minimap.width / 2 + (x - cx) * scale, height / 2 + (y - cy) * scale

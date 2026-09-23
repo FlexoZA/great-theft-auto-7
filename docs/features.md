@@ -230,6 +230,20 @@ couple of small conventions rather than requiring each other:
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
+- `Features.byName.money:charge(server, id, amount)`: take exactly `amount`
+  koins from a player's wallet to pay for something. All or nothing: returns
+  false and takes none if they can't afford it. Real estate sells land with it.
+  `money:give(server, id, amount)` is the other way round (the cheats use it).
+- Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
+  `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
+  on the host.
+- A growing city: `city:grow(bi, bj)` adds a block past the city limits and
+  `city:growthSites()` lists where one may go. The map can stop being a
+  rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or
+  `map.left top w h` (world px), treat a missing `map.tiles[c][r]` as outside,
+  and redraw anything built from the map when `map.version` changes. `city.map`
+  is replaced between games, so read it when you need it rather than keeping
+  it. Real-estate sells the blocks and tells every client to grow the same way.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
   cars too.

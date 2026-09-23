@@ -17,7 +17,7 @@
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
---   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death)
+--   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death, spent or given)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -208,13 +208,13 @@ Money.clientMessages = {
     -- A hidden wreck stops moving, so its last drawn position is the spot
     -- the koins rolled out at.
     local car = client.cars[id]
-    if lost > 0 and car then
+    if lost ~= 0 and car then
       Money.floats[#Money.floats + 1] = {
         x = car.dx,
         y = car.dy - 30,
-        text = "-" .. Money.amount(lost),
+        text = (lost > 0 and "-" or "+") .. Money.amount(math.abs(lost)),
         t = FLOAT_TIME,
-        lost = true,
+        lost = lost > 0,
       }
     end
   end,
@@ -299,6 +299,29 @@ function Money:spill(server, id, most)
     server:broadcast(Protocol.encode("FCK_PURSE", id, purse - count))
   end
   return count
+end
+
+--- Take exactly `amount` koins from a player's wallet to pay for something
+--- (a shop, a plot of land). All or nothing: returns false and takes none if
+--- they cannot afford it. Everyone is told the new total.
+function Money:charge(server, id, amount)
+  local purse = (id and sv and sv.wallets[id]) or 0
+  if amount < 0 or purse < amount then
+    return false
+  end
+  sv.wallets[id] = purse - amount
+  server:broadcast(Protocol.encode("FCK_PURSE", id, purse - amount))
+  return true
+end
+
+--- Put `amount` koins straight into a player's wallet (a cheat, a prize).
+function Money:give(server, id, amount)
+  if not (sv and id and amount > 0) then
+    return
+  end
+  local total = (sv.wallets[id] or 0) + amount
+  sv.wallets[id] = total
+  server:broadcast(Protocol.encode("FCK_PURSE", id, total))
 end
 
 --- Something died somewhere: pay out. See the `serverKill` convention in
