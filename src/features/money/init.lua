@@ -31,6 +31,7 @@ local Money = {
 
 -- Tuning ------------------------------------------------------------------
 Money.pedValue = 1 -- koins a flattened pedestrian drops (out of thin air)
+Money.policeValue = 3 -- koins off a downed officer: the badge is worth something
 Money.carValue = 5 -- most koins a wrecked driver drops, out of their own wallet
 Money.radius = 30 -- px from car centre that counts as driving over one
 Money.footRadius = 18 -- px from a body on foot that counts as picking one up
@@ -303,12 +304,15 @@ end
 --- Something died somewhere: pay out. See the `serverKill` convention in
 --- docs/features.md. Kinds this feature doesn't price are ignored.
 ---
---- A pedestrian is loose change nobody owned. A driver is different: what
---- lands on the tarmac comes out of the wallet they were driving around
---- with, so killing the same broke player twice pays nothing.
+--- A pedestrian is loose change nobody owned, an officer a fatter handful of
+--- the same. A driver is different: what lands on the tarmac comes out of the
+--- wallet they were driving around with, so killing the same broke player
+--- twice pays nothing.
 function Money:serverKill(server, kill)
   if kill.kind == "pedestrian" then
     self:drop(server, kill.x, kill.y, self.pedValue)
+  elseif kill.kind == "police" then
+    self:drop(server, kill.x, kill.y, self.policeValue)
   elseif kill.kind == "car" then
     self:drop(server, kill.x, kill.y, self:spill(server, kill.victim, self.carValue))
   end
