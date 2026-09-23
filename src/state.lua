@@ -1,6 +1,6 @@
 -- Minimal scene switcher. A state is a module table with optional hooks:
 -- enter(...), exit(), update(dt), draw(), keypressed(key), textinput(t),
--- mousepressed(x, y, button).
+-- mousepressed(x, y, button), wheelmoved(dx, dy).
 
 local State = { current = nil, name = nil }
 
