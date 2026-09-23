@@ -1,7 +1,9 @@
 -- What can be built on a plot, and the things buildings make.
 --
 -- Items are what a player carries and a building stores, by key:
---   iron, sulfur, minerals   raw materials, dug out of a quarry
+--   iron, sulfur, minerals,  raw materials, dug out of a quarry
+--   copper
+--   oil, plastic             pumped (and refined) by an oil well
 --   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi")
 --   gun-<gun>                a gun ("gun-uzi")
 --   medkit                   a health pack; the carrier can use it to heal
@@ -19,24 +21,32 @@
 --   unit      how many a customer buys at once
 --   price     Fcks per unit a new building starts at; the owner changes it
 --   products  the items it can make; the owner picks one
+--   recipes   product -> overrides for making that one: any of inputs, time,
+--             batch, cap, unit, price (the rocket launcher needs more than
+--             iron). Kinds.recipe merges them over the kind's own.
 --   private   true: never open to the public (the parking lot)
 --   walkable  true: not solid, cars drive onto it (the parking lot)
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
+--
+-- A factory's hopper takes every material any of its products runs on
+-- (`kind.hopper`, worked out below), so switching products never strands
+-- what was loaded; a batch uses up only what the product in hand needs.
 
 local Guns = require("src.features.weapons.guns")
 
 local Kinds = {}
 
-Kinds.materials = { "iron", "sulfur", "minerals" }
+Kinds.materials = { "iron", "sulfur", "minerals", "copper", "oil", "plastic" }
 Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
-  if item:match("^ammo%-") then
-    return 100
+  local gun = item:match("^ammo%-(.+)$")
+  if gun then
+    return Guns[gun] and Guns[gun].stack or 100
   elseif item:match("^gun%-") or item == "medkit" then
     return 5
   end
@@ -78,17 +88,31 @@ Kinds.list = {
   {
     key = "quarry", name = "Quarry Mine", cost = 40,
     inputs = {}, time = 6, batch = 1, cap = 50, unit = 1, price = 1,
-    products = Kinds.materials,
+    products = { "iron", "sulfur", "minerals", "copper" },
+  },
+  {
+    key = "oil", name = "Oil Well", cost = 70,
+    inputs = {}, time = 8, batch = 1, cap = 50, unit = 1, price = 2,
+    products = { "oil", "plastic" },
+    recipes = { plastic = { time = 12, price = 3 } }, -- refined on the spot, so slower
   },
   {
     key = "ammo", name = "Ammo Factory", cost = 60,
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
+    recipes = {
+      ["ammo-rocket"] = {
+        inputs = { iron = 1, copper = 1, sulfur = 1 }, time = 10, batch = 2, cap = 20, unit = 1, price = 8,
+      },
+    },
   },
   {
     key = "weapons", name = "Weapons Factory", cost = 80,
     inputs = { iron = 4 }, time = 30, batch = 1, cap = 5, unit = 1, price = 20,
     products = gunItems,
+    recipes = {
+      ["gun-rocket"] = { inputs = { iron = 4, copper = 2, oil = 2, plastic = 2 }, time = 45, price = 60 },
+    },
   },
   {
     key = "health", name = "Health Factory", cost = 50,
@@ -97,10 +121,45 @@ Kinds.list = {
   },
 }
 
+local FIELDS = { "inputs", "time", "batch", "cap", "unit", "price" }
+
+--- How `kind` makes product number `index`: { item, inputs, time, batch,
+--- cap, unit, price }, the kind's own figures under any override in
+--- `kind.recipes`. Kinds without products (the parking lot) get the kind's.
+function Kinds.recipe(kind, index)
+  local item = kind.products and kind.products[index]
+  local cache = kind.recipeCache
+  if item and cache[item] then
+    return cache[item]
+  end
+  local over = item and kind.recipes and kind.recipes[item] or {}
+  local r = { item = item }
+  for _, f in ipairs(FIELDS) do
+    if over[f] ~= nil then
+      r[f] = over[f]
+    else
+      r[f] = kind[f]
+    end
+  end
+  r.inputs = r.inputs or {}
+  if item then
+    cache[item] = r
+  end
+  return r
+end
+
 Kinds.byKey = {}
 for i, kind in ipairs(Kinds.list) do
   kind.index = i
+  kind.recipeCache = {}
   Kinds.byKey[kind.key] = kind
+  -- Everything the hopper takes: the inputs of every product it can make.
+  kind.hopper = {}
+  for p = 1, #(kind.products or {}) do
+    for item in pairs(Kinds.recipe(kind, p).inputs) do
+      kind.hopper[item] = true
+    end
+  end
 end
 
 --- A readable name for an item and a count: "10 uzi ammo", "1 medkit".
@@ -108,11 +167,16 @@ function Kinds.label(item, n)
   local name = item
   local gun = item:match("^ammo%-(.+)$")
   if gun then
-    name = gun .. " ammo"
+    local g = Guns[gun]
+    if g and g.ammoName then
+      name = g.ammoName .. (n ~= 1 and "s" or "")
+    else
+      name = gun .. " ammo"
+    end
   else
     gun = item:match("^gun%-(.+)$")
     if gun then
-      name = gun .. (n ~= 1 and "s" or "")
+      name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")
     elseif item == "medkit" and n ~= 1 then
       name = "medkits"
     end
@@ -132,15 +196,37 @@ function Kinds.isItem(item)
   return false
 end
 
---- The inputs of `kind` as an ordered list of { item, n }, for drawing.
-function Kinds.inputList(kind)
+--- The inputs of a recipe as an ordered list of { item, n }, for drawing.
+function Kinds.inputList(recipe)
   local out = {}
   for _, m in ipairs(Kinds.materials) do
-    if kind.inputs and kind.inputs[m] then
-      out[#out + 1] = { item = m, n = kind.inputs[m] }
+    if recipe.inputs and recipe.inputs[m] then
+      out[#out + 1] = { item = m, n = recipe.inputs[m] }
     end
   end
   return out
+end
+
+--- The materials `kind`'s hopper takes, in order: what can be loaded, sold
+--- into it and drawn along its side.
+function Kinds.hopperList(kind)
+  local out = {}
+  for _, m in ipairs(Kinds.materials) do
+    if kind.hopper and kind.hopper[m] then
+      out[#out + 1] = m
+    end
+  end
+  return out
+end
+
+--- Is `item` a raw material?
+function Kinds.isMaterial(item)
+  for _, m in ipairs(Kinds.materials) do
+    if m == item then
+      return true
+    end
+  end
+  return false
 end
 
 return Kinds

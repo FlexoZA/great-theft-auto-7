@@ -87,6 +87,30 @@ function Sounds.load()
     buf:lowpass(5500)
   end)
 
+  -- Rocket reload (2.2 s): a missile slid down the tube, seated with a
+  -- heavy clunk, and the launcher armed.
+  bank["reload-rocket"] = make(2.2, function(buf)
+    click(buf, 0.05, 1200, 0.5) -- breech open
+    rack(buf, 0.3, 0.5, 250, 160, 0.55) -- missile slides in
+    click(buf, 0.95, 380, 1.0) -- seated
+    click(buf, 1.0, 700, 0.5)
+    click(buf, 1.7, 1500, 0.6) -- breech shut
+    click(buf, 1.95, 2100, 0.45) -- armed
+    buf:highpass(120)
+    buf:drive(1.8)
+    buf:lowpass(5000)
+  end)
+
+  -- Rocket launch: a thump out of the tube and the motor hissing away.
+  bank.rocket = make(0.8, function(buf)
+    buf:sweep(0, 0.14, 190, 55, { wave = "sine", amp = 0.9, decay = 0.08 })
+    buf:noiseBurst(0, 0.04, { amp = 0.7, decay = 0.01 })
+    buf:noiseBurst(0.02, 0.75, { amp = 0.55, decay = 0.3 })
+    buf:sweep(0.02, 0.6, 520, 260, { wave = "saw", amp = 0.12, decay = 0.3 })
+    buf:drive(1.8)
+    buf:lowpass(2800)
+  end)
+
   -- Dry fire: the trigger clicking on an empty chamber.
   bank.dry = make(0.06, function(buf)
     click(buf, 0, 2400, 0.45)
