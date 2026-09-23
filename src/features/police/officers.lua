@@ -123,6 +123,7 @@ function Officers:spawn(x, y)
     stuck = 0,
     sidestep = 0,
     side = random() < 0.5 and -1 or 1,
+    frozen = 0, -- seconds left rooted to the spot
   }
   self.n = self.n + 1
   self.list[self.n] = o
@@ -391,6 +392,18 @@ end
 
 --- Advance the whole beat. `wanted` is the set of wanted player ids.
 --- Returns the (reused) list of officers a car killed this tick.
+--- Root every officer within `radius` of (x, y) to the spot for `seconds`.
+function Officers:freeze(x, y, radius, seconds)
+  local r2 = (radius + Officers.RADIUS) ^ 2
+  for i = 1, self.n do
+    local o = self.list[i]
+    local dx, dy = o.x - x, o.y - y
+    if dx * dx + dy * dy <= r2 then
+      o.frozen = math.max(o.frozen, seconds)
+    end
+  end
+end
+
 function Officers:update(server, dt, wanted, anyWanted)
   self.time = self.time + dt
   local bodies, nbodies = self:collect(server)
@@ -404,7 +417,9 @@ function Officers:update(server, dt, wanted, anyWanted)
     local o = self.list[i]
     local target, d2 = Officers.spot(o, wanted, bodies, nbodies)
     o.target = target and target.id or nil
-    if target then
+    if o.frozen > 0 then
+      o.frozen = o.frozen - dt -- frozen: neither hunts nor patrols
+    elseif target then
       self:hunt(server, o, dt, target, math.sqrt(d2))
     else
       self:patrol(o, dt, self.time)

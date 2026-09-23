@@ -218,6 +218,7 @@ first feature whose hook returns true. Events in use:
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
+| `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -293,6 +294,14 @@ couple of small conventions rather than requiring each other:
   shoot this way. No cooldown is applied, so the caller paces its own fire.
 - `Features.byName.money:give(server, id, amount)`: put koins into a
   player's wallet, the other way round from `spend` (the cheats use it).
+- `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
+  player held still by some feature (frozen)? On-foot asks every feature
+  through `Features.any` before walking, seating or unseating them, and
+  weapons before firing their gun; on a client the same question stops
+  prediction and the HUD says so. Abilities answers it for the players it
+  holds, and `Features.byName.abilities:serverHold(server, player, seconds)`
+  holds one from any feature: the car they are driving or their feet stay
+  where they are until it wears off.
 
 ## Selling things for Fcks
 

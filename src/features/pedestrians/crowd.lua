@@ -84,7 +84,7 @@ end
 function Crowd:spawn(x, y)
   local id = self.nextId
   self.nextId = id + 1
-  local p = { id = id, x = x, y = y, flee = 0, react = 0, timer = random() * 2, speed = Crowd.WALK_SPEED }
+  local p = { id = id, x = x, y = y, flee = 0, react = 0, timer = random() * 2, speed = Crowd.WALK_SPEED, frozen = 0 }
   setHeading(p, random() * 2 * math.pi)
   self.n = self.n + 1
   self.peds[self.n] = p
@@ -167,7 +167,9 @@ function Crowd:think(p, dt, cars, ncars)
   end
   p.near2 = near2
 
-  if dodge then
+  if p.frozen > 0 then
+    p.frozen = p.frozen - dt -- rooted to the spot: no bolting, no wandering
+  elseif dodge then
     if p.flee <= 0 then
       -- Caught in the headlights: a beat of hesitation before bolting, which
       -- is what makes a late swerve lethal and a long straight line survivable.
@@ -194,7 +196,9 @@ function Crowd:think(p, dt, cars, ncars)
   end
 
   local speed
-  if p.react > 0 then
+  if p.frozen > 0 then
+    speed = 0
+  elseif p.react > 0 then
     p.react = p.react - dt
     speed = 0
   elseif p.flee > 0 then
@@ -207,6 +211,9 @@ function Crowd:think(p, dt, cars, ncars)
     p.y = p.y + p.hy * speed * dt
   end
 
+  if hitBy and p.frozen > 0 and hitBy.fast < Crowd.SPLAT_SPEED then
+    return nil -- frozen solid: a slow car neither shifts nor scares them
+  end
   if hitBy and hitBy.fast < Crowd.SPLAT_SPEED then
     -- Nudged rather than run over: shove them off the bonnet and let them
     -- scramble away instead of riding along with the car.
@@ -219,6 +226,18 @@ function Crowd:think(p, dt, cars, ncars)
     return nil
   end
   return hitBy
+end
+
+--- Root everyone within `radius` of (x, y) to the spot for `seconds`.
+function Crowd:freeze(x, y, radius, seconds)
+  local r2 = (radius + Crowd.RADIUS) ^ 2
+  for i = 1, self.n do
+    local p = self.peds[i]
+    local dx, dy = p.x - x, p.y - y
+    if dx * dx + dy * dy <= r2 then
+      p.frozen = math.max(p.frozen, seconds)
+    end
+  end
 end
 
 --- The first pedestrian standing within `radius` of (x, y), taken out of the

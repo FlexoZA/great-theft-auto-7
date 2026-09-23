@@ -327,6 +327,14 @@ end
 --- pedestrians are (the `serverShotAt` convention), except that it takes a
 --- few rounds and the shooter is wanted from the moment they miss. The
 --- force's own bullets pass straight through: police don't shoot police.
+--- Something froze the world around (x, y) (the `serverFreezeArea` event):
+--- officers on foot inside it stand to attention for `seconds`.
+function Police:serverFreezeArea(_server, x, y, radius, seconds)
+  if sv and sv.officers then
+    sv.officers:freeze(x, y, radius, seconds)
+  end
+end
+
 function Police:serverShotAt(server, x, y, radius, by, angle)
   if not sv or by == Officers.OWNER then
     return false
