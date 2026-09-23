@@ -18,11 +18,20 @@
 -- Drops arrive through the `serverKill` convention (docs/features.md): the
 -- feature that killed something calls it, this one turns that into koins.
 --
+-- Koins are the one currency: plots, blocks, upgrades and whatever comes
+-- next are all paid for here, through Money:spend on the host, which takes
+-- the price all-or-nothing and tells every client what was bought, so the
+-- wallet on the HUD and the "-20 Fcks  plot" over the buyer come for free.
+-- Money:canAfford is the client-side half, for greying out and refusing
+-- without a round trip. The recipe is in docs/features.md ("Selling things
+-- for Fcks").
+--
 -- Messages
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
 --   server -> all  FCK_GONE <id>
---   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death, spent or given)
+--   server -> all  FCK_SPENT <playerId> <amount> <total> <label>   (bought something)
+--   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death, or given)
 --   server -> all  FCK_REACH <playerId> <scale>   (their pickup radius changed)
 
 local Protocol = require("src.net.protocol")
@@ -52,6 +61,17 @@ local COMBO_GAP = 0.45 -- seconds; pickups closer together than this chime highe
 --- "1 Fck" / "3 Fcks". Other features may want it for a scoreboard.
 function Money.amount(n)
   return ("%d %s"):format(n, n == 1 and "Fck" or "Fcks")
+end
+
+--- My wallet on this machine, as the host last told me.
+function Money:mine(client)
+  return self.wallets[client.myId] or 0
+end
+
+--- Can I cover `cost`? A shop asks this to grey out and refuse on the spot;
+--- the host still decides (Money:spend), so a stale answer costs nothing.
+function Money:canAfford(client, cost)
+  return self:mine(client) >= cost
 end
 
 -- Client --------------------------------------------------------------------
@@ -175,12 +195,14 @@ end
 function Money:drawAboveCars()
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
-    if f.lost then
+    if f.kind == "lost" then
       love.graphics.setColor(1, 0.35, 0.3, math.min(1, f.t))
+    elseif f.kind == "spent" then
+      love.graphics.setColor(0.95, 0.75, 0.35, math.min(1, f.t))
     else
       love.graphics.setColor(1, 0.85, 0.3, math.min(1, f.t))
     end
-    love.graphics.printf(f.text, f.x - 60, f.y, 120, "center")
+    love.graphics.printf(f.text, f.x - 90, f.y, 180, "center")
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -212,13 +234,16 @@ Money.clientMessages = {
     combo = math.min(combo + 1, 6)
     comboTimer = COMBO_GAP
     Sounds.play(coin.x, coin.y, 1 + combo * 0.06)
-    local car = by and client.cars[by]
-    Money.floats[#Money.floats + 1] = {
-      x = car and car.dx or coin.x,
-      y = (car and car.dy or coin.y) - 30,
-      text = "+" .. Money.amount(1),
-      t = FLOAT_TIME,
-    }
+    Money:float(client, by, "+" .. Money.amount(1), nil, coin.x, coin.y)
+  end,
+  FCK_SPENT = function(client, args)
+    local id, amount, total = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if not (id and amount and total) then
+      return
+    end
+    Money.wallets[id] = total
+    local label = args[4]
+    Money:float(client, id, "-" .. Money.amount(amount) .. (label and label ~= "" and ("  " .. label) or ""), "spent")
   end,
   FCK_GONE = function(_client, args)
     local id = tonumber(args[1])
@@ -240,19 +265,29 @@ Money.clientMessages = {
     local lost = (Money.wallets[id] or 0) - total
     Money.wallets[id] = total
     -- A hidden wreck stops moving, so its last drawn position is the spot
-    -- the koins rolled out at.
-    local car = client.cars[id]
-    if lost > 0 and car then
-      Money.floats[#Money.floats + 1] = {
-        x = car.dx,
-        y = car.dy - 30,
-        text = "-" .. Money.amount(lost),
-        t = FLOAT_TIME,
-        lost = true,
-      }
+    -- the koins rolled out at; a gift lands on whoever is standing there.
+    if lost > 0 then
+      Money:float(client, id, "-" .. Money.amount(lost), "lost")
+    elseif lost < 0 then
+      Money:float(client, id, "+" .. Money.amount(-lost))
     end
   end,
 }
+
+--- A line of text rising over player `id`'s body (their car, or them on
+--- foot), or over (x, y) when they are not on this machine's map. `kind`
+--- picks the colour: nil for gains, "spent" for a purchase, "lost" for
+--- koins that rolled out of a wreck.
+function Money:float(client, id, text, kind, x, y)
+  local car = id and client.cars[id]
+  if car then
+    x, y = Features.clientBodyPose(client, id, car)
+  end
+  if not (x and y) then
+    return
+  end
+  self.floats[#self.floats + 1] = { x = x, y = y - 30, text = text, t = FLOAT_TIME, kind = kind }
+end
 
 -- Server ----------------------------------------------------------------
 
@@ -430,16 +465,26 @@ function Money:wallet(id)
   return sv and sv.wallets[id] or 0
 end
 
---- Take `amount` koins out of a player's wallet, for a shop (upgrades). All
---- or nothing: returns true and tells everyone the new total, or false and
---- touches nothing when they can't cover it.
-function Money:spend(server, id, amount)
+--- Take `amount` koins out of a player's wallet to pay for something. All
+--- or nothing: returns true and tells everyone what was bought (`label`,
+--- a few words like "plot" or "health", floats over the buyer on every
+--- screen), or false and a reason -- "broke", or "nogame" before a game has
+--- started -- and touches nothing. Nothing costs nothing: a zero price is
+--- paid without a word. Every shop pays here; see docs/features.md.
+function Money:spend(server, id, amount, label)
+  if not sv then
+    return false, "nogame"
+  end
+  if amount <= 0 then
+    return true
+  end
   local purse = self:wallet(id)
-  if not sv or amount <= 0 or purse < amount then
-    return false
+  if purse < amount then
+    return false, "broke"
   end
   sv.wallets[id] = purse - amount
-  server:broadcast(Protocol.encode("FCK_PURSE", id, purse - amount))
+  label = tostring(label or ""):gsub("%c", " ")
+  server:broadcast(Protocol.encode("FCK_SPENT", id, amount, purse - amount, label))
   return true
 end
 

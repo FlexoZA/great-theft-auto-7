@@ -1,14 +1,15 @@
 -- Upgrades: spend your Fcks on a bigger body and a longer arm. P opens the
 -- shop over the game; 1 buys the next level of health, 2 the next level of
--- stamina, 3 the next level of koin reach (how far a koin jumps to you), P
--- closes it again. Each level costs more than the last and there are five
--- of each, so a full set is a serious amount of roadkill.
+-- stamina, 3 the next level of koin reach (how far a koin jumps to you), 4
+-- the next level of stamina regen (how fast it comes back), P closes it
+-- again. Each level costs more than the last and there are five of each,
+-- so a full set is a serious amount of roadkill.
 --
 -- The host owns the sale: it checks the wallet (money), takes the koins and
--- raises the ceiling through the feature that owns it -- weapons for health,
--- on-foot for stamina, money itself for reach -- which broadcast the new
--- value themselves. This feature only remembers the level each player is
--- at and draws the shop.
+-- raises the value through the feature that owns it -- weapons for health,
+-- on-foot for stamina and its regen, money itself for reach -- which tell
+-- the clients whatever they need to know themselves. This feature only
+-- remembers the level each player is at and draws the shop.
 -- Nothing is bought on the client's say-so; a client that asks for what it
 -- can't afford just hears a buzz.
 --
@@ -51,6 +52,11 @@ Upgrades.kinds = {
     key = "reach", label = "Koin reach", base = 100, step = 40, costs = { 3, 5, 8, 11, 14 },
     action = "buy-reach", defaultKey = "3",
     show = function(v) return ("x%.1f reach"):format(v / 100) end,
+  },
+  {
+    key = "regen", label = "Stamina regen", base = 100, step = 30, costs = { 3, 5, 8, 11, 14 },
+    action = "buy-regen", defaultKey = "4",
+    show = function(v) return ("x%.1f regen"):format(v / 100) end,
   },
 }
 Upgrades.byKey = {}
@@ -101,7 +107,7 @@ end
 --- Koins in my wallet, as the money feature last told me.
 local function wallet(client)
   local money = Features.byName.money
-  return money and money.wallets and money.wallets[client.myId] or 0
+  return money and money.mine and money:mine(client) or 0
 end
 
 function Upgrades:update(dt)
@@ -300,6 +306,11 @@ local function apply(server, player, kind, level)
     if money and money.serverSetReach then
       money:serverSetReach(server, player, value / 100)
     end
+  elseif kind.key == "regen" then
+    local onFoot = Features.byName["on-foot"]
+    if onFoot and onFoot.serverSetStaminaRegen then
+      onFoot:serverSetStaminaRegen(server, player, value / 100)
+    end
   end
 end
 
@@ -318,7 +329,7 @@ function Upgrades:serverBuy(server, player, key)
     return false, "maxed"
   end
   local money = Features.byName.money
-  if not (money and money.spend and money:spend(server, player.id, cost)) then
+  if not (money and money.spend and money:spend(server, player.id, cost, kind.label:lower())) then
     return false, "broke"
   end
   levels[key] = level + 1

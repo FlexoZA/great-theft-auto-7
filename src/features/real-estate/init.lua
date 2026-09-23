@@ -208,14 +208,29 @@ function RealEstate:update(dt, client)
   end
 end
 
+--- Can I pay `price`? Answered here so an empty wallet hears "no" at once;
+--- the host still checks before it sells.
+local function affordable(client, price)
+  local money = Features.byName.money
+  if money and money.canAfford and not money:canAfford(client, price) then
+    notice, noticeTimer = REASONS.broke, NOTICE_TIME
+    return false
+  end
+  return true
+end
+
 function RealEstate:keypressed(key, client)
   if not Controls.is("buy", key) then
     return
   end
   if hereSite then
-    client:send(Protocol.encode("RE_GROW", hereSite.bi, hereSite.bj))
+    if affordable(client, self.growPrice) then
+      client:send(Protocol.encode("RE_GROW", hereSite.bi, hereSite.bj))
+    end
   elseif herePlot and not self.owners[herePlot.id] then
-    client:send(Protocol.encode("RE_BUY", herePlot.id))
+    if affordable(client, self.price) then
+      client:send(Protocol.encode("RE_BUY", herePlot.id))
+    end
   end
 end
 
@@ -403,7 +418,7 @@ RealEstate.serverMessages = {
       reason = "away"
     elseif sv.owners[plot.id] then
       reason = "taken"
-    elseif money and not money:spend(server, player.id, RealEstate.price) then
+    elseif money and not money:spend(server, player.id, RealEstate.price, "plot") then
       reason = "broke"
     else
       sv.owners[plot.id] = player.id
@@ -427,7 +442,7 @@ RealEstate.serverMessages = {
       return onPad(site, x, y, SLACK)
     end) then
       reason = "away"
-    elseif money and not money:spend(server, player.id, RealEstate.growPrice) then
+    elseif money and not money:spend(server, player.id, RealEstate.growPrice, "city block") then
       reason = "broke"
     else
       local plot = grow(bi, bj)
