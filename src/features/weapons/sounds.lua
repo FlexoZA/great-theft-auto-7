@@ -35,6 +35,17 @@ function Sounds.load()
     buf:lowpass(3800)
   end)
 
+  -- Uzi: a shorter, thinner snap than the pistol, so a burst reads as a
+  -- rattle rather than a row of shots.
+  bank.uzi = make(0.09, function(buf)
+    buf:noiseBurst(0, 0.06, { amp = 0.7, decay = 0.012 })
+    buf:sweep(0, 0.04, 1600, 300, { wave = "sine", amp = 0.7, decay = 0.012 })
+    buf:sweep(0, 0.03, 3000, 700, { wave = "square", amp = 0.2, decay = 0.008 })
+    buf:drive(2.5)
+    buf:highpass(300)
+    buf:lowpass(5000)
+  end)
+
   -- Hit: a metallic clank on the target's bodywork.
   bank.hit = make(0.14, function(buf)
     buf:tone(0, 0.1, 1250, { wave = "sine", amp = 0.5, attack = 0.001, decay = 0.045, sustain = 0, release = 0.01 })

@@ -2,6 +2,11 @@
 -- cursor. The server owns projectiles, hit detection, health and respawns.
 -- Clients predict projectile flight from WPN_SHOT and draw everything.
 --
+-- There is more than one gun (guns.lua): the number keys pick one, the
+-- client tells the host, and the host fires whatever it has on record for
+-- that player, with that gun's damage, rate of fire and scatter. The
+-- pistol hits hard and straight; the uzi sprays.
+--
 -- People and cars have separate health. A shot at a driver dents the car;
 -- when a car has taken CAR_HEALTH it explodes and its driver bails out
 -- beside the wreck, alive and briefly protected, and carries on on foot.
@@ -15,7 +20,8 @@
 --
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy>
+--   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
@@ -43,6 +49,7 @@ local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
+local Guns = require("src.features.weapons.guns")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Video = require("src.video")
@@ -50,14 +57,11 @@ local Video = require("src.video")
 local Weapons = {
   name = "weapons",
   priority = 950, -- after "vision" (900) so the camera is final when we aim
-  PROJECTILE_SPEED = 900, -- px/s; other features (bots) read this to lead their shots
+  PROJECTILE_SPEED = Guns.at(Guns.DEFAULT).speed, -- px/s; other features (bots) read this to lead their shots
 }
 
-local PROJECTILE_SPEED = Weapons.PROJECTILE_SPEED -- shots fly exactly along the aim, regardless of car speed
 local PROJECTILE_TTL = 1.2 -- seconds
 local PROJECTILE_RADIUS = 3
-local FIRE_COOLDOWN = 0.2 -- seconds between shots
-local DAMAGE = 20
 local MAX_HEALTH = 100
 local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
@@ -119,6 +123,7 @@ Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
 Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
+Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
@@ -128,6 +133,9 @@ function Weapons:load()
   Sounds.load()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
+  for i, gun in ipairs(Guns.list) do
+    Controls.register("weapon-" .. i, ("Weapon %d: %s"):format(i, gun.name), tostring(i))
+  end
 end
 
 function Weapons:enterGame()
@@ -140,6 +148,7 @@ function Weapons:enterGame()
   self.carFlash = {}
   self.feed = nil
   self.cooldown = 0
+  self.gun = Guns.DEFAULT
   self.camera = nil
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
@@ -180,8 +189,18 @@ function Weapons:tryFire(client)
   if not aim then
     return
   end
-  self.cooldown = FIRE_COOLDOWN
+  self.cooldown = Guns.at(self.gun).cooldown
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+end
+
+--- Switch to gun `index` and tell the host. The cooldown carries over, so
+--- swapping is no faster than waiting.
+function Weapons:selectGun(client, index)
+  if not Guns.list[index] or index == self.gun then
+    return
+  end
+  self.gun = index
+  client:send(Protocol.encode("WPN_SELECT", index))
 end
 
 function Weapons:mousepressed(_x, _y, button, client)
@@ -195,6 +214,18 @@ function Weapons:keypressed(key, client)
     self.showHitboxes = not self.showHitboxes
   elseif Controls.is("fire", key) then
     self:tryFire(client)
+  else
+    -- The number keys, unless the upgrade shop has them for the moment.
+    local shop = Features.byName.upgrades
+    if shop and shop.open then
+      return
+    end
+    for i in ipairs(Guns.list) do
+      if Controls.is("weapon-" .. i, key) then
+        self:selectGun(client, i)
+        return
+      end
+    end
   end
 end
 
@@ -247,7 +278,8 @@ function Weapons:drawAboveCars(client)
   love.graphics.setColor(1, 0.9, 0.3)
   for _, p in pairs(self.projectiles) do
     local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
-    local nx, ny = p.vx / len * 10, p.vy / len * 10
+    local streak = Guns.at(p.gun).streak
+    local nx, ny = p.vx / len * streak, p.vy / len * streak
     love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
   end
   love.graphics.setLineWidth(1)
@@ -315,7 +347,21 @@ function Weapons:drawHUD(client)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local fireKey = Controls.name(Controls.bindings("fire")[1])
   local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
-  love.graphics.print(fireKey .. ": fire   " .. boxKey .. ": hitboxes", 10, 64)
+  local hints = fireKey .. ": fire   " .. boxKey .. ": hitboxes   "
+  love.graphics.print(hints, 10, 64)
+  -- The guns on the same row, the one in hand lit up.
+  local font = UI.fonts.small
+  local x = 10 + font:getWidth(hints)
+  for i, gun in ipairs(Guns.list) do
+    local label = Controls.name(Controls.bindings("weapon-" .. i)[1]) .. ": " .. gun.name
+    if i == self.gun then
+      love.graphics.setColor(1, 0.9, 0.3)
+    else
+      love.graphics.setColor(0.6, 0.6, 0.65)
+    end
+    love.graphics.print(label, x, 64)
+    x = x + font:getWidth(label) + 14
+  end
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -370,9 +416,10 @@ Weapons.clientMessages = {
   WPN_SHOT = function(_client, args)
     local pid, owner = tonumber(args[1]), tonumber(args[2])
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
+    local gun = Guns.at(tonumber(args[7]))
     if pid and x and y and vx and vy then
-      Weapons.projectiles[pid] = { x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner }
-      Sounds.play("shot", x, y, 0.9 + love.math.random() * 0.2)
+      Weapons.projectiles[pid] = { x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index }
+      Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
     end
   end,
   WPN_HIT = function(client, args)
@@ -499,6 +546,7 @@ function Weapons:serverStart(server)
         hp = MAX_HEALTH,
         max = MAX_HEALTH,
         kills = 0,
+        gun = Guns.DEFAULT,
         spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
         lastFire = -math.huge,
         protectedUntil = SPAWN_PROTECTION,
@@ -515,6 +563,7 @@ function Weapons:serverPlayerJoined(_server, player)
       hp = MAX_HEALTH,
       max = MAX_HEALTH,
       kills = 0,
+      gun = Guns.DEFAULT,
       spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
       lastFire = -math.huge,
       protectedUntil = self.sv.time + SPAWN_PROTECTION,
@@ -611,20 +660,28 @@ end
 --- and belonging to player `ownerId`. Pass 0 for a shot that belongs to no
 --- player: the police officers on foot fire this way, so their bullets hit
 --- everyone (nobody is the owner) and their kills go on nobody's scoreboard.
---- No cooldown is applied here; the caller owns its own rate of fire.
-function Weapons:serverFireFrom(server, ownerId, x, y, aim)
+--- No cooldown is applied here; the caller owns its own rate of fire. `gun`
+--- is a table from guns.lua (the pistol when not given); its scatter is
+--- applied here.
+function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
   local sv = self.sv
   if not (sv and aim) then
     return false
   end
+  gun = gun or Guns.at(Guns.DEFAULT)
+  if gun.spread > 0 then
+    aim = aim + (love.math.random() * 2 - 1) * gun.spread
+  end
   ownerId = ownerId or NO_OWNER
   local pid = sv.nextId
   sv.nextId = pid + 1
-  local vx = math.cos(aim) * PROJECTILE_SPEED
-  local vy = math.sin(aim) * PROJECTILE_SPEED
-  sv.projectiles[#sv.projectiles + 1] = { id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0 }
+  local vx = math.cos(aim) * gun.speed
+  local vy = math.sin(aim) * gun.speed
+  sv.projectiles[#sv.projectiles + 1] = {
+    id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
+  }
   server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
-    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy)))
+    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index))
   -- `player` is nil for an ownerless shot; features that listen must allow it.
   Features.call("serverShotFired", server, server.players[ownerId], x, y)
   return true
@@ -639,7 +696,8 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
-  if sv.time - st.lastFire < FIRE_COOLDOWN * 0.9 then
+  local gun = Guns.at(st.gun)
+  if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
   end
   if Features.any("serverHeld", server, player) then
@@ -649,12 +707,25 @@ function Weapons:serverFire(server, player, aim)
 
   local bx, by, onFoot = bodyPose(server, player)
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
-  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim)
+  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun)
+end
+
+--- Hand `player` gun `index` on the host (bots could pick one this way).
+function Weapons:serverSelectGun(_server, player, index)
+  local st = self.sv and self.sv.players[player.id]
+  if not (st and Guns.list[index]) then
+    return false
+  end
+  st.gun = index
+  return true
 end
 
 Weapons.serverMessages = {
   WPN_FIRE = function(server, player, args)
     Weapons:serverFire(server, player, tonumber(args[1]))
+  end,
+  WPN_SELECT = function(server, player, args)
+    Weapons:serverSelectGun(server, player, tonumber(args[1]))
   end,
 }
 
@@ -731,10 +802,11 @@ end
 
 function Weapons:hit(server, p, target)
   local angle = p.vx and math.atan2(p.vy, p.vx) or nil
+  local amount = p.damage or Guns.at(Guns.DEFAULT).damage
   if target.player then
-    self:damage(server, target.player, p.owner, DAMAGE, p.id, angle)
+    self:damage(server, target.player, p.owner, amount, p.id, angle)
   else
-    self:damageCar(server, target.car, p.owner, DAMAGE, p.id, angle)
+    self:damageCar(server, target.car, p.owner, amount, p.id, angle)
   end
 end
 
