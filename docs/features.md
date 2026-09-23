@@ -213,17 +213,18 @@ Controls.name(Controls.bindings("horn")[1])        -- "H", for HUD hints
 
 ## HUD readouts
 
-Draw meters and cooldowns with the helpers in `src/ui.lua`, so every
-feature's HUD looks like one HUD. All take colours as `{ r, g, b[, a] }`:
+The important numbers stand as a row of vertical bars in the bottom-left
+corner. On-foot owns the row: `OnFoot.drawStatBar(slot, name, frac, color,
+value, valueColor, marks)` draws one bar at `slot` (0 = stamina, 1 = dodge,
+abilities from `Abilities.hudSlot`) with its name under it and `value`
+above, and returns its x, y, w, h. Take the next free slot for a new stat.
+Behind it, `src/ui.lua` has the pieces, colours as `{ r, g, b[, a] }`:
 
 ```lua
 UI.label("stamina", x, y, { 0.85, 0.85, 0.9 })      -- text with a dark shadow under it
 UI.meter(x, y, w, h, frac, color, { 0.2 })          -- a bar `frac` full; optional notches
-UI.ring(cx, cy, radius, frac, color, width)         -- an arc `frac` of the way round from the top
+UI.vmeter(x, y, w, h, frac, color, { 0.2 })         -- the same standing up, filling from the bottom
 ```
-
-On-foot draws stamina and the dodge at rows 136-154; abilities draws a row
-of rings from `Abilities.hudY` (208) down to about 272.
 
 ## Events between features
 
