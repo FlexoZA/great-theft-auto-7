@@ -22,6 +22,18 @@ function UI.centerX(w)
   return math.floor((love.graphics.getWidth() - w) / 2)
 end
 
+--- `text` as it fits in `width` px of `font`: whole, or cut short (whole
+--- characters, so a name with accents stays valid) and ended with "...".
+function UI.fit(text, font, width)
+  if font:getWidth(text) <= width then
+    return text
+  end
+  while #text > 0 and font:getWidth(text .. "...") > width do
+    text = text:sub(1, (utf8.offset(text, -1) or 1) - 1)
+  end
+  return text .. "..."
+end
+
 --- The dark rounded panel menu screens put their controls on, over the
 --- menu backdrop (settings, host, join, lobby).
 function UI.panel(x, y, w, h)

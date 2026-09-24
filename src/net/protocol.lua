@@ -7,6 +7,7 @@ local Protocol = {
   DISCOVER_MAGIC = "GTA7_DISCOVER",
   HOST_MAGIC = "GTA7_HOST",
   MAX_NAME = 16,
+  MAX_SERVER_NAME = 32, -- a player name and "'s game"
   KEY_LENGTH = 32, -- hex characters in a player key
 }
 
@@ -30,13 +31,24 @@ function Protocol.decode(msg)
   return kind, parts
 end
 
---- Strip control characters (including our separator) and clamp length.
-function Protocol.sanitizeName(name)
+--- Strip control characters (including our separator) and clamp length to
+--- `max` characters (MAX_NAME when not given).
+function Protocol.sanitizeName(name, max)
   name = tostring(name or ""):gsub("%c", ""):gsub("^%s+", ""):gsub("%s+$", "")
   if name == "" then
     name = "Player"
   end
-  return name:sub(1, Protocol.MAX_NAME)
+  name = name:sub(1, max or Protocol.MAX_NAME)
+  -- The cut is in bytes: drop a character it split, or the text is not valid UTF-8 to draw.
+  local lead = name:find("[\192-\255][\128-\191]*$")
+  if lead then
+    local b = name:byte(lead)
+    local want = b >= 240 and 4 or b >= 224 and 3 or 2
+    if #name - lead + 1 < want then
+      name = name:sub(1, lead - 1)
+    end
+  end
+  return name
 end
 
 --- A fresh random player key: KEY_LENGTH lowercase hex characters.
