@@ -338,15 +338,18 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
-- Holding a gun: the host keeps the set of guns each player holds (the
-  pistol and any gun with a `stock` in `guns.lua` to start with) and tells
-  them it (`WPN_GUNS`). A gun is also an item (`"gun-<gun key>"`, from a
-  weapons factory): `WPN_EQUIP` takes one out of the bag and adds the gun to
-  the set, `WPN_UNEQUIP` puts it back as an item (if there is room; never the
-  pistol). The inventory screen sends those on a drag between a weapon slot
-  and the bag. `weapons:serverOwns(player, index)` is the host's answer and
-  `weapons:owns(index)` the client's; selecting or firing anything else is
-  refused, and putting down the gun in hand leaves the pistol.
+- Weapon slots: each player carries guns in `weapons.slotCount` slots, one
+  per number key; the host keeps them (the pistol in slot 1 and any gun with
+  a `stock` in `guns.lua` after it, to start with) and tells the player
+  (`WPN_GUNS`, a gun index per slot, 0 for empty). A gun is also an item
+  (`"gun-<gun key>"`, from a weapons factory): `WPN_EQUIP <gun> <slot>` takes
+  one out of the bag and puts the gun in that slot (a gun already there goes
+  back into the bag), `WPN_UNEQUIP <slot>` puts the slot's gun back as an
+  item (if there is room; never the pistol), `WPN_MOVE <slot> <slot>` swaps
+  two slots. The inventory screen sends those on drags.
+  `weapons:serverOwns(player, index)` is the host's answer to "do they carry
+  it" and `weapons:owns(index)` the client's; selecting or firing anything
+  else is refused, and putting down the gun in hand leaves the pistol.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
@@ -424,9 +427,10 @@ example with a menu; real-estate is the one with a place to stand.
   moves guns in and out of it as items.
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
   carry around a picture of you: gear slots (empty for now), a weapon slot
-  per gun, the ability slots, and the item boxes. It owns the mouse while it
-  is up (`pointerTaken`) and the number keys (`menuOpen`); drag a gun between
-  its slot and the bag to hold it or put it down (weapons does the moving).
+  per number key, the ability slots, and the item boxes. It owns the mouse
+  while it is up (`pointerTaken`) and the number keys (`menuOpen`); drag a
+  gun from the bag onto a slot to put it on that key, out of its slot into
+  the bag to put it down, or between slots to swap (weapons does the moving).
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a

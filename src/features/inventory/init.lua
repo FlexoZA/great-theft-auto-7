@@ -8,11 +8,13 @@
 -- ours (`menuOpen`). It never opens over the upgrade shop or a building
 -- menu, and closes if one of those comes up.
 --
--- Dragging a gun from its weapon slot into your bag puts it down
--- (weapons:unequip: it becomes a "gun-<key>" item, if there is room);
--- dragging a gun item from the bag onto the weapon slots picks it up
--- (weapons:equip). A click on a weapon slot selects that gun. The host
--- does the moving and tells weapons what you hold; this only asks.
+-- The weapon slots are the number keys: drag a gun item from the bag onto
+-- a slot and that key fires it (weapons:equip; a gun already there swaps
+-- into the bag), drag a gun from its slot into the bag to put it down
+-- (weapons:unequip: it becomes a "gun-<key>" item, if there is room, and
+-- the slot is empty), or onto another slot to change its key
+-- (weapons:move). A click on a slot selects its gun. The host does the
+-- moving and tells weapons what is in each slot; this only asks.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -27,7 +29,7 @@ local Inventory = {
 }
 
 Inventory.open = false
-Inventory.drag = nil -- { index, from = "slot" | "bag", box, x0, y0, moved }: a gun on the move
+Inventory.drag = nil -- { index, from = "slot" | "bag", box, x0, y0, moved }: a gun on the move, out of `box`
 Inventory.dragStart = 5 -- px the mouse must move with the button down before a press is a drag
 Inventory.notice = nil -- { text, t }: why a drop did nothing
 Inventory.noticeTime = 2.5
@@ -95,10 +97,11 @@ end
 function Inventory:pick(x, y)
   local L = Screen.layout()
   local w, b = weapons(), buildings()
-  for i, r in ipairs(L.weapons) do
+  for slot, r in ipairs(L.weapons) do
     if inside(r, x, y) then
-      if Guns.list[i] and w and w:owns(i) then
-        return { index = i, from = "slot", box = i }
+      local index = w and w.slots[slot]
+      if index and Guns.list[index] then
+        return { index = index, from = "slot", box = slot }
       end
       return nil
     end
@@ -139,6 +142,24 @@ function Inventory:click(client, d)
   end
 end
 
+--- The weapon slot under (x, y): the one whose box it is in, or, anywhere
+--- else on the weapons block, the first empty one.
+local function slotAt(L, w, x, y)
+  for slot, r in ipairs(L.weapons) do
+    if inside(r, x, y) then
+      return slot
+    end
+  end
+  if inside(L.weaponsArea, x, y) then
+    for slot = 1, w.slotCount do
+      if not w.slots[slot] then
+        return slot
+      end
+    end
+  end
+  return nil
+end
+
 --- The button came up at (x, y) after a drag: put the gun where it landed.
 function Inventory:drop(client, d, x, y)
   local L = Screen.layout()
@@ -147,20 +168,27 @@ function Inventory:drop(client, d, x, y)
     return
   end
   local gun = Guns.list[d.index]
+  local slot = slotAt(L, w, x, y)
   if d.from == "slot" and inside(L.itemsArea, x, y) then
     if d.index == Guns.DEFAULT then
       self:say("The " .. gun.name .. " stays with you.")
     elseif Kinds.room(b.inventory, b.slots, "gun-" .. gun.key) < 1 then
       self:say("No room in your bag for the " .. gun.name .. ".")
     else
-      w:unequip(client, d.index)
+      w:unequip(client, d.box)
+    end
+  elseif d.from == "slot" and slot then
+    w:move(client, d.box, slot)
+  elseif d.from == "bag" and slot then
+    if w:owns(d.index) then
+      self:say("You already carry a " .. gun.name .. ".")
+    elseif w.slots[slot] == Guns.DEFAULT then
+      self:say("The " .. Guns.at(Guns.DEFAULT).name .. " stays with you.")
+    else
+      w:equip(client, d.index, slot)
     end
   elseif d.from == "bag" and inside(L.weaponsArea, x, y) then
-    if w:owns(d.index) then
-      self:say("You already hold a " .. gun.name .. ".")
-    else
-      w:equip(client, d.index)
-    end
+    self:say("No empty weapon slot: drop it on the one to swap with.")
   end
 end
 

@@ -3,11 +3,10 @@
 --
 --   top left      the character and the gear slots they will wear one day
 --                 (head, body, legs, other); nothing fits in them yet
---   top right     the weapon slots, one per gun, the ones I hold drawn in
---                 full with what is in the magazine and what is left to
---                 load, the one in hand lit up, the rest a faint outline
---                 of the gun that would go there; under them the ability
---                 slots as the HUD shows them
+--   top right     the weapon slots, one per number key (weapons.slotCount),
+--                 each with the gun in it, what is in the magazine and what
+--                 is left to load, the one in hand lit up, empty ones bare;
+--                 under them the ability slots as the HUD shows them
 --   bottom        the item slots buildings fills: a stack per box, locked
 --                 ones greyed out until the upgrade shop opens them
 --
@@ -29,7 +28,6 @@ local Screen = {}
 -- Tuning ------------------------------------------------------------------
 Screen.width = 800 -- px; the panel is centred on the screen (nine item boxes across)
 Screen.pad = 24 -- px inside the panel's edge
-Screen.weaponSlots = 4 -- boxes on the weapon row, the spare ones empty
 Screen.gear = { "head", "body", "legs", "other" } -- the slots down the character's side
 
 local CELL, GAP = 76, 8 -- item boxes
@@ -109,14 +107,15 @@ end
 ---   panel                  { x, y, w, h }
 ---   figure                 where the character stands
 ---   gear[i]                { x, y, w, h, name }, Screen.gear order
----   weapons[i]             { x, y, w, h }, Screen.weaponSlots of them
+---   weapons[i]             { x, y, w, h }, weapons.slotCount of them
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
 ---   weaponsArea / itemsArea  the block each row of boxes stands in, for drops
 ---   hint / foot            y of the text lines under the items
 function Screen.layout()
-  local abilities = Features.byName.abilities
+  local abilities, weapons = Features.byName.abilities, Features.byName.weapons
   local abilitySlots = abilities and math.max(abilities.hudSlots, #abilities.slots) or 0
+  local weaponSlots = weapons and weapons.slotCount or 4
   local cols = math.floor((Screen.width - 2 * Screen.pad + GAP) / (CELL + GAP))
   local rows = math.ceil(Kinds.MAX_SLOTS / cols)
   local gearH = #Screen.gear * (GEAR + GAP) - GAP
@@ -143,11 +142,11 @@ function Screen.layout()
   -- Weapons over abilities down the right.
   x = px + Screen.pad + leftW + 2 * Screen.pad
   L.weaponsLabel = { x = x, y = top }
-  for i = 1, Screen.weaponSlots do
+  for i = 1, weaponSlots do
     L.weapons[i] = { x = x + (i - 1) * (GUN_W + GAP), y = top + LABEL_H, w = GUN_W, h = GUN_H }
   end
   L.weaponsArea = {
-    x = x - GAP, y = top, w = Screen.weaponSlots * (GUN_W + GAP) + GAP, h = LABEL_H + GUN_H + GAP,
+    x = x - GAP, y = top, w = weaponSlots * (GUN_W + GAP) + GAP, h = LABEL_H + GUN_H + GAP,
   }
   local ay = top + LABEL_H + GUN_H + SECTION_GAP
   L.abilitiesLabel = { x = x, y = ay }
@@ -204,36 +203,32 @@ local function drawGear(L)
   end
 end
 
---- The weapon slots: a gun each in number-key order, the held one lit.
---- `lifted` is the index of the gun being dragged out of its slot, if any.
+--- The weapon slots, one per number key, with the gun in each; the one in
+--- hand lit. `lifted` is the slot whose gun is being dragged, drawn empty
+--- meanwhile.
 local function drawWeapons(L, lifted)
   local weapons = Features.byName.weapons
   local small = UI.fonts.small
   heading("weapons", L.weaponsLabel.x, L.weaponsLabel.y)
-  for i, r in ipairs(L.weapons) do
-    local gun = Guns.list[i]
-    local held = weapons and weapons.gun == i and lifted ~= i
-    local owned = gun and (not weapons or weapons:owns(i)) and lifted ~= i
-    box(r.x, r.y, r.w, r.h, owned, held)
+  for slot, r in ipairs(L.weapons) do
+    local i = weapons and lifted ~= slot and weapons.slots[slot]
+    local gun = i and Guns.list[i]
+    local held = gun and weapons.gun == i
+    box(r.x, r.y, r.w, r.h, gun ~= nil, held)
     love.graphics.setFont(small)
+    -- The key in a badge in the corner either way.
+    local key = Controls.name(Controls.bindings("weapon-" .. slot)[1])
+    love.graphics.setColor(0.36, 0.56, 0.92, (held and 1) or (gun and 0.6) or 0.3)
+    love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
+    love.graphics.setColor(1, 1, 1, gun and 1 or 0.5)
+    love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
     if not gun then
       love.graphics.setColor(1, 1, 1, 0.2)
       love.graphics.printf("empty", r.x, r.y + r.h / 2 - 8, r.w, "center")
-    elseif not owned then
-      -- A gun I don't hold: its shape, faint, to show what goes here.
-      Icons.draw(gun.key, r.x + r.w / 2, r.y + 27, 1.2, 0.2)
-      love.graphics.setColor(1, 1, 1, 0.3)
-      love.graphics.printf(gun.name, r.x, r.y + 48, r.w, "center")
-      love.graphics.printf("empty", r.x, r.y + r.h - 20, r.w, "center")
     else
-      -- The key in a badge in the corner, the gun drawn across the top,
-      -- its name under it and the ammo along the bottom, red when the
-      -- magazine is empty. Guns not in hand are drawn a little faded.
-      local key = Controls.name(Controls.bindings("weapon-" .. i)[1])
-      love.graphics.setColor(0.36, 0.56, 0.92, held and 1 or 0.6)
-      love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
-      love.graphics.setColor(1, 1, 1)
-      love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
+      -- The gun drawn across the top, its name under it and the ammo along
+      -- the bottom, red when the magazine is empty. Guns not in hand are
+      -- drawn a little faded.
       Icons.draw(gun.key, r.x + r.w / 2 + 6, r.y + 27, 1.2, held and 1 or 0.7)
       love.graphics.setColor(held and { 1, 0.9, 0.3 } or { 0.85, 0.85, 0.9 })
       love.graphics.printf(gun.name, r.x, r.y + 48, r.w, "center")
@@ -326,7 +321,8 @@ end
 
 --- The whole screen. `buildings` is the buildings feature (its items and
 --- slots), `list` its stacks (Screen.stacks), `drag` what is being
---- dragged ({ index, from = "slot" | "bag", box }) once it has moved, and
+--- dragged ({ index, from = "slot" | "bag", box }: `box` the slot or item
+--- box it left) once it has moved, and
 --- `notice` a line to show under the boxes instead of the usual hint.
 function Screen.draw(buildings, list, drag, notice)
   local L = Screen.layout()
@@ -334,7 +330,7 @@ function Screen.draw(buildings, list, drag, notice)
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
   drawFigure(L.figure)
   drawGear(L)
-  drawWeapons(L, drag and drag.from == "slot" and drag.index or nil)
+  drawWeapons(L, drag and drag.from == "slot" and drag.box or nil)
   drawAbilities(L)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
