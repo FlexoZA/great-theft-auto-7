@@ -94,11 +94,12 @@ for _, gun in ipairs(Guns.list) do
   gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
 
--- One product per vehicle model, each at the model's own price.
+-- One product per vehicle model, each at the model's own price, and taking
+-- the model's own time and materials when it names them.
 local carItems, carRecipes = {}, {}
 for _, model in ipairs(Catalog.list) do
   carItems[#carItems + 1] = model.item
-  carRecipes[model.item] = { price = model.price }
+  carRecipes[model.item] = { price = model.price, time = model.time, inputs = model.inputs }
 end
 
 Kinds.list = {
@@ -221,7 +222,7 @@ function Kinds.name(item, n)
     local ability = item:match("^ability%-(.+)$")
     local model = Catalog.fromItem(item)
     if model then
-      name = model.name .. (n ~= 1 and "s" or "")
+      name = model.name .. (n ~= 1 and (model.name:match("s$") and "es" or "s") or "")
     elseif gun then
       name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")
     elseif ability then
