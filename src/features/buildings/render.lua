@@ -1,6 +1,8 @@
 -- Drawing the buildings, top down, inside the fence of the plot they stand
 -- on. Every kind is a few rectangles; the yard shows what is waiting to be
 -- collected, a light by the gate says public (green) or private (red), and
+-- a bar along the bottom fills while a batch is being made. The vehicle
+-- factory parks what it made in the yard, drawn from the model's SVG.
 -- a bar along the bottom fills while a batch is being made. A damaged
 -- building gets cracks, a health bar and a red flash when hit; a destroyed
 -- one is a smoking heap of rubble in its own colours.
@@ -9,6 +11,7 @@ local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
 local Icons = require("src.features.weapons.icons")
 local AbilityKinds = require("src.features.abilities.kinds")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Render = {}
 
@@ -193,10 +196,20 @@ local function emblem(key, cx, cy)
     love.graphics.setColor(0.85, 0.12, 0.12)
     love.graphics.rectangle("fill", cx - 8, cy - 24, 16, 48)
     love.graphics.rectangle("fill", cx - 24, cy - 8, 48, 16)
+  elseif key == "vehicles" then
+    -- A steering wheel.
+    love.graphics.setColor(0.15, 0.15, 0.17)
+    love.graphics.setLineWidth(6)
+    love.graphics.circle("line", cx, cy, 20)
+    love.graphics.line(cx - 20, cy, cx + 20, cy)
+    love.graphics.line(cx, cy, cx, cy + 20)
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("fill", cx, cy, 6)
   end
 end
 
 local ROOFS = {
+  vehicles = { 0.7, 0.3, 0.22 },
   ammo = { 0.45, 0.42, 0.35 },
   weapons = { 0.3, 0.32, 0.36 },
   health = { 0.92, 0.92, 0.9 },
@@ -229,9 +242,17 @@ local function factory(b, kind, r, time)
     box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
     box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
   end
-  -- What is waiting to be collected, in crates by the gate.
+  -- What is waiting to be collected: crates by the gate, or the cars
+  -- themselves parked nose up along the bottom of the yard.
   local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
-  crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  local model = Catalog.fromItem(kind.products[b.product])
+  if model then
+    for i = 0, math.min(units, kind.cap) - 1 do
+      Catalog.draw(model, r.x + 24 + i * 26, r.y + r.h - 24, -math.pi / 2, 36)
+    end
+  else
+    crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  end
 end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.

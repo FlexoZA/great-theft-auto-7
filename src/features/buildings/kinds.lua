@@ -8,6 +8,9 @@
 --   gun-<gun>                a gun ("gun-uzi")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
+--   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
+--                            carries one: collecting or buying it puts it on the road
+--                            (the `serverDeliver` event, answered by vehicles)
 --
 -- A player carries items in slots, SLOTS to start with (the upgrade shop
 -- sells more, up to MAX_SLOTS). A slot holds one stack of one item, up to
@@ -39,6 +42,7 @@
 
 local Guns = require("src.features.weapons.guns")
 local AbilityKinds = require("src.features.abilities.kinds")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Kinds = {}
 
@@ -57,6 +61,8 @@ function Kinds.stack(item)
     return 5
   elseif item:match("^ability%-") then
     return 1 -- one of a kind
+  elseif Catalog.fromItem(item) then
+    return 1
   end
   return 50 -- materials
 end
@@ -86,6 +92,13 @@ local gunAmmo, gunItems = {}, {}
 for _, gun in ipairs(Guns.list) do
   gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
   gunItems[#gunItems + 1] = "gun-" .. gun.key
+end
+
+-- One product per vehicle model, each at the model's own price.
+local carItems, carRecipes = {}, {}
+for _, model in ipairs(Catalog.list) do
+  carItems[#carItems + 1] = model.item
+  carRecipes[model.item] = { price = model.price }
 end
 
 Kinds.list = {
@@ -128,6 +141,18 @@ Kinds.list = {
     products = { "medkit" },
   },
 }
+
+-- The vehicle factory runs on every material but sulfur and keeps at most
+-- five finished cars. Only there when there is a model to build.
+if #carItems > 0 then
+  Kinds.list[#Kinds.list + 1] = {
+    key = "vehicles", name = "Vehicle Factory", cost = 120, hp = 1000,
+    inputs = { iron = 4, minerals = 2, copper = 2, oil = 2, plastic = 2 },
+    time = 45, batch = 1, cap = 5, unit = 1, price = Catalog.list[1].price,
+    products = carItems,
+    recipes = carRecipes,
+  }
+end
 
 local FIELDS = { "inputs", "time", "batch", "cap", "unit", "price" }
 
@@ -194,7 +219,10 @@ function Kinds.name(item, n)
   else
     gun = item:match("^gun%-(.+)$")
     local ability = item:match("^ability%-(.+)$")
-    if gun then
+    local model = Catalog.fromItem(item)
+    if model then
+      name = model.name .. (n ~= 1 and "s" or "")
+    elseif gun then
       name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")
     elseif ability then
       local a = AbilityKinds.byKey[ability]
@@ -245,6 +273,11 @@ function Kinds.hopperList(kind)
     end
   end
   return out
+end
+
+--- Is `item` a car (made by the vehicle factory, never carried)?
+function Kinds.isVehicle(item)
+  return Catalog.fromItem(item) ~= nil
 end
 
 --- Is `item` a raw material?

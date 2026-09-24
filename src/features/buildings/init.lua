@@ -16,6 +16,11 @@
 --                    launcher takes copper, oil and plastic as well.
 --   Health Factory   makes medkits, up to 5, from minerals. A medkit heals
 --                    you when you use it (H).
+--   Vehicle Factory  makes a car model you pick (vehicles/models), up to 5,
+--                    from every material but sulfur. Its menu shows the car
+--                    and its stats. A car is never carried: collecting or
+--                    buying one puts it on the road in front of the factory
+--                    as yours (`serverDeliver`, answered by vehicles).
 --
 -- Buildings are solid: cars bounce off them, and walkers, pedestrians,
 -- officers and bullets stop at their walls (`blocksPoint`). The parking lot
@@ -132,6 +137,7 @@ local REASONS = {
   nothing = "You aren't carrying any of it.",
   ownerbroke = "The owner can't afford to pay you.",
   nomedkit = "You have no medkits.",
+  nodelivery = "Nobody can deliver that here.",
   healthy = "You're already at full health.",
   ruined = "It's in ruins. Repair it first.",
   standing = "Only a destroyed building's lot can be taken over.",
@@ -418,7 +424,11 @@ function Buildings:menuRows(client)
       return self:offerRows(client, plot, b)
     end
     local item = productOf(kind, b.product)
-    row(("Collect %s"):format(Kinds.label(item, b.output)), b.output > 0 and function()
+    local collect = ("Collect %s"):format(Kinds.label(item, b.output))
+    if Kinds.isVehicle(item) then
+      collect = ("Drive out a %s  (%d ready)"):format((Kinds.label(item, 1):gsub("^1 ", "")), b.output)
+    end
+    row(collect, b.output > 0 and function()
       send(client, "BLD_COLLECT", plot.id)
     end or nil)
     if next(kind.hopper) then
@@ -446,7 +456,7 @@ function Buildings:menuRows(client)
     local unit = recipeOf(b, kind).unit
     local n = math.min(unit, b.output)
     row(("Buy %s  (%s)"):format(Kinds.label(item, unit), amount(b.price)), n > 0 and function()
-      if Kinds.room(self.inventory, self.slots, item) < n then
+      if not Kinds.isVehicle(item) and Kinds.room(self.inventory, self.slots, item) < n then
         say(REASONS.invfull)
       elseif affordable(client, b.price) then
         send(client, "BLD_BUY", plot.id)
@@ -718,7 +728,14 @@ local function drawMenu(self, client)
     local _, parts = font:getWrap(line, pw - 40)
     wrapped = wrapped + math.max(1, #parts)
   end
-  local ph = 64 + wrapped * 20 + #rows * 30 + 40
+  -- A car factory shows the car it is making: that is what you buy.
+  local vehicles = Features.byName.vehicles
+  local card = kind and vehicles and vehicles.cardHeight and productOf(kind, b.product)
+  local cardH = card and vehicles:cardHeight(card, pw) or 0
+  if cardH == 0 then
+    card = nil
+  end
+  local ph = 64 + wrapped * 20 + cardH + #rows * 30 + 40
   local px, py = w - pw - 16, 36
   panel(px, py, pw, ph, title)
 
@@ -733,6 +750,11 @@ local function drawMenu(self, client)
     end
   end
   y = y + 6
+  if card then
+    vehicles:drawCard(card, px, y, pw)
+    y = y + cardH
+    love.graphics.setFont(font)
+  end
   for i, r in ipairs(rows) do
     local keyName = Controls.name(Controls.bindings("building-" .. i)[1])
     local dim = r.run and 1 or 0.4
@@ -1102,6 +1124,13 @@ local function refusing(handler)
   end
 end
 
+--- Hand one `item` that nobody carries (a car) to `player` on the road in
+--- front of `plot`, through whichever feature answers `serverDeliver`.
+local function deliver(server, player, plot, item)
+  local x, y = padOf(plot)
+  return Features.any("serverDeliver", server, player, item, x, y + T, 0)
+end
+
 Buildings.serverMessages = {
   BLD_BUILD = refusing(function(server, player, args)
     local plot, reason = plotFor(server, player, args)
@@ -1150,6 +1179,15 @@ Buildings.serverMessages = {
       return "empty"
     end
     local item = productOf(kind, b.product)
+    if Kinds.isVehicle(item) then
+      -- One car at a time, straight onto the road.
+      if not deliver(server, player, plotById(id), item) then
+        return "nodelivery"
+      end
+      b.output = b.output - 1
+      publish(server, id, b)
+      return
+    end
     local n = math.min(b.output, roomFor(player.id, item))
     if n < 1 then
       return "invfull"
@@ -1313,7 +1351,10 @@ Buildings.serverMessages = {
       return "soldout"
     end
     local item = productOf(kind, b.product)
-    if roomFor(player.id, item) < n then
+    local car = Kinds.isVehicle(item)
+    if car and not Features.byName.vehicles then
+      return "nodelivery"
+    elseif not car and roomFor(player.id, item) < n then
       return "invfull"
     end
     local money = Features.byName.money
@@ -1324,7 +1365,11 @@ Buildings.serverMessages = {
       money:give(server, b.owner, b.price)
     end
     b.output = b.output - n
-    addStock(server, player, item, n)
+    if car then
+      deliver(server, player, plot, item)
+    else
+      addStock(server, player, item, n)
+    end
     publish(server, plot.id, b)
   end),
 

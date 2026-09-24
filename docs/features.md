@@ -57,6 +57,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
+| `drawVehicle(client, c)` | Asked before the core draws each car (world space). Draw `c` at `c.dx, c.dy, c.dangle` yourself and return true, and the core's box is left out. Vehicles draws its SVG models this way. |
 | `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
 
@@ -253,6 +254,7 @@ first feature whose hook returns true. Events in use:
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
+| `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen answers it. |
@@ -322,6 +324,18 @@ couple of small conventions rather than requiring each other:
   `OF_MAX` so every HUD scales. `on-foot:serverSetStaminaRegen(server,
   player, scale)` sets how fast stamina comes back, as a multiple of the
   base rate (host only; nothing to draw). Upgrades buys all three with koins.
+- `Features.byName.weapons:serverSetCarMaxHealth(server, car, max)`: give one
+  car a health ceiling of its own (every car has 100 otherwise) and fill it
+  up; wrecks come back with it. Weapons broadcasts `WPN_CARMAX` so every
+  health bar scales. Vehicles sets each model's hitpoints this way.
+- Vehicle models: every `src/features/vehicles/models/<key>.svg` is a car
+  model, found at startup; a `<key>.lua` beside it sets its name, price,
+  hitpoints, top speed, acceleration, weight and turning (the header of
+  `vehicles/catalog.lua` lists them). `Features.byName.vehicles:serverSpawn(server,
+  model, x, y, angle, owner)` puts one on the road (`model` from
+  `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
+  (`vehicles/svg.lua`) handles paths, basic shapes, fills, strokes, groups
+  and transforms; not CSS classes, `<use>`, text, clips or masks.
 - `Features.byName.weapons:serverHeal(server, player, amount)` and
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything
@@ -429,7 +443,7 @@ example with a menu; real-estate is the one with a place to stand.
   on the host. `real-estate:serverTransfer(server, plotId, playerId)` hands a
   plot to someone else (buildings' hostile takeover, after they have paid).
 - Buildings: `src/features/buildings` puts a building on a plot its owner
-  picks (parking lot, quarry, oil well, ammo, weapons and health factories;
+  picks (parking lot, quarry, oil well, ammo, weapons, health and vehicle factories;
   the catalog is `kinds.lua`), used from a square on the sidewalk in front of
   the plot. Owners set what a building sells for and what it pays for each
   material it runs on; other players sell into its hopper from there. A
