@@ -655,7 +655,7 @@ function Hunt:hurtFoot(server, amount, by, angle)
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
-    quests:serverComplete(server, self.questId)
+    quests:serverComplete(server, self.questId, x, y) -- an EXIT star home where he fell
   end
   setStage(server, "done")
   return true
