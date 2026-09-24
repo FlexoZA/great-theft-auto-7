@@ -299,7 +299,8 @@ Upgrades.clientMessages = {
     end
     Upgrades.levels[id] = Upgrades.levels[id] or {}
     Upgrades.levels[id][key] = level
-    if id == client.myId then
+    -- Levels put back from a saved world arrive before START: no chime for those.
+    if id == client.myId and client.started then
       Sounds.play("chime")
       Upgrades.flash, Upgrades.flashKind = 0.8, key
       Upgrades.notice = nil
