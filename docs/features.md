@@ -337,6 +337,12 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
+- Owning a gun: a player holds the pistol, any gun with a `stock` in
+  `guns.lua`, and any gun whose item (`"gun-<gun key>"`, from a weapons
+  factory) is in their inventory. `weapons:serverOwns(player, index)` is the
+  host's answer and `weapons:owns(index)` the client's; selecting or firing
+  anything else is refused, and the gun in hand drops back to the pistol
+  when its item leaves the bag.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).

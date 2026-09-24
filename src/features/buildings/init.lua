@@ -44,7 +44,8 @@
 -- shop (Buildings:serverSetSlots). A slot holds one stack of one item
 -- (kinds.lua has the stack sizes); what doesn't fit stays in the building.
 -- It is kept by the host and told to each player alone. Weapons loads its
--- magazines from the ammo in it (serverTake); guns are stock for now.
+-- magazines from the ammo in it (serverTake) and counts a gun as yours
+-- while its item ("gun-<key>") is in it (serverCount).
 --
 -- The plots come from real-estate; without it there is nothing to build on.
 -- A building belongs to whoever owns its plot: when the plot goes back on

@@ -15,6 +15,14 @@
 -- Karen's simps) around it through the `serverShotAt` convention.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
+-- You hold the guns you own: the pistol from the start, any gun with a
+-- `stock` (guns.lua, for testing), and any gun you carry as an item
+-- ("gun-<key>" in the inventory: a weapons factory makes them). The number
+-- keys only pick among those, the HUD only lists those, and the host
+-- refuses to select or fire the rest (serverOwns); a gun whose item leaves
+-- the bag drops back to the pistol on both sides. Later the inventory
+-- screen will let a gun be dragged into a weapon slot instead.
+--
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (R) refills the one in hand from the ammo in your inventory
 -- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
@@ -281,8 +289,24 @@ end
 
 --- Switch to gun `index` and tell the host. The cooldown carries over, so
 --- swapping is no faster than waiting.
+--- Do I own gun `index`, as far as this machine knows? Without the
+--- buildings feature there is no inventory and every gun is free.
+function Weapons:owns(index)
+  local gun = Guns.list[index]
+  if not gun then
+    return false
+  elseif index == Guns.DEFAULT or gun.stock then
+    return true
+  end
+  local buildings = Features.byName.buildings
+  return not buildings or (buildings.inventory["gun-" .. gun.key] or 0) > 0
+end
+
 function Weapons:selectGun(client, index)
   if not Guns.list[index] or index == self.gun then
+    return
+  elseif not self:owns(index) then
+    notify(self, "No " .. Guns.at(index).name .. ": a weapons factory makes them")
     return
   end
   self.gun = index
@@ -321,6 +345,9 @@ end
 function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
+  if not self:owns(self.gun) then
+    self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same on its own
+  end
   local held = Controls.isDown("fire")
   if not held then
     self.armed = true
@@ -521,28 +548,30 @@ function Weapons:drawHUD(client)
   local reloadKey = Controls.name(Controls.bindings("reload")[1])
   local hints = fireKey .. ": fire   " .. reloadKey .. ": reload   " .. boxKey .. ": hitboxes   "
   love.graphics.print(hints, 10, 64)
-  -- The guns on the same row, the one in hand lit up, each with what is in
-  -- its magazine and what is left to load.
+  -- The guns I own on the same row, the one in hand lit up, each with what
+  -- is in its magazine and what is left to load.
   local font = UI.fonts.small
   local x = 10 + font:getWidth(hints)
   for i, gun in ipairs(Guns.list) do
-    local spare = self:reserve(i)
-    local label = ("%s: %s %d/%d"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name,
-      self.mags[i] or 0, gun.magazine)
-    if self.infiniteAmmo then
-      label = ("%s: %s inf"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name)
-    elseif spare ~= math.huge then
-      label = label .. (" +%d"):format(spare)
+    if self:owns(i) then
+      local spare = self:reserve(i)
+      local keyName = Controls.name(Controls.bindings("weapon-" .. i)[1])
+      local label = ("%s: %s %d/%d"):format(keyName, gun.name, self.mags[i] or 0, gun.magazine)
+      if self.infiniteAmmo then
+        label = ("%s: %s inf"):format(keyName, gun.name)
+      elseif spare ~= math.huge then
+        label = label .. (" +%d"):format(spare)
+      end
+      if i == self.gun and (self.mags[i] or 0) < 1 then
+        love.graphics.setColor(1, 0.45, 0.4)
+      elseif i == self.gun then
+        love.graphics.setColor(1, 0.9, 0.3)
+      else
+        love.graphics.setColor(0.6, 0.6, 0.65)
+      end
+      love.graphics.print(label, x, 64)
+      x = x + font:getWidth(label) + 14
     end
-    if i == self.gun and (self.mags[i] or 0) < 1 then
-      love.graphics.setColor(1, 0.45, 0.4)
-    elseif i == self.gun then
-      love.graphics.setColor(1, 0.9, 0.3)
-    else
-      love.graphics.setColor(0.6, 0.6, 0.65)
-    end
-    love.graphics.print(label, x, 64)
-    x = x + font:getWidth(label) + 14
   end
 
   -- A bar under the gun row while reloading; a word when there is a problem.
@@ -953,6 +982,29 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
   return true
 end
 
+--- Does `player` own gun `index` on the host: the pistol, a gun with a
+--- `stock`, or one they carry as an item? Bots and police own them all;
+--- without the buildings feature there is no inventory, so everyone does.
+function Weapons:serverOwns(player, index)
+  local gun = Guns.list[index]
+  if not gun then
+    return false
+  elseif index == Guns.DEFAULT or gun.stock or player.bot then
+    return true
+  end
+  local buildings = Features.byName.buildings
+  return not (buildings and buildings.serverCount) or buildings:serverCount(player.id, "gun-" .. gun.key) > 0
+end
+
+--- The gun `player` holds, dropped back to the pistol if it is no longer
+--- theirs (the item left their bag). The client does the same on its own.
+local function heldGun(self, player, st)
+  if not self:serverOwns(player, st.gun) then
+    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+  end
+  return st.gun
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
 --- a shot was fired.
@@ -962,7 +1014,7 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
-  local gun = Guns.at(st.gun)
+  local gun = Guns.at(heldGun(self, player, st))
   if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
   end
@@ -1018,7 +1070,7 @@ end
 --- A reload under way is dropped.
 function Weapons:serverSelectGun(_server, player, index)
   local st = self.sv and self.sv.players[player.id]
-  if not (st and Guns.list[index]) then
+  if not (st and Guns.list[index]) or not self:serverOwns(player, index) then
     return false
   end
   if index ~= st.gun then
@@ -1046,7 +1098,7 @@ function Weapons:serverReload(server, player)
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
-  local gun = Guns.at(st.gun)
+  local gun = Guns.at(heldGun(self, player, st))
   if (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
     return false
   end

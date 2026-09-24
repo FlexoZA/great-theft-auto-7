@@ -4,7 +4,8 @@
 --   top left      the character and the gear slots they will wear one day
 --                 (head, body, legs, other); nothing fits in them yet
 --   top right     the weapon slots, one per gun, the one in hand lit up,
---                 with what is in its magazine and what is left to load;
+--                 with what is in its magazine and what is left to load,
+--                 and the guns I don't own faint (weapons:owns);
 --                 under them the ability slots as the HUD shows them
 --   bottom        the item slots buildings fills: a stack per box, locked
 --                 ones greyed out until the upgrade shop opens them
@@ -205,11 +206,18 @@ local function drawWeapons(L)
   for i, r in ipairs(L.weapons) do
     local gun = Guns.list[i]
     local held = weapons and weapons.gun == i
-    box(r.x, r.y, r.w, r.h, gun ~= nil, held)
+    local owned = gun and (not weapons or weapons:owns(i))
+    box(r.x, r.y, r.w, r.h, owned, held)
     love.graphics.setFont(small)
     if not gun then
       love.graphics.setColor(1, 1, 1, 0.2)
       love.graphics.printf("empty", r.x, r.y + r.h / 2 - 8, r.w, "center")
+    elseif not owned then
+      -- A gun I don't have: its shape, faint, and where to get one.
+      Icons.draw(gun.key, r.x + r.w / 2, r.y + 27, 1.2, 0.2)
+      love.graphics.setColor(1, 1, 1, 0.3)
+      love.graphics.printf(gun.name, r.x, r.y + 48, r.w, "center")
+      love.graphics.printf("not carried", r.x, r.y + r.h - 20, r.w, "center")
     else
       -- The key in a badge in the corner, the gun drawn across the top,
       -- its name under it and the ammo along the bottom, red when the
