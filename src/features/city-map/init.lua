@@ -24,7 +24,8 @@
 -- No network messages: the map is code, so nothing needs sending. A feature
 -- that grows the city, or switches it, tells every machine to do the same in
 -- the same order; the city goes back to its default map and size between
--- games.
+-- games. A trip to another map keeps the default city aside as it was, grown
+-- blocks and all, and switching back puts that very map back.
 
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
@@ -73,6 +74,7 @@ CityMap.DEFAULT = "city" -- every game starts here
 
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`
+CityMap.home = nil -- the default city, kept as it was while everyone is on another map
 CityMap.canvas = nil
 local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas shows
 
@@ -93,6 +95,7 @@ end
 --- when they need it rather than keeping it. No event: this runs between
 --- games, when every feature resets itself anyway.
 function CityMap:reset()
+  self.home = nil
   if self.current ~= self.DEFAULT or #self.map.grown > 0 then
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
@@ -135,7 +138,14 @@ function CityMap:switchTo(name, server)
   if not self.maps[name] or name == self.current then
     return false
   end
-  self.map = generate(name)
+  if self.current == self.DEFAULT then
+    self.home = self.map
+  end
+  if name == self.DEFAULT and self.home then
+    self.map, self.home = self.home, nil
+  else
+    self.map = generate(name)
+  end
   self.current = name
   if server then
     self:placePlayers(server)

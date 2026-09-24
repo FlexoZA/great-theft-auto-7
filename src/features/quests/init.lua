@@ -562,8 +562,10 @@ Quests.serverMessages = {
       else
         sv.active, sv.by, sv.done = quest.id, player.id, nil
       end
-      city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
+      -- QST_MAP first: whatever features send from mapChanged is about the
+      -- new map, so clients must be on it by then.
       server:broadcast(Protocol.encode("QST_MAP", quest.map))
+      city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
       server:broadcast(Protocol.encode("QST_START", quest.id, player.id))
       if quest.returns then
         if ended then
