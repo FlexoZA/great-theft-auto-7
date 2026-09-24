@@ -573,12 +573,6 @@ function Police:serverPlayerLeft(server, player)
 end
 
 --- For tests.
---- The officers on foot, on the host (an Officers list: `list[1..n]`,
---- each with x, y), for a feature that wants to shoot at them. Nil off duty.
-function Police:serverOfficers()
-  return sv and sv.officers or nil
-end
-
 function Police.server()
   return sv
 end

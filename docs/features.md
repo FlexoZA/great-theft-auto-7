@@ -396,11 +396,10 @@ couple of small conventions rather than requiring each other:
   fourth, where it settled, if it moved: the nest steps back out of
   walls) and `ABL_FIRED` carries them, `drawAim(ox, oy, x, y, time)` draws the arrow while it is
   selected, and an ability's `serverStep(server, dt, abilities)` runs
-  whatever it left standing in the world (the nest fires AK-47 rounds,
-  owned by its placer, at the nearest other player, officer on foot
-  (`police:serverOfficers()`) or pedestrian (`pedestrians.crowd`) in its
-  forty-five-degree arc it has a clear line to (`blocksPoint` along the
-  way) for twenty seconds; `serverReset()` clears them between games).
+  whatever it left standing in the world (the nest sprays AK-47 rounds,
+  owned by its placer, across its forty-five-degree arc for twenty
+  seconds, sweeping side to side and picking no targets: the rounds hurt
+  whatever they meet; `serverReset()` clears them between games).
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).

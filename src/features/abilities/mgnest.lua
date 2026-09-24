@@ -1,9 +1,10 @@
 -- MG nest: a machine gun on a tripod behind sandbags, put down a short way
--- from you, facing the way you point. For as long as it lasts it rakes
--- whoever steps into its forty-five-degree arc with rifle fire (weapons'
--- AK-47 rounds, owned by whoever placed it, so its kills are theirs and it
--- never shoots them): other players, bots and police cars, officers on
--- foot and pedestrians, nearest first. Then it is gone.
+-- from you, facing the way you point. For as long as it lasts it sprays
+-- its forty-five-degree arc with rifle fire, sweeping from side to side
+-- (weapons' AK-47 rounds, owned by whoever placed it, so its kills are
+-- theirs and it never hits them). It picks no targets: the rounds hurt
+-- whatever they meet the way any bullet does, other players, cars, the
+-- crowd, officers, Karen and her simps alike. Then it is gone.
 --
 -- It aims differently from freeze: press its key to select it and an
 -- arrow from you shows where the nest would go and which way it would
@@ -26,25 +27,20 @@ local Nest = {
 Nest.range = 150 -- px in front of you the nest is put down
 Nest.radius = 22 -- px, the sandbag ring
 Nest.arc = math.rad(45) -- the whole arc it covers, centred on its facing
-Nest.reach = 420 -- px it shoots out to
+Nest.reach = 420 -- px of the arc drawn on the ground (the rounds fly on like any rifle round)
 Nest.seconds = 20 -- how long it stands
 Nest.cooldown = 30 -- seconds before the next one
 Nest.afterglow = 0.6 -- seconds the sandbags linger on screen once it is spent
 Nest.gun = Guns.ak47 -- what it fires; its damage, speed and scatter
-Nest.fireEvery = 0.16 -- seconds between rounds: slower than a rifleman
+Nest.fireEvery = 0.14 -- seconds between rounds: slower than a rifleman
+Nest.sweep = 1.6 -- seconds one pass from one side of the arc to the other and back takes
 Nest.barrel = 16 -- px from the middle to the muzzle
 
-local nests = {} -- { owner, x, y, angle, untilT, nextShot }
+local nests = {} -- { owner, x, y, angle, placedAt, untilT, nextShot }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
   return dx * dx + dy * dy
-end
-
---- The smallest turn from `a` to `b`, in -pi..pi.
-local function turn(a, b)
-  local d = (b - a + math.pi) % (2 * math.pi) - math.pi
-  return d
 end
 
 -- Server --------------------------------------------------------------------
@@ -64,69 +60,20 @@ function Nest.serverCast(server, caster, x, y, abilities)
     d = math.max(0, d - 8)
     x, y = ox + math.cos(angle) * d, oy + math.sin(angle) * d
   end
+  local now = abilities.sv.time
   nests[#nests + 1] = {
-    owner = caster.id, x = x, y = y, angle = angle, untilT = abilities.sv.time + Nest.seconds, nextShot = 0,
+    owner = caster.id, x = x, y = y, angle = angle, placedAt = now, untilT = now + Nest.seconds, nextShot = 0,
   }
   return {}, angle, x, y
 end
 
-local SIGHT_STEP = 14 -- px between the points checked for a wall on the way to a target
-
---- Is there a clear shot from the nest to (px, py)? Every feature that
---- owns walls answers `blocksPoint`; a round would stop at the first.
-local function clearShot(nest, px, py)
-  local dx, dy = px - nest.x, py - nest.y
-  local d = math.sqrt(dx * dx + dy * dy)
-  local n = math.floor(d / SIGHT_STEP)
-  for i = 1, n do
-    local k = i * SIGHT_STEP / d
-    if Features.any("blocksPoint", nest.x + dx * k, nest.y + dy * k) then
-      return false
-    end
-  end
-  return true
+--- Where a nest is pointing `t` seconds after it was put down: swinging
+--- across its arc and back, a little short of the edges.
+local function sweepAngle(nest, t)
+  return nest.angle + (Nest.arc / 2) * 0.9 * math.sin(2 * math.pi * t / Nest.sweep)
 end
 
---- The nearest thing inside the arc, in the open, that a bullet would
---- hurt: any present player but the owner (bots and police units are
---- players), an officer on foot (police keeps them) or a pedestrian (the
---- pedestrians crowd). Anyone behind a wall is left alone.
-local function targetOf(server, nest)
-  local best, bestD2
-  local function consider(px, py)
-    local d2 = dist2(px, py, nest.x, nest.y)
-    if d2 <= Nest.reach ^ 2 and (not bestD2 or d2 < bestD2) then
-      local a = math.atan2(py - nest.y, px - nest.x)
-      if math.abs(turn(nest.angle, a)) <= Nest.arc / 2 and clearShot(nest, px, py) then
-        best, bestD2 = { x = px, y = py }, d2
-      end
-    end
-  end
-  for id, p in pairs(server.players) do
-    if id ~= nest.owner and Features.present(p) then
-      consider(Features.bodyPose(server, p))
-    end
-  end
-  local police = Features.byName.police
-  local officers = police and police.serverOfficers and police:serverOfficers()
-  if officers then
-    for i = 1, officers.n do
-      local o = officers.list[i]
-      consider(o.x, o.y)
-    end
-  end
-  local pedestrians = Features.byName.pedestrians
-  local crowd = pedestrians and pedestrians.crowd
-  if crowd then
-    for i = 1, crowd.n do
-      local ped = crowd.peds[i]
-      consider(ped.x, ped.y)
-    end
-  end
-  return best
-end
-
---- Every nest looks down its arc and fires at whoever is there.
+--- Every nest sprays its arc, a round at a time, sweeping as it goes.
 function Nest.serverStep(server, _dt, abilities)
   local now = abilities.sv.time
   local weapons = Features.byName.weapons
@@ -135,13 +82,10 @@ function Nest.serverStep(server, _dt, abilities)
     if now >= nest.untilT then
       table.remove(nests, i)
     elseif weapons and weapons.serverFireFrom and now >= nest.nextShot then
-      local t = targetOf(server, nest)
-      if t then
-        local aim = math.atan2(t.y - nest.y, t.x - nest.x)
-        local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
-        weapons:serverFireFrom(server, nest.owner, mx, my, aim, Nest.gun)
-        nest.nextShot = now + Nest.fireEvery
-      end
+      local aim = sweepAngle(nest, now - nest.placedAt)
+      local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
+      weapons:serverFireFrom(server, nest.owner, mx, my, aim, Nest.gun)
+      nest.nextShot = now + Nest.fireEvery
     end
   end
 end
