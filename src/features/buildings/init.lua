@@ -82,7 +82,9 @@
 --   client -> server  BLD_BUY     <plotId>
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
---   client -> server  BLD_USE     <item>              (only "medkit" today)
+--   client -> server  BLD_USE     <item>              (only "medkit" today; from the medkit slot)
+--   client -> server  BLD_QUICK_PUT                   (my medkits out of the bag into the medkit slot)
+--   client -> server  BLD_QUICK_TAKE                  (the medkit slot back into the bag)
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
 --   client -> server  BLD_TAKEOVER <plotId>           (anyone else: buy the lot under a ruin)
 --   client -> server  BLD_DEVFILL <plotId>            (owner, while `devSupply` is on: one car's materials)
@@ -94,6 +96,8 @@
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
+--   server -> player  BLD_QUICK   <medkits>           (what is in the medkit slot)
+--   server -> player  BLD_MEDKIT  <seconds>           (a medkit was used: the next is that far off)
 --   server -> player  BLD_NO      <reason>
 
 local Protocol = require("src.net.protocol")
@@ -113,6 +117,8 @@ local Buildings = {
 
 -- Tuning ------------------------------------------------------------------
 Buildings.medkitHeal = 50 -- health a medkit gives back
+Buildings.QUICK_MAX = Kinds.stack("medkit") -- medkits the medkit slot holds: one stack
+Buildings.medkitCooldown = 8 -- seconds between medkits
 Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
 Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
 Buildings.takeoverPrice = 40 -- Fcks for the lot under someone else's ruin
@@ -146,9 +152,14 @@ local REASONS = {
   notbuying = "It doesn't buy that.",
   nothing = "You aren't carrying any of it.",
   ownerbroke = "The owner can't afford to pay you.",
-  nomedkit = "You have no medkits.",
+  nomedkit = "No medkits in your medkit slot: drag some there on the inventory screen.",
+  nomedkits = "You carry no medkits.",
+  quickfull = "Your medkit slot is full.",
+  quickempty = "Your medkit slot is empty.",
+  quickroom = "No room in your bag for them.",
   nodelivery = "Nobody can deliver that here.",
   healthy = "You're already at full health.",
+  medkitcool = "Your medkit is cooling down.",
   ruined = "It's in ruins. Repair it first.",
   standing = "Only a destroyed building's lot can be taken over.",
   intact = "It isn't damaged.",
@@ -280,6 +291,8 @@ end
 Buildings.buildings = {}
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
+Buildings.quick = 0 -- medkits in my medkit slot (the host says: BLD_QUICK); H uses one
+Buildings.medkitLeft = 0 -- seconds until the next medkit may be used (BLD_MEDKIT)
 Buildings.menu = false -- is the building menu open?
 -- nil for the menu's main page, "prices" for the owner's prices, "sell" for
 -- its selling price, "offer" for one material's, "product" to pick what it makes
@@ -300,7 +313,7 @@ end
 -- BLD_STATE for buildings put up before we joined arrives in the same burst
 -- as START, so they are only forgotten on the way out.
 function Buildings:exitGame()
-  self.buildings, self.inventory, self.slots = {}, {}, Kinds.SLOTS
+  self.buildings, self.inventory, self.slots, self.quick, self.medkitLeft = {}, {}, Kinds.SLOTS, 0, 0
   self.menu = false
   herePad, herePlot, notice, noticeTimer = nil, nil, nil, 0
   markWalls()
@@ -332,6 +345,7 @@ end
 function Buildings:update(dt, client)
   time = time + dt
   noticeTimer = math.max(0, noticeTimer - dt)
+  self.medkitLeft = math.max(0, self.medkitLeft - dt)
   local x, y = client:myPose()
   herePad, herePlot = nil, nil
   local re = realEstate()
@@ -595,8 +609,10 @@ end
 
 function Buildings:keypressed(key, client)
   if Controls.is("use-medkit", key) and not self.menu then
-    if (self.inventory.medkit or 0) < 1 then
+    if self.quick < 1 then
       say(REASONS.nomedkit)
+    elseif self.medkitLeft > 0 then
+      say(REASONS.medkitcool)
     else
       send(client, "BLD_USE", "medkit")
     end
@@ -844,6 +860,52 @@ local function drawMenu(self, client)
   love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
 end
 
+--- The medkit circle at the end of the abilities row: the key inside and
+--- how many are in the slot under it, the ring draining and filling back
+--- through the cooldown after a use, dim while the slot is empty.
+local function drawMedkitHud(self)
+  local abilities = Features.byName.abilities
+  local w, h = love.graphics.getDimensions()
+  local r, step, bottom = 24, 64, 48
+  local cx
+  if abilities and abilities.hudStep then
+    r, step, bottom = abilities.hudRadius, abilities.hudStep, abilities.hudBottom
+    local n = abilities.slotCount
+    cx = math.floor(w / 2 - (n - 1) * step / 2) + n * step + step / 2
+  else
+    cx = math.floor(w / 2) + 3 * step
+  end
+  local cy = h - bottom
+  local c = { 0.95, 0.3, 0.3 }
+  local small, body = UI.fonts.small, UI.fonts.body
+  local key = Controls.name(Controls.bindings("use-medkit")[1])
+  local middle, middleColor
+  if self.quick < 1 then
+    UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
+    middle, middleColor = key, { 1, 1, 1, 0.3 }
+  elseif self.medkitLeft > 0 then
+    UI.ring(cx, cy, r, 1 - self.medkitLeft / self.medkitCooldown, { c[1], c[2], c[3], 0.85 }, 5)
+    middle = self.medkitLeft >= 10 and ("%d"):format(self.medkitLeft) or ("%.1f"):format(self.medkitLeft)
+    middleColor = { 1, 1, 1 }
+  else
+    love.graphics.setColor(c[1], c[2], c[3], 0.2)
+    love.graphics.circle("fill", cx, cy, r + 6, 48)
+    UI.ring(cx, cy, r, 1, c, 5)
+    -- A white cross behind the key.
+    love.graphics.setColor(1, 1, 1, 0.25)
+    love.graphics.rectangle("fill", cx - 3, cy - 11, 6, 22)
+    love.graphics.rectangle("fill", cx - 11, cy - 3, 22, 6)
+    middle, middleColor = key, { 1, 1, 1 }
+  end
+  love.graphics.setFont(body)
+  UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+  love.graphics.setFont(small)
+  local title = self.quick > 0 and ("medkits %d"):format(self.quick) or "medkits"
+  UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4,
+    self.quick > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Buildings:drawHUD(client)
   local w, h = love.graphics.getDimensions()
   local re = realEstate()
@@ -852,6 +914,7 @@ function Buildings:drawHUD(client)
   if self.menu and owner then
     drawMenu(self, client)
   end
+  drawMedkitHud(self)
 
   local text, color
   local key = Controls.name(Controls.bindings("buy")[1])
@@ -980,6 +1043,12 @@ Buildings.clientMessages = {
       announceGain(client, item, n - before)
     end
   end,
+  BLD_QUICK = function(_client, args)
+    Buildings.quick = tonumber(args[1]) or 0
+  end,
+  BLD_MEDKIT = function(_client, args)
+    Buildings.medkitLeft = tonumber(args[1]) or 0
+  end,
   BLD_SLOTS = function(_client, args)
     Buildings.slots = tonumber(args[1]) or Buildings.slots
   end,
@@ -992,8 +1061,32 @@ Buildings.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
+--- Ask to move the medkits I carry out of the bag into the medkit slot,
+--- as many as fit (the inventory screen does, on a drag).
+function Buildings:quickPut(client)
+  if (self.inventory.medkit or 0) < 1 then
+    say(REASONS.nomedkits)
+  elseif self.quick >= self.QUICK_MAX then
+    say(REASONS.quickfull)
+  else
+    send(client, "BLD_QUICK_PUT")
+  end
+end
+
+--- Ask to put the medkit slot back into the bag, as many as there is room for.
+function Buildings:quickTake(client)
+  if self.quick < 1 then
+    say(REASONS.quickempty)
+  elseif Kinds.room(self.inventory, self.slots, "medkit") < 1 then
+    say(REASONS.quickroom)
+  else
+    send(client, "BLD_QUICK_TAKE")
+  end
+end
+
 function Buildings:serverStart()
-  sv = { buildings = {}, stock = {}, slots = {} }
+  -- quick: player id -> medkits in the slot; medkitAt: player id -> time they last used one
+  sv = { buildings = {}, stock = {}, slots = {}, quick = {}, medkitAt = {}, time = 0 }
   markWalls()
 end
 
@@ -1064,6 +1157,17 @@ local function addStock(server, player, item, delta)
   server:send(player, Protocol.encode("BLD_INV", item, n))
 end
 
+--- What is in `player`'s medkit slot, and tell them.
+local function setQuick(server, player, n)
+  sv.quick[player.id] = n > 0 and n or nil
+  server:send(player, Protocol.encode("BLD_QUICK", n))
+end
+
+--- Medkits in `id`'s medkit slot, on the host.
+function Buildings:serverQuick(id)
+  return sv and sv.quick[id] or 0
+end
+
 --- How many of `item` player `id` carries, on the host.
 function Buildings:serverCount(id, item)
   return sv and sv.stock[id] and sv.stock[id][item] or 0
@@ -1121,7 +1225,7 @@ function Buildings:serverPlayerLeft(server, player)
   if not sv then
     return
   end
-  sv.stock[player.id], sv.slots[player.id] = nil, nil
+  sv.stock[player.id], sv.slots[player.id], sv.quick[player.id], sv.medkitAt[player.id] = nil, nil, nil, nil
   for id, b in pairs(sv.buildings) do
     if b.owner == player.id then
       removeBuilding(server, id)
@@ -1522,15 +1626,47 @@ Buildings.serverMessages = {
     if not sv or args[1] ~= "medkit" then
       return
     end
-    local s = stockOf(player.id)
-    if (s.medkit or 0) < 1 then
+    if (sv.quick[player.id] or 0) < 1 then
       return "nomedkit"
+    elseif sv.time - (sv.medkitAt[player.id] or -math.huge) < Buildings.medkitCooldown then
+      return "medkitcool"
     end
     local weapons = Features.byName.weapons
     if not (weapons and weapons:serverHeal(server, player, Buildings.medkitHeal)) then
       return "healthy"
     end
-    addStock(server, player, "medkit", -1)
+    setQuick(server, player, sv.quick[player.id] - 1)
+    sv.medkitAt[player.id] = sv.time
+    server:send(player, Protocol.encode("BLD_MEDKIT", Buildings.medkitCooldown))
+  end),
+  BLD_QUICK_PUT = refusing(function(server, player)
+    if not (sv and player.body) then
+      return
+    end
+    local have, slot = stockOf(player.id).medkit or 0, sv.quick[player.id] or 0
+    if have < 1 then
+      return "nomedkits"
+    elseif slot >= Buildings.QUICK_MAX then
+      return "quickfull"
+    end
+    local n = math.min(have, Buildings.QUICK_MAX - slot)
+    addStock(server, player, "medkit", -n)
+    setQuick(server, player, slot + n)
+  end),
+  BLD_QUICK_TAKE = refusing(function(server, player)
+    if not (sv and player.body) then
+      return
+    end
+    local slot = sv.quick[player.id] or 0
+    if slot < 1 then
+      return "quickempty"
+    end
+    local n = math.min(slot, roomFor(player.id, "medkit"))
+    if n < 1 then
+      return "quickroom"
+    end
+    setQuick(server, player, slot - n)
+    addStock(server, player, "medkit", n)
   end),
 }
 
@@ -1649,6 +1785,7 @@ function Buildings:serverStep(server, dt)
   if not sv then
     return
   end
+  sv.time = sv.time + dt
   local re = realEstate()
   for id, b in pairs(sv.buildings) do
     local kind = Kinds.byKey[b.kind]
