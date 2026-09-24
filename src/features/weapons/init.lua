@@ -1521,6 +1521,18 @@ end
 --- waiting at the slot, whole again; a car they had borrowed is left where
 --- it stands for the next driver. NPC drivers die this way when their car
 --- is wrecked; a human bails out instead (see wreck).
+--- `player`'s own car, if it is theirs to take back to their slot: not
+--- while somebody else is driving it. A stolen car stays with the thief;
+--- hiding it would drag them off the map with it (and leave the owner
+--- unable to sit in it when they come back), which is what used to happen.
+local function ownCar(player)
+  local own = player.car
+  if own and own.driver and own.driver ~= player.id then
+    return nil
+  end
+  return own
+end
+
 function Weapons:die(server, victim, byId, pid, angle)
   local sv = self.sv
   local st = sv.players[victim.id]
@@ -1532,7 +1544,7 @@ function Weapons:die(server, victim, byId, pid, angle)
   -- Where it went up: the car they drove, or their feet.
   local wx, wy, wasOnFoot = bodyPose(server, victim)
   victim.body.dead = true
-  local own = victim.car
+  local own = ownCar(victim)
   if victim.vehicle and victim.vehicle ~= own then
     server:unseat(victim)
   end
@@ -1630,7 +1642,8 @@ function Weapons:serverDamage(server, victim, attacker, amount, angle)
 end
 
 --- Keep wrecks parked at their slot and bring the dead back when their time
---- is up: alive again at the slot, behind the wheel of their own car.
+--- is up: alive again at the slot, behind the wheel of their own car (on
+--- foot, if somebody drove off in it).
 function Weapons:updateWrecks(server)
   local sv = self.sv
   for vid, cs in pairs(sv.cars) do
@@ -1654,7 +1667,7 @@ function Weapons:updateWrecks(server)
   for id, st in pairs(sv.players) do
     if st.deadUntil then
       local p = server.players[id]
-      local own = p and p.car
+      local own = p and ownCar(p)
       if not (p and p.body) then
         st.deadUntil = nil
       elseif sv.time < st.deadUntil then
