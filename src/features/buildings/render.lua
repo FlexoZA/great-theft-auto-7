@@ -3,6 +3,9 @@
 -- collected, a light by the gate says public (green) or private (red), and
 -- a bar along the bottom fills while a batch is being made. The vehicle
 -- factory parks what it made in the yard, drawn from the model's SVG.
+-- a bar along the bottom fills while a batch is being made. A damaged
+-- building gets cracks, a health bar and a red flash when hit; a destroyed
+-- one is a smoking heap of rubble in its own colours.
 
 local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
@@ -204,10 +207,14 @@ local function emblem(key, cx, cy)
 end
 
 local ROOFS = {
-  vehicles = { 0.7, 0.3, 0.22 },
   ammo = { 0.45, 0.42, 0.35 },
   weapons = { 0.3, 0.32, 0.36 },
   health = { 0.92, 0.92, 0.9 },
+}
+local YARDS = {
+  parking = { 0.2, 0.2, 0.22 },
+  quarry = { 0.62, 0.5, 0.36 },
+  oil = { 0.42, 0.38, 0.3 },
 }
 local CRATES = {
   ammo = { 0.45, 0.5, 0.25 },
@@ -232,17 +239,9 @@ local function factory(b, kind, r, time)
     box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
     box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
   end
-  -- What is waiting to be collected: crates by the gate, or the cars
-  -- themselves parked nose up along the bottom of the yard.
+  -- What is waiting to be collected, in crates by the gate.
   local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
-  local model = Catalog.fromItem(kind.products[b.product])
-  if model then
-    for i = 0, math.min(units, kind.cap) - 1 do
-      Catalog.draw(model, r.x + 24 + i * 26, r.y + r.h - 24, -math.pi / 2, 36)
-    end
-  else
-    crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
-  end
+  crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
 end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.
@@ -304,6 +303,111 @@ function Render.itemIcon(item, cx, cy)
     love.graphics.rectangle("fill", cx - 3, cy - 7, 6, 14)
     love.graphics.rectangle("fill", cx - 7, cy - 3, 14, 6)
   end
+end
+
+--- The main colour of `kind`'s building, for rubble and flying debris.
+function Render.rubbleColor(kind)
+  return ROOFS[kind.key] or YARDS[kind.key] or { 0.5, 0.5, 0.5 }
+end
+
+--- A little random-number generator seeded by the plot, so a ruin is the
+--- same heap every frame and on every machine.
+local function seeded(seed)
+  local state = seed * 7919 % 2147483647 + 1
+  return function()
+    state = state * 16807 % 2147483647
+    return state / 2147483647
+  end
+end
+
+--- What is left of a building of `kind` inside `r`: scorched ground, the
+--- stumps of its walls, rubble in its colours and smoke still rising.
+--- `seed` (the plot id) decides where the pieces lie.
+function Render.ruin(kind, r, seed, time)
+  local rnd = seeded(seed)
+  local c = Render.rubbleColor(kind)
+  box(r.x, r.y, r.w, r.h, { 0.16, 0.14, 0.13 })
+  -- Scorch marks.
+  for _ = 1, 5 do
+    love.graphics.setColor(0.05, 0.05, 0.05, 0.5)
+    love.graphics.ellipse("fill", r.x + rnd() * r.w, r.y + rnd() * r.h, 20 + rnd() * 40, 14 + rnd() * 26)
+  end
+  -- Broken stumps of the outer wall: every other stretch still standing.
+  love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
+  love.graphics.setLineWidth(6)
+  local pieces = 8
+  for i = 0, pieces - 1 do
+    if rnd() < 0.55 then
+      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
+      love.graphics.line(r.x + a * r.w, r.y + 3, r.x + b * r.w, r.y + 3)
+    end
+    if rnd() < 0.55 then
+      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
+      love.graphics.line(r.x + a * r.w, r.y + r.h - 3, r.x + b * r.w, r.y + r.h - 3)
+    end
+    if rnd() < 0.55 then
+      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
+      love.graphics.line(r.x + 3, r.y + a * r.h, r.x + 3, r.y + b * r.h)
+    end
+    if rnd() < 0.55 then
+      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
+      love.graphics.line(r.x + r.w - 3, r.y + a * r.h, r.x + r.w - 3, r.y + b * r.h)
+    end
+  end
+  love.graphics.setLineWidth(1)
+  -- Rubble: slabs of roof and chunks of grey concrete, tilted every way.
+  for _ = 1, 40 do
+    local x, y = r.x + 12 + rnd() * (r.w - 24), r.y + 12 + rnd() * (r.h - 24)
+    local w, h = 6 + rnd() * 22, 5 + rnd() * 14
+    local shade = 0.55 + rnd() * 0.45
+    love.graphics.push()
+    love.graphics.translate(x, y)
+    love.graphics.rotate(rnd() * math.pi)
+    love.graphics.setColor(0, 0, 0, 0.35)
+    love.graphics.rectangle("fill", -w / 2 + 3, -h / 2 + 3, w, h)
+    if rnd() < 0.6 then
+      love.graphics.setColor(c[1] * shade, c[2] * shade, c[3] * shade)
+    else
+      love.graphics.setColor(0.45 * shade, 0.44 * shade, 0.42 * shade)
+    end
+    love.graphics.rectangle("fill", -w / 2, -h / 2, w, h)
+    love.graphics.pop()
+  end
+  -- Embers glowing in the heap, and smoke drifting off it.
+  for i = 1, 3 do
+    local ex, ey = r.x + r.w * (0.2 + rnd() * 0.6), r.y + r.h * (0.2 + rnd() * 0.6)
+    local glow = 0.5 + 0.5 * math.sin(time * 3 + i * 2)
+    love.graphics.setColor(1, 0.4, 0.1, 0.35 + 0.35 * glow)
+    love.graphics.circle("fill", ex, ey, 4 + 2 * glow)
+    for k = 0, 2 do
+      local t = (time * 0.35 + k / 3 + i * 0.29) % 1
+      love.graphics.setColor(0.25, 0.25, 0.25, 0.45 * (1 - t))
+      love.graphics.circle("fill", ex + t * 36, ey - t * 60, 8 + t * 18)
+    end
+  end
+end
+
+--- Cracks, a red flash for `since` seconds after a hit and a health bar
+--- along the top of `r`, while a building stands at `frac` of its hit points.
+function Render.damage(r, frac, since)
+  if frac >= 1 then
+    return
+  end
+  if since >= 0 and since < 0.15 then
+    box(r.x, r.y, r.w, r.h, { 1, 0.2, 0.1 }, 0.35 * (1 - since / 0.15))
+  end
+  -- More cracks the more it has taken.
+  local cracks = math.floor((1 - frac) * 6 + 0.5)
+  love.graphics.setColor(0.08, 0.07, 0.07, 0.75)
+  love.graphics.setLineWidth(2)
+  for i = 1, cracks do
+    local x = r.x + r.w * ((i * 0.37) % 1)
+    local y = r.y + r.h * ((i * 0.61) % 1)
+    love.graphics.line(x, y, x + 14, y + 9, x + 8, y + 22, x + 20, y + 30)
+  end
+  love.graphics.setLineWidth(1)
+  box(r.x, r.y - 12, r.w, 7, { 0, 0, 0 }, 0.6)
+  box(r.x + 1, r.y - 11, (r.w - 2) * math.max(0, frac), 5, UI.rampColor(frac))
 end
 
 --- Draw building `b` (the client's record) of `kind` inside rectangle `r`.

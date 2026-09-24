@@ -13,6 +13,9 @@
 -- hurts everyone and every car within its radius, the shooter included, less
 -- towards the edge, and takes out a few soft targets (pedestrians, officers,
 -- Karen's simps) around it through the `serverShotAt` convention.
+-- A round that stops at a wall raises `serverWallHit` and every blast
+-- raises `serverBlast`, so walls that can be hurt (players' buildings) take
+-- the damage.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
@@ -601,6 +604,12 @@ local function boom(client, x, y, color)
 end
 
 --- Where a player is drawn, as a point, or nil while they are out of the world.
+--- An explosion drawn and heard at (x, y) on this machine, for another
+--- feature's blast (a building coming down). `color` tints the debris.
+function Weapons:explosionAt(client, x, y, color)
+  boom(client, x, y, color)
+end
+
 local function poseOf(client, id)
   local x, y = clientPose(client, id)
   return x and { x = x, y = y } or nil
@@ -1233,6 +1242,8 @@ function Weapons:explode(server, p, x, y)
       self:damageCar(server, c.car, by, c.amount, 0, c.angle)
     end
   end
+  -- Walls that can take it (a player's building) work out their own share.
+  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner)
   local angle = math.atan2(p.vy, p.vx)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
@@ -1478,6 +1489,7 @@ function Weapons:serverStep(server, dt)
       self:explode(server, p, hx or nx, hy or ny)
     elseif victim == "wall" then
       table.remove(sv.projectiles, i) -- clients notice the same wall themselves
+      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner)
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
       -- so the streak has to be called back explicitly.
