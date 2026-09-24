@@ -45,7 +45,7 @@ function Server.new(hostName)
     host = host,
     name = Protocol.sanitizeName(hostName),
     hostId = ("%04x%04x"):format(love.math.random(0, 0xffff), love.math.random(0, 0xffff)),
-    players = {}, -- id -> { id, name, peer, input, body, vehicle, car }
+    players = {}, -- id -> { id, name, key, guest, peer, input, body, vehicle, car }
     byPeer = {}, -- peer:index() -> player
     departed = {}, -- id -> name of everyone who left this session (their cars may still be about)
     nextId = 1,
@@ -243,7 +243,7 @@ end
 function Server:onMessage(peer, data)
   local kind, args = Protocol.decode(data)
   if kind == "HELLO" then
-    self:onHello(peer, args[1])
+    self:onHello(peer, args[1], args[2])
   elseif kind == "INPUT" then
     self:onInput(peer, args)
   else
@@ -269,7 +269,17 @@ function Server:onInput(peer, args)
   player.input.handbrake = args[4] == "1"
 end
 
-function Server:onHello(peer, name)
+--- The connected player holding `key`, if any.
+function Server:playerByKey(key)
+  for _, player in pairs(self.players) do
+    if player.key == key then
+      return player
+    end
+  end
+  return nil
+end
+
+function Server:onHello(peer, name, key)
   local idx = peer:index()
   if self.byPeer[idx] then
     return
@@ -280,11 +290,21 @@ function Server:onHello(peer, name)
     return
   end
 
+  -- A missing, malformed or already connected key (two copies of the game on
+  -- one machine share one) plays under a throwaway key and is never saved.
+  key = Protocol.sanitizeKey(key)
+  local guest = not key or self:playerByKey(key) ~= nil
+  if guest then
+    key = Protocol.newKey()
+  end
+
   local id = self.nextId
   self.nextId = id + 1
   local player = {
     id = id,
     name = Protocol.sanitizeName(name),
+    key = key, -- lasting identity across sessions (docs/persistence.md); `id` is this session's
+    guest = guest, -- true: throwaway key, not to be saved
     peer = peer,
     input = { throttle = 0, steer = 0 },
     lastSeq = 0,

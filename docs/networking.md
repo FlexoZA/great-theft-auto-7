@@ -59,6 +59,7 @@ nothing to vendor or install.
 ## Message shapes
 
 ```
+client -> server   HELLO        <name> <key>          key: 32 hex chars, the player's lasting identity
 client -> server   INPUT        <seq> <throttle> <steer> <handbrake>
 server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
 server -> client   VEHICLE      <vid> <owner> <color>      a car entered the world (owner 0 = nobody's)

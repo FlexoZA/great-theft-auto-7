@@ -23,10 +23,11 @@ local INPUT_INTERVAL = 1 / 30 -- seconds between INPUT packets
 
 -- state: idle -> connecting -> connected -> joined -> (disconnected | failed)
 
-function Client.new(playerName)
+function Client.new(playerName, key)
   return setmetatable({
     host = enet.host_create(nil, 1, CHANNELS),
     name = Protocol.sanitizeName(playerName),
+    key = key, -- this install's player key, sent in HELLO
     peer = nil,
     state = "idle",
     error = nil,
@@ -78,7 +79,7 @@ function Client:update(dt)
     end
     if event.type == "connect" then
       self.state = "connected"
-      self.peer:send(Protocol.encode("HELLO", self.name), RELIABLE, "reliable")
+      self.peer:send(Protocol.encode("HELLO", self.name, self.key or ""), RELIABLE, "reliable")
     elseif event.type == "receive" then
       self:onMessage(event.data)
     elseif event.type == "disconnect" then

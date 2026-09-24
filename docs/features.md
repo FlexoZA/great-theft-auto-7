@@ -85,8 +85,8 @@ Clients send intent; the server decides. Never trust a client message.
 | `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. Joined also fires for someone arriving mid-game (`server.started`, `player.body` set) before their `START`: send them any state you only send on change, or they never see it. It fires for bots too (`player.bot`). A player who leaves keeps their car in the world, so `car.owner` may not be in `server.players`. |
 | `serverMessages = { KIND = function(server, player, args) end }` | A message from a client the core doesn't know. `player` is the verified sender. |
 
-Useful server fields: `server.players[id]` (`id name peer input body vehicle
-car`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
+Useful server fields: `server.players[id]` (`id name key guest peer input body
+vehicle car`; `key` is the player's lasting identity, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
 exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
 vehicles" below.
 
