@@ -370,7 +370,7 @@ RealEstate.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { owners = { plot id -> player id } }
+local sv = nil -- { owners = { plot id -> player id }, home = the city's owners, kept while on another map }
 
 -- City-map (lower priority) has put the city back to its original size.
 function RealEstate:serverStart()
@@ -378,17 +378,38 @@ function RealEstate:serverStart()
   refreshPlots()
 end
 
---- The city was swapped for another map (city-map's `mapChanged`; a quest
---- does it). Its plots are the ones for sale now and whatever anyone owned
---- stays behind, unpaid. On the host this clears the server's book as well
---- as what its client draws; a client clears only its own.
-function RealEstate:mapChanged()
+--- Tell everyone how the city has grown and who owns what (RE_EXPAND is
+--- harmless for a block a machine already has).
+local function announceCity(server)
+  local _, map = cityMap()
+  for _, g in ipairs(map.grown) do
+    server:broadcast(Protocol.encode("RE_EXPAND", g.bi, g.bj))
+  end
+  for id, owner in pairs(sv.owners) do
+    server:broadcast(Protocol.encode("RE_OWNER", id, owner))
+  end
+end
+
+--- The map was swapped (city-map's `mapChanged`; a quest does it). Its plots
+--- are the ones for sale now. Leaving the city, the host keeps the city's
+--- book aside; back in the city (which city-map kept as it was) the book is
+--- back and the host tells everyone again, for anyone who joined while away.
+--- A client clears what it draws either way and hears the rest.
+function RealEstate:mapChanged(_map, server)
   refreshPlots()
   self.owners = {}
-  if sv then
+  herePlot, hereSite, noticeTimer = nil, nil, 0
+  if not (sv and server) then
+    return
+  end
+  local city = cityMap()
+  if city.current == city.DEFAULT then
+    sv.owners, sv.home = sv.home or {}, nil
+    announceCity(server)
+  else
+    sv.home = sv.home or sv.owners
     sv.owners = {}
   end
-  herePlot, hereSite, noticeTimer = nil, nil, 0
 end
 
 --- Someone joining mid-game gets the city as it has grown, then who owns what.
@@ -414,6 +435,11 @@ function RealEstate:serverPlayerLeft(server, player)
     if owner == player.id then
       sv.owners[id] = nil
       server:broadcast(Protocol.encode("RE_OWNER", id, 0))
+    end
+  end
+  for id, owner in pairs(sv.home or {}) do
+    if owner == player.id then
+      sv.home[id] = nil -- clients hear the whole book when everyone is back in the city
     end
   end
 end
