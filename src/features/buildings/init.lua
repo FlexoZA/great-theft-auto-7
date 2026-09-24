@@ -1108,7 +1108,7 @@ Buildings.clientMessages = {
     end
     local before = Buildings.inventory[item] or 0
     Buildings.inventory[item] = n > 0 and n or nil
-    if n > before then
+    if n > before and client.started then -- a bag put back from a saved world, before START, is no news
       announceGain(client, item, n - before)
     end
   end,
