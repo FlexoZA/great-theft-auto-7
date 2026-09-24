@@ -16,7 +16,9 @@
 --                 your speed, sprint cost, ammo bundles, ability cooldowns
 --                 and armor, each tile lit when it is better than base
 --   bottom        the item slots buildings fills: a stack per box, locked
---                 ones greyed out until the upgrade shop opens them
+--                 ones greyed out until the upgrade shop opens them; under
+--                 them on the right the bin: a stack dropped there is
+--                 destroyed
 --
 -- `Screen.layout()` works out every box on the screen and `Screen.draw`
 -- paints them; init.lua hit-tests the same rectangles for dragging. The
@@ -45,6 +47,7 @@ local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the am
 local ABL_W, ABL_H = 64, 72 -- ability boxes
 local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
 local STAT_H = 40 -- a stats tile: the value over its name
+local TRASH_W, TRASH_H = 150, 30 -- the bin under the item boxes
 
 -- The stats the clothes (gear) can change, as the strip shows them: the
 -- name the `stat` convention answers to, the label, and whether more of
@@ -134,6 +137,7 @@ end
 ---   quick[i]               { x, y, w, h, item, usable }, the quick slots beside them, buildings.usables order
 ---   stats[i]               { x, y, w, h, stat }, the stats strip under the abilities, Screen.stats order
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
+---   trash                  { x, y, w, h }, the bin under the items, right
 ---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
 ---   hint / foot            y of the text lines under the items
 function Screen.layout()
@@ -146,7 +150,7 @@ function Screen.layout()
   local rightH = LABEL_H + GUN_H + SECTION_GAP + LABEL_H + ABL_H + SECTION_GAP + LABEL_H + STAT_H
   local topH = math.max(gearH, rightH)
   local itemsH = rows * (CELL + GAP) - GAP
-  local ph = 56 + topH + SECTION_GAP + LABEL_H + itemsH + 12 + 22 + 34
+  local ph = 56 + topH + SECTION_GAP + LABEL_H + itemsH + 12 + TRASH_H + 34
   local w, h = love.graphics.getDimensions()
   local px = math.floor((w - Screen.width) / 2)
   local py = math.max(8, math.floor((h - ph) / 2))
@@ -208,6 +212,7 @@ function Screen.layout()
   end
   L.itemsArea = { x = px + Screen.pad - GAP, y = iy, w = cols * (CELL + GAP) + GAP, h = LABEL_H + itemsH + GAP }
   L.hint = iy + LABEL_H + itemsH + 12
+  L.trash = { x = px + Screen.width - Screen.pad - TRASH_W, y = L.hint - 4, w = TRASH_W, h = TRASH_H }
   L.foot = py + ph - 26
   return L
 end
@@ -461,6 +466,32 @@ local function drawItems(L, buildings, list, lifted)
   end
 end
 
+--- The bin: dim until something from the bag is dragged, red while it is
+--- over it.
+local function drawTrash(r, drag)
+  local armed = drag ~= nil and drag.from == "bag"
+  local mx, my = love.mouse.getPosition()
+  local over = armed and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h
+  if over then
+    love.graphics.setColor(0.9, 0.25, 0.2, 0.45)
+  else
+    love.graphics.setColor(0.9, 0.25, 0.2, armed and 0.18 or 0.06)
+  end
+  love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
+  love.graphics.setColor(1, 0.45, 0.4, over and 1 or armed and 0.7 or 0.3)
+  love.graphics.rectangle("line", r.x, r.y, r.w, r.h, 6)
+  -- A bin: lid, handle, can with its ribs.
+  local bx, by = r.x + 12, r.y + 6
+  love.graphics.rectangle("fill", bx - 1, by + 2, 16, 3, 1)
+  love.graphics.rectangle("fill", bx + 5, by, 4, 2)
+  love.graphics.rectangle("line", bx + 1, by + 6, 12, 12, 1)
+  love.graphics.line(bx + 5, by + 8, bx + 5, by + 16)
+  love.graphics.line(bx + 9, by + 8, bx + 9, by + 16)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.printf(over and "drop to destroy" or "destroy", r.x + 24, r.y + math.floor((r.h - 14) / 2) - 1,
+    r.w - 30, "center")
+end
+
 --- The whole screen. `buildings` is the buildings feature (its items and
 --- slots), `list` its stacks (Screen.stacks), `drag` what is being
 --- dragged ({ index, from = "slot" | "bag", box }: `box` the slot or item
@@ -493,8 +524,9 @@ function Screen.draw(buildings, list, drag, notice, client)
     hint = ("%d/%d item slots used."):format(math.min(#list, buildings.slots), buildings.slots)
     love.graphics.setColor(0.8, 0.8, 0.85)
   end
-  love.graphics.printf(hint, p.x + Screen.pad, L.hint, p.w - 2 * Screen.pad, "left")
-  local foot = "drag things between their slots, your gear and your bag   "
+  love.graphics.printf(hint, p.x + Screen.pad, L.hint, L.trash.x - p.x - 2 * Screen.pad, "left")
+  drawTrash(L.trash, drag)
+  local foot = "drag things between their slots, your gear and your bag, or into the bin   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
   for _, u in ipairs(buildings.usables) do
     if buildings:quickCount(u.item) > 0 then
@@ -508,7 +540,10 @@ end
 
 --- The gun, ability or quick-slot stack being dragged, under the cursor.
 function Screen.drawDrag(drag, mx, my)
-  if drag.kind == "ability" then
+  if drag.kind == "item" then
+    Render.itemIcon(drag.item, mx, my)
+    return
+  elseif drag.kind == "ability" then
     Render.abilityIcon(drag.key, mx, my, 18)
     return
   elseif drag.kind == "quick" then

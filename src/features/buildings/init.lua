@@ -95,6 +95,7 @@
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
 --   client -> server  BLD_TAKEOVER <plotId>           (anyone else: buy the lot under a ruin)
 --   client -> server  BLD_DEVFILL <plotId>            (owner, while `devSupply` is on: one car's materials)
+--   client -> server  BLD_TRASH   <item> <n>          (destroy up to n of an item in the bag: the inventory's bin)
 --   server -> all     BLD_STATE   <plotId> <kind> <owner> <public> <product> <price> <output>
 --                                 <progress> <running> <hopper, one per material>...
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
@@ -1148,6 +1149,14 @@ end
 
 --- Ask to move the `item`s I carry out of the bag into their quick slot,
 --- as many as fit (the inventory screen does, on a drag).
+--- Ask the host to destroy `n` of `item` from the bag (the inventory
+--- screen's bin). BLD_INV brings back what is left.
+function Buildings:trash(client, item, n)
+  if (self.inventory[item] or 0) > 0 and n and n > 0 then
+    send(client, "BLD_TRASH", item, n)
+  end
+end
+
 function Buildings:quickPut(client, item)
   local u = self.usableByItem[item]
   if not u then
@@ -1753,6 +1762,16 @@ Buildings.serverMessages = {
     used[u.item] = sv.time
     server:send(player, Protocol.encode("BLD_USED", u.item, u.cooldown))
   end),
+  -- Only ever what they carry, and never more of it than they have.
+  BLD_TRASH = function(server, player, args)
+    local item, n = args[1], tonumber(args[2])
+    local have = sv and item and stockOf(player.id)[item] or 0
+    if have < 1 or not n or n ~= n or n < 1 then
+      return
+    end
+    addStock(server, player, item, -math.min(have, math.max(1, math.floor(n))))
+  end,
+
   BLD_QUICK_PUT = refusing(function(server, player, args)
     local u = sv and player.body and Buildings.usableByItem[args[1] or ""]
     if not u then
