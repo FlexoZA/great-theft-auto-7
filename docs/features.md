@@ -397,7 +397,7 @@ couple of small conventions rather than requiring each other:
   walls) and `ABL_FIRED` carries them, `drawAim(ox, oy, x, y, time)` draws the arrow while it is
   selected, and an ability's `serverStep(server, dt, abilities)` runs
   whatever it left standing in the world (the nest sprays AK-47 rounds,
-  owned by its placer, across its forty-five-degree arc for twenty
+  owned by its placer, across its forty-five-degree arc for five
   seconds, sweeping side to side and picking no targets: the rounds hurt
   whatever they meet; `serverReset()` clears them between games).
   A gun with a `blast` (the rocket launcher) fires a missile that explodes

@@ -1,5 +1,5 @@
 -- MG nest: a machine gun on a tripod behind sandbags, put down a short way
--- from you, facing the way you point. For as long as it lasts it sprays
+-- from you, facing the way you point. For five seconds it sprays
 -- its forty-five-degree arc with rifle fire, sweeping from side to side
 -- (weapons' AK-47 rounds, owned by whoever placed it, so its kills are
 -- theirs and it never hits them). It picks no targets: the rounds hurt
@@ -28,7 +28,7 @@ Nest.range = 150 -- px in front of you the nest is put down
 Nest.radius = 22 -- px, the sandbag ring
 Nest.arc = math.rad(45) -- the whole arc it covers, centred on its facing
 Nest.reach = 420 -- px of the arc drawn on the ground (the rounds fly on like any rifle round)
-Nest.seconds = 20 -- how long it stands
+Nest.seconds = 5 -- how long it stands: a short, savage burst
 Nest.cooldown = 30 -- seconds before the next one
 Nest.afterglow = 0.6 -- seconds the sandbags linger on screen once it is spent
 Nest.gun = Guns.ak47 -- what it fires; its damage, speed and scatter
