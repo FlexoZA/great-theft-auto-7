@@ -207,6 +207,7 @@ local function emblem(key, cx, cy)
 end
 
 local ROOFS = {
+  vehicles = { 0.7, 0.3, 0.22 },
   ammo = { 0.45, 0.42, 0.35 },
   weapons = { 0.3, 0.32, 0.36 },
   health = { 0.92, 0.92, 0.9 },
@@ -239,9 +240,17 @@ local function factory(b, kind, r, time)
     box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
     box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
   end
-  -- What is waiting to be collected, in crates by the gate.
+  -- What is waiting to be collected: crates by the gate, or the cars
+  -- themselves parked nose up along the bottom of the yard.
   local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
-  crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  local model = Catalog.fromItem(kind.products[b.product])
+  if model then
+    for i = 0, math.min(units, kind.cap) - 1 do
+      Catalog.draw(model, r.x + 24 + i * 26, r.y + r.h - 24, -math.pi / 2, 36)
+    end
+  else
+    crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  end
 end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.

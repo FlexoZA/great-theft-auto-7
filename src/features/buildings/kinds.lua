@@ -142,7 +142,7 @@ Kinds.list = {
 -- five finished cars. Only there when there is a model to build.
 if #carItems > 0 then
   Kinds.list[#Kinds.list + 1] = {
-    key = "vehicles", name = "Vehicle Factory", cost = 120,
+    key = "vehicles", name = "Vehicle Factory", cost = 120, hp = 1000,
     inputs = { iron = 4, minerals = 2, copper = 2, oil = 2, plastic = 2 },
     time = 45, batch = 1, cap = 5, unit = 1, price = Catalog.list[1].price,
     products = carItems,
