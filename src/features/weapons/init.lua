@@ -15,13 +15,16 @@
 -- Karen's simps) around it through the `serverShotAt` convention.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
--- You hold the guns you own: the pistol from the start, any gun with a
--- `stock` (guns.lua, for testing), and any gun you carry as an item
--- ("gun-<key>" in the inventory: a weapons factory makes them). The number
--- keys only pick among those, the HUD only lists those, and the host
--- refuses to select or fire the rest (serverOwns); a gun whose item leaves
--- the bag drops back to the pistol on both sides. Later the inventory
--- screen will let a gun be dragged into a weapon slot instead.
+-- You hold the guns you own: the pistol and any gun with a `stock`
+-- (guns.lua, for testing) from the start, and whatever you pick up after.
+-- A gun is also an item ("gun-<key>", a weapons factory makes them): on
+-- the inventory screen you drag one from your bag onto the weapon slots to
+-- hold it (WPN_EQUIP takes the item), or from its slot into the bag to put
+-- it down (WPN_UNEQUIP gives the item back; the pistol stays). The host
+-- keeps the set and tells you it (WPN_GUNS); the number keys only pick
+-- among those, the HUD only lists those, and the host refuses to select or
+-- fire the rest (serverOwns). Putting down the gun in hand leaves you
+-- holding the pistol. Nothing is trusted from the client but the ask.
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (R) refills the one in hand from the ammo in your inventory
@@ -50,6 +53,8 @@
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
+--   client -> server  WPN_EQUIP <gun>                  (hold the gun item I carry)
+--   client -> server  WPN_UNEQUIP <gun>                (put the gun in my bag)
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
@@ -63,6 +68,7 @@
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
+--   server -> player  WPN_GUNS <gun>...             (the guns you hold now)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -160,6 +166,7 @@ Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
+Weapons.owned = {} -- gun index -> true for the guns I hold (the host says: WPN_GUNS)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
@@ -190,6 +197,7 @@ function Weapons:enterGame()
   self.feed = nil
   self.cooldown = 0
   self.gun = Guns.DEFAULT
+  self.owned = Guns.startSet()
   self.mags = {}
   for i, gun in ipairs(Guns.list) do
     self.mags[i] = gun.magazine
@@ -262,6 +270,8 @@ end
 function Weapons:tryFire(client)
   if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
     return -- cooling down, reloading, or held still (frozen)
+  elseif Features.any("pointerTaken", client) then
+    return -- a screen (the inventory) has the mouse
   end
   local aim = self:aimAngle(client)
   if not aim then
@@ -289,17 +299,24 @@ end
 
 --- Switch to gun `index` and tell the host. The cooldown carries over, so
 --- swapping is no faster than waiting.
---- Do I own gun `index`, as far as this machine knows? Without the
---- buildings feature there is no inventory and every gun is free.
+--- Do I hold gun `index`, as far as the host has told me?
 function Weapons:owns(index)
-  local gun = Guns.list[index]
-  if not gun then
-    return false
-  elseif index == Guns.DEFAULT or gun.stock then
-    return true
+  return self.owned[index] == true
+end
+
+--- Ask to hold the gun item I carry for gun `index` (the inventory screen
+--- does, on a drag into the weapon slots). The host answers with WPN_GUNS.
+function Weapons:equip(client, index)
+  if Guns.list[index] and not self:owns(index) then
+    client:send(Protocol.encode("WPN_EQUIP", index))
   end
-  local buildings = Features.byName.buildings
-  return not buildings or (buildings.inventory["gun-" .. gun.key] or 0) > 0
+end
+
+--- Ask to put gun `index` down into my bag (a drag out of its slot).
+function Weapons:unequip(client, index)
+  if Guns.list[index] and index ~= Guns.DEFAULT and self:owns(index) then
+    client:send(Protocol.encode("WPN_UNEQUIP", index))
+  end
 end
 
 function Weapons:selectGun(client, index)
@@ -346,7 +363,7 @@ function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
   if not self:owns(self.gun) then
-    self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same on its own
+    self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
   end
   local held = Controls.isDown("fire")
   if not held then
@@ -639,6 +656,16 @@ Weapons.clientMessages = {
       end
     end
   end,
+  WPN_GUNS = function(_client, args)
+    local owned = {}
+    for _, a in ipairs(args) do
+      local index = tonumber(a)
+      if Guns.list[index] then
+        owned[index] = true
+      end
+    end
+    Weapons.owned = owned
+  end,
   WPN_INFINITE = function(_client, args)
     Weapons.infiniteAmmo = args[1] == "1"
     if Weapons.infiniteAmmo then
@@ -820,6 +847,7 @@ function Weapons:serverStart(server)
         max = MAX_HEALTH,
         kills = 0,
         gun = Guns.DEFAULT,
+        owned = Guns.startSet(),
         mags = fullMagazines(),
         spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
         lastFire = -math.huge,
@@ -830,7 +858,23 @@ function Weapons:serverStart(server)
   self.sv = sv
   for _, p in pairs(server.players) do
     self:giveStock(server, p)
+    self:sendGuns(server, p)
   end
+end
+
+--- Tell `player` which guns they hold (WPN_GUNS). Bots aren't listening.
+function Weapons:sendGuns(server, player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or player.bot then
+    return
+  end
+  local list = {}
+  for i in ipairs(Guns.list) do
+    if st.owned[i] then
+      list[#list + 1] = i
+    end
+  end
+  server:send(player, Protocol.encode("WPN_GUNS", unpack(list)))
 end
 
 --- Spare rounds of every gun with a `stock` (guns.lua) into a human player's
@@ -856,12 +900,14 @@ function Weapons:serverPlayerJoined(server, player)
       max = MAX_HEALTH,
       kills = 0,
       gun = Guns.DEFAULT,
+      owned = Guns.startSet(),
       mags = fullMagazines(),
       spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
       lastFire = -math.huge,
       protectedUntil = self.sv.time + SPAWN_PROTECTION,
     }
     self:giveStock(server, player)
+    self:sendGuns(server, player)
   end
 end
 
@@ -982,22 +1028,56 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
   return true
 end
 
---- Does `player` own gun `index` on the host: the pistol, a gun with a
---- `stock`, or one they carry as an item? Bots and police own them all;
---- without the buildings feature there is no inventory, so everyone does.
+--- Does `player` hold gun `index` on the host? Bots and police hold them all.
 function Weapons:serverOwns(player, index)
-  local gun = Guns.list[index]
-  if not gun then
+  local st = self.sv and self.sv.players[player.id]
+  if not (st and Guns.list[index]) then
     return false
-  elseif index == Guns.DEFAULT or gun.stock or player.bot then
-    return true
   end
+  return player.bot or st.owned[index] == true
+end
+
+--- `player` picks up the gun item they carry for gun `index` and holds it
+--- from now on. Returns true if they do.
+function Weapons:serverEquip(server, player, index)
+  local st = self.sv and self.sv.players[player.id]
+  local gun = Guns.list[index]
   local buildings = Features.byName.buildings
-  return not (buildings and buildings.serverCount) or buildings:serverCount(player.id, "gun-" .. gun.key) > 0
+  if not (st and gun and buildings and buildings.serverTake and Features.present(player)) or st.owned[index] then
+    return false
+  end
+  if buildings:serverTake(server, player, "gun-" .. gun.key, 1) < 1 then
+    return false -- they don't carry one
+  end
+  st.owned[index] = true
+  self:sendGuns(server, player)
+  return true
+end
+
+--- `player` puts gun `index` down into their bag as an item, if there is
+--- room; the pistol can't be put down. Returns true if they do.
+function Weapons:serverUnequip(server, player, index)
+  local st = self.sv and self.sv.players[player.id]
+  local gun = Guns.list[index]
+  local buildings = Features.byName.buildings
+  if not (st and gun and buildings and buildings.serverGive and Features.present(player)) then
+    return false
+  elseif index == Guns.DEFAULT or not st.owned[index] then
+    return false
+  end
+  if buildings:serverGive(server, player, "gun-" .. gun.key, 1) < 1 then
+    return false -- no room in their bag
+  end
+  st.owned[index] = nil
+  if st.gun == index then
+    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+  end
+  self:sendGuns(server, player)
+  return true
 end
 
 --- The gun `player` holds, dropped back to the pistol if it is no longer
---- theirs (the item left their bag). The client does the same on its own.
+--- theirs. The client does the same on its own.
 local function heldGun(self, player, st)
   if not self:serverOwns(player, st.gun) then
     st.gun, st.reloadUntil = Guns.DEFAULT, nil
@@ -1135,6 +1215,12 @@ Weapons.serverMessages = {
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))
+  end,
+  WPN_EQUIP = function(server, player, args)
+    Weapons:serverEquip(server, player, tonumber(args[1]))
+  end,
+  WPN_UNEQUIP = function(server, player, args)
+    Weapons:serverUnequip(server, player, tonumber(args[1]))
   end,
   WPN_RELOAD = function(server, player)
     Weapons:serverReload(server, player)

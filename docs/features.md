@@ -251,7 +251,8 @@ first feature whose hook returns true. Events in use:
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
-| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop and the building menu answer it. |
+| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
+| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and draws an arrow instead of the crosshair. The inventory screen answers it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -337,12 +338,15 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
-- Owning a gun: a player holds the pistol, any gun with a `stock` in
-  `guns.lua`, and any gun whose item (`"gun-<gun key>"`, from a weapons
-  factory) is in their inventory. `weapons:serverOwns(player, index)` is the
-  host's answer and `weapons:owns(index)` the client's; selecting or firing
-  anything else is refused, and the gun in hand drops back to the pistol
-  when its item leaves the bag.
+- Holding a gun: the host keeps the set of guns each player holds (the
+  pistol and any gun with a `stock` in `guns.lua` to start with) and tells
+  them it (`WPN_GUNS`). A gun is also an item (`"gun-<gun key>"`, from a
+  weapons factory): `WPN_EQUIP` takes one out of the bag and adds the gun to
+  the set, `WPN_UNEQUIP` puts it back as an item (if there is room; never the
+  pistol). The inventory screen sends those on a drag between a weapon slot
+  and the bag. `weapons:serverOwns(player, index)` is the host's answer and
+  `weapons:owns(index)` the client's; selecting or firing anything else is
+  refused, and putting down the gun in hand leaves the pistol.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
@@ -416,8 +420,15 @@ example with a menu; real-estate is the one with a place to stand.
   else. The inventory lives there too, on the host, keyed by item
   (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
-  player has (upgrades sells them). Weapons reloads from the ammo in it;
-  guns are only stock so far.
+  player has (upgrades sells them). Weapons reloads from the ammo in it and
+  moves guns in and out of it as items.
+- Inventory: `src/features/inventory` is the screen (I) that shows what you
+  carry around a picture of you: gear slots (empty for now), a weapon slot
+  per gun, the ability slots, and the item boxes. It owns the mouse while it
+  is up (`pointerTaken`) and the number keys (`menuOpen`); drag a gun between
+  its slot and the bag to hold it or put it down (weapons does the moving).
+  `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
+  else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`

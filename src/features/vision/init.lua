@@ -8,6 +8,7 @@
 
 local Cursors = require("src.features.vision.cursors")
 local Controls = require("src.controls")
+local Features = require("src.features")
 
 local Vision = {
   name = "vision",
@@ -32,6 +33,7 @@ Vision.zoom = 1
 
 Vision.cursors = Cursors
 Vision.cursor = "target"
+Vision.screenCursor = "arrow" -- while a screen has the mouse (`pointerTaken`, the inventory)
 
 local recentering = false
 
@@ -75,12 +77,15 @@ local function edgePush(margin)
   return math.max(-1, math.min(dx, 1)), math.max(-1, math.min(dy, 1))
 end
 
-function Vision:update(dt, _client, camera)
+function Vision:update(dt, client, camera)
   if not self.enabled then
     return
   end
 
-  local dx, dy = edgePush(self.edgeMargin)
+  local dx, dy = 0, 0
+  if not Features.any("pointerTaken", client) then
+    dx, dy = edgePush(self.edgeMargin)
+  end
   if dx ~= 0 or dy ~= 0 then
     recentering = false
   end
@@ -122,11 +127,12 @@ function Vision:keypressed(key)
   end
 end
 
-function Vision:drawHUD()
+function Vision:drawHUD(client)
   if not self.enabled then
     return
   end
-  local cursor = self.cursors[self.cursor]
+  local name = Features.any("pointerTaken", client) and self.screenCursor or self.cursor
+  local cursor = self.cursors[name]
   if cursor then
     cursor(love.mouse.getPosition())
   end

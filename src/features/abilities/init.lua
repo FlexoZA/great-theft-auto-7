@@ -141,12 +141,13 @@ function Abilities:update(dt, client, camera)
     end
   end
 
-  local canAim = client:myPose() ~= nil and not self:held(client, client.myId)
+  local taken = Features.any("pointerTaken", client) -- a screen (the inventory) has the mouse
+  local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
   for i in ipairs(self.slots) do
     local down = Controls.isDown("ability-" .. i)
     if self.aiming == i then
-      if Controls.suspended or Controls.isDown("ability-cancel") then
-        self.aiming, self.spent = nil, i -- the menu came up, or they changed their mind
+      if Controls.suspended or taken or Controls.isDown("ability-cancel") then
+        self.aiming, self.spent = nil, i -- a menu or screen came up, or they changed their mind
       elseif not down then
         self.aiming = nil
         self:cast(client, i)

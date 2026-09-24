@@ -40,12 +40,13 @@
 -- into the hopper, as much as fits and the owner's wallet covers, and the
 -- owner pays for it. Public or private makes no difference to buying.
 --
--- The inventory screen (I, bag.lua) has item slots: four to start with, more from the upgrade
+-- The inventory has item slots: four to start with, more from the upgrade
 -- shop (Buildings:serverSetSlots). A slot holds one stack of one item
 -- (kinds.lua has the stack sizes); what doesn't fit stays in the building.
 -- It is kept by the host and told to each player alone. Weapons loads its
--- magazines from the ammo in it (serverTake) and counts a gun as yours
--- while its item ("gun-<key>") is in it (serverCount).
+-- magazines from the ammo in it (serverTake) and moves guns in and out of
+-- it as "gun-<key>" items (serverTake, serverGive). The screen that shows
+-- it (I) is the inventory feature's; this one only keeps the items.
 --
 -- The plots come from real-estate; without it there is nothing to build on.
 -- A building belongs to whoever owns its plot: when the plot goes back on
@@ -77,7 +78,6 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
-local Bag = require("src.features.buildings.bag")
 local Collision = require("src.features.city-map.collision")
 local Layout = require("src.features.city-map.layout")
 
@@ -239,13 +239,11 @@ Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.menu = false -- is the building menu open?
 Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices, "offer" for one material's
 Buildings.offerItem = nil -- the material the "offer" page sets a price for
-Buildings.bag = false -- is the inventory open?
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
 local time = 0
 
 function Buildings:load()
-  Controls.register("inventory", "Open / close the inventory", "i")
   Controls.register("use-medkit", "Use a medkit", "h")
   for i = 1, self.menuKeys do
     Controls.register("building-" .. i, ("Building menu: option %d"):format(i), tostring(i))
@@ -256,7 +254,7 @@ end
 -- as START, so they are only forgotten on the way out.
 function Buildings:exitGame()
   self.buildings, self.inventory, self.slots = {}, {}, Kinds.SLOTS
-  self.menu, self.bag = false, false
+  self.menu = false
   herePad, herePlot, notice, noticeTimer = nil, nil, nil, 0
   markWalls()
 end
@@ -265,10 +263,11 @@ local function say(text, good)
   notice, noticeTimer, noticeGood = text, NOTICE_TIME, good or false
 end
 
---- Is another feature's menu up (the upgrade shop)? Then ours stays shut.
+--- Is another feature's panel up (the upgrade shop, the inventory screen)?
+--- Then ours stays shut.
 local function otherMenuOpen()
-  local shop = Features.byName.upgrades
-  return shop and shop.open
+  local shop, inventory = Features.byName.upgrades, Features.byName.inventory
+  return (shop and shop.open) or (inventory and inventory.open) or false
 end
 
 --- For weapons and anything else on the number keys: ours are taken while
@@ -294,9 +293,6 @@ function Buildings:update(dt, client)
   end
   if not herePad or otherMenuOpen() then
     self.menu = false
-  end
-  if otherMenuOpen() then
-    self.bag = false
   end
   if not self.menu then
     self.page = nil
@@ -455,11 +451,6 @@ function Buildings:offerRows(client, plot, b)
 end
 
 function Buildings:keypressed(key, client)
-  if Controls.is("inventory", key) then
-    self.bag = not self.bag and not otherMenuOpen()
-    self.menu = false
-    return
-  end
   if Controls.is("use-medkit", key) and not self.menu then
     if (self.inventory.medkit or 0) < 1 then
       say(REASONS.nomedkit)
@@ -474,7 +465,6 @@ function Buildings:keypressed(key, client)
     if herePad and not otherMenuOpen() then
       self.menu = not self.menu
       self.page = nil
-      self.bag = false
     end
     return
   end
@@ -680,25 +670,8 @@ local function drawMenu(self, client)
   love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
 end
 
---- A reminder of the inventory key, bottom left, while it is shut.
-local function drawBagHint(self)
-  local used = Kinds.slotsUsed(self.inventory)
-  local line = ("%s: inventory (%d/%d)"):format(Controls.name(Controls.bindings("inventory")[1]), used, self.slots)
-  if (self.inventory.medkit or 0) > 0 then
-    line = line .. "   " .. Controls.name(Controls.bindings("use-medkit")[1]) .. ": use medkit"
-  end
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.85, 0.8, 0.6)
-  love.graphics.print(line, 10, love.graphics.getHeight() - 28)
-end
-
 function Buildings:drawHUD(client)
   local w, h = love.graphics.getDimensions()
-  if self.bag then
-    Bag.draw(self)
-  else
-    drawBagHint(self)
-  end
   local re = realEstate()
   local plot = herePad
   local owner = plot and re and re.owners[plot.id]
