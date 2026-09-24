@@ -192,9 +192,26 @@ function Armor:serverEquip(server, player, kind)
   if old and old.points >= old.max then
     buildings:serverGive(server, player, "armor-" .. old.kind, 1)
   end
-  self.sv.worn[player.id] = { kind = kind, points = a.points, max = a.points }
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  self.sv.worn[player.id] = { kind = kind, points = max, max = max }
   tell(server, player, self.sv.worn[player.id])
   return true
+end
+
+--- Clothes changed (gear): a vest holds as many points as they now allow,
+--- what is left of it scaled along.
+function Armor:serverStatsChanged(server, player)
+  local w = self:serverWorn(player)
+  local a = w and Kinds.byKey[w.kind]
+  if not a then
+    return
+  end
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  if max ~= w.max then
+    w.points = math.max(1, math.floor(w.points * max / w.max + 0.5))
+    w.max = max
+    tell(server, player, w)
+  end
 end
 
 --- Take off what `player` wears: back into the bag as an item while it is

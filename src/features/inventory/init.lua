@@ -21,8 +21,10 @@
 -- stack out of the bag, quickTake puts it back); their keys (H, J) use one
 -- from there. A vest ("armor-<key>") dragged onto the armor gear slot is
 -- put on (armor:equip) and dragged back into the bag taken off
--- (armor:unequip; a damaged one is thrown away). The host does the moving
--- and tells each feature what is in its slots; this only asks.
+-- (armor:unequip; a damaged one is thrown away). Clothes ("gear-<key>")
+-- go onto the head, body, pants and shoes slots the same way (gear:equip,
+-- unequip). The host does the moving and tells each feature what is in its
+-- slots; this only asks.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -38,7 +40,7 @@ local Inventory = {
 
 Inventory.open = false
 -- What is being dragged: { kind = "gun", index }, { kind = "ability", key }, { kind = "quick", item } or
--- { kind = "armor", key }, with
+-- { kind = "armor", key } or { kind = "gear", key, slot }, with
 -- from = "slot" | "bag" | "quick", box (the slot or item box it left), x0, y0, moved.
 Inventory.drag = nil
 Inventory.dragStart = 5 -- px the mouse must move with the button down before a press is a drag
@@ -59,6 +61,10 @@ end
 
 local function armor()
   return Features.byName.armor
+end
+
+local function gear()
+  return Features.byName.gear
 end
 
 local function inside(r, x, y)
@@ -117,7 +123,7 @@ end
 function Inventory:pick(x, y, client)
   local L = Screen.layout()
   local w, a, b = weapons(), abilities(), buildings()
-  local ar = armor()
+  local ar, g = armor(), gear()
   local armorSlot = L.gear[Screen.ARMOR]
   if inside(armorSlot, x, y) then
     local worn = ar and client and ar:mine(client)
@@ -125,6 +131,15 @@ function Inventory:pick(x, y, client)
       return { kind = "armor", key = worn.kind, from = "slot" }
     end
     return nil
+  end
+  for i, r in ipairs(L.gear) do
+    if i ~= Screen.ARMOR and inside(r, x, y) then
+      local key = g and client and g:mine(client)[r.name]
+      if key then
+        return { kind = "gear", key = key, slot = r.name, from = "slot" }
+      end
+      return nil
+    end
   end
   for _, r in ipairs(L.quick) do
     if inside(r, x, y) then
@@ -168,6 +183,9 @@ function Inventory:pick(x, y, client)
           return { kind = "quick", item = s.item, from = "bag", box = i }
         elseif s and s.item:match("^armor%-") and ar and ar.kinds.byKey[s.item:sub(7)] then
           return { kind = "armor", key = s.item:sub(7), from = "bag", box = i }
+        elseif s and s.item:match("^gear%-") and g and g.kinds.byKey[s.item:sub(6)] then
+          local piece = g.kinds.byKey[s.item:sub(6)]
+          return { kind = "gear", key = piece.key, slot = piece.slot, from = "bag", box = i }
         end
         return nil
       end
@@ -317,8 +335,38 @@ function Inventory:dropArmor(client, d, x, y, L)
   end
 end
 
---- The button came up at (x, y) after a drag: put the gun, ability, stack
---- or vest where it landed.
+--- A piece of clothing came down at (x, y): from the bag onto its slot to
+--- put it on (whatever was there swaps into the bag), or from its slot
+--- into the bag to take it off.
+function Inventory:dropGear(client, d, x, y, L)
+  local g, b = gear(), buildings()
+  if not (g and b) then
+    return
+  end
+  local piece = g.kinds.byKey[d.key]
+  local slot
+  for i, r in ipairs(L.gear) do
+    if i ~= Screen.ARMOR and inside(r, x, y) then
+      slot = r
+    end
+  end
+  if d.from == "bag" and (slot or inside(L.gear[Screen.ARMOR], x, y)) then
+    if not slot or slot.name ~= piece.slot then
+      self:say("The " .. piece.title .. " goes on your " .. piece.slot .. ".")
+    else
+      g:equip(client, d.key)
+    end
+  elseif d.from == "slot" and inside(L.itemsArea, x, y) then
+    if Kinds.room(b.inventory, b.slots, "gear-" .. d.key) < 1 then
+      self:say("No room in your bag for the " .. piece.title .. ".")
+    else
+      g:unequip(client, d.slot)
+    end
+  end
+end
+
+--- The button came up at (x, y) after a drag: put the gun, ability, stack,
+--- vest or piece of clothing where it landed.
 function Inventory:drop(client, d, x, y)
   local L = Screen.layout()
   if d.kind == "ability" then
@@ -327,6 +375,8 @@ function Inventory:drop(client, d, x, y)
     return self:dropQuick(client, d, x, y, L)
   elseif d.kind == "armor" then
     return self:dropArmor(client, d, x, y, L)
+  elseif d.kind == "gear" then
+    return self:dropGear(client, d, x, y, L)
   end
   local w, b = weapons(), buildings()
   if not (w and b) then

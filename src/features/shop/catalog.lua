@@ -8,7 +8,7 @@
 --           "ability-freeze", "medkit", "car-hatchback-orange")
 --   n       how many of it one purchase gives (cars: one on the road)
 --   name    what the card says
---   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "car", the badge on the card
+--   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "gear" | "car", the badge on the card
 --   badge   what the badge says instead of the kind ("passive" for a passive ability)
 --   tab     which tab of the shop it is on ("items" or "cars")
 --   price   Fcks; 0 is free. Everything is free for now: put prices here
@@ -23,6 +23,7 @@ local AbilityKinds = require("src.features.abilities.kinds")
 local Vehicles = require("src.features.vehicles.catalog")
 local Kinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
+local GearKinds = require("src.features.gear.kinds")
 
 local Catalog = {
   list = {},
@@ -61,6 +62,9 @@ add({ item = "medkit", n = 1, name = "medkit", kind = "supply", tab = "items" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply", tab = "items" })
 for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor", tab = "items" })
+end
+for _, g in ipairs(GearKinds.list) do
+  add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", tab = "items", badge = g.slot })
 end
 for _, model in ipairs(Vehicles.list) do
   add({ item = model.item, n = 1, name = model.name, kind = "car", tab = "cars" })

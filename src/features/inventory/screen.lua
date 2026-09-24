@@ -2,8 +2,8 @@
 -- screen with everything they carry around them.
 --
 --   top left      the character and the gear slots down their side: head,
---                 body, pants and shoes (nothing fits in them yet) and the
---                 armor slot, with the vest they wear and its points left
+--                 body, pants and shoes with the clothes they wear (gear),
+--                 and the armor slot with the vest and its points left
 --   top right     the weapon slots, one per number key (weapons.slotCount),
 --                 each with the gun in it, what is in the magazine and what
 --                 is left to load, the one in hand lit up, empty ones bare;
@@ -212,23 +212,30 @@ local function drawFigure(r)
   love.graphics.circle("fill", cx + s(34), top + s(120), s(6), 16)
 end
 
---- The gear slots, each named for what goes in it: empty but for the
---- armor slot, which shows the vest worn and the points it has left.
---- `lifted` while the vest is being dragged out.
-local function drawGear(L, client, lifted)
-  local armor = Features.byName.armor
-  local worn = armor and not lifted and armor:mine(client) or nil
+--- The gear slots, each named for what goes in it: the clothes worn in
+--- the first four (gear) and, in the armor slot, the vest and the points
+--- it has left. `liftedArmor` while the vest is being dragged out,
+--- `liftedSlot` the clothes slot whose piece is.
+local function drawGear(L, client, liftedArmor, liftedSlot)
+  local armor, gear = Features.byName.armor, Features.byName.gear
+  local worn = armor and not liftedArmor and armor:mine(client) or nil
   local kind = worn and armor.kinds.byKey[worn.kind]
+  local clothes = gear and gear:mine(client) or {}
   love.graphics.setFont(UI.fonts.small)
   for i, r in ipairs(L.gear) do
     local isArmor = i == Screen.ARMOR
-    box(r.x, r.y, r.w, r.h, not isArmor or kind ~= nil, false)
+    local piece = not isArmor and liftedSlot ~= r.name and gear and gear.kinds.byKey[clothes[r.name] or ""] or nil
+    box(r.x, r.y, r.w, r.h, (isArmor and kind ~= nil) or piece ~= nil, false)
     if isArmor and kind then
       Render.itemIcon("armor-" .. worn.kind, r.x + r.w / 2, r.y + 20)
       local c = kind.color
       UI.meter(r.x + 6, r.y + r.h - 12, r.w - 12, 6, worn.points / worn.max, c)
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(worn.points), r.x, r.y + 2, r.w - 4, "right")
+    elseif piece then
+      Render.itemIcon("gear-" .. piece.key, r.x + r.w / 2, r.y + 20)
+      love.graphics.setColor(0.85, 0.85, 0.9)
+      love.graphics.printf(r.name, r.x, r.y + r.h - 16, r.w, "center")
     else
       love.graphics.setColor(1, 1, 1, 0.3)
       love.graphics.printf(r.name, r.x, r.y + r.h / 2 - 8, r.w, "center")
@@ -410,7 +417,8 @@ function Screen.draw(buildings, list, drag, notice, client)
   local p = L.panel
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
   drawFigure(L.figure)
-  drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot")
+  drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
+    drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
@@ -453,6 +461,9 @@ function Screen.drawDrag(drag, mx, my)
     return
   elseif drag.kind == "armor" then
     Render.itemIcon("armor-" .. drag.key, mx, my)
+    return
+  elseif drag.kind == "gear" then
+    Render.itemIcon("gear-" .. drag.key, mx, my)
     return
   end
   local gun = Guns.list[drag.index]

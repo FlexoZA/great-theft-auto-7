@@ -311,6 +311,28 @@ function Render.itemIcon(item, cx, cy)
     Icons.draw(item:sub(5), cx, cy, 0.6)
   elseif item:match("^ability%-") then
     Render.abilityIcon(item:sub(9), cx, cy, 11)
+  elseif item:match("^gear%-") then
+    -- Clothes, in the piece's colour: a cap, a shirt, a pair of trousers or shoes.
+    local g = require("src.features.gear.kinds").byKey[item:sub(6)]
+    local gc = g and g.color or { 0.6, 0.6, 0.65 }
+    love.graphics.setColor(gc)
+    if g and g.slot == "head" then
+      love.graphics.arc("fill", "pie", cx, cy + 4, 12, math.pi, 2 * math.pi, 16)
+      love.graphics.rectangle("fill", cx - 12, cy + 2, 24, 4, 2)
+      love.graphics.rectangle("fill", cx + 8, cy + 2, 10, 3, 1) -- the peak
+    elseif g and g.slot == "pants" then
+      love.graphics.polygon("fill", cx - 10, cy - 12, cx + 10, cy - 12, cx + 11, cy + 12, cx + 3, cy + 12,
+        cx, cy - 2, cx - 3, cy + 12, cx - 11, cy + 12)
+    elseif g and g.slot == "shoes" then
+      love.graphics.polygon("fill", cx - 14, cy + 8, cx - 12, cy - 2, cx - 5, cy - 2, cx - 1, cy + 4, cx + 1, cy + 8)
+      love.graphics.polygon("fill", cx + 2, cy + 8, cx + 4, cy - 2, cx + 11, cy - 2, cx + 15, cy + 4, cx + 16, cy + 8)
+      love.graphics.setColor(1, 1, 1, 0.8)
+      love.graphics.rectangle("fill", cx - 14, cy + 7, 15, 2)
+      love.graphics.rectangle("fill", cx + 2, cy + 7, 14, 2)
+    else
+      love.graphics.polygon("fill", cx - 14, cy - 8, cx - 5, cy - 12, cx + 5, cy - 12, cx + 14, cy - 8, cx + 12, cy,
+        cx + 9, cy, cx + 9, cy + 12, cx - 9, cy + 12, cx - 9, cy, cx - 12, cy)
+    end
   elseif item:match("^armor%-") then
     -- A vest: shoulders, a body, a collar.
     local a = require("src.features.armor.kinds").byKey[item:sub(7)]
