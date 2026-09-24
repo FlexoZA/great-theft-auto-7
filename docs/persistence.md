@@ -120,7 +120,7 @@ Rules for features:
 | --- | --- |
 | Core (world) | `ids`, `names`, `nextId`, vehicle counter, every car a remembered player owns: id, x, y, angle, owner, colour, personal |
 | Core (player) | name |
-| `money` | wallet (player) |
+| `money` | wallet (player, kept even at 0); what players who are away were paid, until they are back (world) |
 | `upgrades` | levels (player) |
 | `weapons` | gun in each slot, rounds in each magazine (player). Spare rounds are bag items (`buildings`). Health comes back full; kills, the gun in hand and infinite ammo are not kept. |
 | `armor` | the vest worn and the points left on it (player) |
@@ -155,8 +155,11 @@ lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
   come back with everyone (`bug/quest-keeps-property`).
 - Real-estate and buildings keep a player's plots and buildings when they
   leave (a guest's plots still go back on the market: that id never comes
-  back). A public building of an owner who is away does not trade: their
-  wallet is not in play while they are gone.
+  back). A public building of an owner who is away still sells: money keeps
+  the takings in a ledger saved with the world (`Money:give` to someone not
+  in the game) and pays them into the owner's wallet when they are back,
+  with a "+N earned while away" over them. It buys nothing meanwhile: that
+  would come out of a wallet that is not in play.
 
 ## Host flow
 
