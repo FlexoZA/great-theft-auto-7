@@ -1,13 +1,16 @@
 -- Every vehicle model in the game, read from the models folder at startup.
 --
--- Drop `<key>.svg` into src/features/vehicles/models/ and it is a model: the
--- vehicle factory can make it and it drives with the stats below. Put a
--- `<key>.lua` next to it to give it its own; anything left out is the
--- starter car's. The SVG is a top-down view with the nose pointing right
--- (set `facing` otherwise); it is drawn as long as the car's hitbox.
+-- Drop `<type>-<colour>.svg` into src/features/vehicles/models/ and it is a
+-- model: the vehicle factory can make it and it drives with its type's
+-- stats. Every colour of a type shares `<type>.lua` next to it, so a new
+-- colour is only a new SVG ("hatchback-blue.svg" drives like
+-- "hatchback.lua" says, and is sold as the "Blue Hatchback"). A
+-- `<type>-<colour>.lua` changes just that one colour; anything left out is
+-- the starter car's. The SVG is a top-down view with the nose pointing
+-- right (set `facing` otherwise); it is drawn `length` px long.
 --
 --   return {
---     name = "Hatchback",   -- shown in the shop (default: from the file name)
+--     name = "Hatchback",   -- shown in the shop, after the colour (default: from the file name)
 --     price = 120,          -- Fcks at a vehicle factory; its owner can change it
 --     hitpoints = 100,      -- how much damage it takes before it blows up
 --     topSpeed = 520,       -- px/s
@@ -16,6 +19,8 @@
 --     turning = 2.8,        -- rad/s at full speed
 --     facing = "right",     -- where the nose points in the SVG: right, left, up, down
 --     length = 44,          -- px the drawing is from nose to tail, mirrors and all
+--     time = 45,            -- seconds the vehicle factory takes to make one
+--     inputs = { iron = 4, oil = 2 }, -- what one uses up (default: the factory's own, buildings/kinds.lua)
 --   }
 --
 -- Parsing is plain Lua, so the host knows every model without drawing one;
@@ -58,6 +63,9 @@ local DEFAULTS = {
 
 local FACING = { right = 0, down = -math.pi / 2, left = math.pi, up = math.pi / 2 }
 
+-- Colours whose file name doesn't read well as it is.
+local COLOURS = { bluegrey = "Blue-grey" }
+
 --- "hatchback-orange" -> "Hatchback Orange"
 local function titleOf(key)
   return (key:gsub("[-_]+", " "):gsub("(%a)(%w*)", function(a, b)
@@ -65,20 +73,46 @@ local function titleOf(key)
   end))
 end
 
-local function loadStats(key)
-  local path = Catalog.DIR .. "/" .. key .. ".lua"
+--- The table `<name>.lua` in the models folder returns, or nil without one.
+local function loadStats(name)
+  local path = Catalog.DIR .. "/" .. name .. ".lua"
   if not love.filesystem.getInfo(path, "file") then
-    return {}
+    return nil
   end
   local chunk, err = love.filesystem.load(path)
   if not chunk then
-    error(("vehicle model '%s': %s"):format(key, err))
+    error(("vehicle model '%s': %s"):format(name, err))
   end
   local stats = chunk()
   if type(stats) ~= "table" then
-    error(("vehicle model '%s': %s must return a table"):format(key, path))
+    error(("vehicle model '%s': %s must return a table"):format(name, path))
   end
   return stats
+end
+
+--- Build the model for `key` out of the defaults, its type's stats and its
+--- own, each over the one before.
+local function makeModel(key, doc)
+  local model = { key = key, doc = doc }
+  for k, v in pairs(DEFAULTS) do
+    model[k] = v
+  end
+  local typeKey, colour = key:match("^(.+)%-([^-]+)$")
+  local typeStats = typeKey and loadStats(typeKey)
+  local own = loadStats(key) or {}
+  if typeStats then
+    model.type, model.colour = typeKey, COLOURS[colour] or titleOf(colour)
+    for k, v in pairs(typeStats) do
+      model[k] = v
+    end
+    model.name = model.colour .. " " .. (typeStats.name or titleOf(typeKey))
+  end
+  for k, v in pairs(own) do
+    model[k] = v
+  end
+  model.name = own.name or model.name or titleOf(key)
+  model.item = Catalog.ITEM_PREFIX .. key
+  return model
 end
 
 --- Read the models folder. Runs once, when this file is first required.
@@ -91,16 +125,7 @@ function Catalog.scan()
     if key then
       local doc, err = Svg.parse(love.filesystem.read(Catalog.DIR .. "/" .. file))
       if doc then
-        local model = { key = key, doc = doc }
-        local stats = loadStats(key)
-        for k, v in pairs(DEFAULTS) do
-          model[k] = v
-        end
-        for k, v in pairs(stats) do
-          model[k] = v
-        end
-        model.name = model.name or titleOf(key)
-        model.item = Catalog.ITEM_PREFIX .. key
+        local model = makeModel(key, doc)
         Catalog.list[#Catalog.list + 1] = model
         Catalog.byKey[key] = model
       else

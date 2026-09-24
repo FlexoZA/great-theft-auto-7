@@ -22,6 +22,10 @@
 --                    buying one puts it on the road in front of the factory
 --                    as yours (`serverDeliver`, answered by vehicles).
 --
+-- A building with more than two products picks one on its own page: flick
+-- through them (a car shows its picture and stats) and pick one. Each
+-- product keeps the selling price its owner last set for it.
+--
 -- Buildings are solid: cars bounce off them, and walkers, pedestrians,
 -- officers and bullets stop at their walls (`blocksPoint`). The parking lot
 -- is the exception, being somewhere to drive. Anyone on foot inside the
@@ -73,14 +77,15 @@
 --   client -> server  BLD_COLLECT <plotId>
 --   client -> server  BLD_LOAD    <plotId>
 --   client -> server  BLD_PUBLIC  <plotId>            (toggle)
---   client -> server  BLD_PRODUCT <plotId>            (next product)
---   client -> server  BLD_PRICE   <plotId> <+1|-1>
+--   client -> server  BLD_PRODUCT <plotId> [index]    (that product, or the next one)
+--   client -> server  BLD_PRICE   <plotId> <delta>    (+-1, +-10 or +-100)
 --   client -> server  BLD_BUY     <plotId>
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
 --   client -> server  BLD_USE     <item>              (only "medkit" today)
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
 --   client -> server  BLD_TAKEOVER <plotId>           (anyone else: buy the lot under a ruin)
+--   client -> server  BLD_DEVFILL <plotId>            (owner, while `devSupply` is on: one car's materials)
 --   server -> all     BLD_STATE   <plotId> <kind> <owner> <public> <product> <price> <output>
 --                                 <progress> <running> <hopper, one per material>...
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
@@ -111,6 +116,9 @@ Buildings.medkitHeal = 50 -- health a medkit gives back
 Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
 Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
 Buildings.takeoverPrice = 40 -- Fcks for the lot under someone else's ruin
+-- Development only: the vehicle factory's menu tops its hopper up with what
+-- the car in hand takes, for free. Set to false to hide it (the host refuses it then too).
+Buildings.devSupply = true
 
 local T = Layout.TILE
 local SLACK = 40 -- px the server allows for a player drawn a little behind where it is
@@ -118,7 +126,9 @@ local INSET = 28 -- px between the plot's fence and the building
 local TOP = 56 -- px left at the top of the plot for real-estate's sign
 local PED_RADIUS = 6 -- px; how fat a pedestrian is against a wall, as city-map has it
 local NOTICE_TIME = 2.5
-local PRICE_MIN, PRICE_MAX = 1, 99
+local PRICE_MIN, PRICE_MAX = 1, 99 -- Fcks a building pays for a material
+local SELL_MAX = 9999 -- most Fcks a building sells for (a car costs hundreds)
+local PRICE_STEPS = { [1] = true, [10] = true, [100] = true }
 local REASONS = {
   away = "Stand on the square in front of it.",
   notyours = "That isn't your plot.",
@@ -271,7 +281,10 @@ Buildings.buildings = {}
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.menu = false -- is the building menu open?
-Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices, "offer" for one material's
+-- nil for the menu's main page, "prices" for the owner's prices, "sell" for
+-- its selling price, "offer" for one material's, "product" to pick what it makes
+Buildings.page = nil
+Buildings.pick = 1 -- the product the "product" page is showing
 Buildings.offerItem = nil -- the material the "offer" page sets a price for
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
@@ -419,9 +432,13 @@ function Buildings:menuRows(client)
     if kind.rate then
       return rows -- the parking lot pays out when you drive over it
     elseif self.page == "prices" then
-      return self:priceRows(client, plot, b, kind)
+      return self:priceRows(b, kind)
+    elseif self.page == "sell" then
+      return self:sellRows(client, plot, b)
     elseif self.page == "offer" then
       return self:offerRows(client, plot, b)
+    elseif self.page == "product" then
+      return self:productRows(client, plot, b, kind)
     end
     local item = productOf(kind, b.product)
     local collect = ("Collect %s"):format(Kinds.label(item, b.output))
@@ -436,7 +453,16 @@ function Buildings:menuRows(client)
         send(client, "BLD_LOAD", plot.id)
       end)
     end
-    if #kind.products > 1 then
+    if self.devSupply and kind.key == "vehicles" then
+      row("[DEV] Supply materials for one car", function()
+        send(client, "BLD_DEVFILL", plot.id)
+      end)
+    end
+    if #kind.products > 2 then
+      row("Choose what to make...", function()
+        self.page, self.pick = "product", b.product
+      end)
+    elseif #kind.products > 1 then
       local nextItem = productOf(kind, b.product % #kind.products + 1)
       row(("Switch to making %s"):format(Kinds.label(nextItem)), function()
         send(client, "BLD_PRODUCT", plot.id)
@@ -480,16 +506,13 @@ end
 --- The owner's prices page: what the building sells for, and a row per
 --- material it runs on that opens that material's own page (a factory can
 --- take four, too many to fit two rows each on the number keys).
-function Buildings:priceRows(client, plot, b, kind)
+function Buildings:priceRows(b, kind)
   local rows = {}
   local function row(label, run)
     rows[#rows + 1] = { label = label, run = run }
   end
-  row(("Selling price -1  (now %s)"):format(amount(b.price)), function()
-    send(client, "BLD_PRICE", plot.id, -1)
-  end)
-  row("Selling price +1", function()
-    send(client, "BLD_PRICE", plot.id, 1)
+  row(("Selling price...  (now %s)"):format(amount(b.price)), function()
+    self.page = "sell"
   end)
   for _, item in ipairs(Kinds.hopperList(kind)) do
     local pays = b.pays[item] or 0
@@ -501,6 +524,56 @@ function Buildings:priceRows(client, plot, b, kind)
     self.page = nil
   end)
   return rows
+end
+
+--- The selling price, up or down in steps of 1, 10 and 100.
+function Buildings:sellRows(client, plot, b)
+  local rows = {}
+  for _, delta in ipairs({ -100, -10, -1, 1, 10, 100 }) do
+    local label = ("Selling price %s%d"):format(delta > 0 and "+" or "", delta)
+    if delta == -100 then
+      label = ("%s  (now %s)"):format(label, amount(b.price))
+    end
+    rows[#rows + 1] = { label = label, run = function()
+      send(client, "BLD_PRICE", plot.id, delta)
+    end }
+  end
+  rows[#rows + 1] = { label = "Back", run = function()
+    self.page = "prices"
+  end }
+  return rows
+end
+
+--- Pick what the building makes: flick through its products, the one on
+--- show drawn on the menu's card, and make it. Refused while it holds stock
+--- of the one before, as switching over one at a time is.
+function Buildings:productRows(client, plot, b, kind)
+  local n = #kind.products
+  local pick = self.pick
+  local function step(by)
+    return function()
+      self.pick = (self.pick - 1 + by) % n + 1
+    end
+  end
+  local item = productOf(kind, pick)
+  local price = Kinds.recipe(kind, pick).price
+  local make = ("Make %s"):format(Kinds.name(item, 1))
+  if pick == b.product then
+    make = ("Making %s now"):format(Kinds.name(item, 1))
+  elseif price then
+    make = ("%s  (sells from %s)"):format(make, amount(price))
+  end
+  return {
+    { label = ("Previous  (%d of %d)"):format(pick, n), run = step(-1) },
+    { label = "Next", run = step(1) },
+    { label = make, run = pick ~= b.product and function()
+      send(client, "BLD_PRODUCT", plot.id, pick)
+      self.page = nil
+    end or nil },
+    { label = "Back", run = function()
+      self.page = nil
+    end },
+  }
 end
 
 --- What the building pays for one material, up or down.
@@ -730,7 +803,8 @@ local function drawMenu(self, client)
   end
   -- A car factory shows the car it is making: that is what you buy.
   local vehicles = Features.byName.vehicles
-  local card = kind and vehicles and vehicles.cardHeight and productOf(kind, b.product)
+  local shown = kind and (self.page == "product" and self.pick or b.product)
+  local card = shown and vehicles and vehicles.cardHeight and productOf(kind, shown)
   local cardH = card and vehicles:cardHeight(card, pw) or 0
   if cardH == 0 then
     card = nil
@@ -1228,6 +1302,24 @@ Buildings.serverMessages = {
     publish(server, id, b)
   end),
 
+  BLD_DEVFILL = refusing(function(server, player, args)
+    if not Buildings.devSupply then
+      return
+    end
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    if kind.key ~= "vehicles" then
+      return
+    end
+    for item, n in pairs(recipeOf(b, kind).inputs) do
+      b.hopper[item] = math.min(Kinds.HOPPER, math.max(b.hopper[item] or 0, n))
+    end
+    publish(server, id, b)
+  end),
+
   BLD_PUBLIC = refusing(function(server, player, args)
     local b, reason, id = ownBuilding(server, player, args)
     if not b then
@@ -1245,18 +1337,25 @@ Buildings.serverMessages = {
       return reason
     end
     local kind = Kinds.byKey[b.kind]
-    if not (kind.products and #kind.products > 1) then
+    local n = kind.products and #kind.products or 0
+    local index = args[2] and tonumber(args[2]) or b.product % math.max(1, n) + 1
+    if n < 2 or index ~= math.floor(index) or index < 1 or index > n or index == b.product then
       return
     elseif b.output > 0 then
       return "stocked"
     end
     local before = recipeOf(b, kind).price
-    b.product = b.product % #kind.products + 1
+    b.prices = b.prices or {}
+    b.prices[b.product] = b.price
+    b.product = index
     b.progress = 0
-    -- A product with a price of its own (rockets next to rounds) starts
+    -- Back to what the owner last sold this one for. Otherwise a product
+    -- with a price of its own (rockets next to rounds, every car) starts
     -- there; between two alike, the owner's price stays.
     local after = recipeOf(b, kind).price
-    if after ~= before then
+    if b.prices[index] then
+      b.price = b.prices[index]
+    elseif after ~= before then
       b.price = after
     end
     publish(server, id, b)
@@ -1268,10 +1367,10 @@ Buildings.serverMessages = {
     if not b then
       return reason
     end
-    if not (delta == 1 or delta == -1) or Kinds.byKey[b.kind].private then
+    if not (delta and PRICE_STEPS[math.abs(delta)]) or Kinds.byKey[b.kind].private then
       return
     end
-    b.price = math.max(PRICE_MIN, math.min(PRICE_MAX, b.price + delta))
+    b.price = math.max(PRICE_MIN, math.min(SELL_MAX, b.price + delta))
     publish(server, id, b)
   end),
 
