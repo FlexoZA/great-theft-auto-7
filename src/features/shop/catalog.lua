@@ -57,6 +57,7 @@ for _, ability in ipairs(AbilityKinds.list) do
   })
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply", tab = "items" })
+add({ item = "drink", n = 1, name = "energy drink", kind = "supply", tab = "items" })
 for _, model in ipairs(Vehicles.list) do
   add({ item = model.item, n = 1, name = model.name, kind = "car", tab = "cars" })
 end

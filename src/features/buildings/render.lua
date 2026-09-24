@@ -311,6 +311,15 @@ function Render.itemIcon(item, cx, cy)
     Icons.draw(item:sub(5), cx, cy, 0.6)
   elseif item:match("^ability%-") then
     Render.abilityIcon(item:sub(9), cx, cy, 11)
+  elseif item == "drink" then
+    -- A can with a bolt on it.
+    love.graphics.setColor(0.2, 0.5, 0.9)
+    love.graphics.rectangle("fill", cx - 7, cy - 12, 14, 24, 3)
+    love.graphics.setColor(0.78, 0.8, 0.85)
+    love.graphics.rectangle("fill", cx - 7, cy - 12, 14, 4, 2)
+    love.graphics.setColor(1, 0.9, 0.2)
+    love.graphics.polygon("fill", cx + 1, cy - 6, cx - 4, cy + 1, cx, cy + 1, cx - 2, cy + 8, cx + 4, cy - 1,
+      cx, cy - 1)
   elseif item == "medkit" then
     love.graphics.setColor(0.95, 0.95, 0.95)
     love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
