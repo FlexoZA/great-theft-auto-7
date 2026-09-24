@@ -1,11 +1,19 @@
 -- Abilities: powers a character casts on the world. Hold the ability's key
 -- and a target area follows the cursor, kept within the ability's range of
 -- you; let go to cast it there, or right-click to think better of it. Each
--- ability then waits out its cooldown. For now everyone has the same one
--- ability, freeze (freeze.lua); character classes will hand out others
--- later, so an ability is a small module in this folder and this file is
--- the machinery around it: aiming, cooldowns, the HUD, and holding things
--- still on the host.
+-- ability then waits out its cooldown.
+--
+-- You carry abilities in `slotCount` ability slots, one per key (Q, Z, X,
+-- V): slot 1 casts whatever is in slot 1. Everyone starts with freeze
+-- (freeze.lua) in slot 1; kinds.lua lists every ability. An ability is
+-- also an item ("ability-<key>" in the inventory): on the inventory screen
+-- you drag one from your bag onto a slot to carry it (ABL_EQUIP takes the
+-- item; one already there swaps into the bag), drag it from its slot into
+-- the bag to put it down (ABL_UNEQUIP; the slot is empty then), or onto
+-- another slot to change its key (ABL_MOVE). The host keeps the slots and
+-- tells you them (ABL_SLOTS), and casts only what is in one. Cooldowns
+-- follow the ability, not the slot, so moving one doesn't reset it.
+-- Nothing makes ability items yet: what you start with is all there is.
 --
 -- Holding: the host keeps a frozen player or car where it is by putting it
 -- back every tick after everything else has moved it (this feature runs
@@ -15,8 +23,12 @@
 -- feature can hold a player through Features.byName.abilities:serverHold.
 --
 -- Messages
---   client -> server  ABL_CAST  <slot> <x> <y>
---   server -> all     ABL_FIRED <by> <slot> <x> <y> <seconds> [<heldId>]...
+--   client -> server  ABL_CAST  <ability> <x> <y>
+--   client -> server  ABL_EQUIP <ability> <slot>       (the ability item I carry, into that slot)
+--   client -> server  ABL_UNEQUIP <slot>               (the ability in that slot, into my bag)
+--   client -> server  ABL_MOVE <slot> <slot>           (swap two slots)
+--   server -> player  ABL_SLOTS <ability per slot>...  (what is in each slot; "-" = empty)
+--   server -> all     ABL_FIRED <by> <ability> <x> <y> <seconds> [<heldId>]...
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -25,6 +37,7 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local Body = require("src.body")
 local Sounds = require("src.features.abilities.sounds")
+local Kinds = require("src.features.abilities.kinds")
 local Freeze = require("src.features.abilities.freeze")
 
 local Abilities = {
@@ -32,34 +45,59 @@ local Abilities = {
   priority = 990, -- last: holds override every other mover; the aim ring draws over everything
 }
 
-Abilities.slots = { Freeze } -- slot i is cast with action "ability-<i>"
-Abilities.defaultKeys = { "q" }
--- The ability circles along the bottom centre of the screen: `hudSlots` of
--- them, `hudStep` apart, empty ones dim until a release fills them.
-Abilities.hudSlots = 4
+Abilities.kinds = Kinds
+Abilities.slotCount = 4 -- ability slots, each on its own key
+Abilities.defaultKeys = { "q", "z", "x", "v" } -- slot i is cast with action "ability-<i>"
+Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
+-- The ability circles along the bottom centre of the screen, one per slot,
+-- `hudStep` apart, empty ones dim.
 Abilities.hudStep = 64
 Abilities.hudRadius = 24
 Abilities.hudBottom = 48 -- px up from the bottom edge to the circles' centres
+
+local EMPTY = "-" -- an empty slot on the wire
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
   return dx * dx + dy * dy
 end
 
+--- The slots everyone starts with: slot -> ability key.
+local function startSlots()
+  local slots = {}
+  for i, key in ipairs(Abilities.startKeys) do
+    if Kinds.byKey[key] and i <= Abilities.slotCount then
+      slots[i] = key
+    end
+  end
+  return slots
+end
+
+--- The slot ability `key` sits in, in a slot -> key map, or nil.
+local function slotOf(slots, key)
+  for slot, k in pairs(slots) do
+    if k == key then
+      return slot
+    end
+  end
+  return nil
+end
+
 -- Client --------------------------------------------------------------------
 
 Abilities.camera = nil -- last camera seen in update, to put the cursor in the world
 Abilities.time = 0
+Abilities.slots = {} -- slot -> ability key, mine (the host says: ABL_SLOTS)
 Abilities.aiming = nil -- slot index while its key is held
 Abilities.spent = nil -- slot whose key must be released before it aims again (cancelled)
-Abilities.cooldowns = {} -- slot -> seconds left
-Abilities.readyFlash = {} -- slot -> seconds of "it's back" flash left on the HUD
+Abilities.cooldowns = {} -- ability key -> seconds left
+Abilities.readyFlash = {} -- ability key -> seconds of "it's back" flash left on the HUD
 Abilities.effects = {} -- { ability, x, y, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
 
 function Abilities:load()
-  for i, ability in ipairs(self.slots) do
-    Controls.register("ability-" .. i, ("Ability %d: %s"):format(i, ability.title), self.defaultKeys[i])
+  for i = 1, self.slotCount do
+    Controls.register("ability-" .. i, ("Ability slot %d"):format(i), self.defaultKeys[i])
   end
   Controls.register("ability-cancel", "Cancel ability", "mouse2")
   Sounds.load()
@@ -68,6 +106,7 @@ end
 function Abilities:enterGame()
   self.camera = nil
   self.time = 0
+  self.slots = startSlots()
   self.aiming = nil
   self.spent = nil
   self.cooldowns = {}
@@ -78,6 +117,43 @@ end
 
 function Abilities:exitGame()
   self:enterGame()
+end
+
+--- The ability in slot `slot`, or nil.
+function Abilities:inSlot(slot)
+  return Kinds.byKey[self.slots[slot] or EMPTY]
+end
+
+--- Do I carry ability `key`, as far as the host has told me?
+function Abilities:owns(key)
+  return slotOf(self.slots, key) ~= nil
+end
+
+--- The slot ability `key` is in, or nil.
+function Abilities:slotOf(key)
+  return slotOf(self.slots, key)
+end
+
+--- Ask to put the ability item I carry for `key` into slot `slot` (the
+--- inventory screen does, on a drag). The host answers with ABL_SLOTS.
+function Abilities:equip(client, key, slot)
+  if Kinds.byKey[key] and not self:owns(key) and slot >= 1 and slot <= self.slotCount then
+    client:send(Protocol.encode("ABL_EQUIP", key, slot))
+  end
+end
+
+--- Ask to put the ability in slot `slot` down into my bag.
+function Abilities:unequip(client, slot)
+  if self.slots[slot] then
+    client:send(Protocol.encode("ABL_UNEQUIP", slot))
+  end
+end
+
+--- Ask to swap slots `from` and `to` (either may be empty).
+function Abilities:move(client, from, to)
+  if from ~= to and self.slots[from] and to >= 1 and to <= self.slotCount then
+    client:send(Protocol.encode("ABL_MOVE", from, to))
+  end
 end
 
 --- Is this player held still, as far as this machine knows? The `held`
@@ -113,25 +189,29 @@ function Abilities:target(client, ability)
 end
 
 function Abilities:cast(client, slot)
-  local x, y = self:target(client, self.slots[slot])
+  local ability = self:inSlot(slot)
+  if not ability then
+    return
+  end
+  local x, y = self:target(client, ability)
   if x then
-    client:send(Protocol.encode("ABL_CAST", slot, ("%.1f"):format(x), ("%.1f"):format(y)))
+    client:send(Protocol.encode("ABL_CAST", ability.key, ("%.1f"):format(x), ("%.1f"):format(y)))
   end
 end
 
 function Abilities:update(dt, client, camera)
   self.camera = camera
   self.time = self.time + dt
-  for slot, left in pairs(self.cooldowns) do
+  for key, left in pairs(self.cooldowns) do
     if left - dt > 0 then
-      self.cooldowns[slot] = left - dt
+      self.cooldowns[key] = left - dt
     else
-      self.cooldowns[slot] = nil
-      self.readyFlash[slot] = 0.6
+      self.cooldowns[key] = nil
+      self.readyFlash[key] = 0.6
     end
   end
-  for slot, left in pairs(self.readyFlash) do
-    self.readyFlash[slot] = left - dt > 0 and left - dt or nil
+  for key, left in pairs(self.readyFlash) do
+    self.readyFlash[key] = left - dt > 0 and left - dt or nil
   end
   for i = #self.effects, 1, -1 do
     local e = self.effects[i]
@@ -143,16 +223,17 @@ function Abilities:update(dt, client, camera)
 
   local taken = Features.any("pointerTaken", client) -- a screen (the inventory) has the mouse
   local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
-  for i in ipairs(self.slots) do
-    local down = Controls.isDown("ability-" .. i)
+  for i = 1, self.slotCount do
+    local ability = self:inSlot(i)
+    local down = ability ~= nil and Controls.isDown("ability-" .. i)
     if self.aiming == i then
-      if Controls.suspended or taken or Controls.isDown("ability-cancel") then
+      if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel") then
         self.aiming, self.spent = nil, i -- a menu or screen came up, or they changed their mind
       elseif not down then
         self.aiming = nil
         self:cast(client, i)
       end
-    elseif down and not self.aiming and self.spent ~= i and canAim and not self.cooldowns[i] then
+    elseif down and not self.aiming and self.spent ~= i and canAim and not self.cooldowns[ability.key] then
       self.aiming = i
     end
     if not down and self.spent == i then
@@ -164,7 +245,7 @@ end
 --- The aim ring while a key is held, then every effect in the world and a
 --- glaze over whoever is held.
 function Abilities:drawAboveCars(client)
-  local ability = self.aiming and self.slots[self.aiming]
+  local ability = self.aiming and self:inSlot(self.aiming)
   if ability then
     local ox, oy = client:myPose()
     local x, y = self:target(client, ability)
@@ -205,20 +286,20 @@ function Abilities:drawHUD(client)
   -- A row of circles along the bottom centre, one per slot. The key sits
   -- in the circle and the title under it; on cast the ring empties and
   -- fills back up through the cooldown with the seconds left inside. Full
-  -- and lit means ready. Slots with no ability yet are just dim rings.
+  -- and lit means ready. Empty slots are just dim rings.
   local small, body = UI.fonts.small, UI.fonts.body
   local w, h = love.graphics.getDimensions()
-  local r, n = self.hudRadius, math.max(self.hudSlots, #self.slots)
+  local r, n = self.hudRadius, self.slotCount
   local cy = h - self.hudBottom
   local x0 = math.floor(w / 2 - (n - 1) * self.hudStep / 2)
   for i = 1, n do
     local cx = x0 + (i - 1) * self.hudStep
-    local ability = self.slots[i]
+    local ability = self:inSlot(i)
     if not ability then
       UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     else
       local key = Controls.name(Controls.bindings("ability-" .. i)[1])
-      local left = self.cooldowns[i]
+      local left = self.cooldowns[ability.key]
       local c = ability.color
       local middle, middleColor, title, titleColor
       if left then
@@ -227,7 +308,7 @@ function Abilities:drawHUD(client)
         middleColor = { 1, 1, 1 }
         title, titleColor = ability.title, { 0.7, 0.7, 0.75 }
       else
-        local flash = self.readyFlash[i]
+        local flash = self.readyFlash[ability.key]
         if flash then
           -- Just back: a burst swelling out of the ring and fading.
           local k = flash / 0.6
@@ -264,9 +345,8 @@ end
 
 Abilities.clientMessages = {
   ABL_FIRED = function(client, args)
-    local by, slot = tonumber(args[1]), tonumber(args[2])
+    local by, ability = tonumber(args[1]), Kinds.byKey[args[2] or EMPTY]
     local x, y, seconds = tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
-    local ability = slot and Abilities.slots[slot]
     if not (ability and x and y and seconds) then
       return
     end
@@ -278,9 +358,21 @@ Abilities.clientMessages = {
       end
     end
     if by == client.myId then
-      Abilities.cooldowns[slot] = ability.cooldown
+      Abilities.cooldowns[ability.key] = ability.cooldown
     end
     Sounds.play(ability.sound, x, y)
+  end,
+  ABL_SLOTS = function(_client, args)
+    local slots = {}
+    for slot, key in ipairs(args) do
+      if Kinds.byKey[key] and slot <= Abilities.slotCount then
+        slots[slot] = key
+      end
+    end
+    Abilities.slots = slots
+    if Abilities.aiming and not slots[Abilities.aiming] then
+      Abilities.aiming = nil -- it left the slot mid-aim
+    end
   end,
 }
 
@@ -288,21 +380,108 @@ Abilities.clientMessages = {
 
 Abilities.sv = nil
 
-function Abilities:serverStart()
+function Abilities:serverStart(server)
   self.sv = {
     time = 0,
-    readyAt = {}, -- player id -> slot -> time the ability may be cast again
+    slots = {}, -- player id -> slot -> ability key
+    readyAt = {}, -- player id -> ability key -> time it may be cast again
     players = {}, -- player id -> time their hold ends
     bodies = {}, -- player id -> { until, x, y }: a walker kept on the spot
     cars = {}, -- vehicle id -> { until, x, y, angle }: a car kept on the spot
   }
+  for _, p in pairs(server.players) do
+    self:serverPlayerJoined(server, p)
+  end
+end
+
+--- Tell `player` what is in each of their ability slots (ABL_SLOTS). Bots
+--- aren't listening.
+function Abilities:sendSlots(server, player)
+  local slots = self.sv and self.sv.slots[player.id]
+  if not slots or player.bot then
+    return
+  end
+  local list = {}
+  for slot = 1, self.slotCount do
+    list[slot] = slots[slot] or EMPTY
+  end
+  server:send(player, Protocol.encode("ABL_SLOTS", unpack(list)))
+end
+
+function Abilities:serverPlayerJoined(server, player)
+  local sv = self.sv
+  if sv and not sv.slots[player.id] then
+    sv.slots[player.id] = startSlots()
+    self:sendSlots(server, player)
+  end
 end
 
 function Abilities:serverPlayerLeft(_server, player)
   local sv = self.sv
   if sv then
-    sv.readyAt[player.id], sv.players[player.id], sv.bodies[player.id] = nil, nil, nil
+    sv.slots[player.id], sv.readyAt[player.id] = nil, nil
+    sv.players[player.id], sv.bodies[player.id] = nil, nil
   end
+end
+
+--- Does `player` carry ability `key` in a slot on the host?
+function Abilities:serverOwns(player, key)
+  local slots = self.sv and self.sv.slots[player.id]
+  return slots ~= nil and slotOf(slots, key) ~= nil
+end
+
+--- `player` takes the ability item they carry for `key` and puts it in
+--- slot `slot`; one already there goes back into the bag as an item (the
+--- slot the taken item freed has room). Returns true if it happened.
+function Abilities:serverEquip(server, player, key, slot)
+  local slots = self.sv and self.sv.slots[player.id]
+  local buildings = Features.byName.buildings
+  if not (slots and Kinds.byKey[key] and slot and buildings and buildings.serverTake and Features.present(player)) then
+    return false
+  elseif slot < 1 or slot > self.slotCount or slotOf(slots, key) then
+    return false -- no such slot, or they carry it already
+  end
+  if buildings:serverTake(server, player, "ability-" .. key, 1) < 1 then
+    return false -- they don't carry one
+  end
+  local old = slots[slot]
+  if old then
+    buildings:serverGive(server, player, "ability-" .. old, 1)
+  end
+  slots[slot] = key
+  self:sendSlots(server, player)
+  return true
+end
+
+--- `player` puts the ability in slot `slot` down into their bag as an
+--- item, if there is room, leaving the slot empty. Returns true if they do.
+function Abilities:serverUnequip(server, player, slot)
+  local slots = self.sv and self.sv.slots[player.id]
+  local key = slots and slot and slots[slot]
+  local buildings = Features.byName.buildings
+  if not (key and buildings and buildings.serverGive and Features.present(player)) then
+    return false
+  end
+  if buildings:serverGive(server, player, "ability-" .. key, 1) < 1 then
+    return false -- no room in their bag
+  end
+  slots[slot] = nil
+  self:sendSlots(server, player)
+  return true
+end
+
+--- `player` swaps slots `from` and `to` (either may be empty). Returns
+--- true if they did.
+function Abilities:serverMove(server, player, from, to)
+  local slots = self.sv and self.sv.slots[player.id]
+  if not (slots and from and to and Features.present(player)) or from == to then
+    return false
+  elseif from < 1 or from > self.slotCount or to < 1 or to > self.slotCount or not slots[from] then
+    return false
+  end
+  slots[from], slots[to] = slots[to], slots[from]
+  self:sendSlots(server, player)
+  return true
 end
 
 --- Everything moved to a new map: nothing is held there.
@@ -389,11 +568,14 @@ end
 Abilities.serverMessages = {
   ABL_CAST = function(server, player, args)
     local sv = Abilities.sv
-    local slot = tonumber(args[1])
+    local key = args[1]
+    local ability = Kinds.byKey[key or EMPTY]
     local x, y = tonumber(args[2]), tonumber(args[3])
-    local ability = slot and Abilities.slots[slot]
     if not (sv and ability and x and y) or not Features.present(player) then
       return
+    end
+    if not Abilities:serverOwns(player, key) then
+      return -- not in any of their slots: a stale or forged cast
     end
     if Abilities:serverHeld(server, player) then
       return -- frozen people cast nothing
@@ -403,7 +585,7 @@ Abilities.serverMessages = {
       ready = {}
       sv.readyAt[player.id] = ready
     end
-    if (ready[slot] or 0) > sv.time then
+    if (ready[key] or 0) > sv.time then
       return -- still cooling down; the client knows, so this was a stale or forged cast
     end
     -- Never further than the ability reaches, whatever the client said.
@@ -412,10 +594,19 @@ Abilities.serverMessages = {
     if d > ability.range then
       x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range
     end
-    ready[slot] = sv.time + ability.cooldown
+    ready[key] = sv.time + ability.cooldown
     local held = ability.serverCast(server, player, x, y, Abilities)
-    server:broadcast(Protocol.encode("ABL_FIRED", player.id, slot, ("%.1f"):format(x), ("%.1f"):format(y),
+    server:broadcast(Protocol.encode("ABL_FIRED", player.id, key, ("%.1f"):format(x), ("%.1f"):format(y),
       ("%.2f"):format(ability.seconds), unpack(held)))
+  end,
+  ABL_EQUIP = function(server, player, args)
+    Abilities:serverEquip(server, player, args[1], tonumber(args[2]))
+  end,
+  ABL_UNEQUIP = function(server, player, args)
+    Abilities:serverUnequip(server, player, tonumber(args[1]))
+  end,
+  ABL_MOVE = function(server, player, args)
+    Abilities:serverMove(server, player, tonumber(args[1]), tonumber(args[2]))
   end,
 }
 

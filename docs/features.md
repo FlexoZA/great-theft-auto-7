@@ -350,6 +350,15 @@ couple of small conventions rather than requiring each other:
   `weapons:serverOwns(player, index)` is the host's answer to "do they carry
   it" and `weapons:owns(index)` the client's; selecting or firing anything
   else is refused, and putting down the gun in hand leaves the pistol.
+- Ability slots: the same for abilities. `abilities/kinds.lua` lists every
+  ability by `key`; each player carries them in `abilities.slotCount` slots
+  (Q, Z, X, V), freeze in slot 1 to start with, kept on the host and told to
+  the player (`ABL_SLOTS`, a key per slot, `-` for empty). An ability in a
+  bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
+  `ABL_UNEQUIP <slot>` and `ABL_MOVE <slot> <slot>` move them, and a cast
+  (`ABL_CAST <key> ...`) is refused unless the ability is in one of the
+  caster's slots. Cooldowns follow the ability, not the slot. Nothing makes
+  ability items yet.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
@@ -421,16 +430,17 @@ example with a menu; real-estate is the one with a place to stand.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
+  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it and
   moves guns in and out of it as items.
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
   carry around a picture of you: gear slots (empty for now), a weapon slot
-  per number key, the ability slots, and the item boxes. It owns the mouse
-  while it is up (`pointerTaken`) and the number keys (`menuOpen`); drag a
-  gun from the bag onto a slot to put it on that key, out of its slot into
-  the bag to put it down, or between slots to swap (weapons does the moving).
+  per number key, an ability slot per ability key, and the item boxes. It
+  owns the mouse while it is up (`pointerTaken`) and the number keys
+  (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
+  that key, out of its slot into the bag to put it down, or between slots to
+  swap (weapons and abilities do the moving).
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a

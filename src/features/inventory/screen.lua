@@ -6,7 +6,8 @@
 --   top right     the weapon slots, one per number key (weapons.slotCount),
 --                 each with the gun in it, what is in the magazine and what
 --                 is left to load, the one in hand lit up, empty ones bare;
---                 under them the ability slots as the HUD shows them
+--                 under them the ability slots, one per ability key, as the
+--                 HUD shows them, empty ones bare
 --   bottom        the item slots buildings fills: a stack per box, locked
 --                 ones greyed out until the upgrade shop opens them
 --
@@ -110,11 +111,11 @@ end
 ---   weapons[i]             { x, y, w, h }, weapons.slotCount of them
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
----   weaponsArea / itemsArea  the block each row of boxes stands in, for drops
+---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
 ---   hint / foot            y of the text lines under the items
 function Screen.layout()
   local abilities, weapons = Features.byName.abilities, Features.byName.weapons
-  local abilitySlots = abilities and math.max(abilities.hudSlots, #abilities.slots) or 0
+  local abilitySlots = abilities and abilities.slotCount or 0
   local weaponSlots = weapons and weapons.slotCount or 4
   local cols = math.floor((Screen.width - 2 * Screen.pad + GAP) / (CELL + GAP))
   local rows = math.ceil(Kinds.MAX_SLOTS / cols)
@@ -153,6 +154,7 @@ function Screen.layout()
   for i = 1, abilitySlots do
     L.abilities[i] = { x = x + (i - 1) * (ABL_W + GAP), y = ay + LABEL_H, w = ABL_W, h = ABL_H }
   end
+  L.abilitiesArea = { x = x - GAP, y = ay, w = abilitySlots * (ABL_W + GAP) + GAP, h = LABEL_H + ABL_H + GAP }
 
   -- The item boxes along the bottom.
   local iy = top + topH + SECTION_GAP
@@ -256,9 +258,10 @@ local function drawWeapons(L, lifted)
   end
 end
 
---- The ability slots, drawn the way the HUD draws them: a ring that
---- empties on a cast and fills back through the cooldown.
-local function drawAbilities(L)
+--- The ability slots, one per key, drawn the way the HUD draws them: a
+--- ring that empties on a cast and fills back through the cooldown.
+--- `lifted` is the slot whose ability is being dragged, drawn empty.
+local function drawAbilities(L, lifted)
   local abilities = Features.byName.abilities
   if not abilities then
     return
@@ -266,17 +269,20 @@ local function drawAbilities(L)
   local small, body = UI.fonts.small, UI.fonts.body
   heading("abilities", L.abilitiesLabel.x, L.abilitiesLabel.y)
   for i, r in ipairs(L.abilities) do
-    local ability = abilities.slots[i]
+    local ability = lifted ~= i and abilities:inSlot(i) or nil
     box(r.x, r.y, r.w, r.h, ability ~= nil, false)
     local cx, cy, radius = r.x + r.w / 2, r.y + 26, 20
+    local key = Controls.name(Controls.bindings("ability-" .. i)[1])
     if not ability then
       UI.ring(cx, cy, radius, 0, { 1, 1, 1 }, 3)
+      love.graphics.setFont(body)
+      love.graphics.setColor(1, 1, 1, 0.3)
+      love.graphics.printf(key, r.x, cy - math.floor(body:getHeight() / 2), r.w, "center")
       love.graphics.setFont(small)
       love.graphics.setColor(1, 1, 1, 0.2)
       love.graphics.printf("empty", r.x, r.y + r.h - 20, r.w, "center")
     else
-      local key = Controls.name(Controls.bindings("ability-" .. i)[1])
-      local left = abilities.cooldowns[i]
+      local left = abilities.cooldowns[ability.key]
       local c = ability.color
       local middle, middleColor
       if left then
@@ -309,7 +315,7 @@ local function drawItems(L, buildings, list, lifted)
     if s then
       Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
       love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(Kinds.label(s.item), r.x + 2, r.y + 38, r.w - 4, "center")
+      love.graphics.printf(Kinds.name(s.item, s.n), r.x + 2, r.y + 38, r.w - 4, "center")
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
     elseif not open then
@@ -330,8 +336,8 @@ function Screen.draw(buildings, list, drag, notice)
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
   drawFigure(L.figure)
   drawGear(L)
-  drawWeapons(L, drag and drag.from == "slot" and drag.box or nil)
-  drawAbilities(L)
+  drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
+  drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
   love.graphics.setFont(UI.fonts.small)
@@ -349,7 +355,7 @@ function Screen.draw(buildings, list, drag, notice)
     love.graphics.setColor(0.8, 0.8, 0.85)
   end
   love.graphics.printf(hint, p.x + Screen.pad, L.hint, p.w - 2 * Screen.pad, "left")
-  local foot = "drag a gun between its slot and your bag   "
+  local foot = "drag guns and abilities between their slots and your bag   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
   if (buildings.inventory.medkit or 0) > 0 then
     foot = Controls.name(Controls.bindings("use-medkit")[1]) .. ": use a medkit   " .. foot
@@ -359,8 +365,12 @@ function Screen.draw(buildings, list, drag, notice)
   love.graphics.setColor(1, 1, 1)
 end
 
---- The gun being dragged, under the cursor.
+--- The gun or ability being dragged, under the cursor.
 function Screen.drawDrag(drag, mx, my)
+  if drag.kind == "ability" then
+    Render.abilityIcon(drag.key, mx, my, 18)
+    return
+  end
   local gun = Guns.list[drag.index]
   if gun then
     Icons.draw(gun.key, mx, my, 1.2, 0.9)

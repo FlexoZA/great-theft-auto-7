@@ -14,8 +14,10 @@
 -- into the bag), drag a gun from its slot into the bag to put it down
 -- (weapons:unequip: it becomes a "gun-<key>" item, if there is room, and
 -- the slot is empty), or onto another slot to change its key
--- (weapons:move). A click on a slot selects its gun. The host does the
--- moving and tells weapons what is in each slot; this only asks.
+-- (weapons:move). A click on a slot selects its gun. The ability slots
+-- work the same way with "ability-<key>" items (abilities:equip, unequip,
+-- move). The host does the moving and tells each feature what is in its
+-- slots; this only asks.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -30,7 +32,9 @@ local Inventory = {
 }
 
 Inventory.open = false
-Inventory.drag = nil -- { index, from = "slot" | "bag", box, x0, y0, moved }: a gun on the move, out of `box`
+-- What is being dragged: { kind = "gun", index } or { kind = "ability", key }, with
+-- from = "slot" | "bag", box (the slot or item box it left), x0, y0, moved.
+Inventory.drag = nil
 Inventory.dragStart = 5 -- px the mouse must move with the button down before a press is a drag
 Inventory.notice = nil -- { text, t }: why a drop did nothing
 Inventory.noticeTime = 2.5
@@ -41,6 +45,10 @@ end
 
 local function weapons()
   return Features.byName.weapons
+end
+
+local function abilities()
+  return Features.byName.abilities
 end
 
 local function inside(r, x, y)
@@ -93,16 +101,25 @@ function Inventory:keypressed(key)
   end
 end
 
---- What a press on (x, y) would pick up: a gun in its weapon slot, or a
---- gun item in the bag.
+--- What a press on (x, y) would pick up: a gun in its weapon slot, an
+--- ability in its slot, or a gun or ability item in the bag.
 function Inventory:pick(x, y)
   local L = Screen.layout()
-  local w, b = weapons(), buildings()
+  local w, a, b = weapons(), abilities(), buildings()
   for slot, r in ipairs(L.weapons) do
     if inside(r, x, y) then
       local index = w and w.slots[slot]
       if index and Guns.list[index] then
-        return { index = index, from = "slot", box = slot }
+        return { kind = "gun", index = index, from = "slot", box = slot }
+      end
+      return nil
+    end
+  end
+  for slot, r in ipairs(L.abilities) do
+    if inside(r, x, y) then
+      local key = a and a.slots[slot]
+      if key then
+        return { kind = "ability", key = key, from = "slot", box = slot }
       end
       return nil
     end
@@ -112,10 +129,13 @@ function Inventory:pick(x, y)
     for i, r in ipairs(L.items) do
       if inside(r, x, y) then
         local s = i <= b.slots and list[i]
-        local key = s and s.item:match("^gun%-(.+)$")
-        local gun = key and Guns[key]
+        local gunKey = s and s.item:match("^gun%-(.+)$")
+        local gun = gunKey and Guns[gunKey]
+        local abilityKey = s and s.item:match("^ability%-(.+)$")
         if gun then
-          return { index = gun.index, from = "bag", box = i }
+          return { kind = "gun", index = gun.index, from = "bag", box = i }
+        elseif abilityKey and a and a.kinds.byKey[abilityKey] then
+          return { kind = "ability", key = abilityKey, from = "bag", box = i }
         end
         return nil
       end
@@ -138,22 +158,24 @@ end
 --- A press that never moved: on a weapon slot it selects that gun.
 function Inventory:click(client, d)
   local w = weapons()
-  if d.from == "slot" and w then
+  if d.kind == "gun" and d.from == "slot" and w then
     w:selectGun(client, d.index)
   end
 end
 
---- The weapon slot under (x, y): the one whose box it is in, or, anywhere
---- else on the weapons block, the first empty one.
-local function slotAt(L, w, x, y)
-  for slot, r in ipairs(L.weapons) do
+--- The slot under (x, y) among `boxes` (a row of slot rectangles standing
+--- in `area`, with `slots` the slot -> content map and `count` how many):
+--- the one whose box it is in, or, anywhere else in the area, the first
+--- empty one.
+local function slotAt(boxes, area, slots, count, x, y)
+  for slot, r in ipairs(boxes) do
     if inside(r, x, y) then
       return slot
     end
   end
-  if inside(L.weaponsArea, x, y) then
-    for slot = 1, w.slotCount do
-      if not w.slots[slot] then
+  if inside(area, x, y) then
+    for slot = 1, count do
+      if not slots[slot] then
         return slot
       end
     end
@@ -161,15 +183,46 @@ local function slotAt(L, w, x, y)
   return nil
 end
 
---- The button came up at (x, y) after a drag: put the gun where it landed.
+--- An ability came down at (x, y): into a slot, or into the bag.
+function Inventory:dropAbility(client, d, x, y, L)
+  local a, b = abilities(), buildings()
+  if not (a and b) then
+    return
+  end
+  local ability = a.kinds.byKey[d.key]
+  local slot = slotAt(L.abilities, L.abilitiesArea, a.slots, a.slotCount, x, y)
+  if d.from == "slot" and inside(L.itemsArea, x, y) then
+    if Kinds.room(b.inventory, b.slots, "ability-" .. d.key) < 1 then
+      self:say("No room in your bag for " .. ability.title .. ".")
+    else
+      a:unequip(client, d.box)
+    end
+  elseif d.from == "slot" and slot then
+    a:move(client, d.box, slot)
+  elseif d.from == "bag" and slot then
+    if a:owns(d.key) then
+      self:say("You already carry " .. ability.title .. ".")
+    else
+      a:equip(client, d.key, slot)
+    end
+  elseif d.from == "bag" and inside(L.abilitiesArea, x, y) then
+    self:say("No empty ability slot: drop it on the one to swap with.")
+  end
+end
+
+--- The button came up at (x, y) after a drag: put the gun or ability
+--- where it landed.
 function Inventory:drop(client, d, x, y)
   local L = Screen.layout()
+  if d.kind == "ability" then
+    return self:dropAbility(client, d, x, y, L)
+  end
   local w, b = weapons(), buildings()
   if not (w and b) then
     return
   end
   local gun = Guns.list[d.index]
-  local slot = slotAt(L, w, x, y)
+  local slot = slotAt(L.weapons, L.weaponsArea, w.slots, w.slotCount, x, y)
   if d.from == "slot" and inside(L.itemsArea, x, y) then
     if d.index == Guns.DEFAULT then
       self:say("The " .. gun.name .. " stays with you.")
