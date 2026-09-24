@@ -257,6 +257,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
+| `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
@@ -521,6 +522,17 @@ example with a menu; real-estate is the one with a place to stand.
   the bag), dragged back it comes off (`GEAR_UNEQUIP`); clothes are never
   damaged and death leaves them on. `GEAR_STATE` tells everyone what a
   player wears. Add a piece to the list and the shop and the slots know it.
+- Open borders: `src/features/open-borders` is the horde behind the "open
+  borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
+  lets 25 simps out round the caster (the `serverOpenBorders` event); for
+  30 seconds they run about near them lighting fires and punch whoever comes
+  close, the caster included, running off for a few seconds after each
+  punch. A fire burns for 30 seconds and every half second hurts whatever
+  touches it but the simps: players and cars through weapons, soft targets
+  through `serverShotAt`. The simps answer `serverShotAt` and
+  `serverFreezeArea` and `serverPanicArea` themselves and a car at speed flattens one.
+  `OB_SIMPS`, `OB_SIMP_DOWN`, `OB_FIRE` and `OB_CLEAR` carry it to clients;
+  tuning is at the top of `horde.lua`.
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
   carry around a picture of you: gear slots (head, body, pants and shoes
   for clothes, and armor), a stats strip (what the clothes do to speed,

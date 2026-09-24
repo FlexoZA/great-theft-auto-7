@@ -69,6 +69,17 @@ function Sounds.load()
     buf:drive(1.8)
     buf:lowpass(3200)
   end)
+
+  -- Open borders: a gate clanging open and a rush of feet and torches.
+  bank.openborders = make(1.2, function(buf)
+    buf:tone(0, 0.5, 220, { wave = "square", amp = 0.3, attack = 0.001, decay = 0.2, sustain = 0 })
+    buf:tone(0.01, 0.5, 331, { wave = "square", amp = 0.2, attack = 0.001, decay = 0.25, sustain = 0 })
+    buf:sweep(0.05, 0.9, 120, 60, { wave = "saw", amp = 0.25, decay = 0.4 })
+    buf:noiseBurst(0.1, 1.0, { amp = 0.5, decay = 0.45 })
+    buf:noiseBurst(0.35, 0.8, { amp = 0.35, decay = 0.3 })
+    buf:drive(1.5)
+    buf:lowpass(2600)
+  end)
 end
 
 --- Play `name` at world position (x, y).
