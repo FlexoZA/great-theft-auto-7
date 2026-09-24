@@ -71,8 +71,9 @@
 -- The plots come from real-estate; without it there is nothing to build on.
 -- A building belongs to whoever owns its plot: when the plot changes hands
 -- the building is gone. It stays when its owner leaves the game and keeps
--- working (a quest trip only puts it aside). While they are away it does
--- not trade, though: nobody can pay them or be paid by them then.
+-- working (a quest trip only puts it aside). While they are away it still
+-- sells (money keeps the takings until they are back) but buys nothing: that
+-- would come out of a wallet that is not in play.
 --
 -- A saved world keeps every building on its plot, and each player's file
 -- what they carry and their quick slots (docs/persistence.md). Bag slots
@@ -203,7 +204,7 @@ local REASONS = {
   standing = "Only a destroyed building's lot can be taken over.",
   intact = "It isn't damaged.",
   yours = "It's yours: repair it instead.",
-  closed = "Its owner is away: it doesn't trade until they're back.",
+  closed = "Its owner is away: it isn't buying until they're back.",
 }
 
 local function amount(n)
@@ -540,10 +541,9 @@ function Buildings:menuRows(client)
     return rows
   end
 
-  if not client.players[owner] then
-    row(("Closed while %s is away"):format(ownerName(client, owner)))
-    return rows
-  end
+  -- An owner who is away still sells (money keeps the takings for them) but
+  -- buys nothing: that would come out of a wallet that is not in play.
+  local away = not client.players[owner]
   if b.public then
     local item = productOf(kind, b.product)
     local unit = recipeOf(b, kind).unit
@@ -555,6 +555,10 @@ function Buildings:menuRows(client)
         send(client, "BLD_BUY", plot.id)
       end
     end or nil)
+  end
+  if away then
+    row(("Not buying while %s is away"):format(ownerName(client, owner)))
+    return rows
   end
   for _, item in ipairs(Kinds.hopperList(kind)) do
     local pays = b.pays[item] or 0
@@ -999,15 +1003,16 @@ function Buildings:drawHUD(client)
     elseif owner == client.myId then
       text = kind and ("Your %s.  %s: manage"):format(kind.name, key) or ("Your plot.  %s: build"):format(key)
       color = { 0.6, 0.9, 0.6 }
-    elseif kind and (b.public or buysAnything(b)) and not client.players[owner] then
-      text = ("%s's %s (closed while they're away)"):format(ownerName(client, owner), kind.name)
+    elseif kind and not b.public and buysAnything(b) and not client.players[owner] then
+      text = ("%s's %s (not buying while they're away)"):format(ownerName(client, owner), kind.name)
       color = { 0.8, 0.8, 0.85 }
     elseif kind and (b.public or buysAnything(b)) then
+      -- An owner who is away still sells (they are paid when back), but buys nothing.
       local deals = {}
       if b.public then
         deals[#deals + 1] = "sells " .. Kinds.label(productOf(kind, b.product))
       end
-      if buysAnything(b) then
+      if buysAnything(b) and client.players[owner] then
         deals[#deals + 1] = "buys materials"
       end
       text = ("%s's %s %s.  %s: trade"):format(ownerName(client, owner), kind.name, table.concat(deals, " and "), key)
@@ -1615,7 +1620,7 @@ Buildings.serverMessages = {
     elseif pays < 1 then
       return "notbuying"
     elseif not server.players[b.owner] then
-      return "closed"
+      return "closed" -- it pays out of the owner's wallet, which is not in play while they are away
     end
     local have = stockOf(player.id)[item] or 0
     local n = math.min(have, Kinds.HOPPER - (b.hopper[item] or 0))
@@ -1655,9 +1660,7 @@ Buildings.serverMessages = {
     elseif b.owner == player.id then
       return "own"
     elseif kind.private or not b.public then
-      return "private"
-    elseif not server.players[b.owner] then
-      return "closed"
+      return "private" -- an owner who is away still sells: money keeps the takings for them
     end
     local n = math.min(recipeOf(b, kind).unit, b.output)
     if n < 1 then
