@@ -399,7 +399,12 @@ couple of small conventions rather than requiring each other:
   whatever it left standing in the world (the nest sprays AK-47 rounds,
   owned by its placer, across its forty-five-degree arc for five
   seconds, sweeping side to side and picking no targets: the rounds hurt
-  whatever they meet; `serverReset()` clears them between games).
+  whatever they meet; `serverReset()` clears them between games). One
+  with `aim = "self"` (`heal.lua`) is cast where the caster stands by a
+  press of its key: a circle that follows them for a few seconds and
+  heals every player inside it through `weapons:serverHeal`. Effects carry
+  `by`, the caster, and `drawEffect(e, client)` gets the client to follow
+  them.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).

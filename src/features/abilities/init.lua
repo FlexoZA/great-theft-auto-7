@@ -5,7 +5,9 @@
 -- (the MG nest) is selected with a press of its key instead: an arrow from
 -- you shows where it would go, `range` away towards the cursor, and the
 -- fire button puts it there (weapons leaves the gun alone meanwhile: the
--- `fireTaken` convention); the key again or right-click puts it away.
+-- `fireTaken` convention); the key again or right-click puts it away. One
+-- with `aim = "self"` (heal) has nothing to aim: a press of its key casts
+-- it where you stand.
 --
 -- You carry abilities in `slotCount` ability slots: three on keys (Q, E,
 -- R; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
@@ -122,7 +124,7 @@ Abilities.fireSpent = nil -- true after the fire button placed something, until 
 Abilities.cooldowns = {} -- ability key -> seconds left
 Abilities.readyFlash = {} -- ability key -> seconds of "it's back" flash left on the HUD
 Abilities.passive = nil -- { key, phase, left, total }: what my passive ability is up to (ABL_PASSIVE)
-Abilities.effects = {} -- { ability, x, y, t, seconds }
+Abilities.effects = {} -- { ability, by, x, y, angle, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
 
 function Abilities:load()
@@ -229,7 +231,9 @@ function Abilities:target(client, ability)
   end
   local x, y = mouseToWorld(self.camera, ox, oy)
   local d = math.sqrt(dist2(x, y, ox, oy))
-  if d > ability.range or (ability.aim == "direction" and d > 1) then
+  if ability.aim == "self" then
+    return ox, oy
+  elseif d > ability.range or (ability.aim == "direction" and d > 1) then
     x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range -- exactly `range` away for a direction
   end
   return x, y
@@ -247,15 +251,21 @@ function Abilities:fireTaken()
   return self:selecting() or (self.fireSpent == true and Controls.isDown("fire"))
 end
 
---- A press of a direction ability's key selects it (or puts it away).
+--- A press of a direction ability's key selects it (or puts it away); a
+--- press of a self ability's key casts it on the spot.
 function Abilities:keypressed(key, client)
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
-    if ability and ability.aim == "direction" and Controls.is("ability-" .. i, key) then
-      if self.aiming == i then
+    if ability and (ability.aim == "direction" or ability.aim == "self") and Controls.is("ability-" .. i, key) then
+      local free = not self.aiming and not self.cooldowns[ability.key] and client:myPose() ~= nil
+        and not self:held(client, client.myId) and not Features.any("pointerTaken", client)
+      if ability.aim == "self" then
+        if free then
+          self:cast(client, i)
+        end
+      elseif self.aiming == i then
         self.aiming = nil
-      elseif not self.aiming and not self.cooldowns[ability.key] and client:myPose()
-        and not self:held(client, client.myId) and not Features.any("pointerTaken", client) then
+      elseif free then
         self.aiming = i
       end
       return
@@ -315,7 +325,8 @@ function Abilities:update(dt, client, camera)
   end
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
-    local direction = ability ~= nil and ability.aim == "direction" -- selected by a press, placed by the fire button
+    -- Selected by a press and placed by the fire button, or cast by a press: not held.
+    local direction = ability ~= nil and (ability.aim == "direction" or ability.aim == "self")
     local down = ability ~= nil and Controls.isDown("ability-" .. i)
     if self.aiming == i then
       if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel") then
@@ -357,7 +368,7 @@ function Abilities:drawAboveCars(client)
     end
   end
   for _, e in ipairs(self.effects) do
-    e.ability.drawEffect(e)
+    e.ability.drawEffect(e, client)
   end
   for id in pairs(self.heldUntil) do
     if self:held(client, id) then
@@ -489,7 +500,7 @@ Abilities.clientMessages = {
       return
     end
     Abilities.effects[#Abilities.effects + 1] = {
-      ability = ability, x = x, y = y, angle = angle, t = 0, seconds = seconds,
+      ability = ability, by = by, x = x, y = y, angle = angle, t = 0, seconds = seconds,
     }
     for i = 7, #args do
       local id = tonumber(args[i])
