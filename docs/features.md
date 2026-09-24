@@ -255,7 +255,9 @@ first feature whose hook returns true. Events in use:
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
-| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop and the building menu answer it. |
+| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square. |
+| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen answers it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -353,6 +355,28 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
+- Weapon slots: each player carries guns in `weapons.slotCount` slots, one
+  per number key; the host keeps them (the pistol in slot 1 and any gun with
+  a `stock` in `guns.lua` after it, to start with) and tells the player
+  (`WPN_GUNS`, a gun index per slot, 0 for empty). A gun is also an item
+  (`"gun-<gun key>"`, from a weapons factory): `WPN_EQUIP <gun> <slot>` takes
+  one out of the bag and puts the gun in that slot (a gun already there goes
+  back into the bag), `WPN_UNEQUIP <slot>` puts the slot's gun back as an
+  item (if there is room; never the pistol), `WPN_MOVE <slot> <slot>` swaps
+  two slots. The inventory screen sends those on drags.
+  `weapons:serverOwns(player, index)` is the host's answer to "do they carry
+  it" and `weapons:owns(index)` the client's; selecting or firing anything
+  else is refused, and putting down the gun in hand leaves the pistol.
+- Ability slots: the same for abilities. `abilities/kinds.lua` lists every
+  ability by `key`; each player carries them in `abilities.slotCount` slots
+  (Q, E, R, and a keyless passive slot for an ability with `passive = true`,
+  which only fits there), freeze in slot 1 to start with, kept on the host and told to
+  the player (`ABL_SLOTS`, a key per slot, `-` for empty). An ability in a
+  bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
+  `ABL_UNEQUIP <slot>` and `ABL_MOVE <slot> <slot>` move them, and a cast
+  (`ABL_CAST <key> ...`) is refused unless the ability is in one of the
+  caster's slots. Cooldowns follow the ability, not the slot. Nothing makes
+  ability items yet.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
@@ -428,14 +452,23 @@ example with a menu; real-estate is the one with a place to stand.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
+  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
-  player has (upgrades sells them). Weapons reloads from the ammo in it;
-  guns are only stock so far. Buildings have hit points (`hp` in
+  player has (upgrades sells them). Weapons reloads from the ammo in it and
+  moves guns in and out of it as items. Buildings have hit points (`hp` in
   `kinds.lua`) and take damage through `serverWallHit` and `serverBlast`; a
   destroyed one is a ruin (not solid, makes nothing) until its owner pays to
   rebuild it, or anyone else pays `buildings.takeoverPrice` to take the lot
   over empty. A building still standing can't be taken over.
+- Inventory: `src/features/inventory` is the screen (I) that shows what you
+  carry around a picture of you: gear slots (empty for now), a weapon slot
+  per number key, an ability slot per ability key, and the item boxes. It
+  owns the mouse while it is up (`pointerTaken`) and the number keys
+  (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
+  that key, out of its slot into the bag to put it down, or between slots to
+  swap (weapons and abilities do the moving).
+  `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
+  else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`

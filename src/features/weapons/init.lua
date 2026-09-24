@@ -18,8 +18,22 @@
 -- the damage.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
+-- You carry your guns in `slotCount` weapon slots, one per number key:
+-- key 1 fires whatever is in slot 1. Everyone starts with the pistol in
+-- slot 1 and any gun with a `stock` (guns.lua, for testing) in the next
+-- ones. A gun is also an item ("gun-<key>", a weapons factory makes them):
+-- on the inventory screen you drag one from your bag onto an empty slot to
+-- carry it (WPN_EQUIP takes the item), drag a gun from its slot into the
+-- bag to put it down (WPN_UNEQUIP gives the item back and leaves the slot
+-- empty; the pistol stays), or drag it onto another slot to change its key
+-- (WPN_MOVE, swapping with whatever was there). The host keeps the slots
+-- and tells you them (WPN_GUNS); the HUD only lists those, and the host
+-- refuses to select or fire a gun that isn't in one (serverOwns). Putting
+-- down the gun in hand leaves you holding the pistol. Nothing is trusted
+-- from the client but the ask.
+--
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
--- reload key (R) refills the one in hand from the ammo in your inventory
+-- reload key (X) refills the one in hand from the ammo in your inventory
 -- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
 -- pulling the trigger on an empty magazine reloads too. A reload takes a
 -- moment, sounds for everyone near, and is lost if you switch guns or die.
@@ -45,6 +59,9 @@
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
+--   client -> server  WPN_EQUIP <gun> <slot>           (the gun item I carry, into that slot)
+--   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
+--   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun>
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
@@ -59,6 +76,7 @@
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
+--   server -> player  WPN_GUNS <gun per slot>...    (what is in each weapon slot; 0 = empty)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -158,6 +176,8 @@ Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
+Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
+Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
@@ -171,9 +191,9 @@ function Weapons:load()
   Sounds.load()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
-  Controls.register("reload", "Reload", "r")
-  for i, gun in ipairs(Guns.list) do
-    Controls.register("weapon-" .. i, ("Weapon %d: %s"):format(i, gun.name), tostring(i))
+  Controls.register("reload", "Reload", "x") -- R went to the abilities
+  for i = 1, self.slotCount do
+    Controls.register("weapon-" .. i, ("Weapon slot %d"):format(i), tostring(i))
   end
 end
 
@@ -189,6 +209,7 @@ function Weapons:enterGame()
   self.feed = nil
   self.cooldown = 0
   self.gun = Guns.DEFAULT
+  self.slots = self:startSlots()
   self.mags = {}
   for i, gun in ipairs(Guns.list) do
     self.mags[i] = gun.magazine
@@ -261,6 +282,8 @@ end
 function Weapons:tryFire(client)
   if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
     return -- cooling down, reloading, or held still (frozen)
+  elseif Features.any("pointerTaken", client) then
+    return -- a screen (the inventory) has the mouse
   end
   local aim = self:aimAngle(client)
   if not aim then
@@ -288,8 +311,68 @@ end
 
 --- Switch to gun `index` and tell the host. The cooldown carries over, so
 --- swapping is no faster than waiting.
+--- The weapon slots everyone starts with: the pistol in slot 1, then any
+--- gun with a `stock`, as far as the slots go.
+function Weapons:startSlots()
+  local slots = { [1] = Guns.DEFAULT }
+  local n = 1
+  for i, gun in ipairs(Guns.list) do
+    if gun.stock and i ~= Guns.DEFAULT and n < self.slotCount then
+      n = n + 1
+      slots[n] = i
+    end
+  end
+  return slots
+end
+
+--- The slot gun `index` sits in, or nil. Works on any slot map.
+local function slotOf(slots, index)
+  for slot, gun in pairs(slots) do
+    if gun == index then
+      return slot
+    end
+  end
+  return nil
+end
+
+--- Do I carry gun `index`, as far as the host has told me?
+function Weapons:owns(index)
+  return slotOf(self.slots, index) ~= nil
+end
+
+--- The slot gun `index` is in, or nil.
+function Weapons:slotOf(index)
+  return slotOf(self.slots, index)
+end
+
+--- Ask to put the gun item I carry for gun `index` into weapon slot `slot`
+--- (the inventory screen does, on a drag). The host answers with WPN_GUNS.
+function Weapons:equip(client, index, slot)
+  if Guns.list[index] and not self:owns(index) and slot >= 1 and slot <= self.slotCount then
+    client:send(Protocol.encode("WPN_EQUIP", index, slot))
+  end
+end
+
+--- Ask to put the gun in weapon slot `slot` down into my bag.
+function Weapons:unequip(client, slot)
+  local gun = self.slots[slot]
+  if gun and gun ~= Guns.DEFAULT then
+    client:send(Protocol.encode("WPN_UNEQUIP", slot))
+  end
+end
+
+--- Ask to swap weapon slots `from` and `to` (either may be empty).
+function Weapons:move(client, from, to)
+  if from ~= to and self.slots[from] and to >= 1 and to <= self.slotCount then
+    client:send(Protocol.encode("WPN_MOVE", from, to))
+  end
+end
+
 function Weapons:selectGun(client, index)
   if not Guns.list[index] or index == self.gun then
+    return
+  elseif not self:owns(index) then
+    notify(self, "No " .. Guns.at(index).name .. ": a weapons factory makes them")
     return
   end
   self.gun = index
@@ -316,9 +399,11 @@ function Weapons:keypressed(key, client)
     if Features.any("menuOpen", client) then
       return
     end
-    for i in ipairs(Guns.list) do
+    for i = 1, self.slotCount do
       if Controls.is("weapon-" .. i, key) then
-        self:selectGun(client, i)
+        if self.slots[i] then
+          self:selectGun(client, self.slots[i])
+        end
         return
       end
     end
@@ -328,6 +413,9 @@ end
 function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
+  if not self:owns(self.gun) then
+    self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
+  end
   local held = Controls.isDown("fire")
   if not held then
     self.armed = true
@@ -530,28 +618,32 @@ function Weapons:drawHUD(client)
   local reloadKey = Controls.name(Controls.bindings("reload")[1])
   local hints = fireKey .. ": fire   " .. reloadKey .. ": reload   " .. boxKey .. ": hitboxes   "
   love.graphics.print(hints, 10, 64)
-  -- The guns on the same row, the one in hand lit up, each with what is in
-  -- its magazine and what is left to load.
+  -- The guns in my weapon slots on the same row, the one in hand lit up,
+  -- each with what is in its magazine and what is left to load.
   local font = UI.fonts.small
   local x = 10 + font:getWidth(hints)
-  for i, gun in ipairs(Guns.list) do
-    local spare = self:reserve(i)
-    local label = ("%s: %s %d/%d"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name,
-      self.mags[i] or 0, gun.magazine)
-    if self.infiniteAmmo then
-      label = ("%s: %s inf"):format(Controls.name(Controls.bindings("weapon-" .. i)[1]), gun.name)
-    elseif spare ~= math.huge then
-      label = label .. (" +%d"):format(spare)
+  for slot = 1, self.slotCount do
+    local i = self.slots[slot]
+    local gun = i and Guns.list[i]
+    if gun then
+      local spare = self:reserve(i)
+      local keyName = Controls.name(Controls.bindings("weapon-" .. slot)[1])
+      local label = ("%s: %s %d/%d"):format(keyName, gun.name, self.mags[i] or 0, gun.magazine)
+      if self.infiniteAmmo then
+        label = ("%s: %s inf"):format(keyName, gun.name)
+      elseif spare ~= math.huge then
+        label = label .. (" +%d"):format(spare)
+      end
+      if i == self.gun and (self.mags[i] or 0) < 1 then
+        love.graphics.setColor(1, 0.45, 0.4)
+      elseif i == self.gun then
+        love.graphics.setColor(1, 0.9, 0.3)
+      else
+        love.graphics.setColor(0.6, 0.6, 0.65)
+      end
+      love.graphics.print(label, x, 64)
+      x = x + font:getWidth(label) + 14
     end
-    if i == self.gun and (self.mags[i] or 0) < 1 then
-      love.graphics.setColor(1, 0.45, 0.4)
-    elseif i == self.gun then
-      love.graphics.setColor(1, 0.9, 0.3)
-    else
-      love.graphics.setColor(0.6, 0.6, 0.65)
-    end
-    love.graphics.print(label, x, 64)
-    x = x + font:getWidth(label) + 14
   end
 
   -- A bar under the gun row while reloading; a word when there is a problem.
@@ -624,6 +716,16 @@ Weapons.clientMessages = {
         Weapons.reloading = nil
       end
     end
+  end,
+  WPN_GUNS = function(_client, args)
+    local slots = {}
+    for slot, a in ipairs(args) do
+      local index = tonumber(a)
+      if Guns.list[index] and slot <= Weapons.slotCount then
+        slots[slot] = index
+      end
+    end
+    Weapons.slots = slots
   end,
   WPN_INFINITE = function(_client, args)
     Weapons.infiniteAmmo = args[1] == "1"
@@ -812,6 +914,7 @@ function Weapons:serverStart(server)
         max = MAX_HEALTH,
         kills = 0,
         gun = Guns.DEFAULT,
+        slots = self:startSlots(),
         mags = fullMagazines(),
         spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
         lastFire = -math.huge,
@@ -822,7 +925,22 @@ function Weapons:serverStart(server)
   self.sv = sv
   for _, p in pairs(server.players) do
     self:giveStock(server, p)
+    self:sendGuns(server, p)
   end
+end
+
+--- Tell `player` what is in each of their weapon slots (WPN_GUNS). Bots
+--- aren't listening.
+function Weapons:sendGuns(server, player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or player.bot then
+    return
+  end
+  local list = {}
+  for slot = 1, self.slotCount do
+    list[slot] = st.slots[slot] or 0
+  end
+  server:send(player, Protocol.encode("WPN_GUNS", unpack(list)))
 end
 
 --- Spare rounds of every gun with a `stock` (guns.lua) into a human player's
@@ -848,12 +966,14 @@ function Weapons:serverPlayerJoined(server, player)
       max = MAX_HEALTH,
       kills = 0,
       gun = Guns.DEFAULT,
+      slots = self:startSlots(),
       mags = fullMagazines(),
       spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
       lastFire = -math.huge,
       protectedUntil = self.sv.time + SPAWN_PROTECTION,
     }
     self:giveStock(server, player)
+    self:sendGuns(server, player)
   end
 end
 
@@ -990,6 +1110,92 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
   return true
 end
 
+--- Does `player` carry gun `index` in a weapon slot on the host? Bots and
+--- police carry them all.
+function Weapons:serverOwns(player, index)
+  local st = self.sv and self.sv.players[player.id]
+  if not (st and Guns.list[index]) then
+    return false
+  end
+  return player.bot or slotOf(st.slots, index) ~= nil
+end
+
+--- `player` takes the gun item they carry for gun `index` and puts the gun
+--- in weapon slot `slot`. A gun already there goes back into the bag as an
+--- item (the slot the taken item freed has room for it); the pistol never
+--- leaves its slots, so it can't be swapped out. Returns true if it happened.
+function Weapons:serverEquip(server, player, index, slot)
+  local st = self.sv and self.sv.players[player.id]
+  local gun = Guns.list[index]
+  local buildings = Features.byName.buildings
+  if not (st and gun and slot and buildings and buildings.serverTake and Features.present(player)) then
+    return false
+  elseif slot < 1 or slot > self.slotCount or slotOf(st.slots, index) then
+    return false -- no such slot, or they carry it already
+  end
+  local old = st.slots[slot]
+  if old == Guns.DEFAULT then
+    return false
+  end
+  if buildings:serverTake(server, player, "gun-" .. gun.key, 1) < 1 then
+    return false -- they don't carry one
+  end
+  if old then
+    buildings:serverGive(server, player, "gun-" .. Guns.at(old).key, 1)
+    if st.gun == old then
+      st.gun, st.reloadUntil = index, nil -- the hand holds what is in that slot now
+    end
+  end
+  st.slots[slot] = index
+  self:sendGuns(server, player)
+  return true
+end
+
+--- `player` puts the gun in weapon slot `slot` down into their bag as an
+--- item, if there is room, leaving the slot empty; the pistol can't be put
+--- down. Returns true if they do.
+function Weapons:serverUnequip(server, player, slot)
+  local st = self.sv and self.sv.players[player.id]
+  local index = st and slot and st.slots[slot]
+  local gun = index and Guns.list[index]
+  local buildings = Features.byName.buildings
+  if not (gun and buildings and buildings.serverGive and Features.present(player)) or index == Guns.DEFAULT then
+    return false
+  end
+  if buildings:serverGive(server, player, "gun-" .. gun.key, 1) < 1 then
+    return false -- no room in their bag
+  end
+  st.slots[slot] = nil
+  if st.gun == index then
+    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+  end
+  self:sendGuns(server, player)
+  return true
+end
+
+--- `player` swaps weapon slots `from` and `to` (either may be empty): the
+--- guns change keys, nothing else. Returns true if they did.
+function Weapons:serverMove(server, player, from, to)
+  local st = self.sv and self.sv.players[player.id]
+  if not (st and from and to and Features.present(player)) or from == to then
+    return false
+  elseif from < 1 or from > self.slotCount or to < 1 or to > self.slotCount or not st.slots[from] then
+    return false
+  end
+  st.slots[from], st.slots[to] = st.slots[to], st.slots[from]
+  self:sendGuns(server, player)
+  return true
+end
+
+--- The gun `player` holds, dropped back to the pistol if it is no longer
+--- theirs. The client does the same on its own.
+local function heldGun(self, player, st)
+  if not self:serverOwns(player, st.gun) then
+    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+  end
+  return st.gun
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
 --- a shot was fired.
@@ -999,7 +1205,7 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
-  local gun = Guns.at(st.gun)
+  local gun = Guns.at(heldGun(self, player, st))
   if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
   end
@@ -1055,7 +1261,7 @@ end
 --- A reload under way is dropped.
 function Weapons:serverSelectGun(_server, player, index)
   local st = self.sv and self.sv.players[player.id]
-  if not (st and Guns.list[index]) then
+  if not (st and Guns.list[index]) or not self:serverOwns(player, index) then
     return false
   end
   if index ~= st.gun then
@@ -1083,7 +1289,7 @@ function Weapons:serverReload(server, player)
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
-  local gun = Guns.at(st.gun)
+  local gun = Guns.at(heldGun(self, player, st))
   if (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
     return false
   end
@@ -1120,6 +1326,15 @@ Weapons.serverMessages = {
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))
+  end,
+  WPN_EQUIP = function(server, player, args)
+    Weapons:serverEquip(server, player, tonumber(args[1]), tonumber(args[2]))
+  end,
+  WPN_UNEQUIP = function(server, player, args)
+    Weapons:serverUnequip(server, player, tonumber(args[1]))
+  end,
+  WPN_MOVE = function(server, player, args)
+    Weapons:serverMove(server, player, tonumber(args[1]), tonumber(args[2]))
   end,
   WPN_RELOAD = function(server, player)
     Weapons:serverReload(server, player)

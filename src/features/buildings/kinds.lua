@@ -6,6 +6,7 @@
 --   oil, plastic             pumped (and refined) by an oil well
 --   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi")
 --   gun-<gun>                a gun ("gun-uzi")
+--   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
 --                            carries one: collecting or buying it puts it on the road
@@ -40,6 +41,7 @@
 -- what was loaded; a batch uses up only what the product in hand needs.
 
 local Guns = require("src.features.weapons.guns")
+local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
 
 local Kinds = {}
@@ -57,6 +59,8 @@ function Kinds.stack(item)
     return Guns[gun] and Guns[gun].stack or 100
   elseif item:match("^gun%-") or item == "medkit" then
     return 5
+  elseif item:match("^ability%-") then
+    return 1 -- one of a kind
   elseif Catalog.fromItem(item) then
     return 1
   end
@@ -200,8 +204,9 @@ function Kinds.repairCost(kind, hp)
   return math.max(1, math.ceil(kind.cost * Kinds.REPAIR * missing / kind.hp))
 end
 
---- A readable name for an item and a count: "10 uzi ammo", "1 medkit".
-function Kinds.label(item, n)
+--- A readable name for `n` of an item, without the count: "uzi ammo",
+--- "medkit", "medkits". No count reads as many (a factory "sells rockets").
+function Kinds.name(item, n)
   local name = item
   local gun = item:match("^ammo%-(.+)$")
   if gun then
@@ -213,15 +218,25 @@ function Kinds.label(item, n)
     end
   else
     gun = item:match("^gun%-(.+)$")
+    local ability = item:match("^ability%-(.+)$")
     local model = Catalog.fromItem(item)
     if model then
       name = model.name .. (n ~= 1 and "s" or "")
     elseif gun then
       name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")
+    elseif ability then
+      local a = AbilityKinds.byKey[ability]
+      name = (a and a.title or ability) .. (n ~= 1 and " abilities" or " ability")
     elseif item == "medkit" and n ~= 1 then
       name = "medkits"
     end
   end
+  return name
+end
+
+--- A readable name for an item and a count: "10 uzi ammo", "1 medkit".
+function Kinds.label(item, n)
+  local name = Kinds.name(item, n)
   return n and ("%d %s"):format(n, name) or name
 end
 

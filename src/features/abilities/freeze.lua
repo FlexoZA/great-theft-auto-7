@@ -8,6 +8,7 @@ local Car = require("src.car")
 local Body = require("src.body")
 
 local Freeze = {
+  key = "freeze", -- on the wire and in a bag ("ability-freeze")
   title = "freeze",
   sound = "freeze",
   color = { 0.55, 0.85, 1.0 }, -- ice

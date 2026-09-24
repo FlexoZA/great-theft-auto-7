@@ -170,7 +170,7 @@ local spent = false -- my breath, for prediction: an emptied bar sprints again o
 local time = 0 -- client clock, seconds in the game
 
 function OnFoot:load()
-  Controls.register("enter-exit", "Enter / exit vehicle", "e")
+  Controls.register("enter-exit", "Enter / exit vehicle", "f") -- the action key: real-estate and buildings share it
   Controls.register("sprint", "Sprint (on foot)", "lshift", "rshift")
 end
 
@@ -327,7 +327,11 @@ end
 
 function OnFoot:keypressed(key, client)
   if Controls.is("enter-exit", key) and client then
-    client:send(Protocol.encode("OF_TOGGLE"))
+    -- The action key is shared: a plot for sale or a building's square
+    -- underfoot has first call on it (`actionTaken`, docs/features.md).
+    if not Features.any("actionTaken", client) then
+      client:send(Protocol.encode("OF_TOGGLE"))
+    end
     return
   end
   -- A movement key: the second tap of the same one inside doubleTap dodges.
