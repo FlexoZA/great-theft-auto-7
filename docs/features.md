@@ -503,7 +503,10 @@ example with a menu; real-estate is the one with a place to stand.
   swap (weapons and abilities do the moving). A stack of medkits dragged
   onto the medkit slot beside the abilities is what the medkit key (H)
   uses (`BLD_QUICK_PUT` / `BLD_QUICK_TAKE`; buildings keeps the slot and
-  says `BLD_QUICK`); medkits left in the bag are just carried.
+  says `BLD_QUICK`); medkits left in the bag are just carried. A medkit
+  circle sits at the end of the abilities row on the HUD with the key and
+  the count, and each use starts a cooldown (`buildings.medkitCooldown`,
+  told by `BLD_MEDKIT`) that the ring fills back through.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a
