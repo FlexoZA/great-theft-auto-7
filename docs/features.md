@@ -520,7 +520,8 @@ example with a menu; real-estate is the one with a place to stand.
   player wears. Add a piece to the list and the shop and the slots know it.
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
   carry around a picture of you: gear slots (head, body, pants and shoes
-  for clothes, and armor), a weapon slot
+  for clothes, and armor), a stats strip (what the clothes do to speed,
+  sprint cost, ammo bundles, cooldowns and armor, read through `stat`), a weapon slot
   per number key, an ability slot per ability key, and the item boxes. It
   owns the mouse while it is up (`pointerTaken`) and the number keys
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
