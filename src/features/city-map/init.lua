@@ -61,6 +61,13 @@ CityMap.maps = {
     title = "Whispering Pines", kind = "forest", seed = 57, cols = 40, rows = 40,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- A landing beach under a defended hill (the d-day quest): surf, sand
+  -- with tank stoppers and sandbags, bunkers, barracks, a flag on top.
+  -- Walked; nobody about but the defenders.
+  beach = {
+    title = "Looz'er Beach", kind = "beach", seed = 44, cols = 36, rows = 60,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

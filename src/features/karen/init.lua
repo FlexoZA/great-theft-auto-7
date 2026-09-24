@@ -286,7 +286,7 @@ function Karen:hurt(server, amount, by, angle)
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
-    quests:serverComplete(server, "karen")
+    quests:serverComplete(server, "karen", x, y) -- an EXIT star home where she fell
   end
   return true
 end

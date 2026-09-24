@@ -288,6 +288,199 @@ local function drawTrees(map)
   end
 end
 
+local BEACH = {
+  hill = { 0.33, 0.45, 0.24 },
+  hillDark = { 0.28, 0.39, 0.20 },
+  camp = { 0.40, 0.42, 0.28 },
+  campDark = { 0.35, 0.36, 0.24 },
+  mud = { 0.42, 0.36, 0.26 },
+  mudDark = { 0.36, 0.30, 0.21 },
+  trench = { 0.25, 0.20, 0.14 },
+  sand = { 0.84, 0.76, 0.55 },
+  sandDark = { 0.77, 0.68, 0.47 },
+  wet = { 0.62, 0.58, 0.44 },
+  sea = { 0.20, 0.42, 0.52 },
+  seaDeep = { 0.14, 0.32, 0.44 },
+  foam = { 0.88, 0.93, 0.95 },
+  steel = { 0.30, 0.30, 0.32 },
+  steelLight = { 0.48, 0.48, 0.50 },
+  bag = { 0.62, 0.55, 0.38 },
+  bagDark = { 0.48, 0.42, 0.28 },
+  concrete = { 0.58, 0.58, 0.55 },
+  concreteDark = { 0.40, 0.40, 0.38 },
+  slit = { 0.08, 0.08, 0.08 },
+  hut = { 0.36, 0.40, 0.30 },
+  hutRoof = { 0.44, 0.48, 0.36 },
+  craft = { 0.38, 0.44, 0.40 },
+  craftDark = { 0.26, 0.30, 0.28 },
+}
+
+--- The ground of the landing beach, band by band from the hilltop down to
+--- the sea, each speckled so walking over it reads as moving.
+local function drawBeachGround(map)
+  local B = map.bands
+  local x, w = map.left, map.w
+  local function band(b, c, dark, every)
+    color(c)
+    love.graphics.rectangle("fill", x, b.y0, w, b.y1 - b.y0)
+    color(dark)
+    local i = 0
+    for yy = b.y0 + 10, b.y1 - 30, every do
+      for xx = x + (i % 3) * 37, x + w - 40, every * 1.7 do
+        love.graphics.rectangle("fill", xx + (yy * 7) % 23, yy, 34, 18)
+      end
+      i = i + 1
+    end
+  end
+  band(B.hill, BEACH.hill, BEACH.hillDark, 70)
+  band(B.barracks, BEACH.camp, BEACH.campDark, 80)
+  band(B.bunkers, BEACH.mud, BEACH.mudDark, 60)
+  band(B.beach, BEACH.sand, BEACH.sandDark, 90)
+  -- The hill rises: lighter rings round the flag.
+  for k = 3, 1, -1 do
+    local c = shade(BEACH.hill, 1 + k * 0.05)
+    color(c)
+    love.graphics.circle("fill", map.flagX, map.flagY, 120 + (3 - k) * 110, 48)
+  end
+  -- Wet sand at the waterline, then the sea with lines of surf.
+  local surf = B.surf
+  color(BEACH.wet)
+  love.graphics.rectangle("fill", x, surf.y0 - 60, w, 60)
+  color(BEACH.sea)
+  love.graphics.rectangle("fill", x, surf.y0, w, surf.y1 - surf.y0)
+  color(BEACH.seaDeep)
+  love.graphics.rectangle("fill", x, surf.y0 + (surf.y1 - surf.y0) * 0.6, w, (surf.y1 - surf.y0) * 0.4)
+  color(BEACH.foam)
+  love.graphics.setLineWidth(4)
+  for k = 0, 3 do
+    local yy = surf.y0 + 4 + k * 70
+    local pts = {}
+    for xx = x, x + w, 32 do
+      pts[#pts + 1] = xx
+      pts[#pts + 1] = yy + math.sin(xx / 60 + k) * 6
+    end
+    love.graphics.line(pts)
+  end
+  -- The trenches: dark ditches right across the map.
+  for _, t in ipairs(map.trenches) do
+    color(BEACH.trench)
+    love.graphics.rectangle("fill", x, t.y, w, t.h)
+    color(BEACH.mudDark)
+    love.graphics.rectangle("fill", x, t.y, w, 6)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A Czech hedgehog from above: three steel beams crossed.
+local function drawHedgehog(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 5, cy + 5, 12)
+  love.graphics.setLineWidth(6)
+  for k = 0, 2 do
+    local a = s.angle + k * math.pi / 3
+    local dx, dy = math.cos(a) * 16, math.sin(a) * 16
+    color(BEACH.steel)
+    love.graphics.line(cx - dx, cy - dy, cx + dx, cy + dy)
+  end
+  love.graphics.setLineWidth(2)
+  color(BEACH.steelLight)
+  local a = s.angle
+  love.graphics.line(cx - math.cos(a) * 14, cy - math.sin(a) * 14, cx + math.cos(a) * 14, cy + math.sin(a) * 14)
+  love.graphics.setLineWidth(1)
+end
+
+--- A wall of sandbags: rows of fat rounded bags, staggered.
+local function drawSandbags(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 5, s.y + 5, s.w, s.h, 6)
+  color(BEACH.bagDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 6)
+  local long = s.w >= s.h
+  local len = long and s.w or s.h
+  local thick = long and s.h or s.w
+  for k = 0, math.floor(len / 22) do
+    local off = k * 22 + 2
+    color(k % 2 == 0 and BEACH.bag or shade(BEACH.bag, 0.92))
+    if long then
+      love.graphics.rectangle("fill", s.x + off, s.y + 2, math.min(20, s.w - off - 2), thick - 4, 5)
+    else
+      love.graphics.rectangle("fill", s.x + 2, s.y + off, thick - 4, math.min(20, s.h - off - 2), 5)
+    end
+  end
+end
+
+--- A pillbox: thick concrete, a dark firing slit along its south face.
+local function drawBunker(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 12, s.y + 12, s.w, s.h, 10)
+  color(BEACH.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 10)
+  color(BEACH.concrete)
+  love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, s.h - 16, 8)
+  color(shade(BEACH.concrete, 1.15))
+  love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, 8, 4)
+  color(BEACH.slit)
+  love.graphics.rectangle("fill", s.x + s.w * 0.2, s.y + s.h - 14, s.w * 0.6, 8, 2)
+end
+
+--- A barracks hut: a long corrugated roof and a door on the south side.
+local function drawHut(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 12, s.y + 12, s.w, s.h)
+  color(shade(BEACH.hut, 0.7))
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(BEACH.hutRoof)
+  love.graphics.rectangle("fill", s.x + 4, s.y + 4, s.w - 8, s.h - 8)
+  color(BEACH.hut)
+  for xx = s.x + 10, s.x + s.w - 12, 14 do
+    love.graphics.rectangle("fill", xx, s.y + 6, 6, s.h - 12)
+  end
+  color(shade(BEACH.hut, 0.5))
+  love.graphics.rectangle("fill", s.x + 4, s.y + s.h / 2 - 2, s.w - 8, 4) -- the ridge
+  color(BEACH.slit)
+  love.graphics.rectangle("fill", s.x + s.w / 2 - 14, s.y + s.h - 6, 28, 6) -- the door
+end
+
+--- A landing craft beached nose first, the ramp down on the sand.
+local function drawCraft(c)
+  local w, h = 90, 150
+  color(C.shadow)
+  love.graphics.rectangle("fill", c.x - w / 2 + 8, c.y - h / 2 + 8, w, h, 8)
+  color(BEACH.craftDark)
+  love.graphics.rectangle("fill", c.x - w / 2, c.y - h / 2, w, h, 8)
+  color(BEACH.craft)
+  love.graphics.rectangle("fill", c.x - w / 2 + 8, c.y - h / 2 + 8, w - 16, h - 16, 4)
+  color(BEACH.craftDark)
+  love.graphics.rectangle("fill", c.x - w / 2 + 8, c.y - h / 2 - 50, w - 16, 52, 3) -- the ramp
+  for k = 1, 4 do
+    color(shade(BEACH.craft, 1.2))
+    love.graphics.rectangle("fill", c.x - w / 2 + 12, c.y - h / 2 - 50 + k * 10, w - 24, 3)
+  end
+  color(BEACH.foam)
+  love.graphics.setLineWidth(3)
+  love.graphics.arc("line", "open", c.x, c.y + h / 2, w / 2 + 6, 0.2, math.pi - 0.2, 12)
+  love.graphics.setLineWidth(1)
+end
+
+local function drawBeach(map)
+  drawBeachGround(map)
+  for _, c in ipairs(map.craft) do
+    drawCraft(c)
+  end
+  for _, s in ipairs(map.cover) do
+    if s.kind == "hedgehog" then
+      drawHedgehog(s)
+    elseif s.kind == "sandbag" then
+      drawSandbags(s)
+    elseif s.kind == "bunker" then
+      drawBunker(s)
+    elseif s.kind == "hut" then
+      drawHut(s)
+    end
+  end
+end
+
 --- Build the canvas. Call once with graphics available.
 function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
@@ -299,6 +492,12 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
+  if map.kind == "beach" then
+    drawBeach(map)
+    love.graphics.setCanvas()
+    love.graphics.pop()
+    return canvas
+  end
   drawRoads(map)
   if map.trail then
     drawTrail(map)

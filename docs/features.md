@@ -253,7 +253,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverBlast(server, x, y, radius, damage, by)` | weapons | A missile went off at (x, y): `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
 | `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
-| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk. |
+| `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk, d-day puts the defenders on their posts. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
@@ -557,7 +557,12 @@ example with a menu; real-estate is the one with a place to stand.
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`
   at its turning circle; `kind = "forest"` is trees and shrubs round a dirt
-  trail, with `map.trail`, `map.waypoints` (its clearings) and `map.lair`)
+  trail, with `map.trail`, `map.waypoints` (its clearings) and `map.lair`;
+  `kind = "beach"` is a landing beach under a defended hill, with
+  `map.bands` (hill, barracks, bunkers, beach, surf: each a `y0`..`y1`),
+  `map.flagX, flagY`, `map.posts` (where defenders stand), `map.doors`
+  (barracks doors) and `map.cover` (tank stoppers, sandbags, bunkers and
+  huts, all solid))
   and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
@@ -574,9 +579,22 @@ example with a menu; real-estate is the one with a place to stand.
   every switch.
 - Quests: a map may carry several stars (`quests.list`, each with its own
   `onMap`); the nearest one is on offer.
-  `Features.byName.quests:serverComplete(server, questId)` marks the
+  `Features.byName.quests:serverComplete(server, questId, x, y)` marks the
   job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
-  is the quest in play on the host. Karen calls the first when she goes down.
+  is the quest in play on the host. Every boss calls the first when it goes
+  down, passing where it fell: an EXIT star home (`QST_EXIT <x> <y>`) comes
+  up right there, so nobody has to walk back to the entrance. Leave out
+  `x, y` and there is only the star by the entrance.
+- D-Day landing: `src/features/d-day` is the third boss quest, on the
+  beach map. Guards stand on the map's posts sweeping thirty-degree cones
+  of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
+  anyone they see for as long as they see them; riflemen come out of the
+  barracks and walk down at the players; mortars fall on the beach behind a
+  warning ring. Reaching the flag puts up Major Looz'er's portrait, then he
+  fights, throwing down the MG nest ability (`abilities/mgnest.lua`) every
+  few seconds. Soldiers raise `serverKill` with kind "soldier", the Major
+  with "boss". Tuning is at the top of `init.lua`, `troops.lua` and
+  `major.lua`.
 - Shop: `src/features/shop` puts a shopping bag on the road (`shop.list`,
   one per map; the city's is on the first north-south road east of the
   middle) and sells everything in one place. Stand or stop on the bag and
