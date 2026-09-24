@@ -1517,7 +1517,9 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
     return self:damageCar(server, victim.vehicle, byId, amount, pid, angle) -- the car takes it
   end
   pid = pid or 0
-  st.hp = st.hp - amount
+  -- Armor takes its share first (the `serverAbsorbDamage` convention); the
+  -- hit still counts as one for everyone listening, even if nothing got through.
+  st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim)
   -- Let other features react (bots take offence at being shot).
   Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount)
   if st.hp > 0 then

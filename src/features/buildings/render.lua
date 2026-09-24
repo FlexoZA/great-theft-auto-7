@@ -311,6 +311,17 @@ function Render.itemIcon(item, cx, cy)
     Icons.draw(item:sub(5), cx, cy, 0.6)
   elseif item:match("^ability%-") then
     Render.abilityIcon(item:sub(9), cx, cy, 11)
+  elseif item:match("^armor%-") then
+    -- A vest: shoulders, a body, a collar.
+    local a = require("src.features.armor.kinds").byKey[item:sub(7)]
+    local ac = a and a.color or { 0.5, 0.5, 0.6 }
+    love.graphics.setColor(ac[1] * 0.75, ac[2] * 0.75, ac[3] * 0.75)
+    love.graphics.polygon("fill", cx - 13, cy - 10, cx - 6, cy - 13, cx - 4, cy - 8, cx + 4, cy - 8, cx + 6, cy - 13,
+      cx + 13, cy - 10, cx + 12, cy + 12, cx - 12, cy + 12)
+    love.graphics.setColor(ac)
+    love.graphics.rectangle("fill", cx - 9, cy - 4, 18, 14, 2)
+    love.graphics.setColor(0.15, 0.15, 0.18)
+    love.graphics.rectangle("fill", cx - 1, cy - 4, 2, 14)
   elseif item == "drink" then
     -- A can with a bolt on it.
     love.graphics.setColor(0.2, 0.5, 0.9)

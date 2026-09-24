@@ -9,6 +9,8 @@
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   drink                    an energy drink; the carrier downs it for stamina
+--   armor-<kind>             a piece of armor (armor/kinds.lua) in the bag, put on
+--                            from the inventory screen ("armor-vest")
 --   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
 --                            carries one: collecting or buying it puts it on the road
 --                            (the `serverDeliver` event, answered by vehicles)
@@ -44,6 +46,7 @@
 local Guns = require("src.features.weapons.guns")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
+local ArmorKinds = require("src.features.armor.kinds")
 
 local Kinds = {}
 
@@ -60,7 +63,7 @@ function Kinds.stack(item)
     return Guns[gun] and Guns[gun].stack or 100
   elseif item:match("^gun%-") or item == "medkit" or item == "drink" then
     return 5
-  elseif item:match("^ability%-") then
+  elseif item:match("^ability%-") or item:match("^armor%-") then
     return 1 -- one of a kind
   elseif Catalog.fromItem(item) then
     return 1
@@ -222,8 +225,12 @@ function Kinds.name(item, n)
   else
     gun = item:match("^gun%-(.+)$")
     local ability = item:match("^ability%-(.+)$")
+    local armor = item:match("^armor%-(.+)$")
     local model = Catalog.fromItem(item)
-    if model then
+    if armor then
+      local a = ArmorKinds.byKey[armor]
+      name = (a and a.title or armor) .. (n ~= 1 and "s" or "")
+    elseif model then
       name = model.name .. (n ~= 1 and (model.name:match("s$") and "es" or "s") or "")
     elseif gun then
       name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")

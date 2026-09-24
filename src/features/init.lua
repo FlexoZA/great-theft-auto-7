@@ -78,6 +78,20 @@ function Features.call(name, ...)
   end
 end
 
+--- Pass `value` through hook `name` on every feature that defines it, in
+--- priority order: each gets (value, ...) and returns the new value.
+--- Weapons runs damage through `serverAbsorbDamage` this way, so armor can
+--- take its share before the body does.
+function Features.reduce(name, value, ...)
+  for _, f in ipairs(Features.list) do
+    local fn = f[name]
+    if fn then
+      value = fn(f, value, ...)
+    end
+  end
+  return value
+end
+
 --- Ask every feature a yes/no question: true as soon as one hook answers
 --- true. For questions the core (or another feature) puts to all of them,
 --- like "is this player out of their car?".

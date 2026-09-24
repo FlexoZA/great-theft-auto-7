@@ -1,8 +1,9 @@
 -- The inventory screen's picture: the character in the middle of the
 -- screen with everything they carry around them.
 --
---   top left      the character and the gear slots they will wear one day
---                 (head, body, legs, other); nothing fits in them yet
+--   top left      the character and the gear slots down their side: head,
+--                 body, pants and shoes (nothing fits in them yet) and the
+--                 armor slot, with the vest they wear and its points left
 --   top right     the weapon slots, one per number key (weapons.slotCount),
 --                 each with the gun in it, what is in the magazine and what
 --                 is left to load, the one in hand lit up, empty ones bare;
@@ -32,10 +33,11 @@ local Screen = {}
 -- Tuning ------------------------------------------------------------------
 Screen.width = 800 -- px; the panel is centred on the screen (nine item boxes across)
 Screen.pad = 24 -- px inside the panel's edge
-Screen.gear = { "head", "body", "legs", "other" } -- the slots down the character's side
+Screen.gear = { "head", "body", "pants", "shoes", "armor" } -- the slots down the character's side
+Screen.ARMOR = 5 -- the gear slot armor goes in
 
 local CELL, GAP = 76, 8 -- item boxes
-local GEAR = 60 -- gear boxes
+local GEAR = 54 -- gear boxes
 local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the ammo
 local ABL_W, ABL_H = 64, 72 -- ability boxes
 local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
@@ -210,13 +212,27 @@ local function drawFigure(r)
   love.graphics.circle("fill", cx + s(34), top + s(120), s(6), 16)
 end
 
---- The gear slots: empty for now, each named for what will go in it.
-local function drawGear(L)
+--- The gear slots, each named for what goes in it: empty but for the
+--- armor slot, which shows the vest worn and the points it has left.
+--- `lifted` while the vest is being dragged out.
+local function drawGear(L, client, lifted)
+  local armor = Features.byName.armor
+  local worn = armor and not lifted and armor:mine(client) or nil
+  local kind = worn and armor.kinds.byKey[worn.kind]
   love.graphics.setFont(UI.fonts.small)
-  for _, r in ipairs(L.gear) do
-    box(r.x, r.y, r.w, r.h, true, false)
-    love.graphics.setColor(1, 1, 1, 0.3)
-    love.graphics.printf(r.name, r.x, r.y + r.h / 2 - 8, r.w, "center")
+  for i, r in ipairs(L.gear) do
+    local isArmor = i == Screen.ARMOR
+    box(r.x, r.y, r.w, r.h, not isArmor or kind ~= nil, false)
+    if isArmor and kind then
+      Render.itemIcon("armor-" .. worn.kind, r.x + r.w / 2, r.y + 20)
+      local c = kind.color
+      UI.meter(r.x + 6, r.y + r.h - 12, r.w - 12, 6, worn.points / worn.max, c)
+      love.graphics.setColor(1, 0.85, 0.3)
+      love.graphics.printf(tostring(worn.points), r.x, r.y + 2, r.w - 4, "right")
+    else
+      love.graphics.setColor(1, 1, 1, 0.3)
+      love.graphics.printf(r.name, r.x, r.y + r.h / 2 - 8, r.w, "center")
+    end
   end
 end
 
@@ -387,14 +403,14 @@ end
 --- The whole screen. `buildings` is the buildings feature (its items and
 --- slots), `list` its stacks (Screen.stacks), `drag` what is being
 --- dragged ({ index, from = "slot" | "bag", box }: `box` the slot or item
---- box it left) once it has moved, and
---- `notice` a line to show under the boxes instead of the usual hint.
-function Screen.draw(buildings, list, drag, notice)
+--- box it left) once it has moved, `notice` a line to show under the boxes
+--- instead of the usual hint, and `client` for what I wear.
+function Screen.draw(buildings, list, drag, notice, client)
   local L = Screen.layout()
   local p = L.panel
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
   drawFigure(L.figure)
-  drawGear(L)
+  drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot")
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
@@ -415,7 +431,7 @@ function Screen.draw(buildings, list, drag, notice)
     love.graphics.setColor(0.8, 0.8, 0.85)
   end
   love.graphics.printf(hint, p.x + Screen.pad, L.hint, p.w - 2 * Screen.pad, "left")
-  local foot = "drag things between their slots and your bag   "
+  local foot = "drag things between their slots, your gear and your bag   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
   for _, u in ipairs(buildings.usables) do
     if buildings:quickCount(u.item) > 0 then
@@ -434,6 +450,9 @@ function Screen.drawDrag(drag, mx, my)
     return
   elseif drag.kind == "quick" then
     Render.itemIcon(drag.item, mx, my)
+    return
+  elseif drag.kind == "armor" then
+    Render.itemIcon("armor-" .. drag.key, mx, my)
     return
   end
   local gun = Guns.list[drag.index]
