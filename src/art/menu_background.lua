@@ -14,6 +14,15 @@ function Background.new()
   return setmetatable({ face = Face.new(), t = 0 }, Background)
 end
 
+local shared = nil
+
+--- The one backdrop every menu screen uses, so the rays and the face carry
+--- on where they were from one screen to the next.
+function Background.shared()
+  shared = shared or Background.new()
+  return shared
+end
+
 function Background:update(dt)
   self.t = self.t + dt
   self.face:update(dt)
@@ -50,6 +59,17 @@ function Background:draw(faceX, faceY, faceScale)
       love.graphics.rectangle("fill", 0, y, w, 1)
     end
   end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- Behind a panel of controls (settings, host, join, lobby): the face in
+--- the middle of the screen, dimmed so what is drawn over it reads.
+function Background:drawDimmed()
+  local w, h = love.graphics.getDimensions()
+  local scale = math.floor(math.min(h / 76, (w * 0.55) / 64))
+  self:draw(math.floor(w * 0.5), math.floor(h * 0.55), scale)
+  love.graphics.setColor(0, 0, 0, 0.55)
+  love.graphics.rectangle("fill", 0, 0, w, h)
   love.graphics.setColor(1, 1, 1)
 end
 

@@ -270,10 +270,8 @@ function Panel:draw()
     self:layout()
   end
   local p = self.panel
-  love.graphics.setColor(0.08, 0.08, 0.10, 0.92)
-  love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 8)
+  UI.panel(p.x, p.y, p.w, p.h)
   love.graphics.setColor(0.3, 0.3, 0.35)
-  love.graphics.rectangle("line", p.x, p.y, p.w, p.h, 8)
   love.graphics.line(p.x + TABS_W, p.y + 60, p.x + TABS_W, p.y + p.h - 70)
 
   love.graphics.setFont(UI.fonts.heading)

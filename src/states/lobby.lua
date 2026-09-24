@@ -2,6 +2,7 @@
 
 local State = require("src.state")
 local UI = require("src.ui")
+local Background = require("src.art.menu_background")
 local Net = require("src.net")
 local Protocol = require("src.net.protocol")
 
@@ -11,6 +12,7 @@ local W = 420
 
 function Lobby:enter()
   UI.load()
+  self.background = Background.shared()
   self.buttons = {}
   if Net.isHost() then
     self.startButton = UI.button({ label = "Start game", w = 200, onClick = function()
@@ -28,6 +30,7 @@ function Lobby:enter()
 end
 
 function Lobby:update(dt)
+  self.background:update(dt)
   Net.update(dt)
   local client = Net.client
   if not client then
@@ -51,6 +54,8 @@ function Lobby:update(dt)
 end
 
 function Lobby:draw()
+  self.background:drawDimmed()
+  UI.panel(UI.centerX(W) - 30, 30, W + 60, love.graphics.getHeight() - 110)
   local client = Net.client
   if not client then
     return

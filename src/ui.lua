@@ -22,6 +22,16 @@ function UI.centerX(w)
   return math.floor((love.graphics.getWidth() - w) / 2)
 end
 
+--- The dark rounded panel menu screens put their controls on, over the
+--- menu backdrop (settings, host, join, lobby).
+function UI.panel(x, y, w, h)
+  love.graphics.setColor(0.08, 0.08, 0.10, 0.92)
+  love.graphics.rectangle("fill", x, y, w, h, 8)
+  love.graphics.setColor(0.3, 0.3, 0.35)
+  love.graphics.rectangle("line", x, y, w, h, 8)
+  love.graphics.setColor(1, 1, 1)
+end
+
 -- Button ------------------------------------------------------------------
 
 local Button = {}
