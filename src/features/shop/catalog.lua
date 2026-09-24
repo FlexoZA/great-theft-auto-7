@@ -9,6 +9,7 @@
 --   n       how many of it one purchase gives (cars: one on the road)
 --   name    what the card says
 --   kind    "gun" | "ammo" | "ability" | "supply" | "car", the badge on the card
+--   badge   what the badge says instead of the kind ("passive" for a passive ability)
 --   tab     which tab of the shop it is on ("items" or "cars")
 --   price   Fcks; 0 is free. Everything is free for now: put prices here
 --           when the economy is ready and the host charges them (init.lua
@@ -50,7 +51,10 @@ for _, gun in ipairs(Guns.list) do
   add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo", tab = "items" })
 end
 for _, ability in ipairs(AbilityKinds.list) do
-  add({ item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability", tab = "items" })
+  add({
+    item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability", tab = "items",
+    badge = ability.passive and "passive" or nil, -- a passive works by being carried, no key
+  })
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply", tab = "items" })
 for _, model in ipairs(Vehicles.list) do
