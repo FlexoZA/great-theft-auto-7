@@ -8,7 +8,7 @@
 -- its slot to put it on (GEAR_EQUIP: the host takes the item; whatever was
 -- in the slot goes back into the bag) and from the slot into the bag to
 -- take it off (GEAR_UNEQUIP). Clothes are never damaged and death leaves
--- them on.
+-- them on, and a saved world keeps them on for next time (serverSavePlayer).
 --
 -- Nobody asks this feature what a piece does. On the host a feature asks
 -- `Features.reduce("serverStat", 1, server, player, name)` and on a client
@@ -187,6 +187,45 @@ function Gear:serverUnequip(server, player, slot)
   worn[slot] = nil
   changed(server, player, worn)
   return true
+end
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- `player`'s part of a saved world: what they wear, slot -> key, or nil
+--- with nothing on.
+function Gear:serverSavePlayer(_server, player)
+  local worn = self.sv and self.sv.worn[player.id]
+  if not (worn and next(worn)) then
+    return nil
+  end
+  local out = {}
+  for slot, key in pairs(worn) do
+    out[slot] = key
+  end
+  return { version = SAVE_VERSION, worn = out }
+end
+
+--- Put the saved clothes back on; a piece no longer sold (kinds.lua) or in
+--- the wrong slot is dropped.
+function Gear:serverLoadPlayer(server, player, data)
+  if not self.sv or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  end
+  if type(data.worn) ~= "table" then
+    return
+  end
+  local worn = {}
+  for _, slot in ipairs(Kinds.slots) do
+    local key = data.worn[slot]
+    local g = type(key) == "string" and Kinds.byKey[key]
+    if g and g.slot == slot then
+      worn[slot] = key
+    end
+  end
+  self.sv.worn[player.id] = worn
+  changed(server, player, worn)
 end
 
 Gear.serverMessages = {

@@ -30,7 +30,8 @@
 -- and tells you them (WPN_GUNS); the HUD only lists those, and the host
 -- refuses to select or fire a gun that isn't in one (serverOwns). Putting
 -- down the gun in hand leaves you holding the pistol. Nothing is trusted
--- from the client but the ask.
+-- from the client but the ask. A saved world keeps a player's slots and
+-- magazines for next time (serverSavePlayer); health comes back full.
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (X) refills the one in hand from the ammo in your inventory
@@ -1253,6 +1254,83 @@ function Weapons:serverMove(server, player, from, to)
   st.slots[from], st.slots[to] = st.slots[to], st.slots[from]
   self:sendGuns(server, player)
   return true
+end
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- `player`'s part of a saved world: the gun key in each weapon slot and
+--- the rounds in each magazine, by gun key so a reordered guns.lua can't
+--- mix them up. Spare rounds are items in the bag (buildings saves those);
+--- health, kills, the gun in hand and infinite ammo are not kept.
+function Weapons:serverSavePlayer(_server, player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or player.bot then
+    return nil
+  end
+  local slots, mags = {}, {}
+  for slot = 1, self.slotCount do
+    local gun = st.slots[slot] and Guns.list[st.slots[slot]]
+    if gun then
+      slots[slot] = gun.key
+    end
+  end
+  for i, gun in ipairs(Guns.list) do
+    mags[gun.key] = st.mags[i] or 0
+  end
+  if st.deadUntil then
+    local pistol = Guns.at(Guns.DEFAULT)
+    mags[pistol.key] = math.max(mags[pistol.key], pistol.magazine) -- they'd be back with it loaded
+  end
+  return { version = SAVE_VERSION, slots = slots, mags = mags }
+end
+
+--- Put back what serverSavePlayer kept, over the start loadout. Guns no
+--- longer in guns.lua, bad slots and repeats are dropped; the pistol always
+--- has a slot; magazines hold 0 to their size.
+function Weapons:serverLoadPlayer(server, player, data)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  end
+  if type(data.slots) == "table" then
+    local slots = {}
+    for slot = 1, self.slotCount do
+      local key = data.slots[slot]
+      local gun = type(key) == "string" and Guns[key]
+      if type(gun) == "table" and gun.key == key and not slotOf(slots, gun.index) then
+        slots[slot] = gun.index
+      end
+    end
+    if not slotOf(slots, Guns.DEFAULT) then
+      local free = 1 -- the first empty slot, or slot 1 when all are full
+      for slot = self.slotCount, 1, -1 do
+        if not slots[slot] then
+          free = slot
+        end
+      end
+      slots[free] = Guns.DEFAULT
+    end
+    st.slots = slots
+    if not slotOf(slots, st.gun) then
+      st.gun, st.reloadUntil = Guns.DEFAULT, nil
+    end
+  end
+  if type(data.mags) == "table" then
+    for i, gun in ipairs(Guns.list) do
+      local rounds = tonumber(data.mags[gun.key])
+      if rounds and rounds == rounds then
+        st.mags[i] = math.max(0, math.min(gun.magazine, math.floor(rounds)))
+      end
+    end
+  end
+  self:sendGuns(server, player)
+  if not player.bot then
+    for i in ipairs(Guns.list) do
+      server:send(player, Protocol.encode("WPN_MAG", i, st.mags[i]))
+    end
+  end
 end
 
 --- The gun `player` holds, dropped back to the pistol if it is no longer

@@ -122,11 +122,12 @@ Rules for features:
 | Core (player) | name |
 | `money` | wallet (player) |
 | `upgrades` | levels (player) |
-| `weapons` | guns in slots, ammo (player). Health comes back full. |
-| `armor`, `gear` | what is worn (player) |
-| `abilities` | slotted abilities (player) |
-| `buildings` | buildings on plots (world); carried stock and quick slots (player) |
-| `real-estate` | plot owners (world) |
+| `weapons` | gun in each slot, rounds in each magazine (player). Spare rounds are bag items (`buildings`). Health comes back full; kills, the gun in hand and infinite ammo are not kept. |
+| `armor` | the vest worn and the points left on it (player) |
+| `gear` | the piece worn in each slot (player) |
+| `abilities` | the ability in each slot (player); cooldowns start fresh |
+| `buildings` | every building on its plot, by block: kind, owner, public, product and prices (by item key), hopper, what it pays, output, hit points (world); carried stock and quick slots (player). Bag slots are the upgrade level's. A batch under way starts over. |
+| `real-estate` | the blocks the city grew, in order, and plot owners by block (world) |
 | `vehicles` | model per car id (world) |
 
 **Not saved:** pedestrians, police and wanted level, bots, projectiles, coins
