@@ -394,7 +394,7 @@ end
 --- Someone joining mid-game gets the city as it has grown, then who owns what.
 function RealEstate:serverPlayerJoined(server, player)
   local _, map = cityMap()
-  if not (sv and map) then
+  if not (sv and map and server.started) or player.bot then
     return
   end
   for _, g in ipairs(map.grown) do

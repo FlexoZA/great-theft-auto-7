@@ -156,8 +156,9 @@ function Vehicles:serverDeliver(server, player, item, x, y, angle)
   return true
 end
 
+--- A player joining a running game hears the model of every car already out.
 function Vehicles:serverPlayerJoined(server, player)
-  if not sv then
+  if not (sv and server.started) or player.bot then
     return
   end
   for vid, key in pairs(sv.models) do
@@ -167,17 +168,14 @@ function Vehicles:serverPlayerJoined(server, player)
   end
 end
 
---- Cars someone bought leave with them, the way their own car does.
-function Vehicles:serverPlayerLeft(server, player)
+--- Cars someone bought stay in the world when they leave, the way their own
+--- car does; only the book of cars that are gone is tidied.
+function Vehicles:serverPlayerLeft(server)
   if not sv then
     return
   end
   for vid in pairs(sv.models) do
-    local car = server.vehicles[vid]
-    if not car then
-      sv.models[vid] = nil
-    elseif car.owner == player.id then
-      server:removeVehicle(car)
+    if not server.vehicles[vid] then
       sv.models[vid] = nil
     end
   end

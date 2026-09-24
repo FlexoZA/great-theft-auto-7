@@ -23,16 +23,18 @@ local INPUT_INTERVAL = 1 / 30 -- seconds between INPUT packets
 
 -- state: idle -> connecting -> connected -> joined -> (disconnected | failed)
 
-function Client.new(playerName)
+function Client.new(playerName, key)
   return setmetatable({
     host = enet.host_create(nil, 1, CHANNELS),
     name = Protocol.sanitizeName(playerName),
+    key = key, -- this install's player key, sent in HELLO
     peer = nil,
     state = "idle",
     error = nil,
     myId = nil,
     serverName = nil,
     players = {}, -- id -> { id, name }
+    known = {}, -- id -> name of everyone who has left (KNOWN, LEAVE); their cars may still be about
     started = false,
     connectTimer = 0,
     vehicles = {}, -- vehicle id -> { id, owner, color, driver, x, y, angle, speed, dx, dy, dangle }
@@ -77,7 +79,7 @@ function Client:update(dt)
     end
     if event.type == "connect" then
       self.state = "connected"
-      self.peer:send(Protocol.encode("HELLO", self.name), RELIABLE, "reliable")
+      self.peer:send(Protocol.encode("HELLO", self.name, self.key or ""), RELIABLE, "reliable")
     elseif event.type == "receive" then
       self:onMessage(event.data)
     elseif event.type == "disconnect" then
@@ -86,6 +88,7 @@ function Client:update(dt)
         self.error = self.error or "connection closed"
       end
       self.players = {}
+      self.known = {}
       self.vehicles = {}
       self.bodies = {}
       self.garage = {}
@@ -220,8 +223,14 @@ function Client:onMessage(data)
   elseif kind == "LEAVE" then
     local id = tonumber(args[1])
     if id then
+      self.known[id] = self.players[id] and self.players[id].name
       self.players[id] = nil
       self.bodies[id] = nil
+    end
+  elseif kind == "KNOWN" then
+    local id = tonumber(args[1])
+    if id then
+      self.known[id] = args[2] or "?"
     end
   elseif kind == "STATE" then
     self:onState(args)
@@ -260,6 +269,15 @@ function Client:send(msg, unreliable)
   return true
 end
 
+--- The name of player `id`, whether they are here or have left; nil if unknown.
+function Client:nameOf(id)
+  local p = self.players[id]
+  if p then
+    return p.name
+  end
+  return self.known[id]
+end
+
 --- Players sorted by id (id 1 is the host).
 function Client:playerList()
   local out = {}
@@ -290,6 +308,7 @@ function Client:disconnect()
   end
   self.state = "idle"
   self.players = {}
+  self.known = {}
   self.vehicles = {}
   self.bodies = {}
   self.garage = {}

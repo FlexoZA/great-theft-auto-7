@@ -147,8 +147,10 @@ function Dday:mapChanged(_map, server)
   end
 end
 
+--- Someone joining mid-landing hears the stage (after quests' QST_START,
+--- which clears the beach on their screen); the soldiers come with the sync.
 function Dday:serverPlayerJoined(server, player)
-  if sv and sv.stage then
+  if sv and sv.stage and server.started and not player.bot then
     server:send(player, Protocol.encode("DD_STAGE", sv.stage, 0))
   end
 end

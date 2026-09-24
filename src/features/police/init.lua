@@ -566,6 +566,30 @@ function Police:serverStep(server, dt)
   end
 end
 
+--- A human who joins a running game hears which cars are units, which of
+--- them are chasing and who is wanted (all sent only on change). With
+--- inclusive mode on they start wanted, like everyone did.
+function Police:serverPlayerJoined(server, player)
+  if not (sv and server.started) or player.bot then
+    return
+  end
+  for _, unit in ipairs(sv.units) do
+    if server.players[unit.id] then
+      server:send(player, Protocol.encode("POL_UNIT", unit.id))
+      if unit.ai.chasing then
+        server:send(player, Protocol.encode("POL_SIREN", unit.id, 1))
+      end
+    end
+  end
+  for id in pairs(sv.wanted) do
+    server:send(player, Protocol.encode("POL_WANTED", id, 1))
+  end
+  if Face.inclusive() and player.body then
+    sv.wanted[player.id] = sv.time + self.hotStartTime
+    server:broadcast(Protocol.encode("POL_WANTED", player.id, 1))
+  end
+end
+
 function Police:serverPlayerLeft(server, player)
   if sv then
     self:clearWanted(server, player.id)

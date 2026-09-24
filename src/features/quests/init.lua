@@ -234,12 +234,15 @@ function Quests:update(dt, client)
   local x, y = client:myPose()
   local quest = self:offered(x, y)
   local city = cityMap()
-  if city and seenMap and city.current ~= seenMap then
-    -- Just arrived: the cars land beside this map's star, and nobody wants
-    -- the trip straight back. It counts as declined until you drive off.
+  if x and city and city.current ~= seenMap and (seenMap or city.current ~= city.DEFAULT) then
+    -- Just arrived (or joined a game out on a quest map): the cars land
+    -- beside this map's star, and nobody wants the trip straight back. It
+    -- counts as declined until you drive off.
     self.prompt, declined = nil, quest and quest.id or nil
   end
-  seenMap = city and city.current or nil
+  if x then
+    seenMap = city and city.current or nil -- not before we are placed: a latecomer may not be yet
+  end
   if not (quest and x) then
     self.prompt, declined = nil, nil
     return
@@ -443,11 +446,11 @@ Quests.clientMessages = {
     Quests.active = not quest.returns and quest.id or nil
     Quests.done = nil
     Quests.prompt = nil -- `declined` is left alone: update sets it for the star we land next to
-    local taker = client.players[by]
+    local taker = client:nameOf(by) -- they may have left since (a latecomer hears this too)
     local city = cityMap()
     local where = city and city.maps[quest.map] and city.maps[quest.map].title or quest.map
     local text = quest.banner or ("%s took the job. Welcome to " .. where .. ".")
-    banner = { title = quest.title:upper(), text = text:format(taker and taker.name or "Someone") }
+    banner = { title = quest.title:upper(), text = text:format(taker or "Someone") }
     bannerTimer = BANNER_TIME
     if quest.returns then
       if ended then
@@ -509,11 +512,12 @@ function Quests:serverActive()
   return sv and sv.active and self.byId[sv.active] or nil
 end
 
---- Anyone added mid-game (a bot) hears which map is in play and what job
---- is on, before real-estate (higher priority) tells them how it has grown.
+--- Anyone joining mid-game hears which map is in play and what job is on,
+--- before real-estate (higher priority) tells them how it has grown. A
+--- human joining the lobby hears nothing: `sv` may be the last game's.
 function Quests:serverPlayerJoined(server, player)
   local city = cityMap()
-  if not (sv and city) then
+  if not (sv and city and server.started) or player.bot then
     return
   end
   if city.current ~= city.DEFAULT then

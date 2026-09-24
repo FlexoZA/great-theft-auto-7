@@ -253,15 +253,16 @@ function Karen:serverPanicArea(_server, x, y, radius)
 end
 
 function Karen:serverPlayerJoined(server, player)
-  local b = sv and sv.boss
+  if not (sv and server.started) or player.bot then
+    return -- a lobby join: `sv` may be the last game's
+  end
+  local b = sv.boss
   if b then
     server:send(player, Protocol.encode("KRN_SPAWN", fmt(b.x), fmt(b.y), math.max(0, b.hp), b.max))
   end
-  if sv then
-    for i = 1, sv.simps.n do
-      local s = sv.simps.list[i]
-      server:send(player, Protocol.encode("KRN_SIMP", s.id, s.name))
-    end
+  for i = 1, sv.simps.n do
+    local s = sv.simps.list[i]
+    server:send(player, Protocol.encode("KRN_SIMP", s.id, s.name))
   end
 end
 

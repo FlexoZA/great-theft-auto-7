@@ -106,7 +106,7 @@ end
 --- Someone joining mid-blaze sees the fires already burning (the simps
 --- arrive with the next OB_SIMPS).
 function OpenBorders:serverPlayerJoined(server, player)
-  if not sv then
+  if not (sv and server.started) or player.bot then
     return
   end
   local now = sv.horde.time

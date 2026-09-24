@@ -5,7 +5,8 @@
 -- one of them is tagged.
 --
 -- Purely local: it reads the car snapshots the client already has (owner
--- from VEHICLE, driver from STATE) and sends nothing.
+-- from VEHICLE, driver from STATE) and sends nothing. A car whose owner has
+-- left the game stays in the world and keeps their name.
 
 local UI = require("src.ui")
 local Car = require("src.car")
@@ -21,10 +22,10 @@ Tags.lift = Car.HEIGHT + 18 -- px above the car's centre, where the driver's nam
 function Tags:drawAboveCars(client)
   love.graphics.setFont(UI.fonts.small)
   for _, c in pairs(client.vehicles) do
-    local owner = c.owner and not c.driver and client.players[c.owner]
+    local owner = c.owner and not c.driver and client:nameOf(c.owner)
     if owner then
       love.graphics.setColor(1, 1, 1, c.owner == client.myId and self.alpha + 0.2 or self.alpha)
-      love.graphics.printf(owner.name .. "'s", c.dx - 60, c.dy - self.lift, 120, "center")
+      love.graphics.printf(owner .. "'s", c.dx - 60, c.dy - self.lift, 120, "center")
     end
   end
   love.graphics.setColor(1, 1, 1)

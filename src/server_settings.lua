@@ -2,7 +2,8 @@
 -- src/settings.lua alongside video and sound so they survive restarts and
 -- can be changed from the Settings screen (its Server section) before or
 -- during a game. Only the host's copy matters: features read these on the
--- host and never send them to clients. Bots read the difficulty.
+-- host and never send them to clients. Bots read the difficulty; saved
+-- worlds read autosaveMinutes.
 
 local Settings = require("src.settings")
 
@@ -16,6 +17,7 @@ ServerSettings.DIFFICULTIES = {
 
 ServerSettings.DEFAULTS = {
   botDifficulty = "normal",
+  autosaveMinutes = 5, -- a saved world is written this often while playing
 }
 
 function ServerSettings.get(key)

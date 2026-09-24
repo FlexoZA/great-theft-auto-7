@@ -1290,8 +1290,10 @@ function Buildings:serverSetSlots(server, player, slots)
   return slots
 end
 
+--- Someone joining mid-game sees what stands on every plot (real-estate,
+--- lower priority, has told them who owns it). What they carry starts empty.
 function Buildings:serverPlayerJoined(server, player)
-  if not sv then
+  if not (sv and server.started) or player.bot then
     return
   end
   for id, b in pairs(sv.buildings) do
