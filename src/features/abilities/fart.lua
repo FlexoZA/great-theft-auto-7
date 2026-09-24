@@ -1,8 +1,9 @@
 -- Panic fart: let one go and a stinking cloud hangs where you stood for a
 -- few seconds. Everything with a nose runs from it: NPC cars (bots, police
--- units included) drive away from the cloud while they are in it, and
--- pedestrians bolt. Players are unmoved (they can't smell). Nothing to
--- aim: press the key (`aim = "self"`).
+-- units included) drive away from the cloud while they are in it,
+-- pedestrians bolt, and so do Karen, her simps and the wild man's
+-- creatures on the quests. Players are unmoved (they can't smell). Nothing
+-- to aim: press the key (`aim = "self"`).
 --
 -- The host keeps the clouds and, every tick, raises `serverPanicArea(server,
 -- x, y, radius, by)` for each one; bots and pedestrians answer it by
@@ -20,7 +21,7 @@ local Fart = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Fart.radius = 240 -- px the cloud reaches
+Fart.radius = 150 -- px the cloud reaches
 Fart.range = 0 -- it is let go where you stand
 Fart.seconds = 6 -- how long the cloud hangs
 Fart.cooldown = 25 -- seconds before the next
