@@ -276,6 +276,12 @@ function Buildings:menuOpen()
   return self.menu
 end
 
+--- The `actionTaken` convention: the action key is ours while I stand on
+--- an owned plot's square (it opens the menu) or the menu is up.
+function Buildings:actionTaken()
+  return herePad ~= nil or self.menu
+end
+
 function Buildings:update(dt, client)
   time = time + dt
   noticeTimer = math.max(0, noticeTimer - dt)

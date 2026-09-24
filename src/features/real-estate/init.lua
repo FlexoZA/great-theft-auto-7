@@ -218,6 +218,12 @@ local function affordable(client, price)
   return true
 end
 
+--- The `actionTaken` convention: the buy key is ours while there is
+--- something to buy underfoot, so on-foot leaves the cars alone.
+function RealEstate:actionTaken()
+  return hereSite ~= nil or (herePlot ~= nil and not self.owners[herePlot.id])
+end
+
 function RealEstate:keypressed(key, client)
   if not Controls.is("buy", key) then
     return

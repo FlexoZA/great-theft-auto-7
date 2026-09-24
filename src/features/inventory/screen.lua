@@ -272,8 +272,23 @@ local function drawAbilities(L, lifted)
     local ability = lifted ~= i and abilities:inSlot(i) or nil
     box(r.x, r.y, r.w, r.h, ability ~= nil, false)
     local cx, cy, radius = r.x + r.w / 2, r.y + 26, 20
-    local key = Controls.name(Controls.bindings("ability-" .. i)[1])
-    if not ability then
+    local passive = i == abilities.passiveSlot
+    local key = not passive and Controls.name(Controls.bindings("ability-" .. i)[1]) or nil
+    if passive then
+      -- No key: it works by being there. Its name under the ring, or what
+      -- the slot is for while it is empty.
+      if ability then
+        local c = ability.color
+        love.graphics.setColor(c[1], c[2], c[3], 0.2)
+        love.graphics.circle("fill", cx, cy, radius + 4, 32)
+        UI.ring(cx, cy, radius, 1, c, 4)
+      else
+        UI.ring(cx, cy, radius, 0, { 1, 1, 1 }, 3)
+      end
+      love.graphics.setFont(small)
+      love.graphics.setColor(1, 1, 1, ability and 0.85 or 0.25)
+      love.graphics.printf(ability and ability.title or "passive", r.x, r.y + r.h - 20, r.w, "center")
+    elseif not ability then
       UI.ring(cx, cy, radius, 0, { 1, 1, 1 }, 3)
       love.graphics.setFont(body)
       love.graphics.setColor(1, 1, 1, 0.3)

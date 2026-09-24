@@ -252,6 +252,7 @@ first feature whose hook returns true. Events in use:
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen answers it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
@@ -352,7 +353,8 @@ couple of small conventions rather than requiring each other:
   else is refused, and putting down the gun in hand leaves the pistol.
 - Ability slots: the same for abilities. `abilities/kinds.lua` lists every
   ability by `key`; each player carries them in `abilities.slotCount` slots
-  (Q, Z, X, V), freeze in slot 1 to start with, kept on the host and told to
+  (Q, E, R, and a keyless passive slot for an ability with `passive = true`,
+  which only fits there), freeze in slot 1 to start with, kept on the host and told to
   the player (`ABL_SLOTS`, a key per slot, `-` for empty). An ability in a
   bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
   `ABL_UNEQUIP <slot>` and `ABL_MOVE <slot> <slot>` move them, and a cast

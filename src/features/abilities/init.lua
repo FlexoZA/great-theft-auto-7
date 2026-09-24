@@ -3,9 +3,12 @@
 -- you; let go to cast it there, or right-click to think better of it. Each
 -- ability then waits out its cooldown.
 --
--- You carry abilities in `slotCount` ability slots, one per key (Q, Z, X,
--- V): slot 1 casts whatever is in slot 1. Everyone starts with freeze
--- (freeze.lua) in slot 1; kinds.lua lists every ability. An ability is
+-- You carry abilities in `slotCount` ability slots: three on keys (Q, E,
+-- R; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
+-- no key, for a passive ability (`passive = true` in its module) that
+-- works by being there. Only a passive ability fits that slot and a
+-- passive one fits nowhere else. Everyone starts with freeze (freeze.lua)
+-- in slot 1; kinds.lua lists every ability. An ability is
 -- also an item ("ability-<key>" in the inventory): on the inventory screen
 -- you drag one from your bag onto a slot to carry it (ABL_EQUIP takes the
 -- item; one already there swaps into the bag), drag it from its slot into
@@ -46,8 +49,9 @@ local Abilities = {
 }
 
 Abilities.kinds = Kinds
-Abilities.slotCount = 4 -- ability slots, each on its own key
-Abilities.defaultKeys = { "q", "z", "x", "v" } -- slot i is cast with action "ability-<i>"
+Abilities.slotCount = 4 -- ability slots: the keyed ones and the passive one
+Abilities.passiveSlot = 4 -- the slot with no key, for an ability that works by being carried
+Abilities.defaultKeys = { "q", "e", "r" } -- slot i is cast with action "ability-<i>"
 Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
 -- The ability circles along the bottom centre of the screen, one per slot,
 -- `hudStep` apart, empty ones dim.
@@ -71,6 +75,16 @@ local function startSlots()
     end
   end
   return slots
+end
+
+--- Does ability `key` belong in `slot`: passive ones in the passive slot,
+--- the rest anywhere else?
+local function fits(key, slot)
+  local ability = Kinds.byKey[key]
+  if not ability then
+    return false
+  end
+  return (slot == Abilities.passiveSlot) == (ability.passive == true)
 end
 
 --- The slot ability `key` sits in, in a slot -> key map, or nil.
@@ -97,7 +111,9 @@ Abilities.heldUntil = {} -- player id -> client time their hold ends
 
 function Abilities:load()
   for i = 1, self.slotCount do
-    Controls.register("ability-" .. i, ("Ability slot %d"):format(i), self.defaultKeys[i])
+    if i ~= self.passiveSlot then
+      Controls.register("ability-" .. i, ("Ability slot %d"):format(i), self.defaultKeys[i])
+    end
   end
   Controls.register("ability-cancel", "Cancel ability", "mouse2")
   Sounds.load()
@@ -134,10 +150,23 @@ function Abilities:slotOf(key)
   return slotOf(self.slots, key)
 end
 
+--- Does ability `key` belong in `slot` (see `fits`)? The inventory screen
+--- asks before a drop, to say why not.
+function Abilities:fits(key, slot)
+  return fits(key, slot)
+end
+
+--- Would swapping slots `from` and `to` leave every ability in a slot it
+--- fits? A passive one can't go on a key, nor a keyed one in the passive slot.
+function Abilities:canMove(from, to)
+  local a, b = self.slots[from], self.slots[to]
+  return from ~= to and a ~= nil and to >= 1 and to <= self.slotCount and fits(a, to) and (not b or fits(b, from))
+end
+
 --- Ask to put the ability item I carry for `key` into slot `slot` (the
 --- inventory screen does, on a drag). The host answers with ABL_SLOTS.
 function Abilities:equip(client, key, slot)
-  if Kinds.byKey[key] and not self:owns(key) and slot >= 1 and slot <= self.slotCount then
+  if Kinds.byKey[key] and not self:owns(key) and fits(key, slot) then
     client:send(Protocol.encode("ABL_EQUIP", key, slot))
   end
 end
@@ -151,7 +180,7 @@ end
 
 --- Ask to swap slots `from` and `to` (either may be empty).
 function Abilities:move(client, from, to)
-  if from ~= to and self.slots[from] and to >= 1 and to <= self.slotCount then
+  if self:canMove(from, to) then
     client:send(Protocol.encode("ABL_MOVE", from, to))
   end
 end
@@ -224,7 +253,7 @@ function Abilities:update(dt, client, camera)
   local taken = Features.any("pointerTaken", client) -- a screen (the inventory) has the mouse
   local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
   for i = 1, self.slotCount do
-    local ability = self:inSlot(i)
+    local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
     local down = ability ~= nil and Controls.isDown("ability-" .. i)
     if self.aiming == i then
       if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel") then
@@ -286,7 +315,8 @@ function Abilities:drawHUD(client)
   -- A row of circles along the bottom centre, one per slot. The key sits
   -- in the circle and the title under it; on cast the ring empties and
   -- fills back up through the cooldown with the seconds left inside. Full
-  -- and lit means ready. Empty slots are just dim rings.
+  -- and lit means ready. Empty slots are just dim rings; the passive slot
+  -- says so under its ring and shows its ability, if any, always lit.
   local small, body = UI.fonts.small, UI.fonts.body
   local w, h = love.graphics.getDimensions()
   local r, n = self.hudRadius, self.slotCount
@@ -295,7 +325,19 @@ function Abilities:drawHUD(client)
   for i = 1, n do
     local cx = x0 + (i - 1) * self.hudStep
     local ability = self:inSlot(i)
-    if not ability then
+    if i == self.passiveSlot then
+      if ability then
+        local c = ability.color
+        love.graphics.setColor(c[1], c[2], c[3], 0.2)
+        love.graphics.circle("fill", cx, cy, r + 6, 48)
+        UI.ring(cx, cy, r, 1, c, 5)
+      else
+        UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
+      end
+      love.graphics.setFont(small)
+      local title = ability and ability.title or "passive"
+      UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, { 0.6, 0.6, 0.65 })
+    elseif not ability then
       UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     else
       local key = Controls.name(Controls.bindings("ability-" .. i)[1])
@@ -438,8 +480,8 @@ function Abilities:serverEquip(server, player, key, slot)
   local buildings = Features.byName.buildings
   if not (slots and Kinds.byKey[key] and slot and buildings and buildings.serverTake and Features.present(player)) then
     return false
-  elseif slot < 1 or slot > self.slotCount or slotOf(slots, key) then
-    return false -- no such slot, or they carry it already
+  elseif not fits(key, slot) or slotOf(slots, key) then
+    return false -- no such slot, the wrong kind of slot, or they carry it already
   end
   if buildings:serverTake(server, player, "ability-" .. key, 1) < 1 then
     return false -- they don't carry one
@@ -470,13 +512,13 @@ function Abilities:serverUnequip(server, player, slot)
   return true
 end
 
---- `player` swaps slots `from` and `to` (either may be empty). Returns
---- true if they did.
+--- `player` swaps slots `from` and `to` (either may be empty), as long as
+--- each ability still fits where it lands. Returns true if they did.
 function Abilities:serverMove(server, player, from, to)
   local slots = self.sv and self.sv.slots[player.id]
   if not (slots and from and to and Features.present(player)) or from == to then
     return false
-  elseif from < 1 or from > self.slotCount or to < 1 or to > self.slotCount or not slots[from] then
+  elseif not slots[from] or not fits(slots[from], to) or (slots[to] and not fits(slots[to], from)) then
     return false
   end
   slots[from], slots[to] = slots[to], slots[from]
@@ -574,8 +616,8 @@ Abilities.serverMessages = {
     if not (sv and ability and x and y) or not Features.present(player) then
       return
     end
-    if not Abilities:serverOwns(player, key) then
-      return -- not in any of their slots: a stale or forged cast
+    if not Abilities:serverOwns(player, key) or ability.passive then
+      return -- not in any of their slots, or not the casting kind: a stale or forged cast
     end
     if Abilities:serverHeld(server, player) then
       return -- frozen people cast nothing

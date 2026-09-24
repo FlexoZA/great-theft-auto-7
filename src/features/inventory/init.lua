@@ -198,15 +198,32 @@ function Inventory:dropAbility(client, d, x, y, L)
       a:unequip(client, d.box)
     end
   elseif d.from == "slot" and slot then
-    a:move(client, d.box, slot)
+    if a:canMove(d.box, slot) then
+      a:move(client, d.box, slot)
+    else
+      self:sayFit(ability, slot)
+    end
   elseif d.from == "bag" and slot then
     if a:owns(d.key) then
       self:say("You already carry " .. ability.title .. ".")
+    elseif not a:fits(d.key, slot) then
+      self:sayFit(ability, slot)
     else
       a:equip(client, d.key, slot)
     end
   elseif d.from == "bag" and inside(L.abilitiesArea, x, y) then
     self:say("No empty ability slot: drop it on the one to swap with.")
+  end
+end
+
+--- Why `ability` can't go in ability slot `slot`.
+function Inventory:sayFit(ability, slot)
+  if slot == abilities().passiveSlot then
+    self:say("Only a passive ability goes in the passive slot.")
+  elseif ability.passive then
+    self:say(ability.title .. " is passive: it goes in the passive slot.")
+  else
+    self:say("A keyed ability can't swap with a passive one.")
   end
 end
 
