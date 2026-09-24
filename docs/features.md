@@ -246,6 +246,8 @@ first feature whose hook returns true. Events in use:
 | `serverPlayerDamaged(server, victim, attacker, amount)` | weapons | A projectile hit. `attacker` may be nil if they left. |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
+| `serverWallHit(server, x, y, damage, by)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
+| `serverBlast(server, x, y, radius, damage, by)` | weapons | A missile went off at (x, y): `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
 | `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk. |
@@ -348,6 +350,9 @@ couple of small conventions rather than requiring each other:
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
+- `Features.byName.weapons:explosionAt(client, x, y, color)`: an explosion
+  seen and heard at (x, y) on this machine (client side, no damage). Buildings
+  blows up with it when one comes down.
 - `Features.byName.money:give(server, id, amount)`: put koins into a
   player's wallet, the other way round from `spend` (the cheats use it).
 - `Features.byName.buildings:serverGive(server, player, item, n)`: put up
@@ -397,7 +402,8 @@ by the time it returns. Upgrades (`src/features/upgrades`) is the worked
 example with a menu; real-estate is the one with a place to stand.
 - Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
-  on the host.
+  on the host. `real-estate:serverTransfer(server, plotId, playerId)` hands a
+  plot to someone else (buildings' hostile takeover, after they have paid).
 - Buildings: `src/features/buildings` puts a building on a plot its owner
   picks (parking lot, quarry, oil well, ammo, weapons and health factories;
   the catalog is `kinds.lua`), used from a square on the sidewalk in front of
@@ -411,7 +417,11 @@ example with a menu; real-estate is the one with a place to stand.
   (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"medkit"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it;
-  guns are only stock so far.
+  guns are only stock so far. Buildings have hit points (`hp` in
+  `kinds.lua`) and take damage through `serverWallHit` and `serverBlast`; a
+  destroyed one is a ruin (not solid, makes nothing) until its owner pays to
+  rebuild it, or anyone else pays `buildings.takeoverPrice` to take the lot
+  over empty. A building still standing can't be taken over.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`
