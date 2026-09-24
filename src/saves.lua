@@ -1,7 +1,7 @@
 -- Saved worlds on the host's disk (docs/persistence.md). Only files live
 -- here; what goes in them is src/net/persistence.lua's business.
 --
---   saves/<slug>/meta.lua           name, created, lastPlayed, players (names, for the Continue list)
+--   saves/<slug>/meta.lua           id, name, created, lastPlayed, players (names, for the Continue list)
 --   saves/<slug>/world.lua          the world: ids, cars, one slice per feature
 --   saves/<slug>/players/<key>.lua  one player: name, one slice per feature
 --
@@ -10,6 +10,7 @@
 -- a write costs at most the last save.
 
 local Serialize = require("src.serialize")
+local Protocol = require("src.net.protocol")
 
 local Saves = { DIR = "saves" }
 
@@ -82,7 +83,8 @@ function Saves.create(name)
   local slug = slugFor(name)
   local dir = Saves.DIR .. "/" .. slug
   love.filesystem.createDirectory(dir .. "/players")
-  local world = setmetatable({ slug = slug, dir = dir, meta = { name = name, created = os.time() } }, World)
+  local meta = { id = Protocol.newKey():sub(1, 16), name = name, created = os.time() }
+  local world = setmetatable({ slug = slug, dir = dir, meta = meta }, World)
   world.meta.lastPlayed = world.meta.created
   world:writeMeta()
   return world
@@ -98,11 +100,22 @@ function Saves.open(slug)
   love.filesystem.createDirectory(dir .. "/players")
   local world = setmetatable({ slug = slug, dir = dir, meta = meta }, World)
   world.restored = fromBackup or nil -- true once any file came from its .bak
+  if not world:id() then
+    meta.id = Protocol.newKey():sub(1, 16) -- saved before worlds had one
+    world:writeMeta()
+  end
   return world
 end
 
 function World:name()
   return tostring(self.meta.name or self.slug)
+end
+
+--- The world's lasting id (16 hex characters): joiners know the server by it
+--- (src/net/recent.lua) even when the host's address changes.
+function World:id()
+  local id = self.meta.id
+  return type(id) == "string" and id:match("^%x+$") and #id == 16 and id or nil
 end
 
 function World:writeMeta()

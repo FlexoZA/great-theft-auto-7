@@ -214,6 +214,8 @@ function Client:onMessage(data)
   if kind == "WELCOME" then
     self.myId = tonumber(args[1])
     self.serverName = args[2]
+    self.serverId = args[3] -- lasting id of the world (src/net/recent.lua); nil from an older host
+    self.worldName = args[4] ~= "" and args[4] or nil
     self.state = "joined"
   elseif kind == "JOIN" then
     local id = tonumber(args[1])

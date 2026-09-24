@@ -6,10 +6,12 @@ local Protocol = require("src.net.protocol")
 local Settings = require("src.settings")
 local Server = require("src.net.server")
 local Client = require("src.net.client")
+local Recent = require("src.net.recent")
 
 local Net = {
   server = nil,
   client = nil,
+  joining = nil, -- { ip, port } of a server being joined, remembered (Recent) once it welcomes us
 }
 
 --- This install's player key (see docs/persistence.md), made and stored in
@@ -39,6 +41,7 @@ end
 function Net.join(playerName, ip, port)
   Net.shutdown()
   Net.client = Client.new(playerName, Net.playerKey())
+  Net.joining = { ip = ip, port = port or Protocol.PORT }
   return Net.client:connect(ip, port)
 end
 
@@ -57,9 +60,17 @@ function Net.update(dt)
   if Net.client then
     Net.client:update(dt)
   end
+  local c, target = Net.client, Net.joining
+  if target and c and c.state == "joined" then
+    Net.joining = nil
+    if c.serverId then -- an older host has no lasting id to find it by
+      Recent.remember(c.serverId, c.serverName, c.worldName, target.ip, target.port)
+    end
+  end
 end
 
 function Net.shutdown()
+  Net.joining = nil
   if Net.client then
     Net.client:disconnect()
     Net.client = nil

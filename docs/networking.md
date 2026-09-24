@@ -56,10 +56,21 @@ nothing to vendor or install.
   toward it (`SMOOTHING` in `src/states/game.lua`). Cars missing from a
   snapshot are removed.
 
+## Rejoining
+
+`serverId` is the saved world's lasting id (`meta.id`, `src/saves.lua`), so
+it stays the same from one session to the next. A joiner keeps the servers it
+has joined in settings (`src/net/recent.lua`) and the Join screen lists them
+under Recent: online when discovery hears that id (wherever the host is now),
+else at the last address. The scanner also asks each remembered address
+directly, for hosts a broadcast does not reach.
+
 ## Message shapes
 
 ```
 client -> server   HELLO        <name> <key>          key: 32 hex chars, the player's lasting identity
+server -> client   WELCOME      <id> <serverName> <serverId> <worldName>
+udp discovery      GTA7_HOST    <serverId> <serverName> <port> <players> <max> <worldName>
 client -> server   INPUT        <seq> <throttle> <steer> <handbrake>
 server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
 server -> client   VEHICLE      <vid> <owner> <color>      a car entered the world (owner 0 = nobody's)
