@@ -7,6 +7,9 @@
 --
 --   gimmekoin     +1000 Fcks
 --   infiniteammo  magazines never run out, no reloading (type it again to stop)
+--   reachforthestars  leap lands wherever the cursor is, not just within its
+--                     range, and is ready again the moment you land (type it
+--                     again to stop)
 --
 -- The letters still reach every other feature as ordinary key presses, so
 -- typing a code that contains E steps out of the car if it is slow enough.
@@ -43,6 +46,13 @@ local CODES = {
       return on and "infinite ammo on" or "infinite ammo off"
     end
   end,
+  reachforthestars = function(server, player)
+    local abilities = Features.byName.abilities
+    if abilities and abilities.serverSetReach then
+      local on = abilities:serverSetReach(server, player, "leap", not abilities:serverReachLifted(player, "leap"))
+      return on and "leap to the stars on" or "leap to the stars off"
+    end
+  end,
 }
 
 -- Client --------------------------------------------------------------------
@@ -62,7 +72,7 @@ function Cheats:keypressed(key, client)
   if #key ~= 1 or not key:match("%a") then
     return
   end
-  typed = (typed .. key):sub(-16)
+  typed = (typed .. key):sub(-24)
   for code in pairs(CODES) do
     if typed:sub(-#code) == code then
       typed = ""

@@ -6,8 +6,17 @@
 -- you shows where it would go, `range` away towards the cursor, and the
 -- fire button puts it there (weapons leaves the gun alone meanwhile: the
 -- `fireTaken` convention); the key again or right-click puts it away. One
+-- with `aim = "point"` (leap) is selected and placed the same way, but
+-- shows its area under the cursor, kept within range, like a held one. One
 -- with `aim = "self"` (heal) has nothing to aim: a press of its key casts
--- it where you stand.
+-- it where you stand. One with `onFoot = true` (leap) only works out of a
+-- car: behind the wheel its key does nothing and the host refuses it.
+--
+-- An ability may fly something about (leap.lua flies its caster to the
+-- landing spot): its `onFired(e, client)` hears the cast, its
+-- `updateEffect(e, client, camera)` runs every frame of the effect, and
+-- `drawBelow(e)` draws under the cars. While its `airborne(e)` is true the
+-- caster is `held` here (no walking, shooting or casting), but not frozen.
 --
 -- You carry abilities in `slotCount` ability slots: three on keys (Q, E,
 -- R; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
@@ -33,6 +42,12 @@
 -- player, key, phase, seconds)` tells the carrier its phase (ABL_PASSIVE)
 -- so the HUD ring shows it working ("active") or resting ("cooldown").
 --
+-- A cheat (reachforthestars) can lift an ability's limits for a player,
+-- Abilities:serverSetReach: the host lets their casts land wherever the
+-- cursor is, out to `liftedRange`, with no cooldown in between, and tells
+-- them (ABL_REACH) so their aim ring follows the cursor and their HUD
+-- shows it ready again straight away.
+--
 -- Holding: the host keeps a frozen player or car where it is by putting it
 -- back every tick after everything else has moved it (this feature runs
 -- last), and answers `serverHeld(server, player)` so on-foot stops walking
@@ -48,6 +63,7 @@
 --   server -> player  ABL_SLOTS <ability per slot>...  (what is in each slot; "-" = empty)
 --   server -> player  ABL_PASSIVE <ability> <phase> <seconds>  (the passive in your slot went idle,
 --                                                             active or into cooldown, for that long)
+--   server -> player  ABL_REACH <ability> <0|1>       (its range and cooldown are lifted for you, or back to normal)
 --   server -> all     ABL_FIRED <by> <ability> <x> <y> <seconds> <angle> [<heldId>]...  (angle: which way it faces)
 
 local Protocol = require("src.net.protocol")
@@ -59,6 +75,7 @@ local Body = require("src.body")
 local Sounds = require("src.features.abilities.sounds")
 local Kinds = require("src.features.abilities.kinds")
 local Freeze = require("src.features.abilities.freeze")
+local Leap = require("src.features.abilities.leap")
 
 local Abilities = {
   name = "abilities",
@@ -75,6 +92,9 @@ Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
 Abilities.hudStep = 64
 Abilities.hudRadius = 24
 Abilities.hudBottom = 48 -- px up from the bottom edge to the circles' centres
+-- A lifted range (a cheat) still stops somewhere: past any screen's edge,
+-- short of a forged cast across the whole world.
+Abilities.liftedRange = 4000
 
 local EMPTY = "-" -- an empty slot on the wire
 
@@ -127,6 +147,7 @@ Abilities.readyFlash = {} -- ability key -> seconds of "it's back" flash left on
 Abilities.passive = nil -- { key, phase, left, total }: what my passive ability is up to (ABL_PASSIVE)
 Abilities.effects = {} -- { ability, by, x, y, angle, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
+Abilities.lifted = {} -- ability key -> true while its range and cooldown are lifted for me (ABL_REACH)
 
 function Abilities:load()
   for i = 1, self.slotCount do
@@ -150,6 +171,7 @@ function Abilities:enterGame()
   self.passive = nil
   self.effects = {}
   self.heldUntil = {}
+  self.lifted = {}
 end
 
 function Abilities:exitGame()
@@ -206,10 +228,23 @@ function Abilities:move(client, from, to)
   end
 end
 
---- Is this player held still, as far as this machine knows? The `held`
---- convention: on-foot and weapons ask every feature.
-function Abilities:held(_client, id)
+--- Is this player frozen, as far as this machine knows?
+function Abilities:frozen(id)
   return (self.heldUntil[id] or 0) > self.time
+end
+
+--- Is this player held still, as far as this machine knows: frozen, or in
+--- the air (a leap)? The `held` convention: on-foot and weapons ask every feature.
+function Abilities:held(_client, id)
+  if self:frozen(id) then
+    return true
+  end
+  for _, e in ipairs(self.effects) do
+    if e.by == id and e.ability.airborne and e.ability.airborne(e) then
+      return true
+    end
+  end
+  return false
 end
 
 --- The cursor in world space, inverting the game state's draw transform.
@@ -223,6 +258,12 @@ local function mouseToWorld(camera, ox, oy)
   return cx + (mx - w / 2) / s, cy + (my - h / 2) / s
 end
 
+--- How far ability `ability` reaches for me: its range, or further while
+--- a cheat has lifted it.
+function Abilities:range(ability)
+  return self.lifted[ability.key] and self.liftedRange or ability.range
+end
+
 --- Where the ability would land: the cursor, pulled back to within its
 --- range of me. Nil while I am out of the world.
 function Abilities:target(client, ability)
@@ -232,33 +273,46 @@ function Abilities:target(client, ability)
   end
   local x, y = mouseToWorld(self.camera, ox, oy)
   local d = math.sqrt(dist2(x, y, ox, oy))
+  local range = self:range(ability)
   if ability.aim == "self" then
     return ox, oy
-  elseif d > ability.range or (ability.aim == "direction" and d > 1) then
-    x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range -- exactly `range` away for a direction
+  elseif d > range or (ability.aim == "direction" and d > 1) then
+    x, y = ox + (x - ox) / d * range, oy + (y - oy) / d * range -- exactly `range` away for a direction
   end
   return x, y
 end
 
---- Is a direction ability selected, waiting for the fire button?
+--- Can I use `ability` where I am? One marked `onFoot` not from a car.
+local function usable(client, ability)
+  return not (ability.onFoot and client:myVehicle())
+end
+
+--- Is `ability` selected by a press of its key and placed by the fire
+--- button (a direction or a point), rather than held and let go?
+local function placed(ability)
+  return ability.aim == "direction" or ability.aim == "point"
+end
+
+--- Is a direction or point ability selected, waiting for the fire button?
 function Abilities:selecting()
   local ability = self.aiming and self:inSlot(self.aiming)
-  return ability ~= nil and ability.aim == "direction"
+  return ability ~= nil and placed(ability)
 end
 
 --- The `fireTaken` convention: the fire button is ours while a direction
---- ability is selected, and until it is let go after placing one.
+--- or point ability is selected, and until it is let go after placing one.
 function Abilities:fireTaken()
   return self:selecting() or (self.fireSpent == true and Controls.isDown("fire"))
 end
 
---- A press of a direction ability's key selects it (or puts it away); a
---- press of a self ability's key casts it on the spot.
+--- A press of a direction or point ability's key selects it (or puts it
+--- away); a press of a self ability's key casts it on the spot.
 function Abilities:keypressed(key, client)
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
-    if ability and (ability.aim == "direction" or ability.aim == "self") and Controls.is("ability-" .. i, key) then
+    if ability and (placed(ability) or ability.aim == "self") and Controls.is("ability-" .. i, key) then
       local free = not self.aiming and not self.cooldowns[ability.key] and client:myPose() ~= nil
+        and usable(client, ability)
         and not self:held(client, client.myId) and not Features.any("pointerTaken", client)
       if ability.aim == "self" then
         if free then
@@ -314,6 +368,9 @@ function Abilities:update(dt, client, camera)
   for i = #self.effects, 1, -1 do
     local e = self.effects[i]
     e.t = e.t + dt
+    if e.ability.updateEffect then
+      e.ability.updateEffect(e, client, camera)
+    end
     if e.t > e.seconds + e.ability.afterglow then
       table.remove(self.effects, i)
     end
@@ -327,23 +384,34 @@ function Abilities:update(dt, client, camera)
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
     -- Selected by a press and placed by the fire button, or cast by a press: not held.
-    local direction = ability ~= nil and (ability.aim == "direction" or ability.aim == "self")
+    local direction = ability ~= nil and (placed(ability) or ability.aim == "self")
     local down = ability ~= nil and Controls.isDown("ability-" .. i)
     if self.aiming == i then
-      if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel") then
-        self.aiming, self.spent = nil, i -- a menu or screen came up, or they changed their mind
+      if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel")
+        or not usable(client, ability) then
+        self.aiming, self.spent = nil, i -- a menu or screen came up, they got in a car, or changed their mind
       elseif not down and not direction then
         self.aiming = nil
         self:cast(client, i)
       end
     elseif down and not direction and not self.aiming and self.spent ~= i and canAim
-      and not self.cooldowns[ability.key] then
+      and not self.cooldowns[ability.key] and usable(client, ability) then
       self.aiming = i
     end
     if not down and self.spent == i then
       self.spent = nil
     end
   end
+end
+
+--- Whatever an effect puts on the ground under the cars (a leaper's shadow).
+function Abilities:drawBelowCars(client)
+  for _, e in ipairs(self.effects) do
+    if e.ability.drawBelow then
+      e.ability.drawBelow(e, client)
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 --- The aim ring while a key is held, then every effect in the world and a
@@ -358,8 +426,10 @@ function Abilities:drawAboveCars(client)
     elseif x then
       local c = ability.color
       love.graphics.setLineWidth(1)
-      love.graphics.setColor(c[1], c[2], c[3], 0.18)
-      love.graphics.circle("line", ox, oy, ability.range, 64)
+      if not self.lifted[ability.key] then
+        love.graphics.setColor(c[1], c[2], c[3], 0.18)
+        love.graphics.circle("line", ox, oy, ability.range, 64)
+      end
       love.graphics.setColor(c[1], c[2], c[3], 0.16)
       love.graphics.circle("fill", x, y, ability.radius, 48)
       love.graphics.setLineWidth(2)
@@ -372,7 +442,7 @@ function Abilities:drawAboveCars(client)
     e.ability.drawEffect(e, client)
   end
   for id in pairs(self.heldUntil) do
-    if self:held(client, id) then
+    if self:frozen(id) then
       local px, py, onFoot = client:pose(id)
       if px then
         Freeze.drawHeld(px, py, onFoot and Body.RADIUS + 4 or Car.WIDTH * 0.62, self.time)
@@ -473,7 +543,7 @@ function Abilities:drawHUD(client)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
         middle, middleColor = key, { 1, 1, 1 }
-        title = aiming and (ability.aim == "direction" and "fire: place" or "release") or (ability.hud or ability.title)
+        title = aiming and (placed(ability) and "fire: place" or "release") or (ability.hud or ability.title)
         titleColor = aiming and c or { 0.9, 0.9, 0.95 }
       end
       love.graphics.setFont(body)
@@ -482,7 +552,7 @@ function Abilities:drawHUD(client)
       UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, titleColor)
     end
   end
-  if self:held(client, client.myId) then
+  if self:frozen(client.myId) then
     love.graphics.setFont(body)
     local c = Freeze.color
     love.graphics.setColor(0, 0, 0, 0.6)
@@ -501,16 +571,18 @@ Abilities.clientMessages = {
     if not (ability and x and y and seconds) then
       return
     end
-    Abilities.effects[#Abilities.effects + 1] = {
-      ability = ability, by = by, x = x, y = y, angle = angle, t = 0, seconds = seconds,
-    }
+    local e = { ability = ability, by = by, x = x, y = y, angle = angle, t = 0, seconds = seconds }
+    Abilities.effects[#Abilities.effects + 1] = e
+    if ability.onFired then
+      ability.onFired(e, client)
+    end
     for i = 7, #args do
       local id = tonumber(args[i])
       if id then
         Abilities.heldUntil[id] = Abilities.time + seconds
       end
     end
-    if by == client.myId then
+    if by == client.myId and not Abilities.lifted[ability.key] then
       -- Clothes (gear) may bring it back sooner.
       Abilities.cooldowns[ability.key] = ability.cooldown * Features.reduce("stat", 1, client, by, "cooldown")
     end
@@ -529,6 +601,14 @@ Abilities.clientMessages = {
     end
     if Abilities.passive and slots[Abilities.passiveSlot] ~= Abilities.passive.key then
       Abilities.passive = nil -- put down: whatever it was doing is over
+    end
+  end,
+  ABL_REACH = function(_client, args)
+    if Kinds.byKey[args[1] or EMPTY] then
+      Abilities.lifted[args[1]] = args[2] == "1" or nil
+      if Abilities.lifted[args[1]] then
+        Abilities.cooldowns[args[1]] = nil -- ready now
+      end
     end
   end,
   ABL_PASSIVE = function(_client, args)
@@ -560,6 +640,7 @@ function Abilities:serverStart(server)
     bodies = {}, -- player id -> { until, x, y }: a walker kept on the spot
     cars = {}, -- vehicle id -> { until, x, y, angle }: a car kept on the spot
     hurtAt = {}, -- player id -> time they were last hurt, for passive abilities
+    lifted = {}, -- player id -> ability key -> true while its range and cooldown are lifted (a cheat)
   }
   for _, p in pairs(server.players) do
     self:serverPlayerJoined(server, p)
@@ -598,6 +679,7 @@ function Abilities:serverPlayerLeft(_server, player)
   if sv then
     sv.slots[player.id], sv.readyAt[player.id] = nil, nil
     sv.players[player.id], sv.bodies[player.id], sv.hurtAt[player.id] = nil, nil, nil
+    sv.lifted[player.id] = nil
     for _, ability in ipairs(Kinds.list) do
       if ability.serverForget then
         ability.serverForget(player)
@@ -705,6 +787,31 @@ function Abilities:serverLoadPlayer(server, player, data)
   self:sendSlots(server, player)
 end
 
+--- Lift the range and cooldown of ability `key` for `player` (on = true),
+--- or put them back; they hear ABL_REACH so their aim agrees. Returns whether it is
+--- lifted now. The cheats feature does this.
+function Abilities:serverSetReach(server, player, key, on)
+  local sv = self.sv
+  if not (sv and Kinds.byKey[key]) then
+    return false
+  end
+  local lifted = sv.lifted[player.id] or {}
+  sv.lifted[player.id] = lifted
+  lifted[key] = on and true or nil
+  local ready = sv.readyAt[player.id]
+  if on and ready then
+    ready[key] = nil -- ready now, whatever was left of its cooldown
+  end
+  server:send(player, Protocol.encode("ABL_REACH", key, on and 1 or 0))
+  return lifted[key] == true
+end
+
+--- Are the range and cooldown of ability `key` lifted for `player`?
+function Abilities:serverReachLifted(player, key)
+  local lifted = self.sv and self.sv.lifted[player.id]
+  return lifted ~= nil and lifted[key] == true
+end
+
 --- Everything moved to a new map: nothing is held there.
 function Abilities:mapChanged(_map, server)
   if server and self.sv then
@@ -712,10 +819,11 @@ function Abilities:mapChanged(_map, server)
   end
 end
 
---- The `serverHeld` convention: is this player held still on the host?
+--- The `serverHeld` convention: is this player held still on the host
+--- (frozen, or in the air)?
 function Abilities:serverHeld(_server, player)
   local sv = self.sv
-  return sv ~= nil and (sv.players[player.id] or 0) > sv.time
+  return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or Leap.serverLeaping(player.id))
 end
 
 --- Keep a car where it stands for `seconds`, whoever is in it.
@@ -738,8 +846,8 @@ end
 --- this via Features.byName.abilities.
 function Abilities:serverHold(server, player, seconds)
   local sv = self.sv
-  if not (sv and Features.present(player)) then
-    return false
+  if not (sv and Features.present(player)) or Leap.serverLeaping(player.id) then
+    return false -- nobody to hold, or in the air: nothing holds a leaper
   end
   sv.players[player.id] = math.max(sv.players[player.id] or 0, sv.time + seconds)
   if player.vehicle then
@@ -840,6 +948,9 @@ Abilities.serverMessages = {
     if Abilities:serverHeld(server, player) then
       return -- frozen people cast nothing
     end
+    if ability.onFoot and player.vehicle then
+      return -- not from behind the wheel; the client knows, so this was stale or forged
+    end
     local ready = sv.readyAt[player.id]
     if not ready then
       ready = {}
@@ -851,14 +962,19 @@ Abilities.serverMessages = {
     -- Never further than the ability reaches, whatever the client said.
     local ox, oy = Features.bodyPose(server, player)
     local d = math.sqrt(dist2(x, y, ox, oy))
-    if d > ability.range then
-      x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range
+    local lifted = Abilities:serverReachLifted(player, key)
+    local range = lifted and Abilities.liftedRange or ability.range
+    if d > range then
+      x, y = ox + (x - ox) / d * range, oy + (y - oy) / d * range
     end
-    ready[key] = sv.time + ability.cooldown * Features.reduce("serverStat", 1, server, player, "cooldown")
-    local held, angle, nx, ny = ability.serverCast(server, player, x, y, Abilities)
+    if not lifted then
+      ready[key] = sv.time + ability.cooldown * Features.reduce("serverStat", 1, server, player, "cooldown")
+    end
+    local held, angle, nx, ny, seconds = ability.serverCast(server, player, x, y, Abilities)
     x, y = nx or x, ny or y -- an ability may settle somewhere else (the nest steps out of walls)
+    -- ... and last longer than usual this time (a long leap flies longer).
     server:broadcast(Protocol.encode("ABL_FIRED", player.id, key, ("%.1f"):format(x), ("%.1f"):format(y),
-      ("%.2f"):format(ability.seconds), ("%.3f"):format(angle or 0), unpack(held or {})))
+      ("%.2f"):format(seconds or ability.seconds), ("%.3f"):format(angle or 0), unpack(held or {})))
   end,
   ABL_EQUIP = function(server, player, args)
     Abilities:serverEquip(server, player, args[1], tonumber(args[2]))

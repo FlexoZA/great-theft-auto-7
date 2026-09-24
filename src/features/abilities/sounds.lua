@@ -80,6 +80,25 @@ function Sounds.load()
     buf:drive(1.5)
     buf:lowpass(2600)
   end)
+
+  -- Leap: a rushing whoosh as you push off.
+  bank.leap = make(0.5, function(buf)
+    buf:noiseBurst(0, 0.45, { amp = 0.5, decay = 0.2 })
+    buf:sweep(0, 0.4, 180, 520, { wave = "tri", amp = 0.25, decay = 0.25 })
+    buf:highpass(300)
+    buf:lowpass(3500)
+  end)
+
+  -- Leap landing: a heavy thud and gravel scattering.
+  bank.leapland = make(0.7, function(buf)
+    buf:sweep(0, 0.3, 140, 38, { wave = "sine", amp = 1.0, decay = 0.14 })
+    buf:noiseBurst(0, 0.5, { amp = 0.6, decay = 0.12 })
+    for i = 1, 6 do
+      buf:noiseBurst(0.06 + i * 0.05, 0.03, { amp = 0.25 - i * 0.03, decay = 0.012 })
+    end
+    buf:drive(2)
+    buf:lowpass(2400)
+  end)
 end
 
 --- Play `name` at world position (x, y).
