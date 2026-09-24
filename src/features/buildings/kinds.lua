@@ -27,6 +27,9 @@
 --             iron). Kinds.recipe merges them over the kind's own.
 --   private   true: never open to the public (the parking lot)
 --   walkable  true: not solid, cars drive onto it (the parking lot)
+--   hp        hit points; every gun hurts a building (a rocket's blast hurts
+--             the parking lot too, bullets fly over it). At 0 it is a ruin
+--             until its owner repairs it or someone takes the lot over.
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
 --
@@ -43,6 +46,7 @@ Kinds.materials = { "iron", "sulfur", "minerals", "copper", "oil", "plastic" }
 Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
+Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cost; less damage, less
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
@@ -86,22 +90,22 @@ end
 
 Kinds.list = {
   {
-    key = "parking", name = "Parking Lot", cost = 30,
+    key = "parking", name = "Parking Lot", cost = 30, hp = 200,
     rate = 10 / 60, cap = 100, private = true, walkable = true,
   },
   {
-    key = "quarry", name = "Quarry Mine", cost = 40,
+    key = "quarry", name = "Quarry Mine", cost = 40, hp = 600,
     inputs = {}, time = 6, batch = 1, cap = 50, unit = 1, price = 1,
     products = { "iron", "sulfur", "minerals", "copper" },
   },
   {
-    key = "oil", name = "Oil Well", cost = 70,
+    key = "oil", name = "Oil Well", cost = 70, hp = 500,
     inputs = {}, time = 8, batch = 1, cap = 50, unit = 1, price = 2,
     products = { "oil", "plastic" },
     recipes = { plastic = { time = 12, price = 3 } }, -- refined on the spot, so slower
   },
   {
-    key = "ammo", name = "Ammo Factory", cost = 60,
+    key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
@@ -111,7 +115,7 @@ Kinds.list = {
     },
   },
   {
-    key = "weapons", name = "Weapons Factory", cost = 80,
+    key = "weapons", name = "Weapons Factory", cost = 80, hp = 1000,
     inputs = { iron = 4 }, time = 30, batch = 1, cap = 5, unit = 1, price = 20,
     products = gunItems,
     recipes = {
@@ -119,7 +123,7 @@ Kinds.list = {
     },
   },
   {
-    key = "health", name = "Health Factory", cost = 50,
+    key = "health", name = "Health Factory", cost = 50, hp = 600,
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
     products = { "medkit" },
   },
@@ -164,6 +168,15 @@ for i, kind in ipairs(Kinds.list) do
       kind.hopper[item] = true
     end
   end
+end
+
+--- Fcks to bring a building of `kind` at `hp` back to full.
+function Kinds.repairCost(kind, hp)
+  local missing = math.max(0, kind.hp - hp)
+  if missing == 0 then
+    return 0
+  end
+  return math.max(1, math.ceil(kind.cost * Kinds.REPAIR * missing / kind.hp))
 end
 
 --- A readable name for `n` of an item, without the count: "uzi ammo",
