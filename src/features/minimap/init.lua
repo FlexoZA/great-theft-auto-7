@@ -1,8 +1,9 @@
 -- Minimap: a small map in the bottom-right corner. Shows the city (drawn
 -- once from the city-map layout), every player as a dot in their colour
 -- (driving or walking), you with a heading tick, parked cars as small
--- squares, and the rectangle the camera currently sees. Without the
--- city-map feature it becomes a radar centred on you.
+-- squares (your own ringed in white, so you can always find them), and the
+-- rectangle the camera currently sees. Without the city-map feature it
+-- becomes a radar centred on you.
 --
 -- Purely local. Tab toggles it.
 
@@ -171,10 +172,16 @@ function Minimap:drawHUD(client)
     love.graphics.rectangle("line", vx, vy, w / s * scale, h / s * scale)
   end
 
-  -- Parked cars, small and in their colour.
+  -- Parked cars, small and in their colour; my own cars ringed in white,
+  -- parked or not, unless I am the one driving (then I am the dot on it).
   for _, v in pairs(client.vehicles) do
-    if not v.driver then
+    local mine = v.owner == client.myId and v.driver ~= client.myId
+    if not v.driver or mine then
       local px, py = project(v.dx, v.dy, me)
+      if mine then
+        love.graphics.setColor(1, 1, 1, 0.95)
+        love.graphics.rectangle("fill", px - 4, py - 4, 8, 8)
+      end
       love.graphics.setColor(Car.paletteColor(v.color))
       love.graphics.rectangle("fill", px - 2, py - 2, 4, 4)
     end
