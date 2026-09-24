@@ -23,10 +23,13 @@
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   stock     rounds everyone starts the game with, the loaded magazine
---             included (for testing a gun before it can be bought)
+--             included, and the gun itself: everyone starts with a gun
+--             that has a stock in a weapon slot (for testing a gun before
+--             it can be bought)
 --
 -- Rounds come out of the player's inventory (the buildings feature keeps
--- it: "ammo-<key>"), a magazine at a time.
+-- it: "ammo-<key>"), a magazine at a time. The gun itself is an item too
+-- ("gun-<key>"), picked up from the bag and put back on the inventory screen.
 
 local Guns = {}
 

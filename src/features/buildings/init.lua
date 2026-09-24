@@ -45,11 +45,13 @@
 -- into the hopper, as much as fits and the owner's wallet covers, and the
 -- owner pays for it. Public or private makes no difference to buying.
 --
--- The inventory (I) has slots: four to start with, more from the upgrade
+-- The inventory has item slots: four to start with, more from the upgrade
 -- shop (Buildings:serverSetSlots). A slot holds one stack of one item
 -- (kinds.lua has the stack sizes); what doesn't fit stays in the building.
 -- It is kept by the host and told to each player alone. Weapons loads its
--- magazines from the ammo in it (serverTake); guns are stock for now.
+-- magazines from the ammo in it (serverTake) and moves guns in and out of
+-- it as "gun-<key>" items (serverTake, serverGive). The screen that shows
+-- it (I) is the inventory feature's; this one only keeps the items.
 --
 -- Buildings can be shot down. Each kind has its own hit points (kinds.lua,
 -- `hp`); every gun hurts the walls it hits (weapons' `serverWallHit`) and a
@@ -271,13 +273,11 @@ Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.menu = false -- is the building menu open?
 Buildings.page = nil -- nil for the menu's main page, "prices" for the owner's prices, "offer" for one material's
 Buildings.offerItem = nil -- the material the "offer" page sets a price for
-Buildings.bag = false -- is the inventory open?
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
 local time = 0
 
 function Buildings:load()
-  Controls.register("inventory", "Open / close the inventory", "i")
   Controls.register("use-medkit", "Use a medkit", "h")
   for i = 1, self.menuKeys do
     Controls.register("building-" .. i, ("Building menu: option %d"):format(i), tostring(i))
@@ -288,7 +288,7 @@ end
 -- as START, so they are only forgotten on the way out.
 function Buildings:exitGame()
   self.buildings, self.inventory, self.slots = {}, {}, Kinds.SLOTS
-  self.menu, self.bag = false, false
+  self.menu = false
   herePad, herePlot, notice, noticeTimer = nil, nil, nil, 0
   markWalls()
 end
@@ -297,16 +297,23 @@ local function say(text, good)
   notice, noticeTimer, noticeGood = text, NOTICE_TIME, good or false
 end
 
---- Is another feature's menu up (the upgrade shop)? Then ours stays shut.
+--- Is another feature's panel up (the upgrade shop, the inventory screen)?
+--- Then ours stays shut.
 local function otherMenuOpen()
-  local shop = Features.byName.upgrades
-  return shop and shop.open
+  local shop, inventory = Features.byName.upgrades, Features.byName.inventory
+  return (shop and shop.open) or (inventory and inventory.open) or false
 end
 
 --- For weapons and anything else on the number keys: ours are taken while
 --- the menu is open (docs/features.md, `menuOpen`).
 function Buildings:menuOpen()
   return self.menu
+end
+
+--- The `actionTaken` convention: the action key is ours while I stand on
+--- an owned plot's square (it opens the menu) or the menu is up.
+function Buildings:actionTaken()
+  return herePad ~= nil or self.menu
 end
 
 function Buildings:update(dt, client)
@@ -514,10 +521,6 @@ function Buildings:offerRows(client, plot, b)
 end
 
 function Buildings:keypressed(key, client)
-  if Controls.is("inventory", key) then
-    self.bag = not self.bag
-    return
-  end
   if Controls.is("use-medkit", key) and not self.menu then
     if (self.inventory.medkit or 0) < 1 then
       say(REASONS.nomedkit)
@@ -767,105 +770,8 @@ local function drawMenu(self, client)
   love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
 end
 
---- My inventory as the stacks that fill its slots, materials first.
-local function stacks(inventory)
-  local items = {}
-  for _, m in ipairs(Kinds.materials) do
-    items[#items + 1] = m
-  end
-  local others = {}
-  for item in pairs(inventory) do
-    if not Kinds.isMaterial(item) then
-      others[#others + 1] = item
-    end
-  end
-  table.sort(others)
-  for _, item in ipairs(others) do
-    items[#items + 1] = item
-  end
-  local out = {}
-  for _, item in ipairs(items) do
-    local left, stack = inventory[item] or 0, Kinds.stack(item)
-    while left > 0 do
-      out[#out + 1] = { item = item, n = math.min(stack, left) }
-      left = left - stack
-    end
-  end
-  return out
-end
-
-local COLS, CELL, GAP = 5, 76, 8
-
---- The inventory panel on the left: a slot per box, locked ones greyed out.
-local function drawBag(self)
-  local rows = math.ceil(Kinds.MAX_SLOTS / COLS)
-  local pw = 2 * 24 + COLS * CELL + (COLS - 1) * GAP
-  local ph = 64 + rows * (CELL + GAP) + 62
-  local px, py = 16, 250
-  panel(px, py, pw, ph, "INVENTORY")
-  local list = stacks(self.inventory)
-  for i = 1, Kinds.MAX_SLOTS do
-    local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
-    local x, y = px + 24 + col * (CELL + GAP), py + 56 + row * (CELL + GAP)
-    local open = i <= self.slots
-    love.graphics.setColor(1, 1, 1, open and 0.10 or 0.03)
-    love.graphics.rectangle("fill", x, y, CELL, CELL, 6)
-    love.graphics.setColor(1, 1, 1, open and 0.35 or 0.12)
-    love.graphics.rectangle("line", x, y, CELL, CELL, 6)
-    local s = open and list[i]
-    if s then
-      Render.itemIcon(s.item, x + CELL / 2, y + 22)
-      love.graphics.setFont(UI.fonts.small)
-      love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(Kinds.label(s.item), x + 2, y + 38, CELL - 4, "center")
-      love.graphics.setColor(1, 0.85, 0.3)
-      love.graphics.printf(tostring(s.n), x, y + 2, CELL - 5, "right")
-    elseif not open then
-      love.graphics.setColor(1, 1, 1, 0.2)
-      love.graphics.setFont(UI.fonts.small)
-      love.graphics.printf("locked", x, y + CELL / 2 - 8, CELL, "center")
-    end
-  end
-  -- Names of what I carry under the boxes, since icons only say so much.
-  love.graphics.setFont(UI.fonts.small)
-  local y = py + 56 + rows * (CELL + GAP) + 4
-  local hint
-  if self.slots < Kinds.MAX_SLOTS then
-    local shop = Controls.name(Controls.bindings("upgrades")[1])
-    hint = ("%d/%d slots used. More slots in the upgrade shop (%s)."):format(
-      math.min(#list, self.slots), self.slots, shop)
-  else
-    hint = ("%d/%d slots used."):format(math.min(#list, self.slots), self.slots)
-  end
-  love.graphics.setColor(0.8, 0.8, 0.85)
-  love.graphics.printf(hint, px + 20, y, pw - 40, "left")
-  local foot = Controls.name(Controls.bindings("inventory")[1]) .. ": close"
-  if (self.inventory.medkit or 0) > 0 then
-    foot = Controls.name(Controls.bindings("use-medkit")[1]) .. ": use a medkit   " .. foot
-  end
-  love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.printf(foot, px, py + ph - 26, pw, "center")
-end
-
---- A reminder of the inventory key, bottom left, while it is shut.
-local function drawBagHint(self)
-  local used = Kinds.slotsUsed(self.inventory)
-  local line = ("%s: inventory (%d/%d)"):format(Controls.name(Controls.bindings("inventory")[1]), used, self.slots)
-  if (self.inventory.medkit or 0) > 0 then
-    line = line .. "   " .. Controls.name(Controls.bindings("use-medkit")[1]) .. ": use medkit"
-  end
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.85, 0.8, 0.6)
-  love.graphics.print(line, 10, love.graphics.getHeight() - 28)
-end
-
 function Buildings:drawHUD(client)
   local w, h = love.graphics.getDimensions()
-  if self.bag then
-    drawBag(self)
-  else
-    drawBagHint(self)
-  end
   local re = realEstate()
   local plot = herePad
   local owner = plot and re and re.owners[plot.id]

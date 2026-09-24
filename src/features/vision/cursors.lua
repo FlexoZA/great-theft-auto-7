@@ -16,4 +16,17 @@ function Cursors.target(x, y)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- A plain pointer, for screens where the mouse picks things up.
+function Cursors.arrow(x, y)
+  local shape = { x, y, x, y + 17, x + 4, y + 13, x + 7, y + 19, x + 10, y + 18, x + 7, y + 12, x + 12, y + 12 }
+  love.graphics.setColor(0.1, 0.1, 0.12, 0.9)
+  love.graphics.setLineWidth(3)
+  love.graphics.polygon("line", shape)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 1, 1)
+  for _, tri in ipairs(love.math.triangulate(shape)) do
+    love.graphics.polygon("fill", tri)
+  end
+end
+
 return Cursors

@@ -9,6 +9,8 @@
 
 local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
+local Icons = require("src.features.weapons.icons")
+local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
 
 local Render = {}
@@ -207,6 +209,7 @@ local function emblem(key, cx, cy)
 end
 
 local ROOFS = {
+  vehicles = { 0.7, 0.3, 0.22 },
   ammo = { 0.45, 0.42, 0.35 },
   weapons = { 0.3, 0.32, 0.36 },
   health = { 0.92, 0.92, 0.9 },
@@ -239,9 +242,17 @@ local function factory(b, kind, r, time)
     box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
     box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
   end
-  -- What is waiting to be collected, in crates by the gate.
+  -- What is waiting to be collected: crates by the gate, or the cars
+  -- themselves parked nose up along the bottom of the yard.
   local units = math.floor(b.output / Kinds.recipe(kind, b.product).unit)
-  crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  local model = Catalog.fromItem(kind.products[b.product])
+  if model then
+    for i = 0, math.min(units, kind.cap) - 1 do
+      Catalog.draw(model, r.x + 24 + i * 26, r.y + r.h - 24, -math.pi / 2, 36)
+    end
+  else
+    crates(r.x + 20, r.y + r.h - 30, units, 10, CRATES[kind.key])
+  end
 end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.
@@ -271,12 +282,6 @@ function Render.itemIcon(item, cx, cy)
       love.graphics.polygon("fill", x - 3, cy + 10, x - 6, cy + 13, x - 3, cy + 6)
       love.graphics.polygon("fill", x + 3, cy + 10, x + 6, cy + 13, x + 3, cy + 6)
     end
-  elseif item == "gun-rocket" then
-    love.graphics.setColor(0.35, 0.42, 0.3)
-    love.graphics.rectangle("fill", cx - 16, cy - 5, 32, 9, 2)
-    love.graphics.setColor(0.2, 0.22, 0.2)
-    love.graphics.rectangle("fill", cx - 3, cy + 3, 5, 8)
-    love.graphics.rectangle("fill", cx - 18, cy - 6, 4, 11)
   elseif c then
     -- A heap of ore.
     love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
@@ -293,9 +298,10 @@ function Render.itemIcon(item, cx, cy)
       love.graphics.polygon("fill", x - 3, cy - 4, x + 3, cy - 4, x, cy - 11)
     end
   elseif item:match("^gun%-") then
-    love.graphics.setColor(0.75, 0.75, 0.8)
-    love.graphics.rectangle("fill", cx - 14, cy - 6, 28, 7)
-    love.graphics.rectangle("fill", cx + 4, cy, 7, 11)
+    -- The same drawing the inventory's weapon slots use, at item size.
+    Icons.draw(item:sub(5), cx, cy, 0.6)
+  elseif item:match("^ability%-") then
+    Render.abilityIcon(item:sub(9), cx, cy, 11)
   elseif item == "medkit" then
     love.graphics.setColor(0.95, 0.95, 0.95)
     love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
@@ -303,6 +309,18 @@ function Render.itemIcon(item, cx, cy)
     love.graphics.rectangle("fill", cx - 3, cy - 7, 6, 14)
     love.graphics.rectangle("fill", cx - 7, cy - 3, 14, 6)
   end
+end
+
+--- An ability as a thing: its ring, in its colour, with a glow inside,
+--- radius `r`. The inventory screen draws one under the cursor with this.
+function Render.abilityIcon(key, cx, cy, r)
+  local a = AbilityKinds.byKey[key]
+  local c = a and a.color or { 0.8, 0.8, 0.85 }
+  love.graphics.setColor(c[1], c[2], c[3], 0.25)
+  love.graphics.circle("fill", cx, cy, r + 3, 32)
+  love.graphics.setColor(c[1], c[2], c[3], 0.6)
+  love.graphics.circle("fill", cx, cy, r * 0.45, 24)
+  UI.ring(cx, cy, r, 1, c, 3)
 end
 
 --- The main colour of `kind`'s building, for rubble and flying debris.
