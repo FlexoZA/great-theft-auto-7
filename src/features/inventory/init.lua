@@ -3,10 +3,11 @@
 -- around a picture of you; screen.lua draws it.
 --
 -- While it is up the mouse is yours, not the gun's: weapons doesn't fire,
--- abilities don't aim, vision stops panning and shows an arrow (the
--- `pointerTaken` convention, docs/features.md), and the number keys are
--- ours (`menuOpen`). It never opens over the upgrade shop or a building
--- menu, and closes if one of those comes up.
+-- abilities don't aim, vision stops panning and lends us its arrow cursor,
+-- drawn last so it sits over the panel (the `pointerTaken` convention,
+-- docs/features.md), and the number keys are ours (`menuOpen`). It never
+-- opens over the upgrade shop or a building menu, and closes if one of
+-- those comes up.
 --
 -- The weapon slots are the number keys: drag a gun item from the bag onto
 -- a slot and that key fires it (weapons:equip; a gun already there swaps
@@ -233,7 +234,7 @@ local function drawHint(b)
   love.graphics.print(line, 10, love.graphics.getHeight() - 28)
 end
 
-function Inventory:drawHUD()
+function Inventory:drawHUD(client)
   local b = buildings()
   if not b then
     return
@@ -246,6 +247,11 @@ function Inventory:drawHUD()
   Screen.draw(b, Screen.stacks(b.inventory), d, self.notice and self.notice.text)
   if d then
     Screen.drawDrag(d, love.mouse.getPosition())
+  end
+  -- The cursor last of all, over the panel and whatever is being dragged.
+  local vision = Features.byName.vision
+  if vision then
+    vision:drawCursor(client)
   end
   love.graphics.setColor(1, 1, 1)
 end

@@ -127,7 +127,12 @@ function Vision:keypressed(key)
   end
 end
 
-function Vision:drawHUD(client)
+--- The cursor at the mouse: the crosshair, or the arrow while a screen
+--- has the mouse. A screen that takes the pointer (`pointerTaken`) calls
+--- this itself at the end of its own drawHUD, so the cursor lands on top
+--- of its panel rather than under it (features draw in priority order and
+--- the screen comes after vision).
+function Vision:drawCursor(client)
   if not self.enabled then
     return
   end
@@ -136,6 +141,13 @@ function Vision:drawHUD(client)
   if cursor then
     cursor(love.mouse.getPosition())
   end
+end
+
+function Vision:drawHUD(client)
+  if Features.any("pointerTaken", client) then
+    return -- the screen draws it, over itself
+  end
+  self:drawCursor(client)
 end
 
 return Vision
