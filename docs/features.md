@@ -460,6 +460,12 @@ example with a menu; real-estate is the one with a place to stand.
   destroyed one is a ruin (not solid, makes nothing) until its owner pays to
   rebuild it, or anyone else pays `buildings.takeoverPrice` to take the lot
   over empty. A building still standing can't be taken over.
+- Car tags: `src/features/car-tags` writes the owner's name over a parked
+  car, the way the core writes the driver's over a moving one, so you know
+  whose car you are borrowing and can spot your own. Player-arrows marks the
+  window's edge towards other players (a walker), police (an arrow) and your
+  own cars (a car) while they are off screen; civilian bots are left out
+  (bots tells clients who they are with `BOT_UNIT`).
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
   carry around a picture of you: gear slots (empty for now), a weapon slot
   per number key, an ability slot per ability key, and the item boxes. It

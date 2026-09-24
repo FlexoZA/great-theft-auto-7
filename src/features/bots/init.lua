@@ -21,6 +21,7 @@
 --
 -- Messages
 --   client -> server  BOT_ADD / BOT_REMOVE   (host only)
+--   server -> all     BOT_UNIT <id>          (that player is a civilian bot; player-arrows leaves them out)
 
 local Protocol = require("src.net.protocol")
 local ServerSettings = require("src.server_settings")
@@ -201,7 +202,18 @@ function Bots:add(server, x, y, angle)
   local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle })
   nextNumber = nextNumber + 1
   bots[#bots + 1] = bot
+  server:broadcast(Protocol.encode("BOT_UNIT", bot.id))
   return bot
+end
+
+--- A player who arrives mid-game hears which players are bots.
+function Bots:serverPlayerJoined(server, player)
+  if player.bot then
+    return
+  end
+  for _, bot in ipairs(bots) do
+    server:send(player, Protocol.encode("BOT_UNIT", bot.id))
+  end
 end
 
 function Bots:removeLast(server)
@@ -249,6 +261,23 @@ local function spawnNearHost(server)
   local a = love.math.random() * 2 * math.pi
   return hx + math.cos(a) * 500, hy + math.sin(a) * 500, a + math.pi
 end
+
+-- Client --------------------------------------------------------------------
+
+Bots.ids = {} -- player id -> true for the civilian bots (the host says: BOT_UNIT)
+
+function Bots:exitGame()
+  self.ids = {}
+end
+
+Bots.clientMessages = {
+  BOT_UNIT = function(_client, args)
+    local id = tonumber(args[1])
+    if id then
+      Bots.ids[id] = true
+    end
+  end,
+}
 
 Bots.serverMessages = {
   BOT_ADD = function(server, player)
