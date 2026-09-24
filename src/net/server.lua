@@ -4,8 +4,9 @@
 -- from the moment the game starts; `server.vehicles` holds every car in
 -- the world (src/car.lua), each with an owner and, while someone is behind
 -- the wheel, a driver. `player.vehicle` is the one they are driving (nil on
--- foot) and `player.car` the one they own, spawned with them and respawned
--- with them. Seat and unseat move a player between the two; features
+-- foot) and `player.car` the one they own, spawned with them, respawned
+-- with them and left parked when they go (`car.owner` may be someone who
+-- has left; `server.departed` has their name). Seat and unseat move a player between the two; features
 -- decide when (on-foot asks for the driver, weapons for the wrecked).
 --
 -- STATE carries every vehicle in the world with its driver, then every
@@ -46,6 +47,7 @@ function Server.new(hostName)
     hostId = ("%04x%04x"):format(love.math.random(0, 0xffff), love.math.random(0, 0xffff)),
     players = {}, -- id -> { id, name, peer, input, body, vehicle, car }
     byPeer = {}, -- peer:index() -> player
+    departed = {}, -- id -> name of everyone who left this session (their cars may still be about)
     nextId = 1,
     vehicles = {}, -- vehicle id -> Car
     nextVehicleId = 1,
@@ -63,10 +65,13 @@ function Server.new(hostName)
   return self
 end
 
+--- People connected, not counting bots and other NPCs.
 function Server:playerCount()
   local n = 0
-  for _ in pairs(self.players) do
-    n = n + 1
+  for _, p in pairs(self.players) do
+    if not p.bot then
+      n = n + 1
+    end
   end
   return n
 end
@@ -269,14 +274,8 @@ function Server:onHello(peer, name)
   if self.byPeer[idx] then
     return
   end
-  local reason
-  if self.started then
-    reason = "game already started"
-  elseif self:playerCount() >= Server.MAX_PLAYERS then
-    reason = "server full"
-  end
-  if reason then
-    peer:send(Protocol.encode("REJECT", reason), RELIABLE, "reliable")
+  if self:playerCount() >= Server.MAX_PLAYERS then
+    peer:send(Protocol.encode("REJECT", "server full"), RELIABLE, "reliable")
     peer:disconnect_later()
     return
   end
@@ -302,7 +301,55 @@ function Server:onHello(peer, name)
     peer:send(Protocol.encode("JOIN", other.id, other.name), RELIABLE, "reliable")
   end
   self:broadcast(Protocol.encode("JOIN", id, player.name), player)
+  if self.started then
+    self:joinRunning(player)
+  else
+    Features.call("serverPlayerJoined", self, player)
+  end
+end
+
+--- Someone arrived after Start. They hear about every car and everyone who
+--- has left (whose cars may still be parked about), get a body and a car of
+--- their own at a free spawn point, then the features send them what they
+--- need, and START last, so it all lands before their game screen opens.
+function Server:joinRunning(player)
+  for vid, car in pairs(self.vehicles) do
+    self:send(player, Protocol.encode("VEHICLE", vid, car.owner or 0, car.color))
+  end
+  for id, name in pairs(self.departed) do
+    self:send(player, Protocol.encode("KNOWN", id, name))
+  end
+  self:spawnPlayer(player, self:freeSpawn())
   Features.call("serverPlayerJoined", self, player)
+  self:send(player, Protocol.encode("START"))
+end
+
+--- The map spawn point furthest from every car and body, so a newcomer's car
+--- is not dropped onto someone. Without a map: beside the origin line-up.
+--- Returns x, y, angle.
+function Server:freeSpawn()
+  local spawns = self.spawnPoints
+  if not spawns or #spawns == 0 then
+    return self:playerCount() * SPAWN_SPACING, 0, -math.pi / 2
+  end
+  local best, bestGap = spawns[1], -1
+  for _, s in ipairs(spawns) do
+    local gap = math.huge
+    for _, car in pairs(self.vehicles) do
+      if not (car.hidden or car.stowed) then
+        gap = math.min(gap, (car.x - s.x) ^ 2 + (car.y - s.y) ^ 2)
+      end
+    end
+    for _, p in pairs(self.players) do
+      if p.body and not p.vehicle then
+        gap = math.min(gap, (p.body.x - s.x) ^ 2 + (p.body.y - s.y) ^ 2)
+      end
+    end
+    if gap > bestGap then
+      best, bestGap = s, gap
+    end
+  end
+  return best.x, best.y, best.angle
 end
 
 function Server:onDisconnect(peer)
@@ -313,10 +360,8 @@ function Server:onDisconnect(peer)
   end
   self.byPeer[idx] = nil
   self.players[player.id] = nil
-  self:unseat(player)
-  if player.car then
-    self:removeVehicle(player.car) -- their own car leaves with them
-  end
+  self.departed[player.id] = player.name
+  self:unseat(player) -- their own car stays where they left it, still theirs
   self:broadcast(Protocol.encode("LEAVE", player.id))
   Features.call("serverPlayerLeft", self, player)
 end
@@ -351,7 +396,8 @@ function Server:spawnPlayers()
   end
 end
 
---- A player added while the game is running (a bot): body, own car, seated.
+--- A player added while the game is running (a bot, or someone joining late):
+--- body, own car, seated.
 function Server:spawnPlayer(player, x, y, angle)
   player.body = Body.new(x, y, angle)
   player.car = self:spawnVehicle(x, y, angle, player.id)

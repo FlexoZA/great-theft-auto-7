@@ -162,7 +162,7 @@ local function clientPose(client, id)
   return Features.clientBodyPose(client, id)
 end
 
--- Client state (also reset in enterGame) ------------------------------------
+-- Client state (reset in enterGame and resetSynced) -------------------------
 
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 Weapons.health = {} -- player id -> hp (absent = full)
@@ -190,6 +190,7 @@ Weapons.camera = nil -- last camera seen in update; needed to aim through pans a
 
 function Weapons:load()
   Sounds.load()
+  self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
   Controls.register("reload", "Reload", "x") -- R went to the abilities
@@ -198,26 +199,33 @@ function Weapons:load()
   end
 end
 
-function Weapons:enterGame()
-  self.projectiles = {}
+--- What the host tells us about everyone (health, ceilings, my slots and
+--- magazines). It arrives just before the game is entered -- WPN_GUNS from
+--- serverStart, a latecomer's catch-up from serverPlayerJoined -- so it is
+--- only cleared on the way out, never on the way in.
+function Weapons:resetSynced()
   self.health = {}
   self.maxHealth = {}
   self.carHealth = {}
   self.carMax = {}
   self.kills = {}
-  self.hitFlash = {}
-  self.carFlash = {}
-  self.feed = nil
-  self.cooldown = 0
-  self.gun = Guns.DEFAULT
   self.slots = self:startSlots()
   self.mags = {}
   for i, gun in ipairs(Guns.list) do
     self.mags[i] = gun.magazine
   end
+  self.infiniteAmmo = false
+end
+
+function Weapons:enterGame()
+  self.projectiles = {}
+  self.hitFlash = {}
+  self.carFlash = {}
+  self.feed = nil
+  self.cooldown = 0
+  self.gun = Guns.DEFAULT
   self.reloading = nil
   self.ammoNotice = nil
-  self.infiniteAmmo = false
   self.camera = nil
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
@@ -226,6 +234,7 @@ function Weapons:enterGame()
 end
 
 function Weapons:exitGame()
+  self:resetSynced()
   self:enterGame()
 end
 
@@ -682,8 +691,7 @@ function Weapons:drawHUD(client)
 end
 
 local function playerName(client, id)
-  local p = client.players[id]
-  return p and p.name or ("#" .. tostring(id))
+  return client:nameOf(id) or ("#" .. tostring(id)) -- a shot can land after its owner left
 end
 
 --- An explosion at (x, y) on this screen, with the camera shaking the
@@ -981,6 +989,34 @@ function Weapons:serverPlayerJoined(server, player)
     self:giveStock(server, player)
     self:sendGuns(server, player)
   end
+  if self.sv and player.body and not player.bot then
+    self:sendHealth(server, player)
+  end
+end
+
+--- A latecomer catches up on everyone's health and every car's that isn't
+--- the default (absent means full on the client), sent only on change.
+function Weapons:sendHealth(server, player)
+  for id, st in pairs(self.sv.players) do
+    if id ~= player.id then
+      if st.max ~= MAX_HEALTH then
+        server:send(player, Protocol.encode("WPN_MAX", id, st.max))
+      end
+      if st.hp ~= st.max then
+        server:send(player, Protocol.encode("WPN_HEALTH", id, st.hp))
+      end
+    end
+  end
+  for vid, cs in pairs(self.sv.cars) do
+    if server.vehicles[vid] then
+      if cs.max ~= CAR_HEALTH then
+        server:send(player, Protocol.encode("WPN_CARMAX", vid, cs.max))
+      end
+      if cs.hp ~= cs.max and not cs.deadUntil then
+        server:send(player, Protocol.encode("WPN_CARHP", vid, cs.hp))
+      end
+    end
+  end
 end
 
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
@@ -998,8 +1034,18 @@ function Weapons:mapChanged(_map, server)
   end
 end
 
-function Weapons:serverPlayerLeft(_server, player)
+function Weapons:serverPlayerLeft(server, player)
   if self.sv then
+    -- Left while dead: their own car stays in the world (the core keeps it)
+    -- but nobody is coming back to unhide it, so it is back at the slot now.
+    local st = self.sv.players[player.id]
+    local own = player.car
+    local cs = own and self.sv.cars[own.id]
+    if st and st.deadUntil and own and own.hidden and server.vehicles[own.id] and not (cs and cs.deadUntil) then
+      own.hidden = false
+      own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
+      own:stop()
+    end
     self.sv.players[player.id] = nil
   end
 end

@@ -479,6 +479,17 @@ function OnFoot:serverStart()
   }
 end
 
+--- A player joining a running game hears every raised stamina ceiling (OF_MAX
+--- is only sent when one changes). Their own walking record is made when needed.
+function OnFoot:serverPlayerJoined(server, player)
+  if not (self.sv and server.started) or player.bot then
+    return
+  end
+  for id, max in pairs(self.sv.maxStamina) do
+    server:send(player, Protocol.encode("OF_MAX", id, max))
+  end
+end
+
 function OnFoot:serverPlayerLeft(_server, player)
   if self.sv then
     self.sv.walkers[player.id] = nil

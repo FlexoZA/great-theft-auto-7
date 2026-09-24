@@ -501,13 +501,25 @@ function Money:serverSetReach(server, player, scale)
   return scale
 end
 
---- Someone joining mid-game sees the koins already lying about.
+--- Someone joining mid-game sees the koins already lying about, and what
+--- everyone has in their wallet and how far they reach (only ever sent on
+--- change, so they would read 0 and 1 otherwise).
 function Money:serverPlayerJoined(server, player)
-  if not sv then
+  if not sv or player.bot then
     return
   end
   for id, coin in pairs(sv.coins) do
     server:send(player, dropMessage(id, coin))
+  end
+  for id, total in pairs(sv.wallets) do
+    if server.players[id] and total > 0 then
+      server:send(player, Protocol.encode("FCK_PURSE", id, total))
+    end
+  end
+  for id, scale in pairs(sv.reach) do
+    if server.players[id] then
+      server:send(player, Protocol.encode("FCK_REACH", id, ("%.2f"):format(scale)))
+    end
   end
 end
 

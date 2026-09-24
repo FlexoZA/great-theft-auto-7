@@ -29,7 +29,12 @@ nothing to vendor or install.
    discovery responder on `22123`. Join button broadcasts, lists hosts, connects.
 2. **Movement sync** (done): clients send `{throttle, steer}` each tick. Server
    integrates all cars, broadcasts positions. Clients draw all cars.
-3. **Join/leave**: spawn on connect, remove on disconnect or timeout.
+3. **Join/leave** (done): players can join a running game. The server sends
+   the newcomer every car (`VEHICLE`) and the names of those who left
+   (`KNOWN`), spawns them at the free-est map spawn point, lets features send
+   their state in `serverPlayerJoined`, then sends `START`. Someone who leaves
+   takes their body with them; their own car stays parked, still theirs.
+   Saved worlds build on this, see `persistence.md`.
 4. **Polish**: client-side prediction for the local car (right now your own
    car is drawn from server snapshots too, so remote players feel one
    round-trip plus one tick behind their keys), host migration (maybe never),
@@ -59,6 +64,7 @@ server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <drive
 server -> client   VEHICLE      <vid> <owner> <color>      a car entered the world (owner 0 = nobody's)
 server -> client   VEHICLE_GONE <vid>
 server -> client   JOIN         <id> <name>  / LEAVE <id>
+server -> client   KNOWN        <id> <name>          someone who left earlier; client:nameOf(id) finds them
 ```
 
 The world is people and cars. STATE lists every car in the world with who

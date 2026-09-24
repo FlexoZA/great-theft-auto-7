@@ -343,6 +343,17 @@ function Pickups:serverStart(server)
   end
 end
 
+--- Someone joining mid-game sees what is already lying about.
+function Pickups:serverPlayerJoined(server, player)
+  if not sv or player.bot then
+    return
+  end
+  for id, it in pairs(sv.items) do
+    server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
+      it.amount or ""))
+  end
+end
+
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
 --- passes `server`, clients get nil): what lay on the old roads is swept
 --- and a fresh set is scattered over the new map.

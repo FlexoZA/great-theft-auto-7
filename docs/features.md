@@ -82,7 +82,7 @@ Clients send intent; the server decides. Never trust a client message.
 | --- | --- |
 | `serverStart(server)` | Game started, every player has a body and their own car at the default spawn slot and sits in it. A map feature moves them to its own spawn points here (city-map's `placePlayers`). |
 | `serverStep(server, dt)` | Fixed 30 Hz, after car physics, before the `STATE` broadcast. Collisions, projectiles, scoring. |
-| `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. |
+| `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. Joined also fires for someone arriving mid-game (`server.started`, `player.body` set) before their `START`: send them any state you only send on change, or they never see it. It fires for bots too (`player.bot`). A player who leaves keeps their car in the world, so `car.owner` may not be in `server.players`. |
 | `serverMessages = { KIND = function(server, player, args) end }` | A message from a client the core doesn't know. `player` is the verified sender. |
 
 Useful server fields: `server.players[id]` (`id name peer input body vehicle

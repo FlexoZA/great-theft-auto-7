@@ -208,9 +208,10 @@ function Bots:add(server, x, y, angle)
   return bot
 end
 
---- A player who arrives mid-game hears which players are bots.
+--- A player who arrives mid-game hears which players are bots. In the lobby
+--- `bots` may still hold the last game's, so nothing is sent before the start.
 function Bots:serverPlayerJoined(server, player)
-  if player.bot then
+  if player.bot or not server.started then
     return
   end
   for _, bot in ipairs(bots) do

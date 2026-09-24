@@ -239,8 +239,10 @@ function Hunt:mapChanged(_map, server)
   end
 end
 
+--- Someone joining mid-hunt hears the stage (after quests' QST_START, which
+--- puts up the title screen); the wild man and the rest come with the sync.
 function Hunt:serverPlayerJoined(server, player)
-  if sv and sv.stage then
+  if sv and sv.stage and server.started and not player.bot then
     server:send(player, Protocol.encode("HNT_STAGE", sv.stage, sv.wp))
   end
 end

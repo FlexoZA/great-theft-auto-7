@@ -123,6 +123,23 @@ function CityMap:placePlayers(server)
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
     end
   end
+  -- A car whose owner has left the game stays in the world: park it on the
+  -- next spawn point so it is not left standing inside something on the new
+  -- map, stowed like everyone else's on a map nobody drives on.
+  local vids = {}
+  for vid, car in pairs(server.vehicles) do
+    if car.owner and not server.players[car.owner] and not car.driver then
+      vids[#vids + 1] = vid
+    end
+  end
+  table.sort(vids)
+  for i, vid in ipairs(vids) do
+    local s = self.map.spawns[(#ids + i - 1) % #self.map.spawns + 1]
+    local car = server.vehicles[vid]
+    car.x, car.y, car.angle = s.x, s.y, s.angle
+    car:stop()
+    car.stowed = not self.map.vehicles
+  end
 end
 
 --- Play on map `name` from now on. Returns true if the map changed, false
