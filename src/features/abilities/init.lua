@@ -22,7 +22,8 @@
 -- another slot to change its key (ABL_MOVE). The host keeps the slots and
 -- tells you them (ABL_SLOTS), and casts only what is in one. Cooldowns
 -- follow the ability, not the slot, so moving one doesn't reset it.
--- The shop sells ability items; what you start with is freeze.
+-- The shop sells ability items; what you start with is freeze. A saved
+-- world keeps what is in each slot (serverSavePlayer), not the cooldowns.
 --
 -- A passive ability (regen.lua) has no cast: every host tick this feature
 -- calls its `serverTick(server, player, dt, abilities)` for the player
@@ -663,6 +664,45 @@ function Abilities:serverMove(server, player, from, to)
   slots[from], slots[to] = slots[to], slots[from]
   self:sendSlots(server, player)
   return true
+end
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- `player`'s part of a saved world: the ability key in each slot. Always
+--- kept, since an empty set is not the same as what everyone starts with.
+function Abilities:serverSavePlayer(_server, player)
+  local slots = self.sv and self.sv.slots[player.id]
+  if not slots or player.bot then
+    return nil
+  end
+  local out = {}
+  for slot = 1, self.slotCount do
+    out[slot] = slots[slot]
+  end
+  return { version = SAVE_VERSION, slots = out }
+end
+
+--- Put the saved slots back over the start set; an ability no longer in
+--- kinds.lua, one in a slot it doesn't fit or one carried twice is dropped.
+--- Cooldowns start fresh.
+function Abilities:serverLoadPlayer(server, player, data)
+  local sv = self.sv
+  if not (sv and sv.slots[player.id]) or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  elseif type(data.slots) ~= "table" then
+    return
+  end
+  local slots = {}
+  for slot = 1, self.slotCount do
+    local key = data.slots[slot]
+    if type(key) == "string" and fits(key, slot) and not slotOf(slots, key) then
+      slots[slot] = key
+    end
+  end
+  sv.slots[player.id] = slots
+  self:sendSlots(server, player)
 end
 
 --- Everything moved to a new map: nothing is held there.

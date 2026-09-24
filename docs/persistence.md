@@ -122,9 +122,10 @@ Rules for features:
 | Core (player) | name |
 | `money` | wallet (player) |
 | `upgrades` | levels (player) |
-| `weapons` | guns in slots, ammo (player). Health comes back full. |
-| `armor`, `gear` | what is worn (player) |
-| `abilities` | slotted abilities (player) |
+| `weapons` | gun in each slot, rounds in each magazine (player). Spare rounds are bag items (`buildings`). Health comes back full; kills, the gun in hand and infinite ammo are not kept. |
+| `armor` | the vest worn and the points left on it (player) |
+| `gear` | the piece worn in each slot (player) |
+| `abilities` | the ability in each slot (player); cooldowns start fresh |
 | `buildings` | buildings on plots (world); carried stock and quick slots (player) |
 | `real-estate` | plot owners (world) |
 | `vehicles` | model per car id (world) |
