@@ -289,6 +289,15 @@ function Render.itemIcon(item, cx, cy)
     love.graphics.circle("fill", cx + 7, cy + 5, 8)
     love.graphics.setColor(c)
     love.graphics.circle("fill", cx, cy - 2, 10)
+  elseif item == "ammo-shotgun" then
+    -- Shells: red tubes with brass heads.
+    for i = -1, 1 do
+      local x = cx + i * 9
+      love.graphics.setColor(0.8, 0.15, 0.12)
+      love.graphics.rectangle("fill", x - 3, cy - 11, 6, 15, 1)
+      love.graphics.setColor(0.8, 0.6, 0.2)
+      love.graphics.rectangle("fill", x - 3, cy + 4, 6, 6)
+    end
   elseif item:match("^ammo%-") then
     for i = -1, 1 do
       local x = cx + i * 9

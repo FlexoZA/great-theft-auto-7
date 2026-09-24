@@ -60,7 +60,41 @@ local function rocket(a)
   love.graphics.polygon("fill", 27, -5, 35, 0, 27, 5) -- the rocket's nose
 end
 
-local DRAW = { pistol = pistol, uzi = uzi, rocket = rocket }
+local WOOD = { 0.55, 0.36, 0.2 }
+
+local function ak47(a)
+  color(WOOD, a)
+  love.graphics.polygon("fill", -34, -5, -22, -5, -22, 6, -36, 7) -- stock
+  love.graphics.rectangle("fill", 4, -3, 12, 6) -- hand guard
+  love.graphics.polygon("fill", -8, 3, -2, 3, -4, 13, -10, 13) -- grip
+  color(DARK, a)
+  love.graphics.rectangle("fill", -22, -7, 28, 10, 1) -- receiver
+  love.graphics.polygon("fill", -6, 3, 4, 3, 8, 15, -1, 15) -- curved magazine
+  love.graphics.rectangle("fill", -10, -11, 3, 4) -- rear sight
+  love.graphics.rectangle("fill", 20, -12, 2, 5) -- front sight
+  love.graphics.rectangle("fill", -22, -9, 8, 2) -- dust cover rib
+  color(STEEL, a)
+  love.graphics.rectangle("fill", 16, -4, 12, 3) -- gas tube
+  love.graphics.rectangle("fill", 16, -1, 18, 3) -- barrel
+  love.graphics.rectangle("fill", 32, -2, 4, 5) -- muzzle brake
+end
+
+local function shotgun(a)
+  color(WOOD, a)
+  love.graphics.polygon("fill", -36, -4, -22, -6, -22, 5, -38, 8) -- stock
+  love.graphics.rectangle("fill", 4, -1, 14, 6, 2) -- pump
+  color(DARK, a)
+  love.graphics.rectangle("fill", -22, -6, 22, 9, 1) -- receiver
+  love.graphics.rectangle("fill", -2, 1, 30, 4) -- magazine tube
+  love.graphics.setLineWidth(2)
+  love.graphics.arc("line", "open", -12, 3, 5, 0.2, math.pi - 0.2) -- trigger guard
+  love.graphics.setLineWidth(1)
+  color(STEEL, a)
+  love.graphics.rectangle("fill", -2, -5, 38, 4) -- barrel
+  love.graphics.rectangle("fill", 34, -6, 2, 3) -- bead
+end
+
+local DRAW = { pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun }
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its
 --- natural size, `alpha` (1) opaque.
