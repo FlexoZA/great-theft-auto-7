@@ -29,7 +29,8 @@ nothing to vendor or install.
    discovery responder on `22123`. Join button broadcasts, lists hosts, connects.
 2. **Movement sync** (done): clients send `{throttle, steer}` each tick. Server
    integrates all cars, broadcasts positions. Clients draw all cars.
-3. **Join/leave**: spawn on connect, remove on disconnect or timeout.
+3. **Join/leave**: spawn on connect, remove on disconnect or timeout. Joining a
+   running game is needed for saved worlds, see `persistence.md`.
 4. **Polish**: client-side prediction for the local car (right now your own
    car is drawn from server snapshots too, so remote players feel one
    round-trip plus one tick behind their keys), host migration (maybe never),
