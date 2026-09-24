@@ -46,6 +46,25 @@ function Sounds.load()
     buf:lowpass(5000)
   end)
 
+  -- AK-47: a fuller crack than the pistol with a low thump behind it, so a
+  -- burst reads as a rifle hammering rather than the uzi's rattle.
+  bank.ak47 = make(0.14, function(buf)
+    buf:noiseBurst(0, 0.1, { amp = 0.85, decay = 0.022 })
+    buf:sweep(0, 0.06, 900, 110, { wave = "sine", amp = 0.9, decay = 0.02 })
+    buf:sweep(0, 0.04, 2600, 500, { wave = "square", amp = 0.2, decay = 0.01 })
+    buf:drive(3.2)
+    buf:lowpass(3400)
+  end)
+
+  -- Shotgun: a deep boom and a long spray of noise, the loudest gun there is.
+  bank.shotgun = make(0.32, function(buf)
+    buf:sweep(0, 0.16, 420, 45, { wave = "sine", amp = 1.0, decay = 0.06 })
+    buf:noiseBurst(0, 0.26, { amp = 0.95, decay = 0.07 })
+    buf:noiseBurst(0, 0.03, { amp = 0.8, decay = 0.008 })
+    buf:drive(3.5)
+    buf:lowpass(2600)
+  end)
+
   -- Reloads are built from small metal clicks: a sharp tick of noise over a
   -- short ring, lower and duller for heavier parts.
   local function click(buf, t, freq, amp)
@@ -85,6 +104,37 @@ function Sounds.load()
     buf:highpass(200)
     buf:drive(1.8)
     buf:lowpass(5500)
+  end)
+
+  -- AK-47 reload (2.0 s): the banana magazine rocked out and a fresh one
+  -- rocked in with a heavy clack, then the charging handle pulled and let go.
+  bank["reload-ak47"] = make(2.0, function(buf)
+    click(buf, 0.02, 1300, 0.5) -- catch
+    rack(buf, 0.08, 0.2, 500, 260, 0.45) -- magazine rocks out
+    click(buf, 0.95, 600, 1.0) -- new one rocked in
+    click(buf, 1.0, 950, 0.5)
+    rack(buf, 1.45, 0.16, 350, 1000, 0.6) -- charging handle back
+    click(buf, 1.62, 1000, 0.7)
+    click(buf, 1.75, 700, 1.0) -- bolt home
+    buf:highpass(180)
+    buf:drive(1.8)
+    buf:lowpass(5000)
+  end)
+
+  -- Shotgun reload (2.4 s): shells thumbed into the tube one after another,
+  -- then the pump racked back and forward.
+  bank["reload-shotgun"] = make(2.4, function(buf)
+    for i = 0, 5 do
+      click(buf, 0.1 + i * 0.28, 1100 - i * 40, 0.55) -- a shell clicks past the loading gate
+      click(buf, 0.13 + i * 0.28, 700, 0.3)
+    end
+    rack(buf, 1.85, 0.14, 300, 900, 0.7) -- pump back
+    click(buf, 2.0, 900, 0.8)
+    rack(buf, 2.1, 0.12, 900, 300, 0.7) -- and forward
+    click(buf, 2.24, 600, 1.0)
+    buf:highpass(160)
+    buf:drive(1.8)
+    buf:lowpass(5200)
   end)
 
   -- Rocket reload (2.2 s): a missile slid down the tube, seated with a

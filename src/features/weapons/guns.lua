@@ -20,6 +20,9 @@
 --             everything within `radius` px, `damage` at the centre falling
 --             to a third at the edge. `soft` is how many bullets' worth it
 --             does to each feature's soft targets (pedestrians, officers).
+--   pellets   projectiles one trigger pull sends out (1 otherwise), each
+--             scattered by `spread` on its own: a shotgun. The magazine
+--             counts pulls, not pellets, and only the first pellet sounds.
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   stock     rounds everyone starts the game with, the loaded magazine
@@ -61,6 +64,39 @@ Guns.list = {
     magazine = 30, -- a couple of seconds of spray
     reload = 1.8,
     reloadSound = "reload-uzi",
+  },
+  {
+    key = "ak47",
+    name = "AK-47",
+    damage = 18, -- between the pistol and the uzi per round...
+    cooldown = 0.11, -- ...nine of them a second
+    spread = 0.04, -- a couple of degrees: a rifle, not a spray
+    speed = 1000,
+    streak = 10,
+    sound = "ak47",
+    pitch = 1,
+    magazine = 30,
+    reload = 2.0,
+    reloadSound = "reload-ak47",
+    ammoName = "AK-47 round",
+  },
+  {
+    key = "shotgun",
+    name = "shotgun",
+    damage = 11, -- per pellet: all six in the chest is a car half wrecked
+    cooldown = 0.9, -- pump between shots
+    spread = 0.16, -- nine degrees either side: fills a doorway
+    speed = 800,
+    streak = 6,
+    ttl = 0.32, -- about 250 px, then the pellets are spent
+    pellets = 6,
+    sound = "shotgun",
+    pitch = 1,
+    magazine = 6,
+    reload = 2.4,
+    reloadSound = "reload-shotgun",
+    ammoName = "shell",
+    stack = 50,
   },
   {
     key = "rocket",
