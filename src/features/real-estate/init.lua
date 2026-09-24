@@ -477,6 +477,18 @@ function RealEstate:owner(id)
   return sv and sv.owners[id]
 end
 
+--- Hand plot `id` to `playerId` on the host and tell everyone: whatever
+--- stood on it went with the old owner. Buildings does it when someone
+--- takes over a lot whose building was destroyed, after they have paid.
+function RealEstate:serverTransfer(server, id, playerId)
+  if not (sv and self.plots[id]) then
+    return false
+  end
+  sv.owners[id] = playerId
+  server:broadcast(Protocol.encode("RE_OWNER", id, playerId))
+  return true
+end
+
 --- For tests.
 function RealEstate.server()
   return sv
