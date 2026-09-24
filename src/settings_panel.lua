@@ -24,7 +24,8 @@ local Settings = require("src.settings")
 local Panel = {}
 Panel.__index = Panel
 
-local PANEL_W = 760
+local PANEL_W = 960 -- as wide as the window allows: long control names need the room
+local PANEL_MIN_W = 760
 local TABS_W = 160
 local PREVIEW_GAP = 0.35 -- seconds between preview sounds while dragging
 local ROW_H = 40 -- a controls row
@@ -212,18 +213,19 @@ end
 --- never leaks over the hint above or the buttons below.
 function Panel:layout()
   local w, h = love.graphics.getDimensions()
-  local px = math.floor((w - PANEL_W) / 2)
+  local pw = math.max(PANEL_MIN_W, math.min(PANEL_W, w - 40))
+  local px = math.floor((w - pw) / 2)
   local py = math.floor(h * 0.06)
   local ph = math.floor(h * 0.88)
-  self.panel = { x = px, y = py, w = PANEL_W, h = ph }
+  self.panel = { x = px, y = py, w = pw, h = ph }
   for i, b in ipairs(self.tabs) do
     b.x, b.y = px + 10, py + 70 + (i - 1) * 52
   end
   local sx = px + TABS_W + 30
-  local sw = PANEL_W - TABS_W - 60
+  local sw = pw - TABS_W - 60
   local top = py + CONTENT_TOP
   local viewH = ph - CONTENT_TOP - CONTENT_BOTTOM
-  self.clip = { x = px + TABS_W + 1, y = top - 6, w = PANEL_W - TABS_W - 2, h = viewH + 6 }
+  self.clip = { x = px + TABS_W + 1, y = top - 6, w = pw - TABS_W - 2, h = viewH + 6 }
   self.maxScroll = math.max(0, self:contentHeight() - viewH)
   self.scroll = math.max(0, math.min(self.scroll, self.maxScroll))
   local y0 = top - self.scroll
@@ -234,16 +236,18 @@ function Panel:layout()
   for i, c in ipairs(self.cyclers) do
     c.x, c.y, c.w = sx + sw - 320, y0 + (i - 1) * CYCLER_H, 320
     c.labelX = sx
+    c.labelW = sw - 320 - 16 -- the label is cut short to end before the control
   end
   for i, row in ipairs(self.rows) do
     local y = y0 + (i - 1) * ROW_H
     row.y = y
     row.x = sx
+    row.labelW = sw - 320 - 16
     row.buttons[1].x, row.buttons[1].y = sx + sw - 320, y
     row.buttons[2].x, row.buttons[2].y = sx + sw - 155, y
   end
   self.backButton.x, self.backButton.y = px + 10, py + ph - 56
-  self.resetButton.x, self.resetButton.y = px + PANEL_W - 210, py + ph - 56
+  self.resetButton.x, self.resetButton.y = px + pw - 210, py + ph - 56
 end
 
 function Panel:update(_dt)
@@ -270,10 +274,8 @@ function Panel:draw()
     self:layout()
   end
   local p = self.panel
-  love.graphics.setColor(0.08, 0.08, 0.10, 0.92)
-  love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 8)
+  UI.panel(p.x, p.y, p.w, p.h)
   love.graphics.setColor(0.3, 0.3, 0.35)
-  love.graphics.rectangle("line", p.x, p.y, p.w, p.h, 8)
   love.graphics.line(p.x + TABS_W, p.y + 60, p.x + TABS_W, p.y + p.h - 70)
 
   love.graphics.setFont(UI.fonts.heading)
@@ -308,14 +310,16 @@ function Panel:draw()
   for _, cy in ipairs(self.cyclers) do
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 1, 1, cy.enabled and 1 or 0.5)
-    love.graphics.print(cy.label, cy.labelX, cy.y + 5)
+    local label = cy.labelW and UI.fit(cy.label, UI.fonts.body, cy.labelW) or cy.label
+    love.graphics.print(label, cy.labelX, cy.y + 5)
     cy:draw()
   end
   for _, row in ipairs(self.rows) do
     local b = Controls.bindings(row.action.key)
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print(row.action.label, row.x, row.y + 5)
+    local label = row.labelW and UI.fit(row.action.label, UI.fonts.body, row.labelW) or row.action.label
+    love.graphics.print(label, row.x, row.y + 5)
     for slot = 1, 2 do
       local btn = row.buttons[slot]
       local capturing = self.capturing and self.capturing.action == row.action and self.capturing.slot == slot

@@ -3,6 +3,7 @@
 
 local State = require("src.state")
 local UI = require("src.ui")
+local Background = require("src.art.menu_background")
 local Net = require("src.net")
 local Saves = require("src.saves")
 
@@ -13,6 +14,7 @@ local MAX_LISTED = 6 -- the last played ones; older worlds stay on disk
 
 function Worlds:enter(playerName)
   UI.load()
+  self.background = Background.shared()
   self.playerName = playerName
   self.error = nil
   self.nameField = UI.textField({
@@ -68,7 +70,8 @@ function Worlds:host(world)
   end
 end
 
-function Worlds:update()
+function Worlds:update(dt)
+  self.background:update(dt)
   local x = UI.centerX(W)
   self.nameField.x, self.nameField.y = x, 130
   self.createButton.x, self.createButton.y = x + W - 120, 130
@@ -79,6 +82,8 @@ function Worlds:update()
 end
 
 function Worlds:draw()
+  self.background:drawDimmed()
+  UI.panel(UI.centerX(W) - 30, 30, W + 60, love.graphics.getHeight() - 50)
   local w = love.graphics.getWidth()
   love.graphics.setFont(UI.fonts.heading)
   love.graphics.setColor(1, 1, 1)

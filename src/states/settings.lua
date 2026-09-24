@@ -15,7 +15,7 @@ SettingsState.sections = Panel.sections
 function SettingsState:enter()
   UI.load()
   Audio.playMenuTheme()
-  self.background = self.background or Background.new()
+  self.background = Background.shared()
   self.panel = self.panel or Panel.new({ onClose = function()
     State.switch("menu")
   end })
@@ -23,18 +23,12 @@ function SettingsState:enter()
 end
 
 function SettingsState:update(dt)
-  local w, h = love.graphics.getDimensions()
-  self.faceX, self.faceY = math.floor(w * 0.5), math.floor(h * 0.55)
-  self.faceScale = math.floor(math.min(h / 76, (w * 0.55) / 64))
   self.background:update(dt)
   self.panel:update(dt)
 end
 
 function SettingsState:draw()
-  local w, h = love.graphics.getDimensions()
-  self.background:draw(self.faceX, self.faceY, self.faceScale)
-  love.graphics.setColor(0, 0, 0, 0.55)
-  love.graphics.rectangle("fill", 0, 0, w, h)
+  self.background:drawDimmed()
   self.panel:draw()
 end
 

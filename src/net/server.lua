@@ -46,7 +46,7 @@ function Server.new(hostName, world, hostKey)
 
   local self = setmetatable({
     host = host,
-    name = Protocol.sanitizeName(hostName),
+    name = Protocol.sanitizeName(hostName, Protocol.MAX_SERVER_NAME),
     -- Joiners remember a server by this: the saved world's lasting id, or a
     -- throwaway one for a game that is not saved.
     hostId = world and world:id() or Protocol.newKey():sub(1, 16),

@@ -24,7 +24,7 @@ function Menu:enter()
     love.window.setIcon(Logo.icon())
     iconSet = true
   end
-  self.background = self.background or Background.new()
+  self.background = Background.shared()
   if not self.nameField then
     local default = os.getenv("USER") or os.getenv("USERNAME") or "Player"
     self.nameField = UI.textField({ label = "Your name", value = default:sub(1, Protocol.MAX_NAME), focused = true })

@@ -3,11 +3,11 @@
 
 local State = require("src.state")
 local UI = require("src.ui")
+local Background = require("src.art.menu_background")
 local Net = require("src.net")
 local Discovery = require("src.net.discovery")
 local Protocol = require("src.net.protocol")
 local Recent = require("src.net.recent")
-local utf8 = require("utf8")
 
 local Browser = {}
 
@@ -17,6 +17,7 @@ local FORGET_W = 44
 
 function Browser:enter(playerName)
   UI.load()
+  self.background = Background.shared()
   self.playerName = playerName
   self.scanner = Discovery.newScanner()
   self:loadRecent()
@@ -51,18 +52,11 @@ local function title(name, world)
   return world and ("%s  (%s)"):format(world, name) or name
 end
 
---- A row's label: `title`, cut short (whole characters) so it and `status`
---- fit on one line of a button `w` wide.
+--- A row's label: `title`, cut short so it and `status` fit on one line of
+--- a button `w` wide.
 local function rowLabel(text, status, w)
   local font = UI.fonts.body
-  local room = w - 24 - font:getWidth("   " .. status)
-  if font:getWidth(text) > room then
-    while #text > 0 and font:getWidth(text .. "...") > room do
-      text = text:sub(1, (utf8.offset(text, -1) or 1) - 1)
-    end
-    text = text .. "..."
-  end
-  return text .. "   " .. status
+  return UI.fit(text, font, w - 24 - font:getWidth("   " .. status)) .. "   " .. status
 end
 
 function Browser:exit()
@@ -94,6 +88,7 @@ function Browser:connectManual()
 end
 
 function Browser:update(dt)
+  self.background:update(dt)
   self.scanner:update(dt)
 
   local x = UI.centerX(W)
@@ -158,6 +153,8 @@ function Browser:update(dt)
 end
 
 function Browser:draw()
+  self.background:drawDimmed()
+  UI.panel(UI.centerX(W) - 30, 30, W + 60, love.graphics.getHeight() - 50)
   local w = love.graphics.getWidth()
   love.graphics.setFont(UI.fonts.heading)
   love.graphics.setColor(1, 1, 1)
