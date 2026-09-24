@@ -16,10 +16,11 @@
 -- the slot is empty), or onto another slot to change its key
 -- (weapons:move). A click on a slot selects its gun. The ability slots
 -- work the same way with "ability-<key>" items (abilities:equip, unequip,
--- move). Medkits go the same way into the medkit slot beside the abilities
--- (buildings:quickPut takes the stack out of the bag, quickTake puts it
--- back); the medkit key (H) uses one from there. The host does the moving
--- and tells each feature what is in its slots; this only asks.
+-- move). Medkits and energy drinks go the same way into the quick slots
+-- beside the abilities (buildings.usables; buildings:quickPut takes the
+-- stack out of the bag, quickTake puts it back); their keys (H, J) use one
+-- from there. The host does the moving and tells each feature what is in
+-- its slots; this only asks.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -34,7 +35,7 @@ local Inventory = {
 }
 
 Inventory.open = false
--- What is being dragged: { kind = "gun", index }, { kind = "ability", key } or { kind = "medkit" }, with
+-- What is being dragged: { kind = "gun", index }, { kind = "ability", key } or { kind = "quick", item }, with
 -- from = "slot" | "bag" | "quick", box (the slot or item box it left), x0, y0, moved.
 Inventory.drag = nil
 Inventory.dragStart = 5 -- px the mouse must move with the button down before a press is a drag
@@ -104,16 +105,18 @@ function Inventory:keypressed(key)
 end
 
 --- What a press on (x, y) would pick up: a gun in its weapon slot, an
---- ability in its slot, the medkits in the medkit slot, or a gun, ability
---- or medkit item in the bag.
+--- ability in its slot, the stack in a quick slot, or a gun, ability,
+--- medkit or drink item in the bag.
 function Inventory:pick(x, y)
   local L = Screen.layout()
   local w, a, b = weapons(), abilities(), buildings()
-  if inside(L.quick, x, y) then
-    if b and b.quick > 0 then
-      return { kind = "medkit", from = "quick" }
+  for _, r in ipairs(L.quick) do
+    if inside(r, x, y) then
+      if b and b:quickCount(r.item) > 0 then
+        return { kind = "quick", item = r.item, from = "quick" }
+      end
+      return nil
     end
-    return nil
   end
   for slot, r in ipairs(L.weapons) do
     if inside(r, x, y) then
@@ -145,8 +148,8 @@ function Inventory:pick(x, y)
           return { kind = "gun", index = gun.index, from = "bag", box = i }
         elseif abilityKey and a and a.kinds.byKey[abilityKey] then
           return { kind = "ability", key = abilityKey, from = "bag", box = i }
-        elseif s and s.item == "medkit" then
-          return { kind = "medkit", from = "bag", box = i }
+        elseif s and b.usableByItem and b.usableByItem[s.item] then
+          return { kind = "quick", item = s.item, from = "bag", box = i }
         end
         return nil
       end
@@ -238,36 +241,45 @@ function Inventory:sayFit(ability, slot)
   end
 end
 
---- Medkits came down at (x, y): a stack from the bag into the medkit slot,
---- or the slot's stack back into the bag.
-function Inventory:dropMedkit(client, d, x, y, L)
+--- A quick-slot stack came down at (x, y): from the bag into its slot, or
+--- out of the slot back into the bag.
+function Inventory:dropQuick(client, d, x, y, L)
   local b = buildings()
   if not b then
     return
   end
-  if d.from == "bag" and inside(L.quick, x, y) then
-    if b.quick >= b.QUICK_MAX then
-      self:say("Your medkit slot is full.")
+  local u = b.usableByItem[d.item]
+  local slot
+  for _, r in ipairs(L.quick) do
+    if inside(r, x, y) then
+      slot = r
+    end
+  end
+  if d.from == "bag" and slot then
+    if slot.item ~= d.item then
+      self:say("That slot is for " .. slot.usable.title .. ".")
+    elseif b:quickCount(d.item) >= u.max then
+      self:say("That slot is full.")
     else
-      b:quickPut(client)
+      b:quickPut(client, d.item)
     end
   elseif d.from == "quick" and inside(L.itemsArea, x, y) then
-    if Kinds.room(b.inventory, b.slots, "medkit") < 1 then
-      self:say("No room in your bag for the medkits.")
+    if Kinds.room(b.inventory, b.slots, d.item) < 1 then
+      self:say("No room in your bag for the " .. u.title .. ".")
     else
-      b:quickTake(client)
+      b:quickTake(client, d.item)
     end
   end
 end
 
 --- The button came up at (x, y) after a drag: put the gun, ability or
---- medkits where they landed.
+--- stack where it landed.
 function Inventory:drop(client, d, x, y)
   local L = Screen.layout()
   if d.kind == "ability" then
     return self:dropAbility(client, d, x, y, L)
-  elseif d.kind == "medkit" then
-    return self:dropMedkit(client, d, x, y, L)
+  elseif d.kind == "quick" then
+    return self:dropQuick(client, d, x, y, L)
   end
   local w, b = weapons(), buildings()
   if not (w and b) then
@@ -331,8 +343,10 @@ end
 local function drawHint(b)
   local used = Kinds.slotsUsed(b.inventory)
   local line = ("%s: inventory (%d/%d)"):format(Controls.name(Controls.bindings("inventory")[1]), used, b.slots)
-  if b.quick > 0 then
-    line = line .. "   " .. Controls.name(Controls.bindings("use-medkit")[1]) .. ": use medkit"
+  for _, u in ipairs(b.usables) do
+    if b:quickCount(u.item) > 0 then
+      line = line .. "   " .. Controls.name(Controls.bindings(u.action)[1]) .. ": " .. Kinds.name(u.item, 1)
+    end
   end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.85, 0.8, 0.6)

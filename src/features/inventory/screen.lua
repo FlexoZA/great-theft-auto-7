@@ -8,8 +8,9 @@
 --                 is left to load, the one in hand lit up, empty ones bare;
 --                 under them the ability slots, one per ability key, as the
 --                 HUD shows them, empty ones bare, and beside those the
---                 medkit slot: a stack of medkits dragged out of the bag,
---                 the ones the medkit key (H) uses
+--                 quick slots (buildings.usables): a stack of medkits and
+--                 one of energy drinks dragged out of the bag, the ones
+--                 their keys (H, J) use
 --   bottom        the item slots buildings fills: a stack per box, locked
 --                 ones greyed out until the upgrade shop opens them
 --
@@ -37,7 +38,7 @@ local CELL, GAP = 76, 8 -- item boxes
 local GEAR = 60 -- gear boxes
 local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the ammo
 local ABL_W, ABL_H = 64, 72 -- ability boxes
-local QUICK_W = 100 -- the medkit slot, as tall as an ability box
+local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
 local FIGURE_W = 120 -- px the character stands in
 local SECTION_GAP = 16 -- px between the top half and the item rows
 local LABEL_H = 22 -- px a section's title takes above its boxes
@@ -113,7 +114,7 @@ end
 ---   gear[i]                { x, y, w, h, name }, Screen.gear order
 ---   weapons[i]             { x, y, w, h }, weapons.slotCount of them
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
----   quick                  { x, y, w, h }, the medkit slot beside them
+---   quick[i]               { x, y, w, h, item, usable }, the quick slots beside them, buildings.usables order
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
 ---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
 ---   hint / foot            y of the text lines under the items
@@ -159,10 +160,16 @@ function Screen.layout()
     L.abilities[i] = { x = x + (i - 1) * (ABL_W + GAP), y = ay + LABEL_H, w = ABL_W, h = ABL_H }
   end
   L.abilitiesArea = { x = x - GAP, y = ay, w = abilitySlots * (ABL_W + GAP) + GAP, h = LABEL_H + ABL_H + GAP }
-  -- The medkit slot to the right of the abilities: what the medkit key uses.
+  -- The quick slots to the right of the abilities: what the use keys use.
+  local buildings = Features.byName.buildings
   local qx = x + abilitySlots * (ABL_W + GAP) + Screen.pad
   L.quickLabel = { x = qx, y = ay }
-  L.quick = { x = qx, y = ay + LABEL_H, w = QUICK_W, h = ABL_H }
+  L.quick = {}
+  for i, u in ipairs(buildings and buildings.usables or {}) do
+    L.quick[i] = {
+      x = qx + (i - 1) * (QUICK_W + GAP), y = ay + LABEL_H, w = QUICK_W, h = ABL_H, item = u.item, usable = u,
+    }
+  end
 
   -- The item boxes along the bottom.
   local iy = top + topH + SECTION_GAP
@@ -326,28 +333,32 @@ local function drawAbilities(L, lifted)
   end
 end
 
---- The medkit slot: the key in a badge, the medkits in it and how many of
---- the most it holds. `lifted` while its stack is being dragged out.
+--- The quick slots: each with its key in a badge, what is in it and how
+--- many of the most it holds. `lifted` is the item whose stack is being
+--- dragged out, drawn empty meanwhile.
 local function drawQuick(L, buildings, lifted)
-  heading("medkits", L.quickLabel.x, L.quickLabel.y)
-  local r = L.quick
-  local n = lifted and 0 or buildings.quick
-  box(r.x, r.y, r.w, r.h, n > 0, false)
-  love.graphics.setFont(UI.fonts.small)
-  local key = Controls.name(Controls.bindings("use-medkit")[1])
-  love.graphics.setColor(0.85, 0.25, 0.25, n > 0 and 1 or 0.35)
-  love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
-  love.graphics.setColor(1, 1, 1, n > 0 and 1 or 0.5)
-  love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
-  if n > 0 then
-    Render.itemIcon("medkit", r.x + r.w / 2 + 8, r.y + 30)
-    love.graphics.setColor(1, 0.85, 0.3)
-    love.graphics.printf(("%d/%d"):format(n, buildings.QUICK_MAX), r.x, r.y + 4, r.w - 6, "right")
-    love.graphics.setColor(0.85, 0.85, 0.9)
-    love.graphics.printf(Kinds.name("medkit", n), r.x, r.y + r.h - 20, r.w, "center")
-  else
-    love.graphics.setColor(1, 1, 1, 0.2)
-    love.graphics.printf("empty", r.x, r.y + r.h / 2 - 8, r.w, "center")
+  heading("quick use", L.quickLabel.x, L.quickLabel.y)
+  for _, r in ipairs(L.quick) do
+    local u = r.usable
+    local n = lifted ~= r.item and buildings:quickCount(r.item) or 0
+    box(r.x, r.y, r.w, r.h, n > 0, false)
+    love.graphics.setFont(UI.fonts.small)
+    local key = Controls.name(Controls.bindings(u.action)[1])
+    local c = u.color
+    love.graphics.setColor(c[1], c[2], c[3], n > 0 and 1 or 0.35)
+    love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
+    love.graphics.setColor(1, 1, 1, n > 0 and 1 or 0.5)
+    love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
+    if n > 0 then
+      Render.itemIcon(r.item, r.x + r.w / 2 + 8, r.y + 30)
+      love.graphics.setColor(1, 0.85, 0.3)
+      love.graphics.printf(("%d/%d"):format(n, u.max), r.x, r.y + 4, r.w - 6, "right")
+      love.graphics.setColor(0.85, 0.85, 0.9)
+      love.graphics.printf(u.title, r.x, r.y + r.h - 20, r.w, "center")
+    else
+      love.graphics.setColor(1, 1, 1, 0.2)
+      love.graphics.printf(u.title, r.x, r.y + r.h / 2 - 8, r.w, "center")
+    end
   end
 end
 
@@ -386,7 +397,7 @@ function Screen.draw(buildings, list, drag, notice)
   drawGear(L)
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
-  drawQuick(L, buildings, drag ~= nil and drag.kind == "medkit" and drag.from == "quick")
+  drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
   love.graphics.setFont(UI.fonts.small)
@@ -404,23 +415,25 @@ function Screen.draw(buildings, list, drag, notice)
     love.graphics.setColor(0.8, 0.8, 0.85)
   end
   love.graphics.printf(hint, p.x + Screen.pad, L.hint, p.w - 2 * Screen.pad, "left")
-  local foot = "drag guns, abilities and medkits between their slots and your bag   "
+  local foot = "drag things between their slots and your bag   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
-  if buildings.quick > 0 then
-    foot = Controls.name(Controls.bindings("use-medkit")[1]) .. ": use a medkit   " .. foot
+  for _, u in ipairs(buildings.usables) do
+    if buildings:quickCount(u.item) > 0 then
+      foot = Controls.name(Controls.bindings(u.action)[1]) .. ": " .. Kinds.name(u.item, 1) .. "   " .. foot
+    end
   end
   love.graphics.setColor(0.6, 0.6, 0.65)
   love.graphics.printf(foot, p.x, L.foot, p.w, "center")
   love.graphics.setColor(1, 1, 1)
 end
 
---- The gun, ability or medkits being dragged, under the cursor.
+--- The gun, ability or quick-slot stack being dragged, under the cursor.
 function Screen.drawDrag(drag, mx, my)
   if drag.kind == "ability" then
     Render.abilityIcon(drag.key, mx, my, 18)
     return
-  elseif drag.kind == "medkit" then
-    Render.itemIcon("medkit", mx, my)
+  elseif drag.kind == "quick" then
+    Render.itemIcon(drag.item, mx, my)
     return
   end
   local gun = Guns.list[drag.index]

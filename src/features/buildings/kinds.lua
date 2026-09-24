@@ -8,6 +8,7 @@
 --   gun-<gun>                a gun ("gun-uzi")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
+--   drink                    an energy drink; the carrier downs it for stamina
 --   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
 --                            carries one: collecting or buying it puts it on the road
 --                            (the `serverDeliver` event, answered by vehicles)
@@ -57,7 +58,7 @@ function Kinds.stack(item)
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
-  elseif item:match("^gun%-") or item == "medkit" then
+  elseif item:match("^gun%-") or item == "medkit" or item == "drink" then
     return 5
   elseif item:match("^ability%-") then
     return 1 -- one of a kind
@@ -139,7 +140,8 @@ Kinds.list = {
   {
     key = "health", name = "Health Factory", cost = 50, hp = 600,
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
-    products = { "medkit" },
+    products = { "medkit", "drink" },
+    recipes = { drink = { inputs = { minerals = 1 }, time = 10, price = 4 } },
   },
 }
 
@@ -230,6 +232,8 @@ function Kinds.name(item, n)
       name = (a and a.title or ability) .. (n ~= 1 and " abilities" or " ability")
     elseif item == "medkit" and n ~= 1 then
       name = "medkits"
+    elseif item == "drink" then
+      name = "energy drink" .. (n ~= 1 and "s" or "")
     end
   end
   return name
