@@ -37,6 +37,11 @@ function MyFeature:drawHUD(client) end
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
+--- Asked before the core draws each vehicle `c` (world space, camera
+--- applied; `c.dx c.dy c.dangle` is where it is drawn). Draw it your own way
+--- and return true to leave out the core's box; vehicles draws its models so.
+function MyFeature:drawVehicle(client, c) end
+
 
 --- Asked every frame: 0..1 for how soft the world should be drawn (the HUD
 --- stays sharp). The core takes the highest answer from any feature and

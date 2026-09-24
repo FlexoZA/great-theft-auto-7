@@ -243,11 +243,14 @@ local function drawName(client, id, x, y)
 end
 
 --- Every vehicle in its own colour, the driver's name over it. A parked car
---- is just a car.
+--- is just a car. A feature that draws a car its own way (vehicles, for a
+--- model) answers `drawVehicle` with true and the box is left out.
 function Game:drawVehicles(client)
   love.graphics.setFont(UI.fonts.small)
   for _, c in pairs(client.vehicles) do
-    Car.draw(c.dx, c.dy, c.dangle, Car.paletteColor(c.color))
+    if not Features.any("drawVehicle", client, c) then
+      Car.draw(c.dx, c.dy, c.dangle, Car.paletteColor(c.color))
+    end
     if c.driver then
       drawName(client, c.driver, c.dx, c.dy - Car.HEIGHT - 18)
     end
