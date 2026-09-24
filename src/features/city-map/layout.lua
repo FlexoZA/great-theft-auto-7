@@ -15,7 +15,9 @@
 -- street in from the bottom edge, a turning circle at the top, houses on
 -- their lawns either side (see `buildCuldesac`). `kind = "forest"` is open
 -- ground thick with trees and shrubs, a trail winding through clearings
--- (see `buildForest`).
+-- (see `buildForest`). `kind = "beach"` is a landing beach under a defended
+-- hill: surf, sand with tank stoppers, bunkers and trenches, barracks and a
+-- flag on the hilltop (see `buildBeach`).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -381,6 +383,163 @@ local function buildForest(map, rng)
   end
 end
 
+--- A landing beach under a defended hill, in bands from the bottom (south)
+--- up: shallow surf with landing craft where everyone wades ashore, open
+--- sand strewn with steel tank stoppers ("hedgehogs") and sandbag walls to
+--- hide behind, a line of concrete bunkers with two trenches behind them,
+--- the barracks huts, and the hilltop with the flag. Everything built is
+--- solid, so it stops people, bullets and eyes alike. The trenches' sandbag
+--- lips have gaps every few tiles to fire from and run through.
+---
+--- `map.bands` names each band's world y range (`y0` top, `y1` bottom):
+--- hill, barracks, bunkers, beach, surf. `map.flagX, flagY` is the flag,
+--- `map.posts` the spots a defender may stand ({ x, y, band }), off the
+--- beach, `map.doors` the barracks doors reinforcements come out of,
+--- `map.cover` what the canvas draws ({ kind = "hedgehog" | "sandbag" |
+--- "bunker" | "hut", x, y, w, h }) and `map.craft` the landing craft.
+--- Walked, like the forest; the cars wait in the surf.
+local function buildBeach(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      map.tiles[c][r] = "ground"
+    end
+  end
+  local function ty(r)
+    return map.y0 + r * T
+  end
+  local left, right = map.x0, map.x0 + cols * T
+  local hillEnd, barracksEnd = math.floor(rows * 0.16), math.floor(rows * 0.34)
+  local bunkersEnd, beachEnd = math.floor(rows * 0.56), math.floor(rows * 0.89)
+  map.bands = {
+    hill = { y0 = ty(0), y1 = ty(hillEnd) },
+    barracks = { y0 = ty(hillEnd), y1 = ty(barracksEnd) },
+    bunkers = { y0 = ty(barracksEnd), y1 = ty(bunkersEnd) },
+    beach = { y0 = ty(bunkersEnd), y1 = ty(beachEnd) },
+    surf = { y0 = ty(beachEnd), y1 = ty(rows) },
+  }
+  map.cover, map.posts, map.doors, map.craft = {}, {}, {}, {}
+  map.flagX, map.flagY = 0, math.floor(ty(hillEnd * 0.4))
+
+  local function solid(kind, x, y, w, h, extra)
+    local s = { kind = kind, x = x, y = y, w = w, h = h }
+    for k, v in pairs(extra or {}) do
+      s[k] = v
+    end
+    map.cover[#map.cover + 1] = s
+    map.solids[#map.solids + 1] = { x = x, y = y, w = w, h = h }
+    return s
+  end
+  local function post(x, y, band)
+    map.posts[#map.posts + 1] = { x = x, y = y, band = band }
+  end
+
+  -- The hilltop: four sandbag walls round the flag, a gap at every corner,
+  -- and defenders on the far side of each.
+  local fx, fy = map.flagX, map.flagY
+  solid("sandbag", fx - 150, fy - 230, 300, 20)
+  solid("sandbag", fx - 150, fy + 210, 300, 20)
+  solid("sandbag", fx - 250, fy - 110, 20, 220)
+  solid("sandbag", fx + 230, fy - 110, 20, 220)
+  for _, p in ipairs({ { -420, 120 }, { 420, 120 }, { -300, 330 }, { 300, 330 }, { 0, 330 } }) do
+    post(fx + p[1], fy + p[2], "hill")
+  end
+
+  -- The barracks: two rows of long huts, staggered, a door on the south
+  -- side of each for the reinforcements.
+  local hutW, hutH = 5 * T, 2 * T
+  local hutRows = { ty(hillEnd + 2), ty(hillEnd + 6.5) }
+  for i, y in ipairs(hutRows) do
+    local xs = i == 1 and { -0.36, -0.07, 0.22 } or { -0.22, 0.08 }
+    for _, f in ipairs(xs) do
+      local x = math.floor(f * cols * T)
+      solid("hut", x, y, hutW, hutH)
+      map.buildings[#map.buildings + 1] = { x = x, y = y, w = hutW, h = hutH, color = { 0.36, 0.40, 0.30 } }
+      map.doors[#map.doors + 1] = { x = x + hutW / 2, y = y + hutH + 22 }
+      post(x - 40, y + hutH + 40, "barracks")
+      post(x + hutW + 40, y + hutH / 2, "barracks")
+    end
+  end
+
+  -- The bunker line: pillboxes across the top of the beach, a defender in
+  -- the embrasure of each (the south face).
+  local bunkerY = ty(barracksEnd + 2)
+  local bw, bh = 3 * T, 2 * T
+  for k = 0, 4 do
+    local x = math.floor(left + (k + 0.5) * (cols * T / 5) - bw / 2 + (rng:random() - 0.5) * T)
+    local y = bunkerY + (k % 2) * T
+    solid("bunker", x, y, bw, bh)
+    map.buildings[#map.buildings + 1] = { x = x, y = y, w = bw, h = bh, color = { 0.55, 0.55, 0.52 } }
+    post(x + bw / 2, y + bh + 18, "bunkers")
+  end
+
+  -- Two trenches behind the bunkers: a dirt ditch the width of the map,
+  -- sandbags along its south lip with a gap every few tiles. Defenders
+  -- stand in the gaps.
+  map.trenches = {}
+  for k, r in ipairs({ bunkersEnd - 5, bunkersEnd - 2 }) do
+    local y = ty(r)
+    map.trenches[#map.trenches + 1] = { y = y - 44, h = 44 }
+    local x = left + T * (k == 1 and 1 or 2.5)
+    while x < right - T do
+      local len = T * (2 + rng:random(0, 2))
+      solid("sandbag", x, y, math.min(len, right - T - x), 18)
+      x = x + len
+      if x < right - T then
+        post(x + T / 2, y - 22, "bunkers")
+      end
+      x = x + T
+    end
+  end
+
+  -- The beach: hedgehogs and sandbag walls scattered over the sand, never
+  -- too close together, so there is always a way between them.
+  local beach = map.bands.beach
+  local placed = {}
+  local function clear(x, y, gap)
+    for _, p in ipairs(placed) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < gap * gap then
+        return false
+      end
+    end
+    return true
+  end
+  local area = cols * (beachEnd - bunkersEnd)
+  for _ = 1, area * 3 do
+    if #placed >= math.floor(area / 7) then
+      break
+    end
+    local x = left + T + rng:random() * (cols - 2) * T
+    local y = beach.y0 + T + rng:random() * (beach.y1 - beach.y0 - 2 * T)
+    if clear(x, y, 118) then
+      placed[#placed + 1] = { x = x, y = y }
+      if rng:random() < 0.3 then
+        local w = T * (1.2 + rng:random() * 0.6)
+        solid("sandbag", math.floor(x - w / 2), math.floor(y - 9), math.floor(w), 18)
+      else
+        solid("hedgehog", math.floor(x - 10), math.floor(y - 10), 20, 20, { angle = rng:random() * math.pi })
+      end
+    end
+  end
+
+  -- The surf: landing craft beached with their ramps down (drawn, not
+  -- solid), and everyone wading ashore between them.
+  local surf = map.bands.surf
+  for _, k in ipairs({ 0, 1, 3, 4 }) do -- the middle is left for the star home
+    local x = math.floor(left + (k + 0.5) * (cols * T / 5) + (rng:random() - 0.5) * T)
+    map.craft[#map.craft + 1] = { x = x, y = surf.y0 + 2.6 * T }
+  end
+  map.cx, map.cy = 0, math.floor(surf.y0 + 3.2 * T)
+  for i = 0, 7 do
+    local x = 110 + i * 70
+    for _, sign in ipairs({ -1, 1 }) do
+      map.spawns[#map.spawns + 1] = { x = sign * x, y = surf.y0 + 0.9 * T + (i % 2) * 40, angle = -math.pi / 2 }
+    end
+  end
+end
+
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
 --- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
@@ -424,9 +583,11 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" or map.kind == "forest" then
+  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" then
     if map.kind == "forest" then
       buildForest(map, rng)
+    elseif map.kind == "beach" then
+      buildBeach(map, rng)
     else
       buildCuldesac(map, rng)
     end

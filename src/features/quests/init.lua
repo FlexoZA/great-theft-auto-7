@@ -5,10 +5,11 @@
 -- takes the job takes the whole server with them. Decline and the star
 -- waits until you come back to it.
 --
--- Two quests so far, both starring near the middle of the city: one sends
+-- Three quests so far, all starring near the middle of the city: one sends
 -- everyone to Crazy Karen's cul-de-sac (the karen feature runs the fight),
--- the other into the forest after a wild man hunting aliens (alien-hunt).
--- A blue star by the entrance of each brings everyone home again. A map may
+-- one into the forest after a wild man hunting aliens (alien-hunt), and one
+-- onto a defended beach to take Major Looz'er's hill (d-day). A blue star
+-- by the entrance of each brings everyone home again. A map may
 -- have several stars; the nearest one is the one on offer. Add a quest to
 -- `Quests.list` and the star, the offer and the trip are all done here; a
 -- quest marked `returns` is the way back and ends the one under way. What
@@ -16,7 +17,11 @@
 -- `questStarted(client, quest, byId)` / `questEnded(client, quest)` on every
 -- machine and `serverQuestStarted(server, quest, player)` /
 -- `serverQuestEnded(server, quest)` on the host, and a feature that finishes
--- the job calls `quests:serverComplete(server, questId)`.
+-- the job calls `quests:serverComplete(server, questId, x, y)`.
+--
+-- A boss that goes down far from the way in leaves a way out: pass where it
+-- fell to `serverComplete` and an EXIT star comes up right there, taking
+-- everyone home the same as the blue star by the entrance.
 --
 -- The host decides: it checks the taker's body is on the star, that the
 -- star is on the map in play and that the destination exists, then
@@ -28,6 +33,7 @@
 --   server -> all     QST_MAP    <mapName>              (play on this map from now on; before QST_START)
 --   server -> all     QST_START  <questId> <playerId>   (who took the job)
 --   server -> all     QST_DONE   <questId>              (the job is done)
+--   server -> all     QST_EXIT   <x> <y>                (an EXIT star home stands here, on the map in play)
 --   server -> player  QST_NO     <reason>               (away | gone)
 
 local Protocol = require("src.net.protocol")
@@ -75,6 +81,20 @@ Quests.list = {
     banner = "%s followed the wild man. Welcome to Whispering Pines.",
   },
   {
+    id = "d-day",
+    title = "D-Day landing",
+    text = "Major Looz'er has dug in on the hill above the beach and will not stop talking about it. "
+      .. "Wade ashore, keep your head down between the tank stoppers, get past the bunkers and take his flag.",
+    onMap = "city",
+    x = -320, -- down the same north-south road as the alien hunt, south of the central road
+    y = 220,
+    map = "beach",
+    boss = "d-day",
+    label = "D-DAY",
+    color = { 0.78, 0.82, 0.45 },
+    banner = "%s hit the beach. Welcome to Looz'er Beach.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -94,6 +114,19 @@ Quests.list = {
     onMap = "forest",
     x = 0, -- the entrance of the trail, between the parked cars
     y = 1164, -- city-map puts the forest entrance (map.cx, map.cy) here
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-beach",
+    title = "Back to the City",
+    text = "Back in the boat. Take everyone back into town.",
+    onMap = "beach",
+    x = 0, -- in the surf between the landing craft
+    y = 1676, -- city-map puts the beach's way in (map.cx, map.cy) here
     map = "city",
     returns = true,
     label = "HOME",
@@ -124,16 +157,37 @@ local function cityMap()
   return Features.byName["city-map"]
 end
 
+--- The EXIT star a fallen boss leaves on map `onMap` at (x, y): the way
+--- home, the same as the blue star by the entrance.
+local function exitQuest(onMap, x, y)
+  local city = cityMap()
+  return {
+    id = "exit",
+    title = "Get out of here",
+    text = "The boss is down. Head home and leave this place behind.",
+    onMap = onMap,
+    x = x,
+    y = y,
+    map = city and city.DEFAULT or "city",
+    returns = true,
+    label = "EXIT",
+    color = { 0.45, 1, 0.75 },
+    banner = "%s found the way out. Welcome back to The City.",
+  }
+end
+
 local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
 --- The quest whose star on map `current` is nearest to (x, y), or the
---- first one there when no position is given.
-local function offeredOn(current, x, y)
+--- first one there when no position is given. `extra` is an EXIT star, if
+--- one is up.
+local function offeredOn(current, x, y, extra)
   local best, bestD2
-  for _, q in ipairs(Quests.list) do
-    if q.onMap == current then
+  for i = 1, #Quests.list + 1 do
+    local q = Quests.list[i] or extra
+    if q and q.onMap == current then
       local d2 = x and dist2(x, y, q.x, q.y) or 0
       if not bestD2 or d2 < bestD2 then
         best, bestD2 = q, d2
@@ -148,6 +202,7 @@ end
 Quests.active = nil -- id of the quest everyone is on, from the host
 Quests.done = nil -- id of a quest finished on this trip (the star home is still the way back)
 Quests.prompt = nil -- the quest whose offer is up
+Quests.exit = nil -- the EXIT star a fallen boss left, from the host
 local declined = nil -- quest id turned down; forgotten once you leave its star
 local seenMap = nil -- the map the last frame was on, to notice arriving on another
 local notice, noticeTimer = nil, 0
@@ -162,14 +217,14 @@ end
 -- QST_MAP and QST_START for a quest under way arrive in the same burst as
 -- START, so the quest is only forgotten on the way out.
 function Quests:exitGame()
-  self.active, self.done, self.prompt, declined, seenMap = nil, nil, nil, nil, nil
+  self.active, self.done, self.prompt, self.exit, declined, seenMap = nil, nil, nil, nil, nil, nil
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
 end
 
 --- The quest whose star on the map I am on is nearest (x, y), if any.
 function Quests:offered(x, y)
   local city = cityMap()
-  return city and offeredOn(city.current, x, y) or nil
+  return city and offeredOn(city.current, x, y, self.exit) or nil
 end
 
 function Quests:update(dt, client)
@@ -254,6 +309,9 @@ function Quests:drawBelowCars()
     if city and quest.onMap == city.current then
       self:drawStar(quest)
     end
+  end
+  if city and self.exit and self.exit.onMap == city.current then
+    self:drawStar(self.exit)
   end
 end
 
@@ -374,9 +432,13 @@ Quests.clientMessages = {
   end,
   QST_START = function(client, args)
     local quest, by = Quests.byId[args[1] or ""], tonumber(args[2])
+    if args[1] == "exit" then
+      quest = Quests.exit
+    end
     if not quest then
       return
     end
+    Quests.exit = nil -- any trip leaves the fallen boss's star behind
     local ended = Quests.active and Quests.byId[Quests.active]
     Quests.active = not quest.returns and quest.id or nil
     Quests.done = nil
@@ -403,6 +465,13 @@ Quests.clientMessages = {
       bannerTimer = BANNER_TIME
     end
   end,
+  QST_EXIT = function(_client, args)
+    local x, y = tonumber(args[1]), tonumber(args[2])
+    local city = cityMap()
+    if x and y and city then
+      Quests.exit = exitQuest(city.current, x, y)
+    end
+  end,
   QST_NO = function(_client, args)
     notice = REASONS[args[1]]
     noticeTimer = notice and NOTICE_TIME or 0
@@ -411,7 +480,7 @@ Quests.clientMessages = {
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil }
+local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil, exit = EXIT star or nil }
 
 -- City-map (lower priority) has put the default map back by now.
 function Quests:serverStart()
@@ -419,13 +488,19 @@ function Quests:serverStart()
 end
 
 --- The job under way is finished (the karen feature says so when she goes
---- down). Everyone hears it; the star home is still the way back.
-function Quests:serverComplete(server, questId)
+--- down). Everyone hears it; the star home is still the way back. Given
+--- where the boss fell (x, y), an EXIT star home comes up there too.
+function Quests:serverComplete(server, questId, x, y)
   if not (sv and sv.active == questId) then
     return false
   end
   sv.done = questId
   server:broadcast(Protocol.encode("QST_DONE", questId))
+  local city = cityMap()
+  if x and y and city then
+    sv.exit = exitQuest(city.current, x, y)
+    server:broadcast(Protocol.encode("QST_EXIT", ("%.1f"):format(x), ("%.1f"):format(y)))
+  end
   return true
 end
 
@@ -450,6 +525,9 @@ function Quests:serverPlayerJoined(server, player)
   if sv.done then
     server:send(player, Protocol.encode("QST_DONE", sv.done))
   end
+  if sv.exit then
+    server:send(player, Protocol.encode("QST_EXIT", ("%.1f"):format(sv.exit.x), ("%.1f"):format(sv.exit.y)))
+  end
 end
 
 --- Is the player's body (not a wreck) on the star?
@@ -464,6 +542,9 @@ end
 Quests.serverMessages = {
   QST_ACCEPT = function(server, player, args)
     local quest = Quests.byId[args[1] or ""]
+    if args[1] == "exit" then
+      quest = sv and sv.exit
+    end
     local city = cityMap()
     if not (sv and quest and city and player.body) then
       return
@@ -475,6 +556,7 @@ Quests.serverMessages = {
       reason = "away"
     else
       local ended = sv.active and Quests.byId[sv.active]
+      sv.exit = nil -- any trip leaves the fallen boss's star behind
       if quest.returns then
         sv.active, sv.by, sv.done = nil, nil, nil
       else
