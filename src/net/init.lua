@@ -23,9 +23,10 @@ function Net.playerKey()
   return key
 end
 
-function Net.host(playerName)
+--- Host a game of the saved `world` (src/saves.lua; nil to keep nothing).
+function Net.host(playerName, world)
   Net.shutdown()
-  local server, err = Server.new(playerName .. "'s game")
+  local server, err = Server.new(playerName .. "'s game", world, Net.playerKey())
   if not server then
     return false, err
   end

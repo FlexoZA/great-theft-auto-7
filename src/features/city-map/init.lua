@@ -20,6 +20,8 @@
 --     server: every player is put on the new map's spawn points in their own
 --     car. Raises the `mapChanged(map, server)` event for every feature
 --     (docs/features.md).
+--   serverWorldSaveHeld  true away from the default map: a saved world is
+--     the city, so it is not written while everyone is somewhere else.
 --
 -- No network messages: the map is code, so nothing needs sending. A feature
 -- that grows the city, or switches it, tells every machine to do the same in
@@ -97,6 +99,12 @@ function CityMap:reset()
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
   end
+end
+
+--- Saved worlds hold off writing the world while we are off the city
+--- (docs/persistence.md); players are still saved.
+function CityMap:serverWorldSaveHeld()
+  return self.current ~= self.DEFAULT
 end
 
 --- Put every player on the map's spawn points, in player order, each behind

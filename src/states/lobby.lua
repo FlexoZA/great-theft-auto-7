@@ -83,6 +83,16 @@ function Lobby:draw()
     local warn = "LAN discovery off (" .. Net.server.discoveryError .. "). Players must type your IP."
     love.graphics.printf(warn, 0, 106, w, "center")
   end
+  local world = Net.isHost() and Net.server.world
+  if world then
+    love.graphics.setColor(0.6, 0.6, 0.65)
+    local line = "World: " .. world:name()
+    if world.restored then
+      love.graphics.setColor(1, 0.7, 0.3)
+      line = line .. " (a damaged file was read from its backup)"
+    end
+    love.graphics.printf(line, 0, 124, w, "center")
+  end
 
   love.graphics.setFont(UI.fonts.body)
   local players = client:playerList()

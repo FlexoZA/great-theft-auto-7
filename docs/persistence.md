@@ -37,12 +37,20 @@ free text anyone can type. Neither survives a restart.
   online players, so showing "owned by Christiaan" for an offline owner needs
   a way to send names of known-but-offline players (a `KNOWN <id> <name>`
   message on join). Small, but needed.
+- **The host is always id 1** (bots and the lobby count on it). If a world
+  folder is moved to another machine, its new host takes over id 1 and so
+  the old host's character.
+- Ids are kept for the session even without a saved world, so someone who
+  drops out and back in gets their id, and their car, back.
 - Not secure: copying someone's settings file lets you play as them. Fine for
   LAN.
 
 Cars get the same treatment: a saved car is restored with **its old vehicle
 id**, and the server's vehicle counter starts past the highest saved one, so
 per-car feature state (`vehicles`' model per car id) also survives as is.
+Only cars owned by a remembered player are saved (not bots', not guests',
+not nobody's). The car a player spawned with is marked `car.personal`; they
+get that one back rather than a new one.
 
 ## Save layout
 
@@ -51,14 +59,15 @@ saves/<world-slug>/
   meta.lua              name, created, lastPlayed, format version, player names (for the Continue list)
   world.lua             ids, nextId, cars, and one slice per feature
   world.lua.bak         the previous world.lua
-  players/<key>.lua     name, position, and one slice per feature
+  players/<key>.lua     name, and one slice per feature
   players/<key>.lua.bak
 ```
 
-- Files are Lua tables written by the serializer from `src/settings.lua`
-  (moved to a shared `src/serialize.lua`).
-- **Loading is sandboxed:** `love.filesystem.load` then `setfenv(chunk, {})`,
-  called with `pcall`. People will pass world folders around; a save file must
+- Files are Lua tables written by `src/serialize.lua` (settings use it too);
+  `src/saves.lua` handles the folders and `src/net/persistence.lua` what goes
+  in them.
+- **Loading is sandboxed:** the chunk runs with `setfenv(chunk, {})` under
+  `pcall`. People will pass world folders around; a save file must
   not be able to run code.
 - **Crash safety:** before writing a file, its current version is copied to
   `.bak`. If the main file fails to load, the `.bak` is used and the host is
@@ -77,17 +86,23 @@ Four new optional hooks, all server side:
 | --- | --- |
 | `serverSaveWorld(server)` → table or nil | Every save. Return the world part this feature owns. |
 | `serverLoadWorld(server, data)` | Continuing a world, right after `serverStart`, with this feature's slice. |
-| `serverSavePlayer(server, player)` → table or nil | Every save, and when that player leaves. Their personal part. |
-| `serverLoadPlayer(server, player, data)` | A known player is back, after their body exists. |
+| `serverSavePlayer(server, player)` → table or nil | Every save, and when that player leaves (before `serverPlayerLeft`). Their personal part. |
+| `serverLoadPlayer(server, player, data)` | A known player is back and fully set up. |
 
 Order when a game starts (from the lobby):
-`spawnPlayers` → `serverStart` → `serverLoadWorld` → `serverLoadPlayer` (each
-known player) → `START`.
+`KNOWN` for absent owners → saved cars back (`VEHICLE`) → `spawnPlayers`
+(known players get their own car back) → `serverStart` → saved cars back
+where they were parked → `serverLoadWorld` → `serverLoadPlayer` (each known
+player) → `START`.
 
 Order when someone joins a running game:
-body and car → `serverLoadPlayer` (if known) → `serverPlayerJoined`, so a
-feature sending its state to the newcomer in `serverPlayerJoined` sends the
-loaded state.
+body and car (their own, if it is still about) → `serverPlayerJoined` →
+`serverLoadPlayer` (if known) → `START`.
+
+Load hooks come last so that every feature's state for the player already
+exists (many create it in `serverStart` or `serverPlayerJoined`). A load is
+then a change like any other: **the feature must broadcast what it put
+back** (a wallet, a level), the same way it does when that changes in play.
 
 Rules for features:
 - Save **facts**, not things you can work out. Save the upgrade level, not the
@@ -95,16 +110,16 @@ Rules for features:
 - Save nothing about ongoing action: bullets, cooldowns, timers, stamina.
 - Only the server saves. Clients never read or write a save.
 
-`src/features/init.lua` needs a call variant that passes each feature's name
-along and collects return values. `_template` and `features.md` get the new
-hooks.
+`Features.gather(hook, ...)` collects slices by feature name and
+`Features.deliver(hook, slices, ...)` hands them back. `_template` and
+`features.md` list the hooks.
 
 ## What gets saved
 
 | Owner | Kept |
 | --- | --- |
-| Core (world) | `ids`, `nextId`, vehicle counter, every owned car: id, x, y, angle, owner |
-| Core (player) | name, last position |
+| Core (world) | `ids`, `names`, `nextId`, vehicle counter, every car a remembered player owns: id, x, y, angle, owner, colour, personal |
+| Core (player) | name |
 | `money` | wallet (player) |
 | `upgrades` | levels (player) |
 | `weapons` | guns in slots, ammo (player). Health comes back full. |
@@ -126,9 +141,9 @@ lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
 - **Quests:** on a quest map the world is not the city, so world autosaves
   pause until everyone is back; player files are still written. A world is
   always continued in the city.
-- **Loading a player:** returning players appear on foot where they last
-  were. A player new to this world gets a starter car as today; a known player
-  does not (their cars are where they parked them).
+- **Loading a player:** returning players start behind the wheel of their
+  own car, where they parked it. If someone else is driving it they stand
+  beside it. A player new to this world gets a starter car as today.
 
 ## Changes to existing behaviour
 
@@ -149,20 +164,22 @@ Players joining later go straight into the running game.
 
 ## Plan (one PR each, into `staging`)
 
-1. `feature/player-key`: client makes and stores a key, sends it in `HELLO`,
+1. (done) `feature/player-key`: client makes and stores a key, sends it in `HELLO`,
    server keeps it on `player.key`. No behaviour change.
-2. `feature/join-running-game`: accept `HELLO` after start: spawn, send the
+2. (done) `feature/join-running-game`: accept `HELLO` after start: spawn, send the
    roster, every car (`VEHICLE`), `START`; audit each feature's
    `serverPlayerJoined` so a latecomer gets its state (real-estate and bots
    already handle this). Own cars stay when their owner leaves. Also
    `KNOWN` for offline owners' names.
-3. `feature/world-saves`: `src/serialize.lua`, save module, the four hooks,
+3. (done) `feature/world-saves`: `src/serialize.lua`, save module, the four hooks,
    stable player and vehicle ids, core slices, autosave, `.bak`, sandboxed
    load, New world / Continue screens.
 4. `bug/quest-keeps-property`: owners and buildings survive a quest trip.
 5. One small PR per feature slice (`feature/save-money-upgrades`,
    `feature/save-loadout`, `feature/save-property`, `feature/save-vehicles`).
    These touch only their own feature folder, so they can be done in parallel.
+   `save-property` also stops real-estate and buildings giving up a
+   player's plots when they leave, and saves the blocks the city has grown.
 
 1 and 2 can be done at the same time; 3 needs 1; 5 needs 3 (and 4 for
 property).

@@ -19,6 +19,7 @@ local Discovery = require("src.net.discovery")
 local Car = require("src.car")
 local Body = require("src.body")
 local Features = require("src.features")
+local Persistence = require("src.net.persistence")
 
 local Server = {}
 Server.__index = Server
@@ -35,7 +36,9 @@ local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
 end
 
-function Server.new(hostName)
+--- `world` is the saved world to play (src/saves.lua; nil: nothing is kept)
+--- and `hostKey` the hosting player's key, who always gets id 1.
+function Server.new(hostName, world, hostKey)
   local ok, host = pcall(enet.host_create, "*:" .. Protocol.PORT, Server.MAX_PLAYERS, CHANNELS)
   if not ok or not host then
     return nil, ("could not open UDP port %d (already hosting?)"):format(Protocol.PORT)
@@ -56,6 +59,7 @@ function Server.new(hostName)
     tick = 0,
     accumulator = 0,
   }, Server)
+  Persistence.attach(self, world, hostKey)
 
   local responder, err = Discovery.newResponder(function()
     return self.name, self:playerCount(), Server.MAX_PLAYERS, self.hostId
@@ -106,6 +110,7 @@ function Server:update(dt)
   end
 
   if self.started then
+    Persistence.update(self, dt)
     self.accumulator = math.min(self.accumulator + dt, MAX_FRAME)
     while self.accumulator >= Server.TICK do
       self.accumulator = self.accumulator - Server.TICK
@@ -185,9 +190,14 @@ end
 function Server:spawnVehicle(x, y, angle, owner)
   local id = self.nextVehicleId
   self.nextVehicleId = id + 1
+  return self:restoreVehicle(id, x, y, angle, owner)
+end
+
+--- The same under a given id: a saved car coming back as it was.
+function Server:restoreVehicle(id, x, y, angle, owner, color)
   local car = Car.new(x, y, angle)
   car.id, car.owner = id, owner
-  car.color = owner and Car.colorIndexFor(owner) or love.math.random(#Car.PALETTE)
+  car.color = color or (owner and Car.colorIndexFor(owner)) or love.math.random(#Car.PALETTE)
   self.vehicles[id] = car
   self:broadcast(Protocol.encode("VEHICLE", id, owner or 0, car.color))
   return car
@@ -298,10 +308,7 @@ function Server:onHello(peer, name, key)
     key = Protocol.newKey()
   end
 
-  local id = self.nextId
-  self.nextId = id + 1
   local player = {
-    id = id,
     name = Protocol.sanitizeName(name),
     key = key, -- lasting identity across sessions (docs/persistence.md); `id` is this session's
     guest = guest, -- true: throwaway key, not to be saved
@@ -312,6 +319,8 @@ function Server:onHello(peer, name, key)
     vehicle = nil, -- the car they are driving, nil on foot
     car = nil, -- the car they own
   }
+  local id = Persistence.assignId(self, player) -- the same as last time in a saved world
+  player.id = id
   self.players[id] = player
   self.byPeer[idx] = player
 
@@ -341,6 +350,7 @@ function Server:joinRunning(player)
   end
   self:spawnPlayer(player, self:freeSpawn())
   Features.call("serverPlayerJoined", self, player)
+  Persistence.loadPlayer(self, player)
   self:send(player, Protocol.encode("START"))
 end
 
@@ -378,6 +388,7 @@ function Server:onDisconnect(peer)
   if not player then
     return
   end
+  Persistence.savePlayer(self, player) -- while every feature still has them
   self.byPeer[idx] = nil
   self.players[player.id] = nil
   self.departed[player.id] = player.name
@@ -391,15 +402,21 @@ function Server:start()
     return
   end
   self.started = true
+  for id, name in pairs(self.departed) do
+    self:broadcast(Protocol.encode("KNOWN", id, name)) -- owners of saved cars who are not here
+  end
+  Persistence.restoreCars(self)
   self:spawnPlayers()
   Features.call("serverStart", self)
+  Persistence.afterStart(self)
   self:broadcast(Protocol.encode("START"))
   self.host:flush()
 end
 
 --- Everyone gets a body and a car of their own, lined up side by side at
 --- the origin facing up, and starts behind the wheel. A map feature moves
---- them to its own spawn points in serverStart.
+--- them to its own spawn points in serverStart; in a saved world their own
+--- car is the one they had, and goes back where it was parked after that.
 function Server:spawnPlayers()
   local ids = {}
   for id in pairs(self.players) do
@@ -409,23 +426,44 @@ function Server:spawnPlayers()
   local n = #ids
   for i, id in ipairs(ids) do
     local x = (i - 1 - (n - 1) / 2) * SPAWN_SPACING
-    local p = self.players[id]
-    p.body = Body.new(x, 0, -math.pi / 2)
-    p.car = self:spawnVehicle(x, 0, -math.pi / 2, id)
-    self:seat(p, p.car)
+    self:giveOwnCar(self.players[id], x, 0, -math.pi / 2)
   end
+end
+
+--- The car `id` spawned with (`car.personal`), if it is still in the world.
+function Server:personalCar(id)
+  for _, car in pairs(self.vehicles) do
+    if car.owner == id and car.personal then
+      return car
+    end
+  end
+  return nil
+end
+
+--- A body and their own car for `player`, behind its wheel: the car they
+--- had if it is still about (a saved world, or back in the same session),
+--- else a new one at (x, y). If someone else is driving theirs, they stand
+--- beside it.
+function Server:giveOwnCar(player, x, y, angle)
+  local own = self:personalCar(player.id)
+  if not own then
+    own = self:spawnVehicle(x, y, angle, player.id)
+    own.personal = true
+  end
+  player.body = Body.new(own.x, own.y, own.angle)
+  player.car = own
+  self:seat(player, own)
 end
 
 --- A player added while the game is running (a bot, or someone joining late):
 --- body, own car, seated.
 function Server:spawnPlayer(player, x, y, angle)
-  player.body = Body.new(x, y, angle)
-  player.car = self:spawnVehicle(x, y, angle, player.id)
-  self:seat(player, player.car)
+  self:giveOwnCar(player, x, y, angle)
   return player
 end
 
 function Server:close()
+  Persistence.saveAll(self)
   for _, p in pairs(self.players) do
     p.peer:disconnect()
   end

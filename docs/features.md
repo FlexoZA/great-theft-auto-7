@@ -83,10 +83,15 @@ Clients send intent; the server decides. Never trust a client message.
 | `serverStart(server)` | Game started, every player has a body and their own car at the default spawn slot and sits in it. A map feature moves them to its own spawn points here (city-map's `placePlayers`). |
 | `serverStep(server, dt)` | Fixed 30 Hz, after car physics, before the `STATE` broadcast. Collisions, projectiles, scoring. |
 | `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. Joined also fires for someone arriving mid-game (`server.started`, `player.body` set) before their `START`: send them any state you only send on change, or they never see it. It fires for bots too (`player.bot`). A player who leaves keeps their car in the world, so `car.owner` may not be in `server.players`. |
+| `serverSaveWorld(server)` → table or nil | A saved world is being written (autosave, host quits). Return this feature's part of the world: facts, not what can be worked out, with a `version`. See `persistence.md`. |
+| `serverLoadWorld(server, data)` | A saved world is continued: after `serverStart`, with what `serverSaveWorld` returned last time. Not called when there is nothing saved. Tell clients what changed. |
+| `serverSavePlayer(server, player)` → table or nil | Every save, and when that player leaves (before `serverPlayerLeft`). Their personal part: wallet, loadout, levels. |
+| `serverLoadPlayer(server, player, data)` | A remembered player is back, fully set up (after `serverStart`, or after `serverPlayerJoined` for a latecomer). Put their things back and broadcast, as for any change. |
 | `serverMessages = { KIND = function(server, player, args) end }` | A message from a client the core doesn't know. `player` is the verified sender. |
 
 Useful server fields: `server.players[id]` (`id name key guest peer input body
-vehicle car`; `key` is the player's lasting identity, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
+vehicle car`; `key` is the player's lasting identity, and in a saved world
+`id` stays the same for that person game after game, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
 exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
 vehicles" below.
 
@@ -287,6 +292,9 @@ couple of small conventions rather than requiring each other:
 - `server.spawnPoints`: a map feature sets this in `serverStart` to a list of
   `{ x, y, angle }` on drivable ground. Anything that spawns a car (bots)
   uses it when present and falls back to its own placement otherwise.
+- `feature:serverWorldSaveHeld(server)`: return true while the world must not
+  be saved (city-map: while everyone is away on a quest map). Players are
+  still saved.
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
   solid. Weapons checks every feature that defines it, so bullets stop at
   walls without knowing which feature owns them.
