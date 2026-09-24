@@ -328,10 +328,13 @@ couple of small conventions rather than requiring each other:
   car a health ceiling of its own (every car has 100 otherwise) and fill it
   up; wrecks come back with it. Weapons broadcasts `WPN_CARMAX` so every
   health bar scales. Vehicles sets each model's hitpoints this way.
-- Vehicle models: every `src/features/vehicles/models/<key>.svg` is a car
-  model, found at startup; a `<key>.lua` beside it sets its name, price,
-  hitpoints, top speed, acceleration, weight and turning (the header of
-  `vehicles/catalog.lua` lists them). `Features.byName.vehicles:serverSpawn(server,
+- Vehicle models: every `src/features/vehicles/models/<type>-<colour>.svg`
+  is a car model, found at startup. A `<type>.lua` beside it sets the
+  stats every colour of that type shares: name, price, hitpoints, top
+  speed, acceleration, weight, turning, drawn length, and the factory's
+  build time and materials (the header of `vehicles/catalog.lua` lists
+  them). A new colour is just a new SVG; a `<type>-<colour>.lua` changes
+  one colour on its own. `Features.byName.vehicles:serverSpawn(server,
   model, x, y, angle, owner)` puts one on the road (`model` from
   `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
   (`vehicles/svg.lua`) handles paths, basic shapes, fills, strokes, groups
