@@ -406,7 +406,7 @@ function Abilities:drawHUD(client)
       -- with the seconds it has left inside; resting, the ring fills back
       -- through its cooldown like a keyed ability's.
       local p = ability and self.passive and self.passive.key == ability.key and self.passive or nil
-      local title, titleColor = ability and ability.title or "passive", { 0.6, 0.6, 0.65 }
+      local title, titleColor = ability and (ability.hud or ability.title) or "passive", { 0.6, 0.6, 0.65 }
       local middle, middleColor
       if not ability then
         UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
@@ -455,7 +455,7 @@ function Abilities:drawHUD(client)
         UI.ring(cx, cy, r, 1 - left / math.max(0.01, total), { c[1], c[2], c[3], 0.85 }, 5)
         middle = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
         middleColor = { 1, 1, 1 }
-        title, titleColor = ability.title, { 0.7, 0.7, 0.75 }
+        title, titleColor = ability.hud or ability.title, { 0.7, 0.7, 0.75 }
       else
         local flash = self.readyFlash[ability.key]
         if flash then
@@ -472,7 +472,7 @@ function Abilities:drawHUD(client)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
         middle, middleColor = key, { 1, 1, 1 }
-        title = aiming and (ability.aim == "direction" and "fire: place" or "release") or ability.title
+        title = aiming and (ability.aim == "direction" and "fire: place" or "release") or (ability.hud or ability.title)
         titleColor = aiming and c or { 0.9, 0.9, 0.95 }
       end
       love.graphics.setFont(body)

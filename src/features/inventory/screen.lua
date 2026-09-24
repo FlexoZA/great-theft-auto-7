@@ -351,7 +351,7 @@ local function drawAbilities(L, lifted)
       end
       love.graphics.setFont(small)
       love.graphics.setColor(1, 1, 1, ability and 0.85 or 0.25)
-      love.graphics.printf(ability and ability.title or "passive", r.x, r.y + r.h - 20, r.w, "center")
+      love.graphics.printf(ability and (ability.hud or ability.title) or "passive", r.x, r.y + r.h - 20, r.w, "center")
     elseif not ability then
       UI.ring(cx, cy, radius, 0, { 1, 1, 1 }, 3)
       love.graphics.setFont(body)
@@ -377,7 +377,7 @@ local function drawAbilities(L, lifted)
       UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
       love.graphics.setFont(small)
       love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(ability.title, r.x, r.y + r.h - 20, r.w, "center")
+      love.graphics.printf(ability.hud or ability.title, r.x, r.y + r.h - 20, r.w, "center")
     end
   end
 end

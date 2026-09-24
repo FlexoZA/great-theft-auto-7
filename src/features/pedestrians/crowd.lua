@@ -240,6 +240,21 @@ function Crowd:freeze(x, y, radius, seconds)
   end
 end
 
+--- Something stinks at (x, y): everyone in the crowd within `radius` bolts
+--- straight away from it for `seconds` (at the pace of a scared pedestrian).
+function Crowd:scare(x, y, radius, seconds)
+  local r2 = (radius + Crowd.RADIUS) ^ 2
+  for i = 1, self.n do
+    local p = self.peds[i]
+    local dx, dy = p.x - x, p.y - y
+    if dx * dx + dy * dy <= r2 and p.frozen <= 0 then
+      setHeading(p, math.atan2(dy, dx))
+      p.flee = math.max(p.flee, seconds)
+      p.react = 0
+    end
+  end
+end
+
 --- The first pedestrian standing within `radius` of (x, y), taken out of the
 --- crowd. Used for anything that kills one without a bumper (a bullet); the
 --- caller announces the death. Returns nil if nobody was there.
