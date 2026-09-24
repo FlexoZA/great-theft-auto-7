@@ -23,8 +23,10 @@
 -- put on (armor:equip) and dragged back into the bag taken off
 -- (armor:unequip; a damaged one is thrown away). Clothes ("gear-<key>")
 -- go onto the head, body, pants and shoes slots the same way (gear:equip,
--- unequip). The host does the moving and tells each feature what is in its
--- slots; this only asks.
+-- unequip). Any stack in the bag dragged onto the bin under the items is
+-- destroyed (buildings:trash); something in a slot goes into the bag first.
+-- The host does the moving and tells each feature what is in its slots;
+-- this only asks.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -39,9 +41,10 @@ local Inventory = {
 }
 
 Inventory.open = false
--- What is being dragged: { kind = "gun", index }, { kind = "ability", key }, { kind = "quick", item } or
--- { kind = "armor", key } or { kind = "gear", key, slot }, with
--- from = "slot" | "bag" | "quick", box (the slot or item box it left), x0, y0, moved.
+-- What is being dragged: { kind = "gun", index }, { kind = "ability", key }, { kind = "quick", item },
+-- { kind = "armor", key }, { kind = "gear", key, slot } or { kind = "item" } (anything else in the bag,
+-- which only the bin takes), with from = "slot" | "bag" | "quick", box (the slot or item box it left),
+-- x0, y0, moved, and from the bag the stack it is: item, n.
 Inventory.drag = nil
 Inventory.dragStart = 5 -- px the mouse must move with the button down before a press is a drag
 Inventory.notice = nil -- { text, t }: why a drop did nothing
@@ -118,8 +121,7 @@ function Inventory:keypressed(key)
 end
 
 --- What a press on (x, y) would pick up: a gun in its weapon slot, an
---- ability in its slot, the stack in a quick slot, or a gun, ability,
---- medkit or drink item in the bag.
+--- ability in its slot, the stack in a quick slot, or any stack in the bag.
 function Inventory:pick(x, y, client)
   local L = Screen.layout()
   local w, a, b = weapons(), abilities(), buildings()
@@ -172,22 +174,29 @@ function Inventory:pick(x, y, client)
     for i, r in ipairs(L.items) do
       if inside(r, x, y) then
         local s = i <= b.slots and list[i]
-        local gunKey = s and s.item:match("^gun%-(.+)$")
-        local gun = gunKey and Guns[gunKey]
-        local abilityKey = s and s.item:match("^ability%-(.+)$")
-        if gun then
-          return { kind = "gun", index = gun.index, from = "bag", box = i }
-        elseif abilityKey and a and a.kinds.byKey[abilityKey] then
-          return { kind = "ability", key = abilityKey, from = "bag", box = i }
-        elseif s and b.usableByItem and b.usableByItem[s.item] then
-          return { kind = "quick", item = s.item, from = "bag", box = i }
-        elseif s and s.item:match("^armor%-") and ar and ar.kinds.byKey[s.item:sub(7)] then
-          return { kind = "armor", key = s.item:sub(7), from = "bag", box = i }
-        elseif s and s.item:match("^gear%-") and g and g.kinds.byKey[s.item:sub(6)] then
-          local piece = g.kinds.byKey[s.item:sub(6)]
-          return { kind = "gear", key = piece.key, slot = piece.slot, from = "bag", box = i }
+        if not s then
+          return nil
         end
-        return nil
+        local d
+        local gunKey = s.item:match("^gun%-(.+)$")
+        local gun = gunKey and Guns[gunKey]
+        local abilityKey = s.item:match("^ability%-(.+)$")
+        if gun then
+          d = { kind = "gun", index = gun.index }
+        elseif abilityKey and a and a.kinds.byKey[abilityKey] then
+          d = { kind = "ability", key = abilityKey }
+        elseif b.usableByItem and b.usableByItem[s.item] then
+          d = { kind = "quick", item = s.item }
+        elseif s.item:match("^armor%-") and ar and ar.kinds.byKey[s.item:sub(7)] then
+          d = { kind = "armor", key = s.item:sub(7) }
+        elseif s.item:match("^gear%-") and g and g.kinds.byKey[s.item:sub(6)] then
+          local piece = g.kinds.byKey[s.item:sub(6)]
+          d = { kind = "gear", key = piece.key, slot = piece.slot }
+        else
+          d = { kind = "item", item = s.item } -- materials, ammo: only the bin takes them
+        end
+        d.from, d.box, d.item, d.n = "bag", i, s.item, s.n
+        return d
       end
     end
   end
@@ -365,11 +374,30 @@ function Inventory:dropGear(client, d, x, y, L)
   end
 end
 
+--- Something came down on the bin: a stack from the bag is destroyed;
+--- anything in a slot has to go into the bag first.
+function Inventory:dropTrash(client, d)
+  local b = buildings()
+  if not b then
+    return
+  end
+  if d.from ~= "bag" then
+    self:say("Put it in your bag first, then drag it into the bin.")
+    return
+  end
+  b:trash(client, d.item, d.n)
+  self:say("Destroyed " .. Kinds.label(d.item, d.n) .. ".")
+end
+
 --- The button came up at (x, y) after a drag: put the gun, ability, stack,
---- vest or piece of clothing where it landed.
+--- vest or piece of clothing where it landed, or destroy it in the bin.
 function Inventory:drop(client, d, x, y)
   local L = Screen.layout()
-  if d.kind == "ability" then
+  if inside(L.trash, x, y) then
+    return self:dropTrash(client, d)
+  elseif d.kind == "item" then
+    return -- nowhere to put it but the bin
+  elseif d.kind == "ability" then
     return self:dropAbility(client, d, x, y, L)
   elseif d.kind == "quick" then
     return self:dropQuick(client, d, x, y, L)
