@@ -480,7 +480,7 @@ example with a menu; real-estate is the one with a place to stand.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`), in slots of one stack
+  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it and
   moves guns in and out of it as items. Buildings have hit points (`hp` in
@@ -500,13 +500,16 @@ example with a menu; real-estate is the one with a place to stand.
   owns the mouse while it is up (`pointerTaken`) and the number keys
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
   that key, out of its slot into the bag to put it down, or between slots to
-  swap (weapons and abilities do the moving). A stack of medkits dragged
-  onto the medkit slot beside the abilities is what the medkit key (H)
-  uses (`BLD_QUICK_PUT` / `BLD_QUICK_TAKE`; buildings keeps the slot and
-  says `BLD_QUICK`); medkits left in the bag are just carried. A medkit
-  circle sits at the end of the abilities row on the HUD with the key and
-  the count, and each use starts a cooldown (`buildings.medkitCooldown`,
-  told by `BLD_MEDKIT`) that the ring fills back through.
+  swap (weapons and abilities do the moving). Beside the abilities are the
+  quick slots, one per entry of `buildings.usables` (medkits on H, energy
+  drinks on J): a stack dragged onto its slot is what the key uses
+  (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
+  slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
+  carried. Each usable has a circle at the end of the abilities row on the
+  HUD with its key and count, and each use starts its cooldown (told by
+  `BLD_USED <item> <seconds>`) that the ring fills back through. Add an
+  entry to `usables` (item, key, colour, cooldown, `apply`) and the slot,
+  the circle and the key come with it.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
 - Several maps: `city.maps` names every map the game can play on (each a
