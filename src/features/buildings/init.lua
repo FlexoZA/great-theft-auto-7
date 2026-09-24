@@ -69,8 +69,14 @@
 -- standing can't be taken over.
 --
 -- The plots come from real-estate; without it there is nothing to build on.
--- A building belongs to whoever owns its plot: when the plot goes back on
--- the market (they left) or the map changes, the building is gone.
+-- A building belongs to whoever owns its plot: when the plot changes hands
+-- the building is gone. It stays when its owner leaves the game and keeps
+-- working (a quest trip only puts it aside). While they are away it does
+-- not trade, though: nobody can pay them or be paid by them then.
+--
+-- A saved world keeps every building on its plot, and each player's file
+-- what they carry and their quick slots (docs/persistence.md). Bag slots
+-- are the upgrade shop's to put back.
 --
 -- Messages
 --   client -> server  BLD_BUILD   <plotId> <kind>
@@ -197,6 +203,7 @@ local REASONS = {
   standing = "Only a destroyed building's lot can be taken over.",
   intact = "It isn't damaged.",
   yours = "It's yours: repair it instead.",
+  closed = "Its owner is away: it doesn't trade until they're back.",
 }
 
 local function amount(n)
@@ -423,6 +430,11 @@ local function send(client, kind, ...)
   client:send(Protocol.encode(kind, ...))
 end
 
+--- The owner's name, whether they are here or away.
+local function ownerName(client, id)
+  return client:nameOf(id) or "?"
+end
+
 --- The rows of the menu for the square I am on: { label, run = function } or
 --- { label } for a line that can't be picked right now.
 function Buildings:menuRows(client)
@@ -528,6 +540,10 @@ function Buildings:menuRows(client)
     return rows
   end
 
+  if not client.players[owner] then
+    row(("Closed while %s is away"):format(ownerName(client, owner)))
+    return rows
+  end
   if b.public then
     local item = productOf(kind, b.product)
     local unit = recipeOf(b, kind).unit
@@ -679,11 +695,6 @@ function Buildings:keypressed(key, client)
       return
     end
   end
-end
-
-local function ownerName(client, id)
-  local p = client.players[id]
-  return p and p.name or "?"
 end
 
 --- The square on the sidewalk: the owner's colour, the building's initial
@@ -988,6 +999,9 @@ function Buildings:drawHUD(client)
     elseif owner == client.myId then
       text = kind and ("Your %s.  %s: manage"):format(kind.name, key) or ("Your plot.  %s: build"):format(key)
       color = { 0.6, 0.9, 0.6 }
+    elseif kind and (b.public or buysAnything(b)) and not client.players[owner] then
+      text = ("%s's %s (closed while they're away)"):format(ownerName(client, owner), kind.name)
+      color = { 0.8, 0.8, 0.85 }
     elseif kind and (b.public or buysAnything(b)) then
       local deals = {}
       if b.public then
@@ -1304,7 +1318,8 @@ function Buildings:serverSetSlots(server, player, slots)
 end
 
 --- Someone joining mid-game sees what stands on every plot (real-estate,
---- lower priority, has told them who owns it). What they carry starts empty.
+--- lower priority, has told them who owns it). What they carry starts empty;
+--- a returning player's comes back in serverLoadPlayer.
 function Buildings:serverPlayerJoined(server, player)
   if not (sv and server.started) or player.bot then
     return
@@ -1314,20 +1329,14 @@ function Buildings:serverPlayerJoined(server, player)
   end
 end
 
-function Buildings:serverPlayerLeft(server, player)
+--- What a player carries is forgotten when they leave (their file has it
+--- by then: serverSavePlayer). Their buildings stay; a guest's go when
+--- real-estate puts the plot back on the market (serverStep sees it).
+function Buildings:serverPlayerLeft(_server, player)
   if not sv then
     return
   end
   sv.stock[player.id], sv.slots[player.id], sv.quick[player.id], sv.usedAt[player.id] = nil, nil, nil, nil
-  for id, b in pairs(sv.buildings) do
-    if b.owner == player.id then
-      removeBuilding(server, id)
-    end
-  end  for id, b in pairs(sv.home or {}) do
-    if b.owner == player.id then
-      sv.home[id] = nil -- back in the city nobody hears of it
-    end
-  end
 end
 
 --- Is the player's body on the square in front of `plot` (a little slack
@@ -1605,6 +1614,8 @@ Buildings.serverMessages = {
       return "own"
     elseif pays < 1 then
       return "notbuying"
+    elseif not server.players[b.owner] then
+      return "closed"
     end
     local have = stockOf(player.id)[item] or 0
     local n = math.min(have, Kinds.HOPPER - (b.hopper[item] or 0))
@@ -1645,6 +1656,8 @@ Buildings.serverMessages = {
       return "own"
     elseif kind.private or not b.public then
       return "private"
+    elseif not server.players[b.owner] then
+      return "closed"
     end
     local n = math.min(recipeOf(b, kind).unit, b.output)
     if n < 1 then
@@ -1769,6 +1782,226 @@ Buildings.serverMessages = {
     addStock(server, player, u.item, n)
   end),
 }
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- The city's buildings and the plots they stand on: away on a quest both
+--- wait at home (the world is not written then anyway).
+local function cityBook()
+  local city, re = Features.byName["city-map"], realEstate()
+  if not (sv and city and re) then
+    return nil
+  end
+  if city.current == city.DEFAULT then
+    return sv.buildings, re.plots
+  end
+  return sv.home, city.home and re.plotsOf(city.home)
+end
+
+--- Every building on the city's plots, by block (plot numbers follow the
+--- order the city grew). Facts only: what it is, whose, how it is set up,
+--- what it holds and its hit points. A batch under way starts over. Items
+--- are saved by key, a product too, so a list that changes order is fine.
+function Buildings:serverSaveWorld(server)
+  local book, plots = cityBook()
+  if not (book and plots) then
+    return nil
+  end
+  local list = {}
+  for id, b in pairs(book) do
+    local plot, kind = plots[id], Kinds.byKey[b.kind]
+    if plot and kind and server.names[b.owner] then
+      local prices = {}
+      for index, price in pairs(b.prices or {}) do
+        local item = productOf(kind, index)
+        if item then
+          prices[item] = price
+        end
+      end
+      prices[productOf(kind, b.product) or ""] = nil -- `price` is that one's
+      list[#list + 1] = {
+        bi = plot.block.bi,
+        bj = plot.block.bj,
+        kind = b.kind,
+        owner = b.owner,
+        public = b.public,
+        product = productOf(kind, b.product),
+        price = b.price,
+        prices = prices,
+        pays = b.pays,
+        output = b.output,
+        hopper = b.hopper,
+        hp = b.hp,
+      }
+    end
+  end
+  table.sort(list, function(a, b)
+    return a.bi < b.bi or (a.bi == b.bi and a.bj < b.bj)
+  end)
+  return { version = SAVE_VERSION, buildings = list }
+end
+
+local function integer(v)
+  return type(v) == "number" and v == math.floor(v) and v > -1e9 and v < 1e9
+end
+
+--- Can we read slice `data`: a table from this version or an older one (no
+--- version reads as the first)?
+local function readable(data)
+  local v = type(data) == "table" and (data.version == nil and 1 or data.version)
+  return integer(v) and v >= 1 and v <= SAVE_VERSION
+end
+
+--- A number from a save, or `default` when it isn't one; kept in [lo, hi].
+local function bounded(v, lo, hi, default)
+  if type(v) ~= "number" or v ~= v then
+    return default
+  end
+  return math.max(lo, math.min(hi, v))
+end
+
+--- Materials -> amounts from a save, only those `kind`'s hopper takes.
+local function materialsFrom(t, kind, hi)
+  local out = {}
+  for m in pairs(kind.hopper) do
+    local n = math.floor(bounded(type(t) == "table" and t[m] or nil, 0, hi, 0))
+    out[m] = n > 0 and n or nil
+  end
+  return out
+end
+
+--- The index of `item` among `kind`'s products, or nil.
+local function productIndex(kind, item)
+  for i, p in ipairs(kind.products or {}) do
+    if p == item then
+      return i
+    end
+  end
+  return nil
+end
+
+--- A building record from a save, made sane for `kind`; nil if it isn't one.
+local function buildingFrom(rec, kind)
+  local product = productIndex(kind, rec.product) or 1
+  local r = Kinds.recipe(kind, product)
+  local b = {
+    kind = kind.key,
+    owner = rec.owner,
+    public = rec.public == true and not kind.private,
+    product = product,
+    price = math.floor(bounded(rec.price, PRICE_MIN, SELL_MAX, r.price or 0)),
+    pays = materialsFrom(rec.pays, kind, PRICE_MAX),
+    output = bounded(rec.output, 0, r.cap or 0, 0),
+    progress = 0,
+    hopper = materialsFrom(rec.hopper, kind, Kinds.HOPPER),
+    hp = math.floor(bounded(rec.hp, 0, kind.hp, kind.hp)),
+  }
+  if not kind.rate then
+    b.output = math.floor(b.output)
+  end
+  if type(rec.prices) == "table" then
+    for item, price in pairs(rec.prices) do
+      local index = productIndex(kind, item)
+      if index and index ~= product and type(price) == "number" then
+        b.prices = b.prices or {}
+        b.prices[index] = math.floor(bounded(price, PRICE_MIN, SELL_MAX, PRICE_MIN))
+      end
+    end
+  end
+  if ruined(b) then
+    b.output, b.hopper = 0, {} -- a ruin holds nothing (damage)
+  end
+  return b
+end
+
+--- A world is continued: real-estate (lower priority) has grown the city
+--- back and given the plots their owners. Each building goes back on its
+--- plot if that plot is still its owner's, anyone standing inside it is put
+--- out, and everyone hears about it as when it was built.
+function Buildings:serverLoadWorld(server, data)
+  local re = realEstate()
+  local city = Features.byName["city-map"]
+  if not (sv and re and city and city.current == city.DEFAULT) then
+    return
+  end
+  if not readable(data) or type(data.buildings) ~= "table" then
+    return
+  end
+  for _, rec in ipairs(data.buildings) do
+    local kind = type(rec) == "table" and type(rec.kind) == "string" and Kinds.byKey[rec.kind]
+    local plot = kind and integer(rec.bi) and integer(rec.bj) and re.plotOnBlock(re.plots, rec.bi, rec.bj)
+    if plot and not sv.buildings[plot.id] and integer(rec.owner) and re:owner(plot.id) == rec.owner then
+      local b = buildingFrom(rec, kind)
+      sv.buildings[plot.id] = b
+      markWalls()
+      if not (kind.walkable or ruined(b)) then
+        clearFootprint(server, plot)
+      end
+      publish(server, plot.id, b)
+    end
+  end
+end
+
+--- What the player carries and has in their quick slots. The number of bag
+--- slots is the upgrade shop's (a level it saves and puts back).
+function Buildings:serverSavePlayer(_server, player)
+  if not sv or player.bot then
+    return nil
+  end
+  local stock, quick = {}, {}
+  for item, n in pairs(sv.stock[player.id] or {}) do
+    if n > 0 then
+      stock[item] = n
+    end
+  end
+  for item, n in pairs(sv.quick[player.id] or {}) do
+    if n > 0 then
+      quick[item] = n
+    end
+  end
+  return { version = SAVE_VERSION, stock = stock, quick = quick }
+end
+
+--- A player is back: what they carried replaces what a new player starts
+--- with (weapons' spare rounds), and they hear every change. Not trimmed to
+--- their bag: the upgrade shop (later in priority) puts their bag slots
+--- back after this. Only unknown items, cars and nonsense counts are dropped.
+function Buildings:serverLoadPlayer(server, player, data)
+  if not sv or player.bot then
+    return
+  end
+  if not readable(data) then
+    return
+  end
+  local stock = {}
+  if type(data.stock) == "table" then
+    for item, n in pairs(data.stock) do
+      if type(item) == "string" and Kinds.carriable(item) and type(n) == "number" and n >= 1 and n < 1e6 then
+        stock[item] = math.floor(n)
+      end
+    end
+  end
+  for item in pairs(stockOf(player.id)) do
+    if not stock[item] then
+      server:send(player, Protocol.encode("BLD_INV", item, 0))
+    end
+  end
+  sv.stock[player.id] = stock
+  local items = {}
+  for item in pairs(stock) do
+    items[#items + 1] = item
+  end
+  table.sort(items)
+  for _, item in ipairs(items) do
+    server:send(player, Protocol.encode("BLD_INV", item, stock[item]))
+  end
+  local quick = type(data.quick) == "table" and data.quick or {}
+  for _, u in ipairs(Buildings.usables) do
+    setQuick(server, player, u.item, math.floor(bounded(quick[u.item], 0, u.max, 0)))
+  end
+end
 
 --- Take `hits` hit points off building `b` on plot `id`. One still
 --- standing tells everyone its hit points; one that falls loses whatever it

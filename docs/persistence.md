@@ -125,8 +125,8 @@ Rules for features:
 | `weapons` | guns in slots, ammo (player). Health comes back full. |
 | `armor`, `gear` | what is worn (player) |
 | `abilities` | slotted abilities (player) |
-| `buildings` | buildings on plots (world); carried stock and quick slots (player) |
-| `real-estate` | plot owners (world) |
+| `buildings` | every building on its plot, by block: kind, owner, public, product and prices (by item key), hopper, what it pays, output, hit points (world); carried stock and quick slots (player). Bag slots are the upgrade level's. A batch under way starts over. |
+| `real-estate` | the blocks the city grew, in order, and plot owners by block (world) |
 | `vehicles` | model per car id (world) |
 
 **Not saved:** pedestrians, police and wanted level, bots, projectiles, coins
@@ -150,11 +150,12 @@ lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
 - `Server:onHello` stops turning people away with "game already started".
 - `Server:onDisconnect` no longer removes the player's own car; it stays
   parked, still theirs.
-- **Open issue:** a quest swaps the map and real-estate's `mapChanged` clears
-  every owner, and buildings clear every building. With saves this would
-  throw away property for good. Before real-estate and buildings save their
-  state, the city's owners and buildings need to be put back when everyone
-  returns from a quest (keep them aside instead of clearing).
+- A quest swaps the map; the city's owners and buildings wait at home and
+  come back with everyone (`bug/quest-keeps-property`).
+- Real-estate and buildings keep a player's plots and buildings when they
+  leave (a guest's plots still go back on the market: that id never comes
+  back). A public building of an owner who is away does not trade: their
+  wallet is not in play while they are gone.
 
 ## Host flow
 
@@ -174,7 +175,7 @@ Players joining later go straight into the running game.
 3. (done) `feature/world-saves`: `src/serialize.lua`, save module, the four hooks,
    stable player and vehicle ids, core slices, autosave, `.bak`, sandboxed
    load, New world / Continue screens.
-4. `bug/quest-keeps-property`: owners and buildings survive a quest trip.
+4. (done) `bug/quest-keeps-property`: owners and buildings survive a quest trip.
 5. One small PR per feature slice (`feature/save-money-upgrades`,
    `feature/save-loadout`, `feature/save-property`, `feature/save-vehicles`).
    These touch only their own feature folder, so they can be done in parallel.
