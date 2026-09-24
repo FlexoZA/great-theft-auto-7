@@ -13,6 +13,7 @@ local Kinds = {
     require("src.features.abilities.mgnest"),
     require("src.features.abilities.heal"),
     require("src.features.abilities.fart"),
+    require("src.features.abilities.openborders"),
   },
   byKey = {},
 }
