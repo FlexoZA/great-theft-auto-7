@@ -604,6 +604,35 @@ function Money:give(server, id, amount)
   return total
 end
 
+-- Saved worlds (docs/persistence.md) ------------------------------------
+
+Money.SAVE_VERSION = 1
+
+--- A player's part of a saved world: their wallet, and nothing else. Koins
+--- on the ground are gone by next time, and reach is upgrades' to put back.
+function Money:serverSavePlayer(_server, player)
+  local total = self:wallet(player.id)
+  if total <= 0 then
+    return nil -- broke is how everyone starts
+  end
+  return { version = self.SAVE_VERSION, wallet = total }
+end
+
+--- Their wallet back, told to everyone as a gift is. The slice came from a
+--- file: a newer version, or a wallet that is not a sane count, is ignored.
+function Money:serverLoadPlayer(server, player, data)
+  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION then
+    return
+  end
+  local total = data.wallet
+  if type(total) ~= "number" or total ~= total or total == math.huge then
+    return
+  end
+  total = math.max(0, math.floor(total))
+  sv.wallets[player.id] = total
+  server:broadcast(Protocol.encode("FCK_PURSE", player.id, total))
+end
+
 --- For tests.
 function Money.server()
   return sv

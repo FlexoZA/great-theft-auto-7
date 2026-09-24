@@ -395,6 +395,51 @@ Upgrades.serverMessages = {
   end,
 }
 
+-- Saved worlds (docs/persistence.md) ------------------------------------
+
+Upgrades.SAVE_VERSION = 1
+
+--- A player's part of a saved world: the level of each kind they bought,
+--- not the ceilings those give (apply works them out again on load).
+function Upgrades:serverSavePlayer(_server, player)
+  local levels = sv and sv.levels[player.id]
+  local out, any = {}, false
+  for _, kind in ipairs(self.kinds) do
+    local level = levels and levels[kind.key] or 0
+    if level > 0 then
+      out[kind.key] = level
+      any = true
+    end
+  end
+  if not any then
+    return nil -- nothing bought yet
+  end
+  return { version = self.SAVE_VERSION, levels = out }
+end
+
+--- Their levels back, each ceiling raised through its owner exactly as a
+--- purchase does, and everyone told. The slice came from a file: a newer
+--- version is ignored, and so is any kind this game doesn't sell or a level
+--- that isn't a number; the rest are held to what the shop can sell.
+function Upgrades:serverLoadPlayer(server, player, data)
+  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION or type(data.levels) ~= "table" then
+    return
+  end
+  local levels = sv.levels[player.id] or {}
+  sv.levels[player.id] = levels
+  for _, kind in ipairs(self.kinds) do
+    local level = data.levels[kind.key]
+    if type(level) == "number" and level == level then
+      level = math.max(0, math.min(#kind.costs, math.floor(level)))
+      if level > 0 then
+        levels[kind.key] = level
+        apply(server, player, kind, level)
+        server:broadcast(Protocol.encode("UPG_LEVEL", player.id, kind.key, level))
+      end
+    end
+  end
+end
+
 --- For tests.
 function Upgrades.server()
   return sv
