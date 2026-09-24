@@ -14,6 +14,7 @@ local Kinds = {
     require("src.features.abilities.heal"),
     require("src.features.abilities.fart"),
     require("src.features.abilities.openborders"),
+    require("src.features.abilities.leap"),
   },
   byKey = {},
 }
