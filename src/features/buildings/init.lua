@@ -40,7 +40,7 @@
 -- into the hopper, as much as fits and the owner's wallet covers, and the
 -- owner pays for it. Public or private makes no difference to buying.
 --
--- The inventory (I) has slots: four to start with, more from the upgrade
+-- The inventory screen (I, bag.lua) has item slots: four to start with, more from the upgrade
 -- shop (Buildings:serverSetSlots). A slot holds one stack of one item
 -- (kinds.lua has the stack sizes); what doesn't fit stays in the building.
 -- It is kept by the host and told to each player alone. Weapons loads its
@@ -76,6 +76,7 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
+local Bag = require("src.features.buildings.bag")
 local Collision = require("src.features.city-map.collision")
 local Layout = require("src.features.city-map.layout")
 
@@ -293,6 +294,9 @@ function Buildings:update(dt, client)
   if not herePad or otherMenuOpen() then
     self.menu = false
   end
+  if otherMenuOpen() then
+    self.bag = false
+  end
   if not self.menu then
     self.page = nil
   end
@@ -451,7 +455,8 @@ end
 
 function Buildings:keypressed(key, client)
   if Controls.is("inventory", key) then
-    self.bag = not self.bag
+    self.bag = not self.bag and not otherMenuOpen()
+    self.menu = false
     return
   end
   if Controls.is("use-medkit", key) and not self.menu then
@@ -468,6 +473,7 @@ function Buildings:keypressed(key, client)
     if herePad and not otherMenuOpen() then
       self.menu = not self.menu
       self.page = nil
+      self.bag = false
     end
     return
   end
@@ -673,86 +679,6 @@ local function drawMenu(self, client)
   love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
 end
 
---- My inventory as the stacks that fill its slots, materials first.
-local function stacks(inventory)
-  local items = {}
-  for _, m in ipairs(Kinds.materials) do
-    items[#items + 1] = m
-  end
-  local others = {}
-  for item in pairs(inventory) do
-    if not Kinds.isMaterial(item) then
-      others[#others + 1] = item
-    end
-  end
-  table.sort(others)
-  for _, item in ipairs(others) do
-    items[#items + 1] = item
-  end
-  local out = {}
-  for _, item in ipairs(items) do
-    local left, stack = inventory[item] or 0, Kinds.stack(item)
-    while left > 0 do
-      out[#out + 1] = { item = item, n = math.min(stack, left) }
-      left = left - stack
-    end
-  end
-  return out
-end
-
-local COLS, CELL, GAP = 5, 76, 8
-
---- The inventory panel on the left: a slot per box, locked ones greyed out.
-local function drawBag(self)
-  local rows = math.ceil(Kinds.MAX_SLOTS / COLS)
-  local pw = 2 * 24 + COLS * CELL + (COLS - 1) * GAP
-  local ph = 64 + rows * (CELL + GAP) + 62
-  local px, py = 16, 250
-  panel(px, py, pw, ph, "INVENTORY")
-  local list = stacks(self.inventory)
-  for i = 1, Kinds.MAX_SLOTS do
-    local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
-    local x, y = px + 24 + col * (CELL + GAP), py + 56 + row * (CELL + GAP)
-    local open = i <= self.slots
-    love.graphics.setColor(1, 1, 1, open and 0.10 or 0.03)
-    love.graphics.rectangle("fill", x, y, CELL, CELL, 6)
-    love.graphics.setColor(1, 1, 1, open and 0.35 or 0.12)
-    love.graphics.rectangle("line", x, y, CELL, CELL, 6)
-    local s = open and list[i]
-    if s then
-      Render.itemIcon(s.item, x + CELL / 2, y + 22)
-      love.graphics.setFont(UI.fonts.small)
-      love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(Kinds.label(s.item), x + 2, y + 38, CELL - 4, "center")
-      love.graphics.setColor(1, 0.85, 0.3)
-      love.graphics.printf(tostring(s.n), x, y + 2, CELL - 5, "right")
-    elseif not open then
-      love.graphics.setColor(1, 1, 1, 0.2)
-      love.graphics.setFont(UI.fonts.small)
-      love.graphics.printf("locked", x, y + CELL / 2 - 8, CELL, "center")
-    end
-  end
-  -- Names of what I carry under the boxes, since icons only say so much.
-  love.graphics.setFont(UI.fonts.small)
-  local y = py + 56 + rows * (CELL + GAP) + 4
-  local hint
-  if self.slots < Kinds.MAX_SLOTS then
-    local shop = Controls.name(Controls.bindings("upgrades")[1])
-    hint = ("%d/%d slots used. More slots in the upgrade shop (%s)."):format(
-      math.min(#list, self.slots), self.slots, shop)
-  else
-    hint = ("%d/%d slots used."):format(math.min(#list, self.slots), self.slots)
-  end
-  love.graphics.setColor(0.8, 0.8, 0.85)
-  love.graphics.printf(hint, px + 20, y, pw - 40, "left")
-  local foot = Controls.name(Controls.bindings("inventory")[1]) .. ": close"
-  if (self.inventory.medkit or 0) > 0 then
-    foot = Controls.name(Controls.bindings("use-medkit")[1]) .. ": use a medkit   " .. foot
-  end
-  love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.printf(foot, px, py + ph - 26, pw, "center")
-end
-
 --- A reminder of the inventory key, bottom left, while it is shut.
 local function drawBagHint(self)
   local used = Kinds.slotsUsed(self.inventory)
@@ -768,7 +694,7 @@ end
 function Buildings:drawHUD(client)
   local w, h = love.graphics.getDimensions()
   if self.bag then
-    drawBag(self)
+    Bag.draw(self)
   else
     drawBagHint(self)
   end

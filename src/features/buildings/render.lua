@@ -5,6 +5,7 @@
 
 local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
+local Icons = require("src.features.weapons.icons")
 
 local Render = {}
 
@@ -252,12 +253,6 @@ function Render.itemIcon(item, cx, cy)
       love.graphics.polygon("fill", x - 3, cy + 10, x - 6, cy + 13, x - 3, cy + 6)
       love.graphics.polygon("fill", x + 3, cy + 10, x + 6, cy + 13, x + 3, cy + 6)
     end
-  elseif item == "gun-rocket" then
-    love.graphics.setColor(0.35, 0.42, 0.3)
-    love.graphics.rectangle("fill", cx - 16, cy - 5, 32, 9, 2)
-    love.graphics.setColor(0.2, 0.22, 0.2)
-    love.graphics.rectangle("fill", cx - 3, cy + 3, 5, 8)
-    love.graphics.rectangle("fill", cx - 18, cy - 6, 4, 11)
   elseif c then
     -- A heap of ore.
     love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
@@ -274,9 +269,8 @@ function Render.itemIcon(item, cx, cy)
       love.graphics.polygon("fill", x - 3, cy - 4, x + 3, cy - 4, x, cy - 11)
     end
   elseif item:match("^gun%-") then
-    love.graphics.setColor(0.75, 0.75, 0.8)
-    love.graphics.rectangle("fill", cx - 14, cy - 6, 28, 7)
-    love.graphics.rectangle("fill", cx + 4, cy, 7, 11)
+    -- The same drawing the inventory's weapon slots use, at item size.
+    Icons.draw(item:sub(5), cx, cy, 0.6)
   elseif item == "medkit" then
     love.graphics.setColor(0.95, 0.95, 0.95)
     love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
