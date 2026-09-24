@@ -129,10 +129,9 @@ function Vehicles:serverStart()
   sv = { models = {} }
 end
 
---- Put a new car of `model` (a catalog entry) into the world at (x, y),
---- belonging to player id `owner` (nil for nobody). Returns the car.
-function Vehicles:serverSpawn(server, model, x, y, angle, owner)
-  local car = server:spawnVehicle(x, y, angle, owner)
+--- Make `car` (already in `server.vehicles`) a `model`: its handling, its
+--- hitpoints, and every client told which picture to draw.
+local function makeModel(server, car, model)
   car.model = model.key
   Catalog.apply(car, model)
   sv = sv or { models = {} }
@@ -142,6 +141,13 @@ function Vehicles:serverSpawn(server, model, x, y, angle, owner)
   if weapons and weapons.serverSetCarMaxHealth then
     weapons:serverSetCarMaxHealth(server, car, model.hitpoints)
   end
+end
+
+--- Put a new car of `model` (a catalog entry) into the world at (x, y),
+--- belonging to player id `owner` (nil for nobody). Returns the car.
+function Vehicles:serverSpawn(server, model, x, y, angle, owner)
+  local car = server:spawnVehicle(x, y, angle, owner)
+  makeModel(server, car, model)
   return car
 end
 
@@ -177,6 +183,39 @@ function Vehicles:serverPlayerLeft(server)
   for vid in pairs(sv.models) do
     if not server.vehicles[vid] then
       sv.models[vid] = nil
+    end
+  end
+end
+
+-- Saved worlds --------------------------------------------------------------
+
+local SAVE_VERSION = 1
+
+--- The model of every car the core keeps (a remembered player's), by
+--- vehicle id: { version = 1, models = { [vid] = model key } }.
+function Vehicles:serverSaveWorld(server)
+  local models = {}
+  for vid, key in pairs(sv and sv.models or {}) do
+    local car = server.vehicles[vid]
+    if car and car.owner ~= nil and server.names[car.owner] ~= nil then
+      models[vid] = key
+    end
+  end
+  return { version = SAVE_VERSION, models = models }
+end
+
+--- The core has put the saved cars back under their old ids: each becomes
+--- its model again, as when it was delivered. Models no longer in the
+--- catalog and cars that did not come back are skipped.
+function Vehicles:serverLoadWorld(server, data)
+  if type(data) ~= "table" or type(data.models) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  end
+  for vid, key in pairs(data.models) do
+    local car = server.vehicles[tonumber(vid)]
+    local model = type(key) == "string" and Catalog.byKey[key]
+    if car and model then
+      makeModel(server, car, model)
     end
   end
 end
