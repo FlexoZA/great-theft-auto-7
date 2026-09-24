@@ -7,6 +7,9 @@
 --   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi")
 --   gun-<gun>                a gun ("gun-uzi")
 --   medkit                   a health pack; the carrier can use it to heal
+--   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
+--                            carries one: collecting or buying it puts it on the road
+--                            (the `serverDeliver` event, answered by vehicles)
 --
 -- A player carries items in slots, SLOTS to start with (the upgrade shop
 -- sells more, up to MAX_SLOTS). A slot holds one stack of one item, up to
@@ -26,6 +29,9 @@
 --             iron). Kinds.recipe merges them over the kind's own.
 --   private   true: never open to the public (the parking lot)
 --   walkable  true: not solid, cars drive onto it (the parking lot)
+--   hp        hit points; every gun hurts a building (a rocket's blast hurts
+--             the parking lot too, bullets fly over it). At 0 it is a ruin
+--             until its owner repairs it or someone takes the lot over.
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
 --
@@ -34,6 +40,7 @@
 -- what was loaded; a batch uses up only what the product in hand needs.
 
 local Guns = require("src.features.weapons.guns")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Kinds = {}
 
@@ -41,6 +48,7 @@ Kinds.materials = { "iron", "sulfur", "minerals", "copper", "oil", "plastic" }
 Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
+Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cost; less damage, less
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
@@ -49,6 +57,8 @@ function Kinds.stack(item)
     return Guns[gun] and Guns[gun].stack or 100
   elseif item:match("^gun%-") or item == "medkit" then
     return 5
+  elseif Catalog.fromItem(item) then
+    return 1
   end
   return 50 -- materials
 end
@@ -80,24 +90,31 @@ for _, gun in ipairs(Guns.list) do
   gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
 
+-- One product per vehicle model, each at the model's own price.
+local carItems, carRecipes = {}, {}
+for _, model in ipairs(Catalog.list) do
+  carItems[#carItems + 1] = model.item
+  carRecipes[model.item] = { price = model.price }
+end
+
 Kinds.list = {
   {
-    key = "parking", name = "Parking Lot", cost = 30,
+    key = "parking", name = "Parking Lot", cost = 30, hp = 200,
     rate = 10 / 60, cap = 100, private = true, walkable = true,
   },
   {
-    key = "quarry", name = "Quarry Mine", cost = 40,
+    key = "quarry", name = "Quarry Mine", cost = 40, hp = 600,
     inputs = {}, time = 6, batch = 1, cap = 50, unit = 1, price = 1,
     products = { "iron", "sulfur", "minerals", "copper" },
   },
   {
-    key = "oil", name = "Oil Well", cost = 70,
+    key = "oil", name = "Oil Well", cost = 70, hp = 500,
     inputs = {}, time = 8, batch = 1, cap = 50, unit = 1, price = 2,
     products = { "oil", "plastic" },
     recipes = { plastic = { time = 12, price = 3 } }, -- refined on the spot, so slower
   },
   {
-    key = "ammo", name = "Ammo Factory", cost = 60,
+    key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
@@ -107,7 +124,7 @@ Kinds.list = {
     },
   },
   {
-    key = "weapons", name = "Weapons Factory", cost = 80,
+    key = "weapons", name = "Weapons Factory", cost = 80, hp = 1000,
     inputs = { iron = 4 }, time = 30, batch = 1, cap = 5, unit = 1, price = 20,
     products = gunItems,
     recipes = {
@@ -115,11 +132,23 @@ Kinds.list = {
     },
   },
   {
-    key = "health", name = "Health Factory", cost = 50,
+    key = "health", name = "Health Factory", cost = 50, hp = 600,
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
     products = { "medkit" },
   },
 }
+
+-- The vehicle factory runs on every material but sulfur and keeps at most
+-- five finished cars. Only there when there is a model to build.
+if #carItems > 0 then
+  Kinds.list[#Kinds.list + 1] = {
+    key = "vehicles", name = "Vehicle Factory", cost = 120,
+    inputs = { iron = 4, minerals = 2, copper = 2, oil = 2, plastic = 2 },
+    time = 45, batch = 1, cap = 5, unit = 1, price = Catalog.list[1].price,
+    products = carItems,
+    recipes = carRecipes,
+  }
+end
 
 local FIELDS = { "inputs", "time", "batch", "cap", "unit", "price" }
 
@@ -162,6 +191,15 @@ for i, kind in ipairs(Kinds.list) do
   end
 end
 
+--- Fcks to bring a building of `kind` at `hp` back to full.
+function Kinds.repairCost(kind, hp)
+  local missing = math.max(0, kind.hp - hp)
+  if missing == 0 then
+    return 0
+  end
+  return math.max(1, math.ceil(kind.cost * Kinds.REPAIR * missing / kind.hp))
+end
+
 --- A readable name for an item and a count: "10 uzi ammo", "1 medkit".
 function Kinds.label(item, n)
   local name = item
@@ -175,7 +213,10 @@ function Kinds.label(item, n)
     end
   else
     gun = item:match("^gun%-(.+)$")
-    if gun then
+    local model = Catalog.fromItem(item)
+    if model then
+      name = model.name .. (n ~= 1 and "s" or "")
+    elseif gun then
       name = (Guns[gun] and Guns[gun].name or gun) .. (n ~= 1 and "s" or "")
     elseif item == "medkit" and n ~= 1 then
       name = "medkits"
@@ -217,6 +258,11 @@ function Kinds.hopperList(kind)
     end
   end
   return out
+end
+
+--- Is `item` a car (made by the vehicle factory, never carried)?
+function Kinds.isVehicle(item)
+  return Catalog.fromItem(item) ~= nil
 end
 
 --- Is `item` a raw material?

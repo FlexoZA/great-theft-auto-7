@@ -13,6 +13,9 @@
 -- hurts everyone and every car within its radius, the shooter included, less
 -- towards the edge, and takes out a few soft targets (pedestrians, officers,
 -- Karen's simps) around it through the `serverShotAt` convention.
+-- A round that stops at a wall raises `serverWallHit` and every blast
+-- raises `serverBlast`, so walls that can be hurt (players' buildings) take
+-- the damage.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
@@ -50,6 +53,7 @@
 --   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
+--   server -> all     WPN_CARMAX <vid> <max>        (a car's health ceiling, when it isn't CAR_HEALTH)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
@@ -58,7 +62,8 @@
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
--- Every car has CAR_HEALTH; Weapons:serverHeal tops up the body first and
+-- Every car has CAR_HEALTH unless another feature gives it its own through
+-- Weapons:serverSetCarMaxHealth (vehicles does, per model); Weapons:serverHeal tops up the body first and
 -- then the car you are driving, so a health pack works from behind the wheel.
 --
 -- Not every shot has a player behind it: Weapons:serverFireFrom puts a
@@ -144,6 +149,7 @@ Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 Weapons.health = {} -- player id -> hp (absent = full)
 Weapons.maxHealth = {} -- player id -> ceiling (absent = MAX_HEALTH)
 Weapons.carHealth = {} -- vehicle id -> hp (absent = full)
+Weapons.carMax = {} -- vehicle id -> health ceiling (absent = CAR_HEALTH)
 Weapons.kills = {} -- player id -> kills
 Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
@@ -176,6 +182,7 @@ function Weapons:enterGame()
   self.health = {}
   self.maxHealth = {}
   self.carHealth = {}
+  self.carMax = {}
   self.kills = {}
   self.hitFlash = {}
   self.carFlash = {}
@@ -412,7 +419,8 @@ function Weapons:drawAboveCars(client)
   end
   -- A bar under every car in the world, driven or not: the car's own health.
   for vid, v in pairs(client.vehicles) do
-    bar(v.dx, v.dy, self.carHealth[vid] or CAR_HEALTH, CAR_HEALTH, Car.WIDTH, Car.HEIGHT / 2 + 8)
+    local max = self.carMax[vid] or CAR_HEALTH
+    bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
     if self.carFlash[vid] then
       love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
       love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
@@ -501,7 +509,8 @@ function Weapons:drawHUD(client)
   local line = ("HP %d/%d"):format(hp, max)
   local car = client:myVehicle()
   if car then
-    line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or CAR_HEALTH, CAR_HEALTH)
+    local carMax = self.carMax[car.id] or CAR_HEALTH
+    line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or carMax, carMax)
   end
   love.graphics.print(line .. ("   kills %d"):format(kills), 10, 46)
   -- Health stands first in the bottom-left row of stat bars: always red,
@@ -595,6 +604,12 @@ local function boom(client, x, y, color)
 end
 
 --- Where a player is drawn, as a point, or nil while they are out of the world.
+--- An explosion drawn and heard at (x, y) on this machine, for another
+--- feature's blast (a building coming down). `color` tints the debris.
+function Weapons:explosionAt(client, x, y, color)
+  boom(client, x, y, color)
+end
+
 local function poseOf(client, id)
   local x, y = clientPose(client, id)
   return x and { x = x, y = y } or nil
@@ -702,6 +717,12 @@ Weapons.clientMessages = {
     local vid, hp = tonumber(args[1]), tonumber(args[2])
     if vid and hp then
       Weapons.carHealth[vid] = hp
+    end
+  end,
+  WPN_CARMAX = function(_client, args)
+    local vid, max = tonumber(args[1]), tonumber(args[2])
+    if vid and max then
+      Weapons.carMax[vid] = max
     end
   end,
   --- A car blew up. Its driver, if it had one, is standing beside it now.
@@ -918,6 +939,22 @@ function Weapons:serverSetMaxHealth(server, player, max)
   st.hp = math.min(max, gained > 0 and st.hp + gained or st.hp)
   server:broadcast(Protocol.encode("WPN_MAX", player.id, max))
   server:broadcast(Protocol.encode("WPN_HEALTH", player.id, st.hp))
+  return max
+end
+
+--- Give `car` a health ceiling of its own, `max`, for as long as it exists
+--- (wrecks come back with it), and fill it up to it. Vehicles gives each
+--- model its hitpoints this way. Returns the new ceiling, or nil before a
+--- game.
+function Weapons:serverSetCarMaxHealth(server, car, max)
+  if not (self.sv and car) then
+    return nil
+  end
+  local cs = self:carState(car)
+  max = math.max(1, math.floor(max))
+  cs.max, cs.hp = max, max
+  server:broadcast(Protocol.encode("WPN_CARMAX", car.id, max))
+  server:broadcast(Protocol.encode("WPN_CARHP", car.id, max))
   return max
 end
 
@@ -1205,6 +1242,8 @@ function Weapons:explode(server, p, x, y)
       self:damageCar(server, c.car, by, c.amount, 0, c.angle)
     end
   end
+  -- Walls that can take it (a player's building) work out their own share.
+  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner)
   local angle = math.atan2(p.vy, p.vx)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
@@ -1351,7 +1390,10 @@ function Weapons:wreck(server, car, byId, pid, angle)
     end
     sv.players[driver.id].protectedUntil = sv.time + SPAWN_PROTECTION
   end
-  local owner = car.owner and sv.players[car.owner]
+  -- A player's own car goes back to their slot; any other car they own
+  -- (one they bought) would land on top of it there, so it stays put.
+  local ownerPlayer = car.owner and server.players[car.owner]
+  local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
   cs.hp = cs.max
   cs.deadUntil = sv.time + DEATH_TIME
   cs.spawn = owner and owner.spawn or { x = wx, y = wy, angle = car.angle }
@@ -1447,6 +1489,7 @@ function Weapons:serverStep(server, dt)
       self:explode(server, p, hx or nx, hy or ny)
     elseif victim == "wall" then
       table.remove(sv.projectiles, i) -- clients notice the same wall themselves
+      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner)
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
       -- so the streak has to be called back explicitly.

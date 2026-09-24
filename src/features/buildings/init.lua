@@ -16,6 +16,11 @@
 --                    launcher takes copper, oil and plastic as well.
 --   Health Factory   makes medkits, up to 5, from minerals. A medkit heals
 --                    you when you use it (H).
+--   Vehicle Factory  makes a car model you pick (vehicles/models), up to 5,
+--                    from every material but sulfur. Its menu shows the car
+--                    and its stats. A car is never carried: collecting or
+--                    buying one puts it on the road in front of the factory
+--                    as yours (`serverDeliver`, answered by vehicles).
 --
 -- Buildings are solid: cars bounce off them, and walkers, pedestrians,
 -- officers and bullets stop at their walls (`blocksPoint`). The parking lot
@@ -46,6 +51,17 @@
 -- It is kept by the host and told to each player alone. Weapons loads its
 -- magazines from the ammo in it (serverTake); guns are stock for now.
 --
+-- Buildings can be shot down. Each kind has its own hit points (kinds.lua,
+-- `hp`); every gun hurts the walls it hits (weapons' `serverWallHit`) and a
+-- rocket's blast hurts every building it reaches, the parking lot included
+-- (`serverBlast`). A damaged building works on and shows a health bar; its
+-- owner can repair it from the menu, paying for the damage (Kinds.repairCost).
+-- At zero it is a ruin: whatever it held is lost, it stops working, and
+-- walls and bullets no longer stop at it. Then the owner pays to rebuild it
+-- (half of what it cost), or anyone else on its square can take the lot over
+-- for `takeoverPrice`: the plot becomes theirs, empty. A building still
+-- standing can't be taken over.
+--
 -- The plots come from real-estate; without it there is nothing to build on.
 -- A building belongs to whoever owns its plot: when the plot goes back on
 -- the market (they left) or the map changes, the building is gone.
@@ -61,9 +77,13 @@
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
 --   client -> server  BLD_USE     <item>              (only "medkit" today)
+--   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
+--   client -> server  BLD_TAKEOVER <plotId>           (anyone else: buy the lot under a ruin)
 --   server -> all     BLD_STATE   <plotId> <kind> <owner> <public> <product> <price> <output>
 --                                 <progress> <running> <hopper, one per material>...
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
+--                                 <hp>                          (0 = in ruins)
+--   server -> all     BLD_HP      <plotId> <hp>       (it was hit and still stands)
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
@@ -88,6 +108,7 @@ local Buildings = {
 Buildings.medkitHeal = 50 -- health a medkit gives back
 Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
 Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
+Buildings.takeoverPrice = 40 -- Fcks for the lot under someone else's ruin
 
 local T = Layout.TILE
 local SLACK = 40 -- px the server allows for a player drawn a little behind where it is
@@ -114,7 +135,12 @@ local REASONS = {
   nothing = "You aren't carrying any of it.",
   ownerbroke = "The owner can't afford to pay you.",
   nomedkit = "You have no medkits.",
+  nodelivery = "Nobody can deliver that here.",
   healthy = "You're already at full health.",
+  ruined = "It's in ruins. Repair it first.",
+  standing = "Only a destroyed building's lot can be taken over.",
+  intact = "It isn't damaged.",
+  yours = "It's yours: repair it instead.",
 }
 
 local function amount(n)
@@ -152,6 +178,11 @@ local function onPad(plot, x, y, slack)
   return math.abs(x - px) <= r and math.abs(y - py) <= r
 end
 
+--- Has building `b` been shot to pieces?
+local function ruined(b)
+  return b.hp <= 0
+end
+
 --- The item a building of `kind` makes when set to product `index`.
 local function productOf(kind, index)
   return kind.products and kind.products[index]
@@ -165,7 +196,9 @@ end
 --- Can building `b` make another batch right now: room for it and every
 --- input in the hopper? The parking lot runs until it is full.
 local function canRun(b, kind)
-  if kind.rate then
+  if ruined(b) then
+    return false
+  elseif kind.rate then
     return b.output < kind.cap
   end
   local r = recipeOf(b, kind)
@@ -204,7 +237,7 @@ local function currentWalls()
   for id, b in pairs(sv and sv.buildings or Buildings.buildings) do
     local kind = Kinds.byKey[b.kind]
     local plot = plotById(id)
-    if kind and not kind.walkable and plot then
+    if kind and not kind.walkable and plot and not ruined(b) then
       local r = footprint(plot)
       walls.list[#walls.list + 1] = r
       for c = math.floor(r.x / CELL), math.floor((r.x + r.w) / CELL) do
@@ -231,7 +264,8 @@ end
 
 -- Client --------------------------------------------------------------------
 
-Buildings.buildings = {} -- plot id -> { kind, owner, public, product, price, output, progress, running, hopper }
+-- plot id -> { kind, owner, public, product, price, output, progress, running, hopper, pays, hp, hitAt }
+Buildings.buildings = {}
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.menu = false -- is the building menu open?
@@ -348,7 +382,33 @@ function Buildings:menuRows(client)
   end
   local kind = Kinds.byKey[b.kind]
 
+  if ruined(b) then
+    if owner == client.myId then
+      local cost = Kinds.repairCost(kind, b.hp)
+      row(("Rebuild it  (%s)"):format(amount(cost)), function()
+        if affordable(client, cost) then
+          send(client, "BLD_REPAIR", plot.id)
+        end
+      end)
+    else
+      row(("Hostile takeover: buy the lot  (%s)"):format(amount(self.takeoverPrice)), function()
+        if affordable(client, self.takeoverPrice) then
+          send(client, "BLD_TAKEOVER", plot.id)
+        end
+      end)
+    end
+    return rows
+  end
+
   if owner == client.myId then
+    local cost = Kinds.repairCost(kind, b.hp)
+    if cost > 0 and self.page == nil then
+      row(("Repair the damage  (%s)"):format(amount(cost)), function()
+        if affordable(client, cost) then
+          send(client, "BLD_REPAIR", plot.id)
+        end
+      end)
+    end
     if kind.rate then
       return rows -- the parking lot pays out when you drive over it
     elseif self.page == "prices" then
@@ -357,7 +417,11 @@ function Buildings:menuRows(client)
       return self:offerRows(client, plot, b)
     end
     local item = productOf(kind, b.product)
-    row(("Collect %s"):format(Kinds.label(item, b.output)), b.output > 0 and function()
+    local collect = ("Collect %s"):format(Kinds.label(item, b.output))
+    if Kinds.isVehicle(item) then
+      collect = ("Drive out a %s  (%d ready)"):format((Kinds.label(item, 1):gsub("^1 ", "")), b.output)
+    end
+    row(collect, b.output > 0 and function()
       send(client, "BLD_COLLECT", plot.id)
     end or nil)
     if next(kind.hopper) then
@@ -385,7 +449,7 @@ function Buildings:menuRows(client)
     local unit = recipeOf(b, kind).unit
     local n = math.min(unit, b.output)
     row(("Buy %s  (%s)"):format(Kinds.label(item, unit), amount(b.price)), n > 0 and function()
-      if Kinds.room(self.inventory, self.slots, item) < n then
+      if not Kinds.isVehicle(item) and Kinds.room(self.inventory, self.slots, item) < n then
         say(REASONS.invfull)
       elseif affordable(client, b.price) then
         send(client, "BLD_BUY", plot.id)
@@ -492,7 +556,8 @@ local function ownerName(client, id)
 end
 
 --- The square on the sidewalk: the owner's colour, the building's initial
---- (a plus on an empty plot), a green corner while it sells to the public.
+--- (a plus on an empty plot, red over a ruin), a green corner while it
+--- sells to the public.
 local function drawPad(plot, owner, b, lit)
   local s = Buildings.padSize
   local px, py = padOf(plot)
@@ -504,11 +569,15 @@ local function drawPad(plot, owner, b, lit)
   love.graphics.setLineWidth(3)
   love.graphics.rectangle("line", px - s / 2, py - s / 2, s, s, 4)
   local kind = b and Kinds.byKey[b.kind]
-  love.graphics.setColor(1, 1, 1, pulse)
+  if b and ruined(b) then
+    love.graphics.setColor(1, 0.35, 0.3, pulse)
+  else
+    love.graphics.setColor(1, 1, 1, pulse)
+  end
   love.graphics.setFont(UI.fonts.body)
   local mark = kind and kind.name:sub(1, 1) or "+"
   love.graphics.printf(mark, px - s / 2, py - UI.fonts.body:getHeight() / 2, s, "center")
-  if b and b.public then
+  if b and b.public and not ruined(b) then
     love.graphics.setColor(0.3, 1, 0.4, pulse)
     love.graphics.circle("fill", px + s / 2 - 5, py - s / 2 + 5, 4)
   end
@@ -520,7 +589,13 @@ function Buildings:drawBelowCars()
     local plot = plotById(id)
     local kind = Kinds.byKey[b.kind]
     if plot and kind then
-      Render.building(b, kind, footprint(plot), time)
+      local r = footprint(plot)
+      if ruined(b) then
+        Render.ruin(kind, r, id, time)
+      else
+        Render.building(b, kind, r, time)
+        Render.damage(r, b.hp / kind.hp, time - (b.hitAt or -1))
+      end
     end
   end
   local re = realEstate()
@@ -556,6 +631,12 @@ end
 
 --- The lines at the top of the menu that describe the building.
 local function infoLines(client, b, kind)
+  if ruined(b) then
+    if b.owner == client.myId then
+      return { "Destroyed. Nothing works until you rebuild it.", "Until then anyone can take the lot over." }
+    end
+    return { "Destroyed. Take the lot over, and it's yours to build on." }
+  end
   local lines = {}
   local item = productOf(kind, b.product)
   local r = recipeOf(b, kind)
@@ -565,6 +646,7 @@ local function infoLines(client, b, kind)
     lines[#lines + 1] = ("Stock: %s (most %d)"):format(Kinds.label(item, b.output), r.cap)
   end
   lines[#lines + 1] = status(b, kind)
+  lines[#lines + 1] = ("Condition: %d/%d"):format(b.hp, kind.hp)
   if b.owner == client.myId and next(kind.hopper) then
     local hop = {}
     for _, m in ipairs(Kinds.hopperList(kind)) do
@@ -643,7 +725,14 @@ local function drawMenu(self, client)
     local _, parts = font:getWrap(line, pw - 40)
     wrapped = wrapped + math.max(1, #parts)
   end
-  local ph = 64 + wrapped * 20 + #rows * 30 + 40
+  -- A car factory shows the car it is making: that is what you buy.
+  local vehicles = Features.byName.vehicles
+  local card = kind and vehicles and vehicles.cardHeight and productOf(kind, b.product)
+  local cardH = card and vehicles:cardHeight(card, pw) or 0
+  if cardH == 0 then
+    card = nil
+  end
+  local ph = 64 + wrapped * 20 + cardH + #rows * 30 + 40
   local px, py = w - pw - 16, 36
   panel(px, py, pw, ph, title)
 
@@ -658,6 +747,11 @@ local function drawMenu(self, client)
     end
   end
   y = y + 6
+  if card then
+    vehicles:drawCard(card, px, y, pw)
+    y = y + cardH
+    love.graphics.setFont(font)
+  end
   for i, r in ipairs(rows) do
     local keyName = Controls.name(Controls.bindings("building-" .. i)[1])
     local dim = r.run and 1 or 0.4
@@ -786,7 +880,14 @@ function Buildings:drawHUD(client)
   elseif owner and not self.menu then
     local b = self.buildings[plot.id]
     local kind = b and Kinds.byKey[b.kind]
-    if owner == client.myId then
+    if kind and ruined(b) then
+      if owner == client.myId then
+        text = ("Your %s lies in ruins.  %s: rebuild"):format(kind.name, key)
+      else
+        text = ("%s's %s lies in ruins.  %s: take over the lot"):format(ownerName(client, owner), kind.name, key)
+      end
+      color = { 1, 0.55, 0.35 }
+    elseif owner == client.myId then
       text = kind and ("Your %s.  %s: manage"):format(kind.name, key) or ("Your plot.  %s: build"):format(key)
       color = { 0.6, 0.9, 0.6 }
     elseif kind and (b.public or buysAnything(b)) then
@@ -827,19 +928,35 @@ local function announceGain(client, item, gained)
   end
 end
 
+--- Building `b` of `kind` on plot `id` just came down: it blows up where
+--- everyone can see it, and its owner hears about it wherever they are.
+local function collapsed(client, id, b, kind)
+  local plot = plotById(id)
+  local weapons = Features.byName.weapons
+  if plot and weapons and weapons.explosionAt then
+    local r = footprint(plot)
+    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind))
+  end
+  if b.owner == client.myId then
+    say(("Your %s was destroyed!"):format(kind.name))
+  end
+end
+
 Buildings.clientMessages = {
-  BLD_STATE = function(_client, args)
+  BLD_STATE = function(client, args)
     local id, kind = tonumber(args[1]), Kinds.byKey[args[2]]
     if not (id and kind) then
       return
-    end
-    if not Buildings.buildings[id] then
-      markWalls()
     end
     local hopper, pays, n = {}, {}, #Kinds.materials
     for i, m in ipairs(Kinds.materials) do
       hopper[m] = tonumber(args[9 + i]) or 0
       pays[m] = tonumber(args[9 + n + i]) or 0
+    end
+    local hp = tonumber(args[10 + 2 * n]) or kind.hp
+    local before = Buildings.buildings[id]
+    if not before or (before.hp <= 0) ~= (hp <= 0) then
+      markWalls()
     end
     Buildings.buildings[id] = {
       kind = kind.key,
@@ -852,7 +969,18 @@ Buildings.clientMessages = {
       running = args[9] == "1",
       hopper = hopper,
       pays = pays,
+      hp = hp,
     }
+    if before and before.hp > 0 and hp <= 0 then
+      collapsed(client, id, Buildings.buildings[id], kind)
+    end
+  end,
+  BLD_HP = function(_client, args)
+    local b = Buildings.buildings[tonumber(args[1])]
+    local hp = tonumber(args[2])
+    if b and hp then
+      b.hp, b.hitAt = hp, time
+    end
   end,
   BLD_GONE = function(_client, args)
     local id = tonumber(args[1])
@@ -913,6 +1041,7 @@ local function stateMessage(id, b)
   for _, m in ipairs(Kinds.materials) do
     fields[#fields + 1] = b.pays[m] or 0
   end
+  fields[#fields + 1] = b.hp
   return Protocol.encode("BLD_STATE", unpack(fields))
 end
 
@@ -1044,8 +1173,9 @@ local function plotFor(server, player, args)
   return plot
 end
 
---- The building on a plot the player owns, or nil and a reason.
-local function ownBuilding(server, player, args)
+--- The building on a plot the player owns, or nil and a reason. A ruin
+--- counts only when `ruins` is set (repairing it); nothing else works there.
+local function ownBuilding(server, player, args, ruins)
   local plot, reason = plotFor(server, player, args)
   if not plot then
     return nil, reason
@@ -1056,6 +1186,9 @@ local function ownBuilding(server, player, args)
   end
   if b.owner ~= player.id then
     return nil, "notyours"
+  end
+  if ruined(b) and not ruins then
+    return nil, "ruined"
   end
   return b, nil, plot.id
 end
@@ -1085,6 +1218,13 @@ local function refusing(handler)
   end
 end
 
+--- Hand one `item` that nobody carries (a car) to `player` on the road in
+--- front of `plot`, through whichever feature answers `serverDeliver`.
+local function deliver(server, player, plot, item)
+  local x, y = padOf(plot)
+  return Features.any("serverDeliver", server, player, item, x, y + T, 0)
+end
+
 Buildings.serverMessages = {
   BLD_BUILD = refusing(function(server, player, args)
     local plot, reason = plotFor(server, player, args)
@@ -1111,6 +1251,7 @@ Buildings.serverMessages = {
       output = 0,
       progress = 0,
       hopper = {},
+      hp = kind.hp,
     }
     sv.buildings[plot.id] = b
     markWalls()
@@ -1132,6 +1273,15 @@ Buildings.serverMessages = {
       return "empty"
     end
     local item = productOf(kind, b.product)
+    if Kinds.isVehicle(item) then
+      -- One car at a time, straight onto the road.
+      if not deliver(server, player, plotById(id), item) then
+        return "nodelivery"
+      end
+      b.output = b.output - 1
+      publish(server, id, b)
+      return
+    end
     local n = math.min(b.output, roomFor(player.id, item))
     if n < 1 then
       return "invfull"
@@ -1243,6 +1393,8 @@ Buildings.serverMessages = {
     local pays = b and b.pays[item] or 0
     if not b then
       return "nobuilding"
+    elseif ruined(b) then
+      return "ruined"
     elseif b.owner == player.id then
       return "own"
     elseif pays < 1 then
@@ -1281,6 +1433,8 @@ Buildings.serverMessages = {
     local kind = b and Kinds.byKey[b.kind]
     if not b then
       return "nobuilding"
+    elseif ruined(b) then
+      return "ruined"
     elseif b.owner == player.id then
       return "own"
     elseif kind.private or not b.public then
@@ -1291,7 +1445,10 @@ Buildings.serverMessages = {
       return "soldout"
     end
     local item = productOf(kind, b.product)
-    if roomFor(player.id, item) < n then
+    local car = Kinds.isVehicle(item)
+    if car and not Features.byName.vehicles then
+      return "nodelivery"
+    elseif not car and roomFor(player.id, item) < n then
       return "invfull"
     end
     local money = Features.byName.money
@@ -1302,8 +1459,58 @@ Buildings.serverMessages = {
       money:give(server, b.owner, b.price)
     end
     b.output = b.output - n
-    addStock(server, player, item, n)
+    if car then
+      deliver(server, player, plot, item)
+    else
+      addStock(server, player, item, n)
+    end
     publish(server, plot.id, b)
+  end),
+
+  BLD_REPAIR = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args, true)
+    if not b then
+      return reason
+    end
+    local kind = Kinds.byKey[b.kind]
+    local cost = Kinds.repairCost(kind, b.hp)
+    if cost == 0 then
+      return "intact"
+    end
+    local money = Features.byName.money
+    if money and not money:spend(server, player.id, cost, "repairs") then
+      return "broke"
+    end
+    local wasRuin = ruined(b)
+    b.hp = kind.hp
+    if wasRuin then
+      markWalls()
+      if not kind.walkable then
+        clearFootprint(server, plotById(id))
+      end
+    end
+    publish(server, id, b)
+  end),
+
+  BLD_TAKEOVER = refusing(function(server, player, args)
+    local plot, reason = plotFor(server, player, args)
+    if not plot then
+      return reason
+    end
+    local b = sv.buildings[plot.id]
+    if not b then
+      return "nobuilding"
+    elseif b.owner == player.id then
+      return "yours"
+    elseif not ruined(b) then
+      return "standing"
+    end
+    local money = Features.byName.money
+    if money and not money:spend(server, player.id, Buildings.takeoverPrice, "lot takeover") then
+      return "broke"
+    end
+    realEstate():serverTransfer(server, plot.id, player.id)
+    removeBuilding(server, plot.id) -- the lot is theirs, empty
   end),
 
   BLD_USE = refusing(function(server, player, args)
@@ -1321,6 +1528,59 @@ Buildings.serverMessages = {
     addStock(server, player, "medkit", -1)
   end),
 }
+
+--- Take `hits` hit points off building `b` on plot `id`. One still
+--- standing tells everyone its hit points; one that falls loses whatever it
+--- held and stops being a wall.
+local function damage(server, id, b, hits)
+  if ruined(b) or hits <= 0 then
+    return
+  end
+  b.hp = math.max(0, b.hp - hits)
+  if b.hp > 0 then
+    server:broadcast(Protocol.encode("BLD_HP", id, b.hp))
+    return
+  end
+  b.output, b.progress, b.hopper = 0, 0, {}
+  markWalls()
+  publish(server, id, b)
+end
+
+--- A round stopped at a wall (weapons' event): if the wall is one of ours,
+--- the building takes the round's damage.
+function Buildings:serverWallHit(server, x, y, hits)
+  if not sv then
+    return
+  end
+  for id, b in pairs(sv.buildings) do
+    local plot = plotById(id)
+    if plot and not ruined(b) and not Kinds.byKey[b.kind].walkable and contains(footprint(plot), x, y, 1) then
+      damage(server, id, b, hits)
+      return
+    end
+  end
+end
+
+--- A missile went off (weapons' event): every building within `radius` of
+--- (x, y) takes `full` at the centre down to a third at the edge, measured
+--- to the nearest point of its footprint the way weapons measures cars.
+function Buildings:serverBlast(server, x, y, radius, full)
+  if not sv then
+    return
+  end
+  for id, b in pairs(sv.buildings) do
+    local plot = plotById(id)
+    if plot and not ruined(b) then
+      local r = footprint(plot)
+      local dx = math.max(r.x - x, 0, x - (r.x + r.w))
+      local dy = math.max(r.y - y, 0, y - (r.y + r.h))
+      local d = math.sqrt(dx * dx + dy * dy)
+      if d <= radius then
+        damage(server, id, b, math.floor(full * (1 - (2 / 3) * d / radius) + 0.5))
+      end
+    end
+  end
+end
 
 --- Pay the parking lot's takings to its owner while they drive across it.
 local function payParking(server, id, b)
@@ -1391,7 +1651,7 @@ function Buildings:serverStep(server, dt)
       -- The plot changed hands (or went back on the market): the building
       -- went with the old owner.
       removeBuilding(server, id)
-    elseif kind.rate then
+    elseif kind.rate and not ruined(b) then -- a ruin earns nothing; nor does it run (canRun)
       local before = math.floor(b.output)
       b.output = math.min(kind.cap, b.output + kind.rate * dt)
       local paid = payParking(server, id, b)
