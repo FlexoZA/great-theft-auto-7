@@ -251,7 +251,9 @@ function OnFoot:predict(dt, client, me)
     end
     sprinting = true -- legs going: draw it running
   elseif (mx ~= 0 or my ~= 0) and not held then
-    me.dx, me.dy = step(me.dx, me.dy, mx, my, sprinting and self.sprintSpeed or self.walkSpeed, dt)
+    local scale = Features.reduce("stat", 1, client, client.myId, "speed") -- clothes (gear)
+    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * scale
+    me.dx, me.dy = step(me.dx, me.dy, mx, my, speed, dt)
   end
   me.running = sprinting
   me.dangle = self:cursorAngle(me.dx, me.dy)
@@ -642,13 +644,19 @@ end
 --- One walker's step: spend or regain stamina, then walk. Leaning on the
 --- sprint key with an empty bar keeps it empty; you get your breath back by
 --- letting go, not by running on.
-function OnFoot:walk(st, body, dt)
+function OnFoot:walk(st, body, dt, server, player)
   local mx, my = st.move.x, st.move.y
   local len = math.sqrt(mx * mx + my * my)
   local asking = len > 0 and st.move.sprint
   local sprinting = asking and st.stamina > 0 and not st.spent
+  -- Clothes (gear) may make them faster or their sprint cheaper.
+  local speedScale, drainScale = 1, 1
+  if server and player then
+    speedScale = Features.reduce("serverStat", 1, server, player, "speed")
+    drainScale = Features.reduce("serverStat", 1, server, player, "stamina")
+  end
   if sprinting then
-    st.stamina = math.max(0, st.stamina - self.sprintDrain * dt)
+    st.stamina = math.max(0, st.stamina - self.sprintDrain * drainScale * dt)
     st.regenIn = self.regenDelay
     if st.stamina <= 0 then
       st.spent = true
@@ -676,7 +684,7 @@ function OnFoot:walk(st, body, dt)
     end
     st.regenIn = self.regenDelay
   elseif len > 0 then
-    local speed = sprinting and self.sprintSpeed or self.walkSpeed
+    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * speedScale
     body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
   end
 end
@@ -738,7 +746,7 @@ function OnFoot:serverStep(server, dt)
     if player.body and not player.vehicle and not player.body.dead then
       local st = self:walker(player)
       if not Features.any("serverHeld", server, player) then
-        self:walk(st, player.body, dt) -- a held walker (frozen) stays put
+        self:walk(st, player.body, dt, server, player) -- a held walker (frozen) stays put
       end
       n = n + 1
       parts[#parts + 1] = id

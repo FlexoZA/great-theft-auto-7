@@ -240,7 +240,9 @@ UI.ring(cx, cy, radius, frac, color, width)         -- an arc `frac` of the way 
 A feature can raise an event for every other feature with
 `Features.call("hookName", ...)`; any feature defining that hook receives
 it. `Features.any("hookName", ...)` is the yes/no version: it stops at the
-first feature whose hook returns true. Events in use:
+first feature whose hook returns true. `Features.reduce("hookName", value,
+...)` passes a value through every hook in turn and returns what comes out
+(damage through armor). Events in use:
 
 | Event | Raised by | Meaning |
 | --- | --- | --- |
@@ -255,6 +257,8 @@ first feature whose hook returns true. Events in use:
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
+| `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
+| `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
@@ -480,7 +484,7 @@ example with a menu; real-estate is the one with a place to stand.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`), in slots of one stack
+  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`, `"armor-vest"`, `"gear-running-shoes"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it and
   moves guns in and out of it as items. Buildings have hit points (`hp` in
@@ -494,8 +498,30 @@ example with a menu; real-estate is the one with a place to stand.
   window's edge towards other players (a walker), police (an arrow) and your
   own cars (a car) while they are off screen; civilian bots are left out
   (bots tells clients who they are with `BOT_UNIT`).
+- Armor: `src/features/armor` is what you wear against damage. A vest
+  (`armor/kinds.lua`; `"armor-<key>"` in a bag, sold by the shop) dragged
+  onto the armor gear slot on the inventory screen goes on whole
+  (`ARM_EQUIP`) and soaks up damage to your body until its points are
+  gone, when it is destroyed; only then does health go. Dragged back into
+  the bag it comes off (`ARM_UNEQUIP`), as an item while whole, thrown
+  away once damaged. Death takes it. `ARM_STATE` tells everyone what a
+  player wears; the armor bar stands fourth in the bottom-left row, always
+  there, grey and empty with nothing on. `armor:serverWorn(player)` reads
+  it on the host.
+- Gear: `src/features/gear` is the clothes: a piece (`gear/kinds.lua`;
+  `"gear-<key>"` in a bag, sold by the shop) has a slot (head, body, pants
+  or shoes) and `stats`, multipliers other features read through the
+  `serverStat` / `stat` conventions (running shoes: speed x1.15, sprint
+  cost x0.7; a tactical hat: ammo bundles x1.5; cargo pants: ability
+  cooldowns x0.75; a plate carrier: armor x1.25). Dragged onto its slot on
+  the inventory screen it goes on (`GEAR_EQUIP`; what was there swaps into
+  the bag), dragged back it comes off (`GEAR_UNEQUIP`); clothes are never
+  damaged and death leaves them on. `GEAR_STATE` tells everyone what a
+  player wears. Add a piece to the list and the shop and the slots know it.
 - Inventory: `src/features/inventory` is the screen (I) that shows what you
-  carry around a picture of you: gear slots (empty for now), a weapon slot
+  carry around a picture of you: gear slots (head, body, pants and shoes
+  for clothes, and armor), a stats strip (what the clothes do to speed,
+  sprint cost, ammo bundles, cooldowns and armor, read through `stat`), a weapon slot
   per number key, an ability slot per ability key, and the item boxes. It
   owns the mouse while it is up (`pointerTaken`) and the number keys
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on

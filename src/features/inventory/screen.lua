@@ -1,8 +1,9 @@
 -- The inventory screen's picture: the character in the middle of the
 -- screen with everything they carry around them.
 --
---   top left      the character and the gear slots they will wear one day
---                 (head, body, legs, other); nothing fits in them yet
+--   top left      the character and the gear slots down their side: head,
+--                 body, pants and shoes with the clothes they wear (gear),
+--                 and the armor slot with the vest and its points left
 --   top right     the weapon slots, one per number key (weapons.slotCount),
 --                 each with the gun in it, what is in the magazine and what
 --                 is left to load, the one in hand lit up, empty ones bare;
@@ -11,6 +12,9 @@
 --                 quick slots (buildings.usables): a stack of medkits and
 --                 one of energy drinks dragged out of the bag, the ones
 --                 their keys (H, J) use
+--                 under those, the stats strip: what your clothes do to
+--                 your speed, sprint cost, ammo bundles, ability cooldowns
+--                 and armor, each tile lit when it is better than base
 --   bottom        the item slots buildings fills: a stack per box, locked
 --                 ones greyed out until the upgrade shop opens them
 --
@@ -32,13 +36,26 @@ local Screen = {}
 -- Tuning ------------------------------------------------------------------
 Screen.width = 800 -- px; the panel is centred on the screen (nine item boxes across)
 Screen.pad = 24 -- px inside the panel's edge
-Screen.gear = { "head", "body", "legs", "other" } -- the slots down the character's side
+Screen.gear = { "head", "body", "pants", "shoes", "armor" } -- the slots down the character's side
+Screen.ARMOR = 5 -- the gear slot armor goes in
 
 local CELL, GAP = 76, 8 -- item boxes
-local GEAR = 60 -- gear boxes
+local GEAR = 54 -- gear boxes
 local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the ammo
 local ABL_W, ABL_H = 64, 72 -- ability boxes
 local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
+local STAT_H = 40 -- a stats tile: the value over its name
+
+-- The stats the clothes (gear) can change, as the strip shows them: the
+-- name the `stat` convention answers to, the label, and whether more of
+-- it is better (a lower sprint cost or cooldown is an improvement).
+Screen.stats = {
+  { key = "speed", label = "speed", moreIsBetter = true },
+  { key = "stamina", label = "sprint", moreIsBetter = false },
+  { key = "ammo", label = "ammo", moreIsBetter = true },
+  { key = "cooldown", label = "cooldowns", moreIsBetter = false },
+  { key = "armor", label = "armor", moreIsBetter = true },
+}
 local FIGURE_W = 120 -- px the character stands in
 local SECTION_GAP = 16 -- px between the top half and the item rows
 local LABEL_H = 22 -- px a section's title takes above its boxes
@@ -115,6 +132,7 @@ end
 ---   weapons[i]             { x, y, w, h }, weapons.slotCount of them
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
 ---   quick[i]               { x, y, w, h, item, usable }, the quick slots beside them, buildings.usables order
+---   stats[i]               { x, y, w, h, stat }, the stats strip under the abilities, Screen.stats order
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
 ---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
 ---   hint / foot            y of the text lines under the items
@@ -125,7 +143,7 @@ function Screen.layout()
   local cols = math.floor((Screen.width - 2 * Screen.pad + GAP) / (CELL + GAP))
   local rows = math.ceil(Kinds.MAX_SLOTS / cols)
   local gearH = #Screen.gear * (GEAR + GAP) - GAP
-  local rightH = LABEL_H + GUN_H + SECTION_GAP + LABEL_H + ABL_H
+  local rightH = LABEL_H + GUN_H + SECTION_GAP + LABEL_H + ABL_H + SECTION_GAP + LABEL_H + STAT_H
   local topH = math.max(gearH, rightH)
   local itemsH = rows * (CELL + GAP) - GAP
   local ph = 56 + topH + SECTION_GAP + LABEL_H + itemsH + 12 + 22 + 34
@@ -171,6 +189,16 @@ function Screen.layout()
     }
   end
 
+  -- The stats strip under the abilities and quick slots, a tile per stat.
+  local sy = ay + LABEL_H + ABL_H + SECTION_GAP
+  L.statsLabel = { x = x, y = sy }
+  L.stats = {}
+  local statsW = px + Screen.width - Screen.pad - x
+  local tileW = math.floor((statsW - (#Screen.stats - 1) * GAP) / #Screen.stats)
+  for i, stat in ipairs(Screen.stats) do
+    L.stats[i] = { x = x + (i - 1) * (tileW + GAP), y = sy + LABEL_H, w = tileW, h = STAT_H, stat = stat }
+  end
+
   -- The item boxes along the bottom.
   local iy = top + topH + SECTION_GAP
   L.itemsLabel = { x = px + Screen.pad, y = iy }
@@ -210,13 +238,34 @@ local function drawFigure(r)
   love.graphics.circle("fill", cx + s(34), top + s(120), s(6), 16)
 end
 
---- The gear slots: empty for now, each named for what will go in it.
-local function drawGear(L)
+--- The gear slots, each named for what goes in it: the clothes worn in
+--- the first four (gear) and, in the armor slot, the vest and the points
+--- it has left. `liftedArmor` while the vest is being dragged out,
+--- `liftedSlot` the clothes slot whose piece is.
+local function drawGear(L, client, liftedArmor, liftedSlot)
+  local armor, gear = Features.byName.armor, Features.byName.gear
+  local worn = armor and not liftedArmor and armor:mine(client) or nil
+  local kind = worn and armor.kinds.byKey[worn.kind]
+  local clothes = gear and gear:mine(client) or {}
   love.graphics.setFont(UI.fonts.small)
-  for _, r in ipairs(L.gear) do
-    box(r.x, r.y, r.w, r.h, true, false)
-    love.graphics.setColor(1, 1, 1, 0.3)
-    love.graphics.printf(r.name, r.x, r.y + r.h / 2 - 8, r.w, "center")
+  for i, r in ipairs(L.gear) do
+    local isArmor = i == Screen.ARMOR
+    local piece = not isArmor and liftedSlot ~= r.name and gear and gear.kinds.byKey[clothes[r.name] or ""] or nil
+    box(r.x, r.y, r.w, r.h, (isArmor and kind ~= nil) or piece ~= nil, false)
+    if isArmor and kind then
+      Render.itemIcon("armor-" .. worn.kind, r.x + r.w / 2, r.y + 20)
+      local c = kind.color
+      UI.meter(r.x + 6, r.y + r.h - 12, r.w - 12, 6, worn.points / worn.max, c)
+      love.graphics.setColor(1, 0.85, 0.3)
+      love.graphics.printf(tostring(worn.points), r.x, r.y + 2, r.w - 4, "right")
+    elseif piece then
+      Render.itemIcon("gear-" .. piece.key, r.x + r.w / 2, r.y + 20)
+      love.graphics.setColor(0.85, 0.85, 0.9)
+      love.graphics.printf(r.name, r.x, r.y + r.h - 16, r.w, "center")
+    else
+      love.graphics.setColor(1, 1, 1, 0.3)
+      love.graphics.printf(r.name, r.x, r.y + r.h / 2 - 8, r.w, "center")
+    end
   end
 end
 
@@ -362,6 +411,34 @@ local function drawQuick(L, buildings, lifted)
   end
 end
 
+--- The stats strip: for each stat, what my clothes make of it against
+--- base, as a percentage; green and lit when it is an improvement, red
+--- when it is worse, plain "base" otherwise.
+local function drawStats(L, client)
+  heading("stats", L.statsLabel.x, L.statsLabel.y)
+  local small = UI.fonts.small
+  for _, r in ipairs(L.stats) do
+    local stat = r.stat
+    local scale = Features.reduce("stat", 1, client, client.myId, stat.key)
+    local pct = math.floor((scale - 1) * 100 + 0.5)
+    local better = (pct > 0) == stat.moreIsBetter and pct ~= 0
+    local worse = pct ~= 0 and not better
+    box(r.x, r.y, r.w, r.h, pct ~= 0, better)
+    love.graphics.setFont(small)
+    local value = pct == 0 and "base" or ("%+d%%"):format(pct)
+    if better then
+      love.graphics.setColor(0.5, 1, 0.55)
+    elseif worse then
+      love.graphics.setColor(1, 0.45, 0.4)
+    else
+      love.graphics.setColor(1, 1, 1, 0.45)
+    end
+    love.graphics.printf(value, r.x, r.y + 4, r.w, "center")
+    love.graphics.setColor(0.85, 0.85, 0.9, pct ~= 0 and 1 or 0.5)
+    love.graphics.printf(stat.label, r.x, r.y + r.h - 18, r.w, "center")
+  end
+end
+
 --- The item boxes: a stack per open slot, locked ones greyed out. `lifted`
 --- is the box whose item is being dragged, drawn empty meanwhile.
 local function drawItems(L, buildings, list, lifted)
@@ -387,17 +464,19 @@ end
 --- The whole screen. `buildings` is the buildings feature (its items and
 --- slots), `list` its stacks (Screen.stacks), `drag` what is being
 --- dragged ({ index, from = "slot" | "bag", box }: `box` the slot or item
---- box it left) once it has moved, and
---- `notice` a line to show under the boxes instead of the usual hint.
-function Screen.draw(buildings, list, drag, notice)
+--- box it left) once it has moved, `notice` a line to show under the boxes
+--- instead of the usual hint, and `client` for what I wear.
+function Screen.draw(buildings, list, drag, notice, client)
   local L = Screen.layout()
   local p = L.panel
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
   drawFigure(L.figure)
-  drawGear(L)
+  drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
+    drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
+  drawStats(L, client)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
   love.graphics.setFont(UI.fonts.small)
@@ -415,7 +494,7 @@ function Screen.draw(buildings, list, drag, notice)
     love.graphics.setColor(0.8, 0.8, 0.85)
   end
   love.graphics.printf(hint, p.x + Screen.pad, L.hint, p.w - 2 * Screen.pad, "left")
-  local foot = "drag things between their slots and your bag   "
+  local foot = "drag things between their slots, your gear and your bag   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
   for _, u in ipairs(buildings.usables) do
     if buildings:quickCount(u.item) > 0 then
@@ -434,6 +513,12 @@ function Screen.drawDrag(drag, mx, my)
     return
   elseif drag.kind == "quick" then
     Render.itemIcon(drag.item, mx, my)
+    return
+  elseif drag.kind == "armor" then
+    Render.itemIcon("armor-" .. drag.key, mx, my)
+    return
+  elseif drag.kind == "gear" then
+    Render.itemIcon("gear-" .. drag.key, mx, my)
     return
   end
   local gun = Guns.list[drag.index]
