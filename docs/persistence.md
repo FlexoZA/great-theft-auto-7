@@ -56,7 +56,7 @@ get that one back rather than a new one.
 
 ```
 saves/<world-slug>/
-  meta.lua              name, created, lastPlayed, format version, player names (for the Continue list)
+  meta.lua              id (joiners find the server by it), name, created, lastPlayed, format version, player names
   world.lua             ids, nextId, cars, and one slice per feature
   world.lua.bak         the previous world.lua
   players/<key>.lua     name, and one slice per feature

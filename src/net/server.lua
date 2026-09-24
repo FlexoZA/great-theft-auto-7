@@ -47,7 +47,9 @@ function Server.new(hostName, world, hostKey)
   local self = setmetatable({
     host = host,
     name = Protocol.sanitizeName(hostName),
-    hostId = ("%04x%04x"):format(love.math.random(0, 0xffff), love.math.random(0, 0xffff)),
+    -- Joiners remember a server by this: the saved world's lasting id, or a
+    -- throwaway one for a game that is not saved.
+    hostId = world and world:id() or Protocol.newKey():sub(1, 16),
     players = {}, -- id -> { id, name, key, guest, peer, input, body, vehicle, car }
     byPeer = {}, -- peer:index() -> player
     departed = {}, -- id -> name of everyone who left this session (their cars may still be about)
@@ -62,7 +64,7 @@ function Server.new(hostName, world, hostKey)
   Persistence.attach(self, world, hostKey)
 
   local responder, err = Discovery.newResponder(function()
-    return self.name, self:playerCount(), Server.MAX_PLAYERS, self.hostId
+    return self.name, self:playerCount(), Server.MAX_PLAYERS, self.hostId, world and world:name() or ""
   end)
   self.responder = responder
   self.discoveryError = err
@@ -324,7 +326,8 @@ function Server:onHello(peer, name, key)
   self.players[id] = player
   self.byPeer[idx] = player
 
-  peer:send(Protocol.encode("WELCOME", id, self.name), RELIABLE, "reliable")
+  local worldName = self.world and self.world:name() or ""
+  peer:send(Protocol.encode("WELCOME", id, self.name, self.hostId, worldName), RELIABLE, "reliable")
   -- Full roster to the newcomer (includes themselves), then announce to the rest.
   for _, other in pairs(self.players) do
     peer:send(Protocol.encode("JOIN", other.id, other.name), RELIABLE, "reliable")
