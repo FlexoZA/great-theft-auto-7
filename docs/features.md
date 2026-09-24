@@ -256,8 +256,8 @@ first feature whose hook returns true. Events in use:
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
-| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square. |
-| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen answers it. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
+| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen and the shop answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -502,6 +502,20 @@ example with a menu; real-estate is the one with a place to stand.
   `Features.byName.quests:serverComplete(server, questId)` marks the
   job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
   is the quest in play on the host. Karen calls the first when she goes down.
+- Shop: `src/features/shop` puts a shopping bag on the road (`shop.list`,
+  one per map; the city's is on the first north-south road east of the
+  middle) and sells everything in one place. Stand or stop on the bag and
+  a prompt offers the shop on the action key (F; the shop answers
+  `actionTaken` there and while it is open); it opens and closes the shop
+  screen, and walking off the bag closes it too. On sale: every gun and a box of its rounds, every ability, a medkit and
+  every car model, built into `shop/catalog.lua` from the other features'
+  lists, so a new gun or model is on the shelf by itself. A click on a card
+  buys it: an item goes into the buyer's bag through
+  `buildings:serverGive`, a car onto the road beside the bag through
+  `serverDeliver` (vehicles answers), in the first delivery bay with no
+  car in it. Everything is free for now: prices live in the catalog and
+  the host pays them through `money:spend` when they are above zero.
+  Messages: `SHOP_BUY <item>`, `SHOP_OK <item> <n>`, `SHOP_NO <reason>`.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or

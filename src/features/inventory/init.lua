@@ -6,8 +6,8 @@
 -- abilities don't aim, vision stops panning and lends us its arrow cursor,
 -- drawn last so it sits over the panel (the `pointerTaken` convention,
 -- docs/features.md), and the number keys are ours (`menuOpen`). It never
--- opens over the upgrade shop or a building menu, and closes if one of
--- those comes up.
+-- opens over the upgrade shop, the shop or a building menu, and closes if
+-- one of those comes up.
 --
 -- The weapon slots are the number keys: drag a gun item from the bag onto
 -- a slot and that key fires it (weapons:equip; a gun already there swaps
@@ -57,8 +57,8 @@ end
 
 --- Another panel up that wants the middle of the screen or the number keys?
 local function otherOpen()
-  local shop, b = Features.byName.upgrades, buildings()
-  return (shop and shop.open) or (b and b.menu) or false
+  local upgrades, shop, b = Features.byName.upgrades, Features.byName.shop, buildings()
+  return (upgrades and upgrades.open) or (shop and shop.open) or (b and b.menu) or false
 end
 
 function Inventory:load()
