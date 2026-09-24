@@ -666,7 +666,7 @@ Hunt.man = nil -- { x, y, dx, dy, angle, hp, say, sayTimer, bob }
 Hunt.squirrel = nil -- { x, y, dx, dy, angle, hp }
 Hunt.foot = nil -- { x, y, dx, dy, angle, hp, mode, swipe, bob }
 Hunt.leap = nil -- { fx, fy, tx, ty, t, total, r } while he is in the air
-Hunt.pages = {} -- portraits waiting to be shown, the first one up: { face, spec, look, t, roar }
+Hunt.pages = {} -- portraits waiting to be shown, the first one up: { face, spec, look, t, roar, keep }
 Hunt.rings = {} -- { x, y, r, t }: slams that just landed
 Hunt.poofs = {} -- { x, y, t }: where Wendell vanished
 Hunt.stain = nil -- { x, y, angle } where Bigfoot went down
@@ -690,8 +690,8 @@ function Hunt:exitGame()
   lastTick = 0
 end
 
-local function page(face, spec, look, seconds, roar)
-  Hunt.pages[#Hunt.pages + 1] = { face = face, spec = spec, look = look, t = seconds, roar = roar }
+local function page(face, spec, look, seconds, roar, keep)
+  Hunt.pages[#Hunt.pages + 1] = { face = face, spec = spec, look = look, t = seconds, roar = roar, keep = keep }
 end
 
 --- The quest brought everyone to the forest: Wendell's title screen.
@@ -765,9 +765,11 @@ function Hunt:update(dt, _client, camera)
   end
 end
 
---- Any key takes the portrait down (the next one comes up, if any).
+--- Any key takes the title screen down. The reveal portraits stay: they
+--- come up mid-drive, and a held or repeating steering key would skip both
+--- in a blink. They run on the host's clock anyway.
 function Hunt:keypressed()
-  if self.pages[1] then
+  if self.pages[1] and not self.pages[1].keep then
     table.remove(self.pages, 1)
   end
 end
@@ -800,8 +802,8 @@ Hunt.clientMessages = {
       wildFace = wildFace or WildFace.new()
       footFace = footFace or FootFace.new()
       Hunt.pages = {}
-      page(wildFace, WENDELL_QUITS, WILD_LOOK, Hunt.manLeavesAt)
-      page(footFace, BIGFOOT_ROARS, FOOT_LOOK, Hunt.revealTime - Hunt.manLeavesAt, true)
+      page(wildFace, WENDELL_QUITS, WILD_LOOK, Hunt.manLeavesAt, false, true)
+      page(footFace, BIGFOOT_ROARS, FOOT_LOOK, Hunt.revealTime - Hunt.manLeavesAt, true, true)
     end
     Hunt.stage, Hunt.wp = stage, wp
   end,
