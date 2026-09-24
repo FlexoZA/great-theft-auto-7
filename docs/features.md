@@ -378,8 +378,14 @@ couple of small conventions rather than requiring each other:
   bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
   `ABL_UNEQUIP <slot>` and `ABL_MOVE <slot> <slot>` move them, and a cast
   (`ABL_CAST <key> ...`) is refused unless the ability is in one of the
-  caster's slots. Cooldowns follow the ability, not the slot. Nothing makes
-  ability items yet.
+  caster's slots. Cooldowns follow the ability, not the slot. The shop
+  sells ability items. A passive ability (`regen.lua`: the body heals a
+  couple of points a second once it has gone a few seconds unhurt) has no
+  cast; abilities calls its `serverTick(server, player, dt, abilities)`
+  every host tick while it sits in a player's passive slot, and
+  `abilities:serverSinceHurt(player)` says how long its carrier has gone
+  unhurt. `weapons:serverHealth(player)` reads a body's hit points and
+  ceiling on the host.
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).

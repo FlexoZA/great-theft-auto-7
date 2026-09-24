@@ -1019,6 +1019,16 @@ function Weapons:serverHeal(server, player, amount)
   return player.vehicle ~= nil and self:serverRepair(server, player.vehicle, amount)
 end
 
+--- `player`'s hit points and ceiling on the host, or nil for a player this
+--- feature doesn't know. A passive heal reads this to stop at the body.
+function Weapons:serverHealth(player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st then
+    return nil
+  end
+  return st.hp, st.max
+end
+
 --- A car's health record, made the first time it is needed: every car
 --- starts whole.
 function Weapons:carState(car)

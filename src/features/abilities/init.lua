@@ -16,7 +16,13 @@
 -- another slot to change its key (ABL_MOVE). The host keeps the slots and
 -- tells you them (ABL_SLOTS), and casts only what is in one. Cooldowns
 -- follow the ability, not the slot, so moving one doesn't reset it.
--- Nothing makes ability items yet: what you start with is all there is.
+-- The shop sells ability items; what you start with is freeze.
+--
+-- A passive ability (regen.lua) has no cast: every host tick this feature
+-- calls its `serverTick(server, player, dt, abilities)` for the player
+-- carrying it in the passive slot. `serverSinceHurt(player)` tells such an
+-- ability how long its carrier has gone unhurt (weapons raises
+-- `serverPlayerDamaged`, which is noted here).
 --
 -- Holding: the host keeps a frozen player or car where it is by putting it
 -- back every tick after everything else has moved it (this feature runs
@@ -430,6 +436,7 @@ function Abilities:serverStart(server)
     players = {}, -- player id -> time their hold ends
     bodies = {}, -- player id -> { until, x, y }: a walker kept on the spot
     cars = {}, -- vehicle id -> { until, x, y, angle }: a car kept on the spot
+    hurtAt = {}, -- player id -> time they were last hurt, for passive abilities
   }
   for _, p in pairs(server.players) do
     self:serverPlayerJoined(server, p)
@@ -462,7 +469,7 @@ function Abilities:serverPlayerLeft(_server, player)
   local sv = self.sv
   if sv then
     sv.slots[player.id], sv.readyAt[player.id] = nil, nil
-    sv.players[player.id], sv.bodies[player.id] = nil, nil
+    sv.players[player.id], sv.bodies[player.id], sv.hurtAt[player.id] = nil, nil, nil
   end
 end
 
@@ -605,6 +612,33 @@ function Abilities:serverStep(server, dt)
       sv.players[id] = nil
     end
   end
+  -- Passive abilities work by being carried: tick the one in each
+  -- player's passive slot.
+  for id, slots in pairs(sv.slots) do
+    local player = server.players[id]
+    local ability = player and Kinds.byKey[slots[self.passiveSlot] or EMPTY]
+    if ability and ability.serverTick then
+      ability.serverTick(server, player, dt, self)
+    end
+  end
+end
+
+--- Weapons says `victim` was hurt: noted for the passive abilities.
+function Abilities:serverPlayerDamaged(_server, victim)
+  local sv = self.sv
+  if sv and victim then
+    sv.hurtAt[victim.id] = sv.time
+  end
+end
+
+--- Seconds since `player` was last hurt on the host (a long time if never).
+function Abilities:serverSinceHurt(player)
+  local sv = self.sv
+  if not sv then
+    return 0
+  end
+  local at = sv.hurtAt[player.id]
+  return at and (sv.time - at) or math.huge
 end
 
 Abilities.serverMessages = {
