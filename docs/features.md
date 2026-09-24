@@ -257,6 +257,7 @@ first feature whose hook returns true. Events in use:
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
+| `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen and the shop answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
@@ -378,8 +379,27 @@ couple of small conventions rather than requiring each other:
   bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
   `ABL_UNEQUIP <slot>` and `ABL_MOVE <slot> <slot>` move them, and a cast
   (`ABL_CAST <key> ...`) is refused unless the ability is in one of the
-  caster's slots. Cooldowns follow the ability, not the slot. Nothing makes
-  ability items yet.
+  caster's slots. Cooldowns follow the ability, not the slot. The shop
+  sells ability items. A passive ability (`regen.lua`: once the body has
+  gone a few seconds unhurt it heals fast for three seconds, then rests
+  through a cooldown) has no cast; abilities calls its `serverTick(server,
+  player, dt, abilities)` every host tick while it sits in a player's
+  passive slot, `abilities:serverSinceHurt(player)` says how long its
+  carrier has gone unhurt, and `abilities:serverPassive(server, player,
+  key, phase, seconds)` tells the carrier its phase (`ABL_PASSIVE`; idle,
+  active or cooldown) so the HUD's passive ring shows it working and then
+  filling back. `weapons:serverHealth(player)` reads a body's hit points
+  and ceiling on the host. An ability with `aim = "direction"` (`mgnest.lua`)
+  is selected with a press of its key and placed with the fire button,
+  `range` px away towards the cursor, facing away from the caster:
+  `serverCast` returns its facing as a second value (and, third and
+  fourth, where it settled, if it moved: the nest steps back out of
+  walls) and `ABL_FIRED` carries them, `drawAim(ox, oy, x, y, time)` draws the arrow while it is
+  selected, and an ability's `serverStep(server, dt, abilities)` runs
+  whatever it left standing in the world (the nest sprays AK-47 rounds,
+  owned by its placer, across its forty-five-degree arc for five
+  seconds, sweeping side to side and picking no targets: the rounds hurt
+  whatever they meet; `serverReset()` clears them between games).
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).

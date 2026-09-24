@@ -35,6 +35,18 @@ function Sounds.load()
     buf:tone(0.24, 0.6, 3136, { wave = "tri", amp = 0.18, attack = 0.005, decay = 0.35, sustain = 0, release = 0.05 })
     buf:highpass(220)
   end)
+
+  -- MG nest: sandbags thumping down and the gun's tripod clanking open.
+  bank.mgnest = make(0.7, function(buf)
+    buf:sweep(0, 0.2, 180, 50, { wave = "sine", amp = 0.9, decay = 0.09 })
+    buf:noiseBurst(0, 0.3, { amp = 0.6, decay = 0.08 })
+    buf:sweep(0.22, 0.16, 150, 45, { wave = "sine", amp = 0.7, decay = 0.07 })
+    buf:noiseBurst(0.22, 0.2, { amp = 0.45, decay = 0.06 })
+    buf:tone(0.42, 0.2, 1500, { wave = "square", amp = 0.25, attack = 0.001, decay = 0.05, sustain = 0 })
+    buf:tone(0.5, 0.2, 2100, { wave = "square", amp = 0.2, attack = 0.001, decay = 0.05, sustain = 0 })
+    buf:drive(1.8)
+    buf:lowpass(3200)
+  end)
 end
 
 --- Play `name` at world position (x, y).

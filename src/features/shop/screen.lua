@@ -35,6 +35,7 @@ local BADGES = {
   gun = { 0.36, 0.56, 0.92 },
   ammo = { 0.8, 0.6, 0.2 },
   ability = { 0.6, 0.45, 0.95 },
+  passive = { 0.3, 0.7, 0.5 },
   supply = { 0.85, 0.25, 0.25 },
   car = { 0.3, 0.75, 0.55 },
 }
@@ -196,7 +197,7 @@ end
 
 local function drawItemCard(r, entry, purse, lit, glow)
   frame(r, lit, glow)
-  badge(r, entry.kind)
+  badge(r, entry.badge or entry.kind)
   Render.itemIcon(entry.item, r.x + r.w / 2, r.y + BADGE_H + 26)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.9, 0.9, 0.95)
@@ -206,7 +207,7 @@ end
 
 local function drawCarCard(r, entry, purse, lit, glow)
   frame(r, lit, glow)
-  badge(r, entry.kind)
+  badge(r, entry.badge or entry.kind)
   local vehicles = Features.byName.vehicles
   if vehicles and vehicles.drawCard then
     vehicles:drawCard(entry.item, r.x, r.y + BADGE_H, r.w)

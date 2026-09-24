@@ -62,7 +62,8 @@
 --   client -> server  WPN_EQUIP <gun> <slot>           (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun>
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
+--                                              (quiet 1: a pellet after the first; no sound)
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
@@ -284,6 +285,8 @@ function Weapons:tryFire(client)
     return -- cooling down, reloading, or held still (frozen)
   elseif Features.any("pointerTaken", client) then
     return -- a screen (the inventory) has the mouse
+  elseif Features.any("fireTaken", client) then
+    return -- the fire button is placing an ability (the MG nest)
   end
   local aim = self:aimAngle(client)
   if not aim then
@@ -768,11 +771,14 @@ Weapons.clientMessages = {
     local pid, owner = tonumber(args[1]), tonumber(args[2])
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     local gun = Guns.at(tonumber(args[7]))
+    local quiet = args[8] == "1"
     if pid and x and y and vx and vy then
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
       }
-      Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
+      if not quiet then
+        Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
+      end
     end
   end,
   --- A missile went off. Whatever it hurt follows as the usual hits, kills
@@ -1015,6 +1021,16 @@ function Weapons:serverHeal(server, player, amount)
   return player.vehicle ~= nil and self:serverRepair(server, player.vehicle, amount)
 end
 
+--- `player`'s hit points and ceiling on the host, or nil for a player this
+--- feature doesn't know. A passive heal reads this to stop at the body.
+function Weapons:serverHealth(player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st then
+    return nil
+  end
+  return st.hp, st.max
+end
+
 --- A car's health record, made the first time it is needed: every car
 --- starts whole.
 function Weapons:carState(car)
@@ -1091,20 +1107,26 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     return false
   end
   gun = gun or Guns.at(Guns.DEFAULT)
-  if gun.spread > 0 then
-    aim = aim + (love.math.random() * 2 - 1) * gun.spread
-  end
   ownerId = ownerId or NO_OWNER
-  local pid = sv.nextId
-  sv.nextId = pid + 1
-  local vx = math.cos(aim) * gun.speed
-  local vy = math.sin(aim) * gun.speed
-  sv.projectiles[#sv.projectiles + 1] = {
-    id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
-    ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
-  }
-  server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
-    ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index))
+  -- A shotgun sends several pellets per pull, each scattered on its own;
+  -- clients sound only the first (the trailing 1 marks the rest quiet).
+  for pellet = 1, gun.pellets or 1 do
+    local a = aim
+    if gun.spread > 0 then
+      a = a + (love.math.random() * 2 - 1) * gun.spread
+    end
+    local pid = sv.nextId
+    sv.nextId = pid + 1
+    local vx = math.cos(a) * gun.speed
+    local vy = math.sin(a) * gun.speed
+    sv.projectiles[#sv.projectiles + 1] = {
+      id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
+      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
+    }
+    server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
+      ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
+      pellet > 1 and 1 or 0))
+  end
   -- `player` is nil for an ownerless shot; features that listen must allow it.
   Features.call("serverShotFired", server, server.players[ownerId], x, y)
   return true

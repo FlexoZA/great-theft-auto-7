@@ -1,7 +1,11 @@
 -- Abilities: powers a character casts on the world. Hold the ability's key
 -- and a target area follows the cursor, kept within the ability's range of
 -- you; let go to cast it there, or right-click to think better of it. Each
--- ability then waits out its cooldown.
+-- ability then waits out its cooldown. An ability with `aim = "direction"`
+-- (the MG nest) is selected with a press of its key instead: an arrow from
+-- you shows where it would go, `range` away towards the cursor, and the
+-- fire button puts it there (weapons leaves the gun alone meanwhile: the
+-- `fireTaken` convention); the key again or right-click puts it away.
 --
 -- You carry abilities in `slotCount` ability slots: three on keys (Q, E,
 -- R; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
@@ -16,7 +20,15 @@
 -- another slot to change its key (ABL_MOVE). The host keeps the slots and
 -- tells you them (ABL_SLOTS), and casts only what is in one. Cooldowns
 -- follow the ability, not the slot, so moving one doesn't reset it.
--- Nothing makes ability items yet: what you start with is all there is.
+-- The shop sells ability items; what you start with is freeze.
+--
+-- A passive ability (regen.lua) has no cast: every host tick this feature
+-- calls its `serverTick(server, player, dt, abilities)` for the player
+-- carrying it in the passive slot. `serverSinceHurt(player)` tells such an
+-- ability how long its carrier has gone unhurt (weapons raises
+-- `serverPlayerDamaged`, which is noted here), and `serverPassive(server,
+-- player, key, phase, seconds)` tells the carrier its phase (ABL_PASSIVE)
+-- so the HUD ring shows it working ("active") or resting ("cooldown").
 --
 -- Holding: the host keeps a frozen player or car where it is by putting it
 -- back every tick after everything else has moved it (this feature runs
@@ -31,7 +43,9 @@
 --   client -> server  ABL_UNEQUIP <slot>               (the ability in that slot, into my bag)
 --   client -> server  ABL_MOVE <slot> <slot>           (swap two slots)
 --   server -> player  ABL_SLOTS <ability per slot>...  (what is in each slot; "-" = empty)
---   server -> all     ABL_FIRED <by> <ability> <x> <y> <seconds> [<heldId>]...
+--   server -> player  ABL_PASSIVE <ability> <phase> <seconds>  (the passive in your slot went idle,
+--                                                             active or into cooldown, for that long)
+--   server -> all     ABL_FIRED <by> <ability> <x> <y> <seconds> <angle> [<heldId>]...  (angle: which way it faces)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -104,8 +118,10 @@ Abilities.time = 0
 Abilities.slots = {} -- slot -> ability key, mine (the host says: ABL_SLOTS)
 Abilities.aiming = nil -- slot index while its key is held
 Abilities.spent = nil -- slot whose key must be released before it aims again (cancelled)
+Abilities.fireSpent = nil -- true after the fire button placed something, until it is let go
 Abilities.cooldowns = {} -- ability key -> seconds left
 Abilities.readyFlash = {} -- ability key -> seconds of "it's back" flash left on the HUD
+Abilities.passive = nil -- { key, phase, left, total }: what my passive ability is up to (ABL_PASSIVE)
 Abilities.effects = {} -- { ability, x, y, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
 
@@ -125,8 +141,10 @@ function Abilities:enterGame()
   self.slots = startSlots()
   self.aiming = nil
   self.spent = nil
+  self.fireSpent = nil
   self.cooldowns = {}
   self.readyFlash = {}
+  self.passive = nil
   self.effects = {}
   self.heldUntil = {}
 end
@@ -211,10 +229,47 @@ function Abilities:target(client, ability)
   end
   local x, y = mouseToWorld(self.camera, ox, oy)
   local d = math.sqrt(dist2(x, y, ox, oy))
-  if d > ability.range then
-    x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range
+  if d > ability.range or (ability.aim == "direction" and d > 1) then
+    x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range -- exactly `range` away for a direction
   end
   return x, y
+end
+
+--- Is a direction ability selected, waiting for the fire button?
+function Abilities:selecting()
+  local ability = self.aiming and self:inSlot(self.aiming)
+  return ability ~= nil and ability.aim == "direction"
+end
+
+--- The `fireTaken` convention: the fire button is ours while a direction
+--- ability is selected, and until it is let go after placing one.
+function Abilities:fireTaken()
+  return self:selecting() or (self.fireSpent == true and Controls.isDown("fire"))
+end
+
+--- A press of a direction ability's key selects it (or puts it away).
+function Abilities:keypressed(key, client)
+  for i = 1, self.slotCount do
+    local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
+    if ability and ability.aim == "direction" and Controls.is("ability-" .. i, key) then
+      if self.aiming == i then
+        self.aiming = nil
+      elseif not self.aiming and not self.cooldowns[ability.key] and client:myPose()
+        and not self:held(client, client.myId) and not Features.any("pointerTaken", client) then
+        self.aiming = i
+      end
+      return
+    end
+  end
+end
+
+--- The fire button places a selected direction ability.
+function Abilities:mousepressed(_x, _y, button, client)
+  if self:selecting() and Controls.isMouse("fire", button) then
+    local slot = self.aiming
+    self.aiming, self.fireSpent = nil, true
+    self:cast(client, slot)
+  end
 end
 
 function Abilities:cast(client, slot)
@@ -242,6 +297,9 @@ function Abilities:update(dt, client, camera)
   for key, left in pairs(self.readyFlash) do
     self.readyFlash[key] = left - dt > 0 and left - dt or nil
   end
+  if self.passive then
+    self.passive.left = math.max(0, self.passive.left - dt)
+  end
   for i = #self.effects, 1, -1 do
     local e = self.effects[i]
     e.t = e.t + dt
@@ -252,17 +310,22 @@ function Abilities:update(dt, client, camera)
 
   local taken = Features.any("pointerTaken", client) -- a screen (the inventory) has the mouse
   local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
+  if self.fireSpent and not Controls.isDown("fire") then
+    self.fireSpent = nil
+  end
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
+    local direction = ability ~= nil and ability.aim == "direction" -- selected by a press, placed by the fire button
     local down = ability ~= nil and Controls.isDown("ability-" .. i)
     if self.aiming == i then
       if not ability or Controls.suspended or taken or Controls.isDown("ability-cancel") then
         self.aiming, self.spent = nil, i -- a menu or screen came up, or they changed their mind
-      elseif not down then
+      elseif not down and not direction then
         self.aiming = nil
         self:cast(client, i)
       end
-    elseif down and not self.aiming and self.spent ~= i and canAim and not self.cooldowns[ability.key] then
+    elseif down and not direction and not self.aiming and self.spent ~= i and canAim
+      and not self.cooldowns[ability.key] then
       self.aiming = i
     end
     if not down and self.spent == i then
@@ -278,7 +341,9 @@ function Abilities:drawAboveCars(client)
   if ability then
     local ox, oy = client:myPose()
     local x, y = self:target(client, ability)
-    if x then
+    if x and ability.aim == "direction" and ability.drawAim then
+      ability.drawAim(ox, oy, x, y, self.time)
+    elseif x then
       local c = ability.color
       love.graphics.setLineWidth(1)
       love.graphics.setColor(c[1], c[2], c[3], 0.18)
@@ -326,17 +391,47 @@ function Abilities:drawHUD(client)
     local cx = x0 + (i - 1) * self.hudStep
     local ability = self:inSlot(i)
     if i == self.passiveSlot then
-      if ability then
+      -- The passive ability: lit while carried; working, its ring pulses
+      -- with the seconds it has left inside; resting, the ring fills back
+      -- through its cooldown like a keyed ability's.
+      local p = ability and self.passive and self.passive.key == ability.key and self.passive or nil
+      local title, titleColor = ability and ability.title or "passive", { 0.6, 0.6, 0.65 }
+      local middle, middleColor
+      if not ability then
+        UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
+      elseif p and p.phase == "active" then
         local c = ability.color
+        local pulse = 0.5 + 0.5 * math.sin(self.time * 8)
+        love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.35 * pulse)
+        love.graphics.circle("fill", cx, cy, r + 6 + pulse * 3, 48)
+        UI.ring(cx, cy, r, 1, c, 5)
+        middle, middleColor = ("%.1f"):format(p.left), { 1, 1, 1 }
+        titleColor = c
+      elseif p and p.phase == "cooldown" then
+        local c = ability.color
+        UI.ring(cx, cy, r, 1 - p.left / math.max(0.01, p.total), { c[1], c[2], c[3], 0.85 }, 5)
+        middle = p.left >= 10 and ("%d"):format(p.left) or ("%.1f"):format(p.left)
+        middleColor = { 1, 1, 1 }
+      else
+        local c = ability.color
+        local flash = self.readyFlash[ability.key]
+        if flash then
+          local k = flash / 0.6
+          love.graphics.setLineWidth(2)
+          love.graphics.setColor(c[1], c[2], c[3], 0.8 * k)
+          love.graphics.circle("line", cx, cy, r + 5 + (1 - k) * 18, 48)
+          love.graphics.setLineWidth(1)
+        end
         love.graphics.setColor(c[1], c[2], c[3], 0.2)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
-      else
-        UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
+      end
+      if middle then
+        love.graphics.setFont(body)
+        UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
       end
       love.graphics.setFont(small)
-      local title = ability and ability.title or "passive"
-      UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, { 0.6, 0.6, 0.65 })
+      UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, titleColor)
     elseif not ability then
       UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     else
@@ -365,7 +460,7 @@ function Abilities:drawHUD(client)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
         middle, middleColor = key, { 1, 1, 1 }
-        title = aiming and "release" or ability.title
+        title = aiming and (ability.aim == "direction" and "fire: place" or "release") or ability.title
         titleColor = aiming and c or { 0.9, 0.9, 0.95 }
       end
       love.graphics.setFont(body)
@@ -389,11 +484,14 @@ Abilities.clientMessages = {
   ABL_FIRED = function(client, args)
     local by, ability = tonumber(args[1]), Kinds.byKey[args[2] or EMPTY]
     local x, y, seconds = tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
+    local angle = tonumber(args[6]) or 0
     if not (ability and x and y and seconds) then
       return
     end
-    Abilities.effects[#Abilities.effects + 1] = { ability = ability, x = x, y = y, t = 0, seconds = seconds }
-    for i = 6, #args do
+    Abilities.effects[#Abilities.effects + 1] = {
+      ability = ability, x = x, y = y, angle = angle, t = 0, seconds = seconds,
+    }
+    for i = 7, #args do
       local id = tonumber(args[i])
       if id then
         Abilities.heldUntil[id] = Abilities.time + seconds
@@ -415,6 +513,23 @@ Abilities.clientMessages = {
     if Abilities.aiming and not slots[Abilities.aiming] then
       Abilities.aiming = nil -- it left the slot mid-aim
     end
+    if Abilities.passive and slots[Abilities.passiveSlot] ~= Abilities.passive.key then
+      Abilities.passive = nil -- put down: whatever it was doing is over
+    end
+  end,
+  ABL_PASSIVE = function(_client, args)
+    local key, phase, seconds = args[1], args[2], tonumber(args[3])
+    if not (Kinds.byKey[key] and seconds) then
+      return
+    end
+    if phase == "idle" then
+      if Abilities.passive and Abilities.passive.key == key then
+        Abilities.readyFlash[key] = 0.6 -- back: the same burst a keyed ability gets
+      end
+      Abilities.passive = nil
+    else
+      Abilities.passive = { key = key, phase = phase, left = seconds, total = seconds }
+    end
   end,
 }
 
@@ -430,9 +545,15 @@ function Abilities:serverStart(server)
     players = {}, -- player id -> time their hold ends
     bodies = {}, -- player id -> { until, x, y }: a walker kept on the spot
     cars = {}, -- vehicle id -> { until, x, y, angle }: a car kept on the spot
+    hurtAt = {}, -- player id -> time they were last hurt, for passive abilities
   }
   for _, p in pairs(server.players) do
     self:serverPlayerJoined(server, p)
+  end
+  for _, ability in ipairs(Kinds.list) do
+    if ability.serverReset then
+      ability.serverReset() -- anything left in the world from the last game
+    end
   end
 end
 
@@ -462,7 +583,12 @@ function Abilities:serverPlayerLeft(_server, player)
   local sv = self.sv
   if sv then
     sv.slots[player.id], sv.readyAt[player.id] = nil, nil
-    sv.players[player.id], sv.bodies[player.id] = nil, nil
+    sv.players[player.id], sv.bodies[player.id], sv.hurtAt[player.id] = nil, nil, nil
+    for _, ability in ipairs(Kinds.list) do
+      if ability.serverForget then
+        ability.serverForget(player)
+      end
+    end
   end
 end
 
@@ -605,6 +731,45 @@ function Abilities:serverStep(server, dt)
       sv.players[id] = nil
     end
   end
+  -- Abilities with something standing in the world (the MG nest) run it.
+  for _, ability in ipairs(Kinds.list) do
+    if ability.serverStep then
+      ability.serverStep(server, dt, self)
+    end
+  end
+  -- Passive abilities work by being carried: tick the one in each
+  -- player's passive slot.
+  for id, slots in pairs(sv.slots) do
+    local player = server.players[id]
+    local ability = player and Kinds.byKey[slots[self.passiveSlot] or EMPTY]
+    if ability and ability.serverTick then
+      ability.serverTick(server, player, dt, self)
+    end
+  end
+end
+
+--- A passive ability tells its carrier what it is up to: `phase` is
+--- "idle", "active" or "cooldown" and `seconds` how long that lasts.
+function Abilities:serverPassive(server, player, key, phase, seconds)
+  server:send(player, Protocol.encode("ABL_PASSIVE", key, phase, ("%.1f"):format(seconds or 0)))
+end
+
+--- Weapons says `victim` was hurt: noted for the passive abilities.
+function Abilities:serverPlayerDamaged(_server, victim)
+  local sv = self.sv
+  if sv and victim then
+    sv.hurtAt[victim.id] = sv.time
+  end
+end
+
+--- Seconds since `player` was last hurt on the host (a long time if never).
+function Abilities:serverSinceHurt(player)
+  local sv = self.sv
+  if not sv then
+    return 0
+  end
+  local at = sv.hurtAt[player.id]
+  return at and (sv.time - at) or math.huge
 end
 
 Abilities.serverMessages = {
@@ -637,9 +802,10 @@ Abilities.serverMessages = {
       x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range
     end
     ready[key] = sv.time + ability.cooldown
-    local held = ability.serverCast(server, player, x, y, Abilities)
+    local held, angle, nx, ny = ability.serverCast(server, player, x, y, Abilities)
+    x, y = nx or x, ny or y -- an ability may settle somewhere else (the nest steps out of walls)
     server:broadcast(Protocol.encode("ABL_FIRED", player.id, key, ("%.1f"):format(x), ("%.1f"):format(y),
-      ("%.2f"):format(ability.seconds), unpack(held)))
+      ("%.2f"):format(ability.seconds), ("%.3f"):format(angle or 0), unpack(held or {})))
   end,
   ABL_EQUIP = function(server, player, args)
     Abilities:serverEquip(server, player, args[1], tonumber(args[2]))
