@@ -1267,6 +1267,10 @@ function Buildings:serverGive(server, player, item, n)
   if not (sv and player.body) then
     return 0
   end
+  if item:match("^ammo%-") then
+    -- Clothes (gear) may make a bundle of rounds bigger.
+    n = math.floor(n * Features.reduce("serverStat", 1, server, player, "ammo") + 0.5)
+  end
   local given = math.min(n, roomFor(player.id, item))
   if given > 0 then
     addStock(server, player, item, given)

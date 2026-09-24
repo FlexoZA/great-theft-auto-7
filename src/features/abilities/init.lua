@@ -451,7 +451,8 @@ function Abilities:drawHUD(client)
       local c = ability.color
       local middle, middleColor, title, titleColor
       if left then
-        UI.ring(cx, cy, r, 1 - left / ability.cooldown, { c[1], c[2], c[3], 0.85 }, 5)
+        local total = ability.cooldown * Features.reduce("stat", 1, client, client.myId, "cooldown")
+        UI.ring(cx, cy, r, 1 - left / math.max(0.01, total), { c[1], c[2], c[3], 0.85 }, 5)
         middle = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
         middleColor = { 1, 1, 1 }
         title, titleColor = ability.title, { 0.7, 0.7, 0.75 }
@@ -509,7 +510,8 @@ Abilities.clientMessages = {
       end
     end
     if by == client.myId then
-      Abilities.cooldowns[ability.key] = ability.cooldown
+      -- Clothes (gear) may bring it back sooner.
+      Abilities.cooldowns[ability.key] = ability.cooldown * Features.reduce("stat", 1, client, by, "cooldown")
     end
     Sounds.play(ability.sound, x, y)
   end,
@@ -812,7 +814,7 @@ Abilities.serverMessages = {
     if d > ability.range then
       x, y = ox + (x - ox) / d * ability.range, oy + (y - oy) / d * ability.range
     end
-    ready[key] = sv.time + ability.cooldown
+    ready[key] = sv.time + ability.cooldown * Features.reduce("serverStat", 1, server, player, "cooldown")
     local held, angle, nx, ny = ability.serverCast(server, player, x, y, Abilities)
     x, y = nx or x, ny or y -- an ability may settle somewhere else (the nest steps out of walls)
     server:broadcast(Protocol.encode("ABL_FIRED", player.id, key, ("%.1f"):format(x), ("%.1f"):format(y),
