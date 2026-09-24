@@ -7,6 +7,7 @@ local Protocol = {
   DISCOVER_MAGIC = "GTA7_DISCOVER",
   HOST_MAGIC = "GTA7_HOST",
   MAX_NAME = 16,
+  KEY_LENGTH = 32, -- hex characters in a player key
 }
 
 local SEP = "\t"
@@ -36,6 +37,24 @@ function Protocol.sanitizeName(name)
     name = "Player"
   end
   return name:sub(1, Protocol.MAX_NAME)
+end
+
+--- A fresh random player key: KEY_LENGTH lowercase hex characters.
+function Protocol.newKey()
+  local digits = {}
+  for i = 1, Protocol.KEY_LENGTH do
+    digits[i] = ("%x"):format(love.math.random(0, 15))
+  end
+  return table.concat(digits)
+end
+
+--- The key if it is exactly KEY_LENGTH lowercase hex characters, else nil.
+function Protocol.sanitizeKey(key)
+  key = tostring(key or "")
+  if #key == Protocol.KEY_LENGTH and not key:find("[^0-9a-f]") then
+    return key
+  end
+  return nil
 end
 
 return Protocol

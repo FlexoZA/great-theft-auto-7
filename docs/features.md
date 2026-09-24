@@ -85,8 +85,8 @@ Clients send intent; the server decides. Never trust a client message.
 | `serverPlayerJoined(server, player)` / `serverPlayerLeft(server, player)` | Roster changes. |
 | `serverMessages = { KIND = function(server, player, args) end }` | A message from a client the core doesn't know. `player` is the verified sender. |
 
-Useful server fields: `server.players[id]` (`id name peer input body vehicle
-car`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
+Useful server fields: `server.players[id]` (`id name key guest peer input body
+vehicle car`; `key` is the player's lasting identity, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
 exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
 vehicles" below.
 
