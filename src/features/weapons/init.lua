@@ -285,6 +285,8 @@ function Weapons:tryFire(client)
     return -- cooling down, reloading, or held still (frozen)
   elseif Features.any("pointerTaken", client) then
     return -- a screen (the inventory) has the mouse
+  elseif Features.any("fireTaken", client) then
+    return -- the fire button is placing an ability (the MG nest)
   end
   local aim = self:aimAngle(client)
   if not aim then

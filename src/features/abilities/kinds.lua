@@ -10,6 +10,7 @@ local Kinds = {
   list = {
     require("src.features.abilities.freeze"),
     require("src.features.abilities.regen"),
+    require("src.features.abilities.mgnest"),
   },
   byKey = {},
 }
