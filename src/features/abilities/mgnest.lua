@@ -1,8 +1,9 @@
 -- MG nest: a machine gun on a tripod behind sandbags, put down a short way
 -- from you, facing the way you point. For as long as it lasts it rakes
--- anyone who steps into its thirty-degree arc with rifle fire (weapons'
+-- whoever steps into its forty-five-degree arc with rifle fire (weapons'
 -- AK-47 rounds, owned by whoever placed it, so its kills are theirs and it
--- never shoots them). Then it is gone.
+-- never shoots them): other players, bots and police cars, officers on
+-- foot and pedestrians, nearest first. Then it is gone.
 --
 -- It aims differently from freeze: press its key to select it and an
 -- arrow from you shows where the nest would go and which way it would
@@ -24,7 +25,7 @@ local Nest = {
 -- Tuning ------------------------------------------------------------------
 Nest.range = 150 -- px in front of you the nest is put down
 Nest.radius = 22 -- px, the sandbag ring
-Nest.arc = math.rad(30) -- the whole arc it covers, centred on its facing
+Nest.arc = math.rad(45) -- the whole arc it covers, centred on its facing
 Nest.reach = 420 -- px it shoots out to
 Nest.seconds = 20 -- how long it stands
 Nest.cooldown = 30 -- seconds before the next one
@@ -69,19 +70,57 @@ function Nest.serverCast(server, caster, x, y, abilities)
   return {}, angle, x, y
 end
 
---- The nearest present player other than the owner inside the arc, if any.
+local SIGHT_STEP = 14 -- px between the points checked for a wall on the way to a target
+
+--- Is there a clear shot from the nest to (px, py)? Every feature that
+--- owns walls answers `blocksPoint`; a round would stop at the first.
+local function clearShot(nest, px, py)
+  local dx, dy = px - nest.x, py - nest.y
+  local d = math.sqrt(dx * dx + dy * dy)
+  local n = math.floor(d / SIGHT_STEP)
+  for i = 1, n do
+    local k = i * SIGHT_STEP / d
+    if Features.any("blocksPoint", nest.x + dx * k, nest.y + dy * k) then
+      return false
+    end
+  end
+  return true
+end
+
+--- The nearest thing inside the arc, in the open, that a bullet would
+--- hurt: any present player but the owner (bots and police units are
+--- players), an officer on foot (police keeps them) or a pedestrian (the
+--- pedestrians crowd). Anyone behind a wall is left alone.
 local function targetOf(server, nest)
   local best, bestD2
+  local function consider(px, py)
+    local d2 = dist2(px, py, nest.x, nest.y)
+    if d2 <= Nest.reach ^ 2 and (not bestD2 or d2 < bestD2) then
+      local a = math.atan2(py - nest.y, px - nest.x)
+      if math.abs(turn(nest.angle, a)) <= Nest.arc / 2 and clearShot(nest, px, py) then
+        best, bestD2 = { x = px, y = py }, d2
+      end
+    end
+  end
   for id, p in pairs(server.players) do
     if id ~= nest.owner and Features.present(p) then
-      local px, py = Features.bodyPose(server, p)
-      local d2 = dist2(px, py, nest.x, nest.y)
-      if d2 <= Nest.reach ^ 2 and (not bestD2 or d2 < bestD2) then
-        local a = math.atan2(py - nest.y, px - nest.x)
-        if math.abs(turn(nest.angle, a)) <= Nest.arc / 2 then
-          best, bestD2 = { x = px, y = py }, d2
-        end
-      end
+      consider(Features.bodyPose(server, p))
+    end
+  end
+  local police = Features.byName.police
+  local officers = police and police.serverOfficers and police:serverOfficers()
+  if officers then
+    for i = 1, officers.n do
+      local o = officers.list[i]
+      consider(o.x, o.y)
+    end
+  end
+  local pedestrians = Features.byName.pedestrians
+  local crowd = pedestrians and pedestrians.crowd
+  if crowd then
+    for i = 1, crowd.n do
+      local ped = crowd.peds[i]
+      consider(ped.x, ped.y)
     end
   end
   return best
