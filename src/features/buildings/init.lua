@@ -82,7 +82,9 @@
 --   client -> server  BLD_BUY     <plotId>
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
---   client -> server  BLD_USE     <item>              (only "medkit" today)
+--   client -> server  BLD_USE     <item>              (only "medkit" today; from the medkit slot)
+--   client -> server  BLD_QUICK_PUT                   (my medkits out of the bag into the medkit slot)
+--   client -> server  BLD_QUICK_TAKE                  (the medkit slot back into the bag)
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
 --   client -> server  BLD_TAKEOVER <plotId>           (anyone else: buy the lot under a ruin)
 --   client -> server  BLD_DEVFILL <plotId>            (owner, while `devSupply` is on: one car's materials)
@@ -94,6 +96,7 @@
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
+--   server -> player  BLD_QUICK   <medkits>           (what is in the medkit slot)
 --   server -> player  BLD_NO      <reason>
 
 local Protocol = require("src.net.protocol")
@@ -113,6 +116,7 @@ local Buildings = {
 
 -- Tuning ------------------------------------------------------------------
 Buildings.medkitHeal = 50 -- health a medkit gives back
+Buildings.QUICK_MAX = Kinds.stack("medkit") -- medkits the medkit slot holds: one stack
 Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
 Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
 Buildings.takeoverPrice = 40 -- Fcks for the lot under someone else's ruin
@@ -146,7 +150,11 @@ local REASONS = {
   notbuying = "It doesn't buy that.",
   nothing = "You aren't carrying any of it.",
   ownerbroke = "The owner can't afford to pay you.",
-  nomedkit = "You have no medkits.",
+  nomedkit = "No medkits in your medkit slot: drag some there on the inventory screen.",
+  nomedkits = "You carry no medkits.",
+  quickfull = "Your medkit slot is full.",
+  quickempty = "Your medkit slot is empty.",
+  quickroom = "No room in your bag for them.",
   nodelivery = "Nobody can deliver that here.",
   healthy = "You're already at full health.",
   ruined = "It's in ruins. Repair it first.",
@@ -280,6 +288,7 @@ end
 Buildings.buildings = {}
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
+Buildings.quick = 0 -- medkits in my medkit slot (the host says: BLD_QUICK); H uses one
 Buildings.menu = false -- is the building menu open?
 -- nil for the menu's main page, "prices" for the owner's prices, "sell" for
 -- its selling price, "offer" for one material's, "product" to pick what it makes
@@ -300,7 +309,7 @@ end
 -- BLD_STATE for buildings put up before we joined arrives in the same burst
 -- as START, so they are only forgotten on the way out.
 function Buildings:exitGame()
-  self.buildings, self.inventory, self.slots = {}, {}, Kinds.SLOTS
+  self.buildings, self.inventory, self.slots, self.quick = {}, {}, Kinds.SLOTS, 0
   self.menu = false
   herePad, herePlot, notice, noticeTimer = nil, nil, nil, 0
   markWalls()
@@ -595,7 +604,7 @@ end
 
 function Buildings:keypressed(key, client)
   if Controls.is("use-medkit", key) and not self.menu then
-    if (self.inventory.medkit or 0) < 1 then
+    if self.quick < 1 then
       say(REASONS.nomedkit)
     else
       send(client, "BLD_USE", "medkit")
@@ -980,6 +989,9 @@ Buildings.clientMessages = {
       announceGain(client, item, n - before)
     end
   end,
+  BLD_QUICK = function(_client, args)
+    Buildings.quick = tonumber(args[1]) or 0
+  end,
   BLD_SLOTS = function(_client, args)
     Buildings.slots = tonumber(args[1]) or Buildings.slots
   end,
@@ -992,8 +1004,31 @@ Buildings.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
+--- Ask to move the medkits I carry out of the bag into the medkit slot,
+--- as many as fit (the inventory screen does, on a drag).
+function Buildings:quickPut(client)
+  if (self.inventory.medkit or 0) < 1 then
+    say(REASONS.nomedkits)
+  elseif self.quick >= self.QUICK_MAX then
+    say(REASONS.quickfull)
+  else
+    send(client, "BLD_QUICK_PUT")
+  end
+end
+
+--- Ask to put the medkit slot back into the bag, as many as there is room for.
+function Buildings:quickTake(client)
+  if self.quick < 1 then
+    say(REASONS.quickempty)
+  elseif Kinds.room(self.inventory, self.slots, "medkit") < 1 then
+    say(REASONS.quickroom)
+  else
+    send(client, "BLD_QUICK_TAKE")
+  end
+end
+
 function Buildings:serverStart()
-  sv = { buildings = {}, stock = {}, slots = {} }
+  sv = { buildings = {}, stock = {}, slots = {}, quick = {} } -- quick: player id -> medkits in the slot
   markWalls()
 end
 
@@ -1064,6 +1099,17 @@ local function addStock(server, player, item, delta)
   server:send(player, Protocol.encode("BLD_INV", item, n))
 end
 
+--- What is in `player`'s medkit slot, and tell them.
+local function setQuick(server, player, n)
+  sv.quick[player.id] = n > 0 and n or nil
+  server:send(player, Protocol.encode("BLD_QUICK", n))
+end
+
+--- Medkits in `id`'s medkit slot, on the host.
+function Buildings:serverQuick(id)
+  return sv and sv.quick[id] or 0
+end
+
 --- How many of `item` player `id` carries, on the host.
 function Buildings:serverCount(id, item)
   return sv and sv.stock[id] and sv.stock[id][item] or 0
@@ -1121,7 +1167,7 @@ function Buildings:serverPlayerLeft(server, player)
   if not sv then
     return
   end
-  sv.stock[player.id], sv.slots[player.id] = nil, nil
+  sv.stock[player.id], sv.slots[player.id], sv.quick[player.id] = nil, nil, nil
   for id, b in pairs(sv.buildings) do
     if b.owner == player.id then
       removeBuilding(server, id)
@@ -1522,15 +1568,43 @@ Buildings.serverMessages = {
     if not sv or args[1] ~= "medkit" then
       return
     end
-    local s = stockOf(player.id)
-    if (s.medkit or 0) < 1 then
+    if (sv.quick[player.id] or 0) < 1 then
       return "nomedkit"
     end
     local weapons = Features.byName.weapons
     if not (weapons and weapons:serverHeal(server, player, Buildings.medkitHeal)) then
       return "healthy"
     end
-    addStock(server, player, "medkit", -1)
+    setQuick(server, player, sv.quick[player.id] - 1)
+  end),
+  BLD_QUICK_PUT = refusing(function(server, player)
+    if not (sv and player.body) then
+      return
+    end
+    local have, slot = stockOf(player.id).medkit or 0, sv.quick[player.id] or 0
+    if have < 1 then
+      return "nomedkits"
+    elseif slot >= Buildings.QUICK_MAX then
+      return "quickfull"
+    end
+    local n = math.min(have, Buildings.QUICK_MAX - slot)
+    addStock(server, player, "medkit", -n)
+    setQuick(server, player, slot + n)
+  end),
+  BLD_QUICK_TAKE = refusing(function(server, player)
+    if not (sv and player.body) then
+      return
+    end
+    local slot = sv.quick[player.id] or 0
+    if slot < 1 then
+      return "quickempty"
+    end
+    local n = math.min(slot, roomFor(player.id, "medkit"))
+    if n < 1 then
+      return "quickroom"
+    end
+    setQuick(server, player, slot - n)
+    addStock(server, player, "medkit", n)
   end),
 }
 
