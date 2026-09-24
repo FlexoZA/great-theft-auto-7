@@ -247,6 +247,18 @@ function Simps:loiter(s, dt)
   walk(s, s.facing, Simps.WALK_SPEED * 0.5, dt)
 end
 
+--- Something stinks at (x, y): every simp within `radius` runs from it
+--- for `seconds`.
+function Simps:scare(x, y, radius, seconds)
+  local r2 = (radius + Simps.RADIUS) ^ 2
+  for i = 1, self.n do
+    local s = self.list[i]
+    if (s.x - x) ^ 2 + (s.y - y) ^ 2 <= r2 then
+      s.panic = { x = x, y = y, left = seconds }
+    end
+  end
+end
+
 --- A car touching this simp: flattened at speed, shoved aside below it.
 --- Returns the kill, for the caller to announce.
 function Simps:trampled(s, dt, bodies, nbodies)
@@ -294,7 +306,15 @@ function Simps:update(server, dt, boss)
     s.swing = math.max(0, s.swing - dt)
     local target, d2 = nearest(s, bodies, nbodies)
     s.target = target and target.id or nil
-    if target then
+    if s.panic then
+      -- A stink: away from it at a run, whoever is about.
+      s.panic.left = s.panic.left - dt
+      s.facing = math.atan2(s.y - s.panic.y, s.x - s.panic.x)
+      walk(s, s.facing, Simps.WALK_SPEED, dt)
+      if s.panic.left <= 0 then
+        s.panic = nil
+      end
+    elseif target then
       self:hunt(server, s, dt, target, math.sqrt(d2))
     else
       self:loiter(s, dt)

@@ -47,6 +47,17 @@ function Sounds.load()
     buf:lowpass(6000)
   end)
 
+  -- Panic fart: a low, wet sputter that sags in pitch as it runs out.
+  bank.fart = make(0.9, function(buf)
+    buf:sweep(0, 0.7, 120, 42, { wave = "saw", amp = 0.5, decay = 0.5 })
+    buf:sweep(0, 0.7, 61, 30, { wave = "square", amp = 0.25, decay = 0.5 })
+    for i = 0, 11 do
+      buf:noiseBurst(i * 0.055, 0.03, { amp = 0.35 - i * 0.02, decay = 0.012 })
+    end
+    buf:drive(2.4)
+    buf:lowpass(700)
+  end)
+
   -- MG nest: sandbags thumping down and the gun's tripod clanking open.
   bank.mgnest = make(0.7, function(buf)
     buf:sweep(0, 0.2, 180, 50, { wave = "sine", amp = 0.9, decay = 0.09 })

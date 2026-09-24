@@ -187,6 +187,14 @@ function Pedestrians:serverFreezeArea(_server, x, y, radius, seconds)
   end
 end
 
+--- Something stinks at (x, y) (the `serverPanicArea` event, raised every
+--- tick a cloud hangs): the crowd inside it runs away from it.
+function Pedestrians:serverPanicArea(_server, x, y, radius)
+  if self.crowd then
+    self.crowd:scare(x, y, radius, 1.5)
+  end
+end
+
 --- Does the map in play have people on its streets? (city-map's `map.crowd`)
 local function crowdWanted()
   local city = Features.byName["city-map"]

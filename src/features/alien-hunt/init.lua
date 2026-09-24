@@ -247,6 +247,23 @@ end
 
 --- Something froze the world around (x, y): the squirrel and Bigfoot stand
 --- still if caught in it (Bigfoot not while in the air).
+--- Something stinks at (x, y) (the `serverPanicArea` event, raised every
+--- tick a cloud hangs): the squirrel and Bigfoot (on the ground) run from
+--- it for a moment.
+function Hunt:serverPanicArea(_server, x, y, radius)
+  if not sv then
+    return
+  end
+  local s = sv.squirrel
+  if s and dist2(s.x, s.y, x, y) <= (radius + self.squirrelRadius) ^ 2 then
+    s.panic = { x = x, y = y, left = 0.5 }
+  end
+  local f = sv.foot
+  if f and f.mode ~= "air" and f.mode ~= "crouch" and dist2(f.x, f.y, x, y) <= (radius + self.footRadius) ^ 2 then
+    f.panic = { x = x, y = y, left = 0.5 }
+  end
+end
+
 function Hunt:serverFreezeArea(_server, x, y, radius, seconds)
   if not sv then
     return
@@ -341,6 +358,16 @@ function Hunt:stepSquirrel(server, dt)
   end
   if s.frozen > 0 then
     s.frozen = s.frozen - dt
+    return
+  end
+  if s.panic then
+    -- A stink: straight away from it.
+    s.panic.left = s.panic.left - dt
+    s.facing = math.atan2(s.y - s.panic.y, s.x - s.panic.x)
+    s.x, s.y = s.x + math.cos(s.facing) * self.squirrelSpeed * dt, s.y + math.sin(s.facing) * self.squirrelSpeed * dt
+    if s.panic.left <= 0 then
+      s.panic = nil
+    end
     return
   end
   s.bite = s.bite - dt
@@ -469,6 +496,17 @@ function Hunt:stepFoot(server, dt)
   if f.frozen > 0 then
     f.frozen = f.frozen - dt
     f.mode = "idle"
+    return
+  end
+  if f.panic and f.mode ~= "crouch" then
+    -- A stink: he lumbers away from it, whoever is about.
+    f.panic.left = f.panic.left - dt
+    f.mode = "walk"
+    f.facing = math.atan2(f.y - f.panic.y, f.x - f.panic.x)
+    walk(f, f.facing, self.footSpeed, dt)
+    if f.panic.left <= 0 then
+      f.panic = nil
+    end
     return
   end
   if f.mode == "crouch" then

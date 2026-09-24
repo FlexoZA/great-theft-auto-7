@@ -63,6 +63,8 @@ local HOST_ID = 1
 
 --- The numbers behind the host's chosen bot difficulty, read live so a
 --- change on the Settings screen takes effect mid-game.
+Bots.panicHold = 0.5 -- seconds an NPC keeps fleeing a stink after it was last told of it
+
 function Bots:difficulty()
   return self.difficulties[ServerSettings.get("botDifficulty")] or self.difficulties.normal
 end
@@ -459,6 +461,29 @@ function Bots:think(server, bot, dt)
   Bots.unstick(bot, dt)
 end
 
+--- Something stinks at (x, y) (the `serverPanicArea` event, raised every
+--- tick a cloud hangs): every NPC car inside `radius`, whatever its brain,
+--- drives away from it for the next moment.
+function Bots:serverPanicArea(_server, x, y, radius)
+  for _, npc in ipairs(npcs) do
+    local car = npc.car
+    if car and not car.hidden and (car.x - x) ^ 2 + (car.y - y) ^ 2 <= radius ^ 2 then
+      npc.panic = { x = x, y = y, untilT = now + self.panicHold }
+    end
+  end
+end
+
+--- Drive `npc` straight away from what it is panicking about.
+local function flee(npc)
+  local car, p = npc.car, npc.panic
+  local dx, dy = car.x - p.x, car.y - p.y
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d < 1 then
+    dx, dy, d = math.cos(car.angle), math.sin(car.angle), 1
+  end
+  Bots.driveTowards(npc, car.x + dx / d * 400, car.y + dy / d * 400, 1)
+end
+
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
@@ -466,8 +491,14 @@ function Bots:serverStep(server, dt)
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
     end
+    if npc.panic and now >= npc.panic.untilT then
+      npc.panic = nil
+    end
     if npc.car and not npc.car.hidden then
-      if npc.brain then
+      if npc.panic then
+        flee(npc) -- a stink cloud: nose away from it, whatever the brain would do
+        Bots.unstick(npc, dt)
+      elseif npc.brain then
         npc.brain.think(server, npc, dt)
       else
         self:think(server, npc, dt)

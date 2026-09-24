@@ -239,6 +239,19 @@ function Karen:serverFreezeArea(_server, x, y, radius, seconds)
   end
 end
 
+--- Something stinks at (x, y) (the `serverPanicArea` event, raised every
+--- tick a cloud hangs): Karen and any simp inside it run from it for a
+--- moment.
+function Karen:serverPanicArea(_server, x, y, radius)
+  local b = sv and sv.boss
+  if b and (b.x - x) ^ 2 + (b.y - y) ^ 2 <= (radius + self.radius) ^ 2 then
+    b.panic = { x = x, y = y, left = 0.5 }
+  end
+  if sv and sv.simps then
+    sv.simps:scare(x, y, radius, 0.5)
+  end
+end
+
 function Karen:serverPlayerJoined(server, player)
   local b = sv and sv.boss
   if b then
@@ -398,6 +411,15 @@ function Karen:serverStep(server, dt)
   if (b.frozen or 0) > 0 then
     b.frozen = b.frozen - dt -- frozen: no charging, no slapping
     b.charging = false
+  elseif b.panic then
+    -- A stink: away from it, nose held, whatever else she was doing.
+    b.charging, b.scream = false, nil
+    b.panic.left = b.panic.left - dt
+    b.facing = math.atan2(b.y - b.panic.y, b.x - b.panic.x)
+    walk(b, b.facing, self.chargeSpeed, dt)
+    if b.panic.left <= 0 then
+      b.panic = nil
+    end
   elseif b.scream then
     -- Feet planted, drawing breath; when the time is up it lands.
     b.charging = false
