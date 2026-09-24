@@ -1156,20 +1156,9 @@ function Buildings:quickTake(client, item)
 end
 
 function Buildings:serverStart()
-  -- quick: player id -> item -> how many are in its slot; usedAt: player id -> item -> time last used
+  -- quick: player id -> item -> how many are in its slot; usedAt: player id -> item -> time last used;
+  -- home: the city's buildings, kept while on another map
   sv = { buildings = {}, stock = {}, slots = {}, quick = {}, usedAt = {}, time = 0 }
-  markWalls()
-end
-
---- The map was swapped (a quest). Its plots start empty, so every building
---- is gone; what players carry stays with them.
-function Buildings:mapChanged()
-  self.buildings = {}
-  self.menu = false
-  herePad, herePlot = nil, nil
-  if sv then
-    sv.buildings = {}
-  end
   markWalls()
 end
 
@@ -1199,6 +1188,30 @@ local function removeBuilding(server, id)
   sv.buildings[id] = nil
   markWalls()
   server:broadcast(Protocol.encode("BLD_GONE", id))
+end
+
+--- The map was swapped (a quest). Its plots start empty; what players carry
+--- stays with them. Leaving the city, the host keeps the city's buildings
+--- aside, standing still; back in the city they are back and everyone hears
+--- them again (after real-estate, lower priority, has told them the plots).
+--- A client clears what it draws either way and hears the rest.
+function Buildings:mapChanged(_map, server)
+  self.buildings = {}
+  self.menu = false
+  herePad, herePlot = nil, nil
+  if sv and server then
+    local city = Features.byName["city-map"]
+    if city.current == city.DEFAULT then
+      sv.buildings, sv.home = sv.home or {}, nil
+      for id, b in pairs(sv.buildings) do
+        publish(server, id, b)
+      end
+    else
+      sv.home = sv.home or sv.buildings
+      sv.buildings = {}
+    end
+  end
+  markWalls()
 end
 
 local function stockOf(id)
@@ -1309,6 +1322,10 @@ function Buildings:serverPlayerLeft(server, player)
   for id, b in pairs(sv.buildings) do
     if b.owner == player.id then
       removeBuilding(server, id)
+    end
+  end  for id, b in pairs(sv.home or {}) do
+    if b.owner == player.id then
+      sv.home[id] = nil -- back in the city nobody hears of it
     end
   end
 end
