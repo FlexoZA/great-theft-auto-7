@@ -32,7 +32,7 @@ Nest.seconds = 20 -- how long it stands
 Nest.cooldown = 30 -- seconds before the next one
 Nest.afterglow = 0.6 -- seconds the sandbags linger on screen once it is spent
 Nest.gun = Guns.ak47 -- what it fires; its damage, speed and scatter
-Nest.fireEvery = 0.14 -- seconds between rounds: slower than a rifleman
+Nest.fireEvery = 0.04 -- seconds between rounds: twenty-five a second, a proper machine gun
 Nest.sweep = 1.6 -- seconds one pass from one side of the arc to the other and back takes
 Nest.barrel = 16 -- px from the middle to the muzzle
 
@@ -81,11 +81,17 @@ function Nest.serverStep(server, _dt, abilities)
     local nest = nests[i]
     if now >= nest.untilT then
       table.remove(nests, i)
-    elseif weapons and weapons.serverFireFrom and now >= nest.nextShot then
-      local aim = sweepAngle(nest, now - nest.placedAt)
-      local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
-      weapons:serverFireFrom(server, nest.owner, mx, my, aim, Nest.gun)
-      nest.nextShot = now + Nest.fireEvery
+    elseif weapons and weapons.serverFireFrom then
+      -- Faster than the host ticks: every round owed since the last tick.
+      if nest.nextShot < now - Nest.fireEvery * 3 then
+        nest.nextShot = now -- don't make up for time lost to a stall
+      end
+      while now >= nest.nextShot do
+        local aim = sweepAngle(nest, nest.nextShot - nest.placedAt)
+        local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
+        weapons:serverFireFrom(server, nest.owner, mx, my, aim, Nest.gun)
+        nest.nextShot = nest.nextShot + Nest.fireEvery
+      end
     end
   end
 end
