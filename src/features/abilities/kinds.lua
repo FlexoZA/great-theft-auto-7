@@ -11,6 +11,7 @@ local Kinds = {
     require("src.features.abilities.freeze"),
     require("src.features.abilities.regen"),
     require("src.features.abilities.mgnest"),
+    require("src.features.abilities.heal"),
   },
   byKey = {},
 }

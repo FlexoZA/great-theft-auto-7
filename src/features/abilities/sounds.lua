@@ -36,6 +36,17 @@ function Sounds.load()
     buf:highpass(220)
   end)
 
+  -- Heal: a warm rising chord with a soft shimmer over it.
+  bank.heal = make(1.0, function(buf)
+    buf:tone(0, 0.7, 523, { wave = "sine", amp = 0.3, attack = 0.02, decay = 0.4, sustain = 0.2, release = 0.2 })
+    buf:tone(0.08, 0.7, 659, { wave = "sine", amp = 0.28, attack = 0.02, decay = 0.4, sustain = 0.2, release = 0.2 })
+    buf:tone(0.16, 0.7, 784, { wave = "sine", amp = 0.26, attack = 0.02, decay = 0.4, sustain = 0.2, release = 0.2 })
+    buf:tone(0.24, 0.7, 1047, { wave = "tri", amp = 0.2, attack = 0.02, decay = 0.45, sustain = 0.2, release = 0.2 })
+    buf:noiseBurst(0.1, 0.6, { amp = 0.08, decay = 0.25 })
+    buf:highpass(200)
+    buf:lowpass(6000)
+  end)
+
   -- MG nest: sandbags thumping down and the gun's tripod clanking open.
   bank.mgnest = make(0.7, function(buf)
     buf:sweep(0, 0.2, 180, 50, { wave = "sine", amp = 0.9, decay = 0.09 })

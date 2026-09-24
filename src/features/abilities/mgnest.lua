@@ -24,7 +24,7 @@ local Nest = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Nest.range = 150 -- px in front of you the nest is put down
+Nest.range = 80 -- px in front of you the nest is put down: just clear of a car's nose
 Nest.radius = 22 -- px, the sandbag ring
 Nest.arc = math.rad(45) -- the whole arc it covers, centred on its facing
 Nest.reach = 420 -- px of the arc drawn on the ground (the rounds fly on like any rifle round)
