@@ -3,7 +3,7 @@
 -- further away it is, so a distant one is a faint hint and a near one is
 -- hard to miss:
 --   another player   a little walker (their car or their feet, wherever they are)
---   a police unit    an arrow
+--   a police unit    an arrow, police blue whoever the unit is
 --   your own car     a little car, while you are not in it, so a car you left
 --                    (or lost) is never lost for good
 -- Civilian bots get nothing: they are scenery.
@@ -32,6 +32,7 @@ Arrows.fadeEnd = 5000 -- world px: at or beyond this it is at minAlpha
 Arrows.maxAlpha = 0.9
 Arrows.minAlpha = 0.15
 Arrows.ownCars = true -- mark my own cars as well as other players
+Arrows.policeColor = { 0.25, 0.45, 1 } -- the blue of a patrol car's light bar
 Arrows.carScale = 0.5 -- the car marker, as a fraction of a car on the ground at scale 1
 Arrows.walkerScale = 1.6 -- the walker marker, as a multiple of a walker on the ground
 
@@ -141,7 +142,11 @@ function Arrows:drawHUD(client)
     local px, py = client:pose(id)
     if id ~= client.myId and px and not (bots and bots.ids[id]) then
       local unit = police and police.units[id]
-      pointAt(px, py, Car.colorFor(id), unit and "arrow" or "walker")
+      if unit then
+        pointAt(px, py, self.policeColor, "arrow")
+      else
+        pointAt(px, py, Car.colorFor(id), "walker")
+      end
     end
   end
   if self.ownCars then
