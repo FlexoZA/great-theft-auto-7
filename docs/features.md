@@ -273,6 +273,8 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu and the vehicles screen answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
+| `serverEventActive(server)` | police asks, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police parks every unit out of sight, calls in the beat and forgets who was wanted, and comes back when nobody answers any more. The events feature answers it. |
+| `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The events feature flashes it red where a boss came in and marks him while he is loose. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen and the shop answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
@@ -608,6 +610,36 @@ example with a menu; real-estate is the one with a place to stand.
   few seconds. Soldiers raise `serverKill` with kind "soldier", the Major
   with "boss". Tuning is at the top of `init.lua`, `troops.lua` and
   `major.lua`.
+- Events: `src/features/events` is something big happening in the city.
+  One event at a time, only on the default city map and off a quest; a map
+  change calls it off. When one starts every minimap flashes red where the
+  boss came in (`drawOnMinimap`), a banner says what is going on, a red
+  mark and an arrow at the screen's edge follow him, and the police stand
+  down (`serverEventActive`) until he is beaten. For now the host starts one
+  with F8 (`event-bigfoot` in Controls) or any feature with
+  `events:serverTrigger(server, key)`, which returns false and a reason
+  ("busy", "away", "nowhere") when it can't. Each kind of event is a module
+  in that folder listed in `Events.kinds` (the header of `events/init.lua`
+  says what one has); the first is Bigfoot (`events/bigfoot.lua`): he comes
+  in on a road away from everyone and goes for the nearest player, or the
+  nearest building a player owns (`buildings:serverStanding()`) when nobody
+  is near, swiping, leaping onto players and over blocks he is stuck
+  behind. He brings litters of fifteen squirrels that wait a moment and then
+  shoot at the nearest player or building, bursting into gibs on it for a
+  little damage (shot, they burst too); once a whole litter is gone he roars
+  up another. Down, he spills koins and drops his leap, "ability-bigleap",
+  as a pickup. He is drawn with the alien hunt's pictures
+  (`alien-hunt/render.lua`). Messages: `EVT_TRIGGER` up; `EVT_START`,
+  `EVT_END`, `EVT_NO` and Bigfoot's `EBF_*` down. Tuning is at the top of
+  `bigfoot.lua`.
+- Leap variants: `abilities/leap.lua`'s `Leap.variant(tuning)` is another
+  leap on the same flying and landing with its own key and numbers
+  (`walls` cracks buildings under the landing, `shake` rocks the view near
+  it). Bigfoot's leap (`abilities/bigleap.lua`) is one: further, wider,
+  harder. An ability with `unsold = true` is left off the shop's shelf.
+- Abilities on the ground: `pickups:serverDrop(server, "ability-<key>", x,
+  y)` leaves an ability lying loose, an orb in its colour; the first human
+  over it with room in their bag carries it off as the item.
 - Shop: `src/features/shop` puts a shopping bag on the road (`shop.list`,
   one per map; the city's is on the first north-south road east of the
   middle) and sells everything in one place. Stand or stop on the bag and

@@ -3,7 +3,9 @@
 -- (driving or walking), you with a heading tick, parked cars as small
 -- squares (your own ringed in white, so you can always find them), and the
 -- rectangle the camera currently sees. Without the city-map feature it
--- becomes a radar centred on you.
+-- becomes a radar centred on you. Other features mark things on it through
+-- the `drawOnMinimap(client, toMap, w, h)` hook (the events feature flashes
+-- it red where a boss comes into the city and marks him while he is loose).
 --
 -- Purely local. Tab toggles it.
 
@@ -208,6 +210,12 @@ function Minimap:drawHUD(client)
       end
     end
   end
+
+  -- Whatever other features mark on it, clipped to it like the rest.
+  -- `toMap(x, y)` turns a world point into a minimap pixel.
+  Features.call("drawOnMinimap", client, function(x, y)
+    return project(x, y, me)
+  end, self.width, height)
 
   love.graphics.setScissor()
 

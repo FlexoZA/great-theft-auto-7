@@ -22,6 +22,10 @@
 -- the local player's own figure and camera included, and answers `held`
 -- for the leaper meanwhile. A leap past `range` (the reachforthestars
 -- cheat lifts it) keeps the same speed and flies longer instead.
+--
+-- `Leap.variant(tuning)` is another leap on the same machinery with its
+-- own numbers (bigleap.lua, the one Bigfoot drops): everything below reads
+-- the tuning of the leap that was cast.
 
 local Features = require("src.features")
 local Car = require("src.car")
@@ -51,7 +55,7 @@ Leap.lift = 22 -- px the shadow drifts from the leaper at the top of the arc
 -- something else (a respawn, a new map): the leap is over.
 local LOST = 64
 
-local leaps = {} -- player id -> { sx, sy, x, y, angle, startT, flight, lastX, lastY }
+local leaps = {} -- player id -> { ability, sx, sy, x, y, angle, startT, flight, lastX, lastY }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -88,11 +92,11 @@ function Leap.serverLeaping(id)
   return leaps[id] ~= nil
 end
 
---- Up they go, towards (x, y): pulled back towards the caster until the
---- landing is clear of walls. Nobody is held; the landing spot and the way
---- the leap goes out with ABL_FIRED, and how long it flies if that is
---- longer than usual.
-function Leap.serverCast(server, caster, x, y, abilities)
+--- Up they go on leap `A`, towards (x, y): pulled back towards the caster
+--- until the landing is clear of walls. Nobody is held; the landing spot
+--- and the way the leap goes out with ABL_FIRED, and how long it flies if
+--- that is longer than usual.
+local function cast(A, server, caster, x, y, abilities)
   local ox, oy = Features.bodyPose(server, caster)
   local angle = math.atan2(y - oy, x - ox)
   local d = math.sqrt(dist2(x, y, ox, oy))
@@ -100,8 +104,9 @@ function Leap.serverCast(server, caster, x, y, abilities)
     d = math.max(0, d - 8)
     x, y = ox + math.cos(angle) * d, oy + math.sin(angle) * d
   end
-  local flight = math.max(Leap.seconds, d / Leap.range * Leap.seconds) -- no faster than a full leap
+  local flight = math.max(A.seconds, d / A.range * A.seconds) -- no faster than a full leap
   leaps[caster.id] = {
+    ability = A,
     sx = ox, sy = oy, x = x, y = y, angle = angle, startT = abilities.sv.time, flight = flight,
     lastX = ox, lastY = oy,
   }
@@ -110,14 +115,14 @@ end
 
 --- The landing at (x, y): everyone and every parked car around it is hurt,
 --- more towards the middle, and a few soft targets go down.
-local function slam(server, caster, x, y)
+local function slam(A, server, caster, x, y)
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverDamage) then
     return
   end
-  local R = Leap.radius
+  local R = A.radius
   local function amount(d)
-    return math.floor(Leap.damage * (1 - 0.5 * math.min(1, d / R)) + 0.5)
+    return math.floor(A.damage * (1 - 0.5 * math.min(1, d / R)) + 0.5)
   end
   -- Work out who is caught first, then hurt them: a wreck moves its driver.
   local caught = {}
@@ -146,9 +151,13 @@ local function slam(server, caster, x, y)
       weapons:damageCar(server, c.car, caster.id, c.amount, 0, c.angle)
     end
   end
+  if A.walls then
+    -- A leap heavy enough cracks buildings too, the way a rocket does.
+    Features.call("serverBlast", server, x, y, R, A.walls, caster.id)
+  end
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
-      for _ = 1, Leap.soft do
+      for _ = 1, A.soft do
         if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi) then
           break
         end
@@ -157,13 +166,15 @@ local function slam(server, caster, x, y)
   end
 end
 
---- Fly every leaper along their line; whoever has arrived lands.
-function Leap.serverStep(server, _dt, abilities)
+--- Fly every leaper on leap `A` along their line; whoever has arrived lands.
+local function step(A, server, abilities)
   local now = abilities.sv.time
   for id, l in pairs(leaps) do
     local player = server.players[id]
     local body = player and player.body
-    if not (body and Features.present(player)) or player.vehicle
+    if l.ability ~= A then -- luacheck: ignore 542
+      -- Another leap's: it flies them itself.
+    elseif not (body and Features.present(player)) or player.vehicle
       or dist2(body.x, body.y, l.lastX, l.lastY) > LOST * LOST then
       leaps[id] = nil -- dead, in a car or moved away: no landing
     else
@@ -173,10 +184,18 @@ function Leap.serverStep(server, _dt, abilities)
       l.lastX, l.lastY = x, y
       if k >= 1 then
         leaps[id] = nil
-        slam(server, player, x, y)
+        slam(A, server, player, x, y)
       end
     end
   end
+end
+
+function Leap.serverCast(server, caster, x, y, abilities)
+  return cast(Leap, server, caster, x, y, abilities)
+end
+
+function Leap.serverStep(server, _dt, abilities)
+  step(Leap, server, abilities)
 end
 
 --- For tests.
@@ -203,12 +222,21 @@ local function along(e, k)
 end
 
 --- Every frame: put the leaper on the arc (the camera too, if it's me),
---- unless the host has them somewhere else entirely. The landing thuds.
+--- unless the host has them somewhere else entirely. The landing thuds,
+--- and a leap with a `shake` rocks the view of anyone near it for that long.
 function Leap.updateEffect(e, client, camera)
+  local A = e.ability
   if e.t >= e.seconds then
     if not e.landed then
       e.landed = true
-      Sounds.play("leapland", e.x, e.y)
+      Sounds.play("leapland", e.x, e.y, A.pitch)
+    end
+    local left = (A.shake or 0) - (e.t - e.seconds)
+    local mx, my = client:myPose()
+    if left > 0 and camera and mx and dist2(mx, my, e.x, e.y) < (A.radius * 3) ^ 2 then
+      local a = left / A.shake * 10
+      camera.x = camera.x + (love.math.random() - 0.5) * a
+      camera.y = camera.y + (love.math.random() - 0.5) * a
     end
     return
   end
@@ -237,7 +265,8 @@ function Leap.drawBelow(e)
   local x, y = along(e, k)
   local r = (Body.RADIUS + 2) * (1 - 0.35 * h)
   love.graphics.setColor(0, 0, 0, 0.35 - 0.15 * h)
-  love.graphics.ellipse("fill", x + Leap.lift * 0.6 * h, y + Leap.lift * h, r, r * 0.8, 24)
+  local lift = e.ability.lift
+  love.graphics.ellipse("fill", x + lift * 0.6 * h, y + lift * h, r, r * 0.8, 24)
 end
 
 local CRACKS = 7
@@ -245,8 +274,8 @@ local CRACKS = 7
 --- In the air: a streak behind the leaper and the landing ring closing in
 --- on the spot. Down: a shockwave out to the edge, cracks and settling dust.
 function Leap.drawEffect(e)
-  local c = Leap.color
-  local r = Leap.radius
+  local c = e.ability.color
+  local r = e.ability.radius
   if e.t < e.seconds then
     local k = e.t / e.seconds
     local x, y = along(e, k)
@@ -264,7 +293,7 @@ function Leap.drawEffect(e)
     return
   end
   local t = e.t - e.seconds
-  local fade = math.max(0, 1 - t / Leap.afterglow)
+  local fade = math.max(0, 1 - t / e.ability.afterglow)
   -- The shockwave: out past the edge in the first moment.
   local k = math.min(1, t / 0.25)
   love.graphics.setLineWidth(4 * (1 - k) + 1)
@@ -286,6 +315,28 @@ function Leap.drawEffect(e)
   love.graphics.circle("fill", e.x, e.y, r * (0.5 + 0.5 * math.min(1, t / 0.4)), 48)
   love.graphics.setLineWidth(1)
   love.graphics.setColor(1, 1, 1)
+end
+
+--- Another leap with its own tuning over this one's: a table with a new
+--- `key` and whatever numbers, title and colour differ. It shares the
+--- flying, the landing and the drawing, and the host's list of who is in
+--- the air (so abilities holds its leapers too).
+function Leap.variant(tuning)
+  local A = {}
+  for k, v in pairs(Leap) do
+    A[k] = v
+  end
+  for k, v in pairs(tuning) do
+    A[k] = v
+  end
+  A.variant = nil
+  A.serverCast = function(server, caster, x, y, abilities)
+    return cast(A, server, caster, x, y, abilities)
+  end
+  A.serverStep = function(server, _dt, abilities)
+    step(A, server, abilities)
+  end
+  return A
 end
 
 return Leap
