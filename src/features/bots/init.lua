@@ -7,6 +7,9 @@
 -- Bots.unstick, Bots:cruise and Bots:fight are the shared driving skills.
 -- The civilian bots below are just the default brain.
 --
+-- Each civilian bot drives a car picked at random from the shop's (the
+-- vehicles feature's catalog), with that model's handling and hitpoints.
+--
 -- Bots are peaceful by default: they cruise the city's streets and ignore
 -- players, keeping to the traffic rules in traffic.lua (right-hand lane, a
 -- speed limit, slowing for turns, keeping their distance, waiting at a
@@ -218,6 +221,7 @@ function Bots:add(server, x, y, angle)
     return nil
   end
   local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle })
+  bot.wantsModel = true -- a random car from the shop, on the next tick (weapons must be up to give it its hitpoints)
   nextNumber = nextNumber + 1
   bots[#bots + 1] = bot
   server:broadcast(Protocol.encode("BOT_UNIT", bot.id))
@@ -567,6 +571,15 @@ function Bots:serverStep(server, dt)
   server.dtLast = dt
   collectWalkers(server)
   maybeReckless()
+  local vehicles = Features.byName.vehicles
+  for _, bot in ipairs(bots) do
+    if bot.wantsModel and bot.car then
+      bot.wantsModel = nil
+      if vehicles and vehicles.serverRandomModel then
+        vehicles:serverRandomModel(server, bot.car)
+      end
+    end
+  end
   for _, npc in ipairs(npcs) do
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
