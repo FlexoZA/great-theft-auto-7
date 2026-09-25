@@ -9,7 +9,6 @@
 
 local Features = require("src.features")
 local Car = require("src.car")
-local UI = require("src.ui")
 local Controls = require("src.controls")
 
 local Minimap = {
@@ -212,12 +211,9 @@ function Minimap:drawHUD(client)
 
   love.graphics.setScissor()
 
-  -- Frame and label.
+  -- Frame.
   love.graphics.setColor(C.frame[1], C.frame[2], C.frame[3], self.alpha)
   love.graphics.rectangle("line", 0, 0, self.width, height)
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print(Controls.name(Controls.bindings("minimap")[1]) .. ": map", 0, height + 6)
 
   love.graphics.pop()
   love.graphics.setColor(1, 1, 1)

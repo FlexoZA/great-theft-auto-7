@@ -128,7 +128,7 @@ function CityMap:placePlayers(server)
     server:unseat(p)
     p.body.x, p.body.y, p.body.facing = s.x, s.y, s.angle
     local own = p.car
-    if own then
+    if own and not own.kept then -- one in a garage or the impound lot stays there (garage)
       own.x, own.y, own.angle = s.x, s.y, s.angle
       own:stop()
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it

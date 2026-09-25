@@ -129,6 +129,7 @@ Rules for features:
 | `buildings` | every building on its plot, by block: kind, owner, public, product and prices (by item key), hopper, what it pays, output, hit points (world); carried stock and quick slots (player). Bag slots are the upgrade level's. A batch under way starts over. |
 | `real-estate` | the blocks the city grew, in order, and plot owners by block (world) |
 | `vehicles` | model per car id (world) |
+| `garage` | every car kept off the road (world): its id, whether it is in a garage (and wrecked), destroyed or impounded, and a parked car's health |
 
 **Not saved:** pedestrians, police and wanted level, bots, projectiles, coins
 lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
