@@ -22,6 +22,11 @@
 -- With inclusive mode on (the menu toggle), every human starts the game
 -- wanted with the whole force already in pursuit: get away first.
 --
+-- The force stays out of a city event (a boss loose in the streets): while
+-- any feature answers `serverEventActive`, every unit is parked out of
+-- sight, the beat is called in and nobody is wanted. They come back once
+-- the event is over.
+--
 -- Messages
 --   server -> all  POL_UNIT   <id>              this player is a police car
 --   server -> all  POL_SIREN  <id> <0|1>        chasing state changed
@@ -535,11 +540,43 @@ function Police:serverStart(server)
   end
 end
 
+--- Off the streets for an event (`away`), or back on them. Parked units are
+--- hidden by bots and nobody's crimes are seen meanwhile. They come back
+--- where they were parked, unless the map has no traffic (bots parks them
+--- itself there).
+local function standDown(server, away)
+  local B = bots()
+  for id in pairs(sv.wanted) do
+    Police:clearWanted(server, id)
+  end
+  local city = Features.byName["city-map"]
+  local traffic = not (city and city.map and city.map.traffic == false)
+  for _, unit in ipairs(sv.units) do
+    if B and server.players[unit.id] and (away or traffic) then
+      B:park(unit, away)
+    end
+  end
+  sv.officers:clear()
+end
+
 function Police:serverStep(server, dt)
   if not sv then
     return
   end
   sv.time = sv.time + dt
+  local away = Features.any("serverEventActive", server)
+  if away ~= (sv.away or false) then
+    sv.away = away
+    standDown(server, away)
+  end
+  if away then
+    local B = bots()
+    for _, unit in ipairs(sv.units) do
+      if B and server.players[unit.id] and not unit.parked then
+        B:park(unit, true) -- something (a map change) brought one back early
+      end
+    end
+  end
   for id, until_ in pairs(sv.wanted) do
     local p = server.players[id]
     if not p or not Features.present(p) or sv.time >= until_ then
@@ -552,7 +589,7 @@ function Police:serverStep(server, dt)
   -- (city-map's `map.crowd`); the patrol cars are bots' NPCs, and bots
   -- parks those.
   local city = Features.byName["city-map"]
-  if city and city.map and city.map.crowd == false then
+  if away or (city and city.map and city.map.crowd == false) then
     sv.officers:clear() -- the next POL_FOOT, an empty one, sends them off every screen
   else
     for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
@@ -584,7 +621,7 @@ function Police:serverPlayerJoined(server, player)
   for id in pairs(sv.wanted) do
     server:send(player, Protocol.encode("POL_WANTED", id, 1))
   end
-  if Face.inclusive() and player.body then
+  if Face.inclusive() and player.body and not sv.away then
     sv.wanted[player.id] = sv.time + self.hotStartTime
     server:broadcast(Protocol.encode("POL_WANTED", player.id, 1))
   end
