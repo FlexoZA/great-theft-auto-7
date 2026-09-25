@@ -17,7 +17,10 @@
 -- ground thick with trees and shrubs, a trail winding through clearings
 -- (see `buildForest`). `kind = "beach"` is a landing beach under a defended
 -- hill: surf, sand with tank stoppers, bunkers and trenches, barracks and a
--- flag on the hilltop (see `buildBeach`).
+-- flag on the hilltop (see `buildBeach`). `kind = "arena"` is the turf
+-- war's map: a base in two opposite corners, three lanes of tarmac between
+-- them, a storm channel across the middle and a jungle of trees around it
+-- (see `buildArena` and docs/turf-war.md).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -540,6 +543,334 @@ local function buildBeach(map, rng)
   end
 end
 
+-- The turf war's map (docs/turf-war.md): a walled square with a base in
+-- the bottom-left corner (the Southside, team 1) and one in the top-right
+-- (the Northside, team 2), three lanes of tarmac between them and a
+-- jungle of trees in between. Everything is built for the Southside and
+-- turned 180 degrees about the origin for the Northside, so both sides
+-- walk the same distances. Distances below are world px.
+local ARENA = {
+  laneW = 192, -- tarmac width, three tiles
+  edge = 1760, -- an edge lane's centreline, in from the origin (288 px off the wall)
+  base = 768, -- a base compound's side; it sits flush in its corner
+  wall = 28, -- its walls' thickness
+  gate = 240, -- a gate's width (the lane and a verge each side)
+  corner = 150, -- how much of each wall the corner gate for the mid lane takes
+  vault = 120, -- the vault's side
+  fountain = 70, -- the fountain ring's radius
+  tower = 56, -- a tower's side
+  towerOff = 124, -- a tower's centre off the lane's centreline (on the verge)
+  riverW = 200, -- the storm channel's width
+  camp = 130, -- a jungle camp's clearing radius
+  pathW = 64, -- a footpath's width (trees keep off it)
+  treeGap = 60, -- the jittered grid trees grow on
+}
+-- The team colours, for the roofs, braziers and the HUD later.
+ARENA.teams = {
+  { name = "Southside", color = { 0.25, 0.75, 0.65 } },
+  { name = "Northside", color = { 0.95, 0.45, 0.25 } },
+}
+
+--- Distance from (x, y) to polyline `pts` ({ x, y } nodes).
+local function polylineDist(x, y, pts)
+  local d = math.huge
+  for i = 1, #pts - 1 do
+    local a, b = pts[i], pts[i + 1]
+    d = math.min(d, segmentDist(x, y, a.x, a.y, b.x, b.y))
+  end
+  return d
+end
+
+--- The point `dist` px along polyline `pts`, and the direction there.
+local function alongPolyline(pts, dist)
+  for i = 1, #pts - 1 do
+    local a, b = pts[i], pts[i + 1]
+    local len = math.sqrt((b.x - a.x) ^ 2 + (b.y - a.y) ^ 2)
+    if dist <= len or i == #pts - 1 then
+      local t = math.max(0, math.min(1, dist / len))
+      return a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, (b.x - a.x) / len, (b.y - a.y) / len
+    end
+    dist = dist - len
+  end
+end
+
+--- The other team's copy of a Southside point.
+local function mirror(x, y)
+  return -x, -y
+end
+
+local function buildArena(map, rng)
+  local T = Layout.TILE
+  local A = ARENA
+  local cols, rows = map.cols, map.rows
+  local H = cols * T / 2 -- half the map; the origin is its centre
+  local E, B = A.edge, H - A.base -- an edge lane's centreline; a base's inner walls
+  local W2 = A.laneW / 2
+  map.teams = A.teams
+  map.arena = A
+
+  -- Lanes, Southside gate to Northside gate. The edge lanes round their
+  -- corner in two short bends; the mid lane is straight through the origin.
+  local function lane(name, pts)
+    local l = { name = name, points = {} }
+    for _, p in ipairs(pts) do
+      l.points[#l.points + 1] = { x = p[1], y = p[2] }
+    end
+    return l
+  end
+  map.lanes = {
+    lane("top", { { -E, B }, { -E, -E + 160 }, { -E + 40, -E + 40 }, { -E + 160, -E }, { B, -E } }),
+    lane("mid", { { -B, B }, { B, -B } }),
+    lane("bottom", { { -B, E }, { E - 160, E }, { E - 40, E - 40 }, { E, E - 160 }, { E, -B } }),
+  }
+  map.lanes.byName = {}
+  for _, l in ipairs(map.lanes) do
+    map.lanes.byName[l.name] = l
+  end
+
+  -- The river: a storm channel down the other diagonal, corner to corner,
+  -- with a bridge where each lane crosses it.
+  map.river = { x0 = -H, y0 = -H, x1 = H, y1 = H, w = A.riverW }
+  local bx = E - 40 -- the bend's middle, where the edge lanes cross it
+  map.bridges = { -- `len` is the deck's length: the corner ones stop short of the bend's outside
+    { x = 0, y = 0, angle = -math.pi / 4, len = A.riverW + 70 },
+    { x = -bx, y = -bx, angle = -math.pi / 4, len = A.riverW + 10 },
+    { x = bx, y = bx, angle = -math.pi / 4, len = A.riverW + 10 },
+  }
+
+  local function solid(x, y, w, h, extra)
+    local s = { x = x, y = y, w = w, h = h }
+    for k, v in pairs(extra or {}) do
+      s[k] = v
+    end
+    map.solids[#map.solids + 1] = s
+    return s
+  end
+  --- A solid that also shows on the minimap (it draws `map.buildings`).
+  local function building(x, y, w, h, color, extra)
+    local s = solid(x, y, w, h, extra)
+    map.buildings[#map.buildings + 1] = { x = x, y = y, w = w, h = h, color = color }
+    return s
+  end
+
+  -- The bases. Each is `{ team, x0, y0, x1, y1, vault, fountain, shop,
+  -- gates, walls }`; `walls` are the wall pieces (drawn), the compound's
+  -- outer two sides are the map wall.
+  map.bases, map.towers, map.camps, map.paths, map.shrubs = {}, {}, {}, {}, {}
+  local WALL = { 0.50, 0.48, 0.44 }
+  local function base(team)
+    local sign = team == 1 and 1 or -1
+    local function pt(x, y)
+      return sign * x, sign * y
+    end
+    local vx, vy = pt(-(B + A.base / 2), B + A.base / 2) -- the courtyard's centre
+    local fx, fy = pt(-(H - 208), H - 208)
+    local b = {
+      team = team,
+      x0 = math.min(sign * -H, sign * -B),
+      y0 = math.min(sign * H, sign * B),
+      x1 = math.max(sign * -H, sign * -B),
+      y1 = math.max(sign * H, sign * B),
+      vault = { x = vx, y = vy, r = A.vault / 2 },
+      fountain = { x = fx, y = fy, r = A.fountain },
+      shop = { x = sign * -(H - 140), y = sign * (H - 360), w = 48, h = 32 },
+      gates = {}, -- by lane name: where that lane leaves the compound
+      walls = {},
+    }
+    for _, l in ipairs(map.lanes) do
+      local g = l.points[team == 1 and 1 or #l.points]
+      b.gates[l.name] = { x = g.x, y = g.y }
+    end
+    local color = A.teams[team].color
+    building(vx - A.vault / 2, vy - A.vault / 2, A.vault, A.vault, color, { vault = team })
+    -- The shop stand by the fountain, a kiosk you walk up to.
+    local s = b.shop
+    building(s.x - s.w / 2, s.y - s.h / 2, s.w, s.h, { 0.85, 0.75, 0.35 }, { shop = team })
+    -- The two inner walls, each in pieces: the corner cut off for the mid
+    -- lane and a gate for the edge lane.
+    local t, g2, c = A.wall, A.gate / 2, A.corner
+    local function wall(x, y, w, h)
+      b.walls[#b.walls + 1] = building(x, y, w, h, WALL, { wall = true })
+    end
+    -- Along y = B from the map wall to the corner cut (in Southside terms).
+    local pieces = {
+      { -H, -E - g2 }, -- map wall to the edge gate
+      { -E + g2, -B - c }, -- edge gate to the corner cut
+    }
+    for _, p in ipairs(pieces) do
+      local x0, x1 = p[1], p[2]
+      if team == 1 then
+        wall(x0, B - t / 2, x1 - x0, t) -- the north wall, along y = B
+        wall(-B - t / 2, -x1, t, x1 - x0) -- the east wall, along x = -B (mirrored across the diagonal)
+      else
+        wall(-x1, -B - t / 2, x1 - x0, t)
+        wall(B - t / 2, x0, t, x1 - x0)
+      end
+    end
+    map.bases[team] = b
+    return b
+  end
+  base(1)
+  base(2)
+
+  -- Towers: three a lane a side, on the verge on the lane's inner side
+  -- (the mid lane's on its north-west side for the Southside), tier 3 at
+  -- the gate out to tier 1 short of the river.
+  local TIERS = { edge = { 2300, 1300, 300 }, mid = { 1300, 760, 220 } }
+  for _, l in ipairs(map.lanes) do
+    local dists = TIERS[l.name == "mid" and "mid" or "edge"]
+    for tier, d in ipairs(dists) do
+      local x, y, dx, dy = alongPolyline(l.points, d)
+      -- The verge on the side facing the origin; the mid lane runs through
+      -- it, so that one takes its left-hand verge.
+      local nx, ny = -dy, dx
+      if l.name == "mid" then
+        nx, ny = -math.sqrt(0.5), -math.sqrt(0.5) -- its north-west verge
+      elseif nx * -x + ny * -y < 0 then
+        nx, ny = -nx, -ny
+      end
+      local tx, ty = x + nx * A.towerOff, y + ny * A.towerOff
+      for team = 1, 2 do
+        local px, py = tx, ty
+        if team == 2 then
+          px, py = mirror(tx, ty)
+        end
+        map.towers[#map.towers + 1] = { x = px, y = py, team = team, lane = l.name, tier = tier }
+        building(px - A.tower / 2, py - A.tower / 2, A.tower, A.tower, A.teams[team].color, { tower = team })
+      end
+    end
+  end
+
+  -- Jungle camps, two in each wedge between an edge lane and the mid lane,
+  -- and the footpaths that join them to the lanes and each other.
+  local CAMPS = { { -1250, -650 }, { -850, 350 }, { -350, 850 }, { 650, 1250 } }
+  local PATHS = {
+    { { -E + W2, -650 }, { -1250, -650 }, { -850, 350 }, { -600, 600 } },
+    { { -850, 350 }, { -E + W2, 350 } },
+    { { 650, E - W2 }, { 650, 1250 }, { -350, 850 }, { -600, 600 } },
+    { { -350, 850 }, { -350, E - W2 } },
+  }
+  for team = 1, 2 do
+    for _, c in ipairs(CAMPS) do
+      local x, y = c[1], c[2]
+      if team == 2 then
+        x, y = mirror(x, y)
+      end
+      map.camps[#map.camps + 1] = { x = x, y = y, r = A.camp, team = team }
+    end
+    for _, p in ipairs(PATHS) do
+      local path = {}
+      for _, n in ipairs(p) do
+        local x, y = n[1], n[2]
+        if team == 2 then
+          x, y = mirror(x, y)
+        end
+        path[#path + 1] = { x = x, y = y }
+      end
+      map.paths[#map.paths + 1] = path
+    end
+  end
+
+  -- Tiles: grass everywhere, water down the river, tarmac on the lanes (over
+  -- the water: those are the bridges) and paving in the courtyards. The
+  -- minimap draws them; other features only care that there is ground.
+  local function inBase(x, y, margin)
+    margin = margin or 0
+    for _, b in ipairs(map.bases) do
+      if x >= b.x0 - margin and x <= b.x1 + margin and y >= b.y0 - margin and y <= b.y1 + margin then
+        return true
+      end
+    end
+    return false
+  end
+  local riverDist = function(x, y)
+    return segmentDist(x, y, map.river.x0, map.river.y0, map.river.x1, map.river.y1)
+  end
+  local function laneDist(x, y)
+    local d = math.huge
+    for _, l in ipairs(map.lanes) do
+      d = math.min(d, polylineDist(x, y, l.points))
+    end
+    return d
+  end
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      local x, y = map.x0 + (c + 0.5) * T, map.y0 + (r + 0.5) * T
+      local kind = "ground"
+      if riverDist(x, y) <= A.riverW / 2 then
+        kind = "water"
+      end
+      if inBase(x, y) then
+        kind = "walk"
+      end
+      if laneDist(x, y) <= W2 then
+        kind = "road"
+      end
+      map.tiles[c][r] = kind
+    end
+  end
+
+  -- Trees on a jittered grid over the jungle, kept off everything built,
+  -- and shrubs (not solid) in among them.
+  local function open(x, y)
+    if inBase(x, y, 40) or laneDist(x, y) <= W2 + 44 or riverDist(x, y) <= A.riverW / 2 + 40 then
+      return false
+    end
+    for _, t in ipairs(map.towers) do
+      if (t.x - x) ^ 2 + (t.y - y) ^ 2 < 80 * 80 then
+        return false
+      end
+    end
+    for _, cp in ipairs(map.camps) do
+      if (cp.x - x) ^ 2 + (cp.y - y) ^ 2 < cp.r * cp.r then
+        return false
+      end
+    end
+    for _, p in ipairs(map.paths) do
+      if polylineDist(x, y, p) <= A.pathW / 2 + 20 then
+        return false
+      end
+    end
+    return true
+  end
+  local margin = 50
+  for gy = -H + margin, H - margin, A.treeGap do
+    for gx = -H + margin, H - margin, A.treeGap do
+      local x = gx + (rng:random() - 0.5) * A.treeGap * 0.8
+      local y = gy + (rng:random() - 0.5) * A.treeGap * 0.8
+      local roll = rng:random()
+      if open(x, y) then
+        if roll < 0.8 then
+          map.trees[#map.trees + 1] = { x = x, y = y, r = 17 + rng:random() * 11, pine = rng:random() < 0.4 }
+          solid(x - 7, y - 7, 14, 14, { tree = true })
+        elseif roll < 0.92 then
+          map.shrubs[#map.shrubs + 1] = { x = x, y = y, r = 8 + rng:random() * 7, berries = rng:random() < 0.25 }
+        end
+      end
+    end
+  end
+
+  -- Spawns: the Southside's eight car slots along its two outer walls,
+  -- then the Northside's. `map.cx, map.cy` is the Southside fountain.
+  local f1 = map.bases[1].fountain
+  map.cx, map.cy = f1.x, f1.y
+  for team = 1, 2 do
+    for i = 0, 3 do
+      local sx, sy = -(H - 528) - i * 80, H - 58 -- along the south wall, facing north
+      local wx, wy = -(H - 58), (H - 328) - i * 80 -- along the west wall, facing east
+      local sa, wa = -math.pi / 2, 0
+      if team == 2 then
+        sx, sy = mirror(sx, sy)
+        wx, wy = mirror(wx, wy)
+        sa, wa = math.pi / 2, math.pi
+      end
+      map.spawns[#map.spawns + 1] = { x = sx, y = sy, angle = sa }
+      map.spawns[#map.spawns + 1] = { x = wx, y = wy, angle = wa }
+    end
+  end
+end
+
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
 --- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
@@ -573,7 +904,7 @@ function Layout.generate(spec)
     w = W,
     h = H,
     version = 1, -- bumped on every change, so drawings know to redo themselves
-    tiles = {}, -- [c][r] = "road" | "walk" | "core" (block interior) | "ground" (open field); nil outside the city
+    tiles = {}, -- [c][r] = "road" | "walk" | "core" (block interior) | "ground" (open field) | "water"; nil outside
     blocks = {}, -- { tx, ty, tw, th, bi, bj, kind = "buildings"|"park"|"lot"|"plot" }
     blockAt = {}, -- "bi,bj" -> block
     grown = {}, -- { bi, bj } in the order the city grew
@@ -583,11 +914,13 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" then
+  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "arena" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
       buildBeach(map, rng)
+    elseif map.kind == "arena" then
+      buildArena(map, rng)
     else
       buildCuldesac(map, rng)
     end

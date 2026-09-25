@@ -5,10 +5,11 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Three jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Four jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
--- hunting aliens (alien-hunt), and one onto a defended beach to take Major
--- Looz'er's hill (d-day). A blue star by the entrance of each brings
+-- hunting aliens (alien-hunt), one onto a defended beach to take Major
+-- Looz'er's hill (d-day) and one to The Lanes for the turf war (the
+-- turf-war feature, docs/turf-war.md). A blue star by the entrance of each brings
 -- everyone home again; a star comes up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
 -- nearest one is the one on offer. Add a quest to `Quests.list` with
@@ -94,6 +95,18 @@ Quests.list = {
     banner = "%s hit the beach. Welcome to Looz'er Beach.",
   },
   {
+    id = "turf-war",
+    title = "Turf war",
+    text = "Two gangs, three lanes, one vault each. The Southside holds the bottom-left corner, the Northside "
+      .. "the top-right. Take the lanes, break their vault and keep whatever koins hit the ground.",
+    board = true,
+    map = "arena",
+    boss = "turf-war",
+    label = "TURF",
+    color = { 0.95, 0.45, 0.25 },
+    banner = "%s started the turf war. Welcome to The Lanes.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -126,6 +139,33 @@ Quests.list = {
     onMap = "beach",
     x = 0, -- in the surf between the landing craft
     y = 1676, -- city-map puts the beach's way in (map.cx, map.cy) here
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  -- The Lanes has a way home in each base, in the corner behind the fountain.
+  {
+    id = "home-southside",
+    title = "Back to the City",
+    text = "Call the turf war off and take everyone back into town.",
+    onMap = "arena",
+    x = -1950,
+    y = 1950,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-northside",
+    title = "Back to the City",
+    text = "Call the turf war off and take everyone back into town.",
+    onMap = "arena",
+    x = 1950,
+    y = -1950,
     map = "city",
     returns = true,
     label = "HOME",

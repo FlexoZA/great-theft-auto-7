@@ -481,6 +481,278 @@ local function drawBeach(map)
   end
 end
 
+local ARENA = {
+  grass = { 0.27, 0.42, 0.22 },
+  grassDark = { 0.23, 0.36, 0.19 },
+  camp = { 0.36, 0.50, 0.25 },
+  channel = { 0.62, 0.62, 0.58 },
+  channelDark = { 0.50, 0.50, 0.47 },
+  water = { 0.22, 0.40, 0.50 },
+  waterDeep = { 0.17, 0.33, 0.43 },
+  kerb = { 0.72, 0.72, 0.70 },
+  deck = { 0.24, 0.24, 0.26 },
+  rail = { 0.82, 0.82, 0.80 },
+  paving = { 0.44, 0.44, 0.46 },
+  pavingLine = { 0.39, 0.39, 0.41 },
+  wall = { 0.50, 0.48, 0.44 },
+  wallDark = { 0.36, 0.34, 0.31 },
+  stone = { 0.58, 0.56, 0.52 },
+  stoneDark = { 0.42, 0.40, 0.37 },
+  vault = { 0.30, 0.30, 0.33 },
+  vaultDark = { 0.19, 0.19, 0.22 },
+  gold = { 0.95, 0.78, 0.25 },
+  fountain = { 0.35, 0.60, 0.80 },
+  fountainLight = { 0.60, 0.80, 0.92 },
+  kiosk = { 0.85, 0.75, 0.35 },
+  kioskDark = { 0.55, 0.45, 0.20 },
+}
+
+--- A polyline as one thick stroke with round joins and ends.
+local function stroke(pts, width)
+  love.graphics.setLineWidth(width)
+  for i = 1, #pts - 1 do
+    love.graphics.line(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+  end
+  for _, p in ipairs(pts) do
+    love.graphics.circle("fill", p.x, p.y, width / 2, 24)
+  end
+end
+
+--- Dashes down the middle of a polyline.
+local function dashes(pts, dash, gap, width)
+  love.graphics.setLineWidth(width)
+  for i = 1, #pts - 1 do
+    local a, b = pts[i], pts[i + 1]
+    local len = math.sqrt((b.x - a.x) ^ 2 + (b.y - a.y) ^ 2)
+    local dx, dy = (b.x - a.x) / len, (b.y - a.y) / len
+    local d = gap / 2
+    while d + dash < len do
+      love.graphics.line(a.x + dx * d, a.y + dy * d, a.x + dx * (d + dash), a.y + dy * (d + dash))
+      d = d + dash + gap
+    end
+  end
+end
+
+--- The jungle floor: grass with a worn patch here and there, the camps'
+--- clearings and the footpaths between them.
+local function drawArenaGround(map)
+  color(ARENA.grass)
+  love.graphics.rectangle("fill", map.left, map.top, map.w, map.h)
+  color(ARENA.grassDark)
+  local i = 0
+  for yy = map.top + 10, map.top + map.h - 30, 70 do
+    for xx = map.left + (i % 3) * 37, map.left + map.w - 40, 119 do
+      love.graphics.rectangle("fill", xx + (yy * 7) % 23, yy, 34, 18)
+    end
+    i = i + 1
+  end
+  color(ARENA.camp)
+  for _, c in ipairs(map.camps) do
+    love.graphics.circle("fill", c.x, c.y, c.r - 16, 40)
+  end
+  for pass, c in ipairs({ C.trail, C.trailDark }) do
+    color(c)
+    for _, p in ipairs(map.paths) do
+      stroke(p, pass == 1 and 48 or 18)
+    end
+  end
+end
+
+--- The storm channel: concrete banks, a foot of water and the dark line
+--- of the drain down the middle.
+local function drawRiver(map)
+  local r = map.river
+  local pts = { { x = r.x0, y = r.y0 }, { x = r.x1, y = r.y1 } }
+  color(ARENA.channel)
+  stroke(pts, r.w)
+  color(ARENA.channelDark)
+  stroke(pts, r.w - 16)
+  color(ARENA.water)
+  stroke(pts, r.w - 56)
+  color(ARENA.waterDeep)
+  stroke(pts, 24)
+  color(ARENA.channel)
+  dashes(pts, 6, 90, r.w - 60) -- expansion joints across the concrete
+end
+
+--- The lanes: a kerb, the tarmac, a dashed centreline.
+local function drawLanes(map)
+  local w = map.arena.laneW
+  for _, l in ipairs(map.lanes) do
+    color(ARENA.kerb)
+    stroke(l.points, w + 12)
+  end
+  for _, l in ipairs(map.lanes) do
+    color(C.asphalt)
+    stroke(l.points, w)
+  end
+  color(C.lane)
+  for _, l in ipairs(map.lanes) do
+    dashes(l.points, 28, 28, 4)
+  end
+end
+
+--- A bridge deck where a lane crosses the channel: planks and a railing
+--- each side, the length of the crossing.
+local function drawBridge(b, map)
+  local w, len = map.arena.laneW, b.len
+  love.graphics.push()
+  love.graphics.translate(b.x, b.y)
+  love.graphics.rotate(b.angle)
+  color(C.shadow)
+  love.graphics.rectangle("fill", -len / 2 + 6, -w / 2 + 8, len, w + 8)
+  color(ARENA.deck)
+  love.graphics.rectangle("fill", -len / 2, -w / 2 - 4, len, w + 8)
+  color(shade(ARENA.deck, 1.25))
+  for xx = -len / 2 + 6, len / 2 - 8, 14 do
+    love.graphics.rectangle("fill", xx, -w / 2 - 2, 6, w + 4)
+  end
+  color(ARENA.rail)
+  love.graphics.setLineWidth(5)
+  love.graphics.line(-len / 2, -w / 2 - 6, len / 2, -w / 2 - 6)
+  love.graphics.line(-len / 2, w / 2 + 6, len / 2, w / 2 + 6)
+  for xx = -len / 2, len / 2, 30 do
+    love.graphics.rectangle("fill", xx - 3, -w / 2 - 10, 6, 8)
+    love.graphics.rectangle("fill", xx - 3, w / 2 + 2, 6, 8)
+  end
+  love.graphics.pop()
+end
+
+--- A stone tower with the team's brazier lit on top.
+local function drawTower(t, map)
+  local s = map.arena.tower
+  local x, y = t.x - s / 2, t.y - s / 2
+  local team = map.teams[t.team].color
+  color(C.shadow)
+  love.graphics.rectangle("fill", x + 10, y + 10, s, s, 4)
+  color(ARENA.stoneDark)
+  love.graphics.rectangle("fill", x, y, s, s, 4)
+  color(ARENA.stone)
+  love.graphics.rectangle("fill", x + 6, y + 6, s - 12, s - 12, 3)
+  color(ARENA.stoneDark)
+  for k = 0, 3 do -- the battlements
+    love.graphics.rectangle("fill", x + 4 + k * 14, y + 4, 8, 6)
+    love.graphics.rectangle("fill", x + 4 + k * 14, y + s - 10, 8, 6)
+  end
+  color(shade(team, 0.55))
+  love.graphics.circle("fill", t.x, t.y, 12, 16)
+  color(team)
+  love.graphics.circle("fill", t.x, t.y, 8, 16)
+  color(shade(team, 1.4))
+  love.graphics.circle("fill", t.x - 2, t.y - 2, 3.5, 10)
+end
+
+--- The strongroom at the heart of a base: thick dark walls, the team's
+--- colour on the roof and a koin over the door.
+local function drawVault(v, team)
+  local r = v.r
+  color(C.shadow)
+  love.graphics.rectangle("fill", v.x - r + 14, v.y - r + 14, r * 2, r * 2, 6)
+  color(ARENA.vaultDark)
+  love.graphics.rectangle("fill", v.x - r, v.y - r, r * 2, r * 2, 6)
+  color(ARENA.vault)
+  love.graphics.rectangle("fill", v.x - r + 10, v.y - r + 10, r * 2 - 20, r * 2 - 20, 4)
+  color(team)
+  love.graphics.rectangle("fill", v.x - r + 10, v.y - r + 10, r * 2 - 20, 14)
+  love.graphics.rectangle("fill", v.x - r + 10, v.y + r - 24, r * 2 - 20, 14)
+  color(shade(ARENA.gold, 0.6))
+  love.graphics.circle("fill", v.x + 2, v.y + 2, 22, 24)
+  color(ARENA.gold)
+  love.graphics.circle("fill", v.x, v.y, 20, 24)
+  color(shade(ARENA.gold, 0.75))
+  love.graphics.circle("fill", v.x, v.y, 12, 20)
+  color(ARENA.gold)
+  love.graphics.circle("fill", v.x, v.y, 5, 12)
+end
+
+--- A base: the paved courtyard, its walls, the fountain, the shop stand,
+--- the parking bays and the vault.
+local function drawBase(b, map)
+  local team = map.teams[b.team].color
+  color(ARENA.paving)
+  love.graphics.rectangle("fill", b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0)
+  color(ARENA.pavingLine)
+  love.graphics.setLineWidth(2)
+  for xx = b.x0, b.x1, 64 do
+    love.graphics.line(xx, b.y0, xx, b.y1)
+  end
+  for yy = b.y0, b.y1, 64 do
+    love.graphics.line(b.x0, yy, b.x1, yy)
+  end
+  -- The fountain: a pool with the team's ring round it.
+  local f = b.fountain
+  color(shade(team, 0.7))
+  love.graphics.circle("fill", f.x, f.y, f.r + 10, 40)
+  color(ARENA.fountain)
+  love.graphics.circle("fill", f.x, f.y, f.r, 40)
+  color(ARENA.fountainLight)
+  love.graphics.circle("fill", f.x - f.r * 0.25, f.y - f.r * 0.25, f.r * 0.45, 24)
+  color(team)
+  love.graphics.circle("fill", f.x, f.y, 12, 16)
+  -- The shop stand: a kiosk with a striped awning.
+  local s = b.shop
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x - s.w / 2 + 6, s.y - s.h / 2 + 6, s.w, s.h, 3)
+  color(ARENA.kioskDark)
+  love.graphics.rectangle("fill", s.x - s.w / 2, s.y - s.h / 2, s.w, s.h, 3)
+  for k = 0, 5 do
+    color(k % 2 == 0 and ARENA.kiosk or { 1, 1, 1 })
+    love.graphics.rectangle("fill", s.x - s.w / 2 + 3 + k * 7, s.y - s.h / 2 + 3, 7, s.h - 6)
+  end
+  -- The walls: stone with the team's banner hung every so often.
+  for _, w in ipairs(b.walls) do
+    color(C.shadow)
+    love.graphics.rectangle("fill", w.x + 10, w.y + 10, w.w, w.h)
+    color(ARENA.wallDark)
+    love.graphics.rectangle("fill", w.x, w.y, w.w, w.h)
+    color(ARENA.wall)
+    love.graphics.rectangle("fill", w.x + 4, w.y + 4, w.w - 8, w.h - 8)
+    color(team)
+    if w.w > w.h then
+      for xx = w.x + 40, w.x + w.w - 40, 120 do
+        love.graphics.rectangle("fill", xx - 4, w.y - 2, 8, w.h + 4)
+      end
+    else
+      for yy = w.y + 40, w.y + w.h - 40, 120 do
+        love.graphics.rectangle("fill", w.x - 2, yy - 4, w.w + 4, 8)
+      end
+    end
+  end
+  drawVault(b.vault, team)
+end
+
+--- The parking bays the cars stand in, one per spawn.
+local function drawBays(map)
+  color(C.bay)
+  love.graphics.setLineWidth(3)
+  for _, s in ipairs(map.spawns) do
+    love.graphics.push()
+    love.graphics.translate(s.x, s.y)
+    love.graphics.rotate(s.angle)
+    love.graphics.rectangle("line", -30, -18, 60, 36, 3)
+    love.graphics.pop()
+  end
+end
+
+local function drawArena(map)
+  drawArenaGround(map)
+  drawRiver(map)
+  drawLanes(map)
+  for _, b in ipairs(map.bridges) do
+    drawBridge(b, map)
+  end
+  for _, b in ipairs(map.bases) do
+    drawBase(b, map) -- over the lanes: the paving takes their ends at the gates
+  end
+  drawBays(map)
+  for _, t in ipairs(map.towers) do
+    drawTower(t, map)
+  end
+  love.graphics.setLineWidth(1)
+  drawShrubs(map)
+  drawTrees(map)
+end
+
 --- Build the canvas. Call once with graphics available.
 function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
@@ -492,8 +764,12 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
-  if map.kind == "beach" then
-    drawBeach(map)
+  if map.kind == "beach" or map.kind == "arena" then
+    if map.kind == "beach" then
+      drawBeach(map)
+    else
+      drawArena(map)
+    end
     love.graphics.setCanvas()
     love.graphics.pop()
     return canvas

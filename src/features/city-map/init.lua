@@ -71,6 +71,13 @@ CityMap.maps = {
     title = "Looz'er Beach", kind = "beach", seed = 44, cols = 36, rows = 60,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- The turf war's ground (docs/turf-war.md): a base in two opposite
+  -- corners, three lanes of tarmac between them, a storm channel across
+  -- the middle and a jungle of trees around it. Driven or walked; nobody
+  -- about but the two sides.
+  arena = {
+    title = "The Lanes", kind = "arena", seed = 77, cols = 64, rows = 64, crowd = false, traffic = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 
