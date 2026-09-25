@@ -180,6 +180,15 @@ function Garage:pointerTaken()
   return self.open
 end
 
+--- The `closeMenu` convention: Esc takes the screen down.
+function Garage:closeMenu()
+  if not self.open then
+    return false
+  end
+  self:show(false)
+  return true
+end
+
 --- The `actionTaken` convention: the action key is ours at the impound lot's gate.
 function Garage:actionTaken()
   return self.atGate
@@ -246,11 +255,10 @@ function Garage:keypressed(key)
   end
 end
 
---- A readable name for car `vid`: its model, or the car everyone starts with.
-local function carName(vid)
+--- Car `vid`'s model (a catalog entry), or nil for the car everyone starts with.
+local function carModel(vid)
   local vehicles = Features.byName.vehicles
-  local model = vehicles and Catalog.byKey[vehicles.models[vid] or ""]
-  return model and model.name or "Starter car"
+  return vehicles and Catalog.byKey[vehicles.models[vid] or ""]
 end
 
 --- How many of my cars are in my garages, and how many fit.
@@ -264,7 +272,7 @@ function Garage:spaces(client)
   return used, #garagesOf(client.myId) * self.capacity
 end
 
---- Every car I own, in id order, as the screen shows it: { vid, name,
+--- Every car I own, in id order, as the screen shows it: { vid, name, model,
 --- color, state, status, hp, max, actions = { { label, enabled, why, run } } }.
 function Garage:entries(client)
   local used, room = self:spaces(client)
@@ -276,7 +284,14 @@ function Garage:entries(client)
   for vid, info in pairs(client.garage) do
     if info.owner == client.myId then
       local k = self.kept[vid]
-      local e = { vid = vid, name = carName(vid), color = Car.paletteColor(info.color), actions = {} }
+      local model = carModel(vid)
+      local e = {
+        vid = vid,
+        name = model and model.name or "Starter car",
+        model = model,
+        color = Car.paletteColor(info.color),
+        actions = {},
+      }
       if k then
         e.state, e.hp, e.max = k.state, k.hp, k.max
       else
