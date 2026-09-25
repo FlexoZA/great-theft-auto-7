@@ -1,5 +1,5 @@
--- The shop screen: a panel over the game with a tab per shelf (items,
--- cars) and a card per thing for sale. Item cards show the picture the
+-- The shop screen: a panel over the game with a tab per shelf (all, guns,
+-- ammo, abilities, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
 -- inventory draws for the item, its name and its price; car cards borrow
 -- the vehicle factory's card (the car over a bar per stat). Click a card to
 -- buy what is on it.
@@ -119,7 +119,8 @@ function Screen.layout(tab, page)
   local L = { panel = { x = px, y = py, w = Screen.width, h = ph }, tabs = {}, cards = {}, page = page, pages = pages }
 
   -- Tabs across the top, under the title.
-  local tabW = 140
+  local n = #Catalog.tabs
+  local tabW = math.min(140, math.floor((Screen.width - 2 * Screen.pad - (n - 1) * GAP) / n))
   local tx = px + math.floor((Screen.width - #Catalog.tabs * (tabW + GAP) + GAP) / 2)
   for i, t in ipairs(Catalog.tabs) do
     L.tabs[i] = {
