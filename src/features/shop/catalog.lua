@@ -10,7 +10,6 @@
 --   name    what the card says
 --   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "gear" | "car", the badge on the card
 --   badge   what the badge says instead of the kind ("passive" for a passive ability)
---   tab     which tab of the shop it is on ("items" or "cars")
 --   price   Fcks; 0 is free. Everything is free for now: put prices here
 --           when the economy is ready and the host charges them (init.lua
 --           pays through money:spend).
@@ -28,10 +27,17 @@ local GearKinds = require("src.features.gear.kinds")
 local Catalog = {
   list = {},
   byItem = {},
+  -- The shop's tabs, each a filter on `kind`: All is everything that goes
+  -- into a bag, the rest one kind each. Cars have their own tab, with
+  -- bigger cards.
   tabs = {
-    { key = "items", title = "Items" },
-    { key = "cars", title = "Cars" },
+    { key = "all", title = "All" },
+    { key = "guns", title = "Guns", kind = "gun" },
+    { key = "ammo", title = "Ammo", kind = "ammo" },
+    { key = "abilities", title = "Abilities", kind = "ability" },
+    { key = "cars", title = "Cars", kind = "car" },
   },
+  tabByKey = {},
 }
 
 --- Rounds in a box of ammo for `gun`: two magazines, and at least five.
@@ -46,37 +52,42 @@ local function add(entry)
 end
 
 for _, gun in ipairs(Guns.list) do
-  add({ item = "gun-" .. gun.key, n = 1, name = gun.name, kind = "gun", tab = "items" })
+  add({ item = "gun-" .. gun.key, n = 1, name = gun.name, kind = "gun" })
 end
 for _, gun in ipairs(Guns.list) do
   local n = boxOf(gun)
-  add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo", tab = "items" })
+  add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo" })
 end
 for _, ability in ipairs(AbilityKinds.list) do
   if not ability.unsold then -- a boss's drop (bigleap) is only won
     add({
-      item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability", tab = "items",
+      item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability",
       badge = ability.passive and "passive" or nil, -- a passive works by being carried, no key
     })
   end
 end
-add({ item = "medkit", n = 1, name = "medkit", kind = "supply", tab = "items" })
-add({ item = "drink", n = 1, name = "energy drink", kind = "supply", tab = "items" })
+add({ item = "medkit", n = 1, name = "medkit", kind = "supply" })
+add({ item = "drink", n = 1, name = "energy drink", kind = "supply" })
 for _, a in ipairs(ArmorKinds.list) do
-  add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor", tab = "items" })
+  add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
 for _, g in ipairs(GearKinds.list) do
-  add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", tab = "items", badge = g.slot })
+  add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", badge = g.slot })
 end
 for _, model in ipairs(Vehicles.list) do
-  add({ item = model.item, n = 1, name = model.name, kind = "car", tab = "cars" })
+  add({ item = model.item, n = 1, name = model.name, kind = "car" })
 end
 
---- The entries on `tab`, in shelf order.
-function Catalog.onTab(tab)
+for _, t in ipairs(Catalog.tabs) do
+  Catalog.tabByKey[t.key] = t
+end
+
+--- The entries on tab `key`, in shelf order.
+function Catalog.onTab(key)
+  local t = Catalog.tabByKey[key] or Catalog.tabs[1]
   local out = {}
   for _, e in ipairs(Catalog.list) do
-    if e.tab == tab then
+    if (t.kind and e.kind == t.kind) or (not t.kind and e.kind ~= "car") then
       out[#out + 1] = e
     end
   end

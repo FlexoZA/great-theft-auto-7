@@ -115,7 +115,7 @@ end
 -- Client --------------------------------------------------------------------
 
 Shop.open = false
-Shop.tab = "items"
+Shop.tab = Catalog.tabs[1].key
 Shop.page = 1
 Shop.notice = nil -- { text, color, t }
 Shop.flash = nil -- { item, t }
@@ -128,7 +128,7 @@ function Shop:load()
 end
 
 function Shop:enterGame()
-  self.open, self.tab, self.page, self.notice, self.flash, self.near = false, "items", 1, nil, nil, nil
+  self.open, self.tab, self.page, self.notice, self.flash, self.near = false, Catalog.tabs[1].key, 1, nil, nil, nil
 end
 
 function Shop:exitGame()
@@ -200,7 +200,7 @@ function Shop:keypressed(key)
   if self.open then
     self.open = false
   elseif self.near then
-    self.open, self.tab, self.page, self.notice = true, "items", 1, nil
+    self.open, self.tab, self.page, self.notice = true, Catalog.tabs[1].key, 1, nil
   end
 end
 
