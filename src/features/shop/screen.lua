@@ -6,8 +6,8 @@
 --
 -- `Screen.layout(tab, page)` works out every rectangle for the window as it
 -- is now and `Screen.draw` paints them; init.lua hit-tests the same
--- rectangles. There is no scrolling (features don't get the wheel): a
--- shelf that doesn't fit is paged, with arrows under the cards.
+-- rectangles. There is no scrolling: a shelf that doesn't fit is paged,
+-- with arrows under the cards.
 
 local Features = require("src.features")
 local UI = require("src.ui")

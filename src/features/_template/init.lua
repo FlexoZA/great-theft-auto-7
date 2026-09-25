@@ -37,6 +37,9 @@ function MyFeature:drawHUD(client) end
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
+--- Mouse wheel in the game (not while paused). dy > 0 is up.
+function MyFeature:wheelmoved(dx, dy, client) end
+
 --- Asked before the core draws each vehicle `c` (world space, camera
 --- applied; `c.dx c.dy c.dangle` is where it is drawn). Draw it your own way
 --- and return true to leave out the core's box; vehicles draws its models so.
