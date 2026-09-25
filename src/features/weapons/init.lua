@@ -182,7 +182,7 @@ Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.hudIconScale = 1.8 -- the gun in hand, drawn big beside the ability circles (icons are 60 x 30 at 1)
-Weapons.hudIconW, Weapons.hudIconH = 108, 54
+Weapons.hudIconW, Weapons.hudIconH = 140, 54 -- room for the longest gun (the shotgun) at that scale
 Weapons.lowMagazine = 0.25 -- at or under this share of a magazine the reload key flashes over the gun
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
@@ -406,6 +406,29 @@ function Weapons:mousepressed(_x, _y, button, client)
   end
 end
 
+--- The wheel steps through the guns in my weapon slots, down for the next
+--- slot and up for the one before, round the end, skipping empty slots.
+--- Not while a screen or menu of anyone's has the mouse or the number keys.
+function Weapons:wheelmoved(_dx, dy, client)
+  if dy == 0 or Features.any("menuOpen", client) or Features.any("pointerTaken", client) then
+    return
+  end
+  local from = 1
+  for slot = 1, self.slotCount do
+    if self.slots[slot] == self.gun then
+      from = slot
+    end
+  end
+  local step = dy < 0 and 1 or -1
+  for k = 1, self.slotCount - 1 do
+    local slot = (from - 1 + step * k) % self.slotCount + 1
+    if self.slots[slot] and Guns.list[self.slots[slot]] then
+      self:selectGun(client, self.slots[slot])
+      return
+    end
+  end
+end
+
 function Weapons:keypressed(key, client)
   if Controls.is("hitboxes", key) then
     self.showHitboxes = not self.showHitboxes
@@ -599,7 +622,13 @@ function Weapons:drawMagazine()
   local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
-  local blockW = math.max(self.hudIconW, textW)
+  -- The same width whichever gun is up: the widest line any gun could
+  -- have, and room for the longest picture.
+  local blockW = self.hudIconW
+  for _, g in ipairs(Guns.list) do
+    local full = ("%d/%d"):format(g.magazine, g.magazine)
+    blockW = math.max(blockW, small:getWidth(g.name .. "  ") + body:getWidth(full) + small:getWidth(" +999"))
+  end
   local cx = right - blockW / 2
   local y = h - 8 - body:getHeight() -- the count line, along the bottom
   local top = y - 12 - self.hudIconH
