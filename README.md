@@ -33,7 +33,8 @@ make run        # or: love .
 | F1 | Show hitboxes |
 | Tab | Toggle the minimap |
 | B / N | Add / remove an AI bot (host only) |
-| Enter / Backspace | Accept / decline a quest, when you stop on its star |
+| F | Open the job board, at the door of the Jobs building (the gold star on the minimap) |
+| Enter / Backspace | Take the picked job on the board; accept / decline the way home on a quest's star |
 | Esc | Leave the game |
 
 Every key above can be rebound under *Settings > Controls*, with a primary and a secondary
