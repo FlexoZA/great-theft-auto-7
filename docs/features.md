@@ -273,11 +273,11 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu and the vehicles screen answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
-| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, quests at the Jobs door. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
 | `serverEventActive(server)` | police asks, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police parks every unit out of sight, calls in the beat and forgets who was wanted, and comes back when nobody answers any more. The events feature answers it. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The events feature flashes it red where a boss came in and marks him while he is loose. |
-| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen and the shop answer it. |
+| `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen, the shop and the job board answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
 to all of them to decide who is wanted. A trigger-area feature would raise
@@ -614,8 +614,17 @@ example with a menu; real-estate is the one with a place to stand.
   everyone out beside their car and refuses to let them back in (Karen's
   street). Pickups are scattered afresh and koins on the ground swept on
   every switch.
-- Quests: a map may carry several stars (`quests.list`, each with its own
-  `onMap`); the nearest one is on offer.
+- Quests: every job starts at the Jobs building in the city
+  (`quests/jobs.lua` picks one of the city's own buildings the same way on
+  every machine, like the hospital, clear of the spawn road, the shop and
+  the garage's places). Stand on the square by its door, press the action
+  key (F, through `actionTaken`) and the job board lists every quest marked
+  `board = true` in `quests.list`; pick one and take it (`QST_ACCEPT`, the
+  host checks you are at the door). The board owns the mouse
+  (`pointerTaken`) and Esc closes it (`closeMenu`); the building is marked on
+  the minimap. The way back is still a star on the quest map (a quest with
+  `onMap`, `x, y` and `returns`); a map may carry several stars and the
+  nearest one is on offer. A trip still takes the whole server.
   `Features.byName.quests:serverComplete(server, questId, x, y)` marks the
   job under way as done (everyone hears `QST_DONE`); `quests:serverActive()`
   is the quest in play on the host. Every boss calls the first when it goes

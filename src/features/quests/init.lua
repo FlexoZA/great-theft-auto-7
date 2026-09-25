@@ -1,18 +1,19 @@
--- Quests: jobs you pick up in the world. A star on the road marks where one
--- is on offer. Drive or walk onto it and the offer comes up over the game;
--- accept it and the host takes everyone to the map the job is on (city-map's
--- `switchTo`). There is one world, so a quest is a group outing: whoever
--- takes the job takes the whole server with them. Decline and the star
--- waits until you come back to it.
+-- Quests: jobs you pick up in the world. Every job starts at the Jobs
+-- building in the city (jobs.lua picks it from the map): stand on the
+-- square by its door, open the job board on the action key and take one of
+-- the jobs listed there; the host takes everyone to the map the job is on
+-- (city-map's `switchTo`). There is one world, so a quest is a group
+-- outing: whoever takes the job takes the whole server with them.
 --
--- Three quests so far, all starring near the middle of the city: one sends
--- everyone to Crazy Karen's cul-de-sac (the karen feature runs the fight),
--- one into the forest after a wild man hunting aliens (alien-hunt), and one
--- onto a defended beach to take Major Looz'er's hill (d-day). A blue star
--- by the entrance of each brings everyone home again. A map may
--- have several stars; the nearest one is the one on offer. Add a quest to
--- `Quests.list` and the star, the offer and the trip are all done here; a
--- quest marked `returns` is the way back and ends the one under way. What
+-- Three jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- karen feature runs the fight), one into the forest after a wild man
+-- hunting aliens (alien-hunt), and one onto a defended beach to take Major
+-- Looz'er's hill (d-day). A blue star by the entrance of each brings
+-- everyone home again; a star comes up when you drive or walk onto it, and
+-- declined it waits until you come back. A map may have several stars; the
+-- nearest one is the one on offer. Add a quest to `Quests.list` with
+-- `board = true` and the board, the offer and the trip are all done here;
+-- a quest marked `returns` is the way back and ends the one under way. What
 -- happens on the quest is another feature's business: this one raises
 -- `questStarted(client, quest, byId)` / `questEnded(client, quest)` on every
 -- machine and `serverQuestStarted(server, quest, player)` /
@@ -23,10 +24,10 @@
 -- fell to `serverComplete` and an EXIT star comes up right there, taking
 -- everyone home the same as the blue star by the entrance.
 --
--- The host decides: it checks the taker's body is on the star, that the
--- star is on the map in play and that the destination exists, then
--- switches the map and tells everyone. Clients only draw the star, show
--- the offer and ask.
+-- The host decides: it checks the taker's body is on the star (or at the
+-- Jobs building's door for a job on the board), that the star is on the
+-- map in play and that the destination exists, then switches the map and
+-- tells everyone. Clients only draw the stars and the board, and ask.
 --
 -- Messages
 --   client -> server  QST_ACCEPT <questId>
@@ -40,6 +41,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
+local Jobs = require("src.features.quests.jobs")
 
 local Quests = {
   name = "quests",
@@ -47,8 +49,10 @@ local Quests = {
 }
 
 -- Quests -------------------------------------------------------------------
--- `onMap` is the map the star sits on and (x, y) where; `map` is where
--- accepting takes everyone. Every name is a key of city-map's `maps`.
+-- `board = true` puts a job on the Jobs building's board in the default
+-- city; otherwise `onMap` is the map its star sits on and (x, y) where.
+-- `map` is where accepting takes everyone. Every name is a key of
+-- city-map's `maps`.
 -- `returns` marks the trip home: taking it ends the quest under way instead
 -- of starting one. `label` and `color` dress the star; `banner` is what
 -- everyone reads when the trip happens (%s is the taker's name). `boss`
@@ -59,11 +63,10 @@ Quests.list = {
     title = "Crazy Karen is at it again, let's end this",
     text = "She's out on her street again, screaming at the neighbourhood. "
       .. "Get everyone over there and shut her up for good.",
-    onMap = "city",
-    x = 0, -- the middle of the city's central road
-    y = 0,
+    board = true,
     map = "culdesac",
     boss = "karen",
+    label = "KAREN",
     banner = "%s took the job. Welcome to Karen's Cul-de-sac.",
   },
   {
@@ -71,9 +74,7 @@ Quests.list = {
     title = "The truth is out there (in the woods)",
     text = "A wild-eyed man with half his lunch down his shirt is waving you over. He swears aliens are "
       .. "harvesting human hair to eat, and he knows where they land. Follow him into the forest.",
-    onMap = "city",
-    x = -320, -- up the north-south road just west of Karen's star
-    y = -220,
+    board = true,
     map = "forest",
     boss = "alien-hunt",
     label = "ALIENS?",
@@ -85,9 +86,7 @@ Quests.list = {
     title = "D-Day landing",
     text = "Major Looz'er has dug in on the hill above the beach and will not stop talking about it. "
       .. "Wade ashore, keep your head down between the tank stoppers, get past the bunkers and take his flag.",
-    onMap = "city",
-    x = -320, -- down the same north-south road as the alien hunt, south of the central road
-    y = 220,
+    board = true,
     map = "beach",
     boss = "d-day",
     label = "D-DAY",
@@ -135,21 +134,26 @@ Quests.list = {
   },
 }
 Quests.byId = {}
+Quests.board = {} -- the jobs on the Jobs building's board, in list order
 for _, q in ipairs(Quests.list) do
   Quests.byId[q.id] = q
+  if q.board then
+    Quests.board[#Quests.board + 1] = q
+  end
 end
 
 -- Tuning ------------------------------------------------------------------
 Quests.starRadius = 60 -- px from the star that brings the offer up
 Quests.leaveRadius = 140 -- px from the star that takes it down again (and forgets a decline)
 Quests.starSize = 30 -- px, outer radius of the star
+Quests.doorRadius = 60 -- px from the Jobs building's door that lets the board open
 
 local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
 local NOTICE_TIME = 2.5 -- seconds a refusal stays on the offer
 local BANNER_TIME = 4 -- seconds the "took the job" banner stays up
 local PANEL_W = 560
 local REASONS = {
-  away = "Get back on the star to take it.",
+  away = "Get back to the star (or the Jobs door) to take it.",
   gone = "That job is off the table.",
 }
 
@@ -180,6 +184,15 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
+--- The Jobs building (jobs.lua) while the default city is in play.
+function Quests:jobs()
+  local city = cityMap()
+  if not (city and city.map and city.current == city.DEFAULT) then
+    return nil
+  end
+  return Jobs.of(city.map)
+end
+
 --- The quest whose star on map `current` is nearest to (x, y), or the
 --- first one there when no position is given. `extra` is an EXIT star, if
 --- one is up.
@@ -203,6 +216,9 @@ Quests.active = nil -- id of the quest everyone is on, from the host
 Quests.done = nil -- id of a quest finished on this trip (the star home is still the way back)
 Quests.prompt = nil -- the quest whose offer is up
 Quests.exit = nil -- the EXIT star a fallen boss left, from the host
+Quests.atJobs = false -- standing on the square by the Jobs building's door
+Quests.boardOpen = false -- the job board is up
+Quests.pick = 1 -- the job picked on the board (an index of `Quests.board`)
 local declined = nil -- quest id turned down; forgotten once you leave its star
 local seenMap = nil -- the map the last frame was on, to notice arriving on another
 local notice, noticeTimer = nil, 0
@@ -212,13 +228,41 @@ local time = 0
 function Quests:load()
   Controls.register("quest-accept", "Accept a quest (offer up)", "return")
   Controls.register("quest-decline", "Decline a quest (offer up)", "backspace")
+  Controls.register("jobs", "Open / close the job board (at the Jobs building)", "f") -- the action key, like the shop's
 end
 
 -- QST_MAP and QST_START for a quest under way arrive in the same burst as
 -- START, so the quest is only forgotten on the way out.
 function Quests:exitGame()
   self.active, self.done, self.prompt, self.exit, declined, seenMap = nil, nil, nil, nil, nil, nil
+  self.atJobs, self.boardOpen, self.pick = false, false, 1
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
+end
+
+--- The `pointerTaken` convention: the mouse is ours while the board is up.
+function Quests:pointerTaken()
+  return self.boardOpen
+end
+
+--- The `closeMenu` convention: Esc takes the board down.
+function Quests:closeMenu()
+  if not self.boardOpen then
+    return false
+  end
+  self.boardOpen = false
+  return true
+end
+
+--- The `actionTaken` convention: the action key is ours at the Jobs door
+--- and while the board is up, so on-foot leaves the cars alone.
+function Quests:actionTaken()
+  return self.boardOpen or self.atJobs
+end
+
+--- Ask the host for job `quest` (the offer or the board stays up until it
+--- answers).
+local function accept(client, quest)
+  client:send(Protocol.encode("QST_ACCEPT", quest.id))
 end
 
 --- The quest whose star on the map I am on is nearest (x, y), if any.
@@ -232,6 +276,12 @@ function Quests:update(dt, client)
   noticeTimer = math.max(0, noticeTimer - dt)
   bannerTimer = math.max(0, bannerTimer - dt)
   local x, y = client:myPose()
+  local jobs = x and self:jobs()
+  local jd2 = jobs and dist2(x, y, jobs.doorX, jobs.doorY) or math.huge
+  self.atJobs = jd2 <= self.doorRadius ^ 2
+  if self.boardOpen and jd2 > self.leaveRadius ^ 2 then
+    self.boardOpen = false -- walked off: the board goes down
+  end
   local quest = self:offered(x, y)
   local city = cityMap()
   if x and city and city.current ~= seenMap and (seenMap or city.current ~= city.DEFAULT) then
@@ -256,20 +306,58 @@ function Quests:update(dt, client)
 end
 
 function Quests:keypressed(key, client)
+  if self.boardOpen then
+    if Controls.is("jobs", key) or Controls.is("quest-decline", key) then
+      self.boardOpen = false
+    elseif Controls.is("quest-accept", key) and self.board[self.pick] then
+      accept(client, self.board[self.pick])
+    end
+    return
+  end
+  if self.atJobs and Controls.is("jobs", key) then
+    self.boardOpen, self.pick, notice, noticeTimer = true, 1, nil, 0
+    return
+  end
   local quest = self.prompt
   if not quest then
     return
   end
   if Controls.is("quest-accept", key) then
-    client:send(Protocol.encode("QST_ACCEPT", quest.id)) -- the offer stays up until the host answers
+    accept(client, quest)
   elseif Controls.is("quest-decline", key) then
     declined, self.prompt = quest.id, nil
   end
 end
 
---- The world softens under the offer.
+--- Another screen over ours that has the mouse (the inventory draws on top
+--- and takes the clicks meant for it).
+local function covered()
+  local inventory = Features.byName.inventory
+  return inventory and inventory.open or false
+end
+
+--- Pick a job on the board, take it, or leave.
+function Quests:mousepressed(x, y, button, client)
+  if not self.boardOpen or button ~= 1 or covered() then
+    return
+  end
+  local L = Jobs.layout(self.board, self.pick)
+  for i, r in ipairs(L.rows) do
+    if Jobs.inside(r, x, y) then
+      self.pick = i
+      return
+    end
+  end
+  if Jobs.inside(L.accept, x, y) and self.board[self.pick] then
+    accept(client, self.board[self.pick])
+  elseif Jobs.inside(L.close, x, y) then
+    self.boardOpen = false
+  end
+end
+
+--- The world softens under the offer and the board.
 function Quests:worldBlur()
-  return self.prompt and 0.7 or 0
+  return (self.prompt or self.boardOpen) and 0.7 or 0
 end
 
 --- The ten corners of a five-point star, outer radius R, point up.
@@ -316,6 +404,24 @@ function Quests:drawBelowCars()
   if city and self.exit and self.exit.onMap == city.current then
     self:drawStar(self.exit)
   end
+  local jobs = self:jobs()
+  if jobs then
+    Jobs.drawBuilding(jobs, fillStar, self.doorRadius, self.atJobs, time)
+  end
+end
+
+--- The Jobs building on the minimap: a gold star, so it can be found.
+function Quests:drawOnMinimap(_client, toMap)
+  local jobs = self:jobs()
+  if not jobs then
+    return
+  end
+  local x, y = toMap(jobs.x + jobs.w / 2, jobs.y + jobs.h / 2)
+  love.graphics.setColor(0, 0, 0, 0.8)
+  fillStar(x, y, 7)
+  love.graphics.setColor(1, 0.85, 0.3)
+  fillStar(x, y, 5.5)
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Quests:drawStar(quest)
@@ -423,6 +529,30 @@ function Quests:drawHUD(client)
   if self.prompt and client then
     drawPrompt(self.prompt)
   end
+  if self.boardOpen and client then
+    local city = cityMap()
+    local places = {}
+    for _, q in ipairs(self.board) do
+      places[q.id] = city and city.maps[q.map] and city.maps[q.map].title or q.map
+    end
+    local yes = Controls.name(Controls.bindings("quest-accept")[1])
+    local no = Controls.name(Controls.bindings("jobs")[1])
+    local shown = noticeTimer > 0 and { text = notice, alpha = math.min(1, noticeTimer * 2) } or nil
+    Jobs.drawBoard(Jobs.layout(self.board, self.pick), self.pick, places, shown, { yes, no })
+    local vision = Features.byName.vision
+    if vision then
+      vision:drawCursor(client) -- over the board, not under it
+    end
+  elseif self.atJobs and client then
+    -- On the square with the board down: the offer, where the shop's stands.
+    local h = love.graphics.getHeight()
+    local text = "Jobs.  " .. Controls.name(Controls.bindings("jobs")[1]) .. ": open the job board"
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf(text, 1, h - 129, w, "center")
+    love.graphics.setColor(1, 0.85, 0.3)
+    love.graphics.printf(text, 0, h - 130, w, "center")
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -445,6 +575,7 @@ Quests.clientMessages = {
     local ended = Quests.active and Quests.byId[Quests.active]
     Quests.active = not quest.returns and quest.id or nil
     Quests.done = nil
+    Quests.boardOpen = false
     Quests.prompt = nil -- `declined` is left alone: update sets it for the star we land next to
     local taker = client:nameOf(by) -- they may have left since (a latecomer hears this too)
     local city = cityMap()
@@ -534,12 +665,17 @@ function Quests:serverPlayerJoined(server, player)
   end
 end
 
---- Is the player's body (not a wreck) on the star?
+--- Is the player's body (not a wreck) on the star, or for a job on the
+--- board at the Jobs building's door?
 local function onStar(server, player, quest)
   if not Features.present(player) then
     return false
   end
   local x, y = Features.bodyPose(server, player)
+  if quest.board then
+    local jobs = Quests:jobs()
+    return jobs ~= nil and dist2(x, y, jobs.doorX, jobs.doorY) <= (Quests.doorRadius + SLACK) ^ 2
+  end
   return dist2(x, y, quest.x, quest.y) <= (Quests.starRadius + SLACK) ^ 2
 end
 
@@ -554,7 +690,13 @@ Quests.serverMessages = {
       return
     end
     local reason
-    if quest.onMap ~= city.current or not city.maps[quest.map] then
+    local here
+    if quest.board then
+      here = Quests:jobs() ~= nil -- the Jobs building is only in the default city
+    else
+      here = quest.onMap == city.current
+    end
+    if not here or not city.maps[quest.map] then
       reason = "gone" -- that star is not on this map (someone else's trip already happened)
     elseif not onStar(server, player, quest) then
       reason = "away"
