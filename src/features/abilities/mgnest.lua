@@ -24,7 +24,7 @@ local Nest = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Nest.range = 80 -- px in front of you the nest is put down: just clear of a car's nose
+Nest.range = 36 -- px in front of you the nest is put down: the sandbags just clear of you on foot
 Nest.radius = 22 -- px, the sandbag ring
 Nest.arc = math.rad(45) -- the whole arc it covers, centred on its facing
 Nest.reach = 420 -- px of the arc drawn on the ground (the rounds fly on like any rifle round)
@@ -139,12 +139,17 @@ function Nest.drawAim(ox, oy, x, y, time)
   love.graphics.setLineWidth(1.5)
   love.graphics.setColor(c[1], c[2], c[3], 0.5)
   wedge("line", x, y, angle, Nest.reach)
-  -- The arrow: a shaft from me, a head at the nest.
+  -- The arrow: a head just past the sandbags on the side it faces, and a
+  -- shaft back to me when there is room for one.
   love.graphics.setLineWidth(3)
   love.graphics.setColor(c[1], c[2], c[3], 0.9)
-  local sx, sy = ox + math.cos(angle) * 24, oy + math.sin(angle) * 24
-  local hx, hy = x - math.cos(angle) * (Nest.radius + 4), y - math.sin(angle) * (Nest.radius + 4)
-  love.graphics.line(sx, sy, hx, hy)
+  local from, to = 12, math.sqrt((x - ox) ^ 2 + (y - oy) ^ 2) + Nest.radius + 4
+  local hx, hy = ox + math.cos(angle) * to, oy + math.sin(angle) * to
+  local shaftEnd = math.sqrt((x - ox) ^ 2 + (y - oy) ^ 2) - Nest.radius - 4
+  if shaftEnd > from + 4 then
+    love.graphics.line(ox + math.cos(angle) * from, oy + math.sin(angle) * from,
+      ox + math.cos(angle) * shaftEnd, oy + math.sin(angle) * shaftEnd)
+  end
   local left, right = angle + 2.5, angle - 2.5
   love.graphics.polygon("fill", hx + math.cos(angle) * 10, hy + math.sin(angle) * 10,
     hx + math.cos(left) * 12, hy + math.sin(left) * 12, hx + math.cos(right) * 12, hy + math.sin(right) * 12)
