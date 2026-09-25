@@ -1,6 +1,7 @@
 -- Drawing the turf war, client side: each tower's detection zone on the
 -- ground, the gun on its top swinging after whoever it watches, its health
--- when hurt, the rubble once it is down, the HUD line and the minimap
+-- when hurt, the rubble once it is down; the soldiers in their side's
+-- colours and the stains where they fell; the HUD line and the minimap
 -- marks. init.lua keeps the state (what the host last said) and calls in.
 
 local UI = require("src.ui")
@@ -14,6 +15,14 @@ local RUBBLE = { 0.34, 0.32, 0.30 }
 local RUBBLE_DARK = { 0.22, 0.21, 0.20 }
 local SMOKE = { 0.5, 0.5, 0.5 }
 local COVER = { 0.75, 0.75, 0.78 }
+local SKIN = { 0.90, 0.74, 0.60 }
+local RIFLE = { 0.18, 0.14, 0.10 }
+local BLOOD = { 0.55, 0.08, 0.10 }
+local SOLDIER_RADIUS = 7
+
+local function shade(c, k)
+  return { c[1] * k, c[2] * k, c[3] * k }
+end
 
 --- Is (x, y) within `pad` px of the visible part of the world?
 local function onScreen(camera, x, y, pad)
@@ -70,7 +79,26 @@ local function drawRubble(t, time)
   end
 end
 
+--- Where a soldier fell: a splash and what he wore.
+local function drawStain(s, c)
+  love.graphics.setColor(BLOOD[1], BLOOD[2], BLOOD[3], 0.8)
+  love.graphics.ellipse("fill", s.x, s.y, 12, 9)
+  for k = 0, 4 do
+    local a = s.angle + (k - 2) * 0.5
+    love.graphics.circle("fill", s.x + math.cos(a) * 14, s.y + math.sin(a) * 14, 2 + k % 2)
+  end
+  love.graphics.setColor(shade(c, 0.7))
+  love.graphics.ellipse("fill", s.x + 3, s.y - 2, 6, 4)
+  love.graphics.setColor(shade(c, 0.45))
+  love.graphics.circle("fill", s.x - 6, s.y + 2, 4)
+end
+
 function Render.below(TW, map, camera, time)
+  for _, s in ipairs(TW.stains) do
+    if onScreen(camera, s.x, s.y, 30) then
+      drawStain(s, teamColor(map, s.team))
+    end
+  end
   for _, t in ipairs(TW.list) do
     if onScreen(camera, t.x, t.y, Towers.RANGE) then
       if t.down then
@@ -132,10 +160,56 @@ local function drawGun(t, c, covered, time)
   end
 end
 
+--- A soldier from above in his side's colours: helmet, shoulders, rifle
+--- out front; a bar when hurt, a red "!" over anyone who has you in his
+--- sights.
+local function drawSoldier(s, c, time)
+  local x, y, r = s.dx, s.dy, SOLDIER_RADIUS
+  local fx, fy = math.cos(s.angle), math.sin(s.angle)
+  local uniform, dark, helmet = shade(c, 0.75), shade(c, 0.5), shade(c, 0.35)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.circle("fill", x + 2, y + 2, r, 10)
+  love.graphics.setColor(RIFLE)
+  love.graphics.setLineWidth(3)
+  love.graphics.line(x + fx * 2 - fy * 3, y + fy * 2 + fx * 3, x + fx * (r + 11) - fy * 3, y + fy * (r + 11) + fx * 3)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(dark)
+  love.graphics.ellipse("fill", x, y, r + 1, r + 1)
+  love.graphics.setColor(uniform)
+  love.graphics.circle("fill", x - fy * (r - 1), y + fx * (r - 1), 3, 8)
+  love.graphics.circle("fill", x + fy * (r - 1), y - fx * (r - 1), 3, 8)
+  love.graphics.setColor(SKIN)
+  love.graphics.circle("fill", x + fx * 5 - fy * 3, y + fy * 5 + fx * 3, 2, 6) -- the hand on the rifle
+  love.graphics.setColor(helmet)
+  love.graphics.circle("fill", x, y, r - 1.5, 12)
+  love.graphics.setColor(shade(c, 0.5))
+  love.graphics.circle("fill", x - fx - fy, y - fy + fx, r - 4, 10)
+  if s.alert then
+    local bob = math.sin(time * 10 + s.bob) * 1.5
+    love.graphics.setFont(UI.fonts.heading)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf("!", x - 19, y - r - 30 + bob, 40, "center")
+    love.graphics.setColor(ALERT)
+    love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
+  end
+  if s.hp < 40 then
+    local bw, f = 20, math.max(0, s.hp / 40)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
+    love.graphics.setColor(1 - f, f, 0.2)
+    love.graphics.rectangle("fill", x - bw / 2, y + r + 4, bw * f, 2)
+  end
+end
+
 function Render.above(TW, map, camera, time)
   for _, t in ipairs(TW.list) do
     if not t.down and onScreen(camera, t.x, t.y, 60) then
       drawGun(t, teamColor(map, t.team), Towers.coveredIn(TW.list, t) ~= nil, time)
+    end
+  end
+  for _, s in pairs(TW.troops) do
+    if onScreen(camera, s.dx, s.dy, 60) then
+      drawSoldier(s, teamColor(map, s.team), time)
     end
   end
   love.graphics.setColor(1, 1, 1)
@@ -182,6 +256,11 @@ end
 --- Towers and vaults on the minimap, in their side's colour; a tower that
 --- is down goes dark.
 function Render.minimap(TW, map, toMap)
+  for _, s in pairs(TW.troops) do
+    local px, py = toMap(s.dx, s.dy)
+    love.graphics.setColor(teamColor(map, s.team))
+    love.graphics.circle("fill", px, py, 1.5, 6)
+  end
   for _, t in ipairs(TW.list) do
     local px, py = toMap(t.x, t.y)
     if t.down then

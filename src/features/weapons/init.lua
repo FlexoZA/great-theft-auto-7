@@ -154,10 +154,11 @@ end
 --- ask them: a feature with a serverShotAt hook kills whatever of its own is
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
 --- first one to answer swallows the bullet, which is why a single shot takes
---- one pedestrian out of a crowd rather than the whole queue.
-local function shotSomething(server, x, y, by, angle)
+--- one pedestrian out of a crowd rather than the whole queue. `team` is the
+--- side a round fired for a side carries (nil for a player's).
+local function shotSomething(server, x, y, by, angle, team)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle) then
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, team) then
       return true
     end
   end
@@ -1671,7 +1672,7 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle) then
+    if shotSomething(server, px, py, p.owner, angle, p.team) then
       return "soft", px, py
     end
   end
@@ -1733,7 +1734,7 @@ function Weapons:explode(server, p, x, y)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, blast.soft or 0 do
-        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle) then
+        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle, p.team) then
           break
         end
       end

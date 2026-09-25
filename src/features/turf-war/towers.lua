@@ -1,11 +1,12 @@
 -- The towers on the host: the eighteen stone towers on the lanes of The
 -- Lanes (city-map's `map.towers`), each with a machine gun on top. A
 -- tower watches a circle round itself, its detection zone, in every
--- direction; the first enemy who steps into it with nothing solid in the
--- way is its target, and after a moment to swing the gun round it fires at
--- them at the pistol's rate with the pistol's rounds, for as long as it
--- can see them. Its rounds belong to nobody (weapons' ownerless entry
--- point) but carry the tower's team, so they fly through its own side.
+-- direction; the nearest enemy inside it with nothing solid in the way,
+-- a player or one of the other side's soldiers (soldiers.lua), is its
+-- target, and after a moment to swing the gun round it fires at them at
+-- the pistol's rate with the pistol's rounds, for as long as it can see
+-- them. Its rounds belong to nobody (weapons' ownerless entry point) but
+-- carry the tower's team, so they fly through its own side.
 --
 -- A tower has hit points and takes them off from every player's round that
 -- stops at it (`serverWallHit`) and every blast that reaches it. It is
@@ -22,7 +23,7 @@ Towers.__index = Towers
 -- Tuning --------------------------------------------------------------------
 
 Towers.SIZE = 56 -- px, the square the map built (layout's ARENA.tower)
-Towers.HEALTH = 400 -- twenty pistol rounds
+Towers.HEALTH = 800 -- forty pistol rounds
 Towers.RANGE = 400 -- px, the detection zone's radius
 Towers.REACT = 0.5 -- seconds from spotting someone to the first shot
 Towers.TURN = 5 -- rad/s the gun swings
@@ -56,7 +57,7 @@ function Towers.new(map)
       hp = Towers.HEALTH,
       max = Towers.HEALTH,
       aim = math.atan2(-t.y, -t.x), -- watching the middle of the map to start with
-      target = nil, -- player id in its sights
+      target = nil, -- { kind = "player", id } or { kind = "soldier", s } in its sights
       fireIn = Towers.REACT,
       alert = false,
       down = false,
@@ -134,21 +135,60 @@ local function clear(x0, y0, x1, y1)
   return true
 end
 
---- The nearest player inside the zone that `enemy(player)` says is fair
---- game and that the tower can see from its edge.
-local function look(t, server, enemy)
-  local best, bestD2
-  local R2 = Towers.RANGE * Towers.RANGE
+--- Can the tower see (x, y) from its edge, and how far is it? Nil when it
+--- can't.
+local function sees(t, x, y)
+  local d2 = (x - t.x) ^ 2 + (y - t.y) ^ 2
+  if d2 > Towers.RANGE * Towers.RANGE then
+    return nil
+  end
   local edge = Towers.SIZE / 2 + 6
-  for _, player in pairs(server.players) do
+  local d = math.sqrt(d2)
+  if d <= edge then
+    return d2
+  end
+  return clear(t.x + (x - t.x) / d * edge, t.y + (y - t.y) / d * edge, x, y) and d2 or nil
+end
+
+--- Where a target is, if it is still there to be shot at.
+local function poseOf(server, target)
+  if target.kind == "player" then
+    local p = server.players[target.id]
+    if p and Features.present(p) then
+      return Features.bodyPose(server, p)
+    end
+    return nil
+  end
+  if not target.s.dead then
+    return target.s.x, target.s.y
+  end
+  return nil
+end
+
+--- Are two targets the same one?
+local function same(a, b)
+  return a and b and a.kind == b.kind and (a.kind == "player" and a.id == b.id or a.kind == "soldier" and a.s == b.s)
+end
+
+--- The nearest enemy inside the zone the tower can see: a player
+--- `enemy(player)` says is fair game, or one of the other side's soldiers
+--- (`soldiers` may be nil).
+local function look(t, server, enemy, soldiers)
+  local best, bestD2
+  for id, player in pairs(server.players) do
     if Features.present(player) and enemy(player) then
       local px, py = Features.bodyPose(server, player)
       local d2 = (px - t.x) ^ 2 + (py - t.y) ^ 2
-      if d2 <= R2 and (not bestD2 or d2 < bestD2) then
-        local d = math.sqrt(d2)
-        if d > edge and clear(t.x + (px - t.x) / d * edge, t.y + (py - t.y) / d * edge, px, py) then
-          best, bestD2 = player, d2
-        end
+      if (not bestD2 or d2 < bestD2) and sees(t, px, py) then
+        best, bestD2 = { kind = "player", id = id }, d2
+      end
+    end
+  end
+  for _, s in ipairs(soldiers and soldiers.list or {}) do
+    if s.team ~= t.team then
+      local d2 = (s.x - t.x) ^ 2 + (s.y - t.y) ^ 2
+      if (not bestD2 or d2 < bestD2) and sees(t, s.x, s.y) then
+        best, bestD2 = { kind = "soldier", s = s }, d2
       end
     end
   end
@@ -156,26 +196,32 @@ local function look(t, server, enemy)
 end
 
 --- One host tick for every standing tower. `teamOf(player)` is the side a
---- player is on (nil for nobody's: fair game to every tower).
-function Towers:update(server, dt, teamOf)
+--- player is on (nil for nobody's: fair game to every tower); `soldiers`
+--- is the other side's creeps to shoot at too.
+function Towers:update(server, dt, teamOf, soldiers)
   self.ticks = self.ticks + 1
   local weapons = Features.byName.weapons
   for _, t in ipairs(self.list) do
     if not t.down then
-      local target = t.target and server.players[t.target]
-      if (self.ticks + t.id) % Towers.LOOK_EVERY == 0 or not target then
+      local px, py = nil, nil
+      if t.target then
+        px, py = poseOf(server, t.target)
+      end
+      if (self.ticks + t.id) % Towers.LOOK_EVERY == 0 or not px then
         local seen = look(t, server, function(p)
           return teamOf(p) ~= t.team
-        end)
-        if seen and seen.id ~= t.target then
+        end, soldiers)
+        if seen and not same(seen, t.target) then
           t.fireIn = math.max(t.fireIn, Towers.REACT) -- somebody new: a moment to swing round
         end
-        t.target = seen and seen.id or nil
-        target = seen
+        t.target = seen
+        px, py = nil, nil
+        if seen then
+          px, py = poseOf(server, seen)
+        end
       end
-      if target and Features.present(target) then
+      if px then
         t.alert = true
-        local px, py = Features.bodyPose(server, target)
         local diff = Towers.angleDiff(math.atan2(py - t.y, px - t.x), t.aim)
         local step = Towers.TURN * dt
         t.aim = t.aim + math.max(-step, math.min(step, diff))

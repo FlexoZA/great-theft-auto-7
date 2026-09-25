@@ -715,8 +715,11 @@ local function buildArena(map, rng)
 
   -- Towers: three a lane a side, on the verge on the lane's inner side
   -- (the mid lane's on its north-west side for the Southside), tier 3 at
-  -- the gate out to tier 1 short of the river.
+  -- the gate out to tier 1 short of the river. Turned about the origin,
+  -- the top lane lands on the bottom one, so the Northside's towers are
+  -- named for the lane they actually stand on.
   local TIERS = { edge = { 2300, 1300, 300 }, mid = { 1300, 760, 220 } }
+  local MIRRORED = { top = "bottom", bottom = "top", mid = "mid" }
   for _, l in ipairs(map.lanes) do
     local dists = TIERS[l.name == "mid" and "mid" or "edge"]
     for tier, d in ipairs(dists) do
@@ -735,7 +738,8 @@ local function buildArena(map, rng)
         if team == 2 then
           px, py = mirror(tx, ty)
         end
-        map.towers[#map.towers + 1] = { x = px, y = py, team = team, lane = l.name, tier = tier }
+        local name = team == 2 and MIRRORED[l.name] or l.name
+        map.towers[#map.towers + 1] = { x = px, y = py, team = team, lane = name, tier = tier }
         building(px - A.tower / 2, py - A.tower / 2, A.tower, A.tower, A.teams[team].color, { tower = team })
       end
     end

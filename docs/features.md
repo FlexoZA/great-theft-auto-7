@@ -324,15 +324,18 @@ couple of small conventions rather than requiring each other:
   wallet and nothing at all if it was empty, so fill in `victim` for
   anything a player was driving. Ignore kinds you don't care about; new
   kinds may appear.
-- `feature:serverShotAt(server, x, y, radius, by, angle)`: a bullet is
+- `feature:serverShotAt(server, x, y, radius, by, angle, team)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
   return false and it flies on. Weapons walks its projectiles through every
   feature that defines it, so a gun kills pedestrians without knowing they
   exist (police answers it too: officers on foot take a few rounds before
   they go down). `by` is the shooter's player id and `angle` the direction of
-  travel, for gibs and scoring; `by` is 0 for a shot no player fired. Cars
-  are tested first, so answering here never steals a hit from a player.
+  travel, for gibs and scoring; `by` is 0 for a shot no player fired, and
+  `team` the side a round fired for a side carries (a turf war tower's or
+  soldier's; nil for a player's), so the turf war lets those fly through
+  its own soldiers. Cars are tested first, so answering here never steals
+  a hit from a player.
   A missile's blast (the rocket launcher) asks each feature up to its
   `blast.soft` times at the blast centre with a wide radius, stopping at the
   first false, so answer one target per call.

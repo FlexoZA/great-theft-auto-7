@@ -15,7 +15,7 @@ build to.
 | Cars or feet? | **Both.** The lanes and the base courtyards are tarmac; you can drive them. The jungle between the lanes is trees with footpaths a car can just about squeeze down. Simps get flattened by a car at speed the same as anywhere. |
 | How do teams form? | **Two teams of four, filled in the base** (later PR). Taking the job from the board takes everyone to the map, as every quest does. There, whoever stands in a base is on that base's team; the host keeps the sides even (a fifth player on one side is sent to the other). Bots fill the empty seats so it can be played by two people. |
 | Can I hurt a teammate? | **No.** Bullets, blasts, rams and simps' fists do nothing to your own side. The host decides (weapons asks a `serverFriendly` question, see "Hooks it needs"). |
-| Creeps | **Simps.** Karen's hangers-on, marching down every lane in waves from each base, one wave every so often, fighting the other side's simps, towers and players. One dropped simp is worth **1 koin**. |
+| Creeps | **Soldiers**, like D-Day's riflemen in the side's colours (not simps: a creep needs a rifle to matter against towers). Waves of five out of a base's gates, marching down the lanes, fighting the other side's soldiers and players. They see as far as a tower does, all round. One dropped soldier is worth **1 koin**. |
 | Killing a player | Drops **5 koins** where they fell, out of thin air (not from their wallet, unlike a wreck in the city). |
 | Who can pick koins up? | **Anybody.** A koin on the ground belongs to whoever gets to it, teammate or not. |
 | What are koins for here? | **Upgrades**, through the shop that already exists: health, stamina, reach, guns, abilities. A shop stand in each base (later PR). What you buy stays yours after the quest, like anything else you buy. |
@@ -129,24 +129,34 @@ proper way out.
   their own side's simps and towers. A blast still knocks koins out of a
   teammate's hands: no, it does nothing at all to them. Ramming a teammate
   is a shove, not damage. Simps only punch the other side.
-- **Waves.** Every 30 seconds each base sends a wave of five simps down
-  each lane (three lanes, both sides: thirty simps a wave), walking the
-  lane's polyline, stopping to punch whatever enemy is in reach: enemy
-  simps first, then players, then towers. They take two pistol rounds like
-  Karen's. The number per wave grows by one every five minutes.
+- **Waves** (done, PR 3). Every 45 seconds a base sends a wave of five
+  soldiers out of its gates, two up the top lane, two along the bottom, one
+  down the middle, each a little off the centreline so they walk as a file.
+  A soldier walks his lane's polyline to the far gate and on to the enemy
+  vault, where he stands (the vault PR gives him something to do there). He
+  sees 400 px all round, as far as a tower's zone, with line of sight past
+  walls and trees; the nearest enemy in sight, a player or the other
+  side's soldier, stops him, and after a moment to aim he fires rifle
+  bursts (the AK-47's rounds, carrying his side) for as long as he can see
+  them. Two pistol rounds put one down, a car at speed flattens one, and a
+  freeze or a stink works on him as on anyone. A side's wave only goes out
+  while the other side has a human on the map, so five soldiers march on a
+  lone player and nobody marches on an empty base; a side has at most
+  fifteen out at once. Towers shoot the nearest enemy in their zone,
+  soldier or player alike.
 - **Towers** (done, PR 2). An MG on every tower, the same gun as the MG
   nest ability but turning the full circle: a tower watches a **detection
   zone** 400 px round itself (drawn on the ground in its side's colour, red
   while it has someone) and fires at the nearest enemy inside it that it
   can see (line of sight past every wall and tree, the rule bullets
-  follow), at the pistol's rate and with the pistol's rounds, after half a
-  second to swing round. Its rounds belong to nobody but carry its side,
-  so they pass through its own team. 400 hit points, worn down only by
-  players' rounds and blasts (another tower's rounds do nothing). A tower
-  that goes down stays down as rubble and spills ten koins. Tier 3 towers
-  only fall once tier 2 on that lane has, tier 2 once tier 1 has: hitting
-  a covered tower does nothing, a shield marks it and the HUD says so.
-  Simps as targets come with the waves.
+  follow), player or soldier, at the pistol's rate and with the pistol's
+  rounds, after half a second to swing round. Its rounds belong to nobody
+  but carry its side, so they pass through its own team. 800 hit points,
+  worn down only by players' rounds and blasts (a soldier's or another
+  tower's rounds do nothing). A tower that goes down stays down as rubble
+  and spills ten koins. Tier 3 towers only fall once tier 2 on that lane
+  has, tier 2 once tier 1 has: hitting a covered tower does nothing, a
+  shield marks it and the HUD says so.
 - **The vault.** 1500 hit points, hurt only when all three towers on at
   least one lane are down. A broken vault ends the quest: `QST_DONE` for
   everyone, the winning team's name in the banner, an EXIT star on the
@@ -186,11 +196,14 @@ Both are small changes to shared code (weapons) and are called out in their PRs.
    the side of the base they landed in (`TW_TEAM`), a latecomer joins the
    smaller side, and the `serverFriendly` / `serverPlayerTeam` questions in
    weapons, so rounds, blasts and blows do nothing between friends.
-3. **Teams proper**: sorting by where you stand, even sides, bots filling
+3. **Waves** (done): `soldiers.lua`, waves out of the gates down the
+   lanes, soldiers seeing all round as far as a tower, towers shooting
+   them, `TW_TROOPS` / `TW_TROOP_DOWN`, a koin each. Weapons' `serverShotAt`
+   now carries the round's side, so a side's rounds fly through its own
+   soldiers.
+4. **Teams proper**: sorting by where you stand, even sides, bots filling
    the seats, respawn at the fountain, names, arrows, minimap dots and car
-   tags in your side's colour.
-4. **Waves**: simps down the lanes (their own `simps.lua`, a walk-the-lane
-   brain on top of Karen's), towers shooting them too, koins for them, the
-   camps.
-5. **The vault**: hit points, the lane rule, completion and the EXIT star.
+   tags in your side's colour. The jungle camps.
+5. **The vault**: hit points, the lane rule, soldiers attacking it,
+   completion and the EXIT star.
 6. **Koins for players, the score HUD, the base shop.**
