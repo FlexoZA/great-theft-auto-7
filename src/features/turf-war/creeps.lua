@@ -18,8 +18,8 @@
 -- A soldier's rounds belong to nobody (weapons' ownerless entry point) but
 -- carry his side, so they pass through his own team and its towers take no
 -- notice of them. Two pistol rounds put a creep down; a car at speed
--- flattens one. A wave is only sent while the other side has a human to
--- fight, so nobody marches on an empty base.
+-- flattens one. Both sides send waves the whole war, whoever is on the
+-- map, so a lone player has creeps of their own to march with.
 --
 -- This module only thinks; init.lua owns the wire, the waves' timing, the
 -- lane rule and what a kill drops.

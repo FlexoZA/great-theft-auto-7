@@ -142,10 +142,10 @@ proper way out.
   them. A side sends simps until it has **broken a lane**, every one of the
   other side's towers on it down; from then on its waves down that lane
   are soldiers. Two pistol rounds put either down, a car at speed flattens
-  one, and a freeze or a stink works on him as on anyone. A side's wave
-  only goes out while the other side has a human on the map, so five
-  creeps march on a lone player and nobody marches on an empty base; a
-  side has at most fifteen out at once.
+  one, and a freeze or a stink works on him as on anyone. Both sides send
+  waves the whole war, whoever is on the map, so a lone player has five
+  creeps of their own marching with them and five coming at them; a side
+  has at most fifteen out at once.
 - **Towers** (done, PR 2). An MG on every tower, the same gun as the MG
   nest ability but turning the full circle: a tower watches a **detection
   zone** 400 px round itself (drawn on the ground in its side's colour, red

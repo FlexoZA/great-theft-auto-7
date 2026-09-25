@@ -14,9 +14,9 @@
 -- (creeps.lua) come out of its gates in waves, walk the lanes and fight
 -- whatever enemy they see, as far as a tower sees: simps with their
 -- fists to begin with, and soldiers with rifles down a lane once the side
--- has broken it (every one of the other side's towers on it down). A wave
--- only goes out while the other side has a human to fight. A creep down
--- is a koin. Towers pick their target Dota's way: the player who hit them
+-- has broken it (every one of the other side's towers on it down). Both
+-- sides send waves the whole war, so a lone player has creeps of their own
+-- to march with. A creep down is a koin. Towers pick their target Dota's way: the player who hit them
 -- lately, else creeps, else players. The vaults and the score come in
 -- their own PRs.
 --
@@ -193,16 +193,6 @@ function TurfWar:serverFriendly(_server, byId, victim, team)
   return false
 end
 
---- Does side `team` have a human on the map to fight?
-local function humansOn(server, team)
-  for id, p in pairs(server.players) do
-    if not p.bot and p.body and sv.teams[id] == team then
-      return true
-    end
-  end
-  return false
-end
-
 --- One creep down: everyone hears where, a koin lands there.
 local function creepDown(server, s, by, angle)
   server:broadcast(Protocol.encode("TW_TROOP_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
@@ -227,21 +217,18 @@ function TurfWar:serverLaneBroken(team, lane)
   return true
 end
 
---- Each side's next wave, once its time is up and the other side has a
---- human to march on: simps, and soldiers down every lane the side has
---- broken.
-local function stepWaves(server, map, dt)
+--- Each side's next wave, once its time is up: simps, and soldiers down
+--- every lane the side has broken.
+local function stepWaves(map, dt)
   for team = 1, 2 do
-    if humansOn(server, 3 - team) then
-      sv.waveIn[team] = sv.waveIn[team] - dt
-      if sv.waveIn[team] <= 0 then
-        sv.waveIn[team] = Creeps.WAVE_EVERY
-        local room = Creeps.MAX_ALIVE - sv.creeps:count(team)
-        if room > 0 then
-          sv.creeps:wave(map, team, math.min(room, Creeps.PER_WAVE), function(lane)
-            return TurfWar:serverLaneBroken(team, lane) and "soldier" or "simp"
-          end)
-        end
+    sv.waveIn[team] = sv.waveIn[team] - dt
+    if sv.waveIn[team] <= 0 then
+      sv.waveIn[team] = Creeps.WAVE_EVERY
+      local room = Creeps.MAX_ALIVE - sv.creeps:count(team)
+      if room > 0 then
+        sv.creeps:wave(map, team, math.min(room, Creeps.PER_WAVE), function(lane)
+          return TurfWar:serverLaneBroken(team, lane) and "soldier" or "simp"
+        end)
       end
     end
   end
@@ -259,7 +246,7 @@ function TurfWar:serverStep(server, dt)
     return sv.teams[p.id]
   end
   sv.time = sv.time + dt
-  stepWaves(server, map, dt)
+  stepWaves(map, dt)
   for _, kill in ipairs(sv.creeps:update(server, dt, map, teamOf)) do
     creepDown(server, kill.s, kill.by, kill.angle)
   end
