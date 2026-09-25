@@ -19,6 +19,7 @@ build to.
 | Killing a player | Drops **5 koins** where they fell, out of thin air (not from their wallet, unlike a wreck in the city). |
 | Who can pick koins up? | **Anybody.** A koin on the ground belongs to whoever gets to it, teammate or not. |
 | What are koins for here? | **Upgrades**, through the shop that already exists: health, stamina, reach, guns, abilities. A shop stand in each base is a shop bag, and **O** puts the shop screen up from anywhere on the map while the war is on (done, PR 4; everything is still free until the catalog gets prices). What you buy stays yours after the quest, like anything else you buy. |
+| How do I get what I bought? | **A police car brings it.** Bought on a stand, it goes straight into your bag. Bought anywhere else, a police car comes out of your base's gate onto the lane nearest you, drives it reckless with the siren on, throws the parcel out on the road at the point nearest where you stood, and drives home. The parcel is a pickup: **anyone can take it**, your side or theirs, so meet the car. Your own towers and creeps let the car by; the other side's shoot it, and a wrecked car drops the parcel where it died (done, PR 5). |
 | Dying | You come back at your own base's fountain after the usual death time, in your own car if it is there. |
 | Winning | Break the other vault. Towers must go first: a vault is unhurt while any of the enemy's towers stand on the lane you came down (the gate tower counts). The quest completes for the winning side; everyone goes home by the EXIT star that comes up at the broken vault. |
 
@@ -212,4 +213,8 @@ Both are small changes to shared code (weapons) and are called out in their PRs.
    completion and the EXIT star.
 6. **The shop** (done): the shop feature's `addShop` / `toggle` and its
    `shopAnywhere` questions; a stand in each base, O anywhere.
-7. **Koins for players and the score HUD.**
+7. **Delivery** (done): `courier.lua`, a police car (a bots NPC in the
+   police livery) down the lane with the parcel; the shop's
+   `serverShopDeliver` question and `SHOP_SENT`; pickups take any item as
+   a parcel.
+8. **Koins for players and the score HUD.**

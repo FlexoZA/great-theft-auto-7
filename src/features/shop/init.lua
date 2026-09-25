@@ -31,11 +31,16 @@
 -- `shopAnywhere(client)` question the screen stays up away from any bag,
 -- and while it answers `serverShopAnywhere(server, player)` the host sells
 -- to a buyer who is not on one (a car still goes to the nearest bag's
--- bays on the map in play). See docs/features.md.
+-- bays on the map in play). Such a sale, away from the bag, is offered to
+-- the `serverShopDeliver(server, player, item, n)` question first: a
+-- feature that answers true has taken the goods to bring them to the
+-- buyer its own way (the turf war's police car), and the buyer hears
+-- SHOP_SENT instead of SHOP_OK. See docs/features.md.
 --
 -- Messages
 --   client -> server  SHOP_BUY <item>[@<tier>]
 --   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
+--   server -> buyer   SHOP_SENT <item>[@<tier>] <n>     (bought; n of it is on its way, another feature's delivery)
 --   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nodeliver | unknown)
 
 local Protocol = require("src.net.protocol")
@@ -410,6 +415,16 @@ Shop.clientMessages = {
       Shop:say("Bought " .. Kinds.label(item, n) .. ". They're in your bag.", GREEN)
     end
   end,
+  SHOP_SENT = function(_client, args)
+    local item, n = args[1] or "", tonumber(args[2]) or 1
+    local entry = Catalog.lookup(item)
+    if not entry then
+      return
+    end
+    Sounds.play("chime")
+    Shop.flash = { item = entry.item, t = FLASH_TIME }
+    Shop:say("Bought " .. Kinds.label(item, n) .. ". A police car is on its way with it.", GREEN)
+  end,
   SHOP_NO = function(_client, args)
     Shop:refuse(args[1])
   end,
@@ -447,8 +462,9 @@ local function freeBay(server, shop)
 end
 
 --- Sell `player` what `item` stands for ("gun-uzi@rare": that tier of the
---- uzi). Returns true and how many were handed over, or false and the
---- reason it didn't happen.
+--- uzi). Returns true, how many were handed over and whether they are on
+--- their way rather than in the bag, or false and the reason it didn't
+--- happen.
 function Shop:serverBuy(server, player, item)
   local entry, tier = Catalog.lookup(item)
   local price = entry and Catalog.price(entry, tier)
@@ -457,22 +473,25 @@ function Shop:serverBuy(server, player, item)
     return false, "unknown"
   end
   local shop = shopOn(city.current, player.body.x, player.body.y)
+  local here = shop and onBag(server, player, shop)
   if not shop then
     return false, "gone"
-  elseif not onBag(server, player, shop) and not Features.any("serverShopAnywhere", server, player) then
+  elseif not here and not Features.any("serverShopAnywhere", server, player) then
     return false, "away"
   end
   local money = Features.byName.money
   if price > 0 and money and money.wallet and money:wallet(player.id) < price then
     return false, "broke"
   end
-  local given
+  local given, sent
   if Catalog.isCar(entry) then
     local x, y, angle = freeBay(server, shop)
     if not Features.any("serverDeliver", server, player, item, x, y, angle) then
       return false, "nodeliver"
     end
     given = 1
+  elseif not here and Features.any("serverShopDeliver", server, player, item, entry.n) then
+    given, sent = entry.n, true -- somebody is bringing it
   else
     local buildings = Features.byName.buildings
     given = buildings and buildings.serverGive and buildings:serverGive(server, player, item, entry.n) or 0
@@ -485,14 +504,14 @@ function Shop:serverBuy(server, player, item)
   if price > 0 and money and money.spend then
     money:spend(server, player.id, price, entry.tiered and Tiers.named(entry.name, tier) or entry.name)
   end
-  return true, given
+  return true, given, sent
 end
 
 Shop.serverMessages = {
   SHOP_BUY = function(server, player, args)
-    local ok, result = Shop:serverBuy(server, player, args[1])
+    local ok, result, sent = Shop:serverBuy(server, player, args[1])
     if ok then
-      server:send(player, Protocol.encode("SHOP_OK", args[1], result))
+      server:send(player, Protocol.encode(sent and "SHOP_SENT" or "SHOP_OK", args[1], result))
     else
       server:send(player, Protocol.encode("SHOP_NO", result))
     end

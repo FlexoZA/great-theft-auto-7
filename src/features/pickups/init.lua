@@ -16,7 +16,10 @@
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
--- which rings the orb in its colour.
+-- which rings the orb in its colour. Any other item a bag can hold (a gun,
+-- a vest, a cap: buildings' Kinds.isItem) lies loose as a parcel, dropped
+-- the same way (the turf war's delivery car throws one out), taken by the
+-- first human over it with room for it.
 --
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
@@ -29,6 +32,7 @@ local UI = require("src.ui")
 local Sounds = require("src.features.pickups.sounds")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Tiers = require("src.features.tiers")
+local Kinds = require("src.features.buildings.kinds")
 
 local Pickups = {
   name = "pickups",
@@ -93,6 +97,25 @@ end
 
 --- The kind record for a kind key: the fixed ones, or an ammo box or an
 --- ability made (and kept) on first sight.
+--- A parcel: any other item a bag can hold, lying loose, `amount` of it
+--- (one when not said). Whoever is first over it with room carries it off.
+local function parcelKind(key)
+  return {
+    apply = function(server, player, item)
+      local buildings = Features.byName.buildings
+      if player.bot or not (buildings and buildings.serverGive) then
+        return false
+      end
+      return buildings:serverGive(server, player, key, item.amount or 1) > 0
+    end,
+    label = function(item)
+      return "+" .. Kinds.label(key, item.amount or 1)
+    end,
+    color = { 0.95, 0.85, 0.55 },
+    pitch = 0.9,
+  }
+end
+
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -100,6 +123,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and key:match("^ability%-") then
     kind = abilityKind(key)
+    KINDS[key] = kind
+  elseif not kind and Kinds.isItem(key) then
+    kind = parcelKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -263,12 +289,40 @@ local function drawAbility(x, y, t, key)
   love.graphics.circle("fill", x - 3, y - 4, 3.5)
 end
 
+--- A parcel: a cardboard box, taped, ringed in its tier's colour, a glow
+--- under it so it is seen from the road.
+local function drawParcel(x, y, t, key)
+  local _, tier = Tiers.split(key)
+  local tc = Tiers.color(tier)
+  local pulse = 0.5 + 0.5 * math.sin(t * 5)
+  love.graphics.setColor(0.95, 0.85, 0.55, 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 30 + pulse * 5)
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(tc[1], tc[2], tc[3], 0.6 + pulse * 0.4)
+  love.graphics.circle("line", x, y, 32 + pulse * 3)
+  love.graphics.setLineWidth(1)
+  y = y + math.sin(t * 3 + 1.1) * 1.5
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - 9, y - 7, 22, 22, 3)
+  love.graphics.setColor(0.62, 0.46, 0.28)
+  love.graphics.rectangle("fill", x - 11, y - 11, 22, 22, 3)
+  love.graphics.setColor(0.72, 0.56, 0.36)
+  love.graphics.rectangle("fill", x - 8, y - 8, 16, 16, 2)
+  love.graphics.setColor(0.85, 0.80, 0.62)
+  love.graphics.rectangle("fill", x - 11, y - 2, 22, 4) -- the tape
+  love.graphics.rectangle("fill", x - 2, y - 11, 4, 22)
+end
+
 local DRAW = { health = drawHealth, stamina = drawStamina }
 
---- How a kind is drawn: its own picture, the ammo box for any ammo, or
---- the orb for any ability.
+--- How a kind is drawn: its own picture, the ammo box for any ammo, the
+--- orb for any ability, or a parcel for anything else a bag can hold.
 local function drawerOf(key)
-  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility) or nil
+  return DRAW[key]
+    or (key:match("^ammo%-") and drawAmmo)
+    or (key:match("^ability%-") and drawAbility)
+    or (Kinds.isItem(key) and drawParcel)
+    or nil
 end
 
 --- What floats up when a kind is taken.

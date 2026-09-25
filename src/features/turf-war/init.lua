@@ -21,8 +21,11 @@
 -- shop is open the whole war: a stand in each base is a shop bag, and the
 -- shop key here (O) puts the shop screen up from wherever you stand (the
 -- shop feature's `toggle` and its `shopAnywhere` / `serverShopAnywhere`
--- questions; a car bought goes to the nearest base's bays). The vaults and
--- the score come in their own PRs.
+-- questions; a car bought goes to the nearest base's bays). What is bought
+-- away from a stand is not handed over: a police car (courier.lua) brings
+-- it out of the buyer's base along the lane, reckless, siren on, and
+-- throws it out on the road nearest where they stood, a parcel anyone can
+-- pick up. The vaults and the score come in their own PRs.
 --
 -- The host owns all of it. Clients hear each side, each fallen tower and
 -- each fallen creep reliably, every tower's aim and health and every
@@ -46,6 +49,7 @@ local Features = require("src.features")
 local Controls = require("src.controls")
 local Towers = require("src.features.turf-war.towers")
 local Creeps = require("src.features.turf-war.creeps")
+local Courier = require("src.features.turf-war.courier")
 local Render = require("src.features.turf-war.render")
 
 local TurfWar = {
@@ -94,7 +98,8 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { teams = { id -> 1 | 2 }, towers = Towers or nil (between quests), creeps, waveIn, syncIn, time }
+local sv = nil -- { teams = { id -> 1 | 2 }, towers = Towers or nil (between quests), creeps, couriers, waveIn, syncIn,
+-- time }
 local MAX_STAINS = 60
 
 local function fmt(v)
@@ -102,7 +107,7 @@ local function fmt(v)
 end
 
 function TurfWar:serverStart()
-  sv = { teams = {}, towers = nil, creeps = nil, waveIn = {}, syncIn = 0, time = 0 }
+  sv = { teams = {}, towers = nil, creeps = nil, couriers = nil, waveIn = {}, syncIn = 0, time = 0 }
 end
 
 --- The side whose fountain (x, y) is nearest.
@@ -145,6 +150,7 @@ function TurfWar:serverQuestStarted(server, quest)
   registerShops(map)
   sv.towers = Towers.new(map)
   sv.creeps = Creeps.new()
+  sv.couriers = Courier.new()
   sv.waveIn = { Creeps.FIRST_WAVE, Creeps.FIRST_WAVE }
   sv.syncIn, sv.time = 0, 0
 end
@@ -152,7 +158,8 @@ end
 --- Everyone off the map: nothing left to run or draw.
 function TurfWar:stop(server)
   if sv and sv.towers then
-    sv.towers, sv.creeps, sv.teams = nil, nil, {}
+    sv.couriers:clear(server)
+    sv.towers, sv.creeps, sv.couriers, sv.teams = nil, nil, nil, {}
     server:broadcast(Protocol.encode("TW_OFF"))
   end
 end
@@ -190,6 +197,7 @@ function TurfWar:serverPlayerJoined(server, player)
       server:send(player, Protocol.encode("TW_DOWN", t.id, 0))
     end
   end
+  sv.couriers:announce(server, player)
 end
 
 function TurfWar:serverPlayerLeft(_server, player)
@@ -202,6 +210,24 @@ end
 --- sells to anyone on the map, wherever they stand.
 function TurfWar:serverShopAnywhere(_server, player)
   return sv ~= nil and sv.towers ~= nil and player.body ~= nil
+end
+
+--- The shop's `serverShopDeliver` question: what a player buys away from a
+--- stand goes into a police car that brings it down the lane (courier.lua).
+function TurfWar:serverShopDeliver(server, player, item, n)
+  local map = arenaMap()
+  if not (sv and sv.couriers and map and player.body) then
+    return false
+  end
+  local team = sv.teams[player.id] or 1
+  local npc = sv.couriers:dispatch(server, map, player, team, item, n)
+  if npc == nil then
+    return false -- nobody to drive: the shop hands it over itself
+  end
+  if npc then
+    setTeam(server, npc, team) -- on the buyer's side: its own towers and creeps let it by
+  end
+  return true
 end
 
 --- The `serverPlayerTeam` question (docs/features.md): a player's side
@@ -288,6 +314,7 @@ function TurfWar:serverStep(server, dt)
     creepDown(server, kill.s, kill.by, kill.angle)
   end
   sv.towers:update(server, dt, teamOf, sv.creeps, sv.time)
+  sv.couriers:update(server)
   sv.syncIn = sv.syncIn - 1
   if sv.syncIn <= 0 then
     sv.syncIn = SYNC_EVERY
@@ -370,6 +397,14 @@ local function hurt(server, t, amount, by)
     if money and money.drop then
       money:drop(server, t.x, t.y, Towers.DROP)
     end
+  end
+end
+
+--- Something died (the `serverKill` convention): a wrecked delivery car
+--- drops its parcel where it died.
+function TurfWar:serverKill(server, kill)
+  if sv and sv.couriers and kill.kind == "car" and kill.victim then
+    sv.couriers:wrecked(server, kill.victim, kill.x, kill.y)
   end
 end
 
