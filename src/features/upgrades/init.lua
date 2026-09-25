@@ -233,7 +233,7 @@ function Upgrades:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
   if not self.open then
     -- Under the koin in the bottom-right corner: how many upgrades the
-    -- wallet covers right now, lit up when there are any.
+    -- wallet covers right now, only when there are any.
     local money = Features.byName.money
     local purse = wallet(client)
     local affordable = 0
@@ -243,14 +243,12 @@ function Upgrades:drawHUD(client)
         affordable = affordable + 1
       end
     end
-    local text, color
-    if affordable > 0 then
-      local pulse = 0.75 + 0.25 * math.sin(love.timer.getTime() * 4)
-      text = ("%s: %d upgrade%s affordable"):format(openKey, affordable, affordable == 1 and "" or "s")
-      color = { 0.5, 1, 0.55, pulse }
-    else
-      text, color = openKey .. ": upgrades", { 0.6, 0.6, 0.65 }
+    if affordable == 0 then
+      return
     end
+    local pulse = 0.75 + 0.25 * math.sin(love.timer.getTime() * 4)
+    local text = ("%s: %d upgrade%s affordable"):format(openKey, affordable, affordable == 1 and "" or "s")
+    local color = { 0.5, 1, 0.55, pulse }
     local font = UI.fonts.small
     local x, y
     if money and money.hudCoin then

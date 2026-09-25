@@ -183,6 +183,7 @@ local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
 Weapons.hudIconScale = 1.8 -- the gun in hand, drawn big beside the ability circles (icons are 60 x 30 at 1)
 Weapons.hudIconW, Weapons.hudIconH = 108, 54
+Weapons.lowMagazine = 0.25 -- at or under this share of a magazine the reload key flashes over the gun
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
 Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
@@ -566,9 +567,10 @@ function Weapons:worldBlur()
 end
 
 --- The gun in hand, bottom centre just left of the ability circles: its
---- icon drawn large on a dark backing, and under it the name, rounds over magazine size and
---- spares; red (and the gun faded) when the magazine is empty, amber with a
---- bar under the gun while it reloads.
+--- icon drawn large on a dark backing, and under it the name, rounds over
+--- magazine size and spares; red (and the gun faded) when the magazine is
+--- empty, amber with a bar under the gun while it reloads. Over the block,
+--- once the magazine is nearly out, the reload key flashes red.
 function Weapons:drawMagazine()
   local w, h = love.graphics.getDimensions()
   local gun = Guns.list[self.gun]
@@ -588,6 +590,12 @@ function Weapons:drawMagazine()
   elseif empty then
     color, alpha = { 1, 0.45, 0.4 }, 0.45
   end
+  -- Over the block once the magazine is nearly out: the reload key, or
+  -- that there is nothing left to load. Not while a reload runs.
+  local hint
+  if not (self.infiniteAmmo or self.reloading) and mag <= gun.magazine * self.lowMagazine then
+    hint = spare < 1 and "no ammo" or Controls.name(Controls.bindings("reload")[1]) .. ": reload"
+  end
   local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
@@ -599,6 +607,13 @@ function Weapons:drawMagazine()
   love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
   love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
   Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
+  if hint then
+    local blink = 0.5 + 0.5 * math.sin(love.timer.getTime() * 10)
+    local big = UI.fonts.heading
+    love.graphics.setFont(big)
+    UI.label(hint, math.floor(cx - big:getWidth(hint) / 2), top - 4 - big:getHeight(),
+      { 1, 0.25 + 0.2 * blink, 0.2 + 0.2 * blink, 0.45 + 0.55 * blink })
+  end
   local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
