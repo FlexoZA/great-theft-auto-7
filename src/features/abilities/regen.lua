@@ -25,6 +25,7 @@ Regen.rate = 5 -- hit points a second while it works
 Regen.seconds = 3 -- seconds it works for, once it starts
 Regen.cooldown = 12 -- seconds of rest after that
 Regen.delay = 3 -- seconds without being hurt before it starts
+Regen.tierStats = { "cooldown", "rate", "seconds", "delay" } -- what a better tier improves, in order
 
 -- player id -> { phase = "idle" | "active" | "cooldown", untilT, owed, seen }
 local state = {}
@@ -36,7 +37,8 @@ local function enter(server, player, s, phase, seconds, abilities)
   abilities:serverPassive(server, player, Regen.key, phase, seconds)
 end
 
-function Regen.serverTick(server, player, dt, abilities)
+function Regen.serverTick(server, player, dt, abilities, A)
+  A = A or Regen -- the regen in the carrier's tier
   local now = abilities.sv.time
   local s = state[player.id]
   if not s or now - s.seen > STALE then
@@ -53,12 +55,12 @@ function Regen.serverTick(server, player, dt, abilities)
     return
   end
   if s.phase == "idle" then
-    if hp < max and abilities:serverSinceHurt(player) >= Regen.delay then
-      enter(server, player, s, "active", Regen.seconds, abilities)
+    if hp < max and abilities:serverSinceHurt(player) >= A.delay then
+      enter(server, player, s, "active", A.seconds, abilities)
     end
   elseif s.phase == "active" then
     if hp < max then
-      s.owed = s.owed + Regen.rate * dt
+      s.owed = s.owed + A.rate * dt
       local whole = math.floor(s.owed)
       if whole > 0 then
         s.owed = s.owed - whole
@@ -67,7 +69,7 @@ function Regen.serverTick(server, player, dt, abilities)
       end
     end
     if now >= s.untilT or hp >= max then
-      enter(server, player, s, "cooldown", Regen.cooldown, abilities)
+      enter(server, player, s, "cooldown", A.cooldown, abilities)
     end
   elseif now >= s.untilT then
     enter(server, player, s, "idle", 0, abilities)

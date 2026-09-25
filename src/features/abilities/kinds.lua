@@ -5,7 +5,11 @@
 -- a `sound`, and `serverCast`, `drawEffect`; a passive one (`passive =
 -- true`) has `serverTick` instead and lives in the passive slot. The
 -- buildings feature reads this to name and draw an ability in a bag; each
--- ability's picture is in icons.lua, keyed the same.
+-- ability's picture is in icons.lua, keyed the same. `tierStats` lists the
+-- numbers a better tier improves, in order (tiers/init.lua); `serverCast`
+-- and `serverTick` get the ability in the caster's tier as their last
+-- argument and should read their numbers from it, and a drawing from
+-- `e.ability`.
 
 local Kinds = {
   list = {

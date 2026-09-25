@@ -12,6 +12,11 @@
 -- host charges them through money:spend the way every other sale works
 -- (docs/features.md, "Selling things for Fcks").
 --
+-- Equipment (guns, abilities, armor, clothes) is sold in every tier
+-- (tiers/init.lua): a row of tier buttons under the tabs picks the one the
+-- cards show and sell, each card framed in its colour with what the tier
+-- improves; a better tier is dearer (Catalog.price).
+--
 -- A click on a card asks the host. The host checks the buyer is on the bag
 -- (SLACK px allowed for a car drawn a little behind where it is), that the
 -- bag is on the map in play, that the wallet covers the price, and then
@@ -21,8 +26,8 @@
 -- with no car standing in it. Clients only draw the bag, the screen and ask.
 --
 -- Messages
---   client -> server  SHOP_BUY <item>
---   server -> buyer   SHOP_OK  <item> <n>      (bought; n of it went into the bag, or a car is outside)
+--   client -> server  SHOP_BUY <item>[@<tier>]
+--   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
 --   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nodeliver | unknown)
 
 local Protocol = require("src.net.protocol")
@@ -33,6 +38,7 @@ local Kinds = require("src.features.buildings.kinds")
 local Catalog = require("src.features.shop.catalog")
 local Screen = require("src.features.shop.screen")
 local Sounds = require("src.features.shop.sounds")
+local Tiers = require("src.features.tiers")
 
 local Shop = {
   name = "shop",
@@ -117,6 +123,7 @@ end
 Shop.open = false
 Shop.tab = Catalog.tabs[1].key
 Shop.page = 1
+Shop.tier = Tiers.DEFAULT -- the tier the cards show and sell
 Shop.notice = nil -- { text, color, t }
 Shop.flash = nil -- { item, t }
 Shop.near = nil -- the shop whose bag I am standing on, or nil
@@ -129,6 +136,7 @@ end
 
 function Shop:enterGame()
   self.open, self.tab, self.page, self.notice, self.flash, self.near = false, Catalog.tabs[1].key, 1, nil, nil, nil
+  self.tier = Tiers.DEFAULT
 end
 
 function Shop:exitGame()
@@ -222,6 +230,12 @@ function Shop:mousepressed(x, y, button, client)
       return
     end
   end
+  for _, t in ipairs(L.tiers) do
+    if Screen.inside(t, x, y) then
+      self.tier = t.key
+      return
+    end
+  end
   if L.prev and Screen.inside(L.prev, x, y) then
     self.page = (L.page - 2) % L.pages + 1
     return
@@ -231,26 +245,29 @@ function Shop:mousepressed(x, y, button, client)
   end
   for _, r in ipairs(L.cards) do
     if Screen.inside(r, x, y) then
-      self:tryBuy(client, r.entry)
+      self:tryBuy(client, r.entry, self.tier)
       return
     end
   end
 end
 
---- Ask the host for `entry`. The obvious refusals are given here at once
---- (an empty wallet, a full bag); the host still decides.
-function Shop:tryBuy(client, entry)
+--- Ask the host for `entry`, in tier `tier` if it comes in tiers. The
+--- obvious refusals are given here at once (an empty wallet, a full bag);
+--- the host still decides.
+function Shop:tryBuy(client, entry, tier)
+  local item = entry.tiered and Tiers.join(entry.item, tier) or entry.item
+  local price = Catalog.price(entry, tier)
   local money = Features.byName.money
-  if entry.price > 0 and money and money.canAfford and not money:canAfford(client, entry.price) then
+  if price > 0 and money and money.canAfford and not money:canAfford(client, price) then
     return self:refuse("broke")
   end
   if not Catalog.isCar(entry) then
     local b = Features.byName.buildings
-    if b and b.inventory and Kinds.room(b.inventory, b.slots, entry.item) < 1 then
+    if b and b.inventory and Kinds.room(b.inventory, b.slots, item) < 1 then
       return self:refuse("full")
     end
   end
-  client:send(Protocol.encode("SHOP_BUY", entry.item))
+  client:send(Protocol.encode("SHOP_BUY", item))
 end
 
 function Shop:refuse(reason)
@@ -335,7 +352,7 @@ function Shop:drawHUD(client)
   local money = Features.byName.money
   local purse = money and money.mine and money:mine(client) or 0
   local mx, my = love.mouse.getPosition()
-  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice)
+  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier)
   -- The cursor last of all, over the panel.
   local vision = Features.byName.vision
   if vision then
@@ -346,7 +363,8 @@ end
 
 Shop.clientMessages = {
   SHOP_OK = function(_client, args)
-    local entry, n = Catalog.byItem[args[1] or ""], tonumber(args[2]) or 1
+    local item, n = args[1] or "", tonumber(args[2]) or 1
+    local entry = Catalog.lookup(item)
     if not entry then
       return
     end
@@ -355,9 +373,9 @@ Shop.clientMessages = {
     if Catalog.isCar(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
     elseif n == 1 then
-      Shop:say("Bought a " .. Kinds.name(entry.item, 1) .. ". It's in your bag.", GREEN)
+      Shop:say("Bought a " .. Kinds.name(item, 1) .. ". It's in your bag.", GREEN)
     else
-      Shop:say("Bought " .. Kinds.label(entry.item, n) .. ". They're in your bag.", GREEN)
+      Shop:say("Bought " .. Kinds.label(item, n) .. ". They're in your bag.", GREEN)
     end
   end,
   SHOP_NO = function(_client, args)
@@ -396,10 +414,12 @@ local function freeBay(server, shop)
   return shop.x + bay.dx, shop.y + bay.dy, bay.angle
 end
 
---- Sell `player` what `item` stands for. Returns true and how many were
---- handed over, or false and the reason it didn't happen.
+--- Sell `player` what `item` stands for ("gun-uzi@rare": that tier of the
+--- uzi). Returns true and how many were handed over, or false and the
+--- reason it didn't happen.
 function Shop:serverBuy(server, player, item)
-  local entry = Catalog.byItem[item or ""]
+  local entry, tier = Catalog.lookup(item)
+  local price = entry and Catalog.price(entry, tier)
   local city = cityMap()
   if not (entry and city and player.body) then
     return false, "unknown"
@@ -411,7 +431,7 @@ function Shop:serverBuy(server, player, item)
     return false, "away"
   end
   local money = Features.byName.money
-  if entry.price > 0 and money and money.wallet and money:wallet(player.id) < entry.price then
+  if price > 0 and money and money.wallet and money:wallet(player.id) < price then
     return false, "broke"
   end
   local given
@@ -430,8 +450,8 @@ function Shop:serverBuy(server, player, item)
   end
   -- The thing is theirs; now the price, which the wallet was checked to
   -- cover a moment ago (spend is a no-op at 0).
-  if entry.price > 0 and money and money.spend then
-    money:spend(server, player.id, entry.price, entry.name)
+  if price > 0 and money and money.spend then
+    money:spend(server, player.id, price, entry.tiered and Tiers.named(entry.name, tier) or entry.name)
   end
   return true, given
 end
