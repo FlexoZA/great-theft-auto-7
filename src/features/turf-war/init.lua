@@ -10,15 +10,19 @@
 -- towers on the lanes (towers.lua) watch a zone round themselves and fire
 -- at any enemy inside it; a player's rounds wear them down, a tower of the
 -- same side further out on the lane covers the one behind it, and a tower
--- that comes down leaves rubble and koins. Each side's soldiers
--- (soldiers.lua) come out of its gates in waves, walk the lanes and shoot
--- whatever enemy they see, as far as a tower sees; a wave only goes out
--- while the other side has a human to fight. A soldier down is a koin.
--- The vaults and the score come in their own PRs.
+-- that comes down leaves rubble and koins. Each side's creeps
+-- (creeps.lua) come out of its gates in waves, walk the lanes and fight
+-- whatever enemy they see, as far as a tower sees: simps with their
+-- fists to begin with, and soldiers with rifles down a lane once the side
+-- has broken it (every one of the other side's towers on it down). A wave
+-- only goes out while the other side has a human to fight. A creep down
+-- is a koin. Towers pick their target Dota's way: the player who hit them
+-- lately, else creeps, else players. The vaults and the score come in
+-- their own PRs.
 --
 -- The host owns all of it. Clients hear each side, each fallen tower and
--- each fallen soldier reliably, every tower's aim and health and every
--- soldier's position at 15 Hz, build the towers from the map themselves,
+-- each fallen creep reliably, every tower's aim and health and every
+-- creep's position at 15 Hz, build the towers from the map themselves,
 -- and draw.
 --
 -- Messages
@@ -28,14 +32,15 @@
 --   server -> all     TW_DOWN   <id> <byId>                       a tower came down (byId 0: nobody's doing)
 --   server -> player  TW_COVERED <id>                             the tower you hit is covered by the one further out
 --   server -> all     TW_TROOPS <tick> [<id> <x> <y> <facing> <hp> <team> <flag>]...  (unreliable, 15 Hz;
---                                                                 flag a firing at someone, w walking)
---   server -> all     TW_TROOP_DOWN <id> <x> <y> <angle>          a soldier went down
+--                                                                 flag: kind s soldier / m simp, then state
+--                                                                 a fighting, w walking, p punching)
+--   server -> all     TW_TROOP_DOWN <id> <x> <y> <angle>          a creep went down
 --   server -> all     TW_OFF                                      the quest is over: nothing left to draw
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Towers = require("src.features.turf-war.towers")
-local Soldiers = require("src.features.turf-war.soldiers")
+local Creeps = require("src.features.turf-war.creeps")
 local Render = require("src.features.turf-war.render")
 
 local TurfWar = {
@@ -59,7 +64,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { teams = { id -> 1 | 2 }, towers = Towers or nil (between quests), soldiers, waveIn = { s }, syncIn }
+local sv = nil -- { teams = { id -> 1 | 2 }, towers = Towers or nil (between quests), creeps, waveIn, syncIn, time }
 local MAX_STAINS = 60
 
 local function fmt(v)
@@ -67,7 +72,7 @@ local function fmt(v)
 end
 
 function TurfWar:serverStart()
-  sv = { teams = {}, towers = nil, soldiers = nil, waveIn = {}, syncIn = 0 }
+  sv = { teams = {}, towers = nil, creeps = nil, waveIn = {}, syncIn = 0, time = 0 }
 end
 
 --- The side whose fountain (x, y) is nearest.
@@ -108,15 +113,15 @@ function TurfWar:serverQuestStarted(server, quest)
     setTeam(server, p, sideOf(map, x, y))
   end
   sv.towers = Towers.new(map)
-  sv.soldiers = Soldiers.new()
-  sv.waveIn = { Soldiers.FIRST_WAVE, Soldiers.FIRST_WAVE }
-  sv.syncIn = 0
+  sv.creeps = Creeps.new()
+  sv.waveIn = { Creeps.FIRST_WAVE, Creeps.FIRST_WAVE }
+  sv.syncIn, sv.time = 0, 0
 end
 
 --- Everyone off the map: nothing left to run or draw.
 function TurfWar:stop(server)
   if sv and sv.towers then
-    sv.towers, sv.soldiers, sv.teams = nil, nil, {}
+    sv.towers, sv.creeps, sv.teams = nil, nil, {}
     server:broadcast(Protocol.encode("TW_OFF"))
   end
 end
@@ -198,27 +203,44 @@ local function humansOn(server, team)
   return false
 end
 
---- One soldier down: everyone hears where, a koin lands there.
-local function soldierDown(server, s, by, angle)
+--- One creep down: everyone hears where, a koin lands there.
+local function creepDown(server, s, by, angle)
   server:broadcast(Protocol.encode("TW_TROOP_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
   local money = Features.byName.money
   if money and money.drop then
-    money:drop(server, s.x, s.y, Soldiers.DROP)
+    money:drop(server, s.x, s.y, Creeps.DROP)
   end
-  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
+  Features.call("serverKill", server, { kind = s.kind, x = s.x, y = s.y, by = by, angle = angle })
+end
+
+--- Has side `team` broken lane `lane`: every one of the other side's
+--- towers on it down? Its waves down that lane are soldiers then.
+function TurfWar:serverLaneBroken(team, lane)
+  if not (sv and sv.towers) then
+    return false
+  end
+  for _, t in ipairs(sv.towers.list) do
+    if t.team ~= team and t.lane == lane and not t.down then
+      return false
+    end
+  end
+  return true
 end
 
 --- Each side's next wave, once its time is up and the other side has a
---- human to march on.
+--- human to march on: simps, and soldiers down every lane the side has
+--- broken.
 local function stepWaves(server, map, dt)
   for team = 1, 2 do
     if humansOn(server, 3 - team) then
       sv.waveIn[team] = sv.waveIn[team] - dt
       if sv.waveIn[team] <= 0 then
-        sv.waveIn[team] = Soldiers.WAVE_EVERY
-        local room = Soldiers.MAX_ALIVE - sv.soldiers:count(team)
+        sv.waveIn[team] = Creeps.WAVE_EVERY
+        local room = Creeps.MAX_ALIVE - sv.creeps:count(team)
         if room > 0 then
-          sv.soldiers:wave(map, team, math.min(room, Soldiers.PER_WAVE))
+          sv.creeps:wave(map, team, math.min(room, Creeps.PER_WAVE), function(lane)
+            return TurfWar:serverLaneBroken(team, lane) and "soldier" or "simp"
+          end)
         end
       end
     end
@@ -236,12 +258,12 @@ function TurfWar:serverStep(server, dt)
   local function teamOf(p)
     return sv.teams[p.id]
   end
+  sv.time = sv.time + dt
   stepWaves(server, map, dt)
-  for _, kill in ipairs(sv.soldiers:update(server, dt, map, teamOf)) do
-    sv.soldiers:remove(kill.s)
-    soldierDown(server, kill.s, kill.by, kill.angle)
+  for _, kill in ipairs(sv.creeps:update(server, dt, map, teamOf)) do
+    creepDown(server, kill.s, kill.by, kill.angle)
   end
-  sv.towers:update(server, dt, teamOf, sv.soldiers)
+  sv.towers:update(server, dt, teamOf, sv.creeps, sv.time)
   sv.syncIn = sv.syncIn - 1
   if sv.syncIn <= 0 then
     sv.syncIn = SYNC_EVERY
@@ -253,14 +275,14 @@ function TurfWar:serverStep(server, dt)
       parts[#parts + 1] = t.down and 2 or (t.alert and 1 or 0)
     end
     local troops = { server.tick }
-    for _, s in ipairs(sv.soldiers.list) do
+    for _, s in ipairs(sv.creeps.list) do
       troops[#troops + 1] = s.id
       troops[#troops + 1] = ("%.0f"):format(s.x)
       troops[#troops + 1] = ("%.0f"):format(s.y)
       troops[#troops + 1] = ("%.2f"):format(s.facing)
       troops[#troops + 1] = ("%.0f"):format(math.max(0, s.hp))
       troops[#troops + 1] = s.team
-      troops[#troops + 1] = s.alert and "a" or "w"
+      troops[#troops + 1] = (s.kind == "soldier" and "s" or "m") .. (s.swing > 0 and "p" or (s.alert and "a" or "w"))
     end
     local msgs = { Protocol.encode("TW_TOWERS", unpack(parts)), Protocol.encode("TW_TROOPS", unpack(troops)) }
     for _, p in pairs(server.players) do
@@ -275,40 +297,42 @@ end
 
 --- A bullet passing through (x, y): the `serverShotAt` convention. A
 --- side's own rounds (a tower's, a soldier's: `team`) fly through its
---- soldiers; a player's hit anyone not on their side.
+--- creeps; a player's hit anyone not on their side.
 function TurfWar:serverShotAt(server, x, y, radius, by, angle, team)
-  if not (sv and sv.soldiers) then
+  if not (sv and sv.creeps) then
     return false
   end
   local side = team or (by and by ~= 0 and sv.teams[by]) or nil
-  local s, i = sv.soldiers:at(x, y, radius, side)
+  local s, i = sv.creeps:at(x, y, radius, side)
   if not s then
     return false
   end
-  if sv.soldiers:hurt(s, i, Soldiers.SHOT_DAMAGE, angle) then
-    soldierDown(server, s, by ~= 0 and by or nil, angle)
+  if sv.creeps:hurt(s, i, Creeps.SHOT_DAMAGE, angle) then
+    creepDown(server, s, by ~= 0 and by or nil, angle)
   end
   return true
 end
 
---- A freeze landed (abilities' event): soldiers inside stand stiff.
+--- A freeze landed (abilities' event): creeps inside stand stiff.
 function TurfWar:serverFreezeArea(_server, x, y, radius, seconds)
-  if sv and sv.soldiers then
-    sv.soldiers:freeze(x, y, radius, seconds)
+  if sv and sv.creeps then
+    sv.creeps:freeze(x, y, radius, seconds)
   end
 end
 
---- Something stinks (abilities' event, every tick while it hangs):
---- soldiers inside run from it for a moment.
+--- Something stinks (abilities' event, every tick while it hangs): creeps
+--- inside run from it for a moment.
 function TurfWar:serverPanicArea(_server, x, y, radius)
-  if sv and sv.soldiers then
-    sv.soldiers:scare(x, y, radius, 1.0)
+  if sv and sv.creeps then
+    sv.creeps:scare(x, y, radius, 1.0)
   end
 end
 
 --- Tower `t` takes `amount` from player `by`: nothing while it is covered
 --- (the shooter is told, now and then), rubble and koins when it is done.
+--- Either way the tower turns on the shooter for a while.
 local function hurt(server, t, amount, by)
+  sv.towers:hitBy(t, by, sv.time)
   local result = sv.towers:hurt(t, amount)
   if result == "covered" then
     local shooter = server.players[by]
@@ -364,8 +388,8 @@ TurfWar.on = false -- the war is on (the towers are built)
 TurfWar.teams = {} -- player id -> 1 | 2, from the host
 TurfWar.towers = {} -- id -> { id, x, y, team, lane, tier, hp, max, aim, daim, alert, down, flash }
 TurfWar.list = {} -- the same in id order
-TurfWar.troops = {} -- soldier id -> { id, x, y, dx, dy, angle, hp, team, alert, bob }
-TurfWar.stains = {} -- { x, y, angle, team } where soldiers fell
+TurfWar.troops = {} -- creep id -> { id, x, y, dx, dy, angle, hp, team, kind, alert, swing, bob }
+TurfWar.stains = {} -- { x, y, angle, team, kind } where creeps fell
 local notice, noticeTimer = nil, 0
 local time, lastTick, lastTroopTick = 0, 0, 0
 local SNAP = 150 -- px; a jump this big is a spawn, not a step
@@ -522,7 +546,10 @@ TurfWar.clientMessages = {
           s = { id = id, dx = x, dy = y, team = team, bob = love.math.random() * 6 }
           TurfWar.troops[id] = s
         end
-        s.x, s.y, s.angle, s.hp, s.alert = x, y, angle, hp, args[i + 6] == "a"
+        local flag = args[i + 6] or ""
+        s.x, s.y, s.angle, s.hp = x, y, angle, hp
+        s.kind = flag:sub(1, 1) == "s" and "soldier" or "simp"
+        s.alert, s.swing = flag:sub(2, 2) ~= "w", flag:sub(2, 2) == "p"
         seen[id] = true
       end
     end
@@ -536,7 +563,9 @@ TurfWar.clientMessages = {
     local id, x, y, angle = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
     local s = TurfWar.troops[id or 0]
     if x and y then
-      TurfWar.stains[#TurfWar.stains + 1] = { x = x, y = y, angle = angle or 0, team = s and s.team or 1 }
+      TurfWar.stains[#TurfWar.stains + 1] = {
+        x = x, y = y, angle = angle or 0, team = s and s.team or 1, kind = s and s.kind or "simp",
+      }
       if #TurfWar.stains > MAX_STAINS then
         table.remove(TurfWar.stains, 1)
       end

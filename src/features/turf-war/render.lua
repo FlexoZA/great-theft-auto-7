@@ -1,8 +1,9 @@
 -- Drawing the turf war, client side: each tower's detection zone on the
 -- ground, the gun on its top swinging after whoever it watches, its health
--- when hurt, the rubble once it is down; the soldiers in their side's
--- colours and the stains where they fell; the HUD line and the minimap
--- marks. init.lua keeps the state (what the host last said) and calls in.
+-- when hurt, the rubble once it is down; the creeps (simps in the side's
+-- hoodie, soldiers in its uniform) and the stains where they fell; the HUD
+-- line and the minimap marks. init.lua keeps the state (what the host last
+-- said) and calls in.
 
 local UI = require("src.ui")
 local Towers = require("src.features.turf-war.towers")
@@ -19,6 +20,7 @@ local SKIN = { 0.90, 0.74, 0.60 }
 local RIFLE = { 0.18, 0.14, 0.10 }
 local BLOOD = { 0.55, 0.08, 0.10 }
 local SOLDIER_RADIUS = 7
+local SIMP_RADIUS = 6
 
 local function shade(c, k)
   return { c[1] * k, c[2] * k, c[3] * k }
@@ -89,8 +91,13 @@ local function drawStain(s, c)
   end
   love.graphics.setColor(shade(c, 0.7))
   love.graphics.ellipse("fill", s.x + 3, s.y - 2, 6, 4)
-  love.graphics.setColor(shade(c, 0.45))
-  love.graphics.circle("fill", s.x - 6, s.y + 2, 4)
+  if s.kind == "soldier" then
+    love.graphics.setColor(shade(c, 0.45))
+    love.graphics.circle("fill", s.x - 6, s.y + 2, 4) -- the helmet
+  else
+    love.graphics.setColor(SKIN)
+    love.graphics.circle("fill", s.x - 6, s.y + 2, 3)
+  end
 end
 
 function Render.below(TW, map, camera, time)
@@ -201,6 +208,45 @@ local function drawSoldier(s, c, time)
   end
 end
 
+--- A simp from above in his side's hoodie: a head, arms swinging as he
+--- runs, a fist out front while a punch lands; a bar once hurt, a red "!"
+--- while he has someone.
+local function drawSimp(s, c, time)
+  local x, y, r = s.dx, s.dy, SIMP_RADIUS
+  local fx, fy = math.cos(s.angle), math.sin(s.angle)
+  local swing = math.sin(time * 12 + s.bob) * (s.alert and 1.6 or 0.8)
+  local sx, sy = -fy * swing, fx * swing
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.circle("fill", x + 2, y + 2, r, 10)
+  love.graphics.setColor(SKIN)
+  if s.swing then
+    love.graphics.circle("fill", x + fx * (r + 6), y + fy * (r + 6), 2.4, 6) -- the fist
+  end
+  love.graphics.circle("fill", x - fy * (r + 1) - sx, y + fx * (r + 1) - sy, 2, 6)
+  love.graphics.circle("fill", x + fy * (r + 1) + sx, y - fx * (r + 1) + sy, 2, 6)
+  love.graphics.setColor(shade(c, 0.8))
+  love.graphics.circle("fill", x + sx * 0.5, y + sy * 0.5, r, 10)
+  love.graphics.setColor(shade(c, 0.55))
+  love.graphics.circle("fill", x - fx * 2, y - fy * 2, r - 2, 8) -- the hood
+  love.graphics.setColor(SKIN)
+  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 3.2, 8)
+  if s.alert then
+    local bob = math.sin(time * 10 + s.bob) * 1.5
+    love.graphics.setFont(UI.fonts.heading)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf("!", x - 19, y - r - 30 + bob, 40, "center")
+    love.graphics.setColor(ALERT)
+    love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
+  end
+  if s.hp < 40 then
+    local bw, f = 20, math.max(0, s.hp / 40)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
+    love.graphics.setColor(1 - f, f, 0.2)
+    love.graphics.rectangle("fill", x - bw / 2, y + r + 4, bw * f, 2)
+  end
+end
+
 function Render.above(TW, map, camera, time)
   for _, t in ipairs(TW.list) do
     if not t.down and onScreen(camera, t.x, t.y, 60) then
@@ -209,7 +255,11 @@ function Render.above(TW, map, camera, time)
   end
   for _, s in pairs(TW.troops) do
     if onScreen(camera, s.dx, s.dy, 60) then
-      drawSoldier(s, teamColor(map, s.team), time)
+      if s.kind == "soldier" then
+        drawSoldier(s, teamColor(map, s.team), time)
+      else
+        drawSimp(s, teamColor(map, s.team), time)
+      end
     end
   end
   love.graphics.setColor(1, 1, 1)

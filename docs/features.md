@@ -334,7 +334,7 @@ couple of small conventions rather than requiring each other:
   travel, for gibs and scoring; `by` is 0 for a shot no player fired, and
   `team` the side a round fired for a side carries (a turf war tower's or
   soldier's; nil for a player's), so the turf war lets those fly through
-  its own soldiers. Cars are tested first, so answering here never steals
+  its own creeps. Cars are tested first, so answering here never steals
   a hit from a player.
   A missile's blast (the rocket launcher) asks each feature up to its
   `blast.soft` times at the blast centre with a wide radius, stopping at the

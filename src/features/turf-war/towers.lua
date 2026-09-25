@@ -1,12 +1,13 @@
 -- The towers on the host: the eighteen stone towers on the lanes of The
 -- Lanes (city-map's `map.towers`), each with a machine gun on top. A
 -- tower watches a circle round itself, its detection zone, in every
--- direction; the nearest enemy inside it with nothing solid in the way,
--- a player or one of the other side's soldiers (soldiers.lua), is its
--- target, and after a moment to swing the gun round it fires at them at
--- the pistol's rate with the pistol's rounds, for as long as it can see
--- them. Its rounds belong to nobody (weapons' ownerless entry point) but
--- carry the tower's team, so they fly through its own side.
+-- direction, and picks its target Dota's way: a player who hit it in the
+-- last few seconds and is still in sight, else the nearest of the other
+-- side's creeps (creeps.lua) it can see, else the nearest enemy player.
+-- After a moment to swing the gun round it fires at them at the pistol's
+-- rate with the pistol's rounds, for as long as it can see them. Its
+-- rounds belong to nobody (weapons' ownerless entry point) but carry the
+-- tower's team, so they fly through its own side.
 --
 -- A tower has hit points and takes them off from every player's round that
 -- stops at it (`serverWallHit`) and every blast that reaches it. It is
@@ -32,6 +33,7 @@ Towers.SPREAD = 0.03 -- radians of aim error either side
 Towers.LOOK_EVERY = 3 -- host ticks between looks round (staggered by tower)
 Towers.STEP = 12 -- px between line-of-sight samples
 Towers.DROP = 10 -- koins a tower spills when it comes down
+Towers.AGGRO = 4 -- seconds a tower keeps after a player who hit it
 Towers.gun = Guns.at(Guns.DEFAULT) -- the pistol: its damage, speed and rate
 Towers.FIRE_EVERY = Towers.gun.cooldown
 
@@ -57,7 +59,8 @@ function Towers.new(map)
       hp = Towers.HEALTH,
       max = Towers.HEALTH,
       aim = math.atan2(-t.y, -t.x), -- watching the middle of the map to start with
-      target = nil, -- { kind = "player", id } or { kind = "soldier", s } in its sights
+      target = nil, -- { kind = "player", id } or { kind = "creep", s } in its sights
+      hitBy = nil, -- id of the last player to hit it, and when: { id, at }
       fireIn = Towers.REACT,
       alert = false,
       down = false,
@@ -167,14 +170,41 @@ end
 
 --- Are two targets the same one?
 local function same(a, b)
-  return a and b and a.kind == b.kind and (a.kind == "player" and a.id == b.id or a.kind == "soldier" and a.s == b.s)
+  return a and b and a.kind == b.kind and (a.kind == "player" and a.id == b.id or a.kind == "creep" and a.s == b.s)
 end
 
---- The nearest enemy inside the zone the tower can see: a player
---- `enemy(player)` says is fair game, or one of the other side's soldiers
---- (`soldiers` may be nil).
-local function look(t, server, enemy, soldiers)
+--- A player hit the tower: it holds that against them for a while.
+function Towers:hitBy(t, id, now)
+  t.hitBy = { id = id, at = now }
+end
+
+--- What the tower goes for, Dota's way: the player who hit it lately if
+--- they are in sight, else the nearest of the other side's creeps it can
+--- see (`creeps` may be nil), else the nearest player `enemy(player)` says
+--- is fair game.
+local function look(t, server, enemy, creeps, now)
+  local hit = t.hitBy
+  if hit and now - hit.at <= Towers.AGGRO then
+    local p = server.players[hit.id]
+    if p and Features.present(p) and enemy(p) then
+      local px, py = Features.bodyPose(server, p)
+      if sees(t, px, py) then
+        return { kind = "player", id = hit.id }
+      end
+    end
+  end
   local best, bestD2
+  for _, s in ipairs(creeps and creeps.list or {}) do
+    if s.team ~= t.team then
+      local d2 = (s.x - t.x) ^ 2 + (s.y - t.y) ^ 2
+      if (not bestD2 or d2 < bestD2) and sees(t, s.x, s.y) then
+        best, bestD2 = { kind = "creep", s = s }, d2
+      end
+    end
+  end
+  if best then
+    return best
+  end
   for id, player in pairs(server.players) do
     if Features.present(player) and enemy(player) then
       local px, py = Features.bodyPose(server, player)
@@ -184,21 +214,14 @@ local function look(t, server, enemy, soldiers)
       end
     end
   end
-  for _, s in ipairs(soldiers and soldiers.list or {}) do
-    if s.team ~= t.team then
-      local d2 = (s.x - t.x) ^ 2 + (s.y - t.y) ^ 2
-      if (not bestD2 or d2 < bestD2) and sees(t, s.x, s.y) then
-        best, bestD2 = { kind = "soldier", s = s }, d2
-      end
-    end
-  end
   return best
 end
 
 --- One host tick for every standing tower. `teamOf(player)` is the side a
---- player is on (nil for nobody's: fair game to every tower); `soldiers`
---- is the other side's creeps to shoot at too.
-function Towers:update(server, dt, teamOf, soldiers)
+--- player is on (nil for nobody's: fair game to every tower); `creeps` is
+--- the other side's creeps to shoot at too; `now` is the host's clock,
+--- the one `hitBy` is stamped with.
+function Towers:update(server, dt, teamOf, creeps, now)
   self.ticks = self.ticks + 1
   local weapons = Features.byName.weapons
   for _, t in ipairs(self.list) do
@@ -210,7 +233,7 @@ function Towers:update(server, dt, teamOf, soldiers)
       if (self.ticks + t.id) % Towers.LOOK_EVERY == 0 or not px then
         local seen = look(t, server, function(p)
           return teamOf(p) ~= t.team
-        end, soldiers)
+        end, creeps, now or 0)
         if seen and not same(seen, t.target) then
           t.fireIn = math.max(t.fireIn, Towers.REACT) -- somebody new: a moment to swing round
         end
