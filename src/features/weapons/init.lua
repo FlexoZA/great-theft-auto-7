@@ -1818,6 +1818,9 @@ function Weapons:die(server, victim, byId, pid, angle)
     own:stop()
     local cs = self:carState(own)
     cs.hp, cs.deadUntil = cs.max, nil -- it comes back with them, whole
+    -- Tell everyone, or their bar keeps the dent from before it went up (a
+    -- bot's car wrecked to 0 looked nearly dead until the next hit said otherwise).
+    server:broadcast(Protocol.encode("WPN_CARHP", own.id, cs.hp))
     if not victim.vehicle then
       server:seat(victim, own) -- the corpse rides the wreck back to the slot
     end
