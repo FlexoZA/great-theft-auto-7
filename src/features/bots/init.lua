@@ -48,7 +48,7 @@ local Bots = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Bots.startCount = 15 -- bots spawned when the game starts, spread over the city's streets
+Bots.startCount = 10 -- bots spawned when the game starts, spread over the city's streets
 Bots.maxBots = 20
 Bots.spawnGap = 150 -- px a bot is put down clear of every other car
 Bots.range = 650 -- px; won't shoot beyond this
