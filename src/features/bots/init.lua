@@ -10,7 +10,10 @@
 -- Bots are peaceful by default: they cruise the city's streets and ignore
 -- players, keeping to the traffic rules in traffic.lua (right-hand lane, a
 -- speed limit, slowing for turns, keeping their distance, waiting at a
--- busy crossing and stopping for anyone on foot). Anyone on foot is who
+-- busy crossing and stopping for anyone on foot); every so often one of
+-- them drives recklessly for a while instead, which is where accidents and
+-- police chases come from (a patrol that sees it run someone over or ram a
+-- car wants it, and it fights back once shot at). Anyone on foot is who
 -- the `serverWalkers` hook reports (pedestrians, officers) plus players out
 -- of their cars. On a map without a street grid they drive between random
 -- road waypoints instead, at the same speed. Shoot one or ram one and it turns hostile
@@ -62,6 +65,11 @@ Bots.giveUpDistance = 1300 -- px; a target further than this is "away"
 Bots.giveUpTime = 8 -- seconds the target must stay away before the bot gives up
 Bots.ramSpeed = 120 -- closing speed (px/s) that counts as being rammed
 Bots.cruiseSpeed = 170 -- px/s a peaceful bot keeps to (cars top out at 500 or so)
+-- Now and then one civilian bot drives recklessly for a while (traffic.lua):
+-- the accidents, and the police chases when a patrol sees one.
+Bots.recklessSpeed = 330 -- px/s
+Bots.recklessEvery = { 30, 60 } -- seconds between one reckless spell and the next
+Bots.recklessFor = { 20, 35 } -- seconds a spell lasts
 Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
 Bots.waypointTimeout = 25 -- seconds before giving up on a waypoint
 
@@ -78,6 +86,7 @@ local bots = {} -- civilian bots (the default brain), in spawn order
 local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
 local now = 0 -- server time, seconds since start
+local nextReckless = 0 -- server time the next reckless spell starts
 local walkers = {} -- everyone on foot this tick, flat: x, y, vx, vy per walker (traffic stops for them)
 
 local function clamp(v, lo, hi)
@@ -238,6 +247,7 @@ function Bots:serverStart(server)
   npcs = {}
   nextNumber = 1
   now = 0
+  nextReckless = self.recklessEvery[1] -- nobody at it in the first moments of a game
   local humans = 0
   for _ in pairs(server.players) do
     humans = humans + 1
@@ -318,6 +328,7 @@ end
 function Bots:calm(bot)
   bot.ai.hostileTo = nil
   bot.ai.farFor = 0
+  bot.ai.recklessUntil = nil -- a fight or a wreck ends a reckless spell too
 end
 
 function Bots:serverPlayerDamaged(server, victim, attacker)
@@ -396,14 +407,15 @@ end
 
 --- Drive peacefully at up to `speed` px/s (default cruiseSpeed): along the
 --- streets by the traffic rules (traffic.lua) on a street grid, else
---- between random road waypoints.
-function Bots:cruise(server, bot, speed)
+--- between random road waypoints. `reckless`: along the streets, by none
+--- of the rules.
+function Bots:cruise(server, bot, speed, reckless)
   speed = speed or self.cruiseSpeed
   local ai = bot.ai
   local city = Features.byName["city-map"]
   local graph = city and Traffic.graph(city.map)
   if graph then
-    local v = Traffic.drive(bot, graph, speed, server.vehicles, walkers, server.dtLast or 0)
+    local v = Traffic.drive(bot, graph, speed, server.vehicles, walkers, server.dtLast or 0, reckless)
     bot.input.throttle = Traffic.throttleFor(bot.car, v)
     return
   end
@@ -475,6 +487,8 @@ function Bots:think(server, bot, dt)
   end
   if target and Features.present(target) then
     self:fight(server, bot, target)
+  elseif ai.recklessUntil and now < ai.recklessUntil then
+    self:cruise(server, bot, self.recklessSpeed, true)
   else
     self:cruise(server, bot)
   end
@@ -526,10 +540,33 @@ local function collectWalkers(server)
   end
 end
 
+local function between(range)
+  return range[1] + love.math.random() * (range[2] - range[1])
+end
+
+--- Time for someone to drive badly? One civilian bot on the road, peaceful
+--- and not already at it, goes reckless for a spell.
+local function maybeReckless()
+  if now < nextReckless then
+    return
+  end
+  nextReckless = now + between(Bots.recklessEvery)
+  local calm = {}
+  for _, bot in ipairs(bots) do
+    if not bot.car.hidden and not bot.ai.hostileTo and not (bot.ai.recklessUntil and now < bot.ai.recklessUntil) then
+      calm[#calm + 1] = bot
+    end
+  end
+  if #calm > 0 then
+    calm[love.math.random(#calm)].ai.recklessUntil = now + between(Bots.recklessFor)
+  end
+end
+
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
   collectWalkers(server)
+  maybeReckless()
   for _, npc in ipairs(npcs) do
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back

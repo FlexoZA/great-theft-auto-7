@@ -16,6 +16,11 @@
 --   * nobody waits for ever: stuck behind other cars for `creepAfter`
 --     seconds (four cars nose to nose in a crossing), a car creeps on.
 --
+-- A reckless driver (bots picks one now and then) keeps to the streets but
+-- breaks every rule on them: it speeds, takes turns fast, weaves, and
+-- stops for nobody, car or person, and waits at no crossing. That is where
+-- the accidents come from, and the police chases after them.
+--
 -- Only the host runs this. Fights, chases and panics don't: those brains
 -- drive with Bots.driveTowards and are allowed to go wild. A car that comes
 -- back from one (or is far from its lane for any reason) picks up the
@@ -42,6 +47,8 @@ Traffic.foresight = { 0, 0.4, 0.8, 1.2 } -- seconds ahead a walker's path is che
 Traffic.yieldWait = 3 -- seconds waiting at a crossing before going anyway (nobody sits forever)
 Traffic.creepAfter = 4 -- seconds stopped behind other cars before creeping on (a gridlocked crossing unpicks itself)
 Traffic.creepSpeed = 35 -- px/s a car creeps at then; people on foot still stop it dead
+Traffic.recklessTurnSpeed = 170 -- px/s a reckless driver takes a turn at
+Traffic.weave = 0.35 -- how hard a reckless driver weaves (steering, either way)
 Traffic.offLane = 110 -- px from its lane: the car has lost the road and finds it again
 
 local T, P = Layout.TILE, Layout.PERIOD
@@ -249,8 +256,9 @@ end
 --- Drive `npc` one tick along the streets of `graph` at up to `speed`.
 --- Sets its steering and returns the speed it should do right now; the
 --- caller turns that into throttle. `vehicles` is every car in the world,
---- `walkers` everyone on foot (flat x, y list).
-function Traffic.drive(npc, graph, speed, vehicles, walkers, dt)
+--- `walkers` everyone on foot (flat x, y, vx, vy list). `reckless`: the
+--- street and nothing else (see the top of this file).
+function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
   local map = graph.map
   local car, ai, input = npc.car, npc.ai, npc.input
   local route = ai.route
@@ -294,12 +302,16 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt)
   local tx = a.x + ux * s - uy * Traffic.lane
   local ty = a.y + uy * s + ux * Traffic.lane
   local err = angleDiff(math.atan2(ty - car.y, tx - car.x), car.angle)
-  input.steer = math.max(-1, math.min(1, err / 0.4))
+  local weave = reckless and Traffic.weave * math.sin(love.timer.getTime() * 2.3 + npc.id) or 0
+  input.steer = math.max(-1, math.min(1, err / 0.4 + weave))
 
   -- How fast: the limit, slower into a turn, then whatever is in the way.
   local want = speed
   if turning and rem < Traffic.turnSlowdown then
-    want = math.min(want, Traffic.turnSpeed + stopping(rem - BOX))
+    want = math.min(want, (reckless and Traffic.recklessTurnSpeed or Traffic.turnSpeed) + stopping(rem - BOX))
+  end
+  if reckless then
+    return want -- no looking out for anyone
   end
   if math.abs(err) > 0.7 then
     want = math.min(want, Traffic.turnSpeed) -- well off line (rejoining the road): take it easy
