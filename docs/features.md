@@ -270,6 +270,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
+| `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu and the vehicles screen answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
@@ -284,8 +285,11 @@ its own event the same way.
 
 NPC drivers: `Features.byName.bots:spawnNpc(server, { name, x, y, angle, brain })`
 creates a server-side driver; `brain.think(server, npc, dt)` runs every tick
-and can use `Bots.driveTowards`, `Bots:cruise`, `Bots:fight` and
-`Bots.unstick`. Police is the worked example.
+and can use `Bots.driveTowards`, `Bots:cruise(server, npc, speed)` (peaceful
+driving by the traffic rules in `bots/traffic.lua`: right-hand lane, a speed
+limit, slowing for turns, keeping distance, waiting at a busy crossing,
+stopping for anyone on foot), `Bots:fight` and `Bots.unstick`. Police is the
+worked example.
 
 ## Conventions between features
 

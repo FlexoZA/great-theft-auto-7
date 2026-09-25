@@ -151,6 +151,17 @@ function Vehicles:serverSpawn(server, model, x, y, angle, owner)
   return car
 end
 
+--- Make `car` a model picked at random from the catalog (every car the
+--- shop sells): bots give each civilian driver one. Returns the model.
+function Vehicles:serverRandomModel(server, car)
+  if #Catalog.list == 0 then
+    return nil
+  end
+  local model = Catalog.list[love.math.random(#Catalog.list)]
+  makeModel(server, car, model)
+  return model
+end
+
 --- Buildings hands over a product nobody can carry: a car goes onto the
 --- road at (x, y) as `player`'s. Answers true when `item` was a car.
 function Vehicles:serverDeliver(server, player, item, x, y, angle)
