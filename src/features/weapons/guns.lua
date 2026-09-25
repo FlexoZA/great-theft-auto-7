@@ -25,6 +25,8 @@
 --             counts pulls, not pellets, and only the first pellet sounds.
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
+--   tierStats the stats a better tier improves, in order (tiers/init.lua):
+--             Guns.tierStats otherwise; "blast.damage" reaches into `blast`
 --   stock     rounds everyone starts the game with, the loaded magazine
 --             included, and the gun itself: everyone starts with a gun
 --             that has a stock in a weapon slot (for testing a gun before
@@ -115,14 +117,19 @@ Guns.list = {
     reloadSound = "reload-rocket",
     stack = 20,
     ammoName = "rocket",
+    tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
     stock = 5, -- for testing until the factories are up and running
   },
 }
 
 Guns.DEFAULT = 1
+-- What an uncommon gun hits harder with, a rare one fires faster too, and a
+-- legendary one also holds more and reloads sooner.
+Guns.tierStats = { "damage", "cooldown", "magazine", "reload" }
 
 for i, gun in ipairs(Guns.list) do
   gun.index = i
+  gun.tierStats = gun.tierStats or Guns.tierStats
   Guns[gun.key] = gun
 end
 

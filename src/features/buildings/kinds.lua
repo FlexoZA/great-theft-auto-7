@@ -13,6 +13,8 @@
 --                            from the inventory screen ("armor-vest")
 --   gear-<kind>              a piece of clothing (gear/kinds.lua) in the bag, worn
 --                            the same way ("gear-running-shoes")
+--   <item>@<tier>            a gun, ability, armor or clothes above common
+--                            ("gun-uzi@rare"; tiers/init.lua): its own item, stacked apart
 --   car-<model>              a car from vehicles/models ("car-hatchback-orange"). Nobody
 --                            carries one: collecting or buying it puts it on the road
 --                            (the `serverDeliver` event, answered by vehicles)
@@ -53,6 +55,7 @@ local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
 local ArmorKinds = require("src.features.armor.kinds")
 local GearKinds = require("src.features.gear.kinds")
+local Tiers = require("src.features.tiers")
 
 local Kinds = {}
 
@@ -64,6 +67,7 @@ Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cos
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
+  item = Tiers.base(item) -- a tier stacks like its common
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
@@ -220,8 +224,11 @@ function Kinds.repairCost(kind, hp)
 end
 
 --- A readable name for `n` of an item, without the count: "uzi ammo",
---- "medkit", "medkits". No count reads as many (a factory "sells rockets").
+--- "medkit", "medkits", "rare uzi". No count reads as many (a factory
+--- "sells rockets").
 function Kinds.name(item, n)
+  local tier
+  item, tier = Tiers.split(item)
   local name = item
   local gun = item:match("^ammo%-(.+)$")
   if gun then
@@ -256,7 +263,50 @@ function Kinds.name(item, n)
       name = "energy drink" .. (n ~= 1 and "s" or "")
     end
   end
-  return name
+  return Tiers.named(name, tier)
+end
+
+--- The stats a better tier of `item` improves, in order (tiers/init.lua),
+--- whether they are clothes multipliers, and what to call them where the
+--- usual names won't do (a gun's cooldown is its rate of fire); nil for
+--- things without tiers.
+function Kinds.tierStats(item)
+  local base = Tiers.base(item)
+  local gun, ability = base:match("^gun%-(.+)$"), base:match("^ability%-(.+)$")
+  local armor, gear = base:match("^armor%-(.+)$"), base:match("^gear%-(.+)$")
+  if gun and Guns[gun] then
+    return Guns[gun].tierStats, false, { cooldown = "fire rate" }
+  elseif ability and AbilityKinds.byKey[ability] then
+    return AbilityKinds.byKey[ability].tierStats
+  elseif armor and ArmorKinds.byKey[armor] then
+    return ArmorKinds.byKey[armor].tierStats
+  elseif gear and GearKinds.byKey[gear] then
+    return GearKinds.byKey[gear].tierStats, true
+  end
+  return nil
+end
+
+--- What `item`'s tier does, for a card or a tooltip: "+25% damage, fire
+--- rate", or "base stats" for a common; nil for things without tiers.
+--- Clothes say what the improved stats come to: "speed +19%".
+function Kinds.tierLine(item)
+  local stats, clothes, labels = Kinds.tierStats(item)
+  if not (stats and Tiers.tiered(item)) then
+    return nil
+  end
+  local tier = Tiers.of(item)
+  if clothes then
+    local g = GearKinds.byKey[Tiers.base(item):sub(6)]
+    local parts = {}
+    for i, stat in ipairs(stats) do
+      if Tiers.improves(tier, i) then
+        local m = Tiers.multiplier(g.stats[stat], tier, i)
+        parts[#parts + 1] = ("%s %+d%%"):format(Tiers.label(stat), math.floor((m - 1) * 100 + 0.5))
+      end
+    end
+    return #parts > 0 and table.concat(parts, ", ") or "base stats"
+  end
+  return Tiers.describe(stats, tier, false, labels) or "base stats"
 end
 
 --- A readable name for an item and a count: "10 uzi ammo", "1 medkit".
@@ -278,8 +328,14 @@ function Kinds.isItem(item)
 end
 
 --- Can a player carry `item` in their bag: anything a building makes but a
---- car, and the abilities, armor and clothes other features put there?
+--- car, and the abilities, armor and clothes other features put there, in
+--- any tier for the things that come in tiers?
 function Kinds.carriable(item)
+  local tier
+  item, tier = Tiers.split(item)
+  if not tier or (tier ~= Tiers.DEFAULT and not Tiers.tiered(item)) then
+    return false
+  end
   local ability, armor, gear = item:match("^ability%-(.+)$"), item:match("^armor%-(.+)$"), item:match("^gear%-(.+)$")
   if ability then
     return AbilityKinds.byKey[ability] ~= nil

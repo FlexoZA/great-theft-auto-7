@@ -12,7 +12,10 @@
 --   badge   what the badge says instead of the kind ("passive" for a passive ability)
 --   price   Fcks; 0 is free. Everything is free for now: put prices here
 --           when the economy is ready and the host charges them (init.lua
---           pays through money:spend).
+--           pays through money:spend). A better tier costs more
+--           (`Catalog.price`).
+--   tiered  true for equipment (guns, abilities, armor, clothes): it is sold
+--           in every tier (tiers/init.lua), "gun-uzi@rare" on the wire
 --
 -- The host and every client share this list, so an item on the wire is
 -- checked against `Catalog.byItem` before anything is handed over.
@@ -23,6 +26,7 @@ local Vehicles = require("src.features.vehicles.catalog")
 local Kinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
 local GearKinds = require("src.features.gear.kinds")
+local Tiers = require("src.features.tiers")
 
 local Catalog = {
   list = {},
@@ -47,6 +51,7 @@ end
 
 local function add(entry)
   entry.price = entry.price or 0
+  entry.tiered = Tiers.tiered(entry.item)
   Catalog.list[#Catalog.list + 1] = entry
   Catalog.byItem[entry.item] = entry
 end
@@ -80,6 +85,25 @@ end
 
 for _, t in ipairs(Catalog.tabs) do
   Catalog.tabByKey[t.key] = t
+end
+
+--- What `entry` costs in tier `tier`: its price times the tier's.
+function Catalog.price(entry, tier)
+  if not entry.tiered then
+    return entry.price
+  end
+  return entry.price * Tiers.get(tier).price
+end
+
+--- The entry `item` ("gun-uzi", "gun-uzi@rare") is bought from, and its
+--- tier; nil for anything not for sale, or a tier on something that has none.
+function Catalog.lookup(item)
+  local base, tier = Tiers.split(item or "")
+  local entry = Catalog.byItem[base]
+  if not (entry and tier) or (tier ~= Tiers.DEFAULT and not entry.tiered) then
+    return nil
+  end
+  return entry, tier
 end
 
 --- The entries on tab `key`, in shelf order.

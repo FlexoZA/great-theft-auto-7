@@ -380,6 +380,23 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. `weapons:serverFire` counts rounds for human players only; a
   player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
+- Tiers: everything a player equips (guns, abilities, armor, clothes) comes
+  in a tier, `src/features/tiers`: common (grey, base stats), uncommon
+  (green, its first stat better), rare (blue, its first two, by more) and
+  legendary (gold, all of them, by more again). Each kind lists the stats a
+  tier improves, in order, as `tierStats` (`guns.lua`, each ability module,
+  `armor/kinds.lua`, `gear/kinds.lua`). An item of a tier is its key with
+  `@<tier>` on the end (`"gun-uzi@rare"`); nothing on the end is common, so
+  old items and saves stay valid. `Tiers.split(s)` → base, tier (nil for a
+  made-up one), `Tiers.join(base, tier)`, `Tiers.apply(kind, tier)` → a
+  table that reads like `kind` with the tier's numbers (cached, with `tier`
+  and `base`), `Tiers.color(tier)` and `Tiers.drawFrame(tier, x, y, w, h)`
+  for every box that shows one. A slot keeps its tier (`"leap@rare"` in an
+  ability slot, `"vest@rare"` worn) and hands the item back in it; another
+  tier of something already carried swaps with it where it is. Medkits,
+  drinks, ammo and materials have none. **New equipment gets tiers too**:
+  add its item prefix to `Tiers.prefixes`, give its kinds `tierStats`, read
+  its numbers through `Tiers.apply`, and draw its boxes with `drawFrame`.
 - Weapon slots: each player carries guns in `weapons.slotCount` slots, one
   per number key; the host keeps them (the pistol in slot 1 and any gun with
   a `stock` in `guns.lua` after it, to start with) and tells the player
@@ -654,7 +671,9 @@ example with a menu; real-estate is the one with a place to stand.
   `serverDeliver` (vehicles answers), in the first delivery bay with no
   car in it. Everything is free for now: prices live in the catalog and
   the host pays them through `money:spend` when they are above zero.
-  Messages: `SHOP_BUY <item>`, `SHOP_OK <item> <n>`, `SHOP_NO <reason>`.
+  Equipment is sold in every tier, picked on a row of tier buttons under
+  the tabs; a better tier costs more (its `price` multiplier, `Catalog.price`).
+  Messages: `SHOP_BUY <item>[@<tier>]`, `SHOP_OK <item>[@<tier>] <n>`, `SHOP_NO <reason>`.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or

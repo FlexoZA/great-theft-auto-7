@@ -13,6 +13,8 @@
 --             cooldown  how long abilities take to come back (abilities)
 --             armor     how many points a vest has (armor)
 --           Pieces stack: two that each give x1.2 give x1.44.
+--   tierStats  which of its stats a better tier improves, in order
+--              (tiers/init.lua); a piece with one stat needs none
 
 local Kinds = {
   slots = { "head", "body", "pants", "shoes" },
@@ -32,6 +34,7 @@ local Kinds = {
     {
       key = "running-shoes", slot = "shoes", title = "running shoes", color = { 0.9, 0.35, 0.3 },
       blurb = "15% faster on foot, sprinting costs 30% less", stats = { speed = 1.15, stamina = 0.7 },
+      tierStats = { "speed", "stamina" },
     },
   },
   byKey = {},
@@ -40,6 +43,13 @@ local Kinds = {
 
 for _, g in ipairs(Kinds.list) do
   Kinds.byKey[g.key] = g
+  if not g.tierStats then
+    g.tierStats = {}
+    for name in pairs(g.stats) do
+      g.tierStats[#g.tierStats + 1] = name
+    end
+    table.sort(g.tierStats)
+  end
   Kinds.bySlot[g.slot] = Kinds.bySlot[g.slot] or {}
   table.insert(Kinds.bySlot[g.slot], g)
 end

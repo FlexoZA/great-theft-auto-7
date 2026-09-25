@@ -35,8 +35,9 @@ Nest.gun = Guns.ak47 -- what it fires; its damage, speed and scatter
 Nest.fireEvery = 0.04 -- seconds between rounds: twenty-five a second, a proper machine gun
 Nest.sweep = 1.6 -- seconds one pass from one side of the arc to the other and back takes
 Nest.barrel = 16 -- px from the middle to the muzzle
+Nest.tierStats = { "cooldown", "seconds", "fireEvery" } -- what a better tier improves, in order
 
-local nests = {} -- { owner, x, y, angle, placedAt, untilT, nextShot }
+local nests = {} -- { owner, x, y, angle, placedAt, untilT, nextShot, fireEvery }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -51,7 +52,8 @@ end
 
 --- Put a nest down at (x, y), facing away from the caster. Nobody is held,
 --- so the list is empty; the facing goes out with ABL_FIRED.
-function Nest.serverCast(server, caster, x, y, abilities)
+function Nest.serverCast(server, caster, x, y, abilities, A)
+  A = A or Nest -- the nest in the caster's tier
   local ox, oy = Features.bodyPose(server, caster)
   local angle = math.atan2(y - oy, x - ox)
   -- Not inside a wall: pulled back towards the caster until it stands clear.
@@ -62,7 +64,8 @@ function Nest.serverCast(server, caster, x, y, abilities)
   end
   local now = abilities.sv.time
   nests[#nests + 1] = {
-    owner = caster.id, x = x, y = y, angle = angle, placedAt = now, untilT = now + Nest.seconds, nextShot = 0,
+    owner = caster.id, x = x, y = y, angle = angle, placedAt = now, untilT = now + A.seconds, nextShot = 0,
+    fireEvery = A.fireEvery,
   }
   return {}, angle, x, y
 end
@@ -83,14 +86,15 @@ function Nest.serverStep(server, _dt, abilities)
       table.remove(nests, i)
     elseif weapons and weapons.serverFireFrom then
       -- Faster than the host ticks: every round owed since the last tick.
-      if nest.nextShot < now - Nest.fireEvery * 3 then
+      local every = nest.fireEvery or Nest.fireEvery
+      if nest.nextShot < now - every * 3 then
         nest.nextShot = now -- don't make up for time lost to a stall
       end
       while now >= nest.nextShot do
         local aim = sweepAngle(nest, nest.nextShot - nest.placedAt)
         local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
         weapons:serverFireFrom(server, nest.owner, mx, my, aim, Nest.gun)
-        nest.nextShot = nest.nextShot + Nest.fireEvery
+        nest.nextShot = nest.nextShot + every
       end
     end
   end

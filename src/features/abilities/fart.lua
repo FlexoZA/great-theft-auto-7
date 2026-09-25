@@ -26,8 +26,9 @@ Fart.range = 0 -- it is let go where you stand
 Fart.seconds = 6 -- how long the cloud hangs
 Fart.cooldown = 25 -- seconds before the next
 Fart.afterglow = 1.2 -- seconds the cloud takes to thin out once it is spent
+Fart.tierStats = { "cooldown", "radius", "seconds" } -- what a better tier improves, in order
 
-local clouds = {} -- { by, x, y, untilT }
+local clouds = {} -- { by, x, y, untilT, radius }
 
 -- Server --------------------------------------------------------------------
 
@@ -36,8 +37,9 @@ function Fart.serverReset()
 end
 
 --- A cloud where the caster stands. Nobody is held.
-function Fart.serverCast(_server, caster, x, y, abilities)
-  clouds[#clouds + 1] = { by = caster.id, x = x, y = y, untilT = abilities.sv.time + Fart.seconds }
+function Fart.serverCast(_server, caster, x, y, abilities, A)
+  A = A or Fart -- the fart in the caster's tier
+  clouds[#clouds + 1] = { by = caster.id, x = x, y = y, untilT = abilities.sv.time + A.seconds, radius = A.radius }
   return {}
 end
 
@@ -49,7 +51,7 @@ function Fart.serverStep(server, _dt, abilities)
     if now >= c.untilT then
       table.remove(clouds, i)
     else
-      Features.call("serverPanicArea", server, c.x, c.y, Fart.radius, c.by)
+      Features.call("serverPanicArea", server, c.x, c.y, c.radius, c.by)
     end
   end
 end
@@ -69,7 +71,7 @@ function Fart.drawEffect(e)
   local c = Fart.color
   local fade = math.max(0, math.min(1, (e.seconds + Fart.afterglow - e.t) / Fart.afterglow))
   local grow = math.min(1, e.t / 0.6) -- it billows out over the first moment
-  local r = Fart.radius * grow
+  local r = (e.ability or Fart).radius * grow
   local seed = math.floor(e.x * 3 + e.y * 7)
   love.graphics.setColor(c[1], c[2], c[3], 0.10 * fade)
   love.graphics.circle("fill", e.x, e.y, r, 48)

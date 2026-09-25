@@ -50,12 +50,15 @@ Leap.afterglow = 0.7 -- seconds the landing's dust and cracks linger
 Leap.damage = 45 -- to someone right where you land; half that at the edge
 Leap.soft = 3 -- soft targets (pedestrians, officers) the landing can drop
 Leap.lift = 22 -- px the shadow drifts from the leaper at the top of the arc
+-- What a better tier improves, in order: an uncommon leap comes back
+-- sooner, a rare one flies further too, a legendary one also lands harder.
+Leap.tierStats = { "cooldown", "range", "damage", "radius" }
 
 -- A leaper found this far from where the leap last put them was moved by
 -- something else (a respawn, a new map): the leap is over.
 local LOST = 64
 
-local leaps = {} -- player id -> { ability, sx, sy, x, y, angle, startT, flight, lastX, lastY }
+local leaps = {} -- player id -> { ability, kind, sx, sy, x, y, angle, startT, flight, lastX, lastY }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -92,7 +95,7 @@ function Leap.serverLeaping(id)
   return leaps[id] ~= nil
 end
 
---- Up they go on leap `A`, towards (x, y): pulled back towards the caster
+--- Up they go on leap `A` (in the caster's tier), towards (x, y): pulled back towards the caster
 --- until the landing is clear of walls. Nobody is held; the landing spot
 --- and the way the leap goes out with ABL_FIRED, and how long it flies if
 --- that is longer than usual.
@@ -106,7 +109,7 @@ local function cast(A, server, caster, x, y, abilities)
   end
   local flight = math.max(A.seconds, d / A.range * A.seconds) -- no faster than a full leap
   leaps[caster.id] = {
-    ability = A,
+    ability = A, kind = A.base or A, -- the tuned leap, and which leap it is
     sx = ox, sy = oy, x = x, y = y, angle = angle, startT = abilities.sv.time, flight = flight,
     lastX = ox, lastY = oy,
   }
@@ -172,7 +175,7 @@ local function step(A, server, abilities)
   for id, l in pairs(leaps) do
     local player = server.players[id]
     local body = player and player.body
-    if l.ability ~= A then -- luacheck: ignore 542
+    if l.kind ~= A then -- luacheck: ignore 542
       -- Another leap's: it flies them itself.
     elseif not (body and Features.present(player)) or player.vehicle
       or dist2(body.x, body.y, l.lastX, l.lastY) > LOST * LOST then
@@ -184,14 +187,14 @@ local function step(A, server, abilities)
       l.lastX, l.lastY = x, y
       if k >= 1 then
         leaps[id] = nil
-        slam(A, server, player, x, y)
+        slam(l.ability, server, player, x, y)
       end
     end
   end
 end
 
-function Leap.serverCast(server, caster, x, y, abilities)
-  return cast(Leap, server, caster, x, y, abilities)
+function Leap.serverCast(server, caster, x, y, abilities, A)
+  return cast(A or Leap, server, caster, x, y, abilities)
 end
 
 function Leap.serverStep(server, _dt, abilities)
@@ -330,8 +333,8 @@ function Leap.variant(tuning)
     A[k] = v
   end
   A.variant = nil
-  A.serverCast = function(server, caster, x, y, abilities)
-    return cast(A, server, caster, x, y, abilities)
+  A.serverCast = function(server, caster, x, y, abilities, T)
+    return cast(T or A, server, caster, x, y, abilities)
   end
   A.serverStep = function(server, _dt, abilities)
     step(A, server, abilities)
