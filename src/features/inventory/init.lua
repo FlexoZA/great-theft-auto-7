@@ -30,7 +30,6 @@
 
 local Features = require("src.features")
 local Controls = require("src.controls")
-local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
 local Guns = require("src.features.weapons.guns")
 local Screen = require("src.features.inventory.screen")
@@ -478,27 +477,12 @@ function Inventory:update(dt, client)
   end
 end
 
---- A reminder of the key, bottom left, while the screen is shut.
-local function drawHint(b)
-  local used = Kinds.slotsUsed(b.inventory)
-  local line = ("%s: inventory (%d/%d)"):format(Controls.name(Controls.bindings("inventory")[1]), used, b.slots)
-  for _, u in ipairs(b.usables) do
-    if b:quickCount(u.item) > 0 then
-      line = line .. "   " .. Controls.name(Controls.bindings(u.action)[1]) .. ": " .. Kinds.name(u.item, 1)
-    end
-  end
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.85, 0.8, 0.6)
-  love.graphics.print(line, 10, love.graphics.getHeight() - 28)
-end
-
 function Inventory:drawHUD(client)
   local b = buildings()
   if not b then
     return
   end
   if not self.open then
-    drawHint(b)
     return
   end
   local d = self.drag and self.drag.moved and self.drag or nil

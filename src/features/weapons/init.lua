@@ -566,9 +566,10 @@ function Weapons:worldBlur()
 end
 
 --- The gun in hand, bottom centre just left of the ability circles: its
---- icon drawn large on a dark backing, and under it the name, rounds over magazine size and
---- spares; red (and the gun faded) when the magazine is empty, amber with a
---- bar under the gun while it reloads.
+--- icon drawn large on a dark backing, the reload key over it, and under it
+--- the name, rounds over magazine size and spares; red (and the gun faded)
+--- when the magazine is empty, amber with a bar under the gun while it
+--- reloads.
 function Weapons:drawMagazine()
   local w, h = love.graphics.getDimensions()
   local gun = Guns.list[self.gun]
@@ -588,17 +589,32 @@ function Weapons:drawMagazine()
   elseif empty then
     color, alpha = { 1, 0.45, 0.4 }, 0.45
   end
+  -- Over the gun: the reload key, lit red when the magazine wants it; the
+  -- word while it runs; nothing with bottomless magazines.
+  local hint, hintColor
+  if self.reloading then
+    hint, hintColor = "reloading", color
+  elseif empty and spare < 1 then
+    hint, hintColor = "no ammo", color
+  elseif not self.infiniteAmmo then
+    hint = Controls.name(Controls.bindings("reload")[1]) .. ": reload"
+    hintColor = empty and color or { 0.75, 0.75, 0.8 }
+  end
   local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
-  local blockW = math.max(self.hudIconW, textW)
+  local blockW = math.max(self.hudIconW, textW, hint and small:getWidth(hint) or 0)
   local cx = right - blockW / 2
   local y = h - 8 - body:getHeight() -- the count line, along the bottom
-  local top = y - 12 - self.hudIconH
+  local top = y - 14 - self.hudIconH - small:getHeight() -- room for the hint whether or not there is one
   -- A dark backing so the steel reads over a pale road as well as a dark one.
   love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
   love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
   Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
+  if hint then
+    love.graphics.setFont(small)
+    UI.label(hint, math.floor(cx - small:getWidth(hint) / 2), top + 4, hintColor)
+  end
   local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
