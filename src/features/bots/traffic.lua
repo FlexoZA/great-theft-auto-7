@@ -6,7 +6,9 @@
 --   * keep right: the lane is `lane` px right of the street's centre line
 --     (the map's spawn points sit in the same lanes);
 --   * a speed limit, `speed` (what the brain asks for), and slower through
---     a turn (`turnSpeed`);
+--     a turn: as fast as the car's own turn rate gets it round, braking in
+--     time the way the car brakes (a loaded truck needs three times the
+--     room of a hatchback);
 --   * keep your distance: brake for any car ahead in your path;
 --   * wait at a crossing while another car is going across it;
 --   * stop for anyone on foot in your path: pedestrians, officers, players,
@@ -40,7 +42,8 @@ local Traffic = {}
 -- Tuning ------------------------------------------------------------------
 Traffic.lane = 32 -- px right of the centre line: the middle of the right-hand lane
 Traffic.turnSpeed = 90 -- px/s through a turn
-Traffic.turnSlowdown = 190 -- px before a crossing a turning car starts slowing for it
+Traffic.turnRadius = 55 -- px a car should get round a corner in; its turn speed is this times its turn rate
+Traffic.brakeMargin = 0.6 -- share of a car's brakes the planning counts on (a heavy truck brakes far worse)
 Traffic.lookMin, Traffic.lookMax = 50, 130 -- px ahead along the lane the car steers at
 Traffic.carGap = 26 -- px of bumper to bumper a car stops short of another
 Traffic.walkerGap = 34 -- px short of someone on foot a car stops
@@ -56,9 +59,8 @@ Traffic.recklessTurnSpeed = 170 -- px/s a reckless driver takes a turn at
 Traffic.weave = 0.35 -- how hard a reckless driver weaves (steering, either way)
 Traffic.feelers = { 0, -0.3, 0.3, -0.65, 0.65 } -- radians off the nose a reckless driver looks for walls along
 Traffic.feelerStep = 8 -- px between the points tested along a feeler
-Traffic.feelerReach = { 50, 0.55 } -- a feeler's length: base px, plus this many seconds of the car's speed
+Traffic.feelerReach = { 60, 360 } -- a feeler's length: base px plus the car's stopping distance, up to the most
 Traffic.dodge = 1.8 -- how hard the feelers steer away from a wall (full lock at a wall one feeler-length off)
-Traffic.wallBrake = 2.2 -- px/s of speed a reckless driver allows per px of free road straight ahead
 Traffic.offLane = 110 -- px from its lane: the car has lost the road and finds it again
 
 local T, P = Layout.TILE, Layout.PERIOD
@@ -193,27 +195,52 @@ local function place(car, route)
   return along, side - Traffic.lane, len
 end
 
---- The nearest street to the car, taken in the direction it is facing.
+--- Is the straight line from (ax, ay) to (bx, by) clear of anything solid?
+local function inSight(ax, ay, bx, by)
+  local dx, dy = bx - ax, by - ay
+  local steps = math.ceil(math.sqrt(dx * dx + dy * dy) / 16)
+  for k = 1, steps do
+    if Features.any("blocksPoint", ax + dx * k / steps, ay + dy * k / steps) then
+      return false
+    end
+  end
+  return true
+end
+
+--- The nearest street to the car that it can see (a street behind a
+--- building is no good: it would drive into the building to get there),
+--- taken in the direction the car is facing. The nearest one of all if
+--- none of the closest few are in sight.
 local function snap(graph, car)
-  local best, bestD
   local hx, hy = math.cos(car.angle), math.sin(car.angle)
+  local found = {}
   for _, a in pairs(graph.nodes) do
     for _, e in ipairs(a.exits) do
-      local b = e.node
-      -- Distance from the car to the segment between the two crossings.
-      local sx, sy = b.x - a.x, b.y - a.y
-      local len2 = sx * sx + sy * sy
-      local t = math.max(0, math.min(1, ((car.x - a.x) * sx + (car.y - a.y) * sy) / len2))
-      local px, py = a.x + sx * t, a.y + sy * t
-      local d = (car.x - px) ^ 2 + (car.y - py) ^ 2
-      if not bestD or d < bestD - 1 or (math.abs(d - bestD) <= 1 and e.dx * hx + e.dy * hy > 0) then
-        best, bestD = { from = a, to = b, dx = e.dx, dy = e.dy }, d
+      if e.dx > 0 or e.dy > 0 then -- each street once
+        local b = e.node
+        local sx, sy = b.x - a.x, b.y - a.y
+        local len2 = sx * sx + sy * sy
+        local t = math.max(0, math.min(1, ((car.x - a.x) * sx + (car.y - a.y) * sy) / len2))
+        local px, py = a.x + sx * t, a.y + sy * t
+        found[#found + 1] = { a = a, b = b, dx = e.dx, dy = e.dy, px = px, py = py,
+          d = (car.x - px) ^ 2 + (car.y - py) ^ 2 }
       end
     end
   end
-  if not best then
+  if #found == 0 then
     return nil
   end
+  table.sort(found, function(p, q)
+    return p.d < q.d
+  end)
+  local pick = found[1]
+  for k = 1, math.min(6, #found) do
+    if inSight(car.x, car.y, found[k].px, found[k].py) then
+      pick = found[k]
+      break
+    end
+  end
+  local best = { from = pick.a, to = pick.b, dx = pick.dx, dy = pick.dy }
   -- Drive it the way the car already points.
   if best.dx * hx + best.dy * hy < 0 then
     best.from, best.to, best.dx, best.dy = best.to, best.from, -best.dx, -best.dy
@@ -236,10 +263,26 @@ local function pickNext(route)
   return options[love.math.random(#options)]
 end
 
---- How fast the car may go with something `room` px ahead of the point it
---- has to stop at: slowing in a straight line down to nothing there.
-local function stopping(room)
-  return math.max(0, room) * Traffic.brakeRate
+--- How hard `car` can count on braking, px/s^2: its model's brakes (a
+--- heavy truck's are a third of a hatchback's), with a margin.
+local function decel(car)
+  return (car.brake or 700) * Traffic.brakeMargin
+end
+
+--- How fast `car` may go with something `room` px ahead of the point it
+--- has to be down to `endSpeed` (default 0) at: gently for the last stretch,
+--- and never faster than its brakes can shed in the room.
+local function stopping(room, car, endSpeed)
+  room = math.max(0, room)
+  endSpeed = endSpeed or 0
+  local brakes = car and math.sqrt(endSpeed * endSpeed + 2 * decel(car) * room) or math.huge
+  return math.min(endSpeed + room * Traffic.brakeRate, brakes)
+end
+
+--- How fast `car` can take a corner (`fastest` at the most): what its turn
+--- rate gets round Traffic.turnRadius at. A bus takes it at half a hatchback's.
+local function cornerSpeed(car, fastest)
+  return math.min(fastest, (car.turnRate or 2.6) * Traffic.turnRadius)
 end
 
 --- The nearest thing in the car's path, as the speed the car may do for
@@ -257,7 +300,7 @@ local function clearance(map, car, vehicles, walkers, look, creeping)
       if along > 0 and along < look then
         local across = math.abs(-rx * hy + ry * hx)
         if across < Traffic.pathHalf + Car.HEIGHT / 2 then
-          limit = math.min(limit, stopping(along - Car.WIDTH - Traffic.carGap))
+          limit = math.min(limit, stopping(along - Car.WIDTH - Traffic.carGap, car))
         end
       end
     end
@@ -278,7 +321,7 @@ local function clearance(map, car, vehicles, walkers, look, creeping)
       local rx, ry = wx + vx * t - car.x, wy + vy * t - car.y
       local along = rx * hx + ry * hy
       if along > 0 and along < look and math.abs(-rx * hy + ry * hx) < Traffic.pathHalf then
-        limit = math.min(limit, stopping(along - Car.WIDTH / 2 - Traffic.walkerGap))
+        limit = math.min(limit, stopping(along - Car.WIDTH / 2 - Traffic.walkerGap, car))
         break
       end
     end
@@ -318,7 +361,8 @@ end
 --- the nearest wall (positive turns right), how free the road is straight
 --- ahead, and whether anything was felt at all.
 local function feelers(car)
-  local reach = Traffic.feelerReach[1] + math.abs(car.speed) * Traffic.feelerReach[2]
+  local v = math.abs(car.speed)
+  local reach = math.min(Traffic.feelerReach[2], Traffic.feelerReach[1] + v * v / (2 * decel(car)))
   local left, right, ahead, felt = reach, reach, reach, false
   for _, off in ipairs(Traffic.feelers) do
     local d = feel(car, car.angle + off, reach)
@@ -404,21 +448,23 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
   input.steer = math.max(-1, math.min(1, steer))
 
   -- How fast: the limit, slower into a turn, then whatever is in the way.
-  local want = speed
-  if turning and rem < Traffic.turnSlowdown then
-    want = math.min(want, (reckless and Traffic.recklessTurnSpeed or Traffic.turnSpeed) + stopping(rem - BOX))
+  local want = math.min(speed, car.maxSpeed or speed)
+  local corner = cornerSpeed(car, reckless and Traffic.recklessTurnSpeed or Traffic.turnSpeed)
+  if turning then
+    want = math.min(want, stopping(rem - BOX, car, corner))
   end
   if reckless then
-    -- No looking out for anyone; only for walls, slowing enough to get round.
-    return math.min(want, Traffic.turnSpeed + ahead * Traffic.wallBrake)
+    -- No looking out for anyone; only for walls, braking in time to get
+    -- round them, the way this car brakes.
+    return math.min(want, stopping(ahead - 10, car, corner))
   end
   if math.abs(err) > 0.7 then
-    want = math.min(want, Traffic.turnSpeed) -- well off line (rejoining the road): take it easy
+    want = math.min(want, corner) -- well off line (rejoining the road): take it easy
   end
   -- Wait short of a crossing someone else is going across.
   if rem > BOX and rem < BOX + 90 and crossingBusy(route.to, car, vehicles) and ai.waited < Traffic.yieldWait then
     ai.waited = ai.waited + dt
-    want = math.min(want, stopping(rem - BOX - 8))
+    want = math.min(want, stopping(rem - BOX - 8, car))
   end
   -- Held up by other cars for long enough: creep on through them.
   if math.abs(car.speed) > Traffic.creepSpeed + 10 then
