@@ -140,6 +140,15 @@ function Shop:pointerTaken()
   return self.open
 end
 
+--- The `closeMenu` convention: Esc takes the screen down.
+function Shop:closeMenu()
+  if not self.open then
+    return false
+  end
+  self.open = false
+  return true
+end
+
 --- The `actionTaken` convention: the action key is ours on the bag and
 --- while the screen is up, so on-foot leaves the cars alone.
 function Shop:actionTaken()

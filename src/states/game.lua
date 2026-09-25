@@ -376,7 +376,11 @@ function Game:keypressed(key)
     return
   end
   if key == "escape" then
-    self:setPaused(not self.paused)
+    -- A panel up in the game (inventory, shop) goes down first; only a bare
+    -- Esc pauses.
+    if self.paused or not Features.any("closeMenu", Net.client) then
+      self:setPaused(not self.paused)
+    end
     return
   end
   if self.paused then
