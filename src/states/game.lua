@@ -5,7 +5,8 @@
 --
 -- Esc opens the pause menu over the world: resume, settings (the same
 -- panel as the main menu's, over the game), leave the game (which ends it
--- for everyone when you are the host) or quit to the desktop. The game is
+-- for everyone when you are the host) or quit to the desktop, which asks
+-- first and saves on the way out. The game is
 -- not actually paused -- nothing pauses in multiplayer -- but the controls
 -- are suspended so nothing you press or click reaches the car or the gun,
 -- the network keeps flowing, and the world blurs under the menu.
@@ -93,9 +94,44 @@ function Game:buildMenu()
       State.switch("menu")
     end }),
     UI.button({ label = "Quit to desktop", w = MENU_W, onClick = function()
-      love.event.quit()
+      self.confirmQuit = true
     end }),
   }
+  self.quitMenu = {
+    UI.button({ label = "Yes, quit", w = MENU_W, onClick = function()
+      self:quitToDesktop()
+    end }),
+    UI.button({ label = "Cancel", w = MENU_W, onClick = function()
+      self.confirmQuit = false
+    end }),
+  }
+end
+
+--- Save and leave: the host writes the world and everyone in it before the
+--- server closes (Server:close), a joiner says goodbye so the host saves
+--- them, then the window goes.
+function Game:quitToDesktop()
+  Net.shutdown()
+  love.event.quit()
+end
+
+--- What quitting does to this game, under the question.
+local function quitNote()
+  if Net.isHost() then
+    if Net.server and Net.server.world then
+      return "The world is saved first. Everyone playing is sent back to the menu."
+    end
+    return "This game is not a saved world: it ends for everyone and is gone."
+  end
+  if Net.client and Net.client.worldName then
+    return "The host saves your progress in " .. Net.client.worldName .. "."
+  end
+  return "This game is not a saved world: nothing of it is kept."
+end
+
+--- The buttons up right now: the pause menu, or the quit question.
+function Game:menuButtons()
+  return self.confirmQuit and self.quitMenu or self.menu
 end
 
 --- The settings panel over the pause menu; Back (or Esc) returns to the menu.
@@ -115,6 +151,7 @@ function Game:setPaused(on)
   end
   self.paused = on
   self.settingsOpen = false
+  self.confirmQuit = false
   if on then
     self.mouseWas = { grabbed = love.mouse.isGrabbed(), visible = love.mouse.isVisible() }
     love.mouse.setGrabbed(false)
@@ -134,7 +171,7 @@ function Game:layoutMenu()
   local w, h = love.graphics.getDimensions()
   local x = math.floor((w - MENU_W) / 2)
   local y = math.floor(h / 2) - 40
-  for i, b in ipairs(self.menu) do
+  for i, b in ipairs(self:menuButtons()) do
     b.x, b.y = x, y + (i - 1) * 56
   end
 end
@@ -146,11 +183,13 @@ function Game:drawMenu()
   love.graphics.rectangle("fill", 0, 0, w, h)
   love.graphics.setFont(UI.fonts.title)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.printf("PAUSED", 0, math.floor(h / 2) - 130, w, "center")
+  local title = self.confirmQuit and "QUIT TO DESKTOP?" or "PAUSED"
+  love.graphics.printf(title, 0, math.floor(h / 2) - 130, w, "center")
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.printf("The game carries on without you: get back in it.", 0, math.floor(h / 2) - 72, w, "center")
-  for _, b in ipairs(self.menu) do
+  local note = self.confirmQuit and quitNote() or "The game carries on without you: get back in it."
+  love.graphics.printf(note, 0, math.floor(h / 2) - 72, w, "center")
+  for _, b in ipairs(self:menuButtons()) do
     b:draw()
   end
   love.graphics.setColor(1, 1, 1)
@@ -375,6 +414,10 @@ function Game:keypressed(key)
     self.settings:keypressed(key) -- Esc there closes the panel, not the menu
     return
   end
+  if key == "escape" and self.confirmQuit then
+    self.confirmQuit = false -- back to the pause menu
+    return
+  end
   if key == "escape" then
     self:setPaused(not self.paused)
     return
@@ -391,7 +434,7 @@ function Game:mousepressed(x, y, button)
       self.settings:mousepressed(x, y, button)
       return
     end
-    for _, b in ipairs(self.menu) do
+    for _, b in ipairs(self:menuButtons()) do
       if b:mousepressed(x, y, button) then
         return
       end
