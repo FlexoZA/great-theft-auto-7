@@ -271,6 +271,20 @@ function Kinds.isItem(item)
   return false
 end
 
+--- Can a player carry `item` in their bag: anything a building makes but a
+--- car, and the abilities, armor and clothes other features put there?
+function Kinds.carriable(item)
+  local ability, armor, gear = item:match("^ability%-(.+)$"), item:match("^armor%-(.+)$"), item:match("^gear%-(.+)$")
+  if ability then
+    return AbilityKinds.byKey[ability] ~= nil
+  elseif armor then
+    return ArmorKinds.byKey[armor] ~= nil
+  elseif gear then
+    return GearKinds.byKey[gear] ~= nil
+  end
+  return Kinds.isItem(item) and not Kinds.isVehicle(item)
+end
+
 --- The inputs of a recipe as an ordered list of { item, n }, for drawing.
 function Kinds.inputList(recipe)
   local out = {}

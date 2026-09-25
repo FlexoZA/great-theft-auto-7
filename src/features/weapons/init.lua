@@ -30,7 +30,8 @@
 -- and tells you them (WPN_GUNS); the HUD only lists those, and the host
 -- refuses to select or fire a gun that isn't in one (serverOwns). Putting
 -- down the gun in hand leaves you holding the pistol. Nothing is trusted
--- from the client but the ask.
+-- from the client but the ask. A saved world keeps a player's slots and
+-- magazines for next time (serverSavePlayer); health comes back full.
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (X) refills the one in hand from the ammo in your inventory
@@ -162,7 +163,7 @@ local function clientPose(client, id)
   return Features.clientBodyPose(client, id)
 end
 
--- Client state (also reset in enterGame) ------------------------------------
+-- Client state (reset in enterGame and resetSynced) -------------------------
 
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 Weapons.health = {} -- player id -> hp (absent = full)
@@ -190,6 +191,7 @@ Weapons.camera = nil -- last camera seen in update; needed to aim through pans a
 
 function Weapons:load()
   Sounds.load()
+  self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
   Controls.register("reload", "Reload", "x") -- R went to the abilities
@@ -198,26 +200,33 @@ function Weapons:load()
   end
 end
 
-function Weapons:enterGame()
-  self.projectiles = {}
+--- What the host tells us about everyone (health, ceilings, my slots and
+--- magazines). It arrives just before the game is entered -- WPN_GUNS from
+--- serverStart, a latecomer's catch-up from serverPlayerJoined -- so it is
+--- only cleared on the way out, never on the way in.
+function Weapons:resetSynced()
   self.health = {}
   self.maxHealth = {}
   self.carHealth = {}
   self.carMax = {}
   self.kills = {}
-  self.hitFlash = {}
-  self.carFlash = {}
-  self.feed = nil
-  self.cooldown = 0
-  self.gun = Guns.DEFAULT
   self.slots = self:startSlots()
   self.mags = {}
   for i, gun in ipairs(Guns.list) do
     self.mags[i] = gun.magazine
   end
+  self.infiniteAmmo = false
+end
+
+function Weapons:enterGame()
+  self.projectiles = {}
+  self.hitFlash = {}
+  self.carFlash = {}
+  self.feed = nil
+  self.cooldown = 0
+  self.gun = Guns.DEFAULT
   self.reloading = nil
   self.ammoNotice = nil
-  self.infiniteAmmo = false
   self.camera = nil
   self.deadTimer = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
@@ -226,6 +235,7 @@ function Weapons:enterGame()
 end
 
 function Weapons:exitGame()
+  self:resetSynced()
   self:enterGame()
 end
 
@@ -682,8 +692,7 @@ function Weapons:drawHUD(client)
 end
 
 local function playerName(client, id)
-  local p = client.players[id]
-  return p and p.name or ("#" .. tostring(id))
+  return client:nameOf(id) or ("#" .. tostring(id)) -- a shot can land after its owner left
 end
 
 --- An explosion at (x, y) on this screen, with the camera shaking the
@@ -981,6 +990,34 @@ function Weapons:serverPlayerJoined(server, player)
     self:giveStock(server, player)
     self:sendGuns(server, player)
   end
+  if self.sv and player.body and not player.bot then
+    self:sendHealth(server, player)
+  end
+end
+
+--- A latecomer catches up on everyone's health and every car's that isn't
+--- the default (absent means full on the client), sent only on change.
+function Weapons:sendHealth(server, player)
+  for id, st in pairs(self.sv.players) do
+    if id ~= player.id then
+      if st.max ~= MAX_HEALTH then
+        server:send(player, Protocol.encode("WPN_MAX", id, st.max))
+      end
+      if st.hp ~= st.max then
+        server:send(player, Protocol.encode("WPN_HEALTH", id, st.hp))
+      end
+    end
+  end
+  for vid, cs in pairs(self.sv.cars) do
+    if server.vehicles[vid] then
+      if cs.max ~= CAR_HEALTH then
+        server:send(player, Protocol.encode("WPN_CARMAX", vid, cs.max))
+      end
+      if cs.hp ~= cs.max and not cs.deadUntil then
+        server:send(player, Protocol.encode("WPN_CARHP", vid, cs.hp))
+      end
+    end
+  end
 end
 
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
@@ -998,8 +1035,18 @@ function Weapons:mapChanged(_map, server)
   end
 end
 
-function Weapons:serverPlayerLeft(_server, player)
+function Weapons:serverPlayerLeft(server, player)
   if self.sv then
+    -- Left while dead: their own car stays in the world (the core keeps it)
+    -- but nobody is coming back to unhide it, so it is back at the slot now.
+    local st = self.sv.players[player.id]
+    local own = player.car
+    local cs = own and self.sv.cars[own.id]
+    if st and st.deadUntil and own and own.hidden and server.vehicles[own.id] and not (cs and cs.deadUntil) then
+      own.hidden = false
+      own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
+      own:stop()
+    end
     self.sv.players[player.id] = nil
   end
 end
@@ -1207,6 +1254,83 @@ function Weapons:serverMove(server, player, from, to)
   st.slots[from], st.slots[to] = st.slots[to], st.slots[from]
   self:sendGuns(server, player)
   return true
+end
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- `player`'s part of a saved world: the gun key in each weapon slot and
+--- the rounds in each magazine, by gun key so a reordered guns.lua can't
+--- mix them up. Spare rounds are items in the bag (buildings saves those);
+--- health, kills, the gun in hand and infinite ammo are not kept.
+function Weapons:serverSavePlayer(_server, player)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or player.bot then
+    return nil
+  end
+  local slots, mags = {}, {}
+  for slot = 1, self.slotCount do
+    local gun = st.slots[slot] and Guns.list[st.slots[slot]]
+    if gun then
+      slots[slot] = gun.key
+    end
+  end
+  for i, gun in ipairs(Guns.list) do
+    mags[gun.key] = st.mags[i] or 0
+  end
+  if st.deadUntil then
+    local pistol = Guns.at(Guns.DEFAULT)
+    mags[pistol.key] = math.max(mags[pistol.key], pistol.magazine) -- they'd be back with it loaded
+  end
+  return { version = SAVE_VERSION, slots = slots, mags = mags }
+end
+
+--- Put back what serverSavePlayer kept, over the start loadout. Guns no
+--- longer in guns.lua, bad slots and repeats are dropped; the pistol always
+--- has a slot; magazines hold 0 to their size.
+function Weapons:serverLoadPlayer(server, player, data)
+  local st = self.sv and self.sv.players[player.id]
+  if not st or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  end
+  if type(data.slots) == "table" then
+    local slots = {}
+    for slot = 1, self.slotCount do
+      local key = data.slots[slot]
+      local gun = type(key) == "string" and Guns[key]
+      if type(gun) == "table" and gun.key == key and not slotOf(slots, gun.index) then
+        slots[slot] = gun.index
+      end
+    end
+    if not slotOf(slots, Guns.DEFAULT) then
+      local free = 1 -- the first empty slot, or slot 1 when all are full
+      for slot = self.slotCount, 1, -1 do
+        if not slots[slot] then
+          free = slot
+        end
+      end
+      slots[free] = Guns.DEFAULT
+    end
+    st.slots = slots
+    if not slotOf(slots, st.gun) then
+      st.gun, st.reloadUntil = Guns.DEFAULT, nil
+    end
+  end
+  if type(data.mags) == "table" then
+    for i, gun in ipairs(Guns.list) do
+      local rounds = tonumber(data.mags[gun.key])
+      if rounds and rounds == rounds then
+        st.mags[i] = math.max(0, math.min(gun.magazine, math.floor(rounds)))
+      end
+    end
+  end
+  self:sendGuns(server, player)
+  if not player.bot then
+    for i in ipairs(Guns.list) do
+      server:send(player, Protocol.encode("WPN_MAG", i, st.mags[i]))
+    end
+  end
 end
 
 --- The gun `player` holds, dropped back to the pistol if it is no longer

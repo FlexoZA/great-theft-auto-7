@@ -1,6 +1,5 @@
 local State = require("src.state")
 local UI = require("src.ui")
-local Net = require("src.net")
 local Protocol = require("src.net.protocol")
 local Audio = require("src.audio")
 local Controls = require("src.controls")
@@ -25,7 +24,7 @@ function Menu:enter()
     love.window.setIcon(Logo.icon())
     iconSet = true
   end
-  self.background = self.background or Background.new()
+  self.background = Background.shared()
   if not self.nameField then
     local default = os.getenv("USER") or os.getenv("USERNAME") or "Player"
     self.nameField = UI.textField({ label = "Your name", value = default:sub(1, Protocol.MAX_NAME), focused = true })
@@ -72,13 +71,9 @@ function Menu:playerName()
   return Protocol.sanitizeName(self.nameField.value)
 end
 
+--- Pick a world to host (new or saved) first.
 function Menu:host()
-  local ok, err = Net.host(self:playerName())
-  if ok then
-    State.switch("lobby")
-  else
-    self.error = err
-  end
+  State.switch("worlds", self:playerName())
 end
 
 --- Left column holds the logo, title and controls; the face fills the right.

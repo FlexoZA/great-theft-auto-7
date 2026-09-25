@@ -2,39 +2,18 @@
 -- directory. Read with dotted paths, e.g. Settings.get("sound.music", 0.5).
 -- Loaded once on first require; every set() writes the file.
 
+local Serialize = require("src.serialize")
+
 local FILE = "settings.lua"
 
 local Settings = { data = {}, loaded = false }
-
-local function serialize(v, indent)
-  indent = indent or ""
-  local t = type(v)
-  if t == "table" then
-    local keys = {}
-    for k in pairs(v) do
-      keys[#keys + 1] = k
-    end
-    table.sort(keys, function(a, b)
-      return tostring(a) < tostring(b)
-    end)
-    local parts = {}
-    for _, k in ipairs(keys) do
-      parts[#parts + 1] = indent .. "  [" .. serialize(k) .. "] = " .. serialize(v[k], indent .. "  ")
-    end
-    return "{\n" .. table.concat(parts, ",\n") .. "\n" .. indent .. "}"
-  elseif t == "string" then
-    return ("%q"):format(v)
-  end
-  return tostring(v)
-end
 
 function Settings.load()
   Settings.loaded = true
   Settings.data = {}
   if love.filesystem.getInfo(FILE, "file") then
-    local chunk = love.filesystem.load(FILE)
-    local ok, data = pcall(chunk)
-    if ok and type(data) == "table" then
+    local data = Serialize.decode(love.filesystem.read(FILE), FILE)
+    if type(data) == "table" then
       Settings.data = data
     else
       print("settings: could not read " .. FILE .. ", using defaults")
@@ -43,7 +22,7 @@ function Settings.load()
 end
 
 function Settings.save()
-  love.filesystem.write(FILE, "return " .. serialize(Settings.data) .. "\n")
+  love.filesystem.write(FILE, Serialize.encode(Settings.data))
 end
 
 local function walk(path, create)

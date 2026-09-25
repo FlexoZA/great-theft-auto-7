@@ -105,6 +105,38 @@ function Features.any(name, ...)
   return false
 end
 
+--- Collect what hook `name` returns from every feature that defines it:
+--- { [feature name] = value }, skipping nils. Saving asks for each
+--- feature's slice of a saved world this way.
+function Features.gather(name, ...)
+  local out = {}
+  for _, f in ipairs(Features.list) do
+    local fn = f[name]
+    if fn then
+      local value = fn(f, ...)
+      if value ~= nil then
+        out[f.name] = value
+      end
+    end
+  end
+  return out
+end
+
+--- The other way round: call hook `name` with (..., slices[feature name])
+--- on every feature that defines it and has a slice. A feature with nothing
+--- saved is not called and starts fresh.
+function Features.deliver(name, slices, ...)
+  local args = { n = select("#", ...), ... }
+  for _, f in ipairs(Features.list) do
+    local fn = f[name]
+    local slice = slices and slices[f.name]
+    if fn and slice ~= nil then
+      args[args.n + 1] = slice
+      fn(f, unpack(args, 1, args.n + 1))
+    end
+  end
+end
+
 --- Returns true if a feature handled the message.
 function Features.handleClientMessage(client, kind, args)
   local entry = Features.clientMessages[kind]

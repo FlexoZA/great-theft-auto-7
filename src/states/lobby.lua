@@ -2,6 +2,7 @@
 
 local State = require("src.state")
 local UI = require("src.ui")
+local Background = require("src.art.menu_background")
 local Net = require("src.net")
 local Protocol = require("src.net.protocol")
 
@@ -11,6 +12,7 @@ local W = 420
 
 function Lobby:enter()
   UI.load()
+  self.background = Background.shared()
   self.buttons = {}
   if Net.isHost() then
     self.startButton = UI.button({ label = "Start game", w = 200, onClick = function()
@@ -28,6 +30,7 @@ function Lobby:enter()
 end
 
 function Lobby:update(dt)
+  self.background:update(dt)
   Net.update(dt)
   local client = Net.client
   if not client then
@@ -51,6 +54,8 @@ function Lobby:update(dt)
 end
 
 function Lobby:draw()
+  self.background:drawDimmed()
+  UI.panel(UI.centerX(W) - 30, 30, W + 60, love.graphics.getHeight() - 110)
   local client = Net.client
   if not client then
     return
@@ -82,6 +87,16 @@ function Lobby:draw()
     love.graphics.setColor(1, 0.7, 0.3)
     local warn = "LAN discovery off (" .. Net.server.discoveryError .. "). Players must type your IP."
     love.graphics.printf(warn, 0, 106, w, "center")
+  end
+  local world = Net.isHost() and Net.server.world
+  if world then
+    love.graphics.setColor(0.6, 0.6, 0.65)
+    local line = "World: " .. world:name()
+    if world.restored then
+      love.graphics.setColor(1, 0.7, 0.3)
+      line = line .. " (a damaged file was read from its backup)"
+    end
+    love.graphics.printf(line, 0, 124, w, "center")
   end
 
   love.graphics.setFont(UI.fonts.body)

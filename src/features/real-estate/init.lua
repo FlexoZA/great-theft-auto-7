@@ -11,9 +11,12 @@
 -- side, already yours. New blocks open up new squares further out, up to a
 -- few blocks past the original edge (Layout.GROW in city-map).
 --
--- Leave the game and your plots go back on the market; the city keeps the
--- blocks it grew until the game ends. Plots are 6x6 tiles; the buildings
--- feature puts something on the ones that have an owner.
+-- Your plots stay yours when you leave: the game remembers you (a saved
+-- world keeps your id for good), so they are there when you come back. Only
+-- a guest, who can never come back as the same player, gives them up. A
+-- saved world keeps the blocks the city grew and who owns what. Plots are
+-- 6x6 tiles; the buildings feature puts something on the ones that have an
+-- owner.
 --
 -- The land comes from the city-map feature (blocks of kind "plot",
 -- city:grow); without it there is nothing to sell and this feature does
@@ -74,8 +77,9 @@ end
 RealEstate.plots = {} -- { id, x, y, w, h, block } in world px
 local sites, sitesMap, sitesVersion = {}, nil, nil -- expansion squares, and the map they were worked out for
 
-local function refreshPlots()
-  local _, map = cityMap()
+--- The plots of `map`, numbered. Buildings reads the city's (kept aside
+--- while on another map) to save what stands on them.
+function RealEstate.plotsOf(map)
   local plots = {}
   for _, b in ipairs(map and map.blocks or {}) do
     if b.kind == "plot" then
@@ -89,7 +93,22 @@ local function refreshPlots()
       }
     end
   end
-  RealEstate.plots = plots
+  return plots
+end
+
+local function refreshPlots()
+  local _, map = cityMap()
+  RealEstate.plots = RealEstate.plotsOf(map)
+end
+
+--- The plot on block (bi, bj) among `plots`, or nil.
+function RealEstate.plotOnBlock(plots, bi, bj)
+  for _, plot in ipairs(plots) do
+    if plot.block.bi == bi and plot.block.bj == bj then
+      return plot
+    end
+  end
+  return nil
 end
 
 --- The squares on the city limits, one per block the city can grow into.
@@ -167,12 +186,7 @@ local function grow(bi, bj)
   local city = cityMap()
   city:grow(bi, bj) -- does nothing on the host's own client: the server already grew it
   refreshPlots()
-  for _, plot in ipairs(RealEstate.plots) do
-    if plot.block.bi == bi and plot.block.bj == bj then
-      return plot
-    end
-  end
-  return nil
+  return RealEstate.plotOnBlock(RealEstate.plots, bi, bj)
 end
 
 -- Client --------------------------------------------------------------------
@@ -239,9 +253,9 @@ function RealEstate:keypressed(key, client)
   end
 end
 
+--- The owner's name, whether they are here or away.
 local function ownerName(client, id)
-  local p = client.players[id]
-  return p and p.name or "?"
+  return client:nameOf(id) or "?"
 end
 
 --- A signboard on two posts, centred on x.
@@ -370,7 +384,7 @@ RealEstate.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { owners = { plot id -> player id } }
+local sv = nil -- { owners = { plot id -> player id }, home = the city's owners, kept while on another map }
 
 -- City-map (lower priority) has put the city back to its original size.
 function RealEstate:serverStart()
@@ -378,23 +392,44 @@ function RealEstate:serverStart()
   refreshPlots()
 end
 
---- The city was swapped for another map (city-map's `mapChanged`; a quest
---- does it). Its plots are the ones for sale now and whatever anyone owned
---- stays behind, unpaid. On the host this clears the server's book as well
---- as what its client draws; a client clears only its own.
-function RealEstate:mapChanged()
+--- Tell everyone how the city has grown and who owns what (RE_EXPAND is
+--- harmless for a block a machine already has).
+local function announceCity(server)
+  local _, map = cityMap()
+  for _, g in ipairs(map.grown) do
+    server:broadcast(Protocol.encode("RE_EXPAND", g.bi, g.bj))
+  end
+  for id, owner in pairs(sv.owners) do
+    server:broadcast(Protocol.encode("RE_OWNER", id, owner))
+  end
+end
+
+--- The map was swapped (city-map's `mapChanged`; a quest does it). Its plots
+--- are the ones for sale now. Leaving the city, the host keeps the city's
+--- book aside; back in the city (which city-map kept as it was) the book is
+--- back and the host tells everyone again, for anyone who joined while away.
+--- A client clears what it draws either way and hears the rest.
+function RealEstate:mapChanged(_map, server)
   refreshPlots()
   self.owners = {}
-  if sv then
+  herePlot, hereSite, noticeTimer = nil, nil, 0
+  if not (sv and server) then
+    return
+  end
+  local city = cityMap()
+  if city.current == city.DEFAULT then
+    sv.owners, sv.home = sv.home or {}, nil
+    announceCity(server)
+  else
+    sv.home = sv.home or sv.owners
     sv.owners = {}
   end
-  herePlot, hereSite, noticeTimer = nil, nil, 0
 end
 
 --- Someone joining mid-game gets the city as it has grown, then who owns what.
 function RealEstate:serverPlayerJoined(server, player)
   local _, map = cityMap()
-  if not (sv and map) then
+  if not (sv and map and server.started) or player.bot then
     return
   end
   for _, g in ipairs(map.grown) do
@@ -405,15 +440,22 @@ function RealEstate:serverPlayerJoined(server, player)
   end
 end
 
---- A player who leaves forfeits their land; nobody is refunded.
+--- A player who leaves keeps their land: they are the same player when
+--- they come back (docs/persistence.md). A guest never is, so their land
+--- goes back on the market; nobody is refunded.
 function RealEstate:serverPlayerLeft(server, player)
-  if not sv then
+  if not (sv and player.guest) then
     return
   end
   for id, owner in pairs(sv.owners) do
     if owner == player.id then
       sv.owners[id] = nil
       server:broadcast(Protocol.encode("RE_OWNER", id, 0))
+    end
+  end
+  for id, owner in pairs(sv.home or {}) do
+    if owner == player.id then
+      sv.home[id] = nil -- clients hear the whole book when everyone is back in the city
     end
   end
 end
@@ -477,6 +519,81 @@ RealEstate.serverMessages = {
     server:send(player, Protocol.encode("RE_NO", reason))
   end,
 }
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- The city's blocks past its limits, in the order it grew them (plot
+--- numbers follow that order), and who owns which plot, by block so a slice
+--- still lines up if a block could not be grown back. Away on a quest the
+--- city and its book wait at home; the world is not written then anyway.
+--- Only owners the world remembers are kept: a guest's id never comes back.
+function RealEstate:serverSaveWorld(server)
+  local city, map = cityMap()
+  if not (sv and map) then
+    return nil
+  end
+  local home, book = map, sv.owners
+  if city.current ~= city.DEFAULT then
+    home, book = city.home, sv.home
+  end
+  if not (home and book) then
+    return nil
+  end
+  local grown = {}
+  for _, g in ipairs(home.grown) do
+    grown[#grown + 1] = { bi = g.bi, bj = g.bj }
+  end
+  local owners = {}
+  for _, plot in ipairs(RealEstate.plotsOf(home)) do
+    local owner = book[plot.id]
+    if owner and server.names[owner] then
+      owners[#owners + 1] = { bi = plot.block.bi, bj = plot.block.bj, owner = owner }
+    end
+  end
+  return { version = SAVE_VERSION, grown = grown, owners = owners }
+end
+
+local function integer(v)
+  return type(v) == "number" and v == math.floor(v) and v > -1e9 and v < 1e9
+end
+
+--- Can we read slice `data`: a table from this version or an older one (no
+--- version reads as the first)?
+local function readable(data)
+  local v = type(data) == "table" and (data.version == nil and 1 or data.version)
+  return integer(v) and v >= 1 and v <= SAVE_VERSION
+end
+
+--- A world is continued (the city fresh from serverStart): grow it back
+--- block by block in the order it grew, give each plot its owner back and
+--- tell everyone, as when the land was sold. Anything that does not fit (a
+--- block the city can't grow into, a plot that isn't there, an owner the
+--- world doesn't know) is skipped.
+function RealEstate:serverLoadWorld(server, data)
+  local city, map = cityMap()
+  if not (sv and map and city.current == city.DEFAULT) then
+    return
+  end
+  if not readable(data) then
+    return
+  end
+  for _, g in ipairs(type(data.grown) == "table" and data.grown or {}) do
+    if type(g) == "table" and integer(g.bi) and integer(g.bj) then
+      city:grow(g.bi, g.bj) -- nil where it can't; the rest still go on
+    end
+  end
+  refreshPlots()
+  for _, rec in ipairs(type(data.owners) == "table" and data.owners or {}) do
+    local plot = type(rec) == "table" and integer(rec.bi) and integer(rec.bj)
+      and RealEstate.plotOnBlock(self.plots, rec.bi, rec.bj)
+    if plot and integer(rec.owner) and server.names[rec.owner] then
+      sv.owners[plot.id] = rec.owner
+    end
+  end
+  announceCity(server)
+end
 
 --- Who owns plot `id` on the host, or nil. Buildings asks.
 function RealEstate:owner(id)

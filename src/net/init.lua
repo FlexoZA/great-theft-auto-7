@@ -3,29 +3,45 @@
 -- talks to Net.client.
 
 local Protocol = require("src.net.protocol")
+local Settings = require("src.settings")
 local Server = require("src.net.server")
 local Client = require("src.net.client")
+local Recent = require("src.net.recent")
 
 local Net = {
   server = nil,
   client = nil,
+  joining = nil, -- { ip, port } of a server being joined, remembered (Recent) once it welcomes us
 }
 
-function Net.host(playerName)
+--- This install's player key (see docs/persistence.md), made and stored in
+--- settings the first time it is needed. A host knows a returning player by it.
+function Net.playerKey()
+  local key = Protocol.sanitizeKey(Settings.get("player.key"))
+  if not key then
+    key = Protocol.newKey()
+    Settings.set("player.key", key)
+  end
+  return key
+end
+
+--- Host a game of the saved `world` (src/saves.lua; nil to keep nothing).
+function Net.host(playerName, world)
   Net.shutdown()
-  local server, err = Server.new(playerName .. "'s game")
+  local server, err = Server.new(playerName .. "'s game", world, Net.playerKey())
   if not server then
     return false, err
   end
   Net.server = server
-  Net.client = Client.new(playerName)
+  Net.client = Client.new(playerName, Net.playerKey())
   Net.client:connect("127.0.0.1", Protocol.PORT)
   return true
 end
 
 function Net.join(playerName, ip, port)
   Net.shutdown()
-  Net.client = Client.new(playerName)
+  Net.client = Client.new(playerName, Net.playerKey())
+  Net.joining = { ip = ip, port = port or Protocol.PORT }
   return Net.client:connect(ip, port)
 end
 
@@ -44,9 +60,17 @@ function Net.update(dt)
   if Net.client then
     Net.client:update(dt)
   end
+  local c, target = Net.client, Net.joining
+  if target and c and c.state == "joined" then
+    Net.joining = nil
+    if c.serverId then -- an older host has no lasting id to find it by
+      Recent.remember(c.serverId, c.serverName, c.worldName, target.ip, target.port)
+    end
+  end
 end
 
 function Net.shutdown()
+  Net.joining = nil
   if Net.client then
     Net.client:disconnect()
     Net.client = nil

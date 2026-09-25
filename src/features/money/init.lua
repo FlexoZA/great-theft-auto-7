@@ -26,6 +26,10 @@
 -- without a round trip. The recipe is in docs/features.md ("Selling things
 -- for Fcks").
 --
+-- Koins paid to someone who is not in the game (their public building made a
+-- sale while they were away) wait in `sv.owed`, kept with a saved world, and
+-- go into their wallet when they are back; they hear how much (FCK_AWAY).
+--
 -- Messages
 --   server -> all  FCK_DROP <id> <x> <y>
 --   server -> all  FCK_TAKE <id> <playerId> <total>
@@ -33,6 +37,7 @@
 --   server -> all  FCK_SPENT <playerId> <amount> <total> <label>   (bought something)
 --   server -> all  FCK_PURSE <playerId> <total>   (koins lost on death, or given)
 --   server -> all  FCK_REACH <playerId> <scale>   (their pickup radius changed)
+--   server -> player  FCK_AWAY <amount>   (paid into your wallet: what you earned while away)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -100,6 +105,7 @@ Money.coins = {} -- id -> { x, y, age, seed }
 Money.wallets = {} -- player id -> koins collected
 Money.reach = {} -- player id -> pickup radius scale (absent = 1)
 Money.floats = {} -- { x, y, text, t }
+Money.awayPay = nil -- koins earned while away (FCK_AWAY), floated over us once we are in the game
 local time = 0
 local combo, comboTimer = 0, 0
 
@@ -120,11 +126,16 @@ function Money:exitGame()
   self.wallets = {}
   self.reach = {}
   self.floats = {}
+  self.awayPay = nil
   combo, comboTimer = 0, 0
 end
 
-function Money:update(dt)
+function Money:update(dt, client)
   time = time + dt
+  if self.awayPay and client:myPose() then
+    self:float(client, client.myId, "+" .. self.amount(self.awayPay) .. "  earned while away")
+    self.awayPay = nil
+  end
   comboTimer = comboTimer - dt
   if comboTimer <= 0 then
     combo = 0
@@ -323,6 +334,12 @@ Money.clientMessages = {
     local label = args[4]
     Money:float(client, id, "-" .. Money.amount(amount) .. (label and label ~= "" and ("  " .. label) or ""), "spent")
   end,
+  FCK_AWAY = function(_client, args)
+    local n = tonumber(args[1])
+    if n and n > 0 then
+      Money.awayPay = (Money.awayPay or 0) + n -- shown once we are in the game and have a place
+    end
+  end,
   FCK_GONE = function(_client, args)
     local id = tonumber(args[1])
     if id then
@@ -371,7 +388,7 @@ end
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { coins = { id -> { x, y, at } }, n, nextId, wallets, reach, time }
+local sv = nil -- { coins = { id -> { x, y, at } }, n, nextId, wallets, reach, owed = { id -> koins }, time }
 
 local function dropMessage(id, coin)
   return Protocol.encode("FCK_DROP", id, ("%.0f"):format(coin.x), ("%.0f"):format(coin.y))
@@ -468,7 +485,7 @@ function Money:serverKill(server, kill)
 end
 
 function Money:serverStart()
-  sv = { coins = {}, n = 0, nextId = 1, wallets = {}, reach = {}, time = 0 }
+  sv = { coins = {}, n = 0, nextId = 1, wallets = {}, reach = {}, owed = {}, time = 0 }
 end
 
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
@@ -501,13 +518,28 @@ function Money:serverSetReach(server, player, scale)
   return scale
 end
 
---- Someone joining mid-game sees the koins already lying about.
+--- Someone joining mid-game sees the koins already lying about, and what
+--- everyone has in their wallet and how far they reach (only ever sent on
+--- change, so they would read 0 and 1 otherwise).
 function Money:serverPlayerJoined(server, player)
-  if not sv then
+  if not sv or player.bot then
     return
+  end
+  if server.started then
+    self:serverSettle(server, player)
   end
   for id, coin in pairs(sv.coins) do
     server:send(player, dropMessage(id, coin))
+  end
+  for id, total in pairs(sv.wallets) do
+    if server.players[id] and total > 0 then
+      server:send(player, Protocol.encode("FCK_PURSE", id, total))
+    end
+  end
+  for id, scale in pairs(sv.reach) do
+    if server.players[id] then
+      server:send(player, Protocol.encode("FCK_REACH", id, ("%.2f"):format(scale)))
+    end
   end
 end
 
@@ -580,16 +612,99 @@ function Money:spend(server, id, amount, label)
 end
 
 --- Put `amount` koins straight into a player's wallet, out of thin air (the
---- cheats feature). Tells everyone the new total and returns it, or nil when
---- no game is running.
+--- cheats feature, a sale at someone's building). Tells everyone the new
+--- total and returns it, or nil when no game is running. Someone who is not
+--- in the game is owed it until they are back (serverSettle); nil then too.
 function Money:give(server, id, amount)
   if not sv or amount <= 0 then
+    return nil
+  end
+  if not server.players[id] then
+    sv.owed[id] = (sv.owed[id] or 0) + amount
     return nil
   end
   local total = self:wallet(id) + amount
   sv.wallets[id] = total
   server:broadcast(Protocol.encode("FCK_PURSE", id, total))
   return total
+end
+
+--- `player` is back: whatever they were paid while away goes into their
+--- wallet, everyone sees the new total and they hear what it came to.
+function Money:serverSettle(server, player)
+  local owed = sv and sv.owed[player.id]
+  if not owed then
+    return
+  end
+  sv.owed[player.id] = nil
+  local total = self:wallet(player.id) + owed
+  sv.wallets[player.id] = total
+  server:broadcast(Protocol.encode("FCK_PURSE", player.id, total))
+  server:send(player, Protocol.encode("FCK_AWAY", owed))
+end
+
+-- Saved worlds (docs/persistence.md) ------------------------------------
+
+Money.SAVE_VERSION = 1
+
+--- A koin count read from a file, or nil if it is not one.
+local function count(n)
+  if type(n) ~= "number" or n ~= n or n == math.huge or n < 0 then
+    return nil
+  end
+  return math.floor(n)
+end
+
+--- A player's part of a saved world: their wallet, and nothing else. Koins
+--- on the ground are gone by next time, and reach is upgrades' to put back.
+--- Kept even when broke, so loading always runs and settles what they are
+--- owed.
+function Money:serverSavePlayer(_server, player)
+  if player.bot then
+    return nil
+  end
+  return { version = self.SAVE_VERSION, wallet = self:wallet(player.id) }
+end
+
+--- Their wallet back, on top of anything already paid in since they
+--- arrived (what they were owed, settled when they joined), told to everyone
+--- as a gift is. The slice came from a file: a newer version, or a wallet
+--- that is not a sane count, is ignored.
+function Money:serverLoadPlayer(server, player, data)
+  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION then
+    return
+  end
+  local saved = count(data.wallet)
+  if saved then
+    local total = saved + self:wallet(player.id)
+    sv.wallets[player.id] = total
+    server:broadcast(Protocol.encode("FCK_PURSE", player.id, total))
+  end
+  self:serverSettle(server, player)
+end
+
+--- The world keeps what is owed to players who are away.
+function Money:serverSaveWorld()
+  if not (sv and next(sv.owed)) then
+    return nil
+  end
+  local owed = {}
+  for id, n in pairs(sv.owed) do
+    owed[id] = n
+  end
+  return { version = self.SAVE_VERSION, owed = owed }
+end
+
+function Money:serverLoadWorld(_server, data)
+  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION or type(data.owed) ~= "table" then
+    return
+  end
+  for id, n in pairs(data.owed) do
+    id, n = tonumber(id), count(n)
+    if id and n and n > 0 then
+      sv.owed[id] = (sv.owed[id] or 0) + n
+    end
+  end
 end
 
 --- For tests.

@@ -9,7 +9,8 @@
 -- the bag if it is still whole, and is thrown away if not) and from the
 -- slot into the bag to take it off (ARM_UNEQUIP: back as an item while it
 -- is whole; a damaged one can't be put back and is thrown away). Death
--- takes it with you.
+-- takes it with you. A saved world keeps the vest on, as worn as it was
+-- (serverSavePlayer).
 --
 -- Weapons asks every feature `serverAbsorbDamage(amount, server, victim)`
 -- through Features.reduce before a body takes damage; this answers what is
@@ -228,6 +229,41 @@ function Armor:serverUnequip(server, player)
   self.sv.worn[player.id] = nil
   tell(server, player, nil)
   return true
+end
+
+-- Saved worlds (docs/persistence.md) ----------------------------------------
+
+local SAVE_VERSION = 1
+
+--- `player`'s part of a saved world: the vest they wear and how much of it
+--- is left (`max` only so the points can be scaled to what the vest holds
+--- next time), or nil with nothing on.
+function Armor:serverSavePlayer(_server, player)
+  local w = self:serverWorn(player)
+  if not w then
+    return nil
+  end
+  return { version = SAVE_VERSION, kind = w.kind, points = w.points, max = w.max }
+end
+
+--- Put the saved vest back on, as worn as it was. The ceiling is worked out
+--- again from what they wear now (gear, loaded after this, rescales it).
+function Armor:serverLoadPlayer(server, player, data)
+  if not self.sv or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
+    return
+  end
+  local a = type(data.kind) == "string" and Kinds.byKey[data.kind]
+  local points, was = tonumber(data.points), tonumber(data.max)
+  if not (a and points and was and points == points and was > 0 and was < math.huge) then
+    return
+  end
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  points = math.min(max, math.floor(max * math.min(points, was) / was + 0.5))
+  if points < 1 then
+    return -- used up
+  end
+  self.sv.worn[player.id] = { kind = a.key, points = points, max = max }
+  tell(server, player, self.sv.worn[player.id])
 end
 
 Armor.serverMessages = {

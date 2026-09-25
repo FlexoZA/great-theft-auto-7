@@ -70,6 +70,15 @@ function MyFeature:serverStep(server, dt) end
 function MyFeature:serverPlayerJoined(server, player) end
 function MyFeature:serverPlayerLeft(server, player) end
 
+--- Saved worlds (docs/persistence.md). Return a plain table (strings,
+--- numbers, booleans, tables) of facts worth keeping, or nil for nothing;
+--- put a `version` in it. Load gets it back after serverStart (world) or
+--- once the player is set up (player) and must tell clients what changed.
+function MyFeature:serverSaveWorld(server) end
+function MyFeature:serverLoadWorld(server, data) end
+function MyFeature:serverSavePlayer(server, player) end
+function MyFeature:serverLoadPlayer(server, player, data) end
+
 --- Messages from clients that the core doesn't know.
 MyFeature.serverMessages = {
   -- MYKIND = function(server, player, args) end,

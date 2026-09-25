@@ -13,7 +13,7 @@ local MAX_PACKETS_PER_UPDATE = 32
 local Responder = {}
 Responder.__index = Responder
 
---- getInfo() must return: hostName, playerCount, maxPlayers, hostId
+--- getInfo() must return: hostName, playerCount, maxPlayers, hostId, worldName ("" if none)
 function Discovery.newResponder(getInfo)
   local udp = socket.udp()
   udp:settimeout(0)
@@ -32,8 +32,8 @@ function Responder:update()
       break
     end
     if data == Protocol.DISCOVER_MAGIC then
-      local name, count, max, hostId = self.getInfo()
-      local reply = Protocol.encode(Protocol.HOST_MAGIC, hostId, name, Protocol.PORT, count, max)
+      local name, count, max, hostId, worldName = self.getInfo()
+      local reply = Protocol.encode(Protocol.HOST_MAGIC, hostId, name, Protocol.PORT, count, max, worldName or "")
       self.udp:sendto(reply, ip, port)
     end
   end
@@ -55,7 +55,8 @@ function Discovery.newScanner()
   udp:setsockname("*", 0)
   return setmetatable({
     udp = udp,
-    hosts = {}, -- hostId -> { ip, port, name, players, maxPlayers, lastSeen }
+    hosts = {}, -- hostId -> { ip, port, name, world, players, maxPlayers, lastSeen }
+    probes = {}, -- addresses asked directly as well (servers joined before, maybe out of broadcast reach)
     timer = 0,
     interval = 1.0, -- seconds between broadcasts
     ttl = 4.0, -- forget a host after this many seconds of silence
@@ -69,6 +70,9 @@ function Scanner:update(dt)
     self.udp:sendto(Protocol.DISCOVER_MAGIC, "255.255.255.255", Protocol.DISCOVERY_PORT)
     -- Also poke localhost so hosting and joining on one machine works.
     self.udp:sendto(Protocol.DISCOVER_MAGIC, "127.0.0.1", Protocol.DISCOVERY_PORT)
+    for _, ip in ipairs(self.probes) do
+      self.udp:sendto(Protocol.DISCOVER_MAGIC, ip, Protocol.DISCOVERY_PORT)
+    end
   end
 
   local now = socket.gettime()
@@ -89,6 +93,7 @@ function Scanner:update(dt)
           port = tonumber(args[3]) or Protocol.PORT,
           players = tonumber(args[4]) or 0,
           maxPlayers = tonumber(args[5]) or 0,
+          world = args[6] ~= "" and args[6] or nil, -- the saved world's name (older hosts send none)
           lastSeen = now,
         }
       else
@@ -105,7 +110,18 @@ function Scanner:update(dt)
   end
 end
 
---- Hosts as an array, most recently seen first.
+--- Also ask `ip` directly every round: a host a broadcast does not reach
+--- (another subnet) still answers that.
+function Scanner:probe(ip)
+  for _, known in ipairs(self.probes) do
+    if known == ip then
+      return
+    end
+  end
+  self.probes[#self.probes + 1] = ip
+end
+
+--- Hosts as an array, sorted by name.
 function Scanner:list()
   local out = {}
   for _, h in pairs(self.hosts) do
