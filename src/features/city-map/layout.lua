@@ -851,22 +851,20 @@ local function buildArena(map, rng)
     end
   end
 
-  -- Spawns: the Southside's eight car slots along its two outer walls,
-  -- then the Northside's. `map.cx, map.cy` is the Southside fountain.
+  -- Spawns: eight car slots a side along each base's two outer walls, a
+  -- Southside slot and a Northside slot in turn, so a group placed in
+  -- player order (city-map's `placePlayers`) lands half in each base.
+  -- `map.cx, map.cy` is the Southside fountain.
   local f1 = map.bases[1].fountain
   map.cx, map.cy = f1.x, f1.y
-  for team = 1, 2 do
-    for i = 0, 3 do
-      local sx, sy = -(H - 528) - i * 80, H - 58 -- along the south wall, facing north
-      local wx, wy = -(H - 58), (H - 328) - i * 80 -- along the west wall, facing east
-      local sa, wa = -math.pi / 2, 0
-      if team == 2 then
-        sx, sy = mirror(sx, sy)
-        wx, wy = mirror(wx, wy)
-        sa, wa = math.pi / 2, math.pi
-      end
-      map.spawns[#map.spawns + 1] = { x = sx, y = sy, angle = sa }
-      map.spawns[#map.spawns + 1] = { x = wx, y = wy, angle = wa }
+  for i = 0, 3 do
+    local sx, sy = -(H - 528) - i * 80, H - 58 -- along the south wall, facing north
+    local wx, wy = -(H - 58), (H - 328) - i * 80 -- along the west wall, facing east
+    local slots = { { sx, sy, -math.pi / 2 }, { wx, wy, 0 } }
+    for _, s in ipairs(slots) do
+      map.spawns[#map.spawns + 1] = { x = s[1], y = s[2], angle = s[3] }
+      local mx, my = mirror(s[1], s[2])
+      map.spawns[#map.spawns + 1] = { x = mx, y = my, angle = s[3] + math.pi }
     end
   end
 end

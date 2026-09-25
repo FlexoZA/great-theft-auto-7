@@ -1224,8 +1224,10 @@ end
 --- everyone (nobody is the owner) and their kills go on nobody's scoreboard.
 --- No cooldown is applied here; the caller owns its own rate of fire. `gun`
 --- is a table from guns.lua (the pistol when not given); its scatter is
---- applied here.
-function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
+--- applied here. `team` marks a round fired by one side of a team fight (a
+--- turf war tower's): it flies through and spares anyone `serverFriendly`
+--- says is on that side.
+function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, team)
   local sv = self.sv
   if not (sv and aim) then
     return false
@@ -1245,7 +1247,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     local vy = math.sin(a) * gun.speed
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
-      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
+      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, team = team,
     }
     server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
       ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
@@ -1615,7 +1617,13 @@ function Weapons:targets(server, p)
   end
   for id, player in pairs(server.players) do
     local st = self.sv.players[id]
-    if st and Features.present(player) and id ~= p.owner and self.sv.time >= st.protectedUntil then
+    if
+      st
+      and Features.present(player)
+      and id ~= p.owner
+      and self.sv.time >= st.protectedUntil
+      and not Features.any("serverFriendly", server, p.owner, player, p.team) -- a team fight: friends are flown through
+    then
       local e = entry()
       e.player, e.car = player, player.vehicle
       e.x, e.y, e.onFoot = bodyPose(server, player)
@@ -1688,7 +1696,12 @@ function Weapons:explode(server, p, x, y)
   local caught = {}
   for id, player in pairs(server.players) do
     local st = sv.players[id]
-    if st and Features.present(player) and sv.time >= st.protectedUntil then
+    if
+      st
+      and Features.present(player)
+      and sv.time >= st.protectedUntil
+      and not Features.any("serverFriendly", server, p.owner, player, p.team)
+    then
       local px, py, onFoot = bodyPose(server, player)
       local reach = onFoot and FOOT_RADIUS or Car.WIDTH / 2
       local d = math.max(0, math.sqrt((px - x) ^ 2 + (py - y) ^ 2) - reach)
@@ -1746,6 +1759,10 @@ function Weapons:damage(server, victim, byId, amount, pid, angle)
   local sv = self.sv
   local st = sv and sv.players[victim.id]
   if not st or not Features.present(victim) or st.deadUntil then
+    return false
+  end
+  -- A team fight (the `serverFriendly` question): nothing lands between friends.
+  if byId and byId ~= NO_OWNER and Features.any("serverFriendly", server, byId, victim) then
     return false
   end
   if victim.vehicle then

@@ -84,9 +84,10 @@ Numbers below are world px for the Southside; negate both for the Northside.
     break.
   - the **fountain** behind it towards the corner, at (-1840, 1840): the
     spawn and respawn point, a ring on the paving. Eight car slots along
-    the two outer walls (`map.spawns` is the Southside's eight then the
-    Northside's eight, so city-map's `placePlayers` lands a mixed group in
-    both bases until the quest feature sorts them).
+    the two outer walls (`map.spawns` takes a Southside slot and a
+    Northside slot in turn, so city-map's `placePlayers` lands a group half
+    in each base: the first player in the Southside, the second in the
+    Northside, and so on).
   - the **shop stand** by the fountain (a later PR draws and runs it).
 - **Towers** (`map.towers`, `{ x, y, team, lane, tier }`): three per lane
   per side, standing on the verge just off the tarmac, on the inside of the
@@ -133,12 +134,19 @@ proper way out.
   lane's polyline, stopping to punch whatever enemy is in reach: enemy
   simps first, then players, then towers. They take two pistol rounds like
   Karen's. The number per wave grows by one every five minutes.
-- **Towers.** 400 hit points, shoot a pistol round every half second at
-  the nearest enemy within 380 px, players before simps (Dota's rule is
-  the other way round; ours are gangs, they shoot the people). A tower that
-  goes down stays down. Tier 3 towers only fall once tier 2 on that lane
-  has, tier 2 once tier 1 has: hitting a tower that is still covered does
-  nothing, and the HUD says so.
+- **Towers** (done, PR 2). An MG on every tower, the same gun as the MG
+  nest ability but turning the full circle: a tower watches a **detection
+  zone** 400 px round itself (drawn on the ground in its side's colour, red
+  while it has someone) and fires at the nearest enemy inside it that it
+  can see (line of sight past every wall and tree, the rule bullets
+  follow), at the pistol's rate and with the pistol's rounds, after half a
+  second to swing round. Its rounds belong to nobody but carry its side,
+  so they pass through its own team. 400 hit points, worn down only by
+  players' rounds and blasts (another tower's rounds do nothing). A tower
+  that goes down stays down as rubble and spills ten koins. Tier 3 towers
+  only fall once tier 2 on that lane has, tier 2 once tier 1 has: hitting
+  a covered tower does nothing, a shield marks it and the HUD says so.
+  Simps as targets come with the waves.
 - **The vault.** 1500 hit points, hurt only when all three towers on at
   least one lane are down. A broken vault ends the quest: `QST_DONE` for
   everyone, the winning team's name in the banner, an EXIT star on the
@@ -161,22 +169,28 @@ New questions other features ask, all optional, all answered by turf-war:
 
 | Question | Asked by | Meaning |
 | --- | --- | --- |
-| `serverFriendly(server, attackerId, victim)` → true/false | weapons (bullets, blasts, rams), simps | Answer true and the blow is dropped before any damage is done. |
-| `serverPlayerTeam(server, player)` → team or nil | anything that colours or targets by side | A team number while the quest is on. |
+| `serverFriendly(server, byId, victim, team)` → true/false | weapons (bullets, blasts, rams), simps | Answer true and the blow is dropped before any damage is done. `team` is set for a round fired by a side rather than a player (a tower's). Done in PR 2. |
+| `serverPlayerTeam(team, server, player)` → team or nil | anything that colours or targets by side, through `Features.reduce` | A team number while the quest is on. Done in PR 2. |
 
-Both are small changes to shared code and get called out in their PRs.
+Both are small changes to shared code (weapons) and are called out in their PRs.
 
 ## PR order
 
-1. **The map** (this PR): `arena` in city-map's maps, `buildArena` in
+1. **The map** (done): `arena` in city-map's maps, `buildArena` in
    layout.lua and `drawArena` in render.lua, minimap tiles for every map
-   kind, the job on the board, two HOME stars. Everything on the map is
-   scenery: towers and vaults are solid but do nothing yet.
-2. **Teams**: `src/features/turf-war/`, `TW_TEAM`, sorting into bases on
-   `serverQuestStarted`, bots filling the seats, the `serverFriendly` hook in
-   weapons, respawn at the fountain, colours everywhere.
-3. **Waves**: simps down the lanes (their own `simps.lua`, a walk-the-lane
-   brain on top of Karen's), koins for them, the camps.
-4. **Towers and the vault**: hit points, shooting, the cover rule,
-   completion and the EXIT star.
-5. **Koins for players, the score HUD, the base shop.**
+   kind, the job on the board, two HOME stars.
+2. **Towers** (done): `src/features/turf-war/` with towers.lua (the
+   thinking) and render.lua (the drawing), `TW_TOWERS` / `TW_DOWN` /
+   `TW_COVERED`, the cover rule, koins for a fallen tower, the HUD line and
+   minimap marks. With the least of teams the towers need: everyone is on
+   the side of the base they landed in (`TW_TEAM`), a latecomer joins the
+   smaller side, and the `serverFriendly` / `serverPlayerTeam` questions in
+   weapons, so rounds, blasts and blows do nothing between friends.
+3. **Teams proper**: sorting by where you stand, even sides, bots filling
+   the seats, respawn at the fountain, names, arrows, minimap dots and car
+   tags in your side's colour.
+4. **Waves**: simps down the lanes (their own `simps.lua`, a walk-the-lane
+   brain on top of Karen's), towers shooting them too, koins for them, the
+   camps.
+5. **The vault**: hit points, the lane rule, completion and the EXIT star.
+6. **Koins for players, the score HUD, the base shop.**
