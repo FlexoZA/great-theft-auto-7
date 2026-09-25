@@ -19,7 +19,11 @@
 -- A reckless driver (bots picks one now and then) keeps to the streets but
 -- breaks every rule on them: it speeds, takes turns fast, weaves, and
 -- stops for nobody, car or person, and waits at no crossing. That is where
--- the accidents come from, and the police chases after them.
+-- the accidents come from, and the police chases after them. It does mind
+-- walls: feelers fanned out ahead (anything that answers `blocksPoint`:
+-- buildings, trees, the city's edge) steer it towards the side with room
+-- and brake it enough to make the corner, so it wrecks other people rather
+-- than itself.
 --
 -- Only the host runs this. Fights, chases and panics don't: those brains
 -- drive with Bots.driveTowards and are allowed to go wild. A car that comes
@@ -29,6 +33,7 @@
 
 local Layout = require("src.features.city-map.layout")
 local Car = require("src.car")
+local Features = require("src.features")
 
 local Traffic = {}
 
@@ -49,6 +54,11 @@ Traffic.creepAfter = 4 -- seconds stopped behind other cars before creeping on (
 Traffic.creepSpeed = 35 -- px/s a car creeps at then; people on foot still stop it dead
 Traffic.recklessTurnSpeed = 170 -- px/s a reckless driver takes a turn at
 Traffic.weave = 0.35 -- how hard a reckless driver weaves (steering, either way)
+Traffic.feelers = { 0, -0.3, 0.3, -0.65, 0.65 } -- radians off the nose a reckless driver looks for walls along
+Traffic.feelerStep = 8 -- px between the points tested along a feeler
+Traffic.feelerReach = { 50, 0.55 } -- a feeler's length: base px, plus this many seconds of the car's speed
+Traffic.dodge = 1.8 -- how hard the feelers steer away from a wall (full lock at a wall one feeler-length off)
+Traffic.wallBrake = 2.2 -- px/s of speed a reckless driver allows per px of free road straight ahead
 Traffic.offLane = 110 -- px from its lane: the car has lost the road and finds it again
 
 local T, P = Layout.TILE, Layout.PERIOD
@@ -253,6 +263,47 @@ local function crossingBusy(node, car, vehicles)
   return false
 end
 
+--- How far along `angle` from the car the road is free of anything solid,
+--- up to `reach` px.
+local function feel(car, angle, reach)
+  local ca, sa = math.cos(angle), math.sin(angle)
+  local nose = Car.WIDTH / 2
+  for d = Traffic.feelerStep, reach, Traffic.feelerStep do
+    local x, y = car.x + ca * (nose + d), car.y + sa * (nose + d)
+    if Features.any("blocksPoint", x, y) then
+      return d - Traffic.feelerStep
+    end
+  end
+  return reach
+end
+
+--- What the feelers say: how much to add to the steering to get away from
+--- the nearest wall (positive turns right), how free the road is straight
+--- ahead, and whether anything was felt at all.
+local function feelers(car)
+  local reach = Traffic.feelerReach[1] + math.abs(car.speed) * Traffic.feelerReach[2]
+  local left, right, ahead, felt = reach, reach, reach, false
+  for _, off in ipairs(Traffic.feelers) do
+    local d = feel(car, car.angle + off, reach)
+    felt = felt or d < reach
+    if off == 0 then
+      ahead = d
+    elseif off < 0 then
+      left = math.min(left, d)
+    else
+      right = math.min(right, d)
+    end
+  end
+  -- Towards the freer side, harder the closer the wall and the more one
+  -- side is boxed in than the other; straight at a wall with both sides
+  -- equal, towards the right (it must pick one).
+  local push = (right - left) / reach
+  if ahead < reach and math.abs(push) < 0.1 then
+    push = 0.3
+  end
+  return push * Traffic.dodge * (1 - math.min(ahead, left, right) / reach * 0.5), ahead, felt
+end
+
 --- Drive `npc` one tick along the streets of `graph` at up to `speed`.
 --- Sets its steering and returns the speed it should do right now; the
 --- caller turns that into throttle. `vehicles` is every car in the world,
@@ -302,8 +353,18 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
   local tx = a.x + ux * s - uy * Traffic.lane
   local ty = a.y + uy * s + ux * Traffic.lane
   local err = angleDiff(math.atan2(ty - car.y, tx - car.x), car.angle)
-  local weave = reckless and Traffic.weave * math.sin(love.timer.getTime() * 2.3 + npc.id) or 0
-  input.steer = math.max(-1, math.min(1, err / 0.4 + weave))
+  local steer = err / 0.4
+  local ahead = math.huge
+  if reckless then
+    local push, free, felt = feelers(car)
+    ahead = free
+    if felt then
+      steer = steer + push -- a wall near: get away from it, and no weaving
+    else
+      steer = steer + Traffic.weave * math.sin(love.timer.getTime() * 2.3 + npc.id)
+    end
+  end
+  input.steer = math.max(-1, math.min(1, steer))
 
   -- How fast: the limit, slower into a turn, then whatever is in the way.
   local want = speed
@@ -311,7 +372,8 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
     want = math.min(want, (reckless and Traffic.recklessTurnSpeed or Traffic.turnSpeed) + stopping(rem - BOX))
   end
   if reckless then
-    return want -- no looking out for anyone
+    -- No looking out for anyone; only for walls, slowing enough to get round.
+    return math.min(want, Traffic.turnSpeed + ahead * Traffic.wallBrake)
   end
   if math.abs(err) > 0.7 then
     want = math.min(want, Traffic.turnSpeed) -- well off line (rejoining the road): take it easy
