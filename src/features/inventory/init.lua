@@ -106,17 +106,31 @@ function Inventory:say(text)
   self.notice = { text = text, t = self.noticeTime }
 end
 
-function Inventory:toggle()
+--- The `closeMenu` convention: Esc takes the screen down.
+function Inventory:closeMenu()
+  if not self.open then
+    return false
+  end
+  self.open, self.drag = false, nil
+  return true
+end
+
+--- Opening takes down whatever other panel is up (the shop, the upgrade
+--- shop, the building menu), so I goes straight from the shop to the bag.
+function Inventory:toggle(client)
   if self.open then
-    self.open, self.drag = false, nil
-  elseif not otherOpen() then
+    self:closeMenu()
+    return
+  end
+  Features.call("closeMenu", client)
+  if not otherOpen() then
     self.open, self.notice = true, nil
   end
 end
 
-function Inventory:keypressed(key)
+function Inventory:keypressed(key, client)
   if Controls.is("inventory", key) then
-    self:toggle()
+    self:toggle(client)
   end
 end
 
