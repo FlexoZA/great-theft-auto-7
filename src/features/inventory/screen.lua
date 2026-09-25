@@ -32,6 +32,7 @@ local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
 local Guns = require("src.features.weapons.guns")
 local Icons = require("src.features.weapons.icons")
+local AbilityIcons = require("src.features.abilities.icons")
 
 local Screen = {}
 
@@ -351,6 +352,7 @@ local function drawAbilities(L, lifted)
         love.graphics.setColor(c[1], c[2], c[3], 0.2)
         love.graphics.circle("fill", cx, cy, radius + 4, 32)
         UI.ring(cx, cy, radius, 1, c, 4)
+        AbilityIcons.draw(ability.key, cx, cy, radius - 6)
       else
         UI.ring(cx, cy, radius, 0, { 1, 1, 1 }, 3)
       end
@@ -368,18 +370,21 @@ local function drawAbilities(L, lifted)
     else
       local left = abilities.cooldowns[ability.key]
       local c = ability.color
-      local middle, middleColor
+      local middle
       if left then
         UI.ring(cx, cy, radius, 1 - left / ability.cooldown, { c[1], c[2], c[3], 0.85 }, 4)
-        middle, middleColor = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left), { 1, 1, 1 }
+        middle = left >= 10 and ("%d"):format(left) or ("%.1f"):format(left)
       else
         love.graphics.setColor(c[1], c[2], c[3], 0.2)
         love.graphics.circle("fill", cx, cy, radius + 4, 32)
         UI.ring(cx, cy, radius, 1, c, 4)
-        middle, middleColor = key, { 1, 1, 1 }
       end
-      love.graphics.setFont(body)
-      UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+      AbilityIcons.draw(ability.key, cx, cy, radius - 6, middle and 0.3 or 1)
+      if middle then
+        love.graphics.setFont(body)
+        UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), { 1, 1, 1 })
+      end
+      AbilityIcons.keyBadge(key, cx, cy, radius, middle and 0.5 or 1, small)
       love.graphics.setFont(small)
       love.graphics.setColor(0.85, 0.85, 0.9)
       love.graphics.printf(ability.hud or ability.title, r.x, r.y + r.h - 20, r.w, "center")

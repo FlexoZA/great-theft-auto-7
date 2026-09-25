@@ -74,6 +74,7 @@ local Car = require("src.car")
 local Body = require("src.body")
 local Sounds = require("src.features.abilities.sounds")
 local Kinds = require("src.features.abilities.kinds")
+local Icons = require("src.features.abilities.icons")
 local Freeze = require("src.features.abilities.freeze")
 local Leap = require("src.features.abilities.leap")
 
@@ -92,6 +93,7 @@ Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
 Abilities.hudStep = 64
 Abilities.hudRadius = 24
 Abilities.hudBottom = 48 -- px up from the bottom edge to the circles' centres
+Abilities.hudIcon = 17 -- radius the ability's icon (icons.lua) fills inside its ring
 -- A lifted range (a cheat) still stops somewhere: past any screen's edge,
 -- short of a forged cast across the whole world.
 Abilities.liftedRange = 4000
@@ -159,10 +161,12 @@ function Abilities:load()
   Sounds.load()
 end
 
+-- ABL_SLOTS arrives in the same burst as START, before the game screen
+-- opens (a saved world's slots too), so the slots are only forgotten on
+-- the way out.
 function Abilities:enterGame()
   self.camera = nil
   self.time = 0
-  self.slots = startSlots()
   self.aiming = nil
   self.spent = nil
   self.fireSpent = nil
@@ -176,6 +180,7 @@ end
 
 function Abilities:exitGame()
   self:enterGame()
+  self.slots = startSlots()
 end
 
 --- The ability in slot `slot`, or nil.
@@ -466,10 +471,11 @@ function Abilities:hudLeft()
 end
 
 function Abilities:drawHUD(client)
-  -- A row of circles along the bottom centre, one per slot. The key sits
-  -- in the circle and the title under it; on cast the ring empties and
-  -- fills back up through the cooldown with the seconds left inside. Full
-  -- and lit means ready. Empty slots are just dim rings; the passive slot
+  -- A row of circles along the bottom centre, one per slot. The ability's
+  -- icon sits in the circle, its key in a badge on the ring and the title
+  -- under it; on cast the ring empties and fills back up through the
+  -- cooldown with the seconds left over the faded icon. Full and lit means
+  -- ready. Empty slots are just dim rings; the passive slot
   -- says so under its ring and shows its ability, if any, always lit.
   local small, body = UI.fonts.small, UI.fonts.body
   local w, h = love.graphics.getDimensions()
@@ -515,6 +521,9 @@ function Abilities:drawHUD(client)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
       end
+      if ability then
+        Icons.draw(ability.key, cx, cy, self.hudIcon, middle and 0.3 or 1)
+      end
       if middle then
         love.graphics.setFont(body)
         UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
@@ -549,12 +558,15 @@ function Abilities:drawHUD(client)
         love.graphics.setColor(c[1], c[2], c[3], 0.2 + 0.3 * pulse)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
-        middle, middleColor = key, { 1, 1, 1 }
         title = aiming and (placed(ability) and "fire: place" or "release") or (ability.hud or ability.title)
         titleColor = aiming and c or { 0.9, 0.9, 0.95 }
       end
-      love.graphics.setFont(body)
-      UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+      Icons.draw(ability.key, cx, cy, self.hudIcon, middle and 0.3 or 1)
+      if middle then
+        love.graphics.setFont(body)
+        UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
+      end
+      Icons.keyBadge(key, cx, cy, r, middle and 0.5 or 1, small)
       love.graphics.setFont(small)
       UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, titleColor)
     end
