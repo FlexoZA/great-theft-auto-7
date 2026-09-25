@@ -392,7 +392,8 @@ couple of small conventions rather than requiring each other:
   it" and `weapons:owns(index)` the client's; selecting or firing anything
   else is refused, and putting down the gun in hand leaves the pistol.
 - Ability slots: the same for abilities. `abilities/kinds.lua` lists every
-  ability by `key`; each player carries them in `abilities.slotCount` slots
+  ability by `key` (and `abilities/icons.lua` draws each one's icon: give a
+  new ability a drawing there, or it shows as a plain dot); each player carries them in `abilities.slotCount` slots
   (Q, E, R, and a keyless passive slot for an ability with `passive = true`,
   which only fits there), freeze in slot 1 to start with, kept on the host and told to
   the player (`ABL_SLOTS`, a key per slot, `-` for empty). An ability in a

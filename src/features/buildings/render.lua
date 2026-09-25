@@ -11,6 +11,7 @@ local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
 local Icons = require("src.features.weapons.icons")
 local AbilityKinds = require("src.features.abilities.kinds")
+local AbilityIcons = require("src.features.abilities.icons")
 local Catalog = require("src.features.vehicles.catalog")
 
 local Render = {}
@@ -310,7 +311,7 @@ function Render.itemIcon(item, cx, cy)
     -- The same drawing the inventory's weapon slots use, at item size.
     Icons.draw(item:sub(5), cx, cy, 0.6)
   elseif item:match("^ability%-") then
-    Render.abilityIcon(item:sub(9), cx, cy, 11)
+    Render.abilityIcon(item:sub(9), cx, cy, 15)
   elseif item:match("^gear%-") then
     -- Clothes, in the piece's colour: a cap, a shirt, a pair of trousers or shoes.
     local g = require("src.features.gear.kinds").byKey[item:sub(6)]
@@ -362,16 +363,18 @@ function Render.itemIcon(item, cx, cy)
   end
 end
 
---- An ability as a thing: its ring, in its colour, with a glow inside,
---- radius `r`. The inventory screen draws one under the cursor with this.
+--- An ability as a thing: its ring, in its colour, around its icon
+--- (abilities/icons.lua) on a dark disc, radius `r`. The inventory screen
+--- draws one under the cursor with this.
 function Render.abilityIcon(key, cx, cy, r)
   local a = AbilityKinds.byKey[key]
   local c = a and a.color or { 0.8, 0.8, 0.85 }
   love.graphics.setColor(c[1], c[2], c[3], 0.25)
   love.graphics.circle("fill", cx, cy, r + 3, 32)
-  love.graphics.setColor(c[1], c[2], c[3], 0.6)
-  love.graphics.circle("fill", cx, cy, r * 0.45, 24)
-  UI.ring(cx, cy, r, 1, c, 3)
+  love.graphics.setColor(0.05, 0.05, 0.07, 0.85)
+  love.graphics.circle("fill", cx, cy, r, 32)
+  UI.ring(cx, cy, r, 1, c, math.max(2, r / 6))
+  AbilityIcons.draw(key, cx, cy, r * 0.72)
 end
 
 --- The main colour of `kind`'s building, for rubble and flying debris.
