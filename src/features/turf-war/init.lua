@@ -3,7 +3,7 @@
 -- `questStarted` for the quest whose `boss` is "turf-war"; this feature
 -- runs what happens there.
 --
--- So far: sides, towers and soldiers. Everyone lands in a base and is on
+-- So far: sides, towers, creeps and the shop. Everyone lands in a base and is on
 -- that base's side (the Southside, bottom-left, or the Northside,
 -- top-right; a latecomer joins the smaller side). Rounds and blasts do
 -- nothing to your own side (weapons asks `serverFriendly`). The eighteen
@@ -16,9 +16,13 @@
 -- fists to begin with, and soldiers with rifles down a lane once the side
 -- has broken it (every one of the other side's towers on it down). Both
 -- sides send waves the whole war, so a lone player has creeps of their own
--- to march with. A creep down is a koin. Towers pick their target Dota's way: the player who hit them
--- lately, else creeps, else players. The vaults and the score come in
--- their own PRs.
+-- to march with. A creep down is a koin. Towers pick their target Dota's
+-- way: the player who hit them lately, else creeps, else players. The
+-- shop is open the whole war: a stand in each base is a shop bag, and the
+-- shop key here (O) puts the shop screen up from wherever you stand (the
+-- shop feature's `toggle` and its `shopAnywhere` / `serverShopAnywhere`
+-- questions; a car bought goes to the nearest base's bays). The vaults and
+-- the score come in their own PRs.
 --
 -- The host owns all of it. Clients hear each side, each fallen tower and
 -- each fallen creep reliably, every tower's aim and health and every
@@ -39,13 +43,15 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Controls = require("src.controls")
 local Towers = require("src.features.turf-war.towers")
 local Creeps = require("src.features.turf-war.creeps")
 local Render = require("src.features.turf-war.render")
 
 local TurfWar = {
   name = "turf-war",
-  priority = 993, -- HUD over the ability row (990); after quests (22), so QST_START reaches a joiner first
+  priority = 965, -- HUD over the upgrade shop (960), under the shop screen (970); after quests (22), so QST_START
+  -- reaches a joiner first
 }
 
 TurfWar.questId = "turf-war"
@@ -60,6 +66,30 @@ local function arenaMap()
   local city = Features.byName["city-map"]
   local map = city and city.map
   return map and map.kind == "arena" and map or nil
+end
+
+--- Each base's shop stand as a shop on the map (the shop feature draws
+--- the bag there and sells on it); a car bought is put down in that base's
+--- parking bays. Runs on every machine as the war starts, so the host's
+--- server and every client know the same two shops.
+local function registerShops(map)
+  local shop = Features.byName.shop
+  if not (shop and shop.addShop) then
+    return
+  end
+  for _, b in ipairs(map.bases) do
+    local bays = {}
+    for i, s in ipairs(map.spawns) do
+      if (i % 2 == 1) == (b.team == 1) then -- the slots alternate sides, the Southside's first
+        bays[#bays + 1] = { dx = s.x - b.shop.x, dy = s.y - b.shop.y, angle = s.angle }
+      end
+    end
+    shop:addShop({ id = "arena-" .. b.team, onMap = map.name, x = b.shop.x, y = b.shop.y, bays = bays })
+  end
+end
+
+function TurfWar:load()
+  Controls.register("turf-shop", "Open / close the shop (in the turf war)", "o")
 end
 
 -- Server --------------------------------------------------------------------
@@ -112,6 +142,7 @@ function TurfWar:serverQuestStarted(server, quest)
     local x, y = Features.bodyPose(server, p)
     setTeam(server, p, sideOf(map, x, y))
   end
+  registerShops(map)
   sv.towers = Towers.new(map)
   sv.creeps = Creeps.new()
   sv.waveIn = { Creeps.FIRST_WAVE, Creeps.FIRST_WAVE }
@@ -165,6 +196,12 @@ function TurfWar:serverPlayerLeft(_server, player)
   if sv then
     sv.teams[player.id] = nil
   end
+end
+
+--- The shop's `serverShopAnywhere` question: while the war is on the host
+--- sells to anyone on the map, wherever they stand.
+function TurfWar:serverShopAnywhere(_server, player)
+  return sv ~= nil and sv.towers ~= nil and player.body ~= nil
 end
 
 --- The `serverPlayerTeam` question (docs/features.md): a player's side
@@ -406,6 +443,7 @@ function TurfWar:questStarted(_client, quest)
   end
   clear()
   self.on = true
+  registerShops(map)
   for i, t in ipairs(map.towers) do
     local aim = math.atan2(-t.y, -t.x)
     local tower = {
@@ -420,6 +458,20 @@ end
 function TurfWar:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+  end
+end
+
+--- The shop's `shopAnywhere` question: its screen stays up away from the
+--- stands while the war is on.
+function TurfWar:shopAnywhere()
+  return self.on
+end
+
+--- O puts the shop screen up from wherever I stand, or takes it down.
+function TurfWar:keypressed(key, client)
+  local shop = Features.byName.shop
+  if self.on and shop and shop.toggle and Controls.is("turf-shop", key) then
+    shop:toggle(client)
   end
 end
 
@@ -461,7 +513,8 @@ end
 function TurfWar:drawHUD(client)
   local map = arenaMap()
   if self.on and map then
-    Render.hud(self, map, self.teams[client.myId], notice, noticeTimer)
+    local shopKey = Controls.name(Controls.bindings("turf-shop")[1])
+    Render.hud(self, map, self.teams[client.myId], notice, noticeTimer, shopKey)
   end
 end
 

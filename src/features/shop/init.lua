@@ -25,6 +25,14 @@
 -- `serverDeliver` event (vehicles answers it), in the first delivery bay
 -- with no car standing in it. Clients only draw the bag, the screen and ask.
 --
+-- Another feature can put a shop on its own map (`Shop:addShop(spec)`, the
+-- turf war has a stand in each base) and open the screen from wherever
+-- the player stands (`Shop:toggle(client)`): while it answers the
+-- `shopAnywhere(client)` question the screen stays up away from any bag,
+-- and while it answers `serverShopAnywhere(server, player)` the host sells
+-- to a buyer who is not on one (a car still goes to the nearest bag's
+-- bays on the map in play). See docs/features.md.
+--
 -- Messages
 --   client -> server  SHOP_BUY <item>[@<tier>]
 --   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
@@ -75,6 +83,22 @@ Shop.list = {
 Shop.byId = {}
 for _, s in ipairs(Shop.list) do
   Shop.byId[s.id] = s
+end
+
+--- Put a shop on a map: `spec` is shaped like an entry of `Shop.list`
+--- (`id onMap x y bays`). Calling it again with the same id replaces that
+--- shop, so a feature may register on every machine as its map comes up.
+function Shop:addShop(spec)
+  for i, existing in ipairs(self.list) do
+    if existing.id == spec.id then
+      self.list[i] = spec
+      self.byId[spec.id] = spec
+      return spec
+    end
+  end
+  self.list[#self.list + 1] = spec
+  self.byId[spec.id] = spec
+  return spec
 end
 
 -- Tuning ------------------------------------------------------------------
@@ -196,8 +220,18 @@ function Shop:update(dt, client)
   local shop = x and self:here(x, y)
   local d2 = shop and dist2(x, y, shop.x, shop.y) or math.huge
   self.near = d2 <= self.enterRadius ^ 2 and shop or nil
-  if self.open and d2 > self.leaveRadius ^ 2 then
+  if self.open and d2 > self.leaveRadius ^ 2 and not Features.any("shopAnywhere", client) then
     self.open = false -- walked off: the screen goes down
+  end
+end
+
+--- Put the screen up (from the first shelf) or take it down, wherever the
+--- player is: for a feature that sells from anywhere (the turf war's O).
+function Shop:toggle()
+  if self.open then
+    self.open = false
+  else
+    self.open, self.tab, self.page, self.notice = true, Catalog.tabs[1].key, 1, nil
   end
 end
 
@@ -205,10 +239,8 @@ function Shop:keypressed(key)
   if not Controls.is("shop", key) then
     return
   end
-  if self.open then
-    self.open = false
-  elseif self.near then
-    self.open, self.tab, self.page, self.notice = true, Catalog.tabs[1].key, 1, nil
+  if self.open or self.near then
+    self:toggle()
   end
 end
 
@@ -427,7 +459,7 @@ function Shop:serverBuy(server, player, item)
   local shop = shopOn(city.current, player.body.x, player.body.y)
   if not shop then
     return false, "gone"
-  elseif not onBag(server, player, shop) then
+  elseif not onBag(server, player, shop) and not Features.any("serverShopAnywhere", server, player) then
     return false, "away"
   end
   local money = Features.byName.money

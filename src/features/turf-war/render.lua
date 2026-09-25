@@ -267,9 +267,10 @@ end
 
 -- HUD -----------------------------------------------------------------------
 
---- The line under the quest's: towers standing a side, and which side I
---- am on; a notice (a covered tower, a tower down) centred low.
-function Render.hud(TW, map, myTeam, notice, noticeTimer)
+--- The line under the quest's: towers standing a side, which side I am
+--- on and the shop key; a notice (a covered tower, a tower down) centred
+--- low.
+function Render.hud(TW, map, myTeam, notice, noticeTimer, shopKey)
   local w, h = love.graphics.getDimensions()
   local font = UI.fonts.small
   love.graphics.setFont(font)
@@ -290,7 +291,10 @@ function Render.hud(TW, map, myTeam, notice, noticeTimer)
     word(("%s %d/%d towers   "):format(map.teams[team].name, standing, total), teamColor(map, team))
   end
   if myTeam then
-    word("You: " .. map.teams[myTeam].name, teamColor(map, myTeam))
+    word("You: " .. map.teams[myTeam].name .. "   ", teamColor(map, myTeam))
+  end
+  if shopKey then
+    word(shopKey .. ": shop", { 0.6, 0.6, 0.65 })
   end
   if notice and noticeTimer > 0 then
     local a = math.min(1, noticeTimer * 2)

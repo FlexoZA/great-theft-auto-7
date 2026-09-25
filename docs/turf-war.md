@@ -18,7 +18,7 @@ build to.
 | Creeps | **Simps first, soldiers once a lane is broken.** Waves of five out of a base's gates, marching down the lanes, fighting the other side's creeps and players. To begin with they are simps, Karen's kind, with their fists. Once a side has destroyed all three of the other side's towers on a lane, that side's waves down that lane are soldiers, D-Day's riflemen in the side's colours (Dota's mega creeps). They see as far as a tower does, all round. One dropped creep is worth **1 koin**. |
 | Killing a player | Drops **5 koins** where they fell, out of thin air (not from their wallet, unlike a wreck in the city). |
 | Who can pick koins up? | **Anybody.** A koin on the ground belongs to whoever gets to it, teammate or not. |
-| What are koins for here? | **Upgrades**, through the shop that already exists: health, stamina, reach, guns, abilities. A shop stand in each base (later PR). What you buy stays yours after the quest, like anything else you buy. |
+| What are koins for here? | **Upgrades**, through the shop that already exists: health, stamina, reach, guns, abilities. A shop stand in each base is a shop bag, and **O** puts the shop screen up from anywhere on the map while the war is on (done, PR 4; everything is still free until the catalog gets prices). What you buy stays yours after the quest, like anything else you buy. |
 | Dying | You come back at your own base's fountain after the usual death time, in your own car if it is there. |
 | Winning | Break the other vault. Towers must go first: a vault is unhurt while any of the enemy's towers stand on the lane you came down (the gate tower counts). The quest completes for the winning side; everyone goes home by the EXIT star that comes up at the broken vault. |
 
@@ -210,4 +210,6 @@ Both are small changes to shared code (weapons) and are called out in their PRs.
    tags in your side's colour. The jungle camps.
 5. **The vault**: hit points, the lane rule, soldiers attacking it,
    completion and the EXIT star.
-6. **Koins for players, the score HUD, the base shop.**
+6. **The shop** (done): the shop feature's `addShop` / `toggle` and its
+   `shopAnywhere` questions; a stand in each base, O anywhere.
+7. **Koins for players and the score HUD.**
