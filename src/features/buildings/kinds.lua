@@ -38,6 +38,9 @@
 --   hp        hit points; every gun hurts a building (a rocket's blast hurts
 --             the parking lot too, bullets fly over it). At 0 it is a ruin
 --             until its owner repairs it or someone takes the lot over.
+--   service   the feature that runs it (the garage): it makes nothing, and
+--             that feature adds the menu rows, the info lines and the drawing
+--             (`buildingRows`, `buildingInfo`, `drawBuilding`).
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
 --
@@ -142,6 +145,9 @@ Kinds.list = {
     recipes = {
       ["gun-rocket"] = { inputs = { iron = 4, copper = 2, oil = 2, plastic = 2 }, time = 45, price = 60 },
     },
+  },
+  {
+    key = "garage", name = "Garage", cost = 50, hp = 800, private = true, service = "garage",
   },
   {
     key = "health", name = "Health Factory", cost = 50, hp = 600,
