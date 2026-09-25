@@ -55,7 +55,7 @@ Police.count = 2 -- patrol cars at start
 Police.sightRange = 750 -- px; a unit witnesses crimes and spots wanted players inside this
 Police.pursuitRange = 1400 -- px; a chasing unit keeps after you out to this distance
 Police.wantedTime = 25 -- seconds since the last crime before the heat is off
-Police.patrolThrottle = 0.45
+Police.patrolSpeed = 150 -- px/s on patrol, by the traffic rules (bots/traffic.lua); a chase has no limit
 Police.ramCrime = 220 -- closing speed (px/s) of a ram that counts as a crime
 Police.hotStartTime = 30 -- seconds of heat everyone starts with in inclusive mode
 Police.whistleRange = 1200 -- px; an officer blowing their whistle further away isn't heard
@@ -479,7 +479,7 @@ function Brain.think(server, unit, dt)
   if target then
     B:fight(server, unit, target)
   else
-    B:cruise(unit, Police.patrolThrottle)
+    B:cruise(server, unit, Police.patrolSpeed)
   end
   B.unstick(unit, dt)
 end
@@ -630,6 +630,18 @@ end
 function Police:serverPlayerLeft(server, player)
   if sv then
     self:clearWanted(server, player.id)
+  end
+end
+
+--- The `serverWalkers` convention: officers on foot, so the traffic stops
+--- for them too.
+function Police:serverWalkers(_server, add)
+  local officers = sv and sv.officers
+  if officers then
+    for i = 1, officers.n do
+      local o = officers.list[i]
+      add(o.x, o.y)
+    end
   end
 end
 

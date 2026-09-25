@@ -7,8 +7,13 @@
 -- Bots.unstick, Bots:cruise and Bots:fight are the shared driving skills.
 -- The civilian bots below are just the default brain.
 --
--- Bots are peaceful by default: they cruise the city between random road
--- waypoints and ignore players. Shoot one or ram one and it turns hostile
+-- Bots are peaceful by default: they cruise the city's streets and ignore
+-- players, keeping to the traffic rules in traffic.lua (right-hand lane, a
+-- speed limit, slowing for turns, keeping their distance, waiting at a
+-- busy crossing and stopping for anyone on foot). Anyone on foot is who
+-- the `serverWalkers` hook reports (pedestrians, officers) plus players out
+-- of their cars. On a map without a street grid they drive between random
+-- road waypoints instead, at the same speed. Shoot one or ram one and it turns hostile
 -- towards you for a while, chasing, orbiting at a standoff distance and
 -- shooting through the weapons feature with lead and a little spread. It
 -- calms down again once it has been left alone for `hostileTime` seconds,
@@ -29,6 +34,7 @@ local Features = require("src.features")
 local Net = require("src.net")
 local UI = require("src.ui")
 local Controls = require("src.controls")
+local Traffic = require("src.features.bots.traffic")
 
 local Bots = {
   name = "bots",
@@ -55,7 +61,7 @@ Bots.difficulties = {
 Bots.giveUpDistance = 1300 -- px; a target further than this is "away"
 Bots.giveUpTime = 8 -- seconds the target must stay away before the bot gives up
 Bots.ramSpeed = 120 -- closing speed (px/s) that counts as being rammed
-Bots.cruiseThrottle = 0.65 -- how hard a peaceful bot drives
+Bots.cruiseSpeed = 170 -- px/s a peaceful bot keeps to (cars top out at 500 or so)
 Bots.waypointRange = 1600 -- px; how far away a new waypoint may be
 Bots.waypointTimeout = 25 -- seconds before giving up on a waypoint
 
@@ -72,6 +78,7 @@ local bots = {} -- civilian bots (the default brain), in spawn order
 local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
 local now = 0 -- server time, seconds since start
+local walkers = {} -- everyone on foot this tick, flat: x, y, vx, vy per walker (traffic stops for them)
 
 local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
@@ -387,13 +394,25 @@ function Bots.newWaypoint(bot)
   bot.ai.waypointUntil = now + Bots.waypointTimeout
 end
 
---- Drive between random road waypoints at `throttle` (default cruiseThrottle).
-function Bots:cruise(bot, throttle)
+--- Drive peacefully at up to `speed` px/s (default cruiseSpeed): along the
+--- streets by the traffic rules (traffic.lua) on a street grid, else
+--- between random road waypoints.
+function Bots:cruise(server, bot, speed)
+  speed = speed or self.cruiseSpeed
   local ai = bot.ai
+  local city = Features.byName["city-map"]
+  local graph = city and Traffic.graph(city.map)
+  if graph then
+    local v = Traffic.drive(bot, graph, speed, server.vehicles, walkers, server.dtLast or 0)
+    bot.input.throttle = Traffic.throttleFor(bot.car, v)
+    return
+  end
+  ai.route = nil
   if not ai.waypoint or now > ai.waypointUntil then
     Bots.newWaypoint(bot)
   end
-  local dist = Bots.driveTowards(bot, ai.waypoint.x, ai.waypoint.y, throttle or self.cruiseThrottle, false)
+  local dist = Bots.driveTowards(bot, ai.waypoint.x, ai.waypoint.y, 1, false)
+  bot.input.throttle = Traffic.throttleFor(bot.car, speed)
   if dist < 110 then
     Bots.newWaypoint(bot)
   end
@@ -457,7 +476,7 @@ function Bots:think(server, bot, dt)
   if target and Features.present(target) then
     self:fight(server, bot, target)
   else
-    self:cruise(bot)
+    self:cruise(server, bot)
   end
   Bots.unstick(bot, dt)
 end
@@ -485,9 +504,32 @@ local function flee(npc)
   Bots.driveTowards(npc, car.x + dx / d * 400, car.y + dy / d * 400, 1)
 end
 
+--- Everyone on foot, for the traffic to stop for: players out of their
+--- cars, and whoever features report through `serverWalkers`.
+local function collectWalkers(server)
+  local n = 0
+  local function add(x, y, vx, vy)
+    walkers[n + 1], walkers[n + 2], walkers[n + 3], walkers[n + 4] = x, y, vx or 0, vy or 0
+    n = n + 4
+  end
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local x, y, onFoot = Features.bodyPose(server, p)
+      if onFoot then
+        add(x, y)
+      end
+    end
+  end
+  Features.call("serverWalkers", server, add)
+  for k = #walkers, n + 1, -1 do
+    walkers[k] = nil
+  end
+end
+
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
+  collectWalkers(server)
   for _, npc in ipairs(npcs) do
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
