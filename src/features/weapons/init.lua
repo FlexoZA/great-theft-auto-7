@@ -55,6 +55,9 @@
 -- units) go down with their car, so their respawn is the same as ever.
 -- Cars nobody is driving can be shot too: they take the bullet, so a parked
 -- car is cover, and they blow up like any other.
+-- Another feature may take both over (the garage): a player it gives a
+-- place to (`serverRespawnPoint`) comes back there on foot, their car left
+-- where it is, and a wreck it claims (`serverWreckClaimed`) is its to keep.
 --
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
@@ -1042,7 +1045,8 @@ function Weapons:serverPlayerLeft(server, player)
     local st = self.sv.players[player.id]
     local own = player.car
     local cs = own and self.sv.cars[own.id]
-    if st and st.deadUntil and own and own.hidden and server.vehicles[own.id] and not (cs and cs.deadUntil) then
+    if st and st.deadUntil and not st.respawnAt and own and own.hidden and not own.kept and server.vehicles[own.id]
+      and not (cs and cs.deadUntil) then
       own.hidden = false
       own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
       own:stop()
@@ -1103,6 +1107,27 @@ function Weapons:serverRepair(server, car, amount)
   cs.hp = math.min(cs.max, cs.hp + amount)
   server:broadcast(Protocol.encode("WPN_CARHP", car.id, cs.hp))
   return true
+end
+
+--- A car's hit points and ceiling on the host, hidden or not (the garage
+--- shows the cars it keeps off the road).
+function Weapons:serverCarHealth(car)
+  if not self.sv then
+    return nil
+  end
+  local cs = self:carState(car)
+  return cs.hp, cs.max
+end
+
+--- Set a car's hit points outright, hidden or not, between 1 and its
+--- ceiling (the garage mends the cars it keeps, and puts back saved damage).
+function Weapons:serverSetCarHealth(server, car, hp)
+  if not (self.sv and car) then
+    return
+  end
+  local cs = self:carState(car)
+  cs.hp = math.max(1, math.min(cs.max, math.floor(hp)))
+  server:broadcast(Protocol.encode("WPN_CARHP", car.id, cs.hp))
 end
 
 --- Raise (or lower) a player's health ceiling to `max`, for the rest of the
@@ -1673,9 +1698,11 @@ end
 --- while somebody else is driving it. A stolen car stays with the thief;
 --- hiding it would drag them off the map with it (and leave the owner
 --- unable to sit in it when they come back), which is what used to happen.
+--- A car another feature keeps out of the world (`car.kept`: the garage's)
+--- is not ours to move either.
 local function ownCar(player)
   local own = player.car
-  if own and own.driver and own.driver ~= player.id then
+  if own and ((own.driver and own.driver ~= player.id) or own.kept) then
     return nil
   end
   return own
@@ -1692,7 +1719,10 @@ function Weapons:die(server, victim, byId, pid, angle)
   -- Where it went up: the car they drove, or their feet.
   local wx, wy, wasOnFoot = bodyPose(server, victim)
   victim.body.dead = true
-  local own = ownCar(victim)
+  -- Somewhere else to come back (the garage: a garage or the hospital)? Then
+  -- they come back there on foot and their own car stays where it is.
+  st.respawnAt = not victim.bot and Features.reduce("serverRespawnPoint", nil, server, victim) or nil
+  local own = not st.respawnAt and ownCar(victim)
   if victim.vehicle and victim.vehicle ~= own then
     server:unseat(victim)
   end
@@ -1766,17 +1796,22 @@ function Weapons:wreck(server, car, byId, pid, angle)
     sv.players[driver.id].protectedUntil = sv.time + SPAWN_PROTECTION
   end
   -- A player's own car goes back to their slot; any other car they own
-  -- (one they bought) would land on top of it there, so it stays put.
+  -- (one they bought) would land on top of it there, so it stays put. Unless
+  -- another feature claims the wreck (the garage): then it is theirs to keep.
   local ownerPlayer = car.owner and server.players[car.owner]
   local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
   cs.hp = cs.max
-  cs.deadUntil = sv.time + DEATH_TIME
-  cs.spawn = owner and owner.spawn or { x = wx, y = wy, angle = car.angle }
-  car.hidden = true
-  car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
-  car:stop()
+  local deathTime = 0
+  if not Features.any("serverWreckClaimed", server, car) then
+    deathTime = DEATH_TIME
+    cs.deadUntil = sv.time + DEATH_TIME
+    cs.spawn = owner and owner.spawn or { x = wx, y = wy, angle = car.angle }
+    car.hidden = true
+    car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
+    car:stop()
+  end
   server:broadcast(Protocol.encode("WPN_WRECK", pid or 0, byId or 0, car.id, driver and driver.id or 0, kills,
-    DEATH_TIME))
+    deathTime))
   Features.call("serverKill", server, {
     kind = "car", x = wx, y = wy, by = byId, victim = driver and driver.id, angle = angle, onFoot = false,
   })
@@ -1815,7 +1850,7 @@ function Weapons:updateWrecks(server)
   for id, st in pairs(sv.players) do
     if st.deadUntil then
       local p = server.players[id]
-      local own = p and ownCar(p)
+      local own = p and not st.respawnAt and ownCar(p)
       if not (p and p.body) then
         st.deadUntil = nil
       elseif sv.time < st.deadUntil then
@@ -1825,9 +1860,10 @@ function Weapons:updateWrecks(server)
           own:stop()
         end
       else
-        st.deadUntil = nil
+        local at = st.respawnAt or st.spawn
+        st.deadUntil, st.respawnAt = nil, nil
         p.body.dead = false
-        p.body.x, p.body.y, p.body.facing = st.spawn.x, st.spawn.y, st.spawn.angle
+        p.body.x, p.body.y, p.body.facing = at.x, at.y, at.angle
         -- Back with a loaded pistol, whatever else ran dry.
         st.mags[Guns.DEFAULT] = math.max(st.mags[Guns.DEFAULT] or 0, Guns.at(Guns.DEFAULT).magazine)
         server:send(p, Protocol.encode("WPN_MAG", Guns.DEFAULT, st.mags[Guns.DEFAULT]))

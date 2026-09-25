@@ -263,6 +263,8 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
+| `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
+| `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
@@ -626,7 +628,28 @@ example with a menu; real-estate is the one with a place to stand.
   it. Real-estate sells the blocks and tells every client to grow the same way.
 - `car.hidden`: set on a server car to keep it out of `STATE` (weapons does
   this for wrecks). The core respects it; other features should skip hidden
-  cars too.
+  cars too. `car.kept` on top of it means a feature is keeping that car off
+  the road for its owner (the garage: parked, wrecked or impounded): weapons
+  never moves or unhides it and city-map doesn't seat its owner in it.
+- Garage: `src/features/garage` keeps players' cars. A garage is a building
+  (kind `"garage"` in `buildings/kinds.lua`, with `service = "garage"`: a kind
+  another feature runs makes nothing, and buildings asks that feature for its
+  menu rows, info lines and drawing: `buildingRows(client, plot, b, row)`,
+  `buildingInfo(client, plot, b)`, `drawBuilding(b, kind, r, time)`;
+  `buildings:ofKind(kind, owner)` lists a player's buildings of a kind, on
+  either side). Each holds six cars, parked from its square and taken out
+  from the vehicles screen (G), which lists every car you own with its
+  health: tow it home, repair it, take it out, collect it. In the city a
+  person's wrecked car no longer comes back by itself: with a garage it waits
+  destroyed for a tow, without one it goes to the impound lot, whole, to be
+  collected for koins. A dead player comes back at their garage or, with
+  none, the hospital. The hospital and impound lot are buildings the city
+  already had, picked from the map the same way everywhere (`garage/places.lua`).
+  Prices are at the top of `garage/init.lua`. Messages: `GAR_PARK`,
+  `GAR_TAKE`, `GAR_TOW`, `GAR_REPAIR`, `GAR_COLLECT` up; `GAR_KEPT`,
+  `GAR_FREE`, `GAR_OK`, `GAR_NO` down. `weapons:serverCarHealth(car)` /
+  `serverSetCarHealth(server, car, hp)` read and set a car's hit points even
+  while it is hidden.
 - `Features.byName.<name>` is the escape hatch when a feature genuinely
   needs another (the city map pushes pedestrians out of buildings through
   `Features.byName.pedestrians.crowd`). Check for nil: the other feature

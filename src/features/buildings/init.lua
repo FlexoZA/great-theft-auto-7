@@ -259,9 +259,10 @@ local function recipeOf(b, kind)
 end
 
 --- Can building `b` make another batch right now: room for it and every
---- input in the hopper? The parking lot runs until it is full.
+--- input in the hopper? The parking lot runs until it is full; a building
+--- another feature runs (the garage) makes nothing.
 local function canRun(b, kind)
-  if ruined(b) then
+  if ruined(b) or kind.service then
     return false
   elseif kind.rate then
     return b.output < kind.cap
@@ -317,6 +318,30 @@ local function currentWalls()
   return walls
 end
 
+--- The buildings of `kind` (a key) that player `owner` has, in plot order:
+--- { id = plot id, building, plot, x, y } with (x, y) the middle of its
+--- square. The host reads its own book, a client what it was told. For a
+--- feature that runs a kind of its own (the garage, `service` in kinds.lua).
+function Buildings:ofKind(kind, owner)
+  local out = {}
+  for id, b in pairs(sv and sv.buildings or self.buildings) do
+    local plot = plotById(id)
+    if plot and b.kind == kind and b.owner == owner then
+      local x, y = padOf(plot)
+      out[#out + 1] = { id = id, building = b, plot = plot, x = x, y = y, ruined = ruined(b) }
+    end
+  end
+  table.sort(out, function(a, b)
+    return a.id < b.id
+  end)
+  return out
+end
+
+--- Is (x, y) on the square in front of `plot`, give or take `slack` px?
+function Buildings.onPad(plot, x, y, slack)
+  return onPad(plot, x, y, slack)
+end
+
 --- The `blocksPoint` convention: bullets, walkers, officers and Karen stop here.
 function Buildings:blocksPoint(x, y)
   for _, r in ipairs(currentWalls().list) do
@@ -370,8 +395,8 @@ end
 --- Is another feature's panel up (the upgrade shop, the inventory screen)?
 --- Then ours stays shut.
 local function otherMenuOpen()
-  local shop, inventory = Features.byName.upgrades, Features.byName.inventory
-  return (shop and shop.open) or (inventory and inventory.open) or false
+  local shop, inventory, garage = Features.byName.upgrades, Features.byName.inventory, Features.byName.garage
+  return (shop and shop.open) or (inventory and inventory.open) or (garage and garage.open) or false
 end
 
 --- For weapons and anything else on the number keys: ours are taken while
@@ -496,6 +521,12 @@ function Buildings:menuRows(client)
     end
     if kind.rate then
       return rows -- the parking lot pays out when you drive over it
+    elseif kind.service then
+      local runner = Features.byName[kind.service]
+      if runner and runner.buildingRows then
+        runner:buildingRows(client, plot, b, row)
+      end
+      return rows
     elseif self.page == "prices" then
       return self:priceRows(b, kind)
     elseif self.page == "sell" then
@@ -737,10 +768,15 @@ function Buildings:drawBelowCars()
     local kind = Kinds.byKey[b.kind]
     if plot and kind then
       local r = footprint(plot)
+      local runner = kind.service and Features.byName[kind.service]
       if ruined(b) then
         Render.ruin(kind, r, id, time)
       else
-        Render.building(b, kind, r, time)
+        if runner and runner.drawBuilding then
+          runner:drawBuilding(b, kind, r, time)
+        else
+          Render.building(b, kind, r, time)
+        end
         Render.damage(r, b.hp / kind.hp, time - (b.hitAt or -1))
       end
     end
@@ -777,12 +813,18 @@ local function status(b, kind)
 end
 
 --- The lines at the top of the menu that describe the building.
-local function infoLines(client, b, kind)
+local function infoLines(client, b, kind, plot)
   if ruined(b) then
     if b.owner == client.myId then
       return { "Destroyed. Nothing works until you rebuild it.", "Until then anyone can take the lot over." }
     end
     return { "Destroyed. Take the lot over, and it's yours to build on." }
+  end
+  if kind.service then
+    local runner = Features.byName[kind.service]
+    local lines = runner and runner.buildingInfo and runner:buildingInfo(client, plot, b) or {}
+    lines[#lines + 1] = ("Condition: %d/%d"):format(b.hp, kind.hp)
+    return lines
   end
   local lines = {}
   local item = productOf(kind, b.product)
@@ -850,7 +892,7 @@ local function drawMenu(self, client)
   local title, lines
   if kind then
     title = kind.name
-    lines = infoLines(client, b, kind)
+    lines = infoLines(client, b, kind, plot)
     if owner ~= client.myId then
       table.insert(lines, 1, ownerName(client, owner) .. "'s")
     end
