@@ -111,6 +111,15 @@ function Upgrades:menuOpen()
   return self.open
 end
 
+--- The `closeMenu` convention: Esc takes the shop down.
+function Upgrades:closeMenu()
+  if not self.open then
+    return false
+  end
+  self.open, self.notice = false, nil
+  return true
+end
+
 function Upgrades:levelOf(id, key)
   local l = self.levels[id]
   return l and l[key] or 0

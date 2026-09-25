@@ -380,6 +380,15 @@ function Buildings:menuOpen()
   return self.menu
 end
 
+--- The `closeMenu` convention: Esc takes the menu down.
+function Buildings:closeMenu()
+  if not self.menu then
+    return false
+  end
+  self.menu, self.page = false, nil
+  return true
+end
+
 --- The `actionTaken` convention: the action key is ours while I stand on
 --- an owned plot's square (it opens the menu) or the menu is up.
 function Buildings:actionTaken()

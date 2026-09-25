@@ -223,8 +223,9 @@ The important numbers stand as a row of vertical bars in the bottom-left
 corner, one slot each: health (weapons, 0), stamina and the dodge (on-foot,
 1 and 2). Abilities are a row of circles along the bottom centre
 (`Abilities.hudSlots` of them; keep the strip from about h-80 down clear
-of centred text; `Abilities:hudTop()` is where the row starts, weapons
-puts the magazine count just above it). The minimap sits top right and the koin bottom right,
+of centred text; `Abilities:hudTop()` is where the row starts and
+`Abilities:hudLeft()` where it begins on the left; weapons stands the gun
+in hand there, a big icon over its ammo count). The minimap sits top right and the koin bottom right,
 with `Money:hudCoin()` giving its centre, radius and the y of the line
 under it (upgrades writes there). Draw yours into
 the next free slot with `UI.drawStatBar(slot, name, frac, color, value,
@@ -267,6 +268,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
+| `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop and the building menu answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen and the shop answer it. |

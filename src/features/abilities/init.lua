@@ -458,6 +458,13 @@ function Abilities:hudTop()
   return love.graphics.getHeight() - self.hudBottom - self.hudRadius - 8
 end
 
+--- The x where the circle row begins on the left (glow included), so a
+--- feature can stand something beside it: weapons puts the gun in hand there.
+function Abilities:hudLeft()
+  local w = love.graphics.getWidth()
+  return math.floor(w / 2 - (self.slotCount - 1) * self.hudStep / 2) - self.hudRadius - 8
+end
+
 function Abilities:drawHUD(client)
   -- A row of circles along the bottom centre, one per slot. The key sits
   -- in the circle and the title under it; on cast the ring empties and
