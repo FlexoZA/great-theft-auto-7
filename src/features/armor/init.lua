@@ -12,19 +12,24 @@
 -- takes it with you. A saved world keeps the vest on, as worn as it was
 -- (serverSavePlayer).
 --
+-- Vests come in tiers (tiers/init.lua): "armor-vest@rare" holds more points.
+-- What is worn is kept with its tier ("vest@rare") and goes back into the
+-- bag in it.
+--
 -- Weapons asks every feature `serverAbsorbDamage(amount, server, victim)`
 -- through Features.reduce before a body takes damage; this answers what is
 -- left after the vest has taken its share.
 --
 -- Messages
---   client -> server  ARM_EQUIP   <kind>
+--   client -> server  ARM_EQUIP   <kind[@tier]>
 --   client -> server  ARM_UNEQUIP
---   server -> all     ARM_STATE   <id> <kind|-> <points> <max>
+--   server -> all     ARM_STATE   <id> <kind[@tier]|-> <points> <max>
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Kinds = require("src.features.armor.kinds")
+local Tiers = require("src.features.tiers")
 
 local Armor = {
   name = "armor",
@@ -36,9 +41,20 @@ Armor.hudSlot = 3 -- the bottom-left row of stat bars: health 0, stamina 1, dodg
 local NONE = "-"
 local FLASH = 0.25 -- seconds the bar flares after a hit
 
+--- The vest `kind` ("vest", "vest@rare") names, in its tier, or nil.
+local function kindOf(kind)
+  if type(kind) ~= "string" then
+    return nil
+  end
+  local key, tier = Tiers.split(kind)
+  local a = Kinds.byKey[key]
+  return a and tier and Tiers.apply(a, tier) or nil
+end
+Armor.kindOf = kindOf
+
 -- Client --------------------------------------------------------------------
 
-Armor.worn = {} -- player id -> { kind, points, max }, as the host told us
+Armor.worn = {} -- player id -> { kind ("vest@rare"), points, max }, as the host told us
 Armor.flash = 0
 
 function Armor:exitGame()
@@ -53,13 +69,13 @@ end
 --- The kind table of what I am wearing, or nil.
 function Armor:wornKind(client)
   local w = self:mine(client)
-  return w and Kinds.byKey[w.kind] or nil
+  return w and kindOf(w.kind) or nil
 end
 
 --- Ask to put on the armor item I carry for `kind` (the inventory screen
 --- does, on a drag).
 function Armor:equip(client, kind)
-  if Kinds.byKey[kind] then
+  if kindOf(kind) then
     client:send(Protocol.encode("ARM_EQUIP", kind))
   end
 end
@@ -79,7 +95,7 @@ end
 --- empty and grey without.
 function Armor:drawHUD(client)
   local w = self:mine(client)
-  local kind = w and Kinds.byKey[w.kind]
+  local kind = w and kindOf(w.kind)
   if kind then
     local c = kind.color
     local k = self.flash / FLASH
@@ -99,7 +115,7 @@ Armor.clientMessages = {
       return
     end
     local before = Armor.worn[id]
-    if kind == NONE or not Kinds.byKey[kind] then
+    if kind == NONE or not kindOf(kind) then
       Armor.worn[id] = nil
     else
       Armor.worn[id] = { kind = kind, points = points, max = max }
@@ -181,7 +197,7 @@ end
 --- into the bag if whole (the slot the new one left has room for it) and
 --- is thrown away if not. Returns true if it happened.
 function Armor:serverEquip(server, player, kind)
-  local a = Kinds.byKey[kind or ""]
+  local a = kindOf(kind)
   local buildings = Features.byName.buildings
   if not (self.sv and a and buildings and buildings.serverTake and Features.present(player)) then
     return false
@@ -203,7 +219,7 @@ end
 --- what is left of it scaled along.
 function Armor:serverStatsChanged(server, player)
   local w = self:serverWorn(player)
-  local a = w and Kinds.byKey[w.kind]
+  local a = w and kindOf(w.kind)
   if not a then
     return
   end
@@ -252,7 +268,7 @@ function Armor:serverLoadPlayer(server, player, data)
   if not self.sv or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
     return
   end
-  local a = type(data.kind) == "string" and Kinds.byKey[data.kind]
+  local a = kindOf(data.kind)
   local points, was = tonumber(data.points), tonumber(data.max)
   if not (a and points and was and points == points and was > 0 and was < math.huge) then
     return
@@ -262,7 +278,7 @@ function Armor:serverLoadPlayer(server, player, data)
   if points < 1 then
     return -- used up
   end
-  self.sv.worn[player.id] = { kind = a.key, points = points, max = max }
+  self.sv.worn[player.id] = { kind = data.kind, points = points, max = max }
   tell(server, player, self.sv.worn[player.id])
 end
 

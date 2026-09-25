@@ -33,6 +33,14 @@
 -- from the client but the ask. A saved world keeps a player's slots and
 -- magazines for next time (serverSavePlayer); health comes back full.
 --
+-- Guns come in tiers (tiers/init.lua): a "gun-uzi@rare" item is an uzi
+-- that hits harder and fires faster (guns.lua's `tierStats`). A player
+-- carries one of each gun, in whatever tier they put in its slot; the host
+-- keeps the tier with the slot, fires the gun's tuned numbers and gives the
+-- item back in that tier when it is put down. Dragging another tier of a
+-- gun you carry onto the slots swaps it for the one you have (the pistol
+-- too: it can be traded up, never put down).
+--
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (X) refills the one in hand from the ammo in your inventory
 -- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
@@ -63,7 +71,7 @@
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
---   client -> server  WPN_EQUIP <gun> <slot>           (the gun item I carry, into that slot)
+--   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
@@ -81,7 +89,7 @@
 --   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
---   server -> player  WPN_GUNS <gun per slot>...    (what is in each weapon slot; 0 = empty)
+--   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -104,6 +112,7 @@ local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
+local Tiers = require("src.features.tiers")
 local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -187,6 +196,7 @@ Weapons.lowMagazine = 0.25 -- at or under this share of a magazine the reload ke
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
 Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
+Weapons.tiers = {} -- gun index -> tier key of the one I carry, when it isn't common (WPN_GUNS too)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
@@ -218,11 +228,22 @@ function Weapons:resetSynced()
   self.carMax = {}
   self.kills = {}
   self.slots = self:startSlots()
+  self.tiers = {}
   self.mags = {}
   for i, gun in ipairs(Guns.list) do
     self.mags[i] = gun.magazine
   end
   self.infiniteAmmo = false
+end
+
+--- Gun `index` as I carry it: its tier's numbers (tiers/init.lua).
+function Weapons:gunAt(index)
+  return Tiers.apply(Guns.at(index), self.tiers[index])
+end
+
+--- The tier key of gun `index` as I carry it.
+function Weapons:tierOf(index)
+  return self.tiers[index] or Tiers.DEFAULT
 end
 
 function Weapons:enterGame()
@@ -285,7 +306,7 @@ end
 --- Ask the host to reload the gun in hand. Refused here when it can't
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
-  local gun = Guns.at(self.gun)
+  local gun = self:gunAt(self.gun)
   if self.reloading or self.infiniteAmmo then
     return
   elseif (self.mags[self.gun] or 0) >= gun.magazine then
@@ -309,7 +330,7 @@ function Weapons:tryFire(client)
   if not aim then
     return
   end
-  local gun = Guns.at(self.gun)
+  local gun = self:gunAt(self.gun)
   self.cooldown = gun.cooldown
   if (self.mags[self.gun] or 0) < 1 then
     -- Click. Reload if there is anything to load, say so if not.
@@ -365,11 +386,14 @@ function Weapons:slotOf(index)
   return slotOf(self.slots, index)
 end
 
---- Ask to put the gun item I carry for gun `index` into weapon slot `slot`
---- (the inventory screen does, on a drag). The host answers with WPN_GUNS.
-function Weapons:equip(client, index, slot)
-  if Guns.list[index] and not self:owns(index) and slot >= 1 and slot <= self.slotCount then
-    client:send(Protocol.encode("WPN_EQUIP", index, slot))
+--- Ask to put the gun item I carry for gun `index` in tier `tier` into
+--- weapon slot `slot` (the inventory screen does, on a drag); another tier
+--- of a gun I carry swaps with it wherever it is. The host answers with WPN_GUNS.
+function Weapons:equip(client, index, slot, tier)
+  tier = tier or Tiers.DEFAULT
+  if Guns.list[index] and (not self:owns(index) or self:tierOf(index) ~= tier)
+    and slot >= 1 and slot <= self.slotCount then
+    client:send(Protocol.encode("WPN_EQUIP", Tiers.join(tostring(index), tier), slot))
   end
 end
 
@@ -597,10 +621,10 @@ end
 --- (out of ammo, no such gun) takes its place while it shows.
 function Weapons:drawMagazine()
   local w, h = love.graphics.getDimensions()
-  local gun = Guns.list[self.gun]
-  if not gun then
+  if not Guns.list[self.gun] then
     return
   end
+  local gun = self:gunAt(self.gun)
   local abilities = Features.byName.abilities
   local right = abilities and abilities.hudLeft and abilities:hudLeft() - 16 or math.floor(w / 2 + 80)
   local small, body = UI.fonts.small, UI.fonts.body
@@ -653,7 +677,7 @@ function Weapons:drawMagazine()
   local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
-  UI.label(name, x, baseline, { 0.75, 0.75, 0.8 })
+  UI.label(name, x, baseline, Tiers.color(self:tierOf(self.gun))) -- in its tier's colour
   love.graphics.setFont(body)
   UI.label(count, x + nameW, y, color)
   love.graphics.setFont(small)
@@ -745,14 +769,16 @@ Weapons.clientMessages = {
     end
   end,
   WPN_GUNS = function(_client, args)
-    local slots = {}
+    local slots, tiers = {}, {}
     for slot, a in ipairs(args) do
-      local index = tonumber(a)
-      if Guns.list[index] and slot <= Weapons.slotCount then
+      local base, tier = Tiers.split(a)
+      local index = tonumber(base)
+      if Guns.list[index] and tier and slot <= Weapons.slotCount then
         slots[slot] = index
+        tiers[index] = tier ~= Tiers.DEFAULT and tier or nil
       end
     end
-    Weapons.slots = slots
+    Weapons.slots, Weapons.tiers = slots, tiers
   end,
   WPN_INFINITE = function(_client, args)
     Weapons.infiniteAmmo = args[1] == "1"
@@ -926,6 +952,17 @@ Weapons.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
+--- Gun `index` as `st` (a player's record on the host) carries it: its
+--- tier's numbers.
+local function gunOf(st, index)
+  return Tiers.apply(Guns.at(index), st.tiers and st.tiers[index])
+end
+
+--- The item gun `index` is as `st` carries it: "gun-uzi", "gun-uzi@rare".
+local function gunItem(st, index)
+  return Tiers.join("gun-" .. Guns.at(index).key, st.tiers and st.tiers[index])
+end
+
 --- Every gun loaded: how a player starts.
 local function fullMagazines()
   local mags = {}
@@ -945,6 +982,7 @@ function Weapons:serverStart(server)
         kills = 0,
         gun = Guns.DEFAULT,
         slots = self:startSlots(),
+        tiers = {}, -- gun index -> tier key of the one in their slots, when it isn't common
         mags = fullMagazines(),
         spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
         lastFire = -math.huge,
@@ -968,7 +1006,8 @@ function Weapons:sendGuns(server, player)
   end
   local list = {}
   for slot = 1, self.slotCount do
-    list[slot] = st.slots[slot] or 0
+    local index = st.slots[slot]
+    list[slot] = index and Tiers.join(tostring(index), st.tiers and st.tiers[index]) or 0
   end
   server:send(player, Protocol.encode("WPN_GUNS", unpack(list)))
 end
@@ -997,6 +1036,7 @@ function Weapons:serverPlayerJoined(server, player)
       kills = 0,
       gun = Guns.DEFAULT,
       slots = self:startSlots(),
+      tiers = {},
       mags = fullMagazines(),
       spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
       lastFire = -math.huge,
@@ -1226,33 +1266,56 @@ function Weapons:serverOwns(player, index)
   return player.bot or slotOf(st.slots, index) ~= nil
 end
 
---- `player` takes the gun item they carry for gun `index` and puts the gun
---- in weapon slot `slot`. A gun already there goes back into the bag as an
---- item (the slot the taken item freed has room for it); the pistol never
---- leaves its slots, so it can't be swapped out. Returns true if it happened.
-function Weapons:serverEquip(server, player, index, slot)
+--- `player` takes the gun item they carry for gun `index` in tier `tier`
+--- and puts the gun in weapon slot `slot`. A gun already there goes back
+--- into the bag as an item, in its tier; the pistol never leaves its slots,
+--- so it can't be swapped out. Another tier of a gun they already carry
+--- swaps with that one in its own slot, whatever `slot` says (the pistol
+--- too). Returns true if it happened.
+function Weapons:serverEquip(server, player, index, slot, tier)
   local st = self.sv and self.sv.players[player.id]
   local gun = Guns.list[index]
   local buildings = Features.byName.buildings
-  if not (st and gun and slot and buildings and buildings.serverTake and Features.present(player)) then
+  tier = tier or Tiers.DEFAULT
+  if not (st and gun and slot and Tiers.byKey[tier] and buildings and buildings.serverTake
+    and Features.present(player)) then
     return false
-  elseif slot < 1 or slot > self.slotCount or slotOf(st.slots, index) then
-    return false -- no such slot, or they carry it already
+  elseif slot < 1 or slot > self.slotCount then
+    return false -- no such slot
+  end
+  st.tiers = st.tiers or {}
+  local have = slotOf(st.slots, index)
+  if have then
+    if (st.tiers[index] or Tiers.DEFAULT) == tier then
+      return false -- they carry that one already
+    end
+    slot = have -- trading it for another tier, where it is
   end
   local old = st.slots[slot]
-  if old == Guns.DEFAULT then
+  if old == Guns.DEFAULT and index ~= Guns.DEFAULT then
     return false
   end
-  if buildings:serverTake(server, player, "gun-" .. gun.key, 1) < 1 then
+  local item = Tiers.join("gun-" .. gun.key, tier)
+  if buildings:serverTake(server, player, item, 1) < 1 then
     return false -- they don't carry one
   end
-  if old then
-    buildings:serverGive(server, player, "gun-" .. Guns.at(old).key, 1)
-    if st.gun == old then
-      st.gun, st.reloadUntil = index, nil -- the hand holds what is in that slot now
-    end
+  if old and buildings:serverGive(server, player, gunItem(st, old), 1) < 1 then
+    buildings:serverGive(server, player, item, 1) -- no room for the old one: nothing changes
+    return false
+  end
+  if old and old ~= index then
+    st.tiers[old] = nil
+  end
+  if st.gun == old then
+    st.gun, st.reloadUntil = index, nil -- the hand holds what is in that slot now
   end
   st.slots[slot] = index
+  st.tiers[index] = tier ~= Tiers.DEFAULT and tier or nil
+  local most = gunOf(st, index).magazine
+  if (st.mags[index] or 0) > most then
+    st.mags[index] = most -- a smaller magazine than the last one's
+    server:send(player, Protocol.encode("WPN_MAG", index, most))
+  end
   self:sendGuns(server, player)
   return true
 end
@@ -1268,10 +1331,13 @@ function Weapons:serverUnequip(server, player, slot)
   if not (gun and buildings and buildings.serverGive and Features.present(player)) or index == Guns.DEFAULT then
     return false
   end
-  if buildings:serverGive(server, player, "gun-" .. gun.key, 1) < 1 then
+  if buildings:serverGive(server, player, gunItem(st, index), 1) < 1 then
     return false -- no room in their bag
   end
   st.slots[slot] = nil
+  if st.tiers then
+    st.tiers[index] = nil
+  end
   if st.gun == index then
     st.gun, st.reloadUntil = Guns.DEFAULT, nil
   end
@@ -1297,8 +1363,8 @@ end
 
 local SAVE_VERSION = 1
 
---- `player`'s part of a saved world: the gun key in each weapon slot and
---- the rounds in each magazine, by gun key so a reordered guns.lua can't
+--- `player`'s part of a saved world: the gun key in each weapon slot (with
+--- its tier: "uzi@rare") and the rounds in each magazine, by gun key so a reordered guns.lua can't
 --- mix them up. Spare rounds are items in the bag (buildings saves those);
 --- health, kills, the gun in hand and infinite ammo are not kept.
 function Weapons:serverSavePlayer(_server, player)
@@ -1310,14 +1376,14 @@ function Weapons:serverSavePlayer(_server, player)
   for slot = 1, self.slotCount do
     local gun = st.slots[slot] and Guns.list[st.slots[slot]]
     if gun then
-      slots[slot] = gun.key
+      slots[slot] = Tiers.join(gun.key, st.tiers and st.tiers[gun.index])
     end
   end
   for i, gun in ipairs(Guns.list) do
     mags[gun.key] = st.mags[i] or 0
   end
   if st.deadUntil then
-    local pistol = Guns.at(Guns.DEFAULT)
+    local pistol = gunOf(st, Guns.DEFAULT)
     mags[pistol.key] = math.max(mags[pistol.key], pistol.magazine) -- they'd be back with it loaded
   end
   return { version = SAVE_VERSION, slots = slots, mags = mags }
@@ -1332,14 +1398,19 @@ function Weapons:serverLoadPlayer(server, player, data)
     return
   end
   if type(data.slots) == "table" then
-    local slots = {}
+    local slots, tiers = {}, {}
     for slot = 1, self.slotCount do
-      local key = data.slots[slot]
-      local gun = type(key) == "string" and Guns[key]
-      if type(gun) == "table" and gun.key == key and not slotOf(slots, gun.index) then
+      local key, tier
+      if type(data.slots[slot]) == "string" then
+        key, tier = Tiers.split(data.slots[slot])
+      end
+      local gun = key and Guns[key]
+      if type(gun) == "table" and gun.key == key and tier and not slotOf(slots, gun.index) then
         slots[slot] = gun.index
+        tiers[gun.index] = tier ~= Tiers.DEFAULT and tier or nil
       end
     end
+    st.tiers = tiers
     if not slotOf(slots, Guns.DEFAULT) then
       local free = 1 -- the first empty slot, or slot 1 when all are full
       for slot = self.slotCount, 1, -1 do
@@ -1358,7 +1429,7 @@ function Weapons:serverLoadPlayer(server, player, data)
     for i, gun in ipairs(Guns.list) do
       local rounds = tonumber(data.mags[gun.key])
       if rounds and rounds == rounds then
-        st.mags[i] = math.max(0, math.min(gun.magazine, math.floor(rounds)))
+        st.mags[i] = math.max(0, math.min(gunOf(st, i).magazine, math.floor(rounds)))
       end
     end
   end
@@ -1388,7 +1459,7 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
-  local gun = Guns.at(heldGun(self, player, st))
+  local gun = gunOf(st, heldGun(self, player, st))
   if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
   end
@@ -1425,9 +1496,9 @@ function Weapons:serverSetInfiniteAmmo(server, player, on)
   st.infiniteAmmo = on and true or nil
   if on then
     st.reloadUntil = nil
-    for i, gun in ipairs(Guns.list) do
-      st.mags[i] = gun.magazine
-      server:send(player, Protocol.encode("WPN_MAG", i, gun.magazine))
+    for i in ipairs(Guns.list) do
+      st.mags[i] = gunOf(st, i).magazine
+      server:send(player, Protocol.encode("WPN_MAG", i, st.mags[i]))
     end
   end
   server:send(player, Protocol.encode("WPN_INFINITE", on and 1 or 0))
@@ -1472,7 +1543,7 @@ function Weapons:serverReload(server, player)
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
-  local gun = Guns.at(heldGun(self, player, st))
+  local gun = gunOf(st, heldGun(self, player, st))
   if (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
     return false
   end
@@ -1488,7 +1559,7 @@ function Weapons:finishReloads(server)
     if st.reloadUntil and sv.time >= st.reloadUntil then
       st.reloadUntil = nil
       local p = server.players[id]
-      local gun = Guns.at(st.gun)
+      local gun = gunOf(st, st.gun)
       local need = gun.magazine - (st.mags[st.gun] or 0)
       local buildings = Features.byName.buildings
       local got = need
@@ -1511,7 +1582,10 @@ Weapons.serverMessages = {
     Weapons:serverSelectGun(server, player, tonumber(args[1]))
   end,
   WPN_EQUIP = function(server, player, args)
-    Weapons:serverEquip(server, player, tonumber(args[1]), tonumber(args[2]))
+    local index, tier = Tiers.split(args[1] or "")
+    if tier then
+      Weapons:serverEquip(server, player, tonumber(index), tonumber(args[2]), tier)
+    end
   end,
   WPN_UNEQUIP = function(server, player, args)
     Weapons:serverUnequip(server, player, tonumber(args[1]))
@@ -1877,7 +1951,7 @@ function Weapons:updateWrecks(server)
         p.body.dead = false
         p.body.x, p.body.y, p.body.facing = at.x, at.y, at.angle
         -- Back with a loaded pistol, whatever else ran dry.
-        st.mags[Guns.DEFAULT] = math.max(st.mags[Guns.DEFAULT] or 0, Guns.at(Guns.DEFAULT).magazine)
+        st.mags[Guns.DEFAULT] = math.max(st.mags[Guns.DEFAULT] or 0, gunOf(st, Guns.DEFAULT).magazine)
         server:send(p, Protocol.encode("WPN_MAG", Guns.DEFAULT, st.mags[Guns.DEFAULT]))
         if own then
           own.hidden = false

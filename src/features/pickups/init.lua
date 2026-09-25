@@ -14,7 +14,9 @@
 -- through Pickups:serverDrop (police drops one for every officer or unit
 -- lost), and a drop is gone for good once taken. So is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
--- human over it with room in their bag carries it off as the item.
+-- human over it with room in their bag carries it off as the item, in the
+-- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
+-- which rings the orb in its colour.
 --
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
@@ -26,6 +28,7 @@ local Features = require("src.features")
 local UI = require("src.ui")
 local Sounds = require("src.features.pickups.sounds")
 local AbilityKinds = require("src.features.abilities.kinds")
+local Tiers = require("src.features.tiers")
 
 local Pickups = {
   name = "pickups",
@@ -69,7 +72,8 @@ end
 --- it as. Only a human picks it up (never a bot driving past), into their
 --- inventory through buildings; a full bag leaves it.
 local function abilityKind(key)
-  local ability = AbilityKinds.byKey[key:match("^ability%-(.+)$")]
+  local base, tier = Tiers.split(key)
+  local ability = tier and AbilityKinds.byKey[base:match("^ability%-(.+)$")]
   if not ability then
     return nil
   end
@@ -81,7 +85,7 @@ local function abilityKind(key)
       end
       return buildings:serverGive(server, player, key, 1) > 0
     end,
-    label = "+" .. ability.title,
+    label = "+" .. Tiers.named(ability.title, tier),
     color = ability.color,
     pitch = 0.6,
   }
@@ -232,8 +236,10 @@ end
 --- An ability lying loose: an orb in the ability's colour, turning rays
 --- round it and a beacon of light going up, so it is seen from afar.
 local function drawAbility(x, y, t, key)
-  local ability = AbilityKinds.byKey[key:match("^ability%-(.+)$") or ""]
+  local base, tier = Tiers.split(key)
+  local ability = AbilityKinds.byKey[base:match("^ability%-(.+)$") or ""]
   local c = ability and ability.color or { 1, 1, 1 }
+  local tc = Tiers.color(tier)
   local pulse = 0.5 + 0.5 * math.sin(t * 5)
   love.graphics.setColor(c[1], c[2], c[3], 0.15 + pulse * 0.15)
   love.graphics.circle("fill", x, y, 34 + pulse * 6)
@@ -243,6 +249,10 @@ local function drawAbility(x, y, t, key)
     love.graphics.setColor(c[1], c[2], c[3], 0.45)
     love.graphics.line(x + math.cos(a) * 16, y + math.sin(a) * 16, x + math.cos(a) * 30, y + math.sin(a) * 30)
   end
+  -- A ring in its tier's colour round the whole thing.
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(tc[1], tc[2], tc[3], 0.6 + pulse * 0.4)
+  love.graphics.circle("line", x, y, 36 + pulse * 4)
   love.graphics.setLineWidth(1)
   y = y + math.sin(t * 3 + 2.3) * 2
   love.graphics.setColor(0.08, 0.06, 0.05)

@@ -42,6 +42,16 @@
 -- player, key, phase, seconds)` tells the carrier its phase (ABL_PASSIVE)
 -- so the HUD ring shows it working ("active") or resting ("cooldown").
 --
+-- Abilities come in tiers (tiers/init.lua): "ability-leap@rare" is a leap
+-- that comes back sooner and flies further (each ability's `tierStats`).
+-- A slot holds the ability with its tier ("leap@rare"), still one of each
+-- ability per player; another tier of one you carry dragged onto the slots
+-- swaps with it. The host casts the tier in the slot: its cooldown and
+-- range here, the rest in the ability's own module, which gets the tuned
+-- table as the last argument of `serverCast` and `serverTick` (and finds it
+-- as `e.ability` in an effect), so everything reads the numbers from there.
+-- ABL_FIRED names the tier too, so every client draws the same.
+--
 -- A cheat (reachforthestars) can lift an ability's limits for a player,
 -- Abilities:serverSetReach: the host lets their casts land wherever the
 -- cursor is, out to `liftedRange`, with no cooldown in between, and tells
@@ -57,14 +67,15 @@
 --
 -- Messages
 --   client -> server  ABL_CAST  <ability> <x> <y>
---   client -> server  ABL_EQUIP <ability> <slot>       (the ability item I carry, into that slot)
+--   client -> server  ABL_EQUIP <ability>[@<tier>] <slot>  (the ability item I carry, into that slot)
 --   client -> server  ABL_UNEQUIP <slot>               (the ability in that slot, into my bag)
 --   client -> server  ABL_MOVE <slot> <slot>           (swap two slots)
---   server -> player  ABL_SLOTS <ability per slot>...  (what is in each slot; "-" = empty)
+--   server -> player  ABL_SLOTS <ability[@tier] per slot>...  (what is in each slot; "-" = empty)
 --   server -> player  ABL_PASSIVE <ability> <phase> <seconds>  (the passive in your slot went idle,
 --                                                             active or into cooldown, for that long)
 --   server -> player  ABL_REACH <ability> <0|1>       (its range and cooldown are lifted for you, or back to normal)
---   server -> all     ABL_FIRED <by> <ability> <x> <y> <seconds> <angle> [<heldId>]...  (angle: which way it faces)
+--   server -> all     ABL_FIRED <by> <ability[@tier]> <x> <y> <seconds> <angle> [<heldId>]...
+--                                              (angle: which way it faces)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -75,6 +86,7 @@ local Body = require("src.body")
 local Sounds = require("src.features.abilities.sounds")
 local Kinds = require("src.features.abilities.kinds")
 local Icons = require("src.features.abilities.icons")
+local Tiers = require("src.features.tiers")
 local Freeze = require("src.features.abilities.freeze")
 local Leap = require("src.features.abilities.leap")
 
@@ -105,6 +117,18 @@ local function dist2(ax, ay, bx, by)
   return dx * dx + dy * dy
 end
 
+--- The ability a slot holds, "leap" or "leap@rare", in its tier: the
+--- tuned table (tiers/init.lua), or nil for nothing or nonsense.
+local function kindOf(held)
+  if not held then
+    return nil
+  end
+  local key, tier = Tiers.split(held)
+  local ability = Kinds.byKey[key]
+  return ability and tier and Tiers.apply(ability, tier) or nil
+end
+Abilities.kindOf = kindOf
+
 --- The slots everyone starts with: slot -> ability key.
 local function startSlots()
   local slots = {}
@@ -116,20 +140,22 @@ local function startSlots()
   return slots
 end
 
---- Does ability `key` belong in `slot`: passive ones in the passive slot,
---- the rest anywhere else?
+--- Does ability `key` (with or without a tier) belong in `slot`: passive
+--- ones in the passive slot, the rest anywhere else?
 local function fits(key, slot)
-  local ability = Kinds.byKey[key]
+  local ability = kindOf(key)
   if not ability then
     return false
   end
   return (slot == Abilities.passiveSlot) == (ability.passive == true)
 end
 
---- The slot ability `key` sits in, in a slot -> key map, or nil.
+--- The slot ability `key` sits in, in a slot -> key map, or nil, in
+--- whatever tier (a player carries one of each ability).
 local function slotOf(slots, key)
+  key = Tiers.base(key)
   for slot, k in pairs(slots) do
-    if k == key then
+    if Tiers.base(k) == key then
       return slot
     end
   end
@@ -140,7 +166,7 @@ end
 
 Abilities.camera = nil -- last camera seen in update, to put the cursor in the world
 Abilities.time = 0
-Abilities.slots = {} -- slot -> ability key, mine (the host says: ABL_SLOTS)
+Abilities.slots = {} -- slot -> ability key with its tier ("leap@rare"), mine (the host says: ABL_SLOTS)
 Abilities.aiming = nil -- slot index while its key is held
 Abilities.spent = nil -- slot whose key must be released before it aims again (cancelled)
 Abilities.fireSpent = nil -- true after the fire button placed something, until it is let go
@@ -183,9 +209,14 @@ function Abilities:exitGame()
   self.slots = startSlots()
 end
 
---- The ability in slot `slot`, or nil.
+--- The ability in slot `slot`, in its tier, or nil.
 function Abilities:inSlot(slot)
-  return Kinds.byKey[self.slots[slot] or EMPTY]
+  return kindOf(self.slots[slot])
+end
+
+--- The tier key of what is in slot `slot`.
+function Abilities:tierIn(slot)
+  return Tiers.of(self.slots[slot] or "")
 end
 
 --- Do I carry ability `key`, as far as the host has told me?
@@ -211,10 +242,12 @@ function Abilities:canMove(from, to)
   return from ~= to and a ~= nil and to >= 1 and to <= self.slotCount and fits(a, to) and (not b or fits(b, from))
 end
 
---- Ask to put the ability item I carry for `key` into slot `slot` (the
---- inventory screen does, on a drag). The host answers with ABL_SLOTS.
+--- Ask to put the ability item I carry for `key` ("leap", "leap@rare")
+--- into slot `slot` (the inventory screen does, on a drag); another tier
+--- of one I carry swaps with it where it is. The host answers with ABL_SLOTS.
 function Abilities:equip(client, key, slot)
-  if Kinds.byKey[key] and not self:owns(key) and fits(key, slot) then
+  local have = slotOf(self.slots, key)
+  if kindOf(key) and (not have or self.slots[have] ~= key) and fits(key, have or slot) then
     client:send(Protocol.encode("ABL_EQUIP", key, slot))
   end
 end
@@ -490,7 +523,8 @@ function Abilities:drawHUD(client)
       -- with the seconds it has left inside; resting, the ring fills back
       -- through its cooldown like a keyed ability's.
       local p = ability and self.passive and self.passive.key == ability.key and self.passive or nil
-      local title, titleColor = ability and (ability.hud or ability.title) or "passive", { 0.6, 0.6, 0.65 }
+      local title = ability and (ability.hud or ability.title) or "passive"
+      local titleColor = ability and Tiers.color(ability.tier) or { 0.6, 0.6, 0.65 } -- named in its tier's colour
       local middle, middleColor
       if not ability then
         UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
@@ -559,7 +593,7 @@ function Abilities:drawHUD(client)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
         title = aiming and (placed(ability) and "fire: place" or "release") or (ability.hud or ability.title)
-        titleColor = aiming and c or { 0.9, 0.9, 0.95 }
+        titleColor = aiming and c or Tiers.color(ability.tier) -- named in its tier's colour
       end
       Icons.draw(ability.key, cx, cy, self.hudIcon, middle and 0.3 or 1)
       if middle then
@@ -584,7 +618,7 @@ end
 
 Abilities.clientMessages = {
   ABL_FIRED = function(client, args)
-    local by, ability = tonumber(args[1]), Kinds.byKey[args[2] or EMPTY]
+    local by, ability = tonumber(args[1]), kindOf(args[2])
     local x, y, seconds = tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
     local angle = tonumber(args[6]) or 0
     if not (ability and x and y and seconds) then
@@ -610,7 +644,7 @@ Abilities.clientMessages = {
   ABL_SLOTS = function(_client, args)
     local slots = {}
     for slot, key in ipairs(args) do
-      if Kinds.byKey[key] and slot <= Abilities.slotCount then
+      if kindOf(key) and slot <= Abilities.slotCount then
         slots[slot] = key
       end
     end
@@ -618,7 +652,7 @@ Abilities.clientMessages = {
     if Abilities.aiming and not slots[Abilities.aiming] then
       Abilities.aiming = nil -- it left the slot mid-aim
     end
-    if Abilities.passive and slots[Abilities.passiveSlot] ~= Abilities.passive.key then
+    if Abilities.passive and Tiers.base(slots[Abilities.passiveSlot] or EMPTY) ~= Abilities.passive.key then
       Abilities.passive = nil -- put down: whatever it was doing is over
     end
   end,
@@ -707,29 +741,47 @@ function Abilities:serverPlayerLeft(_server, player)
   end
 end
 
---- Does `player` carry ability `key` in a slot on the host?
+--- Does `player` carry ability `key` (in any tier) in a slot on the host?
 function Abilities:serverOwns(player, key)
   local slots = self.sv and self.sv.slots[player.id]
   return slots ~= nil and slotOf(slots, key) ~= nil
 end
 
---- `player` takes the ability item they carry for `key` and puts it in
---- slot `slot`; one already there goes back into the bag as an item (the
---- slot the taken item freed has room). Returns true if it happened.
+--- Ability `key` as `player` carries it on the host, in its tier, or nil.
+function Abilities:serverKind(player, key)
+  local slots = self.sv and self.sv.slots[player.id]
+  local slot = slots and slotOf(slots, key)
+  return slot and kindOf(slots[slot]) or nil
+end
+
+--- `player` takes the ability item they carry for `key` ("leap",
+--- "leap@rare") and puts it in slot `slot`; one already there goes back
+--- into the bag as an item, in its tier. Another tier of an ability they
+--- carry swaps with that one in its own slot, whatever `slot` says.
+--- Returns true if it happened.
 function Abilities:serverEquip(server, player, key, slot)
   local slots = self.sv and self.sv.slots[player.id]
   local buildings = Features.byName.buildings
-  if not (slots and Kinds.byKey[key] and slot and buildings and buildings.serverTake and Features.present(player)) then
+  if not (slots and kindOf(key) and slot and buildings and buildings.serverTake and Features.present(player)) then
     return false
-  elseif not fits(key, slot) or slotOf(slots, key) then
-    return false -- no such slot, the wrong kind of slot, or they carry it already
+  end
+  local have = slotOf(slots, key)
+  if have then
+    if slots[have] == key then
+      return false -- they carry that one already
+    end
+    slot = have -- trading it for another tier, where it is
+  end
+  if not fits(key, slot) then
+    return false -- no such slot, or the wrong kind of slot
   end
   if buildings:serverTake(server, player, "ability-" .. key, 1) < 1 then
     return false -- they don't carry one
   end
   local old = slots[slot]
-  if old then
-    buildings:serverGive(server, player, "ability-" .. old, 1)
+  if old and buildings:serverGive(server, player, "ability-" .. old, 1) < 1 then
+    buildings:serverGive(server, player, "ability-" .. key, 1) -- no room for the old one: nothing changes
+    return false
   end
   slots[slot] = key
   self:sendSlots(server, player)
@@ -771,7 +823,8 @@ end
 
 local SAVE_VERSION = 1
 
---- `player`'s part of a saved world: the ability key in each slot. Always
+--- `player`'s part of a saved world: the ability key in each slot, with
+--- its tier ("leap@rare"). Always
 --- kept, since an empty set is not the same as what everyone starts with.
 function Abilities:serverSavePlayer(_server, player)
   local slots = self.sv and self.sv.slots[player.id]
@@ -811,6 +864,7 @@ end
 --- lifted now. The cheats feature does this.
 function Abilities:serverSetReach(server, player, key, on)
   local sv = self.sv
+  key = Tiers.base(key or EMPTY)
   if not (sv and Kinds.byKey[key]) then
     return false
   end
@@ -921,9 +975,9 @@ function Abilities:serverStep(server, dt)
   -- player's passive slot.
   for id, slots in pairs(sv.slots) do
     local player = server.players[id]
-    local ability = player and Kinds.byKey[slots[self.passiveSlot] or EMPTY]
+    local ability = player and kindOf(slots[self.passiveSlot])
     if ability and ability.serverTick then
-      ability.serverTick(server, player, dt, self)
+      ability.serverTick(server, player, dt, self, ability)
     end
   end
 end
@@ -955,13 +1009,13 @@ end
 Abilities.serverMessages = {
   ABL_CAST = function(server, player, args)
     local sv = Abilities.sv
-    local key = args[1]
-    local ability = Kinds.byKey[key or EMPTY]
+    local key = Tiers.base(args[1] or EMPTY)
+    local ability = Abilities:serverKind(player, key) -- in the tier they carry it
     local x, y = tonumber(args[2]), tonumber(args[3])
-    if not (sv and ability and x and y) or not Features.present(player) then
+    if not (sv and Kinds.byKey[key] and x and y) or not Features.present(player) then
       return
     end
-    if not Abilities:serverOwns(player, key) or ability.passive then
+    if not ability or ability.passive then
       return -- not in any of their slots, or not the casting kind: a stale or forged cast
     end
     if Abilities:serverHeld(server, player) then
@@ -989,10 +1043,11 @@ Abilities.serverMessages = {
     if not lifted then
       ready[key] = sv.time + ability.cooldown * Features.reduce("serverStat", 1, server, player, "cooldown")
     end
-    local held, angle, nx, ny, seconds = ability.serverCast(server, player, x, y, Abilities)
+    local held, angle, nx, ny, seconds = ability.serverCast(server, player, x, y, Abilities, ability)
     x, y = nx or x, ny or y -- an ability may settle somewhere else (the nest steps out of walls)
     -- ... and last longer than usual this time (a long leap flies longer).
-    server:broadcast(Protocol.encode("ABL_FIRED", player.id, key, ("%.1f"):format(x), ("%.1f"):format(y),
+    local named = Tiers.join(key, ability.tier)
+    server:broadcast(Protocol.encode("ABL_FIRED", player.id, named, ("%.1f"):format(x), ("%.1f"):format(y),
       ("%.2f"):format(seconds or ability.seconds), ("%.3f"):format(angle or 0), unpack(held or {})))
   end,
   ABL_EQUIP = function(server, player, args)

@@ -13,6 +13,7 @@ local Icons = require("src.features.weapons.icons")
 local AbilityKinds = require("src.features.abilities.kinds")
 local AbilityIcons = require("src.features.abilities.icons")
 local Catalog = require("src.features.vehicles.catalog")
+local Tiers = require("src.features.tiers")
 
 local Render = {}
 
@@ -258,6 +259,7 @@ end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.
 function Render.itemIcon(item, cx, cy)
+  item = Tiers.base(item) -- every tier looks the same; the box around it says which
   local c = COLORS[item]
   if item == "oil" then
     -- A barrel.
@@ -367,6 +369,7 @@ end
 --- (abilities/icons.lua) on a dark disc, radius `r`. The inventory screen
 --- draws one under the cursor with this.
 function Render.abilityIcon(key, cx, cy, r)
+  key = Tiers.base(key)
   local a = AbilityKinds.byKey[key]
   local c = a and a.color or { 0.8, 0.8, 0.85 }
   love.graphics.setColor(c[1], c[2], c[3], 0.25)

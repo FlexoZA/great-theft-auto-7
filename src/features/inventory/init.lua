@@ -27,11 +27,18 @@
 -- destroyed (buildings:trash); something in a slot goes into the bag first.
 -- The host does the moving and tells each feature what is in its slots;
 -- this only asks.
+--
+-- Equipment comes in tiers (tiers/init.lua), and every box that holds some
+-- shows its tier's colour. A gun or ability dragged from the bag in another
+-- tier than the one you carry swaps with it (a better pistol for yours); a
+-- vest or piece of clothing swaps the way it always did. What is dragged
+-- keeps its tier: `key` is "leap@rare", "vest@rare", and a gun has `tier`.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Kinds = require("src.features.buildings.kinds")
 local Guns = require("src.features.weapons.guns")
+local Tiers = require("src.features.tiers")
 local Screen = require("src.features.inventory.screen")
 
 local Inventory = {
@@ -40,7 +47,7 @@ local Inventory = {
 }
 
 Inventory.open = false
--- What is being dragged: { kind = "gun", index }, { kind = "ability", key }, { kind = "quick", item },
+-- What is being dragged: { kind = "gun", index, tier }, { kind = "ability", key }, { kind = "quick", item },
 -- { kind = "armor", key }, { kind = "gear", key, slot } or { kind = "item" } (anything else in the bag,
 -- which only the bin takes), with from = "slot" | "bag" | "quick", box (the slot or item box it left),
 -- x0, y0, moved, and from the bag the stack it is: item, n.
@@ -168,7 +175,7 @@ function Inventory:pick(x, y, client)
     if inside(r, x, y) then
       local index = w and w.slots[slot]
       if index and Guns.list[index] then
-        return { kind = "gun", index = index, from = "slot", box = slot }
+        return { kind = "gun", index = index, tier = w:tierOf(index), from = "slot", box = slot }
       end
       return nil
     end
@@ -191,20 +198,21 @@ function Inventory:pick(x, y, client)
           return nil
         end
         local d
-        local gunKey = s.item:match("^gun%-(.+)$")
+        local base, tier = Tiers.split(s.item)
+        local gunKey = tier and base:match("^gun%-(.+)$")
         local gun = gunKey and Guns[gunKey]
-        local abilityKey = s.item:match("^ability%-(.+)$")
+        local abilityKey = s.item:match("^ability%-(.+)$") -- with its tier: "leap@rare"
+        local piece = s.item:match("^gear%-") and g and g.pieceOf(s.item:sub(6))
         if gun then
-          d = { kind = "gun", index = gun.index }
-        elseif abilityKey and a and a.kinds.byKey[abilityKey] then
+          d = { kind = "gun", index = gun.index, tier = tier }
+        elseif abilityKey and a and a.kindOf(abilityKey) then
           d = { kind = "ability", key = abilityKey }
         elseif b.usableByItem and b.usableByItem[s.item] then
           d = { kind = "quick", item = s.item }
-        elseif s.item:match("^armor%-") and ar and ar.kinds.byKey[s.item:sub(7)] then
+        elseif s.item:match("^armor%-") and ar and ar.kindOf(s.item:sub(7)) then
           d = { kind = "armor", key = s.item:sub(7) }
-        elseif s.item:match("^gear%-") and g and g.kinds.byKey[s.item:sub(6)] then
-          local piece = g.kinds.byKey[s.item:sub(6)]
-          d = { kind = "gear", key = piece.key, slot = piece.slot }
+        elseif piece then
+          d = { kind = "gear", key = s.item:sub(6), slot = piece.slot }
         else
           d = { kind = "item", item = s.item } -- materials, ammo: only the bin takes them
         end
@@ -261,8 +269,9 @@ function Inventory:dropAbility(client, d, x, y, L)
   if not (a and b) then
     return
   end
-  local ability = a.kinds.byKey[d.key]
+  local ability = a.kindOf(d.key)
   local slot = slotAt(L.abilities, L.abilitiesArea, a.slots, a.slotCount, x, y)
+  local have = a:slotOf(d.key) -- the slot it is in, in whatever tier
   if d.from == "slot" and inside(L.itemsArea, x, y) then
     if Kinds.room(b.inventory, b.slots, "ability-" .. d.key) < 1 then
       self:say("No room in your bag for " .. ability.title .. ".")
@@ -275,13 +284,13 @@ function Inventory:dropAbility(client, d, x, y, L)
     else
       self:sayFit(ability, slot)
     end
-  elseif d.from == "bag" and slot then
-    if a:owns(d.key) then
+  elseif d.from == "bag" and (slot or (have and inside(L.abilitiesArea, x, y))) then
+    if have and a.slots[have] == d.key then
       self:say("You already carry " .. ability.title .. ".")
-    elseif not a:fits(d.key, slot) then
-      self:sayFit(ability, slot)
+    elseif not a:fits(d.key, have or slot) then
+      self:sayFit(ability, have or slot)
     else
-      a:equip(client, d.key, slot)
+      a:equip(client, d.key, slot or have) -- another tier of one I carry swaps with it where it is
     end
   elseif d.from == "bag" and inside(L.abilitiesArea, x, y) then
     self:say("No empty ability slot: drop it on the one to swap with.")
@@ -337,11 +346,11 @@ function Inventory:dropArmor(client, d, x, y, L)
   if not (ar and b) then
     return
   end
-  local kind = ar.kinds.byKey[d.key]
+  local kind = ar.kindOf(d.key)
   if d.from == "bag" and inside(L.gear[Screen.ARMOR], x, y) then
     local worn = ar:mine(client)
     if worn and worn.points < worn.max then
-      self:say("Your " .. (ar.kinds.byKey[worn.kind] or {}).title .. " is damaged: it will be thrown away.")
+      self:say("Your " .. (ar.kindOf(worn.kind) or {}).title .. " is damaged: it will be thrown away.")
     end
     ar:equip(client, d.key)
   elseif d.from == "slot" and inside(L.itemsArea, x, y) then
@@ -365,7 +374,7 @@ function Inventory:dropGear(client, d, x, y, L)
   if not (g and b) then
     return
   end
-  local piece = g.kinds.byKey[d.key]
+  local piece = g.pieceOf(d.key)
   local slot
   for i, r in ipairs(L.gear) do
     if i ~= Screen.ARMOR and inside(r, x, y) then
@@ -425,23 +434,24 @@ function Inventory:drop(client, d, x, y)
   end
   local gun = Guns.list[d.index]
   local slot = slotAt(L.weapons, L.weaponsArea, w.slots, w.slotCount, x, y)
+  local have = w:owns(d.index)
   if d.from == "slot" and inside(L.itemsArea, x, y) then
     if d.index == Guns.DEFAULT then
       self:say("The " .. gun.name .. " stays with you.")
-    elseif Kinds.room(b.inventory, b.slots, "gun-" .. gun.key) < 1 then
+    elseif Kinds.room(b.inventory, b.slots, Tiers.join("gun-" .. gun.key, d.tier)) < 1 then
       self:say("No room in your bag for the " .. gun.name .. ".")
     else
       w:unequip(client, d.box)
     end
   elseif d.from == "slot" and slot then
     w:move(client, d.box, slot)
-  elseif d.from == "bag" and slot then
-    if w:owns(d.index) then
-      self:say("You already carry a " .. gun.name .. ".")
-    elseif w.slots[slot] == Guns.DEFAULT then
+  elseif d.from == "bag" and (slot or (have and inside(L.weaponsArea, x, y))) then
+    if have and w:tierOf(d.index) == d.tier then
+      self:say("You already carry a " .. Tiers.named(gun.name, d.tier) .. ".")
+    elseif not have and w.slots[slot] == Guns.DEFAULT then
       self:say("The " .. Guns.at(Guns.DEFAULT).name .. " stays with you.")
     else
-      w:equip(client, d.index, slot)
+      w:equip(client, d.index, slot or w:slotOf(d.index), d.tier) -- another tier swaps with the one I carry
     end
   elseif d.from == "bag" and inside(L.weaponsArea, x, y) then
     self:say("No empty weapon slot: drop it on the one to swap with.")
