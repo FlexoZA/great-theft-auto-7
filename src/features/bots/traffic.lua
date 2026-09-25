@@ -136,6 +136,43 @@ function Traffic.graph(map)
   return cache.graph
 end
 
+--- Somewhere to put a car down: a random street of `graph`, in its right-
+--- hand lane, facing the way that lane runs, at least `gap` px from every
+--- car in `vehicles`. Returns x, y, angle, or nil if no such place turned
+--- up in a few tries.
+function Traffic.randomLanePoint(graph, vehicles, gap)
+  local streets = {}
+  for _, a in pairs(graph.nodes) do
+    for _, e in ipairs(a.exits) do
+      streets[#streets + 1] = { a = a, e = e }
+    end
+  end
+  table.sort(streets, function(p, q) -- pairs order differs between runs; the pick shouldn't depend on it
+    return p.a.key .. p.e.dx .. p.e.dy < q.a.key .. q.e.dx .. q.e.dy
+  end)
+  if #streets == 0 then
+    return nil
+  end
+  for _ = 1, 30 do
+    local s = streets[love.math.random(#streets)]
+    local a, b, dx, dy = s.a, s.e.node, s.e.dx, s.e.dy
+    local t = 0.25 + love.math.random() * 0.5 -- clear of both crossings
+    local x = a.x + (b.x - a.x) * t - dy * Traffic.lane
+    local y = a.y + (b.y - a.y) * t + dx * Traffic.lane
+    local free = true
+    for _, v in pairs(vehicles) do
+      if not v.hidden and (v.x - x) ^ 2 + (v.y - y) ^ 2 < gap * gap then
+        free = false
+        break
+      end
+    end
+    if free then
+      return x, y, math.atan2(dy, dx)
+    end
+  end
+  return nil
+end
+
 -- Following a street ----------------------------------------------------------
 
 --- The street `ai.route` is on: from, to, the unit direction and its length.

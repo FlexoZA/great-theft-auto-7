@@ -48,8 +48,9 @@ local Bots = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Bots.startCount = 1 -- bots spawned when the game starts
-Bots.maxBots = 6
+Bots.startCount = 15 -- bots spawned when the game starts, spread over the city's streets
+Bots.maxBots = 20
+Bots.spawnGap = 150 -- px a bot is put down clear of every other car
 Bots.range = 650 -- px; won't shoot beyond this
 Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
 Bots.retargetEvery = 1.5 -- seconds
@@ -256,9 +257,17 @@ function Bots:serverStart(server)
   for _ in pairs(server.players) do
     humans = humans + 1
   end
+  local city = Features.byName["city-map"]
+  local graph = city and Traffic.graph(city.map)
   for i = 1, self.startCount do
     local spawns = server.spawnPoints
-    if spawns and #spawns > 0 then
+    local lx, ly, la
+    if graph then
+      lx, ly, la = Traffic.randomLanePoint(graph, server.vehicles, self.spawnGap)
+    end
+    if lx then
+      self:add(server, lx, ly, la) -- somewhere in the city, in a lane, going with the traffic
+    elseif spawns and #spawns > 0 then
       -- A map is loaded: take the next free spawn point after the humans.
       local s = spawns[(humans + i - 1) % #spawns + 1]
       self:add(server, s.x, s.y, s.angle)
@@ -270,8 +279,17 @@ function Bots:serverStart(server)
   end
 end
 
---- A random map spawn point if there is a map, else off to the side of the host.
+--- A random street lane if the map has streets, else a random map spawn
+--- point, else off to the side of the host.
 local function spawnNearHost(server)
+  local city = Features.byName["city-map"]
+  local graph = city and Traffic.graph(city.map)
+  if graph then
+    local x, y, angle = Traffic.randomLanePoint(graph, server.vehicles, Bots.spawnGap)
+    if x then
+      return x, y, angle
+    end
+  end
   local spawns = server.spawnPoints
   if spawns and #spawns > 0 then
     local s = spawns[love.math.random(#spawns)]
