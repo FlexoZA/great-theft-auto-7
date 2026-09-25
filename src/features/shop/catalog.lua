@@ -1,5 +1,5 @@
 -- What the shop sells: every gun and a box of its rounds (weapons/guns.lua),
--- every ability (abilities/kinds.lua), a medkit, and every car model
+-- every ability (abilities/kinds.lua) but a boss's drop, a medkit, and every car model
 -- (vehicles/catalog.lua). Built once from those lists, so a new gun, ability
 -- or model is on the shelf without touching this file.
 --
@@ -53,10 +53,12 @@ for _, gun in ipairs(Guns.list) do
   add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo", tab = "items" })
 end
 for _, ability in ipairs(AbilityKinds.list) do
-  add({
-    item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability", tab = "items",
-    badge = ability.passive and "passive" or nil, -- a passive works by being carried, no key
-  })
+  if not ability.unsold then -- a boss's drop (bigleap) is only won
+    add({
+      item = "ability-" .. ability.key, n = 1, name = ability.title, kind = "ability", tab = "items",
+      badge = ability.passive and "passive" or nil, -- a passive works by being carried, no key
+    })
+  end
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply", tab = "items" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply", tab = "items" })

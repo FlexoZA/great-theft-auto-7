@@ -12,7 +12,9 @@
 --
 -- Ammo boxes are never scattered; they are dropped, where something died,
 -- through Pickups:serverDrop (police drops one for every officer or unit
--- lost), and a drop is gone for good once taken.
+-- lost), and a drop is gone for good once taken. So is "ability-<key>", an
+-- ability lying loose (a boss drops his own when he goes down): the first
+-- human over it with room in their bag carries it off as the item.
 --
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
@@ -23,6 +25,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Sounds = require("src.features.pickups.sounds")
+local AbilityKinds = require("src.features.abilities.kinds")
 
 local Pickups = {
   name = "pickups",
@@ -62,12 +65,37 @@ local function ammoKind(key)
   }
 end
 
---- The kind record for a kind key: the fixed ones, or an ammo box made
---- (and kept) on first sight.
+--- An ability lying loose: kind "ability-<key>", the item a bag carries
+--- it as. Only a human picks it up (never a bot driving past), into their
+--- inventory through buildings; a full bag leaves it.
+local function abilityKind(key)
+  local ability = AbilityKinds.byKey[key:match("^ability%-(.+)$")]
+  if not ability then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local buildings = Features.byName.buildings
+      if player.bot or not (buildings and buildings.serverGive) then
+        return false
+      end
+      return buildings:serverGive(server, player, key, 1) > 0
+    end,
+    label = "+" .. ability.title,
+    color = ability.color,
+    pitch = 0.6,
+  }
+end
+
+--- The kind record for a kind key: the fixed ones, or an ammo box or an
+--- ability made (and kept) on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
     kind = ammoKind(key)
+    KINDS[key] = kind
+  elseif not kind and key:match("^ability%-") then
+    kind = abilityKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -201,11 +229,36 @@ local function drawAmmo(x, y, t)
   love.graphics.rectangle("fill", x - 4, y - 13, 8, 3) -- handle
 end
 
+--- An ability lying loose: an orb in the ability's colour, turning rays
+--- round it and a beacon of light going up, so it is seen from afar.
+local function drawAbility(x, y, t, key)
+  local ability = AbilityKinds.byKey[key:match("^ability%-(.+)$") or ""]
+  local c = ability and ability.color or { 1, 1, 1 }
+  local pulse = 0.5 + 0.5 * math.sin(t * 5)
+  love.graphics.setColor(c[1], c[2], c[3], 0.15 + pulse * 0.15)
+  love.graphics.circle("fill", x, y, 34 + pulse * 6)
+  love.graphics.setLineWidth(3)
+  for i = 0, 5 do
+    local a = t * 1.5 + i * math.pi / 3
+    love.graphics.setColor(c[1], c[2], c[3], 0.45)
+    love.graphics.line(x + math.cos(a) * 16, y + math.sin(a) * 16, x + math.cos(a) * 30, y + math.sin(a) * 30)
+  end
+  love.graphics.setLineWidth(1)
+  y = y + math.sin(t * 3 + 2.3) * 2
+  love.graphics.setColor(0.08, 0.06, 0.05)
+  love.graphics.circle("fill", x, y, 13)
+  love.graphics.setColor(c)
+  love.graphics.circle("fill", x, y, 11)
+  love.graphics.setColor(1, 1, 1, 0.8)
+  love.graphics.circle("fill", x - 3, y - 4, 3.5)
+end
+
 local DRAW = { health = drawHealth, stamina = drawStamina }
 
---- How a kind is drawn: its own picture, or the ammo box for any ammo.
+--- How a kind is drawn: its own picture, the ammo box for any ammo, or
+--- the orb for any ability.
 local function drawerOf(key)
-  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or nil
+  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -220,7 +273,7 @@ function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
     local draw = drawerOf(it.kind)
     if draw then
-      draw(it.x, it.y, time)
+      draw(it.x, it.y, time, it.kind)
     end
   end
   love.graphics.setColor(1, 1, 1)

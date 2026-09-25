@@ -337,6 +337,25 @@ function Buildings:ofKind(kind, owner)
   return out
 end
 
+--- Every building still standing on the host, in plot order: { id, owner,
+--- kind, x, y, w, h } with (x, y, w, h) the ground it covers. For something
+--- that goes after players' buildings (the events feature's Bigfoot); hurt
+--- one through `serverWallHit` or `serverBlast` as a gun would.
+function Buildings:serverStanding()
+  local out = {}
+  for id, b in pairs(sv and sv.buildings or {}) do
+    local plot = plotById(id)
+    if plot and not ruined(b) then
+      local r = footprint(plot)
+      out[#out + 1] = { id = id, owner = b.owner, kind = b.kind, x = r.x, y = r.y, w = r.w, h = r.h }
+    end
+  end
+  table.sort(out, function(a, b)
+    return a.id < b.id
+  end)
+  return out
+end
+
 --- Is (x, y) on the square in front of `plot`, give or take `slack` px?
 function Buildings.onPad(plot, x, y, slack)
   return onPad(plot, x, y, slack)

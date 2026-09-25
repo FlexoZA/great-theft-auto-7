@@ -150,6 +150,16 @@ local function leap(c, a)
   love.graphics.line(-14, -1, -10, -1)
 end
 
+-- Bigfoot's leap: the same jump, landing on a big hairy footprint.
+local function bigleap(c, a)
+  leap(c, a)
+  color(WHITE, a * 0.9)
+  love.graphics.ellipse("fill", 10, -9, 4.5, 6, 16)
+  for i = 0, 3 do
+    love.graphics.circle("fill", 6 + i * 2.7, -16.5 + math.abs(i - 1.5) * 0.8, 1.4, 8)
+  end
+end
+
 local DRAW = {
   freeze = freeze,
   regen = regen,
@@ -158,6 +168,7 @@ local DRAW = {
   fart = fart,
   openborders = openborders,
   leap = leap,
+  bigleap = bigleap,
 }
 
 --- Draw the icon for ability `key` centred on (cx, cy) inside a circle of
