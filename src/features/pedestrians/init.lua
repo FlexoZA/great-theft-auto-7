@@ -201,6 +201,23 @@ local function crowdWanted()
   return not (city and city.map and city.map.crowd == false)
 end
 
+--- The `serverWalkers` convention: where every pedestrian stands and how
+--- they are moving, so the traffic stops for them (and for one about to
+--- step out).
+function Pedestrians:serverWalkers(_server, add)
+  local crowd = self.crowd
+  if crowd then
+    for i = 1, crowd.n do
+      local p = crowd.peds[i]
+      local speed = 0
+      if p.frozen <= 0 and p.react <= 0 then
+        speed = p.flee > 0 and crowd.FLEE_SPEED or p.speed
+      end
+      add(p.x, p.y, (p.hx or 0) * speed, (p.hy or 0) * speed)
+    end
+  end
+end
+
 function Pedestrians:serverStep(server, dt)
   local crowd = self.crowd
   if not crowd then
