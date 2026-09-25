@@ -9,6 +9,7 @@
 
 local UI = require("src.ui")
 local Controls = require("src.controls")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Screen = {}
 
@@ -21,6 +22,7 @@ local ROW_H, GAP = 58, 6
 local FOOT_H = 70 -- the notice line and the key hint
 local BTN_W, BTN_H = 130, 30
 local MARGIN = 8 -- px the panel keeps from the window's top and bottom
+local ICON_LEN = 42 -- px nose to tail of a model's picture in its row
 
 local STATE_COLORS = {
   road = { 0.8, 0.8, 0.85 },
@@ -126,12 +128,18 @@ function Screen.draw(entries, page, info, notice, mx, my)
     local e = r.entry
     love.graphics.setColor(1, 1, 1, 0.06)
     love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
-    -- The car's paint, a little car-shaped block.
-    local c = e.color
-    love.graphics.setColor(c[1], c[2], c[3], e.state == "destroyed" and 0.4 or 1)
-    love.graphics.rectangle("fill", r.x + 12, r.y + 18, 36, 20, 4)
-    love.graphics.setColor(0.6, 0.8, 1, e.state == "destroyed" and 0.4 or 1)
-    love.graphics.rectangle("fill", r.x + 36, r.y + 21, 8, 14)
+    -- The car's picture: its model, or the starter car's paint as a little
+    -- car-shaped block.
+    local alpha = e.state == "destroyed" and 0.4 or 1
+    if e.model then
+      Catalog.draw(e.model, r.x + 30, r.y + ROW_H / 2, 0, ICON_LEN, alpha)
+    else
+      local c = e.color
+      love.graphics.setColor(c[1], c[2], c[3], alpha)
+      love.graphics.rectangle("fill", r.x + 12, r.y + 18, 36, 20, 4)
+      love.graphics.setColor(0.6, 0.8, 1, alpha)
+      love.graphics.rectangle("fill", r.x + 36, r.y + 21, 8, 14)
+    end
     -- Name and where it is.
     local textW = r.w - 64 - #r.buttons * (BTN_W + 8) - 150
     love.graphics.setFont(UI.fonts.body)
