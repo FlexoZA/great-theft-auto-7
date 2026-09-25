@@ -570,7 +570,8 @@ end
 --- icon drawn large on a dark backing, and under it the name, rounds over
 --- magazine size and spares; red (and the gun faded) when the magazine is
 --- empty, amber with a bar under the gun while it reloads. Over the block,
---- once the magazine is nearly out, the reload key flashes red.
+--- once the magazine is nearly out, the reload key flashes red; a notice
+--- (out of ammo, no such gun) takes its place while it shows.
 function Weapons:drawMagazine()
   local w, h = love.graphics.getDimensions()
   local gun = Guns.list[self.gun]
@@ -607,7 +608,13 @@ function Weapons:drawMagazine()
   love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
   love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
   Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
-  if hint then
+  if self.ammoNotice then
+    -- Why a pick or a reload didn't happen, over the block while it fades.
+    local text = self.ammoNotice.text
+    love.graphics.setFont(body)
+    UI.label(text, math.floor(cx - body:getWidth(text) / 2), top - 4 - body:getHeight(),
+      { 1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2) })
+  elseif hint then
     local blink = 0.5 + 0.5 * math.sin(love.timer.getTime() * 10)
     local big = UI.fonts.heading
     love.graphics.setFont(big)
@@ -631,18 +638,13 @@ function Weapons:drawMagazine()
 end
 
 function Weapons:drawHUD(client)
-  love.graphics.setFont(UI.fonts.small)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
-  local kills = self.kills[client.myId] or 0
+  -- Kills top left; health, the car's and the guns have their own readouts
+  -- (the bar bottom left, the one over the car, the gun in hand).
+  love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
-  local line = ("HP %d/%d"):format(hp, max)
-  local car = client:myVehicle()
-  if car then
-    local carMax = self.carMax[car.id] or CAR_HEALTH
-    line = line .. ("   car %d/%d"):format(self.carHealth[car.id] or carMax, carMax)
-  end
-  love.graphics.print(line .. ("   kills %d"):format(kills), 10, 46)
+  love.graphics.print(("kills %d"):format(self.kills[client.myId] or 0), 10, 46)
   -- Health stands first in the bottom-left row of stat bars: always red,
   -- and flashing once it is down to under 30%.
   local frac = hp / max
@@ -653,51 +655,6 @@ function Weapons:drawHUD(client)
     valueColor = { 1, 0.5 + 0.5 * blink, 0.45 + 0.55 * blink }
   end
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.6, 0.6, 0.65)
-  local fireKey = Controls.name(Controls.bindings("fire")[1])
-  local boxKey = Controls.name(Controls.bindings("hitboxes")[1])
-  local reloadKey = Controls.name(Controls.bindings("reload")[1])
-  local hints = fireKey .. ": fire   " .. reloadKey .. ": reload   " .. boxKey .. ": hitboxes   "
-  love.graphics.print(hints, 10, 64)
-  -- The guns in my weapon slots on the same row, the one in hand lit up,
-  -- each with what is in its magazine and what is left to load.
-  local font = UI.fonts.small
-  local x = 10 + font:getWidth(hints)
-  for slot = 1, self.slotCount do
-    local i = self.slots[slot]
-    local gun = i and Guns.list[i]
-    if gun then
-      local spare = self:reserve(i)
-      local keyName = Controls.name(Controls.bindings("weapon-" .. slot)[1])
-      local label = ("%s: %s %d/%d"):format(keyName, gun.name, self.mags[i] or 0, gun.magazine)
-      if self.infiniteAmmo then
-        label = ("%s: %s inf"):format(keyName, gun.name)
-      elseif spare ~= math.huge then
-        label = label .. (" +%d"):format(spare)
-      end
-      if i == self.gun and (self.mags[i] or 0) < 1 then
-        love.graphics.setColor(1, 0.45, 0.4)
-      elseif i == self.gun then
-        love.graphics.setColor(1, 0.9, 0.3)
-      else
-        love.graphics.setColor(0.6, 0.6, 0.65)
-      end
-      love.graphics.print(label, x, 64)
-      x = x + font:getWidth(label) + 14
-    end
-  end
-
-  -- A bar under the gun row while reloading; a word when there is a problem.
-  if self.reloading then
-    local r = self.reloading
-    local f = math.min(1, r.t / r.total)
-    UI.meter(x, 68, 90, 10, f, { 1, 0.9, 0.3 })
-    UI.label("reloading", x + 100, 64, { 1, 0.9, 0.3 })
-  elseif self.ammoNotice then
-    love.graphics.setColor(1, 0.45, 0.4, math.min(1, self.ammoNotice.t * 2))
-    love.graphics.print(self.ammoNotice.text, x, 64)
-  end
   self:drawMagazine()
 
   if self.feed then
