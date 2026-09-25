@@ -101,6 +101,7 @@ local Sounds = require("src.features.weapons.sounds")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
+local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Video = require("src.video")
@@ -177,6 +178,8 @@ Weapons.feed = nil -- { text, t }
 Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
+Weapons.hudIconScale = 1.8 -- the gun in hand, drawn big beside the ability circles (icons are 60 x 30 at 1)
+Weapons.hudIconW, Weapons.hudIconH = 108, 54
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
 Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
 Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
@@ -559,9 +562,10 @@ function Weapons:worldBlur()
   return self.deadTimer > 0 and 1 or 0
 end
 
---- The gun in hand and what is in its magazine, centred just above the
---- ability circles: name, rounds over magazine size, spares; red when the
---- magazine is empty, amber with a bar across the top while it reloads.
+--- The gun in hand, bottom centre just left of the ability circles: its
+--- icon drawn large on a dark backing, and under it the name, rounds over magazine size and
+--- spares; red (and the gun faded) when the magazine is empty, amber with a
+--- bar under the gun while it reloads.
 function Weapons:drawMagazine()
   local w, h = love.graphics.getDimensions()
   local gun = Guns.list[self.gun]
@@ -569,23 +573,30 @@ function Weapons:drawMagazine()
     return
   end
   local abilities = Features.byName.abilities
-  local top = abilities and abilities.hudTop and abilities:hudTop() or (h - 80)
+  local right = abilities and abilities.hudLeft and abilities:hudLeft() - 16 or math.floor(w / 2 + 80)
   local small, body = UI.fonts.small, UI.fonts.body
-  local y = top - 8 - body:getHeight()
   local mag, spare = self.mags[self.gun] or 0, self:reserve(self.gun)
   local count = self.infiniteAmmo and "inf" or ("%d/%d"):format(mag, gun.magazine)
   local extra = (not self.infiniteAmmo and spare ~= math.huge) and (" +%d"):format(spare) or ""
-  local color
+  local empty = not self.infiniteAmmo and mag < 1
+  local color, alpha = { 1, 1, 1 }, 1
   if self.reloading then
-    color = { 1, 0.9, 0.3 }
-  elseif not self.infiniteAmmo and mag < 1 then
-    color = { 1, 0.45, 0.4 }
-  else
-    color = { 1, 1, 1 }
+    color, alpha = { 1, 0.9, 0.3 }, 0.6
+  elseif empty then
+    color, alpha = { 1, 0.45, 0.4 }, 0.45
   end
   local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
-  local x = math.floor((w - nameW - countW - extraW) / 2)
+  local textW = nameW + countW + extraW
+  local blockW = math.max(self.hudIconW, textW)
+  local cx = right - blockW / 2
+  local y = h - 8 - body:getHeight() -- the count line, along the bottom
+  local top = y - 12 - self.hudIconH
+  -- A dark backing so the steel reads over a pale road as well as a dark one.
+  love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
+  love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
+  Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
+  local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
   UI.label(name, x, baseline, { 0.75, 0.75, 0.8 })
@@ -595,8 +606,8 @@ function Weapons:drawMagazine()
   UI.label(extra, x + nameW + countW, baseline, { 0.75, 0.75, 0.8 })
   if self.reloading then
     local r = self.reloading
-    local bw = 90
-    UI.meter(math.floor((w - bw) / 2), y - 8, bw, 4, math.min(1, r.t / r.total), color)
+    local bw = self.hudIconW
+    UI.meter(math.floor(cx - bw / 2), y - 6, bw, 4, math.min(1, r.t / r.total), color)
   end
   love.graphics.setFont(small)
 end
