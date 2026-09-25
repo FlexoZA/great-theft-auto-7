@@ -2,7 +2,10 @@
 -- ammo, abilities, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
 -- inventory draws for the item, its name and its price; car cards borrow
 -- the vehicle factory's card (the car over a bar per stat). Click a card to
--- buy what is on it.
+-- buy what is on it. Under the tabs a row of tier buttons (common,
+-- uncommon, rare, legendary) picks the tier the equipment cards show and
+-- sell: each is framed and named in the tier's colour and costs the tier's
+-- price; hovering one says what the tier improves, under the cards.
 --
 -- `Screen.layout(tab, page)` works out every rectangle for the window as it
 -- is now and `Screen.draw` paints them; init.lua hit-tests the same
@@ -14,6 +17,8 @@ local UI = require("src.ui")
 local Controls = require("src.controls")
 local Render = require("src.features.buildings.render")
 local Catalog = require("src.features.shop.catalog")
+local Kinds = require("src.features.buildings.kinds")
+local Tiers = require("src.features.tiers")
 
 local Screen = {}
 
@@ -26,6 +31,7 @@ local CAR_W = 240 -- a car card; as tall as vehicles' card plus the badge and pr
 local GAP = 8 -- px between cards
 local TITLE_H = 56 -- the title strip
 local TABS_H = 44 -- the tab row
+local TIERS_H = 34 -- the tier row under it
 local FOOT_H = 66 -- the notice line and the key hint
 local BADGE_H = 22 -- the row a card's kind badge sits in
 local PRICE_H = 26 -- the row a card's price sits in
@@ -54,12 +60,13 @@ local function amount(n)
   return ("%d Fcks"):format(n)
 end
 
---- "FREE", or "30 Fcks".
-function Screen.priceText(entry)
-  if entry.price <= 0 then
+--- "FREE", or "30 Fcks": what `entry` costs in tier `tier`.
+function Screen.priceText(entry, tier)
+  local p = Catalog.price(entry, tier)
+  if p <= 0 then
     return "FREE"
   end
-  return amount(entry.price)
+  return amount(p)
 end
 
 --- The size of a card on `tab`: item cards are fixed, car cards as tall as
@@ -84,7 +91,7 @@ end
 local function grid(tab, windowH)
   local cw, ch = cardSize(tab)
   local cols = math.max(1, math.floor((Screen.width - 2 * Screen.pad + GAP) / (cw + GAP)))
-  local avail = windowH - 2 * MARGIN - TITLE_H - TABS_H - FOOT_H - Screen.pad
+  local avail = windowH - 2 * MARGIN - TITLE_H - TABS_H - TIERS_H - FOOT_H - Screen.pad
   local rowsFit = math.max(1, math.floor((avail + GAP) / (ch + GAP)))
   return cw, ch, cols, rowsFit
 end
@@ -92,6 +99,7 @@ end
 --- Every rectangle on the screen for `tab`, page `page`:
 ---   panel            { x, y, w, h }
 ---   tabs[i]          { x, y, w, h, key, title }
+---   tiers[i]         { x, y, w, h, key, title }, the tier buttons (none on the cars tab)
 ---   cards[i]         { x, y, w, h, entry }, the cards on this page
 ---   prev / next      { x, y, w, h } when there is more than one page
 ---   page, pages      where we are and how many there are
@@ -113,10 +121,12 @@ function Screen.layout(tab, page)
     local rows = math.min(trows, math.max(1, math.ceil(n / tcols)))
     gridH = math.max(gridH, rows * (tch + GAP) - GAP)
   end
-  local ph = TITLE_H + TABS_H + gridH + FOOT_H + Screen.pad
+  local ph = TITLE_H + TABS_H + TIERS_H + gridH + FOOT_H + Screen.pad
   local px = math.floor((w - Screen.width) / 2)
   local py = math.max(MARGIN, math.floor((h - ph) / 2))
-  local L = { panel = { x = px, y = py, w = Screen.width, h = ph }, tabs = {}, cards = {}, page = page, pages = pages }
+  local L = {
+    panel = { x = px, y = py, w = Screen.width, h = ph }, tabs = {}, tiers = {}, cards = {}, page = page, pages = pages,
+  }
 
   -- Tabs across the top, under the title.
   local n = #Catalog.tabs
@@ -128,18 +138,29 @@ function Screen.layout(tab, page)
     }
   end
 
+  -- The tier buttons under them, smaller; cars come in no tiers.
+  if tab ~= "cars" then
+    local nt = #Tiers.list
+    local tierW = 110
+    local tierX = px + math.floor((Screen.width - nt * (tierW + GAP) + GAP) / 2)
+    for i, t in ipairs(Tiers.list) do
+      L.tiers[i] = { x = tierX + (i - 1) * (tierW + GAP), y = py + TITLE_H + TABS_H - 6, w = tierW, h = 24,
+        key = t.key, title = t.title }
+    end
+  end
+
   -- The cards on this page, the grid centred in the panel.
   local first = (page - 1) * perPage
   local count = math.min(perPage, #entries - first)
   local gridCols = math.min(cols, math.max(1, count))
   local gridW = gridCols * (cw + GAP) - GAP
-  local gx, gy = px + math.floor((Screen.width - gridW) / 2), py + TITLE_H + TABS_H
+  local gx, gy = px + math.floor((Screen.width - gridW) / 2), py + TITLE_H + TABS_H + TIERS_H
   for i = 1, count do
     local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
     L.cards[i] = { x = gx + col * (cw + GAP), y = gy + row * (ch + GAP), w = cw, h = ch, entry = entries[first + i] }
   end
 
-  local under = py + TITLE_H + TABS_H + gridH + 10
+  local under = py + TITLE_H + TABS_H + TIERS_H + gridH + 10
   if pages > 1 then
     L.prev = { x = px + Screen.width / 2 - 90, y = under, w = 36, h = 24 }
     L.next = { x = px + Screen.width / 2 + 54, y = under, w = 36, h = 24 }
@@ -188,12 +209,13 @@ end
 
 --- The price along the bottom of a card: green when free, gold when the
 --- wallet covers it, red when it doesn't.
-local function price(r, entry, purse)
+local function price(r, entry, purse, tier)
   love.graphics.setFont(UI.fonts.small)
-  local text = Screen.priceText(entry)
-  if entry.price <= 0 then
+  local text = Screen.priceText(entry, tier)
+  local cost = Catalog.price(entry, tier)
+  if cost <= 0 then
     love.graphics.setColor(0.5, 1, 0.55)
-  elseif purse >= entry.price then
+  elseif purse >= cost then
     love.graphics.setColor(1, 0.85, 0.3)
   else
     love.graphics.setColor(1, 0.45, 0.4)
@@ -201,14 +223,18 @@ local function price(r, entry, purse)
   love.graphics.printf(text, r.x, r.y + r.h - 20, r.w, "center")
 end
 
-local function drawItemCard(r, entry, purse, lit, glow)
+--- An item card; equipment in tier `tier`: framed and named in its colour.
+local function drawItemCard(r, entry, purse, lit, glow, tier)
   frame(r, lit, glow)
+  if entry.tiered then
+    Tiers.drawFrame(tier, r.x, r.y, r.w, r.h, lit and 1 or 0.75)
+  end
   badge(r, entry.badge or entry.kind)
   Render.itemIcon(entry.item, r.x + r.w / 2, r.y + BADGE_H + 26)
   love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.9, 0.9, 0.95)
+  love.graphics.setColor(entry.tiered and Tiers.color(tier) or { 0.9, 0.9, 0.95 })
   love.graphics.printf(entry.name, r.x + 4, r.y + BADGE_H + 50, r.w - 8, "center")
-  price(r, entry, purse)
+  price(r, entry, purse, entry.tiered and tier or nil)
 end
 
 local function drawCarCard(r, entry, purse, lit, glow)
@@ -236,8 +262,9 @@ end
 
 --- The whole screen. `tab` and `page` are what is up, `purse` my wallet,
 --- (mx, my) the mouse, `flash` { item, t } a card lit after a purchase and
---- `notice` a line to show instead of the usual hint.
-function Screen.draw(tab, page, purse, mx, my, flash, notice)
+--- `notice` a line to show instead of the usual hint, `tier` the tier
+--- equipment is shown and sold in.
+function Screen.draw(tab, page, purse, mx, my, flash, notice, tier)
   local L = Screen.layout(tab, page)
   local p = L.panel
   local w, h = love.graphics.getDimensions()
@@ -282,8 +309,23 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice)
     if Catalog.isCar(e) then
       drawCarCard(r, e, purse, inside(r, mx, my), glow)
     else
-      drawItemCard(r, e, purse, inside(r, mx, my), glow)
+      drawItemCard(r, e, purse, inside(r, mx, my), glow, tier)
     end
+  end
+
+  for _, t in ipairs(L.tiers) do
+    -- A tier button: its colour, lit when it is the one up.
+    local c = Tiers.color(t.key)
+    local active = t.key == tier
+    love.graphics.setColor(c[1], c[2], c[3], active and 0.35 or (inside(t, mx, my) and 0.18 or 0.08))
+    love.graphics.rectangle("fill", t.x, t.y, t.w, t.h, 5)
+    love.graphics.setColor(c[1], c[2], c[3], active and 1 or 0.45)
+    love.graphics.setLineWidth(active and 2 or 1)
+    love.graphics.rectangle("line", t.x, t.y, t.w, t.h, 5)
+    love.graphics.setLineWidth(1)
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(c[1], c[2], c[3], active and 1 or 0.7)
+    love.graphics.printf(t.title:upper(), t.x, t.y + 4, t.w, "center")
   end
 
   if L.prev then
@@ -296,9 +338,20 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice)
   end
 
   love.graphics.setFont(UI.fonts.small)
+  local over
+  for _, r in ipairs(L.cards) do
+    if r.entry.tiered and inside(r, mx, my) then
+      over = Tiers.join(r.entry.item, tier)
+    end
+  end
   if notice then
     love.graphics.setColor(notice.color[1], notice.color[2], notice.color[3], math.min(1, notice.t * 2))
     love.graphics.printf(notice.text, p.x, L.notice, p.w, "center")
+  elseif over then
+    -- The card under the mouse: its tier, in its colour, and what that does.
+    love.graphics.setColor(Tiers.color(tier))
+    love.graphics.printf(("%s (%s): %s"):format(Kinds.name(Tiers.base(over), 1), Tiers.get(tier).title,
+      Kinds.tierLine(over)), p.x, L.notice, p.w, "center")
   end
   love.graphics.setColor(0.6, 0.6, 0.65)
   local close = Controls.name(Controls.bindings("shop")[1])

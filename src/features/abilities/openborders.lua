@@ -27,12 +27,13 @@ OpenBorders.radius = 120 -- px, the ring the simps pour out of
 OpenBorders.seconds = 30 -- how long the simps keep lighting fires
 OpenBorders.cooldown = 90 -- seconds before the next horde
 OpenBorders.afterglow = 0.5
+OpenBorders.tierStats = { "cooldown", "seconds" } -- what a better tier improves: sooner, and a longer horde
 
 -- Server --------------------------------------------------------------------
 
 --- Let them in. Nobody is held.
-function OpenBorders.serverCast(server, caster, x, y)
-  Features.call("serverOpenBorders", server, caster, x, y, OpenBorders.seconds)
+function OpenBorders.serverCast(server, caster, x, y, _abilities, A)
+  Features.call("serverOpenBorders", server, caster, x, y, (A or OpenBorders).seconds)
   return {}
 end
 

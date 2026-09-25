@@ -20,6 +20,10 @@
 --                 them on the right the bin: a stack dropped there is
 --                 destroyed
 --
+-- Every box holding equipment (a gun, an ability, a vest, clothes) is
+-- framed in its tier's colour (tiers/init.lua), and hovering one says
+-- which tier it is and what that improves, on the hint line.
+--
 -- `Screen.layout()` works out every box on the screen and `Screen.draw`
 -- paints them; init.lua hit-tests the same rectangles for dragging. The
 -- buildings feature owns the items, weapons the guns, abilities the
@@ -33,6 +37,7 @@ local Render = require("src.features.buildings.render")
 local Guns = require("src.features.weapons.guns")
 local Icons = require("src.features.weapons.icons")
 local AbilityIcons = require("src.features.abilities.icons")
+local Tiers = require("src.features.tiers")
 
 local Screen = {}
 
@@ -251,20 +256,22 @@ end
 local function drawGear(L, client, liftedArmor, liftedSlot)
   local armor, gear = Features.byName.armor, Features.byName.gear
   local worn = armor and not liftedArmor and armor:mine(client) or nil
-  local kind = worn and armor.kinds.byKey[worn.kind]
+  local kind = worn and armor.kindOf(worn.kind)
   local clothes = gear and gear:mine(client) or {}
   love.graphics.setFont(UI.fonts.small)
   for i, r in ipairs(L.gear) do
     local isArmor = i == Screen.ARMOR
-    local piece = not isArmor and liftedSlot ~= r.name and gear and gear.kinds.byKey[clothes[r.name] or ""] or nil
+    local piece = not isArmor and liftedSlot ~= r.name and gear and gear.pieceOf(clothes[r.name]) or nil
     box(r.x, r.y, r.w, r.h, (isArmor and kind ~= nil) or piece ~= nil, false)
     if isArmor and kind then
+      Tiers.drawFrame(Tiers.of(worn.kind), r.x, r.y, r.w, r.h)
       Render.itemIcon("armor-" .. worn.kind, r.x + r.w / 2, r.y + 20)
       local c = kind.color
       UI.meter(r.x + 6, r.y + r.h - 12, r.w - 12, 6, worn.points / worn.max, c)
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(worn.points), r.x, r.y + 2, r.w - 4, "right")
     elseif piece then
+      Tiers.drawFrame(Tiers.of(clothes[r.name]), r.x, r.y, r.w, r.h)
       Render.itemIcon("gear-" .. piece.key, r.x + r.w / 2, r.y + 20)
       love.graphics.setColor(0.85, 0.85, 0.9)
       love.graphics.printf(r.name, r.x, r.y + r.h - 16, r.w, "center")
@@ -284,9 +291,12 @@ local function drawWeapons(L, lifted)
   heading("weapons", L.weaponsLabel.x, L.weaponsLabel.y)
   for slot, r in ipairs(L.weapons) do
     local i = weapons and lifted ~= slot and weapons.slots[slot]
-    local gun = i and Guns.list[i]
+    local gun = i and Guns.list[i] and weapons:gunAt(i) -- in the tier I carry it
     local held = gun and weapons.gun == i
     box(r.x, r.y, r.w, r.h, gun ~= nil, held)
+    if gun then
+      Tiers.drawFrame(weapons:tierOf(i), r.x, r.y, r.w, r.h, held and 1 or 0.7)
+    end
     love.graphics.setFont(small)
     -- The key in a badge in the corner either way.
     local key = Controls.name(Controls.bindings("weapon-" .. slot)[1])
@@ -341,6 +351,9 @@ local function drawAbilities(L, lifted)
   for i, r in ipairs(L.abilities) do
     local ability = lifted ~= i and abilities:inSlot(i) or nil
     box(r.x, r.y, r.w, r.h, ability ~= nil, false)
+    if ability then
+      Tiers.drawFrame(ability.tier, r.x, r.y, r.w, r.h)
+    end
     local cx, cy, radius = r.x + r.w / 2, r.y + 26, 20
     local passive = i == abilities.passiveSlot
     local key = not passive and Controls.name(Controls.bindings("ability-" .. i)[1]) or nil
@@ -459,9 +472,14 @@ local function drawItems(L, buildings, list, lifted)
     local s = open and lifted ~= i and list[i]
     love.graphics.setFont(UI.fonts.small)
     if s then
+      local tiered = Tiers.tiered(s.item)
+      if tiered then
+        Tiers.drawFrame(Tiers.of(s.item), r.x, r.y, r.w, r.h)
+      end
       Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
-      love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(Kinds.name(s.item, s.n), r.x + 2, r.y + 38, r.w - 4, "center")
+      -- Equipment is named in its tier's colour; the frame and the hint say which.
+      love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
+      love.graphics.printf(Kinds.name(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
     elseif not open then
@@ -497,6 +515,43 @@ local function drawTrash(r, drag)
     r.w - 30, "center")
 end
 
+local function inside(r, x, y)
+  return r and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
+end
+
+--- The piece of equipment under (mx, my) as an item ("gun-uzi@rare"): in a
+--- weapon, ability or gear slot or a bag box. Nil over anything else.
+local function hovered(L, list, buildings, client, mx, my)
+  local weapons, abilities = Features.byName.weapons, Features.byName.abilities
+  local armor, gear = Features.byName.armor, Features.byName.gear
+  for slot, r in ipairs(L.weapons) do
+    local i = weapons and weapons.slots[slot]
+    if inside(r, mx, my) and i and Guns.list[i] then
+      return Tiers.join("gun-" .. Guns.list[i].key, weapons:tierOf(i))
+    end
+  end
+  for slot, r in ipairs(L.abilities) do
+    local key = abilities and abilities.slots[slot]
+    if inside(r, mx, my) and key then
+      return "ability-" .. key
+    end
+  end
+  for i, r in ipairs(L.gear) do
+    if inside(r, mx, my) then
+      local worn = i == Screen.ARMOR and armor and armor:mine(client)
+      local piece = i ~= Screen.ARMOR and gear and gear:mine(client)[r.name]
+      return (worn and "armor-" .. worn.kind) or (piece and "gear-" .. piece) or nil
+    end
+  end
+  for i, r in ipairs(L.items) do
+    local s = i <= buildings.slots and list[i]
+    if inside(r, mx, my) and s and Tiers.tiered(s.item) then
+      return s.item
+    end
+  end
+  return nil
+end
+
 --- The whole screen. `buildings` is the buildings feature (its items and
 --- slots), `list` its stacks (Screen.stacks), `drag` what is being
 --- dragged ({ index, from = "slot" | "bag", box }: `box` the slot or item
@@ -517,9 +572,15 @@ function Screen.draw(buildings, list, drag, notice, client)
 
   love.graphics.setFont(UI.fonts.small)
   local hint
+  local over = not drag and hovered(L, list, buildings, client, love.mouse.getPosition())
   if notice then
     hint = notice
     love.graphics.setColor(1, 0.6, 0.5)
+  elseif over then
+    -- What is under the mouse: its tier, in its colour, and what that does.
+    local tier = Tiers.of(over)
+    hint = ("%s (%s): %s"):format(Kinds.name(Tiers.base(over), 1), tier, Kinds.tierLine(over) or "")
+    love.graphics.setColor(Tiers.color(tier))
   elseif buildings.slots < Kinds.MAX_SLOTS then
     local shop = Controls.name(Controls.bindings("upgrades")[1])
     hint = ("%d/%d item slots used. More slots in the upgrade shop (%s)."):format(

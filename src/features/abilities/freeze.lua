@@ -20,6 +20,7 @@ Freeze.range = 380 -- px; how far from you it can be placed
 Freeze.seconds = 3 -- how long the catch lasts
 Freeze.cooldown = 12 -- seconds before the next cast
 Freeze.afterglow = 0.5 -- seconds the effect lingers on screen once the hold ends
+Freeze.tierStats = { "cooldown", "seconds", "radius", "range" } -- what a better tier improves, in order
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -30,24 +31,25 @@ end
 
 --- Hold everyone and everything inside the area; returns the ids of the
 --- players caught, for the broadcast.
-function Freeze.serverCast(server, caster, x, y, abilities)
+function Freeze.serverCast(server, caster, x, y, abilities, A)
+  A = A or Freeze -- the freeze in the caster's tier
   local held = {}
-  local r = Freeze.radius
+  local r = A.radius
   for id, p in pairs(server.players) do
     if p ~= caster and Features.present(p) then
       local px, py, onFoot = Features.bodyPose(server, p)
       local pad = onFoot and Body.RADIUS or Car.WIDTH / 2
-      if dist2(px, py, x, y) <= (r + pad) ^ 2 and abilities:serverHold(server, p, Freeze.seconds) then
+      if dist2(px, py, x, y) <= (r + pad) ^ 2 and abilities:serverHold(server, p, A.seconds) then
         held[#held + 1] = id
       end
     end
   end
   for _, car in pairs(server.vehicles) do
     if not (car.hidden or car.stowed or car.driver) and dist2(car.x, car.y, x, y) <= (r + Car.WIDTH / 2) ^ 2 then
-      abilities:serverHoldCar(server, car, Freeze.seconds)
+      abilities:serverHoldCar(server, car, A.seconds)
     end
   end
-  Features.call("serverFreezeArea", server, x, y, r, Freeze.seconds, caster.id)
+  Features.call("serverFreezeArea", server, x, y, r, A.seconds, caster.id)
   return held
 end
 
@@ -59,7 +61,7 @@ local SHARDS = 9
 --- with a few shards that fades out as the hold ends.
 function Freeze.drawEffect(e)
   local c = Freeze.color
-  local r = Freeze.radius
+  local r = (e.ability or Freeze).radius
   local fade = math.max(0, math.min(1, (e.seconds + Freeze.afterglow - e.t) / Freeze.afterglow))
   love.graphics.setColor(c[1], c[2], c[3], 0.14 * fade)
   love.graphics.circle("fill", e.x, e.y, r, 48)

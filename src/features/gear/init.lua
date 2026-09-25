@@ -10,6 +10,10 @@
 -- take it off (GEAR_UNEQUIP). Clothes are never damaged and death leaves
 -- them on, and a saved world keeps them on for next time (serverSavePlayer).
 --
+-- Clothes come in tiers (tiers/init.lua): "gear-running-shoes@rare" makes
+-- more of both its bonuses. What is worn is kept with its tier
+-- ("running-shoes@rare") and goes back into the bag in it.
+--
 -- Nobody asks this feature what a piece does. On the host a feature asks
 -- `Features.reduce("serverStat", 1, server, player, name)` and on a client
 -- `Features.reduce("stat", 1, client, id, name)`, and every piece worn
@@ -18,13 +22,14 @@
 -- number derived from it (armor rescales the vest).
 --
 -- Messages
---   client -> server  GEAR_EQUIP   <key>
+--   client -> server  GEAR_EQUIP   <key[@tier]>
 --   client -> server  GEAR_UNEQUIP <slot>
---   server -> all     GEAR_STATE   <id> <head> <body> <pants> <shoes>   ("-" = nothing there)
+--   server -> all     GEAR_STATE   <id> <head> <body> <pants> <shoes>   (each key[@tier]; "-" = nothing there)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Kinds = require("src.features.gear.kinds")
+local Tiers = require("src.features.tiers")
 
 local Gear = {
   name = "gear",
@@ -33,14 +38,45 @@ local Gear = {
 Gear.kinds = Kinds
 local NONE = "-"
 
+--- The piece `key` ("running-shoes", "running-shoes@rare") names, and its
+--- tier key; nil for nonsense.
+local function pieceOf(key)
+  if type(key) ~= "string" then
+    return nil
+  end
+  local base, tier = Tiers.split(key)
+  local g = Kinds.byKey[base]
+  if g and tier then
+    return g, tier
+  end
+  return nil
+end
+Gear.pieceOf = pieceOf
+
+--- What piece `g` in tier `tier` does to `name`: its multiplier, the bonus
+--- grown if the tier improves that stat.
+local function multiplier(g, tier, name)
+  local m = g.stats[name]
+  if not m then
+    return 1
+  end
+  for i, stat in ipairs(g.tierStats) do
+    if stat == name then
+      return Tiers.multiplier(m, tier, i)
+    end
+  end
+  return m
+end
+Gear.multiplier = multiplier
+
 --- The product of `name` over what `worn` (slot -> key) holds.
 local function scale(worn, name)
   local s = 1
   if worn then
     for _, key in pairs(worn) do
-      local g = Kinds.byKey[key]
-      if g and g.stats[name] then
-        s = s * g.stats[name]
+      local g, tier = pieceOf(key)
+      if g then
+        s = s * multiplier(g, tier, name)
       end
     end
   end
@@ -49,7 +85,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-Gear.worn = {} -- player id -> slot -> key, as the host told us
+Gear.worn = {} -- player id -> slot -> key with its tier ("running-shoes@rare"), as the host told us
 
 function Gear:exitGame()
   self.worn = {}
@@ -63,7 +99,7 @@ end
 --- Ask to put on the piece I carry for `key` (the inventory screen does,
 --- on a drag).
 function Gear:equip(client, key)
-  if Kinds.byKey[key] then
+  if pieceOf(key) then
     client:send(Protocol.encode("GEAR_EQUIP", key))
   end
 end
@@ -89,7 +125,8 @@ Gear.clientMessages = {
     local worn = {}
     for i, slot in ipairs(Kinds.slots) do
       local key = args[i + 1]
-      if key and key ~= NONE and Kinds.byKey[key] and Kinds.byKey[key].slot == slot then
+      local g = key ~= NONE and pieceOf(key)
+      if g and g.slot == slot then
         worn[slot] = key
       end
     end
@@ -154,7 +191,7 @@ end
 --- into the bag (the slot the new piece left has room for it). Returns
 --- true if it happened.
 function Gear:serverEquip(server, player, key)
-  local g = Kinds.byKey[key or ""]
+  local g = pieceOf(key)
   local buildings = Features.byName.buildings
   if not (self.sv and g and buildings and buildings.serverTake and Features.present(player)) then
     return false
@@ -219,7 +256,7 @@ function Gear:serverLoadPlayer(server, player, data)
   local worn = {}
   for _, slot in ipairs(Kinds.slots) do
     local key = data.worn[slot]
-    local g = type(key) == "string" and Kinds.byKey[key]
+    local g = pieceOf(key)
     if g and g.slot == slot then
       worn[slot] = key
     end

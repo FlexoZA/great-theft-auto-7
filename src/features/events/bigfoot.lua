@@ -14,8 +14,8 @@
 -- nothing bursts after a while anyway. Once the whole litter is gone he
 -- roars up another.
 --
--- When he goes down he spills koins and drops his leap ("ability-bigleap",
--- abilities/bigleap.lua) on the spot as a pickup, for whoever gets there
+-- When he goes down he spills koins and drops his leap, a legendary one
+-- ("ability-bigleap@legendary", abilities/bigleap.lua, tiers/init.lua) on the spot as a pickup, for whoever gets there
 -- first; the event is then over.
 --
 -- The host owns him and his squirrels; clients hear positions at 15 Hz and
@@ -69,7 +69,7 @@ Bigfoot.slamDamage = 30
 Bigfoot.slamWalls = 60 -- to a building right under the landing, less towards the edge
 Bigfoot.bulletDamage = 20 -- what one round takes off him (matches the pistol)
 Bigfoot.drops = 60 -- koins he spills
-Bigfoot.drop = "ability-bigleap" -- the pickup he leaves
+Bigfoot.drop = "ability-bigleap@legendary" -- the pickup he leaves
 
 Bigfoot.litter = 15 -- squirrels at a time
 Bigfoot.litterDelay = 4 -- seconds after the last one burst before the next litter

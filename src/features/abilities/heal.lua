@@ -26,8 +26,9 @@ Heal.seconds = 4 -- how long the circle stays open
 Heal.rate = 12 -- hit points a second to everyone inside
 Heal.cooldown = 20 -- seconds before the next cast
 Heal.afterglow = 0.5 -- seconds the circle takes to fade once it closes
+Heal.tierStats = { "cooldown", "rate", "radius", "seconds" } -- what a better tier improves, in order
 
-local auras = {} -- { by, x, y, untilT, owed = { player id -> fraction } }
+local auras = {} -- { by, x, y, untilT, radius, rate, owed = { player id -> fraction } }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -41,8 +42,11 @@ function Heal.serverReset()
 end
 
 --- Open a circle on the caster. Nobody is held.
-function Heal.serverCast(_server, caster, x, y, abilities)
-  auras[#auras + 1] = { by = caster.id, x = x, y = y, untilT = abilities.sv.time + Heal.seconds, owed = {} }
+function Heal.serverCast(_server, caster, x, y, abilities, A)
+  A = A or Heal -- the heal in the caster's tier
+  auras[#auras + 1] = {
+    by = caster.id, x = x, y = y, untilT = abilities.sv.time + A.seconds, radius = A.radius, rate = A.rate, owed = {},
+  }
   return {}
 end
 
@@ -63,8 +67,8 @@ function Heal.serverStep(server, dt, abilities)
         for id, p in pairs(server.players) do
           if Features.present(p) then
             local px, py = Features.bodyPose(server, p)
-            if dist2(px, py, a.x, a.y) <= Heal.radius ^ 2 then
-              local sum = (a.owed[id] or 0) + Heal.rate * dt
+            if dist2(px, py, a.x, a.y) <= a.radius ^ 2 then
+              local sum = (a.owed[id] or 0) + a.rate * dt
               local whole = math.floor(sum)
               a.owed[id] = sum - whole
               if whole > 0 then
@@ -89,6 +93,7 @@ end
 --- a soft fill with a slow pulse and a ring, fading out as it closes.
 function Heal.drawEffect(e, client)
   local c = Heal.color
+  local radius = (e.ability or Heal).radius
   local x, y = e.x, e.y
   if client then
     local px, py = Features.clientBodyPose(client, e.by)
@@ -99,16 +104,16 @@ function Heal.drawEffect(e, client)
   local fade = math.max(0, math.min(1, (e.seconds + Heal.afterglow - e.t) / Heal.afterglow))
   local pulse = 0.5 + 0.5 * math.sin(e.t * 5)
   love.graphics.setColor(c[1], c[2], c[3], (0.10 + 0.06 * pulse) * fade)
-  love.graphics.circle("fill", x, y, Heal.radius, 48)
+  love.graphics.circle("fill", x, y, radius, 48)
   love.graphics.setLineWidth(2.5)
   love.graphics.setColor(c[1], c[2], c[3], (0.55 + 0.25 * pulse) * fade)
-  love.graphics.circle("line", x, y, Heal.radius, 48)
+  love.graphics.circle("line", x, y, radius, 48)
   -- A few crosses drifting up inside it.
   love.graphics.setLineWidth(3)
   for k = 0, 5 do
     local phase = (e.t * 0.6 + k / 6) % 1
     local ang = k * (2 * math.pi / 6) + math.floor(e.t * 0.6 + k / 6) * 1.7
-    local r = Heal.radius * 0.65
+    local r = radius * 0.65
     local cx, cy = x + math.cos(ang) * r, y + math.sin(ang) * r - phase * 40
     love.graphics.setColor(1, 1, 1, 0.8 * (1 - phase) * fade)
     love.graphics.line(cx - 6, cy, cx + 6, cy)
@@ -119,7 +124,7 @@ function Heal.drawEffect(e, client)
     local k = e.t / 0.35
     love.graphics.setLineWidth(3)
     love.graphics.setColor(0.85, 1, 0.9, 1 - k)
-    love.graphics.circle("line", x, y, Heal.radius + k * 30, 48)
+    love.graphics.circle("line", x, y, radius + k * 30, 48)
   end
   love.graphics.setLineWidth(1)
   love.graphics.setColor(1, 1, 1)
