@@ -161,10 +161,12 @@ function Abilities:load()
   Sounds.load()
 end
 
+-- ABL_SLOTS arrives in the same burst as START, before the game screen
+-- opens (a saved world's slots too), so the slots are only forgotten on
+-- the way out.
 function Abilities:enterGame()
   self.camera = nil
   self.time = 0
-  self.slots = startSlots()
   self.aiming = nil
   self.spent = nil
   self.fireSpent = nil
@@ -178,6 +180,7 @@ end
 
 function Abilities:exitGame()
   self:enterGame()
+  self.slots = startSlots()
 end
 
 --- The ability in slot `slot`, or nil.
