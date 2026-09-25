@@ -414,7 +414,7 @@ UI.statBar = {
   step = 70, -- px between slots; room for a name under each bar
   w = 28,
   h = 100,
-  bottom = 58, -- px up from the bottom edge the bars stand on; the inventory line sits under
+  bottom = 26, -- px up from the bottom edge the bars stand on; room for the names under them
 }
 
 --- Green with plenty, amber when getting low, red when nearly gone.
