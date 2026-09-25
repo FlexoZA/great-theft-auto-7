@@ -449,9 +449,13 @@ function Game:mousepressed(x, y, button)
 end
 
 function Game:wheelmoved(dx, dy)
-  if self.paused and self.settingsOpen then
-    self.settings:wheelmoved(dx, dy)
+  if self.paused then
+    if self.settingsOpen then
+      self.settings:wheelmoved(dx, dy)
+    end
+    return -- the menu owns the wheel
   end
+  Features.call("wheelmoved", dx, dy, Net.client)
 end
 
 return Game
