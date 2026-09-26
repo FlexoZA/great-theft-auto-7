@@ -3,14 +3,22 @@
 -- way on every machine, like the hospital (garage/places.lua), so there is
 -- nothing to send: the building nearest the middle of town with at least
 -- three tiles a side, in a block the hospital is not in, whose door is
--- clear of the shops, the hospital's and impound lot's doors and the spawn
--- points (so nobody starts a game on it with the action key taken). The door
--- is on the sidewalk by the side of its block the building is nearest;
--- stand there and the job board opens on the action key.
+-- clear of the hospital's and impound lot's doors and the spawn points (so
+-- nobody starts a game on it with the action key taken). The door is on the
+-- sidewalk by the side of its block the building is nearest; stand there
+-- and the job board opens on the action key.
 --
--- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY }) and
--- nil for any other map. It is worked out once per map table; a city that
--- grows only adds plots, which are never picked.
+-- The shop (src/features/shop) is a building in the same block: the biggest
+-- other one whose door is as clear and far enough from the Jobs door that
+-- the two squares never overlap. A block with such a neighbour beats one
+-- without, so the city has a shop whenever it can.
+--
+-- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY, shop })
+-- and nil for any other map; `shop` is { x, y, w, h, doorX, doorY, nx, ny,
+-- block } (nx, ny: the way out of the door, towards the road; block: the
+-- block's x, y, w, h) or nil. It is worked
+-- out once per map table; a city that grows only adds plots, which are
+-- never picked.
 --
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
@@ -25,6 +33,7 @@ local Jobs = {}
 local T = Layout.TILE
 local BIG = 3 * T -- px a side a building needs to be picked when there is a choice
 local CLEAR = 260 -- px the door keeps from other places' doors and markers
+local APART = 160 -- px between the Jobs door and the shop's, so their squares never overlap
 local cache = setmetatable({}, { __mode = "k" }) -- map -> building, or false for none
 
 local function dist2(ax, ay, bx, by)
@@ -32,7 +41,7 @@ local function dist2(ax, ay, bx, by)
 end
 
 --- Points the door must stay clear of: the spawn points, the hospital's
---- door and the impound lot's gate (garage), and every shop's bag on the city.
+--- door and the impound lot's gate (garage).
 local function taken(map)
   local spots, hospital = {}, nil
   for _, s in ipairs(map.spawns) do
@@ -47,25 +56,20 @@ local function taken(map)
   if places and places.impound then
     spots[#spots + 1] = { places.impound.padX, places.impound.padY }
   end
-  local shop = Features.byName.shop
-  for _, s in ipairs(shop and shop.list or {}) do
-    if s.onMap == map.name then
-      spots[#spots + 1] = { s.x, s.y }
-    end
-  end
   return spots, hospital
 end
 
 --- The door of building `b` in the block at (x, y, w, h): on the sidewalk
 --- round the block, on the side the building is nearest (the bottom first
---- when two are as near), facing the building's middle.
+--- when two are as near), facing the building's middle. Also the way out
+--- of the block there (nx, ny).
 local function door(b, x, y, w, h)
   local mx, my = b.x + b.w / 2, b.y + b.h / 2
   local sides = {
-    { y + h - (b.y + b.h), mx, y + h + T / 2 },
-    { b.y - y, mx, y - T / 2 },
-    { b.x - x, x - T / 2, my },
-    { x + w - (b.x + b.w), x + w + T / 2, my },
+    { y + h - (b.y + b.h), mx, y + h + T / 2, 0, 1 },
+    { b.y - y, mx, y - T / 2, 0, -1 },
+    { b.x - x, x - T / 2, my, -1, 0 },
+    { x + w - (b.x + b.w), x + w + T / 2, my, 1, 0 },
   }
   local best = sides[1]
   for i = 2, #sides do
@@ -73,13 +77,45 @@ local function door(b, x, y, w, h)
       best = sides[i]
     end
   end
-  return best[2], best[3]
+  return best[2], best[3], best[4], best[5]
+end
+
+local function within(b, x, y, w, h)
+  return b.x >= x and b.y >= y and b.x + b.w <= x + w and b.y + b.h <= y + h
+end
+
+local function clearOf(spots, x, y)
+  for _, s in ipairs(spots) do
+    if dist2(x, y, s[1], s[2]) < CLEAR * CLEAR then
+      return false
+    end
+  end
+  return true
+end
+
+--- The shop's building beside the Jobs building `j` in the block at
+--- (x, y, w, h): the biggest other one there whose door is clear of
+--- `spots` and APART from the Jobs door, or nil.
+local function neighbour(map, j, spots, x, y, w, h)
+  local best
+  for _, b in ipairs(map.buildings) do
+    if b.x ~= j.x or b.y ~= j.y then
+      local doorX, doorY, nx, ny = door(b, x, y, w, h)
+      if within(b, x, y, w, h) and clearOf(spots, doorX, doorY)
+        and dist2(doorX, doorY, j.doorX, j.doorY) >= APART * APART
+        and (not best or b.w * b.h > best.w * best.h) then
+        best = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
+        best.block = { x = x, y = y, w = w, h = h }
+      end
+    end
+  end
+  return best
 end
 
 local function find(map)
   local spots, hospital = taken(map)
   local cx, cy = map.cx or 0, map.cy or 0
-  local best, bestBig, bestD2
+  local best, bestRank, bestD2
   for _, block in ipairs(map.blocks) do
     if block.kind == "buildings" then
       local x, y, w, h = map.x0 + block.tx * T, map.y0 + block.ty * T, block.tw * T, block.th * T
@@ -87,16 +123,15 @@ local function find(map)
         and hospital.x >= x and hospital.y >= y and hospital.x < x + w and hospital.y < y + h
       for _, b in ipairs(map.buildings) do
         local doorX, doorY = door(b, x, y, w, h)
-        local clear = not hasHospital and b.x >= x and b.y >= y and b.x + b.w <= x + w and b.y + b.h <= y + h
-        for _, s in ipairs(spots) do
-          clear = clear and dist2(doorX, doorY, s[1], s[2]) >= CLEAR * CLEAR
-        end
-        if clear then
-          -- A big one beats any small one; then the nearest the middle wins.
-          local big = b.w >= BIG and b.h >= BIG
+        if not hasHospital and within(b, x, y, w, h) and clearOf(spots, doorX, doorY) then
+          local j = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY }
+          j.shop = neighbour(map, j, spots, x, y, w, h)
+          -- One with a shop beside it beats one without, a big one any
+          -- small one; then the nearest the middle wins.
+          local rank = (j.shop and 2 or 0) + ((b.w >= BIG and b.h >= BIG) and 1 or 0)
           local d2 = dist2(b.x + b.w / 2, b.y + b.h / 2, cx, cy)
-          if not best or (big and not bestBig) or (big == bestBig and d2 < bestD2) then
-            best, bestBig, bestD2 = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY }, big, d2
+          if not best or rank > bestRank or (rank == bestRank and d2 < bestD2) then
+            best, bestRank, bestD2 = j, rank, d2
           end
         end
       end
