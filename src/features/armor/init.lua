@@ -12,6 +12,11 @@
 -- takes it with you. A saved world keeps the vest on, as worn as it was
 -- (serverSavePlayer).
 --
+-- A vest can also be found lying on the road (enemies drop one now and
+-- then: pickups). Whoever walks or drives over it with no armor on wears
+-- it at once, whole (serverWearFound); anyone already wearing one leaves it
+-- there for someone who isn't.
+--
 -- Vests come in tiers (tiers/init.lua): "armor-vest@rare" holds more points.
 -- What is worn is kept with its tier ("vest@rare") and goes back into the
 -- bag in it.
@@ -208,6 +213,21 @@ function Armor:serverEquip(server, player, kind)
   local old = self.sv.worn[player.id]
   if old and old.points >= old.max then
     buildings:serverGive(server, player, "armor-" .. old.kind, 1)
+  end
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  self.sv.worn[player.id] = { kind = kind, points = max, max = max }
+  tell(server, player, self.sv.worn[player.id])
+  return true
+end
+
+--- Put a `kind` vest ("vest", "vest@rare") found on the road straight on
+--- `player`, whole, without it passing through their bag. Only a human with
+--- no armor on takes it; returns false otherwise, and the vest stays where
+--- it lies. Pickups calls this for a vest someone runs over.
+function Armor:serverWearFound(server, player, kind)
+  local a = kindOf(kind)
+  if not (self.sv and a and Features.present(player)) or player.bot or self.sv.worn[player.id] then
+    return false
   end
   local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
   self.sv.worn[player.id] = { kind = kind, points = max, max = max }

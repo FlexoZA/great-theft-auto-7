@@ -369,8 +369,11 @@ function Police:serverKill(server, kill)
   elseif kill.kind == "car" and victim and victim.police then
     lost = self.unitAmmo -- a unit wrecked
   end
+  -- One thing drops: now and then a vest (pickups' vestChance), otherwise
+  -- the ammo box.
   local pickups = Features.byName.pickups
-  if lost and pickups and pickups.serverDropAmmo then
+  if lost and pickups and pickups.serverDropAmmo
+    and not (pickups.serverDropVest and pickups:serverDropVest(server, kill.x, kill.y)) then
     pickups:serverDropAmmo(server, kill.x, kill.y, lost)
   end
 end
