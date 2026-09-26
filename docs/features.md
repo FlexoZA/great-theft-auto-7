@@ -704,7 +704,8 @@ example with a menu; real-estate is the one with a place to stand.
   boss came in (`drawOnMinimap`), a banner says what is going on, a red
   mark and an arrow at the screen's edge follow him, and the police stand
   down (`serverEventActive`) until he is beaten. For now the host starts one
-  with F8 (`event-bigfoot` in Controls) or any feature with
+  from the F8 menu (`event-menu` in Controls: a number key or a click picks
+  an event, and the menu can call off the one that is on) or any feature with
   `events:serverTrigger(server, key)`, which returns false and a reason
   ("busy", "away", "nowhere") when it can't. Each kind of event is a module
   in that folder listed in `Events.kinds` (the header of `events/init.lua`
@@ -719,7 +720,16 @@ example with a menu; real-estate is the one with a place to stand.
   as a pickup. He is drawn with the alien hunt's pictures
   (`alien-hunt/render.lua`). Messages: `EVT_TRIGGER` up; `EVT_START`,
   `EVT_END`, `EVT_NO` and Bigfoot's `EBF_*` down. Tuning is at the top of
-  `bigfoot.lua`.
+  `bigfoot.lua`. The second is the Runner (`events/runner.lua`): he comes
+  in at a crossing away from everyone and sprints the street grid (bots'
+  traffic graph) at three times a player's sprint, a lane at random on
+  each street, targeting nobody. Any car he runs into is wrecked, any
+  pedestrian gibbed, and a player on foot in his way trampled (30, once a
+  second at most). He has breath for about half a minute and then walks
+  it off for a few seconds. Down, he spills koins and drops
+  "ability-secondwind" in a tier rolled from `dropTiers` (50% common, 30%
+  uncommon, 17% rare, 3% legendary). Messages: `EVT_STOP` up (the menu
+  calling one off); the Runner's `ERN_*` down.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends

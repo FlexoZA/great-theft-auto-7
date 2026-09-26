@@ -25,7 +25,8 @@
 -- `Tiers.prefixes` and a `tierStats` list to its kinds.
 --
 -- The shop sells every tier (dearer the better); anything else hands out
--- commons unless it says otherwise (Bigfoot drops a legendary leap).
+-- commons unless it says otherwise (Bigfoot drops a legendary leap, the
+-- Runner a second wind in a rolled tier).
 --
 -- No hooks: every feature that equips things requires this module for the
 -- names, colours and numbers.
