@@ -187,14 +187,29 @@ end
 
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
 --- passes `server`, clients get nil). NPC drivers are parked out of sight
---- on a map without traffic and back on the road, at the spawn points the
---- map put them on, when there is traffic again.
+--- on a map without traffic. Where there is traffic again they go back on
+--- the road spread over its streets, like at the start of a game: the map
+--- lined them all up on its few spawn points, one road's worth of cars
+--- nose to tail. One that finds no free lane keeps the spawn point it got.
+--- This runs before weapons (higher priority) takes the new spots as where
+--- wrecks come back.
 function Bots:mapChanged(map, server)
   if not server then
     return
   end
+  local graph = map.traffic and Traffic.graph(map) or nil
   for _, npc in ipairs(npcs) do
     self:park(npc, not map.traffic)
+    if graph and not npc.parked then
+      local x, y, angle = Traffic.randomLanePoint(graph, server.vehicles, self.spawnGap)
+      if x then
+        local car = npc.car
+        car.x, car.y, car.angle = x, y, angle
+        car:stop()
+        npc.body.x, npc.body.y, npc.body.facing = x, y, angle
+        npc.ai.route = nil -- pick up the street it now stands on
+      end
+    end
   end
 end
 
