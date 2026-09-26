@@ -8,10 +8,19 @@
 -- it. Leaving the door closes it too.
 --
 -- What is for sale is catalog.lua: every gun and a box of its rounds, every
--- ability, a medkit, armor and clothes, every car model and a delivery driver. Everything is free for now (a
--- price of 0); prices go in the catalog when the economy is ready and the
--- host charges them through money:spend the way every other sale works
--- (docs/features.md, "Selling things for Fcks").
+-- ability, a medkit, armor and clothes, every car model and a delivery
+-- driver, each at its price in the catalog, which the host charges through
+-- money:spend the way every other sale works (docs/features.md, "Selling
+-- things for Fcks").
+--
+-- The dev shop is the same shop with everything free, for trying things
+-- out: the itisminenow cheat (cheats/init.lua) turns it on for whoever typed
+-- it, and again off (`serverSetDev`). The host keeps who has it and tells
+-- them (SHOP_DEV); their screen says DEV SHOP and every price reads FREE.
+--
+-- The shop also buys: a factory set to sell to the shop has its goods
+-- brought to the door by its owner's delivery drivers (delivery/init.lua),
+-- who are paid Kinds.worth for them. Cars are never bought: nobody carries one.
 --
 -- Equipment (guns, abilities, armor, clothes) is sold in every tier
 -- (tiers/init.lua): a row of tier buttons under the tabs picks the one the
@@ -33,6 +42,7 @@
 --   client -> server  SHOP_BUY <item>[@<tier>]
 --   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
 --   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nodeliver | unknown)
+--   server -> player  SHOP_DEV <0|1>           (the dev shop is off / on for them)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -146,6 +156,7 @@ Shop.notice = nil -- { text, color, t }
 Shop.flash = nil -- { item, t }
 Shop.picked = nil -- the catalog entry in the side panel, or nil
 Shop.near = nil -- the shop when I am standing at its door, or nil
+Shop.dev = false -- the dev shop is on for me: everything free (the host says: SHOP_DEV)
 local time = 0
 
 function Shop:load()
@@ -160,6 +171,7 @@ end
 
 function Shop:exitGame()
   self:enterGame()
+  self.dev = false
 end
 
 --- The `pointerTaken` convention: the mouse is ours while the screen is up.
@@ -275,7 +287,7 @@ end
 --- the host still decides.
 function Shop:tryBuy(client, entry, tier)
   local item = entry.tiered and Tiers.join(entry.item, tier) or entry.item
-  local price = Catalog.price(entry, tier)
+  local price = Catalog.price(entry, tier, self.dev)
   local money = Features.byName.money
   if price > 0 and money and money.canAfford and not money:canAfford(client, price) then
     return self:refuse("broke")
@@ -451,6 +463,7 @@ function Shop:drawHUD(client)
   local money = Features.byName.money
   local purse = money and money.mine and money:mine(client) or 0
   local mx, my = love.mouse.getPosition()
+  Screen.dev = self.dev
   Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier, self.picked)
   -- The cursor last of all, over the panel.
   local vision = Features.byName.vision
@@ -482,9 +495,39 @@ Shop.clientMessages = {
   SHOP_NO = function(_client, args)
     Shop:refuse(args[1])
   end,
+  SHOP_DEV = function(_client, args)
+    Shop.dev = args[1] == "1"
+  end,
 }
 
 -- Server --------------------------------------------------------------------
+
+local sv = nil -- { dev = { player id -> true } }
+
+function Shop:serverStart()
+  sv = { dev = {} }
+end
+
+--- Does `player` get the dev shop (everything free)?
+function Shop:serverDev(player)
+  return sv ~= nil and sv.dev[player.id] == true
+end
+
+--- Turn the dev shop on or off for `player`, and tell them. Returns whether it is on.
+function Shop:serverSetDev(server, player, on)
+  if not sv then
+    return false
+  end
+  sv.dev[player.id] = on and true or nil
+  server:send(player, Protocol.encode("SHOP_DEV", on and 1 or 0))
+  return on and true or false
+end
+
+function Shop:serverPlayerLeft(_server, player)
+  if sv then
+    sv.dev[player.id] = nil
+  end
+end
 
 --- Is the player's body (not a wreck) at the door?
 local function atDoor(server, player, shop)
@@ -520,7 +563,7 @@ end
 --- reason it didn't happen.
 function Shop:serverBuy(server, player, item)
   local entry, tier = Catalog.lookup(item)
-  local price = entry and Catalog.price(entry, tier)
+  local price = entry and Catalog.price(entry, tier, self:serverDev(player))
   if not (entry and player.body) then
     return false, "unknown"
   end

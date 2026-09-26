@@ -11,7 +11,7 @@ local Hire = {}
 Hire.ITEM = "hire-driver" -- what the shop sells; nobody carries it
 Hire.price = 50 -- Fcks to hire one
 Hire.model = "coe-4ton-refrigerated-blue" -- the box truck they drive (vehicles/models)
-Hire.slots = 2 -- stacks of material the truck carries
+Hire.slots = 2 -- stacks the truck carries (materials, or goods for the shop)
 Hire.maxPerPlayer = 3 -- drivers one player may have on the road at once
 Hire.yard = 50 -- materials a factory keeps in its yard, past what its hopper holds
 
@@ -35,9 +35,10 @@ end
 
 local function details()
   return {
-    blurb = "A driver with a box truck who keeps your factories fed.",
+    blurb = "A driver with a box truck who keeps your factories fed and sells what they make.",
     use = "They pick up what your quarries and oil wells made and drop it at your factories that run on it. "
-      .. "A full hopper gets the rest in its yard. Wrecked, they spill their load and are gone.",
+      .. "A full hopper gets the rest in its yard. A factory set to sell to the shop has its goods "
+      .. "taken to the shop and sold for you. Wrecked, they spill their load and are gone.",
     rows = {
       { label = "carries", value = ("%d stacks"):format(Hire.slots) },
       { label = "factory yard", value = ("%d materials"):format(Hire.yard) },
@@ -61,6 +62,8 @@ Hire.states = {
   loading = "loading",
   drop = "delivering",
   unloading = "unloading",
+  sell = "taking goods to the shop",
+  selling = "selling at the shop",
 }
 
 return Hire

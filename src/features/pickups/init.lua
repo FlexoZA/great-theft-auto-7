@@ -26,7 +26,9 @@
 -- which rings the orb in its colour. A material's own key ("iron", "oil";
 -- buildings/kinds.lua) is a crate of `amount` of it, spilled by a wrecked
 -- delivery truck: the first human over it with room in their bag takes
--- what fits, and the rest stays on the ground.
+-- what fits, and the rest stays on the ground. So is a factory's goods on
+-- their way to the shop ("gun-uzi", "medkit": anything with a
+-- `Kinds.worth`); rounds spill as an ammo box.
 --
 -- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
 -- is a common kevlar vest, "armor-vest@rare" a rare one). A human with no
@@ -130,8 +132,8 @@ local function abilityKind(key)
   }
 end
 
---- A crate of a material: kind "<material>" ("iron"), the item a bag
---- carries it as. Only a human picks it up, into their inventory through
+--- A crate of a material or of a factory's goods: kind "<item>" ("iron",
+--- "gun-uzi"), the item a bag carries it as. Only a human picks it up, into their inventory through
 --- buildings; what doesn't fit is left on the spot as a smaller crate.
 local function materialKind(key)
   return {
@@ -148,7 +150,7 @@ local function materialKind(key)
       return given > 0
     end,
     label = function(item)
-      return "+" .. (item.amount or 1) .. " " .. key
+      return "+" .. BuildingKinds.label(key, item.amount or 1)
     end,
     color = { 0.85, 0.75, 0.55 },
     pitch = 0.7,
@@ -186,7 +188,7 @@ local function kindOf(key)
   elseif not kind and key:match("^ability%-") then
     kind = abilityKind(key)
     KINDS[key] = kind
-  elseif not kind and BuildingKinds.isMaterial(key) then
+  elseif not kind and (BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) then
     kind = materialKind(key)
     KINDS[key] = kind
   elseif not kind and key:match("^armor%-") then
@@ -395,7 +397,8 @@ local DRAW = { health = drawHealth, stamina = drawStamina }
 --- orb for any ability, a crate for a material, the vest for any armor.
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
-    or (BuildingKinds.isMaterial(key) and drawMaterial) or (key:match("^armor%-") and drawVest) or nil
+    or ((BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) and drawMaterial)
+    or (key:match("^armor%-") and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.

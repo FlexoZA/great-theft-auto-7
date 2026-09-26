@@ -587,7 +587,15 @@ example with a menu; real-estate is the one with a place to stand.
   `kinds.lua`) and take damage through `serverWallHit` and `serverBlast`; a
   destroyed one is a ruin (not solid, makes nothing) until its owner pays to
   rebuild it, or anyone else pays `buildings.takeoverPrice` to take the lot
-  over empty. A building still standing can't be taken over.
+  over empty. A building still standing can't be taken over. Switching what
+  a building makes scraps whatever it had made of the one before. A factory
+  whose goods can be carried (all but the vehicle factory,
+  `Kinds.sellsToShop`) can be set to sell to the shop (`BLD_TOSHOP`, the
+  last field of `BLD_STATE`): delivery's drivers then take its goods to the
+  shop. What a thing fetches there is `Kinds.worth(item)`, worked out from
+  its recipe (materials at their quarry or oil well price, plus
+  `Kinds.WORTH_TIME` a second, over the batch, times `Kinds.WORTH_MARGIN`),
+  so the harder to make, the more it pays. Materials and cars have none.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know
   whose car you are borrowing and can spot your own. Player-arrows marks the
@@ -795,15 +803,19 @@ example with a menu; real-estate is the one with a place to stand.
   button buys it: an item goes into the buyer's bag through
   `buildings:serverGive`, a car onto the road outside the door through
   `serverDeliver` (vehicles answers), in the first delivery bay with no
-  car in it. Everything is free for now: prices live in the catalog and
-  the host pays them through `money:spend` when they are above zero.
-  Equipment is sold in every tier, picked on a row of tier buttons under
-  the tabs; a better tier costs more (its `price` multiplier, `Catalog.price`).
+  car in it. Prices live in the catalog (`PRICES`, a default per kind; a
+  car is its factory price times `CAR_MARKUP`) and the host charges them
+  through `money:spend`. Equipment is sold in every tier, picked on a row
+  of tier buttons under the tabs; a better tier costs more (its `price`
+  multiplier in `tiers/init.lua`: x2.5, x6, x15, `Catalog.price`). The dev
+  shop is the same screen with everything free, for trying things out: the
+  `itisminenow` cheat turns it on and off for whoever typed it
+  (`shop:serverSetDev(server, player, on)`, `SHOP_DEV <0|1>` to them).
   The Hire tab sells people (delivery's `hire.lua` lists them): an entry
   with `onRoad = true` is handed to `serverDeliver` like a car rather than
   put into a bag, and may bring its own card picture (`icon`), side-panel
   text (`details`) and line once bought (`bought`).
-  Messages: `SHOP_BUY <item>[@<tier>]`, `SHOP_OK <item>[@<tier>] <n>`, `SHOP_NO <reason>`.
+  Messages: `SHOP_BUY <item>[@<tier>]`, `SHOP_OK <item>[@<tier>] <n>`, `SHOP_NO <reason>`, `SHOP_DEV <0|1>`.
 - Delivery: `src/features/delivery` is the drivers a player hires at the
   shop (the Hire tab, 50 Fcks, up to three each). A driver is an NPC
   (`civilian`) in the refrigerated box truck with their employer's name over
@@ -819,12 +831,16 @@ example with a menu; real-estate is the one with a place to stand.
   the factory), then on to the next factory with whatever is left. A load
   no factory needs any more (a product was switched) is left at any factory
   whose hopper holds it. A factory draws the hoppers its product doesn't
-  use faded. Wrecked, the truck spills its
-  load as crates and the driver is gone. Drivers leave with their employer
+  use faded. With nothing to fetch, a driver collects the goods of the
+  employer's factories set to sell to the shop (`toShop`, once they are
+  worth `Delivery.minSale` or the factory is full), drives them to the
+  shop's door and sells them there: the employer is paid `Kinds.worth` for
+  each and hears what went (`DLV_SOLD`). Wrecked, the truck spills its
+  load as crates (goods too; `pickups` takes any item with a worth) and the driver is gone. Drivers leave with their employer
   and come back with them (player file); yards are kept in the saved world.
   The load shows under each truck, and the employer sees what each driver
   is doing and their trucks on the minimap. Messages: `DLV_UNIT`,
-  `DLV_GONE`, `DLV_YARD`, `DLV_LOST`, `DLV_NO` down. Tuning is at the top of
+  `DLV_GONE`, `DLV_YARD`, `DLV_LOST`, `DLV_SOLD`, `DLV_NO` down. Tuning is at the top of
   `hire.lua` and `init.lua`.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a

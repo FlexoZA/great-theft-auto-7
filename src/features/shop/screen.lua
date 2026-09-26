@@ -9,6 +9,8 @@
 -- uncommon, rare, legendary) picks the tier the equipment cards show and
 -- sell: each is framed and named in the tier's colour and costs the tier's
 -- price; hovering one says what the tier improves, under the cards.
+-- With `Screen.dev` set (the dev shop, init.lua) the title says so and every
+-- price reads FREE.
 --
 -- `Screen.layout(tab, page)` works out every rectangle for the window as it
 -- is now and `Screen.draw` paints them; init.lua hit-tests the same
@@ -25,6 +27,8 @@ local Tiers = require("src.features.tiers")
 local Details = require("src.features.shop.details")
 
 local Screen = {}
+
+Screen.dev = false -- the dev shop: everything free
 
 -- Tuning ------------------------------------------------------------------
 Screen.width = 800 -- px for the cards (less on a narrow window); the side panel is added on the right
@@ -70,7 +74,7 @@ end
 
 --- "FREE", or "30 Fcks": what `entry` costs in tier `tier`.
 function Screen.priceText(entry, tier)
-  local p = Catalog.price(entry, tier)
+  local p = Catalog.price(entry, tier, Screen.dev)
   if p <= 0 then
     return "FREE"
   end
@@ -243,7 +247,7 @@ end
 local function price(r, entry, purse, tier)
   love.graphics.setFont(UI.fonts.small)
   local text = Screen.priceText(entry, tier)
-  local cost = Catalog.price(entry, tier)
+  local cost = Catalog.price(entry, tier, Screen.dev)
   if cost <= 0 then
     love.graphics.setColor(0.5, 1, 0.55)
   elseif purse >= cost then
@@ -377,7 +381,7 @@ local function drawDetail(L, picked, purse, mx, my, tier)
 
   -- The Buy button: its price on it, gold when the wallet covers it.
   local b = L.buy
-  local cost = Catalog.price(picked, tiered and tier or nil)
+  local cost = Catalog.price(picked, tiered and tier or nil, Screen.dev)
   local can = cost <= purse
   local over = inside(b, mx, my)
   if can then
@@ -415,13 +419,18 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
   love.graphics.setLineWidth(1)
 
   love.graphics.setFont(UI.fonts.heading)
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.printf("SHOP", p.x, p.y + 12, p.w, "center")
+  love.graphics.setColor(Screen.dev and { 1, 0.45, 0.9 } or { 1, 1, 1 })
+  love.graphics.printf(Screen.dev and "DEV SHOP" or "SHOP", p.x, p.y + 12, p.w, "center")
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 0.85, 0.3)
   love.graphics.printf("You have " .. amount(purse), p.x, p.y + 20, p.w - Screen.pad, "right")
-  love.graphics.setColor(0.5, 1, 0.55, 0.9)
-  love.graphics.print("Everything is free, for now", p.x + Screen.pad, p.y + 20)
+  if Screen.dev then
+    love.graphics.setColor(1, 0.45, 0.9, 0.9)
+    love.graphics.print("Everything is free", p.x + Screen.pad, p.y + 20)
+  else
+    love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
+    love.graphics.print("The better the tier, the dearer", p.x + Screen.pad, p.y + 20)
+  end
 
   for _, t in ipairs(L.tabs) do
     local active = t.key == tab

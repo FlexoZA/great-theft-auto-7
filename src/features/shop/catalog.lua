@@ -12,10 +12,10 @@
 --   name    what the card says
 --   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "gear" | "car" | "hire", the badge on the card
 --   badge   what the badge says instead of the kind ("passive" for a passive ability)
---   price   Fcks; 0 is free. Everything is free for now: put prices here
---           when the economy is ready and the host charges them (init.lua
---           pays through money:spend). A better tier costs more
---           (`Catalog.price`).
+--   price   Fcks for a common one (PRICES below); a better tier costs its
+--           tier's `price` times more (`Catalog.price`), so a legendary is
+--           dear. The host charges it through money:spend; the dev shop
+--           (the itisminenow cheat) sells everything for nothing.
 --   tiered  true for equipment (guns, abilities, armor, clothes): it is sold
 --           in every tier (tiers/init.lua), "gun-uzi@rare" on the wire
 --   onRoad  true for something put into the world outside the door rather
@@ -59,13 +59,26 @@ local Catalog = {
   tabByKey = {},
 }
 
+-- What a common one costs, by item; anything not named costs its kind's
+-- (DEFAULT). A car costs what a vehicle factory starts selling it for, times
+-- CAR_MARKUP. The shop always asks more than it pays a factory's owner for
+-- the same thing (buildings/kinds.lua, Kinds.worth).
+local PRICES = {
+  ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-shotgun"] = 100,
+  ["gun-sniper"] = 160, ["gun-rocket"] = 300,
+  ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
+  medkit = 20, drink = 12,
+}
+local DEFAULT = { gun = 100, ammo = 40, ability = 80, supply = 20, armor = 60, gear = 40, car = 150 }
+local CAR_MARKUP = 1.5
+
 --- Rounds in a box of ammo for `gun`: two magazines, and at least five.
 local function boxOf(gun)
   return math.max(5, gun.magazine * 2)
 end
 
 local function add(entry)
-  entry.price = entry.price or 0
+  entry.price = entry.price or PRICES[entry.item] or DEFAULT[entry.kind] or 0
   entry.tiered = Tiers.tiered(entry.item)
   Catalog.list[#Catalog.list + 1] = entry
   Catalog.byItem[entry.item] = entry
@@ -97,7 +110,8 @@ for _, g in ipairs(GearKinds.list) do
   add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", badge = g.slot })
 end
 for _, model in ipairs(Vehicles.list) do
-  add({ item = model.item, n = 1, name = model.name, kind = "car" })
+  local price = model.price and math.floor(model.price * CAR_MARKUP / 10 + 0.5) * 10
+  add({ item = model.item, n = 1, name = model.name, kind = "car", price = price })
 end
 for _, entry in ipairs(Hire.list) do
   add(entry)
@@ -107,9 +121,12 @@ for _, t in ipairs(Catalog.tabs) do
   Catalog.tabByKey[t.key] = t
 end
 
---- What `entry` costs in tier `tier`: its price times the tier's.
-function Catalog.price(entry, tier)
-  if not entry.tiered then
+--- What `entry` costs in tier `tier`: its price times the tier's. Nothing
+--- in the dev shop (`dev`).
+function Catalog.price(entry, tier, dev)
+  if dev then
+    return 0
+  elseif not entry.tiered then
     return entry.price
   end
   return entry.price * Tiers.get(tier).price

@@ -23,11 +23,20 @@
 --     as it works. What neither holds stays on the truck for the next
 --     factory. A load nobody has needed for a while (a product was
 --     switched) is left at any factory whose hopper holds it.
+--   * Collect goods: a factory its owner set to sell to the shop (buildings'
+--     "Sell to the shop", `toShop`) with what it made worth the trip
+--     (`Delivery.minSale` Fcks, or it is full and has stopped): pull up by
+--     its square and load as much as fits. Feeding the factories comes first.
+--   * Sell: with goods on board and nothing else to do, drive to the shop's
+--     door (shop:here()) and sell them there. The owner is paid what they
+--     are worth (Kinds.worth: the harder to make, the more they fetch) and
+--     hears what was sold. Cars are never sold: nobody carries one. Away
+--     from the city (a quest) there is no shop, and the goods stay on board.
 --   * Nothing to do: cruise the streets and look again every few seconds.
 --
 -- They drive by the traffic rules (bots/traffic.lua) and find their way
 -- with route.lua. A wrecked truck spills its load on the road as crates
--- (pickups' material crates) and the driver is gone: hire another. When
+-- (pickups' crates; rounds as an ammo box) and the driver is gone: hire another. When
 -- their employer leaves, the drivers go home with them and are back, load
 -- and all, when they return (their player file). A factory's yard is lost
 -- with the factory (in ruins or gone) and is kept in the saved world.
@@ -41,6 +50,7 @@
 --   server -> all    DLV_GONE <id>
 --   server -> all    DLV_YARD <plotId> [<item> <n>]...               (a factory's yard; nothing after the id = empty)
 --   server -> owner  DLV_LOST                                       (one of your drivers was wrecked)
+--   server -> owner  DLV_SOLD <fcks> [<item> <n>]...                (one of your drivers sold goods at the shop)
 --   server -> buyer  DLV_NO <reason>                                (the hire was refused: max)
 
 local Protocol = require("src.net.protocol")
@@ -69,6 +79,7 @@ Delivery.arrive = 130 -- px from a square that counts as pulled up at it
 Delivery.giveUp = 90 -- seconds on the way to one job before looking again (lost, or stuck)
 Delivery.feedEvery = 0.5 -- seconds between a yard topping up its factory's hopper
 Delivery.stranded = 20 -- seconds idle with a load nobody needs before leaving it at any factory that holds it
+Delivery.minSale = 20 -- Fcks of goods worth driving to a factory for (less when it is full and stopped)
 
 local T = Layout.TILE
 local NOTICE_TIME = 4
@@ -76,6 +87,7 @@ local REASONS = {
   max = ("You already have %d delivery drivers."):format(Hire.maxPerPlayer),
   lost = "Your delivery driver was wrecked and dropped their load. Hire another at the shop.",
 }
+
 
 local function buildings()
   return Features.byName.buildings
@@ -99,13 +111,40 @@ local function padOf(plot)
   return plot.x + plot.w / 2, plot.y + plot.h + T / 2
 end
 
---- Material -> n as a flat list in Kinds.materials order: item, n, item, n...
+--- Can a truck carry `item`: a material, or a factory's goods on their way
+--- to the shop (anything with a `Kinds.worth`)?
+local function carried(item)
+  return type(item) == "string" and (Kinds.isMaterial(item) or Kinds.worth(item) ~= nil)
+end
+
+--- The items in `items` (item -> n) a truck carries, in a fixed order:
+--- Kinds.materials, then the goods by key.
+local function order(items)
+  local out, goods = {}, {}
+  for _, m in ipairs(Kinds.materials) do
+    if items[m] then
+      out[#out + 1] = m
+    end
+  end
+  for item in pairs(items) do
+    if not Kinds.isMaterial(item) and carried(item) then
+      goods[#goods + 1] = item
+    end
+  end
+  table.sort(goods)
+  for _, item in ipairs(goods) do
+    out[#out + 1] = item
+  end
+  return out
+end
+
+--- Item -> n as a flat list in `order`: item, n, item, n...
 local function flat(items)
   local out = {}
-  for _, m in ipairs(Kinds.materials) do
-    if (items[m] or 0) > 0 then
-      out[#out + 1] = m
-      out[#out + 1] = math.floor(items[m])
+  for _, item in ipairs(order(items)) do
+    if (items[item] or 0) > 0 then
+      out[#out + 1] = item
+      out[#out + 1] = math.floor(items[item])
     end
   end
   return out
@@ -116,12 +155,38 @@ local function unflat(args, i)
   local out = {}
   while args[i] and args[i + 1] do
     local n = tonumber(args[i + 1])
-    if Kinds.isMaterial(args[i]) and n and n > 0 then
+    if carried(args[i]) and n and n > 0 then
       out[args[i]] = n
     end
     i = i + 2
   end
   return out
+end
+
+--- "3 uzis, 40 uzi ammo": what `items` holds, for a line.
+local function listed(items)
+  local parts = {}
+  local list = flat(items)
+  for k = 1, #list, 2 do
+    parts[#parts + 1] = Kinds.label(list[k], list[k + 1])
+  end
+  return table.concat(parts, ", ")
+end
+
+--- Does `items` hold any goods for the shop?
+local function hasGoods(items)
+  for item, n in pairs(items) do
+    if n > 0 and Kinds.worth(item) then
+      return true
+    end
+  end
+  return false
+end
+
+--- The shop, while the city is in play; nil elsewhere or without it.
+local function shopHere()
+  local shop = Features.byName.shop
+  return shop and shop.here and shop:here()
 end
 
 local function total(items)
@@ -290,6 +355,12 @@ Delivery.clientMessages = {
   DLV_LOST = function()
     say(REASONS.lost)
   end,
+  DLV_SOLD = function(_client, args)
+    local fcks, items = tonumber(args[1]) or 0, unflat(args, 2)
+    local money = Features.byName.money
+    local paid = money and money.amount and money.amount(fcks) or tostring(fcks)
+    say(("Your delivery driver sold %s at the shop for %s."):format(listed(items), paid))
+  end,
   DLV_NO = function(_client, args)
     say(REASONS[args[1]] or "You can't hire a driver right now.")
   end,
@@ -298,8 +369,8 @@ Delivery.clientMessages = {
 -- Server ------------------------------------------------------------------
 
 -- drivers: npc id -> { npc, owner (player id), cargo = { item -> n }, job, look }
---   job: nil (idle) or { state = pickup | loading | drop | unloading, id (plot), x, y (its square),
---        lane (route.lua's target), age, t }
+--   job: nil (idle) or { state = pickup | loading | drop | unloading | sell | selling, id (plot; nil
+--        for the shop), x, y (its square, or the shop's door), lane (route.lua's target), age, t }
 -- yards: plot id -> { owner, items = { item -> n } }
 local sv = nil
 
@@ -490,6 +561,30 @@ local function bestDrop(d, factories, any)
   return best
 end
 
+--- The factory selling to the shop whose goods are worth collecting: of
+--- those with a load worth the trip (`Delivery.minSale`, or it is full and
+--- has stopped), the one with the most worth taking, the nearest of those.
+local function bestGoods(d, factories)
+  local best, bestValue, bestD
+  for _, f in ipairs(factories) do
+    local item = f.kind.products[f.b.product]
+    local worth = f.b.toShop and item and Kinds.worth(item)
+    local have = math.floor(f.b.output or 0)
+    if worth and have >= 1 and not claimed(d, f.id) then
+      local n = math.min(have, Kinds.room(d.cargo, Hire.slots, item))
+      local r = Kinds.recipe(f.kind, f.b.product)
+      local value = n * worth
+      if n >= 1 and (value >= Delivery.minSale or f.b.output + r.batch > r.cap) then
+        local dd = dist2(d, f.x, f.y)
+        if not best or value > bestValue or (value == bestValue and dd < bestD) then
+          best, bestValue, bestD = f, value, dd
+        end
+      end
+    end
+  end
+  return best
+end
+
 local function setJob(server, d, state, at, any)
   local before = d.job and d.job.state or "idle"
   if at then
@@ -503,18 +598,25 @@ local function setJob(server, d, state, at, any)
 end
 
 --- Pick what `d` does next: top the load up while there is room and
---- something worth collecting, else deliver, else wait and look again. A
---- load no factory has needed for `Delivery.stranded` seconds (its product
---- was switched) goes to any factory that can hold it, so it doesn't take
---- up the truck for good.
+--- something worth collecting, else deliver, else collect goods for the
+--- shop, else sell the goods on board, else wait and look again. A load no
+--- factory has needed for `Delivery.stranded` seconds (its product was
+--- switched) goes to any factory that can hold it, so it doesn't take up
+--- the truck for good.
 local function plan(server, d)
   local sources, factories = premises(d.owner)
   local pick = Kinds.slotsUsed(d.cargo) < Hire.slots and bestPickup(d, sources, factories)
   local drop = next(d.cargo) and bestDrop(d, factories)
+  local shop = shopHere()
+  local goods = shop and bestGoods(d, factories)
   if pick then
     setJob(server, d, "pickup", pick)
   elseif drop then
     setJob(server, d, "drop", drop)
+  elseif goods then
+    setJob(server, d, "pickup", goods)
+  elseif shop and hasGoods(d.cargo) then
+    setJob(server, d, "sell", { x = shop.doorX, y = shop.doorY })
   elseif next(d.cargo) and (d.stranded or 0) >= Delivery.stranded and bestDrop(d, factories, true) then
     setJob(server, d, "drop", bestDrop(d, factories, true), true)
   else
@@ -523,16 +625,21 @@ local function plan(server, d)
   end
 end
 
---- Load what the factories need from the source on the job's plot.
+--- Load what the factories need from the source on the job's plot, or the
+--- goods of a factory selling to the shop: as many as fit.
 local function load(server, d)
   local _, factories = premises(d.owner)
   local rec = standing(d.job.id, d.owner)
   local kind = rec and Kinds.byKey[rec.kind]
   local item = kind and kind.products and kind.products[rec.product]
-  if not (item and Kinds.isMaterial(item)) then
+  local want
+  if item and Kinds.isMaterial(item) then
+    want = math.min(Kinds.room(d.cargo, Hire.slots, item), demand(d, factories, item))
+  elseif item and rec.toShop and Kinds.worth(item) then
+    want = Kinds.room(d.cargo, Hire.slots, item)
+  else
     return
   end
-  local want = math.min(Kinds.room(d.cargo, Hire.slots, item), demand(d, factories, item))
   if want >= 1 then
     local _, taken = buildings():serverTakeOutput(server, d.job.id, want)
     if taken > 0 then
@@ -577,11 +684,40 @@ local function unload(server, d)
   end
 end
 
+--- Sell every good on board at the shop: the owner is paid what they are
+--- worth, and hears what went.
+local function sell(server, d)
+  local sold, worth = {}, 0
+  for item, n in pairs(d.cargo) do
+    local each = Kinds.worth(item)
+    if each and n > 0 then
+      sold[item] = n
+      worth = worth + n * each
+      d.cargo[item] = nil
+    end
+  end
+  if not next(sold) then
+    return
+  end
+  local paid = math.max(1, math.floor(worth + 0.5))
+  local money = Features.byName.money
+  if money and money.give then
+    money:give(server, d.owner, paid)
+  end
+  local owner = server.players[d.owner]
+  if owner then
+    server:send(owner, Protocol.encode("DLV_SOLD", paid, unpack(flat(sold))))
+  end
+end
+
 --- Is the truck stopped by the job's square?
 local function arrived(d)
   local car = d.npc.car
   return dist2(d, d.job.x, d.job.y) <= Delivery.arrive ^ 2 and math.abs(car.speed) < 20
 end
+
+-- What a driver does once pulled up, by what it came for.
+local ARRIVE = { pickup = "loading", drop = "unloading", sell = "selling" }
 
 local function step(server, d, dt)
   local car = d.npc.car
@@ -601,14 +737,17 @@ local function step(server, d, dt)
     end
     return
   end
-  if not standing(job.id, d.owner) then
+  if job.id and not standing(job.id, d.owner) then
     plan(server, d) -- the building came down or changed hands
     return
+  elseif not job.id and not shopHere() then
+    plan(server, d) -- no shop on this map
+    return
   end
-  if job.state == "pickup" or job.state == "drop" then
+  if job.state == "pickup" or job.state == "drop" or job.state == "sell" then
     job.age = job.age + dt
     if arrived(d) then
-      job.state, job.t = job.state == "pickup" and "loading" or "unloading", Delivery.loadTime
+      job.state, job.t = ARRIVE[job.state], Delivery.loadTime
       tell(server, d)
     elseif job.age > Delivery.giveUp then
       d.npc.ai.route = nil -- find the street again
@@ -619,6 +758,8 @@ local function step(server, d, dt)
     if job.t <= 0 then
       if job.state == "loading" then
         load(server, d)
+      elseif job.state == "selling" then
+        sell(server, d)
       else
         unload(server, d)
       end
@@ -641,7 +782,7 @@ function Brain.think(server, npc, dt)
     bots:cruise(server, npc, Delivery.idleSpeed)
     return
   end
-  if job.state == "loading" or job.state == "unloading" then
+  if job.state == "loading" or job.state == "unloading" or job.state == "selling" then
     input.steer = 0
     input.throttle = Traffic.throttleFor(car, 0)
     return
@@ -727,7 +868,7 @@ local function spill(server, d, x, y)
     return
   end
   local k = 0
-  for _, item in ipairs(Kinds.materials) do
+  for _, item in ipairs(order(d.cargo)) do
     local n = d.cargo[item] or 0
     if n > 0 then
       local a = k * 2.4
@@ -831,21 +972,22 @@ end
 
 local SAVE_VERSION = 1
 
---- A load read back from a file: materials only, whole numbers, and no
---- more than a truck holds.
-local function cargoFrom(t)
-  local cargo = {}
+--- A load read back from a file: what a truck carries only (materials and
+--- goods for the shop; only materials with `materials`), whole numbers, and
+--- no more than a truck holds.
+local function cargoFrom(t, materials)
+  local out = {}
   if type(t) ~= "table" then
-    return cargo
+    return out
   end
-  for _, m in ipairs(Kinds.materials) do
-    local n = t[m]
-    if type(n) == "number" and n >= 1 then
-      n = math.min(math.floor(n), Kinds.room(cargo, Hire.slots, m))
-      cargo[m] = n > 0 and n or nil
+  for _, item in ipairs(order(t)) do
+    local n = t[item]
+    if type(n) == "number" and n >= 1 and (Kinds.isMaterial(item) or not materials) then
+      n = math.min(math.floor(n), Kinds.room(out, Hire.slots, item))
+      out[item] = n > 0 and n or nil
     end
   end
-  return cargo
+  return out
 end
 
 --- A player's drivers and what each is carrying.
@@ -929,7 +1071,7 @@ function Delivery:serverLoadWorld(server, data)
     local plot = type(rec) == "table" and tonumber(rec.bi) and tonumber(rec.bj)
       and re.plotOnBlock(re.plots, rec.bi, rec.bj)
     if plot and standing(plot.id, rec.owner) then
-      local items = cargoFrom(rec.items)
+      local items = cargoFrom(rec.items, true)
       local n = 0
       for m, v in pairs(items) do
         items[m] = math.min(v, Hire.yard - n)
