@@ -1,5 +1,6 @@
 -- The shop screen: a panel over the game with a tab per shelf (all, guns,
--- ammo, supplies, abilities, gear, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
+-- ammo, supplies, abilities, gear, cars, hire: catalog.lua) and a card per
+-- thing for sale. Item cards show the picture the
 -- inventory draws for the item, its name and its price; car cards borrow
 -- the vehicle factory's card (the car over a bar per stat). Click a card to
 -- see it in the side panel on the right: a bigger picture, what it does and
@@ -55,6 +56,7 @@ local BADGES = {
   pants = { 0.55, 0.45, 0.7 },
   shoes = { 0.55, 0.45, 0.7 },
   car = { 0.3, 0.75, 0.55 },
+  hire = { 0.85, 0.55, 0.2 },
 }
 
 --- "30 Fcks", as the money feature writes it (or near enough without it).
@@ -259,7 +261,11 @@ local function drawItemCard(r, entry, purse, lit, glow, tier)
     Tiers.drawFrame(tier, r.x, r.y, r.w, r.h, lit and 1 or 0.75)
   end
   badge(r, entry.badge or entry.kind)
-  Render.itemIcon(entry.item, r.x + r.w / 2, r.y + BADGE_H + 26)
+  if entry.icon then
+    entry.icon(r.x + r.w / 2, r.y + BADGE_H + 26, 1)
+  else
+    Render.itemIcon(entry.item, r.x + r.w / 2, r.y + BADGE_H + 26)
+  end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(entry.tiered and Tiers.color(tier) or { 0.9, 0.9, 0.95 })
   love.graphics.printf(entry.name, r.x + 4, r.y + BADGE_H + 50, r.w - 8, "center")
@@ -327,11 +333,15 @@ local function drawDetail(L, picked, purse, mx, my, tier)
     if tiered then
       Tiers.drawFrame(tier, d.x + d.w / 2 - 36, y, 72, 64, 0.9)
     end
-    love.graphics.push()
-    love.graphics.translate(d.x + d.w / 2, y + 32)
-    love.graphics.scale(1.8)
-    Render.itemIcon(picked.item, 0, 0)
-    love.graphics.pop()
+    if picked.icon then
+      picked.icon(d.x + d.w / 2, y + 32, 1.8)
+    else
+      love.graphics.push()
+      love.graphics.translate(d.x + d.w / 2, y + 32)
+      love.graphics.scale(1.8)
+      Render.itemIcon(picked.item, 0, 0)
+      love.graphics.pop()
+    end
     y = y + 72
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(tiered and Tiers.color(tier) or { 1, 1, 1 })

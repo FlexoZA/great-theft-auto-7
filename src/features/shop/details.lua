@@ -6,7 +6,8 @@
 -- draws it in the tier's colour.
 --
 -- `Details.of(entry, tier)` gives { blurb, use, rows = { { label, value, lit } } };
--- cars have none of this (the panel shows the vehicle factory's card).
+-- cars have none of this (the panel shows the vehicle factory's card). An
+-- entry with a `details` function of its own (a hire) is asked instead.
 
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -197,7 +198,7 @@ local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo
 
 --- The side panel's contents for `entry` in tier `tier`, or nil (cars).
 function Details.of(entry, tier)
-  local fn = BY_KIND[entry.kind]
+  local fn = entry.details or BY_KIND[entry.kind]
   return fn and fn(entry, entry.tiered and tier or Tiers.DEFAULT) or nil
 end
 

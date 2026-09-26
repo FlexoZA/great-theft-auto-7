@@ -867,7 +867,10 @@ local function infoLines(client, b, kind, plot)
   if b.owner == client.myId and next(kind.hopper) then
     local hop = {}
     for _, m in ipairs(Kinds.hopperList(kind)) do
-      hop[#hop + 1] = ("%s %d/%d"):format(m, b.hopper[m] or 0, Kinds.HOPPER)
+      -- Only what the product in hand runs on; the rest is kept for another product.
+      if r.inputs[m] or (b.hopper[m] or 0) > 0 then
+        hop[#hop + 1] = ("%s %d/%d%s"):format(m, b.hopper[m] or 0, Kinds.HOPPER, r.inputs[m] and "" or " (unused)")
+      end
     end
     lines[#lines + 1] = "Hopper: " .. table.concat(hop, ", ")
   end
@@ -2239,6 +2242,58 @@ function Buildings:serverStep(server, dt)
     end
   end
   collide(server, dt)
+end
+
+-- Freight -------------------------------------------------------------------
+-- For a feature that moves materials between buildings without a player
+-- carrying them (delivery's hired drivers). Host only.
+
+--- The host's record of the building on plot `id` (kind, owner, product,
+--- output, hopper, hp), or nil. Read it; change it through the calls below.
+function Buildings:serverBuilding(id)
+  return sv and sv.buildings[id]
+end
+
+--- Take up to `n` of what the building on plot `id` made, when that is a
+--- raw material (a quarry's or an oil well's). Returns the item and how
+--- many were taken (0 when nothing was).
+function Buildings:serverTakeOutput(server, id, n)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  local item = kind and productOf(kind, b.product)
+  if not (item and Kinds.isMaterial(item)) or ruined(b) then
+    return item, 0
+  end
+  local taken = math.max(0, math.min(math.floor(n), math.floor(b.output)))
+  if taken > 0 then
+    b.output = b.output - taken
+    publish(server, id, b)
+  end
+  return item, taken
+end
+
+--- How many more of material `item` the hopper on plot `id` takes: 0 for
+--- a ruin or a building that doesn't run on it.
+function Buildings:serverHopperRoom(id, item)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  if not (kind and kind.hopper and kind.hopper[item]) or ruined(b) then
+    return 0
+  end
+  return math.max(0, Kinds.HOPPER - (b.hopper[item] or 0))
+end
+
+--- Put up to `n` of material `item` into the hopper on plot `id`, as much
+--- as fits. Returns how many went in.
+function Buildings:serverFillHopper(server, id, item, n)
+  local moved = math.min(math.floor(n), self:serverHopperRoom(id, item))
+  if moved < 1 then
+    return 0
+  end
+  local b = sv.buildings[id]
+  b.hopper[item] = (b.hopper[item] or 0) + moved
+  publish(server, id, b)
+  return moved
 end
 
 --- For tests.

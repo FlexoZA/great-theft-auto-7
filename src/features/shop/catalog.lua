@@ -1,15 +1,16 @@
 -- What the shop sells: every gun and a box of its rounds (weapons/guns.lua),
 -- every ability (abilities/kinds.lua) but a boss's drop, a medkit and an energy drink, every
--- piece of armor (armor/kinds.lua) and clothing (gear/kinds.lua), and every car model
--- (vehicles/catalog.lua). Built once from those lists, so a new gun, ability
--- or model is on the shelf without touching this file.
+-- piece of armor (armor/kinds.lua) and clothing (gear/kinds.lua), every car model
+-- (vehicles/catalog.lua) and the people for hire (delivery/hire.lua). Built
+-- once from those lists, so a new gun, ability or model is on the shelf
+-- without touching this file.
 --
 -- Each entry:
 --   item    the inventory item it hands over ("gun-uzi", "ammo-uzi",
 --           "ability-freeze", "medkit", "car-hatchback-orange")
 --   n       how many of it one purchase gives (cars: one on the road)
 --   name    what the card says
---   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "gear" | "car", the badge on the card
+--   kind    "gun" | "ammo" | "ability" | "supply" | "armor" | "gear" | "car" | "hire", the badge on the card
 --   badge   what the badge says instead of the kind ("passive" for a passive ability)
 --   price   Fcks; 0 is free. Everything is free for now: put prices here
 --           when the economy is ready and the host charges them (init.lua
@@ -17,6 +18,14 @@
 --           (`Catalog.price`).
 --   tiered  true for equipment (guns, abilities, armor, clothes): it is sold
 --           in every tier (tiers/init.lua), "gun-uzi@rare" on the wire
+--   onRoad  true for something put into the world outside the door rather
+--           than into a bag (cars always are): the host hands it to the
+--           `serverDeliver` event and the feature that answers places it
+--   icon    function(cx, cy, scale): the card's picture, when the
+--           inventory has none for the item (a hire)
+--   details function(entry) -> { blurb, use, rows }: the side panel's text,
+--           for a kind details.lua doesn't know
+--   bought  what the shop says once it is bought, for an `onRoad` thing
 --
 -- The host and every client share this list, so an item on the wire is
 -- checked against `Catalog.byItem` before anything is handed over.
@@ -28,6 +37,7 @@ local Kinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
 local GearKinds = require("src.features.gear.kinds")
 local Tiers = require("src.features.tiers")
+local Hire = require("src.features.delivery.hire")
 
 local Catalog = {
   list = {},
@@ -44,6 +54,7 @@ local Catalog = {
     { key = "abilities", title = "Abilities", kind = "ability" },
     { key = "gear", title = "Gear", kinds = { armor = true, gear = true } },
     { key = "cars", title = "Cars", kind = "car" },
+    { key = "hire", title = "Hire", kind = "hire" },
   },
   tabByKey = {},
 }
@@ -88,6 +99,9 @@ end
 for _, model in ipairs(Vehicles.list) do
   add({ item = model.item, n = 1, name = model.name, kind = "car" })
 end
+for _, entry in ipairs(Hire.list) do
+  add(entry)
+end
 
 for _, t in ipairs(Catalog.tabs) do
   Catalog.tabByKey[t.key] = t
@@ -123,7 +137,7 @@ function Catalog.onTab(key)
     elseif t.kind then
       on = e.kind == t.kind
     else
-      on = e.kind ~= "car"
+      on = not Catalog.onRoad(e)
     end
     if on then
       out[#out + 1] = e
@@ -132,9 +146,15 @@ function Catalog.onTab(key)
   return out
 end
 
---- Is this something that goes on the road rather than into a bag?
+--- Is this a car (drawn with the vehicle factory's card)?
 function Catalog.isCar(entry)
   return entry.kind == "car"
+end
+
+--- Is this something put into the world rather than into a bag: a car, or
+--- anything marked `onRoad` (a driver for hire)?
+function Catalog.onRoad(entry)
+  return entry.kind == "car" or entry.onRoad == true
 end
 
 return Catalog

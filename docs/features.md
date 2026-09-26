@@ -293,7 +293,12 @@ and can use `Bots.driveTowards`, `Bots:cruise(server, npc, speed)` (peaceful
 driving by the traffic rules in `bots/traffic.lua`: right-hand lane, a speed
 limit, slowing for turns, keeping distance, waiting at a busy crossing,
 stopping for anyone on foot), `Bots:fight` and `Bots.unstick`. Police is the
-worked example.
+worked example. Pass `civilian = true` and every client is told it is
+traffic (`BOT_UNIT`): the minimap and the edge arrows leave it out, as they
+do the civilian bots. A brain that wants to get somewhere on the street
+grid sets `npc.ai.route.next` (an exit of `route.to`) before calling
+`Bots:cruise`, and traffic takes that street at the next crossing instead of
+a random one; delivery's `route.lua` finds the way.
 
 ## Conventions between features
 
@@ -496,10 +501,20 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.buildings:serverGive(server, player, item, n)`: put up
   to `n` of an item into a player's inventory, as many as fit; returns how
   many went in. The other way round from `serverTake`.
+- Freight, for moving materials between buildings with no player carrying
+  them (host only): `buildings:serverBuilding(plotId)` reads the host's
+  record of a building (kind, owner, product, output, hopper, hp);
+  `serverTakeOutput(server, plotId, n)` → item, taken takes up to `n` of what
+  a quarry or oil well made; `serverHopperRoom(plotId, item)` and
+  `serverFillHopper(server, plotId, item, n)` → moved fill a factory's hopper.
+- `Features.byName.vehicles:serverSetModel(server, car, model)`: make a car
+  already in the world (an NPC's own) a model from `vehicles.catalog.byKey`.
 - `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
   pickup on the ground right there, gone for good once taken. `kind` is a
-  pickups kind ("health", "stamina") or `"ammo-<gun key>"` for a box of
-  `amount` rounds that goes into the taker's inventory.
+  pickups kind ("health", "stamina"), `"ammo-<gun key>"` for a box of
+  `amount` rounds that goes into the taker's inventory, or a material
+  (`"iron"`) for a crate of `amount` of it (a human takes what fits in
+  their bag; the rest stays as a smaller crate).
   `pickups:serverDropAmmo(server, x, y, magazines, chance)` drops a box for
   one of the guns that take ammo, picked at random and sized in that gun's
   magazines, with `chance` (1 when left out) of a box at all. Police
@@ -780,7 +795,33 @@ example with a menu; real-estate is the one with a place to stand.
   the host pays them through `money:spend` when they are above zero.
   Equipment is sold in every tier, picked on a row of tier buttons under
   the tabs; a better tier costs more (its `price` multiplier, `Catalog.price`).
+  The Hire tab sells people (delivery's `hire.lua` lists them): an entry
+  with `onRoad = true` is handed to `serverDeliver` like a car rather than
+  put into a bag, and may bring its own card picture (`icon`), side-panel
+  text (`details`) and line once bought (`bought`).
   Messages: `SHOP_BUY <item>[@<tier>]`, `SHOP_OK <item>[@<tier>] <n>`, `SHOP_NO <reason>`.
+- Delivery: `src/features/delivery` is the drivers a player hires at the
+  shop (the Hire tab, 50 Fcks, up to three each). A driver is an NPC
+  (`civilian`) in the refrigerated box truck with their employer's name over
+  it, driving by the traffic rules and finding its way with `route.lua`. It
+  collects what its employer's quarries and oil wells made, as much as their
+  factories need for the product each is making (its recipe, not every
+  material its hopper holds) less what the employer's other drivers already
+  carry, up to two stacks, fetching what the factories are shortest of
+  first. It pulls up at each building's square to load and unload, and
+  fills the nearest factory that needs the load: the hopper first, then the
+  factory's yard (50 materials past the hopper, an even share per material
+  the product needs, fed into the hopper as the factory works, lost with
+  the factory), then on to the next factory with whatever is left. A load
+  no factory needs any more (a product was switched) is left at any factory
+  whose hopper holds it. A factory draws the hoppers its product doesn't
+  use faded. Wrecked, the truck spills its
+  load as crates and the driver is gone. Drivers leave with their employer
+  and come back with them (player file); yards are kept in the saved world.
+  The load shows under each truck, and the employer sees what each driver
+  is doing and their trucks on the minimap. Messages: `DLV_UNIT`,
+  `DLV_GONE`, `DLV_YARD`, `DLV_LOST`, `DLV_NO` down. Tuning is at the top of
+  `hire.lua` and `init.lua`.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or

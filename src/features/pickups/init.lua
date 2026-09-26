@@ -22,14 +22,17 @@
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
--- which rings the orb in its colour.
+-- which rings the orb in its colour. A material's own key ("iron", "oil";
+-- buildings/kinds.lua) is a crate of `amount` of it, spilled by a wrecked
+-- delivery truck: the first human over it with room in their bag takes
+-- what fits, and the rest stays on the ground.
 --
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
 -- upgrades sells (Money:reachOf). Without money it is 1.
 --
 -- Messages
---   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
+--   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box, a crate's material)
 --   server -> all  PK_TAKE  <id> <playerId>
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
@@ -40,6 +43,8 @@ local Sounds = require("src.features.pickups.sounds")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
+local BuildingKinds = require("src.features.buildings.kinds")
+local BuildingRender = require("src.features.buildings.render")
 
 local Pickups = {
   name = "pickups",
@@ -102,8 +107,33 @@ local function abilityKind(key)
   }
 end
 
---- The kind record for a kind key: the fixed ones, or an ammo box or an
---- ability made (and kept) on first sight.
+--- A crate of a material: kind "<material>" ("iron"), the item a bag
+--- carries it as. Only a human picks it up, into their inventory through
+--- buildings; what doesn't fit is left on the spot as a smaller crate.
+local function materialKind(key)
+  return {
+    apply = function(server, player, item)
+      local buildings = Features.byName.buildings
+      if player.bot or not (buildings and buildings.serverGive) then
+        return false
+      end
+      local amount = item.amount or 1
+      local given = buildings:serverGive(server, player, key, amount)
+      if given > 0 and given < amount then
+        Pickups:serverDrop(server, key, item.x, item.y, amount - given)
+      end
+      return given > 0
+    end,
+    label = function(item)
+      return "+" .. (item.amount or 1) .. " " .. key
+    end,
+    color = { 0.85, 0.75, 0.55 },
+    pitch = 0.7,
+  }
+end
+
+--- The kind record for a kind key: the fixed ones, or an ammo box, an
+--- ability or a material crate made (and kept) on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -111,6 +141,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and key:match("^ability%-") then
     kind = abilityKind(key)
+    KINDS[key] = kind
+  elseif not kind and BuildingKinds.isMaterial(key) then
+    kind = materialKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -274,12 +307,27 @@ local function drawAbility(x, y, t, key)
   love.graphics.circle("fill", x - 3, y - 4, 3.5)
 end
 
+--- A crate of a material: a wooden pallet with the material heaped on
+--- it, the picture the inventory draws for it.
+local function drawMaterial(x, y, t, key)
+  local bob = math.sin(t * 3 + 0.4) * 2
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - 14, y - 8 + 6, 28, 22, 2)
+  y = y + bob
+  love.graphics.setColor(0.36, 0.25, 0.14)
+  love.graphics.rectangle("fill", x - 16, y - 12, 32, 26, 3)
+  love.graphics.setColor(0.6, 0.44, 0.25)
+  love.graphics.rectangle("fill", x - 14, y - 10, 28, 22, 2)
+  BuildingRender.itemIcon(key, x, y)
+end
+
 local DRAW = { health = drawHealth, stamina = drawStamina }
 
---- How a kind is drawn: its own picture, the ammo box for any ammo, or
---- the orb for any ability.
+--- How a kind is drawn: its own picture, the ammo box for any ammo, the
+--- orb for any ability, or a crate for a material.
 local function drawerOf(key)
-  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility) or nil
+  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
+    or (BuildingKinds.isMaterial(key) and drawMaterial) or nil
 end
 
 --- What floats up when a kind is taken.

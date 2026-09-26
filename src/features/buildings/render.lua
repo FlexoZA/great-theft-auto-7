@@ -235,14 +235,18 @@ local function factory(b, kind, r, time)
   chimney(bx + bw - 22, by + 22, b.running, time)
   -- Hoppers along the side, filled as far as they are loaded; squeezed
   -- shorter when a factory takes more materials than fit at full size.
+  -- Those the product in hand doesn't run on are faded: an empty one of
+  -- those doesn't stop the factory.
   local list = Kinds.hopperList(kind)
   local pitch = math.min(56, (r.h - 60) / math.max(1, #list))
   local hh = pitch - 12
+  local inputs = Kinds.recipe(kind, b.product).inputs
   for i, m in ipairs(list) do
     local hx, hy = r.x + r.w - 46, r.y + 16 + (i - 1) * pitch
     local fill = (b.hopper[m] or 0) / Kinds.HOPPER
-    box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 })
-    box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m])
+    local a = inputs[m] and 1 or 0.3
+    box(hx, hy, 30, hh, { 0.2, 0.2, 0.22 }, a)
+    box(hx + 3, hy + 3 + (hh - 6) * (1 - fill), 24, (hh - 6) * fill, COLORS[m], a)
   end
   -- What is waiting to be collected: crates by the gate, or the cars
   -- themselves parked nose up along the bottom of the yard.

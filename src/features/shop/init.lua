@@ -1,5 +1,5 @@
--- Shop: a building in the city that sells guns, ammo, abilities, medkits
--- and cars. It stands in the same block as the Jobs building: quests/jobs.lua
+-- Shop: a building in the city that sells guns, ammo, abilities, medkits,
+-- cars and delivery drivers for hire. It stands in the same block as the Jobs building: quests/jobs.lua
 -- picks both from the map the same way on every machine, so there is nothing
 -- to send (`Shop:here()`, the default city only). Stand on the square by its
 -- door and a prompt offers the shop on the action key (F, shared with getting
@@ -8,7 +8,7 @@
 -- it. Leaving the door closes it too.
 --
 -- What is for sale is catalog.lua: every gun and a box of its rounds, every
--- ability, a medkit, armor and clothes, and every car model. Everything is free for now (a
+-- ability, a medkit, armor and clothes, every car model and a delivery driver. Everything is free for now (a
 -- price of 0); prices go in the catalog when the economy is ready and the
 -- host charges them through money:spend the way every other sale works
 -- (docs/features.md, "Selling things for Fcks").
@@ -127,7 +127,7 @@ local REASONS = {
   gone = "The shop isn't on this map.",
   broke = "Not enough Fcks for that.",
   full = "No room in your bag for that.",
-  nodeliver = "Nobody can deliver a car here.",
+  nodeliver = "That can't be delivered here right now.",
   unknown = "That isn't for sale.",
 }
 local RED, GREEN = { 1, 0.45, 0.4 }, { 0.5, 1, 0.55 }
@@ -280,7 +280,7 @@ function Shop:tryBuy(client, entry, tier)
   if price > 0 and money and money.canAfford and not money:canAfford(client, price) then
     return self:refuse("broke")
   end
-  if not Catalog.isCar(entry) then
+  if not Catalog.onRoad(entry) then
     local b = Features.byName.buildings
     if b and b.inventory and Kinds.room(b.inventory, b.slots, item) < 1 then
       return self:refuse("full")
@@ -469,7 +469,9 @@ Shop.clientMessages = {
     end
     Sounds.play("chime")
     Shop.flash = { item = entry.item, t = FLASH_TIME }
-    if Catalog.isCar(entry) then
+    if entry.bought then
+      Shop:say(entry.bought, GREEN)
+    elseif Catalog.onRoad(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
     elseif n == 1 then
       Shop:say("Bought a " .. Kinds.name(item, 1) .. ". It's in your bag.", GREEN)
@@ -533,7 +535,7 @@ function Shop:serverBuy(server, player, item)
     return false, "broke"
   end
   local given
-  if Catalog.isCar(entry) then
+  if Catalog.onRoad(entry) then
     local x, y, angle = freeBay(server, shop)
     if not Features.any("serverDeliver", server, player, item, x, y, angle) then
       return false, "nodeliver"
