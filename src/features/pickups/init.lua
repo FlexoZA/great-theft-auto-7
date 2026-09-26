@@ -14,9 +14,11 @@
 -- through Pickups:serverDropAmmo: a box for one of the guns that take
 -- ammo (never the bottomless pistol), picked at random and sized in that
 -- gun's magazines, with a chance of nothing at all. Police drops one for
--- every officer or unit lost, and the enemies on a boss's map (Karen's
--- simps, the hunt's squirrels, D-Day's soldiers) sometimes leave one. A
--- drop is gone for good once taken. So is "ability-<key>", an
+-- every officer or unit lost. The enemies on a boss's map (Karen's simps,
+-- the hunt's squirrels, D-Day's soldiers) roll a loot table instead
+-- (Pickups:serverDropLoot): one chance of anything, then ammo, a medkit
+-- or an energy drink by weight. A drop is gone for good once taken. So
+-- is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
@@ -423,6 +425,30 @@ function Pickups:serverDropAmmo(server, x, y, magazines, chance)
   end
   local gun = guns[love.math.random(#guns)]
   return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, math.floor(magazines * gun.magazine + 0.5)))
+end
+
+--- Roll `loot` for something dropping at (x, y): `chance` of anything at
+--- all, then a box of ammo (`magazines` big, serverDropAmmo), a medkit or
+--- an energy drink, each as likely as its weight (`ammo`, `health`,
+--- `stamina`; a missing one never drops). The enemies on a boss's map
+--- keep one of these at the top of their feature's file, like
+---   { chance = 0.4, ammo = 3, health = 1, stamina = 1, magazines = 0.5 }
+--- Returns the item's id, or nil when nothing dropped.
+function Pickups:serverDropLoot(server, x, y, loot)
+  if not loot or love.math.random() >= (loot.chance or 0) then
+    return nil
+  end
+  local total = (loot.ammo or 0) + (loot.health or 0) + (loot.stamina or 0)
+  if total <= 0 then
+    return nil
+  end
+  local roll = love.math.random() * total
+  if roll < (loot.ammo or 0) then
+    return self:serverDropAmmo(server, x, y, loot.magazines or 0.5)
+  elseif roll < (loot.ammo or 0) + (loot.health or 0) then
+    return self:serverDrop(server, "health", x, y)
+  end
+  return self:serverDrop(server, "stamina", x, y)
 end
 
 function Pickups:serverStart(server)
