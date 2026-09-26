@@ -628,8 +628,10 @@ example with a menu; real-estate is the one with a place to stand.
   every switch.
 - Quests: every job starts at the Jobs building in the city
   (`quests/jobs.lua` picks one of the city's own buildings the same way on
-  every machine, like the hospital, clear of the spawn road, the shop and
-  the garage's places). Stand on the square by its door, press the action
+  every machine, like the hospital, clear of the spawn road and the
+  garage's places, in a block with room for the shop beside it). Both are
+  drawn as storefronts facing the street (`quests/storefront.lua`: roof
+  units, a lit window, a striped awning), each with its own things outside. Stand on the square by its door, press the action
   key (F, through `actionTaken`) and the job board lists every quest marked
   `board = true` in `quests.list`; pick one and take it (`QST_ACCEPT`, the
   host checks you are at the door). The board owns the mouse
@@ -703,16 +705,17 @@ example with a menu; real-estate is the one with a place to stand.
 - Abilities on the ground: `pickups:serverDrop(server, "ability-<key>", x,
   y)` leaves an ability lying loose, an orb in its colour; the first human
   over it with room in their bag carries it off as the item.
-- Shop: `src/features/shop` puts a shopping bag on the road (`shop.list`,
-  one per map; the city's is on the first north-south road east of the
-  middle) and sells everything in one place. Stand or stop on the bag and
-  a prompt offers the shop on the action key (F; the shop answers
-  `actionTaken` there and while it is open); it opens and closes the shop
-  screen, and walking off the bag closes it too. On sale: every gun and a box of its rounds, every ability, a medkit and
+- Shop: `src/features/shop` is a building in the same block as the Jobs
+  building (`quests/jobs.lua` picks both from the map; `shop:here()` gives
+  it while the default city is in play) and sells everything in one place.
+  It is marked on the minimap with a green bag. Stand or stop on the square
+  by its door and a prompt offers the shop on the action key (F; the shop
+  answers `actionTaken` there and while it is open); it opens and closes
+  the shop screen, and walking away from the door closes it too. On sale: every gun and a box of its rounds, every ability, a medkit and
   every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. A click on a card
   buys it: an item goes into the buyer's bag through
-  `buildings:serverGive`, a car onto the road beside the bag through
+  `buildings:serverGive`, a car onto the road outside the door through
   `serverDeliver` (vehicles answers), in the first delivery bay with no
   car in it. Everything is free for now: prices live in the catalog and
   the host pays them through `money:spend` when they are above zero.
