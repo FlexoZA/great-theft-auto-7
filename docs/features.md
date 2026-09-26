@@ -54,6 +54,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
+| `drawScreen(client)` | Screen space, after every feature's `drawHUD` and the core's own lines. For a full panel that must cover the whole HUD when your priority can't put it last: the job board (quests draws at 22). The shop (993) and the garage (994) get the same by priority instead, under the inventory (995). |
 | `drawLens(client, drawWorld)` | Screen space, after the world and before any HUD. `drawWorld(camera, w, h)` draws the whole world again through a camera of your own (`{ x, y, scale }`), centred in a `w` x `h` view (the window when left out): set a canvas first and show it however you like. Weapons draws the sniper's scope this way. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 
