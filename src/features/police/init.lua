@@ -442,7 +442,7 @@ local function nearestWanted(server, unit, dt)
   local best, bestD2
   for id in pairs(sv.wanted) do
     local p = server.players[id]
-    if p and Features.present(p) then
+    if p and Features.visible(server, p) then
       local bx, by = Features.bodyPose(server, p) -- them on foot, or their car
       local d2 = Vision.canSee(unit.car.x, unit.car.y, unit.car.angle, bx, by, range, chasing)
       if d2 and (not bestD2 or d2 < bestD2) then
@@ -458,7 +458,7 @@ local function nearestWanted(server, unit, dt)
   if chasing and ai.lastSeen then
     local p = server.players[ai.lastSeen]
     ai.lostFor = (ai.lostFor or 0) + dt
-    if p and sv.wanted[p.id] and Features.present(p) and ai.lostFor < Police.loseSightTime then
+    if p and sv.wanted[p.id] and Features.visible(server, p) and ai.lostFor < Police.loseSightTime then
       local bx, by = Features.bodyPose(server, p)
       if (bx - unit.car.x) ^ 2 + (by - unit.car.y) ^ 2 <= Police.pursuitRange ^ 2 then
         return p

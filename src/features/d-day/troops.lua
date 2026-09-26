@@ -179,7 +179,7 @@ end
 --- Where `player` is, if they are there to be shot at.
 local function poseOf(server, id)
   local p = server.players[id]
-  if p and Features.present(p) then
+  if p and Features.visible(server, p) then
     local x, y = Features.bodyPose(server, p)
     return x, y
   end
@@ -190,7 +190,7 @@ end
 local function spot(server, s)
   local best, bestD2
   for id, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local d2 = Sight.canSee(s.x, s.y, s.facing, x, y, Troops.RANGE)
       if d2 and (not bestD2 or d2 < bestD2) then
@@ -205,7 +205,7 @@ end
 local function nearest(server, s)
   local bx, by, bestD2
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local d2 = dist2(x, y, s.x, s.y)
       if not bestD2 or d2 < bestD2 then

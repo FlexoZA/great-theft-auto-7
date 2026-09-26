@@ -144,7 +144,7 @@ function Major:target(server)
   local seen, sx, sy, seenD2
   local any, ax, ay, anyD2
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local d2 = (x - self.x) ^ 2 + (y - self.y) ^ 2
       if not anyD2 or d2 < anyD2 then

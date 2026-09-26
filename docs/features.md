@@ -54,6 +54,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
+| `drawLens(client, drawWorld)` | Screen space, after the world and before any HUD. `drawWorld(camera, w, h)` draws the whole world again through a camera of your own (`{ x, y, scale }`), centred in a `w` x `h` view (the window when left out): set a canvas first and show it however you like. Weapons draws the sniper's scope this way. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
@@ -277,6 +278,8 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
 | `serverEventActive(server)` | police asks, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police parks every unit out of sight, calls in the beat and forgets who was wanted, and comes back when nobody answers any more. The events feature answers it. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The events feature flashes it red where a boss came in and marks him while he is loose. |
+| `hidden(client, id)` / `serverHidden(server, player)` | the core, weapons, minimap, player-arrows ask / `Features.visible` asks | Is this player out of sight (the chicken ability)? Answer true and on a client they are not drawn for anyone else (body, car they drive, name, health bar, minimap dot, edge arrow); on the host `Features.visible(server, player)` (present, and nobody answers `serverHidden`) is false for them. Anything that picks a player to go after or aim at (bots, police, every boss and its helpers) asks `visible` instead of `present`; damage over an area (a blast, a slam, a scream) still asks `present`, so a hidden player caught in it is still hurt. Abilities answers both. |
+| `cursorStyle(name, client)` | vision asks, through `Features.reduce` | Which of `vision/cursors.lua` to draw at the mouse, starting from the crosshair: weapons answers "scope" while a gun with a `scope` is in hand and "none" while its lens is up. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen, the shop and the job board answer it. |
 
 Bots listen to damage and collisions to decide who to fight; police listen
@@ -322,14 +325,16 @@ couple of small conventions rather than requiring each other:
   wallet and nothing at all if it was empty, so fill in `victim` for
   anything a player was driving. Ignore kinds you don't care about; new
   kinds may appear.
-- `feature:serverShotAt(server, x, y, radius, by, angle)`: a bullet is
+- `feature:serverShotAt(server, x, y, radius, by, angle, damage)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
   return false and it flies on. Weapons walks its projectiles through every
   feature that defines it, so a gun kills pedestrians without knowing they
   exist (police answers it too: officers on foot take a few rounds before
   they go down). `by` is the shooter's player id and `angle` the direction of
-  travel, for gibs and scoring; `by` is 0 for a shot no player fired. Cars
+  travel, for gibs and scoring; `by` is 0 for a shot no player fired;
+  `damage` is what the round carries (nil from a blast), for a target that
+  takes hits rather than dying to one (Shotgun takes a sniper round's 200). Cars
   are tested first, so answering here never steals a hit from a player.
   A missile's blast (the rocket launcher) asks each feature up to its
   `blast.soft` times at the blast centre with a wide radius, stopping at the
@@ -453,6 +458,16 @@ couple of small conventions rather than requiring each other:
   and raises `serverPanicArea` every tick. Effects carry
   `by`, the caster, and `drawEffect(e, client)` gets the client to follow
   them.
+  The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
+  invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
+  stretch the first and shorten the second): see `hidden` / `serverHidden`
+  under events. `Chicken.variant(tuning)` is the same trick on other
+  numbers (Shotgun's).
+  A gun with a `scope` (the sniper rifle: 200 a round, five in the
+  magazine, a five-second reload, a round that carries a little past
+  anywhere the cursor reaches) has a scope's crosshair for a cursor, and
+  holding the scope button (`scope`, right mouse) opens a lens round the
+  cursor showing the world `scope` times closer (`drawLens`).
   A gun with a `blast` (the rocket launcher) fires a missile that explodes
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
@@ -611,7 +626,12 @@ example with a menu; real-estate is the one with a place to stand.
   `map.bands` (hill, barracks, bunkers, beach, surf: each a `y0`..`y1`),
   `map.flagX, flagY`, `map.posts` (where defenders stand), `map.doors`
   (barracks doors) and `map.cover` (tank stoppers, sandbags, bunkers and
-  huts, all solid))
+  huts, all solid); `kind = "cliff"` is a meadow under a long cliff with a
+  plateau on top and one ramp up at the far left, with `map.cliffY`,
+  `map.plateau`, `map.meadow`, `map.ramp`, `map.perches` (spots on the
+  plateau for a sniper; `edge` ones overlook the meadow), `map.clumps` and
+  `map.cover` (dry-stone walls, boulders, and the cliff itself, marked
+  `ledge = true`: solid to walkers and to rounds))
   and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
@@ -653,6 +673,20 @@ example with a menu; real-estate is the one with a place to stand.
   few seconds. Soldiers raise `serverKill` with kind "soldier", the Major
   with "boss". Tuning is at the top of `init.lua`, `troops.lua` and
   `major.lua`.
+- Shotgun: `src/features/shotgun` is the fourth boss quest, on the cliff
+  map (Shotgun's Bluff). Everyone arrives at the bottom right; Shotgun is
+  on the plateau with a sniper rifle, and the cliff stops every round fired
+  up at him, so the way to him is from cover to cover up the map and left
+  to the ramp. He goes invisible whenever he can (the chicken on his own
+  numbers) and moves to a new spot, and when he shows again he draws a bead
+  on the nearest player he can see: for a second every screen shows it (a
+  laser and a closing ring) and the target's screen throbs red, then he
+  fires where they were going (he leads a walker), so stopping, turning,
+  dodging or ducking behind something makes him miss. Close in and he
+  vanishes again or, when he can't, backs off with his pistol. His rounds
+  leave from past the lip, so the cliff never stops them. Down, he drops
+  the chicken as a pickup; he raises `serverKill` with kind "boss". Tuning
+  is at the top of `boss.lua` and `init.lua`.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

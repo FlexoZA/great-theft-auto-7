@@ -139,11 +139,12 @@ function Bigfoot.serverStop()
   sv = nil
 end
 
---- Every human who can be gone after, with where they are.
-local function humans(server)
+--- Every human who can be gone after, with where they are; `seen`: only
+--- those in sight (not hidden: `Features.visible`).
+local function humans(server, seen)
   local out = {}
   for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
+    if not p.bot and (seen and Features.visible(server, p) or not seen and Features.present(p)) then
       local x, y, onFoot = Features.bodyPose(server, p)
       out[#out + 1] = { player = p, x = x, y = y, onFoot = onFoot }
     end
@@ -240,7 +241,7 @@ end
 --- Returns { x, y, player, onFoot } or { x, y, building } or nil.
 local function pickTarget(server, f)
   local best, bestD2
-  for _, h in ipairs(humans(server)) do
+  for _, h in ipairs(humans(server, true)) do
     local d2 = dist2(h.x, h.y, f.x, f.y)
     if not bestD2 or d2 < bestD2 then
       best, bestD2 = { x = h.x, y = h.y, player = h.player, onFoot = h.onFoot }, d2
@@ -347,7 +348,7 @@ local function stepFoot(server, dt)
     f.timer = f.timer - dt
     if f.timer <= 0 then
       local target = f.target and server.players[f.target]
-      if target and Features.present(target) then
+      if target and Features.visible(server, target) then
         -- A last look: he goes where they are now, within reach and onto clear ground.
         local tx, ty = Features.bodyPose(server, target)
         crouch(f, tx, ty, nil)
@@ -476,7 +477,7 @@ end
 
 --- Every squirrel's tick: sit, then shoot off at a target and burst on it.
 local function stepSquirrels(server, dt)
-  local people = humans(server)
+  local people = humans(server, true)
   local f = sv.foot
   for _, s in pairs(sv.squirrels) do
     s.life = s.life - dt

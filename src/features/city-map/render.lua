@@ -481,6 +481,150 @@ local function drawBeach(map)
   end
 end
 
+local CLIFF = {
+  meadow = { 0.38, 0.52, 0.28 },
+  meadowDark = { 0.33, 0.46, 0.24 },
+  flowers = { 0.92, 0.86, 0.45 },
+  plateau = { 0.55, 0.52, 0.36 },
+  plateauDark = { 0.49, 0.46, 0.31 },
+  rock = { 0.47, 0.43, 0.38 },
+  rockDark = { 0.33, 0.30, 0.27 },
+  rockLight = { 0.60, 0.56, 0.50 },
+  dirt = { 0.52, 0.42, 0.30 },
+  dirtDark = { 0.44, 0.35, 0.24 },
+  stone = { 0.62, 0.61, 0.58 },
+  stoneDark = { 0.46, 0.45, 0.43 },
+}
+
+--- Speckle a rectangle so walking over it reads as moving.
+local function speckle(x, y, w, h, dark, every)
+  color(dark)
+  local i = 0
+  for yy = y + 10, y + h - 30, every do
+    for xx = x + (i % 3) * 37, x + w - 40, every * 1.7 do
+      love.graphics.rectangle("fill", xx + (yy * 7) % 23, yy, 34, 18)
+    end
+    i = i + 1
+  end
+end
+
+--- The ground: meadow below with a scatter of flowers, the dry plateau
+--- above, the cliff face between them with its shadow on the grass, and
+--- the ramp at the far left.
+local function drawCliffGround(map)
+  local x, w = map.left, map.w
+  local cy = map.cliffY
+  color(CLIFF.meadow)
+  love.graphics.rectangle("fill", x, cy, w, map.top + map.h - cy)
+  speckle(x, cy, w, map.top + map.h - cy, CLIFF.meadowDark, 80)
+  color(CLIFF.flowers)
+  local function hash(n) -- 0..1, the same on every machine
+    local v = math.sin(n) * 43758.5453
+    return v - math.floor(v)
+  end
+  for i = 1, 260 do
+    local fx = x + hash(i * 12.9898) * w
+    local fy = cy + 120 + hash(i * 78.233) * (map.top + map.h - cy - 140)
+    love.graphics.rectangle("fill", fx, fy, 4, 4)
+  end
+  color(CLIFF.plateau)
+  love.graphics.rectangle("fill", x, map.top, w, cy - map.top)
+  speckle(x, map.top, w, cy - map.top, CLIFF.plateauDark, 70)
+  -- The shadow the cliff throws on the meadow.
+  color(C.shadow)
+  love.graphics.rectangle("fill", map.ramp.x1, cy + 60, x + w - map.ramp.x1, 46)
+  -- The ramp: a dirt track climbing from the meadow, worn into steps.
+  local r = map.ramp
+  color(CLIFF.dirt)
+  love.graphics.rectangle("fill", r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0)
+  color(CLIFF.dirtDark)
+  for yy = r.y0 + 14, r.y1 - 10, 22 do
+    love.graphics.rectangle("fill", r.x0 + 30, yy, r.x1 - r.x0 - 60, 6)
+  end
+end
+
+--- The cliff: grey rock from the lip down, a ragged edge along the top and
+--- cracks down the face.
+local function drawCliffFace(s)
+  color(CLIFF.rockDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(CLIFF.rock)
+  love.graphics.rectangle("fill", s.x, s.y + 6, s.w, s.h - 20)
+  local pts = {}
+  for xx = s.x, s.x + s.w, 24 do
+    pts[#pts + 1] = { xx, s.y - 4 + (xx * 13) % 11 }
+  end
+  color(CLIFF.rockLight)
+  for i = 1, #pts - 1 do
+    local a, b = pts[i], pts[i + 1]
+    love.graphics.polygon("fill", a[1], a[2], b[1], b[2], b[1], s.y + 12, a[1], s.y + 12)
+  end
+  color(CLIFF.rockDark)
+  love.graphics.setLineWidth(3)
+  for xx = s.x + 30, s.x + s.w - 30, 57 do
+    local jog = (xx * 7) % 17 - 8
+    love.graphics.line(xx, s.y + 14, xx + jog, s.y + s.h * 0.5, xx - jog / 2, s.y + s.h - 8)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A dry-stone wall: a dark bed and rounded stones along it.
+local function drawStoneWall(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 5, s.y + 5, s.w, s.h, 5)
+  color(CLIFF.stoneDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 5)
+  local long = s.w >= s.h
+  local len = long and s.w or s.h
+  for k = 0, math.floor(len / 16) do
+    local off = k * 16 + 2
+    local size = 7 + (k * 5) % 4
+    color(k % 2 == 0 and CLIFF.stone or shade(CLIFF.stone, 0.9))
+    if long then
+      love.graphics.circle("fill", s.x + math.min(off + 6, s.w - 7), s.y + s.h / 2, size, 8)
+    else
+      love.graphics.circle("fill", s.x + s.w / 2, s.y + math.min(off + 6, s.h - 7), size, 8)
+    end
+  end
+end
+
+--- A boulder: a lumpy grey heap, lit from the top left.
+local function drawBoulder(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  local seed = s.seed or 0
+  local pts = {}
+  for i = 0, 8 do
+    local a = i / 9 * 2 * math.pi
+    local d = r * (1.05 + 0.18 * math.sin(seed + i * 2.1))
+    pts[#pts + 1] = cx + math.cos(a) * d
+    pts[#pts + 1] = cy + math.sin(a) * d
+  end
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 6, cy + 6, r * 1.1, 16)
+  color(CLIFF.rockDark)
+  for _, tri in ipairs(love.math.triangulate(pts)) do
+    love.graphics.polygon("fill", tri)
+  end
+  color(CLIFF.rock)
+  love.graphics.circle("fill", cx - r * 0.12, cy - r * 0.12, r * 0.8, 14)
+  color(CLIFF.rockLight)
+  love.graphics.circle("fill", cx - r * 0.35, cy - r * 0.35, r * 0.35, 10)
+end
+
+local function drawCliff(map)
+  drawCliffGround(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "cliff" then
+      drawCliffFace(s)
+    elseif s.kind == "wall" then
+      drawStoneWall(s)
+    elseif s.kind == "rock" then
+      drawBoulder(s)
+    end
+  end
+  drawTrees(map)
+end
+
 --- Build the canvas. Call once with graphics available.
 function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
@@ -492,8 +636,12 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
-  if map.kind == "beach" then
-    drawBeach(map)
+  if map.kind == "beach" or map.kind == "cliff" then
+    if map.kind == "beach" then
+      drawBeach(map)
+    else
+      drawCliff(map)
+    end
     love.graphics.setCanvas()
     love.graphics.pop()
     return canvas

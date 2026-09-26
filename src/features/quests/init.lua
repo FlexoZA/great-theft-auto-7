@@ -5,10 +5,11 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Three jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Four jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
--- hunting aliens (alien-hunt), and one onto a defended beach to take Major
--- Looz'er's hill (d-day). A blue star by the entrance of each brings
+-- hunting aliens (alien-hunt), one onto a defended beach to take Major
+-- Looz'er's hill (d-day), and one across a meadow under a sniper's cliff
+-- after Shotgun (shotgun). A blue star by the entrance of each brings
 -- everyone home again; a star comes up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
 -- nearest one is the one on offer. Add a quest to `Quests.list` with
@@ -94,6 +95,19 @@ Quests.list = {
     banner = "%s hit the beach. Welcome to Looz'er Beach.",
   },
   {
+    id = "shotgun",
+    title = "Shotgun's Bluff",
+    text = "A man called Shotgun has taken the top of the bluff with a sniper rifle and is shooting anyone "
+      .. "who debates anything. Cross the meadow from cover to cover, climb the ramp at the far left "
+      .. "and settle it up there. Don't argue with him on the way.",
+    board = true,
+    map = "cliff",
+    boss = "shotgun",
+    label = "SHOTGUN",
+    color = { 0.95, 0.55, 0.35 },
+    banner = "%s went after Shotgun. Welcome to Shotgun's Bluff.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -126,6 +140,19 @@ Quests.list = {
     onMap = "beach",
     x = 0, -- in the surf between the landing craft
     y = 1676, -- city-map puts the beach's way in (map.cx, map.cy) here
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-cliff",
+    title = "Back to the City",
+    text = "Nobody needs to win this one. Take everyone back into town.",
+    onMap = "cliff",
+    x = 1238, -- just past the parked cars
+    y = 1472, -- city-map puts the bluff's way in (map.cx, map.cy) here
     map = "city",
     returns = true,
     label = "HOME",

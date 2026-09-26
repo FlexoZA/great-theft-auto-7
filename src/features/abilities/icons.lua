@@ -160,6 +160,30 @@ local function bigleap(c, a)
   end
 end
 
+-- A chicken's head in profile, looking right, half faded away: comb,
+-- beak, wattle and one beady eye.
+local function chicken(c, a)
+  color(WHITE, a * 0.9)
+  love.graphics.circle("fill", -1, 2, 9, 24) -- the head
+  love.graphics.polygon("fill", -9, 4, -4, 14, 6, 14, 6, 6) -- the neck
+  color({ 0.9, 0.2, 0.2 }, a)
+  love.graphics.circle("fill", -5, -8, 3, 10) -- the comb
+  love.graphics.circle("fill", -1, -9, 3.4, 10)
+  love.graphics.circle("fill", 3, -7, 3, 10)
+  love.graphics.polygon("fill", 6, 6, 10, 6, 8, 12) -- the wattle
+  color(c, a)
+  love.graphics.polygon("fill", 7, -1, 15, 2, 7, 5) -- the beak
+  color({ 0.1, 0.1, 0.1 }, a)
+  love.graphics.circle("fill", 3, 0, 1.6, 8) -- the eye
+  -- Fading out: dashes where the back of the head should be.
+  color(c, a * 0.8)
+  love.graphics.setLineWidth(2)
+  for i = 0, 3 do
+    local y = -6 + i * 5
+    love.graphics.line(-15, y, -11, y)
+  end
+end
+
 local DRAW = {
   freeze = freeze,
   regen = regen,
@@ -168,6 +192,7 @@ local DRAW = {
   fart = fart,
   openborders = openborders,
   leap = leap,
+  chicken = chicken,
   bigleap = bigleap,
 }
 
