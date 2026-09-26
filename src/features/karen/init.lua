@@ -20,7 +20,8 @@
 -- something to step out of, not stand in.
 --
 -- She is not alone: while she stands, her simps turn up (simps.lua), up to
--- five at a time, each with a name that starts "Simpin". They run at the
+-- five at a time for one player and five more for each other human (like
+-- her health: bosses/init.lua), each with a name that starts "Simpin". They run at the
 -- nearest player and punch; two pistol rounds drop one. Once she is down
 -- no more arrive, and the ones left keep swinging until they are dealt with.
 --
@@ -56,6 +57,7 @@ local KarenFace = require("src.features.karen.face")
 local Theme = require("src.features.karen.theme")
 local Simps = require("src.features.karen.simps")
 local Sounds = require("src.features.karen.sounds")
+local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 
@@ -65,7 +67,7 @@ local Karen = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Karen.maxHealth = 1500 -- seventy-five pistol rounds
+Karen.maxHealth = 1500 -- seventy-five pistol rounds, for one player (more humans, more: bosses/init.lua)
 Karen.radius = 19 -- px; three pedestrians wide
 Karen.chargeSpeed = 165 -- px/s once she has seen you, while she has the breath
 Karen.walkSpeed = 55 -- px/s winded: a stroll, and anyone sprinting (170) leaves her behind
@@ -200,12 +202,13 @@ function Karen:simpDown(server, kill)
 end
 
 function Karen:spawnBoss(server, x, y)
+  local hp = Bosses.health(self.maxHealth, server)
   sv.boss = {
     x = x,
     y = y,
     facing = math.pi / 2,
-    hp = self.maxHealth,
-    max = self.maxHealth,
+    hp = hp,
+    max = hp,
     charging = false,
     breath = Stamina.new(self.breath), -- winded, she walks and cannot scream
     slapTimer = 1,
@@ -219,7 +222,8 @@ function Karen:spawnBoss(server, x, y)
     rammed = {}, -- player id -> seconds before that car can hurt her again
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
-  server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), self.maxHealth, self.maxHealth))
+  sv.simps.max = Bosses.count(Simps.MAX, server) -- a bigger gang for a bigger group
+  server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), hp, hp))
 end
 
 function Karen:removeBoss(server)
