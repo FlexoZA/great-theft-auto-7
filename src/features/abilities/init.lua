@@ -79,6 +79,7 @@
 --   server -> player  ABL_REACH <ability> <0|1>       (its range and cooldown are lifted for you, or back to normal)
 --   server -> all     ABL_FIRED <by> <ability[@tier]> <x> <y> <seconds> <angle> [<heldId>]...
 --                                              (angle: which way it faces)
+--   server -> all     ABL_REVEAL <id>                (they fired: their chicken is over)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -691,6 +692,14 @@ Abilities.clientMessages = {
       end
     end
   end,
+  ABL_REVEAL = function(_client, args)
+    local id = tonumber(args[1])
+    for _, e in ipairs(Abilities.effects) do
+      if e.by == id then
+        Chicken.reveal(e)
+      end
+    end
+  end,
   ABL_PASSIVE = function(_client, args)
     local key, phase, seconds = args[1], args[2], tonumber(args[3])
     if not (Kinds.byKey[key] and seconds) then
@@ -930,6 +939,13 @@ end
 --- out of sight on the host, a chicken hiding them?
 function Abilities:serverHidden(_server, player)
   return self.sv ~= nil and Chicken.serverHiding(player.id, self.sv.time)
+end
+
+--- A shot gives its shooter away: a chicken hiding them is over, for everyone.
+function Abilities:serverShotFired(server, player)
+  if self.sv and player and Chicken.serverReveal(player.id, self.sv.time) then
+    server:broadcast(Protocol.encode("ABL_REVEAL", player.id))
+  end
 end
 
 --- Keep a car where it stands for `seconds`, whoever is in it.
