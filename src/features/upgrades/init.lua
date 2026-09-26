@@ -1,6 +1,6 @@
 -- Upgrades: spend your Fcks on a bigger body and a longer arm. P opens the
 -- shop over the game; 1 buys the next level of health, 2 the next level of
--- stamina, 3 the next level of koin reach (how far a koin jumps to you), 4
+-- stamina, 3 the next level of pickup reach (how far koins and drops jump to you), 4
 -- the next level of stamina regen (how fast it comes back), 5 another
 -- inventory slot (buildings), P closes it again. Each level costs more than
 -- the last and there are five of each, so a full set is a serious amount of
@@ -38,7 +38,7 @@ local Upgrades = {
 -- Tuning ------------------------------------------------------------------
 -- What each kind starts at, what a level adds, how a value reads on the shop
 -- and what each level costs. The cost list is as long as there are levels.
--- Reach is a percentage of the money feature's base pickup radius.
+-- Reach is a percentage of the base pickup radius: koins (money) and every drop (pickups) use it.
 Upgrades.kinds = {
   {
     key = "health", label = "Health", base = 100, step = 20, costs = { 5, 8, 12, 16, 20 },
@@ -51,7 +51,7 @@ Upgrades.kinds = {
     show = function(v) return ("%d stamina"):format(v) end,
   },
   {
-    key = "reach", label = "Koin reach", base = 100, step = 40, costs = { 3, 5, 8, 11, 14 },
+    key = "reach", label = "Pickup reach", base = 100, step = 40, costs = { 3, 5, 8, 11, 14 },
     action = "buy-reach", defaultKey = "3",
     show = function(v) return ("x%.1f reach"):format(v / 100) end,
   },
