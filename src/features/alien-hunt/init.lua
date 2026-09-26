@@ -6,7 +6,9 @@
 -- Part one: follow him. He walks the trail through five clearings
 -- (`map.waypoints`), waiting whenever nobody keeps up. At each of the first
 -- four a squirrel comes for him out of the trees (an alien spy, obviously)
--- and bites until it is shot; he only moves on once it is down. If the
+-- and bites until it is shot; he only moves on once it is down, and with
+-- more humans about another comes for him first, one per human (like
+-- Bigfoot's health: bosses/init.lua). If the
 -- squirrels bite him flat he faints, comes round a few seconds later, and
 -- another one comes for him at the same stop.
 --
@@ -33,7 +35,7 @@
 -- Messages
 --   server -> all  HNT_STAGE <stage> <waypoint>          none | follow | defend | faint | reveal | fight | done
 --   server -> all  HNT_STATE <tick> [m <x> <y> <facing> <hp>] [s <x> <y> <facing> <hp>]
---                            [b <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded>]
+--                            [b <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded> <max>]
 --                            (unreliable, 15 Hz; a group left out is gone)
 --   server -> all  HNT_SAY   <pool> <index>                the wild man says something (Hunt.lines[pool][index])
 --   server -> all  HNT_SQ    <x> <y>                       a squirrel came out of the trees
@@ -50,6 +52,7 @@ local WildFace = require("src.features.alien-hunt.wildman_face")
 local FootFace = require("src.features.alien-hunt.bigfoot_face")
 local Screen = require("src.features.alien-hunt.screen")
 local Sounds = require("src.features.alien-hunt.sounds")
+local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.alien-hunt.render")
@@ -79,7 +82,7 @@ Hunt.squirrelLoot = { chance = 0.7, ammo = 5, health = 1, stamina = 1, magazines
 Hunt.revealTime = 7 -- seconds of portraits before Bigfoot moves
 Hunt.manLeavesAt = 3.5 -- seconds into those when Wendell vanishes
 
-Hunt.footHealth = 1800 -- ninety pistol rounds
+Hunt.footHealth = 1800 -- ninety pistol rounds, for one player (more humans, more: bosses/init.lua)
 Hunt.footRadius = 22
 Hunt.footSpeed = 105 -- px/s; you can outrun him sprinting, not walking
 Hunt.footWalkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
@@ -202,7 +205,7 @@ end
 local sv = nil -- { stage, wp, node, timer, man, squirrel, foot, syncIn, left }
 
 local function fresh()
-  return { stage = nil, wp = 0, node = 0, timer = 0, man = nil, squirrel = nil, foot = nil, syncIn = 0 }
+  return { stage = nil, wp = 0, node = 0, timer = 0, man = nil, squirrel = nil, owed = 0, foot = nil, syncIn = 0 }
 end
 
 function Hunt:serverStart()
@@ -362,6 +365,7 @@ function Hunt:stepFollow(server, dt)
   if sv.wp >= #map.waypoints then
     self:startReveal(server, map)
   else
+    sv.owed = Bosses.count(1, server) - 1 -- one per human at this stop, one after another
     spawnSquirrel(server, node)
     setStage(server, "defend")
   end
@@ -419,11 +423,13 @@ end
 function Hunt:startReveal(server, map)
   local lair = map.lair
   sv.timer = self.revealTime
+  local hp = Bosses.health(self.footHealth, server)
   sv.foot = {
     x = lair.x,
     y = lair.y - map.lairRadius * 0.55,
     facing = math.pi / 2,
-    hp = self.footHealth,
+    hp = hp,
+    max = hp,
     mode = "idle",
     timer = 0,
     frozen = 0,
@@ -658,8 +664,9 @@ function Hunt:sync(server)
     add("s", fmt(s.x), fmt(s.y), ("%.2f"):format(s.facing), math.max(0, math.floor(s.hp)))
   end
   if f then
+    local stamina, winded = f.breath:wire()
     add("b", fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)), MODES[f.mode],
-      f.swipe > 0 and 1 or 0, f.breath:wire())
+      f.swipe > 0 and 1 or 0, stamina, winded, f.max)
   end
   local msg = Protocol.encode("HNT_STATE", unpack(parts))
   for _, player in pairs(server.players) do
@@ -709,9 +716,14 @@ function Hunt:serverShotAt(server, x, y, radius, by, angle)
       end
       Features.call("serverKill", server, { kind = "animal", x = s.x, y = s.y, by = by, angle = angle })
       if sv.stage == "defend" then
-        sv.wp = sv.wp + 1
-        say(server, "win")
-        setStage(server, "follow")
+        if sv.owed > 0 then
+          sv.owed = sv.owed - 1
+          spawnSquirrel(server, cityMap().waypoints[sv.wp]) -- another for the crowd he brought
+        else
+          sv.wp = sv.wp + 1
+          say(server, "win")
+          setStage(server, "follow")
+        end
       end
     end
     return true
@@ -900,8 +912,9 @@ Hunt.clientMessages = {
         f.swipe = args[i + 6] == "1"
         local stamina, winded = Stamina.read(args, i + 7)
         f.stamina, f.winded = stamina or f.stamina, winded
+        f.max = tonumber(args[i + 9]) or f.max or Hunt.footHealth
         Hunt.foot = f
-        seen.b, i = true, i + 9
+        seen.b, i = true, i + 10
       else
         break
       end
@@ -1122,7 +1135,8 @@ local OBJECTIVES = {
 local function drawBossBar(f)
   BossBar.draw({
     title = "BIGFOOT", titleColor = { 1, 0.6, 0.3 }, fill = { 0.6, 0.35, 0.15 },
-    hp = f.hp, max = Hunt.footHealth, stamina = f.stamina, staminaMax = Stamina.defaults.max, winded = f.winded,
+    hp = f.hp, max = f.max or Hunt.footHealth, stamina = f.stamina, staminaMax = Stamina.defaults.max,
+    winded = f.winded,
   })
 end
 

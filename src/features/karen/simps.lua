@@ -16,7 +16,7 @@ Simps.__index = Simps
 
 -- Tuning --------------------------------------------------------------------
 
-Simps.MAX = 5 -- at a time
+Simps.MAX = 5 -- at a time, for one player (karen sets `max` on a gang for the humans there)
 Simps.SPAWN_EVERY = 4 -- seconds between arrivals while there is room
 Simps.FIRST_AFTER = 3 -- seconds after she appears before the first one
 Simps.SPAWN_MIN = 140 -- px from her they appear...
@@ -291,7 +291,7 @@ function Simps:update(server, dt, boss)
   local arrived
   if boss then
     self.spawnIn = self.spawnIn - dt
-    if self.spawnIn <= 0 and self.n < Simps.MAX then
+    if self.spawnIn <= 0 and self.n < (self.max or Simps.MAX) then
       self.spawnIn = Simps.SPAWN_EVERY
       local x, y = Simps.spawnSpot(boss.x, boss.y)
       if x then
