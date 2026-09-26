@@ -18,6 +18,7 @@ local Guns = require("src.features.weapons.guns")
 local Nest = {
   key = "mgnest", -- on the wire and in a bag ("ability-mgnest")
   title = "MG nest",
+  blurb = "A machine gun behind sandbags that sprays its arc for a few seconds. Its kills are yours.",
   sound = "mgnest",
   color = { 1, 0.62, 0.25 }, -- brass
   aim = "direction",

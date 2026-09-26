@@ -12,6 +12,7 @@
 --   sound     name in sounds.lua, and a pitch around 1
 --   magazine  rounds between reloads
 --   reload    seconds a reload takes, and its sound in sounds.lua
+--   blurb     what it is like, in a sentence, for the shop's side panel
 --
 -- Optional:
 --   ttl       seconds a round flies before it is spent (weapons' default otherwise)
@@ -50,6 +51,7 @@ local Guns = {}
 Guns.list = {
   {
     key = "pistol",
+    blurb = "Hits hard and straight, and never runs out of rounds. Everyone starts with one.",
     name = "pistol",
     damage = 20,
     cooldown = 0.2,
@@ -65,6 +67,7 @@ Guns.list = {
   },
   {
     key = "uzi",
+    blurb = "Sprays fourteen rounds a second: weak one at a time, deadly up close.",
     name = "uzi",
     damage = 12, -- a little less per round...
     cooldown = 0.07, -- ...but fourteen of them a second
@@ -79,6 +82,7 @@ Guns.list = {
   },
   {
     key = "ak47",
+    blurb = "A rifle: nine rounds a second with hardly any scatter.",
     name = "AK-47",
     damage = 18, -- between the pistol and the uzi per round...
     cooldown = 0.11, -- ...nine of them a second
@@ -94,6 +98,7 @@ Guns.list = {
   },
   {
     key = "shotgun",
+    blurb = "Six pellets a pull that fill a doorway. Brutal up close, spent by about 250 px.",
     name = "shotgun",
     damage = 11, -- per pellet: all six in the chest is a car half wrecked
     cooldown = 0.9, -- pump between shots
@@ -112,6 +117,7 @@ Guns.list = {
   },
   {
     key = "rocket",
+    blurb = "A slow missile that blows up whatever it hits. Mind the blast: it hurts you too.",
     name = "rocket launcher",
     damage = 0, -- the blast does the damage, not the missile
     cooldown = 0.8,
@@ -132,6 +138,7 @@ Guns.list = {
   },
   {
     key = "sniper",
+    blurb = "One round drops anyone on foot. Hold right mouse for a 4x scope.",
     name = "sniper rifle",
     damage = 200, -- a person on foot in one; the round is the whole point
     cooldown = 1.3, -- the bolt worked between shots

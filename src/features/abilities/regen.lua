@@ -16,6 +16,7 @@ local Features = require("src.features")
 local Regen = {
   key = "regen", -- on the wire and in a bag ("ability-regen")
   title = "regen",
+  blurb = "Stay out of harm's way for a few seconds and your body heals itself fast.",
   passive = true, -- fits only the passive slot
   color = { 0.45, 0.95, 0.55 }, -- fresh green
 }

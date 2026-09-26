@@ -10,6 +10,7 @@ local Body = require("src.body")
 local Freeze = {
   key = "freeze", -- on the wire and in a bag ("ability-freeze")
   title = "freeze",
+  blurb = "Everything in the target area stops dead for a few seconds: players, cars, the crowd. Never you.",
   sound = "freeze",
   color = { 0.55, 0.85, 1.0 }, -- ice
 }

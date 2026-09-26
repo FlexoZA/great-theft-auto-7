@@ -11,6 +11,7 @@
 local Overclock = {
   key = "overclock", -- on the wire and in a bag ("ability-overclock")
   title = "overclock",
+  blurb = "Every ability in your keyed slots comes back sooner.",
   hud = "clock", -- short enough to fit under its ring
   passive = true, -- fits only the passive slot
   color = { 0.75, 0.45, 1 }, -- electric violet

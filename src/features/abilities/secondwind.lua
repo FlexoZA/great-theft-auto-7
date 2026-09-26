@@ -17,7 +17,9 @@ local Features = require("src.features")
 local SecondWind = {
   key = "secondwind", -- on the wire and in a bag ("ability-secondwind")
   title = "second wind",
+  blurb = "Stop spending stamina for a moment and your breath comes back fast.",
   hud = "2nd wind", -- under its ring
+  rateUnit = "stamina/s", -- what its `rate` is counted in, for the shop
   passive = true, -- fits only the passive slot
   color = { 1, 0.45, 0.75 }, -- energy-drink pink
 }
