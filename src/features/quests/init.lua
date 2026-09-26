@@ -341,7 +341,8 @@ function Quests:keypressed(key, client)
     end
     return
   end
-  if self.atJobs and Controls.is("jobs", key) then
+  if self.atJobs and Controls.is("jobs", key) and not Features.any("pointerTaken", client) then
+    -- (Not under another screen: the board draws over everything, the inventory too.)
     self.boardOpen, self.pick, notice, noticeTimer = true, 1, nil, 0
     return
   end
@@ -556,6 +557,22 @@ function Quests:drawHUD(client)
   if self.prompt and client then
     drawPrompt(self.prompt)
   end
+  if self.atJobs and not self.boardOpen and client then
+    -- On the square with the board down: the offer, where the shop's stands.
+    local h = love.graphics.getHeight()
+    local text = "Jobs.  " .. Controls.name(Controls.bindings("jobs")[1]) .. ": open the job board"
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf(text, 1, h - 129, w, "center")
+    love.graphics.setColor(1, 0.85, 0.3)
+    love.graphics.printf(text, 0, h - 130, w, "center")
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The board goes over every HUD piece (the core's `drawScreen`): our
+--- priority (22) would put it under nearly all of them.
+function Quests:drawScreen(client)
   if self.boardOpen and client then
     local city = cityMap()
     local places = {}
@@ -570,17 +587,8 @@ function Quests:drawHUD(client)
     if vision then
       vision:drawCursor(client) -- over the board, not under it
     end
-  elseif self.atJobs and client then
-    -- On the square with the board down: the offer, where the shop's stands.
-    local h = love.graphics.getHeight()
-    local text = "Jobs.  " .. Controls.name(Controls.bindings("jobs")[1]) .. ": open the job board"
-    love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.printf(text, 1, h - 129, w, "center")
-    love.graphics.setColor(1, 0.85, 0.3)
-    love.graphics.printf(text, 0, h - 130, w, "center")
+    love.graphics.setColor(1, 1, 1)
   end
-  love.graphics.setColor(1, 1, 1)
 end
 
 Quests.clientMessages = {

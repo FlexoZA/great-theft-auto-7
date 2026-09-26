@@ -3,18 +3,21 @@
 -- inventory use ("ability-<key>" is one carried as an item), a `title` (and
 -- an optional shorter `hud` name for under its ring), a `color`, `range`, `radius`, `seconds`, `cooldown`, `afterglow`,
 -- a `sound`, and `serverCast`, `drawEffect`; a passive one (`passive =
--- true`) has `serverTick` instead and lives in the passive slot. The
+-- true`) has `serverTick` instead (or `stats`, multipliers the abilities
+-- feature answers `serverStat` / `stat` with) and lives in the passive slot. The
 -- buildings feature reads this to name and draw an ability in a bag; each
 -- ability's picture is in icons.lua, keyed the same. `tierStats` lists the
 -- numbers a better tier improves, in order (tiers/init.lua); `serverCast`
 -- and `serverTick` get the ability in the caster's tier as their last
 -- argument and should read their numbers from it, and a drawing from
--- `e.ability`.
+-- `e.ability`. `tierLabels` (optional) renames a stat on the cards where the
+-- usual name won't do (second wind's `rate` is recovery, not healing).
 
 local Kinds = {
   list = {
     require("src.features.abilities.freeze"),
     require("src.features.abilities.regen"),
+    require("src.features.abilities.secondwind"),
     require("src.features.abilities.mgnest"),
     require("src.features.abilities.heal"),
     require("src.features.abilities.fart"),
@@ -22,6 +25,7 @@ local Kinds = {
     require("src.features.abilities.leap"),
     require("src.features.abilities.bigleap"),
     require("src.features.abilities.chicken"),
+    require("src.features.abilities.overclock"),
   },
   byKey = {},
 }

@@ -34,6 +34,10 @@ function MyFeature:drawAboveCars(client, camera) end
 --- Screen-space drawing, after the world.
 function MyFeature:drawHUD(client) end
 
+--- Screen space, after every feature's drawHUD: a full panel that must go
+--- over the whole HUD whatever your priority (the job board).
+function MyFeature:drawScreen(client) end
+
 --- Screen space, after the world and before any HUD. `drawWorld(camera, w,
 --- h)` draws the whole world again through `camera` ({ x, y, scale }),
 --- centred in a w x h view; set a canvas first. Weapons' sniper scope.

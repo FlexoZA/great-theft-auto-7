@@ -280,7 +280,7 @@ function Kinds.tierStats(item)
   if gun and Guns[gun] then
     return Guns[gun].tierStats, false, { cooldown = "fire rate" }
   elseif ability and AbilityKinds.byKey[ability] then
-    return AbilityKinds.byKey[ability].tierStats
+    return AbilityKinds.byKey[ability].tierStats, false, AbilityKinds.byKey[ability].tierLabels
   elseif armor and ArmorKinds.byKey[armor] then
     return ArmorKinds.byKey[armor].tierStats
   elseif gear and GearKinds.byKey[gear] then
@@ -310,6 +310,20 @@ function Kinds.tierLine(item)
     return #parts > 0 and table.concat(parts, ", ") or "base stats"
   end
   return Tiers.describe(stats, tier, false, labels) or "base stats"
+end
+
+--- What a bag box calls `n` of an item, where there is room for two short
+--- lines: `Kinds.name` less what the picture already says. An ability's
+--- orb shows it is one, so "second wind", not "second wind ability" (which
+--- wrapped out of the box).
+function Kinds.shortName(item, n)
+  local base, tier = Tiers.split(item)
+  local ability = base:match("^ability%-(.+)$")
+  local a = ability and AbilityKinds.byKey[ability]
+  if a then
+    return Tiers.named(a.title, tier)
+  end
+  return Kinds.name(item, n)
 end
 
 --- A readable name for an item and a count: "10 uzi ammo", "1 medkit".

@@ -479,7 +479,7 @@ local function drawItems(L, buildings, list, lifted)
       Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
       -- Equipment is named in its tier's colour; the frame and the hint say which.
       love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
-      love.graphics.printf(Kinds.name(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
+      love.graphics.printf(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
     elseif not open then

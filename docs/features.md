@@ -54,6 +54,7 @@ Runs on every machine, including the host (the host runs its own client).
 | `drawBelowCars(client, camera)` | World space, camera applied, before cars. Maps go here. |
 | `drawAboveCars(client, camera)` | World space, after cars. Bullets, effects. |
 | `drawHUD(client)` | Screen space, after the world. |
+| `drawScreen(client)` | Screen space, after every feature's `drawHUD` and the core's own lines. For a full panel that must cover the whole HUD when your priority can't put it last: the job board (quests draws at 22). The shop (993) and the garage (994) get the same by priority instead, under the inventory (995). |
 | `drawLens(client, drawWorld)` | Screen space, after the world and before any HUD. `drawWorld(camera, w, h)` draws the whole world again through a camera of your own (`{ x, y, scale }`), centred in a `w` x `h` view (the window when left out): set a canvas first and show it however you like. Weapons draws the sniper's scope this way. |
 | `keypressed(key, client)` | Key press in the game (Esc is taken: it opens the pause menu, and while that is up no key or click reaches a feature and every Controls query reads as released). |
 
@@ -269,7 +270,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
-| `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn. `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
+| `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu and the inventory screen answer it. |
@@ -377,13 +378,17 @@ couple of small conventions rather than requiring each other:
   behind the wheel) can stay on the road. Pickups uses both. A heal fills
   the body first and then the car they are driving;
   `weapons:serverRepair(server, car, amount)` mends a car on its own.
+  `on-foot:serverStamina(player)` reads a walker's stamina and ceiling (nil
+  for a driver); second wind uses it.
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount, label)`:
   read a wallet on the host, or take koins out of it all-or-nothing (false
   and a reason, and nothing happens, when they can't cover it). Every sale
   goes through `spend`; see "Selling things for Fcks" below.
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
-  broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
+  broadcasts `FCK_REACH` and draws the ring. Pickups scales its radius by
+  the same reach (`money:reachOf(id)`), so drops (medkits, drinks, ammo,
+  abilities) come from as far as koins do. Upgrades sells it ("Pickup reach").
 - Ammo: guns fire from a magazine (`magazine`, `reload` in `weapons/guns.lua`)
   and reload from the player's inventory, `"ammo-<gun key>"`, through
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
@@ -433,7 +438,10 @@ couple of small conventions rather than requiring each other:
   caster's slots. Cooldowns follow the ability, not the slot. The shop
   sells ability items. A passive ability (`regen.lua`: once the body has
   gone a few seconds unhurt it heals fast for three seconds, then rests
-  through a cooldown) has no cast; abilities calls its `serverTick(server,
+  through a cooldown; `secondwind.lua` does the same for stamina, once the
+  bar has gone a moment without being spent; or `overclock.lua`, whose
+  `stats` cut its carrier's cooldowns through the `serverStat` / `stat`
+  conventions) has no cast; abilities calls its `serverTick(server,
   player, dt, abilities)` every host tick while it sits in a player's
   passive slot, `abilities:serverSinceHurt(player)` says how long its
   carrier has gone unhurt, and `abilities:serverPassive(server, player,
