@@ -71,9 +71,6 @@ Dday.flagRadius = 110 -- px from the flag that counts as reaching it
 Dday.revealTime = 7 -- seconds of portrait before the Major moves
 Dday.bulletDamage = 20 -- what one round takes off the Major (matches the pistol)
 Dday.soldierDrops = 1 -- koins a soldier drops, like a pedestrian
--- What a soldier leaves behind (pickups' serverDropLoot): the odds of
--- anything, then ammo, a medkit or a drink by weight; `magazines` sizes the ammo.
-Dday.soldierLoot = { chance = 0.3, ammo = 2, health = 1, stamina = 1, magazines = 0.5 }
 
 local SYNC_EVERY = 2 -- server ticks between DD_TROOPS / DD_MAJOR packets
 local SMOOTHING = 10 -- per second, the easing of what is drawn
@@ -351,8 +348,8 @@ function Dday:soldierDown(server, s, by, angle)
     money:drop(server, s.x, s.y, self.soldierDrops)
   end
   local pickups = Features.byName.pickups
-  if pickups and pickups.serverDropLoot then
-    pickups:serverDropLoot(server, s.x, s.y, self.soldierLoot)
+  if pickups and pickups.serverDropEnemy then
+    pickups:serverDropEnemy(server, s.x, s.y) -- maybe something to pick up (the odds are pickups')
   end
   Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
 end
