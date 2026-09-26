@@ -424,6 +424,8 @@ function Game:draw()
     love.graphics.setColor(1, 0.4, 0.4)
   end
   love.graphics.printf(text, 0, 10, w - 10, "right")
+  -- Full panels (the job board) over every HUD piece and the lines above.
+  Features.call("drawScreen", client)
 end
 
 function Game:keypressed(key)

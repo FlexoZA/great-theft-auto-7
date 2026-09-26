@@ -58,7 +58,8 @@ local Screen = require("src.features.garage.screen")
 
 local Garage = {
   name = "garage",
-  priority = 975, -- the screen goes over the shop (970), under the inventory (995); loads after vehicles (100)
+  -- The screen goes over every HUD piece and the shop (993), under the inventory (995); loads after vehicles (100).
+  priority = 994,
 }
 
 -- Tuning ------------------------------------------------------------------
