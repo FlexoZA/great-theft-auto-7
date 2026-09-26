@@ -18,6 +18,11 @@
 -- the damage.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
+-- Under `haloBelow` (20%) of your health a red halo creeps in from the
+-- screen's edges, faint at first and redder the lower it goes, pulsing
+-- faster as it deepens; it is drawn from `drawLens`, over the world and
+-- under the HUD.
+--
 -- A gun with a `scope` (the sniper rifle) has a crosshair for a cursor
 -- while it is in hand (vision asks through the `cursorStyle` convention), and
 -- holding the scope button (right mouse) opens a lens round the cursor
@@ -216,10 +221,35 @@ Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 Weapons.lensSize = 0.24 -- the scope's lens: its radius as a share of the window's shorter side
+Weapons.haloBelow = 0.2 -- under this share of my health a red halo creeps in from the screen's edges...
+Weapons.haloFaint = 0.25 -- ...this strong just under it...
+Weapons.haloFull = 0.8 -- ...and this strong at death's door
+Weapons.halo = 0 -- how strong it is now, easing towards what my health says
 local lens = nil -- { canvas, mesh, r }: what the scope draws through, remade when its size changes
+
+local haloImage = nil -- white, clear in the middle and opaque at the edges; tinted red when drawn
+
+--- The halo's picture: made once, a soft oval of nothing inside a white
+--- rim that thickens into the corners.
+local function makeHalo()
+  local n = 128
+  local data = love.image.newImageData(n, n)
+  for y = 0, n - 1 do
+    for x = 0, n - 1 do
+      local nx, ny = (x + 0.5) / n * 2 - 1, (y + 0.5) / n * 2 - 1
+      local d = math.sqrt(nx * nx + ny * ny)
+      local k = math.max(0, math.min(1, (d - 0.55) / 0.75))
+      data:setPixel(x, y, 1, 1, 1, k * k * (3 - 2 * k)) -- smoothstep
+    end
+  end
+  local image = love.graphics.newImage(data)
+  image:setFilter("linear", "linear")
+  return image
+end
 
 function Weapons:load()
   Sounds.load()
+  haloImage = makeHalo()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
@@ -270,6 +300,7 @@ function Weapons:enterGame()
   self.ammoNotice = nil
   self.camera = nil
   self.deadTimer = 0
+  self.halo = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
   Explosions.clear()
   Rockets.clear()
@@ -491,9 +522,25 @@ function Weapons:keypressed(key, client)
   end
 end
 
+--- How strong the low-health halo should be: nothing at or over
+--- `haloBelow` of my health, `haloFaint` just under it, growing to
+--- `haloFull` as the last hit points go; nothing while I am wrecked (the
+--- world goes soft instead) or out of the world.
+function Weapons:haloTarget(client)
+  local max = self.maxHealth[client.myId] or MAX_HEALTH
+  local frac = (self.health[client.myId] or max) / max
+  if self.deadTimer > 0 or frac >= self.haloBelow or frac <= 0 or not client:myPose() then
+    return 0
+  end
+  local t = 1 - frac / self.haloBelow -- 0 just under the line, 1 at none left
+  return self.haloFaint + (self.haloFull - self.haloFaint) * t
+end
+
 function Weapons:update(dt, client, camera)
   self.camera = camera
   self.cooldown = math.max(0, self.cooldown - dt)
+  -- Ease the halo in and out rather than snap it with every hit and heal.
+  self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
   if not self:owns(self.gun) then
     self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
   end
@@ -677,10 +724,27 @@ local function lensOf(r)
   return lens
 end
 
+--- The low-health halo: red creeping in from the edges of the screen, over
+--- the world and under the HUD (so drawn from `drawLens`), beating like a
+--- heart that quickens the lower my health goes.
+function Weapons:drawHalo()
+  if self.halo < 0.01 or not haloImage then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local urgency = math.max(0, (self.halo - self.haloFaint) / (self.haloFull - self.haloFaint))
+  local beat = 0.85 + 0.15 * math.sin(love.timer.getTime() * (4 + 5 * urgency))
+  love.graphics.setColor(0.85, 0.05, 0.05, self.halo * beat)
+  love.graphics.draw(haloImage, 0, 0, 0, w / haloImage:getWidth(), h / haloImage:getHeight())
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- The scope's lens, round the cursor: the world again, `scope` times
 --- closer, centred on the point under the cursor, behind a black crosshair
---- that runs edge to edge and a thick black rim.
+--- that runs edge to edge and a thick black rim. The low-health halo goes
+--- down first, under it.
 function Weapons:drawLens(client, drawWorld)
+  self:drawHalo()
   if not self:scoped(client) then
     return
   end
