@@ -479,9 +479,12 @@ couple of small conventions rather than requiring each other:
   `pickups:serverDropAmmo(server, x, y, magazines, chance)` drops a box for
   one of the guns that take ammo, picked at random and sized in that gun's
   magazines, with `chance` (1 when left out) of a box at all. Police
-  always drops one where an officer falls or a unit is wrecked; the
-  enemies on a boss's map (Karen's simps, the hunt's squirrels, D-Day's
-  soldiers) roll for one, with the odds and the size at the top of their
+  always drops one where an officer falls or a unit is wrecked.
+  `pickups:serverDropLoot(server, x, y, loot)` rolls a loot table instead:
+  `loot.chance` of anything, then a box of ammo (`magazines` big), a
+  medkit or an energy drink, each as likely as its weight (`ammo`,
+  `health`, `stamina`). The enemies on a boss's map (Karen's simps, the
+  hunt's squirrels, D-Day's soldiers) keep one at the top of their
   feature's file.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature

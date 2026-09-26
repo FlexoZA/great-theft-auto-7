@@ -73,8 +73,9 @@ Hunt.squirrelRadius = 7 -- px; generous for something that small, so it can be h
 Hunt.squirrelBite = 7
 Hunt.squirrelBiteEvery = 0.8 -- seconds
 Hunt.squirrelSpawn = 300 -- px from the clearing it comes from
-Hunt.squirrelAmmoChance = 0.5 -- odds a shot squirrel leaves a box of ammo (pickups' serverDropAmmo)...
-Hunt.squirrelAmmo = 0.7 -- ...and how big: magazines of whatever gun it is for
+-- What a shot squirrel leaves behind (pickups' serverDropLoot): the odds of
+-- anything, then ammo, a medkit or a drink by weight; `magazines` sizes the ammo.
+Hunt.squirrelLoot = { chance = 0.7, ammo = 5, health = 1, stamina = 1, magazines = 0.7 }
 Hunt.revealTime = 7 -- seconds of portraits before Bigfoot moves
 Hunt.manLeavesAt = 3.5 -- seconds into those when Wendell vanishes
 
@@ -703,8 +704,8 @@ function Hunt:serverShotAt(server, x, y, radius, by, angle)
       sv.squirrel = nil
       server:broadcast(Protocol.encode("HNT_SQ_DOWN", fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
       local pickups = Features.byName.pickups
-      if pickups and pickups.serverDropAmmo then
-        pickups:serverDropAmmo(server, s.x, s.y, self.squirrelAmmo, self.squirrelAmmoChance)
+      if pickups and pickups.serverDropLoot then
+        pickups:serverDropLoot(server, s.x, s.y, self.squirrelLoot)
       end
       Features.call("serverKill", server, { kind = "animal", x = s.x, y = s.y, by = by, angle = angle })
       if sv.stage == "defend" then
