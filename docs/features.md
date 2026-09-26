@@ -383,7 +383,9 @@ couple of small conventions rather than requiring each other:
   goes through `spend`; see "Selling things for Fcks" below.
 - `Features.byName.money:serverSetReach(server, player, scale)`: how far a
   player's koins jump to them, as a multiple of the base radius; money
-  broadcasts `FCK_REACH` and draws the ring. Upgrades sells it.
+  broadcasts `FCK_REACH` and draws the ring. Pickups scales its radius by
+  the same reach (`money:reachOf(id)`), so drops (medkits, drinks, ammo,
+  abilities) come from as far as koins do. Upgrades sells it ("Pickup reach").
 - Ammo: guns fire from a magazine (`magazine`, `reload` in `weapons/guns.lua`)
   and reload from the player's inventory, `"ammo-<gun key>"`, through
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,

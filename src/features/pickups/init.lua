@@ -24,6 +24,10 @@
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
 -- which rings the orb in its colour.
 --
+-- How close you have to get is `radius` from a car or `footRadius` on foot,
+-- times the player's pickup reach: the one money keeps for koins, which
+-- upgrades sells (Money:reachOf). Without money it is 1.
+--
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box)
 --   server -> all  PK_TAKE  <id> <playerId>
@@ -495,15 +499,16 @@ function Pickups:serverStep(server, dt)
   end
   sv.time = sv.time + dt
 
-  local r2 = self.radius * self.radius
+  local money = Features.byName.money
   for id, it in pairs(sv.items) do
     for _, player in pairs(server.players) do
       local bx, by, onFoot
       if Features.present(player) then
         bx, by, onFoot = Features.bodyPose(server, player)
       end
-      local reach2 = onFoot and self.footRadius * self.footRadius or r2
-      if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach2 then
+      local scale = money and money.reachOf and money:reachOf(player.id) or 1
+      local reach = (onFoot and self.footRadius or self.radius) * scale
+      if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach * reach then
         local kind = kindOf(it.kind)
         if kind and kind.apply(server, player, it) then
           sv.items[id] = nil
