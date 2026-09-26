@@ -509,7 +509,7 @@ function Bots:think(server, bot, dt)
     self:calm(bot) -- forgiven
   end
   local target = ai.hostileTo and server.players[ai.hostileTo]
-  if target and Features.present(target) then
+  if target and Features.visible(server, target) then
     local tx, ty = Features.bodyPose(server, target)
     local dist = math.sqrt((tx - bot.car.x) ^ 2 + (ty - bot.car.y) ^ 2)
     if dist > self.giveUpDistance then
@@ -522,7 +522,7 @@ function Bots:think(server, bot, dt)
       ai.farFor = 0
     end
   end
-  if target and Features.present(target) then
+  if target and Features.visible(server, target) then
     self:fight(server, bot, target)
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)

@@ -151,6 +151,34 @@ function Sounds.load()
     buf:lowpass(5000)
   end)
 
+  -- Sniper reload (5 s): the bolt thrown open, five rounds pressed down
+  -- into the box one at a time, a pause to settle, and the bolt run home.
+  bank["reload-sniper"] = make(5.0, function(buf)
+    click(buf, 0.1, 900, 0.7) -- bolt up
+    rack(buf, 0.18, 0.18, 400, 1100, 0.6) -- and back
+    for i = 0, 4 do
+      local t = 0.9 + i * 0.62
+      click(buf, t, 1300 - i * 30, 0.5) -- a round pressed down past the lips
+      click(buf, t + 0.05, 650, 0.35)
+    end
+    rack(buf, 4.35, 0.16, 1100, 400, 0.7) -- bolt forward
+    click(buf, 4.55, 700, 0.9) -- and down, locked
+    buf:highpass(150)
+    buf:drive(1.8)
+    buf:lowpass(5200)
+  end)
+
+  -- Sniper: one huge flat crack with a long rolling echo behind it.
+  bank.sniper = make(1.1, function(buf)
+    buf:noiseBurst(0, 0.05, { amp = 1.0, decay = 0.01 })
+    buf:sweep(0, 0.12, 1400, 90, { wave = "sine", amp = 1.0, decay = 0.05 })
+    buf:sweep(0, 0.08, 3200, 600, { wave = "square", amp = 0.3, decay = 0.015 })
+    buf:noiseBurst(0.04, 1.0, { amp = 0.45, decay = 0.35 })
+    buf:sweep(0.1, 0.9, 140, 60, { wave = "sine", amp = 0.35, decay = 0.4 })
+    buf:drive(3.5)
+    buf:lowpass(3000)
+  end)
+
   -- Rocket launch: a thump out of the tube and the motor hissing away.
   bank.rocket = make(0.8, function(buf)
     buf:sweep(0, 0.14, 190, 55, { wave = "sine", amp = 0.9, decay = 0.08 })

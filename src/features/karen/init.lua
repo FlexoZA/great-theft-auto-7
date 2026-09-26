@@ -349,7 +349,7 @@ end
 local function nearestBody(server, b)
   local best, bestD2, bx, by, onFoot
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y, foot = Features.bodyPose(server, p)
       local d2 = (x - b.x) ^ 2 + (y - b.y) ^ 2
       if not bestD2 or d2 < bestD2 then

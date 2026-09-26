@@ -17,7 +17,9 @@
 -- ground thick with trees and shrubs, a trail winding through clearings
 -- (see `buildForest`). `kind = "beach"` is a landing beach under a defended
 -- hill: surf, sand with tank stoppers, bunkers and trenches, barracks and a
--- flag on the hilltop (see `buildBeach`).
+-- flag on the hilltop (see `buildBeach`). `kind = "cliff"` is low meadow
+-- under a long cliff, a plateau on top, and one way up at the far left
+-- (see `buildCliff`).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -540,6 +542,179 @@ local function buildBeach(map, rng)
   end
 end
 
+-- The way across the cliff's meadow, spawn to ramp, as fractions of the
+-- map's half-size: a clump of cover at each, open grass between them.
+local CLIFF_CLUMPS = {
+  { 0.66, 0.60 },
+  { 0.34, 0.52 },
+  { 0.62, 0.42 },
+  { 0.26, 0.24 },
+  { -0.04, 0.44 },
+  { -0.26, 0.20 },
+  { 0.04, -0.02 },
+  { -0.44, -0.04 },
+  { -0.62, 0.22 },
+  { -0.80, 0.02 },
+  { -0.84, -0.14 },
+}
+
+--- Low meadow under a long cliff, the plateau on top of it. The cliff runs
+--- from the right edge nearly all the way to the left one; the only way up
+--- is a ramp at the far left end. Everyone arrives at the bottom right, so
+--- the way to the top is up the map and to the left, from one clump of
+--- cover (dry-stone walls, boulders, trees) to the next across open grass
+--- that the plateau looks down on. The plateau has cover of its own.
+---
+--- `map.cliffY` is the world y of the cliff's lip; `map.plateau` and
+--- `map.meadow` the world y range (`y0` top, `y1` bottom) above and below
+--- it; `map.ramp` ({ x0, x1, y0, y1 }) the way up. The cliff is solid
+--- rectangles marked `ledge = true`: nobody walks through them and they
+--- stop bullets, so from below you can't shoot anyone on top. (Shotgun,
+--- the boss up there, fires down over the lip: shotgun/boss.lua.)
+--- `map.cover` is what the canvas draws ({ kind = "wall" | "rock" |
+--- "cliff", x, y, w, h }), trees are in `map.trees`, `map.perches` are the
+--- spots on the plateau a sniper may shoot from ({ x, y, edge }: `edge`
+--- ones overlook the meadow) and `map.clumps` the cover along the way.
+--- Walked, like the forest; the cars wait at the bottom right.
+local function buildCliff(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      map.tiles[c][r] = "ground"
+    end
+  end
+  local left, right = map.x0, map.x0 + cols * T
+  local top, bottom = map.y0, map.y0 + rows * T
+  local hw, hh = cols * T / 2, rows * T / 2
+  local cliffY = map.y0 + math.floor(rows * 0.38) * T
+  local face = 70 -- px of solid rock from the lip down
+  map.cliffY = cliffY
+  map.plateau = { y0 = top, y1 = cliffY }
+  map.meadow = { y0 = cliffY + face, y1 = bottom }
+  map.ramp = { x0 = left, x1 = left + 5 * T, y0 = cliffY - 150, y1 = cliffY + face + 110 }
+  map.cover, map.perches, map.clumps = {}, {}, {}
+
+  local placed = {} -- { x, y, r }: everything so far, to keep a way between
+  local function free(x, y, r, gap)
+    for _, p in ipairs(placed) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < (p.r + r + gap) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+  local function solid(kind, x, y, w, h, extra)
+    local cover = { kind = kind, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h) }
+    local block = { x = cover.x, y = cover.y, w = cover.w, h = cover.h }
+    for k, v in pairs(extra or {}) do
+      cover[k], block[k] = v, v
+    end
+    map.cover[#map.cover + 1] = cover
+    map.solids[#map.solids + 1] = block
+    if kind ~= "cliff" then -- the cliff is a line, not a lump: the lip is kept clear on its own
+      placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }
+    end
+    return cover
+  end
+  local function tree(x, y)
+    local r = 22 + rng:random() * 10
+    map.trees[#map.trees + 1] = { x = x, y = y, r = r, pine = rng:random() < 0.4 }
+    map.solids[#map.solids + 1] = { x = x - 13, y = y - 13, w = 26, h = 26, tree = true }
+    placed[#placed + 1] = { x = x, y = y, r = 16 }
+  end
+  --- One piece of cover at (x, y), whichever kind comes up.
+  local function piece(x, y)
+    local roll = rng:random()
+    if roll < 0.38 then
+      local len = 90 + rng:random() * 60
+      if rng:random() < 0.5 then
+        solid("wall", x - len / 2, y - 10, len, 20)
+      else
+        solid("wall", x - 10, y - len / 2, 20, len)
+      end
+    elseif roll < 0.68 then
+      local size = 34 + rng:random() * 16
+      solid("rock", x - size / 2, y - size / 2, size, size, { seed = rng:random(1000) })
+    else
+      tree(x, y)
+    end
+  end
+
+  -- The cliff: the lip right across from the ramp to the right edge.
+  solid("cliff", map.ramp.x1, cliffY, right - map.ramp.x1, face, { ledge = true })
+
+  -- Plateau: the sniper's spots first, so nothing lands on them; a row
+  -- along the lip looking down, and more further back.
+  local x = map.ramp.x1 + 260
+  while x < right - 140 do
+    map.perches[#map.perches + 1] = { x = math.floor(x + (rng:random() - 0.5) * 60), y = cliffY - 60, edge = true }
+    x = x + 240 + rng:random() * 60
+  end
+  for _ = 1, 10 do
+    local px = left + 400 + rng:random() * (right - left - 560)
+    local py = top + 160 + rng:random() * (cliffY - top - 480)
+    map.perches[#map.perches + 1] = { x = math.floor(px), y = math.floor(py), edge = false }
+  end
+  for _, p in ipairs(map.perches) do
+    placed[#placed + 1] = { x = p.x, y = p.y, r = 40 }
+  end
+  placed[#placed + 1] = { x = map.ramp.x1 + 120, y = cliffY - 120, r = 140 } -- the top of the ramp stays open
+  for _ = 1, 400 do
+    if #map.cover + #map.trees >= 34 then
+      break
+    end
+    local px = left + 120 + rng:random() * (right - left - 240)
+    local py = top + 120 + rng:random() * (cliffY - top - 260) -- a walk left free behind the lip
+    if free(px, py, 24, 90) then
+      piece(px, py)
+    end
+  end
+
+  -- Meadow: a clump of cover at each stop on the way, open grass between.
+  for _, f in ipairs(CLIFF_CLUMPS) do
+    local cx, cy = math.floor(f[1] * hw), math.floor(f[2] * hh)
+    map.clumps[#map.clumps + 1] = { x = cx, y = cy }
+    local want, got = 4 + rng:random(0, 2), 0
+    for _ = 1, 60 do
+      if got >= want then
+        break
+      end
+      local a, d = rng:random() * 2 * math.pi, 30 + rng:random() * 130
+      local px, py = cx + math.cos(a) * d, cy + math.sin(a) * d
+      if py > map.meadow.y0 + 60 and free(px, py, 24, 44) then
+        piece(px, py)
+        got = got + 1
+      end
+    end
+  end
+  -- A few trees along the sides, far from the way: scenery, not a route.
+  for _ = 1, 30 do
+    local side = rng:random() < 0.5 and -1 or 1
+    local px = side * (hw - 60 - rng:random() * 120)
+    local py = map.meadow.y0 + 200 + rng:random() * (bottom - map.meadow.y0 - 300)
+    local near = false
+    for _, c in ipairs(map.clumps) do
+      if (c.x - px) ^ 2 + (c.y - py) ^ 2 < 420 * 420 then
+        near = true
+      end
+    end
+    if not near and free(px, py, 20, 70) then
+      tree(px, py)
+    end
+  end
+
+  -- The cars wait at the bottom right, where everyone arrives; the way in
+  -- (and home), `map.cx, map.cy`, is in the corner just past them.
+  map.cx, map.cy = math.floor(hw - 170), math.floor(bottom - 6 * T)
+  for i = 0, 7 do
+    local sx = map.cx - 760 + i * 80
+    map.spawns[#map.spawns + 1] = { x = sx, y = bottom - 5.3 * T, angle = -math.pi / 2 }
+    map.spawns[#map.spawns + 1] = { x = sx + 40, y = bottom - 6.7 * T, angle = -math.pi / 2 }
+  end
+end
+
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
 --- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
@@ -583,11 +758,13 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" then
+  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
       buildBeach(map, rng)
+    elseif map.kind == "cliff" then
+      buildCliff(map, rng)
     else
       buildCuldesac(map, rng)
     end

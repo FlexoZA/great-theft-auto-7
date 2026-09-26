@@ -187,10 +187,11 @@ function Minimap:drawHUD(client)
       love.graphics.rectangle("fill", px - 2, py - 2, 4, 4)
     end
   end
-  -- Players, driving or walking.
+  -- Players, driving or walking; not anyone out of sight (the `hidden`
+  -- convention: the chicken ability).
   for id in pairs(client.players) do
     local x, y, _, angle = client:pose(id)
-    if x then
+    if x and (id == client.myId or not Features.any("hidden", client, id)) then
       local px, py = project(x, y, me)
       local col = Car.colorFor(id)
       if id == client.myId then

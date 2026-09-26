@@ -182,7 +182,7 @@ local function mortarSpot(server, map)
   local beach, surf = map.bands.beach, map.bands.surf
   local onBeach = {}
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       if y >= beach.y0 and y <= surf.y0 + 60 then
         onBeach[#onBeach + 1] = { x = x, y = y }

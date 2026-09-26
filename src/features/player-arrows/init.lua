@@ -140,7 +140,7 @@ function Arrows:drawHUD(client)
   local bots, police = Features.byName.bots, Features.byName.police
   for id in pairs(client.players) do
     local px, py = client:pose(id)
-    if id ~= client.myId and px and not (bots and bots.ids[id]) then
+    if id ~= client.myId and px and not (bots and bots.ids[id]) and not Features.any("hidden", client, id) then
       local unit = police and police.units[id]
       if unit then
         pointAt(px, py, self.policeColor, "arrow")

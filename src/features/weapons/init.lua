@@ -18,6 +18,13 @@
 -- the damage.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
+-- A gun with a `scope` (the sniper rifle) has a crosshair for a cursor
+-- while it is in hand (vision asks through the `cursorStyle` convention), and
+-- holding the scope button (right mouse) opens a lens round the cursor
+-- that shows the world `scope` times closer (the core's `drawLens` hook
+-- draws the world again through a camera of our own). The crosshair's
+-- middle is where the round goes.
+--
 -- You carry your guns in `slotCount` weapon slots, one per number key:
 -- key 1 fires whatever is in slot 1. Everyone starts with the pistol in
 -- slot 1 and any gun with a `stock` (guns.lua, for testing) in the next
@@ -157,9 +164,9 @@ end
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
 --- first one to answer swallows the bullet, which is why a single shot takes
 --- one pedestrian out of a crowd rather than the whole queue.
-local function shotSomething(server, x, y, by, angle)
+local function shotSomething(server, x, y, by, angle, damage)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle) then
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage) then
       return true
     end
   end
@@ -207,6 +214,8 @@ Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
+Weapons.lensSize = 0.24 -- the scope's lens: its radius as a share of the window's shorter side
+local lens = nil -- { canvas, mesh, r }: what the scope draws through, remade when its size changes
 
 function Weapons:load()
   Sounds.load()
@@ -214,6 +223,7 @@ function Weapons:load()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f1")
   Controls.register("reload", "Reload", "x") -- R went to the abilities
+  Controls.register("scope", "Sniper scope (hold)", "mouse2")
   for i = 1, self.slotCount do
     Controls.register("weapon-" .. i, ("Weapon slot %d"):format(i), tostring(i))
   end
@@ -575,23 +585,31 @@ function Weapons:drawAboveCars(client)
     love.graphics.setColor(1 - hp / max, hp / max, 0.2)
     love.graphics.rectangle("fill", bx, by, bw * hp / max, bh)
   end
+  -- Somebody out of sight (the `hidden` convention) shows no bar either.
+  local function hidden(id)
+    return id ~= nil and id ~= client.myId and Features.any("hidden", client, id)
+  end
   -- A bar under every car in the world, driven or not: the car's own health.
   for vid, v in pairs(client.vehicles) do
-    local max = self.carMax[vid] or CAR_HEALTH
-    bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
-    if self.carFlash[vid] then
-      love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
-      love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
+    if not hidden(v.driver) then
+      local max = self.carMax[vid] or CAR_HEALTH
+      bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
+      if self.carFlash[vid] then
+        love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
+        love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
+      end
     end
   end
   -- And one under everyone on foot: theirs. It grows with their ceiling, so
   -- an upgraded player looks it.
   for id, b in pairs(client.bodies) do
-    local max = self.maxHealth[id] or MAX_HEALTH
-    bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
-    if self.hitFlash[id] then
-      love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
-      love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
+    if not hidden(id) then
+      local max = self.maxHealth[id] or MAX_HEALTH
+      bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
+      if self.hitFlash[id] then
+        love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
+        love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
+      end
     end
   end
   if self.showHitboxes then
@@ -607,6 +625,93 @@ function Weapons:drawAboveCars(client)
       love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS)
     end
   end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The magnification of the gun in hand's scope, or nil for a gun without one.
+function Weapons:scopeOf()
+  return Guns.list[self.gun] and self:gunAt(self.gun).scope or nil
+end
+
+--- Is the scope up: a scoped gun in hand, the scope button held, and
+--- nothing else wanting the mouse (a screen, an ability being placed)?
+function Weapons:scoped(client)
+  return self:scopeOf() ~= nil and Controls.isDown("scope") and not Controls.suspended
+    and client:myPose() ~= nil and not Features.any("pointerTaken", client) and not Features.any("fireTaken", client)
+end
+
+--- The `cursorStyle` convention (vision asks): a scope's crosshair while a
+--- scoped gun is in hand, and nothing at all while the lens is up (it
+--- draws its own, bigger).
+function Weapons:cursorStyle(name, client)
+  if not self:scopeOf() then
+    return name
+  end
+  return self:scoped(client) and "none" or "scope"
+end
+
+--- The lens's canvas and the round mesh that shows it, `r` px in radius.
+local function lensOf(r)
+  if lens and lens.r == r then
+    return lens
+  end
+  if lens then
+    lens.canvas:release()
+    lens.mesh:release()
+  end
+  local verts = { { r, r, 0.5, 0.5 } }
+  local sides = 64
+  for i = 0, sides do
+    local a = i / sides * 2 * math.pi
+    local c, s = math.cos(a), math.sin(a)
+    verts[#verts + 1] = { r + c * r, r + s * r, 0.5 + c * 0.5, 0.5 + s * 0.5 }
+  end
+  local canvas = love.graphics.newCanvas(2 * r, 2 * r)
+  local mesh = love.graphics.newMesh(verts, "fan", "static")
+  mesh:setTexture(canvas)
+  lens = { canvas = canvas, mesh = mesh, r = r }
+  return lens
+end
+
+--- The scope's lens, round the cursor: the world again, `scope` times
+--- closer, centred on the point under the cursor, behind a black crosshair
+--- that runs edge to edge and a thick black rim.
+function Weapons:drawLens(client, drawWorld)
+  if not self:scoped(client) then
+    return
+  end
+  local ox, oy = client:myPose()
+  local w, h = love.graphics.getDimensions()
+  local mx, my = love.mouse.getPosition()
+  local wx, wy = mouseToWorld(self.camera, { dx = ox, dy = oy })
+  local base = self.camera and self.camera.scale or 1
+  local r = math.floor(math.min(w, h) * self.lensSize)
+  local l = lensOf(r)
+  love.graphics.push("all")
+  love.graphics.setCanvas(l.canvas)
+  love.graphics.clear(love.graphics.getBackgroundColor())
+  love.graphics.origin()
+  drawWorld({ x = wx, y = wy, scale = base * self:scopeOf() }, 2 * r, 2 * r)
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.draw(l.mesh, mx - r, my - r)
+  -- Glass: a darker ring inside the rim.
+  for k = 1, 6 do
+    love.graphics.setColor(0, 0, 0, 0.07 * k)
+    love.graphics.setLineWidth(3)
+    love.graphics.circle("line", mx, my, r - 18 + k * 3, 64)
+  end
+  love.graphics.setColor(0, 0, 0)
+  love.graphics.setLineWidth(8)
+  love.graphics.circle("line", mx, my, r, 64)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(mx - r, my, mx + r, my)
+  love.graphics.line(mx, my - r, mx, my + r)
+  love.graphics.setLineWidth(5) -- the posts: thick from the rim, thin across the middle
+  love.graphics.line(mx - r, my, mx - r * 0.35, my)
+  love.graphics.line(mx + r * 0.35, my, mx + r, my)
+  love.graphics.line(mx, my + r * 0.35, mx, my + r)
+  love.graphics.setLineWidth(1)
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -1667,7 +1772,7 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle) then
+    if shotSomething(server, px, py, p.owner, angle, p.damage) then
       return "soft", px, py
     end
   end
