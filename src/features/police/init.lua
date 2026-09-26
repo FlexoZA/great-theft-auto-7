@@ -350,31 +350,19 @@ function Police:serverShotFired(server, player, x, y)
   end
 end
 
---- What an officer on foot leaves behind, and what a wrecked unit does: a
---- box of rounds for one of the guns that take ammo, picked at random and
---- dropped where they fell (pickups' serverDropAmmo), sized in magazines
---- of whatever it is for.
-Police.officerAmmo = 0.7 -- magazines' worth an officer on foot drops
-Police.unitAmmo = 1.3 -- ...and a wrecked unit
-
 function Police:serverKill(server, kill)
   local killer = server.players[kill.by]
   if killer and witnessed(kill.x, kill.y) then
     self:setWanted(server, killer)
   end
   local victim = kill.victim and server.players[kill.victim]
-  local lost
-  if kill.kind == "police" then
-    lost = self.officerAmmo -- an officer on foot: their own announcement (officerDown) comes through here too
-  elseif kill.kind == "car" and victim and victim.police then
-    lost = self.unitAmmo -- a unit wrecked
-  end
-  -- One thing drops: now and then a vest (pickups' vestChance), otherwise
-  -- the ammo box.
+  -- An officer on foot down (their own announcement, officerDown, comes
+  -- through here too) or a unit wrecked: maybe something to pick up, by
+  -- pickups' odds like any enemy.
+  local lost = kill.kind == "police" or (kill.kind == "car" and victim and victim.police)
   local pickups = Features.byName.pickups
-  if lost and pickups and pickups.serverDropAmmo
-    and not (pickups.serverDropVest and pickups:serverDropVest(server, kill.x, kill.y)) then
-    pickups:serverDropAmmo(server, kill.x, kill.y, lost)
+  if lost and pickups and pickups.serverDropEnemy then
+    pickups:serverDropEnemy(server, kill.x, kill.y)
   end
 end
 
