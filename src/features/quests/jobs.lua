@@ -3,14 +3,21 @@
 -- way on every machine, like the hospital (garage/places.lua), so there is
 -- nothing to send: the building nearest the middle of town with at least
 -- three tiles a side, in a block the hospital is not in, whose door is
--- clear of the shops, the hospital's and impound lot's doors and the spawn
--- points (so nobody starts a game on it with the action key taken). The door
--- is on the sidewalk by the side of its block the building is nearest;
--- stand there and the job board opens on the action key.
+-- clear of the hospital's and impound lot's doors and the spawn points (so
+-- nobody starts a game on it with the action key taken). The door is on the
+-- sidewalk by the side of its block the building is nearest; stand there
+-- and the job board opens on the action key.
 --
--- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY }) and
--- nil for any other map. It is worked out once per map table; a city that
--- grows only adds plots, which are never picked.
+-- The shop (src/features/shop) is a building in the same block: the biggest
+-- other one whose door is as clear and far enough from the Jobs door that
+-- the two squares never overlap. A block with such a neighbour beats one
+-- without, so the city has a shop whenever it can.
+--
+-- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY, nx, ny,
+-- shop }; nx, ny: the way out of the door, towards the road) and nil for any
+-- other map; `shop` is { x, y, w, h, doorX, doorY, nx, ny, block } (block:
+-- the block's x, y, w, h) or nil. It is worked out once per map table; a
+-- city that grows only adds plots, which are never picked.
 --
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
@@ -19,12 +26,14 @@
 local Features = require("src.features")
 local UI = require("src.ui")
 local Layout = require("src.features.city-map.layout")
+local Storefront = require("src.features.quests.storefront")
 
 local Jobs = {}
 
 local T = Layout.TILE
 local BIG = 3 * T -- px a side a building needs to be picked when there is a choice
 local CLEAR = 260 -- px the door keeps from other places' doors and markers
+local APART = 160 -- px between the Jobs door and the shop's, so their squares never overlap
 local cache = setmetatable({}, { __mode = "k" }) -- map -> building, or false for none
 
 local function dist2(ax, ay, bx, by)
@@ -32,7 +41,7 @@ local function dist2(ax, ay, bx, by)
 end
 
 --- Points the door must stay clear of: the spawn points, the hospital's
---- door and the impound lot's gate (garage), and every shop's bag on the city.
+--- door and the impound lot's gate (garage).
 local function taken(map)
   local spots, hospital = {}, nil
   for _, s in ipairs(map.spawns) do
@@ -47,25 +56,20 @@ local function taken(map)
   if places and places.impound then
     spots[#spots + 1] = { places.impound.padX, places.impound.padY }
   end
-  local shop = Features.byName.shop
-  for _, s in ipairs(shop and shop.list or {}) do
-    if s.onMap == map.name then
-      spots[#spots + 1] = { s.x, s.y }
-    end
-  end
   return spots, hospital
 end
 
 --- The door of building `b` in the block at (x, y, w, h): on the sidewalk
 --- round the block, on the side the building is nearest (the bottom first
---- when two are as near), facing the building's middle.
+--- when two are as near), facing the building's middle. Also the way out
+--- of the block there (nx, ny).
 local function door(b, x, y, w, h)
   local mx, my = b.x + b.w / 2, b.y + b.h / 2
   local sides = {
-    { y + h - (b.y + b.h), mx, y + h + T / 2 },
-    { b.y - y, mx, y - T / 2 },
-    { b.x - x, x - T / 2, my },
-    { x + w - (b.x + b.w), x + w + T / 2, my },
+    { y + h - (b.y + b.h), mx, y + h + T / 2, 0, 1 },
+    { b.y - y, mx, y - T / 2, 0, -1 },
+    { b.x - x, x - T / 2, my, -1, 0 },
+    { x + w - (b.x + b.w), x + w + T / 2, my, 1, 0 },
   }
   local best = sides[1]
   for i = 2, #sides do
@@ -73,30 +77,61 @@ local function door(b, x, y, w, h)
       best = sides[i]
     end
   end
-  return best[2], best[3]
+  return best[2], best[3], best[4], best[5]
+end
+
+local function within(b, x, y, w, h)
+  return b.x >= x and b.y >= y and b.x + b.w <= x + w and b.y + b.h <= y + h
+end
+
+local function clearOf(spots, x, y)
+  for _, s in ipairs(spots) do
+    if dist2(x, y, s[1], s[2]) < CLEAR * CLEAR then
+      return false
+    end
+  end
+  return true
+end
+
+--- The shop's building beside the Jobs building `j` in the block at
+--- (x, y, w, h): the biggest other one there whose door is clear of
+--- `spots` and APART from the Jobs door, or nil.
+local function neighbour(map, j, spots, x, y, w, h)
+  local best
+  for _, b in ipairs(map.buildings) do
+    if b.x ~= j.x or b.y ~= j.y then
+      local doorX, doorY, nx, ny = door(b, x, y, w, h)
+      if within(b, x, y, w, h) and clearOf(spots, doorX, doorY)
+        and dist2(doorX, doorY, j.doorX, j.doorY) >= APART * APART
+        and (not best or b.w * b.h > best.w * best.h) then
+        best = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
+        best.block = { x = x, y = y, w = w, h = h }
+      end
+    end
+  end
+  return best
 end
 
 local function find(map)
   local spots, hospital = taken(map)
   local cx, cy = map.cx or 0, map.cy or 0
-  local best, bestBig, bestD2
+  local best, bestRank, bestD2
   for _, block in ipairs(map.blocks) do
     if block.kind == "buildings" then
       local x, y, w, h = map.x0 + block.tx * T, map.y0 + block.ty * T, block.tw * T, block.th * T
       local hasHospital = hospital
         and hospital.x >= x and hospital.y >= y and hospital.x < x + w and hospital.y < y + h
       for _, b in ipairs(map.buildings) do
-        local doorX, doorY = door(b, x, y, w, h)
-        local clear = not hasHospital and b.x >= x and b.y >= y and b.x + b.w <= x + w and b.y + b.h <= y + h
-        for _, s in ipairs(spots) do
-          clear = clear and dist2(doorX, doorY, s[1], s[2]) >= CLEAR * CLEAR
-        end
-        if clear then
-          -- A big one beats any small one; then the nearest the middle wins.
-          local big = b.w >= BIG and b.h >= BIG
+        local doorX, doorY, nx, ny = door(b, x, y, w, h)
+        if not hasHospital and within(b, x, y, w, h) and clearOf(spots, doorX, doorY) then
+          local j = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
+          j.shop = neighbour(map, j, spots, x, y, w, h)
+          -- One with a shop beside it beats one without, a big one any
+          -- small one; then the nearest the middle wins.
+          local rank = (j.shop and 2 or 0) + ((b.w >= BIG and b.h >= BIG) and 1 or 0)
           local d2 = dist2(b.x + b.w / 2, b.y + b.h / 2, cx, cy)
-          if not best or (big and not bestBig) or (big == bestBig and d2 < bestD2) then
-            best, bestBig, bestD2 = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY }, big, d2
+          if not best or rank > bestRank or (rank == bestRank and d2 < bestD2) then
+            best, bestRank, bestD2 = j, rank, d2
           end
         end
       end
@@ -122,28 +157,54 @@ end
 
 local GOLD = { 1, 0.85, 0.3 }
 
-local function label(text, x, y, w, font, color)
-  love.graphics.setFont(font)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf(text, x + 1, y + 1, w, "center")
-  love.graphics.setColor(color)
-  love.graphics.printf(text, x, y, w, "center")
+--- Pieces of paper pinned on the notice board, as (x, y, colour index).
+local NOTES = { { -20, -9, 1 }, { -6, -11, 2 }, { 8, -8, 3 }, { -14, 3, 2 }, { 2, 4, 1 }, { 15, 2, 3 } }
+local NOTE_COLORS = { { 0.98, 0.96, 0.85 }, { 1, 0.85, 0.3 }, { 0.75, 0.88, 1 } }
+
+--- The notice board by the door: a cork board on two legs, jobs pinned
+--- on it, centred on (x, y) in the storefront's frame.
+local function noticeBoard(x, y)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 30 + 3, y - 16 + 3, 60, 32, 3)
+  love.graphics.setColor(0.4, 0.27, 0.16)
+  love.graphics.rectangle("fill", x - 30, y - 16, 60, 32, 3)
+  love.graphics.setColor(0.72, 0.55, 0.35)
+  love.graphics.rectangle("fill", x - 26, y - 13, 52, 26, 2)
+  for _, n in ipairs(NOTES) do
+    love.graphics.setColor(NOTE_COLORS[n[3]])
+    love.graphics.rectangle("fill", x + n[1] - 5, y + n[2], 10, 9)
+    love.graphics.setColor(0.85, 0.2, 0.2)
+    love.graphics.circle("fill", x + n[1], y + n[2] + 1, 1.5)
+  end
 end
 
---- The building over the one it took: a dark roof with a gold star on it
---- and a sign, and the glowing square by the door where the board opens.
+local STYLE = {
+  rim = { 0.16, 0.14, 0.2 },
+  roof = { 0.32, 0.29, 0.38 },
+  awning = { GOLD, { 0.2, 0.18, 0.26 } },
+  glass = { 1, 0.9, 0.6 },
+}
+
+--- The building over the one it took: a storefront (storefront.lua) with
+--- a gold star on the roof, its sign, a notice board and plants outside,
+--- and the glowing square by the door where the board opens.
 --- `starFn(cx, cy, r)` fills a star (the quests feature's own).
 function Jobs.drawBuilding(j, starFn, radius, lit, time)
-  love.graphics.setColor(0.22, 0.2, 0.26)
-  love.graphics.rectangle("fill", j.x, j.y, j.w, j.h)
-  love.graphics.setColor(0.32, 0.29, 0.38)
-  love.graphics.rectangle("fill", j.x + 6, j.y + 6, j.w - 12, j.h - 12)
-  local s = math.min(j.w, j.h)
+  Storefront.draw(j, STYLE, time)
+  Storefront.front(j, function(W, D)
+    local y = Storefront.outside(D)
+    noticeBoard(-W / 2 + 32, y)
+    Storefront.plant(W / 2 - 38, y)
+    Storefront.plant(W / 2 - 14, y)
+  end)
+  local ex, ey, r = Storefront.emblem(j, 44)
   love.graphics.setColor(0, 0, 0, 0.35)
-  starFn(j.x + j.w / 2 + 4, j.y + j.h / 2 - 10 + 4, s * 0.26)
+  starFn(ex + 4, ey + 4, r)
   love.graphics.setColor(GOLD)
-  starFn(j.x + j.w / 2, j.y + j.h / 2 - 10, s * 0.26)
-  label("JOBS", j.x, j.y + j.h - 36, j.w, UI.fonts.heading, GOLD)
+  starFn(ex, ey, r)
+  love.graphics.setColor(1, 1, 0.8, 0.25 + 0.2 * math.sin(time * 2))
+  starFn(ex, ey, r * 0.55)
+  Storefront.sign(j, "JOBS", GOLD)
   -- The square by the door.
   local pulse = lit and 0.6 + 0.4 * math.abs(math.sin(time * 4)) or 0.5 + 0.5 * math.sin(time * 2.5)
   love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.10 + 0.08 * pulse)

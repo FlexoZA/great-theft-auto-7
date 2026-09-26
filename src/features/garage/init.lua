@@ -473,7 +473,7 @@ function Garage:drawBelowCars()
     return
   end
   if places.hospital then
-    Places.drawHospital(places.hospital)
+    Places.drawHospital(places.hospital, time)
   end
   if places.impound then
     Places.drawImpound(places.impound, self.atGate, time)
