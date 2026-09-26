@@ -18,11 +18,16 @@
 -- ("ability-bigleap@legendary", abilities/bigleap.lua, tiers/init.lua) on the spot as a pickup, for whoever gets there
 -- first; the event is then over.
 --
+-- Like every boss (bosses/stamina.lua) he has breath: chasing spends it,
+-- and empty he is winded, down to a lumber a walking player can leave
+-- behind, with no leap in him (not even over a block he is stuck on) until
+-- a good part of it is back.
+--
 -- The host owns him and his squirrels; clients hear positions at 15 Hz and
 -- draw with the alien hunt's pictures (alien-hunt/render.lua) and sounds.
 --
 -- Messages (the events feature registers them)
---   server -> all  EBF_STATE <tick> <x> <y> <facing> <hp> <mode> <swipe> [<id> <x> <y> <facing>]...
+--   server -> all  EBF_STATE <tick> <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded> [<id> <x> <y> <facing>]...
 --                                          (unreliable, 15 Hz; the squirrels after him)
 --   server -> all  EBF_LEAP  <fx> <fy> <tx> <ty> <seconds> <radius>   he took off; lands on (tx, ty)
 --   server -> all  EBF_SLAM  <x> <y> <radius>        he landed
@@ -32,11 +37,12 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
-local UI = require("src.ui")
 local Car = require("src.car")
 local Body = require("src.body")
 local Render = require("src.features.alien-hunt.render")
 local Sounds = require("src.features.alien-hunt.sounds")
+local Stamina = require("src.features.bosses.stamina")
+local BossBar = require("src.features.bosses.bar")
 
 local Bigfoot = {
   key = "bigfoot",
@@ -51,6 +57,14 @@ local Bigfoot = {
 Bigfoot.health = 2500 -- 125 rounds
 Bigfoot.radius = 22
 Bigfoot.speed = 120 -- px/s; a sprint outruns him, a walk doesn't
+Bigfoot.walkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
+Bigfoot.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
+  drain = 14, -- per second chasing (~7 s flat out)
+  regen = 14,
+  recovered = 50, -- back before a winded Bigfoot runs again
+  breath = 50, -- in him before he leaps
+}
+Bigfoot.leapStamina = 25 -- what a leap costs him
 Bigfoot.aggroRange = 900 -- px; a player this close comes before any building
 Bigfoot.spawnNear = 1000 -- px; he comes in about this far from the nearest player
 Bigfoot.spawnFar = 1800
@@ -191,6 +205,8 @@ function Bigfoot.serverBegin(server, events)
       x = at.x, y = at.y, facing = math.pi / 2, hp = Bigfoot.health, mode = "idle", timer = 0, frozen = 0,
       swipeTimer = 1, swipe = 0, leapTimer = Bigfoot.leapEvery * 0.5, stuck = 0, sidestep = 0, side = 1,
       closest = math.huge, noCloser = 0,
+      breath = Stamina.new(Bigfoot.breath), -- winded, he lumbers and cannot leap
+      running = false, -- at full tilt this tick, for his breath
     },
     squirrels = {},
     count = 0,
@@ -240,19 +256,22 @@ local function pickTarget(server, f)
 end
 
 --- One step, each axis on its own so a corner is slid along. Landed in
---- something, he walks out of it.
+--- something, he walks out of it. At full tilt while he has the breath,
+--- which it costs him; a lumber once he is winded.
 local function walk(f, angle, dt)
   local px, py, r = f.x, f.y, Bigfoot.radius
+  local speed = f.breath:pace(Bigfoot.speed, Bigfoot.walkSpeed)
+  f.running = not f.breath:winded()
   local free = blocked(f.x, f.y, r)
-  local nx = f.x + math.cos(angle) * Bigfoot.speed * dt
+  local nx = f.x + math.cos(angle) * speed * dt
   if free or not blocked(nx, f.y, r) then
     f.x = nx
   end
-  local ny = f.y + math.sin(angle) * Bigfoot.speed * dt
+  local ny = f.y + math.sin(angle) * speed * dt
   if free or not blocked(f.x, ny, r) then
     f.y = ny
   end
-  if dist2(f.x, f.y, px, py) < (Bigfoot.speed * dt * 0.4) ^ 2 then
+  if dist2(f.x, f.y, px, py) < (speed * dt * 0.4) ^ 2 then
     f.stuck = f.stuck + dt
   else
     f.stuck = 0
@@ -294,6 +313,7 @@ local function stepFoot(server, dt)
   f.swipe = math.max(0, f.swipe - dt)
   f.swipeTimer = f.swipeTimer - dt
   if f.mode == "air" then
+    f.running = true -- flying is the hardest work he does
     f.timer = f.timer - dt
     local k = math.min(1, 1 - f.timer / Bigfoot.airTime)
     f.x, f.y = f.fx + (f.tx - f.fx) * k, f.fy + (f.ty - f.fy) * k
@@ -360,8 +380,11 @@ local function stepFoot(server, dt)
   else
     f.noCloser = f.noCloser + dt
   end
-  if dist > reach and (f.noCloser > Bigfoot.stuckLeap or (f.leapTimer <= 0 and (target.player or dist > 300))) then
+  -- A leap takes breath: none while he is winded or nearly so.
+  local wants = f.noCloser > Bigfoot.stuckLeap or (f.leapTimer <= 0 and (target.player or dist > 300))
+  if dist > reach and wants and f.breath:has(Bigfoot.leapStamina) then
     -- Onto a player in reach, towards anything further, over whatever he is stuck on.
+    f.breath:spend(Bigfoot.leapStamina)
     crouch(f, target.x, target.y, target.player and dist <= Bigfoot.leapRange and target.player.id or nil)
     return
   end
@@ -505,8 +528,9 @@ local function sync(server)
   end
   sv.syncIn = SYNC_EVERY
   local f = sv.foot
+  local stamina, winded = f.breath:wire()
   local parts = { server.tick, fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)),
-    MODES[f.mode], f.swipe > 0 and 1 or 0 }
+    MODES[f.mode], f.swipe > 0 and 1 or 0, stamina, winded }
   for id, s in pairs(sv.squirrels) do
     parts[#parts + 1] = id
     parts[#parts + 1] = fmt(s.x)
@@ -526,10 +550,12 @@ function Bigfoot.serverStep(server, dt)
     return
   end
   sv.buildings = buildings()
+  sv.foot.running = false
   stepFoot(server, dt)
   if not sv then
     return
   end
+  sv.foot.breath:step(sv.foot.running, dt)
   if sv.count <= 0 then
     sv.litterIn = sv.litterIn - dt
     if sv.litterIn <= 0 and sv.foot.mode ~= "air" then
@@ -768,25 +794,15 @@ function Bigfoot.drawHUD(_client, camera)
   if camera then
     drawPointer(camera, f)
   end
-  local w, h = love.graphics.getDimensions()
-  local bw, bh = 380, 14
-  local bx, by = math.floor((w - bw) / 2), h - 110 -- above the ability circles
   local n = 0
   for _ in pairs(cl.squirrels) do
     n = n + 1
   end
-  local title = n > 0 and ("BIGFOOT  -  %d squirrels loose"):format(n) or "BIGFOOT"
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf(title, 1, by - 19, w, "center")
-  love.graphics.setColor(1, 0.6, 0.3)
-  love.graphics.printf(title, 0, by - 20, w, "center")
-  love.graphics.setColor(0, 0, 0, 0.65)
-  love.graphics.rectangle("fill", bx - 2, by - 2, bw + 4, bh + 4, 3)
-  love.graphics.setColor(0.6, 0.35, 0.15)
-  love.graphics.rectangle("fill", bx, by, bw * math.max(0, f.hp / Bigfoot.health), bh, 2)
-  love.graphics.setColor(1, 1, 1, 0.5)
-  love.graphics.rectangle("line", bx, by, bw, bh, 2)
+  BossBar.draw({
+    title = n > 0 and ("BIGFOOT  -  %d squirrels loose"):format(n) or "BIGFOOT",
+    titleColor = { 1, 0.6, 0.3 }, fill = { 0.6, 0.35, 0.15 },
+    hp = f.hp, max = Bigfoot.health, stamina = f.stamina, staminaMax = Stamina.defaults.max, winded = f.winded,
+  })
 end
 
 local function splat(x, y, angle, pitch)
@@ -813,9 +829,11 @@ Bigfoot.clientMessages = {
     f.hp = tonumber(args[5]) or f.hp or Bigfoot.health
     f.mode = MODE_NAMES[args[6]] or "idle"
     f.swipe = args[7] == "1"
+    local stamina, winded = Stamina.read(args, 8)
+    f.stamina, f.winded = stamina or f.stamina, winded
     cl.foot = f
     local seen = {}
-    for i = 8, #args - 3, 4 do
+    for i = 10, #args - 3, 4 do
       local id, sx, sy = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and sx and sy then
         local s = cl.squirrels[id] or { dx = sx, dy = sy, bob = random() * 6 }

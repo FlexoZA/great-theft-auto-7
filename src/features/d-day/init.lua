@@ -34,7 +34,7 @@
 --   server -> all  DD_DOWN   <id> <x> <y> <angle>    a soldier went down
 --   server -> all  DD_AIM    <x> <y> <radius> <delay>  a mortar is coming down here
 --   server -> all  DD_BLAST  <x> <y> <radius>        it landed
---   server -> all  DD_MAJOR  <tick> <x> <y> <facing> <hp> <max>   (unreliable, 15 Hz)
+--   server -> all  DD_MAJOR  <tick> <x> <y> <facing> <hp> <max> <stamina> <winded>   (unreliable, 15 Hz)
 --   server -> all  DD_SAY    <line>                  the Major says Major.lines[line]
 --   server -> all  DD_NEST   <x> <y> <angle>         the Major put an MG nest down
 --   server -> all  DD_MAJOR_DOWN <x> <y> <angle>     the Major went down
@@ -44,6 +44,7 @@ local Features = require("src.features")
 local Troops = require("src.features.d-day.troops")
 local Major = require("src.features.d-day.major")
 local Face = require("src.features.d-day.major_face")
+local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
 local Sounds = require("src.features.d-day.sounds")
 
@@ -337,7 +338,7 @@ function Dday:sync(server)
   local m = sv.major
   if m then
     msgs[2] = Protocol.encode("DD_MAJOR", server.tick, fmt(m.x), fmt(m.y), ("%.2f"):format(m.facing),
-      math.max(0, math.floor(m.hp)), m.max)
+      math.max(0, math.floor(m.hp)), m.max, m.breath:wire())
   end
   for _, player in pairs(server.players) do
     for _, msg in ipairs(msgs) do
@@ -410,7 +411,7 @@ end
 
 Dday.stage = nil -- the stage, from the host
 Dday.troops = {} -- id -> { x, y, dx, dy, angle, hp, kind, alert, bob }
-Dday.major = nil -- { x, y, dx, dy, angle, hp, max, say, sayTimer, bob }
+Dday.major = nil -- { x, y, dx, dy, angle, hp, max, stamina, winded, say, sayTimer, bob }
 Dday.aims = {} -- { x, y, r, t, total }: mortars on their way
 Dday.nests = {} -- { x, y, angle, t, seconds }: the Major's MG nests
 Dday.stains = {} -- { x, y, angle, big } or { x, y, r, crater = true }
@@ -624,6 +625,8 @@ Dday.clientMessages = {
     m.angle = tonumber(args[4]) or m.angle or math.pi / 2
     m.hp = tonumber(args[5]) or m.hp or Major.HEALTH
     m.max = tonumber(args[6]) or m.max or Major.HEALTH
+    local stamina, winded = Stamina.read(args, 7)
+    m.stamina, m.winded = stamina or m.stamina, winded
   end,
   DD_SAY = function(_client, args)
     local m, line = Dday.major, Major.lines[tonumber(args[1]) or 0]
