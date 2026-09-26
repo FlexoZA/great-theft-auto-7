@@ -11,8 +11,12 @@
 -- for whoever can use it.
 --
 -- Ammo boxes are never scattered; they are dropped, where something died,
--- through Pickups:serverDrop (police drops one for every officer or unit
--- lost), and a drop is gone for good once taken. So is "ability-<key>", an
+-- through Pickups:serverDropAmmo: a box for one of the guns that take
+-- ammo (never the bottomless pistol), picked at random and sized in that
+-- gun's magazines, with a chance of nothing at all. Police drops one for
+-- every officer or unit lost, and the enemies on a boss's map (Karen's
+-- simps, the hunt's squirrels, D-Day's soldiers) sometimes leave one. A
+-- drop is gone for good once taken. So is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
@@ -29,6 +33,7 @@ local UI = require("src.ui")
 local Sounds = require("src.features.pickups.sounds")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Tiers = require("src.features.tiers")
+local Guns = require("src.features.weapons.guns")
 
 local Pickups = {
   name = "pickups",
@@ -394,6 +399,30 @@ function Pickups:serverDrop(server, kind, x, y, amount)
   sv.items[id] = { kind = kind, x = x, y = y, amount = amount, dropped = true }
   server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
   return id
+end
+
+--- Drop a box of ammo at (x, y) for one of the guns that take ammo,
+--- picked at random: `magazines` of whatever it turns out to be (0.7 of
+--- an uzi's is 21 rounds, of a shotgun's 4 shells, of the launcher's one
+--- rocket), so a box means the same whichever gun it is for. `chance`
+--- (1 when not given) is the odds of a box at all: the enemies on a
+--- boss's map roll it, the police always drop one. Returns the item's id,
+--- or nil when nothing dropped.
+function Pickups:serverDropAmmo(server, x, y, magazines, chance)
+  if chance and love.math.random() >= chance then
+    return nil
+  end
+  local guns = {}
+  for _, gun in ipairs(Guns.list) do
+    if not gun.bottomless then
+      guns[#guns + 1] = gun
+    end
+  end
+  if #guns == 0 then
+    return nil
+  end
+  local gun = guns[love.math.random(#guns)]
+  return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, math.floor(magazines * gun.magazine + 0.5)))
 end
 
 function Pickups:serverStart(server)

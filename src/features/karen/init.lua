@@ -85,6 +85,8 @@ Karen.ramScale = 0.14 -- hp she loses per px/s of a car that hits her
 Karen.ramMinSpeed = 60 -- px/s; slower than this a car just nudges her
 Karen.ramDamageToCar = 12 -- hp the car loses hitting her
 Karen.drops = 30 -- koins she spills when she goes down (a pedestrian drops one, an officer three)
+Karen.simpAmmoChance = 0.25 -- odds a simp leaves a box of ammo (pickups' serverDropAmmo)...
+Karen.simpAmmo = 0.5 -- ...and how big: magazines of whatever gun it is for
 Karen.introTime = 9 -- seconds the title screen stays up unless a key is pressed
 Karen.sayTime = 3.2 -- seconds a rant hangs over her head
 Karen.screamEvery = 8 -- seconds between screams
@@ -183,11 +185,15 @@ function Karen:clearSimps(server)
   sv.simpsOut = 0
 end
 
---- One simp down: gibs on every screen, and the other features price it
---- (money drops a koin, the same as a pedestrian).
+--- One simp down: gibs on every screen, sometimes a box of ammo, and the
+--- other features price it (money drops a koin, the same as a pedestrian).
 function Karen:simpDown(server, kill)
   server:broadcast(Protocol.encode("KRN_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
     kill.by or 0))
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDropAmmo then
+    pickups:serverDropAmmo(server, kill.x, kill.y, self.simpAmmo, self.simpAmmoChance)
+  end
   Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
 end
 
