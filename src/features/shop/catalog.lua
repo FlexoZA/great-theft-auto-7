@@ -1,5 +1,6 @@
 -- What the shop sells: every gun and a box of its rounds (weapons/guns.lua),
--- every ability (abilities/kinds.lua) but a boss's drop, a medkit, and every car model
+-- every ability (abilities/kinds.lua) but a boss's drop, a medkit and an energy drink, every
+-- piece of armor (armor/kinds.lua) and clothing (gear/kinds.lua), and every car model
 -- (vehicles/catalog.lua). Built once from those lists, so a new gun, ability
 -- or model is on the shelf without touching this file.
 --
@@ -31,14 +32,16 @@ local Tiers = require("src.features.tiers")
 local Catalog = {
   list = {},
   byItem = {},
-  -- The shop's tabs, each a filter on `kind`: All is everything that goes
-  -- into a bag, the rest one kind each. Cars have their own tab, with
-  -- bigger cards.
+  -- The shop's tabs, each a filter on `kind` (or on `kinds`, a set of
+  -- them): All is everything that goes into a bag, the rest one shelf
+  -- each. Gear is what you wear: armor and clothes. Cars have their own
+  -- tab, with bigger cards.
   tabs = {
     { key = "all", title = "All" },
     { key = "guns", title = "Guns", kind = "gun" },
     { key = "ammo", title = "Ammo", kind = "ammo" },
     { key = "abilities", title = "Abilities", kind = "ability" },
+    { key = "gear", title = "Gear", kinds = { armor = true, gear = true } },
     { key = "cars", title = "Cars", kind = "car" },
   },
   tabByKey = {},
@@ -113,7 +116,15 @@ function Catalog.onTab(key)
   local t = Catalog.tabByKey[key] or Catalog.tabs[1]
   local out = {}
   for _, e in ipairs(Catalog.list) do
-    if (t.kind and e.kind == t.kind) or (not t.kind and e.kind ~= "car") then
+    local on
+    if t.kinds then
+      on = t.kinds[e.kind]
+    elseif t.kind then
+      on = e.kind == t.kind
+    else
+      on = e.kind ~= "car"
+    end
+    if on then
       out[#out + 1] = e
     end
   end

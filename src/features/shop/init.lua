@@ -8,7 +8,7 @@
 -- it. Leaving the door closes it too.
 --
 -- What is for sale is catalog.lua: every gun and a box of its rounds, every
--- ability, a medkit, and every car model. Everything is free for now (a
+-- ability, a medkit, armor and clothes, and every car model. Everything is free for now (a
 -- price of 0); prices go in the catalog when the economy is ready and the
 -- host charges them through money:spend the way every other sale works
 -- (docs/features.md, "Selling things for Fcks").
@@ -46,7 +46,9 @@ local Storefront = require("src.features.quests.storefront")
 
 local Shop = {
   name = "shop",
-  priority = 970, -- the screen goes over the upgrade shop (960); the inventory (995) and cursor come later
+  -- The screen goes over every HUD piece (the ability row is 990, the boss portraits 992), so none of them
+  -- lies over its cards; only the inventory (995), which opens over the shop, comes later.
+  priority = 993,
 }
 
 Shop.catalog = Catalog

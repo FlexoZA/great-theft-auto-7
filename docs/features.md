@@ -745,8 +745,10 @@ example with a menu; real-estate is the one with a place to stand.
   It is marked on the minimap with a green bag. Stand or stop on the square
   by its door and a prompt offers the shop on the action key (F; the shop
   answers `actionTaken` there and while it is open); it opens and closes
-  the shop screen, and walking away from the door closes it too. On sale: every gun and a box of its rounds, every ability, a medkit and
-  every car model, built into `shop/catalog.lua` from the other features'
+  the shop screen, and walking away from the door closes it too. The screen
+  draws over every other HUD piece (priority 993), under only the inventory.
+  On sale: every gun and a box of its rounds, every ability, a medkit, an
+  energy drink, armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. A click on a card
   buys it: an item goes into the buyer's bag through
   `buildings:serverGive`, a car onto the road outside the door through
