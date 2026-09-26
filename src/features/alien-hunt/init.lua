@@ -18,6 +18,10 @@
 -- he lands is hurt. Bullets pass under him while he is in the air. When he
 -- goes down he spills a pile of koins and the quest is done.
 --
+-- Like every boss (bosses/stamina.lua) he has breath: chasing spends it,
+-- and empty he is winded, down to a lumber a walking player can leave
+-- behind, with no leap in him until a good part of it is back.
+--
 -- The quests feature brings everyone to the forest and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "alien-hunt": the host starts the walk, and every client puts up the
@@ -29,7 +33,8 @@
 -- Messages
 --   server -> all  HNT_STAGE <stage> <waypoint>          none | follow | defend | faint | reveal | fight | done
 --   server -> all  HNT_STATE <tick> [m <x> <y> <facing> <hp>] [s <x> <y> <facing> <hp>]
---                            [b <x> <y> <facing> <hp> <mode> <swipe>]   (unreliable, 15 Hz; a group left out is gone)
+--                            [b <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded>]
+--                            (unreliable, 15 Hz; a group left out is gone)
 --   server -> all  HNT_SAY   <pool> <index>                the wild man says something (Hunt.lines[pool][index])
 --   server -> all  HNT_SQ    <x> <y>                       a squirrel came out of the trees
 --   server -> all  HNT_SQ_DOWN <x> <y> <angle>             it was shot
@@ -45,6 +50,8 @@ local WildFace = require("src.features.alien-hunt.wildman_face")
 local FootFace = require("src.features.alien-hunt.bigfoot_face")
 local Screen = require("src.features.alien-hunt.screen")
 local Sounds = require("src.features.alien-hunt.sounds")
+local Stamina = require("src.features.bosses.stamina")
+local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.alien-hunt.render")
 
 local Hunt = {
@@ -72,6 +79,14 @@ Hunt.manLeavesAt = 3.5 -- seconds into those when Wendell vanishes
 Hunt.footHealth = 1800 -- ninety pistol rounds
 Hunt.footRadius = 22
 Hunt.footSpeed = 105 -- px/s; you can outrun him sprinting, not walking
+Hunt.footWalkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
+Hunt.footBreath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
+  drain = 14, -- per second chasing (~7 s flat out)
+  regen = 14,
+  recovered = 50, -- back before a winded Bigfoot runs again
+  breath = 50, -- in him before he leaps
+}
+Hunt.leapStamina = 25 -- what a leap costs him
 Hunt.aggroRange = 1100
 Hunt.swipeReach = 22 -- px past his body a swipe lands
 Hunt.swipeDamage = 16
@@ -415,6 +430,8 @@ function Hunt:startReveal(server, map)
     stuck = 0,
     sidestep = 0,
     side = 1,
+    breath = Stamina.new(self.footBreath), -- winded, he lumbers and cannot leap
+    running = false, -- at full tilt this tick, for his breath
   }
   setStage(server, "reveal")
 end
@@ -482,6 +499,7 @@ function Hunt:stepFoot(server, dt)
   f.swipe = math.max(0, f.swipe - dt)
   f.swipeTimer = f.swipeTimer - dt
   if f.mode == "air" then
+    f.running = true -- flying is the hardest work he does
     f.timer = f.timer - dt
     local k = math.min(1, 1 - f.timer / self.airTime)
     f.x, f.y = f.fx + (f.tx - f.fx) * k, f.fy + (f.ty - f.fy) * k
@@ -502,7 +520,8 @@ function Hunt:stepFoot(server, dt)
     f.panic.left = f.panic.left - dt
     f.mode = "walk"
     f.facing = math.atan2(f.y - f.panic.y, f.x - f.panic.x)
-    walk(f, f.facing, self.footSpeed, dt)
+    walk(f, f.facing, f.breath:pace(self.footSpeed, self.footWalkSpeed), dt)
+    f.running = not f.breath:winded()
     if f.panic.left <= 0 then
       f.panic = nil
     end
@@ -541,18 +560,23 @@ function Hunt:stepFoot(server, dt)
   f.facing = math.atan2(ty - f.y, tx - f.x)
   f.leapTimer = f.leapTimer - dt
   local dist = math.sqrt(d2)
-  if f.leapTimer <= 0 and dist <= self.leapRange then
+  -- A leap takes breath: none while he is winded or nearly so (the timer
+  -- stays run down, so it comes as soon as he has it back).
+  if f.leapTimer <= 0 and dist <= self.leapRange and f.breath:has(self.leapStamina) then
+    f.breath:spend(self.leapStamina)
     f.mode, f.timer, f.target = "crouch", self.crouchTime, target.id
     f.tx, f.ty = tx, ty
     return
   end
   local reach = self.footRadius + self.swipeReach + (onFoot and 0 or 10)
   if dist > reach then
+    local speed = f.breath:pace(self.footSpeed, self.footWalkSpeed)
+    f.running = not f.breath:winded()
     if f.sidestep > 0 then
       f.sidestep = f.sidestep - dt
-      walk(f, f.facing + f.side * math.pi / 2, self.footSpeed, dt)
+      walk(f, f.facing + f.side * math.pi / 2, speed, dt)
     else
-      walk(f, f.facing, self.footSpeed, dt)
+      walk(f, f.facing, speed, dt)
       if f.stuck > 0.4 then
         f.stuck, f.sidestep, f.side = 0, 0.6, -f.side
       end
@@ -604,7 +628,10 @@ function Hunt:serverStep(server, dt)
       setStage(server, "fight")
     end
   elseif stage == "fight" then
+    local f = sv.foot
+    f.running = false
     self:stepFoot(server, dt)
+    f.breath:step(f.running, dt)
   end
   self:sync(server)
 end
@@ -629,7 +656,7 @@ function Hunt:sync(server)
   end
   if f then
     add("b", fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)), MODES[f.mode],
-      f.swipe > 0 and 1 or 0)
+      f.swipe > 0 and 1 or 0, f.breath:wire())
   end
   local msg = Protocol.encode("HNT_STATE", unpack(parts))
   for _, player in pairs(server.players) do
@@ -864,8 +891,10 @@ Hunt.clientMessages = {
         local f = track(Hunt.foot, args, i + 1)
         f.mode = MODE_NAMES[args[i + 5]] or "idle"
         f.swipe = args[i + 6] == "1"
+        local stamina, winded = Stamina.read(args, i + 7)
+        f.stamina, f.winded = stamina or f.stamina, winded
         Hunt.foot = f
-        seen.b, i = true, i + 7
+        seen.b, i = true, i + 9
       else
         break
       end
@@ -1084,20 +1113,10 @@ local OBJECTIVES = {
 
 --- The boss bar along the bottom of the screen.
 local function drawBossBar(f)
-  local w, h = love.graphics.getDimensions()
-  local bw, bh = 380, 14
-  local bx, by = math.floor((w - bw) / 2), h - 110 -- above the ability circles
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf("BIGFOOT", 1, by - 19, w, "center")
-  love.graphics.setColor(1, 0.6, 0.3)
-  love.graphics.printf("BIGFOOT", 0, by - 20, w, "center")
-  love.graphics.setColor(0, 0, 0, 0.65)
-  love.graphics.rectangle("fill", bx - 2, by - 2, bw + 4, bh + 4, 3)
-  love.graphics.setColor(0.6, 0.35, 0.15)
-  love.graphics.rectangle("fill", bx, by, bw * math.max(0, f.hp / Hunt.footHealth), bh, 2)
-  love.graphics.setColor(1, 1, 1, 0.5)
-  love.graphics.rectangle("line", bx, by, bw, bh, 2)
+  BossBar.draw({
+    title = "BIGFOOT", titleColor = { 1, 0.6, 0.3 }, fill = { 0.6, 0.35, 0.15 },
+    hp = f.hp, max = Hunt.footHealth, stamina = f.stamina, staminaMax = Stamina.defaults.max, winded = f.winded,
+  })
 end
 
 function Hunt:drawHUD()

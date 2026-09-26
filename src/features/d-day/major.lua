@@ -8,9 +8,15 @@
 --
 -- In between he never stops talking about his country. This module only
 -- thinks and hands back what happened; init.lua owns the wire.
+--
+-- Like every boss (bosses/stamina.lua) he has breath: marching after you
+-- (or away from a stink) spends it, and empty he is winded, down to a
+-- stroll a walking player can leave behind, with no MG nest in him until a
+-- good part of it is back. His rifle costs him nothing.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Stamina = require("src.features.bosses.stamina")
 
 local Major = {}
 Major.__index = Major
@@ -20,6 +26,14 @@ Major.__index = Major
 Major.HEALTH = 2200 -- a hundred and ten pistol rounds
 Major.RADIUS = 13 -- px
 Major.SPEED = 72 -- px/s; a march, not a run
+Major.WALK_SPEED = 40 -- px/s winded: a stroll, and a walk (45) leaves him behind
+Major.BREATH = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
+  drain = 12, -- per second marching (~8 s of it)
+  regen = 14,
+  recovered = 50, -- back before a winded Major marches again
+  breath = 50, -- in him before he throws a nest down
+}
+Major.NEST_STAMINA = 25 -- what an MG nest costs him
 Major.RANGE = 760 -- px he sees (all the way round)
 Major.KEEP = 260 -- px he likes to keep between himself and his target
 Major.BURST = 3 -- rounds in a burst
@@ -75,6 +89,8 @@ function Major.new(x, y)
     side = 1,
     nests = {}, -- { x, y, angle, placedAt, untilT, nextShot }
     time = 0,
+    breath = Stamina.new(Major.BREATH), -- winded, he strolls and throws no nest
+    running = false, -- at full tilt this tick, for his breath
   }, Major)
 end
 
@@ -156,6 +172,20 @@ end
 --- His tick. Returns what the others should hear about: a list of events,
 --- { "say", index } or { "nest", x, y, angle }.
 function Major:update(server, dt)
+  self.running = false
+  local events = self:think(server, dt)
+  self.breath:step(self.running, dt)
+  return events
+end
+
+--- His pace: a march with breath in him, a stroll without. `scale` is on
+--- the march only.
+function Major:pace(scale)
+  return self.breath:pace(Major.SPEED * (scale or 1), Major.WALK_SPEED)
+end
+
+--- What he does this tick (see `update`).
+function Major:think(server, dt)
   local events = {}
   self.time = self.time + dt
   self:stepNests(server)
@@ -171,7 +201,8 @@ function Major:update(server, dt)
   if self.panic then
     self.panic.left = self.panic.left - dt
     self.facing = math.atan2(self.y - self.panic.y, self.x - self.panic.x)
-    self:walk(self.facing, Major.SPEED * 1.8, dt)
+    self:walk(self.facing, self:pace(1.8), dt)
+    self.running = not self.breath:winded()
     if self.panic.left <= 0 then
       self.panic = nil
     end
@@ -186,9 +217,11 @@ function Major:update(server, dt)
   local d = math.sqrt((tx - self.x) ^ 2 + (ty - self.y) ^ 2)
   self.facing = toward
   if not visible or d > Major.KEEP + 40 then
-    self:walk(toward, Major.SPEED, dt)
+    self:walk(toward, self:pace(), dt)
+    self.running = not self.breath:winded()
   elseif d < Major.KEEP - 80 then
-    self:walk(toward + math.pi, Major.SPEED * 0.7, dt) -- backs off, still facing them
+    self:walk(toward + math.pi, self:pace(0.7), dt) -- backs off, still facing them
+    self.running = not self.breath:winded()
   end
   if not visible then
     self.burstLeft = 0
@@ -207,8 +240,11 @@ function Major:update(server, dt)
 
   self.nestIn = self.nestIn - dt
   local Nest = nestKind()
-  if Nest and self.nestIn <= 0 then
+  -- A nest takes breath: none while he is winded or nearly so (the timer
+  -- stays run down, so it comes as soon as he has it back).
+  if Nest and self.nestIn <= 0 and self.breath:has(Major.NEST_STAMINA) then
     self.nestIn = Major.NEST_EVERY
+    self.breath:spend(Major.NEST_STAMINA)
     local nx, ny = self.x + math.cos(toward) * Major.NEST_OUT, self.y + math.sin(toward) * Major.NEST_OUT
     local out = Major.NEST_OUT
     while out > 0 and Features.any("blocksPoint", nx, ny) do
