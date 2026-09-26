@@ -515,16 +515,20 @@ couple of small conventions rather than requiring each other:
   `amount` rounds that goes into the taker's inventory, or a material
   (`"iron"`) for a crate of `amount` of it (a human takes what fits in
   their bag; the rest stays as a smaller crate).
-  `pickups:serverDropAmmo(server, x, y, magazines, chance)` drops a box for
-  one of the guns that take ammo, picked at random and sized in that gun's
-  magazines, with `chance` (1 when left out) of a box at all. Police
-  always drops one where an officer falls or a unit is wrecked.
-  `pickups:serverDropLoot(server, x, y, loot)` rolls a loot table instead:
-  `loot.chance` of anything, then a box of ammo (`magazines` big), a
-  medkit or an energy drink, each as likely as its weight (`ammo`,
-  `health`, `stamina`). The enemies on a boss's map (Karen's simps, the
-  hunt's squirrels, D-Day's soldiers) keep one at the top of their
-  feature's file.
+  `pickups:serverDropAmmo(server, x, y, magazines)` drops a box for one of
+  the guns that take ammo, picked at random and sized in that gun's
+  magazines.
+  `pickups:serverDropEnemy(server, x, y)` is what every enemy calls when it
+  goes down (Karen's simps, the hunt's squirrels, D-Day's soldiers, the
+  police's officers and units), and the one place the odds live: one thing
+  at most, `pickups.dropChance` (40%) of anything, then one of
+  `pickups.drops` (an ammo box, a medkit, an energy drink, a kevlar vest),
+  each as likely; something with tiers then rolls its tier by
+  `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
+  kind to `drops` and every enemy can drop it. A human with no armor on
+  who runs over a vest wears it at once, whole
+  (`armor:serverWearFound(server, player, kind)`); anyone wearing one
+  already leaves it lying.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and

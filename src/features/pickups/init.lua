@@ -10,15 +10,16 @@
 -- drink from behind the wheel, a box for a full bag -- stays where it is
 -- for whoever can use it.
 --
--- Ammo boxes are never scattered; they are dropped, where something died,
--- through Pickups:serverDropAmmo: a box for one of the guns that take
--- ammo (never the bottomless pistol), picked at random and sized in that
--- gun's magazines, with a chance of nothing at all. Police drops one for
--- every officer or unit lost. The enemies on a boss's map (Karen's simps,
--- the hunt's squirrels, D-Day's soldiers) roll a loot table instead
--- (Pickups:serverDropLoot): one chance of anything, then ammo, a medkit
--- or an energy drink by weight. A drop is gone for good once taken. So
--- is "ability-<key>", an
+-- What an enemy leaves behind has one source of truth, here: when one
+-- goes down (a simp, a squirrel, a soldier, a police officer or unit) its
+-- feature calls Pickups:serverDropEnemy, which drops one thing at most:
+-- `dropChance` (40%) of anything, and then one of `drops` (an ammo box, a
+-- medkit, an energy drink, a kevlar vest), each as likely as the others.
+-- Something that comes in tiers then rolls its tier by `dropTiers`: nearly
+-- always common. Ammo boxes are never scattered, only dropped: a box for
+-- one of the guns that take ammo (never the bottomless pistol), picked at
+-- random and sized in that gun's magazines (serverDropAmmo). A drop is
+-- gone for good once taken. So is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
@@ -26,6 +27,12 @@
 -- buildings/kinds.lua) is a crate of `amount` of it, spilled by a wrecked
 -- delivery truck: the first human over it with room in their bag takes
 -- what fits, and the rest stays on the ground.
+--
+-- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
+-- is a common kevlar vest, "armor-vest@rare" a rare one). A human with no
+-- armor on who walks or drives over it wears it at once, whole
+-- (armor:serverWearFound); anyone already wearing a vest leaves it lying
+-- for someone who isn't.
 --
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
@@ -44,7 +51,8 @@ local AbilityKinds = require("src.features.abilities.kinds")
 local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
 local BuildingKinds = require("src.features.buildings.kinds")
-local BuildingRender = require("src.features.buildings.render")
+local ArmorKinds = require("src.features.armor.kinds")
+local Render = require("src.features.buildings.render")
 
 local Pickups = {
   name = "pickups",
@@ -60,6 +68,21 @@ Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
+-- What an enemy drops (serverDropEnemy): one thing at most, `dropChance` of
+-- the time, picked evenly from `drops` ("ammo" is a box for a random gun,
+-- `dropMagazines` of its magazines big). Add a kind to the list and it
+-- drops as often as the rest.
+Pickups.dropChance = 0.40
+Pickups.drops = { "ammo", "health", "stamina", "armor-vest" }
+Pickups.dropMagazines = 0.6
+-- The tier of a dropped thing that comes in tiers, by weight: nearly always
+-- common, a better one much less often (of every 100 about 80, 14, 5 and 1).
+Pickups.dropTiers = {
+  { tier = "common", weight = 80 },
+  { tier = "uncommon", weight = 14 },
+  { tier = "rare", weight = 5 },
+  { tier = "legendary", weight = 1 },
+}
 
 local KINDS = {} -- kind key -> { apply, label, color, pitch }; see kindOf
 
@@ -132,8 +155,29 @@ local function materialKind(key)
   }
 end
 
+--- A vest lying on the road: kind "armor-<key>[@tier]". Whoever runs over
+--- it with no armor on wears it there and then (armor:serverWearFound);
+--- with a vest on already, or as a bot, they leave it lying.
+local function armorKind(key)
+  local base, tier = Tiers.split(key)
+  local vest = tier and ArmorKinds.byKey[base:match("^armor%-(.+)$")]
+  if not vest then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local armor = Features.byName.armor
+      return armor ~= nil and armor.serverWearFound ~= nil
+        and armor:serverWearFound(server, player, key:sub(7))
+    end,
+    label = "+" .. Tiers.named(vest.title, tier),
+    color = vest.color,
+    pitch = 0.7,
+  }
+end
+
 --- The kind record for a kind key: the fixed ones, or an ammo box, an
---- ability or a material crate made (and kept) on first sight.
+--- ability, a material crate or a vest made (and kept) on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -144,6 +188,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and BuildingKinds.isMaterial(key) then
     kind = materialKind(key)
+    KINDS[key] = kind
+  elseif not kind and key:match("^armor%-") then
+    kind = armorKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -318,16 +365,37 @@ local function drawMaterial(x, y, t, key)
   love.graphics.rectangle("fill", x - 16, y - 12, 32, 26, 3)
   love.graphics.setColor(0.6, 0.44, 0.25)
   love.graphics.rectangle("fill", x - 14, y - 10, 28, 22, 2)
-  BuildingRender.itemIcon(key, x, y)
+  Render.itemIcon(key, x, y)
+end
+
+--- A vest on the road: the bag's picture of it, bobbing a little over a
+--- soft glow in the vest's colour, ringed in its tier's.
+local function drawVest(x, y, t, key)
+  local base, tier = Tiers.split(key)
+  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""]
+  local c = vest and vest.color or { 0.5, 0.6, 0.9 }
+  local tc = Tiers.color(tier)
+  local pulse = 0.5 + 0.5 * math.sin(t * 4)
+  love.graphics.setColor(c[1], c[2], c[3], 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 24 + pulse * 4)
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(tc[1], tc[2], tc[3], 0.5 + pulse * 0.4)
+  love.graphics.circle("line", x, y, 24 + pulse * 3)
+  love.graphics.setLineWidth(1)
+  love.graphics.push()
+  love.graphics.translate(x, y + math.sin(t * 3 + 1.1) * 2)
+  love.graphics.scale(1.2)
+  Render.itemIcon(base, 0, 0)
+  love.graphics.pop()
 end
 
 local DRAW = { health = drawHealth, stamina = drawStamina }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
---- orb for any ability, or a crate for a material.
+--- orb for any ability, a crate for a material, the vest for any armor.
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
-    or (BuildingKinds.isMaterial(key) and drawMaterial) or nil
+    or (BuildingKinds.isMaterial(key) and drawMaterial) or (key:match("^armor%-") and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -456,16 +524,11 @@ function Pickups:serverDrop(server, kind, x, y, amount)
 end
 
 --- Drop a box of ammo at (x, y) for one of the guns that take ammo,
---- picked at random: `magazines` of whatever it turns out to be (0.7 of
---- an uzi's is 21 rounds, of a shotgun's 4 shells, of the launcher's one
---- rocket), so a box means the same whichever gun it is for. `chance`
---- (1 when not given) is the odds of a box at all: the enemies on a
---- boss's map roll it, the police always drop one. Returns the item's id,
---- or nil when nothing dropped.
-function Pickups:serverDropAmmo(server, x, y, magazines, chance)
-  if chance and love.math.random() >= chance then
-    return nil
-  end
+--- picked at random: `magazines` of whatever it turns out to be (0.6 of
+--- an uzi's is 18 rounds, of a shotgun's 4 shells, of the launcher's one
+--- rocket), so a box means the same whichever gun it is for. Returns the
+--- item's id, or nil when there is no gun to drop for.
+function Pickups:serverDropAmmo(server, x, y, magazines)
   local guns = {}
   for _, gun in ipairs(Guns.list) do
     if not gun.bottomless then
@@ -479,28 +542,40 @@ function Pickups:serverDropAmmo(server, x, y, magazines, chance)
   return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, math.floor(magazines * gun.magazine + 0.5)))
 end
 
---- Roll `loot` for something dropping at (x, y): `chance` of anything at
---- all, then a box of ammo (`magazines` big, serverDropAmmo), a medkit or
---- an energy drink, each as likely as its weight (`ammo`, `health`,
---- `stamina`; a missing one never drops). The enemies on a boss's map
---- keep one of these at the top of their feature's file, like
----   { chance = 0.4, ammo = 3, health = 1, stamina = 1, magazines = 0.5 }
---- Returns the item's id, or nil when nothing dropped.
-function Pickups:serverDropLoot(server, x, y, loot)
-  if not loot or love.math.random() >= (loot.chance or 0) then
-    return nil
-  end
-  local total = (loot.ammo or 0) + (loot.health or 0) + (loot.stamina or 0)
-  if total <= 0 then
-    return nil
+--- A tier for a dropped thing, by `dropTiers`' weights.
+local function dropTier()
+  local total = 0
+  for _, t in ipairs(Pickups.dropTiers) do
+    total = total + t.weight
   end
   local roll = love.math.random() * total
-  if roll < (loot.ammo or 0) then
-    return self:serverDropAmmo(server, x, y, loot.magazines or 0.5)
-  elseif roll < (loot.ammo or 0) + (loot.health or 0) then
-    return self:serverDrop(server, "health", x, y)
+  for _, t in ipairs(Pickups.dropTiers) do
+    roll = roll - t.weight
+    if roll < 0 then
+      return t.tier
+    end
   end
-  return self:serverDrop(server, "stamina", x, y)
+  return Tiers.DEFAULT
+end
+
+--- An enemy went down at (x, y): maybe it leaves something. One thing at
+--- most: `dropChance` of anything, then one of `drops`, each as likely,
+--- in a tier by `dropTiers` if it comes in tiers. Every enemy calls this
+--- (Karen's simps, the hunt's squirrels, D-Day's soldiers, the police's
+--- officers and units), so the odds live here and nowhere else. Returns
+--- the item's id, or nil when nothing dropped.
+function Pickups:serverDropEnemy(server, x, y)
+  if #self.drops == 0 or love.math.random() >= self.dropChance then
+    return nil
+  end
+  local kind = self.drops[love.math.random(#self.drops)]
+  if kind == "ammo" then
+    return self:serverDropAmmo(server, x, y, self.dropMagazines)
+  end
+  if Tiers.tiered(kind) then
+    kind = Tiers.join(kind, dropTier())
+  end
+  return self:serverDrop(server, kind, x, y)
 end
 
 function Pickups:serverStart(server)
