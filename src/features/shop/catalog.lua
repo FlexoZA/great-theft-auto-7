@@ -60,8 +60,10 @@ for _, gun in ipairs(Guns.list) do
   add({ item = "gun-" .. gun.key, n = 1, name = gun.name, kind = "gun" })
 end
 for _, gun in ipairs(Guns.list) do
-  local n = boxOf(gun)
-  add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo" })
+  if not gun.bottomless then -- the pistol never runs out: nothing to sell for it
+    local n = boxOf(gun)
+    add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo" })
+  end
 end
 for _, ability in ipairs(AbilityKinds.list) do
   if not ability.unsold then -- a boss's drop (bigleap) is only won

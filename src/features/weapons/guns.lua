@@ -31,6 +31,11 @@
 --             included, and the gun itself: everyone starts with a gun
 --             that has a stock in a weapon slot (for testing a gun before
 --             it can be bought)
+--   bottomless true: its reserve never runs out (the pistol). It still
+--             holds a magazine and reloads, but a reload takes nothing
+--             from the inventory, and there is no "ammo-<key>" item at
+--             all: the shop, the ammo factory and the police drops leave
+--             it out.
 --
 -- Rounds come out of the player's inventory (the buildings feature keeps
 -- it: "ammo-<key>"), a magazine at a time. The gun itself is an item too
@@ -52,6 +57,7 @@ Guns.list = {
     magazine = 15,
     reload = 1.2,
     reloadSound = "reload-pistol",
+    bottomless = true, -- never out of rounds, so nobody is ever left unarmed
   },
   {
     key = "uzi",
