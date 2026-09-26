@@ -547,6 +547,17 @@ function OnFoot:serverRestoreStamina(_server, player, amount)
   return true
 end
 
+--- A walking player's stamina and ceiling on the host; nil for a driver,
+--- who has no bar. Other features read it via Features.byName["on-foot"]
+--- (the second wind ability does).
+function OnFoot:serverStamina(player)
+  if not self.sv or player.vehicle or not player.body then
+    return nil
+  end
+  local st = self:walker(player)
+  return st.stamina, st.max
+end
+
 --- Set how fast a player's stamina comes back, as a multiple of staminaRegen,
 --- for the rest of the game. Other features reach this via
 --- Features.byName["on-foot"] (upgrades does). Returns the scale set.

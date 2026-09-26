@@ -378,6 +378,8 @@ couple of small conventions rather than requiring each other:
   behind the wheel) can stay on the road. Pickups uses both. A heal fills
   the body first and then the car they are driving;
   `weapons:serverRepair(server, car, amount)` mends a car on its own.
+  `on-foot:serverStamina(player)` reads a walker's stamina and ceiling (nil
+  for a driver); second wind uses it.
 - `Features.byName.money:wallet(id)` / `money:spend(server, id, amount, label)`:
   read a wallet on the host, or take koins out of it all-or-nothing (false
   and a reason, and nothing happens, when they can't cover it). Every sale
@@ -436,7 +438,8 @@ couple of small conventions rather than requiring each other:
   caster's slots. Cooldowns follow the ability, not the slot. The shop
   sells ability items. A passive ability (`regen.lua`: once the body has
   gone a few seconds unhurt it heals fast for three seconds, then rests
-  through a cooldown) has no cast; abilities calls its `serverTick(server,
+  through a cooldown; `secondwind.lua` does the same for stamina, once the
+  bar has gone a moment without being spent) has no cast; abilities calls its `serverTick(server,
   player, dt, abilities)` every host tick while it sits in a player's
   passive slot, `abilities:serverSinceHurt(player)` says how long its
   carrier has gone unhurt, and `abilities:serverPassive(server, player,
