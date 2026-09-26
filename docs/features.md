@@ -468,8 +468,9 @@ couple of small conventions rather than requiring each other:
   them.
   The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
   invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
-  stretch the first and shorten the second): see `hidden` / `serverHidden`
-  under events. `Chicken.variant(tuning)` is the same trick on other
+  stretch the first and shorten the second), or until they fire a gun:
+  abilities hears `serverShotFired`, ends it on the host and tells
+  everyone (`ABL_REVEAL`). See `hidden` / `serverHidden` under events. `Chicken.variant(tuning)` is the same trick on other
   numbers (Shotgun's).
   A gun with a `scope` (the sniper rifle: 200 a round, five in the
   magazine, a five-second reload, a round that carries a little past

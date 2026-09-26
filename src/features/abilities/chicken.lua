@@ -4,14 +4,17 @@
 -- or name over you, no arrow or minimap dot, and nothing the world sends
 -- after people (bots, police, bosses and their helpers) picks you out.
 -- You still see yourself, with a shimmer round you and the seconds left.
--- A stray round or a blast that happens to find you still hurts. When it
--- wears off, another burst of feathers shows where you are. Then it
+-- A stray round or a blast that happens to find you still hurts. Firing a
+-- gun gives you away: the first round that leaves it ends the chicken
+-- there and then (the cooldown still runs from the cast). When it wears
+-- off or you shoot, another burst of feathers shows where you are. Then it
 -- waits out its cooldown. Nothing to aim (`aim = "self"`).
 --
 -- The host keeps who is hidden and answers `serverHidden` through the
 -- abilities feature (`Features.visible` asks it); every client knows from
 -- the cast (ABL_FIRED) and answers `hidden` the same way, so drawing and
--- targeting agree. Shotgun, the sniper boss, uses the same trick with his
+-- targeting agree. A shot (weapons' `serverShotFired`) ends it on the host,
+-- which tells everyone (ABL_REVEAL) so every client ends it too. Shotgun, the sniper boss, uses the same trick with his
 -- own numbers (`Chicken.variant`, like Bigfoot's leap) and the same feathers.
 
 local Features = require("src.features")
@@ -19,7 +22,7 @@ local Features = require("src.features")
 local Chicken = {
   key = "chicken", -- on the wire and in a bag ("ability-chicken")
   title = "chicken",
-  blurb = "Go invisible: nobody sees you and nothing hunts you. Stray rounds still hurt.",
+  blurb = "Go invisible until you shoot: nobody sees you and nothing hunts you. Stray rounds still hurt.",
   sound = "chicken",
   color = { 1, 0.82, 0.3 }, -- yolk
   aim = "self",
@@ -62,6 +65,14 @@ function Chicken.serverHiding(id, now)
   return untilT ~= nil
 end
 
+--- Bring player `id` back into sight at host time `now` (they fired).
+--- Returns whether they were hiding.
+function Chicken.serverReveal(id, now)
+  local was = Chicken.serverHiding(id, now)
+  hiding[id] = nil
+  return was
+end
+
 --- Another chicken on the same trick with its own numbers (a boss's).
 function Chicken.variant(tuning)
   local v = setmetatable({}, { __index = Chicken })
@@ -72,6 +83,14 @@ function Chicken.variant(tuning)
 end
 
 -- Client --------------------------------------------------------------------
+
+--- End effect `e`'s hiding now (its caster fired): the feathers of their
+--- coming back start from here.
+function Chicken.reveal(e)
+  if Chicken.hiding(e) then
+    e.seconds = e.t
+  end
+end
 
 --- Is effect `e` a chicken still hiding its caster?
 function Chicken.hiding(e)
