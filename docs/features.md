@@ -756,8 +756,8 @@ example with a menu; real-estate is the one with a place to stand.
   answers `actionTaken` there and while it is open); it opens and closes
   the shop screen, and walking away from the door closes it too. The screen
   draws over every other HUD piece (priority 993), under only the inventory.
-  On sale: every gun and a box of its rounds, every ability, a medkit, an
-  energy drink, armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
+  On sale: every gun and a box of its rounds, every ability, a medkit and an
+  energy drink (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. A click on a card
   shows it in a side panel on the right (`shop/details.lua`): a bigger
   picture, its `blurb`, how it is used and its numbers in the tier on show,
