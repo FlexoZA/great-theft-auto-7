@@ -32,7 +32,7 @@
 --
 -- Messages
 --   client -> server  BOT_ADD / BOT_REMOVE   (host only)
---   server -> all     BOT_UNIT <id>          (that player is a civilian bot; player-arrows leaves them out)
+--   server -> all     BOT_UNIT <id>          (a civilian NPC: player-arrows and the minimap leave them out)
 
 local Protocol = require("src.net.protocol")
 local ServerSettings = require("src.server_settings")
@@ -130,8 +130,9 @@ end
 --- Create any NPC driver: a player with a body and a car of its own, seated
 --- (server:spawnPlayer). opts: name, x, y, angle, brain (table with
 --- think(server, npc, dt), optional), plus any extra fields to copy onto the
---- player (e.g. police = true). Returns the player table. `npc.car` is the
---- car it drives, so a brain reads and steers that.
+--- player (e.g. police = true). `civilian = true` tells every client it is
+--- traffic (BOT_UNIT): left off the minimap and the edge arrows. Returns the
+--- player table. `npc.car` is the car it drives, so a brain reads and steers that.
 function Bots:spawnNpc(server, opts)
   local id = server.nextId
   server.nextId = id + 1
@@ -168,6 +169,9 @@ function Bots:spawnNpc(server, opts)
     self:park(npc, true) -- born on a map with no traffic: wait out of sight
   end
   server:broadcast(Protocol.encode("JOIN", id, npc.name))
+  if npc.civilian then
+    server:broadcast(Protocol.encode("BOT_UNIT", id))
+  end
   Features.call("serverPlayerJoined", server, npc)
   return npc
 end
@@ -236,22 +240,24 @@ function Bots:add(server, x, y, angle)
   if #bots >= self.maxBots then
     return nil
   end
-  local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle })
+  local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle, civilian = true })
   bot.wantsModel = true -- a random car from the shop, on the next tick (weapons must be up to give it its hitpoints)
   nextNumber = nextNumber + 1
   bots[#bots + 1] = bot
-  server:broadcast(Protocol.encode("BOT_UNIT", bot.id))
   return bot
 end
 
---- A player who arrives mid-game hears which players are bots. In the lobby
---- `bots` may still hold the last game's, so nothing is sent before the start.
+--- A player who arrives mid-game hears which players are civilian NPCs. In
+--- the lobby `npcs` may still hold the last game's, so nothing is sent
+--- before the start.
 function Bots:serverPlayerJoined(server, player)
   if player.bot or not server.started then
     return
   end
-  for _, bot in ipairs(bots) do
-    server:send(player, Protocol.encode("BOT_UNIT", bot.id))
+  for _, npc in ipairs(npcs) do
+    if npc.civilian then
+      server:send(player, Protocol.encode("BOT_UNIT", npc.id))
+    end
   end
 end
 

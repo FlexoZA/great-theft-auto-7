@@ -24,7 +24,8 @@
 -- tier. A new kind of equipment gets tiers by adding its prefix to
 -- `Tiers.prefixes` and a `tierStats` list to its kinds.
 --
--- The shop sells every tier (dearer the better); anything else hands out
+-- The shop sells every tier, dearer the better (`price`: times a common's,
+-- so a legendary is fifteen times the price); anything else hands out
 -- commons unless it says otherwise (Bigfoot drops a legendary leap, the
 -- Runner a second wind in a rolled tier).
 --
@@ -39,12 +40,12 @@ local Tiers = {
     { key = "common", title = "common", color = { 0.66, 0.66, 0.7 }, upgrades = 0, boost = 1, bonus = 1, price = 1 },
     {
       key = "uncommon", title = "uncommon", color = { 0.35, 0.85, 0.4 }, upgrades = 1, boost = 1.15, bonus = 1.25,
-      price = 2,
+      price = 2.5,
     },
-    { key = "rare", title = "rare", color = { 0.3, 0.6, 1 }, upgrades = 2, boost = 1.25, bonus = 1.5, price = 4 },
+    { key = "rare", title = "rare", color = { 0.3, 0.6, 1 }, upgrades = 2, boost = 1.25, bonus = 1.5, price = 6 },
     {
       key = "legendary", title = "legendary", color = { 1, 0.78, 0.2 }, upgrades = math.huge, boost = 1.35,
-      bonus = 1.75, price = 8,
+      bonus = 1.75, price = 15,
     },
   },
   byKey = {},

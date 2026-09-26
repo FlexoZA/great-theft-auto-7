@@ -10,6 +10,11 @@
 --   reachforthestars  leap lands wherever the cursor is, not just within its
 --                     range, and is ready again the moment you land (type it
 --                     again to stop)
+--   itisminenow  the shop is the dev shop: everything in it free (type it
+--                again to stop)
+--
+-- F2 lists every code and what it does (HELP, in the same order as above);
+-- F2 or Esc takes the list down again.
 --
 -- The letters still reach every other feature as ordinary key presses, so
 -- typing a code that contains E steps out of the car if it is slow enough.
@@ -20,10 +25,12 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Controls = require("src.controls")
 local UI = require("src.ui")
 
 local Cheats = {
   name = "cheats",
+  priority = 994, -- the list draws over the shop (993), under the inventory (995)
 }
 
 Cheats.enabled = true
@@ -46,6 +53,13 @@ local CODES = {
       return on and "infinite ammo on" or "infinite ammo off"
     end
   end,
+  itisminenow = function(server, player)
+    local shop = Features.byName.shop
+    if shop and shop.serverSetDev then
+      local on = shop:serverSetDev(server, player, not shop:serverDev(player))
+      return on and "dev shop on" or "dev shop off"
+    end
+  end,
   reachforthestars = function(server, player)
     local abilities = Features.byName.abilities
     if abilities and abilities.serverSetReach then
@@ -55,13 +69,36 @@ local CODES = {
   end,
 }
 
+--- What the F2 list says about each code, in order. A new code gets a line here too.
+local HELP = {
+  { code = "gimmekoin", text = "+1000 Fcks" },
+  { code = "infiniteammo", text = "Magazines never run out, no reloading (again to stop)" },
+  { code = "reachforthestars", text = "Leap lands wherever the cursor is and is ready again at once (again to stop)" },
+  { code = "itisminenow", text = "The shop is the dev shop: everything free (again to stop)" },
+}
+
 -- Client --------------------------------------------------------------------
 
 local typed = "" -- the last few letters pressed
 local shown, showTimer = nil, 0
+Cheats.listOpen = false -- the F2 list is up
+
+function Cheats:load()
+  Controls.register("cheats", "List the cheat codes", "f2")
+end
 
 function Cheats:exitGame()
   typed, shown, showTimer = "", nil, 0
+  self.listOpen = false
+end
+
+--- The `closeMenu` convention: Esc takes the list down.
+function Cheats:closeMenu()
+  if not self.listOpen then
+    return false
+  end
+  self.listOpen = false
+  return true
 end
 
 function Cheats:update(dt)
@@ -69,6 +106,10 @@ function Cheats:update(dt)
 end
 
 function Cheats:keypressed(key, client)
+  if Cheats.enabled and Controls.is("cheats", key) then
+    self.listOpen = not self.listOpen
+    return
+  end
   if #key ~= 1 or not key:match("%a") then
     return
   end
@@ -82,7 +123,50 @@ function Cheats:keypressed(key, client)
   end
 end
 
+--- The F2 list: a panel in the middle of the screen, a row per code.
+local function drawList()
+  local fonts = UI.fonts
+  local rowH, pad = fonts.body:getHeight() + 10, 20
+  local codeW = 0
+  for _, h in ipairs(HELP) do
+    codeW = math.max(codeW, fonts.body:getWidth(h.code))
+  end
+  local sw, sh = love.graphics.getDimensions()
+  local w = math.min(sw - 32, 820)
+  local textW = w - codeW - 3 * pad
+  local rows = {}
+  local h = pad + fonts.heading:getHeight() + 14
+  for i, entry in ipairs(HELP) do
+    local _, lines = fonts.body:getWrap(entry.text, textW)
+    rows[i] = math.max(1, #lines) * fonts.body:getHeight() + 10
+    h = h + math.max(rowH, rows[i])
+  end
+  h = h + fonts.small:getHeight() + pad + 8
+  local x, y = math.floor((sw - w) / 2), math.floor((sh - h) / 2)
+  UI.panel(x, y, w, h)
+  love.graphics.setFont(fonts.heading)
+  love.graphics.setColor(0.4, 1, 0.5)
+  love.graphics.printf("CHEAT CODES", x, y + pad, w, "center")
+  local ry = y + pad + fonts.heading:getHeight() + 14
+  love.graphics.setFont(fonts.body)
+  for i, entry in ipairs(HELP) do
+    love.graphics.setColor(1, 0.85, 0.3)
+    love.graphics.print(entry.code, x + pad, ry)
+    love.graphics.setColor(0.9, 0.9, 0.95)
+    love.graphics.printf(entry.text, x + 2 * pad + codeW, ry, textW)
+    ry = ry + math.max(rowH, rows[i])
+  end
+  love.graphics.setFont(fonts.small)
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  local key = Controls.name(Controls.bindings("cheats")[1])
+  love.graphics.printf("Type a code while playing.  " .. key .. " or Esc: close", x, y + h - pad - 8, w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Cheats:drawHUD()
+  if self.listOpen and Cheats.enabled then
+    drawList()
+  end
   if showTimer > 0 then
     love.graphics.setFont(UI.fonts.heading)
     love.graphics.setColor(0.4, 1, 0.5, math.min(1, showTimer))

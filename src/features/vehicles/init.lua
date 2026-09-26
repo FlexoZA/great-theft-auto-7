@@ -151,6 +151,12 @@ function Vehicles:serverSpawn(server, model, x, y, angle, owner)
   return car
 end
 
+--- Make `car`, already in the world, a `model` (a catalog entry): an NPC's
+--- own car, which the core gave it as a plain box. Delivery's drivers.
+function Vehicles:serverSetModel(server, car, model)
+  makeModel(server, car, model)
+end
+
 --- Make `car` a model picked at random from the catalog (every car the
 --- shop sells): bots give each civilian driver one. Returns the model.
 function Vehicles:serverRandomModel(server, car)
