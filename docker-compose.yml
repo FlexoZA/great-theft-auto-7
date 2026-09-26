@@ -1,0 +1,19 @@
+# Dedicated server (docs/dedicated-server.md): docker compose up -d --build
+# Put GTA7_NAME and GTA7_WORLD in a .env file next to this to change them.
+services:
+  server:
+    build: .
+    image: gta7-server
+    container_name: gta7
+    restart: unless-stopped
+    ports:
+      - "22122:22122/udp"
+    environment:
+      GTA7_WORLD: ${GTA7_WORLD:-world}
+      GTA7_NAME: ${GTA7_NAME:-Dedicated server}
+    volumes:
+      - gta7-data:/data
+    mem_limit: 256m
+    cpus: 1.0
+volumes:
+  gta7-data:

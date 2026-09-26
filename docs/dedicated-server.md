@@ -39,12 +39,22 @@ return {
 
 ## Docker
 
+`docker-compose.yml` builds the image, maps the port, keeps the saves in a
+volume, restarts the server after a crash or a reboot, and caps it at 256 MB
+and one core so it cannot crowd out whatever else the box runs.
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+```
+
+A `.env` file next to it sets `GTA7_NAME` and `GTA7_WORLD`. Without compose:
+
 ```bash
 docker build -t gta7-server .
 docker run -d --name gta7 --restart unless-stopped \
   -p 22122:22122/udp -v gta7-data:/data \
   -e GTA7_WORLD=world -e GTA7_NAME="Our server" gta7-server
-docker logs -f gta7
 ```
 
 The image is Ubuntu 24.04 with the `love` package (11.5), about 470 MB.
@@ -56,6 +66,20 @@ mapping on a LAN; on the internet players type the address.
 On a cloud box: any small VM does (the server idles at a few percent of one
 core and about 20% with the default bots, in under 30 MB). Open UDP 22122 in
 the provider's firewall and the OS one (`sudo ufw allow 22122/udp`).
+
+### Updating a server
+
+The image is built on the box from a copy of the source, so a deploy is a
+sync and a rebuild. From the repo root, with `<host>` an SSH alias for it:
+
+```bash
+rsync -az --delete main.lua conf.lua Dockerfile .dockerignore docker-compose.yml src lib assets <host>:/opt/gta7/
+ssh <host> 'cd /opt/gta7 && docker compose up -d --build'
+```
+
+`up -d --build` stops the old container (which saves the world) and starts
+the new one on the same volume, so players lose nothing but the seconds of
+the restart. Rebuilding only re-runs the apt step when the Dockerfile changed.
 
 ## What is different from a hosted game
 
