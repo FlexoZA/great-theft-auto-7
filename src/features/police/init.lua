@@ -17,7 +17,8 @@
 -- and draw a pistol on anyone wanted -- sprinting after them, shooting from
 -- where they stand. They are soft targets in return: shoot one and you are
 -- wanted on the spot, run one down and dispatch hears about it either way.
--- Clients only draw what POL_FOOT tells them (render.lua).
+-- Clients only draw what POL_FOOT tells them (render.lua), and mark them on
+-- the minimap and the big map as small blue dots (`drawOnMinimap`).
 --
 -- With inclusive mode on (the menu toggle), every human starts the game
 -- wanted with the whole force already in pursuit: get away first.
@@ -211,6 +212,29 @@ end
 function Police:drawBelowCars(client, camera)
   drawCones(client, camera)
   Render.draw(camera, flash)
+end
+
+--- Officers on foot on the minimap and the big map (the `drawOnMinimap`
+--- hook; the minimap draws the units in their cars itself): a small blue
+--- dot each, flashing red and blue while I am wanted, as the units do. A
+--- little bigger on the big map, which is wider than 400 px.
+function Police:drawOnMinimap(client, toMap, w)
+  local r = w > 400 and 4 or 2
+  local red = self.wanted[client.myId] and math.floor(flash * 4) % 2 == 1
+  for _, o in pairs(Render.officers) do
+    if o.hp > 0 then
+      local px, py = toMap(o.dx, o.dy)
+      love.graphics.setColor(0, 0, 0, 0.75)
+      love.graphics.circle("fill", px, py, r + 1)
+      if red then
+        love.graphics.setColor(1, 0.2, 0.2)
+      else
+        love.graphics.setColor(0.25, 0.45, 1)
+      end
+      love.graphics.circle("fill", px, py, r)
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Police:drawAboveCars(client)
