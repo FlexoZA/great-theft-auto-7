@@ -27,7 +27,8 @@
 -- Each kind of building:
 --   cost      Fcks to build it on a plot you own
 --   inputs    item -> how many one batch uses up (loaded into its hopper)
---   time      seconds per batch while it has its inputs and room
+--   time      seconds per batch while it has its inputs and room, before
+--             TIME_SCALE (every building works that many times slower)
 --   batch     how many it makes per batch
 --   cap       most it holds before somebody collects or buys
 --   unit      how many a customer buys at once
@@ -65,6 +66,9 @@ Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
 Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cost; less damage, less
+-- Every quarry, oil well and factory takes this many times the `time` its
+-- kind or recipe (or a car model) names for a batch. Kinds.recipe applies it.
+Kinds.TIME_SCALE = 3
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
@@ -197,6 +201,9 @@ function Kinds.recipe(kind, index)
     end
   end
   r.inputs = r.inputs or {}
+  if r.time then
+    r.time = r.time * Kinds.TIME_SCALE
+  end
   if item then
     cache[item] = r
   end
@@ -241,7 +248,7 @@ function Kinds.worth(item)
       for p, product in ipairs(kind.products or {}) do
         if product == item and not worth then
           local r = Kinds.recipe(kind, p)
-          local cost = r.time * Kinds.WORTH_TIME
+          local cost = r.time / Kinds.TIME_SCALE * Kinds.WORTH_TIME -- slower work isn't dearer work
           for m, n in pairs(r.inputs) do
             cost = cost + n * (Kinds.materialPrice(m) or 1)
           end
