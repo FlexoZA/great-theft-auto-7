@@ -27,7 +27,8 @@
 -- draw with the alien hunt's pictures (alien-hunt/render.lua) and sounds.
 --
 -- Messages (the events feature registers them)
---   server -> all  EBF_STATE <tick> <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded> [<id> <x> <y> <facing>]...
+--   server -> all  EBF_STATE <tick> <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded> <max>
+--                            [<id> <x> <y> <facing>]...
 --                                          (unreliable, 15 Hz; the squirrels after him)
 --   server -> all  EBF_LEAP  <fx> <fy> <tx> <ty> <seconds> <radius>   he took off; lands on (tx, ty)
 --   server -> all  EBF_SLAM  <x> <y> <radius>        he landed
@@ -41,6 +42,7 @@ local Car = require("src.car")
 local Body = require("src.body")
 local Render = require("src.features.alien-hunt.render")
 local Sounds = require("src.features.alien-hunt.sounds")
+local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 
@@ -54,7 +56,7 @@ local Bigfoot = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Bigfoot.health = 2500 -- 125 rounds
+Bigfoot.health = 2500 -- 125 rounds, for one player (more humans, more: bosses/init.lua)
 Bigfoot.radius = 22
 Bigfoot.speed = 120 -- px/s; a sprint outruns him, a walk doesn't
 Bigfoot.walkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
@@ -85,7 +87,7 @@ Bigfoot.bulletDamage = 20 -- what one round takes off him (matches the pistol)
 Bigfoot.drops = 60 -- koins he spills
 Bigfoot.drop = "ability-bigleap@legendary" -- the pickup he leaves
 
-Bigfoot.litter = 15 -- squirrels at a time
+Bigfoot.litter = 15 -- squirrels at a time, for one player (more humans, more)
 Bigfoot.litterDelay = 4 -- seconds after the last one burst before the next litter
 Bigfoot.squirrelHealth = 10 -- one round
 Bigfoot.squirrelRadius = 7
@@ -199,10 +201,12 @@ function Bigfoot.serverBegin(server, events)
   if not at then
     return nil
   end
+  local hp = Bosses.health(Bigfoot.health, server)
   sv = {
     events = events,
+    litterSize = Bosses.count(Bigfoot.litter, server),
     foot = {
-      x = at.x, y = at.y, facing = math.pi / 2, hp = Bigfoot.health, mode = "idle", timer = 0, frozen = 0,
+      x = at.x, y = at.y, facing = math.pi / 2, hp = hp, max = hp, mode = "idle", timer = 0, frozen = 0,
       swipeTimer = 1, swipe = 0, leapTimer = Bigfoot.leapEvery * 0.5, stuck = 0, sidestep = 0, side = 1,
       closest = math.huge, noCloser = 0,
       breath = Stamina.new(Bigfoot.breath), -- winded, he lumbers and cannot leap
@@ -411,8 +415,9 @@ end
 --- A new litter round his feet.
 local function litter(server)
   local f = sv.foot
-  for i = 1, Bigfoot.litter do
-    local a = (i / Bigfoot.litter) * math.pi * 2 + random() * 0.3
+  local n = sv.litterSize
+  for i = 1, n do
+    local a = (i / n) * math.pi * 2 + random() * 0.3
     local d = Bigfoot.radius + 14 + random() * 40
     local id = sv.nextId
     sv.nextId = id + 1
@@ -422,7 +427,7 @@ local function litter(server)
       life = Bigfoot.squirrelLife, frozen = 0,
     }
   end
-  sv.count = Bigfoot.litter
+  sv.count = n
   server:broadcast(Protocol.encode("EBF_LITTER", fmt(f.x), fmt(f.y)))
 end
 
@@ -530,7 +535,7 @@ local function sync(server)
   local f = sv.foot
   local stamina, winded = f.breath:wire()
   local parts = { server.tick, fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)),
-    MODES[f.mode], f.swipe > 0 and 1 or 0, stamina, winded }
+    MODES[f.mode], f.swipe > 0 and 1 or 0, stamina, winded, f.max }
   for id, s in pairs(sv.squirrels) do
     parts[#parts + 1] = id
     parts[#parts + 1] = fmt(s.x)
@@ -801,7 +806,8 @@ function Bigfoot.drawHUD(_client, camera)
   BossBar.draw({
     title = n > 0 and ("BIGFOOT  -  %d squirrels loose"):format(n) or "BIGFOOT",
     titleColor = { 1, 0.6, 0.3 }, fill = { 0.6, 0.35, 0.15 },
-    hp = f.hp, max = Bigfoot.health, stamina = f.stamina, staminaMax = Stamina.defaults.max, winded = f.winded,
+    hp = f.hp, max = f.max or Bigfoot.health, stamina = f.stamina, staminaMax = Stamina.defaults.max,
+    winded = f.winded,
   })
 end
 
@@ -831,9 +837,10 @@ Bigfoot.clientMessages = {
     f.swipe = args[7] == "1"
     local stamina, winded = Stamina.read(args, 8)
     f.stamina, f.winded = stamina or f.stamina, winded
+    f.max = tonumber(args[10]) or f.max or Bigfoot.health
     cl.foot = f
     local seen = {}
-    for i = 10, #args - 3, 4 do
+    for i = 11, #args - 3, 4 do
       local id, sx, sy = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and sx and sy then
         local s = cl.squirrels[id] or { dx = sx, dy = sy, bob = random() * 6 }

@@ -23,7 +23,7 @@ Major.__index = Major
 
 -- Tuning --------------------------------------------------------------------
 
-Major.HEALTH = 2200 -- a hundred and ten pistol rounds
+Major.HEALTH = 2200 -- a hundred and ten pistol rounds, for one player (more humans, more: bosses/init.lua)
 Major.RADIUS = 13 -- px
 Major.SPEED = 72 -- px/s; a march, not a run
 Major.WALK_SPEED = 40 -- px/s winded: a stroll, and a walk (45) leaves him behind
@@ -71,13 +71,15 @@ local function nestKind()
   return Features.byName.abilities and require("src.features.abilities.mgnest") or nil
 end
 
-function Major.new(x, y)
+--- Him, at (x, y), with `hp` hit points (HEALTH when not given).
+function Major.new(x, y, hp)
+  hp = hp or Major.HEALTH
   return setmetatable({
     x = x,
     y = y,
     facing = math.pi / 2,
-    hp = Major.HEALTH,
-    max = Major.HEALTH,
+    hp = hp,
+    max = hp,
     burstLeft = 0,
     burstIn = 1,
     nestIn = Major.NEST_FIRST,

@@ -28,6 +28,11 @@
 --   5. When it goes down it raises `serverKill` with kind "boss", spills
 --      koins, and if it was a quest's boss calls `quests:serverComplete`
 --      with where it fell.
+--   6. It scales with the humans in the game (`Bosses.health`,
+--      `Bosses.count` below): its health, and how many helpers it brings
+--      (simps, squirrels, soldiers, a litter), are the base for one human
+--      and grow by `perHuman` of the base for each human past the first,
+--      counted when it spawns (or the helpers do). Two humans, double.
 --
 -- Modules
 --   src/features/bosses/stamina.lua   the breath rule
@@ -37,5 +42,35 @@ local Bosses = {
   name = "bosses",
   priority = 100,
 }
+
+-- Tuning ------------------------------------------------------------------
+Bosses.perHuman = 1 -- each human past the first adds this much of the base again: two humans, double; three, triple
+
+--- The humans in the game (bots don't count), at least one.
+function Bosses.humans(server)
+  local n = 0
+  for _, p in pairs(server.players) do
+    if not p.bot and p.body then
+      n = n + 1
+    end
+  end
+  return math.max(1, n)
+end
+
+--- What a boss's numbers are multiplied by right now.
+function Bosses.scale(server)
+  return 1 + Bosses.perHuman * (Bosses.humans(server) - 1)
+end
+
+--- A boss's health for the humans in the game, from its `base` for one.
+function Bosses.health(base, server)
+  return math.floor(base * Bosses.scale(server) + 0.5)
+end
+
+--- How many of a boss's helpers for the humans in the game, from `base`
+--- for one; never fewer than one.
+function Bosses.count(base, server)
+  return math.max(1, math.floor(base * Bosses.scale(server) + 0.5))
+end
 
 return Bosses

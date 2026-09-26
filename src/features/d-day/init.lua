@@ -44,6 +44,7 @@ local Features = require("src.features")
 local Troops = require("src.features.d-day.troops")
 local Major = require("src.features.d-day.major")
 local Face = require("src.features.d-day.major_face")
+local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
 local Sounds = require("src.features.d-day.sounds")
@@ -55,11 +56,9 @@ local Dday = {
 
 -- Tuning ------------------------------------------------------------------
 Dday.questId = "d-day"
-Dday.guards = 16 -- guards on their posts for one player...
-Dday.guardsPerPlayer = 2 -- ...and this many more for each other player
-Dday.maxGuards = 26
-Dday.riflemen = 4 -- most riflemen out at once for one player...
-Dday.riflemenPerPlayer = 1 -- ...and this many more for each other player
+Dday.guards = 16 -- guards on their posts for one player (more humans, more: bosses/init.lua)...
+Dday.maxGuards = 26 -- ...as far as the posts go
+Dday.riflemen = 4 -- most riflemen out at once for one player (more humans, more)
 Dday.reinforceEvery = 7 -- seconds between riflemen coming out of the barracks
 Dday.mortarEvery = { 1.4, 3.0 } -- seconds between mortars, at random in this range
 Dday.mortarFirst = 4 -- seconds after landing before the first
@@ -114,16 +113,9 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  local n = 0
-  for _, p in pairs(server.players) do
-    if not p.bot then
-      n = n + 1
-    end
-  end
-  local extra = math.max(0, n - 1)
   sv.troops = Troops.new()
-  sv.troops:placeGuards(map, math.min(self.maxGuards, self.guards + self.guardsPerPlayer * extra))
-  sv.maxRiflemen = self.riflemen + self.riflemenPerPlayer * extra
+  sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
+  sv.maxRiflemen = Bosses.count(self.riflemen, server)
   sv.major, sv.mortars = nil, {}
   sv.mortarIn, sv.reinforceIn = self.mortarFirst, self.reinforceEvery
   sv.revealT, sv.syncIn = 0, 0
@@ -280,7 +272,7 @@ end
 --- Someone reached the flag: the Major steps out behind it, and every
 --- screen gets his portrait while the world holds still.
 function Dday:reveal(server, map)
-  sv.major = Major.new(map.flagX, map.flagY - 90)
+  sv.major = Major.new(map.flagX, map.flagY - 90, Bosses.health(Major.HEALTH, server))
   sv.revealT = self.revealTime
   setStage(server, "reveal", random(#Major.lines))
 end

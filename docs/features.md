@@ -690,7 +690,11 @@ example with a menu; real-estate is the one with a place to stand.
   and the breath as a thin bar under it that throbs red with "winded"
   while it is blown. Breath tuning sits with the rest at the top of the
   boss's file (`drain`, `regen`, `recovered`, `breath`, what an ability
-  costs).
+  costs). A boss scales with the humans in the game: its health is
+  `Bosses.health(base, server)` and its helpers (simps, squirrels,
+  soldiers, a litter) `Bosses.count(base, server)`, the numbers for one
+  human grown by `Bosses.perHuman` of the base for each human past the
+  first (two humans, double), counted when it spawns.
 - Leap variants: `abilities/leap.lua`'s `Leap.variant(tuning)` is another
   leap on the same flying and landing with its own key and numbers
   (`walls` cracks buildings under the landing, `shake` rocks the view near
