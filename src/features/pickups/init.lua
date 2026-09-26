@@ -24,6 +24,16 @@
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
 -- which rings the orb in its colour.
 --
+-- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
+-- is a common kevlar vest, "armor-vest@rare" a rare one). Every enemy that
+-- drops loot (the ones on a boss's map through serverDropLoot, and the police
+-- for an officer or a unit lost) drops one thing at most: a `vestChance`
+-- (15%) that it is a vest (serverDropVest), and otherwise whatever its loot
+-- would have been. Nearly all vests are common, a better tier far rarer
+-- (`vestTiers`). A human with no armor on who walks or
+-- drives over it wears it at once, whole (armor:serverWearFound); anyone
+-- already wearing a vest leaves it lying for someone who isn't.
+--
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
 -- upgrades sells (Money:reachOf). Without money it is 1.
@@ -40,6 +50,8 @@ local Sounds = require("src.features.pickups.sounds")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
+local ArmorKinds = require("src.features.armor.kinds")
+local Render = require("src.features.buildings.render")
 
 local Pickups = {
   name = "pickups",
@@ -55,6 +67,15 @@ Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
+Pickups.vestChance = 0.15 -- odds an enemy's one drop is a vest rather than its other loot
+-- Which tier a dropped vest is, by weight: nearly always common, a better
+-- one much less often (of every 100 vests about 80, 14, 5 and 1).
+Pickups.vestTiers = {
+  { tier = "common", weight = 80 },
+  { tier = "uncommon", weight = 14 },
+  { tier = "rare", weight = 5 },
+  { tier = "legendary", weight = 1 },
+}
 
 local KINDS = {} -- kind key -> { apply, label, color, pitch }; see kindOf
 
@@ -102,8 +123,29 @@ local function abilityKind(key)
   }
 end
 
---- The kind record for a kind key: the fixed ones, or an ammo box or an
---- ability made (and kept) on first sight.
+--- A vest lying on the road: kind "armor-<key>[@tier]". Whoever runs over
+--- it with no armor on wears it there and then (armor:serverWearFound);
+--- with a vest on already, or as a bot, they leave it lying.
+local function armorKind(key)
+  local base, tier = Tiers.split(key)
+  local vest = tier and ArmorKinds.byKey[base:match("^armor%-(.+)$")]
+  if not vest then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local armor = Features.byName.armor
+      return armor ~= nil and armor.serverWearFound ~= nil
+        and armor:serverWearFound(server, player, key:sub(7))
+    end,
+    label = "+" .. Tiers.named(vest.title, tier),
+    color = vest.color,
+    pitch = 0.7,
+  }
+end
+
+--- The kind record for a kind key: the fixed ones, or an ammo box, an
+--- ability or a vest made (and kept) on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -111,6 +153,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and key:match("^ability%-") then
     kind = abilityKind(key)
+    KINDS[key] = kind
+  elseif not kind and key:match("^armor%-") then
+    kind = armorKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -274,12 +319,34 @@ local function drawAbility(x, y, t, key)
   love.graphics.circle("fill", x - 3, y - 4, 3.5)
 end
 
+--- A vest on the road: the bag's picture of it, bobbing a little over a
+--- soft glow in the vest's colour, ringed in its tier's.
+local function drawVest(x, y, t, key)
+  local base, tier = Tiers.split(key)
+  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""]
+  local c = vest and vest.color or { 0.5, 0.6, 0.9 }
+  local tc = Tiers.color(tier)
+  local pulse = 0.5 + 0.5 * math.sin(t * 4)
+  love.graphics.setColor(c[1], c[2], c[3], 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 24 + pulse * 4)
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(tc[1], tc[2], tc[3], 0.5 + pulse * 0.4)
+  love.graphics.circle("line", x, y, 24 + pulse * 3)
+  love.graphics.setLineWidth(1)
+  love.graphics.push()
+  love.graphics.translate(x, y + math.sin(t * 3 + 1.1) * 2)
+  love.graphics.scale(1.2)
+  Render.itemIcon(base, 0, 0)
+  love.graphics.pop()
+end
+
 local DRAW = { health = drawHealth, stamina = drawStamina }
 
---- How a kind is drawn: its own picture, the ammo box for any ammo, or
---- the orb for any ability.
+--- How a kind is drawn: its own picture, the ammo box for any ammo, the
+--- orb for any ability, the vest for any armor.
 local function drawerOf(key)
-  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility) or nil
+  return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
+    or (key:match("^armor%-") and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -437,9 +504,19 @@ end
 --- `stamina`; a missing one never drops). The enemies on a boss's map
 --- keep one of these at the top of their feature's file, like
 ---   { chance = 0.4, ammo = 3, health = 1, stamina = 1, magazines = 0.5 }
+--- One thing at most drops: first `loot.vest` of the time (`vestChance`
+--- when the table doesn't say) it is a vest (serverDropVest), and only
+--- when it isn't is the rest of the table rolled.
 --- Returns the item's id, or nil when nothing dropped.
 function Pickups:serverDropLoot(server, x, y, loot)
-  if not loot or love.math.random() >= (loot.chance or 0) then
+  if not loot then
+    return nil
+  end
+  local vest = self:serverDropVest(server, x, y, loot.vest)
+  if vest then
+    return vest
+  end
+  if love.math.random() >= (loot.chance or 0) then
     return nil
   end
   local total = (loot.ammo or 0) + (loot.health or 0) + (loot.stamina or 0)
@@ -453,6 +530,34 @@ function Pickups:serverDropLoot(server, x, y, loot)
     return self:serverDrop(server, "health", x, y)
   end
   return self:serverDrop(server, "stamina", x, y)
+end
+
+--- A tier for a dropped vest, by `vestTiers`' weights.
+local function vestTier()
+  local total = 0
+  for _, t in ipairs(Pickups.vestTiers) do
+    total = total + t.weight
+  end
+  local roll = love.math.random() * total
+  for _, t in ipairs(Pickups.vestTiers) do
+    roll = roll - t.weight
+    if roll < 0 then
+      return t.tier
+    end
+  end
+  return Tiers.DEFAULT
+end
+
+--- Maybe leave a kevlar vest at (x, y): `chance` of it (`vestChance`,
+--- 15%, when not given), in a tier picked by `vestTiers` (mostly common).
+--- Enemies' loot rolls it first (serverDropLoot); police calls it for an
+--- officer or a unit lost, before its ammo box. Either drops nothing else
+--- when a vest comes. Returns the item's id, or nil when nothing dropped.
+function Pickups:serverDropVest(server, x, y, chance)
+  if love.math.random() >= (chance or self.vestChance) then
+    return nil
+  end
+  return self:serverDrop(server, Tiers.join("armor-vest", vestTier()), x, y)
 end
 
 function Pickups:serverStart(server)
