@@ -475,10 +475,14 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
   pickup on the ground right there, gone for good once taken. `kind` is a
   pickups kind ("health", "stamina") or `"ammo-<gun key>"` for a box of
-  `amount` rounds that goes into the taker's inventory. Police drops a box
-  for one of the guns that take ammo, picked at random and sized in that
-  gun's magazines (`Police.ammoDrop`), where an officer falls or a unit is
-  wrecked.
+  `amount` rounds that goes into the taker's inventory.
+  `pickups:serverDropAmmo(server, x, y, magazines, chance)` drops a box for
+  one of the guns that take ammo, picked at random and sized in that gun's
+  magazines, with `chance` (1 when left out) of a box at all. Police
+  always drops one where an officer falls or a unit is wrecked; the
+  enemies on a boss's map (Karen's simps, the hunt's squirrels, D-Day's
+  soldiers) roll for one, with the odds and the size at the top of their
+  feature's file.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and
