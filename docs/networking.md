@@ -35,6 +35,8 @@ nothing to vendor or install.
    their state in `serverPlayerJoined`, then sends `START`. Someone who leaves
    takes their body with them; their own car stays parked, still theirs.
    Saved worlds build on this, see `persistence.md`.
+   A [dedicated server](dedicated-server.md) is this with no host player:
+   it starts on its own and everyone joins the running game.
 4. **Polish**: client-side prediction for the local car (right now your own
    car is drawn from server snapshots too, so remote players feel one
    round-trip plus one tick behind their keys), host migration (maybe never),

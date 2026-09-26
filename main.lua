@@ -1,6 +1,11 @@
 -- Great Theft Auto 7 — entry point.
 -- Forwards LÖVE callbacks to the current state (see src/state.lua).
 
+if not love.window then
+  require("src.dedicated") -- headless dedicated server (GTA7_SERVER=1, see conf.lua)
+  return
+end
+
 local State = require("src.state")
 local Net = require("src.net")
 local Features = require("src.features")

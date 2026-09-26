@@ -7,7 +7,7 @@ everyone who played in that world gets their stuff back.
 
 | Question | Decision |
 | --- | --- |
-| Who keeps the save? | **The host.** A world is a folder on the host's machine. Clients save nothing that matters. If the host is away, nobody plays that world (a headless dedicated server may come later). |
+| Who keeps the save? | **The host.** A world is a folder on the host's machine. Clients save nothing that matters. If the host is away, nobody plays that world, unless the host is a [dedicated server](dedicated-server.md). |
 | Where does a character live? | **In the world.** Your money, loadout and upgrades belong to that host's world, not to you. Carrying a character between servers would mean trusting client files, which breaks "never trust a client". |
 | Can people join a running game? | **Yes, required.** A returning player is useless if they can only join from the lobby. This is milestone 3 in `networking.md`. |
 | What happens to an offline player's stuff? | **It stays.** Their cars stay parked where they left them, their houses and buildings stay theirs. Same rules apply as when they are online. |

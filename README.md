@@ -62,6 +62,18 @@ One player hosts, everyone else joins. Both need to be on the same network.
   shoot, ram or run someone over where they can see it and you're wanted until the heat dies.
   With inclusive mode on you start the game wanted, so shake the police first.
 
+## Dedicated server
+
+The server can run on its own, headless, with nobody playing on it: on a spare
+machine, in Docker or on a cloud box. Players join it by address.
+
+```bash
+make server WORLD=world     # GTA7_SERVER=1 GTA7_WORLD=world love .
+make docker                 # builds the gta7-server image
+```
+
+See [docs/dedicated-server.md](docs/dedicated-server.md).
+
 Design and roadmap: [docs/networking.md](docs/networking.md).
 
 ## Other targets
@@ -70,6 +82,8 @@ Design and roadmap: [docs/networking.md](docs/networking.md).
 make check      # luacheck
 make fmt        # stylua
 make build      # produces build/great-theft-auto-7.love
+make server     # headless dedicated server (docs/dedicated-server.md)
+make docker     # dedicated server Docker image
 ```
 
 ## Git workflow
