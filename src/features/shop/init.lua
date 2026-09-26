@@ -42,6 +42,7 @@ local Screen = require("src.features.shop.screen")
 local Sounds = require("src.features.shop.sounds")
 local Tiers = require("src.features.tiers")
 local Layout = require("src.features.city-map.layout")
+local Storefront = require("src.features.quests.storefront")
 
 local Shop = {
   name = "shop",
@@ -68,7 +69,7 @@ local function build(j)
   if not b then
     return nil
   end
-  local shop = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = b.doorX, doorY = b.doorY, bays = {} }
+  local shop = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = b.doorX, doorY = b.doorY, nx = b.nx, ny = b.ny, bays = {} }
   -- The door is mid-sidewalk; the road's two lanes are one and two tiles on.
   -- Traffic keeps to the lanes the way the rest of the city's does.
   local tx, ty = -b.ny, b.nx
@@ -302,31 +303,92 @@ local function drawBag(x, y, s, c)
 end
 
 local GREEN_SIGN = { 0.45, 0.95, 0.6 }
+local STYLE = {
+  rim = { 0.12, 0.2, 0.16 },
+  roof = { 0.26, 0.34, 0.29 },
+  awning = { GREEN_SIGN, { 0.95, 0.95, 0.9 } },
+  glass = { 0.75, 1, 0.85 },
+}
+local FRUIT = { { 0.95, 0.3, 0.25 }, { 1, 0.75, 0.2 }, { 0.5, 0.85, 0.3 } }
 
-local function label(text, x, y, w, font, color)
-  love.graphics.setFont(font)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf(text, x + 1, y + 1, w, "center")
-  love.graphics.setColor(color)
-  love.graphics.printf(text, x, y, w, "center")
+--- Two crates of fruit out front, side by side from (x, y) in the
+--- storefront's frame.
+local function crates(x, y)
+  for i = 0, 1 do
+    local cx = x + i * 30
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.rectangle("fill", cx - 13 + 3, y - 11 + 3, 26, 22)
+    love.graphics.setColor(0.62, 0.45, 0.26)
+    love.graphics.rectangle("fill", cx - 13, y - 11, 26, 22)
+    love.graphics.setColor(0.45, 0.31, 0.17)
+    love.graphics.rectangle("line", cx - 13, y - 11, 26, 22)
+    love.graphics.setColor(FRUIT[i + 1])
+    for fx = -1, 1 do
+      for fy = -1, 0 do
+        love.graphics.circle("fill", cx + fx * 7, y + 3 + fy * 8, 3.5)
+      end
+    end
+  end
 end
 
---- The building over the one it took, like the Jobs building beside it: a
---- dark roof with a green bag on it and a sign, and the glowing square by
---- the door where the shop opens.
+--- A shopping cart seen from above, its handle towards the building, at
+--- (x, y) in the storefront's frame.
+local function cart(x, y)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 10 + 3, y - 12 + 3, 20, 26, 2)
+  love.graphics.setColor(0.78, 0.8, 0.84)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", x - 10, y - 10, 20, 24, 2)
+  love.graphics.line(x - 10, y - 2, x + 10, y - 2)
+  love.graphics.line(x - 10, y + 6, x + 10, y + 6)
+  love.graphics.line(x, y - 10, x, y + 14)
+  love.graphics.setColor(0.85, 0.2, 0.2)
+  love.graphics.line(x - 11, y - 14, x + 11, y - 14)
+  love.graphics.setLineWidth(1)
+end
+
+--- A neon OPEN sign in the window, level on the screen, flickering now
+--- and then like a real one.
+local function openSign(shop)
+  local x, y = Storefront.at(shop, Storefront.width(shop) / 2 - 40, Storefront.depth(shop) / 2 - 11)
+  local flicker = (math.sin(time * 23) > 0.93 or math.sin(time * 0.7) > 0.985) and 0.35 or 1
+  local font = UI.fonts.small
+  local w, h = font:getWidth("OPEN") + 12, font:getHeight() + 2
+  love.graphics.setColor(0.05, 0.05, 0.08, 0.9)
+  love.graphics.rectangle("fill", x - w / 2, y - h / 2, w, h, 6)
+  love.graphics.setColor(1, 0.3, 0.45, 0.25 * flicker)
+  love.graphics.rectangle("fill", x - w / 2 - 3, y - h / 2 - 3, w + 6, h + 6, 8)
+  love.graphics.setColor(1, 0.35, 0.5, flicker)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", x - w / 2, y - h / 2, w, h, 6)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(font)
+  love.graphics.printf("OPEN", x - w / 2, y - h / 2 + 1, w, "center")
+end
+
+--- The building over the one it took, a storefront like the Jobs building
+--- beside it (quests/storefront.lua): a green bag on the roof, its sign, an
+--- OPEN sign in the window, fruit and a cart outside, and the glowing
+--- square by the door where the shop opens.
 function Shop:drawBelowCars()
   local shop = self:here()
   if not shop then
     return
   end
   local c = GREEN_SIGN
-  love.graphics.setColor(0.18, 0.24, 0.21)
-  love.graphics.rectangle("fill", shop.x, shop.y, shop.w, shop.h)
-  love.graphics.setColor(0.26, 0.34, 0.29)
-  love.graphics.rectangle("fill", shop.x + 6, shop.y + 6, shop.w - 12, shop.h - 12)
-  local s = math.min(shop.w, shop.h)
-  drawBag(shop.x + shop.w / 2, shop.y + shop.h / 2 - 16, s * 0.2, c)
-  label("SHOP", shop.x, shop.y + shop.h - 36, shop.w, UI.fonts.heading, c)
+  Storefront.draw(shop, STYLE, time)
+  Storefront.front(shop, function(W, D)
+    local y = Storefront.outside(D)
+    crates(-W / 2 + 14, y)
+    cart(W / 2 - 14, y + 2)
+  end)
+  local ex, ey, r = Storefront.emblem(shop, 34)
+  drawBag(ex, ey - r * 0.2, r * 0.85, c)
+  love.graphics.setColor(1, 1, 1, 0.85)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.printf("$", ex - 20, ey - 2, 40, "center")
+  Storefront.sign(shop, "SHOP", c)
+  openSign(shop)
   -- The square by the door.
   local lit = self.near ~= nil
   local pulse = lit and 0.6 + 0.4 * math.abs(math.sin(time * 4)) or 0.5 + 0.5 * math.sin(time * 2.5)

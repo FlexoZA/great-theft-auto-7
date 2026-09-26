@@ -13,12 +13,11 @@
 -- the two squares never overlap. A block with such a neighbour beats one
 -- without, so the city has a shop whenever it can.
 --
--- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY, shop })
--- and nil for any other map; `shop` is { x, y, w, h, doorX, doorY, nx, ny,
--- block } (nx, ny: the way out of the door, towards the road; block: the
--- block's x, y, w, h) or nil. It is worked
--- out once per map table; a city that grows only adds plots, which are
--- never picked.
+-- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY, nx, ny,
+-- shop }; nx, ny: the way out of the door, towards the road) and nil for any
+-- other map; `shop` is { x, y, w, h, doorX, doorY, nx, ny, block } (block:
+-- the block's x, y, w, h) or nil. It is worked out once per map table; a
+-- city that grows only adds plots, which are never picked.
 --
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
@@ -27,6 +26,7 @@
 local Features = require("src.features")
 local UI = require("src.ui")
 local Layout = require("src.features.city-map.layout")
+local Storefront = require("src.features.quests.storefront")
 
 local Jobs = {}
 
@@ -122,9 +122,9 @@ local function find(map)
       local hasHospital = hospital
         and hospital.x >= x and hospital.y >= y and hospital.x < x + w and hospital.y < y + h
       for _, b in ipairs(map.buildings) do
-        local doorX, doorY = door(b, x, y, w, h)
+        local doorX, doorY, nx, ny = door(b, x, y, w, h)
         if not hasHospital and within(b, x, y, w, h) and clearOf(spots, doorX, doorY) then
-          local j = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY }
+          local j = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
           j.shop = neighbour(map, j, spots, x, y, w, h)
           -- One with a shop beside it beats one without, a big one any
           -- small one; then the nearest the middle wins.
@@ -157,28 +157,54 @@ end
 
 local GOLD = { 1, 0.85, 0.3 }
 
-local function label(text, x, y, w, font, color)
-  love.graphics.setFont(font)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf(text, x + 1, y + 1, w, "center")
-  love.graphics.setColor(color)
-  love.graphics.printf(text, x, y, w, "center")
+--- Pieces of paper pinned on the notice board, as (x, y, colour index).
+local NOTES = { { -20, -9, 1 }, { -6, -11, 2 }, { 8, -8, 3 }, { -14, 3, 2 }, { 2, 4, 1 }, { 15, 2, 3 } }
+local NOTE_COLORS = { { 0.98, 0.96, 0.85 }, { 1, 0.85, 0.3 }, { 0.75, 0.88, 1 } }
+
+--- The notice board by the door: a cork board on two legs, jobs pinned
+--- on it, centred on (x, y) in the storefront's frame.
+local function noticeBoard(x, y)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 30 + 3, y - 16 + 3, 60, 32, 3)
+  love.graphics.setColor(0.4, 0.27, 0.16)
+  love.graphics.rectangle("fill", x - 30, y - 16, 60, 32, 3)
+  love.graphics.setColor(0.72, 0.55, 0.35)
+  love.graphics.rectangle("fill", x - 26, y - 13, 52, 26, 2)
+  for _, n in ipairs(NOTES) do
+    love.graphics.setColor(NOTE_COLORS[n[3]])
+    love.graphics.rectangle("fill", x + n[1] - 5, y + n[2], 10, 9)
+    love.graphics.setColor(0.85, 0.2, 0.2)
+    love.graphics.circle("fill", x + n[1], y + n[2] + 1, 1.5)
+  end
 end
 
---- The building over the one it took: a dark roof with a gold star on it
---- and a sign, and the glowing square by the door where the board opens.
+local STYLE = {
+  rim = { 0.16, 0.14, 0.2 },
+  roof = { 0.32, 0.29, 0.38 },
+  awning = { GOLD, { 0.2, 0.18, 0.26 } },
+  glass = { 1, 0.9, 0.6 },
+}
+
+--- The building over the one it took: a storefront (storefront.lua) with
+--- a gold star on the roof, its sign, a notice board and plants outside,
+--- and the glowing square by the door where the board opens.
 --- `starFn(cx, cy, r)` fills a star (the quests feature's own).
 function Jobs.drawBuilding(j, starFn, radius, lit, time)
-  love.graphics.setColor(0.22, 0.2, 0.26)
-  love.graphics.rectangle("fill", j.x, j.y, j.w, j.h)
-  love.graphics.setColor(0.32, 0.29, 0.38)
-  love.graphics.rectangle("fill", j.x + 6, j.y + 6, j.w - 12, j.h - 12)
-  local s = math.min(j.w, j.h)
+  Storefront.draw(j, STYLE, time)
+  Storefront.front(j, function(W, D)
+    local y = Storefront.outside(D)
+    noticeBoard(-W / 2 + 32, y)
+    Storefront.plant(W / 2 - 38, y)
+    Storefront.plant(W / 2 - 14, y)
+  end)
+  local ex, ey, r = Storefront.emblem(j, 44)
   love.graphics.setColor(0, 0, 0, 0.35)
-  starFn(j.x + j.w / 2 + 4, j.y + j.h / 2 - 10 + 4, s * 0.26)
+  starFn(ex + 4, ey + 4, r)
   love.graphics.setColor(GOLD)
-  starFn(j.x + j.w / 2, j.y + j.h / 2 - 10, s * 0.26)
-  label("JOBS", j.x, j.y + j.h - 36, j.w, UI.fonts.heading, GOLD)
+  starFn(ex, ey, r)
+  love.graphics.setColor(1, 1, 0.8, 0.25 + 0.2 * math.sin(time * 2))
+  starFn(ex, ey, r * 0.55)
+  Storefront.sign(j, "JOBS", GOLD)
   -- The square by the door.
   local pulse = lit and 0.6 + 0.4 * math.abs(math.sin(time * 4)) or 0.5 + 0.5 * math.sin(time * 2.5)
   love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.10 + 0.08 * pulse)

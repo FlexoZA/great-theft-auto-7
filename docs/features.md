@@ -629,7 +629,9 @@ example with a menu; real-estate is the one with a place to stand.
 - Quests: every job starts at the Jobs building in the city
   (`quests/jobs.lua` picks one of the city's own buildings the same way on
   every machine, like the hospital, clear of the spawn road and the
-  garage's places, in a block with room for the shop beside it). Stand on the square by its door, press the action
+  garage's places, in a block with room for the shop beside it). Both are
+  drawn as storefronts facing the street (`quests/storefront.lua`: roof
+  units, a lit window, a striped awning), each with its own things outside. Stand on the square by its door, press the action
   key (F, through `actionTaken`) and the job board lists every quest marked
   `board = true` in `quests.list`; pick one and take it (`QST_ACCEPT`, the
   host checks you are at the door). The board owns the mouse
