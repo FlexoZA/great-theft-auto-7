@@ -7,6 +7,11 @@
 -- goes down she spills a pile of koins, far more than anything else drops,
 -- and the quest is done.
 --
+-- She has stamina like a player (on-foot): charging spends it and standing,
+-- walking or slapping lets it come back. Run her dry and she is winded:
+-- she can only walk, slower than anyone sprinting, and has no breath for a
+-- scream until a good part of it is back. Sprint away while she puffs.
+--
 -- She also screams. Every so often she plants her feet and draws breath at
 -- whoever is nearest: a ring on the ground shows where the scream will
 -- land, and a moment later it does. Anyone caught inside is hurt and their
@@ -30,7 +35,7 @@
 --
 -- Messages
 --   server -> all  KRN_SPAWN <x> <y> <hp> <max>                    she is here (also to anyone joining)
---   server -> all  KRN_STATE <tick> <x> <y> <facing> <hp> <charging>  (unreliable, 15 Hz)
+--   server -> all  KRN_STATE <tick> <x> <y> <facing> <hp> <charging> <stamina> <winded>  (unreliable, 15 Hz)
 --   server -> all  KRN_SAY   <lineIndex>                          a rant, for the speech bubble
 --   server -> all  KRN_DOWN  <x> <y> <angle> <playerId>            she went down (0 = nobody's kill)
 --   server -> all  KRN_GONE                                       she left with the map
@@ -59,7 +64,15 @@ local Karen = {
 -- Tuning ------------------------------------------------------------------
 Karen.maxHealth = 1500 -- seventy-five pistol rounds
 Karen.radius = 19 -- px; three pedestrians wide
-Karen.chargeSpeed = 165 -- px/s once she has seen you
+Karen.chargeSpeed = 165 -- px/s once she has seen you, while she has the breath
+Karen.walkSpeed = 55 -- px/s winded: a stroll, and anyone sprinting (170) leaves her behind
+Karen.maxStamina = 100
+Karen.chargeDrain = 16 -- stamina per second charging (~6s flat out; more puff than a player's 4.5s)
+Karen.staminaRegen = 14 -- stamina per second while she is not charging (a player's is 9)
+Karen.regenDelay = 1 -- seconds off the charge before it starts coming back
+Karen.recovered = 50 -- stamina back before a winded Karen charges again (~4.5s of walking it off)
+Karen.screamBreath = 50 -- stamina she needs in her to draw a scream: none while winded or nearly so
+Karen.screamStamina = 20 -- what a scream costs her
 Karen.aggroRange = 650 -- px; she notices anyone inside this
 Karen.slapReach = 24 -- px past her body a slap lands
 Karen.slapDamage = 15
@@ -183,6 +196,9 @@ function Karen:spawnBoss(server, x, y)
     hp = self.maxHealth,
     max = self.maxHealth,
     charging = false,
+    stamina = self.maxStamina,
+    spent = false, -- winded: walking it off until `recovered` is back
+    regenIn = 0, -- seconds before stamina starts coming back
     slapTimer = 1,
     sayTimer = 1.5,
     stuck = 0,
@@ -331,6 +347,32 @@ local function nearestBody(server, b)
   return best, bestD2, bx, by, onFoot
 end
 
+--- Her breath for one tick, the rule on-foot gives players: charging
+--- spends it, anything else lets it come back after a pause. Empty, she is
+--- winded (`spent`) until `recovered` is back.
+local function breathe(b, running, dt)
+  if running then
+    b.stamina = math.max(0, b.stamina - Karen.chargeDrain * dt)
+    b.regenIn = Karen.regenDelay
+    if b.stamina <= 0 then
+      b.spent = true
+    end
+  else
+    b.regenIn = b.regenIn - dt
+    if b.regenIn <= 0 then
+      b.stamina = math.min(Karen.maxStamina, b.stamina + Karen.staminaRegen * dt)
+    end
+    if b.spent and b.stamina >= Karen.recovered then
+      b.spent = false
+    end
+  end
+end
+
+--- Her pace: full tilt with breath in her, a walk without.
+local function pace(b)
+  return b.spent and Karen.walkSpeed or Karen.chargeSpeed
+end
+
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
 --- slower they only shove her a little.
 function Karen:rams(server, b, dt)
@@ -409,15 +451,18 @@ function Karen:serverStep(server, dt)
   b.sayTimer = b.sayTimer - dt
 
   local target, d2, tx, ty, onFoot = nearestBody(server, b)
+  local running = false -- at full tilt this tick: that is what costs her breath
   if (b.frozen or 0) > 0 then
     b.frozen = b.frozen - dt -- frozen: no charging, no slapping
     b.charging = false
   elseif b.panic then
-    -- A stink: away from it, nose held, whatever else she was doing.
+    -- A stink: away from it, nose held, whatever else she was doing, as
+    -- fast as her legs allow.
     b.charging, b.scream = false, nil
     b.panic.left = b.panic.left - dt
     b.facing = math.atan2(b.y - b.panic.y, b.x - b.panic.x)
-    walk(b, b.facing, self.chargeSpeed, dt)
+    walk(b, b.facing, pace(b), dt)
+    running = not b.spent
     if b.panic.left <= 0 then
       b.panic = nil
     end
@@ -430,24 +475,29 @@ function Karen:serverStep(server, dt)
     end
   elseif target and d2 <= self.aggroRange ^ 2 then
     b.screamTimer = b.screamTimer - dt
-    if b.screamTimer <= 0 and d2 <= self.screamRange ^ 2 then
+    -- A scream takes breath: none while she is winded or nearly so (the
+    -- timer stays run down, so it comes as soon as she has it back).
+    local breath = not b.spent and b.stamina >= self.screamBreath
+    if b.screamTimer <= 0 and d2 <= self.screamRange ^ 2 and breath then
       b.screamTimer = self.screamEvery
+      b.stamina, b.regenIn = b.stamina - self.screamStamina, self.regenDelay
       b.scream = { x = tx, y = ty, t = self.screamDelay }
       b.facing = math.atan2(ty - b.y, tx - b.x)
       server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(tx), fmt(ty), self.screamRadius,
         ("%.2f"):format(self.screamDelay)))
-      return self:finishStep(server, b, dt)
+      return self:finishStep(server, b, dt, false)
     end
-    b.charging = true
+    b.charging = not b.spent -- winded, she comes on at a waddle
     b.facing = math.atan2(ty - b.y, tx - b.x)
     local dist = math.sqrt(d2)
     local reach = self.radius + self.slapReach + (onFoot and 0 or Car.HEIGHT / 2)
     if dist > reach then
+      running = not b.spent
       if b.sidestep > 0 then
         b.sidestep = b.sidestep - dt
-        walk(b, b.facing + b.side * math.pi / 2, self.chargeSpeed, dt)
+        walk(b, b.facing + b.side * math.pi / 2, pace(b), dt)
       else
-        walk(b, b.facing, self.chargeSpeed, dt)
+        walk(b, b.facing, pace(b), dt)
         if b.stuck > 0.4 then
           b.stuck, b.sidestep, b.side = 0, 0.6, -b.side
         end
@@ -468,7 +518,7 @@ function Karen:serverStep(server, dt)
     server:broadcast(Protocol.encode("KRN_SAY", love.math.random(#self.lines)))
   end
 
-  self:finishStep(server, b, dt)
+  self:finishStep(server, b, dt, running)
 end
 
 --- The scream lands: everyone inside the area is hurt and told so.
@@ -492,8 +542,10 @@ function Karen:scream(server, b)
   server:broadcast(Protocol.encode("KRN_SCREAM", fmt(sc.x), fmt(sc.y), self.screamRadius, unpack(caught)))
 end
 
---- The rest of her tick: cars hitting her, and her state to everyone.
-function Karen:finishStep(server, b, dt)
+--- The rest of her tick: her breath, cars hitting her, and her state to
+--- everyone. `running` says whether she spent this tick at full tilt.
+function Karen:finishStep(server, b, dt, running)
+  breathe(b, running, dt or 0)
   self:rams(server, b, dt or 0)
   b = sv.boss
   if not b then
@@ -502,7 +554,7 @@ function Karen:finishStep(server, b, dt)
 
   if sv.syncIn <= 0 then
     local msg = Protocol.encode("KRN_STATE", server.tick, fmt(b.x), fmt(b.y), ("%.2f"):format(b.facing),
-      math.max(0, math.floor(b.hp)), b.charging and 1 or 0)
+      math.max(0, math.floor(b.hp)), b.charging and 1 or 0, math.floor(b.stamina), b.spent and 1 or 0)
     for _, player in pairs(server.players) do
       server:send(player, msg, true)
     end
@@ -516,7 +568,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-Karen.boss = nil -- { x, y, dx, dy, angle, hp, max, charging, say, sayTimer, bob }
+Karen.boss = nil -- { x, y, dx, dy, angle, hp, max, charging, stamina, winded, say, sayTimer, bob }
 Karen.intro = nil -- { t, line } while the title screen is up
 Karen.stain = nil -- { x, y, angle } where she went down
 Karen.simps = {} -- id -> { name, x, y, dx, dy, angle, hp, swing, bob }
@@ -648,7 +700,7 @@ Karen.clientMessages = {
     if x and y and hp and max then
       Karen.boss = {
         x = x, y = y, dx = x, dy = y, angle = math.pi / 2, hp = hp, max = max, charging = false,
-        say = nil, sayTimer = 0, bob = love.math.random() * 6,
+        stamina = Karen.maxStamina, winded = false, say = nil, sayTimer = 0, bob = love.math.random() * 6,
       }
       Karen.stain = nil
     end
@@ -664,6 +716,8 @@ Karen.clientMessages = {
     b.angle = tonumber(args[4]) or b.angle
     b.hp = tonumber(args[5]) or b.hp
     b.charging = args[6] == "1"
+    b.stamina = tonumber(args[7]) or b.stamina
+    b.winded = args[8] == "1"
   end,
   KRN_SAY = function(_client, args)
     local b = Karen.boss
@@ -942,6 +996,22 @@ local function drawBossBar(b)
   love.graphics.rectangle("fill", bx, by, bw * f, bh, 2)
   love.graphics.setColor(1, 1, 1, 0.5)
   love.graphics.rectangle("line", bx, by, bw, bh, 2)
+  -- Her breath, a thin bar under the health: throbbing red while she is
+  -- winded, so you can see when to run and when she is about to.
+  local sh, sy = 5, by + bh + 4
+  local sf = math.max(0, math.min(1, (b.stamina or 0) / Karen.maxStamina))
+  love.graphics.setColor(0, 0, 0, 0.65)
+  love.graphics.rectangle("fill", bx - 2, sy - 2, bw + 4, sh + 4, 2)
+  if b.winded then
+    love.graphics.setColor(0.9, 0.3, 0.3, 0.45 + 0.25 * math.sin(time * 8))
+  else
+    love.graphics.setColor(0.45, 0.75, 1)
+  end
+  love.graphics.rectangle("fill", bx, sy, bw * sf, sh, 1)
+  if b.winded then
+    love.graphics.setColor(1, 0.5, 0.45)
+    love.graphics.printf("winded", bx + bw + 8, sy - 5, 80, "left")
+  end
 end
 
 --- The title screen: her face over rays, the quest's name, and what she is
