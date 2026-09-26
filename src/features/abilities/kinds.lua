@@ -9,12 +9,14 @@
 -- numbers a better tier improves, in order (tiers/init.lua); `serverCast`
 -- and `serverTick` get the ability in the caster's tier as their last
 -- argument and should read their numbers from it, and a drawing from
--- `e.ability`.
+-- `e.ability`. `tierLabels` (optional) renames a stat on the cards where the
+-- usual name won't do (second wind's `rate` is recovery, not healing).
 
 local Kinds = {
   list = {
     require("src.features.abilities.freeze"),
     require("src.features.abilities.regen"),
+    require("src.features.abilities.secondwind"),
     require("src.features.abilities.mgnest"),
     require("src.features.abilities.heal"),
     require("src.features.abilities.fart"),

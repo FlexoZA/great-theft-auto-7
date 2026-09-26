@@ -54,6 +54,22 @@ local function regen(c, a)
   love.graphics.line(10.5, 2.5, 15.5, 2.5)
 end
 
+-- A lightning bolt with the same rising pluses as regen: breath coming back.
+local function secondwind(c, a)
+  color(c, a)
+  love.graphics.polygon("fill", 2, -15, -9, 2, 1, 2) -- two blades overlapping in the middle (fill is convex only)
+  love.graphics.polygon("fill", -4, 15, 9, -3, -1, -3)
+  color(WHITE, a * 0.35)
+  love.graphics.polygon("fill", 1, -12, -5, 0, -2, 0) -- shine
+  color(WHITE, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(11, -13, 11, -5)
+  love.graphics.line(7, -9, 15, -9)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.line(13, 0, 13, 5)
+  love.graphics.line(10.5, 2.5, 15.5, 2.5)
+end
+
 -- A medic's cross, in one go.
 local function heal(c, a)
   color(WHITE, a)
@@ -187,6 +203,7 @@ end
 local DRAW = {
   freeze = freeze,
   regen = regen,
+  secondwind = secondwind,
   heal = heal,
   mgnest = mgnest,
   fart = fart,
