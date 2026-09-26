@@ -34,12 +34,13 @@ local Catalog = {
   byItem = {},
   -- The shop's tabs, each a filter on `kind` (or on `kinds`, a set of
   -- them): All is everything that goes into a bag, the rest one shelf
-  -- each. Gear is what you wear: armor and clothes. Cars have their own
-  -- tab, with bigger cards.
+  -- each. Supplies are medkits and energy drinks; Gear is what you wear:
+  -- armor and clothes. Cars have their own tab, with bigger cards.
   tabs = {
     { key = "all", title = "All" },
     { key = "guns", title = "Guns", kind = "gun" },
     { key = "ammo", title = "Ammo", kind = "ammo" },
+    { key = "supplies", title = "Supplies", kind = "supply" },
     { key = "abilities", title = "Abilities", kind = "ability" },
     { key = "gear", title = "Gear", kinds = { armor = true, gear = true } },
     { key = "cars", title = "Cars", kind = "car" },
