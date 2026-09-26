@@ -94,7 +94,29 @@ local function shotgun(a)
   love.graphics.rectangle("fill", 34, -6, 2, 3) -- bead
 end
 
-local DRAW = { pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun }
+local function sniper(a)
+  color(WOOD, a)
+  love.graphics.polygon("fill", -38, -3, -20, -5, -20, 5, -38, 9) -- stock
+  love.graphics.rectangle("fill", -36, -6, 10, 3) -- cheek rest
+  love.graphics.rectangle("fill", -2, -2, 16, 6, 2) -- fore end
+  color(DARK, a)
+  love.graphics.rectangle("fill", -20, -4, 20, 8, 1) -- receiver
+  love.graphics.polygon("fill", -14, 4, -8, 4, -10, 12, -16, 12) -- grip
+  love.graphics.rectangle("fill", -6, 4, 6, 5) -- box magazine
+  love.graphics.rectangle("fill", -2, -4, 2, 2) -- bolt handle
+  love.graphics.rectangle("fill", -18, -13, 22, 6, 3) -- the scope
+  love.graphics.rectangle("fill", -21, -14, 4, 8, 1) -- eyepiece
+  love.graphics.rectangle("fill", 3, -15, 5, 10, 1) -- objective bell
+  love.graphics.rectangle("fill", -10, -8, 2, 4) -- mounts
+  love.graphics.rectangle("fill", -2, -8, 2, 4)
+  color(STEEL, a)
+  love.graphics.rectangle("fill", 14, -1, 22, 3) -- long barrel
+  love.graphics.rectangle("fill", 34, -2, 4, 5) -- muzzle brake
+  color({ 0.55, 0.8, 1 }, a * 0.8)
+  love.graphics.rectangle("fill", 7, -13, 1, 6) -- glint on the lens
+end
+
+local DRAW = { pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper }
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its
 --- natural size, `alpha` (1) opaque.

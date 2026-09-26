@@ -21,6 +21,7 @@ local Kinds = {
     require("src.features.abilities.openborders"),
     require("src.features.abilities.leap"),
     require("src.features.abilities.bigleap"),
+    require("src.features.abilities.chicken"),
   },
   byKey = {},
 }

@@ -27,6 +27,10 @@
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
 --             Guns.tierStats otherwise; "blast.damage" reaches into `blast`
+--   scope     how many times the scope magnifies: hold the scope button
+--             (right mouse) with the gun in hand and a lens that much
+--             closer opens round the cursor; the cursor is a scope's
+--             crosshair all the while the gun is up (the sniper rifle)
 --   stock     rounds everyone starts the game with, the loaded magazine
 --             included, and the gun itself: everyone starts with a gun
 --             that has a stock in a weapon slot (for testing a gun before
@@ -125,6 +129,27 @@ Guns.list = {
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
     stock = 5, -- for testing until the factories are up and running
+  },
+  {
+    key = "sniper",
+    name = "sniper rifle",
+    damage = 200, -- a person on foot in one; the round is the whole point
+    cooldown = 1.3, -- the bolt worked between shots
+    spread = 0,
+    speed = 3000, -- there before you hear it
+    streak = 44,
+    -- About 1900 px: a little past anywhere the cursor can reach from you,
+    -- with the camera panned all the way out (vision: 700 px of pan, and
+    -- half a 1280-wide window at the 0.65 zoom that comes with it).
+    ttl = 0.63,
+    sound = "sniper",
+    pitch = 1,
+    magazine = 5,
+    reload = 5,
+    reloadSound = "reload-sniper",
+    ammoName = "sniper round",
+    stack = 50,
+    scope = 4,
   },
 }
 

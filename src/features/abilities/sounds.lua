@@ -47,6 +47,22 @@ function Sounds.load()
     buf:lowpass(6000)
   end)
 
+  -- Chicken: two startled clucks and a squawk going up, then a flutter.
+  bank.chicken = make(0.8, function(buf)
+    for i, f in ipairs({ 620, 700, 820 }) do
+      local t = (i - 1) * 0.11
+      local len = i == 3 and 0.2 or 0.07
+      buf:sweep(t, len, f * 1.3, f, { wave = "square", amp = 0.28, decay = len * 0.6 })
+      buf:sweep(t, len, f * 2.6, f * 2, { wave = "saw", amp = 0.1, decay = len * 0.5 })
+      buf:noiseBurst(t, 0.02, { amp = 0.2, decay = 0.006 })
+    end
+    for i = 0, 7 do
+      buf:noiseBurst(0.42 + i * 0.045, 0.03, { amp = 0.22 - i * 0.02, decay = 0.01 }) -- wings
+    end
+    buf:highpass(250)
+    buf:lowpass(5000)
+  end)
+
   -- Panic fart: a low, wet sputter that sags in pitch as it runs out.
   bank.fart = make(0.9, function(buf)
     buf:sweep(0, 0.7, 120, 42, { wave = "saw", amp = 0.5, decay = 0.5 })

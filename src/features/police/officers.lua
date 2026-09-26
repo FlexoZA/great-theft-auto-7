@@ -187,7 +187,7 @@ end
 function Officers:collect(server)
   local list, n = self.bodies, 0
   for id, player in pairs(server.players) do
-    if Features.present(player) then
+    if Features.visible(server, player) then
       n = n + 1
       local e = list[n]
       if not e then

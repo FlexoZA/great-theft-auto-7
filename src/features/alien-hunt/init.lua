@@ -298,11 +298,12 @@ function Hunt:serverFreezeArea(_server, x, y, radius, seconds)
   end
 end
 
---- Every player's body this tick, and the nearest one to (x, y).
-local function nearestBody(server, x, y)
+--- Every player's body this tick, and the nearest one to (x, y); `seen`:
+--- only those in sight (not hidden: `Features.visible`), for going after.
+local function nearestBody(server, x, y, seen)
   local best, bestD2, bx, by, onFoot
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if seen and Features.visible(server, p) or not seen and Features.present(p) then
       local px, py, foot = Features.bodyPose(server, p)
       local d2 = dist2(px, py, x, y)
       if not bestD2 or d2 < bestD2 then
@@ -540,7 +541,7 @@ function Hunt:stepFoot(server, dt)
     f.timer = f.timer - dt
     if f.timer <= 0 then
       local target = f.target and server.players[f.target]
-      if target and Features.present(target) then
+      if target and Features.visible(server, target) then
         f.tx, f.ty = Features.bodyPose(server, target)
       end
       f.fx, f.fy = f.x, f.y
@@ -560,7 +561,7 @@ function Hunt:stepFoot(server, dt)
     return
   end
 
-  local target, d2, tx, ty, onFoot = nearestBody(server, f.x, f.y)
+  local target, d2, tx, ty, onFoot = nearestBody(server, f.x, f.y, true)
   if not (target and d2 <= self.aggroRange ^ 2) then
     f.mode = "idle"
     return

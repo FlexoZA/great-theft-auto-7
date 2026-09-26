@@ -71,6 +71,13 @@ CityMap.maps = {
     title = "Looz'er Beach", kind = "beach", seed = 44, cols = 36, rows = 60,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- Meadow under a long cliff with a sniper on top (the shotgun quest):
+  -- clumps of walls, boulders and trees with open grass between, and one
+  -- way up at the far left. Walked; nobody about but Shotgun.
+  cliff = {
+    title = "Shotgun's Bluff", kind = "cliff", seed = 73, cols = 44, rows = 58,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

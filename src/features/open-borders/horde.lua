@@ -224,11 +224,12 @@ function Horde:light(by, x, y)
   return f
 end
 
---- Everyone present this tick, with where their body is.
-local function bodies(server)
+--- Everyone present this tick, with where their body is; `seen`: only
+--- those in sight (not hidden: `Features.visible`).
+local function bodies(server, seen)
   local list = {}
   for id, player in pairs(server.players) do
-    if Features.present(player) then
+    if seen and Features.visible(server, player) or not seen and Features.present(player) then
       local x, y, onFoot = Features.bodyPose(server, player)
       list[#list + 1] = { id = id, player = player, car = player.vehicle, x = x, y = y, onFoot = onFoot }
     end
@@ -382,7 +383,7 @@ function Horde:step(server, dt, skip)
     self.lit[i] = nil
   end
 
-  local list = #self.simps > 0 and bodies(server) or {}
+  local list = #self.simps > 0 and bodies(server, true) or {}
   local i = 1
   while i <= #self.simps do
     local s = self.simps[i]

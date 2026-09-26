@@ -89,6 +89,7 @@ local Icons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Freeze = require("src.features.abilities.freeze")
 local Leap = require("src.features.abilities.leap")
+local Chicken = require("src.features.abilities.chicken")
 
 local Abilities = {
   name = "abilities",
@@ -279,6 +280,18 @@ function Abilities:held(_client, id)
   end
   for _, e in ipairs(self.effects) do
     if e.by == id and e.ability.airborne and e.ability.airborne(e) then
+      return true
+    end
+  end
+  return false
+end
+
+--- The `hidden` convention: is this player out of sight on this screen
+--- (a chicken still hiding them)? The core, weapons, the minimap and the
+--- arrows leave them out.
+function Abilities:hidden(_client, id)
+  for _, e in ipairs(self.effects) do
+    if e.by == id and Chicken.hiding(e) then
       return true
     end
   end
@@ -897,6 +910,12 @@ end
 function Abilities:serverHeld(_server, player)
   local sv = self.sv
   return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or Leap.serverLeaping(player.id))
+end
+
+--- The `serverHidden` convention (`Features.visible` asks): is this player
+--- out of sight on the host, a chicken hiding them?
+function Abilities:serverHidden(_server, player)
+  return self.sv ~= nil and Chicken.serverHiding(player.id, self.sv.time)
 end
 
 --- Keep a car where it stands for `seconds`, whoever is in it.
