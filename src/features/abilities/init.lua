@@ -41,6 +41,9 @@
 -- `serverPlayerDamaged`, which is noted here), and `serverPassive(server,
 -- player, key, phase, seconds)` tells the carrier its phase (ABL_PASSIVE)
 -- so the HUD ring shows it working ("active") or resting ("cooldown").
+-- A passive with `stats` instead (overclock.lua) changes its carrier's
+-- numbers: this feature answers `serverStat` / `stat` with them, the way
+-- clothes do (gear), so overclock's "cooldown" stacks with cargo pants'.
 --
 -- Abilities come in tiers (tiers/init.lua): "ability-leap@rare" is a leap
 -- that comes back sooner and flies further (each ability's `tierStats`).
@@ -629,6 +632,17 @@ function Abilities:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The `stat` convention on a client: the same for me (only my own slots
+--- are known here; nobody draws another player's cooldowns).
+function Abilities:stat(value, client, id, name)
+  if id ~= client.myId then
+    return value
+  end
+  local ability = kindOf(self.slots[self.passiveSlot])
+  local m = ability and ability.stats and ability.stats[name]
+  return m and value * m or value
+end
+
 Abilities.clientMessages = {
   ABL_FIRED = function(client, args)
     local by, ability = tonumber(args[1]), kindOf(args[2])
@@ -1003,6 +1017,15 @@ end
 
 --- A passive ability tells its carrier what it is up to: `phase` is
 --- "idle", "active" or "cooldown" and `seconds` how long that lasts.
+--- The `serverStat` convention: the passive in `player`'s slot may scale
+--- `name` (overclock cuts "cooldown"), as a piece of clothing would.
+function Abilities:serverStat(value, _server, player, name)
+  local slots = self.sv and self.sv.slots[player.id]
+  local ability = slots and kindOf(slots[self.passiveSlot])
+  local m = ability and ability.stats and ability.stats[name]
+  return m and value * m or value
+end
+
 function Abilities:serverPassive(server, player, key, phase, seconds)
   server:send(player, Protocol.encode("ABL_PASSIVE", key, phase, ("%.1f"):format(seconds or 0)))
 end

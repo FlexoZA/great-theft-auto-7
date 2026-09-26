@@ -200,6 +200,25 @@ local function chicken(c, a)
   end
 end
 
+-- A stopwatch, its hand racing, with chevrons streaking off it.
+local function overclock(c, a)
+  color(c, a)
+  love.graphics.rectangle("fill", -5, -16, 6, 3, 1) -- the crown
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", -2, 1, 11, 24)
+  love.graphics.line(-2, -13, -2, -10)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2.5)
+  love.graphics.line(-2, 1, 3, -5) -- the hand
+  love.graphics.circle("fill", -2, 1, 2, 10)
+  color(c, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(11, -5, 15, 0, 11, 5)
+  color(c, a * 0.6)
+  love.graphics.line(7, 8, 10, 11, 7, 14)
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
   freeze = freeze,
   regen = regen,
@@ -211,6 +230,7 @@ local DRAW = {
   leap = leap,
   chicken = chicken,
   bigleap = bigleap,
+  overclock = overclock,
 }
 
 --- Draw the icon for ability `key` centred on (cx, cy) inside a circle of
