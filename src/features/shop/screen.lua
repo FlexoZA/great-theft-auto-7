@@ -1,5 +1,5 @@
 -- The shop screen: a panel over the game with a tab per shelf (all, guns,
--- ammo, abilities, gear, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
+-- ammo, supplies, abilities, gear, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
 -- inventory draws for the item, its name and its price; car cards borrow
 -- the vehicle factory's card (the car over a bar per stat). Click a card to
 -- see it in the side panel on the right: a bigger picture, what it does and
@@ -111,7 +111,7 @@ end
 --- Every rectangle on the screen for `tab`, page `page`:
 ---   panel            { x, y, w, h }
 ---   tabs[i]          { x, y, w, h, key, title }
----   tiers[i]         { x, y, w, h, key, title }, the tier buttons (none on the cars tab)
+---   tiers[i]         { x, y, w, h, key, title }, the tier buttons (none on a shelf without tiers)
 ---   cards[i]         { x, y, w, h, entry }, the cards on this page
 ---   prev / next      { x, y, w, h } when there is more than one page
 ---   page, pages      where we are and how many there are
@@ -161,8 +161,13 @@ function Screen.layout(tab, page, picked)
     }
   end
 
-  -- The tier buttons under them, smaller; cars come in no tiers.
-  if tab ~= "cars" then
+  -- The tier buttons under them, smaller; only on a shelf with something
+  -- that comes in tiers (not ammo, supplies or cars).
+  local anyTiered = false
+  for _, e in ipairs(entries) do
+    anyTiered = anyTiered or e.tiered
+  end
+  if anyTiered then
     local nt = #Tiers.list
     local tierW = math.min(110, math.floor((areaW - 2 * Screen.pad - (nt - 1) * GAP) / nt))
     local tierX = px + math.floor((areaW - nt * (tierW + GAP) + GAP) / 2)
