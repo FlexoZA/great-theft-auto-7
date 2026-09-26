@@ -18,7 +18,9 @@
 -- cards show and sell, each card framed in its colour with what the tier
 -- improves; a better tier is dearer (Catalog.price).
 --
--- A click on a card asks the host. The host checks the buyer is at the door
+-- A click on a card shows it in the side panel on the right (what it does
+-- and its numbers in the tier on show: details.lua); the panel's Buy button
+-- asks the host. The host checks the buyer is at the door
 -- (SLACK px allowed for a car drawn a little behind where it is), that the
 -- shop is on the map in play, that the wallet covers the price, and then
 -- hands the thing over: an item goes into the buyer's bag through
@@ -142,6 +144,7 @@ Shop.page = 1
 Shop.tier = Tiers.DEFAULT -- the tier the cards show and sell
 Shop.notice = nil -- { text, color, t }
 Shop.flash = nil -- { item, t }
+Shop.picked = nil -- the catalog entry in the side panel, or nil
 Shop.near = nil -- the shop when I am standing at its door, or nil
 local time = 0
 
@@ -152,7 +155,7 @@ end
 
 function Shop:enterGame()
   self.open, self.tab, self.page, self.notice, self.flash, self.near = false, Catalog.tabs[1].key, 1, nil, nil, nil
-  self.tier = Tiers.DEFAULT
+  self.tier, self.picked = Tiers.DEFAULT, nil
 end
 
 function Shop:exitGame()
@@ -218,7 +221,7 @@ function Shop:keypressed(key)
   if self.open then
     self.open = false
   elseif self.near then
-    self.open, self.tab, self.page, self.notice = true, Catalog.tabs[1].key, 1, nil
+    self.open, self.tab, self.page, self.notice, self.picked = true, Catalog.tabs[1].key, 1, nil, nil
   end
 end
 
@@ -233,10 +236,16 @@ function Shop:mousepressed(x, y, button, client)
   if not self.open or button ~= 1 or covered() then
     return
   end
-  local L = Screen.layout(self.tab, self.page)
+  local L = Screen.layout(self.tab, self.page, self.picked)
+  if L.buy and Screen.inside(L.buy, x, y) then
+    self:tryBuy(client, self.picked, self.tier)
+    return
+  end
   for _, t in ipairs(L.tabs) do
     if Screen.inside(t, x, y) then
-      self.tab, self.page = t.key, 1
+      if t.key ~= self.tab then
+        self.tab, self.page, self.picked = t.key, 1, nil
+      end
       return
     end
   end
@@ -255,7 +264,7 @@ function Shop:mousepressed(x, y, button, client)
   end
   for _, r in ipairs(L.cards) do
     if Screen.inside(r, x, y) then
-      self:tryBuy(client, r.entry, self.tier)
+      self.picked = r.entry -- into the side panel; its Buy button buys it
       return
     end
   end
@@ -442,7 +451,7 @@ function Shop:drawHUD(client)
   local money = Features.byName.money
   local purse = money and money.mine and money:mine(client) or 0
   local mx, my = love.mouse.getPosition()
-  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier)
+  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier, self.picked)
   -- The cursor last of all, over the panel.
   local vision = Features.byName.vision
   if vision then

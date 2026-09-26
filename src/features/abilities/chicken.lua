@@ -19,6 +19,7 @@ local Features = require("src.features")
 local Chicken = {
   key = "chicken", -- on the wire and in a bag ("ability-chicken")
   title = "chicken",
+  blurb = "Go invisible: nobody sees you and nothing hunts you. Stray rounds still hurt.",
   sound = "chicken",
   color = { 1, 0.82, 0.3 }, -- yolk
   aim = "self",

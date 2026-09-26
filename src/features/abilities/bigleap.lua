@@ -9,6 +9,7 @@ local Leap = require("src.features.abilities.leap")
 return Leap.variant({
   key = "bigleap", -- on the wire and in a bag ("ability-bigleap")
   title = "bigfoot leap",
+  blurb = "Bigfoot's own leap: further, higher and harder. Only won by beating him.",
   hud = "bigfoot",
   color = { 0.85, 0.55, 0.25 }, -- his fur, in the sun
   unsold = true, -- the shop leaves it off the shelf

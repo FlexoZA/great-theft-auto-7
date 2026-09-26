@@ -758,7 +758,11 @@ example with a menu; real-estate is the one with a place to stand.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink, armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. A click on a card
-  buys it: an item goes into the buyer's bag through
+  shows it in a side panel on the right (`shop/details.lua`): a bigger
+  picture, its `blurb`, how it is used and its numbers in the tier on show,
+  those the tier improves in the tier's colour. Give a new gun, ability,
+  armor or piece of clothing a one-sentence `blurb` for it. The panel's Buy
+  button buys it: an item goes into the buyer's bag through
   `buildings:serverGive`, a car onto the road outside the door through
   `serverDeliver` (vehicles answers), in the first delivery bay with no
   car in it. Everything is free for now: prices live in the catalog and

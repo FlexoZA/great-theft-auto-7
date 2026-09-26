@@ -35,6 +35,7 @@ local Sounds = require("src.features.abilities.sounds")
 local Leap = {
   key = "leap", -- on the wire and in a bag ("ability-leap")
   title = "leap",
+  blurb = "Jump over anything to a spot you pick and slam down on whoever is there.",
   sound = "leap",
   color = { 1.0, 0.45, 0.3 }, -- a hot orange-red
   onFoot = true, -- no leaping out of a driver's seat
