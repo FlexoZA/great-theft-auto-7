@@ -14,6 +14,7 @@ local Features = require("src.features")
 local Heal = {
   key = "heal", -- on the wire and in a bag ("ability-heal")
   title = "heal",
+  blurb = "A green circle opens round you and heals everyone inside, you too. It follows you.",
   sound = "heal",
   color = { 0.35, 1, 0.7 }, -- mint
   aim = "self",

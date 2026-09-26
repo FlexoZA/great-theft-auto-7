@@ -6,11 +6,15 @@
 --   title   what the shop and the inventory call it
 --   points  how much damage it soaks up before it is destroyed
 --   color   the bar and the item
+--   blurb   what it does, for the shop's side panel
 --   tierStats  what a better tier improves (tiers/init.lua): the points
 
 local Kinds = {
   list = {
-    { key = "vest", title = "kevlar vest", points = 100, color = { 0.35, 0.65, 1 }, tierStats = { "points" } },
+    {
+      key = "vest", title = "kevlar vest", points = 100, color = { 0.35, 0.65, 1 }, tierStats = { "points" },
+      blurb = "Takes the hits before your body does, until it is shot through.",
+    },
   },
   byKey = {},
 }
