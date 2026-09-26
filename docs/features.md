@@ -382,8 +382,11 @@ couple of small conventions rather than requiring each other:
 - Ammo: guns fire from a magazine (`magazine`, `reload` in `weapons/guns.lua`)
   and reload from the player's inventory, `"ammo-<gun key>"`, through
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
-  item, n)`. `weapons:serverFire` counts rounds for human players only; a
-  player with `bot = true` (bots, police) and `serverFireFrom` never run dry.
+  item, n)`. A gun marked `bottomless` (the pistol) reloads from nowhere:
+  there is no ammo item for it, and the shop, the ammo factory and the
+  police drops leave it out. `weapons:serverFire` counts rounds for human
+  players only; a player with `bot = true` (bots, police) and
+  `serverFireFrom` never run dry.
 - Tiers: everything a player equips (guns, abilities, armor, clothes) comes
   in a tier, `src/features/tiers`: common (grey, base stats), uncommon
   (green, its first stat better), rare (blue, its first two, by more) and
@@ -472,8 +475,10 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
   pickup on the ground right there, gone for good once taken. `kind` is a
   pickups kind ("health", "stamina") or `"ammo-<gun key>"` for a box of
-  `amount` rounds that goes into the taker's inventory. Police drops pistol
-  rounds where an officer falls or a unit is wrecked.
+  `amount` rounds that goes into the taker's inventory. Police drops a box
+  for one of the guns that take ammo, picked at random and sized in that
+  gun's magazines (`Police.ammoDrop`), where an officer falls or a unit is
+  wrecked.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and

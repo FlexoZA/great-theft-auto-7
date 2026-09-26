@@ -43,12 +43,14 @@
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (X) refills the one in hand from the ammo in your inventory
--- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
+-- (the buildings feature keeps it, "ammo-uzi"), any time it isn't full;
 -- pulling the trigger on an empty magazine reloads too. A reload takes a
 -- moment, sounds for everyone near, and is lost if you switch guns or die.
--- Everyone starts with full magazines and no spare rounds, and comes back
--- from the dead with a full pistol, so nobody is left unarmed for good.
--- Without the buildings feature the reserve is bottomless. Bots, police
+-- The pistol is `bottomless` (guns.lua): it reloads like any gun but the
+-- rounds come from nowhere, so there is no pistol ammo to buy, make or
+-- find, and nobody is ever left unarmed. Everyone starts with full
+-- magazines and no spare rounds, and comes back from the dead with a
+-- full pistol. Without the buildings feature every reserve is bottomless. Bots, police
 -- and shots nobody owns never run dry, and nor does a player handed
 -- infinite ammo (the cheats feature does it, Weapons:serverSetInfiniteAmmo):
 -- their magazines stay full and they never reload.
@@ -292,11 +294,12 @@ end
 --- Spare rounds for gun `index` in my inventory (bottomless without the
 --- buildings feature, as on the host).
 function Weapons:reserve(index)
+  local gun = Guns.at(index)
   local buildings = Features.byName.buildings
-  if not (buildings and buildings.inventory) then
+  if gun.bottomless or not (buildings and buildings.inventory) then
     return math.huge
   end
-  return buildings.inventory["ammo-" .. Guns.at(index).key] or 0
+  return buildings.inventory["ammo-" .. gun.key] or 0
 end
 
 local function notify(self, text)
@@ -1525,10 +1528,11 @@ function Weapons:serverSelectGun(_server, player, index)
   return true
 end
 
---- Spare rounds `player` carries for `gun` (bottomless without buildings).
+--- Spare rounds `player` carries for `gun` (bottomless for a gun that is,
+--- and for every gun without buildings).
 local function spareRounds(player, gun)
   local buildings = Features.byName.buildings
-  if not (buildings and buildings.serverCount) then
+  if gun.bottomless or not (buildings and buildings.serverCount) then
     return math.huge
   end
   return buildings:serverCount(player.id, "ammo-" .. gun.key)
@@ -1562,8 +1566,8 @@ function Weapons:finishReloads(server)
       local gun = gunOf(st, st.gun)
       local need = gun.magazine - (st.mags[st.gun] or 0)
       local buildings = Features.byName.buildings
-      local got = need
-      if p and buildings and buildings.serverTake then
+      local got = need -- a bottomless gun's rounds come from nowhere
+      if p and buildings and buildings.serverTake and not gun.bottomless then
         got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
       end
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got

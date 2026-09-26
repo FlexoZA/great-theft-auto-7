@@ -4,7 +4,8 @@
 --   iron, sulfur, minerals,  raw materials, dug out of a quarry
 --   copper
 --   oil, plastic             pumped (and refined) by an oil well
---   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi")
+--   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi"); none
+--                            for a `bottomless` gun (the pistol never runs out)
 --   gun-<gun>                a gun ("gun-uzi")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
@@ -104,7 +105,9 @@ end
 
 local gunAmmo, gunItems = {}, {}
 for _, gun in ipairs(Guns.list) do
-  gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
+  if not gun.bottomless then
+    gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
+  end
   gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
 

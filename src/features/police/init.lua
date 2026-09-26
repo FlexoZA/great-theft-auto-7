@@ -37,6 +37,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Guns = require("src.features.weapons.guns")
 local UI = require("src.ui")
 local Car = require("src.car")
 local Sounds = require("src.features.police.sounds")
@@ -326,11 +327,29 @@ function Police:serverShotFired(server, player, x, y)
   end
 end
 
---- What an officer on foot leaves behind, and what a wrecked unit does:
---- pistol rounds, boxed and dropped where they fell (through pickups).
---- The force carries pistols; the day they carry uzis, so will the drops.
-Police.officerAmmo = 10
-Police.unitAmmo = 20
+--- What an officer on foot leaves behind, and what a wrecked unit does: a
+--- box of rounds for one of the guns that take ammo (the pistol never
+--- runs out), picked at random and dropped where they fell (through
+--- pickups). Sized in magazines of whatever it is for, so a box of shells
+--- is not a box of uzi rounds.
+Police.officerAmmo = 0.7 -- magazines' worth an officer on foot drops
+Police.unitAmmo = 1.3 -- ...and a wrecked unit
+
+--- The kind and count of one drop worth `magazines`, or nil when no gun
+--- takes ammo.
+function Police.ammoDrop(magazines)
+  local guns = {}
+  for _, gun in ipairs(Guns.list) do
+    if not gun.bottomless then
+      guns[#guns + 1] = gun
+    end
+  end
+  if #guns == 0 then
+    return nil
+  end
+  local gun = guns[love.math.random(#guns)]
+  return "ammo-" .. gun.key, math.max(1, math.floor(magazines * gun.magazine + 0.5))
+end
 
 function Police:serverKill(server, kill)
   local killer = server.players[kill.by]
@@ -346,7 +365,10 @@ function Police:serverKill(server, kill)
   end
   local pickups = Features.byName.pickups
   if lost and pickups and pickups.serverDrop then
-    pickups:serverDrop(server, "ammo-pistol", kill.x, kill.y, lost)
+    local kind, rounds = Police.ammoDrop(lost)
+    if kind then
+      pickups:serverDrop(server, kind, kill.x, kill.y, rounds)
+    end
   end
 end
 
