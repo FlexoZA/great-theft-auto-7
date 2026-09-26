@@ -280,7 +280,7 @@ function Kinds.tierStats(item)
   if gun and Guns[gun] then
     return Guns[gun].tierStats, false, { cooldown = "fire rate" }
   elseif ability and AbilityKinds.byKey[ability] then
-    return AbilityKinds.byKey[ability].tierStats
+    return AbilityKinds.byKey[ability].tierStats, false, AbilityKinds.byKey[ability].tierLabels
   elseif armor and ArmorKinds.byKey[armor] then
     return ArmorKinds.byKey[armor].tierStats
   elseif gear and GearKinds.byKey[gear] then
