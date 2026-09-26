@@ -139,6 +139,7 @@ local MAX_HEALTH = 100
 local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
 local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
+local RELOAD_GRACE = 1 -- seconds past a reload's end the client waits for the host's WPN_MAG before giving up
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
 local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
@@ -541,6 +542,9 @@ function Weapons:update(dt, client, camera)
   self.deadTimer = math.max(0, self.deadTimer - dt)
   if self.reloading then
     self.reloading.t = self.reloading.t + dt -- the host says when it's done (WPN_MAG)
+    if self.reloading.t > self.reloading.total + RELOAD_GRACE then
+      self.reloading = nil -- that word never came: don't leave the trigger locked
+    end
   end
   if self.ammoNotice then
     self.ammoNotice.t = self.ammoNotice.t - dt
@@ -1033,6 +1037,7 @@ Weapons.clientMessages = {
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
+      Weapons.reloading = nil -- the host dropped it when I died (die)
       if Video.get("screenShake") then
         Explosions.addShake(SHAKE_MAX)
       end
