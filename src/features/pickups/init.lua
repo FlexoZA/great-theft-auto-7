@@ -10,29 +10,26 @@
 -- drink from behind the wheel, a box for a full bag -- stays where it is
 -- for whoever can use it.
 --
--- Ammo boxes are never scattered; they are dropped, where something died,
--- through Pickups:serverDropAmmo: a box for one of the guns that take
--- ammo (never the bottomless pistol), picked at random and sized in that
--- gun's magazines, with a chance of nothing at all. Police drops one for
--- every officer or unit lost. The enemies on a boss's map (Karen's simps,
--- the hunt's squirrels, D-Day's soldiers) roll a loot table instead
--- (Pickups:serverDropLoot): one chance of anything, then ammo, a medkit
--- or an energy drink by weight. A drop is gone for good once taken. So
--- is "ability-<key>", an
+-- What an enemy leaves behind has one source of truth, here: when one
+-- goes down (a simp, a squirrel, a soldier, a police officer or unit) its
+-- feature calls Pickups:serverDropEnemy, which drops one thing at most:
+-- `dropChance` (40%) of anything, and then one of `drops` (an ammo box, a
+-- medkit, an energy drink, a kevlar vest), each as likely as the others.
+-- Something that comes in tiers then rolls its tier by `dropTiers`: nearly
+-- always common. Ammo boxes are never scattered, only dropped: a box for
+-- one of the guns that take ammo (never the bottomless pistol), picked at
+-- random and sized in that gun's magazines (serverDropAmmo). A drop is
+-- gone for good once taken. So is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
 -- which rings the orb in its colour.
 --
 -- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
--- is a common kevlar vest, "armor-vest@rare" a rare one). Every enemy that
--- drops loot (the ones on a boss's map through serverDropLoot, and the police
--- for an officer or a unit lost) drops one thing at most: a `vestChance`
--- (15%) that it is a vest (serverDropVest), and otherwise whatever its loot
--- would have been. Nearly all vests are common, a better tier far rarer
--- (`vestTiers`). A human with no armor on who walks or
--- drives over it wears it at once, whole (armor:serverWearFound); anyone
--- already wearing a vest leaves it lying for someone who isn't.
+-- is a common kevlar vest, "armor-vest@rare" a rare one). A human with no
+-- armor on who walks or drives over it wears it at once, whole
+-- (armor:serverWearFound); anyone already wearing a vest leaves it lying
+-- for someone who isn't.
 --
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
@@ -67,10 +64,16 @@ Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
-Pickups.vestChance = 0.15 -- odds an enemy's one drop is a vest rather than its other loot
--- Which tier a dropped vest is, by weight: nearly always common, a better
--- one much less often (of every 100 vests about 80, 14, 5 and 1).
-Pickups.vestTiers = {
+-- What an enemy drops (serverDropEnemy): one thing at most, `dropChance` of
+-- the time, picked evenly from `drops` ("ammo" is a box for a random gun,
+-- `dropMagazines` of its magazines big). Add a kind to the list and it
+-- drops as often as the rest.
+Pickups.dropChance = 0.40
+Pickups.drops = { "ammo", "health", "stamina", "armor-vest" }
+Pickups.dropMagazines = 0.6
+-- The tier of a dropped thing that comes in tiers, by weight: nearly always
+-- common, a better one much less often (of every 100 about 80, 14, 5 and 1).
+Pickups.dropTiers = {
   { tier = "common", weight = 80 },
   { tier = "uncommon", weight = 14 },
   { tier = "rare", weight = 5 },
@@ -475,16 +478,11 @@ function Pickups:serverDrop(server, kind, x, y, amount)
 end
 
 --- Drop a box of ammo at (x, y) for one of the guns that take ammo,
---- picked at random: `magazines` of whatever it turns out to be (0.7 of
---- an uzi's is 21 rounds, of a shotgun's 4 shells, of the launcher's one
---- rocket), so a box means the same whichever gun it is for. `chance`
---- (1 when not given) is the odds of a box at all: the enemies on a
---- boss's map roll it, the police always drop one. Returns the item's id,
---- or nil when nothing dropped.
-function Pickups:serverDropAmmo(server, x, y, magazines, chance)
-  if chance and love.math.random() >= chance then
-    return nil
-  end
+--- picked at random: `magazines` of whatever it turns out to be (0.6 of
+--- an uzi's is 18 rounds, of a shotgun's 4 shells, of the launcher's one
+--- rocket), so a box means the same whichever gun it is for. Returns the
+--- item's id, or nil when there is no gun to drop for.
+function Pickups:serverDropAmmo(server, x, y, magazines)
   local guns = {}
   for _, gun in ipairs(Guns.list) do
     if not gun.bottomless then
@@ -498,48 +496,14 @@ function Pickups:serverDropAmmo(server, x, y, magazines, chance)
   return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, math.floor(magazines * gun.magazine + 0.5)))
 end
 
---- Roll `loot` for something dropping at (x, y): `chance` of anything at
---- all, then a box of ammo (`magazines` big, serverDropAmmo), a medkit or
---- an energy drink, each as likely as its weight (`ammo`, `health`,
---- `stamina`; a missing one never drops). The enemies on a boss's map
---- keep one of these at the top of their feature's file, like
----   { chance = 0.4, ammo = 3, health = 1, stamina = 1, magazines = 0.5 }
---- One thing at most drops: first `loot.vest` of the time (`vestChance`
---- when the table doesn't say) it is a vest (serverDropVest), and only
---- when it isn't is the rest of the table rolled.
---- Returns the item's id, or nil when nothing dropped.
-function Pickups:serverDropLoot(server, x, y, loot)
-  if not loot then
-    return nil
-  end
-  local vest = self:serverDropVest(server, x, y, loot.vest)
-  if vest then
-    return vest
-  end
-  if love.math.random() >= (loot.chance or 0) then
-    return nil
-  end
-  local total = (loot.ammo or 0) + (loot.health or 0) + (loot.stamina or 0)
-  if total <= 0 then
-    return nil
-  end
-  local roll = love.math.random() * total
-  if roll < (loot.ammo or 0) then
-    return self:serverDropAmmo(server, x, y, loot.magazines or 0.5)
-  elseif roll < (loot.ammo or 0) + (loot.health or 0) then
-    return self:serverDrop(server, "health", x, y)
-  end
-  return self:serverDrop(server, "stamina", x, y)
-end
-
---- A tier for a dropped vest, by `vestTiers`' weights.
-local function vestTier()
+--- A tier for a dropped thing, by `dropTiers`' weights.
+local function dropTier()
   local total = 0
-  for _, t in ipairs(Pickups.vestTiers) do
+  for _, t in ipairs(Pickups.dropTiers) do
     total = total + t.weight
   end
   local roll = love.math.random() * total
-  for _, t in ipairs(Pickups.vestTiers) do
+  for _, t in ipairs(Pickups.dropTiers) do
     roll = roll - t.weight
     if roll < 0 then
       return t.tier
@@ -548,16 +512,24 @@ local function vestTier()
   return Tiers.DEFAULT
 end
 
---- Maybe leave a kevlar vest at (x, y): `chance` of it (`vestChance`,
---- 15%, when not given), in a tier picked by `vestTiers` (mostly common).
---- Enemies' loot rolls it first (serverDropLoot); police calls it for an
---- officer or a unit lost, before its ammo box. Either drops nothing else
---- when a vest comes. Returns the item's id, or nil when nothing dropped.
-function Pickups:serverDropVest(server, x, y, chance)
-  if love.math.random() >= (chance or self.vestChance) then
+--- An enemy went down at (x, y): maybe it leaves something. One thing at
+--- most: `dropChance` of anything, then one of `drops`, each as likely,
+--- in a tier by `dropTiers` if it comes in tiers. Every enemy calls this
+--- (Karen's simps, the hunt's squirrels, D-Day's soldiers, the police's
+--- officers and units), so the odds live here and nowhere else. Returns
+--- the item's id, or nil when nothing dropped.
+function Pickups:serverDropEnemy(server, x, y)
+  if #self.drops == 0 or love.math.random() >= self.dropChance then
     return nil
   end
-  return self:serverDrop(server, Tiers.join("armor-vest", vestTier()), x, y)
+  local kind = self.drops[love.math.random(#self.drops)]
+  if kind == "ammo" then
+    return self:serverDropAmmo(server, x, y, self.dropMagazines)
+  end
+  if Tiers.tiered(kind) then
+    kind = Tiers.join(kind, dropTier())
+  end
+  return self:serverDrop(server, kind, x, y)
 end
 
 function Pickups:serverStart(server)
