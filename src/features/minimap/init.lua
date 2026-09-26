@@ -11,7 +11,7 @@
 -- red where a boss comes into the city and marks him while he is loose).
 --
 -- Tab hides and shows it; a line under it (or in its place, while it is
--- hidden) says so, and another offers the big map.
+-- hidden) says so, and another under it offers the big map either way.
 --
 -- M opens the big map: the same city filling most of the window, drawn
 -- sharp at that size, with the other players' names, a heading arrow for
@@ -371,10 +371,12 @@ end
 
 function Minimap:drawHUD(client)
   local keyName = Controls.name(Controls.bindings("minimap")[1])
+  local mapKey = Controls.name(Controls.bindings("map")[1])
   if self.bigOpen then
     return -- the big map has it all
   elseif not self.visible then
     hint(keyName .. ": open minimap", self.top)
+    hint(mapKey .. ": big map", self.top + 18)
     return
   end
   local w, h = love.graphics.getDimensions()
@@ -429,7 +431,7 @@ function Minimap:drawHUD(client)
   love.graphics.pop()
 
   hint(keyName .. ": close minimap", y0 + height + 6)
-  hint(Controls.name(Controls.bindings("map")[1]) .. ": big map", y0 + height + 24)
+  hint(mapKey .. ": big map", y0 + height + 24)
   love.graphics.setColor(1, 1, 1)
 end
 
