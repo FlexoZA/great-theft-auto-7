@@ -509,7 +509,16 @@ couple of small conventions rather than requiring each other:
   medkit or an energy drink, each as likely as its weight (`ammo`,
   `health`, `stamina`). The enemies on a boss's map (Karen's simps, the
   hunt's squirrels, D-Day's soldiers) keep one at the top of their
-  feature's file.
+  feature's file. An enemy drops one thing at most: before that roll,
+  `pickups:serverDropVest(server, x, y, chance)` makes it a kevlar vest
+  `loot.vest` of the time (`pickups.vestChance`, 15%, when the table
+  doesn't say), and only otherwise is the table rolled. A vest is nearly
+  always common (`"armor-vest"`), a better tier far less often
+  (`pickups.vestTiers`: 80, 14, 5 and 1 in every 100). Police rolls it for
+  every officer or unit lost, and drops its ammo box only when no vest came. A human with no armor on who
+  runs over a vest wears it at once, whole
+  (`armor:serverWearFound(server, player, kind)`); anyone wearing one
+  already leaves it lying.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and
