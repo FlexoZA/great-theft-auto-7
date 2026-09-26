@@ -8,6 +8,8 @@ local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
 local Troops = require("src.features.d-day.troops")
 local Major = require("src.features.d-day.major")
+local Stamina = require("src.features.bosses.stamina")
+local BossBar = require("src.features.bosses.bar")
 local Screen = require("src.features.d-day.screen")
 
 local Render = {}
@@ -303,20 +305,10 @@ local function drawObjective(stage, distance)
 end
 
 local function drawBossBar(m)
-  local w, h = love.graphics.getDimensions()
-  local bw, bh = 380, 14
-  local bx, by = math.floor((w - bw) / 2), h - 150 -- above the magazine line and the ability circles
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf("MAJOR LOOZ'ER", 1, by - 19, w, "center")
-  love.graphics.setColor(GOLD)
-  love.graphics.printf("MAJOR LOOZ'ER", 0, by - 20, w, "center")
-  love.graphics.setColor(0, 0, 0, 0.65)
-  love.graphics.rectangle("fill", bx - 2, by - 2, bw + 4, bh + 4, 3)
-  love.graphics.setColor(0.55, 0.62, 0.30)
-  love.graphics.rectangle("fill", bx, by, bw * math.max(0, m.hp / m.max), bh, 2)
-  love.graphics.setColor(1, 1, 1, 0.5)
-  love.graphics.rectangle("line", bx, by, bw, bh, 2)
+  BossBar.draw({
+    title = "MAJOR LOOZ'ER", titleColor = GOLD, fill = { 0.55, 0.62, 0.30 },
+    hp = m.hp, max = m.max, stamina = m.stamina, staminaMax = Stamina.defaults.max, winded = m.winded,
+  })
 end
 
 --- `distance` is how far I am from the flag, if I am anywhere.

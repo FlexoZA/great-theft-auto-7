@@ -663,6 +663,22 @@ example with a menu; real-estate is the one with a place to stand.
   (`alien-hunt/render.lua`). Messages: `EVT_TRIGGER` up; `EVT_START`,
   `EVT_END`, `EVT_NO` and Bigfoot's `EBF_*` down. Tuning is at the top of
   `bigfoot.lua`.
+- Bosses: `src/features/bosses` is the standard every boss follows and the
+  code that keeps them alike; its header spells the standard out. A boss
+  has breath like a player on foot (`bosses/stamina.lua`): running spends
+  it, anything else lets it come back after a pause, and empty it is
+  winded: walking only, slower than a player walking away, with no
+  ability (Karen's scream, a Bigfoot's leap, the Major's MG nest) until it
+  holds a lungful again. Melee and guns cost nothing. On the host
+  `Stamina.new(tuning)`, `st:step(running, dt)` every tick, `st:pace(run,
+  walk)` for the speed, `st:has(cost)` before an ability and
+  `st:spend(cost)` when it goes; the boss's state message ends with
+  `<stamina> <winded>` (`st:wire()`, `Stamina.read(args, i)`). Every boss
+  bar is `bosses/bar.lua`'s `Bar.draw(spec)`: the name over the health,
+  and the breath as a thin bar under it that throbs red with "winded"
+  while it is blown. Breath tuning sits with the rest at the top of the
+  boss's file (`drain`, `regen`, `recovered`, `breath`, what an ability
+  costs).
 - Leap variants: `abilities/leap.lua`'s `Leap.variant(tuning)` is another
   leap on the same flying and landing with its own key and numbers
   (`walls` cracks buildings under the landing, `shake` rocks the view near
