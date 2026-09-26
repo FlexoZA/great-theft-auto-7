@@ -1,5 +1,5 @@
 -- The shop screen: a panel over the game with a tab per shelf (all, guns,
--- ammo, abilities, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
+-- ammo, abilities, gear, cars: catalog.lua) and a card per thing for sale. Item cards show the picture the
 -- inventory draws for the item, its name and its price; car cards borrow
 -- the vehicle factory's card (the car over a bar per stat). Click a card to
 -- buy what is on it. Under the tabs a row of tier buttons (common,
