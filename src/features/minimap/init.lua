@@ -7,8 +7,9 @@
 -- currently sees. Civilian bots are left off: they are scenery (the edge
 -- arrows leave them out too). Without the city-map feature it becomes a
 -- radar centred on you. Other features mark things on it through the
--- `drawOnMinimap(client, toMap, w, h)` hook (the events feature flashes it
--- red where a boss comes into the city and marks him while he is loose).
+-- `drawOnMinimap(client, toMap, w, h)` hook, under the people (the events
+-- feature flashes it red where a boss comes into the city and marks him
+-- while he is loose; buildings shows every owned plot and what is on it).
 --
 -- Tab hides and shows it; a line under it (or in its place, while it is
 -- hidden) says so, and another under it offers the big map either way.
@@ -416,11 +417,11 @@ function Minimap:drawHUD(client)
   local function toMap(x, y)
     return project(x, y, me)
   end
-  drawPeople(client, toMap, 3, false)
-
-  -- Whatever other features mark on it, clipped to it like the rest.
-  -- `toMap(x, y)` turns a world point into a minimap pixel.
+  -- Whatever other features mark on it (the players' buildings among
+  -- them), clipped to it like the rest and under the people, as on the big
+  -- map. `toMap(x, y)` turns a world point into a minimap pixel.
   Features.call("drawOnMinimap", client, toMap, self.width, height)
+  drawPeople(client, toMap, 3, false)
 
   love.graphics.setScissor()
 
@@ -549,6 +550,22 @@ function Minimap:drawScreen(client)
       love.graphics.setColor(0.6, 0.6, 0.65)
       love.graphics.rectangle("fill", x - 3, y - 3, 6, 6)
     end, "parked cars" },
+    { function(x, y)
+      love.graphics.setColor(0.7, 0.3, 0.22)
+      love.graphics.rectangle("fill", x - 6, y - 6, 12, 12)
+      love.graphics.setColor(1, 1, 1)
+      love.graphics.setLineWidth(2)
+      love.graphics.rectangle("line", x - 7, y - 7, 14, 14)
+      love.graphics.setLineWidth(1)
+    end, "your buildings" },
+    { function(x, y)
+      love.graphics.setColor(1, 1, 1)
+      love.graphics.rectangle("fill", x - 2, y - 6, 4, 12)
+      love.graphics.rectangle("fill", x - 6, y - 2, 12, 4)
+      love.graphics.setColor(0.85, 0.12, 0.14)
+      love.graphics.rectangle("fill", x - 1, y - 5, 2, 10)
+      love.graphics.rectangle("fill", x - 5, y - 1, 10, 2)
+    end, "hospital" },
   }
   local total = 0
   for _, it in ipairs(items) do
