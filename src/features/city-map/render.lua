@@ -2,6 +2,7 @@
 -- nearest filtering for a chunky pixel look. One draw call per frame.
 
 local Layout = require("src.features.city-map.layout")
+local Buildings = require("src.features.city-map.buildings")
 
 local Render = {}
 
@@ -168,39 +169,7 @@ local function drawBuildings(map)
   for _, b in ipairs(map.buildings) do
     love.graphics.rectangle("fill", b.x + 14, b.y + 14, b.w, b.h)
   end
-  for _, b in ipairs(map.buildings) do
-    color(shade(b.color, 0.55))
-    love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
-    color(b.color)
-    love.graphics.rectangle("fill", b.x + 6, b.y + 6, b.w - 12, b.h - 12)
-    -- lit edge top-left
-    color(shade(b.color, 1.25))
-    love.graphics.rectangle("fill", b.x + 6, b.y + 6, b.w - 12, 8)
-    love.graphics.rectangle("fill", b.x + 6, b.y + 6, 8, b.h - 12)
-    -- roof furniture, placed by the building's own seed
-    local s = b.seed
-    if b.style == 1 then
-      color(C.ac)
-      for i = 0, 2 do
-        local ax = b.x + 30 + ((s * 7 + i * 53) % math.max(1, b.w - 70))
-        local ay = b.y + 30 + ((s * 11 + i * 37) % math.max(1, b.h - 70))
-        love.graphics.rectangle("fill", ax, ay, 22, 22)
-        color(shade(C.ac, 0.6))
-        love.graphics.rectangle("fill", ax + 4, ay + 4, 14, 14)
-        color(C.ac)
-      end
-    elseif b.style == 2 then
-      color(shade(b.color, 0.75))
-      love.graphics.rectangle("fill", b.x + 24, b.y + 24, b.w - 48, b.h - 48)
-      color(shade(b.color, 1.1))
-      love.graphics.rectangle("fill", b.x + 34, b.y + 34, b.w - 68, b.h - 68)
-    else
-      color(shade(b.color, 0.7))
-      for i = 1, 3 do
-        love.graphics.rectangle("fill", b.x + 20, b.y + i * (b.h / 4) - 3, b.w - 40, 6)
-      end
-    end
-  end
+  Buildings.draw(map)
 end
 
 --- The forest's trail: clearings of lighter grass, then the dirt path
