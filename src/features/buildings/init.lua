@@ -467,13 +467,14 @@ end
 -- of it; the mouse stays ours until then, so that click fires nothing.
 local heldClick = nil
 
---- The `pointerTaken` convention: the mouse is ours while the build or product
---- screen is up, and while the button that clicked on one is still held.
-function Buildings:pointerTaken(client)
+--- The `pointerTaken` convention: the mouse is ours while the menu (or the
+--- build or product screen) is up, and while the button that clicked on it is still held.
+function Buildings:pointerTaken(_client)
   if heldClick and not love.mouse.isDown(heldClick) then
     heldClick = nil
   end
-  return heldClick ~= nil or building(self, client) or choosing(self, client) ~= nil
+  local re = realEstate()
+  return heldClick ~= nil or (self.menu and herePad ~= nil and re ~= nil and re.owners[herePad.id] ~= nil)
 end
 
 --- The `actionTaken` convention: the action key is ours while I stand on
@@ -824,10 +825,12 @@ function Buildings:mousepressed(x, y, button, client)
   if button ~= 1 then
     return
   end
-  local b, kind = choosing(self, client)
-  if b or building(self, client) then
-    heldClick = button
+  local re = realEstate()
+  if not (self.menu and herePad and re and re.owners[herePad.id]) then
+    return
   end
+  heldClick = button
+  local b, kind = choosing(self, client)
   if b then
     -- The product screen: Back, a card into the side panel, or Make.
     local L = ProductScreen.layout(kind, self.pick)
@@ -846,6 +849,13 @@ function Buildings:mousepressed(x, y, button, client)
     return
   end
   if not building(self, client) then
+    -- The building's own menu: a click on an option picks it, as its key would.
+    for _, o in ipairs(self:menuLayout(client).options) do
+      if BuildScreen.inside(o, x, y) and o.row.run then
+        o.row.run()
+        return
+      end
+    end
     return
   end
   local L = BuildScreen.layout(self.buildPick)
@@ -1019,8 +1029,15 @@ local function panel(x, y, w, h, title)
   love.graphics.printf(title, x, y + 12, w, "center")
 end
 
---- The panel in the middle of the screen while the menu is open.
-local function drawMenu(self, client)
+-- The menu's panel: how wide it is, the height of an option's button and
+-- the gap under it.
+local MENU_W, OPTION_H, OPTION_GAP = 480, 38, 6
+
+--- Where everything on the open menu goes, for drawing it and for clicks:
+--- { panel = { x, y, w, h }, title, lines (wrapped), card (a car's item)
+--- and cardH, options = { { x, y, w, h, row, index } } }, the options being
+--- menuRows' rows as buttons.
+function Buildings:menuLayout(client)
   local re = realEstate()
   local plot = herePad
   local b = self.buildings[plot.id]
@@ -1043,55 +1060,107 @@ local function drawMenu(self, client)
   end
 
   local w, h = love.graphics.getDimensions()
-  local pw = 380
+  local pw = MENU_W
   -- A long line (a factory that runs on four materials) wraps onto more.
-  local font = UI.fonts.small
-  local wrapped = 0
+  local wrapped = {}
   for _, line in ipairs(lines) do
-    local _, parts = font:getWrap(line, pw - 40)
-    wrapped = wrapped + math.max(1, #parts)
+    local _, parts = UI.fonts.small:getWrap(line, pw - 48)
+    for _, part in ipairs(parts) do
+      wrapped[#wrapped + 1] = part
+    end
   end
   -- A car factory shows the car it is making: that is what you buy.
   local vehicles = Features.byName.vehicles
-  local shown = kind and b.product
-  local card = shown and vehicles and vehicles.cardHeight and productOf(kind, shown)
-  local cardH = card and vehicles:cardHeight(card, pw) or 0
+  local card = kind and vehicles and vehicles.cardHeight and productOf(kind, b.product)
+  local cardW = pw - 120
+  local cardH = card and vehicles:cardHeight(card, cardW) or 0
   if cardH == 0 then
     card = nil
   end
-  local ph = 64 + wrapped * 20 + cardH + #rows * 30 + 40
+  -- The buttons squeeze up when the window is too short for them all.
+  local top = 64 + #wrapped * 20 + 10 + cardH
+  local oh = OPTION_H
+  if #rows > 0 and top + #rows * (oh + OPTION_GAP) + 44 > h - 16 then
+    oh = math.max(26, math.floor((h - 16 - top - 44) / #rows) - OPTION_GAP)
+  end
+  local ph = top + #rows * (oh + OPTION_GAP) + 44
   local px, py = math.floor((w - pw) / 2), math.max(8, math.floor((h - ph) / 2))
-  panel(px, py, pw, ph, title)
-
-  love.graphics.setFont(font)
-  local y = py + 54
-  love.graphics.setColor(0.8, 0.8, 0.85)
-  for _, line in ipairs(lines) do
-    local _, parts = font:getWrap(line, pw - 40)
-    for _, part in ipairs(parts) do
-      love.graphics.print(part, px + 20, y)
-      y = y + 20
-    end
-  end
-  y = y + 6
-  if card then
-    vehicles:drawCard(card, px, y, pw)
-    y = y + cardH
-    love.graphics.setFont(font)
-  end
+  local L = {
+    panel = { x = px, y = py, w = pw, h = ph }, title = title, lines = wrapped, card = card, cardH = cardH,
+    cardX = px + math.floor((pw - cardW) / 2), cardW = cardW, options = {},
+  }
+  local y = py + top
   for i, r in ipairs(rows) do
-    local keyName = Controls.name(Controls.bindings("building-" .. i)[1])
-    local dim = r.run and 1 or 0.4
-    love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
-    love.graphics.rectangle("fill", px + 20, y, 24, 24, 5)
-    love.graphics.setColor(1, 1, 1, dim)
-    love.graphics.printf(keyName, px + 20, y + 4, 24, "center")
-    love.graphics.print(r.label, px + 54, y + 4)
-    y = y + 30
+    L.options[i] = { x = px + 24, y = y, w = pw - 48, h = oh, row = r, index = i }
+    y = y + oh + OPTION_GAP
   end
+  return L
+end
+
+--- One of the menu's options: a button with its key on the left, lit under
+--- the mouse, dim when it can't be picked right now.
+local function drawOption(o, over)
+  local live = o.row.run ~= nil
+  local lit = live and over
+  love.graphics.setColor(1, 1, 1, lit and 0.14 or (live and 0.07 or 0.03))
+  love.graphics.rectangle("fill", o.x, o.y, o.w, o.h, 6)
+  if lit then
+    love.graphics.setColor(1, 0.85, 0.3, 0.9)
+    love.graphics.setLineWidth(2)
+  else
+    love.graphics.setColor(1, 1, 1, live and 0.22 or 0.08)
+  end
+  love.graphics.rectangle("line", o.x, o.y, o.w, o.h, 6)
+  love.graphics.setLineWidth(1)
+
+  local dim = live and 1 or 0.4
+  local bound = Controls.bindings("building-" .. o.index)[1]
+  local tx = o.x + 12
+  if bound then
+    love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
+    local ky = o.y + math.floor((o.h - 24) / 2)
+    love.graphics.rectangle("fill", o.x + 8, ky, 24, 24, 5)
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(1, 1, 1, dim)
+    love.graphics.printf(Controls.name(bound), o.x + 8, ky + 4, 24, "center")
+    tx = o.x + 42
+  end
+  -- The label in the body font, or the small one when that won't fit.
+  local font = UI.fonts.body
+  if font:getWidth(o.row.label) > o.x + o.w - 10 - tx then
+    font = UI.fonts.small
+  end
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1, lit and 1 or 0.9 * dim)
+  love.graphics.print(o.row.label, tx, o.y + math.floor((o.h - font:getHeight()) / 2))
+end
+
+--- The panel in the middle of the screen while the menu is open.
+local function drawMenu(self, client)
+  local L = self:menuLayout(client)
+  local p = L.panel
+  panel(p.x, p.y, p.w, p.h, L.title)
+
+  love.graphics.setFont(UI.fonts.small)
+  local y = p.y + 64
+  love.graphics.setColor(0.8, 0.8, 0.85)
+  for _, line in ipairs(L.lines) do
+    love.graphics.print(line, p.x + 24, y)
+    y = y + 20
+  end
+  y = y + 10
+  if L.card then
+    Features.byName.vehicles:drawCard(L.card, L.cardX, y, L.cardW)
+  end
+  local mx, my = love.mouse.getPosition()
+  for _, o in ipairs(L.options) do
+    drawOption(o, BuildScreen.inside(o, mx, my))
+  end
+  love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local key = Controls.name(Controls.bindings("buy")[1])
-  love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
+  love.graphics.printf(("click an option or press its key   %s: close"):format(key), p.x, p.y + p.h - 28, p.w,
+    "center")
 end
 
 --- A quick-slot circle, the `index`th past the end of the abilities row:
@@ -1246,7 +1315,7 @@ function Buildings:drawScreen(client)
     prompt(notice, noticeGood and { 0.5, 1, 0.6 } or { 1, 0.45, 0.4 })
   end
   local vision = Features.byName.vision
-  if screen and vision and vision.drawCursor then
+  if vision and vision.drawCursor then
     vision:drawCursor(client)
   end
   love.graphics.setColor(1, 1, 1)
