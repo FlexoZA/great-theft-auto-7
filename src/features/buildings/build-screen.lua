@@ -8,6 +8,8 @@
 --
 -- `Screen.layout(picked)` works out every rectangle for the window as it is
 -- now and `Screen.draw` paints them; init.lua hit-tests the same rectangles.
+-- The pieces (the panel, a card's frame, the side panel's rows and button)
+-- are shared with the product screen (product-screen.lua).
 
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -150,6 +152,7 @@ local function frame(r, lit)
   love.graphics.rectangle("line", r.x, r.y, r.w, r.h, 6)
   love.graphics.setLineWidth(1)
 end
+Screen.frame = frame
 
 --- A price: gold when the wallet covers it, red when it doesn't.
 local function priceColor(cost, purse)
@@ -193,19 +196,99 @@ local function para(text, x, y, w)
   love.graphics.printf(text, x, y, w, "left")
   return y + #lines * font:getHeight()
 end
+Screen.para = para
+Screen.amount = amount
+Screen.GOLD = GOLD
 
---- One product's picture, centred on (cx, cy), about ICON px across.
-local function productIcon(item, cx, cy)
+--- One product's picture, centred on (cx, cy), about `scale` * 40 px
+--- across (0.8 by default); a car lies nose up.
+function Screen.productIcon(item, cx, cy, scale)
+  scale = scale or 0.8
   local model = Catalog.fromItem(item)
   if model then
-    Catalog.draw(model, cx, cy, -math.pi / 2, ICON - 4)
+    Catalog.draw(model, cx, cy, -math.pi / 2, scale * 40 - 2)
     return
   end
   love.graphics.push()
   love.graphics.translate(cx, cy)
-  love.graphics.scale(0.8)
+  love.graphics.scale(scale)
   Render.itemIcon(item, 0, 0)
   love.graphics.pop()
+end
+
+--- A row of numbers in a side panel, `label` on the left and `value` on
+--- the right (wrapped when long), from y; returns the y under it.
+function Screen.statRow(x, y, w, label, value)
+  local font = UI.fonts.small
+  love.graphics.setFont(font)
+  local vw = w - font:getWidth(label) - 12
+  local _, parts = font:getWrap(value, vw)
+  local rh = math.max(1, #parts) * font:getHeight() + ROW_H - font:getHeight()
+  love.graphics.setColor(1, 1, 1, 0.04)
+  love.graphics.rectangle("fill", x - 4, y - 1, w + 8, rh - 2, 3)
+  love.graphics.setColor(0.7, 0.7, 0.76)
+  love.graphics.print(label, x, y + 1)
+  love.graphics.setColor(0.95, 0.95, 1)
+  love.graphics.printf(value, x + w - vw, y + 1, vw, "right")
+  return y + rh
+end
+
+--- The side panel's big button: gold while it can be pressed (`can`),
+--- lit under the mouse (`over`); red when it can't, grey when that is no
+--- fault of yours (`idle`: it is already done).
+function Screen.button(b, text, can, over, idle)
+  if idle then
+    love.graphics.setColor(1, 1, 1, 0.06)
+  elseif can then
+    love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], over and 0.4 or 0.25)
+  else
+    love.graphics.setColor(1, 0.45, 0.4, 0.15)
+  end
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setColor(idle and { 1, 1, 1, 0.3 } or can and GOLD or { 1, 0.45, 0.4, 0.7 })
+  love.graphics.setLineWidth(over and can and 2 or 1)
+  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
+  love.graphics.printf(text, b.x, b.y + b.h / 2 - UI.fonts.body:getHeight() / 2, b.w, "center")
+end
+
+--- The side panel's box, and a line in the middle of it while nothing is picked.
+function Screen.detailBox(d, empty)
+  love.graphics.setColor(1, 1, 1, 0.05)
+  love.graphics.rectangle("fill", d.x, d.y, d.w, d.h, 8)
+  love.graphics.setColor(1, 1, 1, 0.14)
+  love.graphics.rectangle("line", d.x, d.y, d.w, d.h, 8)
+  love.graphics.setFont(UI.fonts.small)
+  if empty then
+    love.graphics.setColor(0.7, 0.7, 0.75)
+    love.graphics.printf(empty, d.x + 20, d.y + d.h / 2 - 20, d.w - 40, "center")
+  end
+end
+
+--- The game dimmed, the panel `p` over it, `title` across the top, `note`
+--- on the left of the title strip and my wallet on the right.
+function Screen.chrome(p, title, note, purse)
+  local w, h = love.graphics.getDimensions()
+  love.graphics.setColor(0, 0, 0, 0.45)
+  love.graphics.rectangle("fill", 0, 0, w, h)
+  love.graphics.setColor(0.10, 0.10, 0.13, 0.96)
+  love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 10)
+  love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.8)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", p.x, p.y, p.w, p.h, 10)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(UI.fonts.heading)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.printf(title, p.x, p.y + 12, p.w, "center")
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(GOLD)
+  love.graphics.printf("You have " .. amount(purse), p.x, p.y + 20, p.w - Screen.pad, "right")
+  if note then
+    love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
+    love.graphics.print(note, p.x + Screen.pad, p.y + 20)
+  end
 end
 
 --- The numbers for `kind` in the side panel: { label, value } rows.
@@ -228,15 +311,8 @@ end
 --- numbers, what it makes and the Build button), or how to fill it.
 local function drawDetail(L, picked, purse, mx, my, time)
   local d = L.detail
-  love.graphics.setColor(1, 1, 1, 0.05)
-  love.graphics.rectangle("fill", d.x, d.y, d.w, d.h, 8)
-  love.graphics.setColor(1, 1, 1, 0.14)
-  love.graphics.rectangle("line", d.x, d.y, d.w, d.h, 8)
-  love.graphics.setFont(UI.fonts.small)
+  Screen.detailBox(d, not picked and "Click a building to see what it does, then build it here.")
   if not picked then
-    love.graphics.setColor(0.7, 0.7, 0.75)
-    love.graphics.printf("Click a building to see what it does, then build it here.", d.x + 20,
-      d.y + d.h / 2 - 20, d.w - 40, "center")
     return
   end
   local x, w = d.x + 14, d.w - 28
@@ -252,19 +328,8 @@ local function drawDetail(L, picked, purse, mx, my, time)
     love.graphics.setColor(0.88, 0.88, 0.92)
     y = para(picked.blurb, x, y, w) + 8
   end
-  local font = UI.fonts.small
   for _, row in ipairs(statRows(picked)) do
-    local label, value = row[1], row[2]
-    local vw = w - font:getWidth(label) - 12
-    local _, parts = font:getWrap(value, vw)
-    local rh = math.max(1, #parts) * font:getHeight() + ROW_H - font:getHeight()
-    love.graphics.setColor(1, 1, 1, 0.04)
-    love.graphics.rectangle("fill", x - 4, y - 1, w + 8, rh - 2, 3)
-    love.graphics.setColor(0.7, 0.7, 0.76)
-    love.graphics.print(label, x, y + 1)
-    love.graphics.setColor(0.95, 0.95, 1)
-    love.graphics.printf(value, x + w - vw, y + 1, vw, "right")
-    y = y + rh
+    y = Screen.statRow(x, y, w, row[1], row[2])
   end
 
   -- What it makes, as a row of pictures that wraps; as many as fit above the button.
@@ -284,28 +349,12 @@ local function drawDetail(L, picked, purse, mx, my, time)
       local cx, cy = x + col * ICON + ICON / 2, y + row * ICON + ICON / 2
       love.graphics.setColor(1, 1, 1, 0.05)
       love.graphics.rectangle("fill", cx - ICON / 2 + 1, cy - ICON / 2 + 1, ICON - 2, ICON - 2, 4)
-      productIcon(item, cx, cy)
+      Screen.productIcon(item, cx, cy)
     end
   end
 
   -- The Build button: its price on it, gold when the wallet covers it.
-  local b = L.build
-  local can = picked.cost <= purse
-  local over = inside(b, mx, my)
-  if can then
-    love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], over and 0.4 or 0.25)
-  else
-    love.graphics.setColor(1, 0.45, 0.4, 0.15)
-  end
-  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setColor(can and GOLD or { 1, 0.45, 0.4, 0.7 })
-  love.graphics.setLineWidth(over and can and 2 or 1)
-  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setLineWidth(1)
-  love.graphics.setFont(UI.fonts.body)
-  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
-  love.graphics.printf("BUILD   " .. amount(picked.cost), b.x, b.y + b.h / 2 - UI.fonts.body:getHeight() / 2,
-    b.w, "center")
+  Screen.button(L.build, "BUILD   " .. amount(picked.cost), picked.cost <= purse, inside(L.build, mx, my))
 end
 
 --- The whole screen. `picked` is the kind in the side panel, `purse` my
@@ -313,25 +362,7 @@ end
 function Screen.draw(picked, purse, mx, my, time)
   local L = Screen.layout(picked)
   local p = L.panel
-  local w, h = love.graphics.getDimensions()
-
-  love.graphics.setColor(0, 0, 0, 0.45)
-  love.graphics.rectangle("fill", 0, 0, w, h)
-  love.graphics.setColor(0.10, 0.10, 0.13, 0.96)
-  love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 10)
-  love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.8)
-  love.graphics.setLineWidth(2)
-  love.graphics.rectangle("line", p.x, p.y, p.w, p.h, 10)
-  love.graphics.setLineWidth(1)
-
-  love.graphics.setFont(UI.fonts.heading)
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.printf("BUILD", p.x, p.y + 12, p.w, "center")
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(GOLD)
-  love.graphics.printf("You have " .. amount(purse), p.x, p.y + 20, p.w - Screen.pad, "right")
-  love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
-  love.graphics.print("Pick a building for your plot", p.x + Screen.pad, p.y + 20)
+  Screen.chrome(p, "BUILD", "Pick a building for your plot", purse)
 
   for i, r in ipairs(L.cards) do
     drawCard(r, i, purse, inside(r, mx, my) or r.kind == picked, time)

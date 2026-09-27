@@ -23,11 +23,11 @@
 --                    buying one puts it on the road in front of the factory
 --                    as yours (`serverDeliver`, answered by vehicles).
 --
--- A building with more than two products picks one on its own page: flick
--- through them (a car shows its picture and stats) and pick one. Each
--- product keeps the selling price its owner last set for it. Switching
--- throws away whatever it had made of the one before, so there is no
--- collecting it first.
+-- A building with more than two products picks one on its own screen
+-- (product-screen.lua): a card per product, and a car shows its picture and
+-- stats. Each product keeps the selling price its owner last set for it.
+-- Switching throws away whatever it had made of the one before, so there
+-- is no collecting it first.
 --
 -- A factory whose goods can be carried (all but the vehicle factory) can be
 -- set to sell to the shop: its owner's delivery drivers then collect what it
@@ -126,6 +126,7 @@ local Car = require("src.car")
 local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
 local BuildScreen = require("src.features.buildings.build-screen")
+local ProductScreen = require("src.features.buildings.product-screen")
 local Collision = require("src.features.city-map.collision")
 local Layout = require("src.features.city-map.layout")
 
@@ -451,9 +452,28 @@ local function building(self, client)
     and not self.buildings[herePad.id]
 end
 
---- The `pointerTaken` convention: the mouse is ours while the build screen is up.
+--- The building of mine whose product screen is up, and its kind: the menu
+--- open on its square at the "product" page. Nil otherwise.
+local function choosing(self, client)
+  local b = self.menu and self.page == "product" and herePad and self.buildings[herePad.id]
+  local kind = b and Kinds.byKey[b.kind]
+  if kind and kind.products and b.owner == client.myId and not ruined(b) then
+    return b, kind
+  end
+end
+
+-- The mouse button that clicked on one of our screens, until it is let go.
+-- The click can take the screen down (Make, Build) before weapons hears
+-- of it; the mouse stays ours until then, so that click fires nothing.
+local heldClick = nil
+
+--- The `pointerTaken` convention: the mouse is ours while the build or product
+--- screen is up, and while the button that clicked on one is still held.
 function Buildings:pointerTaken(client)
-  return building(self, client)
+  if heldClick and not love.mouse.isDown(heldClick) then
+    heldClick = nil
+  end
+  return heldClick ~= nil or building(self, client) or choosing(self, client) ~= nil
 end
 
 --- The `actionTaken` convention: the action key is ours while I stand on
@@ -801,14 +821,38 @@ end
 
 --- A click on the build screen: a card goes into the side panel, its Build button builds it.
 function Buildings:mousepressed(x, y, button, client)
-  if button ~= 1 or not building(self, client) then
+  if button ~= 1 then
+    return
+  end
+  local b, kind = choosing(self, client)
+  if b or building(self, client) then
+    heldClick = button
+  end
+  if b then
+    -- The product screen: Back, a card into the side panel, or Make.
+    local L = ProductScreen.layout(kind, self.pick)
+    if BuildScreen.inside(L.back, x, y) then
+      self.page = nil
+    elseif L.make and BuildScreen.inside(L.make, x, y) and self.pick ~= b.product then
+      send(client, "BLD_PRODUCT", herePad.id, self.pick)
+      self.page = nil
+    else
+      for _, r in ipairs(L.cards) do
+        if BuildScreen.inside(r, x, y) then
+          self.pick = r.index
+        end
+      end
+    end
+    return
+  end
+  if not building(self, client) then
     return
   end
   local L = BuildScreen.layout(self.buildPick)
   if L.build and BuildScreen.inside(L.build, x, y) then
-    local kind = self.buildPick
-    if affordable(client, kind.cost) then
-      send(client, "BLD_BUILD", herePad.id, kind.key)
+    local pick = self.buildPick
+    if affordable(client, pick.cost) then
+      send(client, "BLD_BUILD", herePad.id, pick.key)
     end
     return
   end
@@ -1009,7 +1053,7 @@ local function drawMenu(self, client)
   end
   -- A car factory shows the car it is making: that is what you buy.
   local vehicles = Features.byName.vehicles
-  local shown = kind and (self.page == "product" and self.pick or b.product)
+  local shown = kind and b.product
   local card = shown and vehicles and vehicles.cardHeight and productOf(kind, shown)
   local cardH = card and vehicles:cardHeight(card, pw) or 0
   if cardH == 0 then
@@ -1110,22 +1154,28 @@ local function drawUsableHud(self, u, index)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Buildings:drawHUD(client)
+--- A line of text across the screen above the HUD circles, in `color`.
+local function prompt(text, color)
   local w, h = love.graphics.getDimensions()
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(text, 1, h - 129, w, "center")
+  love.graphics.setColor(color)
+  love.graphics.printf(text, 0, h - 130, w, "center")
+end
+
+--- The quick slots, and what the square I'm on offers (or the last notice)
+--- while the menu is shut; with it open, drawScreen has the notice.
+function Buildings:drawHUD(client)
   local re = realEstate()
   local plot = herePad
   local owner = plot and re and re.owners[plot.id]
-  local screen = building(self, client)
-  if screen then
-    local money = Features.byName.money
-    local purse = money and money.mine and money:mine(client) or 0
-    local mx, my = love.mouse.getPosition()
-    BuildScreen.draw(self.buildPick, purse, mx, my, time)
-  elseif self.menu and owner then
-    drawMenu(self, client)
-  end
   for i, u in ipairs(self.usables) do
     drawUsableHud(self, u, i)
+  end
+  if self.menu then
+    love.graphics.setColor(1, 1, 1)
+    return
   end
 
   local text, color
@@ -1167,13 +1217,34 @@ function Buildings:drawHUD(client)
     text, color = "Your plot. Build from the square on the sidewalk.", { 0.6, 0.9, 0.6 }
   end
   if text then
-    love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.printf(text, 1, h - 129, w, "center")
-    love.graphics.setColor(color)
-    love.graphics.printf(text, 0, h - 130, w, "center")
+    prompt(text, color)
   end
-  -- The cursor last of all, over the build screen.
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The open menu (or the build or product screen) goes over the whole HUD,
+--- the minimap and the gun bar included, with any notice and the cursor on top.
+function Buildings:drawScreen(client)
+  local re = realEstate()
+  local owner = herePad and re and re.owners[herePad.id]
+  if not (self.menu and owner) then
+    return
+  end
+  local money = Features.byName.money
+  local purse = money and money.mine and money:mine(client) or 0
+  local mx, my = love.mouse.getPosition()
+  local chosen, chosenKind = choosing(self, client)
+  local screen = chosen ~= nil or building(self, client)
+  if chosen then
+    ProductScreen.draw(chosenKind, chosen, self.pick, purse, mx, my)
+  elseif screen then
+    BuildScreen.draw(self.buildPick, purse, mx, my, time)
+  else
+    drawMenu(self, client)
+  end
+  if noticeTimer > 0 then
+    prompt(notice, noticeGood and { 0.5, 1, 0.6 } or { 1, 0.45, 0.4 })
+  end
   local vision = Features.byName.vision
   if screen and vision and vision.drawCursor then
     vision:drawCursor(client)
