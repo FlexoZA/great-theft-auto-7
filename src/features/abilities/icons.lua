@@ -219,7 +219,57 @@ local function overclock(c, a)
   love.graphics.setLineWidth(1)
 end
 
+-- The heat ray: the tripod's hooded lens, glowing, and its ray going off
+-- to the side.
+local function heatray(c, a)
+  color(c, a, 0.45)
+  love.graphics.polygon("fill", -14, -6, -6, -13, 4, -13, 8, -4, 8, 4, 4, 13, -6, 13, -14, 6)
+  color(c, a * 0.35)
+  love.graphics.circle("fill", 0, 0, 10, 20)
+  color(WHITE, a)
+  love.graphics.circle("fill", 0, 0, 4.5, 16)
+  color(c, a)
+  love.graphics.setLineWidth(3)
+  love.graphics.line(4, 0, 16, 0)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.circle("line", 0, 0, 7, 16)
+  love.graphics.setLineWidth(1)
+end
+
+-- Its beam: the ray going straight into a burning spot.
+local function heatrayBeam(c, a)
+  color(c, a * 0.4)
+  love.graphics.setLineWidth(7)
+  love.graphics.line(-14, 10, 8, -6)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2.5)
+  love.graphics.line(-14, 10, 8, -6)
+  color({ 1, 0.6, 0.2 }, a)
+  love.graphics.circle("fill", 9, -7, 4.5, 12)
+  color(WHITE, a)
+  love.graphics.circle("fill", 9, -7, 2, 8)
+  love.graphics.setLineWidth(1)
+end
+
+-- Its sweep: an arc burned across the ground, the ray on its far end.
+local function heatraySweep(c, a)
+  color({ 1, 0.55, 0.2 }, a * 0.8)
+  love.graphics.setLineWidth(5)
+  love.graphics.arc("line", "open", -10, 12, 22, -1.45, -0.2, 16)
+  color(c, a * 0.4)
+  love.graphics.setLineWidth(6)
+  love.graphics.line(-10, 12, 11, 8)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(-10, 12, 11, 8)
+  love.graphics.polygon("fill", 12, 2, 16, 9, 8, 9)
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
+  heatray = heatray,
+  ["heatray-beam"] = heatrayBeam,
+  ["heatray-sweep"] = heatraySweep,
   freeze = freeze,
   regen = regen,
   secondwind = secondwind,
@@ -234,10 +284,11 @@ local DRAW = {
 }
 
 --- Draw the icon for ability `key` centred on (cx, cy) inside a circle of
---- radius `r`, `alpha` (1) opaque.
+--- radius `r`, `alpha` (1) opaque. "<ability>-<mode>" ("heatray-sweep") is
+--- the picture of one of its modes.
 function Icons.draw(key, cx, cy, r, alpha)
   alpha = alpha or 1
-  local ability = Kinds.byKey[key]
+  local ability = Kinds.byKey[key] or Kinds.byKey[key:match("^(.-)%-") or ""]
   local c = ability and ability.color or { 0.8, 0.8, 0.85 }
   love.graphics.push()
   love.graphics.translate(cx, cy)

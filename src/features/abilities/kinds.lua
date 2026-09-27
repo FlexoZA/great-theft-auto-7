@@ -11,7 +11,9 @@
 -- numbers a better tier improves, in order (tiers/init.lua); `serverCast`
 -- and `serverTick` get the ability in the caster's tier as their last
 -- argument and should read their numbers from it, and a drawing from
--- `e.ability`. `tierLabels` (optional) renames a stat on the cards where the
+-- `e.ability`. `modes` (optional) is a list of { key, title } it can be
+-- switched between (the heat ray's beam and sweep; see abilities/init.lua).
+-- `tierLabels` (optional) renames a stat on the cards where the
 -- usual name won't do (second wind's `rate` is recovery, not healing).
 
 local Kinds = {
@@ -27,6 +29,7 @@ local Kinds = {
     require("src.features.abilities.bigleap"),
     require("src.features.abilities.chicken"),
     require("src.features.abilities.overclock"),
+    require("src.features.abilities.heatray"),
   },
   byKey = {},
 }
