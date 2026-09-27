@@ -24,7 +24,14 @@
 --
 -- A building with more than two products picks one on its own page: flick
 -- through them (a car shows its picture and stats) and pick one. Each
--- product keeps the selling price its owner last set for it.
+-- product keeps the selling price its owner last set for it. Switching
+-- throws away whatever it had made of the one before, so there is no
+-- collecting it first.
+--
+-- A factory whose goods can be carried (all but the vehicle factory) can be
+-- set to sell to the shop: its owner's delivery drivers then collect what it
+-- makes, drive it to the shop and sell it there for them, for what it is
+-- worth (Kinds.worth: the harder to make, the more it fetches).
 --
 -- Buildings are solid: cars bounce off them, and walkers, pedestrians,
 -- officers and bullets stop at their walls (`blocksPoint`). The parking lot
@@ -84,6 +91,7 @@
 --   client -> server  BLD_COLLECT <plotId>
 --   client -> server  BLD_LOAD    <plotId>
 --   client -> server  BLD_PUBLIC  <plotId>            (toggle)
+--   client -> server  BLD_TOSHOP  <plotId>            (toggle: drivers sell what it makes to the shop)
 --   client -> server  BLD_PRODUCT <plotId> [index]    (that product, or the next one)
 --   client -> server  BLD_PRICE   <plotId> <delta>    (+-1, +-10 or +-100)
 --   client -> server  BLD_BUY     <plotId>
@@ -100,6 +108,7 @@
 --                                 <progress> <running> <hopper, one per material>...
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
 --                                 <hp>                          (0 = in ruins)
+--                                 <toShop>                      (1 = drivers sell what it makes to the shop)
 --   server -> all     BLD_HP      <plotId> <hp>       (it was hit and still stands)
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
@@ -184,7 +193,6 @@ local REASONS = {
   soldout = "Sold out. Come back later.",
   nomaterials = "You aren't carrying anything it runs on.",
   hopperfull = "Its hopper is full.",
-  stocked = "Collect what it made before switching.",
   invfull = "Your inventory is full.",
   notbuying = "It doesn't buy that.",
   nothing = "You aren't carrying any of it.",
@@ -588,13 +596,26 @@ function Buildings:menuRows(client)
       end)
     elseif #kind.products > 1 then
       local nextItem = productOf(kind, b.product % #kind.products + 1)
-      row(("Switch to making %s"):format(Kinds.label(nextItem)), function()
+      local label = ("Switch to making %s"):format(Kinds.label(nextItem))
+      if b.output > 0 then
+        label = ("%s  (scraps %d made)"):format(label, math.floor(b.output))
+      end
+      row(label, function()
         send(client, "BLD_PRODUCT", plot.id)
       end)
     end
     row(b.public and "Make it private" or "Open it to the public", function()
       send(client, "BLD_PUBLIC", plot.id)
     end)
+    if Kinds.sellsToShop(kind) then
+      local r = recipeOf(b, kind)
+      local worth = amount(math.max(1, math.floor((Kinds.worth(item) or 0) * r.unit + 0.5)))
+      local per = r.unit == 1 and "each" or ("per %d"):format(r.unit)
+      local label = ("Sell to the shop  (drivers get %s %s)"):format(worth, per)
+      row(b.toShop and "Stop selling to the shop" or label, function()
+        send(client, "BLD_TOSHOP", plot.id)
+      end)
+    end
     row("Prices...", function()
       self.page = "prices"
     end)
@@ -676,8 +697,8 @@ function Buildings:sellRows(client, plot, b)
 end
 
 --- Pick what the building makes: flick through its products, the one on
---- show drawn on the menu's card, and make it. Refused while it holds stock
---- of the one before, as switching over one at a time is.
+--- show drawn on the menu's card, and make it. Whatever it made of the one
+--- before is thrown away, and the row says how much.
 function Buildings:productRows(client, plot, b, kind)
   local n = #kind.products
   local pick = self.pick
@@ -691,6 +712,8 @@ function Buildings:productRows(client, plot, b, kind)
   local make = ("Make %s"):format(Kinds.name(item, 1))
   if pick == b.product then
     make = ("Making %s now"):format(Kinds.name(item, 1))
+  elseif b.output > 0 then
+    make = ("%s  (scraps %d made)"):format(make, math.floor(b.output))
   elseif price then
     make = ("%s  (sells from %s)"):format(make, amount(price))
   end
@@ -867,13 +890,19 @@ local function infoLines(client, b, kind, plot)
   if b.owner == client.myId and next(kind.hopper) then
     local hop = {}
     for _, m in ipairs(Kinds.hopperList(kind)) do
-      hop[#hop + 1] = ("%s %d/%d"):format(m, b.hopper[m] or 0, Kinds.HOPPER)
+      -- Only what the product in hand runs on; the rest is kept for another product.
+      if r.inputs[m] or (b.hopper[m] or 0) > 0 then
+        hop[#hop + 1] = ("%s %d/%d%s"):format(m, b.hopper[m] or 0, Kinds.HOPPER, r.inputs[m] and "" or " (unused)")
+      end
     end
     lines[#lines + 1] = "Hopper: " .. table.concat(hop, ", ")
   end
   if not kind.private then
     local per = r.unit == 1 and Kinds.label(item, 1):gsub("^1 ", "") or Kinds.label(item, r.unit)
     lines[#lines + 1] = ("%s, %s per %s"):format(b.public and "Public" or "Private", amount(b.price), per)
+  end
+  if b.toShop then
+    lines[#lines + 1] = "Selling to the shop: your delivery drivers collect it"
   end
   local pays = {}
   for _, m in ipairs(Kinds.hopperList(kind)) do
@@ -1158,6 +1187,7 @@ Buildings.clientMessages = {
       hopper = hopper,
       pays = pays,
       hp = hp,
+      toShop = args[11 + 2 * n] == "1",
     }
     if before and before.hp > 0 and hp <= 0 then
       collapsed(client, id, Buildings.buildings[id], kind)
@@ -1273,6 +1303,7 @@ local function stateMessage(id, b)
     fields[#fields + 1] = b.pays[m] or 0
   end
   fields[#fields + 1] = b.hp
+  fields[#fields + 1] = b.toShop and 1 or 0
   return Protocol.encode("BLD_STATE", unpack(fields))
 end
 
@@ -1625,6 +1656,17 @@ Buildings.serverMessages = {
     end
   end),
 
+  BLD_TOSHOP = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    if Kinds.sellsToShop(Kinds.byKey[b.kind]) then
+      b.toShop = not b.toShop or nil
+      publish(server, id, b)
+    end
+  end),
+
   BLD_PRODUCT = refusing(function(server, player, args)
     local b, reason, id = ownBuilding(server, player, args)
     if not b then
@@ -1635,9 +1677,8 @@ Buildings.serverMessages = {
     local index = args[2] and tonumber(args[2]) or b.product % math.max(1, n) + 1
     if n < 2 or index ~= math.floor(index) or index < 1 or index > n or index == b.product then
       return
-    elseif b.output > 0 then
-      return "stocked"
     end
+    b.output = 0 -- what it made of the one before is scrapped
     local before = recipeOf(b, kind).price
     b.prices = b.prices or {}
     b.prices[b.product] = b.price
@@ -1926,6 +1967,7 @@ function Buildings:serverSaveWorld(server)
         output = b.output,
         hopper = b.hopper,
         hp = b.hp,
+        toShop = b.toShop,
       }
     end
   end
@@ -1989,6 +2031,7 @@ local function buildingFrom(rec, kind)
     progress = 0,
     hopper = materialsFrom(rec.hopper, kind, Kinds.HOPPER),
     hp = math.floor(bounded(rec.hp, 0, kind.hp, kind.hp)),
+    toShop = rec.toShop == true and Kinds.sellsToShop(kind) or nil,
   }
   if not kind.rate then
     b.output = math.floor(b.output)
@@ -2239,6 +2282,59 @@ function Buildings:serverStep(server, dt)
     end
   end
   collide(server, dt)
+end
+
+-- Freight -------------------------------------------------------------------
+-- For a feature that moves materials between buildings without a player
+-- carrying them (delivery's hired drivers). Host only.
+
+--- The host's record of the building on plot `id` (kind, owner, product,
+--- output, hopper, hp), or nil. Read it; change it through the calls below.
+function Buildings:serverBuilding(id)
+  return sv and sv.buildings[id]
+end
+
+--- Take up to `n` of what the building on plot `id` made, when that is a
+--- raw material (a quarry's or an oil well's) or it is set to sell to the
+--- shop (`toShop`). Returns the item and how many were taken (0 when
+--- nothing was).
+function Buildings:serverTakeOutput(server, id, n)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  local item = kind and productOf(kind, b.product)
+  if not (item and (Kinds.isMaterial(item) or (b.toShop and Kinds.worth(item)))) or ruined(b) then
+    return item, 0
+  end
+  local taken = math.max(0, math.min(math.floor(n), math.floor(b.output)))
+  if taken > 0 then
+    b.output = b.output - taken
+    publish(server, id, b)
+  end
+  return item, taken
+end
+
+--- How many more of material `item` the hopper on plot `id` takes: 0 for
+--- a ruin or a building that doesn't run on it.
+function Buildings:serverHopperRoom(id, item)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  if not (kind and kind.hopper and kind.hopper[item]) or ruined(b) then
+    return 0
+  end
+  return math.max(0, Kinds.HOPPER - (b.hopper[item] or 0))
+end
+
+--- Put up to `n` of material `item` into the hopper on plot `id`, as much
+--- as fits. Returns how many went in.
+function Buildings:serverFillHopper(server, id, item, n)
+  local moved = math.min(math.floor(n), self:serverHopperRoom(id, item))
+  if moved < 1 then
+    return 0
+  end
+  local b = sv.buildings[id]
+  b.hopper[item] = (b.hopper[item] or 0) + moved
+  publish(server, id, b)
+  return moved
 end
 
 --- For tests.

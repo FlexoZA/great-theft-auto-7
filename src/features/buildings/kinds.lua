@@ -27,7 +27,8 @@
 -- Each kind of building:
 --   cost      Fcks to build it on a plot you own
 --   inputs    item -> how many one batch uses up (loaded into its hopper)
---   time      seconds per batch while it has its inputs and room
+--   time      seconds per batch while it has its inputs and room, before
+--             TIME_SCALE (every building works that many times slower)
 --   batch     how many it makes per batch
 --   cap       most it holds before somebody collects or buys
 --   unit      how many a customer buys at once
@@ -65,6 +66,9 @@ Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
 Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cost; less damage, less
+-- Every quarry, oil well and factory takes this many times the `time` its
+-- kind or recipe (or a car model) names for a batch. Kinds.recipe applies it.
+Kinds.TIME_SCALE = 3
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
@@ -197,6 +201,9 @@ function Kinds.recipe(kind, index)
     end
   end
   r.inputs = r.inputs or {}
+  if r.time then
+    r.time = r.time * Kinds.TIME_SCALE
+  end
   if item then
     cache[item] = r
   end
@@ -215,6 +222,72 @@ for i, kind in ipairs(Kinds.list) do
       kind.hopper[item] = true
     end
   end
+end
+
+-- What the shop pays for something a factory made (a delivery driver sells
+-- it there for the factory's owner): what went into one, times WORTH_MARGIN.
+-- A material is worth what the quarry or oil well that makes it starts
+-- selling it for, and each second of making WORTH_TIME, shared out over the
+-- batch. So the harder a thing is to make, the more it fetches: a rocket
+-- launcher more than an uzi, a medkit more than a drink.
+Kinds.WORTH_TIME = 0.25 -- Fcks per second a batch takes
+Kinds.WORTH_MARGIN = 1.5
+
+local worthCache = {}
+
+--- Fcks one `item` made in a factory fetches at the shop (a fraction for a
+--- round of ammo), or nil for a material, a car or anything no factory
+--- makes: those aren't sold there.
+function Kinds.worth(item)
+  if worthCache[item] ~= nil then
+    return worthCache[item] or nil
+  end
+  local worth = false
+  if not (Kinds.isMaterial(item) or Kinds.isVehicle(item)) then
+    for _, kind in ipairs(Kinds.list) do
+      for p, product in ipairs(kind.products or {}) do
+        if product == item and not worth then
+          local r = Kinds.recipe(kind, p)
+          local cost = r.time / Kinds.TIME_SCALE * Kinds.WORTH_TIME -- slower work isn't dearer work
+          for m, n in pairs(r.inputs) do
+            cost = cost + n * (Kinds.materialPrice(m) or 1)
+          end
+          worth = cost / r.batch * Kinds.WORTH_MARGIN
+        end
+      end
+    end
+  end
+  worthCache[item] = worth
+  return worth or nil
+end
+
+--- What the quarry or oil well that makes material `m` starts selling it for.
+function Kinds.materialPrice(m)
+  for _, kind in ipairs(Kinds.list) do
+    if kind.products and not next(kind.inputs or {}) then
+      for p, product in ipairs(kind.products) do
+        if product == m then
+          return Kinds.recipe(kind, p).price
+        end
+      end
+    end
+  end
+  return nil
+end
+
+--- Can a building of `kind` be set to sell to the shop: a factory (it has
+--- a hopper) whose products can be carried there? Cars can't: nobody
+--- carries one.
+function Kinds.sellsToShop(kind)
+  if not (kind.hopper and next(kind.hopper)) then
+    return false
+  end
+  for _, p in ipairs(kind.products or {}) do
+    if Kinds.isVehicle(p) then
+      return false
+    end
+  end
+  return true
 end
 
 --- Fcks to bring a building of `kind` at `hp` back to full.

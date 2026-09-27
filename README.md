@@ -31,6 +31,7 @@ make run        # or: love .
 | Mouse at screen edge | Pan the camera (zooms out as it drifts) |
 | C | Recentre the camera on your car |
 | F1 | Show hitboxes |
+| F2 | List the cheat codes |
 | Tab | Toggle the minimap |
 | B / N | Add / remove an AI bot (host only) |
 | F | Open the job board, at the door of the Jobs building (the gold star on the minimap) |
