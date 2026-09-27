@@ -975,7 +975,7 @@ local function panel(x, y, w, h, title)
   love.graphics.printf(title, x, y + 12, w, "center")
 end
 
---- The panel in the top-right corner (under the connection line) while the menu is open.
+--- The panel in the middle of the screen while the menu is open.
 local function drawMenu(self, client)
   local re = realEstate()
   local plot = herePad
@@ -998,7 +998,7 @@ local function drawMenu(self, client)
     lines[#lines + 1] = owner == client.myId and "Drive over it to collect." or "Nothing to trade here."
   end
 
-  local w = love.graphics.getWidth()
+  local w, h = love.graphics.getDimensions()
   local pw = 380
   -- A long line (a factory that runs on four materials) wraps onto more.
   local font = UI.fonts.small
@@ -1016,7 +1016,7 @@ local function drawMenu(self, client)
     card = nil
   end
   local ph = 64 + wrapped * 20 + cardH + #rows * 30 + 40
-  local px, py = w - pw - 16, 36
+  local px, py = math.floor((w - pw) / 2), math.max(8, math.floor((h - ph) / 2))
   panel(px, py, pw, ph, title)
 
   love.graphics.setFont(font)
