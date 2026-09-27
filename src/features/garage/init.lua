@@ -55,6 +55,7 @@ local Layout = require("src.features.city-map.layout")
 local Catalog = require("src.features.vehicles.catalog")
 local Places = require("src.features.garage.places")
 local Screen = require("src.features.garage.screen")
+local Parts = require("src.features.buildings.render").parts
 
 local Garage = {
   name = "garage",
@@ -435,36 +436,38 @@ function Garage:buildingInfo(client)
   }
 end
 
---- A garage: a flat roof over a row of roll-up doors facing the street.
-function Garage:drawBuilding(_b, _kind, r)
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.rectangle("fill", r.x + 6, r.y + 6, r.w, r.h)
-  love.graphics.setColor(0.42, 0.44, 0.47)
-  love.graphics.rectangle("fill", r.x, r.y, r.w, r.h)
-  love.graphics.setColor(0.52, 0.54, 0.57)
-  love.graphics.rectangle("fill", r.x + 8, r.y + 8, r.w - 16, r.h - 70)
-  love.graphics.setColor(0.36, 0.38, 0.4)
-  for i = 1, 3 do
-    local ly = r.y + 8 + (r.h - 70) * i / 4
-    love.graphics.line(r.x + 14, ly, r.x + r.w - 14, ly)
+--- A garage, in the look of the other buildings (buildings/render.lua): a
+--- grey roof behind its parapet with skylights and air conditioners, the
+--- name on a plate, and a numbered roll-up door per space along the front,
+--- a light over each, on an apron of concrete with oil stains.
+function Garage:drawBuilding(_b, _kind, r, t)
+  local P = Parts
+  t = t or time
+  local apron = math.min(46, r.h * 0.3)
+  P.slabs(r.x, r.y, r.w, r.h, { 0.56, 0.56, 0.54 }, 32)
+  for i = 1, 4 do
+    love.graphics.setColor(0.1, 0.09, 0.1, 0.35)
+    love.graphics.ellipse("fill", r.x + r.w * (0.15 + 0.22 * i - 0.2), r.y + r.h - apron / 2 + (i % 2) * 6, 9, 6)
   end
-  -- The doors along the bottom edge.
-  local n = self.capacity
-  local dw = (r.w - 16 - (n - 1) * 6) / n
-  for i = 0, n - 1 do
-    local dx = r.x + 8 + i * (dw + 6)
-    love.graphics.setColor(0.72, 0.62, 0.3)
-    love.graphics.rectangle("fill", dx, r.y + r.h - 54, dw, 46)
-    love.graphics.setColor(0.55, 0.47, 0.22)
-    for j = 1, 4 do
-      love.graphics.line(dx + 2, r.y + r.h - 54 + j * 9, dx + dw - 2, r.y + r.h - 54 + j * 9)
-    end
+  local hx, hy, hw, hh = r.x + 6, r.y + 6, r.w - 12, r.h - apron - 6
+  P.roof(hx, hy, hw, hh, { 0.52, 0.54, 0.57 })
+  local n = math.max(2, math.floor((hw - 100) / 50))
+  P.skylights(hx + 50, hy + 14, hw - 100, 14, n)
+  P.aircon(hx + 24, hy + 24, t)
+  P.aircon(hx + hw - 24, hy + 24, t * 0.8 + 1)
+  P.namePlate(hx + hw / 2, hy + hh * 0.5, "GARAGE", { 1, 0.85, 0.3 }, UI.fonts.body)
+
+  -- The doors along the front, one per space, each with its number.
+  local front = hy + hh
+  local doors = self.capacity
+  local dw = (hw - 16 - (doors - 1) * 6) / doors
+  love.graphics.setFont(UI.fonts.small)
+  for i = 0, doors - 1 do
+    local dx = hx + 8 + i * (dw + 6)
+    P.rollerDoor(dx, front, dw, 0, math.sin(t * 1.5 + i) > -0.2)
+    love.graphics.setColor(1, 1, 1, 0.55)
+    love.graphics.printf(tostring(i + 1), dx, front + 10, dw, "center")
   end
-  love.graphics.setFont(UI.fonts.body)
-  love.graphics.setColor(0, 0, 0, 0.5)
-  love.graphics.printf("GARAGE", r.x + 1, r.y + (r.h - 70) / 2 - 2, r.w, "center")
-  love.graphics.setColor(1, 1, 1, 0.9)
-  love.graphics.printf("GARAGE", r.x, r.y + (r.h - 70) / 2 - 3, r.w, "center")
   love.graphics.setColor(1, 1, 1)
 end
 
