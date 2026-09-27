@@ -458,12 +458,26 @@ couple of small conventions rather than requiring each other:
   `range` px away towards the cursor, facing away from the caster:
   `serverCast` returns its facing as a second value (and, third and
   fourth, where it settled, if it moved: the nest steps back out of
-  walls) and `ABL_FIRED` carries them, `drawAim(ox, oy, x, y, time)` draws the arrow while it is
-  selected, and an ability's `serverStep(server, dt, abilities)` runs
+  walls) and `ABL_FIRED` carries them, `drawAim(ox, oy, x, y, time, mode)` draws the arrow while it is
+  selected (a point ability may have one too), and an ability's `serverStep(server, dt, abilities)` runs
   whatever it left standing in the world (the nest sprays AK-47 rounds,
   owned by its placer, across its forty-five-degree arc for five
   seconds, sweeping side to side and picking no targets: the rounds hurt
-  whatever they meet; `serverReset()` clears them between games). One
+  whatever they meet; `serverReset()` clears them between games). An
+  ability with `modes` (a list of `{ key, title }`) does more than one
+  thing: a tap of its key works as usual in the mode it is on, and holding
+  the key for `modeHold` (0.3 s) brings its modes up as buttons over its
+  ring; pointing at one and letting go (or clicking it) switches to it.
+  The mode goes up with `ABL_CAST <key> <x> <y> <mode>` and out with
+  `ABL_FIRED` (after the angle, `-` for none); `serverCast` gets it as
+  its last argument and effects see it as `e.mode`. The first is the heat
+  ray (`heatray.lua`, the tripod's drop, never sold): beam burns the spot
+  you pick, within 450 px, for 1.2 s (100 to someone standing in it);
+  sweep drags the ray across an arc 200 px out in front of you (about 75
+  to whatever it crosses). Either hurts everything but you: players and
+  bots on foot, cars but your own, and whatever answers `serverShotAt`
+  (pedestrians, officers, bosses). Its icons are `heatray`,
+  `heatray-beam` and `heatray-sweep` in `icons.lua`. One
   with `aim = "self"` (`heal.lua`) is cast where the caster stands by a
   press of its key: a circle that follows them for a few seconds and
   heals every player inside it through `weapons:serverHeal`; the panic
@@ -756,7 +770,35 @@ example with a menu; real-estate is the one with a place to stand.
   it off for a few seconds. Down, he spills koins and drops
   "ability-secondwind" in a tier rolled from `dropTiers` (50% common, 30%
   uncommon, 17% rare, 3% legendary). Messages: `EVT_STOP` up (the menu
-  calling one off); the Runner's `ERN_*` down.
+  calling one off); the Runner's `ERN_*` down. The third is the Tripod
+  (`events/tripod.lua`, drawn and voiced by `src/features/tripod`). It
+  starts as a storm: for 8 s the sky goes dark and lightning comes down
+  round every player (each bolt marked on the ground for 0.7 s first, a
+  third of them right on a player), 35 to anyone on foot and 45 to a car
+  within 50 px, pedestrians too. In the last second the bolts hammer a
+  crossing away from everyone and a war machine on three legs rises there,
+  sounds its horn and strides the street grid leaving red weed. With a
+  player within 900 px it steps straight over the city to stand off 240 px
+  from them. Its heat ray warms up on the nearest player in range for 2 s,
+  a ring closing on them, then locks where they were for the last 0.35 s
+  ("DODGE!") and burns that spot for 1.4 s: 120 a second on foot, 160 to a
+  car, pedestrians burned up, and anyone it kills left as ash (bots on
+  foot too). Every 8 s or so, with somebody (a player or a bot) out in
+  front, it may sweep instead: it plants its legs, lights a red arc on the
+  ground 260 px out and about 115 degrees wide for 1 s ("GET OFF THE RED
+  LINE!"), then drags the beam across it in 1.8 s, burning everything in
+  the band as it passes (about 120 on foot, 160 to a car, bots' cars too,
+  and the pedestrians). A player on
+  foot who gets under it is lashed at and, still there 0.7 s later,
+  snatched into its cage: held still (`serverHeld` / `held`, passed on by
+  the events feature), 20 a second, until it has taken 8% of its health
+  since the grab or 7 s pass. Only its head can be shot; it has breath
+  like any boss (striding after somebody spends it, the ray and a grab
+  cost some). Down, it crashes (the tripod feature keeps the wreck and the
+  ash for 90 s), spills koins and drops its heat ray, the ability
+  "ability-heatray", in a tier rolled from `dropTiers` (45% common, 30% uncommon, 20% rare, 5%
+  legendary). Messages: the Tripod's `ETR_STATE`, `ETR_ASH` and
+  `ETR_DOWN` down, and the storm's `ETR_BOLT` and `ETR_RISE`. Tuning is at the top of `events/tripod.lua`.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends

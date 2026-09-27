@@ -12,6 +12,14 @@
 -- it where you stand. One with `onFoot = true` (leap) only works out of a
 -- car: behind the wheel its key does nothing and the host refuses it.
 --
+-- An ability with `modes` (heatray.lua: beam and sweep) does more than one
+-- thing. A tap of its key works as usual, in the mode it is on; hold the
+-- key for `modeHold` seconds and its modes come up as buttons over its
+-- ring: point at one and let go of the key (or click it) to switch. The
+-- mode it is on is named under its ring, goes up with the cast (ABL_CAST)
+-- and out with ABL_FIRED, and the ability's `serverCast` gets it as its
+-- last argument, its `drawAim` and effects as `mode` / `e.mode`.
+--
 -- An ability may fly something about (leap.lua flies its caster to the
 -- landing spot): its `onFired(e, client)` hears the cast, its
 -- `updateEffect(e, client, camera)` runs every frame of the effect, and
@@ -69,7 +77,7 @@
 -- feature can hold a player through Features.byName.abilities:serverHold.
 --
 -- Messages
---   client -> server  ABL_CAST  <ability> <x> <y>
+--   client -> server  ABL_CAST  <ability> <x> <y> [<mode>]
 --   client -> server  ABL_EQUIP <ability>[@<tier>] <slot>  (the ability item I carry, into that slot)
 --   client -> server  ABL_UNEQUIP <slot>               (the ability in that slot, into my bag)
 --   client -> server  ABL_MOVE <slot> <slot>           (swap two slots)
@@ -77,8 +85,8 @@
 --   server -> player  ABL_PASSIVE <ability> <phase> <seconds>  (the passive in your slot went idle,
 --                                                             active or into cooldown, for that long)
 --   server -> player  ABL_REACH <ability> <0|1>       (its range and cooldown are lifted for you, or back to normal)
---   server -> all     ABL_FIRED <by> <ability[@tier]> <x> <y> <seconds> <angle> [<heldId>]...
---                                              (angle: which way it faces)
+--   server -> all     ABL_FIRED <by> <ability[@tier]> <x> <y> <seconds> <angle> <mode> [<heldId>]...
+--                                              (angle: which way it faces; mode "-" for none)
 --   server -> all     ABL_REVEAL <id>                (they fired: their chicken is over)
 
 local Protocol = require("src.net.protocol")
@@ -114,6 +122,9 @@ Abilities.hudIcon = 17 -- radius the ability's icon (icons.lua) fills inside its
 -- A lifted range (a cheat) still stops somewhere: past any screen's edge,
 -- short of a forged cast across the whole world.
 Abilities.liftedRange = 4000
+Abilities.modeHold = 0.3 -- seconds a modal ability's key is held before its modes come up
+Abilities.modeButton = 26 -- radius of a mode's button over the ring
+Abilities.modeRise = 78 -- px above the ring's centre the mode buttons sit
 
 local EMPTY = "-" -- an empty slot on the wire
 
@@ -181,6 +192,9 @@ Abilities.passive = nil -- { key, phase, left, total }: what my passive ability 
 Abilities.effects = {} -- { ability, by, x, y, angle, t, seconds }
 Abilities.heldUntil = {} -- player id -> client time their hold ends
 Abilities.lifted = {} -- ability key -> true while its range and cooldown are lifted for me (ABL_REACH)
+Abilities.modes = {} -- ability key -> index of the mode it is on (the first when absent); kept all session
+Abilities.pressAt = {} -- slot -> when a modal ability's key went down, until it comes up
+Abilities.choosing = nil -- slot whose modes are up to pick from
 
 function Abilities:load()
   for i = 1, self.slotCount do
@@ -207,6 +221,8 @@ function Abilities:enterGame()
   self.effects = {}
   self.heldUntil = {}
   self.lifted = {}
+  self.pressAt = {}
+  self.choosing = nil
 end
 
 function Abilities:exitGame()
@@ -357,26 +373,84 @@ end
 --- The `fireTaken` convention: the fire button is ours while a direction
 --- or point ability is selected, and until it is let go after placing one.
 function Abilities:fireTaken()
-  return self:selecting() or (self.fireSpent == true and Controls.isDown("fire"))
+  return self:selecting() or self.choosing ~= nil or (self.fireSpent == true and Controls.isDown("fire"))
+end
+
+--- The mode `ability` is on for me: { key, title }, or nil for one without modes.
+function Abilities:modeOf(ability)
+  return ability.modes and ability.modes[self.modes[ability.key] or 1] or nil
 end
 
 --- A press of a direction or point ability's key selects it (or puts it
 --- away); a press of a self ability's key casts it on the spot.
+local function press(self, client, i, ability)
+  local free = not self.aiming and not self.cooldowns[ability.key] and client:myPose() ~= nil
+    and usable(client, ability)
+    and not self:held(client, client.myId) and not Features.any("pointerTaken", client)
+  if ability.aim == "self" then
+    if free then
+      self:cast(client, i)
+    end
+  elseif self.aiming == i then
+    self.aiming = nil
+  elseif free then
+    self.aiming = i
+  end
+end
+
+--- The mode buttons over slot `slot`'s ring while they are up: { x, y, r,
+--- index, mode } each, side by side.
+function Abilities:modeButtons(slot)
+  local ability = self:inSlot(slot)
+  if not (ability and ability.modes) then
+    return {}
+  end
+  local w, h = love.graphics.getDimensions()
+  local cx = math.floor(w / 2 - (self.slotCount - 1) * self.hudStep / 2) + (slot - 1) * self.hudStep
+  local cy = h - self.hudBottom - self.modeRise
+  local n, gap = #ability.modes, self.modeButton * 2 + 14
+  local out = {}
+  for i, mode in ipairs(ability.modes) do
+    out[i] = { x = cx + (i - (n + 1) / 2) * gap, y = cy, r = self.modeButton, index = i, mode = mode }
+  end
+  return out
+end
+
+--- The mode button under the mouse while the modes are up, or nil.
+function Abilities:hoveredMode()
+  if not self.choosing then
+    return nil
+  end
+  local mx, my = love.mouse.getPosition()
+  for _, b in ipairs(self:modeButtons(self.choosing)) do
+    if dist2(mx, my, b.x, b.y) <= b.r * b.r then
+      return b
+    end
+  end
+  return nil
+end
+
+--- Put the ability in slot `slot` on the mode button `b` points at (if any)
+--- and take the modes down.
+function Abilities:pickMode(slot, b)
+  local ability = self:inSlot(slot)
+  if ability and b then
+    self.modes[ability.key] = b.index
+  end
+  self.choosing = nil
+end
+
+--- A press of a direction or point ability's key selects it (or puts it
+--- away); a press of a self ability's key casts it on the spot. A modal
+--- one waits for the key to come up: a tap is a press, a hold picks a mode.
 function Abilities:keypressed(key, client)
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
     if ability and (placed(ability) or ability.aim == "self") and Controls.is("ability-" .. i, key) then
-      local free = not self.aiming and not self.cooldowns[ability.key] and client:myPose() ~= nil
-        and usable(client, ability)
-        and not self:held(client, client.myId) and not Features.any("pointerTaken", client)
-      if ability.aim == "self" then
-        if free then
-          self:cast(client, i)
-        end
-      elseif self.aiming == i then
-        self.aiming = nil
-      elseif free then
-        self.aiming = i
+      if ability.modes then
+        self.pressAt[i] = self.time
+      else
+        press(self, client, i, ability)
       end
       return
     end
@@ -385,6 +459,12 @@ end
 
 --- The fire button places a selected direction ability.
 function Abilities:mousepressed(_x, _y, button, client)
+  if self.choosing and Controls.isMouse("fire", button) then
+    local slot = self.choosing
+    self:pickMode(slot, self:hoveredMode())
+    self.pressAt[slot], self.fireSpent = nil, true -- the key coming up now does nothing more
+    return
+  end
   if self:selecting() and Controls.isMouse("fire", button) then
     local slot = self.aiming
     self.aiming, self.fireSpent = nil, true
@@ -398,7 +478,10 @@ function Abilities:cast(client, slot)
     return
   end
   local x, y = self:target(client, ability)
-  if x then
+  local mode = self:modeOf(ability)
+  if x and mode then
+    client:send(Protocol.encode("ABL_CAST", ability.key, ("%.1f"):format(x), ("%.1f"):format(y), mode.key))
+  elseif x then
     client:send(Protocol.encode("ABL_CAST", ability.key, ("%.1f"):format(x), ("%.1f"):format(y)))
   end
 end
@@ -435,6 +518,31 @@ function Abilities:update(dt, client, camera)
   local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
   if self.fireSpent and not Controls.isDown("fire") then
     self.fireSpent = nil
+  end
+  -- A modal ability's key: held long enough, its modes come up; let go,
+  -- the one pointed at is picked, or it was a tap and works as a press.
+  for i, at in pairs(self.pressAt) do
+    local ability = self:inSlot(i)
+    if not (ability and ability.modes) or Controls.suspended or taken then
+      self.pressAt[i] = nil
+      if self.choosing == i then
+        self.choosing = nil
+      end
+    elseif Controls.isDown("ability-" .. i) then
+      if self.choosing ~= i and self.time - at >= self.modeHold then
+        self.choosing = i
+        if self.aiming == i then
+          self.aiming = nil -- picking a mode, not aiming
+        end
+      end
+    else
+      self.pressAt[i] = nil
+      if self.choosing == i then
+        self:pickMode(i, self:hoveredMode())
+      else
+        press(self, client, i, ability)
+      end
+    end
   end
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
@@ -476,8 +584,9 @@ function Abilities:drawAboveCars(client)
   if ability then
     local ox, oy = client:myPose()
     local x, y = self:target(client, ability)
-    if x and ability.aim == "direction" and ability.drawAim then
-      ability.drawAim(ox, oy, x, y, self.time)
+    if x and placed(ability) and ability.drawAim then
+      local mode = self:modeOf(ability)
+      ability.drawAim(ox, oy, x, y, self.time, mode and mode.key)
     elseif x then
       local c = ability.color
       love.graphics.setLineWidth(1)
@@ -609,7 +718,9 @@ function Abilities:drawHUD(client)
         love.graphics.setColor(c[1], c[2], c[3], 0.2 + 0.3 * pulse)
         love.graphics.circle("fill", cx, cy, r + 6, 48)
         UI.ring(cx, cy, r, 1, c, 5)
-        title = aiming and (placed(ability) and "fire: place" or "release") or (ability.hud or ability.title)
+        local mode = self:modeOf(ability)
+        title = aiming and (placed(ability) and "fire: place" or "release") or (mode and mode.title)
+          or (ability.hud or ability.title)
         titleColor = aiming and c or Tiers.color(ability.tier) -- named in its tier's colour
       end
       Icons.draw(ability.key, cx, cy, self.hudIcon, middle and 0.3 or 1)
@@ -633,6 +744,48 @@ function Abilities:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Over every HUD piece (the core's `drawScreen`): the mode buttons while
+--- they are up, and the cursor again over them, the way the event menu does.
+function Abilities:drawScreen(client)
+  if not self.choosing then
+    return
+  end
+  self:drawModes(self.choosing)
+  local vision = Features.byName.vision
+  if vision then
+    vision:drawCursor(client)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The modes of the ability in slot `slot`, as buttons over its ring: its
+--- icon for each mode in a disc, the one it is on ringed, the one under
+--- the mouse lit, each named under it.
+function Abilities:drawModes(slot)
+  local ability = self:inSlot(slot)
+  if not ability then
+    return
+  end
+  local c = ability.color
+  local small = UI.fonts.small
+  local current = self.modes[ability.key] or 1
+  local hovered = self:hoveredMode()
+  for _, b in ipairs(self:modeButtons(slot)) do
+    local lit = hovered and hovered.index == b.index
+    love.graphics.setColor(0.05, 0.05, 0.08, 0.85)
+    love.graphics.circle("fill", b.x, b.y, b.r + 4, 40)
+    love.graphics.setColor(c[1], c[2], c[3], lit and 0.45 or 0.15)
+    love.graphics.circle("fill", b.x, b.y, b.r, 40)
+    UI.ring(b.x, b.y, b.r, 1, { c[1], c[2], c[3], (b.index == current or lit) and 1 or 0.35 },
+      b.index == current and 4 or 2)
+    Icons.draw(ability.key .. "-" .. b.mode.key, b.x, b.y, b.r * 0.7, 1)
+    love.graphics.setFont(small)
+    local t = b.mode.title
+    UI.label(t, b.x - math.floor(small:getWidth(t) / 2), b.y + b.r + 5, lit and c or { 0.85, 0.85, 0.9 })
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- The `stat` convention on a client: the same for me (only my own slots
 --- are known here; nobody draws another player's cooldowns).
 function Abilities:stat(value, client, id, name)
@@ -652,12 +805,13 @@ Abilities.clientMessages = {
     if not (ability and x and y and seconds) then
       return
     end
-    local e = { ability = ability, by = by, x = x, y = y, angle = angle, t = 0, seconds = seconds }
+    local mode = args[7] ~= EMPTY and args[7] or nil
+    local e = { ability = ability, by = by, x = x, y = y, angle = angle, t = 0, seconds = seconds, mode = mode }
     Abilities.effects[#Abilities.effects + 1] = e
     if ability.onFired then
       ability.onFired(e, client)
     end
-    for i = 7, #args do
+    for i = 8, #args do
       local id = tonumber(args[i])
       if id then
         Abilities.heldUntil[id] = Abilities.time + seconds
@@ -1101,12 +1255,22 @@ Abilities.serverMessages = {
     if not lifted then
       ready[key] = sv.time + ability.cooldown * Features.reduce("serverStat", 1, server, player, "cooldown")
     end
-    local held, angle, nx, ny, seconds = ability.serverCast(server, player, x, y, Abilities, ability)
+    -- The mode it goes off in: one it has, or its first.
+    local mode
+    if ability.modes then
+      mode = ability.modes[1].key
+      for _, m in ipairs(ability.modes) do
+        if m.key == args[4] then
+          mode = m.key
+        end
+      end
+    end
+    local held, angle, nx, ny, seconds = ability.serverCast(server, player, x, y, Abilities, ability, mode)
     x, y = nx or x, ny or y -- an ability may settle somewhere else (the nest steps out of walls)
     -- ... and last longer than usual this time (a long leap flies longer).
     local named = Tiers.join(key, ability.tier)
     server:broadcast(Protocol.encode("ABL_FIRED", player.id, named, ("%.1f"):format(x), ("%.1f"):format(y),
-      ("%.2f"):format(seconds or ability.seconds), ("%.3f"):format(angle or 0), unpack(held or {})))
+      ("%.2f"):format(seconds or ability.seconds), ("%.3f"):format(angle or 0), mode or EMPTY, unpack(held or {})))
   end,
   ABL_EQUIP = function(server, player, args)
     Abilities:serverEquip(server, player, args[1], tonumber(args[2]))

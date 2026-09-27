@@ -12,6 +12,8 @@
 --                     again to stop)
 --   itisminenow  the shop is the dev shop: everything in it free (type it
 --                again to stop)
+--   ulla         a legendary heat ray (the tripod's drop), put straight into
+--                an empty ability slot if there is one, else into the bag
 --
 -- F2 lists every code and what it does (HELP, in the same order as above);
 -- F2 or Esc takes the list down again.
@@ -60,6 +62,22 @@ local CODES = {
       return on and "dev shop on" or "dev shop off"
     end
   end,
+  ulla = function(server, player)
+    local buildings, abilities = Features.byName.buildings, Features.byName.abilities
+    local item = "heatray@legendary"
+    if not (buildings and buildings.serverGive) or buildings:serverGive(server, player, "ability-" .. item, 1) < 1 then
+      return "no room in your bag"
+    end
+    local slots = abilities and abilities.sv and abilities.sv.slots[player.id]
+    if slots then
+      for slot = 1, abilities.slotCount do
+        if slot ~= abilities.passiveSlot and not slots[slot] and abilities:serverEquip(server, player, item, slot) then
+          return "heat ray on your ability keys"
+        end
+      end
+    end
+    return "heat ray in your bag"
+  end,
   reachforthestars = function(server, player)
     local abilities = Features.byName.abilities
     if abilities and abilities.serverSetReach then
@@ -75,6 +93,7 @@ local HELP = {
   { code = "infiniteammo", text = "Magazines never run out, no reloading (again to stop)" },
   { code = "reachforthestars", text = "Leap lands wherever the cursor is and is ready again at once (again to stop)" },
   { code = "itisminenow", text = "The shop is the dev shop: everything free (again to stop)" },
+  { code = "ulla", text = "A legendary heat ray, on an empty ability key if there is one" },
 }
 
 -- Client --------------------------------------------------------------------
