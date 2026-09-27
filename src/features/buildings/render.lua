@@ -573,6 +573,17 @@ local FACTORIES = {
     crate = { 0.5, 0.5, 0.5 } },
 }
 
+--- Where a building of `kind` inside `r` has its hall (x, y, w, h), and
+--- how wide the column of silos beside it is: the same for the building
+--- and for its ruin.
+local function hallOf(kind, r)
+  if kind.service then -- the garage: the whole width, an apron in front
+    return r.x + 6, r.y + 6, r.w - 12, r.h - math.min(46, r.h * 0.3) - 6, 0
+  end
+  local siloW = #Kinds.hopperList(kind) > 0 and math.min(56, r.w * 0.2) or 0
+  return r.x + 12, r.y + 12, r.w - 24 - (siloW > 0 and siloW + 12 or 0), math.floor(r.h * 0.58), siloW
+end
+
 local function factory(b, kind, r, time)
   local look = FACTORIES[kind.key] or FACTORIES.ammo
   local list = Kinds.hopperList(kind)
@@ -581,9 +592,7 @@ local function factory(b, kind, r, time)
   box(r.x, r.y, 3, r.h, shade(CONCRETE, 1.15))
 
   -- The hall, with room down the right for the silos.
-  local siloW = #list > 0 and math.min(56, r.w * 0.2) or 0
-  local hx, hy = r.x + 12, r.y + 12
-  local hw, hh = r.w - 24 - (siloW > 0 and siloW + 12 or 0), math.floor(r.h * 0.58)
+  local hx, hy, hw, hh, siloW = hallOf(kind, r)
   roof(hx, hy, hw, hh, look.roof)
   -- Skylights along the back, the units beside them and the chimney.
   local n = math.max(2, math.floor((hw - 90) / 44))
@@ -682,12 +691,65 @@ local ROOFS = {
   ammo = FACTORIES.ammo.roof,
   weapons = FACTORIES.weapons.roof,
   health = FACTORIES.health.roof,
+  garage = { 0.52, 0.54, 0.57 },
 }
 local YARDS = {
   parking = { 0.2, 0.2, 0.22 },
   quarry = { 0.62, 0.5, 0.36 },
   oil = { 0.42, 0.38, 0.3 },
 }
+
+--- A building's mark on the big map, centred on (cx, cy), about `size` px
+--- across: a disc in its colour with its sign on it (the P, a heap, a drum,
+--- its roof emblem, a roll-up door), or a red cross over a dark one for a ruin.
+function Render.mapMark(kind, cx, cy, size, isRuin)
+  local rad = size / 2
+  love.graphics.setColor(0, 0, 0, 0.7)
+  love.graphics.circle("fill", cx, cy, rad + 1.5)
+  if isRuin then
+    love.graphics.setColor(0.22, 0.2, 0.19)
+    love.graphics.circle("fill", cx, cy, rad)
+    love.graphics.setColor(1, 0.35, 0.3)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(cx - rad * 0.45, cy - rad * 0.45, cx + rad * 0.45, cy + rad * 0.45)
+    love.graphics.line(cx - rad * 0.45, cy + rad * 0.45, cx + rad * 0.45, cy - rad * 0.45)
+    love.graphics.setLineWidth(1)
+    return
+  end
+  local look = FACTORIES[kind.key]
+  local c = kind.key == "parking" and { 0.15, 0.35, 0.8 } or (look and (look.disc or look.roof))
+    or Render.rubbleColor(kind)
+  love.graphics.setColor(c)
+  love.graphics.circle("fill", cx, cy, rad)
+  love.graphics.push()
+  love.graphics.translate(cx, cy)
+  local k = size / 64 -- the signs are drawn about 50 px across
+  love.graphics.scale(k)
+  if kind.key == "parking" then
+    love.graphics.scale(1 / k)
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("P", -rad, -UI.fonts.small:getHeight() / 2, size, "center")
+  elseif kind.key == "quarry" then
+    pile(-6, 6, 30, COLORS.iron)
+    pile(10, 2, 24, COLORS.copper)
+  elseif kind.key == "oil" then
+    love.graphics.setColor(0.1, 0.1, 0.12)
+    love.graphics.circle("fill", 0, 6, 14)
+    love.graphics.polygon("fill", -12, 0, 12, 0, 0, -22)
+  elseif kind.service then
+    box(-20, -16, 40, 32, { 0.72, 0.62, 0.3 })
+    love.graphics.setColor(0.5, 0.42, 0.18)
+    love.graphics.setLineWidth(3)
+    for y = -10, 12, 7 do
+      love.graphics.line(-18, y, 18, y)
+    end
+    love.graphics.setLineWidth(1)
+  else
+    emblem(kind.key, 0, 0)
+  end
+  love.graphics.pop()
+end
 
 --- A small picture of an item, centred on (cx, cy), for the inventory.
 function Render.itemIcon(item, cx, cy)
@@ -827,61 +889,112 @@ local function seeded(seed)
   end
 end
 
---- What is left of a building of `kind` inside `r`: scorched ground, the
---- stumps of its walls, rubble in its colours and smoke still rising.
---- `seed` (the plot id) decides where the pieces lie.
-function Render.ruin(kind, r, seed, time)
-  local rnd = seeded(seed)
-  local c = Render.rubbleColor(kind)
-  box(r.x, r.y, r.w, r.h, { 0.16, 0.14, 0.13 })
-  -- Scorch marks.
-  for _ = 1, 5 do
-    love.graphics.setColor(0.05, 0.05, 0.05, 0.5)
-    love.graphics.ellipse("fill", r.x + rnd() * r.w, r.y + rnd() * r.h, 20 + rnd() * 40, 14 + rnd() * 26)
+--- Scorch marks across `r`.
+local function scorch(r, rnd, n)
+  for _ = 1, n do
+    love.graphics.setColor(0.04, 0.04, 0.04, 0.45)
+    local rx, ry = 14 + rnd() * math.min(30, r.w * 0.12), 10 + rnd() * math.min(18, r.h * 0.08)
+    love.graphics.ellipse("fill", r.x + rx + rnd() * (r.w - 2 * rx), r.y + ry + rnd() * (r.h - 2 * ry), rx, ry)
   end
-  -- Broken stumps of the outer wall: every other stretch still standing.
-  love.graphics.setColor(c[1] * 0.6, c[2] * 0.6, c[3] * 0.6)
+end
+
+--- What stands of a wall round (x, y, w, h): stumps along every side,
+--- `c` the parapet's colour.
+local function stumps(x, y, w, h, c, rnd)
+  love.graphics.setColor(c)
   love.graphics.setLineWidth(6)
-  local pieces = 8
+  local pieces = 7
   for i = 0, pieces - 1 do
+    local a, e = i / pieces, (i + 0.35 + rnd() * 0.5) / pieces
     if rnd() < 0.55 then
-      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
-      love.graphics.line(r.x + a * r.w, r.y + 3, r.x + b * r.w, r.y + 3)
+      love.graphics.line(x + a * w, y + 3, x + e * w, y + 3)
     end
     if rnd() < 0.55 then
-      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
-      love.graphics.line(r.x + a * r.w, r.y + r.h - 3, r.x + b * r.w, r.y + r.h - 3)
+      love.graphics.line(x + a * w, y + h - 3, x + e * w, y + h - 3)
     end
     if rnd() < 0.55 then
-      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
-      love.graphics.line(r.x + 3, r.y + a * r.h, r.x + 3, r.y + b * r.h)
+      love.graphics.line(x + 3, y + a * h, x + 3, y + e * h)
     end
     if rnd() < 0.55 then
-      local a, b = i / pieces, (i + 0.4 + rnd() * 0.5) / pieces
-      love.graphics.line(r.x + r.w - 3, r.y + a * r.h, r.x + r.w - 3, r.y + b * r.h)
+      love.graphics.line(x + w - 3, y + a * h, x + w - 3, y + e * h)
     end
   end
   love.graphics.setLineWidth(1)
-  -- Rubble: slabs of roof and chunks of grey concrete, tilted every way.
-  for _ = 1, 40 do
-    local x, y = r.x + 12 + rnd() * (r.w - 24), r.y + 12 + rnd() * (r.h - 24)
-    local w, h = 6 + rnd() * 22, 5 + rnd() * 14
+end
+
+--- `n` slabs of `c` (or grey concrete) strewn over (x, y, w, h), tilted every way.
+local function slabsDown(x, y, w, h, c, rnd, n)
+  for _ = 1, n do
+    local sx, sy = x + rnd() * w, y + rnd() * h
+    local pw, ph = 8 + rnd() * 24, 6 + rnd() * 14
     local k = 0.55 + rnd() * 0.45
     love.graphics.push()
-    love.graphics.translate(x, y)
+    love.graphics.translate(sx, sy)
     love.graphics.rotate(rnd() * math.pi)
     love.graphics.setColor(0, 0, 0, 0.35)
-    love.graphics.rectangle("fill", -w / 2 + 3, -h / 2 + 3, w, h)
-    if rnd() < 0.6 then
+    love.graphics.rectangle("fill", -pw / 2 + 3, -ph / 2 + 3, pw, ph)
+    if rnd() < 0.65 then
       love.graphics.setColor(c[1] * k, c[2] * k, c[3] * k)
     else
       love.graphics.setColor(0.45 * k, 0.44 * k, 0.42 * k)
     end
-    love.graphics.rectangle("fill", -w / 2, -h / 2, w, h)
+    love.graphics.rectangle("fill", -pw / 2, -ph / 2, pw, ph)
     love.graphics.pop()
   end
-  -- Embers glowing in the heap, and smoke drifting off it.
-  for i = 1, 3 do
+end
+
+--- Broken skylight glass: pale slivers over (x, y, w, h).
+local function shards(x, y, w, h, rnd, n)
+  for _ = 1, n do
+    local sx, sy, a = x + rnd() * w, y + rnd() * h, rnd() * math.pi * 2
+    love.graphics.setColor(GLASS[1], GLASS[2], GLASS[3], 0.7)
+    love.graphics.polygon("fill", sx, sy, sx + math.cos(a) * 7, sy + math.sin(a) * 7, sx + math.cos(a + 0.5) * 4,
+      sy + math.sin(a + 0.5) * 4)
+  end
+end
+
+--- A toppled box of `c` at (x, y), `w` by `h`, lying at `angle`, blackened.
+local function toppled(x, y, w, h, angle, c)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(angle)
+  box(-w / 2 + 3, -h / 2 + 3, w, h, { 0, 0, 0 }, 0.35)
+  box(-w / 2, -h / 2, w, h, shade(c, 0.6))
+  box(-w / 2, -h / 2, w * 0.5, h, { 0.08, 0.08, 0.08 }, 0.45)
+  love.graphics.pop()
+end
+
+--- A burnt-out car at (x, y) along `angle`, `len` px long: a charred shell.
+local function wreck(x, y, angle, len)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(angle)
+  local w = len * 0.46
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", -len / 2 + 3, -w / 2 + 3, len, w, 5)
+  love.graphics.setColor(0.2, 0.18, 0.17)
+  love.graphics.rectangle("fill", -len / 2, -w / 2, len, w, 5)
+  love.graphics.setColor(0.36, 0.26, 0.2)
+  love.graphics.rectangle("fill", -len * 0.22, -w / 2 + 3, len * 0.44, w - 6, 3)
+  love.graphics.setColor(0.08, 0.08, 0.08)
+  love.graphics.rectangle("fill", -len * 0.12, -w / 2 + 5, len * 0.24, w - 10, 2)
+  love.graphics.pop()
+end
+
+--- Flames licking at (x, y), `s` across; `i` staggers them.
+local function flames(x, y, s, time, i)
+  local f = 0.75 + 0.25 * math.sin(time * 11 + i * 1.7)
+  love.graphics.setColor(1, 0.45, 0.1, 0.25)
+  love.graphics.circle("fill", x, y, s * 1.6 * f)
+  love.graphics.setColor(1, 0.5, 0.1, 0.85)
+  love.graphics.circle("fill", x, y, s * f)
+  love.graphics.setColor(1, 0.9, 0.4)
+  love.graphics.circle("fill", x - s * 0.15, y - s * 0.2, s * 0.45 * f)
+end
+
+--- Embers glowing in the heap and smoke drifting off it, `n` places.
+local function smoulder(r, rnd, time, n)
+  for i = 1, n do
     local ex, ey = r.x + r.w * (0.2 + rnd() * 0.6), r.y + r.h * (0.2 + rnd() * 0.6)
     local glow = 0.5 + 0.5 * math.sin(time * 3 + i * 2)
     love.graphics.setColor(1, 0.4, 0.1, 0.35 + 0.35 * glow)
@@ -892,6 +1005,131 @@ function Render.ruin(kind, r, seed, time)
       love.graphics.circle("fill", ex + t * 36, ey - t * 60, 8 + t * 18)
     end
   end
+end
+
+--- What is left of a building of `kind` inside `r`, in the look it had:
+--- a gutted hall with its parapet in stumps, its roof fallen in, glass and
+--- units strewn about and its silos crumpled (factories and the garage);
+--- burnt-out wrecks in a cracked car park; a toppled digger over the pit;
+--- burst tanks and an oil fire. Smoke still rises from all of them.
+--- `seed` (the plot id) decides where the pieces lie.
+function Render.ruin(kind, r, seed, time)
+  local rnd = seeded(seed)
+  local c = Render.rubbleColor(kind)
+  if kind.key == "parking" then
+    box(r.x, r.y, r.w, r.h, { 0.3, 0.3, 0.3 })
+    box(r.x + 4, r.y + 4, r.w - 8, r.h - 8, { 0.14, 0.14, 0.15 })
+    love.graphics.setColor(0.05, 0.05, 0.05, 0.8)
+    for _ = 1, 6 do -- cracks
+      local x, y = r.x + rnd() * r.w, r.y + rnd() * r.h
+      love.graphics.line(x, y, x + 18 - rnd() * 36, y + 12, x + 26 - rnd() * 52, y + 30)
+    end
+    love.graphics.setColor(0.8, 0.8, 0.75, 0.35) -- what is left of the bays
+    love.graphics.setLineWidth(2)
+    for x = r.x + 8, r.x + r.w - 8, 40 do
+      if rnd() < 0.6 then
+        love.graphics.line(x, r.y + 6, x, r.y + 6 + r.h * 0.2)
+      end
+    end
+    love.graphics.setLineWidth(1)
+    scorch(r, rnd, 5)
+    for i = 1, 3 do
+      local x = r.x + r.w * (0.15 + 0.3 * (i - 1) + rnd() * 0.1)
+      wreck(x, r.y + r.h * (0.25 + rnd() * 0.5), rnd() * math.pi, 44)
+      flames(x, r.y + r.h * 0.3 + rnd() * r.h * 0.3, 5, time, i)
+    end
+    toppled(r.x + r.w * 0.55, r.y + r.h - 28, 24, 24, 0.7, { 0.9, 0.9, 0.88 })
+    box(r.x + r.w * 0.3, r.y + r.h - 22, r.w * 0.2, 4, { 0.9, 0.9, 0.9 }, 0.8) -- the barrier, down
+  elseif kind.key == "quarry" then
+    box(r.x, r.y, r.w, r.h, { 0.44, 0.36, 0.27 })
+    local cx, cy, rx, ry = r.x + r.w * 0.38, r.y + r.h * 0.44, r.w * 0.32, r.h * 0.36
+    for i = 0, 3 do
+      love.graphics.setColor(0.4 - i * 0.07, 0.32 - i * 0.06, 0.24 - i * 0.05)
+      love.graphics.ellipse("fill", cx, cy, rx * (1 - i * 0.22), ry * (1 - i * 0.22))
+    end
+    scorch(r, rnd, 5)
+    toppled(cx - rx * 0.2, cy, 26, 18, 1.1, HAZARD) -- the digger, on its side
+    for i = 0, 3 do -- the conveyor, in pieces
+      toppled(cx + rx + i * 16, cy - ry * 0.3 + rnd() * 10, 14, 7, rnd() - 0.5, { 0.3, 0.3, 0.32 })
+    end
+    for i, m in ipairs(kind.products) do
+      pile(r.x + r.w - 30 + rnd() * 10, r.y + 20 + (r.h - 60) * (i - 0.5) / #kind.products, 16, shade(COLORS[m], 0.6))
+    end
+    slabsDown(r.x + 8, r.y + r.h - 44, 60, 36, { 0.92, 0.92, 0.88 }, rnd, 8) -- the office
+  elseif kind.key == "oil" then
+    box(r.x, r.y, r.w, r.h, { 0.3, 0.28, 0.24 })
+    local wx, wy = r.x + r.w * 0.34, r.y + r.h * 0.42
+    love.graphics.setColor(0.04, 0.03, 0.04, 0.7) -- the spill
+    love.graphics.ellipse("fill", wx, wy + 10, r.w * 0.24, r.h * 0.17)
+    scorch(r, rnd, 4)
+    toppled(wx - 6, wy - 2, 72, 8, 0.35, HAZARD) -- the beam, fallen
+    local tr = math.min(r.w, r.h) * 0.13
+    local tx = r.x + r.w - tr - 14
+    for i, ty in ipairs({ r.y + tr + 14, r.y + tr * 3 + 26 }) do
+      love.graphics.setColor(0.35, 0.34, 0.32)
+      love.graphics.circle("fill", tx, ty, tr)
+      love.graphics.setColor(0.08, 0.07, 0.07)
+      local pts = {}
+      for k = 0, 9 do
+        local a = k / 10 * math.pi * 2
+        local rr = tr * (0.45 + rnd() * 0.45)
+        pts[#pts + 1] = tx + math.cos(a) * rr
+        pts[#pts + 1] = ty + math.sin(a) * rr
+      end
+      love.graphics.polygon("line", pts)
+      love.graphics.circle("fill", tx, ty, tr * 0.45)
+      flames(tx, ty, tr * 0.35, time, i)
+    end
+    for i = 1, 3 do -- the slick is still burning
+      flames(wx - r.w * 0.2 + i * r.w * 0.1, wy + 10 + (rnd() - 0.5) * 20, 7, time, i + 3)
+    end
+  else
+    -- Factories and the garage: the hall gutted to its floor.
+    slabs(r.x, r.y, r.w, r.h, { 0.36, 0.35, 0.34 }, 32)
+    scorch(r, rnd, 6)
+    local hx, hy, hw, hh, siloW = hallOf(kind, r)
+    local floor = { 0.2, 0.18, 0.16 }
+    box(hx, hy, hw, hh, floor)
+    -- A corner of the roof still up, broken off on a slant, one skylight left in it.
+    local cw, ch = hw * 0.42, hh * 0.5
+    roof(hx, hy, cw, ch, c)
+    skylights(hx + 14, hy + 12, math.max(20, cw * 0.4), 12, 1)
+    love.graphics.setColor(floor)
+    love.graphics.polygon("fill", hx + cw * 0.55, hy + ch + 7, hx + cw + 7, hy + ch * 0.35, hx + cw + 7, hy + ch + 7)
+    stumps(hx, hy, hw, hh, shade(c, 0.6), rnd)
+    slabsDown(hx + 8, hy + 8, hw - 16, hh - 16, c, rnd, 26)
+    shards(hx + 10, hy + 10, hw - 20, hh * 0.5, rnd, 14)
+    toppled(hx + 20 + rnd() * 20, hy + hh * 0.3, 22, 22, rnd(), AC)
+    toppled(hx + hw * 0.5, hy + hh + 10, math.min(44, hw * 0.25), 10, 0.25, { 0.66, 0.67, 0.68 }) -- a door
+    -- Its name plate, fallen on the floor.
+    local look = FACTORIES[kind.key]
+    love.graphics.push()
+    love.graphics.translate(hx + hw * 0.66, hy + hh * 0.72)
+    love.graphics.rotate(0.3 - rnd() * 0.6)
+    namePlate(0, 0, look and look.name or kind.name:upper(), look and look.accent or { 1, 0.85, 0.3 })
+    love.graphics.pop()
+    -- The silos, crumpled where they stood.
+    local list = Kinds.hopperList(kind)
+    if siloW > 0 and #list > 0 then
+      local pitch = math.min(siloW + 6, (r.h - 24) / #list)
+      local rad = math.max(8, math.min(siloW / 2 - 4, pitch / 2 - 5))
+      local sx = r.x + r.w - 12 - siloW / 2
+      for i, m in ipairs(list) do
+        local sy = r.y + 12 + (i - 0.5) * pitch
+        love.graphics.push()
+        love.graphics.translate(sx, sy)
+        love.graphics.rotate(rnd() * math.pi)
+        love.graphics.setColor(0, 0, 0, 0.3)
+        love.graphics.ellipse("fill", 3, 3, rad, rad * 0.6)
+        love.graphics.setColor(0.42, 0.43, 0.44)
+        love.graphics.ellipse("fill", 0, 0, rad, rad * 0.6)
+        love.graphics.setColor(shade(COLORS[m], 0.6))
+        love.graphics.ellipse("fill", rad * 0.3, rad * 0.2, rad * 0.45, rad * 0.25)
+        love.graphics.pop()
+      end
+    end
+  end
+  smoulder(r, rnd, time, 3)
 end
 
 --- Cracks, a red flash for `since` seconds after a hit and a health bar

@@ -471,6 +471,27 @@ function Garage:drawBuilding(_b, _kind, r, t)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The hospital on the minimap and the big map: a red cross on white, so
+--- it can be found, as the shop has its bag and the Jobs building its star.
+function Garage:drawOnMinimap(_client, toMap)
+  local places = self:places()
+  local h = places and places.hospital
+  if not h then
+    return
+  end
+  local x, y = toMap(h.x + h.w / 2, h.y + h.h / 2)
+  love.graphics.setColor(0, 0, 0, 0.8)
+  love.graphics.rectangle("fill", x - 3.5, y - 8, 7, 16)
+  love.graphics.rectangle("fill", x - 8, y - 3.5, 16, 7)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.rectangle("fill", x - 2.5, y - 7, 5, 14)
+  love.graphics.rectangle("fill", x - 7, y - 2.5, 14, 5)
+  love.graphics.setColor(0.85, 0.12, 0.14)
+  love.graphics.rectangle("fill", x - 1, y - 5.5, 2, 11)
+  love.graphics.rectangle("fill", x - 5.5, y - 1, 11, 2)
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Garage:drawBelowCars()
   local places = self:places()
   if not places then

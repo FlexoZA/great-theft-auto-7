@@ -934,6 +934,47 @@ function Buildings:drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Every owned plot on the minimap and the big map, outlined in its owner's
+--- colour (mine in white), with the building on it in its own colour (a
+--- ruin dark). Where a plot is big enough on the map (the big map), the
+--- building's mark goes in the middle.
+function Buildings:drawOnMinimap(client, toMap)
+  local re = realEstate()
+  if not re then
+    return
+  end
+  for _, plot in ipairs(re.plots) do
+    local owner = re.owners[plot.id]
+    if owner then
+      local b = self.buildings[plot.id]
+      local kind = b and Kinds.byKey[b.kind]
+      local x0, y0 = toMap(plot.x, plot.y)
+      local x1, y1 = toMap(plot.x + plot.w, plot.y + plot.h)
+      if kind then
+        local r = footprint(plot)
+        local fx0, fy0 = toMap(r.x, r.y)
+        local fx1, fy1 = toMap(r.x + r.w, r.y + r.h)
+        love.graphics.setColor(ruined(b) and { 0.16, 0.14, 0.13 } or Render.rubbleColor(kind))
+        love.graphics.rectangle("fill", fx0, fy0, fx1 - fx0, fy1 - fy0)
+      end
+      local mine = owner == client.myId
+      local c = mine and { 1, 1, 1 } or Car.colorFor(owner)
+      love.graphics.setColor(0, 0, 0, 0.6)
+      love.graphics.setLineWidth(mine and 3 or 2)
+      love.graphics.rectangle("line", x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2)
+      love.graphics.setColor(c[1], c[2], c[3], 0.95)
+      love.graphics.setLineWidth(mine and 2 or 1)
+      love.graphics.rectangle("line", x0, y0, x1 - x0, y1 - y0)
+      love.graphics.setLineWidth(1)
+      local size = math.min(x1 - x0, y1 - y0) * 0.55
+      if kind and size >= 14 then
+        Render.mapMark(kind, (x0 + x1) / 2, (y0 + y1) / 2, math.min(size, 30), ruined(b))
+      end
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- What a building is doing, in a few words.
 local function status(b, kind)
   if kind.rate then
