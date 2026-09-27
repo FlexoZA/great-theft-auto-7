@@ -26,6 +26,8 @@
 --                                         clear the host's side
 --   serverPlayerJoined(server, player)    tell a latecomer what it only sends on change
 --   serverShotAt / serverPanicArea / serverFreezeArea   passed on while it is on
+--   serverHeld(server, player), held(client, id)         passed on while it is on:
+--                                         a player the boss holds still (the tripod's cage)
 --   announce(x, y)                        optional: the sound of it starting (a roar otherwise)
 --   start(x, y), stop()                   the same on every machine (EVT_START / EVT_END)
 --   where() -> x, y                       where the boss is now, for the minimap
@@ -46,6 +48,7 @@ local Net = require("src.net")
 local Controls = require("src.controls")
 local Bigfoot = require("src.features.events.bigfoot")
 local Runner = require("src.features.events.runner")
+local Tripod = require("src.features.events.tripod")
 local HuntSounds = require("src.features.alien-hunt.sounds")
 
 local Events = {
@@ -53,8 +56,8 @@ local Events = {
   priority = 960, -- the banner over most of the HUD, under the quest portraits (970+)
 }
 
-Events.kinds = { bigfoot = Bigfoot, runner = Runner }
-Events.order = { "bigfoot", "runner" } -- as the F8 menu lists them
+Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod }
+Events.order = { "bigfoot", "runner", "tripod" } -- as the F8 menu lists them
 
 -- Tuning ------------------------------------------------------------------
 Events.flashTime = 6 -- seconds the minimap flashes red when one starts
@@ -182,6 +185,12 @@ function Events:serverFreezeArea(server, x, y, radius, seconds)
   end
 end
 
+--- The `serverHeld` convention: the boss has hold of this player.
+function Events:serverHeld(server, player)
+  local event = self:serverActive()
+  return event ~= nil and event.serverHeld ~= nil and event.serverHeld(server, player)
+end
+
 --- For tests.
 function Events.server()
   return sv
@@ -194,6 +203,12 @@ Events.flash = 0 -- seconds of red flashing left on the minimap
 Events.banner = nil -- { title, subtitle, color, t }
 local time = 0
 local camera = nil
+
+--- The `held` convention, on this machine: the boss has hold of player `id`.
+function Events:held(client, id)
+  local event = self.active and self.kinds[self.active.key]
+  return event ~= nil and event.held ~= nil and event.held(client, id)
+end
 
 local function clear()
   if Events.active then

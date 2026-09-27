@@ -36,6 +36,18 @@ function Sounds.load()
     buf:highpass(220)
   end)
 
+  -- Heat ray: a hot electric crack and a crackling roar with a buzz in it,
+  -- as long as it burns.
+  bank.heatray = make(1.3, function(buf)
+    buf:sweep(0, 0.1, 3200, 900, { wave = "square", amp = 0.3, decay = 0.04 })
+    buf:noiseBurst(0, 1.25, { amp = 0.5, decay = 0.9 })
+    buf:tone(0, 1.15, 220, { wave = "square", amp = 0.16, attack = 0.01, decay = 0.2, sustain = 0.8, release = 0.1,
+      vibRate = 30, vibDepth = 0.6 })
+    buf:tone(0, 1.15, 1800, { wave = "sine", amp = 0.1, attack = 0.01, decay = 0.2, sustain = 0.8, release = 0.1 })
+    buf:drive(2.2)
+    buf:lowpass(4500)
+  end)
+
   -- Heal: a warm rising chord with a soft shimmer over it.
   bank.heal = make(1.0, function(buf)
     buf:tone(0, 0.7, 523, { wave = "sine", amp = 0.3, attack = 0.02, decay = 0.4, sustain = 0.2, release = 0.2 })
