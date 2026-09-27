@@ -26,6 +26,7 @@
 --
 -- Each kind of building:
 --   cost      Fcks to build it on a plot you own
+--   blurb     a line on what it is for, on the build screen
 --   inputs    item -> how many one batch uses up (loaded into its hopper)
 --   time      seconds per batch while it has its inputs and room, before
 --             TIME_SCALE (every building works that many times slower)
@@ -126,21 +127,25 @@ end
 Kinds.list = {
   {
     key = "parking", name = "Parking Lot", cost = 30, hp = 200,
+    blurb = "Earns koins on its own. Drive over it to collect the takings.",
     rate = 10 / 60, cap = 100, private = true, walkable = true,
   },
   {
     key = "quarry", name = "Quarry Mine", cost = 40, hp = 600,
+    blurb = "Digs up the raw materials every factory runs on. Pick which one.",
     inputs = {}, time = 6, batch = 1, cap = 50, unit = 1, price = 1,
     products = { "iron", "sulfur", "minerals", "copper" },
   },
   {
     key = "oil", name = "Oil Well", cost = 70, hp = 500,
+    blurb = "Pumps oil, or refines it into plastic on the spot.",
     inputs = {}, time = 8, batch = 1, cap = 50, unit = 1, price = 2,
     products = { "oil", "plastic" },
     recipes = { plastic = { time = 12, price = 3 } }, -- refined on the spot, so slower
   },
   {
     key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
+    blurb = "Turns iron and sulfur into rounds for the gun you pick.",
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
@@ -151,6 +156,7 @@ Kinds.list = {
   },
   {
     key = "weapons", name = "Weapons Factory", cost = 80, hp = 1000,
+    blurb = "Makes the gun you pick out of iron, and more for the rocket launcher.",
     inputs = { iron = 4 }, time = 30, batch = 1, cap = 5, unit = 1, price = 20,
     products = gunItems,
     recipes = {
@@ -159,9 +165,11 @@ Kinds.list = {
   },
   {
     key = "garage", name = "Garage", cost = 50, hp = 800, private = true, service = "garage",
+    blurb = "Parks your cars safe off the street, even while you're away.",
   },
   {
     key = "health", name = "Health Factory", cost = 50, hp = 600,
+    blurb = "Makes medkits and energy drinks out of minerals.",
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
     products = { "medkit", "drink" },
     recipes = { drink = { inputs = { minerals = 1 }, time = 10, price = 4 } },
@@ -173,6 +181,7 @@ Kinds.list = {
 if #carItems > 0 then
   Kinds.list[#Kinds.list + 1] = {
     key = "vehicles", name = "Vehicle Factory", cost = 120, hp = 1000,
+    blurb = "Builds the car you pick and parks it on the road out front.",
     inputs = { iron = 4, minerals = 2, copper = 2, oil = 2, plastic = 2 },
     time = 45, batch = 1, cap = 5, unit = 1, price = Catalog.list[1].price,
     products = carItems,

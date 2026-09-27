@@ -2,7 +2,8 @@
 --
 -- Every plot with an owner has a small square on the sidewalk in front of
 -- it. Stand on it (on foot or in a car) and press the buy key (F): on your
--- own plot a menu lists what you can build (kinds.lua) and what it costs;
+-- own plot the build screen (build-screen.lua) shows what you can build
+-- (kinds.lua) and what it costs, a card each, the way the shop does;
 -- once it is up, the same square opens the building's own menu. Anyone else
 -- uses the square to shop at a public building.
 --
@@ -124,6 +125,7 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
+local BuildScreen = require("src.features.buildings.build-screen")
 local Collision = require("src.features.city-map.collision")
 local Layout = require("src.features.city-map.layout")
 
@@ -393,6 +395,7 @@ Buildings.menu = false -- is the building menu open?
 Buildings.page = nil
 Buildings.pick = 1 -- the product the "product" page is showing
 Buildings.offerItem = nil -- the material the "offer" page sets a price for
+Buildings.buildPick = nil -- the kind in the build screen's side panel
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
 local time = 0
@@ -441,6 +444,18 @@ function Buildings:closeMenu()
   return true
 end
 
+--- Is the build screen up: the menu open on the square of my own empty plot?
+local function building(self, client)
+  local re = realEstate()
+  return self.menu and herePad ~= nil and re ~= nil and re.owners[herePad.id] == client.myId
+    and not self.buildings[herePad.id]
+end
+
+--- The `pointerTaken` convention: the mouse is ours while the build screen is up.
+function Buildings:pointerTaken(client)
+  return building(self, client)
+end
+
 --- The `actionTaken` convention: the action key is ours while I stand on
 --- an owned plot's square (it opens the menu) or the menu is up.
 function Buildings:actionTaken()
@@ -469,7 +484,7 @@ function Buildings:update(dt, client)
     self.menu = false
   end
   if not self.menu then
-    self.page = nil
+    self.page, self.buildPick = nil, nil
   end
   -- Batches creep along between the host's reports.
   for _, b in pairs(self.buildings) do
@@ -784,6 +799,27 @@ function Buildings:keypressed(key, client)
   end
 end
 
+--- A click on the build screen: a card goes into the side panel, its Build button builds it.
+function Buildings:mousepressed(x, y, button, client)
+  if button ~= 1 or not building(self, client) then
+    return
+  end
+  local L = BuildScreen.layout(self.buildPick)
+  if L.build and BuildScreen.inside(L.build, x, y) then
+    local kind = self.buildPick
+    if affordable(client, kind.cost) then
+      send(client, "BLD_BUILD", herePad.id, kind.key)
+    end
+    return
+  end
+  for _, r in ipairs(L.cards) do
+    if BuildScreen.inside(r, x, y) then
+      self.buildPick = r.kind
+      return
+    end
+  end
+end
+
 --- The square on the sidewalk: the owner's colour, the building's initial
 --- (a plus on an empty plot, red over a ruin), a green corner while it
 --- sells to the public.
@@ -1079,7 +1115,13 @@ function Buildings:drawHUD(client)
   local re = realEstate()
   local plot = herePad
   local owner = plot and re and re.owners[plot.id]
-  if self.menu and owner then
+  local screen = building(self, client)
+  if screen then
+    local money = Features.byName.money
+    local purse = money and money.mine and money:mine(client) or 0
+    local mx, my = love.mouse.getPosition()
+    BuildScreen.draw(self.buildPick, purse, mx, my, time)
+  elseif self.menu and owner then
     drawMenu(self, client)
   end
   for i, u in ipairs(self.usables) do
@@ -1130,6 +1172,11 @@ function Buildings:drawHUD(client)
     love.graphics.printf(text, 1, h - 129, w, "center")
     love.graphics.setColor(color)
     love.graphics.printf(text, 0, h - 130, w, "center")
+  end
+  -- The cursor last of all, over the build screen.
+  local vision = Features.byName.vision
+  if screen and vision and vision.drawCursor then
+    vision:drawCursor(client)
   end
   love.graphics.setColor(1, 1, 1)
 end
