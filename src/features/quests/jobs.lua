@@ -13,11 +13,17 @@
 -- the two squares never overlap. A block with such a neighbour beats one
 -- without, so the city has a shop whenever it can.
 --
+-- The gym (src/features/upgrades) is picked last, once the other two stand,
+-- so it never moves them: the biggest third building in the same block
+-- whose door is as clear and APART from both their doors, or failing that
+-- the building nearest the Jobs door in another block (not the hospital's)
+-- that meets the same rules.
+--
 -- `Jobs.of(map)` answers for a city grid ({ x, y, w, h, doorX, doorY, nx, ny,
--- shop }; nx, ny: the way out of the door, towards the road) and nil for any
--- other map; `shop` is { x, y, w, h, doorX, doorY, nx, ny, block } (block:
--- the block's x, y, w, h) or nil. It is worked out once per map table; a
--- city that grows only adds plots, which are never picked.
+-- shop, gym }; nx, ny: the way out of the door, towards the road) and nil
+-- for any other map; `shop` and `gym` are { x, y, w, h, doorX, doorY, nx,
+-- ny, block } (block: the block's x, y, w, h) or nil. It is worked out once
+-- per map table; a city that grows only adds plots, which are never picked.
 --
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
@@ -93,39 +99,91 @@ local function clearOf(spots, x, y)
   return true
 end
 
---- The shop's building beside the Jobs building `j` in the block at
---- (x, y, w, h): the biggest other one there whose door is clear of
---- `spots` and APART from the Jobs door, or nil.
-local function neighbour(map, j, spots, x, y, w, h)
+--- May building `b`, with its door at (doorX, doorY), stand beside the
+--- places in `others` (the Jobs building, the shop)? Not one of them, and
+--- its door APART from each of theirs.
+local function apartFrom(others, b, doorX, doorY)
+  for _, o in ipairs(others) do
+    if (b.x == o.x and b.y == o.y) or dist2(doorX, doorY, o.doorX, o.doorY) < APART * APART then
+      return false
+    end
+  end
+  return true
+end
+
+--- A building beside the places in `others` in the block at (x, y, w, h):
+--- the biggest one there whose door is clear of `spots` and apart from
+--- theirs, or nil.
+local function neighbour(map, others, spots, x, y, w, h)
   local best
   for _, b in ipairs(map.buildings) do
-    if b.x ~= j.x or b.y ~= j.y then
-      local doorX, doorY, nx, ny = door(b, x, y, w, h)
-      if within(b, x, y, w, h) and clearOf(spots, doorX, doorY)
-        and dist2(doorX, doorY, j.doorX, j.doorY) >= APART * APART
-        and (not best or b.w * b.h > best.w * best.h) then
-        best = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
-        best.block = { x = x, y = y, w = w, h = h }
-      end
+    local doorX, doorY, nx, ny = door(b, x, y, w, h)
+    if within(b, x, y, w, h) and clearOf(spots, doorX, doorY) and apartFrom(others, b, doorX, doorY)
+      and (not best or b.w * b.h > best.w * best.h) then
+      best = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
+      best.block = { x = x, y = y, w = w, h = h }
     end
   end
   return best
 end
 
-local function find(map)
-  local spots, hospital = taken(map)
-  local cx, cy = map.cx or 0, map.cy or 0
-  local best, bestRank, bestD2
+--- Every block of buildings as (x, y, w, h) in px, with whether the
+--- hospital stands in it.
+local function buildingBlocks(map, hospital)
+  local out = {}
   for _, block in ipairs(map.blocks) do
     if block.kind == "buildings" then
       local x, y, w, h = map.x0 + block.tx * T, map.y0 + block.ty * T, block.tw * T, block.th * T
       local hasHospital = hospital
         and hospital.x >= x and hospital.y >= y and hospital.x < x + w and hospital.y < y + h
+      out[#out + 1] = { x = x, y = y, w = w, h = h, hospital = hasHospital or false }
+    end
+  end
+  return out
+end
+
+--- The gym beside the Jobs building `j` (and its shop): a third building
+--- in their block if it has one to spare, else the nearest to the Jobs
+--- door in another block without the hospital. Nil when there is none.
+local function gymFor(map, j, spots, blocks)
+  local others = { j, j.shop }
+  local k = j.block
+  local gym = neighbour(map, others, spots, k.x, k.y, k.w, k.h)
+  if gym then
+    return gym
+  end
+  local bestD2
+  for _, blk in ipairs(blocks) do
+    if not blk.hospital and not (blk.x == k.x and blk.y == k.y) then
+      for _, b in ipairs(map.buildings) do
+        local doorX, doorY, nx, ny = door(b, blk.x, blk.y, blk.w, blk.h)
+        local d2 = dist2(doorX, doorY, j.doorX, j.doorY)
+        if within(b, blk.x, blk.y, blk.w, blk.h) and clearOf(spots, doorX, doorY)
+          and apartFrom(others, b, doorX, doorY) and (not bestD2 or d2 < bestD2) then
+          gym = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
+          gym.block = { x = blk.x, y = blk.y, w = blk.w, h = blk.h }
+          bestD2 = d2
+        end
+      end
+    end
+  end
+  return gym
+end
+
+local function find(map)
+  local spots, hospital = taken(map)
+  local cx, cy = map.cx or 0, map.cy or 0
+  local blocks = buildingBlocks(map, hospital)
+  local best, bestRank, bestD2
+  for _, blk in ipairs(blocks) do
+    if not blk.hospital then
+      local x, y, w, h = blk.x, blk.y, blk.w, blk.h
       for _, b in ipairs(map.buildings) do
         local doorX, doorY, nx, ny = door(b, x, y, w, h)
-        if not hasHospital and within(b, x, y, w, h) and clearOf(spots, doorX, doorY) then
+        if within(b, x, y, w, h) and clearOf(spots, doorX, doorY) then
           local j = { x = b.x, y = b.y, w = b.w, h = b.h, doorX = doorX, doorY = doorY, nx = nx, ny = ny }
-          j.shop = neighbour(map, j, spots, x, y, w, h)
+          j.block = { x = x, y = y, w = w, h = h }
+          j.shop = neighbour(map, { j }, spots, x, y, w, h)
           -- One with a shop beside it beats one without, a big one any
           -- small one; then the nearest the middle wins.
           local rank = (j.shop and 2 or 0) + ((b.w >= BIG and b.h >= BIG) and 1 or 0)
@@ -136,6 +194,9 @@ local function find(map)
         end
       end
     end
+  end
+  if best then
+    best.gym = gymFor(map, best, spots, blocks)
   end
   return best
 end

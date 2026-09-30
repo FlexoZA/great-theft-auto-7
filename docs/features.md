@@ -286,9 +286,9 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
-| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
-| `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
-| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, quests at the Jobs door. |
+| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
+| `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
 | `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
@@ -422,7 +422,10 @@ couple of small conventions rather than requiring each other:
   tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
   `OF_MAX` so every HUD scales. `on-foot:serverSetStaminaRegen(server,
   player, scale)` sets how fast stamina comes back, as a multiple of the
-  base rate (host only; nothing to draw). Upgrades buys all three with koins.
+  base rate (host only; nothing to draw). `on-foot:serverSetDodgeScale(server,
+  player, scale)` sets how far their dodge carries them, as a multiple of
+  `dodgeDistance` (broadcast as `OF_DASH`, since each client predicts its own
+  dash). Upgrades (the gym) buys all four with koins.
 - `Features.byName.weapons:serverSetCarMaxHealth(server, car, max)`: give one
   car a health ceiling of its own (every car has 100 otherwise) and fill it
   up; wrecks come back with it. Weapons broadcasts `WPN_CARMAX` so every
@@ -647,7 +650,8 @@ sells something never touches a wallet itself; it does this:
 Never send a price from the client, never deduct on the client, and never
 call `spend` before your own checks pass -- it has already taken the koins
 by the time it returns. Upgrades (`src/features/upgrades`) is the worked
-example with a menu; real-estate is the one with a place to stand.
+example with a menu at a place to stand (the gym's door); real-estate is
+the one with a plot.
 - Plots: city-map leaves the corner blocks empty as `kind = "plot"` in
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host. `real-estate:serverTransfer(server, plotId, playerId)` hands a
@@ -807,6 +811,13 @@ example with a menu; real-estate is the one with a place to stand.
   everyone out beside their car and refuses to let them back in (Karen's
   street). Pickups are scattered afresh and koins on the ground swept on
   every switch.
+- Gym: the upgrades feature's building (`src/features/upgrades`), picked
+  by `quests/jobs.lua` after the Jobs building and the shop so it never
+  moves them: a third building in their block, or the nearest one to the
+  Jobs door outside it (`upgrades:here()`; the default city only). A
+  storefront with a dumbbell, marked on the minimap. Its door square opens
+  the upgrade panel on the action key (`actionTaken`), and the host only
+  sells a level to a buyer at that door (`UPG_DENY ... away`).
 - Quests: every job starts at the Jobs building in the city
   (`quests/jobs.lua` picks one of the city's own buildings the same way on
   every machine, like the hospital, clear of the spawn road and the

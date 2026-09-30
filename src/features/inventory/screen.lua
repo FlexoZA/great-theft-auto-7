@@ -631,9 +631,7 @@ function Screen.draw(buildings, list, drag, notice, client)
     hint = ("%s (%s): %s"):format(Kinds.name(Tiers.base(over), 1), tier, Kinds.tierLine(over) or "")
     love.graphics.setColor(Tiers.color(tier))
   elseif buildings.slots < Kinds.MAX_SLOTS then
-    local shop = Controls.name(Controls.bindings("upgrades")[1])
-    hint = ("%d/%d item slots used. More slots in the upgrade shop (%s)."):format(
-      math.min(#list, buildings.slots), buildings.slots, shop)
+    hint = ("%d/%d item slots used. More slots at the gym."):format(math.min(#list, buildings.slots), buildings.slots)
     love.graphics.setColor(0.8, 0.8, 0.85)
   else
     hint = ("%d/%d item slots used."):format(math.min(#list, buildings.slots), buildings.slots)

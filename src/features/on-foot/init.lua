@@ -29,7 +29,10 @@
 -- at a rate per player, staminaRegen to start with; another feature can
 -- raise either (upgrades sells both) through OnFoot:serverSetMaxStamina and
 -- OnFoot:serverSetStaminaRegen. Only the host needs the rate, so it is
--- never sent; the bar the client sees already reflects it.
+-- never sent; the bar the client sees already reflects it. How far a dodge
+-- carries you is per player too, dodgeDistance to start with, raised
+-- through OnFoot:serverSetDodgeScale (the gym sells it); that one is sent
+-- (OF_DASH), since each client predicts its own dash.
 --
 -- Messages
 --   client -> server  OF_TOGGLE
@@ -39,6 +42,7 @@
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
 --   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
+--   server -> all     OF_DASH  <id> <scale>     their dodge carries them dodgeDistance * scale
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -150,6 +154,7 @@ end
 
 OnFoot.view = { x = 0, y = 0, scale = 1 } -- last camera actually drawn with
 OnFoot.maxOf = {} -- player id -> stamina ceiling (absent = maxStamina)
+OnFoot.dashOf = {} -- player id -> dodge distance scale (absent = 1)
 OnFoot.stamina = {} -- player id -> stamina, as the host last said (walkers only)
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
@@ -179,6 +184,7 @@ end
 
 function OnFoot:exitGame()
   self.maxOf = {}
+  self.dashOf = {}
   self.stamina = {}
   self.view.x, self.view.y, self.view.scale = 0, 0, 1
   spent = false
@@ -237,7 +243,8 @@ function OnFoot:predict(dt, client, me)
     -- Mid-dodge: the dash carries me, the keys don't.
     local d = self.dash
     local slice = math.min(dt, d.t) -- the last step only goes as far as is left
-    me.dx, me.dy = step(me.dx, me.dy, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    local reach = self.dodgeDistance * (self.dashOf[client.myId] or 1)
+    me.dx, me.dy = step(me.dx, me.dy, d.x, d.y, reach / self.dodgeTime, slice)
     d.t = d.t - dt
     if d.t <= 0 then
       self.dash = nil
@@ -431,6 +438,12 @@ OnFoot.clientMessages = {
       OnFoot.maxOf[id] = max
     end
   end,
+  OF_DASH = function(_client, args)
+    local id, scale = tonumber(args[1]), tonumber(args[2])
+    if id and scale then
+      OnFoot.dashOf[id] = scale
+    end
+  end,
   --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
   OF_DODGED = function(_client, args)
     local x, y, dx, dy = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
@@ -465,17 +478,22 @@ function OnFoot:serverStart()
     time = 0, -- seconds since the game started
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
     regen = {}, -- player id -> regen scale (absent = 1)
+    dash = {}, -- player id -> dodge distance scale (absent = 1)
   }
 end
 
---- A player joining a running game hears every raised stamina ceiling (OF_MAX
---- is only sent when one changes). Their own walking record is made when needed.
+--- A player joining a running game hears every raised stamina ceiling and
+--- dodge (OF_MAX and OF_DASH are only sent when one changes). Their own
+--- walking record is made when needed.
 function OnFoot:serverPlayerJoined(server, player)
   if not (self.sv and server.started) or player.bot then
     return
   end
   for id, max in pairs(self.sv.maxStamina) do
     server:send(player, Protocol.encode("OF_MAX", id, max))
+  end
+  for id, scale in pairs(self.sv.dash) do
+    server:send(player, Protocol.encode("OF_DASH", id, ("%.3f"):format(scale)))
   end
 end
 
@@ -484,6 +502,7 @@ function OnFoot:serverPlayerLeft(_server, player)
     self.sv.walkers[player.id] = nil
     self.sv.maxStamina[player.id] = nil
     self.sv.regen[player.id] = nil
+    self.sv.dash[player.id] = nil
   end
 end
 
@@ -560,6 +579,20 @@ function OnFoot:serverSetStaminaRegen(_server, player, scale)
   if st then
     st.regen = self.staminaRegen * scale
   end
+  return scale
+end
+
+--- Set how far a player's dodge carries them, as a multiple of
+--- dodgeDistance, for the rest of the game; it takes the same dodgeTime, so
+--- a longer dodge is a faster one. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the scale set.
+function OnFoot:serverSetDodgeScale(server, player, scale)
+  if not self.sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  self.sv.dash[player.id] = scale
+  server:broadcast(Protocol.encode("OF_DASH", player.id, ("%.3f"):format(scale)))
   return scale
 end
 
@@ -689,7 +722,8 @@ function OnFoot:walk(st, body, dt, server, player)
     -- Mid-dodge: the dash carries them, whatever the keys say.
     local d = st.dash
     local slice = math.min(dt, d.t) -- the last step only goes as far as is left
-    body.x, body.y = step(body.x, body.y, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    local reach = self.dodgeDistance * (self.sv.dash[player.id] or 1)
+    body.x, body.y = step(body.x, body.y, d.x, d.y, reach / self.dodgeTime, slice)
     d.t = d.t - dt
     if d.t <= 0 then
       st.dash = nil
