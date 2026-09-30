@@ -548,6 +548,12 @@ couple of small conventions rather than requiring each other:
   on whatever stops it, or in mid-air when its `ttl` runs out, hurting every
   player and car in the radius, the shooter included (`WPN_BOOM` draws it).
   A gun's `stock` is how many rounds each human player starts the game with.
+  The flamethrower sprays short-lived tongues of fire (`flame` draws them,
+  `damageType = "fire"`), and a round that catches somebody on foot sets
+  them alight (`ignite = { seconds, dps }`, the damage feature's burning).
+  Its magazine is a `tank`: a reload takes one fuel can ("ammo-flamethrower",
+  made from oil and iron at the ammo factory) and fills it whole, and
+  boxes, drops and stocks count cans, not rounds.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when

@@ -24,6 +24,14 @@
 --             to a third at the edge. `soft` is how many bullets' worth it
 --             does to each feature's soft targets (pedestrians, officers).
 --             `type` is the blast's damage type, "explosive" otherwise.
+--   ignite    { seconds, dps }: a round that hits somebody on foot sets them
+--             alight (the damage feature's burning) for `seconds` at `dps`
+--   flame     true: its rounds are drawn as tongues of fire that swell and
+--             darken as they go, not as streaks (the flamethrower)
+--   tank      true: the magazine is a tank, and one ammo item fills it
+--             whole, however much is left in it or however big a tier
+--             makes it (a fuel can). A box, a drop or a stock is counted in
+--             items, one a magazine
 --   pellets   projectiles one trigger pull sends out (1 otherwise), each
 --             scattered by `spread` on its own: a shotgun. The magazine
 --             counts pulls, not pellets, and only the first pellet sounds.
@@ -160,6 +168,29 @@ Guns.list = {
     ammoName = "sniper round",
     stack = 50,
     scope = 4,
+  },
+  {
+    key = "flamethrower",
+    blurb = "A jet of fire that sets whoever it touches alight. Short reach; a fuel can fills the tank.",
+    name = "flamethrower",
+    damageType = "fire",
+    damage = 5, -- a lick of flame; fourteen of them a second, and it keeps burning after
+    cooldown = 0.07,
+    spread = 0.18, -- a cone about twenty degrees wide
+    speed = 360,
+    streak = 0,
+    ttl = 0.45, -- about 160 px, then the flame has burned out
+    flame = true,
+    ignite = { seconds = 3, dps = 8 },
+    sound = "flame",
+    pitch = 1,
+    magazine = 100, -- seven seconds of fire
+    tank = true,
+    reload = 2.5,
+    reloadSound = "reload-flamethrower",
+    ammoName = "fuel can",
+    stack = 10,
+    tierStats = { "damage", "ttl", "magazine", "ignite.dps" },
   },
 }
 

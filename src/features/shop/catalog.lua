@@ -65,8 +65,9 @@ local Catalog = {
 -- the same thing (buildings/kinds.lua, Kinds.worth).
 local PRICES = {
   ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-shotgun"] = 100,
-  ["gun-sniper"] = 160, ["gun-rocket"] = 300,
+  ["gun-sniper"] = 160, ["gun-rocket"] = 300, ["gun-flamethrower"] = 220,
   ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
+  ["ammo-flamethrower"] = 50,
   medkit = 20, drink = 12,
   ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
   ["armor-ceramic-plates"] = 150,
@@ -74,8 +75,12 @@ local PRICES = {
 local DEFAULT = { gun = 100, ammo = 40, ability = 80, supply = 20, armor = 60, gear = 40, car = 150 }
 local CAR_MARKUP = 1.5
 
---- Rounds in a box of ammo for `gun`: two magazines, and at least five.
+--- Rounds in a box of ammo for `gun`: two magazines, and at least five;
+--- for a gun with a tank, two of what fills it (two fuel cans).
 local function boxOf(gun)
+  if gun.tank then
+    return 2
+  end
   return math.max(5, gun.magazine * 2)
 end
 

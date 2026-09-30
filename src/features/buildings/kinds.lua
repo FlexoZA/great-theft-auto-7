@@ -146,13 +146,15 @@ Kinds.list = {
   },
   {
     key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
-    blurb = "Turns iron and sulfur into rounds for the gun you pick.",
+    blurb = "Turns iron and sulfur into rounds for the gun you pick, or oil into fuel cans.",
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
       ["ammo-rocket"] = {
         inputs = { iron = 1, copper = 1, sulfur = 1 }, time = 10, batch = 2, cap = 20, unit = 1, price = 8,
       },
+      -- A fuel can: oil in a can of iron.
+      ["ammo-flamethrower"] = { inputs = { oil = 2, iron = 1 }, time = 10, batch = 1, cap = 20, unit = 1, price = 6 },
     },
   },
   {
@@ -361,7 +363,7 @@ function Kinds.tierStats(item)
   local gun, ability = base:match("^gun%-(.+)$"), base:match("^ability%-(.+)$")
   local armor, gear = base:match("^armor%-(.+)$"), base:match("^gear%-(.+)$")
   if gun and Guns[gun] then
-    return Guns[gun].tierStats, false, { cooldown = "fire rate" }
+    return Guns[gun].tierStats, false, { cooldown = "fire rate", ttl = "range", ["ignite.dps"] = "afterburn" }
   elseif ability and AbilityKinds.byKey[ability] then
     return AbilityKinds.byKey[ability].tierStats, false, AbilityKinds.byKey[ability].tierLabels
   elseif armor and ArmorKinds.byKey[armor] then
