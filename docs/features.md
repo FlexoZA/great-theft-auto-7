@@ -1048,3 +1048,29 @@ the one with a plot.
 Add a hook to the core rather than reaching into it from a feature. Keep the
 core change to a few lines, document the new hook here and in `_template`,
 and mention it in the pull request so others can use it.
+
+## Changelog and versioning
+
+`CHANGELOG.md` at the repository root is what players read: the icon in the
+bottom-left corner of the main menu opens it, and a dot on that icon means
+the version changed since they last looked. It is also the only place the
+version lives; `src/version.lua` reads it, so there is nothing else to bump.
+
+Every pull request into `staging` that a player would notice adds a line
+under `## [Unreleased]`, in `### Added`, `### Changed` or `### Fixed`
+(create the heading if it is missing). Write it for players, not for the
+code: "Cars can be repainted at the garage", not "garage: PAINT message".
+Wrap long lines with a two-space indent. Pure refactors and docs need no
+line. In the game the unreleased lines show as "Coming next" and the
+version reads `0.1.0-dev`, so a staging build is easy to tell apart.
+
+A release is `staging` merged into `main`. In the same merge, rename
+`[Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, put a fresh empty
+`## [Unreleased]` above it, and tag the merge commit `vx.y.z`. The number
+follows semantic versioning, read for a game that is not finished yet
+(`0.y.z`):
+- `y` (minor) for a release with anything new in it: features, content,
+  balance changes. Most releases.
+- `z` (patch) for a release that only fixes things.
+- `1.0.0` when we call the game released; after that `x` goes up when
+  saved worlds or LAN play stop working with the previous version.

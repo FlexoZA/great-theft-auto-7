@@ -1,7 +1,7 @@
 NAME    := great-theft-auto-7
 BUILD   := build
 LOVE    ?= love
-SOURCES := main.lua conf.lua src lib assets
+SOURCES := main.lua conf.lua CHANGELOG.md src lib assets
 
 .PHONY: run check fmt build clean
 
