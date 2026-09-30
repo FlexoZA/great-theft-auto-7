@@ -2,6 +2,7 @@
 -- towards, and drawn. Nothing here changes the world; the host decides where
 -- every officer stands and what they are aiming at (officers.lua).
 
+local Body = require("src.body")
 local Officers = require("src.features.police.officers")
 
 local Render = {
@@ -14,15 +15,14 @@ local Render = {
 
 local SMOOTHING = 11 -- per second, between the crowd's 10 and the car's 12
 local SNAP = 150 -- px; a jump this big is a fresh officer, not a step
-local BODY = 6.5
-local HEAD = 3.5
-local GUN = 9 -- px the barrel sticks out past the body
 local MAX_HEALTH = Officers.HEALTH -- only used to size the damage bar over a wounded one
 
-local UNIFORM = { 0.13, 0.18, 0.38 }
-local VEST = { 0.30, 0.34, 0.46 }
-local CAP = { 0.09, 0.12, 0.26 }
-local SKIN = { 0.92, 0.78, 0.63 }
+-- An officer's look for the core's person (src/body.lua): navy uniform, a
+-- lighter stab vest, a peaked cap; the gun is out while hunting.
+local LOOK = {
+  shirt = { 0.13, 0.18, 0.38 }, vest = { 0.30, 0.34, 0.46 }, hat = { 0.09, 0.12, 0.26 }, brim = true,
+  pants = { 0.1, 0.12, 0.22 },
+}
 
 function Render.clear()
   Render.officers = {}
@@ -109,27 +109,8 @@ function Render.draw(camera, flash)
     if math.abs(x - camera.x) < halfW and math.abs(y - camera.y) < halfH then
       local fx, fy = math.cos(o.angle), math.sin(o.angle)
       local swing = math.sin(t * (o.running and 15 or 7) + o.bob) * (o.running and 1.4 or 0.9)
-      local sx, sy = -fy * swing, fx * swing
-
-      love.graphics.setColor(0, 0, 0, 0.3)
-      love.graphics.circle("fill", x + 2, y + 2, BODY, 10)
-      love.graphics.setColor(UNIFORM)
-      love.graphics.circle("fill", x + sx, y + sy, BODY, 10)
-      -- Stab vest across the shoulders, lighter than the uniform.
-      love.graphics.setColor(VEST)
-      love.graphics.setLineWidth(2)
-      love.graphics.line(x - fy * 4 + sx, y + fx * 4 + sy, x + fy * 4 + sx, y - fx * 4 + sy)
-
-      if o.alert then
-        love.graphics.setColor(0.12, 0.12, 0.15)
-        love.graphics.line(x + fx * BODY, y + fy * BODY, x + fx * (BODY + GUN), y + fy * (BODY + GUN))
-      end
-      love.graphics.setLineWidth(1)
-
-      love.graphics.setColor(SKIN)
-      love.graphics.circle("fill", x + fx * 1.6 + sx * 0.5, y + fy * 1.6 + sy * 0.5, HEAD, 8)
-      love.graphics.setColor(CAP)
-      love.graphics.circle("fill", x + fx * 0.6 + sx * 0.5, y + fy * 0.6 + sy * 0.5, HEAD - 0.6, 8)
+      LOOK.gun = o.alert
+      Body.person(x, y, o.angle, swing, LOOK)
 
       if o.alert then
         -- Shoulder radio, blinking red then blue like the cars.
@@ -138,16 +119,16 @@ function Render.draw(camera, flash)
         else
           love.graphics.setColor(0.35, 0.55, 1, 0.95)
         end
-        love.graphics.circle("fill", x - fy * 5 - fx * 3, y + fx * 5 - fy * 3, 1.8, 6)
+        love.graphics.circle("fill", x - fy * 6 - fx * 2, y + fx * 6 - fy * 2, 2, 6)
       end
 
       local hp = o.hp or MAX_HEALTH
       if hp < MAX_HEALTH then
         local bw = 16
         love.graphics.setColor(0, 0, 0, 0.6)
-        love.graphics.rectangle("fill", x - bw / 2 - 1, y - 14, bw + 2, 4)
+        love.graphics.rectangle("fill", x - bw / 2 - 1, y - 17, bw + 2, 4)
         love.graphics.setColor(1 - hp / MAX_HEALTH, hp / MAX_HEALTH, 0.2)
-        love.graphics.rectangle("fill", x - bw / 2, y - 13, bw * hp / MAX_HEALTH, 2)
+        love.graphics.rectangle("fill", x - bw / 2, y - 16, bw * hp / MAX_HEALTH, 2)
       end
     end
   end
