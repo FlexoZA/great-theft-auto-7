@@ -48,6 +48,7 @@
 --   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
 
 local Protocol = require("src.net.protocol")
+local Body = require("src.body")
 local Features = require("src.features")
 local Audio = require("src.audio")
 local Video = require("src.video")
@@ -858,25 +859,18 @@ local function drawBubble(x, y, text, alpha)
   love.graphics.printf(text, bx + 8, by + 6, w - 16, "center")
 end
 
---- A simp from above: a hoodie, a head, and a fist out front while the
---- punch lands. His name hangs over him, and a bar once he is hurt.
+--- A simp from above: the core's person (src/body.lua) in his hoodie, hood
+--- up, a fist out front while the punch lands. His name hangs over him, and
+--- a bar once he is hurt.
+local SIMP_LOOK = {
+  shirt = SIMP_COLOR, hood = { SIMP_COLOR[1] * 0.85, SIMP_COLOR[2] * 0.85, SIMP_COLOR[3] * 0.85 },
+  pants = { 0.2, 0.2, 0.24 }, skin = SIMP_SKIN,
+}
 local function drawSimp(s)
-  local x, y, r = s.dx, s.dy, Simps.RADIUS
-  local fx, fy = math.cos(s.angle), math.sin(s.angle)
+  local x, y, r = s.dx, s.dy, Body.SHOULDERS
   local swing = math.sin(time * 12 + s.bob) * 1.2
-  local sx, sy = -fy * swing, fx * swing
-  love.graphics.setColor(0, 0, 0, 0.3)
-  love.graphics.circle("fill", x + 2, y + 2, r, 10)
-  love.graphics.setColor(SIMP_SKIN)
-  if s.swing then
-    love.graphics.circle("fill", x + fx * (r + 6), y + fy * (r + 6), 2.4, 6) -- the fist
-  end
-  love.graphics.circle("fill", x - fy * (r + 1) - sx, y + fx * (r + 1) - sy, 2, 6)
-  love.graphics.circle("fill", x + fy * (r + 1) + sx, y - fx * (r + 1) + sy, 2, 6)
-  love.graphics.setColor(SIMP_COLOR)
-  love.graphics.circle("fill", x + sx * 0.5, y + sy * 0.5, r, 10)
-  love.graphics.setColor(SIMP_SKIN)
-  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 3.2, 8)
+  SIMP_LOOK.punch = s.swing
+  Body.person(x, y, s.angle, swing, SIMP_LOOK)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf(s.name, x - 59, y - r - 19, 120, "center")

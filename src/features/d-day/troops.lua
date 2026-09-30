@@ -25,7 +25,7 @@ Troops.__index = Troops
 
 -- Tuning --------------------------------------------------------------------
 
-Troops.RADIUS = 7 -- px; as fat as an officer on foot
+Troops.RADIUS = 9 -- px; as fat as an officer on foot (drawn as a person: src/body.lua)
 Troops.HEALTH = 40 -- two pistol rounds
 Troops.SHOT_DAMAGE = 20 -- what one round takes off (matches the pistol)
 Troops.RANGE = 640 -- px they can see
@@ -36,7 +36,7 @@ Troops.TURN = 2.0 -- rad/s turning to follow someone; sprint across his cone and
 Troops.REACT = 0.7 -- seconds from spotting someone to the first shot
 Troops.FIRE_EVERY = 0.6 -- seconds between rounds while he can see you
 Troops.SPREAD = 0.06 -- radians of aim error, on top of the rifle's own
-Troops.MUZZLE = 12 -- px from the body a round leaves
+Troops.MUZZLE = 23 -- px from the body a round leaves: the tip of the rifle in his hands
 Troops.LOOK_EVERY = 3 -- host ticks between sight checks (staggered by soldier)
 Troops.WALK = 62 -- px/s a rifleman walks down the hill
 Troops.SCAN = math.rad(20) -- a walking rifleman looks this far either side of his path
