@@ -692,9 +692,11 @@ example with a menu; real-estate is the one with a place to stand.
   warships steaming along offshore. Shotgun's Bluff runs on both ways
   (plateau, cliff face, flowered meadow, boulders) between dry-stone walls,
   a canyon with a river at its bottom drops away north of the plateau, and
-  the meadow gives way to woods south. A map
-  gets surroundings with an entry in its `DRAW` table (by map name); the
-  others still show the grid. The crowd spawns only on the map's land.
+  the meadow gives way to woods south. The outskirts are fenced round with
+  post and rail, farmland past it: a patchwork of fields with tracks
+  between, a lone tree here and there, a farm and a tractor working a
+  field. Every map now has surroundings; a new one gets them with an entry
+  in the `DRAW` table (by map name), and shows the grid until it does. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know
   whose car you are borrowing and can spot your own. Player-arrows marks the

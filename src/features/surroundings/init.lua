@@ -26,6 +26,10 @@
 -- canyon drops away past the plateau's north edge, a river at its bottom,
 -- and the meadow gives way to woods south.
 --
+-- The outskirts are fenced round with post and rail; past the fence is
+-- farmland, a patchwork of fields in rows with dirt tracks between them,
+-- a lone tree here and there, and a farm with a tractor working a field.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -826,6 +830,170 @@ local function bluff(map, camera)
   stoneWall(map.left + map.w + 18, cy + CLIFF_FACE + 4, math.min(bottom, south + 120))
 end
 
+-- The outskirts: a fence, then farmland -------------------------------------
+
+local FENCE_OUT = 60 -- px of grass past the edge before the fence
+local FIELDS_OUT = 110 -- px out where the fields start
+local FIELD_W, FIELD_H = 430, 300 -- a field's size, give or take
+local TRACK = 22 -- px of dirt track between fields
+local DIRT = { 0.45, 0.37, 0.27 }
+local DIRT_DARK = { 0.39, 0.32, 0.23 }
+local RAIL = { 0.5, 0.36, 0.22 }
+local CROPS = { -- a field's colour and the colour of its rows
+  { { 0.78, 0.68, 0.35 }, { 0.68, 0.58, 0.28 } }, -- wheat
+  { { 0.35, 0.55, 0.25 }, { 0.27, 0.45, 0.19 } }, -- green crops
+  { { 0.45, 0.36, 0.26 }, { 0.36, 0.28, 0.2 } }, -- ploughed
+  { { 0.36, 0.46, 0.27 }, { 0.33, 0.43, 0.25 } }, -- fallow
+  { { 0.62, 0.64, 0.3 }, { 0.52, 0.55, 0.24 } }, -- rapeseed going over
+}
+
+--- The field at (fx, fy, w, h): its crop in rows, one way or the other.
+local function field(fx, fy, w, h, n)
+  local crop = CROPS[math.floor(n * 53) % #CROPS + 1]
+  love.graphics.setColor(crop[1])
+  love.graphics.rectangle("fill", fx, fy, w, h, 4)
+  love.graphics.setColor(crop[2])
+  love.graphics.setLineWidth(3)
+  if n > 0.5 then
+    for y = fy + 8, fy + h - 4, 12 do
+      love.graphics.line(fx + 6, y, fx + w - 6, y)
+    end
+  else
+    for x = fx + 8, fx + w - 4, 12 do
+      love.graphics.line(x, fy + 6, x, fy + h - 6)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A post-and-rail fence round the box (x, y, w, h).
+local function fence(x, y, w, h)
+  love.graphics.setColor(0, 0, 0, 0.22)
+  love.graphics.setLineWidth(5)
+  love.graphics.rectangle("line", x + 4, y + 4, w, h)
+  love.graphics.setColor(RAIL)
+  love.graphics.rectangle("line", x, y, w, h)
+  love.graphics.setColor(RAIL[1] * 1.25, RAIL[2] * 1.25, RAIL[3] * 1.25)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.rectangle("line", x - 1, y - 1, w, h) -- light along the rail's top
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(RAIL[1] * 0.7, RAIL[2] * 0.7, RAIL[3] * 0.7)
+  for px = x, x + w, 48 do
+    love.graphics.rectangle("fill", px - 5, y - 5, 10, 10, 2)
+    love.graphics.rectangle("fill", px - 5, y + h - 5, 10, 10, 2)
+  end
+  for py = y, y + h, 48 do
+    love.graphics.rectangle("fill", x - 5, py - 5, 10, 10, 2)
+    love.graphics.rectangle("fill", x + w - 5, py - 5, 10, 10, 2)
+  end
+end
+
+--- A building from above: a pitched roof in `roof` with its ridge, a shadow.
+local function building(x, y, w, h, roof)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x + 8, y + 8, w, h)
+  love.graphics.setColor(roof)
+  love.graphics.rectangle("fill", x, y, w, h / 2)
+  love.graphics.setColor(roof[1] * 0.78, roof[2] * 0.78, roof[3] * 0.78)
+  love.graphics.rectangle("fill", x, y + h / 2, w, h / 2)
+  love.graphics.setColor(roof[1] * 0.6, roof[2] * 0.6, roof[3] * 0.6)
+  love.graphics.setLineWidth(3)
+  love.graphics.line(x, y + h / 2, x + w, y + h / 2)
+  love.graphics.setLineWidth(1)
+end
+
+--- A tractor from above, going along `angle`: a green body, a cab, big back wheels.
+local function tractor(x, y, angle)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(angle)
+  love.graphics.scale(1.8) -- a tractor is bigger than a car
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", -12, -9, 28, 20, 3)
+  love.graphics.setColor(0.12, 0.12, 0.12)
+  love.graphics.rectangle("fill", -12, -12, 10, 5, 2) -- back wheels
+  love.graphics.rectangle("fill", -12, 7, 10, 5, 2)
+  love.graphics.rectangle("fill", 8, -9, 6, 3, 1) -- front wheels
+  love.graphics.rectangle("fill", 8, 6, 6, 3, 1)
+  love.graphics.setColor(0.2, 0.5, 0.2)
+  love.graphics.rectangle("fill", -10, -7, 26, 14, 3)
+  love.graphics.setColor(0.8, 0.85, 0.9)
+  love.graphics.rectangle("fill", -9, -5, 9, 10, 2) -- the cab roof
+  love.graphics.pop()
+end
+
+local function outskirts(map, camera)
+  local left, top, right, bottom = view(camera)
+  -- The grass carries on, worn in patches as the map's is.
+  love.graphics.setColor(LAWN)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  local T = Layout.TILE
+  love.graphics.setColor(LAWN_DARK)
+  for c = math.floor(left / T), math.ceil(right / T) do
+    for r = math.floor(top / T), math.ceil(bottom / T) do
+      if (c * 31 + r * 17) % 5 == 0 then
+        love.graphics.rectangle("fill", c * T + (c * 7) % 24, r * T + (r * 11) % 24, 36, 28)
+      end
+    end
+  end
+  -- The fields: rows of them, each row staggered and each field its own
+  -- width, dirt tracks between, none nearer the map than FIELDS_OUT.
+  local x0, y0 = map.left - FIELDS_OUT, map.top - FIELDS_OUT
+  local x1, y1 = map.left + map.w + FIELDS_OUT, map.top + map.h + FIELDS_OUT
+  for k = math.floor(top / FIELD_H), math.ceil(bottom / FIELD_H) do
+    local fy = k * FIELD_H
+    love.graphics.setColor(DIRT)
+    if fy + TRACK < y0 or fy > y1 then
+      love.graphics.rectangle("fill", left, fy, right - left, TRACK) -- the track along the row
+    else -- not across the grass round the map: either side of it
+      love.graphics.rectangle("fill", left, fy, math.max(0, x0 - left), TRACK)
+      love.graphics.rectangle("fill", x1, fy, math.max(0, right - x1), TRACK)
+    end
+    local shift = love.math.noise(k * 0.9, 7.7) * FIELD_W
+    local fx = math.floor((left - shift) / FIELD_W) * FIELD_W + shift - FIELD_W
+    while fx < right do
+      local width = FIELD_W * (0.7 + love.math.noise(fx * 0.011, k * 1.3) * 0.8)
+      local ax, ay, bx, by = fx, fy + TRACK, fx + width - TRACK, fy + FIELD_H
+      local clear = bx < x0 or ax > x1 or by < y0 or ay > y1 -- nowhere near the map
+      if clear then
+        love.graphics.setColor(DIRT)
+        love.graphics.rectangle("fill", bx, fy, TRACK, FIELD_H) -- the track down its side
+        love.graphics.setColor(DIRT_DARK)
+        love.graphics.rectangle("fill", bx + 8, fy, 3, FIELD_H) -- a rut
+        field(ax, ay, bx - ax, by - ay, love.math.noise(fx * 0.017, k * 0.71))
+      end
+      fx = fx + width
+    end
+  end
+  -- A lone tree at some field corners.
+  local pics = treePictures()
+  for k = math.floor(top / FIELD_H), math.ceil(bottom / FIELD_H) do
+    for c = math.floor(left / FIELD_W), math.ceil(right / FIELD_W) do
+      local n = love.math.noise(c * 0.77, k * 0.93)
+      local x, y = c * FIELD_W + n * 60, k * FIELD_H + 10
+      if n > 0.62 and outside(map, x, y) > FIELDS_OUT then
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.draw(pics[n > 0.8 and 3 or 5], x, y, 0, 1.1, 1.1, TREE_SIZE / 2, TREE_SIZE / 2)
+      end
+    end
+  end
+  -- The farm, off the left side, and its tractor working the field beside it.
+  local farmX, farmY = map.left - 620, map.top + map.h * 0.35
+  if farmX + 300 > left and farmX - 50 < right and farmY + 260 > top and farmY - 60 < bottom then
+    love.graphics.setColor(DIRT)
+    love.graphics.rectangle("fill", farmX - 30, farmY - 30, 320, 250, 8) -- the yard
+    building(farmX, farmY, 120, 90, { 0.62, 0.55, 0.5 }) -- the farmhouse
+    building(farmX + 150, farmY + 10, 110, 150, { 0.62, 0.18, 0.14 }) -- the barn
+  end
+  local tx0, ty0, span = farmX - 20, farmY + 280, 280
+  local k = (clock * 0.05) % 2
+  local along = k < 1 and k or 2 - k
+  local lane = math.floor(clock * 0.05) % 6
+  tractor(tx0 + along * span, ty0 + lane * 30, k < 1 and 0 or math.pi)
+  -- The fence all round, a little out from the edge.
+  fence(map.left - FENCE_OUT, map.top - FENCE_OUT, map.w + 2 * FENCE_OUT, map.h + 2 * FENCE_OUT)
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -835,6 +1003,7 @@ local DRAW = {
   culdesac = culdesac,
   beach = beach,
   cliff = bluff,
+  outskirts = outskirts,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
