@@ -713,7 +713,8 @@ end
 
 --- A dodge for `player` in direction (dx, dy), if they are on foot, free,
 --- rested and not still recovering from the last one. Returns true if it
---- started. Everyone hears OF_DODGED for the dust.
+--- started. Everyone hears OF_DODGED for the dust, and every feature
+--- `serverDodged` (a dodge puts out a fire).
 function OnFoot:serverDodge(server, player, dx, dy)
   local sv = self.sv
   if not (sv and player.body) or player.vehicle or player.body.dead then
@@ -738,6 +739,22 @@ function OnFoot:serverDodge(server, player, dx, dy)
   local b = player.body
   server:broadcast(Protocol.encode("OF_DODGED", player.id, ("%.0f"):format(b.x), ("%.0f"):format(b.y),
     ("%.2f"):format(dx), ("%.2f"):format(dy)))
+  Features.call("serverDodged", server, player)
+  return true
+end
+
+--- Knock `player` (on foot) `distance` px along the unit direction (dx, dy)
+--- over `seconds`, sliding along walls as a step does. A dodge under way is
+--- cut short. The damage feature knocks people back this way (an impact, a
+--- blast); it holds them for the while, so their own prediction waits for it.
+function OnFoot:serverShove(_server, player, dx, dy, distance, seconds)
+  if not (self.sv and player.body) or player.vehicle or player.body.dead or distance <= 0 then
+    return false
+  end
+  local st = self:walker(player)
+  seconds = math.max(0.05, seconds or 0.25)
+  st.dash = nil
+  st.shove = { x = dx, y = dy, speed = distance / seconds, t = seconds }
   return true
 end
 
@@ -767,7 +784,16 @@ function OnFoot:serverStep(server, dt)
   for id, player in pairs(server.players) do
     if player.body and not player.vehicle and not player.body.dead then
       local st = self:walker(player)
-      if not Features.any("serverHeld", server, player) then
+      if st.shove then
+        -- Knocked back: carried along whatever holds them (a knock holds them).
+        local s = st.shove
+        local slice = math.min(dt, s.t)
+        player.body.x, player.body.y = step(player.body.x, player.body.y, s.x, s.y, s.speed, slice)
+        s.t = s.t - dt
+        if s.t <= 0 then
+          st.shove = nil
+        end
+      elseif not Features.any("serverHeld", server, player) then
         self:walk(st, player.body, dt, server, player) -- a held walker (frozen) stays put
       end
       n = n + 1

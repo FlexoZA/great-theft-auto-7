@@ -17,6 +17,7 @@ local ArmorKinds = require("src.features.armor.kinds")
 local GearKinds = require("src.features.gear.kinds")
 local Kinds = require("src.features.buildings.kinds")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 
 local Details = {}
 
@@ -121,13 +122,29 @@ local function ability(entry, tier)
   return { blurb = a.blurb, use = use, rows = rows }
 end
 
+--- A row per damage type `resisted(dtype)` stops some of, in Damage.order:
+--- "fire" / "resists 40%". `improved(dtype)` says whether the tier did it.
+local function resistRows(rows, resisted, improved)
+  for _, dtype in ipairs(Damage.order) do
+    local r = resisted(dtype)
+    if r > 0 then
+      rows[#rows + 1] = {
+        label = dtype, value = ("resists %d%%"):format(math.floor(r * 100 + 0.5)), lit = improved(dtype),
+      }
+    end
+  end
+end
+
 local function armor(entry, tier)
   local base = ArmorKinds.byKey[entry.item:sub(7)]
   local a = Tiers.apply(base, tier)
-  return {
-    blurb = a.blurb, use = "Drag it into the armor slot. It breaks when its points are gone.",
-    rows = { { label = "soaks up", value = whole(a.points) .. " damage", lit = lit(a, base, "points") } },
-  }
+  local rows = { { label = "soaks up", value = whole(a.points) .. " damage", lit = lit(a, base, "points") } }
+  resistRows(rows, function(dtype)
+    return Damage.clampResist(a.resist and a.resist[dtype])
+  end, function(dtype)
+    return lit(a, base, "resist." .. dtype)
+  end)
+  return { blurb = a.blurb, use = "Drag it into the armor slot. It breaks when its points are gone.", rows = rows }
 end
 
 -- What a clothes multiplier does, as a row: label and how x`m` reads.
@@ -161,6 +178,14 @@ local function gear(entry, tier)
       label, value = name, ("x%.2f"):format(m)
     end
     rows[#rows + 1] = { label = label, value = value, lit = improved }
+  end
+  local Gear = Features.byName.gear
+  if Gear then
+    resistRows(rows, function(dtype)
+      return Gear.resistance(g, tier, dtype)
+    end, function(dtype)
+      return Gear.resistance(g, tier, dtype) ~= Gear.resistance(g, Tiers.DEFAULT, dtype)
+    end)
   end
   return { blurb = g.blurb, use = "Drag it onto its slot on your body.", rows = rows }
 end

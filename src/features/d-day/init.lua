@@ -220,7 +220,7 @@ function Dday:mortarLands(server, m)
     end
   end
   for _, c in ipairs(caught) do
-    weapons:serverDamage(server, c.p, nil, c.amount, c.angle)
+    weapons:serverDamage(server, c.p, nil, c.amount, c.angle, "explosive")
   end
 end
 

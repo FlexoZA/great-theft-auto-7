@@ -255,23 +255,25 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 
 | Event | Raised by | Meaning |
 | --- | --- | --- |
-| `serverPlayerDamaged(server, victim, attacker, amount)` | weapons | A projectile hit. `attacker` may be nil if they left. |
+| `serverPlayerDamaged(server, victim, attacker, amount, type, angle)` | weapons | A player (or the car they drive) was hurt, by anything: a round, a blast, a boss. `attacker` may be nil (nobody did it, or they left); `amount` is before armor; `type` is the damage type ("Damage types" under conventions); `angle` the way the blow travelled, when known. The damage feature puts the type's status on a player on foot (bleeding, a stun, a knock). |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
-| `serverWallHit(server, x, y, damage, by)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
-| `serverBlast(server, x, y, radius, damage, by)` | weapons | A missile went off at (x, y): `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
-| `serverKill(server, { kind, x, y, by, victim })` | weapons, pedestrians, police | Something died: kind is "car", "pedestrian" or "police", `by` the killer's id. |
+| `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
+| `serverBlast(server, x, y, radius, damage, by, type)` | weapons, leap, Bigfoot | Something hit the ground hard at (x, y): a missile going off (type "explosive"), a heavy leap landing ("impact"), Bigfoot's claws ("melee"). `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
+| `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk, d-day puts the defenders on their posts. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
+| `serverDodged(server, player)` | on-foot | `player` started a dodge on the host. The damage feature puts out a player who is burning. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
 | `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
-| `serverAbsorbDamage(amount, server, victim)` | weapons asks, through `Features.reduce` | A body is about to take `amount`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
+| `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
+| `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu, the inventory screen and the cheat list (F2) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu and the vehicles screen answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
@@ -323,7 +325,8 @@ couple of small conventions rather than requiring each other:
   `Features.call("serverKill", server, kill)` right after it broadcasts its
   own message (pedestrians and weapons do); `kill` is
   `{ kind = "pedestrian" | "police" | "car", x, y, by = <killer player id>, victim = <player id> }`
-  with `x, y` where it died, not where a wreck respawns. Kind "car" is
+  with `x, y` where it died, not where a wreck respawns. Weapons adds
+  `cause`, the damage type that did it. Kind "car" is
   weapons' kind for a player: a wrecked car (`victim` is its driver, nil
   for a parked one) or a player killed on foot (`onFoot = true`). Money
   drops koins there: a pedestrian is worth a fresh koin and an officer on
@@ -331,7 +334,7 @@ couple of small conventions rather than requiring each other:
   wallet and nothing at all if it was empty, so fill in `victim` for
   anything a player was driving. Ignore kinds you don't care about; new
   kinds may appear.
-- `feature:serverShotAt(server, x, y, radius, by, angle, damage)`: a bullet is
+- `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
   return false and it flies on. Weapons walks its projectiles through every
@@ -340,7 +343,9 @@ couple of small conventions rather than requiring each other:
   they go down). `by` is the shooter's player id and `angle` the direction of
   travel, for gibs and scoring; `by` is 0 for a shot no player fired;
   `damage` is what the round carries (nil from a blast), for a target that
-  takes hits rather than dying to one (Shotgun takes a sniper round's 200). Cars
+  takes hits rather than dying to one (Shotgun takes a sniper round's 200),
+  and `type` its damage type (a blast's "explosive", a heat ray's "fire";
+  the same call is made by anything that hurts an area). Cars
   are tested first, so answering here never steals a hit from a player.
   A missile's blast (the rocket launcher) asks each feature up to its
   `blast.soft` times at the blast centre with a wide radius, stopping at the
@@ -351,9 +356,43 @@ couple of small conventions rather than requiring each other:
   there; money, pickups, bots, police and Karen use them, so anything that
   happens "to a player" happens to the body. A parked car is a target of
   its own, never a stand-in for the player who left it.
-- `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle)`:
+- `Features.byName.weapons:serverDamage(server, victim, attacker, amount, angle, type)`:
   hurt a player from any cause (cars run walkers over with it). Kills raise
-  `serverKill` with `angle` and `onFoot`.
+  `serverKill` with `angle`, `onFoot` and `cause`. Nobody is hurt during
+  their spawn protection. `weapons:damageCar(server, car, byId, amount,
+  pid, angle, type)` is the same for a car (`pid` 0 when it wasn't a round).
+- Damage types: every hit says what kind of hit it is (`src/features/damage`,
+  design and plan in `docs/damage-types.md`): "bullet", "explosive",
+  "fire", "impact", "shock" or "melee", in `Damage.types` with each one's
+  name, colour and kill feed words. **Anything new that hurts passes its
+  type** as the last argument of `serverDamage` / `damageCar` and of the
+  `serverShotAt` / `serverBlast` it raises; left out, it counts as
+  `Damage.DEFAULT` ("bullet"). A gun declares `damageType` (default
+  "bullet") and a missile's blast `blast.type` (default "explosive").
+  Every hook that hears about damage gets the type on the end
+  (`serverAbsorbDamage`, `serverPlayerDamaged`, `serverShotAt`,
+  `serverBlast`, `serverWallHit`) and `serverKill` gets `cause`;
+  `WPN_KILL` and `WPN_WRECK` carry it, and the kill feed says "Bob burned
+  Alice". A new type is a new entry in `Damage.types`.
+  What a type does besides the damage, to a player on foot (the damage
+  feature, from `serverPlayerDamaged`): melee leaves them bleeding, shock
+  stuns them, impact knocks them back a little and down, explosive blows
+  them back (further the harder it hit) and dazes them (`worldBlur`).
+  Stunned or down is held (`serverHeld` / `held`). Fire does nothing by
+  itself: `Features.byName.damage:ignite(server, victim, seconds, dps, by)`
+  sets someone alight, and the heat ray ability, the Tripod's beam and the
+  open-borders fires call it with their own `afterburn` numbers; anything
+  new that burns should too. Burning and bleeding bite every quarter second
+  (the kill is `by`'s); another dose tops the time up at the stronger rate,
+  never stacks. A dodge puts a fire out, a medkit stops a bleed
+  (`damage:serverStopBleeding(server, id)`), and a car, dying or leaving
+  ends everything. `damage:serverAfflict(server, victim, status, seconds,
+  dps, by)`, `serverCure(server, id, status)` and `serverHas(id, status)`
+  are the general form (status "burn", "bleed", "stun", "down" or "daze");
+  every client hears `DMG_FX <id> <status> <seconds>` and draws it. A knock
+  is `Features.byName["on-foot"]:serverShove(server, player, dx, dy,
+  distance, seconds)`: the body is carried that far, sliding along walls,
+  whatever holds it.
 - `Features.byName.weapons:serverSetMaxHealth(server, player, max)` and
   `Features.byName["on-foot"]:serverSetMaxStamina(server, player, max)`: raise
   a player's ceiling for the rest of the game (respawns keep it). Raising it
@@ -625,7 +664,10 @@ example with a menu; real-estate is the one with a place to stand.
   away once damaged. Death takes it. `ARM_STATE` tells everyone what a
   player wears; the armor bar stands fourth in the bottom-left row, always
   there, grey and empty with nothing on. `armor:serverWorn(player)` reads
-  it on the host.
+  it on the host. A vest can resist damage types (`resist`, a share per
+  type, improvable by tier as `"resist.<type>"`): the kevlar vest stops
+  30% of bullets, the bomb suit half of every blast and some knocks and
+  fire (`serverResist` / `resist`).
 - Gear: `src/features/gear` is the clothes: a piece (`gear/kinds.lua`;
   `"gear-<key>"` in a bag, sold by the shop) has a slot (head, body, pants
   or shoes) and `stats`, multipliers other features read through the
@@ -636,6 +678,10 @@ example with a menu; real-estate is the one with a place to stand.
   the bag), dragged back it comes off (`GEAR_UNEQUIP`); clothes are never
   damaged and death leaves them on. `GEAR_STATE` tells everyone what a
   player wears. Add a piece to the list and the shop and the slots know it.
+  A piece can also resist damage types (`resist = { fire = 0.4 }`; a tier
+  grows it by its `bonus`, `gear.resistance(g, tier, type)` reads it): the
+  crash helmet (impact), firefighter jacket (fire), leather jacket (melee),
+  rubber boots (shock) and plate carrier (a little bullet and blast).
 - Open borders: `src/features/open-borders` is the horde behind the "open
   borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
   lets 25 simps out round the caster (the `serverOpenBorders` event); for

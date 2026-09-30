@@ -38,6 +38,7 @@ local Guns = require("src.features.weapons.guns")
 local Icons = require("src.features.weapons.icons")
 local AbilityIcons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 
 local Screen = {}
 
@@ -142,6 +143,7 @@ end
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
 ---   quick[i]               { x, y, w, h, item, usable }, the quick slots beside them, buildings.usables order
 ---   stats[i]               { x, y, w, h, stat }, the stats strip under the abilities, Screen.stats order
+---   resists[i]             { x, y, w, h, dtype }, the resistances strip under it, Damage.order
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
 ---   trash                  { x, y, w, h }, the bin under the items, right
 ---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
@@ -154,6 +156,7 @@ function Screen.layout()
   local rows = math.ceil(Kinds.MAX_SLOTS / cols)
   local gearH = #Screen.gear * (GEAR + GAP) - GAP
   local rightH = LABEL_H + GUN_H + SECTION_GAP + LABEL_H + ABL_H + SECTION_GAP + LABEL_H + STAT_H
+    + SECTION_GAP + LABEL_H + STAT_H
   local topH = math.max(gearH, rightH)
   local itemsH = rows * (CELL + GAP) - GAP
   local ph = 56 + topH + SECTION_GAP + LABEL_H + itemsH + 12 + TRASH_H + 34
@@ -207,6 +210,15 @@ function Screen.layout()
   local tileW = math.floor((statsW - (#Screen.stats - 1) * GAP) / #Screen.stats)
   for i, stat in ipairs(Screen.stats) do
     L.stats[i] = { x = x + (i - 1) * (tileW + GAP), y = sy + LABEL_H, w = tileW, h = STAT_H, stat = stat }
+  end
+
+  -- What everything worn resists, a tile per damage type, under the stats.
+  local ry = sy + LABEL_H + STAT_H + SECTION_GAP
+  L.resistsLabel = { x = x, y = ry }
+  L.resists = {}
+  local resistW = math.floor((statsW - (#Damage.order - 1) * GAP) / #Damage.order)
+  for i, dtype in ipairs(Damage.order) do
+    L.resists[i] = { x = x + (i - 1) * (resistW + GAP), y = ry + LABEL_H, w = resistW, h = STAT_H, dtype = dtype }
   end
 
   -- The item boxes along the bottom.
@@ -462,6 +474,28 @@ local function drawStats(L, client)
   end
 end
 
+--- The resistances strip: for each damage type, how much of it what I
+--- wear stops altogether (armor and clothes), lit in the type's colour
+--- when it is anything.
+local function drawResists(L, client)
+  heading("resist", L.resistsLabel.x, L.resistsLabel.y)
+  local damage = Features.byName.damage
+  love.graphics.setFont(UI.fonts.small)
+  for _, r in ipairs(L.resists) do
+    local pct = damage and math.floor((1 - damage:share(client, client.myId, r.dtype)) * 100 + 0.5) or 0
+    box(r.x, r.y, r.w, r.h, pct > 0, false)
+    local c = Damage.of(r.dtype).color
+    if pct > 0 then
+      love.graphics.setColor(c[1], c[2], c[3])
+    else
+      love.graphics.setColor(1, 1, 1, 0.45)
+    end
+    love.graphics.printf(pct > 0 and ("%d%%"):format(pct) or "-", r.x, r.y + 4, r.w, "center")
+    love.graphics.setColor(0.85, 0.85, 0.9, pct > 0 and 1 or 0.5)
+    love.graphics.printf(r.dtype, r.x, r.y + r.h - 18, r.w, "center")
+  end
+end
+
 --- The item boxes: a stack per open slot, locked ones greyed out. `lifted`
 --- is the box whose item is being dragged, drawn empty meanwhile.
 local function drawItems(L, buildings, list, lifted)
@@ -568,6 +602,7 @@ function Screen.draw(buildings, list, drag, notice, client)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
   drawStats(L, client)
+  drawResists(L, client)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
   love.graphics.setFont(UI.fonts.small)

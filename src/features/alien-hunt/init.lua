@@ -311,10 +311,11 @@ local function nearestBody(server, x, y, seen)
   return best, bestD2, bx, by, onFoot
 end
 
-local function hurtPlayer(server, player, amount, angle)
+--- `dtype`: a slam is "impact", a swipe "melee".
+local function hurtPlayer(server, player, amount, angle, dtype)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage then
-    weapons:serverDamage(server, player, nil, amount, angle)
+    weapons:serverDamage(server, player, nil, amount, angle, dtype)
   end
 end
 
@@ -492,7 +493,7 @@ function Hunt:slam(server, f)
       local pad = onFoot and 7 or 12
       if dist2(x, y, f.x, f.y) <= (self.slamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
-        hurtPlayer(server, p, self.slamDamage, math.atan2(y - f.y, x - f.x))
+        hurtPlayer(server, p, self.slamDamage, math.atan2(y - f.y, x - f.x), "impact")
       end
     end
   end
@@ -590,7 +591,7 @@ function Hunt:stepFoot(server, dt)
     end
   elseif f.swipeTimer <= 0 then
     f.swipeTimer, f.swipe = self.swipeEvery, 0.25
-    hurtPlayer(server, target, self.swipeDamage, f.facing)
+    hurtPlayer(server, target, self.swipeDamage, f.facing, "melee")
   end
 end
 

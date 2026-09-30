@@ -233,7 +233,7 @@ function Simps:hunt(server, s, dt, target, dist)
     s.swing = 0.3
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, target.player, nil, Simps.PUNCH_DAMAGE, s.facing)
+      weapons:serverDamage(server, target.player, nil, Simps.PUNCH_DAMAGE, s.facing, "melee")
     end
   end
 end

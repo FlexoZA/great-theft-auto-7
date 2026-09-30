@@ -13,8 +13,15 @@
 --             cooldown  how long abilities take to come back (abilities)
 --             armor     how many points a vest has (armor)
 --           Pieces stack: two that each give x1.2 give x1.44.
+--   resist  optional: type -> the share of that damage type it stops
+--           (src/features/damage): { fire = 0.4 } stops 40% of every
+--           fire hit. Pieces stack the same way: two that each stop 30%
+--           stop 51%.
 --   tierStats  which of its stats a better tier improves, in order
---              (tiers/init.lua); a piece with one stat needs none
+--              (tiers/init.lua), a resistance as "resist.<type>"; left
+--              out, every stat and resistance it has, sorted by name.
+--              Leave out a stat that is a drawback (x0.95 speed): a
+--              tier grows it like a bonus
 
 local Kinds = {
   slots = { "head", "body", "pants", "shoes" },
@@ -25,7 +32,8 @@ local Kinds = {
     },
     {
       key = "plate-carrier", slot = "body", title = "plate carrier", color = { 0.42, 0.46, 0.52 },
-      blurb = "armor holds a quarter more", stats = { armor = 1.25 },
+      blurb = "armor holds a quarter more; bullets and blasts hurt a little less", stats = { armor = 1.25 },
+      resist = { bullet = 0.1, explosive = 0.1 }, tierStats = { "armor", "resist.bullet", "resist.explosive" },
     },
     {
       key = "cargo-pants", slot = "pants", title = "cargo pants", color = { 0.52, 0.46, 0.3 },
@@ -35,6 +43,24 @@ local Kinds = {
       key = "running-shoes", slot = "shoes", title = "running shoes", color = { 0.9, 0.35, 0.3 },
       blurb = "15% faster on foot, sprinting costs 30% less", stats = { speed = 1.15, stamina = 0.7 },
       tierStats = { "speed", "stamina" },
+    },
+    {
+      key = "crash-helmet", slot = "head", title = "crash helmet", color = { 0.85, 0.75, 0.2 },
+      blurb = "knocks, trampling and slams hurt a third less; blasts a little less", stats = {},
+      resist = { impact = 0.35, explosive = 0.1 }, tierStats = { "resist.impact", "resist.explosive" },
+    },
+    {
+      key = "fire-jacket", slot = "body", title = "firefighter jacket", color = { 0.85, 0.55, 0.15 },
+      blurb = "fire and burning hurt 40% less", stats = {}, resist = { fire = 0.4 },
+    },
+    {
+      key = "leather-jacket", slot = "body", title = "leather jacket", color = { 0.3, 0.22, 0.18 },
+      blurb = "punches, claws and bites hurt 30% less", stats = {}, resist = { melee = 0.3 },
+    },
+    {
+      key = "rubber-boots", slot = "shoes", title = "rubber boots", color = { 0.2, 0.45, 0.25 },
+      blurb = "shocks hurt half as much and stun you half as long; a little slower on foot",
+      stats = { speed = 0.95 }, resist = { shock = 0.5 }, tierStats = { "resist.shock" },
     },
   },
   byKey = {},
@@ -47,6 +73,9 @@ for _, g in ipairs(Kinds.list) do
     g.tierStats = {}
     for name in pairs(g.stats) do
       g.tierStats[#g.tierStats + 1] = name
+    end
+    for dtype in pairs(g.resist or {}) do
+      g.tierStats[#g.tierStats + 1] = "resist." .. dtype
     end
     table.sort(g.tierStats)
   end
