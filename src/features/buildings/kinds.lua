@@ -53,6 +53,7 @@
 -- (`kind.hopper`, worked out below), so switching products never strands
 -- what was loaded; a batch uses up only what the product in hand needs.
 
+local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
@@ -373,7 +374,8 @@ end
 
 --- What `item`'s tier does, for a card or a tooltip: "+25% damage, fire
 --- rate", or "base stats" for a common; nil for things without tiers.
---- Clothes say what the improved stats come to: "speed +19%".
+--- Clothes say what the improved stats come to: "speed +19%", and a
+--- resistance what it stops: "fire resist 50%".
 function Kinds.tierLine(item)
   local stats, clothes, labels = Kinds.tierStats(item)
   if not (stats and Tiers.tiered(item)) then
@@ -382,11 +384,18 @@ function Kinds.tierLine(item)
   local tier = Tiers.of(item)
   if clothes then
     local g = GearKinds.byKey[Tiers.base(item):sub(6)]
+    local gear = Features.byName.gear
     local parts = {}
     for i, stat in ipairs(stats) do
       if Tiers.improves(tier, i) then
-        local m = Tiers.multiplier(g.stats[stat], tier, i)
-        parts[#parts + 1] = ("%s %+d%%"):format(Tiers.label(stat), math.floor((m - 1) * 100 + 0.5))
+        local dtype = stat:match("^resist%.(.+)$")
+        if dtype then
+          local r = gear and gear.resistance(g, tier, dtype) or 0
+          parts[#parts + 1] = ("%s %d%%"):format(Tiers.label(stat), math.floor(r * 100 + 0.5))
+        elseif g.stats[stat] then
+          local m = Tiers.multiplier(g.stats[stat], tier, i)
+          parts[#parts + 1] = ("%s %+d%%"):format(Tiers.label(stat), math.floor((m - 1) * 100 + 0.5))
+        end
       end
     end
     return #parts > 0 and table.concat(parts, ", ") or "base stats"
