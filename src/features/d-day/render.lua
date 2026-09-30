@@ -4,6 +4,7 @@
 -- (what the host last said) and calls in here.
 
 local Features = require("src.features")
+local Body = require("src.body")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
 local Troops = require("src.features.d-day.troops")
@@ -110,32 +111,20 @@ end
 
 -- World: over everyone -------------------------------------------------------
 
---- A defender from above: helmet, shoulders, rifle out front; a pack on a
---- rifleman's back; a red "!" over anyone who has you in his sights.
+--- A defender from above: the core's person (src/body.lua) in field grey,
+--- a helmet, a rifle held out front, a pack on a rifleman's back; a red "!"
+--- over anyone who has you in his sights.
+local SOLDIER = {
+  shirt = UNIFORM, pants = UNIFORM_DARK, hat = HELMET, skin = SKIN, shoes = { 0.16, 0.13, 0.1 },
+  gun = true, gunLength = 15,
+}
+local RIFLEMAN = {
+  shirt = UNIFORM, pants = UNIFORM_DARK, hat = HELMET, skin = SKIN, shoes = { 0.16, 0.13, 0.1 },
+  gun = true, gunLength = 15, pack = PACK,
+}
 local function drawSoldier(s, time)
-  local x, y, r = s.dx, s.dy, Troops.RADIUS
-  local fx, fy = math.cos(s.angle), math.sin(s.angle)
-  love.graphics.setColor(0, 0, 0, 0.3)
-  love.graphics.circle("fill", x + 2, y + 2, r, 10)
-  love.graphics.setColor(RIFLE)
-  love.graphics.setLineWidth(3)
-  love.graphics.line(x + fx * 2 - fy * 3, y + fy * 2 + fx * 3, x + fx * (r + 11) - fy * 3, y + fy * (r + 11) + fx * 3)
-  love.graphics.setLineWidth(1)
-  if s.kind == "rifleman" then
-    love.graphics.setColor(PACK)
-    love.graphics.rectangle("fill", x - fx * 7 - 4, y - fy * 7 - 4, 8, 8, 2)
-  end
-  love.graphics.setColor(UNIFORM_DARK)
-  love.graphics.ellipse("fill", x, y, r + 1, r + 1)
-  love.graphics.setColor(UNIFORM)
-  love.graphics.circle("fill", x - fy * (r - 1), y + fx * (r - 1), 3, 8)
-  love.graphics.circle("fill", x + fy * (r - 1), y - fx * (r - 1), 3, 8)
-  love.graphics.setColor(SKIN)
-  love.graphics.circle("fill", x + fx * 5 - fy * 3, y + fy * 5 + fx * 3, 2, 6) -- the hand on the rifle
-  love.graphics.setColor(HELMET)
-  love.graphics.circle("fill", x, y, r - 1.5, 12)
-  love.graphics.setColor(HELMET[1] * 1.3, HELMET[2] * 1.3, HELMET[3] * 1.3)
-  love.graphics.circle("fill", x - fx - fy, y - fy + fx, r - 4, 10)
+  local x, y, r = s.dx, s.dy, Body.SHOULDERS
+  Body.person(x, y, s.angle, 0, s.kind == "rifleman" and RIFLEMAN or SOLDIER)
   if s.alert then
     local bob = math.sin(time * 10 + s.bob) * 1.5
     love.graphics.setFont(UI.fonts.heading)

@@ -48,10 +48,16 @@ end
 --- they look like, every field optional:
 ---   shirt, pants, skin, hair, shoes   colours (a player's colour, the crowd's shirts)
 ---   hat          a cap's colour, instead of hair on show; `brim` gives it a peak
+---   hood         a hood's colour, up over the head (a simp's hoodie)
 ---   vest         a vest's colour over the shirt (a police officer's)
----   gun          true: both hands hold a gun out in front
+---   pack         a backpack's colour, on their back (a soldier's)
+---   gun          true: both hands hold a gun out in front; `gunLength` how
+---                far the barrel reaches past the hands (Body.GUN; a rifle's longer)
+---   punch        true: the right fist thrown out in front
 ---   panic        true: arms flung out (fleeing the crowd)
 ---   alpha        how solid (the edge arrows draw a faded one)
+--- Returns where the left and the right hand are, in the world (x1, y1,
+--- x2, y2), for something held (a simp's torch).
 function Body.person(x, y, angle, swing, look)
   swing = swing or 0
   alpha = look.alpha or 1
@@ -74,12 +80,14 @@ function Body.person(x, y, angle, swing, look)
   love.graphics.ellipse("fill", -1.5, 0, 3.4, 5.6, 10)
   -- Arms at their sides swing against the stride, under the shoulders; arms
   -- held out in front (a gun, a panic) go over them.
-  local forward = look.gun or look.panic
+  local forward = look.gun or look.panic or look.punch
   local hands
   if look.gun then
     hands = { 8, -2.2, 8, 2.2 }
   elseif look.panic then
     hands = { 4.5, -sh - 3.5, 4.5, sh + 3.5 }
+  elseif look.punch then
+    hands = { -step * 0.9, -sh - 1, sh + 5, 2 } -- the right fist out in front
   else
     hands = { -step * 0.9, -sh - 1, step * 0.9, sh + 1 }
   end
@@ -94,14 +102,15 @@ function Body.person(x, y, angle, swing, look)
     if look.gun then
       set({ 0.1, 0.1, 0.12 })
       love.graphics.setLineWidth(3)
-      love.graphics.line(6, 0, 8 + Body.GUN, 0)
+      local tip = 8 + (look.gunLength or Body.GUN)
+      love.graphics.line(6, 0, tip, 0)
       set({ 0.35, 0.36, 0.42 })
       love.graphics.setLineWidth(1)
-      love.graphics.line(7, -0.8, 8 + Body.GUN, -0.8) -- the light along the barrel
+      love.graphics.line(7, -0.8, tip, -0.8) -- the light along the barrel
     end
     set(skin)
     love.graphics.circle("fill", hands[1], hands[2], 2, 8)
-    love.graphics.circle("fill", hands[3], hands[4], 2, 8)
+    love.graphics.circle("fill", hands[3], hands[4], look.punch and 2.6 or 2, 8)
   end
   if not forward then
     arms()
@@ -121,6 +130,13 @@ function Body.person(x, y, angle, swing, look)
   end
   set(shirt, 0.4, 0.8)
   love.graphics.ellipse("line", 0, 0, 4.4, sh, 16)
+  if look.pack then
+    set(look.pack)
+    love.graphics.rectangle("fill", -7.5, -4.5, 5, 9, 1.5)
+    set(look.pack, 0.6)
+    love.graphics.rectangle("line", -7.5, -4.5, 5, 9, 1.5)
+    love.graphics.line(-5, -4.5, -5, 4.5) -- the flap
+  end
   if forward then
     arms()
     handsAndGun()
@@ -128,7 +144,12 @@ function Body.person(x, y, angle, swing, look)
   -- The head: a face looking forward, hair (or a cap) over the back of it.
   set(skin)
   love.graphics.circle("fill", 1, 0, 3.7, 12)
-  if look.hat then
+  if look.hood then
+    set(look.hood)
+    love.graphics.circle("fill", -0.6, 0, 4.4, 12)
+    set(look.hood, 1.25)
+    love.graphics.circle("fill", -1.5, -1.5, 1.4, 6)
+  elseif look.hat then
     set(look.hat)
     love.graphics.circle("fill", 0.1, 0, 3.8, 12)
     if look.brim then
@@ -143,11 +164,19 @@ function Body.person(x, y, angle, swing, look)
     set(look.hair or Body.HAIR, 1.7)
     love.graphics.circle("fill", -0.9, -1.2, 1.1, 6)
   end
-  set(skin, 0.45, 0.8)
-  love.graphics.circle("line", 1, 0, 3.7, 12)
+  if look.hood then
+    set(look.hood, 0.55, 0.9)
+    love.graphics.circle("line", -0.6, 0, 4.4, 12) -- the hood's edge; the face peeps out in front
+  else
+    set(skin, 0.45, 0.8)
+    love.graphics.circle("line", 1, 0, 3.7, 12)
+  end
   love.graphics.pop()
   love.graphics.setColor(1, 1, 1)
   alpha = 1
+  local c, s = math.cos(angle), math.sin(angle)
+  return x + hands[1] * c - hands[2] * s, y + hands[1] * s + hands[2] * c,
+    x + hands[3] * c - hands[4] * s, y + hands[3] * s + hands[4] * c
 end
 
 --- A player on foot at (x, y) looking along `angle`, in `color` (its fourth

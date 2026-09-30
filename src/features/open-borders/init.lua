@@ -17,6 +17,7 @@
 --   server -> all  OB_CLEAR                                       every simp and fire gone (a new map)
 
 local Protocol = require("src.net.protocol")
+local Body = require("src.body")
 local Features = require("src.features")
 local Horde = require("src.features.open-borders.horde")
 local Fire = require("src.features.open-borders.fire")
@@ -282,38 +283,41 @@ function OpenBorders:drawBelowCars(_client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
---- A simp from above: a hoodie, a head, a torch held out to one side with
---- a flame licking off it, and a fist out front while a punch lands.
+--- A simp from above: the core's person (src/body.lua) in his hoodie,
+--- hood up, a torch held out in his left hand with a flame licking off it,
+--- and his right fist out front while a punch lands.
+local simpLooks = {} -- hoodie colour index -> look
+local function simpLook(i)
+  local look = simpLooks[i]
+  if not look then
+    local c = LOOKS[i] or LOOKS[1]
+    look = { shirt = c, hood = { c[1] * 0.85, c[2] * 0.85, c[3] * 0.85 }, pants = { 0.2, 0.2, 0.24 }, skin = SKIN }
+    simpLooks[i] = look
+  end
+  return look
+end
+
 local function drawSimp(s)
-  local x, y, r = s.dx, s.dy, Horde.RADIUS
+  local x, y = s.dx, s.dy
   local fx, fy = math.cos(s.angle), math.sin(s.angle)
   local swing = math.sin(time * 14 + s.bob) * 1.4
-  local sx, sy = -fy * swing, fx * swing
-  love.graphics.setColor(0, 0, 0, 0.3)
-  love.graphics.circle("fill", x + 2, y + 2, r, 10)
-  love.graphics.setColor(SKIN)
-  if s.swing then
-    love.graphics.circle("fill", x + fx * (r + 6), y + fy * (r + 6), 2.4, 6) -- the fist
-  end
-  love.graphics.circle("fill", x - fy * (r + 1) - sx, y + fx * (r + 1) - sy, 2, 6)
-  -- The torch, in the right hand, pointing forward and out.
-  local hx, hy = x + fy * (r + 1) + sx, y - fx * (r + 1) + sy
-  local tx, ty = hx + fx * 7 + fy * 2, hy + fy * 7 - fx * 2
-  love.graphics.setLineWidth(2)
+  local look = simpLook(s.look)
+  look.punch = s.swing
+  local hx, hy = Body.person(x, y, s.angle, swing, look)
+  -- The torch, in the left hand, pointing forward and out.
+  local tx, ty = hx + fx * 8 + fy * 3, hy + fy * 8 - fx * 3
+  love.graphics.setLineWidth(2.4)
   love.graphics.setColor(0.4, 0.26, 0.12)
   love.graphics.line(hx, hy, tx, ty)
   love.graphics.setLineWidth(1)
   local flick = 0.8 + 0.4 * love.math.noise(time * 9, s.bob)
   love.graphics.setBlendMode("add")
   love.graphics.setColor(1, 0.45, 0.1, 0.35)
-  love.graphics.circle("fill", tx, ty, 6 * flick, 10)
+  love.graphics.circle("fill", tx, ty, 7 * flick, 10)
   love.graphics.setColor(1, 0.75, 0.25, 0.9)
-  love.graphics.circle("fill", tx, ty, 2.6 * flick, 8)
+  love.graphics.circle("fill", tx, ty, 3 * flick, 8)
   love.graphics.setBlendMode("alpha")
-  love.graphics.setColor(LOOKS[s.look] or LOOKS[1])
-  love.graphics.circle("fill", x + sx * 0.5, y + sy * 0.5, r, 10)
-  love.graphics.setColor(SKIN)
-  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 3.2, 8)
+  love.graphics.setColor(1, 1, 1)
 end
 
 function OpenBorders:drawAboveCars(_client, camera)
