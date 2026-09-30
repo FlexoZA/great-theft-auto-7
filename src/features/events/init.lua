@@ -234,8 +234,9 @@ end
 -- The F8 menu ---------------------------------------------------------------
 
 Events.menuUp = false
-local MENU_W = 560
-local ROW_H = 58
+local MENU_W = 640 -- narrower when the window is
+local ROW_H = 58 -- at least; a row grows to fit its text
+local ROW_PAD = 8 -- px above the title and below the text
 
 --- The menu's rows: every event in `order`, then calling off the one on.
 local function menuRows()
@@ -251,16 +252,27 @@ local function menuRows()
   return rows
 end
 
---- The panel and each row's box, in screen space.
+--- The panel and each row's box, in screen space. Each row is as tall as
+--- its text wraps to at this width.
 local function menuLayout(rows)
   local w, h = love.graphics.getDimensions()
-  local ph = 70 + #rows * (ROW_H + 8) + 30
-  local px, py = math.floor((w - MENU_W) / 2), math.floor((h - ph) / 2)
-  local boxes = {}
-  for i = 1, #rows do
-    boxes[i] = { x = px + 16, y = py + 62 + (i - 1) * (ROW_H + 8), w = MENU_W - 32, h = ROW_H }
+  local pw = math.min(MENU_W, w - 40)
+  local bw = pw - 32
+  local heights, total = {}, 0
+  for i, row in ipairs(rows) do
+    local _, lines = UI.fonts.small:getWrap(row.text, bw - 48)
+    local textH = #lines * UI.fonts.small:getHeight()
+    heights[i] = math.max(ROW_H, ROW_PAD + UI.fonts.body:getHeight() + 2 + textH + ROW_PAD)
+    total = total + heights[i] + 8
   end
-  return { x = px, y = py, w = MENU_W, h = ph }, boxes
+  local ph = 70 + total + 30
+  local px, py = math.floor((w - pw) / 2), math.max(10, math.floor((h - ph) / 2))
+  local boxes, y = {}, py + 62
+  for i = 1, #rows do
+    boxes[i] = { x = px + 16, y = y, w = bw, h = heights[i] }
+    y = y + heights[i] + 8
+  end
+  return { x = px, y = py, w = pw, h = ph }, boxes
 end
 
 --- Row `row` was picked: start it, or call off the one on.
@@ -341,10 +353,10 @@ function Events:drawScreen(client)
     love.graphics.setColor(row.color)
     love.graphics.rectangle("fill", b.x, b.y + 6, 4, b.h - 12, 2)
     love.graphics.setFont(UI.fonts.body)
-    love.graphics.printf(i .. "   " .. row.title, b.x + 14, b.y + 7, b.w - 28, "left")
+    love.graphics.printf(i .. "   " .. row.title, b.x + 14, b.y + ROW_PAD, b.w - 28, "left")
     love.graphics.setFont(UI.fonts.small)
     love.graphics.setColor(0.8, 0.8, 0.85)
-    love.graphics.printf(row.text, b.x + 34, b.y + 9 + UI.fonts.body:getHeight(), b.w - 48, "left")
+    love.graphics.printf(row.text, b.x + 34, b.y + ROW_PAD + UI.fonts.body:getHeight() + 2, b.w - 48, "left")
   end
   local close = Controls.name(Controls.bindings("event-menu")[1])
   love.graphics.setFont(UI.fonts.small)
