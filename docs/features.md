@@ -679,7 +679,10 @@ example with a menu; real-estate is the one with a place to stand.
   never runs out. The city is an island: deep sea, lighter shallows round
   the shore, rolling waves, foam against a concrete harbour wall with
   bollards, and boats sailing loops round it. The shore follows the city's
-  land tile by tile, so a block the city grows gets its own quay. A map
+  land tile by tile, so a block the city grows gets its own quay.
+  Whispering Pines (the forest) goes on as forest: pines and broadleaf
+  trees stamped from a few pictures drawn once (so a thousand on screen
+  cost little), a ragged treeline at the edge, darker further out. A map
   gets surroundings with an entry in its `DRAW` table (by map name); the
   others still show the grid. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
