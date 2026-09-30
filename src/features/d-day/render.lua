@@ -100,9 +100,11 @@ function Render.below(D, camera, time)
       Nest.drawEffect(n)
     end
   end
-  for _, s in pairs(D.troops) do
-    if onScreen(camera, s.dx, s.dy, Troops.RANGE) then
-      Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time)
+  if not Features.any("hideSightCones") then -- the ` key (sight-cones)
+    for _, s in pairs(D.troops) do
+      if onScreen(camera, s.dx, s.dy, Troops.RANGE) then
+        Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time)
+      end
     end
   end
   love.graphics.setColor(1, 1, 1)
