@@ -35,7 +35,7 @@
 --   client -> server  OF_DODGE <dx> <dy>                         a double-tap: dash this way
 --   server -> all     OF_DODGED <id> <x> <y> <dx> <dy>           they dashed from here, this way
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
---   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
+--   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
 
 local Protocol = require("src.net.protocol")
@@ -457,9 +457,17 @@ OnFoot.clientMessages = {
       OnFoot.puffs[#OnFoot.puffs + 1] = { x = x, y = y, dx = dx, dy = dy, t = 0 }
     end
   end,
+  --- What is left of them is the damage feature's call, by what killed
+  --- them (ash, a scorch mark, a splat); a splat if it isn't around.
   OF_GIB = function(_client, args)
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
-    if x and y and Features.byName.pedestrians then
+    if not (x and y) then
+      return
+    end
+    local damage = Features.byName.damage
+    if damage and damage.deathAt then
+      damage:deathAt(x, y, angle, args[5])
+    elseif Features.byName.pedestrians then
       require("src.features.pedestrians.gibs").splat(x, y, angle or 0)
       require("src.features.pedestrians.sounds").play("splat", x, y, 0.8 + love.math.random() * 0.2)
     end
@@ -594,12 +602,13 @@ function OnFoot:serverSetMaxStamina(server, player, max)
   return max
 end
 
---- Died on foot (weapons blew up the body): a splat where they stood. The
---- respawn is weapons' business, the same as for a driver.
+--- Died on foot (weapons blew up the body): what is left of them where they
+--- stood, by what did it (`kill.cause`). The respawn is weapons' business,
+--- the same as for a driver.
 function OnFoot:serverKill(server, kill)
   if kill.kind == "car" and kill.onFoot and kill.victim then
     server:broadcast(Protocol.encode("OF_GIB", kill.victim, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
-      ("%.3f"):format(kill.angle or 0)))
+      ("%.3f"):format(kill.angle or 0), kill.cause or "bullet"))
   end
 end
 

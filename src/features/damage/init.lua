@@ -40,6 +40,12 @@
 -- is that much shorter too. A burn's or a bleed's bites are hits like any
 -- other, so a fire jacket makes a burn hurt less.
 --
+-- What it looks like is effects.lua's: every status on a body, a number
+-- in the type's colour floating up off every hit (weapons raises
+-- `clientHit`; `Damage.numbers` turns them off), and what a body leaves by
+-- what killed it (`Damage:deathAt`, from on-foot's OF_GIB): ash for fire
+-- and shock, a scorch mark and pieces every way for a blast, a splat.
+--
 -- Messages
 --   server -> all  DMG_FX <id> <status> <seconds>   a status is on for this
 --                                                   long now (0: it is over)
@@ -48,6 +54,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
+local Effects = require("src.features.damage.effects")
 
 local Damage = {
   name = "damage",
@@ -81,6 +88,7 @@ Damage.blastShoveMax = 110 -- ...up to this
 Damage.blastShoveMin = 10 -- damage a blast must do to throw you at all
 Damage.shoveTime = 0.25 -- seconds a knock takes; you are held for it
 Damage.dazeTime = 2 -- seconds an explosive hit leaves your screen swimming
+Damage.numbers = true -- damage numbers float up off every hit
 Damage.maxResist = 0.8 -- the most of any type anything worn, alone or together, can stop
 
 local TICK = 0.25 -- seconds between bites of a burn or a bleed
@@ -122,17 +130,19 @@ end
 -- Client --------------------------------------------------------------------
 
 Damage.fx = {} -- player id -> { [status] = client time it ends }
-Damage.drips = {} -- { x, y, r, t }: blood a bleeding body left on the ground
 local clock = 0
 local dripIn = 0
 
 local DRIP_EVERY = 0.12 -- seconds between drips a bleeding body leaves
-local DRIP_LIFE = 3 -- seconds a drip stays on the ground
-local DRIPS_MAX = 300
 
 function Damage:exitGame()
   self.fx = {}
-  self.drips = {}
+  Effects.clear()
+end
+
+--- A new map: what lay on the old one's ground goes with it.
+function Damage:mapChanged()
+  Effects.clear()
 end
 
 --- Is `status` on for player `id` on this screen?
@@ -143,26 +153,16 @@ end
 
 function Damage:update(dt, client)
   clock = clock + dt
-  -- Every bleeding body on foot leaves a drip every so often; old ones dry up.
+  Effects.update(dt)
+  -- Every bleeding body on foot leaves a drip every so often.
   dripIn = dripIn - dt
   if dripIn <= 0 then
     dripIn = DRIP_EVERY
     for id in pairs(self.fx) do
       local x, y, onFoot = client:pose(id)
-      if x and onFoot and self:has(id, "bleed") and #self.drips < DRIPS_MAX then
-        local a = love.math.random() * 2 * math.pi
-        local d = love.math.random() * 7
-        self.drips[#self.drips + 1] = {
-          x = x + math.cos(a) * d, y = y + math.sin(a) * d, r = 1.8 + love.math.random() * 2, t = DRIP_LIFE,
-        }
+      if x and onFoot and self:has(id, "bleed") then
+        Effects.drip(x, y)
       end
-    end
-  end
-  for i = #self.drips, 1, -1 do
-    local drip = self.drips[i]
-    drip.t = drip.t - dt
-    if drip.t <= 0 then
-      table.remove(self.drips, i)
     end
   end
   for id, f in pairs(self.fx) do
@@ -177,99 +177,69 @@ function Damage:update(dt, client)
   end
 end
 
---- Flames licking up off a body: a glow on the ground, then a few tongues
---- flickering at their own pace, hot at the heart.
-local function drawFlames(x, y, seed)
-  love.graphics.setColor(1, 0.45, 0.1, 0.22 + 0.08 * math.sin(clock * 11 + seed))
-  love.graphics.circle("fill", x, y, 22)
-  for i = 1, 6 do
-    local phase = clock * (1.6 + i * 0.25) + seed * 1.7 + i * 0.37
-    local rise = (phase % 1) -- each tongue climbs and fades, then starts again
-    local ox = math.sin(phase * 6.3 + i) * 4 + (i - 3.5) * 3.5
-    local oy = 4 - rise * 26
-    local r = 8 * (1 - rise * 0.6)
-    love.graphics.setColor(1, 0.35 + 0.3 * (1 - rise), 0.05, 0.75 * (1 - rise))
-    love.graphics.circle("fill", x + ox, y + oy, r)
-    love.graphics.setColor(1, 0.9, 0.4, 0.8 * (1 - rise))
-    love.graphics.circle("fill", x + ox, y + oy + 1, r * 0.45)
+--- The `clientHit` event (weapons raises it for every WPN_HIT and
+--- WPN_CARHIT): `hit` is { x, y, amount, dtype, key }, `key` naming the
+--- target so hits on it in quick succession add up into one number.
+function Damage:clientHit(_client, hit)
+  if self.numbers then
+    Effects.number(hit.key, hit.x, hit.y, hit.amount, hit.dtype)
   end
 end
 
---- Blood: drops falling off a body, each its own way (the drips it leaves
---- on the ground are drawn under the cars).
-local function drawBlood(x, y, seed)
-  for i = 1, 6 do
-    local phase = clock * 1.8 + seed * 0.9 + i * 0.29
-    local fall = phase % 1
-    local a = seed * 2.3 + i * 1.7
-    local ox, oy = math.cos(a) * 9, math.sin(a) * 5
-    love.graphics.setColor(0.85, 0.05, 0.05, 0.95 * (1 - fall * 0.7))
-    love.graphics.circle("fill", x + ox, y + oy + fall * 16, 3.2 - fall)
+--- Somebody died on foot at (x, y), `cause` the type that did it, `angle`
+--- the way the blow travelled: what is left of them, by type. Burned or
+--- fried leaves ash; a blast throws the pieces all round and scorches the
+--- road; anything else splats (the pedestrians' gibs, if that feature is
+--- around), a crash harder than a bullet.
+function Damage:deathAt(x, y, angle, cause)
+  angle = angle or 0
+  if cause == "fire" or cause == "shock" then
+    Effects.leave("ash", x, y, angle)
+    return
   end
+  if cause == "explosive" then
+    Effects.leave("scorch", x, y, love.math.random() * math.pi)
+  end
+  if not Features.byName.pedestrians then
+    return
+  end
+  local Gibs = require("src.features.pedestrians.gibs")
+  Gibs.splat(x, y, angle)
+  if cause == "explosive" or cause == "impact" then
+    Gibs.splat(x, y, angle + math.pi) -- more of them, and every way
+  end
+  require("src.features.pedestrians.sounds").play("splat", x, y, 0.8 + love.math.random() * 0.2)
 end
 
---- Sparks crackling round a body: a few jagged blue arcs, a new shape
---- every flicker, over a pale glow.
-local function drawSparks(x, y, seed)
-  love.graphics.setColor(0.6, 0.85, 1, 0.25)
-  love.graphics.circle("fill", x, y, 16)
-  local flicker = math.floor(clock * 18)
-  love.graphics.setLineWidth(1.5)
-  love.graphics.setColor(0.55, 0.85, 1, 0.95)
-  for i = 1, 3 do
-    local a = (flicker * 2.39 + i * 2.1 + seed) % (2 * math.pi)
-    local px, py = x + math.cos(a) * 6, y + math.sin(a) * 6
-    local pts = { px, py }
-    for k = 1, 3 do
-      local j = ((flicker * 7 + i * 13 + k * 5) % 11) / 11 - 0.5
-      px = px + math.cos(a + j) * 5
-      py = py + math.sin(a + j) * 5
-      pts[#pts + 1], pts[#pts + 2] = px, py
-    end
-    love.graphics.line(pts)
-  end
-  love.graphics.setLineWidth(1)
+--- The colour a type is drawn in (numbers, hit rings, the kill feed).
+function Damage.colorOf(dtype)
+  return Damage.of(dtype).color
 end
 
---- Knocked down: stars going round over the head.
-local function drawStars(x, y, seed)
-  for i = 1, 3 do
-    local a = clock * 5 + seed + i * (2 * math.pi / 3)
-    local sx, sy = x + math.cos(a) * 13, y - 16 + math.sin(a) * 5
-    love.graphics.setColor(1, 0.9, 0.3, 0.95)
-    love.graphics.circle("fill", sx, sy, 3.5)
-    love.graphics.setColor(1, 1, 0.85, 0.95)
-    love.graphics.circle("fill", sx, sy, 1.5)
-  end
-end
-
---- The drips on the ground, fading as they dry.
+--- What lies on the ground: ash, scorch marks, drips of blood.
 function Damage:drawBelowCars()
-  for _, drip in ipairs(self.drips) do
-    love.graphics.setColor(0.7, 0.02, 0.02, 0.85 * math.min(1, drip.t / DRIP_LIFE * 2))
-    love.graphics.circle("fill", drip.x, drip.y, drip.r)
-  end
-  love.graphics.setColor(1, 1, 1)
+  Effects.drawGround()
 end
 
-function Damage:drawAboveCars(client)
+function Damage:drawAboveCars(client, camera)
   for id in pairs(self.fx) do
     local x, y, onFoot = client:pose(id)
     if x and onFoot and not (id ~= client.myId and Features.any("hidden", client, id)) then
       if self:has(id, "bleed") then
-        drawBlood(x, y, id)
+        Effects.blood(x, y, id, clock)
       end
       if self:has(id, "burn") then
-        drawFlames(x, y, id)
+        Effects.flames(x, y, id, clock)
       end
       if self:has(id, "stun") then
-        drawSparks(x, y, id)
+        Effects.sparks(x, y, id, clock)
       end
       if self:has(id, "down") then
-        drawStars(x, y, id)
+        Effects.stars(x, y, id, clock)
       end
     end
   end
+  Effects.drawNumbers(Damage.colorOf, camera and camera.scale)
   love.graphics.setColor(1, 1, 1)
 end
 

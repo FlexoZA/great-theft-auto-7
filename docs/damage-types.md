@@ -107,9 +107,13 @@ word the kill feed ("Bob burned Alice") and pick a death effect.
    Then the other types got theirs (the table above): bleeding, stuns,
    knockdowns and blasts that throw you, in the same status system
    (`DMG_FX`), with on-foot's `serverShove` for the knocks.
-4. **Feedback.** Hit flashes tinted by type, a death effect per type (the
-   Tripod's ash becomes the fire death, a blast leaves gibs), and maybe
-   damage numbers.
+4. **Feedback.** The hit ring round a body or a car and the kill feed are
+   in the type's colour; a number in that colour floats up off every hit
+   (a burn's or a bleed's bites add up into one rising number), and a hit
+   under 3 makes no sound. A death on foot leaves what its type would: ash
+   for fire and shock (the Tripod's ash is now anyone's), a scorch mark and
+   pieces thrown every way for a blast, a bigger splat for impact, the gibs
+   for bullets and melee.
 
 Later, once cars are back on the table: crash damage (`impact` on a car
 hitting a car or a wall) and resistances for vehicle models.
