@@ -19,7 +19,9 @@
 -- stays where they were: it burns that spot for `fire` seconds, hurting
 -- anyone on foot (`burnDps`) and any car (`carDps`) standing in it and
 -- burning pedestrians up. Dash or sprint out of it in that last moment and
--- it misses. Whoever it kills on foot is left a heap of ash.
+-- it misses. Whoever it kills on foot is left a heap of ash; whoever it
+-- only catches is set alight (the damage feature's burning) and burns on
+-- for `afterburnTime` unless they dodge.
 --
 -- The sweep: when somebody (a player or a bot) is in front of it and it
 -- has the breath, it may plant its legs and sweep the heat ray across the
@@ -128,6 +130,8 @@ Tripod.sweepWarn = 1.0 -- seconds the arc is lit before the beam comes
 Tripod.sweepTime = 1.8 -- seconds the beam takes from one end to the other
 Tripod.sweepDps = 480 -- to somebody on foot as it passes: it is on one spot about a quarter of a second (~120)
 Tripod.sweepCarDps = 640 -- to a car (~160)
+Tripod.afterburnTime = 4 -- seconds somebody the beam caught on foot burns on afterwards
+Tripod.afterburnDps = 15 -- fire damage a second while they do
 Tripod.grabReach = 130 -- px from its centre: a player on foot this close is under it
 Tripod.grabWindup = 0.7 -- seconds from the lash to the snatch: get clear
 Tripod.grabSlack = 50 -- px past `grabReach` still caught when it lands
@@ -380,9 +384,11 @@ local function burn(server, t, x, y, footDps, carDps)
     if Features.present(p) and not (t.caged and t.caged.id == p.id) then
       local px, py, onFoot = Features.bodyPose(server, p)
       if onFoot and dist2(px, py, x, y) <= r * r then
-        weapons:serverDamage(server, p, nil, footDps * BURN_TICK, t.facing)
+        weapons:serverDamage(server, p, nil, footDps * BURN_TICK, t.facing, "fire")
         if p.body and p.body.dead then
           server:broadcast(Protocol.encode("ETR_ASH", fmt(px), fmt(py), ("%.2f"):format(t.facing)))
+        elseif Features.byName.damage then
+          Features.byName.damage:ignite(server, p, Tripod.afterburnTime, Tripod.afterburnDps)
         end
       end
     end
@@ -391,7 +397,7 @@ local function burn(server, t, x, y, footDps, carDps)
     local reach = r + Car.WIDTH / 2
     for _, car in pairs(server.vehicles) do
       if not (car.hidden or car.stowed) and dist2(car.x, car.y, x, y) <= reach * reach then
-        weapons:damageCar(server, car, nil, carDps * BURN_TICK, 0, t.facing)
+        weapons:damageCar(server, car, nil, carDps * BURN_TICK, 0, t.facing, "fire")
       end
     end
   end
@@ -406,7 +412,7 @@ local function burnPeds(server, t, x, y, dt)
   end
   t.pedIn = PED_EVERY
   for _ = 1, 3 do
-    if not peds:serverShotAt(server, x, y, Tripod.burnRadius, 0, t.facing) then
+    if not peds:serverShotAt(server, x, y, Tripod.burnRadius, 0, t.facing, nil, "fire") then
       break
     end
   end
@@ -537,7 +543,7 @@ local function tentacles(server, t, dt)
     local weapons = Features.byName.weapons
     if c.bite <= 0 and weapons then
       c.bite = c.bite + BURN_TICK
-      weapons:serverDamage(server, p, nil, Tripod.cageDps * BURN_TICK, t.facing)
+      weapons:serverDamage(server, p, nil, Tripod.cageDps * BURN_TICK, t.facing, "melee")
     end
     return
   end
@@ -604,7 +610,7 @@ local function strike(server, x, y)
         local px, py, onFoot = Features.bodyPose(server, p)
         if onFoot and dist2(px, py, x, y) <= r * r then
           local angle = math.atan2(py - y, px - x)
-          weapons:serverDamage(server, p, nil, Tripod.boltDamage, angle)
+          weapons:serverDamage(server, p, nil, Tripod.boltDamage, angle, "shock")
           if p.body and p.body.dead then
             server:broadcast(Protocol.encode("ETR_ASH", fmt(px), fmt(py), ("%.2f"):format(angle)))
           end
@@ -615,7 +621,7 @@ local function strike(server, x, y)
       local reach = r + Car.WIDTH / 2
       for _, car in pairs(server.vehicles) do
         if not (car.hidden or car.stowed) and dist2(car.x, car.y, x, y) <= reach * reach then
-          weapons:damageCar(server, car, nil, Tripod.boltCarDamage, 0, 0)
+          weapons:damageCar(server, car, nil, Tripod.boltCarDamage, 0, 0, "shock")
         end
       end
     end
@@ -623,7 +629,7 @@ local function strike(server, x, y)
   local peds = Features.byName.pedestrians
   if peds and peds.serverShotAt then
     for _ = 1, 4 do
-      if not peds:serverShotAt(server, x, y, r, 0, 0) then
+      if not peds:serverShotAt(server, x, y, r, 0, 0, nil, "shock") then
         break
       end
     end

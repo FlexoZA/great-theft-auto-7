@@ -150,19 +150,19 @@ local function slam(A, server, caster, x, y)
   end
   for _, c in ipairs(caught) do
     if c.player then
-      weapons:serverDamage(server, c.player, caster, c.amount, c.angle)
+      weapons:serverDamage(server, c.player, caster, c.amount, c.angle, "impact")
     elseif weapons.damageCar then
-      weapons:damageCar(server, c.car, caster.id, c.amount, 0, c.angle)
+      weapons:damageCar(server, c.car, caster.id, c.amount, 0, c.angle, "impact")
     end
   end
   if A.walls then
     -- A leap heavy enough cracks buildings too, the way a rocket does.
-    Features.call("serverBlast", server, x, y, R, A.walls, caster.id)
+    Features.call("serverBlast", server, x, y, R, A.walls, caster.id, "impact")
   end
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, A.soft do
-        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi) then
+        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi, nil, "impact") then
           break
         end
       end

@@ -167,9 +167,12 @@ function Events:serverPlayerJoined(server, player)
   end
 end
 
-function Events:serverShotAt(server, x, y, radius, by, angle, damage)
+function Events:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   local event = self:serverActive()
-  return event ~= nil and event.serverShotAt ~= nil and event.serverShotAt(server, x, y, radius, by, angle, damage)
+  if not (event and event.serverShotAt) then
+    return false
+  end
+  return event.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function Events:serverPanicArea(server, x, y, radius)

@@ -16,11 +16,14 @@
 --
 -- Optional:
 --   ttl       seconds a round flies before it is spent (weapons' default otherwise)
---   blast     { radius, damage, soft }: the round is a missile that explodes
+--   damageType what kind of hit a round is (src/features/damage): "bullet"
+--             otherwise
+--   blast     { radius, damage, soft, type }: the round is a missile that explodes
 --             where it lands (or where it runs out of flight), hurting
 --             everything within `radius` px, `damage` at the centre falling
 --             to a third at the edge. `soft` is how many bullets' worth it
 --             does to each feature's soft targets (pedestrians, officers).
+--             `type` is the blast's damage type, "explosive" otherwise.
 --   pellets   projectiles one trigger pull sends out (1 otherwise), each
 --             scattered by `spread` on its own: a shotgun. The magazine
 --             counts pulls, not pellets, and only the first pellet sounds.
