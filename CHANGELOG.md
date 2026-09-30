@@ -14,14 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
-### Added
-- A changelog on the main menu: the icon in the bottom-left corner opens it,
-  and a dot on it means there is something you have not read yet.
-- The game has a version number, shown next to the changelog icon.
-
 ## [0.1.0] - 2026-09-30
 
-The first numbered release: everything built so far.
+The first numbered release: everything built so far, and this changelog to
+keep track of what comes next.
 
 ### Added
 - LAN multiplayer: host a game or join one from the server browser, with
@@ -67,3 +63,9 @@ The first numbered release: everything built so far.
 - Settings for sound, controls, video and the server you host, a controls
   overview on F1, and cheats typed while playing.
 - An inclusive mode on the main menu.
+- A changelog on the main menu: the icon in the bottom-left corner opens it,
+  and a dot on it means there is something you have not read yet.
+- A version number, shown next to the changelog icon.
+
+### Fixed
+- The event menu (F8) is tall enough for every event's description.
