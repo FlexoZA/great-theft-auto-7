@@ -277,7 +277,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the upgrade shop, the building menu and the vehicles screen answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, quests at the Jobs door. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
-| `serverEventActive(server)` | police asks, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police parks every unit out of sight, calls in the beat and forgets who was wanted, and comes back when nobody answers any more. The events feature answers it. |
+| `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
 | `hidden(client, id)` / `serverHidden(server, player)` | the core, weapons, minimap, player-arrows ask / `Features.visible` asks | Is this player out of sight (the chicken ability)? Answer true and on a client they are not drawn for anyone else (body, car they drive, name, health bar, minimap dot, edge arrow); on the host `Features.visible(server, player)` (present, and nobody answers `serverHidden`) is false for them. Anything that picks a player to go after or aim at (bots, police, every boss and its helpers) asks `visible` instead of `present`; damage over an area (a blast, a slam, a scream) still asks `present`, so a hidden player caught in it is still hurt. Abilities answers both. |
 | `cursorStyle(name, client)` | vision asks, through `Features.reduce` | Which of `vision/cursors.lua` to draw at the mouse, starting from the crosshair: weapons answers "scope" while a gun with a `scope` is in hand and "none" while its lens is up. |
@@ -743,8 +743,9 @@ example with a menu; real-estate is the one with a place to stand.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
   boss came in (`drawOnMinimap`), a banner says what is going on, a red
-  mark and an arrow at the screen's edge follow him, and the police stand
-  down (`serverEventActive`) until he is beaten. For now the host starts one
+  mark and an arrow at the screen's edge follow him, and the police and
+  bots go passive (`serverEventActive`: lights on, nobody wanted, no
+  fights) until he is beaten. For now the host starts one
   from the F8 menu (`event-menu` in Controls: a number key or a click picks
   an event, and the menu can call off the one that is on) or any feature with
   `events:serverTrigger(server, key)`, which returns false and a reason

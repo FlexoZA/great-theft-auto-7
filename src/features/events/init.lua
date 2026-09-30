@@ -1,9 +1,10 @@
 -- Events: something big happening in the city, out of the blue. A boss comes
 -- into the streets somewhere and goes after the players and their
 -- buildings. When one starts every minimap flashes red where he came in and
--- keeps a mark on him while he is loose; a banner says what is going on. The
--- police want none of it: while an event runs they are off the streets
--- (police asks `serverEventActive`), and they come back once it is over.
+-- keeps a mark on him while he is loose; a banner says what is going on.
+-- The city keeps out of his way: while an event runs (police and bots ask
+-- `serverEventActive`) the police stay on the streets with their lights on
+-- but want nobody, and the traffic won't pick a fight.
 --
 -- One event at a time, and only on the default city map: a trip to a quest
 -- map, or any map change, calls it off. For now an event starts by hand:
@@ -88,7 +89,7 @@ function Events:serverStart()
   sv = { active = nil }
 end
 
---- The `serverEventActive` convention: is an event on? Police stands down.
+--- The `serverEventActive` convention: is an event on? Police and bots go passive.
 function Events:serverEventActive()
   return sv ~= nil and sv.active ~= nil
 end
@@ -124,7 +125,7 @@ function Events:serverTrigger(server, key)
   return true
 end
 
---- The boss was beaten at (x, y): the event is over and the police come back.
+--- The boss was beaten at (x, y): the event is over and the police are back on duty.
 function Events:serverFinish(server, x, y)
   self:serverEnd(server, x, y, true)
 end
