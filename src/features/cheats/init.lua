@@ -5,7 +5,7 @@
 -- Add a code by adding an entry to CODES. Set Cheats.enabled to false to
 -- turn them all off.
 --
---   gimmekoin     +1000 Fcks
+--   gimmekoin     +10000 Fcks
 --   infiniteammo  magazines never run out, no reloading (type it again to stop)
 --   reachforthestars  leap lands wherever the cursor is, not just within its
 --                     range, and is ready again the moment you land (type it
@@ -16,7 +16,8 @@
 --                an empty ability slot if there is one, else into the bag
 --
 -- F2 lists every code and what it does (HELP, in the same order as above);
--- F2 or Esc takes the list down again.
+-- while it is up, the number keys run the code on that row (1 is the first),
+-- and F2 or Esc takes the list down again.
 --
 -- The letters still reach every other feature as ordinary key presses, so
 -- typing a code that contains E steps out of the car if it is slow enough.
@@ -45,7 +46,7 @@ local CODES = {
   gimmekoin = function(server, player)
     local money = Features.byName.money
     if money then
-      money:give(server, player.id, 1000)
+      money:give(server, player.id, 10000)
     end
   end,
   infiniteammo = function(server, player)
@@ -89,7 +90,7 @@ local CODES = {
 
 --- What the F2 list says about each code, in order. A new code gets a line here too.
 local HELP = {
-  { code = "gimmekoin", text = "+1000 Fcks" },
+  { code = "gimmekoin", text = "+10000 Fcks" },
   { code = "infiniteammo", text = "Magazines never run out, no reloading (again to stop)" },
   { code = "reachforthestars", text = "Leap lands wherever the cursor is and is ready again at once (again to stop)" },
   { code = "itisminenow", text = "The shop is the dev shop: everything free (again to stop)" },
@@ -120,6 +121,11 @@ function Cheats:closeMenu()
   return true
 end
 
+--- The `menuOpen` convention: the number keys run a code, not pick a gun.
+function Cheats:menuOpen()
+  return self.listOpen
+end
+
 function Cheats:update(dt)
   showTimer = math.max(0, showTimer - dt)
 end
@@ -127,6 +133,12 @@ end
 function Cheats:keypressed(key, client)
   if Cheats.enabled and Controls.is("cheats", key) then
     self.listOpen = not self.listOpen
+    return
+  end
+  local n = self.listOpen and tonumber(key:match("^kp(%d)$") or key:match("^(%d)$"))
+  local entry = n and HELP[n]
+  if entry then
+    client:send(Protocol.encode("CHEAT", entry.code))
     return
   end
   if #key ~= 1 or not key:match("%a") then
@@ -148,7 +160,7 @@ local function drawList()
   local rowH, pad = fonts.body:getHeight() + 10, 20
   local codeW = 0
   for _, h in ipairs(HELP) do
-    codeW = math.max(codeW, fonts.body:getWidth(h.code))
+    codeW = math.max(codeW, fonts.body:getWidth(#HELP .. "  " .. h.code))
   end
   local sw, sh = love.graphics.getDimensions()
   local w = math.min(sw - 32, 820)
@@ -170,7 +182,7 @@ local function drawList()
   love.graphics.setFont(fonts.body)
   for i, entry in ipairs(HELP) do
     love.graphics.setColor(1, 0.85, 0.3)
-    love.graphics.print(entry.code, x + pad, ry)
+    love.graphics.print(i .. "  " .. entry.code, x + pad, ry)
     love.graphics.setColor(0.9, 0.9, 0.95)
     love.graphics.printf(entry.text, x + 2 * pad + codeW, ry, textW)
     ry = ry + math.max(rowH, rows[i])
@@ -178,7 +190,8 @@ local function drawList()
   love.graphics.setFont(fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local key = Controls.name(Controls.bindings("cheats")[1])
-  love.graphics.printf("Type a code while playing.  " .. key .. " or Esc: close", x, y + h - pad - 8, w, "center")
+  local hint = "Type a code while playing, or press its number here.  " .. key .. " or Esc: close"
+  love.graphics.printf(hint, x, y + h - pad - 8, w, "center")
   love.graphics.setColor(1, 1, 1)
 end
 
