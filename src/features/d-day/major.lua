@@ -24,7 +24,7 @@ Major.__index = Major
 -- Tuning --------------------------------------------------------------------
 
 Major.HEALTH = 2200 -- a hundred and ten pistol rounds, for one player (more humans, more: bosses/init.lua)
-Major.RADIUS = 13 -- px
+Major.RADIUS = 17 -- px; two soldiers across (a soldier is 8.5 each side)
 Major.SPEED = 72 -- px/s; a march, not a run
 Major.WALK_SPEED = 40 -- px/s winded: a stroll, and a walk (45) leaves him behind
 Major.BREATH = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
@@ -40,7 +40,7 @@ Major.BURST = 3 -- rounds in a burst
 Major.BURST_GAP = 0.12 -- seconds between rounds in a burst
 Major.BURST_EVERY = 2.0 -- seconds from one burst to the next
 Major.SPREAD = 0.08
-Major.MUZZLE = 18
+Major.MUZZLE = 44 -- px from his middle a round leaves: the tip of the rifle he holds out
 Major.NEST_EVERY = 11 -- seconds between MG nests
 Major.NEST_FIRST = 4 -- seconds into the fight before the first
 Major.NEST_OUT = 46 -- px in front of him it goes down

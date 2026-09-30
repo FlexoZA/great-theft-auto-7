@@ -19,7 +19,6 @@ local UNIFORM = { 0.42, 0.45, 0.38 } -- field grey
 local UNIFORM_DARK = { 0.30, 0.33, 0.27 }
 local HELMET = { 0.26, 0.29, 0.24 }
 local SKIN = { 0.90, 0.74, 0.60 }
-local RIFLE = { 0.18, 0.14, 0.10 }
 local PACK = { 0.40, 0.34, 0.24 }
 local MAJOR_TUNIC = { 0.36, 0.40, 0.28 }
 local GOLD = { 0.95, 0.78, 0.25 }
@@ -210,38 +209,44 @@ end
 
 --- The Major from above: a big olive tunic, gold epaulettes, a peaked cap
 --- and a moustache you can see from the air.
+-- The Major as the core's person (src/body.lua), drawn his size: tunic,
+-- peaked cap, rifle held out; epaulettes, the cap badge and the moustache
+-- go over it.
+local MAJOR_LOOK = {
+  shirt = MAJOR_TUNIC, pants = { 0.24, 0.27, 0.2 }, hat = { 0.28, 0.32, 0.22 }, brim = true, skin = SKIN,
+  shoes = { 0.1, 0.08, 0.06 }, gun = true, gunLength = 15,
+}
 local function drawMajor(m, time)
   local x, y, r = m.dx, m.dy, Major.RADIUS
-  local fx, fy = math.cos(m.angle), math.sin(m.angle)
-  local swing = math.sin(time * 6 + m.bob) * 1.2
-  local sx, sy = -fy * swing, fx * swing
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.circle("fill", x + 4, y + 4, r + 1, 16)
-  love.graphics.setColor(RIFLE)
-  love.graphics.setLineWidth(4)
-  love.graphics.line(x + fx * 4 - fy * 5, y + fy * 4 + fx * 5, x + fx * (r + 14) - fy * 5, y + fy * (r + 14) + fx * 5)
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(SKIN)
-  love.graphics.circle("fill", x - fy * (r + 2) - sx, y + fx * (r + 2) - sy, 4, 8)
-  love.graphics.circle("fill", x + fy * (r + 2) + sx, y - fx * (r + 2) + sy, 4, 8)
-  love.graphics.setColor(MAJOR_TUNIC)
-  love.graphics.circle("fill", x, y, r, 16)
+  local swing = math.sin(time * 6 + m.bob) * 0.9
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(r / Body.SHOULDERS)
+  Body.person(0, 0, m.angle, swing, MAJOR_LOOK)
+  love.graphics.rotate(m.angle)
+  -- Gold epaulettes on his shoulders, fringed.
+  for _, side in ipairs({ -1, 1 }) do
+    love.graphics.setColor(GOLD)
+    love.graphics.rectangle("fill", -1.8, side * 7.2 - 1.3, 3.6, 2.6, 0.6)
+    love.graphics.setColor(GOLD[1] * 0.7, GOLD[2] * 0.7, GOLD[3] * 0.4)
+    love.graphics.setLineWidth(0.3)
+    for i = 0, 3 do
+      love.graphics.line(-1.6 + i * 1.1, side * 8.6, -1.6 + i * 1.1, side * 9.4)
+    end
+  end
+  -- The badge on his cap.
   love.graphics.setColor(GOLD)
-  love.graphics.rectangle("fill", x - fy * (r - 3) - 3, y + fx * (r - 3) - 3, 6, 6)
-  love.graphics.rectangle("fill", x + fy * (r - 3) - 3, y - fx * (r - 3) - 3, 6, 6)
-  -- Cap: the crown, a black peak out front, a gold badge.
-  love.graphics.setColor(0.28, 0.32, 0.22)
-  love.graphics.circle("fill", x, y, 8.5, 14)
-  love.graphics.setColor(0.08, 0.08, 0.08)
-  love.graphics.arc("fill", "pie", x + fx * 3, y + fy * 3, 8, m.angle - 1.1, m.angle + 1.1, 10)
-  love.graphics.setColor(GOLD)
-  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 2, 6)
+  love.graphics.circle("fill", 2.2, 0, 0.9, 6)
   -- The moustache, sticking out past the peak on both sides.
   love.graphics.setColor(TACHE)
-  love.graphics.setLineWidth(3)
-  love.graphics.line(x + fx * 9 - fy * 8, y + fy * 9 + fx * 8, x + fx * 11, y + fy * 11, x + fx * 9 + fy * 8,
-    y + fy * 9 - fx * 8)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.line(3.6, -7, 5.2, -2.5, 5.7, 0, 5.2, 2.5, 3.6, 7)
+  love.graphics.setColor(TACHE[1] * 0.7, TACHE[2] * 0.7, TACHE[3] * 0.7)
+  love.graphics.circle("fill", 3.6, -7, 0.8, 6) -- the waxed tips
+  love.graphics.circle("fill", 3.6, 7, 0.8, 6)
   love.graphics.setLineWidth(1)
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
 
   local bw = 60
   love.graphics.setColor(0, 0, 0, 0.6)

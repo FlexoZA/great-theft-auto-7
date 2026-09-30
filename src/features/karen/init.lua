@@ -69,7 +69,7 @@ local Karen = {
 
 -- Tuning ------------------------------------------------------------------
 Karen.maxHealth = 1500 -- seventy-five pistol rounds, for one player (more humans, more: bosses/init.lua)
-Karen.radius = 19 -- px; three pedestrians wide
+Karen.radius = 24 -- px; three pedestrians wide
 Karen.chargeSpeed = 165 -- px/s once she has seen you, while she has the breath
 Karen.walkSpeed = 55 -- px/s winded: a stroll, and anyone sprinting (170) leaves her behind
 Karen.breath = { -- her stamina (bosses/stamina.lua has the rule and the defaults)
@@ -121,6 +121,12 @@ local SPOT_COLOR = { 0.35, 0.18, 0.10 } -- leopard print
 local HAIR_COLOR = { 0.95, 0.82, 0.45 }
 local SKIN_COLOR = { 0.95, 0.80, 0.68 }
 local BAG_COLOR = { 0.55, 0.12, 0.30 }
+-- Karen as the core's person (src/body.lua), drawn her size; the spots,
+-- her bob, sunglasses and handbag go over it.
+local KAREN_LOOK = { shirt = BODY_COLOR, pants = { 0.2, 0.18, 0.26 }, skin = SKIN_COLOR, hair = HAIR_COLOR }
+local SPOTS = { -- leopard print, in the person's units: across the shoulders, away from her head
+  { 1.5, -6.5 }, { -1.5, -5.2 }, { 2.3, 5.8 }, { -1.2, 6.8 }, { 0.2, -7.8 }, { -2.4, 4.6 }, { 2.8, -4.8 }, { 0.5, 7.9 },
+}
 
 local function fmt(v)
   return ("%.1f"):format(v)
@@ -885,9 +891,9 @@ local function drawSimp(s)
   end
 end
 
---- Karen from above: a big body in a leopard-print top, arms out, a
---- handbag, a blonde bob, sunglasses on the head. She waddles; charging,
---- she waddles fast. Her simps are drawn first, so she is never under one.
+--- Karen from above: the core's person drawn her size, in a leopard-print
+--- top, a blonde bob with sunglasses pushed up on it, a handbag on her left
+--- hand. She waddles; charging, she waddles fast. Her simps are drawn first, so she is never under one.
 --- A scream that just landed: rings spreading out over the area.
 local function drawScream(sc)
   local k = sc.t / 0.7
@@ -915,37 +921,42 @@ function Karen:drawAboveCars()
     return
   end
   local x, y, r = b.dx, b.dy, self.radius
-  local fx, fy = math.cos(b.angle), math.sin(b.angle)
-  local swing = math.sin(time * (b.charging and 13 or 5) + b.bob) * (b.charging and 2.2 or 1.2)
-  local sx, sy = -fy * swing, fx * swing
-
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.circle("fill", x + 4, y + 4, r + 1, 16)
-  -- Arms, swinging opposite to the body.
-  love.graphics.setColor(SKIN_COLOR)
-  love.graphics.circle("fill", x - fy * (r + 3) - sx * 1.5, y + fx * (r + 3) - sy * 1.5, 5, 8)
-  love.graphics.circle("fill", x + fy * (r + 3) - sx * 1.5, y - fx * (r + 3) - sy * 1.5, 5, 8)
-  -- The handbag hangs off the left arm.
-  love.graphics.setColor(BAG_COLOR)
-  love.graphics.rectangle("fill", x - fy * (r + 7) - sx * 1.5 - 4, y + fx * (r + 7) - sy * 1.5 - 3, 9, 7, 2)
-  -- Body and the print.
-  love.graphics.setColor(BODY_COLOR)
-  love.graphics.circle("fill", x + sx, y + sy, r, 16)
+  local swing = math.sin(time * (b.charging and 13 or 5) + b.bob) * (b.charging and 1.6 or 0.9)
+  -- The core's person (src/body.lua) drawn her size, then what makes her Karen.
+  local k = r / Body.SHOULDERS
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(k)
+  local hx, hy = Body.person(0, 0, b.angle, swing, KAREN_LOOK)
+  love.graphics.rotate(b.angle)
+  -- Leopard print across the shoulders, clear of her head.
   love.graphics.setColor(SPOT_COLOR)
-  for k = 0, 6 do
-    local a = b.angle + k * 0.9
-    local d = 4 + (k * 5) % 8
-    love.graphics.circle("fill", x + sx + math.cos(a) * d, y + sy + math.sin(a) * d, 2.2, 6)
+  for _, spot in ipairs(SPOTS) do
+    love.graphics.ellipse("fill", spot[1], spot[2], 0.9, 0.7, 6)
   end
-  -- Head: hair behind, face forward, sunglasses on top.
+  -- The blonde bob, sticking out either side of her head.
   love.graphics.setColor(HAIR_COLOR)
-  love.graphics.circle("fill", x + fx * 1 + sx * 0.5, y + fy * 1 + sy * 0.5, 10, 12)
-  love.graphics.setColor(SKIN_COLOR)
-  love.graphics.circle("fill", x + fx * 5 + sx * 0.5, y + fy * 5 + sy * 0.5, 6.5, 12)
+  love.graphics.ellipse("fill", -0.2, -3.9, 2.2, 1.6, 8)
+  love.graphics.ellipse("fill", -0.2, 3.9, 2.2, 1.6, 8)
+  -- Sunglasses pushed up on top of her head: two lenses and a bridge.
   love.graphics.setColor(0.1, 0.08, 0.12)
-  love.graphics.setLineWidth(2)
-  love.graphics.line(x - fy * 5 + sx * 0.5, y + fx * 5 + sy * 0.5, x + fy * 5 + sx * 0.5, y - fx * 5 + sy * 0.5)
+  love.graphics.ellipse("fill", -0.4, -1.3, 0.8, 1, 8)
+  love.graphics.ellipse("fill", -0.4, 1.3, 0.8, 1, 8)
+  love.graphics.setLineWidth(0.35)
+  love.graphics.line(-0.4, -0.4, -0.4, 0.4)
+  love.graphics.setColor(0.6, 0.7, 0.85, 0.8)
+  love.graphics.circle("fill", -0.1, -1.6, 0.25, 6) -- a glint
   love.graphics.setLineWidth(1)
+  love.graphics.pop()
+  -- The handbag, hanging off her left hand (where the person said it was,
+  -- in her scaled drawing).
+  hx, hy = x + hx * k, y + hy * k
+  love.graphics.setColor(BAG_COLOR)
+  love.graphics.rectangle("fill", hx - 5, hy - 3, 10, 8, 2)
+  love.graphics.setColor(BAG_COLOR[1] * 0.6, BAG_COLOR[2] * 0.6, BAG_COLOR[3] * 0.6)
+  love.graphics.rectangle("line", hx - 5, hy - 3, 10, 8, 2)
+  love.graphics.setColor(0.85, 0.75, 0.3)
+  love.graphics.rectangle("fill", hx - 1.2, hy - 1, 2.4, 2) -- its clasp
 
   -- Health, always shown: she is the boss.
   local bw = 56
