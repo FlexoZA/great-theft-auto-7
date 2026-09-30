@@ -8,6 +8,10 @@
 -- slow loops round the island. The shore follows the city's land tile by
 -- tile, so a block the city grows (real-estate) gets its own quay.
 --
+-- Whispering Pines goes on as forest: pines and broadleaf trees on the
+-- same floor, a ragged treeline at the edge, thicker and darker further
+-- out, swaying a little.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -219,11 +223,109 @@ local function boats(map, camera)
   end
 end
 
+-- Whispering Pines: the forest goes on --------------------------------------
+
+local FLOOR = { 0.20, 0.32, 0.17 } -- city-map's forest floor, so the edge doesn't show
+local PINE = { 0.10, 0.27, 0.16 }
+local PINE_LIGHT = { 0.16, 0.36, 0.20 }
+local CANOPY = { 0.16, 0.36, 0.16 }
+local CANOPY_LIGHT = { 0.28, 0.52, 0.24 }
+local TREE_CELL = 42 -- px between trees on the grid they grow on
+local TREE_SIZE = 64 -- px square each tree picture is drawn in
+
+-- A few tree pictures, drawn once and stamped: over a thousand trees fill a
+-- zoomed-out screen, and a picture is one draw (LÖVE batches them).
+local trees = nil
+
+--- A pine from above, as city-map draws them: three rings of needles.
+local function pine(x, y, r)
+  for k, c in ipairs({ PINE, PINE_LIGHT, PINE }) do
+    local rr = r * (1.08 - k * 0.28)
+    love.graphics.setColor(c)
+    love.graphics.circle("fill", x, y, rr * 0.72, 16)
+    local inner = rr * 0.72
+    for i = 0, 7 do
+      local a = i * math.pi / 4 + k * 0.2
+      love.graphics.polygon("fill", x, y, x + math.cos(a - 0.28) * inner, y + math.sin(a - 0.28) * inner,
+        x + math.cos(a) * rr, y + math.sin(a) * rr, x + math.cos(a + 0.28) * inner, y + math.sin(a + 0.28) * inner)
+    end
+  end
+end
+
+--- A broadleaf tree from above: a round canopy lit on one side.
+local function broadleaf(x, y, r)
+  love.graphics.setColor(CANOPY)
+  love.graphics.circle("fill", x, y, r, 20)
+  love.graphics.setColor(CANOPY_LIGHT)
+  love.graphics.circle("fill", x - r / 4, y - r / 4, r / 2, 16)
+end
+
+local function treePictures()
+  if trees then
+    return trees
+  end
+  trees = {}
+  local c = TREE_SIZE / 2
+  for i, spec in ipairs({ { pine, 22 }, { pine, 26 }, { broadleaf, 20 }, { pine, 18 }, { broadleaf, 24 } }) do
+    local canvas = love.graphics.newCanvas(TREE_SIZE, TREE_SIZE)
+    love.graphics.push("all")
+    love.graphics.origin()
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setColor(0, 0, 0, 0.35) -- its shadow, down and right
+    love.graphics.circle("fill", c + 6, c + 6, spec[2] * 0.9, 20)
+    spec[1](c - 2, c - 2, spec[2])
+    love.graphics.setCanvas()
+    love.graphics.pop()
+    trees[i] = canvas
+  end
+  return trees
+end
+
+--- How far (x, y) is outside the map's rectangle, 0 inside it.
+local function outside(map, x, y)
+  local dx = math.max(map.left - x, 0, x - (map.left + map.w))
+  local dy = math.max(map.top - y, 0, y - (map.top + map.h))
+  return math.sqrt(dx * dx + dy * dy)
+end
+
+--- The forest past the edge: floor, then a tree on every point of a grid
+--- anchored in the world, jittered, of a size and kind of its own, thinner
+--- right by the edge (a ragged treeline) and darker the further out, as
+--- the canopy closes in; each sways a little in the wind.
+local function forest(map, camera)
+  local left, top, right, bottom = view(camera)
+  love.graphics.setColor(FLOOR)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  local pics = treePictures()
+  local c0, c1 = math.floor((left - 40) / TREE_CELL), math.ceil((right + 40) / TREE_CELL)
+  local r0, r1 = math.floor((top - 40) / TREE_CELL), math.ceil((bottom + 40) / TREE_CELL)
+  local half = TREE_SIZE / 2
+  for c = c0, c1 do
+    for r = r0, r1 do
+      local n1 = love.math.noise(c * 0.71, r * 0.93)
+      local n2 = love.math.noise(c * 1.37 + 11, r * 1.19 + 7)
+      local x = (c + 0.5) * TREE_CELL + (n1 - 0.5) * TREE_CELL * 0.9
+      local y = (r + 0.5) * TREE_CELL + (n2 - 0.5) * TREE_CELL * 0.9
+      local d = outside(map, x, y)
+      -- Right by the edge only some grow, so the treeline is ragged.
+      if d > 12 and (d > 70 or n1 > 0.45) then
+        local shade = 1 - math.min(0.5, d / 1400)
+        local size = 0.85 + n2 * 0.45 + math.min(0.3, d / 1500)
+        local sway = math.sin(clock * 0.8 + n1 * 12) * 0.8
+        love.graphics.setColor(shade, shade, shade)
+        love.graphics.draw(pics[math.floor(n1 * 97) % #pics + 1], x + sway, y, 0, size, size, half, half)
+      end
+    end
+  end
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
     boats(map, camera)
   end,
+  forest = forest,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
