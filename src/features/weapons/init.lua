@@ -94,9 +94,9 @@
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
 --                                              (quiet 1: a pellet after the first; no sound)
---   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
+--   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
---   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
+--   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
 --   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
@@ -157,6 +157,7 @@ local FOOT_MUZZLE = 14 -- px from a body on foot, which is smaller than a car
 local FOOT_RADIUS = 8 -- px; how fat a player on foot is for hit tests
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
+local QUIET_HIT = 3 -- a hit smaller than this (a burn's or a bleed's bite) makes no sound
 local NO_OWNER = 0 -- projectile owner for a shot no player fired (police on foot)
 
 --- Any feature may declare solid ground with a blocksPoint(x, y) hook (the
@@ -207,7 +208,8 @@ Weapons.carMax = {} -- vehicle id -> health ceiling (absent = CAR_HEALTH)
 Weapons.kills = {} -- player id -> kills
 Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
-Weapons.feed = nil -- { text, t }
+Weapons.feed = nil -- { text, t, color }
+Weapons.hitType = {} -- player id or "car" .. vehicle id -> the damage type of the last hit, for its ring's colour
 Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
@@ -299,6 +301,7 @@ function Weapons:enterGame()
   self.projectiles = {}
   self.hitFlash = {}
   self.carFlash = {}
+  self.hitType = {}
   self.feed = nil
   self.cooldown = 0
   self.gun = Guns.DEFAULT
@@ -652,7 +655,8 @@ function Weapons:drawAboveCars(client)
       local max = self.carMax[vid] or CAR_HEALTH
       bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
       if self.carFlash[vid] then
-        love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
+        local c = Damage.of(self.hitType["car" .. vid]).color
+        love.graphics.setColor(c[1], c[2], c[3], self.carFlash[vid] * 4)
         love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
       end
     end
@@ -664,7 +668,8 @@ function Weapons:drawAboveCars(client)
       local max = self.maxHealth[id] or MAX_HEALTH
       bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
       if self.hitFlash[id] then
-        love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
+        local c = Damage.of(self.hitType[id]).color
+        love.graphics.setColor(c[1], c[2], c[3], self.hitFlash[id] * 4)
         love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
       end
     end
@@ -895,7 +900,8 @@ function Weapons:drawHUD(client)
   if self.feed then
     local w = love.graphics.getWidth()
     love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(1, 1, 1, math.min(1, self.feed.t))
+    local c = self.feed.color or { 1, 1, 1 }
+    love.graphics.setColor(c[1], c[2], c[3], math.min(1, self.feed.t))
     love.graphics.printf(self.feed.text, 0, 40, w, "center")
   end
   if self.deadTimer > 0 then
@@ -1026,8 +1032,9 @@ Weapons.clientMessages = {
   end,
   WPN_HIT = function(client, args)
     local pid, victim, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local dtype, amount = args[4], tonumber(args[5])
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
-    if at then
+    if at and (amount or QUIET_HIT) >= QUIET_HIT then
       Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
@@ -1036,13 +1043,19 @@ Weapons.clientMessages = {
     if victim and hp then
       Weapons.health[victim] = hp
       Weapons.hitFlash[victim] = 0.15
+      Weapons.hitType[victim] = dtype
+      local pose = poseOf(client, victim)
+      if pose then
+        Features.call("clientHit", client, { x = pose.x, y = pose.y, amount = amount, dtype = dtype, key = victim })
+      end
     end
   end,
   WPN_CARHIT = function(client, args)
     local pid, vid, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local dtype, amount = args[4], tonumber(args[5])
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
-    if at then
+    if at and (amount or QUIET_HIT) >= QUIET_HIT then
       Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
@@ -1051,6 +1064,10 @@ Weapons.clientMessages = {
     if vid and hp then
       Weapons.carHealth[vid] = hp
       Weapons.carFlash[vid] = 0.15
+      Weapons.hitType["car" .. vid] = dtype
+      if v then
+        Features.call("clientHit", client, { x = v.dx, y = v.dy, amount = amount, dtype = dtype, key = "car" .. vid })
+      end
     end
   end,
   WPN_CARHP = function(_client, args)
@@ -1129,7 +1146,7 @@ Weapons.clientMessages = {
       if killer and killer ~= NO_OWNER then
         text = playerName(client, killer) .. " " .. how.killed .. " " .. name
       end
-      Weapons.feed = { text = text, t = FEED_TIME }
+      Weapons.feed = { text = text, t = FEED_TIME, color = how.color }
     end
   end,
 }
@@ -1942,13 +1959,17 @@ function Weapons:damage(server, victim, byId, amount, pid, angle, dtype)
   end
   pid = pid or 0
   dtype = Damage.key(dtype)
-  -- Armor takes its share first (the `serverAbsorbDamage` convention); the
-  -- hit still counts as one for everyone listening, even if nothing got through.
+  -- What gets past their resistances, for the number clients float up; the
+  -- vest soaks up what it can of that before health goes.
+  local dealt = amount * Damage:serverShare(server, victim, dtype)
+  -- Resistances and armor take their share first (the `serverAbsorbDamage`
+  -- convention); the hit still counts as one for everyone listening, even
+  -- if nothing got through.
   st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim, dtype)
   -- Let other features react (bots take offence at being shot).
   Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount, dtype, angle)
   if st.hp > 0 then
-    server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
+    server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp, dtype, ("%.1f"):format(dealt)))
     return true
   end
   self:die(server, victim, byId, pid, angle, dtype)
@@ -2049,7 +2070,7 @@ function Weapons:damageCar(server, car, byId, amount, pid, angle, dtype)
     Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount, dtype, angle)
   end
   if cs.hp > 0 then
-    server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp))
+    server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp, dtype, ("%.1f"):format(amount)))
     return true
   end
   self:wreck(server, car, byId, pid, angle, dtype)

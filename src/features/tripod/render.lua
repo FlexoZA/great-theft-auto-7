@@ -461,21 +461,6 @@ function Render.heatRay(x1, y1, x2, y2, time)
   love.graphics.setColor(1, 1, 1)
 end
 
---- Ash where the heat ray caught somebody: a grey heap and scattered
---- flakes, and their clothes left lying there. `s` is { x, y, angle }.
-function Render.ash(s)
-  love.graphics.setColor(0.08, 0.07, 0.07, 0.6)
-  love.graphics.ellipse("fill", s.x, s.y, 16, 12)
-  love.graphics.setColor(0.55, 0.54, 0.52, 0.9)
-  love.graphics.ellipse("fill", s.x, s.y, 9, 7)
-  for k = 0, 6 do
-    local a = s.angle + k * 0.9
-    love.graphics.circle("fill", s.x + math.cos(a) * (10 + k), s.y + math.sin(a) * (8 + k), 1.5 + k % 2, 5)
-  end
-  love.graphics.setColor(0.25, 0.35, 0.60, 0.9)
-  love.graphics.ellipse("fill", s.x + 6, s.y + 4, 6, 3)
-end
-
 --- The red weed it sows as it walks: a creeping clump of crimson tendrils.
 --- `w` is { x, y, size, seed }.
 function Render.weed(w, time)

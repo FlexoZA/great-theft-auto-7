@@ -267,6 +267,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverDodged(server, player)` | on-foot | `player` started a dodge on the host. The damage feature puts out a player who is burning. |
+| `clientHit(client, { x, y, amount, dtype, key })` | weapons, on every machine | A player or a car on this screen was hit (`WPN_HIT` / `WPN_CARHIT`): at (x, y), for `amount` after resistances, of damage type `dtype`; `key` is the player id or `"car" .. vehicle id`. The damage feature floats a number up off it. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
 | `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
@@ -373,7 +374,15 @@ couple of small conventions rather than requiring each other:
   (`serverAbsorbDamage`, `serverPlayerDamaged`, `serverShotAt`,
   `serverBlast`, `serverWallHit`) and `serverKill` gets `cause`;
   `WPN_KILL` and `WPN_WRECK` carry it, and the kill feed says "Bob burned
-  Alice". A new type is a new entry in `Damage.types`.
+  Alice" in the type's colour. A new type is a new entry in `Damage.types`.
+  What it looks like (the damage feature's `effects.lua`): the ring a hit
+  flashes round a body or a car is the type's colour, a number in that
+  colour floats up off every hit (quick hits on one target add up into one;
+  `Damage.numbers = false` turns them off), and a hit under 3 makes no
+  sound. Death on foot leaves what the type would (`OF_GIB` carries the
+  cause, `damage:deathAt(x, y, angle, cause)` draws it): ash for fire and
+  shock, a scorch mark and the pieces thrown every way for a blast, a
+  bigger splat for impact, the gibs for bullets and melee.
   What a type does besides the damage, to a player on foot (the damage
   feature, from `serverPlayerDamaged`): melee leaves them bleeding, shock
   stuns them, impact knocks them back a little and down, explosive blows

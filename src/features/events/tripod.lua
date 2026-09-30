@@ -63,7 +63,6 @@
 --     sweepA0, sweepA1: the angles the sweep runs from and to (phases 4 and 5), round (x, y)
 --   server -> all  ETR_BOLT <x> <y> <warn>      lightning will strike there in `warn` seconds
 --   server -> all  ETR_RISE <x> <y>             the storm is over and the tripod rises there
---   server -> all  ETR_ASH  <x> <y> <angle>     the heat ray (or lightning) burned somebody to ash there
 --   server -> all  ETR_DOWN <x> <y> <angle>     it went down
 
 local Protocol = require("src.net.protocol")
@@ -385,9 +384,7 @@ local function burn(server, t, x, y, footDps, carDps)
       local px, py, onFoot = Features.bodyPose(server, p)
       if onFoot and dist2(px, py, x, y) <= r * r then
         weapons:serverDamage(server, p, nil, footDps * BURN_TICK, t.facing, "fire")
-        if p.body and p.body.dead then
-          server:broadcast(Protocol.encode("ETR_ASH", fmt(px), fmt(py), ("%.2f"):format(t.facing)))
-        elseif Features.byName.damage then
+        if not (p.body and p.body.dead) and Features.byName.damage then
           Features.byName.damage:ignite(server, p, Tripod.afterburnTime, Tripod.afterburnDps)
         end
       end
@@ -610,10 +607,7 @@ local function strike(server, x, y)
         local px, py, onFoot = Features.bodyPose(server, p)
         if onFoot and dist2(px, py, x, y) <= r * r then
           local angle = math.atan2(py - y, px - x)
-          weapons:serverDamage(server, p, nil, Tripod.boltDamage, angle, "shock")
-          if p.body and p.body.dead then
-            server:broadcast(Protocol.encode("ETR_ASH", fmt(px), fmt(py), ("%.2f"):format(angle)))
-          end
+          weapons:serverDamage(server, p, nil, Tripod.boltDamage, angle, "shock") -- a kill leaves ash (damage)
         end
       end
     end
@@ -1211,12 +1205,6 @@ Tripod.clientMessages = {
       cl.storm = false
       cl.rise = { x = x, y = y, t = 4 }
       Sounds.play("horn", x, y)
-    end
-  end,
-  ETR_ASH = function(_client, args)
-    local x, y = tonumber(args[1]), tonumber(args[2])
-    if x and y then
-      Remains.ashAt(x, y, tonumber(args[3]) or 0)
     end
   end,
   ETR_DOWN = function(_client, args)
