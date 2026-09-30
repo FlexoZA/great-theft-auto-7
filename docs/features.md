@@ -328,6 +328,10 @@ couple of small conventions rather than requiring each other:
 - `feature:serverWorldSaveHeld(server)`: return true while the world must not
   be saved (city-map: while everyone is away on a quest map). Players are
   still saved.
+- `feature:hideSightCones()`: return true while cones of sight should not be
+  drawn (sight-cones: the player pressed `` ` ``). Anything that draws a cone
+  (police, d-day) skips it when `Features.any("hideSightCones")` is true. It
+  only changes the picture; who sees whom is up to the host as before.
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
   solid. Weapons checks every feature that defines it, so bullets stop at
   walls without knowing which feature owns them.
