@@ -11,7 +11,7 @@ kill feed and death effects can say what happened.
 | ----------- | -------------------------------------------------------------------------------------- | -------------- |
 | `bullet`    | every gun's round (the default for anything a gun fires)                               | wasted         |
 | `explosive` | a rocket's blast, the D-Day mortar                                                     | blew up        |
-| `fire`      | the heat ray ability, the Tripod's heat ray, the open-borders fires                    | burned         |
+| `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires  | burned         |
 | `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream   | flattened      |
 | `shock`     | the Tripod's lightning                                                                 | fried          |
 | `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels), the Tripod's cage | beat down      |

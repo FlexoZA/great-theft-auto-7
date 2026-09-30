@@ -795,6 +795,16 @@ function Render.itemIcon(item, cx, cy)
       love.graphics.setColor(0.8, 0.6, 0.2)
       love.graphics.rectangle("fill", x - 3, cy + 4, 6, 6)
     end
+  elseif item == "ammo-flamethrower" then
+    -- A jerry can: red, a handle across the top, the spout at a corner.
+    love.graphics.setColor(0.8, 0.15, 0.12)
+    love.graphics.rectangle("fill", cx - 10, cy - 9, 20, 22, 2)
+    love.graphics.setColor(0.6, 0.1, 0.08)
+    love.graphics.line(cx - 8, cy - 7, cx + 8, cy + 11)
+    love.graphics.line(cx + 8, cy - 7, cx - 8, cy + 11)
+    love.graphics.setColor(0.25, 0.25, 0.28)
+    love.graphics.rectangle("fill", cx - 6, cy - 14, 9, 4, 1) -- handle
+    love.graphics.rectangle("fill", cx + 5, cy - 14, 4, 6) -- spout
   elseif item:match("^ammo%-") then
     for i = -1, 1 do
       local x = cx + i * 9

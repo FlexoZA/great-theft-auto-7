@@ -61,7 +61,14 @@ local function gun(entry, tier)
     row("damage", whole(g.damage), "damage")
   end
   row("fire rate", ("%.1f a second"):format(1 / g.cooldown), "cooldown")
-  row("magazine", whole(g.magazine), "magazine")
+  if g.ttl and not g.blast then
+    row("range", ("about %d px"):format(math.floor(g.ttl * g.speed / 10 + 0.5) * 10), "ttl")
+  end
+  if g.ignite then
+    row("sets alight", ("%d a second for %s"):format(math.floor(g.ignite.dps + 0.5), secs(g.ignite.seconds)),
+      "ignite.dps")
+  end
+  row(g.tank and "tank" or "magazine", whole(g.magazine), "magazine")
   row("reload", secs(g.reload), "reload")
   row("scatter", g.spread == 0 and "none" or ("%d degrees"):format(math.floor(math.deg(g.spread) + 0.5)), "spread")
   if g.scope then

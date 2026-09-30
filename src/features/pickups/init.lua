@@ -542,7 +542,8 @@ function Pickups:serverDropAmmo(server, x, y, magazines)
     return nil
   end
   local gun = guns[love.math.random(#guns)]
-  return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, math.floor(magazines * gun.magazine + 0.5)))
+  local n = gun.tank and 1 or math.floor(magazines * gun.magazine + 0.5) -- one fuel can fills a tank
+  return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, n))
 end
 
 --- A tier for a dropped thing, by `dropTiers`' weights.
