@@ -3,10 +3,17 @@
 -- look the same. Everything takes what to draw and the clock; nothing here
 -- keeps state.
 
+local Body = require("src.body")
+
 local Render = {}
 
 Render.FUR = { 0.42, 0.28, 0.16 }
 Render.FUR_DARK = { 0.28, 0.18, 0.10 }
+-- Bigfoot as the core's person, in fur from head to (big, bare) feet.
+local FOOT_LOOK = {
+  shirt = Render.FUR, pants = Render.FUR_DARK, skin = { 0.36, 0.26, 0.22 }, hair = Render.FUR_DARK,
+  shoes = { 0.22, 0.15, 0.1 }, shadow = false, -- his own, which stays on the ground when he leaps
+}
 local SQUIRREL = { 0.55, 0.36, 0.22 }
 local SQUIRREL_LIGHT = { 0.72, 0.52, 0.34 }
 
@@ -59,29 +66,32 @@ function Render.foot(f, leap, time, maxHp, r)
   elseif f.mode == "crouch" then
     scale = 0.88
   end
-  local fx, fy = math.cos(f.angle), math.sin(f.angle)
+  -- His shadow stays on the ground, shrinking as he goes up.
   love.graphics.setColor(0, 0, 0, 0.35 - lift / 400)
   love.graphics.circle("fill", x + 5, y + 5, r * (1 - lift / 300), 20)
   y = y - lift
-  r = r * scale
-  local swing = math.sin(time * (f.mode == "walk" and 9 or 3) + f.bob) * 2.5
-  local sx, sy = -fy * swing, fx * swing
-  local reach = f.swipe and 12 or 0
+  local walking = f.mode == "walk"
+  local swing = math.sin(time * (walking and 9 or 3) + f.bob) * (walking and 1.4 or 0.5)
+  -- The core's person (src/body.lua) his size, in fur, then what makes him
+  -- Bigfoot over it: a shaggy fringe, a leathery face, red eyes.
+  local k = r * scale / Body.SHOULDERS
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(k)
+  FOOT_LOOK.punch = f.swipe
+  Body.person(0, 0, f.angle, swing, FOOT_LOOK)
+  love.graphics.rotate(f.angle)
   love.graphics.setColor(Render.FUR_DARK)
-  love.graphics.circle("fill", x - fy * (r + 4) + sx + fx * reach, y + fx * (r + 4) + sy + fy * reach, 7 * scale, 10)
-  love.graphics.circle("fill", x + fy * (r + 4) - sx, y - fx * (r + 4) - sy, 7 * scale, 10)
-  love.graphics.setColor(Render.FUR)
-  love.graphics.circle("fill", x, y, r, 20)
-  love.graphics.setColor(Render.FUR_DARK)
-  for k = 0, 11 do
-    local a = f.angle + k / 12 * math.pi * 2
-    love.graphics.circle("fill", x + math.cos(a) * r * 0.95, y + math.sin(a) * r * 0.95, 3.5 * scale, 6)
+  for i = 0, 13 do -- tufts all round the shoulders
+    local a = i / 14 * math.pi * 2
+    love.graphics.ellipse("fill", math.cos(a) * 4.3, math.sin(a) * 8.3, 1.1, 1.3, 6)
   end
   love.graphics.setColor(0.36, 0.26, 0.22)
-  love.graphics.circle("fill", x + fx * r * 0.45, y + fy * r * 0.45, 8 * scale, 12)
+  love.graphics.ellipse("fill", 3, 0, 1.6, 2.6, 10) -- the face, under the fur
   love.graphics.setColor(0.85, 0.12, 0.08)
-  love.graphics.circle("fill", x + fx * r * 0.6 - fy * 3, y + fy * r * 0.6 + fx * 3, 1.5, 5)
-  love.graphics.circle("fill", x + fx * r * 0.6 + fy * 3, y + fy * r * 0.6 - fx * 3, 1.2, 5)
+  love.graphics.circle("fill", 3.6, -1.1, 0.55, 6) -- red eyes
+  love.graphics.circle("fill", 3.6, 1.1, 0.45, 6)
+  love.graphics.pop()
   local bw = 60
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.rectangle("fill", x - bw / 2 - 1, y - r - 16, bw + 2, 6)
