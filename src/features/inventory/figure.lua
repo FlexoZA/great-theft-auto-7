@@ -7,7 +7,14 @@
 -- shirt, trousers and shoes. Shaded like the icons (weapons/shade.lua).
 --
 -- Units: 200 tall, the top of the head at 0 and the feet at 200, centred
--- on x = 0. `Figure.draw(cx, top, scale, dress)` puts it on the screen.
+-- on x = 0. `Figure.draw(cx, top, scale, dress, face)` puts it on the screen.
+--
+-- Given `face` (a src/art/face.lua face, the menu's crazy one), the head is
+-- that instead: its pixel art, big, on the neck, blinking and twitching as
+-- it does on the menu (the caller updates it). It is drawn a whole number
+-- of screen pixels to its pixel so it stays crisp, the hair needs
+-- `BIG_HEADROOM` more room over the top (`Figure.height(face)`), and
+-- whatever is on the head is stretched to fit it.
 
 local Shade = require("src.features.weapons.shade")
 local GearKinds = require("src.features.gear.kinds")
@@ -40,6 +47,24 @@ local INK = { 0.08, 0.06, 0.07 }
 
 local HEAD_Y, HEAD_R = 24, 19
 
+-- The big head: the menu face's picture (64 x 72 pixels, about a unit
+-- each, rounded so each is a whole number of screen pixels), its chin on
+-- the neck, and how headwear drawn for the small head is stretched over it.
+local BIG_HEADROOM = 24 -- units the spiky hair takes above y = 0
+local BIG_CHIN = 42 -- units down where the picture's chin (its row 70) goes
+local BIG_FACE_ROW = 38 -- the picture's row at the middle of the face
+local BIG_SX, BIG_SY = 1.35, 1.65 -- headwear stretched this much across and down, at a unit a pixel
+
+--- Units per pixel of the face's picture at `scale`: whole screen pixels.
+local function bigPixel(scale)
+  return math.max(1, math.floor(scale + 0.5)) / scale
+end
+
+--- How tall the whole drawing is in units: 200, and room for the big hair.
+function Figure.height(face)
+  return face and 200 + BIG_HEADROOM or 200
+end
+
 -- The body --------------------------------------------------------------------
 
 local function head(sk)
@@ -49,7 +74,7 @@ local function head(sk)
   ellipse(HEAD_R, HEAD_Y + 2, 3, 5, sk.skin)
 end
 
-local function face()
+local function drawFace()
   dot(-7, HEAD_Y + 1, 2.2, INK, 1) -- eyes
   dot(7, HEAD_Y + 1, 2.2, INK, 1)
   dot(-6.3, HEAD_Y + 0.3, 0.8, WHITE, 1)
@@ -336,23 +361,45 @@ local function hood(c)
   ellipse(0, HEAD_Y + 2, HEAD_R + 7, HEAD_R + 8, c)
 end
 
+--- The hood of an insulated suit, behind the big head.
+local function bigHood(c, scale)
+  local k = bigPixel(scale)
+  ellipse(0, BIG_CHIN - (70 - BIG_FACE_ROW) * k + 2, (HEAD_R + 7) * BIG_SX * k, (HEAD_R + 8) * BIG_SY * k, c)
+end
+
 --- `key` of a piece in `kinds`, its colour (grey for nothing known).
 local function colorOf(kinds, key)
   local k = key and kinds.byKey[key]
   return k and k.color or { 0.6, 0.6, 0.65 }
 end
 
---- Draw the character with its top of head at (cx, top), `scale` times
---- 200 tall. `dress` says what they wear, every field optional: head, body,
---- pants, shoes (clothes keys), armor (an armor key), gun (a gun key for
---- the right hand).
-function Figure.draw(cx, top, scale, dress)
+--- The menu face's picture on the neck, its chin at the neck's top, a whole
+--- number of screen pixels to its pixel.
+local function bigHead(face, scale)
+  -- The face paints its picture under whatever transform is on: none, then.
+  love.graphics.push()
+  love.graphics.origin()
+  local canvas = face:render()
+  love.graphics.pop()
+  local k = bigPixel(scale)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.draw(canvas, -Face.W / 2 * k, BIG_CHIN - 70 * k, 0, k, k)
+end
+
+--- Draw the character with the top of its head at (cx, top), `scale` times
+--- `Figure.height(face)` tall. `dress` says what they wear, every field
+--- optional: head, body, pants, shoes (clothes keys), armor (an armor key),
+--- gun (a gun key for the right hand). `face`: the menu face to give them.
+function Figure.draw(cx, top, scale, dress, face)
   dress = dress or {}
   local sk = SKINS[Face.inclusive() and 2 or 1]
   Shade.begin(scale)
   love.graphics.push()
   love.graphics.translate(cx, top)
   love.graphics.scale(scale)
+  if face then
+    love.graphics.translate(0, BIG_HEADROOM) -- the hair's room over the top
+  end
   -- Shadow underfoot.
   love.graphics.setColor(0, 0, 0, 0.35)
   love.graphics.ellipse("fill", 0, 200, 40, 9)
@@ -383,26 +430,45 @@ function Figure.draw(cx, top, scale, dress)
     (BODY[bodyKey] or plainBody)(sk, colorOf(GearKinds, bodyKey))
   end
   if dress.armor == "insulated-suit" then
-    hood(colorOf(ArmorKinds, dress.armor))
+    (face and bigHood or hood)(colorOf(ArmorKinds, dress.armor), scale)
   end
   if dress.armor then
     (ARMOR[dress.armor] or ARMOR.vest)(colorOf(ArmorKinds, dress.armor))
   end
   -- The head, and what is on it.
-  head(sk)
-  local covered = dress.head == "crash-helmet" or dress.head == "welding-mask"
-  if not covered then
-    face()
-  end
-  if dress.head then
-    (HEAD[dress.head] or PLAIN_HEAD)(colorOf(GearKinds, dress.head))
-  elseif dress.armor ~= "insulated-suit" then
-    hair(sk)
+  local wear = dress.head and (HEAD[dress.head] or PLAIN_HEAD)
+  if face then
+    box(-6, 38, 12, 10, sk.skin, 2) -- neck
+    bigHead(face, scale)
+    if wear then
+      -- Headwear made for the small head, stretched over the big one.
+      local k = bigPixel(scale)
+      love.graphics.push()
+      love.graphics.translate(0, BIG_CHIN - (70 - BIG_FACE_ROW) * k)
+      love.graphics.scale(BIG_SX * k, BIG_SY * k)
+      love.graphics.translate(0, -HEAD_Y)
+      Shade.begin(scale * BIG_SX * k)
+      wear(colorOf(GearKinds, dress.head))
+      Shade.begin(scale)
+      love.graphics.pop()
+    end
+  else
+    head(sk)
+    local covered = dress.head == "crash-helmet" or dress.head == "welding-mask"
+    if not covered then
+      drawFace()
+    end
+    if wear then
+      wear(colorOf(GearKinds, dress.head))
+    elseif dress.armor ~= "insulated-suit" then
+      hair(sk)
+    end
   end
   love.graphics.pop()
   -- The gun in hand, held out in the right hand.
   if dress.gun then
-    GunIcons.draw(dress.gun, cx + 40 * scale, top + 112 * scale, 0.65 * scale)
+    local down = face and BIG_HEADROOM or 0
+    GunIcons.draw(dress.gun, cx + 40 * scale, top + (112 + down) * scale, 0.65 * scale)
   end
   Shade.finish()
 end
