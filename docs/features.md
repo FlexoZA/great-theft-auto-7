@@ -115,7 +115,8 @@ nil) and `driver` (a player id or nil).
   `punch`, `panic`, `alpha`); it returns where the hands are, for something
   held (the horde's torches). Players, the crowd, police officers, Karen's
   simps, the D-Day troops and the open-borders horde all use it, so they
-  match; anything new on foot should too. They are 17 px across; `Body.RADIUS` (9) is a player's size against
+  match; Karen and the Major use it too, drawn their size (scaled to their
+  radius) with their own details over it. Anything new on foot should too. They are 17 px across; `Body.RADIUS` (9) is a player's size against
   walls and bullets, and the crowd's and the officers' hit sizes match it.
 - `Features.bodyPose(server, player)` → `x, y, onFoot, angle`: where they
   are, driving or walking. `Features.clientBodyPose(client, id)` is the same
