@@ -422,7 +422,10 @@ couple of small conventions rather than requiring each other:
   tops them up by the difference. Each owner broadcasts its own `WPN_MAX` /
   `OF_MAX` so every HUD scales. `on-foot:serverSetStaminaRegen(server,
   player, scale)` sets how fast stamina comes back, as a multiple of the
-  base rate (host only; nothing to draw). Upgrades buys all three with koins.
+  base rate (host only; nothing to draw). `on-foot:serverSetDodgeScale(server,
+  player, scale)` sets how far their dodge carries them, as a multiple of
+  `dodgeDistance` (broadcast as `OF_DASH`, since each client predicts its own
+  dash). Upgrades (the gym) buys all four with koins.
 - `Features.byName.weapons:serverSetCarMaxHealth(server, car, max)`: give one
   car a health ceiling of its own (every car has 100 otherwise) and fill it
   up; wrecks come back with it. Weapons broadcasts `WPN_CARMAX` so every
