@@ -736,6 +736,10 @@ example with a menu; real-estate is the one with a place to stand.
   the circle and the key come with it.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
+  The picture of you (`inventory/figure.lua`) wears what you wear: each
+  clothes piece and armor front on in its colour with the bits that make it
+  itself, and the gun in hand in the right hand; a new piece without a
+  drawing of its own there wears its slot's plain shape in its colour.
 - Several maps: `city.maps` names every map the game can play on (each a
   seed and size for the same generator, plus a title; `kind = "culdesac"`
   builds a suburban dead end instead of a grid, with `map.circleX, circleY`
