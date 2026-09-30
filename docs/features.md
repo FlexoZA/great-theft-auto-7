@@ -682,7 +682,11 @@ example with a menu; real-estate is the one with a place to stand.
   land tile by tile, so a block the city grows gets its own quay.
   Whispering Pines (the forest) goes on as forest: pines and broadleaf
   trees stamped from a few pictures drawn once (so a thousand on screen
-  cost little), a ragged treeline at the edge, darker further out. A map
+  cost little), a ragged treeline at the edge, darker further out. Karen's
+  cul-de-sac is hedged in: the neighbours' lawns and woods past the hedge,
+  and its street runs on south out of the entrance, hedged both sides and
+  lit by street lamps (`woods` is shared: trees from a distance out, off
+  somewhere like a road). A map
   gets surroundings with an entry in its `DRAW` table (by map name); the
   others still show the grid. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
