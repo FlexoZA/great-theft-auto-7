@@ -197,8 +197,10 @@ function Tiers.apply(base, tier, stats)
 end
 
 --- What stat `path` is called on a card; `labels` (optional) overrides.
+--- A resistance ("resist.fire") is "fire resist".
 function Tiers.label(path, labels)
-  return labels and labels[path] or LABELS[path] or path
+  local resist = path:match("^resist%.(.+)$")
+  return labels and labels[path] or LABELS[path] or (resist and resist .. " resist") or path
 end
 
 --- The stats tier `tier` improves out of `stats`, as a line for a card:

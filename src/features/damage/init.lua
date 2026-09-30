@@ -28,6 +28,18 @@
 -- Stunned or down, you are held (the `serverHeld` / `held` conventions: no
 -- walking, shooting or dodging). Everyone sees every status on everyone.
 --
+-- Resistances: what a player wears can stop a share of a type (a vest's or
+-- a piece of clothing's `resist = { fire = 0.4 }`). Every feature that
+-- dresses a player answers `serverResist(share, server, player, type)` on
+-- the host and `resist(share, client, id, type)` on a client, multiplying
+-- the share that gets through by (1 - its resistance); so two pieces that
+-- each stop 30% stop 51% together. No more than `maxResist` of any type is
+-- ever stopped. The host takes the resisted share off every hit to a body
+-- here, in `serverAbsorbDamage`, before the vest soaks up the rest (this
+-- feature goes before armor), and a stun, a knockdown, a daze or a knock
+-- is that much shorter too. A burn's or a bleed's bites are hits like any
+-- other, so a fire jacket makes a burn hurt less.
+--
 -- Messages
 --   server -> all  DMG_FX <id> <status> <seconds>   a status is on for this
 --                                                   long now (0: it is over)
@@ -39,6 +51,7 @@ local UI = require("src.ui")
 
 local Damage = {
   name = "damage",
+  priority = 90, -- before armor (100): resistances come off a hit before the vest soaks up the rest
 }
 
 --- Anything that hurts without saying what it is.
@@ -68,6 +81,7 @@ Damage.blastShoveMax = 110 -- ...up to this
 Damage.blastShoveMin = 10 -- damage a blast must do to throw you at all
 Damage.shoveTime = 0.25 -- seconds a knock takes; you are held for it
 Damage.dazeTime = 2 -- seconds an explosive hit leaves your screen swimming
+Damage.maxResist = 0.8 -- the most of any type anything worn, alone or together, can stop
 
 local TICK = 0.25 -- seconds between bites of a burn or a bleed
 
@@ -83,6 +97,26 @@ end
 --- `dtype` when it is a known type, else the default: what goes on the wire.
 function Damage.key(dtype)
   return Damage.types[dtype] and dtype or Damage.DEFAULT
+end
+
+--- The types in the order everything lists them (cards, the inventory).
+Damage.order = { "bullet", "explosive", "fire", "impact", "shock", "melee" }
+
+--- One piece's resistance `r` as it counts: a number from 0 to maxResist.
+function Damage.clampResist(r)
+  return math.max(0, math.min(Damage.maxResist, tonumber(r) or 0))
+end
+
+--- The share of a hit that gets through, from what `reduce` answered,
+--- never below what `maxResist` allows.
+local function through(share)
+  return math.max(1 - Damage.maxResist, math.min(1, share))
+end
+
+--- The share of a `dtype` hit that gets through to player `id` on this
+--- screen (1: nothing stopped), from what they wear.
+function Damage:share(client, id, dtype)
+  return through(Features.reduce("resist", 1, client, id, dtype))
 end
 
 -- Client --------------------------------------------------------------------
@@ -301,6 +335,20 @@ function Damage:serverStart()
   sv = { time = 0, fx = {} }
 end
 
+--- The share of a `dtype` hit that gets through to `player` on the host.
+function Damage:serverShare(server, player, dtype)
+  return through(Features.reduce("serverResist", 1, server, player, Damage.key(dtype)))
+end
+
+--- The `serverAbsorbDamage` convention, first in line: what `victim` wears
+--- stops its share of the hit; the rest goes on (to the vest, then them).
+function Damage:serverAbsorbDamage(amount, server, victim, dtype)
+  if amount <= 0 then
+    return amount
+  end
+  return amount * self:serverShare(server, victim, dtype)
+end
+
 local function tell(server, id, status, seconds)
   server:broadcast(Protocol.encode("DMG_FX", id, status, ("%.2f"):format(math.max(0, seconds))))
 end
@@ -389,7 +437,9 @@ end
 
 --- What a hit of type `dtype` does to a player on foot besides the damage
 --- (the `serverPlayerDamaged` event, after the hit is taken): see the top
---- of this file. `angle` is the way the blow travelled, for a knock. The
+--- of this file. `angle` is the way the blow travelled, for a knock. What
+--- they wear against the type makes a stun, a knockdown, a daze or a knock
+--- that much shorter (a bleed's bites are resisted as they land). The
 --- bites of a burn or a bleed don't set anything off.
 function Damage:serverPlayerDamaged(server, victim, attacker, amount, dtype, angle)
   if not takes(victim) or sv.ticking then
@@ -400,16 +450,17 @@ function Damage:serverPlayerDamaged(server, victim, attacker, amount, dtype, ang
   if hp and hp <= 0 then
     return -- that one killed them
   end
+  local share = self:serverShare(server, victim, dtype)
   if dtype == "melee" then
     self:serverAfflict(server, victim, "bleed", self.bleedTime, self.bleedDps, attacker and attacker.id)
   elseif dtype == "shock" then
-    self:serverAfflict(server, victim, "stun", self.stunTime)
+    self:serverAfflict(server, victim, "stun", self.stunTime * share)
   elseif dtype == "impact" then
-    shove(server, victim, angle, self.impactShove)
-    self:serverAfflict(server, victim, "down", self.downTime)
+    shove(server, victim, angle, self.impactShove * share)
+    self:serverAfflict(server, victim, "down", self.downTime * share)
   elseif dtype == "explosive" and amount >= self.blastShoveMin then
-    shove(server, victim, angle, math.min(self.blastShoveMax, amount * self.blastShovePerDamage))
-    self:serverAfflict(server, victim, "daze", self.dazeTime)
+    shove(server, victim, angle, math.min(self.blastShoveMax, amount * self.blastShovePerDamage) * share)
+    self:serverAfflict(server, victim, "daze", self.dazeTime * share)
   end
 end
 

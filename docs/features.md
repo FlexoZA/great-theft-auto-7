@@ -272,6 +272,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
+| `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The upgrade shop, the building menu, the inventory screen and the cheat list (F2) answer it. |
@@ -663,7 +664,10 @@ example with a menu; real-estate is the one with a place to stand.
   away once damaged. Death takes it. `ARM_STATE` tells everyone what a
   player wears; the armor bar stands fourth in the bottom-left row, always
   there, grey and empty with nothing on. `armor:serverWorn(player)` reads
-  it on the host.
+  it on the host. A vest can resist damage types (`resist`, a share per
+  type, improvable by tier as `"resist.<type>"`): the kevlar vest stops
+  30% of bullets, the bomb suit half of every blast and some knocks and
+  fire (`serverResist` / `resist`).
 - Gear: `src/features/gear` is the clothes: a piece (`gear/kinds.lua`;
   `"gear-<key>"` in a bag, sold by the shop) has a slot (head, body, pants
   or shoes) and `stats`, multipliers other features read through the
@@ -674,6 +678,10 @@ example with a menu; real-estate is the one with a place to stand.
   the bag), dragged back it comes off (`GEAR_UNEQUIP`); clothes are never
   damaged and death leaves them on. `GEAR_STATE` tells everyone what a
   player wears. Add a piece to the list and the shop and the slots know it.
+  A piece can also resist damage types (`resist = { fire = 0.4 }`; a tier
+  grows it by its `bonus`, `gear.resistance(g, tier, type)` reads it): the
+  crash helmet (impact), firefighter jacket (fire), leather jacket (melee),
+  rubber boots (shock) and plate carrier (a little bullet and blast).
 - Open borders: `src/features/open-borders` is the horde behind the "open
   borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
   lets 25 simps out round the caster (the `serverOpenBorders` event); for
