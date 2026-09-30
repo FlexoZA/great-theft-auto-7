@@ -215,7 +215,9 @@ local function drawCones(client, camera)
 end
 
 function Police:drawBelowCars(client, camera)
-  drawCones(client, camera)
+  if not Features.any("hideSightCones") then -- the ` key (sight-cones)
+    drawCones(client, camera)
+  end
   Render.draw(camera, flash)
 end
 

@@ -264,7 +264,7 @@ function Weapons:load()
   haloImage = makeHalo()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
-  Controls.register("hitboxes", "Show hitboxes", "f1")
+  Controls.register("hitboxes", "Show hitboxes", "f3") -- F1 is the controls overview
   Controls.register("reload", "Reload", "x") -- R went to the abilities
   Controls.register("scope", "Sniper scope (hold)", "mouse2")
   for i = 1, self.slotCount do
