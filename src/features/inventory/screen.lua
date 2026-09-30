@@ -40,6 +40,7 @@ local AbilityIcons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
 local Figure = require("src.features.inventory.figure")
+local Face = require("src.art.face")
 
 local Screen = {}
 
@@ -236,10 +237,19 @@ function Screen.layout()
   return L
 end
 
---- The character standing in the box, wearing what I wear (figure.lua):
---- my clothes and armor, and the gun in my hand. A piece being dragged out
---- of its slot (`liftedArmor`, `liftedSlot`) is off them while it is.
+-- The menu's crazy face, as the character's head: blinking and twitching,
+-- ticked by the screen's own clock while it is up.
+local face, faceAt = nil, nil
+
+--- The character standing in the box, with the menu's face for a head,
+--- wearing what I wear (figure.lua): my clothes and armor, and the gun in my
+--- hand. A piece being dragged out of its slot (`liftedArmor`,
+--- `liftedSlot`) is off them while it is.
 local function drawFigure(r, client, liftedArmor, liftedSlot)
+  face = face or Face.new()
+  local now = love.timer.getTime()
+  face:update(math.min(0.1, now - (faceAt or now)))
+  faceAt = now
   love.graphics.setColor(1, 1, 1, 0.04)
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
   local dress = {}
@@ -257,10 +267,11 @@ local function drawFigure(r, client, liftedArmor, liftedSlot)
   if gun then
     dress.gun = gun.key
   end
-  -- As big as the box allows: 200 tall with the shadow, about 110 wide with
-  -- the gun held out; centred up and down.
-  local scale = math.min((r.h - 24) / 210, (r.w - 8) / 110)
-  Figure.draw(r.x + r.w / 2 - 8 * scale, r.y + (r.h - 205 * scale) / 2, scale, dress)
+  -- As big as the box allows: the figure's height and its shadow, about 110
+  -- wide with the gun held out; centred up and down.
+  local height = Figure.height(face) + 5
+  local scale = math.min((r.h - 24) / height, (r.w - 8) / 110)
+  Figure.draw(r.x + r.w / 2 - 8 * scale, r.y + (r.h - height * scale) / 2, scale, dress, face)
 end
 
 --- The gear slots, each named for what goes in it: the clothes worn in
