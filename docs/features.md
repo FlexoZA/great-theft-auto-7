@@ -686,7 +686,10 @@ example with a menu; real-estate is the one with a place to stand.
   cul-de-sac is hedged in: the neighbours' lawns and woods past the hedge,
   and its street runs on south out of the entrance, hedged both sides and
   lit by street lamps (`woods` is shared: trees from a distance out, off
-  somewhere like a road). A map
+  somewhere like a road). Looz'er Beach runs on along the coast both ways
+  band by band (hedgehogs on the sand, barbed wire fencing the battle off
+  at the sides), hedgerowed farmland north of the hill and the sea south,
+  warships steaming along offshore. A map
   gets surroundings with an entry in its `DRAW` table (by map name); the
   others still show the grid. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked

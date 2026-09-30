@@ -16,6 +16,11 @@
 -- neighbours' lawns and then woods, and the street carries on south out of
 -- the entrance, hedged both sides and lit by street lamps.
 --
+-- Looz'er Beach runs on along the coast both ways, band by band (hill,
+-- barracks, mud, sand, surf), hedgehogs on the sand, barbed wire fencing
+-- the battle off at the sides; hedgerowed fields north of the hill, and
+-- the sea south with warships steaming along offshore.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -123,19 +128,10 @@ local function view(camera)
   return camera.x - hw, camera.y - hh, camera.x + hw, camera.y + hh
 end
 
-local function sea(map, camera)
-  local left, top, right, bottom = view(camera)
-  love.graphics.setColor(DEEP)
-  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
-  local list = segments(map)
-  -- The shallows: lighter water the nearer the shore, in rounded bands
-  -- round the island, so they curve round its corners.
-  love.graphics.setColor(SHALLOW[1], SHALLOW[2], SHALLOW[3], 0.07)
-  for out = SHALLOWS, 4, -12 do
-    love.graphics.rectangle("fill", map.left - out, map.top - out, map.w + 2 * out, map.h + 2 * out, out, out, 16)
-  end
-  -- Waves: short crests on a grid anchored in the world, each rising and
-  -- falling on its own and drifting a little with the swell.
+--- Waves over the box (left, top, right, bottom): short crests on a grid
+--- anchored in the world, each rising and falling on its own and drifting
+--- a little with the swell.
+local function crests(left, top, right, bottom)
   love.graphics.setLineWidth(2)
   local c0, c1 = math.floor(left / WAVE_CELL), math.ceil(right / WAVE_CELL)
   local r0, r1 = math.floor(top / WAVE_CELL), math.ceil(bottom / WAVE_CELL)
@@ -147,12 +143,29 @@ local function sea(map, camera)
       if crest > 0.2 then
         local x = c * WAVE_CELL + (n - 0.5) * WAVE_CELL + math.sin(clock * 0.4 + r) * 6
         local y = r * WAVE_CELL + ((n * 7) % 1 - 0.5) * WAVE_CELL
-        local len = 8 + 10 * n
-        love.graphics.setColor(WAVE[1], WAVE[2], WAVE[3], (crest - 0.2) * 0.6)
-        love.graphics.arc("line", "open", x, y + 6, len, -math.pi * 0.8, -math.pi * 0.2, 8)
+        if y > top then
+          local len = 8 + 10 * n
+          love.graphics.setColor(WAVE[1], WAVE[2], WAVE[3], (crest - 0.2) * 0.6)
+          love.graphics.arc("line", "open", x, y + 6, len, -math.pi * 0.8, -math.pi * 0.2, 8)
+        end
       end
     end
   end
+  love.graphics.setLineWidth(1)
+end
+
+local function sea(map, camera)
+  local left, top, right, bottom = view(camera)
+  love.graphics.setColor(DEEP)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  local list = segments(map)
+  -- The shallows: lighter water the nearer the shore, in rounded bands
+  -- round the island, so they curve round its corners.
+  love.graphics.setColor(SHALLOW[1], SHALLOW[2], SHALLOW[3], 0.07)
+  for out = SHALLOWS, 4, -12 do
+    love.graphics.rectangle("fill", map.left - out, map.top - out, map.w + 2 * out, map.h + 2 * out, out, out, 16)
+  end
+  crests(left, top, right, bottom)
   -- Foam washing against the wall, coming and going.
   love.graphics.setLineWidth(1)
   for _, s in ipairs(list) do
@@ -438,6 +451,190 @@ local function culdesac(map, camera)
   end
 end
 
+-- Looz'er Beach: the coast goes on, fenced off; fields north, sea south ----
+
+-- city-map's beach colours, so the bands carry on past the sides unbroken.
+local BEACH = {
+  hill = { 0.33, 0.45, 0.24 }, hillDark = { 0.28, 0.39, 0.20 },
+  camp = { 0.40, 0.42, 0.28 }, campDark = { 0.35, 0.36, 0.24 },
+  mud = { 0.42, 0.36, 0.26 }, mudDark = { 0.36, 0.30, 0.21 },
+  trench = { 0.25, 0.20, 0.14 },
+  sand = { 0.84, 0.76, 0.55 }, sandDark = { 0.77, 0.68, 0.47 },
+  wet = { 0.62, 0.58, 0.44 },
+  sea = { 0.20, 0.42, 0.52 }, seaDeep = { 0.14, 0.32, 0.44 },
+  foam = { 0.88, 0.93, 0.95 },
+  steel = { 0.30, 0.30, 0.32 }, steelLight = { 0.48, 0.48, 0.50 },
+}
+local HEDGEROW_FIELD = 360 -- px across a field between hedgerows, north of the hill
+local WIRE_POST_EVERY = 46 -- px between the barbed wire's posts
+local SHIPS = {
+  { out = 520, speed = 9, phase = 0, length = 150 },
+  { out = 820, speed = -6, phase = 900, length = 190 },
+}
+
+--- A band of the beach from y0 to y1 across the whole view, speckled like
+--- the map's (world-anchored, so it lines up at the edge).
+local function beachBand(left, right, y0, y1, c, dark, every)
+  love.graphics.setColor(c)
+  love.graphics.rectangle("fill", left, y0, right - left, y1 - y0)
+  love.graphics.setColor(dark)
+  local x0 = math.floor(left / (every * 1.7)) * every * 1.7
+  local i = 0
+  for yy = y0 + 10, y1 - 30, every do
+    for xx = x0 + (i % 3) * 37, right, every * 1.7 do
+      love.graphics.rectangle("fill", xx + (yy * 7) % 23, yy, 34, 18)
+    end
+    i = i + 1
+  end
+end
+
+--- A Czech hedgehog from above: three steel beams crossed.
+local function hedgehog(x, y, a)
+  love.graphics.setColor(BEACH.steel)
+  love.graphics.setLineWidth(4)
+  for k = 0, 2 do
+    local b = a + k * math.pi / 3
+    love.graphics.line(x - math.cos(b) * 12, y - math.sin(b) * 12, x + math.cos(b) * 12, y + math.sin(b) * 12)
+  end
+  love.graphics.setColor(BEACH.steelLight)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.line(x - math.cos(a) * 11, y - math.sin(a) * 11 - 1, x + math.cos(a) * 11, y + math.sin(a) * 11 - 1)
+  love.graphics.setLineWidth(1)
+end
+
+--- Barbed wire down x from y0 to y1: posts, and coils of wire between them.
+local function wire(x, y0, y1)
+  love.graphics.setColor(0, 0, 0, 0.2)
+  love.graphics.rectangle("fill", x - 8, y0, 20, y1 - y0) -- its shadow on the ground
+  for y = y0, y1, WIRE_POST_EVERY do
+    love.graphics.setColor(0.22, 0.24, 0.26, 0.95)
+    love.graphics.setLineWidth(2)
+    for k = 0, 3 do
+      love.graphics.circle("line", x, y + 6 + k * 10, 9, 12)
+    end
+    love.graphics.setColor(0.35, 0.26, 0.16)
+    love.graphics.rectangle("fill", x - 3.5, y - 3.5, 7, 7, 1)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A warship offshore from above: a grey hull, its decks, two turrets, a
+--- funnel and a wake.
+local function warship(x, y, length, dir)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(dir, 1)
+  local L, W = length, length * 0.16
+  love.graphics.setColor(BEACH.foam[1], BEACH.foam[2], BEACH.foam[3], 0.3)
+  love.graphics.polygon("fill", -L * 0.5, -W * 0.4, -L * 1.1, -W * 1.2, -L * 1.1, W * 1.2, -L * 0.5, W * 0.4)
+  love.graphics.setColor(0, 0, 0, 0.25)
+  love.graphics.polygon("fill", -L * 0.5 + 6, -W / 2 + 6, L * 0.3 + 6, -W / 2 + 6, L * 0.5 + 6, 6, L * 0.3 + 6,
+    W / 2 + 6, -L * 0.5 + 6, W / 2 + 6)
+  love.graphics.setColor(0.45, 0.47, 0.5)
+  love.graphics.polygon("fill", -L * 0.5, -W / 2, L * 0.3, -W / 2, L * 0.5, 0, L * 0.3, W / 2, -L * 0.5, W / 2)
+  love.graphics.setColor(0.55, 0.57, 0.6)
+  love.graphics.rectangle("fill", -L * 0.2, -W * 0.3, L * 0.3, W * 0.6, 3) -- the superstructure
+  love.graphics.setColor(0.3, 0.31, 0.34)
+  for _, tx in ipairs({ L * 0.22, -L * 0.34 }) do -- turrets, guns out
+    love.graphics.circle("fill", tx, 0, W * 0.28, 12)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(tx, 0, tx + (tx > 0 and 1 or -1) * W * 0.8, 0)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0.18, 0.18, 0.2)
+  love.graphics.circle("fill", -L * 0.05, 0, W * 0.16, 10) -- the funnel
+  love.graphics.pop()
+end
+
+local function beach(map, camera)
+  local left, top, right, bottom = view(camera)
+  local B = map.bands
+  local surf = B.surf
+  -- North of the hill: fields between hedgerows, trees here and there.
+  love.graphics.setColor(BEACH.hill)
+  love.graphics.rectangle("fill", left, top, right - left, math.max(0, B.hill.y0 - top))
+  if top < B.hill.y0 then
+    -- Rows of fields, each row's hedges staggered and each field its own
+    -- width, like a patchwork of farmland seen from the air.
+    local f = HEDGEROW_FIELD
+    local bottomRow = B.hill.y0 - 40
+    local row = math.floor((bottomRow - top) / f) + 1
+    for k = 0, row do
+      local fy1 = bottomRow - k * f
+      local fy0 = fy1 - f
+      if fy1 > top then
+        local shift = love.math.noise(k * 0.9, 3.3) * f
+        local fx = math.floor((left - shift) / f) * f + shift - f
+        while fx < right do
+          local width = f * (0.7 + love.math.noise(fx * 0.013, k * 1.7) * 0.8)
+          if love.math.noise(fx * 0.01, fy0 * 0.01) > 0.5 then
+            love.graphics.setColor(BEACH.hillDark)
+            love.graphics.rectangle("fill", fx + 8, fy0 + 8, width - 16, f - 16) -- a field ploughed darker
+          end
+          hedge(fx - 8, fy0, 16, f) -- the hedge between it and the next
+          fx = fx + width
+        end
+        hedge(left, fy1 - 8, right - left, 16) -- along the bottom of the row
+      end
+    end
+  end
+  -- The bands, on along the coast both ways.
+  beachBand(left, right, B.hill.y0, B.hill.y1, BEACH.hill, BEACH.hillDark, 70)
+  beachBand(left, right, B.barracks.y0, B.barracks.y1, BEACH.camp, BEACH.campDark, 80)
+  beachBand(left, right, B.bunkers.y0, B.bunkers.y1, BEACH.mud, BEACH.mudDark, 60)
+  beachBand(left, right, B.beach.y0, B.beach.y1, BEACH.sand, BEACH.sandDark, 90)
+  for _, t in ipairs(map.trenches or {}) do
+    love.graphics.setColor(BEACH.trench)
+    love.graphics.rectangle("fill", left, t.y, right - left, t.h)
+    love.graphics.setColor(BEACH.mudDark)
+    love.graphics.rectangle("fill", left, t.y, right - left, 6)
+  end
+  -- The sea: wet sand at the waterline, the surf, deep water on south.
+  love.graphics.setColor(BEACH.wet)
+  love.graphics.rectangle("fill", left, surf.y0 - 60, right - left, 60)
+  love.graphics.setColor(BEACH.sea)
+  love.graphics.rectangle("fill", left, surf.y0, right - left, math.max(0, bottom - surf.y0))
+  local deep = surf.y0 + (surf.y1 - surf.y0) * 0.6
+  love.graphics.setColor(BEACH.seaDeep)
+  love.graphics.rectangle("fill", left, deep, right - left, math.max(0, bottom - deep))
+  love.graphics.setColor(BEACH.foam)
+  love.graphics.setLineWidth(4)
+  for k = 0, 3 do
+    local yy = surf.y0 + 4 + k * 70
+    local pts = {}
+    for xx = math.floor(left / 32) * 32, right + 32, 32 do
+      pts[#pts + 1] = xx
+      pts[#pts + 1] = yy + math.sin(xx / 60 + k) * 6
+    end
+    love.graphics.line(pts)
+  end
+  love.graphics.setLineWidth(1)
+  crests(left, math.max(top, surf.y1), right, bottom)
+  -- Hedgehogs strewn on the sand past the sides.
+  local cell = 240
+  for c = math.floor(left / cell), math.ceil(right / cell) do
+    for r = math.floor(B.beach.y0 / cell), math.floor((B.beach.y1 - 40) / cell) do
+      local n = love.math.noise(c * 0.63, r * 0.77)
+      local x, y = (c + n) * cell, (r + (n * 3) % 1) * cell
+      if n > 0.55 and y > B.beach.y0 + 30 and y < B.beach.y1 - 30 and outside(map, x, y) > 40 then
+        hedgehog(x, y, n * 6)
+      end
+    end
+  end
+  -- Barbed wire fencing the battle off on both sides, from the hill down to the water.
+  wire(map.left - 14, B.hill.y0, surf.y0 - 60)
+  wire(map.left + map.w + 14, B.hill.y0, surf.y0 - 60)
+  -- Warships steaming slowly along the coast, far out.
+  for _, sh in ipairs(SHIPS) do
+    local span = map.w + 2400
+    local x = map.left - 1200 + ((sh.phase + clock * sh.speed) % span + span) % span
+    local y = surf.y1 + sh.out
+    if y - 40 < bottom and y + 40 > top and x + sh.length > left and x - sh.length < right then
+      warship(x, y, sh.length, sh.speed > 0 and 1 or -1)
+    end
+  end
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -445,6 +642,7 @@ local DRAW = {
   end,
   forest = forest,
   culdesac = culdesac,
+  beach = beach,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
