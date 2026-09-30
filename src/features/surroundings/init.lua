@@ -12,6 +12,10 @@
 -- same floor, a ragged treeline at the edge, thicker and darker further
 -- out, swaying a little.
 --
+-- Karen's cul-de-sac is fenced in by a garden hedge; past it are the
+-- neighbours' lawns and then woods, and the street carries on south out of
+-- the entrance, hedged both sides and lit by street lamps.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -293,11 +297,14 @@ end
 --- anchored in the world, jittered, of a size and kind of its own, thinner
 --- right by the edge (a ragged treeline) and darker the further out, as
 --- the canopy closes in; each sways a little in the wind.
-local function forest(map, camera)
+--- Trees past the edge on a grid anchored in the world, jittered, each of
+--- a size and kind of its own, darker the further out as the canopy closes
+--- in, swaying a little. They start `from` px out, only some of them for the
+--- first `ragged` px (a ragged treeline); `skip(x, y)` keeps them off
+--- somewhere (a road). `pics` picks from the tree pictures by number.
+local function woods(map, camera, from, ragged, pics, skip)
   local left, top, right, bottom = view(camera)
-  love.graphics.setColor(FLOOR)
-  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
-  local pics = treePictures()
+  local all = treePictures()
   local c0, c1 = math.floor((left - 40) / TREE_CELL), math.ceil((right + 40) / TREE_CELL)
   local r0, r1 = math.floor((top - 40) / TREE_CELL), math.ceil((bottom + 40) / TREE_CELL)
   local half = TREE_SIZE / 2
@@ -308,14 +315,125 @@ local function forest(map, camera)
       local x = (c + 0.5) * TREE_CELL + (n1 - 0.5) * TREE_CELL * 0.9
       local y = (r + 0.5) * TREE_CELL + (n2 - 0.5) * TREE_CELL * 0.9
       local d = outside(map, x, y)
-      -- Right by the edge only some grow, so the treeline is ragged.
-      if d > 12 and (d > 70 or n1 > 0.45) then
-        local shade = 1 - math.min(0.5, d / 1400)
+      if d > from and (d > from + ragged or n1 > 0.45) and not (skip and skip(x, y)) then
+        local shade = 1 - math.min(0.5, (d - from) / 1400)
         local size = 0.85 + n2 * 0.45 + math.min(0.3, d / 1500)
         local sway = math.sin(clock * 0.8 + n1 * 12) * 0.8
         love.graphics.setColor(shade, shade, shade)
-        love.graphics.draw(pics[math.floor(n1 * 97) % #pics + 1], x + sway, y, 0, size, size, half, half)
+        love.graphics.draw(all[pics[math.floor(n1 * 97) % #pics + 1]], x + sway, y, 0, size, size, half, half)
       end
+    end
+  end
+end
+
+local EVERY_TREE = { 1, 2, 3, 4, 5 }
+
+local function forest(map, camera)
+  local left, top, right, bottom = view(camera)
+  love.graphics.setColor(FLOOR)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  woods(map, camera, 12, 58, EVERY_TREE)
+end
+
+-- Karen's cul-de-sac: a hedge, the neighbours' lawns, woods, the road out ----
+
+local LAWN = { 0.36, 0.46, 0.27 } -- city-map's open ground, the cul-de-sac's lawns
+local LAWN_DARK = { 0.31, 0.40, 0.23 }
+local HEDGE = { 0.13, 0.30, 0.13 }
+local HEDGE_LIGHT = { 0.2, 0.4, 0.18 }
+local ASPHALT = { 0.17, 0.17, 0.19 }
+local SIDEWALK = { 0.52, 0.52, 0.55 }
+local LANE = { 0.85, 0.72, 0.30 }
+local HEDGE_W = 30 -- px of hedge past the edge
+local GARDENS = 110 -- px of lawn between the hedge and the woods
+local LAMP_EVERY = 190 -- px down the road between street lamps
+local BROADLEAF = { 3, 5, 3, 2 } -- mostly broadleaf in the suburbs' woods
+
+--- Where the street leaves the cul-de-sac: its x from sidewalk to sidewalk,
+--- and the middle of it (city-map's layout: the street runs down the middle
+--- two columns, a sidewalk each side).
+local function street(map)
+  local T = Layout.TILE
+  local mid = math.floor(map.cols / 2)
+  return map.x0 + (mid - 2) * T, map.x0 + (mid + 2) * T, map.x0 + mid * T
+end
+
+--- A hedge from above over the box (x, y, w, h): dark leaves, a bumpy top
+--- lit here and there.
+local function hedge(x, y, w, h)
+  love.graphics.setColor(HEDGE)
+  love.graphics.rectangle("fill", x, y, w, h, 6)
+  local long = math.max(w, h)
+  local step = 11
+  for d = 0, long, step do
+    local n = love.math.noise((x + d) * 0.05, (y + d) * 0.05)
+    local px, py = w >= h and x + d or x + w / 2, w >= h and y + h / 2 or y + d
+    love.graphics.setColor(HEDGE)
+    love.graphics.circle("fill", px, py, math.min(w, h) * 0.55 + n * 3, 10)
+    love.graphics.setColor(HEDGE_LIGHT)
+    love.graphics.circle("fill", px - 2, py - 2, 3 + n * 3, 8)
+  end
+end
+
+local function culdesac(map, camera)
+  local left, top, right, bottom = view(camera)
+  -- The neighbours' lawns, mown in patches.
+  love.graphics.setColor(LAWN)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  local T = Layout.TILE
+  love.graphics.setColor(LAWN_DARK)
+  for c = math.floor(left / T), math.ceil(right / T) do
+    for r = math.floor(top / T), math.ceil(bottom / T) do
+      if (c * 31 + r * 17) % 5 == 0 then
+        love.graphics.rectangle("fill", c * T + (c * 7) % 24, r * T + (r * 11) % 24, 36, 28)
+      end
+    end
+  end
+  -- The road out, south past the entrance, off into the distance.
+  local sx0, sx1, smid = street(map)
+  local edge = map.top + map.h
+  local farY = math.max(bottom, edge)
+  if farY > edge then
+    love.graphics.setColor(SIDEWALK)
+    love.graphics.rectangle("fill", sx0, edge, sx1 - sx0, farY - edge)
+    love.graphics.setColor(ASPHALT)
+    love.graphics.rectangle("fill", sx0 + T, edge, sx1 - sx0 - 2 * T, farY - edge)
+    love.graphics.setColor(LANE)
+    love.graphics.setLineWidth(4)
+    for y = edge + 12, farY, T do
+      love.graphics.line(smid, y, smid, y + T - 24)
+    end
+    love.graphics.setLineWidth(1)
+  end
+  -- Woods beyond the gardens, never on the road.
+  local function onRoad(x, y)
+    return y > edge - 20 and x > sx0 - HEDGE_W - 30 and x < sx1 + HEDGE_W + 30
+  end
+  woods(map, camera, HEDGE_W + GARDENS, 70, BROADLEAF, onRoad)
+  -- The hedge all round the gardens, with a gap where the street leaves,
+  -- and down both sides of the road out.
+  local L, R, Tp = map.left, map.left + map.w, map.top
+  hedge(L - HEDGE_W, Tp - HEDGE_W, map.w + 2 * HEDGE_W, HEDGE_W) -- top
+  hedge(L - HEDGE_W, Tp, HEDGE_W, map.h + HEDGE_W) -- left
+  hedge(R, Tp, HEDGE_W, map.h + HEDGE_W) -- right
+  hedge(L, edge, sx0 - L, HEDGE_W) -- bottom, either side of the street
+  hedge(sx1, edge, R - sx1, HEDGE_W)
+  if farY > edge + HEDGE_W then
+    hedge(sx0 - HEDGE_W, edge + HEDGE_W, HEDGE_W, farY - edge - HEDGE_W)
+    hedge(sx1, edge + HEDGE_W, HEDGE_W, farY - edge - HEDGE_W)
+  end
+  -- Street lamps down the road out, each throwing a little light.
+  for y = edge + LAMP_EVERY / 2, farY, LAMP_EVERY do
+    for _, x in ipairs({ sx0 + 10, sx1 - 10 }) do
+      love.graphics.setColor(1, 0.9, 0.6, 0.12)
+      love.graphics.circle("fill", x + (x < smid and 22 or -22), y, 34, 16)
+      love.graphics.setColor(0.25, 0.25, 0.28)
+      love.graphics.circle("fill", x, y, 4, 8)
+      love.graphics.setLineWidth(2)
+      love.graphics.line(x, y, x + (x < smid and 14 or -14), y)
+      love.graphics.setLineWidth(1)
+      love.graphics.setColor(1, 0.95, 0.75)
+      love.graphics.circle("fill", x + (x < smid and 15 or -15), y, 2.5, 8)
     end
   end
 end
@@ -326,6 +444,7 @@ local DRAW = {
     boats(map, camera)
   end,
   forest = forest,
+  culdesac = culdesac,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
