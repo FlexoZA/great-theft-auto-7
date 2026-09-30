@@ -52,7 +52,7 @@ Horde.BURN_DAMAGE = 5 -- to a player or car touching a fire, per burn
 Horde.AFTERBURN_TIME = 3 -- seconds a player on foot who touched one burns on
 Horde.AFTERBURN_DPS = 5 -- fire damage a second while they do
 
-local FOOT_RADIUS = 6 -- a player on foot, as weapons sees one
+local FOOT_RADIUS = 10 -- a player on foot, as weapons sees one
 local random = love.math.random
 
 -- Walking -------------------------------------------------------------------
