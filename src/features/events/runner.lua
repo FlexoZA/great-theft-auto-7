@@ -27,6 +27,7 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Car = require("src.car")
+local Body = require("src.body")
 local Traffic = require("src.features.bots.traffic")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
@@ -44,7 +45,7 @@ local Runner = {
 
 -- Tuning ------------------------------------------------------------------
 Runner.health = 1200 -- 60 pistol rounds, for one player (more humans, more: bosses/init.lua)
-Runner.radius = 10
+Runner.radius = 13 -- px; drawn as a person a size up (src/body.lua)
 Runner.speed = 510 -- px/s; three times a player's sprint (on-foot's sprintSpeed, 170)
 Runner.walkSpeed = 45 -- px/s winded: a player's walk
 Runner.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
@@ -74,7 +75,13 @@ Runner.dropTiers = { -- chance in a hundred of each tier
 local SYNC_EVERY = 2 -- server ticks between ERN_STATE packets
 local SMOOTHING = 14 -- per second, the easing of what is drawn
 local SNAP = 200 -- px; a jump this big is a spawn, not a step
-local DRAW_SCALE = 1.4 -- he is drawn a size up from a player, so he reads as a boss
+-- He is the core's person (src/body.lua) a size up from a player, so he
+-- reads as a boss, in his tracksuit.
+local DRAW_SCALE = Runner.radius * 1.1 / Body.SHOULDERS
+local RUNNER_LOOK = {
+  shirt = { 1, 0.82, 0.15 }, pants = { 0.15, 0.15, 0.2 }, skin = { 0.78, 0.56, 0.4 },
+  hair = { 0.12, 0.08, 0.06 }, shoes = { 0.95, 0.95, 0.97 },
+}
 
 local random = love.math.random
 
@@ -82,7 +89,6 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
-local Body = require("src.body")
 
 local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
@@ -438,58 +444,43 @@ function Runner.drawBelowCars()
   end
 end
 
---- Him from above: a yellow tracksuit, arms and legs pumping, a red
---- headband, and streaks behind him at full tilt.
+--- Him from above: the core's person in a yellow tracksuit with a stripe
+--- down the back, a red headband, white trainers, great pumping strides,
+--- and streaks behind him at full tilt.
 local function drawRunner(r)
   love.graphics.push()
   love.graphics.translate(r.dx, r.dy)
   love.graphics.scale(DRAW_SCALE)
-  local x, y = 0, 0
   local fx, fy = math.cos(r.angle), math.sin(r.angle)
   local sx, sy = -fy, fx -- his right
-  local swing = math.sin(r.stride) * 7
   if r.speed > 100 then
     love.graphics.setLineWidth(2)
     for i = -1, 1 do
-      local ox, oy = x + sx * i * 6, y + sy * i * 6
+      local ox, oy = sx * i * 6, sy * i * 6
       love.graphics.setColor(1, 0.9, 0.5, 0.35)
       love.graphics.line(ox - fx * 14, oy - fy * 14, ox - fx * (40 + 10 * (1 - math.abs(i))), oy - fy * 40)
     end
     love.graphics.setLineWidth(1)
   end
-  love.graphics.setColor(0, 0, 0, 0.3)
-  love.graphics.ellipse("fill", x + 3, y + 3, 11, 11)
-  -- Legs, one forward while the other goes back.
-  love.graphics.setColor(0.15, 0.15, 0.2)
-  love.graphics.circle("fill", x + sx * 4 + fx * swing, y + sy * 4 + fy * swing, 3.5, 8)
-  love.graphics.circle("fill", x - sx * 4 - fx * swing, y - sy * 4 - fy * swing, 3.5, 8)
-  -- Arms, the other way round.
-  love.graphics.setColor(0.95, 0.75, 0.1)
-  love.graphics.circle("fill", x + sx * 9 - fx * swing * 0.8, y + sy * 9 - fy * swing * 0.8, 3, 8)
-  love.graphics.circle("fill", x - sx * 9 + fx * swing * 0.8, y - sy * 9 + fy * swing * 0.8, 3, 8)
-  -- The tracksuit, with a stripe down the back.
-  love.graphics.setColor(1, 0.82, 0.15)
-  love.graphics.ellipse("fill", x, y, 8, 8)
+  Body.person(0, 0, r.angle, math.sin(r.stride) * 2, RUNNER_LOOK)
+  love.graphics.rotate(r.angle)
   love.graphics.setColor(0.1, 0.1, 0.12)
-  love.graphics.setLineWidth(2)
-  love.graphics.line(x - fx * 7, y - fy * 7, x + fx * 2, y + fy * 2)
+  love.graphics.setLineWidth(1.1)
+  love.graphics.line(-4.3, -1.2, -3, -1.2) -- stripes down the back of his top
+  love.graphics.line(-4.3, 1.2, -3, 1.2)
+  love.graphics.setColor(0.85, 0.1, 0.1)
+  love.graphics.setLineWidth(0.7)
+  love.graphics.arc("line", "open", 0.6, 0, 3.4, -1.9, 1.9, 12) -- the headband, round his brow
   love.graphics.setLineWidth(1)
-  -- His head and the headband.
-  love.graphics.setColor(0.78, 0.56, 0.4)
-  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 5, 12)
-  love.graphics.setColor(0.9, 0.12, 0.12)
-  love.graphics.setLineWidth(2)
-  love.graphics.circle("line", x + fx * 2, y + fy * 2, 5, 12)
-  love.graphics.setLineWidth(1)
+  love.graphics.pop()
   -- A bar over him once he is hurt.
   local frac = math.max(0, r.hp / math.max(1, r.max))
   if frac < 1 then
     love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.rectangle("fill", x - 16, y - 22, 32, 6)
+    love.graphics.rectangle("fill", r.dx - 22, r.dy - 32, 44, 6)
     love.graphics.setColor(1 - frac, frac, 0.2)
-    love.graphics.rectangle("fill", x - 15, y - 21, 30 * frac, 4)
+    love.graphics.rectangle("fill", r.dx - 21, r.dy - 31, 42 * frac, 4)
   end
-  love.graphics.pop()
 end
 
 function Runner.drawAboveCars()

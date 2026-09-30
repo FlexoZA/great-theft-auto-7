@@ -56,6 +56,7 @@ end
 ---   punch        true: the right fist thrown out in front
 ---   panic        true: arms flung out (fleeing the crowd)
 ---   alpha        how solid (the edge arrows draw a faded one)
+---   shadow       false: no shadow (the caller draws its own: Bigfoot in the air)
 --- Returns where the left and the right hand are, in the world (x1, y1,
 --- x2, y2), for something held (a simp's torch).
 function Body.person(x, y, angle, swing, look)
@@ -67,8 +68,10 @@ function Body.person(x, y, angle, swing, look)
   love.graphics.push()
   love.graphics.translate(x, y)
   -- A shadow, cast down and right whichever way they face.
-  love.graphics.setColor(0, 0, 0, 0.3 * alpha)
-  love.graphics.ellipse("fill", 2.5, 2.5, sh, sh, 14)
+  if look.shadow ~= false then
+    love.graphics.setColor(0, 0, 0, 0.3 * alpha)
+    love.graphics.ellipse("fill", 2.5, 2.5, sh, sh, 14)
+  end
   love.graphics.rotate(angle)
   -- Feet, one ahead as the other falls behind.
   local step = swing * 2.6
