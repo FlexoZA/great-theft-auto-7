@@ -18,12 +18,12 @@ local SightCones = {
 SightCones.noteTime = 1.6 -- seconds the "cones hidden/shown" note stays up
 SightCones.noteY = 118 -- px; a free HUD row at the left margin
 
-SightCones.hidden = false
+SightCones.conesHidden = false -- not `hidden`: that name is a hook other features answer (Features.any("hidden"))
 SightCones.note = 0 -- seconds left on the note
 
 function SightCones:load()
   Controls.register("sight-cones", "Hide / show sight cones", "`")
-  self.hidden = Settings.get("sightCones.hidden", false) == true
+  self.conesHidden = Settings.get("sightCones.hidden", false) == true
 end
 
 function SightCones:enterGame()
@@ -32,7 +32,7 @@ end
 
 --- The `hideSightCones` convention: true while cones should not be drawn.
 function SightCones:hideSightCones()
-  return self.hidden
+  return self.conesHidden
 end
 
 function SightCones:update(dt)
@@ -41,8 +41,8 @@ end
 
 function SightCones:keypressed(key)
   if Controls.is("sight-cones", key) then
-    self.hidden = not self.hidden
-    Settings.set("sightCones.hidden", self.hidden)
+    self.conesHidden = not self.conesHidden
+    Settings.set("sightCones.hidden", self.conesHidden)
     self.note = self.noteTime
   end
 end
@@ -52,7 +52,7 @@ function SightCones:drawHUD()
     return
   end
   local keyName = Controls.name(Controls.bindings("sight-cones")[1])
-  local text = (self.hidden and "Sight cones hidden" or "Sight cones shown") .. "   " .. keyName .. ": toggle"
+  local text = (self.conesHidden and "Sight cones hidden" or "Sight cones shown") .. "   " .. keyName .. ": toggle"
   love.graphics.setFont(UI.fonts.small)
   UI.label(text, 10, self.noteY, { 0.85, 0.85, 0.9 })
   love.graphics.setColor(1, 1, 1)
