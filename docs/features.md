@@ -1056,17 +1056,24 @@ bottom-left corner of the main menu opens it, and a dot on that icon means
 the version changed since they last looked. It is also the only place the
 version lives; `src/version.lua` reads it, so there is nothing else to bump.
 
-Every pull request into `staging` that a player would notice adds a line
+Every pull request into `staging` that a player would notice adds lines
 under `## [Unreleased]`, in `### Added`, `### Changed` or `### Fixed`
-(create the heading if it is missing). Write it for players, not for the
-code: "Cars can be repainted at the garage", not "garage: PAINT message".
-Wrap long lines with a two-space indent. Pure refactors and docs need no
-line. In the game the unreleased lines show as "Coming next" and the
+(create the heading if it is missing):
+- One line per change a player would notice, not one per pull request: a
+  pull request that adds a gun and fixes a reload bug adds two lines.
+- Write it for players, not for the code: "Cars can be repainted at the
+  garage", not "garage: PAINT message".
+- Balance changes give the numbers, old to new: "Shotgun damage 40 -> 32",
+  "Gym dodge distance costs 3/5/8/11/14 Fcks (was 4/6/9/12/15)".
+- Wrap long lines with a two-space indent. Pure refactors and docs need no
+  line. In the game the unreleased lines show as "Coming next" and the
 version reads `0.1.0-dev`, so a staging build is easy to tell apart.
 
 A release is `staging` merged into `main`. In the same merge, rename
-`[Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, put a fresh empty
-`## [Unreleased]` above it, and tag the merge commit `vx.y.z`. The number
+`[Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, write a sentence or two under
+that heading saying what the release is about (the game shows it above the
+list), put a fresh empty `## [Unreleased]` above it, and tag the merge
+commit `vx.y.z`. The number
 follows semantic versioning, read for a game that is not finished yet
 (`0.y.z`):
 - `y` (minor) for a release with anything new in it: features, content,

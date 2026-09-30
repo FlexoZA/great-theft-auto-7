@@ -5,10 +5,12 @@ and shows it from the icon in the bottom-left corner of the main menu, and
 the version it shows is the newest release here.
 
 How to write it (details in "Changelog and versioning" in `docs/features.md`):
-- Every pull request into `staging` adds a line under `## [Unreleased]`, in
-  `### Added`, `### Changed` or `### Fixed`. Write it for players.
+- Every pull request into `staging` adds lines under `## [Unreleased]`, in
+  `### Added`, `### Changed` or `### Fixed`: one per change a player would
+  notice, written for players, with old -> new numbers for balance changes.
 - A release is `staging` merged into `main`: `[Unreleased]` becomes
-  `## [x.y.z] - YYYY-MM-DD` and a fresh empty `[Unreleased]` goes on top.
+  `## [x.y.z] - YYYY-MM-DD` with a sentence or two summing the release up,
+  and a fresh empty `[Unreleased]` goes on top.
 
 ## [Unreleased]
 
