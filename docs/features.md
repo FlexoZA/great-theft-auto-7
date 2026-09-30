@@ -694,7 +694,12 @@ example with a menu; real-estate is the one with a place to stand.
   the inventory screen it goes on (`GEAR_EQUIP`; what was there swaps into
   the bag), dragged back it comes off (`GEAR_UNEQUIP`); clothes are never
   damaged and death leaves them on. `GEAR_STATE` tells everyone what a
-  player wears. Add a piece to the list and the shop and the slots know it.
+  player wears. Add a piece to the list and the shop and the slots know it;
+  give it a drawing of its own in `gear/icons.lua` (without one it is its
+  slot's plain cap, shirt, trousers or shoes). Armor draws the same way, in
+  `armor/icons.lua`. Both, and the guns' `weapons/icons.lua`, shade their
+  parts with `weapons/shade.lua` (`Shade.box`, `Shade.poly`, ...: a lit top,
+  a shadowed bottom, a one-pixel outline at any scale).
   A piece can also resist damage types (`resist = { fire = 0.4 }`; a tier
   grows it by its `bonus`, `gear.resistance(g, tier, type)` reads it).
   Each slot has five pieces; most resist one or two types, and the list is
