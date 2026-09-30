@@ -1,12 +1,17 @@
--- Upgrades: spend your Fcks on a bigger body and a longer arm. P opens the
--- shop over the game; 1 buys the next level of health, 2 the next level of
--- stamina, 3 the next level of pickup reach (how far koins and drops jump to you), 4
--- the next level of stamina regen (how fast it comes back), 5 another
--- inventory slot (buildings), P closes it again. Each level costs more than
--- the last and there are five of each, so a full set is a serious amount of
--- roadkill.
+-- Upgrades: spend your Fcks on a bigger body and a longer arm, at the gym.
+-- The gym is a building beside the Jobs building and the shop (quests/jobs.lua
+-- picks it from the map the same way on every machine, so there is nothing
+-- to send; `Upgrades:here()`, the default city only), marked on the minimap
+-- with a dumbbell. Stand on the square by its door and the action key (F,
+-- through `actionTaken`) opens the upgrade panel; 1 buys the next level of
+-- health, 2 the next level of stamina, 3 the next level of pickup reach (how
+-- far koins and drops jump to you), 4 the next level of stamina regen (how
+-- fast it comes back), 5 another inventory slot (buildings). F again, Esc or
+-- walking away from the door closes it. Each level costs more than the last
+-- and there are five of each, so a full set is a serious amount of roadkill.
 --
--- The host owns the sale: it checks the wallet (money), takes the koins and
+-- The host owns the sale: it checks the buyer is at the gym door, checks
+-- the wallet (money), takes the koins and
 -- raises the value through the feature that owns it -- weapons for health,
 -- on-foot for stamina and its regen, money itself for reach, buildings for
 -- inventory slots -- which tell
@@ -22,13 +27,14 @@
 -- Messages
 --   client -> server  UPG_BUY   <kind>
 --   server -> all     UPG_LEVEL <id> <kind> <level>
---   server -> buyer   UPG_DENY  <kind> <reason>    "broke" or "maxed"
+--   server -> buyer   UPG_DENY  <kind> <reason>    "broke", "maxed", "away" or "gone"
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
 local Sounds = require("src.features.upgrades.sounds")
+local Storefront = require("src.features.quests.storefront")
 
 local Upgrades = {
   name = "upgrades",
@@ -74,6 +80,22 @@ end
 
 local NOTICE_TIME = 1.6 -- seconds a "not enough" line stays on the shop
 
+-- The gym ------------------------------------------------------------------
+Upgrades.enterRadius = 60 -- px from the door that brings the panel up (the shop's)
+Upgrades.leaveRadius = 140 -- px from the door that takes it down again
+local SLACK = 60 -- px the host allows for a buyer drawn a little behind where it is
+
+local function dist2(ax, ay, bx, by)
+  return (ax - bx) ^ 2 + (ay - by) ^ 2
+end
+
+--- The gym while the default city is in play, or nil.
+function Upgrades:here()
+  local quests = Features.byName.quests
+  local j = quests and quests.jobs and quests:jobs()
+  return j and j.gym or nil
+end
+
 --- The ceiling a kind gives at `level`.
 local function valueAt(kind, level)
   return kind.base + kind.step * level
@@ -86,12 +108,14 @@ Upgrades.levels = {} -- player id -> { health = n, stamina = n }
 Upgrades.notice = nil -- { text, t }
 Upgrades.flash = 0 -- seconds of glow left on a row just bought
 Upgrades.flashKind = nil
+Upgrades.near = nil -- the gym when I am standing at its door, or nil
+local time = 0
 
 function Upgrades:load()
   Sounds.load()
-  Controls.register("upgrades", "Open / close the upgrade shop", "p")
+  Controls.register("gym", "Open / close the gym (at its door)", "f") -- the action key, like the shop's
   for _, kind in ipairs(self.kinds) do
-    Controls.register(kind.action, "Buy " .. kind.label:lower() .. " (shop open)", kind.defaultKey)
+    Controls.register(kind.action, "Buy " .. kind.label:lower() .. " (gym open)", kind.defaultKey)
   end
 end
 
@@ -99,6 +123,7 @@ function Upgrades:enterGame()
   self.open = false
   self.notice = nil
   self.flash = 0
+  self.near = nil
 end
 
 function Upgrades:exitGame()
@@ -111,7 +136,13 @@ function Upgrades:menuOpen()
   return self.open
 end
 
---- The `closeMenu` convention: Esc takes the shop down.
+--- The `actionTaken` convention: the action key is ours at the door and
+--- while the panel is up, so on-foot leaves the cars alone.
+function Upgrades:actionTaken()
+  return self.open or self.near ~= nil
+end
+
+--- The `closeMenu` convention: Esc takes the panel down.
 function Upgrades:closeMenu()
   if not self.open then
     return false
@@ -131,7 +162,15 @@ local function wallet(client)
   return money and money.mine and money:mine(client) or 0
 end
 
-function Upgrades:update(dt)
+function Upgrades:update(dt, client)
+  time = time + dt
+  local x, y = client:myPose()
+  local gym = x and self:here()
+  local d2 = gym and dist2(x, y, gym.doorX, gym.doorY) or math.huge
+  self.near = d2 <= self.enterRadius ^ 2 and gym or nil
+  if self.open and d2 > self.leaveRadius ^ 2 then
+    self.open, self.notice = false, nil -- walked away: the panel goes down
+  end
   if self.notice then
     self.notice.t = self.notice.t - dt
     if self.notice.t <= 0 then
@@ -142,7 +181,7 @@ function Upgrades:update(dt)
 end
 
 function Upgrades:keypressed(key, client)
-  if Controls.is("upgrades", key) then
+  if Controls.is("gym", key) and (self.open or self.near) then
     self.open = not self.open
     self.notice = nil
     return
@@ -174,8 +213,16 @@ function Upgrades:tryBuy(client, key)
 end
 
 function Upgrades:refuse(kind, reason)
-  local text = reason == "maxed" and (kind.label .. " is already maxed out")
-    or ("Not enough Fcks for " .. kind.label:lower())
+  local text
+  if reason == "maxed" then
+    text = kind.label .. " is already maxed out"
+  elseif reason == "away" then
+    text = "Get back to the gym to train"
+  elseif reason == "gone" then
+    text = "There is no gym on this map"
+  else
+    text = "Not enough Fcks for " .. kind.label:lower()
+  end
   self.notice = { text = text, t = NOTICE_TIME }
   Sounds.play("buzz")
 end
@@ -228,9 +275,127 @@ local function drawRow(self, kind, x, y, w, level, purse, keyName)
   end
 end
 
+-- The building -----------------------------------------------------------------
+
+local GYM_RED = { 1, 0.42, 0.32 }
+local IRON = { 0.22, 0.23, 0.26 }
+local STEEL = { 0.72, 0.74, 0.78 }
+local STYLE = {
+  rim = { 0.2, 0.12, 0.12 },
+  roof = { 0.36, 0.27, 0.27 },
+  awning = { GYM_RED, { 0.14, 0.14, 0.16 } },
+  glass = { 1, 0.8, 0.7 },
+}
+
+--- A dumbbell lying across (x, y), `s` px from end to end: a bar with two
+--- plates at each end.
+local function dumbbell(x, y, s, plate)
+  local half = s / 2
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - half + 2, y - s * 0.2 + 2, s, s * 0.4, 2)
+  love.graphics.setColor(STEEL)
+  love.graphics.rectangle("fill", x - half * 0.7, y - s * 0.04, s * 0.7, s * 0.08)
+  love.graphics.setColor(plate or IRON)
+  for side = -1, 1, 2 do
+    love.graphics.rectangle("fill", x + side * half * 0.78 - s * 0.07, y - s * 0.2, s * 0.14, s * 0.4, 2)
+    love.graphics.rectangle("fill", x + side * half * 0.95 - s * 0.05, y - s * 0.14, s * 0.1, s * 0.28, 2)
+  end
+end
+
+--- A weight bench seen from above, long side along x, centred on (x, y),
+--- with a barbell racked over its head end.
+local function bench(x, y)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 18 + 3, y - 6 + 3, 36, 12, 3)
+  love.graphics.setColor(0.12, 0.12, 0.14)
+  love.graphics.rectangle("fill", x - 18, y - 6, 36, 12, 3)
+  love.graphics.setColor(0.55, 0.15, 0.13)
+  love.graphics.rectangle("fill", x - 16, y - 4, 32, 8, 2)
+  love.graphics.setColor(STEEL)
+  love.graphics.rectangle("fill", x - 17, y - 16, 2, 32)
+  love.graphics.setColor(IRON)
+  love.graphics.rectangle("fill", x - 20, y - 18, 8, 5, 1)
+  love.graphics.rectangle("fill", x - 20, y + 13, 8, 5, 1)
+end
+
+--- A rack of three dumbbells, from (x, y) along x.
+local function rack(x, y)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 4 + 3, y - 8 + 3, 48, 16, 2)
+  love.graphics.setColor(0.3, 0.3, 0.33)
+  love.graphics.rectangle("fill", x - 4, y - 8, 48, 16, 2)
+  for i = 0, 2 do
+    dumbbell(x + 6 + i * 14, y, 12, i == 1 and { 0.6, 0.2, 0.17 } or IRON)
+  end
+end
+
+--- The building over the one it took, a storefront like the shop and the
+--- Jobs building (quests/storefront.lua): a dumbbell on the roof, its sign,
+--- a bench and a rack of weights outside, and the glowing square by the
+--- door where the panel opens.
+function Upgrades:drawBelowCars()
+  local gym = self:here()
+  if not gym then
+    return
+  end
+  Storefront.draw(gym, STYLE, time)
+  Storefront.front(gym, function(W, D)
+    local y = Storefront.outside(D)
+    bench(-W / 2 + 28, y)
+    rack(W / 2 - 58, y)
+  end)
+  local ex, ey, r = Storefront.emblem(gym, 40)
+  dumbbell(ex, ey, r * 2, GYM_RED)
+  Storefront.sign(gym, "GYM", GYM_RED)
+  local c = GYM_RED
+  local pulse = self.near and 0.6 + 0.4 * math.abs(math.sin(time * 4)) or 0.5 + 0.5 * math.sin(time * 2.5)
+  love.graphics.setColor(c[1], c[2], c[3], 0.10 + 0.08 * pulse)
+  love.graphics.circle("fill", gym.doorX, gym.doorY, self.enterRadius)
+  love.graphics.setColor(c[1], c[2], c[3], 0.35 + 0.25 * pulse)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", gym.doorX, gym.doorY, self.enterRadius)
+  love.graphics.setLineWidth(1)
+  dumbbell(gym.doorX, gym.doorY, 26, GYM_RED)
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The gym on the minimap: a red dumbbell, so it can be found.
+function Upgrades:drawOnMinimap(_client, toMap)
+  local gym = self:here()
+  if not gym then
+    return
+  end
+  local x, y = toMap(gym.x + gym.w / 2, gym.y + gym.h / 2)
+  love.graphics.setColor(0, 0, 0, 0.8)
+  love.graphics.rectangle("fill", x - 8, y - 4, 16, 8, 2)
+  love.graphics.setColor(GYM_RED)
+  love.graphics.rectangle("fill", x - 7, y - 3, 3, 6)
+  love.graphics.rectangle("fill", x + 4, y - 3, 3, 6)
+  love.graphics.rectangle("fill", x - 4, y - 1, 8, 2)
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- At the door with the panel down: the offer, where the shop's and the
+--- plots' prompts stand.
+local function drawPrompt()
+  local w, h = love.graphics.getDimensions()
+  local key = Controls.name(Controls.bindings("gym")[1])
+  local text = "Gym.  " .. key .. ": train (upgrades)"
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(text, 1, h - 129, w, "center")
+  love.graphics.setColor(GYM_RED)
+  love.graphics.printf(text, 0, h - 130, w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Upgrades:drawHUD(client)
-  local openKey = Controls.name(Controls.bindings("upgrades")[1])
+  local openKey = Controls.name(Controls.bindings("gym")[1])
   love.graphics.setFont(UI.fonts.small)
+  if not self.open and self.near then
+    drawPrompt()
+    love.graphics.setFont(UI.fonts.small)
+  end
   if not self.open then
     -- Under the koin in the bottom-right corner: how many upgrades the
     -- wallet covers right now, only when there are any.
@@ -247,7 +412,7 @@ function Upgrades:drawHUD(client)
       return
     end
     local pulse = 0.75 + 0.25 * math.sin(love.timer.getTime() * 4)
-    local text = ("%s: %d upgrade%s affordable"):format(openKey, affordable, affordable == 1 and "" or "s")
+    local text = ("%d upgrade%s affordable at the gym"):format(affordable, affordable == 1 and "" or "s")
     local color = { 0.5, 1, 0.55, pulse }
     local font = UI.fonts.small
     local x, y
@@ -366,12 +531,28 @@ local function apply(server, player, kind, level)
   end
 end
 
---- Sell `player` the next level of `key`. Returns true on a sale; otherwise
---- the reason it didn't happen ("maxed", "broke") as a second value.
+--- Is the player's body (not a wreck) at the gym's door?
+local function atDoor(server, player, gym)
+  if not Features.present(player) then
+    return false
+  end
+  local x, y = Features.bodyPose(server, player)
+  return dist2(x, y, gym.doorX, gym.doorY) <= (Upgrades.enterRadius + SLACK) ^ 2
+end
+
+--- Sell `player` the next level of `key` at the gym. Returns true on a
+--- sale; otherwise the reason it didn't happen ("gone", "away", "maxed",
+--- "broke") as a second value.
 function Upgrades:serverBuy(server, player, key)
   local kind = self.byKey[key]
   if not (sv and kind and player.body) then
     return false, "unknown"
+  end
+  local gym = self:here()
+  if not gym then
+    return false, "gone"
+  elseif not atDoor(server, player, gym) then
+    return false, "away"
   end
   local levels = sv.levels[player.id] or {}
   sv.levels[player.id] = levels
