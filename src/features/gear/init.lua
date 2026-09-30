@@ -2,7 +2,8 @@
 -- slots of the inventory screen, each scaling something about them
 -- (kinds.lua): running shoes make you faster and sprinting cheaper, a
 -- tactical hat makes ammo bundles bigger, cargo pants bring abilities back
--- sooner, a plate carrier makes a vest hold more.
+-- sooner, a plate carrier makes a vest hold more; others resist a kind of
+-- damage (a firefighter jacket, a crash helmet, rubber boots).
 --
 -- A piece ("gear-<key>", sold by the shop) is dragged from the bag onto
 -- its slot to put it on (GEAR_EQUIP: the host takes the item; whatever was
@@ -21,6 +22,11 @@
 -- player)` goes out when what they wear changes, for anything that keeps a
 -- number derived from it (armor rescales the vest).
 --
+-- A piece can resist damage types too (`resist` in kinds.lua): the damage
+-- feature asks `serverResist` / `resist`, and every piece worn lets through
+-- (1 - its resistance) of a hit of that type. A tier that improves a
+-- resistance grows it by the tier's `bonus`, as it would a clothes bonus.
+--
 -- Messages
 --   client -> server  GEAR_EQUIP   <key[@tier]>
 --   client -> server  GEAR_UNEQUIP <slot>
@@ -30,6 +36,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Kinds = require("src.features.gear.kinds")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 
 local Gear = {
   name = "gear",
@@ -68,6 +75,36 @@ local function multiplier(g, tier, name)
   return m
 end
 Gear.multiplier = multiplier
+
+--- How much of a `dtype` hit piece `g` in tier `tier` stops, 0 to 1: its
+--- resistance, grown by the tier's bonus if the tier improves it.
+local function resistance(g, tier, dtype)
+  local r = g.resist and g.resist[dtype]
+  if not r then
+    return 0
+  end
+  for i, stat in ipairs(g.tierStats) do
+    if stat == "resist." .. dtype and Tiers.improves(tier, i) then
+      r = r * Tiers.get(tier).bonus
+    end
+  end
+  return Damage.clampResist(r)
+end
+Gear.resistance = resistance
+
+--- What gets through of a `dtype` hit, times `share`, past what `worn`
+--- (slot -> key) holds.
+local function through(share, worn, dtype)
+  if worn then
+    for _, key in pairs(worn) do
+      local g, tier = pieceOf(key)
+      if g then
+        share = share * (1 - resistance(g, tier, dtype))
+      end
+    end
+  end
+  return share
+end
 
 --- The product of `name` over what `worn` (slot -> key) holds.
 local function scale(worn, name)
@@ -114,6 +151,11 @@ end
 --- The `stat` convention on a client: what a player's clothes do to `name`.
 function Gear:stat(value, _client, id, name)
   return value * scale(self.worn[id], name)
+end
+
+--- The `resist` convention on a client: what player `id`'s clothes stop.
+function Gear:resist(share, _client, id, dtype)
+  return through(share, self.worn[id], dtype)
 end
 
 Gear.clientMessages = {
@@ -185,6 +227,11 @@ end
 --- The `serverStat` convention: what a player's clothes do to `name`.
 function Gear:serverStat(value, _server, player, name)
   return value * scale(self.sv and self.sv.worn[player.id], name)
+end
+
+--- The `serverResist` convention: what `player`'s clothes stop of a `dtype` hit.
+function Gear:serverResist(share, _server, player, dtype)
+  return through(share, self.sv and self.sv.worn[player.id], dtype)
 end
 
 --- Put `key` on `player` out of their bag; what was in its slot goes back

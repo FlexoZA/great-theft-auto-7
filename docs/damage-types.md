@@ -38,6 +38,22 @@ Besides the damage, each type does something to a player on foot:
 | `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
 
 Burning and bleeding top up rather than stack; a dodge puts a fire out.
+
+## What resists what
+
+| Piece                         | Slot   | Resists                                      |
+| ----------------------------- | ------ | -------------------------------------------- |
+| kevlar vest                   | armor  | bullet 30%                                   |
+| bomb suit                     | armor  | explosive 50%, impact 30%, fire 15%          |
+| plate carrier                 | body   | bullet 10%, explosive 10% (and armor x1.25)  |
+| firefighter jacket            | body   | fire 40%                                     |
+| leather jacket                | body   | melee 30%                                    |
+| crash helmet                  | head   | impact 35%, explosive 10%                    |
+| rubber boots                  | shoes  | shock 50% (and 5% slower on foot)            |
+
+A better tier improves a resistance like any other stat: armor by the
+tier's `boost`, clothes by its `bonus`. No piece, and nothing worn
+together, stops more than 80% of a type.
 Getting into a car, dying or leaving ends every status. The numbers are
 at the top of `src/features/damage/init.lua`.
 
@@ -72,10 +88,13 @@ word the kill feed ("Bob burned Alice") and pick a death effect.
    every damage call tagged with its type; the kill feed words it by type.
    Also: `serverDamage` now respects spawn protection, as bullets and
    rockets always did (a boss could hurt someone the moment they came back).
-2. **Resistances.** Wearables get `resist = { fire = 0.3, ... }` (the share
-   of that type they stop), improvable by tier like any stat. Armor and
-   gear take their share in `serverAbsorbDamage` before the vest soaks up
-   what is left, so a fire suit and a bulletproof vest are different things.
+2. **Resistances.** Armor and clothes carry `resist = { fire = 0.4, ... }`
+   (the share of that type they stop), improvable by tier like any stat.
+   The damage feature asks `serverResist` (armor and gear answer), takes
+   that share off every hit before the vest soaks up the rest, and shortens
+   stuns, knockdowns, dazes and knocks by it. Pieces multiply (two 30%
+   pieces stop 51%); no more than 80% of a type is ever stopped. See the
+   resistance table below.
 3. **Burning.** The damage feature owns a burning status: `Damage:ignite(server,
    victim, seconds, dps, by)` sets a player on foot alight, they take `fire`
    damage every quarter second until it runs out, and every client draws
