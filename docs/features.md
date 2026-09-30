@@ -255,7 +255,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 
 | Event | Raised by | Meaning |
 | --- | --- | --- |
-| `serverPlayerDamaged(server, victim, attacker, amount, type)` | weapons | A player (or the car they drive) was hurt, by anything: a round, a blast, a boss. `attacker` may be nil (nobody did it, or they left); `amount` is before armor; `type` is the damage type ("Damage types" under conventions). |
+| `serverPlayerDamaged(server, victim, attacker, amount, type, angle)` | weapons | A player (or the car they drive) was hurt, by anything: a round, a blast, a boss. `attacker` may be nil (nobody did it, or they left); `amount` is before armor; `type` is the damage type ("Damage types" under conventions); `angle` the way the blow travelled, when known. The damage feature puts the type's status on a player on foot (bleeding, a stun, a knock). |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
 | `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
@@ -266,6 +266,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
+| `serverDodged(server, player)` | on-foot | `player` started a dodge on the host. The damage feature puts out a player who is burning. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
 | `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
@@ -372,6 +373,25 @@ couple of small conventions rather than requiring each other:
   `serverBlast`, `serverWallHit`) and `serverKill` gets `cause`;
   `WPN_KILL` and `WPN_WRECK` carry it, and the kill feed says "Bob burned
   Alice". A new type is a new entry in `Damage.types`.
+  What a type does besides the damage, to a player on foot (the damage
+  feature, from `serverPlayerDamaged`): melee leaves them bleeding, shock
+  stuns them, impact knocks them back a little and down, explosive blows
+  them back (further the harder it hit) and dazes them (`worldBlur`).
+  Stunned or down is held (`serverHeld` / `held`). Fire does nothing by
+  itself: `Features.byName.damage:ignite(server, victim, seconds, dps, by)`
+  sets someone alight, and the heat ray ability, the Tripod's beam and the
+  open-borders fires call it with their own `afterburn` numbers; anything
+  new that burns should too. Burning and bleeding bite every quarter second
+  (the kill is `by`'s); another dose tops the time up at the stronger rate,
+  never stacks. A dodge puts a fire out, a medkit stops a bleed
+  (`damage:serverStopBleeding(server, id)`), and a car, dying or leaving
+  ends everything. `damage:serverAfflict(server, victim, status, seconds,
+  dps, by)`, `serverCure(server, id, status)` and `serverHas(id, status)`
+  are the general form (status "burn", "bleed", "stun", "down" or "daze");
+  every client hears `DMG_FX <id> <status> <seconds>` and draws it. A knock
+  is `Features.byName["on-foot"]:serverShove(server, player, dx, dy,
+  distance, seconds)`: the body is carried that far, sliding along walls,
+  whatever holds it.
 - `Features.byName.weapons:serverSetMaxHealth(server, player, max)` and
   `Features.byName["on-foot"]:serverSetMaxStamina(server, player, max)`: raise
   a player's ceiling for the rest of the game (respawns keep it). Raising it

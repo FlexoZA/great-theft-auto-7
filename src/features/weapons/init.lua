@@ -1946,7 +1946,7 @@ function Weapons:damage(server, victim, byId, amount, pid, angle, dtype)
   -- hit still counts as one for everyone listening, even if nothing got through.
   st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim, dtype)
   -- Let other features react (bots take offence at being shot).
-  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount, dtype)
+  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount, dtype, angle)
   if st.hp > 0 then
     server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
     return true
@@ -2046,7 +2046,7 @@ function Weapons:damageCar(server, car, byId, amount, pid, angle, dtype)
   dtype = Damage.key(dtype)
   cs.hp = cs.hp - amount
   if driver then
-    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount, dtype)
+    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount, dtype, angle)
   end
   if cs.hp > 0 then
     server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp))

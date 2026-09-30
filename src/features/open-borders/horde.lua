@@ -49,6 +49,8 @@ Horde.FIRE_SPACING = 26 -- px; no fire is lit this close to another
 Horde.MAX_FIRES = 220 -- in the world at once
 Horde.BURN_EVERY = 0.5 -- seconds between burns
 Horde.BURN_DAMAGE = 5 -- to a player or car touching a fire, per burn
+Horde.AFTERBURN_TIME = 3 -- seconds a player on foot who touched one burns on
+Horde.AFTERBURN_DPS = 5 -- fire damage a second while they do
 
 local FOOT_RADIUS = 6 -- a player on foot, as weapons sees one
 local random = love.math.random
@@ -355,6 +357,10 @@ function Horde:burn(server, skip)
         -- Walking into your own fire is nobody's kill.
         weapons:serverDamage(server, c.player, by ~= c.player.id and server.players[by] or nil, Horde.BURN_DAMAGE,
           angle, "fire")
+        local damage = Features.byName.damage
+        if damage then
+          damage:ignite(server, c.player, Horde.AFTERBURN_TIME, Horde.AFTERBURN_DPS, by)
+        end
       elseif c.car and weapons.damageCar then
         weapons:damageCar(server, c.car, server.players[by] and by or nil, Horde.BURN_DAMAGE, 0, angle, "fire")
       end

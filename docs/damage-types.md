@@ -24,6 +24,23 @@ new entry there. Anything that hurts without saying what it is counts as
 Cars are left alone for now: crashes still do no damage, and a car takes
 every type the same.
 
+## What each type does
+
+Besides the damage, each type does something to a player on foot:
+
+| Type        | Effect                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `bullet`    | nothing more                                                                                |
+| `fire`      | a fire that means it sets you alight: you burn on (3-4 s) after you are out of it           |
+| `melee`     | bleeding: 3 a second for 4 s; a medkit stops it                                             |
+| `shock`     | stunned: held still for 1 s (no walking, shooting or dodging)                               |
+| `impact`    | knocked back 36 px and down for 0.6 s                                                       |
+| `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
+
+Burning and bleeding top up rather than stack; a dodge puts a fire out.
+Getting into a car, dying or leaving ends every status. The numbers are
+at the top of `src/features/damage/init.lua`.
+
 ## How a type travels
 
 The type is the last argument everywhere damage goes, so nothing that
@@ -60,10 +77,17 @@ word the kill feed ("Bob burned Alice") and pick a death effect.
    gear take their share in `serverAbsorbDamage` before the vest soaks up
    what is left, so a fire suit and a bulletproof vest are different things.
 3. **Burning.** The damage feature owns a burning status: `Damage:ignite(server,
-   victim, seconds, dps, by)` sets someone alight, they take `fire` damage
-   every tick until it runs out, and every client draws the flames. The heat
-   ray, the Tripod's beam and the open-borders fires set people alight
-   instead of each running their own tick loop.
+   victim, seconds, dps, by)` sets a player on foot alight, they take `fire`
+   damage every quarter second until it runs out, and every client draws
+   the flames. A new fire on someone already burning tops the time back
+   up at the hotter rate; it never stacks. A dodge puts it out (stop, drop
+   and roll), and so does getting into a car. The heat ray, the Tripod's
+   beam and the open-borders fires keep hurting whoever stands in them as
+   before, and set them alight on top (each with its own `afterburn`
+   numbers), so getting out of the fire is no longer the end of it.
+   Then the other types got theirs (the table above): bleeding, stuns,
+   knockdowns and blasts that throw you, in the same status system
+   (`DMG_FX`), with on-foot's `serverShove` for the knocks.
 4. **Feedback.** Hit flashes tinted by type, a death effect per type (the
    Tripod's ash becomes the fire death, a blast leaves gibs), and maybe
    damage numbers.

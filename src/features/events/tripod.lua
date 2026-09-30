@@ -19,7 +19,9 @@
 -- stays where they were: it burns that spot for `fire` seconds, hurting
 -- anyone on foot (`burnDps`) and any car (`carDps`) standing in it and
 -- burning pedestrians up. Dash or sprint out of it in that last moment and
--- it misses. Whoever it kills on foot is left a heap of ash.
+-- it misses. Whoever it kills on foot is left a heap of ash; whoever it
+-- only catches is set alight (the damage feature's burning) and burns on
+-- for `afterburnTime` unless they dodge.
 --
 -- The sweep: when somebody (a player or a bot) is in front of it and it
 -- has the breath, it may plant its legs and sweep the heat ray across the
@@ -128,6 +130,8 @@ Tripod.sweepWarn = 1.0 -- seconds the arc is lit before the beam comes
 Tripod.sweepTime = 1.8 -- seconds the beam takes from one end to the other
 Tripod.sweepDps = 480 -- to somebody on foot as it passes: it is on one spot about a quarter of a second (~120)
 Tripod.sweepCarDps = 640 -- to a car (~160)
+Tripod.afterburnTime = 4 -- seconds somebody the beam caught on foot burns on afterwards
+Tripod.afterburnDps = 15 -- fire damage a second while they do
 Tripod.grabReach = 130 -- px from its centre: a player on foot this close is under it
 Tripod.grabWindup = 0.7 -- seconds from the lash to the snatch: get clear
 Tripod.grabSlack = 50 -- px past `grabReach` still caught when it lands
@@ -383,6 +387,8 @@ local function burn(server, t, x, y, footDps, carDps)
         weapons:serverDamage(server, p, nil, footDps * BURN_TICK, t.facing, "fire")
         if p.body and p.body.dead then
           server:broadcast(Protocol.encode("ETR_ASH", fmt(px), fmt(py), ("%.2f"):format(t.facing)))
+        elseif Features.byName.damage then
+          Features.byName.damage:ignite(server, p, Tripod.afterburnTime, Tripod.afterburnDps)
         end
       end
     end

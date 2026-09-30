@@ -12,7 +12,8 @@
 --          burns hotter (`sweepHeat` times the beam).
 --
 -- Either one hurts everything in `radius` of where it is burning but you:
--- other players and bots on foot, every car but the one you are driving,
+-- other players and bots on foot (setting them alight: they burn on for
+-- `afterburnTime` at `afterburnDps`), every car but the one you are driving,
 -- and whatever other features answer `serverShotAt` (pedestrians,
 -- officers, simps, a boss: the tripod can be burned with its own ray).
 -- Kills and hits are yours.
@@ -45,6 +46,8 @@ Heat.afterglow = 0.4 -- seconds the scorch glows once it is done
 Heat.damage = 100 -- a whole beam to somebody standing in it
 Heat.sweepHeat = 4.5 -- how much hotter a sweep burns: it passes a spot in a fifth of a second (~75)
 Heat.carHeat = 1.3 -- how much more a car takes than a body
+Heat.afterburnTime = 3 -- seconds somebody it caught on foot burns on afterwards
+Heat.afterburnDps = 10 -- fire damage a second while they do
 Heat.sweepRadius = 200 -- px out in front the sweep crosses
 Heat.sweepArc = 1.8 -- radians the sweep covers, side to side
 Heat.tierStats = { "cooldown", "damage", "radius" } -- what a better tier improves, in order
@@ -92,10 +95,12 @@ function Heat.serverCast(server, caster, x, y, _abilities, A, mode)
 end
 
 --- One bite of burn `b` at (x, y): everyone on foot but the caster, every
---- car but theirs, and whatever else answers `serverShotAt`.
+--- car but theirs, and whatever else answers `serverShotAt`. Anyone on foot
+--- it catches is set alight, and burns on for a while once out of it.
 local function bite(server, b, x, y, amount)
   local caster = server.players[b.by]
   local weapons = Features.byName.weapons
+  local damage = Features.byName.damage
   local r = b.radius
   if weapons then
     for id, p in pairs(server.players) do
@@ -103,6 +108,9 @@ local function bite(server, b, x, y, amount)
         local px, py, onFoot = Features.bodyPose(server, p)
         if onFoot and dist2(px, py, x, y) <= r * r then
           weapons:serverDamage(server, p, caster, amount, math.atan2(py - y, px - x), "fire")
+          if damage then
+            damage:ignite(server, p, Heat.afterburnTime, Heat.afterburnDps, b.by)
+          end
         end
       end
     end
