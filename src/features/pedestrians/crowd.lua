@@ -8,6 +8,8 @@
 -- pedestrian actually turns.
 
 local Car = require("src.car")
+local Features = require("src.features")
+local Layout = require("src.features.city-map.layout")
 
 local Crowd = {}
 Crowd.__index = Crowd
@@ -124,13 +126,19 @@ function Crowd:maintain(cars, ncars)
 
   local target = math.min(Crowd.MAX, Crowd.PER_CAR * ncars)
   local budget = Crowd.SPAWN_BURST
+  -- Only on the map's land: past its edge is sea (or whatever surrounds it).
+  local city = Features.byName["city-map"]
+  local map = city and city.map
   while self.n < target and budget > 0 do
     budget = budget - 1
     local e = cars[random(ncars)]
     local a = random() * 2 * math.pi
     local r = Crowd.SPAWN_MIN + random() * (Crowd.SPAWN_MAX - Crowd.SPAWN_MIN)
-    local p = self:spawn(e.x + math.cos(a) * r, e.y + math.sin(a) * r)
-    p.near2 = r * r
+    local x, y = e.x + math.cos(a) * r, e.y + math.sin(a) * r
+    if not (map and map.tiles) or Layout.tileAt(map, x, y) then
+      local p = self:spawn(x, y)
+      p.near2 = r * r
+    end
   end
 end
 

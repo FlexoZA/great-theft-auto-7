@@ -674,6 +674,14 @@ example with a menu; real-estate is the one with a place to stand.
   its recipe (materials at their quarry or oil well price, plus
   `Kinds.WORTH_TIME` a second, over the batch, times `Kinds.WORTH_MARGIN`),
   so the harder to make, the more it pays. Materials and cars have none.
+- Surroundings: `src/features/surroundings` draws the world past a map's
+  edge (over the grid, under the map), made up as the camera looks so it
+  never runs out. The city is an island: deep sea, lighter shallows round
+  the shore, rolling waves, foam against a concrete harbour wall with
+  bollards, and boats sailing loops round it. The shore follows the city's
+  land tile by tile, so a block the city grows gets its own quay. A map
+  gets surroundings with an entry in its `DRAW` table (by map name); the
+  others still show the grid. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know
   whose car you are borrowing and can spot your own. Player-arrows marks the
