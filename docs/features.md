@@ -689,7 +689,10 @@ example with a menu; real-estate is the one with a place to stand.
   somewhere like a road). Looz'er Beach runs on along the coast both ways
   band by band (hedgehogs on the sand, barbed wire fencing the battle off
   at the sides), hedgerowed farmland north of the hill and the sea south,
-  warships steaming along offshore. A map
+  warships steaming along offshore. Shotgun's Bluff runs on both ways
+  (plateau, cliff face, flowered meadow, boulders) between dry-stone walls,
+  a canyon with a river at its bottom drops away north of the plateau, and
+  the meadow gives way to woods south. A map
   gets surroundings with an entry in its `DRAW` table (by map name); the
   others still show the grid. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked

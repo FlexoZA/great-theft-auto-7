@@ -21,6 +21,11 @@
 -- the battle off at the sides; hedgerowed fields north of the hill, and
 -- the sea south with warships steaming along offshore.
 --
+-- Shotgun's Bluff runs on both ways (the plateau, the cliff face, the
+-- flowered meadow, boulders), walled in by dry-stone walls at the sides; a
+-- canyon drops away past the plateau's north edge, a river at its bottom,
+-- and the meadow gives way to woods south.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -635,6 +640,192 @@ local function beach(map, camera)
   end
 end
 
+-- Shotgun's Bluff: the cliff runs on, walled in; a canyon north, woods south --
+
+-- city-map's bluff colours, so the plateau, cliff and meadow carry on unbroken.
+local CLIFF = {
+  meadow = { 0.38, 0.52, 0.28 }, meadowDark = { 0.33, 0.46, 0.24 }, flowers = { 0.92, 0.86, 0.45 },
+  plateau = { 0.55, 0.52, 0.36 }, plateauDark = { 0.49, 0.46, 0.31 },
+  rock = { 0.47, 0.43, 0.38 }, rockDark = { 0.33, 0.30, 0.27 }, rockLight = { 0.60, 0.56, 0.50 },
+  stone = { 0.62, 0.61, 0.58 }, stoneDark = { 0.46, 0.45, 0.43 },
+}
+local CLIFF_FACE = 70 -- px of rock from the lip down (city-map's layout)
+local RIM = 70 -- px of plateau past the top edge before the canyon
+local CANYON = 760 -- px across the canyon, rim to far rim
+local RIVER = { 0.22, 0.45, 0.58 }
+local BOULDER_CELL = 260 -- px between the boulders' grid points
+local BLUFF_TREES = { 1, 3, 2, 5 }
+
+--- Speckle the box (x0..x1, y0..y1) like the map's ground, anchored in the world.
+local function speckles(x0, x1, y0, y1, dark, every)
+  love.graphics.setColor(dark)
+  local step = every * 1.7
+  local i = math.floor(y0 / every)
+  for yy = math.floor(y0 / every) * every + 10, y1 - 30, every do
+    for xx = math.floor(x0 / step) * step + (i % 3) * 37, x1, step do
+      love.graphics.rectangle("fill", xx + (yy * 7) % 23, yy, 34, 18)
+    end
+    i = i + 1
+  end
+end
+
+--- The cliff from x0 to x1: rock from the lip down, a ragged lit lip,
+--- cracks down the face, and its shadow on the meadow under it.
+local function cliffFace(x0, x1, y)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x0, y + 60, x1 - x0, 46)
+  love.graphics.setColor(CLIFF.rockDark)
+  love.graphics.rectangle("fill", x0, y, x1 - x0, CLIFF_FACE)
+  love.graphics.setColor(CLIFF.rock)
+  love.graphics.rectangle("fill", x0, y + 6, x1 - x0, CLIFF_FACE - 20)
+  love.graphics.setColor(CLIFF.rockLight)
+  local start = math.floor(x0 / 24) * 24
+  for xx = start, x1, 24 do
+    local a, b = y - 4 + (xx * 13) % 11, y - 4 + ((xx + 24) * 13) % 11
+    love.graphics.polygon("fill", xx, a, xx + 24, b, xx + 24, y + 12, xx, y + 12)
+  end
+  love.graphics.setColor(CLIFF.rockDark)
+  love.graphics.setLineWidth(3)
+  for xx = math.floor(x0 / 57) * 57 + 30, x1, 57 do
+    local jog = (xx * 7) % 17 - 8
+    love.graphics.line(xx, y + 14, xx + jog, y + CLIFF_FACE * 0.5, xx - jog / 2, y + CLIFF_FACE - 8)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A dry-stone wall down x from y0 to y1: a dark bed, rounded stones.
+local function stoneWall(x, y0, y1)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 7, y0 + 5, 18, y1 - y0, 5)
+  love.graphics.setColor(CLIFF.stoneDark)
+  love.graphics.rectangle("fill", x - 9, y0, 18, y1 - y0, 5)
+  for y = math.floor(y0 / 16) * 16, y1 - 8, 16 do
+    local k = math.floor(y / 16)
+    local k9 = k % 2 == 0 and 1 or 0.9
+    love.graphics.setColor(CLIFF.stone[1] * k9, CLIFF.stone[2] * k9, CLIFF.stone[3] * k9)
+    love.graphics.circle("fill", x, y + 8, 7 + k % 4 * 0.5, 8)
+  end
+end
+
+--- A boulder: a lumpy grey heap lit from the top left, its shadow down right.
+local function boulder(x, y, r)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.circle("fill", x + 6, y + 6, r * 1.1, 14)
+  love.graphics.setColor(CLIFF.rockDark)
+  love.graphics.circle("fill", x, y, r * 1.08, 14)
+  love.graphics.setColor(CLIFF.rock)
+  love.graphics.circle("fill", x - r * 0.12, y - r * 0.12, r * 0.8, 12)
+  love.graphics.setColor(CLIFF.rockLight)
+  love.graphics.circle("fill", x - r * 0.35, y - r * 0.35, r * 0.35, 10)
+end
+
+--- The canyon north of the plateau: the rim, sheer walls going down into
+--- the dark, a river winding along the bottom, the far wall and the far
+--- plateau beyond it.
+local function canyon(left, right, rimY, top)
+  local floor = rimY - CANYON / 2
+  local far = rimY - CANYON
+  -- The far plateau, hazy with distance.
+  love.graphics.setColor(CLIFF.plateau[1] * 0.85, CLIFF.plateau[2] * 0.85, CLIFF.plateau[3] * 0.9)
+  love.graphics.rectangle("fill", left, top, right - left, math.max(0, far - top))
+  -- The walls, darker the deeper they go, both sides down to the river.
+  local steps = 12
+  for k = 0, steps - 1 do
+    local t = k / steps
+    local shade = 0.95 - t * 0.6
+    love.graphics.setColor(CLIFF.rock[1] * shade, CLIFF.rock[2] * shade, CLIFF.rock[3] * shade)
+    local y0 = far + (floor - far) * t -- the far wall, lit, going down
+    love.graphics.rectangle("fill", left, y0, right - left, (floor - far) / steps + 1)
+    local y1 = rimY - (rimY - floor) * (t + 1 / steps) -- our wall, in shadow
+    love.graphics.setColor(CLIFF.rockDark[1] * shade, CLIFF.rockDark[2] * shade, CLIFF.rockDark[3] * shade)
+    love.graphics.rectangle("fill", left, y1, right - left, (rimY - floor) / steps + 1)
+  end
+  -- Ledges and cracks down the walls.
+  love.graphics.setLineWidth(2)
+  for xx = math.floor(left / 90) * 90, right, 90 do
+    local n = love.math.noise(xx * 0.01, 5.5)
+    love.graphics.setColor(0, 0, 0, 0.25)
+    love.graphics.line(xx, far + 20, xx + (n - 0.5) * 40, far + (floor - far) * 0.6)
+    love.graphics.line(xx + 40, rimY - 30, xx + 40 + (n - 0.5) * 50, rimY - (rimY - floor) * 0.7)
+  end
+  -- The river, winding along the bottom and glinting.
+  local pts = {}
+  for xx = math.floor(left / 30) * 30 - 30, right + 30, 30 do
+    pts[#pts + 1] = xx
+    pts[#pts + 1] = floor + math.sin(xx / 260) * 40 + math.sin(xx / 90) * 8
+  end
+  if #pts >= 4 then
+    love.graphics.setColor(RIVER)
+    love.graphics.setLineWidth(26)
+    love.graphics.line(pts)
+    love.graphics.setColor(0.6, 0.8, 0.9, 0.5)
+    love.graphics.setLineWidth(3)
+    for i = 1, #pts - 3, 6 do
+      local g = (clock * 60 + pts[i]) % 60
+      love.graphics.line(pts[i] + g, pts[i + 1] - 4, pts[i] + g + 12, pts[i + 1] - 4)
+    end
+  end
+  love.graphics.setLineWidth(1)
+  -- Our rim: the plateau's ragged edge, lit.
+  love.graphics.setColor(CLIFF.rockLight)
+  for xx = math.floor(left / 24) * 24, right, 24 do
+    local a, b = rimY - 6 - (xx * 7) % 9, rimY - 8 - (xx * 13) % 9
+    love.graphics.polygon("fill", xx, rimY, xx + 24, rimY, xx + 24, b, xx, a)
+  end
+end
+
+local function bluff(map, camera)
+  local left, top, right, bottom = view(camera)
+  local cy = map.cliffY
+  local rimY = map.top - RIM
+  local south = map.top + map.h
+  -- The plateau, on north to the canyon's rim, and the canyon beyond it.
+  love.graphics.setColor(CLIFF.plateau)
+  love.graphics.rectangle("fill", left, math.max(top, rimY), right - left, cy - math.max(top, rimY))
+  speckles(left, right, math.max(top, rimY), cy, CLIFF.plateauDark, 70)
+  if top < rimY then
+    canyon(left, right, rimY, top)
+  end
+  -- The meadow below the cliff, flowered, on south into woods.
+  love.graphics.setColor(CLIFF.meadow)
+  love.graphics.rectangle("fill", left, cy, right - left, math.max(0, bottom - cy))
+  speckles(left, right, cy, bottom, CLIFF.meadowDark, 80)
+  love.graphics.setColor(CLIFF.flowers)
+  local fc = 48
+  for c = math.floor(left / fc), math.ceil(right / fc) do
+    for r = math.floor(math.max(top, cy + 120) / fc), math.ceil(bottom / fc) do
+      local n = love.math.noise(c * 0.53, r * 0.61)
+      if n > 0.62 then
+        love.graphics.rectangle("fill", (c + n) * fc, (r + (n * 5) % 1) * fc, 4, 4)
+      end
+    end
+  end
+  -- The cliff, on across both sides.
+  cliffFace(left, map.left, cy)
+  cliffFace(map.left + map.w, right, cy)
+  -- Boulders here and there on the plateau and the meadow.
+  for c = math.floor(left / BOULDER_CELL), math.ceil(right / BOULDER_CELL) do
+    for r = math.floor(math.max(top, rimY) / BOULDER_CELL), math.ceil(bottom / BOULDER_CELL) do
+      local n = love.math.noise(c * 0.81, r * 0.67)
+      local x, y = (c + n) * BOULDER_CELL, (r + (n * 3) % 1) * BOULDER_CELL
+      local offCliff = y < cy - 40 or y > cy + CLIFF_FACE + 60
+      if n > 0.6 and offCliff and y > rimY + 30 and y < south + 60 and outside(map, x, y) > 60 then
+        boulder(x, y, 14 + n * 14)
+      end
+    end
+  end
+  -- Woods south of the meadow.
+  local function north(_, y)
+    return y < south + 40
+  end
+  woods(map, camera, 150, 90, BLUFF_TREES, north)
+  -- Dry-stone walls down both sides, over the cliff's lip only where there is ground.
+  stoneWall(map.left - 18, math.max(top, rimY + 10), cy - 6)
+  stoneWall(map.left + map.w + 18, math.max(top, rimY + 10), cy - 6)
+  stoneWall(map.left - 18, cy + CLIFF_FACE + 4, math.min(bottom, south + 120))
+  stoneWall(map.left + map.w + 18, cy + CLIFF_FACE + 4, math.min(bottom, south + 120))
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -643,6 +834,7 @@ local DRAW = {
   forest = forest,
   culdesac = culdesac,
   beach = beach,
+  cliff = bluff,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
