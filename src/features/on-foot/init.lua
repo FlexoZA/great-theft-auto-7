@@ -18,8 +18,10 @@
 --
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
--- Tap one of them twice quickly and you dodge: a short dash that way,
--- faster than a sprint, for some stamina and a moment's cooldown. The host
+-- Space (the dodge action) dashes you the way you are walking, or the way
+-- you face when standing still: a short dash, faster than a sprint, for
+-- some stamina and a moment's cooldown. It shares its default key with the
+-- handbrake, which only matters in a car. The host
 -- does the dash (and refuses one you can't afford); your own is predicted
 -- like a step, so it feels instant, and everyone sees the dust.
 --
@@ -32,7 +34,7 @@
 -- Messages
 --   client -> server  OF_TOGGLE
 --   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
---   client -> server  OF_DODGE <dx> <dy>                         a double-tap: dash this way
+--   client -> server  OF_DODGE <dx> <dy>                         the dodge key: dash this way
 --   server -> all     OF_DODGED <id> <x> <y> <dx> <dy>           they dashed from here, this way
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
 --   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
@@ -66,19 +68,10 @@ OnFoot.dodgeDistance = 96 -- px a dodge carries you
 OnFoot.dodgeTime = 0.22 -- seconds it takes
 OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
 OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
-OnFoot.doubleTap = 0.28 -- seconds between two taps of a key that count as one double-tap
 
 -- Slots in the HUD's bottom-left row of stat bars (UI.drawStatBar): health
 -- is 0 (weapons), then stamina and the dodge; abilities carry on from there.
 OnFoot.hudSlot = 1
-
--- The movement actions and the world direction each one dodges in.
-local DODGE_DIRS = {
-  { action = "left", x = -1, y = 0 },
-  { action = "right", x = 1, y = 0 },
-  { action = "accelerate", x = 0, y = -1 },
-  { action = "brake", x = 0, y = 1 },
-}
 
 local MOVE_INTERVAL = 1 / 30 -- seconds between OF_MOVE packets
 local CORRECTION = 6 -- per second; how fast prediction is pulled onto the server
@@ -163,22 +156,22 @@ OnFoot.moveSeq = 0
 OnFoot.hitbox = {} -- reused table for the "is that car within reach?" test
 OnFoot.dash = nil -- { x, y, t }: my own dodge under way, predicted
 OnFoot.dodgeReadyAt = 0 -- client time my next dodge may start
-OnFoot.lastTap = nil -- { action, at }: the last movement key press, for the double-tap
-OnFoot.tapReady = {} -- action -> true once its key has been seen up since the last press it counted
 OnFoot.puffs = {} -- { x, y, dx, dy, t }: dust where somebody dodged
+OnFoot.dodgeHeld = false -- the dodge key is down since the press that counted; its repeats don't
 local spent = false -- my breath, for prediction: an emptied bar sprints again only once recovered
 local time = 0 -- client clock, seconds in the game
 
 function OnFoot:load()
   Controls.register("enter-exit", "Enter / exit vehicle", "f") -- the action key: real-estate and buildings share it
   Controls.register("sprint", "Sprint (on foot)", "lshift", "rshift")
+  Controls.register("dodge", "Dodge (on foot)", "space") -- shared with the handbrake: one on foot, one in a car
 end
 
 function OnFoot:enterGame()
   self.moveTimer = 0
   self.moveSeq = 0
-  self.dash, self.lastTap, self.puffs = nil, nil, {}
-  self.tapReady = {}
+  self.dash, self.puffs = nil, {}
+  self.dodgeHeld = false
   self.dodgeReadyAt = 0
   spent = false
   time = 0
@@ -281,9 +274,10 @@ function OnFoot:sendMove(dt, client, me)
   client:send(msg, true)
 end
 
---- A double-tap: dash that way if I am on foot, free, rested enough and
---- not still recovering from the last one. The host has the final word.
-function OnFoot:tryDodge(client, dir)
+--- The dodge key: dash the way I am walking (the way I face if I am
+--- standing still) if I am on foot, free, rested enough and not still
+--- recovering from the last one. The host has the final word.
+function OnFoot:tryDodge(client)
   local me = self:me(client)
   if not me or self.dash or time < self.dodgeReadyAt or Features.any("held", client, client.myId) then
     return false
@@ -292,20 +286,21 @@ function OnFoot:tryDodge(client, dir)
   if stamina < self.dodgeStamina then
     return false
   end
-  self.dash = { x = dir.x, y = dir.y, t = self.dodgeTime }
+  local dx, dy = moveInput()
+  if dx == 0 and dy == 0 then
+    local facing = me.dangle or 0
+    dx, dy = math.cos(facing), math.sin(facing)
+  end
+  self.dash = { x = dx, y = dy, t = self.dodgeTime }
   self.dodgeReadyAt = time + self.dodgeCooldown
-  client:send(Protocol.encode("OF_DODGE", dir.x, dir.y))
+  client:send(Protocol.encode("OF_DODGE", ("%.3f"):format(dx), ("%.3f"):format(dy)))
   return true
 end
 
 function OnFoot:update(dt, client, camera)
   time = time + dt
-  -- A key held down repeats its press event; only a press after a release
-  -- is a tap. Note which movement keys are up right now.
-  for _, dir in ipairs(DODGE_DIRS) do
-    if not Controls.isDown(dir.action) then
-      self.tapReady[dir.action] = true
-    end
+  if not Controls.isDown("dodge") then
+    self.dodgeHeld = false
   end
   for i = #self.puffs, 1, -1 do
     local puff = self.puffs[i]
@@ -336,25 +331,10 @@ function OnFoot:keypressed(key, client)
     end
     return
   end
-  -- A movement key: the second tap of the same one inside doubleTap dodges.
-  -- A press while the key is already down is the key repeating, not a tap.
-  for _, dir in ipairs(DODGE_DIRS) do
-    if Controls.is(dir.action, key) then
-      if self.tapReady[dir.action] == false then
-        return -- held down: a repeat
-      end
-      self.tapReady[dir.action] = false
-      local last = self.lastTap
-      if last and last.action == dir.action and time - last.at <= self.doubleTap then
-        self.lastTap = nil -- used up: a third tap starts over
-        if client then
-          self:tryDodge(client, dir)
-        end
-      else
-        self.lastTap = { action = dir.action, at = time }
-      end
-      return
-    end
+  -- The dodge key; held down it repeats its press, and a repeat is not a dodge.
+  if Controls.is("dodge", key) and client and not self.dodgeHeld then
+    self.dodgeHeld = true
+    self:tryDodge(client)
   end
 end
 
@@ -419,7 +399,8 @@ function OnFoot:drawHUD(client)
   love.graphics.setColor(0.8, 0.8, 0.85)
   if me then
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
-    local hint = sprintKey .. ": sprint   double-tap: dodge"
+    local dodgeKey = Controls.name(Controls.bindings("dodge")[1])
+    local hint = sprintKey .. ": sprint   " .. dodgeKey .. ": dodge"
     if self:vehicleInReach(client, me) then
       hint = key .. ": get in   " .. hint
     end
