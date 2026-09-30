@@ -39,6 +39,7 @@ local Icons = require("src.features.weapons.icons")
 local AbilityIcons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
+local Figure = require("src.features.inventory.figure")
 
 local Screen = {}
 
@@ -235,30 +236,31 @@ function Screen.layout()
   return L
 end
 
---- The character: a plain figure standing in the box, front on, until
---- there are clothes to draw on them.
-local function drawFigure(r)
-  local cx, top = r.x + r.w / 2, r.y + 18
-  local scale = math.min(1, (r.h - 36) / 200)
-  local function s(v)
-    return v * scale
-  end
+--- The character standing in the box, wearing what I wear (figure.lua):
+--- my clothes and armor, and the gun in my hand. A piece being dragged out
+--- of its slot (`liftedArmor`, `liftedSlot`) is off them while it is.
+local function drawFigure(r, client, liftedArmor, liftedSlot)
   love.graphics.setColor(1, 1, 1, 0.04)
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
-  -- Shadow underfoot, then legs, torso, arms, head.
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.ellipse("fill", cx, top + s(200), s(38), s(9))
-  love.graphics.setColor(0.28, 0.30, 0.40)
-  love.graphics.rectangle("fill", cx - s(20), top + s(112), s(17), s(84), s(6))
-  love.graphics.rectangle("fill", cx + s(3), top + s(112), s(17), s(84), s(6))
-  love.graphics.setColor(0.36, 0.38, 0.50)
-  love.graphics.rectangle("fill", cx - s(26), top + s(44), s(52), s(74), s(10))
-  love.graphics.rectangle("fill", cx - s(40), top + s(48), s(13), s(66), s(6))
-  love.graphics.rectangle("fill", cx + s(27), top + s(48), s(13), s(66), s(6))
-  love.graphics.setColor(0.80, 0.65, 0.52)
-  love.graphics.circle("fill", cx, top + s(22), s(20), 32)
-  love.graphics.circle("fill", cx - s(34), top + s(120), s(6), 16)
-  love.graphics.circle("fill", cx + s(34), top + s(120), s(6), 16)
+  local dress = {}
+  local gear, armor, weapons = Features.byName.gear, Features.byName.armor, Features.byName.weapons
+  for slot, key in pairs(gear and gear:mine(client) or {}) do
+    if slot ~= liftedSlot then
+      dress[slot] = Tiers.base(key)
+    end
+  end
+  local worn = armor and not liftedArmor and armor:mine(client)
+  if worn then
+    dress.armor = Tiers.base(worn.kind)
+  end
+  local gun = weapons and Guns.list[weapons.gun]
+  if gun then
+    dress.gun = gun.key
+  end
+  -- As big as the box allows: 200 tall with the shadow, about 110 wide with
+  -- the gun held out; centred up and down.
+  local scale = math.min((r.h - 24) / 210, (r.w - 8) / 110)
+  Figure.draw(r.x + r.w / 2 - 8 * scale, r.y + (r.h - 205 * scale) / 2, scale, dress)
 end
 
 --- The gear slots, each named for what goes in it: the clothes worn in
@@ -595,7 +597,8 @@ function Screen.draw(buildings, list, drag, notice, client)
   local L = Screen.layout()
   local p = L.panel
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
-  drawFigure(L.figure)
+  drawFigure(L.figure, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
+    drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
     drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
