@@ -28,6 +28,11 @@
 -- Other features can provoke a bot too (a trigger area later):
 --   Features.byName.bots:provoke(server, botPlayer, playerId)
 --
+-- While a city event is on (any feature answers `serverEventActive`: a boss
+-- loose in the streets) every bot is passive: a fight in progress is
+-- forgiven, nothing provokes one and nobody drives recklessly. Police
+-- units are bots too; the police feature keeps them passive its own way.
+--
 -- Host keys: B adds a bot, N removes the last one.
 --
 -- Messages
@@ -91,6 +96,7 @@ local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
 local now = 0 -- server time, seconds since start
 local nextReckless = 0 -- server time the next reckless spell starts
+local truce = false -- a city event is on: every bot is passive
 local walkers = {} -- everyone on foot this tick, flat: x, y, vx, vy per walker (traffic stops for them)
 
 local function clamp(v, lo, hi)
@@ -360,7 +366,7 @@ Bots.serverMessages = {
 
 --- Make `bot` hostile towards player `byId` (a human or another bot).
 function Bots:provoke(_server, bot, byId)
-  if not (bot and bot.bot and byId) or byId == bot.id then
+  if truce or not (bot and bot.bot and byId) or byId == bot.id then
     return
   end
   bot.ai.hostileTo = byId
@@ -511,8 +517,8 @@ end
 
 function Bots:think(server, bot, dt)
   local ai = bot.ai
-  if ai.hostileTo and now > ai.hostileUntil then
-    self:calm(bot) -- forgiven
+  if truce or (ai.hostileTo and now > ai.hostileUntil) then
+    self:calm(bot) -- forgiven, or an event is on
   end
   local target = ai.hostileTo and server.players[ai.hostileTo]
   if target and Features.visible(server, target) then
@@ -590,7 +596,7 @@ end
 --- Time for someone to drive badly? One civilian bot on the road, peaceful
 --- and not already at it, goes reckless for a spell.
 local function maybeReckless()
-  if now < nextReckless then
+  if truce or now < nextReckless then
     return
   end
   nextReckless = now + between(Bots.recklessEvery)
@@ -608,6 +614,7 @@ end
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
+  truce = Features.any("serverEventActive", server)
   collectWalkers(server)
   maybeReckless()
   local vehicles = Features.byName.vehicles

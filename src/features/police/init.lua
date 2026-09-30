@@ -23,15 +23,17 @@
 -- With inclusive mode on (the menu toggle), every human starts the game
 -- wanted with the whole force already in pursuit: get away first.
 --
--- The force stays out of a city event (a boss loose in the streets): while
--- any feature answers `serverEventActive`, every unit is parked out of
--- sight, the beat is called in and nobody is wanted. They come back once
--- the event is over.
+-- The force keeps out of a city event's way (a boss loose in the streets):
+-- while any feature answers `serverEventActive` the units keep cruising and
+-- the beat keeps walking, but nobody is wanted and no crime is seen, so
+-- nobody gets chased or shot. The units run their roof lights the whole
+-- time (no siren). Back to normal once the event is over.
 --
 -- Messages
 --   server -> all  POL_UNIT   <id>              this player is a police car
 --   server -> all  POL_SIREN  <id> <0|1>        chasing state changed
 --   server -> all  POL_WANTED <playerId> <0|1>  wanted state changed
+--   server -> all  POL_LIGHTS <0|1>             an event is on: every unit's lights flash
 --   server -> all  POL_FOOT   <tick> [<id> <x> <y> <facing> <alert> <hp>]...
 --                                               (unreliable, 15 Hz)
 --   server -> all  POL_DOWN   <id> <x> <y> <angle>   an officer went down
@@ -67,6 +69,7 @@ local FOOT_SYNC_EVERY = 2 -- server ticks between POL_FOOT broadcasts
 -- Client state --------------------------------------------------------------
 Police.units = {} -- id -> { siren = Source|nil, chasing = bool }
 Police.wanted = {} -- player id -> true
+Police.lights = false -- an event is on: every unit flashes its lights
 local flash = 0
 
 function Police:load()
@@ -85,6 +88,7 @@ function Police:exitGame()
   end
   self.units = {}
   self.wanted = {}
+  self.lights = false
   Render.clear()
 end
 
@@ -127,8 +131,9 @@ function Police:update(dt, client)
 end
 
 --- White body, dark doors, and a siren bar across the roof: red half on the
---- car's left, blue on its right. While chasing the halves strobe against
---- each other and throw alternating red/blue light on the road.
+--- car's left, blue on its right. While chasing (or during an event) the
+--- halves strobe against each other and throw alternating red/blue light on
+--- the road.
 local STROBE_HZ = 9
 
 local function drawLivery(c, chasing)
@@ -241,7 +246,7 @@ function Police:drawAboveCars(client)
   for id, u in pairs(self.units) do
     local c = client:vehicleOf(id)
     if c then
-      drawLivery(c, u.chasing)
+      drawLivery(c, u.chasing or self.lights)
     end
   end
 end
@@ -276,6 +281,9 @@ Police.clientMessages = {
     if id then
       Police.wanted[id] = on or nil
     end
+  end,
+  POL_LIGHTS = function(_client, args)
+    Police.lights = args[1] == "1"
   end,
   POL_FOOT = function(client, args)
     Render.sync(args)
@@ -324,8 +332,9 @@ local function witnessed(x, y)
   return unitsInSight(x, y, Police.sightRange) > 0 or sv.officers:sees(x, y, Officers.SIGHT)
 end
 
+--- Nobody is wanted while an event is on (`sv.event`): the force keeps out of it.
 function Police:setWanted(server, player)
-  if not (sv and player and not player.police and player.body) then
+  if not (sv and not sv.event and player and not player.police and player.body) then
     return
   end
   local wasWanted = sv.wanted[player.id] ~= nil
@@ -556,23 +565,13 @@ function Police:serverStart(server)
   end
 end
 
---- Off the streets for an event (`away`), or back on them. Parked units are
---- hidden by bots and nobody's crimes are seen meanwhile. They come back
---- where they were parked, unless the map has no traffic (bots parks them
---- itself there).
-local function standDown(server, away)
-  local B = bots()
+--- An event started (`on`) or ended. Everyone's heat is dropped and every
+--- screen flashes the units' lights; setWanted refuses anyone meanwhile.
+local function standDown(server, on)
   for id in pairs(sv.wanted) do
     Police:clearWanted(server, id)
   end
-  local city = Features.byName["city-map"]
-  local traffic = not (city and city.map and city.map.traffic == false)
-  for _, unit in ipairs(sv.units) do
-    if B and server.players[unit.id] and (away or traffic) then
-      B:park(unit, away)
-    end
-  end
-  sv.officers:clear()
+  server:broadcast(Protocol.encode("POL_LIGHTS", on and 1 or 0))
 end
 
 function Police:serverStep(server, dt)
@@ -580,18 +579,10 @@ function Police:serverStep(server, dt)
     return
   end
   sv.time = sv.time + dt
-  local away = Features.any("serverEventActive", server)
-  if away ~= (sv.away or false) then
-    sv.away = away
-    standDown(server, away)
-  end
-  if away then
-    local B = bots()
-    for _, unit in ipairs(sv.units) do
-      if B and server.players[unit.id] and not unit.parked then
-        B:park(unit, true) -- something (a map change) brought one back early
-      end
-    end
+  local event = Features.any("serverEventActive", server)
+  if event ~= (sv.event or false) then
+    sv.event = event
+    standDown(server, event)
   end
   for id, until_ in pairs(sv.wanted) do
     local p = server.players[id]
@@ -605,7 +596,7 @@ function Police:serverStep(server, dt)
   -- (city-map's `map.crowd`); the patrol cars are bots' NPCs, and bots
   -- parks those.
   local city = Features.byName["city-map"]
-  if away or (city and city.map and city.map.crowd == false) then
+  if city and city.map and city.map.crowd == false then
     sv.officers:clear() -- the next POL_FOOT, an empty one, sends them off every screen
   else
     for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
@@ -620,7 +611,8 @@ function Police:serverStep(server, dt)
 end
 
 --- A human who joins a running game hears which cars are units, which of
---- them are chasing and who is wanted (all sent only on change). With
+--- them are chasing, who is wanted and whether the lights are on for an
+--- event (all sent only on change). With
 --- inclusive mode on they start wanted, like everyone did.
 function Police:serverPlayerJoined(server, player)
   if not (sv and server.started) or player.bot then
@@ -637,7 +629,10 @@ function Police:serverPlayerJoined(server, player)
   for id in pairs(sv.wanted) do
     server:send(player, Protocol.encode("POL_WANTED", id, 1))
   end
-  if Face.inclusive() and player.body and not sv.away then
+  if sv.event then
+    server:send(player, Protocol.encode("POL_LIGHTS", 1))
+  end
+  if Face.inclusive() and player.body and not sv.event then
     sv.wanted[player.id] = sv.time + self.hotStartTime
     server:broadcast(Protocol.encode("POL_WANTED", player.id, 1))
   end
