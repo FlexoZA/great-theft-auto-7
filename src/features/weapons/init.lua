@@ -16,6 +16,10 @@
 -- A round that stops at a wall raises `serverWallHit` and every blast
 -- raises `serverBlast`, so walls that can be hurt (players' buildings) take
 -- the damage.
+-- The flamethrower sprays short-lived tongues of fire (`flame`), each a
+-- "fire" round that sets whoever it catches on foot alight (`ignite`: the
+-- damage feature's burning). Its magazine is a tank (`tank`): a reload
+-- takes one fuel can and fills it whole.
 -- Every hit has a damage type (src/features/damage, docs/damage-types.md):
 -- a gun's `damageType` or its blast's `type`, the last argument of
 -- serverDamage and damageCar, passed on to every damage hook and carried
@@ -616,6 +620,26 @@ function Weapons:drawBelowCars()
   Explosions.drawBelow()
 end
 
+--- A tongue of fire (a flamethrower's round): small, white-hot and quick at
+--- the nozzle, swelling and reddening as it goes, a wisp of smoke at the end.
+local function drawFlame(p, gun)
+  local k = math.min(1, p.age / (gun.ttl or PROJECTILE_TTL))
+  local r = 6 + 16 * k
+  local wobble = math.sin(p.age * 40 + p.x * 0.1) * 2
+  -- A puff trailing behind each tongue, so a stream of them reads as one jet.
+  local bx, by = p.x - p.vx * 0.035, p.y - p.vy * 0.035
+  if k > 0.7 then
+    love.graphics.setColor(0.3, 0.28, 0.26, 0.35 * (1 - k) / 0.3) -- smoke
+    love.graphics.circle("fill", p.x + wobble, p.y - 4, r * 1.1)
+  end
+  love.graphics.setColor(1, 0.3 + 0.25 * (1 - k), 0.05, 0.55 * (1 - k * 0.8))
+  love.graphics.circle("fill", bx, by - wobble, r * 0.8)
+  love.graphics.setColor(1, 0.35 + 0.25 * (1 - k), 0.05, 0.75 * (1 - k * 0.8))
+  love.graphics.circle("fill", p.x, p.y + wobble, r)
+  love.graphics.setColor(1, 0.9, 0.5, 0.85 * (1 - k))
+  love.graphics.circle("fill", p.x, p.y + wobble, r * 0.45)
+end
+
 function Weapons:drawAboveCars(client)
   Rockets.drawTrail()
   Explosions.drawAbove()
@@ -628,6 +652,8 @@ function Weapons:drawAboveCars(client)
     local gun = Guns.at(p.gun)
     if gun.blast then
       Rockets.drawMissile(p, now)
+    elseif gun.flame then
+      drawFlame(p, gun)
     else
       local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
       local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
@@ -1446,7 +1472,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     local vy = math.sin(a) * gun.speed
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
-      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType),
+      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
     }
     server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
       ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
@@ -1766,7 +1792,12 @@ function Weapons:finishReloads(server)
       local buildings = Features.byName.buildings
       local got = need -- a bottomless gun's rounds come from nowhere
       if p and buildings and buildings.serverTake and not gun.bottomless then
-        got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+        if gun.tank then
+          -- One can fills the tank, whatever was left in it.
+          got = buildings:serverTake(server, p, "ammo-" .. gun.key, 1) >= 1 and need or 0
+        else
+          got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+        end
       end
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got
       if p then
@@ -1937,6 +1968,12 @@ function Weapons:hit(server, p, target)
   local amount = p.damage or Guns.at(Guns.DEFAULT).damage
   if target.player then
     self:damage(server, target.player, p.owner, amount, p.id, angle, p.dtype)
+    -- A flame sets whoever it caught on foot alight (the damage feature
+    -- leaves anyone driving, and the dead, alone).
+    local damage = p.ignite and Features.byName.damage
+    if damage then
+      damage:ignite(server, target.player, p.ignite.seconds, p.ignite.dps, p.owner ~= NO_OWNER and p.owner or nil)
+    end
   else
     self:damageCar(server, target.car, p.owner, amount, p.id, angle, p.dtype)
   end

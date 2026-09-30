@@ -116,7 +116,28 @@ local function sniper(a)
   love.graphics.rectangle("fill", 7, -13, 1, 6) -- glint on the lens
 end
 
-local DRAW = { pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper }
+--- The flamethrower: a red fuel tank under a long nozzle, a pilot flame at
+--- its tip.
+local function flamethrower(a)
+  color(RED, a)
+  love.graphics.rectangle("fill", -26, 1, 22, 11, 5) -- the tank
+  color(STEEL, a)
+  love.graphics.rectangle("fill", -24, 3, 3, 7) -- a band round it
+  color(DARK, a)
+  love.graphics.rectangle("fill", -20, -6, 44, 7, 2) -- the body and barrel
+  love.graphics.rectangle("fill", 22, -8, 6, 11, 1) -- the nozzle
+  love.graphics.rectangle("fill", 0, 1, 6, 12, 1) -- the grip
+  love.graphics.rectangle("fill", 12, 1, 4, 8, 1) -- the fore grip
+  love.graphics.setColor(1, 0.55, 0.1, a)
+  love.graphics.circle("fill", 31, -3, 3) -- the pilot flame
+  love.graphics.setColor(1, 0.9, 0.4, a)
+  love.graphics.circle("fill", 31, -3, 1.4)
+end
+
+local DRAW = {
+  pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper,
+  flamethrower = flamethrower,
+}
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its
 --- natural size, `alpha` (1) opaque.

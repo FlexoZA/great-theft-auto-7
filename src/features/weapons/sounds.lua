@@ -189,6 +189,29 @@ function Sounds.load()
     buf:lowpass(2800)
   end)
 
+  -- Flamethrower: a soft roaring whoosh, low and dull, fourteen of them a
+  -- second overlapping into one roar while the trigger is held.
+  bank.flame = make(0.2, function(buf)
+    buf:noiseBurst(0, 0.2, { amp = 0.55, decay = 0.09 })
+    buf:sweep(0, 0.18, 180, 90, { wave = "saw", amp = 0.12, decay = 0.08 })
+    buf:lowpass(900)
+    buf:drive(1.4)
+  end)
+
+  -- Flamethrower reload (2.5 s): the empty tank unscrewed and knocked off, a
+  -- full one clanked on and screwed home, a hiss as the line fills.
+  bank["reload-flamethrower"] = make(2.5, function(buf)
+    rack(buf, 0.05, 0.25, 500, 300, 0.4) -- the cap unscrewed
+    click(buf, 0.4, 500, 0.8) -- the empty can knocked off
+    click(buf, 1.1, 420, 1.0) -- the full one set on, heavy
+    rack(buf, 1.3, 0.35, 300, 600, 0.45) -- screwed home
+    click(buf, 1.7, 900, 0.6)
+    buf:noiseBurst(1.9, 0.5, { amp = 0.3, decay = 0.2 }) -- the line fills
+    buf:highpass(150)
+    buf:drive(1.6)
+    buf:lowpass(5000)
+  end)
+
   -- Dry fire: the trigger clicking on an empty chamber.
   bank.dry = make(0.06, function(buf)
     click(buf, 0, 2400, 0.45)
