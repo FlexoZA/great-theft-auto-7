@@ -57,7 +57,7 @@ local Bigfoot = {
 
 -- Tuning ------------------------------------------------------------------
 Bigfoot.health = 2500 -- 125 rounds, for one player (more humans, more: bosses/init.lua)
-Bigfoot.radius = 22
+Bigfoot.radius = 28 -- px; drawn as a person his size (src/body.lua)
 Bigfoot.speed = 120 -- px/s; a sprint outruns him, a walk doesn't
 Bigfoot.walkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
 Bigfoot.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)

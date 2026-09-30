@@ -80,7 +80,7 @@ Hunt.revealTime = 7 -- seconds of portraits before Bigfoot moves
 Hunt.manLeavesAt = 3.5 -- seconds into those when Wendell vanishes
 
 Hunt.footHealth = 1800 -- ninety pistol rounds, for one player (more humans, more: bosses/init.lua)
-Hunt.footRadius = 22
+Hunt.footRadius = 28 -- px; drawn as a person his size (src/body.lua)
 Hunt.footSpeed = 105 -- px/s; you can outrun him sprinting, not walking
 Hunt.footWalkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
 Hunt.footBreath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)

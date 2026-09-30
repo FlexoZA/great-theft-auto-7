@@ -112,11 +112,11 @@ nil) and `driver` (a player id or nil).
   top-down figure: shoulders, stepping feet, arms, a head with hair or a
   cap), `look` saying what they wear (`shirt`, `pants`, `skin`, `hair`,
   `shoes`, `hat`, `brim`, `hood`, `vest`, `pack`, `gun`, `gunLength`,
-  `punch`, `panic`, `alpha`); it returns where the hands are, for something
+  `punch`, `panic`, `alpha`, `shadow`); it returns where the hands are, for something
   held (the horde's torches). Players, the crowd, police officers, Karen's
   simps, the D-Day troops and the open-borders horde all use it, so they
-  match; Karen and the Major use it too, drawn their size (scaled to their
-  radius) with their own details over it. Anything new on foot should too. They are 17 px across; `Body.RADIUS` (9) is a player's size against
+  match; Karen, the Major, Bigfoot and the Runner use it too, drawn their
+  size (scaled to their radius) with their own details over it. Anything new on foot should too. They are 17 px across; `Body.RADIUS` (9) is a player's size against
   walls and bullets, and the crowd's and the officers' hit sizes match it.
 - `Features.bodyPose(server, player)` → `x, y, onFoot, angle`: where they
   are, driving or walking. `Features.clientBodyPose(client, id)` is the same
