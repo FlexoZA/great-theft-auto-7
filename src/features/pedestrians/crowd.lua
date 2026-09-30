@@ -16,7 +16,7 @@ Crowd.__index = Crowd
 
 Crowd.WALK_SPEED = 45 -- px/s strolling
 Crowd.FLEE_SPEED = 170 -- px/s when a car is bearing down
-Crowd.RADIUS = 6 -- px; how fat a pedestrian is for hit tests
+Crowd.RADIUS = 8 -- px; how fat a pedestrian is for hit tests (drawn the size of a player: src/body.lua)
 Crowd.SPLAT_SPEED = 90 -- car speed (px/s) needed to turn one into gibs
 Crowd.FLEE_TIME = 1.5 -- seconds of sprinting after the last scare
 Crowd.REACT_MIN = 0.12 -- seconds frozen in the headlights before bolting

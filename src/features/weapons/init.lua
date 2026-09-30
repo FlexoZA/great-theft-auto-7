@@ -157,8 +157,8 @@ local RELOAD_GRACE = 1 -- seconds past a reload's end the client waits for the h
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
 local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
-local FOOT_MUZZLE = 14 -- px from a body on foot, which is smaller than a car
-local FOOT_RADIUS = 8 -- px; how fat a player on foot is for hit tests
+local FOOT_MUZZLE = 16 -- px from a body on foot (the tip of the gun in its hands), which is smaller than a car
+local FOOT_RADIUS = 10 -- px; how fat a player on foot is for hit tests (a little over Body.RADIUS: the arms)
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
 local QUIET_HIT = 3 -- a hit smaller than this (a burn's or a bleed's bite) makes no sound
@@ -692,7 +692,7 @@ function Weapons:drawAboveCars(client)
   for id, b in pairs(client.bodies) do
     if not hidden(id) then
       local max = self.maxHealth[id] or MAX_HEALTH
-      bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
+      bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 15)
       if self.hitFlash[id] then
         local c = Damage.of(self.hitType[id]).color
         love.graphics.setColor(c[1], c[2], c[3], self.hitFlash[id] * 4)
