@@ -3,10 +3,13 @@
 -- ("gun-<key>"). Unknown keys get a plain pistol-shaped stand-in. Drawn
 -- about 60 x 30 px at scale 1, centred on (cx, cy).
 --
--- Every part is shaded the same way (`box`, `poly`): its colour, a lighter
--- band along its top where the light catches it, a darker one along its
--- bottom, and a thin dark outline that stays one pixel wide at any scale,
--- so the drawings read as solid things from the HUD down to a bag box.
+-- Every part is shaded the same way (shade.lua, shared with the clothes
+-- and armor): its colour, a lighter band along its top where the light
+-- catches it, a darker one along its bottom, and a thin dark outline that
+-- stays one pixel wide at any scale, so the drawings read as solid things
+-- from the HUD down to a bag box.
+
+local Shade = require("src.features.weapons.shade")
 
 local Icons = {}
 
@@ -18,66 +21,7 @@ local RED = { 0.85, 0.2, 0.15 }
 local WOOD = { 0.55, 0.36, 0.2 }
 local BRASS = { 0.85, 0.66, 0.25 }
 
--- What the drawing in hand is drawn with: its alpha, and one screen pixel
--- in the drawing's own units (for outlines).
-local alpha, pixel = 1, 1
-
-local function set(c, k)
-  k = k or 1
-  love.graphics.setColor(math.min(1, c[1] * k), math.min(1, c[2] * k), math.min(1, c[3] * k), alpha)
-end
-
---- `c` lifted towards white by `k` (0..1): where the light catches it.
-local function lit(c, k)
-  return { c[1] + (1 - c[1]) * k, c[2] + (1 - c[2]) * k, c[3] + (1 - c[3]) * k }
-end
-
---- A part: a box `w` x `h` at (x, y), corners rounded by `r`, in colour `c`,
---- lit along the top and shadowed along the bottom, outlined.
-local function box(x, y, w, h, c, r)
-  r = r or 0
-  set(c)
-  love.graphics.rectangle("fill", x, y, w, h, r)
-  local band = math.max(0.8, h * 0.22)
-  if h > 2 then
-    set(lit(c, 0.35))
-    love.graphics.rectangle("fill", x + r * 0.6, y + 0.4, w - r * 1.2, band, math.min(r, band / 2))
-    set(c, 0.72)
-    love.graphics.rectangle("fill", x + r * 0.6, y + h - band - 0.4, w - r * 1.2, band, math.min(r, band / 2))
-  end
-  set(c, 0.45)
-  love.graphics.setLineWidth(pixel)
-  love.graphics.rectangle("line", x, y, w, h, r)
-end
-
---- A part of any shape: the polygon through the points, in colour `c`,
---- outlined. `...` is x1, y1, x2, y2, ... (convex, as LÖVE fills them).
-local function poly(c, ...)
-  set(c)
-  love.graphics.polygon("fill", ...)
-  set(c, 0.45)
-  love.graphics.setLineWidth(pixel)
-  love.graphics.polygon("line", ...)
-end
-
---- A thin line in colour `c` (shaded by `k`), `w` pixels wide at any scale.
-local function line(c, k, w, ...)
-  set(c, k)
-  love.graphics.setLineWidth(pixel * (w or 1))
-  love.graphics.line(...)
-end
-
---- A few short strokes across a part, `n` of them from (x, y) every `step`:
---- serrations, grooves, ribs.
-local function strokes(c, k, n, x, y, step, len, vertical)
-  for i = 0, n - 1 do
-    if vertical then
-      line(c, k, 1, x + i * step, y, x + i * step, y + len)
-    else
-      line(c, k, 1, x, y + i * step, x + len, y + i * step)
-    end
-  end
-end
+local set, box, poly, line, strokes = Shade.set, Shade.box, Shade.poly, Shade.line, Shade.strokes
 
 --- Wood grain: a couple of long faint lines along a stock or a fore end.
 local function grain(x1, y1, x2, y2)
@@ -128,7 +72,7 @@ local function uzi()
   set(STEEL)
   love.graphics.circle("fill", -4, -11, 1.8) -- cocking knob
   set(DARK, 0.45)
-  love.graphics.setLineWidth(pixel)
+  love.graphics.setLineWidth(Shade.pixel())
   love.graphics.circle("line", -4, -11, 1.8)
   set(STEEL, 1.1)
   love.graphics.circle("fill", -15, 0, 1) -- selector
@@ -278,14 +222,14 @@ local DRAW = {
 --- natural size, `a` (1) opaque.
 function Icons.draw(key, cx, cy, scale, a)
   scale = scale or 1
-  alpha, pixel = a or 1, 1 / scale
+  Shade.begin(scale, a)
   love.graphics.push()
   love.graphics.translate(cx, cy)
   love.graphics.scale(scale)
   local draw = DRAW[key] or pistol
   draw()
   love.graphics.pop()
-  love.graphics.setLineWidth(1)
+  Shade.finish()
 end
 
 return Icons
