@@ -68,7 +68,8 @@ local PRICES = {
   ["gun-sniper"] = 160, ["gun-rocket"] = 300,
   ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   medkit = 20, drink = 12,
-  ["armor-bomb-suit"] = 90,
+  ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
+  ["armor-ceramic-plates"] = 150,
 }
 local DEFAULT = { gun = 100, ammo = 40, ability = 80, supply = 20, armor = 60, gear = 40, car = 150 }
 local CAR_MARKUP = 1.5

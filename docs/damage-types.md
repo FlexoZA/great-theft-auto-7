@@ -41,19 +41,39 @@ Burning and bleeding top up rather than stack; a dodge puts a fire out.
 
 ## What resists what
 
-| Piece                         | Slot   | Resists                                      |
-| ----------------------------- | ------ | -------------------------------------------- |
-| kevlar vest                   | armor  | bullet 30%                                   |
-| bomb suit                     | armor  | explosive 50%, impact 30%, fire 15%          |
-| plate carrier                 | body   | bullet 10%, explosive 10% (and armor x1.25)  |
-| firefighter jacket            | body   | fire 40%                                     |
-| leather jacket                | body   | melee 30%                                    |
-| crash helmet                  | head   | impact 35%, explosive 10%                    |
-| rubber boots                  | shoes  | shock 50% (and 5% slower on foot)            |
+| Piece              | Slot  | Resists (and anything else)                      |
+| ------------------ | ----- | ------------------------------------------------ |
+| kevlar vest        | armor | bullet 30%; 100 points                           |
+| bomb suit          | armor | explosive 50%, impact 30%, fire 15%; 60 points   |
+| riot armor         | armor | melee 45%, impact 20%; 80 points                 |
+| insulated suit     | armor | shock 45%, fire 25%; 70 points                   |
+| ceramic plates     | armor | bullet 35%, explosive 15%; 150 points            |
+| tactical hat       | head  | none (ammo bundles x1.5)                         |
+| crash helmet       | head  | impact 35%, explosive 10%                        |
+| riot helmet        | head  | melee 30%, impact 15%                            |
+| welding mask       | head  | fire 25%, shock 15%                              |
+| ballistic helmet   | head  | bullet 20%, explosive 10%                        |
+| plate carrier      | body  | bullet 10%, explosive 10% (armor x1.25)          |
+| firefighter jacket | body  | fire 40%                                         |
+| leather jacket     | body  | melee 30%                                        |
+| lineman's jacket   | body  | shock 35%, fire 10%                              |
+| puffer jacket      | body  | impact 25%, melee 15% (sprinting costs 10% more) |
+| cargo pants        | pants | none (ability cooldowns x0.75)                   |
+| kevlar trousers    | pants | bullet 15%                                       |
+| fireproof overalls | pants | fire 30%, explosive 10%                          |
+| biker leathers     | pants | impact 20%, melee 20%                            |
+| rubber waders      | pants | shock 30% (5% slower on foot)                    |
+| running shoes      | shoes | none (speed x1.15, sprint cost x0.7)             |
+| rubber boots       | shoes | shock 50% (5% slower on foot)                    |
+| steel-toe boots    | shoes | impact 20%, melee 10%                            |
+| combat boots       | shoes | explosive 15%, bullet 10%                        |
+| fireproof boots    | shoes | fire 25%, shock 10%                              |
 
-A better tier improves a resistance like any other stat: armor by the
-tier's `boost`, clothes by its `bonus`. No piece, and nothing worn
-together, stops more than 80% of a type.
+Five of each: head, body, pants, shoes and armor. A piece's first
+resistance is the one a tier improves first. A better tier improves a
+resistance like any other stat: armor by the tier's `boost`, clothes by
+its `bonus`. No piece, and nothing worn together, stops more than 80% of
+a type.
 Getting into a car, dying or leaving ends every status. The numbers are
 at the top of `src/features/damage/init.lua`.
 

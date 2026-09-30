@@ -62,6 +62,70 @@ local Kinds = {
       blurb = "shocks hurt half as much and stun you half as long; a little slower on foot",
       stats = { speed = 0.95 }, resist = { shock = 0.5 }, tierStats = { "resist.shock" },
     },
+    -- Head.
+    {
+      key = "riot-helmet", slot = "head", title = "riot helmet", color = { 0.42, 0.47, 0.62 },
+      blurb = "punches and bites hurt 30% less; knocks a little less", stats = {},
+      resist = { melee = 0.3, impact = 0.15 }, tierStats = { "resist.melee", "resist.impact" },
+    },
+    {
+      key = "welding-mask", slot = "head", title = "welding mask", color = { 0.4, 0.3, 0.2 },
+      blurb = "fire hurts a quarter less; shocks a little less", stats = {},
+      resist = { fire = 0.25, shock = 0.15 }, tierStats = { "resist.fire", "resist.shock" },
+    },
+    {
+      key = "ballistic-helmet", slot = "head", title = "ballistic helmet", color = { 0.3, 0.38, 0.28 },
+      blurb = "bullets hurt a fifth less; blasts a little less", stats = {},
+      resist = { bullet = 0.2, explosive = 0.1 }, tierStats = { "resist.bullet", "resist.explosive" },
+    },
+    -- Body.
+    {
+      key = "lineman-jacket", slot = "body", title = "lineman's jacket", color = { 0.95, 0.75, 0.15 },
+      blurb = "shocks hurt a third less; fire a little less", stats = {},
+      resist = { shock = 0.35, fire = 0.1 }, tierStats = { "resist.shock", "resist.fire" },
+    },
+    {
+      key = "puffer-jacket", slot = "body", title = "puffer jacket", color = { 0.3, 0.55, 0.85 },
+      blurb = "knocks hurt a quarter less and punches less; sprinting costs 10% more in it",
+      stats = { stamina = 1.1 }, resist = { impact = 0.25, melee = 0.15 },
+      tierStats = { "resist.impact", "resist.melee" },
+    },
+    -- Pants.
+    {
+      key = "kevlar-trousers", slot = "pants", title = "kevlar trousers", color = { 0.42, 0.5, 0.4 },
+      blurb = "bullets hurt 15% less", stats = {}, resist = { bullet = 0.15 },
+    },
+    {
+      key = "fireproof-overalls", slot = "pants", title = "fireproof overalls", color = { 0.8, 0.4, 0.15 },
+      blurb = "fire hurts 30% less; blasts a little less", stats = {},
+      resist = { fire = 0.3, explosive = 0.1 }, tierStats = { "resist.fire", "resist.explosive" },
+    },
+    {
+      key = "biker-leathers", slot = "pants", title = "biker leathers", color = { 0.4, 0.33, 0.3 },
+      blurb = "knocks and punches hurt a fifth less", stats = {},
+      resist = { impact = 0.2, melee = 0.2 }, tierStats = { "resist.impact", "resist.melee" },
+    },
+    {
+      key = "rubber-waders", slot = "pants", title = "rubber waders", color = { 0.25, 0.35, 0.2 },
+      blurb = "shocks hurt 30% less; a little slower on foot",
+      stats = { speed = 0.95 }, resist = { shock = 0.3 }, tierStats = { "resist.shock" },
+    },
+    -- Shoes.
+    {
+      key = "steel-toe-boots", slot = "shoes", title = "steel-toe boots", color = { 0.45, 0.35, 0.25 },
+      blurb = "knocks hurt a fifth less; bites a little less", stats = {},
+      resist = { impact = 0.2, melee = 0.1 }, tierStats = { "resist.impact", "resist.melee" },
+    },
+    {
+      key = "combat-boots", slot = "shoes", title = "combat boots", color = { 0.48, 0.5, 0.36 },
+      blurb = "blasts hurt 15% less; bullets a little less", stats = {},
+      resist = { explosive = 0.15, bullet = 0.1 }, tierStats = { "resist.explosive", "resist.bullet" },
+    },
+    {
+      key = "fireproof-boots", slot = "shoes", title = "fireproof boots", color = { 0.6, 0.25, 0.15 },
+      blurb = "fire hurts a quarter less; shocks a little less", stats = {},
+      resist = { fire = 0.25, shock = 0.1 }, tierStats = { "resist.fire", "resist.shock" },
+    },
   },
   byKey = {},
   bySlot = {},
