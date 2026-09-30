@@ -16,6 +16,10 @@
 -- A round that stops at a wall raises `serverWallHit` and every blast
 -- raises `serverBlast`, so walls that can be hurt (players' buildings) take
 -- the damage.
+-- Every hit has a damage type (src/features/damage, docs/damage-types.md):
+-- a gun's `damageType` or its blast's `type`, the last argument of
+-- serverDamage and damageCar, passed on to every damage hook and carried
+-- by WPN_KILL / WPN_WRECK so the kill feed can say what did it.
 -- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
 --
 -- Under `haloBelow` (20%) of your health a red halo creeps in from the
@@ -91,9 +95,9 @@
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
 --                                              (quiet 1: a pellet after the first; no sound)
 --   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
---   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
+--   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
---   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime>
+--   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
@@ -127,6 +131,7 @@ local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -169,10 +174,11 @@ end
 --- ask them: a feature with a serverShotAt hook kills whatever of its own is
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
 --- first one to answer swallows the bullet, which is why a single shot takes
---- one pedestrian out of a crowd rather than the whole queue.
-local function shotSomething(server, x, y, by, angle, damage)
+--- one pedestrian out of a crowd rather than the whole queue. `dtype` is
+--- the round's damage type (src/features/damage).
+local function shotSomething(server, x, y, by, angle, damage, dtype)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage) then
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype) then
       return true
     end
   end
@@ -1118,9 +1124,10 @@ Weapons.clientMessages = {
     end
     if victim then
       local name = playerName(client, victim)
-      local text = name .. " was wasted" -- an ownerless shot: nobody to name
+      local how = Damage.of(args[6]) -- worded by what did it: "burned", "blew up"
+      local text = name .. " " .. how.died -- an ownerless shot: nobody to name
       if killer and killer ~= NO_OWNER then
-        text = playerName(client, killer) .. " wasted " .. name
+        text = playerName(client, killer) .. " " .. how.killed .. " " .. name
       end
       Weapons.feed = { text = text, t = FEED_TIME }
     end
@@ -1422,7 +1429,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     local vy = math.sin(a) * gun.speed
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
-      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
+      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType),
     }
     server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
       ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
@@ -1841,7 +1848,7 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle, p.damage) then
+    if shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype) then
       return "soft", px, py
     end
   end
@@ -1853,11 +1860,13 @@ end
 --- down to a third at the edge (measured to the edge of a car or a body);
 --- cars nobody drives take it themselves. Soft targets get `soft` rounds'
 --- worth: each feature with a `serverShotAt` is asked that many times, so
---- a crowd loses a few and Karen feels it.
+--- a crowd loses a few and Karen feels it. The blast's damage type is
+--- `blast.type`, explosive when it doesn't say.
 function Weapons:explode(server, p, x, y)
   local sv = self.sv
   local blast = p.blast
   local R = blast.radius
+  local dtype = Damage.key(blast.type or "explosive")
   server:broadcast(Protocol.encode("WPN_BOOM", p.id, ("%.1f"):format(x), ("%.1f"):format(y), R))
   local function falloff(d)
     return math.floor(blast.damage * (1 - (2 / 3) * math.min(1, d / R)) + 0.5)
@@ -1887,18 +1896,18 @@ function Weapons:explode(server, p, x, y)
   for _, c in ipairs(caught) do
     if c.player then
       -- Blowing yourself up is nobody's kill.
-      self:damage(server, c.player, c.player.id ~= by and by or nil, c.amount, 0, c.angle)
+      self:damage(server, c.player, c.player.id ~= by and by or nil, c.amount, 0, c.angle, dtype)
     else
-      self:damageCar(server, c.car, by, c.amount, 0, c.angle)
+      self:damageCar(server, c.car, by, c.amount, 0, c.angle, dtype)
     end
   end
   -- Walls that can take it (a player's building) work out their own share.
-  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner)
+  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner, dtype)
   local angle = math.atan2(p.vy, p.vx)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, blast.soft or 0 do
-        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle) then
+        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle, nil, dtype) then
           break
         end
       end
@@ -1910,36 +1919,39 @@ function Weapons:hit(server, p, target)
   local angle = p.vx and math.atan2(p.vy, p.vx) or nil
   local amount = p.damage or Guns.at(Guns.DEFAULT).damage
   if target.player then
-    self:damage(server, target.player, p.owner, amount, p.id, angle)
+    self:damage(server, target.player, p.owner, amount, p.id, angle, p.dtype)
   else
-    self:damageCar(server, target.car, p.owner, amount, p.id, angle)
+    self:damageCar(server, target.car, p.owner, amount, p.id, angle, p.dtype)
   end
 end
 
 --- Hurt a living player by `amount` from any cause. `byId` is the attacker's
 --- id (or nil), `pid` the projectile (0 when it wasn't a bullet), `angle`
---- the direction the blow travelled, for gibs. Other features call
---- Weapons:serverDamage; this is the shared path behind bullets too.
-function Weapons:damage(server, victim, byId, amount, pid, angle)
+--- the direction the blow travelled, for gibs, `dtype` the damage type
+--- (src/features/damage; the default when nil). Nobody is hurt during
+--- their spawn protection. Other features call Weapons:serverDamage; this
+--- is the shared path behind bullets too.
+function Weapons:damage(server, victim, byId, amount, pid, angle, dtype)
   local sv = self.sv
   local st = sv and sv.players[victim.id]
-  if not st or not Features.present(victim) or st.deadUntil then
+  if not st or not Features.present(victim) or st.deadUntil or sv.time < st.protectedUntil then
     return false
   end
   if victim.vehicle then
-    return self:damageCar(server, victim.vehicle, byId, amount, pid, angle) -- the car takes it
+    return self:damageCar(server, victim.vehicle, byId, amount, pid, angle, dtype) -- the car takes it
   end
   pid = pid or 0
+  dtype = Damage.key(dtype)
   -- Armor takes its share first (the `serverAbsorbDamage` convention); the
   -- hit still counts as one for everyone listening, even if nothing got through.
-  st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim)
+  st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim, dtype)
   -- Let other features react (bots take offence at being shot).
-  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount)
+  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount, dtype)
   if st.hp > 0 then
     server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
     return true
   end
-  self:die(server, victim, byId, pid, angle)
+  self:die(server, victim, byId, pid, angle, dtype)
   return true
 end
 
@@ -1972,7 +1984,7 @@ local function ownCar(player)
   return own
 end
 
-function Weapons:die(server, victim, byId, pid, angle)
+function Weapons:die(server, victim, byId, pid, angle, dtype)
   local sv = self.sv
   local st = sv.players[victim.id]
   local kills = self:creditKill(byId)
@@ -2003,15 +2015,18 @@ function Weapons:die(server, victim, byId, pid, angle)
       server:seat(victim, own) -- the corpse rides the wreck back to the slot
     end
   end
-  server:broadcast(Protocol.encode("WPN_KILL", pid or 0, byId or 0, victim.id, kills, DEATH_TIME))
+  dtype = Damage.key(dtype)
+  server:broadcast(Protocol.encode("WPN_KILL", pid or 0, byId or 0, victim.id, kills, DEATH_TIME, dtype))
   Features.call("serverKill", server, {
-    kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot,
+    kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot, cause = dtype,
   })
 end
 
 --- Dent a car by `amount`. Its driver, if any, hears about it the way they
---- would a hit on foot (bots take offence). At zero it is wrecked.
-function Weapons:damageCar(server, car, byId, amount, pid, angle)
+--- would a hit on foot (bots take offence). At zero it is wrecked. `dtype`
+--- is the damage type, as for Weapons:damage; a car takes every type the
+--- same for now. A car whose driver is under spawn protection shares it.
+function Weapons:damageCar(server, car, byId, amount, pid, angle, dtype)
   local sv = self.sv
   if not (sv and car) or car.hidden or car.stowed then
     return false
@@ -2023,20 +2038,21 @@ function Weapons:damageCar(server, car, byId, amount, pid, angle)
   local driver = car.driver and server.players[car.driver]
   if driver then
     local st = sv.players[driver.id]
-    if not st or st.deadUntil or not Features.present(driver) then
+    if not st or st.deadUntil or not Features.present(driver) or sv.time < st.protectedUntil then
       return false
     end
   end
   pid = pid or 0
+  dtype = Damage.key(dtype)
   cs.hp = cs.hp - amount
   if driver then
-    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount)
+    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount, dtype)
   end
   if cs.hp > 0 then
     server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp))
     return true
   end
-  self:wreck(server, car, byId, pid, angle)
+  self:wreck(server, car, byId, pid, angle, dtype)
   return true
 end
 
@@ -2044,13 +2060,13 @@ end
 --- protected, and walks on; an NPC driver goes down with it (its brain
 --- knows how to wait out a wreck). The car is gone for DEATH_TIME and comes
 --- back whole at its owner's slot, or where it died if nobody owns it.
-function Weapons:wreck(server, car, byId, pid, angle)
+function Weapons:wreck(server, car, byId, pid, angle, dtype)
   local sv = self.sv
   local cs = self:carState(car)
   local driver = car.driver and server.players[car.driver]
   local wx, wy = car.x, car.y
   if driver and driver.bot then
-    return self:die(server, driver, byId, pid, angle)
+    return self:die(server, driver, byId, pid, angle, dtype)
   end
   local kills = driver and self:creditKill(byId) or 0
   if driver then
@@ -2077,18 +2093,21 @@ function Weapons:wreck(server, car, byId, pid, angle)
     car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
     car:stop()
   end
+  dtype = Damage.key(dtype)
   server:broadcast(Protocol.encode("WPN_WRECK", pid or 0, byId or 0, car.id, driver and driver.id or 0, kills,
-    deathTime))
+    deathTime, dtype))
   Features.call("serverKill", server, {
     kind = "car", x = wx, y = wy, by = byId, victim = driver and driver.id, angle = angle, onFoot = false,
+    cause = dtype,
   })
 end
 
 --- Public: damage from something that isn't a bullet (a car running you
 --- over, Karen's slap). Lands on the car they are driving, or on them.
---- Returns true if the victim was alive to take it.
-function Weapons:serverDamage(server, victim, attacker, amount, angle)
-  return self:damage(server, victim, attacker and attacker.id, amount, 0, angle)
+--- `dtype` is its damage type (src/features/damage): say it, or it counts
+--- as a bullet. Returns true if the victim was alive to take it.
+function Weapons:serverDamage(server, victim, attacker, amount, angle, dtype)
+  return self:damage(server, victim, attacker and attacker.id, amount, 0, angle, dtype)
 end
 
 --- Keep wrecks parked at their slot and bring the dead back when their time
@@ -2168,7 +2187,7 @@ function Weapons:serverStep(server, dt)
       self:explode(server, p, hx or nx, hy or ny)
     elseif victim == "wall" then
       table.remove(sv.projectiles, i) -- clients notice the same wall themselves
-      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner)
+      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner, p.dtype)
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
       -- so the streak has to be called back explicitly.

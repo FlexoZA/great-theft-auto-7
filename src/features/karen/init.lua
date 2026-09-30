@@ -379,7 +379,7 @@ function Karen:rams(server, b, dt)
           b.rammed[id] = 0.6
           local weapons = Features.byName.weapons
           if weapons and weapons.serverDamage then
-            weapons:serverDamage(server, p, nil, self.ramDamageToCar, away + math.pi)
+            weapons:serverDamage(server, p, nil, self.ramDamageToCar, away + math.pi, "impact")
           end
           car.speed = -car.speed * 0.35 -- the car re-derives its velocity from this
           if self:hurt(server, speed * self.ramScale, id, car.angle) then
@@ -494,7 +494,7 @@ function Karen:serverStep(server, dt)
       b.slapTimer = self.slapInterval
       local weapons = Features.byName.weapons
       if weapons and weapons.serverDamage then
-        weapons:serverDamage(server, target, nil, self.slapDamage, b.facing)
+        weapons:serverDamage(server, target, nil, self.slapDamage, b.facing, "melee")
       end
     end
   else
@@ -522,7 +522,7 @@ function Karen:scream(server, b)
       if (x - sc.x) ^ 2 + (y - sc.y) ^ 2 <= (self.screamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x))
+          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x), "impact")
         end
       end
     end

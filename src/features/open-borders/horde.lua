@@ -270,7 +270,7 @@ local function hunt(server, s, dt, target, dist)
     s.goalIn = 0
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, target.player, nil, Horde.PUNCH_DAMAGE, s.facing)
+      weapons:serverDamage(server, target.player, nil, Horde.PUNCH_DAMAGE, s.facing, "melee")
     end
   end
 end
@@ -354,9 +354,9 @@ function Horde:burn(server, skip)
       if c.player and weapons.serverDamage then
         -- Walking into your own fire is nobody's kill.
         weapons:serverDamage(server, c.player, by ~= c.player.id and server.players[by] or nil, Horde.BURN_DAMAGE,
-          angle)
+          angle, "fire")
       elseif c.car and weapons.damageCar then
-        weapons:damageCar(server, c.car, server.players[by] and by or nil, Horde.BURN_DAMAGE, 0, angle)
+        weapons:damageCar(server, c.car, server.players[by] and by or nil, Horde.BURN_DAMAGE, 0, angle, "fire")
       end
     end
   end
@@ -364,7 +364,7 @@ function Horde:burn(server, skip)
   for _, f in ipairs(fires) do
     for _, feature in ipairs(Features.list) do
       if feature ~= skip and feature.serverShotAt then
-        feature:serverShotAt(server, f.x, f.y, R, f.by, random() * 2 * math.pi)
+        feature:serverShotAt(server, f.x, f.y, R, f.by, random() * 2 * math.pi, nil, "fire")
       end
     end
   end

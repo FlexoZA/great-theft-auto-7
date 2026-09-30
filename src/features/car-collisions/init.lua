@@ -115,7 +115,7 @@ function CarCollisions:runOver(server)
                 local amount = self.runOverDamage * (1 + frac)
                 local travel = car.speed >= 0 and car.angle or car.angle + math.pi
                 local driver = car.driver and server.players[car.driver] -- nil for a runaway parked car
-                weapons:serverDamage(server, walker, driver, amount, travel)
+                weapons:serverDamage(server, walker, driver, amount, travel, "impact")
               end
             end
           end

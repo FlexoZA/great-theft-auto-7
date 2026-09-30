@@ -102,7 +102,7 @@ local function bite(server, b, x, y, amount)
       if id ~= b.by and Features.present(p) then
         local px, py, onFoot = Features.bodyPose(server, p)
         if onFoot and dist2(px, py, x, y) <= r * r then
-          weapons:serverDamage(server, p, caster, amount, math.atan2(py - y, px - x))
+          weapons:serverDamage(server, p, caster, amount, math.atan2(py - y, px - x), "fire")
         end
       end
     end
@@ -111,14 +111,14 @@ local function bite(server, b, x, y, amount)
       local own = caster and caster.vehicle
       for _, car in pairs(server.vehicles) do
         if car ~= own and not (car.hidden or car.stowed) and dist2(car.x, car.y, x, y) <= reach * reach then
-          weapons:damageCar(server, car, b.by, amount * Heat.carHeat, 0, b.angle)
+          weapons:damageCar(server, car, b.by, amount * Heat.carHeat, 0, b.angle, "fire")
         end
       end
     end
   end
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
-      f:serverShotAt(server, x, y, r, b.by, b.angle, amount)
+      f:serverShotAt(server, x, y, r, b.by, b.angle, amount, "fire")
     end
   end
 end

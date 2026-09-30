@@ -223,17 +223,18 @@ function Bigfoot.serverBegin(server, events)
   return at.x, at.y
 end
 
-local function hurtPlayer(server, player, amount, angle)
+--- `dtype`: a slam is "impact", a swipe or a bite "melee".
+local function hurtPlayer(server, player, amount, angle, dtype)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage then
-    weapons:serverDamage(server, player, nil, amount, angle)
+    weapons:serverDamage(server, player, nil, amount, angle, dtype)
   end
 end
 
 --- Take `amount` off whatever building is at (x, y) (on its edge), the way
---- a gun or a blast would.
+--- a gun or a blast would. His claws: melee.
 local function hurtWall(server, x, y, amount, radius)
-  Features.call("serverBlast", server, x, y, radius or 1, amount, 0)
+  Features.call("serverBlast", server, x, y, radius or 1, amount, 0, "melee")
 end
 
 --- What he goes after: the nearest player within aggro range; failing
@@ -304,7 +305,7 @@ local function slam(server, f)
   for _, h in ipairs(humans(server)) do
     local pad = h.onFoot and Body.RADIUS or Car.WIDTH / 2
     if dist2(h.x, h.y, f.x, f.y) <= (Bigfoot.slamRadius + pad) ^ 2 then
-      hurtPlayer(server, h.player, Bigfoot.slamDamage, math.atan2(h.y - f.y, h.x - f.x))
+      hurtPlayer(server, h.player, Bigfoot.slamDamage, math.atan2(h.y - f.y, h.x - f.x), "impact")
     end
   end
   hurtWall(server, f.x, f.y, Bigfoot.slamWalls, Bigfoot.slamRadius)
@@ -406,7 +407,7 @@ local function stepFoot(server, dt)
   elseif f.swipeTimer <= 0 then
     f.swipeTimer, f.swipe = Bigfoot.swipeEvery, 0.25
     if target.player then
-      hurtPlayer(server, target.player, Bigfoot.swipeDamage, f.facing)
+      hurtPlayer(server, target.player, Bigfoot.swipeDamage, f.facing, "melee")
     else
       hurtWall(server, target.x, target.y, Bigfoot.clawDamage)
     end
@@ -511,7 +512,7 @@ local function stepSquirrels(server, dt)
       if t and t.player then
         local reach = Bigfoot.squirrelRadius + (t.onFoot and Body.RADIUS or Car.WIDTH / 2 + 4)
         if dist2(t.x, t.y, s.x, s.y) <= reach * reach then
-          hurtPlayer(server, t.player, Bigfoot.squirrelDamage, s.facing)
+          hurtPlayer(server, t.player, Bigfoot.squirrelDamage, s.facing, "melee")
           pop(server, s)
         end
       elseif t and t.building then

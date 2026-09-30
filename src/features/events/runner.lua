@@ -226,7 +226,7 @@ local function trample(server, r, weapons)
       local x, y, onFoot = Features.bodyPose(server, p)
       if onFoot and dist2(x, y, r.x, r.y) <= reach * reach then
         r.trampled[p.id] = sv.time + Runner.trampleEvery
-        weapons:serverDamage(server, p, nil, Runner.trample, r.facing)
+        weapons:serverDamage(server, p, nil, Runner.trample, r.facing, "impact")
       end
     end
   end
@@ -242,14 +242,14 @@ local function smash(server, r)
     local reach = Runner.radius + Car.WIDTH / 2 + Runner.carReach
     for _, car in pairs(server.vehicles) do
       if not (car.hidden or car.stowed) and dist2(car.x, car.y, r.x, r.y) <= reach * reach then
-        weapons:damageCar(server, car, nil, Runner.carDamage, 0, r.facing)
+        weapons:damageCar(server, car, nil, Runner.carDamage, 0, r.facing, "impact")
       end
     end
   end
   local peds = Features.byName.pedestrians
   if peds and peds.serverShotAt then
     for _ = 1, 6 do -- one at a time, and a crowd is a few
-      if not peds:serverShotAt(server, r.x, r.y, Runner.radius + Runner.pedReach, 0, r.facing) then
+      if not peds:serverShotAt(server, r.x, r.y, Runner.radius + Runner.pedReach, 0, r.facing, nil, "impact") then
         break
       end
     end
