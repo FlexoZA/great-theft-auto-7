@@ -36,6 +36,7 @@ local Controls = require("src.controls")
 local UI = require("src.ui")
 local Sounds = require("src.features.upgrades.sounds")
 local Storefront = require("src.features.quests.storefront")
+local Icons = require("src.features.upgrades.icons")
 
 local Upgrades = {
   name = "upgrades",
@@ -234,35 +235,57 @@ function Upgrades:refuse(kind, reason)
   Sounds.play("buzz")
 end
 
---- One row of the shop: key, name, level pips, what the next level gives and
---- what it costs. Greyed when it can't be bought.
+local ROW_H = 58 -- px from one row of the panel to the next
+local ICON_R = 21 -- px; the round tile each row's icon sits in
+
+--- One row of the panel: the kind's icon in a round tile with its key in a
+--- badge, its name, level pips in its colour, what the next level gives
+--- and what it costs. Dimmed when it can't be bought.
 local function drawRow(self, kind, x, y, w, level, purse, keyName)
   local maxed = level >= #kind.costs
   local cost = kind.costs[level + 1]
   local affordable = cost and purse >= cost
   local glow = self.flashKind == kind.key and self.flash or 0
-
-  if glow > 0 then
-    love.graphics.setColor(1, 0.85, 0.3, glow * 0.5)
-    love.graphics.rectangle("fill", x - 8, y - 6, w + 16, 52, 6)
-  end
-
+  local c = Icons.color(kind.key)
   local dim = (maxed or not affordable) and 0.5 or 1
-  love.graphics.setFont(UI.fonts.body)
-  love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
-  love.graphics.rectangle("fill", x, y, 34, 34, 6)
-  love.graphics.setColor(1, 1, 1, dim)
-  love.graphics.printf(keyName, x, y + 7, 34, "center")
-  love.graphics.print(kind.label, x + 46, y - 2)
 
-  -- Level pips, one per level, lit up to the current one.
+  -- The row's card, lit in its colour for a moment after a purchase.
+  love.graphics.setColor(c[1], c[2], c[3], 0.07 + glow * 0.45)
+  love.graphics.rectangle("fill", x - 8, y - 6, w + 16, ROW_H - 8, 8)
+
+  -- The icon in its tile, the key in a badge on the tile's lower right.
+  local cx, cy = x + ICON_R - 4, y + ROW_H / 2 - 10
+  love.graphics.setColor(0.05, 0.05, 0.07, 0.95)
+  love.graphics.circle("fill", cx, cy, ICON_R, 32)
+  love.graphics.setColor(c[1], c[2], c[3], 0.35 + 0.45 * dim)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", cx, cy, ICON_R, 32)
+  love.graphics.setLineWidth(1)
+  Icons.draw(kind.key, cx, cy, ICON_R - 5, dim == 1 and 1 or 0.6)
+  local font = UI.fonts.small
+  local bw, bh = math.max(16, font:getWidth(keyName) + 8), font:getHeight() + 2
+  local bx, by = math.floor(cx + ICON_R * 0.7 - bw / 2), math.floor(cy + ICON_R * 0.7 - bh / 2)
+  love.graphics.setColor(0.05, 0.05, 0.07, 0.95)
+  love.graphics.rectangle("fill", bx, by, bw, bh, 4)
+  love.graphics.setColor(1, 1, 1, 0.4)
+  love.graphics.rectangle("line", bx, by, bw, bh, 4)
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.print(keyName, bx + math.floor((bw - font:getWidth(keyName)) / 2), by + 1)
+
+  local tx = x + ICON_R * 2 + 10
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(1, 1, 1, dim == 1 and 1 or 0.6)
+  love.graphics.print(kind.label, tx, y - 2)
+
+  -- Level pips, one per level, lit in the kind's colour up to the current one.
   for i = 1, #kind.costs do
     if i <= level then
-      love.graphics.setColor(1, 0.85, 0.3, dim)
+      love.graphics.setColor(c[1], c[2], c[3], dim == 1 and 1 or 0.8)
     else
       love.graphics.setColor(1, 1, 1, 0.18)
     end
-    love.graphics.circle("fill", x + 52 + (i - 1) * 16, y + 28, 5, 12)
+    love.graphics.circle("fill", tx + 6 + (i - 1) * 16, y + 28, 5, 12)
   end
 
   love.graphics.setFont(UI.fonts.small)
@@ -436,7 +459,7 @@ function Upgrades:drawHUD(client)
   end
 
   local w, h = love.graphics.getDimensions()
-  local pw, ph = 400, 110 + #self.kinds * 58 + 46
+  local pw, ph = 470, 110 + #self.kinds * ROW_H + 46
   local px, py = math.floor((w - pw) / 2), math.floor((h - ph) / 2)
   local purse = wallet(client)
 
@@ -450,6 +473,9 @@ function Upgrades:drawHUD(client)
   love.graphics.setFont(UI.fonts.heading)
   love.graphics.setColor(1, 1, 1)
   love.graphics.printf("UPGRADES", px, py + 14, pw, "center")
+  local titleW = UI.fonts.heading:getWidth("UPGRADES")
+  dumbbell(px + pw / 2 - titleW / 2 - 30, py + 14 + UI.fonts.heading:getHeight() / 2, 34, GYM_RED)
+  dumbbell(px + pw / 2 + titleW / 2 + 30, py + 14 + UI.fonts.heading:getHeight() / 2, 34, GYM_RED)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 0.85, 0.3)
   love.graphics.printf(("You have %d %s"):format(purse, purse == 1 and "Fck" or "Fcks"), px, py + 50, pw, "center")
@@ -457,7 +483,7 @@ function Upgrades:drawHUD(client)
   local rowX, rowW = px + 24, pw - 48
   for i, kind in ipairs(self.kinds) do
     local keyName = Controls.name(Controls.bindings(kind.action)[1])
-    drawRow(self, kind, rowX, py + 84 + (i - 1) * 58, rowW, self:levelOf(client.myId, kind.key), purse, keyName)
+    drawRow(self, kind, rowX, py + 84 + (i - 1) * ROW_H, rowW, self:levelOf(client.myId, kind.key), purse, keyName)
   end
 
   love.graphics.setFont(UI.fonts.small)
