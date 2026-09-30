@@ -676,7 +676,9 @@ example with a menu; real-estate is the one with a place to stand.
   it on the host. A vest can resist damage types (`resist`, a share per
   type, improvable by tier as `"resist.<type>"`): the kevlar vest stops
   30% of bullets, the bomb suit half of every blast and some knocks and
-  fire (`serverResist` / `resist`).
+  fire, riot armor fists and claws, the insulated suit shocks and fire,
+  ceramic plates bullets with the most points (`serverResist` / `resist`;
+  the full list is in `docs/damage-types.md`).
 - Gear: `src/features/gear` is the clothes: a piece (`gear/kinds.lua`;
   `"gear-<key>"` in a bag, sold by the shop) has a slot (head, body, pants
   or shoes) and `stats`, multipliers other features read through the
@@ -688,9 +690,10 @@ example with a menu; real-estate is the one with a place to stand.
   damaged and death leaves them on. `GEAR_STATE` tells everyone what a
   player wears. Add a piece to the list and the shop and the slots know it.
   A piece can also resist damage types (`resist = { fire = 0.4 }`; a tier
-  grows it by its `bonus`, `gear.resistance(g, tier, type)` reads it): the
-  crash helmet (impact), firefighter jacket (fire), leather jacket (melee),
-  rubber boots (shock) and plate carrier (a little bullet and blast).
+  grows it by its `bonus`, `gear.resistance(g, tier, type)` reads it).
+  Each slot has five pieces; most resist one or two types, and the list is
+  in `docs/damage-types.md`. A drawback (x0.95 speed) stays out of
+  `tierStats`, or a tier would grow it.
 - Open borders: `src/features/open-borders` is the horde behind the "open
   borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
   lets 25 simps out round the caster (the `serverOpenBorders` event); for
