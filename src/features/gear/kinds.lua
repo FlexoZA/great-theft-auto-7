@@ -47,7 +47,7 @@ local Kinds = {
     {
       key = "crash-helmet", slot = "head", title = "crash helmet", color = { 0.85, 0.75, 0.2 },
       blurb = "knocks, trampling and slams hurt a third less; blasts a little less", stats = {},
-      resist = { impact = 0.35, explosive = 0.1 },
+      resist = { impact = 0.35, explosive = 0.1 }, tierStats = { "resist.impact", "resist.explosive" },
     },
     {
       key = "fire-jacket", slot = "body", title = "firefighter jacket", color = { 0.85, 0.55, 0.15 },
