@@ -921,7 +921,34 @@ the one with a plot.
   ash for 90 s), spills koins and drops its heat ray, the ability
   "ability-heatray", in a tier rolled from `dropTiers` (45% common, 30% uncommon, 20% rare, 5%
   legendary). Messages: the Tripod's `ETR_STATE`, `ETR_ASH` and
-  `ETR_DOWN` down, and the storm's `ETR_BOLT` and `ETR_RISE`. Tuning is at the top of `events/tripod.lua`.
+  `ETR_DOWN` down, and the storm's `ETR_BOLT` and `ETR_RISE`. Tuning is at the top of `events/tripod.lua`. The
+  fourth is A-Man, the one event that lives outside this folder: its
+  module is `src/features/a-man/event.lua`, listed in `Events.kinds` like
+  the rest, and the a-man feature loads his sounds and keeps the disguise
+  he leaves on the ground (30 s) after the event is over. He is a
+  player's size and walks (55 px/s) towards the nearest player he can
+  see, humans before bots. Every 3 to 5 s, with the breath for it (a blink
+  costs 45 of 100: two in a row, then a rest), he stops and a line shows
+  for 0.8 s where he is going: within 600 px of his target straight
+  through them and 220 px out past them, further off (up to 2600 px)
+  across the map to land 240 px from them. Everyone on the line takes 60
+  (abilities/teleport.lua's `Teleport.serverThrough`, players and bots on
+  foot or at the wheel), and pedestrians and officers on it go down. A
+  freeze holds his wind-up, a fart in his face throws it off. With a
+  player within 900 px and 40 breath he opens his briefcase and a horde of
+  sentry turrets (`a-man/turrets.lua`; 8 for one human, more with more)
+  spills out round him: they scuttle about at random (110 px/s) and spray
+  bursts of four rounds (6 each, weapons' `serverFireFrom` owned by
+  nobody) in random directions, until one round knocks them over or 20 s
+  pass. One horde at a time, the next 10 s after the last turret falls;
+  the first 8 s after he arrives. Rounds owned by nobody don't hit him or
+  his turrets, and neither does his own blink. His theme
+  (`a-man/theme.lua`) plays while he is loose and his portrait
+  (`a-man/face.lua`) sits beside his boss bar. Down, he spills koins and
+  drops "ability-teleport" in a tier rolled from `dropTiers` (50% common,
+  30% uncommon, 17% rare, 3% legendary), and every turret falls over.
+  Messages: `EAM_STATE`, `EAM_BLINK`, `EAM_DOWN`, `EAM_HORDE`,
+  `EAM_TURRETS` and `EAM_POP` down. Tuning is at the top of `event.lua`.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends
@@ -947,6 +974,13 @@ the one with a plot.
   (`walls` cracks buildings under the landing, `shake` rocks the view near
   it). Bigfoot's leap (`abilities/bigleap.lua`) is one: further, wider,
   harder. An ability with `unsold = true` is left off the shop's shelf.
+- Teleport: `abilities/teleport.lua` (A-Man's drop, never sold, on foot,
+  `aim = "point"`) puts its caster up to 700 px away in one go, through
+  walls but never into one (`Teleport.clear` pulls the spot back). Every
+  other player within 14 px of the line takes 50, and the soft targets
+  along it are hit through `serverShotAt`, a boss once. A-Man's own blinks
+  use the same line (`Teleport.serverThrough`) and tear
+  (`Teleport.drawTear`). Tiers: cooldown (14 s), then range, then damage.
 - Abilities on the ground: `pickups:serverDrop(server, "ability-<key>", x,
   y)` leaves an ability lying loose, an orb in its colour; the first human
   over it with room in their bag carries it off as the item.

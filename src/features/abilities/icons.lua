@@ -266,6 +266,28 @@ local function heatraySweep(c, a)
   love.graphics.setLineWidth(1)
 end
 
+-- A teleport: a figure's ring on the left, a dashed line across, and the
+-- same ring on the right with a spark where it lands.
+local function teleport(c, a)
+  color(c, a * 0.5)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", -10, 6, 5, 16)
+  color(c, a)
+  love.graphics.setLineWidth(3)
+  for i = 0, 3 do
+    local x = -5 + i * 5
+    love.graphics.line(x, 6 - i * 3, x + 3, 4.2 - i * 3)
+  end
+  love.graphics.circle("fill", 11, -8, 5, 16)
+  color(WHITE, a)
+  love.graphics.setLineWidth(1.5)
+  for i = 0, 3 do
+    local t = i * math.pi / 2 + math.pi / 4
+    love.graphics.line(11 + math.cos(t) * 7, -8 + math.sin(t) * 7, 11 + math.cos(t) * 10, -8 + math.sin(t) * 10)
+  end
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
   heatray = heatray,
   ["heatray-beam"] = heatrayBeam,
@@ -280,6 +302,7 @@ local DRAW = {
   leap = leap,
   chicken = chicken,
   bigleap = bigleap,
+  teleport = teleport,
   overclock = overclock,
 }
 
