@@ -1,5 +1,6 @@
 -- Pedestrians: a crowd that wanders the streets, breaks for the kerb when a
--- car comes at it, and bursts into gibs when a bumper or a bullet connects.
+-- car comes at it, scatters when a gun goes off nearby, and bursts into
+-- gibs when a bumper or a bullet connects.
 --
 -- The host owns every pedestrian (crowd.lua): it spawns them in a ring just
 -- outside anyone's view, recycles the ones nobody can see, and decides who
@@ -184,6 +185,14 @@ end
 function Pedestrians:serverFreezeArea(_server, x, y, radius, seconds)
   if self.crowd then
     self.crowd:freeze(x, y, radius, seconds)
+  end
+end
+
+--- A gun went off at (x, y) (weapons' `serverShotFired`, anybody's,
+--- the Combine's and the police's too): the crowd round it scatters.
+function Pedestrians:serverShotFired(_server, _player, x, y)
+  if self.crowd then
+    self.crowd:scatter(x, y)
   end
 end
 

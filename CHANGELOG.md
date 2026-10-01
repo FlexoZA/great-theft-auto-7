@@ -23,6 +23,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   their heads, a mate answering. They shout when they spot you and call it
   in when one of them goes down. Their volume has its own slider in the
   sound settings ("Combine soldiers' radio").
+- City 17 has citizens now, in their blue-grey jumpsuits, wandering the
+  streets (no police there).
+- Pedestrians scatter when a gun goes off near them, anyone's gun, in
+  every city: a moment of shock, then they run for it.
 
 ### Fixed
 - City 17: medkits and energy drinks no longer turn up bunched together

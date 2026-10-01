@@ -80,11 +80,11 @@ CityMap.maps = {
   },
   -- City 17, the first stop on A-Man's trail: off the train, through the
   -- station and the plaza, up the avenue through the old town, through
-  -- the gate in the wall and over the canal to the Citadel. Walked;
-  -- nobody about.
+  -- the gate in the wall and over the canal to the Citadel. Walked; its
+  -- citizens about, but no police.
   city17 = {
     title = "City 17", kind = "city17", seed = 17, cols = 48, rows = 76,
-    crowd = false, traffic = false, vehicles = false,
+    police = false, traffic = false, vehicles = false,
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
@@ -293,7 +293,7 @@ end
 
 --- Is (x, y) somewhere nobody can get to: inside something solid, or in
 --- one of the map's `offLimits` ({ x, y, w, h }: City 17's track, behind
---- the train)?
+--- the train)? Pedestrians ask it (`CityMap:outOfReach`) before spawning one.
 local function outOfReach(map, x, y)
   if Collision.blocked(map, x, y) then
     return true
@@ -304,6 +304,10 @@ local function outOfReach(map, x, y)
     end
   end
   return false
+end
+
+function CityMap:outOfReach(x, y)
+  return self.map ~= nil and outOfReach(self.map, x, y)
 end
 
 --- Centre of a random road tile (or any tile of an open field) somebody

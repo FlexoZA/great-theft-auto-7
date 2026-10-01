@@ -853,6 +853,10 @@ local function buildCity17(map, rng)
   zone("platform", rows - 10, rows - 5)
   fill(0, rows - 4, cols - 1, rows - 1, "ground")
   map.offLimits = { { x = X(0), y = Y(rows - 4), w = cols * T, h = 4 * T } } -- the track: nothing spawns there
+  map.crowdClothes = { -- the citizens' issued blue-grey jumpsuits (pedestrians reads it)
+    shirts = { { 0.33, 0.42, 0.52 }, { 0.30, 0.38, 0.47 }, { 0.37, 0.45, 0.54 } },
+    pants = { { 0.25, 0.31, 0.39 }, { 0.22, 0.27, 0.34 } },
+  }
   cover("train", X(0), Y(rows - 4) + 10, cols * T, 3 * T - 10)
   map.cx, map.cy = math.floor(X(5)), math.floor(Y(rows - 7.5))
   for i = 0, 15 do
@@ -1051,6 +1055,7 @@ function Layout.generate(spec)
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
     plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale

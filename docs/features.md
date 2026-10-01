@@ -802,7 +802,8 @@ the one with a plot.
   citadel: each a `y0`..`y1`), `map.citadel` ({ x, y, r }),
   `map.citadelX, citadelY` (in front of its doors), `map.bridges`,
   `map.screen`, `map.lanes`, `map.patrols` (beats for squads, each a loop
-  of { x, y } corners kept clear of loose cover), `map.offLimits` (the
+  of { x, y } corners kept clear of loose cover), `map.crowdClothes` (the
+  citizens' jumpsuits, which pedestrians dresses its crowd in), `map.offLimits` (the
   track: `randomRoadPoint` never picks a spot there, nor anywhere solid) and `map.cover` (Combine walls, barriers,
   planters, the station wings, the train, the canal's water, the Citadel,
   the screen and rubble; rubble and the screen are drawn but not solid).
@@ -817,7 +818,9 @@ the one with a plot.
   `switchTo` too (quests sends `QST_MAP`), the same way real-estate tells
   them to grow. Add a map to `city.maps` and it can be reached by name. A
   spec with `crowd = false` has no pedestrians or officers on foot
-  (pedestrians and police read `map.crowd`), one with `traffic = false` has
+  (pedestrians and police read `map.crowd`), one with `police = false`
+  keeps its pedestrians but no officers on foot (police reads
+  `map.police`), one with `traffic = false` has
   every NPC car parked out of sight while it is in play (bots reads
   `map.traffic`), and one with `vehicles = false` is walked: on-foot turns
   everyone out beside their car and refuses to let them back in (Karen's
