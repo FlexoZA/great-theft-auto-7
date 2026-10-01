@@ -17,6 +17,15 @@
 -- is never winded. Frozen, he stands still and his wind-up waits; a stink
 -- in his face throws him off his aim.
 --
+-- His other trick is his briefcase. With a player within `hordeRange`
+-- and the breath for it (`hordeCost`), he snaps it open and a horde of
+-- Aperture Science sentry turrets spills out round him (turrets.lua): they
+-- scuttle about at random spraying bursts in random directions, real
+-- rounds that hurt whoever they meet, and one round knocks one over. Only
+-- one horde at a time; `hordeDelay` after the last one falls he may open
+-- the case again. His own blinks and the turrets' rounds don't hurt each
+-- other or him.
+--
 -- Down, the disguise comes off (it is left lying where he fell), he spills
 -- koins and drops his teleport as a pickup, its tier rolled from
 -- `dropTiers`. While he is loose his theme plays and his portrait sits
@@ -29,6 +38,9 @@
 --                                                      (unreliable, 15 Hz; aim while he winds up)
 --   server -> all  EAM_BLINK <sx> <sy> <ex> <ey>        he teleported from one to the other
 --   server -> all  EAM_DOWN  <x> <y>                     he went down
+--   server -> all  EAM_HORDE <x> <y>                     the case opened there and the turrets came out
+--   server -> all  EAM_TURRETS <tick> (<id> <x> <y> <facing> <firing>)...  (unreliable, 15 Hz)
+--   server -> all  EAM_POP   <id> <x> <y> <facing>        a turret fell over
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -42,6 +54,7 @@ local Teleport = require("src.features.abilities.teleport")
 local Face = require("src.features.a-man.face")
 local Theme = require("src.features.a-man.theme")
 local Sounds = require("src.features.a-man.sounds")
+local Turrets = require("src.features.a-man.turrets")
 
 local AMan = {
   key = "a-man",
@@ -50,8 +63,8 @@ local AMan = {
   wonTitle = "A-MAN IS DOWN",
   wonSubtitle = "He dropped his teleport. First one there takes it.",
   color = { 0.55, 0.95, 0.65 },
-  menu = "A man in a very fake disguise walks the city and teleports straight through anyone in his way. "
-    .. "Drops teleport.",
+  menu = "A man in a very fake disguise walks the city, teleports straight through anyone in his way "
+    .. "and unpacks sentry turrets from his briefcase. Drops teleport.",
 }
 
 -- Tuning ------------------------------------------------------------------
@@ -74,6 +87,10 @@ AMan.overshoot = 220 -- px he comes out past them
 AMan.reach = 2600 -- px; a target further than this he walks towards
 AMan.approachGap = 240 -- px from a far target he lands
 AMan.damage = 60 -- to everyone on his line
+AMan.hordeCost = 40 -- breath opening the briefcase takes
+AMan.hordeRange = 900 -- px; he only opens it with a player this close
+AMan.hordeFirst = 8 -- seconds after he arrives before the first horde
+AMan.hordeDelay = 10 -- seconds after the last turret falls before the next horde
 AMan.width = Teleport.width -- px either side of the line it tears through
 AMan.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
 AMan.spawnNear = 900 -- px; he comes in about this far from the nearest player
@@ -171,6 +188,7 @@ function AMan.serverBegin(server, events)
       breath = Stamina.new(AMan.breath),
       cool = AMan.blinkEvery, -- a moment to take in the moustache before the first one
     },
+    turrets = Turrets.new(), hordeIn = AMan.hordeFirst,
     events = events, syncIn = 0, time = 0,
   }
   return node.x, node.y
@@ -259,11 +277,21 @@ local function sync(server)
   local msg = Protocol.encode("EAM_STATE", server.tick, fmt(a.x), fmt(a.y), ("%.2f"):format(a.facing),
     a.moving and 1 or 0, math.max(0, math.floor(a.hp)), a.max, a.aimX and fmt(a.aimX) or EMPTY,
     a.aimY and fmt(a.aimY) or EMPTY, stamina, winded)
+  local turrets = Protocol.encode("EAM_TURRETS", server.tick, unpack(Turrets.wire(sv.turrets)))
   for _, player in pairs(server.players) do
     if not player.bot then
       server:send(player, msg, true)
+      server:send(player, turrets, true)
     end
   end
+end
+
+--- He snaps his briefcase open and the turrets spill out round him.
+local function horde(server, a)
+  a.breath:spend(AMan.hordeCost)
+  a.cool = math.max(a.cool, 1.5) -- a moment to admire them before he blinks off
+  Turrets.spill(sv.turrets, a.x, a.y, Bosses.count(Turrets.count, server))
+  server:broadcast(Protocol.encode("EAM_HORDE", fmt(a.x), fmt(a.y)))
 end
 
 function AMan.serverStep(server, dt)
@@ -289,7 +317,10 @@ function AMan.serverStep(server, dt)
     if target then
       local d2 = dist2(tx, ty, a.x, a.y)
       a.facing = math.atan2(ty - a.y, tx - a.x)
-      if a.cool <= 0 and d2 <= AMan.reach * AMan.reach and a.breath:has(AMan.blinkCost) then
+      if sv.hordeIn <= 0 and Turrets.standing(sv.turrets) == 0 and d2 <= AMan.hordeRange ^ 2
+        and a.breath:has(AMan.hordeCost) then
+        horde(server, a)
+      elseif a.cool <= 0 and d2 <= AMan.reach * AMan.reach and a.breath:has(AMan.blinkCost) then
         windUp(a, tx, ty)
       elseif d2 > AMan.keepAway * AMan.keepAway then
         a.moving = walk(a, tx, ty, AMan.walkSpeed * dt)
@@ -297,6 +328,12 @@ function AMan.serverStep(server, dt)
     end
   end
   a.breath:step(false, dt) -- he never runs
+  if Turrets.standing(sv.turrets) == 0 then
+    sv.hordeIn = sv.hordeIn - dt
+  else
+    sv.hordeIn = math.max(sv.hordeIn, AMan.hordeDelay)
+  end
+  Turrets.step(sv.turrets, server, dt)
   sync(server)
 end
 
@@ -309,6 +346,7 @@ local function hurt(server, amount, by, angle)
     return
   end
   local x, y = a.x, a.y
+  Turrets.clear(sv.turrets, server)
   server:broadcast(Protocol.encode("EAM_DOWN", fmt(x), fmt(y)))
   local money = Features.byName.money
   if money and money.drop then
@@ -332,10 +370,15 @@ local function hurt(server, amount, by, angle)
   sv.events:serverFinish(server, x, y)
 end
 
---- A bullet passing through (x, y): the `serverShotAt` convention.
+--- A bullet passing through (x, y): the `serverShotAt` convention. A turret
+--- in the way goes over; a round owned by nobody (his turrets') or his own
+--- blink hurts neither them nor him.
 function AMan.serverShotAt(server, x, y, radius, by, angle, damage)
-  if not sv or sv.blinking then
+  if not sv or sv.blinking or by == 0 then
     return false
+  end
+  if Turrets.hit(sv.turrets, server, x, y, radius) then
+    return true
   end
   local a = sv.a
   if dist2(a.x, a.y, x, y) >= (radius + AMan.radius) ^ 2 then
@@ -354,8 +397,12 @@ function AMan.serverPanicArea(_server, x, y, radius)
   end
 end
 
---- A freeze landed on (x, y): he stands still, wind-up and all.
+--- A freeze landed on (x, y): he stands still, wind-up and all, and so do
+--- the turrets caught in it.
 function AMan.serverFreezeArea(_server, x, y, radius, seconds)
+  if sv then
+    Turrets.freeze(sv.turrets, x, y, radius, seconds)
+  end
   local a = sv and sv.a
   if a and dist2(a.x, a.y, x, y) <= (radius + AMan.radius) ^ 2 then
     a.frozen = math.max(a.frozen, seconds)
@@ -369,7 +416,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local cl = nil -- { a, lastTick, tears }
+local cl = nil -- { a, lastTick, turretTick, tears, turrets }
 local remains = nil -- { x, y, t }: the disguise where he fell, outliving the event
 local time = 0
 local face, music = nil, nil
@@ -391,7 +438,7 @@ function AMan.announce(x, y)
 end
 
 function AMan.start()
-  cl = { a = nil, lastTick = 0, tears = {} }
+  cl = { a = nil, lastTick = 0, turretTick = 0, tears = {}, turrets = Turrets.clientNew() }
   face = face or Face.new()
   startMusic()
 end
@@ -423,6 +470,7 @@ function AMan.update(dt)
   if not cl then
     return
   end
+  Turrets.update(cl.turrets, dt)
   for i = #cl.tears, 1, -1 do
     local t = cl.tears[i]
     t.t = t.t + dt
@@ -560,6 +608,9 @@ local function drawHim(a)
 end
 
 function AMan.drawAboveCars()
+  if cl then
+    Turrets.draw(cl.turrets, time)
+  end
   local a = cl and cl.a
   if a then
     if a.aimX then
@@ -647,6 +698,28 @@ AMan.clientMessages = {
     end
     Sounds.play("vanish", sx, sy)
     Sounds.play("appear", ex, ey, 1.6) -- quicker than his entrance
+  end,
+  EAM_TURRETS = function(_client, args)
+    local tick = tonumber(args[1])
+    if not (cl and tick) or tick <= cl.turretTick then
+      return
+    end
+    cl.turretTick = tick
+    Turrets.read(cl.turrets, args, 2)
+  end,
+  EAM_HORDE = function(_client, args)
+    local x, y = tonumber(args[1]), tonumber(args[2])
+    if x and y then
+      Sounds.play("clasp", x, y)
+      Sounds.play("turret", x, y)
+    end
+  end,
+  EAM_POP = function(_client, args)
+    local id, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if cl and id and x and y then
+      Turrets.pop(cl.turrets, id, x, y, tonumber(args[4]) or 0)
+      Sounds.play("pop", x, y, 0.9 + love.math.random() * 0.25)
+    end
   end,
   EAM_DOWN = function(_client, args)
     local x, y = tonumber(args[1]), tonumber(args[2])

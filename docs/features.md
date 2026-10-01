@@ -934,12 +934,21 @@ the one with a plot.
   across the map to land 240 px from them. Everyone on the line takes 60
   (abilities/teleport.lua's `Teleport.serverThrough`, players and bots on
   foot or at the wheel), and pedestrians and officers on it go down. A
-  freeze holds his wind-up, a fart in his face throws it off. His theme
+  freeze holds his wind-up, a fart in his face throws it off. With a
+  player within 900 px and 40 breath he opens his briefcase and a horde of
+  sentry turrets (`a-man/turrets.lua`; 8 for one human, more with more)
+  spills out round him: they scuttle about at random (110 px/s) and spray
+  bursts of four rounds (6 each, weapons' `serverFireFrom` owned by
+  nobody) in random directions, until one round knocks them over or 20 s
+  pass. One horde at a time, the next 10 s after the last turret falls;
+  the first 8 s after he arrives. Rounds owned by nobody don't hit him or
+  his turrets, and neither does his own blink. His theme
   (`a-man/theme.lua`) plays while he is loose and his portrait
   (`a-man/face.lua`) sits beside his boss bar. Down, he spills koins and
   drops "ability-teleport" in a tier rolled from `dropTiers` (50% common,
-  30% uncommon, 17% rare, 3% legendary). Messages: `EAM_STATE`,
-  `EAM_BLINK` and `EAM_DOWN` down. Tuning is at the top of `event.lua`.
+  30% uncommon, 17% rare, 3% legendary), and every turret falls over.
+  Messages: `EAM_STATE`, `EAM_BLINK`, `EAM_DOWN`, `EAM_HORDE`,
+  `EAM_TURRETS` and `EAM_POP` down. Tuning is at the top of `event.lua`.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends

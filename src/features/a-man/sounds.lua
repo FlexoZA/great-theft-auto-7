@@ -67,6 +67,21 @@ function Sounds.load()
     buf:highpass(1200)
   end)
 
+  -- The turrets waking up: two bright, friendly chirps going up.
+  bank.turret = make(0.45, function(buf)
+    buf:tone(0, 0.09, 1320, { wave = "sine", amp = 0.5, attack = 0.005, decay = 0.08, sustain = 0.6 })
+    buf:tone(0.13, 0.14, 1760, { wave = "sine", amp = 0.5, attack = 0.005, decay = 0.1, sustain = 0.6,
+      vibRate = 18, vibDepth = 0.3 })
+    buf:tone(0, 0.27, 2640, { wave = "tri", amp = 0.06, attack = 0.005, decay = 0.1, sustain = 0.3 })
+  end)
+
+  -- A turret going over: a clatter and a sad whine winding down.
+  bank.pop = make(0.7, function(buf)
+    buf:noiseBurst(0, 0.05, { amp = 0.5, decay = 0.015 })
+    buf:sweep(0.03, 0.6, 1500, 300, { wave = "sine", amp = 0.35, decay = 0.3 })
+    buf:highpass(200)
+  end)
+
   -- One step on tiptoe, for when he creeps up on someone.
   bank.tiptoe = make(0.25, function(buf)
     buf:tone(0, 0.08, Synth.freq("E3"), { wave = "tri", amp = 0.6, attack = 0.003, decay = 0.06, sustain = 0 })

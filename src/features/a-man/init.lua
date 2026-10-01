@@ -8,7 +8,8 @@
 --   event.lua    the boss: the host's side and every client's
 --   face.lua     his portrait, beside his boss bar
 --   theme.lua    his music, while he is loose
---   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe
+--   turrets.lua  the sentry turrets out of his briefcase
+--   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
 
 local Sounds = require("src.features.a-man.sounds")
 local Event = require("src.features.a-man.event")
