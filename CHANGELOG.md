@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
+A-Man arrives: a new city event with his own boss fight and theme, and
+City 17, the first new map, at the end of his trail.
+
 ### Added
 - A-Man, a new city event (host: F8). A very familiar man in a suit, fake
   glasses and a stuck-on moustache walks the city and teleports straight
