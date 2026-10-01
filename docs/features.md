@@ -877,7 +877,17 @@ the one with a plot.
   star at its left end ("home-city17"). His intro screen
   (`a-man/screen.lua`) comes up on arrival for 9 s or until a key. The
   quest is planned as several levels ending with A-Man himself; City 17 is
-  the first and has nobody in it yet.
+  the first (`a-man/city17.lua`, the a-man feature passes its hooks on).
+  Combine soldiers stand on every checkpoint (the map's `posts`: the
+  station's concourse, the avenue's mouth on the plaza, the gate, each
+  bridge and the Citadel's doors, 12 in all): the D-Day landing's guards
+  (`d-day/troops.lua`, `d-day/sight.lua`) in Combine gear, so the same
+  sweeping cone, the same rifle and two pistol rounds each, 3 koins and
+  maybe a pickup when they drop. The first player within 140 px of the
+  Citadel's doors finishes the level (`quests:serverComplete`): a star
+  comes up there, saying the quest's `exitText` (a quest may give its EXIT
+  star its own words). For now it leads home; it will lead to the next
+  level. Messages: `C17_TROOPS` and `C17_DOWN` down.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

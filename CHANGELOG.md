@@ -25,8 +25,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - City 17, a new map and the first stop on A-Man's trail: take "The man
   with the moustache" from the Jobs board and step off the train, then
   make your way through the station, the plaza, the old town, the wall and
-  over the canal to the Citadel. He says hello when you arrive. Nobody
-  else there yet.
+  over the canal to the Citadel. He says hello when you arrive. Combine
+  soldiers guard every checkpoint on the way: get past them (or through
+  them) and reach the Citadel's doors to finish the job.
 - Teleport, a new ability A-Man drops when he goes down: vanish and
   reappear up to 700 px away, tearing through anyone in between for 50
   damage. Never sold.

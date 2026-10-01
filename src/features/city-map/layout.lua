@@ -747,7 +747,9 @@ local GRIM = {
 --- the canvas draws is `map.cover` ({ kind = "combine" | "barrier" |
 --- "planter" | "station" | "train" | "screen" | "water" | "citadel" |
 --- "rubble", x, y, w, h }); rubble is drawn but not solid. `map.zones`
---- names the world y range of each part ({ name, y0, y1 }).
+--- names the world y range of each part ({ name, y0, y1 }). `map.posts` are
+--- where guards stand at the checkpoints ({ x, y, watch, at }: `watch` the
+--- way they look, `at` which checkpoint).
 local function buildCity17(map, rng)
   local T = Layout.TILE
   local cols, rows = map.cols, map.rows
@@ -850,6 +852,11 @@ local function buildCity17(map, rng)
   cover("barrier", cr - (cr - cl) * 0.62, Y(s0 + 3.6), (cr - cl) * 0.62, 28)
   cover("combine", cl, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
   cover("combine", cr - 26, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
+  local SOUTH = math.pi / 2
+  map.posts = { -- where the guards stand at each checkpoint ({ x, y, watch, at }), all looking south
+    { x = cr - 60, y = Y(s0) + 30, watch = SOUTH, at = "station" }, -- over the way out
+    { x = cl + 50, y = Y(s0 + 2.6), watch = 0.25, at = "station" }, -- down the lane between the barriers
+  }
 
   -- The old town and the screen.
   local o0, o1 = 30, rows - 31 -- rows of the old town
@@ -896,6 +903,12 @@ local function buildCity17(map, rng)
     end
   end
 
+  map.posts[#map.posts + 1] = { x = X(avenue0) - 50, y = Y(p0) + 50, watch = SOUTH + 0.4, at = "plaza" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) + 50, y = Y(p0) + 50, watch = SOUTH - 0.4, at = "plaza" }
+  for _, p in ipairs(map.posts) do
+    placed[#placed + 1] = { x = p.x, y = p.y, r = 50 } -- nothing loose lands on a guard
+  end
+
   -- The plaza: loose cover, the middle kept open up to the avenue.
   placed[#placed + 1] = { x = X((avenue0 + avenue1 + 1) / 2), y = Y((p0 + p1) / 2), r = 150 }
   local got = 0
@@ -918,6 +931,9 @@ local function buildCity17(map, rng)
   cover("combine", X(avenue1 + 1), Y(w0), (cols - avenue1 - 1) * T, 2 * T - 16, { lights = true })
   cover("barrier", X(avenue0) + 20, Y(w0 + 2.5), 3 * T, 28) -- the checkpoint: in at the right
   cover("barrier", X(avenue0) + T, Y(w0 + 3.6), 3 * T - 20, 28)
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 3.6 * T, y = Y(w0 + 2) + 10, watch = SOUTH, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 40, y = Y(w0) - 50, watch = SOUTH - 0.2, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) - 40, y = Y(w0) - 50, watch = SOUTH + 0.2, at = "gate" }
 
   -- The canal and its bridges.
   local k0, k1 = w0 - 7, w0 - 4 -- water rows
@@ -931,6 +947,8 @@ local function buildCity17(map, rng)
     map.bridges[#map.bridges + 1] = {
       x = X(b[1]), y = Y(k0) - 20, w = (b[2] - b[1] + 1) * T, h = (k1 - k0 + 1) * T + 40,
     }
+    local mid = X(b[1]) + (b[2] - b[1] + 1) * T / 2
+    map.posts[#map.posts + 1] = { x = mid, y = Y(k0) - 70, watch = SOUTH, at = "bridge" }
     c = b[2] + 1
   end
   fill(c, k0, cols - 1, k1, "water")
@@ -950,6 +968,14 @@ local function buildCity17(map, rng)
     end
   end
   map.citadelX, map.citadelY = math.floor(cx), math.floor(cy + R + 50)
+  map.posts[#map.posts + 1] = { x = cx - 130, y = cy + R + 40, watch = SOUTH + 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx + 130, y = cy + R + 40, watch = SOUTH - 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx, y = cy + R + 260, watch = SOUTH, at = "citadel" }
+  for _, p in ipairs(map.posts) do
+    if p.at ~= "station" and p.at ~= "plaza" then
+      placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
+    end
+  end
   placed[#placed + 1] = { x = cx, y = cy + R + 120, r = 160 } -- in front of the doors stays open
   got = 0
   for _ = 1, 300 do
