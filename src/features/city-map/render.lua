@@ -594,6 +594,335 @@ local function drawCliff(map)
   drawTrees(map)
 end
 
+local C17 = {
+  paving = { 0.47, 0.47, 0.45 },
+  pavingDark = { 0.45, 0.45, 0.43 },
+  joint = { 0.38, 0.38, 0.36 },
+  road = { 0.20, 0.20, 0.21 },
+  roadLine = { 0.62, 0.60, 0.52 },
+  ballast = { 0.32, 0.29, 0.26 },
+  rail = { 0.62, 0.62, 0.64 },
+  sleeper = { 0.26, 0.20, 0.15 },
+  water = { 0.13, 0.22, 0.24 },
+  waterLight = { 0.20, 0.32, 0.34 },
+  bank = { 0.55, 0.54, 0.50 },
+  metal = { 0.12, 0.14, 0.17 },
+  panel = { 0.19, 0.22, 0.26 },
+  panelLight = { 0.27, 0.31, 0.36 },
+  glow = { 0.45, 0.85, 1.00 },
+  concrete = { 0.64, 0.62, 0.57 },
+  concreteDark = { 0.50, 0.48, 0.44 },
+  planter = { 0.40, 0.36, 0.32 },
+  soil = { 0.28, 0.22, 0.17 },
+  roof = { 0.33, 0.32, 0.30 },
+  roofDark = { 0.27, 0.26, 0.25 },
+  skylight = { 0.42, 0.55, 0.60 },
+  carriage = { 0.30, 0.38, 0.42 },
+  carriageDark = { 0.22, 0.28, 0.31 },
+  window = { 0.55, 0.68, 0.72 },
+  screen = { 0.70, 0.90, 0.95 },
+  rubble = { 0.45, 0.43, 0.40 },
+  rubbleDark = { 0.33, 0.31, 0.29 },
+  citadel = { 0.16, 0.19, 0.23 },
+  citadelDark = { 0.09, 0.11, 0.14 },
+  citadelLight = { 0.28, 0.33, 0.39 },
+}
+
+--- 0..1 from `n`, the same on every machine.
+local function hash(n)
+  local v = math.sin(n) * 43758.5453
+  return v - math.floor(v)
+end
+
+--- The ground, tile by tile: square paving slabs with their joints, worn
+--- tarmac with a faded line down each road, and the ballast under the train.
+local function drawCity17Ground(map)
+  local T = Layout.TILE
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local kind = map.tiles[c] and map.tiles[c][r]
+      local x, y = map.x0 + c * T, map.y0 + r * T
+      if kind == "walk" then
+        color((c + r) % 2 == 0 and C17.paving or C17.pavingDark)
+        love.graphics.rectangle("fill", x, y, T, T)
+        color(C17.joint)
+        love.graphics.rectangle("fill", x, y, T, 2)
+        love.graphics.rectangle("fill", x, y, 2, T)
+        if hash(c * 13.1 + r * 7.7) < 0.12 then -- a crack
+          love.graphics.setLineWidth(2)
+          love.graphics.line(x + 10, y + 14, x + 30, y + 26, x + 44, y + 22)
+          love.graphics.setLineWidth(1)
+        end
+      elseif kind == "road" then
+        color(C17.road)
+        love.graphics.rectangle("fill", x, y, T, T)
+      elseif kind == "ground" then
+        color(C17.ballast)
+        love.graphics.rectangle("fill", x, y, T, T)
+      end
+    end
+  end
+  color(C17.roadLine)
+  love.graphics.setLineWidth(4)
+  for _, l in ipairs(map.lanes or {}) do
+    local dx, dy = l[3] - l[1], l[4] - l[2]
+    local len = math.sqrt(dx * dx + dy * dy)
+    for d = 20, len - 40, 80 do
+      if hash(d * 0.37 + l[1]) > 0.25 then -- worn away here and there
+        local ux, uy = dx / len, dy / len
+        love.graphics.line(l[1] + ux * d, l[2] + uy * d, l[1] + ux * (d + 36), l[2] + uy * (d + 36))
+      end
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- The canal: dark water with ripples and a concrete lip along each bank.
+local function drawWater(s)
+  color(C17.water)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C17.waterLight)
+  for i = 0, math.floor(s.w / 70) do
+    local x = s.x + i * 70 + hash(i + s.x) * 30
+    local y = s.y + 20 + hash(i * 3.3 + s.x) * (s.h - 40)
+    love.graphics.rectangle("fill", x, y, 30, 4)
+  end
+  color(C17.bank)
+  love.graphics.rectangle("fill", s.x, s.y - 8, s.w, 8)
+  love.graphics.rectangle("fill", s.x, s.y + s.h, s.w, 8)
+end
+
+--- A bridge over the canal: a deck of paving with a rail along each side.
+local function drawBridge(b)
+  color(C.shadow)
+  love.graphics.rectangle("fill", b.x + 10, b.y + 10, b.w, b.h)
+  color(C17.concrete)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  color(C17.concreteDark)
+  for y = b.y + 12, b.y + b.h - 12, 24 do
+    love.graphics.rectangle("fill", b.x + 10, y, b.w - 20, 2)
+  end
+  color(C17.metal)
+  love.graphics.rectangle("fill", b.x, b.y, 6, b.h)
+  love.graphics.rectangle("fill", b.x + b.w - 6, b.y, 6, b.h)
+end
+
+--- A Combine wall: dark metal plates in a frame, ribbed, a light along the
+--- top of the long ones.
+local function drawCombine(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 12, s.y + 12, s.w, s.h)
+  color(C17.metal)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  local long = s.w >= s.h
+  local len = long and s.w or s.h
+  local depth = long and s.h or s.w
+  for k = 0, math.floor(len / 48) - 1 do
+    color(k % 2 == 0 and C17.panel or C17.panelLight)
+    if long then
+      love.graphics.rectangle("fill", s.x + k * 48 + 4, s.y + 4, 40, depth - 8)
+    else
+      love.graphics.rectangle("fill", s.x + 4, s.y + k * 48 + 4, depth - 8, 40)
+    end
+  end
+  if s.lights or len > 200 then
+    color(C17.glow)
+    if long then
+      love.graphics.rectangle("fill", s.x, s.y + depth / 2 - 2, s.w, 4)
+    else
+      love.graphics.rectangle("fill", s.x + depth / 2 - 2, s.y, 4, s.h)
+    end
+  end
+end
+
+--- A concrete barrier, chamfered along its length.
+local function drawBarrier(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w, s.h, 4)
+  color(C17.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 4)
+  color(C17.concrete)
+  love.graphics.rectangle("fill", s.x + 4, s.y + 4, s.w - 8, s.h - 8, 3)
+end
+
+local function drawPlanter(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w, s.h)
+  color(C17.planter)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C17.soil)
+  love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, s.h - 16)
+end
+
+--- A station wing: a long roof with a row of skylights, the end towards the
+--- concourse in a darker band.
+local function drawStation(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w, s.h)
+  color(C17.roof)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C17.roofDark)
+  for y = s.y + 20, s.y + s.h - 20, 40 do
+    love.graphics.rectangle("fill", s.x, y, s.w, 4)
+  end
+  color(C17.skylight)
+  for x = s.x + 40, s.x + s.w - 120, 140 do
+    love.graphics.rectangle("fill", x, s.y + s.h / 2 - 30, 90, 60)
+  end
+end
+
+--- The train everyone came in on: carriages end to end, windows down
+--- each side, the track showing between them.
+local function drawTrain(s)
+  color(C17.ballast)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C17.sleeper)
+  for x = s.x, s.x + s.w, 26 do
+    love.graphics.rectangle("fill", x, s.y + s.h * 0.15, 10, s.h * 0.7)
+  end
+  color(C17.rail)
+  love.graphics.rectangle("fill", s.x, s.y + s.h * 0.25, s.w, 4)
+  love.graphics.rectangle("fill", s.x, s.y + s.h * 0.75, s.w, 4)
+  local carW, gap = 560, 24
+  for x = s.x + 30, s.x + s.w - 100, carW + gap do
+    local w = math.min(carW, s.x + s.w - 30 - x)
+    color(C.shadow)
+    love.graphics.rectangle("fill", x + 12, s.y + 22, w, s.h - 30, 10)
+    color(C17.carriageDark)
+    love.graphics.rectangle("fill", x, s.y + 10, w, s.h - 30, 10)
+    color(C17.carriage)
+    love.graphics.rectangle("fill", x + 6, s.y + 16, w - 12, s.h - 42, 8)
+    color(C17.window)
+    for wx = x + 30, x + w - 50, 56 do
+      love.graphics.rectangle("fill", wx, s.y + 16, 32, 8)
+    end
+  end
+end
+
+--- The giant screen on the plaza's big building, and who is on it: a man
+--- in big round glasses and a moustache. Nobody you know.
+local function drawScreen(s)
+  local h = s.h - 40
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w, h + 16)
+  color(C17.metal)
+  love.graphics.rectangle("fill", s.x - 6, s.y - 6, s.w + 12, h + 16)
+  color(C17.screen)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, h + 4)
+  -- The face, filling the screen top to bottom: slicked hair, big round
+  -- glasses with green eyes in them, and the moustache.
+  local cx, top = s.x + s.w / 2, s.y
+  color({ 0.84, 0.77, 0.66 })
+  love.graphics.rectangle("fill", cx - 46, top, 92, h + 4)
+  color({ 0.25, 0.19, 0.14 })
+  love.graphics.rectangle("fill", cx - 46, top, 92, 7)
+  love.graphics.rectangle("fill", cx - 46, top, 8, 18)
+  love.graphics.rectangle("fill", cx + 38, top, 8, 18)
+  local ey = top + 17
+  color({ 0.92, 0.92, 0.86 })
+  love.graphics.rectangle("fill", cx - 24, ey - 3, 12, 6)
+  love.graphics.rectangle("fill", cx + 12, ey - 3, 12, 6)
+  color({ 0.36, 0.62, 0.30 })
+  love.graphics.rectangle("fill", cx - 20, ey - 3, 5, 6)
+  love.graphics.rectangle("fill", cx + 16, ey - 3, 5, 6)
+  color(C17.metal)
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", cx - 18, ey, 10, 16)
+  love.graphics.circle("line", cx + 18, ey, 10, 16)
+  love.graphics.line(cx - 8, ey - 1, cx + 8, ey - 1)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("fill", cx - 20, top + 30, 40, 7)
+  -- The stand it sits on, down to the pavement.
+  color(C17.metal)
+  love.graphics.rectangle("fill", s.x + s.w * 0.2, s.y + h + 10, 10, 30)
+  love.graphics.rectangle("fill", s.x + s.w * 0.8 - 10, s.y + h + 10, 10, 30)
+end
+
+--- A heap of what used to be a building: broken slabs, lumps of masonry.
+local function drawRubble(s)
+  local seed = s.seed or 0
+  color(C17.rubbleDark)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12, 10)
+  for i = 1, math.floor(s.w * s.h / 1400) do
+    local x = s.x + 8 + hash(seed + i * 1.7) * (s.w - 30)
+    local y = s.y + 8 + hash(seed + i * 2.9) * (s.h - 30)
+    local w, h = 10 + hash(seed + i * 4.1) * 18, 8 + hash(seed + i * 5.3) * 14
+    color(i % 3 == 0 and C17.rubbleDark or C17.rubble)
+    love.graphics.rectangle("fill", x, y, w, h, 2)
+  end
+end
+
+--- The Citadel from above: a vast dark ring, ribbed, stepping in to a
+--- pale core, its shadow thrown far across the square, and a glowing
+--- doorway on the south side.
+local function drawCitadel(map)
+  local c = map.citadel
+  local x, y, r = c.x, c.y, c.r
+  color({ 0, 0, 0, 0.45 })
+  love.graphics.polygon("fill", x - r * 0.7, y + r * 0.7, x + r * 0.7, y - r * 0.7,
+    x + r * 2.4, y + r * 1.0, x + r * 1.0, y + r * 2.4) -- the shadow of something very tall
+  color(C17.citadelDark)
+  love.graphics.circle("fill", x, y, r + 10, 48)
+  color(C17.citadel)
+  love.graphics.circle("fill", x, y, r, 48)
+  color(C17.citadelDark)
+  love.graphics.setLineWidth(6)
+  for i = 0, 15 do
+    local a = i / 16 * 2 * math.pi
+    love.graphics.line(x + math.cos(a) * r * 0.45, y + math.sin(a) * r * 0.45, x + math.cos(a) * r, y + math.sin(a) * r)
+  end
+  love.graphics.setLineWidth(1)
+  color(C17.citadelLight)
+  love.graphics.circle("fill", x, y, r * 0.55, 32)
+  color(C17.citadel)
+  love.graphics.circle("fill", x, y, r * 0.35, 24)
+  color(C17.citadelLight)
+  love.graphics.circle("fill", x - r * 0.06, y - r * 0.06, r * 0.15, 16)
+  -- The doors.
+  color(C17.citadelDark)
+  love.graphics.rectangle("fill", x - 60, y + r - 30, 120, 40)
+  color(C17.glow)
+  love.graphics.rectangle("fill", x - 44, y + r - 10, 88, 10)
+end
+
+local function drawCity17(map)
+  drawCity17Ground(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "water" then
+      drawWater(s)
+    end
+  end
+  for _, b in ipairs(map.bridges or {}) do
+    drawBridge(b)
+  end
+  for _, s in ipairs(map.cover) do
+    if s.kind == "rubble" then
+      drawRubble(s)
+    end
+  end
+  drawBuildings(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "screen" then
+      drawScreen(s)
+    elseif s.kind == "station" then
+      drawStation(s)
+    elseif s.kind == "barrier" then
+      drawBarrier(s)
+    elseif s.kind == "planter" then
+      drawPlanter(s)
+    end
+  end
+  drawTrees(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "combine" then
+      drawCombine(s)
+    elseif s.kind == "train" then
+      drawTrain(s)
+    end
+  end
+  drawCitadel(map)
+end
+
 --- Build the canvas. Call once with graphics available.
 function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
@@ -605,9 +934,11 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
-  if map.kind == "beach" or map.kind == "cliff" then
+  if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" then
     if map.kind == "beach" then
       drawBeach(map)
+    elseif map.kind == "city17" then
+      drawCity17(map)
     else
       drawCliff(map)
     end

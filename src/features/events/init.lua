@@ -14,9 +14,11 @@
 -- `Events:serverTrigger(server, key)`. When and how they start by
 -- themselves is still to be decided.
 --
--- Each kind of event is a module in this folder, listed in `Events.kinds`
--- by key and in `Events.order` for the menu. The host owns everything; this file keeps which event is on and
--- tells every machine, and the event's module runs the rest. An event
+-- Each kind of event is a module in this folder (A-Man's lives in his own,
+-- src/features/a-man/event.lua), listed in `Events.kinds` by key and in
+-- `Events.order` for the menu. The host owns everything; this file keeps
+-- which event is on and tells every machine, and the event's module runs
+-- the rest. An event
 -- module has:
 --   key, title, subtitle, wonTitle, wonSubtitle, color, menu (a line for the F8 menu)
 --   serverBegin(server, events) -> x, y   bring the boss in; nil if it can't
@@ -50,6 +52,7 @@ local Controls = require("src.controls")
 local Bigfoot = require("src.features.events.bigfoot")
 local Runner = require("src.features.events.runner")
 local Tripod = require("src.features.events.tripod")
+local AMan = require("src.features.a-man.event")
 local HuntSounds = require("src.features.alien-hunt.sounds")
 
 local Events = {
@@ -57,8 +60,8 @@ local Events = {
   priority = 960, -- the banner over most of the HUD, under the quest portraits (970+)
 }
 
-Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod }
-Events.order = { "bigfoot", "runner", "tripod" } -- as the F8 menu lists them
+Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod, ["a-man"] = AMan }
+Events.order = { "bigfoot", "runner", "tripod", "a-man" } -- as the F8 menu lists them
 
 -- Tuning ------------------------------------------------------------------
 Events.flashTime = 6 -- seconds the minimap flashes red when one starts

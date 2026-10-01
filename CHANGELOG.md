@@ -14,6 +14,29 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
+A-Man arrives: a new city event with his own boss fight and theme, and
+City 17, the first new map, at the end of his trail.
+
+### Added
+- A-Man, a new city event (host: F8). A very familiar man in a suit, fake
+  glasses and a stuck-on moustache walks the city and teleports straight
+  through anyone in his way for 60 damage. A line shows where he is going
+  just before he goes: get off it. He also opens his briefcase and lets
+  out a horde of sentry turrets that scuttle about spraying bullets in
+  random directions; one shot knocks a turret over. He has his own theme
+  music.
+- City 17, a new map and the first stop on A-Man's trail: take "The man
+  with the moustache" from the Jobs board and step off the train, then
+  make your way through the station, the plaza, the old town, the wall and
+  over the canal to the Citadel. He says hello when you arrive. Combine
+  soldiers guard every checkpoint on the way: get past them (or through
+  them) and reach the Citadel's doors to finish the job.
+- Teleport, a new ability A-Man drops when he goes down: vanish and
+  reappear up to 700 px away, tearing through anyone in between for 50
+  damage. Never sold.
+
 ## [0.1.0] - 2026-09-30
 
 The first numbered release: everything built so far, and this changelog to

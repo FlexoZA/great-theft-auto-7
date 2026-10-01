@@ -117,6 +117,14 @@ function Sounds.load()
     buf:lowpass(3500)
   end)
 
+  -- Teleport: a sharp electric zap and a low hum dropping out of it.
+  bank.teleport = make(0.6, function(buf)
+    buf:sweep(0, 0.12, 2400, 300, { wave = "square", amp = 0.3, decay = 0.06 })
+    buf:noiseBurst(0, 0.08, { amp = 0.4, decay = 0.02 })
+    buf:sweep(0.04, 0.5, 180, 60, { wave = "sine", amp = 0.7, decay = 0.2 })
+    buf:lowpass(5000)
+  end)
+
   -- Leap landing: a heavy thud and gravel scattering.
   bank.leapland = make(0.7, function(buf)
     buf:sweep(0, 0.3, 140, 38, { wave = "sine", amp = 1.0, decay = 0.14 })

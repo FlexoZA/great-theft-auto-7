@@ -58,6 +58,7 @@ local Quests = {
 -- of starting one. `label` and `color` dress the star; `banner` is what
 -- everyone reads when the trip happens (%s is the taker's name). `boss`
 -- names the feature that owns the fight there (karen listens for its own).
+-- `exitText` (optional) is what the EXIT star says once it is done.
 Quests.list = {
   {
     id = "karen",
@@ -106,6 +107,19 @@ Quests.list = {
     label = "SHOTGUN",
     color = { 0.95, 0.55, 0.35 },
     banner = "%s went after Shotgun. Welcome to Shotgun's Bluff.",
+  },
+  {
+    id = "a-man",
+    title = "The man with the moustache",
+    text = "A man in a suit, round glasses and a very new moustache has been seen getting off a train in "
+      .. "City 17. Nobody recognises him. Take the train in, get through the city and find out where he is going.",
+    board = true,
+    map = "city17",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "%s took the train. Welcome to City 17.",
+    exitText = "You made it to the Citadel. His trail goes cold here, for now. Head home.",
   },
   {
     id = "home",
@@ -159,6 +173,19 @@ Quests.list = {
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
   },
+  {
+    id = "home-city17",
+    title = "Back to the City",
+    text = "Back on the train. Take everyone home.",
+    onMap = "city17",
+    x = -1216, -- the left end of the platform: city-map's map.cx, map.cy
+    y = 1952,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
 }
 Quests.byId = {}
 Quests.board = {} -- the jobs on the Jobs building's board, in list order
@@ -190,12 +217,12 @@ end
 
 --- The EXIT star a fallen boss leaves on map `onMap` at (x, y): the way
 --- home, the same as the blue star by the entrance.
-local function exitQuest(onMap, x, y)
+local function exitQuest(onMap, x, y, done)
   local city = cityMap()
   return {
     id = "exit",
     title = "Get out of here",
-    text = "The boss is down. Head home and leave this place behind.",
+    text = done and done.exitText or "The boss is down. Head home and leave this place behind.",
     onMap = onMap,
     x = x,
     y = y,
@@ -638,7 +665,7 @@ Quests.clientMessages = {
     local x, y = tonumber(args[1]), tonumber(args[2])
     local city = cityMap()
     if x and y and city then
-      Quests.exit = exitQuest(city.current, x, y)
+      Quests.exit = exitQuest(city.current, x, y, Quests.byId[Quests.done or ""])
     end
   end,
   QST_NO = function(_client, args)
@@ -667,7 +694,7 @@ function Quests:serverComplete(server, questId, x, y)
   server:broadcast(Protocol.encode("QST_DONE", questId))
   local city = cityMap()
   if x and y and city then
-    sv.exit = exitQuest(city.current, x, y)
+    sv.exit = exitQuest(city.current, x, y, Quests.byId[questId])
     server:broadcast(Protocol.encode("QST_EXIT", ("%.1f"):format(x), ("%.1f"):format(y)))
   end
   return true
