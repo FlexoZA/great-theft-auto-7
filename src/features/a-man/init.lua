@@ -6,7 +6,8 @@
 --
 -- Modules
 --   event.lua    the boss: the host's side and every client's
---   face.lua     his portrait, beside his boss bar
+--   face.lua     his portrait, beside his boss bar and on his intro screen
+--   screen.lua   his intro screen, for his quest: the portrait and what he says
 --   theme.lua    his music, while he is loose
 --   turrets.lua  the sentry turrets out of his briefcase
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
