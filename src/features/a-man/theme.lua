@@ -1,20 +1,20 @@
 -- A-Man's theme, rendered by src/audio/synth.lua the way the other boss
--- themes are. Two things at once, like the man: underneath, a low drone
--- that warps in pitch and never resolves; on top, a cartoon "sneaking"
--- number, a plucked bass on tiptoe and a muted horn being far too pleased
--- with itself. The last bar of each section is a time-stop: everything
--- halts but the drone sinking and a clock ticking, then it all creeps on
--- as if nothing happened. 100 BPM in A minor, ~48 s, loops.
+-- themes are. Industrial rock: a palm-muted riff leaning on the flat fifth,
+-- a half-time section of open chords, factory clangs, and a sly saw lead
+-- the last time round. His own touches frame it: it opens on a low drone
+-- that warps in pitch, and the last bar is a time-stop, everything halting
+-- but the drone sinking and a clock ticking, before it loops back into the
+-- drone as if nothing happened. 130 BPM in E minor, ~48 s, loops.
 
 local Synth = require("src.audio.synth")
 
 local Theme = {}
 
-local BPM = 100
+local BPM = 130
 local SIXTEENTH = 60 / BPM / 4
 local BAR = SIXTEENTH * 16
 
--- Notation: a bar is a list of { note|false, sixteenths } summing to 16.
+-- Notation: a bar is a list of { note|false, sixteenths, muted } summing to 16.
 local function bar(...)
   local out = {}
   for _, group in ipairs({ ... }) do
@@ -24,108 +24,158 @@ local function bar(...)
   end
   return out
 end
+local function chug(n, count)
+  local out = {}
+  for _ = 1, count do
+    out[#out + 1] = { n, 1, true }
+  end
+  return out
+end
 local function hit(n, len)
-  return { { n, len } }
-end
-local function rest(len)
-  return { { false, len } }
+  return { { n, len, false } }
 end
 
--- The tiptoe: staccato steps creeping up, a pause, creeping back down.
-local tiptoe = {
-  bar(hit("A2", 2), rest(2), hit("C3", 2), rest(2), hit("D3", 2), rest(2), hit("D#3", 2), hit("E3", 2)),
-  bar(rest(2), hit("E3", 2), rest(2), hit("D#3", 2), hit("D3", 2), rest(2), hit("C3", 2), hit("B2", 2)),
-  bar(hit("A2", 2), rest(2), hit("C3", 2), rest(2), hit("F3", 2), rest(2), hit("E3", 2), rest(2)),
-  bar(hit("D#3", 2), hit("D3", 2), hit("C#3", 2), hit("C3", 2), hit("B2", 4), rest(4)),
+-- Riffs (guitar + bass) -----------------------------------------------------
+
+-- The main riff: chugging on E, jabbing at the flat fifth.
+local riffA = {
+  bar(chug("E2", 3), hit("G2", 2), chug("E2", 2), hit("A#2", 2), chug("E2", 3), hit("A2", 2), hit("G2", 2)),
+  bar(chug("E2", 3), hit("G2", 2), chug("E2", 2), hit("D3", 3), hit("C#3", 3), chug("E2", 3)),
+  bar(chug("E2", 3), hit("G2", 2), chug("E2", 2), hit("A#2", 2), chug("E2", 3), hit("A2", 2), hit("G2", 2)),
+  bar(hit("E3", 2), hit("D3", 2), hit("A#2", 4), hit("A2", 4), hit("G2", 2), hit("F2", 2)),
 }
 
--- The horn: sly little phrases that keep sliding a semitone off the note.
-local horn = {
-  bar(rest(4), hit("E5", 2), rest(2), hit("F5", 1), hit("E5", 1), hit("D#5", 2), hit("E5", 4)),
-  bar(rest(4), hit("C5", 2), rest(2), hit("B4", 1), hit("C5", 1), hit("B4", 2), hit("A4", 4)),
-  bar(rest(2), hit("A4", 2), hit("C5", 2), hit("E5", 2), hit("A5", 4), hit("G#5", 4)),
-  bar(hit("G5", 2), hit("F#5", 2), hit("F5", 2), hit("E5", 2), hit("D#5", 4), rest(4)),
+-- The heavy part: open chords, half time, sliding down at the end.
+local riffB = {
+  bar(hit("E2", 6), hit("G2", 2), hit("A2", 8)),
+  bar(hit("E2", 6), hit("A#2", 2), hit("A2", 8)),
+  bar(hit("E2", 6), hit("G2", 2), hit("D3", 4), hit("C3", 4)),
+  bar(hit("A#2", 4), hit("A2", 4), hit("G2", 4), hit("F#2", 4)),
 }
 
--- A music box, far off, while the drone is on its own.
-local bells = {
-  bar(hit("E6", 4), rest(4), hit("C6", 4), rest(4)),
-  bar(hit("B5", 8), rest(8)),
-  bar(hit("A5", 4), rest(4), hit("D#6", 4), rest(4)),
-  bar(hit("E6", 12), rest(4)),
+-- The lead: still sneaking, a semitone under every note it lands on.
+local lead = {
+  bar(hit("B4", 4), hit("A#4", 2), hit("B4", 2), hit("D5", 4), hit("E5", 4)),
+  bar(hit("G5", 6), hit("F#5", 2), hit("F5", 4), hit("E5", 4)),
+  bar(hit("B4", 4), hit("A#4", 2), hit("B4", 2), hit("E5", 4), hit("G5", 4)),
+  bar(hit("A#5", 4), hit("A5", 4), hit("G5", 4), hit("E5", 4)),
 }
 
--- Each section: how many bars and which parts play. The parts are four-bar
--- phrases, so a section of eight plays them through once, then three bars
--- again; with `freeze` its last bar is the time-stop instead.
+-- Arrangement -----------------------------------------------------------------
+
+-- Each section plays its riff's four bars round for `bars` bars. `fill` ends
+-- it on a snare roll; `freeze` makes its last bar the time-stop.
 local SECTIONS = {
-  { bars = 4, bells = true },
-  { bars = 8, bass = true, hats = true, freeze = true },
-  { bars = 8, bass = true, hats = true, horn = true, freeze = true },
+  { bars = 2, intro = true },
+  { bars = 8, riff = riffA, drums = "drive", fill = true },
+  { bars = 8, riff = riffB, drums = "half" },
+  { bars = 8, riff = riffA, drums = "drive", lead = lead, freeze = true },
 }
 
 -- Voices ------------------------------------------------------------------------
 
---- The drone: a low A and E that drift in and out of tune with each other.
+--- The drone: a low E and B that drift in and out of tune with each other.
 local function drone(buf, t, len)
-  buf:tone(t, len, Synth.freq("A1"), { wave = "sine", amp = 0.5, attack = 0.4, decay = 99, sustain = 1,
+  buf:tone(t, len, Synth.freq("E1"), { wave = "sine", amp = 0.6, attack = 0.4, decay = 99, sustain = 1,
     release = 0.4, vibRate = 0.23, vibDepth = 0.2 })
-  buf:tone(t, len, Synth.freq("E2"), { wave = "tri", amp = 0.16, attack = 0.6, decay = 99, sustain = 1,
+  buf:tone(t, len, Synth.freq("B1"), { wave = "tri", amp = 0.2, attack = 0.6, decay = 99, sustain = 1,
     release = 0.4, detune = 12, vibRate = 0.31, vibDepth = 0.35 })
-  buf:tone(t, len, Synth.freq("A#2"), { wave = "sine", amp = 0.05, attack = 1.5, decay = 99, sustain = 1,
+  buf:tone(t, len, Synth.freq("F2"), { wave = "sine", amp = 0.06, attack = 1.5, decay = 99, sustain = 1,
     release = 0.4, vibRate = 0.17, vibDepth = 0.3 }) -- the wrong note, barely there
 end
 
---- Plucked, on tiptoe: a short triangle and a click of a string.
-local function pluck(buf, t, len, note)
-  local f = Synth.freq(note)
-  buf:tone(t, len * SIXTEENTH * 0.5, f, { wave = "tri", amp = 0.55, attack = 0.003, decay = 0.09, sustain = 0,
-    release = 0.03 })
-  buf:tone(t, 0.03, f * 2, { wave = "square", amp = 0.08, attack = 0.001, decay = 0.01, sustain = 0 })
+local function powerChord(buf, t, len, note, muted)
+  local root = Synth.freq(note)
+  local dur = len * SIXTEENTH * (muted and 0.85 or 0.98)
+  local o = muted and { amp = 0.32, decay = 0.06, sustain = 0 } or { amp = 0.26, decay = 0.5, sustain = 0.4 }
+  o.wave = "saw"
+  o.detune = -9
+  buf:tone(t, dur, root, o)
+  o.detune = 9
+  buf:tone(t, dur, root, o)
+  o.detune = 0
+  buf:tone(t, dur, root * 1.5, o)
+  o.amp = o.amp * 0.5
+  buf:tone(t, dur, root * 2, o)
 end
 
---- A muted horn: a square with a lazy vibrato, played legato and smug.
-local function hornNote(buf, t, len, note)
-  buf:tone(t, len * SIXTEENTH * 0.92, Synth.freq(note), { wave = "square", amp = 0.24, attack = 0.03,
-    decay = 0.6, sustain = 0.55, release = 0.06, vibRate = 5, vibDepth = len >= 4 and 0.25 or 0 })
+local function bassNote(buf, t, len, note, muted)
+  buf:tone(t, len * SIXTEENTH * (muted and 0.8 or 0.98), Synth.freq(note) / 2, {
+    wave = "square",
+    amp = 0.5,
+    decay = muted and 0.1 or 0.45,
+    sustain = muted and 0 or 0.5,
+  })
 end
 
-local function bell(buf, t, len, note)
-  local f = Synth.freq(note)
-  buf:tone(t, len * SIXTEENTH, f, { wave = "sine", amp = 0.2, attack = 0.002, decay = 0.5, sustain = 0 })
-  buf:tone(t, len * SIXTEENTH, f * 2.76, { wave = "sine", amp = 0.06, attack = 0.002, decay = 0.15, sustain = 0 })
+local function leadNote(buf, t, len, note)
+  buf:tone(t, len * SIXTEENTH * 0.95, Synth.freq(note), { wave = "saw", amp = 0.24, attack = 0.01, decay = 0.8,
+    sustain = 0.7, release = 0.05, vibRate = 6, vibDepth = len >= 4 and 0.3 or 0.1 })
+  buf:tone(t, len * SIXTEENTH * 0.95, Synth.freq(note), { wave = "square", amp = 0.1, attack = 0.01, decay = 0.8,
+    sustain = 0.7, release = 0.05, detune = 7 })
 end
 
---- Brushes: a soft hat on the off-beats and a rim on four.
-local function hatsBar(buf, t)
+--- A factory clang: a few inharmonic partials ringing off a sharp knock.
+local function clang(buf, t, amp)
+  for i, ratio in ipairs({ 1, 2.41, 3.93, 5.37 }) do
+    buf:tone(t, 0.6, 170 * ratio, { wave = "sine", amp = amp / i, attack = 0.001, decay = 0.35 / i ^ 0.5,
+      sustain = 0 })
+  end
+  buf:noiseBurst(t, 0.04, { amp = amp, decay = 0.01 })
+end
+
+local function drumBar(buf, t, style, fill)
   for i = 0, 15 do
-    if i % 4 == 2 then
-      buf:hat(t + i * SIXTEENTH, 0.18)
+    local ti = t + i * SIXTEENTH
+    if fill and i >= 8 then
+      buf:snare(ti, 0.4 + (i - 8) * 0.07) -- the roll into the next section
+    elseif style == "drive" then
+      if i == 0 or i == 3 or i == 8 or i == 10 then
+        buf:kick(ti, 1)
+      end
+      if i == 4 or i == 12 then
+        buf:snare(ti, 0.95)
+      end
+      if i % 2 == 0 then
+        buf:hat(ti, i % 4 == 2 and 0.28 or 0.18)
+      end
+    else -- half time
+      if i == 0 or i == 6 or i == 10 then
+        buf:kick(ti, 1)
+      end
+      if i == 8 then
+        buf:snare(ti, 1)
+      end
+      if i % 4 == 0 then
+        buf:hat(ti, 0.3, true)
+      end
     end
   end
-  buf:snare(t + 12 * SIXTEENTH, 0.12)
 end
 
---- The time-stop: the drone sinks a fifth and back, a clock ticks, and a
+--- The time-stop: the drone sinks and comes back, a clock ticks, and a
 --- quick rising shimmer winds the world up again.
 local function freeze(pad, fx, t)
-  pad:sweep(t, BAR * 0.5, Synth.freq("A1"), Synth.freq("D1"), { wave = "sine", amp = 0.45, decay = 99 })
-  pad:sweep(t + BAR * 0.5, BAR * 0.5, Synth.freq("D1"), Synth.freq("A1"), { wave = "sine", amp = 0.45, decay = 99 })
+  pad:sweep(t, BAR * 0.5, Synth.freq("E1"), Synth.freq("A0"), { wave = "sine", amp = 0.6, decay = 99 })
+  pad:sweep(t + BAR * 0.5, BAR * 0.5, Synth.freq("A0"), Synth.freq("E1"), { wave = "sine", amp = 0.6, decay = 99 })
   for k = 0, 3 do
     local f = k % 2 == 0 and 1800 or 1350 -- tick, tock
     fx:tone(t + k * 4 * SIXTEENTH, 0.02, f, { wave = "sine", amp = 0.35, attack = 0.001, decay = 0.008,
       sustain = 0 })
   end
-  fx:sweep(t + BAR - 0.45, 0.45, 300, 2400, { wave = "tri", amp = 0.18, decay = 99 })
+  fx:sweep(t + BAR - 0.4, 0.4, 300, 2400, { wave = "tri", amp = 0.18, decay = 99 })
 end
 
 -- Render ----------------------------------------------------------------------
 
-local function playBar(buf, events, t, voice)
+local function playBar(buf, events, t, voice, bass)
   local cursor = t
   for _, ev in ipairs(events) do
     if ev[1] then
-      voice(buf, cursor, ev[2], ev[1])
+      voice(buf, cursor, ev[2], ev[1], ev[3])
+      if bass then
+        bassNote(bass, cursor, ev[2], ev[1], ev[3])
+      end
     end
     cursor = cursor + ev[2] * SIXTEENTH
   end
@@ -143,8 +193,10 @@ end
 function Theme.render()
   local total = Theme.duration()
   local pad = Synth.newBuffer(total + 0.5)
+  local guitar = Synth.newBuffer(total + 0.5)
   local bass = Synth.newBuffer(total + 0.5)
-  local lead = Synth.newBuffer(total + 0.5)
+  local solo = Synth.newBuffer(total + 0.5)
+  local drums = Synth.newBuffer(total + 0.5)
   local fx = Synth.newBuffer(total + 0.5)
 
   local t = 0
@@ -153,36 +205,45 @@ function Theme.render()
       local phrase = (b - 1) % 4 + 1
       if s.freeze and b == s.bars then
         freeze(pad, fx, t)
-      else
+      elseif s.intro then
         drone(pad, t, BAR)
-        if s.bells then
-          playBar(fx, bells[phrase], t, bell)
+        clang(fx, t, 0.5)
+        if b == s.bars then
+          drumBar(drums, t, "drive", true)
         end
-        if s.bass then
-          playBar(bass, tiptoe[phrase], t, pluck)
+      else
+        playBar(guitar, s.riff[phrase], t, powerChord, bass)
+        drumBar(drums, t, s.drums, s.fill and b == s.bars)
+        if s.lead then
+          playBar(solo, s.lead[phrase], t, leadNote)
         end
-        if s.horn then
-          playBar(lead, horn[phrase], t, hornNote)
-        end
-        if s.hats then
-          hatsBar(fx, t)
+        if phrase == 1 then
+          clang(fx, t, 0.4)
+          drums:hat(t, 0.5, true) -- a crash with it
         end
       end
       t = t + BAR
     end
   end
 
-  pad:lowpass(700)
-  bass:lowpass(1800)
-  lead:drive(2)
-  lead:lowpass(2200) -- the mute in the horn
-  fx:highpass(40)
+  pad:lowpass(600)
+  guitar:drive(8)
+  guitar:lowpass(3200)
+  bass:drive(3)
+  bass:lowpass(600)
+  solo:drive(3)
+  solo:lowpass(4500)
+  drums:drive(1.6) -- squashed, the industrial way
+  drums:highpass(30)
+  fx:highpass(60)
 
   local master = Synth.newBuffer(total) -- exactly the loop length so it wraps cleanly
-  pad:mixInto(master, 0.38)
-  bass:mixInto(master, 0.7)
-  lead:mixInto(master, 0.35)
-  fx:mixInto(master, 0.5)
+  pad:mixInto(master, 0.45)
+  guitar:mixInto(master, 0.5)
+  bass:mixInto(master, 0.45)
+  solo:mixInto(master, 0.3)
+  drums:mixInto(master, 0.75)
+  fx:mixInto(master, 0.35)
   return master:toSoundData(0.9)
 end
 
