@@ -86,7 +86,7 @@ local function burst(talk)
   voice:drive(4)
 
   local buf = Synth.newBuffer(length)
-  buf:tone(0, 0.07, 1900, { wave = "sine", amp = 0.06, attack = 0.005, decay = 0.05, sustain = 0.6 })
+  buf:tone(0, 0.07, 1900, { wave = "sine", amp = 0.14, attack = 0.005, decay = 0.05, sustain = 0.6 })
   buf:noiseBurst(PEEP, 0.05, { amp = 0.3, decay = 0.02 })
   voice:mixInto(buf, 0.7)
   local off = PEEP + talk + 0.15
