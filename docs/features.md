@@ -802,7 +802,8 @@ the one with a plot.
   citadel: each a `y0`..`y1`), `map.citadel` ({ x, y, r }),
   `map.citadelX, citadelY` (in front of its doors), `map.bridges`,
   `map.screen`, `map.lanes`, `map.patrols` (beats for squads, each a loop
-  of { x, y } corners kept clear of loose cover) and `map.cover` (Combine walls, barriers,
+  of { x, y } corners kept clear of loose cover), `map.offLimits` (the
+  track: `randomRoadPoint` never picks a spot there, nor anywhere solid) and `map.cover` (Combine walls, barriers,
   planters, the station wings, the train, the canal's water, the Citadel,
   the screen and rubble; rubble and the screen are drawn but not solid).
   Anything in `map.cover` with a `mapColor` is drawn on the minimap in it,

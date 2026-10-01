@@ -38,6 +38,7 @@ Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
 Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
 Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
+Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
 Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in
 
@@ -78,7 +79,7 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(), syncIn = 0, reached = false, time = 0, groups = {}, pending = {} }
+  sv = { troops = Troops.new(), syncIn = 0, reached = false, time = 0, groups = {}, pending = {}, quietUntil = 0 }
   -- Who chats together: the guards at one checkpoint, or one squad.
   local posts = {}
   for _, p in ipairs(map.posts) do
@@ -191,7 +192,9 @@ local function talk(server, dt)
   end
   for _, g in ipairs(sv.groups) do
     g.chatIn = g.chatIn - dt
-    if g.chatIn <= 0 then
+    if g.chatIn <= 0 and sv.time < sv.quietUntil then
+      g.chatIn = 0.5 + random() * 3 -- somebody else is talking: wait a moment, not all at once after
+    elseif g.chatIn <= 0 then
       g.chatIn = between(Level.chatEvery)
       local busy = false
       for _, m in ipairs(g.members) do
@@ -200,6 +203,7 @@ local function talk(server, dt)
       -- A squad's leader is the first of them; at a checkpoint, anyone.
       local speaker = g.kind == "patrol" and g.members[1] or mate(g, nil)
       if speaker and not busy then
+        sv.quietUntil = sv.time + Level.chatGap
         say(server, speaker, g.kind)
         local other = mate(g, speaker)
         if other then

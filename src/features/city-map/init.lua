@@ -291,18 +291,35 @@ function CityMap:serverStep(server, dt)
   collidePedestrians(self.map)
 end
 
---- Centre of a random road tile (or any tile of an open field), optionally
---- within `maxDist` of (nearX, nearY). Other features reach this via
---- Features.byName["city-map"].
+--- Is (x, y) somewhere nobody can get to: inside something solid, or in
+--- one of the map's `offLimits` ({ x, y, w, h }: City 17's track, behind
+--- the train)?
+local function outOfReach(map, x, y)
+  if Collision.blocked(map, x, y) then
+    return true
+  end
+  for _, o in ipairs(map.offLimits or {}) do
+    if x >= o.x and x < o.x + o.w and y >= o.y and y < o.y + o.h then
+      return true
+    end
+  end
+  return false
+end
+
+--- Centre of a random road tile (or any tile of an open field) somebody
+--- can get to, optionally within `maxDist` of (nearX, nearY). A map with
+--- little road (City 17) needs a good few tries. Other features reach this
+--- via Features.byName["city-map"].
 function CityMap:randomRoadPoint(nearX, nearY, maxDist)
   local map = self.map
-  for _ = 1, 60 do
+  for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
     if kind == "road" or kind == "ground" then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
-      if not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist then
+      local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
+      if near and not outOfReach(map, x, y) then
         return x, y
       end
     end

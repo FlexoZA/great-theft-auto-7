@@ -24,6 +24,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   in when one of them goes down. Their volume has its own slider in the
   sound settings ("Combine soldiers' radio").
 
+### Fixed
+- City 17: medkits and energy drinks no longer turn up bunched together
+  on the railway behind the train, where nobody can reach them.
+
 ## [0.2.0] - 2026-10-01
 
 A-Man arrives: a new city event with his own boss fight and theme, and

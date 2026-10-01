@@ -852,6 +852,7 @@ local function buildCity17(map, rng)
   -- The train and the platform.
   zone("platform", rows - 10, rows - 5)
   fill(0, rows - 4, cols - 1, rows - 1, "ground")
+  map.offLimits = { { x = X(0), y = Y(rows - 4), w = cols * T, h = 4 * T } } -- the track: nothing spawns there
   cover("train", X(0), Y(rows - 4) + 10, cols * T, 3 * T - 10)
   map.cx, map.cy = math.floor(X(5)), math.floor(Y(rows - 7.5))
   for i = 0, 15 do

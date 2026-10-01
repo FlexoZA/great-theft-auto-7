@@ -16,8 +16,8 @@ local UI = require("src.ui")
 
 local Radio = {
   volume = 0.7, -- default of the "combine" channel
-  refDistance = 260,
-  maxDistance = 1500,
+  nearDistance = 300, -- px; nearer than this he is heard at full volume
+  farDistance = 1000, -- px; further than this he is not heard at all
 }
 
 Radio.lines = {
@@ -61,33 +61,40 @@ end
 
 local bursts = {} -- base Sources, shortest first
 local LENGTHS = { 0.5, 0.9, 1.3, 1.8 } -- seconds of talk in each
+local PEEP = 0.22 -- seconds of quiet peep before the squelch opens
 
---- A burst of radio: the squelch opening, a voice chewed up past knowing
---- (buzzy syllables pushed through a narrow, overdriven band, a hiss under
---- it) and the two-note chirp of the key coming up.
+--- A burst of radio: a soft peep, the squelch opening, a deep voice
+--- chewed up past knowing (low buzzy syllables pushed through a narrow,
+--- overdriven band, a hiss under it) and the two-note chirp of the key
+--- coming up. The voice is roughed up in a buffer of its own so the
+--- overdrive leaves the peep as quiet as it is.
 local function burst(talk)
-  local buf = Synth.newBuffer(talk + 0.45)
+  local length = PEEP + talk + 0.45
+  local voice = Synth.newBuffer(length)
   local rnd = Synth.noise
-  buf:noiseBurst(0, 0.05, { amp = 0.5, decay = 0.02 })
-  buf:tone(0, 0.05, 1500, { wave = "sine", amp = 0.25, attack = 0.002, decay = 0.03, sustain = 0 })
-  buf:noiseBurst(0.05, talk + 0.1, { amp = 0.05, decay = 99 })
-  local t = 0.1
-  while t < talk do
-    local d = 0.06 + (rnd() + 1) * 0.05
-    local f = 115 + (rnd() + 1) * 40
-    buf:sweep(t, d, f, f * (0.8 + (rnd() + 1) * 0.2), { wave = "saw", amp = 0.6, decay = d * 1.5 })
-    buf:sweep(t, d, f * 2.02, f * 1.8, { wave = "square", amp = 0.15, decay = d })
-    t = t + d + (rnd() > 0.55 and 0.08 or 0.015)
+  local t = PEEP + 0.1
+  while t < PEEP + talk do
+    local d = 0.07 + (rnd() + 1) * 0.055
+    local f = 68 + (rnd() + 1) * 18
+    voice:sweep(t, d, f, f * (0.82 + (rnd() + 1) * 0.12), { wave = "saw", amp = 0.6, decay = d * 1.5 })
+    voice:sweep(t, d, f * 2.01, f * 1.85, { wave = "square", amp = 0.12, decay = d })
+    t = t + d + (rnd() > 0.55 and 0.09 or 0.02)
   end
-  buf:highpass(450)
-  buf:lowpass(2600)
-  buf:drive(5)
-  local off = talk + 0.15
-  buf:tone(off, 0.05, 1250, { wave = "sine", amp = 0.3, attack = 0.002, decay = 0.05, sustain = 0.8 })
-  buf:tone(off + 0.06, 0.07, 1650, { wave = "sine", amp = 0.3, attack = 0.002, decay = 0.05, sustain = 0.8 })
-  buf:noiseBurst(off + 0.13, 0.06, { amp = 0.35, decay = 0.02 })
+  voice:noiseBurst(PEEP + 0.05, talk + 0.1, { amp = 0.04, decay = 99 })
+  voice:highpass(220)
+  voice:lowpass(1700)
+  voice:drive(4)
+
+  local buf = Synth.newBuffer(length)
+  buf:tone(0, 0.07, 1900, { wave = "sine", amp = 0.06, attack = 0.005, decay = 0.05, sustain = 0.6 })
+  buf:noiseBurst(PEEP, 0.05, { amp = 0.3, decay = 0.02 })
+  voice:mixInto(buf, 0.7)
+  local off = PEEP + talk + 0.15
+  buf:tone(off, 0.05, 1100, { wave = "sine", amp = 0.18, attack = 0.002, decay = 0.05, sustain = 0.8 })
+  buf:tone(off + 0.06, 0.07, 1450, { wave = "sine", amp = 0.18, attack = 0.002, decay = 0.05, sustain = 0.8 })
+  buf:noiseBurst(off + 0.13, 0.06, { amp = 0.25, decay = 0.02 })
   local source = love.audio.newSource(buf:toSoundData(0.8), "static")
-  source:setAttenuationDistances(Radio.refDistance, Radio.maxDistance)
+  source:setRelative(true) -- faded by hand (Radio.play): the game's distance model never quite lets go
   return source
 end
 
@@ -96,13 +103,22 @@ function Radio.load()
     bursts[i] = burst(talk)
   end
   Audio.registerChannel("combine", "Combine soldiers' radio", Radio.volume, function()
-    Radio.play("Overwatch, patrol on route.", 0, 0, false)
+    local lx, _, ly = love.audio.getPosition()
+    Radio.play("Overwatch, patrol on route.", lx, ly, false)
   end)
 end
 
 --- `text` over the radio at (x, y): a burst about as long as the line,
---- higher and quicker when he is shouting.
+--- higher and quicker when he is shouting, fading out with distance from
+--- the listener and panned a little towards his side.
 function Radio.play(text, x, y, shouting)
+  local lx, _, ly = love.audio.getPosition()
+  local d = math.sqrt((x - lx) ^ 2 + (y - ly) ^ 2)
+  local fade = 1 - (d - Radio.nearDistance) / (Radio.farDistance - Radio.nearDistance)
+  fade = math.min(1, fade)
+  if fade <= 0 then
+    return
+  end
   local i = 1
   while i < #bursts and LENGTHS[i] < #text / 22 do
     i = i + 1
@@ -112,9 +128,9 @@ function Radio.play(text, x, y, shouting)
     return
   end
   local s = base:clone()
-  s:setPosition(x, 0, y)
-  s:setPitch((shouting and 1.18 or 1) * (0.94 + love.math.random() * 0.12))
-  s:setVolume(Audio.volume("combine"))
+  s:setPosition(math.max(-1, math.min(1, (x - lx) / Radio.farDistance)), 0, 0)
+  s:setPitch((shouting and 1.12 or 1) * (0.95 + love.math.random() * 0.1))
+  s:setVolume(Audio.volume("combine") * fade)
   s:play()
 end
 
