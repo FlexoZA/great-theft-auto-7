@@ -108,6 +108,18 @@ Quests.list = {
     banner = "%s went after Shotgun. Welcome to Shotgun's Bluff.",
   },
   {
+    id = "a-man",
+    title = "The man with the moustache",
+    text = "A man in a suit, round glasses and a very new moustache has been seen getting off a train in "
+      .. "City 17. Nobody recognises him. Take the train in, get through the city and find out where he is going.",
+    board = true,
+    map = "city17",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "%s took the train. Welcome to City 17.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -153,6 +165,19 @@ Quests.list = {
     onMap = "cliff",
     x = 1238, -- just past the parked cars
     y = 1472, -- city-map puts the bluff's way in (map.cx, map.cy) here
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-city17",
+    title = "Back to the City",
+    text = "Back on the train. Take everyone home.",
+    onMap = "city17",
+    x = -1216, -- the left end of the platform: city-map's map.cx, map.cy
+    y = 1952,
     map = "city",
     returns = true,
     label = "HOME",

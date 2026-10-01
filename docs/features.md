@@ -796,7 +796,17 @@ the one with a plot.
   `map.plateau`, `map.meadow`, `map.ramp`, `map.perches` (spots on the
   plateau for a sniper; `edge` ones overlook the meadow), `map.clumps` and
   `map.cover` (dry-stone walls, boulders, and the cliff itself, marked
-  `ledge = true`: solid to walkers and to rounds))
+  `ledge = true`: solid to walkers and to rounds); `kind = "city17"` is
+  City 17, walked from the train at the bottom to the Citadel at the top,
+  with `map.zones` (platform, station, plaza, old town, wall, canal,
+  citadel: each a `y0`..`y1`), `map.citadel` ({ x, y, r }),
+  `map.citadelX, citadelY` (in front of its doors), `map.bridges`,
+  `map.screen`, `map.lanes` and `map.cover` (Combine walls, barriers,
+  planters, the station wings, the train, the canal's water, the Citadel,
+  the screen and rubble; rubble and the screen are drawn but not solid).
+  Anything in `map.cover` with a `mapColor` is drawn on the minimap in it,
+  round with `round = true`, and the minimap draws "walk", "road" and
+  "water" tiles as well as "ground")
   and `city.current` is
   the one in play; every game starts on `city.DEFAULT`. `city:switchTo(name,
   server)` moves the game to another one: on the host pass the server and
@@ -861,6 +871,13 @@ the one with a plot.
   leave from past the lip, so the cliff never stops them. Down, he drops
   the chicken as a pickup; he raises `serverKill` with kind "boss". Tuning
   is at the top of `boss.lua` and `init.lua`.
+- A-Man's quest: `src/features/a-man` (the boss feature) and quests'
+  "a-man" job ("The man with the moustache", on the board) take everyone
+  to City 17 (city-map's `city17`), arriving on the platform, with a HOME
+  star at its left end ("home-city17"). His intro screen
+  (`a-man/screen.lua`) comes up on arrival for 9 s or until a key. The
+  quest is planned as several levels ending with A-Man himself; City 17 is
+  the first and has nobody in it yet.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

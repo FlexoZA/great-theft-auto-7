@@ -62,6 +62,7 @@ local C = {
   ground = { 0.30, 0.40, 0.24 },
   lot = { 0.22, 0.22, 0.24 },
   plot = { 0.45, 0.37, 0.27 },
+  water = { 0.14, 0.26, 0.30 },
   frame = { 0.85, 0.85, 0.85 },
   outside = { 0.08, 0.08, 0.09 },
 }
@@ -83,12 +84,15 @@ local function buildCanvas(map, width, smooth)
   love.graphics.clear(C.outside[1], C.outside[2], C.outside[3], 1)
   love.graphics.scale(s)
   love.graphics.translate(-map.left, -map.top)
-  -- Open ground, tile by tile (an empty map has no blocks to draw).
-  love.graphics.setColor(C.ground)
+  -- Every tile in its colour (an empty map has no blocks to draw; a map
+  -- drawn its own way, like City 17, has paving, roads and water too).
+  local tileColor = { ground = C.ground, walk = C.walk, road = C.asphalt, water = C.water }
   for tc = map.c0, map.c1 do
     local col = map.tiles[tc]
     for tr = map.r0, map.r1 do
-      if col and col[tr] == "ground" then
+      local kind = col and tileColor[col[tr]]
+      if kind then
+        love.graphics.setColor(kind)
         love.graphics.rectangle("fill", map.x0 + tc * T, map.y0 + tr * T, T, T)
       end
     end
@@ -142,6 +146,18 @@ local function buildCanvas(map, width, smooth)
       love.graphics.setLineWidth(8)
       love.graphics.rectangle("line", b.x + 4, b.y + 4, b.w - 8, b.h - 8)
       love.graphics.setLineWidth(1)
+    end
+  end
+  -- Whatever else the map marks for the minimap: anything in `map.cover`
+  -- with a `mapColor`, round if it says so.
+  for _, o in ipairs(map.cover or {}) do
+    if o.mapColor then
+      love.graphics.setColor(o.mapColor)
+      if o.round then
+        love.graphics.circle("fill", o.x + o.w / 2, o.y + o.h / 2, o.w / 2, 32)
+      else
+        love.graphics.rectangle("fill", o.x, o.y, o.w, o.h)
+      end
     end
   end
   love.graphics.setCanvas()
