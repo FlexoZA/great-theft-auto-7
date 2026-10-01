@@ -6,6 +6,11 @@
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
 -- fire with a rifle. Cover breaks his sight; two pistol rounds drop him.
+-- Squads of three walk beats between them (the map's `patrols`): through
+-- the old town, round the plaza and the Citadel's square. They talk over
+-- the radio (radio.lua): guards at a checkpoint and squads on their beat
+-- now and then, a mate answering; whoever spots somebody shouts it, and
+-- one near a soldier who goes down calls it in.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
@@ -14,6 +19,7 @@
 -- Messages
 --   server -> all  C17_TROOPS <tick> [<id> <x> <y> <facing> <hp> <alert>]...   (unreliable, 15 Hz)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
+--   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -21,6 +27,7 @@ local Body = require("src.body")
 local UI = require("src.ui")
 local Troops = require("src.features.d-day.troops")
 local Sight = require("src.features.d-day.sight")
+local Radio = require("src.features.a-man.radio")
 
 local Level = {}
 
@@ -28,6 +35,11 @@ local Level = {}
 Level.questId = "a-man" -- the quest this level belongs to (quests' `boss`)
 Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
+Level.squadSize = 3 -- soldiers in a patrol
+Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
+Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
+Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
+Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -52,7 +64,13 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { troops, syncIn, reached }
+local sv = nil -- { troops, syncIn, reached, time, groups, pending }
+
+local random = love.math.random
+
+local function between(range)
+  return range[1] + random() * (range[2] - range[1])
+end
 
 --- Everyone arrived: a soldier on every post.
 function Level.serverQuestStarted(_server, quest)
@@ -60,9 +78,22 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(), syncIn = 0, reached = false }
+  sv = { troops = Troops.new(), syncIn = 0, reached = false, time = 0, groups = {}, pending = {} }
+  -- Who chats together: the guards at one checkpoint, or one squad.
+  local posts = {}
   for _, p in ipairs(map.posts) do
-    sv.troops:add("guard", p.x, p.y, p.watch)
+    local g = posts[p.at]
+    if not g then
+      g = { kind = "post", members = {}, chatIn = between(Level.chatEvery) * random() }
+      posts[p.at] = g
+      sv.groups[#sv.groups + 1] = g
+    end
+    g.members[#g.members + 1] = sv.troops:add("guard", p.x, p.y, p.watch)
+  end
+  for _, route in ipairs(map.patrols or {}) do
+    local squad = sv.troops:addSquad(route, Level.squadSize)
+    local chatIn = between(Level.chatEvery) * random()
+    sv.groups[#sv.groups + 1] = { kind = "patrol", members = squad.members, chatIn = chatIn }
   end
 end
 
@@ -120,11 +151,95 @@ local function checkReached(server)
   end
 end
 
+-- Talk ----------------------------------------------------------------------
+
+--- `s` says a line out of `category`, on every screen.
+local function say(server, s, category)
+  local lines = Radio.lines[category]
+  server:broadcast(Protocol.encode("C17_SAY", s.id, category, random(#lines)))
+end
+
+--- `s` says something out of `category` in `after` seconds, if he is still up.
+local function later(s, category, after)
+  sv.pending[#sv.pending + 1] = { s = s, category = category, t = after }
+end
+
+local function alive(s)
+  return s.hp > 0
+end
+
+--- Somebody in `g` still up other than `s`, at random.
+local function mate(g, s)
+  local others = {}
+  for _, m in ipairs(g.members) do
+    if m ~= s and alive(m) then
+      others[#others + 1] = m
+    end
+  end
+  return others[1] and others[random(#others)] or nil
+end
+
+--- The idle chatter, the shouts and the replies.
+local function talk(server, dt)
+  sv.time = sv.time + dt
+  for _, s in ipairs(sv.troops.list) do
+    if s.alert and not s.wasAlert and (s.quietUntil or 0) <= sv.time then
+      s.quietUntil = sv.time + Level.shoutEvery
+      say(server, s, "alert")
+    end
+    s.wasAlert = s.alert
+  end
+  for _, g in ipairs(sv.groups) do
+    g.chatIn = g.chatIn - dt
+    if g.chatIn <= 0 then
+      g.chatIn = between(Level.chatEvery)
+      local busy = false
+      for _, m in ipairs(g.members) do
+        busy = busy or (alive(m) and m.alert)
+      end
+      -- A squad's leader is the first of them; at a checkpoint, anyone.
+      local speaker = g.kind == "patrol" and g.members[1] or mate(g, nil)
+      if speaker and not busy then
+        say(server, speaker, g.kind)
+        local other = mate(g, speaker)
+        if other then
+          later(other, "reply", between(Level.replyAfter))
+        end
+      end
+    end
+  end
+  for i = #sv.pending, 1, -1 do
+    local p = sv.pending[i]
+    p.t = p.t - dt
+    if p.t <= 0 then
+      table.remove(sv.pending, i)
+      if alive(p.s) then
+        say(server, p.s, p.category)
+      end
+    end
+  end
+end
+
+--- The nearest soldier still up to `down` calls it in.
+local function callDown(down)
+  local best, bestD2 = nil, Level.downHeard ^ 2
+  for _, s in ipairs(sv.troops.list) do
+    local d2 = (s.x - down.x) ^ 2 + (s.y - down.y) ^ 2
+    if s ~= down and d2 < bestD2 then
+      best, bestD2 = s, d2
+    end
+  end
+  if best then
+    later(best, "down", 0.5)
+  end
+end
+
 function Level.serverStep(server, dt)
   if not sv then
     return
   end
   sv.troops:update(server, dt)
+  talk(server, dt)
   checkReached(server)
   sync(server)
 end
@@ -132,6 +247,7 @@ end
 --- One soldier down: gibs on every screen, a few koins, maybe a pickup.
 local function soldierDown(server, s, by, angle)
   server:broadcast(Protocol.encode("C17_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
+  callDown(s)
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, s.x, s.y, Level.soldierDrops)
@@ -178,7 +294,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local troops = {} -- id -> { x, y, dx, dy, angle, hp, alert, bob }
+local troops = {} -- id -> { x, y, dx, dy, angle, hp, alert, bob, stride, say, sayT, shout }
 local lastTick = 0
 local time = 0
 
@@ -195,6 +311,13 @@ function Level.update(dt)
       s.dx, s.dy = s.x, s.y
     else
       s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
+      s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
+    end
+    if s.say then
+      s.sayT = s.sayT - dt
+      if s.sayT <= 0 then
+        s.say = nil
+      end
     end
   end
 end
@@ -211,7 +334,7 @@ end
 --- a bar under him once he is hurt.
 local function drawSoldier(s)
   local x, y, r = s.dx, s.dy, Body.SHOULDERS
-  Body.person(x, y, s.angle, 0, LOOK)
+  Body.person(x, y, s.angle, math.sin(s.stride * 0.18) * 1.2, LOOK)
   love.graphics.push()
   love.graphics.translate(x, y)
   love.graphics.rotate(s.angle)
@@ -241,6 +364,13 @@ function Level.drawAboveCars()
   for _, s in pairs(troops) do
     drawSoldier(s)
   end
+  -- What they say, over all of them.
+  for _, s in pairs(troops) do
+    if s.say then
+      local lift = s.alert and 34 or 8
+      Radio.drawBubble(s.dx, s.dy - Body.SHOULDERS - lift, s.say, math.min(1, s.sayT * 2), s.shout)
+    end
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -257,7 +387,7 @@ Level.clientMessages = {
       if id and x and y then
         local s = troops[id]
         if not s then
-          s = { dx = x, dy = y, bob = love.math.random() * 6 }
+          s = { dx = x, dy = y, bob = love.math.random() * 6, stride = 0 }
           troops[id] = s
         end
         s.x, s.y = x, y
@@ -271,6 +401,16 @@ Level.clientMessages = {
       if not seen[id] then
         troops[id] = nil
       end
+    end
+  end,
+  C17_SAY = function(_client, args)
+    local s = troops[tonumber(args[1])]
+    local lines = Radio.lines[args[2]]
+    local text = lines and lines[tonumber(args[3])]
+    if s and text then
+      s.say, s.sayT = text, Radio.sayTime(text)
+      s.shout = args[2] == "alert" or args[2] == "down"
+      Radio.play(text, s.x, s.y, s.shout)
     end
   end,
   C17_DOWN = function(_client, args)

@@ -7,7 +7,14 @@
 --   rifleman  comes out of a barracks door and walks down the map towards
 --             the nearest player, looking where he is going.
 --
--- Either one that gets someone in his cone turns to follow them and, after
+-- City 17 (a-man/city17.lua) adds a third:
+--
+--   patrol    one of a squad walking a beat round and round: the first of
+--             them leads from corner to corner, the rest keep a step
+--             behind him either side. When one of them has somebody the
+--             squad stops and the others turn to look the same way.
+--
+-- Any one that gets someone in his cone turns to follow them and, after
 -- a moment to take aim, opens fire, and keeps firing for as long as he can
 -- see them. Duck behind a hedgehog or a sandbag wall, or get out of his
 -- cone faster than he can turn, and he stops; a guard goes back to his
@@ -40,6 +47,8 @@ Troops.MUZZLE = 23 -- px from the body a round leaves: the tip of the rifle in h
 Troops.LOOK_EVERY = 3 -- host ticks between sight checks (staggered by soldier)
 Troops.WALK = 62 -- px/s a rifleman walks down the hill
 Troops.SCAN = math.rad(20) -- a walking rifleman looks this far either side of his path
+Troops.PATROL_WALK = 48 -- px/s a squad walks its beat
+Troops.FORMATION = { { 0, 0 }, { -38, -30 }, { -38, 30 }, { -76, 0 } } -- slots behind the leader, his frame
 
 local random = love.math.random
 
@@ -97,6 +106,25 @@ end
 function Troops:reinforce(map)
   local door = map.doors[random(#map.doors)]
   return self:add("rifleman", door.x + (random() - 0.5) * 30, door.y, math.pi / 2)
+end
+
+--- A squad of `size` walking `route` (a loop of { x, y }), starting at a
+--- corner picked at random, heading for the next.
+function Troops:addSquad(route, size)
+  local leg = random(#route)
+  local from = route[leg]
+  leg = leg % #route + 1
+  local squad = { route = route, leg = leg, members = {} }
+  local to = route[leg]
+  local heading = math.atan2(to.y - from.y, to.x - from.x)
+  for i = 1, size do
+    local slot = Troops.FORMATION[(i - 1) % #Troops.FORMATION + 1]
+    local c, sn = math.cos(heading), math.sin(heading)
+    local s = self:add("patrol", from.x + slot[1] * c - slot[2] * sn, from.y + slot[1] * sn + slot[2] * c, heading)
+    s.squad = squad
+    squad.members[i] = s
+  end
+  return squad
 end
 
 function Troops:count(kind)
@@ -282,12 +310,15 @@ function Troops:think(server, s, dt)
   s.alert = s.target ~= nil
 
   if tx then
+    s.aimX, s.aimY = tx, ty
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Troops.TURN, dt)
     s.fireIn = s.fireIn - dt
     if s.fireIn <= 0 then
       s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
       fire(server, s, tx, ty)
     end
+  elseif s.kind == "patrol" then
+    self:patrol(s, dt)
   elseif s.kind == "guard" then
     local sweep = s.watch + Troops.SWEEP * math.sin(2 * math.pi * self.time / Troops.SWEEP_TIME + s.phase)
     s.facing = turn(s.facing, sweep, Troops.TURN, dt)
@@ -300,6 +331,51 @@ function Troops:think(server, s, dt)
       s.facing = turn(s.facing, look, Troops.TURN * 1.5, dt)
     end
   end
+end
+
+--- A squad member's tick when he has nobody himself: hold still and look
+--- where a mate is shooting, or walk the beat (the leader) or his slot.
+function Troops:patrol(s, dt)
+  local squad = s.squad
+  for _, m in ipairs(squad.members) do
+    if m.alert and m ~= s then
+      s.facing = turn(s.facing, math.atan2(m.aimY - s.y, m.aimX - s.x), Troops.TURN, dt)
+      return
+    end
+  end
+  local leader = squad.members[1]
+  local gx, gy, speed
+  if leader == s then
+    local to = squad.route[squad.leg]
+    if dist2(s.x, s.y, to.x, to.y) < 24 * 24 then
+      squad.leg = squad.leg % #squad.route + 1
+      to = squad.route[squad.leg]
+    end
+    gx, gy, speed = to.x, to.y, Troops.PATROL_WALK
+  else
+    local slot = Troops.FORMATION[1]
+    for i, m in ipairs(squad.members) do
+      if m == s then
+        slot = Troops.FORMATION[(i - 1) % #Troops.FORMATION + 1]
+      end
+    end
+    local heading = leader.heading or leader.facing -- where he walks, not where he glances
+    local c, sn = math.cos(heading), math.sin(heading)
+    gx, gy = leader.x + slot[1] * c - slot[2] * sn, leader.y + slot[1] * sn + slot[2] * c
+    local d = math.sqrt(dist2(s.x, s.y, gx, gy))
+    if d < 6 then
+      s.facing = turn(s.facing, heading, Troops.TURN, dt)
+      return
+    end
+    speed = Troops.PATROL_WALK * math.min(1.6, 0.6 + d / 60) -- catch up when behind, ease in when there
+  end
+  local path = math.atan2(gy - s.y, gx - s.x)
+  if leader == s then
+    s.heading = path
+  end
+  advance(s, path, speed, dt)
+  local look = path + Troops.SCAN * math.sin(self.time * 1.3 + s.phase)
+  s.facing = turn(s.facing, look, Troops.TURN, dt)
 end
 
 -- Being shot at -------------------------------------------------------------
@@ -322,6 +398,14 @@ function Troops:hurt(s, i, amount, angle)
   s.hp = s.hp - amount
   if s.hp <= 0 then
     table.remove(self.list, i)
+    if s.squad then -- the next one leads
+      for k, m in ipairs(s.squad.members) do
+        if m == s then
+          table.remove(s.squad.members, k)
+          break
+        end
+      end
+    end
     return true
   end
   if angle and not s.target then

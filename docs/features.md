@@ -801,7 +801,8 @@ the one with a plot.
   with `map.zones` (platform, station, plaza, old town, wall, canal,
   citadel: each a `y0`..`y1`), `map.citadel` ({ x, y, r }),
   `map.citadelX, citadelY` (in front of its doors), `map.bridges`,
-  `map.screen`, `map.lanes` and `map.cover` (Combine walls, barriers,
+  `map.screen`, `map.lanes`, `map.patrols` (beats for squads, each a loop
+  of { x, y } corners kept clear of loose cover) and `map.cover` (Combine walls, barriers,
   planters, the station wings, the train, the canal's water, the Citadel,
   the screen and rubble; rubble and the screen are drawn but not solid).
   Anything in `map.cover` with a `mapColor` is drawn on the minimap in it,
@@ -887,7 +888,14 @@ the one with a plot.
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
   star its own words). For now it leads home; it will lead to the next
-  level. Messages: `C17_TROOPS` and `C17_DOWN` down.
+  level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
+  `Troops:addSquad`: the first leads, the rest keep formation, and the
+  squad stops and turns when one of them has somebody). They talk over the
+  radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
+  "combine" sound channel and a bubble): a checkpoint's guards or a squad
+  now and then with a mate answering, a shout on spotting somebody, and a
+  call when a soldier nearby goes down. Messages: `C17_TROOPS`, `C17_DOWN`
+  and `C17_SAY` down.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

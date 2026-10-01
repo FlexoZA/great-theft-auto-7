@@ -14,6 +14,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- City 17: squads of three Combine soldiers now patrol the old town's
+  roads, the plaza and the Citadel's square, keeping formation; when one
+  of them spots you the whole squad stops and turns your way.
+- City 17's Combine soldiers talk over their radios, standing at their
+  checkpoints or out on patrol: a crackle of radio and what they said over
+  their heads, a mate answering. They shout when they spot you and call it
+  in when one of them goes down. Their volume has its own slider in the
+  sound settings ("Combine soldiers' radio").
+
 ## [0.2.0] - 2026-10-01
 
 A-Man arrives: a new city event with his own boss fight and theme, and

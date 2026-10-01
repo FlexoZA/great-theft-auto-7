@@ -10,7 +10,8 @@
 --   event.lua    the boss: the host's side and every client's
 --   face.lua     his portrait, beside his boss bar and on his intro screen
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
---   city17.lua   the quest's first level: Combine soldiers on the checkpoints
+--   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
+--   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   theme.lua    his music, while he is loose
 --   turrets.lua  the sentry turrets out of his briefcase
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
@@ -20,6 +21,7 @@ local Event = require("src.features.a-man.event")
 local Face = require("src.features.a-man.face")
 local Screen = require("src.features.a-man.screen")
 local City17 = require("src.features.a-man.city17")
+local Radio = require("src.features.a-man.radio")
 
 local AMan = {
   name = "a-man",
@@ -36,6 +38,7 @@ local time = 0
 
 function AMan:load()
   Sounds.load()
+  Radio.load()
 end
 
 function AMan:exitGame()
