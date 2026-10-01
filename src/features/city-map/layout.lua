@@ -19,7 +19,9 @@
 -- hill: surf, sand with tank stoppers, bunkers and trenches, barracks and a
 -- flag on the hilltop (see `buildBeach`). `kind = "cliff"` is low meadow
 -- under a long cliff, a plateau on top, and one way up at the far left
--- (see `buildCliff`).
+-- (see `buildCliff`). `kind = "city17"` is City 17, a grey occupied city
+-- walked from a station at the bottom to the Citadel at the top (see
+-- `buildCity17`).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -715,6 +717,290 @@ local function buildCliff(map, rng)
   end
 end
 
+-- City 17's grim roofs: concrete, tar, rust and faded ochre.
+local GRIM = {
+  { 0.42, 0.42, 0.40 },
+  { 0.30, 0.31, 0.33 },
+  { 0.48, 0.40, 0.30 },
+  { 0.38, 0.30, 0.26 },
+  { 0.52, 0.48, 0.38 },
+  { 0.34, 0.37, 0.36 },
+}
+
+--- City 17, the first stop of A-Man's quest: a grey city under occupation,
+--- walked from the bottom to the top. Rows, south to north:
+---   the train everyone came in on, along the bottom edge (solid);
+---   the platform, where everyone arrives (`map.cx, map.cy` is the way
+---     home, at its left end);
+---   the station: two solid wings and the concourse between them, with a
+---     checkpoint of barriers to weave through;
+---   the plaza, wide open paving with planters and barriers for cover, and
+---     a giant screen on the building at its top left;
+---   the old town, blocks of flats either side of an avenue that runs up
+---     the middle, a cross street half way;
+---   the wall, right across the map, a gate where the avenue meets it;
+---   the canal, water nobody crosses but at its two bridges;
+---   the Citadel's square, ruins and wall sections round the foot of the
+---     Citadel itself, its doors (`map.citadelX, map.citadelY`) facing south.
+--- Tiles are "walk" (paving), "road", "ground" (the train's ballast) and
+--- "water". Buildings are ordinary ones in grim colours; everything else
+--- the canvas draws is `map.cover` ({ kind = "combine" | "barrier" |
+--- "planter" | "station" | "train" | "screen" | "water" | "citadel" |
+--- "rubble", x, y, w, h }); rubble is drawn but not solid. `map.zones`
+--- names the world y range of each part ({ name, y0, y1 }). `map.posts` are
+--- where guards stand at the checkpoints ({ x, y, watch, at }: `watch` the
+--- way they look, `at` which checkpoint).
+local function buildCity17(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  local function X(c)
+    return map.x0 + c * T
+  end
+  local function Y(r)
+    return map.y0 + r * T
+  end
+  local function fill(c0, r0, c1, r1, kind)
+    for c = math.max(0, c0), math.min(cols - 1, c1) do
+      map.tiles[c] = map.tiles[c] or {}
+      for r = math.max(0, r0), math.min(rows - 1, r1) do
+        map.tiles[c][r] = kind
+      end
+    end
+  end
+  map.cover, map.zones = {}, {}
+  local placed = {} -- { x, y, r }: loose cover so far, to keep a way between
+  local function free(x, y, r, gap)
+    for _, p in ipairs(placed) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < (p.r + r + gap) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+  -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
+  local MAP = {
+    combine = { 0.25, 0.55, 0.70 }, station = { 0.33, 0.32, 0.30 }, train = { 0.30, 0.38, 0.42 },
+    barrier = { 0.62, 0.60, 0.55 }, planter = { 0.25, 0.40, 0.22 }, citadel = { 0.10, 0.12, 0.15 },
+    rubble = { 0.36, 0.34, 0.31 }, screen = { 0.70, 0.90, 0.95 },
+  }
+  --- Something the canvas draws; solid unless `extra.decor`.
+  local function cover(kind, x, y, w, h, extra)
+    local s = { kind = kind, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h),
+      mapColor = MAP[kind] }
+    for k, v in pairs(extra or {}) do
+      s[k] = v
+    end
+    map.cover[#map.cover + 1] = s
+    if not s.decor then
+      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+    end
+    if math.max(w, h) < 400 then -- loose things keep their distance; the big set pieces are placed by hand
+      placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }
+    end
+    return s
+  end
+  local function building(tx, ty, tw, th, extra)
+    local b = {
+      x = X(tx), y = Y(ty), w = tw * T, h = th * T,
+      color = GRIM[rng:random(#GRIM)], style = rng:random(3), seed = rng:random(1000),
+    }
+    for k, v in pairs(extra or {}) do
+      b[k] = v
+    end
+    map.buildings[#map.buildings + 1] = b
+    map.solids[#map.solids + 1] = { x = b.x, y = b.y, w = b.w, h = b.h }
+    return b
+  end
+  local function zone(name, r0, r1)
+    map.zones[#map.zones + 1] = { name = name, y0 = Y(r0), y1 = Y(r1 + 1) }
+  end
+  --- A barrier (concrete) or a planter with a tree at (x, y), one way or the other.
+  local function loose(x, y)
+    if rng:random() < 0.4 then
+      cover("planter", x - 40, y - 40, 80, 80)
+      map.trees[#map.trees + 1] = { x = x, y = y, r = 26 }
+    else
+      local len = 110 + rng:random() * 70
+      if rng:random() < 0.6 then
+        cover("barrier", x - len / 2, y - 14, len, 28)
+      else
+        cover("barrier", x - 14, y - len / 2, 28, len)
+      end
+    end
+  end
+
+  fill(0, 0, cols - 1, rows - 1, "walk")
+  local avenue0, avenue1 = 22, 25 -- the avenue up the middle, and the gate in the wall
+
+  -- The train and the platform.
+  zone("platform", rows - 10, rows - 5)
+  fill(0, rows - 4, cols - 1, rows - 1, "ground")
+  cover("train", X(0), Y(rows - 4) + 10, cols * T, 3 * T - 10)
+  map.cx, map.cy = math.floor(X(5)), math.floor(Y(rows - 7.5))
+  for i = 0, 15 do
+    map.spawns[#map.spawns + 1] = { x = X(10 + (i % 8) * 3.6), y = Y(rows - 8 + math.floor(i / 8) * 1.4),
+      angle = -math.pi / 2 }
+  end
+
+  -- The station: the wings, and a checkpoint in the concourse between them.
+  local s0, s1 = rows - 16, rows - 11
+  zone("station", s0, s1)
+  cover("station", X(0), Y(s0), (avenue0 - 2) * T, (s1 - s0 + 1) * T, { side = -1 })
+  cover("station", X(avenue1 + 3), Y(s0), (cols - avenue1 - 3) * T, (s1 - s0 + 1) * T, { side = 1 })
+  local cl, cr = X(avenue0 - 2), X(avenue1 + 3) -- the concourse's walls
+  cover("barrier", cl, Y(s0 + 1.5), (cr - cl) * 0.62, 28)
+  cover("barrier", cr - (cr - cl) * 0.62, Y(s0 + 3.6), (cr - cl) * 0.62, 28)
+  cover("combine", cl, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
+  cover("combine", cr - 26, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
+  local SOUTH = math.pi / 2
+  map.posts = { -- where the guards stand at each checkpoint ({ x, y, watch, at }), all looking south
+    { x = cr - 60, y = Y(s0) + 30, watch = SOUTH, at = "station" }, -- over the way out
+    { x = cl + 50, y = Y(s0 + 2.6), watch = 0.25, at = "station" }, -- down the lane between the barriers
+  }
+
+  -- The old town and the screen.
+  local o0, o1 = 30, rows - 31 -- rows of the old town
+  local p0, p1 = o1 + 1, s0 - 1 -- rows of the plaza
+  zone("plaza", p0, p1)
+  zone("old town", o0, o1)
+  local cross0 = math.floor((o0 + o1) / 2) -- the cross street, two rows
+  fill(avenue0, o0, avenue1, o1, "road")
+  fill(0, cross0, cols - 1, cross0 + 1, "road")
+  fill(6, o0, 7, o1, "road")
+  fill(cols - 8, o0, cols - 7, o1, "road")
+  map.lanes = { -- the middle of each road, for its painted line
+    { X(avenue0 + 2), Y(o0), X(avenue0 + 2), Y(o1 + 1) },
+    { X(0), Y(cross0 + 1), X(cols), Y(cross0 + 1) },
+    { X(7), Y(o0), X(7), Y(o1 + 1) },
+    { X(cols - 7), Y(o0), X(cols - 7), Y(o1 + 1) },
+  }
+  local xs = { { 0, 5 }, { 8, avenue0 - 1 }, { avenue1 + 1, cols - 9 }, { cols - 6, cols - 1 } }
+  local ys = { { o0, cross0 - 1 }, { cross0 + 2, o1 } }
+  for j, yr in ipairs(ys) do
+    for i, xr in ipairs(xs) do
+      -- A pavement where the block meets a road; the core is built on.
+      local c0 = xr[1] + (i > 1 and 1 or 0)
+      local c1 = xr[2] - (i < #xs and 1 or 0)
+      local r0 = yr[1] + (j > 1 and 1 or 0)
+      local r1 = yr[2] - 1
+      if j == 2 and i == 2 then
+        -- The screen: one big block looking down the plaza, the screen on its front.
+        local b = building(c0, r0, c1 - c0 + 1, r1 - r0 + 1, { screen = true })
+        map.screen = { x = b.x + b.w * 0.12, y = b.y + b.h - 44, w = b.w * 0.76, h = 40 }
+        cover("screen", map.screen.x, map.screen.y, map.screen.w, map.screen.h + 40, { decor = true })
+      else
+        local rects = {}
+        splitCore(rng, c0, r0, c1 - c0 + 1, r1 - r0 + 1, rects)
+        for _, rc in ipairs(rects) do
+          -- Next to the wall the flats are coming down: rubble, not roofs.
+          if j == 1 and rc.ty <= o0 and rng:random() < 0.4 then
+            cover("rubble", X(rc.tx), Y(rc.ty), rc.tw * T, rc.th * T, { decor = true, seed = rng:random(1000) })
+          else
+            building(rc.tx, rc.ty, rc.tw, rc.th)
+          end
+        end
+      end
+    end
+  end
+
+  map.posts[#map.posts + 1] = { x = X(avenue0) - 50, y = Y(p0) + 50, watch = SOUTH + 0.4, at = "plaza" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) + 50, y = Y(p0) + 50, watch = SOUTH - 0.4, at = "plaza" }
+  for _, p in ipairs(map.posts) do
+    placed[#placed + 1] = { x = p.x, y = p.y, r = 50 } -- nothing loose lands on a guard
+  end
+
+  -- The plaza: loose cover, the middle kept open up to the avenue.
+  placed[#placed + 1] = { x = X((avenue0 + avenue1 + 1) / 2), y = Y((p0 + p1) / 2), r = 150 }
+  local got = 0
+  for _ = 1, 400 do
+    if got >= 30 then
+      break
+    end
+    local x = X(2) + rng:random() * (cols - 4) * T
+    local y = Y(p0 + 2) + rng:random() * (p1 - p0 - 3) * T
+    if free(x, y, 50, 90) then
+      loose(x, y)
+      got = got + 1
+    end
+  end
+
+  -- The wall, with its gate on the avenue.
+  local w0 = o0 - 2
+  zone("wall", w0, w0 + 1)
+  cover("combine", X(0), Y(w0), avenue0 * T, 2 * T - 16, { lights = true })
+  cover("combine", X(avenue1 + 1), Y(w0), (cols - avenue1 - 1) * T, 2 * T - 16, { lights = true })
+  cover("barrier", X(avenue0) + 20, Y(w0 + 2.5), 3 * T, 28) -- the checkpoint: in at the right
+  cover("barrier", X(avenue0) + T, Y(w0 + 3.6), 3 * T - 20, 28)
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 3.6 * T, y = Y(w0 + 2) + 10, watch = SOUTH, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 40, y = Y(w0) - 50, watch = SOUTH - 0.2, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) - 40, y = Y(w0) - 50, watch = SOUTH + 0.2, at = "gate" }
+
+  -- The canal and its bridges.
+  local k0, k1 = w0 - 7, w0 - 4 -- water rows
+  zone("canal", k0 - 1, k1 + 1)
+  local bridges = { { 5, 7 }, { cols - 11, cols - 9 } }
+  map.bridges = {}
+  local c = 0
+  for _, b in ipairs(bridges) do
+    fill(c, k0, b[1] - 1, k1, "water")
+    cover("water", X(c), Y(k0), (b[1] - c) * T, (k1 - k0 + 1) * T)
+    map.bridges[#map.bridges + 1] = {
+      x = X(b[1]), y = Y(k0) - 20, w = (b[2] - b[1] + 1) * T, h = (k1 - k0 + 1) * T + 40,
+    }
+    local mid = X(b[1]) + (b[2] - b[1] + 1) * T / 2
+    map.posts[#map.posts + 1] = { x = mid, y = Y(k0) - 70, watch = SOUTH, at = "bridge" }
+    c = b[2] + 1
+  end
+  fill(c, k0, cols - 1, k1, "water")
+  cover("water", X(c), Y(k0), (cols - c) * T, (k1 - k0 + 1) * T)
+
+  -- The Citadel's square: the Citadel, wall sections and ruins round it.
+  zone("citadel", 0, k0 - 2)
+  local cx, cy, R = X(cols / 2), Y(8), 6 * T
+  map.citadel = { x = cx, y = cy, r = R }
+  cover("citadel", cx - R, cy - R, 2 * R, 2 * R, { decor = true, round = true }) -- drawn round; solid a row at a time
+  for r = -6, 5 do
+    local y = cy + r * T
+    local mid = y + T / 2 - cy
+    local half = math.sqrt(math.max(0, R * R - mid * mid))
+    if half > 8 then
+      map.solids[#map.solids + 1] = { x = math.floor(cx - half), y = math.floor(y), w = math.floor(half * 2), h = T }
+    end
+  end
+  map.citadelX, map.citadelY = math.floor(cx), math.floor(cy + R + 50)
+  map.posts[#map.posts + 1] = { x = cx - 130, y = cy + R + 40, watch = SOUTH + 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx + 130, y = cy + R + 40, watch = SOUTH - 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx, y = cy + R + 260, watch = SOUTH, at = "citadel" }
+  for _, p in ipairs(map.posts) do
+    if p.at ~= "station" and p.at ~= "plaza" then
+      placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
+    end
+  end
+  placed[#placed + 1] = { x = cx, y = cy + R + 120, r = 160 } -- in front of the doors stays open
+  got = 0
+  for _ = 1, 300 do
+    if got >= 28 then
+      break
+    end
+    local x = X(2) + rng:random() * (cols - 4) * T
+    local y = Y(1) + rng:random() * (k0 - 4) * T
+    if free(x, y, 70, 110) then
+      if rng:random() < 0.5 then
+        local len = 160 + rng:random() * 160
+        if rng:random() < 0.5 then
+          cover("combine", x - len / 2, y - 16, len, 32)
+        else
+          cover("combine", x - 16, y - len / 2, 32, len)
+        end
+      else
+        local w, h = (2 + rng:random(0, 2)) * T, (2 + rng:random(0, 1)) * T
+        cover("rubble", x - w / 2, y - h / 2, w, h, { decor = true, seed = rng:random(1000) })
+      end
+      got = got + 1
+    end
+  end
+end
+
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
 --- field optional, defaulting to the city above) or just a seed.
 function Layout.generate(spec)
@@ -758,13 +1044,16 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff" then
+  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
+    or map.kind == "city17" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
       buildBeach(map, rng)
     elseif map.kind == "cliff" then
       buildCliff(map, rng)
+    elseif map.kind == "city17" then
+      buildCity17(map, rng)
     else
       buildCuldesac(map, rng)
     end

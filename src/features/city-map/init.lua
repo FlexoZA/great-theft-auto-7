@@ -78,6 +78,14 @@ CityMap.maps = {
     title = "Shotgun's Bluff", kind = "cliff", seed = 73, cols = 44, rows = 58,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- City 17, the first stop on A-Man's trail: off the train, through the
+  -- station and the plaza, up the avenue through the old town, through
+  -- the gate in the wall and over the canal to the Citadel. Walked;
+  -- nobody about.
+  city17 = {
+    title = "City 17", kind = "city17", seed = 17, cols = 48, rows = 76,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 
