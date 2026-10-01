@@ -6,6 +6,7 @@
 -- disguise is a pair of joke-shop glasses with no lenses and the price tag
 -- still on, and a black moustache too big for his lip and a different colour
 -- from his hair, stuck on crooked with a strip of tape that is coming loose.
+-- He never lets go of the briefcase.
 
 local Pixel = require("src.art.pixel")
 
@@ -30,6 +31,11 @@ local C = {
   shirt = { 0.90, 0.90, 0.86 },
   tie = { 0.20, 0.30, 0.42 },
   tieDark = { 0.13, 0.20, 0.30 },
+  leather = { 0.45, 0.28, 0.16 },
+  leatherDark = { 0.32, 0.19, 0.11 },
+  leatherHi = { 0.58, 0.38, 0.23 },
+  brass = { 0.88, 0.72, 0.30 },
+  brassDark = { 0.55, 0.42, 0.14 },
   frame = { 0.04, 0.04, 0.05 },
   shine = { 0.55, 0.55, 0.60 },
   tache = { 0.03, 0.03, 0.03 },
@@ -95,6 +101,42 @@ function Face:render()
   love.graphics.polygon("fill", cx - 2, 57, cx + 2, 57, cx + 1, 60, cx - 1, 60)
   color(C.tie)
   love.graphics.polygon("fill", cx - 1, 60, cx + 1, 60, cx + 3, 70, cx, 72, cx - 3, 70)
+
+  -- The briefcase, held up in front of him: brown leather, brass clasps, a
+  -- pale hand gripping the handle. It sways a little, never far.
+  local by = 60 + math.floor(math.sin(t * 1.1) * 0.6 + 0.5)
+  color(C.outline)
+  love.graphics.rectangle("fill", 7, by - 4, 10, 5) -- the handle
+  love.graphics.rectangle("fill", 1, by, 22, 13)
+  color(C.leather)
+  love.graphics.rectangle("fill", 9, by - 3, 6, 2)
+  love.graphics.rectangle("fill", 2, by + 1, 20, 12)
+  color(C.leatherDark)
+  love.graphics.rectangle("fill", 2, by + 4, 20, 1) -- the lid's seam
+  love.graphics.rectangle("fill", 2, by + 11, 20, 2)
+  color(C.leatherHi)
+  love.graphics.rectangle("fill", 3, by + 1, 18, 1)
+  color(C.brass)
+  love.graphics.rectangle("fill", 4, by + 3, 3, 3)
+  love.graphics.rectangle("fill", 17, by + 3, 3, 3)
+  color(C.brassDark)
+  love.graphics.rectangle("fill", 5, by + 5, 1, 1)
+  love.graphics.rectangle("fill", 18, by + 5, 1, 1)
+  color(C.outline)
+  love.graphics.rectangle("fill", 8, by - 6, 8, 5) -- the hand
+  color(C.skin)
+  love.graphics.rectangle("fill", 9, by - 5, 6, 3)
+  color(C.shade)
+  love.graphics.rectangle("fill", 11, by - 5, 1, 3) -- between the fingers
+  love.graphics.rectangle("fill", 13, by - 5, 1, 3)
+  color(C.outline) -- the forearm, across his chest from the elbow
+  love.graphics.polygon("fill", 14, by - 7, 26, by - 5, 30, by + 4, 26, by + 6, 14, by)
+  color(C.suit)
+  love.graphics.polygon("fill", 17, by - 6, 26, by - 4, 29, by + 4, 26, by + 5, 17, by - 1)
+  color(C.suitDark)
+  love.graphics.line(18, by - 2, 26, by + 4)
+  color(C.shirt)
+  love.graphics.rectangle("fill", 15, by - 6, 2, 5) -- a shirt cuff
 
   -- Neck: thin.
   color(C.shade)
