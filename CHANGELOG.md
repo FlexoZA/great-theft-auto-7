@@ -27,6 +27,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   drivers in traffic get out from under a freeze's warning ring, a leap
   about to land or a heat ray once they've had a moment to see it. The
   Hunters dodge freezes now too.
+- Police and traffic stay passive for 5 seconds after a city event's
+  boss goes down, instead of turning on you the moment he dies.
 
 ### Fixed
 - Running over a vest on the road with damaged armor on now tops your
