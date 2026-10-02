@@ -319,6 +319,7 @@ function Weapons:enterGame()
   self.armed = false -- the click on "Start game" is still held on the first frame
   Explosions.clear()
   Rockets.clear()
+  Sounds.stopAll()
 end
 
 function Weapons:exitGame()
@@ -553,6 +554,7 @@ end
 
 function Weapons:update(dt, client, camera)
   self.camera = camera
+  Sounds.update(dt)
   self.cooldown = math.max(0, self.cooldown - dt)
   -- Ease the halo in and out rather than snap it with every hit and heal.
   self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
@@ -1042,7 +1044,9 @@ Weapons.clientMessages = {
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
       }
-      if not quiet then
+      if not quiet and Sounds.loops(gun.sound) then
+        Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
+      elseif not quiet then
         Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
       end
     end
