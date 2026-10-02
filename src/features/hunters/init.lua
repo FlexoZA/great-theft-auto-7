@@ -19,6 +19,12 @@
 -- (abilities/heatray.lua). A freeze or a teleport lands at once: nothing
 -- to see coming.
 --
+-- They know when they are shot at, from any side: a round of a player's
+-- that flies close or hits turns one on whoever fired it, and a shot within
+-- earshot (`serverShotFired`) sends it to look. One that starts a fight or
+-- is shot at calls the others in range to the spot (a blue pulse and a
+-- whine on every screen).
+--
 -- What they heal with: a medkit (pickups' "health") puts back
 -- `medkitHealth`; an energy drink ("stamina") `drinkHealth`, and makes it
 -- quicker on its feet for `drinkHaste` seconds. They take it off the
@@ -36,10 +42,12 @@
 --   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
 --                  (unreliable, 15 Hz; alert 1 has somebody, 2 searching, 0 neither)
 --   server -> all  HTR_DOWN  <id> <x> <y> <angle>     one went down
+--   server -> all  HTR_CALL  <id> <x> <y>             one called the others
 --
 -- Modules
 --   brain.lua    what each one does, on the host
 --   render.lua   one drawn from above, walking, firing, hit and dodging
+--   sounds.lua   their noises: the call
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -49,6 +57,7 @@ local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Brain = require("src.features.hunters.brain")
 local Render = require("src.features.hunters.render")
+local Sounds = require("src.features.hunters.sounds")
 
 local Hunters = {
   name = "hunters",
@@ -196,7 +205,7 @@ function Hunters:serverStart()
 end
 
 --- Everything a hunter might need to get out of the way of, this tick.
-local function threats(brain)
+local function threats(srv, brain)
   local weapons = Features.byName.weapons
   local rounds = weapons and weapons.sv and weapons.sv.projectiles
   for _, r in ipairs(rounds or {}) do
@@ -204,7 +213,9 @@ local function threats(brain)
       local speed = math.sqrt(r.vx * r.vx + r.vy * r.vy)
       if speed > 0 then
         local width = r.blast and r.blast.radius * 0.6 or 0
-        brain:threatLine(r.x, r.y, r.vx / speed, r.vy / speed, speed, speed * (r.ttl - r.age), width)
+        local fx, fy = r.x - r.vx * r.age, r.y - r.vy * r.age -- where it was fired from
+        brain:threatLine(srv, r.owner, fx, fy, r.x, r.y, r.vx / speed, r.vy / speed, speed,
+          speed * (r.ttl - r.age), width)
       end
     end
   end
@@ -262,8 +273,12 @@ function Hunters:serverStep(srv, dt)
     return
   end
   local brain = sv.brain
-  threats(brain)
+  threats(srv, brain)
   brain:update(srv, dt)
+  for _, h in ipairs(brain.calls) do
+    srv:broadcast(Protocol.encode("HTR_CALL", h.id, fmt(h.x), fmt(h.y)))
+  end
+  brain.calls = {}
   for _, h in ipairs(brain.list) do -- what happened since the last sync, for the flash and the smear
     h.shotSince = h.shotSince or h.fired
     h.dodgedSince = h.dodgedSince or h.dodging ~= nil
@@ -295,10 +310,19 @@ function Hunters:serverShotAt(srv, x, y, radius, by, angle, damage)
   if not h then
     return false
   end
-  if sv.brain:hurt(h, i, damage or 20, angle) then
+  if sv.brain:hurt(srv, h, i, damage or 20, angle, by) then
     down(srv, h, by, angle)
   end
   return true
+end
+
+--- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
+--- bot's is heard by any within earshot. Their own side's (owned by
+--- nobody) is just noise.
+function Hunters:serverShotFired(_server, player, x, y)
+  if sv and player then
+    sv.brain:heard(x, y)
+  end
 end
 
 function Hunters:serverFreezeArea(_server, x, y, radius, seconds)
@@ -322,9 +346,15 @@ end
 
 local lastTick = 0
 local clock = 0
+local calls = {} -- { x, y, t }: the pulse of a call going out
+local CALL_SHOWN = 0.9 -- seconds a call's pulse spreads
+
+function Hunters:load()
+  Sounds.load()
+end
 
 function Hunters:exitGame()
-  shown, lastTick = {}, 0
+  shown, lastTick, calls = {}, 0, {}
 end
 
 function Hunters:update(dt)
@@ -348,6 +378,12 @@ function Hunters:update(dt)
     h.hurt = math.max(0, h.hurt - dt)
     h.dodge = math.max(0, h.dodge - dt)
   end
+  for i = #calls, 1, -1 do
+    calls[i].t = calls[i].t + dt
+    if calls[i].t > CALL_SHOWN then
+      table.remove(calls, i)
+    end
+  end
 end
 
 --- Their cones of sight, on the ground under everything, as the Combine's are.
@@ -358,6 +394,17 @@ function Hunters:drawBelowCars()
 end
 
 function Hunters:drawAboveCars()
+  -- A call going out: rings of blue spreading from the one that called.
+  for _, c in ipairs(calls) do
+    local k = c.t / CALL_SHOWN
+    for ring = 0, 1 do
+      local kr = math.max(0, k - ring * 0.2)
+      love.graphics.setColor(Render.GLOW[1], Render.GLOW[2], Render.GLOW[3], 0.7 * (1 - kr))
+      love.graphics.setLineWidth(3 - ring)
+      love.graphics.circle("line", c.x, c.y, 20 + kr * 160, 40)
+    end
+  end
+  love.graphics.setLineWidth(1)
   for _, h in pairs(shown) do
     Render.draw(h.dx, h.dy, h.facing, {
       cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7,
@@ -417,6 +464,14 @@ Hunters.clientMessages = {
       if not seen[id] then
         shown[id] = nil
       end
+    end
+  end,
+  HTR_CALL = function(_client, args)
+    local id, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    if x and y then
+      local h = id and shown[id]
+      calls[#calls + 1] = { x = h and h.dx or x, y = h and h.dy or y, t = 0 }
+      Sounds.play("call", x, y)
     end
   end,
   HTR_DOWN = function(_client, args)
