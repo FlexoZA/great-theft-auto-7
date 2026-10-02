@@ -623,6 +623,14 @@ local C17 = {
   screen = { 0.70, 0.90, 0.95 },
   rubble = { 0.45, 0.43, 0.40 },
   rubbleDark = { 0.33, 0.31, 0.29 },
+  scorch = { 0.06, 0.05, 0.05, 0.55 },
+  drum = { 0.42, 0.24, 0.14 },
+  drumDark = { 0.25, 0.14, 0.09 },
+  embers = { 0.95, 0.40, 0.10 },
+  bags = { { 0.12, 0.14, 0.13 }, { 0.16, 0.24, 0.17 }, { 0.22, 0.26, 0.31 }, { 0.30, 0.28, 0.24 } },
+  box = { 0.55, 0.43, 0.28 },
+  paper = { 0.80, 0.78, 0.70 },
+  tyre = { 0.08, 0.08, 0.09 },
   citadel = { 0.16, 0.19, 0.23 },
   citadelDark = { 0.09, 0.11, 0.14 },
   citadelLight = { 0.28, 0.33, 0.39 },
@@ -852,6 +860,83 @@ local function drawRubble(s)
   end
 end
 
+--- A black scorch mark burned into the ground round a fire, ragged at the edge.
+local function drawScorch(x, y, r, seed)
+  color(C17.scorch)
+  love.graphics.circle("fill", x, y, r, 20)
+  for i = 1, 7 do
+    local a = hash(seed + i * 3.1) * 2 * math.pi
+    local d = r * (0.6 + hash(seed + i * 1.3) * 0.6)
+    love.graphics.circle("fill", x + math.cos(a) * d, y + math.sin(a) * d, r * (0.25 + hash(seed + i * 7.7) * 0.3), 10)
+  end
+end
+
+--- An oil drum from above, rusted through, its mouth glowing.
+local function drawBarrel(s)
+  local x, y, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.shadow)
+  love.graphics.circle("fill", x + 4, y + 5, r, 16)
+  color(C17.drum)
+  love.graphics.circle("fill", x, y, r, 16)
+  color(C17.drumDark)
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", x, y, r - 2, 16)
+  love.graphics.setLineWidth(1)
+  color(C17.embers)
+  love.graphics.circle("fill", x, y, r - 6, 12)
+end
+
+--- A heap of rubbish: bin bags, flattened boxes, a tyre, paper blown about.
+local function drawTrash(s)
+  local seed = s.seed or 0
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  for i = 1, 6 do -- paper and cans scattered round it
+    local a, d = hash(seed + i * 2.3) * 2 * math.pi, s.w * (0.4 + hash(seed + i * 4.7) * 0.5)
+    color(i % 3 == 0 and C17.rubble or C17.paper)
+    love.graphics.rectangle("fill", cx + math.cos(a) * d, cy + math.sin(a) * d * 0.8, 6, 4)
+  end
+  if hash(seed * 1.9) < 0.5 then
+    color(C17.box)
+    love.graphics.rectangle("fill", s.x + hash(seed + 9) * s.w * 0.4, s.y + s.h * 0.45, s.w * 0.5, s.h * 0.45)
+  end
+  if hash(seed * 2.7) < 0.3 then
+    color(C17.tyre)
+    love.graphics.setLineWidth(5)
+    love.graphics.circle("line", s.x + s.w * 0.75, s.y + s.h * 0.3, 8, 12)
+    love.graphics.setLineWidth(1)
+  end
+  for i = 1, 2 + math.floor(s.w * s.h / 500) do
+    local x = s.x + 8 + hash(seed + i * 1.7) * (s.w - 16)
+    local y = s.y + 8 + hash(seed + i * 5.9) * (s.h - 16)
+    local r = 7 + hash(seed + i * 3.3) * 6
+    local bag = C17.bags[math.floor(hash(seed + i * 8.3) * #C17.bags) + 1]
+    color(bag)
+    love.graphics.circle("fill", x, y, r, 10)
+    color(shade(bag, 1.7))
+    love.graphics.circle("fill", x - r * 0.3, y - r * 0.35, r * 0.35, 8)
+  end
+end
+
+--- Litter on the ground: scraps of paper and cans along the roads and
+--- pavements, the same on every machine.
+local function drawLitter(map)
+  local T = Layout.TILE
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local kind = map.tiles[c] and map.tiles[c][r]
+      if (kind == "walk" or kind == "road") and hash(c * 5.3 + r * 11.9) < 0.3 then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        for i = 1, 3 do
+          local v = hash(c * 3.7 + r * 1.9 + i * 13.3)
+          color(v < 0.5 and C17.paper or (v < 0.8 and C17.box or C17.rubble))
+          local lx, ly = x + hash(c + r * 7 + i) * (T - 8), y + hash(c * 9 + r + i * 5) * (T - 6)
+          love.graphics.rectangle("fill", lx, ly, 5, 3)
+        end
+      end
+    end
+  end
+end
+
 --- The Citadel from above: a vast dark ring, ribbed, stepping in to a
 --- pale core, its shadow thrown far across the square, and a glowing
 --- doorway on the south side.
@@ -895,12 +980,30 @@ local function drawCity17(map)
   for _, b in ipairs(map.bridges or {}) do
     drawBridge(b)
   end
+  drawLitter(map)
   for _, s in ipairs(map.cover) do
     if s.kind == "rubble" then
       drawRubble(s)
     end
   end
+  for _, f in ipairs(map.fires or {}) do
+    if f.kind ~= "roof" then
+      drawScorch(f.x, f.y, f.r * 1.8, f.seed)
+    end
+  end
+  for _, s in ipairs(map.cover) do
+    if s.kind == "trash" then
+      drawTrash(s)
+    end
+  end
   drawBuildings(map)
+  for _, f in ipairs(map.fires or {}) do
+    if f.kind == "roof" then
+      drawScorch(f.x, f.y, f.r * 2.2, f.seed)
+      color({ 0.03, 0.02, 0.02 })
+      love.graphics.rectangle("fill", f.x - f.r * 0.6, f.y - f.r * 0.5, f.r * 1.2, f.r, 4)
+    end
+  end
   for _, s in ipairs(map.cover) do
     if s.kind == "screen" then
       drawScreen(s)
@@ -910,6 +1013,8 @@ local function drawCity17(map)
       drawBarrier(s)
     elseif s.kind == "planter" then
       drawPlanter(s)
+    elseif s.kind == "barrel" then
+      drawBarrel(s)
     end
   end
   drawTrees(map)

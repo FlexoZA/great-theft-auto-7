@@ -14,6 +14,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- City 17 looks like it has been through a war: fires that never go out
+  (oil drums burning on the pavements, fires in the rubble and out on the
+  roads, flats burning in the old town, smoke drifting off them all),
+  scorch marks round them, heaps of bin bags and junk, and litter
+  everywhere. Walk into a fire on the ground and you catch alight
+  (2 seconds, 6 damage a second); the drums are solid.
+
 ## [0.4.0] - 2026-10-02
 
 City 17's Combine soldiers call for backup: spot you and the nearest of
