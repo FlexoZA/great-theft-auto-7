@@ -14,6 +14,57 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-02
+
+City 17 comes alive: Combine squads patrol, hunt and talk over their
+radios with any gun in hand, and citizens walk the streets.
+
+### Added
+- City 17's Combine soldiers watch a wider cone while they are on edge:
+  100 degrees (was 60) while they have you in their sights, are searching
+  for you or are looking into something, back to 60 once they settle.
+- City 17's Combine soldiers carry any of the guns now, not just the AK:
+  uzis, shotguns, pistols, flamethrowers (with a fuel tank on their back),
+  rocket launchers and sniper rifles, fired in bursts. Shotgun and
+  flamethrower soldiers come in close before they open up. A soldier's
+  sniper round does 60 damage, not a player's 200.
+- City 17's Combine soldiers are tougher: health 40 -> 60. Your guns do
+  their own damage to them (every hit was 20): three pistol rounds, four
+  from an AK, five from an uzi, one sniper round, a close shotgun blast;
+  better tiers hit harder.
+- City 17's Combine soldiers notice you within 170 px whichever way they
+  are facing, unless there's a wall between you. Their cone of sight on
+  the ground is unchanged; sneaking up right behind one no longer works.
+  He has to turn round before he can fire.
+- City 17: squads of three Combine soldiers now patrol the old town's
+  roads, the plaza and the Citadel's square, keeping formation; when one
+  of them spots you the whole squad stops and turns your way.
+- City 17's Combine soldiers talk over their radios, standing at their
+  checkpoints or out on patrol: a crackle of radio and what they said over
+  their heads, a mate answering. They shout when they spot you and call it
+  in when one of them goes down. Their volume has its own slider in the
+  sound settings ("Combine soldiers' radio").
+- City 17's Combine soldiers see twice as wide as before: their cones of
+  sight are 60 degrees across (was 30).
+- City 17's Combine soldiers hunt you: spot one and he comes after you
+  (90 px/s, so a walk won't lose him but a sprint will), shooting as he
+  comes, and his squad comes with him. Lose him and he searches where he
+  last saw you. Shoot one from where he can't see you and he goes that
+  way looking. When a soldier goes down, the others within earshot come
+  to see what happened. They all go back to their posts and beats after.
+- City 17's soldiers find their way round walls when they come to look
+  into something, instead of walking into them and getting stuck.
+- A-Man's theme plays from his intro screen in City 17 to the end of his
+  quest.
+- City 17 has citizens now, in their blue-grey jumpsuits, wandering the
+  streets (no police there).
+- Pedestrians scatter when a gun goes off near them, anyone's gun, in
+  every city: a moment of shock, then they run for it.
+
+### Fixed
+- City 17: medkits and energy drinks no longer turn up bunched together
+  on the railway behind the train, where nobody can reach them.
+
 ## [0.2.0] - 2026-10-01
 
 A-Man arrives: a new city event with his own boss fight and theme, and

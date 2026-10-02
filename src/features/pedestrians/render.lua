@@ -3,6 +3,7 @@
 -- a look of their own picked by id). Nothing here changes the world.
 
 local Body = require("src.body")
+local Features = require("src.features")
 
 local Render = {
   peds = {}, -- id -> { x, y, dx, dy, angle, flee, frozen, bob }
@@ -51,12 +52,17 @@ local function frosted(c, k)
 end
 
 --- Pedestrian `id`'s look: the same every time, frosted over while frozen.
+--- A map may dress its crowd itself (city-map's `map.crowdClothes`, { shirts,
+--- pants }: City 17's citizens in their issued blues).
 local function lookOf(id, p)
   local look = looks[id]
   if not look then
+    local city = Features.byName["city-map"]
+    local clothes = city and city.map and city.map.crowdClothes or {}
+    local shirts, pants = clothes.shirts or SHIRTS, clothes.pants or PANTS
     look = {
       base = {
-        shirt = SHIRTS[id % #SHIRTS + 1], pants = PANTS[(id * 7) % #PANTS + 1],
+        shirt = shirts[id % #shirts + 1], pants = pants[(id * 7) % #pants + 1],
         skin = SKINS[(id * 3) % #SKINS + 1], hair = HAIRS[(id * 5) % #HAIRS + 1],
       },
     }

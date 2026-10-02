@@ -749,7 +749,8 @@ local GRIM = {
 --- "rubble", x, y, w, h }); rubble is drawn but not solid. `map.zones`
 --- names the world y range of each part ({ name, y0, y1 }). `map.posts` are
 --- where guards stand at the checkpoints ({ x, y, watch, at }: `watch` the
---- way they look, `at` which checkpoint).
+--- way they look, `at` which checkpoint). `map.patrols` are the beats squads
+--- walk, each a loop of corners ({ x, y }).
 local function buildCity17(map, rng)
   local T = Layout.TILE
   local cols, rows = map.cols, map.rows
@@ -814,6 +815,22 @@ local function buildCity17(map, rng)
   local function zone(name, r0, r1)
     map.zones[#map.zones + 1] = { name = name, y0 = Y(r0), y1 = Y(r1 + 1) }
   end
+  --- A patrol's beat, walked round and round ({ x, y } corners); loose
+  --- cover keeps off it.
+  map.patrols = {}
+  local function patrol(points)
+    local route = {}
+    for i, pt in ipairs(points) do
+      route[i] = { x = math.floor(pt[1]), y = math.floor(pt[2]) }
+      local nx = points[i % #points + 1]
+      local len = math.sqrt((nx[1] - pt[1]) ^ 2 + (nx[2] - pt[2]) ^ 2)
+      for d = 0, len, 60 do
+        local k = d / math.max(len, 1)
+        placed[#placed + 1] = { x = pt[1] + (nx[1] - pt[1]) * k, y = pt[2] + (nx[2] - pt[2]) * k, r = 40 }
+      end
+    end
+    map.patrols[#map.patrols + 1] = route
+  end
   --- A barrier (concrete) or a planter with a tree at (x, y), one way or the other.
   local function loose(x, y)
     if rng:random() < 0.4 then
@@ -835,6 +852,11 @@ local function buildCity17(map, rng)
   -- The train and the platform.
   zone("platform", rows - 10, rows - 5)
   fill(0, rows - 4, cols - 1, rows - 1, "ground")
+  map.offLimits = { { x = X(0), y = Y(rows - 4), w = cols * T, h = 4 * T } } -- the track: nothing spawns there
+  map.crowdClothes = { -- the citizens' issued blue-grey jumpsuits (pedestrians reads it)
+    shirts = { { 0.33, 0.42, 0.52 }, { 0.30, 0.38, 0.47 }, { 0.37, 0.45, 0.54 } },
+    pants = { { 0.25, 0.31, 0.39 }, { 0.22, 0.27, 0.34 } },
+  }
   cover("train", X(0), Y(rows - 4) + 10, cols * T, 3 * T - 10)
   map.cx, map.cy = math.floor(X(5)), math.floor(Y(rows - 7.5))
   for i = 0, 15 do
@@ -909,6 +931,17 @@ local function buildCity17(map, rng)
     placed[#placed + 1] = { x = p.x, y = p.y, r = 50 } -- nothing loose lands on a guard
   end
 
+  -- The patrols' beats: one up and down each side road of the old town and
+  -- out along the cross street to the avenue (the roads make no loop, so
+  -- out and back), one round the plaza.
+  local foot = Y(o1 + 1) + 20 -- where a side road comes out on the plaza
+  for _, side in ipairs({ { X(7), X(avenue0 + 1) }, { X(cols - 7), X(avenue1) } }) do
+    local road, avenue = side[1], side[2]
+    patrol({ { road, Y(o0 + 2) }, { road, foot }, { road, Y(cross0 + 1) }, { avenue, Y(cross0 + 1) },
+      { road, Y(cross0 + 1) } })
+  end
+  patrol({ { X(4), Y(p0 + 3) }, { X(4), Y(p1 - 1) }, { X(cols - 4), Y(p1 - 1) }, { X(cols - 4), Y(p0 + 3) } })
+
   -- The plaza: loose cover, the middle kept open up to the avenue.
   placed[#placed + 1] = { x = X((avenue0 + avenue1 + 1) / 2), y = Y((p0 + p1) / 2), r = 150 }
   local got = 0
@@ -977,6 +1010,10 @@ local function buildCity17(map, rng)
     end
   end
   placed[#placed + 1] = { x = cx, y = cy + R + 120, r = 160 } -- in front of the doors stays open
+  -- Round the Citadel's flanks and across in front of its doors, back along the canal.
+  local front, back = cy + R + 180, Y(k0) - 150
+  patrol({ { X(4), Y(3) }, { cx - R - 140, Y(3) }, { cx - R - 140, front }, { cx + R + 140, front },
+    { cx + R + 140, Y(3) }, { X(cols - 4), Y(3) }, { X(cols - 4), back }, { X(4), back } })
   got = 0
   for _ = 1, 300 do
     if got >= 28 then
@@ -1018,6 +1055,7 @@ function Layout.generate(spec)
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
     plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale

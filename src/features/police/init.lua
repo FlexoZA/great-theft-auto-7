@@ -594,11 +594,11 @@ function Police:serverStep(server, dt)
   end
 
   -- The beat, after the heat is settled so an officer hunts this tick's
-  -- wanted list, not the last one's. No beat on a map with no crowd
-  -- (city-map's `map.crowd`); the patrol cars are bots' NPCs, and bots
-  -- parks those.
+  -- wanted list, not the last one's. No beat on a map with no crowd or no
+  -- police (city-map's `map.crowd`, `map.police`); the patrol cars are
+  -- bots' NPCs, and bots parks those.
   local city = Features.byName["city-map"]
-  if city and city.map and city.map.crowd == false then
+  if city and city.map and (city.map.crowd == false or city.map.police == false) then
     sv.officers:clear() -- the next POL_FOOT, an empty one, sends them off every screen
   else
     for _, kill in ipairs(sv.officers:update(server, dt, sv.wanted, next(sv.wanted) ~= nil)) do
