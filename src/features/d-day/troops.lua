@@ -19,7 +19,7 @@
 -- never more than LEASH from where he started), and when he loses them he
 -- goes to where he saw them last and looks round. A squad's mates go with
 -- him. Troops:alarm sends anyone near enough to look into something (a
--- soldier going down). Either way he walks back the way he came after,
+-- soldier going down, or one calling in who he has spotted). Either way he walks back the way he came after,
 -- on the trail of breadcrumbs he dropped, and takes up his post or his
 -- beat again. Given a walking grid (Troops:navigate, d-day/nav.lua) he
 -- finds his way round walls to where he is going instead of walking
@@ -384,28 +384,39 @@ function Troops:navigate(bounds)
   self.nav = Nav.build(bounds)
 end
 
---- Something happened at (x, y) (a soldier went down): everyone within
---- `radius` who has nobody in his sights goes to look into it. Returns who
---- went, nearest first.
-function Troops:alarm(x, y, radius)
+--- Something happened at (x, y) (a soldier went down, or one called in
+--- somebody he spotted): everyone within `radius` who has nobody in his
+--- sights goes to look into it, nearest first. `opts` (optional):
+---   from  the one calling it in: neither he nor his squad (they go with
+---         him anyway) answers
+---   most  how many go at most (everyone)
+--- Returns who went, nearest first.
+function Troops:alarm(x, y, radius, opts)
+  opts = opts or {}
   local went = {}
   if not self.hunt then
     return went
   end
+  local near = {}
+  local from = opts.from
   for _, s in ipairs(self.list) do
     local d2 = dist2(s.x, s.y, x, y)
-    if not s.target and not s.panic and d2 <= radius * radius then
-      setGoal(self, s, x, y, "investigate")
-      if s.goal then
-        went[#went + 1] = { s = s, d2 = d2 }
-      end
+    local own = from and (s == from or (s.squad ~= nil and s.squad == from.squad))
+    if not own and not s.target and not s.panic and d2 <= radius * radius then
+      near[#near + 1] = { s = s, d2 = d2 }
     end
   end
-  table.sort(went, function(a, b)
+  table.sort(near, function(a, b)
     return a.d2 < b.d2
   end)
-  for i, w in ipairs(went) do
-    went[i] = w.s
+  for _, n in ipairs(near) do
+    if opts.most and #went >= opts.most then
+      break
+    end
+    setGoal(self, n.s, x, y, "investigate")
+    if n.s.goal then
+      went[#went + 1] = n.s
+    end
   end
   return went
 end
