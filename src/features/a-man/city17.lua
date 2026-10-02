@@ -42,6 +42,7 @@ Level.questId = "a-man" -- the quest this level belongs to (quests' `boss`)
 Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
+Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
 Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
@@ -85,7 +86,8 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(true), syncIn = 0, reached = false, time = 0, groups = {}, pending = {}, quietUntil = 0 }
+  sv = { troops = Troops.new(true, Level.fov), syncIn = 0, reached = false, time = 0 }
+  sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   -- Who chats together: the guards at one checkpoint, or one squad.
   local posts = {}
   for _, p in ipairs(map.posts) do
@@ -352,7 +354,7 @@ end
 --- Their cones of sight, on the ground under everything.
 function Level.drawBelowCars()
   for _, s in pairs(troops) do
-    Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time)
+    Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, Level.fov)
   end
 end
 
