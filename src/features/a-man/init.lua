@@ -71,8 +71,8 @@ function AMan:serverStep(server, dt)
   City17.serverStep(server, dt)
 end
 
-function AMan:serverShotAt(server, x, y, radius, by, angle)
-  return City17.serverShotAt(server, x, y, radius, by, angle)
+function AMan:serverShotAt(server, x, y, radius, by, angle, damage)
+  return City17.serverShotAt(server, x, y, radius, by, angle, damage)
 end
 
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)

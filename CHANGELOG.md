@@ -20,8 +20,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   rocket launchers and sniper rifles, fired in bursts. Shotgun and
   flamethrower soldiers come in close before they open up. A soldier's
   sniper round does 60 damage, not a player's 200.
-- City 17's Combine soldiers are tougher: health 40 -> 60, three hits to
-  drop one instead of two.
+- City 17's Combine soldiers are tougher: health 40 -> 60. Your guns do
+  their own damage to them (every hit was 20): three pistol rounds, four
+  from an AK, five from an uzi, one sniper round, a close shotgun blast;
+  better tiers hit harder.
 - City 17's Combine soldiers notice you within 170 px whichever way they
   are facing, unless there's a wall between you. Their cone of sight on
   the ground is unchanged; sneaking up right behind one no longer works.

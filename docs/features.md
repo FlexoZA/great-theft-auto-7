@@ -887,7 +887,8 @@ the one with a plot.
   station's concourse, the avenue's mouth on the plaza, the gate, each
   bridge and the Citadel's doors, 12 in all): the D-Day landing's guards
   (`d-day/troops.lua`, `d-day/sight.lua`) in Combine gear, so the same
-  sweeping cone and three rounds each (D-Day's take two), 3 koins and
+  sweeping cone and 60 health, taking each round's own `damage` (20 from a
+  blast, which carries none; D-Day's take 20 a round out of 40), 3 koins and
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT

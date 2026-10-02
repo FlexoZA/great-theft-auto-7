@@ -5,7 +5,8 @@
 -- `posts`). They are the D-Day landing's guards on other uniforms
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
--- fire. Cover breaks his sight; three rounds drop him (`Level.health`). Each carries
+-- fire. Cover breaks his sight. He takes what each round carries, out of
+-- 60 (`Level.health`): three pistol rounds, a sniper round. Each carries
 -- one of the guns, picked by `Level.loadout`'s weights (every gun in
 -- weapons/guns.lua can turn up; one missing from the list is as likely as
 -- the pistol), fired in bursts once you are in its reach.
@@ -349,8 +350,10 @@ local function soldierDown(server, s, by, angle)
 end
 
 --- A bullet through (x, y): the `serverShotAt` convention. Their own rounds
---- (owned by nobody) pass through their side.
-function Level.serverShotAt(server, x, y, radius, by, angle)
+--- (owned by nobody) pass through their side. A round takes off what it
+--- carries (the gun's damage, tier and all); a blast, which carries
+--- nothing and asks a few times over, 20 a time.
+function Level.serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
@@ -358,7 +361,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle)
   if not s then
     return false
   end
-  if sv.troops:hurt(s, i, Troops.SHOT_DAMAGE, angle) then
+  if sv.troops:hurt(s, i, damage or Troops.SHOT_DAMAGE, angle) then
     soldierDown(server, s, by, angle)
   end
   return true
