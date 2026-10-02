@@ -15,12 +15,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Crazy Karen thinks for herself now: she charges round the houses
+  instead of into them, stomps back to her turning circle when nobody is
+  about, and below 40% of her health she marches off to a medkit lying
+  within 700 px (+200 each), complaining about it.
 - Major Looz'er has a mind of his own now: out of sight, he marches after
   you round the bunkers and huts instead of into them, and below 40% of
   his health he breaks off for a medkit lying within 700 px (+200 each),
   still firing at you on the way, with a word or two about it.
-
-### Changed
 - D-Day's soldiers now think like City 17's Combine: a guard or rifleman
   who spots you comes after you instead of staying at his post, searches
   where he last saw you, then walks back. One who spots you calls in the
