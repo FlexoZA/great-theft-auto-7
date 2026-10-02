@@ -17,6 +17,8 @@
 --     acceleration = 430,   -- px/s^2
 --     weight = 900,         -- kg; heavier stops later and slides further
 --     turning = 2.8,        -- rad/s at full speed
+--     engine = "compact",   -- how it sounds: compact, sedan, v8, bike, diesel, truck, hauler
+--                           -- (src/features/engine-sound/profiles.lua; default: by weight)
 --     facing = "right",     -- where the nose points in the SVG: right, left, up, down
 --     length = 44,          -- px the drawing is from nose to tail, mirrors and all
 --     time = 45,            -- seconds the vehicle factory takes to make one
