@@ -894,7 +894,12 @@ the one with a plot.
   star its own words). For now it leads home; it will lead to the next
   level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
   `Troops:addSquad`: the first leads, the rest keep formation, and the
-  squad stops and turns when one of them has somebody). They talk over the
+  squad stops and turns when one of them has somebody). City 17 makes its
+  troop with `Troops.new(true)` (`hunt`): a soldier closes in on whoever
+  he can see, searches where he lost them, goes looking when shot from
+  out of sight, and `Troops:alarm` sends everyone within 700 px of a
+  soldier going down to look; each walks back on a trail of breadcrumbs
+  after (D-Day's hold their places). They talk over the
   radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
   "combine" sound channel and a bubble): a checkpoint's guards or a squad
   now and then with a mate answering, a shout on spotting somebody, and a

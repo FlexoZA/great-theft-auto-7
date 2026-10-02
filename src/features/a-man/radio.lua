@@ -9,6 +9,8 @@
 --   reply    a mate answering either of those
 --   alert    whoever has just spotted somebody
 --   down     a soldier near one who just went down
+--   investigate  another one, on his way to look
+--   lost     one who went looking and found nothing, on his way back
 
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
@@ -50,6 +52,13 @@ Radio.lines = {
     "Lock on target!",
   },
   down = { "Unit down!", "Lost a man! Reinforce!", "Overwatch, we have casualties!", "Man down! Find the shooter!" },
+  investigate = {
+    "Moving to investigate.",
+    "On my way. Cover me.",
+    "Checking it out.",
+    "Converging on last position.",
+  },
+  lost = { "Lost visual.", "Area clear. Returning to post.", "Nothing here.", "Target lost. Resuming patrol." },
 }
 
 --- How long a line hangs over a soldier's head.

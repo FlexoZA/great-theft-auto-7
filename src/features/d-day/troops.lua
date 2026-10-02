@@ -14,6 +14,15 @@
 --             behind him either side. When one of them has somebody the
 --             squad stops and the others turn to look the same way.
 --
+-- A troop made with `hunt` on (City 17's) also leaves its place to hunt:
+-- whoever has somebody in his sights closes in on them (to CHASE_KEEP,
+-- never more than LEASH from where he started), and when he loses them he
+-- goes to where he saw them last and looks round. A squad's mates go with
+-- him. Troops:alarm sends anyone near enough to look into something (a
+-- soldier going down). Either way he walks back the way he came after,
+-- on the trail of breadcrumbs he dropped, and takes up his post or his
+-- beat again.
+--
 -- Any one that gets someone in his cone turns to follow them and, after
 -- a moment to take aim, opens fire, and keeps firing for as long as he can
 -- see them. Duck behind a hedgehog or a sandbag wall, or get out of his
@@ -49,6 +58,13 @@ Troops.WALK = 62 -- px/s a rifleman walks down the hill
 Troops.SCAN = math.rad(20) -- a walking rifleman looks this far either side of his path
 Troops.PATROL_WALK = 48 -- px/s a squad walks its beat
 Troops.FORMATION = { { 0, 0 }, { -38, -30 }, { -38, 30 }, { -76, 0 } } -- slots behind the leader, his frame
+Troops.CHASE_WALK = 90 -- px/s closing in or hunting: faster than a walk, slower than a sprint
+Troops.CHASE_KEEP = 200 -- px; he stops closing in this near and just shoots
+Troops.LEASH = 900 -- px from where he started that he will go after somebody
+Troops.INVESTIGATE_WALK = 75 -- px/s going to look into something
+Troops.SEARCH_TIME = 5 -- seconds looking round where he lost them, or at what he came to look into
+Troops.SEARCH_SWEEP = math.rad(100) -- how far either way he looks round then
+Troops.CRUMB = 40 -- px between the breadcrumbs he drops on his way, for the way back
 
 local random = love.math.random
 
@@ -56,8 +72,10 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
-function Troops.new()
-  return setmetatable({ list = {}, nextId = 1, time = 0, ticks = 0 }, Troops)
+--- `hunt`: true to have them leave their places to chase and look into
+--- things (City 17), false to have them hold them (D-Day).
+function Troops.new(hunt)
+  return setmetatable({ list = {}, nextId = 1, time = 0, ticks = 0, hunt = hunt or false }, Troops)
 end
 
 --- A soldier of `kind` at (x, y), watching `watch` (radians).
@@ -202,6 +220,111 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
+-- Hunting -------------------------------------------------------------------
+
+--- A breadcrumb where he stands, if he has gone far enough from the last
+--- one; the first is where he left from.
+local function crumb(s)
+  local trail = s.trail
+  if not trail then
+    s.trail = { { x = s.x, y = s.y } }
+    return
+  end
+  local last = trail[#trail]
+  if dist2(s.x, s.y, last.x, last.y) >= Troops.CRUMB * Troops.CRUMB then
+    trail[#trail + 1] = { x = s.x, y = s.y }
+  end
+end
+
+--- Is (x, y) past his leash, from where he left?
+local function leashed(s, x, y)
+  local home = s.trail and s.trail[1]
+  return home ~= nil and dist2(home.x, home.y, x, y) > Troops.LEASH * Troops.LEASH
+end
+
+--- Go to (x, y) and look round there: `kind` "search" (where he lost
+--- somebody) or "investigate" (what he heard).
+local function setGoal(s, x, y, kind)
+  if leashed(s, x, y) then
+    return
+  end
+  crumb(s)
+  s.goal = { x = x, y = y, kind = kind, look = nil }
+end
+
+--- On his way to his goal, or looking round once there. Returns false when
+--- he is done with it.
+local function pursue(self, s, dt)
+  local g = s.goal
+  if g.look then
+    g.look = g.look - dt
+    local around = g.facing + Troops.SEARCH_SWEEP * math.sin(2 * math.pi * g.look / Troops.SEARCH_TIME * 1.5)
+    s.facing = turn(s.facing, around, Troops.TURN, dt)
+    return g.look > 0
+  end
+  local speed = g.kind == "investigate" and Troops.INVESTIGATE_WALK or Troops.CHASE_WALK
+  local path = math.atan2(g.y - s.y, g.x - s.x)
+  advance(s, path, speed, dt)
+  crumb(s)
+  s.facing = turn(s.facing, path + Troops.SCAN * math.sin(self.time * 2 + s.phase), Troops.TURN, dt)
+  if dist2(s.x, s.y, g.x, g.y) < 28 * 28 or s.stuck > 1.5 then
+    g.look, g.facing = Troops.SEARCH_TIME, path
+  end
+  return true
+end
+
+--- Back along his breadcrumbs. Returns false once he is where he left from.
+local function retrace(self, s, dt)
+  local trail = s.trail
+  local to = trail[#trail]
+  if dist2(s.x, s.y, to.x, to.y) < 16 * 16 then
+    trail[#trail] = nil
+    if #trail == 0 then
+      s.trail, s.backFor = nil, 0
+      return false
+    end
+    to = trail[#trail]
+  end
+  local path = math.atan2(to.y - s.y, to.x - s.x)
+  advance(s, path, Troops.INVESTIGATE_WALK, dt)
+  s.facing = turn(s.facing, path + Troops.SCAN * math.sin(self.time * 1.3 + s.phase), Troops.TURN, dt)
+  s.backFor = (s.backFor or 0) + dt
+  if s.backFor > 40 then -- lost on the way: this will do
+    s.trail, s.backFor = nil, 0
+    if s.kind == "guard" then
+      s.watch = s.facing
+    end
+    return false
+  end
+  return true
+end
+
+--- Something happened at (x, y) (a soldier went down): everyone within
+--- `radius` who has nobody in his sights goes to look into it. Returns who
+--- went, nearest first.
+function Troops:alarm(x, y, radius)
+  local went = {}
+  if not self.hunt then
+    return went
+  end
+  for _, s in ipairs(self.list) do
+    local d2 = dist2(s.x, s.y, x, y)
+    if not s.target and not s.panic and d2 <= radius * radius then
+      setGoal(s, x, y, "investigate")
+      if s.goal then
+        went[#went + 1] = { s = s, d2 = d2 }
+      end
+    end
+  end
+  table.sort(went, function(a, b)
+    return a.d2 < b.d2
+  end)
+  for i, w in ipairs(went) do
+    went[i] = w.s
+  end
+  return went
+end
+
 -- Seeing --------------------------------------------------------------------
 
 --- Where `player` is, if they are there to be shot at.
@@ -276,6 +399,9 @@ function Troops:think(server, s, dt)
   if s.panic then
     -- A stink: away from it, rifle forgotten.
     s.alert, s.target = false, nil
+    if self.hunt then
+      crumb(s) -- and back again after
+    end
     s.panic.left = s.panic.left - dt
     s.facing = math.atan2(s.y - s.panic.y, s.x - s.panic.x)
     walk(s, s.facing, Troops.WALK * 2, dt)
@@ -307,16 +433,32 @@ function Troops:think(server, s, dt)
       s.target = nil
     end
   end
+  if self.hunt and s.alert and not tx and s.aimX then
+    setGoal(s, s.aimX, s.aimY, "search") -- lost them: to where they were last
+  end
   s.alert = s.target ~= nil
 
   if tx then
     s.aimX, s.aimY = tx, ty
+    s.goal = nil
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Troops.TURN, dt)
+    if self.hunt and dist2(s.x, s.y, tx, ty) > Troops.CHASE_KEEP ^ 2 then
+      crumb(s)
+      if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
+        walk(s, math.atan2(ty - s.y, tx - s.x), Troops.CHASE_WALK, dt) -- close in, rifle up
+      end
+    end
     s.fireIn = s.fireIn - dt
     if s.fireIn <= 0 then
       s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
       fire(server, s, tx, ty)
     end
+  elseif s.goal then
+    if not pursue(self, s, dt) then
+      s.goal, s.gaveUp = nil, true -- nothing there: back he goes
+    end
+  elseif s.trail then
+    retrace(self, s, dt)
   elseif s.kind == "patrol" then
     self:patrol(s, dt)
   elseif s.kind == "guard" then
@@ -339,6 +481,12 @@ function Troops:patrol(s, dt)
   local squad = s.squad
   for _, m in ipairs(squad.members) do
     if m.alert and m ~= s then
+      if self.hunt then
+        setGoal(s, m.aimX, m.aimY, "search") -- with him
+        if s.goal then
+          return
+        end
+      end
       s.facing = turn(s.facing, math.atan2(m.aimY - s.y, m.aimX - s.x), Troops.TURN, dt)
       return
     end
@@ -410,6 +558,9 @@ function Troops:hurt(s, i, amount, angle)
   end
   if angle and not s.target then
     s.facing = angle + math.pi -- back the way the round came
+    if self.hunt then -- and off that way to find who sent it
+      setGoal(s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
+    end
   end
   return false
 end

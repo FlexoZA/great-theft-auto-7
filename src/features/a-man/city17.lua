@@ -6,11 +6,17 @@
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
 -- fire with a rifle. Cover breaks his sight; two pistol rounds drop him.
+-- They hunt (troops' `hunt`): one who spots somebody closes in on them,
+-- and goes to where he saw them last when he loses them, his squad with
+-- him; one shot from somewhere he can't see goes that way to look. When a
+-- soldier goes down, everyone near enough to hear it goes to see. Each
+-- walks back to his post or his beat after.
 -- Squads of three walk beats between them (the map's `patrols`): through
 -- the old town, round the plaza and the Citadel's square. They talk over
 -- the radio (radio.lua): guards at a checkpoint and squads on their beat
 -- now and then, a mate answering; whoever spots somebody shouts it, and
--- one near a soldier who goes down calls it in.
+-- one near a soldier who goes down calls it in, those going to look say
+-- so, and one who found nothing says that on his way back.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
@@ -40,7 +46,7 @@ Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle
 Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
-Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in
+Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in, and goes to look
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -79,7 +85,7 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(), syncIn = 0, reached = false, time = 0, groups = {}, pending = {}, quietUntil = 0 }
+  sv = { troops = Troops.new(true), syncIn = 0, reached = false, time = 0, groups = {}, pending = {}, quietUntil = 0 }
   -- Who chats together: the guards at one checkpoint, or one squad.
   local posts = {}
   for _, p in ipairs(map.posts) do
@@ -189,6 +195,13 @@ local function talk(server, dt)
       say(server, s, "alert")
     end
     s.wasAlert = s.alert
+    if s.gaveUp then -- looked, found nothing, on his way back
+      s.gaveUp = false
+      if random() < 0.6 and (s.quietUntil or 0) <= sv.time then
+        s.quietUntil = sv.time + Level.shoutEvery
+        say(server, s, "lost")
+      end
+    end
   end
   for _, g in ipairs(sv.groups) do
     g.chatIn = g.chatIn - dt
@@ -224,8 +237,18 @@ local function talk(server, dt)
   end
 end
 
---- The nearest soldier still up to `down` calls it in.
+--- Everyone near enough to hear `down` go down goes to look; the nearest
+--- of them calls it in, the next says he is on his way. If nobody is free
+--- to go, the nearest still calls it in.
 local function callDown(down)
+  local went = sv.troops:alarm(down.x, down.y, Level.downHeard)
+  if went[1] then
+    later(went[1], "down", 0.5)
+    if went[2] then
+      later(went[2], "investigate", 1.8)
+    end
+    return
+  end
   local best, bestD2 = nil, Level.downHeard ^ 2
   for _, s in ipairs(sv.troops.list) do
     local d2 = (s.x - down.x) ^ 2 + (s.y - down.y) ^ 2

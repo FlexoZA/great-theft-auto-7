@@ -23,6 +23,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   their heads, a mate answering. They shout when they spot you and call it
   in when one of them goes down. Their volume has its own slider in the
   sound settings ("Combine soldiers' radio").
+- City 17's Combine soldiers hunt you: spot one and he comes after you
+  (90 px/s, so a walk won't lose him but a sprint will), shooting as he
+  comes, and his squad comes with him. Lose him and he searches where he
+  last saw you. Shoot one from where he can't see you and he goes that
+  way looking. When a soldier goes down, the others within earshot come
+  to see what happened. They all go back to their posts and beats after.
 - City 17 has citizens now, in their blue-grey jumpsuits, wandering the
   streets (no police there).
 - Pedestrians scatter when a gun goes off near them, anyone's gun, in
