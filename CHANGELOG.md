@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- The Tripod has a brain of its own now, and below 40% of its health it
+  strides over the buildings to a medkit lying within 900 px (+200 each)
+  and snatches it up with a tentacle, its heat ray still at work.
 - The Runner has a brain of his own now, and below 40% of his health he
   leaves his street for a medkit lying within 1200 px (+200 each),
   smashing whatever is on the way, then gets back on the street grid and

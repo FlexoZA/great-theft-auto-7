@@ -39,6 +39,11 @@
 -- out by hurting it: once it has taken `dropAfter` of its health since the
 -- grab, it lets go. It drops them anyway after `cageTime`.
 --
+-- Its walking, its heat ray and its tentacles are its brain's
+-- (tripod_brain.lua), which also sends it, badly hurt, striding over
+-- everything to a medkit within `healRange` for a tentacle to snatch up
+-- (the bosses' standard, bosses/heal.lua).
+--
 -- It is beaten by shooting its head (`radius` round where it stands); the
 -- legs are out of reach. It has breath like every boss (bosses/stamina.lua):
 -- striding after somebody spends it, the heat ray and a grab cost some,
@@ -76,6 +81,7 @@ local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.tripod.render")
 local Sounds = require("src.features.tripod.sounds")
 local Remains = require("src.features.tripod")
+local Brain = require("src.features.events.tripod_brain")
 
 local Tripod = {
   key = "tripod",
@@ -139,6 +145,7 @@ Tripod.cageDps = 20
 Tripod.cageTime = 7 -- seconds before it drops somebody anyway
 Tripod.dropAfter = 0.08 -- share of its health that, taken since the grab, makes it let go
 Tripod.bulletDamage = 20 -- what a round takes off it when it doesn't say (a blast)
+Tripod.healRange = 900 -- px; how far it will stride for a medkit
 Tripod.spawnNear = 900 -- px; it comes down about this far from the nearest player
 Tripod.spawnFar = 1600
 Tripod.drops = 60 -- koins it spills
@@ -154,14 +161,10 @@ Tripod.weedMax = 120 -- clumps kept; the oldest goes first
 Tripod.hornEvery = 30 -- seconds between blasts on the horn
 
 local SYNC_EVERY = 2 -- server ticks between ETR_STATE packets
-local BURN_TICK = 0.1 -- seconds between bites of the heat ray and the cage
-local PED_EVERY = 0.2 -- seconds between pedestrians burned
-local CAGE_BACK = 50 -- px behind its centre the cage hangs
 local SMOOTHING = 6 -- per second, the easing of what is drawn
 local SNAP = 300 -- px; a jump this big is a spawn, not a step
 local TURN = 1.2 -- rad/s the drawn heading turns at
 
-local REST, CHARGE, LOCKED, FIRE, SWEEP_WARN, SWEEP = 0, 1, 2, 3, 4, 5
 
 local random = love.math.random
 
@@ -240,34 +243,6 @@ local function spawnNode(g, server)
   return best
 end
 
---- The crossing nearest (x, y), to get back onto the streets from.
-local function nearestNode(g, x, y)
-  local best, bestD
-  for _, node in pairs(g.nodes) do
-    local d = dist2(node.x, node.y, x, y)
-    if #node.exits > 0 and (not bestD or d < bestD) then
-      best, bestD = node, d
-    end
-  end
-  return best
-end
-
---- A street out of crossing `node`: any but straight back, unless it is a
---- dead end.
-local function pickStreet(t, node)
-  local options = {}
-  for _, e in ipairs(node.exits) do
-    if not (t.street and e.dx == -t.street.dx and e.dy == -t.street.dy) then
-      options[#options + 1] = e
-    end
-  end
-  if #options == 0 then
-    options = node.exits
-  end
-  local e = options[random(#options)]
-  t.street, t.to = e, e.node
-end
-
 function Tripod.serverBegin(server, events)
   local g = graph()
   local node = g and spawnNode(g, server)
@@ -278,301 +253,18 @@ function Tripod.serverBegin(server, events)
   local t = {
     x = node.x, y = node.y, facing = 0, speed = 0, hp = hp, max = hp, frozen = 0,
     breath = Stamina.new(Tripod.breath),
-    target = 0, phase = REST, phaseT = 0, lockX = 0, lockY = 0,
+    target = 0, phase = Brain.REST, phaseT = 0, lockX = 0, lockY = 0,
     grab = nil, -- { id, t } a tentacle lashing at somebody
     caged = nil, -- { id, t, taken, bite } somebody in the cage
     grabIn = Tripod.grabEvery, burnIn = 0, pedIn = 0, sweepIn = Tripod.sweepEvery / 2, sweepA0 = 0, sweepA1 = 0,
   }
-  pickStreet(t, node)
+  Brain.pickStreet(t, node)
   sv = { t = t, events = events, syncIn = 0, time = 0, storm = { t = 0, nextIn = {}, bolts = {} } }
   return node.x, node.y
 end
 
---- Let whoever is in the cage go, where the cage is.
-local function release(t)
-  t.caged = nil
-  t.grabIn = Tripod.grabEvery
-end
-
 function Tripod.serverStop()
   sv = nil
-end
-
--- Walking --------------------------------------------------------------------
-
---- Walk `dist` px down the middle of its street, taking the next one at
---- each crossing. Off the streets (after a hunt) it heads for the nearest
---- crossing first.
-local function roam(t, dist)
-  if not t.to then
-    local g = graph()
-    local node = g and nearestNode(g, t.x, t.y)
-    if not node then
-      return
-    end
-    t.street, t.to = nil, node
-  end
-  for _ = 1, 8 do
-    local wx, wy = t.to.x, t.to.y
-    local d = math.sqrt(dist2(wx, wy, t.x, t.y))
-    if d > dist then
-      t.x, t.y = t.x + (wx - t.x) / d * dist, t.y + (wy - t.y) / d * dist
-      t.facing = math.atan2(wy - t.y, wx - t.x)
-      return
-    end
-    t.x, t.y, dist = wx, wy, dist - d
-    -- The graph is rebuilt when the city grows: carry on from the new one's crossing.
-    local g = graph()
-    pickStreet(t, g and g.nodes[t.to.key] or t.to)
-  end
-end
-
---- The nearest human it can see within `range` of it, as a people() entry;
---- not whoever is in its cage.
-local function nearest(server, t, range)
-  local best, bestD
-  for _, h in ipairs(people(server)) do
-    local d = dist2(h.x, h.y, t.x, t.y)
-    if d <= range * range and Features.visible(server, h.player) and not (t.caged and t.caged.id == h.player.id)
-      and (not bestD or d < bestD) then
-      best, bestD = h, d
-    end
-  end
-  return best
-end
-
---- Stride toward somebody over whatever is in the way, stopping `standOff`
---- short, or roam the streets with nobody about. Returns whether it spent
---- the tick striding after somebody (what costs breath).
-local function move(server, t, dt)
-  if t.phase >= SWEEP_WARN then
-    t.speed = 0 -- legs planted for the sweep
-    return false
-  end
-  local prey = nearest(server, t, Tripod.huntRange)
-  if not prey then
-    t.speed = Tripod.roamSpeed
-    roam(t, t.speed * dt)
-    return false
-  end
-  t.to, t.street = nil, nil -- off the streets now; back to the nearest crossing after
-  local dx, dy = prey.x - t.x, prey.y - t.y
-  local d = math.sqrt(dx * dx + dy * dy)
-  t.facing = math.atan2(dy, dx)
-  if d <= Tripod.standOff then
-    t.speed = 0
-    return false
-  end
-  t.speed = t.breath:pace(Tripod.huntSpeed, Tripod.windedSpeed)
-  local step = math.min(t.speed * dt, d - Tripod.standOff)
-  t.x, t.y = t.x + dx / d * step, t.y + dy / d * step
-  return not t.breath:winded()
-end
-
--- The heat ray ------------------------------------------------------------
-
---- Anyone on foot (players and bots) and any car at (x, y) takes a bite of
---- `footDps` / `carDps`; somebody on foot it kills is left as ash.
-local function burn(server, t, x, y, footDps, carDps)
-  local weapons = Features.byName.weapons
-  if not weapons then
-    return
-  end
-  local r = Tripod.burnRadius
-  for _, p in pairs(server.players) do
-    if Features.present(p) and not (t.caged and t.caged.id == p.id) then
-      local px, py, onFoot = Features.bodyPose(server, p)
-      if onFoot and dist2(px, py, x, y) <= r * r then
-        weapons:serverDamage(server, p, nil, footDps * BURN_TICK, t.facing, "fire")
-        if not (p.body and p.body.dead) and Features.byName.damage then
-          Features.byName.damage:ignite(server, p, Tripod.afterburnTime, Tripod.afterburnDps)
-        end
-      end
-    end
-  end
-  if weapons.damageCar then
-    local reach = r + Car.WIDTH / 2
-    for _, car in pairs(server.vehicles) do
-      if not (car.hidden or car.stowed) and dist2(car.x, car.y, x, y) <= reach * reach then
-        weapons:damageCar(server, car, nil, carDps * BURN_TICK, 0, t.facing, "fire")
-      end
-    end
-  end
-end
-
---- Pedestrians at (x, y) burn up, a few at a time.
-local function burnPeds(server, t, x, y, dt)
-  t.pedIn = t.pedIn - dt
-  local peds = Features.byName.pedestrians
-  if t.pedIn > 0 or not (peds and peds.serverShotAt) then
-    return
-  end
-  t.pedIn = PED_EVERY
-  for _ = 1, 3 do
-    if not peds:serverShotAt(server, x, y, Tripod.burnRadius, 0, t.facing, nil, "fire") then
-      break
-    end
-  end
-end
-
---- Where the sweeping beam is `k` (0..1) of the way along.
-local function sweepPoint(t, k)
-  local a = t.sweepA0 + (t.sweepA1 - t.sweepA0) * k
-  return t.x + math.cos(a) * Tripod.sweepRadius, t.y + math.sin(a) * Tripod.sweepRadius
-end
-
---- Is anybody (a player or a bot, not the one in the cage) out in front in
---- reach of a sweep?
-local function sweepWorth(server, t)
-  local near, far = Tripod.sweepRadius - Tripod.burnRadius * 2, Tripod.sweepRadius + Tripod.burnRadius * 2
-  for _, p in pairs(server.players) do
-    if Features.visible(server, p) and not (t.caged and t.caged.id == p.id) then
-      local px, py = Features.bodyPose(server, p)
-      local d = math.sqrt(dist2(px, py, t.x, t.y))
-      local off = (math.atan2(py - t.y, px - t.x) - t.facing + math.pi) % (2 * math.pi) - math.pi
-      if d >= near and d <= far and math.abs(off) <= Tripod.sweepArc / 2 then
-        return true
-      end
-    end
-  end
-  return false
-end
-
---- Start a sweep across the ground in front, from one side or the other.
-local function startSweep(t)
-  local side = random() < 0.5 and 1 or -1
-  t.sweepA0 = t.facing - side * Tripod.sweepArc / 2
-  t.sweepA1 = t.facing + side * Tripod.sweepArc / 2
-  t.breath:spend(Tripod.sweepCost)
-  t.sweepIn = Tripod.sweepEvery
-  t.target, t.phase, t.phaseT, t.burnIn, t.pedIn = 0, SWEEP_WARN, 0, 0, 0
-end
-
---- The heat ray's round: rest, pick somebody and charge on them, lock where
---- they are, then burn there.
-local function ray(server, t, dt)
-  t.phaseT = t.phaseT + dt
-  t.sweepIn = t.sweepIn - dt
-  if t.phase == REST then
-    if t.phaseT < Tripod.rest then
-      return
-    end
-    local canSweep = t.sweepIn <= 0 and t.breath:has(Tripod.sweepCost) and sweepWorth(server, t)
-    if canSweep and (random() < Tripod.sweepChance or not nearest(server, t, Tripod.rayRange)) then
-      startSweep(t)
-      return
-    end
-    if t.breath:has(Tripod.rayCost) then
-      local prey = nearest(server, t, Tripod.rayRange)
-      if prey then
-        t.breath:spend(Tripod.rayCost)
-        t.target, t.phase, t.phaseT = prey.player.id, CHARGE, 0
-      end
-    end
-    return
-  elseif t.phase == FIRE then
-    t.burnIn = t.burnIn - dt
-    if t.burnIn <= 0 then
-      t.burnIn = t.burnIn + BURN_TICK
-      burn(server, t, t.lockX, t.lockY, Tripod.burnDps, Tripod.carDps)
-    end
-    burnPeds(server, t, t.lockX, t.lockY, dt)
-    if t.phaseT >= Tripod.fire then
-      t.target, t.phase, t.phaseT = 0, REST, 0
-    end
-    return
-  elseif t.phase == SWEEP_WARN then
-    if t.phaseT >= Tripod.sweepWarn then
-      t.phase, t.phaseT = SWEEP, 0
-    end
-    return
-  elseif t.phase == SWEEP then
-    local x, y = sweepPoint(t, math.min(1, t.phaseT / Tripod.sweepTime))
-    t.burnIn = t.burnIn - dt
-    if t.burnIn <= 0 then
-      t.burnIn = t.burnIn + BURN_TICK
-      burn(server, t, x, y, Tripod.sweepDps, Tripod.sweepCarDps)
-    end
-    burnPeds(server, t, x, y, dt)
-    if t.phaseT >= Tripod.sweepTime then
-      t.phase, t.phaseT = REST, 0
-    end
-    return
-  end
-  -- Charging: the aim follows them until the lock, then stays put.
-  local p = server.players[t.target]
-  if t.phase == CHARGE then
-    if not (p and Features.present(p)) then
-      t.target, t.phase, t.phaseT = 0, REST, 0
-      return
-    end
-    t.lockX, t.lockY = Features.bodyPose(server, p)
-    if t.phaseT >= Tripod.charge - Tripod.lock then
-      t.phase = LOCKED
-    end
-  elseif t.phase == LOCKED and t.phaseT >= Tripod.charge then
-    t.phase, t.phaseT, t.burnIn, t.pedIn = FIRE, 0, 0, 0
-  end
-end
-
--- The tentacles and the cage ----------------------------------------------
-
---- Where the cage hangs.
-local function cagePoint(t)
-  return t.x - math.cos(t.facing) * CAGE_BACK, t.y - math.sin(t.facing) * CAGE_BACK
-end
-
---- Lash at somebody on foot under it, snatch them if they are still there
---- when it lands, and keep whoever is in the cage: pinned in it, hurting,
---- until it has been hurt enough, `cageTime` is up, or they are gone.
-local function tentacles(server, t, dt)
-  local c = t.caged
-  if c then
-    local p = server.players[c.id]
-    c.t = c.t + dt
-    if not (p and p.body and Features.present(p)) or p.vehicle or p.body.dead
-      or c.t >= Tripod.cageTime or c.taken >= t.max * Tripod.dropAfter then
-      release(t)
-      return
-    end
-    p.body.x, p.body.y = cagePoint(t)
-    c.bite = c.bite - dt
-    local weapons = Features.byName.weapons
-    if c.bite <= 0 and weapons then
-      c.bite = c.bite + BURN_TICK
-      weapons:serverDamage(server, p, nil, Tripod.cageDps * BURN_TICK, t.facing, "melee")
-    end
-    return
-  end
-  local g = t.grab
-  if g then
-    g.t = g.t + dt
-    if g.t < Tripod.grabWindup then
-      return
-    end
-    t.grab = nil
-    local p = server.players[g.id]
-    local reach = Tripod.grabReach + Tripod.grabSlack
-    if p and p.body and not p.vehicle and not p.body.dead and Features.present(p)
-      and dist2(p.body.x, p.body.y, t.x, t.y) <= reach * reach then
-      t.caged = { id = g.id, t = 0, taken = 0, bite = 0 }
-      if t.target == g.id then
-        t.target, t.phase, t.phaseT = 0, REST, 0 -- it has them: no need to burn them
-      end
-    else
-      t.grabIn = Tripod.grabEvery / 2 -- missed: another go sooner
-    end
-    return
-  end
-  t.grabIn = t.grabIn - dt
-  if t.grabIn > 0 or not t.breath:has(Tripod.grabCost) then
-    return
-  end
-  local prey = nearest(server, t, Tripod.grabReach)
-  if prey and prey.onFoot then
-    t.breath:spend(Tripod.grabCost)
-    t.grab = { id = prey.player.id, t = 0 }
-  end
 end
 
 local function sync(server)
@@ -684,18 +376,7 @@ function Tripod.serverStep(server, dt)
     return
   end
   local t = sv.t
-  local striding = false
-  if t.frozen > 0 then
-    t.frozen = t.frozen - dt
-    t.speed = 0
-  else
-    striding = move(server, t, dt)
-    if t.breath:winded() and (t.phase == CHARGE or t.phase == LOCKED) then
-      t.target, t.phase = 0, REST -- no breath to keep the ray up (it finishes a burst it began)
-    end
-    ray(server, t, dt)
-    tentacles(server, t, dt)
-  end
+  local striding = Brain.think(Tripod, t, server, dt, sv.time)
   t.breath:step(striding, dt)
   sync(server)
 end
@@ -712,7 +393,7 @@ local function hurt(server, amount, by, angle)
     return
   end
   local x, y = t.x, t.y
-  release(t)
+  Brain.release(Tripod, t)
   server:broadcast(Protocol.encode("ETR_DOWN", fmt(x), fmt(y), ("%.3f"):format(t.facing)))
   local money = Features.byName.money
   if money and money.drop then
