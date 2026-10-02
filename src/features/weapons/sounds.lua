@@ -70,6 +70,21 @@ local function flameRoar()
   return source
 end
 
+--- A random-ish number in [lo, hi) from the synth's own deterministic noise,
+--- so every machine renders the same explosions.
+local function between(lo, hi)
+  return lo + (Synth.noise() * 0.5 + 0.5) * (hi - lo)
+end
+
+--- `n` takes of a sound, `build` rendering each; Sounds.play picks one.
+local function takes(n, build)
+  local list = {}
+  for i = 1, n do
+    list[i] = build()
+  end
+  return list
+end
+
 --- A layer of a gunshot: built, then filtered on its own.
 local function layer(seconds, build, hp, lp)
   local buf = Synth.newBuffer(seconds)
@@ -91,6 +106,92 @@ local function echo(buf, delay, gain)
   for i = buf.n - 1, d, -1 do
     data[i] = data[i] + data[i - d] * gain
   end
+end
+
+--- An explosion `seconds` long out of layers, each optional:
+---   crack   { amp, decay }                       the blast front, a split second of bright noise
+---   sub     { f0, f1, dur, decay, amp }          the boom you feel, a falling sine
+---   body    { f0, f1, dur, decay, amp }          a higher falling tone over it
+---   roar    { dur, decay, amp, lp }              dark noise rolling away
+---   whoosh  { at, dur, amp }                     fuel catching: a swell of noise
+---   crackle { count, from, to, amp, lp }         debris: tiny ticks scattered from..to s
+---   clangs  { count, from, to, amp }             metal parts landing, ringing
+---   thuds   { count, from, to, amp }             heavy chunks landing
+---   echoes, drive                                as gunshot() below
+local function blast(seconds, o)
+  local mix = Synth.newBuffer(seconds)
+  if o.crack then
+    layer(seconds, function(buf)
+      buf:noiseBurst(0, 0.08, { amp = o.crack.amp, decay = o.crack.decay })
+    end, 600, 7000):mixInto(mix, 1)
+  end
+  for _, key in ipairs({ "sub", "body" }) do
+    local part = o[key]
+    if part then
+      local f0 = part.f0 * between(0.9, 1.1) -- no two booms quite the same size
+      layer(seconds, function(buf)
+        buf:sweep(0, part.dur, f0, part.f1, { wave = "sine", amp = part.amp, decay = part.decay })
+      end):mixInto(mix, 1)
+    end
+  end
+  if o.roar then
+    local r = o.roar
+    layer(seconds, function(buf)
+      buf:noiseBurst(0.005, r.dur, { amp = r.amp, decay = r.decay })
+    end, nil, r.lp):mixInto(mix, 1)
+  end
+  if o.whoosh then
+    local w = o.whoosh
+    layer(seconds, function(buf)
+      local s0, n = math.floor(w.at * Synth.RATE), math.floor(w.dur * Synth.RATE)
+      for i = 0, math.min(n, buf.n - s0) - 1 do
+        local t = i / n
+        buf.data[s0 + i] = Synth.noise() * w.amp * math.sin(math.pi * t) ^ 2 -- swell and die
+      end
+    end, 200, 1400):mixInto(mix, 1)
+  end
+  if o.crackle then
+    local c = o.crackle
+    layer(seconds, function(buf)
+      for _ = 1, c.count do
+        local t = c.from + (c.to - c.from) * between(0, 1) ^ 1.6 -- thickest early
+        buf:noiseBurst(t, 0.012, { amp = c.amp * between(0.3, 1), decay = 0.003 })
+      end
+    end, 1800, c.lp or 6000):mixInto(mix, 1)
+  end
+  if o.clangs then
+    local c = o.clangs
+    layer(seconds, function(buf)
+      for _ = 1, c.count do
+        local t, f = between(c.from, c.to), between(500, 2200)
+        local amp = c.amp * between(0.4, 1)
+        local ring = { wave = "sine", amp = amp, attack = 0.001, sustain = 0, release = 0.02 }
+        ring.decay = between(0.06, 0.18)
+        buf:tone(t, 0.25, f, ring)
+        ring.amp = amp * 0.5
+        buf:tone(t, 0.2, f * 2.76, ring) -- a struck panel rings out of tune with itself
+        buf:noiseBurst(t, 0.02, { amp = amp * 0.6, decay = 0.004 })
+      end
+    end, 300):mixInto(mix, 1)
+  end
+  if o.thuds then
+    local c = o.thuds
+    layer(seconds, function(buf)
+      for _ = 1, c.count do
+        local t = between(c.from, c.to)
+        buf:sweep(t, 0.18, between(110, 170), 45, { wave = "sine", amp = c.amp * between(0.4, 1), decay = 0.06 })
+        buf:noiseBurst(t, 0.06, { amp = c.amp * 0.3, decay = 0.02 })
+      end
+    end, nil, 1500):mixInto(mix, 1)
+  end
+  for _, e in ipairs(o.echoes or {}) do
+    echo(mix, e[1], e[2])
+  end
+  mix:drive(o.drive or 2.5)
+  mix:highpass(20)
+  local source = love.audio.newSource(mix:toSoundData(0.9), "static")
+  source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
+  return source
 end
 
 --- A gunshot `seconds` long out of layers, each optional:
@@ -364,19 +465,62 @@ function Sounds.load()
     buf:drive(1.8)
   end)
 
-  -- Explosion: a low boom under a long rolling noise tail.
-  bank.explosion = make(0.9, function(buf)
-    buf:sweep(0, 0.45, 160, 32, { wave = "sine", amp = 1.0, decay = 0.28 })
-    buf:noiseBurst(0, 0.85, { amp = 0.9, decay = 0.22 })
-    buf:noiseBurst(0, 0.05, { amp = 0.8, decay = 0.01 })
-    buf:lowpass(1100)
-    buf:drive(2.2)
+  -- Explosions are built in layers like the gunshots (see blast() below),
+  -- three takes of each so a string of them never repeats one sample.
+
+  -- A blast (rockets, mortars, whatever else blows up): a sharp crack, a
+  -- deep boom, debris crackling down and a roar rolling off the buildings.
+  bank.explosion = takes(3, function()
+    return blast(1.6, {
+      crack = { amp = 1.0, decay = 0.014 },
+      sub = { f0 = 95, f1 = 26, dur = 0.9, decay = 0.32, amp = 1.2 },
+      body = { f0 = 280, f1 = 55, dur = 0.35, decay = 0.1, amp = 0.8 },
+      roar = { dur = 1.4, decay = 0.38, amp = 0.9, lp = 900 },
+      crackle = { count = 40, from = 0.05, to = 0.9, amp = 0.35 },
+      echoes = { { 0.16, 0.3 }, { 0.38, 0.15 } },
+      drive = 2.6,
+    })
+  end)
+
+  -- A car going up: the blast, then the fuel catching with a whoosh and its
+  -- panels and parts clanging down round it.
+  bank["explosion-car"] = takes(3, function()
+    return blast(2.0, {
+      crack = { amp = 1.0, decay = 0.016 },
+      sub = { f0 = 85, f1 = 24, dur = 1.0, decay = 0.36, amp = 1.2 },
+      body = { f0 = 240, f1 = 50, dur = 0.4, decay = 0.12, amp = 0.9 },
+      roar = { dur = 1.8, decay = 0.5, amp = 0.85, lp = 800 },
+      whoosh = { at = 0.06, dur = 0.9, amp = 0.55 },
+      crackle = { count = 30, from = 0.05, to = 1.0, amp = 0.3 },
+      clangs = { count = 7, from = 0.25, to = 1.5, amp = 0.45 },
+      echoes = { { 0.18, 0.28 }, { 0.42, 0.13 } },
+      drive = 2.6,
+    })
+  end)
+
+  -- A building coming down: a blast that turns into a long rumble, rubble
+  -- pouring and chunks thudding down for a couple of seconds.
+  bank["explosion-building"] = takes(2, function()
+    return blast(3.2, {
+      crack = { amp = 0.9, decay = 0.02 },
+      sub = { f0 = 75, f1 = 22, dur = 2.4, decay = 0.9, amp = 1.2 },
+      body = { f0 = 200, f1 = 45, dur = 0.5, decay = 0.18, amp = 0.8 },
+      roar = { dur = 3.0, decay = 1.0, amp = 0.9, lp = 650 },
+      crackle = { count = 140, from = 0.1, to = 2.8, amp = 0.3, lp = 2600 },
+      thuds = { count = 9, from = 0.3, to = 2.6, amp = 0.7 },
+      echoes = { { 0.22, 0.25 } },
+      drive = 2.4,
+    })
   end)
 end
 
---- Play `name` at world position (x, y). pitch defaults to 1.
+--- Play `name` at world position (x, y). pitch defaults to 1. A sound
+--- with several takes plays one of them at random.
 function Sounds.play(name, x, y, pitch)
   local base = bank[name]
+  if type(base) == "table" then
+    base = base[love.math.random(#base)]
+  end
   if not base then
     return
   end

@@ -1384,7 +1384,7 @@ local function collapsed(client, id, b, kind)
   local weapons = Features.byName.weapons
   if plot and weapons and weapons.explosionAt then
     local r = footprint(plot)
-    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind))
+    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind), "building")
   end
   if b.owner == client.myId then
     say(("Your %s was destroyed!"):format(kind.name))
