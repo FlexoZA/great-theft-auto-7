@@ -12,8 +12,10 @@
 -- the pistol), fired in bursts once you are in its reach.
 -- They hunt (troops' `hunt`): one who spots somebody closes in on them,
 -- and goes to where he saw them last when he loses them, his squad with
--- him; one shot from somewhere he can't see goes that way to look. When a
--- soldier goes down, everyone near enough to hear it goes to see. Each
+-- him; one shot from somewhere he can't see goes that way to look. One who
+-- spots somebody calls it in, and the nearest few others within reach of
+-- the radio (not his squad, who are with him) come to where he saw them.
+-- When a soldier goes down, everyone near enough to hear it goes to see. Each
 -- walks back to his post or his beat after.
 -- Squads of three walk beats between them (the map's `patrols`): through
 -- the old town, round the plaza and the Citadel's square. They talk over
@@ -72,6 +74,9 @@ Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
 Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in, and goes to look
+Level.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
+Level.callAnswer = 3 -- how many of them come at most, nearest first
+Level.callEvery = 15 -- seconds before the same soldier calls in again
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -253,6 +258,18 @@ local function mate(g, s)
   return others[1] and others[random(#others)] or nil
 end
 
+--- `s` has just spotted somebody: he calls it in, and the nearest few
+--- within earshot of the radio who aren't busy (and aren't his own squad,
+--- who are with him already) come to where he saw them. The nearest of
+--- them says he is on his way.
+local function callIn(s)
+  s.callUntil = sv.time + Level.callEvery
+  local went = sv.troops:alarm(s.aimX, s.aimY, Level.callHeard, { from = s, most = Level.callAnswer })
+  if went[1] then
+    later(went[1], "investigate", 1.6)
+  end
+end
+
 --- The idle chatter, the shouts and the replies.
 local function talk(server, dt)
   sv.time = sv.time + dt
@@ -260,6 +277,9 @@ local function talk(server, dt)
     if s.alert and not s.wasAlert and (s.quietUntil or 0) <= sv.time then
       s.quietUntil = sv.time + Level.shoutEvery
       say(server, s, "alert")
+    end
+    if s.alert and not s.wasAlert and (s.callUntil or 0) <= sv.time then
+      callIn(s)
     end
     s.wasAlert = s.alert
     if s.gaveUp then -- looked, found nothing, on his way back

@@ -14,6 +14,17 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-02
+
+City 17's Combine soldiers call for backup: spot you and the nearest of
+them come running.
+
+### Added
+- City 17's Combine soldiers call each other: one who spots you radios
+  it in, and the nearest three soldiers within 800 px who aren't busy
+  (guards off their posts too) come to where he saw you. The same soldier
+  calls again at most every 15 seconds.
+
 ## [0.3.0] - 2026-10-02
 
 City 17 comes alive: Combine squads patrol, hunt and talk over their
