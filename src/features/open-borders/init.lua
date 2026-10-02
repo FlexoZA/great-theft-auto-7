@@ -339,4 +339,13 @@ function OpenBorders:drawAboveCars(_client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function OpenBorders:footstepWalkers()
+  local list = {}
+  for id, s in pairs(self.simps or {}) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  return list
+end
+
 return OpenBorders

@@ -969,4 +969,16 @@ function Karen:drawHUD()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Karen:footstepWalkers()
+  local list = {}
+  for id, s in pairs(self.simps or {}) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  if self.boss then
+    list[#list + 1] = { key = "boss", x = self.boss.dx, y = self.boss.dy, size = "heavy" }
+  end
+  return list
+end
+
 return Karen

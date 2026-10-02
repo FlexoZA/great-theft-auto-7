@@ -7,6 +7,14 @@
 -- tiles): a click on road and pavement, a swish on grass, a crunch on the
 -- beach's sand, a splash in water. Running steps are louder.
 --
+-- Everyone else on foot (enemies, bosses, the tripod) comes from other
+-- features through the `footstepWalkers(client)` hook: a list of
+--   { key = unique per walker, x = , y = , size = "person"|"heavy"|"giant"|"claw" }
+-- at their drawn positions, leaving out anyone airborne or not on show. Their
+-- cadence comes from how fast they really move, one step per stride (SIZES).
+-- A heavy boss thuds, the tripod stomps like a machine and can be heard far
+-- off, and a hunter's three legs click.
+--
 -- Purely local: nothing is sent to the server. Steps are positional around
 -- the listener the game state keeps at you, and only heard close by (the
 -- distance model never fades a sound out completely, so far ones are skipped).
@@ -32,6 +40,19 @@ Footsteps.walkGain = 0.55
 Footsteps.runGain = 0.9
 Footsteps.crowdGain = 0.6 -- a pedestrian's steps against a player's
 Footsteps.crowdHeard = 4 -- only the nearest few pedestrians, or a crowd is a din
+Footsteps.troopsHeard = 8 -- and the nearest few ordinary enemies (bosses always)
+
+-- How each size of walker steps: px per step walking and running, how far
+-- it is heard, how loud, its pitch, and a layer added over the ground's
+-- sound ("only" plays that layer instead of the ground).
+local SIZES = {
+  person = { walk = 18, run = 34, hearing = 520, gain = 1, pitch = 1 },
+  heavy = { walk = 28, run = 48, hearing = 800, gain = 1.3, pitch = 0.8, layer = "thud" },
+  -- the tripod: a foot of its three lands every 33 px (tripod/render.lua: STRIDE / STANCE / 3)
+  giant = { walk = 33, run = 33, hearing = 1800, gain = 1.6, pitch = 1, layer = "stomp", only = true },
+  claw = { walk = 12, run = 20, hearing = 520, gain = 0.8, pitch = 1.2, layer = "claw" },
+}
+Footsteps.SIZES = SIZES
 
 -- What the ground is, by map kind, where the tile is plain "ground".
 local GROUND = { beach = "sand", forest = "grass", cliff = "grass", culdesac = "grass", city17 = "hard" }
@@ -54,6 +75,8 @@ local function make(seconds, build)
   source:setAttenuationDistances(Footsteps.refDistance, Footsteps.maxDistance)
   return source
 end
+
+local LENGTHS = { stomp = 0.4 } -- seconds, where not 0.14
 
 local SURFACES = {
   -- A shoe on concrete: a heel's dull knock and a short scuff.
@@ -87,6 +110,33 @@ local SURFACES = {
     crunch:lowpass(3200)
     crunch:mixInto(buf, 1)
   end,
+  -- A boss's weight coming down under the ground's sound: a low thud.
+  thud = function(buf)
+    buf:sweep(0, 0.12, between(85, 105), 40, { wave = "sine", amp = 1.0, decay = 0.04 })
+    buf:noiseBurst(0, 0.05, { amp = 0.3, decay = 0.015 })
+    buf:lowpass(700)
+  end,
+  -- The tripod's foot: a deep boom, a clank of metal and the hiss of its
+  -- hydraulics.
+  stomp = function(buf)
+    buf:sweep(0, 0.3, between(70, 85), 26, { wave = "sine", amp = 1.0, decay = 0.1 })
+    buf:noiseBurst(0, 0.25, { amp = 0.6, decay = 0.08 })
+    buf:lowpass(900)
+    local clank = Synth.newBuffer(0.4)
+    local f = between(380, 460)
+    clank:tone(0.005, 0.2, f, { wave = "sine", amp = 0.35, attack = 0.001, decay = 0.06, sustain = 0 })
+    clank:tone(0.005, 0.15, f * 2.76, { wave = "sine", amp = 0.15, attack = 0.001, decay = 0.04, sustain = 0 })
+    clank:noiseBurst(0.06, 0.3, { amp = 0.2, decay = 0.1 }) -- the hiss
+    clank:highpass(300)
+    clank:mixInto(buf, 1)
+    buf:drive(1.6)
+  end,
+  -- A hunter's clawed foot: a hard chitin click.
+  claw = function(buf)
+    buf:noiseBurst(0, 0.015, { amp = 0.8, decay = 0.002 })
+    buf:tone(0, 0.03, between(1800, 2400), { wave = "square", amp = 0.25, attack = 0.0005, decay = 0.006, sustain = 0 })
+    buf:highpass(1200)
+  end,
   -- Shallow water: a slap and a splash, a bubble or two.
   water = function(buf)
     buf:noiseBurst(0, 0.1, { amp = 0.7, decay = 0.035 })
@@ -97,10 +147,10 @@ local SURFACES = {
 }
 
 function Footsteps:load()
-  for surface, build in pairs(SURFACES) do
+  for surface, build in pairs(SURFACES) do -- the layers too
     bank[surface] = {}
     for i = 1, 4 do
-      bank[surface][i] = make(0.14, build)
+      bank[surface][i] = make(LENGTHS[surface] or 0.14, build)
     end
   end
   Audio.registerChannel("footsteps", "Footsteps", self.volume, function()
@@ -151,22 +201,35 @@ end
 
 -- Stepping ----------------------------------------------------------------
 
-local function step(x, y, gain, running)
-  local takes = bank[Footsteps.surfaceAt(x, y)]
+local function play(name, x, y, pitch, volume)
+  local takes = bank[name]
   local s = takes[love.math.random(#takes)]:clone()
   s:setPosition(x, 0, y)
-  s:setPitch((running and 1.06 or 1) * (0.92 + love.math.random() * 0.16))
-  s:setVolume(Audio.volume("footsteps") * gain * (running and Footsteps.runGain or Footsteps.walkGain))
+  s:setPitch(pitch * (0.92 + love.math.random() * 0.16))
+  s:setVolume(math.min(1, volume))
   s:play()
 end
 
+local function step(x, y, gain, running, size)
+  local pitch = (running and 1.06 or 1) * size.pitch
+  local volume = Audio.volume("footsteps") * gain * size.gain * (running and Footsteps.runGain or Footsteps.walkGain)
+  if not size.only then
+    play(Footsteps.surfaceAt(x, y), x, y, pitch, volume)
+  end
+  if size.layer then
+    play(size.layer, x, y, pitch, volume)
+  end
+end
+
 --- One walker `key` at (x, y) this frame: track its speed, and step when
---- its drawn stride brings a foot down. `phaseOf(running)` is that stride's
---- phase in radians (sin of it is the swing); (lx, ly) is the listener.
-local function walk(self, key, x, y, dt, gain, phaseOf, lx, ly)
+--- its stride brings a foot down. `phaseOf(running)` is the drawn stride's
+--- phase in radians (sin of it is the swing); without one the stride is
+--- `size`'s, from the distance covered. (lx, ly) is the listener.
+local function walk(self, key, x, y, dt, gain, phaseOf, lx, ly, size)
+  size = size or SIZES.person
   local w = walkers[key]
   if not w then
-    walkers[key] = { x = x, y = y, speed = 0, seen = true }
+    walkers[key] = { x = x, y = y, speed = 0, phase = 0, seen = true }
     return
   end
   w.seen = true
@@ -177,13 +240,17 @@ local function walk(self, key, x, y, dt, gain, phaseOf, lx, ly)
     return
   end
   w.speed = w.speed + (moved / math.max(dt, 1e-3) - w.speed) * math.min(1, dt * 15)
-  local running = w.speed > self.running
+  local running = w.speed > self.running * (size.run / SIZES.person.run)
+  if not phaseOf then -- pi of phase per stride covered
+    w.phase = w.phase + math.pi * moved / (running and size.run or size.walk)
+  end
   -- A foot is down at each peak of the swing: phase pi/2, 3pi/2, ...
-  local index = math.floor(phaseOf(running) / math.pi + 0.5)
+  local index = math.floor((phaseOf and phaseOf(running) or w.phase) / math.pi + 0.5)
   local due = w.step and index ~= w.step
   w.step = index
-  if due and w.speed > self.moving and (x - lx) ^ 2 + (y - ly) ^ 2 < self.hearing * self.hearing then
-    step(x, y, gain, running)
+  local hearing = math.max(self.hearing, size.hearing)
+  if due and w.speed > self.moving and (x - lx) ^ 2 + (y - ly) ^ 2 < hearing * hearing then
+    step(x, y, gain, running, size)
   end
 end
 
@@ -225,6 +292,30 @@ function Footsteps:update(dt, client)
         return pt * (p.flee and 16 or 7) + (p.bob or 0)
       end, lx, ly)
     end
+  end
+
+  -- Everyone else, from the features that own them: every heavy and giant
+  -- one, and the nearest few of the rest.
+  local troops = {}
+  for feature, list in pairs(Features.gather("footstepWalkers", client)) do
+    for _, e in ipairs(list) do
+      local size = SIZES[e.size] or SIZES.person
+      if e.x and e.y then
+        local key = feature .. ":" .. tostring(e.key)
+        if size == SIZES.heavy or size == SIZES.giant then
+          walk(self, key, e.x, e.y, dt, 1, nil, lx, ly, size)
+        else
+          troops[#troops + 1] = { key = key, e = e, size = size, d2 = (e.x - lx) ^ 2 + (e.y - ly) ^ 2 }
+        end
+      end
+    end
+  end
+  table.sort(troops, function(a, b)
+    return a.d2 < b.d2
+  end)
+  for i = 1, math.min(#troops, self.troopsHeard) do
+    local tr = troops[i]
+    walk(self, tr.key, tr.e.x, tr.e.y, dt, 1, nil, lx, ly, tr.size)
   end
 
   for key, w in pairs(walkers) do

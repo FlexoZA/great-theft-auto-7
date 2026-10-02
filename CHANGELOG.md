@@ -44,6 +44,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   their legs. Shoes click on the road, swish through park grass and
   forest, crunch on the beach's sand and splash through water, and the
   crowd around you murmurs along. They have their own volume slider.
+- Enemies have footsteps too, so you can hear them coming: police, simps,
+  soldiers and the Combine walk and run, bosses like Karen, the Major,
+  Shotgun, Bigfoot and the runner thud heavily, hunters click along on
+  their claws, and the tripod's stomps carry across the city.
 
 ## [0.9.0] - 2026-10-02
 

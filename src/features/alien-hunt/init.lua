@@ -1063,4 +1063,13 @@ function Hunt:drawHUD()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+--- Bigfoot is silent in the air; Wendell and the squirrel have no feet to speak of.
+function Hunt:footstepWalkers()
+  local f = self.foot
+  if f and not (self.leap and f.mode == "air") then
+    return { { key = "foot", x = f.dx, y = f.dy, size = "heavy" } }
+  end
+end
+
 return Hunt

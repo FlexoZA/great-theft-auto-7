@@ -36,6 +36,8 @@
 --   announce(x, y)                        optional: the sound of it starting (a roar otherwise)
 --   start(x, y), stop()                   the same on every machine (EVT_START / EVT_END)
 --   where() -> x, y                       where the boss is now, for the minimap
+--   footing() -> x, y, size               optional: where he walks, for footsteps
+--                                         (a footsteps size; nil while airborne)
 --   update(dt, client, camera), drawBelowCars, drawAboveCars, drawHUD(client, camera)
 --   clientMessages                        its own message kinds, merged into ours
 --
@@ -550,6 +552,18 @@ Events.serverMessages = {
 for _, event in pairs(Events.kinds) do
   for kind, handler in pairs(event.clientMessages or {}) do
     Events.clientMessages[kind] = handler
+  end
+end
+
+--- The footsteps feature's hook: who of mine is walking about, and where.
+--- The boss out now, if its kind says where it is standing (`footing`).
+function Events:footstepWalkers()
+  local kind = self.active and self.kinds[self.active.key]
+  if kind and kind.footing then
+    local x, y, size = kind.footing()
+    if x then
+      return { { key = self.active.key, x = x, y = y, size = size } }
+    end
   end
 end
 

@@ -149,4 +149,13 @@ function AMan:drawAboveCars()
   City17.drawAboveCars()
 end
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function AMan:footstepWalkers()
+  local list = {}
+  for id, s in pairs(City17.troops()) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  return list
+end
+
 return AMan
