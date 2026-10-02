@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Karen's simps think for themselves now: shoot Karen and all of them
+  come for you (for 6 seconds), whoever is nearer; they come at you from
+  all sides instead of queueing up behind each other; and with nobody to
+  fight they stay by her instead of wandering off.
 - The Tripod has a brain of its own now, and below 40% of its health it
   strides over the buildings to a medkit lying within 900 px (+200 each)
   and snatches it up with a tentacle, its heat ray still at work.
