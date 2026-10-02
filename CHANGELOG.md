@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-02
+
+City 17 goes to war: fires and rubbish in the streets, twice the Combine
+on its checkpoints and beats, and A-Man dropping by the plaza with his
+turrets.
+
 ### Added
 - City 17 looks like it has been through a war: fires that never go out
   (oil drums burning on the pavements, fires in the rubble and out on the
