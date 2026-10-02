@@ -19,6 +19,17 @@
 --            dash out of the way, then on with the rest. It can't dodge
 --            again straight away (DODGE_COOL)
 --
+-- It doesn't need to see you to know you are there. A round of yours that
+-- flies close by or hits it, from any side, and it whips round on whoever
+-- fired: straight into a fight if it has a clear line to them, otherwise
+-- off to search the way the round came from. A shot it hears (Brain.heard,
+-- anyone's but the Combine's, within HEAR) sends it to look there.
+--
+-- And they call each other: one that starts a fight, or is shot at, calls
+-- (no more often than CALL_EVERY), and every other one within CALL_RANGE
+-- that isn't fighting or healing already comes to where the trouble is
+-- (Brain.calls lists who called since whoever shows it last emptied it).
+--
 -- Its eyes are City 17's Combine soldiers': a cone of sight (wider while
 -- it is on edge, `alertFov`), walls in the way, and anyone within `aware`
 -- whichever way it faces (d-day/sight.lua). It finds its way round walls
@@ -55,6 +66,10 @@ Brain.HEAL_BELOW = 0.45 -- share of its health under which it goes for a pickup
 Brain.HEAL_RANGE = 700 -- px; how far it will go for one
 Brain.HASTE = 1.3 -- how much quicker it moves while an energy drink lasts
 Brain.LOOK_EVERY = 3 -- host ticks between sight checks (staggered)
+Brain.NEAR_MISS = 70 -- px; a round passing this close to one gives the shooter away
+Brain.HEAR = 550 -- px; a shot this near is heard
+Brain.CALL_RANGE = 1000 -- px; how far a call carries
+Brain.CALL_EVERY = 6 -- seconds before the same one calls again
 
 local random = love.math.random
 
@@ -83,7 +98,7 @@ end
 ---                           seconds of haste (quicker on its feet)
 function Brain.new(opts)
   return setmetatable({
-    list = {}, nextId = 1, time = 0, ticks = 0,
+    list = {}, nextId = 1, time = 0, ticks = 0, calls = {},
     fov = opts.fov, alertFov = opts.alertFov or opts.fov, aware = opts.aware or 0,
     health = opts.health, radius = opts.radius, nav = opts.nav,
     find = opts.find, there = opts.there, take = opts.take,
@@ -99,6 +114,7 @@ function Brain:add(route, start, arms)
     route = route, leg = start % #route + 1, mode = "patrol", phase = random() * 6.28,
     arms = arms, burstLeft = arms.burst, fireIn = 0, pod = 1, side = random() < 0.5 and -1 or 1,
     strafeIn = between(Brain.STRAFE_TIME), dodgeCool = 0, frozen = 0, stuck = 0, fired = false, haste = 0,
+    callCool = 0,
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = h
@@ -214,13 +230,74 @@ function Brain:look(server, h)
     end
   end
   if best then
-    h.target = best
-    h.lastX, h.lastY = poseOf(server, best)
-    h.fireIn = math.max(h.fireIn, Brain.REACT)
-    if h.mode ~= "heal" then
-      h.mode = "fight"
+    self:engage(h, best, poseOf(server, best))
+  end
+end
+
+--- `h` takes on player `id`, at (x, y): into a fight (unless it is off
+--- healing), and it calls the others.
+function Brain:engage(h, id, x, y)
+  h.target, h.lastX, h.lastY = id, x, y
+  h.fireIn = math.max(h.fireIn, Brain.REACT)
+  if h.mode ~= "heal" then
+    h.mode = "fight"
+  end
+  h.home = h.home or { x = h.x, y = h.y }
+  self:call(h, x, y)
+end
+
+--- `h` calls the others to (x, y): any within CALL_RANGE that aren't
+--- fighting or healing go there to look.
+function Brain:call(h, x, y)
+  if h.callCool > 0 then
+    return
+  end
+  h.callCool = Brain.CALL_EVERY
+  self.calls[#self.calls + 1] = h
+  for _, o in ipairs(self.list) do
+    if o ~= h and not o.target and o.mode ~= "heal" and dist2(o.x, o.y, h.x, h.y) <= Brain.CALL_RANGE ^ 2 then
+      self:investigate(o, x, y)
     end
-    h.home = h.home or { x = h.x, y = h.y }
+  end
+end
+
+--- `h` goes to look at (x, y), unless it already has somebody or is healing.
+function Brain:investigate(h, x, y)
+  if h.target or h.mode == "heal" then
+    return
+  end
+  h.lastX, h.lastY = x, y
+  h.mode, h.searchFor, h.goal = "search", nil, nil
+  h.home = h.home or { x = h.x, y = h.y }
+end
+
+--- Player `by` just shot at `h` from about (fx, fy): it turns on them. With
+--- a clear line to them it is straight into the fight; without, it goes
+--- looking the way the shot came, and either way it calls the others.
+function Brain:alarm(server, h, by, fx, fy)
+  if h.target then
+    return
+  end
+  local x, y = poseOf(server, by)
+  if x and dist2(h.x, h.y, x, y) <= Brain.RANGE ^ 2 and Sight.clear(h.x, h.y, x, y) then
+    h.facing = math.atan2(y - h.y, x - h.x) -- it whips round
+    self:engage(h, by, x, y)
+    return
+  end
+  if fx and h.mode ~= "heal" then
+    h.facing = math.atan2(fy - h.y, fx - h.x)
+    self:investigate(h, fx, fy)
+    self:call(h, fx, fy)
+  end
+end
+
+--- A shot went off at (x, y), fired by player `by`: any within earshot
+--- with nobody to fight go to look.
+function Brain:heard(x, y)
+  for _, h in ipairs(self.list) do
+    if dist2(h.x, h.y, x, y) <= Brain.HEAR * Brain.HEAR then
+      self:investigate(h, x, y)
+    end
   end
 end
 
@@ -389,19 +466,23 @@ function Brain:dodge(h, ux, uy, far)
   return true
 end
 
---- A round on its way from (x, y) along (ux, uy) at `speed` px/s, `reach`
---- px at most, hurting `width` px either side of its line (a rocket's
---- blast is wide): anyone it will pass close enough to, soon enough,
---- dashes aside, away from its line.
-function Brain:threatLine(x, y, ux, uy, speed, reach, width)
+--- A round player `by` fired from (fx, fy), now at (x, y) going along
+--- (ux, uy) at `speed` px/s, `reach` px more at most, hurting `width` px
+--- either side of its line (a rocket's blast is wide): anyone it will pass
+--- close enough to, soon enough, dashes aside, away from its line, and
+--- anyone it passes near at all turns on whoever fired it.
+function Brain:threatLine(server, by, fx, fy, x, y, ux, uy, speed, reach, width)
   for _, h in ipairs(self.list) do
     local rx, ry = h.x - x, h.y - y
     local along = rx * ux + ry * uy
-    if along > 0 and along < reach and along / speed < Brain.DODGE_WARN then
-      local across = rx * -uy + ry * ux
-      if math.abs(across) < self.radius + (width or 0) + 10 then
-        local side = across >= 0 and 1 or -1
+    if along > 0 and along < reach then
+      local across = math.abs(rx * -uy + ry * ux)
+      if along / speed < Brain.DODGE_WARN and across < self.radius + (width or 0) + 10 then
+        local side = (rx * -uy + ry * ux) >= 0 and 1 or -1
         self:dodge(h, -uy * side, ux * side)
+      end
+      if across < self.radius + Brain.NEAR_MISS + (width or 0) and along / speed < 0.3 then
+        self:alarm(server, h, by, fx, fy)
       end
     end
   end
@@ -431,6 +512,7 @@ end
 function Brain:think(server, h, dt)
   h.fired, h.moving = false, false
   h.dodgeCool = math.max(0, h.dodgeCool - dt)
+  h.callCool = math.max(0, h.callCool - dt)
   h.haste = math.max(0, h.haste - dt)
   if h.frozen > 0 then
     h.frozen = h.frozen - dt -- frozen stiff: nothing
@@ -499,21 +581,20 @@ function Brain:at(x, y, radius)
   end
 end
 
---- Take `amount` off `h` (the i-th). True if that killed it; it is gone
---- from the list then. Hit from somewhere it can't see, it turns and goes
---- that way to look.
-function Brain:hurt(h, i, amount, angle)
+--- Take `amount` off `h` (the i-th), hit by player `by` (nil for nobody)
+--- with a round going along `angle`. True if that killed it; it is gone
+--- from the list then. Otherwise it turns on whoever did it (Brain.alarm).
+function Brain:hurt(server, h, i, amount, angle, by)
   h.hp = h.hp - amount
   if h.hp <= 0 then
     table.remove(self.list, i)
     return true
   end
-  if angle and not h.target and h.mode ~= "heal" then
-    h.facing = angle + math.pi
-    h.lastX, h.lastY = h.x - math.cos(angle) * 300, h.y - math.sin(angle) * 300
-    h.mode, h.searchFor, h.goal = "search", nil, nil
-    h.home = h.home or { x = h.x, y = h.y }
+  local fx, fy
+  if angle then
+    fx, fy = h.x - math.cos(angle) * 300, h.y - math.sin(angle) * 300
   end
+  self:alarm(server, h, by, fx, fy)
   return false
 end
 

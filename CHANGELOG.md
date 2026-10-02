@@ -27,7 +27,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   Below 45% health they break off to grab a medkit (+70) or an energy
   drink (+30 and quicker for 6 seconds) lying within 700 px, and the
   pickup is gone for you. They take 180 (nine pistol rounds) and drop 8
-  koins.
+  koins. Shoot one from behind and it whips round on you, straight into
+  a fight if it can see you, otherwise off to search the way your shot
+  came; a shot within 550 px sends it to look. They call each other:
+  one that spots you or is shot at sends out a call (a blue pulse and a
+  whine, at most every 6 seconds) and every Hunter within 1000 px that
+  isn't busy comes to where you are. Their sounds have their own volume
+  slider ("Hunters").
 
 ## [0.6.0] - 2026-10-02
 
