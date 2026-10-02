@@ -30,6 +30,11 @@
 -- farmland, a patchwork of fields in rows with dirt tracks between them,
 -- a lone tree here and there, and a farm with a tractor working a field.
 --
+-- City 17 carries on past its edges, out of reach behind the Combine's
+-- wall round it: streets and blocks of flats, some bombed out, some
+-- burning, the railway, the canal and the wall running on, all under a
+-- haze (city17.lua).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -37,6 +42,7 @@
 
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
+local City17 = require("src.features.surroundings.city17")
 
 local Surroundings = {
   name = "surroundings",
@@ -1004,6 +1010,10 @@ local DRAW = {
   beach = beach,
   cliff = bluff,
   outskirts = outskirts,
+  city17 = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    City17.draw(map, camera, left, top, right, bottom, clock)
+  end,
 }
 
 function Surroundings:drawBelowCars(_client, camera)
