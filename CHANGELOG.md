@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Car horns: hold V while driving and everyone nearby hears you. Every
+  kind of vehicle has its own: hatchbacks beep, sedans have the two-tone
+  car horn, SUVs and pickups go deeper, motorbikes meep, vans blare and
+  trucks and buses blast an air horn. Ram a bot and it honks back. Rebind
+  it in Settings; the horns have their own volume slider.
+
 ### Changed
 - Every kind of vehicle has its own engine sound: hatchbacks buzz, sedans
   purr, SUVs and pickups burble like a V8, motorbikes scream through six
