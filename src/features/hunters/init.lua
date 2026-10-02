@@ -8,8 +8,11 @@
 -- strafing and backing off, search where they lost somebody, dodge, and
 -- break off to heal. They see as City 17's Combine soldiers do: the same
 -- cone of sight, wider while they are on edge, and anyone close by
--- whichever way they face. Every round of theirs stuns (damage's shock
--- type). Rounds owned by nobody (the Combine's, the turrets', their own)
+-- whichever way they face. Their rounds are shock (the damage feature)
+-- and zap whoever they hit, the shock running on through them the way a
+-- flame burns on, until it wears off or they dodge it off. Every so often
+-- one charges its pods and fires a stun shot instead, which holds you
+-- still. Rounds owned by nobody (the Combine's, the turrets', their own)
 -- pass by them; anyone else's hurt them.
 --
 -- What they dodge, read each tick on the host: every round in flight that
@@ -40,6 +43,7 @@
 --
 -- Messages
 --   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
+--                  (firing 1 just fired, 2 charging its stun shot)
 --                  (unreliable, 15 Hz; alert 1 has somebody, 2 searching, 0 neither)
 --   server -> all  HTR_DOWN  <id> <x> <y> <angle>     one went down
 --   server -> all  HTR_CALL  <id> <x> <y>             one called the others
@@ -69,7 +73,10 @@ Hunters.fov = math.rad(60) -- how wide their cone of sight is
 Hunters.alertFov = math.rad(100) -- and while one is on edge
 Hunters.aware = 170 -- px all round them they notice somebody in, any way they face
 Hunters.health = 180 -- three times a Combine soldier's: nine pistol rounds
-Hunters.damage = 8 -- a round (an uzi's is 12): the stun is the danger
+Hunters.damage = 8 -- a round (an uzi's is 12)...
+Hunters.zap = { seconds = 3, dps = 8 } -- ...and the shock runs on through you, as a flame burns on
+Hunters.stunDamage = 10 -- its stun shot...
+Hunters.stunTime = 1.2 -- ...holds you still this long
 Hunters.burst = 5 -- rounds at the uzi's rate...
 Hunters.pause = 1.4 -- ...then this many seconds
 Hunters.drops = 8 -- koins one spills
@@ -92,12 +99,17 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
---- Their gun: the uzi, its rounds weaker and stunning whoever they hit.
+--- Their guns: the uzi, its rounds weaker but zapping whoever they hit,
+--- and the stun shot, slower and brighter, that stuns them outright.
 local function arms()
   local uzi = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock" }, { __index = uzi })
+  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock", electrify = Hunters.zap },
+    { __index = uzi })
+  local stunGun = setmetatable({ damage = Hunters.stunDamage, damageType = "shock", stun = Hunters.stunTime,
+    speed = 700, streak = 16 }, { __index = uzi })
   return {
     gun = gun,
+    stunGun = stunGun,
     burst = Hunters.burst,
     pause = Hunters.pause,
     reach = uzi.speed * (uzi.ttl or ROUND_TTL) * 0.85,
@@ -256,7 +268,7 @@ local function sync(srv)
     parts[#parts + 1] = ("%.2f"):format(h.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, h.hp))
     parts[#parts + 1] = h.target and 1 or (Brain.wary(h) and 2 or 0)
-    parts[#parts + 1] = h.shotSince and 1 or 0
+    parts[#parts + 1] = h.charge and 2 or (h.shotSince and 1 or 0)
     parts[#parts + 1] = h.dodgedSince and 1 or 0
     h.shotSince, h.dodgedSince = false, false
   end
@@ -407,7 +419,7 @@ function Hunters:drawAboveCars()
   love.graphics.setLineWidth(1)
   for _, h in pairs(shown) do
     Render.draw(h.dx, h.dy, h.facing, {
-      cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7,
+      cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7, charging = h.charging,
       dodge = h.dodge / DODGE_SHOWN, dodgeX = h.dodgeX, dodgeY = h.dodgeY,
     }, clock)
     if h.hp < Hunters.health then -- a bar under it once it is hurt
@@ -457,6 +469,7 @@ Hunters.clientMessages = {
         if args[i + 6] == "1" then
           h.flash = FLASH
         end
+        h.charging = args[i + 6] == "2"
         seen[id] = true
       end
     end
