@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- The Runner has a brain of his own now, and below 40% of his health he
+  leaves his street for a medkit lying within 1200 px (+200 each),
+  smashing whatever is on the way, then gets back on the street grid and
+  runs on.
 - Bigfoot has a brain of his own now, the same one in the city and in
   the forest, and below 40% of his health he goes for a medkit lying
   within 700 px (+200 each): he leaps onto it if it's a fair way off and
