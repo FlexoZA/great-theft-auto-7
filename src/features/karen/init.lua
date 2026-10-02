@@ -288,6 +288,9 @@ function Karen:hurt(server, amount, by, angle)
     return false
   end
   b.hp = b.hp - amount
+  if by then -- her simps go for whoever it was (simp_brain.lua)
+    b.lastHitBy, b.lastHitT = by, sv.simps.time
+  end
   if b.hp > 0 then
     return false
   end
