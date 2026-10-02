@@ -4,7 +4,9 @@
 -- keeps a mark on him while he is loose; a banner says what is going on.
 -- The city keeps out of his way: while an event runs (police and bots ask
 -- `serverEventActive`) the police stay on the streets with their lights on
--- but want nobody, and the traffic won't pick a fight.
+-- but want nobody, and the traffic won't pick a fight. Once the boss is
+-- beaten they stay that way for `calmAfter` seconds more, so nobody is
+-- wanted or picked on for the shooting that brought him down.
 --
 -- One event at a time, and only on the default city map: a trip to a quest
 -- map, or any map change, calls it off. For now an event starts by hand:
@@ -67,6 +69,7 @@ Events.order = { "bigfoot", "runner", "tripod", "a-man" } -- as the F8 menu list
 Events.flashTime = 6 -- seconds the minimap flashes red when one starts
 Events.bannerTime = 5 -- seconds the banner stays up
 Events.noticeTime = 3 -- seconds a "can't start" notice stays up
+Events.calmAfter = 5 -- seconds police and bots stay passive once the boss is beaten
 
 local HOST_ID = 1 -- the host's own player, as bots has it
 local REFUSED = {
@@ -83,18 +86,19 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { active = key or nil, x, y }
+local sv = nil -- { active = key or nil, x, y, calm (seconds of the truce left after a win) }
 
 function Events:serverStart()
   if sv and sv.active then
     self.kinds[sv.active].serverStop(nil)
   end
-  sv = { active = nil }
+  sv = { active = nil, calm = 0 }
 end
 
---- The `serverEventActive` convention: is an event on? Police and bots go passive.
+--- The `serverEventActive` convention: is an event on, or only just won?
+--- Police and bots go passive.
 function Events:serverEventActive()
-  return sv ~= nil and sv.active ~= nil
+  return sv ~= nil and (sv.active ~= nil or sv.calm > 0)
 end
 
 --- The event on the host, or nil.
@@ -140,6 +144,7 @@ function Events:serverEnd(server, x, y, won)
   end
   local key = sv.active
   sv.active = nil
+  sv.calm = won and self.calmAfter or 0
   self.kinds[key].serverStop(server)
   server:broadcast(Protocol.encode("EVT_END", key, fmt(x or sv.x), fmt(y or sv.y), won and 1 or 0))
 end
@@ -152,6 +157,9 @@ function Events:mapChanged(_map, server)
 end
 
 function Events:serverStep(server, dt)
+  if sv and sv.calm > 0 then
+    sv.calm = math.max(0, sv.calm - dt)
+  end
   local event = self:serverActive()
   if event then
     event.serverStep(server, dt, self)
@@ -531,7 +539,7 @@ Events.serverMessages = {
     if player.id ~= HOST_ID then
       return
     end
-    if Events:serverEventActive() then
+    if Events:serverActive() then
       Events:serverEnd(server, nil, nil, false)
     else
       server:send(player, Protocol.encode("EVT_NO", "none"))

@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Police and traffic stay passive for 5 seconds after a city event's
+  boss goes down, instead of turning on you the moment he dies.
+
 ## [0.8.0] - 2026-10-02
 
 Every enemy thinks for itself: the bosses go for medkits when they're
