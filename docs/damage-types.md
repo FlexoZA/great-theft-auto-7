@@ -13,7 +13,7 @@ kill feed and death effects can say what happened.
 | `explosive` | a rocket's blast, the D-Day mortar                                                     | blew up        |
 | `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires  | burned         |
 | `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream   | flattened      |
-| `shock`     | the Tripod's lightning                                                                 | fried          |
+| `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot                        | fried          |
 | `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels), the Tripod's cage | beat down      |
 
 The list lives in `src/features/damage/init.lua` (`Damage.types`), one
@@ -33,11 +33,13 @@ Besides the damage, each type does something to a player on foot:
 | `bullet`    | nothing more                                                                                |
 | `fire`      | a fire that means it sets you alight: you burn on (3-4 s) after you are out of it           |
 | `melee`     | bleeding: 3 a second for 4 s; a medkit stops it                                             |
-| `shock`     | stunned: held still for 1 s (no walking, shooting or dodging)                               |
+| `shock`     | a hit of 20 or more stuns: held still for 1 s (no walking, shooting or dodging); a live round zaps you: shock runs on (3 s, 8 a second) after the hit |
 | `impact`    | knocked back 36 px and down for 0.6 s                                                       |
 | `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
 
-Burning and bleeding top up rather than stack; a dodge puts a fire out.
+Burning, zaps and bleeding top up rather than stack; a dodge puts a fire
+out and shakes off a zap. A round can carry a zap (`electrify`) or a stun
+(`stun`, seconds) whatever it hits for.
 
 ## What resists what
 

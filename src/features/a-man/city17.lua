@@ -27,6 +27,7 @@
 -- The first time a player walks into the plaza, A-Man drops by: he blinks
 -- in, leaves a horde of his turrets and blinks out, three times over
 -- (cameo.lua). He can't be hurt yet.
+-- Three Hunters (the hunters feature) patrol a ring round the Citadel.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
@@ -60,6 +61,8 @@ Level.squadSize = 3 -- soldiers in a patrol
 Level.guardsPerPost = 2 -- soldiers at each of the map's posts, side by side
 Level.squadsPerBeat = 2 -- squads walking each beat, spread round it
 Level.pairGap = 40 -- px between the guards sharing a post
+Level.hunters = 3 -- Hunters (the hunters feature) patrolling round the Citadel
+Level.hunterRing = 230 -- px out from the Citadel's wall that they walk
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.alertFov = math.rad(100) -- how wide it is while one is on edge: has somebody, searching, investigating
 Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
@@ -178,8 +181,27 @@ local function besidePost(p, i)
   return p.x, p.y
 end
 
---- Everyone arrived: guards on every post, squads on every beat.
-function Level.serverQuestStarted(_server, quest)
+--- The Hunters' beat: a ring round the Citadel, kept inside its square.
+local function citadelBeat(map)
+  local c = map.citadel
+  local y0, y1 = map.top + 90, c.y + c.r + 400
+  for _, z in ipairs(map.zones or {}) do
+    if z.name == "citadel" then
+      y1 = z.y1 - 150
+    end
+  end
+  local route, ring = {}, c.r + Level.hunterRing
+  for i = 0, 7 do
+    local a = i / 8 * 2 * math.pi
+    local y = math.max(y0, math.min(y1, c.y + math.sin(a) * ring))
+    route[#route + 1] = { x = c.x + math.cos(a) * ring, y = y }
+  end
+  return route
+end
+
+--- Everyone arrived: guards on every post, squads on every beat, Hunters
+--- round the Citadel.
+function Level.serverQuestStarted(server, quest)
   local map = cityMap()
   if not (quest.boss == Level.questId and map and map.posts) then
     return
@@ -189,6 +211,10 @@ function Level.serverQuestStarted(_server, quest)
   })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
   Cameo.serverStart()
+  local hunters = Features.byName.hunters
+  if hunters then
+    hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+  end
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
@@ -234,6 +260,10 @@ end
 --- Over: nothing left to step or draw.
 function Level.serverStop(server)
   Cameo.serverStop(server)
+  local hunters = Features.byName.hunters
+  if hunters then
+    hunters:serverClear()
+  end
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("C17_TROOPS", server.tick)) -- an empty list clears every screen

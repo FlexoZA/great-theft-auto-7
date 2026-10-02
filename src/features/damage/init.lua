@@ -15,15 +15,20 @@
 --   fire       nothing by itself; a fire that means it sets you alight
 --              (`Damage:ignite`): you burn on after you are out of it
 --   melee      you bleed for a while
---   shock      stunned: held still for a moment
+--   shock      a hard jolt (`stunMin` or more in one hit) stuns you: held
+--              still for a moment; a lighter one does nothing by itself.
+--              Something that means it can zap you (`Damage:electrify`):
+--              the shock runs on through you after the hit, the way a fire
+--              burns on, or stun you outright (`Damage:stun`)
 --   impact     knocked back a little, and down: held still for a moment
 --   explosive  blown back from the blast, further the harder it hit, and
 --              dazed: your screen swims
 --
--- Burning and bleeding hurt a little every quarter second until they run
--- out. Another dose while one is on tops its time back up at the stronger
--- rate; it never stacks. A dodge puts a fire out (the on-foot feature
--- raises `serverDodged`), a medkit stops the bleeding (buildings calls
+-- Burning, being zapped and bleeding hurt a little every quarter second
+-- until they run out. Another dose while one is on tops its time back up
+-- at the stronger rate; it never stacks. A dodge puts a fire out and
+-- shakes off a zap (the on-foot feature raises `serverDodged`), a medkit
+-- stops the bleeding (buildings calls
 -- `serverStopBleeding`). Getting into a car, dying or leaving ends them all.
 -- Stunned or down, you are held (the `serverHeld` / `held` conventions: no
 -- walking, shooting or dodging). Everyone sees every status on everyone.
@@ -81,6 +86,9 @@ Damage.burnDps = 8 -- fire damage a second while they do, likewise
 Damage.bleedTime = 4 -- seconds a melee hit leaves you bleeding
 Damage.bleedDps = 3 -- melee damage a second while you do
 Damage.stunTime = 1 -- seconds a shock holds you still
+Damage.stunMin = 20 -- damage a single shock hit must do to stun you by itself
+Damage.zapTime = 3 -- seconds a zap runs on through you when it doesn't say
+Damage.zapDps = 8 -- shock damage a second while it does, likewise
 Damage.downTime = 0.6 -- seconds an impact puts you on the ground
 Damage.impactShove = 36 -- px an impact knocks you back
 Damage.blastShovePerDamage = 1.5 -- px an explosive hit throws you per point of damage...
@@ -91,11 +99,11 @@ Damage.dazeTime = 2 -- seconds an explosive hit leaves your screen swimming
 Damage.numbers = true -- damage numbers float up off every hit
 Damage.maxResist = 0.8 -- the most of any type anything worn, alone or together, can stop
 
-local TICK = 0.25 -- seconds between bites of a burn or a bleed
+local TICK = 0.25 -- seconds between bites of a burn, a zap or a bleed
 
 --- The statuses there are, and the type the ones that hurt deal.
-local HURTS = { burn = "fire", bleed = "melee" }
-local STATUSES = { burn = true, bleed = true, stun = true, down = true, daze = true }
+local HURTS = { burn = "fire", zap = "shock", bleed = "melee" }
+local STATUSES = { burn = true, zap = true, bleed = true, stun = true, down = true, daze = true }
 
 --- The entry for type `dtype`, the default's for nil or anything unknown.
 function Damage.of(dtype)
@@ -231,7 +239,7 @@ function Damage:drawAboveCars(client, camera)
       if self:has(id, "burn") then
         Effects.flames(x, y, id, clock)
       end
-      if self:has(id, "stun") then
+      if self:has(id, "stun") or self:has(id, "zap") then
         Effects.sparks(x, y, id, clock)
       end
       if self:has(id, "down") then
@@ -248,6 +256,9 @@ function Damage:drawHUD(client)
   local says = {}
   if self:has(me, "burn") then
     says[#says + 1] = "ON FIRE: dodge to put it out"
+  end
+  if self:has(me, "zap") then
+    says[#says + 1] = "ELECTRIFIED: dodge to shake it off"
   end
   if self:has(me, "bleed") then
     local key = Controls.bindings("use-medkit")[1]
@@ -379,6 +390,22 @@ function Damage:ignite(server, victim, seconds, dps, by)
   return self:serverAfflict(server, victim, "burn", seconds or self.burnTime, dps or self.burnDps, by)
 end
 
+--- Zap `victim`: the shock runs on through them for `seconds`
+--- (Damage.zapTime when nil) at `dps` shock damage a second
+--- (Damage.zapDps), the kill going to player id `by` (nil for nobody). Only
+--- a player on foot is zapped. Returns true if they are.
+function Damage:electrify(server, victim, seconds, dps, by)
+  return self:serverAfflict(server, victim, "zap", seconds or self.zapTime, dps or self.zapDps, by)
+end
+
+--- Stun `victim` outright for `seconds`, less what they wear against shock.
+function Damage:stun(server, victim, seconds)
+  if not takes(victim) then
+    return false
+  end
+  return self:serverAfflict(server, victim, "stun", seconds * self:serverShare(server, victim, "shock"))
+end
+
 --- Put player `id` out, if they are burning.
 function Damage:extinguish(server, id)
   return self:serverCure(server, id, "burn")
@@ -423,7 +450,7 @@ function Damage:serverPlayerDamaged(server, victim, attacker, amount, dtype, ang
   local share = self:serverShare(server, victim, dtype)
   if dtype == "melee" then
     self:serverAfflict(server, victim, "bleed", self.bleedTime, self.bleedDps, attacker and attacker.id)
-  elseif dtype == "shock" then
+  elseif dtype == "shock" and amount >= self.stunMin then
     self:serverAfflict(server, victim, "stun", self.stunTime * share)
   elseif dtype == "impact" then
     shove(server, victim, angle, self.impactShove * share)
@@ -471,9 +498,10 @@ function Damage:serverStep(server, dt)
   end
 end
 
---- Stop, drop and roll: a dodge puts the flames out.
+--- Stop, drop and roll: a dodge puts the flames out and shakes off a zap.
 function Damage:serverDodged(server, player)
   self:extinguish(server, player.id)
+  self:serverCure(server, player.id, "zap")
 end
 
 function Damage:serverPlayerJoined(server, player)

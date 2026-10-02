@@ -638,11 +638,7 @@ function Pickups:serverStep(server, dt)
       if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach * reach then
         local kind = kindOf(it.kind)
         if kind and kind.apply(server, player, it) then
-          sv.items[id] = nil
-          server:broadcast(Protocol.encode("PK_TAKE", id, player.id))
-          if not it.dropped then
-            sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
-          end
+          self:serverTake(server, id, player.id)
           break
         end
       end
@@ -657,6 +653,41 @@ function Pickups:serverStep(server, dt)
       i = i + 1
     end
   end
+end
+
+--- Pickup `id` is taken by player `byId` (0 for somebody who isn't one:
+--- an enemy helping itself): gone from the ground on every screen, and one
+--- of the map's own comes back in time. Doesn't apply it; returns the item
+--- ({ kind, x, y, amount }) or nil if it was already gone.
+function Pickups:serverTake(server, id, byId)
+  local it = sv and sv.items[id]
+  if not it then
+    return nil
+  end
+  sv.items[id] = nil
+  server:broadcast(Protocol.encode("PK_TAKE", id, byId or 0))
+  if not it.dropped then
+    sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
+  end
+  return it
+end
+
+--- The nearest pickup lying within `range` of (x, y) whose kind is one of
+--- `kinds` (a set: { health = true }): its id and the item, or nil.
+function Pickups:serverNearest(x, y, range, kinds)
+  local best, bestId, bestD2 = nil, nil, range * range
+  for id, it in pairs(sv and sv.items or {}) do
+    local d2 = (it.x - x) ^ 2 + (it.y - y) ^ 2
+    if kinds[it.kind] and d2 <= bestD2 then
+      best, bestId, bestD2 = it, id, d2
+    end
+  end
+  return bestId, best
+end
+
+--- Is pickup `id` still lying there?
+function Pickups:serverHas(id)
+  return sv ~= nil and sv.items[id] ~= nil
 end
 
 --- For tests.

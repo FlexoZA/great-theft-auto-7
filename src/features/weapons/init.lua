@@ -19,7 +19,9 @@
 -- The flamethrower sprays short-lived tongues of fire (`flame`), each a
 -- "fire" round that sets whoever it catches on foot alight (`ignite`: the
 -- damage feature's burning). Its magazine is a tank (`tank`): a reload
--- takes one fuel can and fills it whole.
+-- takes one fuel can and fills it whole. A gun's rounds can zap whoever
+-- they catch on foot (`electrify` = { seconds, dps }: shock that runs on
+-- through them) or stun them outright (`stun`, seconds): the Hunters'.
 -- Every hit has a damage type (src/features/damage, docs/damage-types.md):
 -- a gun's `damageType` or its blast's `type`, the last argument of
 -- serverDamage and damageCar, passed on to every damage hook and carried
@@ -1473,6 +1475,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
       ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
+      electrify = gun.electrify, stun = gun.stun,
     }
     server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
       ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
@@ -1970,9 +1973,17 @@ function Weapons:hit(server, p, target)
     self:damage(server, target.player, p.owner, amount, p.id, angle, p.dtype)
     -- A flame sets whoever it caught on foot alight (the damage feature
     -- leaves anyone driving, and the dead, alone).
-    local damage = p.ignite and Features.byName.damage
-    if damage then
-      damage:ignite(server, target.player, p.ignite.seconds, p.ignite.dps, p.owner ~= NO_OWNER and p.owner or nil)
+    local damage = Features.byName.damage
+    local by = p.owner ~= NO_OWNER and p.owner or nil
+    if damage and p.ignite then
+      damage:ignite(server, target.player, p.ignite.seconds, p.ignite.dps, by)
+    end
+    -- A live round zaps them (`electrify`), a charged one stuns them (`stun`, seconds).
+    if damage and p.electrify then
+      damage:electrify(server, target.player, p.electrify.seconds, p.electrify.dps, by)
+    end
+    if damage and p.stun then
+      damage:stun(server, target.player, p.stun)
     end
   else
     self:damageCar(server, target.car, p.owner, amount, p.id, angle, p.dtype)

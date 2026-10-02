@@ -149,7 +149,8 @@ function Heat.serverStep(server, dt)
   end
 end
 
---- For tests.
+--- What is burning where: for tests, and for enemies that get out of
+--- the way (hunters).
 function Heat.serverBurns()
   return burns
 end
