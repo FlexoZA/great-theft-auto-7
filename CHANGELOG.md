@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-02
+
+Every enemy thinks for itself: the bosses go for medkits when they're
+hurt, D-Day's soldiers hunt like the Combine, Karen's simps gang up and
+the police radio for backup.
+
 ### Changed
 - Police officers on foot think for themselves now: one who spots you
   while you're wanted calls it in, and every officer within 900 px who
