@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-02
+
+City 17's Combine soldiers call for backup: spot you and the nearest of
+them come running.
+
 ### Added
 - City 17's Combine soldiers call each other: one who spots you radios
   it in, and the nearest three soldiers within 800 px who aren't busy
