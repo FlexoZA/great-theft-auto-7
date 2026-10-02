@@ -900,7 +900,11 @@ the one with a plot.
   he can see, searches where he lost them, goes looking when shot from
   out of sight, and `Troops:alarm` sends everyone within 700 px of a
   soldier going down to look; each walks back on a trail of breadcrumbs
-  after (D-Day's hold their places). They talk over the
+  after (D-Day's hold their places). `Troops:navigate(bounds)` gives them
+  a walking grid (`d-day/nav.lua`: 32 px cells, A*, the path cut down to
+  corners in plain sight of each other) to find their way round walls to
+  where they are going. A-Man's theme plays through his quest, from the
+  intro screen to the end, the way Karen's does. They talk over the
   radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
   "combine" sound channel and a bubble): a checkpoint's guards or a squad
   now and then with a mate answering, a shout on spotting somebody, and a

@@ -42,6 +42,7 @@ function AMan:load()
 end
 
 function AMan:exitGame()
+  Event.stopTheme()
   Event.clearRemains()
   City17.clear()
   page = nil
@@ -86,13 +87,15 @@ end
 
 AMan.clientMessages = City17.clientMessages
 
---- Everyone arrived in City 17: his intro screen comes up. The first of
---- his lines, so every machine shows the same.
+--- Everyone arrived in City 17: his intro screen comes up, and his theme
+--- with it, playing on till the quest is over. The first of his lines, so
+--- every machine shows the same.
 function AMan:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
     page = { line = 1, t = self.introTime }
     City17.clear()
+    Event.playTheme()
   end
 end
 
@@ -100,6 +103,7 @@ function AMan:questEnded(_client, quest)
   if quest.boss == self.questId then
     page = nil
     City17.clear()
+    Event.stopTheme()
   end
 end
 
@@ -118,6 +122,7 @@ end
 function AMan:update(dt)
   time = time + dt
   Event.updateRemains(dt)
+  Event.themeVolume()
   City17.update(dt)
   if page then
     face:update(dt)

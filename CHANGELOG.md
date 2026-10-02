@@ -31,6 +31,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   last saw you. Shoot one from where he can't see you and he goes that
   way looking. When a soldier goes down, the others within earshot come
   to see what happened. They all go back to their posts and beats after.
+- City 17's soldiers find their way round walls when they come to look
+  into something, instead of walking into them and getting stuck.
+- A-Man's theme plays from his intro screen in City 17 to the end of his
+  quest.
 - City 17 has citizens now, in their blue-grey jumpsuits, wandering the
   streets (no police there).
 - Pedestrians scatter when a gun goes off near them, anyone's gun, in

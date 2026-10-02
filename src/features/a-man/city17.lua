@@ -88,6 +88,8 @@ function Level.serverQuestStarted(_server, quest)
   end
   sv = { troops = Troops.new(true, Level.fov), syncIn = 0, reached = false, time = 0 }
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
+  local T = require("src.features.city-map.layout").TILE
+  sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
   -- Who chats together: the guards at one checkpoint, or one squad.
   local posts = {}
   for _, p in ipairs(map.posts) do

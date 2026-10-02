@@ -21,7 +21,9 @@
 -- him. Troops:alarm sends anyone near enough to look into something (a
 -- soldier going down). Either way he walks back the way he came after,
 -- on the trail of breadcrumbs he dropped, and takes up his post or his
--- beat again.
+-- beat again. Given a walking grid (Troops:navigate, d-day/nav.lua) he
+-- finds his way round walls to where he is going instead of walking
+-- straight at it.
 --
 -- Any one that gets someone in his cone turns to follow them and, after
 -- a moment to take aim, opens fire, and keeps firing for as long as he can
@@ -35,6 +37,7 @@
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Nav = require("src.features.d-day.nav")
 
 local Troops = {}
 Troops.__index = Troops
@@ -243,14 +246,33 @@ local function leashed(s, x, y)
   return home ~= nil and dist2(home.x, home.y, x, y) > Troops.LEASH * Troops.LEASH
 end
 
+--- The way to (x, y) for `s`: corners to walk through, the last being
+--- (x, y). Straight there without a walking grid; nil if the grid has no
+--- way, or only one too long to bother with.
+local function route(self, s, x, y)
+  if not self.nav then
+    return { { x = x, y = y } }
+  end
+  local corners, length = self.nav:path(s.x, s.y, x, y)
+  if not corners or length > Troops.LEASH * 1.6 then
+    return nil
+  end
+  return corners
+end
+
 --- Go to (x, y) and look round there: `kind` "search" (where he lost
 --- somebody) or "investigate" (what he heard).
-local function setGoal(s, x, y, kind)
-  if leashed(s, x, y) then
+local function setGoal(self, s, x, y, kind)
+  if leashed(s, x, y) or (s.noRouteUntil or 0) > self.time then
+    return
+  end
+  local corners = route(self, s, x, y)
+  if not corners then
+    s.noRouteUntil = self.time + 2 -- no asking again every tick
     return
   end
   crumb(s)
-  s.goal = { x = x, y = y, kind = kind, look = nil }
+  s.goal = { x = x, y = y, kind = kind, look = nil, corners = corners, at = 1, replanned = false }
 end
 
 --- On his way to his goal, or looking round once there. Returns false when
@@ -264,12 +286,29 @@ local function pursue(self, s, dt)
     return g.look > 0
   end
   local speed = g.kind == "investigate" and Troops.INVESTIGATE_WALK or Troops.CHASE_WALK
-  local path = math.atan2(g.y - s.y, g.x - s.x)
+  local to = g.corners[g.at]
+  local last = g.at == #g.corners
+  if dist2(s.x, s.y, to.x, to.y) < (last and 28 or 18) ^ 2 then
+    if last then
+      g.look, g.facing = Troops.SEARCH_TIME, s.facing
+      return true
+    end
+    g.at = g.at + 1
+    to = g.corners[g.at]
+  end
+  local path = math.atan2(to.y - s.y, to.x - s.x)
   advance(s, path, speed, dt)
   crumb(s)
   s.facing = turn(s.facing, path + Troops.SCAN * math.sin(self.time * 2 + s.phase), Troops.TURN, dt)
-  if dist2(s.x, s.y, g.x, g.y) < 28 * 28 or s.stuck > 1.5 then
-    g.look, g.facing = Troops.SEARCH_TIME, path
+  if s.stuck > 1.5 then
+    -- Caught on something after all: find the way again from here, once;
+    -- after that, look round from where he got to.
+    local corners = not g.replanned and route(self, s, g.x, g.y)
+    if corners then
+      g.corners, g.at, g.replanned, s.stuck = corners, 1, true, 0
+    else
+      g.look, g.facing = Troops.SEARCH_TIME, path
+    end
   end
   return true
 end
@@ -289,6 +328,18 @@ local function retrace(self, s, dt)
   local path = math.atan2(to.y - s.y, to.x - s.x)
   advance(s, path, Troops.INVESTIGATE_WALK, dt)
   s.facing = turn(s.facing, path + Troops.SCAN * math.sin(self.time * 1.3 + s.phase), Troops.TURN, dt)
+  if s.stuck > 1.5 and self.nav then
+    -- Caught on something: a fresh way home to where he left from, walked
+    -- as breadcrumbs (last first).
+    local home = trail[1]
+    local corners = self.nav:path(s.x, s.y, home.x, home.y)
+    if corners then
+      s.trail, s.stuck = { home }, 0
+      for i = #corners, 1, -1 do
+        s.trail[#s.trail + 1] = corners[i]
+      end
+    end
+  end
   s.backFor = (s.backFor or 0) + dt
   if s.backFor > 40 then -- lost on the way: this will do
     s.trail, s.backFor = nil, 0
@@ -298,6 +349,12 @@ local function retrace(self, s, dt)
     return false
   end
   return true
+end
+
+--- Give them a walking grid over `bounds` ({ x, y, w, h }) to find their
+--- way round walls with. Build it once the map is in place.
+function Troops:navigate(bounds)
+  self.nav = Nav.build(bounds)
 end
 
 --- Something happened at (x, y) (a soldier went down): everyone within
@@ -311,7 +368,7 @@ function Troops:alarm(x, y, radius)
   for _, s in ipairs(self.list) do
     local d2 = dist2(s.x, s.y, x, y)
     if not s.target and not s.panic and d2 <= radius * radius then
-      setGoal(s, x, y, "investigate")
+      setGoal(self, s, x, y, "investigate")
       if s.goal then
         went[#went + 1] = { s = s, d2 = d2 }
       end
@@ -437,7 +494,7 @@ function Troops:think(server, s, dt)
     end
   end
   if self.hunt and s.alert and not tx and s.aimX then
-    setGoal(s, s.aimX, s.aimY, "search") -- lost them: to where they were last
+    setGoal(self, s, s.aimX, s.aimY, "search") -- lost them: to where they were last
   end
   s.alert = s.target ~= nil
 
@@ -485,7 +542,7 @@ function Troops:patrol(s, dt)
   for _, m in ipairs(squad.members) do
     if m.alert and m ~= s then
       if self.hunt then
-        setGoal(s, m.aimX, m.aimY, "search") -- with him
+        setGoal(self, s, m.aimX, m.aimY, "search") -- with him
         if s.goal then
           return
         end
@@ -562,7 +619,7 @@ function Troops:hurt(s, i, amount, angle)
   if angle and not s.target then
     s.facing = angle + math.pi -- back the way the round came
     if self.hunt then -- and off that way to find who sent it
-      setGoal(s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
+      setGoal(self, s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
     end
   end
   return false
