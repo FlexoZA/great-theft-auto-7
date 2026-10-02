@@ -85,6 +85,7 @@ CityMap.maps = {
   city17 = {
     title = "City 17", kind = "city17", seed = 17, cols = 48, rows = 76,
     police = false, traffic = false, vehicles = false,
+    crowdScale = 0.5, -- half the usual citizens: the Combine are the crowd here
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

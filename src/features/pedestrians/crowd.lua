@@ -148,12 +148,24 @@ function Crowd:maintain()
     end
   end
 
-  -- Sized by the cars, as ever; on a walked map, where there are none, by the players.
-  local target = math.min(Crowd.MAX, Crowd.PER_CAR * (self.ncars > 0 and self.ncars or nanchors))
-  local budget = Crowd.SPAWN_BURST
-  -- Only on the map's land: past its edge is sea (or whatever surrounds it).
+  -- Sized by the cars, as ever; on a walked map, where there are none, by the
+  -- players; scaled by the map (city-map's `map.crowdScale`).
   local city = Features.byName["city-map"]
   local map = city and city.map
+  local target = math.min(Crowd.MAX, Crowd.PER_CAR * (self.ncars > 0 and self.ncars or nanchors))
+  target = math.floor(target * (map and map.crowdScale or 1) + 0.5)
+  -- Too many for this map (a smaller crowd since the last one): let go of
+  -- those out of everyone's sight.
+  i = 1
+  while self.n > target and i <= self.n do
+    if self.peds[i].near2 > Crowd.SPAWN_MIN * Crowd.SPAWN_MIN then
+      self:remove(i)
+    else
+      i = i + 1
+    end
+  end
+  local budget = Crowd.SPAWN_BURST
+  -- Only on the map's land: past its edge is sea (or whatever surrounds it).
   while self.n < target and budget > 0 do
     budget = budget - 1
     local e = anchors[random(nanchors)]
