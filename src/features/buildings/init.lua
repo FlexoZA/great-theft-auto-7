@@ -2475,9 +2475,12 @@ local function collide(server, dt)
   end
   for _, car in pairs(server.vehicles) do
     if not (car.hidden or car.stowed) then
-      local _, impact = Collision.resolveCar(w, car, dt)
+      local hit, impact, slide = Collision.resolveCar(w, car, dt)
       if impact > 0 then
         Features.call("serverCarImpact", server, car, impact, car.x, car.y, "wall")
+      end
+      if hit then
+        Features.call("serverCarScrape", server, car, slide, car.x, car.y)
       end
     end
   end
