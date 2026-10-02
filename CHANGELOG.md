@@ -22,6 +22,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   everywhere. Walk into a fire on the ground and you catch alight
   (2 seconds, 6 damage a second); the drums are solid.
 
+### Changed
+- Twice as many Combine soldiers in City 17 (24 -> 48): two guards at
+  every checkpoint post (was one), standing side by side, and two squads
+  of three on every patrol beat (was one), spread out round it.
+- Fewer citizens on City 17's streets to make room for them: half as
+  many as before (26 -> 13 for each player).
+
 ## [0.4.0] - 2026-10-02
 
 City 17's Combine soldiers call for backup: spot you and the nearest of

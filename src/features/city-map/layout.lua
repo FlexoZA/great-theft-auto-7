@@ -1143,6 +1143,7 @@ function Layout.generate(spec)
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    crowdScale = spec.crowdScale or 1, -- how big a crowd, against the usual (pedestrians reads it)
     police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
