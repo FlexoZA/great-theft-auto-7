@@ -31,6 +31,10 @@
 -- cone faster than he can turn, and he stops; a guard goes back to his
 -- sweep, a rifleman carries on down the hill.
 --
+-- Each one carries an AK unless he has been handed `arms` (Troops:arm,
+-- City 17 does): any of the guns, fired in bursts and only once whoever he
+-- is shooting at is within its reach.
+--
 -- They shoot through weapons' ownerless entry point (the police officers on
 -- foot do the same), so their rounds hurt any player and credit nobody.
 -- This module only thinks; init.lua owns the wire.
@@ -427,7 +431,15 @@ end
 
 -- Thinking ------------------------------------------------------------------
 
---- One round at (tx, ty), from the muzzle, a little off.
+--- Hand `s` a gun: `arms` is { gun, burst, pause, reach }, `gun` a table
+--- from weapons/guns.lua (tiered, or tuned for a soldier), `burst` rounds
+--- at the gun's own rate, then `pause` seconds, and he only fires at
+--- somebody within `reach` px.
+function Troops:arm(s, arms)
+  s.arms, s.burstLeft = arms, arms.burst
+end
+
+--- One round (or one pull of a shotgun) at (tx, ty), from the muzzle, a little off.
 local function fire(server, s, tx, ty)
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverFireFrom) then
@@ -435,7 +447,32 @@ local function fire(server, s, tx, ty)
   end
   local aim = math.atan2(ty - s.y, tx - s.x) + (random() * 2 - 1) * Troops.SPREAD
   local mx, my = s.x + math.cos(aim) * Troops.MUZZLE, s.y + math.sin(aim) * Troops.MUZZLE
-  weapons:serverFireFrom(server, 0, mx, my, aim, require("src.features.weapons.guns").ak47)
+  local gun = s.arms and s.arms.gun or require("src.features.weapons.guns").ak47
+  weapons:serverFireFrom(server, 0, mx, my, aim, gun)
+end
+
+--- His trigger, while he has somebody at (tx, ty) in his sights.
+local function shoot(server, s, tx, ty, dt)
+  local arms = s.arms
+  if arms and dist2(s.x, s.y, tx, ty) > arms.reach * arms.reach then
+    return -- out of reach of what he carries: closer first
+  end
+  s.fireIn = s.fireIn - dt
+  if s.fireIn > 0 then
+    return
+  end
+  fire(server, s, tx, ty)
+  if not arms then
+    s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
+    return
+  end
+  s.burstLeft = s.burstLeft - 1
+  if s.burstLeft > 0 then
+    s.fireIn = arms.gun.cooldown
+  else
+    s.burstLeft = arms.burst
+    s.fireIn = arms.pause * (0.85 + random() * 0.3)
+  end
 end
 
 --- Everyone's tick: who they can see, where they look, whether they shoot,
@@ -502,17 +539,15 @@ function Troops:think(server, s, dt)
     s.aimX, s.aimY = tx, ty
     s.goal = nil
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Troops.TURN, dt)
-    if self.hunt and dist2(s.x, s.y, tx, ty) > Troops.CHASE_KEEP ^ 2 then
+    -- Close in to CHASE_KEEP, or nearer with a gun that doesn't reach that far.
+    local keep = s.arms and math.min(Troops.CHASE_KEEP, s.arms.reach * 0.6) or Troops.CHASE_KEEP
+    if self.hunt and dist2(s.x, s.y, tx, ty) > keep * keep then
       crumb(s)
       if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
         walk(s, math.atan2(ty - s.y, tx - s.x), Troops.CHASE_WALK, dt) -- close in, rifle up
       end
     end
-    s.fireIn = s.fireIn - dt
-    if s.fireIn <= 0 then
-      s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
-      fire(server, s, tx, ty)
-    end
+    shoot(server, s, tx, ty, dt)
   elseif s.goal then
     if not pursue(self, s, dt) then
       s.goal, s.gaveUp = nil, true -- nothing there: back he goes

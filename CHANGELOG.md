@@ -15,6 +15,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- City 17's Combine soldiers carry any of the guns now, not just the AK:
+  uzis, shotguns, pistols, flamethrowers (with a fuel tank on their back),
+  rocket launchers and sniper rifles, fired in bursts. Shotgun and
+  flamethrower soldiers come in close before they open up. A soldier's
+  sniper round does 60 damage, not a player's 200.
 - City 17: squads of three Combine soldiers now patrol the old town's
   roads, the plaza and the Citadel's square, keeping formation; when one
   of them spots you the whole squad stops and turns your way.

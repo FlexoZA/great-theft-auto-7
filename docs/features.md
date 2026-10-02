@@ -903,7 +903,11 @@ the one with a plot.
   after (D-Day's hold their places). `Troops:navigate(bounds)` gives them
   a walking grid (`d-day/nav.lua`: 32 px cells, A*, the path cut down to
   corners in plain sight of each other) to find their way round walls to
-  where they are going. A-Man's theme plays through his quest, from the
+  where they are going. `Troops:arm(s, { gun, burst, pause, reach })`
+  hands one a gun (an AK otherwise): City 17 picks one per soldier by
+  `Level.loadout`'s weights from every gun in `weapons/guns.lua`, common
+  tier, and the gun's index goes out in `C17_TROOPS` so clients draw it in
+  his hands. A-Man's theme plays through his quest, from the
   intro screen to the end, the way Karen's does. They talk over the
   radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
   "combine" sound channel and a bubble): a checkpoint's guards or a squad
