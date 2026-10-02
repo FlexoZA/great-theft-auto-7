@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-02
+
+Hunters stalk City 17's Citadel: quick three-legged synths that keep you
+at range, dodge, heal, call each other in and zap you with every hit.
+
 ### Changed
 - A light shock hit no longer stuns you on its own: it takes 20 or more
   in one hit (the Tripod's lightning, 35, still does).
