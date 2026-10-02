@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-02
+
+The city finally sounds alive. Every vehicle has its own engine and horn,
+crashes crunch, scrapes grind and tyres screech; guns, explosions, hits
+and reloads hit harder; and everyone on foot, enemies included, is heard
+walking on whatever ground is under them.
+
 ### Added
 - Car horns: hold V while driving and everyone nearby hears you. Every
   kind of vehicle has its own: hatchbacks beep, sedans have the two-tone
