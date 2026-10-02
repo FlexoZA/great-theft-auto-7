@@ -88,10 +88,13 @@ end
 ---   health  what each one can take (Troops.HEALTH)
 ---   alertFov  how wide his cone is while he is on edge: has somebody, or
 ---           is searching or looking into something (`fov` throughout)
+---   radius  px; how fat each one is, for walls and rounds (Troops.RADIUS)
+---   pace    how much faster than a soldier they walk, chase and look (1)
 function Troops.new(opts)
   opts = opts or {}
   local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt or false, fov = opts.fov,
-    aware = opts.aware or 0, health = opts.health or Troops.HEALTH, alertFov = opts.alertFov }
+    aware = opts.aware or 0, health = opts.health or Troops.HEALTH, alertFov = opts.alertFov,
+    radius = opts.radius or Troops.RADIUS, pace = opts.pace or 1 }
   return setmetatable(t, Troops)
 end
 
@@ -128,6 +131,9 @@ function Troops:add(kind, x, y, watch)
     stuck = 0,
     sidestep = 0,
     side = random() < 0.5 and -1 or 1,
+    radius = self.radius,
+    pace = self.pace,
+    fired = false, -- set when he fires, for whoever shows him to flash his muzzle
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = s
@@ -190,8 +196,7 @@ end
 
 --- Solid ground, through the `blocksPoint` convention, at the four extremes
 --- of the body.
-local function blockedAt(x, y)
-  local r = Troops.RADIUS
+local function blockedAt(x, y, r)
   for _, f in ipairs(Features.list) do
     if f.blocksPoint then
       if
@@ -213,11 +218,11 @@ end
 local function walk(s, angle, speed, dt)
   local px, py = s.x, s.y
   local nx = s.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, s.y) then
+  if not blockedAt(nx, s.y, s.radius) then
     s.x = nx
   end
   local ny = s.y + math.sin(angle) * speed * dt
-  if not blockedAt(s.x, ny) then
+  if not blockedAt(s.x, ny, s.radius) then
     s.y = ny
   end
   if dist2(s.x, s.y, px, py) < (speed * dt * 0.4) ^ 2 then
@@ -312,7 +317,7 @@ local function pursue(self, s, dt)
     s.facing = turn(s.facing, around, Troops.TURN, dt)
     return g.look > 0
   end
-  local speed = g.kind == "investigate" and Troops.INVESTIGATE_WALK or Troops.CHASE_WALK
+  local speed = (g.kind == "investigate" and Troops.INVESTIGATE_WALK or Troops.CHASE_WALK) * s.pace
   local to = g.corners[g.at]
   local last = g.at == #g.corners
   if dist2(s.x, s.y, to.x, to.y) < (last and 28 or 18) ^ 2 then
@@ -353,7 +358,7 @@ local function retrace(self, s, dt)
     to = trail[#trail]
   end
   local path = math.atan2(to.y - s.y, to.x - s.x)
-  advance(s, path, Troops.INVESTIGATE_WALK, dt)
+  advance(s, path, Troops.INVESTIGATE_WALK * s.pace, dt)
   s.facing = turn(s.facing, path + Troops.SCAN * math.sin(self.time * 1.3 + s.phase), Troops.TURN, dt)
   if s.stuck > 1.5 and self.nav then
     -- Caught on something: a fresh way home to where he left from, walked
@@ -484,6 +489,7 @@ local function fire(server, s, tx, ty)
   local mx, my = s.x + math.cos(aim) * Troops.MUZZLE, s.y + math.sin(aim) * Troops.MUZZLE
   local gun = s.arms and s.arms.gun or require("src.features.weapons.guns").ak47
   weapons:serverFireFrom(server, 0, mx, my, aim, gun)
+  s.fired = true
 end
 
 --- His trigger, while he has somebody at (tx, ty) in his sights.
@@ -586,7 +592,7 @@ function Troops:think(server, s, dt)
     if self.hunt and dist2(s.x, s.y, tx, ty) > keep * keep then
       crumb(s)
       if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
-        walk(s, math.atan2(ty - s.y, tx - s.x), Troops.CHASE_WALK, dt) -- close in, rifle up
+        walk(s, math.atan2(ty - s.y, tx - s.x), Troops.CHASE_WALK * s.pace, dt) -- close in, rifle up
       end
     end
     shoot(server, s, tx, ty, dt)
@@ -636,7 +642,7 @@ function Troops:patrol(s, dt)
       squad.leg = squad.leg % #squad.route + 1
       to = squad.route[squad.leg]
     end
-    gx, gy, speed = to.x, to.y, Troops.PATROL_WALK
+    gx, gy, speed = to.x, to.y, Troops.PATROL_WALK * s.pace
   else
     local slot = Troops.FORMATION[1]
     for i, m in ipairs(squad.members) do
@@ -652,7 +658,7 @@ function Troops:patrol(s, dt)
       s.facing = turn(s.facing, heading, Troops.TURN, dt)
       return
     end
-    speed = Troops.PATROL_WALK * math.min(1.6, 0.6 + d / 60) -- catch up when behind, ease in when there
+    speed = Troops.PATROL_WALK * s.pace * math.min(1.6, 0.6 + d / 60) -- catch up when behind, ease in when there
   end
   local path = math.atan2(gy - s.y, gx - s.x)
   if leader == s then
@@ -667,9 +673,8 @@ end
 
 --- The soldier standing within `radius` of (x, y), and his index.
 function Troops:at(x, y, radius)
-  local r2 = (radius + Troops.RADIUS) ^ 2
   for i, s in ipairs(self.list) do
-    if dist2(s.x, s.y, x, y) < r2 then
+    if dist2(s.x, s.y, x, y) < (radius + s.radius) ^ 2 then
       return s, i
     end
   end
@@ -705,7 +710,7 @@ end
 --- Everyone inside a freeze stands stiff for `seconds`.
 function Troops:freeze(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
-    if dist2(s.x, s.y, x, y) <= (radius + Troops.RADIUS) ^ 2 then
+    if dist2(s.x, s.y, x, y) <= (radius + s.radius) ^ 2 then
       s.frozen = math.max(s.frozen, seconds)
     end
   end
@@ -714,7 +719,7 @@ end
 --- Everyone inside a stink runs from it for `seconds`.
 function Troops:scare(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
-    if dist2(s.x, s.y, x, y) <= (radius + Troops.RADIUS) ^ 2 then
+    if dist2(s.x, s.y, x, y) <= (radius + s.radius) ^ 2 then
       s.panic = { x = x, y = y, left = seconds }
     end
   end

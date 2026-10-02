@@ -17,8 +17,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Added
 - Hunters, a new Combine enemy: quick three-legged synths with glowing
   blue eyes and a pair of flechette guns under their faces. Three of them
-  patrol a ring round City 17's Citadel. For now they only walk their
-  beat; they don't fight back yet and can't be hurt.
+  patrol a ring round City 17's Citadel. They see as the Combine soldiers
+  do (the same cones, wider when on edge, and anyone within 170 px), and
+  they hunt you the same way, only faster (1.6 times a soldier's pace).
+  Their uzi bursts do 8 a round and every round stuns you (shock damage).
+  They take 180 (nine pistol rounds) and drop 8 koins.
 
 ## [0.6.0] - 2026-10-02
 
