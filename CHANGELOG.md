@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- Running over a vest on the road with damaged armor on now tops your
+  armor back up to full (a vest that holds more than yours replaces it).
+  It used to stay on the road until your armor was gone completely; it
+  still does if your armor is full.
+
 ## [0.8.0] - 2026-10-02
 
 Every enemy thinks for itself: the bosses go for medkits when they're

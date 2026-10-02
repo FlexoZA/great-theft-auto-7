@@ -14,8 +14,9 @@
 --
 -- A vest can also be found lying on the road (enemies drop one now and
 -- then: pickups). Whoever walks or drives over it with no armor on wears
--- it at once, whole (serverWearFound); anyone already wearing one leaves it
--- there for someone who isn't.
+-- it at once, whole (serverWearFound). Over it with a damaged vest on, it
+-- tops theirs back up to full (or, holding more than theirs, is worn in
+-- its place); anyone whose vest is whole leaves it there for someone else.
 --
 -- Vests come in tiers (tiers/init.lua): "armor-vest@rare" holds more points.
 -- What is worn is kept with its tier ("vest@rare") and goes back into the
@@ -254,12 +255,21 @@ end
 --- it lies. Pickups calls this for a vest someone runs over.
 function Armor:serverWearFound(server, player, kind)
   local a = kindOf(kind)
-  if not (self.sv and a and Features.present(player)) or player.bot or self.sv.worn[player.id] then
+  if not (self.sv and a and Features.present(player)) or player.bot then
     return false
   end
   local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
-  self.sv.worn[player.id] = { kind = kind, points = max, max = max }
-  tell(server, player, self.sv.worn[player.id])
+  local w = self.sv.worn[player.id]
+  if w and w.points >= w.max then
+    return false -- whole already: it stays on the road
+  end
+  if w and w.max >= max then
+    w.points = w.max -- patched up to full, kept in its own tier
+  else
+    w = { kind = kind, points = max, max = max } -- nothing on, or this one holds more: worn instead
+    self.sv.worn[player.id] = w
+  end
+  tell(server, player, w)
   return true
 end
 
