@@ -52,6 +52,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   crunches metal, and a big smash shatters glass and scatters bits. Walls
   thud, cars clang, and trucks crash deeper than motorbikes. They have
   their own volume slider.
+- Sliding along a wall or another car grinds: screeching metal and
+  sparks that get louder the faster you scrape, and die away as you pull
+  clear.
 
 ## [0.9.0] - 2026-10-02
 
