@@ -80,11 +80,11 @@ CityMap.maps = {
   },
   -- City 17, the first stop on A-Man's trail: off the train, through the
   -- station and the plaza, up the avenue through the old town, through
-  -- the gate in the wall and over the canal to the Citadel. Walked;
-  -- nobody about.
+  -- the gate in the wall and over the canal to the Citadel. Walked; its
+  -- citizens about, but no police.
   city17 = {
     title = "City 17", kind = "city17", seed = 17, cols = 48, rows = 76,
-    crowd = false, traffic = false, vehicles = false,
+    police = false, traffic = false, vehicles = false,
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
@@ -291,18 +291,39 @@ function CityMap:serverStep(server, dt)
   collidePedestrians(self.map)
 end
 
---- Centre of a random road tile (or any tile of an open field), optionally
---- within `maxDist` of (nearX, nearY). Other features reach this via
---- Features.byName["city-map"].
+--- Is (x, y) somewhere nobody can get to: inside something solid, or in
+--- one of the map's `offLimits` ({ x, y, w, h }: City 17's track, behind
+--- the train)? Pedestrians ask it (`CityMap:outOfReach`) before spawning one.
+local function outOfReach(map, x, y)
+  if Collision.blocked(map, x, y) then
+    return true
+  end
+  for _, o in ipairs(map.offLimits or {}) do
+    if x >= o.x and x < o.x + o.w and y >= o.y and y < o.y + o.h then
+      return true
+    end
+  end
+  return false
+end
+
+function CityMap:outOfReach(x, y)
+  return self.map ~= nil and outOfReach(self.map, x, y)
+end
+
+--- Centre of a random road tile (or any tile of an open field) somebody
+--- can get to, optionally within `maxDist` of (nearX, nearY). A map with
+--- little road (City 17) needs a good few tries. Other features reach this
+--- via Features.byName["city-map"].
 function CityMap:randomRoadPoint(nearX, nearY, maxDist)
   local map = self.map
-  for _ = 1, 60 do
+  for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
     if kind == "road" or kind == "ground" then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
-      if not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist then
+      local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
+      if near and not outOfReach(map, x, y) then
         return x, y
       end
     end

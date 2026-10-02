@@ -432,6 +432,25 @@ local function startMusic()
   music:play()
 end
 
+--- His theme from the top, for his quest too (init.lua): it plays from his
+--- intro screen to the end of the quest, the way Karen's does hers.
+function AMan.playTheme()
+  startMusic()
+end
+
+function AMan.stopTheme()
+  if music then
+    music:stop()
+  end
+end
+
+--- Keep a playing theme at the music volume (the slider may move).
+function AMan.themeVolume()
+  if music and music:isPlaying() then
+    music:setVolume(Audio.muted and 0 or Audio.volume("music"))
+  end
+end
+
 --- The sound of him arriving, heard wherever you are.
 function AMan.announce(x, y)
   Sounds.play("appear", x, y)
