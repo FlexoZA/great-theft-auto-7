@@ -887,7 +887,8 @@ the one with a plot.
   station's concourse, the avenue's mouth on the plaza, the gate, each
   bridge and the Citadel's doors, 12 in all): the D-Day landing's guards
   (`d-day/troops.lua`, `d-day/sight.lua`) in Combine gear, so the same
-  sweeping cone, the same rifle and two pistol rounds each, 3 koins and
+  sweeping cone and 60 health, taking each round's own `damage` (20 from a
+  blast, which carries none; D-Day's take 20 a round out of 40), 3 koins and
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
@@ -895,15 +896,20 @@ the one with a plot.
   level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
   `Troops:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
-  troop with `Troops.new(true, fov)` (`hunt`, and a 60-degree cone where
-  D-Day's is 30): a soldier closes in on whoever
+  troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
+  cone where D-Day's is 30, an undrawn 170 px all-round awareness, walls
+  still hiding you, and 60 health where D-Day's have 40): a soldier closes in on whoever
   he can see, searches where he lost them, goes looking when shot from
   out of sight, and `Troops:alarm` sends everyone within 700 px of a
   soldier going down to look; each walks back on a trail of breadcrumbs
   after (D-Day's hold their places). `Troops:navigate(bounds)` gives them
   a walking grid (`d-day/nav.lua`: 32 px cells, A*, the path cut down to
   corners in plain sight of each other) to find their way round walls to
-  where they are going. A-Man's theme plays through his quest, from the
+  where they are going. `Troops:arm(s, { gun, burst, pause, reach })`
+  hands one a gun (an AK otherwise): City 17 picks one per soldier by
+  `Level.loadout`'s weights from every gun in `weapons/guns.lua`, common
+  tier, and the gun's index goes out in `C17_TROOPS` so clients draw it in
+  his hands. A-Man's theme plays through his quest, from the
   intro screen to the end, the way Karen's does. They talk over the
   radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
   "combine" sound channel and a bubble): a checkpoint's guards or a squad

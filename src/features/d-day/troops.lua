@@ -31,6 +31,10 @@
 -- cone faster than he can turn, and he stops; a guard goes back to his
 -- sweep, a rifleman carries on down the hill.
 --
+-- Each one carries an AK unless he has been handed `arms` (Troops:arm,
+-- City 17 does): any of the guns, fired in bursts and only once whoever he
+-- is shooting at is within its reach.
+--
 -- They shoot through weapons' ownerless entry point (the police officers on
 -- foot do the same), so their rounds hurt any player and credit nobody.
 -- This module only thinks; init.lua owns the wire.
@@ -75,11 +79,18 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- `hunt`: true to have them leave their places to chase and look into
---- things (City 17), false to have them hold them (D-Day). `fov`: how wide
---- their cone of sight is (Sight.FOV unless given).
-function Troops.new(hunt, fov)
-  return setmetatable({ list = {}, nextId = 1, time = 0, ticks = 0, hunt = hunt or false, fov = fov }, Troops)
+--- A troop. `opts` (optional, every field too):
+---   hunt    true to have them leave their places to chase and look into
+---           things (City 17), false to have them hold them (D-Day)
+---   fov     how wide their cone of sight is (Sight.FOV)
+---   aware   px all round them that they notice somebody in, whichever way
+---           they face (never through a wall; nobody draws it), 0 for none
+---   health  what each one can take (Troops.HEALTH)
+function Troops.new(opts)
+  opts = opts or {}
+  local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt or false, fov = opts.fov,
+    aware = opts.aware or 0, health = opts.health or Troops.HEALTH }
+  return setmetatable(t, Troops)
 end
 
 --- A soldier of `kind` at (x, y), watching `watch` (radians).
@@ -92,7 +103,7 @@ function Troops:add(kind, x, y, watch)
     watch = watch,
     facing = watch,
     phase = random() * 2 * math.pi,
-    hp = Troops.HEALTH,
+    hp = self.health,
     target = nil, -- player id he has in his sights
     fireIn = 0,
     alert = false,
@@ -396,12 +407,13 @@ local function poseOf(server, id)
 end
 
 --- The nearest player inside this soldier's cone right now, if any.
-local function spot(server, s, fov)
+local function spot(server, s, fov, aware)
   local best, bestD2
   for id, p in pairs(server.players) do
     if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local d2 = Sight.canSee(s.x, s.y, s.facing, x, y, Troops.RANGE, fov)
+        or (aware > 0 and Sight.canSee(s.x, s.y, s.facing, x, y, aware, 2 * math.pi))
       if d2 and (not bestD2 or d2 < bestD2) then
         best, bestD2 = id, d2
       end
@@ -427,7 +439,15 @@ end
 
 -- Thinking ------------------------------------------------------------------
 
---- One round at (tx, ty), from the muzzle, a little off.
+--- Hand `s` a gun: `arms` is { gun, burst, pause, reach }, `gun` a table
+--- from weapons/guns.lua (tiered, or tuned for a soldier), `burst` rounds
+--- at the gun's own rate, then `pause` seconds, and he only fires at
+--- somebody within `reach` px.
+function Troops:arm(s, arms)
+  s.arms, s.burstLeft = arms, arms.burst
+end
+
+--- One round (or one pull of a shotgun) at (tx, ty), from the muzzle, a little off.
 local function fire(server, s, tx, ty)
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverFireFrom) then
@@ -435,7 +455,32 @@ local function fire(server, s, tx, ty)
   end
   local aim = math.atan2(ty - s.y, tx - s.x) + (random() * 2 - 1) * Troops.SPREAD
   local mx, my = s.x + math.cos(aim) * Troops.MUZZLE, s.y + math.sin(aim) * Troops.MUZZLE
-  weapons:serverFireFrom(server, 0, mx, my, aim, require("src.features.weapons.guns").ak47)
+  local gun = s.arms and s.arms.gun or require("src.features.weapons.guns").ak47
+  weapons:serverFireFrom(server, 0, mx, my, aim, gun)
+end
+
+--- His trigger, while he has somebody at (tx, ty) in his sights.
+local function shoot(server, s, tx, ty, dt)
+  local arms = s.arms
+  if arms and dist2(s.x, s.y, tx, ty) > arms.reach * arms.reach then
+    return -- out of reach of what he carries: closer first
+  end
+  s.fireIn = s.fireIn - dt
+  if s.fireIn > 0 then
+    return
+  end
+  fire(server, s, tx, ty)
+  if not arms then
+    s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
+    return
+  end
+  s.burstLeft = s.burstLeft - 1
+  if s.burstLeft > 0 then
+    s.fireIn = arms.gun.cooldown
+  else
+    s.burstLeft = arms.burst
+    s.fireIn = arms.pause * (0.85 + random() * 0.3)
+  end
 end
 
 --- Everyone's tick: who they can see, where they look, whether they shoot,
@@ -478,10 +523,16 @@ function Troops:think(server, s, dt)
     end
     -- Once he has someone he keeps them in a wider eye: TRACK_FOV, or more for a wide cone.
     local track = math.max(Troops.TRACK_FOV, (self.fov or Sight.FOV) + math.rad(30))
-    if not (tx and Sight.canSee(s.x, s.y, s.facing, tx, ty, Troops.RANGE, track)) then
-      s.target = spot(server, s, self.fov)
+    local kept = tx
+      and (Sight.canSee(s.x, s.y, s.facing, tx, ty, Troops.RANGE, track)
+        or (self.aware > 0 and Sight.canSee(s.x, s.y, s.facing, tx, ty, self.aware, 2 * math.pi)))
+    if not kept then
+      s.target = spot(server, s, self.fov, self.aware)
       if s.target then
-        s.fireIn = Troops.REACT
+        -- A moment to take aim, and longer if he has to turn round first.
+        local px, py = poseOf(server, s.target)
+        local behind = px and math.abs(Sight.angleDiff(math.atan2(py - s.y, px - s.x), s.facing)) or 0
+        s.fireIn = Troops.REACT + behind / Troops.TURN
       end
     end
   end
@@ -502,17 +553,15 @@ function Troops:think(server, s, dt)
     s.aimX, s.aimY = tx, ty
     s.goal = nil
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Troops.TURN, dt)
-    if self.hunt and dist2(s.x, s.y, tx, ty) > Troops.CHASE_KEEP ^ 2 then
+    -- Close in to CHASE_KEEP, or nearer with a gun that doesn't reach that far.
+    local keep = s.arms and math.min(Troops.CHASE_KEEP, s.arms.reach * 0.6) or Troops.CHASE_KEEP
+    if self.hunt and dist2(s.x, s.y, tx, ty) > keep * keep then
       crumb(s)
       if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
         walk(s, math.atan2(ty - s.y, tx - s.x), Troops.CHASE_WALK, dt) -- close in, rifle up
       end
     end
-    s.fireIn = s.fireIn - dt
-    if s.fireIn <= 0 then
-      s.fireIn = Troops.FIRE_EVERY * (0.85 + random() * 0.3)
-      fire(server, s, tx, ty)
-    end
+    shoot(server, s, tx, ty, dt)
   elseif s.goal then
     if not pursue(self, s, dt) then
       s.goal, s.gaveUp = nil, true -- nothing there: back he goes

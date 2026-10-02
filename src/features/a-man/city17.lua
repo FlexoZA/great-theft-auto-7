@@ -5,7 +5,11 @@
 -- `posts`). They are the D-Day landing's guards on other uniforms
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
--- fire with a rifle. Cover breaks his sight; two pistol rounds drop him.
+-- fire. Cover breaks his sight. He takes what each round carries, out of
+-- 60 (`Level.health`): three pistol rounds, a sniper round. Each carries
+-- one of the guns, picked by `Level.loadout`'s weights (every gun in
+-- weapons/guns.lua can turn up; one missing from the list is as likely as
+-- the pistol), fired in bursts once you are in its reach.
 -- They hunt (troops' `hunt`): one who spots somebody closes in on them,
 -- and goes to where he saw them last when he loses them, his squad with
 -- him; one shot from somewhere he can't see goes that way to look. When a
@@ -23,7 +27,7 @@
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
---   server -> all  C17_TROOPS <tick> [<id> <x> <y> <facing> <hp> <alert>]...   (unreliable, 15 Hz)
+--   server -> all  C17_TROOPS <tick> [<id> <x> <y> <facing> <hp> <alert> <gun>]...   (unreliable, 15 Hz)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
 
@@ -34,6 +38,8 @@ local UI = require("src.ui")
 local Troops = require("src.features.d-day.troops")
 local Sight = require("src.features.d-day.sight")
 local Radio = require("src.features.a-man.radio")
+local Guns = require("src.features.weapons.guns")
+local Tiers = require("src.features.tiers")
 
 local Level = {}
 
@@ -43,6 +49,22 @@ Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
+Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
+Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
+-- What they carry, by gun key: `weight` how likely, `burst` rounds at the
+-- gun's own rate then `pause` seconds; `damage` per round instead of the
+-- gun's (a soldier's sniper rifle doesn't kill in one). A gun not listed
+-- has weight 1, a burst of 4 if it fires fast and 1 if not, a 1.2 s pause.
+Level.loadout = {
+  ak47 = { weight = 4, burst = 3, pause = 1.1 },
+  uzi = { weight = 2, burst = 5, pause = 1.2 },
+  shotgun = { weight = 2, burst = 1, pause = 1.3 },
+  pistol = { weight = 1, burst = 2, pause = 0.9 },
+  flamethrower = { weight = 1, burst = 10, pause = 1.0 },
+  rocket = { weight = 0.5, burst = 1, pause = 3.0 },
+  sniper = { weight = 0.5, burst = 1, pause = 2.5, damage = 60 },
+}
+local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
 Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
 Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
@@ -80,13 +102,46 @@ local function between(range)
   return range[1] + random() * (range[2] - range[1])
 end
 
+--- A gun for a soldier, picked by the loadout's weights, and how he uses it.
+local function pickArms()
+  local total = 0
+  for _, gun in ipairs(Guns.list) do
+    local l = Level.loadout[gun.key]
+    total = total + (l and l.weight or 1)
+  end
+  local roll = random() * total
+  local gun = Guns.list[1]
+  for _, g in ipairs(Guns.list) do
+    local w = Level.loadout[g.key]
+    roll = roll - (w and w.weight or 1)
+    if roll < 0 then
+      gun = g
+      break
+    end
+  end
+  local l = Level.loadout[gun.key] or {}
+  local tuned = Tiers.apply(gun, Tiers.DEFAULT) -- they carry common ones
+  if l.damage then
+    tuned = setmetatable({ damage = l.damage }, { __index = tuned })
+  end
+  return {
+    gun = tuned,
+    key = gun.key,
+    index = gun.index,
+    burst = l.burst or (gun.cooldown < 0.15 and 4 or 1),
+    pause = l.pause or 1.2,
+    reach = gun.speed * (gun.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
+  }
+end
+
 --- Everyone arrived: a soldier on every post.
 function Level.serverQuestStarted(_server, quest)
   local map = cityMap()
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(true, Level.fov), syncIn = 0, reached = false, time = 0 }
+  local troops = Troops.new({ hunt = true, fov = Level.fov, aware = Level.aware, health = Level.health })
+  sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
@@ -105,6 +160,9 @@ function Level.serverQuestStarted(_server, quest)
     local squad = sv.troops:addSquad(route, Level.squadSize)
     local chatIn = between(Level.chatEvery) * random()
     sv.groups[#sv.groups + 1] = { kind = "patrol", members = squad.members, chatIn = chatIn }
+  end
+  for _, s in ipairs(sv.troops.list) do
+    sv.troops:arm(s, pickArms())
   end
 end
 
@@ -131,6 +189,7 @@ local function sync(server)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
     parts[#parts + 1] = s.alert and 1 or 0
+    parts[#parts + 1] = s.arms and s.arms.index or 0
   end
   local msg = Protocol.encode("C17_TROOPS", unpack(parts))
   for _, player in pairs(server.players) do
@@ -291,8 +350,10 @@ local function soldierDown(server, s, by, angle)
 end
 
 --- A bullet through (x, y): the `serverShotAt` convention. Their own rounds
---- (owned by nobody) pass through their side.
-function Level.serverShotAt(server, x, y, radius, by, angle)
+--- (owned by nobody) pass through their side. A round takes off what it
+--- carries (the gun's damage, tier and all); a blast, which carries
+--- nothing and asks a few times over, 20 a time.
+function Level.serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
@@ -300,7 +361,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle)
   if not s then
     return false
   end
-  if sv.troops:hurt(s, i, Troops.SHOT_DAMAGE, angle) then
+  if sv.troops:hurt(s, i, damage or Troops.SHOT_DAMAGE, angle) then
     soldierDown(server, s, by, angle)
   end
   return true
@@ -360,12 +421,40 @@ function Level.drawBelowCars()
   end
 end
 
---- One soldier: the core's person in Combine gear with a rifle, the mask's
---- two lenses glowing (hot when he has somebody), a "!" over him then, and
---- a bar under him once he is hurt.
+--- How each gun shows in his hands: how far the barrel reaches, and a pack
+--- on his back for the flamethrower's tank and the launcher's missiles.
+local HELD = {
+  pistol = { gunLength = 4 },
+  uzi = { gunLength = 8 },
+  ak47 = { gunLength = 15 },
+  shotgun = { gunLength = 14 },
+  sniper = { gunLength = 21 },
+  rocket = { gunLength = 18, pack = { 0.28, 0.32, 0.24 } },
+  flamethrower = { gunLength = 12, pack = { 0.78, 0.36, 0.12 } },
+}
+local looks = {} -- gun index -> LOOK with that gun in his hands
+
+local function lookFor(index)
+  local look = looks[index or 0]
+  if not look then
+    look = {}
+    for k, v in pairs(LOOK) do
+      look[k] = v
+    end
+    local gun = index and Guns.list[index]
+    local held = gun and HELD[gun.key] or {}
+    look.gunLength, look.pack = held.gunLength or 15, held.pack
+    looks[index or 0] = look
+  end
+  return look
+end
+
+--- One soldier: the core's person in Combine gear with whatever gun he
+--- carries, the mask's two lenses glowing (hot when he has somebody), a "!"
+--- over him then, and a bar under him once he is hurt.
 local function drawSoldier(s)
   local x, y, r = s.dx, s.dy, Body.SHOULDERS
-  Body.person(x, y, s.angle, math.sin(s.stride * 0.18) * 1.2, LOOK)
+  Body.person(x, y, s.angle, math.sin(s.stride * 0.18) * 1.2, lookFor(s.gun))
   love.graphics.push()
   love.graphics.translate(x, y)
   love.graphics.rotate(s.angle)
@@ -382,8 +471,8 @@ local function drawSoldier(s)
     love.graphics.setColor(1, 0.45, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Troops.HEALTH then
-    local bw, f = 20, math.max(0, s.hp / Troops.HEALTH)
+  if s.hp < Level.health then
+    local bw, f = 20, math.max(0, s.hp / Level.health)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -413,7 +502,7 @@ Level.clientMessages = {
     end
     lastTick = tick
     local seen = {}
-    for i = 2, #args - 5, 6 do
+    for i = 2, #args - 6, 7 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and x and y then
         local s = troops[id]
@@ -423,8 +512,9 @@ Level.clientMessages = {
         end
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
-        s.hp = tonumber(args[i + 4]) or Troops.HEALTH
+        s.hp = tonumber(args[i + 4]) or Level.health
         s.alert = args[i + 5] == "1"
+        s.gun = tonumber(args[i + 6])
         seen[id] = true
       end
     end
