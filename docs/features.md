@@ -860,7 +860,7 @@ the one with a plot.
   warning ring. Reaching the flag puts up Major Looz'er's portrait, then he
   fights, throwing down the MG nest ability (`abilities/mgnest.lua`) every
   few seconds. Soldiers raise `serverKill` with kind "soldier", the Major
-  with "boss". Tuning is at the top of `init.lua`, `troops.lua` and
+  with "boss". Tuning is at the top of `init.lua`, `brain.lua` and
   `major.lua`.
 - Shotgun: `src/features/shotgun` is the fourth boss quest, on the cliff
   map (Shotgun's Bluff). Everyone arrives at the bottom right; Shotgun is
@@ -885,8 +885,9 @@ the one with a plot.
   the first (`a-man/city17.lua`, the a-man feature passes its hooks on).
   Combine soldiers stand on every checkpoint (the map's `posts`: the
   station's concourse, the avenue's mouth on the plaza, the gate, each
-  bridge and the Citadel's doors, 12 in all): the D-Day landing's guards
-  (`d-day/troops.lua`, `d-day/sight.lua`) in Combine gear, so the same
+  bridge and the Citadel's doors, 12 in all), thinking with their own
+  brain (`a-man/combine.lua`; D-Day's soldiers have a replica of it,
+  `d-day/brain.lua`) and seeing with `d-day/sight.lua`: the same
   sweeping cone and 60 health, taking each round's own `damage` (20 from a
   blast, which carries none; D-Day's take 20 a round out of 40), 3 koins and
   maybe a pickup when they drop. The first player within 140 px of the

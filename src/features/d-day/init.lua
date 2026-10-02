@@ -8,7 +8,10 @@
 --   2. Bunkers and trenches: guards in the bunker embrasures and the gaps
 --      in the trench sandbags sweep thirty-degree cones of sight over the
 --      beach. Walk into one and he turns to follow you and opens fire, for
---      as long as he can see you (troops.lua).
+--      as long as he can see you, and comes after you when you duck out of
+--      sight (brain.lua: the Combine soldiers' brain, in other uniforms).
+--      One who spots you calls in the nearest few others; one going down
+--      brings everyone near enough to hear it to look.
 --   3. Barracks: guards by the huts, and riflemen coming out of the doors
 --      every few seconds, walking down towards the nearest player and
 --      firing at whoever they spot.
@@ -41,7 +44,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
-local Troops = require("src.features.d-day.troops")
+local Soldiers = require("src.features.d-day.brain")
 local Major = require("src.features.d-day.major")
 local Face = require("src.features.d-day.major_face")
 local Bosses = require("src.features.bosses")
@@ -58,6 +61,10 @@ local Dday = {
 Dday.questId = "d-day"
 Dday.guards = 16 -- guards on their posts for one player (more humans, more: bosses/init.lua)...
 Dday.maxGuards = 26 -- ...as far as the posts go
+Dday.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
+Dday.callAnswer = 3 -- how many of them come at most, nearest first
+Dday.callEvery = 15 -- seconds before the same soldier calls again
+Dday.downHeard = 700 -- px; soldiers this near one who goes down go to look
 Dday.riflemen = 4 -- most riflemen out at once for one player (more humans, more)
 Dday.reinforceEvery = 7 -- seconds between riflemen coming out of the barracks
 Dday.mortarEvery = { 1.4, 3.0 } -- seconds between mortars, at random in this range
@@ -110,7 +117,8 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  sv.troops = Troops.new()
+  sv.troops = Soldiers.new()
+  sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
   sv.maxRiflemen = Bosses.count(self.riflemen, server)
   sv.major, sv.mortars = nil, {}
@@ -293,6 +301,7 @@ function Dday:serverStep(server, dt)
     end
   else
     sv.troops:update(server, dt)
+    self:callIns()
     if sv.stage ~= "done" then
       self:stepMortars(server, map, dt)
       self:stepReinforcements(map, dt)
@@ -339,9 +348,24 @@ function Dday:sync(server)
   end
 end
 
+--- A soldier who has just spotted somebody calls it in: the nearest few
+--- within earshot who aren't busy come to where he saw them.
+function Dday:callIns()
+  local time = sv.troops.time
+  for _, s in ipairs(sv.troops.list) do
+    if s.alert and not s.wasAlert and (s.callUntil or 0) <= time then
+      s.callUntil = time + self.callEvery
+      sv.troops:alarm(s.aimX, s.aimY, self.callHeard, { from = s, most = self.callAnswer })
+    end
+    s.wasAlert = s.alert
+  end
+end
+
 --- One soldier down: gibs on every screen, a koin where he fell, and
---- sometimes something to pick up.
+--- sometimes something to pick up. Everyone near enough to hear it goes
+--- to look.
 function Dday:soldierDown(server, s, by, angle)
+  sv.troops:alarm(s.x, s.y, self.downHeard)
   server:broadcast(Protocol.encode("DD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
   local money = Features.byName.money
   if money and money.drop then
@@ -393,7 +417,7 @@ function Dday:serverShotAt(server, x, y, radius, by, angle)
   if not s then
     return false
   end
-  if sv.troops:hurt(s, i, Troops.SHOT_DAMAGE, angle) then
+  if sv.troops:hurt(s, i, Soldiers.SHOT_DAMAGE, angle) then
     self:soldierDown(server, s, by, angle)
   end
   return true
@@ -555,7 +579,7 @@ Dday.clientMessages = {
         end
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
-        s.hp = tonumber(args[i + 4]) or Troops.HEALTH
+        s.hp = tonumber(args[i + 4]) or Soldiers.HEALTH
         local flag = args[i + 5] or "g"
         s.kind = flag:lower() == "r" and "rifleman" or "guard"
         s.alert = flag ~= flag:lower()
