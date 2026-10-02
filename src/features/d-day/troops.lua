@@ -81,9 +81,12 @@ end
 
 --- `hunt`: true to have them leave their places to chase and look into
 --- things (City 17), false to have them hold them (D-Day). `fov`: how wide
---- their cone of sight is (Sight.FOV unless given).
-function Troops.new(hunt, fov)
-  return setmetatable({ list = {}, nextId = 1, time = 0, ticks = 0, hunt = hunt or false, fov = fov }, Troops)
+--- their cone of sight is (Sight.FOV unless given). `aware`: px all round
+--- them that they notice somebody in, whichever way they face (never
+--- through a wall; nobody draws it), 0 or nil for none.
+function Troops.new(hunt, fov, aware)
+  local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = hunt or false, fov = fov, aware = aware or 0 }
+  return setmetatable(t, Troops)
 end
 
 --- A soldier of `kind` at (x, y), watching `watch` (radians).
@@ -400,12 +403,13 @@ local function poseOf(server, id)
 end
 
 --- The nearest player inside this soldier's cone right now, if any.
-local function spot(server, s, fov)
+local function spot(server, s, fov, aware)
   local best, bestD2
   for id, p in pairs(server.players) do
     if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local d2 = Sight.canSee(s.x, s.y, s.facing, x, y, Troops.RANGE, fov)
+        or (aware > 0 and Sight.canSee(s.x, s.y, s.facing, x, y, aware, 2 * math.pi))
       if d2 and (not bestD2 or d2 < bestD2) then
         best, bestD2 = id, d2
       end
@@ -515,10 +519,16 @@ function Troops:think(server, s, dt)
     end
     -- Once he has someone he keeps them in a wider eye: TRACK_FOV, or more for a wide cone.
     local track = math.max(Troops.TRACK_FOV, (self.fov or Sight.FOV) + math.rad(30))
-    if not (tx and Sight.canSee(s.x, s.y, s.facing, tx, ty, Troops.RANGE, track)) then
-      s.target = spot(server, s, self.fov)
+    local kept = tx
+      and (Sight.canSee(s.x, s.y, s.facing, tx, ty, Troops.RANGE, track)
+        or (self.aware > 0 and Sight.canSee(s.x, s.y, s.facing, tx, ty, self.aware, 2 * math.pi)))
+    if not kept then
+      s.target = spot(server, s, self.fov, self.aware)
       if s.target then
-        s.fireIn = Troops.REACT
+        -- A moment to take aim, and longer if he has to turn round first.
+        local px, py = poseOf(server, s.target)
+        local behind = px and math.abs(Sight.angleDiff(math.atan2(py - s.y, px - s.x), s.facing)) or 0
+        s.fireIn = Troops.REACT + behind / Troops.TURN
       end
     end
   end

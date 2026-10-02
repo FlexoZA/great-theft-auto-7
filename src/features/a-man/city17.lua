@@ -48,6 +48,7 @@ Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
+Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
 -- What they carry, by gun key: `weight` how likely, `burst` rounds at the
 -- gun's own rate then `pause` seconds; `damage` per round instead of the
 -- gun's (a soldier's sniper rifle doesn't kill in one). A gun not listed
@@ -137,7 +138,7 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(true, Level.fov), syncIn = 0, reached = false, time = 0 }
+  sv = { troops = Troops.new(true, Level.fov, Level.aware), syncIn = 0, reached = false, time = 0 }
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
