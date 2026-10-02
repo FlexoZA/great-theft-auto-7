@@ -517,7 +517,13 @@ couple of small conventions rather than requiring each other:
   carrier has gone unhurt, and `abilities:serverPassive(server, player,
   key, phase, seconds)` tells the carrier its phase (`ABL_PASSIVE`; idle,
   active or cooldown) so the HUD's passive ring shows it working and then
-  filling back. `weapons:serverHealth(player)` reads a body's hit points
+  filling back. An ability that hits an area a moment after the cast
+  (freeze shows a warning ring for `windup` seconds, then holds whoever is
+  inside and tells everyone with `ABL_HELD <seconds> <id>...`; a leaper
+  coming down; a heat ray burning) lists it in its `serverIncoming(list,
+  now)` as `{ x, y, radius, age, left }`, and `abilities:serverIncoming()`
+  gathers every one, for whoever wants out of the way: the Hunters, every
+  boss through `bosses/dodge.lua`, and NPC drivers. `weapons:serverHealth(player)` reads a body's hit points
   and ceiling on the host. An ability with `aim = "direction"` (`mgnest.lua`)
   is selected with a press of its key and placed with the fire button,
   `range` px away towards the cursor, facing away from the caster:

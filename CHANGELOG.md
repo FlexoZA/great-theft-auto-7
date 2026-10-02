@@ -14,6 +14,20 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Freeze warns before it lands: a ring shows on everyone's screen where
+  it is coming down, frost filling it in from the middle, and it lands
+  0.75 seconds later (it used to land the moment you let go). Walk or
+  drive out of the ring in time and it misses you.
+- Freeze looks the part: a flash and a shockwave as it lands, frost with
+  ice crystals and drifting snowflakes on the ground, a ring round the
+  edge counting the hold down, and whoever is caught sits in a block of
+  ice that cracks just before it lets them go.
+- Bosses (Karen, Shotgun, the Major, Bigfoot, A-Man, the Tripod) and
+  drivers in traffic get out from under a freeze's warning ring, a leap
+  about to land or a heat ray once they've had a moment to see it. The
+  Hunters dodge freezes now too.
+
 ## [0.8.0] - 2026-10-02
 
 Every enemy thinks for itself: the bosses go for medkits when they're

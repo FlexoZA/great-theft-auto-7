@@ -17,10 +17,10 @@
 --
 -- What they dodge, read each tick on the host: every round in flight that
 -- a player or bot fired (weapons' `sv.projectiles`), a rocket with room to
--- spare for its blast; where a player in the air is about to land (the
--- leaps, abilities/leap.lua); and a heat ray's burning spot or sweep
--- (abilities/heatray.lua). A freeze or a teleport lands at once: nothing
--- to see coming.
+-- spare for its blast; and every area a player's ability is about to hit
+-- (abilities' serverIncoming): a freeze's warning ring, where a leaper is
+-- coming down, a heat ray's burning spot or sweep. A teleport lands at
+-- once: nothing to see coming.
 --
 -- They know when they are shot at, from any side: a round of a player's
 -- that flies close or hits turns one on whoever fired it, and a shot within
@@ -232,15 +232,9 @@ local function threats(srv, brain)
     end
   end
   local abilities = Features.byName.abilities
-  local kinds = abilities and abilities.kinds and abilities.kinds.byKey or {}
-  if kinds.leap then
-    for _, l in pairs(kinds.leap.serverLeaps()) do
-      brain:threatArea(l.x, l.y, l.ability and l.ability.radius or kinds.leap.radius)
-    end
-  end
-  if kinds.heatray then
-    for _, b in ipairs(kinds.heatray.serverBurns()) do
-      brain:threatArea(b.x, b.y, b.mode == "sweep" and kinds.heatray.sweepRadius or b.radius)
+  if abilities and abilities.serverIncoming then
+    for _, a in ipairs(abilities:serverIncoming()) do
+      brain:threatArea(a.x, a.y, a.radius)
     end
   end
 end

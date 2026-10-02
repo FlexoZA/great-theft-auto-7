@@ -76,6 +76,12 @@
 -- `held(client, id)` the same way, so prediction and the HUD agree. Another
 -- feature can hold a player through Features.byName.abilities:serverHold.
 --
+-- Seeing it coming: an ability that hits an area a moment after the cast
+-- (a freeze's warning, a leaper coming down, a heat ray burning) lists
+-- that area in its `serverIncoming(list, now)`, and
+-- `Abilities:serverIncoming()` gathers them all, so an enemy brain or a
+-- bot can get out of the way (bosses/dodge.lua, hunters, bots).
+--
 -- Messages
 --   client -> server  ABL_CAST  <ability> <x> <y> [<mode>]
 --   client -> server  ABL_EQUIP <ability>[@<tier>] <slot>  (the ability item I carry, into that slot)
@@ -88,6 +94,7 @@
 --   server -> all     ABL_FIRED <by> <ability[@tier]> <x> <y> <seconds> <angle> <mode> [<heldId>]...
 --                                              (angle: which way it faces; mode "-" for none)
 --   server -> all     ABL_REVEAL <id>                (they fired: their chicken is over)
+--   server -> all     ABL_HELD <seconds> <id>...     (a freeze landed after its warning: they are held)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -609,7 +616,8 @@ function Abilities:drawAboveCars(client)
     if self:frozen(id) then
       local px, py, onFoot = client:pose(id)
       if px then
-        Freeze.drawHeld(px, py, onFoot and Body.RADIUS + 4 or Car.WIDTH * 0.62, self.time)
+        Freeze.drawHeld(px, py, onFoot and Body.RADIUS + 4 or Car.WIDTH * 0.62, self.time,
+          self.heldUntil[id] - self.time)
       end
     end
   end
@@ -846,6 +854,18 @@ Abilities.clientMessages = {
       end
     end
   end,
+  ABL_HELD = function(_client, args)
+    local seconds = tonumber(args[1])
+    if not seconds then
+      return
+    end
+    for i = 2, #args do
+      local id = tonumber(args[i])
+      if id then
+        Abilities.heldUntil[id] = Abilities.time + seconds
+      end
+    end
+  end,
   ABL_REVEAL = function(_client, args)
     local id = tonumber(args[1])
     for _, e in ipairs(Abilities.effects) do
@@ -1079,7 +1099,22 @@ end
 function Abilities:mapChanged(_map, server)
   if server and self.sv then
     self.sv.players, self.sv.bodies, self.sv.cars = {}, {}, {}
+    Freeze.serverReset() -- a warning on the old map lands nowhere
   end
+end
+
+--- Every area an ability is about to hit, for whoever wants out of the
+--- way: { x, y, radius, age, left } each (age: seconds since it showed;
+--- left: seconds until it hits, 0 once it is hitting).
+function Abilities:serverIncoming()
+  local list = {}
+  local now = self.sv and self.sv.time or 0
+  for _, ability in ipairs(Kinds.list) do
+    if ability.serverIncoming then
+      ability.serverIncoming(list, now)
+    end
+  end
+  return list
 end
 
 --- The `serverHeld` convention: is this player held still on the host

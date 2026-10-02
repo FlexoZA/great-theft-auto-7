@@ -17,12 +17,15 @@
 --            medkit lying within reach, complaining, and takes it
 --
 -- A freeze roots her to the spot; a stink sends her off away from it as
--- fast as her legs allow.
+-- fast as her legs allow, and so does a freeze's warning ring or anything
+-- else a player's ability is about to land on her (bosses/dodge.lua), even
+-- mid-scream.
 
 local Features = require("src.features")
 local Car = require("src.car")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -156,6 +159,7 @@ function Brain.think(k, b, server, dt)
     b.charging = false
     return false, events
   end
+  Dodge.step(b, k.radius)
   if b.panic then
     -- A stink: away from it, nose held, whatever else she was doing, as
     -- fast as her legs allow.

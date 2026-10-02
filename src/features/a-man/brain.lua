@@ -17,13 +17,18 @@
 --           line shows; anyone on it is torn through as ever), on foot if
 --           not, and takes it
 --
--- Frozen, he stands still and his wind-up waits.
+-- Frozen, he stands still and his wind-up waits. Under a player's ability
+-- about to land (a freeze's warning ring: bosses/dodge.lua) he hurries out
+-- of it, the one time he does, unless he is already winding up a blink.
 
 local Features = require("src.features")
 local Teleport = require("src.features.abilities.teleport")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
+
+Brain.DODGE_PACE = 2.6 -- times his walk, getting out from under an ability
 
 local random = love.math.random
 
@@ -136,6 +141,13 @@ function Brain.think(A, a, server, dt, canHorde, time)
   if a.aimX then
     a.windup = a.windup - dt
     return a.windup <= 0 and "blink" or nil
+  end
+  local threat = Dodge.threat(a.x, a.y, A.radius)
+  if threat then
+    local ux, uy = Dodge.away(threat, a.x, a.y)
+    a.facing = math.atan2(uy, ux)
+    a.moving = walk(a, a.x + ux * 100, a.y + uy * 100, A.walkSpeed * Brain.DODGE_PACE * dt)
+    return nil
   end
   a.cool = a.cool - dt
   if wantsHeal(A, a, time) then
