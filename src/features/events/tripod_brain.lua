@@ -20,12 +20,15 @@
 --            work, and a tentacle snatches it up once it is within reach
 --
 -- Frozen, it stands; winded, it ambles and keeps no ray going it hasn't
--- already fired.
+-- already fired. Under a player's ability about to land (a freeze's
+-- warning ring: bosses/dodge.lua) it strides straight out of it, the ray
+-- still at work, unless its legs are planted for a sweep.
 
 local Features = require("src.features")
 local Car = require("src.car")
 local Traffic = require("src.features.bots.traffic")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -420,7 +423,15 @@ function Brain.think(T, t, server, dt, time)
     return false
   end
   local striding
-  if t.phase < SWEEP_WARN and wantsHeal(T, t, time) then
+  local threat = t.phase < SWEEP_WARN and Dodge.threat(t.x, t.y, T.radius)
+  if threat then
+    local ux, uy = Dodge.away(threat, t.x, t.y)
+    t.speed = t.breath:pace(T.huntSpeed, T.windedSpeed)
+    t.facing = math.atan2(uy, ux)
+    t.to, t.street = nil, nil -- off the streets; back to the nearest crossing after
+    t.x, t.y = t.x + ux * t.speed * dt, t.y + uy * t.speed * dt
+    striding = not t.breath:winded()
+  elseif t.phase < SWEEP_WARN and wantsHeal(T, t, time) then
     t.mode = "heal"
     striding = heal(T, server, t, dt)
   else

@@ -31,7 +31,9 @@
 --            he has the breath (the landing slams whoever is there, as ever),
 --            lumbering over if not, and takes it
 --
--- A freeze holds him still; a stink sends him lumbering away from it.
+-- A freeze holds him still; a stink sends him lumbering away from it, and
+-- so does an ability about to land on him (bosses/dodge.lua), unless he is
+-- crouched for a leap.
 --
 -- Brain.think returns the events the feature should act on:
 --   { "leap", fx, fy, tx, ty }   he took off from (fx, fy); lands on (tx, ty)
@@ -40,6 +42,7 @@
 
 local Features = require("src.features")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -198,6 +201,9 @@ function Brain.think(T, f, server, dt, time, buildings)
     f.frozen = f.frozen - dt
     f.mode = "idle"
     return events
+  end
+  if f.mode ~= "crouch" then
+    Dodge.step(f, T.radius)
   end
   if f.panic and f.mode ~= "crouch" then
     -- A stink: he lumbers away from it, whoever is about.

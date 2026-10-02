@@ -17,11 +17,13 @@
 --     within reach: out of sight first if his chicken is back, round the
 --     bluff on his walking grid, and takes it (a word about it, if anyone
 --     can see him).
--- A freeze holds him still; a stink sends him off away from it.
+-- A freeze holds him still; a stink sends him off away from it, and so
+-- does an ability about to land on him (bosses/dodge.lua).
 
 local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -268,6 +270,7 @@ function Brain.think(b, server, dt)
     b.frozen = b.frozen - dt
     return events
   end
+  Dodge.step(b, b.RADIUS)
   if b.panic then
     b.panic.left = b.panic.left - dt
     b.facing = math.atan2(b.y - b.panic.y, b.x - b.panic.x)
