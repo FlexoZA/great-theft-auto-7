@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A-Man drops by in City 17: the first time you walk into the plaza he
+  blinks in near you, snaps his briefcase open, leaves five sentry
+  turrets (more with more players) and blinks out again, three times,
+  8 seconds apart. He is gone in under a second and a half and can't be
+  hurt yet; his turrets go over as usual.
+
 ## [0.4.0] - 2026-10-02
 
 City 17's Combine soldiers call for backup: spot you and the nearest of

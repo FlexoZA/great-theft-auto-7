@@ -12,6 +12,7 @@
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
 --   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
+--   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
 --   theme.lua    his music, while he is loose
 --   turrets.lua  the sentry turrets out of his briefcase
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop

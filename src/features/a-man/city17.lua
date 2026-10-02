@@ -23,6 +23,9 @@
 -- now and then, a mate answering; whoever spots somebody shouts it, and
 -- one near a soldier who goes down calls it in, those going to look say
 -- so, and one who found nothing says that on his way back.
+-- The first time a player walks into the plaza, A-Man drops by: he blinks
+-- in, leaves a horde of his turrets and blinks out, three times over
+-- (cameo.lua). He can't be hurt yet.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
@@ -33,6 +36,7 @@
 --                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
+--   and cameo.lua's: C17_AMAN_IN, C17_AMAN_CASE, C17_AMAN_OUT, C17_TURRETS, C17_POP
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -41,6 +45,7 @@ local UI = require("src.ui")
 local Troops = require("src.features.d-day.troops")
 local Sight = require("src.features.d-day.sight")
 local Radio = require("src.features.a-man.radio")
+local Cameo = require("src.features.a-man.cameo")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 
@@ -151,6 +156,7 @@ function Level.serverQuestStarted(_server, quest)
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
+  Cameo.serverStart()
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
@@ -177,6 +183,7 @@ end
 
 --- Over: nothing left to step or draw.
 function Level.serverStop(server)
+  Cameo.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("C17_TROOPS", server.tick)) -- an empty list clears every screen
@@ -353,6 +360,7 @@ function Level.serverStep(server, dt)
     return
   end
   sv.troops:update(server, dt)
+  Cameo.serverStep(server, dt, cityMap())
   talk(server, dt)
   checkReached(server)
   sync(server)
@@ -381,6 +389,9 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
+  if Cameo.serverShotAt(server, x, y, radius, by) then
+    return true
+  end
   local s, i = sv.troops:at(x, y, radius)
   if not s then
     return false
@@ -395,6 +406,7 @@ function Level.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.troops:freeze(x, y, radius, seconds)
   end
+  Cameo.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Level.serverPanicArea(x, y, radius)
@@ -416,10 +428,12 @@ local time = 0
 
 function Level.clear()
   troops, lastTick = {}, 0
+  Cameo.clear()
 end
 
 function Level.update(dt)
   time = time + dt
+  Cameo.update(dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
     local ex, ey = s.x - s.dx, s.y - s.dy
@@ -446,6 +460,7 @@ function Level.drawBelowCars()
   for _, s in pairs(troops) do
     Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, s.fov)
   end
+  Cameo.drawBelowCars()
 end
 
 --- How each gun shows in his hands: how far the barrel reaches, and a pack
@@ -511,6 +526,7 @@ function Level.drawAboveCars()
   for _, s in pairs(troops) do
     drawSoldier(s)
   end
+  Cameo.drawAboveCars()
   -- What they say, over all of them.
   for _, s in pairs(troops) do
     if s.say then
@@ -574,5 +590,8 @@ Level.clientMessages = {
     end
   end,
 }
+for kind, handler in pairs(Cameo.clientMessages) do
+  Level.clientMessages[kind] = handler
+end
 
 return Level

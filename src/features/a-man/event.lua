@@ -583,7 +583,7 @@ end
 --- right hand, the glasses and the moustache on the front of his head. He
 --- flickers while he winds up.
 local function drawHim(a)
-  local alpha = 1
+  local alpha = a.alpha or 1
   if a.aimX then
     alpha = 0.45 + 0.55 * math.abs(math.sin(time * 25))
   end
@@ -638,6 +638,12 @@ function AMan.drawAboveCars()
     drawHim(a)
   end
   love.graphics.setColor(1, 1, 1)
+end
+
+--- Him, drawn as the event draws him, for anyone else who shows him (his
+--- quest's levels): `a` is { dx, dy, angle, stride, hp, max, alpha }.
+function AMan.drawFigure(a)
+  drawHim(a)
 end
 
 --- An arrow at the edge of the screen pointing at him while he is off it.

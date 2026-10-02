@@ -51,8 +51,10 @@ end
 
 -- Server --------------------------------------------------------------------
 
-function Turrets.new()
-  return { list = {}, nextId = 1, n = 0 }
+--- A set on the host. `popKind` is the message that tells everyone one fell
+--- over (EAM_POP, the event's, when nil).
+function Turrets.new(popKind)
+  return { list = {}, nextId = 1, n = 0, popKind = popKind or "EAM_POP" }
 end
 
 --- How many are standing.
@@ -85,7 +87,7 @@ local function topple(set, server, t)
   if set.list[t.id] then
     set.list[t.id] = nil
     set.n = set.n - 1
-    server:broadcast(Protocol.encode("EAM_POP", t.id, fmt(t.x), fmt(t.y), ("%.2f"):format(t.facing)))
+    server:broadcast(Protocol.encode(set.popKind, t.id, fmt(t.x), fmt(t.y), ("%.2f"):format(t.facing)))
   end
 end
 
