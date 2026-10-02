@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-02
+
+Freeze gives fair warning now: a ring shows where it is coming down and
+everyone, bosses and traffic included, gets a moment to dodge it. Vests
+on the road top up damaged armor, and the city stays calm for a few
+seconds after a boss falls.
+
 ### Changed
 - Freeze warns before it lands: a ring shows on everyone's screen where
   it is coming down, frost filling it in from the middle, and it lands
