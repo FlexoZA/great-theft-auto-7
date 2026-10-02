@@ -23,6 +23,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   a sharp crack, a deep thump and an echo off the buildings. The shotgun
   booms and rolls away, the sniper's crack echoes across the city, and the
   rocket launcher kicks.
+- The flamethrower roars instead of rattling like a gun: it lights with a
+  whoomp, keeps up one steady roar while you hold the trigger, and dies
+  away when you let go.
 
 ## [0.9.0] - 2026-10-02
 

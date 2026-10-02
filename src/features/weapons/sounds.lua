@@ -1,6 +1,10 @@
 -- Weapon sound effects, synthesised at load. Every play is a clone of a base
 -- source positioned in the world, so shots overlap freely and pan/fade
 -- relative to the listener (which the game state keeps at your car).
+--
+-- A gun that fires too fast to hear as shots (the flamethrower) loops
+-- instead: each round only keeps that shooter's loop going (Sounds.hold),
+-- it lights with a one-off sound, and it fades once the rounds stop.
 
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
@@ -12,11 +16,56 @@ local Sounds = {
 }
 
 local bank = {} -- name -> base Source
+local loops = {} -- name -> { source = looping base, start = name of the sound it lights with }
+local held = {} -- "<name>:<shooter>" -> { source, quiet = seconds since the last round, fade }
+
+Sounds.HOLD = 0.2 -- s a loop keeps going after the last round (a round comes every 0.07 s)
+Sounds.FADE = 0.15 -- s it takes to die away after that
 
 local function make(seconds, build)
   local buf = Synth.newBuffer(seconds)
   build(buf)
   local source = love.audio.newSource(buf:toSoundData(0.9), "static")
+  source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
+  return source
+end
+
+--- The flamethrower's roar, a second long and seamless: dark rumbling
+--- noise breathing with the turbulence of the jet, a thinner hiss of gas on
+--- top. The end is crossfaded into the start so it loops without a click.
+local function flameRoar()
+  local RATE = Synth.RATE
+  local loopN, fadeN = RATE, math.floor(RATE * 0.12)
+  local roar = Synth.newBuffer((loopN + fadeN) / RATE)
+  local hiss = Synth.newBuffer((loopN + fadeN) / RATE)
+  for i = 0, roar.n - 1 do
+    roar.data[i] = Synth.noise()
+    hiss.data[i] = Synth.noise()
+  end
+  roar:lowpass(260)
+  roar:lowpass(520)
+  hiss:highpass(1800)
+  hiss:lowpass(5000)
+  local TWO_PI = 2 * math.pi
+  local mix = Synth.newBuffer((loopN + fadeN) / RATE)
+  for i = 0, mix.n - 1 do
+    local t = i / RATE -- whole cycles a second, so the breathing loops too
+    local breath = 1 + 0.25 * math.sin(TWO_PI * 7 * t) + 0.15 * math.sin(TWO_PI * 11 * t + 1.3)
+    mix.data[i] = (roar.data[i] * 4 + hiss.data[i] * 0.35) * breath
+  end
+  mix:drive(1.5)
+  local loop = Synth.newBuffer(loopN / RATE)
+  loop.n = loopN
+  for i = 0, loopN - 1 do
+    local v = mix.data[i]
+    if i < fadeN then -- the tail fading out over the head fading in
+      local a = i / fadeN
+      v = v * math.sqrt(a) + mix.data[loopN + i] * math.sqrt(1 - a)
+    end
+    loop.data[i] = v
+  end
+  local source = love.audio.newSource(loop:toSoundData(0.8), "static")
+  source:setLooping(true)
   source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
   return source
 end
@@ -274,13 +323,16 @@ function Sounds.load()
     buf:lowpass(2800)
   end)
 
-  -- Flamethrower: a soft roaring whoosh, low and dull, fourteen of them a
-  -- second overlapping into one roar while the trigger is held.
-  bank.flame = make(0.2, function(buf)
-    buf:noiseBurst(0, 0.2, { amp = 0.55, decay = 0.09 })
-    buf:sweep(0, 0.18, 180, 90, { wave = "saw", amp = 0.12, decay = 0.08 })
+  -- Flamethrower: a steady roar while the trigger is held, one loop per
+  -- shooter, lit with a whoomp.
+  loops.flame = { source = flameRoar(), start = "flame-light" }
+
+  -- Lighting it: a soft low whoomp as the gas catches, and a hiss.
+  bank["flame-light"] = make(0.45, function(buf)
+    buf:sweep(0, 0.3, 90, 160, { wave = "sine", amp = 0.9, decay = 0.12 })
+    buf:noiseBurst(0, 0.4, { amp = 0.7, decay = 0.13 })
     buf:lowpass(900)
-    buf:drive(1.4)
+    buf:drive(1.6)
   end)
 
   -- Flamethrower reload (2.5 s): the empty tank unscrewed and knocked off, a
@@ -334,6 +386,61 @@ function Sounds.play(name, x, y, pitch)
   s:setVolume(Audio.volume("weapons"))
   s:play()
   return s
+end
+
+--- True when `name` loops while held rather than playing once a round.
+function Sounds.loops(name)
+  return loops[name] ~= nil
+end
+
+--- A round of looping sound `name` from `shooter` at (x, y): start that
+--- shooter's loop (lit with its start sound), or keep it going and move it.
+function Sounds.hold(name, shooter, x, y)
+  local loop = loops[name]
+  if not loop then
+    return
+  end
+  local key = name .. ":" .. tostring(shooter)
+  local h = held[key]
+  if not h then
+    h = { source = loop.source:clone() }
+    held[key] = h
+    h.source:setVolume(Audio.volume("weapons"))
+    h.source:play()
+    Sounds.play(loop.start, x, y)
+  end
+  h.quiet, h.fade = 0, 1
+  h.source:setPosition(x, 0, y)
+end
+
+--- Fade out loops whose rounds have stopped. Call every frame.
+function Sounds.update(dt)
+  local volume = Audio.volume("weapons")
+  for key, h in pairs(held) do
+    h.quiet = h.quiet + dt
+    if h.quiet > Sounds.HOLD then
+      h.fade = h.fade - dt / Sounds.FADE
+    end
+    if h.fade <= 0 then
+      h.source:stop()
+      held[key] = nil
+    else
+      h.source:setVolume(volume * h.fade)
+    end
+  end
+end
+
+--- Silence every loop (leaving the game).
+function Sounds.stopAll()
+  for key, h in pairs(held) do
+    h.source:stop()
+    held[key] = nil
+  end
+end
+
+--- For tests.
+function Sounds.held()
+  return held
 end
 
 --- For tests.
