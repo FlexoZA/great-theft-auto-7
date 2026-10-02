@@ -746,7 +746,10 @@ local GRIM = {
 --- "water". Buildings are ordinary ones in grim colours; everything else
 --- the canvas draws is `map.cover` ({ kind = "combine" | "barrier" |
 --- "planter" | "station" | "train" | "screen" | "water" | "citadel" |
---- "rubble", x, y, w, h }); rubble is drawn but not solid. `map.zones`
+--- "rubble" | "barrel" | "trash", x, y, w, h }); rubble and trash are drawn
+--- but not solid. `map.fires` burn for good ({ kind, x, y, r, seed }: kind
+--- "barrel" an oil drum, "heap" on the ground, catching anyone who walks
+--- into it, "roof" a burning building, which has `burning` set). `map.zones`
 --- names the world y range of each part ({ name, y0, y1 }). `map.posts` are
 --- where guards stand at the checkpoints ({ x, y, watch, at }: `watch` the
 --- way they look, `at` which checkpoint). `map.patrols` are the beats squads
@@ -1036,6 +1039,91 @@ local function buildCity17(map, rng)
       got = got + 1
     end
   end
+
+  -- The war is not long over: fires nobody puts out and rubbish nobody
+  -- collects. Placed last, so nothing above moves for them.
+  map.fires = {}
+  local function fire(kind, x, y, r)
+    map.fires[#map.fires + 1] = { kind = kind, x = math.floor(x), y = math.floor(y), r = r, seed = rng:random(1000) }
+  end
+  --- Is (x, y) on paving or road, `r` clear of anything solid and off the bridges?
+  local function open(x, y, r)
+    local t = map.tiles[math.floor((x - map.x0) / T)]
+    t = t and t[math.floor((y - map.y0) / T)]
+    if t ~= "walk" and t ~= "road" then
+      return false
+    end
+    for _, b in ipairs(map.solids) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    for _, b in ipairs(map.bridges) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    return true
+  end
+  --- A random open spot between rows r0 and r1, `gap` clear of loose cover, or nil.
+  local function spot(r0, r1, r, gap)
+    for _ = 1, 200 do
+      local x = X(1) + rng:random() * (cols - 2) * T
+      local y = Y(r0) + rng:random() * (r1 - r0) * T
+      if open(x, y, r) and free(x, y, r, gap) then
+        return x, y
+      end
+    end
+  end
+  -- Burning oil drums, warming nobody, from the platform to the canal.
+  for _ = 1, 16 do
+    local x, y = spot(k1 + 2, rows - 6, 16, 120)
+    if x then
+      cover("barrel", x - 14, y - 14, 28, 28)
+      fire("barrel", x, y, 14)
+    end
+  end
+  -- Fires in the rubble, and a few out on the roads (burning tyres, a
+  -- heap of furniture): these set you alight.
+  for _, rb in ipairs(map.cover) do
+    if rb.kind == "rubble" and rng:random() < 0.55 then
+      fire("heap", rb.x + rb.w * (0.3 + rng:random() * 0.4), rb.y + rb.h * (0.3 + rng:random() * 0.4), 24)
+    end
+  end
+  for _ = 1, 7 do
+    local x, y = spot(1, rows - 6, 30, 140)
+    if x then
+      placed[#placed + 1] = { x = x, y = y, r = 30 }
+      fire("heap", x, y, 22)
+    end
+  end
+  -- Flats burning in the old town: up on the roofs, out of reach.
+  local flats = {}
+  for _, b in ipairs(map.buildings) do
+    if not b.screen and b.y >= Y(o0) and b.y < Y(o1) then
+      flats[#flats + 1] = b
+    end
+  end
+  for _ = 1, math.min(6, #flats) do
+    local b = table.remove(flats, rng:random(#flats))
+    b.burning = true
+    fire("roof", b.x + b.w * (0.25 + rng:random() * 0.5), b.y + b.h * (0.25 + rng:random() * 0.5), 30)
+  end
+  -- Rubbish: bin bags, boxes and junk in heaps along the pavements, and
+  -- spilt across the roads. Walked through, not solid.
+  got = 0
+  for _ = 1, 600 do
+    if got >= 70 then
+      break
+    end
+    local x = X(1) + rng:random() * (cols - 2) * T
+    local y = Y(1) + rng:random() * (rows - 7) * T
+    local w, h = 26 + rng:random() * 40, 22 + rng:random() * 30
+    if open(x, y, math.max(w, h) / 2) and free(x, y, math.max(w, h) / 2, 40) then
+      cover("trash", x - w / 2, y - h / 2, w, h, { decor = true, seed = rng:random(1000) })
+      got = got + 1
+    end
+  end
 end
 
 --- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
@@ -1055,6 +1143,7 @@ function Layout.generate(spec)
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    crowdScale = spec.crowdScale or 1, -- how big a crowd, against the usual (pedestrians reads it)
     police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)

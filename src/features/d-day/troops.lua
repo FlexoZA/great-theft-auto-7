@@ -157,10 +157,10 @@ function Troops:reinforce(map)
   return self:add("rifleman", door.x + (random() - 0.5) * 30, door.y, math.pi / 2)
 end
 
---- A squad of `size` walking `route` (a loop of { x, y }), starting at a
---- corner picked at random, heading for the next.
-function Troops:addSquad(route, size)
-  local leg = random(#route)
+--- A squad of `size` walking `route` (a loop of { x, y }), starting at
+--- corner `start` (one picked at random when nil), heading for the next.
+function Troops:addSquad(route, size, start)
+  local leg = start or random(#route)
   local from = route[leg]
   leg = leg % #route + 1
   local squad = { route = route, leg = leg, members = {} }

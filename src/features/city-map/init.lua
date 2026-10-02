@@ -23,6 +23,10 @@
 --   serverWorldSaveHeld  true away from the default map: a saved world is
 --     the city, so it is not written while everyone is somewhere else.
 --
+-- A map's `fires` (City 17's) burn for good: fires.lua draws them over
+-- everything on the ground, and on the host sets anyone on foot who walks
+-- into one on the ground alight (damage's `ignite`).
+--
 -- No network messages: the map is code, so nothing needs sending. A feature
 -- that grows the city, or switches it, tells every machine to do the same in
 -- the same order; the city goes back to its default map and size between
@@ -33,6 +37,7 @@ local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local Collision = require("src.features.city-map.collision")
 local Render = require("src.features.city-map.render")
+local Fires = require("src.features.city-map.fires")
 
 local CityMap = {
   name = "city-map",
@@ -85,6 +90,7 @@ CityMap.maps = {
   city17 = {
     title = "City 17", kind = "city17", seed = 17, cols = 48, rows = 76,
     police = false, traffic = false, vehicles = false,
+    crowdScale = 0.5, -- half the usual citizens: the Combine are the crowd here
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
@@ -248,6 +254,13 @@ function CityMap:drawBelowCars()
   end
 end
 
+--- The map's fires (City 17's), flames and smoke over everything on the ground.
+function CityMap:drawAboveCars(_client, camera)
+  if self.map and self.map.fires then
+    Fires.draw(self.map, camera, love.timer.getTime())
+  end
+end
+
 -- Server ----------------------------------------------------------------
 
 --- Every game starts on the default map with every car on its central road.
@@ -289,6 +302,8 @@ function CityMap:serverStep(server, dt)
     end
   end
   collidePedestrians(self.map)
+  self.fireCheck = self.fireCheck or {}
+  Fires.step(self.map, server, dt, self.fireCheck)
 end
 
 --- Is (x, y) somewhere nobody can get to: inside something solid, or in

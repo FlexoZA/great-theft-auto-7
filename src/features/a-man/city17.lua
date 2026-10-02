@@ -1,8 +1,8 @@
 -- City 17, the first level of A-Man's quest (the map is city-map's
--- `city17`). Combine soldiers guard every checkpoint on the way up: the
--- station's concourse, the mouth of the avenue on the plaza, the gate in
--- the wall, the far end of each bridge and the Citadel's doors (the map's
--- `posts`). They are the D-Day landing's guards on other uniforms
+-- `city17`). Combine soldiers guard every checkpoint on the way up, two to
+-- a post (`Level.guardsPerPost`): the station's concourse, the mouth of the
+-- avenue on the plaza, the gate in the wall, the far end of each bridge and
+-- the Citadel's doors (the map's `posts`). They are the D-Day landing's guards on other uniforms
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
 -- fire. Cover breaks his sight. He takes what each round carries, out of
@@ -17,12 +17,16 @@
 -- the radio (not his squad, who are with him) come to where he saw them.
 -- When a soldier goes down, everyone near enough to hear it goes to see. Each
 -- walks back to his post or his beat after.
--- Squads of three walk beats between them (the map's `patrols`): through
--- the old town, round the plaza and the Citadel's square. They talk over
+-- Squads of three walk beats between them, two squads to a beat spread
+-- round it (`Level.squadsPerBeat`; the map's `patrols`): through the old
+-- town, round the plaza and the Citadel's square. They talk over
 -- the radio (radio.lua): guards at a checkpoint and squads on their beat
 -- now and then, a mate answering; whoever spots somebody shouts it, and
 -- one near a soldier who goes down calls it in, those going to look say
 -- so, and one who found nothing says that on his way back.
+-- The first time a player walks into the plaza, A-Man drops by: he blinks
+-- in, leaves a horde of his turrets and blinks out, three times over
+-- (cameo.lua). He can't be hurt yet.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
@@ -33,6 +37,7 @@
 --                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
+--   and cameo.lua's: C17_AMAN_IN, C17_AMAN_CASE, C17_AMAN_OUT, C17_TURRETS, C17_POP
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -41,6 +46,7 @@ local UI = require("src.ui")
 local Troops = require("src.features.d-day.troops")
 local Sight = require("src.features.d-day.sight")
 local Radio = require("src.features.a-man.radio")
+local Cameo = require("src.features.a-man.cameo")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 
@@ -51,6 +57,9 @@ Level.questId = "a-man" -- the quest this level belongs to (quests' `boss`)
 Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
+Level.guardsPerPost = 2 -- soldiers at each of the map's posts, side by side
+Level.squadsPerBeat = 2 -- squads walking each beat, spread round it
+Level.pairGap = 40 -- px between the guards sharing a post
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.alertFov = math.rad(100) -- how wide it is while one is on edge: has somebody, searching, investigating
 Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
@@ -141,7 +150,35 @@ local function pickArms()
   }
 end
 
---- Everyone arrived: a soldier on every post.
+--- Where the `i`th guard at post `p` stands: the first on the post, the
+--- others a step to either side of him (across the way he watches), or
+--- behind him where the side is a wall.
+local function besidePost(p, i)
+  if i == 1 then
+    return p.x, p.y
+  end
+  local city = Features.byName["city-map"]
+  local d = Level.pairGap * math.ceil((i - 1) / 2)
+  local side = i % 2 == 0 and 1 or -1
+  local ax, ay = -math.sin(p.watch), math.cos(p.watch) -- across his watch
+  local tries = {
+    { p.x + ax * d * side, p.y + ay * d * side },
+    { p.x - ax * d * side, p.y - ay * d * side },
+    { p.x - math.cos(p.watch) * d, p.y - math.sin(p.watch) * d },
+  }
+  for _, t in ipairs(tries) do
+    local clear = true
+    for _, k in ipairs({ { 0, 0 }, { 10, 0 }, { -10, 0 }, { 0, 10 }, { 0, -10 } }) do
+      clear = clear and not (city and city:blocksPoint(t[1] + k[1], t[2] + k[2]))
+    end
+    if clear then
+      return t[1], t[2]
+    end
+  end
+  return p.x, p.y
+end
+
+--- Everyone arrived: guards on every post, squads on every beat.
 function Level.serverQuestStarted(_server, quest)
   local map = cityMap()
   if not (quest.boss == Level.questId and map and map.posts) then
@@ -151,6 +188,7 @@ function Level.serverQuestStarted(_server, quest)
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
+  Cameo.serverStart()
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
@@ -163,12 +201,30 @@ function Level.serverQuestStarted(_server, quest)
       posts[p.at] = g
       sv.groups[#sv.groups + 1] = g
     end
-    g.members[#g.members + 1] = sv.troops:add("guard", p.x, p.y, p.watch)
+    for i = 1, Level.guardsPerPost do
+      local x, y = besidePost(p, i)
+      g.members[#g.members + 1] = sv.troops:add("guard", x, y, p.watch + (i - 1) * 0.15)
+    end
   end
   for _, route in ipairs(map.patrols or {}) do
-    local squad = sv.troops:addSquad(route, Level.squadSize)
-    local chatIn = between(Level.chatEvery) * random()
-    sv.groups[#sv.groups + 1] = { kind = "patrol", members = squad.members, chatIn = chatIn }
+    local first, taken = random(#route), {}
+    for i = 1, Level.squadsPerBeat do
+      -- Spread round the beat: each starts a share of its corners on from the
+      -- first, or the next corner along where one is there already (a beat
+      -- walked out and back passes some corners twice).
+      local start = (first - 1 + math.floor((i - 1) * #route / Level.squadsPerBeat)) % #route + 1
+      for _ = 1, #route do
+        local at = route[start].x .. "," .. route[start].y
+        if not taken[at] then
+          taken[at] = true
+          break
+        end
+        start = start % #route + 1
+      end
+      local squad = sv.troops:addSquad(route, Level.squadSize, start)
+      local chatIn = between(Level.chatEvery) * random()
+      sv.groups[#sv.groups + 1] = { kind = "patrol", members = squad.members, chatIn = chatIn }
+    end
   end
   for _, s in ipairs(sv.troops.list) do
     sv.troops:arm(s, pickArms())
@@ -177,6 +233,7 @@ end
 
 --- Over: nothing left to step or draw.
 function Level.serverStop(server)
+  Cameo.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("C17_TROOPS", server.tick)) -- an empty list clears every screen
@@ -353,6 +410,7 @@ function Level.serverStep(server, dt)
     return
   end
   sv.troops:update(server, dt)
+  Cameo.serverStep(server, dt, cityMap())
   talk(server, dt)
   checkReached(server)
   sync(server)
@@ -381,6 +439,9 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
+  if Cameo.serverShotAt(server, x, y, radius, by) then
+    return true
+  end
   local s, i = sv.troops:at(x, y, radius)
   if not s then
     return false
@@ -395,6 +456,7 @@ function Level.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.troops:freeze(x, y, radius, seconds)
   end
+  Cameo.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Level.serverPanicArea(x, y, radius)
@@ -416,10 +478,12 @@ local time = 0
 
 function Level.clear()
   troops, lastTick = {}, 0
+  Cameo.clear()
 end
 
 function Level.update(dt)
   time = time + dt
+  Cameo.update(dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
     local ex, ey = s.x - s.dx, s.y - s.dy
@@ -446,6 +510,7 @@ function Level.drawBelowCars()
   for _, s in pairs(troops) do
     Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, s.fov)
   end
+  Cameo.drawBelowCars()
 end
 
 --- How each gun shows in his hands: how far the barrel reaches, and a pack
@@ -511,6 +576,7 @@ function Level.drawAboveCars()
   for _, s in pairs(troops) do
     drawSoldier(s)
   end
+  Cameo.drawAboveCars()
   -- What they say, over all of them.
   for _, s in pairs(troops) do
     if s.say then
@@ -574,5 +640,8 @@ Level.clientMessages = {
     end
   end,
 }
+for kind, handler in pairs(Cameo.clientMessages) do
+  Level.clientMessages[kind] = handler
+end
 
 return Level
