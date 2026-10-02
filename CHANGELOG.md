@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-02
+
+City 17 no longer stops at its edges: the war-torn city runs on past a
+Combine wall all round it.
+
 ### Added
 - City 17 no longer ends in the bare grid: the city carries on past its
   edges, out of reach behind a Combine wall that runs all round it.
