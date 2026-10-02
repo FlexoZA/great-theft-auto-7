@@ -5,7 +5,7 @@
 -- `posts`). They are the D-Day landing's guards on other uniforms
 -- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
--- fire. Cover breaks his sight; two pistol rounds drop him. Each carries
+-- fire. Cover breaks his sight; three rounds drop him (`Level.health`). Each carries
 -- one of the guns, picked by `Level.loadout`'s weights (every gun in
 -- weapons/guns.lua can turn up; one missing from the list is as likely as
 -- the pistol), fired in bursts once you are in its reach.
@@ -49,6 +49,7 @@ Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
+Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 -- What they carry, by gun key: `weight` how likely, `burst` rounds at the
 -- gun's own rate then `pause` seconds; `damage` per round instead of the
 -- gun's (a soldier's sniper rifle doesn't kill in one). A gun not listed
@@ -138,7 +139,8 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  sv = { troops = Troops.new(true, Level.fov, Level.aware), syncIn = 0, reached = false, time = 0 }
+  local troops = Troops.new({ hunt = true, fov = Level.fov, aware = Level.aware, health = Level.health })
+  sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
   sv.troops:navigate({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
@@ -466,8 +468,8 @@ local function drawSoldier(s)
     love.graphics.setColor(1, 0.45, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Troops.HEALTH then
-    local bw, f = 20, math.max(0, s.hp / Troops.HEALTH)
+  if s.hp < Level.health then
+    local bw, f = 20, math.max(0, s.hp / Level.health)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -507,7 +509,7 @@ Level.clientMessages = {
         end
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
-        s.hp = tonumber(args[i + 4]) or Troops.HEALTH
+        s.hp = tonumber(args[i + 4]) or Level.health
         s.alert = args[i + 5] == "1"
         s.gun = tonumber(args[i + 6])
         seen[id] = true

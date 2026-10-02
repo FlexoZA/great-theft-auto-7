@@ -887,7 +887,7 @@ the one with a plot.
   station's concourse, the avenue's mouth on the plaza, the gate, each
   bridge and the Citadel's doors, 12 in all): the D-Day landing's guards
   (`d-day/troops.lua`, `d-day/sight.lua`) in Combine gear, so the same
-  sweeping cone, the same rifle and two pistol rounds each, 3 koins and
+  sweeping cone and three rounds each (D-Day's take two), 3 koins and
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
@@ -895,9 +895,9 @@ the one with a plot.
   level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
   `Troops:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
-  troop with `Troops.new(true, fov, aware)` (`hunt`, a 60-degree cone where
-  D-Day's is 30, and an undrawn 170 px all-round awareness, walls still
-  hiding you): a soldier closes in on whoever
+  troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
+  cone where D-Day's is 30, an undrawn 170 px all-round awareness, walls
+  still hiding you, and 60 health where D-Day's have 40): a soldier closes in on whoever
   he can see, searches where he lost them, goes looking when shot from
   out of sight, and `Troops:alarm` sends everyone within 700 px of a
   soldier going down to look; each walks back on a trail of breadcrumbs

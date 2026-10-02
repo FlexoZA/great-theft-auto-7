@@ -79,13 +79,17 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- `hunt`: true to have them leave their places to chase and look into
---- things (City 17), false to have them hold them (D-Day). `fov`: how wide
---- their cone of sight is (Sight.FOV unless given). `aware`: px all round
---- them that they notice somebody in, whichever way they face (never
---- through a wall; nobody draws it), 0 or nil for none.
-function Troops.new(hunt, fov, aware)
-  local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = hunt or false, fov = fov, aware = aware or 0 }
+--- A troop. `opts` (optional, every field too):
+---   hunt    true to have them leave their places to chase and look into
+---           things (City 17), false to have them hold them (D-Day)
+---   fov     how wide their cone of sight is (Sight.FOV)
+---   aware   px all round them that they notice somebody in, whichever way
+---           they face (never through a wall; nobody draws it), 0 for none
+---   health  what each one can take (Troops.HEALTH)
+function Troops.new(opts)
+  opts = opts or {}
+  local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt or false, fov = opts.fov,
+    aware = opts.aware or 0, health = opts.health or Troops.HEALTH }
   return setmetatable(t, Troops)
 end
 
@@ -99,7 +103,7 @@ function Troops:add(kind, x, y, watch)
     watch = watch,
     facing = watch,
     phase = random() * 2 * math.pi,
-    hp = Troops.HEALTH,
+    hp = self.health,
     target = nil, -- player id he has in his sights
     fireIn = 0,
     alert = false,
