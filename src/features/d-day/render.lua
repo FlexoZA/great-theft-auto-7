@@ -7,7 +7,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
-local Troops = require("src.features.d-day.troops")
+local Soldiers = require("src.features.d-day.brain")
 local Major = require("src.features.d-day.major")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
@@ -102,8 +102,8 @@ function Render.below(D, camera, time)
   end
   if not Features.any("hideSightCones") then -- the ` key (sight-cones)
     for _, s in pairs(D.troops) do
-      if onScreen(camera, s.dx, s.dy, Troops.RANGE) then
-        Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time)
+      if onScreen(camera, s.dx, s.dy, Soldiers.RANGE) then
+        Sight.draw(s.dx, s.dy, s.angle, Soldiers.RANGE, s.alert, time)
       end
     end
   end
@@ -134,8 +134,8 @@ local function drawSoldier(s, time)
     love.graphics.setColor(1, 0.25, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Troops.HEALTH then
-    local bw, f = 20, math.max(0, s.hp / Troops.HEALTH)
+  if s.hp < Soldiers.HEALTH then
+    local bw, f = 20, math.max(0, s.hp / Soldiers.HEALTH)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)

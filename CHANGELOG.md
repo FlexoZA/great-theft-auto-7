@@ -14,6 +14,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- D-Day's soldiers now think like City 17's Combine: a guard or rifleman
+  who spots you comes after you instead of staying at his post, searches
+  where he last saw you, then walks back. One who spots you calls in the
+  nearest three within 800 px (every 15 seconds at most), and when one
+  goes down everyone within 700 px comes to see. They find their way
+  round the bunkers and huts.
+
 ## [0.7.0] - 2026-10-02
 
 Hunters stalk City 17's Citadel: quick three-legged synths that keep you
