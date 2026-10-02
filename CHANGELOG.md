@@ -30,6 +30,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   deep boom, debris crackling down and a roar rolling off the buildings.
   Cars clang with flying panels as their fuel goes up, and buildings
   come down with a long rumble of falling rubble.
+- Hits sound like what they hit: bullets clank off cars and thud into
+  people, punches land with a thump, fire sizzles, shocks zap, and bullets
+  chip the walls with the odd ricochet whining away. The flamethrower no
+  longer clanks fourteen times a second on whatever it burns.
 
 ## [0.9.0] - 2026-10-02
 
