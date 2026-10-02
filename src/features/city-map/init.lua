@@ -298,7 +298,10 @@ end
 function CityMap:serverStep(server, dt)
   for _, car in pairs(server.vehicles) do
     if not car.hidden then
-      Collision.resolveCar(self.map, car, dt)
+      local _, impact = Collision.resolveCar(self.map, car, dt)
+      if impact > 0 then
+        Features.call("serverCarImpact", server, car, impact, car.x, car.y, "wall")
+      end
     end
   end
   collidePedestrians(self.map)
