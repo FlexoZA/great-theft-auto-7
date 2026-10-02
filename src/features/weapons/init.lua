@@ -584,6 +584,10 @@ function Weapons:update(dt, client, camera)
         self.projectiles[pid] = nil
       end
     elseif spent then
+      -- A bullet into a wall chips it (one pellet a blast, and not fire).
+      if not (gun.flame or p.quiet) and p.age <= (gun.ttl or PROJECTILE_TTL) then
+        Sounds.play("hit-wall", p.x, p.y, 0.9 + love.math.random() * 0.2)
+      end
       self.projectiles[pid] = nil
     end
   end
@@ -1045,6 +1049,7 @@ Weapons.clientMessages = {
     if pid and x and y and vx and vy then
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
+        quiet = quiet,
       }
       if not quiet and Sounds.loops(gun.sound) then
         Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
@@ -1069,7 +1074,7 @@ Weapons.clientMessages = {
     local dtype, amount = args[4], tonumber(args[5])
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+      Sounds.play(Sounds.hitName("foot", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
@@ -1090,7 +1095,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+      Sounds.play(Sounds.hitName("car", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil

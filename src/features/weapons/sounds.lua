@@ -22,10 +22,12 @@ local held = {} -- "<name>:<shooter>" -> { source, quiet = seconds since the las
 Sounds.HOLD = 0.2 -- s a loop keeps going after the last round (a round comes every 0.07 s)
 Sounds.FADE = 0.15 -- s it takes to die away after that
 
-local function make(seconds, build)
+--- A sound `seconds` long that `build` writes, normalised to `level` (0.9
+--- by default; lower for something that should stay quiet).
+local function make(seconds, build, level)
   local buf = Synth.newBuffer(seconds)
   build(buf)
-  local source = love.audio.newSource(buf:toSoundData(0.9), "static")
+  local source = love.audio.newSource(buf:toSoundData(level or 0.9), "static")
   source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
   return source
 end
@@ -456,13 +458,94 @@ function Sounds.load()
     buf:highpass(800)
   end)
 
-  -- Hit: a metallic clank on the target's bodywork.
-  bank.hit = make(0.14, function(buf)
-    buf:tone(0, 0.1, 1250, { wave = "sine", amp = 0.5, attack = 0.001, decay = 0.045, sustain = 0, release = 0.01 })
-    buf:tone(0, 0.08, 1870, { wave = "sine", amp = 0.3, attack = 0.001, decay = 0.03, sustain = 0, release = 0.01 })
-    buf:noiseBurst(0, 0.06, { amp = 0.45, decay = 0.015 })
-    buf:highpass(500)
-    buf:drive(1.8)
+  -- Hits sound like what was hit and what hit it (Sounds.hitName picks).
+
+  --- A struck panel: a ring with an out-of-tune overtone, and a tick.
+  local function ring(buf, t, f, amp, decay)
+    local o = { wave = "sine", amp = amp, attack = 0.001, decay = decay, sustain = 0, release = 0.01 }
+    buf:tone(t, decay * 3, f, o)
+    o.amp = amp * 0.55
+    buf:tone(t, decay * 2.5, f * 1.53, o)
+    o.amp = amp * 0.3
+    buf:tone(t, decay * 2, f * 2.76, o)
+  end
+
+  -- A bullet in a car: a clank and the panel ringing.
+  bank["hit-metal"] = takes(3, function()
+    return make(0.25, function(buf)
+      ring(buf, 0, between(950, 1500), 0.6, between(0.035, 0.06))
+      buf:noiseBurst(0, 0.04, { amp = 0.6, decay = 0.008 })
+      buf:sweep(0, 0.05, 500, 160, { wave = "sine", amp = 0.4, decay = 0.015 }) -- the dent
+      buf:highpass(350)
+      buf:drive(1.8)
+    end)
+  end)
+
+  -- A bullet in someone: a dull wet thud, nothing bright about it.
+  bank["hit-flesh"] = takes(3, function()
+    return make(0.16, function(buf)
+      buf:sweep(0, 0.08, between(170, 210), 60, { wave = "sine", amp = 1.0, decay = 0.028 })
+      local slap = Synth.newBuffer(0.16)
+      slap:noiseBurst(0, 0.05, { amp = 0.7, decay = 0.014 })
+      slap:lowpass(1100)
+      slap:lowpass(1100)
+      slap:mixInto(buf, 1)
+      buf:drive(2.0)
+    end, 0.8)
+  end)
+
+  -- A fist, a club or a car knocking someone over: a heavier, rounder thump.
+  bank["hit-punch"] = takes(2, function()
+    return make(0.22, function(buf)
+      buf:noiseBurst(0, 0.008, { amp = 0.5, decay = 0.002 }) -- the smack
+      buf:sweep(0, 0.13, between(120, 150), 42, { wave = "sine", amp = 1.0, decay = 0.045 })
+      buf:noiseBurst(0, 0.06, { amp = 0.5, decay = 0.016 })
+      buf:lowpass(1600)
+      buf:drive(2.2)
+    end, 0.85)
+  end)
+
+  -- Fire licking something: a quiet sizzle. The flamethrower lands fourteen
+  -- of these a second, so they blur into one hiss.
+  bank["hit-fire"] = make(0.2, function(buf)
+    buf:noiseBurst(0, 0.18, { amp = 0.5, decay = 0.06 })
+    for _ = 1, 4 do
+      buf:noiseBurst(between(0, 0.15), 0.01, { amp = 0.8, decay = 0.002 }) -- spits
+    end
+    buf:highpass(2200)
+    buf:lowpass(7000)
+  end, 0.3)
+
+  -- A shock: a buzzing zap and a crackle of sparks.
+  bank["hit-shock"] = takes(2, function()
+    return make(0.3, function(buf)
+      buf:tone(0, 0.2, between(55, 70), { wave = "square", amp = 0.5, attack = 0.002, decay = 0.08, sustain = 0 })
+      buf:sweep(0, 0.12, 2600, 500, { wave = "square", amp = 0.3, decay = 0.05 })
+      for _ = 1, 10 do
+        buf:noiseBurst(between(0, 0.22), 0.012, { amp = between(0.4, 0.9), decay = 0.003 })
+      end
+      buf:highpass(150)
+      buf:drive(2.0)
+    end, 0.7)
+  end)
+
+  -- A bullet into a wall: a chip of concrete, and now and then the whine of
+  -- a ricochet going off somewhere else.
+  bank["hit-wall"] = takes(4, function()
+    local whine = Synth.noise() > -0.1 -- a little over half of them
+    return make(0.45, function(buf)
+      local chip = Synth.newBuffer(0.45)
+      chip:noiseBurst(0, 0.03, { amp = 0.9, decay = 0.006 })
+      chip:highpass(1300)
+      chip:lowpass(5500)
+      chip:mixInto(buf, 1)
+      buf:sweep(0, 0.04, 420, 150, { wave = "sine", amp = 0.45, decay = 0.012 })
+      if whine then
+        local f = between(2600, 3600)
+        buf:sweep(0.015, 0.4, f, f * 0.55, { wave = "sine", amp = 0.35, decay = 0.14 })
+      end
+      buf:drive(1.6)
+    end, 0.6)
   end)
 
   -- Explosions are built in layers like the gunshots (see blast() below),
@@ -530,6 +613,23 @@ function Sounds.play(name, x, y, pitch)
   s:setVolume(Audio.volume("weapons"))
   s:play()
   return s
+end
+
+-- Which hit sound plays: by what was hit ("foot" or "car") and the damage
+-- type. Missing means silent (an explosion already makes its own noise).
+local HITS = {
+  foot = { bullet = "hit-flesh", melee = "hit-punch", impact = "hit-punch", fire = "hit-fire", shock = "hit-shock" },
+  car = { bullet = "hit-metal", melee = "hit-metal", impact = "hit-metal", fire = "hit-fire", shock = "hit-shock" },
+}
+
+--- The sound a hit on `target` ("foot" or "car") of damage type `dtype`
+--- makes, or nil for none. An unknown type sounds like a bullet.
+function Sounds.hitName(target, dtype)
+  local byType = HITS[target] or HITS.foot
+  if dtype == "explosive" then
+    return nil
+  end
+  return byType[dtype] or byType.bullet
 end
 
 --- True when `name` loops while held rather than playing once a round.
