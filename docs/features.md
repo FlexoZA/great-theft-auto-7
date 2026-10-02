@@ -618,8 +618,9 @@ couple of small conventions rather than requiring each other:
   `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
   kind to `drops` and every enemy can drop it. A human with no armor on
   who runs over a vest wears it at once, whole
-  (`armor:serverWearFound(server, player, kind)`); anyone wearing one
-  already leaves it lying.
+  (`armor:serverWearFound(server, player, kind)`); one wearing a damaged
+  vest has it topped back up to full (or wears the found one instead if it
+  holds more); anyone whose vest is whole leaves it lying.
 - `feature:serverHeld(server, player)` / `feature:held(client, id)`: is this
   player held still by some feature (frozen)? On-foot asks every feature
   through `Features.any` before walking, seating or unseating them, and

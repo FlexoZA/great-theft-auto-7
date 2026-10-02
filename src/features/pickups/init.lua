@@ -33,8 +33,8 @@
 -- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
 -- is a common kevlar vest, "armor-vest@rare" a rare one). A human with no
 -- armor on who walks or drives over it wears it at once, whole
--- (armor:serverWearFound); anyone already wearing a vest leaves it lying
--- for someone who isn't.
+-- (armor:serverWearFound); one with a damaged vest on has theirs topped
+-- back up to full by it; anyone whose vest is whole leaves it lying.
 --
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
@@ -158,8 +158,9 @@ local function materialKind(key)
 end
 
 --- A vest lying on the road: kind "armor-<key>[@tier]". Whoever runs over
---- it with no armor on wears it there and then (armor:serverWearFound);
---- with a vest on already, or as a bot, they leave it lying.
+--- it with no armor on wears it there and then (armor:serverWearFound),
+--- with a damaged one on is patched up to full; with a whole vest on, or
+--- as a bot, they leave it lying.
 local function armorKind(key)
   local base, tier = Tiers.split(key)
   local vest = tier and ArmorKinds.byKey[base:match("^armor%-(.+)$")]
