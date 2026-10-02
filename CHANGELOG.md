@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- A-Man has a brain of his own now, and below 40% of his health he goes
+  for a medkit lying within 1600 px (+200 each): he blinks straight onto
+  it if he has the breath (the warning line shows, and anyone on it is
+  torn through as usual), and walks over if he hasn't.
 - Shotgun has a brain of his own now, and below 40% of his health he
   goes after a medkit lying within 700 px (+200 each): out of sight first
   if his vanish is ready and he has the breath, round the bluff by the
