@@ -155,6 +155,16 @@ function Heat.serverBurns()
   return burns
 end
 
+--- Every burn going, for Abilities:serverIncoming: a beam's spot, or the
+--- ring a sweep crosses.
+function Heat.serverIncoming(list)
+  for _, b in ipairs(burns) do
+    list[#list + 1] = {
+      x = b.x, y = b.y, radius = b.mode == "sweep" and Heat.sweepRadius or b.radius, age = b.t, left = 0,
+    }
+  end
+end
+
 -- Client --------------------------------------------------------------------
 
 --- While it is selected: for a beam, a dotted line from me to the spot and

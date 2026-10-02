@@ -15,12 +15,14 @@
 --          medkit lying within reach, still firing at whoever he can see on
 --          the way, takes it and says something about it
 --
--- A freeze holds him stiff; a stink sends him marching away from it. He
+-- A freeze holds him stiff; a stink sends him marching away from it, and
+-- so does an ability about to land on him (bosses/dodge.lua). He
 -- talks about his country every few seconds whatever he is doing.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
+local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -178,6 +180,7 @@ function Brain.think(m, server, dt)
     m.frozen = m.frozen - dt
     return events
   end
+  Dodge.step(m, m.RADIUS)
   if m.panic then
     m.panic.left = m.panic.left - dt
     m.facing = math.atan2(m.y - m.panic.y, m.x - m.panic.x)

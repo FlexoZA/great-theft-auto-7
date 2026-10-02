@@ -208,6 +208,16 @@ function Leap.serverLeaps()
   return leaps
 end
 
+--- Every landing still to come, for Abilities:serverIncoming. One list
+--- holds every leap's leapers (bigleap's too), so only leap.lua adds them.
+function Leap.serverIncoming(list, now)
+  for _, l in pairs(leaps) do
+    list[#list + 1] = {
+      x = l.x, y = l.y, radius = l.ability.radius, age = now - l.startT, left = l.startT + l.flight - now,
+    }
+  end
+end
+
 -- Client --------------------------------------------------------------------
 
 --- Is effect `e` a leaper still in the air?
@@ -335,6 +345,7 @@ function Leap.variant(tuning)
     A[k] = v
   end
   A.variant = nil
+  A.serverIncoming = nil -- leap.lua's own lists this one's leapers too
   A.serverCast = function(server, caster, x, y, abilities, T)
     return cast(T or A, server, caster, x, y, abilities)
   end

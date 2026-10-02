@@ -39,11 +39,17 @@
 --      its health) it breaks off to go for a medkit lying within
 --      `Heal.range`, takes it off the ground and is `Heal.amount` better
 --      (heal.lua). The Hunters' brain (hunters/brain.lua) is the model.
+--   8. It dodges: a player's ability about to land on it (a freeze's
+--      warning ring, a leaper coming down, a heat ray) gets it moving out
+--      from under it once it has had `react` seconds to see it
+--      (dodge.lua): `Dodge.step(b, radius)` before its panic is read, or
+--      `Dodge.threat` / `Dodge.away` for one that moves its own way.
 --
 -- Modules
 --   src/features/bosses/stamina.lua   the breath rule
 --   src/features/bosses/bar.lua       the boss bar
 --   src/features/bosses/heal.lua      going for a medkit
+--   src/features/bosses/dodge.lua     getting out from under an ability
 
 local Bosses = {
   name = "bosses",

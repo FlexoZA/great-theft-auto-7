@@ -36,6 +36,18 @@ function Sounds.load()
     buf:highpass(220)
   end)
 
+  -- Freeze's warning: a thin glassy whine climbing as the frost gathers,
+  -- for as long as it takes to land.
+  bank["freeze-warn"] = make(0.8, function(buf)
+    buf:tone(0, 0.75, 1047, { wave = "sine", amp = 0.16, attack = 0.6, decay = 0.1, sustain = 0.6, release = 0.05,
+      vibRate = 14, vibDepth = 0.3 })
+    buf:tone(0.25, 0.5, 1568, { wave = "sine", amp = 0.12, attack = 0.4, decay = 0.1, sustain = 0.6, release = 0.05,
+      vibRate = 18, vibDepth = 0.3 })
+    buf:tone(0.5, 0.25, 2093, { wave = "tri", amp = 0.1, attack = 0.2, decay = 0.05, sustain = 0.6, release = 0.03 })
+    buf:noiseBurst(0.55, 0.2, { amp = 0.06, decay = 0.2 })
+    buf:highpass(400)
+  end)
+
   -- Heat ray: a hot electric crack and a crackling roar with a buzz in it,
   -- as long as it burns.
   bank.heatray = make(1.3, function(buf)

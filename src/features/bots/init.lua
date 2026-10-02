@@ -33,6 +33,10 @@
 -- forgiven, nothing provokes one and nobody drives recklessly. Police
 -- units are bots too; the police feature keeps them passive its own way.
 --
+-- Every NPC car, whatever its brain, drives off from a stink cloud, and
+-- from a player's ability about to land on it (a freeze's warning ring,
+-- after `dodgeReact` seconds to see it).
+--
 -- Host keys: B adds a bot, N removes the last one.
 --
 -- Messages
@@ -42,6 +46,7 @@
 local Protocol = require("src.net.protocol")
 local ServerSettings = require("src.server_settings")
 local Features = require("src.features")
+local Car = require("src.car")
 local Net = require("src.net")
 local UI = require("src.ui")
 local Controls = require("src.controls")
@@ -87,6 +92,7 @@ local HOST_ID = 1
 --- The numbers behind the host's chosen bot difficulty, read live so a
 --- change on the Settings screen takes effect mid-game.
 Bots.panicHold = 0.5 -- seconds an NPC keeps fleeing a stink after it was last told of it
+Bots.dodgeReact = 0.3 -- seconds after a player's ability shows where it lands before an NPC drives off
 
 function Bots:difficulty()
   return self.difficulties[ServerSettings.get("botDifficulty")] or self.difficulties.normal
@@ -556,6 +562,27 @@ function Bots:serverPanicArea(_server, x, y, radius)
   end
 end
 
+--- A player's ability about to land (a freeze's warning ring, a leaper
+--- coming down: abilities' serverIncoming): every NPC car under one,
+--- once it has had a moment to see it, drives off as from a stink.
+local function dodge()
+  local abilities = Features.byName.abilities
+  if not (abilities and abilities.serverIncoming) then
+    return
+  end
+  for _, a in ipairs(abilities:serverIncoming()) do
+    if a.age >= Bots.dodgeReact then
+      local reach = a.radius + Car.WIDTH / 2
+      for _, npc in ipairs(npcs) do
+        local car = npc.car
+        if car and not car.hidden and (car.x - a.x) ^ 2 + (car.y - a.y) ^ 2 <= reach * reach then
+          npc.panic = { x = a.x, y = a.y, untilT = now + Bots.panicHold }
+        end
+      end
+    end
+  end
+end
+
 --- Drive `npc` straight away from what it is panicking about.
 local function flee(npc)
   local car, p = npc.car, npc.panic
@@ -617,6 +644,7 @@ function Bots:serverStep(server, dt)
   truce = Features.any("serverEventActive", server)
   collectWalkers(server)
   maybeReckless()
+  dodge()
   local vehicles = Features.byName.vehicles
   for _, bot in ipairs(bots) do
     if bot.wantsModel and bot.car then

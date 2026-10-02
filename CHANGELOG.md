@@ -14,6 +14,35 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-02
+
+Freeze gives fair warning now: a ring shows where it is coming down and
+everyone, bosses and traffic included, gets a moment to dodge it. Vests
+on the road top up damaged armor, and the city stays calm for a few
+seconds after a boss falls.
+
+### Changed
+- Freeze warns before it lands: a ring shows on everyone's screen where
+  it is coming down, frost filling it in from the middle, and it lands
+  0.75 seconds later (it used to land the moment you let go). Walk or
+  drive out of the ring in time and it misses you.
+- Freeze looks the part: a flash and a shockwave as it lands, frost with
+  ice crystals and drifting snowflakes on the ground, a ring round the
+  edge counting the hold down, and whoever is caught sits in a block of
+  ice that cracks just before it lets them go.
+- Bosses (Karen, Shotgun, the Major, Bigfoot, A-Man, the Tripod) and
+  drivers in traffic get out from under a freeze's warning ring, a leap
+  about to land or a heat ray once they've had a moment to see it. The
+  Hunters dodge freezes now too.
+- Police and traffic stay passive for 5 seconds after a city event's
+  boss goes down, instead of turning on you the moment he dies.
+
+### Fixed
+- Running over a vest on the road with damaged armor on now tops your
+  armor back up to full (a vest that holds more than yours replaces it).
+  It used to stay on the road until your armor was gone completely; it
+  still does if your armor is full.
+
 ## [0.8.0] - 2026-10-02
 
 Every enemy thinks for itself: the bosses go for medkits when they're
