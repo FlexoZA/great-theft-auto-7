@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-02
+
+City 17 comes alive: Combine squads patrol, hunt and talk over their
+radios with any gun in hand, and citizens walk the streets.
+
 ### Added
 - City 17's Combine soldiers watch a wider cone while they are on edge:
   100 degrees (was 60) while they have you in their sights, are searching
