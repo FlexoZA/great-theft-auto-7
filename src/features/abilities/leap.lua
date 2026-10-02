@@ -202,7 +202,8 @@ function Leap.serverStep(server, _dt, abilities)
   step(Leap, server, abilities)
 end
 
---- For tests.
+--- Who is in the air and where they will land: for tests, and for
+--- enemies that see a landing coming (hunters).
 function Leap.serverLeaps()
   return leaps
 end
