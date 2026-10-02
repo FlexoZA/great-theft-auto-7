@@ -8,6 +8,10 @@
 -- on foot in his way is trampled for `trample` (once per `trampleEvery`
 -- seconds each, so standing in his lane hurts but isn't instant death).
 --
+-- Where he runs is his brain's (runner_brain.lua): the streets, and badly
+-- hurt, off them to a medkit within `healRange` and back (the bosses'
+-- standard, bosses/heal.lua).
+--
 -- He has a huge lungful (bosses/stamina.lua): about half a minute flat out
 -- before he is winded, and then he walks it off for a few seconds, the
 -- moment to catch him. Frozen, he stands still; a panic fart turns him
@@ -28,7 +32,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Car = require("src.car")
 local Body = require("src.body")
-local Traffic = require("src.features.bots.traffic")
+local Brain = require("src.features.events.runner_brain")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
@@ -61,6 +65,7 @@ Runner.pedReach = 8 -- px round him that knocks a pedestrian down
 Runner.trample = 30 -- what running into a player on foot does to them
 Runner.trampleEvery = 1 -- seconds before the same player can be trampled again
 Runner.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
+Runner.healRange = 1200 -- px; how far he will run off his street for a medkit
 Runner.spawnNear = 900 -- px; he comes in about this far from the nearest player
 Runner.spawnFar = 1800
 Runner.drops = 40 -- koins he spills
@@ -118,12 +123,6 @@ function Runner.serverStop()
   sv = nil
 end
 
---- The street grid of the city in play, or nil.
-local function graph()
-  local city = Features.byName["city-map"]
-  return city and city.map and Traffic.graph(city.map) or nil
-end
-
 --- A crossing away from everyone: about `spawnNear`..`spawnFar` px from the
 --- nearest player, the nearest thing to it otherwise.
 local function spawnNode(g, server)
@@ -151,32 +150,8 @@ local function spawnNode(g, server)
   return best
 end
 
---- Where the street he is on ends for him: the far crossing, over in his lane.
-local function waypoint(r)
-  local e = r.street
-  -- Right of the way he runs is (-dy, dx) with y pointing down.
-  return r.to.x - e.dy * r.side * Runner.lane, r.to.y + e.dx * r.side * Runner.lane
-end
-
---- A street out of crossing `node`: any but straight back where he came
---- from, unless it is a dead end. He takes it in a lane picked at random.
-local function pickStreet(r, node)
-  local options = {}
-  for _, e in ipairs(node.exits) do
-    if not (r.street and e.dx == -r.street.dx and e.dy == -r.street.dy) then
-      options[#options + 1] = e
-    end
-  end
-  if #options == 0 then
-    options = node.exits
-  end
-  local e = options[random(#options)]
-  r.street, r.from, r.to = e, node, e.node
-  r.side = random() < 0.5 and 1 or -1
-end
-
 function Runner.serverBegin(server, events)
-  local g = graph()
+  local g = Brain.graph()
   local node = g and spawnNode(g, server)
   if not node then
     return nil
@@ -187,40 +162,9 @@ function Runner.serverBegin(server, events)
     breath = Stamina.new(Runner.breath),
     trampled = {}, -- player id -> when they can be trampled again
   }
-  pickStreet(r, node)
+  Brain.pickStreet(r, node)
   sv = { r = r, events = events, syncIn = 0, time = 0 }
   return node.x, node.y
-end
-
---- Turn round on the street he is on: a stink ahead.
-local function turnBack(r)
-  local back
-  for _, e in ipairs(r.to.exits) do
-    if e.node == r.from then
-      back = e
-    end
-  end
-  if back then
-    r.street, r.from, r.to = back, r.to, r.from
-  end
-end
-
---- Run `dist` px along his route, taking the next street at each crossing.
-local function run(r, dist)
-  for _ = 1, 8 do -- a few crossings at most in one tick
-    local wx, wy = waypoint(r)
-    local d = math.sqrt(dist2(wx, wy, r.x, r.y))
-    if d > dist then
-      r.x, r.y = r.x + (wx - r.x) / d * dist, r.y + (wy - r.y) / d * dist
-      r.facing = math.atan2(wy - r.y, wx - r.x)
-      return
-    end
-    r.x, r.y, dist = wx, wy, dist - d
-    -- The graph is rebuilt when the city grows: carry on from the new one's crossing.
-    local g = graph()
-    local node = g and g.nodes[r.to.key] or r.to
-    pickStreet(r, node)
-  end
 end
 
 --- Players on foot in his way are trampled: he goes after nobody, but he
@@ -286,18 +230,8 @@ function Runner.serverStep(server, dt)
   end
   sv.time = sv.time + dt
   local r = sv.r
-  local running = false
-  if r.frozen > 0 then
-    r.frozen = r.frozen - dt
-    r.speed = 0
-  else
-    if r.panic then
-      r.panic = nil
-      turnBack(r)
-    end
-    r.speed = r.breath:pace(Runner.speed, Runner.walkSpeed)
-    running = not r.breath:winded()
-    run(r, r.speed * dt)
+  local running = Brain.think(Runner, r, server, dt, sv.time)
+  if r.speed > 0 then
     smash(server, r)
   end
   r.breath:step(running, dt)
