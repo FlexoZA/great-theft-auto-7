@@ -4,15 +4,25 @@
 -- abilities, and when badly hurt go after medkits and energy drinks lying
 -- nearby.
 --
--- Built in steps; so far they look the part (render.lua), walk a beat and
--- fight. They think as City 17's Combine soldiers do (d-day/troops.lua,
--- with `hunt` on) and see as they do: the same cone of sight, wider while
--- they are on edge, and anyone close by whichever way they face. Spot
--- somebody and a Hunter closes in, firing uzi bursts whose rounds stun
--- (damage's shock type); lose them and it searches where they were, then
--- walks back to its beat. Each is a squad of one, quicker than a soldier
--- and a good deal tougher. Rounds owned by nobody (the Combine's, the
--- turrets', their own) pass by them; anyone else's hurt them.
+-- They think for themselves (brain.lua): patrol a beat, fight at range,
+-- strafing and backing off, search where they lost somebody, dodge, and
+-- break off to heal. They see as City 17's Combine soldiers do: the same
+-- cone of sight, wider while they are on edge, and anyone close by
+-- whichever way they face. Every round of theirs stuns (damage's shock
+-- type). Rounds owned by nobody (the Combine's, the turrets', their own)
+-- pass by them; anyone else's hurt them.
+--
+-- What they dodge, read each tick on the host: every round in flight that
+-- a player or bot fired (weapons' `sv.projectiles`), a rocket with room to
+-- spare for its blast; where a player in the air is about to land (the
+-- leaps, abilities/leap.lua); and a heat ray's burning spot or sweep
+-- (abilities/heatray.lua). A freeze or a teleport lands at once: nothing
+-- to see coming.
+--
+-- What they heal with: a medkit (pickups' "health") puts back
+-- `medkitHealth`; an energy drink ("stamina") `drinkHealth`, and makes it
+-- quicker on its feet for `drinkHaste` seconds. They take it off the
+-- ground as a player would (pickups' serverTake).
 --
 -- Another feature puts them on the map (City 17 has three round the
 -- Citadel): `hunters:serverPatrol(server, route, count)` spreads `count` of
@@ -23,19 +33,21 @@
 -- The host owns them; clients hear where they are at 15 Hz.
 --
 -- Messages
---   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing>)...   (unreliable, 15 Hz;
---                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
+--   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
+--                  (unreliable, 15 Hz; alert 1 has somebody, 2 searching, 0 neither)
 --   server -> all  HTR_DOWN  <id> <x> <y> <angle>     one went down
 --
 -- Modules
+--   brain.lua    what each one does, on the host
 --   render.lua   one drawn from above, walking, firing, hit and dodging
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
-local Troops = require("src.features.d-day.troops")
+local Nav = require("src.features.d-day.nav")
 local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Brain = require("src.features.hunters.brain")
 local Render = require("src.features.hunters.render")
 
 local Hunters = {
@@ -48,11 +60,13 @@ Hunters.fov = math.rad(60) -- how wide their cone of sight is
 Hunters.alertFov = math.rad(100) -- and while one is on edge
 Hunters.aware = 170 -- px all round them they notice somebody in, any way they face
 Hunters.health = 180 -- three times a Combine soldier's: nine pistol rounds
-Hunters.pace = 1.6 -- how much quicker than a soldier they walk, chase and search
 Hunters.damage = 8 -- a round (an uzi's is 12): the stun is the danger
 Hunters.burst = 5 -- rounds at the uzi's rate...
 Hunters.pause = 1.4 -- ...then this many seconds
 Hunters.drops = 8 -- koins one spills
+Hunters.medkitHealth = 70 -- what a medkit puts back
+Hunters.drinkHealth = 30 -- what an energy drink puts back...
+Hunters.drinkHaste = 6 -- ...and seconds it is quicker on its feet after
 
 local SYNC_EVERY = 2 -- server ticks between HTR_STATE
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -61,7 +75,9 @@ local STEP = 34 -- px walked in one full step cycle, for the legs
 local EMPTY_AFTER = 1 -- sends of an empty list after the last one goes, so every screen clears
 local FLASH = 0.12 -- seconds a muzzle flash shows
 local HURT = 0.18 -- seconds one flashes white after a hit
+local DODGE_SHOWN = 0.3 -- seconds a dodge's smear shows
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
+local HEALS = { health = true, stamina = true }
 
 local function fmt(v)
   return ("%.1f"):format(v)
@@ -81,23 +97,51 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { troops, syncIn, emptySends }
+local sv = nil -- { brain, syncIn, emptySends }
+
+--- Healing, through the pickups feature.
+local function findHeal(x, y, range)
+  local pickups = Features.byName.pickups
+  if not (pickups and pickups.serverNearest) then
+    return nil
+  end
+  local id, it = pickups:serverNearest(x, y, range, HEALS)
+  return id and { id = id, kind = it.kind, x = it.x, y = it.y } or nil
+end
+
+local function stillThere(p)
+  local pickups = Features.byName.pickups
+  return pickups ~= nil and pickups:serverHas(p.id)
+end
+
+local function takeHeal(srv, p)
+  local pickups = Features.byName.pickups
+  local it = pickups and pickups:serverTake(srv, p.id, 0)
+  if not it then
+    return 0, 0
+  end
+  if it.kind == "health" then
+    return Hunters.medkitHealth, 0
+  end
+  return Hunters.drinkHealth, Hunters.drinkHaste
+end
 
 --- The host's set, with a walking grid over the map in play.
 local function server()
   if sv then
     return sv
   end
-  local troops = Troops.new({
-    hunt = true, fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware,
-    health = Hunters.health, radius = Render.RADIUS, pace = Hunters.pace,
-  })
   local city = Features.byName["city-map"]
   local map = city and city.map
-  if map then
-    troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
-  end
-  sv = { troops = troops, syncIn = 0, emptySends = 0 }
+  local nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
+  sv = {
+    brain = Brain.new({
+      fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware, health = Hunters.health,
+      radius = Render.RADIUS, nav = nav, find = findHeal, there = stillThere, take = takeHeal,
+    }),
+    syncIn = 0,
+    emptySends = 0,
+  }
   return sv
 end
 
@@ -121,16 +165,13 @@ end
 --- walking it. Returns them.
 function Hunters:serverPatrol(_server, route, count)
   local s = server()
-  route = settle(s.troops.nav, route)
+  route = settle(s.brain.nav, route)
   local added = {}
   if #route < 2 then
     return added
   end
   for i = 1, count do
-    local start = math.floor((i - 1) * #route / count) + 1
-    local h = s.troops:addSquad(route, 1, start).members[1]
-    s.troops:arm(h, arms())
-    added[#added + 1] = h
+    added[#added + 1] = s.brain:add(route, math.floor((i - 1) * #route / count) + 1, arms())
   end
   return added
 end
@@ -138,11 +179,11 @@ end
 --- Take every hunter away.
 function Hunters:serverClear()
   if sv then
-    sv.troops.list = {}
+    sv.brain.list = {}
   end
 end
 
-local shown = {} -- client: id -> { x, y, dx, dy, facing, hp, alert, wary, fov, cycle, stride, flash, hurt }
+local shown = {} -- client: id -> { x, y, dx, dy, facing, hp, alert, wary, fov, cycle, stride, flash, hurt, dodge }
 
 --- Another map: none left on either side, and the next ones get a walking
 --- grid over their own map.
@@ -154,13 +195,40 @@ function Hunters:serverStart()
   sv = nil
 end
 
+--- Everything a hunter might need to get out of the way of, this tick.
+local function threats(brain)
+  local weapons = Features.byName.weapons
+  local rounds = weapons and weapons.sv and weapons.sv.projectiles
+  for _, r in ipairs(rounds or {}) do
+    if r.owner ~= 0 then -- a player's or a bot's
+      local speed = math.sqrt(r.vx * r.vx + r.vy * r.vy)
+      if speed > 0 then
+        local width = r.blast and r.blast.radius * 0.6 or 0
+        brain:threatLine(r.x, r.y, r.vx / speed, r.vy / speed, speed, speed * (r.ttl - r.age), width)
+      end
+    end
+  end
+  local abilities = Features.byName.abilities
+  local kinds = abilities and abilities.kinds and abilities.kinds.byKey or {}
+  if kinds.leap then
+    for _, l in pairs(kinds.leap.serverLeaps()) do
+      brain:threatArea(l.x, l.y, l.ability and l.ability.radius or kinds.leap.radius)
+    end
+  end
+  if kinds.heatray then
+    for _, b in ipairs(kinds.heatray.serverBurns()) do
+      brain:threatArea(b.x, b.y, b.mode == "sweep" and kinds.heatray.sweepRadius or b.radius)
+    end
+  end
+end
+
 local function sync(srv)
   sv.syncIn = sv.syncIn - 1
   if sv.syncIn > 0 then
     return
   end
   sv.syncIn = SYNC_EVERY
-  local list = sv.troops.list
+  local list = sv.brain.list
   if #list == 0 then
     if sv.emptySends >= EMPTY_AFTER then
       return
@@ -176,9 +244,10 @@ local function sync(srv)
     parts[#parts + 1] = ("%.0f"):format(h.y)
     parts[#parts + 1] = ("%.2f"):format(h.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, h.hp))
-    parts[#parts + 1] = h.alert and 1 or (Troops.wary(h) and 2 or 0)
-    parts[#parts + 1] = h.fired and 1 or 0
-    h.fired = false
+    parts[#parts + 1] = h.target and 1 or (Brain.wary(h) and 2 or 0)
+    parts[#parts + 1] = h.shotSince and 1 or 0
+    parts[#parts + 1] = h.dodgedSince and 1 or 0
+    h.shotSince, h.dodgedSince = false, false
   end
   local msg = Protocol.encode("HTR_STATE", unpack(parts))
   for _, player in pairs(srv.players) do
@@ -192,7 +261,13 @@ function Hunters:serverStep(srv, dt)
   if not sv then
     return
   end
-  sv.troops:update(srv, dt)
+  local brain = sv.brain
+  threats(brain)
+  brain:update(srv, dt)
+  for _, h in ipairs(brain.list) do -- what happened since the last sync, for the flash and the smear
+    h.shotSince = h.shotSince or h.fired
+    h.dodgedSince = h.dodgedSince or h.dodging ~= nil
+  end
   sync(srv)
 end
 
@@ -216,11 +291,11 @@ function Hunters:serverShotAt(srv, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
-  local h, i = sv.troops:at(x, y, radius)
+  local h, i = sv.brain:at(x, y, radius)
   if not h then
     return false
   end
-  if sv.troops:hurt(h, i, damage or Troops.SHOT_DAMAGE, angle) then
+  if sv.brain:hurt(h, i, damage or 20, angle) then
     down(srv, h, by, angle)
   end
   return true
@@ -228,13 +303,13 @@ end
 
 function Hunters:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
-    sv.troops:freeze(x, y, radius, seconds)
+    sv.brain:freeze(x, y, radius, seconds)
   end
 end
 
 function Hunters:serverPanicArea(_server, x, y, radius)
   if sv then
-    sv.troops:scare(x, y, radius, 0.5)
+    sv.brain:scare(x, y, radius, 0.5)
   end
 end
 
@@ -271,13 +346,14 @@ function Hunters:update(dt)
     h.fov = h.fov + (fov - h.fov) * math.min(1, dt * 4)
     h.flash = math.max(0, h.flash - dt)
     h.hurt = math.max(0, h.hurt - dt)
+    h.dodge = math.max(0, h.dodge - dt)
   end
 end
 
 --- Their cones of sight, on the ground under everything, as the Combine's are.
 function Hunters:drawBelowCars()
   for _, h in pairs(shown) do
-    Sight.draw(h.dx, h.dy, h.facing, Troops.RANGE, h.alert, clock, h.fov)
+    Sight.draw(h.dx, h.dy, h.facing, Brain.RANGE, h.alert, clock, h.fov)
   end
 end
 
@@ -285,6 +361,7 @@ function Hunters:drawAboveCars()
   for _, h in pairs(shown) do
     Render.draw(h.dx, h.dy, h.facing, {
       cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7,
+      dodge = h.dodge / DODGE_SHOWN, dodgeX = h.dodgeX, dodgeY = h.dodgeY,
     }, clock)
     if h.hp < Hunters.health then -- a bar under it once it is hurt
       local bw, f = 30, math.max(0, h.hp / Hunters.health)
@@ -305,14 +382,21 @@ Hunters.clientMessages = {
     end
     lastTick = tick
     local seen = {}
-    for i = 2, #args - 6, 7 do
+    for i = 2, #args - 7, 8 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and x and y then
         local h = shown[id]
         if not h then
-          h = { dx = x, dy = y, cycle = love.math.random(), stride = 0, fov = Hunters.fov, flash = 0, hurt = 0,
-            hp = Hunters.health }
+          h = { dx = x, dy = y, x = x, y = y, cycle = love.math.random(), stride = 0, fov = Hunters.fov, flash = 0,
+            hurt = 0, dodge = 0, hp = Hunters.health }
           shown[id] = h
+        end
+        if args[i + 7] == "1" then -- dodging: its smear trails back the way it came
+          local mx, my = x - h.x, y - h.y
+          local len = math.sqrt(mx * mx + my * my)
+          if len > 1 then
+            h.dodgeX, h.dodgeY, h.dodge = mx / len, my / len, DODGE_SHOWN
+          end
         end
         h.x, h.y = x, y
         h.facing = tonumber(args[i + 3]) or h.facing or 0

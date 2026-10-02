@@ -18,10 +18,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Hunters, a new Combine enemy: quick three-legged synths with glowing
   blue eyes and a pair of flechette guns under their faces. Three of them
   patrol a ring round City 17's Citadel. They see as the Combine soldiers
-  do (the same cones, wider when on edge, and anyone within 170 px), and
-  they hunt you the same way, only faster (1.6 times a soldier's pace).
-  Their uzi bursts do 8 a round and every round stuns you (shock damage).
-  They take 180 (nine pistol rounds) and drop 8 koins.
+  do (the same cones, wider when on edge, and anyone within 170 px), but
+  fight their own way: they keep you at range (about 260 to 440 px),
+  strafing and backing off if you rush them, and fire uzi bursts that do
+  8 a round and stun with every hit (shock damage). They dash aside from
+  rounds and rockets coming at them, from where a leap is about to land
+  and from a heat ray, though not every time (once a second at most).
+  Below 45% health they break off to grab a medkit (+70) or an energy
+  drink (+30 and quicker for 6 seconds) lying within 700 px, and the
+  pickup is gone for you. They take 180 (nine pistol rounds) and drop 8
+  koins.
 
 ## [0.6.0] - 2026-10-02
 
