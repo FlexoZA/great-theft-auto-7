@@ -15,6 +15,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Police officers on foot think for themselves now: one who spots you
+  while you're wanted calls it in, and every officer within 900 px who
+  isn't busy comes; lose them and they search where they last saw you
+  instead of knowing where you went; shoot one from out of sight and they
+  turn round and go looking the way the shot came, calling it in.
 - Karen's simps think for themselves now: shoot Karen and all of them
   come for you (for 6 seconds), whoever is nearer; they come at you from
   all sides instead of queueing up behind each other; and with nobody to
