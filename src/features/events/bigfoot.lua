@@ -541,6 +541,15 @@ function Bigfoot.stop()
 end
 
 --- Where he is drawn now, for the minimap.
+--- Where he walks, for footsteps: nowhere while he is in the air.
+function Bigfoot.footing()
+  local f = cl and cl.foot
+  if f and not (cl.leap and f.mode == "air") then
+    return f.dx, f.dy, "heavy"
+  end
+  return nil
+end
+
 function Bigfoot.where()
   local f = cl and cl.foot
   if f then

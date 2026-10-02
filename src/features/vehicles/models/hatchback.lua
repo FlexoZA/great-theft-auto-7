@@ -7,6 +7,7 @@ return {
   topSpeed = 540,
   acceleration = 460,
   weight = 850,
+  engine = "compact",
   turning = 2.9,
   length = 44,
 }

@@ -1384,7 +1384,7 @@ local function collapsed(client, id, b, kind)
   local weapons = Features.byName.weapons
   if plot and weapons and weapons.explosionAt then
     local r = footprint(plot)
-    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind))
+    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind), "building")
   end
   if b.owner == client.myId then
     say(("Your %s was destroyed!"):format(kind.name))
@@ -2475,7 +2475,13 @@ local function collide(server, dt)
   end
   for _, car in pairs(server.vehicles) do
     if not (car.hidden or car.stowed) then
-      Collision.resolveCar(w, car, dt)
+      local hit, impact, slide = Collision.resolveCar(w, car, dt)
+      if impact > 0 then
+        Features.call("serverCarImpact", server, car, impact, car.x, car.y, "wall")
+      end
+      if hit then
+        Features.call("serverCarScrape", server, car, slide, car.x, car.y)
+      end
     end
   end
   collidePedestrians(w)

@@ -6,7 +6,18 @@
 --   feature:serverCarsCollided(server, rammer, rammed, closingSpeed)
 --
 -- `rammer` is the player whose car was moving into the other one faster.
--- Bots use this to take offence at being rammed.
+-- Bots use this to take offence at being rammed. Every touch of two cars,
+-- parked ones too, is also a
+--
+--   feature:serverCarImpact(server, car, speed, x, y, "car")
+--
+-- for the first of the two, `speed` the closing speed, (x, y) between them;
+-- the city map raises the same with "wall" when a car runs into something.
+-- While two cars touch, and while a car touches a wall, there is also a
+--
+--   feature:serverCarScrape(server, car, speed, x, y)
+--
+-- every step, `speed` how fast they slide along each other (or the wall).
 --
 -- Players on foot get run over: a car moving
 -- faster than `runOverSpeed` that touches a body deals `runOverDamage` scaled
@@ -77,6 +88,7 @@ local function resolvePair(a, b, dt)
   local van = avx * nx + avy * ny
   local vbn = bvx * nx + bvy * ny
   local closing = van - vbn -- > 0 when a moves into b (or b into a)
+  local slide = math.abs((avx - bvx) * tx + (avy - bvy) * ty) -- along the contact
   if closing > 0 then
     -- Equal masses: trade momentum along the normal, bouncing a little,
     -- and rub off some of the speed along the contact.
@@ -90,7 +102,7 @@ local function resolvePair(a, b, dt)
     b.speed = b.vx * math.cos(b.angle) + b.vy * math.sin(b.angle)
     a.lastSpeed, b.lastSpeed = a.speed, b.speed
   end
-  return closing, van, -vbn
+  return closing, van, -vbn, slide
 end
 
 --- Cars hitting people on foot.
@@ -140,8 +152,12 @@ function CarCollisions:serverStep(server, dt)
   for i = 1, #list do
     for j = i + 1, #list do
       local a, b = list[i], list[j]
-      local closing, aInto, bInto = resolvePair(a, b, dt)
+      local closing, aInto, bInto, slide = resolvePair(a, b, dt)
+      if closing and slide then
+        Features.call("serverCarScrape", server, a, slide, (a.x + b.x) / 2, (a.y + b.y) / 2)
+      end
       if closing and closing > 0 then
+        Features.call("serverCarImpact", server, a, closing, (a.x + b.x) / 2, (a.y + b.y) / 2, "car")
         local da, db = a.driver and server.players[a.driver], b.driver and server.players[b.driver]
         if da and db then
           -- Whoever was moving into the other faster did the ramming.

@@ -98,11 +98,13 @@ end
 --- of walls, kills the speed into the wall (bouncing a little of it back),
 --- keeps the speed along the wall apart from some scraping, and swings the
 --- nose along the wall on glancing hits so the car slides off instead of
---- sticking. Returns true when the car touched something.
+--- sticking. Returns true when the car touched something, how fast it was
+--- going into the wall (px/s; 0 while it only rubs along it) and how fast
+--- it slid along it (px/s).
 function Collision.resolveCar(map, car, dt)
   dt = dt or 1 / 30
   local ca, sa = math.cos(car.angle), math.sin(car.angle)
-  local nx, ny, hit = 0, 0, false
+  local nx, ny, hit, impact, slide = 0, 0, false, 0, 0
   for _, off in ipairs({ -12, 0, 12 }) do
     local px, py = car.x + ca * off, car.y + sa * off
     local rx, ry, n1, n2 = Collision.resolveCircle(map, px, py, 11)
@@ -120,9 +122,11 @@ function Collision.resolveCar(map, car, dt)
     -- Split the velocity into the part along the wall and the part into it.
     local tx, ty = -ny, nx
     local along = vx * tx + vy * ty
+    slide = math.abs(along)
     along = along * math.exp(-Collision.scrape * dt)
     if into < 0 then
       -- Into the wall: that part is gone, a little of it comes back as a bounce.
+      impact = -into
       local speed = math.sqrt(vx * vx + vy * vy)
       into = -into * Collision.restitution
       -- Glancing hits swing the nose to run along the wall; the squarer the
@@ -143,7 +147,7 @@ function Collision.resolveCar(map, car, dt)
     car.speed = vx * ca + vy * sa
     car.lastSpeed = car.speed
   end
-  return hit
+  return hit, impact, slide
 end
 
 return Collision

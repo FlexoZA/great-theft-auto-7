@@ -7,6 +7,7 @@ return {
   topSpeed = 490,
   acceleration = 290,
   weight = 2800,
+  engine = "truck",
   turning = 1.7,
   length = 68,
   time = 75,

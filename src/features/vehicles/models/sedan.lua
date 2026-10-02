@@ -7,6 +7,7 @@ return {
   topSpeed = 580,
   acceleration = 440,
   weight = 1200,
+  engine = "sedan",
   turning = 2.7,
   length = 48,
 }

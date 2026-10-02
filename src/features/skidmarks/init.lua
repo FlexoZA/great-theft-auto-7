@@ -3,7 +3,9 @@
 --
 -- Purely local. Works from the snapshots every client already has: the
 -- sideways speed is the car's movement between snapshots projected across
--- its heading, so nothing extra is sent.
+-- its heading, so nothing extra is sent. Skidmarks.slip(id) shares it, and
+-- how hard the car is slowing down, with anything else that wants to know
+-- (the tyres' screech).
 
 
 local Skidmarks = {
@@ -17,7 +19,7 @@ Skidmarks.maxMarks = 800
 Skidmarks.width = 4
 
 local marks = {} -- { x1, y1, x2, y2, t }
-local last = {} -- vehicle id -> { x, y, angle, time, lx, ly, rx, ry (rear wheels), skidding }
+local last = {} -- vehicle id -> { x, y, time, lx, ly, rx, ry (rear wheels), skidding, lateral, speed, decel }
 
 local function rearWheels(x, y, angle)
   local ca, sa = math.cos(angle), math.sin(angle)
@@ -48,7 +50,7 @@ function Skidmarks:update(dt, client)
     local prev = last[id]
     if not prev then
       local lx, ly, rx, ry = rearWheels(c.x, c.y, c.angle)
-      last[id] = { x = c.x, y = c.y, time = now, lx = lx, ly = ly, rx = rx, ry = ry }
+      last[id] = { x = c.x, y = c.y, time = now, lx = lx, ly = ly, rx = rx, ry = ry, speed = c.speed or 0 }
     elseif c.x ~= prev.x or c.y ~= prev.y then
       -- A new snapshot arrived: how fast did it move across its heading?
       local sdt = math.max(now - prev.time, 1 / 60)
@@ -60,6 +62,9 @@ function Skidmarks:update(dt, client)
         addMark(prev.rx, prev.ry, rx, ry)
       end
       prev.skidding = lateral > self.threshold
+      prev.lateral = lateral
+      prev.decel = (math.abs(prev.speed or 0) - math.abs(c.speed or 0)) / sdt -- > 0 slowing down
+      prev.speed = c.speed or 0
       prev.x, prev.y, prev.time = c.x, c.y, now
       prev.lx, prev.ly, prev.rx, prev.ry = lx, ly, rx, ry
     end
@@ -90,6 +95,17 @@ function Skidmarks:drawBelowCars()
   end
   love.graphics.setLineWidth(1)
   love.graphics.setColor(1, 1, 1)
+end
+
+--- How fast car `id` is sliding sideways (px/s) and slowing down (px/s^2,
+--- negative speeding up), from its latest snapshots; 0, 0 once it has not
+--- moved for a moment.
+function Skidmarks.slip(id)
+  local prev = last[id]
+  if not prev or not prev.lateral or love.timer.getTime() - prev.time > 0.2 then
+    return 0, 0
+  end
+  return prev.lateral, prev.decel
 end
 
 --- For tests.

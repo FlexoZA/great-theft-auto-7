@@ -674,4 +674,9 @@ for kind, handler in pairs(Cameo.clientMessages) do
   Level.clientMessages[kind] = handler
 end
 
+--- The Combine soldiers this client shows, id -> { dx, dy, ... } (footsteps).
+function Level.troops()
+  return troops
+end
+
 return Level

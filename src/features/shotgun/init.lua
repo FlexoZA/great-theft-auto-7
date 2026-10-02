@@ -426,7 +426,7 @@ Shotgun.clientMessages = {
   SG_RELOAD = function(_client, args)
     local x, y = tonumber(args[1]), tonumber(args[2])
     if x and y and Features.byName.weapons then
-      require("src.features.weapons.sounds").play("reload-sniper", x, y)
+      require("src.features.weapons.reloads").startAt("reload-sniper", x, y, Boss.RELOAD)
     end
   end,
   SG_DOWN = function(_client, args)
@@ -440,5 +440,13 @@ Shotgun.clientMessages = {
     end
   end,
 }
+
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Shotgun:footstepWalkers()
+  local b = self.boss
+  if b and b.shown then
+    return { { key = "boss", x = b.dx, y = b.dy, size = "heavy" } }
+  end
+end
 
 return Shotgun

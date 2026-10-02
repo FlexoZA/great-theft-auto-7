@@ -14,6 +14,66 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-02
+
+The city finally sounds alive. Every vehicle has its own engine and horn,
+crashes crunch, scrapes grind and tyres screech; guns, explosions, hits
+and reloads hit harder; and everyone on foot, enemies included, is heard
+walking on whatever ground is under them.
+
+### Added
+- Car horns: hold V while driving and everyone nearby hears you. Every
+  kind of vehicle has its own: hatchbacks beep, sedans have the two-tone
+  car horn, SUVs and pickups go deeper, motorbikes meep, vans blare and
+  trucks and buses blast an air horn. Ram a bot and it honks back. Rebind
+  it in Settings; the horns have their own volume slider.
+
+### Changed
+- Every kind of vehicle has its own engine sound: hatchbacks buzz, sedans
+  purr, SUVs and pickups burble like a V8, motorbikes scream through six
+  gears, vans and trucks clatter like diesels and the dump truck thumps.
+  The settings screen's engine preview plays a different one each press.
+- Guns hit harder on the ear: every shot now has the click of the action,
+  a sharp crack, a deep thump and an echo off the buildings. The shotgun
+  booms and rolls away, the sniper's crack echoes across the city, and the
+  rocket launcher kicks.
+- The flamethrower roars instead of rattling like a gun: it lights with a
+  whoomp, keeps up one steady roar while you hold the trigger, and dies
+  away when you let go.
+- Explosions sound bigger and never quite the same twice: a sharp crack, a
+  deep boom, debris crackling down and a roar rolling off the buildings.
+  Cars clang with flying panels as their fuel goes up, and buildings
+  come down with a long rumble of falling rubble.
+- Hits sound like what they hit: bullets clank off cars and thud into
+  people, punches land with a thump, fire sizzles, shocks zap, and bullets
+  chip the walls with the odd ricochet whining away. The flamethrower no
+  longer clanks fourteen times a second on whatever it burns.
+- Reloads sound like the real thing: the empty magazine clatters on the
+  ground, a fresh one slaps in and the slide racks home; shotgun shells
+  click in one by one, the rocket launcher beeps when armed. They keep
+  pace with the reload, so a legendary gun's quicker reload sounds quicker.
+- An empty gun gives a loud click when you pull the trigger (the
+  flamethrower splutters), and your last round ends with a ping.
+- Footsteps: everyone on foot is heard walking and running, in step with
+  their legs. Shoes click on the road, swish through park grass and
+  forest, crunch on the beach's sand and splash through water, and the
+  crowd around you murmurs along. They have their own volume slider.
+- Enemies have footsteps too, so you can hear them coming: police, simps,
+  soldiers and the Combine walk and run, bosses like Karen, the Major,
+  Shotgun, Bigfoot and the runner thud heavily, hunters click along on
+  their claws, and the tripod's stomps carry across the city.
+- Car crashes make a noise, as big as the hit: a tap thunks, a crash
+  crunches metal, and a big smash shatters glass and scatters bits. Walls
+  thud, cars clang, and trucks crash deeper than motorbikes. They have
+  their own volume slider.
+- Sliding along a wall or another car grinds: screeching metal and
+  sparks that get louder the faster you scrape, and die away as you pull
+  clear.
+- Tyres screech: handbrake turns, corners taken too fast and hard stops
+  squeal, louder the harder you push, and scrabble in the dirt on grass
+  and sand. Motorbikes squeal higher, trucks lower. They have their own
+  volume slider.
+
 ## [0.9.0] - 2026-10-02
 
 Freeze gives fair warning now: a ring shows where it is coming down and

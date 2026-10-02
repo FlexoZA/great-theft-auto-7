@@ -133,6 +133,7 @@ local Protocol = require("src.net.protocol")
 local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
+local Reloads = require("src.features.weapons.reloads")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
@@ -263,6 +264,7 @@ end
 
 function Weapons:load()
   Sounds.load()
+  Reloads.load()
   haloImage = makeHalo()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
@@ -319,6 +321,8 @@ function Weapons:enterGame()
   self.armed = false -- the click on "Start game" is still held on the first frame
   Explosions.clear()
   Rockets.clear()
+  Sounds.stopAll()
+  Reloads.clear()
 end
 
 function Weapons:exitGame()
@@ -394,8 +398,7 @@ function Weapons:tryFire(client)
   self.cooldown = gun.cooldown
   if (self.mags[self.gun] or 0) < 1 then
     -- Click. Reload if there is anything to load, say so if not.
-    local x, y = client:myPose()
-    Sounds.play("dry", x, y)
+    Reloads.dry(gun)
     self.armed = false -- one click per pull, not a buzz while held
     if self:reserve(self.gun) > 0 then
       self:tryReload(client)
@@ -406,6 +409,9 @@ function Weapons:tryFire(client)
   end
   if not self.infiniteAmmo then
     self.mags[self.gun] = self.mags[self.gun] - 1
+    if self.mags[self.gun] < 1 and not gun.tank and gun.magazine > 1 then
+      Reloads.after(0.08, "slide-lock", client.myId) -- that was the last one
+    end
   end
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
@@ -481,6 +487,7 @@ function Weapons:selectGun(client, index)
   end
   self.gun = index
   self.reloading = nil -- the host drops it too
+  Reloads.cancel(client.myId)
   client:send(Protocol.encode("WPN_SELECT", index))
 end
 
@@ -553,6 +560,10 @@ end
 
 function Weapons:update(dt, client, camera)
   self.camera = camera
+  Sounds.update(dt)
+  Reloads.update(dt, function(id)
+    return clientPose(client, id)
+  end)
   self.cooldown = math.max(0, self.cooldown - dt)
   -- Ease the halo in and out rather than snap it with every hit and heal.
   self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
@@ -582,6 +593,10 @@ function Weapons:update(dt, client, camera)
         self.projectiles[pid] = nil
       end
     elseif spent then
+      -- A bullet into a wall chips it (one pellet a blast, and not fire).
+      if not (gun.flame or p.quiet) and p.age <= (gun.ttl or PROJECTILE_TTL) then
+        Sounds.play("hit-wall", p.x, p.y, 0.9 + love.math.random() * 0.2)
+      end
       self.projectiles[pid] = nil
     end
   end
@@ -951,9 +966,10 @@ local function playerName(client, id)
 end
 
 --- An explosion at (x, y) on this screen, with the camera shaking the
---- nearer I am. `color` tints the debris.
-local function boom(client, x, y, color)
-  Sounds.play("explosion", x, y)
+--- nearer I am. `color` tints the debris; `kind` picks the sound: "car",
+--- "building" or nil for a plain blast.
+local function boom(client, x, y, color, kind)
+  Sounds.play(kind and "explosion-" .. kind or "explosion", x, y, 0.92 + love.math.random() * 0.16)
   Explosions.spawn(x, y, color)
   local mx, my = client:myPose()
   if mx and Video.get("screenShake") then
@@ -964,9 +980,10 @@ end
 
 --- Where a player is drawn, as a point, or nil while they are out of the world.
 --- An explosion drawn and heard at (x, y) on this machine, for another
---- feature's blast (a building coming down). `color` tints the debris.
-function Weapons:explosionAt(client, x, y, color)
-  boom(client, x, y, color)
+--- feature's blast (a building coming down). `color` tints the debris;
+--- `kind` "building" or "car" sounds like one, nil a plain blast.
+function Weapons:explosionAt(client, x, y, color, kind)
+  boom(client, x, y, color, kind)
 end
 
 local function poseOf(client, id)
@@ -1007,10 +1024,7 @@ Weapons.clientMessages = {
     if not (id and gun and seconds) then
       return
     end
-    local x, y = clientPose(client, id)
-    if x then
-      Sounds.play(gun.reloadSound, x, y)
-    end
+    Reloads.start(gun.reloadSound, id, seconds)
     if id == client.myId then
       Weapons.reloading = { gun = gun.index, t = 0, total = seconds }
     end
@@ -1041,8 +1055,11 @@ Weapons.clientMessages = {
     if pid and x and y and vx and vy then
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
+        quiet = quiet,
       }
-      if not quiet then
+      if not quiet and Sounds.loops(gun.sound) then
+        Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
+      elseif not quiet then
         Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
       end
     end
@@ -1063,7 +1080,7 @@ Weapons.clientMessages = {
     local dtype, amount = args[4], tonumber(args[5])
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+      Sounds.play(Sounds.hitName("foot", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
@@ -1084,7 +1101,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+      Sounds.play(Sounds.hitName("car", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
@@ -1117,7 +1134,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at then
-      boom(client, at.x, at.y, v and Car.paletteColor(v.color))
+      boom(client, at.x, at.y, v and Car.paletteColor(v.color), "car")
     end
     if pid then
       Weapons.projectiles[pid] = nil
@@ -1149,6 +1166,9 @@ Weapons.clientMessages = {
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at then
       boom(client, at.x, at.y, victim and Car.colorFor(victim))
+    end
+    if victim then
+      Reloads.cancel(victim)
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
