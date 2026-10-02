@@ -14,6 +14,58 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-02
+
+Every enemy thinks for itself: the bosses go for medkits when they're
+hurt, D-Day's soldiers hunt like the Combine, Karen's simps gang up and
+the police radio for backup.
+
+### Changed
+- Police officers on foot think for themselves now: one who spots you
+  while you're wanted calls it in, and every officer within 900 px who
+  isn't busy comes; lose them and they search where they last saw you
+  instead of knowing where you went; shoot one from out of sight and they
+  turn round and go looking the way the shot came, calling it in.
+- Karen's simps think for themselves now: shoot Karen and all of them
+  come for you (for 6 seconds), whoever is nearer; they come at you from
+  all sides instead of queueing up behind each other; and with nobody to
+  fight they stay by her instead of wandering off.
+- The Tripod has a brain of its own now, and below 40% of its health it
+  strides over the buildings to a medkit lying within 900 px (+200 each)
+  and snatches it up with a tentacle, its heat ray still at work.
+- The Runner has a brain of his own now, and below 40% of his health he
+  leaves his street for a medkit lying within 1200 px (+200 each),
+  smashing whatever is on the way, then gets back on the street grid and
+  runs on.
+- Bigfoot has a brain of his own now, the same one in the city and in
+  the forest, and below 40% of his health he goes for a medkit lying
+  within 700 px (+200 each): he leaps onto it if it's a fair way off and
+  he has the breath (the landing slams anyone there, as usual), and
+  lumbers over if not.
+- A-Man has a brain of his own now, and below 40% of his health he goes
+  for a medkit lying within 1600 px (+200 each): he blinks straight onto
+  it if he has the breath (the warning line shows, and anyone on it is
+  torn through as usual), and walks over if he hasn't.
+- Shotgun has a brain of his own now, and below 40% of his health he
+  goes after a medkit lying within 700 px (+200 each): out of sight first
+  if his vanish is ready and he has the breath, round the bluff by the
+  ramp if it is down below, and he only says something about it if
+  anyone can see him.
+- Crazy Karen thinks for herself now: she charges round the houses
+  instead of into them, stomps back to her turning circle when nobody is
+  about, and below 40% of her health she marches off to a medkit lying
+  within 700 px (+200 each), complaining about it.
+- Major Looz'er has a mind of his own now: out of sight, he marches after
+  you round the bunkers and huts instead of into them, and below 40% of
+  his health he breaks off for a medkit lying within 700 px (+200 each),
+  still firing at you on the way, with a word or two about it.
+- D-Day's soldiers now think like City 17's Combine: a guard or rifleman
+  who spots you comes after you instead of staying at his post, searches
+  where he last saw you, then walks back. One who spots you calls in the
+  nearest three within 800 px (every 15 seconds at most), and when one
+  goes down everyone within 700 px comes to see. They find their way
+  round the bunkers and huts.
+
 ## [0.7.0] - 2026-10-02
 
 Hunters stalk City 17's Citadel: quick three-legged synths that keep you

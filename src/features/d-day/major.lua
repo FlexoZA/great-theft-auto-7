@@ -6,8 +6,11 @@
 -- in front of him, facing whoever he is after, and for five seconds it
 -- sweeps its forty-five-degree arc with rifle fire, hurting anyone in it.
 --
--- In between he never stops talking about his country. This module only
--- thinks and hands back what happened; init.lua owns the wire.
+-- In between he never stops talking about his country. This module is the
+-- man: his numbers, his lines, his body and his nests. What he does is his
+-- brain's (major_brain.lua): fight, hunt, and when badly hurt break off for
+-- a medkit (the bosses' standard, bosses/heal.lua). Neither owns the wire;
+-- init.lua does.
 --
 -- Like every boss (bosses/stamina.lua) he has breath: marching after you
 -- (or away from a stink) spends it, and empty he is winded, down to a
@@ -15,11 +18,12 @@
 -- good part of it is back. His rifle costs him nothing.
 
 local Features = require("src.features")
-local Sight = require("src.features.d-day.sight")
 local Stamina = require("src.features.bosses.stamina")
 
 local Major = {}
 Major.__index = Major
+
+local Brain -- his brain, required at the bottom: it needs Major's numbers
 
 -- Tuning --------------------------------------------------------------------
 
@@ -47,6 +51,8 @@ Major.NEST_OUT = 46 -- px in front of him it goes down
 Major.SAY_EVERY = { 4, 7 } -- seconds between speeches, at random in this range
 Major.DROPS = 40 -- koins he spills when he goes down
 
+--- What he says: `Major.TALK` lines of his country, then the ones for a
+--- medkit (said as he takes one).
 Major.lines = {
   "Freedom isn't free! It's nineteen ninety-nine a month and you WILL subscribe!",
   "I love this country so much I married a map of it!",
@@ -63,16 +69,24 @@ Major.lines = {
   "This flag was hand-stitched by eagles! Bald ones! They were very embarrassed about it!",
   "The only thing we have to fear is not saluting enough!",
 }
-
-local random = love.math.random
+Major.TALK = #Major.lines
+for _, line in ipairs({
+  "This isn't a medkit! It's a PATRIOT KIT!",
+  "A field dressing! Like my grandfather's! He also wasn't hurt!",
+  "Merely a flesh wound! On loan to the nation!",
+  "Bandages are just flags for your arm!",
+}) do
+  Major.lines[#Major.lines + 1] = line
+end
 
 --- The MG nest ability, if the abilities feature is there to lend it.
-local function nestKind()
+function Major.nestKind()
   return Features.byName.abilities and require("src.features.abilities.mgnest") or nil
 end
 
---- Him, at (x, y), with `hp` hit points (HEALTH when not given).
-function Major.new(x, y, hp)
+--- Him, at (x, y), with `hp` hit points (HEALTH when not given), finding
+--- his way round walls on `nav` (d-day/nav.lua's walking grid) if given.
+function Major.new(x, y, hp, nav)
   hp = hp or Major.HEALTH
   return setmetatable({
     x = x,
@@ -93,6 +107,8 @@ function Major.new(x, y, hp)
     time = 0,
     breath = Stamina.new(Major.BREATH), -- winded, he strolls and throws no nest
     running = false, -- at full tilt this tick, for his breath
+    nav = nav,
+    mode = "hunt", -- what his brain is doing: "fight", "hunt" or "heal"
   }, Major)
 end
 
@@ -138,44 +154,12 @@ function Major:walk(angle, speed, dt)
   end
 end
 
---- The nearest player he can see, and where they are; failing that, the
---- nearest player anywhere (he goes looking).
-function Major:target(server)
-  local seen, sx, sy, seenD2
-  local any, ax, ay, anyD2
-  for _, p in pairs(server.players) do
-    if Features.visible(server, p) then
-      local x, y = Features.bodyPose(server, p)
-      local d2 = (x - self.x) ^ 2 + (y - self.y) ^ 2
-      if not anyD2 or d2 < anyD2 then
-        any, ax, ay, anyD2 = p, x, y, d2
-      end
-      if d2 <= Major.RANGE ^ 2 and (not seenD2 or d2 < seenD2) and Sight.clear(self.x, self.y, x, y) then
-        seen, sx, sy, seenD2 = p, x, y, d2
-      end
-    end
-  end
-  if seen then
-    return seen, sx, sy, true
-  end
-  return any, ax, ay, false
-end
-
---- One round at `aim`, out of his rifle.
-local function fire(server, x, y, aim)
-  local weapons = Features.byName.weapons
-  if weapons and weapons.serverFireFrom then
-    aim = aim + (random() * 2 - 1) * Major.SPREAD
-    weapons:serverFireFrom(server, 0, x + math.cos(aim) * Major.MUZZLE, y + math.sin(aim) * Major.MUZZLE, aim,
-      require("src.features.weapons.guns").ak47)
-  end
-end
-
---- His tick. Returns what the others should hear about: a list of events,
---- { "say", index } or { "nest", x, y, angle }.
+--- His tick (his brain, major_brain.lua, decides). Returns what the others
+--- should hear about: a list of events, { "say", index } or
+--- { "nest", x, y, angle }.
 function Major:update(server, dt)
   self.running = false
-  local events = self:think(server, dt)
+  local events = Brain.think(self, server, dt)
   self.breath:step(self.running, dt)
   return events
 end
@@ -186,85 +170,10 @@ function Major:pace(scale)
   return self.breath:pace(Major.SPEED * (scale or 1), Major.WALK_SPEED)
 end
 
---- What he does this tick (see `update`).
-function Major:think(server, dt)
-  local events = {}
-  self.time = self.time + dt
-  self:stepNests(server)
-  self.sayIn = self.sayIn - dt
-  if self.sayIn <= 0 then
-    self.sayIn = Major.SAY_EVERY[1] + random() * (Major.SAY_EVERY[2] - Major.SAY_EVERY[1])
-    events[#events + 1] = { "say", random(#Major.lines) }
-  end
-  if self.frozen > 0 then
-    self.frozen = self.frozen - dt
-    return events
-  end
-  if self.panic then
-    self.panic.left = self.panic.left - dt
-    self.facing = math.atan2(self.y - self.panic.y, self.x - self.panic.x)
-    self:walk(self.facing, self:pace(1.8), dt)
-    self.running = not self.breath:winded()
-    if self.panic.left <= 0 then
-      self.panic = nil
-    end
-    return events
-  end
-
-  local target, tx, ty, visible = self:target(server)
-  if not target then
-    return events
-  end
-  local toward = math.atan2(ty - self.y, tx - self.x)
-  local d = math.sqrt((tx - self.x) ^ 2 + (ty - self.y) ^ 2)
-  self.facing = toward
-  if not visible or d > Major.KEEP + 40 then
-    self:walk(toward, self:pace(), dt)
-    self.running = not self.breath:winded()
-  elseif d < Major.KEEP - 80 then
-    self:walk(toward + math.pi, self:pace(0.7), dt) -- backs off, still facing them
-    self.running = not self.breath:winded()
-  end
-  if not visible then
-    self.burstLeft = 0
-    return events
-  end
-
-  self.burstIn = self.burstIn - dt
-  if self.burstIn <= 0 then
-    if self.burstLeft <= 0 then
-      self.burstLeft = Major.BURST
-    end
-    fire(server, self.x, self.y, toward)
-    self.burstLeft = self.burstLeft - 1
-    self.burstIn = self.burstLeft > 0 and Major.BURST_GAP or Major.BURST_EVERY
-  end
-
-  self.nestIn = self.nestIn - dt
-  local Nest = nestKind()
-  -- A nest takes breath: none while he is winded or nearly so (the timer
-  -- stays run down, so it comes as soon as he has it back).
-  if Nest and self.nestIn <= 0 and self.breath:has(Major.NEST_STAMINA) then
-    self.nestIn = Major.NEST_EVERY
-    self.breath:spend(Major.NEST_STAMINA)
-    local nx, ny = self.x + math.cos(toward) * Major.NEST_OUT, self.y + math.sin(toward) * Major.NEST_OUT
-    local out = Major.NEST_OUT
-    while out > 0 and Features.any("blocksPoint", nx, ny) do
-      out = math.max(0, out - 8) -- not inside a wall: pulled back towards him
-      nx, ny = self.x + math.cos(toward) * out, self.y + math.sin(toward) * out
-    end
-    self.nests[#self.nests + 1] = {
-      x = nx, y = ny, angle = toward, placedAt = self.time, untilT = self.time + Nest.seconds, nextShot = self.time,
-    }
-    events[#events + 1] = { "nest", nx, ny, toward }
-  end
-  return events
-end
-
 --- Every nest he put down sprays its arc a round at a time, sweeping from
 --- side to side the way a player's does, until it is spent.
 function Major:stepNests(server)
-  local Nest = nestKind()
+  local Nest = Major.nestKind()
   local weapons = Features.byName.weapons
   local now = self.time
   for i = #self.nests, 1, -1 do
@@ -287,5 +196,7 @@ end
 function Major:hitBy(x, y, radius)
   return (self.x - x) ^ 2 + (self.y - y) ^ 2 < (radius + Major.RADIUS) ^ 2
 end
+
+Brain = require("src.features.d-day.major_brain")
 
 return Major

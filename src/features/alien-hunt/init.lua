@@ -22,7 +22,9 @@
 --
 -- Like every boss (bosses/stamina.lua) he has breath: chasing spends it,
 -- and empty he is winded, down to a lumber a walking player can leave
--- behind, with no leap in him until a good part of it is back.
+-- behind, with no leap in him until a good part of it is back. What he
+-- does is his brain's (bigfoot_brain.lua, shared with his city event);
+-- badly hurt, he leaps or lumbers off to a medkit (bosses/heal.lua).
 --
 -- The quests feature brings everyone to the forest and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
@@ -56,6 +58,7 @@ local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.alien-hunt.render")
+local FootBrain = require("src.features.alien-hunt.bigfoot_brain")
 
 local Hunt = {
   name = "alien-hunt",
@@ -444,46 +447,6 @@ function Hunt:startReveal(server, map)
   setStage(server, "reveal")
 end
 
---- Solid ground, through the `blocksPoint` convention, at the four
---- extremes of Bigfoot's body.
-local function blockedAt(x, y)
-  local r = Hunt.footRadius
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
-    end
-  end
-  return false
-end
-
---- One step, each axis on its own so a trunk is slid along. Landed in
---- something, he walks out of it.
-local function walk(f, angle, speed, dt)
-  local px, py = f.x, f.y
-  local free = blockedAt(f.x, f.y)
-  local nx = f.x + math.cos(angle) * speed * dt
-  if free or not blockedAt(nx, f.y) then
-    f.x = nx
-  end
-  local ny = f.y + math.sin(angle) * speed * dt
-  if free or not blockedAt(f.x, ny) then
-    f.y = ny
-  end
-  if dist2(f.x, f.y, px, py) < (speed * dt * 0.4) ^ 2 then
-    f.stuck = f.stuck + dt
-  else
-    f.stuck = 0
-  end
-end
-
 --- He comes down: everyone inside the ring is hurt and told so.
 function Hunt:slam(server, f)
   local caught = {}
@@ -500,98 +463,31 @@ function Hunt:slam(server, f)
   server:broadcast(Protocol.encode("HNT_SLAM", fmt(f.x), fmt(f.y), self.slamRadius, unpack(caught)))
 end
 
---- Bigfoot's tick: in the air, frozen, crouching, getting up, or after
---- whoever is nearest.
+--- Bigfoot's numbers, as his brain (bigfoot_brain.lua) reads them.
+local function footTuning()
+  return {
+    radius = Hunt.footRadius, speed = Hunt.footSpeed, walkSpeed = Hunt.footWalkSpeed,
+    swipeReach = Hunt.swipeReach, swipeDamage = Hunt.swipeDamage, swipeEvery = Hunt.swipeEvery,
+    leapEvery = Hunt.leapEvery, leapRange = Hunt.leapRange, leapStamina = Hunt.leapStamina,
+    crouchTime = Hunt.crouchTime, airTime = Hunt.airTime, recoverTime = Hunt.recoverTime,
+    aggroRange = Hunt.aggroRange,
+    leapClose = true, -- he leaps at anyone within leapRange, even right next to him
+  }
+end
+
+--- Bigfoot's tick: his brain decides (bigfoot_brain.lua, the same one he
+--- fights with in the city); this does what that means in the forest.
 function Hunt:stepFoot(server, dt)
   local f = sv.foot
-  f.swipe = math.max(0, f.swipe - dt)
-  f.swipeTimer = f.swipeTimer - dt
-  if f.mode == "air" then
-    f.running = true -- flying is the hardest work he does
-    f.timer = f.timer - dt
-    local k = math.min(1, 1 - f.timer / self.airTime)
-    f.x, f.y = f.fx + (f.tx - f.fx) * k, f.fy + (f.ty - f.fy) * k
-    if f.timer <= 0 then
-      f.x, f.y = f.tx, f.ty
-      f.mode, f.timer = "recover", self.recoverTime
+  sv.footTime = (sv.footTime or 0) + dt
+  sv.footTuning = sv.footTuning or footTuning()
+  for _, e in ipairs(FootBrain.think(sv.footTuning, f, server, dt, sv.footTime, nil)) do
+    if e[1] == "leap" then
+      server:broadcast(Protocol.encode("HNT_LEAP", fmt(e[2]), fmt(e[3]), fmt(e[4]), fmt(e[5]), self.airTime,
+        self.slamRadius))
+    elseif e[1] == "slam" then
       self:slam(server, f)
     end
-    return
-  end
-  if f.frozen > 0 then
-    f.frozen = f.frozen - dt
-    f.mode = "idle"
-    return
-  end
-  if f.panic and f.mode ~= "crouch" then
-    -- A stink: he lumbers away from it, whoever is about.
-    f.panic.left = f.panic.left - dt
-    f.mode = "walk"
-    f.facing = math.atan2(f.y - f.panic.y, f.x - f.panic.x)
-    walk(f, f.facing, f.breath:pace(self.footSpeed, self.footWalkSpeed), dt)
-    f.running = not f.breath:winded()
-    if f.panic.left <= 0 then
-      f.panic = nil
-    end
-    return
-  end
-  if f.mode == "crouch" then
-    f.timer = f.timer - dt
-    if f.timer <= 0 then
-      local target = f.target and server.players[f.target]
-      if target and Features.visible(server, target) then
-        f.tx, f.ty = Features.bodyPose(server, target)
-      end
-      f.fx, f.fy = f.x, f.y
-      f.mode, f.timer = "air", self.airTime
-      f.facing = math.atan2(f.ty - f.y, f.tx - f.x)
-      f.leapTimer = self.leapEvery
-      server:broadcast(Protocol.encode("HNT_LEAP", fmt(f.fx), fmt(f.fy), fmt(f.tx), fmt(f.ty), self.airTime,
-        self.slamRadius))
-    end
-    return
-  end
-  if f.mode == "recover" then
-    f.timer = f.timer - dt
-    if f.timer <= 0 then
-      f.mode = "walk"
-    end
-    return
-  end
-
-  local target, d2, tx, ty, onFoot = nearestBody(server, f.x, f.y, true)
-  if not (target and d2 <= self.aggroRange ^ 2) then
-    f.mode = "idle"
-    return
-  end
-  f.mode = "walk"
-  f.facing = math.atan2(ty - f.y, tx - f.x)
-  f.leapTimer = f.leapTimer - dt
-  local dist = math.sqrt(d2)
-  -- A leap takes breath: none while he is winded or nearly so (the timer
-  -- stays run down, so it comes as soon as he has it back).
-  if f.leapTimer <= 0 and dist <= self.leapRange and f.breath:has(self.leapStamina) then
-    f.breath:spend(self.leapStamina)
-    f.mode, f.timer, f.target = "crouch", self.crouchTime, target.id
-    f.tx, f.ty = tx, ty
-    return
-  end
-  local reach = self.footRadius + self.swipeReach + (onFoot and 0 or 10)
-  if dist > reach then
-    local speed = f.breath:pace(self.footSpeed, self.footWalkSpeed)
-    f.running = not f.breath:winded()
-    if f.sidestep > 0 then
-      f.sidestep = f.sidestep - dt
-      walk(f, f.facing + f.side * math.pi / 2, speed, dt)
-    else
-      walk(f, f.facing, speed, dt)
-      if f.stuck > 0.4 then
-        f.stuck, f.sidestep, f.side = 0, 0.6, -f.side
-      end
-    end
-  elseif f.swipeTimer <= 0 then
-    f.swipeTimer, f.swipe = self.swipeEvery, 0.25
-    hurtPlayer(server, target, self.swipeDamage, f.facing, "melee")
   end
 end
 
@@ -637,7 +533,6 @@ function Hunt:serverStep(server, dt)
     end
   elseif stage == "fight" then
     local f = sv.foot
-    f.running = false
     self:stepFoot(server, dt)
     f.breath:step(f.running, dt)
   end

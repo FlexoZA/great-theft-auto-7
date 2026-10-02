@@ -8,12 +8,17 @@
 -- feature's ownerless entry point: their bullets belong to the force rather
 -- than to anybody's scoreboard.
 --
+-- What each one does is the officers' brain's (officer_brain.lua): walk
+-- the beat, go after anyone wanted they see and call it in, search where
+-- they lost them, and turn on whoever shoots them.
+--
 -- Cost per tick is O(officers x cars) with at most MAX officers, so the whole
 -- beat is cheaper than a handful of pedestrians.
 
 local Features = require("src.features")
 local Vision = require("src.features.police.vision")
 local Car = require("src.car")
+local Brain = require("src.features.police.officer_brain")
 
 local Officers = {}
 Officers.__index = Officers
@@ -28,7 +33,6 @@ Officers.HEALTH = 50 -- three bullets, the same as a pistol takes off a car
 Officers.SHOT_DAMAGE = 20 -- what one bullet does, matching the weapons feature
 Officers.SIGHT = 620 -- px; witnesses crimes and spots wanted players inside this
 Officers.PURSUE = 1150 -- px; keeps after someone already spotted out to here
-Officers.LOSE_SIGHT = 4 -- seconds they keep after someone a wall has hidden
 Officers.FIRE_RANGE = 520 -- px; won't shoot beyond this
 Officers.FIRE_INTERVAL = 0.9 -- seconds between shots
 Officers.SPREAD = 0.1 -- radians of aim error
@@ -51,49 +55,6 @@ local SPAWN_MIN2 = Officers.SPAWN_MIN * Officers.SPAWN_MIN
 local TOUCH2 = (Car.WIDTH / 2 + Officers.RADIUS + 2) ^ 2
 
 local random = love.math.random
-
--- Walking -------------------------------------------------------------------
-
---- Solid ground, through the `blocksPoint` convention (the city map owns it).
---- The body is a circle, so the point is tested with its four extremes.
-local function blockedAt(x, y)
-  local r = Officers.RADIUS
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
-    end
-  end
-  return false
-end
-
---- One step, each axis on its own so a wall is slid along rather than run
---- into, and a note of whether the step actually got anywhere: an officer
---- wedged in a doorway gives up on where they were going.
-local function walk(o, angle, speed, dt)
-  local px, py = o.x, o.y
-  local nx = o.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, o.y) then
-    o.x = nx
-  end
-  local ny = o.y + math.sin(angle) * speed * dt
-  if not blockedAt(o.x, ny) then
-    o.y = ny
-  end
-  local moved = (o.x - px) ^ 2 + (o.y - py) ^ 2
-  if moved < (speed * dt * 0.4) ^ 2 then
-    o.stuck = o.stuck + dt
-  else
-    o.stuck = 0
-  end
-end
 
 -- The beat ------------------------------------------------------------------
 
@@ -213,78 +174,6 @@ local function nearestBody2(o, bodies, nbodies)
   return best
 end
 
--- Behaviour -----------------------------------------------------------------
-
-function Officers.newWaypoint(o, time)
-  local city = Features.byName["city-map"]
-  local x, y
-  if city and city.randomRoadPoint then
-    x, y = city:randomRoadPoint(o.x, o.y, 900)
-  end
-  if not x then
-    local a = random() * 2 * math.pi
-    x, y = o.x + math.cos(a) * 350, o.y + math.sin(a) * 350
-  end
-  o.waypoint = { x = x, y = y }
-  o.waypointUntil = time + Officers.WAYPOINT_TIMEOUT
-end
-
---- Nobody to hunt: stroll between road points, looking where you are going.
-function Officers:patrol(o, dt, time)
-  if not o.waypoint or time > o.waypointUntil or o.stuck > 0.5 then
-    Officers.newWaypoint(o, time)
-    o.stuck = 0
-  end
-  local dx, dy = o.waypoint.x - o.x, o.waypoint.y - o.y
-  if dx * dx + dy * dy < 40 * 40 then
-    Officers.newWaypoint(o, time)
-    return
-  end
-  o.facing = math.atan2(dy, dx)
-  walk(o, o.facing, Officers.WALK_SPEED, dt)
-end
-
---- Fire at `target`, leading a car by its velocity over the bullet's flight
---- the way the bots do. The shot belongs to the force, not to a player.
-function Officers:fire(server, o, target, dist)
-  local Weapons = Features.byName.weapons
-  if not (Weapons and Weapons.serverFireFrom) then
-    return
-  end
-  local px, py = target.x, target.y
-  if not target.onFoot then
-    local car = target.car
-    local flight = dist / Weapons.PROJECTILE_SPEED
-    px = px + math.cos(car.angle) * car.speed * flight
-    py = py + math.sin(car.angle) * car.speed * flight
-  end
-  local aim = math.atan2(py - o.y, px - o.x) + (random() - 0.5) * 2 * Officers.SPREAD
-  o.facing = aim
-  local mx, my = math.cos(aim), math.sin(aim)
-  Weapons:serverFireFrom(server, Officers.OWNER, o.x + mx * Officers.MUZZLE, o.y + my * Officers.MUZZLE, aim)
-end
-
---- Close on someone wanted and shoot at them. Inside the standoff distance
---- they stand their ground; wedged against a wall they sidestep around it.
-function Officers:hunt(server, o, dt, target, dist)
-  o.facing = math.atan2(target.y - o.y, target.x - o.x)
-  if o.sidestep > 0 then
-    o.sidestep = o.sidestep - dt
-    walk(o, o.facing + o.side * math.pi / 2, Officers.CHASE_SPEED, dt)
-  elseif dist > Officers.STANDOFF then
-    walk(o, o.facing, Officers.CHASE_SPEED, dt)
-    if o.stuck > 0.4 then
-      o.stuck, o.sidestep, o.side = 0, 0.7, -o.side
-    end
-  end
-
-  o.fireTimer = o.fireTimer - dt
-  if o.fireTimer <= 0 and dist <= Officers.FIRE_RANGE then
-    o.fireTimer = Officers.FIRE_INTERVAL * (0.8 + random() * 0.4)
-    self:fire(server, o, target, dist)
-  end
-end
-
 --- A car touching this officer: flattened at speed, shoved aside below it.
 --- Returns the kill, for the caller to announce.
 function Officers:trampled(o, dt, bodies, nbodies)
@@ -299,45 +188,6 @@ function Officers:trampled(o, dt, bodies, nbodies)
       local away = math.atan2(o.y - car.y, o.x - car.x)
       local push = (Officers.WALK_SPEED + speed) * dt * 2
       o.x, o.y = o.x + math.cos(away) * push, o.y + math.sin(away) * push
-    end
-  end
-  return nil
-end
-
---- The nearest wanted player this officer can see: in the cone in front of
---- them out to sight range, or all round out to pursuit range for one they
---- are already after. Once a building hides their quarry they keep after
---- them for LOSE_SIGHT seconds, then give up. Returns the body and its
---- squared distance.
-function Officers.spot(o, wanted, bodies, nbodies, dt)
-  local hunting = o.target ~= nil
-  local range = hunting and Officers.PURSUE or Officers.SIGHT
-  local best, bestD2
-  for i = 1, nbodies do
-    local e = bodies[i]
-    if wanted[e.id] and not e.police then
-      local d2 = Vision.canSee(o.x, o.y, o.facing, e.x, e.y, range, hunting)
-      if d2 and (not bestD2 or d2 < bestD2) then
-        best, bestD2 = e, d2
-      end
-    end
-  end
-  if best then
-    o.lostFor = 0
-    return best, bestD2
-  end
-  if hunting and dt then
-    o.lostFor = (o.lostFor or 0) + dt
-    if o.lostFor < Officers.LOSE_SIGHT then
-      for i = 1, nbodies do
-        local e = bodies[i]
-        if e.id == o.target and wanted[e.id] then
-          local d2 = (e.x - o.x) ^ 2 + (e.y - o.y) ^ 2
-          if d2 <= Officers.PURSUE ^ 2 then
-            return e, d2
-          end
-        end
-      end
     end
   end
   return nil
@@ -359,7 +209,7 @@ function Officers.spawnSpot(nearX, nearY, bodies, nbodies)
       x, y = nearX + math.cos(a) * r, nearY + math.sin(a) * r
     end
     if x then
-      local clear = not blockedAt(x, y)
+      local clear = not Brain.blockedAt(x, y, Officers.RADIUS)
       for i = 1, nbodies do
         local e = bodies[i]
         if (e.x - x) ^ 2 + (e.y - y) ^ 2 < SPAWN_MIN2 then
@@ -414,8 +264,12 @@ function Officers:maintain(bodies, nbodies, anyWanted)
   end
 end
 
---- Advance the whole beat. `wanted` is the set of wanted player ids.
---- Returns the (reused) list of officers a car killed this tick.
+--- Officer `o` was shot by player `by`, the round going along `angle`:
+--- their brain turns them on it (officer_brain.lua).
+function Officers:shotAt(server, o, by, angle)
+  Brain.shotAt(self, o, by, angle, server, self.time)
+end
+
 --- Root every officer within `radius` of (x, y) to the spot for `seconds`.
 function Officers:freeze(x, y, radius, seconds)
   local r2 = (radius + Officers.RADIUS) ^ 2
@@ -428,6 +282,8 @@ function Officers:freeze(x, y, radius, seconds)
   end
 end
 
+--- Advance the whole beat. `wanted` is the set of wanted player ids.
+--- Returns the (reused) list of officers a car killed this tick.
 function Officers:update(server, dt, wanted, anyWanted)
   self.time = self.time + dt
   local bodies, nbodies = self:collect(server)
@@ -439,15 +295,7 @@ function Officers:update(server, dt, wanted, anyWanted)
   local i = 1
   while i <= self.n do
     local o = self.list[i]
-    local target, d2 = Officers.spot(o, wanted, bodies, nbodies, dt)
-    o.target = target and target.id or nil
-    if o.frozen > 0 then
-      o.frozen = o.frozen - dt -- frozen: neither hunts nor patrols
-    elseif target then
-      self:hunt(server, o, dt, target, math.sqrt(d2))
-    else
-      self:patrol(o, dt, self.time)
-    end
+    Brain.think(Officers, self, o, server, dt, wanted, bodies, nbodies, self.time)
     local kill = self:trampled(o, dt, bodies, nbodies)
     if kill then
       kills[#kills + 1] = kill

@@ -3,14 +3,14 @@
 -- a post (`Level.guardsPerPost`): the station's concourse, the mouth of the
 -- avenue on the plaza, the gate in the wall, the far end of each bridge and
 -- the Citadel's doors (the map's `posts`). They are the D-Day landing's guards on other uniforms
--- (d-day/troops.lua and d-day/sight.lua): each stands at his post sweeping
+-- (their brain, combine.lua, and d-day/sight.lua): each stands at his post sweeping
 -- a narrow cone of sight, turns to follow whoever walks into it and opens
 -- fire. Cover breaks his sight. He takes what each round carries, out of
 -- 60 (`Level.health`): three pistol rounds, a sniper round. Each carries
 -- one of the guns, picked by `Level.loadout`'s weights (every gun in
 -- weapons/guns.lua can turn up; one missing from the list is as likely as
 -- the pistol), fired in bursts once you are in its reach.
--- They hunt (troops' `hunt`): one who spots somebody closes in on them,
+-- They hunt (combine.lua's `hunt`): one who spots somebody closes in on them,
 -- and goes to where he saw them last when he loses them, his squad with
 -- him; one shot from somewhere he can't see goes that way to look. One who
 -- spots somebody calls it in, and the nearest few others within reach of
@@ -44,7 +44,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
-local Troops = require("src.features.d-day.troops")
+local Combine = require("src.features.a-man.combine")
 local Sight = require("src.features.d-day.sight")
 local Radio = require("src.features.a-man.radio")
 local Cameo = require("src.features.a-man.cameo")
@@ -206,7 +206,7 @@ function Level.serverQuestStarted(server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  local troops = Troops.new({
+  local troops = Combine.new({
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
@@ -284,7 +284,7 @@ local function sync(server)
     parts[#parts + 1] = ("%.0f"):format(s.y)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
-    parts[#parts + 1] = s.alert and 1 or (Troops.wary(s) and 2 or 0)
+    parts[#parts + 1] = s.alert and 1 or (Combine.wary(s) and 2 or 0)
     parts[#parts + 1] = s.arms and s.arms.index or 0
   end
   local msg = Protocol.encode("C17_TROOPS", unpack(parts))
@@ -476,7 +476,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage)
   if not s then
     return false
   end
-  if sv.troops:hurt(s, i, damage or Troops.SHOT_DAMAGE, angle) then
+  if sv.troops:hurt(s, i, damage or Combine.SHOT_DAMAGE, angle) then
     soldierDown(server, s, by, angle)
   end
   return true
@@ -538,7 +538,7 @@ end
 --- Their cones of sight, on the ground under everything.
 function Level.drawBelowCars()
   for _, s in pairs(troops) do
-    Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, s.fov)
+    Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
   end
   Cameo.drawBelowCars()
 end
