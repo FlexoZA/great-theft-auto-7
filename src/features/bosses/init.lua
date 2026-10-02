@@ -33,10 +33,17 @@
 --      (simps, squirrels, soldiers, a litter), are the base for one human
 --      and grow by `perHuman` of the base for each human past the first,
 --      counted when it spawns (or the helpers do). Two humans, double.
+--   7. Its own brain: a module of its own that decides what it does, in
+--      modes that cut in on each other (fighting, hunting, healing...), not
+--      shared with any other character. Badly hurt (under `Heal.below` of
+--      its health) it breaks off to go for a medkit lying within
+--      `Heal.range`, takes it off the ground and is `Heal.amount` better
+--      (heal.lua). The Hunters' brain (hunters/brain.lua) is the model.
 --
 -- Modules
 --   src/features/bosses/stamina.lua   the breath rule
 --   src/features/bosses/bar.lua       the boss bar
+--   src/features/bosses/heal.lua      going for a medkit
 
 local Bosses = {
   name = "bosses",

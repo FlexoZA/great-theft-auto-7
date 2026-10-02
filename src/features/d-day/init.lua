@@ -16,8 +16,9 @@
 --      every few seconds, walking down towards the nearest player and
 --      firing at whoever they spot.
 --   4. The hilltop: more guards, and the flag. Reach it and Major Looz'er's
---      portrait comes up on every screen; then he fights (major.lua). He
---      has the MG nest, the same ability a player can buy.
+--      portrait comes up on every screen; then he fights (major.lua, his
+--      brain major_brain.lua). He has the MG nest, the same ability a
+--      player can buy, and badly hurt he goes for a medkit.
 --
 -- When he goes down he spills a pile of koins, the quest is done, the flag
 -- turns to yours, and quests puts an EXIT star home where he fell.
@@ -277,9 +278,9 @@ end
 --- Someone reached the flag: the Major steps out behind it, and every
 --- screen gets his portrait while the world holds still.
 function Dday:reveal(server, map)
-  sv.major = Major.new(map.flagX, map.flagY - 90, Bosses.health(Major.HEALTH, server))
+  sv.major = Major.new(map.flagX, map.flagY - 90, Bosses.health(Major.HEALTH, server), sv.troops and sv.troops.nav)
   sv.revealT = self.revealTime
-  setStage(server, "reveal", random(#Major.lines))
+  setStage(server, "reveal", random(Major.TALK))
 end
 
 function Dday:serverStep(server, dt)
