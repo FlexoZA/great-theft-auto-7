@@ -429,6 +429,8 @@ function Police:serverShotAt(server, x, y, radius, by, angle)
   if o.hp <= 0 then
     sv.officers:remove(o)
     self:officerDown(server, { id = o.id, x = o.x, y = o.y, angle = angle or 0, by = by })
+  else
+    sv.officers:shotAt(server, o, by, angle) -- they turn on whoever it was
   end
   return true
 end
