@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Hunters, a new Combine enemy: quick three-legged synths with glowing
+  blue eyes and a pair of flechette guns under their faces. Three of them
+  patrol a ring round City 17's Citadel. For now they only walk their
+  beat; they don't fight back yet and can't be hurt.
+
 ## [0.6.0] - 2026-10-02
 
 City 17 no longer stops at its edges: the war-torn city runs on past a
