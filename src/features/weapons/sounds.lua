@@ -21,49 +21,144 @@ local function make(seconds, build)
   return source
 end
 
+--- A layer of a gunshot: built, then filtered on its own.
+local function layer(seconds, build, hp, lp)
+  local buf = Synth.newBuffer(seconds)
+  build(buf)
+  if hp then
+    buf:highpass(hp)
+  end
+  if lp then
+    buf:lowpass(lp)
+  end
+  return buf
+end
+
+--- Add a quieter copy of the whole buffer `delay` seconds later (walking
+--- backwards so the copy doesn't echo itself).
+local function echo(buf, delay, gain)
+  local d = math.floor(delay * Synth.RATE)
+  local data = buf.data
+  for i = buf.n - 1, d, -1 do
+    data[i] = data[i] + data[i - d] * gain
+  end
+end
+
+--- A gunshot `seconds` long out of layers, each optional:
+---   click  { freq, amp }                    the action, a tick before the bang
+---   crack  { dur, decay, amp, hp, lp }      the muzzle blast, bright noise
+---   body   { f0, f1, dur, decay, amp }      a falling tone that gives the size
+---   thump  { f0, f1, dur, decay, amp }      the low end you feel
+---   tail   { at, dur, decay, amp, lp }      dark noise dying away
+---   echoes { { delay, gain }, ... }         slaps back off the buildings
+---   drive                                   soft clipping of the mix
+local function gunshot(seconds, o)
+  local mix = Synth.newBuffer(seconds)
+  if o.click then
+    local c = o.click
+    layer(seconds, function(buf)
+      buf:noiseBurst(0, 0.01, { amp = c.amp, decay = 0.002 })
+      buf:tone(0, 0.015, c.freq, { wave = "square", amp = c.amp * 0.5, attack = 0.0005, decay = 0.004, sustain = 0 })
+    end, 1500):mixInto(mix, 1)
+  end
+  local start = o.click and 0.004 or 0 -- the bang comes just after the click
+  if o.crack then
+    local c = o.crack
+    layer(seconds, function(buf)
+      buf:noiseBurst(start, c.dur, { amp = c.amp, decay = c.decay })
+    end, c.hp, c.lp):mixInto(mix, 1)
+  end
+  for _, key in ipairs({ "body", "thump" }) do
+    local part = o[key]
+    if part then
+      layer(seconds, function(buf)
+        buf:sweep(start, part.dur, part.f0, part.f1, { wave = "sine", amp = part.amp, decay = part.decay })
+      end):mixInto(mix, 1)
+    end
+  end
+  if o.tail then
+    local t = o.tail
+    layer(seconds, function(buf)
+      buf:noiseBurst(start + (t.at or 0.01), t.dur, { amp = t.amp, decay = t.decay })
+    end, nil, t.lp):mixInto(mix, 1)
+  end
+  for _, e in ipairs(o.echoes or {}) do
+    echo(mix, e[1], e[2])
+  end
+  mix:drive(o.drive or 2.5)
+  mix:highpass(30)
+  local source = love.audio.newSource(mix:toSoundData(0.9), "static")
+  source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
+  return source
+end
+
 function Sounds.load()
   Audio.registerChannel("weapons", "Guns and explosions", Sounds.volume, function()
     Sounds.play("shot", 0, 0, 1)
   end)
 
-  -- Shot: a sharp crack. Noise snap plus a fast downward zap, driven for punch.
-  bank.shot = make(0.16, function(buf)
-    buf:noiseBurst(0, 0.12, { amp = 0.8, decay = 0.03 })
-    buf:sweep(0, 0.07, 1100, 120, { wave = "sine", amp = 0.9, decay = 0.025 })
-    buf:sweep(0, 0.05, 2200, 400, { wave = "square", amp = 0.25, decay = 0.012 })
-    buf:drive(3)
-    buf:lowpass(3800)
-  end)
+  -- Gunshots are built in layers, each filtered on its own before they are
+  -- mixed (see gunshot() below): the action's click, the muzzle crack, the
+  -- body that gives a gun its size, a low thump you feel, then a dark tail
+  -- and an echo or two off the buildings.
 
-  -- Uzi: a shorter, thinner snap than the pistol, so a burst reads as a
-  -- rattle rather than a row of shots.
-  bank.uzi = make(0.09, function(buf)
-    buf:noiseBurst(0, 0.06, { amp = 0.7, decay = 0.012 })
-    buf:sweep(0, 0.04, 1600, 300, { wave = "sine", amp = 0.7, decay = 0.012 })
-    buf:sweep(0, 0.03, 3000, 700, { wave = "square", amp = 0.2, decay = 0.008 })
-    buf:drive(2.5)
-    buf:highpass(300)
-    buf:lowpass(5000)
-  end)
+  -- Pistol: a tight crack with a little weight and a short slap back.
+  bank.shot = gunshot(0.4, {
+    click = { freq = 3600, amp = 0.25 },
+    crack = { dur = 0.05, decay = 0.009, amp = 0.9, hp = 1500, lp = 7000 },
+    body = { f0 = 700, f1 = 90, dur = 0.08, decay = 0.028, amp = 0.9 },
+    thump = { f0 = 130, f1 = 50, dur = 0.12, decay = 0.04, amp = 0.6 },
+    tail = { dur = 0.32, decay = 0.08, amp = 0.3, lp = 1300 },
+    echoes = { { 0.075, 0.22 } },
+    drive = 2.6,
+  })
 
-  -- AK-47: a fuller crack than the pistol with a low thump behind it, so a
-  -- burst reads as a rifle hammering rather than the uzi's rattle.
-  bank.ak47 = make(0.14, function(buf)
-    buf:noiseBurst(0, 0.1, { amp = 0.85, decay = 0.022 })
-    buf:sweep(0, 0.06, 900, 110, { wave = "sine", amp = 0.9, decay = 0.02 })
-    buf:sweep(0, 0.04, 2600, 500, { wave = "square", amp = 0.2, decay = 0.01 })
-    buf:drive(3.2)
-    buf:lowpass(3400)
-  end)
+  -- Uzi: short and snappy with hardly any tail, so fourteen a second read
+  -- as a rattle rather than a smear.
+  bank.uzi = gunshot(0.17, {
+    click = { freq = 4200, amp = 0.3 },
+    crack = { dur = 0.035, decay = 0.006, amp = 0.85, hp = 1800, lp = 8000 },
+    body = { f0 = 1000, f1 = 180, dur = 0.045, decay = 0.013, amp = 0.75 },
+    thump = { f0 = 160, f1 = 70, dur = 0.06, decay = 0.018, amp = 0.35 },
+    tail = { dur = 0.13, decay = 0.035, amp = 0.18, lp = 1800 },
+    drive = 2.4,
+  })
 
-  -- Shotgun: a deep boom and a long spray of noise, the loudest gun there is.
-  bank.shotgun = make(0.32, function(buf)
-    buf:sweep(0, 0.16, 420, 45, { wave = "sine", amp = 1.0, decay = 0.06 })
-    buf:noiseBurst(0, 0.26, { amp = 0.95, decay = 0.07 })
-    buf:noiseBurst(0, 0.03, { amp = 0.8, decay = 0.008 })
-    buf:drive(3.5)
-    buf:lowpass(2600)
-  end)
+  -- AK-47: a harder crack over a deep body, so a burst hammers rather than
+  -- rattles like the uzi.
+  bank.ak47 = gunshot(0.32, {
+    click = { freq = 3000, amp = 0.3 },
+    crack = { dur = 0.05, decay = 0.01, amp = 1.0, hp = 1200, lp = 6500 },
+    body = { f0 = 550, f1 = 70, dur = 0.08, decay = 0.026, amp = 1.0 },
+    thump = { f0 = 115, f1 = 42, dur = 0.12, decay = 0.045, amp = 0.75 },
+    tail = { dur = 0.26, decay = 0.07, amp = 0.3, lp = 1100 },
+    echoes = { { 0.06, 0.2 } },
+    drive = 3.0,
+  })
+
+  -- Shotgun: a wide blast and a deep boom that rolls away, the loudest
+  -- gun there is.
+  bank.shotgun = gunshot(0.7, {
+    click = { freq = 2200, amp = 0.3 },
+    crack = { dur = 0.1, decay = 0.022, amp = 1.0, hp = 700, lp = 5000 },
+    body = { f0 = 420, f1 = 50, dur = 0.16, decay = 0.05, amp = 1.0 },
+    thump = { f0 = 140, f1 = 32, dur = 0.24, decay = 0.09, amp = 1.1 },
+    tail = { dur = 0.6, decay = 0.17, amp = 0.45, lp = 900 },
+    echoes = { { 0.09, 0.3 }, { 0.23, 0.14 } },
+    drive = 3.4,
+  })
+
+  -- Sniper: a supersonic snap, a huge flat crack and a long echo rolling
+  -- off the city.
+  bank.sniper = gunshot(1.4, {
+    click = { freq = 5000, amp = 0.35 },
+    crack = { dur = 0.04, decay = 0.006, amp = 1.0, hp = 2500, lp = 9000 },
+    body = { f0 = 1200, f1 = 80, dur = 0.14, decay = 0.045, amp = 1.0 },
+    thump = { f0 = 100, f1 = 30, dur = 0.3, decay = 0.11, amp = 1.0 },
+    tail = { at = 0.03, dur = 1.1, decay = 0.35, amp = 0.4, lp = 800 },
+    echoes = { { 0.18, 0.3 }, { 0.43, 0.18 }, { 0.8, 0.09 } },
+    drive = 3.4,
+  })
 
   -- Reloads are built from small metal clicks: a sharp tick of noise over a
   -- short ring, lower and duller for heavier parts.
@@ -168,20 +263,10 @@ function Sounds.load()
     buf:lowpass(5200)
   end)
 
-  -- Sniper: one huge flat crack with a long rolling echo behind it.
-  bank.sniper = make(1.1, function(buf)
-    buf:noiseBurst(0, 0.05, { amp = 1.0, decay = 0.01 })
-    buf:sweep(0, 0.12, 1400, 90, { wave = "sine", amp = 1.0, decay = 0.05 })
-    buf:sweep(0, 0.08, 3200, 600, { wave = "square", amp = 0.3, decay = 0.015 })
-    buf:noiseBurst(0.04, 1.0, { amp = 0.45, decay = 0.35 })
-    buf:sweep(0.1, 0.9, 140, 60, { wave = "sine", amp = 0.35, decay = 0.4 })
-    buf:drive(3.5)
-    buf:lowpass(3000)
-  end)
-
   -- Rocket launch: a thump out of the tube and the motor hissing away.
   bank.rocket = make(0.8, function(buf)
     buf:sweep(0, 0.14, 190, 55, { wave = "sine", amp = 0.9, decay = 0.08 })
+    buf:sweep(0, 0.22, 110, 35, { wave = "sine", amp = 0.8, decay = 0.09 }) -- the kick of the back-blast
     buf:noiseBurst(0, 0.04, { amp = 0.7, decay = 0.01 })
     buf:noiseBurst(0.02, 0.75, { amp = 0.55, decay = 0.3 })
     buf:sweep(0.02, 0.6, 520, 260, { wave = "saw", amp = 0.12, decay = 0.3 })

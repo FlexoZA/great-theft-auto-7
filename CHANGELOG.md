@@ -19,6 +19,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   purr, SUVs and pickups burble like a V8, motorbikes scream through six
   gears, vans and trucks clatter like diesels and the dump truck thumps.
   The settings screen's engine preview plays a different one each press.
+- Guns hit harder on the ear: every shot now has the click of the action,
+  a sharp crack, a deep thump and an echo off the buildings. The shotgun
+  booms and rolls away, the sniper's crack echoes across the city, and the
+  rocket launcher kicks.
 
 ## [0.9.0] - 2026-10-02
 
