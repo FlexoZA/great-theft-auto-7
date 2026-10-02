@@ -21,6 +21,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   scorch marks round them, heaps of bin bags and junk, and litter
   everywhere. Walk into a fire on the ground and you catch alight
   (2 seconds, 6 damage a second); the drums are solid.
+- A-Man drops by in City 17: the first time you walk into the plaza he
+  blinks in near you, snaps his briefcase open, leaves five sentry
+  turrets (more with more players) and blinks out again, three times,
+  8 seconds apart. He is gone in under a second and a half and can't be
+  hurt yet; his turrets go over as usual.
 
 ### Changed
 - Twice as many Combine soldiers in City 17 (24 -> 48): two guards at
