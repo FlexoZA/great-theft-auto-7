@@ -62,6 +62,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Sliding along a wall or another car grinds: screeching metal and
   sparks that get louder the faster you scrape, and die away as you pull
   clear.
+- Tyres screech: handbrake turns, corners taken too fast and hard stops
+  squeal, louder the harder you push, and scrabble in the dirt on grass
+  and sand. Motorbikes squeal higher, trucks lower. They have their own
+  volume slider.
 
 ## [0.9.0] - 2026-10-02
 
