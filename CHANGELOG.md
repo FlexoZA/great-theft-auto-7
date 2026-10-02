@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- City 17 no longer ends in the bare grid: the city carries on past its
+  edges, out of reach behind a Combine wall that runs all round it.
+  Streets and blocks of flats, some bombed down to rubble and some
+  burning, the railway, the canal and the Combine's wall running on out
+  of both sides, all under a haze that thickens further out.
+
 ## [0.5.0] - 2026-10-02
 
 City 17 goes to war: fires and rubbish in the streets, twice the Combine
