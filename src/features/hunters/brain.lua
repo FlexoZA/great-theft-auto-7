@@ -10,7 +10,10 @@
 --   fight    somebody in its sights: it keeps them at range (KEEP_MIN to
 --            KEEP_MAX), closing in when they are far, backing off when
 --            they rush it, strafing side to side in between, and fires
---            uzi bursts at them whenever it has a clear line
+--            uzi bursts at them whenever it has a clear line. Every
+--            STUN_EVERY seconds or so it charges its pods (STUN_CHARGE,
+--            standing its ground: you can see it coming) and fires one
+--            stun shot instead
 --   heal     badly hurt (under HEAL_BELOW of its health) with a medkit or
 --            an energy drink lying within HEAL_RANGE: it breaks off and runs
 --            for it, takes it, and goes back to whatever it was doing
@@ -70,6 +73,9 @@ Brain.NEAR_MISS = 70 -- px; a round passing this close to one gives the shooter 
 Brain.HEAR = 550 -- px; a shot this near is heard
 Brain.CALL_RANGE = 1000 -- px; how far a call carries
 Brain.CALL_EVERY = 6 -- seconds before the same one calls again
+Brain.STUN_EVERY = 8 -- seconds between its stun shots
+Brain.STUN_FIRST = { 2, 5 } -- seconds into its first fight before the first one
+Brain.STUN_CHARGE = 0.6 -- seconds it charges before the shot, glowing
 
 local random = love.math.random
 
@@ -106,7 +112,7 @@ function Brain.new(opts)
 end
 
 --- One on `route` (a loop of { x, y }), standing at corner `start`, armed
---- with `arms` ({ gun, burst, pause, reach }).
+--- with `arms` ({ gun, burst, pause, reach, stunGun }).
 function Brain:add(route, start, arms)
   local p = route[start]
   local h = {
@@ -114,7 +120,7 @@ function Brain:add(route, start, arms)
     route = route, leg = start % #route + 1, mode = "patrol", phase = random() * 6.28,
     arms = arms, burstLeft = arms.burst, fireIn = 0, pod = 1, side = random() < 0.5 and -1 or 1,
     strafeIn = between(Brain.STRAFE_TIME), dodgeCool = 0, frozen = 0, stuck = 0, fired = false, haste = 0,
-    callCool = 0,
+    callCool = 0, stunCool = between(Brain.STUN_FIRST),
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = h
@@ -303,7 +309,7 @@ end
 
 -- Shooting --------------------------------------------------------------------
 
-local function fire(server, h, tx, ty)
+local function fire(server, h, tx, ty, gun)
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverFireFrom) then
     return
@@ -313,24 +319,52 @@ local function fire(server, h, tx, ty)
   local mx = h.x + c * Brain.MUZZLE - s * Brain.POD * h.pod
   local my = h.y + s * Brain.MUZZLE + c * Brain.POD * h.pod
   local aim = math.atan2(ty - my, tx - mx) + (random() * 2 - 1) * Brain.SPREAD
-  weapons:serverFireFrom(server, 0, mx, my, aim, h.arms.gun)
+  weapons:serverFireFrom(server, 0, mx, my, aim, gun or h.arms.gun)
   h.fired = true
+end
+
+--- Can `h` put a round into (tx, ty) right now: in reach, facing it, a clear line?
+local function onTarget(h, tx, ty)
+  local reach = h.arms.reach
+  return dist2(h.x, h.y, tx, ty) <= reach * reach
+    and math.abs(Sight.angleDiff(math.atan2(ty - h.y, tx - h.x), h.facing)) <= Brain.AIM
+    and Sight.clear(h.x, h.y, tx, ty)
+end
+
+--- Its stun shot: charging, then the shot. True while it is busy with it
+--- (no bursts in the meantime).
+function Brain:stunShot(server, h, tx, ty, dt)
+  if h.charge then
+    h.charge = h.charge - dt
+    if h.charge > 0 then
+      return true
+    end
+    h.charge = nil
+    h.stunCool = Brain.STUN_EVERY * (0.85 + random() * 0.3)
+    if h.arms.stunGun and onTarget(h, tx, ty) then
+      fire(server, h, tx, ty, h.arms.stunGun)
+      h.fireIn = math.max(h.fireIn, 0.4)
+    end
+    return true
+  end
+  if h.stunCool <= 0 and h.arms.stunGun and onTarget(h, tx, ty) then
+    h.charge = Brain.STUN_CHARGE
+    return true
+  end
+  return false
 end
 
 --- Its trigger, while it has somebody at (tx, ty) in its sights.
 function Brain:shoot(server, h, tx, ty, dt)
+  if self:stunShot(server, h, tx, ty, dt) then
+    return
+  end
   h.fireIn = h.fireIn - dt
   if h.fireIn > 0 then
     return
   end
   local arms = h.arms
-  if dist2(h.x, h.y, tx, ty) > arms.reach * arms.reach then
-    return
-  end
-  if math.abs(Sight.angleDiff(math.atan2(ty - h.y, tx - h.x), h.facing)) > Brain.AIM then
-    return
-  end
-  if not Sight.clear(h.x, h.y, tx, ty) then
+  if not onTarget(h, tx, ty) then
     return
   end
   fire(server, h, tx, ty)
@@ -397,8 +431,10 @@ function Brain:fight(server, h, tx, ty, dt)
   if home and dist2(h.x + mx * 40, h.y + my * 40, home.x, home.y) > Brain.LEASH * Brain.LEASH then
     mx, my = -uy * h.side, ux * h.side -- at the end of its leash: only across
   end
-  self:step(h, mx, my, speed, dt)
-  h.moving = true
+  if not h.charge then -- charging, it stands its ground
+    self:step(h, mx, my, speed, dt)
+    h.moving = true
+  end
   self:shoot(server, h, tx, ty, dt)
 end
 
@@ -461,6 +497,7 @@ function Brain:dodge(h, ux, uy, far)
     return false
   end
   local left = math.max(Brain.DODGE_TIME, (far or 0) / Brain.DODGE_SPEED)
+  h.charge = nil -- a dodge spoils its aim
   h.dodging = { x = ux, y = uy, left = left }
   h.dodgeCool = Brain.DODGE_COOL
   return true
@@ -513,6 +550,7 @@ function Brain:think(server, h, dt)
   h.fired, h.moving = false, false
   h.dodgeCool = math.max(0, h.dodgeCool - dt)
   h.callCool = math.max(0, h.callCool - dt)
+  h.stunCool = h.stunCool - dt
   h.haste = math.max(0, h.haste - dt)
   if h.frozen > 0 then
     h.frozen = h.frozen - dt -- frozen stiff: nothing
@@ -602,7 +640,7 @@ function Brain:freeze(x, y, radius, seconds)
   for _, h in ipairs(self.list) do
     if dist2(h.x, h.y, x, y) <= (radius + self.radius) ^ 2 then
       h.frozen = math.max(h.frozen, seconds)
-      h.dodging = nil
+      h.dodging, h.charge = nil, nil
     end
   end
 end

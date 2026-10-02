@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- A light shock hit no longer stuns you on its own: it takes 20 or more
+  in one hit (the Tripod's lightning, 35, still does).
+
 ### Added
 - Hunters, a new Combine enemy: quick three-legged synths with glowing
   blue eyes and a pair of flechette guns under their faces. Three of them
@@ -21,7 +25,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   do (the same cones, wider when on edge, and anyone within 170 px), but
   fight their own way: they keep you at range (about 260 to 440 px),
   strafing and backing off if you rush them, and fire uzi bursts that do
-  8 a round and stun with every hit (shock damage). They dash aside from
+  8 a round (shock damage). A hit zaps you: the shock runs on through
+  you for 3 seconds at 8 a second, the way a flame burns on, unless you
+  dodge it off. About every 8 seconds one stands still, charges its pods
+  (a crackling white-blue glow, 0.6 s) and fires a slower stun shot that
+  holds you still for 1.2 seconds. They dash aside from
   rounds and rockets coming at them, from where a leap is about to land
   and from a heat ray, though not every time (once a second at most).
   Below 45% health they break off to grab a medkit (+70) or an energy

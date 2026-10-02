@@ -115,7 +115,7 @@ local function body(hurt)
   love.graphics.line(-17, 0, 7, 0)
 end
 
-local function head(firing, clock, hurt)
+local function head(firing, clock, hurt, charging)
   -- The flechette pods under the face, poking out ahead of it.
   color(Render.LEG)
   love.graphics.rectangle("fill", 12, -6.5, 10, 3, 1)
@@ -136,6 +136,21 @@ local function head(firing, clock, hurt)
   love.graphics.circle("fill", 10.5, -4.6, 0.9, 6)
   love.graphics.circle("fill", 10.5, 4.6, 0.9, 6)
   love.graphics.circle("fill", 15, 0, 0.8, 6)
+  if charging then
+    -- Both pods charging for a stun shot: a hot white-blue glow swelling
+    -- and crackling at their tips.
+    local k = 0.6 + 0.4 * math.abs(math.sin(clock * 30))
+    for _, side in ipairs({ -5, 5 }) do
+      color(Render.GLOW, 0.35 * k)
+      love.graphics.circle("fill", 23, side, 7 * k, 10)
+      color(Render.SPARK, 0.9)
+      love.graphics.circle("fill", 23, side, 3.2 * k, 8)
+    end
+    color({ 1, 1, 1 }, 0.8)
+    love.graphics.setLineWidth(1)
+    local j = math.floor(clock * 40) % 4
+    love.graphics.line(23, -5, 25 + j, -1, 22, 1, 24 + j, 5) -- an arc between them
+  end
   if firing then
     -- A flash of blue off whichever pod just fired, crackling.
     local side = math.floor(clock * 24) % 2 == 0 and -5 or 5
@@ -150,6 +165,7 @@ end
 ---   cycle    its step phase (0..1, keeps counting while it walks)
 ---   stride   how big its steps are, 0 standing to 1 at a run
 ---   firing   true while it shoots: a flash off the pods
+---   charging true while it charges a stun shot: its pods glow and crackle
 ---   hurt     0..1, how white it flashes just after a hit
 ---   dodge    0..1 while it throws itself aside: it leans and leaves a smear
 ---   dodgeX, dodgeY  which way it is dodging (a unit vector), for the smear
@@ -201,7 +217,7 @@ function Render.draw(x, y, angle, h, clock)
   body(hurt)
   drawLeg(LEGS[1], unpack(legs[1]))
   drawLeg(LEGS[2], unpack(legs[2]))
-  head(h.firing, clock, hurt)
+  head(h.firing, clock, hurt, h.charging)
   love.graphics.pop()
   love.graphics.setLineWidth(1)
   if alpha < 1 then
