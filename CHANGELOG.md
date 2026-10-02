@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Guns hit harder on the ear: every shot now has the click of the action,
+  a sharp crack, a deep thump and an echo off the buildings. The shotgun
+  booms and rolls away, the sniper's crack echoes across the city, and the
+  rocket launcher kicks.
+
 ## [0.9.0] - 2026-10-02
 
 Freeze gives fair warning now: a ring shows where it is coming down and
