@@ -26,6 +26,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The flamethrower roars instead of rattling like a gun: it lights with a
   whoomp, keeps up one steady roar while you hold the trigger, and dies
   away when you let go.
+- Explosions sound bigger and never quite the same twice: a sharp crack, a
+  deep boom, debris crackling down and a roar rolling off the buildings.
+  Cars clang with flying panels as their fuel goes up, and buildings
+  come down with a long rumble of falling rubble.
 
 ## [0.9.0] - 2026-10-02
 

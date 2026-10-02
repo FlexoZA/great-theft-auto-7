@@ -953,9 +953,10 @@ local function playerName(client, id)
 end
 
 --- An explosion at (x, y) on this screen, with the camera shaking the
---- nearer I am. `color` tints the debris.
-local function boom(client, x, y, color)
-  Sounds.play("explosion", x, y)
+--- nearer I am. `color` tints the debris; `kind` picks the sound: "car",
+--- "building" or nil for a plain blast.
+local function boom(client, x, y, color, kind)
+  Sounds.play(kind and "explosion-" .. kind or "explosion", x, y, 0.92 + love.math.random() * 0.16)
   Explosions.spawn(x, y, color)
   local mx, my = client:myPose()
   if mx and Video.get("screenShake") then
@@ -966,9 +967,10 @@ end
 
 --- Where a player is drawn, as a point, or nil while they are out of the world.
 --- An explosion drawn and heard at (x, y) on this machine, for another
---- feature's blast (a building coming down). `color` tints the debris.
-function Weapons:explosionAt(client, x, y, color)
-  boom(client, x, y, color)
+--- feature's blast (a building coming down). `color` tints the debris;
+--- `kind` "building" or "car" sounds like one, nil a plain blast.
+function Weapons:explosionAt(client, x, y, color, kind)
+  boom(client, x, y, color, kind)
 end
 
 local function poseOf(client, id)
@@ -1121,7 +1123,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at then
-      boom(client, at.x, at.y, v and Car.paletteColor(v.color))
+      boom(client, at.x, at.y, v and Car.paletteColor(v.color), "car")
     end
     if pid then
       Weapons.projectiles[pid] = nil
