@@ -26,6 +26,10 @@
 -- the case again. His own blinks and the turrets' rounds don't hurt each
 -- other or him.
 --
+-- What he does is his brain's (brain.lua): stalk, blink, open the
+-- briefcase, and badly hurt go for a medkit within `healRange`, by blink
+-- when he has the breath (the bosses' standard, bosses/heal.lua).
+--
 -- Down, the disguise comes off (it is left lying where he fell), he spills
 -- koins and drops his teleport as a pickup, its tier rolled from
 -- `dropTiers`. While he is loose his theme plays and his portrait sits
@@ -55,6 +59,7 @@ local Face = require("src.features.a-man.face")
 local Theme = require("src.features.a-man.theme")
 local Sounds = require("src.features.a-man.sounds")
 local Turrets = require("src.features.a-man.turrets")
+local Brain = require("src.features.a-man.brain")
 
 local AMan = {
   key = "a-man",
@@ -93,6 +98,7 @@ AMan.hordeFirst = 8 -- seconds after he arrives before the first horde
 AMan.hordeDelay = 10 -- seconds after the last turret falls before the next horde
 AMan.width = Teleport.width -- px either side of the line it tears through
 AMan.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
+AMan.healRange = 1600 -- px; how far he will go for a medkit (he blinks there)
 AMan.spawnNear = 900 -- px; he comes in about this far from the nearest player
 AMan.spawnFar = 1800
 AMan.drops = 50 -- koins he spills
@@ -194,61 +200,6 @@ function AMan.serverBegin(server, events)
   return node.x, node.y
 end
 
---- Who he goes after: the nearest player he can see, humans before bots.
-local function pickTarget(server, a)
-  local best, bestD, bestHuman
-  for _, p in pairs(server.players) do
-    if Features.visible(server, p) then
-      local x, y = Features.bodyPose(server, p)
-      local d = dist2(x, y, a.x, a.y)
-      local human = not p.bot
-      if not best or (human and not bestHuman) or (human == bestHuman and d < bestD) then
-        best, bestD, bestHuman = p, d, human
-      end
-    end
-  end
-  if best then
-    local x, y = Features.bodyPose(server, best)
-    return best, x, y
-  end
-  return nil
-end
-
---- A step of `dist` px towards (tx, ty), sliding along a wall if one is in
---- the way, standing still if both ways are.
-local function walk(a, tx, ty, dist)
-  local d = math.sqrt(dist2(tx, ty, a.x, a.y))
-  if d < 1 then
-    return false
-  end
-  local mx, my = (tx - a.x) / d * dist, (ty - a.y) / d * dist
-  for _, m in ipairs({ { mx, my }, { mx, 0 }, { 0, my } }) do
-    local nx, ny = a.x + m[1], a.y + m[2]
-    if (m[1] ~= 0 or m[2] ~= 0) and not Features.any("blocksPoint", nx, ny) then
-      a.x, a.y = nx, ny
-      return true
-    end
-  end
-  return false
-end
-
---- He stops and picks where he is going: through a target close by, or
---- across the map to one far off, landing to one side of the way he came.
-local function windUp(a, tx, ty)
-  local d = math.sqrt(dist2(tx, ty, a.x, a.y))
-  local ax, ay
-  if d <= AMan.strikeRange then
-    local ux, uy = (tx - a.x) / math.max(d, 1), (ty - a.y) / math.max(d, 1)
-    ax, ay = tx + ux * AMan.overshoot, ty + uy * AMan.overshoot
-  else
-    local back = math.atan2(a.y - ty, a.x - tx) + (random() - 0.5) * 1.6
-    ax, ay = tx + math.cos(back) * AMan.approachGap, ty + math.sin(back) * AMan.approachGap
-  end
-  a.aimX, a.aimY = Teleport.clear(a.x, a.y, ax, ay, AMan.radius)
-  a.windup = AMan.windup
-  a.facing = math.atan2(a.aimY - a.y, a.aimX - a.x)
-end
-
 --- He goes: everyone on the line is torn through and he is at the other end.
 local function blink(server, a)
   local sx, sy, ex, ey = a.x, a.y, a.aimX, a.aimY
@@ -300,32 +251,15 @@ function AMan.serverStep(server, dt)
   end
   sv.time = sv.time + dt
   local a = sv.a
-  a.moving = false
-  if a.frozen > 0 then
-    a.frozen = a.frozen - dt
-  elseif a.aimX then
-    a.windup = a.windup - dt
-    if a.windup <= 0 then
-      blink(server, a)
-      if not sv then
-        return
-      end
+  local canHorde = sv.hordeIn <= 0 and Turrets.standing(sv.turrets) == 0
+  local act = Brain.think(AMan, a, server, dt, canHorde, sv.time)
+  if act == "blink" then
+    blink(server, a)
+    if not sv then
+      return
     end
-  else
-    a.cool = a.cool - dt
-    local target, tx, ty = pickTarget(server, a)
-    if target then
-      local d2 = dist2(tx, ty, a.x, a.y)
-      a.facing = math.atan2(ty - a.y, tx - a.x)
-      if sv.hordeIn <= 0 and Turrets.standing(sv.turrets) == 0 and d2 <= AMan.hordeRange ^ 2
-        and a.breath:has(AMan.hordeCost) then
-        horde(server, a)
-      elseif a.cool <= 0 and d2 <= AMan.reach * AMan.reach and a.breath:has(AMan.blinkCost) then
-        windUp(a, tx, ty)
-      elseif d2 > AMan.keepAway * AMan.keepAway then
-        a.moving = walk(a, tx, ty, AMan.walkSpeed * dt)
-      end
-    end
+  elseif act == "horde" then
+    horde(server, a)
   end
   a.breath:step(false, dt) -- he never runs
   if Turrets.standing(sv.turrets) == 0 then

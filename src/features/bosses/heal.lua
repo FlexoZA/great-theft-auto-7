@@ -27,13 +27,14 @@ function Heal.wants(hp, max)
   return hp < max * Heal.below
 end
 
---- The nearest medkit within Heal.range of (x, y): { id, x, y }, or nil.
-function Heal.find(x, y)
+--- The nearest medkit within `range` (Heal.range when nil) of (x, y):
+--- { id, x, y }, or nil. A boss that gets about faster may look further.
+function Heal.find(x, y, range)
   local p = pickups()
   if not p then
     return nil
   end
-  local id, it = p:serverNearest(x, y, Heal.range, KINDS)
+  local id, it = p:serverNearest(x, y, range or Heal.range, KINDS)
   return id and { id = id, x = it.x, y = it.y } or nil
 end
 
