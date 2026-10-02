@@ -7,6 +7,10 @@
 -- goes down she spills a pile of koins, far more than anything else drops,
 -- and the quest is done.
 --
+-- What she does is her brain's (brain.lua): rant, charge and slap,
+-- scream, stomp back to her turning circle when nobody is about, and when
+-- badly hurt march off to a medkit (the bosses' standard, bosses/heal.lua).
+--
 -- She has stamina like every boss (bosses/stamina.lua): charging spends it
 -- and standing, walking or slapping lets it come back. Run her dry and she
 -- is winded: she can only walk, slower than anyone sprinting, and has no
@@ -58,6 +62,8 @@ local KarenFace = require("src.features.karen.face")
 local Theme = require("src.features.karen.theme")
 local Simps = require("src.features.karen.simps")
 local Sounds = require("src.features.karen.sounds")
+local Brain = require("src.features.karen.brain")
+local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
@@ -110,6 +116,15 @@ Karen.lines = {
   "Somebody put Wednesday in my Tuesday AGAIN.",
   "I demand to speak to whoever is in charge of the wind.",
 }
+Karen.TALK = #Karen.lines -- the rants; the ones after them are for a medkit
+for _, line in ipairs({
+  "This bandage is the WRONG shade of beige.",
+  "I'll be leaving a one-star review for this medkit.",
+  "Where's the manager of this first aid kit?!",
+  "I'm not hurt. I'm OFFENDED. There's a difference.",
+}) do
+  Karen.lines[#Karen.lines + 1] = line
+end
 
 local SYNC_EVERY = 2 -- server ticks between KRN_STATE and KRN_SIMPS packets
 local SIMP_COLOR = { 0.45, 0.50, 0.62 } -- the hoodie
@@ -141,45 +156,6 @@ end
 
 local sv = nil -- { boss = { x, y, facing, hp, max, ... } or nil, syncIn }
 
---- Solid ground, through the `blocksPoint` convention, tested at the four
---- extremes of her body.
-local function blockedAt(x, y)
-  local r = Karen.radius
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
-    end
-  end
-  return false
-end
-
---- One step, each axis on its own so a wall is slid along, and a note of
---- whether it got anywhere (wedged, she sidesteps).
-local function walk(b, angle, speed, dt)
-  local px, py = b.x, b.y
-  local nx = b.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, b.y) then
-    b.x = nx
-  end
-  local ny = b.y + math.sin(angle) * speed * dt
-  if not blockedAt(b.x, ny) then
-    b.y = ny
-  end
-  if (b.x - px) ^ 2 + (b.y - py) ^ 2 < (speed * dt * 0.4) ^ 2 then
-    b.stuck = b.stuck + dt
-  else
-    b.stuck = 0
-  end
-end
-
 function Karen:serverStart()
   sv = { boss = nil, syncIn = 0, simps = Simps.new(), simpsOut = 0 }
 end
@@ -207,6 +183,7 @@ end
 
 function Karen:spawnBoss(server, x, y)
   local hp = Bosses.health(self.maxHealth, server)
+  local _, map = cityMap()
   sv.boss = {
     x = x,
     y = y,
@@ -224,6 +201,10 @@ function Karen:spawnBoss(server, x, y)
     screamTimer = self.screamEvery * 0.6, -- the first comes a little sooner
     scream = nil, -- { x, y, t } while she is drawing breath
     rammed = {}, -- player id -> seconds before that car can hurt her again
+    homeX = x, -- her turning circle, where she goes back to
+    homeY = y,
+    nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h }), -- round the houses
+    mode = "idle", -- what her brain is doing (brain.lua)
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
   sv.simps.max = Bosses.count(Simps.MAX, server) -- a bigger gang for a bigger group
@@ -349,26 +330,6 @@ function Karen:serverShotAt(server, x, y, radius, by, angle)
   return true
 end
 
---- Where everyone's body is this tick, and the nearest one to her.
-local function nearestBody(server, b)
-  local best, bestD2, bx, by, onFoot
-  for _, p in pairs(server.players) do
-    if Features.visible(server, p) then
-      local x, y, foot = Features.bodyPose(server, p)
-      local d2 = (x - b.x) ^ 2 + (y - b.y) ^ 2
-      if not bestD2 or d2 < bestD2 then
-        best, bestD2, bx, by, onFoot = p, d2, x, y, foot
-      end
-    end
-  end
-  return best, bestD2, bx, by, onFoot
-end
-
---- Her pace: full tilt with breath in her, a walk without.
-local function pace(b)
-  return b.breath:pace(Karen.chargeSpeed, Karen.walkSpeed)
-end
-
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
 --- slower they only shove her a little.
 function Karen:rams(server, b, dt)
@@ -443,76 +404,17 @@ function Karen:serverStep(server, dt)
   if not b then
     return
   end
-  b.slapTimer = b.slapTimer - dt
-  b.sayTimer = b.sayTimer - dt
-
-  local target, d2, tx, ty, onFoot = nearestBody(server, b)
-  local running = false -- at full tilt this tick: that is what costs her breath
-  if (b.frozen or 0) > 0 then
-    b.frozen = b.frozen - dt -- frozen: no charging, no slapping
-    b.charging = false
-  elseif b.panic then
-    -- A stink: away from it, nose held, whatever else she was doing, as
-    -- fast as her legs allow.
-    b.charging, b.scream = false, nil
-    b.panic.left = b.panic.left - dt
-    b.facing = math.atan2(b.y - b.panic.y, b.x - b.panic.x)
-    walk(b, b.facing, pace(b), dt)
-    running = not b.breath:winded()
-    if b.panic.left <= 0 then
-      b.panic = nil
-    end
-  elseif b.scream then
-    -- Feet planted, drawing breath; when the time is up it lands.
-    b.charging = false
-    b.scream.t = b.scream.t - dt
-    if b.scream.t <= 0 then
+  local running, events = Brain.think(self, b, server, dt)
+  for _, e in ipairs(events) do
+    if e[1] == "say" then
+      server:broadcast(Protocol.encode("KRN_SAY", e[2]))
+    elseif e[1] == "aim" then
+      server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(e[2]), fmt(e[3]), self.screamRadius,
+        ("%.2f"):format(self.screamDelay)))
+    elseif e[1] == "scream" then
       self:scream(server, b)
     end
-  elseif target and d2 <= self.aggroRange ^ 2 then
-    b.screamTimer = b.screamTimer - dt
-    -- A scream takes breath: none while she is winded or nearly so (the
-    -- timer stays run down, so it comes as soon as she has it back).
-    if b.screamTimer <= 0 and d2 <= self.screamRange ^ 2 and b.breath:has(self.screamStamina) then
-      b.screamTimer = self.screamEvery
-      b.breath:spend(self.screamStamina)
-      b.scream = { x = tx, y = ty, t = self.screamDelay }
-      b.facing = math.atan2(ty - b.y, tx - b.x)
-      server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(tx), fmt(ty), self.screamRadius,
-        ("%.2f"):format(self.screamDelay)))
-      return self:finishStep(server, b, dt, false)
-    end
-    b.charging = not b.breath:winded() -- winded, she comes on at a waddle
-    b.facing = math.atan2(ty - b.y, tx - b.x)
-    local dist = math.sqrt(d2)
-    local reach = self.radius + self.slapReach + (onFoot and 0 or Car.HEIGHT / 2)
-    if dist > reach then
-      running = not b.breath:winded()
-      if b.sidestep > 0 then
-        b.sidestep = b.sidestep - dt
-        walk(b, b.facing + b.side * math.pi / 2, pace(b), dt)
-      else
-        walk(b, b.facing, pace(b), dt)
-        if b.stuck > 0.4 then
-          b.stuck, b.sidestep, b.side = 0, 0.6, -b.side
-        end
-      end
-    elseif b.slapTimer <= 0 then
-      b.slapTimer = self.slapInterval
-      local weapons = Features.byName.weapons
-      if weapons and weapons.serverDamage then
-        weapons:serverDamage(server, target, nil, self.slapDamage, b.facing, "melee")
-      end
-    end
-  else
-    b.charging = false
   end
-
-  if b.sayTimer <= 0 then
-    b.sayTimer = 4 + love.math.random() * 4
-    server:broadcast(Protocol.encode("KRN_SAY", love.math.random(#self.lines)))
-  end
-
   self:finishStep(server, b, dt, running)
 end
 
@@ -611,7 +513,7 @@ function Karen:questStarted(_client, quest)
     return
   end
   face = face or KarenFace.new()
-  self.intro = { t = self.introTime, line = self.lines[love.math.random(#self.lines)] }
+  self.intro = { t = self.introTime, line = self.lines[love.math.random(self.TALK)] }
   self.stain = nil
   startMusic()
 end

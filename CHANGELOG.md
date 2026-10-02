@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Crazy Karen thinks for herself now: she charges round the houses
+  instead of into them, stomps back to her turning circle when nobody is
+  about, and below 40% of her health she marches off to a medkit lying
+  within 700 px (+200 each), complaining about it.
 - Major Looz'er has a mind of his own now: out of sight, he marches after
   you round the bunkers and huts instead of into them, and below 40% of
   his health he breaks off for a medkit lying within 700 px (+200 each),
