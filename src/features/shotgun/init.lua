@@ -41,6 +41,7 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Boss = require("src.features.shotgun.boss")
+local Nav = require("src.features.d-day.nav")
 local Face = require("src.features.shotgun.face")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
@@ -110,9 +111,10 @@ function Shotgun:serverQuestStarted(server, quest)
     return
   end
   local perch = startPerch(map)
-  sv.boss = Boss.new(perch.x, perch.y, Bosses.health(Boss.HEALTH, server))
+  local nav = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h }) -- round the bluff
+  sv.boss = Boss.new(perch.x, perch.y, Bosses.health(Boss.HEALTH, server), nav)
   sv.revealT, sv.syncIn = self.revealTime, 0
-  setStage(server, "reveal", random(#Boss.lines))
+  setStage(server, "reveal", random(Boss.TALK))
 end
 
 --- Everyone off the bluff: nothing left to draw on any screen.

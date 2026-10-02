@@ -15,6 +15,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Shotgun has a brain of his own now, and below 40% of his health he
+  goes after a medkit lying within 700 px (+200 each): out of sight first
+  if his vanish is ready and he has the breath, round the bluff by the
+  ramp if it is down below, and he only says something about it if
+  anyone can see him.
 - Crazy Karen thinks for herself now: she charges round the houses
   instead of into them, stomps back to her turning circle when nobody is
   about, and below 40% of her health she marches off to a medkit lying
