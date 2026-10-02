@@ -40,6 +40,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   pace with the reload, so a legendary gun's quicker reload sounds quicker.
 - An empty gun gives a loud click when you pull the trigger (the
   flamethrower splutters), and your last round ends with a ping.
+- Footsteps: everyone on foot is heard walking and running, in step with
+  their legs. Shoes click on the road, swish through park grass and
+  forest, crunch on the beach's sand and splash through water, and the
+  crowd around you murmurs along. They have their own volume slider.
 
 ## [0.9.0] - 2026-10-02
 
