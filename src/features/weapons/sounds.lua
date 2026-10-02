@@ -78,13 +78,15 @@ local function between(lo, hi)
   return lo + (Synth.noise() * 0.5 + 0.5) * (hi - lo)
 end
 
+local TAKES = {} -- metatable marking a list of takes
+
 --- `n` takes of a sound, `build` rendering each; Sounds.play picks one.
 local function takes(n, build)
   local list = {}
   for i = 1, n do
     list[i] = build()
   end
-  return list
+  return setmetatable(list, TAKES)
 end
 
 --- A layer of a gunshot: built, then filtered on its own.
@@ -312,109 +314,6 @@ function Sounds.load()
     drive = 3.4,
   })
 
-  -- Reloads are built from small metal clicks: a sharp tick of noise over a
-  -- short ring, lower and duller for heavier parts.
-  local function click(buf, t, freq, amp)
-    buf:noiseBurst(t, 0.03, { amp = amp, decay = 0.006 })
-    buf:tone(t, 0.04, freq, { wave = "square", amp = amp * 0.35, attack = 0.001, decay = 0.012, sustain = 0 })
-  end
-  --- A slide or bolt dragged back: a rising scrape.
-  local function rack(buf, t, dur, f0, f1, amp)
-    buf:noiseBurst(t, dur, { amp = amp * 0.5, decay = dur })
-    buf:sweep(t, dur, f0, f1, { wave = "saw", amp = amp * 0.25, decay = dur })
-  end
-
-  -- Pistol reload (1.2 s): magazine out, magazine slapped in, slide racked
-  -- and let go.
-  bank["reload-pistol"] = make(1.2, function(buf)
-    click(buf, 0.02, 1900, 0.5) -- release catch
-    rack(buf, 0.08, 0.1, 700, 400, 0.4) -- magazine slides out
-    click(buf, 0.55, 900, 0.8) -- new magazine seated
-    click(buf, 0.58, 1300, 0.4)
-    rack(buf, 0.85, 0.12, 500, 1400, 0.6) -- slide back
-    click(buf, 0.99, 1700, 0.8) -- and home
-    buf:highpass(250)
-    buf:drive(1.6)
-    buf:lowpass(6000)
-  end)
-
-  -- Uzi reload (1.8 s): a longer magazine, a heavier seat, then the bolt
-  -- pulled back and snapped forward.
-  bank["reload-uzi"] = make(1.8, function(buf)
-    click(buf, 0.02, 1500, 0.5)
-    rack(buf, 0.08, 0.16, 600, 300, 0.45)
-    click(buf, 0.85, 700, 0.9) -- magazine rocked in
-    click(buf, 0.9, 1100, 0.5)
-    rack(buf, 1.3, 0.14, 400, 1100, 0.6) -- bolt back
-    click(buf, 1.45, 1200, 0.7)
-    click(buf, 1.58, 800, 0.9) -- bolt slams forward
-    buf:highpass(200)
-    buf:drive(1.8)
-    buf:lowpass(5500)
-  end)
-
-  -- AK-47 reload (2.0 s): the banana magazine rocked out and a fresh one
-  -- rocked in with a heavy clack, then the charging handle pulled and let go.
-  bank["reload-ak47"] = make(2.0, function(buf)
-    click(buf, 0.02, 1300, 0.5) -- catch
-    rack(buf, 0.08, 0.2, 500, 260, 0.45) -- magazine rocks out
-    click(buf, 0.95, 600, 1.0) -- new one rocked in
-    click(buf, 1.0, 950, 0.5)
-    rack(buf, 1.45, 0.16, 350, 1000, 0.6) -- charging handle back
-    click(buf, 1.62, 1000, 0.7)
-    click(buf, 1.75, 700, 1.0) -- bolt home
-    buf:highpass(180)
-    buf:drive(1.8)
-    buf:lowpass(5000)
-  end)
-
-  -- Shotgun reload (2.4 s): shells thumbed into the tube one after another,
-  -- then the pump racked back and forward.
-  bank["reload-shotgun"] = make(2.4, function(buf)
-    for i = 0, 5 do
-      click(buf, 0.1 + i * 0.28, 1100 - i * 40, 0.55) -- a shell clicks past the loading gate
-      click(buf, 0.13 + i * 0.28, 700, 0.3)
-    end
-    rack(buf, 1.85, 0.14, 300, 900, 0.7) -- pump back
-    click(buf, 2.0, 900, 0.8)
-    rack(buf, 2.1, 0.12, 900, 300, 0.7) -- and forward
-    click(buf, 2.24, 600, 1.0)
-    buf:highpass(160)
-    buf:drive(1.8)
-    buf:lowpass(5200)
-  end)
-
-  -- Rocket reload (2.2 s): a missile slid down the tube, seated with a
-  -- heavy clunk, and the launcher armed.
-  bank["reload-rocket"] = make(2.2, function(buf)
-    click(buf, 0.05, 1200, 0.5) -- breech open
-    rack(buf, 0.3, 0.5, 250, 160, 0.55) -- missile slides in
-    click(buf, 0.95, 380, 1.0) -- seated
-    click(buf, 1.0, 700, 0.5)
-    click(buf, 1.7, 1500, 0.6) -- breech shut
-    click(buf, 1.95, 2100, 0.45) -- armed
-    buf:highpass(120)
-    buf:drive(1.8)
-    buf:lowpass(5000)
-  end)
-
-  -- Sniper reload (5 s): the bolt thrown open, five rounds pressed down
-  -- into the box one at a time, a pause to settle, and the bolt run home.
-  bank["reload-sniper"] = make(5.0, function(buf)
-    click(buf, 0.1, 900, 0.7) -- bolt up
-    rack(buf, 0.18, 0.18, 400, 1100, 0.6) -- and back
-    for i = 0, 4 do
-      local t = 0.9 + i * 0.62
-      click(buf, t, 1300 - i * 30, 0.5) -- a round pressed down past the lips
-      click(buf, t + 0.05, 650, 0.35)
-    end
-    rack(buf, 4.35, 0.16, 1100, 400, 0.7) -- bolt forward
-    click(buf, 4.55, 700, 0.9) -- and down, locked
-    buf:highpass(150)
-    buf:drive(1.8)
-    buf:lowpass(5200)
-  end)
-
   -- Rocket launch: a thump out of the tube and the motor hissing away.
   bank.rocket = make(0.8, function(buf)
     buf:sweep(0, 0.14, 190, 55, { wave = "sine", amp = 0.9, decay = 0.08 })
@@ -436,26 +335,6 @@ function Sounds.load()
     buf:noiseBurst(0, 0.4, { amp = 0.7, decay = 0.13 })
     buf:lowpass(900)
     buf:drive(1.6)
-  end)
-
-  -- Flamethrower reload (2.5 s): the empty tank unscrewed and knocked off, a
-  -- full one clanked on and screwed home, a hiss as the line fills.
-  bank["reload-flamethrower"] = make(2.5, function(buf)
-    rack(buf, 0.05, 0.25, 500, 300, 0.4) -- the cap unscrewed
-    click(buf, 0.4, 500, 0.8) -- the empty can knocked off
-    click(buf, 1.1, 420, 1.0) -- the full one set on, heavy
-    rack(buf, 1.3, 0.35, 300, 600, 0.45) -- screwed home
-    click(buf, 1.7, 900, 0.6)
-    buf:noiseBurst(1.9, 0.5, { amp = 0.3, decay = 0.2 }) -- the line fills
-    buf:highpass(150)
-    buf:drive(1.6)
-    buf:lowpass(5000)
-  end)
-
-  -- Dry fire: the trigger clicking on an empty chamber.
-  bank.dry = make(0.06, function(buf)
-    click(buf, 0, 2400, 0.45)
-    buf:highpass(800)
   end)
 
   -- Hits sound like what was hit and what hit it (Sounds.hitName picks).
@@ -597,11 +476,28 @@ function Sounds.load()
   end)
 end
 
+--- Add sound `name` to the bank: a Source, or a list of takes. For other
+--- weapon sound files (reloads.lua), with Sounds.make and Sounds.takes.
+function Sounds.add(name, source)
+  bank[name] = source
+end
+Sounds.make = make
+Sounds.takes = takes
+
+--- Play `name` right in my ears rather than out in the world.
+function Sounds.playHere(name, pitch)
+  local s = Sounds.play(name, 0, 0, pitch)
+  if s then
+    s:setRelative(true)
+  end
+  return s
+end
+
 --- Play `name` at world position (x, y). pitch defaults to 1. A sound
 --- with several takes plays one of them at random.
 function Sounds.play(name, x, y, pitch)
   local base = bank[name]
-  if type(base) == "table" then
+  if getmetatable(base) == TAKES then
     base = base[love.math.random(#base)]
   end
   if not base then

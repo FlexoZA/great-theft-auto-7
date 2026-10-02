@@ -133,6 +133,7 @@ local Protocol = require("src.net.protocol")
 local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
+local Reloads = require("src.features.weapons.reloads")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
@@ -263,6 +264,7 @@ end
 
 function Weapons:load()
   Sounds.load()
+  Reloads.load()
   haloImage = makeHalo()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
@@ -320,6 +322,7 @@ function Weapons:enterGame()
   Explosions.clear()
   Rockets.clear()
   Sounds.stopAll()
+  Reloads.clear()
 end
 
 function Weapons:exitGame()
@@ -395,8 +398,7 @@ function Weapons:tryFire(client)
   self.cooldown = gun.cooldown
   if (self.mags[self.gun] or 0) < 1 then
     -- Click. Reload if there is anything to load, say so if not.
-    local x, y = client:myPose()
-    Sounds.play("dry", x, y)
+    Reloads.dry(gun)
     self.armed = false -- one click per pull, not a buzz while held
     if self:reserve(self.gun) > 0 then
       self:tryReload(client)
@@ -407,6 +409,9 @@ function Weapons:tryFire(client)
   end
   if not self.infiniteAmmo then
     self.mags[self.gun] = self.mags[self.gun] - 1
+    if self.mags[self.gun] < 1 and not gun.tank and gun.magazine > 1 then
+      Reloads.after(0.08, "slide-lock", client.myId) -- that was the last one
+    end
   end
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
@@ -482,6 +487,7 @@ function Weapons:selectGun(client, index)
   end
   self.gun = index
   self.reloading = nil -- the host drops it too
+  Reloads.cancel(client.myId)
   client:send(Protocol.encode("WPN_SELECT", index))
 end
 
@@ -555,6 +561,9 @@ end
 function Weapons:update(dt, client, camera)
   self.camera = camera
   Sounds.update(dt)
+  Reloads.update(dt, function(id)
+    return clientPose(client, id)
+  end)
   self.cooldown = math.max(0, self.cooldown - dt)
   -- Ease the halo in and out rather than snap it with every hit and heal.
   self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
@@ -1015,10 +1024,7 @@ Weapons.clientMessages = {
     if not (id and gun and seconds) then
       return
     end
-    local x, y = clientPose(client, id)
-    if x then
-      Sounds.play(gun.reloadSound, x, y)
-    end
+    Reloads.start(gun.reloadSound, id, seconds)
     if id == client.myId then
       Weapons.reloading = { gun = gun.index, t = 0, total = seconds }
     end
@@ -1160,6 +1166,9 @@ Weapons.clientMessages = {
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at then
       boom(client, at.x, at.y, victim and Car.colorFor(victim))
+    end
+    if victim then
+      Reloads.cancel(victim)
     end
     if victim == client.myId then
       Weapons.deadTimer = deathTime

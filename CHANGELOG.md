@@ -34,6 +34,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   people, punches land with a thump, fire sizzles, shocks zap, and bullets
   chip the walls with the odd ricochet whining away. The flamethrower no
   longer clanks fourteen times a second on whatever it burns.
+- Reloads sound like the real thing: the empty magazine clatters on the
+  ground, a fresh one slaps in and the slide racks home; shotgun shells
+  click in one by one, the rocket launcher beeps when armed. They keep
+  pace with the reload, so a legendary gun's quicker reload sounds quicker.
+- An empty gun gives a loud click when you pull the trigger (the
+  flamethrower splutters), and your last round ends with a ping.
 
 ## [0.9.0] - 2026-10-02
 
