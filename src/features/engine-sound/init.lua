@@ -1,5 +1,9 @@
 -- Engine sound: every car hums a looping synthesised engine note whose pitch
--- follows its speed through four gears. Sources are positional, so other
+-- follows its speed through the gears. Each kind of vehicle has an engine of
+-- its own (profiles.lua): a hatchback buzzes, a V8 burbles, a motorbike
+-- screams through six gears and a truck clatters through seven. The model
+-- picks one with `engine = "<profile>"`; the plain starter cars keep the
+-- classic hum. Sources are positional, so other
 -- cars pan left/right and fade with distance from your car.
 --
 -- Purely local: nothing is sent to the server. The game state keeps the
@@ -8,6 +12,8 @@
 local Synth = require("src.audio.synth")
 local Car = require("src.car")
 local Audio = require("src.audio")
+local Features = require("src.features")
+local Profiles = require("src.features.engine-sound.profiles")
 
 local Engine = {
   name = "engine-sound",
@@ -16,20 +22,21 @@ local Engine = {
 
 -- Tuning ------------------------------------------------------------------
 Engine.volume = 0.7 -- default level of the "engine" volume channel (settings can change it)
-Engine.idleVolume = 0.35 -- fraction of volume at standstill
-Engine.gears = { 0.22, 0.45, 0.72, 1.01 } -- top of each gear as a fraction of max speed
-Engine.idlePitch = 0.9
-Engine.revRange = 1.5 -- pitch rise across one gear
-Engine.gearStep = 0.1 -- extra pitch per gear so top gear screams a little
+Engine.idleVolume = 0.35 -- fraction of volume at standstill, unless the profile says
 Engine.refDistance = 220 -- px: full volume inside this radius
 Engine.maxDistance = 1800 -- px: quietest beyond this
 
 local LOOP_BASE = 56 -- Hz at pitch 1; loop length is a whole number of cycles
 local LOOP_SECONDS = 0.5
 
-local loopData = nil
+-- Profiles in the order the settings preview cycles through them.
+Engine.ORDER = { "classic", "compact", "sedan", "v8", "bike", "diesel", "truck", "hauler" }
+
+local loops = {} -- profile key -> SoundData
+local previews = {} -- profile key -> SoundData
+local previewNext = 1
 local maxSpeed = Car.new(0, 0).maxSpeed
-local sources = {} -- car id -> { source, gear, pitch }
+local sources = {} -- car id -> { source, profile, gear, pitch }
 
 --- One seamless loop of engine rumble: saw for the rasp, a sub-octave square
 --- and two sine fundamentals for the bass, a 4-stroke amplitude wobble, soft
@@ -55,8 +62,8 @@ local function renderLoop()
   return buf:toSoundData(0.85)
 end
 
---- A second of revving for the settings screen, cut from the loop.
-local function renderPreview()
+--- A second of revving for the settings screen, cut from a loop.
+local function renderPreview(loopData)
   local buf = Synth.newBuffer(0.9)
   local n = loopData:getSampleCount()
   local pos = 0
@@ -71,11 +78,16 @@ local function renderPreview()
 end
 
 function Engine:load()
-  loopData = renderLoop()
+  for _, key in ipairs(self.ORDER) do
+    loops[key] = key == "classic" and renderLoop() or Profiles.render(Profiles[key])
+    previews[key] = renderPreview(loops[key])
+  end
   love.audio.setDistanceModel("inverseclamped")
-  local preview = renderPreview()
+  -- Each press of the preview revs the next kind of engine.
   Audio.registerChannel("engine", "Vehicle engine", self.volume, function()
-    local s = love.audio.newSource(preview, "static")
+    local key = self.ORDER[previewNext]
+    previewNext = previewNext % #self.ORDER + 1
+    local s = love.audio.newSource(previews[key], "static")
     s:setRelative(true)
     s:setVolume(Audio.volume("engine"))
     s:play()
@@ -93,14 +105,29 @@ function Engine:exitGame()
   sources = {}
 end
 
-local function ensureSource(id)
+--- Car `id`'s vehicles-catalog model as the host told us, or nil for a
+--- starter car.
+local function modelOf(id)
+  local vehicles = Features.byName.vehicles
+  return vehicles and vehicles.catalog.byKey[vehicles.models[id] or ""]
+end
+
+--- Car `id`'s engine, started (or swapped, when its model arrived late)
+--- to sound like `key`.
+local function ensureSource(id, key)
   local e = sources[id]
+  if e and e.profile ~= key then
+    e.source:stop()
+    e = nil
+  end
   if not e then
-    local source = love.audio.newSource(loopData, "static")
+    local p = Profiles[key]
+    local reach = p.reach or 1
+    local source = love.audio.newSource(loops[key], "static")
     source:setLooping(true)
-    source:setAttenuationDistances(Engine.refDistance, Engine.maxDistance)
+    source:setAttenuationDistances(Engine.refDistance * reach, Engine.maxDistance * reach)
     source:play()
-    e = { source = source, gear = 1, pitch = Engine.idlePitch }
+    e = { source = source, profile = key, p = p, gear = 1, pitch = p.idlePitch }
     sources[id] = e
   end
   return e
@@ -109,11 +136,13 @@ end
 function Engine:update(dt, client)
   for id, c in pairs(client.vehicles) do
     if c.driver then -- a parked car's engine is off
-    local e = ensureSource(id)
-    local frac = math.min(math.abs(c.speed) / maxSpeed, 1)
+    local model = modelOf(id)
+    local e = ensureSource(id, Profiles.forModel(model))
+    local p = e.p
+    local frac = math.min(math.abs(c.speed) / (model and model.topSpeed or maxSpeed), 1)
 
     -- Gear with a little hysteresis so it doesn't chatter at the boundary.
-    local gears = self.gears
+    local gears = p.gears
     while e.gear < #gears and frac > gears[e.gear] + 0.02 do
       e.gear = e.gear + 1
     end
@@ -123,10 +152,11 @@ function Engine:update(dt, client)
     local lo = e.gear == 1 and 0 or gears[e.gear - 1]
     local within = math.max(0, math.min(1, (frac - lo) / (gears[e.gear] - lo)))
 
-    local target = self.idlePitch + within * self.revRange + (e.gear - 1) * self.gearStep
+    local target = p.idlePitch + within * p.revRange + (e.gear - 1) * p.gearStep
     e.pitch = e.pitch + (target - e.pitch) * math.min(1, dt * 10)
     e.source:setPitch(e.pitch)
-    e.source:setVolume(Audio.volume("engine") * (self.idleVolume + (1 - self.idleVolume) * frac))
+    local idle = p.idleVolume or self.idleVolume
+    e.source:setVolume(math.min(1, Audio.volume("engine") * (p.gain or 1) * (idle + (1 - idle) * frac)))
     e.source:setPosition(c.dx, 0, c.dy)
     end
   end
@@ -145,5 +175,6 @@ function Engine.sources()
   return sources
 end
 Engine.renderLoop = renderLoop
+Engine.profiles = Profiles
 
 return Engine
