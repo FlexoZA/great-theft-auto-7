@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- City 17's Combine soldiers watch a wider cone while they are on edge:
+  100 degrees (was 60) while they have you in their sights, are searching
+  for you or are looking into something, back to 60 once they settle.
 - City 17's Combine soldiers carry any of the guns now, not just the AK:
   uzis, shotguns, pistols, flamethrowers (with a fuel tank on their back),
   rocket launchers and sniper rifles, fired in bursts. Shotgun and

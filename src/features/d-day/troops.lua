@@ -86,11 +86,27 @@ end
 ---   aware   px all round them that they notice somebody in, whichever way
 ---           they face (never through a wall; nobody draws it), 0 for none
 ---   health  what each one can take (Troops.HEALTH)
+---   alertFov  how wide his cone is while he is on edge: has somebody, or
+---           is searching or looking into something (`fov` throughout)
 function Troops.new(opts)
   opts = opts or {}
   local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt or false, fov = opts.fov,
-    aware = opts.aware or 0, health = opts.health or Troops.HEALTH }
+    aware = opts.aware or 0, health = opts.health or Troops.HEALTH, alertFov = opts.alertFov }
   return setmetatable(t, Troops)
+end
+
+--- Is `s` on edge: somebody in his sights, or out searching or looking
+--- into something?
+function Troops.wary(s)
+  return s.alert or s.goal ~= nil
+end
+
+--- How wide `s`'s cone of sight is right now.
+function Troops:fovOf(s)
+  if self.alertFov and Troops.wary(s) then
+    return self.alertFov
+  end
+  return self.fov or Sight.FOV
 end
 
 --- A soldier of `kind` at (x, y), watching `watch` (radians).
@@ -522,12 +538,13 @@ function Troops:think(server, s, dt)
       tx, ty = poseOf(server, s.target)
     end
     -- Once he has someone he keeps them in a wider eye: TRACK_FOV, or more for a wide cone.
-    local track = math.max(Troops.TRACK_FOV, (self.fov or Sight.FOV) + math.rad(30))
+    local fov = self:fovOf(s)
+    local track = math.max(Troops.TRACK_FOV, fov + math.rad(30))
     local kept = tx
       and (Sight.canSee(s.x, s.y, s.facing, tx, ty, Troops.RANGE, track)
         or (self.aware > 0 and Sight.canSee(s.x, s.y, s.facing, tx, ty, self.aware, 2 * math.pi)))
     if not kept then
-      s.target = spot(server, s, self.fov, self.aware)
+      s.target = spot(server, s, fov, self.aware)
       if s.target then
         -- A moment to take aim, and longer if he has to turn round first.
         local px, py = poseOf(server, s.target)

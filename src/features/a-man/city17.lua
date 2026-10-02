@@ -27,7 +27,8 @@
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
---   server -> all  C17_TROOPS <tick> [<id> <x> <y> <facing> <hp> <alert> <gun>]...   (unreliable, 15 Hz)
+--   server -> all  C17_TROOPS <tick> [<id> <x> <y> <facing> <hp> <alert> <gun>]...   (unreliable, 15 Hz;
+--                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
 
@@ -49,6 +50,7 @@ Level.reach = 140 -- px from the Citadel's doors that counts as reaching them
 Level.soldierDrops = 3 -- koins a soldier spills
 Level.squadSize = 3 -- soldiers in a patrol
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
+Level.alertFov = math.rad(100) -- how wide it is while one is on edge: has somebody, searching, investigating
 Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
 Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 -- What they carry, by gun key: `weight` how likely, `burst` rounds at the
@@ -140,7 +142,9 @@ function Level.serverQuestStarted(_server, quest)
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
-  local troops = Troops.new({ hunt = true, fov = Level.fov, aware = Level.aware, health = Level.health })
+  local troops = Troops.new({
+    hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
+  })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
@@ -188,7 +192,7 @@ local function sync(server)
     parts[#parts + 1] = ("%.0f"):format(s.y)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
-    parts[#parts + 1] = s.alert and 1 or 0
+    parts[#parts + 1] = s.alert and 1 or (Troops.wary(s) and 2 or 0)
     parts[#parts + 1] = s.arms and s.arms.index or 0
   end
   local msg = Protocol.encode("C17_TROOPS", unpack(parts))
@@ -405,6 +409,9 @@ function Level.update(dt)
       s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
       s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
     end
+    -- His cone opens out while he is on edge and closes again after.
+    local fov = s.wary and Level.alertFov or Level.fov
+    s.fov = s.fov + (fov - s.fov) * math.min(1, dt * 4)
     if s.say then
       s.sayT = s.sayT - dt
       if s.sayT <= 0 then
@@ -417,7 +424,7 @@ end
 --- Their cones of sight, on the ground under everything.
 function Level.drawBelowCars()
   for _, s in pairs(troops) do
-    Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, Level.fov)
+    Sight.draw(s.dx, s.dy, s.angle, Troops.RANGE, s.alert, time, s.fov)
   end
 end
 
@@ -507,13 +514,14 @@ Level.clientMessages = {
       if id and x and y then
         local s = troops[id]
         if not s then
-          s = { dx = x, dy = y, bob = love.math.random() * 6, stride = 0 }
+          s = { dx = x, dy = y, bob = love.math.random() * 6, stride = 0, fov = Level.fov }
           troops[id] = s
         end
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Level.health
         s.alert = args[i + 5] == "1"
+        s.wary = args[i + 5] ~= "0"
         s.gun = tonumber(args[i + 6])
         seen[id] = true
       end

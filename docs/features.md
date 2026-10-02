@@ -897,7 +897,7 @@ the one with a plot.
   `Troops:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
   troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
-  cone where D-Day's is 30, an undrawn 170 px all-round awareness, walls
+  cone where D-Day's is 30 (100 while on edge, `alertFov`), an undrawn 170 px all-round awareness, walls
   still hiding you, and 60 health where D-Day's have 40): a soldier closes in on whoever
   he can see, searches where he lost them, goes looking when shot from
   out of sight, and `Troops:alarm` sends everyone within 700 px of a
