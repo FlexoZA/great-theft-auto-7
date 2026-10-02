@@ -328,6 +328,12 @@ function Runner.stop()
 end
 
 --- Where he is drawn now, for the minimap.
+--- Where he walks, for footsteps.
+function Runner.footing()
+  local x, y = Runner.where()
+  return x, y, "heavy"
+end
+
 function Runner.where()
   local r = cl and cl.r
   if r then

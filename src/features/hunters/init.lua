@@ -494,4 +494,13 @@ Hunters.clientMessages = {
   end,
 }
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Hunters:footstepWalkers()
+  local list = {}
+  for id, h in pairs(shown) do
+    list[#list + 1] = { key = id, x = h.dx, y = h.dy, size = "claw" }
+  end
+  return list
+end
+
 return Hunters

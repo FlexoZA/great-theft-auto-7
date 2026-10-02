@@ -441,4 +441,12 @@ Shotgun.clientMessages = {
   end,
 }
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Shotgun:footstepWalkers()
+  local b = self.boss
+  if b and b.shown then
+    return { { key = "boss", x = b.dx, y = b.dy, size = "heavy" } }
+  end
+end
+
 return Shotgun

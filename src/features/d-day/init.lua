@@ -675,4 +675,16 @@ Dday.clientMessages = {
   end,
 }
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Dday:footstepWalkers()
+  local list = {}
+  for id, s in pairs(self.troops or {}) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  if self.major then
+    list[#list + 1] = { key = "major", x = self.major.dx, y = self.major.dy, size = "heavy" }
+  end
+  return list
+end
+
 return Dday

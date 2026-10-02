@@ -665,4 +665,13 @@ function Police.server()
   return sv
 end
 
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Police:footstepWalkers()
+  local list = {}
+  for id, o in pairs(Render.officers) do
+    list[#list + 1] = { key = id, x = o.dx, y = o.dy, size = "person" }
+  end
+  return list
+end
+
 return Police

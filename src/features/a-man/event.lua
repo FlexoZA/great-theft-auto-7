@@ -404,6 +404,12 @@ function AMan.stop()
 end
 
 --- Where he is drawn now, for the minimap.
+--- Where he walks, for footsteps.
+function AMan.footing()
+  local x, y = AMan.where()
+  return x, y, "person"
+end
+
 function AMan.where()
   local a = cl and cl.a
   if a then

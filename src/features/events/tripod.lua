@@ -508,6 +508,12 @@ function Tripod.stop()
 end
 
 --- Where it is drawn now, for the minimap.
+--- Where he walks, for footsteps.
+function Tripod.footing()
+  local x, y = Tripod.where()
+  return x, y, "giant"
+end
+
 function Tripod.where()
   local t = cl and cl.t
   if t then
