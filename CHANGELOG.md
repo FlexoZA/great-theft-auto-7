@@ -15,6 +15,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Bigfoot has a brain of his own now, the same one in the city and in
+  the forest, and below 40% of his health he goes for a medkit lying
+  within 700 px (+200 each): he leaps onto it if it's a fair way off and
+  he has the breath (the landing slams anyone there, as usual), and
+  lumbers over if not.
 - A-Man has a brain of his own now, and below 40% of his health he goes
   for a medkit lying within 1600 px (+200 each): he blinks straight onto
   it if he has the breath (the warning line shows, and anyone on it is
