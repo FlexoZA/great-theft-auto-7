@@ -1,8 +1,10 @@
 -- The Hunter-Chopper: the Combine's gunship-helicopter, the Outer City's
 -- boss (A-Man's trail, quests' "a-man-2"). When everyone arrives in the
 -- Outer City it is already up, flying round and round the square on the
--- island (flight.lua), its gun turning after the nearest player in reach.
--- It does not shoot yet, and nothing can hurt it.
+-- island (flight.lua), and its gun (brain.lua) locks on to whoever it can
+-- see, warns them with a beam and a whine for a second and fires a burst.
+-- You hear its rotor from across the city (sounds.lua). Nothing can hurt
+-- it yet.
 --
 -- The host flies it and tells everyone where it is; every machine eases
 -- what it draws towards that and draws it over everything on the ground
@@ -11,15 +13,20 @@
 -- Modules
 --   render.lua  the chopper from above: hull, rotors, the gun, its shadow
 --   flight.lua  where it flies, on the host
+--   brain.lua   its gun, on the host: who it goes after, the lock, the burst
+--   sounds.lua  its rotor loop and the lock-on whine
 --
 -- Messages
---   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim>]   (unreliable, 15 Hz;
---                  nothing after the tick: no chopper)
+--   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim> <lock> <firing>]
+--                  (unreliable, 15 Hz; nothing after the tick: no chopper; lock 0..1 the gun
+--                  locking on, firing 1 while it fires)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Render = require("src.features.hunter-chopper.render")
 local Flight = require("src.features.hunter-chopper.flight")
+local Brain = require("src.features.hunter-chopper.brain")
+local Sounds = require("src.features.hunter-chopper.sounds")
 
 local HunterChopper = {
   name = "hunter-chopper",
@@ -29,7 +36,6 @@ local HunterChopper = {
 -- Tuning ------------------------------------------------------------------
 HunterChopper.questId = "a-man-2" -- the quest it is the boss of
 HunterChopper.map = "outercity" -- the map it flies over
-HunterChopper.sees = 900 -- px; its gun turns after the nearest player this near
 
 local SYNC_EVERY = 2 -- server ticks between HC_STATE
 local SMOOTHING = 10 -- per second, the easing of what is drawn
@@ -46,14 +52,18 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { flight, aim, syncIn } while it is up
+local sv = nil -- { flight, brain, syncIn } while it is up
+
+function HunterChopper:load()
+  Sounds.load()
+end
 
 --- Everyone arrived in the Outer City: it is up and flying.
 function HunterChopper:serverQuestStarted(_server, quest)
   local map = cityMap()
   if quest.id == self.questId and map and map.bossX then
-    sv = { flight = Flight.new(map.bossX, map.bossY, math.pi / 2), syncIn = 0 }
-    sv.aim = sv.flight.angle
+    local flight = Flight.new(map.bossX, map.bossY, math.pi / 2)
+    sv = { flight = flight, brain = Brain.new(flight.angle), syncIn = 0 }
   end
 end
 
@@ -74,37 +84,22 @@ function HunterChopper:mapChanged(_map, server)
   end
 end
 
---- The nearest player in reach, for the gun to turn after.
-local function nearest(server, x, y)
-  local best, bestD2 = nil, HunterChopper.sees ^ 2
-  for _, p in pairs(server.players) do
-    if Features.present(p) then
-      local px, py = Features.bodyPose(server, p)
-      local d2 = (px - x) ^ 2 + (py - y) ^ 2
-      if d2 < bestD2 then
-        best, bestD2 = { x = px, y = py }, d2
-      end
-    end
-  end
-  return best
-end
-
 function HunterChopper:serverStep(server, dt)
   if not sv then
     return
   end
   local f = sv.flight
   Flight.step(f, dt)
-  local target = nearest(server, f.x, f.y)
-  local want = target and math.atan2(target.y - f.y, target.x - f.x) or f.angle
-  sv.aim = sv.aim + wrap(want - sv.aim) * math.min(1, dt * 4)
+  local b = sv.brain
+  Brain.step(b, f, server, dt)
   sv.syncIn = sv.syncIn - 1
   if sv.syncIn > 0 then
     return
   end
   sv.syncIn = SYNC_EVERY
   local msg = Protocol.encode("HC_STATE", server.tick, ("%.0f"):format(f.x), ("%.0f"):format(f.y),
-    ("%.3f"):format(f.angle), ("%.2f"):format(f.bank), ("%.0f"):format(f.altitude), ("%.3f"):format(sv.aim))
+    ("%.3f"):format(f.angle), ("%.2f"):format(f.bank), ("%.0f"):format(f.altitude), ("%.3f"):format(b.aim),
+    ("%.2f"):format(Brain.lock(b)), b.mode == "fire" and 1 or 0)
   for _, player in pairs(server.players) do
     if not player.bot then
       server:send(player, msg, true)
@@ -119,12 +114,22 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local cl = nil -- { x, y, angle, bank, altitude, aim } as drawn, with `to` what the host last said
+local cl = nil -- { x, y, angle, bank, altitude, aim, lock, firing } as drawn, with `to` what the host last said
 local lastTick = 0
 local time = 0
+local rotor = nil -- the rotor loop, while there is a chopper
+
+local function gone()
+  cl = nil
+  if rotor then
+    rotor:stop()
+    rotor = nil
+  end
+end
 
 function HunterChopper:exitGame()
-  cl, lastTick = nil, 0
+  gone()
+  lastTick = 0
 end
 
 function HunterChopper:update(dt)
@@ -143,6 +148,12 @@ function HunterChopper:update(dt)
   cl.aim = cl.aim + wrap(to.aim - cl.aim) * k
   cl.bank = cl.bank + (to.bank - cl.bank) * k
   cl.altitude = cl.altitude + (to.altitude - cl.altitude) * k
+  cl.lock, cl.firing = to.lock, to.firing
+  -- The rotor works harder leaning into a turn.
+  rotor = rotor or Sounds.rotor(cl.x, cl.y)
+  if rotor then
+    Sounds.place(rotor, cl.x, cl.y, 1 + math.abs(cl.bank) * 0.06)
+  end
 end
 
 function HunterChopper:drawAboveCars()
@@ -160,13 +171,17 @@ HunterChopper.clientMessages = {
     lastTick = tick
     local x, y = tonumber(args[2]), tonumber(args[3])
     if not (x and y) then
-      cl = nil
+      gone()
       return
     end
     local to = {
       x = x, y = y, angle = tonumber(args[4]) or 0, bank = tonumber(args[5]) or 0,
       altitude = tonumber(args[6]) or Render.ALTITUDE, aim = tonumber(args[7]) or 0,
+      lock = tonumber(args[8]) or 0, firing = args[9] == "1",
     }
+    if to.lock > 0 and not (cl and cl.to and cl.to.lock > 0) then
+      Sounds.play("lock", x, y) -- it has just locked on to somebody
+    end
     if not cl then
       cl = { x = to.x, y = to.y, angle = to.angle, bank = to.bank, altitude = to.altitude, aim = to.aim }
     end

@@ -951,10 +951,20 @@ the one with a plot.
   square on the island, flying round it on the host (`flight.lua`): a ring
   520 px out from the middle that swings 150 px in and out in three lobes
   drifting round, at 210 px/s, nose along the way, leaning into the curve
-  and bobbing round 80 px up. Its gun turns after the nearest player
-  within 900 px. It does not shoot yet and cannot be hurt. The host sends
-  `HC_STATE` (unreliable, 15 Hz; empty to take it away when the quest or
-  the map changes) and every machine eases what it draws towards it. Its
+  and bobbing round 80 px up. Its gun (`brain.lua`) goes after the
+  nearest player it can see (`Features.visible`, within 700 px, nothing
+  solid between them and the muzzle, inside the gun's 70-degree swing):
+  it locks on for 1 s (a red beam down its aim on every screen and a
+  rising whine), fires a burst of 20 rounds (6 damage, 13 a second, the
+  AK's rounds and sound, owned by nobody, so cover stops them) aiming
+  down its own barrel and turning only 1.4 rad/s, so running across its
+  line beats it, then rests 2.2 s. A full burst on somebody standing still
+  does about 40. It cannot be hurt yet. Its rotor is a synthesised
+  seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
+  follows it about and carries 3200 px. The host sends `HC_STATE`
+  (unreliable, 15 Hz, with the lock and whether it is firing; empty to
+  take it away when the quest or the map changes) and every machine eases
+  what it draws towards it. Its
   model (`render.lua`,
   `Render.chopper(c, time)`, stateless like the tripod's): an armoured head
   with a canopy and a glowing eye, the pulse gun under the chin swinging

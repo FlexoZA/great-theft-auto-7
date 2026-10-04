@@ -277,12 +277,54 @@ end
 
 -- Drawing it -----------------------------------------------------------------
 
+--- The gun's aim off the nose, clamped to how far it swings, for a chopper
+--- facing `angle` aiming at world angle `aim`.
+local function gunAim(angle, aim)
+  local a = ((aim or angle) - angle + math.pi) % (2 * math.pi) - math.pi
+  return math.max(-GUN_ARC, math.min(GUN_ARC, a))
+end
+
+--- Can the gun of a chopper facing `angle` swing round to world angle `aim`?
+function Render.canAim(angle, aim)
+  local a = (aim - angle + math.pi) % (2 * math.pi) - math.pi
+  return math.abs(a) <= GUN_ARC
+end
+
+--- Where the muzzle is, in world px, and the way it points: the host fires
+--- from here, so its rounds leave from where every screen draws the gun.
+function Render.muzzle(x, y, angle, aim, altitude)
+  local size = 1 + (altitude or Render.ALTITUDE) / 900
+  local a = gunAim(angle, aim)
+  local mx = GUN_AT[1] + math.cos(a) * (GUN_LENGTH + 4)
+  local my = GUN_AT[2] + math.sin(a) * (GUN_LENGTH + 4)
+  local ca, sa = math.cos(angle), math.sin(angle)
+  return x + (ca * mx - sa * my) * size, y + (sa * mx + ca * my) * size, angle + a
+end
+
+--- The gun locking on: a thin beam along its aim from the muzzle, pulsing
+--- faster as `k` (0..1) runs up to the first round.
+local function drawLock(mx, my, aim, k, time)
+  local pulse = 0.5 + 0.5 * math.sin(time * (10 + k * 30))
+  local len = 900
+  local ex, ey = mx + math.cos(aim) * len, my + math.sin(aim) * len
+  love.graphics.setColor(1, 0.2, 0.15, (0.12 + 0.2 * k) * (0.5 + 0.5 * pulse))
+  love.graphics.setLineWidth(5 + k * 5)
+  love.graphics.line(mx, my, ex, ey)
+  love.graphics.setColor(1, 0.35, 0.3, (0.45 + 0.45 * k) * (0.6 + 0.4 * pulse))
+  love.graphics.setLineWidth(1.5 + k * 1.5)
+  love.graphics.line(mx, my, ex, ey)
+  love.graphics.setColor(1, 0.5, 0.4, 0.6 * pulse)
+  love.graphics.circle("fill", mx, my, 3 + k * 4, 10)
+  love.graphics.setLineWidth(1)
+end
+
 --- The chopper from above. `c` is:
 ---   x, y, angle   where it is and which way the nose points
 ---   altitude      px up: how far its shadow falls (defaults to ALTITUDE; 0 on the ground)
 ---   aim           where the gun points, in the world (defaults to `angle`); it
 ---                 swings only so far either way of the nose
 ---   firing        true while the gun fires (the muzzle flashes)
+---   lock          0..1 the gun locking on (a beam down its aim), nil or 0 when not
 ---   bank          -1..1 leaning into a turn (port down .. starboard down)
 ---   spin          0..1 how fast the rotors turn (defaults to 1; 0 stopped)
 ---   hp, max       health, for the bar over it (no bar without them)
@@ -291,9 +333,7 @@ function Render.chopper(c, time)
   local altitude = c.altitude or Render.ALTITUDE
   local spin = c.spin or 1
   local bank = c.bank or 0
-  local aim = (c.aim or c.angle) - c.angle
-  aim = (aim + math.pi) % (2 * math.pi) - math.pi
-  aim = math.max(-GUN_ARC, math.min(GUN_ARC, aim))
+  local aim = gunAim(c.angle, c.aim)
   local hurt = (c.hp and c.max) and (1 - math.max(0, c.hp / c.max)) or 0
   -- Up close to the camera it looks a touch bigger; its shadow a touch smaller.
   local size = 1 + altitude / 900
@@ -329,7 +369,12 @@ function Render.chopper(c, time)
   end
   love.graphics.setColor(1, 1, 1)
   local ca, sa = math.cos(c.angle), math.sin(c.angle)
-  return c.x + (ca * mx - sa * my) * size, c.y + (sa * mx + ca * my) * size
+  local wx, wy = c.x + (ca * mx - sa * my) * size, c.y + (sa * mx + ca * my) * size
+  if c.lock and c.lock > 0 then
+    drawLock(wx, wy, c.angle + aim, c.lock, time)
+  end
+  love.graphics.setColor(1, 1, 1)
+  return wx, wy
 end
 
 return Render

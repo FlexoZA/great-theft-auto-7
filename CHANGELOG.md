@@ -20,7 +20,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   to the Outer City: packed concrete blocks, canals and bridges, parks,
   and a big open square on an island in the middle, all of it left to
   rot: collapsed buildings, holed roofs, rusted wrecks, weeds through the
-  paving and rubbish in the canals. Nobody there yet.
+  paving and rubbish in the canals.
+- The Hunter-Chopper: a Combine gunship circling the Outer City's square.
+  You hear its rotor from across the city; when its gun locks on to you a
+  red beam and a rising whine give you a second to get moving before the
+  burst. Run across its line, or get behind something. It can't be shot
+  down yet.
 
 ## [0.11.0] - 2026-10-04
 
