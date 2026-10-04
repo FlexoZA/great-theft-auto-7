@@ -5,7 +5,8 @@
 -- (the MG nest) is selected with a press of its key instead: an arrow from
 -- you shows where it would go, `range` away towards the cursor, and the
 -- fire button puts it there (weapons leaves the gun alone meanwhile: the
--- `fireTaken` convention); the key again or right-click puts it away. One
+-- `fireTaken` convention); the key again or right-click puts it away, and
+-- another ability's key switches straight to that one. One
 -- with `aim = "point"` (leap) is selected and placed the same way, but
 -- shows its area under the cursor, kept within range, like a held one. One
 -- with `aim = "self"` (heal) has nothing to aim: a press of its key casts
@@ -389,13 +390,16 @@ function Abilities:modeOf(ability)
 end
 
 --- A press of a direction or point ability's key selects it (or puts it
---- away); a press of a self ability's key casts it on the spot.
+--- away); a press of a self ability's key casts it on the spot. Either one
+--- takes over from another direction or point ability that is selected,
+--- but not from one being held.
 local function press(self, client, i, ability)
-  local free = not self.aiming and not self.cooldowns[ability.key] and client:myPose() ~= nil
-    and usable(client, ability)
+  local free = (not self.aiming or self:selecting()) and not self.cooldowns[ability.key]
+    and client:myPose() ~= nil and usable(client, ability)
     and not self:held(client, client.myId) and not Features.any("pointerTaken", client)
   if ability.aim == "self" then
     if free then
+      self.aiming = nil
       self:cast(client, i)
     end
   elseif self.aiming == i then
@@ -564,7 +568,7 @@ function Abilities:update(dt, client, camera)
         self.aiming = nil
         self:cast(client, i)
       end
-    elseif down and not direction and not self.aiming and self.spent ~= i and canAim
+    elseif down and not direction and (not self.aiming or self:selecting()) and self.spent ~= i and canAim
       and not self.cooldowns[ability.key] and usable(client, ability) then
       self.aiming = i
     end
