@@ -947,7 +947,15 @@ the one with a plot.
   breaks the bridges' rails. No level of its own yet:
   nobody there, nothing to finish.
 - The Hunter-Chopper: `src/features/hunter-chopper`, the Outer City's
-  boss to be, after Half-Life's. So far only its model (`render.lua`,
+  boss, after Half-Life's. When "a-man-2" starts it is already up over the
+  square on the island, flying round it on the host (`flight.lua`): a ring
+  520 px out from the middle that swings 150 px in and out in three lobes
+  drifting round, at 210 px/s, nose along the way, leaning into the curve
+  and bobbing round 80 px up. Its gun turns after the nearest player
+  within 900 px. It does not shoot yet and cannot be hurt. The host sends
+  `HC_STATE` (unreliable, 15 Hz; empty to take it away when the quest or
+  the map changes) and every machine eases what it draws towards it. Its
+  model (`render.lua`,
   `Render.chopper(c, time)`, stateless like the tripod's): an armoured head
   with a canopy and a glowing eye, the pulse gun under the chin swinging
   70 degrees either way to its `aim` and flashing while `firing`, stub
