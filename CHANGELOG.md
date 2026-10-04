@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-04
+
+Abilities are quicker to juggle: with one selected, another ability's key
+switches straight to it.
+
+### Changed
+- With an ability selected, pressing another ability's key switches straight to it instead of
+  having to put the first one away.
+
 ## [0.10.0] - 2026-10-02
 
 The city finally sounds alive. Every vehicle has its own engine and horn,
