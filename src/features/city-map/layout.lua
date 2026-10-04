@@ -22,12 +22,14 @@
 -- (see `buildCliff`). `kind = "city17"` is City 17, a grey occupied city
 -- walked from a station at the bottom to the Citadel at the top (see
 -- `buildCity17`). `kind = "citadel"` is the Citadel's inside, one catwalk
--- up through a drop (citadel.lua).
+-- up through a drop (citadel.lua). `kind = "outercity"` is the Outer City,
+-- blocks, canals and parks round an open square (outer_city.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
 
 local Citadel = require("src.features.city-map.citadel")
+local OuterCity = require("src.features.city-map.outer_city")
 
 local Layout = {}
 
@@ -1175,7 +1177,8 @@ function Layout.generate(spec)
   }
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
-    or map.kind == "city17" or map.kind == "citadel" then
+    or map.kind == "city17" or map.kind == "citadel"
+    or map.kind == "outercity" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
@@ -1186,6 +1189,8 @@ function Layout.generate(spec)
       buildCity17(map, rng)
     elseif map.kind == "citadel" then
       Citadel.build(map, rng, T)
+    elseif map.kind == "outercity" then
+      OuterCity.build(map, rng, T)
     else
       buildCuldesac(map, rng)
     end

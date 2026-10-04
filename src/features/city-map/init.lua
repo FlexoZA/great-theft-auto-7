@@ -92,7 +92,14 @@ CityMap.maps = {
     police = false, traffic = false, vehicles = false,
     crowdScale = 0.5, -- half the usual citizens: the Combine are the crowd here
   },
-  -- Inside the Citadel, A-Man's second stop: one narrow catwalk up through
+  -- The Outer City, on A-Man's trail before the Citadel: a concrete jungle
+  -- with canals, bridges and parks round a big open square on an island,
+  -- where the boss fight is (outer_city.lua). Walked; nobody about.
+  outercity = {
+    title = "The Outer City", kind = "outercity", seed = 31, cols = 72, rows = 56,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  -- Inside the Citadel, a stop on A-Man's trail: one narrow catwalk up through
   -- a vast shaft, widening into platforms the Combine hold, the drop all
   -- round it (citadel.lua). Walked; nobody about but them.
   citadel = {

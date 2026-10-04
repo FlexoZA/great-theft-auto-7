@@ -36,6 +36,7 @@
 --   server -> all     QST_START  <questId> <playerId>   (who took the job)
 --   server -> all     QST_DONE   <questId>              (the job is done)
 --   server -> all     QST_EXIT   <x> <y>                (an EXIT star home stands here, on the map in play)
+--   server -> all     QST_HELD   <questId>              (the trip was taken but a feature holds it up: offers down)
 --   server -> player  QST_NO     <reason>               (away | gone)
 
 local Protocol = require("src.net.protocol")
@@ -58,10 +59,14 @@ local Quests = {
 -- of starting one. `label` and `color` dress the star; `banner` is what
 -- everyone reads when the trip happens (%s is the taker's name). `boss`
 -- names the feature that owns the fight there (karen listens for its own).
--- `exitText` (optional) is what the EXIT star says once it is done.
+-- `exitText` (optional) is what the EXIT star says once it is done;
+-- `exitTitle` and `exitLabel` (optional) name it, for an EXIT star on to
+-- the `next` quest that should not give away where it really goes.
 -- `next` (optional) names the quest that carries on from this one: once
 -- this one is done its EXIT star takes everyone straight on to that
--- quest's map and starts it, instead of home. A quest only reached that way
+-- quest's map and starts it, instead of home. A feature may hold that trip
+-- up (`serverHoldTrip(server, quest, player)` returning true, e.g. A-Man
+-- turning up first) and make it itself later with `quests:serverBegin`. A quest only reached that way
 -- has no `board` and no `onMap`. `introLine` is for the boss feature (A-Man
 -- says that line of his on his intro screen).
 Quests.list = {
@@ -125,10 +130,26 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s took the train. Welcome to City 17.",
     exitText = "You made it to the Citadel. He went inside. Go in after him.",
+    exitTitle = "Into the Citadel",
+    exitLabel = "CITADEL",
     next = "a-man-2",
   },
   {
+    -- Where the Citadel's doors really lead: A-Man turns up and sends
+    -- everyone the long way round (a-man/detour.lua).
     id = "a-man-2",
+    title = "The Outer City",
+    text = "Not the Citadel. He sent you out past the edge of the city: blocks, canals and a square in the middle.",
+    map = "outercity",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "A-Man had other plans for %s. Welcome to the Outer City.",
+    introLine = 6,
+  },
+  {
+    -- The end of the trail, for later; for now only `love . --quest a-man-citadel` gets there.
+    id = "a-man-citadel",
     title = "Into the Citadel",
     text = "He went inside. One catwalk up through the Citadel, and the Combine on every platform along it.",
     map = "citadel",
@@ -217,6 +238,19 @@ Quests.list = {
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
   },
+  {
+    id = "home-outercity",
+    title = "Back to the City",
+    text = "Find a way back in. Take everyone home.",
+    onMap = "outercity",
+    x = -2016, -- the left end of the arrival square: city-map's map.cx, map.cy
+    y = 1408,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
 }
 Quests.byId = {}
 Quests.board = {} -- the jobs on the Jobs building's board, in list order
@@ -255,14 +289,14 @@ local function exitQuest(onMap, x, y, done)
   if next then
     return {
       id = "exit",
-      title = next.title,
+      title = done.exitTitle or next.title,
       text = done.exitText or next.text,
       onMap = onMap,
       x = x,
       y = y,
       map = next.map,
       starts = next.id, -- the quest taking it starts
-      label = next.label,
+      label = done.exitLabel or next.label,
       color = next.color,
       banner = next.banner,
     }
@@ -716,6 +750,12 @@ Quests.clientMessages = {
       Quests.exit = exitQuest(city.current, x, y, Quests.byId[Quests.done or ""])
     end
   end,
+  QST_HELD = function(_client, args)
+    -- Taken, and something is happening first: the offer goes down and stays down.
+    if Quests.prompt and Quests.prompt.id == args[1] then
+      declined, Quests.prompt = args[1], nil
+    end
+  end,
   QST_NO = function(_client, args)
     notice = REASONS[args[1]]
     noticeTimer = notice and NOTICE_TIME or 0
@@ -842,7 +882,12 @@ Quests.serverMessages = {
     elseif not onStar(server, player, quest) then
       reason = "away"
     else
-      Quests:serverBegin(server, Quests.byId[quest.starts or ""] or quest, player) -- an EXIT star on starts the next
+      local trip = Quests.byId[quest.starts or ""] or quest -- an EXIT star on starts the next
+      if Features.any("serverHoldTrip", server, trip, player) then
+        server:broadcast(Protocol.encode("QST_HELD", quest.id))
+      else
+        Quests:serverBegin(server, trip, player)
+      end
       return
     end
     server:send(player, Protocol.encode("QST_NO", reason))

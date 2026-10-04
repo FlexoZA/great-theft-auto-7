@@ -23,6 +23,7 @@ Screen.lines = {
   "I have an... appointment. In this city. You are, regrettably... in my way.",
   "These glasses? Prescription. The tag is... a reminder. Of the price. Of everything.",
   "Time, I'm afraid... is up. Nothing personal. My case is... full of surprises.",
+  "The Citadel? Not... yet. There is another way round. A scenic one. I insist.",
 }
 
 Screen.color = { 0.55, 0.95, 0.65 }

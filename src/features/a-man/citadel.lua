@@ -1,4 +1,4 @@
--- The Citadel, the second level of A-Man's quest (quests' "a-man-2", on
+-- The Citadel, the end of A-Man's trail (quests' "a-man-citadel", on
 -- city-map's `citadel`): one catwalk up through the shaft, widening into
 -- platforms on the way. For now it is the walk alone: the map's `posts`
 -- mark where the Combine will stand. The first player to reach the lift up
@@ -12,7 +12,7 @@ local Features = require("src.features")
 local Level = {}
 
 -- Tuning ------------------------------------------------------------------
-Level.questId = "a-man-2" -- the quest this level is
+Level.questId = "a-man-citadel" -- the quest this level is
 Level.reach = 140 -- px from the lift up that counts as reaching it
 
 local sv = nil -- { reached } while the level is on, on the host

@@ -1029,6 +1029,54 @@ local function drawCity17(map)
   drawCitadel(map)
 end
 
+--- The Outer City (outer_city.lua): paving and grass tile by tile, the
+--- canals and their bridges, the square marked out, buildings, cover, trees.
+local function drawOuterCity(map)
+  local T = Layout.TILE
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local kind = map.tiles[c] and map.tiles[c][r]
+      local x, y = map.x0 + c * T, map.y0 + r * T
+      if kind == "walk" then
+        color((c + r) % 2 == 0 and C17.paving or C17.pavingDark)
+        love.graphics.rectangle("fill", x, y, T, T)
+        color(C17.joint)
+        love.graphics.rectangle("fill", x, y, T, 2)
+        love.graphics.rectangle("fill", x, y, 2, T)
+      elseif kind == "ground" then
+        color(hash(c * 3.7 + r * 11.3) < 0.5 and C.grass or C.grassDark)
+        love.graphics.rectangle("fill", x, y, T, T)
+      end
+    end
+  end
+  for _, s in ipairs(map.cover) do
+    if s.kind == "water" then
+      drawWater(s)
+    end
+  end
+  for _, b in ipairs(map.bridges or {}) do
+    drawBridge(b)
+  end
+  local a = map.arena
+  if a then -- the square: a ring of darker slabs round the middle, where he will stand
+    local r = math.min(a.w, a.h) * 0.3
+    color(C17.concreteDark)
+    love.graphics.setLineWidth(24)
+    love.graphics.circle("line", map.bossX, map.bossY, r, 64)
+    love.graphics.circle("line", map.bossX, map.bossY, r * 0.45, 48)
+    love.graphics.setLineWidth(1)
+  end
+  drawBuildings(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "barrier" then
+      drawBarrier(s)
+    elseif s.kind == "planter" then
+      drawPlanter(s)
+    end
+  end
+  drawTrees(map)
+end
+
 --- Build the canvas. Call once with graphics available.
 function Render.build(map)
   local canvas = love.graphics.newCanvas(map.w / 2, map.h / 2)
@@ -1040,13 +1088,16 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
-  if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel" then
+  if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
+    or map.kind == "outercity" then
     if map.kind == "beach" then
       drawBeach(map)
     elseif map.kind == "city17" then
       drawCity17(map)
     elseif map.kind == "citadel" then
       RenderCitadel.draw(map, Layout.TILE)
+    elseif map.kind == "outercity" then
+      drawOuterCity(map)
     else
       drawCliff(map)
     end

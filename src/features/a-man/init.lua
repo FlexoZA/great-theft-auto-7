@@ -4,14 +4,16 @@
 -- His quest (quests' "a-man") starts in City 17 (city-map's `city17`).
 -- This feature loads his sounds, keeps the disguise he leaves behind on
 -- the ground after the event is over, puts up his intro screen when his
--- quest starts and runs its levels (city17.lua, then citadel.lua).
+-- quest starts and runs its levels (city17.lua; the Outer City has no
+-- level of its own yet; citadel.lua, for later).
 --
 -- Modules
 --   event.lua    the boss: the host's side and every client's
 --   face.lua     his portrait, beside his boss bar and on his intro screen
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
 --   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
---   citadel.lua  the second: the catwalk up through the Citadel
+--   detour.lua   him stepping in at the Citadel's doors and sending everyone to the Outer City
+--   citadel.lua  the end of the trail, for later: the catwalk up through the Citadel
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
 --   theme.lua    his music, while he is loose
@@ -24,6 +26,7 @@ local Face = require("src.features.a-man.face")
 local Screen = require("src.features.a-man.screen")
 local City17 = require("src.features.a-man.city17")
 local Citadel = require("src.features.a-man.citadel")
+local Detour = require("src.features.a-man.detour")
 local Radio = require("src.features.a-man.radio")
 
 local AMan = {
@@ -62,6 +65,7 @@ function AMan:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     City17.serverStop(server)
     Citadel.serverStop()
+    Detour.serverStop()
   end
 end
 
@@ -70,12 +74,19 @@ function AMan:mapChanged(_map, server)
   if server then
     City17.serverStop(server)
     Citadel.serverStop()
+    Detour.serverStop()
   end
 end
 
 function AMan:serverStep(server, dt)
   City17.serverStep(server, dt)
   Citadel.serverStep(server)
+  Detour.serverStep(server, dt)
+end
+
+--- Quests' hook: the trip on from City 17 waits for him (detour.lua).
+function AMan:serverHoldTrip(server, quest, player)
+  return Detour.serverHoldTrip(server, quest, player)
 end
 
 function AMan:serverShotAt(server, x, y, radius, by, angle, damage)

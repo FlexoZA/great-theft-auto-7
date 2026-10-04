@@ -900,8 +900,11 @@ the one with a plot.
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
-  star its own words). It leads on to the next level (the quest's `next`,
-  "a-man-2"), not home. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
+  star its own words). It says CITADEL (`exitTitle`, `exitLabel`) and
+  leads on to the quest's `next`, "a-man-2", not home: whoever takes it is
+  stopped by A-Man (`a-man/detour.lua`, quests' `serverHoldTrip`), who
+  blinks in in front of them, stands there 2.2 s and blinks out, and
+  everyone lands in the Outer City. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
   `Troops:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
   troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
@@ -924,8 +927,22 @@ the one with a plot.
   now and then with a mate answering, a shout on spotting somebody, and a
   call when a soldier nearby goes down. Messages: `C17_TROOPS`, `C17_DOWN`
   and `C17_SAY` down.
-- A-Man's second level, the Citadel: quests' "a-man-2" ("Into the
-  Citadel", never on the board; City 17's EXIT star starts it) on
+- A-Man's second level, the Outer City: quests' "a-man-2" (never on the
+  board; A-Man sends everyone there from City 17's Citadel star) on
+  city-map's `outercity` (`city-map/outer_city.lua` builds it, render.lua's
+  `drawOuterCity` draws it), half the Citadel's length. A concrete jungle
+  of packed buildings round a big open square on an island in the middle
+  (`map.arena`, `map.bossX, map.bossY`: for the boss fight), a canal round
+  it crossed by three bridges (south, west, east; `map.bridges`),
+  waterways out to the north and west edges, and four parks of grass and
+  trees. Everyone arrives in the square in the bottom left (HOME star,
+  "home-outercity", at its left end); the streets from there all lead in
+  to the island, with barriers along them, planters and barriers round
+  the square's edge and its middle left open. No level of its own yet:
+  nobody there, nothing to finish.
+- The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
+  ("Into the Citadel", nothing leads there yet: `love . --world <slug>
+  --quest a-man-citadel`) on
   city-map's `citadel` (`city-map/citadel.lua` builds it,
   `render_citadel.lua` draws it). One catwalk, two or three tiles wide,
   zig-zags up a vast shaft from the lift everyone arrives on (HOME star,
