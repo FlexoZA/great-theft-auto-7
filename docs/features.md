@@ -946,6 +946,17 @@ the one with a plot.
   paving, lifts slabs, grows weeds and puddles on it, fouls the canals and
   breaks the bridges' rails. No level of its own yet:
   nobody there, nothing to finish.
+- The Hunter-Chopper: `src/features/hunter-chopper`, the Outer City's
+  boss to be, after Half-Life's. So far only its model (`render.lua`,
+  `Render.chopper(c, time)`, stateless like the tripod's): an armoured head
+  with a canopy and a glowing eye, the pulse gun under the chin swinging
+  70 degrees either way to its `aim` and flashing while `firing`, stub
+  wings out to two engine pods, a segmented tail out to the tailplane and
+  tail rotor, the main rotor blurring over it all (`spin` 0..1). Its
+  shadow falls off by its `altitude` (80 px up by default), `bank` tips it
+  into a turn, and `hp`/`max` give it a bar, scorch, sparks and a burning
+  engine below 40%. 175 px nose to tail, rotor 96 px; it returns the
+  muzzle, where its rounds will leave from.
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on
