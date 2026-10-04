@@ -1,5 +1,5 @@
 -- What the shop sells: every gun and a box of its rounds (weapons/guns.lua),
--- every ability (abilities/kinds.lua) but a boss's drop, a medkit and an energy drink, every
+-- every ability (abilities/kinds.lua) but a boss's drop, a medkit, an energy drink and a grenade, every
 -- piece of armor (armor/kinds.lua) and clothing (gear/kinds.lua), every car model
 -- (vehicles/catalog.lua) and the people for hire (delivery/hire.lua). Built
 -- once from those lists, so a new gun, ability or model is on the shelf
@@ -44,7 +44,7 @@ local Catalog = {
   byItem = {},
   -- The shop's tabs, each a filter on `kind` (or on `kinds`, a set of
   -- them): All is everything that goes into a bag, the rest one shelf
-  -- each. Supplies are medkits and energy drinks; Gear is what you wear:
+  -- each. Supplies are medkits, energy drinks and grenades; Gear is what you wear:
   -- armor and clothes. Cars have their own tab, with bigger cards.
   tabs = {
     { key = "all", title = "All" },
@@ -68,7 +68,7 @@ local PRICES = {
   ["gun-sniper"] = 160, ["gun-rocket"] = 300, ["gun-flamethrower"] = 220,
   ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   ["ammo-flamethrower"] = 50,
-  medkit = 20, drink = 12,
+  medkit = 20, drink = 12, grenade = 30,
   ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
   ["armor-ceramic-plates"] = 150,
 }
@@ -110,6 +110,7 @@ for _, ability in ipairs(AbilityKinds.list) do
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply" })
+add({ item = "grenade", n = 1, name = "grenade", kind = "supply" })
 for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
