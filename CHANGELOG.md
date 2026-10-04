@@ -18,7 +18,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - A-Man's trail goes on: take the star at the Citadel's doors in City 17
   and he steps out in front of you, and sends everyone the long way round,
   to the Outer City: packed concrete blocks, canals and bridges, parks,
-  and a big open square on an island in the middle. Nobody there yet.
+  and a big open square on an island in the middle, all of it left to
+  rot: collapsed buildings, holed roofs, rusted wrecks, weeds through the
+  paving and rubbish in the canals. Nobody there yet.
 
 ## [0.11.0] - 2026-10-04
 

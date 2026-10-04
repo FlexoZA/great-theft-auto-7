@@ -938,7 +938,13 @@ the one with a plot.
   trees. Everyone arrives in the square in the bottom left (HOME star,
   "home-outercity", at its left end); the streets from there all lead in
   to the island, with barriers along them, planters and barriers round
-  the square's edge and its middle left open. No level of its own yet:
+  the square's edge and its middle left open. Left to rot: about one
+  building in seven has come down (a solid heap of rubble), roofs are
+  holed (`b.holes`) or grown over (`b.vines`), rusted wrecks (solid,
+  cover) and rubbish lie about the streets, drums burn and a few roofs
+  smoulder (`map.fires`), and render.lua's `drawOuterCity` cracks the
+  paving, lifts slabs, grows weeds and puddles on it, fouls the canals and
+  breaks the bridges' rails. No level of its own yet:
   nobody there, nothing to finish.
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>

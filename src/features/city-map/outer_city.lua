@@ -14,8 +14,18 @@
 --   map.arena             { x, y, w, h } the square on the island, world px
 --   map.bossX, map.bossY  the middle of it
 --   map.bridges           { x, y, w, h } drawn over the water, world px
---   map.cover             { kind = "water" | "barrier" | "planter", x, y, w, h }
+--   map.cover             { kind = "water" | "barrier" | "planter" | "rubble" | "wreck" | "barrel" | "trash",
+--                         x, y, w, h }; rubble (a fallen building's, still solid, or loose, not)
+--                         and trash are drawn, the rest solid too
+--   map.fires             burning drums and roofs (city-map's fires.lua), never on the ground
 --   map.zones             { name, y0, y1 } as City 17's
+--
+-- Nobody has looked after any of it in years: a building in seven or so
+-- has come down (`b` gone from `map.buildings`, a heap of rubble in its
+-- place, as solid as it was), a good few roofs are holed (`b.holes`, { x, y, r }
+-- in px from the corner) or grown over (`b.vines`), rusted wrecks sit
+-- where they were left and rubbish piles up along the streets. render.lua
+-- cracks, weeds and puddles the ground and fouls the water as it draws it.
 -- render.lua's drawOuterCity draws it.
 
 local OuterCity = {}
@@ -34,6 +44,8 @@ local ROOFS = {
 local MAP = {
   barrier = { 0.62, 0.60, 0.55 },
   planter = { 0.25, 0.40, 0.22 },
+  rubble = { 0.36, 0.34, 0.31 },
+  wreck = { 0.42, 0.28, 0.20 },
 }
 
 --- Build it into `map` (Layout.generate's, with tiles still empty). `T` is the tile size.
@@ -254,6 +266,121 @@ function OuterCity.build(map, rng, T)
   streetBarrier(7, 35, true)
   streetBarrier(13, 26, false)
   streetBarrier(51, 29, false)
+
+  -- Decay ------------------------------------------------------------------
+  map.fires = {}
+  local function fire(k, x, y, r)
+    map.fires[#map.fires + 1] = { kind = k, x = math.floor(x), y = math.floor(y), r = r, seed = rng:random(1000) }
+  end
+  local function decor(k, x, y, w, h)
+    map.cover[#map.cover + 1] = { kind = k, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h),
+      mapColor = MAP[k], decor = true, seed = rng:random(1000) }
+  end
+  --- Is (x, y) open paving, `r` clear of anything solid and of the bridges?
+  local function open(x, y, r)
+    local col = map.tiles[math.floor((x - map.x0) / T)]
+    if not col or col[math.floor((y - map.y0) / T)] ~= "walk" then
+      return false
+    end
+    for _, b in ipairs(map.solids) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    for _, b in ipairs(map.bridges) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    return true
+  end
+  local start = { x = X(3), y = Y(46), w = 12 * T, h = 8 * T } -- the arrival square stays clear
+  local function inStart(x, y, pad)
+    return x > start.x - pad and x < start.x + start.w + pad and y > start.y - pad and y < start.y + start.h + pad
+  end
+  local function inArena(x, y, pad)
+    return x > ax - pad and x < ax + aw + pad and y > ay - pad and y < ay + ah + pad
+  end
+
+  -- Fallen buildings: rubble where they stood, still in the way. Roofs
+  -- holed and grown over on plenty of those still up.
+  local standing = {}
+  for _, b in ipairs(map.buildings) do
+    local roll = rng:random()
+    if roll < 0.15 then
+      decor("rubble", b.x, b.y, b.w, b.h)
+      -- Some of it spilt out round the heap, to walk through.
+      for _ = 1, 3 do
+        local x = b.x + rng:random() * b.w
+        local y = b.y + (rng:random() < 0.5 and -30 or b.h + 30)
+        if open(x, y, 24) then
+          decor("rubble", x - 28, y - 22, 56, 44)
+        end
+      end
+    else
+      if roll < 0.45 then
+        b.holes = {}
+        for k = 1, rng:random(1, 2) do
+          b.holes[k] = { x = 24 + rng:random() * (b.w - 48), y = 24 + rng:random() * (b.h - 48),
+            r = 8 + rng:random() * 12, seed = rng:random(1000) }
+        end
+      end
+      if rng:random() < 0.35 then
+        b.vines = rng:random(1000)
+      end
+      standing[#standing + 1] = b
+    end
+  end
+  map.buildings = standing
+
+  -- Wrecks left where they stopped, rusting: cover on the way in.
+  local got = 0
+  for _ = 1, 600 do
+    if got >= 14 then
+      break
+    end
+    local x, y = X(0) + rng:random() * cols * T, Y(0) + rng:random() * rows * T
+    if open(x, y, 70) and not inStart(x, y, 120) and not inArena(x, y, 60) then
+      local across = rng:random() < 0.5
+      local w, h = across and 84 or 42, across and 42 or 84
+      cover("wreck", x - w / 2, y - h / 2, w, h)
+      map.cover[#map.cover].seed = rng:random(1000)
+      got = got + 1
+    end
+  end
+  -- Drums with fires in them, and a few roofs still smouldering.
+  got = 0
+  for _ = 1, 400 do
+    if got >= 9 then
+      break
+    end
+    local x, y = X(0) + rng:random() * cols * T, Y(0) + rng:random() * rows * T
+    if open(x, y, 40) and not inArena(x, y, 0) and not inStart(x, y, 150) then
+      cover("barrel", x - 14, y - 14, 28, 28)
+      fire("barrel", x, y, 14)
+      got = got + 1
+    end
+  end
+  for _ = 1, 4 do
+    local b = standing[rng:random(#standing)]
+    if b.w >= 2 * T and b.h >= 2 * T and not b.burning then
+      b.burning = true
+      fire("roof", b.x + b.w * (0.3 + rng:random() * 0.4), b.y + b.h * (0.3 + rng:random() * 0.4), 26)
+    end
+  end
+  -- Rubbish heaped along the streets, walked through.
+  got = 0
+  for _ = 1, 900 do
+    if got >= 60 then
+      break
+    end
+    local x, y = X(0) + rng:random() * cols * T, Y(0) + rng:random() * rows * T
+    local w, h = 26 + rng:random() * 40, 22 + rng:random() * 30
+    if open(x, y, math.max(w, h) / 2 + 6) then
+      decor("trash", x - w / 2, y - h / 2, w, h)
+      got = got + 1
+    end
+  end
 
   -- Zones, south to north.
   map.zones[#map.zones + 1] = { name = "the way in", y0 = Y(42), y1 = Y(rows) }
