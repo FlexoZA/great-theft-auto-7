@@ -4,6 +4,7 @@ Top-down driving game in Lua using LÖVE 11.5.
 
 ## Commands
 - Run: `love .` (or `make run`)
+- Run straight into a saved world, optionally on a quest: `love . --world <slug> [--quest <id>]` (`src/launch.lua`)
 - Lint: `luacheck .`
 - Format: `stylua .`
 - Package: `make build` -> `build/great-theft-auto-7.love`

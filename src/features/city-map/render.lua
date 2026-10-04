@@ -3,6 +3,7 @@
 
 local Layout = require("src.features.city-map.layout")
 local Buildings = require("src.features.city-map.buildings")
+local RenderCitadel = require("src.features.city-map.render_citadel")
 
 local Render = {}
 
@@ -1039,11 +1040,13 @@ function Render.build(map)
   love.graphics.setLineStyle("rough")
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
-  if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" then
+  if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel" then
     if map.kind == "beach" then
       drawBeach(map)
     elseif map.kind == "city17" then
       drawCity17(map)
+    elseif map.kind == "citadel" then
+      RenderCitadel.draw(map, Layout.TILE)
     else
       drawCliff(map)
     end

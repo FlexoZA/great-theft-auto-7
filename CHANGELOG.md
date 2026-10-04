@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A-Man's trail goes on: the star at the Citadel's doors in City 17 now
+  takes everyone inside. The Citadel is one narrow catwalk up through a
+  huge dark shaft over its glowing core, opening out into wide platforms
+  on the way, with the lift at the top as the way out. Nobody guards it yet.
+
 ## [0.11.0] - 2026-10-04
 
 Abilities are quicker to juggle: with one selected, another ability's key

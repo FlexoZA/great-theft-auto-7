@@ -92,6 +92,13 @@ CityMap.maps = {
     police = false, traffic = false, vehicles = false,
     crowdScale = 0.5, -- half the usual citizens: the Combine are the crowd here
   },
+  -- Inside the Citadel, A-Man's second stop: one narrow catwalk up through
+  -- a vast shaft, widening into platforms the Combine hold, the drop all
+  -- round it (citadel.lua). Walked; nobody about but them.
+  citadel = {
+    title = "The Citadel", kind = "citadel", seed = 18, cols = 84, rows = 112,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

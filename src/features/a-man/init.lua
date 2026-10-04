@@ -4,13 +4,14 @@
 -- His quest (quests' "a-man") starts in City 17 (city-map's `city17`).
 -- This feature loads his sounds, keeps the disguise he leaves behind on
 -- the ground after the event is over, puts up his intro screen when his
--- quest starts and runs its levels (city17.lua for now).
+-- quest starts and runs its levels (city17.lua, then citadel.lua).
 --
 -- Modules
 --   event.lua    the boss: the host's side and every client's
 --   face.lua     his portrait, beside his boss bar and on his intro screen
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
 --   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
+--   citadel.lua  the second: the catwalk up through the Citadel
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
 --   theme.lua    his music, while he is loose
@@ -22,6 +23,7 @@ local Event = require("src.features.a-man.event")
 local Face = require("src.features.a-man.face")
 local Screen = require("src.features.a-man.screen")
 local City17 = require("src.features.a-man.city17")
+local Citadel = require("src.features.a-man.citadel")
 local Radio = require("src.features.a-man.radio")
 
 local AMan = {
@@ -53,11 +55,13 @@ end
 
 function AMan:serverQuestStarted(server, quest)
   City17.serverQuestStarted(server, quest)
+  Citadel.serverQuestStarted(server, quest)
 end
 
 function AMan:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     City17.serverStop(server)
+    Citadel.serverStop()
   end
 end
 
@@ -65,11 +69,13 @@ end
 function AMan:mapChanged(_map, server)
   if server then
     City17.serverStop(server)
+    Citadel.serverStop()
   end
 end
 
 function AMan:serverStep(server, dt)
   City17.serverStep(server, dt)
+  Citadel.serverStep(server)
 end
 
 function AMan:serverShotAt(server, x, y, radius, by, angle, damage)
@@ -94,7 +100,7 @@ AMan.clientMessages = City17.clientMessages
 function AMan:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
-    page = { line = 1, t = self.introTime }
+    page = { line = quest.introLine or 1, t = self.introTime }
     City17.clear()
     Event.playTheme()
   end

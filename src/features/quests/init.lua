@@ -59,6 +59,11 @@ local Quests = {
 -- everyone reads when the trip happens (%s is the taker's name). `boss`
 -- names the feature that owns the fight there (karen listens for its own).
 -- `exitText` (optional) is what the EXIT star says once it is done.
+-- `next` (optional) names the quest that carries on from this one: once
+-- this one is done its EXIT star takes everyone straight on to that
+-- quest's map and starts it, instead of home. A quest only reached that way
+-- has no `board` and no `onMap`. `introLine` is for the boss feature (A-Man
+-- says that line of his on his intro screen).
 Quests.list = {
   {
     id = "karen",
@@ -119,7 +124,20 @@ Quests.list = {
     label = "A-MAN",
     color = { 0.55, 0.95, 0.65 },
     banner = "%s took the train. Welcome to City 17.",
-    exitText = "You made it to the Citadel. His trail goes cold here, for now. Head home.",
+    exitText = "You made it to the Citadel. He went inside. Go in after him.",
+    next = "a-man-2",
+  },
+  {
+    id = "a-man-2",
+    title = "Into the Citadel",
+    text = "He went inside. One catwalk up through the Citadel, and the Combine on every platform along it.",
+    map = "citadel",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "%s went in after him. Welcome to the Citadel.",
+    exitText = "You made it to the top. His trail goes cold here, for now. Head home.",
+    introLine = 3,
   },
   {
     id = "home",
@@ -186,6 +204,19 @@ Quests.list = {
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
   },
+  {
+    id = "home-citadel",
+    title = "Back to the City",
+    text = "Back down the lift. Take everyone home.",
+    onMap = "citadel",
+    x = -166, -- the left end of the lift: city-map's map.cx, map.cy
+    y = 2816,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
 }
 Quests.byId = {}
 Quests.board = {} -- the jobs on the Jobs building's board, in list order
@@ -216,9 +247,26 @@ local function cityMap()
 end
 
 --- The EXIT star a fallen boss leaves on map `onMap` at (x, y): the way
---- home, the same as the blue star by the entrance.
+--- home, the same as the blue star by the entrance, or on to the quest
+--- that carries on from `done` (its `next`).
 local function exitQuest(onMap, x, y, done)
   local city = cityMap()
+  local next = done and Quests.byId[done.next or ""]
+  if next then
+    return {
+      id = "exit",
+      title = next.title,
+      text = done.exitText or next.text,
+      onMap = onMap,
+      x = x,
+      y = y,
+      map = next.map,
+      starts = next.id, -- the quest taking it starts
+      label = next.label,
+      color = next.color,
+      banner = next.banner,
+    }
+  end
   return {
     id = "exit",
     title = "Get out of here",
@@ -700,6 +748,37 @@ function Quests:serverComplete(server, questId, x, y)
   return true
 end
 
+--- Take everyone on `quest` (or home, for one that `returns`), taken by
+--- `player`: the trip itself, with no checks. Taking a star comes here
+--- once the host has checked it; the --quest launch option (src/launch.lua)
+--- comes straight here.
+function Quests:serverBegin(server, quest, player)
+  local city = cityMap()
+  if not (sv and city and city.maps[quest.map]) then
+    return false
+  end
+  local ended = sv.active and Quests.byId[sv.active]
+  sv.exit = nil -- any trip leaves the fallen boss's star behind
+  if quest.returns then
+    sv.active, sv.by, sv.done = nil, nil, nil
+  else
+    sv.active, sv.by, sv.done = quest.id, player.id, nil
+  end
+  -- QST_MAP first: whatever features send from mapChanged is about the
+  -- new map, so clients must be on it by then.
+  server:broadcast(Protocol.encode("QST_MAP", quest.map))
+  city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
+  server:broadcast(Protocol.encode("QST_START", quest.id, player.id))
+  if quest.returns then
+    if ended then
+      Features.call("serverQuestEnded", server, ended)
+    end
+  else
+    Features.call("serverQuestStarted", server, quest, player)
+  end
+  return true
+end
+
 --- The quest under way on the host, for other features; nil between jobs.
 function Quests:serverActive()
   return sv and sv.active and self.byId[sv.active] or nil
@@ -763,25 +842,7 @@ Quests.serverMessages = {
     elseif not onStar(server, player, quest) then
       reason = "away"
     else
-      local ended = sv.active and Quests.byId[sv.active]
-      sv.exit = nil -- any trip leaves the fallen boss's star behind
-      if quest.returns then
-        sv.active, sv.by, sv.done = nil, nil, nil
-      else
-        sv.active, sv.by, sv.done = quest.id, player.id, nil
-      end
-      -- QST_MAP first: whatever features send from mapChanged is about the
-      -- new map, so clients must be on it by then.
-      server:broadcast(Protocol.encode("QST_MAP", quest.map))
-      city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
-      server:broadcast(Protocol.encode("QST_START", quest.id, player.id))
-      if quest.returns then
-        if ended then
-          Features.call("serverQuestEnded", server, ended)
-        end
-      else
-        Features.call("serverQuestStarted", server, quest, player)
-      end
+      Quests:serverBegin(server, Quests.byId[quest.starts or ""] or quest, player) -- an EXIT star on starts the next
       return
     end
     server:send(player, Protocol.encode("QST_NO", reason))

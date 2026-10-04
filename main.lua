@@ -5,18 +5,22 @@ local State = require("src.state")
 local Net = require("src.net")
 local Features = require("src.features")
 local Video = require("src.video")
+local Launch = require("src.launch")
 
-function love.load()
+function love.load(args)
   Video.apply() -- saved display mode, size and vsync
   love.graphics.setBackgroundColor(0.16, 0.16, 0.18)
   love.graphics.setDefaultFilter("nearest", "nearest")
   love.keyboard.setKeyRepeat(true)
   Features.load()
   print("features: " .. Features.names())
-  State.switch("menu")
+  if not Launch.start(args) then -- `love . --world <slug>` skips the menus (src/launch.lua)
+    State.switch("menu")
+  end
 end
 
 function love.update(dt)
+  Launch.update()
   local s = State.current
   if s and s.update then
     s:update(dt)

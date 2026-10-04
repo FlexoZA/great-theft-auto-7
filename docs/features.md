@@ -900,8 +900,8 @@ the one with a plot.
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
-  star its own words). For now it leads home; it will lead to the next
-  level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
+  star its own words). It leads on to the next level (the quest's `next`,
+  "a-man-2"), not home. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
   `Troops:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
   troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
@@ -924,6 +924,23 @@ the one with a plot.
   now and then with a mate answering, a shout on spotting somebody, and a
   call when a soldier nearby goes down. Messages: `C17_TROOPS`, `C17_DOWN`
   and `C17_SAY` down.
+- A-Man's second level, the Citadel: quests' "a-man-2" ("Into the
+  Citadel", never on the board; City 17's EXIT star starts it) on
+  city-map's `citadel` (`city-map/citadel.lua` builds it,
+  `render_citadel.lua` draws it). One catwalk, two or three tiles wide,
+  zig-zags up a vast shaft from the lift everyone arrives on (HOME star,
+  "home-citadel", at its left end) to the lift up at the top
+  (`map.exitX, map.exitY`), opening out into four platforms and a landing
+  half way across the long span over the core (`map.platforms`, each
+  named; `map.catwalks` the spans). Every empty tile is the drop: solid
+  like a wall, so for now it stops rounds and sight too. Platforms carry
+  crates, barriers and consoles (`map.cover`, solid; the catwalks a crate
+  or barrier against alternate rails every few strides, all but the long
+  span) and `map.posts`
+  where guards will stand, watching the way in; `map.backdrop` is what the
+  canvas draws down in the drop. So far the level is the walk alone
+  (`a-man/citadel.lua`): the first player within 140 px of the lift up
+  finishes it, and its EXIT star leads home.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
