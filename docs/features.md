@@ -1066,7 +1066,16 @@ the one with a plot.
   rifle posts. City 17's level runs on the map (`Level.maps.coast`:
   `nests`, no beats) and mans each nest with `Level.nestCrew` (4): one on
   the gun, the rest on the posts, all `hold` (combine.lua: they never
-  chase, go to look or answer a call). The gunner sees and turns only
+  chase, go to look or answer a call). The riflemen fight from cover
+  (combine.lua's `takesCover`): once one has seen somebody or been shot
+  at he runs to a spot within `COVER_RANGE` (170 px) of his post with
+  something solid between it and them, waits there 1.2-2.6 s (`HIDE`),
+  steps out (up to `PEEK_REACH`, 90 px) to where he can see them, shoots
+  for 1.2-2 s (`PEEK`) and gets back into cover, the next spot picked
+  afresh; a hit out in the open sends him straight back, and
+  `THREAT_KEEP` (10 s) after he last saw or felt anyone he walks back to
+  his post. Diving for cover he now and then says so (radio.lua's
+  `cover` lines). The gunner sees and turns only
   within the nest's `arc` (50 degrees either side) and fires
   `Level.nestGun` (an AK's rounds, 12 damage, 12 a second, bursts of 14,
   1.4 s apart). Drop him and the nearest of his crew still up walks to the

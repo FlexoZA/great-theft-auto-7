@@ -46,7 +46,9 @@
 -- (the map's `bunkers`), each with an MG nest in front of it and a crew of
 -- `Level.nestCrew`: one on the gun and the rest on the bunker's posts with
 -- their rifles. They defend (combine.lua's `hold`): they never leave their
--- places to chase or answer a call. The gunner fires long bursts
+-- places to chase or answer a call. The riflemen fight from cover
+-- (`takesCover`): into cover near their post, out to shoot, back again.
+-- The gunner fires long bursts
 -- (`Level.nestGun`), and only into the nest's arc. Drop him and the
 -- nearest of his crew still up runs to the gun (`post`) and takes over.
 -- nests.lua draws the guns.
@@ -318,7 +320,7 @@ function Level.serverQuestStarted(server, quest)
       for i = 1, Level.nestCrew - 1 do
         local p = b.posts[(i - 1) % #b.posts + 1]
         local s = sv.troops:add("guard", p.x, p.y, p.watch)
-        s.hold = true
+        s.hold, s.takesCover = true, true
         sv.troops:arm(s, pickArms())
         nest.crew[#nest.crew + 1] = s
       end
@@ -334,6 +336,7 @@ function Level.manGun(nest, s)
   local n, g = nest.b.nest, Level.nestGun
   local ak = Guns.ak47
   s.watch, s.arc, s.fov, s.post = n.angle, n.arc, 2 * n.arc, nil
+  s.takesCover, s.cv, s.threat = nil, nil, nil -- the gun has no cover to go to: he stays on it
   s.facing = n.angle
   nest.gunner, nest.coming = s, nil
   local gun = setmetatable({ damage = g.damage, cooldown = g.cooldown }, { __index = Tiers.apply(ak, Tiers.DEFAULT) })
@@ -480,6 +483,13 @@ local function talk(server, dt)
       callIn(s)
     end
     s.wasAlert = s.alert
+    if s.tookCover then -- diving for cover: now and then he says so
+      s.tookCover = false
+      if random() < 0.45 and (s.quietUntil or 0) <= sv.time then
+        s.quietUntil = sv.time + Level.shoutEvery
+        say(server, s, "cover")
+      end
+    end
     if s.gaveUp then -- looked, found nothing, on his way back
       s.gaveUp = false
       if random() < 0.6 and (s.quietUntil or 0) <= sv.time then

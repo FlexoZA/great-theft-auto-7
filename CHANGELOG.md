@@ -45,7 +45,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   nest in front of it raking the beach and four soldiers keeping it:
   one on the gun, three with rifles round the bunker. They hold their
   ground rather than chase you, and when the gunner drops, another runs
-  to the gun. The gun only swings so far: get round its side.
+  to the gun. The gun only swings so far: get round its side. The
+  riflemen fight from cover: they duck behind the bunker or a rock, lean
+  out to shoot and duck back, and dive for cover the moment you hit them
+  in the open.
 - Antlions: swarms of them, over a hundred in all, lie buried along the Coast and burst up out of
   the sand when you come near, run you down and bite, leaping the last of
   the way now and then. You can only just outrun them at a sprint. Walk

@@ -58,6 +58,7 @@ Radio.lines = {
     "Checking it out.",
     "Converging on last position.",
   },
+  cover = { "Taking cover!", "Moving to cover!", "Cover me!", "Suppressing fire!", "Get down!" },
   lost = { "Lost visual.", "Area clear. Returning to post.", "Nothing here.", "Target lost. Resuming patrol." },
 }
 
