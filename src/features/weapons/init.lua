@@ -98,8 +98,10 @@
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
---                                              (quiet 1: a pellet after the first; no sound)
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>]
+--                                              (quiet 1: a pellet after the first; no sound;
+--                                              tint: the streak's colour as rrggbb hex, from
+--                                              the gun table's `tint`, for a gun a boss carries)
 --   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
@@ -674,7 +676,15 @@ function Weapons:drawAboveCars(client)
     else
       local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
       local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
-      love.graphics.setColor(1, 0.9, 0.3)
+      if p.tint then
+        love.graphics.setColor(p.tint[1], p.tint[2], p.tint[3], 0.35) -- a glow round a coloured round
+        love.graphics.setLineWidth(5)
+        love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
+        love.graphics.setLineWidth(2)
+        love.graphics.setColor(p.tint)
+      else
+        love.graphics.setColor(1, 0.9, 0.3)
+      end
       love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
     end
   end
@@ -1053,9 +1063,14 @@ Weapons.clientMessages = {
     local gun = Guns.at(tonumber(args[7]))
     local quiet = args[8] == "1"
     if pid and x and y and vx and vy then
+      local tint = nil
+      local r, g, b = (args[9] or ""):match("^(%x%x)(%x%x)(%x%x)$")
+      if r then
+        tint = { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 }
+      end
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
-        quiet = quiet,
+        quiet = quiet, tint = tint,
       }
       if not quiet and Sounds.loops(gun.sound) then
         Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
@@ -1497,9 +1512,10 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
       ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
       electrify = gun.electrify, stun = gun.stun,
     }
-    server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
-      ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
-      pellet > 1 and 1 or 0))
+    local fields = { pid, ownerId, ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx),
+      ("%.1f"):format(vy), gun.index, pellet > 1 and 1 or 0 }
+    fields[#fields + 1] = gun.tint -- only a gun with a colour of its own sends one
+    server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields)))
   end
   -- `player` is nil for an ownerless shot; features that listen must allow it.
   Features.call("serverShotFired", server, server.players[ownerId], x, y)

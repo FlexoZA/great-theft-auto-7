@@ -970,11 +970,24 @@ the one with a plot.
   A bomb falls for 1 s with a whistle onto a red ring that fills in
   (`HC_BOMB`), then goes off as a missile does (weapons' `explode`, owned
   by nobody): 80 px, 40 at the middle. A stick on somebody standing still
-  does about 35. It cannot be hurt yet. Its rotor is a synthesised
+  does about 35. Its rounds are blue: a gun table may carry `tint`
+  (rrggbb), which weapons sends on the end of `WPN_SHOT` and draws the
+  streak in, with a glow. It can be shot down: 2400 health for one human
+  (`Bosses.health`), on the boss bar (`noBreath`: a machine has no breath
+  bar). Rounds hit its hull and engine pods (`Render.hits`, a capsule nose
+  to tail-root and one for each pod, scaled by its height) through
+  `serverShotAt`, missiles' blasts through `serverBlast` (40 px more reach
+  than the blast, for its size); its own rounds and bombs pass through it.
+  Beaten, it spins out (`Flight.fall`: spinning faster, sliding towards the
+  middle of the square, falling faster) and about 2 s later hits the
+  ground: a 150 px blast of its own (60 at the middle), 40 koins,
+  `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
+  star comes up by the wreck, which burns there (`HC_DOWN`) until the map
+  changes. Its rotor is a synthesised
   seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
   follows it about and carries 3200 px. The host sends `HC_STATE`
-  (unreliable, 15 Hz, with the lock, whether it is firing and whether it
-  is on a run; empty to
+  (unreliable, 15 Hz, with the lock, whether it is firing, whether it is
+  on a run, its health and whether it is going down; empty to
   take it away when the quest or the map changes) and every machine eases
   what it draws towards it. Its
   model (`render.lua`,

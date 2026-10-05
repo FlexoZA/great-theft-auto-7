@@ -318,6 +318,90 @@ function Render.bomb(x, y, height, time)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Does a round of `radius` at (px, py) hit a chopper at (x, y) facing
+--- `angle`, `altitude` up? Its hull from nose to tail-root, and the pods.
+function Render.hits(x, y, angle, altitude, px, py, radius)
+  local size = 1 + (altitude or Render.ALTITUDE) / 900
+  local ca, sa = math.cos(angle), math.sin(angle)
+  local dx, dy = px - x, py - y
+  local u, v = (dx * ca + dy * sa) / size, (-dx * sa + dy * ca) / size -- into its own frame
+  local r = radius / size
+  local along = math.max(-50, math.min(62, u))
+  if (u - along) ^ 2 + v ^ 2 <= (24 + r) ^ 2 then
+    return true
+  end
+  for _, side in ipairs({ -1, 1 }) do
+    local pu = math.max(POD.x0, math.min(POD.x1, u))
+    if (u - pu) ^ 2 + (v - side * POD.y) ^ 2 <= (POD.r + r) ^ 2 then
+      return true
+    end
+  end
+  return false
+end
+
+--- What is left of it where it came down: a black scorch, the hull broken
+--- and burnt, the tail torn off and lying askew, two blades bent out of the
+--- hub, fire still licking at it and smoke going up. `w` is { x, y, angle }.
+function Render.wreck(w, time)
+  love.graphics.setColor(0.04, 0.04, 0.04, 0.3)
+  love.graphics.circle("fill", w.x, w.y, 110, 28)
+  love.graphics.setColor(0.04, 0.04, 0.04, 0.25)
+  love.graphics.circle("fill", w.x + 40, w.y - 20, 60, 20)
+  love.graphics.push()
+  love.graphics.translate(w.x, w.y)
+  love.graphics.rotate(w.angle)
+  love.graphics.setColor(0, 0, 0, 0.4)
+  love.graphics.push()
+  love.graphics.translate(6, 8)
+  silhouette(1)
+  love.graphics.pop()
+  -- The tail, broken off at the root and lying at an angle.
+  love.graphics.push()
+  love.graphics.translate(-46, 0)
+  love.graphics.rotate(0.6)
+  love.graphics.translate(46, 0)
+  color(Render.HULL_DARK, 1)
+  love.graphics.polygon("fill", flat(BOOM))
+  love.graphics.polygon("fill", flat(TAILPLANE))
+  love.graphics.pop()
+  color({ 0.20, 0.20, 0.21 })
+  love.graphics.polygon("fill", flat(BELLY))
+  love.graphics.polygon("fill", flat(HEAD))
+  for _, m in ipairs({ false, true }) do
+    love.graphics.polygon("fill", flat(WING, m))
+    capsule("fill", POD.x0, POD.x1, m and -POD.y or POD.y, POD.r)
+  end
+  color(Render.HULL_LIGHT, 0.8) -- what paint is left
+  love.graphics.polygon("fill", 20, -12, 4, -20, -20, -16, -10, 4)
+  love.graphics.polygon("fill", 40, 6, 30, 16, 22, 12, 30, 2)
+  color(GLASS)
+  love.graphics.polygon("fill", flat(CANOPY))
+  color(BLADE)
+  love.graphics.setLineWidth(6)
+  love.graphics.line(HUB[1], HUB[2], HUB[1] + 70, HUB[2] + 30, HUB[1] + 92, HUB[2] + 60) -- bent down at the tip
+  love.graphics.line(HUB[1], HUB[2], HUB[1] - 40, HUB[2] - 60)
+  love.graphics.setLineWidth(1)
+  color(SEAM)
+  love.graphics.circle("fill", HUB[1], HUB[2], 8, 12)
+  love.graphics.pop()
+  -- Fire, and the smoke going up from it.
+  for k = 0, 5 do
+    local f = 0.6 + 0.4 * math.sin(time * (9 + k) + k * 1.7)
+    local fx, fy = w.x + math.cos(k * 1.9) * 34, w.y + math.sin(k * 1.9) * 24
+    color(FIRE, 0.45 * f)
+    love.graphics.circle("fill", fx, fy, 8 * f, 10)
+    love.graphics.setColor(1, 0.85, 0.4, 0.7 * f)
+    love.graphics.circle("fill", fx, fy - 1, 3.5 * f, 8)
+  end
+  for k = 0, 7 do
+    local t = (time * 0.35 + k / 8) % 1
+    color(SMOKE, 0.25 * (1 - t))
+    love.graphics.circle("fill", w.x + 20 + t * 110 + math.sin(k * 2.1 + time * 0.5) * 12, w.y - 20 - t * 180,
+      10 + t * 34, 14)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- Where the muzzle is, in world px, and the way it points: the host fires
 --- from here, so its rounds leave from where every screen draws the gun.
 function Render.muzzle(x, y, angle, aim, altitude)
@@ -355,7 +439,10 @@ end
 ---   lock          0..1 the gun locking on (a beam down its aim), nil or 0 when not
 ---   bank          -1..1 leaning into a turn (port down .. starboard down)
 ---   spin          0..1 how fast the rotors turn (defaults to 1; 0 stopped)
----   hp, max       health, for the bar over it (no bar without them)
+---   hp, max       health: below 40% scorched, sparking, an engine on fire
+---   bar           true: a health bar over it too (the fight has the boss bar instead)
+---   flash         0..1 just hit: the hull flashes white
+---   down          true: going down, smoke pouring off all of it
 --- Returns the muzzle in world px, where its rounds leave from.
 function Render.chopper(c, time)
   local altitude = c.altitude or Render.ALTITUDE
@@ -384,10 +471,23 @@ function Render.chopper(c, time)
   local mx, my = drawGun(aim, c.firing, time)
   drawHull(time, bank, spin)
   drawHurt(hurt, time)
+  if c.flash and c.flash > 0 then
+    love.graphics.setColor(1, 1, 1, math.min(0.7, c.flash * 4))
+    silhouette(1)
+  end
   drawRotor(time, spin, false)
   love.graphics.pop()
+  if c.down then -- smoke billowing off it all as it goes down, left behind as it spins
+    for k = 0, 9 do
+      local t = (time * 1.3 + k / 10) % 1
+      local a = k * 2.4
+      love.graphics.setColor(0.10, 0.10, 0.10, 0.5 * (1 - t))
+      love.graphics.circle("fill", c.x + math.cos(a) * (20 + t * 60), c.y + math.sin(a) * (20 + t * 60) - t * 40,
+        10 + t * 26, 12)
+    end
+  end
 
-  if c.hp and c.max then
+  if c.bar and c.hp and c.max then
     local bw = 120
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", c.x - bw / 2 - 1, c.y - Render.ROTOR - 14, bw + 2, 6)

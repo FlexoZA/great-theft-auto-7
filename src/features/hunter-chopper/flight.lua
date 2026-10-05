@@ -11,6 +11,10 @@
 -- flies on at the speed it was given until told otherwise, and
 -- `Flight.rejoin` brings it round back onto the ring, where it goes on
 -- circling from wherever it joined. `f.travel` counts the px it has flown.
+--
+-- Shot down (`Flight.fall`), it spins out: round and round faster and
+-- faster, sliding on towards the middle of the square and slowing, dropping
+-- quicker as it goes, until it hits the ground (`f.crashed`).
 
 local Flight = {}
 
@@ -26,6 +30,9 @@ Flight.bob = 8 -- px up and down
 Flight.bobEvery = 3.2 -- seconds for one bob
 Flight.turnRate = 1.8 -- radians a second it can turn off the ring
 Flight.joinAt = 30 -- px from the ring that counts as back on it
+Flight.spinUp = 3.5 -- radians a second, every second, its spin builds by going down
+Flight.spinMost = 9 -- radians a second at most
+Flight.drop = 30 -- px a second, every second, its fall speeds up by
 
 --- A chopper flying round (cx, cy), starting `at` radians round.
 function Flight.new(cx, cy, at)
@@ -54,6 +61,12 @@ function Flight.rejoin(f)
   f.course, f.joining = nil, true
 end
 
+--- Shot down: it spins out and falls from here on.
+function Flight.fall(f)
+  f.course, f.joining = nil, false
+  f.falling = { heading = math.atan2(f.cy - f.y, f.cx - f.x), speed = Flight.speed, spin = 1.5, sink = 10 }
+end
+
 --- Is it off the ring, flying somewhere or on its way back?
 function Flight.away(f)
   return f.course ~= nil or f.joining
@@ -80,6 +93,18 @@ end
 --- or wherever it has been sent.
 function Flight.step(f, dt)
   f.time = f.time + dt
+  local down = f.falling
+  if down then
+    down.spin = math.min(Flight.spinMost, down.spin + Flight.spinUp * dt)
+    down.speed = down.speed * math.exp(-0.7 * dt)
+    down.sink = down.sink + Flight.drop * dt
+    f.angle = f.angle + down.spin * dt
+    f.bank = math.sin(f.time * 7) * 0.6
+    f.x, f.y = f.x + math.cos(down.heading) * down.speed * dt, f.y + math.sin(down.heading) * down.speed * dt
+    f.altitude = math.max(0, f.altitude - down.sink * dt)
+    f.crashed = f.altitude <= 0
+    return
+  end
   f.altitude = Flight.altitude + Flight.bob * math.sin(f.time * 2 * math.pi / Flight.bobEvery)
   if f.course then
     steer(f, f.course.x, f.course.y, f.course.speed, dt)

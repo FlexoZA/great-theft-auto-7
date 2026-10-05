@@ -27,7 +27,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   burst. Run across its line, or get behind something. Every so often it
   peels off with a klaxon on a bombing run, dives over you and drops a
   stick of bombs down both sides of it: watch the red rings and get out
-  from under. It can't be shot down yet.
+  from under. Its rounds are blue. Shoot it down (2400 health for one
+  player, more with more) and it spins out, crashes in a fireball, spills
+  koins and leaves a burning wreck by the way out.
 
 ## [0.11.0] - 2026-10-04
 

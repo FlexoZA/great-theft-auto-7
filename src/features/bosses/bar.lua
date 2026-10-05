@@ -6,6 +6,9 @@
 --     title = "CRAZY KAREN", titleColor = { 1, 0.55, 0.75 }, fill = { 0.9, 0.2, 0.45 },
 --     hp = b.hp, max = b.max, stamina = b.stamina, staminaMax = 100, winded = b.winded,
 --   })
+--
+-- A machine has no breath (the Hunter-Chopper): `noBreath = true` leaves
+-- the thin bar off.
 
 local UI = require("src.ui")
 
@@ -33,6 +36,10 @@ function Bar.draw(spec)
   love.graphics.setColor(1, 1, 1, 0.5)
   love.graphics.rectangle("line", bx, by, bw, bh, 2)
 
+  if spec.noBreath then
+    love.graphics.setColor(1, 1, 1)
+    return
+  end
   -- Its breath: so you can see when to run, and when it is about to.
   local sh, sy = Bar.breathHeight, by + bh + 4
   local sf = math.max(0, math.min(1, (spec.stamina or 0) / math.max(1, spec.staminaMax or 100)))
