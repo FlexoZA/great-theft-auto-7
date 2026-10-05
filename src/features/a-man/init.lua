@@ -89,6 +89,17 @@ function AMan:serverHoldTrip(server, quest, player)
   return Detour.serverHoldTrip(server, quest, player)
 end
 
+--- Combine soldiers set down round (x, y) on the level that is on (city17.lua's serverDrop).
+function AMan:serverDropTroops(server, x, y, count)
+  return City17.serverDrop(server, x, y, count)
+end
+
+--- A-Man drops in near the player nearest (x, y), opens his case (out
+--- comes whatever `opened(server, x, y)` brings) and blinks out (cameo.lua).
+function AMan:serverVisit(server, x, y, opened)
+  return City17.serverVisit(server, x, y, opened)
+end
+
 function AMan:serverShotAt(server, x, y, radius, by, angle, damage)
   return City17.serverShotAt(server, x, y, radius, by, angle, damage)
 end

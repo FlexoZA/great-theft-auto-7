@@ -1008,7 +1008,18 @@ the one with a plot.
   ground: a 150 px blast of its own (60 at the middle), 40 koins,
   `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
   star comes up by the wreck, which burns there (`HC_DOWN`) until the map
-  changes. Its rotor is a synthesised
+  changes. It calls for help as it is hurt (`HunterChopper.waves`, each
+  once, checked every host tick): at 80% health 4 Combine soldiers (for
+  one human, more with more: `Bosses.count`) are set down on clear ground
+  round the spot under it (the a-man feature's `serverDropTroops`,
+  city17.lua's `Level.serverDrop`) and go for the nearest player; at 50%
+  A-Man drops in by the player nearest it as he does on City 17's plaza
+  (the a-man feature's `serverVisit`, cameo.lua's `Cameo.serverVisit`),
+  and his case lets out 3 Hunters on a ring 120 px round him
+  (`hunters:serverPatrol`) instead of turrets before he blinks out. The
+  cameo now runs on every map the level holds; only City 17
+  (`Level.maps`' `cameo`) gets his plaza visits of his own.
+  Its rotor is a synthesised
   seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
   follows it about and carries 3200 px. The host sends `HC_STATE`
   (unreliable, 15 Hz, with the lock, whether it is firing, whether it is

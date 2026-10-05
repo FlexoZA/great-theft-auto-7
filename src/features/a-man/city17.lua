@@ -235,9 +235,7 @@ function Level.serverQuestStarted(server, quest)
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
   sv = { troops = troops, syncIn = 0, reached = false, time = 0, garrisons = {} }
-  if conf.cameo then
-    Cameo.serverStart()
-  end
+  Cameo.serverStart(conf.cameo == true) -- his plaza visits where the map has them; called-in ones anywhere
   local hunters = Features.byName.hunters
   if hunters and conf.hunters then
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
@@ -518,6 +516,43 @@ local function stepGarrisons(server, dt)
       end
     end
   end
+end
+
+--- Reinforcements, for another feature (the Hunter-Chopper's): `count`
+--- soldiers (more with more humans: Bosses.count) set down on clear ground
+--- round (x, y), who go for the nearest player and stand guard where they
+--- end up. Returns how many came, 0 while no level runs.
+function Level.serverDrop(server, x, y, count)
+  if not sv then
+    return 0
+  end
+  local city = Features.byName["city-map"]
+  local n = Bosses.count(count, server)
+  local target = nearestPlayer(server, x, y, 1e5) or { x = x, y = y }
+  local came = 0
+  for i = 1, n do
+    local a = (i - 1) / n * 2 * math.pi
+    for r = 40, 200, 40 do
+      local sx, sy = x + math.cos(a) * r, y + math.sin(a) * r
+      if not (city and city:blocksPoint(sx, sy)) then
+        local s = sv.troops:add("guard", sx, sy, math.atan2(target.y - sy, target.x - sx))
+        sv.troops:arm(s, pickArms())
+        sv.troops:sendTo(s, target.x, target.y)
+        if came == 0 then -- the first down says where they are going
+          later(s, "investigate", 0.4)
+        end
+        came = came + 1
+        break
+      end
+    end
+  end
+  return came
+end
+
+--- A-Man drops in once near the player nearest (x, y), for another feature
+--- (cameo.lua's serverVisit). False while no level runs.
+function Level.serverVisit(server, x, y, opened)
+  return sv ~= nil and Cameo.serverVisit(server, x, y, opened)
 end
 
 function Level.serverStep(server, dt)

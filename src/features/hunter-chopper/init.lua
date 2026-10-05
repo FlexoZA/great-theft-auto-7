@@ -18,6 +18,12 @@
 -- (quests' `serverComplete`): the EXIT star comes up by the wreck, which
 -- burns there for as long as everyone stays.
 --
+-- It calls for help as it takes damage (`waves`): at 80% health a squad of
+-- Combine soldiers is set down under it (the a-man feature's City 17 level,
+-- `serverDropTroops`) and goes for the nearest player; at 50% A-Man blinks
+-- in by the player nearest it, opens his briefcase on three Hunters (the
+-- hunters feature) and blinks out again (the a-man feature's `serverVisit`).
+--
 -- The host flies it and tells everyone where it is; every machine eases
 -- what it draws towards that and draws it over everything on the ground.
 --
@@ -59,6 +65,12 @@ HunterChopper.blastReach = 40 -- px past a blast's radius its hull still feels i
 HunterChopper.drops = 40 -- koins it spills where it comes down
 HunterChopper.crashRadius = 150 -- px the blast where it hits the ground reaches
 HunterChopper.crashDamage = 60 -- at the middle of that, a third of it at the edge
+-- Who it calls in, once each, as its health falls to `at` of the most it had.
+HunterChopper.waves = {
+  { at = 0.8, troops = 4 }, -- Combine soldiers set down under it, for one human (more humans, more)
+  { at = 0.5, hunters = 3 }, -- A-Man drops in with these Hunters in his case, and leaves
+}
+HunterChopper.hunterRing = 120 -- px out from where he stood that the Hunters' beat runs
 
 local SYNC_EVERY = 2 -- server ticks between HC_STATE
 local SMOOTHING = 10 -- per second, the easing of what is drawn
@@ -82,7 +94,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { flight, brain, bombs, hp, max, down, syncIn } while it is up, or coming down
+local sv = nil -- { flight, brain, bombs, hp, max, down, syncIn, called } while it is up, or coming down
 
 function HunterChopper:load()
   Sounds.load()
@@ -94,7 +106,10 @@ function HunterChopper:serverQuestStarted(server, quest)
   if quest.id == self.questId and map and map.bossX then
     local flight = Flight.new(map.bossX, map.bossY, math.pi / 2)
     local max = Bosses.health(self.health, server)
-    sv = { flight = flight, brain = Brain.new(flight.angle), bombs = Bombs.new(), hp = max, max = max, syncIn = 0 }
+    sv = {
+      flight = flight, brain = Brain.new(flight.angle), bombs = Bombs.new(), hp = max, max = max, syncIn = 0,
+      called = 0, -- how many of `waves` have come
+    }
   end
 end
 
@@ -182,6 +197,54 @@ function HunterChopper:serverBlast(_server, x, y, radius, damage, owner)
   end
 end
 
+--- `count` Hunters on a ring round (x, y), walking it.
+local function hunters(server, x, y, count)
+  local feature = Features.byName.hunters
+  if not (feature and feature.serverPatrol) then
+    return
+  end
+  local route, ring = {}, HunterChopper.hunterRing
+  for i = 0, 7 do
+    local a = i / 8 * 2 * math.pi
+    route[#route + 1] = { x = x + math.cos(a) * ring, y = y + math.sin(a) * ring }
+  end
+  feature:serverPatrol(server, route, count)
+end
+
+--- A wave of help: soldiers set down under it, or A-Man dropping in with
+--- Hunters in his case.
+local function callIn(server, wave)
+  local f = sv.flight
+  local aman = Features.byName["a-man"]
+  if not aman then
+    return
+  end
+  if wave.troops and aman.serverDropTroops then
+    aman:serverDropTroops(server, f.x, f.y, wave.troops)
+  end
+  if wave.hunters and aman.serverVisit then
+    local came = aman:serverVisit(server, f.x, f.y, function(srv, x, y)
+      hunters(srv, x, y, wave.hunters)
+    end)
+    if not came then -- nowhere for him to land: they come anyway, under it
+      hunters(server, f.x, f.y, wave.hunters)
+    end
+  end
+end
+
+--- Each wave once, as its health falls past the wave's mark.
+local function callForHelp(server)
+  local wave = HunterChopper.waves[sv.called + 1]
+  while wave and sv.hp <= sv.max * wave.at do
+    sv.called = sv.called + 1
+    callIn(server, wave)
+    if not sv then
+      return
+    end
+    wave = HunterChopper.waves[sv.called + 1]
+  end
+end
+
 function HunterChopper:serverStep(server, dt)
   if not sv then
     return
@@ -191,6 +254,7 @@ function HunterChopper:serverStep(server, dt)
   local b = sv.brain
   if not sv.down then
     Brain.step(b, f, server, dt, sv.bombs)
+    callForHelp(server)
   end
   Bombs.step(sv.bombs, server, dt)
   if f.crashed then
