@@ -16,7 +16,8 @@
 --   citadel.lua  the end of the trail, for later: the catwalk up through the Citadel
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
---   theme.lua    his music, while he is loose
+--   theme.lua    his music, while he is loose, and City 17's
+--   theme_outercity.lua, theme_coast.lua   the Outer City's music and the Coast's
 --   turrets.lua  the sentry turrets out of his briefcase
 --   nests.lua    the Coast's MG nests' guns, drawn (city17.lua mans them)
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
@@ -130,7 +131,7 @@ function AMan:questStarted(_client, quest)
     face = face or Face.new()
     page = { line = quest.introLine or 1, t = self.introTime }
     City17.clear()
-    Event.playTheme()
+    Event.playTheme(quest.map)
   end
 end
 

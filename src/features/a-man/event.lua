@@ -57,6 +57,8 @@ local BossBar = require("src.features.bosses.bar")
 local Teleport = require("src.features.abilities.teleport")
 local Face = require("src.features.a-man.face")
 local Theme = require("src.features.a-man.theme")
+local OuterCityTheme = require("src.features.a-man.theme_outercity")
+local CoastTheme = require("src.features.a-man.theme_coast")
 local Sounds = require("src.features.a-man.sounds")
 local Turrets = require("src.features.a-man.turrets")
 local Brain = require("src.features.a-man.brain")
@@ -353,23 +355,36 @@ end
 local cl = nil -- { a, lastTick, turretTick, tears, turrets }
 local remains = nil -- { x, y, t }: the disguise where he fell, outliving the event
 local time = 0
-local face, music = nil, nil
+local face, music = nil, nil -- `music`: whichever theme is playing (or last played)
+local THEMES = { city17 = Theme, outercity = OuterCityTheme, coast = CoastTheme } -- by the map they go with
+local themes = {} -- map -> Source, rendered the first time it is wanted
 
-local function startMusic()
-  if not music then
-    music = love.audio.newSource(Theme.render(), "static")
-    music:setLooping(true)
-    music:setRelative(true)
+--- The theme for `map` (City 17's, his own, for any map without one) from the top.
+local function startMusic(map)
+  local key = THEMES[map] and map or "city17"
+  local source = themes[key]
+  if not source then
+    source = love.audio.newSource(THEMES[key].render(), "static")
+    source:setLooping(true)
+    source:setRelative(true)
+    themes[key] = source
   end
+  if music and music ~= source then
+    music:stop()
+  end
+  music = source
   music:setVolume(Audio.muted and 0 or Audio.volume("music"))
   music:seek(0)
   music:play()
 end
 
 --- His theme from the top, for his quest too (init.lua): it plays from his
---- intro screen to the end of the quest, the way Karen's does hers.
-function AMan.playTheme()
-  startMusic()
+--- intro screen to the end of the quest, the way Karen's does hers. Each of
+--- his quest's maps has its own (`map`): City 17's industrial rock (his own,
+--- the event's too), the Outer City's chase (theme_outercity.lua) and the
+--- Coast's (theme_coast.lua).
+function AMan.playTheme(map)
+  startMusic(map)
 end
 
 function AMan.stopTheme()

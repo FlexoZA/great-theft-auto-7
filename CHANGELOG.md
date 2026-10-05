@@ -33,6 +33,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   from under. Its rounds are blue. Shoot it down (3600 health for one
   player, more with more) and it spins out, crashes in a fireball, spills
   koins and leaves a burning wreck by the way out.
+- A-Man's trail has music of its own for each stop: City 17 keeps his
+  industrial rock, the Outer City gets a fast electronic chase, and the
+  Coast a wide-open, uneasy piece with the sea in it and something under
+  the sand.
 - The Hunter-Chopper calls for help as you shoot it down: at 80% health
   it sets Combine soldiers down under it, three lots of three 8 seconds
   apart, and at 30% A-Man blinks in beside you, opens his briefcase on
