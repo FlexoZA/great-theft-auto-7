@@ -22,6 +22,7 @@
 --                         a concrete bunker (solid, in map.cover too), the MG nest in front
 --                         of it (sandbags, drawn only) and where its three riflemen stand
 --   map.posts             empty: City 17's level reads it (a-man/city17.lua mans the bunkers)
+--   map.swarms            { x, y, r, count } where antlions lie buried (the antlions feature)
 --   map.cover             { kind = "water" | "rock" | "log" | "boat" | "crate" | "bunker", x, y, w, h }, all solid;
 --                         and kind "mountain" and "sand", not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest walked or wet tile, for a mountain tile
@@ -69,6 +70,16 @@ Coast.BUNKERS = {
   { name = "the point", row = 11 },
 }
 Coast.NEST_ARC = math.rad(50) -- either side of where a nest faces, how far its gun turns
+-- Swarms of antlions buried in the sand (the antlions feature wakes them):
+-- `count` of them for one human, round the middle of the sand at `row`.
+Coast.SWARMS = {
+  { row = 82, count = 6 }, -- the cove
+  { row = 58, count = 5 }, -- the long beach, past the headland
+  { row = 41, count = 8 }, -- the wreck
+  { row = 25, count = 5 }, -- on the way to the point
+  { row = 14, count = 7 }, -- the point
+}
+Coast.SWARM_RADIUS = 150 -- px round its middle a swarm lies buried
 Coast.RAGGED = 1.3 -- tiles the sea's edge and the mountains' foot wander either way
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
@@ -410,6 +421,16 @@ function Coast.build(map, rng, T)
       placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
     end
     map.bunkers[#map.bunkers + 1] = b
+  end
+
+  -- Where the antlions lie: the middle of the sand at each swarm's row.
+  map.swarms = {}
+  for _, def in ipairs(Coast.SWARMS) do
+    local c0, c1 = sandEnds(def.row)
+    if c0 then
+      map.swarms[#map.swarms + 1] = { x = math.floor(X((c0 + c1 + 1) / 2)), y = math.floor(Y(def.row + 0.5)),
+        r = Coast.SWARM_RADIUS, count = def.count }
+    end
   end
 
   for _, cv in ipairs(map.coves) do

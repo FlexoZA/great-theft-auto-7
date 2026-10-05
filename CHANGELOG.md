@@ -46,6 +46,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   one on the gun, three with rifles round the bunker. They hold their
   ground rather than chase you, and when the gunner drops, another runs
   to the gun. The gun only swings so far: get round its side.
+- Antlions: swarms of them lie buried along the Coast and burst up out of
+  the sand when you come near, run you down and bite, leaping the last of
+  the way now and then. You can only just outrun them at a sprint. Walk
+  away and they burrow back down to wait for you.
 
 ## [0.12.0] - 2026-10-05
 

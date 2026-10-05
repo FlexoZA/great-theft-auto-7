@@ -1072,7 +1072,28 @@ the one with a plot.
   1.4 s apart). Drop him and the nearest of his crew still up walks to the
   gun (combine.lua's `post`, before anything else) and takes it over
   (`Level.manGun`); a-man/nests.lua draws each gun swung the way its man
-  faces. They are not the map's main enemy, which is still to come.
+  faces. They are not the map's main enemy: the antlions are.
+- Antlions: `src/features/antlions`, the Coast's main enemy, after
+  Half-Life's; melee only. Any map with `map.swarms` ({ x, y, r, count }:
+  the Coast's five, `Coast.SWARMS`, 31 antlions for one human, more with
+  more: `Bosses.count`) gets them buried there when a quest starts
+  (`serverQuestStarted`); a quest's end or a map change clears them. Their
+  brain (`brain.lua`, on the host): buried and never sent; a player
+  within `Brain.WAKE` (320 px) of one brings its whole swarm up, staggered
+  over 1.1 s, 0.9 s crawling out; then each runs the nearest visible
+  player down at 150 px/s (a sprint, 170, gets away), curving round to
+  its own side close in and keeping 30 px from the others, bites in reach
+  (26 px: 5 melee damage 0.22 s into a 0.38 s bite, 0.75 s between) and
+  from 110-240 px now and then leaps (0.55 s at 360 px/s). With nobody
+  within 1400 px for 6 s it burrows back down where it is, to wake again
+  the same way. 30 health (two pistol rounds), `serverShotAt` (rounds
+  owned by nobody pass by, so the bunkers don't thin them out), freeze
+  and stink as for anyone. One down drops a koin and a quarter of the
+  usual chance of a pickup, and lies dead on every screen for 12 s. The
+  model (`render.lua`, stateless: walk, bite, air, burrow, hurt, dead),
+  the synthesised sounds (`sounds.lua`, the "antlions" volume channel:
+  coming up, chitter, bite, buzz) and `ANT_STATE` / `ANT_DOWN` (header of
+  `antlions/init.lua`).
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on
