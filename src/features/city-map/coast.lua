@@ -18,7 +18,11 @@
 --   map.exitX, map.exitY  the far end, on the point
 --   map.coves             { name, x, y, w, h } each wide spot's sand, world px
 --   map.zones             { name, y0, y1 } as City 17's: the coves and the headland
---   map.cover             { kind = "water" | "rock" | "log" | "boat" | "crate", x, y, w, h }, all solid;
+--   map.bunkers           { name, x, y, w, h, nest = { x, y, angle, arc }, posts = { { x, y, watch } x3 } }:
+--                         a concrete bunker (solid, in map.cover too), the MG nest in front
+--                         of it (sandbags, drawn only) and where its three riflemen stand
+--   map.posts             empty: City 17's level reads it (a-man/city17.lua mans the bunkers)
+--   map.cover             { kind = "water" | "rock" | "log" | "boat" | "crate" | "bunker", x, y, w, h }, all solid;
 --                         and kind "mountain" and "sand", not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest walked or wet tile, for a mountain tile
 --   map.depth             [c][r] tiles from the nearest dry tile, for a sea tile
@@ -57,11 +61,20 @@ Coast.COVES = {
   { name = "the point", r0 = 6, r1 = 17, rocks = 5, logs = 2 },
 }
 Coast.HEADLAND = { r0 = 64, r1 = 73 } -- rows where the way runs over rocks
+-- The Combine's bunkers, each with an MG nest in front of it facing back
+-- down the beach: against the mountains' foot at `row`.
+Coast.BUNKERS = {
+  { name = "the cove", row = 77 },
+  { name = "the long beach", row = 50 },
+  { name = "the point", row = 11 },
+}
+Coast.NEST_ARC = math.rad(50) -- either side of where a nest faces, how far its gun turns
 Coast.RAGGED = 1.3 -- tiles the sea's edge and the mountains' foot wander either way
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
 local MAP = {
   mountain = { 0.22, 0.40, 0.20 },
+  bunker = { 0.55, 0.56, 0.58 },
   sand = { 0.80, 0.72, 0.52 },
   rock = { 0.45, 0.45, 0.42 },
   log = { 0.45, 0.33, 0.22 },
@@ -358,6 +371,47 @@ function Coast.build(map, rng, T)
       end
     end
   end
+  -- The bunkers, against the mountains' foot, the nest in front facing down
+  -- the beach, the riflemen spread across the sand towards the sea.
+  map.bunkers, map.posts = {}, {}
+  local function sandEnds(r)
+    local c0, c1
+    for c = 0, cols - 1 do
+      if sand[c][r] then
+        c0, c1 = c0 or c, c
+      end
+    end
+    return c0, c1
+  end
+  for _, def in ipairs(Coast.BUNKERS) do
+    local c0, c1 = sandEnds(def.row)
+    local w, h = 2 * T, 80
+    local bx, by = X(c1 + 1) - w - 6, Y(def.row) + (T - h) / 2
+    local b = cover("bunker", bx, by, w, h)
+    b.name = def.name
+    -- Facing down the beach: at its middle, a good way south.
+    local below = math.min(rows - 1, def.row + 9)
+    local mc0, mc1 = sandEnds(below)
+    local nx, ny = bx + 34, by + h + 40
+    local tx, ty = X((mc0 + mc1 + 1) / 2), Y(below + 0.5)
+    local angle = math.atan2(ty - ny, tx - nx)
+    b.nest = { x = math.floor(nx), y = math.floor(ny), angle = angle, arc = Coast.NEST_ARC }
+    placed[#placed + 1] = { x = nx, y = ny, r = 70 }
+    -- Riflemen: one at the bunker's west end, one out towards the sea, one behind it.
+    local mid = X((c0 + c1 + 1) / 2)
+    b.posts = {
+      { x = bx - 34, y = by + h / 2 },
+      { x = math.max(X(c0) + 90, math.min(nx - 150, mid)), y = ny + 30 },
+      { x = bx + 20, y = by - 34 },
+    }
+    for _, p in ipairs(b.posts) do
+      p.x, p.y = math.floor(p.x), math.floor(p.y)
+      p.watch = math.atan2(ty - p.y, tx - p.x)
+      placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
+    end
+    map.bunkers[#map.bunkers + 1] = b
+  end
+
   for _, cv in ipairs(map.coves) do
     if cv.def.boat then
       -- The wreck: a boat run up the sand, bow to the mountains, crates spilled round it.

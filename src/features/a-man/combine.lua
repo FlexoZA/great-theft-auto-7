@@ -32,6 +32,16 @@
 -- foot do the same), so their rounds hurt any player and credit nobody.
 -- D-Day's soldiers think the same way, in a brain of their own
 -- (d-day/brain.lua).
+--
+-- One soldier can be told apart from the rest (fields on him, set by
+-- whoever adds him):
+--   hold    he holds his place even when the others hunt: never chases,
+--           never goes to look, never answers a call (the Coast's MG crews)
+--   arc     radians either side of `watch` he may turn to and shoot into,
+--           and only there (a gunner behind a fixed gun)
+--   fov     his own cone of sight, instead of everyone's
+--   post    { x, y } to walk to, whatever is going on, before anything
+--           else (a crewman running to a gun nobody is on)
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
@@ -88,6 +98,11 @@ function Combine.new(opts)
   return setmetatable(t, Combine)
 end
 
+--- Does `s` leave his place to chase and look into things?
+local function hunts(self, s)
+  return self.hunt and not s.hold
+end
+
 --- Is `s` on edge: somebody in his sights, or out searching or looking
 --- into something?
 function Combine.wary(s)
@@ -96,6 +111,9 @@ end
 
 --- How wide `s`'s cone of sight is right now.
 function Combine:fovOf(s)
+  if s.fov then
+    return s.fov
+  end
   if self.alertFov and Combine.wary(s) then
     return self.alertFov
   end
@@ -372,7 +390,7 @@ function Combine:alarm(x, y, radius, opts)
   for _, s in ipairs(self.list) do
     local d2 = dist2(s.x, s.y, x, y)
     local own = from and (s == from or (s.squad ~= nil and s.squad == from.squad))
-    if not own and not s.target and not s.panic and d2 <= radius * radius then
+    if not own and not s.hold and not s.target and not s.panic and d2 <= radius * radius then
       near[#near + 1] = { s = s, d2 = d2 }
     end
   end
@@ -491,7 +509,7 @@ function Combine:think(server, s, dt)
   if s.panic then
     -- A stink: away from it, rifle forgotten.
     s.alert, s.target = false, nil
-    if self.hunt then
+    if hunts(self, s) then
       crumb(s) -- and back again after
     end
     s.panic.left = s.panic.left - dt
@@ -532,9 +550,23 @@ function Combine:think(server, s, dt)
     tx, ty = poseOf(server, s.target)
     if not tx then
       s.target = nil
+    elseif s.arc and math.abs(Sight.angleDiff(math.atan2(ty - s.y, tx - s.x), s.watch)) > s.arc then
+      tx, ty, s.target = nil, nil, nil -- out past where his gun turns
     end
   end
-  if self.hunt and s.alert and not tx and s.aimX then
+  if s.post then
+    -- To his post before anything else, rifle down.
+    local d2 = dist2(s.x, s.y, s.post.x, s.post.y)
+    if d2 > 6 * 6 then
+      local path = math.atan2(s.post.y - s.y, s.post.x - s.x)
+      advance(s, path, Combine.CHASE_WALK, dt)
+      s.facing = turn(s.facing, path, Combine.TURN * 2, dt)
+      s.alert, s.target = false, nil
+      return
+    end
+    s.x, s.y, s.post = s.post.x, s.post.y, nil
+  end
+  if hunts(self, s) and s.alert and not tx and s.aimX then
     setGoal(self, s, s.aimX, s.aimY, "search") -- lost them: to where they were last
   end
   s.alert = s.target ~= nil
@@ -545,7 +577,7 @@ function Combine:think(server, s, dt)
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Combine.TURN, dt)
     -- Close in to CHASE_KEEP, or nearer with a gun that doesn't reach that far.
     local keep = s.arms and math.min(Combine.CHASE_KEEP, s.arms.reach * 0.6) or Combine.CHASE_KEEP
-    if self.hunt and dist2(s.x, s.y, tx, ty) > keep * keep then
+    if hunts(self, s) and dist2(s.x, s.y, tx, ty) > keep * keep then
       crumb(s)
       if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
         walk(s, math.atan2(ty - s.y, tx - s.x), Combine.CHASE_WALK, dt) -- close in, rifle up
@@ -561,8 +593,15 @@ function Combine:think(server, s, dt)
   elseif s.kind == "patrol" then
     self:patrol(s, dt)
   else -- a guard
-    local sweep = s.watch + Combine.SWEEP * math.sin(2 * math.pi * self.time / Combine.SWEEP_TIME + s.phase)
+    local reach = s.arc and math.min(Combine.SWEEP, s.arc) or Combine.SWEEP
+    local sweep = s.watch + reach * math.sin(2 * math.pi * self.time / Combine.SWEEP_TIME + s.phase)
     s.facing = turn(s.facing, sweep, Combine.TURN, dt)
+  end
+  if s.arc then -- his gun turns no further
+    local off = Sight.angleDiff(s.facing, s.watch)
+    if math.abs(off) > s.arc then
+      s.facing = s.watch + (off > 0 and s.arc or -s.arc)
+    end
   end
 end
 
@@ -572,7 +611,7 @@ function Combine:patrol(s, dt)
   local squad = s.squad
   for _, m in ipairs(squad.members) do
     if m.alert and m ~= s then
-      if self.hunt then
+      if hunts(self, s) then
         setGoal(self, s, m.aimX, m.aimY, "search") -- with him
         if s.goal then
           return
@@ -649,7 +688,7 @@ function Combine:hurt(s, i, amount, angle)
   end
   if angle and not s.target then
     s.facing = angle + math.pi -- back the way the round came
-    if self.hunt then -- and off that way to find who sent it
+    if hunts(self, s) then -- and off that way to find who sent it
       setGoal(self, s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
     end
   end

@@ -1058,7 +1058,21 @@ the one with a plot.
   the north west, contour lines, forest over them: `map.slopes`, drawn
   only), the sea (shallows to deep) and the sand (wet at the water's edge,
   foam along it); the minimap gets the mountains and sand through cover
-  that only carries a `mapColor`. No enemies on it yet.
+  that only carries a `mapColor`. The Combine hold three bunkers on it
+  (`Coast.BUNKERS`, `map.bunkers`: the cove, the north end of the long
+  beach and the point), each a solid concrete box against the mountains'
+  foot with an MG nest in front of it facing back down the beach
+  (sandbags drawn only, so they stop neither sight nor rounds) and three
+  rifle posts. City 17's level runs on the map (`Level.maps.coast`:
+  `nests`, no beats) and mans each nest with `Level.nestCrew` (4): one on
+  the gun, the rest on the posts, all `hold` (combine.lua: they never
+  chase, go to look or answer a call). The gunner sees and turns only
+  within the nest's `arc` (50 degrees either side) and fires
+  `Level.nestGun` (an AK's rounds, 12 damage, 12 a second, bursts of 14,
+  1.4 s apart). Drop him and the nearest of his crew still up walks to the
+  gun (combine.lua's `post`, before anything else) and takes it over
+  (`Level.manGun`); a-man/nests.lua draws each gun swung the way its man
+  faces. They are not the map's main enemy, which is still to come.
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on

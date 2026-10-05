@@ -41,6 +41,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   wreck takes everyone to the Coast, one long beach winding north between
   the sea and green mountains, narrow most of the way and opening into
   wide coves strewn with rocks, driftwood and a beached boat.
+- The Combine hold three bunkers on the Coast, each with a machine gun
+  nest in front of it raking the beach and four soldiers keeping it:
+  one on the gun, three with rifles round the bunker. They hold their
+  ground rather than chase you, and when the gunner drops, another runs
+  to the gun. The gun only swings so far: get round its side.
 
 ## [0.12.0] - 2026-10-05
 

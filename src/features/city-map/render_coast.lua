@@ -4,8 +4,9 @@
 -- pale up the beach, the headland's rocks; the mountains, shaded by how
 -- high they stand (lit from the north west, a contour line every so often,
 -- grass at their foot, forest up their sides and over the ridges) with
--- boulders tumbled along their foot; then the cover on the sand and the
--- trees on the slopes.
+-- boulders tumbled along their foot; then the cover on the sand, the
+-- Combine's bunkers with the sandbags of their MG nests (the guns are
+-- drawn live: a-man/nests.lua) and the trees on the slopes.
 
 local RenderCoast = {}
 
@@ -39,6 +40,13 @@ local C = {
   deck = { 0.60, 0.50, 0.36 },
   rust = { 0.48, 0.28, 0.16 },
   shadow = { 0, 0, 0, 0.28 },
+  concrete = { 0.56, 0.57, 0.58 },
+  concreteDark = { 0.40, 0.41, 0.43 },
+  concreteLight = { 0.66, 0.67, 0.68 },
+  slit = { 0.08, 0.09, 0.10 },
+  stain = { 0.33, 0.36, 0.30 },
+  bag = { 0.62, 0.56, 0.40 },
+  bagDark = { 0.46, 0.41, 0.29 },
 }
 
 local SUB = 4 -- cells a tile is drawn in, each way
@@ -392,6 +400,55 @@ local function drawCrate(s)
   love.graphics.setLineWidth(1)
 end
 
+--- A Combine bunker: a squat concrete box, a firing slit along the face
+--- that looks down the beach, weathered and mossed at the corners.
+local function drawBunker(s)
+  local x, y, w, h = s.x, s.y, s.w, s.h
+  color(C.shadow)
+  love.graphics.rectangle("fill", x + 8, y + 10, w, h, 6, 6)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", x, y, w, h, 6, 6)
+  color(C.concrete)
+  love.graphics.rectangle("fill", x + 6, y + 6, w - 12, h - 12, 4, 4)
+  color(C.concreteLight) -- the roof slab's lip, catching the light
+  love.graphics.rectangle("fill", x + 6, y + 6, w - 12, 4)
+  color(C.concreteDark) -- shuttering lines
+  for k = 1, 3 do
+    love.graphics.rectangle("fill", x + 6 + k * (w - 12) / 4, y + 8, 2, h - 16)
+  end
+  color(C.slit) -- the firing slit on the beach side
+  love.graphics.rectangle("fill", x + 12, y + h - 8, w - 40, 6)
+  color(C.stain, 0.7)
+  love.graphics.circle("fill", x + 8, y + 8, 7)
+  love.graphics.circle("fill", x + w - 10, y + h - 9, 6)
+  love.graphics.circle("fill", x + w * (0.3 + hash(s.seed) * 0.4), y + 9, 5)
+  -- A vent on the roof.
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", x + w - 30, y + 16, 14, 14)
+  color(C.slit)
+  love.graphics.rectangle("fill", x + w - 27, y + 19, 8, 8)
+end
+
+--- A nest's sandbags: a ring round the front of where the gun stands, open at the back.
+local function drawSandbags(n)
+  local reach = n.arc + math.rad(35)
+  local steps = 9
+  for k = 0, steps do
+    local a = n.angle - reach + k * 2 * reach / steps
+    local bx, by = n.x + math.cos(a) * 30, n.y + math.sin(a) * 30
+    love.graphics.push()
+    love.graphics.translate(bx, by)
+    love.graphics.rotate(a + math.pi / 2)
+    color(C.shadow)
+    love.graphics.rectangle("fill", -8, -4, 18, 11, 4, 4)
+    color(C.bagDark)
+    love.graphics.rectangle("fill", -10, -6, 18, 11, 4, 4)
+    color(k % 2 == 0 and C.bag or mix(C.bag, C.bagDark, 0.3))
+    love.graphics.rectangle("fill", -9, -5, 16, 8, 3, 3)
+    love.graphics.pop()
+  end
+end
+
 local function drawSlopeTree(t)
   color(C.shadow)
   love.graphics.circle("fill", t.x + t.r * 0.35, t.y + t.r * 0.45, t.r)
@@ -426,7 +483,12 @@ function RenderCoast.draw(map, T)
       drawBoat(s)
     elseif s.kind == "crate" then
       drawCrate(s)
+    elseif s.kind == "bunker" then
+      drawBunker(s)
     end
+  end
+  for _, b in ipairs(map.bunkers or {}) do
+    drawSandbags(b.nest)
   end
   for _, t in ipairs(map.slopes) do
     drawSlopeTree(t)

@@ -42,6 +42,15 @@
 -- one after another and go for where that player is; when they have
 -- looked round they walk back and stand guard at the door.
 --
+-- The Coast (city-map's `coast`, quests' "a-man-coast") has three bunkers
+-- (the map's `bunkers`), each with an MG nest in front of it and a crew of
+-- `Level.nestCrew`: one on the gun and the rest on the bunker's posts with
+-- their rifles. They defend (combine.lua's `hold`): they never leave their
+-- places to chase or answer a call. The gunner fires long bursts
+-- (`Level.nestGun`), and only into the nest's arc. Drop him and the
+-- nearest of his crew still up runs to the gun (`post`) and takes over.
+-- nests.lua draws the guns.
+--
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
@@ -64,6 +73,7 @@ local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Sounds = require("src.features.a-man.sounds")
+local Nests = require("src.features.a-man.nests")
 
 local Level = {}
 
@@ -111,7 +121,11 @@ Level.doorOpen = 5 -- seconds a garrison's door stands open on every screen
 Level.maps = {
   city17 = { squadsPerBeat = 2, cameo = true, hunters = true },
   outercity = { squadsPerBeat = 1 }, -- fewer about: its garrisons bring more when they are wanted
+  coast = { squadsPerBeat = 0, nests = true }, -- the bunkers' crews, for now
 }
+Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
+-- The nest's gun: an AK's rounds, twelve a second, in long bursts.
+Level.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range = 700 }
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -293,6 +307,64 @@ function Level.serverQuestStarted(server, quest)
   end
   for _, s in ipairs(sv.troops.list) do
     sv.troops:arm(s, pickArms())
+  end
+  sv.nests = {}
+  if conf.nests then
+    for _, b in ipairs(map.bunkers or {}) do
+      local nest = { b = b, crew = {} }
+      local gunner = sv.troops:add("guard", b.nest.x, b.nest.y, b.nest.angle)
+      gunner.hold = true
+      nest.crew[1] = gunner
+      for i = 1, Level.nestCrew - 1 do
+        local p = b.posts[(i - 1) % #b.posts + 1]
+        local s = sv.troops:add("guard", p.x, p.y, p.watch)
+        s.hold = true
+        sv.troops:arm(s, pickArms())
+        nest.crew[#nest.crew + 1] = s
+      end
+      Level.manGun(nest, gunner)
+      sv.nests[#sv.nests + 1] = nest
+      sv.groups[#sv.groups + 1] = { kind = "post", members = nest.crew, chatIn = between(Level.chatEvery) * random() }
+    end
+  end
+end
+
+--- `s` takes the gun of `nest`: its arc, its sight and its rounds.
+function Level.manGun(nest, s)
+  local n, g = nest.b.nest, Level.nestGun
+  local ak = Guns.ak47
+  s.watch, s.arc, s.fov, s.post = n.angle, n.arc, 2 * n.arc, nil
+  s.facing = n.angle
+  nest.gunner, nest.coming = s, nil
+  local gun = setmetatable({ damage = g.damage, cooldown = g.cooldown }, { __index = Tiers.apply(ak, Tiers.DEFAULT) })
+  sv.troops:arm(s, { gun = gun, key = ak.key, index = ak.index, burst = g.burst, pause = g.pause, reach = g.range })
+end
+
+--- Every nest keeps its gun manned while any of its crew is up.
+local function stepNests()
+  for _, nest in ipairs(sv.nests) do
+    local n = nest.b.nest
+    if nest.gunner and nest.gunner.hp <= 0 then
+      nest.gunner = nil
+    end
+    local c = nest.coming
+    if c and c.hp <= 0 then
+      nest.coming, c = nil, nil
+    end
+    if c and not c.post then
+      Level.manGun(nest, c) -- he got there
+    elseif not nest.gunner and not c then
+      local best, bestD2 = nil, math.huge
+      for _, s in ipairs(nest.crew) do
+        local d2 = (s.x - n.x) ^ 2 + (s.y - n.y) ^ 2
+        if s.hp > 0 and d2 < bestD2 then
+          best, bestD2 = s, d2
+        end
+      end
+      if best then
+        nest.coming, best.post = best, { x = n.x, y = n.y }
+      end
+    end
   end
 end
 
@@ -560,6 +632,7 @@ function Level.serverStep(server, dt)
     return
   end
   sv.troops:update(server, dt)
+  stepNests()
   stepGarrisons(server, dt)
   Cameo.serverStep(server, dt, cityMap())
   talk(server, dt)
@@ -754,6 +827,8 @@ function Level.drawAboveCars()
   for _, s in pairs(troops) do
     drawSoldier(s)
   end
+  local city = Features.byName["city-map"]
+  Nests.draw(city and Level.maps[city.current] and city.map, troops)
   Cameo.drawAboveCars()
   -- What they say, over all of them.
   for _, s in pairs(troops) do

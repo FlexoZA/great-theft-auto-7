@@ -18,6 +18,7 @@
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
 --   theme.lua    his music, while he is loose
 --   turrets.lua  the sentry turrets out of his briefcase
+--   nests.lua    the Coast's MG nests' guns, drawn (city17.lua mans them)
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
 
 local Sounds = require("src.features.a-man.sounds")
