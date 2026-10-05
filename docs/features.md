@@ -1095,7 +1095,7 @@ the one with a plot.
   (26 px: 5 melee damage 0.22 s into a 0.38 s bite, 0.75 s between) and
   from 110-240 px now and then leaps (0.55 s at 360 px/s). With nobody
   within 1400 px for 6 s it burrows back down where it is, to wake again
-  the same way. 30 health (two pistol rounds), `serverShotAt` (rounds
+  the same way. 36 health (two pistol rounds), `serverShotAt` (rounds
   owned by nobody pass by, so the bunkers don't thin them out), freeze
   and stink as for anyone. One down drops a koin and a quarter of the
   usual chance of a pickup, and lies dead on every screen for 12 s. The

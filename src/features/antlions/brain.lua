@@ -29,7 +29,7 @@ Brain.__index = Brain
 -- Tuning --------------------------------------------------------------------
 
 Brain.RADIUS = 11 -- px; its body (render.lua's RADIUS)
-Brain.HEALTH = 30 -- two pistol rounds
+Brain.HEALTH = 36 -- two pistol or AK rounds, three of the uzi's, four shotgun pellets
 Brain.WAKE = 320 -- px from a buried one that brings its swarm up
 Brain.WAKE_SPREAD = 1.1 -- seconds over which a swarm's antlions come up
 Brain.RISE = 0.9 -- seconds crawling up out of the sand

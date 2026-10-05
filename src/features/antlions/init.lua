@@ -9,7 +9,7 @@
 -- going back under when there is nobody left to go after. A quest's end or
 -- a map change takes them all away.
 --
--- They take whatever a round carries (`Brain.HEALTH`, 30: two pistol
+-- They take whatever a round carries (`Brain.HEALTH`, 36: two pistol
 -- rounds), and rounds owned by nobody (the Combine's) pass by them, so the
 -- bunkers' guns don't thin them out for you. One down spills a koin, now
 -- and then a pickup, and lies dead on the sand on every screen for a while.
