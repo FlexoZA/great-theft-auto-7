@@ -1,5 +1,5 @@
--- The Hunter-Chopper's gun, on the host: who it goes after and when it
--- fires. It works in turns:
+-- The Hunter-Chopper's brain, on the host: who it goes after, when its gun
+-- fires and when it goes on a bombing run. It works in turns:
 --   scan  nobody to shoot: the gun follows the nearest player it can see
 --         and is waiting for one to come round in front of it;
 --   lock  it has somebody: for `lockTime` the gun tracks them quickly and a
@@ -8,7 +8,17 @@
 --         after them only slowly (`trackFire`), so whoever runs across its
 --         line gets out of it and whoever stands still or runs straight
 --         away does not;
---   rest  `rest` seconds of quiet before it looks for the next one.
+--   rest  `rest` seconds of quiet before it looks for the next one;
+--   run   every `bombEvery` seconds or so, instead of the next lock, a
+--         bombing run: it picks a player out in the open near the square
+--         (at least `runMin` px off, so it has room to line up), sounds
+--         its klaxon and leaves the ring (flight.lua) to fly at them at
+--         `runSpeed`, turning hard. Passing over where they were, it lets
+--         go `pairs` pairs of bombs (bombs.lua), one off each side of it,
+--         `side` px out, a pair every `pairGap` px, the middle of the
+--         stick on them. It flies on `runOn` px and comes round back onto
+--         the ring. Not lined up by the time it gets there (they were too
+--         close), it drops nothing and goes back round.
 -- It only goes after somebody it can see (Features.visible): within
 -- `reach`, with nothing solid on the line from the muzzle, and where the
 -- gun can swing to (render.lua's 70 degrees either way of the nose); lose
@@ -22,6 +32,8 @@ local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Sight = require("src.features.d-day.sight")
 local Render = require("src.features.hunter-chopper.render")
+local Flight = require("src.features.hunter-chopper.flight")
+local Bombs = require("src.features.hunter-chopper.bombs")
 
 local Brain = {}
 
@@ -37,6 +49,19 @@ Brain.spread = 0.035 -- radians either way a round strays (about 17 px at 500 px
 Brain.gun = setmetatable({ damage = 6, cooldown = 0.075, spread = 0, speed = 1100 },
   { __index = Tiers.apply(Guns.ak47 or Guns.list[2], Tiers.DEFAULT) })
 
+-- Bombing runs.
+Brain.bombFirst = 12 -- seconds after it comes up before the first run
+Brain.bombEvery = 16 -- seconds from one run to the next
+Brain.runSpeed = 300 -- px a second on a run
+Brain.runMin = 450 -- px off a player must be for it to start a run at them
+Brain.runNear = 900 -- px from the middle of the square they must be: it keeps to the island
+Brain.pairs = 4 -- bombs a side
+Brain.pairGap = 95 -- px flown between one pair and the next
+Brain.side = 70 -- px out to either side a bomb falls
+Brain.aligned = 140 -- px off its line they can be when it lets go, or the run is off
+Brain.runOn = 350 -- px it flies on after the last pair before it turns back
+Brain.runLongest = 9 -- seconds a run may take at most
+
 local random = love.math.random
 
 local function wrap(a)
@@ -44,7 +69,7 @@ local function wrap(a)
 end
 
 function Brain.new(angle)
-  return { mode = "scan", t = 0, aim = angle, target = nil, left = 0, fireIn = 0 }
+  return { mode = "scan", t = 0, aim = angle, target = nil, left = 0, fireIn = 0, bombIn = Brain.bombFirst }
 end
 
 --- Can the chopper `f` with its gun on `b.aim` get a shot at player `p`?
@@ -98,16 +123,80 @@ local function turnTo(b, want, rate, dt)
   b.aim = b.aim + math.max(-rate * dt, math.min(rate * dt, d))
 end
 
---- One tick of the gun on chopper `f` (flight.lua's). Returns the mode it
---- is in afterwards.
-function Brain.step(b, f, server, dt)
+--- Somebody out in the open near the square, far enough off to line up a
+--- run at them, at random; nil if nobody is.
+local function runTarget(server, f)
+  local list = {}
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      local off = (px - f.x) ^ 2 + (py - f.y) ^ 2
+      local fromMiddle = (px - f.cx) ^ 2 + (py - f.cy) ^ 2
+      if off >= Brain.runMin ^ 2 and fromMiddle <= Brain.runNear ^ 2 then
+        list[#list + 1] = { x = px, y = py }
+      end
+    end
+  end
+  return list[1] and list[random(#list)] or nil
+end
+
+--- Off on a run at `at`: a point well past them to aim for, so it flies
+--- straight over and on.
+local function startRun(b, f, at)
+  local dx, dy = at.x - f.x, at.y - f.y
+  local len = math.max(1, math.sqrt(dx * dx + dy * dy))
+  b.mode, b.t, b.target, b.bombIn = "run", 0, nil, Brain.bombEvery
+  b.run = { x = at.x, y = at.y, dropped = 0 }
+  Flight.flyTo(f, at.x + dx / len * 700, at.y + dy / len * 700, Brain.runSpeed)
+end
+
+--- A tick of a bombing run: let go each pair as it comes over its spot,
+--- and turn back once it is past.
+local function stepRun(b, f, server, bombs)
+  local r = b.run
+  b.aim = f.angle -- the gun looks where it is going
+  local hx, hy = math.cos(f.angle), math.sin(f.angle)
+  local along = (f.x - r.x) * hx + (f.y - r.y) * hy -- how far past them it is
+  local across = math.abs((f.x - r.x) * -hy + (f.y - r.y) * hx) -- how far off its line they are
+  while r.dropped < Brain.pairs and along >= (r.dropped + 1 - (Brain.pairs + 1) / 2) * Brain.pairGap do
+    if r.dropped == 0 and across > Brain.aligned then
+      break -- not lined up: no stick this time
+    end
+    r.dropped = r.dropped + 1
+    Bombs.drop(bombs, server, f.x - hy * Brain.side, f.y + hx * Brain.side)
+    Bombs.drop(bombs, server, f.x + hy * Brain.side, f.y - hx * Brain.side)
+    Flight.flyTo(f, f.x + hx * 2000, f.y + hy * 2000, Brain.runSpeed) -- straight on, no turning now
+  end
+  local over = along > (Brain.pairs / 2) * Brain.pairGap + Brain.runOn
+  if over or b.t > Brain.runLongest then
+    Flight.rejoin(f)
+    b.mode, b.t, b.run = "rest", 0, nil
+  end
+end
+
+--- One tick of the brain on chopper `f` (flight.lua's), dropping bombs into
+--- `bombs` (bombs.lua's). Returns the mode it is in afterwards.
+function Brain.step(b, f, server, dt, bombs)
   b.t = b.t + dt
+  if b.mode == "run" then
+    stepRun(b, f, server, bombs)
+    return b.mode
+  end
+  b.bombIn = b.bombIn - dt
   if b.mode == "scan" or b.mode == "rest" then
     local target, near = pick(server, f, b.aim)
     local want = near and math.atan2(near.y - f.y, near.x - f.x) or f.angle
     b.aim = b.aim + wrap(want - b.aim) * math.min(1, dt * 3)
     if b.mode == "rest" and b.t < Brain.rest then
       return b.mode
+    end
+    if b.bombIn <= 0 and not Flight.away(f) then
+      local at = runTarget(server, f)
+      if at then
+        startRun(b, f, at)
+        return b.mode
+      end
+      b.bombIn = 2 -- nobody to bomb: look again in a bit
     end
     if target then
       b.mode, b.t, b.target = "lock", 0, target.id

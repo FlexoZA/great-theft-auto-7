@@ -1,6 +1,7 @@
 -- The Hunter-Chopper's noises, synthesised at load: its rotor, a loop that
 -- follows it about (positional, so it pans and fades with distance and you
--- hear it coming across the city), and the whine of its gun locking on.
+-- hear it coming across the city), the whine of its gun locking on, the
+-- klaxon as it peels off on a bombing run and its bombs' whistle.
 -- The rounds themselves sound as the weapons feature's do.
 
 local Synth = require("src.audio.synth")
@@ -79,6 +80,20 @@ function Sounds.load()
       buf:tone(t, 0.03, 2800, { wave = "sine", amp = 0.25, attack = 0.002, decay = 0.02, sustain = 0 })
     end
     buf:lowpass(5000)
+  end)
+  -- A bomb on its way down: the whistle, falling in pitch.
+  bank.whistle = make(1.0, function(buf)
+    buf:sweep(0, 0.95, 2200, 700, { wave = "sine", amp = 0.35, decay = 99 })
+    buf:sweep(0, 0.95, 2210, 705, { wave = "tri", amp = 0.08, decay = 99 })
+  end)
+  -- It peels off the ring on a bombing run: a klaxon, twice, falling.
+  bank.dive = make(1.3, function(buf)
+    for i = 0, 1 do
+      local t = i * 0.6
+      buf:sweep(t, 0.5, 880, 520, { wave = "square", amp = 0.3, decay = 99 })
+      buf:sweep(t, 0.5, 886, 524, { wave = "saw", amp = 0.15, decay = 99 })
+    end
+    buf:lowpass(3000)
   end)
 end
 

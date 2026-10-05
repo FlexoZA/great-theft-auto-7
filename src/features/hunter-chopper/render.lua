@@ -290,6 +290,34 @@ function Render.canAim(angle, aim)
   return math.abs(a) <= GUN_ARC
 end
 
+--- One of its bombs from above, `height` px up over (x, y): a dark finned
+--- casing with a light blinking on its nose, its shadow off to the side
+--- by its height the way the chopper's is, closing in as it falls.
+function Render.bomb(x, y, height, time)
+  local size = 1 + height / 300
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.circle("fill", x + height * 0.75, y + height, 6, 10)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(size, size)
+  love.graphics.rotate(time * 3)
+  color(SEAM)
+  for k = 0, 3 do -- the fins, a cross seen from above
+    local a = k * math.pi / 2
+    love.graphics.polygon("fill", math.cos(a) * 4, math.sin(a) * 4, math.cos(a + 0.35) * 11, math.sin(a + 0.35) * 11,
+      math.cos(a - 0.35) * 11, math.sin(a - 0.35) * 11)
+  end
+  color(Render.HULL_DARK)
+  love.graphics.circle("fill", 0, 0, 7, 12)
+  color(Render.HULL_LIGHT, 0.7)
+  love.graphics.circle("fill", -2, -2, 3, 8)
+  local blink = math.sin(time * 18) > 0
+  love.graphics.setColor(1, 0.2, 0.15, blink and 1 or 0.35)
+  love.graphics.circle("fill", 0, 0, 2.5, 8)
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- Where the muzzle is, in world px, and the way it points: the host fires
 --- from here, so its rounds leave from where every screen draws the gun.
 function Render.muzzle(x, y, angle, aim, altitude)

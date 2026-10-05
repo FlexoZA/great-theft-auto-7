@@ -959,10 +959,22 @@ the one with a plot.
   AK's rounds and sound, owned by nobody, so cover stops them) aiming
   down its own barrel and turning only 1.4 rad/s, so running across its
   line beats it, then rests 2.2 s. A full burst on somebody standing still
-  does about 40. It cannot be hurt yet. Its rotor is a synthesised
+  does about 40. Every 16 s (12 s after it comes up), instead of its next
+  lock, it goes on a bombing run: it picks a player out in the open within
+  900 px of the middle of the square and at least 450 px off, sounds a
+  klaxon and leaves its ring (`Flight.flyTo`, turning no faster than 1.8
+  rad/s) to fly at them at 300 px/s; passing over where they were it lets
+  go 4 pairs of bombs (`bombs.lua`), one 70 px out to each side of it every
+  95 px, the stick centred on them, flies on 350 px and comes back round
+  onto the ring (`Flight.rejoin`). Not lined up in time, it drops nothing.
+  A bomb falls for 1 s with a whistle onto a red ring that fills in
+  (`HC_BOMB`), then goes off as a missile does (weapons' `explode`, owned
+  by nobody): 80 px, 40 at the middle. A stick on somebody standing still
+  does about 35. It cannot be hurt yet. Its rotor is a synthesised
   seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
   follows it about and carries 3200 px. The host sends `HC_STATE`
-  (unreliable, 15 Hz, with the lock and whether it is firing; empty to
+  (unreliable, 15 Hz, with the lock, whether it is firing and whether it
+  is on a run; empty to
   take it away when the quest or the map changes) and every machine eases
   what it draws towards it. Its
   model (`render.lua`,

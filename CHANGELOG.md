@@ -24,8 +24,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Hunter-Chopper: a Combine gunship circling the Outer City's square.
   You hear its rotor from across the city; when its gun locks on to you a
   red beam and a rising whine give you a second to get moving before the
-  burst. Run across its line, or get behind something. It can't be shot
-  down yet.
+  burst. Run across its line, or get behind something. Every so often it
+  peels off with a klaxon on a bombing run, dives over you and drops a
+  stick of bombs down both sides of it: watch the red rings and get out
+  from under. It can't be shot down yet.
 
 ## [0.11.0] - 2026-10-04
 

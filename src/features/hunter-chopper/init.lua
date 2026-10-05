@@ -2,7 +2,9 @@
 -- boss (A-Man's trail, quests' "a-man-2"). When everyone arrives in the
 -- Outer City it is already up, flying round and round the square on the
 -- island (flight.lua), and its gun (brain.lua) locks on to whoever it can
--- see, warns them with a beam and a whine for a second and fires a burst.
+-- see, warns them with a beam and a whine for a second and fires a burst;
+-- every so often it goes on a bombing run instead, diving over a player
+-- and dropping bombs off both sides of it (bombs.lua).
 -- You hear its rotor from across the city (sounds.lua). Nothing can hurt
 -- it yet.
 --
@@ -13,13 +15,15 @@
 -- Modules
 --   render.lua  the chopper from above: hull, rotors, the gun, its shadow
 --   flight.lua  where it flies, on the host
---   brain.lua   its gun, on the host: who it goes after, the lock, the burst
---   sounds.lua  its rotor loop and the lock-on whine
+--   brain.lua   its brain, on the host: who it goes after, the lock, the burst, the runs
+--   bombs.lua   its bombs: falling and going off on the host, their rings on every screen
+--   sounds.lua  its rotor loop, the lock-on whine, the klaxon and the bombs' whistle
 --
 -- Messages
---   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim> <lock> <firing>]
+--   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim> <lock> <firing> <run>]
 --                  (unreliable, 15 Hz; nothing after the tick: no chopper; lock 0..1 the gun
---                  locking on, firing 1 while it fires)
+--                  locking on, firing 1 while it fires, run 1 on a bombing run)
+--   and bombs.lua's HC_BOMB
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -27,6 +31,7 @@ local Render = require("src.features.hunter-chopper.render")
 local Flight = require("src.features.hunter-chopper.flight")
 local Brain = require("src.features.hunter-chopper.brain")
 local Sounds = require("src.features.hunter-chopper.sounds")
+local Bombs = require("src.features.hunter-chopper.bombs")
 
 local HunterChopper = {
   name = "hunter-chopper",
@@ -52,7 +57,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { flight, brain, syncIn } while it is up
+local sv = nil -- { flight, brain, bombs, syncIn } while it is up
 
 function HunterChopper:load()
   Sounds.load()
@@ -63,7 +68,7 @@ function HunterChopper:serverQuestStarted(_server, quest)
   local map = cityMap()
   if quest.id == self.questId and map and map.bossX then
     local flight = Flight.new(map.bossX, map.bossY, math.pi / 2)
-    sv = { flight = flight, brain = Brain.new(flight.angle), syncIn = 0 }
+    sv = { flight = flight, brain = Brain.new(flight.angle), bombs = Bombs.new(), syncIn = 0 }
   end
 end
 
@@ -91,7 +96,8 @@ function HunterChopper:serverStep(server, dt)
   local f = sv.flight
   Flight.step(f, dt)
   local b = sv.brain
-  Brain.step(b, f, server, dt)
+  Brain.step(b, f, server, dt, sv.bombs)
+  Bombs.step(sv.bombs, server, dt)
   sv.syncIn = sv.syncIn - 1
   if sv.syncIn > 0 then
     return
@@ -99,7 +105,7 @@ function HunterChopper:serverStep(server, dt)
   sv.syncIn = SYNC_EVERY
   local msg = Protocol.encode("HC_STATE", server.tick, ("%.0f"):format(f.x), ("%.0f"):format(f.y),
     ("%.3f"):format(f.angle), ("%.2f"):format(f.bank), ("%.0f"):format(f.altitude), ("%.3f"):format(b.aim),
-    ("%.2f"):format(Brain.lock(b)), b.mode == "fire" and 1 or 0)
+    ("%.2f"):format(Brain.lock(b)), b.mode == "fire" and 1 or 0, b.mode == "run" and 1 or 0)
   for _, player in pairs(server.players) do
     if not player.bot then
       server:send(player, msg, true)
@@ -121,6 +127,7 @@ local rotor = nil -- the rotor loop, while there is a chopper
 
 local function gone()
   cl = nil
+  Bombs.clear()
   if rotor then
     rotor:stop()
     rotor = nil
@@ -134,6 +141,7 @@ end
 
 function HunterChopper:update(dt)
   time = time + dt
+  Bombs.update(dt)
   if not (cl and cl.to) then
     return
   end
@@ -156,7 +164,12 @@ function HunterChopper:update(dt)
   end
 end
 
+function HunterChopper:drawBelowCars()
+  Bombs.drawBelowCars(time)
+end
+
 function HunterChopper:drawAboveCars()
+  Bombs.drawAboveCars(time)
   if cl then
     Render.chopper(cl, time)
   end
@@ -177,8 +190,11 @@ HunterChopper.clientMessages = {
     local to = {
       x = x, y = y, angle = tonumber(args[4]) or 0, bank = tonumber(args[5]) or 0,
       altitude = tonumber(args[6]) or Render.ALTITUDE, aim = tonumber(args[7]) or 0,
-      lock = tonumber(args[8]) or 0, firing = args[9] == "1",
+      lock = tonumber(args[8]) or 0, firing = args[9] == "1", run = args[10] == "1",
     }
+    if to.run and not (cl and cl.to and cl.to.run) then
+      Sounds.play("dive", x, y) -- it has peeled off on a bombing run
+    end
     if to.lock > 0 and not (cl and cl.to and cl.to.lock > 0) then
       Sounds.play("lock", x, y) -- it has just locked on to somebody
     end
@@ -188,5 +204,8 @@ HunterChopper.clientMessages = {
     cl.to = to
   end,
 }
+for kind, handler in pairs(Bombs.clientMessages) do
+  HunterChopper.clientMessages[kind] = handler
+end
 
 return HunterChopper
