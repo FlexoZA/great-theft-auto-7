@@ -76,6 +76,7 @@ local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Sounds = require("src.features.a-man.sounds")
 local Nests = require("src.features.a-man.nests")
+local Corpses = require("src.features.a-man.corpses")
 
 local Level = {}
 
@@ -726,11 +727,13 @@ local time = 0
 function Level.clear()
   troops, doors, lastTick = {}, {}, 0
   Cameo.clear()
+  Corpses.clear()
 end
 
 function Level.update(dt)
   time = time + dt
   Cameo.update(dt)
+  Corpses.update(dt)
   for i = #doors, 1, -1 do
     doors[i].t = doors[i].t - dt
     if doors[i].t <= 0 then
@@ -780,6 +783,7 @@ function Level.drawBelowCars()
   for _, d in ipairs(doors) do
     drawDoor(d)
   end
+  Corpses.draw()
   for _, s in pairs(troops) do
     Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
   end
@@ -913,12 +917,16 @@ Level.clientMessages = {
   C17_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and troops[id]
     if id then
       troops[id] = nil
     end
-    if x and y and Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    if x and y then
+      -- His body, where he was drawn, knocked over the way the round went.
+      Corpses.add(s and s.dx or x, s and s.dy or y, angle, lookFor(s and s.gun))
+      if Features.byName.pedestrians then
+        require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+      end
     end
   end,
 }

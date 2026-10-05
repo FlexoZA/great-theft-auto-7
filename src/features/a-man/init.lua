@@ -20,6 +20,7 @@
 --   theme_outercity.lua, theme_coast.lua   the Outer City's music and the Coast's
 --   turrets.lua  the sentry turrets out of his briefcase
 --   nests.lua    the Coast's MG nests' guns, drawn (city17.lua mans them)
+--   corpses.lua  the Combine's dead, lying where they fell
 --   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
 
 local Sounds = require("src.features.a-man.sounds")
