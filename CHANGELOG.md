@@ -34,9 +34,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   player, more with more) and it spins out, crashes in a fireball, spills
   koins and leaves a burning wreck by the way out.
 - The Hunter-Chopper calls for help as you shoot it down: at 80% health
-  it sets a squad of Combine soldiers down under it, and at 50% A-Man
-  blinks in beside you, opens his briefcase on three Hunters and blinks
-  out again.
+  it sets Combine soldiers down under it, three lots of three 8 seconds
+  apart, and at 30% A-Man blinks in beside you, opens his briefcase on
+  three Hunters and blinks out again.
 
 ## [0.12.0] - 2026-10-05
 

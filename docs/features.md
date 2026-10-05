@@ -1009,10 +1009,11 @@ the one with a plot.
   `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
   star comes up by the wreck, which burns there (`HC_DOWN`) until the map
   changes. It calls for help as it is hurt (`HunterChopper.waves`, each
-  once, checked every host tick): at 80% health 4 Combine soldiers (for
-  one human, more with more: `Bosses.count`) are set down on clear ground
-  round the spot under it (the a-man feature's `serverDropTroops`,
-  city17.lua's `Level.serverDrop`) and go for the nearest player; at 50%
+  once, checked every host tick): at 80% health Combine soldiers are set
+  down on clear ground round the spot under it, 3 sets of 3 (for one
+  human, more with more: `Bosses.count`) 8 s apart, each under wherever it
+  is by then (the a-man feature's `serverDropTroops`,
+  city17.lua's `Level.serverDrop`) and go for the nearest player; at 30%
   A-Man drops in by the player nearest it as he does on City 17's plaza
   (the a-man feature's `serverVisit`, cameo.lua's `Cameo.serverVisit`),
   and his case lets out 3 Hunters on a ring 120 px round him
