@@ -73,13 +73,18 @@ Coast.NEST_ARC = math.rad(50) -- either side of where a nest faces, how far its 
 -- Swarms of antlions buried in the sand (the antlions feature wakes them):
 -- `count` of them for one human, round the middle of the sand at `row`.
 Coast.SWARMS = {
-  { row = 82, count = 6 }, -- the cove
-  { row = 58, count = 5 }, -- the long beach, past the headland
-  { row = 41, count = 8 }, -- the wreck
-  { row = 25, count = 5 }, -- on the way to the point
-  { row = 14, count = 7 }, -- the point
+  { row = 95, count = 10 }, -- the strip up from the landing
+  { row = 82, count = 18 }, -- the cove
+  { row = 68, count = 8 }, -- in the headland's rocks
+  { row = 58, count = 12 }, -- the long beach, past the headland
+  { row = 45, count = 14 }, -- the wreck, the near half
+  { row = 37, count = 14 }, -- the wreck, the far half
+  { row = 25, count = 12 }, -- on the way to the point
+  { row = 19, count = 8 }, -- the neck of the point
+  { row = 13, count = 20 }, -- the point
 }
-Coast.SWARM_RADIUS = 150 -- px round its middle a swarm lies buried
+Coast.SWARM_RADIUS = 140 -- px round its middle a swarm lies buried...
+Coast.SWARM_SPREAD = 6 -- ...and this much more for each antlion in it
 Coast.RAGGED = 1.3 -- tiles the sea's edge and the mountains' foot wander either way
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
@@ -429,7 +434,7 @@ function Coast.build(map, rng, T)
     local c0, c1 = sandEnds(def.row)
     if c0 then
       map.swarms[#map.swarms + 1] = { x = math.floor(X((c0 + c1 + 1) / 2)), y = math.floor(Y(def.row + 0.5)),
-        r = Coast.SWARM_RADIUS, count = def.count }
+        r = Coast.SWARM_RADIUS + def.count * Coast.SWARM_SPREAD, count = def.count }
     end
   end
 

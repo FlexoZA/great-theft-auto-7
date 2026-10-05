@@ -1075,7 +1075,7 @@ the one with a plot.
   faces. They are not the map's main enemy: the antlions are.
 - Antlions: `src/features/antlions`, the Coast's main enemy, after
   Half-Life's; melee only. Any map with `map.swarms` ({ x, y, r, count }:
-  the Coast's five, `Coast.SWARMS`, 31 antlions for one human, more with
+  the Coast's nine, `Coast.SWARMS`, 116 antlions for one human, more with
   more: `Bosses.count`) gets them buried there when a quest starts
   (`serverQuestStarted`); a quest's end or a map change clears them. Their
   brain (`brain.lua`, on the host): buried and never sent; a player
