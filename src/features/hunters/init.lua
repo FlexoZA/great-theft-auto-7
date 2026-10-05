@@ -237,6 +237,12 @@ local function threats(srv, brain)
       brain:threatArea(a.x, a.y, a.radius)
     end
   end
+  local grenades = Features.byName.grenades
+  if grenades and grenades.serverIncoming then
+    for _, a in ipairs(grenades:serverIncoming()) do
+      brain:threatArea(a.x, a.y, a.radius)
+    end
+  end
 end
 
 local function sync(srv)

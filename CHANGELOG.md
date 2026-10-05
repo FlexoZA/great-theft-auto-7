@@ -34,6 +34,17 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   player, more with more) and it spins out, crashes in a fireball, spills
   koins and leaves a burning wreck by the way out.
 
+## [0.12.0] - 2026-10-05
+
+Grenades: keep a few in a quick slot, see where one will land and how far
+it reaches, and throw it.
+
+### Added
+- Grenades: a new quick slot beside medkits and energy drinks holds up to 5. Press T to ready one,
+  see where it will land and how far the blast reaches, and click to throw it. On foot only, and
+  the blast hurts you too.
+- The ammo factory makes grenades out of iron and sulfur, and the shop sells them under Supplies.
+
 ## [0.11.0] - 2026-10-04
 
 Abilities are quicker to juggle: with one selected, another ability's key

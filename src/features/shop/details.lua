@@ -217,13 +217,28 @@ local function supply(entry)
     rows[#rows + 1] = { label = "heals", value = ("%d hp"):format(b and b.medkitHeal or 0) }
   elseif entry.item == "drink" then
     rows[#rows + 1] = { label = "gives back", value = ("%d stamina"):format(b and b.drinkStamina or 0) }
+  elseif entry.item == "grenade" then
+    local g = Features.byName.grenades
+    if g then
+      rows[#rows + 1] = { label = "blast", value = ("%d damage"):format(g.blast.damage) }
+      rows[#rows + 1] = { label = "radius", value = ("%d px"):format(g.blast.radius) }
+      rows[#rows + 1] = { label = "throw", value = ("%d px"):format(g.range) }
+    end
   end
   if u then
     rows[#rows + 1] = { label = "between uses", value = secs(u.cooldown) }
   end
-  local blurb = entry.item == "medkit" and "Patches you up on the spot." or "A can of get-up-and-go for your legs."
+  local blurbs = {
+    medkit = "Patches you up on the spot.",
+    drink = "A can of get-up-and-go for your legs.",
+    grenade = "Goes off where it lands. Mind the blast: it hurts you too.",
+  }
   local key = u and Controls.name(Controls.bindings(u.action)[1]) or "its key"
-  return { blurb = blurb, use = ("Drag it to its quick slot and press %s."):format(key), rows = rows }
+  local use = ("Drag it to its quick slot and press %s."):format(key)
+  if entry.item == "grenade" then
+    use = ("Drag it to its quick slot, press %s to ready one and click to throw it."):format(key)
+  end
+  return { blurb = blurbs[entry.item] or "", use = use, rows = rows }
 end
 
 local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo = ammo, supply = supply }

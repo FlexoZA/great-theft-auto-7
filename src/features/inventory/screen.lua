@@ -9,9 +9,9 @@
 --                 is left to load, the one in hand lit up, empty ones bare;
 --                 under them the ability slots, one per ability key, as the
 --                 HUD shows them, empty ones bare, and beside those the
---                 quick slots (buildings.usables): a stack of medkits and
---                 one of energy drinks dragged out of the bag, the ones
---                 their keys (H, J) use
+--                 quick slots (buildings.usables): a stack each of medkits,
+--                 energy drinks and grenades dragged out of the bag, the
+--                 ones their keys (H, J, T) use
 --                 under those, the stats strip: what your clothes do to
 --                 your speed, sprint cost, ammo bundles, ability cooldowns
 --                 and armor, each tile lit when it is better than base
@@ -54,7 +54,7 @@ local CELL, GAP = 76, 8 -- item boxes
 local GEAR = 54 -- gear boxes
 local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the ammo
 local ABL_W, ABL_H = 64, 72 -- ability boxes
-local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
+local QUICK_W = 96 -- widest a quick slot (medkits, drinks) gets, as tall as an ability box; narrower to fit
 local STAT_H = 40 -- a stats tile: the value over its name
 local TRASH_W, TRASH_H = 150, 30 -- the bin under the item boxes
 
@@ -195,12 +195,15 @@ function Screen.layout()
   L.abilitiesArea = { x = x - GAP, y = ay, w = abilitySlots * (ABL_W + GAP) + GAP, h = LABEL_H + ABL_H + GAP }
   -- The quick slots to the right of the abilities: what the use keys use.
   local buildings = Features.byName.buildings
-  local qx = x + abilitySlots * (ABL_W + GAP) + Screen.pad
+  local qx = x + abilitySlots * (ABL_W + GAP) + 2 * GAP
   L.quickLabel = { x = qx, y = ay }
   L.quick = {}
-  for i, u in ipairs(buildings and buildings.usables or {}) do
+  local usables = buildings and buildings.usables or {}
+  local room = px + Screen.width - Screen.pad - qx + GAP
+  local quickW = math.min(QUICK_W, math.floor(room / math.max(1, #usables)) - GAP)
+  for i, u in ipairs(usables) do
     L.quick[i] = {
-      x = qx + (i - 1) * (QUICK_W + GAP), y = ay + LABEL_H, w = QUICK_W, h = ABL_H, item = u.item, usable = u,
+      x = qx + (i - 1) * (quickW + GAP), y = ay + LABEL_H, w = quickW, h = ABL_H, item = u.item, usable = u,
     }
   end
 

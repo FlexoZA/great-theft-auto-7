@@ -832,6 +832,8 @@ function Render.itemIcon(item, cx, cy)
     love.graphics.setColor(1, 0.9, 0.2)
     love.graphics.polygon("fill", cx + 1, cy - 6, cx - 4, cy + 1, cx, cy + 1, cx - 2, cy + 8, cx + 4, cy - 1,
       cx, cy - 1)
+  elseif item == "grenade" then
+    Render.grenade(cx, cy + 2, 1)
   elseif item == "medkit" then
     love.graphics.setColor(0.95, 0.95, 0.95)
     love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
@@ -839,6 +841,26 @@ function Render.itemIcon(item, cx, cy)
     love.graphics.rectangle("fill", cx - 3, cy - 7, 6, 14)
     love.graphics.rectangle("fill", cx - 7, cy - 3, 14, 6)
   end
+end
+
+--- A hand grenade, about 22 px tall at `scale` 1: an olive body with its
+--- ridges, the lever and the ring on top. The bag, the quick slot, the HUD
+--- and one flying through the air (grenades) all draw it with this.
+function Render.grenade(cx, cy, scale)
+  local s = scale or 1
+  love.graphics.setColor(0.33, 0.4, 0.22)
+  love.graphics.ellipse("fill", cx, cy + 2 * s, 8 * s, 10 * s)
+  love.graphics.setColor(0.24, 0.29, 0.15)
+  love.graphics.setLineWidth(math.max(1, s))
+  love.graphics.line(cx - 8 * s, cy + 2 * s, cx + 8 * s, cy + 2 * s)
+  love.graphics.line(cx, cy - 8 * s, cx, cy + 12 * s)
+  love.graphics.setColor(0.6, 0.6, 0.63)
+  love.graphics.rectangle("fill", cx - 3 * s, cy - 11 * s, 6 * s, 4 * s) -- the fuse
+  love.graphics.polygon("fill", cx + 3 * s, cy - 11 * s, cx + 7 * s, cy - 10 * s, cx + 6 * s, cy + 2 * s,
+    cx + 3 * s, cy - 7 * s) -- the lever down its side
+  love.graphics.setColor(0.8, 0.75, 0.4)
+  love.graphics.circle("line", cx - 5 * s, cy - 11 * s, 3 * s, 12) -- the pin's ring
+  love.graphics.setLineWidth(1)
 end
 
 --- An ability as a thing: its ring, in its colour, around its icon

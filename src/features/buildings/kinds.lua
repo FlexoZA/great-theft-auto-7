@@ -10,6 +10,7 @@
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   drink                    an energy drink; the carrier downs it for stamina
+--   grenade                  a hand grenade; the carrier throws it (grenades feature)
 --   armor-<kind>             a piece of armor (armor/kinds.lua) in the bag, put on
 --                            from the inventory screen ("armor-vest")
 --   gear-<kind>              a piece of clothing (gear/kinds.lua) in the bag, worn
@@ -78,7 +79,7 @@ function Kinds.stack(item)
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
-  elseif item:match("^gun%-") or item == "medkit" or item == "drink" then
+  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade" then
     return 5
   elseif item:match("^ability%-") or item:match("^armor%-") or item:match("^gear%-") then
     return 1 -- one of a kind
@@ -116,6 +117,7 @@ for _, gun in ipairs(Guns.list) do
   end
   gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
+gunAmmo[#gunAmmo + 1] = "grenade"
 
 -- One product per vehicle model, each at the model's own price, and taking
 -- the model's own time and materials when it names them.
@@ -146,7 +148,7 @@ Kinds.list = {
   },
   {
     key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
-    blurb = "Turns iron and sulfur into rounds for the gun you pick, or oil into fuel cans.",
+    blurb = "Turns iron and sulfur into rounds for the gun you pick or grenades, or oil into fuel cans.",
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
@@ -155,6 +157,8 @@ Kinds.list = {
       },
       -- A fuel can: oil in a can of iron.
       ["ammo-flamethrower"] = { inputs = { oil = 2, iron = 1 }, time = 10, batch = 1, cap = 20, unit = 1, price = 6 },
+      -- A grenade: a little iron round a lot of sulfur.
+      grenade = { inputs = { iron = 1, sulfur = 2 }, time = 12, batch = 1, cap = 10, unit = 1, price = 10 },
     },
   },
   {
@@ -349,6 +353,8 @@ function Kinds.name(item, n)
       name = "medkits"
     elseif item == "drink" then
       name = "energy drink" .. (n ~= 1 and "s" or "")
+    elseif item == "grenade" and n ~= 1 then
+      name = "grenades"
     end
   end
   return Tiers.named(name, tier)
