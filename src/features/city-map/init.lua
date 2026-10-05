@@ -99,6 +99,13 @@ CityMap.maps = {
     title = "The Outer City", kind = "outercity", seed = 31, cols = 72, rows = 56,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- The Coast, on A-Man's trail: one beach winding north between the sea
+  -- and green mountains, narrow most of the way, opening into coves to
+  -- fight in (coast.lua). Walked; nobody about.
+  coast = {
+    title = "The Coast", kind = "coast", seed = 62, cols = 64, rows = 120,
+    crowd = false, traffic = false, vehicles = false,
+  },
   -- Inside the Citadel, a stop on A-Man's trail: one narrow catwalk up through
   -- a vast shaft, widening into platforms the Combine hold, the drop all
   -- round it (citadel.lua). Walked; nobody about but them.

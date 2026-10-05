@@ -55,7 +55,9 @@ local SIZES = {
 Footsteps.SIZES = SIZES
 
 -- What the ground is, by map kind, where the tile is plain "ground".
-local GROUND = { beach = "sand", forest = "grass", cliff = "grass", culdesac = "grass", city17 = "hard" }
+local GROUND = {
+  beach = "sand", coast = "sand", forest = "grass", cliff = "grass", culdesac = "grass", city17 = "hard",
+}
 -- And inside a city block, by the kind of block.
 local BLOCK_GROUND = { park = "grass" }
 

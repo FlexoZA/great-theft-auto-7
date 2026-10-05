@@ -146,6 +146,23 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "A-Man had other plans for %s. Welcome to the Outer City.",
     introLine = 6,
+    exitText = "The gunship is down. His trail runs on out of the city, up the coast. After him.",
+    exitTitle = "Up the coast",
+    exitLabel = "COAST",
+    next = "a-man-coast",
+  },
+  {
+    -- Up the coast after him: the EXIT star by the Hunter-Chopper's wreck
+    -- in the Outer City leads here.
+    id = "a-man-coast",
+    title = "The Coast",
+    text = "He went up the coast. One beach between the sea and the mountains, and the Combine in every cove.",
+    map = "coast",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "%s followed him up the coast. Welcome to the Coast.",
+    introLine = 7,
   },
   {
     -- The end of the trail, for later; for now only `love . --quest a-man-citadel` gets there.
@@ -232,6 +249,19 @@ Quests.list = {
     onMap = "citadel",
     x = -166, -- the left end of the lift: city-map's map.cx, map.cy
     y = 2816,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-coast",
+    title = "Back to the City",
+    text = "Back the way you came. Take everyone home.",
+    onMap = "coast",
+    x = -840, -- on the landing's sand: city-map's map.cx, map.cy
+    y = 3232,
     map = "city",
     returns = true,
     label = "HOME",

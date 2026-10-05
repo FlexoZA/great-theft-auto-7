@@ -1037,6 +1037,28 @@ the one with a plot.
   into a turn, and `hp`/`max` give it a bar, scorch, sparks and a burning
   engine below 40%. 175 px nose to tail, rotor 96 px; it returns the
   muzzle, where its rounds will leave from.
+- The Coast, on A-Man's trail after the Outer City: quests' "a-man-coast"
+  ("The Coast"; the Outer City's `next`, so the EXIT star by the
+  Hunter-Chopper's wreck leads here; A-Man's intro line 7) on
+  city-map's `coast` (`kind = "coast"`, 64 x 120 tiles), built by
+  `city-map/coast.lua` and drawn by `render_coast.lua`. One beach winds
+  north between the sea (west, "water" tiles under solid `water` cover)
+  and green mountains (east: no tiles at all, so the layout's walls make
+  them solid). `Coast.SPINE` is the beach's middle and half width by row,
+  eased between points, its edges wandering `Coast.RAGGED` tiles; it is
+  2-3 tiles each side of the middle most of the way and opens out into
+  the coves listed in `Coast.COVES` (`map.coves` and `map.zones`: the
+  landing everyone arrives in at the bottom, the cove, the wreck with a
+  beached boat and crates, and the point at the top, `map.exitX, exitY`),
+  each strewn with rocks and driftwood logs (solid cover, off the surf and
+  the mountains' foot). Between the cove and the long beach the way
+  squeezes over the headland's rocks (`Coast.HEADLAND`, `map.rocky`).
+  `map.height`, `map.depth` and `map.wet` (tiles from the beach, from dry
+  land and from the sea) shade the mountains (noise-shaped ridges, lit from
+  the north west, contour lines, forest over them: `map.slopes`, drawn
+  only), the sea (shallows to deep) and the sand (wet at the water's edge,
+  foam along it); the minimap gets the mountains and sand through cover
+  that only carries a `mapColor`. No enemies on it yet.
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on

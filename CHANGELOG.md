@@ -37,6 +37,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   it sets Combine soldiers down under it, three lots of three 8 seconds
   apart, and at 30% A-Man blinks in beside you, opens his briefcase on
   three Hunters and blinks out again.
+- A-Man's trail goes on up the coast: the star by the Hunter-Chopper's
+  wreck takes everyone to the Coast, one long beach winding north between
+  the sea and green mountains, narrow most of the way and opening into
+  wide coves strewn with rocks, driftwood and a beached boat.
 
 ## [0.12.0] - 2026-10-05
 
