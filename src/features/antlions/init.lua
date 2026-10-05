@@ -17,15 +17,23 @@
 -- The host owns them; clients hear about the ones out of the sand at
 -- 15 Hz (the buried ones are never sent: nobody knows they are there).
 --
+-- Clear the Coast's final section (`map.finale`) of every antlion buried
+-- there and every Combine soldier in it, and its boss comes up out of the
+-- sand: the Antlion Guard (guard.lua).
+--
 -- Messages
 --   server -> all  ANT_STATE <tick> (<id> <x> <y> <facing> <hp> <mode>)...  (unreliable, 15 Hz;
 --                  mode 1 coming up, 2 running, 3 biting, 4 in the air, 5 going under)
 --   server -> all  ANT_DOWN  <id> <x> <y> <angle>   one died there
+--   and guard.lua's ANT_GUARD, ANT_GUARD_SCREAM, ANT_GUARD_DOWN
 --
 -- Modules
 --   brain.lua    what each one does, on the host
 --   render.lua   one drawn from above, walking, biting, in the air, burrowing and dead
---   sounds.lua   their noises: coming up, the chitter, the bite, the buzz of a leap
+--   sounds.lua   their noises: coming up, the chitter, the bite, the buzz of a leap; the Guard's
+--   guard.lua         the boss: the host's side and every client's
+--   guard_brain.lua   what it does, on the host
+--   guard_render.lua  it drawn from above, and its scream's cone
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -33,6 +41,7 @@ local Bosses = require("src.features.bosses")
 local Brain = require("src.features.antlions.brain")
 local Render = require("src.features.antlions.render")
 local Sounds = require("src.features.antlions.sounds")
+local Guard = require("src.features.antlions.guard")
 
 local Antlions = {
   name = "antlions",
@@ -61,6 +70,10 @@ end
 
 local sv = nil -- { brain, syncIn, emptySends }
 
+-- On every machine (the Client section), declared here for mapChanged.
+local shown = {} -- id -> { x, y, dx, dy, facing, hp, mode, t, cycle, stride, hurt, chitterIn }
+local dead = {} -- { x, y, facing, t }
+
 local function cityMap()
   local city = Features.byName["city-map"]
   return city and city.map
@@ -70,12 +83,15 @@ end
 function Antlions:serverQuestStarted(server)
   local map = cityMap()
   sv = nil
+  Guard.serverReset()
   if not (map and map.swarms) then
     return
   end
   sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+  local f = map.finale
   for _, s in ipairs(map.swarms) do
-    sv.brain:bury(s.x, s.y, s.r, Bosses.count(s.count, server))
+    local swarm = sv.brain:bury(s.x, s.y, s.r, Bosses.count(s.count, server))
+    swarm.finale = f and s.x >= f.x and s.x <= f.x + f.w and s.y >= f.y and s.y <= f.y + f.h
   end
 end
 
@@ -83,6 +99,10 @@ local function clear(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("ANT_STATE", server.tick)) -- an empty list clears every screen
+  end
+  if Guard.server() then
+    Guard.serverReset()
+    server:broadcast(Protocol.encode("ANT_GUARD", server.tick))
   end
 end
 
@@ -93,11 +113,15 @@ end
 function Antlions:mapChanged(_map, server)
   if server then
     clear(server)
+  else
+    dead = {}
+    Guard.clear() -- the bodies belong to the map they fell on
   end
 end
 
 function Antlions:serverStart()
   sv = nil
+  Guard.serverReset()
 end
 
 local function sync(server)
@@ -139,6 +163,7 @@ function Antlions:serverStep(server, dt)
   end
   sv.brain:update(server, dt)
   sync(server)
+  Guard.serverStep(server, dt, cityMap(), sv.brain)
 end
 
 --- One down: its body on every screen, a koin, now and then a pickup.
@@ -161,6 +186,9 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv or by == 0 then
     return false
   end
+  if Guard.serverShotAt(server, x, y, radius, by, angle, damage) then
+    return true
+  end
   local a, i = sv.brain:at(x, y, radius)
   if not a then
     return false
@@ -175,12 +203,14 @@ function Antlions:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)
   end
+  Guard.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Antlions:serverPanicArea(_server, x, y, radius)
   if sv then
     sv.brain:scare(x, y, radius)
   end
+  Guard.serverPanicArea(x, y, radius)
 end
 
 --- The host's antlions, for tests.
@@ -190,8 +220,6 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local shown = {} -- id -> { x, y, dx, dy, facing, hp, mode, t, cycle, stride, hurt, chitterIn }
-local dead = {} -- { x, y, facing, t }
 local lastTick = 0
 local clock = 0
 
@@ -201,10 +229,12 @@ end
 
 function Antlions:exitGame()
   shown, dead, lastTick = {}, {}, 0
+  Guard.clear()
 end
 
 function Antlions:update(dt)
   clock = clock + dt
+  Guard.update(dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, a in pairs(shown) do
     a.t = a.t + dt
@@ -241,6 +271,11 @@ function Antlions:drawBelowCars()
     local alpha = math.min(1, (DEAD_TIME - d.t) / DEAD_FADE)
     Render.draw(d.x, d.y, d.facing, { dead = true, alpha = alpha }, clock)
   end
+  Guard.drawBelowCars()
+end
+
+function Antlions:drawHUD()
+  Guard.drawHUD()
 end
 
 --- How far through what it is doing one is, as the model wants it.
@@ -274,6 +309,7 @@ function Antlions:drawAboveCars()
       end
     end
   end
+  Guard.drawAboveCars()
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -338,6 +374,10 @@ Antlions.clientMessages = {
     end
   end,
 }
+
+for kind, handler in pairs(Guard.clientMessages) do
+  Antlions.clientMessages[kind] = handler
+end
 
 --- The footsteps feature's hook: who of mine is walking about, and where.
 function Antlions:footstepWalkers()

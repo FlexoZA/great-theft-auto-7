@@ -53,6 +53,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the sand when you come near, run you down and bite, leaping the last of
   the way now and then. You can only just outrun them at a sprint. Walk
   away and they burrow back down to wait for you.
+- The Coast has a boss: clear the point of every antlion and soldier and
+  the Antlion Guard digs its way up out of the sand. It swipes, paws the
+  sand and charges (it reels if it runs into a rock), and rears up to
+  scream: a cone shows on the ground, then a sound wave rolls down it,
+  hurting and blowing back everyone caught in the open. Get out of the
+  cone or behind something. Bring it down and the way home opens by its
+  body.
 
 ## [0.12.0] - 2026-10-05
 

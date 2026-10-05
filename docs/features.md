@@ -1103,6 +1103,32 @@ the one with a plot.
   the synthesised sounds (`sounds.lua`, the "antlions" volume channel:
   coming up, chitter, bite, buzz) and `ANT_STATE` / `ANT_DOWN` (header of
   `antlions/init.lua`).
+- The Antlion Guard: the Coast's boss (`antlions/guard.lua`, its brain
+  `guard_brain.lua`, its model `guard_render.lua`), to the bosses'
+  standard. Once every antlion buried in the final section (`map.finale`:
+  north of `Coast.FINALE_ROW`, the neck and the point; each swarm knows
+  if it is `finale`) and every Combine soldier inside it (the a-man
+  feature's `serverTroopsIn`) is down, with a player there, it digs up at
+  `map.bossX, bossY` (the nearest spot its 34 px body fits; the map keeps
+  that spot clear of cover) over 2.4 s. 2400 health for one human
+  (`Bosses.health`). It hunts the nearest player: running (150 px/s,
+  breath spent) while they are further off than its charge reach,
+  prowling (90 px/s, none spent) closer, walking (42) winded. Within 62
+  px it swipes (22, knocked back 110 px; melee, free); 200-650 px off
+  with 30 breath it paws the sand for 0.9 s (the warning) and charges
+  down a locked line at 440 px/s for up to 1.4 s (35 and thrown 240 px to
+  the side, for everyone it runs over), reeling 2.2 s if it runs into
+  anything; within 442 px with 35 breath it rears for 1 s while the cone
+  it will scream down shows on every screen (520 px long, 32 degrees
+  either side), then screams: everyone in the cone with nothing solid
+  between takes up to 30 (impact: knocked down) and is blown back up to
+  320 px, both less towards the far end (`ANT_GUARD_SCREAM`, the wave
+  drawn rolling out). Every so often (charge 5 s, scream 7 s apart).
+  Under 40% it goes for a medkit (bosses/heal.lua) and it dodges
+  abilities (bosses/dodge.lua); a freeze holds it half as long. Down: 60
+  koins, `serverKill` "boss", and `quests:serverComplete` for
+  "a-man-coast", so the EXIT star comes up by its body, which lies there
+  for 40 s. `ANT_GUARD` carries its state at 15 Hz (header of guard.lua).
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on

@@ -61,6 +61,41 @@ function Sounds.load()
     buf:tone(0, 0.55, 285, { wave = "square", amp = 0.1, attack = 0.04, decay = 0.2, sustain = 0.5 })
     buf:lowpass(3000)
   end)
+
+  -- The Guard coming up: a long, deep heave of the ground under you.
+  bank.rumble = make(2.2, function(buf)
+    buf:sweep(0, 2.0, 55, 32, { wave = "sine", amp = 0.7, decay = 1.6 })
+    buf:sweep(0, 1.8, 90, 50, { wave = "saw", amp = 0.18, decay = 1.4 })
+    buf:noiseBurst(0, 2.1, { amp = 0.35, decay = 1.6 })
+    buf:lowpass(900)
+  end)
+
+  -- The Guard's growl, pawing the sand or rearing: a grinding, chittering low snarl.
+  bank.growl = make(1.0, function(buf)
+    buf:tone(0, 0.9, 85, { wave = "saw", amp = 0.45, attack = 0.08, decay = 0.4, sustain = 0.7, vibRate = 18,
+      vibDepth = 6 })
+    for i = 0, 9 do
+      buf:noiseBurst(0.05 + i * 0.08, 0.03, { amp = 0.2, decay = 0.015 })
+    end
+    buf:lowpass(1600)
+  end)
+
+  -- The scream: a huge rising shriek over a roar, with a shudder of noise under it.
+  bank.scream = make(1.4, function(buf)
+    buf:sweep(0, 0.9, 380, 1400, { wave = "saw", amp = 0.32, decay = 0.6 })
+    buf:sweep(0.05, 1.0, 520, 1900, { wave = "square", amp = 0.14, decay = 0.7 })
+    buf:tone(0, 1.2, 70, { wave = "saw", amp = 0.5, attack = 0.02, decay = 0.6, sustain = 0.5, vibRate = 26,
+      vibDepth = 8 })
+    buf:noiseBurst(0, 1.2, { amp = 0.4, decay = 0.9 })
+    buf:lowpass(5200)
+  end)
+
+  -- The Guard running into something: a heavy, dull thud.
+  bank.thud = make(0.6, function(buf)
+    buf:sweep(0, 0.4, 120, 40, { wave = "sine", amp = 0.8, decay = 0.25 })
+    buf:noiseBurst(0, 0.15, { amp = 0.5, decay = 0.06 })
+    buf:lowpass(1200)
+  end)
 end
 
 --- Play `name` at world position (x, y).

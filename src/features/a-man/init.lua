@@ -95,6 +95,11 @@ function AMan:serverDropTroops(server, x, y, count)
   return City17.serverDrop(server, x, y, count)
 end
 
+--- Combine soldiers still up inside rectangle `r` ({ x, y, w, h }) on the level that is on.
+function AMan:serverTroopsIn(_server, r)
+  return City17.serverTroopsIn(r)
+end
+
 --- A-Man drops in near the player nearest (x, y), opens his case (out
 --- comes whatever `opened(server, x, y)` brings) and blinks out (cameo.lua).
 function AMan:serverVisit(server, x, y, opened)

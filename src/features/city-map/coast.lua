@@ -23,6 +23,8 @@
 --                         of it (sandbags, drawn only) and where its three riflemen stand
 --   map.posts             empty: City 17's level reads it (a-man/city17.lua mans the bunkers)
 --   map.swarms            { x, y, r, count } where antlions lie buried (the antlions feature)
+--   map.finale            { x, y, w, h } the final section: everything north of `FINALE_ROW`
+--   map.bossX, map.bossY  where the Antlion Guard comes up once the final section is clear
 --   map.cover             { kind = "water" | "rock" | "log" | "boat" | "crate" | "bunker", x, y, w, h }, all solid;
 --                         and kind "mountain" and "sand", not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest walked or wet tile, for a mountain tile
@@ -85,6 +87,8 @@ Coast.SWARMS = {
 }
 Coast.SWARM_RADIUS = 140 -- px round its middle a swarm lies buried...
 Coast.SWARM_SPREAD = 6 -- ...and this much more for each antlion in it
+Coast.FINALE_ROW = 21 -- the final section is everything north of this row: the neck and the point
+Coast.BOSS_ROW = 12 -- where the Antlion Guard comes up, in the middle of the sand
 Coast.RAGGED = 1.3 -- tiles the sea's edge and the mountains' foot wander either way
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
@@ -426,6 +430,14 @@ function Coast.build(map, rng, T)
       placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
     end
     map.bunkers[#map.bunkers + 1] = b
+  end
+
+  -- The final section and where its boss comes up.
+  map.finale = { x = map.x0, y = map.y0, w = cols * T, h = Coast.FINALE_ROW * T }
+  do
+    local c0, c1 = sandEnds(Coast.BOSS_ROW)
+    map.bossX, map.bossY = math.floor(X((c0 + c1 + 1) / 2) - T), math.floor(Y(Coast.BOSS_ROW + 0.5))
+    placed[#placed + 1] = { x = map.bossX, y = map.bossY, r = 110 } -- room for it to come up
   end
 
   -- Where the antlions lie: the middle of the sand at each swarm's row.

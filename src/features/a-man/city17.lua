@@ -631,6 +631,18 @@ function Level.serverDrop(server, x, y, count)
   return came
 end
 
+--- How many soldiers are still up inside { x, y, w, h }, for another
+--- feature (the antlions' boss waits for the Coast's final section to be clear).
+function Level.serverTroopsIn(r)
+  local n = 0
+  for _, s in ipairs(sv and sv.troops.list or {}) do
+    if s.hp > 0 and s.x >= r.x and s.x <= r.x + r.w and s.y >= r.y and s.y <= r.y + r.h then
+      n = n + 1
+    end
+  end
+  return n
+end
+
 --- A-Man drops in once near the player nearest (x, y), for another feature
 --- (cameo.lua's serverVisit). False while no level runs.
 function Level.serverVisit(server, x, y, opened)

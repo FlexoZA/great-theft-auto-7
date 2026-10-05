@@ -163,6 +163,8 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s followed him up the coast. Welcome to the Coast.",
     introLine = 7,
+    exitText = "The Antlion Guard is down and the point is yours. His trail goes cold at the water, for now. "
+      .. "Head home.",
   },
   {
     -- The end of the trail, for later; for now only `love . --quest a-man-citadel` gets there.
