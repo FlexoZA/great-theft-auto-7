@@ -290,6 +290,31 @@ local function route(self, s, x, y)
   return corners
 end
 
+--- One step of `s` towards `to` ({ x, y }) by the walking grid, round
+--- whatever is in the way, at `speed`: the way is worked out once for
+--- that spot, and again if he gets caught on something. Returns the way
+--- he is heading, or nil once he is there.
+local function walkTo(self, s, to, speed, dt)
+  if dist2(s.x, s.y, to.x, to.y) <= 5 * 5 then
+    s.way = nil
+    return nil
+  end
+  local w = s.way
+  if not (w and w.to == to) or s.stuck > 1.5 then
+    s.stuck = 0
+    w = { to = to, corners = route(self, s, to.x, to.y) or { to }, at = 1 }
+    s.way = w
+  end
+  local c = w.corners[w.at]
+  if w.at < #w.corners and dist2(s.x, s.y, c.x, c.y) < 18 * 18 then
+    w.at = w.at + 1
+    c = w.corners[w.at]
+  end
+  local path = math.atan2(c.y - s.y, c.x - s.x)
+  advance(s, path, speed, dt)
+  return path
+end
+
 --- Go to (x, y) and look round there: `kind` "search" (where he lost
 --- somebody) or "investigate" (what he heard).
 local function setGoal(self, s, x, y, kind)
@@ -570,11 +595,9 @@ function Combine:think(server, s, dt)
     end
   end
   if s.post then
-    -- To his post before anything else, rifle down.
-    local d2 = dist2(s.x, s.y, s.post.x, s.post.y)
-    if d2 > 6 * 6 then
-      local path = math.atan2(s.post.y - s.y, s.post.x - s.x)
-      advance(s, path, Combine.CHASE_WALK, dt)
+    -- To his post before anything else, rifle down, round whatever is in the way.
+    local path = walkTo(self, s, s.post, Combine.CHASE_WALK, dt)
+    if path then
       s.facing = turn(s.facing, path, Combine.TURN * 2, dt)
       s.alert, s.target = false, nil
       return
@@ -736,8 +759,9 @@ function Combine:fightFromCover(server, s, tx, ty, dt)
   local th = s.threat
   if not th or now > th.untilT then
     s.threat, s.cv = nil, nil
-    if goTo(s, s.home, dt) then -- quiet again: back to his place
-      s.facing = turn(s.facing, math.atan2(s.home.y - s.y, s.home.x - s.x), Combine.TURN, dt)
+    local path = walkTo(self, s, s.home, Combine.INVESTIGATE_WALK, dt) -- quiet again: back to his place
+    if path then
+      s.facing = turn(s.facing, path, Combine.TURN, dt)
       return true
     end
     return false
