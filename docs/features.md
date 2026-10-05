@@ -289,7 +289,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
-| `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one. |
+| `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one; grenades while one is readied, and until the button is let go after a throw. |
 | `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it, and keeps answering for `Events.calmAfter` (5) seconds after the boss is beaten. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
 | `hidden(client, id)` / `serverHidden(server, player)` | the core, weapons, minimap, player-arrows ask / `Features.visible` asks | Is this player out of sight (the chicken ability)? Answer true and on a client they are not drawn for anyone else (body, car they drive, name, health bar, minimap dot, edge arrow); on the host `Features.visible(server, player)` (present, and nobody answers `serverHidden`) is false for them. Anything that picks a player to go after or aim at (bots, police, every boss and its helpers) asks `visible` instead of `present`; damage over an area (a blast, a slam, a scream) still asks `present`, so a hidden player caught in it is still hurt. Abilities answers both. |
@@ -774,14 +774,25 @@ the one with a plot.
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
   quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J): a stack dragged onto its slot is what the key uses
+  drinks on J, grenades on T): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
   HUD with its key and count, and each use starts its cooldown (told by
   `BLD_USED <item> <seconds>`) that the ring fills back through. Add an
   entry to `usables` (item, key, colour, cooldown, `apply`) and the slot,
-  the circle and the key come with it.
+  the circle and the key come with it. An `aimed` entry (the grenade) is
+  left to the feature that owns it: its key readies it and that feature
+  sends `BLD_USE <item> <x> <y>` on a click, which reaches `apply` as `args`.
+- Grenades: `src/features/grenades` throws the grenades in the grenade quick
+  slot (five at most). T readies one: the landing spot follows the cursor,
+  within `grenades.range` and short of the first wall (`Grenades.landing`,
+  the same sum on the host), with the blast's reach drawn round it, and the
+  fire button throws it (`fireTaken`). It flies in an arc for a time that
+  grows with the distance and goes off on landing through `Weapons:explode`
+  (explosive, the thrower too). On foot only; no tiers (a consumable). The
+  ammo factory makes them out of iron and sulfur and the shop sells them
+  under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face
@@ -1055,8 +1066,8 @@ the one with a plot.
   answers `actionTaken` there and while it is open); it opens and closes
   the shop screen, and walking away from the door closes it too. The screen
   draws over every other HUD piece (priority 993), under only the inventory.
-  On sale: every gun and a box of its rounds, every ability, a medkit and an
-  energy drink (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
+  On sale: every gun and a box of its rounds, every ability, a medkit, an
+  energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. A click on a card
   shows it in a side panel on the right (`shop/details.lua`): a bigger
   picture, its `blurb`, how it is used and its numbers in the tier on show,

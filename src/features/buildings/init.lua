@@ -98,7 +98,8 @@
 --   client -> server  BLD_BUY     <plotId>
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
---   client -> server  BLD_USE     <item>              (medkit | drink, from its quick slot)
+--   client -> server  BLD_USE     <item> [x y]        (medkit | drink | grenade, from its quick slot;
+--                                                     a grenade is thrown at (x, y))
 --   client -> server  BLD_QUICK_PUT  <item>           (the ones I carry, out of the bag into its quick slot)
 --   client -> server  BLD_QUICK_TAKE <item>           (its quick slot back into the bag)
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
@@ -142,8 +143,11 @@ Buildings.drinkStamina = 60 -- stamina an energy drink gives back
 -- inventory screen shows the slots, the HUD a circle each, in this order):
 -- the item, its key action and label, what the HUD calls a stack, its
 -- colour, seconds between uses, the reason when there is nothing to gain,
--- and `apply(server, player)`: true when it did any good. Each slot holds
--- one stack (`max`).
+-- and `apply(server, player, args)`: true when it did any good (`args` is
+-- BLD_USE's, the item first). Each slot holds one stack (`max`). One that
+-- is `aimed` (the grenade) isn't used by its key: the feature that owns it
+-- readies it on the key and sends BLD_USE with a target on a click, and
+-- `ready()` says whether it is readied, for its HUD circle.
 Buildings.usables = {
   {
     item = "medkit", action = "use-medkit", label = "Use a medkit", key = "h", title = "medkits",
@@ -164,6 +168,18 @@ Buildings.usables = {
       local onFoot = Features.byName["on-foot"]
       return onFoot ~= nil and onFoot.serverRestoreStamina ~= nil
         and onFoot:serverRestoreStamina(server, player, Buildings.drinkStamina)
+    end,
+  },
+  {
+    item = "grenade", action = "grenade", label = "Ready a grenade (click throws it)", key = "t", title = "grenades",
+    color = { 0.55, 0.7, 0.3 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
+    ready = function()
+      local grenades = Features.byName.grenades
+      return grenades ~= nil and grenades.readied
+    end,
+    apply = function(server, player, args)
+      local grenades = Features.byName.grenades
+      return grenades ~= nil and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]))
     end,
   },
 }
@@ -209,6 +225,10 @@ local REASONS = {
   nodrink = "No energy drinks in your drink slot: drag some there on the inventory screen.",
   nodrinks = "You carry no energy drinks.",
   drinkcool = "You just had one: give it a moment.",
+  nogrenade = "No grenades in your grenade slot: drag some there on the inventory screen.",
+  nogrenades = "You carry no grenades.",
+  grenadecool = "Pull the next pin in a moment.",
+  cantthrow = "You can't throw a grenade from here.",
   stamina = "Your stamina is full.",
   quickfull = "That slot is full.",
   quickempty = "That slot is empty.",
@@ -787,13 +807,28 @@ function Buildings:offerRows(client, plot, b)
   }
 end
 
+--- Why `item` can't be used from its quick slot right now (nothing in it,
+--- still cooling down) as a line to show, or nil when it can.
+function Buildings:unusable(item)
+  if self:quickCount(item) < 1 then
+    return REASONS["no" .. item]
+  elseif self.useLeft[item] then
+    return REASONS[item .. "cool"]
+  end
+  return nil
+end
+
+--- Show `text` where the building notices go, over the HUD circles.
+function Buildings:notice(text, good)
+  say(text, good)
+end
+
 function Buildings:keypressed(key, client)
   for _, u in ipairs(self.usables) do
-    if Controls.is(u.action, key) and not self.menu then
-      if self:quickCount(u.item) < 1 then
-        say(REASONS["no" .. u.item])
-      elseif self.useLeft[u.item] then
-        say(REASONS[u.item .. "cool"])
+    if Controls.is(u.action, key) and not self.menu and not u.aimed then
+      local why = self:unusable(u.item)
+      if why then
+        say(why)
       else
         send(client, "BLD_USE", u.item)
       end
@@ -1228,8 +1263,17 @@ local function drawUsableHud(self, u, index)
   local small, body = UI.fonts.small, UI.fonts.body
   local key = Controls.name(Controls.bindings(u.action)[1])
   local count, left = self:quickCount(u.item), self.useLeft[u.item]
+  local ready = u.ready and u.ready()
   local middle, middleColor
-  if count < 1 then
+  if ready then
+    -- Readied: lit and pulsing, the fire button's job named under it.
+    local pulse = 0.5 + 0.5 * math.sin(love.timer.getTime() * 10)
+    love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.2 * pulse)
+    love.graphics.circle("fill", cx, cy, r + 6 + 3 * pulse, 48)
+    UI.ring(cx, cy, r, left and 1 - left / u.cooldown or 1, c, 5)
+    Render.grenade(cx, cy + 1, 1)
+    middle = ""
+  elseif count < 1 then
     UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     middle, middleColor = key, { 1, 1, 1, 0.3 }
   elseif left then
@@ -1244,6 +1288,9 @@ local function drawUsableHud(self, u, index)
     if u.item == "medkit" then
       love.graphics.rectangle("fill", cx - 3, cy - 11, 6, 22) -- a cross behind the key
       love.graphics.rectangle("fill", cx - 11, cy - 3, 22, 6)
+    elseif u.item == "grenade" then
+      love.graphics.ellipse("fill", cx, cy + 2, 9, 11) -- a grenade behind the key
+      love.graphics.rectangle("fill", cx - 3, cy - 12, 6, 5)
     else
       love.graphics.rectangle("fill", cx - 6, cy - 12, 12, 24, 3) -- a can
     end
@@ -1252,8 +1299,9 @@ local function drawUsableHud(self, u, index)
   love.graphics.setFont(body)
   UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
   love.graphics.setFont(small)
-  UI.label(u.title, cx - math.floor(small:getWidth(u.title) / 2), cy + r + 4,
-    count > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
+  local title = ready and "click: throw" or u.title
+  UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4,
+    ready and c or count > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
   if count > 0 then
     -- How many are left, in a badge at the ring's shoulder.
     local text = tostring(count)
@@ -2098,7 +2146,7 @@ Buildings.serverMessages = {
       return "no" .. u.item
     elseif sv.time - (used[u.item] or -math.huge) < u.cooldown then
       return u.item .. "cool"
-    elseif not u.apply(server, player) then
+    elseif not u.apply(server, player, args) then
       return u.fullReason
     end
     setQuick(server, player, u.item, Buildings:serverQuick(player.id, u.item) - 1)
