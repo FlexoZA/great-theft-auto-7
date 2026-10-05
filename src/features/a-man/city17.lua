@@ -31,6 +31,17 @@
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
 --
+-- The same soldiers hold the Outer City (city-map's `outercity`, quests'
+-- "a-man-2"): guards on its posts at the choke points on the way in and a
+-- squad on each of its beats (`Level.maps` says what each map has: the
+-- plaza visits, the Hunters and the Citadel's doors are City 17's alone).
+-- Some guard stations have a garrison (the map's `garrisons`): nobody is
+-- inside until it is needed, and the first time a player comes within the
+-- garrison's `reach` its door opens on every screen (C17_DOOR) and
+-- `garrison` soldiers (more with more humans: Bosses.count) come out of it
+-- one after another and go for where that player is; when they have
+-- looked round they walk back and stand guard at the door.
+--
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
@@ -38,6 +49,7 @@
 --                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
+--   server -> all  C17_DOOR   <x> <y> <nx> <ny>        a garrison's door opens (nx, ny: the way out)
 --   and cameo.lua's: C17_AMAN_IN, C17_AMAN_CASE, C17_AMAN_OUT, C17_TURRETS, C17_POP
 
 local Protocol = require("src.net.protocol")
@@ -50,6 +62,8 @@ local Radio = require("src.features.a-man.radio")
 local Cameo = require("src.features.a-man.cameo")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Bosses = require("src.features.bosses")
+local Sounds = require("src.features.a-man.sounds")
 
 local Level = {}
 
@@ -89,6 +103,15 @@ Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in, 
 Level.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
 Level.callAnswer = 3 -- how many of them come at most, nearest first
 Level.callEvery = 15 -- seconds before the same soldier calls in again
+Level.garrison = 4 -- soldiers out of a garrison's door, for one human (more humans, more)
+Level.garrisonFirst = 0.8 -- seconds from the door opening to the first coming out
+Level.garrisonEvery = 0.7 -- seconds between one coming out and the next
+Level.doorOpen = 5 -- seconds a garrison's door stands open on every screen
+-- What each map the soldiers hold has besides its posts and beats.
+Level.maps = {
+  city17 = { squadsPerBeat = 2, cameo = true, hunters = true },
+  outercity = { squadsPerBeat = 1 }, -- fewer about: its garrisons bring more when they are wanted
+}
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -106,9 +129,11 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
+--- The map in play, if the soldiers hold it, and what it has (Level.maps).
 local function cityMap()
   local city = Features.byName["city-map"]
-  return city and city.current == "city17" and city.map or nil
+  local conf = city and Level.maps[city.current]
+  return conf and city.map or nil, conf
 end
 
 -- Server --------------------------------------------------------------------
@@ -202,18 +227,23 @@ end
 --- Everyone arrived: guards on every post, squads on every beat, Hunters
 --- round the Citadel.
 function Level.serverQuestStarted(server, quest)
-  local map = cityMap()
+  local map, conf = cityMap()
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
   local troops = Combine.new({
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
-  sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
-  Cameo.serverStart()
+  sv = { troops = troops, syncIn = 0, reached = false, time = 0, garrisons = {} }
+  if conf.cameo then
+    Cameo.serverStart()
+  end
   local hunters = Features.byName.hunters
-  if hunters then
+  if hunters and conf.hunters then
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+  end
+  for _, g in ipairs(map.garrisons or {}) do
+    sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0 }
   end
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
@@ -232,13 +262,24 @@ function Level.serverQuestStarted(server, quest)
       g.members[#g.members + 1] = sv.troops:add("guard", x, y, p.watch + (i - 1) * 0.15)
     end
   end
+  local perBeat = conf.squadsPerBeat or Level.squadsPerBeat
   for _, route in ipairs(map.patrols or {}) do
-    local first, taken = random(#route), {}
-    for i = 1, Level.squadsPerBeat do
+    -- A lone squad starts at the corner furthest from where everyone arrives.
+    local first, far = random(#route), -1
+    if perBeat == 1 then
+      for i, pt in ipairs(route) do
+        local d = (pt.x - map.cx) ^ 2 + (pt.y - map.cy) ^ 2
+        if d > far then
+          first, far = i, d
+        end
+      end
+    end
+    local taken = {}
+    for i = 1, perBeat do
       -- Spread round the beat: each starts a share of its corners on from the
       -- first, or the next corner along where one is there already (a beat
       -- walked out and back passes some corners twice).
-      local start = (first - 1 + math.floor((i - 1) * #route / Level.squadsPerBeat)) % #route + 1
+      local start = (first - 1 + math.floor((i - 1) * #route / perBeat)) % #route + 1
       for _ = 1, #route do
         local at = route[start].x .. "," .. route[start].y
         if not taken[at] then
@@ -299,7 +340,7 @@ end
 --- level: a star comes up at the doors.
 local function checkReached(server)
   local map = cityMap()
-  if sv.reached or not map then
+  if sv.reached or not (map and map.citadelX) then
     return
   end
   for _, p in pairs(server.players) do
@@ -435,11 +476,56 @@ local function callDown(down)
   end
 end
 
+--- The nearest player anyone could see within `reach` of (x, y), as a point.
+local function nearestPlayer(server, x, y, reach)
+  local best, bestD2 = nil, reach * reach
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      local d2 = (px - x) ^ 2 + (py - y) ^ 2
+      if d2 <= bestD2 then
+        best, bestD2 = { x = px, y = py }, d2
+      end
+    end
+  end
+  return best
+end
+
+--- The garrisons: a door opens the first time a player comes near, and its
+--- soldiers come out one by one and go for where the player is.
+local function stepGarrisons(server, dt)
+  for _, gs in ipairs(sv.garrisons) do
+    local g, door = gs.g, gs.g.door
+    if not gs.out then
+      local who = nearestPlayer(server, g.x, g.y, g.reach)
+      if who then
+        gs.out, gs.target = true, who
+        gs.left, gs.nextIn = Bosses.count(Level.garrison, server), Level.garrisonFirst
+        server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+      end
+    elseif gs.left > 0 then
+      gs.nextIn = gs.nextIn - dt
+      if gs.nextIn <= 0 then
+        gs.nextIn, gs.left = Level.garrisonEvery, gs.left - 1
+        gs.target = nearestPlayer(server, g.x, g.y, g.reach * 1.5) or gs.target
+        local s = sv.troops:add("guard", door.x + door.nx * 22, door.y + door.ny * 22, math.atan2(door.ny, door.nx))
+        sv.troops:arm(s, pickArms())
+        sv.troops:sendTo(s, gs.target.x, gs.target.y)
+        if not gs.said then -- the first out says where they are going
+          gs.said = true
+          later(s, "investigate", 0.4)
+        end
+      end
+    end
+  end
+end
+
 function Level.serverStep(server, dt)
   if not sv then
     return
   end
   sv.troops:update(server, dt)
+  stepGarrisons(server, dt)
   Cameo.serverStep(server, dt, cityMap())
   talk(server, dt)
   checkReached(server)
@@ -503,17 +589,24 @@ end
 -- Client --------------------------------------------------------------------
 
 local troops = {} -- id -> { x, y, dx, dy, angle, hp, alert, bob, stride, say, sayT, shout }
+local doors = {} -- { x, y, nx, ny, t }: garrisons' doors standing open
 local lastTick = 0
 local time = 0
 
 function Level.clear()
-  troops, lastTick = {}, 0
+  troops, doors, lastTick = {}, {}, 0
   Cameo.clear()
 end
 
 function Level.update(dt)
   time = time + dt
   Cameo.update(dt)
+  for i = #doors, 1, -1 do
+    doors[i].t = doors[i].t - dt
+    if doors[i].t <= 0 then
+      table.remove(doors, i)
+    end
+  end
   local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
     local ex, ey = s.x - s.dx, s.y - s.dy
@@ -535,8 +628,28 @@ function Level.update(dt)
   end
 end
 
+--- A garrison's door standing open: the doorway lit from inside and the
+--- light falling out across the ground, fading as it shuts.
+local function drawDoor(d)
+  local k = math.min(1, d.t / 0.6, (Level.doorOpen - d.t) / 0.25) -- opening, open, shutting
+  local ax, ay = d.ny ~= 0 and 1 or 0, d.nx ~= 0 and 1 or 0 -- along the face
+  local w = 40
+  local x0, y0 = d.x - ax * w / 2, d.y - ay * w / 2
+  local spill = 90 * k
+  love.graphics.setColor(0.55, 0.85, 1, 0.22 * k)
+  love.graphics.polygon("fill", x0, y0, x0 + ax * w, y0 + ay * w,
+    x0 + ax * (w + 30) + d.nx * spill, y0 + ay * (w + 30) + d.ny * spill,
+    x0 - ax * 30 + d.nx * spill, y0 - ay * 30 + d.ny * spill)
+  love.graphics.setColor(0.80, 0.95, 1, 0.9 * k)
+  love.graphics.rectangle("fill", math.min(x0, x0 - d.nx * 8), math.min(y0, y0 - d.ny * 8),
+    ax * w + math.abs(d.nx) * 8, ay * w + math.abs(d.ny) * 8)
+end
+
 --- Their cones of sight, on the ground under everything.
 function Level.drawBelowCars()
+  for _, d in ipairs(doors) do
+    drawDoor(d)
+  end
   for _, s in pairs(troops) do
     Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
   end
@@ -618,6 +731,13 @@ function Level.drawAboveCars()
 end
 
 Level.clientMessages = {
+  C17_DOOR = function(_client, args)
+    local x, y, nx, ny = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and nx and ny then
+      doors[#doors + 1] = { x = x, y = y, nx = nx, ny = ny, t = Level.doorOpen }
+      Sounds.play("door", x, y)
+    end
+  end,
   C17_TROOPS = function(_client, args)
     local tick = tonumber(args[1])
     if not tick or tick <= lastTick then

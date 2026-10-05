@@ -938,7 +938,21 @@ the one with a plot.
   trees. Everyone arrives in the square in the bottom left (HOME star,
   "home-outercity", at its left end); the streets from there all lead in
   to the island, with barriers along them, planters and barriers round
-  the square's edge and its middle left open. Left to rot: about one
+  the square's edge and its middle left open. City 17's Combine soldiers
+  hold it too (`a-man/city17.lua` runs them on any map in `Level.maps`;
+  the plaza visits, the Hunters and the Citadel's doors are City 17's
+  alone): 2 guards on each of its 5 posts at the choke points on the way
+  in, and one squad of 3 on each of its 3 beats (round the quay, up the
+  left street, along the bottom street), each starting at the corner
+  furthest from the arrival square, the beats woven between the street
+  barriers and kept clear of wrecks and drums. Four guard stations have a
+  garrison (`map.garrisons`: a Combine door in the nearest building's face,
+  drawn on the canvas): nobody is inside until the first player comes
+  within 520 px, when the door opens on every screen (`C17_DOOR`: lit, its
+  light spilling out, a hiss and a clunk) and 4 soldiers (more with more
+  humans, `Bosses.count`) come out one every 0.7 s and go for where that
+  player is (`Combine:sendTo`), then walk back and stand guard at the door.
+  Left to rot: about one
   building in seven has come down (a solid heap of rubble), roofs are
   holed (`b.holes`) or grown over (`b.vines`), rusted wrecks (solid,
   cover) and rubbish lie about the streets, drums burn and a few roofs

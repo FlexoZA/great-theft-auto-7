@@ -1253,6 +1253,32 @@ local function drawWreck(s)
   love.graphics.circle("fill", s.x + s.w * 0.45, s.y + s.h * 0.5, 5, 8)
 end
 
+--- A garrison's door (outer_city.lua's `garrisons`): a Combine door of dark
+--- metal set into the building's face, a frame round it and a light over it.
+local function drawGarrisonDoor(g)
+  local d = g.door
+  local along = d.nx ~= 0 and { 0, 1 } or { 1, 0 } -- the way the face runs
+  local w, deep = 46, 10
+  local x0, y0 = d.x - along[1] * w / 2, d.y - along[2] * w / 2
+  -- In the face: from the face line `deep` px into the building.
+  local ix, iy = -d.nx * deep, -d.ny * deep
+  local rx = math.min(x0, x0 + ix)
+  local ry = math.min(y0, y0 + iy)
+  local rw = along[1] * w + math.abs(ix)
+  local rh = along[2] * w + math.abs(iy)
+  color(C17.metal)
+  love.graphics.rectangle("fill", rx - 3, ry - 3, rw + 6, rh + 6)
+  color(C17.panel)
+  love.graphics.rectangle("fill", rx, ry, rw, rh)
+  color(C17.panelLight)
+  love.graphics.rectangle("fill", rx + along[1] * (w / 2 - 1), ry + along[2] * (w / 2 - 1),
+    along[1] * 2 + math.abs(ix) * (1 - along[1]), along[2] * 2 + math.abs(iy) * (1 - along[2]))
+  -- The light over it, on the roof edge.
+  color(C17.glow)
+  love.graphics.rectangle("fill", rx + ix * 1.6, ry + iy * 1.6, along[1] * w + math.abs(d.nx) * 4,
+    along[2] * w + math.abs(d.ny) * 4)
+end
+
 --- The Outer City (outer_city.lua): the decayed ground, the foul canals
 --- and worn bridges, rubble and rubbish, the buildings and what has
 --- happened to them, cover, trees.
@@ -1297,6 +1323,9 @@ local function drawOuterCity(map)
   end
   drawBuildings(map)
   drawRoofDamage(map)
+  for _, g in ipairs(map.garrisons or {}) do
+    drawGarrisonDoor(g)
+  end
   for _, s in ipairs(map.cover) do
     if s.kind == "barrier" then
       drawBarrier(s)

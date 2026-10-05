@@ -391,6 +391,13 @@ function Combine:alarm(x, y, radius, opts)
   return went
 end
 
+--- Send `s` to look into (x, y), as an alarm would: he goes there, looks
+--- round, and walks back to where he came from (a soldier just out of a
+--- garrison's door, sent at whoever brought him out).
+function Combine:sendTo(s, x, y)
+  setGoal(self, s, x, y, "investigate")
+end
+
 -- Seeing --------------------------------------------------------------------
 
 --- Where `player` is, if they are there to be shot at.

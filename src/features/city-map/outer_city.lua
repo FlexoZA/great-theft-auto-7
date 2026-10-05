@@ -19,6 +19,13 @@
 --                         and trash are drawn, the rest solid too
 --   map.fires             burning drums and roofs (city-map's fires.lua), never on the ground
 --   map.zones             { name, y0, y1 } as City 17's
+--   map.posts             where Combine guards stand ({ x, y, watch, at }), as City 17's, at the
+--                         choke points on the way in
+--   map.patrols           the beats their squads walk (loops of { x, y }), woven round the barriers
+--   map.garrisons         guard stations with troops inside: { at, x, y, reach, door = { x, y, nx, ny } }:
+--                         the first player within `reach` of (x, y) brings them out of the door
+--                         (a-man/city17.lua); `door` is on the face of a building, (nx, ny) the
+--                         way out of it. render.lua draws the door.
 --
 -- Nobody has looked after any of it in years: a building in seven or so
 -- has come down (`b` gone from `map.buildings`, a heap of rubble in its
@@ -267,6 +274,96 @@ function OuterCity.build(map, rng, T)
   streetBarrier(13, 26, false)
   streetBarrier(51, 29, false)
 
+  -- The Combine: guards at the choke points, squads on beats, and garrisons
+  -- behind doors at the guard stations. Beats are woven between the
+  -- street barriers (a squad walks straight from corner to corner, three
+  -- abreast: 30 px either side of the line).
+  local WEST, SOUTH = math.pi, math.pi / 2
+  map.posts, map.patrols, map.garrisons = {}, {}, {}
+  local function P(c, r)
+    return { x = math.floor(X(c)), y = math.floor(Y(r)) }
+  end
+  local function beat(points)
+    local route = {}
+    for i, pt in ipairs(points) do
+      route[i] = P(pt[1], pt[2])
+    end
+    map.patrols[#map.patrols + 1] = route
+  end
+  beat({ { 21, 10.9 }, { 50.6, 10.9 }, { 50.6, 41 }, { 21, 41 } }) -- round the quay
+  beat({ { 8.4, 44 }, { 8.4, 36.6 }, { 6.6, 36.6 }, { 6.6, 25.6 }, { 18.5, 25.6 }, { 6.6, 25.6 }, { 6.6, 36.6 },
+    { 8.4, 36.6 } }) -- up the left street and out to the west bridge, and back
+  beat({ { 19, 51.3 }, { 24.5, 51.3 }, { 24.5, 49.55 }, { 37.3, 49.55 }, { 37.3, 42.6 }, { 37.3, 49.55 },
+    { 24.5, 49.55 }, { 24.5, 51.3 } }) -- along the bottom street and up to the south bridge, and back
+  --- A post at tile (c, r) watching `watch`; with `garrison`, troops behind
+  --- the door of the nearest building, out the first time anyone comes near.
+  local function post(at, c, r, watch, garrison)
+    local p = P(c, r)
+    map.posts[#map.posts + 1] = { x = p.x, y = p.y, watch = watch, at = at }
+    if not garrison then
+      return
+    end
+    local best, bestD = nil, math.huge
+    for _, b in ipairs(map.buildings) do
+      local dx = math.max(b.x - p.x, 0, p.x - (b.x + b.w))
+      local dy = math.max(b.y - p.y, 0, p.y - (b.y + b.h))
+      local d = dx * dx + dy * dy
+      if d < bestD and b.w >= T and b.h >= T then
+        best, bestD = b, d
+      end
+    end
+    if not best then
+      return
+    end
+    -- The door: on the face towards the post, as near it as the face allows.
+    local b = best
+    local x = math.max(b.x + 24, math.min(b.x + b.w - 24, p.x))
+    local y = math.max(b.y + 24, math.min(b.y + b.h - 24, p.y))
+    local nx, ny = 0, 0
+    if p.y >= b.y + b.h then
+      y, ny = b.y + b.h, 1
+    elseif p.y <= b.y then
+      y, ny = b.y, -1
+    elseif p.x >= b.x + b.w then
+      x, nx = b.x + b.w, 1
+    else
+      x, nx = b.x, -1
+    end
+    b.garrison = true -- this one stays standing
+    map.garrisons[#map.garrisons + 1] = { at = at, x = p.x, y = p.y, reach = 520,
+      door = { x = math.floor(x), y = math.floor(y), nx = nx, ny = ny } }
+  end
+  post("the bottom street", 32, 51.2, WEST, true)
+  post("the waterway crossing", 8.35, 29.2, SOUTH, true) -- east of the squad going up the street
+  post("the south bridge", 35.6, 43.2, SOUTH, true)
+  post("the east street", 54.5, 30, WEST, true)
+  post("the west bridge", 16.5, 27.1, WEST, false)
+  --- Is (x, y) `r` clear of every beat, post and door, so nothing left lying
+  --- about gets in a squad's way or blocks a door?
+  local function offBeats(x, y, r)
+    for _, route in ipairs(map.patrols) do
+      for i, a in ipairs(route) do
+        local b = route[i % #route + 1]
+        local dx, dy = b.x - a.x, b.y - a.y
+        local k = math.max(0, math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / math.max(1, dx * dx + dy * dy)))
+        if (a.x + dx * k - x) ^ 2 + (a.y + dy * k - y) ^ 2 < (r + 50) ^ 2 then
+          return false
+        end
+      end
+    end
+    for _, p in ipairs(map.posts) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < (r + 70) ^ 2 then
+        return false
+      end
+    end
+    for _, g in ipairs(map.garrisons) do
+      if (g.door.x - x) ^ 2 + (g.door.y - y) ^ 2 < (r + 90) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+
   -- Decay ------------------------------------------------------------------
   map.fires = {}
   local function fire(k, x, y, r)
@@ -307,7 +404,7 @@ function OuterCity.build(map, rng, T)
   local standing = {}
   for _, b in ipairs(map.buildings) do
     local roll = rng:random()
-    if roll < 0.15 then
+    if roll < 0.15 and not b.garrison then
       decor("rubble", b.x, b.y, b.w, b.h)
       -- Some of it spilt out round the heap, to walk through.
       for _ = 1, 3 do
@@ -340,7 +437,7 @@ function OuterCity.build(map, rng, T)
       break
     end
     local x, y = X(0) + rng:random() * cols * T, Y(0) + rng:random() * rows * T
-    if open(x, y, 70) and not inStart(x, y, 120) and not inArena(x, y, 60) then
+    if open(x, y, 70) and not inStart(x, y, 120) and not inArena(x, y, 60) and offBeats(x, y, 50) then
       local across = rng:random() < 0.5
       local w, h = across and 84 or 42, across and 42 or 84
       cover("wreck", x - w / 2, y - h / 2, w, h)
@@ -355,7 +452,7 @@ function OuterCity.build(map, rng, T)
       break
     end
     local x, y = X(0) + rng:random() * cols * T, Y(0) + rng:random() * rows * T
-    if open(x, y, 40) and not inArena(x, y, 0) and not inStart(x, y, 150) then
+    if open(x, y, 40) and not inArena(x, y, 0) and not inStart(x, y, 150) and offBeats(x, y, 20) then
       cover("barrel", x - 14, y - 14, 28, 28)
       fire("barrel", x, y, 14)
       got = got + 1

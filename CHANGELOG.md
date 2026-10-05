@@ -21,6 +21,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and a big open square on an island in the middle, all of it left to
   rot: collapsed buildings, holed roofs, rusted wrecks, weeds through the
   paving and rubbish in the canals.
+- The Combine hold the Outer City: guards at the choke points on the way
+  in and squads on patrol. Get near a guard station and its door slides
+  open and more of them come pouring out.
 - The Hunter-Chopper: a Combine gunship circling the Outer City's square.
   You hear its rotor from across the city; when its gun locks on to you a
   red beam and a rising whine give you a second to get moving before the
