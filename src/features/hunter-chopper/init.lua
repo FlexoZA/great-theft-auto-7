@@ -54,7 +54,7 @@ local HunterChopper = {
 -- Tuning ------------------------------------------------------------------
 HunterChopper.questId = "a-man-2" -- the quest it is the boss of
 HunterChopper.map = "outercity" -- the map it flies over
-HunterChopper.health = 2400 -- 120 pistol rounds, for one player (more humans, more: bosses/init.lua)
+HunterChopper.health = 3600 -- 180 pistol rounds, for one player (more humans, more: bosses/init.lua)
 HunterChopper.blastReach = 40 -- px past a blast's radius its hull still feels it (it is big)
 HunterChopper.drops = 40 -- koins it spills where it comes down
 HunterChopper.crashRadius = 150 -- px the blast where it hits the ground reaches

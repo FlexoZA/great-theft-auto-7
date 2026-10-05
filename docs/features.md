@@ -972,7 +972,7 @@ the one with a plot.
   by nobody): 80 px, 40 at the middle. A stick on somebody standing still
   does about 35. Its rounds are blue: a gun table may carry `tint`
   (rrggbb), which weapons sends on the end of `WPN_SHOT` and draws the
-  streak in, with a glow. It can be shot down: 2400 health for one human
+  streak in, with a glow. It can be shot down: 3600 health for one human
   (`Bosses.health`), on the boss bar (`noBreath`: a machine has no breath
   bar). Rounds hit its hull and engine pods (`Render.hits`, a capsule nose
   to tail-root and one for each pod, scaled by its height) through
