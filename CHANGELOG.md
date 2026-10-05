@@ -45,6 +45,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   wreck takes everyone to the Coast, one long beach winding north between
   the sea and green mountains, narrow most of the way and opening into
   wide coves strewn with rocks, driftwood and a beached boat.
+- The Coast no longer ends at its edges: the sea runs on out west with
+  waves on it, the green mountains roll on east, and the shoreline carries
+  on past both ends of the beach.
 - The Combine hold three bunkers on the Coast, each with a machine gun
   nest in front of it raking the beach and four soldiers keeping it:
   one on the gun, three with rifles round the bunker. They hold their
