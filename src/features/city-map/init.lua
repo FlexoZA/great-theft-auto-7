@@ -183,18 +183,33 @@ local function returnLoaners(self, server)
   self.loaners = {}
 end
 
---- Lend `p` a car of the map's `loaner` model at spawn point `s`, behind its wheel.
+--- Lend `p` a car of the map's `loaner` model at spawn point `s` ({ x, y,
+--- angle }): theirs while they are here. Returns it, or nil without one.
 local function lend(self, server, p, s)
   local vehicles = Features.byName.vehicles
-  local model = vehicles and vehicles.catalog.byKey[self.map.loaner]
+  local model = vehicles and vehicles.catalog.byKey[self.map.loaner or ""]
   if not model then
-    return
+    return nil
   end
   local car = vehicles:serverSpawn(server, model, s.x, s.y, s.angle, p.id)
   car.loaner = true
   self.loaners[#self.loaners + 1] = { car = car, player = p.id, own = p.car or false }
   p.car = car
-  server:seat(p, car)
+  return car
+end
+
+--- A car of the map's `loaner` model for `p` at `spot` ({ x, y, angle }),
+--- for car-stations: the one already lent them here if they have one (left
+--- where it is, for the caller to bring), else a new one lent there now.
+--- Returns it and whether it is new, or nil on a map with no loaner.
+function CityMap:serverLend(server, p, spot)
+  if not self.map.loaner then
+    return nil
+  elseif p.car and p.car.loaner and server.vehicles[p.car.id] == p.car then
+    return p.car, false
+  end
+  local car = lend(self, server, p, spot)
+  return car, car ~= nil
 end
 
 function CityMap:placePlayers(server)
@@ -219,7 +234,7 @@ function CityMap:placePlayers(server)
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
     end
     if self.map.loaner and not p.vehicle and not p.bot then
-      lend(self, server, p, s) -- a driven map, and theirs is in the garage: one to drive while here
+      server:seat(p, lend(self, server, p, s)) -- a driven map, and theirs is in the garage: one to drive while here
     end
   end
   -- A car whose owner has left the game stays in the world: park it on the
@@ -279,13 +294,6 @@ end
 --- `from` is the neighbouring block it would grow from.
 function CityMap:growthSites()
   return Layout.growthSites(self.map)
-end
-
---- Weapons asks when somebody's own car is wrecked: on a map with
---- `wreckRide` (the Winding Road) they ride it back to their slot and come
---- back behind the wheel, not on foot out where it went up.
-function CityMap:serverWreckRide()
-  return self.map ~= nil and self.map.wreckRide == true
 end
 
 function CityMap:blocksPoint(x, y)

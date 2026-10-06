@@ -6,7 +6,7 @@
 -- mountains, shaded as the Coast's are (render_coast.lua) with boulders
 -- along their foot, bare rock and snow on the tops further north, and the
 -- trees on their sides. Short of every bridge, burnt-out cars to take cover
--- behind; past every bridge, the Combine's checkpoint: the
+-- behind and a car station's pad; past every bridge, the Combine's checkpoint: the
 -- concrete blocks of its chicane, its bunker with the door on the road
 -- (a-man/city17.lua draws it open) and the sandbags of its two MG nests
 -- (the guns are drawn live: a-man/nests.lua).
@@ -380,6 +380,41 @@ local function drawWreck(s)
   love.graphics.pop()
 end
 
+--- A car station's pad (car-stations calls a Scout Car up onto it): a
+--- concrete square with hazard stripes round its edge, the bay painted on
+--- it along the road with an arrow the way the car will face, and a lamp
+--- on a post at its corner.
+local function drawStation(st)
+  local R = 44
+  color(C.shadow)
+  love.graphics.rectangle("fill", st.x - R + 4, st.y - R + 5, 2 * R, 2 * R, 6, 6)
+  color(C.stripe)
+  love.graphics.rectangle("fill", st.x - R, st.y - R, 2 * R, 2 * R, 6, 6)
+  color(C.slit) -- the stripes: dark bars across the yellow edge
+  for k = -R + 4, R - 8, 12 do
+    love.graphics.rectangle("fill", st.x + k, st.y - R, 5, 6)
+    love.graphics.rectangle("fill", st.x + k, st.y + R - 6, 5, 6)
+    love.graphics.rectangle("fill", st.x - R, st.y + k, 6, 5)
+    love.graphics.rectangle("fill", st.x + R - 6, st.y + k, 6, 5)
+  end
+  color(C.concrete)
+  love.graphics.rectangle("fill", st.x - R + 7, st.y - R + 7, 2 * R - 14, 2 * R - 14, 4, 4)
+  love.graphics.push()
+  love.graphics.translate(st.x, st.y)
+  love.graphics.rotate(st.angle)
+  color(C.edge, 0.85) -- the bay and the arrow
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", -28, -16, 56, 32, 4, 4)
+  love.graphics.polygon("fill", 6, -8, 20, 0, 6, 8)
+  love.graphics.rectangle("fill", -14, -3, 20, 6)
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+  color(C.concreteDark) -- the lamp
+  love.graphics.circle("fill", st.x + R - 10, st.y - R + 10, 6)
+  color(C.doorLight)
+  love.graphics.circle("fill", st.x + R - 10, st.y - R + 10, 3)
+end
+
 --- A concrete block, its top lit.
 local function drawBlock(s)
   color(C.shadow)
@@ -479,6 +514,9 @@ function RenderRoad.draw(map, T)
   end
   for _, n in ipairs(map.nests or {}) do
     RenderCoast.drawSandbags(n.nest)
+  end
+  for _, st in ipairs(map.carStations or {}) do
+    drawStation(st)
   end
   drawMountains(map, T)
   for _, s in ipairs(map.cover) do -- the bunkers stand in their clearings, over the mountains' boulders

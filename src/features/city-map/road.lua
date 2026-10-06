@@ -44,11 +44,12 @@
 --                         a bunker beside each bridge's far end that sends soldiers out of its
 --                         door while anyone is near (a-man/city17.lua)
 --   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
+--   map.carStations       { name, x, y, angle }: a pad on the verge short of each bridge where a
+--                         player on foot calls up a Scout Car (car-stations), facing up the road
 --   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature) walking
 --                         up and down the middle of every open stretch of road between two
 --                         checkpoints, `count` for one human (a-man/city17.lua puts them out)
 --   map.posts             empty: City 17's level reads it (it mans the nests)
---   map.wreckRide         true: a wrecked car takes its driver back to the start with it (weapons)
 -- render_road.lua draws it all.
 
 local Coast = require("src.features.city-map.coast")
@@ -173,6 +174,10 @@ Road.CHICANE_OFF = { 0.25, 0.72, 1.5, 2.3, 3.1 } -- tiles out from the middle th
 Road.WRECKS = { 2.6, 4.5, 6.5 }
 Road.WRECK_SPREAD = 2.4
 Road.WRECK_SIZE = { 62, 32 }
+-- The car stations: tiles back from the deck (behind the wrecks), and how far out from the
+-- middle their pad may go, tried in turn either side until one is on open ground.
+Road.STATION_AT = 9
+Road.STATION_OFF = { 2.6, 2.2, 3, 1.8 }
 -- Hunters on the open road between two bridges: tiles kept clear of either checkpoint, the
 -- shortest stretch left that gets a beat, how long the beat is and how many walk it (one human).
 Road.HUNT_CLEAR = 12
@@ -366,7 +371,7 @@ function Road.build(map, rng, T)
   -- the road facing back over it, a bunker in a clearing off to one side
   -- with its door on the road, and concrete blocks closing one lane and
   -- then the other further on.
-  map.nests, map.garrisons, map.checkpoints = {}, {}, {}
+  map.nests, map.garrisons, map.checkpoints, map.carStations = {}, {}, {}, {}
   local function sampleAt(i)
     return road[math.max(1, math.min(#road, i))]
   end
@@ -442,6 +447,22 @@ function Road.build(map, rng, T)
         end
       end
       b.first, b.last = first, last -- the road's samples over the deck, for the hunters' beats
+      -- A car station on the verge short of the bridge, behind the wrecks.
+      do
+        local sx, sy, sdx, sdy, snx, sny = along(first, -Road.STATION_AT)
+        local done = false
+        for _, off in ipairs(Road.STATION_OFF) do
+          for _, way in ipairs({ -side, side }) do
+            local qx, qy = sx + snx * way * off, sy + sny * way * off
+            if not done and open(qx - 0.75, qy - 0.75) and open(qx + 0.75, qy - 0.75) and open(qx - 0.75, qy + 0.75)
+              and open(qx + 0.75, qy + 0.75) then
+              done = true
+              map.carStations[#map.carStations + 1] = { name = b.name, x = math.floor(X(qx)), y = math.floor(Y(qy)),
+                angle = math.atan2(sdy, sdx) }
+            end
+          end
+        end
+      end
       local function sightOf(px, py)
         local angle, n = math.atan2(my - py, mx - px), 0
         for i = math.max(1, first - math.floor(Road.NEST_SEES / Road.STEP)), last do
@@ -631,7 +652,6 @@ function Road.build(map, rng, T)
   end
   map.cx, map.cy = math.floor(ax - 4 * T), math.floor(Y(arrival.r + 2))
   map.exitX, map.exitY = math.floor(X(pass.c)), math.floor(Y(pass.r - 2))
-  map.wreckRide = true -- the road is driven: a wreck sends you back to the start in your car
   map.rollermineScatter = { count = Road.MINE_SCATTER, clear = {
     { x = ax, y = Y(arrival.r), r = Road.MINE_CLEAR }, { x = map.exitX, y = map.exitY, r = Road.MINE_CLEAR / 2 },
   } }
