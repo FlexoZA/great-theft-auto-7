@@ -79,6 +79,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   side. Quick off the line and nimble, but light and easy to shoot up
   (590 top speed, 560 acceleration, 110 hitpoints). 240 koins at a
   vehicle factory.
+- The Scout Car's tau cannon fires: right mouse while you drive one. Tap
+  for quick bolts, or hold to charge one heavy shot (up to 150 damage)
+  that kicks the car back when it goes. Hold it too long and it overloads,
+  going off by itself and burning your car. It never runs out.
 
 ### Changed
 - The minimap on long maps (the Coast, the Winding Road) no longer runs

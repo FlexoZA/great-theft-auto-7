@@ -99,7 +99,8 @@
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
 --   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>]
---                                              (quiet 1: a pellet after the first; no sound;
+--                                              (quiet 1: a pellet after the first, or a gun
+--                                              that makes its own noise (`quiet`); no sound;
 --                                              tint: the streak's colour as rrggbb hex, from
 --                                              the gun table's `tint`, for a gun a boss carries)
 --   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
@@ -1513,7 +1514,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
       electrify = gun.electrify, stun = gun.stun,
     }
     local fields = { pid, ownerId, ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx),
-      ("%.1f"):format(vy), gun.index, pellet > 1 and 1 or 0 }
+      ("%.1f"):format(vy), gun.index, (pellet > 1 or gun.quiet) and 1 or 0 }
     fields[#fields + 1] = gun.tint -- only a gun with a colour of its own sends one
     server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields)))
   end

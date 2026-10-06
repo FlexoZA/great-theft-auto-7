@@ -441,6 +441,22 @@ couple of small conventions rather than requiring each other:
   `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
   (`vehicles/svg.lua`) handles paths, basic shapes, fills, strokes, groups
   and transforms; not CSS classes, `<use>`, text, clips or masks.
+- The tau cannon: `src/features/tau-cannon`, the gun on the Scout Car
+  (`vehicles/models/scout-car.lua`, after Half-Life 2's buggy; any model
+  whose type is `Tau.carType`). Its driver fires it with its own button
+  (right mouse, "tau-cannon"), on top of the gun in hand: a tap is a quick
+  bolt (18, every 0.22 s); holding charges it for up to 2 s past the tap
+  (a ring round the cursor, a glow at the muzzle, a climbing whine for
+  everyone) and letting go fires one bolt of up to 150 that kicks the car
+  back up to 420 px/s along its line (0.8 s before the next). Held 2 s
+  past a full charge it overloads: it goes off by itself and burns the
+  car for 25. It aims at the cursor but no further than 70 degrees either
+  side of the nose. No ammo. The host times the charge itself (TAU_CHARGE
+  to TAU_FIRE), clamps the aim and the rate, and fires the bolts through
+  weapons' `serverFireFrom` with a gun of its own (shock, tinted, `quiet`:
+  a gun table field that keeps the weapons feature from sounding a round,
+  since the cannon sounds its own: `tau-cannon/sounds.lua`). Messages in
+  the header of `tau-cannon/init.lua`.
 - `Features.byName.weapons:serverHeal(server, player, amount)` and
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything
