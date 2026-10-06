@@ -30,6 +30,8 @@
 --   map.height            [c][r] tiles from the nearest open tile, for a mountain tile
 --   map.depth             [c][r] tiles from the nearest bank, for a river tile
 --   map.slopes            { x, y, r, pine } trees on the mountainsides: drawn only, never touched
+--   map.rollermines       { x, y, r, count } where rollermines lie in wait (the rollermines feature):
+--                         a few at a time on the road every `Road.MINE_EVERY` px of it
 --   map.posts             empty, for the Combine later
 -- render_road.lua draws it all.
 
@@ -136,6 +138,9 @@ Road.VERGE = 2.3 -- tiles either side of it that are open: the tarmac and the ve
 Road.DECK = 1.6 -- tiles either side of it that a bridge spans
 Road.STEP = 0.25 -- tiles between the points the curves are sampled at
 Road.RAIL = 8 -- px thick, a bridge's railings
+Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
+Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
+Road.MINE_COUNT = { 2, 3, 2, 4 } -- how many in each lot, for one human, round and round
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
 local MAP = {
@@ -334,6 +339,23 @@ function Road.build(map, rng, T)
   end
   for _, s in ipairs(river) do
     map.river[#map.river + 1] = { x = X(s[1]), y = Y(s[2]), half = s[3] * T }
+  end
+
+  -- Rollermines every so often along the road, from a little way up it to a little short of the pass.
+  map.rollermines = {}
+  local run, total = 0, 0
+  for i = 2, #map.path do
+    total = total + math.sqrt((map.path[i].x - map.path[i - 1].x) ^ 2 + (map.path[i].y - map.path[i - 1].y) ^ 2)
+  end
+  local nextAt = Road.MINE_FROM
+  for i = 2, #map.path do
+    local a, b = map.path[i - 1], map.path[i]
+    run = run + math.sqrt((b.x - a.x) ^ 2 + (b.y - a.y) ^ 2)
+    if run >= nextAt and run <= total - Road.MINE_FROM then
+      local count = Road.MINE_COUNT[#map.rollermines % #Road.MINE_COUNT + 1]
+      map.rollermines[#map.rollermines + 1] = { x = math.floor(b.x), y = math.floor(b.y), r = 110, count = count }
+      nextAt = nextAt + Road.MINE_EVERY
+    end
   end
 
   for _, z in ipairs(Road.ZONES) do

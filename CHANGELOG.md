@@ -83,6 +83,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   for quick bolts, or hold to charge one heavy shot (up to 150 damage)
   that kicks the car back when it goes. Hold it too long and it overloads,
   going off by itself and burning your car. It never runs out.
+- Rollermines, after Half-Life 2's: steel balls sunk in the ground along
+  the Winding Road. Come near and they hop out, blades snapping open, and
+  roll after you, nearly as fast as a car, beeping as they close in, and
+  blow up when they touch you or your car. Shoot them first: two rounds
+  set one off, and its blast sets off any others near it.
 
 ### Changed
 - The minimap on long maps (the Coast, the Winding Road) no longer runs

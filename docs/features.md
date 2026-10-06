@@ -1171,7 +1171,30 @@ the one with a plot.
   So far the level is the drive alone (`a-man/road.lua`): the first
   player within 200 px of the pass (`map.exitX, map.exitY`), in a car or
   on foot, finishes it, and its EXIT star leads home. City 17's theme
-  plays; it has no surroundings yet.
+  plays; it has no surroundings yet. Rollermines lie in wait along it
+  (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
+  road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
+  for one human).
+- Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
+  with `map.rollermines` ({ x, y, r, count }) gets them set there when a
+  quest starts (`count` scaled by `Bosses.count`); a quest's end or a map
+  change clears them. Their brain (`brain.lua`, on the host): dormant,
+  half sunk in the ground, until a player is within `Brain.WAKE` (460
+  px); it hops out over 0.55 s, blades opening, and rolls after the
+  nearest player within 1600 px with momentum (520 px/s^2 up to 430 px/s,
+  so a car flat out slowly gets away; it leads a moving target by up to
+  0.45 s, slides wide on the turns and bounces off walls). Within 140 px
+  it beeps (the eye goes red); touching them, or their car's box, it goes
+  off. With nobody about for 7 s it rolls to a stop and wakes the same
+  way again. 40 health; shot to pieces it goes off at once, caught in a
+  blast a moment later (0.18 s), so they set each other off. The blast is
+  weapons' `explode` (45 at the middle, 95 px, explosive), owned by
+  whoever shot it (their kill, a koin) or by nobody; rounds owned by
+  nobody (the Combine's) pass by them. Freeze stops one dead, a stink
+  sends it rolling away. The model (`render.lua`, stateless: sunk, hopping,
+  rolling, armed, hurt), the sounds (`sounds.lua`, the "rollermines"
+  volume channel: popping out, the whirr, the beep) and `RLM_STATE` /
+  `RLM_DOWN` (header of `rollermines/init.lua`).
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on
