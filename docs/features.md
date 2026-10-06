@@ -1228,8 +1228,10 @@ the one with a plot.
   nearest player within 1600 px with momentum (520 px/s^2 up to 430 px/s,
   so a car flat out slowly gets away; it leads a moving target by up to
   0.45 s, slides wide on the turns and bounces off walls). Within 140 px
-  it beeps (the eye goes red); touching them, or their car's box, it goes
-  off. With nobody about for 7 s it rolls to a stop and wakes the same
+  it beeps (the eye goes red); touching them (its blade tips, 28 px from a
+  person's middle), or their car's box, it goes off, and somebody on foot
+  it touched takes a shock first (`Brain.SHOCK`, 35: enough to stun them,
+  so about 80 before armour in all). With nobody about for 7 s it rolls to a stop and wakes the same
   way again. 40 health; shot to pieces it goes off at once, caught in a
   blast a moment later (0.18 s), so they set each other off. The blast is
   weapons' `explode` (45 at the middle, 95 px, explosive), owned by

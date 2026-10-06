@@ -10,7 +10,9 @@
 --            target by `LEAD` seconds), up to `TOP` px/s, a little short of
 --            a car flat out. It has momentum: it overshoots a turn, swings
 --            round, and bounces off walls (`BOUNCE`). Within `ARM` of them it
---            starts beeping, and touching them (or their car) sets it off.
+--            starts beeping, and touching them (or their car) sets it off;
+--            somebody on foot it touched (`zap`) takes a shock as well
+--            (`SHOCK`: init.lua deals it), enough to stun them.
 --   idle     nobody to go after for `GIVE_UP` seconds: it rolls to a stop
 --            where it is, blades out, and wakes again the way a dormant one does.
 -- It goes off on contact, when it is shot to pieces (`HEALTH`), or
@@ -40,7 +42,8 @@ Brain.LEAD = 0.45 -- seconds ahead of a moving target that it aims
 Brain.GRIP = 1.6 -- per second, how fast sideways momentum bleeds off (low: it slides)
 Brain.BOUNCE = 0.55 -- of its speed it keeps off a wall
 Brain.ARM = 140 -- px from its target that it starts beeping
-Brain.FOOT = 10 -- px; the radius of somebody on foot, for contact
+Brain.FOOT = 16 -- px; somebody on foot, for contact: its blade tips reach them (RADIUS + 16 = 28)
+Brain.SHOCK = 35 -- shock damage to somebody on foot it touches, as it goes off: a jolt that stuns them
 Brain.SPACE = 34 -- px it keeps from the others
 Brain.CHAIN = 0.18 -- seconds after a blast catches one before it goes off too
 Brain.PANIC = 1.4 -- seconds a stink sends it off for
@@ -232,6 +235,7 @@ function Brain:think(m, people, dt)
   local q = people[id]
   if touching(m, q) then
     m.fuse = 0 -- contact: off it goes
+    m.zap = not q.car and q.p or nil -- and on foot, its blades shock them first
     return
   end
   local d = math.sqrt(d2)

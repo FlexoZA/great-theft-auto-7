@@ -113,6 +113,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   kills a Combine soldier outright.
 
 ### Changed
+- Rollermines hit people on foot properly: they go off as soon as their
+  blades touch you, and their blades shock and stun you before the blast,
+  so one does a third of a fully upgraded player's health, not a sixth.
 - Driving puts your weapons away: no guns, abilities or grenades from
   behind the wheel, and their buttons leave the screen until you get out.
   Most cars are unarmed now; get out to fight.

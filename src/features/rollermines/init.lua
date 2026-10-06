@@ -12,7 +12,9 @@
 -- spot), different every time. What each does is its brain's (brain.lua).
 -- A quest's end or a map change takes them all away.
 --
--- One goes off on contact, when it is shot to pieces (`Brain.HEALTH`, 40)
+-- One goes off on contact (its blade tips: 28 px from a person's middle;
+-- somebody on foot it touches takes a shock first, `Brain.SHOCK`, 35, which
+-- stuns them), when it is shot to pieces (`Brain.HEALTH`, 40)
 -- or when a blast catches it (another mine's too: they set each other off
 -- in a chain). Its blast is the weapons feature's (`Brain.BLAST`: 45 at the
 -- middle, 95 px across), so it hurts everyone and every car near it, the
@@ -153,10 +155,16 @@ local function sync(server)
   end
 end
 
---- One goes off: the blast, and if a player shot it, their kill and a koin.
+--- One goes off: the blast (and first a shock for whoever on foot it
+--- touched), and if a player shot it, their kill and a koin.
 local function blow(server, m)
   server:broadcast(Protocol.encode("RLM_DOWN", m.id))
   local weapons = Features.byName.weapons
+  local zapped = m.zap
+  if zapped and weapons and weapons.serverDamage and Features.present(zapped) then
+    local px, py = Features.bodyPose(server, zapped)
+    weapons:serverDamage(server, zapped, nil, Brain.SHOCK, math.atan2(py - m.y, px - m.x), "shock")
+  end
   if weapons and weapons.explode then
     weapons:explode(server, { id = 0, owner = m.by or 0, vx = m.vx, vy = m.vy + 0.01, blast = Brain.BLAST }, m.x, m.y)
   end
