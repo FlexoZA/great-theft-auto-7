@@ -118,10 +118,11 @@
 --   server -> all     WPN_CARMAX <vid> <max>        (a car's health ceiling, when it isn't CAR_HEALTH)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
---   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
+--   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
+--   server -> player  WPN_CARMAG <vid> <rounds>   (what is in the magazine of the gun bolted to that car)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -132,6 +133,15 @@
 -- Not every shot has a player behind it: Weapons:serverFireFrom puts a
 -- projectile into the world for whoever asks (the police officers on foot),
 -- owned by nobody, hurting anyone it hits and crediting no scoreboard.
+--
+-- Behind the wheel a player's own guns stay put away: no firing, reloading
+-- or scope from a driver's seat, and the gun HUD is hidden. A car whose
+-- model names a `gun` (vehicles' catalog: the scout car's AK) has it bolted
+-- on instead: the fire button fires it from the car, toward the cursor, and
+-- the reload key reloads it. Its rounds never run out, but its magazine
+-- (kept with the car on the host, `cs.mag`) still empties and takes the
+-- gun's reload time to fill; the HUD shows it in the gun in hand's place.
+-- Bots shoot from their cars as before.
 --
 -- A player need not be in a car: on foot, shots leave from their body,
 -- hits land on it, and the car they left is not a target (the core says
@@ -151,6 +161,7 @@ local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Video = require("src.video")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Weapons = {
   name = "weapons",
@@ -237,6 +248,8 @@ Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN
 Weapons.tiers = {} -- gun index -> tier key of the one I carry, when it isn't common (WPN_GUNS too)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
+Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted to it (predicted; the host corrects)
+Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
@@ -322,6 +335,7 @@ function Weapons:enterGame()
   self.cooldown = 0
   self.gun = Guns.DEFAULT
   self.reloading = nil
+  self.carMags, self.carReloading = {}, nil
   self.ammoNotice = nil
   self.camera = nil
   self.deadTimer = 0
@@ -348,6 +362,25 @@ local function mouseToWorld(camera, me)
     cx, cy, s = camera.x, camera.y, camera.scale or 1
   end
   return cx + (mx - w / 2) / s, cy + (my - h / 2) / s
+end
+
+--- The gun bolted to a car of model `key` (vehicles' catalog `gun`), as a
+--- common one, or nil: most cars have none.
+local function mountedGun(key)
+  local model = key and Catalog.byKey[key]
+  local gun = model and model.gun and Guns[model.gun]
+  return gun and Tiers.apply(gun, Tiers.DEFAULT) or nil
+end
+
+--- The car I am driving and the gun bolted to it (nil if it has none), or
+--- nil when I am not driving.
+function Weapons:myMount(client)
+  local v = client:myVehicle()
+  if not v then
+    return nil
+  end
+  local vehicles = Features.byName.vehicles
+  return v, mountedGun(vehicles and vehicles.models[v.id])
 end
 
 --- Angle from wherever I am -- car or feet -- to the cursor, in world space.
@@ -378,6 +411,14 @@ end
 --- Ask the host to reload the gun in hand. Refused here when it can't
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
+  local car, mounted = self:myMount(client)
+  if car then
+    -- Behind the wheel: the car's own gun, if it has one; never the one in my hands.
+    if mounted and not self.carReloading and (self.carMags[car.id] or mounted.magazine) < mounted.magazine then
+      client:send(Protocol.encode("WPN_RELOAD"))
+    end
+    return
+  end
   local gun = self:gunAt(self.gun)
   if self.reloading or self.infiniteAmmo then
     return
@@ -390,7 +431,34 @@ function Weapons:tryReload(client)
   end
 end
 
+--- Behind the wheel the fire button fires the car's own gun, if it has one,
+--- and nothing else. Its rounds never run out; its magazine does.
+function Weapons:tryFireMounted(client, car, mounted)
+  if not mounted or self.cooldown > 0 or self.carReloading or Features.any("held", client, client.myId)
+    or Features.any("pointerTaken", client) or Features.any("fireTaken", client) then
+    return
+  end
+  local aim = self:aimAngle(client)
+  if not aim then
+    return
+  end
+  self.cooldown = mounted.cooldown
+  local mag = self.carMags[car.id] or mounted.magazine
+  if mag < 1 then
+    Reloads.dry(mounted) -- click, and load another
+    self.armed = false
+    self:tryReload(client)
+    return
+  end
+  self.carMags[car.id] = mag - 1
+  client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+end
+
 function Weapons:tryFire(client)
+  local car, mounted = self:myMount(client)
+  if car then
+    return self:tryFireMounted(client, car, mounted)
+  end
   if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
     return -- cooling down, reloading, or held still (frozen)
   elseif Features.any("pointerTaken", client) then
@@ -625,6 +693,13 @@ function Weapons:update(dt, client, camera)
     end
   end
   self.deadTimer = math.max(0, self.deadTimer - dt)
+  if self.carReloading then
+    local r, v = self.carReloading, client:myVehicle()
+    r.t = r.t + dt -- the host says when it's done (WPN_CARMAG)
+    if not v or v.id ~= r.vid or r.t > r.total + RELOAD_GRACE then
+      self.carReloading = nil -- out of that car, or the word never came
+    end
+  end
   if self.reloading then
     self.reloading.t = self.reloading.t + dt -- the host says when it's done (WPN_MAG)
     if self.reloading.t > self.reloading.total + RELOAD_GRACE then
@@ -758,14 +833,15 @@ end
 --- nothing else wanting the mouse (a screen, an ability being placed)?
 function Weapons:scoped(client)
   return self:scopeOf() ~= nil and Controls.isDown("scope") and not Controls.suspended
-    and client:myPose() ~= nil and not Features.any("pointerTaken", client) and not Features.any("fireTaken", client)
+    and client:myPose() ~= nil and not client:myVehicle() and not Features.any("pointerTaken", client)
+    and not Features.any("fireTaken", client)
 end
 
 --- The `cursorStyle` convention (vision asks): a scope's crosshair while a
 --- scoped gun is in hand, and nothing at all while the lens is up (it
 --- draws its own, bigger).
 function Weapons:cursorStyle(name, client)
-  if not self:scopeOf() then
+  if not self:scopeOf() or client:myVehicle() then
     return name
   end
   return self:scoped(client) and "none" or "scope"
@@ -865,21 +941,33 @@ end
 --- empty, amber with a bar under the gun while it reloads. Over the block,
 --- once the magazine is nearly out, the reload key flashes red; a notice
 --- (out of ammo, no such gun) takes its place while it shows.
-function Weapons:drawMagazine()
+function Weapons:drawMagazine(client)
   local w, h = love.graphics.getDimensions()
-  if not Guns.list[self.gun] then
-    return
+  -- Behind the wheel: the gun bolted to the car, or nothing at all; my own stay put away.
+  local car, mounted = self:myMount(client)
+  local gun, mag, spare, infinite, reloading, tier, name
+  if car then
+    if not mounted then
+      return
+    end
+    gun, mag, spare, infinite = mounted, self.carMags[car.id] or mounted.magazine, math.huge, false
+    reloading, tier, name = self.carReloading, Tiers.DEFAULT, mounted.name .. " (mounted)  "
+  else
+    if not Guns.list[self.gun] then
+      return
+    end
+    gun = self:gunAt(self.gun)
+    mag, spare, infinite = self.mags[self.gun] or 0, self:reserve(self.gun), self.infiniteAmmo
+    reloading, tier, name = self.reloading, self:tierOf(self.gun), gun.name .. "  "
   end
-  local gun = self:gunAt(self.gun)
   local abilities = Features.byName.abilities
   local right = abilities and abilities.hudLeft and abilities:hudLeft() - 16 or math.floor(w / 2 + 80)
   local small, body = UI.fonts.small, UI.fonts.body
-  local mag, spare = self.mags[self.gun] or 0, self:reserve(self.gun)
-  local count = self.infiniteAmmo and "inf" or ("%d/%d"):format(mag, gun.magazine)
-  local extra = (not self.infiniteAmmo and spare ~= math.huge) and (" +%d"):format(spare) or ""
-  local empty = not self.infiniteAmmo and mag < 1
+  local count = infinite and "inf" or ("%d/%d"):format(mag, gun.magazine)
+  local extra = (not infinite and spare ~= math.huge) and (" +%d"):format(spare) or ""
+  local empty = not infinite and mag < 1
   local color, alpha = { 1, 1, 1 }, 1
-  if self.reloading then
+  if reloading then
     color, alpha = { 1, 0.9, 0.3 }, 0.6
   elseif empty then
     color, alpha = { 1, 0.45, 0.4 }, 0.45
@@ -887,10 +975,9 @@ function Weapons:drawMagazine()
   -- Over the block once the magazine is nearly out: the reload key, or
   -- that there is nothing left to load. Not while a reload runs.
   local hint
-  if not (self.infiniteAmmo or self.reloading) and mag <= gun.magazine * self.lowMagazine then
+  if not (infinite or reloading) and mag <= gun.magazine * self.lowMagazine then
     hint = spare < 1 and "no ammo" or Controls.name(Controls.bindings("reload")[1]) .. ": reload"
   end
-  local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
   -- The same width whichever gun is up: the widest line any gun could
@@ -900,6 +987,7 @@ function Weapons:drawMagazine()
     local full = ("%d/%d"):format(g.magazine, g.magazine)
     blockW = math.max(blockW, small:getWidth(g.name .. "  ") + body:getWidth(full) + small:getWidth(" +999"))
   end
+  blockW = math.max(blockW, textW) -- a mounted gun's longer name
   local cx = right - blockW / 2
   local y = h - 8 - body:getHeight() -- the count line, along the bottom
   local top = y - 12 - self.hudIconH
@@ -923,13 +1011,13 @@ function Weapons:drawMagazine()
   local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
-  UI.label(name, x, baseline, Tiers.color(self:tierOf(self.gun))) -- in its tier's colour
+  UI.label(name, x, baseline, Tiers.color(tier)) -- in its tier's colour
   love.graphics.setFont(body)
   UI.label(count, x + nameW, y, color)
   love.graphics.setFont(small)
   UI.label(extra, x + nameW + countW, baseline, { 0.75, 0.75, 0.8 })
-  if self.reloading then
-    local r = self.reloading
+  if reloading then
+    local r = reloading
     local bw = self.hudIconW
     UI.meter(math.floor(cx - bw / 2), y - 6, bw, 4, math.min(1, r.t / r.total), color)
   end
@@ -954,7 +1042,7 @@ function Weapons:drawHUD(client)
     valueColor = { 1, 0.5 + 0.5 * blink, 0.45 + 0.55 * blink }
   end
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
-  self:drawMagazine()
+  self:drawMagazine(client)
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -1041,8 +1129,20 @@ Weapons.clientMessages = {
       return
     end
     Reloads.start(gun.reloadSound, id, seconds)
-    if id == client.myId then
+    local vid = tonumber(args[4])
+    if id == client.myId and vid then
+      Weapons.carReloading = { vid = vid, t = 0, total = seconds } -- the gun on my car
+    elseif id == client.myId then
       Weapons.reloading = { gun = gun.index, t = 0, total = seconds }
+    end
+  end,
+  WPN_CARMAG = function(_client, args)
+    local vid, rounds = tonumber(args[1]), tonumber(args[2])
+    if vid and rounds then
+      Weapons.carMags[vid] = rounds
+      if Weapons.carReloading and Weapons.carReloading.vid == vid then
+        Weapons.carReloading = nil
+      end
     end
   end,
   WPN_HEALTH = function(_client, args)
@@ -1163,6 +1263,7 @@ Weapons.clientMessages = {
     if vid then
       Weapons.carHealth[vid] = nil
       Weapons.carFlash[vid] = 0.3
+      Weapons.carMags[vid] = nil -- it comes back with its gun loaded
     end
     if killer and kills then
       Weapons.kills[killer] = kills
@@ -1734,6 +1835,9 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
+  if player.vehicle and not player.bot then
+    return self:serverFireMounted(server, player, aim) -- behind the wheel: the car's gun or nothing
+  end
   local gun = gunOf(st, heldGun(self, player, st))
   if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
@@ -1816,6 +1920,9 @@ end
 function Weapons:serverReload(server, player)
   local sv = self.sv
   local st = sv and sv.players[player.id]
+  if st and player.vehicle and not player.bot then
+    return self:serverReloadMounted(server, player)
+  end
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
@@ -1828,9 +1935,60 @@ function Weapons:serverReload(server, player)
   return true
 end
 
---- Fill the magazines whose reload is done from the shooter's inventory.
+--- Fire the gun bolted to the car `player` drives toward `aim`, if it has
+--- one, isn't reloading and has a round in it. Returns true if it fired.
+function Weapons:serverFireMounted(server, player, aim)
+  local sv, car = self.sv, player.vehicle
+  local gun = mountedGun(car.model)
+  if not gun or car.hidden or Features.any("serverHeld", server, player) then
+    return false
+  end
+  local cs = self:carState(car)
+  cs.mag = cs.mag or gun.magazine
+  if cs.reloadUntil or cs.mag < 1 then
+    server:send(player, Protocol.encode("WPN_CARMAG", car.id, cs.mag)) -- put their count right
+    return false
+  end
+  if sv.time - (cs.lastFire or -math.huge) < gun.cooldown * 0.9 then
+    return false -- faster than the gun fires; drop it
+  end
+  cs.mag, cs.lastFire = cs.mag - 1, sv.time
+  return self:serverFireFrom(server, player.id, car.x + math.cos(aim) * MUZZLE_OFFSET,
+    car.y + math.sin(aim) * MUZZLE_OFFSET, aim, gun)
+end
+
+--- Reload the gun bolted to the car `player` drives: it takes nothing (its
+--- rounds never run out), only the gun's reload time. Returns true if it began.
+function Weapons:serverReloadMounted(server, player)
+  local sv, car = self.sv, player.vehicle
+  local gun = mountedGun(car.model)
+  local cs = gun and self:carState(car)
+  if not cs or cs.reloadUntil or (cs.mag or gun.magazine) >= gun.magazine then
+    return false
+  end
+  cs.reloadUntil = sv.time + gun.reload
+  server:broadcast(Protocol.encode("WPN_RELOADING", player.id, gun.index, gun.reload, car.id))
+  return true
+end
+
+--- Fill the magazines whose reload is done from the shooter's inventory,
+--- and those of the guns bolted to cars from nowhere.
 function Weapons:finishReloads(server)
   local sv = self.sv
+  for vid, cs in pairs(sv.cars) do
+    if cs.reloadUntil and sv.time >= cs.reloadUntil then
+      cs.reloadUntil = nil
+      local car = server.vehicles[vid]
+      local gun = car and mountedGun(car.model)
+      if gun then
+        cs.mag = gun.magazine
+        local p = car.driver and server.players[car.driver]
+        if p then
+          server:send(p, Protocol.encode("WPN_CARMAG", vid, cs.mag))
+        end
+      end
+    end
+  end
   for id, st in pairs(sv.players) do
     if st.reloadUntil and sv.time >= st.reloadUntil then
       st.reloadUntil = nil
@@ -2204,6 +2362,7 @@ function Weapons:wreck(server, car, byId, pid, angle, dtype)
     sv.players[driver.id].protectedUntil = sv.time + (ride and DEATH_TIME or 0) + SPAWN_PROTECTION
   end
   cs.hp = cs.max
+  cs.mag, cs.reloadUntil = nil, nil -- its gun, if it has one, comes back loaded
   local deathTime = 0
   if ride or not Features.any("serverWreckClaimed", server, car) then
     deathTime = DEATH_TIME

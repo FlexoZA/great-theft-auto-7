@@ -10,8 +10,10 @@
 -- with `aim = "point"` (leap) is selected and placed the same way, but
 -- shows its area under the cursor, kept within range, like a held one. One
 -- with `aim = "self"` (heal) has nothing to aim: a press of its key casts
--- it where you stand. One with `onFoot = true` (leap) only works out of a
--- car: behind the wheel its key does nothing and the host refuses it.
+-- it where you stand. None works from behind the wheel: there their keys do
+-- nothing, the host refuses them and the row of circles is hidden (a
+-- passive one carries on working: it is never cast). A car may carry a gun
+-- of its own instead (weapons: the scout car's AK).
 --
 -- An ability with `modes` (heatray.lua: beam and sweep) does more than one
 -- thing. A tap of its key works as usual, in the mode it is on; hold the
@@ -361,9 +363,9 @@ function Abilities:target(client, ability)
   return x, y
 end
 
---- Can I use `ability` where I am? One marked `onFoot` not from a car.
-local function usable(client, ability)
-  return not (ability.onFoot and client:myVehicle())
+--- Can I use `ability` where I am? None from behind the wheel.
+local function usable(client, _ability)
+  return client:myVehicle() == nil
 end
 
 --- Is `ability` selected by a press of its key and placed by the fire
@@ -641,6 +643,20 @@ function Abilities:hudLeft()
   return math.floor(w / 2 - (self.slotCount - 1) * self.hudStep / 2) - self.hudRadius - 8
 end
 
+--- FROZEN across the top while a freeze holds me.
+local function drawFrozen(self, client)
+  if self:frozen(client.myId) then
+    local w = love.graphics.getWidth()
+    love.graphics.setFont(UI.fonts.body)
+    local c = Freeze.color
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf("FROZEN", 1, 89, w, "center")
+    love.graphics.setColor(c[1], c[2], c[3])
+    love.graphics.printf("FROZEN", 0, 88, w, "center")
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Abilities:drawHUD(client)
   -- A row of circles along the bottom centre, one per slot. The ability's
   -- icon sits in the circle, its key in a badge on the ring and the title
@@ -648,6 +664,10 @@ function Abilities:drawHUD(client)
   -- cooldown with the seconds left over the faded icon. Full and lit means
   -- ready. Empty slots are just dim rings; the passive slot
   -- says so under its ring and shows its ability, if any, always lit.
+  if client:myVehicle() then
+    drawFrozen(self, client) -- behind the wheel they are put away, but a freeze still says so
+    return
+  end
   local small, body = UI.fonts.small, UI.fonts.body
   local w, h = love.graphics.getDimensions()
   local r, n = self.hudRadius, self.slotCount
@@ -745,15 +765,7 @@ function Abilities:drawHUD(client)
       UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4, titleColor)
     end
   end
-  if self:frozen(client.myId) then
-    love.graphics.setFont(body)
-    local c = Freeze.color
-    love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.printf("FROZEN", 1, 89, w, "center")
-    love.graphics.setColor(c[1], c[2], c[3])
-    love.graphics.printf("FROZEN", 0, 88, w, "center")
-  end
-  love.graphics.setColor(1, 1, 1)
+  drawFrozen(self, client)
 end
 
 --- Over every HUD piece (the core's `drawScreen`): the mode buttons while
@@ -1272,7 +1284,7 @@ Abilities.serverMessages = {
     if Abilities:serverHeld(server, player) then
       return -- frozen people cast nothing
     end
-    if ability.onFoot and player.vehicle then
+    if player.vehicle then
       return -- not from behind the wheel; the client knows, so this was stale or forged
     end
     local ready = sv.readyAt[player.id]

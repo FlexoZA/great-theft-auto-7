@@ -23,6 +23,8 @@
 --     length = 44,          -- px the drawing is from nose to tail, mirrors and all
 --     time = 45,            -- seconds the vehicle factory takes to make one
 --     inputs = { iron = 4, oil = 2 }, -- what one uses up (default: the factory's own, buildings/kinds.lua)
+--     gun = "ak47",         -- a gun bolted on (a key in weapons/guns.lua): whoever drives it fires
+--                           -- that, its rounds endless but still reloaded; without one a car is unarmed
 --   }
 --
 -- Parsing is plain Lua, so the host knows every model without drawing one;

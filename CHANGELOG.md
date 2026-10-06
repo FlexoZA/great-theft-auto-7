@@ -79,6 +79,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   side. Quick off the line and nimble, but light and easy to shoot up
   (590 top speed, 560 acceleration, 110 hitpoints). 240 koins at a
   vehicle factory.
+- The Scout Car carries an AK for its driver: the fire button shoots it,
+  30 rounds a magazine, never out of ammo but still reloaded (X).
 - The Scout Car's tau cannon fires: right mouse while you drive one. Tap
   for quick bolts, or hold to charge one heavy shot (up to 150 damage)
   that kicks the car back when it goes. Hold it too long and it overloads,
@@ -111,6 +113,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   kills a Combine soldier outright.
 
 ### Changed
+- Driving puts your weapons away: no guns, abilities or grenades from
+  behind the wheel, and their buttons leave the screen until you get out.
+  Most cars are unarmed now; get out to fight.
 - The minimap on long maps (the Coast, the Winding Road) no longer runs
   down the side of the screen: it shows the part round you and scrolls as
   you go.

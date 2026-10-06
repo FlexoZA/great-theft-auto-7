@@ -146,6 +146,14 @@ nil) and `driver` (a player id or nil).
   owns). An NPC driver goes down with its car. Cars nobody is driving stop
   bullets and take the damage too, so a parked car is cover and can be
   blown up.
+- Driving disarms: from behind the wheel a human player's own guns,
+  abilities and grenades are put away (none fires, reloads or casts, the
+  host refuses them too, and their HUD is hidden; a passive ability keeps
+  working). A car model with a `gun` (vehicles/catalog.lua: the scout
+  car's "ak47") has that bolted on instead: the fire button fires it and
+  the reload key reloads it, rounds endless but the magazine kept with the
+  car on the host (weapons' `cs.mag`, `WPN_CARMAG`, `serverFireMounted`).
+  Any other car is unarmed. Bots still shoot from their cars.
 - Death: when a player on foot runs out of health, weapons sets `body.dead`,
   hides their own car at its spawn slot (whole again) and leaves a borrowed
   car where it stands; after the death time they are back at the slot in
@@ -433,9 +441,9 @@ couple of small conventions rather than requiring each other:
 - Vehicle models: every `src/features/vehicles/models/<type>-<colour>.svg`
   is a car model, found at startup. A `<type>.lua` beside it sets the
   stats every colour of that type shares: name, price, hitpoints, top
-  speed, acceleration, weight, turning, drawn length, and the factory's
-  build time and materials (the header of `vehicles/catalog.lua` lists
-  them). A new colour is just a new SVG; a `<type>-<colour>.lua` changes
+  speed, acceleration, weight, turning, drawn length, the factory's
+  build time and materials, and a `gun` bolted on (the header of
+  `vehicles/catalog.lua` lists them). A new colour is just a new SVG; a `<type>-<colour>.lua` changes
   one colour on its own. `Features.byName.vehicles:serverSpawn(server,
   model, x, y, angle, owner)` puts one on the road (`model` from
   `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
