@@ -1129,6 +1129,33 @@ the one with a plot.
   koins, `serverKill` "boss", and `quests:serverComplete` for
   "a-man-coast", so the EXIT star comes up by its body, which lies there
   for 40 s. `ANT_GUARD` carries its state at 15 Hz (header of guard.lua).
+- The Winding Road, on A-Man's trail after the Coast and the last stop
+  before the Citadel: quests' "a-man-road" ("The Winding Road"; the
+  Coast's `next`, so the EXIT star by the Antlion Guard's body leads here;
+  A-Man's intro line 8) on city-map's `road` (`kind = "road"`, 76 x 224
+  tiles), built by `city-map/road.lua` and drawn by `render_road.lua`.
+  The one map on the trail that is driven: everyone arrives in their own
+  car on the road at the bottom (HOME star, "home-road", on the verge
+  beside them). The road (`Road.ROAD`) and the river (`Road.RIVER`, with
+  a width and banks per point) are lines of points eased into curves
+  (`map.path`, `map.river`); a tile near the road's line is "road",
+  further out to `Road.VERGE` "ground", in the river "water" (solid),
+  on its banks or in a wide spot (`Road.SPOTS`, `map.spots`: the
+  arrival, the meadow, the lookout and the pass) "ground", and anything
+  else is mountain (no tile: the layout's walls make it solid). Where the
+  road crosses the river the water under it is decked over: six bridges
+  (`map.bridges`, named in `Road.BRIDGES`, `along` the way the road runs
+  over them) with solid railings down both sides (cover kind "rail").
+  About 32,000 px of road, a minute flat out: up the valley beside the
+  river, over it into the meadow and back, up five hairpin legs, west
+  along the gorge, past the lookout and round to the pass (`map.zones`
+  by row). The mountains are shaded as the Coast's (render_coast.lua's
+  `relief`, now exported with its helpers, as are coast.lua's
+  `distances` and `rects`), bare rock and snow on the tops further north.
+  So far the level is the drive alone (`a-man/road.lua`): the first
+  player within 200 px of the pass (`map.exitX, map.exitY`), in a car or
+  on foot, finishes it, and its EXIT star leads home. City 17's theme
+  plays; it has no surroundings yet.
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on

@@ -138,7 +138,7 @@ end
 --- Distance in tiles from every cell of the grid to the nearest cell `from`
 --- says yes to (0 there), by two chamfer passes; nil for cells `inside`
 --- says no to.
-local function distances(cols, rows, from, inside)
+function Coast.distances(cols, rows, from, inside)
   local d = {}
   local D, DD = 1, 1.414
   for c = 0, cols - 1 do
@@ -176,6 +176,36 @@ local function distances(cols, rows, from, inside)
     end
   end
   return d
+end
+
+--- Every tile `is` says yes to as the fewest rectangles of `T` px tiles
+--- (tile 0, 0 at x0, y0): a row's run merged with the one above when they line up.
+function Coast.rects(cols, rows, T, x0, y0, is, kind, mapColor)
+  local out, open = {}, {}
+  for r = 0, rows - 1 do
+    local row, c = {}, 0
+    while c < cols do
+      if is(c, r) then
+        local start = c
+        while c < cols and is(c, r) do
+          c = c + 1
+        end
+        local key = start .. "," .. c
+        local rc = open[key]
+        if rc then
+          rc.h = rc.h + T
+        else
+          rc = { kind = kind, x = x0 + start * T, y = y0 + r * T, w = (c - start) * T, h = T, mapColor = mapColor }
+          out[#out + 1] = rc
+        end
+        row[key] = rc
+      else
+        c = c + 1
+      end
+    end
+    open = row
+  end
+  return out
 end
 
 --- Build it into `map` (Layout.generate's, with tiles still empty). `T` is the tile size.
@@ -219,65 +249,36 @@ function Coast.build(map, rng, T)
   end
 
   -- How high the mountains stand, how deep the sea runs, how wet the sand is.
-  map.height = distances(cols, rows, function(c, r)
+  map.height = Coast.distances(cols, rows, function(c, r)
     return map.tiles[c][r] ~= nil
   end, function(c, r)
     return map.tiles[c][r] == nil
   end)
-  map.depth = distances(cols, rows, function(c, r)
+  map.depth = Coast.distances(cols, rows, function(c, r)
     return not sea[c][r]
   end, function(c, r)
     return sea[c][r]
   end)
-  map.wet = distances(cols, rows, function(c, r)
+  map.wet = Coast.distances(cols, rows, function(c, r)
     return sea[c][r]
   end, function(c, r)
     return sand[c][r]
   end)
 
-  --- Every tile `is` says yes to as the fewest rectangles: a row's run
-  --- merged with the one above when they line up.
-  local function rects(is, kind, mapColor)
-    local out, open = {}, {}
-    for r = 0, rows - 1 do
-      local row, c = {}, 0
-      while c < cols do
-        if is(c, r) then
-          local start = c
-          while c < cols and is(c, r) do
-            c = c + 1
-          end
-          local key = start .. "," .. c
-          local rc = open[key]
-          if rc then
-            rc.h = rc.h + T
-          else
-            rc = { kind = kind, x = X(start), y = Y(r), w = (c - start) * T, h = T, mapColor = mapColor }
-            out[#out + 1] = rc
-          end
-          row[key] = rc
-        else
-          c = c + 1
-        end
-      end
-      open = row
-    end
-    return out
-  end
   -- The sea, solid; the mountains and the sand only for the minimap (the
   -- mountains are walls already), first so whatever is on the sand shows over it.
-  for _, s in ipairs(rects(function(c, r)
+  for _, s in ipairs(Coast.rects(cols, rows, T, map.x0, map.y0, function(c, r)
     return sea[c][r]
   end, "water")) do
     map.cover[#map.cover + 1] = s
     map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
   end
-  for _, s in ipairs(rects(function(c, r)
+  for _, s in ipairs(Coast.rects(cols, rows, T, map.x0, map.y0, function(c, r)
     return map.tiles[c][r] == nil
   end, "mountain", MAP.mountain)) do
     map.cover[#map.cover + 1] = s
   end
-  for _, s in ipairs(rects(function(c, r)
+  for _, s in ipairs(Coast.rects(cols, rows, T, map.x0, map.y0, function(c, r)
     return sand[c][r]
   end, "sand", MAP.sand)) do
     map.cover[#map.cover + 1] = s

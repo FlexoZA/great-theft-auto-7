@@ -25,6 +25,7 @@ Screen.lines = {
   "Time, I'm afraid... is up. Nothing personal. My case is... full of surprises.",
   "The Citadel? Not... yet. There is another way round. A scenic one. I insist.",
   "Sea air. Very... bracing. Do keep to the beach. The mountains are... not for you.",
+  "You found a car. How... resourceful. The road is long. And the bridges are... old.",
 }
 
 Screen.color = { 0.55, 0.95, 0.65 }

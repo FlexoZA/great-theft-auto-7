@@ -68,8 +68,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   sand and charges (it reels if it runs into a rock), and rears up to
   scream: a cone shows on the ground, then a sound wave rolls down it,
   hurting and blowing back everyone caught in the open. Get out of the
-  cone or behind something. Bring it down and the way home opens by its
+  cone or behind something. Bring it down and the way on opens by its
   body.
+- The Winding Road, after the Coast: get back in your car and drive one
+  long mountain road from the valley floor up to the pass, beside the
+  river and over it on six bridges, up a stack of hairpins and along the
+  gorge, with snow on the peaks near the top. Reach the pass to finish.
 
 ## [0.12.0] - 2026-10-05
 

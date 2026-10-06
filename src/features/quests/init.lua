@@ -163,7 +163,25 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s followed him up the coast. Welcome to the Coast.",
     introLine = 7,
-    exitText = "The Antlion Guard is down and the point is yours. His trail goes cold at the water, for now. "
+    exitText = "The Antlion Guard is down and the point is yours. His trail leaves the beach here, up a road "
+      .. "into the mountains. Get back in your car.",
+    exitTitle = "Up the road",
+    exitLabel = "ROAD",
+    next = "a-man-road",
+  },
+  {
+    -- Up into the mountains after him, driven: the EXIT star on the
+    -- Coast's point leads here.
+    id = "a-man-road",
+    title = "The Winding Road",
+    text = "He took the road up through the mountains. A long way round, over the river and up to the pass.",
+    map = "road",
+    boss = "a-man",
+    label = "A-MAN",
+    color = { 0.55, 0.95, 0.65 },
+    banner = "%s took the road after him. Welcome to the Winding Road.",
+    introLine = 8,
+    exitText = "You made it over the pass. The Citadel is in sight from up here. His trail goes cold, for now. "
       .. "Head home.",
   },
   {
@@ -264,6 +282,19 @@ Quests.list = {
     onMap = "coast",
     x = -840, -- on the landing's sand: city-map's map.cx, map.cy
     y = 3232,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-road",
+    title = "Back to the City",
+    text = "Turn the car round. Take everyone home.",
+    onMap = "road",
+    x = -768, -- on the verge by the arrival: city-map's map.cx, map.cy
+    y = 6400,
     map = "city",
     returns = true,
     label = "HOME",

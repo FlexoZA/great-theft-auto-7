@@ -106,6 +106,14 @@ CityMap.maps = {
     title = "The Coast", kind = "coast", seed = 62, cols = 64, rows = 120,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- The Winding Road, the last stop on A-Man's trail before the Citadel:
+  -- one long road up through the mountains, over the river again and
+  -- again on its bridges, to the pass (road.lua). Driven: everyone arrives
+  -- in their car; nobody about.
+  road = {
+    title = "The Winding Road", kind = "road", seed = 88, cols = 76, rows = 224,
+    crowd = false, traffic = false,
+  },
   -- Inside the Citadel, a stop on A-Man's trail: one narrow catwalk up through
   -- a vast shaft, widening into platforms the Combine hold, the drop all
   -- round it (citadel.lua). Walked; nobody about but them.

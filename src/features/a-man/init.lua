@@ -5,7 +5,7 @@
 -- This feature loads his sounds, keeps the disguise he leaves behind on
 -- the ground after the event is over, puts up his intro screen when his
 -- quest starts and runs its levels (city17.lua; the Outer City has no
--- level of its own yet; citadel.lua, for later).
+-- level of its own yet; road.lua; citadel.lua, for later).
 --
 -- Modules
 --   event.lua    the boss: the host's side and every client's
@@ -13,6 +13,7 @@
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
 --   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
 --   detour.lua   him stepping in at the Citadel's doors and sending everyone to the Outer City
+--   road.lua     the Winding Road: the drive up to the pass
 --   citadel.lua  the end of the trail, for later: the catwalk up through the Citadel
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
@@ -29,6 +30,7 @@ local Face = require("src.features.a-man.face")
 local Screen = require("src.features.a-man.screen")
 local City17 = require("src.features.a-man.city17")
 local Citadel = require("src.features.a-man.citadel")
+local Road = require("src.features.a-man.road")
 local Detour = require("src.features.a-man.detour")
 local Radio = require("src.features.a-man.radio")
 
@@ -61,12 +63,14 @@ end
 
 function AMan:serverQuestStarted(server, quest)
   City17.serverQuestStarted(server, quest)
+  Road.serverQuestStarted(server, quest)
   Citadel.serverQuestStarted(server, quest)
 end
 
 function AMan:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     City17.serverStop(server)
+    Road.serverStop()
     Citadel.serverStop()
     Detour.serverStop()
   end
@@ -76,6 +80,7 @@ end
 function AMan:mapChanged(_map, server)
   if server then
     City17.serverStop(server)
+    Road.serverStop()
     Citadel.serverStop()
     Detour.serverStop()
   end
@@ -83,6 +88,7 @@ end
 
 function AMan:serverStep(server, dt)
   City17.serverStep(server, dt)
+  Road.serverStep(server)
   Citadel.serverStep(server)
   Detour.serverStep(server, dt)
 end
