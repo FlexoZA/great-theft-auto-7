@@ -986,6 +986,9 @@ function Weapons:drawMagazine(client)
   end
   blockW = math.max(blockW, textW) -- a mounted gun's longer name
   local cx = right - blockW / 2
+  if car then
+    cx = math.floor(w / 2) -- the ability row is put away behind the wheel: the middle is free
+  end
   local y = h - 8 - body:getHeight() -- the count line, along the bottom
   local top = y - 12 - self.hudIconH
   -- A dark backing so the steel reads over a pale road as well as a dark one.

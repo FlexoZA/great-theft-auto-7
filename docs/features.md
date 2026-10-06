@@ -443,8 +443,14 @@ couple of small conventions rather than requiring each other:
   is a car model, found at startup. A `<type>.lua` beside it sets the
   stats every colour of that type shares: name, price, hitpoints, top
   speed, acceleration, weight, turning, drawn length, the factory's
-  build time and materials, and a `gun` bolted on (the header of
-  `vehicles/catalog.lua` lists them). A new colour is just a new SVG; a `<type>-<colour>.lua` changes
+  build time and materials, a `gun` bolted on and a `boost` (the header of
+  `vehicles/catalog.lua` lists them). A model with a `boost` (the scout
+  car's: twice its 295 top speed and 1.5 times its acceleration, 3 s of
+  meter refilling in 5) goes faster while its driver holds Shift
+  (`vehicles/boost.lua`, the "boost" control, sprint's keys): the host
+  runs the meter off VH_BOOST and tells the driver what is left
+  (VH_BOOSTLEFT, a bar in the stat row's slot 4); a meter run dry waits
+  for the key to come up, and the top speed eases back down after. A new colour is just a new SVG; a `<type>-<colour>.lua` changes
   one colour on its own. `Features.byName.vehicles:serverSpawn(server,
   model, x, y, angle, owner)` puts one on the road (`model` from
   `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
@@ -1244,8 +1250,9 @@ the one with a plot.
   inside a `clear` circle; a quest's end or a map change clears them. Their brain (`brain.lua`, on the host): dormant,
   half sunk in the ground, until a player is within `Brain.WAKE` (460
   px); it hops out over 0.55 s, blades opening, and rolls after the
-  nearest player within 1600 px with momentum (520 px/s^2 up to 430 px/s,
-  so a car flat out slowly gets away; it leads a moving target by up to
+  nearest player within 1600 px with momentum (520 px/s^2 up to 260 px/s,
+  so a cruising Scout Car (295) only just gets away and a boosting one
+  easily; it leads a moving target by up to
   0.45 s, slides wide on the turns and bounces off walls). Within 140 px
   it beeps (the eye goes red); touching them (its blade tips, 28 px from a
   person's middle), or their car's box, it goes off, and somebody on foot

@@ -77,8 +77,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Scout Car, after Half-Life 2's buggy: a bare tube frame on big
   off-road tyres with the engine out back and a tau cannon bolted to the
   side. Quick off the line and nimble, but light and easy to shoot up
-  (590 top speed, 560 acceleration, 165 hitpoints). 240 koins at a
+  (295 top speed, 560 acceleration, 165 hitpoints). 240 koins at a
   vehicle factory.
+- Boost: hold Shift while driving a Scout Car to double its speed for up
+  to 3 seconds, off a meter beside your health that refills in 5 once you
+  let go (run it dry and let go of Shift before it boosts again).
 - The Scout Car carries an auto turret for its driver: the fire button
   shoots it, 30 rounds a magazine, never out of ammo but still reloaded (X).
 - The Scout Car's tau cannon fires: right mouse while you drive one. Tap
@@ -92,10 +95,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   each long stretch, walking it up and down and opening up on anyone who
   comes along.
 - Rollermines, after Half-Life 2's: steel balls sunk in the ground along
-  the Winding Road. Come near and they hop out, blades snapping open, and
-  roll after you, nearly as fast as a car, beeping as they close in, and
-  blow up when they touch you or your car. Shoot them first: two rounds
-  set one off, and its blast sets off any others near it.
+  the Winding Road. Come near and they hop out, blades snapping open,
+  and roll after you, a little slower than a cruising Scout Car, beeping
+  as they close in, and blow up when they touch you or your car. Shoot
+  them first: two rounds set one off, and its blast sets off any others
+  near it.
 - More rollermines on the Winding Road: on top of the ones waiting along
   the road, 18 more lie scattered at random over the whole map, somewhere
   different every time you play it.
