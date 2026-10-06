@@ -1174,7 +1174,9 @@ the one with a plot.
   plays; it has no surroundings yet. Rollermines lie in wait along it
   (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
   road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
-  for one human). The Combine hold a checkpoint past every bridge
+  for one human), and `Road.MINE_SCATTER` (18) more are scattered at
+  random over all its open ground every game (`map.rollermineScatter`),
+  none within 1500 px of the arrival or 750 px of the pass. The Combine hold a checkpoint past every bridge
   (`map.checkpoints`): two MG nests either side of the road facing back
   over it (`map.nests`, { name, nest, posts }, sandbags drawn only, each
   crewed by City 17's level with `Level.nestCrew` like the Coast's), the
@@ -1191,8 +1193,10 @@ the one with a plot.
   the driver's kill).
 - Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
   with `map.rollermines` ({ x, y, r, count }) gets them set there when a
-  quest starts (`count` scaled by `Bosses.count`); a quest's end or a map
-  change clears them. Their brain (`brain.lua`, on the host): dormant,
+  quest starts (`count` scaled by `Bosses.count`), and a map with
+  `map.rollermineScatter` ({ count, clear = { { x, y, r }... } }) gets
+  `count` more on random open spots (city-map's `randomRoadPoint`), none
+  inside a `clear` circle; a quest's end or a map change clears them. Their brain (`brain.lua`, on the host): dormant,
   half sunk in the ground, until a player is within `Brain.WAKE` (460
   px); it hops out over 0.55 s, blades opening, and rolls after the
   nearest player within 1600 px with momentum (520 px/s^2 up to 430 px/s,

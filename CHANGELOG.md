@@ -88,6 +88,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   roll after you, nearly as fast as a car, beeping as they close in, and
   blow up when they touch you or your car. Shoot them first: two rounds
   set one off, and its blast sets off any others near it.
+- More rollermines on the Winding Road: on top of the ones waiting along
+  the road, 18 more lie scattered at random over the whole map, somewhere
+  different every time you play it.
 - The Combine hold every bridge on the Winding Road: two machine-gun
   nests at the far end fire back across it, riflemen fight from behind
   concrete blocks laid as a chicane, and a bunker beside the road keeps

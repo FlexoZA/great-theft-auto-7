@@ -33,6 +33,8 @@
 --   map.slopes            { x, y, r, pine } trees on the mountainsides: drawn only, never touched
 --   map.rollermines       { x, y, r, count } where rollermines lie in wait (the rollermines feature):
 --                         a few at a time on the road every `Road.MINE_EVERY` px of it
+--   map.rollermineScatter { count, clear }: `Road.MINE_SCATTER` more scattered anywhere open, different
+--                         every game, but none near the arrival or the pass
 --   map.nests             { name, nest = { x, y, angle, arc }, posts = { { x, y, watch } x2 } }: the
 --                         Combine's MG nests, two at the far end of every bridge facing back
 --                         across it (sandbags, drawn only), each with two riflemen's posts
@@ -156,6 +158,8 @@ Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: secon
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
 Road.MINE_COUNT = { 2, 3, 2, 4 } -- how many in each lot, for one human, round and round
+Road.MINE_SCATTER = 18 -- more, for one human, scattered at random over all the open ground
+Road.MINE_CLEAR = 1500 -- px round the arrival kept free of scattered ones (and half that round the pass)
 
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
 local MAP = {
@@ -488,6 +492,9 @@ function Road.build(map, rng, T)
   end
   map.cx, map.cy = math.floor(ax - 4 * T), math.floor(Y(arrival.r + 2))
   map.exitX, map.exitY = math.floor(X(pass.c)), math.floor(Y(pass.r - 2))
+  map.rollermineScatter = { count = Road.MINE_SCATTER, clear = {
+    { x = ax, y = Y(arrival.r), r = Road.MINE_CLEAR }, { x = map.exitX, y = map.exitY, r = Road.MINE_CLEAR / 2 },
+  } }
 
   -- The mountainsides: thick with trees low down, thinning higher up and
   -- further north, where the snow is.

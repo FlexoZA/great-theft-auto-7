@@ -6,8 +6,11 @@
 -- Any map that marks `map.rollermines` ({ x, y, r, count }: the Winding
 -- Road does) gets them set there when everyone arrives on a quest: `count`
 -- to a spot for one human, more with more (Bosses.count), scattered within
--- `r`. What each does is its brain's (brain.lua). A quest's end or a map
--- change takes them all away.
+-- `r`. A map may also ask for some scattered at random over all of its
+-- open ground (`map.rollermineScatter` = { count, clear = { { x, y, r }... } }:
+-- `count` for one human, more with more, none within `r` of any `clear`
+-- spot), different every time. What each does is its brain's (brain.lua).
+-- A quest's end or a map change takes them all away.
 --
 -- One goes off on contact, when it is shot to pieces (`Brain.HEALTH`, 40)
 -- or when a blast catches it (another mine's too: they set each other off
@@ -74,6 +77,26 @@ function Rollermines:serverQuestStarted(server)
     for _ = 1, Bosses.count(s.count, server) do
       local a, d = love.math.random() * 2 * math.pi, math.sqrt(love.math.random()) * s.r
       sv.brain:place(s.x + math.cos(a) * d, s.y + math.sin(a) * d)
+    end
+  end
+  local scatter, city = map.rollermineScatter, Features.byName["city-map"]
+  if scatter and city then
+    local function clear(x, y)
+      for _, c in ipairs(scatter.clear or {}) do
+        if (x - c.x) ^ 2 + (y - c.y) ^ 2 < c.r * c.r then
+          return false
+        end
+      end
+      return true
+    end
+    for _ = 1, Bosses.count(scatter.count, server) do
+      for _ = 1, 20 do -- a random open spot, away from the ones kept clear
+        local x, y = city:randomRoadPoint()
+        if x and clear(x, y) then
+          sv.brain:place(x + (love.math.random() - 0.5) * 40, y + (love.math.random() - 0.5) * 40)
+          break
+        end
+      end
     end
   end
 end
