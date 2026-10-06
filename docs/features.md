@@ -1159,13 +1159,16 @@ the one with a plot.
   it is gone again, their own car theirs again, at the next map switch. The road (`Road.ROAD`) and the river (`Road.RIVER`, with
   a width and banks per point) are lines of points eased into curves
   (`map.path`, `map.river`); a tile near the road's line is "road",
-  further out to `Road.VERGE` "ground", in the river "water" (solid),
+  further out to `Road.VERGE` (4 tiles either side: room for 8 cars
+  abreast) "ground", in the river "water" (solid),
   on its banks or in a wide spot (`Road.SPOTS`, `map.spots`: the
   arrival, the meadow, the lookout and the pass) "ground", and anything
   else is mountain (no tile: the layout's walls make it solid). Where the
   road crosses the river the water under it is decked over: six bridges
   (`map.bridges`, named in `Road.BRIDGES`, `along` the way the road runs
-  over them) with solid railings down both sides (cover kind "rail").
+  over them) with railings down both sides (cover kind "rail"): solid to
+  cars and people bumping into them, but `low` (collision.lua's `blocked`
+  skips it), so sight, rounds and walking enemies go over them.
   About 32,000 px of road, a minute flat out: up the valley beside the
   river, over it into the meadow and back, up five hairpin legs, west
   along the gorge, past the lookout and round to the pass (`map.zones`
@@ -1182,9 +1185,14 @@ the one with a plot.
   random over all its open ground every game (`map.rollermineScatter`),
   none within 1500 px of the arrival or 750 px of the pass. The Combine hold a checkpoint past every bridge
   (`map.checkpoints`): two MG nests either side of the road facing back
-  over it (`map.nests`, { name, nest, posts }, sandbags drawn only, each
+  over it (`map.nests`, { name, nest, posts }, sandbags drawn only; each
+  bridge's two nests go on the two spots of `Road.NEST_TRY_AT` x
+  `Road.NEST_TRY_OFF`, either side, on open ground that see the most of
+  the road onto it, `Road.NEST_APART` apart and on opposite sides when
+  that is near as good; each
   crewed by City 17's level with `Level.nestCrew` like the Coast's), the
-  concrete blocks of a chicane closing one lane then the other (cover
+  concrete blocks of a chicane closing one side then the other, lane and
+  verge (`Road.CHICANE_OFF`; cover
   kind "block", solid: cover for the riflemen too) and a bunker in a
   clearing off to one side, door on the road (cover kind "bunker";
   `map.garrisons` with `waves` = `Road.WAVES`: a soldier out of the door

@@ -96,6 +96,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   wheel.
 - Left your car in the garage? On the Winding Road you are lent a Scout
   Car to drive instead. It stays behind when you leave.
+- Every machine-gun nest on the Winding Road now opens fire: one at the
+  first bridge stood in the river and never saw anyone, and two others
+  couldn't see over the bridge railings. Railings stop cars but no longer
+  block sight or bullets.
+- The Winding Road is wider: room either side of the tarmac for eight cars
+  abreast, and wider bridges, so a full lobby isn't nose to tail all the
+  way up.
 - The Combine hold every bridge on the Winding Road: two machine-gun
   nests at the far end fire back across it, riflemen fight from behind
   concrete blocks laid as a chicane, and a bunker beside the road keeps

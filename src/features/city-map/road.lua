@@ -25,7 +25,8 @@
 --                         `along` is the way the road runs over it
 --   map.spots             { name, x, y, r } the wide spots, world px
 --   map.zones             { name, y0, y1 } as City 17's: the stretches of the road
---   map.cover             { kind = "water" | "rail" | "bunker" | "block", x, y, w, h }, solid
+--   map.cover             { kind = "water" | "rail" | "bunker" | "block", x, y, w, h }, solid (a rail
+--                         only to cars and people: its solid is `low`, so sight and rounds go over it)
 --                         (a block: a concrete block, laid in a chicane past each bridge); and kind "mountain",
 --                         not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest open tile, for a mountain tile
@@ -145,16 +146,24 @@ Road.BRIDGES = {
   "the valley bridge", "the meadow bridge", "the ford", "the gorge bridge", "the old bridge", "the top bridge",
 }
 Road.ASPHALT = 1.05 -- tiles either side of the road's middle that are tarmac (drawn 64 px either side)
-Road.VERGE = 2.3 -- tiles either side of it that are open: the tarmac and the verge
-Road.DECK = 1.6 -- tiles either side of it that a bridge spans
+Road.VERGE = 4 -- tiles either side of it that are open: the tarmac and a verge wide enough for 8 cars abreast
+Road.DECK = 2.2 -- tiles either side of it that a bridge spans
+Road.DECK_MIN = 6 -- tiles of deck at least for a bridge: fewer is the road brushing past the river
 Road.STEP = 0.25 -- tiles between the points the curves are sampled at
 Road.RAIL = 8 -- px thick, a bridge's railings
 -- The Combine's checkpoint past each bridge, in tiles along the road from the end of its deck.
 Road.NEST_AT, Road.NEST_OFF = 1.2, 1.55 -- the MG nests: how far on, and how far either side of the middle
 Road.NEST_ARC = math.rad(50) -- either side of where a nest faces, how far its gun turns
-Road.BUNKER_AT, Road.BUNKER_OFF = 2.4, 3.5 -- the bunker: how far on, and how far off to one side
+Road.NEST_SEES = 10 -- tiles: how far a gunner sees (the Combine's 640 px)
+-- Where a nest may go (tiles on from the deck, tiles out from the middle, either side): of the
+-- spots on open ground, the two that see the most of the way onto the bridge, NEST_APART apart.
+Road.NEST_TRY_AT = { 1.2, 0.8, 1.6, 2.0, 2.4 }
+Road.NEST_TRY_OFF = { 2.2, 1.8, 2.6, 1.55, 3 }
+Road.NEST_APART = 2.2 -- tiles at least between a bridge's two nests
+Road.BUNKER_AT, Road.BUNKER_OFF = 2.4, 5.3 -- the bunker: how far on, and how far off to one side (past the verge)
 Road.CLEARING = 3.6 -- tiles round the bunker cut out of the mountainside to stand it in
-Road.CHICANE = { 3.6, 5.0 } -- where the concrete blocks close each lane in turn
+Road.CHICANE = { 3.6, 5.0 } -- where the concrete blocks close each side in turn, lane and verge
+Road.CHICANE_OFF = { 0.25, 0.72, 1.5, 2.3, 3.1 } -- tiles out from the middle that its blocks stand at
 Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: seconds apart, up at once, in all
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
@@ -277,10 +286,11 @@ function Road.build(map, rng, T)
     for r = 0, rows - 1 do
       if deck[c][r] and not seen[c][r] then
         local c0, c1, r0, r1 = c, c, r, r
-        local stack = { { c, r } }
+        local stack, got = { { c, r } }, {}
         seen[c][r] = true
         while #stack > 0 do
           local p = table.remove(stack)
+          got[#got + 1] = p
           c0, c1, r0, r1 = math.min(c0, p[1]), math.max(c1, p[1]), math.min(r0, p[2]), math.max(r1, p[2])
           for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
             local nc, nr = p[1] + d[1], p[2] + d[2]
@@ -290,7 +300,12 @@ function Road.build(map, rng, T)
             end
           end
         end
-        for bc = c0, c1 do
+        -- A scrap of a few tiles is only the road brushing past the river: water it stays.
+        local scrap = #got < Road.DECK_MIN
+        for _, q in ipairs(scrap and got or {}) do
+          water[q[1]][q[2]], map.tiles[q[1]][q[2]] = true, "water"
+        end
+        for bc = c0, scrap and c0 - 1 or c1 do
           for br = r0, r1 do
             if water[bc][br] then
               water[bc][br] = nil
@@ -309,7 +324,9 @@ function Road.build(map, rng, T)
         local a, z = road[math.max(1, at - 2)], road[math.min(#road, at + 2)]
         local b = { x = X(c0), y = Y(r0), w = (c1 - c0 + 1) * T, h = (r1 - r0 + 1) * T }
         b.along = math.abs(z[1] - a[1]) > math.abs(z[2] - a[2]) and "ew" or "ns"
-        map.bridges[#map.bridges + 1] = b
+        if not scrap then
+          map.bridges[#map.bridges + 1] = b
+        end
       end
     end
   end
@@ -325,7 +342,7 @@ function Road.build(map, rng, T)
     for _, q in ipairs(rails) do
       local s = { kind = "rail", x = q[1], y = q[2], w = q[3], h = q[4], mapColor = MAP.rail }
       map.cover[#map.cover + 1] = s
-      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h, low = true } -- no wall to sight or rounds
     end
   end
 
@@ -399,9 +416,70 @@ function Road.build(map, rng, T)
       map.garrisons[#map.garrisons + 1] = { at = b.name, x = math.floor(X(bx)), y = math.floor(Y(by)), reach = 750,
         door = door, waves = Road.WAVES }
       -- The nests, either side of the road, facing back over the bridge.
+      -- Each goes where it is on open ground and sees the most of the road
+      -- onto the bridge: water and the mountainside block sight like walls.
+      local first = last
+      for i, q in ipairs(road) do
+        local x, y = X(q[1]), Y(q[2])
+        if i < first and x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
+          first = i
+        end
+      end
+      local function sightOf(px, py)
+        local angle, n = math.atan2(my - py, mx - px), 0
+        for i = math.max(1, first - math.floor(Road.NEST_SEES / Road.STEP)), last do
+          local q = road[i]
+          local lx, ly = q[1] - px, q[2] - py
+          local d = math.sqrt(lx * lx + ly * ly)
+          local off = (math.atan2(ly, lx) - angle + math.pi) % (2 * math.pi) - math.pi
+          if d <= Road.NEST_SEES and math.abs(off) <= Road.NEST_ARC then
+            local ok = true
+            for k = 1, math.floor(d / 0.125) do
+              local t = k * 0.125 / d
+              if not open(px + lx * t, py + ly * t) then
+                ok = false
+                break
+              end
+            end
+            n = n + (ok and 1 or 0)
+          end
+        end
+        return n
+      end
       local ex, ey, ndx, ndy, nnx, nny = along(last, Road.NEST_AT)
-      for _, s2 in ipairs({ -1, 1 }) do
-        local px, py = ex + nnx * s2 * Road.NEST_OFF, ey + nny * s2 * Road.NEST_OFF
+      -- Every spot either side that has room for a nest, and how much it sees.
+      local spots = {}
+      for _, way in ipairs({ -1, 1 }) do
+        for _, at in ipairs(Road.NEST_TRY_AT) do
+          for _, off in ipairs(Road.NEST_TRY_OFF) do
+            local cx2, cy2, _, _, cnx, cny = along(last, at)
+            local qx, qy = cx2 + cnx * way * off, cy2 + cny * way * off
+            if open(qx, qy) and open(qx + 0.35, qy) and open(qx - 0.35, qy) and open(qx, qy + 0.35)
+              and open(qx, qy - 0.35) then
+              spots[#spots + 1] = { x = qx, y = qy, side = way, score = sightOf(qx, qy) }
+            end
+          end
+        end
+      end
+      -- The first nest on the best of them; the second on the best a little
+      -- way from it, the other side of the road if that is near as good (a
+      -- bend along the river can leave one side with nowhere to see from).
+      local placed = {}
+      for k = 1, 2 do
+        local pick, best = nil, -math.huge
+        for _, q in ipairs(spots) do
+          local a = placed[1]
+          local far = not a or (q.x - a.x) ^ 2 + (q.y - a.y) ^ 2 >= Road.NEST_APART ^ 2
+          local score = q.score + (a and q.side ~= a.side and 3 or 0)
+          if far and score > best then
+            pick, best = q, score
+          end
+        end
+        placed[k] = pick or { x = ex + nnx * (k == 1 and -1 or 1) * Road.NEST_OFF,
+          y = ey + nny * (k == 1 and -1 or 1) * Road.NEST_OFF, side = k == 1 and -1 or 1 }
+      end
+      for _, q in ipairs(placed) do
+        local px, py, s2 = q.x, q.y, q.side
         local angle = math.atan2(my - py, mx - px)
         local nest = { x = math.floor(X(px)), y = math.floor(Y(py)), angle = angle, arc = Road.NEST_ARC }
         local posts = {}
@@ -420,7 +498,7 @@ function Road.build(map, rng, T)
       for k, at in ipairs(Road.CHICANE) do
         local qx, qy, _, _, qnx, qny = along(last, at)
         local lane = (k % 2 == 0 and 1 or -1) * side
-        for _, off in ipairs({ 0.25, 0.72 }) do
+        for _, off in ipairs(Road.CHICANE_OFF) do
           solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
         end
       end

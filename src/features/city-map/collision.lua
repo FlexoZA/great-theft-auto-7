@@ -36,7 +36,9 @@ local function circleVsRect(x, y, r, b)
   return 0, bottom + r, 0, 1
 end
 
---- Is the point inside any solid?
+--- Is the point inside any solid? A `low` one (a bridge's railing) only
+--- stops cars and people bumping into it (resolveCar, resolveCircle): it is
+--- no wall to sight or rounds, so it doesn't count here.
 function Collision.blocked(map, x, y)
   local CELL = Layout.CELL
   local col = map.cells[math.floor(x / CELL)]
@@ -45,7 +47,7 @@ function Collision.blocked(map, x, y)
     return false
   end
   for _, b in ipairs(list) do
-    if x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
+    if not b.low and x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
       return true
     end
   end
