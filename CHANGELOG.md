@@ -74,6 +74,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   long mountain road from the valley floor up to the pass, beside the
   river and over it on six bridges, up a stack of hairpins and along the
   gorge, with snow on the peaks near the top. Reach the pass to finish.
+- The Scout Car, after Half-Life 2's buggy: a bare tube frame on big
+  off-road tyres with the engine out back and a tau cannon bolted to the
+  side. Quick off the line and nimble, but light and easy to shoot up
+  (590 top speed, 560 acceleration, 110 hitpoints). 240 koins at a
+  vehicle factory.
 
 ### Changed
 - The minimap on long maps (the Coast, the Winding Road) no longer runs
