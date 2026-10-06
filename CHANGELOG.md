@@ -94,6 +94,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - On the Winding Road a wrecked car no longer leaves you stranded on foot:
   you go back to the start of the road with it and carry on behind the
   wheel.
+- Left your car in the garage? On the Winding Road you are lent a Scout
+  Car to drive instead. It stays behind when you leave.
 - The Combine hold every bridge on the Winding Road: two machine-gun
   nests at the far end fire back across it, riflemen fight from behind
   concrete blocks laid as a chicane, and a bunker beside the road keeps

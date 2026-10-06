@@ -1152,7 +1152,11 @@ the one with a plot.
   tiles), built by `city-map/road.lua` and drawn by `render_road.lua`.
   The one map on the trail that is driven: everyone arrives in their own
   car on the road at the bottom (HOME star, "home-road", on the verge
-  beside them). The road (`Road.ROAD`) and the river (`Road.RIVER`, with
+  beside them). Anyone whose own car is in their garage or the impound
+  (kept, so it stays where it is) is lent a Scout Car instead (the map
+  spec's `loaner`, city-map's `placePlayers`): it is their `player.car`
+  while they are there, so a death or a wreck brings them back in it, and
+  it is gone again, their own car theirs again, at the next map switch. The road (`Road.ROAD`) and the river (`Road.RIVER`, with
   a width and banks per point) are lines of points eased into curves
   (`map.path`, `map.river`); a tile near the road's line is "road",
   further out to `Road.VERGE` "ground", in the river "water" (solid),

@@ -22,6 +22,12 @@
 --     (docs/features.md).
 --   serverWorldSaveHeld  true away from the default map: a saved world is
 --     the city, so it is not written while everyone is somewhere else.
+--   A map with a `loaner` (a vehicle model key: the Winding Road's scout
+--     car) is driven: anyone who arrives without a car of their own (it is
+--     in their garage, say) is lent one of that model at their spawn point,
+--     behind its wheel. It stands in as their own car while they are there
+--     (`player.car`: respawns and wrecks bring them back in it) and is gone,
+--     their own back in its place, on the next switch.
 --
 -- A map's `fires` (City 17's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
@@ -112,7 +118,7 @@ CityMap.maps = {
   -- in their car; nobody about.
   road = {
     title = "The Winding Road", kind = "road", seed = 88, cols = 76, rows = 224,
-    crowd = false, traffic = false,
+    crowd = false, traffic = false, loaner = "scout-car-rust",
   },
   -- Inside the Citadel, a stop on A-Man's trail: one narrow catwalk up through
   -- a vast shaft, widening into platforms the Combine hold, the drop all
@@ -127,13 +133,14 @@ CityMap.DEFAULT = "city" -- every game starts here
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`
 CityMap.home = nil -- the default city, kept as it was while everyone is on another map
+CityMap.loaners = {} -- { car, player id, own }: cars lent on a driven map, and what each player had before
 CityMap.canvas = nil
 local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas shows
 
 local function generate(name)
   local spec = CityMap.maps[name]
   local map = Layout.generate(spec)
-  map.name, map.title = name, spec.title
+  map.name, map.title, map.loaner = name, spec.title, spec.loaner
   return map
 end
 
@@ -147,7 +154,7 @@ end
 --- when they need it rather than keeping it. No event: this runs between
 --- games, when every feature resets itself anyway.
 function CityMap:reset()
-  self.home = nil
+  self.home, self.loaners = nil, {}
   if self.current ~= self.DEFAULT or #self.map.grown > 0 then
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
@@ -163,7 +170,35 @@ end
 --- Put every player on the map's spawn points, in player order, each behind
 --- the wheel of their own car, and publish the list for anything else that
 --- spawns cars. A car they had borrowed stays where it was.
+--- Take back every car lent on the last map: gone from the world, each
+--- player's own car their own again.
+local function returnLoaners(self, server)
+  for _, l in ipairs(self.loaners) do
+    local p = server.players[l.player]
+    if p and p.car == l.car then
+      p.car = l.own or nil
+    end
+    server:removeVehicle(l.car)
+  end
+  self.loaners = {}
+end
+
+--- Lend `p` a car of the map's `loaner` model at spawn point `s`, behind its wheel.
+local function lend(self, server, p, s)
+  local vehicles = Features.byName.vehicles
+  local model = vehicles and vehicles.catalog.byKey[self.map.loaner]
+  if not model then
+    return
+  end
+  local car = vehicles:serverSpawn(server, model, s.x, s.y, s.angle, p.id)
+  car.loaner = true
+  self.loaners[#self.loaners + 1] = { car = car, player = p.id, own = p.car or false }
+  p.car = car
+  server:seat(p, car)
+end
+
 function CityMap:placePlayers(server)
+  returnLoaners(self, server)
   server.spawnPoints = self.map.spawns
   local ids = {}
   for id, p in pairs(server.players) do
@@ -182,6 +217,9 @@ function CityMap:placePlayers(server)
       own.x, own.y, own.angle = s.x, s.y, s.angle
       own:stop()
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
+    end
+    if self.map.loaner and not p.vehicle and not p.bot then
+      lend(self, server, p, s) -- a driven map, and theirs is in the garage: one to drive while here
     end
   end
   -- A car whose owner has left the game stays in the world: park it on the
