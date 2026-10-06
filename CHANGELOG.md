@@ -88,6 +88,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Burnt-out cars lie on the road short of every bridge on the Winding Road:
   three a bridge, staggered across it, to take cover behind while you
   fight the machine guns on the far side.
+- Hunters stalk the open road between the Winding Road's bridges: two on
+  each long stretch, walking it up and down and opening up on anyone who
+  comes along.
 - Rollermines, after Half-Life 2's: steel balls sunk in the ground along
   the Winding Road. Come near and they hop out, blades snapping open, and
   roll after you, nearly as fast as a car, beeping as they close in, and

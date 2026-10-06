@@ -60,7 +60,9 @@
 -- its door every `every` seconds while a player is near and fewer than
 -- `alive` of its own are up, `total` in all, more with more humans; the
 -- door opens again for each). On a map driven like that a car can run
--- them down: one hit at speed (car-collisions' numbers) is enough.
+-- them down: one hit at speed (car-collisions' numbers) is enough. Hunters
+-- (the hunters feature) walk the open stretches of road between the
+-- checkpoints (the map's `hunterBeats`, more with more humans).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
@@ -267,6 +269,9 @@ function Level.serverQuestStarted(server, quest)
   local hunters = Features.byName.hunters
   if hunters and conf.hunters then
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+  end
+  for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
+    hunters:serverPatrol(server, beat.route, Bosses.count(beat.count, server))
   end
   for _, g in ipairs(map.garrisons or {}) do
     sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0, doorFor = 0, own = {} }

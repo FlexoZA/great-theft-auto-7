@@ -1211,7 +1211,14 @@ the one with a plot.
   cars (cover kind "wreck", solid, `facing` their nose; `Road.WRECKS`
   tiles back from the deck, staggered either side up to
   `Road.WRECK_SPREAD` out, never on the deck): cover to fight the nests
-  from, each hiding a spot behind it from the nearest one. City 17's level runs on the map
+  from, each hiding a spot behind it from the nearest one. Hunters (the
+  hunters feature) walk the open road between checkpoints: every stretch
+  between one bridge and the next that is at least `Road.HUNT_MIN` tiles
+  long once `Road.HUNT_CLEAR` is kept clear of either checkpoint gets a
+  beat there and back along its middle (`map.hunterBeats`,
+  `Road.HUNT_BEAT` tiles, `Road.HUNT_COUNT` for one human, more with
+  more: City 17's level puts them out with `hunters:serverPatrol`). Four
+  stretches, eight for one human. City 17's level runs on the map
   (`Level.maps.road`), and on a map that is driven its soldiers can be run
   down (car-collisions' `runOverSpeed` and `runOverDamage`: one hit kills,
   the driver's kill). A wrecked car doesn't leave its driver on foot out

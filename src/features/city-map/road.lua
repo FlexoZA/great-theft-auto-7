@@ -44,6 +44,9 @@
 --                         a bunker beside each bridge's far end that sends soldiers out of its
 --                         door while anyone is near (a-man/city17.lua)
 --   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
+--   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature) walking
+--                         up and down the middle of every open stretch of road between two
+--                         checkpoints, `count` for one human (a-man/city17.lua puts them out)
 --   map.posts             empty: City 17's level reads it (it mans the nests)
 --   map.wreckRide         true: a wrecked car takes its driver back to the start with it (weapons)
 -- render_road.lua draws it all.
@@ -170,6 +173,12 @@ Road.CHICANE_OFF = { 0.25, 0.72, 1.5, 2.3, 3.1 } -- tiles out from the middle th
 Road.WRECKS = { 2.6, 4.5, 6.5 }
 Road.WRECK_SPREAD = 2.4
 Road.WRECK_SIZE = { 62, 32 }
+-- Hunters on the open road between two bridges: tiles kept clear of either checkpoint, the
+-- shortest stretch left that gets a beat, how long the beat is and how many walk it (one human).
+Road.HUNT_CLEAR = 12
+Road.HUNT_MIN = 22
+Road.HUNT_BEAT = 18
+Road.HUNT_COUNT = 2
 Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: seconds apart, up at once, in all
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
@@ -432,6 +441,7 @@ function Road.build(map, rng, T)
           first = i
         end
       end
+      b.first, b.last = first, last -- the road's samples over the deck, for the hunters' beats
       local function sightOf(px, py)
         local angle, n = math.atan2(my - py, mx - px), 0
         for i = math.max(1, first - math.floor(Road.NEST_SEES / Road.STEP)), last do
@@ -529,6 +539,28 @@ function Road.build(map, rng, T)
           wreck.facing = (long and (wdx > 0 and 0 or math.pi) or (wdy > 0 and math.pi / 2 or -math.pi / 2))
             + (rng:random() < 0.5 and math.pi or 0) -- nose either way
         end
+      end
+    end
+  end
+
+  -- Hunters walking the open road between one checkpoint and the next: a
+  -- beat there and back along the middle of the stretch, clear of both.
+  map.hunterBeats = {}
+  local per = 1 / Road.STEP -- samples to a tile
+  for i = 1, #map.bridges - 1 do
+    local from, to = map.bridges[i].last, map.bridges[i + 1].first
+    if from and to then
+      local a, z = from + Road.HUNT_CLEAR * per, to - Road.HUNT_CLEAR * per
+      if z - a >= Road.HUNT_MIN * per then
+        local mid, half = math.floor((a + z) / 2), math.floor(Road.HUNT_BEAT * per / 2)
+        local route = {}
+        for k = mid - half, mid + half, 3 * per do -- up the stretch...
+          route[#route + 1] = { x = math.floor(X(road[k][1])), y = math.floor(Y(road[k][2])) }
+        end
+        for k = #route - 1, 2, -1 do -- ...and back down it
+          route[#route + 1] = { x = route[k].x, y = route[k].y }
+        end
+        map.hunterBeats[#map.hunterBeats + 1] = { name = map.bridges[i].name, route = route, count = Road.HUNT_COUNT }
       end
     end
   end
