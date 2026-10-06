@@ -5,7 +5,7 @@
 return {
   name = "Scout Car",
   price = 240,
-  hitpoints = 110,
+  hitpoints = 165, -- half as much again as a car its size: it has to make it up the road
   topSpeed = 590,
   acceleration = 560,
   weight = 750,

@@ -77,10 +77,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Scout Car, after Half-Life 2's buggy: a bare tube frame on big
   off-road tyres with the engine out back and a tau cannon bolted to the
   side. Quick off the line and nimble, but light and easy to shoot up
-  (590 top speed, 560 acceleration, 110 hitpoints). 240 koins at a
+  (590 top speed, 560 acceleration, 165 hitpoints). 240 koins at a
   vehicle factory.
-- The Scout Car carries an AK for its driver: the fire button shoots it,
-  30 rounds a magazine, never out of ammo but still reloaded (X).
+- The Scout Car carries an auto turret for its driver: the fire button
+  shoots it, 30 rounds a magazine, never out of ammo but still reloaded (X).
 - The Scout Car's tau cannon fires: right mouse while you drive one. Tap
   for quick bolts, or hold to charge one heavy shot (up to 150 damage)
   that kicks the car back when it goes. Hold it too long and it overloads,

@@ -135,7 +135,8 @@
 -- on instead: the fire button fires it from the car, toward the cursor, and
 -- the reload key reloads it. Its rounds never run out, but its magazine
 -- (kept with the car on the host, `cs.mag`) still empties and takes the
--- gun's reload time to fill; the HUD shows it in the gun in hand's place.
+-- gun's reload time to fill; the HUD shows it in the gun in hand's place,
+-- as an auto turret (icons.lua's "turret"), whatever gun it fires.
 -- Bots shoot from their cars as before.
 --
 -- A player need not be in a car: on foot, shots leave from their body,
@@ -245,6 +246,7 @@ Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host cor
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
 Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted to it (predicted; the host corrects)
 Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
+Weapons.mountedName = "auto turret" -- a car's own gun in the HUD, whatever it fires (icon "turret")
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
@@ -946,7 +948,7 @@ function Weapons:drawMagazine(client)
       return
     end
     gun, mag, spare, infinite = mounted, self.carMags[car.id] or mounted.magazine, math.huge, false
-    reloading, tier, name = self.carReloading, Tiers.DEFAULT, mounted.name .. " (mounted)  "
+    reloading, tier, name = self.carReloading, Tiers.DEFAULT, Weapons.mountedName .. "  "
   else
     if not Guns.list[self.gun] then
       return
@@ -989,7 +991,7 @@ function Weapons:drawMagazine(client)
   -- A dark backing so the steel reads over a pale road as well as a dark one.
   love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
   love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
-  Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
+  Icons.draw(car and "turret" or gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
   if self.ammoNotice then
     -- Why a pick or a reload didn't happen, over the block while it fades.
     local text = self.ammoNotice.text

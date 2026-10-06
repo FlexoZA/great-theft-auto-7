@@ -153,7 +153,8 @@ nil) and `driver` (a player id or nil).
   car's "ak47") has that bolted on instead: the fire button fires it and
   the reload key reloads it, rounds endless but the magazine kept with the
   car on the host (weapons' `cs.mag`, `WPN_CARMAG`, `serverFireMounted`).
-  Any other car is unarmed. Bots still shoot from their cars.
+  The HUD shows it as an auto turret (weapons/icons.lua's "turret",
+  `Weapons.mountedName`) whatever gun it fires. Any other car is unarmed. Bots still shoot from their cars.
 - Death: when a player on foot runs out of health, weapons sets `body.dead`,
   hides their own car at its spawn slot (whole again) and leaves a borrowed
   car where it stands; after the death time they are back at the slot in
