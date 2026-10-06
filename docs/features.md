@@ -1174,7 +1174,21 @@ the one with a plot.
   plays; it has no surroundings yet. Rollermines lie in wait along it
   (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
   road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
-  for one human).
+  for one human). The Combine hold a checkpoint past every bridge
+  (`map.checkpoints`): two MG nests either side of the road facing back
+  over it (`map.nests`, { name, nest, posts }, sandbags drawn only, each
+  crewed by City 17's level with `Level.nestCrew` like the Coast's), the
+  concrete blocks of a chicane closing one lane then the other (cover
+  kind "block", solid: cover for the riflemen too) and a bunker in a
+  clearing off to one side, door on the road (cover kind "bunker";
+  `map.garrisons` with `waves` = `Road.WAVES`: a soldier out of the door
+  every 6 s while a player is within 1.5x its 750 px reach and fewer than 3
+  of its own are up, 8 in all for one human, the door opening again for
+  each; they go for the player). 48 soldiers on the nests for one human,
+  48 more out of the bunkers. City 17's level runs on the map
+  (`Level.maps.road`), and on a map that is driven its soldiers can be run
+  down (car-collisions' `runOverSpeed` and `runOverDamage`: one hit kills,
+  the driver's kill).
 - Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
   with `map.rollermines` ({ x, y, r, count }) gets them set there when a
   quest starts (`count` scaled by `Bosses.count`); a quest's end or a map

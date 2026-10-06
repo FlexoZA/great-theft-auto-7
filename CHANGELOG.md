@@ -88,6 +88,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   roll after you, nearly as fast as a car, beeping as they close in, and
   blow up when they touch you or your car. Shoot them first: two rounds
   set one off, and its blast sets off any others near it.
+- The Combine hold every bridge on the Winding Road: two machine-gun
+  nests at the far end fire back across it, riflemen fight from behind
+  concrete blocks laid as a chicane, and a bunker beside the road keeps
+  sending soldiers out after you while you are near. Drive through fast,
+  shoot the gunners, or run the soldiers down: on the road, a car at speed
+  kills a Combine soldier outright.
 
 ### Changed
 - The minimap on long maps (the Coast, the Winding Road) no longer runs

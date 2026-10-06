@@ -1,6 +1,7 @@
--- The Coast's MG nests, as every screen draws them (city17.lua mans them on
--- the host; the sandbags and the bunkers are on the map's canvas,
--- render_coast.lua). Each gun stands on its tripod in its nest: swung the
+-- The MG nests (the Coast's beside its bunkers, the Winding Road's past
+-- its bridges), as every screen draws them (city17.lua mans them on the
+-- host; the sandbags and the bunkers are on the map's canvas,
+-- render_coast.lua and render_road.lua). Each gun stands on its tripod in its nest: swung the
 -- way whoever is on it faces, or at rest along the nest's facing when
 -- nobody is.
 
@@ -16,7 +17,7 @@ local BELT = { 0.80, 0.66, 0.30 }
 --- Every nest of `map` and its gun, `troops` the soldiers as drawn
 --- (id -> { dx, dy, angle }).
 function Nests.draw(map, troops)
-  for _, b in ipairs(map and map.bunkers or {}) do
+  for _, b in ipairs(map and (map.nests or map.bunkers) or {}) do
     local n = b.nest
     local angle, manned = n.angle, false
     for _, s in pairs(troops) do

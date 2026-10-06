@@ -496,8 +496,9 @@ function RenderCoast.draw(map, T)
   love.graphics.setColor(1, 1, 1)
 end
 
--- The mountains' makings, for the Winding Road's mountains (render_road.lua).
+-- The mountains' makings and the nests' sandbags, for the Winding Road (render_road.lua).
 RenderCoast.corners, RenderCoast.cells, RenderCoast.relief = corners, cells, relief
 RenderCoast.hash, RenderCoast.mix, RenderCoast.drawSlopeTree = hash, mix, drawSlopeTree
+RenderCoast.drawSandbags = drawSandbags
 
 return RenderCoast

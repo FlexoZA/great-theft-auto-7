@@ -53,6 +53,15 @@
 -- nearest of his crew still up runs to the gun (`post`) and takes over.
 -- nests.lua draws the guns.
 --
+-- The Winding Road (city-map's `road`, quests' "a-man-road") holds a
+-- checkpoint past every bridge: two MG nests either side of the road
+-- facing back over it (the map's `nests`, crewed as the Coast's are) and a
+-- bunker whose garrison comes in waves (a garrison's `waves`: one out of
+-- its door every `every` seconds while a player is near and fewer than
+-- `alive` of its own are up, `total` in all, more with more humans; the
+-- door opens again for each). On a map driven like that a car can run
+-- them down: one hit at speed (car-collisions' numbers) is enough.
+--
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
@@ -77,6 +86,7 @@ local Bosses = require("src.features.bosses")
 local Sounds = require("src.features.a-man.sounds")
 local Nests = require("src.features.a-man.nests")
 local Corpses = require("src.features.a-man.corpses")
+local Car = require("src.car")
 
 local Level = {}
 
@@ -125,6 +135,7 @@ Level.maps = {
   city17 = { squadsPerBeat = 2, cameo = true, hunters = true },
   outercity = { squadsPerBeat = 1 }, -- fewer about: its garrisons bring more when they are wanted
   coast = { squadsPerBeat = 0, nests = true }, -- the bunkers' crews, for now
+  road = { squadsPerBeat = 0, nests = true }, -- the bridges' checkpoints: nests and bunkers' waves
 }
 Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
 -- The nest's gun: an AK's rounds, twelve a second, in long bursts.
@@ -258,7 +269,7 @@ function Level.serverQuestStarted(server, quest)
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
   end
   for _, g in ipairs(map.garrisons or {}) do
-    sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0 }
+    sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0, doorFor = 0, own = {} }
   end
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
@@ -313,7 +324,7 @@ function Level.serverQuestStarted(server, quest)
   end
   sv.nests = {}
   if conf.nests then
-    for _, b in ipairs(map.bunkers or {}) do
+    for _, b in ipairs(map.nests or map.bunkers or {}) do -- a bunker with its nest, or a nest on its own
       local nest = { b = b, crew = {} }
       local gunner = sv.troops:add("guard", b.nest.x, b.nest.y, b.nest.angle)
       gunner.hold = true
@@ -577,19 +588,42 @@ end
 local function stepGarrisons(server, dt)
   for _, gs in ipairs(sv.garrisons) do
     local g, door = gs.g, gs.g.door
+    gs.doorFor = gs.doorFor - dt
+    local waves = g.waves
     if not gs.out then
       local who = nearestPlayer(server, g.x, g.y, g.reach)
       if who then
         gs.out, gs.target = true, who
-        gs.left, gs.nextIn = Bosses.count(Level.garrison, server), Level.garrisonFirst
+        gs.left = Bosses.count(waves and waves.total or Level.garrison, server)
+        gs.nextIn = Level.garrisonFirst
+        gs.doorFor = Level.doorOpen
         server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
       end
     elseif gs.left > 0 then
       gs.nextIn = gs.nextIn - dt
-      if gs.nextIn <= 0 then
-        gs.nextIn, gs.left = Level.garrisonEvery, gs.left - 1
+      local ready = gs.nextIn <= 0
+      if ready and waves then
+        -- In waves: only while somebody is near, and not too many of its own up at once.
+        local up = 0
+        for i = #gs.own, 1, -1 do
+          if gs.own[i].hp > 0 then
+            up = up + 1
+          else
+            table.remove(gs.own, i)
+          end
+        end
+        local who = nearestPlayer(server, g.x, g.y, g.reach * 1.5)
+        ready = who ~= nil and up < waves.alive
+        if ready and gs.doorFor <= 0 then -- the door shut since the last: open it again
+          gs.doorFor = Level.doorOpen
+          server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+        end
+      end
+      if ready then
+        gs.nextIn, gs.left = waves and waves.every or Level.garrisonEvery, gs.left - 1
         gs.target = nearestPlayer(server, g.x, g.y, g.reach * 1.5) or gs.target
         local s = sv.troops:add("guard", door.x + door.nx * 22, door.y + door.ny * 22, math.atan2(door.ny, door.nx))
+        gs.own[#gs.own + 1] = s
         sv.troops:arm(s, pickArms())
         sv.troops:sendTo(s, gs.target.x, gs.target.y)
         if not gs.said then -- the first out says where they are going
@@ -650,19 +684,6 @@ function Level.serverVisit(server, x, y, opened)
   return sv ~= nil and Cameo.serverVisit(server, x, y, opened)
 end
 
-function Level.serverStep(server, dt)
-  if not sv then
-    return
-  end
-  sv.troops:update(server, dt)
-  stepNests()
-  stepGarrisons(server, dt)
-  Cameo.serverStep(server, dt, cityMap())
-  talk(server, dt)
-  checkReached(server)
-  sync(server)
-end
-
 --- One soldier down: gibs on every screen, a few koins, maybe a pickup.
 local function soldierDown(server, s, by, angle)
   server:broadcast(Protocol.encode("C17_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
@@ -676,6 +697,43 @@ local function soldierDown(server, s, by, angle)
     pickups:serverDropEnemy(server, s.x, s.y)
   end
   Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
+end
+
+--- Cars running soldiers down, on a map that is driven: car-collisions'
+--- numbers, the driver's kill.
+local function runOver(server)
+  local cc = Features.byName["car-collisions"]
+  if not (cc and cityMap().vehicles) then
+    return
+  end
+  for _, car in pairs(server.vehicles) do
+    if car.driver and not car.hidden and math.abs(car.speed) >= cc.runOverSpeed then
+      for i = #sv.troops.list, 1, -1 do
+        local s = sv.troops.list[i]
+        if Car.hitTest(car, s.x, s.y, Combine.RADIUS) then
+          local amount = cc.runOverDamage * (1 + math.min(1, math.abs(car.speed) / car.maxSpeed))
+          local travel = car.speed >= 0 and car.angle or car.angle + math.pi
+          if sv.troops:hurt(s, i, amount, travel) then
+            soldierDown(server, s, car.driver, travel)
+          end
+        end
+      end
+    end
+  end
+end
+
+function Level.serverStep(server, dt)
+  if not sv then
+    return
+  end
+  sv.troops:update(server, dt)
+  runOver(server)
+  stepNests()
+  stepGarrisons(server, dt)
+  Cameo.serverStep(server, dt, cityMap())
+  talk(server, dt)
+  checkReached(server)
+  sync(server)
 end
 
 --- A bullet through (x, y): the `serverShotAt` convention. Their own rounds

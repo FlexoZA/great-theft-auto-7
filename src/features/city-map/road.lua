@@ -25,14 +25,22 @@
 --                         `along` is the way the road runs over it
 --   map.spots             { name, x, y, r } the wide spots, world px
 --   map.zones             { name, y0, y1 } as City 17's: the stretches of the road
---   map.cover             { kind = "water" | "rail", x, y, w, h }, solid; and kind "mountain",
+--   map.cover             { kind = "water" | "rail" | "bunker" | "block", x, y, w, h }, solid
+--                         (a block: a concrete block, laid in a chicane past each bridge); and kind "mountain",
 --                         not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest open tile, for a mountain tile
 --   map.depth             [c][r] tiles from the nearest bank, for a river tile
 --   map.slopes            { x, y, r, pine } trees on the mountainsides: drawn only, never touched
 --   map.rollermines       { x, y, r, count } where rollermines lie in wait (the rollermines feature):
 --                         a few at a time on the road every `Road.MINE_EVERY` px of it
---   map.posts             empty, for the Combine later
+--   map.nests             { name, nest = { x, y, angle, arc }, posts = { { x, y, watch } x2 } }: the
+--                         Combine's MG nests, two at the far end of every bridge facing back
+--                         across it (sandbags, drawn only), each with two riflemen's posts
+--   map.garrisons         { at, x, y, reach, door = { x, y, nx, ny }, waves = { every, alive, total } }:
+--                         a bunker beside each bridge's far end that sends soldiers out of its
+--                         door while anyone is near (a-man/city17.lua)
+--   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
+--   map.posts             empty: City 17's level reads it (it mans the nests)
 -- render_road.lua draws it all.
 
 local Coast = require("src.features.city-map.coast")
@@ -138,6 +146,13 @@ Road.VERGE = 2.3 -- tiles either side of it that are open: the tarmac and the ve
 Road.DECK = 1.6 -- tiles either side of it that a bridge spans
 Road.STEP = 0.25 -- tiles between the points the curves are sampled at
 Road.RAIL = 8 -- px thick, a bridge's railings
+-- The Combine's checkpoint past each bridge, in tiles along the road from the end of its deck.
+Road.NEST_AT, Road.NEST_OFF = 1.2, 1.55 -- the MG nests: how far on, and how far either side of the middle
+Road.NEST_ARC = math.rad(50) -- either side of where a nest faces, how far its gun turns
+Road.BUNKER_AT, Road.BUNKER_OFF = 2.4, 3.5 -- the bunker: how far on, and how far off to one side
+Road.CLEARING = 3.6 -- tiles round the bunker cut out of the mountainside to stand it in
+Road.CHICANE = { 3.6, 5.0 } -- where the concrete blocks close each lane in turn
+Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: seconds apart, up at once, in all
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
 Road.MINE_COUNT = { 2, 3, 2, 4 } -- how many in each lot, for one human, round and round
@@ -146,6 +161,8 @@ Road.MINE_COUNT = { 2, 3, 2, 4 } -- how many in each lot, for one human, round a
 local MAP = {
   mountain = { 0.24, 0.36, 0.22 },
   rail = { 0.70, 0.70, 0.68 },
+  bunker = { 0.55, 0.56, 0.58 },
+  block = { 0.62, 0.62, 0.60 },
 }
 
 --- A Catmull-Rom curve through `pts` ({ c, r, ... }), sampled every `step`
@@ -304,6 +321,104 @@ function Road.build(map, rng, T)
       local s = { kind = "rail", x = q[1], y = q[2], w = q[3], h = q[4], mapColor = MAP.rail }
       map.cover[#map.cover + 1] = s
       map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+    end
+  end
+
+  -- The Combine's checkpoint past each bridge: two MG nests either side of
+  -- the road facing back over it, a bunker in a clearing off to one side
+  -- with its door on the road, and concrete blocks closing one lane and
+  -- then the other further on.
+  map.nests, map.garrisons, map.checkpoints = {}, {}, {}
+  local function sampleAt(i)
+    return road[math.max(1, math.min(#road, i))]
+  end
+  --- The road `tiles` on from sample `i`: where (tile units), which way it runs and its left.
+  local function along(i, tiles)
+    local k = i + math.floor(tiles / Road.STEP + 0.5)
+    local p, a, z = sampleAt(k), sampleAt(k - 2), sampleAt(k + 2)
+    local dx, dy = z[1] - a[1], z[2] - a[2]
+    local len = math.sqrt(dx * dx + dy * dy)
+    dx, dy = dx / len, dy / len
+    return p[1], p[2], dx, dy, dy, -dx
+  end
+  local function open(c, r)
+    local col = map.tiles[math.floor(c)]
+    local kind = col and col[math.floor(r)]
+    return kind ~= nil and kind ~= "water"
+  end
+  local function solid(kind, cx, cy, w, h)
+    local q = { kind = kind, x = math.floor(cx - w / 2), y = math.floor(cy - h / 2), w = w, h = h, mapColor = MAP[kind],
+      seed = rng:random(1000) }
+    map.cover[#map.cover + 1] = q
+    map.solids[#map.solids + 1] = { x = q.x, y = q.y, w = q.w, h = q.h }
+    return q
+  end
+  for bi, b in ipairs(map.bridges) do
+    local last
+    for i, q in ipairs(road) do
+      local x, y = X(q[1]), Y(q[2])
+      if x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
+        last = i
+      end
+    end
+    if last then
+      local side = bi % 2 == 0 and 1 or -1 -- the bunker's side, turn and turn about
+      local mx, my = (b.x + b.w / 2 - map.x0) / T, (b.y + b.h / 2 - map.y0) / T -- the bridge's middle, in tiles
+      local fx, fy = along(last, 0)
+      map.checkpoints[#map.checkpoints + 1] = { name = b.name, x = math.floor(X(fx)), y = math.floor(Y(fy)) }
+      -- The bunker, its clearing cut first so it has ground round it.
+      local cx, cy, dx, dy, nx, ny = along(last, Road.BUNKER_AT)
+      local bx, by = cx + nx * side * Road.BUNKER_OFF, cy + ny * side * Road.BUNKER_OFF
+      for c = math.floor(bx - Road.CLEARING), math.ceil(bx + Road.CLEARING) do
+        for r = math.floor(by - Road.CLEARING), math.ceil(by + Road.CLEARING) do
+          if map.tiles[c] and r >= 0 and r < rows and not map.tiles[c][r]
+            and (c + 0.5 - bx) ^ 2 + (r + 0.5 - by) ^ 2 <= Road.CLEARING ^ 2 then
+            map.tiles[c][r] = "ground"
+          end
+        end
+      end
+      local wide = math.abs(dx) > math.abs(dy) -- long side along the road
+      local w, h = wide and 120 or 88, wide and 88 or 120
+      local bunker = solid("bunker", X(bx), Y(by), w, h)
+      -- Its door on the face towards the road.
+      local vx, vy = -nx * side, -ny * side
+      local door
+      if math.abs(vx) > math.abs(vy) then
+        local sx = vx > 0 and 1 or -1
+        door = { x = math.floor(X(bx) + sx * w / 2), y = math.floor(Y(by)), nx = sx, ny = 0 }
+      else
+        local sy = vy > 0 and 1 or -1
+        door = { x = math.floor(X(bx)), y = math.floor(Y(by) + sy * h / 2), nx = 0, ny = sy }
+      end
+      bunker.door = door
+      map.garrisons[#map.garrisons + 1] = { at = b.name, x = math.floor(X(bx)), y = math.floor(Y(by)), reach = 750,
+        door = door, waves = Road.WAVES }
+      -- The nests, either side of the road, facing back over the bridge.
+      local ex, ey, ndx, ndy, nnx, nny = along(last, Road.NEST_AT)
+      for _, s2 in ipairs({ -1, 1 }) do
+        local px, py = ex + nnx * s2 * Road.NEST_OFF, ey + nny * s2 * Road.NEST_OFF
+        local angle = math.atan2(my - py, mx - px)
+        local nest = { x = math.floor(X(px)), y = math.floor(Y(py)), angle = angle, arc = Road.NEST_ARC }
+        local posts = {}
+        -- A rifleman behind the nest and one in the middle of the road behind both.
+        for _, off in ipairs({ { 1.3, s2 * Road.NEST_OFF }, { 2.0, s2 * 0.5 } }) do
+          local qx = ex + ndx * off[1] + nnx * off[2]
+          local qy = ey + ndy * off[1] + nny * off[2]
+          if not open(qx, qy) then
+            qx, qy = ex + ndx * off[1], ey + ndy * off[1] -- the road's middle, then
+          end
+          posts[#posts + 1] = { x = math.floor(X(qx)), y = math.floor(Y(qy)), watch = math.atan2(my - qy, mx - qx) }
+        end
+        map.nests[#map.nests + 1] = { name = b.name, nest = nest, posts = posts }
+      end
+      -- The chicane: blocks across one lane, then the other.
+      for k, at in ipairs(Road.CHICANE) do
+        local qx, qy, _, _, qnx, qny = along(last, at)
+        local lane = (k % 2 == 0 and 1 or -1) * side
+        for _, off in ipairs({ 0.25, 0.72 }) do
+          solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
+        end
+      end
     end
   end
 

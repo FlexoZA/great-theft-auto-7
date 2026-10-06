@@ -5,7 +5,10 @@
 -- the middle; the bridges' decks and railings over the water; then the
 -- mountains, shaded as the Coast's are (render_coast.lua) with boulders
 -- along their foot, bare rock and snow on the tops further north, and the
--- trees on their sides.
+-- trees on their sides. Past every bridge, the Combine's checkpoint: the
+-- concrete blocks of its chicane, its bunker with the door on the road
+-- (a-man/city17.lua draws it open) and the sandbags of its two MG nests
+-- (the guns are drawn live: a-man/nests.lua).
 
 local RenderCoast = require("src.features.city-map.render_coast")
 local Road = require("src.features.city-map.road")
@@ -45,6 +48,13 @@ local C = {
   stone = { 0.52, 0.50, 0.46 },
   stoneDark = { 0.38, 0.37, 0.34 },
   shadow = { 0, 0, 0, 0.28 },
+  concrete = { 0.56, 0.57, 0.58 },
+  concreteDark = { 0.40, 0.41, 0.43 },
+  concreteLight = { 0.68, 0.69, 0.70 },
+  slit = { 0.08, 0.09, 0.10 },
+  door = { 0.22, 0.25, 0.29 },
+  doorLight = { 0.45, 0.70, 0.85 },
+  stripe = { 0.85, 0.70, 0.20 },
 }
 
 local function color(c, a)
@@ -270,6 +280,61 @@ local function drawRail(s)
   end
 end
 
+--- A Combine bunker: a concrete box, its roof slab, firing slits on the
+--- faces either side of its door, and the door itself, steel with a light over it.
+local function drawBunker(s)
+  local x, y, w, h = s.x, s.y, s.w, s.h
+  color(C.shadow)
+  love.graphics.rectangle("fill", x + 8, y + 10, w, h, 6, 6)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", x, y, w, h, 6, 6)
+  color(C.concrete)
+  love.graphics.rectangle("fill", x + 6, y + 6, w - 12, h - 12, 4, 4)
+  color(C.concreteLight)
+  love.graphics.rectangle("fill", x + 6, y + 6, w - 12, 4)
+  color(C.concreteDark) -- the roof's vent
+  love.graphics.rectangle("fill", x + w / 2 - 9, y + h / 2 - 9, 18, 18)
+  color(C.slit)
+  love.graphics.rectangle("fill", x + w / 2 - 5, y + h / 2 - 5, 10, 10)
+  local d = s.door
+  if not d then
+    return
+  end
+  -- Everything on the face is a box from `t0` to `t1` along it and from
+  -- `k0` to `k1` out of it (negative: into the bunker).
+  local ax, ay = d.ny ~= 0 and 1 or 0, d.nx ~= 0 and 1 or 0
+  local function box(t0, t1, k0, k1)
+    local xa, xb = d.x + ax * t0 + d.nx * k0, d.x + ax * t1 + d.nx * k1
+    local ya, yb = d.y + ay * t0 + d.ny * k0, d.y + ay * t1 + d.ny * k1
+    love.graphics.rectangle("fill", math.min(xa, xb), math.min(ya, yb), math.abs(xb - xa), math.abs(yb - ya))
+  end
+  color(C.slit) -- firing slits either side of the door
+  box(-48, -30, -6, -2)
+  box(30, 48, -6, -2)
+  color(C.door) -- the door, steel, set into the face
+  box(-20, 20, -8, 0)
+  color(C.concreteDark)
+  box(-1, 1, -8, 0)
+  color(C.stripe) -- hazard stripes on the step outside it
+  for k = 0, 3 do
+    box(-18 + k * 10, -13 + k * 10, 0, 6)
+  end
+  color(C.doorLight) -- the light over it
+  box(23, 28, -6, -1)
+end
+
+--- A concrete block, its top lit.
+local function drawBlock(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 4, s.y + 6, s.w, s.h, 3, 3)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 3, 3)
+  color(C.concrete)
+  love.graphics.rectangle("fill", s.x + 3, s.y + 3, s.w - 6, s.h - 7, 2, 2)
+  color(C.stripe)
+  love.graphics.rectangle("fill", s.x + 3, s.y + s.h / 2 - 2, s.w - 6, 4)
+end
+
 --- The mountains: the Coast's relief, bare rock and then snow on the tops
 --- coming lower the further north they stand.
 local function drawMountains(map, T)
@@ -349,9 +414,19 @@ function RenderRoad.draw(map, T)
   for _, s in ipairs(map.cover) do
     if s.kind == "rail" then
       drawRail(s)
+    elseif s.kind == "block" then
+      drawBlock(s)
     end
   end
+  for _, n in ipairs(map.nests or {}) do
+    RenderCoast.drawSandbags(n.nest)
+  end
   drawMountains(map, T)
+  for _, s in ipairs(map.cover) do -- the bunkers stand in their clearings, over the mountains' boulders
+    if s.kind == "bunker" then
+      drawBunker(s)
+    end
+  end
   for _, t in ipairs(map.slopes) do
     RenderCoast.drawSlopeTree(t)
     if t.pine and t.y < map.y0 + map.rows * T * 0.35 then -- snow on the pines up north
