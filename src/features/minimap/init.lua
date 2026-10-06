@@ -11,6 +11,10 @@
 -- feature flashes it red where a boss comes into the city and marks him
 -- while he is loose; buildings shows every owned plot and what is on it).
 --
+-- A map taller than `Minimap.maxHeight` at the minimap's width (the Coast,
+-- the Winding Road) shows only that much of it, scrolled up and down to
+-- keep you in the middle, stopping at the map's ends.
+--
 -- Tab hides and shows it; a line under it (or in its place, while it is
 -- hidden) says so, and another under it offers the big map either way.
 --
@@ -39,6 +43,7 @@ local Minimap = {
 Minimap.width = 220 -- px on screen
 Minimap.margin = 12
 Minimap.top = 34 -- px from the top edge: under the connection line at the top right
+Minimap.maxHeight = 260 -- px on screen; a taller map scrolls with you
 Minimap.alpha = 0.88
 Minimap.radarRange = 2400 -- px of world shown across the radar when there is no map
 Minimap.visible = true
@@ -50,6 +55,7 @@ Minimap.policeColor = { 0.25, 0.45, 1 } -- the arrows' police blue
 Minimap.sirenColor = { 1, 0.2, 0.2 } -- what it flashes with
 
 local canvas, mapRef, scale, height = nil, nil, 1, 0
+local viewH, offY = 0, 0 -- px of the canvas shown, and how far down it the shown part starts
 local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas shows
 local big = nil -- { canvas, scale, w, h, map, version }: the big map, drawn at its size
 local camera = nil
@@ -256,7 +262,7 @@ end
 --- World -> minimap pixel, relative to the minimap's top-left.
 local function project(x, y, me)
   if mapRef then
-    return (x - mapRef.left) * scale, (y - mapRef.top) * scale
+    return (x - mapRef.left) * scale, (y - mapRef.top) * scale - offY
   end
   local cx, cy = me and me.dx or 0, me and me.dy or 0
   return Minimap.width / 2 + (x - cx) * scale, height / 2 + (y - cy) * scale
@@ -401,16 +407,25 @@ function Minimap:drawHUD(client)
   local y0 = self.top
   local mx, my = client:myPose()
   local me = mx and { dx = mx, dy = my } or nil -- the radar's centre when there is no map
+  viewH = math.min(height, self.maxHeight)
+  if mapRef and mx then -- a tall map follows you; one that fits stays put (offY 0)
+    offY = math.max(0, math.min(height - viewH, (my - mapRef.top) * scale - viewH / 2))
+  end
+  offY = math.min(offY, height - viewH)
 
   love.graphics.push()
   love.graphics.translate(x0, y0)
 
   -- Backing and map.
   love.graphics.setColor(0, 0, 0, self.alpha * 0.6)
-  love.graphics.rectangle("fill", -3, -3, self.width + 6, height + 6)
+  love.graphics.rectangle("fill", -3, -3, self.width + 6, viewH + 6)
+
+  -- Clip everything else to the map area.
+  love.graphics.setScissor(x0, y0, self.width, viewH)
+
   if canvas then
     love.graphics.setColor(1, 1, 1, self.alpha)
-    love.graphics.draw(canvas, 0, 0)
+    love.graphics.draw(canvas, 0, -offY)
   else
     love.graphics.setColor(C.asphalt[1], C.asphalt[2], C.asphalt[3], self.alpha)
     love.graphics.rectangle("fill", 0, 0, self.width, height)
@@ -418,9 +433,6 @@ function Minimap:drawHUD(client)
     love.graphics.circle("line", self.width / 2, height / 2, self.width / 4)
     love.graphics.circle("line", self.width / 2, height / 2, self.width / 2)
   end
-
-  -- Clip everything else to the map area.
-  love.graphics.setScissor(x0, y0, self.width, height)
 
   -- Camera viewport.
   if camera then
@@ -436,19 +448,19 @@ function Minimap:drawHUD(client)
   -- Whatever other features mark on it (the players' buildings among
   -- them), clipped to it like the rest and under the people, as on the big
   -- map. `toMap(x, y)` turns a world point into a minimap pixel.
-  Features.call("drawOnMinimap", client, toMap, self.width, height)
+  Features.call("drawOnMinimap", client, toMap, self.width, viewH)
   drawPeople(client, toMap, 3, false)
 
   love.graphics.setScissor()
 
   -- Frame.
   love.graphics.setColor(C.frame[1], C.frame[2], C.frame[3], self.alpha)
-  love.graphics.rectangle("line", 0, 0, self.width, height)
+  love.graphics.rectangle("line", 0, 0, self.width, viewH)
 
   love.graphics.pop()
 
-  hint(keyName .. ": close minimap", y0 + height + 6)
-  hint(mapKey .. ": big map", y0 + height + 24)
+  hint(keyName .. ": close minimap", y0 + viewH + 6)
+  hint(mapKey .. ": big map", y0 + viewH + 24)
   love.graphics.setColor(1, 1, 1)
 end
 

@@ -75,6 +75,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   river and over it on six bridges, up a stack of hairpins and along the
   gorge, with snow on the peaks near the top. Reach the pass to finish.
 
+### Changed
+- The minimap on long maps (the Coast, the Winding Road) no longer runs
+  down the side of the screen: it shows the part round you and scrolls as
+  you go.
+
 ## [0.12.0] - 2026-10-05
 
 Grenades: keep a few in a quick slot, see where one will land and how far
