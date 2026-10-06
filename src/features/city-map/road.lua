@@ -43,6 +43,7 @@
 --                         door while anyone is near (a-man/city17.lua)
 --   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
 --   map.posts             empty: City 17's level reads it (it mans the nests)
+--   map.wreckRide         true: a wrecked car takes its driver back to the start with it (weapons)
 -- render_road.lua draws it all.
 
 local Coast = require("src.features.city-map.coast")
@@ -492,6 +493,7 @@ function Road.build(map, rng, T)
   end
   map.cx, map.cy = math.floor(ax - 4 * T), math.floor(Y(arrival.r + 2))
   map.exitX, map.exitY = math.floor(X(pass.c)), math.floor(Y(pass.r - 2))
+  map.wreckRide = true -- the road is driven: a wreck sends you back to the start in your car
   map.rollermineScatter = { count = Road.MINE_SCATTER, clear = {
     { x = ax, y = Y(arrival.r), r = Road.MINE_CLEAR }, { x = map.exitX, y = map.exitY, r = Road.MINE_CLEAR / 2 },
   } }

@@ -1190,7 +1190,13 @@ the one with a plot.
   48 more out of the bunkers. City 17's level runs on the map
   (`Level.maps.road`), and on a map that is driven its soldiers can be run
   down (car-collisions' `runOverSpeed` and `runOverDamage`: one hit kills,
-  the driver's kill).
+  the driver's kill). A wrecked car doesn't leave its driver on foot out
+  on the road (`map.wreckRide`, answered through city-map's
+  `serverWreckRide`, which weapons asks when someone's own car is
+  wrecked): they ride the wreck back to their slot at the arrival, out of
+  the world and with the screen as for the dead (WPN_WRECK's `ride`), and
+  are back behind the wheel 2.5 s later. Dying on foot already brings
+  everyone back there in their car.
 - Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
   with `map.rollermines` ({ x, y, r, count }) gets them set there when a
   quest starts (`count` scaled by `Bosses.count`), and a map with

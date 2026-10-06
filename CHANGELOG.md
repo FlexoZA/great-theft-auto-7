@@ -91,6 +91,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - More rollermines on the Winding Road: on top of the ones waiting along
   the road, 18 more lie scattered at random over the whole map, somewhere
   different every time you play it.
+- On the Winding Road a wrecked car no longer leaves you stranded on foot:
+  you go back to the start of the road with it and carry on behind the
+  wheel.
 - The Combine hold every bridge on the Winding Road: two machine-gun
   nests at the far end fire back across it, riflemen fight from behind
   concrete blocks laid as a chicane, and a bunker beside the road keeps

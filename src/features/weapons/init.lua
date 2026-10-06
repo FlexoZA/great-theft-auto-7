@@ -90,6 +90,10 @@
 -- Another feature may take both over (the garage): a player it gives a
 -- place to (`serverRespawnPoint`) comes back there on foot, their car left
 -- where it is, and a wreck it claims (`serverWreckClaimed`) is its to keep.
+-- A map may keep a driver in their own car when it is wrecked
+-- (`serverWreckRide`, city-map's: the Winding Road): they ride the wreck
+-- back to their slot, out of the world meanwhile, and come back behind the
+-- wheel, the screen as it is for the dead until then.
 --
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
@@ -106,7 +110,8 @@
 --   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
---   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime> <type>
+--   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime> <type> <ride>
+--                                              (ride 1: the driver rides it back to their slot, `serverWreckRide`)
 --   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
@@ -1162,6 +1167,9 @@ Weapons.clientMessages = {
     if killer and kills then
       Weapons.kills[killer] = kills
     end
+    if driver == client.myId and args[8] == "1" then
+      Weapons.deadTimer = tonumber(args[6]) or DEATH_TIME -- riding the wreck back: as if dead till it is back
+    end
     local text
     if driver and driver ~= 0 then
       local name = playerName(client, driver) .. "'s car"
@@ -2175,23 +2183,29 @@ function Weapons:wreck(server, car, byId, pid, angle, dtype)
     return self:die(server, driver, byId, pid, angle, dtype)
   end
   local kills = driver and self:creditKill(byId) or 0
-  if driver then
+  -- A player's own car goes back to their slot; any other car they own
+  -- (one they bought) would land on top of it there, so it stays put. Unless
+  -- another feature claims the wreck (the garage): then it is theirs to keep.
+  local ownerPlayer = car.owner and server.players[car.owner]
+  local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
+  -- On a map that wants it (`serverWreckRide`: the Winding Road), whoever
+  -- was driving their own car stays in it and rides it back to the slot,
+  -- to come back behind the wheel rather than on foot where it went up.
+  local ride = driver and owner and ownerPlayer == driver and Features.any("serverWreckRide", server, driver, car)
+  if driver and not ride then
     local onFoot = Features.byName["on-foot"]
     if onFoot and onFoot.getOut then
       onFoot:getOut(server, driver, true)
     else
       server:unseat(driver)
     end
-    sv.players[driver.id].protectedUntil = sv.time + SPAWN_PROTECTION
   end
-  -- A player's own car goes back to their slot; any other car they own
-  -- (one they bought) would land on top of it there, so it stays put. Unless
-  -- another feature claims the wreck (the garage): then it is theirs to keep.
-  local ownerPlayer = car.owner and server.players[car.owner]
-  local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
+  if driver then
+    sv.players[driver.id].protectedUntil = sv.time + (ride and DEATH_TIME or 0) + SPAWN_PROTECTION
+  end
   cs.hp = cs.max
   local deathTime = 0
-  if not Features.any("serverWreckClaimed", server, car) then
+  if ride or not Features.any("serverWreckClaimed", server, car) then
     deathTime = DEATH_TIME
     cs.deadUntil = sv.time + DEATH_TIME
     cs.spawn = owner and owner.spawn or { x = wx, y = wy, angle = car.angle }
@@ -2201,7 +2215,7 @@ function Weapons:wreck(server, car, byId, pid, angle, dtype)
   end
   dtype = Damage.key(dtype)
   server:broadcast(Protocol.encode("WPN_WRECK", pid or 0, byId or 0, car.id, driver and driver.id or 0, kills,
-    deathTime, dtype))
+    deathTime, dtype, ride and 1 or 0))
   Features.call("serverKill", server, {
     kind = "car", x = wx, y = wy, by = byId, victim = driver and driver.id, angle = angle, onFoot = false,
     cause = dtype,

@@ -243,6 +243,13 @@ function CityMap:growthSites()
   return Layout.growthSites(self.map)
 end
 
+--- Weapons asks when somebody's own car is wrecked: on a map with
+--- `wreckRide` (the Winding Road) they ride it back to their slot and come
+--- back behind the wheel, not on foot out where it went up.
+function CityMap:serverWreckRide()
+  return self.map ~= nil and self.map.wreckRide == true
+end
+
 function CityMap:blocksPoint(x, y)
   return Collision.blocked(self.map, x, y)
 end
