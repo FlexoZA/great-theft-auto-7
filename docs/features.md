@@ -1207,7 +1207,11 @@ the one with a plot.
   every 6 s while a player is within 1.5x its 750 px reach and fewer than 3
   of its own are up, 8 in all for one human, the door opening again for
   each; they go for the player). 48 soldiers on the nests for one human,
-  48 more out of the bunkers. City 17's level runs on the map
+  48 more out of the bunkers. Short of every bridge lie three burnt-out
+  cars (cover kind "wreck", solid, `facing` their nose; `Road.WRECKS`
+  tiles back from the deck, staggered either side up to
+  `Road.WRECK_SPREAD` out, never on the deck): cover to fight the nests
+  from, each hiding a spot behind it from the nearest one. City 17's level runs on the map
   (`Level.maps.road`), and on a map that is driven its soldiers can be run
   down (car-collisions' `runOverSpeed` and `runOverDamage`: one hit kills,
   the driver's kill). A wrecked car doesn't leave its driver on foot out

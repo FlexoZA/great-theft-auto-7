@@ -25,7 +25,8 @@
 --                         `along` is the way the road runs over it
 --   map.spots             { name, x, y, r } the wide spots, world px
 --   map.zones             { name, y0, y1 } as City 17's: the stretches of the road
---   map.cover             { kind = "water" | "rail" | "bunker" | "block", x, y, w, h }, solid (a rail
+--   map.cover             { kind = "water" | "rail" | "bunker" | "block" | "wreck", x, y, w, h }, solid (a
+--                         wreck: a burnt-out car short of a bridge, for cover, `facing` the way its nose is; a rail
 --                         only to cars and people: its solid is `low`, so sight and rounds go over it)
 --                         (a block: a concrete block, laid in a chicane past each bridge); and kind "mountain",
 --                         not solid, only to colour the minimap
@@ -164,6 +165,11 @@ Road.BUNKER_AT, Road.BUNKER_OFF = 2.4, 5.3 -- the bunker: how far on, and how fa
 Road.CLEARING = 3.6 -- tiles round the bunker cut out of the mountainside to stand it in
 Road.CHICANE = { 3.6, 5.0 } -- where the concrete blocks close each side in turn, lane and verge
 Road.CHICANE_OFF = { 0.25, 0.72, 1.5, 2.3, 3.1 } -- tiles out from the middle that its blocks stand at
+-- Wrecked cars short of each bridge, for cover: tiles back from the deck, how far out from the
+-- middle they may lie (0.4 to 0.4 + spread, either side in turn) and their size along and across.
+Road.WRECKS = { 2.6, 4.5, 6.5 }
+Road.WRECK_SPREAD = 2.4
+Road.WRECK_SIZE = { 62, 32 }
 Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: seconds apart, up at once, in all
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
@@ -177,6 +183,7 @@ local MAP = {
   rail = { 0.70, 0.70, 0.68 },
   bunker = { 0.55, 0.56, 0.58 },
   block = { 0.62, 0.62, 0.60 },
+  wreck = { 0.36, 0.26, 0.20 },
 }
 
 --- A Catmull-Rom curve through `pts` ({ c, r, ... }), sampled every `step`
@@ -500,6 +507,27 @@ function Road.build(map, rng, T)
         local lane = (k % 2 == 0 and 1 or -1) * side
         for _, off in ipairs(Road.CHICANE_OFF) do
           solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
+        end
+      end
+      -- Burnt-out cars on the way onto the bridge, staggered across it: cover
+      -- to fight the nests from, one after another. Each lies along the road
+      -- as near as a box can, on open ground off the deck.
+      for k, at in ipairs(Road.WRECKS) do
+        local wx, wy, wdx, wdy, wnx, wny = along(first, -at)
+        local off = (k % 2 == 0 and 1 or -1) * side * (0.4 + rng:random() * Road.WRECK_SPREAD)
+        local cx3, cy3 = wx + wnx * off, wy + wny * off
+        local long = math.abs(wdx) > math.abs(wdy)
+        local size = Road.WRECK_SIZE
+        local ww, wh = long and size[1] or size[2], long and size[2] or size[1]
+        local hw, hh = ww / 2 / T, wh / 2 / T
+        local px3, py3 = X(cx3), Y(cy3)
+        local onDeck = px3 + ww / 2 >= b.x and px3 - ww / 2 <= b.x + b.w
+          and py3 + wh / 2 >= b.y and py3 - wh / 2 <= b.y + b.h
+        if not onDeck and open(cx3 - hw, cy3 - hh) and open(cx3 + hw, cy3 - hh) and open(cx3 - hw, cy3 + hh)
+          and open(cx3 + hw, cy3 + hh) then
+          local wreck = solid("wreck", px3, py3, ww, wh)
+          wreck.facing = (long and (wdx > 0 and 0 or math.pi) or (wdy > 0 and math.pi / 2 or -math.pi / 2))
+            + (rng:random() < 0.5 and math.pi or 0) -- nose either way
         end
       end
     end

@@ -5,7 +5,8 @@
 -- the middle; the bridges' decks and railings over the water; then the
 -- mountains, shaded as the Coast's are (render_coast.lua) with boulders
 -- along their foot, bare rock and snow on the tops further north, and the
--- trees on their sides. Past every bridge, the Combine's checkpoint: the
+-- trees on their sides. Short of every bridge, burnt-out cars to take cover
+-- behind; past every bridge, the Combine's checkpoint: the
 -- concrete blocks of its chicane, its bunker with the door on the road
 -- (a-man/city17.lua draws it open) and the sandbags of its two MG nests
 -- (the guns are drawn live: a-man/nests.lua).
@@ -55,6 +56,13 @@ local C = {
   door = { 0.22, 0.25, 0.29 },
   doorLight = { 0.45, 0.70, 0.85 },
   stripe = { 0.85, 0.70, 0.20 },
+  scorch = { 0.10, 0.09, 0.08 },
+  rust = { 0.45, 0.27, 0.16 },
+  rustDark = { 0.28, 0.17, 0.11 },
+  char = { 0.12, 0.11, 0.10 },
+  tyre = { 0.08, 0.08, 0.08 },
+  glass = { 0.62, 0.74, 0.80 },
+  paint = { { 0.42, 0.50, 0.58 }, { 0.55, 0.20, 0.17 }, { 0.60, 0.56, 0.44 }, { 0.30, 0.40, 0.28 } },
 }
 
 local function color(c, a)
@@ -323,6 +331,55 @@ local function drawBunker(s)
   box(23, 28, -6, -1)
 end
 
+--- A burnt-out car, from above, lying along its box with its nose to
+--- `facing`: scorched ground under it, a tyre or two gone, rust through
+--- what paint is left, the roof charred black and the glass in pieces.
+local function drawWreck(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local L, W = math.max(s.w, s.h), math.min(s.w, s.h)
+  local seed = s.seed or 0
+  color(C.scorch, 0.35)
+  love.graphics.ellipse("fill", cx, cy, s.w * 0.62, s.h * 0.62)
+  love.graphics.push()
+  love.graphics.translate(cx, cy)
+  love.graphics.rotate(s.facing or 0)
+  color(C.shadow)
+  love.graphics.rectangle("fill", -L / 2 + 4, -W / 2 + 5, L, W, 6, 6)
+  -- The tyres, bar the odd one burnt away.
+  for k, t in ipairs({ { 0.3, -1 }, { 0.3, 1 }, { -0.3, -1 }, { -0.3, 1 } }) do
+    if hash(seed * 1.7 + k) > 0.2 then
+      color(C.tyre)
+      love.graphics.rectangle("fill", t[1] * L - 7, t[2] * (W / 2) - 4, 14, 8, 2, 2)
+    end
+  end
+  color(C.rustDark)
+  love.graphics.rectangle("fill", -L / 2, -W / 2, L, W, 7, 7)
+  color(C.rust)
+  love.graphics.rectangle("fill", -L / 2 + 3, -W / 2 + 3, L - 6, W - 6, 5, 5)
+  -- What paint is left, in flakes.
+  local paint = C.paint[math.floor(hash(seed) * #C.paint) + 1]
+  for i = 1, 6 do
+    color(paint, 0.85)
+    local px, py = (hash(seed + i * 3.1) - 0.5) * (L - 16), (hash(seed + i * 5.7) - 0.5) * (W - 12)
+    love.graphics.rectangle("fill", px - 4, py - 3, 6 + hash(seed + i) * 6, 4 + hash(seed - i) * 4, 2, 2)
+  end
+  -- The bonnet's crease, the charred cabin and its broken glass.
+  color(C.rustDark)
+  love.graphics.rectangle("fill", L * 0.22, -W / 2 + 4, 2, W - 8)
+  color(C.char)
+  love.graphics.rectangle("fill", -L * 0.22, -W / 2 + 5, L * 0.38, W - 10, 4, 4)
+  color(C.glass, 0.7)
+  for i = 1, 5 do
+    local gx = -L * 0.2 + hash(seed + i * 7.3) * L * 0.34
+    local gy = (hash(seed + i * 2.9) - 0.5) * (W - 14)
+    love.graphics.polygon("fill", gx, gy, gx + 3, gy + 1, gx + 1, gy + 3)
+  end
+  color(C.char, 0.8) -- holes rusted through, a scorch up the side
+  love.graphics.circle("fill", -L * 0.36, (hash(seed * 3) - 0.5) * (W - 12), 3)
+  love.graphics.ellipse("fill", L * 0.34, 0, L * 0.08, W * 0.3)
+  love.graphics.pop()
+end
+
 --- A concrete block, its top lit.
 local function drawBlock(s)
   color(C.shadow)
@@ -416,6 +473,8 @@ function RenderRoad.draw(map, T)
       drawRail(s)
     elseif s.kind == "block" then
       drawBlock(s)
+    elseif s.kind == "wreck" then
+      drawWreck(s)
     end
   end
   for _, n in ipairs(map.nests or {}) do
