@@ -24,12 +24,6 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Whoever a bum goes for cries "I have been stabbed" at his first punch, and police who see it just
   answer "I don't think you have mate". Shoot back at the bum in front of them, though, and they come
   after you. Bots he goes for fight back, and get the same treatment.
-
-### Changed
-- Parks are no longer plain grass: gravel paths lead in from each side to a paved plaza with a
-  fountain, with striped lawns, low hedges, flower beds, lamps and benches.
-
-### Added
 - Gang Hangout: a new building (200 Fcks) for a plot you own. Deposit koins into its fund and up to
   4 armed guards come out, 100 Fcks each from the fund; with the fund empty nobody comes out, and
   a guard who goes down is replaced 10 seconds later. They go after anyone who shoots any of your
@@ -41,21 +35,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   or shoots one of them, has the crew after them, and their rounds bring officers down.
 
 ### Changed
-- On the minimap and the big map, every building is now drawn in its owner's colour (the colour of
-  their dot), so you can see at a glance whose it is. Ruins are a darker shade of it.
-- Every park has a bum living on one of its benches, his shopping cart parked beside him. Stand next
-  to him and press F to hire him for 1000 Fcks: pick another player or a bot and he goes after them,
-  shouting abuse, and every punch leaves them bleeding (5 a second for 6 s). He gives up after 75 s,
-  or once they go down, and walks back to his bench. The target's screen warns them, but not who paid.
-  A bum has 200 health (ten pistol rounds) and can also be frozen or run over; a new one takes the
-  bench a minute later.
-- Whoever a bum goes for cries "I have been stabbed" at his first punch, and police who see it just
-  answer "I don't think you have mate". Shoot back at the bum in front of them, though, and they come
-  after you. Bots he goes for fight back, and get the same treatment.
-
-### Changed
 - Parks are no longer plain grass: gravel paths lead in from each side to a paved plaza with a
   fountain, with striped lawns, low hedges, flower beds, lamps and benches.
+- On the minimap and the big map, every building is now drawn in its owner's colour (the colour of
+  their dot), so you can see at a glance whose it is. Ruins are a darker shade of it.
 
 ## [0.12.0] - 2026-10-05
 
