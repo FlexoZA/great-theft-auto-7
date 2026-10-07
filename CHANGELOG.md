@@ -105,6 +105,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   He throws them at you, and claws anyone who gets close. Shoot the crabs,
   or run them over; drive into him and your car bounces off, hurting you
   both. Beat him to finish the level (reaching the pass no longer does).
+- Into the Citadel: beat the Poison Zombie and his EXIT star takes you
+  inside at last. One catwalk climbs a vast dark shaft, platform to
+  platform, and the Combine hold all of it: guards on every platform,
+  rollermines on the catwalks, Hunters near the top, and a machine gun
+  firing straight down the long span over the core, with nowhere on it
+  to hide. Reach the lift at the top to finish.
 - Poison, a new kind of damage: a poison headcrab's bite leaves you
   poisoned, losing 4 health a second for 6 seconds, with green bubbles
   rising off you. A medkit cures it. It shows in the resistances on the

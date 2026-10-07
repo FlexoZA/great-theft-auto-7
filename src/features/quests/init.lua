@@ -181,11 +181,15 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s took the road after him. Welcome to the Winding Road.",
     introLine = 8,
-    exitText = "The Poison Zombie is down and the pass is yours. The Citadel is in sight from up here. His trail "
-      .. "goes cold, for now. Head home.",
+    exitText = "The Poison Zombie is down and the pass is yours. The Citadel is right there, and this time the "
+      .. "way in is open. Go in after him.",
+    exitTitle = "Into the Citadel",
+    exitLabel = "CITADEL",
+    next = "a-man-citadel",
   },
   {
-    -- The end of the trail, for later; for now only `love . --quest a-man-citadel` gets there.
+    -- The end of the trail: the EXIT star by the Poison Zombie on the
+    -- Winding Road's pass leads here.
     id = "a-man-citadel",
     title = "Into the Citadel",
     text = "He went inside. One catwalk up through the Citadel, and the Combine on every platform along it.",
@@ -195,7 +199,7 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s went in after him. Welcome to the Citadel.",
     exitText = "You made it to the top. His trail goes cold here, for now. Head home.",
-    introLine = 3,
+    introLine = 9,
   },
   {
     id = "home",

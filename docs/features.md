@@ -1193,7 +1193,7 @@ the one with a plot.
   `distances` and `rects`), bare rock and snow on the tops further north.
   Its boss, the Poison Zombie (the poison-zombie feature), waits on the
   pass (`map.bossX, map.bossY`); beating him finishes the level and his
-  EXIT star leads home. (Without that feature, `a-man/road.lua` finishes
+  EXIT star ("CITADEL", the quest's `next`) leads on into the Citadel. (Without that feature, `a-man/road.lua` finishes
   it for the first player within 200 px of the pass, `map.exitX, exitY`.) City 17's theme
   plays; it has no surroundings yet. Rollermines lie in wait along it
   (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
@@ -1296,8 +1296,8 @@ the one with a plot.
   channel) and the messages `PZM_BOSS`, `PZM_CRABS`, `PZM_CRAB_DOWN`,
   `PZM_BITE`, `PZM_DOWN` (header of `poison-zombie/init.lua`).
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
-  ("Into the Citadel", nothing leads there yet: `love . --world <slug>
-  --quest a-man-citadel`) on
+  ("Into the Citadel"; the Winding Road's `next`, so the EXIT star by the
+  Poison Zombie leads here; A-Man's intro line 9) on
   city-map's `citadel` (`city-map/citadel.lua` builds it,
   `render_citadel.lua` draws it). One catwalk, two or three tiles wide,
   zig-zags up a vast shaft from the lift everyone arrives on (HOME star,

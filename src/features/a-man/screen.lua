@@ -26,6 +26,7 @@ Screen.lines = {
   "The Citadel? Not... yet. There is another way round. A scenic one. I insist.",
   "Sea air. Very... bracing. Do keep to the beach. The mountains are... not for you.",
   "You found a car. How... resourceful. The road is long. And the bridges are... old.",
+  "So. You came the long way round. After all that... you still want in. Very well. Mind the... drop.",
 }
 
 Screen.color = { 0.55, 0.95, 0.65 }
