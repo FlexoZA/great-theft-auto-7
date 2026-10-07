@@ -60,6 +60,7 @@ local Theme = require("src.features.a-man.theme")
 local OuterCityTheme = require("src.features.a-man.theme_outercity")
 local CoastTheme = require("src.features.a-man.theme_coast")
 local RoadTheme = require("src.features.a-man.theme_road")
+local CitadelTheme = require("src.features.a-man.theme_citadel")
 local Sounds = require("src.features.a-man.sounds")
 local Turrets = require("src.features.a-man.turrets")
 local Brain = require("src.features.a-man.brain")
@@ -357,7 +358,9 @@ local cl = nil -- { a, lastTick, turretTick, tears, turrets }
 local remains = nil -- { x, y, t }: the disguise where he fell, outliving the event
 local time = 0
 local face, music = nil, nil -- `music`: whichever theme is playing (or last played)
-local THEMES = { city17 = Theme, outercity = OuterCityTheme, coast = CoastTheme, road = RoadTheme } -- by their map
+local THEMES = { -- by the map they go with
+  city17 = Theme, outercity = OuterCityTheme, coast = CoastTheme, road = RoadTheme, citadel = CitadelTheme,
+}
 local themes = {} -- map -> Source, rendered the first time it is wanted
 
 --- The theme for `map` (City 17's, his own, for any map without one) from the top.
@@ -383,7 +386,8 @@ end
 --- intro screen to the end of the quest, the way Karen's does hers. Each of
 --- his quest's maps has its own (`map`): City 17's industrial rock (his own,
 --- the event's too), the Outer City's chase (theme_outercity.lua), the
---- Coast's (theme_coast.lua) and the Winding Road's heavy metal (theme_road.lua).
+--- Coast's (theme_coast.lua), the Winding Road's heavy metal (theme_road.lua)
+--- and the Citadel's industrial metal (theme_citadel.lua).
 function AMan.playTheme(map)
   startMusic(map)
 end

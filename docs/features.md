@@ -1321,7 +1321,11 @@ the one with a plot.
   gallery, across to the reactor deck); and Hunters walking round the
   gallery (one) and the top (two) (`map.hunterBeats`), all more with more
   humans. The first player within 140 px of the lift up still finishes it
-  (`a-man/citadel.lua`), and its EXIT star leads home.
+  (`a-man/citadel.lua`), and its EXIT star leads home. Its own theme plays
+  (`a-man/theme_citadel.lua`: industrial metal, 112 BPM in D Phrygian, ~86 s:
+  a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
+  half-time drums, a chorus with a harmonised lead, a breakdown under the
+  Combine's alarm).
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
