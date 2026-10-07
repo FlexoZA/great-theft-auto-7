@@ -321,6 +321,10 @@ do the civilian bots. A brain that wants to get somewhere on the street
 grid sets `npc.ai.route.next` (an exit of `route.to`) before calling
 `Bots:cruise`, and traffic takes that street at the next crossing instead of
 a random one; delivery's `route.lua` finds the way.
+`Bots:fightOff(server, bot, foe)` sets a bot on something that is not a
+player (a hired bum): `foe.pos()` says where it is, `foe.alive()` whether
+the fight is still on. It drives at it and shoots (`Bots:fightAt`), after
+any player it is angry at; its shots are crimes like any others.
 
 ## Conventions between features
 
@@ -1480,6 +1484,40 @@ the one with a plot.
   put into a bag, and may bring its own card picture (`icon`), side-panel
   text (`details`) and line once bought (`bought`).
   Messages: `SHOP_BUY <item>[@<tier>]`, `SHOP_OK <item>[@<tier>] <n>`, `SHOP_NO <reason>`, `SHOP_DEV <0|1>`.
+- `Features.byName.police:serverRemark(server, x, y, text)`: a cop who can
+  see (x, y), a patrol car first, else an officer on the beat, says `text`
+  in a bubble over their head (`POL_SAY`), at most once every
+  `Police.remarkEvery` seconds each, and does nothing else. Returns true if
+  somebody saw it.
+- Parks: city-map lays each park out (`buildPark` in `layout.lua`, sizes in
+  `Layout.PARK`): gravel paths from the middle of each side to a paved plaza
+  with a fountain (solid), four lawns with two trees each, and a bench on
+  each lawn's corner by the plaza facing the fountain. The park block
+  carries `fountain` ({ x, y, r }) and `benches` ({ x, y, angle }, angle
+  the way a sitter faces), in world px. The fountain's water moves
+  (`Render.drawFountains`, over the canvas).
+- Park bums: `src/features/park-bums` puts a bum on one bench of every park
+  (`Bums.homes(map)`, worked out from the map on every machine). On foot
+  beside him the action key (F, `actionTaken`) opens a menu of everyone
+  else in the game but the police and hired drivers; picking one pays
+  `Bums.PRICE` (1000) through `money:spend` and he goes after them: straight
+  at them when the way is clear, round blocks along d-day's walking grid
+  (`d-day/nav.lua`) when not. Each punch is melee (`PUNCH_DAMAGE`, nobody's
+  doing: no kill credit, no grudges) and tops their bleed up to
+  `BLEED_DPS` for `BLEED_SECONDS`. He shouts lines from `lines.lua` (picked
+  on the host, said in `voice.lua`'s synth voice on the "bums" channel) and
+  goes home when they die, leave, or after `JOB_SECONDS`. The target sees a
+  warning and the bum in red on the minimap. His first punch has the target
+  cry "I have been stabbed" (`BUM_CRY`, `Lines.stabbed`), and a cop who can
+  see them answers "I don't think you have mate" (`Lines.cop`, through
+  `police:serverRemark`) and does nothing about the bum. A bot he punches
+  fights him off (`fightOff`). Shooting back is a crime like any other; the
+  cop's answer comes first (park-bums hears `serverShotFired` before the
+  police do), then they go after whoever fired. Bums answer `serverShotAt`,
+  `serverFreezeArea`, `serverPanicArea` and `serverWalkers`; cars hurt them
+  by their speed. Messages: `BUM_HIRE` up; `BUM_STATE`, `BUM_SAY`,
+  `BUM_DOWN`, `BUM_CRY` down, `BUM_OK` / `BUM_NO` to the hirer. Tuning is at the top of
+  `bums.lua`.
 - Delivery: `src/features/delivery` is the drivers a player hires at the
   shop (the Hire tab, 50 Fcks, up to three each). A driver is an NPC
   (`civilian`) in the refrigerated box truck with their employer's name over

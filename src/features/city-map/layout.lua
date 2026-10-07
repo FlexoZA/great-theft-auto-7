@@ -219,6 +219,53 @@ local function finish(map)
   end
 end
 
+-- Parks ---------------------------------------------------------------------
+-- A park fills a block's 6x6-tile core: gravel paths from the middle of each
+-- side meet at a round plaza with a fountain in it, leaving four lawns. Each
+-- lawn has two trees and a bench on its corner by the plaza, facing the
+-- fountain. Sizes in px, from the middle of the park.
+Layout.PARK = {
+  path = 40, -- width of each path
+  plaza = 72, -- radius of the paved circle
+  fountain = 30, -- radius of the fountain's basin (solid)
+  bench = 90, -- benches stand this far out, on the diagonals
+}
+-- Where the trees stand, in tiles from the core's top-left corner: two on
+-- each lawn, clear of the paths even with their jitter.
+local PARK_TREES = {
+  { 0.85, 1.9 }, { 1.9, 0.85 }, -- top left lawn
+  { 4.1, 0.85 }, { 5.15, 1.9 }, -- top right
+  { 0.85, 4.1 }, { 1.9, 5.15 }, -- bottom left
+  { 4.1, 5.15 }, { 5.15, 4.1 }, -- bottom right
+}
+
+--- Lay out the park on `block` (core at tiles cx, cy). It draws the same
+--- random numbers as the plain grove of nine trees it replaced, so every
+--- other block in the city comes out as it did. Leaves `block.fountain`
+--- ({ x, y, r }) and `block.benches` ({ x, y, angle }, angle the way a
+--- sitter faces) in world px.
+local function buildPark(map, rng, block, cx, cy)
+  local T, P = Layout.TILE, Layout.PARK
+  local x0, y0 = map.x0 + cx * T, map.y0 + cy * T
+  for i = 1, 9 do
+    local jx, jy = (rng:random() - 0.5) * 30, (rng:random() - 0.5) * 30
+    local spot = PARK_TREES[i] -- the ninth draw is kept only for the stream
+    if spot then
+      local x, y = x0 + spot[1] * T + jx, y0 + spot[2] * T + jy
+      map.trees[#map.trees + 1] = { x = x, y = y }
+      map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
+    end
+  end
+  local mx, my = x0 + 3 * T, y0 + 3 * T
+  block.fountain = { x = mx, y = my, r = P.fountain }
+  local f = P.fountain - 4 -- the rim is a little lower than the basin is wide
+  map.solids[#map.solids + 1] = { x = mx - f, y = my - f, w = 2 * f, h = 2 * f }
+  block.benches = {}
+  for i, a in ipairs({ -3 * math.pi / 4, -math.pi / 4, math.pi / 4, 3 * math.pi / 4 }) do
+    block.benches[i] = { x = mx + math.cos(a) * P.bench, y = my + math.sin(a) * P.bench, angle = a + math.pi }
+  end
+end
+
 --- A suburban dead end. The street comes in from the bottom edge, two
 --- lanes with a sidewalk each side, and ends in a turning circle near the
 --- top; houses sit on lawns either side of it and around the circle, with
@@ -1231,14 +1278,7 @@ function Layout.generate(spec)
         local block = { tx = cx, ty = cy, tw = 6, th = 6, bi = bi, bj = bj }
         if roll < 0.15 then
           block.kind = "park"
-          for i = 0, 2 do
-            for j = 0, 2 do
-              local x = px(cx + 1 + i * 2) + (rng:random() - 0.5) * 30
-              local y = py(cy + 1 + j * 2) + (rng:random() - 0.5) * 30
-              map.trees[#map.trees + 1] = { x = x, y = y }
-              map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
-            end
-          end
+          buildPark(map, rng, block, cx, cy)
         elseif roll < 0.27 then
           block.kind = "lot"
         else

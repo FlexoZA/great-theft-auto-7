@@ -330,9 +330,10 @@ function CityMap:update()
   self:redraw()
 end
 
-function CityMap:drawBelowCars()
+function CityMap:drawBelowCars(_client, camera)
   if self.canvas then
     Render.draw(self.map, self.canvas)
+    Render.drawFountains(self.map, love.timer.getTime(), camera)
   end
 end
 

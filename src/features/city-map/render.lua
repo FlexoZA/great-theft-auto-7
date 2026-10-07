@@ -20,6 +20,24 @@ local C = {
   grassDark = { 0.25, 0.42, 0.22 },
   canopy = { 0.16, 0.36, 0.16 },
   canopyLight = { 0.28, 0.52, 0.24 },
+  grassStripe = { 0.28, 0.47, 0.24 }, -- a park's mown stripes
+  hedge = { 0.17, 0.33, 0.15 },
+  hedgeLight = { 0.23, 0.42, 0.19 },
+  gravel = { 0.70, 0.64, 0.52 },
+  gravelEdge = { 0.55, 0.50, 0.40 },
+  paving = { 0.66, 0.64, 0.60 },
+  pavingLine = { 0.56, 0.54, 0.51 },
+  stone = { 0.74, 0.73, 0.70 },
+  stoneDark = { 0.50, 0.49, 0.47 },
+  water = { 0.20, 0.45, 0.70 },
+  waterLight = { 0.36, 0.62, 0.84 },
+  soil = { 0.33, 0.24, 0.16 },
+  flowers = { { 0.92, 0.30, 0.35 }, { 0.98, 0.85, 0.30 }, { 0.85, 0.50, 0.90 }, { 0.98, 0.98, 0.95 } },
+  bench = { 0.62, 0.42, 0.24 },
+  benchDark = { 0.46, 0.30, 0.17 },
+  benchIron = { 0.16, 0.16, 0.18 },
+  lamp = { 1.00, 0.93, 0.70 },
+  lampGlow = { 1.00, 0.90, 0.55, 0.18 },
   lot = { 0.22, 0.22, 0.24 },
   bay = { 0.75, 0.75, 0.72 },
   ground = { 0.36, 0.46, 0.27 }, -- open field
@@ -124,18 +142,152 @@ local function drawRoads(map)
   end
 end
 
+--- A park bench at (x, y), its sitter facing `angle`: slats on two iron
+--- legs, the backrest behind.
+local function drawBench(x, y, angle)
+  color(C.shadow)
+  love.graphics.circle("fill", x + 5, y + 5, 15)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(angle)
+  color(C.benchIron)
+  love.graphics.rectangle("fill", -8, -15, 14, 4)
+  love.graphics.rectangle("fill", -8, 11, 14, 4)
+  color(C.bench)
+  love.graphics.rectangle("fill", -5, -16, 10, 32) -- the seat
+  color(C.benchDark)
+  love.graphics.rectangle("fill", -10, -16, 4, 32) -- the backrest
+  love.graphics.setLineWidth(1)
+  love.graphics.line(-1.5, -16, -1.5, 16)
+  love.graphics.line(1.5, -16, 1.5, 16)
+  love.graphics.pop()
+end
+
+--- A lamp post: its shadow, the post and a lit globe.
+local function drawLamp(x, y)
+  color(C.shadow)
+  love.graphics.circle("fill", x + 5, y + 5, 6)
+  color(C.lampGlow)
+  love.graphics.circle("fill", x, y, 14)
+  color(C.benchIron)
+  love.graphics.circle("fill", x, y, 6)
+  color(C.lamp)
+  love.graphics.circle("fill", x, y, 4)
+end
+
+--- A round bed of flowers, dotted in colours picked by `seed`.
+local function drawFlowerBed(x, y, r, seed)
+  color(C.kerb)
+  love.graphics.circle("fill", x, y, r + 3)
+  color(C.soil)
+  love.graphics.circle("fill", x, y, r)
+  for i = 0, 13 do
+    local a = i * 2.4
+    local d = r * (0.25 + 0.6 * ((i * 7 + seed) % 10) / 10)
+    color(C.flowers[(i + seed) % #C.flowers + 1])
+    love.graphics.circle("fill", x + math.cos(a) * d, y + math.sin(a) * d, 4)
+  end
+end
+
+--- A park (Layout.PARK, the block's `fountain` and `benches`): striped
+--- lawns hedged round, gravel paths in from each side to a paved plaza, the
+--- fountain in the middle of it, flower beds, lamps and benches.
+local function drawPark(b, x, y, w, h)
+  local P = Layout.PARK
+  local cx, cy = x + w / 2, y + h / 2
+  local half = P.path / 2
+  local seed = (b.bi or 0) * 7 + (b.bj or 0) * 3
+  -- Lawn, mown in stripes.
+  color(C.grass)
+  love.graphics.rectangle("fill", x, y, w, h)
+  color(C.grassStripe)
+  for i = 0, w / 32 - 1, 2 do
+    love.graphics.rectangle("fill", x + i * 32, y, 32, h)
+  end
+  -- A low hedge round the outside, open where the paths come in.
+  local inset, hw = 4, 12
+  local function hedge(hx, hy, hw2, hh)
+    color(C.hedge)
+    love.graphics.rectangle("fill", hx, hy, hw2, hh)
+    color(C.hedgeLight)
+    for i = 0, math.max(hw2, hh) / 12 - 1 do
+      if hw2 > hh then
+        love.graphics.circle("fill", hx + 6 + i * 12, hy + hh / 2 - 1, 4)
+      else
+        love.graphics.circle("fill", hx + hw2 / 2 - 1, hy + 6 + i * 12, 4)
+      end
+    end
+  end
+  local run = w / 2 - half - inset
+  hedge(x + inset, y + inset, run, hw)
+  hedge(cx + half, y + inset, run, hw)
+  hedge(x + inset, y + h - inset - hw, run, hw)
+  hedge(cx + half, y + h - inset - hw, run, hw)
+  hedge(x + inset, y + inset + hw, hw, run - hw)
+  hedge(x + inset, cy + half, hw, run - hw)
+  hedge(x + w - inset - hw, y + inset + hw, hw, run - hw)
+  hedge(x + w - inset - hw, cy + half, hw, run - hw)
+  -- Gravel paths, edged, and the plaza over where they meet.
+  color(C.gravelEdge)
+  love.graphics.rectangle("fill", cx - half - 3, y, P.path + 6, h)
+  love.graphics.rectangle("fill", x, cy - half - 3, w, P.path + 6)
+  color(C.gravel)
+  love.graphics.rectangle("fill", cx - half, y, P.path, h)
+  love.graphics.rectangle("fill", x, cy - half, w, P.path)
+  color(C.gravelEdge)
+  love.graphics.circle("fill", cx, cy, P.plaza + 3)
+  color(C.paving)
+  love.graphics.circle("fill", cx, cy, P.plaza)
+  color(C.pavingLine)
+  love.graphics.setLineWidth(2)
+  for r = P.fountain + 14, P.plaza - 6, 14 do
+    love.graphics.circle("line", cx, cy, r)
+  end
+  for i = 0, 11 do
+    local a = i * math.pi / 6
+    love.graphics.line(cx + math.cos(a) * (P.fountain + 6), cy + math.sin(a) * (P.fountain + 6),
+      cx + math.cos(a) * P.plaza, cy + math.sin(a) * P.plaza)
+  end
+  -- The fountain: a stone rim, the water, a basin on a column in the middle.
+  local f = b.fountain
+  if f then
+    color(C.shadow)
+    love.graphics.circle("fill", f.x + 6, f.y + 6, f.r)
+    color(C.stone)
+    love.graphics.circle("fill", f.x, f.y, f.r)
+    color(C.water)
+    love.graphics.circle("fill", f.x, f.y, f.r - 6)
+    color(C.waterLight)
+    love.graphics.circle("fill", f.x - 5, f.y - 5, f.r - 16)
+    color(C.stone)
+    love.graphics.circle("fill", f.x, f.y, 9)
+    color(C.stoneDark)
+    love.graphics.circle("line", f.x, f.y, 9)
+  end
+  -- Flower beds in the lawns' outer corners, lamps beside the paths.
+  local bed = 26
+  drawFlowerBed(x + 42, y + 42, bed, seed)
+  drawFlowerBed(x + w - 42, y + 42, bed, seed + 1)
+  drawFlowerBed(x + 42, y + h - 42, bed, seed + 2)
+  drawFlowerBed(x + w - 42, y + h - 42, bed, seed + 3)
+  local lampOut = P.plaza + 34
+  drawLamp(cx - half - 12, cy - lampOut)
+  drawLamp(cx + lampOut, cy - half - 12)
+  drawLamp(cx + half + 12, cy + lampOut)
+  drawLamp(cx - lampOut, cy + half + 12)
+  for _, bench in ipairs(b.benches or {}) do
+    drawBench(bench.x, bench.y, bench.angle)
+  end
+  love.graphics.setLineWidth(1)
+end
+
 local function drawParksAndLots(map)
   local T = Layout.TILE
   for _, b in ipairs(map.blocks) do
     local x, y = map.x0 + b.tx * T, map.y0 + b.ty * T
     local w, h = b.tw * T, b.th * T
     if b.kind == "park" then
-      color(C.grass)
-      love.graphics.rectangle("fill", x, y, w, h)
-      color(C.grassDark)
-      for i = 0, 5 do
-        love.graphics.rectangle("fill", x + (i * 97) % (w - 40), y + (i * 61) % (h - 30), 40, 30)
-      end
+      drawPark(b, x, y, w, h)
     elseif b.kind == "lot" then
       color(C.lot)
       love.graphics.rectangle("fill", x, y, w, h)
@@ -1392,6 +1544,39 @@ end
 function Render.draw(map, canvas)
   love.graphics.setColor(1, 1, 1)
   love.graphics.draw(canvas, map.left, map.top, 0, 2, 2)
+end
+
+--- What moves in the parks, over the canvas: rings spreading on each
+--- fountain's water and the spray falling back round its column. Only the
+--- fountains within `camera`'s view (all of them without one).
+function Render.drawFountains(map, time, camera)
+  local vw, vh
+  if camera then
+    local s = camera.scale or 1
+    vw, vh = love.graphics.getWidth() / 2 / s + 60, love.graphics.getHeight() / 2 / s + 60
+  end
+  for _, b in ipairs(map.blocks) do
+    local f = b.kind == "park" and b.fountain
+    if f and (not camera or (math.abs(f.x - camera.x) < vw and math.abs(f.y - camera.y) < vh)) then
+      local water = f.r - 6
+      love.graphics.setLineWidth(1.5)
+      for i = 0, 2 do
+        local k = (time * 0.5 + i / 3) % 1
+        love.graphics.setColor(0.75, 0.88, 1, 0.45 * (1 - k))
+        love.graphics.circle("line", f.x, f.y, 10 + k * (water - 11), 24)
+      end
+      love.graphics.setColor(0.85, 0.94, 1, 0.8)
+      for i = 0, 7 do
+        local a = i * math.pi / 4 + time * 0.7
+        local k = (time * 1.6 + i * 0.37) % 1
+        local d = 6 + k * 11
+        love.graphics.circle("fill", f.x + math.cos(a) * d, f.y + math.sin(a) * d - math.sin(k * math.pi) * 5,
+          1.6 * (1 - k * 0.5), 6)
+      end
+    end
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 1, 1)
 end
 
 return Render
