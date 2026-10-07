@@ -236,7 +236,7 @@ local function callIn(server, wave)
   end
   if wave.hunters and aman.serverVisit then
     local came = aman:serverVisit(server, f.x, f.y, function(srv, x, y)
-      hunters(srv, x, y, wave.hunters)
+      hunters(srv, x, y, Bosses.count(wave.hunters, srv)) -- more humans, more of them
     end)
     if not came then -- nowhere for him to land: they come anyway, under it
       hunters(server, f.x, f.y, wave.hunters)

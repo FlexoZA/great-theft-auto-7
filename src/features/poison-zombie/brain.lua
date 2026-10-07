@@ -115,11 +115,11 @@ local function wantsHeal(z, time)
   return z.medkit ~= nil
 end
 
---- His claws land: everyone in front of him within reach.
+--- His claws land: everyone in front of him within reach, hidden or not.
 local function swipe(G, z, server)
   local weapons = Features.byName.weapons
   for _, p in pairs(server.players) do
-    if Features.visible(server, p) then
+    if Features.present(p) then
       local x, y = Features.bodyPose(server, p)
       local a = math.atan2(y - z.y, x - z.x)
       local reach = G.swipeReach + (p.vehicle and G.carReach or 0) + 10 -- as far as he stopped to swipe from, and a bit

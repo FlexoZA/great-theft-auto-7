@@ -133,7 +133,7 @@ end
 --- now (no turrets standing, the wait over). Returns "blink" when his
 --- wind-up is done and he goes, "horde" when he opens the case, or nil.
 function Brain.think(A, a, server, dt, canHorde, time)
-  a.moving = false
+  a.moving, a.running = false, false
   if a.frozen > 0 then
     a.frozen = a.frozen - dt
     return nil
@@ -144,9 +144,12 @@ function Brain.think(A, a, server, dt, canHorde, time)
   end
   local threat = Dodge.threat(a.x, a.y, A.radius)
   if threat then
+    -- The one time he hurries, and it costs him: winded, he only walks it.
     local ux, uy = Dodge.away(threat, a.x, a.y)
     a.facing = math.atan2(uy, ux)
-    a.moving = walk(a, a.x + ux * 100, a.y + uy * 100, A.walkSpeed * Brain.DODGE_PACE * dt)
+    local pace = a.breath:pace(A.walkSpeed * Brain.DODGE_PACE, A.walkSpeed)
+    a.moving = walk(a, a.x + ux * 100, a.y + uy * 100, pace * dt)
+    a.running = a.moving and not a.breath:winded()
     return nil
   end
   a.cool = a.cool - dt

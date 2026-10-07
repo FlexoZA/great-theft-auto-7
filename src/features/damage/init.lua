@@ -24,14 +24,14 @@
 --   explosive  blown back from the blast, further the harder it hit, and
 --              dazed: your screen swims
 --   poison     you are poisoned for a while: it hurts on after the hit,
---              until it runs out or a medkit cures it
+--              until it runs out, you dodge or a medkit cures it
 --
 -- Burning, being zapped, bleeding and being poisoned hurt a little every
 -- quarter second until they run out. Another dose while one is on tops its
--- time back up at the stronger rate; it never stacks. A dodge puts a fire
--- out and shakes off a zap (the on-foot feature raises `serverDodged`), a
--- medkit stops the bleeding and cures the poison (buildings calls
--- `serverTreat`). Getting into a car, dying or leaving ends them all.
+-- time back up at the stronger rate; it never stacks. A dodge shakes off
+-- all four, the way you'd roll out a fire (the on-foot feature raises
+-- `serverDodged`), and a medkit stops the bleeding and cures the poison
+-- too (buildings calls `serverTreat`). Getting into a car, dying or leaving ends them all.
 -- Stunned or down, you are held (the `serverHeld` / `held` conventions: no
 -- walking, shooting or dodging). Everyone sees every status on everyone.
 --
@@ -271,10 +271,10 @@ function Damage:drawHUD(client)
   local key = Controls.bindings("use-medkit")[1]
   local medkit = "a medkit" .. (key and " (" .. Controls.name(key) .. ")" or "")
   if self:has(me, "bleed") then
-    says[#says + 1] = "BLEEDING: " .. medkit .. " stops it"
+    says[#says + 1] = "BLEEDING: dodge or " .. medkit .. " stops it"
   end
   if self:has(me, "poison") then
-    says[#says + 1] = "POISONED: " .. medkit .. " cures it"
+    says[#says + 1] = "POISONED: dodge or " .. medkit .. " cures it"
   end
   if self:has(me, "stun") then
     says[#says + 1] = "STUNNED"
@@ -520,10 +520,12 @@ function Damage:serverStep(server, dt)
   end
 end
 
---- Stop, drop and roll: a dodge puts the flames out and shakes off a zap.
+--- Stop, drop and roll: a dodge shakes off every status that hurts, the
+--- flames, a zap, a bleed and the poison.
 function Damage:serverDodged(server, player)
-  self:extinguish(server, player.id)
-  self:serverCure(server, player.id, "zap")
+  for status in pairs(HURTS) do
+    self:serverCure(server, player.id, status)
+  end
 end
 
 function Damage:serverPlayerJoined(server, player)

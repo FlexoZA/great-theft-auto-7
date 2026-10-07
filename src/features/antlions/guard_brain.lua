@@ -108,11 +108,12 @@ local function setMode(g, mode)
   g.mode, g.t = mode, 0
 end
 
---- Its scream lands: everyone in the cone it can reach.
+--- Its scream lands: everyone in the cone it can reach, hidden or not (it
+--- only picks whom to go after by what it sees; what it hits, it hits).
 local function scream(G, g, server)
   local caught = {}
   for _, p in pairs(server.players) do
-    if Features.visible(server, p) then
+    if Features.present(p) then
       local x, y = Features.bodyPose(server, p)
       local d = math.sqrt(dist2(x, y, g.x, g.y))
       local off = math.abs(wrap(math.atan2(y - g.y, x - g.x) - g.aim))
@@ -186,7 +187,7 @@ function Brain.think(G, g, server, dt, time)
     g.running = true
     local moved = move(g, G.radius * 0.8, g.aim, G.chargeSpeed, dt)
     for id, p in pairs(server.players) do
-      if not g.hitIds[id] and Features.visible(server, p) then
+      if not g.hitIds[id] and Features.present(p) then
         local x, y = Features.bodyPose(server, p)
         if dist2(x, y, g.x, g.y) <= (G.radius + 14) ^ 2 then
           g.hitIds[id] = true
@@ -208,7 +209,7 @@ function Brain.think(G, g, server, dt, time)
     if not g.swiped and g.t >= G.swipeHit then
       g.swiped = true
       for _, p in pairs(server.players) do
-        if Features.visible(server, p) then
+        if Features.present(p) then
           local x, y = Features.bodyPose(server, p)
           local a = math.atan2(y - g.y, x - g.x)
           if dist2(x, y, g.x, g.y) <= (G.swipeReach + 10) ^ 2 and math.abs(wrap(a - g.facing)) < 1.4 then

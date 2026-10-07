@@ -130,6 +130,7 @@ Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
 Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in, and goes to look
+Level.downAnswer = 5 -- of them at most go to look, nearest first (each works out his way there)
 Level.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
 Level.callAnswer = 3 -- how many of them come at most, nearest first
 Level.callEvery = 15 -- seconds before the same soldier calls in again
@@ -153,6 +154,7 @@ Level.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range =
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
 local SNAP = 200 -- px; a jump this big is a placement, not a step
+local GUNNER_ON = 16 -- px from a nest's gun that counts as on it (nests.lua's)
 -- Combine soldiers: dark grey-blue fatigues and armour, gloved hands, a
 -- masked head with two lenses that glow.
 local LOOK = {
@@ -568,7 +570,7 @@ end
 --- of them calls it in, the next says he is on his way. If nobody is free
 --- to go, the nearest still calls it in.
 local function callDown(down)
-  local went = sv.troops:alarm(down.x, down.y, Level.downHeard)
+  local went = sv.troops:alarm(down.x, down.y, Level.downHeard, { most = Level.downAnswer })
   if went[1] then
     later(went[1], "down", 0.5)
     if went[2] then
@@ -705,7 +707,7 @@ function Level.serverVisit(server, x, y, opened)
 end
 
 --- One soldier down: gibs on every screen, a few koins, maybe a pickup.
-local function soldierDown(server, s, by, angle)
+local function soldierDown(server, s, by, angle, cause)
   server:broadcast(Protocol.encode("C17_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
   callDown(s)
   local money = Features.byName.money
@@ -716,7 +718,7 @@ local function soldierDown(server, s, by, angle)
   if pickups and pickups.serverDropEnemy then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
-  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
+  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle, cause = cause })
 end
 
 --- Cars running soldiers down, on a map that is driven: car-collisions'
@@ -734,7 +736,7 @@ local function runOver(server)
           local amount = cc.runOverDamage * (1 + math.min(1, math.abs(car.speed) / car.maxSpeed))
           local travel = car.speed >= 0 and car.angle or car.angle + math.pi
           if sv.troops:hurt(s, i, amount, travel) then
-            soldierDown(server, s, car.driver, travel)
+            soldierDown(server, s, car.driver, travel, "impact")
           end
         end
       end
@@ -759,8 +761,8 @@ end
 --- A bullet through (x, y): the `serverShotAt` convention. Their own rounds
 --- (owned by nobody) pass through their side. A round takes off what it
 --- carries (the gun's damage, tier and all); a blast, which carries
---- nothing and asks a few times over, 20 a time.
-function Level.serverShotAt(server, x, y, radius, by, angle, damage)
+--- nothing and asks a few times over, 20 a time. `dtype` is the kill's cause.
+function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if not sv or by == 0 then
     return false
   end
@@ -772,7 +774,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   if sv.troops:hurt(s, i, damage or Combine.SHOT_DAMAGE, angle) then
-    soldierDown(server, s, by, angle)
+    soldierDown(server, s, by, angle, dtype)
   end
   return true
 end
@@ -811,6 +813,18 @@ function Level.clear()
   Corpses.clear()
 end
 
+--- The arc of the MG nest's gun soldier `s` (as drawn) stands at, or nil.
+local function gunnersArc(s)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  for _, b in ipairs(map and (map.nests or map.bunkers) or {}) do
+    local n = b.nest
+    if (s.dx - n.x) ^ 2 + (s.dy - n.y) ^ 2 < GUNNER_ON * GUNNER_ON then
+      return n.arc
+    end
+  end
+end
+
 function Level.update(dt)
   time = time + dt
   if next(troops) and love.timer.getTime() - heardAt > STALE then
@@ -833,8 +847,10 @@ function Level.update(dt)
       s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
       s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
     end
-    -- His cone opens out while he is on edge and closes again after.
-    local fov = s.wary and Level.alertFov or Level.fov
+    -- His cone opens out while he is on edge and closes again after; on an
+    -- MG nest's gun it is as wide as the gun turns, the way the host sees it.
+    local arc = gunnersArc(s)
+    local fov = arc and 2 * arc or (s.wary and Level.alertFov or Level.fov)
     s.fov = s.fov + (fov - s.fov) * math.min(1, dt * 4)
     if s.say then
       s.sayT = s.sayT - dt
@@ -862,14 +878,17 @@ local function drawDoor(d)
     ax * w + math.abs(d.nx) * 8, ay * w + math.abs(d.ny) * 8)
 end
 
---- Their cones of sight, on the ground under everything.
+--- Their cones of sight, on the ground under everything (unless the
+--- sight-cones toggle hides them).
 function Level.drawBelowCars()
   for _, d in ipairs(doors) do
     drawDoor(d)
   end
   Corpses.draw()
-  for _, s in pairs(troops) do
-    Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+  if not Features.any("hideSightCones") then -- the ` key (sight-cones)
+    for _, s in pairs(troops) do
+      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+    end
   end
   Cameo.drawBelowCars()
 end

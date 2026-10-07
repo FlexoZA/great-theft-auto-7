@@ -30,8 +30,8 @@
 -- star comes up where he fell.
 --
 -- Messages (the a-man feature registers them)
---   server -> all  AMF_STATE <tick> [<x> <y> <facing> <moving> <hp> <max> <aimX|-> <aimY|-> <stamina> <winded>
---                  <opening>]  (unreliable, 15 Hz; nothing after the tick: not here)
+--   server -> all  AMF_STATE <tick> [<x> <y> <facing> <moving> <hp> <max> <aimX|-> <aimY|-> <opening> <stamina>
+--                  <winded>]  (unreliable, 15 Hz; nothing after the tick: not here)
 --   server -> all  AMF_IN    <x> <y> <facing>       he blinked in there
 --   server -> all  AMF_BLINK <sx> <sy> <ex> <ey>    he teleported from one to the other
 --   server -> all  AMF_OPEN  <x> <y>                he holds the case up: something is coming
@@ -62,7 +62,14 @@ Finale.health = 5000 -- for one human (more humans, more: bosses/init.lua); the 
 Finale.radius = Body.RADIUS
 Finale.walkSpeed = 60
 Finale.keepAway = 90
-Finale.breath = { max = 100, regen = 13, regenDelay = 1.2, breath = 40 }
+Finale.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
+  max = 100,
+  drain = 25, -- per second hurrying out from under something: ~4 s of it
+  recovered = 50, -- back from empty before he hurries again
+  regen = 13,
+  regenDelay = 1.2,
+  breath = 40, -- held before a blink or the case
+}
 Finale.blinkCost = 35 -- breath a blink takes
 Finale.blinkEvery = 2.4 -- seconds at least between blinks
 Finale.blinkJitter = 1.5 -- and up to this much more
@@ -274,7 +281,7 @@ local function sync(server)
   local stamina, winded = a.breath:wire()
   local msg = Protocol.encode("AMF_STATE", server.tick, fmt(a.x), fmt(a.y), ("%.2f"):format(a.facing),
     a.moving and 1 or 0, math.max(0, math.floor(a.hp)), a.max, a.aimX and fmt(a.aimX) or EMPTY,
-    a.aimY and fmt(a.aimY) or EMPTY, stamina, winded, a.opening and 1 or 0)
+    a.aimY and fmt(a.aimY) or EMPTY, a.opening and 1 or 0, stamina, winded)
   local turrets = Protocol.encode("AMF_TURRETS", server.tick, unpack(Turrets.wire(sv.turrets)))
   for _, player in pairs(server.players) do
     if not player.bot then
@@ -325,7 +332,7 @@ function Finale.serverStep(server, dt, map)
       server:broadcast(Protocol.encode("AMF_OPEN", fmt(a.x), fmt(a.y)))
     end
   end
-  a.breath:step(false, dt) -- he never runs
+  a.breath:step(a.running, dt) -- he only ever runs out from under something (brain.lua)
   sync(server)
 end
 
@@ -346,7 +353,7 @@ local function rollTier()
 end
 
 --- He goes down: the disguise, koins, his teleport, the level done.
-local function down(server, by, angle)
+local function down(server, by, angle, cause)
   local a = sv.a
   local x, y = a.x, a.y
   sv.done = true
@@ -370,7 +377,7 @@ local function down(server, by, angle)
     end
     pickups:serverDrop(server, Finale.drop .. "@" .. rollTier(), dx, dy)
   end
-  Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
+  Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle, cause = cause })
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
     quests:serverComplete(server, Finale.questId, x, y)
@@ -380,7 +387,7 @@ end
 --- A round through (x, y): the `serverShotAt` convention. A turret in the
 --- way goes over; rounds owned by nobody (his turrets', the Combine's) and
 --- his own blink pass him by.
-function Finale.serverShotAt(server, x, y, radius, by, angle, damage)
+function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if not sv or sv.done or sv.blinking or by == 0 then
     return false
   end
@@ -394,7 +401,7 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage)
   a.hp = a.hp - (damage or Finale.bulletDamage)
   if a.hp <= 0 then
     a.hp = 0
-    down(server, by, angle)
+    down(server, by, angle, dtype)
   end
   return true
 end
@@ -572,9 +579,9 @@ Finale.clientMessages = {
     a.hp = tonumber(args[6]) or a.hp or Finale.health
     a.max = tonumber(args[7]) or a.max or Finale.health
     a.aimX, a.aimY = tonumber(args[8]), tonumber(args[9])
-    local stamina, winded = Stamina.read(args, 10)
+    a.opening = args[10] == "1"
+    local stamina, winded = Stamina.read(args, 11)
     a.stamina, a.winded = stamina or a.stamina, winded
-    a.opening = args[12] == "1"
     c.a = a
     face = face or Face.new()
   end,

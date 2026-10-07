@@ -133,9 +133,9 @@ function AMan:serverVisit(server, x, y, opened)
   return City17.serverVisit(server, x, y, opened)
 end
 
-function AMan:serverShotAt(server, x, y, radius, by, angle, damage)
-  return City17.serverShotAt(server, x, y, radius, by, angle, damage)
-    or Citadel.serverShotAt(server, x, y, radius, by, angle, damage)
+function AMan:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  return City17.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+    or Citadel.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)

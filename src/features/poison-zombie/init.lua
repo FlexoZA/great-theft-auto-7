@@ -203,7 +203,7 @@ function Zombie:serverStart()
 end
 
 --- He falls: koins, the kill, the level done.
-local function down(server, by, angle)
+local function down(server, by, angle, cause)
   local z = sv.z
   sv.done = true
   server:broadcast(Protocol.encode("PZM_BOSS", server.tick))
@@ -212,7 +212,7 @@ local function down(server, by, angle)
   if money and money.drop then
     money:drop(server, z.x, z.y, Zombie.drops)
   end
-  Features.call("serverKill", server, { kind = "boss", x = z.x, y = z.y, by = by, angle = angle })
+  Features.call("serverKill", server, { kind = "boss", x = z.x, y = z.y, by = by, angle = angle, cause = cause })
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
     quests:serverComplete(server, Zombie.questId, z.x, z.y)
@@ -220,7 +220,7 @@ local function down(server, by, angle)
 end
 
 --- A crab dies: its body on every screen, and a koin if a player did it.
-local function crabDown(server, c, by, angle)
+local function crabDown(server, c, by, angle, cause)
   c.dead = true
   server:broadcast(Protocol.encode("PZM_CRAB_DOWN", c.id, fmt(c.x), fmt(c.y), ("%.2f"):format(c.facing)))
   if by and by ~= 0 then
@@ -228,7 +228,7 @@ local function crabDown(server, c, by, angle)
     if money and money.drop then
       money:drop(server, c.x, c.y, Zombie.crabDrops)
     end
-    Features.call("serverKill", server, { kind = "headcrab", x = c.x, y = c.y, by = by, angle = angle })
+    Features.call("serverKill", server, { kind = "headcrab", x = c.x, y = c.y, by = by, angle = angle, cause = cause })
   end
 end
 
@@ -261,7 +261,7 @@ local function rams(server, z, dt)
         if z.hp <= 0 then
           z.hp = 0
           car.speed = -car.speed * 0.35
-          return down(server, id, car.angle)
+          return down(server, id, car.angle, "impact")
         end
       end
       car.speed = -car.speed * 0.35 -- the car re-derives its velocity from this
@@ -338,17 +338,17 @@ function Zombie:serverStep(server, dt)
     return -- a bite ended the quest
   end
   for _, c in ipairs(sv.crabs:squashed(server) or {}) do
-    crabDown(server, c, c.by, c.angle)
+    crabDown(server, c, c.by, c.angle, "impact")
   end
   sv.crabs:sweep()
   sync(server)
 end
 
 --- A round or a blast through (x, y): the `serverShotAt` convention.
---- Rounds owned by nobody (the Combine's) pass by; a blast's share, which
---- carries nothing, takes 20.
-function Zombie:serverShotAt(server, x, y, radius, by, angle, damage)
-  if not sv or (by == 0 and damage) then
+--- Rounds and blasts owned by nobody (the Combine's, a rollermine going off)
+--- pass by; a player's blast's share, which carries nothing, takes 20.
+function Zombie:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  if not sv or by == 0 then
     return false
   end
   local z = not sv.done and sv.z
@@ -357,7 +357,7 @@ function Zombie:serverShotAt(server, x, y, radius, by, angle, damage)
     z.hp = z.hp - (damage or 20)
     if z.hp <= 0 then
       z.hp = 0
-      down(server, by, angle)
+      down(server, by, angle, dtype)
     end
     return true
   end
@@ -366,7 +366,7 @@ function Zombie:serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   if sv.crabs:hurt(c, damage or 20) then
-    crabDown(server, c, by, angle)
+    crabDown(server, c, by, angle, dtype)
   end
   return true
 end

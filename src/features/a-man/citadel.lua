@@ -40,8 +40,8 @@ function Level.serverStep(server, dt)
   end
 end
 
-function Level.serverShotAt(server, x, y, radius, by, angle, damage)
-  return Finale.serverShotAt(server, x, y, radius, by, angle, damage)
+function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  return Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function Level.serverFreezeArea(x, y, radius, seconds)

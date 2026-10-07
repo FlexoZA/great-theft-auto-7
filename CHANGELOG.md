@@ -125,8 +125,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   with a cold machine arpeggio, clanking far below and the Combine's alarm.
 - Poison, a new kind of damage: a poison headcrab's bite leaves you
   poisoned, losing 4 health a second for 6 seconds, with green bubbles
-  rising off you. A medkit cures it. It shows in the resistances on the
-  inventory screen; nothing protects against it yet.
+  rising off you. A dodge or a medkit cures it. It shows in the
+  resistances on the inventory screen; nothing protects against it yet.
 - More rollermines on the Winding Road: on top of the ones waiting along
   the road, 18 more lie scattered at random over the whole map, somewhere
   different every time you play it.
@@ -160,6 +160,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   after you. Bots he goes for fight back, and get the same treatment.
 
 ### Changed
+- A dodge now stops bleeding (and poison, and a shock running through you)
+  the way it already puts out a fire; a medkit still stops a bleed too.
 - Rollermines hit people on foot properly: they go off as soon as their
   blades touch you, and their blades shock and stun you before the blast,
   so one does a third of a fully upgraded player's health, not a sixth.

@@ -421,8 +421,9 @@ couple of small conventions rather than requiring each other:
   open-borders fires call it with their own `afterburn` numbers; anything
   new that burns should too. Burning, bleeding and poison bite every quarter second
   (the kill is `by`'s); another dose tops the time up at the stronger rate,
-  never stacks. A dodge puts a fire out, a medkit stops a bleed and cures
-  poison (`damage:serverTreat(server, id)`), and a car, dying or leaving
+  never stacks. A dodge shakes off every one of them (fire, a zap, a bleed,
+  poison: `serverDodged`), a medkit stops a bleed and cures poison too
+  (`damage:serverTreat(server, id)`), and a car, dying or leaving
   ends everything. `damage:serverAfflict(server, victim, status, seconds,
   dps, by)`, `serverCure(server, id, status)` and `serverHas(id, status)`
   are the general form (status "burn", "bleed", "poison", "stun", "down" or "daze");

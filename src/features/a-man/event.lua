@@ -83,6 +83,8 @@ AMan.walkSpeed = 55 -- px/s; a little quicker than a player's walk, far slower t
 AMan.keepAway = 70 -- px; he stops walking this close to his target
 AMan.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
   max = 100,
+  drain = 25, -- per second hurrying out from under something: ~4 s of it
+  recovered = 50, -- back from empty before he hurries again
   regen = 10,
   regenDelay = 1.5,
   breath = 50, -- held before he blinks
@@ -265,7 +267,7 @@ function AMan.serverStep(server, dt)
   elseif act == "horde" then
     horde(server, a)
   end
-  a.breath:step(false, dt) -- he never runs
+  a.breath:step(a.running, dt) -- he only ever runs out from under something (brain.lua)
   if Turrets.standing(sv.turrets) == 0 then
     sv.hordeIn = sv.hordeIn - dt
   else
