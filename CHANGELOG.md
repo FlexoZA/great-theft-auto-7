@@ -14,6 +14,21 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Every park has a bum living on one of its benches, his shopping cart parked beside him. Stand next
+  to him and press F to hire him for 1000 Fcks: pick another player or a bot and he goes after them,
+  shouting abuse, and every punch leaves them bleeding (5 a second for 6 s). He gives up after 75 s,
+  or once they go down, and walks back to his bench. The target's screen warns them, but not who paid.
+  A bum has 200 health (ten pistol rounds) and can also be frozen or run over; a new one takes the
+  bench a minute later.
+- Whoever a bum goes for cries "I have been stabbed" at his first punch, and police who see it just
+  answer "I don't think you have mate". Shoot back at the bum in front of them, though, and they come
+  after you. Bots he goes for fight back, and get the same treatment.
+
+### Changed
+- Parks are no longer plain grass: gravel paths lead in from each side to a paved plaza with a
+  fountain, with striped lawns, low hedges, flower beds, lamps and benches.
+
 ## [0.12.0] - 2026-10-05
 
 Grenades: keep a few in a quick slot, see where one will land and how far
