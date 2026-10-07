@@ -56,6 +56,8 @@ local HURT = 0.15 -- seconds one flashes white after a hit
 local WHIRR_EVERY = 0.36 -- seconds between a rolling one's whirrs
 local BEEP_EVERY = 0.3 -- seconds between an armed one's beeps
 local MODES = { dormant = 1, popping = 2, roll = 3, idle = 4 }
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 
 -- Server --------------------------------------------------------------------
 
@@ -119,6 +121,7 @@ function Rollermines:mapChanged(_map, server)
   if server then
     clear(server)
   end
+  shown = {} -- off every screen at once: the clearing RLM_STATE may carry a tick already seen
 end
 
 function Rollermines:serverStart()
@@ -249,6 +252,7 @@ end
 
 local lastTick = 0
 local clock = 0
+local heardAt = 0 -- when the last RLM_STATE came
 
 function Rollermines:load()
   Sounds.load()
@@ -260,6 +264,9 @@ end
 
 function Rollermines:update(dt)
   clock = clock + dt
+  if next(shown) and love.timer.getTime() - heardAt > STALE then
+    shown = {}
+  end
   local k = math.min(1, dt * SMOOTHING)
   for _, m in pairs(shown) do
     m.t = m.t + dt
@@ -342,7 +349,7 @@ Rollermines.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 5, 6 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])

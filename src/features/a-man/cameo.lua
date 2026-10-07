@@ -41,6 +41,8 @@ Cameo.turrets = 5 -- out of the case each time, for one player (more humans, mor
 local SYNC_EVERY = 2 -- server ticks between C17_TURRETS
 local TEAR_TIME = 0.5 -- seconds the tear he comes and goes through hangs
 local TEAR_LENGTH = 70 -- px either way of him
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 
 local random = love.math.random
 
@@ -240,6 +242,9 @@ end
 
 function Cameo.update(dt)
   time = time + dt
+  if next(cl.turrets.list) and love.timer.getTime() - (cl.turretsHeardAt or 0) > STALE then
+    cl.turrets.list = {}
+  end
   Turrets.update(cl.turrets, dt)
   for i = #cl.tears, 1, -1 do
     local t = cl.tears[i]
@@ -299,7 +304,7 @@ Cameo.clientMessages = {
     if not tick or tick <= cl.turretTick then
       return
     end
-    cl.turretTick = tick
+    cl.turretTick, cl.turretsHeardAt = tick, love.timer.getTime()
     Turrets.read(cl.turrets, args, 2)
   end,
   C17_POP = function(_client, args)

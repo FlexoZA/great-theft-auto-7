@@ -75,6 +75,7 @@ Combine.SPREAD = 0.06 -- radians of aim error, on top of the rifle's own
 Combine.MUZZLE = 23 -- px from the body a round leaves: the tip of the rifle in his hands
 Combine.LOOK_EVERY = 3 -- host ticks between sight checks (staggered by soldier)
 Combine.SCAN = math.rad(20) -- a walking soldier looks this far either side of his path
+Combine.WALK = 62 -- px/s a soldier walks (twice this running from a stink)
 Combine.PATROL_WALK = 48 -- px/s a squad walks its beat
 Combine.FORMATION = { { 0, 0 }, { -38, -30 }, { -38, 30 }, { -76, 0 } } -- slots behind the leader, his frame
 Combine.CHASE_WALK = 90 -- px/s closing in or hunting: faster than a walk, slower than a sprint
@@ -870,7 +871,9 @@ end
 --- Everyone inside a stink runs from it for `seconds`.
 function Combine:scare(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
-    if dist2(s.x, s.y, x, y) <= (radius + Combine.RADIUS) ^ 2 then
+    -- A gunner stays on his gun (he has no way back to it if he runs).
+    local gunner = s.hold and not s.takesCover
+    if not gunner and dist2(s.x, s.y, x, y) <= (radius + Combine.RADIUS) ^ 2 then
       s.panic = { x = x, y = y, left = seconds }
     end
   end

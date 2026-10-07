@@ -100,6 +100,8 @@ local SMOOTHING = 14
 local SNAP = 200
 local TEAR_TIME = 0.8
 local SAY_TIME = 3 -- seconds what he says over the case hangs there
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local EMPTY = "-"
 
 local random = love.math.random
@@ -454,6 +456,12 @@ function Finale.update(dt)
   if face then
     face:update(dt)
   end
+  if cl.a and love.timer.getTime() - (cl.heardAt or 0) > STALE then
+    cl.a = nil
+  end
+  if next(cl.turrets.list) and love.timer.getTime() - (cl.turretsHeardAt or 0) > STALE then
+    cl.turrets.list = {}
+  end
   Turrets.update(cl.turrets, dt)
   for i = #cl.tears, 1, -1 do
     local t = cl.tears[i]
@@ -551,7 +559,7 @@ Finale.clientMessages = {
     if not tick or tick <= c.lastTick then
       return
     end
-    c.lastTick = tick
+    c.lastTick, c.heardAt = tick, love.timer.getTime()
     local x, y = tonumber(args[2]), tonumber(args[3])
     if not (x and y) then
       c.a = nil
@@ -580,6 +588,7 @@ Finale.clientMessages = {
       max = Finale.health }
     c.tears[#c.tears + 1] = { sx = x, sy = y - 70, ex = x, ey = y + 70, t = 0 }
     c.says = { text = "Ah. You made it. All the way... up.", t = SAY_TIME }
+    c.heardAt = love.timer.getTime()
     face = face or Face.new()
     Sounds.play("appear", x, y)
   end,
@@ -621,7 +630,7 @@ Finale.clientMessages = {
     if not tick or tick <= c.turretTick then
       return
     end
-    c.turretTick = tick
+    c.turretTick, c.turretsHeardAt = tick, love.timer.getTime()
     Turrets.read(c.turrets, args, 2)
   end,
   AMF_POP = function(_client, args)

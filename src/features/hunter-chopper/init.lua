@@ -133,6 +133,12 @@ function HunterChopper:mapChanged(_map, server)
     stop(server)
   end
   HunterChopper.forgetWreck()
+  HunterChopper.forgetFlight()
+end
+
+--- A new game: no chopper carried over from the last one.
+function HunterChopper:serverStart()
+  sv = nil
 end
 
 --- Take `amount` off it. At nothing, it starts to go down; `by` and the
@@ -315,6 +321,9 @@ end
 local cl = nil -- { x, y, angle, bank, altitude, aim, lock, firing, hp, max, down, flash } as drawn, `to` from the host
 local wreck = nil -- { x, y, angle } where the last one came down, on this map
 local lastTick = 0
+local heardAt = 0 -- when the last HC_STATE came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local time = 0
 local rotor = nil -- the rotor loop, while there is a chopper
 
@@ -325,6 +334,11 @@ local function gone()
     rotor:stop()
     rotor = nil
   end
+end
+
+--- Off every screen at once (a map change: the clearing HC_STATE may not get through).
+function HunterChopper.forgetFlight()
+  gone()
 end
 
 function HunterChopper:exitGame()
@@ -339,6 +353,9 @@ end
 function HunterChopper:update(dt)
   time = time + dt
   Bombs.update(dt)
+  if cl and love.timer.getTime() - heardAt > STALE then
+    gone()
+  end
   if not (cl and cl.to) then
     return
   end
@@ -390,7 +407,7 @@ HunterChopper.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local x, y = tonumber(args[2]), tonumber(args[3])
     if not (x and y) then
       gone()

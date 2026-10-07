@@ -262,6 +262,9 @@ local waves = {} -- { x, y, angle, range, half, t }
 local body = nil -- { x, y, facing, t } where it fell
 local lastTick = 0
 local clock = 0
+local heardAt = 0 -- when the last ANT_GUARD came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 
 function Guard.clear()
   cl, waves, body, lastTick = nil, {}, nil, 0
@@ -269,6 +272,9 @@ end
 
 function Guard.update(dt)
   clock = clock + dt
+  if cl and love.timer.getTime() - heardAt > STALE then
+    cl = nil
+  end
   for i = #waves, 1, -1 do
     waves[i].t = waves[i].t + dt
     if waves[i].t > WAVE_TIME then
@@ -337,7 +343,7 @@ Guard.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local x, y = tonumber(args[2]), tonumber(args[3])
     if not (x and y) then
       cl = nil

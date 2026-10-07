@@ -78,16 +78,31 @@ function AMan:serverQuestEnded(server, quest)
   end
 end
 
---- A map change of any kind ends a level; the quest starts it again.
-function AMan:mapChanged(_map, server)
+--- Stop every level on the host (`server` may be nil: nobody to tell).
+local function stopLevels(server)
   if server then
     City17.serverStop(server)
-    Road.serverStop()
-    Citadel.serverStop(server)
-    Detour.serverStop()
-  else
-    Citadel.clear() -- whatever of his was on the old map
   end
+  Road.serverStop()
+  Citadel.serverStop(server)
+  Detour.serverStop()
+end
+
+--- A new game: nothing of the last one's levels carries over.
+function AMan:serverStart(server)
+  stopLevels(server)
+end
+
+--- A map change of any kind ends a level; the quest starts it again. What
+--- every screen shows of the old map goes with it, the host's too (its own
+--- client never hears the clearing messages in time to trust them).
+function AMan:mapChanged(_map, server)
+  if server then
+    stopLevels(server)
+  end
+  City17.clear()
+  Citadel.clear()
+  Event.clearRemains()
 end
 
 function AMan:serverStep(server, dt)

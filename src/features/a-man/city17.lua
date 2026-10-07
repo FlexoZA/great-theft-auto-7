@@ -791,6 +791,9 @@ end
 local troops = {} -- id -> { x, y, dx, dy, angle, hp, alert, bob, stride, say, sayT, shout }
 local doors = {} -- { x, y, nx, ny, t }: garrisons' doors standing open
 local lastTick = 0
+local heardAt = 0 -- when the last C17_TROOPS came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local time = 0
 
 function Level.clear()
@@ -801,6 +804,9 @@ end
 
 function Level.update(dt)
   time = time + dt
+  if next(troops) and love.timer.getTime() - heardAt > STALE then
+    troops = {}
+  end
   Cameo.update(dt)
   Corpses.update(dt)
   for i = #doors, 1, -1 do
@@ -948,7 +954,7 @@ Level.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 6, 7 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])

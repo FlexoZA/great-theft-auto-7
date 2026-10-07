@@ -116,10 +116,11 @@ end
 function Antlions:mapChanged(_map, server)
   if server then
     clear(server)
-  else
-    dead = {}
-    Guard.clear() -- the bodies belong to the map they fell on
   end
+  -- Off every screen at once, the host's too: the bodies belong to the map
+  -- they fell on, and the clearing ANT_STATE may carry a tick already seen.
+  shown, dead = {}, {}
+  Guard.clear()
 end
 
 function Antlions:serverStart()
@@ -240,6 +241,9 @@ end
 
 local lastTick = 0
 local clock = 0
+local heardAt = 0 -- when the last ANT_STATE came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 
 function Antlions:load()
   Sounds.load()
@@ -252,6 +256,9 @@ end
 
 function Antlions:update(dt)
   clock = clock + dt
+  if next(shown) and love.timer.getTime() - heardAt > STALE then
+    shown = {}
+  end
   Guard.update(dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, a in pairs(shown) do
@@ -337,7 +344,7 @@ Antlions.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 5, 6 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])

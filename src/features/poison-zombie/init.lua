@@ -191,9 +191,10 @@ end
 function Zombie:mapChanged(_map, server)
   if server then
     clear(server)
-  else
-    cl, shown, bodies = nil, {}, {} -- the bodies belong to the map they fell on
   end
+  -- Off every screen at once, the host's too: the bodies belong to the map
+  -- they fell on, and the clearing messages may carry a tick already seen.
+  cl, shown, bodies = nil, {}, {}
 end
 
 function Zombie:serverStart()
@@ -400,6 +401,9 @@ end
 
 local lastTick, lastCrabTick = 0, 0
 local clock = 0
+local heardAt, crabsHeardAt = 0, 0 -- when the last PZM_BOSS and PZM_CRABS came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local breathIn = 0
 
 function Zombie:load()
@@ -412,6 +416,12 @@ end
 
 function Zombie:update(dt)
   clock = clock + dt
+  if cl and love.timer.getTime() - heardAt > STALE then
+    cl = nil
+  end
+  if next(shown) and love.timer.getTime() - crabsHeardAt > STALE then
+    shown = {}
+  end
   for i = #bodies, 1, -1 do
     local b = bodies[i]
     b.t = b.t + dt
@@ -502,7 +512,7 @@ Zombie.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local x, y = tonumber(args[2]), tonumber(args[3])
     if not (x and y) then
       cl = nil
@@ -534,7 +544,7 @@ Zombie.clientMessages = {
     if not tick or tick <= lastCrabTick then
       return
     end
-    lastCrabTick = tick
+    lastCrabTick, crabsHeardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 6, 7 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
