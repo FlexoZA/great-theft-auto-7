@@ -14,7 +14,15 @@
 --   map.exitX, map.exitY  the far end, the lift up at the top
 --   map.platforms         { name, x, y, w, h, kind = "lift" | "arena" | "landing" | "top" }, world px
 --   map.catwalks          { x, y, w, h } the spans between them, world px
---   map.posts             where guards stand ({ x, y, watch, at }: `at` the platform's name)
+--   map.posts             where guards stand ({ x, y, watch, at }: `at` the platform's name), two
+--                         Combine soldiers to each (a-man/city17.lua puts them there)
+--   map.nests             { name, nest = { x, y, angle, arc }, posts = { { x, y, watch }... } }: the
+--                         Combine's MG emplacement on the processing floor, facing back over the
+--                         long span, and where its riflemen stand (crewed as the Winding Road's are)
+--   map.rollermines       { x, y, r, count } where rollermines lie in wait on the catwalks (the
+--                         rollermines feature)
+--   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature)
+--                         walking round the gallery and the top
 --   map.zones             { name, y0, y1 } as City 17's
 --   map.cover             { kind = "crate" | "barrier" | "console", x, y, w, h }, all solid
 --   map.backdrop          what lies down in the drop, drawn and never touched:
@@ -49,6 +57,7 @@ function Citadel.build(map, rng, T)
     end
   end
   map.platforms, map.catwalks, map.posts, map.zones, map.cover, map.backdrop = {}, {}, {}, {}, {}, {}
+  map.nests, map.rollermines, map.hunterBeats = {}, {}, {}
   local placed = {} -- { x, y, r }: kept clear of cover (the way across each platform, the guards)
 
   --- A platform over tiles (c0, r0)-(c1, r1), inclusive.
@@ -175,6 +184,43 @@ function Citadel.build(map, rng, T)
   post(top, 34, 11, 52, 13)
   post(top, 44, 10, 52, 13)
   post(top, 46, 16, 52, 13)
+
+  -- An MG emplacement where the long span comes onto the processing floor,
+  -- facing back down it: crossing it is the worst of the way up. Its
+  -- riflemen stand further back on the floor.
+  local function nest(p, c, r, wc, wr, crew)
+    local x, y = X(c + 0.5), Y(r + 0.5)
+    local n = { x = x, y = y, angle = math.atan2(Y(wr + 0.5) - y, X(wc + 0.5) - x), arc = math.rad(40) }
+    local posts = {}
+    for _, q in ipairs(crew) do
+      local qx, qy = X(q[1] + 0.5), Y(q[2] + 0.5)
+      posts[#posts + 1] = { x = qx, y = qy, watch = math.atan2(Y(wr + 0.5) - qy, X(wc + 0.5) - qx) }
+      placed[#placed + 1] = { x = qx, y = qy, r = 60 }
+    end
+    map.nests[#map.nests + 1] = { name = p.name, nest = n, posts = posts }
+    placed[#placed + 1] = { x = x, y = y, r = 70 }
+  end
+  nest(floor, 55, 62.5, 38, 62.5, { { 58, 60 }, { 58, 65 } })
+
+  -- Rollermines waiting on the catwalks: off the lift, up to the gallery,
+  -- and the long way across to the reactor deck.
+  local function mines(c, r, count)
+    map.rollermines[#map.rollermines + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), r = 50, count = count }
+  end
+  mines(43.5, 88, 2)
+  mines(59.5, 48, 2)
+  mines(46, 29.5, 2)
+
+  -- Hunters walking round the gallery and round the top.
+  local function beat(p, count, corners)
+    local route = {}
+    for _, q in ipairs(corners) do
+      route[#route + 1] = { x = math.floor(X(q[1] + 0.5)), y = math.floor(Y(q[2] + 0.5)) }
+    end
+    map.hunterBeats[#map.hunterBeats + 1] = { name = p.name, route = route, count = count }
+  end
+  beat(gallery, 1, { { 24, 38 }, { 33, 38 }, { 33, 47 }, { 24, 47 } })
+  beat(top, 2, { { 33, 10 }, { 49, 10 }, { 49, 16 }, { 33, 16 } })
 
   -- Cover along the catwalks: a crate or a barrier against one rail, then
   -- the other, every few strides, the way past always open. None near a

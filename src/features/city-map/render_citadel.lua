@@ -2,7 +2,7 @@
 -- the drop first, deepest things darkest (lights, girders, pillars, the
 -- pod rails, the core's glow), then the catwalks and platforms over it,
 -- each with a shadow far below it, a rail along every edge over the drop,
--- and the cover on the platforms.
+-- the cover on the platforms and the shield of the MG emplacement.
 
 local RenderCitadel = {}
 
@@ -314,6 +314,32 @@ local function drawCover(map)
   end
 end
 
+--- An MG emplacement's shield: steel plates in an arc round the front of
+--- where the gun stands, open at the back, a glow strip along the top
+--- (the gun is drawn live: a-man/nests.lua).
+local function drawEmplacements(map)
+  for _, b in ipairs(map.nests or {}) do
+    local n = b.nest
+    local reach = n.arc + math.rad(30)
+    local steps = 6
+    for k = 0, steps do
+      local a = n.angle - reach + k * 2 * reach / steps
+      love.graphics.push()
+      love.graphics.translate(n.x + math.cos(a) * 30, n.y + math.sin(a) * 30)
+      love.graphics.rotate(a)
+      color({ 0, 0, 0 }, 0.35)
+      love.graphics.rectangle("fill", -2, -8, 9, 18, 2)
+      color(C.barrier)
+      love.graphics.rectangle("fill", -5, -10, 9, 20, 2)
+      color(C.steelLight)
+      love.graphics.rectangle("line", -5, -10, 9, 20, 2)
+      color(C.glow, 0.75)
+      love.graphics.rectangle("fill", 1, -7, 2, 14)
+      love.graphics.pop()
+    end
+  end
+end
+
 --- Draw the whole map; the canvas is set up and scaled by Render.build.
 function RenderCitadel.draw(map, T)
   drawDrop(map)
@@ -321,6 +347,7 @@ function RenderCitadel.draw(map, T)
   drawDecks(map, T)
   drawLifts(map)
   drawCover(map)
+  drawEmplacements(map)
 end
 
 return RenderCitadel

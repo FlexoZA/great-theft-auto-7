@@ -1,7 +1,9 @@
 -- The Citadel, the end of A-Man's trail (quests' "a-man-citadel", on
 -- city-map's `citadel`): one catwalk up through the shaft, widening into
--- platforms on the way. For now it is the walk alone: the map's `posts`
--- mark where the Combine will stand. The first player to reach the lift up
+-- platforms on the way. The Combine hold it (city17.lua: guards on the
+-- map's `posts`, its MG emplacement over the long span), with rollermines
+-- on the catwalks and Hunters on the gallery and the top (the map's
+-- `rollermines` and `hunterBeats`). The first player to reach the lift up
 -- at the top (`map.exitX, map.exitY`) finishes the level (quests'
 -- `serverComplete`): a star comes up there.
 --

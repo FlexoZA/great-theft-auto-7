@@ -1308,11 +1308,18 @@ the one with a plot.
   like a wall, so for now it stops rounds and sight too. Platforms carry
   crates, barriers and consoles (`map.cover`, solid; the catwalks a crate
   or barrier against alternate rails every few strides, all but the long
-  span) and `map.posts`
-  where guards will stand, watching the way in; `map.backdrop` is what the
-  canvas draws down in the drop. So far the level is the walk alone
-  (`a-man/citadel.lua`): the first player within 140 px of the lift up
-  finishes it, and its EXIT star leads home.
+  span); `map.backdrop` is what the canvas draws down in the drop. The
+  Combine hold it (City 17's level, `Level.maps.citadel`): two soldiers on
+  each of its 16 `map.posts`, three to five a platform and one on the
+  landing, watching the way in; an MG emplacement (`map.nests`, steel
+  shield drawn by render_citadel.lua, crewed as the Winding Road's: a
+  gunner and three riflemen) where the long span comes onto the
+  processing floor, firing straight back down it; rollermines waiting on
+  three catwalks, two to each (`map.rollermines`: off the lift, up to the
+  gallery, across to the reactor deck); and Hunters walking round the
+  gallery (one) and the top (two) (`map.hunterBeats`), all more with more
+  humans. The first player within 140 px of the lift up still finishes it
+  (`a-man/citadel.lua`), and its EXIT star leads home.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

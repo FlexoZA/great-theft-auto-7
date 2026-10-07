@@ -64,6 +64,11 @@
 -- (the hunters feature) walk the open stretches of road between the
 -- checkpoints (the map's `hunterBeats`, more with more humans).
 --
+-- The Citadel (city-map's `citadel`, quests' "a-man-citadel") has guards
+-- on the posts on every platform, an MG emplacement over the long span
+-- (the map's `nests`, crewed as the Winding Road's) and Hunters on the
+-- beats round the gallery and the top (its `hunterBeats`).
+--
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
@@ -138,6 +143,7 @@ Level.maps = {
   outercity = { squadsPerBeat = 1 }, -- fewer about: its garrisons bring more when they are wanted
   coast = { squadsPerBeat = 0, nests = true }, -- the bunkers' crews, for now
   road = { squadsPerBeat = 0, nests = true }, -- the bridges' checkpoints: nests and bunkers' waves
+  citadel = { squadsPerBeat = 0, nests = true }, -- guards on every platform, the emplacement over the span
 }
 Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
 -- The nest's gun: an AK's rounds, twelve a second, in long bursts.
