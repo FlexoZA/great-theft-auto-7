@@ -100,6 +100,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   as they close in, and blow up when they touch you or your car. Shoot
   them first: two rounds set one off, and its blast sets off any others
   near it.
+- The Poison Zombie waits at the top of the Winding Road: a bloated,
+  wheezing hulk with a poison headcrab on his head and more on his back.
+  He throws them at you, and claws anyone who gets close. Shoot the crabs,
+  or run them over; drive into him and your car bounces off, hurting you
+  both. Beat him to finish the level (reaching the pass no longer does).
+- Poison, a new kind of damage: a poison headcrab's bite leaves you
+  poisoned, losing 4 health a second for 6 seconds, with green bubbles
+  rising off you. A medkit cures it. It shows in the resistances on the
+  inventory screen; nothing protects against it yet.
 - More rollermines on the Winding Road: on top of the ones waiting along
   the road, 18 more lie scattered at random over the whole map, somewhere
   different every time you play it.
@@ -116,8 +125,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Winding Road is wider: room either side of the tarmac for eight cars
   abreast, and wider bridges, so a full lobby isn't nose to tail all the
   way up.
-- The Combine hold every bridge on the Winding Road: two machine-gun
-  nests at the far end fire back across it, riflemen fight from behind
+- The Combine hold every bridge on the Winding Road but the top one: two
+  machine-gun nests at the far end fire back across it, riflemen fight from behind
   concrete blocks laid as a chicane, and a bunker beside the road keeps
   sending soldiers out after you while you are near. Drive through fast,
   shoot the gunners, or run the soldiers down: on the road, a car at speed

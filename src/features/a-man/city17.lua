@@ -54,7 +54,7 @@
 -- nests.lua draws the guns.
 --
 -- The Winding Road (city-map's `road`, quests' "a-man-road") holds a
--- checkpoint past every bridge: two MG nests either side of the road
+-- checkpoint past every bridge but the top one (the Poison Zombie's): two MG nests either side of the road
 -- facing back over it (the map's `nests`, crewed as the Coast's are) and a
 -- bunker whose garrison comes in waves (a garrison's `waves`: one out of
 -- its door every `every` seconds while a player is near and fewer than

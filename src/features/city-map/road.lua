@@ -19,6 +19,7 @@
 -- What it leaves on the map, besides tiles, solids and spawns:
 --   map.cx, map.cy        the way home, on the verge by the arrival
 --   map.exitX, map.exitY  the far end, on the pass
+--   map.bossX, map.bossY  where the Poison Zombie waits on the pass (the poison-zombie feature)
 --   map.path              { x, y } the road's middle every few px, world px, bottom to top
 --   map.river             { x, y, half } the river's middle, world px, top (its source) to bottom
 --   map.bridges           { x, y, w, h, along = "ns" | "ew", name } decks over the water, world px;
@@ -28,7 +29,8 @@
 --   map.cover             { kind = "water" | "rail" | "bunker" | "block" | "wreck", x, y, w, h }, solid (a
 --                         wreck: a burnt-out car short of a bridge, for cover, `facing` the way its nose is; a rail
 --                         only to cars and people: its solid is `low`, so sight and rounds go over it)
---                         (a block: a concrete block, laid in a chicane past each bridge); and kind "mountain",
+--                         (a block: a concrete block, laid in a chicane past each bridge but the top one); and kind
+--                         "mountain",
 --                         not solid, only to colour the minimap
 --   map.height            [c][r] tiles from the nearest open tile, for a mountain tile
 --   map.depth             [c][r] tiles from the nearest bank, for a river tile
@@ -38,10 +40,10 @@
 --   map.rollermineScatter { count, clear }: `Road.MINE_SCATTER` more scattered anywhere open, different
 --                         every game, but none near the arrival or the pass
 --   map.nests             { name, nest = { x, y, angle, arc }, posts = { { x, y, watch } x2 } }: the
---                         Combine's MG nests, two at the far end of every bridge facing back
+--                         Combine's MG nests, two at the far end of every bridge but the top one facing back
 --                         across it (sandbags, drawn only), each with two riflemen's posts
 --   map.garrisons         { at, x, y, reach, door = { x, y, nx, ny }, waves = { every, alive, total } }:
---                         a bunker beside each bridge's far end that sends soldiers out of its
+--                         a bunker beside each bridge's far end (not the top one's) that sends soldiers out of its
 --                         door while anyone is near (a-man/city17.lua)
 --   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
 --   map.carStations       { name, x, y, angle }: a pad on the verge short of each bridge where a
@@ -367,7 +369,8 @@ function Road.build(map, rng, T)
     end
   end
 
-  -- The Combine's checkpoint past each bridge: two MG nests either side of
+  -- The Combine's checkpoint past each bridge but the top one (the Poison
+  -- Zombie's, on the pass past it): two MG nests either side of
   -- the road facing back over it, a bunker in a clearing off to one side
   -- with its door on the road, and concrete blocks closing one lane and
   -- then the other further on.
@@ -406,36 +409,40 @@ function Road.build(map, rng, T)
     end
     if last then
       local side = bi % 2 == 0 and 1 or -1 -- the bunker's side, turn and turn about
+      -- The top bridge is the Poison Zombie's (the poison-zombie feature waits on the pass past it): no Combine.
+      local combine = bi < #map.bridges
       local mx, my = (b.x + b.w / 2 - map.x0) / T, (b.y + b.h / 2 - map.y0) / T -- the bridge's middle, in tiles
       local fx, fy = along(last, 0)
       map.checkpoints[#map.checkpoints + 1] = { name = b.name, x = math.floor(X(fx)), y = math.floor(Y(fy)) }
-      -- The bunker, its clearing cut first so it has ground round it.
-      local cx, cy, dx, dy, nx, ny = along(last, Road.BUNKER_AT)
-      local bx, by = cx + nx * side * Road.BUNKER_OFF, cy + ny * side * Road.BUNKER_OFF
-      for c = math.floor(bx - Road.CLEARING), math.ceil(bx + Road.CLEARING) do
-        for r = math.floor(by - Road.CLEARING), math.ceil(by + Road.CLEARING) do
-          if map.tiles[c] and r >= 0 and r < rows and not map.tiles[c][r]
-            and (c + 0.5 - bx) ^ 2 + (r + 0.5 - by) ^ 2 <= Road.CLEARING ^ 2 then
-            map.tiles[c][r] = "ground"
+      if combine then
+        -- The bunker, its clearing cut first so it has ground round it.
+        local cx, cy, dx, dy, nx, ny = along(last, Road.BUNKER_AT)
+        local bx, by = cx + nx * side * Road.BUNKER_OFF, cy + ny * side * Road.BUNKER_OFF
+        for c = math.floor(bx - Road.CLEARING), math.ceil(bx + Road.CLEARING) do
+          for r = math.floor(by - Road.CLEARING), math.ceil(by + Road.CLEARING) do
+            if map.tiles[c] and r >= 0 and r < rows and not map.tiles[c][r]
+              and (c + 0.5 - bx) ^ 2 + (r + 0.5 - by) ^ 2 <= Road.CLEARING ^ 2 then
+              map.tiles[c][r] = "ground"
+            end
           end
         end
+        local wide = math.abs(dx) > math.abs(dy) -- long side along the road
+        local w, h = wide and 120 or 88, wide and 88 or 120
+        local bunker = solid("bunker", X(bx), Y(by), w, h)
+        -- Its door on the face towards the road.
+        local vx, vy = -nx * side, -ny * side
+        local door
+        if math.abs(vx) > math.abs(vy) then
+          local sx = vx > 0 and 1 or -1
+          door = { x = math.floor(X(bx) + sx * w / 2), y = math.floor(Y(by)), nx = sx, ny = 0 }
+        else
+          local sy = vy > 0 and 1 or -1
+          door = { x = math.floor(X(bx)), y = math.floor(Y(by) + sy * h / 2), nx = 0, ny = sy }
+        end
+        bunker.door = door
+        map.garrisons[#map.garrisons + 1] = { at = b.name, x = math.floor(X(bx)), y = math.floor(Y(by)), reach = 750,
+          door = door, waves = Road.WAVES }
       end
-      local wide = math.abs(dx) > math.abs(dy) -- long side along the road
-      local w, h = wide and 120 or 88, wide and 88 or 120
-      local bunker = solid("bunker", X(bx), Y(by), w, h)
-      -- Its door on the face towards the road.
-      local vx, vy = -nx * side, -ny * side
-      local door
-      if math.abs(vx) > math.abs(vy) then
-        local sx = vx > 0 and 1 or -1
-        door = { x = math.floor(X(bx) + sx * w / 2), y = math.floor(Y(by)), nx = sx, ny = 0 }
-      else
-        local sy = vy > 0 and 1 or -1
-        door = { x = math.floor(X(bx)), y = math.floor(Y(by) + sy * h / 2), nx = 0, ny = sy }
-      end
-      bunker.door = door
-      map.garrisons[#map.garrisons + 1] = { at = b.name, x = math.floor(X(bx)), y = math.floor(Y(by)), reach = 750,
-        door = door, waves = Road.WAVES }
       -- The nests, either side of the road, facing back over the bridge.
       -- Each goes where it is on open ground and sees the most of the road
       -- onto the bridge: water and the mountainside block sight like walls.
@@ -463,81 +470,83 @@ function Road.build(map, rng, T)
           end
         end
       end
-      local function sightOf(px, py)
-        local angle, n = math.atan2(my - py, mx - px), 0
-        for i = math.max(1, first - math.floor(Road.NEST_SEES / Road.STEP)), last do
-          local q = road[i]
-          local lx, ly = q[1] - px, q[2] - py
-          local d = math.sqrt(lx * lx + ly * ly)
-          local off = (math.atan2(ly, lx) - angle + math.pi) % (2 * math.pi) - math.pi
-          if d <= Road.NEST_SEES and math.abs(off) <= Road.NEST_ARC then
-            local ok = true
-            for k = 1, math.floor(d / 0.125) do
-              local t = k * 0.125 / d
-              if not open(px + lx * t, py + ly * t) then
-                ok = false
-                break
+      if combine then
+        local function sightOf(px, py)
+          local angle, n = math.atan2(my - py, mx - px), 0
+          for i = math.max(1, first - math.floor(Road.NEST_SEES / Road.STEP)), last do
+            local q = road[i]
+            local lx, ly = q[1] - px, q[2] - py
+            local d = math.sqrt(lx * lx + ly * ly)
+            local off = (math.atan2(ly, lx) - angle + math.pi) % (2 * math.pi) - math.pi
+            if d <= Road.NEST_SEES and math.abs(off) <= Road.NEST_ARC then
+              local ok = true
+              for k = 1, math.floor(d / 0.125) do
+                local t = k * 0.125 / d
+                if not open(px + lx * t, py + ly * t) then
+                  ok = false
+                  break
+                end
+              end
+              n = n + (ok and 1 or 0)
+            end
+          end
+          return n
+        end
+        local ex, ey, ndx, ndy, nnx, nny = along(last, Road.NEST_AT)
+        -- Every spot either side that has room for a nest, and how much it sees.
+        local spots = {}
+        for _, way in ipairs({ -1, 1 }) do
+          for _, at in ipairs(Road.NEST_TRY_AT) do
+            for _, off in ipairs(Road.NEST_TRY_OFF) do
+              local cx2, cy2, _, _, cnx, cny = along(last, at)
+              local qx, qy = cx2 + cnx * way * off, cy2 + cny * way * off
+              if open(qx, qy) and open(qx + 0.35, qy) and open(qx - 0.35, qy) and open(qx, qy + 0.35)
+                and open(qx, qy - 0.35) then
+                spots[#spots + 1] = { x = qx, y = qy, side = way, score = sightOf(qx, qy) }
               end
             end
-            n = n + (ok and 1 or 0)
           end
         end
-        return n
-      end
-      local ex, ey, ndx, ndy, nnx, nny = along(last, Road.NEST_AT)
-      -- Every spot either side that has room for a nest, and how much it sees.
-      local spots = {}
-      for _, way in ipairs({ -1, 1 }) do
-        for _, at in ipairs(Road.NEST_TRY_AT) do
-          for _, off in ipairs(Road.NEST_TRY_OFF) do
-            local cx2, cy2, _, _, cnx, cny = along(last, at)
-            local qx, qy = cx2 + cnx * way * off, cy2 + cny * way * off
-            if open(qx, qy) and open(qx + 0.35, qy) and open(qx - 0.35, qy) and open(qx, qy + 0.35)
-              and open(qx, qy - 0.35) then
-              spots[#spots + 1] = { x = qx, y = qy, side = way, score = sightOf(qx, qy) }
+        -- The first nest on the best of them; the second on the best a little
+        -- way from it, the other side of the road if that is near as good (a
+        -- bend along the river can leave one side with nowhere to see from).
+        local placed = {}
+        for k = 1, 2 do
+          local pick, best = nil, -math.huge
+          for _, q in ipairs(spots) do
+            local a = placed[1]
+            local far = not a or (q.x - a.x) ^ 2 + (q.y - a.y) ^ 2 >= Road.NEST_APART ^ 2
+            local score = q.score + (a and q.side ~= a.side and 3 or 0)
+            if far and score > best then
+              pick, best = q, score
             end
           end
+          placed[k] = pick or { x = ex + nnx * (k == 1 and -1 or 1) * Road.NEST_OFF,
+            y = ey + nny * (k == 1 and -1 or 1) * Road.NEST_OFF, side = k == 1 and -1 or 1 }
         end
-      end
-      -- The first nest on the best of them; the second on the best a little
-      -- way from it, the other side of the road if that is near as good (a
-      -- bend along the river can leave one side with nowhere to see from).
-      local placed = {}
-      for k = 1, 2 do
-        local pick, best = nil, -math.huge
-        for _, q in ipairs(spots) do
-          local a = placed[1]
-          local far = not a or (q.x - a.x) ^ 2 + (q.y - a.y) ^ 2 >= Road.NEST_APART ^ 2
-          local score = q.score + (a and q.side ~= a.side and 3 or 0)
-          if far and score > best then
-            pick, best = q, score
+        for _, q in ipairs(placed) do
+          local px, py, s2 = q.x, q.y, q.side
+          local angle = math.atan2(my - py, mx - px)
+          local nest = { x = math.floor(X(px)), y = math.floor(Y(py)), angle = angle, arc = Road.NEST_ARC }
+          local posts = {}
+          -- A rifleman behind the nest and one in the middle of the road behind both.
+          for _, off in ipairs({ { 1.3, s2 * Road.NEST_OFF }, { 2.0, s2 * 0.5 } }) do
+            local qx = ex + ndx * off[1] + nnx * off[2]
+            local qy = ey + ndy * off[1] + nny * off[2]
+            if not open(qx, qy) then
+              qx, qy = ex + ndx * off[1], ey + ndy * off[1] -- the road's middle, then
+            end
+            posts[#posts + 1] = { x = math.floor(X(qx)), y = math.floor(Y(qy)), watch = math.atan2(my - qy, mx - qx) }
           end
+          map.nests[#map.nests + 1] = { name = b.name, nest = nest, posts = posts }
         end
-        placed[k] = pick or { x = ex + nnx * (k == 1 and -1 or 1) * Road.NEST_OFF,
-          y = ey + nny * (k == 1 and -1 or 1) * Road.NEST_OFF, side = k == 1 and -1 or 1 }
-      end
-      for _, q in ipairs(placed) do
-        local px, py, s2 = q.x, q.y, q.side
-        local angle = math.atan2(my - py, mx - px)
-        local nest = { x = math.floor(X(px)), y = math.floor(Y(py)), angle = angle, arc = Road.NEST_ARC }
-        local posts = {}
-        -- A rifleman behind the nest and one in the middle of the road behind both.
-        for _, off in ipairs({ { 1.3, s2 * Road.NEST_OFF }, { 2.0, s2 * 0.5 } }) do
-          local qx = ex + ndx * off[1] + nnx * off[2]
-          local qy = ey + ndy * off[1] + nny * off[2]
-          if not open(qx, qy) then
-            qx, qy = ex + ndx * off[1], ey + ndy * off[1] -- the road's middle, then
+        -- The chicane: blocks across one lane, then the other.
+        for k, at in ipairs(Road.CHICANE) do
+          local qx, qy, _, _, qnx, qny = along(last, at)
+          local lane = (k % 2 == 0 and 1 or -1) * side
+          for _, off in ipairs(Road.CHICANE_OFF) do
+            solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
           end
-          posts[#posts + 1] = { x = math.floor(X(qx)), y = math.floor(Y(qy)), watch = math.atan2(my - qy, mx - qx) }
-        end
-        map.nests[#map.nests + 1] = { name = b.name, nest = nest, posts = posts }
-      end
-      -- The chicane: blocks across one lane, then the other.
-      for k, at in ipairs(Road.CHICANE) do
-        local qx, qy, _, _, qnx, qny = along(last, at)
-        local lane = (k % 2 == 0 and 1 or -1) * side
-        for _, off in ipairs(Road.CHICANE_OFF) do
-          solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
         end
       end
       -- Burnt-out cars on the way onto the bridge, staggered across it: cover
@@ -652,6 +661,7 @@ function Road.build(map, rng, T)
   end
   map.cx, map.cy = math.floor(ax - 4 * T), math.floor(Y(arrival.r + 2))
   map.exitX, map.exitY = math.floor(X(pass.c)), math.floor(Y(pass.r - 2))
+  map.bossX, map.bossY = math.floor(X(pass.c)), math.floor(Y(pass.r + 1))
   map.rollermineScatter = { count = Road.MINE_SCATTER, clear = {
     { x = ax, y = Y(arrival.r), r = Road.MINE_CLEAR }, { x = map.exitX, y = map.exitY, r = Road.MINE_CLEAR / 2 },
   } }

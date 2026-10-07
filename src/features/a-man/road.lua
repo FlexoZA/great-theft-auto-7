@@ -1,8 +1,9 @@
 -- The Winding Road, the last stop on A-Man's trail before the Citadel
 -- (quests' "a-man-road", on city-map's `road`): driven, from the valley
--- floor up to the pass. For now it is the drive alone. The first player
--- to reach the pass (`map.exitX, map.exitY`) finishes the level (quests'
--- `serverComplete`): a star comes up there.
+-- floor up to the pass. The Poison Zombie waits on the pass (the
+-- poison-zombie feature), and beating him finishes the level. Without that
+-- feature, the first player to reach the pass (`map.exitX, map.exitY`)
+-- finishes it (quests' `serverComplete`): a star comes up there.
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 
@@ -34,8 +35,8 @@ end
 --- Has anyone got to the pass, in a car or on foot? The first one there finishes the level.
 function Level.serverStep(server)
   local map = roadMap()
-  if not (sv and map) or sv.reached then
-    return
+  if not (sv and map) or sv.reached or Features.byName["poison-zombie"] then
+    return -- the zombie on the pass finishes it
   end
   for _, p in pairs(server.players) do
     if not p.bot and Features.present(p) then

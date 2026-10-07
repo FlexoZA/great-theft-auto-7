@@ -181,8 +181,8 @@ Quests.list = {
     color = { 0.55, 0.95, 0.65 },
     banner = "%s took the road after him. Welcome to the Winding Road.",
     introLine = 8,
-    exitText = "You made it over the pass. The Citadel is in sight from up here. His trail goes cold, for now. "
-      .. "Head home.",
+    exitText = "The Poison Zombie is down and the pass is yours. The Citadel is in sight from up here. His trail "
+      .. "goes cold, for now. Head home.",
   },
   {
     -- The end of the trail, for later; for now only `love . --quest a-man-citadel` gets there.

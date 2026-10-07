@@ -1,7 +1,7 @@
 # Damage types
 
 Every hit in the game says what kind of hit it is: a bullet, a blast, a
-flame, a crash, a bolt of lightning or a fist. Equipment can then resist
+flame, a crash, a bolt of lightning, a fist or a poison bite. Equipment can then resist
 some kinds and not others, fire can keep burning after the hit, and the
 kill feed and death effects can say what happened.
 
@@ -15,6 +15,7 @@ kill feed and death effects can say what happened.
 | `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream   | flattened      |
 | `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot                        | fried          |
 | `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels), the Tripod's cage | beat down      |
+| `poison`    | the poison headcrabs' bites (the Poison Zombie's)                                      | poisoned       |
 
 The list lives in `src/features/damage/init.lua` (`Damage.types`), one
 entry per type with its name, colour and kill feed words. A new type is a
@@ -33,11 +34,12 @@ Besides the damage, each type does something to a player on foot:
 | `bullet`    | nothing more                                                                                |
 | `fire`      | a fire that means it sets you alight: you burn on (3-4 s) after you are out of it           |
 | `melee`     | bleeding: 3 a second for 4 s; a medkit stops it                                             |
+| `poison`    | poisoned: 4 a second for 6 s; a medkit cures it                                             |
 | `shock`     | a hit of 20 or more stuns: held still for 1 s (no walking, shooting or dodging); a live round zaps you: shock runs on (3 s, 8 a second) after the hit |
 | `impact`    | knocked back 36 px and down for 0.6 s                                                       |
 | `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
 
-Burning, zaps and bleeding top up rather than stack; a dodge puts a fire
+Burning, zaps, bleeding and poison top up rather than stack; a dodge puts a fire
 out and shakes off a zap. A round can carry a zap (`electrify`) or a stun
 (`stun`, seconds) whatever it hits for.
 

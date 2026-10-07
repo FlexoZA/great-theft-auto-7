@@ -407,20 +407,21 @@ couple of small conventions rather than requiring each other:
   shock, a scorch mark and the pieces thrown every way for a blast, a
   bigger splat for impact, the gibs for bullets and melee.
   What a type does besides the damage, to a player on foot (the damage
-  feature, from `serverPlayerDamaged`): melee leaves them bleeding, shock
+  feature, from `serverPlayerDamaged`): melee leaves them bleeding, poison
+  leaves them poisoned (4 a second for 6 s), shock
   stuns them, impact knocks them back a little and down, explosive blows
   them back (further the harder it hit) and dazes them (`worldBlur`).
   Stunned or down is held (`serverHeld` / `held`). Fire does nothing by
   itself: `Features.byName.damage:ignite(server, victim, seconds, dps, by)`
   sets someone alight, and the heat ray ability, the Tripod's beam and the
   open-borders fires call it with their own `afterburn` numbers; anything
-  new that burns should too. Burning and bleeding bite every quarter second
+  new that burns should too. Burning, bleeding and poison bite every quarter second
   (the kill is `by`'s); another dose tops the time up at the stronger rate,
-  never stacks. A dodge puts a fire out, a medkit stops a bleed
-  (`damage:serverStopBleeding(server, id)`), and a car, dying or leaving
+  never stacks. A dodge puts a fire out, a medkit stops a bleed and cures
+  poison (`damage:serverTreat(server, id)`), and a car, dying or leaving
   ends everything. `damage:serverAfflict(server, victim, status, seconds,
   dps, by)`, `serverCure(server, id, status)` and `serverHas(id, status)`
-  are the general form (status "burn", "bleed", "stun", "down" or "daze");
+  are the general form (status "burn", "bleed", "poison", "stun", "down" or "daze");
   every client hears `DMG_FX <id> <status> <seconds>` and draws it. A knock
   is `Features.byName["on-foot"]:serverShove(server, player, dx, dy,
   distance, seconds)`: the body is carried that far, sliding along walls,
@@ -1190,16 +1191,17 @@ the one with a plot.
   by row). The mountains are shaded as the Coast's (render_coast.lua's
   `relief`, now exported with its helpers, as are coast.lua's
   `distances` and `rects`), bare rock and snow on the tops further north.
-  So far the level is the drive alone (`a-man/road.lua`): the first
-  player within 200 px of the pass (`map.exitX, map.exitY`), in a car or
-  on foot, finishes it, and its EXIT star leads home. City 17's theme
+  Its boss, the Poison Zombie (the poison-zombie feature), waits on the
+  pass (`map.bossX, map.bossY`); beating him finishes the level and his
+  EXIT star leads home. (Without that feature, `a-man/road.lua` finishes
+  it for the first player within 200 px of the pass, `map.exitX, exitY`.) City 17's theme
   plays; it has no surroundings yet. Rollermines lie in wait along it
   (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
   road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
   for one human), and `Road.MINE_SCATTER` (18) more are scattered at
   random over all its open ground every game (`map.rollermineScatter`),
   none within 1500 px of the arrival or 750 px of the pass. The Combine hold a checkpoint past every bridge
-  (`map.checkpoints`): two MG nests either side of the road facing back
+  but the top one, which is the Poison Zombie's (`map.checkpoints` lists all six): two MG nests either side of the road facing back
   over it (`map.nests`, { name, nest, posts }, sandbags drawn only; each
   bridge's two nests go on the two spots of `Road.NEST_TRY_AT` x
   `Road.NEST_TRY_OFF`, either side, on open ground that see the most of
@@ -1213,8 +1215,8 @@ the one with a plot.
   `map.garrisons` with `waves` = `Road.WAVES`: a soldier out of the door
   every 6 s while a player is within 1.5x its 750 px reach and fewer than 3
   of its own are up, 8 in all for one human, the door opening again for
-  each; they go for the player). 48 soldiers on the nests for one human,
-  48 more out of the bunkers. Short of every bridge lie three burnt-out
+  each; they go for the player). 40 soldiers on the nests for one human,
+  40 more out of the bunkers. Short of every bridge lie three burnt-out
   cars (cover kind "wreck", solid, `facing` their nose; `Road.WRECKS`
   tiles back from the deck, staggered either side up to
   `Road.WRECK_SPREAD` out, never on the deck): cover to fight the nests
@@ -1267,6 +1269,32 @@ the one with a plot.
   rolling, armed, hurt), the sounds (`sounds.lua`, the "rollermines"
   volume channel: popping out, the whirr, the beep) and `RLM_STATE` /
   `RLM_DOWN` (header of `rollermines/init.lua`).
+- The Poison Zombie: the Winding Road's boss, `src/features/poison-zombie`,
+  after Half-Life 2's, built to the bosses standard (`bosses/init.lua`).
+  He waits on the pass (`map.bossX, map.bossY`, from city-map's road.lua)
+  until a player he can see comes within 750 px, howls for 1.6 s, and
+  comes for the nearest one for good, never more than 1900 px from the
+  pass (with nobody about he trudges back). His brain (`brain.lua`):
+  shuffles (58 px/s), lurches (115, spending breath) at somebody more than
+  320 px off, winded drags along at 40; claws within 52 px (20 melee, so
+  they bleed); 120-640 px off with a clear line he reaches back over his
+  shoulder for one of the 3 crabs on his back and throws it (18 breath, at
+  most one every 2.2 s, while fewer than 4 crabs for one human are about);
+  a new one grows every 9 s; medkits and dodging as every boss. 1800
+  health for one human; rounds owned by nobody pass by; down, 50 koins,
+  `serverKill` kind "boss" and `quests:serverComplete`. The crabs
+  (`crabs.lua`): thrown in an arc (430 px/s), they crawl (125 px/s) after
+  the nearest player within 1100 px and leap (380 px/s) from 150 px, or
+  from 70 px off a car's side; 30 health each, a koin and `serverKill`
+  kind "headcrab" when a player kills one, squashed by a car doing 60 px/s
+  or more. A bite is 15 of the damage feature's "poison" type, which
+  leaves somebody on foot poisoned (4 a second for 6 s, a medkit cures
+  it); on a car it scratches it for 6. He is solid to cars: one that
+  drives into him is pushed back out and bounces off, and at 60 px/s or
+  more it costs him 0.12 per px/s and the car 15 (impact). The model
+  (`render.lua`), the sounds (`sounds.lua`, the "poison-zombie" volume
+  channel) and the messages `PZM_BOSS`, `PZM_CRABS`, `PZM_CRAB_DOWN`,
+  `PZM_BITE`, `PZM_DOWN` (header of `poison-zombie/init.lua`).
 - The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
   ("Into the Citadel", nothing leads there yet: `love . --world <slug>
   --quest a-man-citadel`) on
