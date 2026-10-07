@@ -974,8 +974,9 @@ function Buildings:drawBelowCars()
 end
 
 --- Every owned plot on the minimap and the big map, outlined in its owner's
---- colour (mine in white), with the building on it in its own colour (a
---- ruin dark). Where a plot is big enough on the map (the big map), the
+--- colour (mine in white), with the building on it filled in that player's
+--- colour, the one their dot has, so whose it is shows at a glance (a ruin
+--- darker). Where a plot is big enough on the map (the big map), the
 --- building's mark goes in the middle.
 function Buildings:drawOnMinimap(client, toMap)
   local re = realEstate()
@@ -989,14 +990,16 @@ function Buildings:drawOnMinimap(client, toMap)
       local kind = b and Kinds.byKey[b.kind]
       local x0, y0 = toMap(plot.x, plot.y)
       local x1, y1 = toMap(plot.x + plot.w, plot.y + plot.h)
+      local mine = owner == client.myId
       if kind then
+        -- The building in its owner's colour, as their dot on the map; a ruin darkened.
         local r = footprint(plot)
         local fx0, fy0 = toMap(r.x, r.y)
         local fx1, fy1 = toMap(r.x + r.w, r.y + r.h)
-        love.graphics.setColor(ruined(b) and { 0.16, 0.14, 0.13 } or Render.rubbleColor(kind))
+        local oc, k = Car.colorFor(owner), ruined(b) and 0.35 or 1
+        love.graphics.setColor(oc[1] * k, oc[2] * k, oc[3] * k)
         love.graphics.rectangle("fill", fx0, fy0, fx1 - fx0, fy1 - fy0)
       end
-      local mine = owner == client.myId
       local c = mine and { 1, 1, 1 } or Car.colorFor(owner)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.setLineWidth(mine and 3 or 2)

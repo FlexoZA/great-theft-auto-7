@@ -503,8 +503,10 @@ function Police:serverFreezeArea(_server, x, y, radius, seconds)
   end
 end
 
-function Police:serverShotAt(server, x, y, radius, by, angle)
-  if not sv or by == Officers.OWNER then
+function Police:serverShotAt(server, x, y, radius, by, angle, _damage, _dtype, from)
+  -- The force's own rounds belong to nobody; so do a gang's, but those say
+  -- where they came from (`from`) and do hit.
+  if not sv or (by == Officers.OWNER and not from) then
     return false
   end
   local o = sv.officers:at(x, y, radius)
@@ -520,6 +522,33 @@ function Police:serverShotAt(server, x, y, radius, by, angle)
     sv.officers:shotAt(server, o, by, angle) -- they turn on whoever it was
   end
   return true
+end
+
+--- The officers on foot after player `id` right now (after anybody, for no
+--- `id`), on the host: { id, x, y } each. For something that stands up to
+--- them (a Gang Hangout's guards).
+function Police:serverOfficersAfter(id)
+  local out = {}
+  local of = sv and sv.officers
+  for i = 1, of and of.n or 0 do
+    local o = of.list[i]
+    if o.target and (id == nil or o.target == id) then
+      out[#out + 1] = { id = o.id, x = o.x, y = o.y }
+    end
+  end
+  return out
+end
+
+--- Where officer `id` stands on the host, or nil once they are down or off duty.
+function Police:serverOfficer(id)
+  local of = sv and sv.officers
+  for i = 1, of and of.n or 0 do
+    local o = of.list[i]
+    if o.id == id then
+      return o.x, o.y
+    end
+  end
+  return nil
 end
 
 --- One POL_FOOT line for the whole beat. An empty one (just the tick) is

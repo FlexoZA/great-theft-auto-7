@@ -184,9 +184,9 @@ end
 --- first one to answer swallows the bullet, which is why a single shot takes
 --- one pedestrian out of a crowd rather than the whole queue. `dtype` is
 --- the round's damage type (src/features/damage).
-local function shotSomething(server, x, y, by, angle, damage, dtype)
+local function shotSomething(server, x, y, by, angle, damage, dtype, from)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype) then
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype, from) then
       return true
     end
   end
@@ -1473,8 +1473,11 @@ end
 --- everyone (nobody is the owner) and their kills go on nobody's scoreboard.
 --- No cooldown is applied here; the caller owns its own rate of fire. `gun`
 --- is a table from guns.lua (the pistol when not given); its scatter is
---- applied here.
-function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
+--- applied here. `from` (optional) names what fired a shot that belongs to
+--- no player ("gang": a Gang Hangout's guard); it reaches `serverShotAt`, so
+--- the police officers, who ignore their own ownerless rounds, can tell one
+--- that isn't theirs.
+function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
   local sv = self.sv
   if not (sv and aim) then
     return false
@@ -1495,7 +1498,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
       ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
-      electrify = gun.electrify, stun = gun.stun,
+      electrify = gun.electrify, stun = gun.stun, from = from,
     }
     server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
       ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
@@ -1919,7 +1922,7 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype) then
+    if shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype, p.from) then
       return "soft", px, py
     end
   end
@@ -1978,7 +1981,7 @@ function Weapons:explode(server, p, x, y)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, blast.soft or 0 do
-        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle, nil, dtype) then
+        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle, nil, dtype, p.from) then
           break
         end
       end

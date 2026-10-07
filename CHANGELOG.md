@@ -24,10 +24,21 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Whoever a bum goes for cries "I have been stabbed" at his first punch, and police who see it just
   answer "I don't think you have mate". Shoot back at the bum in front of them, though, and they come
   after you. Bots he goes for fight back, and get the same treatment.
+- Gang Hangout: a new building (200 Fcks) for a plot you own. Deposit koins into its fund and up to
+  4 armed guards come out, 100 Fcks each from the fund; with the fund empty nobody comes out, and
+  a guard who goes down is replaced 10 seconds later. They go after anyone who shoots any of your
+  buildings, shoots you on the hangout's block or the blocks around it, or shoots them.
+- Gang Hangout upgrades: street thugs with pistols (100 Fcks a guard), bent cops with uzis (upgrade
+  500, 150 a guard), riflemen with AK-47s (1000, 200 a guard) and the Combine with shotguns (2000,
+  300 a guard).
+- Gang Hangout guards also fight the police: an officer on foot who shoots you near the hangout,
+  or shoots one of them, has the crew after them, and their rounds bring officers down.
 
 ### Changed
 - Parks are no longer plain grass: gravel paths lead in from each side to a paved plaza with a
   fountain, with striped lawns, low hedges, flower beds, lamps and benches.
+- On the minimap and the big map, every building is now drawn in its owner's colour (the colour of
+  their dot), so you can see at a glance whose it is. Ruins are a darker shade of it.
 
 ## [0.12.0] - 2026-10-05
 

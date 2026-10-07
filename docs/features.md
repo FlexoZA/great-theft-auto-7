@@ -588,6 +588,14 @@ couple of small conventions rather than requiring each other:
   Pass `0` as the owner for a shot that belongs to nobody -- it can hit
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
+  An optional last argument `from` names what fired an ownerless shot
+  ("gang" for a Gang Hangout's guards); it reaches every `serverShotAt` as
+  its last argument. Police officers ignore ownerless rounds without one
+  (their own), so a round with a `from` is one that hits them.
+  `police:serverOfficersAfter(id)` lists the officers on foot after player
+  `id` (anybody, for nil) as `{ id, x, y }`, and `police:serverOfficer(id)`
+  says where one stands (nil once down or off duty), for something that
+  stands up to them.
 - `Features.byName.weapons:explosionAt(client, x, y, color)`: an explosion
   seen and heard at (x, y) on this machine (client side, no damage). Buildings
   blows up with it when one comes down.
@@ -667,6 +675,9 @@ the one with a plot.
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host. `real-estate:serverTransfer(server, plotId, playerId)` hands a
   plot to someone else (buildings' hostile takeover, after they have paid).
+  On the minimap and the big map every owned plot is outlined in its owner's
+  colour (yours in white) and the building on it is filled in that colour
+  (`Car.colorFor(owner)`, as their dot), darker for a ruin.
 - Buildings: `src/features/buildings` puts a building on a plot its owner
   picks (parking lot, quarry, oil well, ammo, weapons, health and vehicle factories;
   the catalog is `kinds.lua`), used from a square on the sidewalk in front of
@@ -1169,7 +1180,9 @@ the one with a plot.
   (kind `"garage"` in `buildings/kinds.lua`, with `service = "garage"`: a kind
   another feature runs makes nothing, and buildings asks that feature for its
   menu rows, info lines and drawing: `buildingRows(client, plot, b, row)`,
-  `buildingInfo(client, plot, b)`, `drawBuilding(b, kind, r, time)`;
+  `buildingInfo(client, plot, b)`, `drawBuilding(b, kind, r, time)`, and
+  optionally `drawMapMark()` for its sign on the big map, drawn at (0, 0)
+  about 50 px across; a kind's `color` is its colour in ruins);
   `buildings:ofKind(kind, owner)` lists a player's buildings of a kind, on
   either side). Each holds six cars, parked from its square and taken out
   from the vehicles screen (G), which lists every car you own with its
@@ -1184,6 +1197,33 @@ the one with a plot.
   `GAR_FREE`, `GAR_OK`, `GAR_NO` down. `weapons:serverCarHealth(car)` /
   `serverSetCarHealth(server, car, hp)` read and set a car's hit points even
   while it is hidden.
+- Gang Hangout: `src/features/gang-hangout` runs the building kind
+  `"hangout"` (`service = "gang-hangout"`, like the garage). Its boss (the
+  plot's owner) deposits koins into its fund from the square
+  (`GANG_DEPOSIT`, `GANG_WITHDRAW`); while the fund covers it, up to
+  `Gang.guards` (4) guards come out one by one, each taking its crew's
+  `spawn` price from the fund, and stand at posts on the sidewalk out front.
+  One who goes down (`GANG_DOWN`; `serverKill` with kind "gang") is replaced
+  `Gang.respawn` seconds later, for the price again. Anyone who hurts one of
+  the boss's buildings (`serverWallHit`, `serverBlast`), the boss on the
+  hangout's block or the blocks round it (`serverPlayerDamaged`), or a
+  guard (`serverShotAt`, a car hitting one) has the crew after them for
+  `Gang.chase` seconds, renewed by each attack (`GANG_ALERT` tells the boss).
+  Police cars count like any player; a police officer on foot who shoots
+  the boss there or a guard does too, taken to be the nearest officer after
+  somebody within `Gang.copReach` (their rounds name nobody), and the
+  guards' rounds carry `from = "gang"` so they hit officers.
+  `guards.lua` runs them like the park bums walk (d-day's nav grid round
+  buildings) and fires bursts like City 17's soldiers, ownerless through
+  `serverFireFrom`, holding fire while the boss or a mate is in the line.
+  `crews.lua` lists the levels: each an armed NPC's look with its gun
+  (thugs with pistols, bent cops with uzis, D-Day's riflemen with AK-47s,
+  the Combine with shotguns), dearer to upgrade to (`GANG_UPGRADE`) and per
+  guard the harder the gun hits. Guards already out keep their gun. A
+  saved world keeps level, fund and how many were out. Messages:
+  `GANG_STATE`, `GANG_GONE`, `GANG_UNITS`, `GANG_DOWN`, `GANG_ALERT`,
+  `GANG_OK`, `GANG_NO` down. Tuning is at the top of `init.lua`,
+  `guards.lua` and `crews.lua`.
 - `Features.byName.<name>` is the escape hatch when a feature genuinely
   needs another (the city map pushes pedestrians out of buildings through
   `Features.byName.pedestrians.crowd`). Check for nil: the other feature
