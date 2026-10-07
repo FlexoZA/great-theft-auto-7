@@ -111,6 +111,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   rollermines on the catwalks, Hunters near the top, and a machine gun
   firing straight down the long span over the core, with nowhere on it
   to hide. Reach the lift at the top to finish.
+- The Winding Road has its own music: heavy metal for the drive up the
+  mountain, galloping riffs, double kick and a screaming lead guitar.
 - Poison, a new kind of damage: a poison headcrab's bite leaves you
   poisoned, losing 4 health a second for 6 seconds, with green bubbles
   rising off you. A medkit cures it. It shows in the resistances on the

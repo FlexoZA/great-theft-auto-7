@@ -1194,8 +1194,10 @@ the one with a plot.
   Its boss, the Poison Zombie (the poison-zombie feature), waits on the
   pass (`map.bossX, map.bossY`); beating him finishes the level and his
   EXIT star ("CITADEL", the quest's `next`) leads on into the Citadel. (Without that feature, `a-man/road.lua` finishes
-  it for the first player within 200 px of the pass, `map.exitX, exitY`.) City 17's theme
-  plays; it has no surroundings yet. Rollermines lie in wait along it
+  it for the first player within 200 px of the pass, `map.exitX, exitY`.) Its own theme
+  plays (`a-man/theme_road.lua`: heavy metal, 160 BPM in E minor, ~60 s:
+  power chords, a galloping palm-muted riff, a chorus with a lead, a
+  half-time breakdown and a solo); it has no surroundings yet. Rollermines lie in wait along it
   (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
   road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
   for one human), and `Road.MINE_SCATTER` (18) more are scattered at
