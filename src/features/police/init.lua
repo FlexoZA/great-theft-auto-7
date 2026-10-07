@@ -20,6 +20,10 @@
 -- Clients only draw what POL_FOOT tells them (render.lua), and mark them on
 -- the minimap and the big map as small blue dots (`drawOnMinimap`).
 --
+-- A cop who sees something can pass remark on it without doing anything
+-- (`Police:serverRemark`, another feature's line): the nearest witness says
+-- it in a bubble over their head.
+--
 -- With inclusive mode on (the menu toggle), every human starts the game
 -- wanted with the whole force already in pursuit: get away first.
 --
@@ -37,6 +41,7 @@
 --   server -> all  POL_FOOT   <tick> [<id> <x> <y> <facing> <alert> <hp>]...
 --                                               (unreliable, 15 Hz)
 --   server -> all  POL_DOWN   <id> <x> <y> <angle>   an officer went down
+--   server -> all  POL_SAY    <u|o> <id> <text>  a unit (its player id) or an officer says something
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -63,6 +68,7 @@ Police.ramCrime = 220 -- closing speed (px/s) of a ram that counts as a crime
 Police.hotStartTime = 30 -- seconds of heat everyone starts with in inclusive mode
 Police.whistleRange = 1200 -- px; an officer blowing their whistle further away isn't heard
 Police.loseSightTime = 4 -- seconds a chasing unit keeps after someone it can no longer see
+Police.remarkEvery = 6 -- seconds before the same cop passes another remark
 
 local FOOT_SYNC_EVERY = 2 -- server ticks between POL_FOOT broadcasts
 
@@ -70,6 +76,7 @@ local FOOT_SYNC_EVERY = 2 -- server ticks between POL_FOOT broadcasts
 Police.units = {} -- id -> { siren = Source|nil, chasing = bool }
 Police.wanted = {} -- player id -> true
 Police.lights = false -- an event is on: every unit flashes its lights
+Police.remarks = {} -- "u<id>" / "o<id>" -> { kind, id, text, t }: what a cop is saying
 local flash = 0
 
 function Police:load()
@@ -89,6 +96,7 @@ function Police:exitGame()
   self.units = {}
   self.wanted = {}
   self.lights = false
+  self.remarks = {}
   Render.clear()
 end
 
@@ -114,6 +122,12 @@ end
 function Police:update(dt, client)
   flash = flash + dt
   Render.update(dt)
+  for key, r in pairs(self.remarks) do
+    r.t = r.t - dt
+    if r.t <= 0 then
+      self.remarks[key] = nil
+    end
+  end
   for id, u in pairs(self.units) do
     local c = client:vehicleOf(id)
     if u.chasing and c then
@@ -244,6 +258,27 @@ function Police:drawOnMinimap(client, toMap, w)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- `text` in a police-blue bubble over (x, y), the tail pointing down.
+local function drawRemark(x, y, text, alpha)
+  local font = UI.fonts.small
+  local maxW = 200
+  local w, wrapped = font:getWrap(text, maxW)
+  w = math.min(maxW, w) + 14
+  local h = #wrapped * font:getHeight() + 10
+  local bx, by = x - w / 2, y - h - 22
+  love.graphics.setColor(0, 0, 0, 0.4 * alpha)
+  love.graphics.rectangle("fill", bx + 2, by + 3, w, h, 5)
+  love.graphics.setColor(0.10, 0.14, 0.30, 0.92 * alpha)
+  love.graphics.rectangle("fill", bx, by, w, h, 5)
+  love.graphics.polygon("fill", x - 5, by + h - 1, x + 5, by + h - 1, x, by + h + 8)
+  love.graphics.setColor(0.55, 0.70, 1.00, 0.85 * alpha)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", bx, by, w, h, 5)
+  love.graphics.setFont(font)
+  love.graphics.setColor(0.90, 0.94, 1.00, alpha)
+  love.graphics.printf(text, bx + 7, by + 5, w - 14, "center")
+end
+
 function Police:drawAboveCars(client)
   for id, u in pairs(self.units) do
     local c = client:vehicleOf(id)
@@ -251,6 +286,20 @@ function Police:drawAboveCars(client)
       drawLivery(c, u.chasing or self.lights)
     end
   end
+  for _, r in pairs(self.remarks) do
+    local x, y
+    if r.kind == "u" then
+      local c = client:vehicleOf(r.id)
+      x, y = c and c.dx, c and c.dy
+    else
+      local o = Render.officers[r.id]
+      x, y = o and o.dx, o and o.dy
+    end
+    if x then
+      drawRemark(x, y, r.text, math.min(1, r.t * 2))
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Police:drawHUD(client)
@@ -287,6 +336,12 @@ Police.clientMessages = {
   POL_LIGHTS = function(_client, args)
     Police.lights = args[1] == "1"
   end,
+  POL_SAY = function(_client, args)
+    local kind, id, text = args[1], tonumber(args[2]), args[3]
+    if (kind == "u" or kind == "o") and id and text then
+      Police.remarks[kind .. id] = { kind = kind, id = id, text = text, t = 2.5 + #text / 20 }
+    end
+  end,
   POL_FOOT = function(client, args)
     Render.sync(args)
     Police:whistles(client)
@@ -308,7 +363,7 @@ Police.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { units = {}, wanted = { id -> until }, time }
+local sv = nil -- { units = {}, wanted = { id -> until }, time, remarked = { "u<id>"/"o<id>" -> time } }
 
 local function bots()
   return Features.byName.bots
@@ -332,6 +387,38 @@ local function witnessed(x, y)
     return false
   end
   return unitsInSight(x, y, Police.sightRange) > 0 or sv.officers:sees(x, y, Officers.SIGHT)
+end
+
+--- A cop who can see (x, y) passes remark `text` on it, and does nothing
+--- else: the first patrol car in sight, else an officer on the beat facing
+--- it. The same cop says nothing more for `remarkEvery` seconds. Returns
+--- true if somebody said it.
+function Police:serverRemark(server, x, y, text)
+  if not sv then
+    return false
+  end
+  local kind, id
+  for _, u in ipairs(sv.units) do
+    local car = u.car
+    if car and not car.hidden and Vision.canSee(car.x, car.y, car.angle, x, y, self.sightRange) then
+      kind, id = "u", u.id
+      break
+    end
+  end
+  if not kind then
+    local o = sv.officers:seer(x, y, Officers.SIGHT)
+    kind, id = o and "o", o and o.id
+  end
+  if not kind then
+    return false
+  end
+  local key = kind .. id
+  if (sv.remarked[key] or -math.huge) + self.remarkEvery > sv.time then
+    return true -- they saw it, and have said their piece
+  end
+  sv.remarked[key] = sv.time
+  server:broadcast(Protocol.encode("POL_SAY", kind, id, text))
+  return true
 end
 
 --- Nobody is wanted while an event is on (`sv.event`): the force keeps out of it.
@@ -550,7 +637,7 @@ function Brain.wrecked(server, unit)
 end
 
 function Police:serverStart(server)
-  sv = { units = {}, wanted = {}, time = 0, officers = Officers.new(), footSync = 0 }
+  sv = { units = {}, wanted = {}, time = 0, officers = Officers.new(), footSync = 0, remarked = {} }
   local B = bots()
   if not B then
     return

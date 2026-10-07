@@ -380,8 +380,21 @@ function Bots:provoke(_server, bot, byId)
   bot.ai.farFor = 0
 end
 
+--- Make `bot` fight off something that is not a player (a hired bum):
+--- `foe.pos()` says where it is and `foe.alive()` whether the fight is still
+--- on. A player it is angry at comes first. Shooting at it is a crime like
+--- any other: the police see it the same way.
+function Bots:fightOff(_server, bot, foe)
+  if truce or not (bot and bot.bot and bot.ai and foe) then
+    return
+  end
+  bot.ai.foe = foe
+  bot.ai.foeUntil = now + self:difficulty().hostileTime
+end
+
 function Bots:calm(bot)
   bot.ai.hostileTo = nil
+  bot.ai.foe = nil
   bot.ai.farFor = 0
   bot.ai.recklessUntil = nil -- a fight or a wreck ends a reckless spell too
 end
@@ -486,10 +499,15 @@ function Bots:cruise(server, bot, speed, reckless)
 end
 
 function Bots:fight(server, bot, target)
-  local ai, car = bot.ai, bot.car
-  local tc = target.vehicle
   -- The target is where their body is: the car they drive, or their feet.
   local tx, ty, onFoot = Features.bodyPose(server, target)
+  self:fightAt(server, bot, tx, ty, not onFoot and target.vehicle or nil)
+end
+
+--- Drive at (tx, ty), circling it close in, and shoot at it, leading `tc`
+--- (the car there, if it is one).
+function Bots:fightAt(server, bot, tx, ty, tc)
+  local ai, car = bot.ai, bot.car
   local dx, dy = tx - car.x, ty - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
   Bots.driveTowards(bot, tx, ty, 1, dist <= self.standoff)
@@ -511,7 +529,7 @@ function Bots:fight(server, bot, target)
     if Weapons and Weapons.serverFire then
       local flight = dist / Weapons.PROJECTILE_SPEED
       local px, py = tx, ty
-      if not onFoot then
+      if tc then
         px = tc.x + math.cos(tc.angle) * tc.speed * flight
         py = tc.y + math.sin(tc.angle) * tc.speed * flight
       end
@@ -540,8 +558,15 @@ function Bots:think(server, bot, dt)
       ai.farFor = 0
     end
   end
+  local foe = ai.foe
+  if foe and (truce or now > ai.foeUntil or not foe.alive()) then
+    ai.foe, foe = nil, nil -- over, or forgiven
+  end
   if target and Features.visible(server, target) then
     self:fight(server, bot, target)
+  elseif foe then
+    local fx, fy = foe.pos()
+    self:fightAt(server, bot, fx, fy)
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)
   else
