@@ -198,7 +198,8 @@ Quests.list = {
     label = "A-MAN",
     color = { 0.55, 0.95, 0.65 },
     banner = "%s went in after him. Welcome to the Citadel.",
-    exitText = "You made it to the top. His trail goes cold here, for now. Head home.",
+    exitText = "A-Man is down. A pair of joke-shop glasses, a stuck-on moustache and an empty briefcase: that's "
+      .. "all that's left of him. Head home.",
     introLine = 9,
   },
   {

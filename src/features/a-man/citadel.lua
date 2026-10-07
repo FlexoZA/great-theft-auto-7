@@ -3,21 +3,20 @@
 -- platforms on the way. The Combine hold it (city17.lua: guards on the
 -- map's `posts`, its MG emplacement over the long span), with rollermines
 -- on the catwalks and Hunters on the gallery and the top (the map's
--- `rollermines` and `hunterBeats`). The first player to reach the lift up
--- at the top (`map.exitX, map.exitY`) finishes the level (quests'
--- `serverComplete`): a star comes up there.
+-- `rollermines` and `hunterBeats`). A-Man himself waits at the top
+-- (finale.lua): the first player onto the top platform brings him, and
+-- beating him finishes the level (quests' `serverComplete`): the EXIT
+-- star comes up where he fell.
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 
 local Features = require("src.features")
+local Finale = require("src.features.a-man.finale")
 
 local Level = {}
 
 -- Tuning ------------------------------------------------------------------
 Level.questId = "a-man-citadel" -- the quest this level is
-Level.reach = 140 -- px from the lift up that counts as reaching it
-
-local sv = nil -- { reached } while the level is on, on the host
 
 local function cityMap()
   local city = Features.byName["city-map"]
@@ -26,33 +25,40 @@ end
 
 function Level.serverQuestStarted(_server, quest)
   if quest.id == Level.questId and cityMap() then
-    sv = { reached = false }
+    Finale.serverStart()
   end
 end
 
-function Level.serverStop()
-  sv = nil
+function Level.serverStop(server)
+  Finale.serverStop(server)
 end
 
---- Has anyone got to the lift up? The first one there finishes the level.
-function Level.serverStep(server)
+function Level.serverStep(server, dt)
   local map = cityMap()
-  if not (sv and map) or sv.reached then
-    return
-  end
-  for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
-      local x, y = Features.bodyPose(server, p)
-      if (x - map.exitX) ^ 2 + (y - map.exitY) ^ 2 <= Level.reach ^ 2 then
-        sv.reached = true
-        local quests = Features.byName.quests
-        if quests and quests.serverComplete then
-          quests:serverComplete(server, Level.questId, map.exitX, map.exitY)
-        end
-        return
-      end
-    end
+  if map then
+    Finale.serverStep(server, dt, map)
   end
 end
+
+function Level.serverShotAt(server, x, y, radius, by, angle, damage)
+  return Finale.serverShotAt(server, x, y, radius, by, angle, damage)
+end
+
+function Level.serverFreezeArea(x, y, radius, seconds)
+  Finale.serverFreezeArea(x, y, radius, seconds)
+end
+
+function Level.serverPanicArea(x, y, radius)
+  Finale.serverPanicArea(x, y, radius)
+end
+
+-- Every machine: A-Man, his turrets, his boss bar.
+Level.clientMessages = Finale.clientMessages
+Level.clear = Finale.clear
+Level.update = Finale.update
+Level.drawBelowCars = Finale.drawBelowCars
+Level.drawAboveCars = Finale.drawAboveCars
+Level.drawHUD = Finale.drawHUD
+Level.where = Finale.where
 
 return Level

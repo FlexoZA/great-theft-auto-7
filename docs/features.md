@@ -1324,8 +1324,22 @@ the one with a plot.
   three catwalks, two to each (`map.rollermines`: off the lift, up to the
   gallery, across to the reactor deck); and Hunters walking round the
   gallery (one) and the top (two) (`map.hunterBeats`), all more with more
-  humans. The first player within 140 px of the lift up still finishes it
-  (`a-man/citadel.lua`), and its EXIT star leads home. Its own theme plays
+  humans. A-Man himself is its boss (`a-man/finale.lua`, run by
+  `a-man/citadel.lua`): he blinks in by the lift up when the first player
+  steps onto the top platform. The same man and brain as the city event
+  (`a-man/brain.lua`: stalk, blink through, medkits, dodging) with 5000
+  health for one human, 70 on his blink line, and a briefcase that holds
+  the trail's enemies: every 11 s (7 s under half health), after a 1 s
+  warning (he holds it up, glowing), out come 4 Combine soldiers (City 17's
+  `serverDrop`), 2 Hunters on a ring round him (`hunters:serverPatrol`), 4
+  rollermines already awake (`rollermines:serverSummon`, new), 7 antlions
+  up out of the floor (`antlions:serverSummon`, new) or 8 sentry turrets
+  (only with none of the last lot standing), never the same twice running,
+  all more with more humans (`Finale.SUMMONS`); under 30% two come out at
+  once. Each comes with a line of his over his head. Down: the disguise,
+  150 koins, his teleport (uncommon or better), `serverKill` kind "boss"
+  and `quests:serverComplete`: the EXIT star home comes up where he fell.
+  Messages `AMF_*` (header of `a-man/finale.lua`). Its own theme plays
   (`a-man/theme_citadel.lua`: industrial metal, 112 BPM in D Phrygian, ~86 s:
   a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
   half-time drums, a chorus with a harmonised lead, a breakdown under the

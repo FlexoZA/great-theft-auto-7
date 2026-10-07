@@ -14,7 +14,8 @@
 --   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
 --   detour.lua   him stepping in at the Citadel's doors and sending everyone to the Outer City
 --   road.lua     the Winding Road: the drive up to the pass
---   citadel.lua  the end of the trail, for later: the catwalk up through the Citadel
+--   citadel.lua  the end of the trail: the catwalk up through the Citadel
+--   finale.lua   A-Man himself at the top of it, the last fight: his case holds the trail's enemies
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
 --   theme.lua    his music, while he is loose, and City 17's
@@ -56,6 +57,7 @@ function AMan:exitGame()
   Event.stopTheme()
   Event.clearRemains()
   City17.clear()
+  Citadel.clear()
   page = nil
 end
 
@@ -71,7 +73,7 @@ function AMan:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     City17.serverStop(server)
     Road.serverStop()
-    Citadel.serverStop()
+    Citadel.serverStop(server)
     Detour.serverStop()
   end
 end
@@ -81,15 +83,17 @@ function AMan:mapChanged(_map, server)
   if server then
     City17.serverStop(server)
     Road.serverStop()
-    Citadel.serverStop()
+    Citadel.serverStop(server)
     Detour.serverStop()
+  else
+    Citadel.clear() -- whatever of his was on the old map
   end
 end
 
 function AMan:serverStep(server, dt)
   City17.serverStep(server, dt)
   Road.serverStep(server)
-  Citadel.serverStep(server)
+  Citadel.serverStep(server, dt)
   Detour.serverStep(server, dt)
 end
 
@@ -116,19 +120,27 @@ end
 
 function AMan:serverShotAt(server, x, y, radius, by, angle, damage)
   return City17.serverShotAt(server, x, y, radius, by, angle, damage)
+    or Citadel.serverShotAt(server, x, y, radius, by, angle, damage)
 end
 
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)
   City17.serverFreezeArea(x, y, radius, seconds)
+  Citadel.serverFreezeArea(x, y, radius, seconds)
 end
 
 function AMan:serverPanicArea(_server, x, y, radius)
   City17.serverPanicArea(x, y, radius)
+  Citadel.serverPanicArea(x, y, radius)
 end
 
 -- Every machine -------------------------------------------------------------
 
-AMan.clientMessages = City17.clientMessages
+AMan.clientMessages = {}
+for _, handlers in ipairs({ City17.clientMessages, Citadel.clientMessages }) do
+  for kind, handler in pairs(handlers) do
+    AMan.clientMessages[kind] = handler
+  end
+end
 
 --- Everyone arrived in City 17: his intro screen comes up, and his theme
 --- with it, playing on till the quest is over. The first of his lines, so
@@ -146,6 +158,7 @@ function AMan:questEnded(_client, quest)
   if quest.boss == self.questId then
     page = nil
     City17.clear()
+    Citadel.clear()
     Event.stopTheme()
   end
 end
@@ -167,6 +180,7 @@ function AMan:update(dt)
   Event.updateRemains(dt)
   Event.themeVolume()
   City17.update(dt)
+  Citadel.update(dt)
   if page then
     face:update(dt)
     page.t = page.t - dt
@@ -177,6 +191,7 @@ function AMan:update(dt)
 end
 
 function AMan:drawHUD()
+  Citadel.drawHUD()
   if page then
     Screen.draw(face, Screen.spec(page.line), time)
   end
@@ -185,10 +200,12 @@ end
 function AMan:drawBelowCars()
   Event.drawRemains()
   City17.drawBelowCars()
+  Citadel.drawBelowCars()
 end
 
 function AMan:drawAboveCars()
   City17.drawAboveCars()
+  Citadel.drawAboveCars()
 end
 
 --- The footsteps feature's hook: who of mine is walking about, and where.
@@ -196,6 +213,10 @@ function AMan:footstepWalkers()
   local list = {}
   for id, s in pairs(City17.troops()) do
     list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  local hx, hy = Citadel.where()
+  if hx then
+    list[#list + 1] = { key = "a-man", x = hx, y = hy, size = "person" }
   end
   return list
 end

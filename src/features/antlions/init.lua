@@ -17,6 +17,9 @@
 -- The host owns them; clients hear about the ones out of the sand at
 -- 15 Hz (the buried ones are never sent: nobody knows they are there).
 --
+-- Another feature can call a swarm up anywhere (`serverSummon`: A-Man's
+-- briefcase in the Citadel).
+--
 -- Clear the Coast's final section (`map.finale`) of every antlion buried
 -- there and every Combine soldier in it, and its boss comes up out of the
 -- sand: the Antlion Guard (guard.lua).
@@ -211,6 +214,21 @@ function Antlions:serverPanicArea(_server, x, y, radius)
     sv.brain:scare(x, y, radius)
   end
   Guard.serverPanicArea(x, y, radius)
+end
+
+--- Another feature calls a swarm up at (x, y) on any map, whether it has
+--- swarms of its own or not (A-Man's briefcase in the Citadel): `count`
+--- come up out of the ground within `r` px, a moment apart, and go for
+--- whoever is nearest. Returns how many.
+function Antlions:serverSummon(_server, x, y, count, r)
+  if not sv then
+    sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+  end
+  local swarm = sv.brain:bury(x, y, r or 80, count)
+  for i, a in ipairs(swarm.members) do
+    a.wakeIn = 0.05 + (i - 1) / #swarm.members * Brain.WAKE_SPREAD
+  end
+  return #swarm.members
 end
 
 --- The host's antlions, for tests.

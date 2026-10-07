@@ -113,6 +113,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   to hide. Reach the lift at the top to finish.
 - The Winding Road has its own music: heavy metal for the drive up the
   mountain, galloping riffs, double kick and a screaming lead guitar.
+- A-Man waits at the top of the Citadel: step onto the top platform and
+  he blinks in. He is far tougher than when he walks the city (5000
+  health), teleports straight through you, and his briefcase holds
+  everything you fought on the way: Combine soldiers, Hunters,
+  rollermines, antlions or his sentry turrets, and when he is nearly beaten,
+  two lots at once. Beat him to finish his trail; he drops his teleport,
+  uncommon or better.
 - The Citadel has its own music too: industrial metal, slow and heavy,
   with a cold machine arpeggio, clanking far below and the Combine's alarm.
 - Poison, a new kind of damage: a poison headcrab's bite leaves you

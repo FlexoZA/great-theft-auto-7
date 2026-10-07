@@ -509,6 +509,12 @@ function AMan.clearRemains()
   remains = nil
 end
 
+--- Leave the disguise lying at (x, y), for anyone else who beats him (his
+--- quest's last level).
+function AMan.leaveRemains(x, y)
+  remains = { x = x, y = y, t = 0 }
+end
+
 function AMan.drawBelowCars()
   if not cl then
     return
@@ -601,9 +607,16 @@ function AMan.drawAboveCars()
 end
 
 --- Him, drawn as the event draws him, for anyone else who shows him (his
---- quest's levels): `a` is { dx, dy, angle, stride, hp, max, alpha }.
+--- quest's levels): `a` is { dx, dy, angle, stride, hp, max, alpha }, and
+--- `aimX, aimY` while he winds up a blink (he flickers).
 function AMan.drawFigure(a)
   drawHim(a)
+end
+
+--- The line of a blink he is winding up, as the event draws it: `a` as
+--- drawFigure's, with `aimX, aimY`.
+function AMan.drawAimLine(a)
+  drawAim(a)
 end
 
 --- An arrow at the edge of the screen pointing at him while he is off it.

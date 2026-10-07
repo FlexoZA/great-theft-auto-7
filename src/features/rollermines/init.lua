@@ -10,7 +10,8 @@
 -- open ground (`map.rollermineScatter` = { count, clear = { { x, y, r }... } }:
 -- `count` for one human, more with more, none within `r` of any `clear`
 -- spot), different every time. What each does is its brain's (brain.lua).
--- A quest's end or a map change takes them all away.
+-- A quest's end or a map change takes them all away. Another feature can
+-- set some down anywhere, already awake (`serverSummon`: A-Man's briefcase).
 --
 -- One goes off on contact (its blade tips: 28 px from a person's middle;
 -- somebody on foot it touches takes a shock first, `Brain.SHOCK`, 35, which
@@ -221,6 +222,22 @@ function Rollermines:serverPanicArea(_server, x, y, radius)
   if sv then
     sv.brain:scare(x, y, radius)
   end
+end
+
+--- Another feature sets `count` down at (x, y) on any map, whether it has
+--- mines of its own or not (A-Man's briefcase in the Citadel): they land
+--- within `r` px already hopping out, and roll after whoever is nearest.
+--- Returns how many.
+function Rollermines:serverSummon(_server, x, y, count, r)
+  if not sv then
+    sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+  end
+  for _ = 1, count do
+    local a, d = love.math.random() * 2 * math.pi, math.sqrt(love.math.random()) * (r or 60)
+    local m = sv.brain:place(x + math.cos(a) * d, y + math.sin(a) * d)
+    m.mode, m.t = "popping", 0
+  end
+  return count
 end
 
 --- The host's rollermines, for tests.
