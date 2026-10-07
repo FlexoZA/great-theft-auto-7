@@ -130,16 +130,21 @@ function Officers:at(x, y, radius)
   return nil
 end
 
---- Is any officer within `range` of (x, y), facing it and with a clear
---- view, to see what just happened?
-function Officers:sees(x, y, range)
+--- The first officer within `range` of (x, y), facing it and with a clear
+--- view, to see what just happened; nil if nobody did.
+function Officers:seer(x, y, range)
   for i = 1, self.n do
     local o = self.list[i]
     if Vision.canSee(o.x, o.y, o.facing, x, y, range) then
-      return true
+      return o
     end
   end
-  return false
+  return nil
+end
+
+--- Did any officer see (x, y)?
+function Officers:sees(x, y, range)
+  return self:seer(x, y, range) ~= nil
 end
 
 --- Snapshot of every live player, with the body they present this tick: their
