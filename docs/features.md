@@ -1329,7 +1329,9 @@ the one with a plot.
   steps onto the top platform. The same man and brain as the city event
   (`a-man/brain.lua`: stalk, blink through, medkits, dodging) with 5000
   health for one human, 70 on his blink line, and a briefcase that holds
-  the trail's enemies: every 11 s (7 s under half health), after a 1 s
+  the trail's enemies, opened by the damage he takes: one case for every
+  10% of his health lost (`caseShare`; nine on the way down, 2.5 s apart at
+  least when a big hit earns several), after a 1 s
   warning (he holds it up, glowing), out come 4 Combine soldiers (City 17's
   `serverDrop`), 2 Hunters on a ring round him (`hunters:serverPatrol`), 4
   rollermines already awake (`rollermines:serverSummon`, new), 7 antlions

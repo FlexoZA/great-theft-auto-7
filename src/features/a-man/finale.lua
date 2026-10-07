@@ -12,10 +12,11 @@
 -- the lift up, stands a moment taking them in (`arriveTime`), and the
 -- fight is on.
 --
--- His briefcase: every `caseEvery` seconds (`caseEveryHurt` once he is
--- under half health) with a player near and the breath for it, he stops
--- and holds it up for `caseTime` (the warning; he flickers green and the
--- clasps go), then it snaps open and out comes one of `SUMMONS`, never the
+-- His briefcase: it is the damage that opens it. Every `caseShare` of his
+-- health he loses earns a case (a big hit can earn more than one: they
+-- wait their turn, `caseGap` apart). With one owed, a player near and the
+-- breath for it, he stops and holds it up for `caseTime` (the warning; he
+-- flickers green and the clasps go), then it snaps open and out comes one of `SUMMONS`, never the
 -- same twice running, round him: Combine soldiers (city17.lua's drop),
 -- Hunters on a ring round him (the hunters feature), rollermines already
 -- awake (the rollermines feature), a swarm of antlions up out of the floor
@@ -76,9 +77,8 @@ Finale.healRange = 1600
 Finale.hordeRange = 1000 -- px; he opens the case with a player this close (the brain's name for it)
 Finale.hordeCost = 30 -- breath opening it takes
 Finale.arriveTime = 1.5 -- seconds he stands there after he blinks in
-Finale.caseFirst = 5 -- seconds after he arrives before the first case
-Finale.caseEvery = 11 -- seconds between cases
-Finale.caseEveryHurt = 7 -- ...once he is under half health
+Finale.caseShare = 0.1 -- of his health lost for each case: nine in all on the way down
+Finale.caseGap = 2.5 -- seconds at least between one case and the next
 Finale.caseTime = 1.0 -- seconds he holds it up before it opens: the warning
 Finale.rage = 0.3 -- share of his health under which two things come out at once
 Finale.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
@@ -122,7 +122,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { waiting, a, turrets, syncIn, time, caseIn, last, blinking, done }
+local sv = nil -- { waiting, a, turrets, syncIn, time, owed, nextCaseAt, caseIn, last, blinking, done }
 
 function Finale.serverStart()
   sv = { waiting = true, turrets = Turrets.new("AMF_POP"), syncIn = 0, time = 0 }
@@ -172,7 +172,7 @@ local function arrive(server, map, p)
     x = x, y = y, facing = math.atan2(py - y, px - x), hp = hp, max = hp, frozen = Finale.arriveTime,
     moving = false, breath = Stamina.new(Finale.breath), cool = Finale.arriveTime + Finale.blinkEvery,
   }
-  sv.caseIn = Finale.caseFirst
+  sv.owed, sv.nextCaseAt, sv.caseIn = 0, hp * (1 - Finale.caseShare), 0
   server:broadcast(Protocol.encode("AMF_IN", fmt(x), fmt(y), ("%.2f"):format(sv.a.facing)))
 end
 
@@ -257,7 +257,8 @@ local function open(server, a)
     parts[#parts + 1] = s.kind
   end
   server:broadcast(Protocol.encode("AMF_CASE", unpack(parts)))
-  sv.caseIn = a.hp < a.max * 0.5 and Finale.caseEveryHurt or Finale.caseEvery
+  sv.owed = sv.owed - 1
+  sv.caseIn = Finale.caseGap
   a.cool = math.max(a.cool, 1.2) -- a moment to admire what he let out
 end
 
@@ -297,6 +298,11 @@ function Finale.serverStep(server, dt, map)
   end
   local a = sv.a
   sv.caseIn = sv.caseIn - dt
+  -- Every share of his health gone earns a case.
+  while sv.nextCaseAt > 0 and a.hp <= sv.nextCaseAt do
+    sv.owed = sv.owed + 1
+    sv.nextCaseAt = sv.nextCaseAt - a.max * Finale.caseShare
+  end
   if a.opening then
     a.moving = false
     a.opening = a.opening - dt
@@ -305,7 +311,7 @@ function Finale.serverStep(server, dt, map)
       open(server, a)
     end
   else
-    local act = Brain.think(Finale, a, server, dt, sv.caseIn <= 0, sv.time)
+    local act = Brain.think(Finale, a, server, dt, sv.owed > 0 and sv.caseIn <= 0, sv.time)
     if act == "blink" then
       blink(server, a)
       if not sv then
