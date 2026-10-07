@@ -146,6 +146,7 @@ Level.maps = {
   citadel = { squadsPerBeat = 0, nests = true }, -- guards on every platform, the emplacement over the span
 }
 Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
+Level.manGunWithin = 15 -- seconds the crewman going to a dead gunner's gun has before he is simply on it
 -- The nest's gun: an AK's rounds, twelve a second, in long bursts.
 Level.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range = 700 }
 
@@ -366,8 +367,9 @@ function Level.manGun(nest, s)
   sv.troops:arm(s, { gun = gun, key = ak.key, index = ak.index, burst = g.burst, pause = g.pause, reach = g.range })
 end
 
---- Every nest keeps its gun manned while any of its crew is up.
-local function stepNests()
+--- Every nest keeps its gun manned while any of its crew is up: the
+--- nearest goes to it, and is on it after `manGunWithin` however he got stuck.
+local function stepNests(dt)
   for _, nest in ipairs(sv.nests) do
     local n = nest.b.nest
     if nest.gunner and nest.gunner.hp <= 0 then
@@ -377,7 +379,14 @@ local function stepNests()
     if c and c.hp <= 0 then
       nest.coming, c = nil, nil
     end
+    if c and c.post then
+      nest.comingFor = (nest.comingFor or 0) + dt
+      if nest.comingFor > Level.manGunWithin then
+        c.x, c.y, c.post = n.x, n.y, nil -- caught on something all this time: he gets there anyway
+      end
+    end
     if c and not c.post then
+      nest.comingFor = nil
       Level.manGun(nest, c) -- he got there
     elseif not nest.gunner and not c then
       local best, bestD2 = nil, math.huge
@@ -739,7 +748,7 @@ function Level.serverStep(server, dt)
   end
   sv.troops:update(server, dt)
   runOver(server)
-  stepNests()
+  stepNests(dt)
   stepGarrisons(server, dt)
   Cameo.serverStep(server, dt, cityMap())
   talk(server, dt)

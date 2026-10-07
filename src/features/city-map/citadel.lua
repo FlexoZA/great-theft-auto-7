@@ -23,6 +23,7 @@
 --                         rollermines feature)
 --   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature)
 --                         walking round the gallery and the top
+--   map.openKinds         { walk = true }: city-map's randomRoadPoint takes the catwalks (there is no road)
 --   map.zones             { name, y0, y1 } as City 17's
 --   map.cover             { kind = "crate" | "barrier" | "console", x, y, w, h }, all solid
 --   map.backdrop          what lies down in the drop, drawn and never touched:
@@ -58,6 +59,7 @@ function Citadel.build(map, rng, T)
   end
   map.platforms, map.catwalks, map.posts, map.zones, map.cover, map.backdrop = {}, {}, {}, {}, {}, {}
   map.nests, map.rollermines, map.hunterBeats = {}, {}, {}
+  map.openKinds = { walk = true } -- no road here: the catwalks are where pickups and the like go
   local placed = {} -- { x, y, r }: kept clear of cover (the way across each platform, the guards)
 
   --- A platform over tiles (c0, r0)-(c1, r1), inclusive.

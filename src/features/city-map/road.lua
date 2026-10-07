@@ -171,6 +171,7 @@ Road.BUNKER_AT, Road.BUNKER_OFF = 2.4, 5.3 -- the bunker: how far on, and how fa
 Road.CLEARING = 3.6 -- tiles round the bunker cut out of the mountainside to stand it in
 Road.CHICANE = { 3.6, 5.0 } -- where the concrete blocks close each side in turn, lane and verge
 Road.CHICANE_OFF = { 0.25, 0.72, 1.5, 2.3, 3.1 } -- tiles out from the middle that its blocks stand at
+Road.POST_ROOM = 14 -- px a rifleman's place keeps from the nearest block: room for his body
 -- Wrecked cars short of each bridge, for cover: tiles back from the deck, how far out from the
 -- middle they may lie (0.4 to 0.4 + spread, either side in turn) and their size along and across.
 Road.WRECKS = { 2.6, 4.5, 6.5 }
@@ -524,6 +525,31 @@ function Road.build(map, rng, T)
           placed[k] = pick or { x = ex + nnx * (k == 1 and -1 or 1) * Road.NEST_OFF,
             y = ey + nny * (k == 1 and -1 or 1) * Road.NEST_OFF, side = k == 1 and -1 or 1 }
         end
+        -- The chicane: blocks across one lane, then the other. Laid first, so
+        -- the riflemen's places below keep clear of them.
+        local blocks = {}
+        for k, at in ipairs(Road.CHICANE) do
+          local qx, qy, _, _, qnx, qny = along(last, at)
+          local lane = (k % 2 == 0 and 1 or -1) * side
+          for _, off in ipairs(Road.CHICANE_OFF) do
+            blocks[#blocks + 1] = solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
+          end
+        end
+        --- Is (qx, qy), in tiles, open ground with room for a man clear of every block?
+        local function standable(qx, qy)
+          if not open(qx, qy) then
+            return false
+          end
+          local x, y = X(qx), Y(qy)
+          for _, k in ipairs(blocks) do
+            local cx = math.max(k.x, math.min(x, k.x + k.w))
+            local cy = math.max(k.y, math.min(y, k.y + k.h))
+            if (x - cx) ^ 2 + (y - cy) ^ 2 < Road.POST_ROOM ^ 2 then
+              return false
+            end
+          end
+          return true
+        end
         for _, q in ipairs(placed) do
           local px, py, s2 = q.x, q.y, q.side
           local angle = math.atan2(my - py, mx - px)
@@ -531,22 +557,23 @@ function Road.build(map, rng, T)
           local posts = {}
           -- A rifleman behind the nest and one in the middle of the road behind both.
           for _, off in ipairs({ { 1.3, s2 * Road.NEST_OFF }, { 2.0, s2 * 0.5 } }) do
-            local qx = ex + ndx * off[1] + nnx * off[2]
-            local qy = ey + ndy * off[1] + nny * off[2]
-            if not open(qx, qy) then
-              qx, qy = ex + ndx * off[1], ey + ndy * off[1] -- the road's middle, then
+            -- Where it should be, else a little nearer the bridge or further on,
+            -- else the road's middle: never on a block or off the open ground.
+            local qx, qy
+            for _, d in ipairs({ 0, -0.3, 0.3, -0.6, 0.6 }) do
+              for _, across in ipairs({ off[2], 0 }) do
+                local tx = ex + ndx * (off[1] + d) + nnx * across
+                local ty = ey + ndy * (off[1] + d) + nny * across
+                if not qx and standable(tx, ty) then
+                  qx, qy = tx, ty
+                end
+              end
             end
+            qx = qx or ex + ndx * off[1]
+            qy = qy or ey + ndy * off[1]
             posts[#posts + 1] = { x = math.floor(X(qx)), y = math.floor(Y(qy)), watch = math.atan2(my - qy, mx - qx) }
           end
           map.nests[#map.nests + 1] = { name = b.name, nest = nest, posts = posts }
-        end
-        -- The chicane: blocks across one lane, then the other.
-        for k, at in ipairs(Road.CHICANE) do
-          local qx, qy, _, _, qnx, qny = along(last, at)
-          local lane = (k % 2 == 0 and 1 or -1) * side
-          for _, off in ipairs(Road.CHICANE_OFF) do
-            solid("block", X(qx + qnx * lane * off), Y(qy + qny * lane * off), 30, 30)
-          end
         end
       end
       -- Burnt-out cars on the way onto the bridge, staggered across it: cover

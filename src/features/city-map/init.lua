@@ -221,7 +221,15 @@ function CityMap:placePlayers(server)
       ids[#ids + 1] = id
     end
   end
-  table.sort(ids)
+  -- Humans first, so a crowd of bots and police can't put two of them on
+  -- the same spot when there are more players than spawns.
+  table.sort(ids, function(a, b)
+    local ba, bb = server.players[a].bot and 1 or 0, server.players[b].bot and 1 or 0
+    if ba ~= bb then
+      return ba < bb
+    end
+    return a < b
+  end)
   for i, id in ipairs(ids) do
     local s = self.map.spawns[(i - 1) % #self.map.spawns + 1]
     local p = server.players[id]
@@ -416,15 +424,16 @@ end
 
 --- Centre of a random road tile (or any tile of an open field) somebody
 --- can get to, optionally within `maxDist` of (nearX, nearY). A map with
---- little road (City 17) needs a good few tries. Other features reach this
---- via Features.byName["city-map"].
+--- little road (City 17) needs a good few tries; one with none at all names
+--- the tiles that count instead (`map.openKinds`: the Citadel's catwalks).
+--- Other features reach this via Features.byName["city-map"].
 function CityMap:randomRoadPoint(nearX, nearY, maxDist)
   local map = self.map
   for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
-    if kind == "road" or kind == "ground" then
+    if kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind]) then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
       local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
       if near and not outOfReach(map, x, y) then

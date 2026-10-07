@@ -78,6 +78,7 @@ Zombie.walkSpeed = 40 -- px/s winded
 Zombie.lurchFrom = 320 -- px off somebody before he lurches
 Zombie.turn = 2.2 -- rad/s he turns
 Zombie.swipeReach = 52 -- px from his middle to whoever he claws
+Zombie.carReach = 18 -- px more to a car's middle: its side is further out than a man
 Zombie.swipeDamage = 20 -- melee: they bleed too
 Zombie.swipeHit = 0.4 -- seconds into a swipe that it lands
 Zombie.swipeTime = 0.75
@@ -317,7 +318,7 @@ function Zombie:serverStep(server, dt)
   sv.time = sv.time + dt
   if not sv.done then
     local z = sv.z
-    local what, at = Brain.think(Zombie, z, server, dt, sv.time, #sv.crabs.list < sv.maxOut)
+    local what, at = Brain.think(Zombie, z, server, dt, sv.time, sv.crabs:alive() < sv.maxOut)
     if what == "throw" then
       sv.crabs:throw(at.x, at.y, at.tx, at.ty)
     end

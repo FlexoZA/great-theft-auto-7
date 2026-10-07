@@ -83,6 +83,12 @@ function Stations:update(dt, client)
   end
 end
 
+--- The `actionTaken` convention: on a pad the action key calls a car, so
+--- on-foot doesn't take it to climb into whatever car is in reach.
+function Stations:actionTaken()
+  return near ~= nil
+end
+
 function Stations:keypressed(key, client)
   if not (near and Controls.is("car-station", key)) or Features.any("menuOpen", client) then
     return

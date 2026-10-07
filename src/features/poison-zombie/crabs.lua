@@ -151,64 +151,72 @@ local function crawl(self, c, angle, dt)
   c.side = -c.side
 end
 
+--- One tick of crab `c`.
+function Crabs:step(c, people, dt, bite)
+  c.t = c.t + dt
+  if c.frozen > 0 then
+    c.frozen = c.frozen - dt
+  elseif c.mode == "fly" or c.mode == "leap" then
+    local k = math.min(1, c.t / c.flight)
+    c.x, c.y = c.fromX + (c.toX - c.fromX) * k, c.fromY + (c.toY - c.fromY) * k
+    -- A thrown one bites whoever it comes down on; a leaping one, whoever it reaches.
+    if not c.bit and (c.mode == "leap" or k >= 0.85) then
+      for _, q in pairs(people) do
+        if touching(c, q) then
+          c.bit = true
+          bite(c, q)
+          break
+        end
+      end
+    end
+    if k >= 1 then
+      c.rest = c.bit and Crabs.BITE_REST or Crabs.REST
+      c.bit = false
+      setMode(c, "rest")
+    end
+  elseif c.mode == "rest" then
+    if c.t >= (c.rest or Crabs.REST) then
+      setMode(c, "crawl")
+    end
+  elseif c.panic then
+    c.panic = c.panic - dt
+    crawl(self, c, c.panicAngle, dt)
+    if c.panic <= 0 then
+      c.panic = nil
+    end
+  else
+    local best, bestD2 = nil, Crabs.CHASE * Crabs.CHASE
+    for _, q in pairs(people) do
+      local d2 = dist2(q.x, q.y, c.x, c.y)
+      if d2 < bestD2 then
+        best, bestD2 = q, d2
+      end
+    end
+    if not best then
+      c.mode = "idle"
+    else
+      c.mode = "crawl"
+      local d = math.sqrt(bestD2)
+      local toward = math.atan2(best.y - c.y, best.x - c.x)
+      local near = best.car and Car.hitTest(best.car, c.x, c.y, Crabs.LEAP_CAR) or (not best.car and d <= Crabs.LEAP)
+      if near and Sight.clear(c.x, c.y, best.x, best.y) then
+        local past = best.car and 0 or Crabs.LEAP_PAST
+        leap(c, best.x + math.cos(toward) * past, best.y + math.sin(toward) * past)
+      else
+        crawl(self, c, toward, dt)
+      end
+    end
+  end
+end
+
 --- One tick of every crab. `bite(c, q)` is called for each bite on
---- somebody (q: { x, y, car, p }); returns nothing.
+--- somebody (q: { x, y, car, p }); returns nothing. One shot dead this
+--- tick (not swept up yet) bites nobody.
 function Crabs:update(server, dt, bite)
   local people = quarry(server)
   for _, c in ipairs(self.list) do
-    c.t = c.t + dt
-    if c.frozen > 0 then
-      c.frozen = c.frozen - dt
-    elseif c.mode == "fly" or c.mode == "leap" then
-      local k = math.min(1, c.t / c.flight)
-      c.x, c.y = c.fromX + (c.toX - c.fromX) * k, c.fromY + (c.toY - c.fromY) * k
-      -- A thrown one bites whoever it comes down on; a leaping one, whoever it reaches.
-      if not c.bit and (c.mode == "leap" or k >= 0.85) then
-        for _, q in pairs(people) do
-          if touching(c, q) then
-            c.bit = true
-            bite(c, q)
-            break
-          end
-        end
-      end
-      if k >= 1 then
-        c.rest = c.bit and Crabs.BITE_REST or Crabs.REST
-        c.bit = false
-        setMode(c, "rest")
-      end
-    elseif c.mode == "rest" then
-      if c.t >= (c.rest or Crabs.REST) then
-        setMode(c, "crawl")
-      end
-    elseif c.panic then
-      c.panic = c.panic - dt
-      crawl(self, c, c.panicAngle, dt)
-      if c.panic <= 0 then
-        c.panic = nil
-      end
-    else
-      local best, bestD2 = nil, Crabs.CHASE * Crabs.CHASE
-      for _, q in pairs(people) do
-        local d2 = dist2(q.x, q.y, c.x, c.y)
-        if d2 < bestD2 then
-          best, bestD2 = q, d2
-        end
-      end
-      if not best then
-        c.mode = "idle"
-      else
-        c.mode = "crawl"
-        local d = math.sqrt(bestD2)
-        local toward = math.atan2(best.y - c.y, best.x - c.x)
-        local near = best.car and Car.hitTest(best.car, c.x, c.y, Crabs.LEAP_CAR) or (not best.car and d <= Crabs.LEAP)
-        if near and Sight.clear(c.x, c.y, best.x, best.y) then
-          local past = best.car and 0 or Crabs.LEAP_PAST
-          leap(c, best.x + math.cos(toward) * past, best.y + math.sin(toward) * past)
-        else
-          crawl(self, c, toward, dt)
-        end
-      end
+    if not c.dead then
+      self:step(c, people, dt, bite)
     end
   end
 end
@@ -249,6 +257,17 @@ function Crabs:hurt(c, amount)
     return true
   end
   return false
+end
+
+--- How many are still alive.
+function Crabs:alive()
+  local n = 0
+  for _, c in ipairs(self.list) do
+    if not c.dead then
+      n = n + 1
+    end
+  end
+  return n
 end
 
 --- Take the dead out of the list.

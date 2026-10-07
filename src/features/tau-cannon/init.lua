@@ -359,7 +359,11 @@ function Tau:serverStep(server, dt)
   end
 end
 
-function Tau:serverPlayerLeft(_server, player)
+function Tau:serverPlayerLeft(server, player)
+  local st = sv and sv.players[player.id]
+  if st and st.since then
+    drop(server, st) -- gone mid-charge: the glow goes out on every screen
+  end
   if sv then
     sv.players[player.id] = nil
   end

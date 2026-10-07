@@ -122,7 +122,8 @@ local function swipe(G, z, server)
     if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       local a = math.atan2(y - z.y, x - z.x)
-      if dist2(x, y, z.x, z.y) <= (G.swipeReach + 10) ^ 2 and math.abs(wrap(a - z.facing)) < 1.3
+      local reach = G.swipeReach + (p.vehicle and G.carReach or 0) + 10 -- as far as he stopped to swipe from, and a bit
+      if dist2(x, y, z.x, z.y) <= reach * reach and math.abs(wrap(a - z.facing)) < 1.3
         and weapons and weapons.serverDamage then
         weapons:serverDamage(server, p, nil, G.swipeDamage, a, "melee")
       end
@@ -268,7 +269,7 @@ function Brain.think(G, z, server, dt, time, room)
   end
   local d = math.sqrt(dist2(q.x, q.y, z.x, z.y))
   local toward = math.atan2(q.y - z.y, q.x - z.x)
-  local reach = G.swipeReach + (q.car and 18 or 0) -- a car's side is further out than a man
+  local reach = G.swipeReach + (q.car and G.carReach or 0) -- a car's side is further out than a man
   if d <= reach then
     z.facing = turn(z.facing, toward, G.turn * 1.5, dt)
     if z.swipeIn <= 0 then

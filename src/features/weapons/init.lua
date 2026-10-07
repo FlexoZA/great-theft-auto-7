@@ -1973,6 +1973,25 @@ end
 
 --- Fill the magazines whose reload is done from the shooter's inventory,
 --- and those of the guns bolted to cars from nowhere.
+--- Whoever just took the wheel of a car with a gun bolted to it hears what
+--- is in its magazine: the last driver may have half emptied it.
+function Weapons:tellNewDrivers(server)
+  for _, car in pairs(server.vehicles) do
+    local gun = car.driver and mountedGun(car.model)
+    local cs = self.sv.cars[car.id]
+    if gun then
+      cs = cs or self:carState(car)
+      local p = server.players[car.driver]
+      if cs.told ~= car.driver and p and not p.bot then
+        cs.told = car.driver
+        server:send(p, Protocol.encode("WPN_CARMAG", car.id, cs.mag or gun.magazine))
+      end
+    elseif cs and not car.driver then
+      cs.told = nil
+    end
+  end
+end
+
 function Weapons:finishReloads(server)
   local sv = self.sv
   for vid, cs in pairs(sv.cars) do
@@ -2463,6 +2482,7 @@ function Weapons:serverStep(server, dt)
   sv.time = sv.time + dt
   self:updateWrecks(server)
   self:finishReloads(server)
+  self:tellNewDrivers(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]

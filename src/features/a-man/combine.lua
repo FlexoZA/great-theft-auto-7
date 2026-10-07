@@ -258,7 +258,9 @@ end
 -- Hunting -------------------------------------------------------------------
 
 --- A breadcrumb where he stands, if he has gone far enough from the last
---- one; the first is where he left from.
+--- one; the first is where he left from. Back near one he dropped earlier
+--- (a chase that doubles back), the trail is cut back to it, so the way
+--- home never winds through the same ground twice.
 local function crumb(s)
   local trail = s.trail
   if not trail then
@@ -266,9 +268,18 @@ local function crumb(s)
     return
   end
   local last = trail[#trail]
-  if dist2(s.x, s.y, last.x, last.y) >= Combine.CRUMB * Combine.CRUMB then
-    trail[#trail + 1] = { x = s.x, y = s.y }
+  if dist2(s.x, s.y, last.x, last.y) < Combine.CRUMB * Combine.CRUMB then
+    return
   end
+  for i = 1, #trail - 1 do
+    if dist2(s.x, s.y, trail[i].x, trail[i].y) < Combine.CRUMB * Combine.CRUMB then
+      for k = #trail, i + 1, -1 do
+        trail[k] = nil
+      end
+      return
+    end
+  end
+  trail[#trail + 1] = { x = s.x, y = s.y }
 end
 
 --- Is (x, y) past his leash, from where he left?
@@ -605,8 +616,14 @@ function Combine:think(server, s, dt)
     end
     s.x, s.y, s.post = s.post.x, s.post.y, nil
   end
-  if s.takesCover and self:fightFromCover(server, s, tx, ty, dt) then
-    return
+  if s.takesCover then
+    s.alert = s.target ~= nil -- in and out of cover, he still has somebody (the "!", the shout, the crew's quiet)
+    if tx then
+      s.aimX, s.aimY = tx, ty
+    end
+    if self:fightFromCover(server, s, tx, ty, dt) then
+      return
+    end
   end
   if hunts(self, s) and s.alert and not tx and s.aimX then
     setGoal(self, s, s.aimX, s.aimY, "search") -- lost them: to where they were last

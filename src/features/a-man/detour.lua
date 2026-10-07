@@ -1,4 +1,4 @@
--- The Citadel's doors in City 17 don't lead into the Citadel yet. Whoever
+-- The Citadel's doors in City 17 don't lead into the Citadel. Whoever
 -- takes the EXIT star there (quests' "a-man" `next`, the star saying
 -- CITADEL) is stopped by A-Man: he blinks in right in front of them, takes
 -- a look at them for a moment, and blinks out, and everyone finds
@@ -35,13 +35,15 @@ local function clear(x, y)
 end
 
 --- Somebody took the star: he turns up in front of them instead. Returns
---- true to hold the trip (and while he is there, so a second taker waits too).
+--- true to hold the trip (and while he is there, so a second taker of the
+--- same star waits too). Any other trip (somebody heading home) goes ahead,
+--- and its map change calls him off.
 function Detour.serverHoldTrip(server, quest, player)
-  if sv then
-    return true
-  end
   if quest.id ~= Detour.questId then
     return false
+  end
+  if sv then
+    return true
   end
   local px, py, _, facing = Features.bodyPose(server, player)
   local x, y = px, py
@@ -71,7 +73,16 @@ function Detour.serverStep(server, dt)
   sv = nil
   server:broadcast(Protocol.encode("C17_AMAN_OUT", fmt(d.x), fmt(d.y)))
   local quests = Features.byName.quests
-  local taker = server.players[d.by] or server.players[1] -- they may have left; the host is always id 1
+  local taker = server.players[d.by]
+  if not (taker and Features.present(taker)) then
+    taker = nil -- they left (or went down): anyone else still here takes the trip
+    for _, p in pairs(server.players) do
+      if not p.bot and Features.present(p) then
+        taker = p
+        break
+      end
+    end
+  end
   if quests and taker then
     quests:serverBegin(server, d.quest, taker)
   end
