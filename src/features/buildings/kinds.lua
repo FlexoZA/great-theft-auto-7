@@ -44,9 +44,12 @@
 --   hp        hit points; every gun hurts a building (a rocket's blast hurts
 --             the parking lot too, bullets fly over it). At 0 it is a ruin
 --             until its owner repairs it or someone takes the lot over.
---   service   the feature that runs it (the garage): it makes nothing, and
---             that feature adds the menu rows, the info lines and the drawing
---             (`buildingRows`, `buildingInfo`, `drawBuilding`).
+--   service   the feature that runs it (the garage, the gang hangout): it makes
+--             nothing, and that feature adds the menu rows, the info lines and
+--             the drawing (`buildingRows`, `buildingInfo`, `drawBuilding`, and
+--             `drawMapMark` for its sign on the big map).
+--   color     its colour in ruins and behind its sign on the big map, for a
+--             kind render.lua has none for (a service's)
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
 --
@@ -180,6 +183,11 @@ Kinds.list = {
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
     products = { "medkit", "drink" },
     recipes = { drink = { inputs = { minerals = 1 }, time = 10, price = 4 } },
+  },
+  {
+    key = "hangout", name = "Gang Hangout", cost = 200, hp = 1000, private = true, service = "gang-hangout",
+    color = { 0.6, 0.18, 0.22 },
+    blurb = "Pay into its fund and armed guards come out to defend you and your buildings.",
   },
 }
 

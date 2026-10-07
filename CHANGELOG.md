@@ -14,6 +14,21 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Gang Hangout: a new building (200 Fcks) for a plot you own. Deposit koins into its fund and up to
+  4 armed guards come out, 100 Fcks each from the fund; with the fund empty nobody comes out, and
+  a guard who goes down is replaced 10 seconds later. They go after anyone who shoots any of your
+  buildings, shoots you on the hangout's block or the blocks around it, or shoots them.
+- Gang Hangout upgrades: street thugs with pistols (100 Fcks a guard), bent cops with uzis (upgrade
+  500, 150 a guard), riflemen with AK-47s (1000, 200 a guard) and the Combine with shotguns (2000,
+  300 a guard).
+- Gang Hangout guards also fight the police: an officer on foot who shoots you near the hangout,
+  or shoots one of them, has the crew after them, and their rounds bring officers down.
+
+### Changed
+- On the minimap and the big map, every building is now drawn in its owner's colour (the colour of
+  their dot), so you can see at a glance whose it is. Ruins are a darker shade of it.
+
 ## [0.12.0] - 2026-10-05
 
 Grenades: keep a few in a quick slot, see where one will land and how far

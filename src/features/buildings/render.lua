@@ -13,6 +13,7 @@
 -- damaged building gets cracks, a health bar and a red flash when hit; a
 -- destroyed one is a smoking heap of rubble in its own colours.
 
+local Features = require("src.features")
 local UI = require("src.ui")
 local Kinds = require("src.features.buildings.kinds")
 local Icons = require("src.features.weapons.icons")
@@ -737,6 +738,8 @@ function Render.mapMark(kind, cx, cy, size, isRuin)
     love.graphics.setColor(0.1, 0.1, 0.12)
     love.graphics.circle("fill", 0, 6, 14)
     love.graphics.polygon("fill", -12, 0, 12, 0, 0, -22)
+  elseif kind.service and Features.byName[kind.service] and Features.byName[kind.service].drawMapMark then
+    Features.byName[kind.service]:drawMapMark()
   elseif kind.service then
     box(-20, -16, 40, 32, { 0.72, 0.62, 0.3 })
     love.graphics.setColor(0.5, 0.42, 0.18)
@@ -880,7 +883,7 @@ end
 
 --- The main colour of `kind`'s building, for rubble and flying debris.
 function Render.rubbleColor(kind)
-  return ROOFS[kind.key] or YARDS[kind.key] or { 0.5, 0.5, 0.5 }
+  return ROOFS[kind.key] or YARDS[kind.key] or kind.color or { 0.5, 0.5, 0.5 }
 end
 
 --- A little random-number generator seeded by the plot, so a ruin is the
