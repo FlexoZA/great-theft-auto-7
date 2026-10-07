@@ -11,6 +11,7 @@
 --   down     a soldier near one who just went down
 --   investigate  another one, on his way to look
 --   lost     one who went looking and found nothing, on his way back
+--   cover    a rifleman ducking into cover (the nests' crews)
 
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")

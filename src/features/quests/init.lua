@@ -5,11 +5,12 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Four jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Five jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
--- Looz'er's hill (d-day), and one across a meadow under a sniper's cliff
--- after Shotgun (shotgun). A blue star by the entrance of each brings
+-- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
+-- after Shotgun (shotgun), and one by train into City 17 after A-Man
+-- (a-man), whose trail carries on over four more maps by EXIT stars. A blue star by the entrance of each brings
 -- everyone home again; a star comes up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
 -- nearest one is the one on offer. Add a quest to `Quests.list` with

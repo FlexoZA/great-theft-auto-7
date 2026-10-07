@@ -22,16 +22,17 @@
 --   map.bossX, map.bossY  where the Poison Zombie waits on the pass (the poison-zombie feature)
 --   map.path              { x, y } the road's middle every few px, world px, bottom to top
 --   map.river             { x, y, half } the river's middle, world px, top (its source) to bottom
---   map.bridges           { x, y, w, h, along = "ns" | "ew", name } decks over the water, world px;
---                         `along` is the way the road runs over it
+--   map.bridges           { x, y, w, h, along = "ns" | "ew", name, first, last } decks over the water,
+--                         world px; `along` is the way the road runs over it, `first`/`last` the road's
+--                         samples over the deck (the Hunters' beats run between them)
 --   map.spots             { name, x, y, r } the wide spots, world px
 --   map.zones             { name, y0, y1 } as City 17's: the stretches of the road
---   map.cover             { kind = "water" | "rail" | "bunker" | "block" | "wreck", x, y, w, h }, solid (a
---                         wreck: a burnt-out car short of a bridge, for cover, `facing` the way its nose is; a rail
---                         only to cars and people: its solid is `low`, so sight and rounds go over it)
---                         (a block: a concrete block, laid in a chicane past each bridge but the top one); and kind
---                         "mountain",
---                         not solid, only to colour the minimap
+--   map.cover             { kind = "water" | "rail" | "bunker" | "block" | "wreck", x, y, w, h }, solid:
+--                         a wreck is a burnt-out car short of a bridge, for cover, `facing` the way its
+--                         nose is; a rail is solid only to cars and people (its solid is `low`, so sight
+--                         and rounds go over it); a block is a concrete block, laid in a chicane past
+--                         each bridge but the top one. And kind "mountain", not solid, only to colour
+--                         the minimap
 --   map.height            [c][r] tiles from the nearest open tile, for a mountain tile
 --   map.depth             [c][r] tiles from the nearest bank, for a river tile
 --   map.slopes            { x, y, r, pine } trees on the mountainsides: drawn only, never touched
@@ -51,7 +52,7 @@
 --   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature) walking
 --                         up and down the middle of every open stretch of road between two
 --                         checkpoints, `count` for one human (a-man/city17.lua puts them out)
---   map.posts             empty: City 17's level reads it (it mans the nests)
+--   map.posts             empty: City 17's level reads it (the nests are crewed from `map.nests`)
 -- render_road.lua draws it all.
 
 local Coast = require("src.features.city-map.coast")

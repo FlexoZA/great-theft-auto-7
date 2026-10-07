@@ -3,8 +3,8 @@
 -- more of them riding on his back, that he throws.
 --
 -- He waits on the pass at the top of the road (`map.bossX, bossY`, city-map's
--- road.lua) until somebody comes up over the last bridge, howls, and comes
--- for them. What he does is his brain's (brain.lua): he shuffles after the
+-- road.lua) until a player he can see comes within `wake` of him (or a round
+-- hits him), howls, and comes for them. What he does is his brain's (brain.lua): he shuffles after the
 -- nearest player, lurches when they are far off, rakes them with his claws
 -- up close, and from further off reaches back for a crab and throws it at
 -- them. A new crab grows on his back every so often. He tires like every

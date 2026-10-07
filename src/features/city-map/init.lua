@@ -29,7 +29,7 @@
 --     (`player.car`: respawns and wrecks bring them back in it) and is gone,
 --     their own back in its place, on the next switch.
 --
--- A map's `fires` (City 17's) burn for good: fires.lua draws them over
+-- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
 -- into one on the ground alight (damage's `ignite`).
 --
@@ -100,14 +100,16 @@ CityMap.maps = {
   },
   -- The Outer City, on A-Man's trail before the Citadel: a concrete jungle
   -- with canals, bridges and parks round a big open square on an island,
-  -- where the boss fight is (outer_city.lua). Walked; nobody about.
+  -- where the boss fight is (outer_city.lua). Walked; no traffic or crowd,
+  -- only the Combine (a-man/city17.lua) and the Hunter-Chopper.
   outercity = {
     title = "The Outer City", kind = "outercity", seed = 31, cols = 72, rows = 56,
     crowd = false, traffic = false, vehicles = false,
   },
   -- The Coast, on A-Man's trail: one beach winding north between the sea
   -- and green mountains, narrow most of the way, opening into coves to
-  -- fight in (coast.lua). Walked; nobody about.
+  -- fight in (coast.lua). Walked; no traffic or crowd, only the Combine,
+  -- the antlions and the Antlion Guard.
   coast = {
     title = "The Coast", kind = "coast", seed = 62, cols = 64, rows = 120,
     crowd = false, traffic = false, vehicles = false,
@@ -167,9 +169,6 @@ function CityMap:serverWorldSaveHeld()
   return self.current ~= self.DEFAULT
 end
 
---- Put every player on the map's spawn points, in player order, each behind
---- the wheel of their own car, and publish the list for anything else that
---- spawns cars. A car they had borrowed stays where it was.
 --- Take back every car lent on the last map: gone from the world, each
 --- player's own car their own again.
 local function returnLoaners(self, server)
@@ -212,6 +211,10 @@ function CityMap:serverLend(server, p, spot)
   return car, car ~= nil
 end
 
+--- Put every player on the map's spawn points, humans first and then in
+--- player order, each behind the wheel of their own car, and publish the
+--- list for anything else that spawns cars. A car they had borrowed stays
+--- where it was.
 function CityMap:placePlayers(server)
   returnLoaners(self, server)
   server.spawnPoints = self.map.spawns

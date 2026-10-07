@@ -34,8 +34,10 @@
 -- ground as a player would (pickups' serverTake).
 --
 -- Another feature puts them on the map (City 17 has three round the
--- Citadel): `hunters:serverPatrol(server, route, count)` spreads `count` of
--- them round `route`, a loop of { x, y } corners they walk round and round.
+-- Citadel; the Winding Road and the Citadel walk their `hunterBeats`; the
+-- Hunter-Chopper and A-Man's briefcase bring them in round a point):
+-- `hunters:serverPatrol(server, route, count)` spreads `count` of them
+-- round `route`, a loop of { x, y } corners they walk round and round.
 -- `hunters:serverClear(server)` takes them all away again; a map change
 -- does too.
 --

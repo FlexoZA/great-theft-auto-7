@@ -26,7 +26,8 @@
 -- so, and one who found nothing says that on his way back.
 -- The first time a player walks into the plaza, A-Man drops by: he blinks
 -- in, leaves a horde of his turrets and blinks out, three times over
--- (cameo.lua). He can't be hurt yet.
+-- (cameo.lua). He can't be hurt here: the fight with him is at the top of
+-- the Citadel (finale.lua).
 -- Three Hunters (the hunters feature) patrol a ring round the Citadel.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.

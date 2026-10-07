@@ -7,23 +7,24 @@ kill feed and death effects can say what happened.
 
 ## The types
 
-| Type        | What deals it                                                                          | Kill feed verb |
-| ----------- | -------------------------------------------------------------------------------------- | -------------- |
-| `bullet`    | every gun's round (the default for anything a gun fires)                               | wasted         |
-| `explosive` | a rocket's blast, the D-Day mortar                                                     | blew up        |
-| `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires  | burned         |
-| `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream   | flattened      |
-| `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot                        | fried          |
-| `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels), the Tripod's cage | beat down      |
-| `poison`    | the poison headcrabs' bites (the Poison Zombie's)                                      | poisoned       |
+| Type        | What deals it                                                                                                                                                                                                      | Kill feed verb |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `bullet`    | every gun's round (the default for anything a gun fires)                                                                                                                                                           | wasted         |
+| `explosive` | a rocket's blast, grenades, the D-Day mortar, rollermines going off, the Hunter-Chopper's bombs and crash                                                                                                          | blew up        |
+| `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires                                                                                                                              | burned         |
+| `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream, a teleport through you (A-Man's blink), the Antlion Guard's swipe, charge and scream, ramming the Poison Zombie (to the car) | flattened      |
+| `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot, the tau cannon, a rollermine's blades                                                                                                             | fried          |
+| `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels, park bums, the open-borders horde, antlions, the Poison Zombie's claws), the Tripod's cage                                                     | beat down      |
+| `poison`    | the poison headcrabs' bites (the Poison Zombie's)                                                                                                                                                                  | poisoned       |
 
 The list lives in `src/features/damage/init.lua` (`Damage.types`), one
 entry per type with its name, colour and kill feed words. A new type is a
 new entry there. Anything that hurts without saying what it is counts as
 `Damage.DEFAULT` (`bullet`).
 
-Cars are left alone for now: crashes still do no damage, and a car takes
-every type the same.
+Cars are left alone for now: crashes still do no damage (driving into the
+Poison Zombie is the one exception: the car takes 15 impact), and a car
+takes every type the same.
 
 ## What each type does
 

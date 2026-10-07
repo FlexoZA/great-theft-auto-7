@@ -1,7 +1,9 @@
--- A-Man's brain, on the host: what he does each tick. His event
--- (event.lua) owns the blink itself (the tear through everyone on the
--- line), his turrets, his health and the wire; it hands him in as `a`, its
--- own table (his numbers) as `A`, and says whether a horde may come now.
+-- A-Man's brain, on the host: what he does each tick, in the city event
+-- (event.lua) and at the top of the Citadel (finale.lua) alike. Whichever
+-- runs him owns the blink itself (the tear through everyone on the line),
+-- his turrets, his health and the wire; it hands him in as `a`, its own
+-- table (his numbers) as `A`, and says whether his case may open now (the
+-- event: no turrets standing; the finale: a case owed for the damage done).
 --
 -- He is always in one of these, the later ones cutting in on the earlier:
 --
@@ -10,8 +12,8 @@
 --   blink   breath allowing and `cool` run down, he stops and winds up: a
 --           line shows where he is going (through a target close by, or
 --           across the map to one far off), and `windup` later he is there
---   horde   a player within `hordeRange`, no turrets standing and the
---           breath for it: he snaps the briefcase open
+--   horde   a player within `hordeRange`, his case allowed (whoever runs
+--           him says) and the breath for it: he snaps the briefcase open
 --   heal    badly hurt (bosses/heal.lua): he goes for the nearest medkit
 --           lying within `healRange`, by blink if he has the breath (the
 --           line shows; anyone on it is torn through as ever), on foot if

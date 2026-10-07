@@ -36,7 +36,7 @@
 -- One soldier can be told apart from the rest (fields on him, set by
 -- whoever adds him):
 --   hold    he holds his place even when the others hunt: never chases,
---           never goes to look, never answers a call (the Coast's MG crews)
+--           never goes to look, never answers a call (the MG nests' crews: the Coast, the Road, the Citadel)
 --   arc     radians either side of `watch` he may turn to and shoot into,
 --           and only there (a gunner behind a fixed gun)
 --   fov     his own cone of sight, instead of everyone's

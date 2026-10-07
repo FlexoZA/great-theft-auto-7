@@ -4,26 +4,33 @@
 -- His quest (quests' "a-man") starts in City 17 (city-map's `city17`).
 -- This feature loads his sounds, keeps the disguise he leaves behind on
 -- the ground after the event is over, puts up his intro screen when his
--- quest starts and runs its levels (city17.lua; the Outer City has no
--- level of its own yet; road.lua; citadel.lua, for later).
+-- quest starts and runs its levels: city17.lua runs the Combine soldiers
+-- on all five maps of his trail (City 17, the Outer City, the Coast, the
+-- Winding Road, the Citadel), road.lua the Winding Road and citadel.lua the
+-- Citadel, where he is the last fight himself (finale.lua).
 --
 -- Modules
 --   event.lua    the boss: the host's side and every client's
+--   brain.lua    his brain, the event's and the finale's: stalk, blink, open the case, medkits, dodging
 --   face.lua     his portrait, beside his boss bar and on his intro screen
 --   screen.lua   his intro screen, for his quest: the portrait and what he says
---   city17.lua   the quest's first level: Combine soldiers on the checkpoints and on patrol
+--   city17.lua   the quest's first level, and the Combine soldiers on every map of it
+--   combine.lua  the Combine soldiers' brain
 --   detour.lua   him stepping in at the Citadel's doors and sending everyone to the Outer City
 --   road.lua     the Winding Road: the drive up to the pass
 --   citadel.lua  the end of the trail: the catwalk up through the Citadel
 --   finale.lua   A-Man himself at the top of it, the last fight: his case holds the trail's enemies
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
---   cameo.lua    his visits to City 17's plaza: in, a horde of turrets, out
+--   cameo.lua    his visits to City 17's plaza (in, a horde of turrets, out), and called-in
+--                ones on any level (the Hunter-Chopper's Hunters)
 --   theme.lua    his music, while he is loose, and City 17's
---   theme_outercity.lua, theme_coast.lua   the Outer City's music and the Coast's
+--   theme_outercity.lua, theme_coast.lua, theme_road.lua, theme_citadel.lua
+--                the Outer City's music, the Coast's, the Winding Road's and the Citadel's
 --   turrets.lua  the sentry turrets out of his briefcase
---   nests.lua    the Coast's MG nests' guns, drawn (city17.lua mans them)
+--   nests.lua    the MG nests' guns (the Coast's, the Winding Road's, the Citadel's), drawn
+--                (city17.lua mans them)
 --   corpses.lua  the Combine's dead, lying where they fell
---   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop
+--   sounds.lua   his noises: appear, vanish, clasp, rip, tiptoe, turret, pop; a Combine door
 
 local Sounds = require("src.features.a-man.sounds")
 local Event = require("src.features.a-man.event")

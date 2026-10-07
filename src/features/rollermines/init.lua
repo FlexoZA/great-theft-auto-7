@@ -4,7 +4,7 @@
 -- nearly as fast as a car, and goes off when it touches them, or their car.
 --
 -- Any map that marks `map.rollermines` ({ x, y, r, count }: the Winding
--- Road does) gets them set there when everyone arrives on a quest: `count`
+-- Road and the Citadel do) gets them set there when everyone arrives on a quest: `count`
 -- to a spot for one human, more with more (Bosses.count), scattered within
 -- `r`. A map may also ask for some scattered at random over all of its
 -- open ground (`map.rollermineScatter` = { count, clear = { { x, y, r }... } }:

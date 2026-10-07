@@ -1,7 +1,8 @@
 -- The MG nests (the Coast's beside its bunkers, the Winding Road's past
--- its bridges), as every screen draws them (city17.lua mans them on the
--- host; the sandbags and the bunkers are on the map's canvas,
--- render_coast.lua and render_road.lua). Each gun stands on its tripod in its nest: swung the
+-- its bridges, the Citadel's emplacement over its long span), as every
+-- screen draws them (city17.lua mans them on the host; the sandbags, the
+-- shield and the bunkers are on the map's canvas: render_coast.lua,
+-- render_road.lua, render_citadel.lua). Each gun stands on its tripod in its nest: swung the
 -- way whoever is on it faces, or at rest along the nest's facing when
 -- nobody is.
 

@@ -1,4 +1,4 @@
--- The Citadel, inside: the second stop of A-Man's quest (city-map's
+-- The Citadel, inside: the last stop of A-Man's quest (city-map's
 -- `citadel`). One narrow catwalk zig-zags up through a vast dark shaft,
 -- from the lift everyone arrives on at the bottom to the top platform,
 -- opening out on the way into wide platforms where the Combine hold the

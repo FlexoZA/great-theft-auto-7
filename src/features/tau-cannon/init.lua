@@ -1,6 +1,7 @@
 -- The tau cannon: the gun bolted to the scout car (vehicles' "scout-car"
 -- models), after Half-Life 2's buggy. Whoever is driving one fires it
--- with its own button (right mouse), on top of the gun in their hand:
+-- with its own button (right mouse), alongside the car's mounted gun (a
+-- driver's own guns are put away behind the wheel):
 --   tap   a quick bolt (`quick`): light, fast, as often as `cooldown` allows
 --   hold  it charges for up to `chargeTime` (the glow at the muzzle grows,
 --         the whine climbs) and lets go on release: one heavy bolt, up to

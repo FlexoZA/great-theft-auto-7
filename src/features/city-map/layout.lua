@@ -6,11 +6,13 @@
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
 -- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
--- traffic, kind }) so the same generator builds every map the game knows
+-- crowdScale, police, traffic, vehicles, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
 -- tile is "ground", no blocks. `crowd = false` and `traffic = false` keep
--- pedestrians, officers and NPC cars off it (those features read the flags).
+-- pedestrians, officers and NPC cars off it (those features read the flags);
+-- `crowdScale` sizes the crowd, `police = false` keeps officers on foot off
+-- it, and `vehicles = false` has everyone walk (on-foot reads it).
 -- `kind = "culdesac"` builds a suburban dead end instead of a grid: one
 -- street in from the bottom edge, a turning circle at the top, houses on
 -- their lawns either side (see `buildCuldesac`). `kind = "forest"` is open
@@ -1183,8 +1185,9 @@ local function buildCity17(map, rng)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
---- field optional, defaulting to the city above) or just a seed.
+--- Build a map. `spec` is { seed, cols, rows, plots, empty, crowd,
+--- crowdScale, police, traffic, vehicles, kind } (every field optional,
+--- defaulting to the city above: the header says what each does) or just a seed.
 function Layout.generate(spec)
   if type(spec) ~= "table" then
     spec = { seed = spec }
