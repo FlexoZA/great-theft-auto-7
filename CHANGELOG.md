@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-08
+
+Ammo stacks to about ten magazines a slot, and freeze is aimed with the key and cast with a click.
+
 ### Changed
 - Ammo stacks much higher in your inventory, about ten magazines a slot: uzi and AK-47 100 -> 300 rounds,
   minigun 300 -> 1500, shotgun 50 -> 60, sniper 50 -> 60, rockets 20 -> 30, fuel cans 10 -> 20.
