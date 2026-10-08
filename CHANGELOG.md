@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.4] - 2026-10-09
+
+Armor and clothes can be bought and put straight on in the shop.
+
 ### Added
 - Armor and clothes in the shop have a Buy & wear button beside Buy: it puts the piece straight on, and
   whatever you had on in that slot goes into your bag. If your bag has no room for it, nothing is bought.
