@@ -139,6 +139,7 @@ end
 ---   notice / foot    y of the text lines under the cards
 ---   detail           { x, y, w, h }, the side panel
 ---   buy              { x, y, w, h }, its Buy button, when something is picked
+---   wear             { x, y, w, h }, its Buy & wear button, beside Buy, for armor and clothes
 --- `picked` is the entry in the side panel, or nil.
 function Screen.layout(tab, page, picked)
   local w, h = love.graphics.getDimensions()
@@ -174,6 +175,12 @@ function Screen.layout(tab, page, picked)
   if picked then
     local d = L.detail
     L.buy = { x = d.x + 12, y = d.y + d.h - BUY_H - 12, w = d.w - 24, h = BUY_H }
+    if Catalog.wearable(picked) then
+      -- Armor and clothes: Buy and Buy & wear side by side.
+      local half = math.floor((L.buy.w - GAP) / 2)
+      L.wear = { x = L.buy.x + half + GAP, y = L.buy.y, w = L.buy.w - half - GAP, h = BUY_H }
+      L.buy.w = half
+    end
   end
 
   -- Tabs across the top, under the title.
@@ -326,6 +333,26 @@ local function para(text, x, y, w)
   return y + #lines * font:getHeight()
 end
 
+--- A Buy button at `b` reading `label` (in `font`, the body font when left
+--- out): green when the wallet covers it (`can`), red when not, brighter
+--- under the mouse (`over`).
+local function button(b, label, can, over, font)
+  if can then
+    love.graphics.setColor(0.45, 0.95, 0.6, over and 0.4 or 0.25)
+  else
+    love.graphics.setColor(1, 0.45, 0.4, 0.15)
+  end
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setColor(can and { 0.45, 0.95, 0.6 } or { 1, 0.45, 0.4, 0.7 })
+  love.graphics.setLineWidth(over and can and 2 or 1)
+  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setLineWidth(1)
+  font = font or UI.fonts.body
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
+  love.graphics.printf(label, b.x, b.y + b.h / 2 - font:getHeight() / 2, b.w, "center")
+end
+
 --- The side panel: `picked` in tier `tier` (a bigger picture, its name,
 --- what it does, its numbers and the Buy button), or how to fill it.
 local function drawDetail(L, picked, purse, mx, my, tier)
@@ -398,25 +425,20 @@ local function drawDetail(L, picked, purse, mx, my, tier)
     end
   end
 
-  -- The Buy button: its price on it, gold when the wallet covers it.
-  local b = L.buy
+  -- The Buy button: its price on it, gold when the wallet covers it; for
+  -- armor and clothes the price goes over the pair and Buy & wear beside it.
   local cost = Catalog.price(picked, tiered and tier or nil, Screen.dev)
   local can = cost <= purse
-  local over = inside(b, mx, my)
-  if can then
-    love.graphics.setColor(0.45, 0.95, 0.6, over and 0.4 or 0.25)
+  local priceLabel = Screen.priceText(picked, tiered and tier or nil)
+  if L.wear then
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(can and { 1, 0.85, 0.3 } or { 1, 0.45, 0.4 })
+    love.graphics.printf(priceLabel, L.buy.x, L.buy.y - 20, L.wear.x + L.wear.w - L.buy.x, "center")
+    button(L.buy, "BUY", can, inside(L.buy, mx, my), UI.fonts.small)
+    button(L.wear, "BUY & WEAR", can, inside(L.wear, mx, my), UI.fonts.small)
   else
-    love.graphics.setColor(1, 0.45, 0.4, 0.15)
+    button(L.buy, "BUY   " .. priceLabel, can, inside(L.buy, mx, my))
   end
-  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setColor(can and { 0.45, 0.95, 0.6 } or { 1, 0.45, 0.4, 0.7 })
-  love.graphics.setLineWidth(over and can and 2 or 1)
-  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setLineWidth(1)
-  love.graphics.setFont(UI.fonts.body)
-  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
-  local label = "BUY   " .. Screen.priceText(picked, tiered and tier or nil)
-  love.graphics.printf(label, b.x, b.y + b.h / 2 - UI.fonts.body:getHeight() / 2, b.w, "center")
 end
 
 --- The whole screen. `tab` and `page` are what is up, `purse` my wallet,

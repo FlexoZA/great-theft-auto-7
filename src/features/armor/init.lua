@@ -249,6 +249,27 @@ function Armor:serverEquip(server, player, kind)
   return true
 end
 
+--- Put a new `kind` (bought, not in the bag: the shop's Buy & wear) on
+--- `player`. A vest already on goes into the bag if whole and is thrown
+--- away if not, as when one is put on from the bag; refused, with nothing
+--- changed, when a whole one has no room in the bag. Returns true if it
+--- happened.
+function Armor:serverWearNew(server, player, kind)
+  local a = kindOf(kind)
+  local buildings = Features.byName.buildings
+  if not (self.sv and a and buildings and buildings.serverGive and Features.present(player)) then
+    return false
+  end
+  local old = self.sv.worn[player.id]
+  if old and old.points >= old.max and buildings:serverGive(server, player, "armor-" .. old.kind, 1) < 1 then
+    return false
+  end
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  self.sv.worn[player.id] = { kind = kind, points = max, max = max }
+  tell(server, player, self.sv.worn[player.id])
+  return true
+end
+
 --- Put a `kind` vest ("vest", "vest@rare") found on the road straight on
 --- `player`, whole, without it passing through their bag. Only a human with
 --- no armor on takes it; returns false otherwise, and the vest stays where

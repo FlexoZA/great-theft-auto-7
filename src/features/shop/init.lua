@@ -30,7 +30,9 @@
 --
 -- A click on a card shows it in the side panel on the right (what it does
 -- and its numbers in the tier on show: details.lua); the panel's Buy button
--- asks the host. The host checks the buyer is at the door
+-- asks the host. Armor and clothes have Buy & wear beside it: bought and
+-- put straight on (gear:serverWearNew, armor:serverWearNew), what was on
+-- going into the bag, refused if the bag has no room for that. The host checks the buyer is at the door
 -- (SLACK px allowed for a car drawn a little behind where it is), that the
 -- shop is on the map in play, that the wallet covers the price, and then
 -- hands the thing over: an item goes into the buyer's bag through
@@ -41,9 +43,10 @@
 -- and ask.
 --
 -- Messages
---   client -> server  SHOP_BUY <item>[@<tier>]
---   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
---   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nodeliver | unknown)
+--   client -> server  SHOP_BUY <item>[@<tier>] [wear]   (wear: armor or clothes, put straight on)
+--   server -> buyer   SHOP_OK  <item>[@<tier>] <n> [wear]
+--                     (bought; n of it went into the bag, or on with wear, or a car is outside)
+--   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nowear | nodeliver | unknown)
 --   server -> player  SHOP_DEV <0|1>           (the dev shop is off / on for them)
 
 local Protocol = require("src.net.protocol")
@@ -139,6 +142,7 @@ local REASONS = {
   gone = "The shop isn't on this map.",
   broke = "Not enough Fcks for that.",
   full = "No room in your bag for that.",
+  nowear = "No room in your bag for what you have on.",
   nodeliver = "That can't be delivered here right now.",
   unknown = "That isn't for sale.",
 }
@@ -254,6 +258,9 @@ function Shop:mousepressed(x, y, button, client)
   if L.buy and Screen.inside(L.buy, x, y) then
     self:tryBuy(client, self.picked, self.tier)
     return
+  elseif L.wear and Screen.inside(L.wear, x, y) then
+    self:tryBuy(client, self.picked, self.tier, true)
+    return
   end
   for _, t in ipairs(L.tabs) do
     if Screen.inside(t, x, y) then
@@ -287,12 +294,17 @@ end
 --- Ask the host for `entry`, in tier `tier` if it comes in tiers. The
 --- obvious refusals are given here at once (an empty wallet, a full bag);
 --- the host still decides.
-function Shop:tryBuy(client, entry, tier)
+function Shop:tryBuy(client, entry, tier, wear)
   local item = entry.tiered and Tiers.join(entry.item, tier) or entry.item
   local price = Catalog.price(entry, tier, self.dev)
   local money = Features.byName.money
   if price > 0 and money and money.canAfford and not money:canAfford(client, price) then
     return self:refuse("broke")
+  end
+  if wear then
+    -- Straight on: the host checks there is room for what comes off.
+    client:send(Protocol.encode("SHOP_BUY", item, "wear"))
+    return
   end
   if not Catalog.onRoad(entry) then
     local b = Features.byName.buildings
@@ -491,13 +503,16 @@ end
 Shop.clientMessages = {
   SHOP_OK = function(_client, args)
     local item, n = args[1] or "", tonumber(args[2]) or 1
-    local entry = Catalog.lookup(item)
+    local entry, tier = Catalog.lookup(item)
     if not entry then
       return
     end
     Sounds.play("chime")
     Shop.flash = { item = entry.item, t = FLASH_TIME }
-    if entry.bought then
+    if args[3] == "wear" then
+      local name = entry.tiered and Tiers.named(entry.name, tier) or entry.name
+      Shop:say("Bought the " .. name .. " and put it on. What you had on is in your bag.", GREEN)
+    elseif entry.bought then
       Shop:say(entry.bought, GREEN)
     elseif Catalog.onRoad(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
@@ -581,7 +596,7 @@ end
 --- Sell `player` what `item` stands for ("gun-uzi@rare": that tier of the
 --- uzi). Returns true and how many were handed over, or false and the
 --- reason it didn't happen.
-function Shop:serverBuy(server, player, item)
+function Shop:serverBuy(server, player, item, wear)
   local entry, tier = Catalog.lookup(item)
   local price = entry and Catalog.price(entry, tier, self:serverDev(player))
   if not (entry and player.body) then
@@ -598,7 +613,16 @@ function Shop:serverBuy(server, player, item)
     return false, "broke"
   end
   local given
-  if Catalog.onRoad(entry) then
+  if wear and Catalog.wearable(entry) then
+    -- Straight on, never through the bag; what comes off goes into it,
+    -- and if there is no room for that nothing is sold.
+    local feature = Features.byName[entry.kind] -- "armor" or "gear"
+    local key = item:gsub("^%a+%-", "", 1) -- "vest@rare", "running-shoes"
+    if not (feature and feature.serverWearNew and feature:serverWearNew(server, player, key)) then
+      return false, "nowear"
+    end
+    given = 1
+  elseif Catalog.onRoad(entry) then
     local x, y, angle = freeBay(server, shop)
     if not Features.any("serverDeliver", server, player, item, x, y, angle) then
       return false, "nodeliver"
@@ -626,9 +650,10 @@ end
 
 Shop.serverMessages = {
   SHOP_BUY = function(server, player, args)
-    local ok, result = Shop:serverBuy(server, player, args[1])
+    local wear = args[2] == "wear"
+    local ok, result = Shop:serverBuy(server, player, args[1], wear)
     if ok then
-      server:send(player, Protocol.encode("SHOP_OK", args[1], result))
+      server:send(player, Protocol.encode("SHOP_OK", args[1], result, wear and "wear" or ""))
     else
       server:send(player, Protocol.encode("SHOP_NO", result))
     end
