@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-08
+
+Enemies leave a lot more ammo behind, and now and then a grenade. Medkits,
+drinks and grenades you can't use on the spot go into their quick slot for
+later.
+
 ### Added
 - Enemies can drop a grenade when they go down (5 in every 100 kills).
 - Medkits and energy drinks you can't use right now (full health, full stamina, or a drink from
