@@ -52,7 +52,7 @@ Crews.list = {
 }
 
 -- How far each gun's barrel reaches past the hands (City 17's soldiers hold them the same).
-local HELD = { pistol = 4, uzi = 8, ak47 = 15, shotgun = 14, sniper = 21, rocket = 18, flamethrower = 12 }
+local HELD = { pistol = 4, uzi = 8, ak47 = 15, shotgun = 14, sniper = 21, rocket = 18, flamethrower = 12, minigun = 14 }
 
 for i, crew in ipairs(Crews.list) do
   local gun = Guns[crew.gun]

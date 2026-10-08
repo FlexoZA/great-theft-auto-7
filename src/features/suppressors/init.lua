@@ -12,7 +12,8 @@
 -- down. Only then does their health go. They think for themselves
 -- (brain.lua).
 --
--- Their rounds belong to nobody (weapons' serverFireFrom, as the Combine's
+-- Their gun is the minigun players can buy (weapons/guns.lua), at half a
+-- player's damage a round. Their rounds belong to nobody (weapons' serverFireFrom, as the Combine's
 -- do): they hurt any player and credit nobody, and pass by every Combine
 -- soldier, Hunter and Suppressor. Anyone else's rounds hurt them. They go
 -- down as a body (the corpses feature), in their plate, the minigun beside
@@ -59,7 +60,7 @@ Suppressors.alertFov = math.rad(90) -- and while one is on edge
 Suppressors.aware = 150 -- px all round them they notice somebody in, any way they face
 Suppressors.health = 220 -- under the shield: eleven pistol rounds (a Combine soldier takes 60)
 Suppressors.shield = 160 -- what the shield soaks before the health goes
-Suppressors.damage = 5 -- a minigun round (an uzi's is 12): it is the number of them that hurts
+Suppressors.damage = 5 -- a round of his minigun (a player's does 10): it is the number of them that hurts
 Suppressors.blastDamage = 45 -- what a blast's share (a rocket, a grenade) takes off one
 Suppressors.drops = 12 -- koins one spills
 
@@ -79,12 +80,13 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
---- The minigun: the uzi's rounds, weaker and a touch wider, sounded here
---- rather than by weapons (one sound per round, out of sounds.lua).
+--- The minigun (weapons/guns.lua's, common), its rounds weaker than a
+--- player's and sounded here rather than by weapons (one sound per round,
+--- out of sounds.lua). His own brain winds it up and paces it.
 local function minigun()
-  local uzi = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-  return setmetatable({ damage = Suppressors.damage, spread = 0.08, speed = 950, ttl = 0.8, streak = 9,
-    quiet = true }, { __index = uzi })
+  return setmetatable({ damage = Suppressors.damage, quiet = true }, {
+    __index = Tiers.apply(Guns.minigun, Tiers.DEFAULT),
+  })
 end
 
 -- Server --------------------------------------------------------------------

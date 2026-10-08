@@ -128,6 +128,7 @@ Level.loadout = {
   flamethrower = { weight = 1, burst = 10, pause = 1.0 },
   rocket = { weight = 0.5, burst = 1, pause = 3.0 },
   sniper = { weight = 0.5, burst = 1, pause = 2.5, damage = 60 },
+  minigun = { weight = 0, burst = 1, pause = 1 }, -- the Suppressors' (the suppressors feature), not theirs
 }
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
 Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
@@ -940,6 +941,7 @@ local HELD = {
   sniper = { gunLength = 21 },
   rocket = { gunLength = 18, pack = { 0.28, 0.32, 0.24 } },
   flamethrower = { gunLength = 12, pack = { 0.78, 0.36, 0.12 } },
+  minigun = { gunLength = 14, pack = { 0.22, 0.24, 0.20 } },
 }
 local looks = {} -- gun index -> LOOK with that gun in his hands
 

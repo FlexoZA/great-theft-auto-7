@@ -16,6 +16,13 @@
 -- A round that stops at a wall raises `serverWallHit` and every blast
 -- raises `serverBlast`, so walls that can be hurt (players' buildings) take
 -- the damage.
+-- The minigun has to spin up first (its `spinUp`): hold fire and the
+-- barrels wind up, everyone near hears it (WPN_SPIN), and rounds only come
+-- once they turn. They keep turning while you hold on, and for SPIN_KEEP
+-- after the last round; let go for longer and it winds up from cold again.
+-- The host checks it too: a round from cold barrels that didn't spin long
+-- enough is dropped.
+--
 -- The flamethrower sprays short-lived tongues of fire (`flame`), each a
 -- "fire" round that sets whoever it catches on foot alight (`ignite`: the
 -- damage feature's burning). Its magazine is a tank (`tank`): a reload
@@ -98,6 +105,7 @@
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
+--   client -> server  WPN_SPIN                       (winding up the barrels of the gun in hand)
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
@@ -117,6 +125,7 @@
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
+--   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
@@ -173,6 +182,8 @@ local PROJECTILE_RADIUS = 3
 local MAX_HEALTH = 100
 local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
+local SPIN_KEEP = 0.4 -- seconds a spun-up gun keeps turning after the last round or the trigger let go
+local SPIN_SLACK = 0.75 -- share of a spin-up the host waits for, for the trip the WPN_SPIN took
 local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
 local RELOAD_GRACE = 1 -- seconds past a reload's end the client waits for the host's WPN_MAG before giving up
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
@@ -255,6 +266,8 @@ Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
+Weapons.spin = 0 -- 0..1: how far my gun's barrels have wound up (a gun with `spinUp`)
+Weapons.spinIdle = 0 -- seconds since they last had a reason to turn
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 Weapons.lensSize = 0.24 -- the scope's lens: its radius as a share of the window's shorter side
 Weapons.haloBelow = 0.2 -- under this share of my health a red halo creeps in from the screen's edges...
@@ -341,6 +354,7 @@ function Weapons:enterGame()
   self.deadTimer = 0
   self.halo = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
+  self.spin, self.spinIdle = 0, 0
   Explosions.clear()
   Rockets.clear()
   Sounds.stopAll()
@@ -454,6 +468,36 @@ function Weapons:tryFireMounted(client, car, mounted)
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
 
+--- A gun that spins up (`spinUp`): wind its barrels up while fire is held
+--- and it could fire, telling the host (and so everyone near) as they
+--- start; past SPIN_KEEP without a reason to turn they are cold again.
+function Weapons:windBarrels(client, dt, held)
+  local gun = self:gunAt(self.gun)
+  if not gun.spinUp or self:myMount(client) then
+    self.spin, self.spinIdle = 0, 0
+    return
+  end
+  local wants = held and self.armed and not self.reloading and (self.mags[self.gun] or 0) >= 1
+    and not Features.any("held", client, client.myId) and not Features.any("pointerTaken", client)
+    and not Features.any("fireTaken", client)
+  if wants then
+    if self.spin <= 0 then
+      client:send(Protocol.encode("WPN_SPIN"))
+      local x, y = clientPose(client, client.myId)
+      if x then
+        Sounds.play("minigun-spin", x, y, 0.8 / gun.spinUp)
+      end
+    end
+    self.spin = math.min(1, self.spin + dt / gun.spinUp)
+    self.spinIdle = 0
+  else
+    self.spinIdle = self.spinIdle + dt
+    if self.spinIdle > SPIN_KEEP then
+      self.spin = 0
+    end
+  end
+end
+
 function Weapons:tryFire(client)
   local car, mounted = self:myMount(client)
   if car then
@@ -471,6 +515,10 @@ function Weapons:tryFire(client)
     return
   end
   local gun = self:gunAt(self.gun)
+  if gun.spinUp and self.spin < 1 and (self.mags[self.gun] or 0) >= 1 then
+    return -- the barrels are still winding up (windBarrels)
+  end
+  self.spinIdle = 0
   self.cooldown = gun.cooldown
   if (self.mags[self.gun] or 0) < 1 then
     -- Click. Reload if there is anything to load, say so if not.
@@ -647,6 +695,7 @@ function Weapons:update(dt, client, camera)
     self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
   end
   local held = Controls.isDown("fire")
+  self:windBarrels(client, dt, held)
   if not held then
     self.armed = true
   elseif self.armed then
@@ -1127,6 +1176,15 @@ Weapons.clientMessages = {
     Weapons.infiniteAmmo = args[1] == "1"
     if Weapons.infiniteAmmo then
       Weapons.reloading, Weapons.ammoNotice = nil, nil
+    end
+  end,
+  WPN_SPIN = function(client, args)
+    local id = tonumber(args[1])
+    if id and id ~= client.myId then -- mine I heard as I pulled the trigger
+      local x, y = clientPose(client, id)
+      if x then
+        Sounds.play("minigun-spin", x, y)
+      end
     end
   end,
   WPN_RELOADING = function(client, args)
@@ -1832,6 +1890,23 @@ local function heldGun(self, player, st)
   return st.gun
 end
 
+--- `player` is winding up the gun in hand (WPN_SPIN): from now its first
+--- round may come once the gun's `spinUp` is over, and everyone hears it.
+--- Once in a while at most, so a held trigger can't flood the wire.
+function Weapons:serverSpin(server, player)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not (st and player.body) or player.vehicle then
+    return
+  end
+  local gun = gunOf(st, heldGun(self, player, st))
+  if not gun.spinUp or (st.spinAt and sv.time - st.spinAt < SPIN_KEEP) then
+    return
+  end
+  st.spinAt = sv.time
+  server:broadcast(Protocol.encode("WPN_SPIN", player.id))
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
 --- a shot was fired.
@@ -1850,6 +1925,17 @@ function Weapons:serverFire(server, player, aim)
   end
   if Features.any("serverHeld", server, player) then
     return false -- held still (frozen): the trigger is stuck too
+  end
+  if gun.spinUp and not player.bot then
+    -- Cold barrels fire nothing until they have wound up (WPN_SPIN).
+    -- A wind-up counts from SPIN_SLACK of the way through it until a
+    -- moment after it should be over (the first round comes then).
+    local warm = sv.time - st.lastFire < SPIN_KEEP + 0.15
+    local since = st.spinAt and sv.time - st.spinAt
+    if not warm and not (since and since >= gun.spinUp * SPIN_SLACK and since <= gun.spinUp + SPIN_KEEP + 0.5) then
+      server:send(player, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun] or 0))
+      return false
+    end
   end
   local counted = not (player.bot or st.infiniteAmmo) -- bots, police and cheaters never run dry
   if counted and (st.reloadUntil or (st.mags[st.gun] or 0) < 1) then
@@ -2044,6 +2130,9 @@ end
 Weapons.serverMessages = {
   WPN_FIRE = function(server, player, args)
     Weapons:serverFire(server, player, tonumber(args[1]))
+  end,
+  WPN_SPIN = function(server, player)
+    Weapons:serverSpin(server, player)
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))

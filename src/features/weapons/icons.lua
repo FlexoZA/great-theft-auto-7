@@ -214,6 +214,26 @@ local function flamethrower()
   love.graphics.circle("fill", 31, -3, 0.8)
 end
 
+--- The minigun: six barrels in a clamped bundle off a boxy motor housing,
+--- a carry handle on top, a grip under it and a belt of brass hanging from
+--- the ammo box slung beneath.
+local function minigun()
+  box(-26, 3, 14, 11, OLIVE, 1.5) -- the ammo box under the back
+  line(OLIVE, 0.7, 1, -25, 8, -13, 8)
+  box(-11.5, 3.5, 5, 8, BRASS, 1) -- the belt going up into the gun
+  strokes(BRASS, 0.6, 3, -11.5, 5.5, 2.2, 5) -- the rounds in it
+  box(-3, 4, 5, 10, BLACK, 1) -- the grip
+  box(-28, -8, 24, 12, DARK, 2) -- the motor housing
+  strokes(DARK, 0.55, 4, -24, -6, 3, 6, true) -- its vents
+  line(BLACK, 1, 2.5, -24, -9, -22, -14, -10, -14, -8, -9) -- the carry handle
+  for k = 0, 2 do -- the barrels, the bundle's near three
+    box(-4, -7 + k * 3.4, 34, 2.6, k == 1 and STEEL or DARK, 0.4)
+  end
+  box(4, -8.5, 3, 11.5, BLACK, 0.5) -- the clamp round them
+  box(26, -8.5, 3.5, 11.5, DARK, 0.5) -- and the muzzle ring
+  box(-6, -8.5, 3, 11.5, DARK, 0.5) -- where they go into the motor
+end
+
 --- Not a gun anyone carries: the auto turret bolted to a car (weapons draws
 --- it in the HUD for a car's own gun, whatever it fires). A squat armoured
 --- pod on a swivel pedestal, its barrel in a vented shroud, a belt feeding
@@ -240,7 +260,7 @@ end
 
 local DRAW = {
   pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper,
-  flamethrower = flamethrower, turret = turret,
+  flamethrower = flamethrower, minigun = minigun, turret = turret,
 }
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its
