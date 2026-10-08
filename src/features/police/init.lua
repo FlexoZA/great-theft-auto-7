@@ -9,7 +9,10 @@
 -- breaks line of sight for a few seconds is lost. Clients draw every cone
 -- as a faint white fan, so you can see where you are being watched.
 --
--- Units are NPCs from the bots feature with a police brain. Clients draw
+-- Units are NPCs from the bots feature with a police brain. On a chase
+-- they stop and shoot once they are near and have you in sight, drive
+-- after you by the streets when you are not, and back off for a moment
+-- when you shoot back (pursuit.lua). Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
 -- The force also walks a beat: officers on foot (officers.lua) patrol the
@@ -51,6 +54,7 @@ local Sounds = require("src.features.police.sounds")
 local Officers = require("src.features.police.officers")
 local Render = require("src.features.police.render")
 local Vision = require("src.features.police.vision")
+local Pursuit = require("src.features.police.pursuit")
 local Face = require("src.art.face")
 
 local Police = {
@@ -474,6 +478,7 @@ end
 function Police:serverPlayerDamaged(server, victim, attacker)
   if victim.police and attacker then
     self:setWanted(server, attacker)
+    Pursuit.shotBy(victim, attacker.id, sv and sv.time or 0) -- shot by who it is after: it backs off a moment
   end
 end
 
@@ -622,14 +627,16 @@ function Brain.think(server, unit, dt)
     server:broadcast(Protocol.encode("POL_SIREN", unit.id, chasing and 1 or 0))
   end
   if target then
-    B:fight(server, unit, target)
+    Pursuit.drive(server, B, unit, target, sv.time, dt) -- stop and shoot, or chase (pursuit.lua)
   else
+    Pursuit.reset(unit)
     B:cruise(server, unit, Police.patrolSpeed)
+    B.unstick(unit, dt)
   end
-  B.unstick(unit, dt)
 end
 
 function Brain.wrecked(server, unit)
+  Pursuit.reset(unit)
   if unit.ai.chasing then
     unit.ai.chasing = false
     server:broadcast(Protocol.encode("POL_SIREN", unit.id, 0))
