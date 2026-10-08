@@ -1,5 +1,5 @@
--- The guns. One table per weapon, in the order the number keys select
--- them: 1 is the pistol everyone starts with. Damage and rate of fire are
+-- The guns. One table per weapon, in the order the weapon slots start
+-- with: 1 is the pistol everyone starts with. Damage and rate of fire are
 -- the host's business (it reads the gun off its own record of what a
 -- player is holding, never off the shot message); clients read the sound,
 -- the streak and the HUD name.

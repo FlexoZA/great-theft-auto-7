@@ -22,6 +22,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and his pickup can be shot up and wrecked.
 
 ### Changed
+- New default keys: R reloads (was X), your
+  abilities are on 1, 2 and 3 (were Q, E and R), and Z and X step back and forward through your guns (the
+  number keys used to pick one; the mouse wheel still works). Keys you have rebound in Settings stay as you set them.
 - Combine soldiers in City 17 throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most
   one every 8 -> 20 seconds, and they wait longer before deciding to throw.
 - D-Day soldiers throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most one every

@@ -9,8 +9,8 @@
 -- opens over the upgrade shop, the shop or a building menu, and closes if
 -- one of those comes up.
 --
--- The weapon slots are the number keys: drag a gun item from the bag onto
--- a slot and that key fires it (weapons:equip; a gun already there swaps
+-- The weapon slots are what Z and X cycle through: drag a gun item from the
+-- bag onto a slot and it is one of them (weapons:equip; a gun already there swaps
 -- into the bag), drag a gun from its slot into the bag to put it down
 -- (weapons:unequip: it becomes a "gun-<key>" item, if there is room, and
 -- the slot is empty), or onto another slot to change its key

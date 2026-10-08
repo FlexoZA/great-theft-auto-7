@@ -296,7 +296,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
-| `menuOpen(client)` | weapons asks | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
+| `menuOpen(client)` | weapons and abilities ask | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone and abilities cast nothing. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one; grenades while one is readied, and until the button is let go after a throw. |
@@ -541,8 +541,8 @@ couple of small conventions rather than requiring each other:
   drinks, ammo and materials have none. **New equipment gets tiers too**:
   add its item prefix to `Tiers.prefixes`, give its kinds `tierStats`, read
   its numbers through `Tiers.apply`, and draw its boxes with `drawFrame`.
-- Weapon slots: each player carries guns in `weapons.slotCount` slots, one
-  per number key; the host keeps them (the pistol in slot 1 and any gun with
+- Weapon slots: each player carries guns in `weapons.slotCount` slots,
+  cycled with Z and X or the wheel (`weapon-<i>` jumps to one, unbound by default); the host keeps them (the pistol in slot 1 and any gun with
   a `stock` in `guns.lua` after it, to start with) and tells the player
   (`WPN_GUNS`, a gun index per slot, 0 for empty). A gun is also an item
   (`"gun-<gun key>"`, from a weapons factory): `WPN_EQUIP <gun> <slot>` takes
@@ -556,7 +556,7 @@ couple of small conventions rather than requiring each other:
 - Ability slots: the same for abilities. `abilities/kinds.lua` lists every
   ability by `key` (and `abilities/icons.lua` draws each one's icon: give a
   new ability a drawing there, or it shows as a plain dot); each player carries them in `abilities.slotCount` slots
-  (Q, E, R, and a keyless passive slot for an ability with `passive = true`,
+  (1, 2, 3, and a keyless passive slot for an ability with `passive = true`,
   which only fits there), freeze in slot 1 to start with, kept on the host and told to
   the player (`ABL_SLOTS`, a key per slot, `-` for empty). An ability in a
   bag is the item `"ability-<key>"`; `ABL_EQUIP <key> <slot>`,
@@ -859,7 +859,7 @@ the one with a plot.
   carry around a picture of you: gear slots (head, body, pants and shoes
   for clothes, and armor), a stats strip (what the clothes do to speed,
   sprint cost, ammo bundles, cooldowns and armor, read through `stat`), a weapon slot
-  per number key, an ability slot per ability key, and the item boxes. It
+  per slot, an ability slot per ability key, and the item boxes. It
   owns the mouse while it is up (`pointerTaken`) and the number keys
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
   that key, out of its slot into the bag to put it down, or between slots to
