@@ -159,7 +159,6 @@ Guns.list = {
     stack = 20,
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
-    stock = 5, -- for testing until the factories are up and running
   },
   {
     key = "sniper",
