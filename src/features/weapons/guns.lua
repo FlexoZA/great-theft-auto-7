@@ -101,6 +101,7 @@ Guns.list = {
     magazine = 30, -- a couple of seconds of spray
     reload = 1.8,
     reloadSound = "reload-uzi",
+    stack = 300, -- ten magazines a slot
   },
   {
     key = "ak47",
@@ -117,6 +118,7 @@ Guns.list = {
     magazine = 30,
     reload = 2.0,
     reloadSound = "reload-ak47",
+    stack = 300, -- ten magazines a slot
     ammoName = "AK-47 round",
   },
   {
@@ -137,7 +139,7 @@ Guns.list = {
     reload = 2.4,
     reloadSound = "reload-shotgun",
     ammoName = "shell",
-    stack = 50,
+    stack = 60, -- ten loads a slot
   },
   {
     key = "rocket",
@@ -156,7 +158,7 @@ Guns.list = {
     magazine = 1,
     reload = 2.2,
     reloadSound = "reload-rocket",
-    stack = 20,
+    stack = 30, -- thirty rockets a slot
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
   },
@@ -180,7 +182,7 @@ Guns.list = {
     reload = 5,
     reloadSound = "reload-sniper",
     ammoName = "sniper round",
-    stack = 50,
+    stack = 60, -- twelve magazines a slot
     scope = 4,
   },
   {
@@ -204,7 +206,7 @@ Guns.list = {
     reload = 2.5,
     reloadSound = "reload-flamethrower",
     ammoName = "fuel can",
-    stack = 10,
+    stack = 20, -- twenty tanks a slot
     tierStats = { "damage", "ttl", "magazine", "ignite.dps" },
   },
   {
@@ -226,7 +228,7 @@ Guns.list = {
     reload = 4.5, -- a new belt box: slow
     reloadSound = "reload-minigun",
     ammoName = "minigun round",
-    stack = 300,
+    stack = 1500, -- ten belts a slot
     tierStats = { "damage", "spinUp", "magazine", "reload" },
   },
 }
