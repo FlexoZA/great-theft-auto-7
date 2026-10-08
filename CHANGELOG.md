@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-08
+
+A heavy joins the Combine in the Citadel: the Suppressor, with a minigun
+that winds up before it fires and a shield you have to break first.
+
 ### Added
 - A new enemy, the Combine Suppressor: a heavy soldier with a minigun and an energy shield, two of them
   holding the Citadel's gallery and reactor deck. Listen for the barrels winding up, then get into cover:
