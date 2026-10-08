@@ -1033,7 +1033,7 @@ the one with a plot.
   from a crew that holds), and the moment any of them within 900 px gets
   the shooter in his sights those who hold run back to their places (the
   gunner to his gun) and the rest go for them; 30 s of quiet ends it too.
-  A quarter of them carry 2 grenades (`Combine.GRENADIER`), thrown through
+  One in ten of them carries a grenade (`Combine.GRENADIER`), thrown through
   `grenades:serverLob` at somebody 140-400 px off now and then, or where
   somebody just ducked out of sight, never onto one of their own.
   `Combine:arm(s, { gun, burst, pause, reach })`
