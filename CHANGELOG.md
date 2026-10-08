@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-08
+
+Walking, sprinting and dodging answer the keys at once on a laggy connection too, like the car.
+
+### Changed
+- On foot, walking, sprinting and dodging now answer the keys at once on a laggy connection too: you no
+  longer stick for a moment when you set off or slide on after you stop (at 150 ms each way you used to
+  drift on about 8 px after letting go; now none).
+
 ## [0.26.0] - 2026-10-08
 
 Your car answers the keys at once however far away the server is, the connection is lighter and steadier,
