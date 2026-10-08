@@ -21,6 +21,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
 
 ### Changed
+- Your car answers the keys at once, however far away the server is: your game drives it ahead and the
+  server corrects it, instead of waiting for the server to say where it went. At 150 ms each way it answers
+  the throttle in about 40 ms instead of 460, and the rubber-band pull is gone. Bumping another car still
+  settles a moment later.
 - The ping on screen is right within a few seconds of joining: it used to start near 500 ms and take
   20 seconds or more to come down, so it read 100+ ms even on a fast connection.
 - Your inputs and the server's updates go out the moment they are ready instead of waiting for the next

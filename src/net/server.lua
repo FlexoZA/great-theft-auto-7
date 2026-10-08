@@ -31,6 +31,7 @@ local CHANNELS = 2
 local RELIABLE = 0
 local STATE_CHANNEL = 1
 local PING_INTERVAL = 100 -- ms between ENet's pings (500 by default): what each side reckons the round trip is
+local INPUT_QUEUE = 6 -- inputs a player may have waiting; more and the oldest go (it was falling behind)
 local MAX_FRAME = 0.25 -- never simulate more than this per update (spiral of death guard)
 local SPAWN_SPACING = 80
 
@@ -149,6 +150,7 @@ end
 
 function Server:step(dt)
   self.tick = self.tick + 1
+  self:takeInputs()
   for _, car in pairs(self.vehicles) do
     if not (car.hidden or car.stowed) then
       local driver = car.driver and self.players[car.driver]
@@ -195,6 +197,15 @@ function Server:broadcastState()
     end
   end
   self:deliver(Protocol.encode("STATE", unpack(parts)), STATE_CHANNEL, "unreliable")
+  -- Each driver hears their own car exactly, and the last input that moved
+  -- it, for their prediction to start again from.
+  for _, p in pairs(self.players) do
+    local car = p.vehicle
+    if car and p.applied and not p.bot then
+      self:send(p, Protocol.encode("YOU", self.tick, p.applied, car.id, ("%.2f"):format(car.x), ("%.2f"):format(car.y),
+        ("%.4f"):format(car.angle), ("%.2f"):format(car.vx or 0), ("%.2f"):format(car.vy or 0)), true)
+    end
+  end
 end
 
 -- Vehicles and bodies -------------------------------------------------------
@@ -288,10 +299,38 @@ function Server:onInput(peer, args)
   if not seq or seq <= player.lastSeq then
     return -- stale or garbage
   end
+  -- INPUT <seq> then throttle, steer, handbrake for <seq>, <seq - 1>, ...: the
+  -- ones before come along in case their own packet was lost. Queued oldest
+  -- first, each once, and taken one a tick (Server:step), so every input
+  -- moves the car exactly once: what the driver's own prediction replays.
+  local queue = player.inputs or {}
+  player.inputs = queue
+  for k = math.min(math.floor((#args - 1) / 3), 8) - 1, 0, -1 do
+    local s = seq - k
+    if s > player.lastSeq then
+      queue[#queue + 1] = {
+        seq = s,
+        throttle = clamp(tonumber(args[2 + k * 3]) or 0, -1, 1),
+        steer = clamp(tonumber(args[3 + k * 3]) or 0, -1, 1),
+        handbrake = args[4 + k * 3] == "1",
+      }
+    end
+  end
   player.lastSeq = seq
-  player.input.throttle = clamp(tonumber(args[2]) or 0, -1, 1)
-  player.input.steer = clamp(tonumber(args[3]) or 0, -1, 1)
-  player.input.handbrake = args[4] == "1"
+  while #queue > INPUT_QUEUE do
+    table.remove(queue, 1)
+  end
+end
+
+--- Each player's next input off their queue; with none waiting, the last one holds.
+function Server:takeInputs()
+  for _, p in pairs(self.players) do
+    local nextInput = p.inputs and table.remove(p.inputs, 1)
+    if nextInput then
+      p.input.throttle, p.input.steer, p.input.handbrake = nextInput.throttle, nextInput.steer, nextInput.handbrake
+      p.applied = nextInput.seq
+    end
+  end
 end
 
 --- The connected player holding `key`, if any.

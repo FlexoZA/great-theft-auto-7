@@ -220,7 +220,10 @@ function Game:update(dt)
 
   local k = math.min(1, dt * SMOOTHING)
   for _, c in pairs(client.vehicles) do
-    if math.abs(c.x - c.dx) > SNAP_DISTANCE or math.abs(c.y - c.dy) > SNAP_DISTANCE then
+    local px, py, pangle = client:predictedPose(c.id)
+    if px then
+      c.dx, c.dy, c.dangle = px, py, pangle -- the car I drive: my own prediction of it (src/net/predict.lua)
+    elseif math.abs(c.x - c.dx) > SNAP_DISTANCE or math.abs(c.y - c.dy) > SNAP_DISTANCE then
       c.dx, c.dy, c.dangle = c.x, c.y, c.angle
     else
       c.dx = c.dx + (c.x - c.dx) * k
