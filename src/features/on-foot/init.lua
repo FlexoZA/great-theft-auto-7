@@ -16,6 +16,12 @@
 -- turned out and their cars are stowed: out of the world, off every
 -- screen, until the group is back on a map with roads worth driving.
 --
+-- Low on breath (under `breathBelow` of your stamina, on foot) a cold blue
+-- halo creeps in from the screen's edges, stronger the less is left and
+-- strongest while you are winded, swelling and fading slowly like heavy
+-- breathing; the stamina bar flashes with it. It is the low-health halo's
+-- twin (weapons), drawn from `drawLens` the same way, under the HUD.
+--
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
 -- Space (the dodge action) dashes you the way you are walking, or the way
@@ -76,6 +82,11 @@ OnFoot.dodgeDistance = 96 -- px a dodge carries you
 OnFoot.dodgeTime = 0.22 -- seconds it takes
 OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
 OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
+
+OnFoot.breathBelow = 0.3 -- under this share of my stamina the blue halo creeps in...
+OnFoot.breathFaint = 0.2 -- ...this strong just under it...
+OnFoot.breathFull = 0.55 -- ...and this strong with none left, or winded
+OnFoot.breath = 0 -- how strong it is now, easing towards what my stamina says (client)
 
 -- Slots in the HUD's bottom-left row of stat bars (UI.drawStatBar): health
 -- is 0 (weapons), then stamina and the dodge; abilities carry on from there.
@@ -171,7 +182,27 @@ OnFoot.dodgeHeld = false -- the dodge key is down since the press that counted; 
 local spent = false -- my breath, for prediction: an emptied bar sprints again only once recovered
 local time = 0 -- client clock, seconds in the game
 
+local haloImage = nil -- white, clear in the middle and opaque at the edges; tinted blue when drawn
+
+--- The halo's picture: a soft oval of nothing inside a white rim that
+--- thickens into the corners (the same shape as weapons' low-health one).
+local function makeHalo()
+  local n = 128
+  local data = love.image.newImageData(n, n)
+  for y = 0, n - 1 do
+    for x = 0, n - 1 do
+      local nx, ny = (x + 0.5) / n * 2 - 1, (y + 0.5) / n * 2 - 1
+      local k = math.max(0, math.min(1, (math.sqrt(nx * nx + ny * ny) - 0.55) / 0.75))
+      data:setPixel(x, y, 1, 1, 1, k * k * (3 - 2 * k)) -- smoothstep
+    end
+  end
+  local image = love.graphics.newImage(data)
+  image:setFilter("linear", "linear")
+  return image
+end
+
 function OnFoot:load()
+  haloImage = makeHalo()
   Controls.register("enter-exit", "Enter / exit vehicle", "f") -- the action key: real-estate and buildings share it
   Controls.register("sprint", "Sprint (on foot)", "lshift", "rshift")
   Controls.register("dodge", "Dodge (on foot)", "space") -- shared with the handbrake: one on foot, one in a car
@@ -183,6 +214,7 @@ function OnFoot:enterGame()
   self.dash, self.puffs = nil, {}
   self.dodgeHeld = false
   self.dodgeReadyAt = 0
+  self.breath = 0
   spent = false
   time = 0
 end
@@ -311,8 +343,28 @@ function OnFoot:tryDodge(client)
   return true
 end
 
+--- How strong the low-stamina halo should be: nothing on foot over
+--- `breathBelow` of my stamina or in a car, `breathFaint` just under it,
+--- growing to `breathFull` as the last of it goes, and full while winded.
+function OnFoot:breathTarget(client, onFoot)
+  if not onFoot then
+    return 0
+  end
+  local max = self.maxOf[client.myId] or self.maxStamina
+  local frac = (self.stamina[client.myId] or max) / max
+  if spent then
+    return self.breathFull
+  elseif frac >= self.breathBelow then
+    return 0
+  end
+  local t = 1 - frac / self.breathBelow -- 0 just under the line, 1 at none left
+  return self.breathFaint + (self.breathFull - self.breathFaint) * t
+end
+
 function OnFoot:update(dt, client, camera)
   time = time + dt
+  -- Ease the halo in and out, slower than the health one: breath comes back gradually.
+  self.breath = self.breath + (self:breathTarget(client, self:me(client) ~= nil) - self.breath) * math.min(1, dt * 3)
   if not Controls.isDown("dodge") then
     self.dodgeHeld = false
   end
@@ -371,6 +423,21 @@ end
 
 --- The stamina and dodge bars of the bottom-left row. Dimmed while
 --- driving: nothing to spend them on until you step out.
+--- The low-stamina halo: cold blue creeping in from the edges of the
+--- screen, over the world and under the HUD, swelling and fading like
+--- heavy breathing, quicker the less breath is left.
+function OnFoot:drawLens()
+  if self.breath < 0.01 or not haloImage then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local urgency = math.max(0, (self.breath - self.breathFaint) / (self.breathFull - self.breathFaint))
+  local pant = 0.7 + 0.3 * math.sin(time * (2.2 + 2.5 * urgency))
+  love.graphics.setColor(0.35, 0.6, 1, self.breath * pant)
+  love.graphics.draw(haloImage, 0, 0, 0, w / haloImage:getWidth(), h / haloImage:getHeight())
+  love.graphics.setColor(1, 1, 1)
+end
+
 function OnFoot:drawStatBars(client, onFoot)
   local alpha = onFoot and 1 or 0.45
   local max = self.maxOf[client.myId] or self.maxStamina
@@ -381,6 +448,10 @@ function OnFoot:drawStatBars(client, onFoot)
   if winded then
     -- Winded: the bar throbs dim red until enough is back to sprint on.
     color = { 0.9, 0.3, 0.3, 0.45 + 0.25 * math.sin(time * 8) }
+  elseif onFoot and frac < self.breathBelow then
+    -- Running low: it flashes, as the health bar does when that is low.
+    local blink = 0.5 + 0.5 * math.sin(time * 12)
+    color = { color[1], color[2], color[3], 0.55 + 0.45 * blink }
   end
   local readout = winded and "winded" or ("%d"):format(stamina)
   UI.drawStatBar(self.hudSlot, "stamina", frac, color, readout, winded and { 1, 0.5, 0.45 } or { 1, 1, 1 },

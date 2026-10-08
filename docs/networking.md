@@ -67,11 +67,26 @@ under Recent: online when discovery hears that id (wherever the host is now),
 else at the last address. The scanner also asks each remembered address
 directly, for hosts a broadcast does not reach.
 
+## Versions and compression
+
+HELLO carries the game's version (`Version.current`, the newest release in
+CHANGELOG.md) and WELCOME the host's. Only the same release plays together:
+the host turns a different one away with a REJECT saying both versions, and
+a client turns down a host that says another (or none: a host from before
+the check). A build that can't tell its own version ("0.0.0") isn't checked.
+
+A client that said its version can read packed messages, so the server
+deflates anything over `Protocol.ZIP_MIN` bytes for it (`Protocol.pack`,
+marked by a first byte of `\1`; the client's `Protocol.unpack` inflates it).
+Snapshots and the crowd's sync shrink to well under Tailscale's 1280-byte
+packets instead of being split in two. Clients send plain text.
+
 ## Message shapes
 
 ```
-client -> server   HELLO        <name> <key>          key: 32 hex chars, the player's lasting identity
-server -> client   WELCOME      <id> <serverName> <serverId> <worldName>
+client -> server   HELLO        <name> <key> <version>   key: 32 hex chars, the player's lasting identity
+server -> client   WELCOME      <id> <serverName> <serverId> <worldName> <version>
+server -> client   REJECT       <reason>             server full, or not the same version
 udp discovery      GTA7_HOST    <serverId> <serverName> <port> <players> <max> <worldName>
 client -> server   INPUT        <seq> <throttle> <steer> <handbrake>
 server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...

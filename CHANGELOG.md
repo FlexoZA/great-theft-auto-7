@@ -15,6 +15,28 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- Firing an empty gun, or reloading with no ammo left for it, now flashes NO AMMO in big red letters in the
+  middle of the screen.
+- Running low on stamina on foot (under 30%) now shows too: a blue glow breathes in from the edges of the
+  screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
+
+### Changed
+- The ping on screen is right within a few seconds of joining: it used to start near 500 ms and take
+  20 seconds or more to come down, so it read 100+ ms even on a fast connection.
+- Your inputs and the server's updates go out the moment they are ready instead of waiting for the next
+  frame: up to a frame (about 16 ms) less delay each way.
+- The server now sends about half as much (30 -> 16 kB/s per player): its big updates are compressed, so over
+  Tailscale they fit in one packet instead of being split in two, where losing either half lost the update.
+- Everyone in a game must have the same version now. Joining a server on another version tells you both
+  versions instead of going wrong mid-game.
+- The FPS counter moved from the top left to the top middle of the screen.
+
+## [0.25.0] - 2026-10-08
+
+Police cars stop to shoot and chase you round buildings instead of into them, most traffic runs instead
+of fighting back, soldiers go easy on the grenades, and the keys move about: abilities on 1-3, R to reload.
+
+### Added
 - Your ping to the server now shows in big numbers at the top left while driving: green, yellow over 80 ms, red over 150 ms.
 - Hire a Handsy Man at the shop (Hire shelf, 30 Fcks): he drives his pickup to each of your damaged buildings,
   ruins too, and repairs them with your Fcks, then goes back to the shop and leaves once everything is fixed
@@ -22,13 +44,27 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and his pickup can be shot up and wrecked.
 
 ### Changed
+- New default keys: G readies a grenade (was T), P opens your vehicles (was G), R reloads (was X), your
+  abilities are on 1, 2 and 3 (were Q, E and R), and Z and X step back and forward through your guns (the
+  number keys used to pick one; the mouse wheel still works). Keys you have rebound in Settings stay as set.
 - Combine soldiers in City 17 throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most
   one every 8 -> 20 seconds, and they wait longer before deciding to throw.
 - D-Day soldiers throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most one every
   8 -> 20 seconds, and they wait longer before deciding to throw.
+- Police cars drive smarter: once they are close and can see you they stop and shoot (sliding round on the
+  handbrake if they come in fast), they chase you around buildings by the streets instead of into walls, and
+  they handbrake round sharp corners. Shoot back and they back off for a moment, then stop and shoot again.
+  They crash far less: about 125 -> 8 hits on walls and cars per patrol car in five minutes of chasing.
+- Most traffic no longer fights back: shoot or ram a civilian car and only 1 in 10 drivers comes after you
+  (was every one); the rest floor it and get away from you. Police are unchanged.
+- Fewer pedestrians on the streets, about 20% less: 26 -> 21 per car, at most 90 -> 72.
 - Hunters no longer double with every extra player: each player past the first adds one more instead.
   The Hunter-Chopper's Hunters with two players 6 -> 4, A-Man's briefcase Hunters 4 -> 3, the Winding Road
   and Citadel beats the same (one player is unchanged).
+
+### Fixed
+- Police no longer shoot each other: officers on foot kept wrecking their own patrol cars, and patrol cars
+  could hit each other and the officers. Their rounds now fly through the force.
 
 ## [0.24.0] - 2026-10-08
 

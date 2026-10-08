@@ -406,10 +406,9 @@ function Game:draw()
   local me = client:myVehicle()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
+  love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
   if Video.get("showFps") then
-    love.graphics.print(("FPS %d  speed %.0f"):format(love.timer.getFPS(), me and me.speed or 0), 10, 10)
-  else
-    love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
+    love.graphics.printf(("FPS %d"):format(love.timer.getFPS()), 0, 10, w, "center") -- top middle, over the kill feed
   end
   local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
   local help = "Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave"

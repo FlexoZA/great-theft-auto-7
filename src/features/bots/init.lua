@@ -20,11 +20,13 @@
 -- the `serverWalkers` hook reports (pedestrians, officers) plus players out
 -- of their cars. On a map without a street grid they drive between random
 -- road waypoints instead, at the same speed. Shoot one or ram one and it turns hostile
--- towards you for a while, chasing, orbiting at a standoff distance and
--- shooting through the weapons feature with lead and a little spread. It
--- calms down again once it has been left alone for `hostileTime` seconds,
--- when its target stays further than `giveUpDistance` for `giveUpTime`
--- seconds, or when it gets wrecked (it respawns peaceful).
+-- towards you for a while. Only `fightShare` of civilian bots fight back
+-- (rolled when a fight starts): chasing, orbiting at a standoff distance and
+-- shooting through the weapons feature with lead and a little spread. The
+-- rest floor it away from you instead. Either way it calms down again once
+-- it has been left alone for `hostileTime` seconds, when its target stays
+-- further than `giveUpDistance` for `giveUpTime` seconds, or when it gets
+-- wrecked (it respawns peaceful).
 -- Other features can provoke a bot too (a trigger area later):
 --   Features.byName.bots:provoke(server, botPlayer, playerId)
 --
@@ -63,6 +65,7 @@ Bots.maxBots = 20
 Bots.spawnGap = 150 -- px a bot is put down clear of every other car
 Bots.range = 650 -- px; won't shoot beyond this
 Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
+Bots.fightShare = 0.1 -- chance a civilian bot fights back when provoked; the rest run away
 Bots.retargetEvery = 1.5 -- seconds
 -- How well a bot fights, by the host's bot difficulty (src/server_settings,
 -- set on the Settings screen's Server tab). Police units fight through the
@@ -375,6 +378,9 @@ function Bots:provoke(_server, bot, byId)
   if truce or not (bot and bot.bot and byId) or byId == bot.id then
     return
   end
+  if bot.ai.hostileTo ~= byId then
+    bot.ai.fights = not bot.civilian or love.math.random() < self.fightShare -- a new fight: stand or run?
+  end
   bot.ai.hostileTo = byId
   bot.ai.hostileUntil = now + self:difficulty().hostileTime
   bot.ai.farFor = 0
@@ -388,13 +394,16 @@ function Bots:fightOff(_server, bot, foe)
   if truce or not (bot and bot.bot and bot.ai and foe) then
     return
   end
+  if not bot.ai.foe then
+    bot.ai.foeFights = not bot.civilian or love.math.random() < self.fightShare
+  end
   bot.ai.foe = foe
   bot.ai.foeUntil = now + self:difficulty().hostileTime
 end
 
 function Bots:calm(bot)
-  bot.ai.hostileTo = nil
-  bot.ai.foe = nil
+  bot.ai.hostileTo, bot.ai.fights = nil, nil
+  bot.ai.foe, bot.ai.foeFights = nil, nil
   bot.ai.farFor = 0
   bot.ai.recklessUntil = nil -- a fight or a wreck ends a reckless spell too
 end
@@ -520,7 +529,14 @@ function Bots:fightAt(server, bot, tx, ty, tc)
     end
   end
 
-  -- Shoot: lead the target by its velocity over the projectile's flight time.
+  self:shootAt(server, bot, tx, ty, tc)
+end
+
+--- Shoot at (tx, ty) when the gun is ready and it is within range, leading
+--- `tc` (the car there, if it is one) by its velocity over the flight time.
+function Bots:shootAt(server, bot, tx, ty, tc)
+  local ai, car = bot.ai, bot.car
+  local dist = math.sqrt((tx - car.x) ^ 2 + (ty - car.y) ^ 2)
   ai.fireTimer = ai.fireTimer - server.dtLast
   if ai.fireTimer <= 0 and dist < self.range then
     local skill = self:difficulty()
@@ -537,6 +553,18 @@ function Bots:fightAt(server, bot, tx, ty, tc)
       Weapons:serverFire(server, bot, aim)
     end
   end
+end
+
+--- Floor it straight away from (x, y): a civilian who won't fight.
+function Bots:runFrom(bot, x, y)
+  local car = bot.car
+  local dx, dy = car.x - x, car.y - y
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d < 1 then
+    dx, dy, d = math.cos(car.angle), math.sin(car.angle), 1
+  end
+  Bots.driveTowards(bot, car.x + dx / d * 400, car.y + dy / d * 400, 1)
+  bot.input.throttle = Traffic.throttleFor(car, self.recklessSpeed)
 end
 
 function Bots:think(server, bot, dt)
@@ -563,10 +591,18 @@ function Bots:think(server, bot, dt)
     ai.foe, foe = nil, nil -- over, or forgiven
   end
   if target and Features.visible(server, target) then
-    self:fight(server, bot, target)
+    if ai.fights then
+      self:fight(server, bot, target)
+    else
+      self:runFrom(bot, Features.bodyPose(server, target))
+    end
   elseif foe then
     local fx, fy = foe.pos()
-    self:fightAt(server, bot, fx, fy)
+    if ai.foeFights then
+      self:fightAt(server, bot, fx, fy)
+    else
+      self:runFrom(bot, fx, fy)
+    end
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)
   else
@@ -683,6 +719,7 @@ function Bots:serverStep(server, dt)
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
     end
+    npc.input.handbrake = false -- only a brain that wants it this tick pulls it
     if npc.panic and now >= npc.panic.untilT then
       npc.panic = nil
     end
