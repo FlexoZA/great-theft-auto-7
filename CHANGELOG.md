@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Armor and clothes in the shop have a Buy & wear button beside Buy: it puts the piece straight on, and
+  whatever you had on in that slot goes into your bag. If your bag has no room for it, nothing is bought.
+
 ## [0.26.3] - 2026-10-09
 
 The shop shows your bag beside it, and medkits, drinks and grenades you buy go straight into their quick slot.

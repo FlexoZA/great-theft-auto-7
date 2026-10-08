@@ -182,6 +182,12 @@ end
 
 --- Is this something put into the world rather than into a bag: a car, or
 --- anything marked `onRoad` (a driver for hire)?
+--- Is `entry` something you wear (armor or clothes), so the shop offers
+--- Buy & wear for it?
+function Catalog.wearable(entry)
+  return entry ~= nil and (entry.kind == "armor" or entry.kind == "gear")
+end
+
 function Catalog.onRoad(entry)
   return entry.kind == "car" or entry.onRoad == true
 end

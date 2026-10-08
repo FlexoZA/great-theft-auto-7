@@ -256,6 +256,26 @@ function Gear:serverEquip(server, player, key)
   return true
 end
 
+--- Put a new `key` (bought, not in the bag: the shop's Buy & wear) on
+--- `player`; what was in its slot goes into the bag. Refused, with nothing
+--- changed, when there is something to take off and no room for it.
+--- Returns true if it happened.
+function Gear:serverWearNew(server, player, key)
+  local g = pieceOf(key)
+  local buildings = Features.byName.buildings
+  if not (self.sv and g and buildings and buildings.serverGive and Features.present(player)) then
+    return false
+  end
+  local worn = self:serverWorn(player)
+  local old = worn[g.slot]
+  if old and buildings:serverGive(server, player, "gear-" .. old, 1) < 1 then
+    return false
+  end
+  worn[g.slot] = key
+  changed(server, player, worn)
+  return true
+end
+
 --- Take off what is in `slot`, back into the bag as an item; refused when
 --- the bag is full.
 function Gear:serverUnequip(server, player, slot)
