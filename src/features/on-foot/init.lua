@@ -8,8 +8,12 @@
 -- them. This feature is the walking: the host moves a walker with the
 -- direction they push and the way they face, keeps them out of buildings,
 -- spends and regenerates stamina, and seats and unseats them on request.
--- The local player is predicted from the same numbers and eased back
--- towards the server, so walking feels immediate on a slow link.
+-- The local player is predicted (OnFoot:advance is the host's own step,
+-- run here too): every move moves my copy at once and is kept, the host
+-- applies each move once, a tick each, and says where it has me after the
+-- last one (OF_YOU); the copy starts again from there, replays the rest and
+-- fades the difference in, so walking, sprinting and dodging answer the keys
+-- at once however far away the host is.
 --
 -- A car you get out of stops where it is and stays there for anyone to
 -- take. On a map with no vehicles (city-map's `map.vehicles`), everyone is
@@ -45,8 +49,11 @@
 --
 -- Messages
 --   client -> server  OF_TOGGLE
---   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
---   client -> server  OF_DODGE <dx> <dy>                         the dodge key: dash this way
+--   client -> server  OF_MOVE  <seq> <facing> [<mx> <my> <sprint> <dodge x> <dodge y>]x3  (unreliable, 30 Hz;
+--                     this move and the two before it; a dodge rides in the move it was pressed in)
+--   client -> server  OF_DODGE <dx> <dy>                         the dodge key, to a host without OF_YOU
+--   server -> walker  OF_YOU <tick> <applied> <x> <y> <stamina> <spent> <regenIn> <dash x> <dash y> <dash t>
+--                     <cooldown> <max> <regen> <pinned>   where the host has me, for my prediction (unreliable)
 --   server -> all     OF_DODGED <id> <x> <y> <dx> <dy>           they dashed from here, this way
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
 --   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
@@ -82,6 +89,7 @@ OnFoot.dodgeDistance = 96 -- px a dodge carries you
 OnFoot.dodgeTime = 0.22 -- seconds it takes
 OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
 OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
+OnFoot.moveQueue = 6 -- moves a walker may have waiting on the host; more and the oldest go
 
 OnFoot.breathBelow = 0.3 -- under this share of my stamina the blue halo creeps in...
 OnFoot.breathFaint = 0.2 -- ...this strong just under it...
@@ -93,8 +101,11 @@ OnFoot.breath = 0 -- how strong it is now, easing towards what my stamina says (
 OnFoot.hudSlot = 1
 
 local MOVE_INTERVAL = 1 / 30 -- seconds between OF_MOVE packets
-local CORRECTION = 6 -- per second; how fast prediction is pulled onto the server
+local CORRECTION = 6 -- per second; how fast the loose prediction (no OF_YOU yet) is pulled onto the server
 local SNAP = 120 -- px; a correction bigger than this is a teleport
+local CORRECT = 10 -- per second; how fast a correction of the replayed prediction fades in
+local MOVE_REPEAT = 3 -- moves in each OF_MOVE: this one and the ones before it
+local KEEP = 90 -- moves kept for replay at most (3 s)
 
 local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
@@ -212,6 +223,7 @@ function OnFoot:enterGame()
   self.moveTimer = 0
   self.moveSeq = 0
   self.dash, self.puffs = nil, {}
+  self.pred, self.pendingDodge, self.sentMoves, self.youTick = nil, nil, nil, 0
   self.dodgeHeld = false
   self.dodgeReadyAt = 0
   self.breath = 0
@@ -260,8 +272,93 @@ function OnFoot:vehicleInReach(client, me)
   return nil
 end
 
+--- What scales my own step, as the host's serverScales scales it there.
+function OnFoot:myScales(client)
+  local id = client.myId
+  return {
+    speed = Features.reduce("stat", 1, client, id, "speed"),
+    drain = Features.reduce("stat", 1, client, id, "stamina"),
+    walk = self.walkOf[id] or 1,
+    dash = self.dashOf[id] or 1,
+  }
+end
+
+-- My own walker, driven here ahead of the host. Every move I send also
+-- moves the copy a tick with OnFoot:advance (the host's own step) and is
+-- kept; OF_YOU says where the host has me after the last move it applied,
+-- with my stamina, breath, dash and dodge cooldown, and the copy starts
+-- again from there and replays the moves the host hasn't got to. What that
+-- moves me by fades in (CORRECT) instead of jumping; more than SNAP is a
+-- jump (a respawn). Like the car's (src/net/predict.lua). Until the first
+-- OF_YOU (a host from before it) the loose prediction below stands in.
+
+--- One tick of the copy: the dodge in `move`, if it can, then the step.
+function OnFoot:predictStep(p, client, move, dt)
+  local st = p.st
+  local held = Features.any("held", client, client.myId) or p.pinned
+  if move.dodge and not held and self:canDodge(st, st.cooling) then
+    self:startDodge(st, move.dodge.x, move.dodge.y)
+    st.cooling = self.dodgeCooldown
+  end
+  if not held then
+    p.running = self:advance(st, p.pos, move, dt, self:myScales(client)) or st.dash ~= nil
+  else
+    p.running = false
+  end
+  st.cooling = math.max(0, st.cooling - dt)
+end
+
+--- OF_YOU: start the copy again from the host's word and replay the rest.
+function OnFoot:onYou(client, args)
+  local me = self:me(client)
+  local tick, applied = tonumber(args[1]), tonumber(args[2])
+  local x, y = tonumber(args[3]), tonumber(args[4])
+  if not (me and tick and applied and x and y) or tick <= (self.youTick or 0) then
+    return
+  end
+  self.youTick = tick
+  local p = self.pred
+  if not p then
+    p = { pos = { x = x, y = y }, prev = { x = x, y = y }, ox = 0, oy = 0, history = {}, st = {} }
+    self.pred = p
+  end
+  local oldX, oldY = p.pos.x, p.pos.y
+  local st = p.st
+  st.stamina, st.spent, st.regenIn = tonumber(args[5]) or 0, args[6] == "1", tonumber(args[7]) or 0
+  local dt = tonumber(args[10]) or 0
+  st.dash = dt > 0 and { x = tonumber(args[8]) or 0, y = tonumber(args[9]) or 0, t = dt } or nil
+  -- The host counts its cooldown from the tick it reported; the copy has
+  -- already taken that tick off.
+  st.cooling = math.max(0, (tonumber(args[11]) or 0) - MOVE_INTERVAL)
+  st.max, st.regen = tonumber(args[12]) or self.maxStamina, tonumber(args[13]) or self.staminaRegen
+  p.pinned = args[14] == "1" -- shoved or held: the host moves me, not my keys
+  p.pos.x, p.pos.y = x, y
+  local keep = {}
+  for _, move in ipairs(p.history) do
+    if move.seq > applied then
+      keep[#keep + 1] = move
+    end
+  end
+  p.history = keep
+  if not p.pinned then
+    for _, move in ipairs(keep) do
+      self:predictStep(p, client, move, MOVE_INTERVAL)
+    end
+  end
+  local ex, ey = oldX - p.pos.x, oldY - p.pos.y
+  if ex * ex + ey * ey > SNAP * SNAP then
+    p.ox, p.oy = 0, 0
+    p.prev.x, p.prev.y = p.pos.x, p.pos.y
+  else
+    -- Carry what is drawn along, so nothing moves on screen this frame.
+    p.ox, p.oy = p.ox + ex, p.oy + ey
+    p.prev.x, p.prev.y = p.prev.x - ex, p.prev.y - ey
+  end
+end
+
 --- Walk my own figure with the keys I am holding, then ease it back onto the
---- server's last word so a disagreement never lasts.
+--- server's last word so a disagreement never lasts. The stand-in until the
+--- host's first OF_YOU starts the replayed prediction.
 function OnFoot:predict(dt, client, me)
   me.predicted = true
   local mx, my = moveInput()
@@ -314,10 +411,47 @@ function OnFoot:sendMove(dt, client, me)
   self.moveTimer = self.moveTimer + MOVE_INTERVAL
   self.moveSeq = self.moveSeq + 1
   local mx, my = moveInput()
-  local sprint = Controls.isDown("sprint") and 1 or 0
-  local msg = Protocol.encode("OF_MOVE", self.moveSeq, ("%.3f"):format(mx), ("%.3f"):format(my), sprint,
-    ("%.3f"):format(me.dangle))
-  client:send(msg, true)
+  local dodge = self.pendingDodge
+  self.pendingDodge = nil
+  local move = { seq = self.moveSeq, x = mx, y = my, sprint = Controls.isDown("sprint"), dodge = dodge }
+  -- This move and the ones before it, in case a packet is lost on the way.
+  local sent = self.sentMoves or {}
+  self.sentMoves = sent
+  table.insert(sent, 1, move)
+  sent[MOVE_REPEAT + 1] = nil
+  local fields = { self.moveSeq, ("%.3f"):format(me.dangle or 0) }
+  for _, m in ipairs(sent) do
+    fields[#fields + 1] = ("%.3f"):format(m.x)
+    fields[#fields + 1] = ("%.3f"):format(m.y)
+    fields[#fields + 1] = m.sprint and 1 or 0
+    fields[#fields + 1] = m.dodge and ("%.3f"):format(m.dodge.x) or 0
+    fields[#fields + 1] = m.dodge and ("%.3f"):format(m.dodge.y) or 0
+  end
+  client:send(Protocol.encode("OF_MOVE", unpack(fields)), true)
+  -- The same move moves my own copy a tick, kept for replay.
+  local p = self.pred
+  if p then
+    p.history[#p.history + 1] = move
+    if #p.history > KEEP then
+      table.remove(p.history, 1)
+    end
+    p.prev.x, p.prev.y = p.pos.x, p.pos.y
+    self:predictStep(p, client, move, MOVE_INTERVAL)
+  end
+end
+
+--- Draw me from the copy: between its last two ticks as the next comes up,
+--- plus what is left of the last correction (which fades).
+function OnFoot:drawPredicted(dt, _client, me, p)
+  me.predicted = true
+  local k = math.exp(-CORRECT * dt)
+  p.ox, p.oy = p.ox * k, p.oy * k
+  local alpha = 1 - math.max(0, math.min(1, self.moveTimer / MOVE_INTERVAL))
+  me.dx = p.prev.x + (p.pos.x - p.prev.x) * alpha + p.ox
+  me.dy = p.prev.y + (p.pos.y - p.prev.y) * alpha + p.oy
+  me.running = p.running
+  me.dangle = self:cursorAngle(me.dx, me.dy)
+  self.dash = p.st.dash -- the HUD's dodge bar
 end
 
 --- The dodge key: dash the way I am walking (the way I face if I am
@@ -337,9 +471,13 @@ function OnFoot:tryDodge(client)
     local facing = me.dangle or 0
     dx, dy = math.cos(facing), math.sin(facing)
   end
-  self.dash = { x = dx, y = dy, t = self.dodgeTime }
   self.dodgeReadyAt = time + self.dodgeCooldown
-  client:send(Protocol.encode("OF_DODGE", ("%.3f"):format(dx), ("%.3f"):format(dy)))
+  if self.pred then
+    self.pendingDodge = { x = dx, y = dy } -- rides in the next move, here and on the host
+  else
+    self.dash = { x = dx, y = dy, t = self.dodgeTime }
+    client:send(Protocol.encode("OF_DODGE", ("%.3f"):format(dx), ("%.3f"):format(dy)))
+  end
   return true
 end
 
@@ -377,11 +515,16 @@ function OnFoot:update(dt, client, camera)
   end
   local me = self:me(client)
   if not me then
-    self.dash = nil
+    self.dash, self.pred = nil, nil -- in a car, or out of the world: the next walk starts afresh
     return
   end
-  self:predict(dt, client, me)
-  self:sendMove(dt, client, me)
+  if self.pred then
+    self:sendMove(dt, client, me)
+    self:drawPredicted(dt, client, me, self.pred)
+  else
+    self:predict(dt, client, me)
+    self:sendMove(dt, client, me)
+  end
   -- The camera and the ears belong to the predicted body, a step ahead of
   -- where the game state anchored them this frame.
   camera.x, camera.y = me.dx, me.dy
@@ -500,6 +643,9 @@ function OnFoot:drawHUD(client)
 end
 
 OnFoot.clientMessages = {
+  OF_YOU = function(client, args)
+    OnFoot:onYou(client, args)
+  end,
   OF_STATE = function(_client, args)
     local stamina = {}
     for i = 2, #args - 1, 2 do
@@ -759,6 +905,7 @@ function OnFoot:getOut(server, player, force)
   st.stamina, st.spent, st.regenIn = st.max, false, 0
   st.move.x, st.move.y, st.move.sprint = 0, 0, false
   st.dash = nil
+  st.moves = nil -- what was queued before the drive is long out of date
   return true
 end
 
@@ -789,20 +936,30 @@ function OnFoot:mapChanged(map, server)
   end
 end
 
---- One walker's step: spend or regain stamina, then walk. Leaning on the
+--- What scales one walker's step on the host: clothes (gear) may make them
+--- faster or their sprint cheaper, the gym walks them faster and dodges them
+--- further. The client builds the same for itself (OnFoot:myScales).
+function OnFoot:serverScales(server, player)
+  return {
+    speed = Features.reduce("serverStat", 1, server, player, "speed"),
+    drain = Features.reduce("serverStat", 1, server, player, "stamina"),
+    walk = self.sv.walk[player.id] or 1,
+    dash = self.sv.dash[player.id] or 1,
+  }
+end
+
+--- One walker's step, the same on the host and in my own prediction:
+--- spend or regain stamina, then walk `pos` (x, y) by `move` ({ x, y,
+--- sprint }) for `dt`, or let a dodge under way carry it. Leaning on the
 --- sprint key with an empty bar keeps it empty; you get your breath back by
---- letting go, not by running on.
-function OnFoot:walk(st, body, dt, server, player)
-  local mx, my = st.move.x, st.move.y
+--- letting go, not by running on. `st` holds stamina, max, regen, regenIn,
+--- spent and dash; `scales` is what serverScales gives.
+function OnFoot:advance(st, pos, move, dt, scales)
+  local mx, my = move.x, move.y
   local len = math.sqrt(mx * mx + my * my)
-  local asking = len > 0 and st.move.sprint
+  local asking = len > 0 and move.sprint
   local sprinting = asking and st.stamina > 0 and not st.spent
-  -- Clothes (gear) may make them faster or their sprint cheaper.
-  local speedScale, drainScale = 1, 1
-  if server and player then
-    speedScale = Features.reduce("serverStat", 1, server, player, "speed")
-    drainScale = Features.reduce("serverStat", 1, server, player, "stamina")
-  end
+  local speedScale, drainScale = scales.speed, scales.drain
   if sprinting then
     st.stamina = math.max(0, st.stamina - self.sprintDrain * drainScale * dt)
     st.regenIn = self.regenDelay
@@ -825,18 +982,36 @@ function OnFoot:walk(st, body, dt, server, player)
     -- Mid-dodge: the dash carries them, whatever the keys say.
     local d = st.dash
     local slice = math.min(dt, d.t) -- the last step only goes as far as is left
-    local reach = self.dodgeDistance * (self.sv.dash[player.id] or 1)
-    body.x, body.y = step(body.x, body.y, d.x, d.y, reach / self.dodgeTime, slice)
+    local reach = self.dodgeDistance * scales.dash
+    pos.x, pos.y = step(pos.x, pos.y, d.x, d.y, reach / self.dodgeTime, slice)
     d.t = d.t - dt
     if d.t <= 0 then
       st.dash = nil
     end
     st.regenIn = self.regenDelay
   elseif len > 0 then
-    local walk = self.walkSpeed * (self.sv.walk[player.id] or 1) -- the gym's
+    local walk = self.walkSpeed * scales.walk -- the gym's
     local speed = (sprinting and self.sprintSpeed or walk) * speedScale
-    body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
+    pos.x, pos.y = step(pos.x, pos.y, mx / len, my / len, speed, dt)
   end
+  return sprinting
+end
+
+--- Can `st` dodge now (`cooling` seconds of the last one's cooldown left)?
+function OnFoot:canDodge(st, cooling)
+  return not st.dash and cooling <= 0 and st.stamina >= self.dodgeStamina
+end
+
+--- Start a dodge along the unit direction (dx, dy): its stamina, the dash.
+function OnFoot:startDodge(st, dx, dy)
+  st.stamina = st.stamina - self.dodgeStamina
+  st.regenIn = self.regenDelay
+  st.dash = { x = dx, y = dy, t = self.dodgeTime }
+end
+
+--- The host's step for one walker.
+function OnFoot:walk(st, body, dt, server, player)
+  self:advance(st, body, st.move, dt, self:serverScales(server, player))
 end
 
 --- A dodge for `player` in direction (dx, dy), if they are on foot, free,
@@ -857,12 +1032,10 @@ function OnFoot:serverDodge(server, player, dx, dy)
   end
   dx, dy = dx / len, dy / len
   local st = self:walker(player)
-  if st.dash or sv.time < st.dodgeReadyAt or st.stamina < self.dodgeStamina then
+  if not self:canDodge(st, st.dodgeReadyAt - sv.time) then
     return false
   end
-  st.stamina = st.stamina - self.dodgeStamina
-  st.regenIn = self.regenDelay
-  st.dash = { x = dx, y = dy, t = self.dodgeTime }
+  self:startDodge(st, dx, dy)
   st.dodgeReadyAt = sv.time + self.dodgeCooldown
   local b = player.body
   server:broadcast(Protocol.encode("OF_DODGED", player.id, ("%.0f"):format(b.x), ("%.0f"):format(b.y),
@@ -912,6 +1085,16 @@ function OnFoot:serverStep(server, dt)
   for id, player in pairs(server.players) do
     if player.body and not player.vehicle and not player.body.dead then
       local st = self:walker(player)
+      -- Their next move off the queue (with none waiting the last one holds),
+      -- and the dodge in it.
+      local nextMove = st.moves and table.remove(st.moves, 1)
+      if nextMove then
+        st.move.x, st.move.y, st.move.sprint = nextMove.x, nextMove.y, nextMove.sprint
+        st.applied = nextMove.seq
+        if nextMove.dodge then
+          self:serverDodge(server, player, nextMove.dodge.x, nextMove.dodge.y)
+        end
+      end
       if st.shove then
         -- Knocked back: carried along whatever holds them (a knock holds them).
         local s = st.shove
@@ -936,6 +1119,20 @@ function OnFoot:serverStep(server, dt)
   for _, player in pairs(server.players) do
     server:send(player, msg, true)
   end
+  -- Each walker hears exactly where they are and how they stand after the
+  -- last move applied, for their prediction to start again from.
+  for _, player in pairs(server.players) do
+    local st = sv.walkers[player.id]
+    if st and st.applied and not player.bot and player.body and not player.vehicle and not player.body.dead then
+      local d = st.dash
+      local pinned = st.shove ~= nil or Features.any("serverHeld", server, player)
+      server:send(player, Protocol.encode("OF_YOU", server.tick, st.applied, ("%.2f"):format(player.body.x),
+        ("%.2f"):format(player.body.y), ("%.2f"):format(st.stamina), st.spent and 1 or 0, ("%.3f"):format(st.regenIn),
+        d and ("%.3f"):format(d.x) or 0, d and ("%.3f"):format(d.y) or 0, d and ("%.3f"):format(d.t) or 0,
+        ("%.3f"):format(math.max(0, st.dodgeReadyAt - sv.time)), ("%.2f"):format(st.max), ("%.3f"):format(st.regen),
+        pinned and 1 or 0), true)
+    end
+  end
 end
 
 OnFoot.serverMessages = {
@@ -958,6 +1155,12 @@ OnFoot.serverMessages = {
       OnFoot:serverDodge(server, player, dx, dy)
     end
   end,
+  -- OF_MOVE <seq> <facing> then <mx> <my> <sprint> <dodge x> <dodge y> for
+  -- <seq>, <seq - 1>, ...: the ones before come along in case their own
+  -- packet was lost. Queued oldest first, each once, and taken one a tick
+  -- (serverStep), so every one moves them exactly once: what their own
+  -- prediction replays. A dodge rides in its move, so it starts on the same
+  -- tick here as there.
   OF_MOVE = function(_server, player, args)
     if not (OnFoot.sv and player.body) or player.vehicle then
       return -- they are driving; nothing to move
@@ -967,11 +1170,26 @@ OnFoot.serverMessages = {
     if not seq or seq <= st.lastSeq then
       return -- stale or garbage
     end
+    player.body.facing = tonumber(args[2]) or player.body.facing
+    local queue = st.moves or {}
+    st.moves = queue
+    for k = math.min(math.floor((#args - 2) / 5), 8) - 1, 0, -1 do
+      local s, at = seq - k, 3 + k * 5
+      if s > st.lastSeq then
+        local dx, dy = tonumber(args[at + 3]) or 0, tonumber(args[at + 4]) or 0
+        queue[#queue + 1] = {
+          seq = s,
+          x = clamp(tonumber(args[at]) or 0, -1, 1),
+          y = clamp(tonumber(args[at + 1]) or 0, -1, 1),
+          sprint = args[at + 2] == "1",
+          dodge = (dx ~= 0 or dy ~= 0) and { x = dx, y = dy } or nil,
+        }
+      end
+    end
     st.lastSeq = seq
-    st.move.x = clamp(tonumber(args[2]) or 0, -1, 1)
-    st.move.y = clamp(tonumber(args[3]) or 0, -1, 1)
-    st.move.sprint = args[4] == "1"
-    player.body.facing = tonumber(args[5]) or player.body.facing
+    while #queue > OnFoot.moveQueue do
+      table.remove(queue, 1)
+    end
   end,
 }
 
