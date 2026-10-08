@@ -14,12 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
-### Added
-- D-Day's soldiers fight back against snipers the way the Combine do: shot from where none of them
-  can see you, they take cover, send squads of 3 out to find you after 8 seconds of quiet, and all
-  come for you once one of them sees you.
-- A quarter of D-Day's soldiers carry two grenades and throw them at you, or at where you just
-  ducked out of sight.
+## [0.16.0] - 2026-10-08
+
+Sniping from the dark no longer works on the Combine or D-Day's soldiers:
+they take cover, wait you out and send squads to find you, and some of
+them throw grenades now. The Winding Road's bunkers send out squads of 3.
 
 ### Added
 - Combine soldiers fight back against snipers. Shoot one from where none of them can see you and he
@@ -28,6 +27,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and guns and everyone else comes for you.
 - A quarter of the Combine carry two grenades, and throw them at you, or at where you just ducked
   out of sight.
+- D-Day's soldiers fight back against snipers the way the Combine do: shot from where none of them
+  can see you, they take cover, send squads of 3 out to find you after 8 seconds of quiet, and all
+  come for you once one of them sees you.
+- A quarter of D-Day's soldiers carry two grenades and throw them at you, or at where you just
+  ducked out of sight.
 
 ### Changed
 - The Winding Road's bunkers send their soldiers out in squads of 3 instead of one at a time: 9 per
