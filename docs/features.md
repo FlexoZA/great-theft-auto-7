@@ -852,7 +852,8 @@ the one with a plot.
   ammo factory makes them out of iron and sulfur and the shop sells them
   under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
   `grenades:serverLob(server, ox, oy, x, y, owner)` throws one for an
-  enemy (owner 0: hurts any player, credits nobody); A-Man's Combine do.
+  enemy (owner 0: hurts any player, credits nobody); A-Man's Combine and
+  D-Day's soldiers do.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face
@@ -934,7 +935,10 @@ the one with a plot.
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
   anyone they see for as long as they see them; riflemen come out of the
-  barracks and walk down at the players; mortars fall on the beach behind a
+  barracks and walk down at the players. Sniped from somewhere none of
+  them can see, they go to ground and send out sweeps the way the Combine
+  do (`brain.lua`'s sieges; once the shooter is seen all of them go for
+  him), and a quarter carry 2 grenades (`grenades:serverLob`). Mortars fall on the beach behind a
   warning ring. Reaching the flag puts up Major Looz'er's portrait, then he
   fights, throwing down the MG nest ability (`abilities/mgnest.lua`) every
   few seconds. Soldiers raise `serverKill` with kind "soldier", the Major

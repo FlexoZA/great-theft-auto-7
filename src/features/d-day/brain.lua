@@ -24,9 +24,24 @@
 -- rifleman carries on down the hill. Given a walking grid
 -- (Soldiers:navigate, nav.lua) he finds his way round walls.
 --
+-- Shot at by somebody none of them can see (sniped from past their sight),
+-- they don't walk into it, as the Combine don't: the one hit and every mate
+-- within PIN_SHARE go to ground behind whatever is between them and where
+-- the round came from (a "siege") and wait; every round from out there
+-- starts the wait again. After QUIET seconds without one, squads of
+-- SWEEP_SQUAD of them (SWEEPS at most) go out to look round where the shots
+-- came from. The moment anyone within SPOT_SHARE gets the shooter in his
+-- sights the siege is over and every one of them goes for them. RELEASE
+-- seconds of quiet ends it too: guards back to their posts, riflemen on
+-- down the hill.
+--
 -- Each one carries an AK unless he has been handed `arms` (Soldiers:arm).
--- They shoot through weapons' ownerless entry point, so their rounds hurt
--- any player and credit nobody. Like the Combine's, it can walk squads on
+-- GRENADIER of them carry GRENADES hand grenades as well (the grenades
+-- feature's, through Grenades:serverLob): now and then at somebody in his
+-- sights between GRENADE_MIN and the grenade's range, or at where he last
+-- saw somebody who has just ducked out of sight, never where it would land
+-- on one of his own. They shoot through weapons' ownerless entry point, so
+-- their rounds (and grenades) hurt any player and credit nobody. Like the Combine's, it can walk squads on
 -- a beat too (Soldiers:addSquad); D-Day doesn't put any out yet.
 
 local Features = require("src.features")
@@ -62,6 +77,21 @@ Soldiers.INVESTIGATE_WALK = 75 -- px/s going to look into something
 Soldiers.SEARCH_TIME = 5 -- seconds looking round where he lost them, or at what he came to look into
 Soldiers.SEARCH_SWEEP = math.rad(100) -- how far either way he looks round then
 Soldiers.CRUMB = 40 -- px between the breadcrumbs he drops on his way, for the way back
+Soldiers.COVER_RANGE = 170 -- px from where he stands he will go for cover
+Soldiers.PIN_SHARE = 400 -- px; mates this near one shot by somebody unseen take cover with him
+Soldiers.PIN_GUESS = 420 -- px back along the round that they reckon the shooter is
+Soldiers.QUIET = 8 -- seconds without a round from out there before a sweep goes out
+Soldiers.RELEASE = 30 -- seconds without one before everyone pinned gets up again
+Soldiers.SWEEP_SQUAD = 3 -- soldiers to a sweep
+Soldiers.SWEEPS = 2 -- sweeps out of one siege at most
+Soldiers.SPOT_SHARE = 900 -- px; a siege this near whoever gets the shooter in his sights is over
+Soldiers.GRENADIER = 0.25 -- share of soldiers who carry grenades
+Soldiers.GRENADES = 2 -- grenades each of them carries
+Soldiers.GRENADE_MIN = 140 -- px; no nearer than this (the blast would reach him)
+Soldiers.GRENADE_EVERY = 8 -- seconds between one throw and the next
+Soldiers.GRENADE_ROLL = { 1.2, 0.3 } -- every this many seconds he has somebody in range, this chance he throws
+Soldiers.LOST_THROW = 4 -- seconds after losing sight of somebody that he may lob one at where they were
+Soldiers.SPLASH_CLEAR = 120 -- px; nobody of his own this near where it would land
 
 local random = love.math.random
 
@@ -81,14 +111,14 @@ end
 function Soldiers.new(opts)
   opts = opts or {}
   local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt ~= false, fov = opts.fov,
-    aware = opts.aware or 0, health = opts.health or Soldiers.HEALTH, alertFov = opts.alertFov }
+    aware = opts.aware or 0, health = opts.health or Soldiers.HEALTH, alertFov = opts.alertFov, sieges = {} }
   return setmetatable(t, Soldiers)
 end
 
---- Is `s` on edge: somebody in his sights, or out searching or looking
---- into something?
+--- Is `s` on edge: somebody in his sights, out searching or looking into
+--- something, or pinned down?
 function Soldiers.wary(s)
-  return s.alert or s.goal ~= nil
+  return s.alert or s.goal ~= nil or s.pin ~= nil
 end
 
 --- How wide `s`'s cone of sight is right now.
@@ -118,6 +148,7 @@ function Soldiers:add(kind, x, y, watch)
     stuck = 0,
     sidestep = 0,
     side = random() < 0.5 and -1 or 1,
+    grenades = random() < Soldiers.GRENADIER and Soldiers.GRENADES or 0,
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = s
@@ -392,7 +423,7 @@ function Soldiers:alarm(x, y, radius, opts)
   for _, s in ipairs(self.list) do
     local d2 = dist2(s.x, s.y, x, y)
     local own = from and (s == from or (s.squad ~= nil and s.squad == from.squad))
-    if not own and not s.target and not s.panic and d2 <= radius * radius then
+    if not own and not s.target and not s.panic and not s.pin and d2 <= radius * radius then
       near[#near + 1] = { s = s, d2 = d2 }
     end
   end
@@ -508,6 +539,7 @@ function Soldiers:update(server, dt)
   for _, s in ipairs(self.list) do
     self:think(server, s, dt)
   end
+  self:stepSieges(dt)
 end
 
 function Soldiers:think(server, s, dt)
@@ -554,6 +586,21 @@ function Soldiers:think(server, s, dt)
       end
     end
   end
+  -- Somebody new in his sights ends any siege near him; losing them is
+  -- the moment to lob a grenade where they went.
+  local had = s.hadTarget
+  s.hadTarget = s.target
+  if s.target and s.target ~= had then
+    local px, py = poseOf(server, s.target)
+    if px then
+      self:spotted(s, px, py)
+    end
+  elseif had and not s.target then
+    s.lostAt = self.time
+  end
+  if s.sweep and not s.goal and not s.trail then
+    s.sweep = nil -- back from looking round
+  end
 
   local tx, ty = nil, nil
   if s.target then
@@ -561,6 +608,13 @@ function Soldiers:think(server, s, dt)
     if not tx then
       s.target = nil
     end
+  end
+  if s.pin and not tx then
+    self:holdDown(s, dt) -- pinned down by somebody he can't see
+    return
+  end
+  if s.returnTo and self:goBack(server, s, tx, ty, dt) then
+    return
   end
   if self.hunt and s.alert and not tx and s.aimX then
     setGoal(self, s, s.aimX, s.aimY, "search") -- lost them: to where they were last
@@ -580,6 +634,7 @@ function Soldiers:think(server, s, dt)
       end
     end
     shoot(server, s, tx, ty, dt)
+    self:maybeLob(server, s, tx, ty, dt)
   elseif s.goal then
     if not pursue(self, s, dt) then
       s.goal, s.gaveUp = nil, true -- nothing there: back he goes
@@ -599,6 +654,9 @@ function Soldiers:think(server, s, dt)
       local look = path + Soldiers.SCAN * math.sin(self.time * 2.2 + s.phase)
       s.facing = turn(s.facing, look, Soldiers.TURN * 1.5, dt)
     end
+  end
+  if not tx and s.lostAt then
+    self:maybeLob(server, s, nil, nil, dt)
   end
 end
 
@@ -653,6 +711,330 @@ function Soldiers:patrol(s, dt)
   s.facing = turn(s.facing, look, Soldiers.TURN, dt)
 end
 
+-- Pinned down ----------------------------------------------------------------
+
+--- Somewhere open within `reach` of (cx, cy), reached in a straight line
+--- from (fx, fy), that `ok(x, y)` likes; the one nearest (fx, fy) plus
+--- `pull` times its distance from (cx, cy).
+local function search(cx, cy, reach, fx, fy, pull, ok)
+  local best, bestScore
+  for ring = 0, 6 do
+    local d = ring / 6 * reach
+    local n = ring == 0 and 1 or 12
+    for k = 1, n do
+      local a = k / n * 2 * math.pi + ring * 0.4
+      local x, y = cx + math.cos(a) * d, cy + math.sin(a) * d
+      if not blockedAt(x, y) and Sight.clear(fx, fy, x, y) and ok(x, y) then
+        local score = math.sqrt(dist2(x, y, fx, fy)) + pull * d
+        if not bestScore or score < bestScore then
+          best, bestScore = { x = x, y = y }, score
+        end
+      end
+    end
+  end
+  return best
+end
+
+--- Somewhere near (x, y) with something solid between it and `th`.
+local function coverNear(x, y, th)
+  return search(x, y, Soldiers.COVER_RANGE, x, y, 0.5, function(cx, cy)
+    return not Sight.clear(th.x, th.y, cx, cy)
+  end)
+end
+
+--- Walk straight to `to` if he isn't there yet; true while still on his way.
+local function goTo(s, to, dt)
+  if not to or dist2(s.x, s.y, to.x, to.y) <= 5 * 5 then
+    return false
+  end
+  advance(s, math.atan2(to.y - s.y, to.x - s.x), Soldiers.CHASE_WALK, dt)
+  return true
+end
+
+--- One step of `s` towards `to` by the walking grid, round whatever is in
+--- the way: the way is worked out once for that spot, and again if he gets
+--- caught on something. Returns the way he is heading, or nil once there.
+local function walkTo(self, s, to, speed, dt)
+  if dist2(s.x, s.y, to.x, to.y) <= 5 * 5 then
+    s.way = nil
+    return nil
+  end
+  local w = s.way
+  if not (w and w.to == to) or s.stuck > 1.5 then
+    s.stuck = 0
+    w = { to = to, corners = route(self, s, to.x, to.y) or { to }, at = 1 }
+    s.way = w
+  end
+  local c = w.corners[w.at]
+  if w.at < #w.corners and dist2(s.x, s.y, c.x, c.y) < 18 * 18 then
+    w.at = w.at + 1
+    c = w.corners[w.at]
+  end
+  local path = math.atan2(c.y - s.y, c.x - s.x)
+  advance(s, path, speed, dt)
+  return path
+end
+
+--- Where `s` goes back to once a siege is over: a guard to where he left
+--- his post from (or where he stands); a rifleman, or a squad on a beat,
+--- just carries on from wherever he is.
+local function placeOf(s)
+  if s.returnTo then
+    return s.returnTo
+  elseif s.kind ~= "guard" then
+    return nil
+  end
+  local home = s.trail and s.trail[1]
+  return home and { x = home.x, y = home.y } or { x = s.x, y = s.y }
+end
+
+--- A round from somebody nobody saw hit (x, y), flying `angle`: the one it
+--- hit (`hit`, if he lived) and everyone within PIN_SHARE with nobody in
+--- his sights goes to ground, in the siege already there or a new one, and
+--- the quiet starts again.
+function Soldiers:underFire(x, y, angle, hit)
+  local r2 = Soldiers.PIN_SHARE * Soldiers.PIN_SHARE
+  local siege = nil
+  for _, sg in ipairs(self.sieges) do
+    for _, m in ipairs(sg.members) do
+      if m.pin == sg and dist2(m.x, m.y, x, y) <= r2 then
+        siege = sg
+        break
+      end
+    end
+    if siege then
+      break
+    end
+  end
+  if not siege then
+    siege = { members = {}, quiet = 0 }
+    self.sieges[#self.sieges + 1] = siege
+  end
+  siege.x, siege.y = x - math.cos(angle) * Soldiers.PIN_GUESS, y - math.sin(angle) * Soldiers.PIN_GUESS
+  siege.quiet = 0
+  for _, s in ipairs(self.list) do
+    if s.pin == siege then
+      if s == hit then
+        s.pinCover = nil -- they can reach him there: somewhere else
+      end
+    elseif not (s.target or s.panic or s.frozen > 0) and dist2(s.x, s.y, x, y) <= r2 then
+      s.back = placeOf(s) -- one out on a sweep: his post, the start of his trail
+      s.pin, s.pinCover, s.goal, s.trail, s.returnTo, s.sweep = siege, nil, nil, nil, nil, nil
+      s.alert = false
+      siege.members[#siege.members + 1] = s
+    end
+  end
+end
+
+--- A pinned soldier's tick: to his cover, then crouched there watching the
+--- way the rounds came from.
+function Soldiers:holdDown(s, dt)
+  local sg = s.pin
+  s.alert = false
+  if not s.pinCover then
+    s.pinCover = coverNear(s.x, s.y, sg) or { x = s.x, y = s.y }
+  end
+  if goTo(s, s.pinCover, dt) then
+    s.facing = turn(s.facing, math.atan2(s.pinCover.y - s.y, s.pinCover.x - s.x), Soldiers.TURN * 2, dt)
+    return
+  end
+  local look = math.atan2(sg.y - s.y, sg.x - s.x) + Soldiers.SCAN * math.sin(self.time * 0.8 + s.phase)
+  s.facing = turn(s.facing, look, Soldiers.TURN, dt)
+end
+
+--- Back to his post (`returnTo`) after a siege, shooting at whoever he has
+--- on the way. True while still on his way.
+function Soldiers:goBack(server, s, tx, ty, dt)
+  s.backFor = (s.backFor or 0) + dt
+  local path = s.backFor < 25 and walkTo(self, s, s.returnTo, Soldiers.CHASE_WALK, dt) -- or lost: this will do
+  if not path then
+    s.returnTo, s.backFor, s.way = nil, 0, nil
+    return false
+  end
+  s.alert = tx ~= nil
+  if tx then
+    s.aimX, s.aimY = tx, ty
+    s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Soldiers.TURN, dt)
+    shoot(server, s, tx, ty, dt)
+  else
+    s.facing = turn(s.facing, path, Soldiers.TURN, dt)
+  end
+  return true
+end
+
+--- `s` sends himself to look round (x, y), or as near it as there is a way
+--- to; false when there is none.
+local function sendLooking(self, s, x, y)
+  for _, f in ipairs({ 1, 0.75, 0.5 }) do
+    setGoal(self, s, s.x + (x - s.x) * f, s.y + (y - s.y) * f, "search")
+    if s.goal then
+      return true
+    end
+    s.noRouteUntil = nil -- try the next one straight away
+  end
+  return false
+end
+
+--- QUIET is up: squads of them out to look round where the rounds came
+--- from, nearest first. Each walks back to his post after (a rifleman
+--- carries on down the hill).
+function Soldiers:sendSweep(sg)
+  if not self.hunt then
+    return -- they hold their places: they wait it out
+  end
+  local pool = {}
+  for _, m in ipairs(sg.members) do
+    if m.pin == sg then
+      pool[#pool + 1] = { s = m, d2 = dist2(m.x, m.y, sg.x, sg.y) }
+    end
+  end
+  table.sort(pool, function(a, b)
+    return a.d2 < b.d2
+  end)
+  local size = Soldiers.SWEEP_SQUAD
+  sg.sent = {}
+  for _, c in ipairs(pool) do
+    if #sg.sent >= size * Soldiers.SWEEPS then
+      break
+    end
+    local m, slot = c.s, #sg.sent % size
+    -- The first of a squad to the spot, his mates a step to either side of it.
+    local a = slot * 2 * math.pi / size
+    local ox, oy = slot > 0 and math.cos(a) * 50 or 0, slot > 0 and math.sin(a) * 50 or 0
+    local back = m.back
+    m.trail = back and { { x = back.x, y = back.y } } or nil
+    m.pin, m.pinCover = nil, nil
+    if sendLooking(self, m, sg.x + ox, sg.y + oy) then
+      m.back, m.sweep = nil, true
+      sg.sent[#sg.sent + 1] = m
+    else
+      m.pin, m.trail = sg, nil -- no way there from his cover: he stays down
+    end
+  end
+end
+
+--- The siege is over (`tx`, `ty`: somebody has the shooter in his sights
+--- there, or nil when it just went quiet): the pinned get up and go for the
+--- shooter, or back to their posts; those out looking go for the shooter too.
+function Soldiers:release(sg, tx, ty)
+  for _, m in ipairs(sg.members) do
+    if m.pin == sg then
+      local back = m.back
+      m.pin, m.pinCover, m.back = nil, nil, nil
+      if tx and self.hunt then
+        m.trail = back and { { x = back.x, y = back.y } } or nil
+        setGoal(self, m, tx, ty, "search")
+        if not m.goal then
+          m.trail, m.returnTo = nil, back
+        end
+      else
+        m.returnTo = back
+      end
+    end
+  end
+  for _, m in ipairs(sg.sent or {}) do
+    if tx and m.hp > 0 and m.sweep and not m.target then
+      setGoal(self, m, tx, ty, "search") -- out looking already: on to where the shooter is
+    end
+  end
+end
+
+--- `by` has somebody in his sights at (tx, ty): every siege near him is over.
+function Soldiers:spotted(by, tx, ty)
+  local r2 = Soldiers.SPOT_SHARE * Soldiers.SPOT_SHARE
+  for i = #self.sieges, 1, -1 do
+    local sg = self.sieges[i]
+    local near = dist2(sg.x, sg.y, by.x, by.y) <= r2
+    for _, m in ipairs(sg.members) do
+      near = near or dist2(m.x, m.y, by.x, by.y) <= r2
+    end
+    for _, m in ipairs(sg.sent or {}) do
+      near = near or m == by
+    end
+    if near then
+      self:release(sg, tx, ty)
+      table.remove(self.sieges, i)
+    end
+  end
+end
+
+--- The sieges' clocks: a sweep out after QUIET, over after RELEASE or once
+--- nobody is left pinned or out on its sweep.
+function Soldiers:stepSieges(dt)
+  for i = #self.sieges, 1, -1 do
+    local sg = self.sieges[i]
+    sg.quiet = sg.quiet + dt
+    for k = #sg.members, 1, -1 do
+      local m = sg.members[k]
+      if m.pin ~= sg or m.hp <= 0 then
+        table.remove(sg.members, k)
+      end
+    end
+    if not sg.swept and sg.quiet >= Soldiers.QUIET then
+      sg.swept = true
+      self:sendSweep(sg)
+    end
+    local out = false
+    for _, m in ipairs(sg.sent or {}) do
+      out = out or (m.hp > 0 and m.sweep == true)
+    end
+    if sg.quiet >= Soldiers.RELEASE or (#sg.members == 0 and not out) then
+      self:release(sg)
+      table.remove(self.sieges, i)
+    end
+  end
+end
+
+-- Grenades ---------------------------------------------------------------------
+
+--- Maybe a grenade from `s`: at whoever he has at (tx, ty) now and then,
+--- or with nobody in his sights at where he lost somebody a moment ago.
+--- Never nearer than GRENADE_MIN, past its range, into a wall in the way
+--- or where it would land on one of his own.
+function Soldiers:maybeLob(server, s, tx, ty, dt)
+  if s.grenades < 1 or s.pin or self.time < (s.lobAt or 0) then
+    return
+  end
+  local G = Features.byName.grenades
+  if not (G and G.serverLob) then
+    return
+  end
+  local x, y
+  if tx then
+    s.lobRoll = (s.lobRoll or 0) - dt
+    if s.lobRoll > 0 then
+      return
+    end
+    s.lobRoll = Soldiers.GRENADE_ROLL[1]
+    if random() >= Soldiers.GRENADE_ROLL[2] then
+      return
+    end
+    x, y = tx, ty
+  elseif s.lostAt and self.time - s.lostAt < Soldiers.LOST_THROW and s.aimX then
+    x, y = s.aimX, s.aimY
+  else
+    return
+  end
+  s.lostAt = nil -- one try at where they went
+  local d2 = dist2(s.x, s.y, x, y)
+  if d2 < Soldiers.GRENADE_MIN * Soldiers.GRENADE_MIN or d2 > G.range * G.range then
+    return
+  end
+  local lx, ly = G.landing(s.x, s.y, x, y)
+  if dist2(lx, ly, x, y) > (G.blast.radius * 0.6) ^ 2 then
+    return -- a wall in the way would stop it short of them
+  end
+  for _, m in ipairs(self.list) do
+    if dist2(m.x, m.y, lx, ly) < Soldiers.SPLASH_CLEAR * Soldiers.SPLASH_CLEAR then
+      return
+    end
+  end
+  if G:serverLob(server, s.x, s.y, x, y) then
+    s.grenades, s.lobAt = s.grenades - 1, self.time + Soldiers.GRENADE_EVERY
+    s.fireIn = math.max(s.fireIn, 0.5) -- the rifle waits while he throws
+  end
+end
+
 -- Being shot at -------------------------------------------------------------
 
 --- The soldier standing within `radius` of (x, y), and his index.
@@ -681,13 +1063,14 @@ function Soldiers:hurt(s, i, amount, angle)
         end
       end
     end
+    if angle and not s.target then
+      self:underFire(s.x, s.y, angle) -- dropped by somebody none of them saw: the rest get down
+    end
     return true
   end
   if angle and not s.target then
     s.facing = angle + math.pi -- back the way the round came
-    if self.hunt then -- and off that way to find who sent it
-      setGoal(self, s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
-    end
+    self:underFire(s.x, s.y, angle, s) -- and down, with his mates, out of the line of it
   end
   return false
 end
