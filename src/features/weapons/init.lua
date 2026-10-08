@@ -264,6 +264,8 @@ Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted t
 Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
 Weapons.mountedName = "auto turret" -- a car's own gun in the HUD, whatever it fires (icon "turret")
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
+Weapons.noAmmo = 0 -- seconds left of NO AMMO across the middle of the screen
+Weapons.noAmmoTime = 1.4 -- seconds it shows for after a click on an empty gun with nothing to load
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
@@ -354,7 +356,7 @@ function Weapons:enterGame()
   self.gun = Guns.DEFAULT
   self.reloading = nil
   self.carMags, self.carReloading = {}, nil
-  self.ammoNotice = nil
+  self.ammoNotice, self.noAmmo = nil, 0
   self.camera = nil
   self.deadTimer = 0
   self.halo = 0
@@ -427,6 +429,13 @@ local function notify(self, text)
   self.ammoNotice = { text = text, t = 1.6 }
 end
 
+--- Nothing to fire and nothing to load: say so in the gun's block, and in
+--- big letters in the middle of the screen.
+local function outOfAmmo(self, text)
+  notify(self, text)
+  self.noAmmo = self.noAmmoTime
+end
+
 --- Ask the host to reload the gun in hand. Refused here when it can't
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
@@ -444,7 +453,7 @@ function Weapons:tryReload(client)
   elseif (self.mags[self.gun] or 0) >= gun.magazine then
     notify(self, "Magazine full")
   elseif self:reserve(self.gun) < 1 then
-    notify(self, "No " .. gun.name .. " ammo")
+    outOfAmmo(self, "No " .. gun.name .. " ammo")
   else
     client:send(Protocol.encode("WPN_RELOAD"))
   end
@@ -542,7 +551,7 @@ function Weapons:tryFire(client)
     if self:reserve(self.gun) > 0 then
       self:tryReload(client)
     else
-      notify(self, "Out of " .. gun.name .. " ammo")
+      outOfAmmo(self, "Out of " .. gun.name .. " ammo")
     end
     return
   end
@@ -779,6 +788,7 @@ function Weapons:update(dt, client, camera)
       self.reloading = nil -- that word never came: don't leave the trigger locked
     end
   end
+  self.noAmmo = math.max(0, self.noAmmo - dt)
   if self.ammoNotice then
     self.ammoNotice.t = self.ammoNotice.t - dt
     if self.ammoNotice.t <= 0 then
@@ -1100,6 +1110,25 @@ function Weapons:drawMagazine(client)
   love.graphics.setFont(small)
 end
 
+--- NO AMMO in big red letters across the middle of the screen, just over
+--- where you stand, fading out as `noAmmo` runs down.
+function Weapons:drawNoAmmo()
+  if self.noAmmo <= 0 then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local font = UI.fonts.title
+  local text = "NO AMMO"
+  local alpha = math.min(1, self.noAmmo * 2.5)
+  local x, y = math.floor((w - font:getWidth(text)) / 2), math.floor(h / 2 - 90 - font:getHeight())
+  love.graphics.setFont(font)
+  love.graphics.setColor(0, 0, 0, 0.7 * alpha) -- the shadow fades with it
+  love.graphics.print(text, x + 2, y + 2)
+  love.graphics.setColor(1, 0.3, 0.25, alpha)
+  love.graphics.print(text, x, y)
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Weapons:drawHUD(client)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
@@ -1119,6 +1148,7 @@ function Weapons:drawHUD(client)
   end
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
   self:drawMagazine(client)
+  self:drawNoAmmo()
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -1199,7 +1229,7 @@ Weapons.clientMessages = {
   WPN_INFINITE = function(_client, args)
     Weapons.infiniteAmmo = args[1] == "1"
     if Weapons.infiniteAmmo then
-      Weapons.reloading, Weapons.ammoNotice = nil, nil
+      Weapons.reloading, Weapons.ammoNotice, Weapons.noAmmo = nil, nil, 0
     end
   end,
   WPN_SPIN = function(client, args)
