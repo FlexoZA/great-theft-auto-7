@@ -1409,7 +1409,7 @@ the one with a plot.
   comes for the nearest one for good, never more than 1900 px from the
   pass (with nobody about he trudges back). His brain (`brain.lua`):
   shuffles (58 px/s), lurches (115, spending breath) at somebody more than
-  320 px off, winded drags along at 40; claws within 52 px (20 melee, so
+  320 px off, winded drags along at 40; claws within 52 px (60 melee, so
   they bleed); 120-640 px off with a clear line he reaches back over his
   shoulder for one of the 3 crabs on his back and throws it (30 breath in hand, 18 spent, at
   most one every 2.2 s, while fewer than 4 crabs for one human are about);
@@ -1420,9 +1420,9 @@ the one with a plot.
   the nearest player within 1100 px and leap (380 px/s) from 150 px, or
   from 70 px off a car's side; 30 health each, a koin and `serverKill`
   kind "headcrab" when a player kills one, squashed by a car doing 60 px/s
-  or more. A bite is 15 of the damage feature's "poison" type, which
+  or more. A bite is 35 of the damage feature's "poison" type, which
   leaves somebody on foot poisoned (4 a second for 6 s, a medkit cures
-  it); on a car it scratches it for 6. He is solid to cars: one that
+  it); on a car it scratches it for 15. He is solid to cars: one that
   drives into him is pushed back out and bounces off, and at 60 px/s or
   more it costs him 0.12 per px/s and the car 15 (impact). The model
   (`render.lua`), the sounds (`sounds.lua`, the "poison-zombie" volume
