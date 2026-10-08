@@ -27,8 +27,10 @@
 -- and brake it enough to make the corner, so it wrecks other people rather
 -- than itself.
 --
--- Only the host runs this. Fights, chases and panics don't: those brains
--- drive with Bots.driveTowards and are allowed to go wild. A car that comes
+-- Only the host runs this. Fights and panics don't: those brains drive
+-- with Bots.driveTowards and are allowed to go wild. A police chase
+-- (police/pursuit.lua) borrows the feelers, the braking sums and
+-- Traffic.towards, the next crossing on the way to somewhere. A car that comes
 -- back from one (or is far from its lane for any reason) picks up the
 -- nearest street again. A map without a street grid (open ground, the
 -- cul-de-sac) has no graph, and bots falls back to its old waypoints.
@@ -383,6 +385,72 @@ local function feelers(car)
     push = 0.3
   end
   return push * Traffic.dodge * (1 - math.min(ahead, left, right) / reach * 0.5), ahead, felt
+end
+
+Traffic.feel = feel
+Traffic.avoid = feelers
+Traffic.stopping = stopping
+Traffic.cornerSpeed = cornerSpeed
+Traffic.inSight = inSight
+
+--- The crossing nearest (x, y), and with `seen` only one in a straight line
+--- from there; nil if there is none.
+local function nearestNode(graph, x, y, seen)
+  local best, bestD2
+  for _, n in pairs(graph.nodes) do
+    local d2 = (n.x - x) ^ 2 + (n.y - y) ^ 2
+    if (not bestD2 or d2 < bestD2) and (not seen or inSight(x, y, n.x, n.y)) then
+      best, bestD2 = n, d2
+    end
+  end
+  return best
+end
+
+--- Where `car` should head next to get to (tx, ty) by the streets: the
+--- middle of a crossing it can see, the one that leaves the fewest streets
+--- to drive, and once it is in that crossing the next one along. Nil when
+--- the map has no graph or it is already on the target's crossing (head
+--- straight for them).
+function Traffic.towards(graph, car, tx, ty)
+  local goal = nearestNode(graph, tx, ty, false)
+  if not goal then
+    return nil
+  end
+  -- Streets to the goal from every crossing (a grid: every street is as long).
+  local hops, queue, head = { [goal] = 0 }, { goal }, 1
+  while queue[head] do
+    local n = queue[head]
+    head = head + 1
+    for _, e in ipairs(n.exits) do
+      if not hops[e.node] then
+        hops[e.node] = hops[n] + 1
+        queue[#queue + 1] = e.node
+      end
+    end
+  end
+  local street = P * T
+  local pick, pickCost
+  for n, h in pairs(hops) do
+    local d2 = (n.x - car.x) ^ 2 + (n.y - car.y) ^ 2
+    if d2 < (street * 1.6) ^ 2 then
+      local cost = math.sqrt(d2) + h * street
+      if (not pickCost or cost < pickCost) and inSight(car.x, car.y, n.x, n.y) then
+        pick, pickCost = n, cost
+      end
+    end
+  end
+  pick = pick or nearestNode(graph, car.x, car.y, true)
+  if not pick or pick == goal then
+    return nil
+  end
+  if (pick.x - car.x) ^ 2 + (pick.y - car.y) ^ 2 < (BOX * 1.5) ^ 2 then
+    for _, e in ipairs(pick.exits) do -- in it: on to the next one
+      if hops[e.node] and hops[e.node] < hops[pick] then
+        return e.node.x, e.node.y
+      end
+    end
+  end
+  return pick.x, pick.y
 end
 
 --- Drive `npc` one tick along the streets of `graph` at up to `speed`.

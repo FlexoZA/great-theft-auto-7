@@ -2,7 +2,7 @@
 -- cursor. The server owns projectiles, hit detection, health and respawns.
 -- Clients predict projectile flight from WPN_SHOT and draw everything.
 --
--- There is more than one gun (guns.lua): the number keys pick one, the
+-- There is more than one gun (guns.lua): Z and X (or the wheel) pick one, the
 -- client tells the host, and the host fires whatever it has on record for
 -- that player, with that gun's damage, rate of fire and scatter. The
 -- pistol hits hard and straight; the uzi sprays.
@@ -73,7 +73,7 @@
 -- too: it can be traded up, never put down).
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
--- reload key (X) refills the one in hand from the ammo in your inventory
+-- reload key (R) refills the one in hand from the ammo in your inventory
 -- (the buildings feature keeps it, "ammo-uzi"), any time it isn't full;
 -- pulling the trigger on an empty magazine reloads too. A reload takes a
 -- moment, sounds for everyone near, and is lost if you switch guns or die.
@@ -255,7 +255,7 @@ Weapons.hudIconScale = 1.8 -- the gun in hand, drawn big beside the ability circ
 Weapons.hudIconW, Weapons.hudIconH = 140, 54 -- room for the longest gun (the shotgun) at that scale
 Weapons.lowMagazine = 0.25 -- at or under this share of a magazine the reload key flashes over the gun
 Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
-Weapons.slotCount = 4 -- weapon slots, on the number keys 1..slotCount
+Weapons.slotCount = 4 -- weapon slots, cycled with Z and X (a key each only if bound in Settings)
 Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
 Weapons.tiers = {} -- gun index -> tier key of the one I carry, when it isn't common (WPN_GUNS too)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
@@ -264,6 +264,8 @@ Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted t
 Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
 Weapons.mountedName = "auto turret" -- a car's own gun in the HUD, whatever it fires (icon "turret")
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
+Weapons.noAmmo = 0 -- seconds left of NO AMMO across the middle of the screen
+Weapons.noAmmoTime = 1.4 -- seconds it shows for after a click on an empty gun with nothing to load
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
@@ -305,10 +307,13 @@ function Weapons:load()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
   Controls.register("hitboxes", "Show hitboxes", "f3") -- F1 is the controls overview
-  Controls.register("reload", "Reload", "x") -- R went to the abilities
+  Controls.register("reload", "Reload", "r")
   Controls.register("scope", "Sniper scope (hold)", "mouse2")
+  Controls.register("weapon-prev", "Previous weapon", "z")
+  Controls.register("weapon-next", "Next weapon", "x")
   for i = 1, self.slotCount do
-    Controls.register("weapon-" .. i, ("Weapon slot %d"):format(i), tostring(i))
+    -- No key by default (the number keys cast abilities); bind one in Settings to jump straight to a slot.
+    Controls.register("weapon-" .. i, ("Weapon slot %d"):format(i))
   end
 end
 
@@ -351,7 +356,7 @@ function Weapons:enterGame()
   self.gun = Guns.DEFAULT
   self.reloading = nil
   self.carMags, self.carReloading = {}, nil
-  self.ammoNotice = nil
+  self.ammoNotice, self.noAmmo = nil, 0
   self.camera = nil
   self.deadTimer = 0
   self.halo = 0
@@ -424,6 +429,13 @@ local function notify(self, text)
   self.ammoNotice = { text = text, t = 1.6 }
 end
 
+--- Nothing to fire and nothing to load: say so in the gun's block, and in
+--- big letters in the middle of the screen.
+local function outOfAmmo(self, text)
+  notify(self, text)
+  self.noAmmo = self.noAmmoTime
+end
+
 --- Ask the host to reload the gun in hand. Refused here when it can't
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
@@ -441,7 +453,7 @@ function Weapons:tryReload(client)
   elseif (self.mags[self.gun] or 0) >= gun.magazine then
     notify(self, "Magazine full")
   elseif self:reserve(self.gun) < 1 then
-    notify(self, "No " .. gun.name .. " ammo")
+    outOfAmmo(self, "No " .. gun.name .. " ammo")
   else
     client:send(Protocol.encode("WPN_RELOAD"))
   end
@@ -539,7 +551,7 @@ function Weapons:tryFire(client)
     if self:reserve(self.gun) > 0 then
       self:tryReload(client)
     else
-      notify(self, "Out of " .. gun.name .. " ammo")
+      outOfAmmo(self, "Out of " .. gun.name .. " ammo")
     end
     return
   end
@@ -634,19 +646,24 @@ function Weapons:mousepressed(_x, _y, button, client)
 end
 
 --- The wheel steps through the guns in my weapon slots, down for the next
---- slot and up for the one before, round the end, skipping empty slots.
+--- slot and up for the one before, as Z and X do.
 --- Not while a screen or menu of anyone's has the mouse or the number keys.
 function Weapons:wheelmoved(_dx, dy, client)
   if dy == 0 or Features.any("menuOpen", client) or Features.any("pointerTaken", client) then
     return
   end
+  self:cycle(client, dy < 0 and 1 or -1)
+end
+
+--- On to the next gun in my weapon slots (`step` 1) or back to the one
+--- before (-1), round the end, skipping empty slots.
+function Weapons:cycle(client, step)
   local from = 1
   for slot = 1, self.slotCount do
     if self.slots[slot] == self.gun then
       from = slot
     end
   end
-  local step = dy < 0 and 1 or -1
   for k = 1, self.slotCount - 1 do
     local slot = (from - 1 + step * k) % self.slotCount + 1
     if self.slots[slot] and Guns.list[self.slots[slot]] then
@@ -663,9 +680,13 @@ function Weapons:keypressed(key, client)
     self:tryFire(client)
   elseif Controls.is("reload", key) then
     self:tryReload(client)
+  elseif Controls.is("weapon-prev", key) or Controls.is("weapon-next", key) then
+    if not (Features.any("menuOpen", client) or Features.any("pointerTaken", client)) then
+      self:cycle(client, Controls.is("weapon-next", key) and 1 or -1)
+    end
   else
-    -- The number keys, unless a menu (the upgrade shop, a building) has them
-    -- for the moment.
+    -- A slot's own key (none by default), unless a menu (the upgrade shop, a
+    -- building) has the keys for the moment.
     if Features.any("menuOpen", client) then
       return
     end
@@ -767,6 +788,7 @@ function Weapons:update(dt, client, camera)
       self.reloading = nil -- that word never came: don't leave the trigger locked
     end
   end
+  self.noAmmo = math.max(0, self.noAmmo - dt)
   if self.ammoNotice then
     self.ammoNotice.t = self.ammoNotice.t - dt
     if self.ammoNotice.t <= 0 then
@@ -1088,6 +1110,25 @@ function Weapons:drawMagazine(client)
   love.graphics.setFont(small)
 end
 
+--- NO AMMO in big red letters across the middle of the screen, just over
+--- where you stand, fading out as `noAmmo` runs down.
+function Weapons:drawNoAmmo()
+  if self.noAmmo <= 0 then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local font = UI.fonts.title
+  local text = "NO AMMO"
+  local alpha = math.min(1, self.noAmmo * 2.5)
+  local x, y = math.floor((w - font:getWidth(text)) / 2), math.floor(h / 2 - 90 - font:getHeight())
+  love.graphics.setFont(font)
+  love.graphics.setColor(0, 0, 0, 0.7 * alpha) -- the shadow fades with it
+  love.graphics.print(text, x + 2, y + 2)
+  love.graphics.setColor(1, 0.3, 0.25, alpha)
+  love.graphics.print(text, x, y)
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Weapons:drawHUD(client)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
@@ -1107,6 +1148,7 @@ function Weapons:drawHUD(client)
   end
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
   self:drawMagazine(client)
+  self:drawNoAmmo()
 
   if self.feed then
     local w = love.graphics.getWidth()
@@ -1187,7 +1229,7 @@ Weapons.clientMessages = {
   WPN_INFINITE = function(_client, args)
     Weapons.infiniteAmmo = args[1] == "1"
     if Weapons.infiniteAmmo then
-      Weapons.reloading, Weapons.ammoNotice = nil, nil
+      Weapons.reloading, Weapons.ammoNotice, Weapons.noAmmo = nil, nil, 0
     end
   end,
   WPN_SPIN = function(client, args)
@@ -2194,6 +2236,10 @@ Weapons.serverMessages = {
 --- how many entries are live, the way the crowd does it.
 function Weapons:targets(server, p)
   local list, n = self.sv.targets, 0
+  -- The police's rounds (an officer's: nobody's and from nowhere; a unit's)
+  -- fly through police cars: the force doesn't shoot itself.
+  local shooter = server.players[p.owner]
+  local force = (p.owner == 0 and not p.from) or (shooter and shooter.police)
   local function entry()
     n = n + 1
     local e = list[n]
@@ -2205,7 +2251,13 @@ function Weapons:targets(server, p)
   end
   for id, player in pairs(server.players) do
     local st = self.sv.players[id]
-    if st and Features.present(player) and id ~= p.owner and self.sv.time >= st.protectedUntil then
+    if
+      st
+      and Features.present(player)
+      and id ~= p.owner
+      and self.sv.time >= st.protectedUntil
+      and not (force and player.police)
+    then
       local e = entry()
       e.player, e.car = player, player.vehicle
       e.x, e.y, e.onFoot = bodyPose(server, player)

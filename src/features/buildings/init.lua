@@ -171,7 +171,7 @@ Buildings.usables = {
     end,
   },
   {
-    item = "grenade", action = "grenade", label = "Ready a grenade (click throws it)", key = "t", title = "grenades",
+    item = "grenade", action = "grenade", label = "Ready a grenade (click throws it)", key = "g", title = "grenades",
     color = { 0.55, 0.7, 0.3 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
     ready = function()
       local grenades = Features.byName.grenades

@@ -20,6 +20,7 @@ local Car = require("src.car")
 local Body = require("src.body")
 local Features = require("src.features")
 local Persistence = require("src.net.persistence")
+local Version = require("src.version")
 
 local Server = {}
 Server.__index = Server
@@ -29,6 +30,7 @@ Server.TICK = 1 / 30 -- simulation step, seconds
 local CHANNELS = 2
 local RELIABLE = 0
 local STATE_CHANNEL = 1
+local PING_INTERVAL = 100 -- ms between ENet's pings (500 by default): what each side reckons the round trip is
 local MAX_FRAME = 0.25 -- never simulate more than this per update (spiral of death guard)
 local SPAWN_SPACING = 80
 
@@ -83,15 +85,25 @@ function Server:playerCount()
 end
 
 function Server:send(player, msg, unreliable)
-  player.peer:send(msg, unreliable and 1 or RELIABLE, unreliable and "unreliable" or "reliable")
+  player.peer:send(player.zip and Protocol.pack(msg) or msg, unreliable and 1 or RELIABLE,
+    unreliable and "unreliable" or "reliable")
+end
+
+--- `msg` to every player but `except`: packed once for all who read it so.
+function Server:deliver(msg, channel, mode, except)
+  local packed
+  for _, p in pairs(self.players) do
+    if p ~= except then
+      if p.zip then
+        packed = packed or Protocol.pack(msg)
+      end
+      p.peer:send(p.zip and packed or msg, channel, mode)
+    end
+  end
 end
 
 function Server:broadcast(msg, except)
-  for _, p in pairs(self.players) do
-    if p ~= except then
-      p.peer:send(msg, RELIABLE, "reliable")
-    end
-  end
+  self:deliver(msg, RELIABLE, "reliable", except)
 end
 
 function Server:update(dt)
@@ -103,12 +115,13 @@ function Server:update(dt)
     if not ok or not event then
       break
     end
-    if event.type == "receive" then
+    if event.type == "connect" then
+      event.peer:ping_interval(PING_INTERVAL) -- nothing else yet: a peer becomes a player once it sends HELLO
+    elseif event.type == "receive" then
       self:onMessage(event.peer, event.data)
     elseif event.type == "disconnect" then
       self:onDisconnect(event.peer)
     end
-    -- "connect" is ignored: a peer becomes a player once it sends HELLO.
   end
 
   if self.started then
@@ -119,6 +132,9 @@ function Server:update(dt)
       self:step(Server.TICK)
     end
   end
+  -- Out now, not at the next frame's service: a snapshot (and the acks for
+  -- what just came in) would otherwise wait a whole frame to leave.
+  self.host:flush()
 end
 
 --- Everyone behind a wheel rides where their vehicle is.
@@ -178,10 +194,7 @@ function Server:broadcastState()
       parts[#parts + 1] = ("%.3f"):format(b.facing)
     end
   end
-  local msg = Protocol.encode("STATE", unpack(parts))
-  for _, p in pairs(self.players) do
-    p.peer:send(msg, STATE_CHANNEL, "unreliable")
-  end
+  self:deliver(Protocol.encode("STATE", unpack(parts)), STATE_CHANNEL, "unreliable")
 end
 
 -- Vehicles and bodies -------------------------------------------------------
@@ -255,7 +268,7 @@ end
 function Server:onMessage(peer, data)
   local kind, args = Protocol.decode(data)
   if kind == "HELLO" then
-    self:onHello(peer, args[1], args[2])
+    self:onHello(peer, args[1], args[2], args[3])
   elseif kind == "INPUT" then
     self:onInput(peer, args)
   else
@@ -291,9 +304,18 @@ function Server:playerByKey(key)
   return nil
 end
 
-function Server:onHello(peer, name, key)
+function Server:onHello(peer, name, key, version)
   local idx = peer:index()
   if self.byPeer[idx] then
+    return
+  end
+  -- Only the same release plays together. A game from before HELLO carried
+  -- a version is older than any that checks, and reads this plain REJECT.
+  if not (version and Protocol.compatible(version, Version.current)) then
+    local yours = version and ("version " .. version) or "an older version"
+    peer:send(Protocol.encode("REJECT", ("this server runs version %s and you have %s: update to play here")
+      :format(Version.current, yours)), RELIABLE, "reliable")
+    peer:disconnect_later()
     return
   end
   if self:playerCount() >= Server.MAX_PLAYERS then
@@ -320,6 +342,7 @@ function Server:onHello(peer, name, key)
     body = nil, -- Body once the game starts
     vehicle = nil, -- the car they are driving, nil on foot
     car = nil, -- the car they own
+    zip = true, -- it said its version, so it reads packed messages (Protocol.pack)
   }
   local id = Persistence.assignId(self, player) -- the same as last time in a saved world
   player.id = id
@@ -327,7 +350,7 @@ function Server:onHello(peer, name, key)
   self.byPeer[idx] = player
 
   local worldName = self.world and self.world:name() or ""
-  peer:send(Protocol.encode("WELCOME", id, self.name, self.hostId, worldName), RELIABLE, "reliable")
+  peer:send(Protocol.encode("WELCOME", id, self.name, self.hostId, worldName, Version.current), RELIABLE, "reliable")
   -- Full roster to the newcomer (includes themselves), then announce to the rest.
   for _, other in pairs(self.players) do
     peer:send(Protocol.encode("JOIN", other.id, other.name), RELIABLE, "reliable")
