@@ -8,13 +8,17 @@
 --   2. Bunkers and trenches: guards in the bunker embrasures and the gaps
 --      in the trench sandbags sweep thirty-degree cones of sight over the
 --      beach. Walk into one and he turns to follow you and opens fire, for
---      as long as he can see you (troops.lua).
+--      as long as he can see you, and comes after you when you duck out of
+--      sight (brain.lua: the Combine soldiers' brain, in other uniforms).
+--      One who spots you calls in the nearest few others; one going down
+--      brings everyone near enough to hear it to look.
 --   3. Barracks: guards by the huts, and riflemen coming out of the doors
 --      every few seconds, walking down towards the nearest player and
 --      firing at whoever they spot.
 --   4. The hilltop: more guards, and the flag. Reach it and Major Looz'er's
---      portrait comes up on every screen; then he fights (major.lua). He
---      has the MG nest, the same ability a player can buy.
+--      portrait comes up on every screen; then he fights (major.lua, his
+--      brain major_brain.lua). He has the MG nest, the same ability a
+--      player can buy, and badly hurt he goes for a medkit.
 --
 -- When he goes down he spills a pile of koins, the quest is done, the flag
 -- turns to yours, and quests puts an EXIT star home where he fell.
@@ -31,7 +35,7 @@
 --                                                    portrait's speech, Major.lines[line], for reveal)
 --   server -> all  DD_TROOPS <tick> [<id> <x> <y> <facing> <hp> <flags>]...   (unreliable, 15 Hz;
 --                                                    flags g/r guard/rifleman, upper case when alert)
---   server -> all  DD_DOWN   <id> <x> <y> <angle>    a soldier went down
+--   server -> all  DD_DOWN   <id> <x> <y> <angle> <cause>   a soldier went down (cause: the damage type)
 --   server -> all  DD_AIM    <x> <y> <radius> <delay>  a mortar is coming down here
 --   server -> all  DD_BLAST  <x> <y> <radius>        it landed
 --   server -> all  DD_MAJOR  <tick> <x> <y> <facing> <hp> <max> <stamina> <winded>   (unreliable, 15 Hz)
@@ -41,12 +45,13 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
-local Troops = require("src.features.d-day.troops")
+local Soldiers = require("src.features.d-day.brain")
 local Major = require("src.features.d-day.major")
 local Face = require("src.features.d-day.major_face")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
+local Corpses = require("src.features.corpses")
 local Sounds = require("src.features.d-day.sounds")
 
 local Dday = {
@@ -58,6 +63,10 @@ local Dday = {
 Dday.questId = "d-day"
 Dday.guards = 16 -- guards on their posts for one player (more humans, more: bosses/init.lua)...
 Dday.maxGuards = 26 -- ...as far as the posts go
+Dday.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
+Dday.callAnswer = 3 -- how many of them come at most, nearest first
+Dday.callEvery = 15 -- seconds before the same soldier calls again
+Dday.downHeard = 700 -- px; soldiers this near one who goes down go to look
 Dday.riflemen = 4 -- most riflemen out at once for one player (more humans, more)
 Dday.reinforceEvery = 7 -- seconds between riflemen coming out of the barracks
 Dday.mortarEvery = { 1.4, 3.0 } -- seconds between mortars, at random in this range
@@ -71,9 +80,6 @@ Dday.flagRadius = 110 -- px from the flag that counts as reaching it
 Dday.revealTime = 7 -- seconds of portrait before the Major moves
 Dday.bulletDamage = 20 -- what one round takes off the Major (matches the pistol)
 Dday.soldierDrops = 1 -- koins a soldier drops, like a pedestrian
--- What a soldier leaves behind (pickups' serverDropLoot): the odds of
--- anything, then ammo, a medkit or a drink by weight; `magazines` sizes the ammo.
-Dday.soldierLoot = { chance = 0.3, ammo = 2, health = 1, stamina = 1, magazines = 0.5 }
 
 local SYNC_EVERY = 2 -- server ticks between DD_TROOPS / DD_MAJOR packets
 local SMOOTHING = 10 -- per second, the easing of what is drawn
@@ -113,7 +119,8 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  sv.troops = Troops.new()
+  sv.troops = Soldiers.new()
+  sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
   sv.maxRiflemen = Bosses.count(self.riflemen, server)
   sv.major, sv.mortars = nil, {}
@@ -182,7 +189,7 @@ local function mortarSpot(server, map)
   local beach, surf = map.bands.beach, map.bands.surf
   local onBeach = {}
   for _, p in pairs(server.players) do
-    if Features.present(p) then
+    if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
       if y >= beach.y0 and y <= surf.y0 + 60 then
         onBeach[#onBeach + 1] = { x = x, y = y }
@@ -223,7 +230,7 @@ function Dday:mortarLands(server, m)
     end
   end
   for _, c in ipairs(caught) do
-    weapons:serverDamage(server, c.p, nil, c.amount, c.angle)
+    weapons:serverDamage(server, c.p, nil, c.amount, c.angle, "explosive")
   end
 end
 
@@ -272,9 +279,9 @@ end
 --- Someone reached the flag: the Major steps out behind it, and every
 --- screen gets his portrait while the world holds still.
 function Dday:reveal(server, map)
-  sv.major = Major.new(map.flagX, map.flagY - 90, Bosses.health(Major.HEALTH, server))
+  sv.major = Major.new(map.flagX, map.flagY - 90, Bosses.health(Major.HEALTH, server), sv.troops and sv.troops.nav)
   sv.revealT = self.revealTime
-  setStage(server, "reveal", random(#Major.lines))
+  setStage(server, "reveal", random(Major.TALK))
 end
 
 function Dday:serverStep(server, dt)
@@ -296,6 +303,7 @@ function Dday:serverStep(server, dt)
     end
   else
     sv.troops:update(server, dt)
+    self:callIns()
     if sv.stage ~= "done" then
       self:stepMortars(server, map, dt)
       self:stepReinforcements(map, dt)
@@ -342,17 +350,33 @@ function Dday:sync(server)
   end
 end
 
---- One soldier down: gibs on every screen, a koin where he fell, and
---- sometimes something to pick up.
-function Dday:soldierDown(server, s, by, angle)
-  server:broadcast(Protocol.encode("DD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
+--- A soldier who has just spotted somebody calls it in: the nearest few
+--- within earshot who aren't busy come to where he saw them.
+function Dday:callIns()
+  local time = sv.troops.time
+  for _, s in ipairs(sv.troops.list) do
+    if s.alert and not s.wasAlert and (s.callUntil or 0) <= time then
+      s.callUntil = time + self.callEvery
+      sv.troops:alarm(s.aimX, s.aimY, self.callHeard, { from = s, most = self.callAnswer })
+    end
+    s.wasAlert = s.alert
+  end
+end
+
+--- One soldier down: his body on every screen (a splat for a blast; the
+--- corpses feature), a koin where he fell, and sometimes something to pick
+--- up. Everyone near enough to hear it goes to look. `cause` is the damage type.
+function Dday:soldierDown(server, s, by, angle, cause)
+  sv.troops:alarm(s.x, s.y, self.downHeard)
+  server:broadcast(Protocol.encode("DD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0),
+    cause or "bullet"))
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, s.x, s.y, self.soldierDrops)
   end
   local pickups = Features.byName.pickups
-  if pickups and pickups.serverDropLoot then
-    pickups:serverDropLoot(server, s.x, s.y, self.soldierLoot)
+  if pickups and pickups.serverDropEnemy then
+    pickups:serverDropEnemy(server, s.x, s.y) -- maybe something to pick up (the odds are pickups')
   end
   Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
 end
@@ -383,7 +407,7 @@ end
 --- A bullet passing through (x, y): the `serverShotAt` convention. The
 --- defenders' own rounds (owner 0) pass through their side; the Major can
 --- only be hurt once his fight has begun.
-function Dday:serverShotAt(server, x, y, radius, by, angle)
+function Dday:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not (sv and sv.troops) or by == 0 then
     return false
   end
@@ -396,8 +420,8 @@ function Dday:serverShotAt(server, x, y, radius, by, angle)
   if not s then
     return false
   end
-  if sv.troops:hurt(s, i, Troops.SHOT_DAMAGE, angle) then
-    self:soldierDown(server, s, by, angle)
+  if sv.troops:hurt(s, i, Soldiers.SHOT_DAMAGE, angle) then
+    self:soldierDown(server, s, by, angle, dtype)
   end
   return true
 end
@@ -558,7 +582,7 @@ Dday.clientMessages = {
         end
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
-        s.hp = tonumber(args[i + 4]) or Troops.HEALTH
+        s.hp = tonumber(args[i + 4]) or Soldiers.HEALTH
         local flag = args[i + 5] or "g"
         s.kind = flag:lower() == "r" and "rifleman" or "guard"
         s.alert = flag ~= flag:lower()
@@ -574,14 +598,15 @@ Dday.clientMessages = {
   DD_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and Dday.troops[id]
     if id then
       Dday.troops[id] = nil
     end
     if x and y then
-      stain({ x = x, y = y, angle = angle })
-      if Features.byName.pedestrians then
-        require("src.features.pedestrians.gibs").splat(x, y, angle)
-        require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + random() * 0.2)
+      -- His body where he was drawn, or a splat (and a stain) for a blast.
+      local bx, by = s and s.dx or x, s and s.dy or y
+      if not Corpses.down(bx, by, angle, Render.lookFor(s and s.kind), args[5]) then
+        stain({ x = x, y = y, angle = angle })
       end
     end
   end,
@@ -652,5 +677,17 @@ Dday.clientMessages = {
     end
   end,
 }
+
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Dday:footstepWalkers()
+  local list = {}
+  for id, s in pairs(self.troops or {}) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  if self.major then
+    list[#list + 1] = { key = "major", x = self.major.dx, y = self.major.dy, size = "heavy" }
+  end
+  return list
+end
 
 return Dday

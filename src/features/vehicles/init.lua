@@ -12,13 +12,18 @@
 -- client is told which model it is so it can draw the picture instead of
 -- the box (the `drawVehicle` hook).
 --
+-- A model with a `boost` (the scout car) goes faster while its driver
+-- holds Shift, off a meter like a sprint's (boost.lua).
+--
 -- Messages
 --   server -> all  VH_MODEL <vid> <model key>
+--   and boost.lua's VH_BOOST, VH_BOOSTLEFT
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Catalog = require("src.features.vehicles.catalog")
+local Boost = require("src.features.vehicles.boost")
 
 local Vehicles = {
   name = "vehicles",
@@ -32,6 +37,7 @@ Vehicles.models = {} -- vehicle id -> model key, as the host told us
 
 --- Paint every model now so the first one on screen doesn't stall a frame.
 function Vehicles:load()
+  Boost.load()
   for _, model in ipairs(Catalog.list) do
     Catalog.image(model)
   end
@@ -48,6 +54,15 @@ end
 -- burst, so the book is only cleared on the way out.
 function Vehicles:exitGame()
   self.models = {}
+  Boost.clear()
+end
+
+function Vehicles:update(_dt, client)
+  Boost.update(client, self.models)
+end
+
+function Vehicles:drawHUD(client)
+  Boost.drawHUD(client, self.models)
 end
 
 --- The core asks before drawing each car: draw it as its model and answer
@@ -119,6 +134,15 @@ Vehicles.clientMessages = {
       Vehicles.models[vid] = key
     end
   end,
+  VH_BOOSTLEFT = function(_client, args)
+    Boost.onLeft(args)
+  end,
+}
+
+Vehicles.serverMessages = {
+  VH_BOOST = function(_server, player, args)
+    Boost.serverWant(player, args[1] == "1")
+  end,
 }
 
 -- Server --------------------------------------------------------------------
@@ -127,6 +151,11 @@ local sv = nil -- { models = vehicle id -> model key }
 
 function Vehicles:serverStart()
   sv = { models = {} }
+  Boost.serverStart()
+end
+
+function Vehicles:serverStep(server, dt)
+  Boost.serverStep(server, dt)
 end
 
 --- Make `car` (already in `server.vehicles`) a `model`: its handling, its
@@ -149,6 +178,12 @@ function Vehicles:serverSpawn(server, model, x, y, angle, owner)
   local car = server:spawnVehicle(x, y, angle, owner)
   makeModel(server, car, model)
   return car
+end
+
+--- Make `car`, already in the world, a `model` (a catalog entry): an NPC's
+--- own car, which the core gave it as a plain box. Delivery's drivers.
+function Vehicles:serverSetModel(server, car, model)
+  makeModel(server, car, model)
 end
 
 --- Make `car` a model picked at random from the catalog (every car the
@@ -187,7 +222,8 @@ end
 
 --- Cars someone bought stay in the world when they leave, the way their own
 --- car does; only the book of cars that are gone is tidied.
-function Vehicles:serverPlayerLeft(server)
+function Vehicles:serverPlayerLeft(server, player)
+  Boost.serverPlayerLeft(player)
   if not sv then
     return
   end

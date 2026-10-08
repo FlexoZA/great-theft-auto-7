@@ -126,35 +126,177 @@ local function cross(x, y, s)
   love.graphics.rectangle("fill", x - s / 2, y - t / 2, s, t)
 end
 
---- The hospital over the building it took: a white roof with a red cross,
---- a helipad when there is room, and a sign by the door.
-function Places.drawHospital(h)
+local RED = { 0.85, 0.12, 0.14 }
+local AC = { 0.60, 0.62, 0.64 }
+local GLASS = { 0.62, 0.85, 0.95 }
+
+--- An air conditioner, a box with a fan turning in it, centred on (x, y).
+local function aircon(x, y, t)
+  love.graphics.setColor(0, 0, 0, 0.25)
+  love.graphics.rectangle("fill", x - 11 + 3, y - 11 + 3, 22, 22, 2)
+  love.graphics.setColor(AC)
+  love.graphics.rectangle("fill", x - 11, y - 11, 22, 22, 2)
+  love.graphics.setColor(AC[1] * 0.55, AC[2] * 0.55, AC[3] * 0.55)
+  love.graphics.circle("fill", x, y, 8)
+  love.graphics.setColor(0.8, 0.82, 0.84)
+  love.graphics.setLineWidth(2)
+  for i = 0, 2 do
+    local a = t * 9 + i * 2 * math.pi / 3
+    love.graphics.line(x, y, x + math.cos(a) * 7, y + math.sin(a) * 7)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A red cross, `s` px across, centred on (x, y), with a shadow.
+local function bigCross(x, y, s)
+  love.graphics.setColor(0, 0, 0, 0.18)
+  cross(x + 4, y + 4, s)
+  love.graphics.setColor(1, 1, 1)
+  cross(x, y, s + 10)
+  love.graphics.setColor(RED)
+  cross(x, y, s)
+end
+
+--- The helipad in a corner: a dark pad, a yellow ring, an H and a light
+--- blinking at each quarter, one after the other.
+local function helipad(x, y, r, t)
+  love.graphics.setColor(0, 0, 0, 0.2)
+  love.graphics.circle("fill", x + 4, y + 4, r)
+  love.graphics.setColor(0.3, 0.32, 0.35)
+  love.graphics.circle("fill", x, y, r)
+  love.graphics.setColor(1, 0.85, 0.3)
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", x, y, r - 6)
+  love.graphics.setLineWidth(1)
+  label("H", x - r, y - UI.fonts.heading:getHeight() / 2, r * 2, UI.fonts.heading, { 1, 1, 1 })
+  local lit = math.floor(t * 3) % 4
+  for i = 0, 3 do
+    local a = i * math.pi / 2 + math.pi / 4
+    local on = i == lit
+    love.graphics.setColor(0.4, 1, 0.5, on and 1 or 0.3)
+    love.graphics.circle("fill", x + math.cos(a) * (r - 2), y + math.sin(a) * (r - 2), on and 4 or 3)
+  end
+end
+
+--- An ambulance parked facing left, centred on (x, y), its lights flashing.
+local function ambulance(x, y, t)
+  local w, h = 64, 30
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - w / 2 + 4, y - h / 2 + 4, w, h, 5)
+  love.graphics.setColor(0.97, 0.97, 0.95)
+  love.graphics.rectangle("fill", x - w / 2, y - h / 2, w, h, 5)
+  -- The cab and its windscreen at the front.
+  love.graphics.setColor(0.86, 0.87, 0.86)
+  love.graphics.rectangle("fill", x - w / 2, y - h / 2, 18, h, 5)
+  love.graphics.setColor(0.2, 0.3, 0.38)
+  love.graphics.rectangle("fill", x - w / 2 + 4, y - h / 2 + 4, 8, h - 8, 2)
+  -- A stripe down each side and a cross on the roof.
+  love.graphics.setColor(RED)
+  love.graphics.rectangle("fill", x - w / 2 + 18, y - h / 2 + 2, w - 20, 4)
+  love.graphics.rectangle("fill", x - w / 2 + 18, y + h / 2 - 6, w - 20, 4)
+  cross(x + 10, y, 14)
+  -- The light bar over the cab: red and blue by turns.
+  local flip = math.floor(t * 4) % 2 == 0
+  local lx = x - w / 2 + 20
+  love.graphics.setColor(1, 0.2, 0.2, flip and 1 or 0.35)
+  love.graphics.rectangle("fill", lx - 3, y - h / 2 + 3, 6, h / 2 - 3, 2)
+  love.graphics.setColor(0.25, 0.45, 1, flip and 0.35 or 1)
+  love.graphics.rectangle("fill", lx - 3, y, 6, h / 2 - 3, 2)
+  love.graphics.setColor(1, flip and 0.2 or 0.45, flip and 0.2 or 1, 0.18)
+  love.graphics.circle("fill", lx, y, 22)
+end
+
+--- The hospital over the building it took: a white roof lit from the top
+--- left, a red cross, a helipad when there is room, air conditioners along
+--- the back, a lit glass front with the emergency canopy over the
+--- entrance, the name on a plate, an ambulance waiting on the sidewalk and
+--- the sign by the door where the dead come back.
+function Places.drawHospital(h, time)
+  time = time or 0
   local s = math.min(h.w, h.h)
+  -- The roof: a grey parapet, white panels with faint seams, a lit edge.
   love.graphics.setColor(0.72, 0.74, 0.76)
   love.graphics.rectangle("fill", h.x, h.y, h.w, h.h)
   love.graphics.setColor(0.94, 0.95, 0.96)
   love.graphics.rectangle("fill", h.x + 6, h.y + 6, h.w - 12, h.h - 12)
-  love.graphics.setColor(0.85, 0.12, 0.14)
-  local wide = h.w >= h.h * 1.4
-  local crossX = wide and h.x + h.w * 0.3 or h.x + h.w / 2
-  cross(crossX, h.y + h.h / 2, s * 0.45)
-  if wide or s >= BIG then
-    -- A helipad in the far corner: a ring and an H.
-    local r = s * 0.16
-    local hx, hy = h.x + h.w - r - 18, h.y + r + 18
-    love.graphics.setColor(0.3, 0.32, 0.35)
-    love.graphics.circle("fill", hx, hy, r)
-    love.graphics.setColor(1, 0.85, 0.3)
-    love.graphics.setLineWidth(3)
-    love.graphics.circle("line", hx, hy, r - 5)
-    love.graphics.setLineWidth(1)
-    label("H", hx - r, hy - UI.fonts.heading:getHeight() / 2, r * 2, UI.fonts.heading, { 1, 1, 1 })
+  love.graphics.setColor(0.86, 0.87, 0.89)
+  for x = h.x + 54, h.x + h.w - 12, 48 do
+    love.graphics.line(x, h.y + 12, x, h.y + h.h - 12)
   end
-  label("HOSPITAL", h.x, h.y + h.h - 34, h.w, UI.fonts.body, { 0.85, 0.12, 0.14 })
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.rectangle("fill", h.x + 6, h.y + 6, h.w - 12, 6)
+  love.graphics.rectangle("fill", h.x + 6, h.y + 6, 6, h.h - 12)
+
+  local wide = h.w >= h.h * 1.4
+  local helipadHere = wide or s >= BIG
+  -- Air conditioners along the back, clear of the helipad's corner.
+  local units = math.max(1, math.floor((helipadHere and h.w * 0.55 or h.w - 40) / 34))
+  for i = 0, units - 1 do
+    aircon(h.x + 30 + i * 34, h.y + 30, time + i * 0.7)
+  end
+  -- A plant room in the other back corner when the roof is big enough.
+  if s >= BIG then
+    local px, py = h.x + 20, h.y + 56
+    love.graphics.setColor(0, 0, 0, 0.18)
+    love.graphics.rectangle("fill", px + 4, py + 4, 56, 44, 3)
+    love.graphics.setColor(0.78, 0.8, 0.82)
+    love.graphics.rectangle("fill", px, py, 56, 44, 3)
+    love.graphics.setColor(0.6, 0.62, 0.65)
+    for i = 0, 3 do
+      love.graphics.rectangle("fill", px + 8, py + 8 + i * 8, 40, 3)
+    end
+  end
+
+  local crossX = wide and h.x + h.w * 0.3 or h.x + h.w / 2
+  bigCross(crossX, h.y + h.h / 2 - 6, s * 0.38)
+  if helipadHere then
+    local r = s * 0.16
+    helipad(h.x + h.w - r - 18, h.y + r + 18, r, time)
+  end
+
+  -- The glass front, lit from inside, and the emergency canopy over the
+  -- entrance in the middle of it.
+  local front = h.y + h.h
+  love.graphics.setColor(0.4, 0.55, 0.62)
+  love.graphics.rectangle("fill", h.x + 6, front - 18, h.w - 12, 12)
+  love.graphics.setColor(GLASS[1], GLASS[2], GLASS[3], 0.8 + 0.1 * math.sin(time * 1.3))
+  for x = h.x + 10, h.x + h.w - 34, 26 do
+    love.graphics.rectangle("fill", x, front - 16, 22, 8)
+  end
+  local cw = math.min(150, h.w - 40)
+  local cx = h.x + h.w / 2
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", cx - cw / 2 + 4, front - 6 + 4, cw, 34, 4)
+  love.graphics.setColor(RED)
+  love.graphics.rectangle("fill", cx - cw / 2, front - 6, cw, 34, 4)
+  love.graphics.setColor(0.6, 0.08, 0.1)
+  love.graphics.rectangle("fill", cx - cw / 2, front - 6, cw, 5)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(1, 1, 1, 0.85 + 0.15 * math.sin(time * 3))
+  love.graphics.printf("EMERGENCY", cx - cw / 2, front + 11 - UI.fonts.small:getHeight() / 2, cw, "center")
+
+  -- The name on a plate over the glass.
+  local font = UI.fonts.body
+  local tw, th = font:getWidth("HOSPITAL") + 24, font:getHeight() + 6
+  local py = front - 30 - th
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.rectangle("fill", cx - tw / 2, py, tw, th, 5)
+  love.graphics.setColor(RED)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", cx - tw / 2, py, tw, th, 5)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(font)
+  love.graphics.printf("HOSPITAL", cx - tw / 2, py + 3, tw, "center")
+
+  -- An ambulance waiting on the sidewalk beside the door.
+  ambulance(h.doorX + 110, h.doorY, time)
+
   -- The sign on the sidewalk where the dead come back.
+  love.graphics.setColor(RED[1], RED[2], RED[3], 0.15 + 0.1 * math.sin(time * 2))
+  love.graphics.circle("fill", h.doorX, h.doorY, 24)
   love.graphics.setColor(1, 1, 1, 0.9)
   love.graphics.rectangle("fill", h.doorX - 12, h.doorY - 12, 24, 24, 4)
-  love.graphics.setColor(0.85, 0.12, 0.14)
+  love.graphics.setColor(RED)
   cross(h.doorX, h.doorY, 16)
   love.graphics.setColor(1, 1, 1)
 end

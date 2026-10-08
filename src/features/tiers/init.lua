@@ -24,8 +24,10 @@
 -- tier. A new kind of equipment gets tiers by adding its prefix to
 -- `Tiers.prefixes` and a `tierStats` list to its kinds.
 --
--- The shop sells every tier (dearer the better); anything else hands out
--- commons unless it says otherwise (Bigfoot drops a legendary leap).
+-- The shop sells every tier, dearer the better (`price`: times a common's,
+-- so a legendary is fifteen times the price); anything else hands out
+-- commons unless it says otherwise (Bigfoot drops a legendary leap, the
+-- Runner a second wind in a rolled tier).
 --
 -- No hooks: every feature that equips things requires this module for the
 -- names, colours and numbers.
@@ -38,12 +40,12 @@ local Tiers = {
     { key = "common", title = "common", color = { 0.66, 0.66, 0.7 }, upgrades = 0, boost = 1, bonus = 1, price = 1 },
     {
       key = "uncommon", title = "uncommon", color = { 0.35, 0.85, 0.4 }, upgrades = 1, boost = 1.15, bonus = 1.25,
-      price = 2,
+      price = 2.5,
     },
-    { key = "rare", title = "rare", color = { 0.3, 0.6, 1 }, upgrades = 2, boost = 1.25, bonus = 1.5, price = 4 },
+    { key = "rare", title = "rare", color = { 0.3, 0.6, 1 }, upgrades = 2, boost = 1.25, bonus = 1.5, price = 6 },
     {
       key = "legendary", title = "legendary", color = { 1, 0.78, 0.2 }, upgrades = math.huge, boost = 1.35,
-      bonus = 1.75, price = 8,
+      bonus = 1.75, price = 15,
     },
   },
   byKey = {},
@@ -52,12 +54,13 @@ local Tiers = {
 }
 
 -- Stats where less is better: a tier divides them.
-local LOWER = { cooldown = true, reload = true, spread = true, delay = true, fireEvery = true }
+local LOWER = { cooldown = true, reload = true, spread = true, delay = true, fireEvery = true, spinUp = true }
 -- Stats that are counts: a tier rounds them.
 local WHOLE = { damage = true, magazine = true, soft = true, points = true, pellets = true }
 -- What a stat is called on a card, where its name won't do.
 local LABELS = {
   cooldown = "cooldown", fireEvery = "fire rate", seconds = "duration", rate = "heal rate", delay = "delay",
+  spinUp = "spin-up",
   ["blast.damage"] = "blast", ["blast.radius"] = "blast radius", points = "points", stamina = "sprint cost",
 }
 
@@ -195,8 +198,10 @@ function Tiers.apply(base, tier, stats)
 end
 
 --- What stat `path` is called on a card; `labels` (optional) overrides.
+--- A resistance ("resist.fire") is "fire resist".
 function Tiers.label(path, labels)
-  return labels and labels[path] or LABELS[path] or path
+  local resist = path:match("^resist%.(.+)$")
+  return labels and labels[path] or LABELS[path] or (resist and resist .. " resist") or path
 end
 
 --- The stats tier `tier` improves out of `stats`, as a line for a card:

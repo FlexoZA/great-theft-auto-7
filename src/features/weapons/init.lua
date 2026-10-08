@@ -16,7 +16,38 @@
 -- A round that stops at a wall raises `serverWallHit` and every blast
 -- raises `serverBlast`, so walls that can be hurt (players' buildings) take
 -- the damage.
--- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
+-- The minigun has to spin up first (its `spinUp`): hold fire and the
+-- barrels wind up, everyone near hears it (WPN_SPIN), and rounds only come
+-- once they turn. They keep turning while you hold on, and for SPIN_KEEP
+-- after the last round; let go for longer and it winds up from cold again.
+-- While they turn you are slowed to the gun's `pace` on foot (the `stat`
+-- and `serverStat` conventions on "speed", which on-foot asks).
+-- The host checks it too: a round from cold barrels that didn't spin long
+-- enough is dropped.
+--
+-- The flamethrower sprays short-lived tongues of fire (`flame`), each a
+-- "fire" round that sets whoever it catches on foot alight (`ignite`: the
+-- damage feature's burning). Its magazine is a tank (`tank`): a reload
+-- takes one fuel can and fills it whole. A gun's rounds can zap whoever
+-- they catch on foot (`electrify` = { seconds, dps }: shock that runs on
+-- through them) or stun them outright (`stun`, seconds): the Hunters'.
+-- Every hit has a damage type (src/features/damage, docs/damage-types.md):
+-- a gun's `damageType` or its blast's `type`, the last argument of
+-- serverDamage and damageCar, passed on to every damage hook and carried
+-- by WPN_KILL / WPN_WRECK so the kill feed can say what did it.
+-- Everyone starts with a gun's `stock` of rounds, if it has one (none do now).
+--
+-- Under `haloBelow` (20%) of your health a red halo creeps in from the
+-- screen's edges, faint at first and redder the lower it goes, pulsing
+-- faster as it deepens; it is drawn from `drawLens`, over the world and
+-- under the HUD.
+--
+-- A gun with a `scope` (the sniper rifle) has a crosshair for a cursor
+-- while it is in hand (vision asks through the `cursorStyle` convention), and
+-- holding the scope button (right mouse) opens a lens round the cursor
+-- that shows the world `scope` times closer (the core's `drawLens` hook
+-- draws the world again through a camera of our own). The crosshair's
+-- middle is where the round goes.
 --
 -- You carry your guns in `slotCount` weapon slots, one per number key:
 -- key 1 fires whatever is in slot 1. Everyone starts with the pistol in
@@ -68,30 +99,39 @@
 -- Another feature may take both over (the garage): a player it gives a
 -- place to (`serverRespawnPoint`) comes back there on foot, their car left
 -- where it is, and a wreck it claims (`serverWreckClaimed`) is its to keep.
+-- A feature may also keep the dead down past DEATH_TIME (`serverRespawnHeld`,
+-- with `respawnHeld` keeping WASTED up on their screen): respawn-points does
+-- while they pick where to come back.
 --
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
+--   client -> server  WPN_SPIN                       (winding up the barrels of the gun in hand)
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>]
---                                              (quiet 1: a pellet after the first; no sound)
---   server -> all     WPN_HIT  <pid> <victim> <hp>                (someone on foot)
---   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime>
---   server -> all     WPN_CARHIT <pid> <vid> <hp>                 (a car)
---   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime>
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>]
+--                                              (quiet 1: a pellet after the first, or a gun
+--                                              that makes its own noise (`quiet`); no sound;
+--                                              tint: the streak's colour as rrggbb hex, from
+--                                              the gun table's `tint`, for a gun a boss carries)
+--   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
+--   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
+--   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
+--   server -> all     WPN_WRECK <pid> <killer> <vid> <driver> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHP <vid> <hp>           (a repair or a respawn; no hit effects)
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_CARMAX <vid> <max>        (a car's health ceiling, when it isn't CAR_HEALTH)
 --   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
---   server -> all     WPN_RELOADING <id> <gun> <seconds>   (a reload began)
+--   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
+--   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
+--   server -> player  WPN_CARMAG <vid> <rounds>   (what is in the magazine of the gun bolted to that car)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -103,6 +143,16 @@
 -- projectile into the world for whoever asks (the police officers on foot),
 -- owned by nobody, hurting anyone it hits and crediting no scoreboard.
 --
+-- Behind the wheel a player's own guns stay put away: no firing, reloading
+-- or scope from a driver's seat, and the gun HUD is hidden. A car whose
+-- model names a `gun` (vehicles' catalog: the scout car's AK) has it bolted
+-- on instead: the fire button fires it from the car, toward the cursor, and
+-- the reload key reloads it. Its rounds never run out, but its magazine
+-- (kept with the car on the host, `cs.mag`) still empties and takes the
+-- gun's reload time to fill; the HUD shows it in the gun in hand's place,
+-- as an auto turret (icons.lua's "turret"), whatever gun it fires.
+-- Bots shoot from their cars as before.
+--
 -- A player need not be in a car: on foot, shots leave from their body,
 -- hits land on it, and the car they left is not a target (the core says
 -- where everyone is; see "Bodies and vehicles" in docs/features.md).
@@ -111,14 +161,17 @@ local Protocol = require("src.net.protocol")
 local Car = require("src.car")
 local UI = require("src.ui")
 local Sounds = require("src.features.weapons.sounds")
+local Reloads = require("src.features.weapons.reloads")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local Video = require("src.video")
+local Catalog = require("src.features.vehicles.catalog")
 
 local Weapons = {
   name = "weapons",
@@ -131,14 +184,18 @@ local PROJECTILE_RADIUS = 3
 local MAX_HEALTH = 100
 local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
+local SPIN_KEEP = 0.4 -- seconds a spun-up gun keeps turning after the last round or the trigger let go
+local SPIN_SLACK = 0.75 -- share of a spin-up the host waits for, for the trip the WPN_SPIN took
 local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
+local RELOAD_GRACE = 1 -- seconds past a reload's end the client waits for the host's WPN_MAG before giving up
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
 local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
-local FOOT_MUZZLE = 14 -- px from a body on foot, which is smaller than a car
-local FOOT_RADIUS = 8 -- px; how fat a player on foot is for hit tests
+local FOOT_MUZZLE = 16 -- px from a body on foot (the tip of the gun in its hands), which is smaller than a car
+local FOOT_RADIUS = 10 -- px; how fat a player on foot is for hit tests (a little over Body.RADIUS: the arms)
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
+local QUIET_HIT = 3 -- a hit smaller than this (a burn's or a bleed's bite) makes no sound
 local NO_OWNER = 0 -- projectile owner for a shot no player fired (police on foot)
 
 --- Any feature may declare solid ground with a blocksPoint(x, y) hook (the
@@ -156,10 +213,11 @@ end
 --- ask them: a feature with a serverShotAt hook kills whatever of its own is
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
 --- first one to answer swallows the bullet, which is why a single shot takes
---- one pedestrian out of a crowd rather than the whole queue.
-local function shotSomething(server, x, y, by, angle)
+--- one pedestrian out of a crowd rather than the whole queue. `dtype` is
+--- the round's damage type (src/features/damage).
+local function shotSomething(server, x, y, by, angle, damage, dtype, from)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle) then
+    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype, from) then
       return true
     end
   end
@@ -188,7 +246,8 @@ Weapons.carMax = {} -- vehicle id -> health ceiling (absent = CAR_HEALTH)
 Weapons.kills = {} -- player id -> kills
 Weapons.hitFlash = {} -- player id -> seconds left (on foot)
 Weapons.carFlash = {} -- vehicle id -> seconds left
-Weapons.feed = nil -- { text, t }
+Weapons.feed = nil -- { text, t, color }
+Weapons.hitType = {} -- player id or "car" .. vehicle id -> the damage type of the last hit, for its ring's colour
 Weapons.cooldown = 0
 local LOW_HEALTH = 0.3 -- below this fraction the health bar flashes
 Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.drawStatBar)
@@ -201,19 +260,53 @@ Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN
 Weapons.tiers = {} -- gun index -> tier key of the one I carry, when it isn't common (WPN_GUNS too)
 Weapons.mags = {} -- gun index -> rounds in my magazine (predicted; the host corrects)
 Weapons.reloading = nil -- { gun, t, total } while my reload runs
+Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted to it (predicted; the host corrects)
+Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
+Weapons.mountedName = "auto turret" -- a car's own gun in the HUD, whatever it fires (icon "turret")
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
 Weapons.showHitboxes = false
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
+Weapons.spin = 0 -- 0..1: how far my gun's barrels have wound up (a gun with `spinUp`)
+Weapons.spinIdle = 0 -- seconds since they last had a reason to turn
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
+Weapons.lensSize = 0.24 -- the scope's lens: its radius as a share of the window's shorter side
+Weapons.haloBelow = 0.2 -- under this share of my health a red halo creeps in from the screen's edges...
+Weapons.haloFaint = 0.25 -- ...this strong just under it...
+Weapons.haloFull = 0.8 -- ...and this strong at death's door
+Weapons.halo = 0 -- how strong it is now, easing towards what my health says
+local lens = nil -- { canvas, mesh, r }: what the scope draws through, remade when its size changes
+
+local haloImage = nil -- white, clear in the middle and opaque at the edges; tinted red when drawn
+
+--- The halo's picture: made once, a soft oval of nothing inside a white
+--- rim that thickens into the corners.
+local function makeHalo()
+  local n = 128
+  local data = love.image.newImageData(n, n)
+  for y = 0, n - 1 do
+    for x = 0, n - 1 do
+      local nx, ny = (x + 0.5) / n * 2 - 1, (y + 0.5) / n * 2 - 1
+      local d = math.sqrt(nx * nx + ny * ny)
+      local k = math.max(0, math.min(1, (d - 0.55) / 0.75))
+      data:setPixel(x, y, 1, 1, 1, k * k * (3 - 2 * k)) -- smoothstep
+    end
+  end
+  local image = love.graphics.newImage(data)
+  image:setFilter("linear", "linear")
+  return image
+end
 
 function Weapons:load()
   Sounds.load()
+  Reloads.load()
+  haloImage = makeHalo()
   self:resetSynced()
   Controls.register("fire", "Fire", "mouse1")
-  Controls.register("hitboxes", "Show hitboxes", "f1")
+  Controls.register("hitboxes", "Show hitboxes", "f3") -- F1 is the controls overview
   Controls.register("reload", "Reload", "x") -- R went to the abilities
+  Controls.register("scope", "Sniper scope (hold)", "mouse2")
   for i = 1, self.slotCount do
     Controls.register("weapon-" .. i, ("Weapon slot %d"):format(i), tostring(i))
   end
@@ -252,16 +345,22 @@ function Weapons:enterGame()
   self.projectiles = {}
   self.hitFlash = {}
   self.carFlash = {}
+  self.hitType = {}
   self.feed = nil
   self.cooldown = 0
   self.gun = Guns.DEFAULT
   self.reloading = nil
+  self.carMags, self.carReloading = {}, nil
   self.ammoNotice = nil
   self.camera = nil
   self.deadTimer = 0
+  self.halo = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
+  self.spin, self.spinIdle = 0, 0
   Explosions.clear()
   Rockets.clear()
+  Sounds.stopAll()
+  Reloads.clear()
 end
 
 function Weapons:exitGame()
@@ -279,6 +378,25 @@ local function mouseToWorld(camera, me)
     cx, cy, s = camera.x, camera.y, camera.scale or 1
   end
   return cx + (mx - w / 2) / s, cy + (my - h / 2) / s
+end
+
+--- The gun bolted to a car of model `key` (vehicles' catalog `gun`), as a
+--- common one, or nil: most cars have none.
+local function mountedGun(key)
+  local model = key and Catalog.byKey[key]
+  local gun = model and model.gun and Guns[model.gun]
+  return gun and Tiers.apply(gun, Tiers.DEFAULT) or nil
+end
+
+--- The car I am driving and the gun bolted to it (nil if it has none), or
+--- nil when I am not driving.
+function Weapons:myMount(client)
+  local v = client:myVehicle()
+  if not v then
+    return nil
+  end
+  local vehicles = Features.byName.vehicles
+  return v, mountedGun(vehicles and vehicles.models[v.id])
 end
 
 --- Angle from wherever I am -- car or feet -- to the cursor, in world space.
@@ -309,6 +427,14 @@ end
 --- Ask the host to reload the gun in hand. Refused here when it can't
 --- happen: already reloading, magazine full, nothing to load.
 function Weapons:tryReload(client)
+  local car, mounted = self:myMount(client)
+  if car then
+    -- Behind the wheel: the car's own gun, if it has one; never the one in my hands.
+    if mounted and not self.carReloading and (self.carMags[car.id] or mounted.magazine) < mounted.magazine then
+      client:send(Protocol.encode("WPN_RELOAD"))
+    end
+    return
+  end
   local gun = self:gunAt(self.gun)
   if self.reloading or self.infiniteAmmo then
     return
@@ -321,7 +447,74 @@ function Weapons:tryReload(client)
   end
 end
 
+--- Behind the wheel the fire button fires the car's own gun, if it has one,
+--- and nothing else. Its rounds never run out; its magazine does.
+function Weapons:tryFireMounted(client, car, mounted)
+  if not mounted or self.cooldown > 0 or self.carReloading or Features.any("held", client, client.myId)
+    or Features.any("pointerTaken", client) or Features.any("fireTaken", client) then
+    return
+  end
+  local aim = self:aimAngle(client)
+  if not aim then
+    return
+  end
+  self.cooldown = mounted.cooldown
+  local mag = self.carMags[car.id] or mounted.magazine
+  if mag < 1 then
+    Reloads.dry(mounted) -- click, and load another
+    self.armed = false
+    self:tryReload(client)
+    return
+  end
+  self.carMags[car.id] = mag - 1
+  client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+end
+
+--- The `stat` convention on a client: my own steps slow to the gun's
+--- `pace` while its barrels turn, as the host's do (serverStat).
+function Weapons:stat(value, client, id, name)
+  if name ~= "speed" or id ~= client.myId or self.spin <= 0 then
+    return value
+  end
+  local gun = self:gunAt(self.gun)
+  return gun.pace and value * gun.pace or value
+end
+
+--- A gun that spins up (`spinUp`): wind its barrels up while fire is held
+--- and it could fire, telling the host (and so everyone near) as they
+--- start; past SPIN_KEEP without a reason to turn they are cold again.
+function Weapons:windBarrels(client, dt, held)
+  local gun = self:gunAt(self.gun)
+  if not gun.spinUp or self:myMount(client) then
+    self.spin, self.spinIdle = 0, 0
+    return
+  end
+  local wants = held and self.armed and not self.reloading and (self.mags[self.gun] or 0) >= 1
+    and not Features.any("held", client, client.myId) and not Features.any("pointerTaken", client)
+    and not Features.any("fireTaken", client)
+  if wants then
+    if self.spin <= 0 then
+      client:send(Protocol.encode("WPN_SPIN"))
+      local x, y = clientPose(client, client.myId)
+      if x then
+        Sounds.play("minigun-spin", x, y, 0.8 / gun.spinUp)
+      end
+    end
+    self.spin = math.min(1, self.spin + dt / gun.spinUp)
+    self.spinIdle = 0
+  else
+    self.spinIdle = self.spinIdle + dt
+    if self.spinIdle > SPIN_KEEP then
+      self.spin = 0
+    end
+  end
+end
+
 function Weapons:tryFire(client)
+  local car, mounted = self:myMount(client)
+  if car then
+    return self:tryFireMounted(client, car, mounted)
+  end
   if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
     return -- cooling down, reloading, or held still (frozen)
   elseif Features.any("pointerTaken", client) then
@@ -334,11 +527,14 @@ function Weapons:tryFire(client)
     return
   end
   local gun = self:gunAt(self.gun)
+  if gun.spinUp and self.spin < 1 and (self.mags[self.gun] or 0) >= 1 then
+    return -- the barrels are still winding up (windBarrels)
+  end
+  self.spinIdle = 0
   self.cooldown = gun.cooldown
   if (self.mags[self.gun] or 0) < 1 then
     -- Click. Reload if there is anything to load, say so if not.
-    local x, y = client:myPose()
-    Sounds.play("dry", x, y)
+    Reloads.dry(gun)
     self.armed = false -- one click per pull, not a buzz while held
     if self:reserve(self.gun) > 0 then
       self:tryReload(client)
@@ -349,6 +545,9 @@ function Weapons:tryFire(client)
   end
   if not self.infiniteAmmo then
     self.mags[self.gun] = self.mags[self.gun] - 1
+    if self.mags[self.gun] < 1 and not gun.tank and gun.magazine > 1 then
+      Reloads.after(0.08, "slide-lock", client.myId) -- that was the last one
+    end
   end
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
 end
@@ -424,6 +623,7 @@ function Weapons:selectGun(client, index)
   end
   self.gun = index
   self.reloading = nil -- the host drops it too
+  Reloads.cancel(client.myId)
   client:send(Protocol.encode("WPN_SELECT", index))
 end
 
@@ -480,13 +680,34 @@ function Weapons:keypressed(key, client)
   end
 end
 
+--- How strong the low-health halo should be: nothing at or over
+--- `haloBelow` of my health, `haloFaint` just under it, growing to
+--- `haloFull` as the last hit points go; nothing while I am wrecked (the
+--- world goes soft instead) or out of the world.
+function Weapons:haloTarget(client)
+  local max = self.maxHealth[client.myId] or MAX_HEALTH
+  local frac = (self.health[client.myId] or max) / max
+  if self.deadTimer > 0 or frac >= self.haloBelow or frac <= 0 or not client:myPose() then
+    return 0
+  end
+  local t = 1 - frac / self.haloBelow -- 0 just under the line, 1 at none left
+  return self.haloFaint + (self.haloFull - self.haloFaint) * t
+end
+
 function Weapons:update(dt, client, camera)
   self.camera = camera
+  Sounds.update(dt)
+  Reloads.update(dt, function(id)
+    return clientPose(client, id)
+  end)
   self.cooldown = math.max(0, self.cooldown - dt)
+  -- Ease the halo in and out rather than snap it with every hit and heal.
+  self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
   if not self:owns(self.gun) then
     self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
   end
   local held = Controls.isDown("fire")
+  self:windBarrels(client, dt, held)
   if not held then
     self.armed = true
   elseif self.armed then
@@ -509,6 +730,10 @@ function Weapons:update(dt, client, camera)
         self.projectiles[pid] = nil
       end
     elseif spent then
+      -- A bullet into a wall chips it (one pellet a blast, and not fire).
+      if not (gun.flame or p.quiet) and p.age <= (gun.ttl or PROJECTILE_TTL) then
+        Sounds.play("hit-wall", p.x, p.y, 0.9 + love.math.random() * 0.2)
+      end
       self.projectiles[pid] = nil
     end
   end
@@ -529,8 +754,18 @@ function Weapons:update(dt, client, camera)
     end
   end
   self.deadTimer = math.max(0, self.deadTimer - dt)
+  if self.carReloading then
+    local r, v = self.carReloading, client:myVehicle()
+    r.t = r.t + dt -- the host says when it's done (WPN_CARMAG)
+    if not v or v.id ~= r.vid or r.t > r.total + RELOAD_GRACE then
+      self.carReloading = nil -- out of that car, or the word never came
+    end
+  end
   if self.reloading then
     self.reloading.t = self.reloading.t + dt -- the host says when it's done (WPN_MAG)
+    if self.reloading.t > self.reloading.total + RELOAD_GRACE then
+      self.reloading = nil -- that word never came: don't leave the trigger locked
+    end
   end
   if self.ammoNotice then
     self.ammoNotice.t = self.ammoNotice.t - dt
@@ -546,6 +781,26 @@ function Weapons:drawBelowCars()
   Explosions.drawBelow()
 end
 
+--- A tongue of fire (a flamethrower's round): small, white-hot and quick at
+--- the nozzle, swelling and reddening as it goes, a wisp of smoke at the end.
+local function drawFlame(p, gun)
+  local k = math.min(1, p.age / (gun.ttl or PROJECTILE_TTL))
+  local r = 6 + 16 * k
+  local wobble = math.sin(p.age * 40 + p.x * 0.1) * 2
+  -- A puff trailing behind each tongue, so a stream of them reads as one jet.
+  local bx, by = p.x - p.vx * 0.035, p.y - p.vy * 0.035
+  if k > 0.7 then
+    love.graphics.setColor(0.3, 0.28, 0.26, 0.35 * (1 - k) / 0.3) -- smoke
+    love.graphics.circle("fill", p.x + wobble, p.y - 4, r * 1.1)
+  end
+  love.graphics.setColor(1, 0.3 + 0.25 * (1 - k), 0.05, 0.55 * (1 - k * 0.8))
+  love.graphics.circle("fill", bx, by - wobble, r * 0.8)
+  love.graphics.setColor(1, 0.35 + 0.25 * (1 - k), 0.05, 0.75 * (1 - k * 0.8))
+  love.graphics.circle("fill", p.x, p.y + wobble, r)
+  love.graphics.setColor(1, 0.9, 0.5, 0.85 * (1 - k))
+  love.graphics.circle("fill", p.x, p.y + wobble, r * 0.45)
+end
+
 function Weapons:drawAboveCars(client)
   Rockets.drawTrail()
   Explosions.drawAbove()
@@ -558,10 +813,20 @@ function Weapons:drawAboveCars(client)
     local gun = Guns.at(p.gun)
     if gun.blast then
       Rockets.drawMissile(p, now)
+    elseif gun.flame then
+      drawFlame(p, gun)
     else
       local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
       local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
-      love.graphics.setColor(1, 0.9, 0.3)
+      if p.tint then
+        love.graphics.setColor(p.tint[1], p.tint[2], p.tint[3], 0.35) -- a glow round a coloured round
+        love.graphics.setLineWidth(5)
+        love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
+        love.graphics.setLineWidth(2)
+        love.graphics.setColor(p.tint)
+      else
+        love.graphics.setColor(1, 0.9, 0.3)
+      end
       love.graphics.line(p.x - nx, p.y - ny, p.x, p.y)
     end
   end
@@ -575,23 +840,33 @@ function Weapons:drawAboveCars(client)
     love.graphics.setColor(1 - hp / max, hp / max, 0.2)
     love.graphics.rectangle("fill", bx, by, bw * hp / max, bh)
   end
+  -- Somebody out of sight (the `hidden` convention) shows no bar either.
+  local function hidden(id)
+    return id ~= nil and id ~= client.myId and Features.any("hidden", client, id)
+  end
   -- A bar under every car in the world, driven or not: the car's own health.
   for vid, v in pairs(client.vehicles) do
-    local max = self.carMax[vid] or CAR_HEALTH
-    bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
-    if self.carFlash[vid] then
-      love.graphics.setColor(1, 1, 1, self.carFlash[vid] * 4)
-      love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
+    if not hidden(v.driver) then
+      local max = self.carMax[vid] or CAR_HEALTH
+      bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
+      if self.carFlash[vid] then
+        local c = Damage.of(self.hitType["car" .. vid]).color
+        love.graphics.setColor(c[1], c[2], c[3], self.carFlash[vid] * 4)
+        love.graphics.circle("line", v.dx, v.dy, Car.WIDTH * 0.7)
+      end
     end
   end
   -- And one under everyone on foot: theirs. It grows with their ceiling, so
   -- an upgraded player looks it.
   for id, b in pairs(client.bodies) do
-    local max = self.maxHealth[id] or MAX_HEALTH
-    bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 12)
-    if self.hitFlash[id] then
-      love.graphics.setColor(1, 1, 1, self.hitFlash[id] * 4)
-      love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
+    if not hidden(id) then
+      local max = self.maxHealth[id] or MAX_HEALTH
+      bar(b.dx, b.dy, self.health[id] or max, max, Car.WIDTH * 0.6 * math.sqrt(max / MAX_HEALTH), 15)
+      if self.hitFlash[id] then
+        local c = Damage.of(self.hitType[id]).color
+        love.graphics.setColor(c[1], c[2], c[3], self.hitFlash[id] * 4)
+        love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS * 2)
+      end
     end
   end
   if self.showHitboxes then
@@ -610,10 +885,115 @@ function Weapons:drawAboveCars(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The magnification of the gun in hand's scope, or nil for a gun without one.
+function Weapons:scopeOf()
+  return Guns.list[self.gun] and self:gunAt(self.gun).scope or nil
+end
+
+--- Is the scope up: a scoped gun in hand, the scope button held, and
+--- nothing else wanting the mouse (a screen, an ability being placed)?
+function Weapons:scoped(client)
+  return self:scopeOf() ~= nil and Controls.isDown("scope") and not Controls.suspended
+    and client:myPose() ~= nil and not client:myVehicle() and not Features.any("pointerTaken", client)
+    and not Features.any("fireTaken", client)
+end
+
+--- The `cursorStyle` convention (vision asks): a scope's crosshair while a
+--- scoped gun is in hand, and nothing at all while the lens is up (it
+--- draws its own, bigger).
+function Weapons:cursorStyle(name, client)
+  if not self:scopeOf() or client:myVehicle() then
+    return name
+  end
+  return self:scoped(client) and "none" or "scope"
+end
+
+--- The lens's canvas and the round mesh that shows it, `r` px in radius.
+local function lensOf(r)
+  if lens and lens.r == r then
+    return lens
+  end
+  if lens then
+    lens.canvas:release()
+    lens.mesh:release()
+  end
+  local verts = { { r, r, 0.5, 0.5 } }
+  local sides = 64
+  for i = 0, sides do
+    local a = i / sides * 2 * math.pi
+    local c, s = math.cos(a), math.sin(a)
+    verts[#verts + 1] = { r + c * r, r + s * r, 0.5 + c * 0.5, 0.5 + s * 0.5 }
+  end
+  local canvas = love.graphics.newCanvas(2 * r, 2 * r)
+  local mesh = love.graphics.newMesh(verts, "fan", "static")
+  mesh:setTexture(canvas)
+  lens = { canvas = canvas, mesh = mesh, r = r }
+  return lens
+end
+
+--- The low-health halo: red creeping in from the edges of the screen, over
+--- the world and under the HUD (so drawn from `drawLens`), beating like a
+--- heart that quickens the lower my health goes.
+function Weapons:drawHalo()
+  if self.halo < 0.01 or not haloImage then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local urgency = math.max(0, (self.halo - self.haloFaint) / (self.haloFull - self.haloFaint))
+  local beat = 0.85 + 0.15 * math.sin(love.timer.getTime() * (4 + 5 * urgency))
+  love.graphics.setColor(0.85, 0.05, 0.05, self.halo * beat)
+  love.graphics.draw(haloImage, 0, 0, 0, w / haloImage:getWidth(), h / haloImage:getHeight())
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The scope's lens, round the cursor: the world again, `scope` times
+--- closer, centred on the point under the cursor, behind a black crosshair
+--- that runs edge to edge and a thick black rim. The low-health halo goes
+--- down first, under it.
+function Weapons:drawLens(client, drawWorld)
+  self:drawHalo()
+  if not self:scoped(client) then
+    return
+  end
+  local ox, oy = client:myPose()
+  local w, h = love.graphics.getDimensions()
+  local mx, my = love.mouse.getPosition()
+  local wx, wy = mouseToWorld(self.camera, { dx = ox, dy = oy })
+  local base = self.camera and self.camera.scale or 1
+  local r = math.floor(math.min(w, h) * self.lensSize)
+  local l = lensOf(r)
+  love.graphics.push("all")
+  love.graphics.setCanvas(l.canvas)
+  love.graphics.clear(love.graphics.getBackgroundColor())
+  love.graphics.origin()
+  drawWorld({ x = wx, y = wy, scale = base * self:scopeOf() }, 2 * r, 2 * r)
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
+  love.graphics.draw(l.mesh, mx - r, my - r)
+  -- Glass: a darker ring inside the rim.
+  for k = 1, 6 do
+    love.graphics.setColor(0, 0, 0, 0.07 * k)
+    love.graphics.setLineWidth(3)
+    love.graphics.circle("line", mx, my, r - 18 + k * 3, 64)
+  end
+  love.graphics.setColor(0, 0, 0)
+  love.graphics.setLineWidth(8)
+  love.graphics.circle("line", mx, my, r, 64)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(mx - r, my, mx + r, my)
+  love.graphics.line(mx, my - r, mx, my + r)
+  love.graphics.setLineWidth(5) -- the posts: thick from the rim, thin across the middle
+  love.graphics.line(mx - r, my, mx - r * 0.35, my)
+  love.graphics.line(mx + r * 0.35, my, mx + r, my)
+  love.graphics.line(mx, my + r * 0.35, mx, my + r)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- Wrecked: the world goes soft under the WRECKED overlay, right where the
 --- car went up, until it respawns (the `worldBlur` hook, docs/features.md).
-function Weapons:worldBlur()
-  return self.deadTimer > 0 and 1 or 0
+function Weapons:worldBlur(client)
+  return (self.deadTimer > 0 or Features.any("respawnHeld", client)) and 1 or 0
 end
 
 --- The gun in hand, bottom centre just left of the ability circles: its
@@ -622,21 +1002,33 @@ end
 --- empty, amber with a bar under the gun while it reloads. Over the block,
 --- once the magazine is nearly out, the reload key flashes red; a notice
 --- (out of ammo, no such gun) takes its place while it shows.
-function Weapons:drawMagazine()
+function Weapons:drawMagazine(client)
   local w, h = love.graphics.getDimensions()
-  if not Guns.list[self.gun] then
-    return
+  -- Behind the wheel: the gun bolted to the car, or nothing at all; my own stay put away.
+  local car, mounted = self:myMount(client)
+  local gun, mag, spare, infinite, reloading, tier, name
+  if car then
+    if not mounted then
+      return
+    end
+    gun, mag, spare, infinite = mounted, self.carMags[car.id] or mounted.magazine, math.huge, false
+    reloading, tier, name = self.carReloading, Tiers.DEFAULT, Weapons.mountedName .. "  "
+  else
+    if not Guns.list[self.gun] then
+      return
+    end
+    gun = self:gunAt(self.gun)
+    mag, spare, infinite = self.mags[self.gun] or 0, self:reserve(self.gun), self.infiniteAmmo
+    reloading, tier, name = self.reloading, self:tierOf(self.gun), gun.name .. "  "
   end
-  local gun = self:gunAt(self.gun)
   local abilities = Features.byName.abilities
   local right = abilities and abilities.hudLeft and abilities:hudLeft() - 16 or math.floor(w / 2 + 80)
   local small, body = UI.fonts.small, UI.fonts.body
-  local mag, spare = self.mags[self.gun] or 0, self:reserve(self.gun)
-  local count = self.infiniteAmmo and "inf" or ("%d/%d"):format(mag, gun.magazine)
-  local extra = (not self.infiniteAmmo and spare ~= math.huge) and (" +%d"):format(spare) or ""
-  local empty = not self.infiniteAmmo and mag < 1
+  local count = infinite and "inf" or ("%d/%d"):format(mag, gun.magazine)
+  local extra = (not infinite and spare ~= math.huge) and (" +%d"):format(spare) or ""
+  local empty = not infinite and mag < 1
   local color, alpha = { 1, 1, 1 }, 1
-  if self.reloading then
+  if reloading then
     color, alpha = { 1, 0.9, 0.3 }, 0.6
   elseif empty then
     color, alpha = { 1, 0.45, 0.4 }, 0.45
@@ -644,10 +1036,9 @@ function Weapons:drawMagazine()
   -- Over the block once the magazine is nearly out: the reload key, or
   -- that there is nothing left to load. Not while a reload runs.
   local hint
-  if not (self.infiniteAmmo or self.reloading) and mag <= gun.magazine * self.lowMagazine then
+  if not (infinite or reloading) and mag <= gun.magazine * self.lowMagazine then
     hint = spare < 1 and "no ammo" or Controls.name(Controls.bindings("reload")[1]) .. ": reload"
   end
-  local name = gun.name .. "  "
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
   -- The same width whichever gun is up: the widest line any gun could
@@ -657,13 +1048,17 @@ function Weapons:drawMagazine()
     local full = ("%d/%d"):format(g.magazine, g.magazine)
     blockW = math.max(blockW, small:getWidth(g.name .. "  ") + body:getWidth(full) + small:getWidth(" +999"))
   end
+  blockW = math.max(blockW, textW) -- a mounted gun's longer name
   local cx = right - blockW / 2
+  if car then
+    cx = math.floor(w / 2) -- the ability row is put away behind the wheel: the middle is free
+  end
   local y = h - 8 - body:getHeight() -- the count line, along the bottom
   local top = y - 12 - self.hudIconH
   -- A dark backing so the steel reads over a pale road as well as a dark one.
   love.graphics.setColor(0.05, 0.05, 0.07, 0.55)
   love.graphics.rectangle("fill", math.floor(cx - blockW / 2) - 8, top, blockW + 16, h - 4 - top, 8)
-  Icons.draw(gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
+  Icons.draw(car and "turret" or gun.key, cx, y - 6 - self.hudIconH / 2, self.hudIconScale, alpha)
   if self.ammoNotice then
     -- Why a pick or a reload didn't happen, over the block while it fades.
     local text = self.ammoNotice.text
@@ -680,13 +1075,13 @@ function Weapons:drawMagazine()
   local x = math.floor(cx - textW / 2)
   local baseline = y + body:getHeight() - small:getHeight() - 1
   love.graphics.setFont(small)
-  UI.label(name, x, baseline, Tiers.color(self:tierOf(self.gun))) -- in its tier's colour
+  UI.label(name, x, baseline, Tiers.color(tier)) -- in its tier's colour
   love.graphics.setFont(body)
   UI.label(count, x + nameW, y, color)
   love.graphics.setFont(small)
   UI.label(extra, x + nameW + countW, baseline, { 0.75, 0.75, 0.8 })
-  if self.reloading then
-    local r = self.reloading
+  if reloading then
+    local r = reloading
     local bw = self.hudIconW
     UI.meter(math.floor(cx - bw / 2), y - 6, bw, 4, math.min(1, r.t / r.total), color)
   end
@@ -711,15 +1106,17 @@ function Weapons:drawHUD(client)
     valueColor = { 1, 0.5 + 0.5 * blink, 0.45 + 0.55 * blink }
   end
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
-  self:drawMagazine()
+  self:drawMagazine(client)
 
   if self.feed then
     local w = love.graphics.getWidth()
     love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(1, 1, 1, math.min(1, self.feed.t))
+    local c = self.feed.color or { 1, 1, 1 }
+    love.graphics.setColor(c[1], c[2], c[3], math.min(1, self.feed.t))
     love.graphics.printf(self.feed.text, 0, 40, w, "center")
   end
-  if self.deadTimer > 0 then
+  local held = Features.any("respawnHeld", client) -- choosing where to come back (respawn-points)
+  if self.deadTimer > 0 or held then
     local w, h = love.graphics.getDimensions()
     love.graphics.setColor(0.5, 0, 0, 0.35)
     love.graphics.rectangle("fill", 0, 0, w, h)
@@ -728,7 +1125,9 @@ function Weapons:drawHUD(client)
     love.graphics.printf("WASTED", 0, h / 2 - 60, w, "center")
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
+    if not held then
+      love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
+    end
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -738,9 +1137,10 @@ local function playerName(client, id)
 end
 
 --- An explosion at (x, y) on this screen, with the camera shaking the
---- nearer I am. `color` tints the debris.
-local function boom(client, x, y, color)
-  Sounds.play("explosion", x, y)
+--- nearer I am. `color` tints the debris; `kind` picks the sound: "car",
+--- "building" or nil for a plain blast.
+local function boom(client, x, y, color, kind)
+  Sounds.play(kind and "explosion-" .. kind or "explosion", x, y, 0.92 + love.math.random() * 0.16)
   Explosions.spawn(x, y, color)
   local mx, my = client:myPose()
   if mx and Video.get("screenShake") then
@@ -751,9 +1151,10 @@ end
 
 --- Where a player is drawn, as a point, or nil while they are out of the world.
 --- An explosion drawn and heard at (x, y) on this machine, for another
---- feature's blast (a building coming down). `color` tints the debris.
-function Weapons:explosionAt(client, x, y, color)
-  boom(client, x, y, color)
+--- feature's blast (a building coming down). `color` tints the debris;
+--- `kind` "building" or "car" sounds like one, nil a plain blast.
+function Weapons:explosionAt(client, x, y, color, kind)
+  boom(client, x, y, color, kind)
 end
 
 local function poseOf(client, id)
@@ -789,17 +1190,35 @@ Weapons.clientMessages = {
       Weapons.reloading, Weapons.ammoNotice = nil, nil
     end
   end,
+  WPN_SPIN = function(client, args)
+    local id = tonumber(args[1])
+    if id and id ~= client.myId then -- mine I heard as I pulled the trigger
+      local x, y = clientPose(client, id)
+      if x then
+        Sounds.play("minigun-spin", x, y)
+      end
+    end
+  end,
   WPN_RELOADING = function(client, args)
     local id, gun, seconds = tonumber(args[1]), Guns.list[tonumber(args[2]) or 0], tonumber(args[3])
     if not (id and gun and seconds) then
       return
     end
-    local x, y = clientPose(client, id)
-    if x then
-      Sounds.play(gun.reloadSound, x, y)
-    end
-    if id == client.myId then
+    Reloads.start(gun.reloadSound, id, seconds)
+    local vid = tonumber(args[4])
+    if id == client.myId and vid then
+      Weapons.carReloading = { vid = vid, t = 0, total = seconds } -- the gun on my car
+    elseif id == client.myId then
       Weapons.reloading = { gun = gun.index, t = 0, total = seconds }
+    end
+  end,
+  WPN_CARMAG = function(_client, args)
+    local vid, rounds = tonumber(args[1]), tonumber(args[2])
+    if vid and rounds then
+      Weapons.carMags[vid] = rounds
+      if Weapons.carReloading and Weapons.carReloading.vid == vid then
+        Weapons.carReloading = nil
+      end
     end
   end,
   WPN_HEALTH = function(_client, args)
@@ -826,10 +1245,18 @@ Weapons.clientMessages = {
     local gun = Guns.at(tonumber(args[7]))
     local quiet = args[8] == "1"
     if pid and x and y and vx and vy then
+      local tint = nil
+      local r, g, b = (args[9] or ""):match("^(%x%x)(%x%x)(%x%x)$")
+      if r then
+        tint = { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 }
+      end
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
+        quiet = quiet, tint = tint,
       }
-      if not quiet then
+      if not quiet and Sounds.loops(gun.sound) then
+        Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
+      elseif not quiet then
         Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
       end
     end
@@ -847,9 +1274,10 @@ Weapons.clientMessages = {
   end,
   WPN_HIT = function(client, args)
     local pid, victim, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local dtype, amount = args[4], tonumber(args[5])
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
-    if at then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+    if at and (amount or QUIET_HIT) >= QUIET_HIT then
+      Sounds.play(Sounds.hitName("foot", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
@@ -857,14 +1285,20 @@ Weapons.clientMessages = {
     if victim and hp then
       Weapons.health[victim] = hp
       Weapons.hitFlash[victim] = 0.15
+      Weapons.hitType[victim] = dtype
+      local pose = poseOf(client, victim)
+      if pose then
+        Features.call("clientHit", client, { x = pose.x, y = pose.y, amount = amount, dtype = dtype, key = victim })
+      end
     end
   end,
   WPN_CARHIT = function(client, args)
     local pid, vid, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local dtype, amount = args[4], tonumber(args[5])
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
-    if at then
-      Sounds.play("hit", at.x, at.y, 0.9 + love.math.random() * 0.2)
+    if at and (amount or QUIET_HIT) >= QUIET_HIT then
+      Sounds.play(Sounds.hitName("car", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
     if pid and pid > 0 then
       Weapons.projectiles[pid] = nil
@@ -872,6 +1306,10 @@ Weapons.clientMessages = {
     if vid and hp then
       Weapons.carHealth[vid] = hp
       Weapons.carFlash[vid] = 0.15
+      Weapons.hitType["car" .. vid] = dtype
+      if v then
+        Features.call("clientHit", client, { x = v.dx, y = v.dy, amount = amount, dtype = dtype, key = "car" .. vid })
+      end
     end
   end,
   WPN_CARHP = function(_client, args)
@@ -893,7 +1331,7 @@ Weapons.clientMessages = {
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
     if at then
-      boom(client, at.x, at.y, v and Car.paletteColor(v.color))
+      boom(client, at.x, at.y, v and Car.paletteColor(v.color), "car")
     end
     if pid then
       Weapons.projectiles[pid] = nil
@@ -901,6 +1339,7 @@ Weapons.clientMessages = {
     if vid then
       Weapons.carHealth[vid] = nil
       Weapons.carFlash[vid] = 0.3
+      Weapons.carMags[vid] = nil -- it comes back with its gun loaded
     end
     if killer and kills then
       Weapons.kills[killer] = kills
@@ -926,8 +1365,12 @@ Weapons.clientMessages = {
     if at then
       boom(client, at.x, at.y, victim and Car.colorFor(victim))
     end
+    if victim then
+      Reloads.cancel(victim)
+    end
     if victim == client.myId then
       Weapons.deadTimer = deathTime
+      Weapons.reloading = nil -- the host dropped it when I died (die)
       if Video.get("screenShake") then
         Explosions.addShake(SHAKE_MAX)
       end
@@ -944,11 +1387,12 @@ Weapons.clientMessages = {
     end
     if victim then
       local name = playerName(client, victim)
-      local text = name .. " was wasted" -- an ownerless shot: nobody to name
+      local how = Damage.of(args[6]) -- worded by what did it: "burned", "blew up"
+      local text = name .. " " .. how.died -- an ownerless shot: nobody to name
       if killer and killer ~= NO_OWNER then
-        text = playerName(client, killer) .. " wasted " .. name
+        text = playerName(client, killer) .. " " .. how.killed .. " " .. name
       end
-      Weapons.feed = { text = text, t = FEED_TIME }
+      Weapons.feed = { text = text, t = FEED_TIME, color = how.color }
     end
   end,
 }
@@ -1227,8 +1671,11 @@ end
 --- everyone (nobody is the owner) and their kills go on nobody's scoreboard.
 --- No cooldown is applied here; the caller owns its own rate of fire. `gun`
 --- is a table from guns.lua (the pistol when not given); its scatter is
---- applied here.
-function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
+--- applied here. `from` (optional) names what fired a shot that belongs to
+--- no player ("gang": a Gang Hangout's guard); it reaches `serverShotAt`, so
+--- the police officers, who ignore their own ownerless rounds, can tell one
+--- that isn't theirs.
+function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
   local sv = self.sv
   if not (sv and aim) then
     return false
@@ -1248,11 +1695,13 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun)
     local vy = math.sin(a) * gun.speed
     sv.projectiles[#sv.projectiles + 1] = {
       id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
-      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast,
+      ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
+      electrify = gun.electrify, stun = gun.stun, from = from,
     }
-    server:broadcast(Protocol.encode("WPN_SHOT", pid, ownerId,
-      ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx), ("%.1f"):format(vy), gun.index,
-      pellet > 1 and 1 or 0))
+    local fields = { pid, ownerId, ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx),
+      ("%.1f"):format(vy), gun.index, (pellet > 1 or gun.quiet) and 1 or 0 }
+    fields[#fields + 1] = gun.tint -- only a gun with a colour of its own sends one
+    server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields)))
   end
   -- `player` is nil for an ownerless shot; features that listen must allow it.
   Features.call("serverShotFired", server, server.players[ownerId], x, y)
@@ -1453,6 +1902,45 @@ local function heldGun(self, player, st)
   return st.gun
 end
 
+--- Are the barrels of `player`'s gun in hand turning on the host: winding
+--- up (WPN_SPIN) or firing? Returns that gun when they are.
+local function turning(self, player, st)
+  local gun = gunOf(st, heldGun(self, player, st))
+  if not gun.spinUp or player.vehicle then
+    return nil
+  end
+  local t = self.sv.time
+  if t - st.lastFire < SPIN_KEEP or (st.spinAt and t - st.spinAt <= gun.spinUp + SPIN_KEEP) then
+    return gun
+  end
+  return nil
+end
+
+--- The `serverStat` convention: a gun with a `pace` slows whoever is
+--- firing it (or winding it up) on foot.
+function Weapons:serverStat(value, _server, player, name)
+  local st = name == "speed" and self.sv and self.sv.players[player.id]
+  local gun = st and turning(self, player, st)
+  return gun and gun.pace and value * gun.pace or value
+end
+
+--- `player` is winding up the gun in hand (WPN_SPIN): from now its first
+--- round may come once the gun's `spinUp` is over, and everyone hears it.
+--- Once in a while at most, so a held trigger can't flood the wire.
+function Weapons:serverSpin(server, player)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not (st and player.body) or player.vehicle then
+    return
+  end
+  local gun = gunOf(st, heldGun(self, player, st))
+  if not gun.spinUp or (st.spinAt and sv.time - st.spinAt < SPIN_KEEP) then
+    return
+  end
+  st.spinAt = sv.time
+  server:broadcast(Protocol.encode("WPN_SPIN", player.id))
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
 --- a shot was fired.
@@ -1462,12 +1950,26 @@ function Weapons:serverFire(server, player, aim)
   if not (st and player.body and aim) then
     return false
   end
+  if player.vehicle and not player.bot then
+    return self:serverFireMounted(server, player, aim) -- behind the wheel: the car's gun or nothing
+  end
   local gun = gunOf(st, heldGun(self, player, st))
   if sv.time - st.lastFire < gun.cooldown * 0.9 then
     return false -- firing faster than allowed; drop it
   end
   if Features.any("serverHeld", server, player) then
     return false -- held still (frozen): the trigger is stuck too
+  end
+  if gun.spinUp and not player.bot then
+    -- Cold barrels fire nothing until they have wound up (WPN_SPIN).
+    -- A wind-up counts from SPIN_SLACK of the way through it until a
+    -- moment after it should be over (the first round comes then).
+    local warm = sv.time - st.lastFire < SPIN_KEEP + 0.15
+    local since = st.spinAt and sv.time - st.spinAt
+    if not warm and not (since and since >= gun.spinUp * SPIN_SLACK and since <= gun.spinUp + SPIN_KEEP + 0.5) then
+      server:send(player, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun] or 0))
+      return false
+    end
   end
   local counted = not (player.bot or st.infiniteAmmo) -- bots, police and cheaters never run dry
   if counted and (st.reloadUntil or (st.mags[st.gun] or 0) < 1) then
@@ -1544,6 +2046,9 @@ end
 function Weapons:serverReload(server, player)
   local sv = self.sv
   local st = sv and sv.players[player.id]
+  if st and player.vehicle and not player.bot then
+    return self:serverReloadMounted(server, player)
+  end
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
@@ -1556,9 +2061,82 @@ function Weapons:serverReload(server, player)
   return true
 end
 
---- Fill the magazines whose reload is done from the shooter's inventory.
+--- Fire the gun bolted to the car `player` drives toward `aim`, if it has
+--- one, isn't reloading and has a round in it. Returns true if it fired.
+function Weapons:serverFireMounted(server, player, aim)
+  local sv, car = self.sv, player.vehicle
+  local gun = mountedGun(car.model)
+  if not gun or car.hidden or Features.any("serverHeld", server, player) then
+    return false
+  end
+  local cs = self:carState(car)
+  cs.mag = cs.mag or gun.magazine
+  if cs.reloadUntil or cs.mag < 1 then
+    server:send(player, Protocol.encode("WPN_CARMAG", car.id, cs.mag)) -- put their count right
+    return false
+  end
+  if sv.time - (cs.lastFire or -math.huge) < gun.cooldown * 0.9 then
+    return false -- faster than the gun fires; drop it
+  end
+  cs.mag, cs.lastFire = cs.mag - 1, sv.time
+  return self:serverFireFrom(server, player.id, car.x + math.cos(aim) * MUZZLE_OFFSET,
+    car.y + math.sin(aim) * MUZZLE_OFFSET, aim, gun)
+end
+
+--- Reload the gun bolted to the car `player` drives: it takes nothing (its
+--- rounds never run out), only the gun's reload time. Returns true if it began.
+function Weapons:serverReloadMounted(server, player)
+  local sv, car = self.sv, player.vehicle
+  local gun = mountedGun(car.model)
+  local cs = gun and self:carState(car)
+  if not cs or cs.reloadUntil then
+    return false
+  elseif (cs.mag or gun.magazine) >= gun.magazine then
+    server:send(player, Protocol.encode("WPN_CARMAG", car.id, gun.magazine)) -- full already: put their count right
+    return false
+  end
+  cs.reloadUntil = sv.time + gun.reload
+  server:broadcast(Protocol.encode("WPN_RELOADING", player.id, gun.index, gun.reload, car.id))
+  return true
+end
+
+--- Fill the magazines whose reload is done from the shooter's inventory,
+--- and those of the guns bolted to cars from nowhere.
+--- Whoever just took the wheel of a car with a gun bolted to it hears what
+--- is in its magazine: the last driver may have half emptied it.
+function Weapons:tellNewDrivers(server)
+  for _, car in pairs(server.vehicles) do
+    local gun = car.driver and mountedGun(car.model)
+    local cs = self.sv.cars[car.id]
+    if gun then
+      cs = cs or self:carState(car)
+      local p = server.players[car.driver]
+      if cs.told ~= car.driver and p and not p.bot then
+        cs.told = car.driver
+        server:send(p, Protocol.encode("WPN_CARMAG", car.id, cs.mag or gun.magazine))
+      end
+    elseif cs and not car.driver then
+      cs.told = nil
+    end
+  end
+end
+
 function Weapons:finishReloads(server)
   local sv = self.sv
+  for vid, cs in pairs(sv.cars) do
+    if cs.reloadUntil and sv.time >= cs.reloadUntil then
+      cs.reloadUntil = nil
+      local car = server.vehicles[vid]
+      local gun = car and mountedGun(car.model)
+      if gun then
+        cs.mag = gun.magazine
+        local p = car.driver and server.players[car.driver]
+        if p then
+          server:send(p, Protocol.encode("WPN_CARMAG", vid, cs.mag))
+        end
+      end
+    end
+  end
   for id, st in pairs(sv.players) do
     if st.reloadUntil and sv.time >= st.reloadUntil then
       st.reloadUntil = nil
@@ -1568,7 +2146,12 @@ function Weapons:finishReloads(server)
       local buildings = Features.byName.buildings
       local got = need -- a bottomless gun's rounds come from nowhere
       if p and buildings and buildings.serverTake and not gun.bottomless then
-        got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+        if gun.tank then
+          -- One can fills the tank, whatever was left in it.
+          got = buildings:serverTake(server, p, "ammo-" .. gun.key, 1) >= 1 and need or 0
+        else
+          got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+        end
       end
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got
       if p then
@@ -1581,6 +2164,9 @@ end
 Weapons.serverMessages = {
   WPN_FIRE = function(server, player, args)
     Weapons:serverFire(server, player, tonumber(args[1]))
+  end,
+  WPN_SPIN = function(server, player)
+    Weapons:serverSpin(server, player)
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))
@@ -1667,7 +2253,7 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle) then
+    if shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype, p.from) then
       return "soft", px, py
     end
   end
@@ -1679,11 +2265,13 @@ end
 --- down to a third at the edge (measured to the edge of a car or a body);
 --- cars nobody drives take it themselves. Soft targets get `soft` rounds'
 --- worth: each feature with a `serverShotAt` is asked that many times, so
---- a crowd loses a few and Karen feels it.
+--- a crowd loses a few and Karen feels it. The blast's damage type is
+--- `blast.type`, explosive when it doesn't say.
 function Weapons:explode(server, p, x, y)
   local sv = self.sv
   local blast = p.blast
   local R = blast.radius
+  local dtype = Damage.key(blast.type or "explosive")
   server:broadcast(Protocol.encode("WPN_BOOM", p.id, ("%.1f"):format(x), ("%.1f"):format(y), R))
   local function falloff(d)
     return math.floor(blast.damage * (1 - (2 / 3) * math.min(1, d / R)) + 0.5)
@@ -1713,18 +2301,18 @@ function Weapons:explode(server, p, x, y)
   for _, c in ipairs(caught) do
     if c.player then
       -- Blowing yourself up is nobody's kill.
-      self:damage(server, c.player, c.player.id ~= by and by or nil, c.amount, 0, c.angle)
+      self:damage(server, c.player, c.player.id ~= by and by or nil, c.amount, 0, c.angle, dtype)
     else
-      self:damageCar(server, c.car, by, c.amount, 0, c.angle)
+      self:damageCar(server, c.car, by, c.amount, 0, c.angle, dtype)
     end
   end
   -- Walls that can take it (a player's building) work out their own share.
-  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner)
+  Features.call("serverBlast", server, x, y, R, blast.damage, p.owner, dtype)
   local angle = math.atan2(p.vy, p.vx)
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, blast.soft or 0 do
-        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle) then
+        if not f:serverShotAt(server, x, y, R * 0.75, p.owner, angle, nil, dtype, p.from) then
           break
         end
       end
@@ -1736,36 +2324,57 @@ function Weapons:hit(server, p, target)
   local angle = p.vx and math.atan2(p.vy, p.vx) or nil
   local amount = p.damage or Guns.at(Guns.DEFAULT).damage
   if target.player then
-    self:damage(server, target.player, p.owner, amount, p.id, angle)
+    self:damage(server, target.player, p.owner, amount, p.id, angle, p.dtype)
+    -- A flame sets whoever it caught on foot alight (the damage feature
+    -- leaves anyone driving, and the dead, alone).
+    local damage = Features.byName.damage
+    local by = p.owner ~= NO_OWNER and p.owner or nil
+    if damage and p.ignite then
+      damage:ignite(server, target.player, p.ignite.seconds, p.ignite.dps, by)
+    end
+    -- A live round zaps them (`electrify`), a charged one stuns them (`stun`, seconds).
+    if damage and p.electrify then
+      damage:electrify(server, target.player, p.electrify.seconds, p.electrify.dps, by)
+    end
+    if damage and p.stun then
+      damage:stun(server, target.player, p.stun)
+    end
   else
-    self:damageCar(server, target.car, p.owner, amount, p.id, angle)
+    self:damageCar(server, target.car, p.owner, amount, p.id, angle, p.dtype)
   end
 end
 
 --- Hurt a living player by `amount` from any cause. `byId` is the attacker's
 --- id (or nil), `pid` the projectile (0 when it wasn't a bullet), `angle`
---- the direction the blow travelled, for gibs. Other features call
---- Weapons:serverDamage; this is the shared path behind bullets too.
-function Weapons:damage(server, victim, byId, amount, pid, angle)
+--- the direction the blow travelled, for gibs, `dtype` the damage type
+--- (src/features/damage; the default when nil). Nobody is hurt during
+--- their spawn protection. Other features call Weapons:serverDamage; this
+--- is the shared path behind bullets too.
+function Weapons:damage(server, victim, byId, amount, pid, angle, dtype)
   local sv = self.sv
   local st = sv and sv.players[victim.id]
-  if not st or not Features.present(victim) or st.deadUntil then
+  if not st or not Features.present(victim) or st.deadUntil or sv.time < st.protectedUntil then
     return false
   end
   if victim.vehicle then
-    return self:damageCar(server, victim.vehicle, byId, amount, pid, angle) -- the car takes it
+    return self:damageCar(server, victim.vehicle, byId, amount, pid, angle, dtype) -- the car takes it
   end
   pid = pid or 0
-  -- Armor takes its share first (the `serverAbsorbDamage` convention); the
-  -- hit still counts as one for everyone listening, even if nothing got through.
-  st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim)
+  dtype = Damage.key(dtype)
+  -- What gets past their resistances, for the number clients float up; the
+  -- vest soaks up what it can of that before health goes.
+  local dealt = amount * Damage:serverShare(server, victim, dtype)
+  -- Resistances and armor take their share first (the `serverAbsorbDamage`
+  -- convention); the hit still counts as one for everyone listening, even
+  -- if nothing got through.
+  st.hp = st.hp - Features.reduce("serverAbsorbDamage", amount, server, victim, dtype)
   -- Let other features react (bots take offence at being shot).
-  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount)
+  Features.call("serverPlayerDamaged", server, victim, byId and server.players[byId], amount, dtype, angle)
   if st.hp > 0 then
-    server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp))
+    server:broadcast(Protocol.encode("WPN_HIT", pid, victim.id, st.hp, dtype, ("%.1f"):format(dealt)))
     return true
   end
-  self:die(server, victim, byId, pid, angle)
+  self:die(server, victim, byId, pid, angle, dtype)
   return true
 end
 
@@ -1798,7 +2407,7 @@ local function ownCar(player)
   return own
 end
 
-function Weapons:die(server, victim, byId, pid, angle)
+function Weapons:die(server, victim, byId, pid, angle, dtype)
   local sv = self.sv
   local st = sv.players[victim.id]
   local kills = self:creditKill(byId)
@@ -1829,15 +2438,18 @@ function Weapons:die(server, victim, byId, pid, angle)
       server:seat(victim, own) -- the corpse rides the wreck back to the slot
     end
   end
-  server:broadcast(Protocol.encode("WPN_KILL", pid or 0, byId or 0, victim.id, kills, DEATH_TIME))
+  dtype = Damage.key(dtype)
+  server:broadcast(Protocol.encode("WPN_KILL", pid or 0, byId or 0, victim.id, kills, DEATH_TIME, dtype))
   Features.call("serverKill", server, {
-    kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot,
+    kind = "car", x = wx, y = wy, by = byId, victim = victim.id, angle = angle, onFoot = wasOnFoot, cause = dtype,
   })
 end
 
 --- Dent a car by `amount`. Its driver, if any, hears about it the way they
---- would a hit on foot (bots take offence). At zero it is wrecked.
-function Weapons:damageCar(server, car, byId, amount, pid, angle)
+--- would a hit on foot (bots take offence). At zero it is wrecked. `dtype`
+--- is the damage type, as for Weapons:damage; a car takes every type the
+--- same for now. A car whose driver is under spawn protection shares it.
+function Weapons:damageCar(server, car, byId, amount, pid, angle, dtype)
   local sv = self.sv
   if not (sv and car) or car.hidden or car.stowed then
     return false
@@ -1849,20 +2461,21 @@ function Weapons:damageCar(server, car, byId, amount, pid, angle)
   local driver = car.driver and server.players[car.driver]
   if driver then
     local st = sv.players[driver.id]
-    if not st or st.deadUntil or not Features.present(driver) then
+    if not st or st.deadUntil or not Features.present(driver) or sv.time < st.protectedUntil then
       return false
     end
   end
   pid = pid or 0
+  dtype = Damage.key(dtype)
   cs.hp = cs.hp - amount
   if driver then
-    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount)
+    Features.call("serverPlayerDamaged", server, driver, byId and server.players[byId], amount, dtype, angle)
   end
   if cs.hp > 0 then
-    server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp))
+    server:broadcast(Protocol.encode("WPN_CARHIT", pid, car.id, cs.hp, dtype, ("%.1f"):format(amount)))
     return true
   end
-  self:wreck(server, car, byId, pid, angle)
+  self:wreck(server, car, byId, pid, angle, dtype)
   return true
 end
 
@@ -1870,15 +2483,20 @@ end
 --- protected, and walks on; an NPC driver goes down with it (its brain
 --- knows how to wait out a wreck). The car is gone for DEATH_TIME and comes
 --- back whole at its owner's slot, or where it died if nobody owns it.
-function Weapons:wreck(server, car, byId, pid, angle)
+function Weapons:wreck(server, car, byId, pid, angle, dtype)
   local sv = self.sv
   local cs = self:carState(car)
   local driver = car.driver and server.players[car.driver]
   local wx, wy = car.x, car.y
   if driver and driver.bot then
-    return self:die(server, driver, byId, pid, angle)
+    return self:die(server, driver, byId, pid, angle, dtype)
   end
   local kills = driver and self:creditKill(byId) or 0
+  -- A player's own car goes back to their slot; any other car they own
+  -- (one they bought) would land on top of it there, so it stays put. Unless
+  -- another feature claims the wreck (the garage): then it is theirs to keep.
+  local ownerPlayer = car.owner and server.players[car.owner]
+  local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
   if driver then
     local onFoot = Features.byName["on-foot"]
     if onFoot and onFoot.getOut then
@@ -1888,12 +2506,8 @@ function Weapons:wreck(server, car, byId, pid, angle)
     end
     sv.players[driver.id].protectedUntil = sv.time + SPAWN_PROTECTION
   end
-  -- A player's own car goes back to their slot; any other car they own
-  -- (one they bought) would land on top of it there, so it stays put. Unless
-  -- another feature claims the wreck (the garage): then it is theirs to keep.
-  local ownerPlayer = car.owner and server.players[car.owner]
-  local owner = ownerPlayer and ownerPlayer.car == car and sv.players[car.owner]
   cs.hp = cs.max
+  cs.mag, cs.reloadUntil = nil, nil -- its gun, if it has one, comes back loaded
   local deathTime = 0
   if not Features.any("serverWreckClaimed", server, car) then
     deathTime = DEATH_TIME
@@ -1903,18 +2517,37 @@ function Weapons:wreck(server, car, byId, pid, angle)
     car.x, car.y, car.angle = cs.spawn.x, cs.spawn.y, cs.spawn.angle
     car:stop()
   end
+  dtype = Damage.key(dtype)
   server:broadcast(Protocol.encode("WPN_WRECK", pid or 0, byId or 0, car.id, driver and driver.id or 0, kills,
-    deathTime))
+    deathTime, dtype))
   Features.call("serverKill", server, {
     kind = "car", x = wx, y = wy, by = byId, victim = driver and driver.id, angle = angle, onFoot = false,
+    cause = dtype,
   })
+end
+
+--- Public: bring `car` back whole at (x, y), facing `angle`, now: wrecked
+--- and waiting to respawn or not, its gun (if any) loaded (car-stations
+--- hand a player's car back at a station this way).
+function Weapons:serverRestoreCar(server, car, x, y, angle)
+  local cs = self:carState(car)
+  cs.deadUntil, cs.hp, cs.mag, cs.reloadUntil = nil, cs.max, nil, nil
+  car.hidden = false
+  car.x, car.y, car.angle = x, y, angle
+  car:stop()
+  server:broadcast(Protocol.encode("WPN_CARHP", car.id, cs.hp))
+  local gun = mountedGun(car.model)
+  if gun then
+    server:broadcast(Protocol.encode("WPN_CARMAG", car.id, gun.magazine))
+  end
 end
 
 --- Public: damage from something that isn't a bullet (a car running you
 --- over, Karen's slap). Lands on the car they are driving, or on them.
---- Returns true if the victim was alive to take it.
-function Weapons:serverDamage(server, victim, attacker, amount, angle)
-  return self:damage(server, victim, attacker and attacker.id, amount, 0, angle)
+--- `dtype` is its damage type (src/features/damage): say it, or it counts
+--- as a bullet. Returns true if the victim was alive to take it.
+function Weapons:serverDamage(server, victim, attacker, amount, angle, dtype)
+  return self:damage(server, victim, attacker and attacker.id, amount, 0, angle, dtype)
 end
 
 --- Keep wrecks parked at their slot and bring the dead back when their time
@@ -1946,7 +2579,7 @@ function Weapons:updateWrecks(server)
       local own = p and not st.respawnAt and ownCar(p)
       if not (p and p.body) then
         st.deadUntil = nil
-      elseif sv.time < st.deadUntil then
+      elseif sv.time < st.deadUntil or Features.any("serverRespawnHeld", server, p) then
         if own then
           own.hidden = true
           own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle
@@ -1981,6 +2614,7 @@ function Weapons:serverStep(server, dt)
   sv.time = sv.time + dt
   self:updateWrecks(server)
   self:finishReloads(server)
+  self:tellNewDrivers(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]
@@ -1994,7 +2628,7 @@ function Weapons:serverStep(server, dt)
       self:explode(server, p, hx or nx, hy or ny)
     elseif victim == "wall" then
       table.remove(sv.projectiles, i) -- clients notice the same wall themselves
-      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner)
+      Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner, p.dtype)
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
       -- so the streak has to be called back explicitly.

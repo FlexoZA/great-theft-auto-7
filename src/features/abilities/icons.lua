@@ -54,6 +54,22 @@ local function regen(c, a)
   love.graphics.line(10.5, 2.5, 15.5, 2.5)
 end
 
+-- A lightning bolt with the same rising pluses as regen: breath coming back.
+local function secondwind(c, a)
+  color(c, a)
+  love.graphics.polygon("fill", 2, -15, -9, 2, 1, 2) -- two blades overlapping in the middle (fill is convex only)
+  love.graphics.polygon("fill", -4, 15, 9, -3, -1, -3)
+  color(WHITE, a * 0.35)
+  love.graphics.polygon("fill", 1, -12, -5, 0, -2, 0) -- shine
+  color(WHITE, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(11, -13, 11, -5)
+  love.graphics.line(7, -9, 15, -9)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.line(13, 0, 13, 5)
+  love.graphics.line(10.5, 2.5, 15.5, 2.5)
+end
+
 -- A medic's cross, in one go.
 local function heal(c, a)
   color(WHITE, a)
@@ -160,22 +176,142 @@ local function bigleap(c, a)
   end
 end
 
+-- A chicken's head in profile, looking right, half faded away: comb,
+-- beak, wattle and one beady eye.
+local function chicken(c, a)
+  color(WHITE, a * 0.9)
+  love.graphics.circle("fill", -1, 2, 9, 24) -- the head
+  love.graphics.polygon("fill", -9, 4, -4, 14, 6, 14, 6, 6) -- the neck
+  color({ 0.9, 0.2, 0.2 }, a)
+  love.graphics.circle("fill", -5, -8, 3, 10) -- the comb
+  love.graphics.circle("fill", -1, -9, 3.4, 10)
+  love.graphics.circle("fill", 3, -7, 3, 10)
+  love.graphics.polygon("fill", 6, 6, 10, 6, 8, 12) -- the wattle
+  color(c, a)
+  love.graphics.polygon("fill", 7, -1, 15, 2, 7, 5) -- the beak
+  color({ 0.1, 0.1, 0.1 }, a)
+  love.graphics.circle("fill", 3, 0, 1.6, 8) -- the eye
+  -- Fading out: dashes where the back of the head should be.
+  color(c, a * 0.8)
+  love.graphics.setLineWidth(2)
+  for i = 0, 3 do
+    local y = -6 + i * 5
+    love.graphics.line(-15, y, -11, y)
+  end
+end
+
+-- A stopwatch, its hand racing, with chevrons streaking off it.
+local function overclock(c, a)
+  color(c, a)
+  love.graphics.rectangle("fill", -5, -16, 6, 3, 1) -- the crown
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", -2, 1, 11, 24)
+  love.graphics.line(-2, -13, -2, -10)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2.5)
+  love.graphics.line(-2, 1, 3, -5) -- the hand
+  love.graphics.circle("fill", -2, 1, 2, 10)
+  color(c, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(11, -5, 15, 0, 11, 5)
+  color(c, a * 0.6)
+  love.graphics.line(7, 8, 10, 11, 7, 14)
+  love.graphics.setLineWidth(1)
+end
+
+-- The heat ray: the tripod's hooded lens, glowing, and its ray going off
+-- to the side.
+local function heatray(c, a)
+  color(c, a, 0.45)
+  love.graphics.polygon("fill", -14, -6, -6, -13, 4, -13, 8, -4, 8, 4, 4, 13, -6, 13, -14, 6)
+  color(c, a * 0.35)
+  love.graphics.circle("fill", 0, 0, 10, 20)
+  color(WHITE, a)
+  love.graphics.circle("fill", 0, 0, 4.5, 16)
+  color(c, a)
+  love.graphics.setLineWidth(3)
+  love.graphics.line(4, 0, 16, 0)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.circle("line", 0, 0, 7, 16)
+  love.graphics.setLineWidth(1)
+end
+
+-- Its beam: the ray going straight into a burning spot.
+local function heatrayBeam(c, a)
+  color(c, a * 0.4)
+  love.graphics.setLineWidth(7)
+  love.graphics.line(-14, 10, 8, -6)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2.5)
+  love.graphics.line(-14, 10, 8, -6)
+  color({ 1, 0.6, 0.2 }, a)
+  love.graphics.circle("fill", 9, -7, 4.5, 12)
+  color(WHITE, a)
+  love.graphics.circle("fill", 9, -7, 2, 8)
+  love.graphics.setLineWidth(1)
+end
+
+-- Its sweep: an arc burned across the ground, the ray on its far end.
+local function heatraySweep(c, a)
+  color({ 1, 0.55, 0.2 }, a * 0.8)
+  love.graphics.setLineWidth(5)
+  love.graphics.arc("line", "open", -10, 12, 22, -1.45, -0.2, 16)
+  color(c, a * 0.4)
+  love.graphics.setLineWidth(6)
+  love.graphics.line(-10, 12, 11, 8)
+  color(WHITE, a)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(-10, 12, 11, 8)
+  love.graphics.polygon("fill", 12, 2, 16, 9, 8, 9)
+  love.graphics.setLineWidth(1)
+end
+
+-- A teleport: a figure's ring on the left, a dashed line across, and the
+-- same ring on the right with a spark where it lands.
+local function teleport(c, a)
+  color(c, a * 0.5)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", -10, 6, 5, 16)
+  color(c, a)
+  love.graphics.setLineWidth(3)
+  for i = 0, 3 do
+    local x = -5 + i * 5
+    love.graphics.line(x, 6 - i * 3, x + 3, 4.2 - i * 3)
+  end
+  love.graphics.circle("fill", 11, -8, 5, 16)
+  color(WHITE, a)
+  love.graphics.setLineWidth(1.5)
+  for i = 0, 3 do
+    local t = i * math.pi / 2 + math.pi / 4
+    love.graphics.line(11 + math.cos(t) * 7, -8 + math.sin(t) * 7, 11 + math.cos(t) * 10, -8 + math.sin(t) * 10)
+  end
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
+  heatray = heatray,
+  ["heatray-beam"] = heatrayBeam,
+  ["heatray-sweep"] = heatraySweep,
   freeze = freeze,
   regen = regen,
+  secondwind = secondwind,
   heal = heal,
   mgnest = mgnest,
   fart = fart,
   openborders = openborders,
   leap = leap,
+  chicken = chicken,
   bigleap = bigleap,
+  teleport = teleport,
+  overclock = overclock,
 }
 
 --- Draw the icon for ability `key` centred on (cx, cy) inside a circle of
---- radius `r`, `alpha` (1) opaque.
+--- radius `r`, `alpha` (1) opaque. "<ability>-<mode>" ("heatray-sweep") is
+--- the picture of one of its modes.
 function Icons.draw(key, cx, cy, r, alpha)
   alpha = alpha or 1
-  local ability = Kinds.byKey[key]
+  local ability = Kinds.byKey[key] or Kinds.byKey[key:match("^(.-)%-") or ""]
   local c = ability and ability.color or { 0.8, 0.8, 0.85 }
   love.graphics.push()
   love.graphics.translate(cx, cy)

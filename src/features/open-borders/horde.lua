@@ -25,7 +25,7 @@ Horde.__index = Horde
 Horde.SIMPS = 25 -- per cast
 Horde.SPAWN_MIN = 50 -- px from the caster they pour out...
 Horde.SPAWN_MAX = 120 -- ...out to here
-Horde.RADIUS = 6 -- px; a pedestrian's size
+Horde.RADIUS = 8 -- px; a pedestrian's size (drawn as a person: src/body.lua)
 Horde.HEALTH = 40 -- two pistol rounds
 Horde.SHOT_DAMAGE = 20 -- what one round takes off one
 Horde.RUN_SPEED = 115 -- px/s, give or take a fifth per simp
@@ -49,8 +49,10 @@ Horde.FIRE_SPACING = 26 -- px; no fire is lit this close to another
 Horde.MAX_FIRES = 220 -- in the world at once
 Horde.BURN_EVERY = 0.5 -- seconds between burns
 Horde.BURN_DAMAGE = 5 -- to a player or car touching a fire, per burn
+Horde.AFTERBURN_TIME = 3 -- seconds a player on foot who touched one burns on
+Horde.AFTERBURN_DPS = 5 -- fire damage a second while they do
 
-local FOOT_RADIUS = 6 -- a player on foot, as weapons sees one
+local FOOT_RADIUS = 10 -- a player on foot, as weapons sees one
 local random = love.math.random
 
 -- Walking -------------------------------------------------------------------
@@ -224,11 +226,12 @@ function Horde:light(by, x, y)
   return f
 end
 
---- Everyone present this tick, with where their body is.
-local function bodies(server)
+--- Everyone present this tick, with where their body is; `seen`: only
+--- those in sight (not hidden: `Features.visible`).
+local function bodies(server, seen)
   local list = {}
   for id, player in pairs(server.players) do
-    if Features.present(player) then
+    if seen and Features.visible(server, player) or not seen and Features.present(player) then
       local x, y, onFoot = Features.bodyPose(server, player)
       list[#list + 1] = { id = id, player = player, car = player.vehicle, x = x, y = y, onFoot = onFoot }
     end
@@ -269,7 +272,7 @@ local function hunt(server, s, dt, target, dist)
     s.goalIn = 0
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, target.player, nil, Horde.PUNCH_DAMAGE, s.facing)
+      weapons:serverDamage(server, target.player, nil, Horde.PUNCH_DAMAGE, s.facing, "melee")
     end
   end
 end
@@ -353,9 +356,13 @@ function Horde:burn(server, skip)
       if c.player and weapons.serverDamage then
         -- Walking into your own fire is nobody's kill.
         weapons:serverDamage(server, c.player, by ~= c.player.id and server.players[by] or nil, Horde.BURN_DAMAGE,
-          angle)
+          angle, "fire")
+        local damage = Features.byName.damage
+        if damage then
+          damage:ignite(server, c.player, Horde.AFTERBURN_TIME, Horde.AFTERBURN_DPS, by)
+        end
       elseif c.car and weapons.damageCar then
-        weapons:damageCar(server, c.car, server.players[by] and by or nil, Horde.BURN_DAMAGE, 0, angle)
+        weapons:damageCar(server, c.car, server.players[by] and by or nil, Horde.BURN_DAMAGE, 0, angle, "fire")
       end
     end
   end
@@ -363,7 +370,7 @@ function Horde:burn(server, skip)
   for _, f in ipairs(fires) do
     for _, feature in ipairs(Features.list) do
       if feature ~= skip and feature.serverShotAt then
-        feature:serverShotAt(server, f.x, f.y, R, f.by, random() * 2 * math.pi)
+        feature:serverShotAt(server, f.x, f.y, R, f.by, random() * 2 * math.pi, nil, "fire")
       end
     end
   end
@@ -382,7 +389,7 @@ function Horde:step(server, dt, skip)
     self.lit[i] = nil
   end
 
-  local list = #self.simps > 0 and bodies(server) or {}
+  local list = #self.simps > 0 and bodies(server, true) or {}
   local i = 1
   while i <= #self.simps do
     local s = self.simps[i]

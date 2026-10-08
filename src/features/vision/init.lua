@@ -128,7 +128,10 @@ function Vision:keypressed(key)
 end
 
 --- The cursor at the mouse: the crosshair, or the arrow while a screen
---- has the mouse. A screen that takes the pointer (`pointerTaken`) calls
+--- has the mouse. Any feature may swap the crosshair for another of
+--- `cursors` (the `cursorStyle` convention, through Features.reduce: weapons
+--- answers "scope" for the sniper rifle, "none" while its lens is up).
+--- A screen that takes the pointer (`pointerTaken`) calls
 --- this itself at the end of its own drawHUD, so the cursor lands on top
 --- of its panel rather than under it (features draw in priority order and
 --- the screen comes after vision).
@@ -136,7 +139,10 @@ function Vision:drawCursor(client)
   if not self.enabled then
     return
   end
-  local name = Features.any("pointerTaken", client) and self.screenCursor or self.cursor
+  local name = self.screenCursor
+  if not Features.any("pointerTaken", client) then
+    name = Features.reduce("cursorStyle", self.cursor, client)
+  end
   local cursor = self.cursors[name]
   if cursor then
     cursor(love.mouse.getPosition())

@@ -1,5 +1,9 @@
 -- Client-side crowd: holds the last snapshot from the server, eases every
--- pedestrian towards it and draws them. Nothing here changes the world.
+-- pedestrian towards it and draws them (the core's person, src/body.lua, in
+-- a look of their own picked by id). Nothing here changes the world.
+
+local Body = require("src.body")
+local Features = require("src.features")
 
 local Render = {
   peds = {}, -- id -> { x, y, dx, dy, angle, flee, frozen, bob }
@@ -10,10 +14,8 @@ local Render = {
 
 local SMOOTHING = 10 -- per second, matching the feel of the car smoothing
 local SNAP = 150 -- px; a jump this big is a fresh pedestrian, not a walk
-local BODY = 5
-local HEAD = 3
-
--- A few flat shirt colours, picked by id so a pedestrian keeps theirs.
+-- What a pedestrian wears, each list picked from by id (at a different
+-- stride, so the combinations vary) so a pedestrian keeps their look.
 local SHIRTS = {
   { 0.92, 0.42, 0.40 },
   { 0.40, 0.65, 0.95 },
@@ -22,16 +24,60 @@ local SHIRTS = {
   { 0.88, 0.88, 0.92 },
   { 0.75, 0.50, 0.90 },
 }
-local SKIN = { 0.92, 0.78, 0.63 }
+local PANTS = {
+  { 0.22, 0.26, 0.42 }, -- jeans
+  { 0.18, 0.18, 0.2 },
+  { 0.45, 0.4, 0.3 },
+  { 0.35, 0.3, 0.38 },
+}
+local SKINS = {
+  { 0.92, 0.78, 0.63 },
+  { 0.78, 0.6, 0.45 },
+  { 0.55, 0.38, 0.26 },
+  { 0.35, 0.23, 0.15 },
+}
+local HAIRS = {
+  { 0.18, 0.12, 0.08 },
+  { 0.08, 0.07, 0.07 },
+  { 0.55, 0.38, 0.18 },
+  { 0.85, 0.72, 0.4 },
+  { 0.55, 0.55, 0.58 },
+}
 local ICE = { 0.55, 0.85, 1.0 } -- the glaze over a frozen one
+local looks = {} -- id -> the look table handed to Body.person, reused
 
 --- A colour part way from `c` to ice.
 local function frosted(c, k)
-  return c[1] + (ICE[1] - c[1]) * k, c[2] + (ICE[2] - c[2]) * k, c[3] + (ICE[3] - c[3]) * k
+  return { c[1] + (ICE[1] - c[1]) * k, c[2] + (ICE[2] - c[2]) * k, c[3] + (ICE[3] - c[3]) * k }
+end
+
+--- Pedestrian `id`'s look: the same every time, frosted over while frozen.
+--- A map may dress its crowd itself (city-map's `map.crowdClothes`, { shirts,
+--- pants }: City 17's citizens in their issued blues).
+local function lookOf(id, p)
+  local look = looks[id]
+  if not look then
+    local city = Features.byName["city-map"]
+    local clothes = city and city.map and city.map.crowdClothes or {}
+    local shirts, pants = clothes.shirts or SHIRTS, clothes.pants or PANTS
+    look = {
+      base = {
+        shirt = shirts[id % #shirts + 1], pants = pants[(id * 7) % #pants + 1],
+        skin = SKINS[(id * 3) % #SKINS + 1], hair = HAIRS[(id * 5) % #HAIRS + 1],
+      },
+    }
+    looks[id] = look
+  end
+  for _, k in ipairs({ "shirt", "pants", "skin", "hair" }) do
+    look[k] = p.frozen and frosted(look.base[k], 0.6) or look.base[k]
+  end
+  look.panic = p.flee
+  return look
 end
 
 function Render.clear()
   Render.peds = {}
+  looks = {}
   Render.time = 0
   Render.panickedN = 0
 end
@@ -69,12 +115,20 @@ function Render.sync(args)
   for id in pairs(peds) do
     if not seen[id] then
       peds[id] = nil
+      looks[id] = nil
     end
   end
 end
 
+--- What pedestrian `id` wears (unfrosted), for their body; nil for one not about.
+function Render.lookFor(id)
+  local p = id and Render.peds[id]
+  return p and lookOf(id, p).base or nil
+end
+
 function Render.remove(id)
   Render.peds[id] = nil
+  looks[id] = nil
 end
 
 function Render.update(dt)
@@ -94,7 +148,7 @@ function Render.update(dt)
   end
 end
 
---- Draws every pedestrian inside the view. Two circles each, no transforms.
+--- Draws every pedestrian inside the view, each the core's person in their look.
 function Render.draw(camera)
   local w, h = love.graphics.getDimensions()
   local scale = camera.scale or 1
@@ -106,32 +160,12 @@ function Render.draw(camera)
   for id, p in pairs(Render.peds) do
     local x, y = p.dx, p.dy
     if x > left and x < right and y > top and y < bottom then
-      local fx, fy = math.cos(p.angle), math.sin(p.angle)
-      -- Sway across the direction of travel: a cheap two-legged waddle.
+      -- The stride: a walk, or a run when fleeing; still when frozen.
       local swing = p.frozen and 0 or math.sin(t * (p.flee and 16 or 7) + p.bob) * (p.flee and 1.4 or 0.9)
-      local sx, sy = -fy * swing, fx * swing
-
-      love.graphics.setColor(0, 0, 0, 0.25)
-      love.graphics.circle("fill", x + 1.5, y + 1.5, BODY, 8)
-      if p.frozen then
-        love.graphics.setColor(frosted(SHIRTS[id % #SHIRTS + 1], 0.6))
-      else
-        love.graphics.setColor(SHIRTS[id % #SHIRTS + 1])
-      end
-      love.graphics.circle("fill", x + sx, y + sy, BODY, 8)
-      if p.flee then -- arms flung out in panic
-        love.graphics.circle("fill", x - fy * 4.5 - sx, y + fx * 4.5 - sy, 1.8, 6)
-        love.graphics.circle("fill", x + fy * 4.5 - sx, y - fx * 4.5 - sy, 1.8, 6)
-      end
-      if p.frozen then
-        love.graphics.setColor(frosted(SKIN, 0.6))
-      else
-        love.graphics.setColor(SKIN)
-      end
-      love.graphics.circle("fill", x + fx * 1.8 + sx * 0.5, y + fy * 1.8 + sy * 0.5, HEAD, 7)
+      Body.person(x, y, p.angle, swing, lookOf(id, p))
       if p.frozen then
         love.graphics.setColor(ICE[1], ICE[2], ICE[3], 0.35)
-        love.graphics.circle("fill", x, y, BODY + 3, 10)
+        love.graphics.circle("fill", x, y, Body.SHOULDERS + 3, 12)
       end
     end
   end

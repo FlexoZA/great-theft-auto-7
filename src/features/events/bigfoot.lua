@@ -14,6 +14,10 @@
 -- nothing bursts after a while anyway. Once the whole litter is gone he
 -- roars up another.
 --
+-- What he does is his brain's, the same one he fights with in the forest
+-- (alien-hunt/bigfoot_brain.lua), on this event's numbers; badly hurt, he
+-- leaps or lumbers off to a medkit (the bosses' standard, bosses/heal.lua).
+--
 -- When he goes down he spills koins and drops his leap, a legendary one
 -- ("ability-bigleap@legendary", abilities/bigleap.lua, tiers/init.lua) on the spot as a pickup, for whoever gets there
 -- first; the event is then over.
@@ -45,11 +49,12 @@ local Sounds = require("src.features.alien-hunt.sounds")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
+local Brain = require("src.features.alien-hunt.bigfoot_brain")
 
 local Bigfoot = {
   key = "bigfoot",
   title = "BIGFOOT IS IN THE CITY",
-  subtitle = "The police have fled. Stop him before he flattens your buildings.",
+  subtitle = "The police won't touch him. Stop him before he flattens your buildings.",
   wonTitle = "BIGFOOT IS DOWN",
   wonSubtitle = "He dropped his leap. First one there takes it.",
   color = { 1, 0.35, 0.2 },
@@ -57,7 +62,7 @@ local Bigfoot = {
 
 -- Tuning ------------------------------------------------------------------
 Bigfoot.health = 2500 -- 125 rounds, for one player (more humans, more: bosses/init.lua)
-Bigfoot.radius = 22
+Bigfoot.radius = 28 -- px; drawn as a person his size (src/body.lua)
 Bigfoot.speed = 120 -- px/s; a sprint outruns him, a walk doesn't
 Bigfoot.walkSpeed = 40 -- px/s winded: a lumber, and a walk (45) leaves him behind
 Bigfoot.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
@@ -77,6 +82,7 @@ Bigfoot.clawDamage = 25 -- what a swipe does to a building
 Bigfoot.leapEvery = 5 -- seconds between leaps
 Bigfoot.leapRange = 620 -- px; the furthest one leap takes him
 Bigfoot.stuckLeap = 2 -- seconds getting no closer before he leaps over whatever is in the way
+Bigfoot.leapFar = true -- he leaps towards anything further off too (brain: alien-hunt/bigfoot_brain.lua)
 Bigfoot.crouchTime = 0.6
 Bigfoot.airTime = 1.0
 Bigfoot.recoverTime = 0.8
@@ -139,11 +145,12 @@ function Bigfoot.serverStop()
   sv = nil
 end
 
---- Every human who can be gone after, with where they are.
-local function humans(server)
+--- Every human who can be gone after, with where they are; `seen`: only
+--- those in sight (not hidden: `Features.visible`).
+local function humans(server, seen)
   local out = {}
   for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
+    if not p.bot and (seen and Features.visible(server, p) or not seen and Features.present(p)) then
       local x, y, onFoot = Features.bodyPose(server, p)
       out[#out + 1] = { player = p, x = x, y = y, onFoot = onFoot }
     end
@@ -216,85 +223,25 @@ function Bigfoot.serverBegin(server, events)
     count = 0,
     nextId = 1,
     litterIn = 2.5, -- the first litter soon after he arrives
+    time = 0,
     syncIn = 0,
     buildings = {},
   }
   return at.x, at.y
 end
 
-local function hurtPlayer(server, player, amount, angle)
+--- `dtype`: a slam is "impact", a swipe or a bite "melee".
+local function hurtPlayer(server, player, amount, angle, dtype)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage then
-    weapons:serverDamage(server, player, nil, amount, angle)
+    weapons:serverDamage(server, player, nil, amount, angle, dtype)
   end
 end
 
 --- Take `amount` off whatever building is at (x, y) (on its edge), the way
---- a gun or a blast would.
+--- a gun or a blast would. His claws: melee.
 local function hurtWall(server, x, y, amount, radius)
-  Features.call("serverBlast", server, x, y, radius or 1, amount, 0)
-end
-
---- What he goes after: the nearest player within aggro range; failing
---- that, whichever is nearer of any player and any building of a player's.
---- Returns { x, y, player, onFoot } or { x, y, building } or nil.
-local function pickTarget(server, f)
-  local best, bestD2
-  for _, h in ipairs(humans(server)) do
-    local d2 = dist2(h.x, h.y, f.x, f.y)
-    if not bestD2 or d2 < bestD2 then
-      best, bestD2 = { x = h.x, y = h.y, player = h.player, onFoot = h.onFoot }, d2
-    end
-  end
-  if best and bestD2 <= Bigfoot.aggroRange ^ 2 then
-    return best
-  end
-  for _, b in ipairs(sv.buildings) do
-    local x, y = nearestOn(b, f.x, f.y)
-    local d2 = dist2(x, y, f.x, f.y)
-    if not bestD2 or d2 < bestD2 then
-      best, bestD2 = { x = x, y = y, building = b }, d2
-    end
-  end
-  return best
-end
-
---- One step, each axis on its own so a corner is slid along. Landed in
---- something, he walks out of it. At full tilt while he has the breath,
---- which it costs him; a lumber once he is winded.
-local function walk(f, angle, dt)
-  local px, py, r = f.x, f.y, Bigfoot.radius
-  local speed = f.breath:pace(Bigfoot.speed, Bigfoot.walkSpeed)
-  f.running = not f.breath:winded()
-  local free = blocked(f.x, f.y, r)
-  local nx = f.x + math.cos(angle) * speed * dt
-  if free or not blocked(nx, f.y, r) then
-    f.x = nx
-  end
-  local ny = f.y + math.sin(angle) * speed * dt
-  if free or not blocked(f.x, ny, r) then
-    f.y = ny
-  end
-  if dist2(f.x, f.y, px, py) < (speed * dt * 0.4) ^ 2 then
-    f.stuck = f.stuck + dt
-  else
-    f.stuck = 0
-  end
-end
-
---- Crouch for a leap towards (tx, ty), no further than `leapRange`, and
---- onto clear ground: the landing is pulled back towards him until it is.
-local function crouch(f, tx, ty, playerId)
-  local angle = math.atan2(ty - f.y, tx - f.x)
-  local d = math.min(Bigfoot.leapRange, math.sqrt(dist2(tx, ty, f.x, f.y)))
-  local x, y = f.x + math.cos(angle) * d, f.y + math.sin(angle) * d
-  while d > 0 and blocked(x, y, Bigfoot.radius) do
-    d = math.max(0, d - 12)
-    x, y = f.x + math.cos(angle) * d, f.y + math.sin(angle) * d
-  end
-  f.mode, f.timer, f.facing = "crouch", Bigfoot.crouchTime, angle
-  f.tx, f.ty, f.target = x, y, playerId
-  f.leapTimer, f.stuck, f.noCloser, f.chasing = Bigfoot.leapEvery, 0, 0, nil
+  Features.call("serverBlast", server, x, y, radius or 1, amount, 0, "melee")
 end
 
 --- He comes down: everyone inside the ring is hurt and the buildings round
@@ -303,111 +250,25 @@ local function slam(server, f)
   for _, h in ipairs(humans(server)) do
     local pad = h.onFoot and Body.RADIUS or Car.WIDTH / 2
     if dist2(h.x, h.y, f.x, f.y) <= (Bigfoot.slamRadius + pad) ^ 2 then
-      hurtPlayer(server, h.player, Bigfoot.slamDamage, math.atan2(h.y - f.y, h.x - f.x))
+      hurtPlayer(server, h.player, Bigfoot.slamDamage, math.atan2(h.y - f.y, h.x - f.x), "impact")
     end
   end
   hurtWall(server, f.x, f.y, Bigfoot.slamWalls, Bigfoot.slamRadius)
   server:broadcast(Protocol.encode("EBF_SLAM", fmt(f.x), fmt(f.y), Bigfoot.slamRadius))
 end
 
---- Bigfoot's tick: in the air, frozen, crouching, getting up, running from
---- a stink, or after his target.
+--- Bigfoot's tick: his brain decides (alien-hunt/bigfoot_brain.lua);
+--- this does what that means to the city.
 local function stepFoot(server, dt)
   local f = sv.foot
-  f.swipe = math.max(0, f.swipe - dt)
-  f.swipeTimer = f.swipeTimer - dt
-  if f.mode == "air" then
-    f.running = true -- flying is the hardest work he does
-    f.timer = f.timer - dt
-    local k = math.min(1, 1 - f.timer / Bigfoot.airTime)
-    f.x, f.y = f.fx + (f.tx - f.fx) * k, f.fy + (f.ty - f.fy) * k
-    if f.timer <= 0 then
-      f.x, f.y = f.tx, f.ty
-      f.mode, f.timer = "recover", Bigfoot.recoverTime
-      slam(server, f)
-    end
-    return
-  end
-  if f.frozen > 0 then
-    f.frozen = f.frozen - dt
-    f.mode = "idle"
-    return
-  end
-  if f.panic and f.mode ~= "crouch" then
-    f.panic.left = f.panic.left - dt
-    f.mode = "walk"
-    f.facing = math.atan2(f.y - f.panic.y, f.x - f.panic.x)
-    walk(f, f.facing, dt)
-    if f.panic.left <= 0 then
-      f.panic = nil
-    end
-    return
-  end
-  if f.mode == "crouch" then
-    f.timer = f.timer - dt
-    if f.timer <= 0 then
-      local target = f.target and server.players[f.target]
-      if target and Features.present(target) then
-        -- A last look: he goes where they are now, within reach and onto clear ground.
-        local tx, ty = Features.bodyPose(server, target)
-        crouch(f, tx, ty, nil)
-      end
-      f.fx, f.fy = f.x, f.y
-      f.mode, f.timer = "air", Bigfoot.airTime
-      server:broadcast(Protocol.encode("EBF_LEAP", fmt(f.fx), fmt(f.fy), fmt(f.tx), fmt(f.ty), Bigfoot.airTime,
+  for _, e in ipairs(Brain.think(Bigfoot, f, server, dt, sv.time, sv.buildings)) do
+    if e[1] == "leap" then
+      server:broadcast(Protocol.encode("EBF_LEAP", fmt(e[2]), fmt(e[3]), fmt(e[4]), fmt(e[5]), Bigfoot.airTime,
         Bigfoot.slamRadius))
-    end
-    return
-  end
-  if f.mode == "recover" then
-    f.timer = f.timer - dt
-    if f.timer <= 0 then
-      f.mode = "walk"
-    end
-    return
-  end
-
-  local target = pickTarget(server, f)
-  if not target then
-    f.mode = "idle"
-    return
-  end
-  f.mode = "walk"
-  f.facing = math.atan2(target.y - f.y, target.x - f.x)
-  f.leapTimer = f.leapTimer - dt
-  local dist = math.sqrt(dist2(target.x, target.y, f.x, f.y))
-  local reach = Bigfoot.radius + Bigfoot.swipeReach + ((target.player and not target.onFoot) and 10 or 0)
-  -- Getting any closer? A new target starts the count again.
-  local key = target.player or target.building.id
-  if key ~= f.chasing or dist < f.closest - 30 then
-    f.chasing, f.closest, f.noCloser = key, dist, 0
-  else
-    f.noCloser = f.noCloser + dt
-  end
-  -- A leap takes breath: none while he is winded or nearly so.
-  local wants = f.noCloser > Bigfoot.stuckLeap or (f.leapTimer <= 0 and (target.player or dist > 300))
-  if dist > reach and wants and f.breath:has(Bigfoot.leapStamina) then
-    -- Onto a player in reach, towards anything further, over whatever he is stuck on.
-    f.breath:spend(Bigfoot.leapStamina)
-    crouch(f, target.x, target.y, target.player and dist <= Bigfoot.leapRange and target.player.id or nil)
-    return
-  end
-  if dist > reach then
-    if f.sidestep > 0 then
-      f.sidestep = f.sidestep - dt
-      walk(f, f.facing + f.side * math.pi / 2, dt)
-    else
-      walk(f, f.facing, dt)
-      if f.stuck > 0.4 then
-        f.stuck, f.sidestep, f.side = 0, 0.6, -f.side
-      end
-    end
-  elseif f.swipeTimer <= 0 then
-    f.swipeTimer, f.swipe = Bigfoot.swipeEvery, 0.25
-    if target.player then
-      hurtPlayer(server, target.player, Bigfoot.swipeDamage, f.facing)
-    else
-      hurtWall(server, target.x, target.y, Bigfoot.clawDamage)
+    elseif e[1] == "slam" then
+      slam(server, f)
+    elseif e[1] == "claw" then
+      hurtWall(server, e[2], e[3], Bigfoot.clawDamage)
     end
   end
 end
@@ -476,7 +337,7 @@ end
 
 --- Every squirrel's tick: sit, then shoot off at a target and burst on it.
 local function stepSquirrels(server, dt)
-  local people = humans(server)
+  local people = humans(server, true)
   local f = sv.foot
   for _, s in pairs(sv.squirrels) do
     s.life = s.life - dt
@@ -510,7 +371,7 @@ local function stepSquirrels(server, dt)
       if t and t.player then
         local reach = Bigfoot.squirrelRadius + (t.onFoot and Body.RADIUS or Car.WIDTH / 2 + 4)
         if dist2(t.x, t.y, s.x, s.y) <= reach * reach then
-          hurtPlayer(server, t.player, Bigfoot.squirrelDamage, s.facing)
+          hurtPlayer(server, t.player, Bigfoot.squirrelDamage, s.facing, "melee")
           pop(server, s)
         end
       elseif t and t.building then
@@ -554,8 +415,8 @@ function Bigfoot.serverStep(server, dt)
   if not sv then
     return
   end
+  sv.time = sv.time + dt
   sv.buildings = buildings()
-  sv.foot.running = false
   stepFoot(server, dt)
   if not sv then
     return
@@ -680,6 +541,15 @@ function Bigfoot.stop()
 end
 
 --- Where he is drawn now, for the minimap.
+--- Where he walks, for footsteps: nowhere while he is in the air.
+function Bigfoot.footing()
+  local f = cl and cl.foot
+  if f and not (cl.leap and f.mode == "air") then
+    return f.dx, f.dy, "heavy"
+  end
+  return nil
+end
+
 function Bigfoot.where()
   local f = cl and cl.foot
   if f then

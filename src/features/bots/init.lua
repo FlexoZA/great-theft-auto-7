@@ -28,15 +28,25 @@
 -- Other features can provoke a bot too (a trigger area later):
 --   Features.byName.bots:provoke(server, botPlayer, playerId)
 --
+-- While a city event is on (any feature answers `serverEventActive`: a boss
+-- loose in the streets) every bot is passive: a fight in progress is
+-- forgiven, nothing provokes one and nobody drives recklessly. Police
+-- units are bots too; the police feature keeps them passive its own way.
+--
+-- Every NPC car, whatever its brain, drives off from a stink cloud, and
+-- from a player's ability about to land on it (a freeze's warning ring,
+-- after `dodgeReact` seconds to see it).
+--
 -- Host keys: B adds a bot, N removes the last one.
 --
 -- Messages
 --   client -> server  BOT_ADD / BOT_REMOVE   (host only)
---   server -> all     BOT_UNIT <id>          (that player is a civilian bot; player-arrows leaves them out)
+--   server -> all     BOT_UNIT <id>          (a civilian NPC: player-arrows and the minimap leave them out)
 
 local Protocol = require("src.net.protocol")
 local ServerSettings = require("src.server_settings")
 local Features = require("src.features")
+local Car = require("src.car")
 local Net = require("src.net")
 local UI = require("src.ui")
 local Controls = require("src.controls")
@@ -82,6 +92,7 @@ local HOST_ID = 1
 --- The numbers behind the host's chosen bot difficulty, read live so a
 --- change on the Settings screen takes effect mid-game.
 Bots.panicHold = 0.5 -- seconds an NPC keeps fleeing a stink after it was last told of it
+Bots.dodgeReact = 0.3 -- seconds after a player's ability shows where it lands before an NPC drives off
 
 function Bots:difficulty()
   return self.difficulties[ServerSettings.get("botDifficulty")] or self.difficulties.normal
@@ -91,6 +102,7 @@ local npcs = {} -- every NPC, civilians included
 local nextNumber = 1
 local now = 0 -- server time, seconds since start
 local nextReckless = 0 -- server time the next reckless spell starts
+local truce = false -- a city event is on: every bot is passive
 local walkers = {} -- everyone on foot this tick, flat: x, y, vx, vy per walker (traffic stops for them)
 
 local function clamp(v, lo, hi)
@@ -130,8 +142,9 @@ end
 --- Create any NPC driver: a player with a body and a car of its own, seated
 --- (server:spawnPlayer). opts: name, x, y, angle, brain (table with
 --- think(server, npc, dt), optional), plus any extra fields to copy onto the
---- player (e.g. police = true). Returns the player table. `npc.car` is the
---- car it drives, so a brain reads and steers that.
+--- player (e.g. police = true). `civilian = true` tells every client it is
+--- traffic (BOT_UNIT): left off the minimap and the edge arrows. Returns the
+--- player table. `npc.car` is the car it drives, so a brain reads and steers that.
 function Bots:spawnNpc(server, opts)
   local id = server.nextId
   server.nextId = id + 1
@@ -168,6 +181,9 @@ function Bots:spawnNpc(server, opts)
     self:park(npc, true) -- born on a map with no traffic: wait out of sight
   end
   server:broadcast(Protocol.encode("JOIN", id, npc.name))
+  if npc.civilian then
+    server:broadcast(Protocol.encode("BOT_UNIT", id))
+  end
   Features.call("serverPlayerJoined", server, npc)
   return npc
 end
@@ -236,22 +252,24 @@ function Bots:add(server, x, y, angle)
   if #bots >= self.maxBots then
     return nil
   end
-  local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle })
+  local bot = self:spawnNpc(server, { name = "Bot " .. nextNumber, x = x, y = y, angle = angle, civilian = true })
   bot.wantsModel = true -- a random car from the shop, on the next tick (weapons must be up to give it its hitpoints)
   nextNumber = nextNumber + 1
   bots[#bots + 1] = bot
-  server:broadcast(Protocol.encode("BOT_UNIT", bot.id))
   return bot
 end
 
---- A player who arrives mid-game hears which players are bots. In the lobby
---- `bots` may still hold the last game's, so nothing is sent before the start.
+--- A player who arrives mid-game hears which players are civilian NPCs. In
+--- the lobby `npcs` may still hold the last game's, so nothing is sent
+--- before the start.
 function Bots:serverPlayerJoined(server, player)
   if player.bot or not server.started then
     return
   end
-  for _, bot in ipairs(bots) do
-    server:send(player, Protocol.encode("BOT_UNIT", bot.id))
+  for _, npc in ipairs(npcs) do
+    if npc.civilian then
+      server:send(player, Protocol.encode("BOT_UNIT", npc.id))
+    end
   end
 end
 
@@ -354,7 +372,7 @@ Bots.serverMessages = {
 
 --- Make `bot` hostile towards player `byId` (a human or another bot).
 function Bots:provoke(_server, bot, byId)
-  if not (bot and bot.bot and byId) or byId == bot.id then
+  if truce or not (bot and bot.bot and byId) or byId == bot.id then
     return
   end
   bot.ai.hostileTo = byId
@@ -362,8 +380,21 @@ function Bots:provoke(_server, bot, byId)
   bot.ai.farFor = 0
 end
 
+--- Make `bot` fight off something that is not a player (a hired bum):
+--- `foe.pos()` says where it is and `foe.alive()` whether the fight is still
+--- on. A player it is angry at comes first. Shooting at it is a crime like
+--- any other: the police see it the same way.
+function Bots:fightOff(_server, bot, foe)
+  if truce or not (bot and bot.bot and bot.ai and foe) then
+    return
+  end
+  bot.ai.foe = foe
+  bot.ai.foeUntil = now + self:difficulty().hostileTime
+end
+
 function Bots:calm(bot)
   bot.ai.hostileTo = nil
+  bot.ai.foe = nil
   bot.ai.farFor = 0
   bot.ai.recklessUntil = nil -- a fight or a wreck ends a reckless spell too
 end
@@ -468,10 +499,15 @@ function Bots:cruise(server, bot, speed, reckless)
 end
 
 function Bots:fight(server, bot, target)
-  local ai, car = bot.ai, bot.car
-  local tc = target.vehicle
   -- The target is where their body is: the car they drive, or their feet.
   local tx, ty, onFoot = Features.bodyPose(server, target)
+  self:fightAt(server, bot, tx, ty, not onFoot and target.vehicle or nil)
+end
+
+--- Drive at (tx, ty), circling it close in, and shoot at it, leading `tc`
+--- (the car there, if it is one).
+function Bots:fightAt(server, bot, tx, ty, tc)
+  local ai, car = bot.ai, bot.car
   local dx, dy = tx - car.x, ty - car.y
   local dist = math.sqrt(dx * dx + dy * dy)
   Bots.driveTowards(bot, tx, ty, 1, dist <= self.standoff)
@@ -493,7 +529,7 @@ function Bots:fight(server, bot, target)
     if Weapons and Weapons.serverFire then
       local flight = dist / Weapons.PROJECTILE_SPEED
       local px, py = tx, ty
-      if not onFoot then
+      if tc then
         px = tc.x + math.cos(tc.angle) * tc.speed * flight
         py = tc.y + math.sin(tc.angle) * tc.speed * flight
       end
@@ -505,11 +541,11 @@ end
 
 function Bots:think(server, bot, dt)
   local ai = bot.ai
-  if ai.hostileTo and now > ai.hostileUntil then
-    self:calm(bot) -- forgiven
+  if truce or (ai.hostileTo and now > ai.hostileUntil) then
+    self:calm(bot) -- forgiven, or an event is on
   end
   local target = ai.hostileTo and server.players[ai.hostileTo]
-  if target and Features.present(target) then
+  if target and Features.visible(server, target) then
     local tx, ty = Features.bodyPose(server, target)
     local dist = math.sqrt((tx - bot.car.x) ^ 2 + (ty - bot.car.y) ^ 2)
     if dist > self.giveUpDistance then
@@ -522,8 +558,15 @@ function Bots:think(server, bot, dt)
       ai.farFor = 0
     end
   end
-  if target and Features.present(target) then
+  local foe = ai.foe
+  if foe and (truce or now > ai.foeUntil or not foe.alive()) then
+    ai.foe, foe = nil, nil -- over, or forgiven
+  end
+  if target and Features.visible(server, target) then
     self:fight(server, bot, target)
+  elseif foe then
+    local fx, fy = foe.pos()
+    self:fightAt(server, bot, fx, fy)
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)
   else
@@ -540,6 +583,27 @@ function Bots:serverPanicArea(_server, x, y, radius)
     local car = npc.car
     if car and not car.hidden and (car.x - x) ^ 2 + (car.y - y) ^ 2 <= radius ^ 2 then
       npc.panic = { x = x, y = y, untilT = now + self.panicHold }
+    end
+  end
+end
+
+--- A player's ability about to land (a freeze's warning ring, a leaper
+--- coming down: abilities' serverIncoming): every NPC car under one,
+--- once it has had a moment to see it, drives off as from a stink.
+local function dodge()
+  local abilities = Features.byName.abilities
+  if not (abilities and abilities.serverIncoming) then
+    return
+  end
+  for _, a in ipairs(abilities:serverIncoming()) do
+    if a.age >= Bots.dodgeReact then
+      local reach = a.radius + Car.WIDTH / 2
+      for _, npc in ipairs(npcs) do
+        local car = npc.car
+        if car and not car.hidden and (car.x - a.x) ^ 2 + (car.y - a.y) ^ 2 <= reach * reach then
+          npc.panic = { x = a.x, y = a.y, untilT = now + Bots.panicHold }
+        end
+      end
     end
   end
 end
@@ -584,7 +648,7 @@ end
 --- Time for someone to drive badly? One civilian bot on the road, peaceful
 --- and not already at it, goes reckless for a spell.
 local function maybeReckless()
-  if now < nextReckless then
+  if truce or now < nextReckless then
     return
   end
   nextReckless = now + between(Bots.recklessEvery)
@@ -602,8 +666,10 @@ end
 function Bots:serverStep(server, dt)
   now = now + dt
   server.dtLast = dt
+  truce = Features.any("serverEventActive", server)
   collectWalkers(server)
   maybeReckless()
+  dodge()
   local vehicles = Features.byName.vehicles
   for _, bot in ipairs(bots) do
     if bot.wantsModel and bot.car then

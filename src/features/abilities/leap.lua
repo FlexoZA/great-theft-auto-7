@@ -35,6 +35,7 @@ local Sounds = require("src.features.abilities.sounds")
 local Leap = {
   key = "leap", -- on the wire and in a bag ("ability-leap")
   title = "leap",
+  blurb = "Jump over anything to a spot you pick and slam down on whoever is there.",
   sound = "leap",
   color = { 1.0, 0.45, 0.3 }, -- a hot orange-red
   onFoot = true, -- no leaping out of a driver's seat
@@ -149,19 +150,19 @@ local function slam(A, server, caster, x, y)
   end
   for _, c in ipairs(caught) do
     if c.player then
-      weapons:serverDamage(server, c.player, caster, c.amount, c.angle)
+      weapons:serverDamage(server, c.player, caster, c.amount, c.angle, "impact")
     elseif weapons.damageCar then
-      weapons:damageCar(server, c.car, caster.id, c.amount, 0, c.angle)
+      weapons:damageCar(server, c.car, caster.id, c.amount, 0, c.angle, "impact")
     end
   end
   if A.walls then
     -- A leap heavy enough cracks buildings too, the way a rocket does.
-    Features.call("serverBlast", server, x, y, R, A.walls, caster.id)
+    Features.call("serverBlast", server, x, y, R, A.walls, caster.id, "impact")
   end
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, A.soft do
-        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi) then
+        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi, nil, "impact") then
           break
         end
       end
@@ -201,9 +202,20 @@ function Leap.serverStep(server, _dt, abilities)
   step(Leap, server, abilities)
 end
 
---- For tests.
+--- Who is in the air and where they will land: for tests, and for
+--- enemies that see a landing coming (hunters).
 function Leap.serverLeaps()
   return leaps
+end
+
+--- Every landing still to come, for Abilities:serverIncoming. One list
+--- holds every leap's leapers (bigleap's too), so only leap.lua adds them.
+function Leap.serverIncoming(list, now)
+  for _, l in pairs(leaps) do
+    list[#list + 1] = {
+      x = l.x, y = l.y, radius = l.ability.radius, age = now - l.startT, left = l.startT + l.flight - now,
+    }
+  end
 end
 
 -- Client --------------------------------------------------------------------
@@ -333,6 +345,7 @@ function Leap.variant(tuning)
     A[k] = v
   end
   A.variant = nil
+  A.serverIncoming = nil -- leap.lua's own lists this one's leapers too
   A.serverCast = function(server, caster, x, y, abilities, T)
     return cast(T or A, server, caster, x, y, abilities)
   end

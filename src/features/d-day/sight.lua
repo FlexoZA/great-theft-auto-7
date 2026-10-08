@@ -80,11 +80,13 @@ local fan = {} -- reused: the clipped end of each ray
 
 --- The cone from (x, y) facing `facing`, out to `range`, clipped by walls:
 --- a faint pale fan while scanning, a hot red one with somebody in it.
-function Sight.draw(x, y, facing, range, alert, time)
-  local rays = Sight.RAYS
-  local half = Sight.FOV / 2
+--- `fov` is how wide (Sight.FOV unless given); a wider one gets more rays.
+function Sight.draw(x, y, facing, range, alert, time, fov)
+  fov = fov or Sight.FOV
+  local rays = math.max(Sight.RAYS, math.ceil(fov / Sight.FOV * Sight.RAYS))
+  local half = fov / 2
   for i = 0, rays - 1 do
-    local a = facing - half + Sight.FOV * i / (rays - 1)
+    local a = facing - half + fov * i / (rays - 1)
     fan[i * 2 + 1], fan[i * 2 + 2] = Sight.reach(x, y, a, range)
   end
   local r, g, b, fill, edge = 1, 0.95, 0.7, 0.10, 0.28

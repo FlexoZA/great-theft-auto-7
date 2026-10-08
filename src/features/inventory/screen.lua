@@ -9,9 +9,9 @@
 --                 is left to load, the one in hand lit up, empty ones bare;
 --                 under them the ability slots, one per ability key, as the
 --                 HUD shows them, empty ones bare, and beside those the
---                 quick slots (buildings.usables): a stack of medkits and
---                 one of energy drinks dragged out of the bag, the ones
---                 their keys (H, J) use
+--                 quick slots (buildings.usables): a stack each of medkits,
+--                 energy drinks and grenades dragged out of the bag, the
+--                 ones their keys (H, J, T) use
 --                 under those, the stats strip: what your clothes do to
 --                 your speed, sprint cost, ammo bundles, ability cooldowns
 --                 and armor, each tile lit when it is better than base
@@ -38,6 +38,9 @@ local Guns = require("src.features.weapons.guns")
 local Icons = require("src.features.weapons.icons")
 local AbilityIcons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
+local Figure = require("src.features.inventory.figure")
+local Face = require("src.art.face")
 
 local Screen = {}
 
@@ -51,7 +54,7 @@ local CELL, GAP = 76, 8 -- item boxes
 local GEAR = 54 -- gear boxes
 local GUN_W, GUN_H = 120, 96 -- weapon boxes: the icon over the name over the ammo
 local ABL_W, ABL_H = 64, 72 -- ability boxes
-local QUICK_W = 96 -- a quick slot (medkits, drinks), as tall as an ability box
+local QUICK_W = 96 -- widest a quick slot (medkits, drinks) gets, as tall as an ability box; narrower to fit
 local STAT_H = 40 -- a stats tile: the value over its name
 local TRASH_W, TRASH_H = 150, 30 -- the bin under the item boxes
 
@@ -142,6 +145,7 @@ end
 ---   abilities[i]           { x, y, w, h }, as many as the HUD shows
 ---   quick[i]               { x, y, w, h, item, usable }, the quick slots beside them, buildings.usables order
 ---   stats[i]               { x, y, w, h, stat }, the stats strip under the abilities, Screen.stats order
+---   resists[i]             { x, y, w, h, dtype }, the resistances strip under it, Damage.order
 ---   items[i]               { x, y, w, h }, Kinds.MAX_SLOTS of them
 ---   trash                  { x, y, w, h }, the bin under the items, right
 ---   weaponsArea / abilitiesArea / itemsArea  the block each row of boxes stands in, for drops
@@ -154,6 +158,7 @@ function Screen.layout()
   local rows = math.ceil(Kinds.MAX_SLOTS / cols)
   local gearH = #Screen.gear * (GEAR + GAP) - GAP
   local rightH = LABEL_H + GUN_H + SECTION_GAP + LABEL_H + ABL_H + SECTION_GAP + LABEL_H + STAT_H
+    + SECTION_GAP + LABEL_H + STAT_H
   local topH = math.max(gearH, rightH)
   local itemsH = rows * (CELL + GAP) - GAP
   local ph = 56 + topH + SECTION_GAP + LABEL_H + itemsH + 12 + TRASH_H + 34
@@ -190,12 +195,15 @@ function Screen.layout()
   L.abilitiesArea = { x = x - GAP, y = ay, w = abilitySlots * (ABL_W + GAP) + GAP, h = LABEL_H + ABL_H + GAP }
   -- The quick slots to the right of the abilities: what the use keys use.
   local buildings = Features.byName.buildings
-  local qx = x + abilitySlots * (ABL_W + GAP) + Screen.pad
+  local qx = x + abilitySlots * (ABL_W + GAP) + 2 * GAP
   L.quickLabel = { x = qx, y = ay }
   L.quick = {}
-  for i, u in ipairs(buildings and buildings.usables or {}) do
+  local usables = buildings and buildings.usables or {}
+  local room = px + Screen.width - Screen.pad - qx + GAP
+  local quickW = math.min(QUICK_W, math.floor(room / math.max(1, #usables)) - GAP)
+  for i, u in ipairs(usables) do
     L.quick[i] = {
-      x = qx + (i - 1) * (QUICK_W + GAP), y = ay + LABEL_H, w = QUICK_W, h = ABL_H, item = u.item, usable = u,
+      x = qx + (i - 1) * (quickW + GAP), y = ay + LABEL_H, w = quickW, h = ABL_H, item = u.item, usable = u,
     }
   end
 
@@ -207,6 +215,15 @@ function Screen.layout()
   local tileW = math.floor((statsW - (#Screen.stats - 1) * GAP) / #Screen.stats)
   for i, stat in ipairs(Screen.stats) do
     L.stats[i] = { x = x + (i - 1) * (tileW + GAP), y = sy + LABEL_H, w = tileW, h = STAT_H, stat = stat }
+  end
+
+  -- What everything worn resists, a tile per damage type, under the stats.
+  local ry = sy + LABEL_H + STAT_H + SECTION_GAP
+  L.resistsLabel = { x = x, y = ry }
+  L.resists = {}
+  local resistW = math.floor((statsW - (#Damage.order - 1) * GAP) / #Damage.order)
+  for i, dtype in ipairs(Damage.order) do
+    L.resists[i] = { x = x + (i - 1) * (resistW + GAP), y = ry + LABEL_H, w = resistW, h = STAT_H, dtype = dtype }
   end
 
   -- The item boxes along the bottom.
@@ -223,30 +240,41 @@ function Screen.layout()
   return L
 end
 
---- The character: a plain figure standing in the box, front on, until
---- there are clothes to draw on them.
-local function drawFigure(r)
-  local cx, top = r.x + r.w / 2, r.y + 18
-  local scale = math.min(1, (r.h - 36) / 200)
-  local function s(v)
-    return v * scale
-  end
+-- The menu's crazy face, as the character's head: blinking and twitching,
+-- ticked by the screen's own clock while it is up.
+local face, faceAt = nil, nil
+
+--- The character standing in the box, with the menu's face for a head,
+--- wearing what I wear (figure.lua): my clothes and armor, and the gun in my
+--- hand. A piece being dragged out of its slot (`liftedArmor`,
+--- `liftedSlot`) is off them while it is.
+local function drawFigure(r, client, liftedArmor, liftedSlot)
+  face = face or Face.new()
+  local now = love.timer.getTime()
+  face:update(math.min(0.1, now - (faceAt or now)))
+  faceAt = now
   love.graphics.setColor(1, 1, 1, 0.04)
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
-  -- Shadow underfoot, then legs, torso, arms, head.
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.ellipse("fill", cx, top + s(200), s(38), s(9))
-  love.graphics.setColor(0.28, 0.30, 0.40)
-  love.graphics.rectangle("fill", cx - s(20), top + s(112), s(17), s(84), s(6))
-  love.graphics.rectangle("fill", cx + s(3), top + s(112), s(17), s(84), s(6))
-  love.graphics.setColor(0.36, 0.38, 0.50)
-  love.graphics.rectangle("fill", cx - s(26), top + s(44), s(52), s(74), s(10))
-  love.graphics.rectangle("fill", cx - s(40), top + s(48), s(13), s(66), s(6))
-  love.graphics.rectangle("fill", cx + s(27), top + s(48), s(13), s(66), s(6))
-  love.graphics.setColor(0.80, 0.65, 0.52)
-  love.graphics.circle("fill", cx, top + s(22), s(20), 32)
-  love.graphics.circle("fill", cx - s(34), top + s(120), s(6), 16)
-  love.graphics.circle("fill", cx + s(34), top + s(120), s(6), 16)
+  local dress = {}
+  local gear, armor, weapons = Features.byName.gear, Features.byName.armor, Features.byName.weapons
+  for slot, key in pairs(gear and gear:mine(client) or {}) do
+    if slot ~= liftedSlot then
+      dress[slot] = Tiers.base(key)
+    end
+  end
+  local worn = armor and not liftedArmor and armor:mine(client)
+  if worn then
+    dress.armor = Tiers.base(worn.kind)
+  end
+  local gun = weapons and Guns.list[weapons.gun]
+  if gun then
+    dress.gun = gun.key
+  end
+  -- As big as the box allows: the figure's height and its shadow, about 110
+  -- wide with the gun held out; centred up and down.
+  local height = Figure.height(face) + 5
+  local scale = math.min((r.h - 24) / height, (r.w - 8) / 110)
+  Figure.draw(r.x + r.w / 2 - 8 * scale, r.y + (r.h - height * scale) / 2, scale, dress, face)
 end
 
 --- The gear slots, each named for what goes in it: the clothes worn in
@@ -462,6 +490,28 @@ local function drawStats(L, client)
   end
 end
 
+--- The resistances strip: for each damage type, how much of it what I
+--- wear stops altogether (armor and clothes), lit in the type's colour
+--- when it is anything.
+local function drawResists(L, client)
+  heading("resist", L.resistsLabel.x, L.resistsLabel.y)
+  local damage = Features.byName.damage
+  love.graphics.setFont(UI.fonts.small)
+  for _, r in ipairs(L.resists) do
+    local pct = damage and math.floor((1 - damage:share(client, client.myId, r.dtype)) * 100 + 0.5) or 0
+    box(r.x, r.y, r.w, r.h, pct > 0, false)
+    local c = Damage.of(r.dtype).color
+    if pct > 0 then
+      love.graphics.setColor(c[1], c[2], c[3])
+    else
+      love.graphics.setColor(1, 1, 1, 0.45)
+    end
+    love.graphics.printf(pct > 0 and ("%d%%"):format(pct) or "-", r.x, r.y + 4, r.w, "center")
+    love.graphics.setColor(0.85, 0.85, 0.9, pct > 0 and 1 or 0.5)
+    love.graphics.printf(r.dtype, r.x, r.y + r.h - 18, r.w, "center")
+  end
+end
+
 --- The item boxes: a stack per open slot, locked ones greyed out. `lifted`
 --- is the box whose item is being dragged, drawn empty meanwhile.
 local function drawItems(L, buildings, list, lifted)
@@ -479,7 +529,7 @@ local function drawItems(L, buildings, list, lifted)
       Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
       -- Equipment is named in its tier's colour; the frame and the hint say which.
       love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
-      love.graphics.printf(Kinds.name(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
+      love.graphics.printf(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
     elseif not open then
@@ -561,13 +611,15 @@ function Screen.draw(buildings, list, drag, notice, client)
   local L = Screen.layout()
   local p = L.panel
   panel(p.x, p.y, p.w, p.h, "INVENTORY")
-  drawFigure(L.figure)
+  drawFigure(L.figure, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
+    drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawGear(L, client, drag ~= nil and drag.kind == "armor" and drag.from == "slot",
     drag and drag.kind == "gear" and drag.from == "slot" and drag.slot or nil)
   drawWeapons(L, drag and drag.kind == "gun" and drag.from == "slot" and drag.box or nil)
   drawAbilities(L, drag and drag.kind == "ability" and drag.from == "slot" and drag.box or nil)
   drawQuick(L, buildings, drag and drag.kind == "quick" and drag.from == "quick" and drag.item or nil)
   drawStats(L, client)
+  drawResists(L, client)
   drawItems(L, buildings, list, drag and drag.from == "bag" and drag.box or nil)
 
   love.graphics.setFont(UI.fonts.small)
@@ -582,9 +634,7 @@ function Screen.draw(buildings, list, drag, notice, client)
     hint = ("%s (%s): %s"):format(Kinds.name(Tiers.base(over), 1), tier, Kinds.tierLine(over) or "")
     love.graphics.setColor(Tiers.color(tier))
   elseif buildings.slots < Kinds.MAX_SLOTS then
-    local shop = Controls.name(Controls.bindings("upgrades")[1])
-    hint = ("%d/%d item slots used. More slots in the upgrade shop (%s)."):format(
-      math.min(#list, buildings.slots), buildings.slots, shop)
+    hint = ("%d/%d item slots used. More slots at the gym."):format(math.min(#list, buildings.slots), buildings.slots)
     love.graphics.setColor(0.8, 0.8, 0.85)
   else
     hint = ("%d/%d item slots used."):format(math.min(#list, buildings.slots), buildings.slots)

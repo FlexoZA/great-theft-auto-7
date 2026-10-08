@@ -281,45 +281,57 @@ local function drawName(client, id, x, y)
   end
 end
 
+--- Is player `id` out of sight on this screen (the `hidden` convention: the
+--- chicken ability)? Never myself: I see where I am.
+local function hidden(client, id)
+  return id ~= nil and id ~= client.myId and Features.any("hidden", client, id)
+end
+
 --- Every vehicle in its own colour, the driver's name over it. A parked car
 --- is just a car. A feature that draws a car its own way (vehicles, for a
---- model) answers `drawVehicle` with true and the box is left out.
+--- model) answers `drawVehicle` with true and the box is left out. A car
+--- whose driver is hidden is left out altogether.
 function Game:drawVehicles(client)
   love.graphics.setFont(UI.fonts.small)
   for _, c in pairs(client.vehicles) do
-    if not Features.any("drawVehicle", client, c) then
-      Car.draw(c.dx, c.dy, c.dangle, Car.paletteColor(c.color))
-    end
-    if c.driver then
-      drawName(client, c.driver, c.dx, c.dy - Car.HEIGHT - 18)
+    if not hidden(client, c.driver) then
+      if not Features.any("drawVehicle", client, c) then
+        Car.draw(c.dx, c.dy, c.dangle, Car.paletteColor(c.color))
+      end
+      if c.driver then
+        drawName(client, c.driver, c.dx, c.dy - Car.HEIGHT - 18)
+      end
     end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
---- Everyone on foot, in their colour, waddling as they go.
+--- Everyone on foot, in their colour, waddling as they go; not the hidden.
 function Game:drawBodies(client)
   love.graphics.setFont(UI.fonts.small)
   local t = love.timer.getTime()
   for id, b in pairs(client.bodies) do
-    local swing = math.sin(t * (b.running and 16 or 8) + (b.bob or 0)) * (b.running and 1.5 or 0.9)
-    Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing)
-    drawName(client, id, b.dx, b.dy - 30)
+    if not hidden(client, id) then
+      local swing = math.sin(t * (b.running and 16 or 8) + (b.bob or 0)) * (b.running and 1.5 or 0.9)
+      Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing)
+      drawName(client, id, b.dx, b.dy - 30)
+    end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
---- The world through the camera: features below, vehicles and walkers,
---- features above.
-function Game:drawWorld(client, w, h)
+--- The world through the camera (`camera`, or the game's own), centred in
+--- a `w` x `h` view: features below, vehicles and walkers, features above.
+function Game:drawWorld(client, w, h, camera)
+  camera = camera or self.camera
   love.graphics.push()
   love.graphics.translate(math.floor(w / 2), math.floor(h / 2))
-  love.graphics.scale(self.camera.scale or 1)
-  love.graphics.translate(-math.floor(self.camera.x), -math.floor(self.camera.y))
-  Features.call("drawBelowCars", client, self.camera)
+  love.graphics.scale(camera.scale or 1)
+  love.graphics.translate(-math.floor(camera.x), -math.floor(camera.y))
+  Features.call("drawBelowCars", client, camera)
   self:drawVehicles(client)
   self:drawBodies(client)
-  Features.call("drawAboveCars", client, self.camera)
+  Features.call("drawAboveCars", client, camera)
   love.graphics.pop()
 end
 
@@ -384,6 +396,11 @@ function Game:draw()
     end
     return
   end
+  -- A lens (the sniper's scope) may show the world again through a camera
+  -- of its own: `drawWorld(camera, w, h)` draws it centred in a w x h view.
+  Features.call("drawLens", client, function(camera, vw, vh)
+    self:drawWorld(client, vw or w, vh or h, camera)
+  end)
   Features.call("drawHUD", client)
 
   local me = client:myVehicle()
@@ -395,7 +412,23 @@ function Game:draw()
     love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
   end
   local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
-  love.graphics.print("Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave", 10, 28)
+  local help = "Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave"
+  love.graphics.print(help, 10, 28)
+
+  -- Ping, big, just right of the lines above: ENet's smoothed round trip to the server.
+  if client:isConnected() and client.peer then
+    local ms = client.peer:round_trip_time()
+    if ms < 80 then
+      love.graphics.setColor(0.5, 1, 0.5)
+    elseif ms < 150 then
+      love.graphics.setColor(1, 0.85, 0.3)
+    else
+      love.graphics.setColor(1, 0.4, 0.4)
+    end
+    love.graphics.setFont(UI.fonts.title)
+    love.graphics.print(("%d ms"):format(ms), 10 + UI.fonts.small:getWidth(help) + 24, 2)
+    love.graphics.setFont(UI.fonts.small)
+  end
 
   local text
   if client:isConnected() then
@@ -407,6 +440,8 @@ function Game:draw()
     love.graphics.setColor(1, 0.4, 0.4)
   end
   love.graphics.printf(text, 0, 10, w - 10, "right")
+  -- Full panels (the job board) over every HUD piece and the lines above.
+  Features.call("drawScreen", client)
 end
 
 function Game:keypressed(key)

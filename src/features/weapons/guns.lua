@@ -12,21 +12,47 @@
 --   sound     name in sounds.lua, and a pitch around 1
 --   magazine  rounds between reloads
 --   reload    seconds a reload takes, and its sound in sounds.lua
+--   blurb     what it is like, in a sentence, for the shop's side panel
 --
 -- Optional:
 --   ttl       seconds a round flies before it is spent (weapons' default otherwise)
---   blast     { radius, damage, soft }: the round is a missile that explodes
+--   damageType what kind of hit a round is (src/features/damage): "bullet"
+--             otherwise
+--   blast     { radius, damage, soft, type }: the round is a missile that explodes
 --             where it lands (or where it runs out of flight), hurting
 --             everything within `radius` px, `damage` at the centre falling
 --             to a third at the edge. `soft` is how many bullets' worth it
 --             does to each feature's soft targets (pedestrians, officers).
+--             `type` is the blast's damage type, "explosive" otherwise.
+--   ignite    { seconds, dps }: a round that hits somebody on foot sets them
+--             alight (the damage feature's burning) for `seconds` at `dps`
+--   flame     true: its rounds are drawn as tongues of fire that swell and
+--             darken as they go, not as streaks (the flamethrower)
+--   tank      true: the magazine is a tank, and one ammo item fills it
+--             whole, however much is left in it or however big a tier
+--             makes it (a fuel can). A box, a drop or a stock is counted in
+--             items, one a magazine
 --   pellets   projectiles one trigger pull sends out (1 otherwise), each
 --             scattered by `spread` on its own: a shotgun. The magazine
 --             counts pulls, not pellets, and only the first pellet sounds.
+--   quiet     true: its rounds make no sound of their own (a gun a feature
+--             fires and sounds itself: the scout car's tau cannon)
+--   spinUp    seconds the barrels take to wind up before the first round
+--             (the minigun): hold fire and it spins, rounds come once it
+--             turns, and it keeps turning between rounds for as long as
+--             you hold on. Let go and it has to wind up again
+--   pace      with `spinUp`: the share of your pace on foot, walking or
+--             sprinting, while the barrels turn (winding up or firing)
+--   dropWeight how likely an enemy's ammo box is for this gun, against the
+--             others' (pickups' serverDropAmmo); 1 otherwise
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
 --             Guns.tierStats otherwise; "blast.damage" reaches into `blast`
+--   scope     how many times the scope magnifies: hold the scope button
+--             (right mouse) with the gun in hand and a lens that much
+--             closer opens round the cursor; the cursor is a scope's
+--             crosshair all the while the gun is up (the sniper rifle)
 --   stock     rounds everyone starts the game with, the loaded magazine
 --             included, and the gun itself: everyone starts with a gun
 --             that has a stock in a weapon slot (for testing a gun before
@@ -46,6 +72,7 @@ local Guns = {}
 Guns.list = {
   {
     key = "pistol",
+    blurb = "Hits hard and straight, and never runs out of rounds. Everyone starts with one.",
     name = "pistol",
     damage = 20,
     cooldown = 0.2,
@@ -61,6 +88,8 @@ Guns.list = {
   },
   {
     key = "uzi",
+    dropWeight = 3, -- how often an enemy's ammo box is for it (pickups): a common gun's
+    blurb = "Sprays fourteen rounds a second: weak one at a time, deadly up close.",
     name = "uzi",
     damage = 12, -- a little less per round...
     cooldown = 0.07, -- ...but fourteen of them a second
@@ -75,6 +104,8 @@ Guns.list = {
   },
   {
     key = "ak47",
+    dropWeight = 3, -- as often as the uzi's: the gun most soldiers carry
+    blurb = "A rifle: nine rounds a second with hardly any scatter.",
     name = "AK-47",
     damage = 18, -- between the pistol and the uzi per round...
     cooldown = 0.11, -- ...nine of them a second
@@ -90,6 +121,8 @@ Guns.list = {
   },
   {
     key = "shotgun",
+    dropWeight = 2, -- shells a little less often
+    blurb = "Six pellets a pull that fill a doorway. Brutal up close, spent by about 250 px.",
     name = "shotgun",
     damage = 11, -- per pellet: all six in the chest is a car half wrecked
     cooldown = 0.9, -- pump between shots
@@ -108,6 +141,8 @@ Guns.list = {
   },
   {
     key = "rocket",
+    dropWeight = 0.5, -- rockets rarely
+    blurb = "A slow missile that blows up whatever it hits. Mind the blast: it hurts you too.",
     name = "rocket launcher",
     damage = 0, -- the blast does the damage, not the missile
     cooldown = 0.8,
@@ -124,7 +159,75 @@ Guns.list = {
     stack = 20,
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
-    stock = 5, -- for testing until the factories are up and running
+  },
+  {
+    key = "sniper",
+    dropWeight = 1, -- now and then
+    blurb = "One round drops anyone on foot. Hold right mouse for a 4x scope.",
+    name = "sniper rifle",
+    damage = 200, -- a person on foot in one; the round is the whole point
+    cooldown = 1.3, -- the bolt worked between shots
+    spread = 0,
+    speed = 3000, -- there before you hear it
+    streak = 44,
+    -- About 1900 px: a little past anywhere the cursor can reach from you,
+    -- with the camera panned all the way out (vision: 700 px of pan, and
+    -- half a 1280-wide window at the 0.65 zoom that comes with it).
+    ttl = 0.63,
+    sound = "sniper",
+    pitch = 1,
+    magazine = 5,
+    reload = 5,
+    reloadSound = "reload-sniper",
+    ammoName = "sniper round",
+    stack = 50,
+    scope = 4,
+  },
+  {
+    key = "flamethrower",
+    dropWeight = 1, -- now and then
+    blurb = "A jet of fire that sets whoever it touches alight. Short reach; a fuel can fills the tank.",
+    name = "flamethrower",
+    damageType = "fire",
+    damage = 5, -- a lick of flame; fourteen of them a second, and it keeps burning after
+    cooldown = 0.07,
+    spread = 0.18, -- a cone about twenty degrees wide
+    speed = 360,
+    streak = 0,
+    ttl = 0.45, -- about 160 px, then the flame has burned out
+    flame = true,
+    ignite = { seconds = 3, dps = 8 },
+    sound = "flame",
+    pitch = 1,
+    magazine = 100, -- seven seconds of fire
+    tank = true,
+    reload = 2.5,
+    reloadSound = "reload-flamethrower",
+    ammoName = "fuel can",
+    stack = 10,
+    tierStats = { "damage", "ttl", "magazine", "ignite.dps" },
+  },
+  {
+    key = "minigun",
+    dropWeight = 0.5, -- belts rarely
+    blurb = "Six barrels, seventeen rounds a second once they wind up. Hold the trigger: it spins first.",
+    name = "minigun",
+    damage = 10, -- under an uzi's 12 a round...
+    cooldown = 0.06, -- ...but seventeen of them a second, and a belt of 150
+    spread = 0.08, -- about five degrees either way
+    speed = 950,
+    streak = 9,
+    ttl = 0.8, -- about 760 px
+    spinUp = 0.8, -- the barrels wind up before the first round
+    pace = 0.5, -- and you lug it at half your pace while they turn
+    sound = "minigun", -- one roar while it fires (weapons/sounds.lua loops it)
+    pitch = 1,
+    magazine = 150,
+    reload = 4.5, -- a new belt box: slow
+    reloadSound = "reload-minigun",
+    ammoName = "minigun round",
+    stack = 300,
+    tierStats = { "damage", "spinUp", "magazine", "reload" },
   },
 }
 

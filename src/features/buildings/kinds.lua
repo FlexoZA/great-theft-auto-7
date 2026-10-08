@@ -10,6 +10,7 @@
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   drink                    an energy drink; the carrier downs it for stamina
+--   grenade                  a hand grenade; the carrier throws it (grenades feature)
 --   armor-<kind>             a piece of armor (armor/kinds.lua) in the bag, put on
 --                            from the inventory screen ("armor-vest")
 --   gear-<kind>              a piece of clothing (gear/kinds.lua) in the bag, worn
@@ -26,8 +27,10 @@
 --
 -- Each kind of building:
 --   cost      Fcks to build it on a plot you own
+--   blurb     a line on what it is for, on the build screen
 --   inputs    item -> how many one batch uses up (loaded into its hopper)
---   time      seconds per batch while it has its inputs and room
+--   time      seconds per batch while it has its inputs and room, before
+--             TIME_SCALE (every building works that many times slower)
 --   batch     how many it makes per batch
 --   cap       most it holds before somebody collects or buys
 --   unit      how many a customer buys at once
@@ -41,9 +44,12 @@
 --   hp        hit points; every gun hurts a building (a rocket's blast hurts
 --             the parking lot too, bullets fly over it). At 0 it is a ruin
 --             until its owner repairs it or someone takes the lot over.
---   service   the feature that runs it (the garage): it makes nothing, and
---             that feature adds the menu rows, the info lines and the drawing
---             (`buildingRows`, `buildingInfo`, `drawBuilding`).
+--   service   the feature that runs it (the garage, the gang hangout): it makes
+--             nothing, and that feature adds the menu rows, the info lines and
+--             the drawing (`buildingRows`, `buildingInfo`, `drawBuilding`, and
+--             `drawMapMark` for its sign on the big map).
+--   color     its colour in ruins and behind its sign on the big map, for a
+--             kind render.lua has none for (a service's)
 -- The parking lot is the odd one out: it earns koins by the minute (`rate`)
 -- and pays them to its owner when they drive over it.
 --
@@ -51,6 +57,7 @@
 -- (`kind.hopper`, worked out below), so switching products never strands
 -- what was loaded; a batch uses up only what the product in hand needs.
 
+local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Catalog = require("src.features.vehicles.catalog")
@@ -65,6 +72,9 @@ Kinds.HOPPER = 20 -- most of each input a factory holds
 Kinds.SLOTS = 4 -- inventory slots everyone starts with
 Kinds.MAX_SLOTS = 9 -- with every slot upgrade bought
 Kinds.REPAIR = 0.5 -- repairing a ruin costs this share of what the building cost; less damage, less
+-- Every quarry, oil well and factory takes this many times the `time` its
+-- kind or recipe (or a car model) names for a batch. Kinds.recipe applies it.
+Kinds.TIME_SCALE = 3
 
 --- How many of `item` fit in one inventory slot.
 function Kinds.stack(item)
@@ -72,7 +82,7 @@ function Kinds.stack(item)
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
-  elseif item:match("^gun%-") or item == "medkit" or item == "drink" then
+  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade" then
     return 5
   elseif item:match("^ability%-") or item:match("^armor%-") or item:match("^gear%-") then
     return 1 -- one of a kind
@@ -110,6 +120,7 @@ for _, gun in ipairs(Guns.list) do
   end
   gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
+gunAmmo[#gunAmmo + 1] = "grenade"
 
 -- One product per vehicle model, each at the model's own price, and taking
 -- the model's own time and materials when it names them.
@@ -122,31 +133,40 @@ end
 Kinds.list = {
   {
     key = "parking", name = "Parking Lot", cost = 30, hp = 200,
+    blurb = "Earns koins on its own. Drive over it to collect the takings.",
     rate = 10 / 60, cap = 100, private = true, walkable = true,
   },
   {
     key = "quarry", name = "Quarry Mine", cost = 40, hp = 600,
+    blurb = "Digs up the raw materials every factory runs on. Pick which one.",
     inputs = {}, time = 6, batch = 1, cap = 50, unit = 1, price = 1,
     products = { "iron", "sulfur", "minerals", "copper" },
   },
   {
     key = "oil", name = "Oil Well", cost = 70, hp = 500,
+    blurb = "Pumps oil, or refines it into plastic on the spot.",
     inputs = {}, time = 8, batch = 1, cap = 50, unit = 1, price = 2,
     products = { "oil", "plastic" },
     recipes = { plastic = { time = 12, price = 3 } }, -- refined on the spot, so slower
   },
   {
     key = "ammo", name = "Ammo Factory", cost = 60, hp = 800,
+    blurb = "Turns iron and sulfur into rounds for the gun you pick or grenades, or oil into fuel cans.",
     inputs = { iron = 1, sulfur = 1 }, time = 6, batch = 10, cap = 200, unit = 10, price = 2,
     products = gunAmmo,
     recipes = {
       ["ammo-rocket"] = {
         inputs = { iron = 1, copper = 1, sulfur = 1 }, time = 10, batch = 2, cap = 20, unit = 1, price = 8,
       },
+      -- A fuel can: oil in a can of iron.
+      ["ammo-flamethrower"] = { inputs = { oil = 2, iron = 1 }, time = 10, batch = 1, cap = 20, unit = 1, price = 6 },
+      -- A grenade: a little iron round a lot of sulfur.
+      grenade = { inputs = { iron = 1, sulfur = 2 }, time = 12, batch = 1, cap = 10, unit = 1, price = 10 },
     },
   },
   {
     key = "weapons", name = "Weapons Factory", cost = 80, hp = 1000,
+    blurb = "Makes the gun you pick out of iron, and more for the rocket launcher.",
     inputs = { iron = 4 }, time = 30, batch = 1, cap = 5, unit = 1, price = 20,
     products = gunItems,
     recipes = {
@@ -155,12 +175,19 @@ Kinds.list = {
   },
   {
     key = "garage", name = "Garage", cost = 50, hp = 800, private = true, service = "garage",
+    blurb = "Parks your cars safe off the street, even while you're away.",
   },
   {
     key = "health", name = "Health Factory", cost = 50, hp = 600,
+    blurb = "Makes medkits and energy drinks out of minerals.",
     inputs = { minerals = 2 }, time = 20, batch = 1, cap = 5, unit = 1, price = 6,
     products = { "medkit", "drink" },
     recipes = { drink = { inputs = { minerals = 1 }, time = 10, price = 4 } },
+  },
+  {
+    key = "hangout", name = "Gang Hangout", cost = 200, hp = 1000, private = true, service = "gang-hangout",
+    color = { 0.6, 0.18, 0.22 },
+    blurb = "Pay into its fund and armed guards come out to defend you and your buildings.",
   },
 }
 
@@ -169,6 +196,7 @@ Kinds.list = {
 if #carItems > 0 then
   Kinds.list[#Kinds.list + 1] = {
     key = "vehicles", name = "Vehicle Factory", cost = 120, hp = 1000,
+    blurb = "Builds the car you pick and parks it on the road out front.",
     inputs = { iron = 4, minerals = 2, copper = 2, oil = 2, plastic = 2 },
     time = 45, batch = 1, cap = 5, unit = 1, price = Catalog.list[1].price,
     products = carItems,
@@ -197,6 +225,9 @@ function Kinds.recipe(kind, index)
     end
   end
   r.inputs = r.inputs or {}
+  if r.time then
+    r.time = r.time * Kinds.TIME_SCALE
+  end
   if item then
     cache[item] = r
   end
@@ -215,6 +246,72 @@ for i, kind in ipairs(Kinds.list) do
       kind.hopper[item] = true
     end
   end
+end
+
+-- What the shop pays for something a factory made (a delivery driver sells
+-- it there for the factory's owner): what went into one, times WORTH_MARGIN.
+-- A material is worth what the quarry or oil well that makes it starts
+-- selling it for, and each second of making WORTH_TIME, shared out over the
+-- batch. So the harder a thing is to make, the more it fetches: a rocket
+-- launcher more than an uzi, a medkit more than a drink.
+Kinds.WORTH_TIME = 0.25 -- Fcks per second a batch takes
+Kinds.WORTH_MARGIN = 1.5
+
+local worthCache = {}
+
+--- Fcks one `item` made in a factory fetches at the shop (a fraction for a
+--- round of ammo), or nil for a material, a car or anything no factory
+--- makes: those aren't sold there.
+function Kinds.worth(item)
+  if worthCache[item] ~= nil then
+    return worthCache[item] or nil
+  end
+  local worth = false
+  if not (Kinds.isMaterial(item) or Kinds.isVehicle(item)) then
+    for _, kind in ipairs(Kinds.list) do
+      for p, product in ipairs(kind.products or {}) do
+        if product == item and not worth then
+          local r = Kinds.recipe(kind, p)
+          local cost = r.time / Kinds.TIME_SCALE * Kinds.WORTH_TIME -- slower work isn't dearer work
+          for m, n in pairs(r.inputs) do
+            cost = cost + n * (Kinds.materialPrice(m) or 1)
+          end
+          worth = cost / r.batch * Kinds.WORTH_MARGIN
+        end
+      end
+    end
+  end
+  worthCache[item] = worth
+  return worth or nil
+end
+
+--- What the quarry or oil well that makes material `m` starts selling it for.
+function Kinds.materialPrice(m)
+  for _, kind in ipairs(Kinds.list) do
+    if kind.products and not next(kind.inputs or {}) then
+      for p, product in ipairs(kind.products) do
+        if product == m then
+          return Kinds.recipe(kind, p).price
+        end
+      end
+    end
+  end
+  return nil
+end
+
+--- Can a building of `kind` be set to sell to the shop: a factory (it has
+--- a hopper) whose products can be carried there? Cars can't: nobody
+--- carries one.
+function Kinds.sellsToShop(kind)
+  if not (kind.hopper and next(kind.hopper)) then
+    return false
+  end
+  for _, p in ipairs(kind.products or {}) do
+    if Kinds.isVehicle(p) then
+      return false
+    end
+  end
+  return true
 end
 
 --- Fcks to bring a building of `kind` at `hp` back to full.
@@ -264,6 +361,8 @@ function Kinds.name(item, n)
       name = "medkits"
     elseif item == "drink" then
       name = "energy drink" .. (n ~= 1 and "s" or "")
+    elseif item == "grenade" and n ~= 1 then
+      name = "grenades"
     end
   end
   return Tiers.named(name, tier)
@@ -278,9 +377,10 @@ function Kinds.tierStats(item)
   local gun, ability = base:match("^gun%-(.+)$"), base:match("^ability%-(.+)$")
   local armor, gear = base:match("^armor%-(.+)$"), base:match("^gear%-(.+)$")
   if gun and Guns[gun] then
-    return Guns[gun].tierStats, false, { cooldown = "fire rate" }
+    return Guns[gun].tierStats, false,
+      { cooldown = "fire rate", ttl = "range", ["ignite.dps"] = "afterburn", spinUp = "spin-up" }
   elseif ability and AbilityKinds.byKey[ability] then
-    return AbilityKinds.byKey[ability].tierStats
+    return AbilityKinds.byKey[ability].tierStats, false, AbilityKinds.byKey[ability].tierLabels
   elseif armor and ArmorKinds.byKey[armor] then
     return ArmorKinds.byKey[armor].tierStats
   elseif gear and GearKinds.byKey[gear] then
@@ -291,7 +391,8 @@ end
 
 --- What `item`'s tier does, for a card or a tooltip: "+25% damage, fire
 --- rate", or "base stats" for a common; nil for things without tiers.
---- Clothes say what the improved stats come to: "speed +19%".
+--- Clothes say what the improved stats come to: "speed +19%", and a
+--- resistance what it stops: "fire resist 50%".
 function Kinds.tierLine(item)
   local stats, clothes, labels = Kinds.tierStats(item)
   if not (stats and Tiers.tiered(item)) then
@@ -300,16 +401,37 @@ function Kinds.tierLine(item)
   local tier = Tiers.of(item)
   if clothes then
     local g = GearKinds.byKey[Tiers.base(item):sub(6)]
+    local gear = Features.byName.gear
     local parts = {}
     for i, stat in ipairs(stats) do
       if Tiers.improves(tier, i) then
-        local m = Tiers.multiplier(g.stats[stat], tier, i)
-        parts[#parts + 1] = ("%s %+d%%"):format(Tiers.label(stat), math.floor((m - 1) * 100 + 0.5))
+        local dtype = stat:match("^resist%.(.+)$")
+        if dtype then
+          local r = gear and gear.resistance(g, tier, dtype) or 0
+          parts[#parts + 1] = ("%s %d%%"):format(Tiers.label(stat), math.floor(r * 100 + 0.5))
+        elseif g.stats[stat] then
+          local m = Tiers.multiplier(g.stats[stat], tier, i)
+          parts[#parts + 1] = ("%s %+d%%"):format(Tiers.label(stat), math.floor((m - 1) * 100 + 0.5))
+        end
       end
     end
     return #parts > 0 and table.concat(parts, ", ") or "base stats"
   end
   return Tiers.describe(stats, tier, false, labels) or "base stats"
+end
+
+--- What a bag box calls `n` of an item, where there is room for two short
+--- lines: `Kinds.name` less what the picture already says. An ability's
+--- orb shows it is one, so "second wind", not "second wind ability" (which
+--- wrapped out of the box).
+function Kinds.shortName(item, n)
+  local base, tier = Tiers.split(item)
+  local ability = base:match("^ability%-(.+)$")
+  local a = ability and AbilityKinds.byKey[ability]
+  if a then
+    return Tiers.named(a.title, tier)
+  end
+  return Kinds.name(item, n)
 end
 
 --- A readable name for an item and a count: "10 uzi ammo", "1 medkit".

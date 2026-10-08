@@ -18,8 +18,10 @@
 --
 -- Movement reuses the driving bindings (W A S D by default) as plain world
 -- directions and you face the cursor, so aiming and walking are independent.
--- Tap one of them twice quickly and you dodge: a short dash that way,
--- faster than a sprint, for some stamina and a moment's cooldown. The host
+-- Space (the dodge action) dashes you the way you are walking, or the way
+-- you face when standing still: a short dash, faster than a sprint, for
+-- some stamina and a moment's cooldown. It shares its default key with the
+-- handbrake, which only matters in a car. The host
 -- does the dash (and refuses one you can't afford); your own is predicted
 -- like a step, so it feels instant, and everyone sees the dust.
 --
@@ -27,16 +29,24 @@
 -- at a rate per player, staminaRegen to start with; another feature can
 -- raise either (upgrades sells both) through OnFoot:serverSetMaxStamina and
 -- OnFoot:serverSetStaminaRegen. Only the host needs the rate, so it is
--- never sent; the bar the client sees already reflects it.
+-- never sent; the bar the client sees already reflects it. How far a dodge
+-- carries you is per player too, dodgeDistance to start with, raised
+-- through OnFoot:serverSetDodgeScale (the gym sells it); that one is sent
+-- (OF_DASH), since each client predicts its own dash. Walking pace (not the
+-- sprint) is per player the same way: walkSpeed to start with, raised
+-- through OnFoot:serverSetWalkScale (the gym sells that too) and sent
+-- (OF_WALK) so each client predicts its own steps.
 --
 -- Messages
 --   client -> server  OF_TOGGLE
 --   client -> server  OF_MOVE  <seq> <mx> <my> <sprint> <facing>  (unreliable, 30 Hz)
---   client -> server  OF_DODGE <dx> <dy>                         a double-tap: dash this way
+--   client -> server  OF_DODGE <dx> <dy>                         the dodge key: dash this way
 --   server -> all     OF_DODGED <id> <x> <y> <dx> <dy>           they dashed from here, this way
 --   server -> all     OF_STATE <tick> [<id> <stamina>]...  (unreliable; everyone on foot)
---   server -> all     OF_GIB   <id> <x> <y> <angle>   died on foot: splat here
+--   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
+--   server -> all     OF_DASH  <id> <scale>     their dodge carries them dodgeDistance * scale
+--   server -> all     OF_WALK  <id> <scale>     they walk at walkSpeed * scale
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -66,19 +76,10 @@ OnFoot.dodgeDistance = 96 -- px a dodge carries you
 OnFoot.dodgeTime = 0.22 -- seconds it takes
 OnFoot.dodgeCooldown = 0.9 -- seconds before the next one
 OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
-OnFoot.doubleTap = 0.28 -- seconds between two taps of a key that count as one double-tap
 
 -- Slots in the HUD's bottom-left row of stat bars (UI.drawStatBar): health
 -- is 0 (weapons), then stamina and the dodge; abilities carry on from there.
 OnFoot.hudSlot = 1
-
--- The movement actions and the world direction each one dodges in.
-local DODGE_DIRS = {
-  { action = "left", x = -1, y = 0 },
-  { action = "right", x = 1, y = 0 },
-  { action = "accelerate", x = 0, y = -1 },
-  { action = "brake", x = 0, y = 1 },
-}
 
 local MOVE_INTERVAL = 1 / 30 -- seconds between OF_MOVE packets
 local CORRECTION = 6 -- per second; how fast prediction is pulled onto the server
@@ -157,28 +158,30 @@ end
 
 OnFoot.view = { x = 0, y = 0, scale = 1 } -- last camera actually drawn with
 OnFoot.maxOf = {} -- player id -> stamina ceiling (absent = maxStamina)
+OnFoot.dashOf = {} -- player id -> dodge distance scale (absent = 1)
+OnFoot.walkOf = {} -- player id -> walking pace scale (absent = 1)
 OnFoot.stamina = {} -- player id -> stamina, as the host last said (walkers only)
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
 OnFoot.hitbox = {} -- reused table for the "is that car within reach?" test
 OnFoot.dash = nil -- { x, y, t }: my own dodge under way, predicted
 OnFoot.dodgeReadyAt = 0 -- client time my next dodge may start
-OnFoot.lastTap = nil -- { action, at }: the last movement key press, for the double-tap
-OnFoot.tapReady = {} -- action -> true once its key has been seen up since the last press it counted
 OnFoot.puffs = {} -- { x, y, dx, dy, t }: dust where somebody dodged
+OnFoot.dodgeHeld = false -- the dodge key is down since the press that counted; its repeats don't
 local spent = false -- my breath, for prediction: an emptied bar sprints again only once recovered
 local time = 0 -- client clock, seconds in the game
 
 function OnFoot:load()
   Controls.register("enter-exit", "Enter / exit vehicle", "f") -- the action key: real-estate and buildings share it
   Controls.register("sprint", "Sprint (on foot)", "lshift", "rshift")
+  Controls.register("dodge", "Dodge (on foot)", "space") -- shared with the handbrake: one on foot, one in a car
 end
 
 function OnFoot:enterGame()
   self.moveTimer = 0
   self.moveSeq = 0
-  self.dash, self.lastTap, self.puffs = nil, nil, {}
-  self.tapReady = {}
+  self.dash, self.puffs = nil, {}
+  self.dodgeHeld = false
   self.dodgeReadyAt = 0
   spent = false
   time = 0
@@ -186,6 +189,8 @@ end
 
 function OnFoot:exitGame()
   self.maxOf = {}
+  self.dashOf = {}
+  self.walkOf = {}
   self.stamina = {}
   self.view.x, self.view.y, self.view.scale = 0, 0, 1
   spent = false
@@ -244,7 +249,8 @@ function OnFoot:predict(dt, client, me)
     -- Mid-dodge: the dash carries me, the keys don't.
     local d = self.dash
     local slice = math.min(dt, d.t) -- the last step only goes as far as is left
-    me.dx, me.dy = step(me.dx, me.dy, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    local reach = self.dodgeDistance * (self.dashOf[client.myId] or 1)
+    me.dx, me.dy = step(me.dx, me.dy, d.x, d.y, reach / self.dodgeTime, slice)
     d.t = d.t - dt
     if d.t <= 0 then
       self.dash = nil
@@ -252,7 +258,8 @@ function OnFoot:predict(dt, client, me)
     sprinting = true -- legs going: draw it running
   elseif (mx ~= 0 or my ~= 0) and not held then
     local scale = Features.reduce("stat", 1, client, client.myId, "speed") -- clothes (gear)
-    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * scale
+    local walk = self.walkSpeed * (self.walkOf[client.myId] or 1) -- the gym's
+    local speed = (sprinting and self.sprintSpeed or walk) * scale
     me.dx, me.dy = step(me.dx, me.dy, mx, my, speed, dt)
   end
   me.running = sprinting
@@ -281,9 +288,10 @@ function OnFoot:sendMove(dt, client, me)
   client:send(msg, true)
 end
 
---- A double-tap: dash that way if I am on foot, free, rested enough and
---- not still recovering from the last one. The host has the final word.
-function OnFoot:tryDodge(client, dir)
+--- The dodge key: dash the way I am walking (the way I face if I am
+--- standing still) if I am on foot, free, rested enough and not still
+--- recovering from the last one. The host has the final word.
+function OnFoot:tryDodge(client)
   local me = self:me(client)
   if not me or self.dash or time < self.dodgeReadyAt or Features.any("held", client, client.myId) then
     return false
@@ -292,20 +300,21 @@ function OnFoot:tryDodge(client, dir)
   if stamina < self.dodgeStamina then
     return false
   end
-  self.dash = { x = dir.x, y = dir.y, t = self.dodgeTime }
+  local dx, dy = moveInput()
+  if dx == 0 and dy == 0 then
+    local facing = me.dangle or 0
+    dx, dy = math.cos(facing), math.sin(facing)
+  end
+  self.dash = { x = dx, y = dy, t = self.dodgeTime }
   self.dodgeReadyAt = time + self.dodgeCooldown
-  client:send(Protocol.encode("OF_DODGE", dir.x, dir.y))
+  client:send(Protocol.encode("OF_DODGE", ("%.3f"):format(dx), ("%.3f"):format(dy)))
   return true
 end
 
 function OnFoot:update(dt, client, camera)
   time = time + dt
-  -- A key held down repeats its press event; only a press after a release
-  -- is a tap. Note which movement keys are up right now.
-  for _, dir in ipairs(DODGE_DIRS) do
-    if not Controls.isDown(dir.action) then
-      self.tapReady[dir.action] = true
-    end
+  if not Controls.isDown("dodge") then
+    self.dodgeHeld = false
   end
   for i = #self.puffs, 1, -1 do
     local puff = self.puffs[i]
@@ -336,25 +345,10 @@ function OnFoot:keypressed(key, client)
     end
     return
   end
-  -- A movement key: the second tap of the same one inside doubleTap dodges.
-  -- A press while the key is already down is the key repeating, not a tap.
-  for _, dir in ipairs(DODGE_DIRS) do
-    if Controls.is(dir.action, key) then
-      if self.tapReady[dir.action] == false then
-        return -- held down: a repeat
-      end
-      self.tapReady[dir.action] = false
-      local last = self.lastTap
-      if last and last.action == dir.action and time - last.at <= self.doubleTap then
-        self.lastTap = nil -- used up: a third tap starts over
-        if client then
-          self:tryDodge(client, dir)
-        end
-      else
-        self.lastTap = { action = dir.action, at = time }
-      end
-      return
-    end
+  -- The dodge key; held down it repeats its press, and a repeat is not a dodge.
+  if Controls.is("dodge", key) and client and not self.dodgeHeld then
+    self.dodgeHeld = true
+    self:tryDodge(client)
   end
 end
 
@@ -419,7 +413,8 @@ function OnFoot:drawHUD(client)
   love.graphics.setColor(0.8, 0.8, 0.85)
   if me then
     local sprintKey = Controls.name(Controls.bindings("sprint")[1])
-    local hint = sprintKey .. ": sprint   double-tap: dodge"
+    local dodgeKey = Controls.name(Controls.bindings("dodge")[1])
+    local hint = sprintKey .. ": sprint   " .. dodgeKey .. ": dodge"
     if self:vehicleInReach(client, me) then
       hint = key .. ": get in   " .. hint
     end
@@ -450,6 +445,18 @@ OnFoot.clientMessages = {
       OnFoot.maxOf[id] = max
     end
   end,
+  OF_DASH = function(_client, args)
+    local id, scale = tonumber(args[1]), tonumber(args[2])
+    if id and scale then
+      OnFoot.dashOf[id] = scale
+    end
+  end,
+  OF_WALK = function(_client, args)
+    local id, scale = tonumber(args[1]), tonumber(args[2])
+    if id and scale then
+      OnFoot.walkOf[id] = scale
+    end
+  end,
   --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
   OF_DODGED = function(_client, args)
     local x, y, dx, dy = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
@@ -457,9 +464,17 @@ OnFoot.clientMessages = {
       OnFoot.puffs[#OnFoot.puffs + 1] = { x = x, y = y, dx = dx, dy = dy, t = 0 }
     end
   end,
+  --- What is left of them is the damage feature's call, by what killed
+  --- them (ash, a scorch mark, a splat); a splat if it isn't around.
   OF_GIB = function(_client, args)
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
-    if x and y and Features.byName.pedestrians then
+    if not (x and y) then
+      return
+    end
+    local damage = Features.byName.damage
+    if damage and damage.deathAt then
+      damage:deathAt(x, y, angle, args[5])
+    elseif Features.byName.pedestrians then
       require("src.features.pedestrians.gibs").splat(x, y, angle or 0)
       require("src.features.pedestrians.sounds").play("splat", x, y, 0.8 + love.math.random() * 0.2)
     end
@@ -476,17 +491,27 @@ function OnFoot:serverStart()
     time = 0, -- seconds since the game started
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
     regen = {}, -- player id -> regen scale (absent = 1)
+    dash = {}, -- player id -> dodge distance scale (absent = 1)
+    walk = {}, -- player id -> walking pace scale (absent = 1)
   }
 end
 
---- A player joining a running game hears every raised stamina ceiling (OF_MAX
---- is only sent when one changes). Their own walking record is made when needed.
+--- A player joining a running game hears every raised stamina ceiling,
+--- dodge and walking pace (OF_MAX, OF_DASH and OF_WALK are only sent when
+--- one changes). Their own
+--- walking record is made when needed.
 function OnFoot:serverPlayerJoined(server, player)
   if not (self.sv and server.started) or player.bot then
     return
   end
   for id, max in pairs(self.sv.maxStamina) do
     server:send(player, Protocol.encode("OF_MAX", id, max))
+  end
+  for id, scale in pairs(self.sv.dash) do
+    server:send(player, Protocol.encode("OF_DASH", id, ("%.3f"):format(scale)))
+  end
+  for id, scale in pairs(self.sv.walk) do
+    server:send(player, Protocol.encode("OF_WALK", id, ("%.3f"):format(scale)))
   end
 end
 
@@ -495,6 +520,8 @@ function OnFoot:serverPlayerLeft(_server, player)
     self.sv.walkers[player.id] = nil
     self.sv.maxStamina[player.id] = nil
     self.sv.regen[player.id] = nil
+    self.sv.dash[player.id] = nil
+    self.sv.walk[player.id] = nil
   end
 end
 
@@ -547,6 +574,17 @@ function OnFoot:serverRestoreStamina(_server, player, amount)
   return true
 end
 
+--- A walking player's stamina and ceiling on the host; nil for a driver,
+--- who has no bar. Other features read it via Features.byName["on-foot"]
+--- (the second wind ability does).
+function OnFoot:serverStamina(player)
+  if not self.sv or player.vehicle or not player.body then
+    return nil
+  end
+  local st = self:walker(player)
+  return st.stamina, st.max
+end
+
 --- Set how fast a player's stamina comes back, as a multiple of staminaRegen,
 --- for the rest of the game. Other features reach this via
 --- Features.byName["on-foot"] (upgrades does). Returns the scale set.
@@ -560,6 +598,33 @@ function OnFoot:serverSetStaminaRegen(_server, player, scale)
   if st then
     st.regen = self.staminaRegen * scale
   end
+  return scale
+end
+
+--- Set how far a player's dodge carries them, as a multiple of
+--- dodgeDistance, for the rest of the game; it takes the same dodgeTime, so
+--- a longer dodge is a faster one. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the scale set.
+function OnFoot:serverSetDodgeScale(server, player, scale)
+  if not self.sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  self.sv.dash[player.id] = scale
+  server:broadcast(Protocol.encode("OF_DASH", player.id, ("%.3f"):format(scale)))
+  return scale
+end
+
+--- Set how fast a player walks (not sprints), as a multiple of walkSpeed,
+--- for the rest of the game. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the scale set.
+function OnFoot:serverSetWalkScale(server, player, scale)
+  if not self.sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  self.sv.walk[player.id] = scale
+  server:broadcast(Protocol.encode("OF_WALK", player.id, ("%.3f"):format(scale)))
   return scale
 end
 
@@ -583,12 +648,13 @@ function OnFoot:serverSetMaxStamina(server, player, max)
   return max
 end
 
---- Died on foot (weapons blew up the body): a splat where they stood. The
---- respawn is weapons' business, the same as for a driver.
+--- Died on foot (weapons blew up the body): what is left of them where they
+--- stood, by what did it (`kill.cause`). The respawn is weapons' business,
+--- the same as for a driver.
 function OnFoot:serverKill(server, kill)
   if kill.kind == "car" and kill.onFoot and kill.victim then
     server:broadcast(Protocol.encode("OF_GIB", kill.victim, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
-      ("%.3f"):format(kill.angle or 0)))
+      ("%.3f"):format(kill.angle or 0), kill.cause or "bullet"))
   end
 end
 
@@ -688,21 +754,24 @@ function OnFoot:walk(st, body, dt, server, player)
     -- Mid-dodge: the dash carries them, whatever the keys say.
     local d = st.dash
     local slice = math.min(dt, d.t) -- the last step only goes as far as is left
-    body.x, body.y = step(body.x, body.y, d.x, d.y, self.dodgeDistance / self.dodgeTime, slice)
+    local reach = self.dodgeDistance * (self.sv.dash[player.id] or 1)
+    body.x, body.y = step(body.x, body.y, d.x, d.y, reach / self.dodgeTime, slice)
     d.t = d.t - dt
     if d.t <= 0 then
       st.dash = nil
     end
     st.regenIn = self.regenDelay
   elseif len > 0 then
-    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * speedScale
+    local walk = self.walkSpeed * (self.sv.walk[player.id] or 1) -- the gym's
+    local speed = (sprinting and self.sprintSpeed or walk) * speedScale
     body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
   end
 end
 
 --- A dodge for `player` in direction (dx, dy), if they are on foot, free,
 --- rested and not still recovering from the last one. Returns true if it
---- started. Everyone hears OF_DODGED for the dust.
+--- started. Everyone hears OF_DODGED for the dust, and every feature
+--- `serverDodged` (a dodge puts out a fire).
 function OnFoot:serverDodge(server, player, dx, dy)
   local sv = self.sv
   if not (sv and player.body) or player.vehicle or player.body.dead then
@@ -727,6 +796,22 @@ function OnFoot:serverDodge(server, player, dx, dy)
   local b = player.body
   server:broadcast(Protocol.encode("OF_DODGED", player.id, ("%.0f"):format(b.x), ("%.0f"):format(b.y),
     ("%.2f"):format(dx), ("%.2f"):format(dy)))
+  Features.call("serverDodged", server, player)
+  return true
+end
+
+--- Knock `player` (on foot) `distance` px along the unit direction (dx, dy)
+--- over `seconds`, sliding along walls as a step does. A dodge under way is
+--- cut short. The damage feature knocks people back this way (an impact, a
+--- blast); it holds them for the while, so their own prediction waits for it.
+function OnFoot:serverShove(_server, player, dx, dy, distance, seconds)
+  if not (self.sv and player.body) or player.vehicle or player.body.dead or distance <= 0 then
+    return false
+  end
+  local st = self:walker(player)
+  seconds = math.max(0.05, seconds or 0.25)
+  st.dash = nil
+  st.shove = { x = dx, y = dy, speed = distance / seconds, t = seconds }
   return true
 end
 
@@ -756,7 +841,16 @@ function OnFoot:serverStep(server, dt)
   for id, player in pairs(server.players) do
     if player.body and not player.vehicle and not player.body.dead then
       local st = self:walker(player)
-      if not Features.any("serverHeld", server, player) then
+      if st.shove then
+        -- Knocked back: carried along whatever holds them (a knock holds them).
+        local s = st.shove
+        local slice = math.min(dt, s.t)
+        player.body.x, player.body.y = step(player.body.x, player.body.y, s.x, s.y, s.speed, slice)
+        s.t = s.t - dt
+        if s.t <= 0 then
+          st.shove = nil
+        end
+      elseif not Features.any("serverHeld", server, player) then
         self:walk(st, player.body, dt, server, player) -- a held walker (frozen) stays put
       end
       n = n + 1

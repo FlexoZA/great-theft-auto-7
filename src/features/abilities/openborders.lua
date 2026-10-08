@@ -15,6 +15,7 @@ local Features = require("src.features")
 local OpenBorders = {
   key = "openborders", -- on the wire and in a bag ("ability-openborders")
   title = "open borders",
+  blurb = "Twenty-five simps pour out with torches and set fires everywhere. They punch you too.",
   hud = "borders", -- short enough to fit under its ring
   sound = "openborders",
   color = { 1, 0.45, 0.12 }, -- torchlight

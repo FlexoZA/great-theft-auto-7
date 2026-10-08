@@ -14,6 +14,7 @@ local Features = require("src.features")
 local Fart = {
   key = "fart", -- on the wire and in a bag ("ability-fart")
   title = "panic fart",
+  blurb = "A stinking cloud that sends cars, pedestrians and bosses' crowds running.",
   hud = "fart", -- short enough to fit under its ring
   sound = "fart",
   color = { 0.62, 0.72, 0.28 }, -- a sickly green

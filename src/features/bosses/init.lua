@@ -33,10 +33,25 @@
 --      (simps, squirrels, soldiers, a litter), are the base for one human
 --      and grow by `perHuman` of the base for each human past the first,
 --      counted when it spawns (or the helpers do). Two humans, double.
+--      Hunters grow slower (`Bosses.plus`): one more for each human past
+--      the first.
+--   7. Its own brain: a module of its own that decides what it does, in
+--      modes that cut in on each other (fighting, hunting, healing...), not
+--      shared with any other character. Badly hurt (under `Heal.below` of
+--      its health) it breaks off to go for a medkit lying within
+--      `Heal.range`, takes it off the ground and is `Heal.amount` better
+--      (heal.lua). The Hunters' brain (hunters/brain.lua) is the model.
+--   8. It dodges: a player's ability about to land on it (a freeze's
+--      warning ring, a leaper coming down, a heat ray) gets it moving out
+--      from under it once it has had `react` seconds to see it
+--      (dodge.lua): `Dodge.step(b, radius)` before its panic is read, or
+--      `Dodge.threat` / `Dodge.away` for one that moves its own way.
 --
 -- Modules
 --   src/features/bosses/stamina.lua   the breath rule
 --   src/features/bosses/bar.lua       the boss bar
+--   src/features/bosses/heal.lua      going for a medkit
+--   src/features/bosses/dodge.lua     getting out from under an ability
 
 local Bosses = {
   name = "bosses",
@@ -45,6 +60,7 @@ local Bosses = {
 
 -- Tuning ------------------------------------------------------------------
 Bosses.perHuman = 1 -- each human past the first adds this much of the base again: two humans, double; three, triple
+Bosses.extra = 1 -- what each human past the first adds to a count that grows by Bosses.plus (Hunters)
 
 --- The humans in the game (bots don't count), at least one.
 function Bosses.humans(server)
@@ -71,6 +87,12 @@ end
 --- for one; never fewer than one.
 function Bosses.count(base, server)
   return math.max(1, math.floor(base * Bosses.scale(server) + 0.5))
+end
+
+--- `base` for one human and `Bosses.extra` more for each human past the
+--- first (Hunters: two humans, one more; three, two more); never fewer than one.
+function Bosses.plus(base, server)
+  return math.max(1, base + Bosses.extra * (Bosses.humans(server) - 1))
 end
 
 return Bosses

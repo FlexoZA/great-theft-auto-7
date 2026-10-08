@@ -14,6 +14,8 @@
 -- `footRadius` on foot -- times a reach that starts at 1 and that another
 -- feature can raise (upgrades sells it) through Money:serverSetReach. A
 -- player with more than the base reach sees it as a faint ring around them.
+-- The same reach scales how close they must get to a drop (pickups asks
+-- Money:reachOf), so one upgrade covers everything lying on the ground.
 --
 -- Drops arrive through the `serverKill` convention (docs/features.md): the
 -- feature that killed something calls it, this one turns that into koins.

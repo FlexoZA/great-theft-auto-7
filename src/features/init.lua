@@ -182,6 +182,14 @@ function Features.present(player)
   return b ~= nil and not b.dead and not (v and (v.hidden or v.stowed))
 end
 
+--- Can the world's enemies see a player on the host: present, and not
+--- hidden by any feature (`serverHidden`: the chicken ability)? Anything
+--- that picks a player to go after or aim at asks this instead of `present`;
+--- a bullet or a blast that happens to find them still hurts.
+function Features.visible(server, player)
+  return Features.present(player) and not Features.any("serverHidden", server, player)
+end
+
 function Features.names()
   local out = {}
   for _, f in ipairs(Features.list) do

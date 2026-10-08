@@ -6,21 +6,37 @@
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
 -- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
--- traffic, kind }) so the same generator builds every map the game knows
+-- crowdScale, police, traffic, vehicles, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
 -- tile is "ground", no blocks. `crowd = false` and `traffic = false` keep
--- pedestrians, officers and NPC cars off it (those features read the flags).
+-- pedestrians, officers and NPC cars off it (those features read the flags);
+-- `crowdScale` sizes the crowd, `police = false` keeps officers on foot off
+-- it, and `vehicles = false` has everyone walk (on-foot reads it).
 -- `kind = "culdesac"` builds a suburban dead end instead of a grid: one
 -- street in from the bottom edge, a turning circle at the top, houses on
 -- their lawns either side (see `buildCuldesac`). `kind = "forest"` is open
 -- ground thick with trees and shrubs, a trail winding through clearings
 -- (see `buildForest`). `kind = "beach"` is a landing beach under a defended
 -- hill: surf, sand with tank stoppers, bunkers and trenches, barracks and a
--- flag on the hilltop (see `buildBeach`).
+-- flag on the hilltop (see `buildBeach`). `kind = "cliff"` is low meadow
+-- under a long cliff, a plateau on top, and one way up at the far left
+-- (see `buildCliff`). `kind = "city17"` is City 17, a grey occupied city
+-- walked from a station at the bottom to the Citadel at the top (see
+-- `buildCity17`). `kind = "citadel"` is the Citadel's inside, one catwalk
+-- up through a drop (citadel.lua). `kind = "outercity"` is the Outer City,
+-- blocks, canals and parks round an open square (outer_city.lua). `kind =
+-- "coast"` is the Coast, one beach between the sea and green mountains,
+-- opening into coves (coast.lua). `kind = "road"` is the Winding Road, one
+-- long mountain road over a river, driven (road.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
+
+local Citadel = require("src.features.city-map.citadel")
+local OuterCity = require("src.features.city-map.outer_city")
+local Coast = require("src.features.city-map.coast")
+local Road = require("src.features.city-map.road")
 
 local Layout = {}
 
@@ -202,6 +218,53 @@ local function finish(map)
         list[#list + 1] = s
       end
     end
+  end
+end
+
+-- Parks ---------------------------------------------------------------------
+-- A park fills a block's 6x6-tile core: gravel paths from the middle of each
+-- side meet at a round plaza with a fountain in it, leaving four lawns. Each
+-- lawn has two trees and a bench on its corner by the plaza, facing the
+-- fountain. Sizes in px, from the middle of the park.
+Layout.PARK = {
+  path = 40, -- width of each path
+  plaza = 72, -- radius of the paved circle
+  fountain = 30, -- radius of the fountain's basin (solid)
+  bench = 90, -- benches stand this far out, on the diagonals
+}
+-- Where the trees stand, in tiles from the core's top-left corner: two on
+-- each lawn, clear of the paths even with their jitter.
+local PARK_TREES = {
+  { 0.85, 1.9 }, { 1.9, 0.85 }, -- top left lawn
+  { 4.1, 0.85 }, { 5.15, 1.9 }, -- top right
+  { 0.85, 4.1 }, { 1.9, 5.15 }, -- bottom left
+  { 4.1, 5.15 }, { 5.15, 4.1 }, -- bottom right
+}
+
+--- Lay out the park on `block` (core at tiles cx, cy). It draws the same
+--- random numbers as the plain grove of nine trees it replaced, so every
+--- other block in the city comes out as it did. Leaves `block.fountain`
+--- ({ x, y, r }) and `block.benches` ({ x, y, angle }, angle the way a
+--- sitter faces) in world px.
+local function buildPark(map, rng, block, cx, cy)
+  local T, P = Layout.TILE, Layout.PARK
+  local x0, y0 = map.x0 + cx * T, map.y0 + cy * T
+  for i = 1, 9 do
+    local jx, jy = (rng:random() - 0.5) * 30, (rng:random() - 0.5) * 30
+    local spot = PARK_TREES[i] -- the ninth draw is kept only for the stream
+    if spot then
+      local x, y = x0 + spot[1] * T + jx, y0 + spot[2] * T + jy
+      map.trees[#map.trees + 1] = { x = x, y = y }
+      map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
+    end
+  end
+  local mx, my = x0 + 3 * T, y0 + 3 * T
+  block.fountain = { x = mx, y = my, r = P.fountain }
+  local f = P.fountain - 4 -- the rim is a little lower than the basin is wide
+  map.solids[#map.solids + 1] = { x = mx - f, y = my - f, w = 2 * f, h = 2 * f }
+  block.benches = {}
+  for i, a in ipairs({ -3 * math.pi / 4, -math.pi / 4, math.pi / 4, 3 * math.pi / 4 }) do
+    block.benches[i] = { x = mx + math.cos(a) * P.bench, y = my + math.sin(a) * P.bench, angle = a + math.pi }
   end
 end
 
@@ -540,8 +603,591 @@ local function buildBeach(map, rng)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
---- field optional, defaulting to the city above) or just a seed.
+-- The way across the cliff's meadow, spawn to ramp, as fractions of the
+-- map's half-size: a clump of cover at each, open grass between them.
+local CLIFF_CLUMPS = {
+  { 0.66, 0.60 },
+  { 0.34, 0.52 },
+  { 0.62, 0.42 },
+  { 0.26, 0.24 },
+  { -0.04, 0.44 },
+  { -0.26, 0.20 },
+  { 0.04, -0.02 },
+  { -0.44, -0.04 },
+  { -0.62, 0.22 },
+  { -0.80, 0.02 },
+  { -0.84, -0.14 },
+}
+
+--- Low meadow under a long cliff, the plateau on top of it. The cliff runs
+--- from the right edge nearly all the way to the left one; the only way up
+--- is a ramp at the far left end. Everyone arrives at the bottom right, so
+--- the way to the top is up the map and to the left, from one clump of
+--- cover (dry-stone walls, boulders, trees) to the next across open grass
+--- that the plateau looks down on. The plateau has cover of its own.
+---
+--- `map.cliffY` is the world y of the cliff's lip; `map.plateau` and
+--- `map.meadow` the world y range (`y0` top, `y1` bottom) above and below
+--- it; `map.ramp` ({ x0, x1, y0, y1 }) the way up. The cliff is solid
+--- rectangles marked `ledge = true`: nobody walks through them and they
+--- stop bullets, so from below you can't shoot anyone on top. (Shotgun,
+--- the boss up there, fires down over the lip: shotgun/boss.lua.)
+--- `map.cover` is what the canvas draws ({ kind = "wall" | "rock" |
+--- "cliff", x, y, w, h }), trees are in `map.trees`, `map.perches` are the
+--- spots on the plateau a sniper may shoot from ({ x, y, edge }: `edge`
+--- ones overlook the meadow) and `map.clumps` the cover along the way.
+--- Walked, like the forest; the cars wait at the bottom right.
+local function buildCliff(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      map.tiles[c][r] = "ground"
+    end
+  end
+  local left, right = map.x0, map.x0 + cols * T
+  local top, bottom = map.y0, map.y0 + rows * T
+  local hw, hh = cols * T / 2, rows * T / 2
+  local cliffY = map.y0 + math.floor(rows * 0.38) * T
+  local face = 70 -- px of solid rock from the lip down
+  map.cliffY = cliffY
+  map.plateau = { y0 = top, y1 = cliffY }
+  map.meadow = { y0 = cliffY + face, y1 = bottom }
+  map.ramp = { x0 = left, x1 = left + 5 * T, y0 = cliffY - 150, y1 = cliffY + face + 110 }
+  map.cover, map.perches, map.clumps = {}, {}, {}
+
+  local placed = {} -- { x, y, r }: everything so far, to keep a way between
+  local function free(x, y, r, gap)
+    for _, p in ipairs(placed) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < (p.r + r + gap) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+  local function solid(kind, x, y, w, h, extra)
+    local cover = { kind = kind, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h) }
+    local block = { x = cover.x, y = cover.y, w = cover.w, h = cover.h }
+    for k, v in pairs(extra or {}) do
+      cover[k], block[k] = v, v
+    end
+    map.cover[#map.cover + 1] = cover
+    map.solids[#map.solids + 1] = block
+    if kind ~= "cliff" then -- the cliff is a line, not a lump: the lip is kept clear on its own
+      placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }
+    end
+    return cover
+  end
+  local function tree(x, y)
+    local r = 22 + rng:random() * 10
+    map.trees[#map.trees + 1] = { x = x, y = y, r = r, pine = rng:random() < 0.4 }
+    map.solids[#map.solids + 1] = { x = x - 13, y = y - 13, w = 26, h = 26, tree = true }
+    placed[#placed + 1] = { x = x, y = y, r = 16 }
+  end
+  --- One piece of cover at (x, y), whichever kind comes up.
+  local function piece(x, y)
+    local roll = rng:random()
+    if roll < 0.38 then
+      local len = 90 + rng:random() * 60
+      if rng:random() < 0.5 then
+        solid("wall", x - len / 2, y - 10, len, 20)
+      else
+        solid("wall", x - 10, y - len / 2, 20, len)
+      end
+    elseif roll < 0.68 then
+      local size = 34 + rng:random() * 16
+      solid("rock", x - size / 2, y - size / 2, size, size, { seed = rng:random(1000) })
+    else
+      tree(x, y)
+    end
+  end
+
+  -- The cliff: the lip right across from the ramp to the right edge.
+  solid("cliff", map.ramp.x1, cliffY, right - map.ramp.x1, face, { ledge = true })
+
+  -- Plateau: the sniper's spots first, so nothing lands on them; a row
+  -- along the lip looking down, and more further back.
+  local x = map.ramp.x1 + 260
+  while x < right - 140 do
+    map.perches[#map.perches + 1] = { x = math.floor(x + (rng:random() - 0.5) * 60), y = cliffY - 60, edge = true }
+    x = x + 240 + rng:random() * 60
+  end
+  for _ = 1, 10 do
+    local px = left + 400 + rng:random() * (right - left - 560)
+    local py = top + 160 + rng:random() * (cliffY - top - 480)
+    map.perches[#map.perches + 1] = { x = math.floor(px), y = math.floor(py), edge = false }
+  end
+  for _, p in ipairs(map.perches) do
+    placed[#placed + 1] = { x = p.x, y = p.y, r = 40 }
+  end
+  placed[#placed + 1] = { x = map.ramp.x1 + 120, y = cliffY - 120, r = 140 } -- the top of the ramp stays open
+  for _ = 1, 400 do
+    if #map.cover + #map.trees >= 34 then
+      break
+    end
+    local px = left + 120 + rng:random() * (right - left - 240)
+    local py = top + 120 + rng:random() * (cliffY - top - 260) -- a walk left free behind the lip
+    if free(px, py, 24, 90) then
+      piece(px, py)
+    end
+  end
+
+  -- Meadow: a clump of cover at each stop on the way, open grass between.
+  for _, f in ipairs(CLIFF_CLUMPS) do
+    local cx, cy = math.floor(f[1] * hw), math.floor(f[2] * hh)
+    map.clumps[#map.clumps + 1] = { x = cx, y = cy }
+    local want, got = 4 + rng:random(0, 2), 0
+    for _ = 1, 60 do
+      if got >= want then
+        break
+      end
+      local a, d = rng:random() * 2 * math.pi, 30 + rng:random() * 130
+      local px, py = cx + math.cos(a) * d, cy + math.sin(a) * d
+      if py > map.meadow.y0 + 60 and free(px, py, 24, 44) then
+        piece(px, py)
+        got = got + 1
+      end
+    end
+  end
+  -- A few trees along the sides, far from the way: scenery, not a route.
+  for _ = 1, 30 do
+    local side = rng:random() < 0.5 and -1 or 1
+    local px = side * (hw - 60 - rng:random() * 120)
+    local py = map.meadow.y0 + 200 + rng:random() * (bottom - map.meadow.y0 - 300)
+    local near = false
+    for _, c in ipairs(map.clumps) do
+      if (c.x - px) ^ 2 + (c.y - py) ^ 2 < 420 * 420 then
+        near = true
+      end
+    end
+    if not near and free(px, py, 20, 70) then
+      tree(px, py)
+    end
+  end
+
+  -- The cars wait at the bottom right, where everyone arrives; the way in
+  -- (and home), `map.cx, map.cy`, is in the corner just past them.
+  map.cx, map.cy = math.floor(hw - 170), math.floor(bottom - 6 * T)
+  for i = 0, 7 do
+    local sx = map.cx - 760 + i * 80
+    map.spawns[#map.spawns + 1] = { x = sx, y = bottom - 5.3 * T, angle = -math.pi / 2 }
+    map.spawns[#map.spawns + 1] = { x = sx + 40, y = bottom - 6.7 * T, angle = -math.pi / 2 }
+  end
+end
+
+-- City 17's grim roofs: concrete, tar, rust and faded ochre.
+local GRIM = {
+  { 0.42, 0.42, 0.40 },
+  { 0.30, 0.31, 0.33 },
+  { 0.48, 0.40, 0.30 },
+  { 0.38, 0.30, 0.26 },
+  { 0.52, 0.48, 0.38 },
+  { 0.34, 0.37, 0.36 },
+}
+
+--- City 17, the first stop of A-Man's quest: a grey city under occupation,
+--- walked from the bottom to the top. Rows, south to north:
+---   the train everyone came in on, along the bottom edge (solid);
+---   the platform, where everyone arrives (`map.cx, map.cy` is the way
+---     home, at its left end);
+---   the station: two solid wings and the concourse between them, with a
+---     checkpoint of barriers to weave through;
+---   the plaza, wide open paving with planters and barriers for cover, and
+---     a giant screen on the building at its top left;
+---   the old town, blocks of flats either side of an avenue that runs up
+---     the middle, a cross street half way;
+---   the wall, right across the map, a gate where the avenue meets it;
+---   the canal, water nobody crosses but at its two bridges;
+---   the Citadel's square, ruins and wall sections round the foot of the
+---     Citadel itself, its doors (`map.citadelX, map.citadelY`) facing south.
+--- Tiles are "walk" (paving), "road", "ground" (the train's ballast) and
+--- "water". Buildings are ordinary ones in grim colours; everything else
+--- the canvas draws is `map.cover` ({ kind = "combine" | "barrier" |
+--- "planter" | "station" | "train" | "screen" | "water" | "citadel" |
+--- "rubble" | "barrel" | "trash", x, y, w, h }); rubble and trash are drawn
+--- but not solid. `map.fires` burn for good ({ kind, x, y, r, seed }: kind
+--- "barrel" an oil drum, "heap" on the ground, catching anyone who walks
+--- into it, "roof" a burning building, which has `burning` set). `map.zones`
+--- names the world y range of each part ({ name, y0, y1 }). `map.posts` are
+--- where guards stand at the checkpoints ({ x, y, watch, at }: `watch` the
+--- way they look, `at` which checkpoint). `map.patrols` are the beats squads
+--- walk, each a loop of corners ({ x, y }).
+local function buildCity17(map, rng)
+  local T = Layout.TILE
+  local cols, rows = map.cols, map.rows
+  local function X(c)
+    return map.x0 + c * T
+  end
+  local function Y(r)
+    return map.y0 + r * T
+  end
+  local function fill(c0, r0, c1, r1, kind)
+    for c = math.max(0, c0), math.min(cols - 1, c1) do
+      map.tiles[c] = map.tiles[c] or {}
+      for r = math.max(0, r0), math.min(rows - 1, r1) do
+        map.tiles[c][r] = kind
+      end
+    end
+  end
+  map.cover, map.zones = {}, {}
+  local placed = {} -- { x, y, r }: loose cover so far, to keep a way between
+  local function free(x, y, r, gap)
+    for _, p in ipairs(placed) do
+      if (p.x - x) ^ 2 + (p.y - y) ^ 2 < (p.r + r + gap) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+  -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
+  local MAP = {
+    combine = { 0.25, 0.55, 0.70 }, station = { 0.33, 0.32, 0.30 }, train = { 0.30, 0.38, 0.42 },
+    barrier = { 0.62, 0.60, 0.55 }, planter = { 0.25, 0.40, 0.22 }, citadel = { 0.10, 0.12, 0.15 },
+    rubble = { 0.36, 0.34, 0.31 }, screen = { 0.70, 0.90, 0.95 },
+  }
+  --- Something the canvas draws; solid unless `extra.decor`.
+  local function cover(kind, x, y, w, h, extra)
+    local s = { kind = kind, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h),
+      mapColor = MAP[kind] }
+    for k, v in pairs(extra or {}) do
+      s[k] = v
+    end
+    map.cover[#map.cover + 1] = s
+    if not s.decor then
+      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+    end
+    if math.max(w, h) < 400 then -- loose things keep their distance; the big set pieces are placed by hand
+      placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }
+    end
+    return s
+  end
+  local function building(tx, ty, tw, th, extra)
+    local b = {
+      x = X(tx), y = Y(ty), w = tw * T, h = th * T,
+      color = GRIM[rng:random(#GRIM)], style = rng:random(3), seed = rng:random(1000),
+    }
+    for k, v in pairs(extra or {}) do
+      b[k] = v
+    end
+    map.buildings[#map.buildings + 1] = b
+    map.solids[#map.solids + 1] = { x = b.x, y = b.y, w = b.w, h = b.h }
+    return b
+  end
+  local function zone(name, r0, r1)
+    map.zones[#map.zones + 1] = { name = name, y0 = Y(r0), y1 = Y(r1 + 1) }
+  end
+  --- A patrol's beat, walked round and round ({ x, y } corners); loose
+  --- cover keeps off it.
+  map.patrols = {}
+  local function patrol(points)
+    local route = {}
+    for i, pt in ipairs(points) do
+      route[i] = { x = math.floor(pt[1]), y = math.floor(pt[2]) }
+      local nx = points[i % #points + 1]
+      local len = math.sqrt((nx[1] - pt[1]) ^ 2 + (nx[2] - pt[2]) ^ 2)
+      for d = 0, len, 60 do
+        local k = d / math.max(len, 1)
+        placed[#placed + 1] = { x = pt[1] + (nx[1] - pt[1]) * k, y = pt[2] + (nx[2] - pt[2]) * k, r = 40 }
+      end
+    end
+    map.patrols[#map.patrols + 1] = route
+  end
+  --- A barrier (concrete) or a planter with a tree at (x, y), one way or the other.
+  local function loose(x, y)
+    if rng:random() < 0.4 then
+      cover("planter", x - 40, y - 40, 80, 80)
+      map.trees[#map.trees + 1] = { x = x, y = y, r = 26 }
+    else
+      local len = 110 + rng:random() * 70
+      if rng:random() < 0.6 then
+        cover("barrier", x - len / 2, y - 14, len, 28)
+      else
+        cover("barrier", x - 14, y - len / 2, 28, len)
+      end
+    end
+  end
+
+  fill(0, 0, cols - 1, rows - 1, "walk")
+  local avenue0, avenue1 = 22, 25 -- the avenue up the middle, and the gate in the wall
+
+  -- The train and the platform.
+  zone("platform", rows - 10, rows - 5)
+  fill(0, rows - 4, cols - 1, rows - 1, "ground")
+  map.offLimits = { { x = X(0), y = Y(rows - 4), w = cols * T, h = 4 * T } } -- the track: nothing spawns there
+  map.crowdClothes = { -- the citizens' issued blue-grey jumpsuits (pedestrians reads it)
+    shirts = { { 0.33, 0.42, 0.52 }, { 0.30, 0.38, 0.47 }, { 0.37, 0.45, 0.54 } },
+    pants = { { 0.25, 0.31, 0.39 }, { 0.22, 0.27, 0.34 } },
+  }
+  cover("train", X(0), Y(rows - 4) + 10, cols * T, 3 * T - 10)
+  map.cx, map.cy = math.floor(X(5)), math.floor(Y(rows - 7.5))
+  for i = 0, 15 do
+    map.spawns[#map.spawns + 1] = { x = X(10 + (i % 8) * 3.6), y = Y(rows - 8 + math.floor(i / 8) * 1.4),
+      angle = -math.pi / 2 }
+  end
+
+  -- The station: the wings, and a checkpoint in the concourse between them.
+  local s0, s1 = rows - 16, rows - 11
+  zone("station", s0, s1)
+  cover("station", X(0), Y(s0), (avenue0 - 2) * T, (s1 - s0 + 1) * T, { side = -1 })
+  cover("station", X(avenue1 + 3), Y(s0), (cols - avenue1 - 3) * T, (s1 - s0 + 1) * T, { side = 1 })
+  local cl, cr = X(avenue0 - 2), X(avenue1 + 3) -- the concourse's walls
+  cover("barrier", cl, Y(s0 + 1.5), (cr - cl) * 0.62, 28)
+  cover("barrier", cr - (cr - cl) * 0.62, Y(s0 + 3.6), (cr - cl) * 0.62, 28)
+  cover("combine", cl, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
+  cover("combine", cr - 26, Y(s0) - 8, 26, (s1 - s0 + 1) * T + 16)
+  local SOUTH = math.pi / 2
+  map.posts = { -- where the guards stand at each checkpoint ({ x, y, watch, at }), all looking south
+    { x = cr - 60, y = Y(s0) + 30, watch = SOUTH, at = "station" }, -- over the way out
+    { x = cl + 50, y = Y(s0 + 2.6), watch = 0.25, at = "station" }, -- down the lane between the barriers
+  }
+
+  -- The old town and the screen.
+  local o0, o1 = 30, rows - 31 -- rows of the old town
+  local p0, p1 = o1 + 1, s0 - 1 -- rows of the plaza
+  zone("plaza", p0, p1)
+  zone("old town", o0, o1)
+  local cross0 = math.floor((o0 + o1) / 2) -- the cross street, two rows
+  fill(avenue0, o0, avenue1, o1, "road")
+  fill(0, cross0, cols - 1, cross0 + 1, "road")
+  fill(6, o0, 7, o1, "road")
+  fill(cols - 8, o0, cols - 7, o1, "road")
+  map.lanes = { -- the middle of each road, for its painted line
+    { X(avenue0 + 2), Y(o0), X(avenue0 + 2), Y(o1 + 1) },
+    { X(0), Y(cross0 + 1), X(cols), Y(cross0 + 1) },
+    { X(7), Y(o0), X(7), Y(o1 + 1) },
+    { X(cols - 7), Y(o0), X(cols - 7), Y(o1 + 1) },
+  }
+  local xs = { { 0, 5 }, { 8, avenue0 - 1 }, { avenue1 + 1, cols - 9 }, { cols - 6, cols - 1 } }
+  local ys = { { o0, cross0 - 1 }, { cross0 + 2, o1 } }
+  for j, yr in ipairs(ys) do
+    for i, xr in ipairs(xs) do
+      -- A pavement where the block meets a road; the core is built on.
+      local c0 = xr[1] + (i > 1 and 1 or 0)
+      local c1 = xr[2] - (i < #xs and 1 or 0)
+      local r0 = yr[1] + (j > 1 and 1 or 0)
+      local r1 = yr[2] - 1
+      if j == 2 and i == 2 then
+        -- The screen: one big block looking down the plaza, the screen on its front.
+        local b = building(c0, r0, c1 - c0 + 1, r1 - r0 + 1, { screen = true })
+        map.screen = { x = b.x + b.w * 0.12, y = b.y + b.h - 44, w = b.w * 0.76, h = 40 }
+        cover("screen", map.screen.x, map.screen.y, map.screen.w, map.screen.h + 40, { decor = true })
+      else
+        local rects = {}
+        splitCore(rng, c0, r0, c1 - c0 + 1, r1 - r0 + 1, rects)
+        for _, rc in ipairs(rects) do
+          -- Next to the wall the flats are coming down: rubble, not roofs.
+          if j == 1 and rc.ty <= o0 and rng:random() < 0.4 then
+            cover("rubble", X(rc.tx), Y(rc.ty), rc.tw * T, rc.th * T, { decor = true, seed = rng:random(1000) })
+          else
+            building(rc.tx, rc.ty, rc.tw, rc.th)
+          end
+        end
+      end
+    end
+  end
+
+  map.posts[#map.posts + 1] = { x = X(avenue0) - 50, y = Y(p0) + 50, watch = SOUTH + 0.4, at = "plaza" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) + 50, y = Y(p0) + 50, watch = SOUTH - 0.4, at = "plaza" }
+  for _, p in ipairs(map.posts) do
+    placed[#placed + 1] = { x = p.x, y = p.y, r = 50 } -- nothing loose lands on a guard
+  end
+
+  -- The patrols' beats: one up and down each side road of the old town and
+  -- out along the cross street to the avenue (the roads make no loop, so
+  -- out and back), one round the plaza.
+  local foot = Y(o1 + 1) + 20 -- where a side road comes out on the plaza
+  for _, side in ipairs({ { X(7), X(avenue0 + 1) }, { X(cols - 7), X(avenue1) } }) do
+    local road, avenue = side[1], side[2]
+    patrol({ { road, Y(o0 + 2) }, { road, foot }, { road, Y(cross0 + 1) }, { avenue, Y(cross0 + 1) },
+      { road, Y(cross0 + 1) } })
+  end
+  patrol({ { X(4), Y(p0 + 3) }, { X(4), Y(p1 - 1) }, { X(cols - 4), Y(p1 - 1) }, { X(cols - 4), Y(p0 + 3) } })
+
+  -- The plaza: loose cover, the middle kept open up to the avenue.
+  placed[#placed + 1] = { x = X((avenue0 + avenue1 + 1) / 2), y = Y((p0 + p1) / 2), r = 150 }
+  local got = 0
+  for _ = 1, 400 do
+    if got >= 30 then
+      break
+    end
+    local x = X(2) + rng:random() * (cols - 4) * T
+    local y = Y(p0 + 2) + rng:random() * (p1 - p0 - 3) * T
+    if free(x, y, 50, 90) then
+      loose(x, y)
+      got = got + 1
+    end
+  end
+
+  -- The wall, with its gate on the avenue.
+  local w0 = o0 - 2
+  zone("wall", w0, w0 + 1)
+  cover("combine", X(0), Y(w0), avenue0 * T, 2 * T - 16, { lights = true })
+  cover("combine", X(avenue1 + 1), Y(w0), (cols - avenue1 - 1) * T, 2 * T - 16, { lights = true })
+  cover("barrier", X(avenue0) + 20, Y(w0 + 2.5), 3 * T, 28) -- the checkpoint: in at the right
+  cover("barrier", X(avenue0) + T, Y(w0 + 3.6), 3 * T - 20, 28)
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 3.6 * T, y = Y(w0 + 2) + 10, watch = SOUTH, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue0) + 40, y = Y(w0) - 50, watch = SOUTH - 0.2, at = "gate" }
+  map.posts[#map.posts + 1] = { x = X(avenue1 + 1) - 40, y = Y(w0) - 50, watch = SOUTH + 0.2, at = "gate" }
+
+  -- The canal and its bridges.
+  local k0, k1 = w0 - 7, w0 - 4 -- water rows
+  zone("canal", k0 - 1, k1 + 1)
+  local bridges = { { 5, 7 }, { cols - 11, cols - 9 } }
+  map.bridges = {}
+  local c = 0
+  for _, b in ipairs(bridges) do
+    fill(c, k0, b[1] - 1, k1, "water")
+    cover("water", X(c), Y(k0), (b[1] - c) * T, (k1 - k0 + 1) * T)
+    map.bridges[#map.bridges + 1] = {
+      x = X(b[1]), y = Y(k0) - 20, w = (b[2] - b[1] + 1) * T, h = (k1 - k0 + 1) * T + 40,
+    }
+    local mid = X(b[1]) + (b[2] - b[1] + 1) * T / 2
+    map.posts[#map.posts + 1] = { x = mid, y = Y(k0) - 70, watch = SOUTH, at = "bridge" }
+    c = b[2] + 1
+  end
+  fill(c, k0, cols - 1, k1, "water")
+  cover("water", X(c), Y(k0), (cols - c) * T, (k1 - k0 + 1) * T)
+
+  -- The Citadel's square: the Citadel, wall sections and ruins round it.
+  zone("citadel", 0, k0 - 2)
+  local cx, cy, R = X(cols / 2), Y(8), 6 * T
+  map.citadel = { x = cx, y = cy, r = R }
+  cover("citadel", cx - R, cy - R, 2 * R, 2 * R, { decor = true, round = true }) -- drawn round; solid a row at a time
+  for r = -6, 5 do
+    local y = cy + r * T
+    local mid = y + T / 2 - cy
+    local half = math.sqrt(math.max(0, R * R - mid * mid))
+    if half > 8 then
+      map.solids[#map.solids + 1] = { x = math.floor(cx - half), y = math.floor(y), w = math.floor(half * 2), h = T }
+    end
+  end
+  map.citadelX, map.citadelY = math.floor(cx), math.floor(cy + R + 50)
+  map.posts[#map.posts + 1] = { x = cx - 130, y = cy + R + 40, watch = SOUTH + 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx + 130, y = cy + R + 40, watch = SOUTH - 0.3, at = "citadel" }
+  map.posts[#map.posts + 1] = { x = cx, y = cy + R + 260, watch = SOUTH, at = "citadel" }
+  for _, p in ipairs(map.posts) do
+    if p.at ~= "station" and p.at ~= "plaza" then
+      placed[#placed + 1] = { x = p.x, y = p.y, r = 50 }
+    end
+  end
+  placed[#placed + 1] = { x = cx, y = cy + R + 120, r = 160 } -- in front of the doors stays open
+  -- Round the Citadel's flanks and across in front of its doors, back along the canal.
+  local front, back = cy + R + 180, Y(k0) - 150
+  patrol({ { X(4), Y(3) }, { cx - R - 140, Y(3) }, { cx - R - 140, front }, { cx + R + 140, front },
+    { cx + R + 140, Y(3) }, { X(cols - 4), Y(3) }, { X(cols - 4), back }, { X(4), back } })
+  got = 0
+  for _ = 1, 300 do
+    if got >= 28 then
+      break
+    end
+    local x = X(2) + rng:random() * (cols - 4) * T
+    local y = Y(1) + rng:random() * (k0 - 4) * T
+    if free(x, y, 70, 110) then
+      if rng:random() < 0.5 then
+        local len = 160 + rng:random() * 160
+        if rng:random() < 0.5 then
+          cover("combine", x - len / 2, y - 16, len, 32)
+        else
+          cover("combine", x - 16, y - len / 2, 32, len)
+        end
+      else
+        local w, h = (2 + rng:random(0, 2)) * T, (2 + rng:random(0, 1)) * T
+        cover("rubble", x - w / 2, y - h / 2, w, h, { decor = true, seed = rng:random(1000) })
+      end
+      got = got + 1
+    end
+  end
+
+  -- The war is not long over: fires nobody puts out and rubbish nobody
+  -- collects. Placed last, so nothing above moves for them.
+  map.fires = {}
+  local function fire(kind, x, y, r)
+    map.fires[#map.fires + 1] = { kind = kind, x = math.floor(x), y = math.floor(y), r = r, seed = rng:random(1000) }
+  end
+  --- Is (x, y) on paving or road, `r` clear of anything solid and off the bridges?
+  local function open(x, y, r)
+    local t = map.tiles[math.floor((x - map.x0) / T)]
+    t = t and t[math.floor((y - map.y0) / T)]
+    if t ~= "walk" and t ~= "road" then
+      return false
+    end
+    for _, b in ipairs(map.solids) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    for _, b in ipairs(map.bridges) do
+      if x + r > b.x and x - r < b.x + b.w and y + r > b.y and y - r < b.y + b.h then
+        return false
+      end
+    end
+    return true
+  end
+  --- A random open spot between rows r0 and r1, `gap` clear of loose cover, or nil.
+  local function spot(r0, r1, r, gap)
+    for _ = 1, 200 do
+      local x = X(1) + rng:random() * (cols - 2) * T
+      local y = Y(r0) + rng:random() * (r1 - r0) * T
+      if open(x, y, r) and free(x, y, r, gap) then
+        return x, y
+      end
+    end
+  end
+  -- Burning oil drums, warming nobody, from the platform to the canal.
+  for _ = 1, 16 do
+    local x, y = spot(k1 + 2, rows - 6, 16, 120)
+    if x then
+      cover("barrel", x - 14, y - 14, 28, 28)
+      fire("barrel", x, y, 14)
+    end
+  end
+  -- Fires in the rubble, and a few out on the roads (burning tyres, a
+  -- heap of furniture): these set you alight.
+  for _, rb in ipairs(map.cover) do
+    if rb.kind == "rubble" and rng:random() < 0.55 then
+      fire("heap", rb.x + rb.w * (0.3 + rng:random() * 0.4), rb.y + rb.h * (0.3 + rng:random() * 0.4), 24)
+    end
+  end
+  for _ = 1, 7 do
+    local x, y = spot(1, rows - 6, 30, 140)
+    if x then
+      placed[#placed + 1] = { x = x, y = y, r = 30 }
+      fire("heap", x, y, 22)
+    end
+  end
+  -- Flats burning in the old town: up on the roofs, out of reach.
+  local flats = {}
+  for _, b in ipairs(map.buildings) do
+    if not b.screen and b.y >= Y(o0) and b.y < Y(o1) then
+      flats[#flats + 1] = b
+    end
+  end
+  for _ = 1, math.min(6, #flats) do
+    local b = table.remove(flats, rng:random(#flats))
+    b.burning = true
+    fire("roof", b.x + b.w * (0.25 + rng:random() * 0.5), b.y + b.h * (0.25 + rng:random() * 0.5), 30)
+  end
+  -- Rubbish: bin bags, boxes and junk in heaps along the pavements, and
+  -- spilt across the roads. Walked through, not solid.
+  got = 0
+  for _ = 1, 600 do
+    if got >= 70 then
+      break
+    end
+    local x = X(1) + rng:random() * (cols - 2) * T
+    local y = Y(1) + rng:random() * (rows - 7) * T
+    local w, h = 26 + rng:random() * 40, 22 + rng:random() * 30
+    if open(x, y, math.max(w, h) / 2) and free(x, y, math.max(w, h) / 2, 40) then
+      cover("trash", x - w / 2, y - h / 2, w, h, { decor = true, seed = rng:random(1000) })
+      got = got + 1
+    end
+  end
+end
+
+--- Build a map. `spec` is { seed, cols, rows, plots, empty, crowd,
+--- crowdScale, police, traffic, vehicles, kind } (every field optional,
+--- defaulting to the city above: the header says what each does) or just a seed.
 function Layout.generate(spec)
   if type(spec) ~= "table" then
     spec = { seed = spec }
@@ -557,6 +1203,8 @@ function Layout.generate(spec)
     rows = rows,
     empty = empty, -- open ground: every tile "ground", nothing built on it
     crowd = spec.crowd ~= false, -- pedestrians and officers walk here (pedestrians, police read it)
+    crowdScale = spec.crowdScale or 1, -- how big a crowd, against the usual (pedestrians reads it)
+    police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
     plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
@@ -583,11 +1231,25 @@ function Layout.generate(spec)
     spawns = {}, -- { x, y, angle }
   }
 
-  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" then
+  if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
+    or map.kind == "city17" or map.kind == "citadel"
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
       buildBeach(map, rng)
+    elseif map.kind == "cliff" then
+      buildCliff(map, rng)
+    elseif map.kind == "city17" then
+      buildCity17(map, rng)
+    elseif map.kind == "citadel" then
+      Citadel.build(map, rng, T)
+    elseif map.kind == "outercity" then
+      OuterCity.build(map, rng, T)
+    elseif map.kind == "coast" then
+      Coast.build(map, rng, T)
+    elseif map.kind == "road" then
+      Road.build(map, rng, T)
     else
       buildCuldesac(map, rng)
     end
@@ -619,14 +1281,7 @@ function Layout.generate(spec)
         local block = { tx = cx, ty = cy, tw = 6, th = 6, bi = bi, bj = bj }
         if roll < 0.15 then
           block.kind = "park"
-          for i = 0, 2 do
-            for j = 0, 2 do
-              local x = px(cx + 1 + i * 2) + (rng:random() - 0.5) * 30
-              local y = py(cy + 1 + j * 2) + (rng:random() - 0.5) * 30
-              map.trees[#map.trees + 1] = { x = x, y = y }
-              map.solids[#map.solids + 1] = { x = x - 7, y = y - 7, w = 14, h = 14, tree = true }
-            end
-          end
+          buildPark(map, rng, block, cx, cy)
         elseif roll < 0.27 then
           block.kind = "lot"
         else

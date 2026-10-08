@@ -8,6 +8,8 @@
 -- pedestrian actually turns.
 
 local Car = require("src.car")
+local Features = require("src.features")
+local Layout = require("src.features.city-map.layout")
 
 local Crowd = {}
 Crowd.__index = Crowd
@@ -16,7 +18,7 @@ Crowd.__index = Crowd
 
 Crowd.WALK_SPEED = 45 -- px/s strolling
 Crowd.FLEE_SPEED = 170 -- px/s when a car is bearing down
-Crowd.RADIUS = 6 -- px; how fat a pedestrian is for hit tests
+Crowd.RADIUS = 8 -- px; how fat a pedestrian is for hit tests (drawn the size of a player: src/body.lua)
 Crowd.SPLAT_SPEED = 90 -- car speed (px/s) needed to turn one into gibs
 Crowd.FLEE_TIME = 1.5 -- seconds of sprinting after the last scare
 Crowd.REACT_MIN = 0.12 -- seconds frozen in the headlights before bolting
@@ -30,6 +32,10 @@ Crowd.SPAWN_MAX = 1150 -- ...just outside anyone's view
 Crowd.DESPAWN = 1500 -- px from the nearest car before one is recycled
 Crowd.MAINTAIN_EVERY = 0.25 -- seconds between spawn/despawn sweeps
 Crowd.SPAWN_BURST = 8 -- most pedestrians added in one sweep
+Crowd.SHOT_RANGE = 520 -- px; a gunshot this near sends people running
+Crowd.SHOT_FLEE = 3 -- seconds they run from one
+Crowd.SHOT_SCATTER = 1.1 -- radians either side of straight away that they may run
+Crowd.SHOT_REACT = 0.35 -- longest beat of shock before they run
 
 local DESPAWN2 = Crowd.DESPAWN * Crowd.DESPAWN
 local DANGER2 = Crowd.DANGER_RANGE * Crowd.DANGER_RANGE
@@ -51,17 +57,19 @@ function Crowd.new()
     maintainTimer = 0,
     kills = {}, -- reused every tick: { id, x, y, angle, by }
     cars = {}, -- reused every tick: see collect()
+    anchors = {}, -- reused every tick: the cars, then the players on foot (see collect())
   }, Crowd)
 end
 
 --- Snapshot of every car in the world, with the per-car maths the
 --- pedestrian loop needs. `id` is the driver, 0 for a car nobody is in (a
 --- runaway kill credits nobody). Returns the (reused) table and how many
---- entries are live.
+--- entries are live. Also fills `anchors`, what the crowd gathers round:
+--- every car, then every player on foot (on a walked map, the only ones).
 function Crowd:collect(server)
   local cars, n = self.cars, 0
   for _, car in pairs(server.vehicles) do
-    if not car.hidden then
+    if not (car.hidden or car.stowed) then
       n = n + 1
       local e = cars[n]
       if not e then
@@ -78,6 +86,23 @@ function Crowd:collect(server)
       e.reach = 70 + e.fast * 1.1 -- how far ahead of itself a car is scary
     end
   end
+  local anchors, na = self.anchors, 0
+  for i = 1, n do
+    na = na + 1
+    anchors[na] = anchors[na] or {}
+    anchors[na].x, anchors[na].y = cars[i].x, cars[i].y
+  end
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local x, y, onFoot = Features.bodyPose(server, p)
+      if onFoot then
+        na = na + 1
+        anchors[na] = anchors[na] or {}
+        anchors[na].x, anchors[na].y = x, y
+      end
+    end
+  end
+  self.nanchors, self.ncars = na, n
   return cars, n
 end
 
@@ -108,8 +133,9 @@ end
 
 --- Recycle pedestrians nobody can see and top the crowd back up. Runs four
 --- times a second, not every tick.
-function Crowd:maintain(cars, ncars)
-  if ncars == 0 then
+function Crowd:maintain()
+  local anchors, nanchors = self.anchors, self.nanchors or 0
+  if nanchors == 0 then
     return
   end
 
@@ -122,15 +148,35 @@ function Crowd:maintain(cars, ncars)
     end
   end
 
-  local target = math.min(Crowd.MAX, Crowd.PER_CAR * ncars)
+  -- Sized by the cars, as ever; on a walked map, where there are none, by the
+  -- players; scaled by the map (city-map's `map.crowdScale`).
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local target = math.min(Crowd.MAX, Crowd.PER_CAR * (self.ncars > 0 and self.ncars or nanchors))
+  target = math.floor(target * (map and map.crowdScale or 1) + 0.5)
+  -- Too many for this map (a smaller crowd since the last one): let go of
+  -- those out of everyone's sight.
+  i = 1
+  while self.n > target and i <= self.n do
+    if self.peds[i].near2 > Crowd.SPAWN_MIN * Crowd.SPAWN_MIN then
+      self:remove(i)
+    else
+      i = i + 1
+    end
+  end
   local budget = Crowd.SPAWN_BURST
+  -- Only on the map's land: past its edge is sea (or whatever surrounds it).
   while self.n < target and budget > 0 do
     budget = budget - 1
-    local e = cars[random(ncars)]
+    local e = anchors[random(nanchors)]
     local a = random() * 2 * math.pi
     local r = Crowd.SPAWN_MIN + random() * (Crowd.SPAWN_MAX - Crowd.SPAWN_MIN)
-    local p = self:spawn(e.x + math.cos(a) * r, e.y + math.sin(a) * r)
-    p.near2 = r * r
+    local x, y = e.x + math.cos(a) * r, e.y + math.sin(a) * r
+    -- On the map's ground, and not inside a wall or anywhere else nobody can get to.
+    if not (map and map.tiles) or (Layout.tileAt(map, x, y) and not city:outOfReach(x, y)) then
+      local p = self:spawn(x, y)
+      p.near2 = r * r
+    end
   end
 end
 
@@ -138,6 +184,14 @@ end
 function Crowd:think(p, dt, cars, ncars)
   local near2, hitBy = math.huge, nil
   local dodge, awayX, awayY
+
+  for i = ncars + 1, self.nanchors or 0 do -- the players on foot: only how near they are
+    local a = self.anchors[i]
+    local d2 = (p.x - a.x) ^ 2 + (p.y - a.y) ^ 2
+    if d2 < near2 then
+      near2 = d2
+    end
+  end
 
   for i = 1, ncars do
     local e = cars[i]
@@ -255,6 +309,23 @@ function Crowd:scare(x, y, radius, seconds)
   end
 end
 
+--- A gun went off at (x, y): everyone within SHOT_RANGE scatters, each
+--- after a beat of shock, roughly away from it but not all the same way.
+function Crowd:scatter(x, y)
+  local r2 = Crowd.SHOT_RANGE ^ 2
+  for i = 1, self.n do
+    local p = self.peds[i]
+    local dx, dy = p.x - x, p.y - y
+    if dx * dx + dy * dy <= r2 and p.frozen <= 0 then
+      if p.flee <= 0 then
+        p.react = random() * Crowd.SHOT_REACT
+        setHeading(p, math.atan2(dy, dx) + (random() * 2 - 1) * Crowd.SHOT_SCATTER)
+      end
+      p.flee = math.max(p.flee, Crowd.SHOT_FLEE)
+    end
+  end
+end
+
 --- The first pedestrian standing within `radius` of (x, y), taken out of the
 --- crowd. Used for anything that kills one without a bumper (a bullet); the
 --- caller announces the death. Returns nil if nobody was there.
@@ -294,7 +365,7 @@ function Crowd:update(server, dt)
   self.maintainTimer = self.maintainTimer - dt
   if self.maintainTimer <= 0 then
     self.maintainTimer = Crowd.MAINTAIN_EVERY
-    self:maintain(cars, ncars)
+    self:maintain()
   end
   return kills
 end

@@ -5,11 +5,15 @@
 -- pedestrian; a car at speed flattens one. Once she is down no more come,
 -- but the ones already out keep swinging until they are dealt with.
 --
+-- What each one does is the simps' brain's (simp_brain.lua): stay by her,
+-- go for whoever shot her, and come at you from all sides.
+--
 -- The host owns them (init.lua drives this module from Karen's step and
 -- owns the wire format); clients draw what KRN_SIMPS tells them.
 
 local Features = require("src.features")
 local Car = require("src.car")
+local Brain = require("src.features.karen.simp_brain")
 
 local Simps = {}
 Simps.__index = Simps
@@ -21,7 +25,7 @@ Simps.SPAWN_EVERY = 4 -- seconds between arrivals while there is room
 Simps.FIRST_AFTER = 3 -- seconds after she appears before the first one
 Simps.SPAWN_MIN = 140 -- px from her they appear...
 Simps.SPAWN_MAX = 260 -- ...out to here
-Simps.RADIUS = 6 -- px; a pedestrian's size
+Simps.RADIUS = 8 -- px; a pedestrian's size (drawn as a person: src/body.lua)
 Simps.HEALTH = 40 -- two pistol rounds
 Simps.SHOT_DAMAGE = 20 -- what one round takes off one (matches the pistol)
 Simps.WALK_SPEED = 70 -- px/s ambling about
@@ -61,25 +65,6 @@ local function blockedAt(x, y)
   return false
 end
 
---- One step, each axis on its own so a wall is slid along, and a note of
---- whether it got anywhere (wedged, they sidestep).
-local function walk(s, angle, speed, dt)
-  local px, py = s.x, s.y
-  local nx = s.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, s.y) then
-    s.x = nx
-  end
-  local ny = s.y + math.sin(angle) * speed * dt
-  if not blockedAt(s.x, ny) then
-    s.y = ny
-  end
-  if (s.x - px) ^ 2 + (s.y - py) ^ 2 < (speed * dt * 0.4) ^ 2 then
-    s.stuck = s.stuck + dt
-  else
-    s.stuck = 0
-  end
-end
-
 -- The gang --------------------------------------------------------------------
 
 function Simps.new()
@@ -88,6 +73,7 @@ function Simps.new()
     n = 0,
     nextId = 1,
     spawnIn = Simps.FIRST_AFTER,
+    time = 0, -- the gang's clock (how long since she was shot, for their brain)
     kills = {}, -- reused every tick: { id, x, y, angle, by }
     bodies = {}, -- reused every tick: see collect()
   }, Simps)
@@ -186,7 +172,7 @@ end
 function Simps:collect(server)
   local list, n = self.bodies, 0
   for id, player in pairs(server.players) do
-    if Features.present(player) then
+    if Features.visible(server, player) then
       n = n + 1
       local e = list[n]
       if not e then
@@ -198,53 +184,6 @@ function Simps:collect(server)
     end
   end
   return list, n
-end
-
---- The nearest player inside sight, and how far.
-local function nearest(s, bodies, nbodies)
-  local best, bestD2
-  for i = 1, nbodies do
-    local e = bodies[i]
-    local d2 = (e.x - s.x) ^ 2 + (e.y - s.y) ^ 2
-    if d2 <= Simps.SIGHT * Simps.SIGHT and (not bestD2 or d2 < bestD2) then
-      best, bestD2 = e, d2
-    end
-  end
-  return best, bestD2
-end
-
---- Run at the target and punch whatever is in reach. Wedged against a wall
---- they sidestep around it.
-function Simps:hunt(server, s, dt, target, dist)
-  s.facing = math.atan2(target.y - s.y, target.x - s.x)
-  local reach = Simps.RADIUS + Simps.REACH + (target.onFoot and 0 or Car.HEIGHT / 2)
-  if s.sidestep > 0 then
-    s.sidestep = s.sidestep - dt
-    walk(s, s.facing + s.side * math.pi / 2, Simps.CHASE_SPEED, dt)
-  elseif dist > reach then
-    walk(s, s.facing, Simps.CHASE_SPEED, dt)
-    if s.stuck > 0.4 then
-      s.stuck, s.sidestep, s.side = 0, 0.6, -s.side
-    end
-  end
-  s.punchTimer = s.punchTimer - dt
-  if dist <= reach and s.punchTimer <= 0 then
-    s.punchTimer = Simps.PUNCH_INTERVAL
-    s.swing = 0.3
-    local weapons = Features.byName.weapons
-    if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, target.player, nil, Simps.PUNCH_DAMAGE, s.facing)
-    end
-  end
-end
-
---- Nobody about: mill around near where they are.
-function Simps:loiter(s, dt)
-  if s.stuck > 0.5 or random() < dt * 0.6 then
-    s.facing = s.facing + (random() - 0.5) * 2.5
-    s.stuck = 0
-  end
-  walk(s, s.facing, Simps.WALK_SPEED * 0.5, dt)
 end
 
 --- Something stinks at (x, y): every simp within `radius` runs from it
@@ -282,6 +221,7 @@ end
 --- else arrives). Returns this tick's kills (a reused list) and the simp
 --- that just arrived, if one did.
 function Simps:update(server, dt, boss)
+  self.time = self.time + dt
   local bodies, nbodies = self:collect(server)
   local kills = self.kills
   for i = #kills, 1, -1 do
@@ -303,22 +243,7 @@ function Simps:update(server, dt, boss)
   local i = 1
   while i <= self.n do
     local s = self.list[i]
-    s.swing = math.max(0, s.swing - dt)
-    local target, d2 = nearest(s, bodies, nbodies)
-    s.target = target and target.id or nil
-    if s.panic then
-      -- A stink: away from it at a run, whoever is about.
-      s.panic.left = s.panic.left - dt
-      s.facing = math.atan2(s.y - s.panic.y, s.x - s.panic.x)
-      walk(s, s.facing, Simps.WALK_SPEED, dt)
-      if s.panic.left <= 0 then
-        s.panic = nil
-      end
-    elseif target then
-      self:hunt(server, s, dt, target, math.sqrt(d2))
-    else
-      self:loiter(s, dt)
-    end
+    Brain.think(Simps, s, server, dt, bodies, nbodies, boss, self.time)
     local kill = self:trampled(s, dt, bodies, nbodies)
     if kill then
       kills[#kills + 1] = kill

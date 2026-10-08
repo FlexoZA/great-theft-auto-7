@@ -7,6 +7,10 @@
 -- goes down she spills a pile of koins, far more than anything else drops,
 -- and the quest is done.
 --
+-- What she does is her brain's (brain.lua): rant, charge and slap,
+-- scream, stomp back to her turning circle when nobody is about, and when
+-- badly hurt march off to a medkit (the bosses' standard, bosses/heal.lua).
+--
 -- She has stamina like every boss (bosses/stamina.lua): charging spends it
 -- and standing, walking or slapping lets it come back. Run her dry and she
 -- is winded: she can only walk, slower than anyone sprinting, and has no
@@ -45,10 +49,13 @@
 --   server -> all  KRN_SCREAM <x> <y> <radius> [<playerId>]...      it landed; these were caught in it
 --   server -> all  KRN_SIMP  <id> <name>                           a simp arrived (also to anyone joining)
 --   server -> all  KRN_SIMPS <tick> [<id> <x> <y> <facing> <hp> <swing>]...  (unreliable, 15 Hz; empty = all gone)
---   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
+--   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId> <cause>   one went down (0 = nobody's kill;
+--                  cause: the damage type)
 
 local Protocol = require("src.net.protocol")
+local Body = require("src.body")
 local Features = require("src.features")
+local Corpses = require("src.features.corpses")
 local Audio = require("src.audio")
 local Video = require("src.video")
 local UI = require("src.ui")
@@ -57,6 +64,8 @@ local KarenFace = require("src.features.karen.face")
 local Theme = require("src.features.karen.theme")
 local Simps = require("src.features.karen.simps")
 local Sounds = require("src.features.karen.sounds")
+local Brain = require("src.features.karen.brain")
+local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
@@ -68,7 +77,7 @@ local Karen = {
 
 -- Tuning ------------------------------------------------------------------
 Karen.maxHealth = 1500 -- seventy-five pistol rounds, for one player (more humans, more: bosses/init.lua)
-Karen.radius = 19 -- px; three pedestrians wide
+Karen.radius = 24 -- px; three pedestrians wide
 Karen.chargeSpeed = 165 -- px/s once she has seen you, while she has the breath
 Karen.walkSpeed = 55 -- px/s winded: a stroll, and anyone sprinting (170) leaves her behind
 Karen.breath = { -- her stamina (bosses/stamina.lua has the rule and the defaults)
@@ -87,9 +96,6 @@ Karen.ramScale = 0.14 -- hp she loses per px/s of a car that hits her
 Karen.ramMinSpeed = 60 -- px/s; slower than this a car just nudges her
 Karen.ramDamageToCar = 12 -- hp the car loses hitting her
 Karen.drops = 30 -- koins she spills when she goes down (a pedestrian drops one, an officer three)
--- What a simp leaves behind (pickups' serverDropLoot): the odds of anything,
--- then ammo, a medkit or a drink by weight; `magazines` sizes the ammo.
-Karen.simpLoot = { chance = 0.4, ammo = 3, health = 1, stamina = 1, magazines = 0.5 }
 Karen.introTime = 9 -- seconds the title screen stays up unless a key is pressed
 Karen.sayTime = 3.2 -- seconds a rant hangs over her head
 Karen.screamEvery = 8 -- seconds between screams
@@ -112,6 +118,15 @@ Karen.lines = {
   "Somebody put Wednesday in my Tuesday AGAIN.",
   "I demand to speak to whoever is in charge of the wind.",
 }
+Karen.TALK = #Karen.lines -- the rants; the ones after them are for a medkit
+for _, line in ipairs({
+  "This bandage is the WRONG shade of beige.",
+  "I'll be leaving a one-star review for this medkit.",
+  "Where's the manager of this first aid kit?!",
+  "I'm not hurt. I'm OFFENDED. There's a difference.",
+}) do
+  Karen.lines[#Karen.lines + 1] = line
+end
 
 local SYNC_EVERY = 2 -- server ticks between KRN_STATE and KRN_SIMPS packets
 local SIMP_COLOR = { 0.45, 0.50, 0.62 } -- the hoodie
@@ -123,6 +138,12 @@ local SPOT_COLOR = { 0.35, 0.18, 0.10 } -- leopard print
 local HAIR_COLOR = { 0.95, 0.82, 0.45 }
 local SKIN_COLOR = { 0.95, 0.80, 0.68 }
 local BAG_COLOR = { 0.55, 0.12, 0.30 }
+-- Karen as the core's person (src/body.lua), drawn her size; the spots,
+-- her bob, sunglasses and handbag go over it.
+local KAREN_LOOK = { shirt = BODY_COLOR, pants = { 0.2, 0.18, 0.26 }, skin = SKIN_COLOR, hair = HAIR_COLOR }
+local SPOTS = { -- leopard print, in the person's units: across the shoulders, away from her head
+  { 1.5, -6.5 }, { -1.5, -5.2 }, { 2.3, 5.8 }, { -1.2, 6.8 }, { 0.2, -7.8 }, { -2.4, 4.6 }, { 2.8, -4.8 }, { 0.5, 7.9 },
+}
 
 local function fmt(v)
   return ("%.1f"):format(v)
@@ -137,45 +158,6 @@ end
 
 local sv = nil -- { boss = { x, y, facing, hp, max, ... } or nil, syncIn }
 
---- Solid ground, through the `blocksPoint` convention, tested at the four
---- extremes of her body.
-local function blockedAt(x, y)
-  local r = Karen.radius
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
-    end
-  end
-  return false
-end
-
---- One step, each axis on its own so a wall is slid along, and a note of
---- whether it got anywhere (wedged, she sidesteps).
-local function walk(b, angle, speed, dt)
-  local px, py = b.x, b.y
-  local nx = b.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, b.y) then
-    b.x = nx
-  end
-  local ny = b.y + math.sin(angle) * speed * dt
-  if not blockedAt(b.x, ny) then
-    b.y = ny
-  end
-  if (b.x - px) ^ 2 + (b.y - py) ^ 2 < (speed * dt * 0.4) ^ 2 then
-    b.stuck = b.stuck + dt
-  else
-    b.stuck = 0
-  end
-end
-
 function Karen:serverStart()
   sv = { boss = nil, syncIn = 0, simps = Simps.new(), simpsOut = 0 }
 end
@@ -188,21 +170,23 @@ function Karen:clearSimps(server)
   sv.simpsOut = 0
 end
 
---- One simp down: gibs on every screen, sometimes something to pick up,
---- and the other features price it (money drops a koin, the same as a
---- pedestrian).
+--- One simp down: his body on every screen (gibs under a car or in a
+--- blast; the corpses feature), sometimes something to pick up, and the
+--- other features price it (money drops a koin, the same as a pedestrian).
+--- `kill.cause` is the damage type, a car's "impact" when not given.
 function Karen:simpDown(server, kill)
   server:broadcast(Protocol.encode("KRN_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
-    kill.by or 0))
+    kill.by or 0, kill.cause or "impact"))
   local pickups = Features.byName.pickups
-  if pickups and pickups.serverDropLoot then
-    pickups:serverDropLoot(server, kill.x, kill.y, self.simpLoot)
+  if pickups and pickups.serverDropEnemy then
+    pickups:serverDropEnemy(server, kill.x, kill.y) -- maybe something to pick up (the odds are pickups')
   end
   Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
 end
 
 function Karen:spawnBoss(server, x, y)
   local hp = Bosses.health(self.maxHealth, server)
+  local _, map = cityMap()
   sv.boss = {
     x = x,
     y = y,
@@ -220,6 +204,10 @@ function Karen:spawnBoss(server, x, y)
     screamTimer = self.screamEvery * 0.6, -- the first comes a little sooner
     scream = nil, -- { x, y, t } while she is drawing breath
     rammed = {}, -- player id -> seconds before that car can hurt her again
+    homeX = x, -- her turning circle, where she goes back to
+    homeY = y,
+    nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h }), -- round the houses
+    mode = "idle", -- what her brain is doing (brain.lua)
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
   sv.simps.max = Bosses.count(Simps.MAX, server) -- a bigger gang for a bigger group
@@ -303,6 +291,9 @@ function Karen:hurt(server, amount, by, angle)
     return false
   end
   b.hp = b.hp - amount
+  if by then -- her simps go for whoever it was (simp_brain.lua)
+    b.lastHitBy, b.lastHitT = by, sv.simps.time
+  end
   if b.hp > 0 then
     return false
   end
@@ -324,7 +315,7 @@ end
 --- A bullet passing through (x, y): the `serverShotAt` convention. She is
 --- fat enough that it is hard to miss; failing her, a simp standing there
 --- takes it.
-function Karen:serverShotAt(server, x, y, radius, by, angle)
+function Karen:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not sv then
     return false
   end
@@ -339,30 +330,11 @@ function Karen:serverShotAt(server, x, y, radius, by, angle)
   end
   local kill = sv.simps:hurt(s, Simps.SHOT_DAMAGE, by ~= 0 and by or nil, angle)
   if kill then
+    kill.cause = dtype or "bullet"
     sv.simps:removeAt(i)
     self:simpDown(server, kill)
   end
   return true
-end
-
---- Where everyone's body is this tick, and the nearest one to her.
-local function nearestBody(server, b)
-  local best, bestD2, bx, by, onFoot
-  for _, p in pairs(server.players) do
-    if Features.present(p) then
-      local x, y, foot = Features.bodyPose(server, p)
-      local d2 = (x - b.x) ^ 2 + (y - b.y) ^ 2
-      if not bestD2 or d2 < bestD2 then
-        best, bestD2, bx, by, onFoot = p, d2, x, y, foot
-      end
-    end
-  end
-  return best, bestD2, bx, by, onFoot
-end
-
---- Her pace: full tilt with breath in her, a walk without.
-local function pace(b)
-  return b.breath:pace(Karen.chargeSpeed, Karen.walkSpeed)
 end
 
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
@@ -382,7 +354,7 @@ function Karen:rams(server, b, dt)
           b.rammed[id] = 0.6
           local weapons = Features.byName.weapons
           if weapons and weapons.serverDamage then
-            weapons:serverDamage(server, p, nil, self.ramDamageToCar, away + math.pi)
+            weapons:serverDamage(server, p, nil, self.ramDamageToCar, away + math.pi, "impact")
           end
           car.speed = -car.speed * 0.35 -- the car re-derives its velocity from this
           if self:hurt(server, speed * self.ramScale, id, car.angle) then
@@ -439,76 +411,17 @@ function Karen:serverStep(server, dt)
   if not b then
     return
   end
-  b.slapTimer = b.slapTimer - dt
-  b.sayTimer = b.sayTimer - dt
-
-  local target, d2, tx, ty, onFoot = nearestBody(server, b)
-  local running = false -- at full tilt this tick: that is what costs her breath
-  if (b.frozen or 0) > 0 then
-    b.frozen = b.frozen - dt -- frozen: no charging, no slapping
-    b.charging = false
-  elseif b.panic then
-    -- A stink: away from it, nose held, whatever else she was doing, as
-    -- fast as her legs allow.
-    b.charging, b.scream = false, nil
-    b.panic.left = b.panic.left - dt
-    b.facing = math.atan2(b.y - b.panic.y, b.x - b.panic.x)
-    walk(b, b.facing, pace(b), dt)
-    running = not b.breath:winded()
-    if b.panic.left <= 0 then
-      b.panic = nil
-    end
-  elseif b.scream then
-    -- Feet planted, drawing breath; when the time is up it lands.
-    b.charging = false
-    b.scream.t = b.scream.t - dt
-    if b.scream.t <= 0 then
+  local running, events = Brain.think(self, b, server, dt)
+  for _, e in ipairs(events) do
+    if e[1] == "say" then
+      server:broadcast(Protocol.encode("KRN_SAY", e[2]))
+    elseif e[1] == "aim" then
+      server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(e[2]), fmt(e[3]), self.screamRadius,
+        ("%.2f"):format(self.screamDelay)))
+    elseif e[1] == "scream" then
       self:scream(server, b)
     end
-  elseif target and d2 <= self.aggroRange ^ 2 then
-    b.screamTimer = b.screamTimer - dt
-    -- A scream takes breath: none while she is winded or nearly so (the
-    -- timer stays run down, so it comes as soon as she has it back).
-    if b.screamTimer <= 0 and d2 <= self.screamRange ^ 2 and b.breath:has(self.screamStamina) then
-      b.screamTimer = self.screamEvery
-      b.breath:spend(self.screamStamina)
-      b.scream = { x = tx, y = ty, t = self.screamDelay }
-      b.facing = math.atan2(ty - b.y, tx - b.x)
-      server:broadcast(Protocol.encode("KRN_SCREAM_AIM", fmt(tx), fmt(ty), self.screamRadius,
-        ("%.2f"):format(self.screamDelay)))
-      return self:finishStep(server, b, dt, false)
-    end
-    b.charging = not b.breath:winded() -- winded, she comes on at a waddle
-    b.facing = math.atan2(ty - b.y, tx - b.x)
-    local dist = math.sqrt(d2)
-    local reach = self.radius + self.slapReach + (onFoot and 0 or Car.HEIGHT / 2)
-    if dist > reach then
-      running = not b.breath:winded()
-      if b.sidestep > 0 then
-        b.sidestep = b.sidestep - dt
-        walk(b, b.facing + b.side * math.pi / 2, pace(b), dt)
-      else
-        walk(b, b.facing, pace(b), dt)
-        if b.stuck > 0.4 then
-          b.stuck, b.sidestep, b.side = 0, 0.6, -b.side
-        end
-      end
-    elseif b.slapTimer <= 0 then
-      b.slapTimer = self.slapInterval
-      local weapons = Features.byName.weapons
-      if weapons and weapons.serverDamage then
-        weapons:serverDamage(server, target, nil, self.slapDamage, b.facing)
-      end
-    end
-  else
-    b.charging = false
   end
-
-  if b.sayTimer <= 0 then
-    b.sayTimer = 4 + love.math.random() * 4
-    server:broadcast(Protocol.encode("KRN_SAY", love.math.random(#self.lines)))
-  end
-
   self:finishStep(server, b, dt, running)
 end
 
@@ -525,7 +438,7 @@ function Karen:scream(server, b)
       if (x - sc.x) ^ 2 + (y - sc.y) ^ 2 <= (self.screamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x))
+          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x), "impact")
         end
       end
     end
@@ -607,7 +520,7 @@ function Karen:questStarted(_client, quest)
     return
   end
   face = face or KarenFace.new()
-  self.intro = { t = self.introTime, line = self.lines[love.math.random(#self.lines)] }
+  self.intro = { t = self.introTime, line = self.lines[love.math.random(self.TALK)] }
   self.stain = nil
   startMusic()
 end
@@ -791,13 +704,14 @@ Karen.clientMessages = {
   KRN_SIMP_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and Karen.simps[id]
     if id then
       Karen.simps[id] = nil
       Karen.simpNames[id] = nil
     end
-    if x and y and Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    if x and y then
+      -- His body where he was drawn, or gibs under a car or in a blast.
+      Corpses.down(s and s.dx or x, s and s.dy or y, angle, Karen.simpLook, args[6])
     end
   end,
 }
@@ -861,25 +775,20 @@ local function drawBubble(x, y, text, alpha)
   love.graphics.printf(text, bx + 8, by + 6, w - 16, "center")
 end
 
---- A simp from above: a hoodie, a head, and a fist out front while the
---- punch lands. His name hangs over him, and a bar once he is hurt.
+--- A simp from above: the core's person (src/body.lua) in his hoodie, hood
+--- up, a fist out front while the punch lands. His name hangs over him, and
+--- a bar once he is hurt.
+local SIMP_LOOK = {
+  shirt = SIMP_COLOR, hood = { SIMP_COLOR[1] * 0.85, SIMP_COLOR[2] * 0.85, SIMP_COLOR[3] * 0.85 },
+  pants = { 0.2, 0.2, 0.24 }, skin = SIMP_SKIN,
+}
+Karen.simpLook = SIMP_LOOK -- for his body (KRN_SIMP_DOWN, above)
+
 local function drawSimp(s)
-  local x, y, r = s.dx, s.dy, Simps.RADIUS
-  local fx, fy = math.cos(s.angle), math.sin(s.angle)
+  local x, y, r = s.dx, s.dy, Body.SHOULDERS
   local swing = math.sin(time * 12 + s.bob) * 1.2
-  local sx, sy = -fy * swing, fx * swing
-  love.graphics.setColor(0, 0, 0, 0.3)
-  love.graphics.circle("fill", x + 2, y + 2, r, 10)
-  love.graphics.setColor(SIMP_SKIN)
-  if s.swing then
-    love.graphics.circle("fill", x + fx * (r + 6), y + fy * (r + 6), 2.4, 6) -- the fist
-  end
-  love.graphics.circle("fill", x - fy * (r + 1) - sx, y + fx * (r + 1) - sy, 2, 6)
-  love.graphics.circle("fill", x + fy * (r + 1) + sx, y - fx * (r + 1) + sy, 2, 6)
-  love.graphics.setColor(SIMP_COLOR)
-  love.graphics.circle("fill", x + sx * 0.5, y + sy * 0.5, r, 10)
-  love.graphics.setColor(SIMP_SKIN)
-  love.graphics.circle("fill", x + fx * 2, y + fy * 2, 3.2, 8)
+  SIMP_LOOK.punch = s.swing
+  Body.person(x, y, s.angle, swing, SIMP_LOOK)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf(s.name, x - 59, y - r - 19, 120, "center")
@@ -894,9 +803,9 @@ local function drawSimp(s)
   end
 end
 
---- Karen from above: a big body in a leopard-print top, arms out, a
---- handbag, a blonde bob, sunglasses on the head. She waddles; charging,
---- she waddles fast. Her simps are drawn first, so she is never under one.
+--- Karen from above: the core's person drawn her size, in a leopard-print
+--- top, a blonde bob with sunglasses pushed up on it, a handbag on her left
+--- hand. She waddles; charging, she waddles fast. Her simps are drawn first, so she is never under one.
 --- A scream that just landed: rings spreading out over the area.
 local function drawScream(sc)
   local k = sc.t / 0.7
@@ -924,37 +833,42 @@ function Karen:drawAboveCars()
     return
   end
   local x, y, r = b.dx, b.dy, self.radius
-  local fx, fy = math.cos(b.angle), math.sin(b.angle)
-  local swing = math.sin(time * (b.charging and 13 or 5) + b.bob) * (b.charging and 2.2 or 1.2)
-  local sx, sy = -fy * swing, fx * swing
-
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.circle("fill", x + 4, y + 4, r + 1, 16)
-  -- Arms, swinging opposite to the body.
-  love.graphics.setColor(SKIN_COLOR)
-  love.graphics.circle("fill", x - fy * (r + 3) - sx * 1.5, y + fx * (r + 3) - sy * 1.5, 5, 8)
-  love.graphics.circle("fill", x + fy * (r + 3) - sx * 1.5, y - fx * (r + 3) - sy * 1.5, 5, 8)
-  -- The handbag hangs off the left arm.
-  love.graphics.setColor(BAG_COLOR)
-  love.graphics.rectangle("fill", x - fy * (r + 7) - sx * 1.5 - 4, y + fx * (r + 7) - sy * 1.5 - 3, 9, 7, 2)
-  -- Body and the print.
-  love.graphics.setColor(BODY_COLOR)
-  love.graphics.circle("fill", x + sx, y + sy, r, 16)
+  local swing = math.sin(time * (b.charging and 13 or 5) + b.bob) * (b.charging and 1.6 or 0.9)
+  -- The core's person (src/body.lua) drawn her size, then what makes her Karen.
+  local k = r / Body.SHOULDERS
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.scale(k)
+  local hx, hy = Body.person(0, 0, b.angle, swing, KAREN_LOOK)
+  love.graphics.rotate(b.angle)
+  -- Leopard print across the shoulders, clear of her head.
   love.graphics.setColor(SPOT_COLOR)
-  for k = 0, 6 do
-    local a = b.angle + k * 0.9
-    local d = 4 + (k * 5) % 8
-    love.graphics.circle("fill", x + sx + math.cos(a) * d, y + sy + math.sin(a) * d, 2.2, 6)
+  for _, spot in ipairs(SPOTS) do
+    love.graphics.ellipse("fill", spot[1], spot[2], 0.9, 0.7, 6)
   end
-  -- Head: hair behind, face forward, sunglasses on top.
+  -- The blonde bob, sticking out either side of her head.
   love.graphics.setColor(HAIR_COLOR)
-  love.graphics.circle("fill", x + fx * 1 + sx * 0.5, y + fy * 1 + sy * 0.5, 10, 12)
-  love.graphics.setColor(SKIN_COLOR)
-  love.graphics.circle("fill", x + fx * 5 + sx * 0.5, y + fy * 5 + sy * 0.5, 6.5, 12)
+  love.graphics.ellipse("fill", -0.2, -3.9, 2.2, 1.6, 8)
+  love.graphics.ellipse("fill", -0.2, 3.9, 2.2, 1.6, 8)
+  -- Sunglasses pushed up on top of her head: two lenses and a bridge.
   love.graphics.setColor(0.1, 0.08, 0.12)
-  love.graphics.setLineWidth(2)
-  love.graphics.line(x - fy * 5 + sx * 0.5, y + fx * 5 + sy * 0.5, x + fy * 5 + sx * 0.5, y - fx * 5 + sy * 0.5)
+  love.graphics.ellipse("fill", -0.4, -1.3, 0.8, 1, 8)
+  love.graphics.ellipse("fill", -0.4, 1.3, 0.8, 1, 8)
+  love.graphics.setLineWidth(0.35)
+  love.graphics.line(-0.4, -0.4, -0.4, 0.4)
+  love.graphics.setColor(0.6, 0.7, 0.85, 0.8)
+  love.graphics.circle("fill", -0.1, -1.6, 0.25, 6) -- a glint
   love.graphics.setLineWidth(1)
+  love.graphics.pop()
+  -- The handbag, hanging off her left hand (where the person said it was,
+  -- in her scaled drawing).
+  hx, hy = x + hx * k, y + hy * k
+  love.graphics.setColor(BAG_COLOR)
+  love.graphics.rectangle("fill", hx - 5, hy - 3, 10, 8, 2)
+  love.graphics.setColor(BAG_COLOR[1] * 0.6, BAG_COLOR[2] * 0.6, BAG_COLOR[3] * 0.6)
+  love.graphics.rectangle("line", hx - 5, hy - 3, 10, 8, 2)
+  love.graphics.setColor(0.85, 0.75, 0.3)
+  love.graphics.rectangle("fill", hx - 1.2, hy - 1, 2.4, 2) -- its clasp
 
   -- Health, always shown: she is the boss.
   local bw = 56
@@ -1060,6 +974,18 @@ function Karen:drawHUD()
     drawIntro(self.intro)
   end
   love.graphics.setColor(1, 1, 1)
+end
+
+--- The footsteps feature's hook: who of mine is walking about, and where.
+function Karen:footstepWalkers()
+  local list = {}
+  for id, s in pairs(self.simps or {}) do
+    list[#list + 1] = { key = id, x = s.dx, y = s.dy, size = "person" }
+  end
+  if self.boss then
+    list[#list + 1] = { key = "boss", x = self.boss.dx, y = self.boss.dy, size = "heavy" }
+  end
+  return list
 end
 
 return Karen

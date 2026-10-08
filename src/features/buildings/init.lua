@@ -2,7 +2,8 @@
 --
 -- Every plot with an owner has a small square on the sidewalk in front of
 -- it. Stand on it (on foot or in a car) and press the buy key (F): on your
--- own plot a menu lists what you can build (kinds.lua) and what it costs;
+-- own plot the build screen (build-screen.lua) shows what you can build
+-- (kinds.lua) and what it costs, a card each, the way the shop does;
 -- once it is up, the same square opens the building's own menu. Anyone else
 -- uses the square to shop at a public building.
 --
@@ -22,9 +23,16 @@
 --                    buying one puts it on the road in front of the factory
 --                    as yours (`serverDeliver`, answered by vehicles).
 --
--- A building with more than two products picks one on its own page: flick
--- through them (a car shows its picture and stats) and pick one. Each
--- product keeps the selling price its owner last set for it.
+-- A building with more than two products picks one on its own screen
+-- (product-screen.lua): a card per product, and a car shows its picture and
+-- stats. Each product keeps the selling price its owner last set for it.
+-- Switching throws away whatever it had made of the one before, so there
+-- is no collecting it first.
+--
+-- A factory whose goods can be carried (all but the vehicle factory) can be
+-- set to sell to the shop: its owner's delivery drivers then collect what it
+-- makes, drive it to the shop and sell it there for them, for what it is
+-- worth (Kinds.worth: the harder to make, the more it fetches).
 --
 -- Buildings are solid: cars bounce off them, and walkers, pedestrians,
 -- officers and bullets stop at their walls (`blocksPoint`). The parking lot
@@ -84,12 +92,14 @@
 --   client -> server  BLD_COLLECT <plotId>
 --   client -> server  BLD_LOAD    <plotId>
 --   client -> server  BLD_PUBLIC  <plotId>            (toggle)
+--   client -> server  BLD_TOSHOP  <plotId>            (toggle: drivers sell what it makes to the shop)
 --   client -> server  BLD_PRODUCT <plotId> [index]    (that product, or the next one)
 --   client -> server  BLD_PRICE   <plotId> <delta>    (+-1, +-10 or +-100)
 --   client -> server  BLD_BUY     <plotId>
 --   client -> server  BLD_OFFER   <plotId> <item> <+1|-1>  (owner: what it pays for a material)
 --   client -> server  BLD_SELL    <plotId> <item>     (sell it all the material it will take)
---   client -> server  BLD_USE     <item>              (medkit | drink, from its quick slot)
+--   client -> server  BLD_USE     <item> [x y]        (medkit | drink | grenade, from its quick slot;
+--                                                     a grenade is thrown at (x, y))
 --   client -> server  BLD_QUICK_PUT  <item>           (the ones I carry, out of the bag into its quick slot)
 --   client -> server  BLD_QUICK_TAKE <item>           (its quick slot back into the bag)
 --   client -> server  BLD_REPAIR  <plotId>            (owner: mend the damage, or rebuild a ruin)
@@ -100,7 +110,8 @@
 --                                 <progress> <running> <hopper, one per material>...
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
 --                                 <hp>                          (0 = in ruins)
---   server -> all     BLD_HP      <plotId> <hp>       (it was hit and still stands)
+--                                 <toShop>                      (1 = drivers sell what it makes to the shop)
+--   server -> all     BLD_HP      <plotId> <hp>       (it was hit or mended and still stands)
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
@@ -115,6 +126,8 @@ local UI = require("src.ui")
 local Car = require("src.car")
 local Kinds = require("src.features.buildings.kinds")
 local Render = require("src.features.buildings.render")
+local BuildScreen = require("src.features.buildings.build-screen")
+local ProductScreen = require("src.features.buildings.product-screen")
 local Collision = require("src.features.city-map.collision")
 local Layout = require("src.features.city-map.layout")
 
@@ -130,15 +143,22 @@ Buildings.drinkStamina = 60 -- stamina an energy drink gives back
 -- inventory screen shows the slots, the HUD a circle each, in this order):
 -- the item, its key action and label, what the HUD calls a stack, its
 -- colour, seconds between uses, the reason when there is nothing to gain,
--- and `apply(server, player)`: true when it did any good. Each slot holds
--- one stack (`max`).
+-- and `apply(server, player, args)`: true when it did any good (`args` is
+-- BLD_USE's, the item first). Each slot holds one stack (`max`). One that
+-- is `aimed` (the grenade) isn't used by its key: the feature that owns it
+-- readies it on the key and sends BLD_USE with a target on a click, and
+-- `ready()` says whether it is readied, for its HUD circle.
 Buildings.usables = {
   {
     item = "medkit", action = "use-medkit", label = "Use a medkit", key = "h", title = "medkits",
     color = { 0.95, 0.3, 0.3 }, cooldown = 8, fullReason = "healthy",
     apply = function(server, player)
       local weapons = Features.byName.weapons
-      return weapons ~= nil and weapons:serverHeal(server, player, Buildings.medkitHeal)
+      -- It stops a bleed and cures poison too (the damage feature's), even at full health.
+      local damage = Features.byName.damage
+      local stopped = damage ~= nil and damage:serverTreat(server, player.id)
+      local healed = weapons ~= nil and weapons:serverHeal(server, player, Buildings.medkitHeal)
+      return healed or stopped
     end,
   },
   {
@@ -148,6 +168,18 @@ Buildings.usables = {
       local onFoot = Features.byName["on-foot"]
       return onFoot ~= nil and onFoot.serverRestoreStamina ~= nil
         and onFoot:serverRestoreStamina(server, player, Buildings.drinkStamina)
+    end,
+  },
+  {
+    item = "grenade", action = "grenade", label = "Ready a grenade (click throws it)", key = "t", title = "grenades",
+    color = { 0.55, 0.7, 0.3 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
+    ready = function()
+      local grenades = Features.byName.grenades
+      return grenades ~= nil and grenades.readied
+    end,
+    apply = function(server, player, args)
+      local grenades = Features.byName.grenades
+      return grenades ~= nil and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]))
     end,
   },
 }
@@ -184,7 +216,6 @@ local REASONS = {
   soldout = "Sold out. Come back later.",
   nomaterials = "You aren't carrying anything it runs on.",
   hopperfull = "Its hopper is full.",
-  stocked = "Collect what it made before switching.",
   invfull = "Your inventory is full.",
   notbuying = "It doesn't buy that.",
   nothing = "You aren't carrying any of it.",
@@ -194,6 +225,10 @@ local REASONS = {
   nodrink = "No energy drinks in your drink slot: drag some there on the inventory screen.",
   nodrinks = "You carry no energy drinks.",
   drinkcool = "You just had one: give it a moment.",
+  nogrenade = "No grenades in your grenade slot: drag some there on the inventory screen.",
+  nogrenades = "You carry no grenades.",
+  grenadecool = "Pull the next pin in a moment.",
+  cantthrow = "You can't throw a grenade from here.",
   stamina = "Your stamina is full.",
   quickfull = "That slot is full.",
   quickempty = "That slot is empty.",
@@ -385,6 +420,7 @@ Buildings.menu = false -- is the building menu open?
 Buildings.page = nil
 Buildings.pick = 1 -- the product the "product" page is showing
 Buildings.offerItem = nil -- the material the "offer" page sets a price for
+Buildings.buildPick = nil -- the kind in the build screen's side panel
 local herePad, herePlot = nil, nil -- the owned plot whose square I'm on; the plot I'm inside
 local notice, noticeTimer, noticeGood = nil, 0, false
 local time = 0
@@ -433,6 +469,38 @@ function Buildings:closeMenu()
   return true
 end
 
+--- Is the build screen up: the menu open on the square of my own empty plot?
+local function building(self, client)
+  local re = realEstate()
+  return self.menu and herePad ~= nil and re ~= nil and re.owners[herePad.id] == client.myId
+    and not self.buildings[herePad.id]
+end
+
+--- The building of mine whose product screen is up, and its kind: the menu
+--- open on its square at the "product" page. Nil otherwise.
+local function choosing(self, client)
+  local b = self.menu and self.page == "product" and herePad and self.buildings[herePad.id]
+  local kind = b and Kinds.byKey[b.kind]
+  if kind and kind.products and b.owner == client.myId and not ruined(b) then
+    return b, kind
+  end
+end
+
+-- The mouse button that clicked on one of our screens, until it is let go.
+-- The click can take the screen down (Make, Build) before weapons hears
+-- of it; the mouse stays ours until then, so that click fires nothing.
+local heldClick = nil
+
+--- The `pointerTaken` convention: the mouse is ours while the menu (or the
+--- build or product screen) is up, and while the button that clicked on it is still held.
+function Buildings:pointerTaken(_client)
+  if heldClick and not love.mouse.isDown(heldClick) then
+    heldClick = nil
+  end
+  local re = realEstate()
+  return heldClick ~= nil or (self.menu and herePad ~= nil and re ~= nil and re.owners[herePad.id] ~= nil)
+end
+
 --- The `actionTaken` convention: the action key is ours while I stand on
 --- an owned plot's square (it opens the menu) or the menu is up.
 function Buildings:actionTaken()
@@ -461,7 +529,7 @@ function Buildings:update(dt, client)
     self.menu = false
   end
   if not self.menu then
-    self.page = nil
+    self.page, self.buildPick = nil, nil
   end
   -- Batches creep along between the host's reports.
   for _, b in pairs(self.buildings) do
@@ -588,13 +656,26 @@ function Buildings:menuRows(client)
       end)
     elseif #kind.products > 1 then
       local nextItem = productOf(kind, b.product % #kind.products + 1)
-      row(("Switch to making %s"):format(Kinds.label(nextItem)), function()
+      local label = ("Switch to making %s"):format(Kinds.label(nextItem))
+      if b.output > 0 then
+        label = ("%s  (scraps %d made)"):format(label, math.floor(b.output))
+      end
+      row(label, function()
         send(client, "BLD_PRODUCT", plot.id)
       end)
     end
     row(b.public and "Make it private" or "Open it to the public", function()
       send(client, "BLD_PUBLIC", plot.id)
     end)
+    if Kinds.sellsToShop(kind) then
+      local r = recipeOf(b, kind)
+      local worth = amount(math.max(1, math.floor((Kinds.worth(item) or 0) * r.unit + 0.5)))
+      local per = r.unit == 1 and "each" or ("per %d"):format(r.unit)
+      local label = ("Sell to the shop  (drivers get %s %s)"):format(worth, per)
+      row(b.toShop and "Stop selling to the shop" or label, function()
+        send(client, "BLD_TOSHOP", plot.id)
+      end)
+    end
     row("Prices...", function()
       self.page = "prices"
     end)
@@ -676,8 +757,8 @@ function Buildings:sellRows(client, plot, b)
 end
 
 --- Pick what the building makes: flick through its products, the one on
---- show drawn on the menu's card, and make it. Refused while it holds stock
---- of the one before, as switching over one at a time is.
+--- show drawn on the menu's card, and make it. Whatever it made of the one
+--- before is thrown away, and the row says how much.
 function Buildings:productRows(client, plot, b, kind)
   local n = #kind.products
   local pick = self.pick
@@ -691,6 +772,8 @@ function Buildings:productRows(client, plot, b, kind)
   local make = ("Make %s"):format(Kinds.name(item, 1))
   if pick == b.product then
     make = ("Making %s now"):format(Kinds.name(item, 1))
+  elseif b.output > 0 then
+    make = ("%s  (scraps %d made)"):format(make, math.floor(b.output))
   elseif price then
     make = ("%s  (sells from %s)"):format(make, amount(price))
   end
@@ -724,13 +807,28 @@ function Buildings:offerRows(client, plot, b)
   }
 end
 
+--- Why `item` can't be used from its quick slot right now (nothing in it,
+--- still cooling down) as a line to show, or nil when it can.
+function Buildings:unusable(item)
+  if self:quickCount(item) < 1 then
+    return REASONS["no" .. item]
+  elseif self.useLeft[item] then
+    return REASONS[item .. "cool"]
+  end
+  return nil
+end
+
+--- Show `text` where the building notices go, over the HUD circles.
+function Buildings:notice(text, good)
+  say(text, good)
+end
+
 function Buildings:keypressed(key, client)
   for _, u in ipairs(self.usables) do
-    if Controls.is(u.action, key) and not self.menu then
-      if self:quickCount(u.item) < 1 then
-        say(REASONS["no" .. u.item])
-      elseif self.useLeft[u.item] then
-        say(REASONS[u.item .. "cool"])
+    if Controls.is(u.action, key) and not self.menu and not u.aimed then
+      local why = self:unusable(u.item)
+      if why then
+        say(why)
       else
         send(client, "BLD_USE", u.item)
       end
@@ -756,6 +854,60 @@ function Buildings:keypressed(key, client)
       if r and r.run then
         r.run()
       end
+      return
+    end
+  end
+end
+
+--- A click on the build screen: a card goes into the side panel, its Build button builds it.
+function Buildings:mousepressed(x, y, button, client)
+  if button ~= 1 then
+    return
+  end
+  local re = realEstate()
+  if not (self.menu and herePad and re and re.owners[herePad.id]) then
+    return
+  end
+  heldClick = button
+  local b, kind = choosing(self, client)
+  if b then
+    -- The product screen: Back, a card into the side panel, or Make.
+    local L = ProductScreen.layout(kind, self.pick)
+    if BuildScreen.inside(L.back, x, y) then
+      self.page = nil
+    elseif L.make and BuildScreen.inside(L.make, x, y) and self.pick ~= b.product then
+      send(client, "BLD_PRODUCT", herePad.id, self.pick)
+      self.page = nil
+    else
+      for _, r in ipairs(L.cards) do
+        if BuildScreen.inside(r, x, y) then
+          self.pick = r.index
+        end
+      end
+    end
+    return
+  end
+  if not building(self, client) then
+    -- The building's own menu: a click on an option picks it, as its key would.
+    for _, o in ipairs(self:menuLayout(client).options) do
+      if BuildScreen.inside(o, x, y) and o.row.run then
+        o.row.run()
+        return
+      end
+    end
+    return
+  end
+  local L = BuildScreen.layout(self.buildPick)
+  if L.build and BuildScreen.inside(L.build, x, y) then
+    local pick = self.buildPick
+    if affordable(client, pick.cost) then
+      send(client, "BLD_BUILD", herePad.id, pick.key)
+    end
+    return
+  end
+  for _, r in ipairs(L.cards) do
+    if BuildScreen.inside(r, x, y) then
+      self.buildPick = r.kind
       return
     end
   end
@@ -821,6 +973,50 @@ function Buildings:drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Every owned plot on the minimap and the big map, outlined in its owner's
+--- colour (mine in white), with the building on it filled in that player's
+--- colour, the one their dot has, so whose it is shows at a glance (a ruin
+--- darker). Where a plot is big enough on the map (the big map), the
+--- building's mark goes in the middle.
+function Buildings:drawOnMinimap(client, toMap)
+  local re = realEstate()
+  if not re then
+    return
+  end
+  for _, plot in ipairs(re.plots) do
+    local owner = re.owners[plot.id]
+    if owner then
+      local b = self.buildings[plot.id]
+      local kind = b and Kinds.byKey[b.kind]
+      local x0, y0 = toMap(plot.x, plot.y)
+      local x1, y1 = toMap(plot.x + plot.w, plot.y + plot.h)
+      local mine = owner == client.myId
+      if kind then
+        -- The building in its owner's colour, as their dot on the map; a ruin darkened.
+        local r = footprint(plot)
+        local fx0, fy0 = toMap(r.x, r.y)
+        local fx1, fy1 = toMap(r.x + r.w, r.y + r.h)
+        local oc, k = Car.colorFor(owner), ruined(b) and 0.35 or 1
+        love.graphics.setColor(oc[1] * k, oc[2] * k, oc[3] * k)
+        love.graphics.rectangle("fill", fx0, fy0, fx1 - fx0, fy1 - fy0)
+      end
+      local c = mine and { 1, 1, 1 } or Car.colorFor(owner)
+      love.graphics.setColor(0, 0, 0, 0.6)
+      love.graphics.setLineWidth(mine and 3 or 2)
+      love.graphics.rectangle("line", x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2)
+      love.graphics.setColor(c[1], c[2], c[3], 0.95)
+      love.graphics.setLineWidth(mine and 2 or 1)
+      love.graphics.rectangle("line", x0, y0, x1 - x0, y1 - y0)
+      love.graphics.setLineWidth(1)
+      local size = math.min(x1 - x0, y1 - y0) * 0.55
+      if kind and size >= 14 then
+        Render.mapMark(kind, (x0 + x1) / 2, (y0 + y1) / 2, math.min(size, 30), ruined(b))
+      end
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- What a building is doing, in a few words.
 local function status(b, kind)
   if kind.rate then
@@ -867,13 +1063,19 @@ local function infoLines(client, b, kind, plot)
   if b.owner == client.myId and next(kind.hopper) then
     local hop = {}
     for _, m in ipairs(Kinds.hopperList(kind)) do
-      hop[#hop + 1] = ("%s %d/%d"):format(m, b.hopper[m] or 0, Kinds.HOPPER)
+      -- Only what the product in hand runs on; the rest is kept for another product.
+      if r.inputs[m] or (b.hopper[m] or 0) > 0 then
+        hop[#hop + 1] = ("%s %d/%d%s"):format(m, b.hopper[m] or 0, Kinds.HOPPER, r.inputs[m] and "" or " (unused)")
+      end
     end
     lines[#lines + 1] = "Hopper: " .. table.concat(hop, ", ")
   end
   if not kind.private then
     local per = r.unit == 1 and Kinds.label(item, 1):gsub("^1 ", "") or Kinds.label(item, r.unit)
     lines[#lines + 1] = ("%s, %s per %s"):format(b.public and "Public" or "Private", amount(b.price), per)
+  end
+  if b.toShop then
+    lines[#lines + 1] = "Selling to the shop: your delivery drivers collect it"
   end
   local pays = {}
   for _, m in ipairs(Kinds.hopperList(kind)) do
@@ -910,8 +1112,15 @@ local function panel(x, y, w, h, title)
   love.graphics.printf(title, x, y + 12, w, "center")
 end
 
---- The panel in the top-right corner (under the connection line) while the menu is open.
-local function drawMenu(self, client)
+-- The menu's panel: how wide it is, the height of an option's button and
+-- the gap under it.
+local MENU_W, OPTION_H, OPTION_GAP = 480, 38, 6
+
+--- Where everything on the open menu goes, for drawing it and for clicks:
+--- { panel = { x, y, w, h }, title, lines (wrapped), card (a car's item)
+--- and cardH, options = { { x, y, w, h, row, index } } }, the options being
+--- menuRows' rows as buttons.
+function Buildings:menuLayout(client)
   local re = realEstate()
   local plot = herePad
   local b = self.buildings[plot.id]
@@ -933,56 +1142,108 @@ local function drawMenu(self, client)
     lines[#lines + 1] = owner == client.myId and "Drive over it to collect." or "Nothing to trade here."
   end
 
-  local w = love.graphics.getWidth()
-  local pw = 380
+  local w, h = love.graphics.getDimensions()
+  local pw = MENU_W
   -- A long line (a factory that runs on four materials) wraps onto more.
-  local font = UI.fonts.small
-  local wrapped = 0
+  local wrapped = {}
   for _, line in ipairs(lines) do
-    local _, parts = font:getWrap(line, pw - 40)
-    wrapped = wrapped + math.max(1, #parts)
+    local _, parts = UI.fonts.small:getWrap(line, pw - 48)
+    for _, part in ipairs(parts) do
+      wrapped[#wrapped + 1] = part
+    end
   end
   -- A car factory shows the car it is making: that is what you buy.
   local vehicles = Features.byName.vehicles
-  local shown = kind and (self.page == "product" and self.pick or b.product)
-  local card = shown and vehicles and vehicles.cardHeight and productOf(kind, shown)
-  local cardH = card and vehicles:cardHeight(card, pw) or 0
+  local card = kind and vehicles and vehicles.cardHeight and productOf(kind, b.product)
+  local cardW = pw - 120
+  local cardH = card and vehicles:cardHeight(card, cardW) or 0
   if cardH == 0 then
     card = nil
   end
-  local ph = 64 + wrapped * 20 + cardH + #rows * 30 + 40
-  local px, py = w - pw - 16, 36
-  panel(px, py, pw, ph, title)
-
-  love.graphics.setFont(font)
-  local y = py + 54
-  love.graphics.setColor(0.8, 0.8, 0.85)
-  for _, line in ipairs(lines) do
-    local _, parts = font:getWrap(line, pw - 40)
-    for _, part in ipairs(parts) do
-      love.graphics.print(part, px + 20, y)
-      y = y + 20
-    end
+  -- The buttons squeeze up when the window is too short for them all.
+  local top = 64 + #wrapped * 20 + 10 + cardH
+  local oh = OPTION_H
+  if #rows > 0 and top + #rows * (oh + OPTION_GAP) + 44 > h - 16 then
+    oh = math.max(26, math.floor((h - 16 - top - 44) / #rows) - OPTION_GAP)
   end
-  y = y + 6
-  if card then
-    vehicles:drawCard(card, px, y, pw)
-    y = y + cardH
-    love.graphics.setFont(font)
-  end
+  local ph = top + #rows * (oh + OPTION_GAP) + 44
+  local px, py = math.floor((w - pw) / 2), math.max(8, math.floor((h - ph) / 2))
+  local L = {
+    panel = { x = px, y = py, w = pw, h = ph }, title = title, lines = wrapped, card = card, cardH = cardH,
+    cardX = px + math.floor((pw - cardW) / 2), cardW = cardW, options = {},
+  }
+  local y = py + top
   for i, r in ipairs(rows) do
-    local keyName = Controls.name(Controls.bindings("building-" .. i)[1])
-    local dim = r.run and 1 or 0.4
-    love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
-    love.graphics.rectangle("fill", px + 20, y, 24, 24, 5)
-    love.graphics.setColor(1, 1, 1, dim)
-    love.graphics.printf(keyName, px + 20, y + 4, 24, "center")
-    love.graphics.print(r.label, px + 54, y + 4)
-    y = y + 30
+    L.options[i] = { x = px + 24, y = y, w = pw - 48, h = oh, row = r, index = i }
+    y = y + oh + OPTION_GAP
   end
+  return L
+end
+
+--- One of the menu's options: a button with its key on the left, lit under
+--- the mouse, dim when it can't be picked right now.
+local function drawOption(o, over)
+  local live = o.row.run ~= nil
+  local lit = live and over
+  love.graphics.setColor(1, 1, 1, lit and 0.14 or (live and 0.07 or 0.03))
+  love.graphics.rectangle("fill", o.x, o.y, o.w, o.h, 6)
+  if lit then
+    love.graphics.setColor(1, 0.85, 0.3, 0.9)
+    love.graphics.setLineWidth(2)
+  else
+    love.graphics.setColor(1, 1, 1, live and 0.22 or 0.08)
+  end
+  love.graphics.rectangle("line", o.x, o.y, o.w, o.h, 6)
+  love.graphics.setLineWidth(1)
+
+  local dim = live and 1 or 0.4
+  local bound = Controls.bindings("building-" .. o.index)[1]
+  local tx = o.x + 12
+  if bound then
+    love.graphics.setColor(0.36 * dim + 0.2, 0.56 * dim + 0.2, 0.92 * dim, 1)
+    local ky = o.y + math.floor((o.h - 24) / 2)
+    love.graphics.rectangle("fill", o.x + 8, ky, 24, 24, 5)
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(1, 1, 1, dim)
+    love.graphics.printf(Controls.name(bound), o.x + 8, ky + 4, 24, "center")
+    tx = o.x + 42
+  end
+  -- The label in the body font, or the small one when that won't fit.
+  local font = UI.fonts.body
+  if font:getWidth(o.row.label) > o.x + o.w - 10 - tx then
+    font = UI.fonts.small
+  end
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1, lit and 1 or 0.9 * dim)
+  love.graphics.print(o.row.label, tx, o.y + math.floor((o.h - font:getHeight()) / 2))
+end
+
+--- The panel in the middle of the screen while the menu is open.
+local function drawMenu(self, client)
+  local L = self:menuLayout(client)
+  local p = L.panel
+  panel(p.x, p.y, p.w, p.h, L.title)
+
+  love.graphics.setFont(UI.fonts.small)
+  local y = p.y + 64
+  love.graphics.setColor(0.8, 0.8, 0.85)
+  for _, line in ipairs(L.lines) do
+    love.graphics.print(line, p.x + 24, y)
+    y = y + 20
+  end
+  y = y + 10
+  if L.card then
+    Features.byName.vehicles:drawCard(L.card, L.cardX, y, L.cardW)
+  end
+  local mx, my = love.mouse.getPosition()
+  for _, o in ipairs(L.options) do
+    drawOption(o, BuildScreen.inside(o, mx, my))
+  end
+  love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
   local key = Controls.name(Controls.bindings("buy")[1])
-  love.graphics.printf(key .. ": close", px, py + ph - 26, pw, "center")
+  love.graphics.printf(("click an option or press its key   %s: close"):format(key), p.x, p.y + p.h - 28, p.w,
+    "center")
 end
 
 --- A quick-slot circle, the `index`th past the end of the abilities row:
@@ -1005,8 +1266,17 @@ local function drawUsableHud(self, u, index)
   local small, body = UI.fonts.small, UI.fonts.body
   local key = Controls.name(Controls.bindings(u.action)[1])
   local count, left = self:quickCount(u.item), self.useLeft[u.item]
+  local ready = u.ready and u.ready()
   local middle, middleColor
-  if count < 1 then
+  if ready then
+    -- Readied: lit and pulsing, the fire button's job named under it.
+    local pulse = 0.5 + 0.5 * math.sin(love.timer.getTime() * 10)
+    love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.2 * pulse)
+    love.graphics.circle("fill", cx, cy, r + 6 + 3 * pulse, 48)
+    UI.ring(cx, cy, r, left and 1 - left / u.cooldown or 1, c, 5)
+    Render.grenade(cx, cy + 1, 1)
+    middle = ""
+  elseif count < 1 then
     UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
     middle, middleColor = key, { 1, 1, 1, 0.3 }
   elseif left then
@@ -1021,6 +1291,9 @@ local function drawUsableHud(self, u, index)
     if u.item == "medkit" then
       love.graphics.rectangle("fill", cx - 3, cy - 11, 6, 22) -- a cross behind the key
       love.graphics.rectangle("fill", cx - 11, cy - 3, 22, 6)
+    elseif u.item == "grenade" then
+      love.graphics.ellipse("fill", cx, cy + 2, 9, 11) -- a grenade behind the key
+      love.graphics.rectangle("fill", cx - 3, cy - 12, 6, 5)
     else
       love.graphics.rectangle("fill", cx - 6, cy - 12, 12, 24, 3) -- a can
     end
@@ -1029,8 +1302,9 @@ local function drawUsableHud(self, u, index)
   love.graphics.setFont(body)
   UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
   love.graphics.setFont(small)
-  UI.label(u.title, cx - math.floor(small:getWidth(u.title) / 2), cy + r + 4,
-    count > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
+  local title = ready and "click: throw" or u.title
+  UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4,
+    ready and c or count > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
   if count > 0 then
     -- How many are left, in a badge at the ring's shoulder.
     local text = tostring(count)
@@ -1045,16 +1319,28 @@ local function drawUsableHud(self, u, index)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Buildings:drawHUD(client)
+--- A line of text across the screen above the HUD circles, in `color`.
+local function prompt(text, color)
   local w, h = love.graphics.getDimensions()
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(text, 1, h - 129, w, "center")
+  love.graphics.setColor(color)
+  love.graphics.printf(text, 0, h - 130, w, "center")
+end
+
+--- The quick slots, and what the square I'm on offers (or the last notice)
+--- while the menu is shut; with it open, drawScreen has the notice.
+function Buildings:drawHUD(client)
   local re = realEstate()
   local plot = herePad
   local owner = plot and re and re.owners[plot.id]
-  if self.menu and owner then
-    drawMenu(self, client)
-  end
   for i, u in ipairs(self.usables) do
     drawUsableHud(self, u, i)
+  end
+  if self.menu then
+    love.graphics.setColor(1, 1, 1)
+    return
   end
 
   local text, color
@@ -1096,11 +1382,37 @@ function Buildings:drawHUD(client)
     text, color = "Your plot. Build from the square on the sidewalk.", { 0.6, 0.9, 0.6 }
   end
   if text then
-    love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.printf(text, 1, h - 129, w, "center")
-    love.graphics.setColor(color)
-    love.graphics.printf(text, 0, h - 130, w, "center")
+    prompt(text, color)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The open menu (or the build or product screen) goes over the whole HUD,
+--- the minimap and the gun bar included, with any notice and the cursor on top.
+function Buildings:drawScreen(client)
+  local re = realEstate()
+  local owner = herePad and re and re.owners[herePad.id]
+  if not (self.menu and owner) then
+    return
+  end
+  local money = Features.byName.money
+  local purse = money and money.mine and money:mine(client) or 0
+  local mx, my = love.mouse.getPosition()
+  local chosen, chosenKind = choosing(self, client)
+  local screen = chosen ~= nil or building(self, client)
+  if chosen then
+    ProductScreen.draw(chosenKind, chosen, self.pick, purse, mx, my)
+  elseif screen then
+    BuildScreen.draw(self.buildPick, purse, mx, my, time)
+  else
+    drawMenu(self, client)
+  end
+  if noticeTimer > 0 then
+    prompt(notice, noticeGood and { 0.5, 1, 0.6 } or { 1, 0.45, 0.4 })
+  end
+  local vision = Features.byName.vision
+  if vision and vision.drawCursor then
+    vision:drawCursor(client)
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -1123,7 +1435,7 @@ local function collapsed(client, id, b, kind)
   local weapons = Features.byName.weapons
   if plot and weapons and weapons.explosionAt then
     local r = footprint(plot)
-    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind))
+    weapons:explosionAt(client, r.x + r.w / 2, r.y + r.h / 2, Render.rubbleColor(kind), "building")
   end
   if b.owner == client.myId then
     say(("Your %s was destroyed!"):format(kind.name))
@@ -1158,6 +1470,7 @@ Buildings.clientMessages = {
       hopper = hopper,
       pays = pays,
       hp = hp,
+      toShop = args[11 + 2 * n] == "1",
     }
     if before and before.hp > 0 and hp <= 0 then
       collapsed(client, id, Buildings.buildings[id], kind)
@@ -1167,7 +1480,10 @@ Buildings.clientMessages = {
     local b = Buildings.buildings[tonumber(args[1])]
     local hp = tonumber(args[2])
     if b and hp then
-      b.hp, b.hitAt = hp, time
+      if hp < b.hp then
+        b.hitAt = time -- flash a hit, not a repair
+      end
+      b.hp = hp
     end
   end,
   BLD_GONE = function(_client, args)
@@ -1273,6 +1589,7 @@ local function stateMessage(id, b)
     fields[#fields + 1] = b.pays[m] or 0
   end
   fields[#fields + 1] = b.hp
+  fields[#fields + 1] = b.toShop and 1 or 0
   return Protocol.encode("BLD_STATE", unpack(fields))
 end
 
@@ -1385,6 +1702,23 @@ function Buildings:serverGive(server, player, item, n)
   local given = math.min(n, roomFor(player.id, item))
   if given > 0 then
     addStock(server, player, item, given)
+  end
+  return given
+end
+
+--- Put up to `n` of `item` straight into `player`'s quick slot for it, as
+--- many as fit, and tell them. Returns how many went in (0 when it has no
+--- quick slot, the slot is full or there is no game). Pickups stashes a
+--- medkit found at full health this way.
+function Buildings:serverQuickGive(server, player, item, n)
+  local u = sv and player.body and self.usableByItem[item]
+  if not u then
+    return 0
+  end
+  local slot = self:serverQuick(player.id, item)
+  local given = math.max(0, math.min(n, u.max - slot))
+  if given > 0 then
+    setQuick(server, player, item, slot + given)
   end
   return given
 end
@@ -1625,6 +1959,17 @@ Buildings.serverMessages = {
     end
   end),
 
+  BLD_TOSHOP = refusing(function(server, player, args)
+    local b, reason, id = ownBuilding(server, player, args)
+    if not b then
+      return reason
+    end
+    if Kinds.sellsToShop(Kinds.byKey[b.kind]) then
+      b.toShop = not b.toShop or nil
+      publish(server, id, b)
+    end
+  end),
+
   BLD_PRODUCT = refusing(function(server, player, args)
     local b, reason, id = ownBuilding(server, player, args)
     if not b then
@@ -1635,9 +1980,8 @@ Buildings.serverMessages = {
     local index = args[2] and tonumber(args[2]) or b.product % math.max(1, n) + 1
     if n < 2 or index ~= math.floor(index) or index < 1 or index > n or index == b.product then
       return
-    elseif b.output > 0 then
-      return "stocked"
     end
+    b.output = 0 -- what it made of the one before is scrapped
     local before = recipeOf(b, kind).price
     b.prices = b.prices or {}
     b.prices[b.product] = b.price
@@ -1825,7 +2169,7 @@ Buildings.serverMessages = {
       return "no" .. u.item
     elseif sv.time - (used[u.item] or -math.huge) < u.cooldown then
       return u.item .. "cool"
-    elseif not u.apply(server, player) then
+    elseif not u.apply(server, player, args) then
       return u.fullReason
     end
     setQuick(server, player, u.item, Buildings:serverQuick(player.id, u.item) - 1)
@@ -1926,6 +2270,7 @@ function Buildings:serverSaveWorld(server)
         output = b.output,
         hopper = b.hopper,
         hp = b.hp,
+        toShop = b.toShop,
       }
     end
   end
@@ -1989,6 +2334,7 @@ local function buildingFrom(rec, kind)
     progress = 0,
     hopper = materialsFrom(rec.hopper, kind, Kinds.HOPPER),
     hp = math.floor(bounded(rec.hp, 0, kind.hp, kind.hp)),
+    toShop = rec.toShop == true and Kinds.sellsToShop(kind) or nil,
   }
   if not kind.rate then
     b.output = math.floor(b.output)
@@ -2200,7 +2546,13 @@ local function collide(server, dt)
   end
   for _, car in pairs(server.vehicles) do
     if not (car.hidden or car.stowed) then
-      Collision.resolveCar(w, car, dt)
+      local hit, impact, slide = Collision.resolveCar(w, car, dt)
+      if impact > 0 then
+        Features.call("serverCarImpact", server, car, impact, car.x, car.y, "wall")
+      end
+      if hit then
+        Features.call("serverCarScrape", server, car, slide, car.x, car.y)
+      end
     end
   end
   collidePedestrians(w)
@@ -2239,6 +2591,87 @@ function Buildings:serverStep(server, dt)
     end
   end
   collide(server, dt)
+end
+
+-- Freight -------------------------------------------------------------------
+-- For a feature that moves materials between buildings without a player
+-- carrying them (delivery's hired drivers). Host only.
+
+--- The host's record of the building on plot `id` (kind, owner, product,
+--- output, hopper, hp), or nil. Read it; change it through the calls below.
+function Buildings:serverBuilding(id)
+  return sv and sv.buildings[id]
+end
+
+--- Take up to `n` of what the building on plot `id` made, when that is a
+--- raw material (a quarry's or an oil well's) or it is set to sell to the
+--- shop (`toShop`). Returns the item and how many were taken (0 when
+--- nothing was).
+function Buildings:serverTakeOutput(server, id, n)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  local item = kind and productOf(kind, b.product)
+  if not (item and (Kinds.isMaterial(item) or (b.toShop and Kinds.worth(item)))) or ruined(b) then
+    return item, 0
+  end
+  local taken = math.max(0, math.min(math.floor(n), math.floor(b.output)))
+  if taken > 0 then
+    b.output = b.output - taken
+    publish(server, id, b)
+  end
+  return item, taken
+end
+
+--- How many more of material `item` the hopper on plot `id` takes: 0 for
+--- a ruin or a building that doesn't run on it.
+function Buildings:serverHopperRoom(id, item)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  if not (kind and kind.hopper and kind.hopper[item]) or ruined(b) then
+    return 0
+  end
+  return math.max(0, Kinds.HOPPER - (b.hopper[item] or 0))
+end
+
+--- Put up to `n` of material `item` into the hopper on plot `id`, as much
+--- as fits. Returns how many went in.
+function Buildings:serverFillHopper(server, id, item, n)
+  local moved = math.min(math.floor(n), self:serverHopperRoom(id, item))
+  if moved < 1 then
+    return 0
+  end
+  local b = sv.buildings[id]
+  b.hopper[item] = (b.hopper[item] or 0) + moved
+  publish(server, id, b)
+  return moved
+end
+
+--- Mend up to `hits` hit points of the building on plot `id`, no further
+--- than whole; a ruin given any stands again, as the menu's rebuild does.
+--- The caller charges for it (Kinds.repairCost). Returns its hit points
+--- after, or nil when there is no building.
+function Buildings:serverRepair(server, id, hits)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  if not kind then
+    return nil
+  end
+  local wasRuin = ruined(b)
+  local hp = math.min(kind.hp, b.hp + math.max(0, math.floor(hits)))
+  if hp == b.hp then
+    return hp
+  end
+  b.hp = hp
+  if wasRuin then
+    markWalls()
+    if not kind.walkable then
+      clearFootprint(server, plotById(id))
+    end
+    publish(server, id, b)
+  else
+    server:broadcast(Protocol.encode("BLD_HP", id, b.hp))
+  end
+  return hp
 end
 
 --- For tests.

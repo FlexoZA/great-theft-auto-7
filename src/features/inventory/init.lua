@@ -16,11 +16,12 @@
 -- the slot is empty), or onto another slot to change its key
 -- (weapons:move). A click on a slot selects its gun. The ability slots
 -- work the same way with "ability-<key>" items (abilities:equip, unequip,
--- move). Medkits and energy drinks go the same way into the quick slots
--- beside the abilities (buildings.usables; buildings:quickPut takes the
--- stack out of the bag, quickTake puts it back); their keys (H, J) use one
--- from there. A vest ("armor-<key>") dragged onto the armor gear slot is
--- put on (armor:equip) and dragged back into the bag taken off
+-- move). Medkits, energy drinks and grenades go the same way into the
+-- quick slots beside the abilities (buildings.usables; buildings:quickPut
+-- takes the stack out of the bag, quickTake puts it back); their keys (H,
+-- J) use one from there, and T readies a grenade for the fire button to
+-- throw. A vest ("armor-<key>") dragged onto the armor gear slot is put
+-- on (armor:equip) and dragged back into the bag taken off
 -- (armor:unequip; a damaged one is thrown away). Clothes ("gear-<key>")
 -- go onto the head, body, pants and shoes slots the same way (gear:equip,
 -- unequip). Any stack in the bag dragged onto the bin under the items is

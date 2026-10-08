@@ -6,6 +6,8 @@ local Controls = require("src.controls")
 local Logo = require("src.art.logo")
 local Face = require("src.art.face")
 local Background = require("src.art.menu_background")
+local Version = require("src.version")
+local Changelog = require("src.states.changelog")
 
 local Menu = {}
 
@@ -13,6 +15,8 @@ local W = 260
 local LOGO_SCALE = 6
 local TOGGLE_W, TOGGLE_H = 210, 36
 local TOGGLE_MARGIN = 20
+local NOTES_SIZE = 36 -- the changelog icon in the bottom-left corner
+local NOTES_MARGIN = 12
 
 local iconSet = false
 
@@ -90,6 +94,7 @@ function Menu:layout()
   end
   self.inclusiveButton.x = w - TOGGLE_W - TOGGLE_MARGIN
   self.inclusiveButton.y = TOGGLE_MARGIN
+  self.notes = { x = NOTES_MARGIN, y = h - NOTES_SIZE - NOTES_MARGIN, w = NOTES_SIZE, h = NOTES_SIZE }
   self.faceX = math.floor(w * 0.68)
   self.faceY = math.floor(h * 0.52)
   self.faceScale = math.floor(math.min(h / 76, (w * 0.55) / 64))
@@ -122,13 +127,58 @@ function Menu:draw()
   if self.error then
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 0.4, 0.4)
-    love.graphics.printf(self.error, self.colX, h - 60, W + 200, "left")
+    love.graphics.printf(self.error, self.colX, h - 90, W + 200, "left")
   end
+  self:drawNotes()
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.6, 0.6, 0.65)
-  love.graphics.print("LÖVE " .. love.getVersion(), 10, h - 22)
   local muteKey = Controls.name(Controls.bindings("mute")[1])
   love.graphics.printf(muteKey .. (Audio.muted and ": music off" or ": music on"), 0, h - 22, w - 10, "right")
+end
+
+function Menu:overNotes(x, y)
+  local n = self.notes
+  return n and x >= n.x and x <= n.x + n.w and y >= n.y and y <= n.y + n.h
+end
+
+--- The changelog icon: a page of notes on a round tile, the version beside
+--- it, and a dot while there is a version the player has not read about.
+function Menu:drawNotes()
+  local n = self.notes
+  local hover = self:overNotes(love.mouse.getPosition())
+  if hover then
+    love.graphics.setColor(0.36, 0.56, 0.92)
+  else
+    love.graphics.setColor(0.24, 0.40, 0.72)
+  end
+  love.graphics.rectangle("fill", n.x, n.y, n.w, n.h, 6)
+
+  local px, py, pw, ph, fold = n.x + 10, n.y + 7, n.w - 20, n.h - 14, 5
+  love.graphics.setColor(0.95, 0.95, 0.9)
+  love.graphics.polygon("fill", px, py, px + pw - fold, py, px + pw, py + fold, px + pw, py + ph, px, py + ph)
+  love.graphics.setColor(0.7, 0.7, 0.65)
+  love.graphics.polygon("fill", px + pw - fold, py, px + pw, py + fold, px + pw - fold, py + fold)
+  love.graphics.setColor(0.24, 0.40, 0.72)
+  for i = 0, 2 do
+    local lw = i == 2 and pw - 8 or pw - 5
+    love.graphics.rectangle("fill", px + 3, py + 8 + i * 5, lw, 2)
+  end
+
+  if Changelog.unread() then
+    love.graphics.setColor(1, 0.35, 0.3)
+    love.graphics.circle("fill", n.x + n.w - 2, n.y + 2, 6)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.circle("line", n.x + n.w - 2, n.y + 2, 6)
+  end
+
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.6, 0.6, 0.65)
+  local label = "v" .. Version.label
+  if hover then
+    love.graphics.setColor(1, 1, 1)
+    label = label .. "  -  what's new"
+  end
+  love.graphics.print(label, n.x + n.w + 10, n.y + math.floor((n.h - UI.fonts.small:getHeight()) / 2))
 end
 
 function Menu:keypressed(key)
@@ -149,6 +199,10 @@ end
 function Menu:mousepressed(x, y, button)
   self.nameField:mousepressed(x, y, button)
   if self.inclusiveButton:mousepressed(x, y, button) then
+    return
+  end
+  if button == 1 and self:overNotes(x, y) then
+    State.switch("changelog")
     return
   end
   for _, b in ipairs(self.buttons) do

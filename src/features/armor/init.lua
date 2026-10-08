@@ -12,6 +12,12 @@
 -- takes it with you. A saved world keeps the vest on, as worn as it was
 -- (serverSavePlayer).
 --
+-- A vest can also be found lying on the road (enemies drop one now and
+-- then: pickups). Whoever walks or drives over it with no armor on wears
+-- it at once, whole (serverWearFound). Over it with a damaged vest on, it
+-- tops theirs back up to full (or, holding more than theirs, is worn in
+-- its place); anyone whose vest is whole leaves it there for someone else.
+--
 -- Vests come in tiers (tiers/init.lua): "armor-vest@rare" holds more points.
 -- What is worn is kept with its tier ("vest@rare") and goes back into the
 -- bag in it.
@@ -19,6 +25,12 @@
 -- Weapons asks every feature `serverAbsorbDamage(amount, server, victim)`
 -- through Features.reduce before a body takes damage; this answers what is
 -- left after the vest has taken its share.
+--
+-- A vest can resist damage types too (`resist` in kinds.lua; the damage
+-- feature asks `serverResist` / `resist`): the kevlar vest stops a share of
+-- every bullet, the bomb suit of blasts and knocks, while it is worn. That
+-- share comes off before the points soak up the rest, so the vest lasts
+-- longer against what it resists.
 --
 -- Messages
 --   client -> server  ARM_EQUIP   <kind[@tier]>
@@ -30,6 +42,7 @@ local Features = require("src.features")
 local UI = require("src.ui")
 local Kinds = require("src.features.armor.kinds")
 local Tiers = require("src.features.tiers")
+local Damage = require("src.features.damage")
 
 local Armor = {
   name = "armor",
@@ -51,6 +64,17 @@ local function kindOf(kind)
   return a and tier and Tiers.apply(a, tier) or nil
 end
 Armor.kindOf = kindOf
+
+--- What the worn record `w` ({ kind, ... }) lets through of a `dtype` hit,
+--- times `share`.
+local function through(share, w, dtype)
+  local a = w and kindOf(w.kind)
+  local r = a and a.resist and a.resist[dtype]
+  if not r then
+    return share
+  end
+  return share * (1 - Damage.clampResist(r))
+end
 
 -- Client --------------------------------------------------------------------
 
@@ -89,6 +113,11 @@ end
 
 function Armor:update(dt)
   self.flash = math.max(0, self.flash - dt)
+end
+
+--- The `resist` convention on a client: what player `id`'s vest stops.
+function Armor:resist(share, _client, id, dtype)
+  return through(share, self.worn[id], dtype)
 end
 
 --- The armor bar, always there: blue and full of points with a vest on,
@@ -162,6 +191,11 @@ function Armor:serverWorn(player)
   return self.sv and self.sv.worn[player.id] or nil
 end
 
+--- The `serverResist` convention: what `player`'s vest stops of a `dtype` hit.
+function Armor:serverResist(share, _server, player, dtype)
+  return through(share, self:serverWorn(player), dtype)
+end
+
 --- The `serverAbsorbDamage` convention: the vest takes what it can of
 --- `amount` and what is left goes on to the body. A vest that runs out is
 --- destroyed.
@@ -212,6 +246,30 @@ function Armor:serverEquip(server, player, kind)
   local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
   self.sv.worn[player.id] = { kind = kind, points = max, max = max }
   tell(server, player, self.sv.worn[player.id])
+  return true
+end
+
+--- Put a `kind` vest ("vest", "vest@rare") found on the road straight on
+--- `player`, whole, without it passing through their bag. Only a human with
+--- no armor on takes it; returns false otherwise, and the vest stays where
+--- it lies. Pickups calls this for a vest someone runs over.
+function Armor:serverWearFound(server, player, kind)
+  local a = kindOf(kind)
+  if not (self.sv and a and Features.present(player)) or player.bot then
+    return false
+  end
+  local max = math.max(1, math.floor(a.points * Features.reduce("serverStat", 1, server, player, "armor") + 0.5))
+  local w = self.sv.worn[player.id]
+  if w and w.points >= w.max then
+    return false -- whole already: it stays on the road
+  end
+  if w and w.max >= max then
+    w.points = w.max -- patched up to full, kept in its own tier
+  else
+    w = { kind = kind, points = max, max = max } -- nothing on, or this one holds more: worn instead
+    self.sv.worn[player.id] = w
+  end
+  tell(server, player, w)
   return true
 end
 

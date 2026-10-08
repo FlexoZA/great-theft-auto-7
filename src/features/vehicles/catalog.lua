@@ -17,10 +17,17 @@
 --     acceleration = 430,   -- px/s^2
 --     weight = 900,         -- kg; heavier stops later and slides further
 --     turning = 2.8,        -- rad/s at full speed
+--     engine = "compact",   -- how it sounds: compact, sedan, v8, bike, diesel, truck, hauler
+--                           -- (src/features/engine-sound/profiles.lua; default: by weight)
 --     facing = "right",     -- where the nose points in the SVG: right, left, up, down
 --     length = 44,          -- px the drawing is from nose to tail, mirrors and all
 --     time = 45,            -- seconds the vehicle factory takes to make one
 --     inputs = { iron = 4, oil = 2 }, -- what one uses up (default: the factory's own, buildings/kinds.lua)
+--     boost = { speed = 2, accel = 1.5, seconds = 3, refill = 5 }, -- Shift while driving: up to `speed`
+--                           -- times the top speed, `accel` times the acceleration, off a meter that
+--                           -- lasts `seconds` and fills from empty in `refill` (boost.lua)
+--     gun = "ak47",         -- a gun bolted on (a key in weapons/guns.lua): whoever drives it fires
+--                           -- that, its rounds endless but still reloaded; without one a car is unarmed
 --   }
 --
 -- Parsing is plain Lua, so the host knows every model without drawing one;

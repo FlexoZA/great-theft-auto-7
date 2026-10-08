@@ -36,6 +36,30 @@ function Sounds.load()
     buf:highpass(220)
   end)
 
+  -- Freeze's warning: a thin glassy whine climbing as the frost gathers,
+  -- for as long as it takes to land.
+  bank["freeze-warn"] = make(0.8, function(buf)
+    buf:tone(0, 0.75, 1047, { wave = "sine", amp = 0.16, attack = 0.6, decay = 0.1, sustain = 0.6, release = 0.05,
+      vibRate = 14, vibDepth = 0.3 })
+    buf:tone(0.25, 0.5, 1568, { wave = "sine", amp = 0.12, attack = 0.4, decay = 0.1, sustain = 0.6, release = 0.05,
+      vibRate = 18, vibDepth = 0.3 })
+    buf:tone(0.5, 0.25, 2093, { wave = "tri", amp = 0.1, attack = 0.2, decay = 0.05, sustain = 0.6, release = 0.03 })
+    buf:noiseBurst(0.55, 0.2, { amp = 0.06, decay = 0.2 })
+    buf:highpass(400)
+  end)
+
+  -- Heat ray: a hot electric crack and a crackling roar with a buzz in it,
+  -- as long as it burns.
+  bank.heatray = make(1.3, function(buf)
+    buf:sweep(0, 0.1, 3200, 900, { wave = "square", amp = 0.3, decay = 0.04 })
+    buf:noiseBurst(0, 1.25, { amp = 0.5, decay = 0.9 })
+    buf:tone(0, 1.15, 220, { wave = "square", amp = 0.16, attack = 0.01, decay = 0.2, sustain = 0.8, release = 0.1,
+      vibRate = 30, vibDepth = 0.6 })
+    buf:tone(0, 1.15, 1800, { wave = "sine", amp = 0.1, attack = 0.01, decay = 0.2, sustain = 0.8, release = 0.1 })
+    buf:drive(2.2)
+    buf:lowpass(4500)
+  end)
+
   -- Heal: a warm rising chord with a soft shimmer over it.
   bank.heal = make(1.0, function(buf)
     buf:tone(0, 0.7, 523, { wave = "sine", amp = 0.3, attack = 0.02, decay = 0.4, sustain = 0.2, release = 0.2 })
@@ -45,6 +69,22 @@ function Sounds.load()
     buf:noiseBurst(0.1, 0.6, { amp = 0.08, decay = 0.25 })
     buf:highpass(200)
     buf:lowpass(6000)
+  end)
+
+  -- Chicken: two startled clucks and a squawk going up, then a flutter.
+  bank.chicken = make(0.8, function(buf)
+    for i, f in ipairs({ 620, 700, 820 }) do
+      local t = (i - 1) * 0.11
+      local len = i == 3 and 0.2 or 0.07
+      buf:sweep(t, len, f * 1.3, f, { wave = "square", amp = 0.28, decay = len * 0.6 })
+      buf:sweep(t, len, f * 2.6, f * 2, { wave = "saw", amp = 0.1, decay = len * 0.5 })
+      buf:noiseBurst(t, 0.02, { amp = 0.2, decay = 0.006 })
+    end
+    for i = 0, 7 do
+      buf:noiseBurst(0.42 + i * 0.045, 0.03, { amp = 0.22 - i * 0.02, decay = 0.01 }) -- wings
+    end
+    buf:highpass(250)
+    buf:lowpass(5000)
   end)
 
   -- Panic fart: a low, wet sputter that sags in pitch as it runs out.
@@ -87,6 +127,14 @@ function Sounds.load()
     buf:sweep(0, 0.4, 180, 520, { wave = "tri", amp = 0.25, decay = 0.25 })
     buf:highpass(300)
     buf:lowpass(3500)
+  end)
+
+  -- Teleport: a sharp electric zap and a low hum dropping out of it.
+  bank.teleport = make(0.6, function(buf)
+    buf:sweep(0, 0.12, 2400, 300, { wave = "square", amp = 0.3, decay = 0.06 })
+    buf:noiseBurst(0, 0.08, { amp = 0.4, decay = 0.02 })
+    buf:sweep(0.04, 0.5, 180, 60, { wave = "sine", amp = 0.7, decay = 0.2 })
+    buf:lowpass(5000)
   end)
 
   -- Leap landing: a heavy thud and gravel scattering.
