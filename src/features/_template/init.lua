@@ -43,6 +43,11 @@ function MyFeature:drawScreen(client) end
 --- centred in a w x h view; set a canvas first. Weapons' sniper scope.
 function MyFeature:drawLens(client, drawWorld) end
 
+--- Client side: the car I drive is driven here ahead of the server
+--- (src/net/predict.lua), a tick at a time. Do to `car` what your
+--- serverStep does to the real one (walls, handling), so they agree.
+function MyFeature:predictCar(client, car, dt) end
+
 --- Is player `id` out of sight on this screen? True and nobody else draws
 --- them (the chicken ability). `serverHidden(server, player)` is the host's
 --- side of it: `Features.visible` asks, and every enemy picking a target.
