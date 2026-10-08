@@ -43,6 +43,8 @@
 --             you hold on. Let go and it has to wind up again
 --   pace      with `spinUp`: the share of your pace on foot, walking or
 --             sprinting, while the barrels turn (winding up or firing)
+--   dropWeight how likely an enemy's ammo box is for this gun, against the
+--             others' (pickups' serverDropAmmo); 1 otherwise
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
@@ -86,6 +88,7 @@ Guns.list = {
   },
   {
     key = "uzi",
+    dropWeight = 3, -- how often an enemy's ammo box is for it (pickups): a common gun's
     blurb = "Sprays fourteen rounds a second: weak one at a time, deadly up close.",
     name = "uzi",
     damage = 12, -- a little less per round...
@@ -101,6 +104,7 @@ Guns.list = {
   },
   {
     key = "ak47",
+    dropWeight = 3, -- as often as the uzi's: the gun most soldiers carry
     blurb = "A rifle: nine rounds a second with hardly any scatter.",
     name = "AK-47",
     damage = 18, -- between the pistol and the uzi per round...
@@ -117,6 +121,7 @@ Guns.list = {
   },
   {
     key = "shotgun",
+    dropWeight = 2, -- shells a little less often
     blurb = "Six pellets a pull that fill a doorway. Brutal up close, spent by about 250 px.",
     name = "shotgun",
     damage = 11, -- per pellet: all six in the chest is a car half wrecked
@@ -136,6 +141,7 @@ Guns.list = {
   },
   {
     key = "rocket",
+    dropWeight = 0.5, -- rockets rarely
     blurb = "A slow missile that blows up whatever it hits. Mind the blast: it hurts you too.",
     name = "rocket launcher",
     damage = 0, -- the blast does the damage, not the missile
@@ -153,10 +159,10 @@ Guns.list = {
     stack = 20,
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
-    stock = 5, -- for testing until the factories are up and running
   },
   {
     key = "sniper",
+    dropWeight = 1, -- now and then
     blurb = "One round drops anyone on foot. Hold right mouse for a 4x scope.",
     name = "sniper rifle",
     damage = 200, -- a person on foot in one; the round is the whole point
@@ -179,6 +185,7 @@ Guns.list = {
   },
   {
     key = "flamethrower",
+    dropWeight = 1, -- now and then
     blurb = "A jet of fire that sets whoever it touches alight. Short reach; a fuel can fills the tank.",
     name = "flamethrower",
     damageType = "fire",
@@ -202,6 +209,7 @@ Guns.list = {
   },
   {
     key = "minigun",
+    dropWeight = 0.5, -- belts rarely
     blurb = "Six barrels, seventeen rounds a second once they wind up. Hold the trigger: it spins first.",
     name = "minigun",
     damage = 10, -- under an uzi's 12 a round...

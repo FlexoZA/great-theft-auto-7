@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Enemy ammo drops favour the guns you carry: half of all ammo boxes are now for a gun in one of your
+  weapon slots. The rest lean towards common guns: AK and uzi rounds turn up 6 times as often as rockets
+  or minigun belts (was all the same). Carrying an AK, you find its rounds about 1 kill in 5 (was 1 in 23).
+- New players no longer start with a rocket launcher and 5 rockets: buy one at the shop. Players who have
+  one in a saved world keep it.
+
 ## [0.21.0] - 2026-10-08
 
 The minigun gets its weight: you lug it at half pace while it turns.

@@ -35,7 +35,7 @@
 -- a gun's `damageType` or its blast's `type`, the last argument of
 -- serverDamage and damageCar, passed on to every damage hook and carried
 -- by WPN_KILL / WPN_WRECK so the kill feed can say what did it.
--- Everyone starts with a gun's `stock` of rounds (5 rockets, for testing).
+-- Everyone starts with a gun's `stock` of rounds, if it has one (none do now).
 --
 -- Under `haloBelow` (20%) of your health a red halo creeps in from the
 -- screen's edges, faint at first and redder the lower it goes, pulsing
