@@ -14,6 +14,7 @@ Icons.colors = {
   regen = { 0.35, 0.85, 0.75 },
   slots = { 0.85, 0.62, 0.38 },
   dodge = { 0.78, 0.65, 1 },
+  walk = { 0.45, 0.7, 1 },
 }
 local GREY = { 0.8, 0.8, 0.85 }
 local WHITE = { 1, 1, 1 }
@@ -110,6 +111,23 @@ local function dodge(c, a)
   love.graphics.setLineWidth(1)
 end
 
+-- A pair of footprints striding up: further with each step.
+local function walk(c, a)
+  color(WHITE, a * 0.5)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(-14, 12, -14, 4)
+  love.graphics.line(14, 0, 14, -8)
+  love.graphics.setLineWidth(1)
+  color(c, a)
+  love.graphics.ellipse("fill", -5, 4, 4.5, 7, 16) -- left sole
+  love.graphics.circle("fill", -5, 13.5, 3.5, 12) -- left heel
+  love.graphics.ellipse("fill", 5, -9, 4.5, 7, 16) -- right sole, a stride ahead
+  love.graphics.circle("fill", 5, 0.5, 3.5, 12) -- right heel
+  color(WHITE, a * 0.4)
+  love.graphics.circle("fill", -6.5, 1, 1.5, 8) -- shine
+  love.graphics.circle("fill", 3.5, -12, 1.5, 8)
+end
+
 local DRAW = {
   health = health,
   stamina = stamina,
@@ -117,6 +135,7 @@ local DRAW = {
   regen = regen,
   slots = slots,
   dodge = dodge,
+  walk = walk,
 }
 
 --- The colour of kind `key`, grey for one without its own.

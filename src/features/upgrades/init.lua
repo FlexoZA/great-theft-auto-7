@@ -7,14 +7,15 @@
 -- health, 2 the next level of stamina, 3 the next level of pickup reach (how
 -- far koins and drops jump to you), 4 the next level of stamina regen (how
 -- fast it comes back), 5 another inventory slot (buildings), 6 a longer
--- dodge (on-foot; level 0 is the dodge everyone starts with). F again, Esc or
+-- dodge (on-foot; level 0 is the dodge everyone starts with), 7 a faster
+-- walk (on-foot; +20% walking pace a level, the sprint stays as it is). F again, Esc or
 -- walking away from the door closes it. Each level costs more than the last
 -- and there are five of each, so a full set is a serious amount of roadkill.
 --
 -- The host owns the sale: it checks the buyer is at the gym door, checks
 -- the wallet (money), takes the koins and
 -- raises the value through the feature that owns it -- weapons for health,
--- on-foot for stamina, its regen and the dodge, money itself for reach, buildings for
+-- on-foot for stamina, its regen, the dodge and the walk, money itself for reach, buildings for
 -- inventory slots -- which tell
 -- the clients whatever they need to know themselves. This feature only
 -- remembers the level each player is at and draws the shop.
@@ -78,6 +79,12 @@ Upgrades.kinds = {
     key = "dodge", label = "Dodge distance", base = 100, step = 20, costs = { 3, 5, 8, 11, 14 },
     action = "buy-dodge", defaultKey = "6",
     show = function(v) return ("x%.1f dodge"):format(v / 100) end,
+  },
+  -- A percentage of on-foot's walkSpeed (not the sprint).
+  {
+    key = "walk", label = "Walking speed", base = 100, step = 20, costs = { 3, 5, 8, 11, 14 },
+    action = "buy-walk", defaultKey = "7",
+    show = function(v) return ("x%.1f walk"):format(v / 100) end,
   },
 }
 Upgrades.byKey = {}
@@ -560,6 +567,11 @@ local function apply(server, player, kind, level)
     local onFoot = Features.byName["on-foot"]
     if onFoot and onFoot.serverSetDodgeScale then
       onFoot:serverSetDodgeScale(server, player, value / 100)
+    end
+  elseif kind.key == "walk" then
+    local onFoot = Features.byName["on-foot"]
+    if onFoot and onFoot.serverSetWalkScale then
+      onFoot:serverSetWalkScale(server, player, value / 100)
     end
   elseif kind.key == "slots" then
     local buildings = Features.byName.buildings
