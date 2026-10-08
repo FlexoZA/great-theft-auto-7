@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-08
+
+A-Man's trail runs all the way to the top of the Citadel: through the
+Outer City, up the Coast and along the Winding Road in the new Scout Car,
+past the Hunter-Chopper, antlions, Hunters and the Poison Zombie. Back in
+the city, parks get bums and you can hire a crew for a Gang Hangout.
+
 ### Added
 - A-Man's trail goes on: take the star at the Citadel's doors in City 17
   and he steps out in front of you, and sends everyone the long way round,
