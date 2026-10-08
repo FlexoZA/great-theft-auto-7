@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-08
+
+The Suppressor's minigun is yours to buy: hold the trigger, let it wind
+up, and hose.
+
 ### Added
 - The minigun, in the shop for 420 Fcks (a box of 300 rounds is 70). Hold the trigger and the barrels
   wind up for 0.8 seconds, then it fires 17 rounds a second, 10 damage each, from a belt of 150. Let go
