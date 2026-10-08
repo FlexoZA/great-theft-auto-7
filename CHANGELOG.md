@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-08
+
+The dead stay down: shot Combine, D-Day soldiers, pedestrians and simps
+leave bodies in three different poses, in their own clothes. Cars and
+blasts still splat them, and fire leaves ash.
+
 ### Changed
 - D-Day's soldiers, pedestrians and simps (Karen's and open borders') now drop dead where they are
   shot, in the same three poses as the Combine, in their own clothes. Run over or blown up, they
