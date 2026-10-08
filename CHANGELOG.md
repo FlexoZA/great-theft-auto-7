@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The shop shows your bag beside it: every slot with what is in it and how many, and your medkits, drinks
+  and grenades, so you can see what fits before you buy. On a narrow window it is left out.
+
 ## [0.26.2] - 2026-10-08
 
 Ammo stacks to about ten magazines a slot, and freeze is aimed with the key and cast with a click.

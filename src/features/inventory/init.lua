@@ -488,6 +488,19 @@ function Inventory:update(dt, client)
   end
 end
 
+--- How wide the bag beside the shop is (shop/screen.lua leaves room for it).
+function Inventory:bagWidth()
+  return Screen.BAG_W
+end
+
+--- What I carry, drawn beside the shop at (x, y), `h` tall.
+function Inventory:drawBag(x, y, h)
+  local b = buildings()
+  if b and b.inventory then
+    Screen.drawBag(b, x, y, h)
+  end
+end
+
 function Inventory:drawHUD(client)
   local b = buildings()
   if not b then

@@ -12,6 +12,9 @@
 -- With `Screen.dev` set (the dev shop, init.lua) the title says so and every
 -- price reads FREE.
 --
+-- Beside it on the left, when the window is wide enough, the inventory
+-- draws what I carry (`bagWidth`, `drawBag`), so I can see what fits.
+--
 -- `Screen.layout(tab, page)` works out every rectangle for the window as it
 -- is now and `Screen.draw` paints them; init.lua hit-tests the same
 -- rectangles. There is no scrolling: a shelf that doesn't fit is paged,
@@ -105,6 +108,18 @@ local function cardsWidth(windowW)
   return math.max(2 * Screen.pad + CARD_W, math.min(Screen.width, windowW - 2 * MARGIN - Screen.detailWidth))
 end
 
+--- Room for the bag beside the shop (the inventory's, on the left): its
+--- width and the gap after it, or 0 when the window is too narrow for it
+--- and still three cards across.
+local function bagRoom(windowW)
+  local inventory = Features.byName.inventory
+  local bagW = inventory and inventory.bagWidth and inventory:bagWidth() or 0
+  if bagW == 0 or cardsWidth(windowW - bagW - GAP) < 2 * Screen.pad + 3 * (CARD_W + GAP) then
+    return 0
+  end
+  return bagW + GAP
+end
+
 --- How a shelf fits: columns, rows per page and cards per page.
 local function grid(tab, windowH, areaW)
   local cw, ch = cardSize(tab)
@@ -127,7 +142,8 @@ end
 --- `picked` is the entry in the side panel, or nil.
 function Screen.layout(tab, page, picked)
   local w, h = love.graphics.getDimensions()
-  local areaW = cardsWidth(w)
+  local bag = bagRoom(w)
+  local areaW = cardsWidth(w - bag)
   local entries = Catalog.onTab(tab)
   local cw, ch, cols, rowsFit = grid(tab, h, areaW)
   local perPage = cols * rowsFit
@@ -145,11 +161,14 @@ function Screen.layout(tab, page, picked)
   end
   local ph = TITLE_H + TABS_H + TIERS_H + gridH + FOOT_H + Screen.pad
   local pw = areaW + Screen.detailWidth
-  local px = math.floor((w - pw) / 2)
+  local px = math.floor((w - pw - bag) / 2) + bag -- the bag and the shop centred together
   local py = math.max(MARGIN, math.floor((h - ph) / 2))
   local L = {
     panel = { x = px, y = py, w = pw, h = ph }, tabs = {}, tiers = {}, cards = {}, page = page, pages = pages,
   }
+  if bag > 0 then
+    L.bag = { x = px - bag, y = py, w = bag - GAP, h = ph }
+  end
   local dy = py + TITLE_H
   L.detail = { x = px + areaW, y = dy, w = Screen.detailWidth - Screen.pad, h = py + ph - 44 - dy }
   if picked then
@@ -411,6 +430,11 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
 
   love.graphics.setColor(0, 0, 0, 0.45)
   love.graphics.rectangle("fill", 0, 0, w, h)
+  -- What I carry, beside it (the inventory draws it), so I see what fits.
+  local inventory = Features.byName.inventory
+  if L.bag and inventory and inventory.drawBag then
+    inventory:drawBag(L.bag.x, L.bag.y, L.bag.h)
+  end
   love.graphics.setColor(0.10, 0.10, 0.13, 0.96)
   love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 10)
   love.graphics.setColor(0.45, 0.95, 0.6, 0.8)
