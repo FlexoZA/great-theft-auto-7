@@ -45,7 +45,7 @@ local Catalog = {
   byItem = {},
   -- The shop's tabs, each a filter on `kind` (or on `kinds`, a set of
   -- them): All is everything that goes into a bag, the rest one shelf
-  -- each. Supplies are medkits, energy drinks and grenades; Gear is what you wear:
+  -- each. Supplies are medkits and energy drinks (grenades are on the Ammo shelf); Gear is what you wear:
   -- armor and clothes. Cars have their own tab, with bigger cards.
   tabs = {
     { key = "all", title = "All" },
@@ -111,7 +111,7 @@ for _, ability in ipairs(AbilityKinds.list) do
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply" })
-add({ item = "grenade", n = 1, name = "grenade", kind = "supply" })
+add({ item = "grenade", n = 1, name = "grenade", kind = "ammo" }) -- on the Ammo shelf, with what you fire
 for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
