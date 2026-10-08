@@ -1,7 +1,7 @@
 -- What the shop sells: every gun and a box of its rounds (weapons/guns.lua),
 -- every ability (abilities/kinds.lua) but a boss's drop, a medkit, an energy drink and a grenade, every
 -- piece of armor (armor/kinds.lua) and clothing (gear/kinds.lua), every car model
--- (vehicles/catalog.lua) and the people for hire (delivery/hire.lua). Built
+-- (vehicles/catalog.lua) and the people for hire (delivery/hire.lua, handsy-man/hire.lua). Built
 -- once from those lists, so a new gun, ability or model is on the shelf
 -- without touching this file.
 --
@@ -38,6 +38,7 @@ local ArmorKinds = require("src.features.armor.kinds")
 local GearKinds = require("src.features.gear.kinds")
 local Tiers = require("src.features.tiers")
 local Hire = require("src.features.delivery.hire")
+local HandsyHire = require("src.features.handsy-man.hire")
 
 local Catalog = {
   list = {},
@@ -122,6 +123,9 @@ for _, model in ipairs(Vehicles.list) do
   add({ item = model.item, n = 1, name = model.name, kind = "car", price = price })
 end
 for _, entry in ipairs(Hire.list) do
+  add(entry)
+end
+for _, entry in ipairs(HandsyHire.list) do
   add(entry)
 end
 

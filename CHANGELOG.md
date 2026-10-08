@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Hire a Handsy Man at the shop (Hire shelf, 30 Fcks): he drives his pickup to each of your damaged buildings,
+  ruins too, and repairs them with your Fcks, then goes back to the shop and leaves once everything is fixed
+  or you run out of money. He charges 3x what the repair menu does, and 6x to rebuild a ruin. He is only for hire while something of yours needs fixing,
+  and his pickup can be shot up and wrecked.
+
 ## [0.24.0] - 2026-10-08
 
 The Poison Zombie and his headcrabs now hurt as badly as the Antlion Guard.
