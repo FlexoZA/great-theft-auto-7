@@ -11,7 +11,10 @@
 --   down     a soldier near one who just went down
 --   investigate  another one, on his way to look
 --   lost     one who went looking and found nothing, on his way back
---   cover    a rifleman ducking into cover (the nests' crews)
+--   cover    a rifleman ducking into cover (the nests' crews, and anyone
+--            pinned down by a shooter none of them can see)
+--   grenade  one who has just thrown a grenade
+--   sweep    the first of a sweep going out to look for that shooter
 
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
@@ -61,6 +64,13 @@ Radio.lines = {
   },
   cover = { "Taking cover!", "Moving to cover!", "Cover me!", "Suppressing fire!", "Get down!" },
   lost = { "Lost visual.", "Area clear. Returning to post.", "Nothing here.", "Target lost. Resuming patrol." },
+  grenade = { "Grenade out!", "Flushing him out!", "Frag out!", "Fire in the hole!" },
+  sweep = {
+    "Fire has stopped. Squad, sweep the area.",
+    "Moving out. Find that shooter.",
+    "Shooter went quiet. Advancing.",
+    "Sweeping the last position. Stay sharp.",
+  },
 }
 
 --- How long a line hangs over a soldier's head.

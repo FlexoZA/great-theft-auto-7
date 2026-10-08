@@ -851,6 +851,8 @@ the one with a plot.
   (explosive, the thrower too). On foot only; no tiers (a consumable). The
   ammo factory makes them out of iron and sulfur and the shop sells them
   under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
+  `grenades:serverLob(server, ox, oy, x, y, owner)` throws one for an
+  enemy (owner 0: hurts any player, credits nobody); A-Man's Combine do.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face
@@ -981,13 +983,23 @@ the one with a plot.
   troop with `Combine.new({ hunt, fov, aware, health })` (`a-man/combine.lua`, the soldiers' own brain) (`hunt`, a 60-degree
   cone where D-Day's is 30 (100 while on edge, `alertFov`), an undrawn 170 px all-round awareness, walls
   still hiding you, and 60 health where D-Day's have 40): a soldier closes in on whoever
-  he can see, searches where he lost them, goes looking when shot from
-  out of sight, and `Combine:alarm` sends the nearest 5 within 700 px of a
+  he can see, searches where he lost them, and `Combine:alarm` sends the nearest 5 within 700 px of a
   soldier going down to look; each walks back on a trail of breadcrumbs
   after (D-Day's hold their places). `Combine:navigate(bounds)` gives them
   a walking grid (`d-day/nav.lua`: 32 px cells, A*, the path cut down to
   corners in plain sight of each other) to find their way round walls to
-  where they are going. `Combine:arm(s, { gun, burst, pause, reach })`
+  where they are going. Shot from somewhere none of them can see (from
+  past their sight, say), the one hit and every mate within 400 px, MG
+  gunners too, go to ground behind whatever is between them and the
+  shots (`Combine:underFire`, a "siege"); after 8 s without another round
+  a sweep goes out to look (squads of 3 of those who hunt, or 2 riflemen
+  from a crew that holds), and the moment any of them within 900 px gets
+  the shooter in his sights those who hold run back to their places (the
+  gunner to his gun) and the rest go for them; 30 s of quiet ends it too.
+  A quarter of them carry 2 grenades (`Combine.GRENADIER`), thrown through
+  `grenades:serverLob` at somebody 140-400 px off now and then, or where
+  somebody just ducked out of sight, never onto one of their own.
+  `Combine:arm(s, { gun, burst, pause, reach })`
   hands one a gun (an AK otherwise): City 17 picks one per soldier by
   `Level.loadout`'s weights from every gun in `weapons/guns.lua`, common
   tier, and the gun's index goes out in `C17_TROOPS` so clients draw it in
@@ -996,7 +1008,8 @@ the one with a plot.
   radio (`a-man/radio.lua`: the lines, a synthesised burst of radio on the
   "combine" sound channel and a bubble): a checkpoint's guards or a squad
   now and then with a mate answering, a shout on spotting somebody, and a
-  call when a soldier nearby goes down. Messages: `C17_TROOPS`, `C17_DOWN`
+  call when a soldier nearby goes down, and a word when one takes cover,
+  throws a grenade or sends a sweep out. Messages: `C17_TROOPS`, `C17_DOWN`
   and `C17_SAY` down.
 - A-Man's second level, the Outer City: quests' "a-man-2" (never on the
   board; A-Man sends everyone there from City 17's Citadel star) on
@@ -1242,11 +1255,13 @@ the one with a plot.
   verge (`Road.CHICANE_OFF`; cover
   kind "block", solid: cover for the riflemen too) and a bunker in a
   clearing off to one side, door on the road (cover kind "bunker";
-  `map.garrisons` with `waves` = `Road.WAVES`: a soldier out of the door
-  every 6 s while a player is within 1.5x its 750 px reach and fewer than 3
-  of its own are up, 8 in all for one human, the door opening again for
-  each; they go for the player). 40 soldiers on the nests for one human,
-  40 more out of the bunkers. Short of every bridge lie three burnt-out
+  `map.garrisons` with `waves` = `Road.WAVES`: a squad of 3 out of the
+  door one after another, the next squad 10 s on while a player is within
+  1.5x its 750 px reach and no more than 4 of its own would be up with it,
+  9 in all for one human, the door opening again for each squad; they go
+  for the player, the first straight at them and the others to either
+  side). 40 soldiers on the nests for one human, 45 more out of the
+  bunkers. Short of every bridge lie three burnt-out
   cars (cover kind "wreck", solid, `facing` their nose; `Road.WRECKS`
   tiles back from the deck, staggered either side up to
   `Road.WRECK_SPREAD` out, never on the deck): cover to fight the nests

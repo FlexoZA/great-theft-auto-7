@@ -14,6 +14,18 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Combine soldiers fight back against snipers. Shoot one from where none of them can see you and he
+  and his mates nearby (MG gunners too) take cover; once the shooting has stopped for 8 seconds they
+  send a squad out to find you. The moment any of them sees you, defenders run back to their posts
+  and guns and everyone else comes for you.
+- A quarter of the Combine carry two grenades, and throw them at you, or at where you just ducked
+  out of sight.
+
+### Changed
+- The Winding Road's bunkers send their soldiers out in squads of 3 instead of one at a time: 9 per
+  bunker in 3 squads (was 8, one every 6 seconds).
+
 ## [0.15.0] - 2026-10-08
 
 The gym trains your legs: buy up to five levels of walking speed and walk

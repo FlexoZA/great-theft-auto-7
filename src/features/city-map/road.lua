@@ -43,8 +43,8 @@
 --   map.nests             { name, nest = { x, y, angle, arc }, posts = { { x, y, watch } x2 } }: the
 --                         Combine's MG nests, two at the far end of every bridge but the top one facing back
 --                         across it (sandbags, drawn only), each with two riflemen's posts
---   map.garrisons         { at, x, y, reach, door = { x, y, nx, ny }, waves = { every, alive, total } }:
---                         a bunker beside each bridge's far end (not the top one's) that sends soldiers out of its
+--   map.garrisons         { at, x, y, reach, door = { x, y, nx, ny }, waves = { squad, every, alive, total } }:
+--                         a bunker beside each bridge's far end (not the top one's) that sends squads out of its
 --                         door while anyone is near (a-man/city17.lua)
 --   map.checkpoints       { name, x, y } the far end of each bridge, where all that stands
 --   map.carStations       { name, x, y, angle }: a pad on the verge short of each bridge where a
@@ -188,7 +188,9 @@ Road.HUNT_CLEAR = 12
 Road.HUNT_MIN = 22
 Road.HUNT_BEAT = 18
 Road.HUNT_COUNT = 2
-Road.WAVES = { every = 6, alive = 3, total = 8 } -- the bunker's soldiers: seconds apart, up at once, in all
+-- The bunker's soldiers: squads of `squad`, `every` seconds apart, a new one only while no more than
+-- `alive` would be up with it, `total` in all.
+Road.WAVES = { squad = 3, every = 10, alive = 4, total = 9 }
 Road.MINE_FROM = 3000 -- px up the road before the first rollermines, and before the pass after the last
 Road.MINE_EVERY = 2400 -- px of road between one lot of rollermines and the next
 Road.MINE_COUNT = { 2, 3, 2, 4 } -- how many in each lot, for one human, round and round
