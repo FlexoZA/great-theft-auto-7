@@ -516,28 +516,33 @@ end
 
 --- The item boxes: a stack per open slot, locked ones greyed out. `lifted`
 --- is the box whose item is being dragged, drawn empty meanwhile.
+--- One item box `r`: the stack `s` in it ({ item, n }), nothing, or
+--- locked when the slot isn't `open` yet.
+local function drawItemBox(r, s, open)
+  box(r.x, r.y, r.w, r.h, open, false)
+  love.graphics.setFont(UI.fonts.small)
+  if s then
+    local tiered = Tiers.tiered(s.item)
+    if tiered then
+      Tiers.drawFrame(Tiers.of(s.item), r.x, r.y, r.w, r.h)
+    end
+    Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
+    -- Equipment is named in its tier's colour; the frame and the hint say which.
+    love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
+    love.graphics.printf(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
+    love.graphics.setColor(1, 0.85, 0.3)
+    love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
+  elseif not open then
+    love.graphics.setColor(1, 1, 1, 0.2)
+    love.graphics.printf("locked", r.x, r.y + r.h / 2 - 8, r.w, "center")
+  end
+end
+
 local function drawItems(L, buildings, list, lifted)
   heading("items", L.itemsLabel.x, L.itemsLabel.y)
   for i, r in ipairs(L.items) do
     local open = i <= buildings.slots
-    box(r.x, r.y, r.w, r.h, open, false)
-    local s = open and lifted ~= i and list[i]
-    love.graphics.setFont(UI.fonts.small)
-    if s then
-      local tiered = Tiers.tiered(s.item)
-      if tiered then
-        Tiers.drawFrame(Tiers.of(s.item), r.x, r.y, r.w, r.h)
-      end
-      Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
-      -- Equipment is named in its tier's colour; the frame and the hint say which.
-      love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
-      love.graphics.printf(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
-      love.graphics.setColor(1, 0.85, 0.3)
-      love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
-    elseif not open then
-      love.graphics.setColor(1, 1, 1, 0.2)
-      love.graphics.printf("locked", r.x, r.y + r.h / 2 - 8, r.w, "center")
-    end
+    drawItemBox(r, open and lifted ~= i and list[i], open)
   end
 end
 
@@ -678,6 +683,52 @@ function Screen.drawDrag(drag, mx, my)
   if gun then
     Icons.draw(gun.key, mx, my, 1.2, 0.9)
   end
+end
+
+-- The bag beside the shop -----------------------------------------------------
+
+Screen.BAG_W = 196 -- px the bag panel takes beside the shop: two item boxes across
+
+--- What I carry, in a narrow panel at (x, y), `h` tall, beside the shop
+--- (shop/screen.lua asks for it): every item slot as the inventory draws
+--- it, locked ones too, and under them how many medkits, drinks and
+--- grenades are in the quick slots. Only to look at: the inventory (I) is
+--- where things are moved.
+function Screen.drawBag(buildings, x, y, h)
+  local w = Screen.BAG_W
+  panel(x, y, w, h, "YOUR BAG")
+  local list = Screen.stacks(buildings.inventory)
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
+  love.graphics.printf(("%d of %d slots used"):format(math.min(#list, buildings.slots), buildings.slots), x, y + 40, w,
+    "center")
+  -- Two across, as big as the inventory's, smaller if the shop is short.
+  local cols, total = 2, Kinds.MAX_SLOTS
+  local rows = math.ceil(total / cols)
+  local quickH = 20 * #(buildings.usables or {}) + 8
+  local top, bottom = y + 64, y + h - 12 - quickH
+  local cell = math.min(CELL, math.floor((bottom - top + GAP) / rows) - GAP, math.floor((w - 24 - GAP) / cols))
+  local gx = x + math.floor((w - (cols * (cell + GAP) - GAP)) / 2)
+  for i = 1, total do
+    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    local open = i <= buildings.slots
+    local r = { x = gx + col * (cell + GAP), y = top + row * (cell + GAP), w = cell, h = cell }
+    drawItemBox(r, open and list[i], open)
+  end
+  -- The quick slots, a line each.
+  local qy = top + rows * (cell + GAP) + 4
+  for _, u in ipairs(buildings.usables or {}) do
+    local n = buildings:quickCount(u.item)
+    local c = u.color
+    love.graphics.setColor(c[1], c[2], c[3], n > 0 and 1 or 0.4)
+    love.graphics.rectangle("fill", x + 16, qy + 4, 10, 10, 2)
+    love.graphics.setColor(0.85, 0.85, 0.9, n > 0 and 1 or 0.5)
+    love.graphics.print(u.title, x + 32, qy)
+    love.graphics.setColor(1, 0.85, 0.3, n > 0 and 1 or 0.4)
+    love.graphics.printf(("%d/%d"):format(n, u.max), x, qy, w - 16, "right")
+    qy = qy + 20
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 return Screen
