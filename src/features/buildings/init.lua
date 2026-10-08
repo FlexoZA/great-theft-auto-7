@@ -1703,6 +1703,23 @@ function Buildings:serverGive(server, player, item, n)
   return given
 end
 
+--- Put up to `n` of `item` straight into `player`'s quick slot for it, as
+--- many as fit, and tell them. Returns how many went in (0 when it has no
+--- quick slot, the slot is full or there is no game). Pickups stashes a
+--- medkit found at full health this way.
+function Buildings:serverQuickGive(server, player, item, n)
+  local u = sv and player.body and self.usableByItem[item]
+  if not u then
+    return 0
+  end
+  local slot = self:serverQuick(player.id, item)
+  local given = math.max(0, math.min(n, u.max - slot))
+  if given > 0 then
+    setQuick(server, player, item, slot + given)
+  end
+  return given
+end
+
 --- Give `player` `slots` inventory slots for the rest of the game (the
 --- upgrade shop does). Returns the number they have now.
 function Buildings:serverSetSlots(server, player, slots)
