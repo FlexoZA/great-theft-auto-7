@@ -17,6 +17,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Added
 - Firing an empty gun, or reloading with no ammo left for it, now flashes NO AMMO in big red letters in the
   middle of the screen.
+- Running low on stamina on foot (under 30%) now shows too: a blue glow breathes in from the edges of the
+  screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
 
 ## [0.25.0] - 2026-10-08
 
