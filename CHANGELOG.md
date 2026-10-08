@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-10-09
+
+The shop shows your bag beside it, and medkits, drinks and grenades you buy go straight into their quick slot.
+
 ### Added
 - The shop shows your bag beside it: every slot with what is in it and how many, and your medkits, drinks
   and grenades, so you can see what fits before you buy. On a narrow window it is left out.
