@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Firing an empty gun, or reloading with no ammo left for it, now flashes NO AMMO in big red letters in the
+  middle of the screen.
+
 ## [0.25.0] - 2026-10-08
 
 Police cars stop to shoot and chase you round buildings instead of into them, most traffic runs instead
