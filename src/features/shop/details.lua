@@ -237,14 +237,23 @@ local function supply(entry)
     grenade = "Goes off where it lands. Mind the blast: it hurts you too.",
   }
   local key = u and Controls.name(Controls.bindings(u.action)[1]) or "its key"
-  local use = ("Drag it to its quick slot and press %s."):format(key)
+  local use = ("It goes straight into its quick slot: press %s."):format(key)
   if entry.item == "grenade" then
-    use = ("Drag it to its quick slot, press %s to ready one and click to throw it."):format(key)
+    use = ("It goes straight into its quick slot: press %s to ready one and click to throw it."):format(key)
   end
   return { blurb = blurbs[entry.item] or "", use = use, rows = rows }
 end
 
-local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo = ammo, supply = supply }
+--- The Ammo shelf holds a gun's rounds and the grenade, which is told about
+--- as a supply is (what it does, its quick slot).
+local function onAmmoShelf(entry)
+  if Guns[entry.item:match("^ammo%-(.+)$") or ""] then
+    return ammo(entry)
+  end
+  return supply(entry)
+end
+
+local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo = onAmmoShelf, supply = supply }
 
 --- The side panel's contents for `entry` in tier `tier`, or nil (cars).
 function Details.of(entry, tier)

@@ -22,6 +22,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Changed
 - Grenades are on the shop's Ammo shelf now, not Supplies.
 
+### Fixed
+- Clicking the grenade in the shop crashed the game since it moved to the Ammo shelf; it shows what it does again.
+
 ## [0.26.5] - 2026-10-09
 
 Sell things back to the shop from your bag, for half what it asks.
