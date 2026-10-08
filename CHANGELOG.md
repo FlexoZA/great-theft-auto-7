@@ -20,6 +20,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Running low on stamina on foot (under 30%) now shows too: a blue glow breathes in from the edges of the
   screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
 
+### Changed
+- The FPS counter moved from the top left to the top middle of the screen.
+
 ## [0.25.0] - 2026-10-08
 
 Police cars stop to shoot and chase you round buildings instead of into them, most traffic runs instead
