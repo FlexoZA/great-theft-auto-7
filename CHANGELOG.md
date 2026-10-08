@@ -15,8 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
-- The bag beside the shop lists every slot as a full-width row (picture, name and how many), with the guns
-  and abilities you carry under them (the gun in hand lit).
+- The bag beside the shop also lists the guns and abilities you carry, a row each at the bottom: a gun's
+  rounds (the one in hand lit), an ability's name and whether it is ready. It shows only the slots you have,
+  as big as fit, and hovering a small one names it.
 
 ### Changed
 - Grenades are on the shop's Ammo shelf now, not Supplies.
