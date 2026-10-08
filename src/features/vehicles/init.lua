@@ -57,6 +57,20 @@ function Vehicles:exitGame()
   Boost.clear()
 end
 
+--- My own car, driven ahead of the host (src/net/predict.lua): its model's
+--- handling, as Catalog.apply gives the host's, and its boost.
+function Vehicles:predictCar(_client, car, dt)
+  local model = Catalog.byKey[self.models[car.id] or ""]
+  if not model then
+    return -- a plain box: Car.new's handling, the same on both sides
+  end
+  if car.model ~= model.key then
+    car.model = model.key
+    Catalog.apply(car, model)
+  end
+  Boost.predict(car, dt, model)
+end
+
 function Vehicles:update(_dt, client)
   Boost.update(client, self.models)
 end

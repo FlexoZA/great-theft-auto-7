@@ -79,6 +79,31 @@ marked by a first byte of `\1`; the client's `Protocol.unpack` inflates it).
 Snapshots and the crowd's sync shrink to well under Tailscale's 1280-byte
 packets instead of being split in two. Clients send plain text.
 
+## My own car: prediction
+
+The car you drive is driven on your machine too (`src/net/predict.lua`), so
+it answers the keys at once however far away the server is. Every INPUT
+(30 a second, one per server tick) also moves a local copy of the car one
+tick with the same physics (`src/car.lua`) and the `predictCar` hook (the
+map's walls, the model's handling and boost), and is kept. The server
+queues inputs and applies exactly one a tick (`Server:takeInputs`; with
+none waiting the last one holds), and after every tick tells each driver
+where their car is and the last input it applied (YOU). The client starts
+again from there, replays the inputs the server hasn't applied yet, and
+fades whatever that moved the car by in over a moment instead of jumping
+(more than `Predict.SNAP` px is a jump: a respawn). Each INPUT carries the
+two before it, so one lost on the way costs nothing.
+
+What the copy doesn't know about (another car in the way, a shove) shows up
+a round trip later, smoothed in. Everything else on screen is still drawn
+easing towards the snapshots.
+
+On foot works the same way, inside the on-foot feature: OF_MOVE carries the
+move and the two before it (a dodge rides in the move it was pressed in),
+the host applies one a tick through `OnFoot:advance` (the step my copy runs
+too), and OF_YOU tells the walker where they are with their stamina, breath,
+dash and dodge cooldown.
+
 ## Message shapes
 
 ```
@@ -86,7 +111,8 @@ client -> server   HELLO        <name> <key> <version>   key: 32 hex chars, the 
 server -> client   WELCOME      <id> <serverName> <serverId> <worldName> <version>
 server -> client   REJECT       <reason>             server full, or not the same version
 udp discovery      GTA7_HOST    <serverId> <serverName> <port> <players> <max> <worldName>
-client -> server   INPUT        <seq> <throttle> <steer> <handbrake>
+client -> server   INPUT        <seq> [<throttle> <steer> <handbrake>]x3   this input, then the two before it
+server -> client   YOU          <tick> <applied seq> <vid> <x> <y> <angle> <vx> <vy>   my own car, to the driver
 server -> client   STATE        <tick> <n> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
 server -> client   VEHICLE      <vid> <owner> <color>      a car entered the world (owner 0 = nobody's)
 server -> client   VEHICLE_GONE <vid>

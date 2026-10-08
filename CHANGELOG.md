@@ -14,6 +14,20 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-08
+
+Walking, sprinting and dodging answer the keys at once on a laggy connection too, like the car.
+
+### Changed
+- On foot, walking, sprinting and dodging now answer the keys at once on a laggy connection too: you no
+  longer stick for a moment when you set off or slide on after you stop (at 150 ms each way you used to
+  drift on about 8 px after letting go; now none).
+
+## [0.26.0] - 2026-10-08
+
+Your car answers the keys at once however far away the server is, the connection is lighter and steadier,
+and everyone has to be on the same version to play together.
+
 ### Added
 - Firing an empty gun, or reloading with no ammo left for it, now flashes NO AMMO in big red letters in the
   middle of the screen.
@@ -21,6 +35,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
 
 ### Changed
+- Your car answers the keys at once, however far away the server is: your game drives it ahead and the
+  server corrects it, instead of waiting for the server to say where it went. At 150 ms each way it answers
+  the throttle in about 40 ms instead of 460, and the rubber-band pull is gone. Bumping another car still
+  settles a moment later.
 - The ping on screen is right within a few seconds of joining: it used to start near 500 ms and take
   20 seconds or more to come down, so it read 100+ ms even on a fast connection.
 - Your inputs and the server's updates go out the moment they are ready instead of waiting for the next
