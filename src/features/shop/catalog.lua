@@ -45,7 +45,7 @@ local Catalog = {
   byItem = {},
   -- The shop's tabs, each a filter on `kind` (or on `kinds`, a set of
   -- them): All is everything that goes into a bag, the rest one shelf
-  -- each. Supplies are medkits, energy drinks and grenades; Gear is what you wear:
+  -- each. Supplies are medkits and energy drinks (grenades are on the Ammo shelf); Gear is what you wear:
   -- armor and clothes. Cars have their own tab, with bigger cards.
   tabs = {
     { key = "all", title = "All" },
@@ -111,7 +111,7 @@ for _, ability in ipairs(AbilityKinds.list) do
 end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply" })
-add({ item = "grenade", n = 1, name = "grenade", kind = "supply" })
+add({ item = "grenade", n = 1, name = "grenade", kind = "ammo" }) -- on the Ammo shelf, with what you fire
 for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
@@ -182,6 +182,36 @@ end
 
 --- Is this something put into the world rather than into a bag: a car, or
 --- anything marked `onRoad` (a driver for hire)?
+-- Selling back -------------------------------------------------------------
+
+Catalog.SELL_SHARE = 0.5 -- of the shop's own price it pays for a thing brought back
+
+--- What the shop pays for `count` of `item` ("ammo-uzi", "gun-uzi@rare")
+--- brought back: SELL_SHARE of its price in that tier, by the bundle it is
+--- sold in (60 uzi rounds for 40 Fcks: 60 back for 20), rounded down. The
+--- dev shop's free prices don't count: it pays what the real shop would.
+--- Nil when the shop doesn't buy it (it doesn't sell it, or it's a car or a hire).
+function Catalog.sellPrice(item, count)
+  local entry, tier = Catalog.lookup(item)
+  if not entry or entry.kind == "car" or entry.kind == "hire" or Catalog.onRoad(entry) then
+    return nil
+  end
+  local each = Catalog.price(entry, entry.tiered and tier or nil, false) / math.max(1, entry.n or 1)
+  return math.floor(count * each * Catalog.SELL_SHARE)
+end
+
+--- How many of `item` the shop takes back as one bundle (what it sells at once).
+function Catalog.sellUnit(item)
+  local entry = Catalog.lookup(item)
+  return entry and math.max(1, entry.n or 1) or 1
+end
+
+--- Is `entry` something you wear (armor or clothes), so the shop offers
+--- Buy & wear for it?
+function Catalog.wearable(entry)
+  return entry ~= nil and (entry.kind == "armor" or entry.kind == "gear")
+end
+
 function Catalog.onRoad(entry)
   return entry.kind == "car" or entry.onRoad == true
 end

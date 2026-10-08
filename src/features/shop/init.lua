@@ -19,6 +19,12 @@
 -- it, and again off (`serverSetDev`). The host keeps who has it and tells
 -- them (SHOP_DEV); their screen says DEV SHOP and every price reads FREE.
 --
+-- It buys back too: click something in the bag beside the shop (the
+-- inventory draws it) and the side panel offers to sell it, a bundle (SELL)
+-- or all of it (SELL ALL), for Catalog.SELL_SHARE of the shop's own price
+-- (Catalog.sellPrice); only what the shop sells itself. The host checks the
+-- seller is at the door and has them, takes them and pays (money:give).
+--
 -- The shop also buys: a factory set to sell to the shop has its goods
 -- brought to the door by its owner's delivery drivers (delivery/init.lua),
 -- who are paid Kinds.worth for them. Cars are never bought: nobody carries one.
@@ -30,19 +36,26 @@
 --
 -- A click on a card shows it in the side panel on the right (what it does
 -- and its numbers in the tier on show: details.lua); the panel's Buy button
--- asks the host. The host checks the buyer is at the door
+-- asks the host. Armor and clothes have Buy & wear beside it: bought and
+-- put straight on (gear:serverWearNew, armor:serverWearNew), what was on
+-- going into the bag, refused if the bag has no room for that. The host checks the buyer is at the door
 -- (SLACK px allowed for a car drawn a little behind where it is), that the
 -- shop is on the map in play, that the wallet covers the price, and then
 -- hands the thing over: an item goes into the buyer's bag through
--- buildings:serverGive, a car onto the road outside the door through the
+-- buildings:serverGive (a medkit, drink or grenade into its quick slot
+-- first, buildings:serverQuickGive, as a pickup does), a car onto the road outside the door through the
 -- `serverDeliver` event (vehicles answers it), in the first delivery bay
 -- with no car standing in it. Clients only draw the building, the screen
 -- and ask.
 --
 -- Messages
---   client -> server  SHOP_BUY <item>[@<tier>]
---   server -> buyer   SHOP_OK  <item>[@<tier>] <n>      (bought; n of it went into the bag, or a car is outside)
---   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nodeliver | unknown)
+--   client -> server  SHOP_BUY <item>[@<tier>] [wear]   (wear: armor or clothes, put straight on)
+--   server -> buyer   SHOP_OK  <item>[@<tier>] <n> [wear]
+--                     (bought; n of it went into the bag, or on with wear, or a car is outside)
+--   client -> server  SHOP_SELL <item>[@<tier>] <count>  (sell back up to count of it from my bag)
+--   server -> seller  SHOP_SOLD <item>[@<tier>] <count> <paid>
+--   server -> buyer   SHOP_NO  <reason>        (away | gone | broke | full | nowear | nodeliver | nosell | none
+--                                              | unknown)
 --   server -> player  SHOP_DEV <0|1>           (the dev shop is off / on for them)
 
 local Protocol = require("src.net.protocol")
@@ -138,6 +151,9 @@ local REASONS = {
   gone = "The shop isn't on this map.",
   broke = "Not enough Fcks for that.",
   full = "No room in your bag for that.",
+  nowear = "No room in your bag for what you have on.",
+  nosell = "The shop doesn't buy that.",
+  none = "You don't have any of that left.",
   nodeliver = "That can't be delivered here right now.",
   unknown = "That isn't for sale.",
 }
@@ -156,6 +172,7 @@ Shop.tier = Tiers.DEFAULT -- the tier the cards show and sell
 Shop.notice = nil -- { text, color, t }
 Shop.flash = nil -- { item, t }
 Shop.picked = nil -- the catalog entry in the side panel, or nil
+Shop.selling = nil -- or the item of mine picked in the bag beside it, to sell back
 Shop.near = nil -- the shop when I am standing at its door, or nil
 Shop.dev = false -- the dev shop is on for me: everything free (the host says: SHOP_DEV)
 local time = 0
@@ -167,7 +184,7 @@ end
 
 function Shop:enterGame()
   self.open, self.tab, self.page, self.notice, self.flash, self.near = false, Catalog.tabs[1].key, 1, nil, nil, nil
-  self.tier, self.picked = Tiers.DEFAULT, nil
+  self.tier, self.picked, self.selling = Tiers.DEFAULT, nil, nil
 end
 
 function Shop:exitGame()
@@ -185,7 +202,7 @@ function Shop:closeMenu()
   if not self.open then
     return false
   end
-  self.open = false
+  self.open, self.selling = false, nil
   return true
 end
 
@@ -249,10 +266,28 @@ function Shop:mousepressed(x, y, button, client)
   if not self.open or button ~= 1 or covered() then
     return
   end
-  local L = Screen.layout(self.tab, self.page, self.picked)
+  local L = Screen.layout(self.tab, self.page, self.picked, self.selling)
   if L.buy and Screen.inside(L.buy, x, y) then
     self:tryBuy(client, self.picked, self.tier)
     return
+  elseif L.wear and Screen.inside(L.wear, x, y) then
+    self:tryBuy(client, self.picked, self.tier, true)
+    return
+  elseif L.sell and Screen.inside(L.sell, x, y) then
+    self:trySell(client, self.selling, Catalog.sellUnit(self.selling))
+    return
+  elseif L.sellAll and Screen.inside(L.sellAll, x, y) then
+    self:trySell(client, self.selling, math.huge)
+    return
+  end
+  -- Something of mine in the bag beside the shop: into the side panel, to sell.
+  local inventory = Features.byName.inventory
+  if L.bag and inventory and inventory.bagStackAt then
+    local stack = inventory:bagStackAt(L.bag.x, L.bag.y, L.bag.h, x, y)
+    if stack then
+      self.selling, self.picked = stack.item, nil
+      return
+    end
   end
   for _, t in ipairs(L.tabs) do
     if Screen.inside(t, x, y) then
@@ -277,25 +312,46 @@ function Shop:mousepressed(x, y, button, client)
   end
   for _, r in ipairs(L.cards) do
     if Screen.inside(r, x, y) then
-      self.picked = r.entry -- into the side panel; its Buy button buys it
+      self.picked, self.selling = r.entry, nil -- into the side panel; its Buy button buys it
       return
     end
   end
 end
 
+--- Ask the host to buy back up to `count` of `item` from my bag (math.huge:
+--- all of it). Refused here when the shop doesn't buy it or I have none.
+function Shop:trySell(client, item, count)
+  local b = Features.byName.buildings
+  local have = b and b.inventory and b.inventory[item] or 0
+  count = math.min(count, have)
+  if count < 1 then
+    return self:refuse("none")
+  elseif not Catalog.sellPrice(item, count) then
+    return self:refuse("nosell")
+  end
+  client:send(Protocol.encode("SHOP_SELL", item, count))
+end
+
 --- Ask the host for `entry`, in tier `tier` if it comes in tiers. The
 --- obvious refusals are given here at once (an empty wallet, a full bag);
 --- the host still decides.
-function Shop:tryBuy(client, entry, tier)
+function Shop:tryBuy(client, entry, tier, wear)
   local item = entry.tiered and Tiers.join(entry.item, tier) or entry.item
   local price = Catalog.price(entry, tier, self.dev)
   local money = Features.byName.money
   if price > 0 and money and money.canAfford and not money:canAfford(client, price) then
     return self:refuse("broke")
   end
+  if wear then
+    -- Straight on: the host checks there is room for what comes off.
+    client:send(Protocol.encode("SHOP_BUY", item, "wear"))
+    return
+  end
   if not Catalog.onRoad(entry) then
     local b = Features.byName.buildings
-    if b and b.inventory and Kinds.room(b.inventory, b.slots, item) < 1 then
+    local u = b and b.usableByItem and b.usableByItem[item]
+    local quickRoom = u and math.max(0, u.max - b:quickCount(item)) or 0 -- its quick slot takes it first
+    if b and b.inventory and quickRoom < 1 and Kinds.room(b.inventory, b.slots, item) < 1 then
       return self:refuse("full")
     end
   end
@@ -465,7 +521,14 @@ function Shop:drawHUD(client)
   local purse = money and money.mine and money:mine(client) or 0
   local mx, my = love.mouse.getPosition()
   Screen.dev = self.dev
-  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier, self.picked)
+  if self.selling then
+    -- Sold the last of it (or it went another way): nothing left to sell.
+    local b = Features.byName.buildings
+    if not (b and b.inventory and (b.inventory[self.selling] or 0) > 0) then
+      self.selling = nil
+    end
+  end
+  Screen.draw(self.tab, self.page, purse, mx, my, self.flash, self.notice, self.tier, self.picked, self.selling)
   -- The cursor last of all, over the panel.
   local vision = Features.byName.vision
   if vision then
@@ -474,24 +537,48 @@ function Shop:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The quick slot `item` goes into (medkits, drinks, grenades), and the
+--- buildings feature that keeps it; nil for anything else.
+function Shop.quickOf(item)
+  local b = Features.byName.buildings
+  local u = b and b.usableByItem and b.usableByItem[item]
+  if u then
+    return u, b
+  end
+  return nil
+end
+
 Shop.clientMessages = {
   SHOP_OK = function(_client, args)
     local item, n = args[1] or "", tonumber(args[2]) or 1
-    local entry = Catalog.lookup(item)
+    local entry, tier = Catalog.lookup(item)
     if not entry then
       return
     end
     Sounds.play("chime")
     Shop.flash = { item = entry.item, t = FLASH_TIME }
-    if entry.bought then
+    if args[3] == "wear" then
+      local name = entry.tiered and Tiers.named(entry.name, tier) or entry.name
+      Shop:say("Bought the " .. name .. " and put it on. What you had on is in your bag.", GREEN)
+    elseif entry.bought then
       Shop:say(entry.bought, GREEN)
     elseif Catalog.onRoad(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
+    elseif Shop.quickOf(item) then
+      -- Its quick slot filled first (BLD_QUICK came just before this).
+      local u, b = Shop.quickOf(item)
+      local key = Controls.name(Controls.bindings(u.action)[1])
+      Shop:say(("Bought %s. Ready on %s: %d/%d."):format(Kinds.label(item, n), key, b:quickCount(item), u.max), GREEN)
     elseif n == 1 then
       Shop:say("Bought a " .. Kinds.name(item, 1) .. ". It's in your bag.", GREEN)
     else
       Shop:say("Bought " .. Kinds.label(item, n) .. ". They're in your bag.", GREEN)
     end
+  end,
+  SHOP_SOLD = function(_client, args)
+    local item, n, paid = args[1] or "", tonumber(args[2]) or 0, tonumber(args[3]) or 0
+    Sounds.play("chime")
+    Shop:say(("Sold %s for %s."):format(Kinds.label(Tiers.base(item), n), Screen.amount(paid)), GREEN)
   end,
   SHOP_NO = function(_client, args)
     Shop:refuse(args[1])
@@ -562,7 +649,7 @@ end
 --- Sell `player` what `item` stands for ("gun-uzi@rare": that tier of the
 --- uzi). Returns true and how many were handed over, or false and the
 --- reason it didn't happen.
-function Shop:serverBuy(server, player, item)
+function Shop:serverBuy(server, player, item, wear)
   local entry, tier = Catalog.lookup(item)
   local price = entry and Catalog.price(entry, tier, self:serverDev(player))
   if not (entry and player.body) then
@@ -579,15 +666,29 @@ function Shop:serverBuy(server, player, item)
     return false, "broke"
   end
   local given
-  if Catalog.onRoad(entry) then
+  if wear and Catalog.wearable(entry) then
+    -- Straight on, never through the bag; what comes off goes into it,
+    -- and if there is no room for that nothing is sold.
+    local feature = Features.byName[entry.kind] -- "armor" or "gear"
+    local key = item:gsub("^%a+%-", "", 1) -- "vest@rare", "running-shoes"
+    if not (feature and feature.serverWearNew and feature:serverWearNew(server, player, key)) then
+      return false, "nowear"
+    end
+    given = 1
+  elseif Catalog.onRoad(entry) then
     local x, y, angle = freeBay(server, shop)
     if not Features.any("serverDeliver", server, player, item, x, y, angle) then
       return false, "nodeliver"
     end
     given = 1
   else
+    -- Medkits, drinks and grenades fill their quick slot first (ready on
+    -- their key), the way a pickup does; the rest go into the bag.
     local buildings = Features.byName.buildings
-    given = buildings and buildings.serverGive and buildings:serverGive(server, player, item, entry.n) or 0
+    given = buildings and buildings.serverQuickGive and buildings:serverQuickGive(server, player, item, entry.n) or 0
+    if buildings and buildings.serverGive and given < entry.n then
+      given = given + buildings:serverGive(server, player, item, entry.n - given)
+    end
     if given < 1 then
       return false, "full"
     end
@@ -600,11 +701,48 @@ function Shop:serverBuy(server, player, item)
   return true, given
 end
 
+--- Buy back up to `count` of `item` from `player`'s bag at the door, at
+--- Catalog.sellPrice. Returns true, how many and what was paid, or false
+--- and the reason.
+function Shop:serverSell(server, player, item, count)
+  count = math.floor(tonumber(count) or 0)
+  local shop = self:here()
+  local buildings, money = Features.byName.buildings, Features.byName.money
+  if not (player.body and shop and buildings and money and money.give) then
+    return false, "gone"
+  elseif not atDoor(server, player, shop) then
+    return false, "away"
+  end
+  count = math.min(count, buildings:serverCount(player.id, item))
+  if count < 1 then
+    return false, "none"
+  end
+  local paid = Catalog.sellPrice(item, count)
+  if not paid then
+    return false, "nosell"
+  end
+  count = buildings:serverTake(server, player, item, count)
+  paid = Catalog.sellPrice(item, count)
+  if paid > 0 then
+    money:give(server, player.id, paid)
+  end
+  return true, count, paid
+end
+
 Shop.serverMessages = {
-  SHOP_BUY = function(server, player, args)
-    local ok, result = Shop:serverBuy(server, player, args[1])
+  SHOP_SELL = function(server, player, args)
+    local ok, count, paid = Shop:serverSell(server, player, args[1] or "", args[2])
     if ok then
-      server:send(player, Protocol.encode("SHOP_OK", args[1], result))
+      server:send(player, Protocol.encode("SHOP_SOLD", args[1], count, paid))
+    else
+      server:send(player, Protocol.encode("SHOP_NO", count))
+    end
+  end,
+  SHOP_BUY = function(server, player, args)
+    local wear = args[2] == "wear"
+    local ok, result = Shop:serverBuy(server, player, args[1], wear)
+    if ok then
+      server:send(player, Protocol.encode("SHOP_OK", args[1], result, wear and "wear" or ""))
     else
       server:send(player, Protocol.encode("SHOP_NO", result))
     end

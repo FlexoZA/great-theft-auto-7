@@ -14,6 +14,60 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.6] - 2026-10-09
+
+The bag beside the shop lists your guns and abilities too, grenades are on the Ammo shelf, and clicking one
+no longer crashes the game.
+
+### Added
+- The bag beside the shop also lists the guns and abilities you carry, a row each at the bottom (the gun in
+  hand lit, an ability ready or cooling down), taller on a bigger window. It shows only the slots you have, as
+  big as fit, and hovering a small one names it.
+
+### Changed
+- Grenades are on the shop's Ammo shelf now, not Supplies.
+
+### Fixed
+- Clicking the grenade in the shop crashed the game since it moved to the Ammo shelf; it shows what it does again.
+
+## [0.26.5] - 2026-10-09
+
+Sell things back to the shop from your bag, for half what it asks.
+
+### Added
+- Sell things back to the shop: click something in your bag beside the shop and sell a bundle or all of it
+  for half of what the shop asks (60 uzi rounds: 20 Fcks). It only buys what it sells itself, not materials.
+
+## [0.26.4] - 2026-10-09
+
+Armor and clothes can be bought and put straight on in the shop.
+
+### Added
+- Armor and clothes in the shop have a Buy & wear button beside Buy: it puts the piece straight on, and
+  whatever you had on in that slot goes into your bag. If your bag has no room for it, nothing is bought.
+
+## [0.26.3] - 2026-10-09
+
+The shop shows your bag beside it, and medkits, drinks and grenades you buy go straight into their quick slot.
+
+### Added
+- The shop shows your bag beside it: every slot with what is in it and how many, and your medkits, drinks
+  and grenades, so you can see what fits before you buy. On a narrow window it is left out.
+
+### Changed
+- Medkits, energy drinks and grenades you buy go straight into their quick slot, ready on their key, until
+  it is full (5); only the rest go into your bag. A full bag no longer stops you buying one while the slot has room.
+
+## [0.26.2] - 2026-10-08
+
+Ammo stacks to about ten magazines a slot, and freeze is aimed with the key and cast with a click.
+
+### Changed
+- Ammo stacks much higher in your inventory, about ten magazines a slot: uzi and AK-47 100 -> 300 rounds,
+  minigun 300 -> 1500, shotgun 50 -> 60, sniper 50 -> 60, rockets 20 -> 30, fuel cans 10 -> 20.
+- Freeze is cast like the leap now: press its key to show the area, click to cast it there (the key again or
+  right-click to put it away). It used to be hold the key and let go.
+
 ## [0.26.1] - 2026-10-08
 
 Walking, sprinting and dodging answer the keys at once on a laggy connection too, like the car.
