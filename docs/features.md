@@ -1452,7 +1452,7 @@ the one with a plot.
   three catwalks, two to each (`map.rollermines`: off the lift, up to the
   gallery, across to the reactor deck); and Hunters walking round the
   gallery (one) and the top (two) (`map.hunterBeats`); the mines and the
-  Hunters are more with more humans, the guards the same however many. A-Man himself is its boss (`a-man/finale.lua`, run by
+  Hunters are more with more humans (the mines double, the Hunters one more each), the guards the same however many. A-Man himself is its boss (`a-man/finale.lua`, run by
   `a-man/citadel.lua`): he blinks in by the lift up when the first player
   steps onto the top platform. The same man and brain as the city event
   (`a-man/brain.lua`: stalk, blink through, medkits, dodging) with 5000
@@ -1581,7 +1581,9 @@ the one with a plot.
   `Bosses.health(base, server)` and its helpers (simps, squirrels,
   soldiers, a litter) `Bosses.count(base, server)`, the numbers for one
   human grown by `Bosses.perHuman` of the base for each human past the
-  first (two humans, double), counted when it spawns. Badly hurt, a boss
+  first (two humans, double), counted when it spawns. Hunters grow slower,
+  `Bosses.plus(base, server)`: one more for each human past the first
+  (`Bosses.extra`). Badly hurt, a boss
   breaks off for a medkit lying near it (`bosses/heal.lua`: under 40% of
   its health, within 700 px, +200), and it gets out from under a player's
   ability about to land on it once it has had 0.2 s to see it
