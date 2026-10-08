@@ -34,7 +34,8 @@
 -- (SLACK px allowed for a car drawn a little behind where it is), that the
 -- shop is on the map in play, that the wallet covers the price, and then
 -- hands the thing over: an item goes into the buyer's bag through
--- buildings:serverGive, a car onto the road outside the door through the
+-- buildings:serverGive (a medkit, drink or grenade into its quick slot
+-- first, buildings:serverQuickGive, as a pickup does), a car onto the road outside the door through the
 -- `serverDeliver` event (vehicles answers it), in the first delivery bay
 -- with no car standing in it. Clients only draw the building, the screen
 -- and ask.
@@ -295,7 +296,9 @@ function Shop:tryBuy(client, entry, tier)
   end
   if not Catalog.onRoad(entry) then
     local b = Features.byName.buildings
-    if b and b.inventory and Kinds.room(b.inventory, b.slots, item) < 1 then
+    local u = b and b.usableByItem and b.usableByItem[item]
+    local quickRoom = u and math.max(0, u.max - b:quickCount(item)) or 0 -- its quick slot takes it first
+    if b and b.inventory and quickRoom < 1 and Kinds.room(b.inventory, b.slots, item) < 1 then
       return self:refuse("full")
     end
   end
@@ -474,6 +477,17 @@ function Shop:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The quick slot `item` goes into (medkits, drinks, grenades), and the
+--- buildings feature that keeps it; nil for anything else.
+function Shop.quickOf(item)
+  local b = Features.byName.buildings
+  local u = b and b.usableByItem and b.usableByItem[item]
+  if u then
+    return u, b
+  end
+  return nil
+end
+
 Shop.clientMessages = {
   SHOP_OK = function(_client, args)
     local item, n = args[1] or "", tonumber(args[2]) or 1
@@ -487,6 +501,11 @@ Shop.clientMessages = {
       Shop:say(entry.bought, GREEN)
     elseif Catalog.onRoad(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
+    elseif Shop.quickOf(item) then
+      -- Its quick slot filled first (BLD_QUICK came just before this).
+      local u, b = Shop.quickOf(item)
+      local key = Controls.name(Controls.bindings(u.action)[1])
+      Shop:say(("Bought %s. Ready on %s: %d/%d."):format(Kinds.label(item, n), key, b:quickCount(item), u.max), GREEN)
     elseif n == 1 then
       Shop:say("Bought a " .. Kinds.name(item, 1) .. ". It's in your bag.", GREEN)
     else
@@ -586,8 +605,13 @@ function Shop:serverBuy(server, player, item)
     end
     given = 1
   else
+    -- Medkits, drinks and grenades fill their quick slot first (ready on
+    -- their key), the way a pickup does; the rest go into the bag.
     local buildings = Features.byName.buildings
-    given = buildings and buildings.serverGive and buildings:serverGive(server, player, item, entry.n) or 0
+    given = buildings and buildings.serverQuickGive and buildings:serverQuickGive(server, player, item, entry.n) or 0
+    if buildings and buildings.serverGive and given < entry.n then
+      given = given + buildings:serverGive(server, player, item, entry.n - given)
+    end
     if given < 1 then
       return false, "full"
     end
