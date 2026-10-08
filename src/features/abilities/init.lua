@@ -29,8 +29,8 @@
 -- `drawBelow(e)` draws under the cars. While its `airborne(e)` is true the
 -- caster is `held` here (no walking, shooting or casting), but not frozen.
 --
--- You carry abilities in `slotCount` ability slots: three on keys (Q, E,
--- R; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
+-- You carry abilities in `slotCount` ability slots: three on keys (1, 2,
+-- 3; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
 -- no key, for a passive ability (`passive = true` in its module) that
 -- works by being there. Only a passive ability fits that slot and a
 -- passive one fits nowhere else. Everyone starts with freeze (freeze.lua)
@@ -121,7 +121,7 @@ local Abilities = {
 Abilities.kinds = Kinds
 Abilities.slotCount = 4 -- ability slots: the keyed ones and the passive one
 Abilities.passiveSlot = 4 -- the slot with no key, for an ability that works by being carried
-Abilities.defaultKeys = { "q", "e", "r" } -- slot i is cast with action "ability-<i>"
+Abilities.defaultKeys = { "1", "2", "3" } -- slot i is cast with action "ability-<i>"
 Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
 -- The ability circles along the bottom centre of the screen, one per slot,
 -- `hudStep` apart, empty ones dim.
@@ -457,6 +457,9 @@ end
 --- away); a press of a self ability's key casts it on the spot. A modal
 --- one waits for the key to come up: a tap is a press, a hold picks a mode.
 function Abilities:keypressed(key, client)
+  if Features.any("menuOpen", client) then
+    return -- a menu (a building's, the gym) has the number keys
+  end
   for i = 1, self.slotCount do
     local ability = i ~= self.passiveSlot and self:inSlot(i) or nil
     if ability and (placed(ability) or ability.aim == "self") and Controls.is("ability-" .. i, key) then
@@ -527,7 +530,8 @@ function Abilities:update(dt, client, camera)
     end
   end
 
-  local taken = Features.any("pointerTaken", client) -- a screen (the inventory) has the mouse
+  -- A screen (the inventory) has the mouse, or a menu the number keys.
+  local taken = Features.any("pointerTaken", client) or Features.any("menuOpen", client)
   local canAim = client:myPose() ~= nil and not self:held(client, client.myId) and not taken
   if self.fireSpent and not Controls.isDown("fire") then
     self.fireSpent = nil

@@ -326,12 +326,14 @@ local function drawWeapons(L, lifted)
       Tiers.drawFrame(weapons:tierOf(i), r.x, r.y, r.w, r.h, held and 1 or 0.7)
     end
     love.graphics.setFont(small)
-    -- The key in a badge in the corner either way.
-    local key = Controls.name(Controls.bindings("weapon-" .. slot)[1])
-    love.graphics.setColor(0.36, 0.56, 0.92, (held and 1) or (gun and 0.6) or 0.3)
-    love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
-    love.graphics.setColor(1, 1, 1, gun and 1 or 0.5)
-    love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
+    -- The key in a badge in the corner either way, if the slot has one (none by default: Z and X cycle).
+    local bound = Controls.bindings("weapon-" .. slot)[1]
+    if bound then
+      love.graphics.setColor(0.36, 0.56, 0.92, (held and 1) or (gun and 0.6) or 0.3)
+      love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
+      love.graphics.setColor(1, 1, 1, gun and 1 or 0.5)
+      love.graphics.printf(Controls.name(bound), r.x + 4, r.y + 5, 20, "center")
+    end
     if not gun then
       love.graphics.setColor(1, 1, 1, 0.2)
       love.graphics.printf("empty", r.x, r.y + r.h / 2 - 8, r.w, "center")
