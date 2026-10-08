@@ -695,7 +695,8 @@ end
 -- The bag beside the shop -----------------------------------------------------
 
 Screen.BAG_W = 196 -- px the bag panel takes beside the shop: two item boxes across
-local BAR_H, BAR_GAP = 22, 3 -- px a weapon or ability row in the bag panel, and between rows
+-- px a weapon or ability row in the bag panel (taller when there is room for it), and between rows
+local BAR_MIN, BAR_MAX, BAR_GAP = 22, 36, 3
 
 --- How many weapon and ability slots there are to list beside the shop.
 local function carriedCounts()
@@ -704,29 +705,30 @@ local function carriedCounts()
 end
 
 --- px the guns and abilities take in the bag panel, headings and a gap under them included.
-local function carryHeight()
+local function carryHeight(barH)
   local nw, na = carriedCounts()
-  return 2 * 18 + (nw + na) * (BAR_H + BAR_GAP) + 10
+  return 2 * 18 + (nw + na) * (barH + BAR_GAP) + 10
 end
 
 --- One row of the "carrying" list at (x, y), `w` wide: framed in `tier`'s
 --- colour when there is something in it, lit when `lit`.
-local function bar(x, y, w, filled, lit, tier)
-  box(x, y, w, BAR_H, filled, lit)
+local function bar(x, y, w, h, filled, lit, tier)
+  box(x, y, w, h, filled, lit)
   if filled and tier then
-    Tiers.drawFrame(tier, x, y, w, BAR_H, lit and 1 or 0.7)
+    Tiers.drawFrame(tier, x, y, w, h, lit and 1 or 0.7)
   end
 end
 
 --- The guns and abilities I carry, a row per slot from (x, y) across a
---- panel `w` wide: a gun's picture, name and rounds (the one in hand lit),
---- an ability's icon, name and whether it is ready. Only to look at,
---- beside the shop.
-local function drawCarried(x, y, w)
+--- panel `w` wide, each `barH` tall: a gun's picture and name (the one in
+--- hand lit), an ability's icon, name and whether it is ready. Only to look
+--- at, beside the shop.
+local function drawCarried(x, y, w, barH)
   local weapons, abilities = Features.byName.weapons, Features.byName.abilities
   local font = UI.fonts.small
   local bx, bw = x + 12, w - 24
-  local ty = math.floor((BAR_H - font:getHeight()) / 2)
+  local ty = math.floor((barH - font:getHeight()) / 2)
+  local grow = barH / BAR_MIN -- pictures grow with the rows
   love.graphics.setFont(font)
   if weapons then
     heading("weapons", bx, y)
@@ -735,29 +737,17 @@ local function drawCarried(x, y, w)
       local i = weapons.slots[slot]
       local gun = i and Guns.list[i] and weapons:gunAt(i)
       local held = gun and weapons.gun == i
-      bar(bx, y, bw, gun ~= nil, held, gun and weapons:tierOf(i))
+      bar(bx, y, bw, barH, gun ~= nil, held, gun and weapons:tierOf(i))
       love.graphics.setFont(font)
       if gun then
-        Icons.draw(gun.key, bx + 22, y + BAR_H / 2, 0.42, held and 1 or 0.75)
+        Icons.draw(gun.key, bx + 10 + 12 * grow, y + barH / 2, 0.42 * grow, held and 1 or 0.75)
         love.graphics.setColor(held and { 1, 0.9, 0.3 } or { 0.85, 0.85, 0.9 })
-        love.graphics.print(gun.name, bx + 46, y + ty)
-        local ammo
-        if weapons.infiniteAmmo then
-          ammo = "inf"
-        else
-          ammo = tostring(weapons.mags[i] or gun.magazine)
-          local spare = weapons:reserve(i)
-          if spare ~= math.huge then
-            ammo = ammo .. " +" .. spare
-          end
-        end
-        love.graphics.setColor(0.6, 0.6, 0.65)
-        love.graphics.printf(ammo, bx, y + ty, bw - 6, "right")
+        love.graphics.print(gun.name, bx + 20 + 26 * grow, y + ty)
       else
         love.graphics.setColor(1, 1, 1, 0.2)
         love.graphics.printf("empty", bx, y + ty, bw, "center")
       end
-      y = y + BAR_H + BAR_GAP
+      y = y + barH + BAR_GAP
     end
   end
   if abilities then
@@ -766,14 +756,15 @@ local function drawCarried(x, y, w)
     for slot = 1, abilities.slotCount do
       local ability = abilities:inSlot(slot)
       local passive = slot == abilities.passiveSlot
-      bar(bx, y, bw, ability ~= nil, false, ability and ability.tier)
+      bar(bx, y, bw, barH, ability ~= nil, false, ability and ability.tier)
       love.graphics.setFont(font)
       if ability then
-        local cx, cy = bx + 14, y + BAR_H / 2
-        UI.ring(cx, cy, BAR_H / 2 - 2, 1, ability.color, 2)
-        AbilityIcons.draw(ability.key, cx, cy, BAR_H / 2 - 5)
+        local r = barH / 2 - 2
+        local cx, cy = bx + 4 + r, y + barH / 2
+        UI.ring(cx, cy, r, 1, ability.color, 2)
+        AbilityIcons.draw(ability.key, cx, cy, r - 3)
         love.graphics.setColor(0.85, 0.85, 0.9)
-        love.graphics.print(ability.hud or ability.title, bx + 30, y + ty)
+        love.graphics.print(ability.hud or ability.title, bx + 2 * r + 12, y + ty)
         local left = abilities.cooldowns[ability.key]
         love.graphics.setColor(left and { 1, 0.6, 0.4 } or { 0.5, 0.95, 0.6 })
         local state = passive and "passive" or (left and ("%.0fs"):format(left) or "ready")
@@ -782,7 +773,7 @@ local function drawCarried(x, y, w)
         love.graphics.setColor(1, 1, 1, 0.2)
         love.graphics.printf(passive and "passive" or "empty", bx, y + ty, bw, "center")
       end
-      y = y + BAR_H + BAR_GAP
+      y = y + barH + BAR_GAP
     end
   end
 end
@@ -796,7 +787,8 @@ function Screen.bagBoxes(buildings, x, y, h)
   local list = Screen.stacks(buildings.inventory)
   local total = math.max(1, buildings.slots) -- the slots I have; locked ones are the inventory's to show
   local quickH = 20 * #(buildings.usables or {}) + 8
-  local top, bottom = y + 64, y + h - 12 - quickH - carryHeight()
+  local top, limit = y + 64, y + h - 12 - quickH -- the guns and abilities end at `limit`
+  local bottom = limit - carryHeight(BAR_MIN)
   -- Two across, or three when that makes them bigger (a bag with every slot).
   local cols, cell
   for c = 2, 3 do
@@ -814,7 +806,11 @@ function Screen.bagBoxes(buildings, x, y, h)
     boxes[i] = { x = gx + col * (cell + GAP), y = top + row * (cell + GAP), w = cell, h = cell, open = open,
       stack = open and list[i] or nil }
   end
-  return boxes, bottom + 2, #list -- the guns and abilities sit at the bottom, over the quick slots
+  -- What the blocks leave goes to the guns' and abilities' rows, up to BAR_MAX.
+  local used = math.ceil(total / cols) * (cell + GAP)
+  local nw, na = carriedCounts()
+  local barH = math.max(BAR_MIN, math.min(BAR_MAX, BAR_MIN + math.floor((bottom - top - used) / math.max(1, nw + na))))
+  return boxes, limit - carryHeight(barH) + 2, #list, barH -- the guns and abilities sit at the bottom
 end
 
 --- What I carry, in a narrow panel at (x, y), `h` tall, beside the shop
@@ -827,7 +823,7 @@ end
 function Screen.drawBag(buildings, x, y, h, selected)
   local w = Screen.BAG_W
   panel(x, y, w, h, "YOUR BAG")
-  local boxes, qy, used = Screen.bagBoxes(buildings, x, y, h)
+  local boxes, qy, used, barH = Screen.bagBoxes(buildings, x, y, h)
   local mx, my = love.mouse.getPosition()
   -- Under the title: what the box under the mouse holds (a small box has no
   -- room for its name), else how full the bag is.
@@ -840,7 +836,7 @@ function Screen.drawBag(buildings, x, y, h, selected)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
   love.graphics.printf(line, x, y + 40, w, "center")
-  drawCarried(x, qy, w) -- under the items
+  drawCarried(x, qy, w, barH) -- under the items
   for _, r in ipairs(boxes) do
     drawItemBox(r, r.stack, r.open)
     local over = r.stack and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h
@@ -852,7 +848,7 @@ function Screen.drawBag(buildings, x, y, h, selected)
     end
   end
   -- The quick slots, a line each, at the bottom.
-  qy = qy + carryHeight()
+  qy = qy + carryHeight(barH)
   for _, u in ipairs(buildings.usables or {}) do
     local n = buildings:quickCount(u.item)
     local c = u.color
