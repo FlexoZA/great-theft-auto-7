@@ -23,6 +23,8 @@
 --                         rollermines feature)
 --   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature)
 --                         walking round the gallery and the top
+--   map.suppressors       { x, y, watch, at }: where a Suppressor (the suppressors feature) holds
+--                         a platform, on the gallery and the reactor deck
 --   map.openKinds         { walk = true }: city-map's randomRoadPoint takes the catwalks (there is no road)
 --   map.zones             { name, y0, y1 } as City 17's
 --   map.cover             { kind = "crate" | "barrier" | "console", x, y, w, h }, all solid
@@ -58,7 +60,7 @@ function Citadel.build(map, rng, T)
     end
   end
   map.platforms, map.catwalks, map.posts, map.zones, map.cover, map.backdrop = {}, {}, {}, {}, {}, {}
-  map.nests, map.rollermines, map.hunterBeats = {}, {}, {}
+  map.nests, map.rollermines, map.hunterBeats, map.suppressors = {}, {}, {}, {}
   map.openKinds = { walk = true } -- no road here: the catwalks are where pickups and the like go
   local placed = {} -- { x, y, r }: kept clear of cover (the way across each platform, the guards)
 
@@ -186,6 +188,16 @@ function Citadel.build(map, rng, T)
   post(top, 34, 11, 52, 13)
   post(top, 44, 10, 52, 13)
   post(top, 46, 16, 52, 13)
+
+  -- A Suppressor holding the middle of the gallery and the back of the
+  -- reactor deck, minigun on the way in.
+  local function heavy(p, c, r, wc, wr)
+    local x, y = X(c + 0.5), Y(r + 0.5)
+    map.suppressors[#map.suppressors + 1] = { x = x, y = y, watch = math.atan2(Y(wr) - y, X(wc) - x), at = p.name }
+    placed[#placed + 1] = { x = x, y = y, r = 70 }
+  end
+  heavy(gallery, 27, 42, 35, 43)
+  heavy(reactor, 70, 29, 62, 29)
 
   -- An MG emplacement where the long span comes onto the processing floor,
   -- facing back down it: crossing it is the worst of the way up. Its

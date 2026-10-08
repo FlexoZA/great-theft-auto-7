@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new enemy, the Combine Suppressor: a heavy soldier with a minigun and an energy shield, two of them
+  holding the Citadel's gallery and reactor deck. Listen for the barrels winding up, then get into cover:
+  he hoses you down for about 3 seconds and has to vent his gun after. He is slow to turn, so circling
+  him works. His blue shield soaks every hit first (shock breaks it twice as fast) and comes back if you
+  leave him alone for 5 seconds. He leaves a body in his heavy armour with the minigun beside him.
+
 ## [0.18.0] - 2026-10-08
 
 Dying deep into a long quest no longer means walking it all again: find

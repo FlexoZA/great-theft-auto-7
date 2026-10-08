@@ -415,7 +415,9 @@ couple of small conventions rather than requiring each other:
   every machine (client only, nothing sent): where they fell, knocked over
   the way the blow went, in one of three poses at random (on the back, face
   down, curled on the side), in the look they wore alive (Body.person's
-  fields, plus `mask` for the Combine's masked heads), the gun by the hand
+  fields, plus `mask` for the Combine's masked heads, `visor` for one slit
+  across the mask, `minigun` for a minigun on the ground instead of a rifle
+  and `size` to scale the figure: the Suppressors'), the gun by the hand
   of one who carried one and a pool spreading under them; 40 s, then they
   fade, 60 at most, gone on a map change. `Corpses.down(x, y, angle, look,
   cause)` is what a feature calls for one of its dead: a body for a round,
@@ -1340,6 +1342,24 @@ the one with a plot.
   go for a medkit (+70) or an energy drink (+30 and quicker for 6 s). Rounds
   owned by nobody pass them by. 8 koins each. `HTR_STATE`, `HTR_DOWN`,
   `HTR_CALL` (header of `hunters/init.lua`).
+- Suppressors: `src/features/suppressors`, the Combine's heavy soldier
+  with a minigun and an energy shield, with its own brain (`brain.lua`:
+  guard a post sweeping a slow cone, fight, hose where it lost somebody,
+  search, back to its post). Another feature stands one with
+  `suppressors:serverPost(server, x, y, watch)` and takes them all away
+  with `suppressors:serverClear()`; a map change clears them too. The
+  Citadel has two (`map.suppressors`: the gallery and the reactor deck,
+  put out by a-man/city17.lua). Slow (42 px/s, 1.5 rad/s turning), they
+  see as City 17's soldiers do (60 degrees, 90 on edge, 150 px all round),
+  plod closer while firing (to 260 px, never 520 px past their post), spin
+  the gun up for 0.9 s, then fire about 12 rounds a second (5 damage each,
+  the uzi's rounds through weapons' `serverFireFrom`, owned by nobody and
+  `quiet`: the feature sounds them) for 3.2 s before venting for 1.8 s.
+  The shield (160) soaks every hit first, shock at double, and recharges
+  at 30 a second 5 s after the last hit; then 220 health. A blast's share
+  takes 45. Too heavy to panic; a freeze holds them. 12 koins each, a
+  body in their plate with the minigun beside it (corpses). `SUP_STATE`,
+  `SUP_BREAK`, `SUP_DOWN` (header of `suppressors/init.lua`).
 - Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
   with `map.rollermines` ({ x, y, r, count }) gets them set there when a
   quest starts (`count` scaled by `Bosses.count`), and a map with
