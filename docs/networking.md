@@ -98,6 +98,12 @@ What the copy doesn't know about (another car in the way, a shove) shows up
 a round trip later, smoothed in. Everything else on screen is still drawn
 easing towards the snapshots.
 
+On foot works the same way, inside the on-foot feature: OF_MOVE carries the
+move and the two before it (a dodge rides in the move it was pressed in),
+the host applies one a tick through `OnFoot:advance` (the step my copy runs
+too), and OF_YOU tells the walker where they are with their stamina, breath,
+dash and dodge cooldown.
+
 ## Message shapes
 
 ```
