@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-08
+
+Ammo drops for the guns you actually carry, AK rounds far more often, and
+no more free rocket launcher at the start.
+
 ### Changed
 - Enemy ammo drops favour the guns you carry: half of all ammo boxes are now for a gun in one of your
   weapon slots. The rest lean towards common guns: AK and uzi rounds turn up 6 times as often as rockets
