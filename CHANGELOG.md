@@ -15,8 +15,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
-- Enemies can drop a grenade when they go down (5 in every 100 kills). Pick it up and drag it to
-  the grenade quick slot.
+- Enemies can drop a grenade when they go down (5 in every 100 kills).
+- Medkits and energy drinks you can't use right now (full health, full stamina, or a drink from
+  behind the wheel) go into their quick slot for later, up to 5; with the slot full they stay on
+  the ground. Grenades you pick up go straight into their quick slot too, then your bag, so
+  you no longer have to drag them over.
 
 ### Changed
 - Enemies drop a lot more ammo: something drops from 40% -> 65% of kills, an ammo box from 10 ->

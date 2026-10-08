@@ -483,8 +483,8 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.weapons:serverHeal(server, player, amount)` and
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything
-  was gained, so a pickup that did nothing (full health, a drink taken from
-  behind the wheel) can stay on the road. Pickups uses both. A heal fills
+  was gained, so a pickup that would do nothing (full health, a drink taken
+  from behind the wheel) goes into the quick slot instead. Pickups uses both. A heal fills
   the body first and then the car they are driving;
   `weapons:serverRepair(server, car, amount)` mends a car on its own.
   `on-foot:serverStamina(player)` reads a walker's stamina and ceiling (nil
@@ -639,6 +639,9 @@ couple of small conventions rather than requiring each other:
 - `Features.byName.buildings:serverGive(server, player, item, n)`: put up
   to `n` of an item into a player's inventory, as many as fit; returns how
   many went in. The other way round from `serverTake`.
+  `buildings:serverQuickGive(server, player, item, n)` does the same
+  straight into the quick slot for a medkit, drink or grenade (up to its
+  stack of 5); pickups stashes a medkit found at full health this way.
 - Freight, for moving materials between buildings with no player carrying
   them (host only): `buildings:serverBuilding(plotId)` reads the host's
   record of a building (kind, owner, product, output, hopper, hp);
@@ -649,10 +652,13 @@ couple of small conventions rather than requiring each other:
   already in the world (an NPC's own) a model from `vehicles.catalog.byKey`.
 - `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
   pickup on the ground right there, gone for good once taken. `kind` is a
-  pickups kind ("health", "stamina"), `"ammo-<gun key>"` for a box of
+  pickups kind ("health", "stamina": used on the spot, or put in the
+  taker's quick slot when it would do nothing, till that is full),
+  `"ammo-<gun key>"` for a box of
   `amount` rounds that goes into the taker's inventory, or a material
   (`"iron"`) for a crate of `amount` of it (a human takes what fits in
-  their bag; the rest stays as a smaller crate).
+  their bag, a grenade, medkit or drink its quick slot first; the rest
+  stays as a smaller crate).
   `pickups:serverDropAmmo(server, x, y, magazines)` drops a box for one of
   the guns that take ammo, picked at random and sized in that gun's
   magazines.

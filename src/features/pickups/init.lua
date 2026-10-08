@@ -6,9 +6,10 @@
 -- Kinds live in KINDS: "health" (a medkit) heals through the weapons
 -- feature, "stamina" (an energy drink) refills the bar through on-foot,
 -- and "ammo-<gun>" (an ammo box) puts rounds into the inventory through
--- buildings. A kit that would do nothing -- a medkit at full health, a
--- drink from behind the wheel, a box for a full bag -- stays where it is
--- for whoever can use it.
+-- buildings. A medkit or drink that would do nothing now -- at full health
+-- or stamina, a drink from behind the wheel -- goes into the player's quick
+-- slot for it instead ("+1 medkit"), until that slot is full; then it stays
+-- where it is for whoever can use it, as does a box for a full bag.
 --
 -- What an enemy leaves behind has one source of truth, here: when one
 -- goes down (a simp, a squirrel, a soldier, a police officer or unit) its
@@ -25,8 +26,9 @@
 -- tier it was dropped in ("ability-bigleap@legendary"; tiers/init.lua),
 -- which rings the orb in its colour. A material's own key ("iron", "oil";
 -- buildings/kinds.lua) is a crate of `amount` of it, spilled by a wrecked
--- delivery truck: the first human over it with room in their bag takes
--- what fits, and the rest stays on the ground. So is a factory's goods on
+-- delivery truck: the first human over it with room takes what fits (a
+-- grenade, medkit or drink into its quick slot first, then the bag), and
+-- the rest stays on the ground. So is a factory's goods on
 -- their way to the shop ("gun-uzi", "medkit": anything with a
 -- `Kinds.worth`); rounds spill as an ammo box.
 --
@@ -42,7 +44,7 @@
 --
 -- Messages
 --   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box, a crate's material)
---   server -> all  PK_TAKE  <id> <playerId>
+--   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
 local Protocol = require("src.net.protocol")
@@ -150,7 +152,8 @@ local function materialKind(key)
         return false
       end
       local amount = item.amount or 1
-      local given = buildings:serverGive(server, player, key, amount)
+      local given = buildings:serverQuickGive(server, player, key, amount)
+      given = given + buildings:serverGive(server, player, key, amount - given)
       if given > 0 and given < amount then
         Pickups:serverDrop(server, key, item.x, item.y, amount - given)
       end
@@ -206,27 +209,43 @@ local function kindOf(key)
   return kind
 end
 
+--- Put one `item` (a medkit, a drink) into `player`'s quick slot for later,
+--- if it has room: true, item when it did.
+local function stash(server, player, item)
+  local buildings = Features.byName.buildings
+  if not player.bot and buildings and buildings.serverQuickGive
+    and buildings:serverQuickGive(server, player, item, 1) > 0 then
+    return true, item
+  end
+  return false
+end
+
 KINDS.health = {
-    --- Returns true if the player actually used it.
+    --- Returns true if the player used it or stashed it (then also "medkit").
     apply = function(server, player)
       local weapons = Features.byName.weapons
-      if weapons and weapons.serverHeal then
-        return weapons:serverHeal(server, player, Pickups.healAmount)
+      if not (weapons and weapons.serverHeal) then
+        return true -- no weapons feature: take it anyway
       end
-      return true -- no weapons feature: take it anyway
+      if weapons:serverHeal(server, player, Pickups.healAmount) then
+        return true
+      end
+      return stash(server, player, "medkit")
     end,
     label = "+" .. 50,
     color = { 0.4, 1, 0.4 },
     pitch = 1,
 }
 KINDS.stamina = {
-    --- Only a body on foot has a bar to fill; a driver leaves it lying.
+    --- Only a body on foot has a bar to fill; a driver, or someone with a
+    --- full bar, stashes it (then also "drink").
     apply = function(server, player)
       local onFoot = Features.byName["on-foot"]
-      if onFoot and onFoot.serverRestoreStamina then
-        return onFoot:serverRestoreStamina(server, player, Pickups.staminaAmount)
+      if onFoot and onFoot.serverRestoreStamina
+        and onFoot:serverRestoreStamina(server, player, Pickups.staminaAmount) then
+        return true
       end
-      return false -- no on-foot feature: nothing to fill, ever
+      return stash(server, player, "drink")
     end,
     label = "+" .. 60 .. " stamina",
     color = { 0.45, 0.85, 1 },
@@ -477,6 +496,7 @@ Pickups.clientMessages = {
   end,
   PK_TAKE = function(client, args)
     local id, by = tonumber(args[1]), tonumber(args[2])
+    local stashed = args[3] ~= "" and args[3] or nil
     local it = id and Pickups.items[id]
     if it then
       Pickups.items[id] = nil
@@ -493,7 +513,7 @@ Pickups.clientMessages = {
       Pickups.floats[#Pickups.floats + 1] = {
         x = fx,
         y = fy - 30,
-        text = kind and labelOf(kind, it) or "",
+        text = stashed and "+" .. BuildingKinds.label(stashed, 1) or kind and labelOf(kind, it) or "",
         color = kind and kind.color or { 1, 1, 1 },
         t = 1.2,
       }
@@ -679,8 +699,12 @@ function Pickups:serverStep(server, dt)
       local reach = (onFoot and self.footRadius or self.radius) * scale
       if bx and (bx - it.x) ^ 2 + (by - it.y) ^ 2 < reach * reach then
         local kind = kindOf(it.kind)
-        if kind and kind.apply(server, player, it) then
-          self:serverTake(server, id, player.id)
+        local took, stashed = false, nil
+        if kind then
+          took, stashed = kind.apply(server, player, it)
+        end
+        if took then
+          self:serverTake(server, id, player.id, stashed)
           break
         end
       end
@@ -699,15 +723,16 @@ end
 
 --- Pickup `id` is taken by player `byId` (0 for somebody who isn't one:
 --- an enemy helping itself): gone from the ground on every screen, and one
---- of the map's own comes back in time. Doesn't apply it; returns the item
+--- of the map's own comes back in time. `stashed` is the item it went into
+--- their quick slot as, for the "+1 medkit". Doesn't apply it; returns the item
 --- ({ kind, x, y, amount }) or nil if it was already gone.
-function Pickups:serverTake(server, id, byId)
+function Pickups:serverTake(server, id, byId, stashed)
   local it = sv and sv.items[id]
   if not it then
     return nil
   end
   sv.items[id] = nil
-  server:broadcast(Protocol.encode("PK_TAKE", id, byId or 0))
+  server:broadcast(Protocol.encode("PK_TAKE", id, byId or 0, stashed or ""))
   if not it.dropped then
     sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
   end
