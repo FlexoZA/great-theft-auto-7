@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-08
+
+Your car answers the keys at once however far away the server is, the connection is lighter and steadier,
+and everyone has to be on the same version to play together.
+
 ### Added
 - Firing an empty gun, or reloading with no ammo left for it, now flashes NO AMMO in big red letters in the
   middle of the screen.
