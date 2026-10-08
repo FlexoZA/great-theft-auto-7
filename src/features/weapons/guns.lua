@@ -35,6 +35,8 @@
 --   pellets   projectiles one trigger pull sends out (1 otherwise), each
 --             scattered by `spread` on its own: a shotgun. The magazine
 --             counts pulls, not pellets, and only the first pellet sounds.
+--   quiet     true: its rounds make no sound of their own (a gun a feature
+--             fires and sounds itself: the scout car's tau cannon)
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):

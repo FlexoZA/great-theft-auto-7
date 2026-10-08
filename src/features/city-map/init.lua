@@ -22,8 +22,14 @@
 --     (docs/features.md).
 --   serverWorldSaveHeld  true away from the default map: a saved world is
 --     the city, so it is not written while everyone is somewhere else.
+--   A map with a `loaner` (a vehicle model key: the Winding Road's scout
+--     car) is driven: anyone who arrives without a car of their own (it is
+--     in their garage, say) is lent one of that model at their spawn point,
+--     behind its wheel. It stands in as their own car while they are there
+--     (`player.car`: respawns and wrecks bring them back in it) and is gone,
+--     their own back in its place, on the next switch.
 --
--- A map's `fires` (City 17's) burn for good: fires.lua draws them over
+-- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
 -- into one on the ground alight (damage's `ignite`).
 --
@@ -92,19 +98,51 @@ CityMap.maps = {
     police = false, traffic = false, vehicles = false,
     crowdScale = 0.5, -- half the usual citizens: the Combine are the crowd here
   },
+  -- The Outer City, on A-Man's trail before the Citadel: a concrete jungle
+  -- with canals, bridges and parks round a big open square on an island,
+  -- where the boss fight is (outer_city.lua). Walked; no traffic or crowd,
+  -- only the Combine (a-man/city17.lua) and the Hunter-Chopper.
+  outercity = {
+    title = "The Outer City", kind = "outercity", seed = 31, cols = 72, rows = 56,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  -- The Coast, on A-Man's trail: one beach winding north between the sea
+  -- and green mountains, narrow most of the way, opening into coves to
+  -- fight in (coast.lua). Walked; no traffic or crowd, only the Combine,
+  -- the antlions and the Antlion Guard.
+  coast = {
+    title = "The Coast", kind = "coast", seed = 62, cols = 64, rows = 120,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  -- The Winding Road, the last stop on A-Man's trail before the Citadel:
+  -- one long road up through the mountains, over the river again and
+  -- again on its bridges, to the pass (road.lua). Driven: everyone arrives
+  -- in their car; nobody about.
+  road = {
+    title = "The Winding Road", kind = "road", seed = 88, cols = 76, rows = 224,
+    crowd = false, traffic = false, loaner = "scout-car-rust",
+  },
+  -- Inside the Citadel, a stop on A-Man's trail: one narrow catwalk up through
+  -- a vast shaft, widening into platforms the Combine hold, the drop all
+  -- round it (citadel.lua). Walked; nobody about but them.
+  citadel = {
+    title = "The Citadel", kind = "citadel", seed = 18, cols = 84, rows = 112,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`
 CityMap.home = nil -- the default city, kept as it was while everyone is on another map
+CityMap.loaners = {} -- { car, player id, own }: cars lent on a driven map, and what each player had before
 CityMap.canvas = nil
 local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas shows
 
 local function generate(name)
   local spec = CityMap.maps[name]
   local map = Layout.generate(spec)
-  map.name, map.title = name, spec.title
+  map.name, map.title, map.loaner = name, spec.title, spec.loaner
   return map
 end
 
@@ -118,7 +156,7 @@ end
 --- when they need it rather than keeping it. No event: this runs between
 --- games, when every feature resets itself anyway.
 function CityMap:reset()
-  self.home = nil
+  self.home, self.loaners = nil, {}
   if self.current ~= self.DEFAULT or #self.map.grown > 0 then
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
@@ -131,10 +169,54 @@ function CityMap:serverWorldSaveHeld()
   return self.current ~= self.DEFAULT
 end
 
---- Put every player on the map's spawn points, in player order, each behind
---- the wheel of their own car, and publish the list for anything else that
---- spawns cars. A car they had borrowed stays where it was.
+--- Take back every car lent on the last map: gone from the world, each
+--- player's own car their own again.
+local function returnLoaners(self, server)
+  for _, l in ipairs(self.loaners) do
+    local p = server.players[l.player]
+    if p and p.car == l.car then
+      p.car = l.own or nil
+    end
+    server:removeVehicle(l.car)
+  end
+  self.loaners = {}
+end
+
+--- Lend `p` a car of the map's `loaner` model at spawn point `s` ({ x, y,
+--- angle }): theirs while they are here. Returns it, or nil without one.
+local function lend(self, server, p, s)
+  local vehicles = Features.byName.vehicles
+  local model = vehicles and vehicles.catalog.byKey[self.map.loaner or ""]
+  if not model then
+    return nil
+  end
+  local car = vehicles:serverSpawn(server, model, s.x, s.y, s.angle, p.id)
+  car.loaner = true
+  self.loaners[#self.loaners + 1] = { car = car, player = p.id, own = p.car or false }
+  p.car = car
+  return car
+end
+
+--- A car of the map's `loaner` model for `p` at `spot` ({ x, y, angle }),
+--- for car-stations: the one already lent them here if they have one (left
+--- where it is, for the caller to bring), else a new one lent there now.
+--- Returns it and whether it is new, or nil on a map with no loaner.
+function CityMap:serverLend(server, p, spot)
+  if not self.map.loaner then
+    return nil
+  elseif p.car and p.car.loaner and server.vehicles[p.car.id] == p.car then
+    return p.car, false
+  end
+  local car = lend(self, server, p, spot)
+  return car, car ~= nil
+end
+
+--- Put every player on the map's spawn points, humans first and then in
+--- player order, each behind the wheel of their own car, and publish the
+--- list for anything else that spawns cars. A car they had borrowed stays
+--- where it was.
 function CityMap:placePlayers(server)
+  returnLoaners(self, server)
   server.spawnPoints = self.map.spawns
   local ids = {}
   for id, p in pairs(server.players) do
@@ -142,7 +224,15 @@ function CityMap:placePlayers(server)
       ids[#ids + 1] = id
     end
   end
-  table.sort(ids)
+  -- Humans first, so a crowd of bots and police can't put two of them on
+  -- the same spot when there are more players than spawns.
+  table.sort(ids, function(a, b)
+    local ba, bb = server.players[a].bot and 1 or 0, server.players[b].bot and 1 or 0
+    if ba ~= bb then
+      return ba < bb
+    end
+    return a < b
+  end)
   for i, id in ipairs(ids) do
     local s = self.map.spawns[(i - 1) % #self.map.spawns + 1]
     local p = server.players[id]
@@ -153,6 +243,9 @@ function CityMap:placePlayers(server)
       own.x, own.y, own.angle = s.x, s.y, s.angle
       own:stop()
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
+    end
+    if self.map.loaner and not p.vehicle and not p.bot then
+      server:seat(p, lend(self, server, p, s)) -- a driven map, and theirs is in the garage: one to drive while here
     end
   end
   -- A car whose owner has left the game stays in the world: park it on the
@@ -334,15 +427,16 @@ end
 
 --- Centre of a random road tile (or any tile of an open field) somebody
 --- can get to, optionally within `maxDist` of (nearX, nearY). A map with
---- little road (City 17) needs a good few tries. Other features reach this
---- via Features.byName["city-map"].
+--- little road (City 17) needs a good few tries; one with none at all names
+--- the tiles that count instead (`map.openKinds`: the Citadel's catwalks).
+--- Other features reach this via Features.byName["city-map"].
 function CityMap:randomRoadPoint(nearX, nearY, maxDist)
   local map = self.map
   for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
-    if kind == "road" or kind == "ground" then
+    if kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind]) then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
       local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
       if near and not outOfReach(map, x, y) then

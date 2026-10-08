@@ -1,7 +1,9 @@
--- A-Man's brain, on the host: what he does each tick. His event
--- (event.lua) owns the blink itself (the tear through everyone on the
--- line), his turrets, his health and the wire; it hands him in as `a`, its
--- own table (his numbers) as `A`, and says whether a horde may come now.
+-- A-Man's brain, on the host: what he does each tick, in the city event
+-- (event.lua) and at the top of the Citadel (finale.lua) alike. Whichever
+-- runs him owns the blink itself (the tear through everyone on the line),
+-- his turrets, his health and the wire; it hands him in as `a`, its own
+-- table (his numbers) as `A`, and says whether his case may open now (the
+-- event: no turrets standing; the finale: a case owed for the damage done).
 --
 -- He is always in one of these, the later ones cutting in on the earlier:
 --
@@ -10,8 +12,8 @@
 --   blink   breath allowing and `cool` run down, he stops and winds up: a
 --           line shows where he is going (through a target close by, or
 --           across the map to one far off), and `windup` later he is there
---   horde   a player within `hordeRange`, no turrets standing and the
---           breath for it: he snaps the briefcase open
+--   horde   a player within `hordeRange`, his case allowed (whoever runs
+--           him says) and the breath for it: he snaps the briefcase open
 --   heal    badly hurt (bosses/heal.lua): he goes for the nearest medkit
 --           lying within `healRange`, by blink if he has the breath (the
 --           line shows; anyone on it is torn through as ever), on foot if
@@ -133,7 +135,7 @@ end
 --- now (no turrets standing, the wait over). Returns "blink" when his
 --- wind-up is done and he goes, "horde" when he opens the case, or nil.
 function Brain.think(A, a, server, dt, canHorde, time)
-  a.moving = false
+  a.moving, a.running = false, false
   if a.frozen > 0 then
     a.frozen = a.frozen - dt
     return nil
@@ -144,9 +146,12 @@ function Brain.think(A, a, server, dt, canHorde, time)
   end
   local threat = Dodge.threat(a.x, a.y, A.radius)
   if threat then
+    -- The one time he hurries, and it costs him: winded, he only walks it.
     local ux, uy = Dodge.away(threat, a.x, a.y)
     a.facing = math.atan2(uy, ux)
-    a.moving = walk(a, a.x + ux * 100, a.y + uy * 100, A.walkSpeed * Brain.DODGE_PACE * dt)
+    local pace = a.breath:pace(A.walkSpeed * Brain.DODGE_PACE, A.walkSpeed)
+    a.moving = walk(a, a.x + ux * 100, a.y + uy * 100, pace * dt)
+    a.running = a.moving and not a.breath:winded()
     return nil
   end
   a.cool = a.cool - dt

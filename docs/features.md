@@ -146,6 +146,15 @@ nil) and `driver` (a player id or nil).
   owns). An NPC driver goes down with its car. Cars nobody is driving stop
   bullets and take the damage too, so a parked car is cover and can be
   blown up.
+- Driving disarms: from behind the wheel a human player's own guns,
+  abilities and grenades are put away (none fires, reloads or casts, the
+  host refuses them too, and their HUD is hidden; a passive ability keeps
+  working). A car model with a `gun` (vehicles/catalog.lua: the scout
+  car's "ak47") has that bolted on instead: the fire button fires it and
+  the reload key reloads it, rounds endless but the magazine kept with the
+  car on the host (weapons' `cs.mag`, `WPN_CARMAG`, `serverFireMounted`).
+  The HUD shows it as an auto turret (weapons/icons.lua's "turret",
+  `Weapons.mountedName`) whatever gun it fires. Any other car is unarmed. Bots still shoot from their cars.
 - Death: when a player on foot runs out of health, weapons sets `body.dead`,
   hides their own car at its spawn slot (whole again) and leaves a borrowed
   car where it stands; after the death time they are back at the slot in
@@ -402,20 +411,23 @@ couple of small conventions rather than requiring each other:
   shock, a scorch mark and the pieces thrown every way for a blast, a
   bigger splat for impact, the gibs for bullets and melee.
   What a type does besides the damage, to a player on foot (the damage
-  feature, from `serverPlayerDamaged`): melee leaves them bleeding, shock
-  stuns them, impact knocks them back a little and down, explosive blows
+  feature, from `serverPlayerDamaged`): melee leaves them bleeding, poison
+  leaves them poisoned (4 a second for 6 s), a shock hit of `stunMin` (20)
+  or more stuns them, and a live round's zap (`damage:electrify`, the
+  Hunters') runs on through them, 8 a second for 3 s; impact knocks them back a little and down, explosive blows
   them back (further the harder it hit) and dazes them (`worldBlur`).
   Stunned or down is held (`serverHeld` / `held`). Fire does nothing by
   itself: `Features.byName.damage:ignite(server, victim, seconds, dps, by)`
   sets someone alight, and the heat ray ability, the Tripod's beam and the
   open-borders fires call it with their own `afterburn` numbers; anything
-  new that burns should too. Burning and bleeding bite every quarter second
+  new that burns should too. Burning, bleeding and poison bite every quarter second
   (the kill is `by`'s); another dose tops the time up at the stronger rate,
-  never stacks. A dodge puts a fire out, a medkit stops a bleed
-  (`damage:serverStopBleeding(server, id)`), and a car, dying or leaving
+  never stacks. A dodge shakes off every one of them (fire, a zap, a bleed,
+  poison: `serverDodged`), a medkit stops a bleed and cures poison too
+  (`damage:serverTreat(server, id)`), and a car, dying or leaving
   ends everything. `damage:serverAfflict(server, victim, status, seconds,
   dps, by)`, `serverCure(server, id, status)` and `serverHas(id, status)`
-  are the general form (status "burn", "bleed", "stun", "down" or "daze");
+  are the general form (status "burn", "zap", "bleed", "poison", "stun", "down" or "daze");
   every client hears `DMG_FX <id> <status> <seconds>` and draws it. A knock
   is `Features.byName["on-foot"]:serverShove(server, player, dx, dy,
   distance, seconds)`: the body is carried that far, sliding along walls,
@@ -437,14 +449,37 @@ couple of small conventions rather than requiring each other:
 - Vehicle models: every `src/features/vehicles/models/<type>-<colour>.svg`
   is a car model, found at startup. A `<type>.lua` beside it sets the
   stats every colour of that type shares: name, price, hitpoints, top
-  speed, acceleration, weight, turning, drawn length, and the factory's
-  build time and materials (the header of `vehicles/catalog.lua` lists
-  them). A new colour is just a new SVG; a `<type>-<colour>.lua` changes
+  speed, acceleration, weight, turning, drawn length, the factory's
+  build time and materials, a `gun` bolted on and a `boost` (the header of
+  `vehicles/catalog.lua` lists them). A model with a `boost` (the scout
+  car's: twice its 295 top speed and 1.5 times its acceleration, 3 s of
+  meter refilling in 5) goes faster while its driver holds Shift
+  (`vehicles/boost.lua`, the "boost" control, sprint's keys): the host
+  runs the meter off VH_BOOST and tells the driver what is left
+  (VH_BOOSTLEFT, a bar in the stat row's slot 4); a meter run dry waits
+  for the key to come up, and the top speed eases back down after. A new colour is just a new SVG; a `<type>-<colour>.lua` changes
   one colour on its own. `Features.byName.vehicles:serverSpawn(server,
   model, x, y, angle, owner)` puts one on the road (`model` from
   `vehicles.catalog.byKey`), tuned and drawn as that model. The SVG reader
   (`vehicles/svg.lua`) handles paths, basic shapes, fills, strokes, groups
   and transforms; not CSS classes, `<use>`, text, clips or masks.
+- The tau cannon: `src/features/tau-cannon`, the gun on the Scout Car
+  (`vehicles/models/scout-car.lua`, after Half-Life 2's buggy; any model
+  whose type is `Tau.carType`). Its driver fires it with its own button
+  (right mouse, "tau-cannon"), alongside the car's mounted gun (driving
+  puts your own guns away): a tap is a quick
+  bolt (18, every 0.22 s); holding charges it for up to 2 s past the tap
+  (a ring round the cursor, a glow at the muzzle, a climbing whine for
+  everyone) and letting go fires one bolt of up to 150 that kicks the car
+  back up to 420 px/s along its line (0.8 s before the next). Held 2 s
+  past a full charge it overloads: it goes off by itself and burns the
+  car for 25. It aims at the cursor but no further than 70 degrees either
+  side of the nose. No ammo. The host times the charge itself (TAU_CHARGE
+  to TAU_FIRE), clamps the aim and the rate, and fires the bolts through
+  weapons' `serverFireFrom` with a gun of its own (shock, tinted, `quiet`:
+  a gun table field that keeps the weapons feature from sounding a round,
+  since the cannon sounds its own: `tau-cannon/sounds.lua`). Messages in
+  the header of `tau-cannon/init.lua`.
 - `Features.byName.weapons:serverHeal(server, player, amount)` and
   `Features.byName["on-foot"]:serverRestoreStamina(server, player, amount)`:
   top a player up towards their ceiling. Both return true only if anything
@@ -914,8 +949,10 @@ the one with a plot.
   to City 17 (city-map's `city17`), arriving on the platform, with a HOME
   star at its left end ("home-city17"). His intro screen
   (`a-man/screen.lua`) comes up on arrival for 9 s or until a key. The
-  quest is planned as several levels ending with A-Man himself; City 17 is
-  the first (`a-man/city17.lua`, the a-man feature passes its hooks on).
+  quest runs over five maps, ending with A-Man himself: City 17, the Outer
+  City, the Coast, the Winding Road and the Citadel. City 17 is the first
+  (`a-man/city17.lua`, which runs the Combine soldiers on all five; the
+  a-man feature passes its hooks on).
   Combine soldiers stand on every checkpoint (the map's `posts`: the
   station's concourse, the avenue's mouth on the plaza, the gate, each
   bridge and the Citadel's doors, 12 in all), thinking with their own
@@ -926,20 +963,23 @@ the one with a plot.
   maybe a pickup when they drop. The first player within 140 px of the
   Citadel's doors finishes the level (`quests:serverComplete`): a star
   comes up there, saying the quest's `exitText` (a quest may give its EXIT
-  star its own words). For now it leads home; it will lead to the next
-  level. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
-  `Troops:addSquad`: the first leads, the rest keep formation, and the
+  star its own words). It says CITADEL (`exitTitle`, `exitLabel`) and
+  leads on to the quest's `next`, "a-man-2", not home: whoever takes it is
+  stopped by A-Man (`a-man/detour.lua`, quests' `serverHoldTrip`), who
+  blinks in in front of them, stands there 2.2 s and blinks out, and
+  everyone lands in the Outer City. Squads of 3 walk the map's `patrols` (troops' `patrol` kind,
+  `Combine:addSquad`: the first leads, the rest keep formation, and the
   squad stops and turns when one of them has somebody). City 17 makes its
-  troop with `Troops.new({ hunt, fov, aware, health })` (`hunt`, a 60-degree
+  troop with `Combine.new({ hunt, fov, aware, health })` (`a-man/combine.lua`, the soldiers' own brain) (`hunt`, a 60-degree
   cone where D-Day's is 30 (100 while on edge, `alertFov`), an undrawn 170 px all-round awareness, walls
   still hiding you, and 60 health where D-Day's have 40): a soldier closes in on whoever
   he can see, searches where he lost them, goes looking when shot from
-  out of sight, and `Troops:alarm` sends everyone within 700 px of a
+  out of sight, and `Combine:alarm` sends the nearest 5 within 700 px of a
   soldier going down to look; each walks back on a trail of breadcrumbs
-  after (D-Day's hold their places). `Troops:navigate(bounds)` gives them
+  after (D-Day's hold their places). `Combine:navigate(bounds)` gives them
   a walking grid (`d-day/nav.lua`: 32 px cells, A*, the path cut down to
   corners in plain sight of each other) to find their way round walls to
-  where they are going. `Troops:arm(s, { gun, burst, pause, reach })`
+  where they are going. `Combine:arm(s, { gun, burst, pause, reach })`
   hands one a gun (an AK otherwise): City 17 picks one per soldier by
   `Level.loadout`'s weights from every gun in `weapons/guns.lua`, common
   tier, and the gun's index goes out in `C17_TROOPS` so clients draw it in
@@ -950,6 +990,397 @@ the one with a plot.
   now and then with a mate answering, a shout on spotting somebody, and a
   call when a soldier nearby goes down. Messages: `C17_TROOPS`, `C17_DOWN`
   and `C17_SAY` down.
+- A-Man's second level, the Outer City: quests' "a-man-2" (never on the
+  board; A-Man sends everyone there from City 17's Citadel star) on
+  city-map's `outercity` (`city-map/outer_city.lua` builds it, render.lua's
+  `drawOuterCity` draws it), half the Citadel's length. A concrete jungle
+  of packed buildings round a big open square on an island in the middle
+  (`map.arena`, `map.bossX, map.bossY`: for the boss fight), a canal round
+  it crossed by three bridges (south, west, east; `map.bridges`),
+  waterways out to the north and west edges, and four parks of grass and
+  trees. Everyone arrives in the square in the bottom left (HOME star,
+  "home-outercity", at its left end); the streets from there all lead in
+  to the island, with barriers along them, planters and barriers round
+  the square's edge and its middle left open. City 17's Combine soldiers
+  hold it too (`a-man/city17.lua` runs them on any map in `Level.maps`;
+  the plaza visits, the Hunters and the Citadel's doors are City 17's
+  alone): 2 guards on each of its 5 posts at the choke points on the way
+  in, and one squad of 3 on each of its 3 beats (round the quay, up the
+  left street, along the bottom street), each starting at the corner
+  furthest from the arrival square, the beats woven between the street
+  barriers and kept clear of wrecks and drums. Four guard stations have a
+  garrison (`map.garrisons`: a Combine door in the nearest building's face,
+  drawn on the canvas): nobody is inside until the first player comes
+  within 520 px, when the door opens on every screen (`C17_DOOR`: lit, its
+  light spilling out, a hiss and a clunk) and 4 soldiers (more with more
+  humans, `Bosses.count`) come out one every 0.7 s and go for where that
+  player is (`Combine:sendTo`), then walk back and stand guard at the door.
+  Left to rot: about one
+  building in seven has come down (a solid heap of rubble), roofs are
+  holed (`b.holes`) or grown over (`b.vines`), rusted wrecks (solid,
+  cover) and rubbish lie about the streets, drums burn and a few roofs
+  smoulder (`map.fires`), and render.lua's `drawOuterCity` cracks the
+  paving, lifts slabs, grows weeds and puddles on it, fouls the canals and
+  breaks the bridges' rails.
+- The Hunter-Chopper: `src/features/hunter-chopper`, the Outer City's
+  boss, after Half-Life's. When "a-man-2" starts it is already up over the
+  square on the island, flying round it on the host (`flight.lua`): a ring
+  520 px out from the middle that swings 150 px in and out in three lobes
+  drifting round, at 210 px/s, nose along the way, leaning into the curve
+  and bobbing round 80 px up. Its gun (`brain.lua`) goes after the
+  nearest player it can see (`Features.visible`, within 700 px, nothing
+  solid between them and the muzzle, inside the gun's 70-degree swing):
+  it locks on for 1 s (a red beam down its aim on every screen and a
+  rising whine), fires a burst of 20 rounds (6 damage, 13 a second, the
+  AK's rounds and sound, owned by nobody, so cover stops them) aiming
+  down its own barrel and turning only 1.4 rad/s, so running across its
+  line beats it, then rests 2.2 s. A full burst on somebody standing still
+  does about 40. Every 16 s (12 s after it comes up), instead of its next
+  lock, it goes on a bombing run: it picks a player out in the open within
+  900 px of the middle of the square and at least 450 px off, sounds a
+  klaxon and leaves its ring (`Flight.flyTo`, turning no faster than 1.8
+  rad/s) to fly at them at 300 px/s; passing over where they were it lets
+  go 4 pairs of bombs (`bombs.lua`), one 70 px out to each side of it every
+  95 px, the stick centred on them, flies on 350 px and comes back round
+  onto the ring (`Flight.rejoin`). Not lined up in time, it drops nothing.
+  A bomb falls for 1 s with a whistle onto a red ring that fills in
+  (`HC_BOMB`), then goes off as a missile does (weapons' `explode`, owned
+  by nobody): 80 px, 40 at the middle. A stick on somebody standing still
+  does about 35. Its rounds are blue: a gun table may carry `tint`
+  (rrggbb), which weapons sends on the end of `WPN_SHOT` and draws the
+  streak in, with a glow. It can be shot down: 3600 health for one human
+  (`Bosses.health`), on the boss bar (`noBreath`: a machine has no breath
+  bar). Rounds hit its hull and engine pods (`Render.hits`, a capsule nose
+  to tail-root and one for each pod, scaled by its height) through
+  `serverShotAt`, missiles' blasts through `serverBlast` (40 px more reach
+  than the blast, for its size); its own rounds and bombs pass through it.
+  Beaten, it spins out (`Flight.fall`: spinning faster, sliding towards the
+  middle of the square, falling faster) and about 2 s later hits the
+  ground: a 150 px blast of its own (60 at the middle), 40 koins,
+  `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
+  star comes up by the wreck, which burns there (`HC_DOWN`) until the map
+  changes. It calls for help as it is hurt (`HunterChopper.waves`, each
+  once, checked every host tick): at 80% health Combine soldiers are set
+  down on clear ground round the spot under it, 3 sets of 3 (for one
+  human, more with more: `Bosses.count`) 8 s apart, each under wherever it
+  is by then (the a-man feature's `serverDropTroops`,
+  city17.lua's `Level.serverDrop`) and go for the nearest player; at 30%
+  A-Man drops in by the player nearest it as he does on City 17's plaza
+  (the a-man feature's `serverVisit`, cameo.lua's `Cameo.serverVisit`),
+  and his case lets out 3 Hunters on a ring 120 px round him
+  (`hunters:serverPatrol`) instead of turrets before he blinks out. The
+  cameo now runs on every map the level holds; only City 17
+  (`Level.maps`' `cameo`) gets his plaza visits of his own.
+  Its rotor is a synthesised
+  seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
+  follows it about and carries 3200 px. The host sends `HC_STATE`
+  (unreliable, 15 Hz, with the lock, whether it is firing, whether it is
+  on a run, its health and whether it is going down; empty to
+  take it away when the quest or the map changes) and every machine eases
+  what it draws towards it. Its
+  model (`render.lua`,
+  `Render.chopper(c, time)`, stateless like the tripod's): an armoured head
+  with a canopy and a glowing eye, the pulse gun under the chin swinging
+  70 degrees either way to its `aim` and flashing while `firing`, stub
+  wings out to two engine pods, a segmented tail out to the tailplane and
+  tail rotor, the main rotor blurring over it all (`spin` 0..1). Its
+  shadow falls off by its `altitude` (80 px up by default), `bank` tips it
+  into a turn, and `hp`/`max` give it a bar, scorch, sparks and a burning
+  engine below 40%. 175 px nose to tail, rotor 96 px; it returns the
+  muzzle, where its rounds will leave from.
+- The Coast, on A-Man's trail after the Outer City: quests' "a-man-coast"
+  ("The Coast"; the Outer City's `next`, so the EXIT star by the
+  Hunter-Chopper's wreck leads here; A-Man's intro line 7) on
+  city-map's `coast` (`kind = "coast"`, 64 x 120 tiles), built by
+  `city-map/coast.lua` and drawn by `render_coast.lua`. One beach winds
+  north between the sea (west, "water" tiles under solid `water` cover)
+  and green mountains (east: no tiles at all, so the layout's walls make
+  them solid). `Coast.SPINE` is the beach's middle and half width by row,
+  eased between points, its edges wandering `Coast.RAGGED` tiles; it is
+  2-3 tiles each side of the middle most of the way and opens out into
+  the coves listed in `Coast.COVES` (`map.coves` and `map.zones`: the
+  landing everyone arrives in at the bottom, the cove, the wreck with a
+  beached boat and crates, and the point at the top, `map.exitX, exitY`),
+  each strewn with rocks and driftwood logs (solid cover, off the surf and
+  the mountains' foot). Between the cove and the long beach the way
+  squeezes over the headland's rocks (`Coast.HEADLAND`, `map.rocky`).
+  `map.height`, `map.depth` and `map.wet` (tiles from the beach, from dry
+  land and from the sea) shade the mountains (noise-shaped ridges, lit from
+  the north west, contour lines, forest over them: `map.slopes`, drawn
+  only), the sea (shallows to deep) and the sand (wet at the water's edge,
+  foam along it); the minimap gets the mountains and sand through cover
+  that only carries a `mapColor`. The Combine hold three bunkers on it
+  (`Coast.BUNKERS`, `map.bunkers`: the cove, the north end of the long
+  beach and the point), each a solid concrete box against the mountains'
+  foot with an MG nest in front of it facing back down the beach
+  (sandbags drawn only, so they stop neither sight nor rounds) and three
+  rifle posts. City 17's level runs on the map (`Level.maps.coast`:
+  `nests`, no beats) and mans each nest with `Level.nestCrew` (4): one on
+  the gun, the rest on the posts, all `hold` (combine.lua: they never
+  chase, go to look or answer a call). The riflemen fight from cover
+  (combine.lua's `takesCover`): once one has seen somebody or been shot
+  at he runs to a spot within `COVER_RANGE` (170 px) of his post with
+  something solid between it and them, waits there 1.2-2.6 s (`HIDE`),
+  steps out (up to `PEEK_REACH`, 90 px) to where he can see them, shoots
+  for 1.2-2 s (`PEEK`) and gets back into cover, the next spot picked
+  afresh; a hit out in the open sends him straight back, and
+  `THREAT_KEEP` (10 s) after he last saw or felt anyone he walks back to
+  his post. Diving for cover he now and then says so (radio.lua's
+  `cover` lines). The gunner sees and turns only
+  within the nest's `arc` (50 degrees either side) and fires
+  `Level.nestGun` (an AK's rounds, 12 damage, 12 a second, bursts of 14,
+  1.4 s apart). Drop him and the nearest of his crew still up walks to the
+  gun (combine.lua's `post`, before anything else) and takes it over
+  (`Level.manGun`); a-man/nests.lua draws each gun swung the way its man
+  faces. They are not the map's main enemy: the antlions are.
+- Antlions: `src/features/antlions`, the Coast's main enemy, after
+  Half-Life's; melee only. Any map with `map.swarms` ({ x, y, r, count }:
+  the Coast's nine, `Coast.SWARMS`, 116 antlions for one human, more with
+  more: `Bosses.count`) gets them buried there when a quest starts
+  (`serverQuestStarted`); a quest's end or a map change clears them. Their
+  brain (`brain.lua`, on the host): buried and never sent; a player
+  within `Brain.WAKE` (320 px) of one brings its whole swarm up, staggered
+  over 1.1 s, 0.9 s crawling out; then each runs the nearest visible
+  player down at 150 px/s (a sprint, 170, gets away), curving round to
+  its own side close in and keeping 30 px from the others, bites in reach
+  (26 px: 5 melee damage 0.22 s into a 0.38 s bite, 0.75 s between) and
+  from 110-240 px now and then leaps (0.55 s at 360 px/s). With nobody
+  within 1400 px for 6 s it burrows back down where it is, to wake again
+  the same way. 36 health (two pistol rounds), `serverShotAt` (rounds
+  owned by nobody pass by, so the bunkers don't thin them out), freeze
+  and stink as for anyone. One down drops a koin and a quarter of the
+  usual chance of a pickup, and lies dead on every screen for 12 s. The
+  model (`render.lua`, stateless: walk, bite, air, burrow, hurt, dead),
+  the synthesised sounds (`sounds.lua`, the "antlions" volume channel:
+  coming up, chitter, bite, buzz) and `ANT_STATE` / `ANT_DOWN` (header of
+  `antlions/init.lua`).
+- The Antlion Guard: the Coast's boss (`antlions/guard.lua`, its brain
+  `guard_brain.lua`, its model `guard_render.lua`), to the bosses'
+  standard. Once every antlion buried in the final section (`map.finale`:
+  north of `Coast.FINALE_ROW`, the neck and the point; each swarm knows
+  if it is `finale`) and every Combine soldier inside it (the a-man
+  feature's `serverTroopsIn`) is down, with a player there, it digs up at
+  `map.bossX, bossY` (the nearest spot its 34 px body fits; the map keeps
+  that spot clear of cover) over 2.4 s. 2400 health for one human
+  (`Bosses.health`). It hunts the nearest player: running (150 px/s,
+  breath spent) while they are further off than its charge reach,
+  prowling (90 px/s, none spent) closer, walking (42) winded. Within 62
+  px it swipes (22, knocked back 110 px; impact, free); 200-650 px off,
+  with 45 breath in hand, it spends 30 to paw the sand for 0.9 s (the warning) and charge
+  down a locked line at 440 px/s for up to 1.4 s (35 and thrown 240 px to
+  the side, for everyone it runs over), reeling 2.2 s if it runs into
+  anything; within 442 px, with 45 breath in hand, it spends 35 to rear for 1 s while the cone
+  it will scream down shows on every screen (520 px long, 32 degrees
+  either side), then screams: everyone in the cone with nothing solid
+  between takes up to 30 (impact: knocked down) and is blown back up to
+  320 px, both less towards the far end (`ANT_GUARD_SCREAM`, the wave
+  drawn rolling out). Every so often (charge 5 s, scream 7 s apart).
+  Under 40% it goes for a medkit (bosses/heal.lua) and it dodges
+  abilities (bosses/dodge.lua); a freeze holds it half as long. Down: 60
+  koins, `serverKill` "boss", and `quests:serverComplete` for
+  "a-man-coast", so the EXIT star comes up by its body, which lies there
+  for 40 s. `ANT_GUARD` carries its state at 15 Hz (header of guard.lua).
+- The Winding Road, on A-Man's trail after the Coast and the last stop
+  before the Citadel: quests' "a-man-road" ("The Winding Road"; the
+  Coast's `next`, so the EXIT star by the Antlion Guard's body leads here;
+  A-Man's intro line 8) on city-map's `road` (`kind = "road"`, 76 x 224
+  tiles), built by `city-map/road.lua` and drawn by `render_road.lua`.
+  The one map on the trail that is driven: everyone arrives in their own
+  car on the road at the bottom (HOME star, "home-road", on the verge
+  beside them). Anyone whose own car is in their garage or the impound
+  (kept, so it stays where it is) is lent a Scout Car instead (the map
+  spec's `loaner`, city-map's `placePlayers`): it is their `player.car`
+  while they are there, so a death or a wreck brings them back in it, and
+  it is gone again, their own car theirs again, at the next map switch. The road (`Road.ROAD`) and the river (`Road.RIVER`, with
+  a width and banks per point) are lines of points eased into curves
+  (`map.path`, `map.river`); a tile near the road's line is "road",
+  further out to `Road.VERGE` (4 tiles either side: room for 8 cars
+  abreast) "ground", in the river "water" (solid),
+  on its banks or in a wide spot (`Road.SPOTS`, `map.spots`: the
+  arrival, the meadow, the lookout and the pass) "ground", and anything
+  else is mountain (no tile: the layout's walls make it solid). Where the
+  road crosses the river the water under it is decked over: six bridges
+  (`map.bridges`, named in `Road.BRIDGES`, `along` the way the road runs
+  over them) with railings down both sides (cover kind "rail"): solid to
+  cars and people bumping into them, but `low` (collision.lua's `blocked`
+  skips it), so sight, rounds and walking enemies go over them.
+  About 32,000 px of road, about two minutes cruising in a Scout Car (one
+  boosting): up the valley beside the
+  river, over it into the meadow and back, up five hairpin legs, west
+  along the gorge, past the lookout and round to the pass (`map.zones`
+  by row). The mountains are shaded as the Coast's (render_coast.lua's
+  `relief`, now exported with its helpers, as are coast.lua's
+  `distances` and `rects`), bare rock and snow on the tops further north.
+  Its boss, the Poison Zombie (the poison-zombie feature), waits on the
+  pass (`map.bossX, map.bossY`); beating him finishes the level and his
+  EXIT star ("CITADEL", the quest's `next`) leads on into the Citadel. (Without that feature, `a-man/road.lua` finishes
+  it for the first player within 200 px of the pass, `map.exitX, exitY`.) Its own theme
+  plays (`a-man/theme_road.lua`: heavy metal, 160 BPM in E minor, ~60 s:
+  power chords, a galloping palm-muted riff, a chorus with a lead, a
+  half-time breakdown and a solo); it has no surroundings yet. Rollermines lie in wait along it
+  (`map.rollermines`: a lot of 2-4 every `Road.MINE_EVERY`, 2400 px, of
+  road from 3000 px up it to 3000 px short of the pass, 11 lots, 29 mines
+  for one human), and `Road.MINE_SCATTER` (18) more are scattered at
+  random over all its open ground every game (`map.rollermineScatter`),
+  none within 1500 px of the arrival or 750 px of the pass. The Combine hold a checkpoint past every bridge
+  but the top one, which is the Poison Zombie's (`map.checkpoints` lists all six): two MG nests either side of the road facing back
+  over it (`map.nests`, { name, nest, posts }, sandbags drawn only; each
+  bridge's two nests go on the two spots of `Road.NEST_TRY_AT` x
+  `Road.NEST_TRY_OFF`, either side, on open ground that see the most of
+  the road onto it, `Road.NEST_APART` apart and on opposite sides when
+  that is near as good; each
+  crewed by City 17's level with `Level.nestCrew` like the Coast's), the
+  concrete blocks of a chicane closing one side then the other, lane and
+  verge (`Road.CHICANE_OFF`; cover
+  kind "block", solid: cover for the riflemen too) and a bunker in a
+  clearing off to one side, door on the road (cover kind "bunker";
+  `map.garrisons` with `waves` = `Road.WAVES`: a soldier out of the door
+  every 6 s while a player is within 1.5x its 750 px reach and fewer than 3
+  of its own are up, 8 in all for one human, the door opening again for
+  each; they go for the player). 40 soldiers on the nests for one human,
+  40 more out of the bunkers. Short of every bridge lie three burnt-out
+  cars (cover kind "wreck", solid, `facing` their nose; `Road.WRECKS`
+  tiles back from the deck, staggered either side up to
+  `Road.WRECK_SPREAD` out, never on the deck): cover to fight the nests
+  from, each hiding a spot behind it from the nearest one. Hunters (the
+  hunters feature) walk the open road between checkpoints: every stretch
+  between one bridge and the next that is at least `Road.HUNT_MIN` tiles
+  long once `Road.HUNT_CLEAR` is kept clear of either checkpoint gets a
+  beat there and back along its middle (`map.hunterBeats`,
+  `Road.HUNT_BEAT` tiles, `Road.HUNT_COUNT` for one human, more with
+  more: City 17's level puts them out with `hunters:serverPatrol`). Four
+  stretches, eight for one human. City 17's level runs on the map
+  (`Level.maps.road`), and on a map that is driven its soldiers can be run
+  down (car-collisions' `runOverSpeed` and `runOverDamage`: one hit kills,
+  the driver's kill). A wrecked car leaves its driver on foot where it
+  went up, as anywhere; a car station's pad short of every bridge
+  (`map.carStations`, `Road.STATION_AT` tiles back, on the verge) gets them
+  driving again (car-stations).
+- Car stations: `src/features/car-stations`. A map with `carStations` ({
+  name, x, y, angle }) and a `loaner` model (the Winding Road) has pads a
+  player on foot calls a car up onto: standing on one (`Stations.reach`,
+  56 px) the action key (F) sends CST_CALL, and the host puts them behind
+  the wheel of the car the map lent them, wherever it is (wrecked and
+  waiting, or parked far off), restored whole and loaded on the pad
+  (weapons' new `serverRestoreCar`), or of a new one lent there and then
+  (city-map's new `serverLend`) if they came in their own. Once per
+  `Stations.cooldown` (10 s) each; refused calls answer CST_WAIT. The pads
+  are on the minimap (`drawOnMinimap`); render_road.lua draws them.
+- Hunters: `src/features/hunters`, the Combine's tripod hunters after
+  Half-Life 2's, a ranged enemy with its own brain (`brain.lua`: patrol a
+  beat, fight at range strafing and backing off, search where it lost
+  somebody, dodge, heal). Another feature puts them out with
+  `hunters:serverPatrol(server, route, count)` (`count` spread round
+  `route`, a loop of { x, y } corners, each snapped to open ground) and
+  `hunters:serverClear()`; a map change clears them too. City 17 rings the
+  Citadel with three, the Winding Road and the Citadel walk their
+  `map.hunterBeats`, and the Hunter-Chopper and A-Man's briefcase bring
+  them in on a ring round a point. They see as City 17's soldiers do (60
+  degrees, 100 on edge, 170 px all round), take 180 health (nine pistol
+  rounds), fire uzi bursts of 5 every 1.4 s whose rounds do 8 shock and
+  zap you (8 a second for 3 s), and now and then charge a stun shot (10,
+  held 1.2 s). They dodge rounds in flight and abilities about to land,
+  turn on whoever shoots at them, call the others in range, and when hurt
+  go for a medkit (+70) or an energy drink (+30 and quicker for 6 s). Rounds
+  owned by nobody pass them by. 8 koins each. `HTR_STATE`, `HTR_DOWN`,
+  `HTR_CALL` (header of `hunters/init.lua`).
+- Rollermines: `src/features/rollermines`, after Half-Life 2's. Any map
+  with `map.rollermines` ({ x, y, r, count }) gets them set there when a
+  quest starts (`count` scaled by `Bosses.count`), and a map with
+  `map.rollermineScatter` ({ count, clear = { { x, y, r }... } }) gets
+  `count` more on random open spots (city-map's `randomRoadPoint`), none
+  inside a `clear` circle; a quest's end or a map change clears them. Their brain (`brain.lua`, on the host): dormant,
+  half sunk in the ground, until a player is within `Brain.WAKE` (460
+  px); it hops out over 0.55 s, blades opening, and rolls after the
+  nearest player within 1600 px with momentum (520 px/s^2 up to 260 px/s,
+  so a cruising Scout Car (295) only just gets away and a boosting one
+  easily; it leads a moving target by up to
+  0.45 s, slides wide on the turns and bounces off walls). Within 140 px
+  it beeps (the eye goes red); touching them (its blade tips, 28 px from a
+  person's middle), or their car's box, it goes off, and somebody on foot
+  it touched takes a shock first (`Brain.SHOCK`, 35: enough to stun them,
+  so about 70 before armour in all, the blast catching you 28 px off its middle). With nobody about for 7 s it rolls to a stop and wakes the same
+  way again. 40 health; shot to pieces it goes off at once, caught in a
+  blast a moment later (0.18 s), so they set each other off. The blast is
+  weapons' `explode` (45 at the middle, 95 px, explosive), owned by
+  whoever shot it (their kill, a koin) or by nobody; rounds owned by
+  nobody (the Combine's) pass by them. Freeze stops one dead, a stink
+  sends it rolling away. The model (`render.lua`, stateless: sunk, hopping,
+  rolling, armed, hurt), the sounds (`sounds.lua`, the "rollermines"
+  volume channel: popping out, the whirr, the beep) and `RLM_STATE` /
+  `RLM_DOWN` (header of `rollermines/init.lua`).
+- The Poison Zombie: the Winding Road's boss, `src/features/poison-zombie`,
+  after Half-Life 2's, built to the bosses standard (`bosses/init.lua`).
+  He waits on the pass (`map.bossX, map.bossY`, from city-map's road.lua)
+  until a player he can see comes within 750 px, howls for 1.6 s, and
+  comes for the nearest one for good, never more than 1900 px from the
+  pass (with nobody about he trudges back). His brain (`brain.lua`):
+  shuffles (58 px/s), lurches (115, spending breath) at somebody more than
+  320 px off, winded drags along at 40; claws within 52 px (20 melee, so
+  they bleed); 120-640 px off with a clear line he reaches back over his
+  shoulder for one of the 3 crabs on his back and throws it (30 breath in hand, 18 spent, at
+  most one every 2.2 s, while fewer than 4 crabs for one human are about);
+  a new one grows every 9 s; medkits and dodging as every boss. 1800
+  health for one human; rounds owned by nobody pass by; down, 50 koins,
+  `serverKill` kind "boss" and `quests:serverComplete`. The crabs
+  (`crabs.lua`): thrown in an arc (430 px/s), they crawl (125 px/s) after
+  the nearest player within 1100 px and leap (380 px/s) from 150 px, or
+  from 70 px off a car's side; 30 health each, a koin and `serverKill`
+  kind "headcrab" when a player kills one, squashed by a car doing 60 px/s
+  or more. A bite is 15 of the damage feature's "poison" type, which
+  leaves somebody on foot poisoned (4 a second for 6 s, a medkit cures
+  it); on a car it scratches it for 6. He is solid to cars: one that
+  drives into him is pushed back out and bounces off, and at 60 px/s or
+  more it costs him 0.12 per px/s and the car 15 (impact). The model
+  (`render.lua`), the sounds (`sounds.lua`, the "poison-zombie" volume
+  channel) and the messages `PZM_BOSS`, `PZM_CRABS`, `PZM_CRAB_DOWN`,
+  `PZM_BITE`, `PZM_DOWN` (header of `poison-zombie/init.lua`).
+- The Citadel, for the end of A-Man's trail: quests' "a-man-citadel"
+  ("Into the Citadel"; the Winding Road's `next`, so the EXIT star by the
+  Poison Zombie leads here; A-Man's intro line 9) on
+  city-map's `citadel` (`city-map/citadel.lua` builds it,
+  `render_citadel.lua` draws it). One catwalk, two or three tiles wide,
+  zig-zags up a vast shaft from the lift everyone arrives on (HOME star,
+  "home-citadel", at its left end) to the lift up at the top
+  (`map.exitX, map.exitY`), opening out into five platforms (the top one
+  among them) and a landing
+  half way across the long span over the core (`map.platforms`, each
+  named; `map.catwalks` the spans). Every empty tile is the drop: solid
+  like a wall, so for now it stops rounds and sight too. Platforms carry
+  crates, barriers and consoles (`map.cover`, solid; the catwalks a crate
+  or barrier against alternate rails every few strides, all but the long
+  span); `map.backdrop` is what the canvas draws down in the drop. The
+  Combine hold it (City 17's level, `Level.maps.citadel`): two soldiers on
+  each of its 16 `map.posts`, three posts (six soldiers) on each of the
+  five platforms and one on the landing, watching the way in; an MG emplacement (`map.nests`, steel
+  shield drawn by render_citadel.lua, crewed as the Winding Road's: a
+  gunner and three riflemen) where the long span comes onto the
+  processing floor, firing straight back down it; rollermines waiting on
+  three catwalks, two to each (`map.rollermines`: off the lift, up to the
+  gallery, across to the reactor deck); and Hunters walking round the
+  gallery (one) and the top (two) (`map.hunterBeats`); the mines and the
+  Hunters are more with more humans, the guards the same however many. A-Man himself is its boss (`a-man/finale.lua`, run by
+  `a-man/citadel.lua`): he blinks in by the lift up when the first player
+  steps onto the top platform. The same man and brain as the city event
+  (`a-man/brain.lua`: stalk, blink through, medkits, dodging) with 5000
+  health for one human, 70 on his blink line, and a briefcase that holds
+  the trail's enemies, opened by the damage he takes: one case for every
+  10% of his health lost (`caseShare`; nine on the way down, 2.5 s apart at
+  least when a big hit earns several), after a 1 s
+  warning (he holds it up, glowing), out come 4 Combine soldiers (City 17's
+  `serverDrop`), 2 Hunters on a ring round him (`hunters:serverPatrol`), 4
+  rollermines already awake (`rollermines:serverSummon`, new), 7 antlions
+  up out of the floor (`antlions:serverSummon`, new) or 8 sentry turrets
+  (only with none of the last lot standing), never the same twice running,
+  all more with more humans (`Finale.SUMMONS`); under 30% two come out at
+  once. Each comes with a line of his over his head. Down: the disguise,
+  150 koins, his teleport (uncommon or better), `serverKill` kind "boss"
+  and `quests:serverComplete`: the EXIT star home comes up where he fell.
+  Messages `AMF_*` (header of `a-man/finale.lua`). Its own theme plays
+  (`a-man/theme_citadel.lua`: industrial metal, 112 BPM in D Phrygian, ~86 s:
+  a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
+  half-time drums, a chorus with a harmonised lead, a breakdown under the
+  Combine's alarm).
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
@@ -1057,7 +1488,12 @@ the one with a plot.
   `Bosses.health(base, server)` and its helpers (simps, squirrels,
   soldiers, a litter) `Bosses.count(base, server)`, the numbers for one
   human grown by `Bosses.perHuman` of the base for each human past the
-  first (two humans, double), counted when it spawns.
+  first (two humans, double), counted when it spawns. Badly hurt, a boss
+  breaks off for a medkit lying near it (`bosses/heal.lua`: under 40% of
+  its health, within 700 px, +200), and it gets out from under a player's
+  ability about to land on it once it has had 0.2 s to see it
+  (`bosses/dodge.lua`). Each boss has its own brain module deciding what
+  it does.
 - Leap variants: `abilities/leap.lua`'s `Leap.variant(tuning)` is another
   leap on the same flying and landing with its own key and numbers
   (`walls` cracks buildings under the landing, `shake` rocks the view near

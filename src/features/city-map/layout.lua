@@ -6,11 +6,13 @@
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
 -- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
--- traffic, kind }) so the same generator builds every map the game knows
+-- crowdScale, police, traffic, vehicles, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
 -- tile is "ground", no blocks. `crowd = false` and `traffic = false` keep
--- pedestrians, officers and NPC cars off it (those features read the flags).
+-- pedestrians, officers and NPC cars off it (those features read the flags);
+-- `crowdScale` sizes the crowd, `police = false` keeps officers on foot off
+-- it, and `vehicles = false` has everyone walk (on-foot reads it).
 -- `kind = "culdesac"` builds a suburban dead end instead of a grid: one
 -- street in from the bottom edge, a turning circle at the top, houses on
 -- their lawns either side (see `buildCuldesac`). `kind = "forest"` is open
@@ -21,10 +23,20 @@
 -- under a long cliff, a plateau on top, and one way up at the far left
 -- (see `buildCliff`). `kind = "city17"` is City 17, a grey occupied city
 -- walked from a station at the bottom to the Citadel at the top (see
--- `buildCity17`).
+-- `buildCity17`). `kind = "citadel"` is the Citadel's inside, one catwalk
+-- up through a drop (citadel.lua). `kind = "outercity"` is the Outer City,
+-- blocks, canals and parks round an open square (outer_city.lua). `kind =
+-- "coast"` is the Coast, one beach between the sea and green mountains,
+-- opening into coves (coast.lua). `kind = "road"` is the Winding Road, one
+-- long mountain road over a river, driven (road.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
+
+local Citadel = require("src.features.city-map.citadel")
+local OuterCity = require("src.features.city-map.outer_city")
+local Coast = require("src.features.city-map.coast")
+local Road = require("src.features.city-map.road")
 
 local Layout = {}
 
@@ -1173,8 +1185,9 @@ local function buildCity17(map, rng)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty, kind } (every
---- field optional, defaulting to the city above) or just a seed.
+--- Build a map. `spec` is { seed, cols, rows, plots, empty, crowd,
+--- crowdScale, police, traffic, vehicles, kind } (every field optional,
+--- defaulting to the city above: the header says what each does) or just a seed.
 function Layout.generate(spec)
   if type(spec) ~= "table" then
     spec = { seed = spec }
@@ -1219,7 +1232,8 @@ function Layout.generate(spec)
   }
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
-    or map.kind == "city17" then
+    or map.kind == "city17" or map.kind == "citadel"
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" then
     if map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
@@ -1228,6 +1242,14 @@ function Layout.generate(spec)
       buildCliff(map, rng)
     elseif map.kind == "city17" then
       buildCity17(map, rng)
+    elseif map.kind == "citadel" then
+      Citadel.build(map, rng, T)
+    elseif map.kind == "outercity" then
+      OuterCity.build(map, rng, T)
+    elseif map.kind == "coast" then
+      Coast.build(map, rng, T)
+    elseif map.kind == "road" then
+      Road.build(map, rng, T)
     else
       buildCuldesac(map, rng)
     end

@@ -30,6 +30,12 @@
 -- farmland, a patchwork of fields in rows with dirt tracks between them,
 -- a lone tree here and there, and a farm with a tractor working a field.
 --
+-- The Coast runs on past its edges: the sea on out west, deepening, waves
+-- on it; the green mountains rolling on east, forested over the ridges;
+-- and past both ends of the beach the shore carries on where the map's
+-- own leaves its top and bottom rows, foam and boulders along it, the
+-- mountains down to the water.
+--
 -- City 17 carries on past its edges, out of reach behind the Combine's
 -- wall round it: streets and blocks of flats, some bombed out, some
 -- burning, the railway, the canal and the wall running on, all under a
@@ -1000,6 +1006,129 @@ local function outskirts(map, camera)
   fence(map.left - FENCE_OUT, map.top - FENCE_OUT, map.w + 2 * FENCE_OUT, map.h + 2 * FENCE_OUT)
 end
 
+-- The Coast: the sea west, the mountains east, the shore on past both ends --
+
+-- city-map's coast colours (render_coast.lua), so the edge doesn't show.
+local COAST = {
+  deep = { 0.07, 0.24, 0.42 },
+  shallow = { 0.20, 0.58, 0.64 },
+  foam = { 0.93, 0.97, 1.00 },
+  high = { 0.17, 0.34, 0.17 },
+  peak = { 0.30, 0.48, 0.24 },
+  slope = { 0.24, 0.45, 0.20 },
+  stone = { 0.52, 0.50, 0.46 },
+  stoneDark = { 0.38, 0.37, 0.34 },
+}
+local COAST_STRIP = 16 -- px of shore drawn at a time past the ends
+local COAST_WOBBLE = 90 -- px the shore wanders either way past the ends
+local shoreAt = { map = nil } -- the x where the sea gives way to land in the map's top and bottom rows
+
+--- Where the sea ends and the land starts at height `y`: the map's own
+--- left edge beside it, past its ends the waterline of its first or last
+--- row, wandering.
+local function coastShore(map, y)
+  if shoreAt.map ~= map then
+    local T = Layout.TILE
+    local function firstLand(r)
+      for c = map.c0, map.c1 do
+        if map.tiles[c] and map.tiles[c][r] ~= "water" then
+          return map.x0 + c * T
+        end
+      end
+      return map.left + map.w
+    end
+    shoreAt = { map = map, top = firstLand(map.r0), bottom = firstLand(map.r1) }
+  end
+  local bottom = map.top + map.h
+  if y >= map.top and y <= bottom then
+    return map.left
+  end
+  local from, past = shoreAt.top, map.top - y
+  if y > bottom then
+    from, past = shoreAt.bottom, y - bottom
+  end
+  local fade = math.min(1, past / 300) -- straight on from the map's edge, then wandering
+  return from + (love.math.noise(y * 0.0025, 4.1) - 0.5) * 2 * COAST_WOBBLE * fade
+end
+
+local function coast(map, camera)
+  local left, top, right, bottom = view(camera)
+  -- The mountains everywhere first: a forest floor, then big soft hills
+  -- on a coarse grid anchored in the world, each lit on its north west
+  -- side and shadowed on the far one, as the map's own slopes are.
+  local h, sl = COAST.high, COAST.slope
+  love.graphics.setColor(h[1] + (sl[1] - h[1]) * 0.35, h[2] + (sl[2] - h[2]) * 0.35, h[3] + (sl[3] - h[3]) * 0.35)
+  love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  local cell = 230
+  for c = math.floor(left / cell) - 1, math.ceil(right / cell) + 1 do
+    for r = math.floor(top / cell) - 1, math.ceil(bottom / cell) + 1 do
+      local n = love.math.noise(c * 0.53, r * 0.61)
+      local x = (c + 0.5) * cell + (n - 0.5) * cell * 0.8
+      local y = (r + 0.5) * cell + (love.math.noise(c * 0.97 + 5, r * 0.83) - 0.5) * cell * 0.8
+      local rad = cell * (0.55 + n * 0.5)
+      love.graphics.setColor(0, 0, 0, 0.10 + n * 0.08) -- the far side, in shadow
+      love.graphics.circle("fill", x + rad * 0.25, y + rad * 0.25, rad, 28)
+      love.graphics.setColor(COAST.slope[1], COAST.slope[2], COAST.slope[3], 0.25 + n * 0.3) -- the lit side
+      love.graphics.circle("fill", x - rad * 0.15, y - rad * 0.15, rad * 0.8, 28)
+      if n > 0.62 then -- a top catching the light
+        love.graphics.setColor(COAST.peak[1], COAST.peak[2], COAST.peak[3], 0.5)
+        love.graphics.circle("fill", x - rad * 0.25, y - rad * 0.25, rad * 0.4, 20)
+      end
+    end
+  end
+  -- The sea over them, west of the shore, lighter in the shallows by it.
+  local y0 = math.floor(top / COAST_STRIP) * COAST_STRIP
+  for y = y0, bottom, COAST_STRIP do
+    local sx = coastShore(map, y + COAST_STRIP / 2)
+    if sx > left then
+      love.graphics.setColor(COAST.deep)
+      love.graphics.rectangle("fill", left, y, sx - left, COAST_STRIP)
+      local beside = y + COAST_STRIP > map.top and y < map.top + map.h -- by the map's own deep water: no shore
+      for k = 1, beside and 0 or 6 do -- the shallows, in bands towards the shore, as wide as the map's own
+        local w = 200 - k * 30
+        love.graphics.setColor(COAST.shallow[1], COAST.shallow[2], COAST.shallow[3], 0.2)
+        love.graphics.rectangle("fill", sx - w, y, w, COAST_STRIP)
+      end
+    end
+  end
+  -- Waves on it, rolling in, well out from the shore.
+  love.graphics.setLineWidth(2)
+  for c = math.floor(left / WAVE_CELL), math.ceil(right / WAVE_CELL) do
+    for r = math.floor(top / WAVE_CELL), math.ceil(bottom / WAVE_CELL) do
+      local n = love.math.noise(c * 0.37, r * 0.41)
+      local crest = math.sin(clock * (0.6 + n * 0.5) + n * 20)
+      local x = c * WAVE_CELL + (n - 0.5) * WAVE_CELL
+      local y = r * WAVE_CELL + ((n * 7) % 1 - 0.5) * WAVE_CELL
+      if crest > 0.2 and x < coastShore(map, y) - 40 then
+        love.graphics.setColor(WAVE[1], WAVE[2], WAVE[3], (crest - 0.2) * 0.5)
+        love.graphics.arc("line", "open", x, y, 8 + 10 * n, math.pi * 0.7, math.pi * 1.3, 8) -- facing the shore
+      end
+    end
+  end
+  love.graphics.setLineWidth(1)
+  -- Past the ends of the beach: boulders where the mountains meet the
+  -- water and foam washing against them.
+  local mapBottom = map.top + map.h
+  for y = y0, bottom, COAST_STRIP do
+    if y + COAST_STRIP < map.top or y > mapBottom then
+      local sx = coastShore(map, y)
+      local n = love.math.noise(y * 0.05, 9.3)
+      love.graphics.setColor(COAST.stoneDark)
+      love.graphics.ellipse("fill", sx + 6, y + 8, 12 + n * 10, 9 + n * 6, 10)
+      love.graphics.setColor(COAST.stone)
+      love.graphics.ellipse("fill", sx + 4, y + 6, 9 + n * 8, 7 + n * 5, 10)
+      local wash = 0.5 + 0.5 * math.sin(clock * 1.6 + y * 0.04)
+      love.graphics.setColor(COAST.foam[1], COAST.foam[2], COAST.foam[3], 0.45 + 0.35 * wash)
+      love.graphics.circle("fill", sx - 6 - wash * 6, y + 8, 7 + n * 5, 10)
+    end
+  end
+  -- Forest over the mountains, off the sea and the shore's rocks, about as
+  -- thick as the map's own: most of the grid's trees are left out.
+  woods(map, camera, 0, 0, EVERY_TREE, function(x, y)
+    return x < coastShore(map, y) + 40 or love.math.noise(x * 0.05, y * 0.05) < 0.7
+  end)
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -1014,6 +1143,7 @@ local DRAW = {
     local left, top, right, bottom = view(camera)
     City17.draw(map, camera, left, top, right, bottom, clock)
   end,
+  coast = coast,
 }
 
 function Surroundings:drawBelowCars(_client, camera)

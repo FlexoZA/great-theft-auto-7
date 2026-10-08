@@ -1,7 +1,8 @@
 -- Gun icons: one small side-on drawing per gun key, facing right, for the
 -- inventory screen's weapon slots and for a gun lying in an item box
--- ("gun-<key>"). Unknown keys get a plain pistol-shaped stand-in. Drawn
--- about 60 x 30 px at scale 1, centred on (cx, cy).
+-- ("gun-<key>"); and "turret", a car's own gun, for the HUD behind the
+-- wheel. Unknown keys get a plain pistol-shaped stand-in. Drawn about
+-- 60 x 30 px at scale 1, centred on (cx, cy).
 --
 -- Every part is shaded the same way (shade.lua, shared with the clothes
 -- and armor): its colour, a lighter band along its top where the light
@@ -213,9 +214,33 @@ local function flamethrower()
   love.graphics.circle("fill", 31, -3, 0.8)
 end
 
+--- Not a gun anyone carries: the auto turret bolted to a car (weapons draws
+--- it in the HUD for a car's own gun, whatever it fires). A squat armoured
+--- pod on a swivel pedestal, its barrel in a vented shroud, a belt feeding
+--- in from the ammo box on its side and a red sensor eye up front.
+local function turret()
+  poly(DARK, -11, 15, 11, 15, 7, 9, -7, 9) -- the pedestal's foot
+  box(-3, 3, 6, 7, STEEL, 0.5) -- its post
+  box(-13, 1, 26, 3.5, BLACK, 1) -- the swivel ring
+  box(-27, -6, 8, 10, OLIVE, 1) -- the ammo box on its side
+  line(OLIVE, 0.7, 1, -26, -1, -20, -1)
+  strokes(BRASS, 1, 4, -19, -5, 1.6, 3, true) -- the belt going in
+  box(-19, -11, 28, 12, DARK, 2.5) -- the pod
+  box(-17, -13.5, 22, 3, STEEL, 1) -- its armour plate on top
+  line(DARK, 0.65, 1, -15, -5, 7, -5) -- a panel seam
+  box(8, -9, 15, 7, DARK, 1) -- the barrel's shroud
+  strokes(DARK, 0.55, 4, 10, -8, 3, 5, true) -- its vents
+  box(22, -7, 12, 3, STEEL, 0.5) -- the barrel
+  box(33, -8, 3.5, 5, DARK, 0.5) -- the muzzle brake
+  set(RED)
+  love.graphics.circle("fill", 4, -7, 2.2) -- the sensor eye
+  set({ 1, 0.7, 0.6 })
+  love.graphics.circle("fill", 3.5, -7.5, 0.8)
+end
+
 local DRAW = {
   pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper,
-  flamethrower = flamethrower,
+  flamethrower = flamethrower, turret = turret,
 }
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its

@@ -57,6 +57,10 @@ local BossBar = require("src.features.bosses.bar")
 local Teleport = require("src.features.abilities.teleport")
 local Face = require("src.features.a-man.face")
 local Theme = require("src.features.a-man.theme")
+local OuterCityTheme = require("src.features.a-man.theme_outercity")
+local CoastTheme = require("src.features.a-man.theme_coast")
+local RoadTheme = require("src.features.a-man.theme_road")
+local CitadelTheme = require("src.features.a-man.theme_citadel")
 local Sounds = require("src.features.a-man.sounds")
 local Turrets = require("src.features.a-man.turrets")
 local Brain = require("src.features.a-man.brain")
@@ -79,6 +83,8 @@ AMan.walkSpeed = 55 -- px/s; a little quicker than a player's walk, far slower t
 AMan.keepAway = 70 -- px; he stops walking this close to his target
 AMan.breath = { -- his stamina (bosses/stamina.lua has the rule and the defaults)
   max = 100,
+  drain = 25, -- per second hurrying out from under something: ~4 s of it
+  recovered = 50, -- back from empty before he hurries again
   regen = 10,
   regenDelay = 1.5,
   breath = 50, -- held before he blinks
@@ -261,7 +267,7 @@ function AMan.serverStep(server, dt)
   elseif act == "horde" then
     horde(server, a)
   end
-  a.breath:step(false, dt) -- he never runs
+  a.breath:step(a.running, dt) -- he only ever runs out from under something (brain.lua)
   if Turrets.standing(sv.turrets) == 0 then
     sv.hordeIn = sv.hordeIn - dt
   else
@@ -353,23 +359,39 @@ end
 local cl = nil -- { a, lastTick, turretTick, tears, turrets }
 local remains = nil -- { x, y, t }: the disguise where he fell, outliving the event
 local time = 0
-local face, music = nil, nil
+local face, music = nil, nil -- `music`: whichever theme is playing (or last played)
+local THEMES = { -- by the map they go with
+  city17 = Theme, outercity = OuterCityTheme, coast = CoastTheme, road = RoadTheme, citadel = CitadelTheme,
+}
+local themes = {} -- map -> Source, rendered the first time it is wanted
 
-local function startMusic()
-  if not music then
-    music = love.audio.newSource(Theme.render(), "static")
-    music:setLooping(true)
-    music:setRelative(true)
+--- The theme for `map` (City 17's, his own, for any map without one) from the top.
+local function startMusic(map)
+  local key = THEMES[map] and map or "city17"
+  local source = themes[key]
+  if not source then
+    source = love.audio.newSource(THEMES[key].render(), "static")
+    source:setLooping(true)
+    source:setRelative(true)
+    themes[key] = source
   end
+  if music and music ~= source then
+    music:stop()
+  end
+  music = source
   music:setVolume(Audio.muted and 0 or Audio.volume("music"))
   music:seek(0)
   music:play()
 end
 
 --- His theme from the top, for his quest too (init.lua): it plays from his
---- intro screen to the end of the quest, the way Karen's does hers.
-function AMan.playTheme()
-  startMusic()
+--- intro screen to the end of the quest, the way Karen's does hers. Each of
+--- his quest's maps has its own (`map`): City 17's industrial rock (his own,
+--- the event's too), the Outer City's chase (theme_outercity.lua), the
+--- Coast's (theme_coast.lua), the Winding Road's heavy metal (theme_road.lua)
+--- and the Citadel's industrial metal (theme_citadel.lua).
+function AMan.playTheme(map)
+  startMusic(map)
 end
 
 function AMan.stopTheme()
@@ -489,6 +511,12 @@ function AMan.clearRemains()
   remains = nil
 end
 
+--- Leave the disguise lying at (x, y), for anyone else who beats him (his
+--- quest's last level).
+function AMan.leaveRemains(x, y)
+  remains = { x = x, y = y, t = 0 }
+end
+
 function AMan.drawBelowCars()
   if not cl then
     return
@@ -581,9 +609,16 @@ function AMan.drawAboveCars()
 end
 
 --- Him, drawn as the event draws him, for anyone else who shows him (his
---- quest's levels): `a` is { dx, dy, angle, stride, hp, max, alpha }.
+--- quest's levels): `a` is { dx, dy, angle, stride, hp, max, alpha }, and
+--- `aimX, aimY` while he winds up a blink (he flickers).
 function AMan.drawFigure(a)
   drawHim(a)
+end
+
+--- The line of a blink he is winding up, as the event draws it: `a` as
+--- drawFigure's, with `aimX, aimY`.
+function AMan.drawAimLine(a)
+  drawAim(a)
 end
 
 --- An arrow at the edge of the screen pointing at him while he is off it.

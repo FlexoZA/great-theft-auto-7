@@ -82,6 +82,16 @@ function Sounds.load()
     buf:highpass(200)
   end)
 
+  -- A Combine door opening (a garrison coming out, city17.lua): a heavy
+  -- clunk, then the hiss of hydraulics as it slides.
+  bank.door = make(1.0, function(buf)
+    buf:noiseBurst(0, 0.04, { amp = 0.7, decay = 0.02 })
+    buf:tone(0, 0.18, 70, { wave = "sine", amp = 0.6, attack = 0.002, decay = 0.12, sustain = 0 })
+    buf:noiseBurst(0.08, 0.7, { amp = 0.3, decay = 0.35 })
+    buf:sweep(0.1, 0.6, 180, 120, { wave = "square", amp = 0.08, decay = 0.4 })
+    buf:lowpass(3500)
+  end)
+
   -- One step on tiptoe, for when he creeps up on someone.
   bank.tiptoe = make(0.25, function(buf)
     buf:tone(0, 0.08, Synth.freq("E3"), { wave = "tri", amp = 0.6, attack = 0.003, decay = 0.06, sustain = 0 })

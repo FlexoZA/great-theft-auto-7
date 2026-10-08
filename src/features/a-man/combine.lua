@@ -32,6 +32,25 @@
 -- foot do the same), so their rounds hurt any player and credit nobody.
 -- D-Day's soldiers think the same way, in a brain of their own
 -- (d-day/brain.lua).
+--
+-- One soldier can be told apart from the rest (fields on him, set by
+-- whoever adds him):
+--   hold    he holds his place even when the others hunt: never chases,
+--           never goes to look, never answers a call (the MG nests' crews: the Coast, the Road, the Citadel)
+--   arc     radians either side of `watch` he may turn to and shoot into,
+--           and only there (a gunner behind a fixed gun)
+--   fov     his own cone of sight, instead of everyone's
+--   post    { x, y } to walk to, whatever is going on, before anything
+--           else (a crewman running to a gun nobody is on)
+--   takesCover  he fights from cover (the Coast's bunker riflemen): once
+--           he has seen somebody, or been shot at, he runs to a spot near
+--           his place with something solid between him and them, waits
+--           there (HIDE), steps out to where he can see them (no further
+--           than PEEK_REACH), shoots for a while (PEEK) and gets back into
+--           cover, over and over; a hit out in the open sends him straight
+--           back. THREAT_KEEP after he last saw or felt anyone he goes back
+--           to his place. `tookCover` is set each time he dives for cover,
+--           for whoever runs the radio.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
@@ -56,6 +75,7 @@ Combine.SPREAD = 0.06 -- radians of aim error, on top of the rifle's own
 Combine.MUZZLE = 23 -- px from the body a round leaves: the tip of the rifle in his hands
 Combine.LOOK_EVERY = 3 -- host ticks between sight checks (staggered by soldier)
 Combine.SCAN = math.rad(20) -- a walking soldier looks this far either side of his path
+Combine.WALK = 62 -- px/s a soldier walks (twice this running from a stink)
 Combine.PATROL_WALK = 48 -- px/s a squad walks its beat
 Combine.FORMATION = { { 0, 0 }, { -38, -30 }, { -38, 30 }, { -76, 0 } } -- slots behind the leader, his frame
 Combine.CHASE_WALK = 90 -- px/s closing in or hunting: faster than a walk, slower than a sprint
@@ -65,6 +85,11 @@ Combine.INVESTIGATE_WALK = 75 -- px/s going to look into something
 Combine.SEARCH_TIME = 5 -- seconds looking round where he lost them, or at what he came to look into
 Combine.SEARCH_SWEEP = math.rad(100) -- how far either way he looks round then
 Combine.CRUMB = 40 -- px between the breadcrumbs he drops on his way, for the way back
+Combine.COVER_RANGE = 170 -- px from his place he will go for cover
+Combine.HIDE = { 1.2, 2.6 } -- seconds in cover between one look out and the next (min, max)
+Combine.PEEK = { 1.2, 2.0 } -- seconds out shooting before he ducks back (min, max)
+Combine.PEEK_REACH = 90 -- px from his cover he steps out to shoot from
+Combine.THREAT_KEEP = 10 -- seconds he keeps to cover after he last saw or felt anyone
 
 local random = love.math.random
 
@@ -88,14 +113,22 @@ function Combine.new(opts)
   return setmetatable(t, Combine)
 end
 
+--- Does `s` leave his place to chase and look into things?
+local function hunts(self, s)
+  return self.hunt and not s.hold
+end
+
 --- Is `s` on edge: somebody in his sights, or out searching or looking
 --- into something?
 function Combine.wary(s)
-  return s.alert or s.goal ~= nil
+  return s.alert or s.goal ~= nil or s.cv ~= nil
 end
 
 --- How wide `s`'s cone of sight is right now.
 function Combine:fovOf(s)
+  if s.fov then
+    return s.fov
+  end
   if self.alertFov and Combine.wary(s) then
     return self.alertFov
   end
@@ -121,6 +154,7 @@ function Combine:add(kind, x, y, watch)
     stuck = 0,
     sidestep = 0,
     side = random() < 0.5 and -1 or 1,
+    home = { x = x, y = y }, -- his place, for one who comes back to it (takesCover)
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = s
@@ -224,7 +258,9 @@ end
 -- Hunting -------------------------------------------------------------------
 
 --- A breadcrumb where he stands, if he has gone far enough from the last
---- one; the first is where he left from.
+--- one; the first is where he left from. Back near one he dropped earlier
+--- (a chase that doubles back), the trail is cut back to it, so the way
+--- home never winds through the same ground twice.
 local function crumb(s)
   local trail = s.trail
   if not trail then
@@ -232,9 +268,18 @@ local function crumb(s)
     return
   end
   local last = trail[#trail]
-  if dist2(s.x, s.y, last.x, last.y) >= Combine.CRUMB * Combine.CRUMB then
-    trail[#trail + 1] = { x = s.x, y = s.y }
+  if dist2(s.x, s.y, last.x, last.y) < Combine.CRUMB * Combine.CRUMB then
+    return
   end
+  for i = 1, #trail - 1 do
+    if dist2(s.x, s.y, trail[i].x, trail[i].y) < Combine.CRUMB * Combine.CRUMB then
+      for k = #trail, i + 1, -1 do
+        trail[k] = nil
+      end
+      return
+    end
+  end
+  trail[#trail + 1] = { x = s.x, y = s.y }
 end
 
 --- Is (x, y) past his leash, from where he left?
@@ -255,6 +300,31 @@ local function route(self, s, x, y)
     return nil
   end
   return corners
+end
+
+--- One step of `s` towards `to` ({ x, y }) by the walking grid, round
+--- whatever is in the way, at `speed`: the way is worked out once for
+--- that spot, and again if he gets caught on something. Returns the way
+--- he is heading, or nil once he is there.
+local function walkTo(self, s, to, speed, dt)
+  if dist2(s.x, s.y, to.x, to.y) <= 5 * 5 then
+    s.way = nil
+    return nil
+  end
+  local w = s.way
+  if not (w and w.to == to) or s.stuck > 1.5 then
+    s.stuck = 0
+    w = { to = to, corners = route(self, s, to.x, to.y) or { to }, at = 1 }
+    s.way = w
+  end
+  local c = w.corners[w.at]
+  if w.at < #w.corners and dist2(s.x, s.y, c.x, c.y) < 18 * 18 then
+    w.at = w.at + 1
+    c = w.corners[w.at]
+  end
+  local path = math.atan2(c.y - s.y, c.x - s.x)
+  advance(s, path, speed, dt)
+  return path
 end
 
 --- Go to (x, y) and look round there: `kind` "search" (where he lost
@@ -372,7 +442,7 @@ function Combine:alarm(x, y, radius, opts)
   for _, s in ipairs(self.list) do
     local d2 = dist2(s.x, s.y, x, y)
     local own = from and (s == from or (s.squad ~= nil and s.squad == from.squad))
-    if not own and not s.target and not s.panic and d2 <= radius * radius then
+    if not own and not s.hold and not s.target and not s.panic and d2 <= radius * radius then
       near[#near + 1] = { s = s, d2 = d2 }
     end
   end
@@ -389,6 +459,13 @@ function Combine:alarm(x, y, radius, opts)
     end
   end
   return went
+end
+
+--- Send `s` to look into (x, y), as an alarm would: he goes there, looks
+--- round, and walks back to where he came from (a soldier just out of a
+--- garrison's door, sent at whoever brought him out).
+function Combine:sendTo(s, x, y)
+  setGoal(self, s, x, y, "investigate")
 end
 
 -- Seeing --------------------------------------------------------------------
@@ -484,7 +561,7 @@ function Combine:think(server, s, dt)
   if s.panic then
     -- A stink: away from it, rifle forgotten.
     s.alert, s.target = false, nil
-    if self.hunt then
+    if hunts(self, s) then
       crumb(s) -- and back again after
     end
     s.panic.left = s.panic.left - dt
@@ -525,9 +602,30 @@ function Combine:think(server, s, dt)
     tx, ty = poseOf(server, s.target)
     if not tx then
       s.target = nil
+    elseif s.arc and math.abs(Sight.angleDiff(math.atan2(ty - s.y, tx - s.x), s.watch)) > s.arc then
+      tx, ty, s.target = nil, nil, nil -- out past where his gun turns
     end
   end
-  if self.hunt and s.alert and not tx and s.aimX then
+  if s.post then
+    -- To his post before anything else, rifle down, round whatever is in the way.
+    local path = walkTo(self, s, s.post, Combine.CHASE_WALK, dt)
+    if path then
+      s.facing = turn(s.facing, path, Combine.TURN * 2, dt)
+      s.alert, s.target = false, nil
+      return
+    end
+    s.x, s.y, s.post = s.post.x, s.post.y, nil
+  end
+  if s.takesCover then
+    s.alert = s.target ~= nil -- in and out of cover, he still has somebody (the "!", the shout, the crew's quiet)
+    if tx then
+      s.aimX, s.aimY = tx, ty
+    end
+    if self:fightFromCover(server, s, tx, ty, dt) then
+      return
+    end
+  end
+  if hunts(self, s) and s.alert and not tx and s.aimX then
     setGoal(self, s, s.aimX, s.aimY, "search") -- lost them: to where they were last
   end
   s.alert = s.target ~= nil
@@ -538,7 +636,7 @@ function Combine:think(server, s, dt)
     s.facing = turn(s.facing, math.atan2(ty - s.y, tx - s.x), Combine.TURN, dt)
     -- Close in to CHASE_KEEP, or nearer with a gun that doesn't reach that far.
     local keep = s.arms and math.min(Combine.CHASE_KEEP, s.arms.reach * 0.6) or Combine.CHASE_KEEP
-    if self.hunt and dist2(s.x, s.y, tx, ty) > keep * keep then
+    if hunts(self, s) and dist2(s.x, s.y, tx, ty) > keep * keep then
       crumb(s)
       if not leashed(s, s.x + (tx - s.x) * 0.1, s.y + (ty - s.y) * 0.1) then
         walk(s, math.atan2(ty - s.y, tx - s.x), Combine.CHASE_WALK, dt) -- close in, rifle up
@@ -554,8 +652,15 @@ function Combine:think(server, s, dt)
   elseif s.kind == "patrol" then
     self:patrol(s, dt)
   else -- a guard
-    local sweep = s.watch + Combine.SWEEP * math.sin(2 * math.pi * self.time / Combine.SWEEP_TIME + s.phase)
+    local reach = s.arc and math.min(Combine.SWEEP, s.arc) or Combine.SWEEP
+    local sweep = s.watch + reach * math.sin(2 * math.pi * self.time / Combine.SWEEP_TIME + s.phase)
     s.facing = turn(s.facing, sweep, Combine.TURN, dt)
+  end
+  if s.arc then -- his gun turns no further
+    local off = Sight.angleDiff(s.facing, s.watch)
+    if math.abs(off) > s.arc then
+      s.facing = s.watch + (off > 0 and s.arc or -s.arc)
+    end
   end
 end
 
@@ -565,7 +670,7 @@ function Combine:patrol(s, dt)
   local squad = s.squad
   for _, m in ipairs(squad.members) do
     if m.alert and m ~= s then
-      if self.hunt then
+      if hunts(self, s) then
         setGoal(self, s, m.aimX, m.aimY, "search") -- with him
         if s.goal then
           return
@@ -610,6 +715,116 @@ function Combine:patrol(s, dt)
   s.facing = turn(s.facing, look, Combine.TURN, dt)
 end
 
+-- Fighting from cover --------------------------------------------------------
+
+local function between(range)
+  return range[1] + random() * (range[2] - range[1])
+end
+
+--- Somewhere open within `reach` of (cx, cy), reached in a straight line
+--- from (fx, fy), that `ok(x, y)` likes; the one nearest (fx, fy) plus
+--- `pull` times its distance from (cx, cy).
+local function search(cx, cy, reach, fx, fy, pull, ok)
+  local best, bestScore
+  for ring = 0, 6 do
+    local d = ring / 6 * reach
+    local n = ring == 0 and 1 or 12
+    for k = 1, n do
+      local a = k / n * 2 * math.pi + ring * 0.4
+      local x, y = cx + math.cos(a) * d, cy + math.sin(a) * d
+      if not blockedAt(x, y) and Sight.clear(fx, fy, x, y) and ok(x, y) then
+        local score = math.sqrt(dist2(x, y, fx, fy)) + pull * d
+        if not bestScore or score < bestScore then
+          best, bestScore = { x = x, y = y }, score
+        end
+      end
+    end
+  end
+  return best
+end
+
+--- Somewhere near his place with something solid between it and the threat.
+local function findCover(s, th)
+  return search(s.home.x, s.home.y, Combine.COVER_RANGE, s.x, s.y, 0.5, function(x, y)
+    return not Sight.clear(th.x, th.y, x, y)
+  end)
+end
+
+--- Somewhere a step out from his cover he can see the threat from.
+local function findPeek(s, th)
+  return search(s.x, s.y, Combine.PEEK_REACH, s.x, s.y, 0, function(x, y)
+    return Sight.clear(x, y, th.x, th.y)
+  end)
+end
+
+--- Walk to `to` if he isn't there yet; true while still on his way.
+local function goTo(s, to, dt)
+  if not to or dist2(s.x, s.y, to.x, to.y) <= 5 * 5 then
+    return false
+  end
+  local path = math.atan2(to.y - s.y, to.x - s.x)
+  advance(s, path, Combine.CHASE_WALK, dt)
+  return true
+end
+
+--- A takesCover soldier's tick: back to his place once the threat is old,
+--- otherwise in and out of cover. True if it took care of the tick.
+function Combine:fightFromCover(server, s, tx, ty, dt)
+  local now = self.time
+  if tx then
+    s.threat = { x = tx, y = ty, untilT = now + Combine.THREAT_KEEP }
+  end
+  local th = s.threat
+  if not th or now > th.untilT then
+    s.threat, s.cv = nil, nil
+    local path = walkTo(self, s, s.home, Combine.INVESTIGATE_WALK, dt) -- quiet again: back to his place
+    if path then
+      s.facing = turn(s.facing, path, Combine.TURN, dt)
+      return true
+    end
+    return false
+  end
+  local cv = s.cv
+  if not cv then
+    cv = { phase = "hide", t = 0, hideFor = between(Combine.HIDE) * 0.5, spot = findCover(s, th) }
+    s.cv, s.tookCover = cv, true
+  end
+  cv.t = cv.t + dt
+  local look = tx and math.atan2(ty - s.y, tx - s.x) or math.atan2(th.y - s.y, th.x - s.x)
+  if cv.phase == "hide" then
+    if goTo(s, cv.spot, dt) then
+      s.facing = turn(s.facing, math.atan2(cv.spot.y - s.y, cv.spot.x - s.x), Combine.TURN * 2, dt)
+      cv.t = 0 -- the wait starts once he is behind it
+      return true
+    end
+    s.facing = turn(s.facing, look, Combine.TURN, dt)
+    if tx then -- his cover doesn't hide him from this one: shoot back
+      shoot(server, s, tx, ty, dt)
+    end
+    if cv.t >= cv.hideFor then
+      cv.phase, cv.t, cv.peekFor = "peek", 0, between(Combine.PEEK)
+      cv.peek = findPeek(s, th)
+      s.fireIn = math.max(s.fireIn, 0.25) -- a moment to bring the rifle up
+    end
+    return true
+  end
+  -- Out: to where he can see them, rifle up, shooting whenever he has them.
+  local stepping = goTo(s, cv.peek, dt)
+  s.facing = turn(s.facing, look, Combine.TURN * 1.5, dt)
+  if tx then
+    shoot(server, s, tx, ty, dt)
+  end
+  if not stepping then
+    if cv.t >= cv.peekFor or cv.ducking then
+      cv.phase, cv.t, cv.ducking = "hide", 0, nil
+      cv.hideFor = between(Combine.HIDE)
+      cv.spot = findCover(s, th) or cv.spot
+      s.tookCover = true
+    end
+  end
+  return true
+end
+
 -- Being shot at -------------------------------------------------------------
 
 --- The soldier standing within `radius` of (x, y), and his index.
@@ -640,9 +855,21 @@ function Combine:hurt(s, i, amount, angle)
     end
     return true
   end
+  if s.takesCover and angle then
+    -- Somebody that way: into cover from them, and out of the open at once.
+    local th = s.threat or {}
+    if not s.threat then
+      th.x, th.y = s.x - math.cos(angle) * 300, s.y - math.sin(angle) * 300
+    end
+    th.untilT = self.time + Combine.THREAT_KEEP
+    s.threat = th
+    if s.cv and s.cv.phase == "peek" then
+      s.cv.ducking, s.cv.peek = true, nil
+    end
+  end
   if angle and not s.target then
     s.facing = angle + math.pi -- back the way the round came
-    if self.hunt then -- and off that way to find who sent it
+    if hunts(self, s) then -- and off that way to find who sent it
       setGoal(self, s, s.x - math.cos(angle) * 260, s.y - math.sin(angle) * 260, "search")
     end
   end
@@ -661,7 +888,9 @@ end
 --- Everyone inside a stink runs from it for `seconds`.
 function Combine:scare(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
-    if dist2(s.x, s.y, x, y) <= (radius + Combine.RADIUS) ^ 2 then
+    -- A gunner stays on his gun (he has no way back to it if he runs).
+    local gunner = s.hold and not s.takesCover
+    if not gunner and dist2(s.x, s.y, x, y) <= (radius + Combine.RADIUS) ^ 2 then
       s.panic = { x = x, y = y, left = seconds }
     end
   end

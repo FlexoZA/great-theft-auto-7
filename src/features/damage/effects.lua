@@ -166,6 +166,24 @@ function Effects.blood(x, y, seed, clock)
   end
 end
 
+--- Poison in a body: sickly green bubbles welling up round it and
+--- popping, over a faint green haze.
+function Effects.bubbles(x, y, seed, clock)
+  love.graphics.setColor(0.45, 0.85, 0.2, 0.18)
+  love.graphics.circle("fill", x, y, 14)
+  for i = 1, 5 do
+    local phase = clock * 1.3 + seed * 0.7 + i * 0.23
+    local rise = phase % 1
+    local a = seed * 1.9 + i * 2.4 + math.floor(phase) * 0.9
+    local ox, oy = math.cos(a) * 8, math.sin(a) * 6
+    local r = 1.4 + rise * 2.2
+    love.graphics.setColor(0.55, 0.9, 0.3, 0.9 * (1 - rise))
+    love.graphics.circle("line", x + ox, y + oy - rise * 12, r)
+    love.graphics.setColor(0.55, 0.9, 0.3, 0.35 * (1 - rise))
+    love.graphics.circle("fill", x + ox, y + oy - rise * 12, r)
+  end
+end
+
 --- Sparks crackling round a body: a few jagged blue arcs, a new shape
 --- every flicker, over a pale glow.
 function Effects.sparks(x, y, seed, clock)

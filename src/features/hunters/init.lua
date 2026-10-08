@@ -34,8 +34,10 @@
 -- ground as a player would (pickups' serverTake).
 --
 -- Another feature puts them on the map (City 17 has three round the
--- Citadel): `hunters:serverPatrol(server, route, count)` spreads `count` of
--- them round `route`, a loop of { x, y } corners they walk round and round.
+-- Citadel; the Winding Road and the Citadel walk their `hunterBeats`; the
+-- Hunter-Chopper and A-Man's briefcase bring them in round a point):
+-- `hunters:serverPatrol(server, route, count)` spreads `count` of them
+-- round `route`, a loop of { x, y } corners they walk round and round.
 -- `hunters:serverClear(server)` takes them all away again; a map change
 -- does too.
 --
@@ -358,6 +360,9 @@ end
 
 local lastTick = 0
 local clock = 0
+local heardAt = 0 -- when the last HTR_STATE came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local calls = {} -- { x, y, t }: the pulse of a call going out
 local CALL_SHOWN = 0.9 -- seconds a call's pulse spreads
 
@@ -371,6 +376,9 @@ end
 
 function Hunters:update(dt)
   clock = clock + dt
+  if next(shown) and love.timer.getTime() - heardAt > STALE then
+    shown = {}
+  end
   local k = math.min(1, dt * SMOOTHING)
   for _, h in pairs(shown) do
     local ex, ey = h.x - h.dx, h.y - h.dy
@@ -439,7 +447,7 @@ Hunters.clientMessages = {
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 7, 8 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])

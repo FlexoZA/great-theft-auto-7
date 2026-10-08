@@ -6,6 +6,11 @@
 -- this is a warning, the fight comes later. His turrets can be knocked
 -- over as ever, and their rounds hurt players, not the Combine.
 --
+-- Another feature can call him in once, on any map the level runs
+-- (`Cameo.serverVisit`, the a-man feature's `serverVisit`): he blinks in
+-- near a player, and when his case opens it is that feature's call what
+-- comes out of it (the Hunter-Chopper's Hunters); then he blinks out.
+--
 -- Messages
 --   server -> all  C17_AMAN_IN  <x> <y> <facing>   he blinked in there
 --   server -> all  C17_AMAN_CASE <x> <y>           the case opened and the turrets came out
@@ -36,6 +41,8 @@ Cameo.turrets = 5 -- out of the case each time, for one player (more humans, mor
 local SYNC_EVERY = 2 -- server ticks between C17_TURRETS
 local TEAR_TIME = 0.5 -- seconds the tear he comes and goes through hangs
 local TEAR_LENGTH = 70 -- px either way of him
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 
 local random = love.math.random
 
@@ -47,8 +54,10 @@ end
 
 local sv = nil -- { left, nextIn, him, turrets, syncIn, sentEmpty }
 
-function Cameo.serverStart()
-  sv = { left = Cameo.visits, nextIn = nil, him = nil, turrets = Turrets.new("C17_POP"), syncIn = 0 }
+--- `visits` false: no plaza visits of his own on this map, only called-in ones.
+function Cameo.serverStart(visits)
+  local left = visits == false and 0 or Cameo.visits
+  sv = { left = left, nextIn = nil, him = nil, turrets = Turrets.new("C17_POP"), syncIn = 0 }
 end
 
 function Cameo.serverStop(server)
@@ -93,8 +102,9 @@ local function clear(x, y)
   return true
 end
 
---- He blinks in somewhere open near `p`, facing them. False if there was nowhere.
-local function arrive(server, p)
+--- He blinks in somewhere open near `p`, facing them; `opened` (optional)
+--- is what his case lets out instead of turrets. False if there was nowhere.
+local function arrive(server, p, opened)
   local px, py = Features.bodyPose(server, p)
   for _ = 1, 20 do
     local a = random() * 2 * math.pi
@@ -102,7 +112,7 @@ local function arrive(server, p)
     local x, y = px + math.cos(a) * d, py + math.sin(a) * d
     if clear(x, y) then
       local facing = math.atan2(py - y, px - x)
-      sv.him = { x = x, y = y, facing = facing, t = Cameo.openAfter, opened = false }
+      sv.him = { x = x, y = y, facing = facing, t = Cameo.openAfter, opened = false, call = opened }
       server:broadcast(Protocol.encode("C17_AMAN_IN", fmt(x), fmt(y), ("%.2f"):format(facing)))
       return true
     end
@@ -129,16 +139,32 @@ local function sync(server)
   end
 end
 
+--- Call him in once for the player nearest (x, y): `opened(server, x, y)`
+--- is called where he stands when his case opens. False if he is busy
+--- (already here), there is nobody, or nowhere to land.
+function Cameo.serverVisit(server, x, y, opened)
+  if not sv or sv.him then
+    return false
+  end
+  local best, bestD2 = nil, math.huge
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local px, py = Features.bodyPose(server, p)
+      local d2 = (px - x) ^ 2 + (py - y) ^ 2
+      if d2 < bestD2 then
+        best, bestD2 = p, d2
+      end
+    end
+  end
+  return best ~= nil and arrive(server, best, opened)
+end
+
 function Cameo.serverStep(server, dt, map)
   if not sv then
     return
   end
   Turrets.step(sv.turrets, server, dt)
   sync(server)
-  local z = map and zoneOf(map)
-  if not z then
-    return
-  end
   local him = sv.him
   if him then
     him.t = him.t - dt
@@ -147,16 +173,24 @@ function Cameo.serverStep(server, dt, map)
     end
     if not him.opened then
       him.opened, him.t = true, Cameo.leaveAfter
-      Turrets.spill(sv.turrets, him.x, him.y, Bosses.count(Cameo.turrets, server))
+      if him.call then
+        him.call(server, him.x, him.y)
+      else
+        Turrets.spill(sv.turrets, him.x, him.y, Bosses.count(Cameo.turrets, server))
+      end
       server:broadcast(Protocol.encode("C17_AMAN_CASE", fmt(him.x), fmt(him.y)))
     else
       server:broadcast(Protocol.encode("C17_AMAN_OUT", fmt(him.x), fmt(him.y)))
-      sv.him, sv.left = nil, sv.left - 1
-      sv.nextIn = sv.left > 0 and Cameo.gap or nil
+      sv.him = nil
+      if not him.call then -- a called-in visit isn't one of his own
+        sv.left = sv.left - 1
+        sv.nextIn = sv.left > 0 and Cameo.gap or nil
+      end
     end
     return
   end
-  if sv.left <= 0 then
+  local z = map and zoneOf(map)
+  if not z or sv.left <= 0 then
     return
   end
   if not sv.nextIn then
@@ -208,6 +242,9 @@ end
 
 function Cameo.update(dt)
   time = time + dt
+  if next(cl.turrets.list) and love.timer.getTime() - (cl.turretsHeardAt or 0) > STALE then
+    cl.turrets.list = {}
+  end
   Turrets.update(cl.turrets, dt)
   for i = #cl.tears, 1, -1 do
     local t = cl.tears[i]
@@ -267,7 +304,7 @@ Cameo.clientMessages = {
     if not tick or tick <= cl.turretTick then
       return
     end
-    cl.turretTick = tick
+    cl.turretTick, cl.turretsHeardAt = tick, love.timer.getTime()
     Turrets.read(cl.turrets, args, 2)
   end,
   C17_POP = function(_client, args)

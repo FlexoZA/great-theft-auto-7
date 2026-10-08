@@ -26,10 +26,49 @@
 -- so, and one who found nothing says that on his way back.
 -- The first time a player walks into the plaza, A-Man drops by: he blinks
 -- in, leaves a horde of his turrets and blinks out, three times over
--- (cameo.lua). He can't be hurt yet.
+-- (cameo.lua). He can't be hurt here: the fight with him is at the top of
+-- the Citadel (finale.lua).
 -- Three Hunters (the hunters feature) patrol a ring round the Citadel.
 -- The first player to reach the Citadel's doors finishes the level
 -- (quests' `serverComplete`): a star comes up there.
+--
+-- The same soldiers hold the Outer City (city-map's `outercity`, quests'
+-- "a-man-2"): guards on its posts at the choke points on the way in and a
+-- squad on each of its beats (`Level.maps` says what each map has: the
+-- plaza visits, the Hunters and the Citadel's doors are City 17's alone).
+-- Some guard stations have a garrison (the map's `garrisons`): nobody is
+-- inside until it is needed, and the first time a player comes within the
+-- garrison's `reach` its door opens on every screen (C17_DOOR) and
+-- `garrison` soldiers (more with more humans: Bosses.count) come out of it
+-- one after another and go for where that player is; when they have
+-- looked round they walk back and stand guard at the door.
+--
+-- The Coast (city-map's `coast`, quests' "a-man-coast") has three bunkers
+-- (the map's `bunkers`), each with an MG nest in front of it and a crew of
+-- `Level.nestCrew`: one on the gun and the rest on the bunker's posts with
+-- their rifles. They defend (combine.lua's `hold`): they never leave their
+-- places to chase or answer a call. The riflemen fight from cover
+-- (`takesCover`): into cover near their post, out to shoot, back again.
+-- The gunner fires long bursts
+-- (`Level.nestGun`), and only into the nest's arc. Drop him and the
+-- nearest of his crew still up runs to the gun (`post`) and takes over.
+-- nests.lua draws the guns.
+--
+-- The Winding Road (city-map's `road`, quests' "a-man-road") holds a
+-- checkpoint past every bridge but the top one (the Poison Zombie's): two MG nests either side of the road
+-- facing back over it (the map's `nests`, crewed as the Coast's are) and a
+-- bunker whose garrison comes in waves (a garrison's `waves`: one out of
+-- its door every `every` seconds while a player is near and fewer than
+-- `alive` of its own are up, `total` in all, more with more humans; the
+-- door opens again for each). On a map driven like that a car can run
+-- them down: one hit at speed (car-collisions' numbers) is enough. Hunters
+-- (the hunters feature) walk the open stretches of road between the
+-- checkpoints (the map's `hunterBeats`, more with more humans).
+--
+-- The Citadel (city-map's `citadel`, quests' "a-man-citadel") has guards
+-- on the posts on every platform, an MG emplacement over the long span
+-- (the map's `nests`, crewed as the Winding Road's) and Hunters on the
+-- beats round the gallery and the top (its `hunterBeats`).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
@@ -38,6 +77,7 @@
 --                  alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  C17_DOWN   <id> <x> <y> <angle>     a soldier went down
 --   server -> all  C17_SAY    <id> <category> <index>  a soldier says radio.lines[category][index]
+--   server -> all  C17_DOOR   <x> <y> <nx> <ny>        a garrison's door opens (nx, ny: the way out)
 --   and cameo.lua's: C17_AMAN_IN, C17_AMAN_CASE, C17_AMAN_OUT, C17_TURRETS, C17_POP
 
 local Protocol = require("src.net.protocol")
@@ -50,6 +90,11 @@ local Radio = require("src.features.a-man.radio")
 local Cameo = require("src.features.a-man.cameo")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Bosses = require("src.features.bosses")
+local Sounds = require("src.features.a-man.sounds")
+local Nests = require("src.features.a-man.nests")
+local Corpses = require("src.features.a-man.corpses")
+local Car = require("src.car")
 
 local Level = {}
 
@@ -86,13 +131,31 @@ Level.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Level.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Level.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting that he has someone
 Level.downHeard = 700 -- px; a soldier this near one who goes down calls it in, and goes to look
+Level.downAnswer = 5 -- of them at most go to look, nearest first (each works out his way there)
 Level.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
 Level.callAnswer = 3 -- how many of them come at most, nearest first
 Level.callEvery = 15 -- seconds before the same soldier calls in again
+Level.garrison = 4 -- soldiers out of a garrison's door, for one human (more humans, more)
+Level.garrisonFirst = 0.8 -- seconds from the door opening to the first coming out
+Level.garrisonEvery = 0.7 -- seconds between one coming out and the next
+Level.doorOpen = 5 -- seconds a garrison's door stands open on every screen
+-- What each map the soldiers hold has besides its posts and beats.
+Level.maps = {
+  city17 = { squadsPerBeat = 2, cameo = true, hunters = true },
+  outercity = { squadsPerBeat = 1 }, -- fewer about: its garrisons bring more when they are wanted
+  coast = { squadsPerBeat = 0, nests = true }, -- the bunkers' crews, for now
+  road = { squadsPerBeat = 0, nests = true }, -- the bridges' checkpoints: nests and bunkers' waves
+  citadel = { squadsPerBeat = 0, nests = true }, -- guards on every platform, the emplacement over the span
+}
+Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
+Level.manGunWithin = 15 -- seconds the crewman going to a dead gunner's gun has before he is simply on it
+-- The nest's gun: an AK's rounds, twelve a second, in long bursts.
+Level.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range = 700 }
 
 local SYNC_EVERY = 2 -- server ticks between C17_TROOPS
 local SMOOTHING = 14 -- per second, the easing of what is drawn
 local SNAP = 200 -- px; a jump this big is a placement, not a step
+local GUNNER_ON = 16 -- px from a nest's gun that counts as on it (nests.lua's)
 -- Combine soldiers: dark grey-blue fatigues and armour, gloved hands, a
 -- masked head with two lenses that glow.
 local LOOK = {
@@ -106,9 +169,11 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
+--- The map in play, if the soldiers hold it, and what it has (Level.maps).
 local function cityMap()
   local city = Features.byName["city-map"]
-  return city and city.current == "city17" and city.map or nil
+  local conf = city and Level.maps[city.current]
+  return conf and city.map or nil, conf
 end
 
 -- Server --------------------------------------------------------------------
@@ -202,18 +267,24 @@ end
 --- Everyone arrived: guards on every post, squads on every beat, Hunters
 --- round the Citadel.
 function Level.serverQuestStarted(server, quest)
-  local map = cityMap()
+  local map, conf = cityMap()
   if not (quest.boss == Level.questId and map and map.posts) then
     return
   end
   local troops = Combine.new({
     hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
   })
-  sv = { troops = troops, syncIn = 0, reached = false, time = 0 }
-  Cameo.serverStart()
+  sv = { troops = troops, syncIn = 0, reached = false, time = 0, garrisons = {} }
+  Cameo.serverStart(conf.cameo == true) -- his plaza visits where the map has them; called-in ones anywhere
   local hunters = Features.byName.hunters
-  if hunters then
+  if hunters and conf.hunters then
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+  end
+  for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
+    hunters:serverPatrol(server, beat.route, Bosses.count(beat.count, server))
+  end
+  for _, g in ipairs(map.garrisons or {}) do
+    sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0, doorFor = 0, own = {} }
   end
   sv.groups, sv.pending, sv.quietUntil = {}, {}, 0
   local T = require("src.features.city-map.layout").TILE
@@ -232,13 +303,24 @@ function Level.serverQuestStarted(server, quest)
       g.members[#g.members + 1] = sv.troops:add("guard", x, y, p.watch + (i - 1) * 0.15)
     end
   end
+  local perBeat = conf.squadsPerBeat or Level.squadsPerBeat
   for _, route in ipairs(map.patrols or {}) do
-    local first, taken = random(#route), {}
-    for i = 1, Level.squadsPerBeat do
+    -- A lone squad starts at the corner furthest from where everyone arrives.
+    local first, far = random(#route), -1
+    if perBeat == 1 then
+      for i, pt in ipairs(route) do
+        local d = (pt.x - map.cx) ^ 2 + (pt.y - map.cy) ^ 2
+        if d > far then
+          first, far = i, d
+        end
+      end
+    end
+    local taken = {}
+    for i = 1, perBeat do
       -- Spread round the beat: each starts a share of its corners on from the
       -- first, or the next corner along where one is there already (a beat
       -- walked out and back passes some corners twice).
-      local start = (first - 1 + math.floor((i - 1) * #route / Level.squadsPerBeat)) % #route + 1
+      local start = (first - 1 + math.floor((i - 1) * #route / perBeat)) % #route + 1
       for _ = 1, #route do
         local at = route[start].x .. "," .. route[start].y
         if not taken[at] then
@@ -254,6 +336,73 @@ function Level.serverQuestStarted(server, quest)
   end
   for _, s in ipairs(sv.troops.list) do
     sv.troops:arm(s, pickArms())
+  end
+  sv.nests = {}
+  if conf.nests then
+    for _, b in ipairs(map.nests or map.bunkers or {}) do -- a bunker with its nest, or a nest on its own
+      local nest = { b = b, crew = {} }
+      local gunner = sv.troops:add("guard", b.nest.x, b.nest.y, b.nest.angle)
+      gunner.hold = true
+      nest.crew[1] = gunner
+      for i = 1, Level.nestCrew - 1 do
+        local p = b.posts[(i - 1) % #b.posts + 1]
+        local s = sv.troops:add("guard", p.x, p.y, p.watch)
+        s.hold, s.takesCover = true, true
+        sv.troops:arm(s, pickArms())
+        nest.crew[#nest.crew + 1] = s
+      end
+      Level.manGun(nest, gunner)
+      sv.nests[#sv.nests + 1] = nest
+      sv.groups[#sv.groups + 1] = { kind = "post", members = nest.crew, chatIn = between(Level.chatEvery) * random() }
+    end
+  end
+end
+
+--- `s` takes the gun of `nest`: its arc, its sight and its rounds.
+function Level.manGun(nest, s)
+  local n, g = nest.b.nest, Level.nestGun
+  local ak = Guns.ak47
+  s.watch, s.arc, s.fov, s.post = n.angle, n.arc, 2 * n.arc, nil
+  s.takesCover, s.cv, s.threat = nil, nil, nil -- the gun has no cover to go to: he stays on it
+  s.facing = n.angle
+  nest.gunner, nest.coming = s, nil
+  local gun = setmetatable({ damage = g.damage, cooldown = g.cooldown }, { __index = Tiers.apply(ak, Tiers.DEFAULT) })
+  sv.troops:arm(s, { gun = gun, key = ak.key, index = ak.index, burst = g.burst, pause = g.pause, reach = g.range })
+end
+
+--- Every nest keeps its gun manned while any of its crew is up: the
+--- nearest goes to it, and is on it after `manGunWithin` however he got stuck.
+local function stepNests(dt)
+  for _, nest in ipairs(sv.nests) do
+    local n = nest.b.nest
+    if nest.gunner and nest.gunner.hp <= 0 then
+      nest.gunner = nil
+    end
+    local c = nest.coming
+    if c and c.hp <= 0 then
+      nest.coming, c = nil, nil
+    end
+    if c and c.post then
+      nest.comingFor = (nest.comingFor or 0) + dt
+      if nest.comingFor > Level.manGunWithin then
+        c.x, c.y, c.post = n.x, n.y, nil -- caught on something all this time: he gets there anyway
+      end
+    end
+    if c and not c.post then
+      nest.comingFor = nil
+      Level.manGun(nest, c) -- he got there
+    elseif not nest.gunner and not c then
+      local best, bestD2 = nil, math.huge
+      for _, s in ipairs(nest.crew) do
+        local d2 = (s.x - n.x) ^ 2 + (s.y - n.y) ^ 2
+        if s.hp > 0 and d2 < bestD2 then
+          best, bestD2 = s, d2
+        end
+      end
+      if best then
+        nest.coming, best.post = best, { x = n.x, y = n.y }
+      end
+    end
   end
 end
 
@@ -299,7 +448,7 @@ end
 --- level: a star comes up at the doors.
 local function checkReached(server)
   local map = cityMap()
-  if sv.reached or not map then
+  if sv.reached or not (map and map.citadelX) then
     return
   end
   for _, p in pairs(server.players) do
@@ -369,6 +518,13 @@ local function talk(server, dt)
       callIn(s)
     end
     s.wasAlert = s.alert
+    if s.tookCover then -- diving for cover: now and then he says so
+      s.tookCover = false
+      if random() < 0.45 and (s.quietUntil or 0) <= sv.time then
+        s.quietUntil = sv.time + Level.shoutEvery
+        say(server, s, "cover")
+      end
+    end
     if s.gaveUp then -- looked, found nothing, on his way back
       s.gaveUp = false
       if random() < 0.6 and (s.quietUntil or 0) <= sv.time then
@@ -415,7 +571,7 @@ end
 --- of them calls it in, the next says he is on his way. If nobody is free
 --- to go, the nearest still calls it in.
 local function callDown(down)
-  local went = sv.troops:alarm(down.x, down.y, Level.downHeard)
+  local went = sv.troops:alarm(down.x, down.y, Level.downHeard, { most = Level.downAnswer })
   if went[1] then
     later(went[1], "down", 0.5)
     if went[2] then
@@ -435,19 +591,124 @@ local function callDown(down)
   end
 end
 
-function Level.serverStep(server, dt)
-  if not sv then
-    return
+--- The nearest player anyone could see within `reach` of (x, y), as a point.
+local function nearestPlayer(server, x, y, reach)
+  local best, bestD2 = nil, reach * reach
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      local d2 = (px - x) ^ 2 + (py - y) ^ 2
+      if d2 <= bestD2 then
+        best, bestD2 = { x = px, y = py }, d2
+      end
+    end
   end
-  sv.troops:update(server, dt)
-  Cameo.serverStep(server, dt, cityMap())
-  talk(server, dt)
-  checkReached(server)
-  sync(server)
+  return best
+end
+
+--- The garrisons: a door opens the first time a player comes near, and its
+--- soldiers come out one by one and go for where the player is.
+local function stepGarrisons(server, dt)
+  for _, gs in ipairs(sv.garrisons) do
+    local g, door = gs.g, gs.g.door
+    gs.doorFor = gs.doorFor - dt
+    local waves = g.waves
+    if not gs.out then
+      local who = nearestPlayer(server, g.x, g.y, g.reach)
+      if who then
+        gs.out, gs.target = true, who
+        gs.left = Bosses.count(waves and waves.total or Level.garrison, server)
+        gs.nextIn = Level.garrisonFirst
+        gs.doorFor = Level.doorOpen
+        server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+      end
+    elseif gs.left > 0 then
+      gs.nextIn = gs.nextIn - dt
+      local ready = gs.nextIn <= 0
+      if ready and waves then
+        -- In waves: only while somebody is near, and not too many of its own up at once.
+        local up = 0
+        for i = #gs.own, 1, -1 do
+          if gs.own[i].hp > 0 then
+            up = up + 1
+          else
+            table.remove(gs.own, i)
+          end
+        end
+        local who = nearestPlayer(server, g.x, g.y, g.reach * 1.5)
+        ready = who ~= nil and up < waves.alive
+        if ready and gs.doorFor <= 0 then -- the door shut since the last: open it again
+          gs.doorFor = Level.doorOpen
+          server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+        end
+      end
+      if ready then
+        gs.nextIn, gs.left = waves and waves.every or Level.garrisonEvery, gs.left - 1
+        gs.target = nearestPlayer(server, g.x, g.y, g.reach * 1.5) or gs.target
+        local s = sv.troops:add("guard", door.x + door.nx * 22, door.y + door.ny * 22, math.atan2(door.ny, door.nx))
+        gs.own[#gs.own + 1] = s
+        sv.troops:arm(s, pickArms())
+        sv.troops:sendTo(s, gs.target.x, gs.target.y)
+        if not gs.said then -- the first out says where they are going
+          gs.said = true
+          later(s, "investigate", 0.4)
+        end
+      end
+    end
+  end
+end
+
+--- Reinforcements, for another feature (the Hunter-Chopper's): `count`
+--- soldiers (more with more humans: Bosses.count) set down on clear ground
+--- round (x, y), who go for the nearest player and stand guard where they
+--- end up. Returns how many came, 0 while no level runs.
+function Level.serverDrop(server, x, y, count)
+  if not sv then
+    return 0
+  end
+  local city = Features.byName["city-map"]
+  local n = Bosses.count(count, server)
+  local target = nearestPlayer(server, x, y, 1e5) or { x = x, y = y }
+  local came = 0
+  for i = 1, n do
+    local a = (i - 1) / n * 2 * math.pi
+    for r = 40, 200, 40 do
+      local sx, sy = x + math.cos(a) * r, y + math.sin(a) * r
+      if not (city and city:blocksPoint(sx, sy)) then
+        local s = sv.troops:add("guard", sx, sy, math.atan2(target.y - sy, target.x - sx))
+        sv.troops:arm(s, pickArms())
+        sv.troops:sendTo(s, target.x, target.y)
+        if came == 0 then -- the first down says where they are going
+          later(s, "investigate", 0.4)
+        end
+        came = came + 1
+        break
+      end
+    end
+  end
+  return came
+end
+
+--- How many soldiers are still up inside { x, y, w, h }, for another
+--- feature (the antlions' boss waits for the Coast's final section to be clear).
+function Level.serverTroopsIn(r)
+  local n = 0
+  for _, s in ipairs(sv and sv.troops.list or {}) do
+    if s.hp > 0 and s.x >= r.x and s.x <= r.x + r.w and s.y >= r.y and s.y <= r.y + r.h then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- A-Man drops in once near the player nearest (x, y), for another feature
+--- (cameo.lua's serverVisit). False while no level runs.
+function Level.serverVisit(server, x, y, opened)
+  return sv ~= nil and Cameo.serverVisit(server, x, y, opened)
 end
 
 --- One soldier down: gibs on every screen, a few koins, maybe a pickup.
-local function soldierDown(server, s, by, angle)
+local function soldierDown(server, s, by, angle, cause)
   server:broadcast(Protocol.encode("C17_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
   callDown(s)
   local money = Features.byName.money
@@ -458,14 +719,51 @@ local function soldierDown(server, s, by, angle)
   if pickups and pickups.serverDropEnemy then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
-  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle })
+  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle, cause = cause })
+end
+
+--- Cars running soldiers down, on a map that is driven: car-collisions'
+--- numbers, the driver's kill.
+local function runOver(server)
+  local cc = Features.byName["car-collisions"]
+  if not (cc and cityMap().vehicles) then
+    return
+  end
+  for _, car in pairs(server.vehicles) do
+    if car.driver and not car.hidden and math.abs(car.speed) >= cc.runOverSpeed then
+      for i = #sv.troops.list, 1, -1 do
+        local s = sv.troops.list[i]
+        if Car.hitTest(car, s.x, s.y, Combine.RADIUS) then
+          local amount = cc.runOverDamage * (1 + math.min(1, math.abs(car.speed) / car.maxSpeed))
+          local travel = car.speed >= 0 and car.angle or car.angle + math.pi
+          if sv.troops:hurt(s, i, amount, travel) then
+            soldierDown(server, s, car.driver, travel, "impact")
+          end
+        end
+      end
+    end
+  end
+end
+
+function Level.serverStep(server, dt)
+  if not sv then
+    return
+  end
+  sv.troops:update(server, dt)
+  runOver(server)
+  stepNests(dt)
+  stepGarrisons(server, dt)
+  Cameo.serverStep(server, dt, cityMap())
+  talk(server, dt)
+  checkReached(server)
+  sync(server)
 end
 
 --- A bullet through (x, y): the `serverShotAt` convention. Their own rounds
 --- (owned by nobody) pass through their side. A round takes off what it
 --- carries (the gun's damage, tier and all); a blast, which carries
---- nothing and asks a few times over, 20 a time.
-function Level.serverShotAt(server, x, y, radius, by, angle, damage)
+--- nothing and asks a few times over, 20 a time. `dtype` is the kill's cause.
+function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if not sv or by == 0 then
     return false
   end
@@ -477,7 +775,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   if sv.troops:hurt(s, i, damage or Combine.SHOT_DAMAGE, angle) then
-    soldierDown(server, s, by, angle)
+    soldierDown(server, s, by, angle, dtype)
   end
   return true
 end
@@ -503,17 +801,44 @@ end
 -- Client --------------------------------------------------------------------
 
 local troops = {} -- id -> { x, y, dx, dy, angle, hp, alert, bob, stride, say, sayT, shout }
+local doors = {} -- { x, y, nx, ny, t }: garrisons' doors standing open
 local lastTick = 0
+local heardAt = 0 -- when the last C17_TROOPS came
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped: a
+-- late state from a map just left can't leave a ghost behind for longer
 local time = 0
 
 function Level.clear()
-  troops, lastTick = {}, 0
+  troops, doors, lastTick = {}, {}, 0
   Cameo.clear()
+  Corpses.clear()
+end
+
+--- The arc of the MG nest's gun soldier `s` (as drawn) stands at, or nil.
+local function gunnersArc(s)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  for _, b in ipairs(map and (map.nests or map.bunkers) or {}) do
+    local n = b.nest
+    if (s.dx - n.x) ^ 2 + (s.dy - n.y) ^ 2 < GUNNER_ON * GUNNER_ON then
+      return n.arc
+    end
+  end
 end
 
 function Level.update(dt)
   time = time + dt
+  if next(troops) and love.timer.getTime() - heardAt > STALE then
+    troops = {}
+  end
   Cameo.update(dt)
+  Corpses.update(dt)
+  for i = #doors, 1, -1 do
+    doors[i].t = doors[i].t - dt
+    if doors[i].t <= 0 then
+      table.remove(doors, i)
+    end
+  end
   local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
     local ex, ey = s.x - s.dx, s.y - s.dy
@@ -523,8 +848,10 @@ function Level.update(dt)
       s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
       s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
     end
-    -- His cone opens out while he is on edge and closes again after.
-    local fov = s.wary and Level.alertFov or Level.fov
+    -- His cone opens out while he is on edge and closes again after; on an
+    -- MG nest's gun it is as wide as the gun turns, the way the host sees it.
+    local arc = gunnersArc(s)
+    local fov = arc and 2 * arc or (s.wary and Level.alertFov or Level.fov)
     s.fov = s.fov + (fov - s.fov) * math.min(1, dt * 4)
     if s.say then
       s.sayT = s.sayT - dt
@@ -535,10 +862,34 @@ function Level.update(dt)
   end
 end
 
---- Their cones of sight, on the ground under everything.
+--- A garrison's door standing open: the doorway lit from inside and the
+--- light falling out across the ground, fading as it shuts.
+local function drawDoor(d)
+  local k = math.min(1, d.t / 0.6, (Level.doorOpen - d.t) / 0.25) -- opening, open, shutting
+  local ax, ay = d.ny ~= 0 and 1 or 0, d.nx ~= 0 and 1 or 0 -- along the face
+  local w = 40
+  local x0, y0 = d.x - ax * w / 2, d.y - ay * w / 2
+  local spill = 90 * k
+  love.graphics.setColor(0.55, 0.85, 1, 0.22 * k)
+  love.graphics.polygon("fill", x0, y0, x0 + ax * w, y0 + ay * w,
+    x0 + ax * (w + 30) + d.nx * spill, y0 + ay * (w + 30) + d.ny * spill,
+    x0 - ax * 30 + d.nx * spill, y0 - ay * 30 + d.ny * spill)
+  love.graphics.setColor(0.80, 0.95, 1, 0.9 * k)
+  love.graphics.rectangle("fill", math.min(x0, x0 - d.nx * 8), math.min(y0, y0 - d.ny * 8),
+    ax * w + math.abs(d.nx) * 8, ay * w + math.abs(d.ny) * 8)
+end
+
+--- Their cones of sight, on the ground under everything (unless the
+--- sight-cones toggle hides them).
 function Level.drawBelowCars()
-  for _, s in pairs(troops) do
-    Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+  for _, d in ipairs(doors) do
+    drawDoor(d)
+  end
+  Corpses.draw()
+  if not Features.any("hideSightCones") then -- the ` key (sight-cones)
+    for _, s in pairs(troops) do
+      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+    end
   end
   Cameo.drawBelowCars()
 end
@@ -606,6 +957,8 @@ function Level.drawAboveCars()
   for _, s in pairs(troops) do
     drawSoldier(s)
   end
+  local city = Features.byName["city-map"]
+  Nests.draw(city and Level.maps[city.current] and city.map, troops)
   Cameo.drawAboveCars()
   -- What they say, over all of them.
   for _, s in pairs(troops) do
@@ -618,12 +971,19 @@ function Level.drawAboveCars()
 end
 
 Level.clientMessages = {
+  C17_DOOR = function(_client, args)
+    local x, y, nx, ny = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and nx and ny then
+      doors[#doors + 1] = { x = x, y = y, nx = nx, ny = ny, t = Level.doorOpen }
+      Sounds.play("door", x, y)
+    end
+  end,
   C17_TROOPS = function(_client, args)
     local tick = tonumber(args[1])
     if not tick or tick <= lastTick then
       return
     end
-    lastTick = tick
+    lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
     for i = 2, #args - 6, 7 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
@@ -661,12 +1021,16 @@ Level.clientMessages = {
   C17_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and troops[id]
     if id then
       troops[id] = nil
     end
-    if x and y and Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    if x and y then
+      -- His body, where he was drawn, knocked over the way the round went.
+      Corpses.add(s and s.dx or x, s and s.dy or y, angle, lookFor(s and s.gun))
+      if Features.byName.pedestrians then
+        require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+      end
     end
   end,
 }

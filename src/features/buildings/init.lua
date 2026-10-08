@@ -154,9 +154,9 @@ Buildings.usables = {
     color = { 0.95, 0.3, 0.3 }, cooldown = 8, fullReason = "healthy",
     apply = function(server, player)
       local weapons = Features.byName.weapons
-      -- It stops a bleed too (the damage feature's), even at full health.
+      -- It stops a bleed and cures poison too (the damage feature's), even at full health.
       local damage = Features.byName.damage
-      local stopped = damage ~= nil and damage:serverStopBleeding(server, player.id)
+      local stopped = damage ~= nil and damage:serverTreat(server, player.id)
       local healed = weapons ~= nil and weapons:serverHeal(server, player, Buildings.medkitHeal)
       return healed or stopped
     end,

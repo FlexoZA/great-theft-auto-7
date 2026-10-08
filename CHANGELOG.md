@@ -15,6 +15,128 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- A-Man's trail goes on: take the star at the Citadel's doors in City 17
+  and he steps out in front of you, and sends everyone the long way round,
+  to the Outer City: packed concrete blocks, canals and bridges, parks,
+  and a big open square on an island in the middle, all of it left to
+  rot: collapsed buildings, holed roofs, rusted wrecks, weeds through the
+  paving and rubbish in the canals.
+- The Combine hold the Outer City: guards at the choke points on the way
+  in and squads on patrol. Get near a guard station and its door slides
+  open and more of them come pouring out.
+- The Hunter-Chopper: a Combine gunship circling the Outer City's square.
+  You hear its rotor from across the city; when its gun locks on to you a
+  red beam and a rising whine give you a second to get moving before the
+  burst. Run across its line, or get behind something. Every so often it
+  peels off with a klaxon on a bombing run, dives over you and drops a
+  stick of bombs down both sides of it: watch the red rings and get out
+  from under. Its rounds are blue. It calls for help as you shoot it:
+  at 80% health it sets Combine soldiers down under it, three lots of
+  three 8 seconds apart, and at 30% A-Man blinks in beside you, opens his
+  briefcase on three Hunters (more with more players) and blinks out
+  again. Shoot it down (3600 health for one player, more with more) and
+  it spins out, crashes in a fireball, spills koins and leaves a burning
+  wreck by the way out.
+- Combine soldiers no longer burst into a red splat when they go down:
+  they fall where they stood, knocked over by the shot, gun dropped by
+  their hand, and lie there a while.
+- A-Man's trail has music of its own for each stop: City 17 keeps his
+  industrial rock, the Outer City gets a fast electronic chase, the Coast
+  a wide-open, uneasy piece with the sea in it and something under the
+  sand, the Winding Road heavy metal (galloping riffs, double kick and a
+  screaming lead guitar) and the Citadel slow, heavy industrial metal with
+  a cold machine arpeggio, clanking far below and the Combine's alarm.
+- A-Man's trail goes on up the coast: the star by the Hunter-Chopper's
+  wreck takes everyone to the Coast, one long beach winding north between
+  the sea and green mountains, narrow most of the way and opening into
+  wide coves strewn with rocks, driftwood and a beached boat. The sea runs
+  on out west past the edge, the mountains roll on east, and on this long
+  map the minimap shows the part round you and scrolls as you go.
+- The Combine hold three bunkers on the Coast, each with a machine gun
+  nest in front of it raking the beach and four soldiers keeping it:
+  one on the gun, three with rifles round the bunker. They hold their
+  ground rather than chase you, and when the gunner drops, another runs
+  to the gun. The gun only swings so far: get round its side. The
+  riflemen fight from cover: they duck behind the bunker or a rock, lean
+  out to shoot and duck back, and dive for cover the moment you hit them
+  in the open.
+- Antlions: swarms of them, over a hundred in all, lie buried along the
+  Coast and burst up out of the sand when you come near, run you down and
+  bite, leaping the last of the way now and then. You can only just
+  outrun them at a sprint. Walk away and they burrow back down to wait
+  for you.
+- The Coast has a boss: clear the point of every antlion and soldier and
+  the Antlion Guard digs its way up out of the sand. It swipes, paws the
+  sand and charges (it reels if it runs into a rock), and rears up to
+  scream: a cone shows on the ground, then a sound wave rolls down it,
+  hurting and blowing back everyone caught in the open. Get out of the
+  cone or behind something. Bring it down and the way on opens by its
+  body.
+- The Winding Road, after the Coast: get back in your car and drive one
+  long mountain road from the valley floor up to the pass, beside the
+  river and over it on six bridges, up a stack of hairpins and along the
+  gorge, with snow on the peaks near the top. It is wide, room for eight
+  cars abreast, and the bridges' railings stop cars but not sight or
+  bullets. Left your car in the garage? You are lent a Scout Car to drive
+  there instead; it stays behind when you leave.
+- The Scout Car, after Half-Life 2's buggy: a bare tube frame on big
+  off-road tyres with the engine out back and a tau cannon bolted to the
+  side. Quick off the line and nimble, but light and easy to shoot up
+  (295 top speed, 560 acceleration, 165 hitpoints). 240 koins at a
+  vehicle factory.
+- Boost: hold Shift while driving a Scout Car to double its speed for up
+  to 3 seconds, off a meter beside your health that refills in 5 once you
+  let go (run it dry and let go of Shift before it boosts again).
+- The Scout Car carries an auto turret for its driver: the fire button
+  shoots it, 30 rounds a magazine, never out of ammo but still reloaded (X).
+- The Scout Car's tau cannon fires: right mouse while you drive one. Tap
+  for quick bolts, or hold to charge one heavy shot (up to 150 damage)
+  that kicks the car back when it goes. Hold it too long and it overloads,
+  going off by itself and burning your car. It never runs out.
+- The Combine hold every bridge on the Winding Road but the top one: two
+  machine-gun nests at the far end fire back across it, riflemen fight
+  from behind concrete blocks laid as a chicane, and a bunker beside the
+  road keeps sending soldiers out after you while you are near. Drive
+  through fast, shoot the gunners, or run the soldiers down: on the road,
+  a car at speed kills a Combine soldier outright. Three burnt-out cars lie
+  staggered across the road short of every bridge, to take cover behind.
+- Hunters stalk the open road between the Winding Road's bridges: two on
+  each long stretch, walking it up and down and opening up on anyone who
+  comes along.
+- Rollermines, after Half-Life 2's: steel balls sunk in the ground along
+  the Winding Road, with more scattered at random over the whole map,
+  somewhere different every time. Come near and they hop out, blades
+  snapping open, and roll after you, a little slower than a cruising Scout
+  Car, beeping as they close in. Their blades shock and stun you the
+  moment they touch you, and then they blow up, on you or your car. Shoot
+  them first: two pistol rounds set one off, and its blast sets off any
+  others near it.
+- Car stations on the Winding Road: a pad short of every bridge. Lost your
+  buggy? Get out of the line of fire, stand on a pad and press F, and your
+  Scout Car comes up on it, whole and loaded (one every 10 seconds). A
+  wrecked car leaves you alive on foot where it went up.
+- The Poison Zombie waits at the top of the Winding Road: a bloated,
+  wheezing hulk with a poison headcrab on his head and more on his back.
+  He throws them at you, and claws anyone who gets close. Shoot the crabs,
+  or run them over; drive into him and your car bounces off, hurting you
+  both. Beat him to finish the level.
+- Poison, a new kind of damage: a poison headcrab's bite leaves you
+  poisoned, losing 4 health a second for 6 seconds, with green bubbles
+  rising off you. A dodge or a medkit cures it. It shows in the
+  resistances on the inventory screen; nothing protects against it yet.
+- Into the Citadel: beat the Poison Zombie and his EXIT star takes you
+  inside at last. One catwalk climbs a vast dark shaft, platform to
+  platform, and the Combine hold all of it: guards on every platform,
+  rollermines on the catwalks, Hunters near the top, and a machine gun
+  firing straight down the long span over the core, with nowhere on it
+  to hide.
+- A-Man waits at the top of the Citadel: step onto the top platform and
+  he blinks in. He is far tougher than when he walks the city (5000
+  health), teleports straight through you, and every time you knock
+  another tenth off his health his briefcase opens on something you
+  fought on the way: Combine soldiers, Hunters, rollermines, antlions or
+  his sentry turrets, and when he is nearly beaten, two lots at once. Beat
+  him to finish his trail; he drops his teleport, uncommon or better.
 - Every park has a bum living on one of its benches, his shopping cart parked beside him. Stand next
   to him and press F to hire him for 1000 Fcks: pick another player or a bot and he goes after them,
   shouting abuse, and every punch leaves them bleeding (5 a second for 6 s). He gives up after 75 s,
@@ -35,6 +157,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   or shoots one of them, has the crew after them, and their rounds bring officers down.
 
 ### Changed
+- A dodge now stops bleeding (and poison, and a shock running through you)
+  the way it already puts out a fire; a medkit still stops a bleed too.
+- Driving puts your weapons away: no guns, abilities or grenades from
+  behind the wheel, and their buttons leave the screen until you get out.
+  Most cars are unarmed now; get out to fight.
 - Parks are no longer plain grass: gravel paths lead in from each side to a paved plaza with a
   fountain, with striped lawns, low hedges, flower beds, lamps and benches.
 - On the minimap and the big map, every building is now drawn in its owner's colour (the colour of

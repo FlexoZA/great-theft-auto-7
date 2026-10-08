@@ -1,4 +1,4 @@
--- The fires that never go out (a map's `fires`, City 17's): flames and
+-- The fires that never go out (a map's `fires`: City 17's and the Outer City's): flames and
 -- smoke drawn every frame over the canvas, and on the host, anyone on foot
 -- who walks into a fire on the ground catches alight. Everything moves by
 -- the clock and each fire's seed, so it needs no state and no messages.

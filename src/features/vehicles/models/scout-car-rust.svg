@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The scout car, after Half-Life 2's buggy, from above, nose to the right:
+     an open tube frame with a roll cage over one seat, big off-road tyres on
+     long arms, the engine bare at the back and the tau cannon on its mount
+     along the right-hand side. -->
+<svg viewBox="0 0 540 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Suspension arms and axles, under everything -->
+  <g stroke="#3b3a38" stroke-width="9" fill="none">
+    <line x1="110" y1="60" x2="110" y2="240"/>
+    <line x1="88" y1="92" x2="110" y2="60"/>
+    <line x1="88" y1="208" x2="110" y2="240"/>
+    <line x1="400" y1="94" x2="418" y2="60"/>
+    <line x1="440" y1="104" x2="418" y2="60"/>
+    <line x1="400" y1="206" x2="418" y2="240"/>
+    <line x1="440" y1="196" x2="418" y2="240"/>
+  </g>
+  <!-- Coil-over shocks -->
+  <g fill="#c9a227" stroke="#5a4a12" stroke-width="2">
+    <rect x="98" y="66" width="22" height="26" rx="5"/>
+    <rect x="98" y="208" width="22" height="26" rx="5"/>
+    <rect x="406" y="68" width="22" height="26" rx="5"/>
+    <rect x="406" y="206" width="22" height="26" rx="5"/>
+  </g>
+
+  <!-- Tyres: fat rear, narrower front, chunky tread -->
+  <g fill="#1d1d1e" stroke="#0c0c0c" stroke-width="3">
+    <rect x="58" y="8" width="104" height="58" rx="14"/>
+    <rect x="58" y="234" width="104" height="58" rx="14"/>
+    <rect x="372" y="14" width="92" height="50" rx="13"/>
+    <rect x="372" y="236" width="92" height="50" rx="13"/>
+  </g>
+  <g fill="#3a3a3c">
+    <rect x="66" y="12" width="10" height="50"/><rect x="84" y="12" width="10" height="50"/>
+    <rect x="102" y="12" width="10" height="50"/><rect x="120" y="12" width="10" height="50"/>
+    <rect x="138" y="12" width="10" height="50"/>
+    <rect x="66" y="238" width="10" height="50"/><rect x="84" y="238" width="10" height="50"/>
+    <rect x="102" y="238" width="10" height="50"/><rect x="120" y="238" width="10" height="50"/>
+    <rect x="138" y="238" width="10" height="50"/>
+    <rect x="380" y="18" width="9" height="42"/><rect x="396" y="18" width="9" height="42"/>
+    <rect x="412" y="18" width="9" height="42"/><rect x="428" y="18" width="9" height="42"/>
+    <rect x="444" y="18" width="9" height="42"/>
+    <rect x="380" y="240" width="9" height="42"/><rect x="396" y="240" width="9" height="42"/>
+    <rect x="412" y="240" width="9" height="42"/><rect x="428" y="240" width="9" height="42"/>
+    <rect x="444" y="240" width="9" height="42"/>
+  </g>
+  <!-- Hubs -->
+  <g fill="#77736b" stroke="#2c2b29" stroke-width="2">
+    <rect x="98" y="58" width="24" height="12" rx="3"/>
+    <rect x="98" y="230" width="24" height="12" rx="3"/>
+    <rect x="406" y="60" width="24" height="10" rx="3"/>
+    <rect x="406" y="230" width="24" height="10" rx="3"/>
+  </g>
+
+  <!-- Floor pan -->
+  <path d="M60,88 L370,82 L462,112 L462,188 L370,218 L60,212 Z" fill="#2f302e"/>
+  <path d="M74,100 L366,96 L446,120 L446,180 L366,204 L74,200 Z" fill="#3c3d3a"/>
+
+  <!-- Engine, bare at the back: block, heads, intake, radiator -->
+  <rect x="66" y="108" width="92" height="84" rx="6" fill="#5d5f60" stroke="#262728" stroke-width="3"/>
+  <rect x="74" y="114" width="76" height="22" rx="4" fill="#7b7e80"/>
+  <rect x="74" y="164" width="76" height="22" rx="4" fill="#7b7e80"/>
+  <g fill="#444648">
+    <rect x="80" y="118" width="10" height="14" rx="2"/><rect x="98" y="118" width="10" height="14" rx="2"/>
+    <rect x="116" y="118" width="10" height="14" rx="2"/><rect x="134" y="118" width="10" height="14" rx="2"/>
+    <rect x="80" y="168" width="10" height="14" rx="2"/><rect x="98" y="168" width="10" height="14" rx="2"/>
+    <rect x="116" y="168" width="10" height="14" rx="2"/><rect x="134" y="168" width="10" height="14" rx="2"/>
+  </g>
+  <circle cx="112" cy="150" r="13" fill="#2a2b2c" stroke="#8d9093" stroke-width="3"/>
+  <rect x="160" y="112" width="12" height="76" rx="2" fill="#4a4d50"/>
+  <g stroke="#2a2c2e" stroke-width="2">
+    <line x1="160" y1="122" x2="172" y2="122"/><line x1="160" y1="134" x2="172" y2="134"/>
+    <line x1="160" y1="146" x2="172" y2="146"/><line x1="160" y1="158" x2="172" y2="158"/>
+    <line x1="160" y1="170" x2="172" y2="170"/><line x1="160" y1="182" x2="172" y2="182"/>
+  </g>
+  <!-- Exhausts out the back -->
+  <g fill="#8a8580" stroke="#2e2c2a" stroke-width="3">
+    <rect x="30" y="116" width="44" height="14" rx="6"/>
+    <rect x="30" y="170" width="44" height="14" rx="6"/>
+  </g>
+  <circle cx="34" cy="123" r="5" fill="#141414"/>
+  <circle cx="34" cy="177" r="5" fill="#141414"/>
+
+  <!-- Seat and wheel -->
+  <rect x="206" y="118" width="74" height="64" rx="10" fill="#4a3a2a" stroke="#1d1712" stroke-width="3"/>
+  <rect x="192" y="114" width="24" height="72" rx="8" fill="#5b4732" stroke="#1d1712" stroke-width="3"/>
+  <g stroke="#2b2118" stroke-width="2">
+    <line x1="220" y1="124" x2="220" y2="176"/><line x1="240" y1="124" x2="240" y2="176"/>
+    <line x1="260" y1="124" x2="260" y2="176"/>
+  </g>
+  <line x1="300" y1="150" x2="336" y2="150" stroke="#1b1b1b" stroke-width="6"/>
+  <circle cx="300" cy="150" r="20" fill="none" stroke="#151515" stroke-width="7"/>
+  <!-- Pedal box and the dash -->
+  <rect x="338" y="122" width="40" height="56" rx="6" fill="#262626"/>
+  <circle cx="352" cy="138" r="5" fill="#d8d4c6"/>
+  <circle cx="352" cy="162" r="5" fill="#d8d4c6"/>
+
+  <!-- The tube frame -->
+  <g fill="none" stroke="#2a1608" stroke-width="15" stroke-linejoin="round">
+    <path d="M60,88 L370,82 L462,112 L462,188 L370,218 L60,212 Z"/>
+  </g>
+  <g fill="none" stroke="#a24f22" stroke-width="10" stroke-linejoin="round">
+    <path d="M60,88 L370,82 L462,112 L462,188 L370,218 L60,212 Z"/>
+  </g>
+  <!-- Roll cage: two hoops over the seat, rails along the top, a cross brace behind -->
+  <g fill="none" stroke="#2a1608" stroke-width="13" stroke-linecap="round">
+    <line x1="182" y1="86" x2="182" y2="214"/>
+    <line x1="322" y1="84" x2="322" y2="216"/>
+    <line x1="182" y1="104" x2="322" y2="100"/>
+    <line x1="182" y1="196" x2="322" y2="200"/>
+    <line x1="182" y1="104" x2="66" y2="150"/>
+    <line x1="182" y1="196" x2="66" y2="150"/>
+    <line x1="322" y1="100" x2="420" y2="128"/>
+    <line x1="322" y1="200" x2="420" y2="172"/>
+  </g>
+  <g fill="none" stroke="#bf6230" stroke-width="8" stroke-linecap="round">
+    <line x1="182" y1="86" x2="182" y2="214"/>
+    <line x1="322" y1="84" x2="322" y2="216"/>
+    <line x1="182" y1="104" x2="322" y2="100"/>
+    <line x1="182" y1="196" x2="322" y2="200"/>
+    <line x1="182" y1="104" x2="66" y2="150"/>
+    <line x1="182" y1="196" x2="66" y2="150"/>
+    <line x1="322" y1="100" x2="420" y2="128"/>
+    <line x1="322" y1="200" x2="420" y2="172"/>
+  </g>
+  <!-- Highlights along the top of the tubes -->
+  <g fill="none" stroke="#e08a52" stroke-width="3" stroke-linecap="round">
+    <line x1="180" y1="90" x2="180" y2="210"/>
+    <line x1="320" y1="88" x2="320" y2="212"/>
+    <line x1="186" y1="101" x2="318" y2="97"/>
+  </g>
+  <!-- Rust and scuffs -->
+  <g fill="#5e2c12" fill-opacity="0.8">
+    <circle cx="140" cy="88" r="5"/><circle cx="250" cy="212" r="6"/>
+    <circle cx="430" cy="118" r="4"/><circle cx="322" cy="150" r="4"/>
+    <circle cx="96" cy="212" r="4"/>
+  </g>
+
+  <!-- Push bar and headlights at the nose -->
+  <path d="M462,118 L486,126 L486,174 L462,182" fill="none" stroke="#2a1608" stroke-width="13" stroke-linejoin="round"/>
+  <path d="M462,118 L486,126 L486,174 L462,182" fill="none" stroke="#9a9590" stroke-width="8" stroke-linejoin="round"/>
+  <g fill="#f6e7a0" stroke="#3a3528" stroke-width="3">
+    <circle cx="470" cy="134" r="9"/>
+    <circle cx="470" cy="166" r="9"/>
+  </g>
+
+  <!-- The tau cannon on its mount, along the right-hand side, pointing forward -->
+  <rect x="150" y="196" width="34" height="28" rx="5" fill="#2e3033" stroke="#121314" stroke-width="3"/>
+  <rect x="168" y="200" width="196" height="26" rx="12" fill="#3d4146" stroke="#141516" stroke-width="3"/>
+  <rect x="176" y="204" width="180" height="8" rx="4" fill="#6a7077"/>
+  <g fill="#f2a03a" stroke="#6b3a0c" stroke-width="2">
+    <circle cx="206" cy="213" r="7"/>
+    <circle cx="230" cy="213" r="7"/>
+    <circle cx="254" cy="213" r="7"/>
+  </g>
+  <g fill="#ffe2a0">
+    <circle cx="204" cy="211" r="2.5"/><circle cx="228" cy="211" r="2.5"/><circle cx="252" cy="211" r="2.5"/>
+  </g>
+  <rect x="362" y="204" width="36" height="18" rx="4" fill="#25272a" stroke="#101112" stroke-width="3"/>
+  <circle cx="398" cy="213" r="6" fill="#0d0d0e"/>
+</svg>

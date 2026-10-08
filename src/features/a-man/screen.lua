@@ -23,6 +23,10 @@ Screen.lines = {
   "I have an... appointment. In this city. You are, regrettably... in my way.",
   "These glasses? Prescription. The tag is... a reminder. Of the price. Of everything.",
   "Time, I'm afraid... is up. Nothing personal. My case is... full of surprises.",
+  "The Citadel? Not... yet. There is another way round. A scenic one. I insist.",
+  "Sea air. Very... bracing. Do keep to the beach. The mountains are... not for you.",
+  "You found a car. How... resourceful. The road is long. And the bridges are... old.",
+  "So. You came the long way round. After all that... you still want in. Very well. Mind the... drop.",
 }
 
 Screen.color = { 0.55, 0.95, 0.65 }

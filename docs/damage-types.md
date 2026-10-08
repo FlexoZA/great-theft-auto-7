@@ -1,28 +1,30 @@
 # Damage types
 
 Every hit in the game says what kind of hit it is: a bullet, a blast, a
-flame, a crash, a bolt of lightning or a fist. Equipment can then resist
+flame, a crash, a bolt of lightning, a fist or a poison bite. Equipment can then resist
 some kinds and not others, fire can keep burning after the hit, and the
 kill feed and death effects can say what happened.
 
 ## The types
 
-| Type        | What deals it                                                                          | Kill feed verb |
-| ----------- | -------------------------------------------------------------------------------------- | -------------- |
-| `bullet`    | every gun's round (the default for anything a gun fires)                               | wasted         |
-| `explosive` | a rocket's blast, the D-Day mortar                                                     | blew up        |
-| `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires  | burned         |
-| `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream   | flattened      |
-| `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot                        | fried          |
-| `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels), the Tripod's cage | beat down      |
+| Type        | What deals it                                                                                                                                                                                                      | Kill feed verb |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `bullet`    | every gun's round (the default for anything a gun fires)                                                                                                                                                           | wasted         |
+| `explosive` | a rocket's blast, grenades, the D-Day mortar, rollermines going off, the Hunter-Chopper's bombs and crash                                                                                                          | blew up        |
+| `fire`      | the flamethrower, the heat ray ability, the Tripod's heat ray, the open-borders fires                                                                                                                              | burned         |
+| `impact`    | being run over, the Runner's trample, a leap or slam landing, Karen's ram and scream, a teleport through you (A-Man's blink), the Antlion Guard's swipe, charge and scream, ramming the Poison Zombie (to the car) | flattened      |
+| `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot, the tau cannon, a rollermine's blades                                                                                                             | fried          |
+| `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels, park bums, the open-borders horde, antlions, the Poison Zombie's claws), the Tripod's cage                                                     | beat down      |
+| `poison`    | the poison headcrabs' bites (the Poison Zombie's)                                                                                                                                                                  | poisoned       |
 
 The list lives in `src/features/damage/init.lua` (`Damage.types`), one
 entry per type with its name, colour and kill feed words. A new type is a
 new entry there. Anything that hurts without saying what it is counts as
 `Damage.DEFAULT` (`bullet`).
 
-Cars are left alone for now: crashes still do no damage, and a car takes
-every type the same.
+Cars are left alone for now: crashes still do no damage (driving into the
+Poison Zombie is the one exception: the car takes 15 impact), and a car
+takes every type the same.
 
 ## What each type does
 
@@ -32,13 +34,15 @@ Besides the damage, each type does something to a player on foot:
 | ----------- | ------------------------------------------------------------------------------------------- |
 | `bullet`    | nothing more                                                                                |
 | `fire`      | a fire that means it sets you alight: you burn on (3-4 s) after you are out of it           |
-| `melee`     | bleeding: 3 a second for 4 s; a medkit stops it                                             |
+| `melee`     | bleeding: 3 a second for 4 s; a dodge or a medkit stops it                                  |
+| `poison`    | poisoned: 4 a second for 6 s; a dodge or a medkit cures it                                  |
 | `shock`     | a hit of 20 or more stuns: held still for 1 s (no walking, shooting or dodging); a live round zaps you: shock runs on (3 s, 8 a second) after the hit |
 | `impact`    | knocked back 36 px and down for 0.6 s                                                       |
 | `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
 
-Burning, zaps and bleeding top up rather than stack; a dodge puts a fire
-out and shakes off a zap. A round can carry a zap (`electrify`) or a stun
+Burning, zaps, bleeding and poison top up rather than stack; a dodge shakes
+off all four (the way you'd roll out a fire), and a medkit stops a bleed and
+cures poison too. A round can carry a zap (`electrify`) or a stun
 (`stun`, seconds) whatever it hits for.
 
 ## What resists what

@@ -23,13 +23,15 @@
 --   impact     knocked back a little, and down: held still for a moment
 --   explosive  blown back from the blast, further the harder it hit, and
 --              dazed: your screen swims
+--   poison     you are poisoned for a while: it hurts on after the hit,
+--              until it runs out, you dodge or a medkit cures it
 --
--- Burning, being zapped and bleeding hurt a little every quarter second
--- until they run out. Another dose while one is on tops its time back up
--- at the stronger rate; it never stacks. A dodge puts a fire out and
--- shakes off a zap (the on-foot feature raises `serverDodged`), a medkit
--- stops the bleeding (buildings calls
--- `serverStopBleeding`). Getting into a car, dying or leaving ends them all.
+-- Burning, being zapped, bleeding and being poisoned hurt a little every
+-- quarter second until they run out. Another dose while one is on tops its
+-- time back up at the stronger rate; it never stacks. A dodge shakes off
+-- all four, the way you'd roll out a fire (the on-foot feature raises
+-- `serverDodged`), and a medkit stops the bleeding and cures the poison
+-- too (buildings calls `serverTreat`). Getting into a car, dying or leaving ends them all.
 -- Stunned or down, you are held (the `serverHeld` / `held` conventions: no
 -- walking, shooting or dodging). Everyone sees every status on everyone.
 --
@@ -78,6 +80,7 @@ Damage.types = {
   impact = { name = "Impact", color = { 0.75, 0.75, 0.8 }, killed = "flattened", died = "was flattened" },
   shock = { name = "Shock", color = { 0.5, 0.8, 1 }, killed = "fried", died = "was fried" },
   melee = { name = "Melee", color = { 0.9, 0.4, 0.4 }, killed = "beat down", died = "was beaten down" },
+  poison = { name = "Poison", color = { 0.55, 0.9, 0.3 }, killed = "poisoned", died = "was poisoned" },
 }
 
 -- Tuning ------------------------------------------------------------------
@@ -85,6 +88,8 @@ Damage.burnTime = 3 -- seconds someone burns when a fire doesn't say
 Damage.burnDps = 8 -- fire damage a second while they do, likewise
 Damage.bleedTime = 4 -- seconds a melee hit leaves you bleeding
 Damage.bleedDps = 3 -- melee damage a second while you do
+Damage.poisonTime = 6 -- seconds a poison hit leaves you poisoned
+Damage.poisonDps = 4 -- poison damage a second while you are
 Damage.stunTime = 1 -- seconds a shock holds you still
 Damage.stunMin = 20 -- damage a single shock hit must do to stun you by itself
 Damage.zapTime = 3 -- seconds a zap runs on through you when it doesn't say
@@ -102,8 +107,8 @@ Damage.maxResist = 0.8 -- the most of any type anything worn, alone or together,
 local TICK = 0.25 -- seconds between bites of a burn, a zap or a bleed
 
 --- The statuses there are, and the type the ones that hurt deal.
-local HURTS = { burn = "fire", zap = "shock", bleed = "melee" }
-local STATUSES = { burn = true, zap = true, bleed = true, stun = true, down = true, daze = true }
+local HURTS = { burn = "fire", zap = "shock", bleed = "melee", poison = "poison" }
+local STATUSES = { burn = true, zap = true, bleed = true, poison = true, stun = true, down = true, daze = true }
 
 --- The entry for type `dtype`, the default's for nil or anything unknown.
 function Damage.of(dtype)
@@ -116,7 +121,7 @@ function Damage.key(dtype)
 end
 
 --- The types in the order everything lists them (cards, the inventory).
-Damage.order = { "bullet", "explosive", "fire", "impact", "shock", "melee" }
+Damage.order = { "bullet", "explosive", "fire", "impact", "shock", "melee", "poison" }
 
 --- One piece's resistance `r` as it counts: a number from 0 to maxResist.
 function Damage.clampResist(r)
@@ -236,6 +241,9 @@ function Damage:drawAboveCars(client, camera)
       if self:has(id, "bleed") then
         Effects.blood(x, y, id, clock)
       end
+      if self:has(id, "poison") then
+        Effects.bubbles(x, y, id, clock)
+      end
       if self:has(id, "burn") then
         Effects.flames(x, y, id, clock)
       end
@@ -260,9 +268,13 @@ function Damage:drawHUD(client)
   if self:has(me, "zap") then
     says[#says + 1] = "ELECTRIFIED: dodge to shake it off"
   end
+  local key = Controls.bindings("use-medkit")[1]
+  local medkit = "a medkit" .. (key and " (" .. Controls.name(key) .. ")" or "")
   if self:has(me, "bleed") then
-    local key = Controls.bindings("use-medkit")[1]
-    says[#says + 1] = "BLEEDING: a medkit" .. (key and " (" .. Controls.name(key) .. ")" or "") .. " stops it"
+    says[#says + 1] = "BLEEDING: dodge or " .. medkit .. " stops it"
+  end
+  if self:has(me, "poison") then
+    says[#says + 1] = "POISONED: dodge or " .. medkit .. " cures it"
   end
   if self:has(me, "stun") then
     says[#says + 1] = "STUNNED"
@@ -416,9 +428,17 @@ function Damage:serverBurning(id)
   return self:serverHas(id, "burn")
 end
 
---- Stop player `id` bleeding (a medkit). Returns true if they were.
+--- Stop player `id` bleeding. Returns true if they were.
 function Damage:serverStopBleeding(server, id)
   return self:serverCure(server, id, "bleed")
+end
+
+--- A medkit: stops player `id` bleeding and cures their poison. Returns
+--- true if there was anything to stop.
+function Damage:serverTreat(server, id)
+  local bled = self:serverCure(server, id, "bleed")
+  local poisoned = self:serverCure(server, id, "poison")
+  return bled or poisoned
 end
 
 --- Knock `victim` `distance` px along `angle` over Damage.shoveTime (on-foot
@@ -450,6 +470,8 @@ function Damage:serverPlayerDamaged(server, victim, attacker, amount, dtype, ang
   local share = self:serverShare(server, victim, dtype)
   if dtype == "melee" then
     self:serverAfflict(server, victim, "bleed", self.bleedTime, self.bleedDps, attacker and attacker.id)
+  elseif dtype == "poison" then
+    self:serverAfflict(server, victim, "poison", self.poisonTime, self.poisonDps, attacker and attacker.id)
   elseif dtype == "shock" and amount >= self.stunMin then
     self:serverAfflict(server, victim, "stun", self.stunTime * share)
   elseif dtype == "impact" then
@@ -498,10 +520,12 @@ function Damage:serverStep(server, dt)
   end
 end
 
---- Stop, drop and roll: a dodge puts the flames out and shakes off a zap.
+--- Stop, drop and roll: a dodge shakes off every status that hurts, the
+--- flames, a zap, a bleed and the poison.
 function Damage:serverDodged(server, player)
-  self:extinguish(server, player.id)
-  self:serverCure(server, player.id, "zap")
+  for status in pairs(HURTS) do
+    self:serverCure(server, player.id, status)
+  end
 end
 
 function Damage:serverPlayerJoined(server, player)
