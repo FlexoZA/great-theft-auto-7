@@ -691,10 +691,13 @@ couple of small conventions rather than requiring each other:
   (`"iron"`) for a crate of `amount` of it (a human takes what fits in
   their bag, a grenade, medkit or drink its quick slot first; the rest
   stays as a smaller crate).
-  `pickups:serverDropAmmo(server, x, y, magazines)` drops a box for one of
-  the guns that take ammo, picked at random and sized in that gun's
-  magazines.
-  `pickups:serverDropEnemy(server, x, y)` is what every enemy calls when it
+  `pickups:serverDropAmmo(server, x, y, magazines, by)` drops a box for one of
+  the guns that take ammo, sized in that gun's magazines: half the time
+  (`pickups.carriedShare`) one the player it is for carries in a weapon
+  slot (`by`, else the nearest human), otherwise any, by each gun's
+  `dropWeight` either way (guns.lua: uzi and AK 3, shotgun 2, sniper and
+  flamethrower 1, rocket launcher and minigun 0.5).
+  `pickups:serverDropEnemy(server, x, y, by)` is what every enemy calls when it
   goes down (Karen's simps, the hunt's squirrels, D-Day's soldiers, the
   police's officers and units), and the one place the odds live: one thing
   at most, `pickups.dropChance` (65%) of anything, then one of

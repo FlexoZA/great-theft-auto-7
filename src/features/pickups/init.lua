@@ -18,8 +18,12 @@
 -- ammo box three times as likely as a medkit, an energy drink or a kevlar
 -- vest, a grenade half as likely. Something that comes in tiers then rolls
 -- its tier by `dropTiers`: nearly always common. Ammo boxes are never scattered, only dropped: a box for
--- one of the guns that take ammo (never the bottomless pistol), picked at
--- random and sized in that gun's magazines (serverDropAmmo). A drop is
+-- one of the guns that take ammo (never the bottomless pistol), sized in
+-- that gun's magazines (serverDropAmmo). `carriedShare` (half) of them are
+-- for a gun the player it is for carries in a weapon slot (whoever the
+-- dropper names, else the nearest human), the rest for any gun; either way
+-- by each gun's `dropWeight` (guns.lua: rifles and uzis far more often than
+-- rockets or minigun belts). A drop is
 -- gone for good once taken. So is "ability-<key>", an
 -- ability lying loose (a boss drops his own when he goes down): the first
 -- human over it with room in their bag carries it off as the item, in the
@@ -86,6 +90,7 @@ Pickups.drops = {
   { kind = "grenade", weight = 0.5 },
 }
 Pickups.dropMagazines = 1
+Pickups.carriedShare = 0.5 -- of ammo boxes, the share for a gun the player it is for carries
 -- The tier of a dropped thing that comes in tiers, by weight: nearly always
 -- common, a better one much less often (of every 100 about 80, 14, 5 and 1).
 Pickups.dropTiers = {
@@ -581,22 +586,69 @@ function Pickups:serverDrop(server, kind, x, y, amount)
   return id
 end
 
---- Drop a box of ammo at (x, y) for one of the guns that take ammo,
---- picked at random: `magazines` of whatever it turns out to be (0.6 of
---- an uzi's is 18 rounds, of a shotgun's 4 shells, of the launcher's one
---- rocket), so a box means the same whichever gun it is for. Returns the
---- item's id, or nil when there is no gun to drop for.
-function Pickups:serverDropAmmo(server, x, y, magazines)
-  local guns = {}
-  for _, gun in ipairs(Guns.list) do
-    if not gun.bottomless then
-      guns[#guns + 1] = gun
+--- The human a drop at (x, y) is for: player `by` if that is one, else
+--- the nearest one in the world.
+local function recipient(server, x, y, by)
+  local p = by and server.players[by]
+  if p and not p.bot then
+    return p
+  end
+  local best, bestD2
+  for _, q in pairs(server.players) do
+    if not q.bot and Features.present(q) then
+      local qx, qy = Features.bodyPose(server, q)
+      local d2 = (qx - x) ^ 2 + (qy - y) ^ 2
+      if not bestD2 or d2 < bestD2 then
+        best, bestD2 = q, d2
+      end
     end
   end
-  if #guns == 0 then
+  return best
+end
+
+--- One of the guns that take ammo, by `dropWeight`; only those `player`
+--- carries in a weapon slot when `player` is given. Nil if there is none.
+local function ammoGun(player)
+  local weapons = player and Features.byName.weapons
+  local list = {}
+  for _, gun in ipairs(Guns.list) do
+    if not gun.bottomless and (not player or (weapons and weapons:serverOwns(player, gun.index))) then
+      list[#list + 1] = { gun = gun, weight = gun.dropWeight or 1 }
+    end
+  end
+  if #list == 0 then
     return nil
   end
-  local gun = guns[love.math.random(#guns)]
+  local total = 0
+  for _, e in ipairs(list) do
+    total = total + e.weight
+  end
+  local roll = love.math.random() * total
+  for _, e in ipairs(list) do
+    roll = roll - e.weight
+    if roll < 0 then
+      return e.gun
+    end
+  end
+  return list[#list].gun
+end
+
+--- Drop a box of ammo at (x, y) for one of the guns that take ammo:
+--- `carriedShare` of the time one that the player it is for (`by`, or the
+--- nearest human) carries, otherwise any, by `dropWeight` either way.
+--- `magazines` of whatever it turns out to be (0.6 of an uzi's is 18
+--- rounds, of a shotgun's 4 shells, of the launcher's one rocket), so a box
+--- means the same whichever gun it is for. Returns the item's id, or nil
+--- when there is no gun to drop for.
+function Pickups:serverDropAmmo(server, x, y, magazines, by)
+  local gun
+  if love.math.random() < self.carriedShare then
+    gun = ammoGun(recipient(server, x, y, by)) -- nil for somebody with only the pistol
+  end
+  gun = gun or ammoGun(nil)
+  if not gun then
+    return nil
+  end
   local n = gun.tank and 1 or math.floor(magazines * gun.magazine + 0.5) -- one fuel can fills a tank
   return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, n))
 end
@@ -628,15 +680,16 @@ end
 --- most: `dropChance` of anything, then one of `drops` by weight,
 --- in a tier by `dropTiers` if it comes in tiers. Every enemy calls this
 --- (Karen's simps, the hunt's squirrels, D-Day's soldiers, the police's
---- officers and units), so the odds live here and nowhere else. Returns
---- the item's id, or nil when nothing dropped.
-function Pickups:serverDropEnemy(server, x, y)
+--- officers and units), so the odds live here and nowhere else. `by`
+--- (optional) is who it is for (the killer); the nearest human otherwise.
+--- Returns the item's id, or nil when nothing dropped.
+function Pickups:serverDropEnemy(server, x, y, by)
   if #self.drops == 0 or love.math.random() >= self.dropChance then
     return nil
   end
   local kind = byWeight(self.drops).kind
   if kind == "ammo" then
-    return self:serverDropAmmo(server, x, y, self.dropMagazines)
+    return self:serverDropAmmo(server, x, y, self.dropMagazines, by)
   end
   if Tiers.tiered(kind) then
     kind = Tiers.join(kind, dropTier())
