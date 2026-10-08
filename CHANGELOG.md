@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-08
+
+Police cars stop to shoot and chase you round buildings instead of into them, most traffic runs instead
+of fighting back, soldiers go easy on the grenades, and the keys move about: abilities on 1-3, R to reload.
+
 ### Added
 - Your ping to the server now shows in big numbers at the top left while driving: green, yellow over 80 ms, red over 150 ms.
 - Hire a Handsy Man at the shop (Hire shelf, 30 Fcks): he drives his pickup to each of your damaged buildings,
