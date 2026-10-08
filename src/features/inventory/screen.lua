@@ -696,7 +696,7 @@ end
 
 Screen.BAG_W = 196 -- px the bag panel takes beside the shop: two item boxes across
 local MINI = 38 -- px a weapon or ability box in the bag panel's "carrying" rows
-local CARRY_H = 2 * (16 + MINI) + 10 -- px those two rows take, with their headings
+local CARRY_H = 2 * (16 + MINI) + 18 -- px those two rows take, with their headings and a gap under them
 
 --- The guns and abilities I carry, small, in two rows from (x, y) across a
 --- panel `w` wide: each in its tier's frame, the gun in hand lit. Only to
@@ -738,14 +738,14 @@ end
 --- The bag's boxes in a panel at (x, y), `h` tall: every item slot, two
 --- across, as big as the inventory's or smaller if the shop is short. Each
 --- is { x, y, w, h, open, stack } (`stack` { item, n }, nil when empty);
---- also the y the quick-slot lines start at.
+--- also the y under them, where the guns and abilities go.
 function Screen.bagBoxes(buildings, x, y, h)
   local w = Screen.BAG_W
   local list = Screen.stacks(buildings.inventory)
   local cols, total = 2, Kinds.MAX_SLOTS
   local rows = math.ceil(total / cols)
   local quickH = 20 * #(buildings.usables or {}) + 8
-  local top, bottom = y + 64 + CARRY_H, y + h - 12 - quickH
+  local top, bottom = y + 64, y + h - 12 - quickH - CARRY_H
   local cell = math.min(CELL, math.floor((bottom - top + GAP) / rows) - GAP, math.floor((w - 24 - GAP) / cols))
   local gx = x + math.floor((w - (cols * (cell + GAP) - GAP)) / 2)
   local boxes = {}
@@ -755,14 +755,14 @@ function Screen.bagBoxes(buildings, x, y, h)
     boxes[i] = { x = gx + col * (cell + GAP), y = top + row * (cell + GAP), w = cell, h = cell, open = open,
       stack = open and list[i] or nil }
   end
-  return boxes, top + rows * (cell + GAP) + 4, #list
+  return boxes, top + rows * (cell + GAP) + 2, #list
 end
 
 --- What I carry, in a narrow panel at (x, y), `h` tall, beside the shop
 --- (shop/screen.lua asks for it): every item slot as the inventory draws
 --- it, locked ones too, and under them how many medkits, drinks and
---- grenades are in the quick slots, and above them the guns and abilities I
---- carry (drawCarried). The shop takes a click on a box as
+--- grenades are in the quick slots, and between the two the guns and
+--- abilities I carry (drawCarried). The shop takes a click on a box as
 --- picking that item to sell; `selected` is the item picked, its boxes lit.
 --- Moving things about is still the inventory's (I).
 function Screen.drawBag(buildings, x, y, h, selected)
@@ -781,7 +781,7 @@ function Screen.drawBag(buildings, x, y, h, selected)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
   love.graphics.printf(line, x, y + 40, w, "center")
-  drawCarried(x, y + 62, w)
+  drawCarried(x, qy, w) -- under the items
   for _, r in ipairs(boxes) do
     drawItemBox(r, r.stack, r.open)
     local over = r.stack and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h
@@ -792,7 +792,8 @@ function Screen.drawBag(buildings, x, y, h, selected)
       love.graphics.setLineWidth(1)
     end
   end
-  -- The quick slots, a line each.
+  -- The quick slots, a line each, at the bottom.
+  qy = qy + CARRY_H
   for _, u in ipairs(buildings.usables or {}) do
     local n = buildings:quickCount(u.item)
     local c = u.color
