@@ -17,6 +17,10 @@
 -- with weapons' blast (Weapons:explode, explosive damage; it hurts the
 -- thrower too). Grenades have no tiers: they are used up, like ammo.
 --
+-- Enemies throw them too, through `serverLob` (A-Man's Combine soldiers):
+-- the same arc and blast, owned by nobody (owner 0), so it hurts any player
+-- and credits nobody, and the side that threw it is left alone.
+--
 -- Messages
 --   server -> all  GRN_THROW <id> <owner> <ox> <oy> <x> <y> <flight>  (one is in the air from o to (x, y))
 
@@ -307,9 +311,19 @@ function Grenades:serverThrow(server, player, x, y)
     return false
   end
   local ox, oy = Features.bodyPose(server, player)
+  return self:serverLob(server, ox, oy, x, y, player.id)
+end
+
+--- A grenade thrown from (ox, oy) at (x, y) by `owner` (a player id; 0 or
+--- nil for an enemy's, which hurts any player and credits nobody), landing
+--- short of the first wall in the way. Returns true once it is in the air.
+function Grenades:serverLob(server, ox, oy, x, y, owner)
+  if not sv then
+    return false
+  end
   local lx, ly = Grenades.landing(ox, oy, x, y)
   local g = {
-    id = sv.nextId, owner = player.id, ox = ox, oy = oy, x = lx, y = ly, t = 0,
+    id = sv.nextId, owner = owner or 0, ox = ox, oy = oy, x = lx, y = ly, t = 0,
     flight = Grenades.flightTime(ox, oy, lx, ly),
   }
   sv.nextId = sv.nextId + 1

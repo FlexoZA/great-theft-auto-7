@@ -12,7 +12,8 @@
 -- the pistol), fired in bursts once you are in its reach.
 -- They hunt (combine.lua's `hunt`): one who spots somebody closes in on them,
 -- and goes to where he saw them last when he loses them, his squad with
--- him; one shot from somewhere he can't see goes that way to look. One who
+-- him; shot from somewhere none of them can see, they go to ground and
+-- send out a sweep once it goes quiet (combine.lua's sieges). One who
 -- spots somebody calls it in, and the nearest few others within reach of
 -- the radio (not his squad, who are with him) come to where he saw them.
 -- When a soldier goes down, everyone near enough to hear it goes to see. Each
@@ -57,10 +58,11 @@
 -- The Winding Road (city-map's `road`, quests' "a-man-road") holds a
 -- checkpoint past every bridge but the top one (the Poison Zombie's): two MG nests either side of the road
 -- facing back over it (the map's `nests`, crewed as the Coast's are) and a
--- bunker whose garrison comes in waves (a garrison's `waves`: one out of
--- its door every `every` seconds while a player is near and fewer than
--- `alive` of its own are up, `total` in all, more with more humans; the
--- door opens again for each). On a map driven like that a car can run
+-- bunker whose garrison comes in waves (a garrison's `waves`: a squad of
+-- `squad` out of its door one after another, the next squad `every`
+-- seconds on while a player is near and no more than `alive` of its own
+-- would be up with it, `total` in all, more with more humans; the door
+-- opens again for each squad). On a map driven like that a car can run
 -- them down: one hit at speed (car-collisions' numbers) is enough. Hunters
 -- (the hunters feature) walk the open stretches of road between the
 -- checkpoints (the map's `hunterBeats`, more with more humans).
@@ -525,6 +527,22 @@ local function talk(server, dt)
         say(server, s, "cover")
       end
     end
+    if s.threw then -- a grenade out: he says so, mostly
+      s.threw = false
+      if random() < 0.8 then
+        s.quietUntil = sv.time + Level.shoutEvery
+        say(server, s, "grenade")
+      end
+    end
+    if s.sentOut then -- the first of a sweep going out after a shooter nobody saw
+      s.sentOut = false
+      s.quietUntil = sv.time + Level.shoutEvery
+      say(server, s, "sweep")
+      local other = mate({ members = sv.troops.list }, s)
+      if other and (other.x - s.x) ^ 2 + (other.y - s.y) ^ 2 < 400 * 400 then
+        later(other, "reply", between(Level.replyAfter))
+      end
+    end
     if s.gaveUp then -- looked, found nothing, on his way back
       s.gaveUp = false
       if random() < 0.6 and (s.quietUntil or 0) <= sv.time then
@@ -625,8 +643,9 @@ local function stepGarrisons(server, dt)
     elseif gs.left > 0 then
       gs.nextIn = gs.nextIn - dt
       local ready = gs.nextIn <= 0
-      if ready and waves then
-        -- In waves: only while somebody is near, and not too many of its own up at once.
+      local squad = waves and waves.squad or 1
+      if ready and waves and (gs.burst or 0) == 0 then
+        -- A squad at a time: only while somebody is near, and not too many of its own up at once.
         local up = 0
         for i = #gs.own, 1, -1 do
           if gs.own[i].hp > 0 then
@@ -636,19 +655,31 @@ local function stepGarrisons(server, dt)
           end
         end
         local who = nearestPlayer(server, g.x, g.y, g.reach * 1.5)
-        ready = who ~= nil and up < waves.alive
-        if ready and gs.doorFor <= 0 then -- the door shut since the last: open it again
-          gs.doorFor = Level.doorOpen
-          server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+        ready = who ~= nil and up + squad <= waves.alive
+        if ready then
+          gs.burst = math.min(squad, gs.left)
+          if gs.doorFor <= 0 then -- the door shut since the last: open it again
+            gs.doorFor = Level.doorOpen
+            server:broadcast(Protocol.encode("C17_DOOR", door.x, door.y, door.nx, door.ny))
+          end
         end
       end
       if ready then
-        gs.nextIn, gs.left = waves and waves.every or Level.garrisonEvery, gs.left - 1
+        gs.left = gs.left - 1
+        local slot = 0 -- which of his squad he is: the first goes straight for them, the others to either side
+        if waves then
+          gs.burst = gs.burst - 1
+          slot = squad - 1 - gs.burst
+          gs.nextIn = gs.burst > 0 and Level.garrisonEvery or waves.every
+        else
+          gs.nextIn = Level.garrisonEvery
+        end
         gs.target = nearestPlayer(server, g.x, g.y, g.reach * 1.5) or gs.target
         local s = sv.troops:add("guard", door.x + door.nx * 22, door.y + door.ny * 22, math.atan2(door.ny, door.nx))
         gs.own[#gs.own + 1] = s
         sv.troops:arm(s, pickArms())
-        sv.troops:sendTo(s, gs.target.x, gs.target.y)
+        local side = slot == 0 and 0 or (slot % 2 == 1 and 1 or -1) * 50 * math.ceil(slot / 2)
+        sv.troops:sendTo(s, gs.target.x - door.ny * side, gs.target.y + door.nx * side)
         if not gs.said then -- the first out says where they are going
           gs.said = true
           later(s, "investigate", 0.4)
