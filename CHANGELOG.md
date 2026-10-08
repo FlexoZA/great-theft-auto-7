@@ -15,6 +15,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- Your ping to the server now shows in big numbers at the top left while driving: green, yellow over 80 ms, red over 150 ms.
 - Hire a Handsy Man at the shop (Hire shelf, 30 Fcks): he drives his pickup to each of your damaged buildings,
   ruins too, and repairs them with your Fcks, then goes back to the shop and leaves once everything is fixed
   or you run out of money. He charges 3x what the repair menu does, and 6x to rebuild a ruin. He is only for hire while something of yours needs fixing,
