@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-08
+
+The Poison Zombie and his headcrabs now hurt as badly as the Antlion Guard.
+
 ### Changed
 - The Poison Zombie on the Winding Road hits far harder: his claws 20 -> 60, a headcrab's bite 15 -> 35
   (and you are still poisoned after), a headcrab landing on a car 6 -> 15. He is as slow and as easy to
