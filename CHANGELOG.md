@@ -24,6 +24,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Changed
 - Combine soldiers in City 17 throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most
   one every 8 -> 20 seconds, and they wait longer before deciding to throw.
+- D-Day soldiers throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most one every
+  8 -> 20 seconds, and they wait longer before deciding to throw.
 
 ## [0.24.0] - 2026-10-08
 
