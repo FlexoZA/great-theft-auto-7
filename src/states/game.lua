@@ -412,7 +412,23 @@ function Game:draw()
     love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
   end
   local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
-  love.graphics.print("Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave", 10, 28)
+  local help = "Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave"
+  love.graphics.print(help, 10, 28)
+
+  -- Ping, big, just right of the lines above: ENet's smoothed round trip to the server.
+  if client:isConnected() and client.peer then
+    local ms = client.peer:round_trip_time()
+    if ms < 80 then
+      love.graphics.setColor(0.5, 1, 0.5)
+    elseif ms < 150 then
+      love.graphics.setColor(1, 0.85, 0.3)
+    else
+      love.graphics.setColor(1, 0.4, 0.4)
+    end
+    love.graphics.setFont(UI.fonts.title)
+    love.graphics.print(("%d ms"):format(ms), 10 + UI.fonts.small:getWidth(help) + 24, 2)
+    love.graphics.setFont(UI.fonts.small)
+  end
 
   local text
   if client:isConnected() then
