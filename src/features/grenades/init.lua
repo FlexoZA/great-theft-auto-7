@@ -2,7 +2,7 @@
 --
 -- Grenades are an item ("grenade", five to a stack) carried in a quick slot
 -- of their own beside the medkits and drinks (buildings.usables; drag a
--- stack there on the inventory screen). Their key (T) readies one: the
+-- stack there on the inventory screen). Their key (G) readies one: the
 -- landing spot follows the cursor, kept within `range` of you and short of
 -- the first wall in the way, with the blast's reach drawn round it, and the
 -- fire button throws it there (weapons leaves the gun alone meanwhile: the

@@ -9,7 +9,7 @@
 -- keeps it). Take it out again from the vehicles screen while you stand on
 -- the square.
 --
--- The vehicles screen (G) lists every car you own: where it is, its health,
+-- The vehicles screen (P) lists every car you own: where it is, its health,
 -- and what you can do with it.
 --   On the road    tow it into your garage (towPrice), if nobody is in it
 --   In a garage    repair it (up to repairPrice, less for less damage) or
@@ -162,7 +162,7 @@ Garage.atGate = false -- am I on the impound lot's pay square?
 local time = 0
 
 function Garage:load()
-  Controls.register("vehicles", "Open / close your vehicles", "g")
+  Controls.register("vehicles", "Open / close your vehicles", "p")
   Controls.register("impound", "Collect a car (at the impound lot)", "f") -- the action key, like the shop's
 end
 

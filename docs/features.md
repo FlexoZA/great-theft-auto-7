@@ -865,7 +865,7 @@ the one with a plot.
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
   quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on T): a stack dragged onto its slot is what the key uses
+  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
@@ -1716,7 +1716,7 @@ the one with a plot.
   about 50 px across; a kind's `color` is its colour in ruins);
   `buildings:ofKind(kind, owner)` lists a player's buildings of a kind, on
   either side). Each holds six cars, parked from its square and taken out
-  from the vehicles screen (G), which lists every car you own with its
+  from the vehicles screen (P), which lists every car you own with its
   health: tow it home, repair it, take it out, collect it. In the city a
   person's wrecked car no longer comes back by itself: with a garage it waits
   destroyed for a tow, without one it goes to the impound lot, whole, to be
