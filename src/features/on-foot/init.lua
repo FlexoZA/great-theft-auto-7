@@ -32,7 +32,10 @@
 -- never sent; the bar the client sees already reflects it. How far a dodge
 -- carries you is per player too, dodgeDistance to start with, raised
 -- through OnFoot:serverSetDodgeScale (the gym sells it); that one is sent
--- (OF_DASH), since each client predicts its own dash.
+-- (OF_DASH), since each client predicts its own dash. Walking pace (not the
+-- sprint) is per player the same way: walkSpeed to start with, raised
+-- through OnFoot:serverSetWalkScale (the gym sells that too) and sent
+-- (OF_WALK) so each client predicts its own steps.
 --
 -- Messages
 --   client -> server  OF_TOGGLE
@@ -43,6 +46,7 @@
 --   server -> all     OF_GIB   <id> <x> <y> <angle> <type>   died on foot here, of that damage type
 --   server -> all     OF_MAX   <id> <max>       their stamina ceiling changed
 --   server -> all     OF_DASH  <id> <scale>     their dodge carries them dodgeDistance * scale
+--   server -> all     OF_WALK  <id> <scale>     they walk at walkSpeed * scale
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -155,6 +159,7 @@ end
 OnFoot.view = { x = 0, y = 0, scale = 1 } -- last camera actually drawn with
 OnFoot.maxOf = {} -- player id -> stamina ceiling (absent = maxStamina)
 OnFoot.dashOf = {} -- player id -> dodge distance scale (absent = 1)
+OnFoot.walkOf = {} -- player id -> walking pace scale (absent = 1)
 OnFoot.stamina = {} -- player id -> stamina, as the host last said (walkers only)
 OnFoot.moveTimer = 0
 OnFoot.moveSeq = 0
@@ -185,6 +190,7 @@ end
 function OnFoot:exitGame()
   self.maxOf = {}
   self.dashOf = {}
+  self.walkOf = {}
   self.stamina = {}
   self.view.x, self.view.y, self.view.scale = 0, 0, 1
   spent = false
@@ -252,7 +258,8 @@ function OnFoot:predict(dt, client, me)
     sprinting = true -- legs going: draw it running
   elseif (mx ~= 0 or my ~= 0) and not held then
     local scale = Features.reduce("stat", 1, client, client.myId, "speed") -- clothes (gear)
-    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * scale
+    local walk = self.walkSpeed * (self.walkOf[client.myId] or 1) -- the gym's
+    local speed = (sprinting and self.sprintSpeed or walk) * scale
     me.dx, me.dy = step(me.dx, me.dy, mx, my, speed, dt)
   end
   me.running = sprinting
@@ -444,6 +451,12 @@ OnFoot.clientMessages = {
       OnFoot.dashOf[id] = scale
     end
   end,
+  OF_WALK = function(_client, args)
+    local id, scale = tonumber(args[1]), tonumber(args[2])
+    if id and scale then
+      OnFoot.walkOf[id] = scale
+    end
+  end,
   --- Somebody died on foot: the pedestrians' gibs and splat, if that feature is around.
   OF_DODGED = function(_client, args)
     local x, y, dx, dy = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]), tonumber(args[5])
@@ -479,11 +492,13 @@ function OnFoot:serverStart()
     maxStamina = {}, -- player id -> ceiling (absent = OnFoot.maxStamina)
     regen = {}, -- player id -> regen scale (absent = 1)
     dash = {}, -- player id -> dodge distance scale (absent = 1)
+    walk = {}, -- player id -> walking pace scale (absent = 1)
   }
 end
 
---- A player joining a running game hears every raised stamina ceiling and
---- dodge (OF_MAX and OF_DASH are only sent when one changes). Their own
+--- A player joining a running game hears every raised stamina ceiling,
+--- dodge and walking pace (OF_MAX, OF_DASH and OF_WALK are only sent when
+--- one changes). Their own
 --- walking record is made when needed.
 function OnFoot:serverPlayerJoined(server, player)
   if not (self.sv and server.started) or player.bot then
@@ -495,6 +510,9 @@ function OnFoot:serverPlayerJoined(server, player)
   for id, scale in pairs(self.sv.dash) do
     server:send(player, Protocol.encode("OF_DASH", id, ("%.3f"):format(scale)))
   end
+  for id, scale in pairs(self.sv.walk) do
+    server:send(player, Protocol.encode("OF_WALK", id, ("%.3f"):format(scale)))
+  end
 end
 
 function OnFoot:serverPlayerLeft(_server, player)
@@ -503,6 +521,7 @@ function OnFoot:serverPlayerLeft(_server, player)
     self.sv.maxStamina[player.id] = nil
     self.sv.regen[player.id] = nil
     self.sv.dash[player.id] = nil
+    self.sv.walk[player.id] = nil
   end
 end
 
@@ -593,6 +612,19 @@ function OnFoot:serverSetDodgeScale(server, player, scale)
   scale = math.max(0.1, scale)
   self.sv.dash[player.id] = scale
   server:broadcast(Protocol.encode("OF_DASH", player.id, ("%.3f"):format(scale)))
+  return scale
+end
+
+--- Set how fast a player walks (not sprints), as a multiple of walkSpeed,
+--- for the rest of the game. Other features reach this via
+--- Features.byName["on-foot"] (upgrades does). Returns the scale set.
+function OnFoot:serverSetWalkScale(server, player, scale)
+  if not self.sv then
+    return nil
+  end
+  scale = math.max(0.1, scale)
+  self.sv.walk[player.id] = scale
+  server:broadcast(Protocol.encode("OF_WALK", player.id, ("%.3f"):format(scale)))
   return scale
 end
 
@@ -730,7 +762,8 @@ function OnFoot:walk(st, body, dt, server, player)
     end
     st.regenIn = self.regenDelay
   elseif len > 0 then
-    local speed = (sprinting and self.sprintSpeed or self.walkSpeed) * speedScale
+    local walk = self.walkSpeed * (self.sv.walk[player.id] or 1) -- the gym's
+    local speed = (sprinting and self.sprintSpeed or walk) * speedScale
     body.x, body.y = step(body.x, body.y, mx / len, my / len, speed, dt)
   end
 end

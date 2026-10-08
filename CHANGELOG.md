@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Walking speed at the gym (key 7): five levels, each +20% walking pace, so a full set walks twice
+  as fast. Costs 3/5/8/11/14 Fcks. Sprinting is unchanged.
+
 ## [0.14.0] - 2026-10-08
 
 Enemies leave a lot more ammo behind, and now and then a grenade. Medkits,

@@ -441,7 +441,9 @@ couple of small conventions rather than requiring each other:
   base rate (host only; nothing to draw). `on-foot:serverSetDodgeScale(server,
   player, scale)` sets how far their dodge carries them, as a multiple of
   `dodgeDistance` (broadcast as `OF_DASH`, since each client predicts its own
-  dash). Upgrades (the gym) buys all four with koins.
+  dash). `on-foot:serverSetWalkScale(server, player, scale)` sets their
+  walking pace (not the sprint) as a multiple of `walkSpeed` (broadcast as
+  `OF_WALK`, for the same reason). Upgrades (the gym) buys all five with koins.
 - `Features.byName.weapons:serverSetCarMaxHealth(server, car, max)`: give one
   car a health ceiling of its own (every car has 100 otherwise) and fill it
   up; wrecks come back with it. Weapons broadcasts `WPN_CARMAX` so every
