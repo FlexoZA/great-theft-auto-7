@@ -288,7 +288,8 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverDodged(server, player)` | on-foot | `player` started a dodge on the host. The damage feature puts out a player who is burning. |
 | `clientHit(client, { x, y, amount, dtype, key })` | weapons, on every machine | A player or a car on this screen was hit (`WPN_HIT` / `WPN_CARHIT`): at (x, y), for `amount` after resistances, of damage type `dtype`; `key` is the player id or `"car" .. vehicle id`. The damage feature floats a number up off it. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
-| `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital. |
+| `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital; respawn-points on a quest map where they have found a point (it rewrites the table it answered with when they pick another). |
+| `serverRespawnHeld(server, player)` / `respawnHeld(client)` | weapons asks, through `Features.any` | Keep a dead player down past their time: weapons waits while any feature answers true on the host, and keeps WASTED up (without its countdown) while any answers true on their screen. Respawn-points answers both while they pick where to come back. Hold them for a bounded time only. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
 | `serverDeliver(server, player, item, x, y, angle)` | buildings asks | A building handed over a product nobody carries (a `"car-<model>"`). Put it into the world at (x, y) for `player` and answer true; vehicles spawns the car. |
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
@@ -1306,6 +1307,21 @@ the one with a plot.
   (city-map's new `serverLend`) if they came in their own. Once per
   `Stations.cooldown` (10 s) each; refused calls answer CST_WAIT. The pads
   are on the minimap (`drawOnMinimap`); render_road.lua draws them.
+- Respawn points: `src/features/respawn-points`. Points along a long
+  quest map (`placement.lua`: the map's own `respawnPoints`, else its
+  `carStations`, else one every `Placement.spacing` (1800) px or more of
+  the walk from the first spawn point to `map.bossX, bossY` or the far
+  end, at most 6, none on a walk under `Placement.shortest` (5000) px, so
+  Karen's street, the forest, the beach and the Outer City have none).
+  Worked out on every machine from the map, so the list needs no
+  messages. Each player finds them by passing within `Points.reach` (180
+  px), told by RSP_FOUND; found ones light up on the ground and the
+  minimap. Dying with one found, weapons' `serverRespawnPoint` gets a spot
+  at the furthest found and the player RSP_CHOOSE: a list under WASTED
+  (the way in and every point found; click, number keys, or arrows and
+  Enter) sends RSP_PICK, and the host holds the respawn
+  (`serverRespawnHeld`) until then or `Points.chooseTime` (20 s). They
+  come back there on foot. Finds are forgotten on every map change.
 - Hunters: `src/features/hunters`, the Combine's tripod hunters after
   Half-Life 2's, a ranged enemy with its own brain (`brain.lua`: patrol a
   beat, fight at range strafing and backing off, search where it lost

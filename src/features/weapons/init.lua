@@ -90,6 +90,9 @@
 -- Another feature may take both over (the garage): a player it gives a
 -- place to (`serverRespawnPoint`) comes back there on foot, their car left
 -- where it is, and a wreck it claims (`serverWreckClaimed`) is its to keep.
+-- A feature may also keep the dead down past DEATH_TIME (`serverRespawnHeld`,
+-- with `respawnHeld` keeping WASTED up on their screen): respawn-points does
+-- while they pick where to come back.
 --
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
@@ -928,8 +931,8 @@ end
 
 --- Wrecked: the world goes soft under the WRECKED overlay, right where the
 --- car went up, until it respawns (the `worldBlur` hook, docs/features.md).
-function Weapons:worldBlur()
-  return self.deadTimer > 0 and 1 or 0
+function Weapons:worldBlur(client)
+  return (self.deadTimer > 0 or Features.any("respawnHeld", client)) and 1 or 0
 end
 
 --- The gun in hand, bottom centre just left of the ability circles: its
@@ -1051,7 +1054,8 @@ function Weapons:drawHUD(client)
     love.graphics.setColor(c[1], c[2], c[3], math.min(1, self.feed.t))
     love.graphics.printf(self.feed.text, 0, 40, w, "center")
   end
-  if self.deadTimer > 0 then
+  local held = Features.any("respawnHeld", client) -- choosing where to come back (respawn-points)
+  if self.deadTimer > 0 or held then
     local w, h = love.graphics.getDimensions()
     love.graphics.setColor(0.5, 0, 0, 0.35)
     love.graphics.rectangle("fill", 0, 0, w, h)
@@ -1060,7 +1064,9 @@ function Weapons:drawHUD(client)
     love.graphics.printf("WASTED", 0, h / 2 - 60, w, "center")
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
+    if not held then
+      love.graphics.printf(("respawning in %.1f"):format(self.deadTimer), 0, h / 2, w, "center")
+    end
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -2450,7 +2456,7 @@ function Weapons:updateWrecks(server)
       local own = p and not st.respawnAt and ownCar(p)
       if not (p and p.body) then
         st.deadUntil = nil
-      elseif sv.time < st.deadUntil then
+      elseif sv.time < st.deadUntil or Features.any("serverRespawnHeld", server, p) then
         if own then
           own.hidden = true
           own.x, own.y, own.angle = st.spawn.x, st.spawn.y, st.spawn.angle

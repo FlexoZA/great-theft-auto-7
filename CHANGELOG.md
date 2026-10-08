@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Respawn points on the long quest maps (City 17, the Coast, the Winding Road, the Citadel and Shotgun's
+  Bluff). Walk or drive past one to find it: its flag turns green and it shows on the minimap. Die after
+  finding one and you pick where to come back from a list: where you came in, or any point you found. On
+  the Winding Road they are the car station pads, so you can call a car straight away.
+
 ## [0.17.0] - 2026-10-08
 
 The dead stay down: shot Combine, D-Day soldiers, pedestrians and simps
