@@ -529,7 +529,14 @@ function Bots:fightAt(server, bot, tx, ty, tc)
     end
   end
 
-  -- Shoot: lead the target by its velocity over the projectile's flight time.
+  self:shootAt(server, bot, tx, ty, tc)
+end
+
+--- Shoot at (tx, ty) when the gun is ready and it is within range, leading
+--- `tc` (the car there, if it is one) by its velocity over the flight time.
+function Bots:shootAt(server, bot, tx, ty, tc)
+  local ai, car = bot.ai, bot.car
+  local dist = math.sqrt((tx - car.x) ^ 2 + (ty - car.y) ^ 2)
   ai.fireTimer = ai.fireTimer - server.dtLast
   if ai.fireTimer <= 0 and dist < self.range then
     local skill = self:difficulty()
@@ -712,6 +719,7 @@ function Bots:serverStep(server, dt)
     if npc.parked then
       npc.car.hidden = true -- a wreck's timer running out must not put a parked car back
     end
+    npc.input.handbrake = false -- only a brain that wants it this tick pulls it
     if npc.panic and now >= npc.panic.untilT then
       npc.panic = nil
     end

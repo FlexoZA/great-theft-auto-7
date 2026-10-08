@@ -26,6 +26,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   one every 8 -> 20 seconds, and they wait longer before deciding to throw.
 - D-Day soldiers throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most one every
   8 -> 20 seconds, and they wait longer before deciding to throw.
+- Police cars drive smarter: once they are close and can see you they stop and shoot (sliding round on the
+  handbrake if they come in fast), they chase you around buildings by the streets instead of into walls, and
+  they handbrake round sharp corners. Shoot back and they back off for a moment, then stop and shoot again.
+  They crash far less: about 125 -> 8 hits on walls and cars per patrol car in five minutes of chasing.
 - Most traffic no longer fights back: shoot or ram a civilian car and only 1 in 10 drivers comes after you
   (was every one); the rest floor it and get away from you. Police are unchanged.
 - Fewer pedestrians on the streets, about 20% less: 26 -> 21 per car, at most 90 -> 72.
