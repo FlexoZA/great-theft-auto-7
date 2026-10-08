@@ -37,6 +37,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   The Hunter-Chopper's Hunters with two players 6 -> 4, A-Man's briefcase Hunters 4 -> 3, the Winding Road
   and Citadel beats the same (one player is unchanged).
 
+### Fixed
+- Police no longer shoot each other: officers on foot kept wrecking their own patrol cars, and patrol cars
+  could hit each other and the officers. Their rounds now fly through the force.
+
 ## [0.24.0] - 2026-10-08
 
 The Poison Zombie and his headcrabs now hurt as badly as the Antlion Guard.

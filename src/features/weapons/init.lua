@@ -2194,6 +2194,10 @@ Weapons.serverMessages = {
 --- how many entries are live, the way the crowd does it.
 function Weapons:targets(server, p)
   local list, n = self.sv.targets, 0
+  -- The police's rounds (an officer's: nobody's and from nowhere; a unit's)
+  -- fly through police cars: the force doesn't shoot itself.
+  local shooter = server.players[p.owner]
+  local force = (p.owner == 0 and not p.from) or (shooter and shooter.police)
   local function entry()
     n = n + 1
     local e = list[n]
@@ -2205,7 +2209,13 @@ function Weapons:targets(server, p)
   end
   for id, player in pairs(server.players) do
     local st = self.sv.players[id]
-    if st and Features.present(player) and id ~= p.owner and self.sv.time >= st.protectedUntil then
+    if
+      st
+      and Features.present(player)
+      and id ~= p.owner
+      and self.sv.time >= st.protectedUntil
+      and not (force and player.police)
+    then
       local e = entry()
       e.player, e.car = player, player.vehicle
       e.x, e.y, e.onFoot = bodyPose(server, player)
