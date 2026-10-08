@@ -73,7 +73,7 @@ The image is built on the box from a copy of the source, so a deploy is a
 sync and a rebuild. From the repo root, with `<host>` an SSH alias for it:
 
 ```bash
-rsync -az --delete main.lua conf.lua Dockerfile .dockerignore docker-compose.yml src lib assets <host>:/opt/gta7/
+rsync -az --delete main.lua conf.lua CHANGELOG.md Dockerfile .dockerignore docker-compose.yml src lib assets <host>:/opt/gta7/
 ssh <host> 'cd /opt/gta7 && docker compose up -d --build'
 ```
 

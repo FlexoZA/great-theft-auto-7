@@ -73,6 +73,7 @@ local Features = require("src.features")
 local Server = require("src.net.server")
 local Protocol = require("src.net.protocol")
 local Saves = require("src.saves")
+local Version = require("src.version")
 
 local server
 
@@ -114,7 +115,8 @@ function love.load()
     print("LAN discovery off (" .. server.discoveryError .. "); players join by address")
   end
   server:start()
-  print(("%s: hosting on UDP port %d, up to %d players, world started"):format(name, Protocol.PORT, Server.MAX_PLAYERS))
+  print(("%s: version %s, hosting on UDP port %d, up to %d players, world started"):format(name, Version.current,
+    Protocol.PORT, Server.MAX_PLAYERS))
 end
 
 local online = 0

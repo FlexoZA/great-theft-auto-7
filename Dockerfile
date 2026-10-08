@@ -11,7 +11,8 @@ RUN sed -i "/usr\\/share\\/man/d" /etc/dpkg/dpkg.cfg.d/excludes \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /game
-COPY main.lua conf.lua ./
+# CHANGELOG.md is the game's version, which joining players are checked against.
+COPY main.lua conf.lua CHANGELOG.md ./
 COPY src ./src
 COPY lib ./lib
 COPY assets ./assets
