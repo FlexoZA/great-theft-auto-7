@@ -504,9 +504,10 @@ function Police:serverFreezeArea(_server, x, y, radius, seconds)
 end
 
 function Police:serverShotAt(server, x, y, radius, by, angle, _damage, _dtype, from)
-  -- The force's own rounds belong to nobody; so do a gang's, but those say
-  -- where they came from (`from`) and do hit.
-  if not sv or (by == Officers.OWNER and not from) then
+  -- The force's own rounds belong to nobody, or to a unit; a gang's belong
+  -- to nobody too, but say where they came from (`from`) and do hit.
+  local shooter = server.players[by]
+  if not sv or (by == Officers.OWNER and not from) or (shooter and shooter.police) then
     return false
   end
   local o = sv.officers:at(x, y, radius)
