@@ -517,26 +517,19 @@ end
 --- The item boxes: a stack per open slot, locked ones greyed out. `lifted`
 --- is the box whose item is being dragged, drawn empty meanwhile.
 --- One item box `r`: the stack `s` in it ({ item, n }), nothing, or
---- locked when the slot isn't `open` yet. A box smaller than the
---- inventory's (the bag beside the shop) leaves out a name that won't fit
---- on one line, and centres the picture.
+--- locked when the slot isn't `open` yet.
 local function drawItemBox(r, s, open)
   box(r.x, r.y, r.w, r.h, open, false)
-  local font = UI.fonts.small
-  love.graphics.setFont(font)
+  love.graphics.setFont(UI.fonts.small)
   if s then
     local tiered = Tiers.tiered(s.item)
     if tiered then
       Tiers.drawFrame(Tiers.of(s.item), r.x, r.y, r.w, r.h)
     end
-    local name = Kinds.shortName(Tiers.base(s.item), s.n)
-    local named = r.h >= CELL or font:getWidth(name) <= r.w - 4
-    Render.itemIcon(s.item, r.x + r.w / 2, named and r.y + 20 or r.y + r.h / 2 + 2)
+    Render.itemIcon(s.item, r.x + r.w / 2, r.y + 20)
     -- Equipment is named in its tier's colour; the frame and the hint say which.
     love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
-    if named then
-      love.graphics.printf(name, r.x + 2, r.y + math.min(38, r.h - font:getHeight() - 2), r.w - 4, "center")
-    end
+    love.graphics.printf(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 2, r.y + 38, r.w - 4, "center")
     love.graphics.setColor(1, 0.85, 0.3)
     love.graphics.printf(tostring(s.n), r.x, r.y + 2, r.w - 5, "right")
   elseif not open then
@@ -696,6 +689,7 @@ end
 
 Screen.BAG_W = 196 -- px the bag panel takes beside the shop: two item boxes across
 local MINI = 38 -- px a weapon or ability box in the bag panel's "carrying" rows
+local ROW_MAX, ROW_GAP = 34, 4 -- px the tallest a bag row gets, and between rows
 local CARRY_H = 2 * (16 + MINI) + 18 -- px those two rows take, with their headings and a gap under them
 
 --- The guns and abilities I carry, small, in two rows from (x, y) across a
@@ -735,27 +729,56 @@ local function drawCarried(x, y, w)
   end
 end
 
---- The bag's boxes in a panel at (x, y), `h` tall: every item slot, two
---- across, as big as the inventory's or smaller if the shop is short. Each
---- is { x, y, w, h, open, stack } (`stack` { item, n }, nil when empty);
---- also the y under them, where the guns and abilities go.
+--- The bag's rows in a panel at (x, y), `h` tall: every item slot, one row
+--- each across the panel, as tall as fits (up to `ROW_MAX`). Each is
+--- { x, y, w, h, open, stack } (`stack` { item, n }, nil when empty); also
+--- the y under them, where the guns and abilities go.
 function Screen.bagBoxes(buildings, x, y, h)
   local w = Screen.BAG_W
   local list = Screen.stacks(buildings.inventory)
-  local cols, total = 2, Kinds.MAX_SLOTS
-  local rows = math.ceil(total / cols)
+  local total = Kinds.MAX_SLOTS
   local quickH = 20 * #(buildings.usables or {}) + 8
   local top, bottom = y + 64, y + h - 12 - quickH - CARRY_H
-  local cell = math.min(CELL, math.floor((bottom - top + GAP) / rows) - GAP, math.floor((w - 24 - GAP) / cols))
-  local gx = x + math.floor((w - (cols * (cell + GAP) - GAP)) / 2)
+  local rowH = math.max(20, math.min(ROW_MAX, math.floor((bottom - top + ROW_GAP) / total) - ROW_GAP))
   local boxes = {}
   for i = 1, total do
-    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
     local open = i <= buildings.slots
-    boxes[i] = { x = gx + col * (cell + GAP), y = top + row * (cell + GAP), w = cell, h = cell, open = open,
+    boxes[i] = { x = x + 12, y = top + (i - 1) * (rowH + ROW_GAP), w = w - 24, h = rowH, open = open,
       stack = open and list[i] or nil }
   end
-  return boxes, top + rows * (cell + GAP) + 2, #list
+  return boxes, top + total * (rowH + ROW_GAP) + 4, #list
+end
+
+--- One bag row `r`: the stack `s` in it ({ item, n }) as its picture, its
+--- name in its tier's colour and how many; empty, or locked when the slot
+--- isn't `open` yet.
+local function drawItemRow(r, s, open)
+  box(r.x, r.y, r.w, r.h, open, false)
+  local font = UI.fonts.small
+  love.graphics.setFont(font)
+  local ty = r.y + math.floor((r.h - font:getHeight()) / 2)
+  if s then
+    local tiered = Tiers.tiered(s.item)
+    if tiered then
+      Tiers.drawFrame(Tiers.of(s.item), r.x, r.y, r.w, r.h)
+    end
+    local k = math.min(1, (r.h - 4) / 28) -- the picture, shrunk to the row
+    if s.item:match("^gun%-") then
+      k = k * 0.6 -- a gun is long: keep it clear of the name
+    end
+    love.graphics.push()
+    love.graphics.translate(r.x + 18, r.y + r.h / 2)
+    love.graphics.scale(k)
+    Render.itemIcon(s.item, 0, 0)
+    love.graphics.pop()
+    love.graphics.setColor(tiered and Tiers.color(Tiers.of(s.item)) or { 0.85, 0.85, 0.9 })
+    love.graphics.print(Kinds.shortName(Tiers.base(s.item), s.n), r.x + 38, ty)
+    love.graphics.setColor(1, 0.85, 0.3)
+    love.graphics.printf(tostring(s.n), r.x, ty, r.w - 8, "right")
+  elseif not open then
+    love.graphics.setColor(1, 1, 1, 0.2)
+    love.graphics.printf("locked", r.x, ty, r.w, "center")
+  end
 end
 
 --- What I carry, in a narrow panel at (x, y), `h` tall, beside the shop
@@ -770,20 +793,13 @@ function Screen.drawBag(buildings, x, y, h, selected)
   panel(x, y, w, h, "YOUR BAG")
   local boxes, qy, used = Screen.bagBoxes(buildings, x, y, h)
   local mx, my = love.mouse.getPosition()
-  -- Under the title: what the box under the mouse holds (a small box has no
-  -- room for its name), else how full the bag is.
-  local line = ("%d of %d slots used"):format(math.min(used, buildings.slots), buildings.slots)
-  for _, r in ipairs(boxes) do
-    if r.stack and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h then
-      line = Kinds.label(Tiers.base(r.stack.item), r.stack.n)
-    end
-  end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.7, 0.7, 0.75, 0.9)
-  love.graphics.printf(line, x, y + 40, w, "center")
+  love.graphics.printf(("%d of %d slots used"):format(math.min(used, buildings.slots), buildings.slots), x, y + 40, w,
+    "center")
   drawCarried(x, qy, w) -- under the items
   for _, r in ipairs(boxes) do
-    drawItemBox(r, r.stack, r.open)
+    drawItemRow(r, r.stack, r.open)
     local over = r.stack and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h
     if r.stack and (r.stack.item == selected or over) then
       love.graphics.setColor(0.45, 0.95, 0.6, r.stack.item == selected and 0.9 or 0.45)
