@@ -493,12 +493,28 @@ function Inventory:bagWidth()
   return Screen.BAG_W
 end
 
---- What I carry, drawn beside the shop at (x, y), `h` tall.
-function Inventory:drawBag(x, y, h)
+--- What I carry, drawn beside the shop at (x, y), `h` tall, the boxes of
+--- `selected` (an item the shop is selling) lit.
+function Inventory:drawBag(x, y, h, selected)
   local b = buildings()
   if b and b.inventory then
-    Screen.drawBag(b, x, y, h)
+    Screen.drawBag(b, x, y, h, selected)
   end
+end
+
+--- The stack in the bag beside the shop (at x, y, `h` tall) under the
+--- point (px, py): { item, n }, or nil.
+function Inventory:bagStackAt(x, y, h, px, py)
+  local b = buildings()
+  if not (b and b.inventory) then
+    return nil
+  end
+  for _, r in ipairs((Screen.bagBoxes(b, x, y, h))) do
+    if r.stack and inside(r, px, py) then
+      return r.stack
+    end
+  end
+  return nil
 end
 
 function Inventory:drawHUD(client)

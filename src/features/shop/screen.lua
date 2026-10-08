@@ -74,6 +74,7 @@ local function amount(n)
   end
   return ("%d Fcks"):format(n)
 end
+Screen.amount = amount
 
 --- "FREE", or "30 Fcks": what `entry` costs in tier `tier`.
 function Screen.priceText(entry, tier)
@@ -140,8 +141,10 @@ end
 ---   detail           { x, y, w, h }, the side panel
 ---   buy              { x, y, w, h }, its Buy button, when something is picked
 ---   wear             { x, y, w, h }, its Buy & wear button, beside Buy, for armor and clothes
+---   sell / sellAll   { x, y, w, h }, SELL (a bundle) and SELL ALL, when `selling` (an item in my bag) is picked
+---   bag              { x, y, w, h }, where the inventory draws my bag, when there is room for it
 --- `picked` is the entry in the side panel, or nil.
-function Screen.layout(tab, page, picked)
+function Screen.layout(tab, page, picked, selling)
   local w, h = love.graphics.getDimensions()
   local bag = bagRoom(w)
   local areaW = cardsWidth(w - bag)
@@ -172,7 +175,13 @@ function Screen.layout(tab, page, picked)
   end
   local dy = py + TITLE_H
   L.detail = { x = px + areaW, y = dy, w = Screen.detailWidth - Screen.pad, h = py + ph - 44 - dy }
-  if picked then
+  if selling then
+    -- Something of mine picked in the bag: SELL a bundle and SELL ALL.
+    local d = L.detail
+    local half = math.floor((d.w - 24 - GAP) / 2)
+    L.sell = { x = d.x + 12, y = d.y + d.h - BUY_H - 12, w = half, h = BUY_H }
+    L.sellAll = { x = d.x + 12 + half + GAP, y = L.sell.y, w = d.w - 24 - half - GAP, h = BUY_H }
+  elseif picked then
     local d = L.detail
     L.buy = { x = d.x + 12, y = d.y + d.h - BUY_H - 12, w = d.w - 24, h = BUY_H }
     if Catalog.wearable(picked) then
@@ -353,19 +362,64 @@ local function button(b, label, can, over, font)
   love.graphics.printf(label, b.x, b.y + b.h / 2 - font:getHeight() / 2, b.w, "center")
 end
 
+--- The side panel selling `item` from my bag: its picture and name, how
+--- many I have, what the shop pays, and SELL / SELL ALL.
+local function drawSell(L, item, mx, my)
+  local d = L.detail
+  local x, w = d.x + 14, d.w - 28
+  local y = d.y + 12
+  local tier = Tiers.of(item)
+  local tiered = Tiers.tiered(item)
+  if tiered then
+    Tiers.drawFrame(tier, d.x + d.w / 2 - 36, y, 72, 64, 0.9)
+  end
+  love.graphics.push()
+  love.graphics.translate(d.x + d.w / 2, y + 32)
+  love.graphics.scale(1.8)
+  Render.itemIcon(Tiers.base(item), 0, 0)
+  love.graphics.pop()
+  y = y + 72
+  local buildings = Features.byName.buildings
+  local have = buildings and buildings.inventory and buildings.inventory[item] or 0
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(tiered and Tiers.color(tier) or { 1, 1, 1 })
+  local name = Kinds.name(Tiers.base(item), 2)
+  love.graphics.printf(tiered and Tiers.named(name, tier) or name, d.x, y, d.w, "center")
+  y = y + UI.fonts.body:getHeight() + 8
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.85, 0.85, 0.9)
+  y = para(("You have %d."):format(have), x, y, w) + 6
+  local unit = math.min(Catalog.sellUnit(item), have)
+  local one, all = Catalog.sellPrice(item, unit), Catalog.sellPrice(item, have)
+  if not one then
+    love.graphics.setColor(1, 0.45, 0.4)
+    para("The shop doesn't buy that.", x, y, w)
+    return
+  end
+  love.graphics.setColor(0.7, 0.7, 0.75)
+  para(("The shop pays %d%% of its own price: %s for %d, %s for all %d."):format(
+    math.floor(Catalog.SELL_SHARE * 100 + 0.5), amount(one), unit, amount(all), have), x, y, w)
+  local can = have > 0
+  button(L.sell, ("SELL %d"):format(unit), can, inside(L.sell, mx, my), UI.fonts.small)
+  button(L.sellAll, "SELL ALL", can, inside(L.sellAll, mx, my), UI.fonts.small)
+end
+
 --- The side panel: `picked` in tier `tier` (a bigger picture, its name,
 --- what it does, its numbers and the Buy button), or how to fill it.
-local function drawDetail(L, picked, purse, mx, my, tier)
+local function drawDetail(L, picked, purse, mx, my, tier, selling)
   local d = L.detail
   love.graphics.setColor(1, 1, 1, 0.05)
   love.graphics.rectangle("fill", d.x, d.y, d.w, d.h, 8)
   love.graphics.setColor(1, 1, 1, 0.14)
   love.graphics.rectangle("line", d.x, d.y, d.w, d.h, 8)
   love.graphics.setFont(UI.fonts.small)
-  if not picked then
+  if selling then
+    return drawSell(L, selling, mx, my)
+  elseif not picked then
     love.graphics.setColor(0.7, 0.7, 0.75)
-    love.graphics.printf("Click a card to see what it does, then buy it here.", d.x + 20, d.y + d.h / 2 - 20,
-      d.w - 40, "center")
+    local hint = L.bag and "Click a card to see what it does, then buy it here. Click something in your bag to sell it."
+      or "Click a card to see what it does, then buy it here."
+    love.graphics.printf(hint, d.x + 20, d.y + d.h / 2 - 30, d.w - 40, "center")
     return
   end
   local tiered = picked.tiered
@@ -445,8 +499,8 @@ end
 --- (mx, my) the mouse, `flash` { item, t } a card lit after a purchase and
 --- `notice` a line to show instead of the usual hint, `tier` the tier
 --- equipment is shown and sold in, `picked` the entry in the side panel.
-function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
-  local L = Screen.layout(tab, page, picked)
+function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked, selling)
+  local L = Screen.layout(tab, page, picked, selling)
   local p = L.panel
   local w, h = love.graphics.getDimensions()
 
@@ -455,7 +509,7 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
   -- What I carry, beside it (the inventory draws it), so I see what fits.
   local inventory = Features.byName.inventory
   if L.bag and inventory and inventory.drawBag then
-    inventory:drawBag(L.bag.x, L.bag.y, L.bag.h)
+    inventory:drawBag(L.bag.x, L.bag.y, L.bag.h, selling)
   end
   love.graphics.setColor(0.10, 0.10, 0.13, 0.96)
   love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 10)
@@ -504,7 +558,7 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
       drawItemCard(r, e, purse, lit, glow, tier)
     end
   end
-  drawDetail(L, picked, purse, mx, my, tier)
+  drawDetail(L, picked, purse, mx, my, tier, selling)
 
   for _, t in ipairs(L.tiers) do
     -- A tier button: its colour, lit when it is the one up.
