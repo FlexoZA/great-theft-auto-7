@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The minigun is heavy: you move at half your pace, walking or sprinting, while its barrels turn (winding
+  up and firing).
+
 ## [0.20.0] - 2026-10-08
 
 The Suppressor's minigun is yours to buy: hold the trigger, let it wind
