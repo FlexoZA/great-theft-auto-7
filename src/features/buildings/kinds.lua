@@ -377,7 +377,8 @@ function Kinds.tierStats(item)
   local gun, ability = base:match("^gun%-(.+)$"), base:match("^ability%-(.+)$")
   local armor, gear = base:match("^armor%-(.+)$"), base:match("^gear%-(.+)$")
   if gun and Guns[gun] then
-    return Guns[gun].tierStats, false, { cooldown = "fire rate", ttl = "range", ["ignite.dps"] = "afterburn" }
+    return Guns[gun].tierStats, false,
+      { cooldown = "fire rate", ttl = "range", ["ignite.dps"] = "afterburn", spinUp = "spin-up" }
   elseif ability and AbilityKinds.byKey[ability] then
     return AbilityKinds.byKey[ability].tierStats, false, AbilityKinds.byKey[ability].tierLabels
   elseif armor and ArmorKinds.byKey[armor] then

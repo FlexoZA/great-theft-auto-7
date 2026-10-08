@@ -37,6 +37,10 @@
 --             counts pulls, not pellets, and only the first pellet sounds.
 --   quiet     true: its rounds make no sound of their own (a gun a feature
 --             fires and sounds itself: the scout car's tau cannon)
+--   spinUp    seconds the barrels take to wind up before the first round
+--             (the minigun): hold fire and it spins, rounds come once it
+--             turns, and it keeps turning between rounds for as long as
+--             you hold on. Let go and it has to wind up again
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
@@ -193,6 +197,26 @@ Guns.list = {
     ammoName = "fuel can",
     stack = 10,
     tierStats = { "damage", "ttl", "magazine", "ignite.dps" },
+  },
+  {
+    key = "minigun",
+    blurb = "Six barrels, seventeen rounds a second once they wind up. Hold the trigger: it spins first.",
+    name = "minigun",
+    damage = 10, -- under an uzi's 12 a round...
+    cooldown = 0.06, -- ...but seventeen of them a second, and a belt of 150
+    spread = 0.08, -- about five degrees either way
+    speed = 950,
+    streak = 9,
+    ttl = 0.8, -- about 760 px
+    spinUp = 0.8, -- the barrels wind up before the first round
+    sound = "minigun", -- one roar while it fires (weapons/sounds.lua loops it)
+    pitch = 1,
+    magazine = 150,
+    reload = 4.5, -- a new belt box: slow
+    reloadSound = "reload-minigun",
+    ammoName = "minigun round",
+    stack = 300,
+    tierStats = { "damage", "spinUp", "magazine", "reload" },
   },
 }
 

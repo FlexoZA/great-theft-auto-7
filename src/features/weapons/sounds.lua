@@ -2,7 +2,7 @@
 -- source positioned in the world, so shots overlap freely and pan/fade
 -- relative to the listener (which the game state keeps at your car).
 --
--- A gun that fires too fast to hear as shots (the flamethrower) loops
+-- A gun that fires too fast to hear as shots (the flamethrower, the minigun) loops
 -- instead: each round only keeps that shooter's loop going (Sounds.hold),
 -- it lights with a one-off sound, and it fades once the rounds stop.
 
@@ -67,6 +67,37 @@ local function flameRoar()
     loop.data[i] = v
   end
   local source = love.audio.newSource(loop:toSoundData(0.8), "static")
+  source:setLooping(true)
+  source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
+  return source
+end
+
+--- The minigun's roar, a second long and seamless: seventeen hard cracks
+--- (its rate) run together over the motor's whine, every partial a whole
+--- number of cycles a second so the end meets the start.
+local function minigunRoar()
+  local RATE = Synth.RATE
+  local buf = Synth.newBuffer(1)
+  buf.n = RATE
+  local crack = Synth.newBuffer(1)
+  local SHOTS = 17
+  for k = 0, SHOTS - 1 do
+    local t = k / SHOTS
+    crack:noiseBurst(t, 0.03, { amp = 0.9, decay = 0.008 })
+    crack:sweep(t, 0.05, 420, 90, { wave = "sine", amp = 0.8, decay = 0.015 })
+  end
+  crack:lowpass(4200)
+  crack:mixInto(buf, 1)
+  local TWO_PI = 2 * math.pi
+  for i = 0, RATE - 1 do
+    local t = i / RATE
+    -- The motor: a saw-ish whine at 340 Hz and its octave, buzzing at the rate.
+    local p = (340 * t) % 1
+    buf.data[i] = buf.data[i] + (2 * p - 1) * 0.12 + math.sin(TWO_PI * 680 * t) * 0.05
+      + math.sin(TWO_PI * 17 * t) * 0.06
+  end
+  buf:drive(2.2)
+  local source = love.audio.newSource(buf:toSoundData(0.85), "static")
   source:setLooping(true)
   source:setAttenuationDistances(Sounds.refDistance, Sounds.maxDistance)
   return source
@@ -328,6 +359,21 @@ function Sounds.load()
   -- Flamethrower: a steady roar while the trigger is held, one loop per
   -- shooter, lit with a whoomp.
   loops.flame = { source = flameRoar(), start = "flame-light" }
+
+  -- Minigun: one roar while it fires, one loop per shooter, wound up first
+  -- (weapons plays "minigun-spin" as the barrels start, before any round).
+  loops.minigun = { source = minigunRoar() }
+
+  -- Its barrels winding up: a motor's whine climbing, a rattle of the
+  -- barrels coming round under it, 0.8 s (pitched to a faster spin-up).
+  bank["minigun-spin"] = make(0.85, function(buf)
+    buf:sweep(0, 0.8, 80, 340, { wave = "saw", amp = 0.22, decay = 4 })
+    buf:sweep(0, 0.8, 160, 680, { wave = "square", amp = 0.05, decay = 4 })
+    for i = 0, 13 do
+      buf:noiseBurst(0.8 * (i / 14) ^ 0.7, 0.012, { amp = 0.15, decay = 0.006 })
+    end
+    buf:lowpass(3400)
+  end)
 
   -- Lighting it: a soft low whoomp as the gas catches, and a hiss.
   bank["flame-light"] = make(0.45, function(buf)

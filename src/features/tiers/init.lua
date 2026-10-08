@@ -54,12 +54,13 @@ local Tiers = {
 }
 
 -- Stats where less is better: a tier divides them.
-local LOWER = { cooldown = true, reload = true, spread = true, delay = true, fireEvery = true }
+local LOWER = { cooldown = true, reload = true, spread = true, delay = true, fireEvery = true, spinUp = true }
 -- Stats that are counts: a tier rounds them.
 local WHOLE = { damage = true, magazine = true, soft = true, points = true, pellets = true }
 -- What a stat is called on a card, where its name won't do.
 local LABELS = {
   cooldown = "cooldown", fireEvery = "fire rate", seconds = "duration", rate = "heal rate", delay = "delay",
+  spinUp = "spin-up",
   ["blast.damage"] = "blast", ["blast.radius"] = "blast radius", points = "points", stamina = "sprint cost",
 }
 

@@ -61,6 +61,9 @@ local function gun(entry, tier)
     row("damage", whole(g.damage), "damage")
   end
   row("fire rate", ("%.1f a second"):format(1 / g.cooldown), "cooldown")
+  if g.spinUp then
+    row("spin-up", secs(g.spinUp), "spinUp")
+  end
   if g.ttl and not g.blast then
     row("range", ("about %d px"):format(math.floor(g.ttl * g.speed / 10 + 0.5) * 10), "ttl")
   end

@@ -634,6 +634,17 @@ couple of small conventions rather than requiring each other:
   Its magazine is a `tank`: a reload takes one fuel can ("ammo-flamethrower",
   made from oil and iron at the ammo factory) and fills it whole, and
   boxes, drops and stocks count cans, not rounds.
+  A gun with `spinUp` (the minigun: 10 a round, 17 a second, a belt of
+  150, a 4.5 s reload, 420 Fcks at the shop and 70 a box of 300) winds up
+  before it fires: holding fire spins the barrels for `spinUp` seconds
+  (0.8; a better tier shortens it) and only then do rounds come, as long
+  as the trigger is held. The client winds it (`Weapons:windBarrels`) and
+  sends `WPN_SPIN` as it starts, which the host stamps and passes on to
+  everyone for the wind-up sound; the host drops a round from barrels that
+  have not turned for `SPIN_KEEP` (0.4 s) unless a wind-up it heard is far
+  enough along. Its rounds roar as one loop, like the flamethrower's.
+  City 17's soldiers never carry it (`Level.loadout` weight 0); the
+  Suppressors do.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when
@@ -1352,8 +1363,8 @@ the one with a plot.
   put out by a-man/city17.lua). Slow (42 px/s, 1.5 rad/s turning), they
   see as City 17's soldiers do (60 degrees, 90 on edge, 150 px all round),
   plod closer while firing (to 260 px, never 520 px past their post), spin
-  the gun up for 0.9 s, then fire about 12 rounds a second (5 damage each,
-  the uzi's rounds through weapons' `serverFireFrom`, owned by nobody and
+  the gun up for 0.9 s, then fire about 12 rounds a second (the minigun's
+  rounds at 5 damage each through weapons' `serverFireFrom`, owned by nobody and
   `quiet`: the feature sounds them) for 3.2 s before venting for 1.8 s.
   The shield (160) soaks every hit first, shock at double, and recharges
   at 30 a second 5 s after the last hit; then 220 health. A blast's share

@@ -204,6 +204,12 @@ local TIMELINES = {
   ["reload-flamethrower"] = {
     { 0.03, "cap" }, { 0.2, "can-off" }, { 0.45, "can-on" }, { 0.6, "cap", 0.9 }, { 0.78, "hiss" },
   },
+  -- The minigun: the belt box unlatched and dropped, a new one clunked on,
+  -- the belt fed in and the gun charged, all of it low and heavy.
+  ["reload-minigun"] = {
+    { 0.03, "catch", 0.7 }, { 0.12, "can-off", 0.75 }, { 0.22, "mag-drop", 0.6 }, { 0.45, "can-on", 0.7 },
+    { 0.62, "mag-in", 0.65 }, { 0.8, "rack-back", 0.7 }, { 0.9, "rack-forward", 0.68 },
+  },
 }
 
 function Reloads.load()
