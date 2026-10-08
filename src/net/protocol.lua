@@ -13,6 +13,42 @@ local Protocol = {
 
 local SEP = "\t"
 
+-- Compression: the server deflates a long message (Protocol.pack) for a
+-- client that can read it (one that said its version in HELLO), and marks
+-- it with a first byte no message kind starts with. Over Tailscale (1280-
+-- byte packets) the big snapshots were split in two otherwise, and a lost
+-- half lost the lot. Everything else goes as it is.
+local ZIPPED = "\1"
+Protocol.ZIP_MIN = 160 -- bytes; shorter messages aren't worth it
+
+--- `msg` deflated and marked, when that is smaller; else `msg` itself.
+function Protocol.pack(msg)
+  if #msg < Protocol.ZIP_MIN then
+    return msg
+  end
+  local ok, z = pcall(love.data.compress, "string", "deflate", msg)
+  if ok and z and #z + 1 < #msg then
+    return ZIPPED .. z
+  end
+  return msg
+end
+
+--- A message as it arrived, inflated if it was packed; nil if it can't be.
+function Protocol.unpack(data)
+  if data:sub(1, 1) ~= ZIPPED then
+    return data
+  end
+  local ok, msg = pcall(love.data.decompress, "string", "deflate", data:sub(2))
+  return ok and msg or nil
+end
+
+--- Can a game at version `a` play with one at `b` (Version.current)? Only
+--- the same release; a build that can't tell its own ("0.0.0", no
+--- CHANGELOG.md beside it) doesn't stand in the way.
+function Protocol.compatible(a, b)
+  return a == b or a == "0.0.0" or b == "0.0.0"
+end
+
 function Protocol.encode(kind, ...)
   local parts = { kind }
   for i = 1, select("#", ...) do

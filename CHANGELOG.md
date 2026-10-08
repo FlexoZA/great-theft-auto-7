@@ -25,6 +25,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   20 seconds or more to come down, so it read 100+ ms even on a fast connection.
 - Your inputs and the server's updates go out the moment they are ready instead of waiting for the next
   frame: up to a frame (about 16 ms) less delay each way.
+- The server now sends about half as much (30 -> 16 kB/s per player): its big updates are compressed, so over
+  Tailscale they fit in one packet instead of being split in two, where losing either half lost the update.
+- Everyone in a game must have the same version now. Joining a server on another version tells you both
+  versions instead of going wrong mid-game.
 - The FPS counter moved from the top left to the top middle of the screen.
 
 ## [0.25.0] - 2026-10-08
