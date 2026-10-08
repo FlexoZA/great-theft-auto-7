@@ -1223,14 +1223,14 @@ the one with a plot.
   (`Bosses.health`). It hunts the nearest player: running (150 px/s,
   breath spent) while they are further off than its charge reach,
   prowling (90 px/s, none spent) closer, walking (42) winded. Within 62
-  px it swipes (22, knocked back 110 px; impact, free); 200-650 px off,
+  px it swipes (60, knocked back 110 px; impact, free); 200-650 px off,
   with 45 breath in hand, it spends 30 to paw the sand for 0.9 s (the warning) and charge
-  down a locked line at 440 px/s for up to 1.4 s (35 and thrown 240 px to
+  down a locked line at 440 px/s for up to 1.4 s (90 and thrown 240 px to
   the side, for everyone it runs over), reeling 2.2 s if it runs into
   anything; within 442 px, with 45 breath in hand, it spends 35 to rear for 1 s while the cone
   it will scream down shows on every screen (520 px long, 32 degrees
   either side), then screams: everyone in the cone with nothing solid
-  between takes up to 30 (impact: knocked down) and is blown back up to
+  between takes up to 70 (impact: knocked down) and is blown back up to
   320 px, both less towards the far end (`ANT_GUARD_SCREAM`, the wave
   drawn rolling out). Every so often (charge 5 s, scream 7 s apart).
   Under 40% it goes for a medkit (bosses/heal.lua) and it dodges
