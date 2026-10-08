@@ -29,6 +29,7 @@ Server.TICK = 1 / 30 -- simulation step, seconds
 local CHANNELS = 2
 local RELIABLE = 0
 local STATE_CHANNEL = 1
+local PING_INTERVAL = 100 -- ms between ENet's pings (500 by default): what each side reckons the round trip is
 local MAX_FRAME = 0.25 -- never simulate more than this per update (spiral of death guard)
 local SPAWN_SPACING = 80
 
@@ -103,12 +104,13 @@ function Server:update(dt)
     if not ok or not event then
       break
     end
-    if event.type == "receive" then
+    if event.type == "connect" then
+      event.peer:ping_interval(PING_INTERVAL) -- nothing else yet: a peer becomes a player once it sends HELLO
+    elseif event.type == "receive" then
       self:onMessage(event.peer, event.data)
     elseif event.type == "disconnect" then
       self:onDisconnect(event.peer)
     end
-    -- "connect" is ignored: a peer becomes a player once it sends HELLO.
   end
 
   if self.started then
@@ -119,6 +121,9 @@ function Server:update(dt)
       self:step(Server.TICK)
     end
   end
+  -- Out now, not at the next frame's service: a snapshot (and the acks for
+  -- what just came in) would otherwise wait a whole frame to leave.
+  self.host:flush()
 end
 
 --- Everyone behind a wheel rides where their vehicle is.

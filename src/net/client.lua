@@ -20,6 +20,11 @@ local RELIABLE = 0
 local STATE_CHANNEL = 1
 local CONNECT_TIMEOUT = 5 -- seconds
 local INPUT_INTERVAL = 1 / 30 -- seconds between INPUT packets
+-- ms between ENet's pings (500 by default). The ping on screen is ENet's
+-- estimate, which starts at 500 ms and moves an eighth of the way to each
+-- new measurement: at the default it read 100+ ms for the first ten
+-- seconds even on the same machine; at this it is right in a few seconds.
+local PING_INTERVAL = 100
 
 -- state: idle -> connecting -> connected -> joined -> (disconnected | failed)
 
@@ -79,6 +84,7 @@ function Client:update(dt)
     end
     if event.type == "connect" then
       self.state = "connected"
+      self.peer:ping_interval(PING_INTERVAL)
       self.peer:send(Protocol.encode("HELLO", self.name, self.key or ""), RELIABLE, "reliable")
     elseif event.type == "receive" then
       self:onMessage(event.data)
@@ -110,6 +116,8 @@ function Client:sendInput(throttle, steer, dt, handbrake)
   self.inputSeq = self.inputSeq + 1
   local msg = Protocol.encode("INPUT", self.inputSeq, throttle, steer, handbrake and 1 or 0)
   self.peer:send(msg, STATE_CHANNEL, "unreliable")
+  -- Out now, with whatever else this frame queued, not at the next frame's service.
+  self.host:flush()
 end
 
 --- STATE <tick> <vehicles> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...

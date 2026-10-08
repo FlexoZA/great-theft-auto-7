@@ -21,6 +21,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   screen, stronger the less is left and strongest while you are winded, and the stamina bar flashes.
 
 ### Changed
+- The ping on screen is right within a few seconds of joining: it used to start near 500 ms and take
+  20 seconds or more to come down, so it read 100+ ms even on a fast connection.
+- Your inputs and the server's updates go out the moment they are ready instead of waiting for the next
+  frame: up to a frame (about 16 ms) less delay each way.
 - The FPS counter moved from the top left to the top middle of the screen.
 
 ## [0.25.0] - 2026-10-08
