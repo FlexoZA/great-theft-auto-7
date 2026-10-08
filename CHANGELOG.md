@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-08
+
+The gym trains your legs: buy up to five levels of walking speed and walk
+twice as fast.
+
 ### Added
 - Walking speed at the gym (key 7): five levels, each +20% walking pace, so a full set walks twice
   as fast. Costs 3/5/8/11/14 Fcks. Sprinting is unchanged.
