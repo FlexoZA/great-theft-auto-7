@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.5] - 2026-10-09
+
+Sell things back to the shop from your bag, for half what it asks.
+
 ### Added
 - Sell things back to the shop: click something in your bag beside the shop and sell a bundle or all of it
   for half of what the shop asks (60 uzi rounds: 20 Fcks). It only buys what it sells itself, not materials.
