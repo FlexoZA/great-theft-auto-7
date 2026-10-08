@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.6] - 2026-10-09
+
+The bag beside the shop lists your guns and abilities too, grenades are on the Ammo shelf, and clicking one
+no longer crashes the game.
+
 ### Added
 - The bag beside the shop also lists the guns and abilities you carry, a row each at the bottom (the gun in
   hand lit, an ability ready or cooling down), taller on a bigger window. It shows only the slots you have, as
