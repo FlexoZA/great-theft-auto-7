@@ -389,6 +389,14 @@ local function collidePedestrians(map)
   end
 end
 
+--- My own car, driven ahead of the server (src/net/predict.lua): the same
+--- walls stop it here as they do there.
+function CityMap:predictCar(_client, car, dt)
+  if self.map and dt > 0 then
+    Collision.resolveCar(self.map, car, dt)
+  end
+end
+
 function CityMap:serverStep(server, dt)
   for _, car in pairs(server.vehicles) do
     if not car.hidden then

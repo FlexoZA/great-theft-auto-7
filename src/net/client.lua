@@ -12,6 +12,7 @@ local enet = require("enet")
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Version = require("src.version")
+local Predict = require("src.net.predict")
 
 local Client = {}
 Client.__index = Client
@@ -21,6 +22,7 @@ local RELIABLE = 0
 local STATE_CHANNEL = 1
 local CONNECT_TIMEOUT = 5 -- seconds
 local INPUT_INTERVAL = 1 / 30 -- seconds between INPUT packets
+local INPUT_REPEAT = 3 -- inputs in each INPUT packet: this one and the ones before it
 -- ms between ENet's pings (500 by default). The ping on screen is ENet's
 -- estimate, which starts at 500 ms and moves an eighth of the way to each
 -- new measurement: at the default it read 100+ ms for the first ten
@@ -49,6 +51,8 @@ function Client.new(playerName, key)
     lastTick = 0,
     inputSeq = 0,
     inputTimer = 0,
+    predict = nil, -- my own car, driven here ahead of the server (src/net/predict.lua)
+    youTick = 0, -- the newest YOU heard
   }, Client)
 end
 
@@ -68,6 +72,9 @@ function Client:connect(ip, port)
 end
 
 function Client:update(dt)
+  if self.predict then
+    Predict.update(self.predict, dt) -- the last correction fades
+  end
   if self.state == "connecting" then
     self.connectTimer = self.connectTimer - dt
     if self.connectTimer <= 0 then
@@ -103,6 +110,7 @@ function Client:update(dt)
       self.bodies = {}
       self.garage = {}
       self.myId = nil
+      self.predict = nil
     end
   end
 end
@@ -118,10 +126,61 @@ function Client:sendInput(throttle, steer, dt, handbrake)
   end
   self.inputTimer = self.inputTimer + INPUT_INTERVAL
   self.inputSeq = self.inputSeq + 1
-  local msg = Protocol.encode("INPUT", self.inputSeq, throttle, steer, handbrake and 1 or 0)
+  -- The last few inputs go along with this one, so a packet lost on the way
+  -- costs nothing: the next brings what it had (the server keeps each once).
+  local sent = self.sentInputs or {}
+  self.sentInputs = sent
+  table.insert(sent, 1, { throttle, steer, handbrake and 1 or 0 })
+  sent[INPUT_REPEAT + 1] = nil
+  local fields = { self.inputSeq }
+  for _, s in ipairs(sent) do
+    fields[#fields + 1], fields[#fields + 2], fields[#fields + 3] = s[1], s[2], s[3]
+  end
+  local msg = Protocol.encode("INPUT", unpack(fields))
   self.peer:send(msg, STATE_CHANNEL, "unreliable")
   -- Out now, with whatever else this frame queued, not at the next frame's service.
   self.host:flush()
+  -- Behind the wheel: the same input moves my own copy of the car a tick
+  -- (once the server has said where it is: onYou starts it).
+  local v = self:myVehicle()
+  if not (v and self.predict and self.predict.vid == v.id) then
+    self.predict = nil
+    return
+  end
+  Predict.input(self.predict, self, INPUT_INTERVAL, self.inputSeq, throttle, steer, handbrake)
+end
+
+--- YOU <tick> <applied input> <vid> <x> <y> <angle> <vx> <vy>: where my car
+--- really is, after the last input the server has applied.
+function Client:onYou(args)
+  local tick, applied, vid = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+  local x, y, angle = tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
+  local vx, vy = tonumber(args[7]), tonumber(args[8])
+  if not (tick and applied and vid and x and y and angle and vx and vy) or tick <= self.youTick then
+    return
+  end
+  self.youTick = tick
+  local v = self:myVehicle()
+  if not (v and v.id == vid) then
+    return -- just got out, or not in yet as far as the snapshots go
+  end
+  -- The first word on a car starts its prediction: a host that never says
+  -- (one from before it) leaves my car drawn from the snapshots.
+  if not (self.predict and self.predict.vid == vid) then
+    self.predict = Predict.new(self, v)
+  end
+  Predict.correct(self.predict, self, INPUT_INTERVAL, applied, x, y, angle, vx, vy)
+end
+
+--- Where my predicted car is to be drawn, if `vid` is the one I drive and
+--- it is predicted: x, y, angle. Nil otherwise (draw it from the snapshots).
+function Client:predictedPose(vid)
+  local p = self.predict
+  if not (p and p.vid == vid) then
+    return nil
+  end
+  local alpha = 1 - math.max(0, math.min(1, self.inputTimer / INPUT_INTERVAL))
+  return Predict.pose(p, alpha)
 end
 
 --- STATE <tick> <vehicles> [<vid> <x> <y> <angle> <speed> <driver>]... [<id> <x> <y> <facing>]...
@@ -256,6 +315,8 @@ function Client:onMessage(data)
     if id then
       self.known[id] = args[2] or "?"
     end
+  elseif kind == "YOU" then
+    self:onYou(args)
   elseif kind == "STATE" then
     self:onState(args)
   elseif kind == "VEHICLE" then
@@ -337,6 +398,7 @@ function Client:disconnect()
   self.bodies = {}
   self.garage = {}
   self.myId = nil
+  self.predict = nil
 end
 
 return Client

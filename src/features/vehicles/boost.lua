@@ -69,6 +69,22 @@ function Boost.drawHUD(client, models)
   UI.drawStatBar(Boost.HUD_SLOT, "boost", frac, color, frac >= 1 and "ready" or nil, nil, nil, frac > 0 and 1 or 0.55)
 end
 
+--- My own car, driven ahead of the host (src/net/predict.lua): boosted
+--- while I hold the key and the host last said there was some left, coasting
+--- back down to `model`'s top speed otherwise, as the host does it.
+function Boost.predict(car, dt, model)
+  local b = model.boost
+  if not b then
+    return
+  end
+  if held and (left[car.id] or 1) > 0 then
+    car.maxSpeed, car.accel = model.topSpeed * b.speed, model.acceleration * b.accel
+  else
+    car.maxSpeed = math.max(model.topSpeed, car.maxSpeed - Boost.EASE * dt)
+    car.accel = model.acceleration
+  end
+end
+
 function Boost.onLeft(args)
   local vid, frac = tonumber(args[1]), tonumber(args[2])
   if vid and frac then

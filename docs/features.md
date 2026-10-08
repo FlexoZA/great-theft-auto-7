@@ -60,6 +60,7 @@ Runs on every machine, including the host (the host runs its own client).
 
 | `mousepressed(x, y, button, client)` | Mouse press in the game. |
 | `wheelmoved(dx, dy, client)` | Mouse wheel in the game, not while paused (`dy > 0` is up). Weapons steps through your guns with it. |
+| `predictCar(client, car, dt)` | Client side, after each tick the client drives its own car ahead of the server (`src/net/predict.lua`), and once with `dt` 0 when it starts. Do to `car` (a `src/car.lua` car) whatever your `serverStep` does to the real one, so the prediction agrees: the city map pushes it out of walls, vehicles gives it its model's handling and its boost. Anything left out is still right, a round trip later, smoothed in. |
 | `drawVehicle(client, c)` | Asked before the core draws each car (world space). Draw `c` at `c.dx, c.dy, c.dangle` yourself and return true, and the core's box is left out. Vehicles draws its SVG models this way. |
 | `worldBlur(client)` | Asked every frame: return 0..1 for how soft the world should be drawn (the HUD stays sharp). The core takes the highest answer and eases towards it; weapons answers 1 while you are wrecked. |
 | `clientMessages = { KIND = function(client, args) end }` | A message from the server the core doesn't know. |
