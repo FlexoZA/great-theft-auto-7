@@ -117,11 +117,11 @@ Combine.SWEEP_SQUAD = 3 -- soldiers to a sweep
 Combine.SWEEPS = 2 -- sweeps out of one siege at most
 Combine.CREW_SWEEP = 2 -- riflemen sent to look when every one of them holds
 Combine.SPOT_SHARE = 900 -- px; a siege this near whoever gets the shooter in his sights is over
-Combine.GRENADIER = 0.25 -- share of soldiers who carry grenades
-Combine.GRENADES = 2 -- grenades each of them carries
+Combine.GRENADIER = 0.1 -- share of soldiers who carry grenades
+Combine.GRENADES = 1 -- grenades each of them carries
 Combine.GRENADE_MIN = 140 -- px; no nearer than this (the blast would reach him)
-Combine.GRENADE_EVERY = 8 -- seconds between one throw and the next
-Combine.GRENADE_ROLL = { 1.2, 0.3 } -- every this many seconds he has somebody in range, this chance he throws
+Combine.GRENADE_EVERY = 20 -- seconds between one throw and the next
+Combine.GRENADE_ROLL = { 2, 0.1 } -- every this many seconds he has somebody in range, this chance he throws
 Combine.LOST_THROW = 4 -- seconds after losing sight of somebody that he may lob one at where they were
 Combine.SPLASH_CLEAR = 120 -- px; nobody of his own this near where it would land
 

@@ -65,7 +65,7 @@
 -- opens again for each squad). On a map driven like that a car can run
 -- them down: one hit at speed (car-collisions' numbers) is enough. Hunters
 -- (the hunters feature) walk the open stretches of road between the
--- checkpoints (the map's `hunterBeats`, more with more humans).
+-- checkpoints (the map's `hunterBeats`, one more for each human past the first).
 --
 -- The Citadel (city-map's `citadel`, quests' "a-man-citadel") has guards
 -- on the posts on every platform, an MG emplacement over the long span
@@ -287,7 +287,7 @@ function Level.serverQuestStarted(server, quest)
     hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
   end
   for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
-    hunters:serverPatrol(server, beat.route, Bosses.count(beat.count, server))
+    hunters:serverPatrol(server, beat.route, Bosses.plus(beat.count, server))
   end
   local suppressors = Features.byName.suppressors
   for _, p in ipairs(suppressors and map.suppressors or {}) do -- the Citadel's heavies
