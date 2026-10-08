@@ -95,7 +95,7 @@ local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Sounds = require("src.features.a-man.sounds")
 local Nests = require("src.features.a-man.nests")
-local Corpses = require("src.features.a-man.corpses")
+local Corpses = require("src.features.corpses")
 local Car = require("src.car")
 
 local Level = {}
@@ -163,6 +163,7 @@ local GUNNER_ON = 16 -- px from a nest's gun that counts as on it (nests.lua's)
 local LOOK = {
   shirt = { 0.34, 0.40, 0.48 }, pants = { 0.18, 0.21, 0.25 }, skin = { 0.13, 0.14, 0.16 },
   hood = { 0.17, 0.19, 0.22 }, shoes = { 0.06, 0.06, 0.07 }, vest = { 0.45, 0.51, 0.59 }, gun = true,
+  mask = true, -- a masked head: dead lenses on his body (the corpses feature)
 }
 local LENS = { 0.45, 0.85, 1.00 }
 local LENS_ALERT = { 1.00, 0.45, 0.20 }
@@ -863,7 +864,6 @@ function Level.update(dt)
     troops = {}
   end
   Cameo.update(dt)
-  Corpses.update(dt)
   for i = #doors, 1, -1 do
     doors[i].t = doors[i].t - dt
     if doors[i].t <= 0 then
@@ -916,7 +916,6 @@ function Level.drawBelowCars()
   for _, d in ipairs(doors) do
     drawDoor(d)
   end
-  Corpses.draw()
   if not Features.any("hideSightCones") then -- the ` key (sight-cones)
     for _, s in pairs(troops) do
       Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)

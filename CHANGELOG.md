@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- D-Day's soldiers, pedestrians and simps (Karen's and open borders') now drop dead where they are
+  shot, in the same three poses as the Combine, in their own clothes. Run over or blown up, they
+  still burst into a splat; burned or electrocuted, they leave ash.
 - Dead Combine soldiers fall three ways now: on their back as before, face down with their arms up
   by their head, or curled up on their side.
 

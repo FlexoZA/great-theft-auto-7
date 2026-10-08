@@ -35,7 +35,7 @@
 --                                                    portrait's speech, Major.lines[line], for reveal)
 --   server -> all  DD_TROOPS <tick> [<id> <x> <y> <facing> <hp> <flags>]...   (unreliable, 15 Hz;
 --                                                    flags g/r guard/rifleman, upper case when alert)
---   server -> all  DD_DOWN   <id> <x> <y> <angle>    a soldier went down
+--   server -> all  DD_DOWN   <id> <x> <y> <angle> <cause>   a soldier went down (cause: the damage type)
 --   server -> all  DD_AIM    <x> <y> <radius> <delay>  a mortar is coming down here
 --   server -> all  DD_BLAST  <x> <y> <radius>        it landed
 --   server -> all  DD_MAJOR  <tick> <x> <y> <facing> <hp> <max> <stamina> <winded>   (unreliable, 15 Hz)
@@ -51,6 +51,7 @@ local Face = require("src.features.d-day.major_face")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
+local Corpses = require("src.features.corpses")
 local Sounds = require("src.features.d-day.sounds")
 
 local Dday = {
@@ -362,12 +363,13 @@ function Dday:callIns()
   end
 end
 
---- One soldier down: gibs on every screen, a koin where he fell, and
---- sometimes something to pick up. Everyone near enough to hear it goes
---- to look.
-function Dday:soldierDown(server, s, by, angle)
+--- One soldier down: his body on every screen (a splat for a blast; the
+--- corpses feature), a koin where he fell, and sometimes something to pick
+--- up. Everyone near enough to hear it goes to look. `cause` is the damage type.
+function Dday:soldierDown(server, s, by, angle, cause)
   sv.troops:alarm(s.x, s.y, self.downHeard)
-  server:broadcast(Protocol.encode("DD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0)))
+  server:broadcast(Protocol.encode("DD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0),
+    cause or "bullet"))
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, s.x, s.y, self.soldierDrops)
@@ -405,7 +407,7 @@ end
 --- A bullet passing through (x, y): the `serverShotAt` convention. The
 --- defenders' own rounds (owner 0) pass through their side; the Major can
 --- only be hurt once his fight has begun.
-function Dday:serverShotAt(server, x, y, radius, by, angle)
+function Dday:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not (sv and sv.troops) or by == 0 then
     return false
   end
@@ -419,7 +421,7 @@ function Dday:serverShotAt(server, x, y, radius, by, angle)
     return false
   end
   if sv.troops:hurt(s, i, Soldiers.SHOT_DAMAGE, angle) then
-    self:soldierDown(server, s, by, angle)
+    self:soldierDown(server, s, by, angle, dtype)
   end
   return true
 end
@@ -596,14 +598,15 @@ Dday.clientMessages = {
   DD_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and Dday.troops[id]
     if id then
       Dday.troops[id] = nil
     end
     if x and y then
-      stain({ x = x, y = y, angle = angle })
-      if Features.byName.pedestrians then
-        require("src.features.pedestrians.gibs").splat(x, y, angle)
-        require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + random() * 0.2)
+      -- His body where he was drawn, or a splat (and a stain) for a blast.
+      local bx, by = s and s.dx or x, s and s.dy or y
+      if not Corpses.down(bx, by, angle, Render.lookFor(s and s.kind), args[5]) then
+        stain({ x = x, y = y, angle = angle })
       end
     end
   end,

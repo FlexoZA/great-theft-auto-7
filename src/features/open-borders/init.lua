@@ -12,13 +12,15 @@
 --
 -- Messages
 --   server -> all  OB_SIMPS <tick> [<id> <x> <y> <facing> <swing> <look>]...  (unreliable, 15 Hz; empty = all gone)
---   server -> all  OB_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
+--   server -> all  OB_SIMP_DOWN <id> <x> <y> <angle> <playerId> <cause>   one went down (0 = nobody's kill;
+--                  cause: the damage type)
 --   server -> all  OB_FIRE <id> <x> <y> <seconds left>            a fire caught (also to anyone joining)
 --   server -> all  OB_CLEAR                                       every simp and fire gone (a new map)
 
 local Protocol = require("src.net.protocol")
 local Body = require("src.body")
 local Features = require("src.features")
+local Corpses = require("src.features.corpses")
 local Horde = require("src.features.open-borders.horde")
 local Fire = require("src.features.open-borders.fire")
 
@@ -53,17 +55,19 @@ function OpenBorders:serverOpenBorders(_server, caster, x, y, seconds)
   end
 end
 
---- One simp down: gibs on every screen, and the other features price it
---- (money drops a koin, the same as a pedestrian).
+--- One simp down: his body on every screen (gibs under a car or in a
+--- blast; the corpses feature), and the other features price it (money
+--- drops a koin, the same as a pedestrian). `kill.cause` is the damage
+--- type, a car's "impact" when not given.
 local function simpDown(server, kill)
   server:broadcast(Protocol.encode("OB_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
-    kill.by or 0))
+    kill.by or 0, kill.cause or "impact"))
   Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
 end
 
 --- A bullet passing through (x, y): the `serverShotAt` convention. A simp
 --- standing there takes it.
-function OpenBorders:serverShotAt(server, x, y, radius, by, angle)
+function OpenBorders:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not sv then
     return false
   end
@@ -73,6 +77,7 @@ function OpenBorders:serverShotAt(server, x, y, radius, by, angle)
   end
   local kill = sv.horde:hurt(i, Horde.SHOT_DAMAGE, by ~= 0 and by or nil, angle)
   if kill then
+    kill.cause = dtype or "bullet"
     simpDown(server, kill)
   end
   return true
@@ -235,12 +240,13 @@ OpenBorders.clientMessages = {
   OB_SIMP_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and OpenBorders.simps[id]
     if id then
       OpenBorders.simps[id] = nil
     end
-    if x and y and Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    if x and y then
+      -- His body where he was drawn, in his hoodie, or gibs under a car or in a blast.
+      Corpses.down(s and s.dx or x, s and s.dy or y, angle, OpenBorders.simpLook(s and s.look or 1), args[6])
     end
   end,
   OB_FIRE = function(_client, args)
@@ -296,6 +302,7 @@ local function simpLook(i)
   end
   return look
 end
+OpenBorders.simpLook = simpLook -- for his body (OB_SIMP_DOWN, above)
 
 local function drawSimp(s)
   local x, y = s.dx, s.dy

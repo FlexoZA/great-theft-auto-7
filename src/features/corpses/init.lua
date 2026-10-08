@@ -1,14 +1,28 @@
--- The Combine's dead, as every screen draws them (city17.lua adds one on
--- each C17_DOWN): a soldier on the ground where he fell, knocked over the
--- way the round that dropped him was going, in one of three poses picked
--- at random -- sprawled on his back, face down, or curled on his side --
--- arms and legs a little different each time, his mask's lenses gone dark,
--- his gun dropped by his hand and a pool spreading under him. They lie there for
--- `LIE` seconds and fade, `MAX` at most at once. Client only.
+-- Corpses: the dead who leave a body, as every screen draws them. A body
+-- lies where it fell, knocked over the way the blow that dropped it was
+-- going, in one of three poses picked at random -- sprawled on its back,
+-- face down, or curled on its side -- arms and legs a little different each
+-- time, in the look it wore alive (Body.person's: shirt, pants, skin, hair,
+-- a hat, a hood, a vest, a pack, a gun; `mask` for the Combine's masked
+-- heads, whose lenses go dark), the gun dropped by its hand and a pool
+-- spreading under it. They lie there for `LIE` seconds and fade, `MAX` at
+-- most at once, and go when the map changes. Client only: nothing is sent.
+--
+-- Whoever runs the dead calls `Corpses.down(x, y, angle, look, cause)` on
+-- each machine when one goes down: a body for a round, a blade, a fist or
+-- poison; what the damage feature leaves for the rest (a splat for a car or
+-- a blast, ash for fire or a shock: Damage:deathAt), or the pedestrians'
+-- gibs without it. A-Man's Combine, D-Day's soldiers, the crowd and both
+-- kinds of simps (Karen's, open borders') do. `Corpses.add` lays a body
+-- down whatever killed it.
 
+local Features = require("src.features")
 local Body = require("src.body")
 
-local Corpses = {}
+local Corpses = {
+  name = "corpses",
+  priority = 55, -- under the crowd (60), pickups (70) and cars; over the map (20)
+}
 
 local LIE = 40 -- seconds one lies there
 local FADE = 4 -- the last of them fading out
@@ -16,6 +30,9 @@ local MAX = 60 -- at most, the oldest go first
 local POOL_TIME = 6 -- seconds the pool takes to spread
 local POOL = { 0.32, 0.03, 0.05 }
 local LENS_DEAD = { 0.16, 0.22, 0.27 }
+local EYES_SHUT = { 0.25, 0.16, 0.12 }
+-- What kills without leaving a body: the damage feature's ash, scorch and splat.
+local NO_BODY = { impact = true, explosive = true, fire = true, shock = true }
 local SIZE = 1.2 -- a little bigger than a standing soldier's figure: lying flat, he is all there is of him
 
 local list = {} -- { x, y, angle, look, seed, t }
@@ -34,22 +51,75 @@ function Corpses.clear()
   list = {}
 end
 
---- A soldier went down at (x, y), the round that did it going `angle`, in `look` (Body.person's).
+function Corpses:enterGame()
+  list = {}
+end
+
+function Corpses:exitGame()
+  list = {}
+end
+
+function Corpses:mapChanged()
+  list = {}
+end
+
+--- A body at (x, y), the blow that did it going `angle`, in `look` (Body.person's).
 function Corpses.add(x, y, angle, look)
-  list[#list + 1] = { x = x, y = y, angle = angle + (love.math.random() - 0.5) * 0.6, look = look,
+  -- A copy, with Body's colours where it has none: the living figure's
+  -- table may change after (a pedestrian's frost, a simp's punch).
+  local own = {}
+  for k, v in pairs(look or {}) do
+    own[k] = v
+  end
+  own.shirt = own.shirt or { 0.6, 0.6, 0.65 }
+  own.pants = own.pants or Body.PANTS
+  own.skin = own.skin or Body.SKIN
+  list[#list + 1] = { x = x, y = y, angle = (angle or 0) + (love.math.random() - 0.5) * 0.6, look = own,
     seed = love.math.random(1000), pose = love.math.random(3), t = 0 }
   while #list > MAX do
     table.remove(list, 1)
   end
 end
 
-function Corpses.update(dt)
+--- Somebody went down at (x, y), the blow going `angle`, in `look`,
+--- killed by damage type `cause` (nil for a plain round): a body, or what
+--- the damage feature leaves instead (a car's or a blast's splat, ash), and
+--- the splat's sound either way. True when it left a body.
+function Corpses.down(x, y, angle, look, cause)
+  angle = angle or 0
+  local body = not NO_BODY[cause or ""]
+  if body then
+    Corpses.add(x, y, angle, look)
+  else
+    local damage = Features.byName.damage
+    if damage and damage.deathAt then
+      damage:deathAt(x, y, angle, cause)
+      return false -- it plays the splat itself
+    elseif Features.byName.pedestrians then
+      require("src.features.pedestrians.gibs").splat(x, y, angle)
+    end
+  end
+  if Features.byName.pedestrians then
+    require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+  end
+  return body
+end
+
+function Corpses:update(dt)
   for i = #list, 1, -1 do
     list[i].t = list[i].t + dt
     if list[i].t > LIE then
       table.remove(list, i)
     end
   end
+end
+
+--- What covers the back of the head: a hood, a hat or helmet, or hair.
+local function cover(look)
+  if look.mask then
+    return look.hood or look.skin
+  end
+  return look.hood or look.hat or look.hair or Body.HAIR
 end
 
 local function limb(x0, y0, x1, y1, w, col, alpha, k)
@@ -64,8 +134,11 @@ local function boot(look, x, y, a, alpha)
   love.graphics.ellipse("fill", x + math.cos(a) * 1.5, y + math.sin(a) * 1.5, 2.6, 1.9, 8)
 end
 
---- His gun on the ground at (gx, gy), lying `ga`.
-local function gun(gx, gy, ga, alpha)
+--- His gun on the ground at (gx, gy), lying `ga`: only for one who carried one.
+local function gun(look, gx, gy, ga, alpha)
+  if not look.gun then
+    return
+  end
   set({ 0.1, 0.1, 0.12 }, alpha)
   love.graphics.setLineWidth(2.6)
   love.graphics.line(gx, gy, gx + math.cos(ga) * 14, gy + math.sin(ga) * 14)
@@ -117,21 +190,33 @@ local function sprawl(c, alpha)
   end
   set(pants, alpha, 1.5)
   love.graphics.ellipse("fill", -4.5, 0, 3, 4.4, 10) -- the belt and hips
-  -- The head, turned a little aside: the hood, the mask, two dead lenses.
+  -- The head, turned a little aside, face up: the hood and the mask with
+  -- two dead lenses, or a face with its eyes shut under hair, a hat or a hood.
   local tilt = flip * 0.4
   love.graphics.push()
   love.graphics.translate(9.5, 0)
   love.graphics.rotate(tilt)
-  set(look.hood or look.skin, alpha)
-  love.graphics.circle("fill", -0.6, 0, 4.2, 12)
-  set(look.skin, alpha)
-  love.graphics.circle("fill", 0.8, 0, 3.3, 12)
-  set(LENS_DEAD, alpha)
-  love.graphics.circle("fill", 2.6, -1.5, 1, 6)
-  love.graphics.circle("fill", 2.6, 1.5, 1, 6)
+  if look.mask then
+    set(cover(look), alpha)
+    love.graphics.circle("fill", -0.6, 0, 4.2, 12)
+    set(look.skin, alpha)
+    love.graphics.circle("fill", 0.8, 0, 3.3, 12)
+    set(LENS_DEAD, alpha)
+    love.graphics.circle("fill", 2.6, -1.5, 1, 6)
+    love.graphics.circle("fill", 2.6, 1.5, 1, 6)
+  else
+    set(cover(look), alpha)
+    love.graphics.circle("fill", 0.8, 0, 4.2, 12)
+    set(look.skin or Body.SKIN, alpha)
+    love.graphics.circle("fill", -0.4, 0, 3.2, 12)
+    set(EYES_SHUT, alpha)
+    love.graphics.setLineWidth(0.7)
+    love.graphics.line(0.1, -0.7, 0.1, -1.9) -- the lids, shut
+    love.graphics.line(0.1, 0.7, 0.1, 1.9)
+  end
   love.graphics.pop()
   -- His gun, dropped by the hand that was out.
-  gun(out[1] + 3, out[2] + flip * 3, flip * (0.8 + reach), alpha)
+  gun(look, out[1] + 3, out[2] + flip * 3, flip * (0.8 + reach), alpha)
 end
 
 --- Face down, lying along +x: the back of his vest and hood up, both arms
@@ -180,14 +265,27 @@ local function prone(c, alpha)
   end
   set(pants, alpha, 1.5)
   love.graphics.ellipse("fill", -4.5, 0, 3, 4.4, 10)
-  -- The back of his hood, face in the dirt: no lenses to see.
-  set(look.hood or look.skin, alpha)
+  if look.pack then -- his pack, still on his back
+    set(look.pack, alpha)
+    love.graphics.rectangle("fill", -5.5, -3.6, 6, 7.2, 1.5)
+    set(look.pack, alpha, 0.6)
+    love.graphics.setLineWidth(1)
+    love.graphics.line(-2.5, -3.6, -2.5, 3.6) -- the flap
+  end
+  -- The back of his head, face in the dirt: no face or lenses to see.
+  local back = cover(look)
+  set(back, alpha)
   love.graphics.circle("fill", 9.5, flip * 0.6, 4.2, 12)
-  set(look.hood or look.skin, alpha, 0.7)
   love.graphics.setLineWidth(1)
-  love.graphics.line(7, flip * 0.6, 12.5, flip * 0.6) -- the seam over the crown
+  if look.mask or look.hood then
+    set(back, alpha, 0.7)
+    love.graphics.line(7, flip * 0.6, 12.5, flip * 0.6) -- the seam over the crown
+  else
+    set(back, alpha, 1.4)
+    love.graphics.circle("fill", 8.6, flip * 0.6 - 1.2, 1.2, 6) -- the light on the crown
+  end
   -- The gun, just past the hand that was furthest out.
-  gun(12 + reach * 3, flip * (7 + reach), flip * (0.05 + reach * 0.15), alpha)
+  gun(look, 12 + reach * 3, flip * (7 + reach), flip * (0.05 + reach * 0.15), alpha)
 end
 
 --- Curled on his side, lying along +x, his back to -y (flip mirrors him):
@@ -234,24 +332,31 @@ local function curled(c, alpha)
   limb(ex, ey, -2, flip * 6.5, 2.8, shirt, alpha, 1.1)
   set(look.skin, alpha)
   love.graphics.circle("fill", -2, flip * 6.5, 1.9, 8)
-  -- The head tucked down: hood, mask side on, one dead lens.
+  -- The head tucked down, side on: the back of it, the face (or mask) to
+  -- the front, one dead lens or one shut eye.
   love.graphics.push()
   love.graphics.translate(9, flip * 1.5)
   love.graphics.rotate(flip * (0.5 + tuck * 0.3))
-  set(look.hood or look.skin, alpha)
+  set(cover(look), alpha)
   love.graphics.circle("fill", -0.4, -flip * 0.6, 4.1, 12)
-  set(look.skin, alpha)
+  set(look.skin or Body.SKIN, alpha)
   love.graphics.ellipse("fill", 1.2, flip * 0.9, 3, 2.6, 12)
-  set(LENS_DEAD, alpha)
-  love.graphics.circle("fill", 2.8, flip * 1.5, 1, 6)
+  if look.mask then
+    set(LENS_DEAD, alpha)
+    love.graphics.circle("fill", 2.8, flip * 1.5, 1, 6)
+  else
+    set(EYES_SHUT, alpha)
+    love.graphics.setLineWidth(0.7)
+    love.graphics.line(2, flip * 1.4, 2.9, flip * 1.4)
+  end
   love.graphics.pop()
   -- His gun, lying beside him where it slipped from his hand.
-  gun(-6 - reach * 4, -flip * (8 + reach * 2), flip * (0.15 + reach * 0.3), alpha)
+  gun(look, -6 - reach * 4, -flip * (8 + reach * 2), flip * (0.15 + reach * 0.3), alpha)
 end
 
 local POSES = { sprawl, prone, curled }
 
-function Corpses.draw()
+function Corpses:drawBelowCars()
   for _, c in ipairs(list) do
     local alpha = math.min(1, (LIE - c.t) / FADE)
     -- The pool under him, spreading out to one side.
