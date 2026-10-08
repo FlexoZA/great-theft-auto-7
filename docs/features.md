@@ -643,6 +643,9 @@ couple of small conventions rather than requiring each other:
   everyone for the wind-up sound; the host drops a round from barrels that
   have not turned for `SPIN_KEEP` (0.4 s) unless a wind-up it heard is far
   enough along. Its rounds roar as one loop, like the flamethrower's.
+  While the barrels turn (winding up, firing, and `SPIN_KEEP` after) its
+  `pace` (0.5) slows you on foot, walking and sprinting: weapons answers
+  `serverStat` / `stat` for "speed", which on-foot asks.
   City 17's soldiers never carry it (`Level.loadout` weight 0); the
   Suppressors do.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a

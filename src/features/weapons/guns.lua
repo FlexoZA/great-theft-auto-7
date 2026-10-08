@@ -41,6 +41,8 @@
 --             (the minigun): hold fire and it spins, rounds come once it
 --             turns, and it keeps turning between rounds for as long as
 --             you hold on. Let go and it has to wind up again
+--   pace      with `spinUp`: the share of your pace on foot, walking or
+--             sprinting, while the barrels turn (winding up or firing)
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
@@ -209,6 +211,7 @@ Guns.list = {
     streak = 9,
     ttl = 0.8, -- about 760 px
     spinUp = 0.8, -- the barrels wind up before the first round
+    pace = 0.5, -- and you lug it at half your pace while they turn
     sound = "minigun", -- one roar while it fires (weapons/sounds.lua loops it)
     pitch = 1,
     magazine = 150,

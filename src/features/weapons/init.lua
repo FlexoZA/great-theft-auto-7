@@ -20,6 +20,8 @@
 -- barrels wind up, everyone near hears it (WPN_SPIN), and rounds only come
 -- once they turn. They keep turning while you hold on, and for SPIN_KEEP
 -- after the last round; let go for longer and it winds up from cold again.
+-- While they turn you are slowed to the gun's `pace` on foot (the `stat`
+-- and `serverStat` conventions on "speed", which on-foot asks).
 -- The host checks it too: a round from cold barrels that didn't spin long
 -- enough is dropped.
 --
@@ -466,6 +468,16 @@ function Weapons:tryFireMounted(client, car, mounted)
   end
   self.carMags[car.id] = mag - 1
   client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+end
+
+--- The `stat` convention on a client: my own steps slow to the gun's
+--- `pace` while its barrels turn, as the host's do (serverStat).
+function Weapons:stat(value, client, id, name)
+  if name ~= "speed" or id ~= client.myId or self.spin <= 0 then
+    return value
+  end
+  local gun = self:gunAt(self.gun)
+  return gun.pace and value * gun.pace or value
 end
 
 --- A gun that spins up (`spinUp`): wind its barrels up while fire is held
@@ -1888,6 +1900,28 @@ local function heldGun(self, player, st)
     st.gun, st.reloadUntil = Guns.DEFAULT, nil
   end
   return st.gun
+end
+
+--- Are the barrels of `player`'s gun in hand turning on the host: winding
+--- up (WPN_SPIN) or firing? Returns that gun when they are.
+local function turning(self, player, st)
+  local gun = gunOf(st, heldGun(self, player, st))
+  if not gun.spinUp or player.vehicle then
+    return nil
+  end
+  local t = self.sv.time
+  if t - st.lastFire < SPIN_KEEP or (st.spinAt and t - st.spinAt <= gun.spinUp + SPIN_KEEP) then
+    return gun
+  end
+  return nil
+end
+
+--- The `serverStat` convention: a gun with a `pace` slows whoever is
+--- firing it (or winding it up) on foot.
+function Weapons:serverStat(value, _server, player, name)
+  local st = name == "speed" and self.sv and self.sv.players[player.id]
+  local gun = st and turning(self, player, st)
+  return gun and gun.pace and value * gun.pace or value
 end
 
 --- `player` is winding up the gun in hand (WPN_SPIN): from now its first
