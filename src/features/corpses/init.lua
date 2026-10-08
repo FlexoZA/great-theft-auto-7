@@ -4,7 +4,9 @@
 -- face down, or curled on its side -- arms and legs a little different each
 -- time, in the look it wore alive (Body.person's: shirt, pants, skin, hair,
 -- a hat, a hood, a vest, a pack, a gun; `mask` for the Combine's masked
--- heads, whose lenses go dark), the gun dropped by its hand and a pool
+-- heads, whose lenses go dark; `visor` for one slit across the mask instead
+-- of two lenses, `minigun` for a minigun on the ground instead of a rifle and
+-- `size` for a bigger figure, the Suppressors'), the gun dropped by its hand and a pool
 -- spreading under it. They lie there for `LIE` seconds and fade, `MAX` at
 -- most at once, and go when the map changes. Client only: nothing is sent.
 --
@@ -134,9 +136,35 @@ local function boot(look, x, y, a, alpha)
   love.graphics.ellipse("fill", x + math.cos(a) * 1.5, y + math.sin(a) * 1.5, 2.6, 1.9, 8)
 end
 
+--- A minigun on the ground at (gx, gy), lying `ga`: the housing, the six
+--- barrels still, the belt trailing off it.
+local function minigun(gx, gy, ga, alpha)
+  love.graphics.push()
+  love.graphics.translate(gx, gy)
+  love.graphics.rotate(ga)
+  set({ 0.55, 0.45, 0.2 }, alpha)
+  love.graphics.setLineWidth(1.4)
+  love.graphics.line(-1, 1.5, -5, 4, -8, 3.5) -- the belt, torn off the drum
+  set({ 0.2, 0.21, 0.23 }, alpha)
+  love.graphics.rectangle("fill", -1, -2.6, 7, 5.2, 1)
+  love.graphics.setLineWidth(1.1)
+  for k = -1, 1 do
+    set(k == 0 and { 0.4, 0.42, 0.46 } or { 0.14, 0.14, 0.16 }, alpha)
+    love.graphics.line(6, k * 1.4, 16, k * 1.4)
+  end
+  set({ 0.3, 0.31, 0.34 }, alpha)
+  love.graphics.rectangle("fill", 10, -2.2, 1.3, 4.4)
+  love.graphics.rectangle("fill", 15, -2.2, 1.2, 4.4)
+  love.graphics.pop()
+end
+
 --- His gun on the ground at (gx, gy), lying `ga`: only for one who carried one.
 local function gun(look, gx, gy, ga, alpha)
   if not look.gun then
+    return
+  end
+  if look.minigun then
+    minigun(gx, gy, ga, alpha)
     return
   end
   set({ 0.1, 0.1, 0.12 }, alpha)
@@ -202,8 +230,13 @@ local function sprawl(c, alpha)
     set(look.skin, alpha)
     love.graphics.circle("fill", 0.8, 0, 3.3, 12)
     set(LENS_DEAD, alpha)
-    love.graphics.circle("fill", 2.6, -1.5, 1, 6)
-    love.graphics.circle("fill", 2.6, 1.5, 1, 6)
+    if look.visor then
+      love.graphics.setLineWidth(1.2)
+      love.graphics.line(2.7, -2.2, 2.7, 2.2) -- the one slit, dark now
+    else
+      love.graphics.circle("fill", 2.6, -1.5, 1, 6)
+      love.graphics.circle("fill", 2.6, 1.5, 1, 6)
+    end
   else
     set(cover(look), alpha)
     love.graphics.circle("fill", 0.8, 0, 4.2, 12)
@@ -371,7 +404,7 @@ function Corpses:drawBelowCars()
     love.graphics.push()
     love.graphics.translate(c.x, c.y)
     love.graphics.rotate(c.angle)
-    love.graphics.scale(SIZE)
+    love.graphics.scale(SIZE * (c.look.size or 1))
     POSES[c.pose or 1](c, alpha)
     love.graphics.pop()
   end

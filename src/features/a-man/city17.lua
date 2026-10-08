@@ -69,8 +69,10 @@
 --
 -- The Citadel (city-map's `citadel`, quests' "a-man-citadel") has guards
 -- on the posts on every platform, an MG emplacement over the long span
--- (the map's `nests`, crewed as the Winding Road's) and Hunters on the
--- beats round the gallery and the top (its `hunterBeats`).
+-- (the map's `nests`, crewed as the Winding Road's), Hunters on the
+-- beats round the gallery and the top (its `hunterBeats`) and two
+-- Suppressors (the suppressors feature), heavies with a minigun and a
+-- shield, holding the gallery and the reactor deck (its `suppressors`).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
@@ -285,6 +287,10 @@ function Level.serverQuestStarted(server, quest)
   end
   for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
     hunters:serverPatrol(server, beat.route, Bosses.count(beat.count, server))
+  end
+  local suppressors = Features.byName.suppressors
+  for _, p in ipairs(suppressors and map.suppressors or {}) do -- the Citadel's heavies
+    suppressors:serverPost(server, p.x, p.y, p.watch)
   end
   for _, g in ipairs(map.garrisons or {}) do
     sv.garrisons[#sv.garrisons + 1] = { g = g, out = false, left = 0, nextIn = 0, doorFor = 0, own = {} }
