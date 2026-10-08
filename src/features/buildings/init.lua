@@ -111,7 +111,7 @@
 --                                 <pays, one per material>...   (Kinds.materials order; 0 = not buying)
 --                                 <hp>                          (0 = in ruins)
 --                                 <toShop>                      (1 = drivers sell what it makes to the shop)
---   server -> all     BLD_HP      <plotId> <hp>       (it was hit and still stands)
+--   server -> all     BLD_HP      <plotId> <hp>       (it was hit or mended and still stands)
 --   server -> all     BLD_GONE    <plotId>
 --   server -> player  BLD_INV     <item> <count>
 --   server -> player  BLD_SLOTS   <slots>
@@ -1480,7 +1480,10 @@ Buildings.clientMessages = {
     local b = Buildings.buildings[tonumber(args[1])]
     local hp = tonumber(args[2])
     if b and hp then
-      b.hp, b.hitAt = hp, time
+      if hp < b.hp then
+        b.hitAt = time -- flash a hit, not a repair
+      end
+      b.hp = hp
     end
   end,
   BLD_GONE = function(_client, args)
@@ -2641,6 +2644,34 @@ function Buildings:serverFillHopper(server, id, item, n)
   b.hopper[item] = (b.hopper[item] or 0) + moved
   publish(server, id, b)
   return moved
+end
+
+--- Mend up to `hits` hit points of the building on plot `id`, no further
+--- than whole; a ruin given any stands again, as the menu's rebuild does.
+--- The caller charges for it (Kinds.repairCost). Returns its hit points
+--- after, or nil when there is no building.
+function Buildings:serverRepair(server, id, hits)
+  local b = sv and sv.buildings[id]
+  local kind = b and Kinds.byKey[b.kind]
+  if not kind then
+    return nil
+  end
+  local wasRuin = ruined(b)
+  local hp = math.min(kind.hp, b.hp + math.max(0, math.floor(hits)))
+  if hp == b.hp then
+    return hp
+  end
+  b.hp = hp
+  if wasRuin then
+    markWalls()
+    if not kind.walkable then
+      clearFootprint(server, plotById(id))
+    end
+    publish(server, id, b)
+  else
+    server:broadcast(Protocol.encode("BLD_HP", id, b.hp))
+  end
+  return hp
 end
 
 --- For tests.
