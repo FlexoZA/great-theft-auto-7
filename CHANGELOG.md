@@ -15,6 +15,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- D-Day's soldiers fight back against snipers the way the Combine do: shot from where none of them
+  can see you, they take cover, send squads of 3 out to find you after 8 seconds of quiet, and all
+  come for you once one of them sees you.
+- A quarter of D-Day's soldiers carry two grenades and throw them at you, or at where you just
+  ducked out of sight.
+
+### Added
 - Combine soldiers fight back against snipers. Shoot one from where none of them can see you and he
   and his mates nearby (MG gunners too) take cover; once the shooting has stopped for 8 seconds they
   send a squad out to find you. The moment any of them sees you, defenders run back to their posts
