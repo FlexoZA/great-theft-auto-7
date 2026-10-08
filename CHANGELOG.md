@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-08
+
+Dying deep into a long quest no longer means walking it all again: find
+respawn points along the way and pick where to come back.
+
 ### Added
 - Respawn points on the long quest maps (City 17, the Coast, the Winding Road, the Citadel and Shotgun's
   Bluff). Walk or drive past one to find it: its flag turns green and it shows on the minimap. Die after
