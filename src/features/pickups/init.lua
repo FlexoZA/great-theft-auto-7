@@ -13,10 +13,10 @@
 -- What an enemy leaves behind has one source of truth, here: when one
 -- goes down (a simp, a squirrel, a soldier, a police officer or unit) its
 -- feature calls Pickups:serverDropEnemy, which drops one thing at most:
--- `dropChance` (40%) of anything, and then one of `drops` (an ammo box, a
--- medkit, an energy drink, a kevlar vest), each as likely as the others.
--- Something that comes in tiers then rolls its tier by `dropTiers`: nearly
--- always common. Ammo boxes are never scattered, only dropped: a box for
+-- `dropChance` (65%) of anything, and then one of `drops` by weight: an
+-- ammo box three times as likely as a medkit, an energy drink or a kevlar
+-- vest, a grenade half as likely. Something that comes in tiers then rolls
+-- its tier by `dropTiers`: nearly always common. Ammo boxes are never scattered, only dropped: a box for
 -- one of the guns that take ammo (never the bottomless pistol), picked at
 -- random and sized in that gun's magazines (serverDropAmmo). A drop is
 -- gone for good once taken. So is "ability-<key>", an
@@ -71,12 +71,19 @@ Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
 -- What an enemy drops (serverDropEnemy): one thing at most, `dropChance` of
--- the time, picked evenly from `drops` ("ammo" is a box for a random gun,
--- `dropMagazines` of its magazines big). Add a kind to the list and it
--- drops as often as the rest.
-Pickups.dropChance = 0.40
-Pickups.drops = { "ammo", "health", "stamina", "armor-vest" }
-Pickups.dropMagazines = 0.6
+-- the time, picked from `drops` by weight ("ammo" is a box for a random gun,
+-- `dropMagazines` of its magazines big; "grenade" is one hand grenade). Out
+-- of every 100 kills: 30 ammo boxes, 10 each of medkits, drinks and vests,
+-- 5 grenades. Add a kind to the list and give it a weight.
+Pickups.dropChance = 0.65
+Pickups.drops = {
+  { kind = "ammo", weight = 3 },
+  { kind = "health", weight = 1 },
+  { kind = "stamina", weight = 1 },
+  { kind = "armor-vest", weight = 1 },
+  { kind = "grenade", weight = 0.5 },
+}
+Pickups.dropMagazines = 1
 -- The tier of a dropped thing that comes in tiers, by weight: nearly always
 -- common, a better one much less often (of every 100 about 80, 14, 5 and 1).
 Pickups.dropTiers = {
@@ -392,7 +399,34 @@ local function drawVest(x, y, t, key)
   love.graphics.pop()
 end
 
-local DRAW = { health = drawHealth, stamina = drawStamina }
+--- A grenade dropped by an enemy: an olive pineapple with its lever and
+--- pin, bobbing over a warm glow like an ammo box.
+local function drawGrenade(x, y, t)
+  local bob = math.sin(t * 3 + 1.7) * 2
+  local pulse = 0.5 + 0.5 * math.sin(t * 4 + 1.7)
+  love.graphics.setColor(1, 0.8, 0.3, 0.12 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 20 + pulse * 4)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.ellipse("fill", x, y + 10, 9, 4)
+  y = y + bob
+  love.graphics.setColor(0.12, 0.13, 0.08)
+  love.graphics.ellipse("fill", x, y + 1, 10, 11)
+  love.graphics.setColor(0.36, 0.42, 0.22)
+  love.graphics.ellipse("fill", x, y + 1, 8, 9)
+  love.graphics.setColor(0.25, 0.30, 0.15) -- the segments
+  love.graphics.rectangle("fill", x - 8, y - 2, 16, 1.5)
+  love.graphics.rectangle("fill", x - 8, y + 3, 16, 1.5)
+  love.graphics.rectangle("fill", x - 0.75, y - 8, 1.5, 18)
+  love.graphics.setColor(0.55, 0.55, 0.5) -- the fuse head and lever
+  love.graphics.rectangle("fill", x - 3, y - 12, 6, 4, 1)
+  love.graphics.rectangle("fill", x + 2, y - 11, 3, 10, 1)
+  love.graphics.setColor(0.85, 0.65, 0.25) -- the pin's ring
+  love.graphics.setLineWidth(1.5)
+  love.graphics.circle("line", x - 6, y - 11, 3)
+  love.graphics.setLineWidth(1)
+end
+
+local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
 --- orb for any ability, a crate for a material, the vest for any armor.
@@ -547,24 +581,31 @@ function Pickups:serverDropAmmo(server, x, y, magazines)
   return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, n))
 end
 
---- A tier for a dropped thing, by `dropTiers`' weights.
-local function dropTier()
+--- One entry of `list` ({ weight = n, ... }), picked by weight; nil for
+--- an empty list.
+local function byWeight(list)
   local total = 0
-  for _, t in ipairs(Pickups.dropTiers) do
-    total = total + t.weight
+  for _, e in ipairs(list) do
+    total = total + e.weight
   end
   local roll = love.math.random() * total
-  for _, t in ipairs(Pickups.dropTiers) do
-    roll = roll - t.weight
+  for _, e in ipairs(list) do
+    roll = roll - e.weight
     if roll < 0 then
-      return t.tier
+      return e
     end
   end
-  return Tiers.DEFAULT
+  return list[#list]
+end
+
+--- A tier for a dropped thing, by `dropTiers`' weights.
+local function dropTier()
+  local t = byWeight(Pickups.dropTiers)
+  return t and t.tier or Tiers.DEFAULT
 end
 
 --- An enemy went down at (x, y): maybe it leaves something. One thing at
---- most: `dropChance` of anything, then one of `drops`, each as likely,
+--- most: `dropChance` of anything, then one of `drops` by weight,
 --- in a tier by `dropTiers` if it comes in tiers. Every enemy calls this
 --- (Karen's simps, the hunt's squirrels, D-Day's soldiers, the police's
 --- officers and units), so the odds live here and nowhere else. Returns
@@ -573,7 +614,7 @@ function Pickups:serverDropEnemy(server, x, y)
   if #self.drops == 0 or love.math.random() >= self.dropChance then
     return nil
   end
-  local kind = self.drops[love.math.random(#self.drops)]
+  local kind = byWeight(self.drops).kind
   if kind == "ammo" then
     return self:serverDropAmmo(server, x, y, self.dropMagazines)
   end

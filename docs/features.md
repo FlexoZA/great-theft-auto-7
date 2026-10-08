@@ -659,11 +659,11 @@ couple of small conventions rather than requiring each other:
   `pickups:serverDropEnemy(server, x, y)` is what every enemy calls when it
   goes down (Karen's simps, the hunt's squirrels, D-Day's soldiers, the
   police's officers and units), and the one place the odds live: one thing
-  at most, `pickups.dropChance` (40%) of anything, then one of
-  `pickups.drops` (an ammo box, a medkit, an energy drink, a kevlar vest),
-  each as likely; something with tiers then rolls its tier by
+  at most, `pickups.dropChance` (65%) of anything, then one of
+  `pickups.drops` by weight (an ammo box 3, a medkit, an energy drink and a
+  kevlar vest 1 each, a grenade 0.5); something with tiers then rolls its tier by
   `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
-  kind to `drops` and every enemy can drop it. A human with no armor on
+  kind and its weight to `drops` and every enemy can drop it. A human with no armor on
   who runs over a vest wears it at once, whole
   (`armor:serverWearFound(server, player, kind)`); one wearing a damaged
   vest has it topped back up to full (or wears the found one instead if it

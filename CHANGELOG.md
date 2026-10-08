@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Enemies can drop a grenade when they go down (5 in every 100 kills). Pick it up and drag it to
+  the grenade quick slot.
+
+### Changed
+- Enemies drop a lot more ammo: something drops from 40% -> 65% of kills, an ammo box from 10 ->
+  30 of every 100 kills, and each box holds 0.6 -> 1 full magazine. Medkits, energy drinks and
+  vests still drop from 10 of every 100 kills each.
+
 ## [0.13.0] - 2026-10-08
 
 A-Man's trail runs all the way to the top of the Citadel: through the
