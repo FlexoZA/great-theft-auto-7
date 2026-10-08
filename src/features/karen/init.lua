@@ -49,11 +49,13 @@
 --   server -> all  KRN_SCREAM <x> <y> <radius> [<playerId>]...      it landed; these were caught in it
 --   server -> all  KRN_SIMP  <id> <name>                           a simp arrived (also to anyone joining)
 --   server -> all  KRN_SIMPS <tick> [<id> <x> <y> <facing> <hp> <swing>]...  (unreliable, 15 Hz; empty = all gone)
---   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId>   one went down (0 = nobody's kill)
+--   server -> all  KRN_SIMP_DOWN <id> <x> <y> <angle> <playerId> <cause>   one went down (0 = nobody's kill;
+--                  cause: the damage type)
 
 local Protocol = require("src.net.protocol")
 local Body = require("src.body")
 local Features = require("src.features")
+local Corpses = require("src.features.corpses")
 local Audio = require("src.audio")
 local Video = require("src.video")
 local UI = require("src.ui")
@@ -168,12 +170,13 @@ function Karen:clearSimps(server)
   sv.simpsOut = 0
 end
 
---- One simp down: gibs on every screen, sometimes something to pick up,
---- and the other features price it (money drops a koin, the same as a
---- pedestrian).
+--- One simp down: his body on every screen (gibs under a car or in a
+--- blast; the corpses feature), sometimes something to pick up, and the
+--- other features price it (money drops a koin, the same as a pedestrian).
+--- `kill.cause` is the damage type, a car's "impact" when not given.
 function Karen:simpDown(server, kill)
   server:broadcast(Protocol.encode("KRN_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
-    kill.by or 0))
+    kill.by or 0, kill.cause or "impact"))
   local pickups = Features.byName.pickups
   if pickups and pickups.serverDropEnemy then
     pickups:serverDropEnemy(server, kill.x, kill.y) -- maybe something to pick up (the odds are pickups')
@@ -312,7 +315,7 @@ end
 --- A bullet passing through (x, y): the `serverShotAt` convention. She is
 --- fat enough that it is hard to miss; failing her, a simp standing there
 --- takes it.
-function Karen:serverShotAt(server, x, y, radius, by, angle)
+function Karen:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not sv then
     return false
   end
@@ -327,6 +330,7 @@ function Karen:serverShotAt(server, x, y, radius, by, angle)
   end
   local kill = sv.simps:hurt(s, Simps.SHOT_DAMAGE, by ~= 0 and by or nil, angle)
   if kill then
+    kill.cause = dtype or "bullet"
     sv.simps:removeAt(i)
     self:simpDown(server, kill)
   end
@@ -700,13 +704,14 @@ Karen.clientMessages = {
   KRN_SIMP_DOWN = function(_client, args)
     local id = tonumber(args[1])
     local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and Karen.simps[id]
     if id then
       Karen.simps[id] = nil
       Karen.simpNames[id] = nil
     end
-    if x and y and Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+    if x and y then
+      -- His body where he was drawn, or gibs under a car or in a blast.
+      Corpses.down(s and s.dx or x, s and s.dy or y, angle, Karen.simpLook, args[6])
     end
   end,
 }
@@ -777,6 +782,8 @@ local SIMP_LOOK = {
   shirt = SIMP_COLOR, hood = { SIMP_COLOR[1] * 0.85, SIMP_COLOR[2] * 0.85, SIMP_COLOR[3] * 0.85 },
   pants = { 0.2, 0.2, 0.24 }, skin = SIMP_SKIN,
 }
+Karen.simpLook = SIMP_LOOK -- for his body (KRN_SIMP_DOWN, above)
+
 local function drawSimp(s)
   local x, y, r = s.dx, s.dy, Body.SHOULDERS
   local swing = math.sin(time * 12 + s.bob) * 1.2

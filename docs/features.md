@@ -410,6 +410,19 @@ couple of small conventions rather than requiring each other:
   cause, `damage:deathAt(x, y, angle, cause)` draws it): ash for fire and
   shock, a scorch mark and the pieces thrown every way for a blast, a
   bigger splat for impact, the gibs for bullets and melee.
+- Corpses: `src/features/corpses` draws the dead who leave a body, on
+  every machine (client only, nothing sent): where they fell, knocked over
+  the way the blow went, in one of three poses at random (on the back, face
+  down, curled on the side), in the look they wore alive (Body.person's
+  fields, plus `mask` for the Combine's masked heads), the gun by the hand
+  of one who carried one and a pool spreading under them; 40 s, then they
+  fade, 60 at most, gone on a map change. `Corpses.down(x, y, angle, look,
+  cause)` is what a feature calls for one of its dead: a body for a round,
+  a blade, a fist or poison, `damage:deathAt` for the rest (a splat for a
+  car or a blast, ash for fire or a shock). D-Day's soldiers, the crowd and
+  both kinds of simps send the cause in their down message for it
+  (`DD_DOWN`, `PED_GIB`, `KRN_SIMP_DOWN`, `OB_SIMP_DOWN`; a car's kill is
+  "impact"); A-Man's Combine always leave a body (`Corpses.add`).
   What a type does besides the damage, to a player on foot (the damage
   feature, from `serverPlayerDamaged`): melee leaves them bleeding, poison
   leaves them poisoned (4 a second for 6 s), a shock hit of `stunMin` (20)

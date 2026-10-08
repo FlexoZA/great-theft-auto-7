@@ -120,6 +120,12 @@ function Render.sync(args)
   end
 end
 
+--- What pedestrian `id` wears (unfrosted), for their body; nil for one not about.
+function Render.lookFor(id)
+  local p = id and Render.peds[id]
+  return p and lookOf(id, p).base or nil
+end
+
 function Render.remove(id)
   Render.peds[id] = nil
   looks[id] = nil

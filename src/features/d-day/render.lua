@@ -123,6 +123,11 @@ local RIFLEMAN = {
   shirt = UNIFORM, pants = UNIFORM_DARK, hat = HELMET, skin = SKIN, shoes = { 0.16, 0.13, 0.1 },
   gun = true, gunLength = 15, pack = PACK,
 }
+--- What a soldier of `kind` ("guard", "rifleman") looks like: his body wears it too.
+function Render.lookFor(kind)
+  return kind == "rifleman" and RIFLEMAN or SOLDIER
+end
+
 local function drawSoldier(s, time)
   local x, y, r = s.dx, s.dy, Body.SHOULDERS
   Body.person(x, y, s.angle, 0, s.kind == "rifleman" and RIFLEMAN or SOLDIER)

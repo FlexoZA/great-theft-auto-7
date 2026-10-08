@@ -1,6 +1,7 @@
 -- Pedestrians: a crowd that wanders the streets, breaks for the kerb when a
--- car comes at it, scatters when a gun goes off nearby, and bursts into
--- gibs when a bumper or a bullet connects.
+-- car comes at it, scatters when a gun goes off nearby, and dies when a
+-- bumper or a bullet connects: shot, they drop where they stood (the
+-- corpses feature's bodies); run over or blown up, they burst into gibs.
 --
 -- The host owns every pedestrian (crowd.lua): it spawns them in a ring just
 -- outside anyone's view, recycles the ones nobody can see, and decides who
@@ -13,7 +14,7 @@
 --
 -- Messages
 --   server -> all  PED_SYNC <tick> [<id> <x> <y> <flee>]...   (unreliable, 15 Hz; flee is 2 for frozen)
---   server -> all  PED_GIB  <id> <x> <y> <angle> <killer> <total>
+--   server -> all  PED_GIB  <id> <x> <y> <angle> <killer> <total> <cause>   (cause: the damage type)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -113,11 +114,16 @@ Pedestrians.clientMessages = {
     if not (x and y and angle) then
       return
     end
-    if id then
-      Render.remove(id) -- don't let them keep walking until the next sync
+    local Corpses = Features.byName.corpses
+    if Corpses then
+      Corpses.down(x, y, angle, Render.lookFor(id), args[7]) -- a body, or gibs under a car or in a blast
+    else
+      Gibs.splat(x, y, angle)
+      Sounds.play("splat", x, y, 0.88 + love.math.random() * 0.24)
     end
-    Gibs.splat(x, y, angle)
-    Sounds.play("splat", x, y, 0.88 + love.math.random() * 0.24)
+    if id then
+      Render.remove(id)
+    end
     if killer and total then
       Pedestrians.roadkill[killer] = total
     end
@@ -138,21 +144,22 @@ function Pedestrians:serverPlayerLeft(_server, player)
   end
 end
 
---- One dead pedestrian: score it for the killer, gib it on every screen, and
+--- One dead pedestrian: score it for the killer, drop it on every screen, and
 --- let the other features price it (money drops a koin on the spot).
---- `kill` is { id, x, y, angle, by }; `angle` is the direction the gibs fly.
+--- `kill` is { id, x, y, angle, by, cause }; `angle` is the way the blow went,
+--- `cause` its damage type (a car's "impact" when not given).
 function Pedestrians:announce(server, kill)
   local total = (self.scores[kill.by] or 0) + 1
   self.scores[kill.by] = total
   server:broadcast(Protocol.encode("PED_GIB", kill.id, ("%.0f"):format(kill.x), ("%.0f"):format(kill.y),
-    ("%.3f"):format(kill.angle), kill.by, total))
+    ("%.3f"):format(kill.angle), kill.by, total, kill.cause or "impact"))
   Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
 end
 
 --- A bullet passed through (x, y) on its way, fired by player `by` along
 --- `angle`. Drop whoever was standing there and say so, so the shot stops on
 --- them. The `serverShotAt` convention, see docs/features.md.
-function Pedestrians:serverShotAt(server, x, y, radius, by, angle)
+function Pedestrians:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   if not (self.crowd and by) then
     return false
   end
@@ -160,7 +167,7 @@ function Pedestrians:serverShotAt(server, x, y, radius, by, angle)
   if not p then
     return false
   end
-  self:announce(server, { id = p.id, x = p.x, y = p.y, angle = angle or 0, by = by })
+  self:announce(server, { id = p.id, x = p.x, y = p.y, angle = angle or 0, by = by, cause = dtype or "bullet" })
   return true
 end
 
