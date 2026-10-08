@@ -21,6 +21,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   or you run out of money. He charges 3x what the repair menu does, and 6x to rebuild a ruin. He is only for hire while something of yours needs fixing,
   and his pickup can be shot up and wrecked.
 
+### Changed
+- Hunters no longer double with every extra player: each player past the first adds one more instead.
+  The Hunter-Chopper's Hunters with two players 6 -> 4, A-Man's briefcase Hunters 4 -> 3, the Winding Road
+  and Citadel beats the same (one player is unchanged).
+
 ## [0.24.0] - 2026-10-08
 
 The Poison Zombie and his headcrabs now hurt as badly as the Antlion Guard.

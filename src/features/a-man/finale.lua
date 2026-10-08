@@ -242,7 +242,7 @@ local function release(server, s, x, y)
         local a = i / 8 * 2 * math.pi
         route[#route + 1] = { x = x + math.cos(a) * HUNTER_RING, y = y + math.sin(a) * HUNTER_RING }
       end
-      hunters:serverPatrol(server, route, n)
+      hunters:serverPatrol(server, route, Bosses.plus(s.count, server)) -- one more per human, not double
     end
   else
     local feature = Features.byName[s.kind] -- "rollermines" or "antlions"
