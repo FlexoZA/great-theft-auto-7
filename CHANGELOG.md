@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Freeze is cast like the leap now: press its key to show the area, click to cast it there (the key again or
+  right-click to put it away). It used to be hold the key and let go.
+
 ## [0.26.1] - 2026-10-08
 
 Walking, sprinting and dodging answer the keys at once on a laggy connection too, like the car.
