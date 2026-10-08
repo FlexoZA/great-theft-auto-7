@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-08
+
+The Antlion Guard is still slow, but now every blow it lands is a big one.
+
 ### Changed
 - The Antlion Guard on the Coast hits far harder: swipe 22 -> 60, charge 35 -> 90, scream 30 -> 70 (right
   in front of it). Still as slow and as easy to hurt: dodge it or pay.
