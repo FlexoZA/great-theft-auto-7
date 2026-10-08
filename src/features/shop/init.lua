@@ -1,5 +1,6 @@
 -- Shop: a building in the city that sells guns, ammo, abilities, medkits,
--- cars and delivery drivers for hire. It stands in the same block as the Jobs building: quests/jobs.lua
+-- cars, and delivery drivers and Handsy Men for hire. It stands in the same
+-- block as the Jobs building: quests/jobs.lua
 -- picks both from the map the same way on every machine, so there is nothing
 -- to send (`Shop:here()`, the default city only). Stand on the square by its
 -- door and a prompt offers the shop on the action key (F, shared with getting
