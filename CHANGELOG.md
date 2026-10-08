@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Dead Combine soldiers fall three ways now: on their back as before, face down with their arms up
+  by their head, or curled up on their side.
+
 ## [0.16.0] - 2026-10-08
 
 Sniping from the dark no longer works on the Combine or D-Day's soldiers:
