@@ -85,11 +85,11 @@ Soldiers.RELEASE = 30 -- seconds without one before everyone pinned gets up agai
 Soldiers.SWEEP_SQUAD = 3 -- soldiers to a sweep
 Soldiers.SWEEPS = 2 -- sweeps out of one siege at most
 Soldiers.SPOT_SHARE = 900 -- px; a siege this near whoever gets the shooter in his sights is over
-Soldiers.GRENADIER = 0.25 -- share of soldiers who carry grenades
-Soldiers.GRENADES = 2 -- grenades each of them carries
+Soldiers.GRENADIER = 0.1 -- share of soldiers who carry grenades
+Soldiers.GRENADES = 1 -- grenades each of them carries
 Soldiers.GRENADE_MIN = 140 -- px; no nearer than this (the blast would reach him)
-Soldiers.GRENADE_EVERY = 8 -- seconds between one throw and the next
-Soldiers.GRENADE_ROLL = { 1.2, 0.3 } -- every this many seconds he has somebody in range, this chance he throws
+Soldiers.GRENADE_EVERY = 20 -- seconds between one throw and the next
+Soldiers.GRENADE_ROLL = { 2, 0.1 } -- every this many seconds he has somebody in range, this chance he throws
 Soldiers.LOST_THROW = 4 -- seconds after losing sight of somebody that he may lob one at where they were
 Soldiers.SPLASH_CLEAR = 120 -- px; nobody of his own this near where it would land
 
