@@ -26,6 +26,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   one every 8 -> 20 seconds, and they wait longer before deciding to throw.
 - D-Day soldiers throw far fewer grenades: 1 in 4 -> 1 in 10 carry them, 2 -> 1 each, at most one every
   8 -> 20 seconds, and they wait longer before deciding to throw.
+- Most traffic no longer fights back: shoot or ram a civilian car and only 1 in 10 drivers comes after you
+  (was every one); the rest floor it and get away from you. Police are unchanged.
+- Fewer pedestrians on the streets, about 20% less: 26 -> 21 per car, at most 90 -> 72.
 - Hunters no longer double with every extra player: each player past the first adds one more instead.
   The Hunter-Chopper's Hunters with two players 6 -> 4, A-Man's briefcase Hunters 4 -> 3, the Winding Road
   and Citadel beats the same (one player is unchanged).
