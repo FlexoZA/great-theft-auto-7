@@ -47,7 +47,8 @@
 -- is that much shorter too. A burn's or a bleed's bites are hits like any
 -- other, so a fire jacket makes a burn hurt less.
 --
--- What it looks like is effects.lua's: every status on a body, a number
+-- What it looks like is effects.lua's: every status on a body (and on my
+-- own screen, each status on me in big letters with what gets rid of it), a number
 -- in the type's colour floating up off every hit (weapons raises
 -- `clientHit`; `Damage.numbers` turns them off), and what a body leaves by
 -- what killed it (`Damage:deathAt`, from on-foot's OF_GIB): ash for fire
@@ -259,35 +260,59 @@ function Damage:drawAboveCars(client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- What is on me, in big letters across the middle of the screen just
+--- under where I stand (the weapons' NO AMMO and RELOAD go just over it):
+--- each status in its type's colour, pulsing, with what gets rid of it
+--- under it.
 function Damage:drawHUD(client)
   local me = client.myId
-  local says = {}
-  if self:has(me, "burn") then
-    says[#says + 1] = "ON FIRE: dodge to put it out"
-  end
-  if self:has(me, "zap") then
-    says[#says + 1] = "ELECTRIFIED: dodge to shake it off"
-  end
   local key = Controls.bindings("use-medkit")[1]
   local medkit = "a medkit" .. (key and " (" .. Controls.name(key) .. ")" or "")
+  local says = {}
+  local function say(word, hint, dtype)
+    says[#says + 1] = { word = word, hint = hint, color = Damage.colorOf(dtype) }
+  end
+  if self:has(me, "burn") then
+    say("ON FIRE", "dodge to put it out", "fire")
+  end
+  if self:has(me, "zap") then
+    say("ELECTRIFIED", "dodge to shake it off", "shock")
+  end
   if self:has(me, "bleed") then
-    says[#says + 1] = "BLEEDING: dodge or " .. medkit .. " stops it"
+    say("BLEEDING", "dodge or " .. medkit .. " stops it", "melee")
+    says[#says].color = { 0.95, 0.15, 0.15 } -- blood red, not the melee pink
   end
   if self:has(me, "poison") then
-    says[#says + 1] = "POISONED: dodge or " .. medkit .. " cures it"
+    say("POISONED", "dodge or " .. medkit .. " cures it", "poison")
   end
   if self:has(me, "stun") then
-    says[#says + 1] = "STUNNED"
+    say("STUNNED", nil, "shock")
   elseif self:has(me, "down") then
-    says[#says + 1] = "KNOCKED DOWN"
+    say("KNOCKED DOWN", nil, "impact")
   end
-  if #says > 0 then
-    love.graphics.setFont(UI.fonts.small)
-    local pulse = 0.65 + 0.35 * math.abs(math.sin(clock * 6))
-    love.graphics.setColor(1, 0.5, 0.15, pulse)
-    love.graphics.print(table.concat(says, "   "), 10, 118)
-    love.graphics.setColor(1, 1, 1)
+  if #says == 0 then
+    return
   end
+  local w, h = love.graphics.getDimensions()
+  local big, small = #says > 1 and UI.fonts.heading or UI.fonts.title, UI.fonts.small -- smaller when there are several
+  local pulse = 0.6 + 0.4 * math.abs(math.sin(clock * 5))
+  local y = math.floor(h / 2 + 60)
+  for _, s in ipairs(says) do
+    local c = s.color
+    local x = math.floor((w - big:getWidth(s.word)) / 2)
+    love.graphics.setFont(big)
+    love.graphics.setColor(0, 0, 0, 0.7 * pulse)
+    love.graphics.print(s.word, x + 2, y + 2)
+    love.graphics.setColor(c[1], c[2], c[3], pulse)
+    love.graphics.print(s.word, x, y)
+    y = y + big:getHeight()
+    if s.hint then
+      love.graphics.setFont(small)
+      UI.label(s.hint, math.floor((w - small:getWidth(s.hint)) / 2), y, { 1, 1, 1, 0.85 })
+      y = y + small:getHeight() + 6
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 --- The `held` convention: stunned or down, I don't walk ahead of the host.
