@@ -407,17 +407,31 @@ function Game:draw()
   Features.call("drawHUD", client)
 
   local me = client:myVehicle()
+  -- Top left: the frame rate (when the Video settings show it), a size up
+  -- and green, amber or red by how smooth it is, then the speed beside it.
+  local speedX = 10
+  if Video.get("showFps") then
+    local fps = love.timer.getFPS()
+    if fps >= 55 then
+      love.graphics.setColor(0.5, 1, 0.5)
+    elseif fps >= 30 then
+      love.graphics.setColor(1, 0.85, 0.3)
+    else
+      love.graphics.setColor(1, 0.4, 0.4)
+    end
+    local label = ("FPS %d"):format(fps)
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.print(label, 10, 6)
+    speedX = 10 + UI.fonts.body:getWidth(label) + 16
+  end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("speed %.0f"):format(me and me.speed or 0), 10, 10)
-  if Video.get("showFps") then
-    love.graphics.printf(("FPS %d"):format(love.timer.getFPS()), 0, 10, w, "center") -- top middle, over the kill feed
-  end
+  love.graphics.print(("speed %.0f"):format(me and me.speed or 0), speedX, 10)
   local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
   local help = "Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave"
   love.graphics.print(help, 10, 28)
 
-  -- Ping, big, just right of the lines above: ENet's smoothed round trip to the server.
+  -- Ping, big, top middle over the kill feed: ENet's smoothed round trip to the server.
   if client:isConnected() and client.peer then
     local ms = client.peer:round_trip_time()
     if ms < 80 then
@@ -427,8 +441,8 @@ function Game:draw()
     else
       love.graphics.setColor(1, 0.4, 0.4)
     end
-    love.graphics.setFont(UI.fonts.title)
-    love.graphics.print(("%d ms"):format(ms), 10 + UI.fonts.small:getWidth(help) + 24, 2)
+    love.graphics.setFont(UI.fonts.heading)
+    love.graphics.printf(("%d ms"):format(ms), 0, 4, w, "center")
     love.graphics.setFont(UI.fonts.small)
   end
 

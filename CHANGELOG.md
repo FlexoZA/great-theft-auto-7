@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The FPS counter is back in the top-left corner, a size bigger and green, amber or red by how smooth it is; the
+  ping moves to the top middle.
+
 ## [0.26.14] - 2026-10-09
 
 On fire, bleeding, poisoned and the rest now show in big letters in the middle of the screen.
