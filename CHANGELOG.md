@@ -14,6 +14,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.13] - 2026-10-09
+
+Antlions find their way round bunkers, rocks and walls to get at you.
+
+### Fixed
+- Antlions no longer get stuck behind bunkers, rocks and walls: they find their way round to you, and only leap
+  when nothing is in the way.
+
 ## [0.26.12] - 2026-10-09
 
 Bots that fight back stop and shoot like the police, and bots and the police back off from each other when hit.

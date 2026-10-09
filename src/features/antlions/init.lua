@@ -5,8 +5,9 @@
 -- Any map that marks `map.swarms` ({ x, y, r, count }: the Coast does)
 -- gets them buried there when everyone arrives on a quest: `count` to a
 -- swarm for one human, more with more (Bosses.count). What each does is
--- its brain's (brain.lua): buried, coming up, running, biting, leaping,
--- going back under when there is nobody left to go after. A quest's end or
+-- its brain's (brain.lua): buried, coming up, running (round anything in
+-- the way, over a walking grid), biting, leaping, going back under when
+-- there is nobody left to go after. A quest's end or
 -- a map change takes them all away.
 --
 -- They take whatever a round carries (`Brain.HEALTH`, 36: two pistol
@@ -45,6 +46,7 @@ local Brain = require("src.features.antlions.brain")
 local Render = require("src.features.antlions.render")
 local Sounds = require("src.features.antlions.sounds")
 local Guard = require("src.features.antlions.guard")
+local Nav = require("src.features.d-day.nav")
 
 local Antlions = {
   name = "antlions",
@@ -82,6 +84,14 @@ local function cityMap()
   return city and city.map
 end
 
+--- The host's swarms, with a walking grid over the map in play to find
+--- their way round things by (d-day/nav.lua).
+local function newState()
+  local map = cityMap()
+  local nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
+  return { brain = Brain.new(nav), syncIn = 0, emptySends = 0 }
+end
+
 --- Everyone arrived on a quest: a swarm buried at each of the map's spots.
 function Antlions:serverQuestStarted(server)
   local map = cityMap()
@@ -90,7 +100,7 @@ function Antlions:serverQuestStarted(server)
   if not (map and map.swarms) then
     return
   end
-  sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+  sv = newState()
   local f = map.finale
   for _, s in ipairs(map.swarms) do
     local swarm = sv.brain:bury(s.x, s.y, s.r, Bosses.count(s.count, server))
@@ -223,7 +233,7 @@ end
 --- whoever is nearest. Returns how many.
 function Antlions:serverSummon(_server, x, y, count, r)
   if not sv then
-    sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+    sv = newState()
   end
   local swarm = sv.brain:bury(x, y, r or 80, count)
   for i, a in ipairs(swarm.members) do
