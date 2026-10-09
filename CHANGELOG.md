@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- R: RELOAD flashes in big letters in the middle of the screen when the magazine is nearly out and there is ammo
+  to load, as it does over the gun.
+
 ## [0.26.9] - 2026-10-09
 
 The Citadel fights back harder: bunkers sending out squads, more soldiers and rollermines. Enemies' cones of sight
