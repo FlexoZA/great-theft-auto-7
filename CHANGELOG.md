@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.15] - 2026-10-09
+
+The FPS counter is back top left and coloured by how smooth it runs; the ping sits in the top middle.
+
 ### Changed
 - The FPS counter is back in the top-left corner, a size bigger and green, amber or red by how smooth it is; the
   ping moves to the top middle.
