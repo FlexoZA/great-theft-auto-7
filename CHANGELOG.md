@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.7] - 2026-10-09
+
+A big RELOADING across the middle of the screen while a gun reloads.
+
+### Added
+- RELOADING shows in big letters in the middle of the screen while a gun reloads, with a bar filling as it goes.
+
 ## [0.26.6] - 2026-10-09
 
 The bag beside the shop lists your guns and abilities too, grenades are on the Ammo shelf, and clicking one
