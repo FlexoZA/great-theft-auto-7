@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.9] - 2026-10-09
+
+The Citadel fights back harder: bunkers sending out squads, more soldiers and rollermines. Enemies' cones of sight
+are hidden now, all but the Hunters', who sweep a radar and see wider.
+
 ### Added
 - The Citadel has a Combine bunker on the pens, the processing floor, the gallery and the reactor deck: get near
   and squads of 3 come out of its door, 6 soldiers from each.
