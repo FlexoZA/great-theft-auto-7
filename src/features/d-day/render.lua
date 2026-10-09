@@ -101,9 +101,9 @@ function Render.below(D, camera, time)
     end
   end
   if not Features.any("hideSightCones") then -- the ` key (sight-cones)
-    for _, s in pairs(D.troops) do
+    for id, s in pairs(D.troops) do
       if onScreen(camera, s.dx, s.dy, Soldiers.RANGE) then
-        Sight.draw(s.dx, s.dy, s.angle, Soldiers.RANGE, s.alert, time)
+        Sight.draw(s.dx, s.dy, s.angle, Soldiers.RANGE, s.alert, time, nil, { seed = id })
       end
     end
   end

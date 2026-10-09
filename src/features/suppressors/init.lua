@@ -295,10 +295,14 @@ function Suppressors:update(dt)
   end
 end
 
---- Their cones of sight, on the ground under everything, as the Combine's are.
+--- Their cones of sight, on the ground under everything, as the Combine's
+--- are (unless the sight-cones toggle hides them, as it does by default).
 function Suppressors:drawBelowCars()
-  for _, u in pairs(shown) do
-    Sight.draw(u.dx, u.dy, u.facing, Brain.RANGE, u.alert, clock, u.fov)
+  if Features.any("hideSightCones") then -- the ` key (sight-cones)
+    return
+  end
+  for id, u in pairs(shown) do
+    Sight.draw(u.dx, u.dy, u.facing, Brain.RANGE, u.alert, clock, u.fov, { seed = id })
   end
 end
 

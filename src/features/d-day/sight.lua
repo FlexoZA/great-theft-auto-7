@@ -77,29 +77,75 @@ function Sight.reach(x, y, angle, range)
 end
 
 local fan = {} -- reused: the clipped end of each ray
+local reached = {} -- reused: how far each ray got
 
---- The cone from (x, y) facing `facing`, out to `range`, clipped by walls:
---- a faint pale fan while scanning, a hot red one with somebody in it.
---- `fov` is how wide (Sight.FOV unless given); a wider one gets more rays.
-function Sight.draw(x, y, facing, range, alert, time, fov)
+Sight.SWEEP = 1.4 -- seconds for the radar's beam to cross the cone one way
+Sight.TRAIL = 0.35 -- share of the cone the beam's fading trail covers
+Sight.RINGS = 3 -- range rings across the cone
+
+--- The cone from (x, y) facing `facing`, out to `range`, clipped by walls,
+--- drawn as a radar: a faint fan with range rings across it and a beam
+--- sweeping from side to side, a fading trail behind it. Cold green while
+--- scanning, a hot pulsing red with somebody in it. `fov` is how wide
+--- (Sight.FOV unless given); a wider one gets more rays. `opts.seed`
+--- (optional) sets where its beam is, so a crowd's don't sweep in step.
+function Sight.draw(x, y, facing, range, alert, time, fov, opts)
   fov = fov or Sight.FOV
-  local rays = math.max(Sight.RAYS, math.ceil(fov / Sight.FOV * Sight.RAYS))
+  time = time or 0
+  local seed = opts and opts.seed or 0
+  local rays = math.max(Sight.RAYS, math.ceil(fov / Sight.FOV * Sight.RAYS)) * 2
   local half = fov / 2
   for i = 0, rays - 1 do
     local a = facing - half + fov * i / (rays - 1)
-    fan[i * 2 + 1], fan[i * 2 + 2] = Sight.reach(x, y, a, range)
+    local ex, ey = Sight.reach(x, y, a, range)
+    fan[i * 2 + 1], fan[i * 2 + 2] = ex, ey
+    reached[i + 1] = math.sqrt((ex - x) ^ 2 + (ey - y) ^ 2)
   end
-  local r, g, b, fill, edge = 1, 0.95, 0.7, 0.10, 0.28
+  local r, g, b, fill, edge = 0.45, 1, 0.65, 0.05, 0.22
   if alert then
-    local pulse = 0.5 + 0.5 * math.sin((time or 0) * 12)
-    r, g, b, fill, edge = 1, 0.2, 0.15, 0.16 + 0.08 * pulse, 0.5
+    local pulse = 0.5 + 0.5 * math.sin(time * 12)
+    r, g, b, fill, edge = 1, 0.25, 0.18, 0.10 + 0.06 * pulse, 0.45
   end
   love.graphics.setColor(r, g, b, fill)
   for i = 1, rays - 1 do
     -- One triangle per pair of rays: each is convex, the whole fan may not be.
     love.graphics.polygon("fill", x, y, fan[i * 2 - 1], fan[i * 2], fan[i * 2 + 1], fan[i * 2 + 2])
   end
+  -- Range rings, only as far as each ray got before a wall.
   love.graphics.setLineWidth(1)
+  love.graphics.setColor(r, g, b, edge * 0.9)
+  for k = 1, Sight.RINGS do
+    local rr = range * k / Sight.RINGS
+    for i = 1, rays - 1 do
+      if reached[i] >= rr - 1 and reached[i + 1] >= rr - 1 then
+        local a0 = facing - half + fov * (i - 1) / (rays - 1)
+        local a1 = facing - half + fov * i / (rays - 1)
+        love.graphics.line(x + math.cos(a0) * rr, y + math.sin(a0) * rr, x + math.cos(a1) * rr, y + math.sin(a1) * rr)
+      end
+    end
+  end
+  -- The beam, sweeping across and back, its trail fading out behind it.
+  local phase = (time / Sight.SWEEP + seed * 0.618) % 2
+  local k = phase < 1 and phase or 2 - phase -- 0..1 across, then back
+  local dir = phase < 1 and 1 or -1
+  local beam = k * (rays - 1) -- in rays, fractional
+  local trail = math.max(1, Sight.TRAIL * (rays - 1))
+  for i = 1, rays - 1 do
+    -- The triangle between rays i and i + 1, by how far behind the beam it is.
+    local mid = i - 0.5
+    local behind = (beam - mid) * dir
+    if behind >= 0 and behind < trail then
+      local a = (1 - behind / trail) ^ 2
+      love.graphics.setColor(r, g, b, (alert and 0.30 or 0.22) * a)
+      love.graphics.polygon("fill", x, y, fan[i * 2 - 1], fan[i * 2], fan[i * 2 + 1], fan[i * 2 + 2])
+    end
+  end
+  local bi = math.max(1, math.min(rays, math.floor(beam + 0.5) + 1))
+  love.graphics.setColor(r, g, b, alert and 0.85 or 0.6)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(x, y, fan[bi * 2 - 1], fan[bi * 2])
+  love.graphics.setLineWidth(1)
+  -- The cone's edges.
   love.graphics.setColor(r, g, b, edge)
   love.graphics.line(x, y, fan[1], fan[2])
   love.graphics.line(x, y, fan[rays * 2 - 1], fan[rays * 2])
