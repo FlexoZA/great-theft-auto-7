@@ -25,6 +25,8 @@ local C = {
   crateDark = { 0.22, 0.25, 0.28 },
   barrier = { 0.18, 0.22, 0.27 },
   console = { 0.14, 0.17, 0.20 },
+  cabinet = { 0.12, 0.14, 0.17 },
+  screen = { 0.03, 0.06, 0.08 },
 }
 
 local function color(c, a)
@@ -282,6 +284,128 @@ local function drawLifts(map)
   love.graphics.setLineWidth(1)
 end
 
+--- A computer terminal from above: a dark desk, the screen at its back
+--- with lines of readout on it, a keyboard in front. The screens' flicker
+--- and the cursor are drawn live (a-man/upkeep.lua).
+local function drawTerminal(s)
+  color(C.console)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 6)
+  color(C.steelLight)
+  love.graphics.rectangle("line", s.x + 1, s.y + 1, s.w - 2, s.h - 2, 6)
+  color(C.screen)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 5, s.w - 12, s.h * 0.55, 3)
+  color(C.glow, 0.9)
+  local lines = math.floor((s.h * 0.55 - 6) / 5)
+  for i = 0, lines - 1 do
+    local len = (0.3 + 0.6 * hash(s.seed + i * 2.3)) * (s.w - 22)
+    love.graphics.rectangle("fill", s.x + 10, s.y + 9 + i * 5, len, 2)
+  end
+  color(C.crateDark)
+  love.graphics.rectangle("fill", s.x + 10, s.y + s.h * 0.55 + 10, s.w - 20, s.h * 0.45 - 16, 2)
+  color(C.rivet)
+  for k = 0, 7 do
+    love.graphics.rectangle("fill", s.x + 13 + k * (s.w - 26) / 8, s.y + s.h * 0.55 + 13, (s.w - 26) / 8 - 2, 3)
+    love.graphics.rectangle("fill", s.x + 13 + k * (s.w - 26) / 8, s.y + s.h * 0.55 + 18, (s.w - 26) / 8 - 2, 3)
+  end
+end
+
+--- A row of computer cabinets against a rail, from above: one cabinet
+--- every 40 px or so, each with a vent grille and a strip of lights along
+--- its front (the side facing into the platform). The lights blink live
+--- (a-man/upkeep.lua).
+local function drawBank(s)
+  local across = s.w > s.h -- the row runs left to right
+  local len = across and s.w or s.h
+  local n = math.max(1, math.floor(len / 40))
+  local step = len / n
+  for i = 0, n - 1 do
+    local x, y, w, h
+    if across then
+      x, y, w, h = s.x + i * step, s.y, step - 3, s.h
+    else
+      x, y, w, h = s.x, s.y + i * step, s.w, step - 3
+    end
+    color(C.cabinet)
+    love.graphics.rectangle("fill", x, y, w, h, 3)
+    color(C.steelLight)
+    love.graphics.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 3)
+    color(C.railDark)
+    if across then
+      for k = y + 8, y + h - 16, 5 do
+        love.graphics.rectangle("fill", x + 6, k, w - 12, 2)
+      end
+    else
+      for k = x + 8, x + w - 16, 5 do
+        love.graphics.rectangle("fill", k, y + 6, 2, h - 12)
+      end
+    end
+  end
+  -- The front, along the side away from the rail: a dark strip the lights sit in.
+  color(C.screen)
+  if s.side == "top" then
+    love.graphics.rectangle("fill", s.x + 2, s.y + s.h - 9, s.w - 4, 7, 2)
+  elseif s.side == "bottom" then
+    love.graphics.rectangle("fill", s.x + 2, s.y + 2, s.w - 4, 7, 2)
+  elseif s.side == "left" then
+    love.graphics.rectangle("fill", s.x + s.w - 9, s.y + 2, 7, s.h - 4, 2)
+  else
+    love.graphics.rectangle("fill", s.x + 2, s.y + 2, 7, s.h - 4, 2)
+  end
+  -- Cables trailing off the back, over the rail and down into the drop.
+  love.graphics.setLineWidth(3)
+  color(C.railDark)
+  for i = 0, n - 1, 2 do
+    local k = (i + 0.5) * step
+    if s.side == "top" then
+      love.graphics.line(s.x + k, s.y, s.x + k + 6, s.y - 22)
+    elseif s.side == "bottom" then
+      love.graphics.line(s.x + k, s.y + s.h, s.x + k + 6, s.y + s.h + 22)
+    elseif s.side == "left" then
+      love.graphics.line(s.x, s.y + k, s.x - 22, s.y + k + 6)
+    else
+      love.graphics.line(s.x + s.w, s.y + k, s.x + s.w + 22, s.y + k + 6)
+    end
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A cable across the floor from each computer bank to the nearest
+--- terminal on its platform, round the corner rather than straight across.
+local function drawCables(map)
+  local function platformOf(s)
+    return onPlatform(map, s.x + s.w / 2, s.y + s.h / 2)
+  end
+  love.graphics.setLineJoin("bevel")
+  for _, b in ipairs(map.cover) do
+    local p = b.kind == "bank" and platformOf(b)
+    local bx, by = b.x + b.w / 2, b.y + b.h / 2
+    local best, bestD = nil, math.huge
+    for _, c in ipairs(map.cover) do
+      if p and c.kind == "console" and platformOf(c) == p then
+        local d = (c.x - bx) ^ 2 + (c.y - by) ^ 2
+        if d < bestD then
+          best, bestD = c, d
+        end
+      end
+    end
+    if best then
+      local cx, cy = best.x + best.w / 2, best.y + best.h / 2
+      local pts = b.w > b.h and { bx, by, bx, cy, cx, cy } or { bx, by, cx, by, cx, cy }
+      love.graphics.setLineWidth(10)
+      color(C.railDark, 0.9)
+      love.graphics.line(pts)
+      love.graphics.setLineWidth(5)
+      color(C.cabinet)
+      love.graphics.line(pts)
+      love.graphics.setLineWidth(2)
+      color(C.glow, 0.35)
+      love.graphics.line(pts)
+    end
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setLineJoin("miter")
+end
+
 local function drawCover(map)
   for _, s in ipairs(map.cover) do
     color({ 0, 0, 0 }, 0.35)
@@ -303,13 +427,10 @@ local function drawCover(map)
       else
         love.graphics.rectangle("fill", s.x + s.w / 2 - 2, s.y + 8, 4, s.h - 16)
       end
+    elseif s.kind == "bank" then
+      drawBank(s)
     else
-      color(C.console)
-      love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 6)
-      color(C.glow, 0.85)
-      love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, s.h - 20, 3)
-      color(C.warm)
-      love.graphics.rectangle("fill", s.x + 8, s.y + s.h - 9, 8, 4)
+      drawTerminal(s)
     end
   end
 end
@@ -346,6 +467,7 @@ function RenderCitadel.draw(map, T)
   drawShadows(map, T)
   drawDecks(map, T)
   drawLifts(map)
+  drawCables(map)
   drawCover(map)
   drawEmplacements(map)
 end

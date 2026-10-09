@@ -27,7 +27,9 @@
 --                         a platform, on the gallery and the reactor deck
 --   map.openKinds         { walk = true }: city-map's randomRoadPoint takes the catwalks (there is no road)
 --   map.zones             { name, y0, y1 } as City 17's
---   map.cover             { kind = "crate" | "barrier" | "console", x, y, w, h }, all solid
+--   map.cover             { kind = "crate" | "barrier" | "console" | "bank", x, y, w, h }, all solid:
+--                         a console is a computer terminal, a bank a row of computer cabinets
+--                         against a platform's rail (`side`: "top", "bottom", "left" or "right")
 --   map.backdrop          what lies down in the drop, drawn and never touched:
 --                         { kind = "core", x, y, r }, { kind = "pillar", x, y, w, h, depth },
 --                         { kind = "girder", x, y, w, h, depth }, { kind = "rail", x0, y0, x1, y1, pods },
@@ -41,6 +43,7 @@ local MAP = {
   crate = { 0.40, 0.44, 0.48 },
   barrier = { 0.30, 0.55, 0.70 },
   console = { 0.45, 0.80, 0.95 },
+  bank = { 0.35, 0.65, 0.80 },
 }
 
 --- Build it into `map` (Layout.generate's, with tiles still empty). `T` is the tile size.
@@ -119,9 +122,9 @@ function Citadel.build(map, rng, T)
     end
     return true
   end
-  local function cover(kind, x, y, w, h)
+  local function cover(kind, x, y, w, h, side)
     local s = { kind = kind, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h),
-      mapColor = MAP[kind], seed = rng:random(1000) }
+      mapColor = MAP[kind], seed = rng:random(1000), side = side }
     map.cover[#map.cover + 1] = s
     map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
     placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }
@@ -137,10 +140,10 @@ function Citadel.build(map, rng, T)
       local y = p.y + 90 + rng:random() * (p.h - 180)
       if free(x, y, 50) then
         local roll = rng:random()
-        if roll < 0.45 then
+        if roll < 0.35 then
           local s = 56 + rng:random(0, 1) * 24
           cover("crate", x - s / 2, y - s / 2, s, s)
-        elseif roll < 0.85 then
+        elseif roll < 0.7 then
           local len = 120 + rng:random() * 60
           if rng:random() < 0.5 then
             cover("barrier", x - len / 2, y - 14, len, 28)
@@ -150,6 +153,35 @@ function Citadel.build(map, rng, T)
         else
           cover("console", x - 36, y - 24, 72, 48)
         end
+        got = got + 1
+      end
+    end
+  end
+
+  --- Rows of computer cabinets against platform `p`'s rails, `n` of them,
+  --- off the way across and the guards: the Citadel runs on them. `sides`
+  --- limits which rails ({ "top", ... }, all four by default).
+  local function banks(p, n, sides)
+    sides = sides or { "top", "bottom", "left", "right" }
+    local got = 0
+    for _ = 1, 200 do
+      if got >= n then
+        return
+      end
+      local side = sides[rng:random(1, #sides)]
+      local len, depth = (2 + rng:random(0, 2)) * T, 44
+      local x, y, w, h
+      if side == "top" or side == "bottom" then
+        w, h = len, depth
+        x = p.x + 40 + rng:random() * (p.w - 80 - len)
+        y = side == "top" and p.y + 12 or p.y + p.h - 12 - depth
+      else
+        w, h = depth, len
+        y = p.y + 40 + rng:random() * (p.h - 80 - len)
+        x = side == "left" and p.x + 12 or p.x + p.w - 12 - depth
+      end
+      if w <= p.w - 80 and h <= p.h - 80 and free(x + w / 2, y + h / 2, len / 2 - 20) then
+        cover("bank", x, y, w, h, side)
         got = got + 1
       end
     end
@@ -270,7 +302,16 @@ function Citadel.build(map, rng, T)
     end
   end
 
-  -- Cover on the wide spots: the lift and the landing stay bare.
+  -- Keep clear of the lift up at the top (drawn round map.exitX/exitY, set below).
+  placed[#placed + 1] = { x = top.x + top.w / 2, y = top.y + 110, r = 130 }
+  -- Computers along the rails of the wide spots, then cover over them:
+  -- the landing stays bare, the lift keeps its middle clear for arrivals.
+  banks(lift, 2, { "top", "bottom" }) -- the arrivals stand across its middle
+  banks(pens, 2)
+  banks(floor, 3)
+  banks(gallery, 2)
+  banks(reactor, 3)
+  banks(top, 2)
   scatter(pens, 6)
   scatter(floor, 7)
   scatter(gallery, 6)
