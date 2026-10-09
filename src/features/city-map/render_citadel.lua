@@ -284,6 +284,67 @@ local function drawLifts(map)
   love.graphics.setLineWidth(1)
 end
 
+--- A Combine bunker against a rail: a steel pod, plated and ribbed, a
+--- vent on the roof, firing slits glowing either side of its door, the door
+--- itself with hazard stripes on the deck outside and a light over it (the
+--- door opening is drawn live: a-man/city17.lua).
+local function drawBunker(s)
+  local x, y, w, h = s.x, s.y, s.w, s.h
+  color(C.railDark)
+  love.graphics.rectangle("fill", x, y, w, h, 10)
+  color(C.steel)
+  love.graphics.rectangle("fill", x + 5, y + 5, w - 10, h - 10, 8)
+  color(C.steelLight)
+  love.graphics.rectangle("fill", x + 5, y + 5, w - 10, 5, 3)
+  -- Ribs across the roof, the long way.
+  color(C.railDark)
+  if w > h then
+    for k = x + 22, x + w - 22, 21 do
+      love.graphics.rectangle("fill", k, y + 12, 3, h - 24)
+    end
+  else
+    for k = y + 22, y + h - 22, 21 do
+      love.graphics.rectangle("fill", x + 12, k, w - 24, 3)
+    end
+  end
+  -- The roof vent with the Combine's blue under it.
+  color(C.railDark)
+  love.graphics.circle("fill", x + w / 2, y + h / 2, 15, 20)
+  color(C.glow, 0.7)
+  love.graphics.circle("fill", x + w / 2, y + h / 2, 9, 20)
+  color(C.railDark)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(x + w / 2 - 9, y + h / 2, x + w / 2 + 9, y + h / 2)
+  love.graphics.line(x + w / 2, y + h / 2 - 9, x + w / 2, y + h / 2 + 9)
+  love.graphics.setLineWidth(1)
+  local d = s.door
+  if not d then
+    return
+  end
+  -- Everything on the face is a box from `t0` to `t1` along it and from
+  -- `k0` to `k1` out of it (negative: into the bunker).
+  local ax, ay = d.ny ~= 0 and 1 or 0, d.nx ~= 0 and 1 or 0
+  local function box(t0, t1, k0, k1)
+    local xa, xb = d.x + ax * t0 + d.nx * k0, d.x + ax * t1 + d.nx * k1
+    local ya, yb = d.y + ay * t0 + d.ny * k0, d.y + ay * t1 + d.ny * k1
+    love.graphics.rectangle("fill", math.min(xa, xb), math.min(ya, yb), math.abs(xb - xa), math.abs(yb - ya))
+  end
+  color(C.glow, 0.8) -- firing slits either side of the door
+  box(-50, -32, -7, -3)
+  box(32, 50, -7, -3)
+  color(C.railDark) -- the door, set into the face
+  box(-22, 22, -10, 0)
+  color(C.plateDark)
+  box(-19, -1, -8, 0)
+  box(1, 19, -8, 0)
+  color(C.stripe) -- hazard stripes on the deck outside it
+  for k = 0, 3 do
+    box(-18 + k * 10, -13 + k * 10, 2, 9)
+  end
+  color(C.warm) -- the light over it
+  box(25, 30, -8, -2)
+end
+
 --- A computer terminal from above: a dark desk, the screen at its back
 --- with lines of readout on it, a keyboard in front. The screens' flicker
 --- and the cursor are drawn live (a-man/upkeep.lua).
@@ -429,6 +490,8 @@ local function drawCover(map)
       end
     elseif s.kind == "bank" then
       drawBank(s)
+    elseif s.kind == "bunker" then
+      drawBunker(s)
     else
       drawTerminal(s)
     end

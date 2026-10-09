@@ -23,11 +23,14 @@
 --                         rollermines feature)
 --   map.hunterBeats       { name, route = { { x, y }... }, count }: Hunters (the hunters feature)
 --                         walking round the gallery and the top
+--   map.garrisons         { at, x, y, reach, door = { x, y, nx, ny }, waves }: a bunker against a rail
+--                         of every wide platform but the top, sending squads out of its door while
+--                         anyone is near (a-man/city17.lua, as the Winding Road's)
 --   map.suppressors       { x, y, watch, at }: where a Suppressor (the suppressors feature) holds
 --                         a platform, on the gallery and the reactor deck
 --   map.openKinds         { walk = true }: city-map's randomRoadPoint takes the catwalks (there is no road)
 --   map.zones             { name, y0, y1 } as City 17's
---   map.cover             { kind = "crate" | "barrier" | "console" | "bank", x, y, w, h }, all solid:
+--   map.cover             { kind = "crate" | "barrier" | "console" | "bank" | "bunker", x, y, w, h }, all solid:
 --                         a console is a computer terminal, a bank a row of computer cabinets
 --                         against a platform's rail (`side`: "top", "bottom", "left" or "right")
 --   map.backdrop          what lies down in the drop, drawn and never touched:
@@ -38,12 +41,16 @@
 
 local Citadel = {}
 
+Citadel.WAVES = { squad = 3, every = 12, alive = 4, total = 6 } -- each bunker's garrison (as the road's)
+Citadel.REACH = 700 -- px from a bunker that brings its garrison out
+
 -- How each kind shows on the minimap (minimap draws any cover with a `mapColor`).
 local MAP = {
   crate = { 0.40, 0.44, 0.48 },
   barrier = { 0.30, 0.55, 0.70 },
   console = { 0.45, 0.80, 0.95 },
   bank = { 0.35, 0.65, 0.80 },
+  bunker = { 0.55, 0.60, 0.66 },
 }
 
 --- Build it into `map` (Layout.generate's, with tiles still empty). `T` is the tile size.
@@ -63,7 +70,7 @@ function Citadel.build(map, rng, T)
     end
   end
   map.platforms, map.catwalks, map.posts, map.zones, map.cover, map.backdrop = {}, {}, {}, {}, {}, {}
-  map.nests, map.rollermines, map.hunterBeats, map.suppressors = {}, {}, {}, {}
+  map.nests, map.rollermines, map.hunterBeats, map.suppressors, map.garrisons = {}, {}, {}, {}, {}
   map.openKinds = { walk = true } -- no road here: the catwalks are where pickups and the like go
   local placed = {} -- { x, y, r }: kept clear of cover (the way across each platform, the guards)
 
@@ -220,6 +227,13 @@ function Citadel.build(map, rng, T)
   post(top, 34, 11, 52, 13)
   post(top, 44, 10, 52, 13)
   post(top, 46, 16, 52, 13)
+  -- And one more on each, nearer the way on.
+  post(pens, 23, 87, 27, 83)
+  post(landing, 37, 64, 32, 62)
+  post(floor, 61, 66, 52, 62)
+  post(gallery, 33, 46, 35, 43)
+  post(reactor, 66, 26, 62, 29)
+  post(top, 38, 16, 52, 13)
 
   -- A Suppressor holding the middle of the gallery and the back of the
   -- reactor deck, minigun on the way in.
@@ -248,14 +262,51 @@ function Citadel.build(map, rng, T)
   end
   nest(floor, 55, 62.5, 38, 62.5, { { 58, 60 }, { 58, 65 } })
 
-  -- Rollermines waiting on the catwalks: off the lift, up to the gallery,
-  -- and the long way across to the reactor deck.
+  -- A bunker against a rail of each wide platform but the top (A-Man's),
+  -- its door facing in: its garrison comes out in squads while anyone is
+  -- near. `side` is the rail it stands against, (c, r) the middle of it
+  -- along that rail in tiles.
+  local function bunker(p, side, c, r)
+    local across = side == "top" or side == "bottom"
+    local w, h = across and 128 or 92, across and 92 or 128
+    local x, y = X(c) - w / 2, Y(r) - h / 2
+    if side == "top" then
+      y = p.y + 12
+    elseif side == "bottom" then
+      y = p.y + p.h - 12 - h
+    elseif side == "left" then
+      x = p.x + 12
+    else
+      x = p.x + p.w - 12 - w
+    end
+    local nx = side == "left" and 1 or side == "right" and -1 or 0
+    local ny = side == "top" and 1 or side == "bottom" and -1 or 0
+    local door = { x = math.floor(x + w / 2 + nx * w / 2), y = math.floor(y + h / 2 + ny * h / 2), nx = nx, ny = ny }
+    cover("bunker", x, y, w, h, side)
+    map.cover[#map.cover].door = door
+    -- Room outside the door for them to come out into.
+    placed[#placed + 1] = { x = door.x + nx * 70, y = door.y + ny * 70, r = 60 }
+    map.garrisons[#map.garrisons + 1] = { at = p.name, x = math.floor(x + w / 2), y = math.floor(y + h / 2),
+      reach = Citadel.REACH, door = door, waves = Citadel.WAVES }
+  end
+  bunker(pens, "left", 14, 84.5)
+  bunker(floor, "right", 66, 60.5)
+  bunker(gallery, "bottom", 30.5, 49)
+  bunker(reactor, "bottom", 69, 35)
+
+  -- Rollermines waiting on the catwalks: off the lift and on to the pens,
+  -- up to the landing, up to the gallery, the long way across to the
+  -- reactor deck and up to the top.
   local function mines(c, r, count)
     map.rollermines[#map.rollermines + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), r = 50, count = count }
   end
-  mines(43.5, 88, 2)
-  mines(59.5, 48, 2)
-  mines(46, 29.5, 2)
+  mines(43.5, 88, 3)
+  mines(35, 83.5, 2)
+  mines(20.5, 69, 2)
+  mines(59.5, 48, 3)
+  mines(46, 29.5, 3)
+  mines(56, 29.5, 2)
+  mines(69, 18, 2)
 
   -- Hunters walking round the gallery and round the top.
   local function beat(p, count, corners)
@@ -265,7 +316,7 @@ function Citadel.build(map, rng, T)
     end
     map.hunterBeats[#map.hunterBeats + 1] = { name = p.name, route = route, count = count }
   end
-  beat(gallery, 1, { { 24, 38 }, { 33, 38 }, { 33, 47 }, { 24, 47 } })
+  beat(gallery, 1, { { 24, 38 }, { 33, 38 }, { 33, 46 }, { 24, 46 } }) -- clear of the bunker
   beat(top, 2, { { 33, 10 }, { 49, 10 }, { 49, 16 }, { 33, 16 } })
 
   -- Cover along the catwalks: a crate or a barrier against one rail, then

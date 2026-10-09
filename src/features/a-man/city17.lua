@@ -72,7 +72,9 @@
 -- (the map's `nests`, crewed as the Winding Road's), Hunters on the
 -- beats round the gallery and the top (its `hunterBeats`) and two
 -- Suppressors (the suppressors feature), heavies with a minigun and a
--- shield, holding the gallery and the reactor deck (its `suppressors`).
+-- shield, holding the gallery and the reactor deck (its `suppressors`),
+-- and a bunker on each wide platform but the top whose garrison comes in
+-- waves, as the Winding Road's do (its `garrisons`).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
