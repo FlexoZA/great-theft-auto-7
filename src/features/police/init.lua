@@ -12,7 +12,7 @@
 -- Units are NPCs from the bots feature with a police brain. On a chase
 -- they stop and shoot once they are near and have you in sight, drive
 -- after you by the streets when you are not, and back off for a moment
--- when you shoot back (pursuit.lua). Clients draw
+-- when you shoot back (bots/pursuit.lua). Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
 -- The force also walks a beat: officers on foot (officers.lua) patrol the
@@ -54,7 +54,7 @@ local Sounds = require("src.features.police.sounds")
 local Officers = require("src.features.police.officers")
 local Render = require("src.features.police.render")
 local Vision = require("src.features.police.vision")
-local Pursuit = require("src.features.police.pursuit")
+local Pursuit = require("src.features.bots.pursuit")
 local Face = require("src.art.face")
 
 local Police = {
@@ -474,11 +474,19 @@ function Police:serverCarsCollided(server, rammer, _rammed, closing)
   end
 end
 
---- Shooting a police car is always noticed by that car.
+--- Shooting a police car is always noticed by that car: a unit after
+--- nobody turns on whoever shot it (a player or a bot fighting it), and one
+--- already after them backs off a moment (pursuit.lua).
 function Police:serverPlayerDamaged(server, victim, attacker)
   if victim.police and attacker then
     self:setWanted(server, attacker)
-    Pursuit.shotBy(victim, attacker.id, sv and sv.time or 0) -- shot by who it is after: it backs off a moment
+    local ai = victim.ai
+    if ai.chasing and ai.lastSeen == attacker.id then
+      Pursuit.shotBy(victim, sv and sv.time or 0) -- shot by who it is after: it backs off a moment
+    elseif not ai.chasing and sv and sv.wanted[attacker.id] then
+      ai.chasing, ai.lastSeen, ai.lostFor = true, attacker.id, 0 -- watching all round from now, onto them
+      server:broadcast(Protocol.encode("POL_SIREN", victim.id, 1))
+    end
   end
 end
 
