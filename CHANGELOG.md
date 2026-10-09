@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Citadel is busier: banks of computers line the platforms' rails, cabled to terminals with live screens, and
+  repair drones fly round welding the machines, the struts and the pillars down in the drop.
+
 ## [0.26.7] - 2026-10-09
 
 A big RELOADING across the middle of the screen while a gun reloads.

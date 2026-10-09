@@ -20,6 +20,7 @@
 --   road.lua     the Winding Road: the drive up to the pass
 --   citadel.lua  the end of the trail: the catwalk up through the Citadel
 --   finale.lua   A-Man himself at the top of it, the last fight: his case holds the trail's enemies
+--   upkeep.lua   the Citadel's computers ticking over and its repair drones flying round
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza (in, a horde of turrets, out), and called-in
 --                ones on any level (the Hunter-Chopper's Hunters)
