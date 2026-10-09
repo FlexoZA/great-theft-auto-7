@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.11] - 2026-10-09
+
+Bots running from you take to the streets and slide round the corners on the handbrake.
+
 ### Changed
 - Bots running from you keep to the streets: they turn away from you at every crossing, turn round when you are
   ahead of them, and slide round the corners on the handbrake. Reckless drivers use the handbrake on sharp corners
