@@ -1129,6 +1129,27 @@ function Weapons:drawNoAmmo()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- RELOADING in big amber letters where NO AMMO shows, with a bar under
+--- it filling as the reload runs: the gun in hand's, or the car's.
+function Weapons:drawReloading()
+  local r = self.reloading or self.carReloading
+  if not r or self.noAmmo > 0 then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local font = UI.fonts.title
+  local text = "RELOADING"
+  local tw = font:getWidth(text)
+  local x, y = math.floor((w - tw) / 2), math.floor(h / 2 - 90 - font:getHeight())
+  love.graphics.setFont(font)
+  love.graphics.setColor(0, 0, 0, 0.7)
+  love.graphics.print(text, x + 2, y + 2)
+  love.graphics.setColor(1, 0.85, 0.3)
+  love.graphics.print(text, x, y)
+  UI.meter(x, y + font:getHeight() + 4, tw, 6, math.min(1, r.t / r.total), { 1, 0.85, 0.3 })
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Weapons:drawHUD(client)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
@@ -1149,6 +1170,7 @@ function Weapons:drawHUD(client)
   UI.drawStatBar(self.hudSlot, "health", frac, color, ("%d"):format(hp), valueColor)
   self:drawMagazine(client)
   self:drawNoAmmo()
+  self:drawReloading()
 
   if self.feed then
     local w = love.graphics.getWidth()
