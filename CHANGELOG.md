@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.10] - 2026-10-09
+
+A big R: RELOAD in the middle of the screen when your magazine runs low.
+
 ### Added
 - R: RELOAD flashes in big letters in the middle of the screen when the magazine is nearly out and there is ammo
   to load, as it does over the gun.
