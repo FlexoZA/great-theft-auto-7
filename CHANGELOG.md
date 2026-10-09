@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.12] - 2026-10-09
+
+Bots that fight back stop and shoot like the police, and bots and the police back off from each other when hit.
+
 ### Changed
 - Bots that fight back go after you the way the police do: they chase you by the streets, stop side-on to shoot
   once they have you in sight and near, and back off a moment when you hit them (they used to circle you).
