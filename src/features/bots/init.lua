@@ -23,7 +23,8 @@
 -- towards you for a while. Only `fightShare` of civilian bots fight back
 -- (rolled when a fight starts): chasing, orbiting at a standoff distance and
 -- shooting through the weapons feature with lead and a little spread. The
--- rest floor it away from you instead. Either way it calms down again once
+-- rest floor it away from you instead, by the streets, turning away from
+-- you at every crossing and sliding round the corners on the handbrake. Either way it calms down again once
 -- it has been left alone for `hostileTime` seconds, when its target stays
 -- further than `giveUpDistance` for `giveUpTime` seconds, or when it gets
 -- wrecked (it respawns peaceful).
@@ -555,9 +556,21 @@ function Bots:shootAt(server, bot, tx, ty, tc)
   end
 end
 
---- Floor it straight away from (x, y): a civilian who won't fight.
-function Bots:runFrom(bot, x, y)
+--- Get away from (x, y): a civilian who won't fight. Along the streets
+--- where there are some, the turn away from them at every crossing, the
+--- handbrake round the corners (Traffic.drive's `flee`); straight away
+--- from them where there are none.
+function Bots:runFrom(server, bot, x, y)
   local car = bot.car
+  local city = Features.byName["city-map"]
+  local graph = city and Traffic.graph(city.map)
+  if graph then
+    local away = bot.ai.away or {}
+    away.x, away.y, bot.ai.away = x, y, away
+    local v = Traffic.drive(bot, graph, self.recklessSpeed, server.vehicles, walkers, server.dtLast or 0, true, away)
+    bot.input.throttle = Traffic.throttleFor(car, v)
+    return
+  end
   local dx, dy = car.x - x, car.y - y
   local d = math.sqrt(dx * dx + dy * dy)
   if d < 1 then
@@ -594,14 +607,14 @@ function Bots:think(server, bot, dt)
     if ai.fights then
       self:fight(server, bot, target)
     else
-      self:runFrom(bot, Features.bodyPose(server, target))
+      self:runFrom(server, bot, Features.bodyPose(server, target))
     end
   elseif foe then
     local fx, fy = foe.pos()
     if ai.foeFights then
       self:fightAt(server, bot, fx, fy)
     else
-      self:runFrom(bot, fx, fy)
+      self:runFrom(server, bot, fx, fy)
     end
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)

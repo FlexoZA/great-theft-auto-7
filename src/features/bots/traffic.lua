@@ -27,6 +27,13 @@
 -- and brake it enough to make the corner, so it wrecks other people rather
 -- than itself.
 --
+-- A car running from someone (a civilian bot that won't fight: `flee`)
+-- drives like a reckless one, and on top of that picks the street away
+-- from them at every crossing, turns round when they are up the street
+-- ahead, and throws the car round the corners with the handbrake, at
+-- `fleeTurnSpeed` rather than the reckless driver's turn speed. A reckless
+-- driver uses the handbrake on a sharp corner too.
+--
 -- Only the host runs this. Fights and panics don't: those brains drive
 -- with Bots.driveTowards and are allowed to go wild. A police chase
 -- (police/pursuit.lua) borrows the feelers, the braking sums and
@@ -64,6 +71,11 @@ Traffic.feelerStep = 8 -- px between the points tested along a feeler
 Traffic.feelerReach = { 60, 360 } -- a feeler's length: base px plus the car's stopping distance, up to the most
 Traffic.dodge = 1.8 -- how hard the feelers steer away from a wall (full lock at a wall one feeler-length off)
 Traffic.offLane = 110 -- px from its lane: the car has lost the road and finds it again
+Traffic.fleeTurnSpeed = 260 -- px/s a car running from someone takes a turn at, handbrake and all
+Traffic.driftRoom = 1.4 -- how much faster than its grip turn a car gets round a corner sliding on the handbrake
+Traffic.driftAngle = 0.55 -- radians off where it is steering for before a wild driver pulls the handbrake...
+Traffic.driftOver = 20 -- px/s ...going this much faster than it could take the corner on grip
+Traffic.fleeTurnBack = 2.5 -- seconds before a car running from someone turns round again
 
 local T, P = Layout.TILE, Layout.PERIOD
 local BOX = T -- half the size of a crossing: the road is two tiles wide
@@ -251,8 +263,10 @@ local function snap(graph, car)
 end
 
 --- A street out of the crossing the route is heading for: any but straight
---- back, unless it is a dead end.
-local function pickNext(route)
+--- back, unless it is a dead end. Running from `away` ({ x, y }), the one
+--- that ends furthest from them, give or take a little (the same little
+--- for the same car at the same crossing, so it doesn't change its mind).
+local function pickNext(route, away, seed)
   local options = {}
   for _, e in ipairs(route.to.exits) do
     if not (e.dx == -route.dx and e.dy == -route.dy) then
@@ -261,6 +275,17 @@ local function pickNext(route)
   end
   if #options == 0 then
     options = route.to.exits
+  end
+  if away then
+    local best, bestScore
+    for k, e in ipairs(options) do
+      local v = math.sin((seed or 0) * 12.9898 + e.node.x * 0.078 + e.node.y * 0.0371 + k) * 43758.5453
+      local score = math.sqrt((e.node.x - away.x) ^ 2 + (e.node.y - away.y) ^ 2) + (v - math.floor(v)) * P * T * 0.4
+      if not bestScore or score > bestScore then
+        best, bestScore = e, score
+      end
+    end
+    return best
   end
   return options[love.math.random(#options)]
 end
@@ -283,8 +308,9 @@ end
 
 --- How fast `car` can take a corner (`fastest` at the most): what its turn
 --- rate gets round Traffic.turnRadius at. A bus takes it at half a hatchback's.
-local function cornerSpeed(car, fastest)
-  return math.min(fastest, (car.turnRate or 2.6) * Traffic.turnRadius)
+local function cornerSpeed(car, fastest, drift)
+  local rate = (car.turnRate or 2.6) * (drift and (car.driftTurnBoost or 1.35) * Traffic.driftRoom or 1)
+  return math.min(fastest, rate * Traffic.turnRadius)
 end
 
 --- The nearest thing in the car's path, as the speed the car may do for
@@ -457,8 +483,10 @@ end
 --- Sets its steering and returns the speed it should do right now; the
 --- caller turns that into throttle. `vehicles` is every car in the world,
 --- `walkers` everyone on foot (flat x, y, vx, vy list). `reckless`: the
---- street and nothing else (see the top of this file).
-function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
+--- street and nothing else (see the top of this file). `flee` ({ x, y }):
+--- reckless, running from whoever is there.
+function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless, flee)
+  reckless = reckless or flee ~= nil
   local map = graph.map
   local car, ai, input = npc.car, npc.ai, npc.input
   local route = ai.route
@@ -477,10 +505,27 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
     route.next = nil
     ai.waited = 0
   end
+  local now = love.timer.getTime()
+  if flee and now >= (ai.turnedBackAt or 0) + Traffic.fleeTurnBack then
+    -- Whoever it runs from is up the street ahead (nearer the crossing it is
+    -- making for than it is): turn round and go the other way.
+    local a, b, ux, uy = geometry(route)
+    local rx, ry = flee.x - car.x, flee.y - car.y
+    local ahead = rx * ux + ry * uy
+    local across = math.abs(-rx * uy + ry * ux)
+    local nearer = (flee.x - b.x) ^ 2 + (flee.y - b.y) ^ 2 < (car.x - b.x) ^ 2 + (car.y - b.y) ^ 2
+    if ahead > 0 and across < BOX * 3 and nearer then
+      route = { from = b, to = a, dx = -route.dx, dy = -route.dy }
+      ai.route, ai.turnedBackAt = route, now
+    end
+  end
 
   local along, _, len = place(car, route)
   local rem = len - along -- to the centre of the crossing ahead
-  route.next = route.next or pickNext(route)
+  if flee and rem > BOX * 2.5 then
+    route.next = pickNext(route, flee, npc.id) -- still time to think again about where they are
+  end
+  route.next = route.next or pickNext(route, flee, npc.id)
   local turning = route.next and not (route.next.dx == route.dx and route.next.dy == route.dy)
 
   -- Into the crossing: the next street becomes the route. Turning, the car
@@ -491,7 +536,7 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
     ai.route, ai.waited = route, 0
     along, _, len = place(car, route)
     rem = len - along
-    route.next = pickNext(route)
+    route.next = pickNext(route, flee, npc.id)
     turning = false
   end
 
@@ -518,10 +563,16 @@ function Traffic.drive(npc, graph, speed, vehicles, walkers, dt, reckless)
   -- How fast: the limit, slower into a turn, then whatever is in the way.
   local want = math.min(speed, car.maxSpeed or speed)
   local corner = cornerSpeed(car, reckless and Traffic.recklessTurnSpeed or Traffic.turnSpeed)
+  if flee then
+    corner = cornerSpeed(car, Traffic.fleeTurnSpeed, true) -- sliding round on the handbrake
+  end
   if turning then
     want = math.min(want, stopping(rem - BOX, car, corner))
   end
   if reckless then
+    -- A sharp turn coming fast: the handbrake swings the back round.
+    input.handbrake = math.abs(err) > Traffic.driftAngle
+      and car.speed > cornerSpeed(car, Traffic.recklessTurnSpeed) + Traffic.driftOver
     -- No looking out for anyone; only for walls, braking in time to get
     -- round them, the way this car brakes.
     return math.min(want, stopping(ahead - 10, car, corner))
