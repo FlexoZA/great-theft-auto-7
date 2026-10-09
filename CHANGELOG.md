@@ -21,6 +21,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Changed
 - More Combine in the Citadel: soldiers on guard 36 -> 48, rollermines waiting on the catwalks 6 -> 17 (for one
   player; more with more).
+- Enemies' cones of sight start hidden (` shows them); only the Hunters' always show, now as a radar: range rings,
+  a beam sweeping across.
+- Hunters see wider: 60 -> 90 degrees, 100 -> 130 while on edge.
+- D-Day's soldiers and the police now notice you close by whichever way they face (150 px all round), as the
+  Combine, the Hunters and the Suppressors already did.
 
 ## [0.26.8] - 2026-10-09
 

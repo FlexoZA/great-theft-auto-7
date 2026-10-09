@@ -71,8 +71,8 @@ local Hunters = {
 
 -- Tuning ------------------------------------------------------------------
 -- Their eyes: City 17's Combine soldiers' (a-man/city17.lua).
-Hunters.fov = math.rad(60) -- how wide their cone of sight is
-Hunters.alertFov = math.rad(100) -- and while one is on edge
+Hunters.fov = math.rad(90) -- how wide their cone of sight is
+Hunters.alertFov = math.rad(130) -- and while one is on edge
 Hunters.aware = 170 -- px all round them they notice somebody in, any way they face
 Hunters.health = 180 -- three times a Combine soldier's: nine pistol rounds
 Hunters.damage = 8 -- a round (an uzi's is 12)...
@@ -406,10 +406,12 @@ function Hunters:update(dt)
   end
 end
 
---- Their cones of sight, on the ground under everything, as the Combine's are.
+--- Their cones of sight, on the ground under everything: a radar sweeping.
+--- Always shown, sight-cones or
+--- not: the one enemy whose eyes you get to see.
 function Hunters:drawBelowCars()
-  for _, h in pairs(shown) do
-    Sight.draw(h.dx, h.dy, h.facing, Brain.RANGE, h.alert, clock, h.fov)
+  for id, h in pairs(shown) do
+    Sight.draw(h.dx, h.dy, h.facing, Brain.RANGE, h.alert, clock, h.fov, { seed = id })
   end
 end
 
