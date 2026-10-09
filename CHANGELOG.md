@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.26.14] - 2026-10-09
+
+On fire, bleeding, poisoned and the rest now show in big letters in the middle of the screen.
+
 ### Changed
 - On fire, bleeding, poisoned, electrified, stunned or knocked down now shows in big letters in the middle of the
   screen, in the status's colour, with what gets rid of it underneath (it was a small line top left).
