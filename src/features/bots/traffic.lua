@@ -34,9 +34,9 @@
 -- `fleeTurnSpeed` rather than the reckless driver's turn speed. A reckless
 -- driver uses the handbrake on a sharp corner too.
 --
--- Only the host runs this. Fights and panics don't: those brains drive
--- with Bots.driveTowards and are allowed to go wild. A police chase
--- (police/pursuit.lua) borrows the feelers, the braking sums and
+-- Only the host runs this. Panics don't: they drive with Bots.driveTowards
+-- and are allowed to go wild. A chase (pursuit.lua: the police's, and a
+-- bot that fights back) borrows the feelers, the braking sums and
 -- Traffic.towards, the next crossing on the way to somewhere. A car that comes
 -- back from one (or is far from its lane for any reason) picks up the
 -- nearest street again. A map without a street grid (open ground, the
