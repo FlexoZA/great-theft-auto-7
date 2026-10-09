@@ -14,6 +14,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Citadel has a Combine bunker on the pens, the processing floor, the gallery and the reactor deck: get near
+  and squads of 3 come out of its door, 6 soldiers from each.
+
+### Changed
+- More Combine in the Citadel: soldiers on guard 36 -> 48, rollermines waiting on the catwalks 6 -> 17 (for one
+  player; more with more).
+
 ## [0.26.8] - 2026-10-09
 
 The Citadel comes alive: computers along its platforms and repair drones flying round fixing things.
