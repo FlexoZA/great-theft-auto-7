@@ -63,6 +63,7 @@ local Dday = {
 Dday.questId = "d-day"
 Dday.guards = 16 -- guards on their posts for one player (more humans, more: bosses/init.lua)...
 Dday.maxGuards = 26 -- ...as far as the posts go
+Dday.aware = 150 -- px all round them they notice somebody in, any way they face
 Dday.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
 Dday.callAnswer = 3 -- how many of them come at most, nearest first
 Dday.callEvery = 15 -- seconds before the same soldier calls again
@@ -119,7 +120,7 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  sv.troops = Soldiers.new()
+  sv.troops = Soldiers.new({ aware = Dday.aware })
   sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
   sv.maxRiflemen = Bosses.count(self.riflemen, server)

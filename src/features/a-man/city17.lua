@@ -72,7 +72,9 @@
 -- (the map's `nests`, crewed as the Winding Road's), Hunters on the
 -- beats round the gallery and the top (its `hunterBeats`) and two
 -- Suppressors (the suppressors feature), heavies with a minigun and a
--- shield, holding the gallery and the reactor deck (its `suppressors`).
+-- shield, holding the gallery and the reactor deck (its `suppressors`),
+-- and a bunker on each wide platform but the top whose garrison comes in
+-- waves, as the Winding Road's do (its `garrisons`).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
@@ -114,7 +116,7 @@ Level.hunters = 3 -- Hunters (the hunters feature) patrolling round the Citadel
 Level.hunterRing = 230 -- px out from the Citadel's wall that they walk
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.alertFov = math.rad(100) -- how wide it is while one is on edge: has somebody, searching, investigating
-Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
+Level.aware = 170 -- px all round them they notice somebody in, any way they face
 Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 -- What they carry, by gun key: `weight` how likely, `burst` rounds at the
 -- gun's own rate then `pause` seconds; `damage` per round instead of the
@@ -924,8 +926,8 @@ function Level.drawBelowCars()
     drawDoor(d)
   end
   if not Features.any("hideSightCones") then -- the ` key (sight-cones)
-    for _, s in pairs(troops) do
-      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+    for id, s in pairs(troops) do
+      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov, { seed = id })
     end
   end
   Cameo.drawBelowCars()

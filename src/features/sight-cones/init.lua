@@ -1,6 +1,7 @@
--- Sight cones: the ` key hides or shows every cone of sight drawn over the
--- world, the police's fans and the D-Day defenders' alike. Only what is
--- drawn changes; the police and the soldiers see you just the same.
+-- Sight cones: the ` key shows or hides the cones of sight drawn over the
+-- world, the police's fans, the soldiers' and the Suppressors' alike. They
+-- start hidden; the Hunters' radar always shows, whatever this says. Only
+-- what is drawn changes; the police and the soldiers see you just the same.
 --
 -- The choice is this machine's own, kept in the settings file, so it
 -- survives a restart. A feature that draws a cone asks
@@ -18,12 +19,13 @@ local SightCones = {
 SightCones.noteTime = 1.6 -- seconds the "cones hidden/shown" note stays up
 SightCones.noteY = 118 -- px; a free HUD row at the left margin
 
-SightCones.conesHidden = false -- not `hidden`: that name is a hook other features answer (Features.any("hidden"))
+SightCones.conesHidden = true -- not `hidden`: that name is a hook other features answer (Features.any("hidden"))
 SightCones.note = 0 -- seconds left on the note
 
 function SightCones:load()
   Controls.register("sight-cones", "Hide / show sight cones", "`")
-  self.conesHidden = Settings.get("sightCones.hidden", false) == true
+  -- "shown", not the old "hidden": everyone starts with them off, whatever they chose before.
+  self.conesHidden = Settings.get("sightCones.shown", false) ~= true
 end
 
 function SightCones:enterGame()
@@ -42,7 +44,7 @@ end
 function SightCones:keypressed(key)
   if Controls.is("sight-cones", key) then
     self.conesHidden = not self.conesHidden
-    Settings.set("sightCones.hidden", self.conesHidden)
+    Settings.set("sightCones.shown", not self.conesHidden)
     self.note = self.noteTime
   end
 end

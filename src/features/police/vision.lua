@@ -12,6 +12,7 @@ local Features = require("src.features")
 local Vision = {}
 
 Vision.FOV = math.rad(180) -- full width of the cone: everything in front of the windscreen
+Vision.AWARE = 150 -- px all round a unit or an officer that they notice somebody in, any way they face
 Vision.STEP = 14 -- px between line-of-sight samples
 Vision.RAYS = math.ceil(Vision.FOV / math.rad(7.5)) + 1 -- rays across the cone when drawing it
 Vision.FILL = 0.07 -- alpha of the drawn cone
@@ -67,15 +68,16 @@ function Vision.clear(x0, y0, x1, y1)
 end
 
 --- Can someone at (x, y) facing `facing` see (tx, ty)? Within `range`,
---- inside the cone (unless `anyAngle`, for someone already turned to look)
---- and with nothing in between. Returns the squared distance when they can.
+--- inside the cone (unless `anyAngle`, for someone already turned to look,
+--- or it is within Vision.AWARE all round) and with nothing in between. Returns the squared distance when they can.
 function Vision.canSee(x, y, facing, tx, ty, range, anyAngle)
   local dx, dy = tx - x, ty - y
   local d2 = dx * dx + dy * dy
   if d2 > range * range then
     return nil
   end
-  if not anyAngle and math.abs(angleDiff(math.atan2(dy, dx), facing)) > Vision.FOV / 2 then
+  local behind = math.abs(angleDiff(math.atan2(dy, dx), facing)) > Vision.FOV / 2
+  if behind and not anyAngle and d2 > Vision.AWARE * Vision.AWARE then
     return nil
   end
   if not Vision.clear(x, y, tx, ty) then
