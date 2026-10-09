@@ -264,6 +264,7 @@ Weapons.carMags = {} -- vehicle id -> rounds in the magazine of the gun bolted t
 Weapons.carReloading = nil -- { vid, t, total } while the gun bolted to the car I drive reloads
 Weapons.mountedName = "auto turret" -- a car's own gun in the HUD, whatever it fires (icon "turret")
 Weapons.ammoNotice = nil -- { text, t }: "out of ammo" and the like
+Weapons.lowPrompt = nil -- "R: RELOAD" while the gun in hand is nearly out with ammo to load (drawMagazine sets it)
 Weapons.noAmmo = 0 -- seconds left of NO AMMO across the middle of the screen
 Weapons.noAmmoTime = 1.4 -- seconds it shows for after a click on an empty gun with nothing to load
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
@@ -1025,6 +1026,7 @@ end
 --- once the magazine is nearly out, the reload key flashes red; a notice
 --- (out of ammo, no such gun) takes its place while it shows.
 function Weapons:drawMagazine(client)
+  self.lowPrompt = nil -- set again below while the gun in hand wants reloading
   local w, h = love.graphics.getDimensions()
   -- Behind the wheel: the gun bolted to the car, or nothing at all; my own stay put away.
   local car, mounted = self:myMount(client)
@@ -1060,6 +1062,9 @@ function Weapons:drawMagazine(client)
   local hint
   if not (infinite or reloading) and mag <= gun.magazine * self.lowMagazine then
     hint = spare < 1 and "no ammo" or Controls.name(Controls.bindings("reload")[1]) .. ": reload"
+    if spare >= 1 then
+      self.lowPrompt = Controls.name(Controls.bindings("reload")[1]):upper() .. ": RELOAD"
+    end
   end
   local nameW, countW, extraW = small:getWidth(name), body:getWidth(count), small:getWidth(extra)
   local textW = nameW + countW + extraW
@@ -1129,6 +1134,28 @@ function Weapons:drawNoAmmo()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- R: RELOAD in big red letters where NO AMMO shows, flashing, while the
+--- magazine is nearly out and there is ammo to load (the same as the hint
+--- over the gun's block, which drawMagazine works out). Not over NO AMMO
+--- or RELOADING.
+function Weapons:drawLowPrompt()
+  if not self.lowPrompt or self.noAmmo > 0 or self.reloading or self.carReloading then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local font = UI.fonts.title
+  local text = self.lowPrompt
+  local blink = 0.5 + 0.5 * math.sin(love.timer.getTime() * 10)
+  local alpha = 0.45 + 0.55 * blink
+  local x, y = math.floor((w - font:getWidth(text)) / 2), math.floor(h / 2 - 90 - font:getHeight())
+  love.graphics.setFont(font)
+  love.graphics.setColor(0, 0, 0, 0.7 * alpha)
+  love.graphics.print(text, x + 2, y + 2)
+  love.graphics.setColor(1, 0.25 + 0.2 * blink, 0.2 + 0.2 * blink, alpha)
+  love.graphics.print(text, x, y)
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- RELOADING in big amber letters where NO AMMO shows, with a bar under
 --- it filling as the reload runs: the gun in hand's, or the car's.
 function Weapons:drawReloading()
@@ -1171,6 +1198,7 @@ function Weapons:drawHUD(client)
   self:drawMagazine(client)
   self:drawNoAmmo()
   self:drawReloading()
+  self:drawLowPrompt()
 
   if self.feed then
     local w = love.graphics.getWidth()
