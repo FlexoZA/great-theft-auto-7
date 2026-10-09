@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
+  breathes more slowly and softly.
+
 ## [0.26.15] - 2026-10-09
 
 The FPS counter is back top left and coloured by how smooth it runs; the ping sits in the top middle.
