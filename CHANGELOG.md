@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Bots that fight back go after you the way the police do: they chase you by the streets, stop side-on to shoot
+  once they have you in sight and near, and back off a moment when you hit them (they used to circle you).
+- Bots and the police fight each other the same way, backing off when hit; a police car that is shot while it
+  is after nobody turns on whoever shot it.
+
 ## [0.26.11] - 2026-10-09
 
 Bots running from you take to the streets and slide round the corners on the handbrake.
