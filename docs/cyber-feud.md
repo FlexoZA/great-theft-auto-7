@@ -506,6 +506,9 @@ bollards), and the middle avenue is the no-man's-land where they meet.
 
 - **Arrival:** the bottom left, coming up out of a parking garage on foot
   (the cars stay below).
+- **Downtown's crowd:** a thin crowd out late in the rain (the pedestrians
+  feature, dressed by `map.crowdClothes`; no police), who scatter when the
+  shooting starts and get caught in the crossfire.
 - **The pickup:** a vending machine in a small plaza next to the garage. The
   first player to press F at it takes the Shard, and the chase begins: both
   factions are quiet until then.

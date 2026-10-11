@@ -134,10 +134,12 @@ CityMap.maps = {
   -- Grey City, the Cyber Feud quest line's five maps (cyber_feud.lua), all at
   -- night (the night feature reads `night`). The Overpass is driven; anyone
   -- without a car of their own is lent a red sedan. The Drop, the Market,
-  -- Halcyon Tower and its Roof are walked. Nobody about but the factions.
+  -- Halcyon Tower and its Roof are walked. Nobody about but the factions,
+  -- and on the Drop a thin crowd out late in the rain (no police: Halcyon
+  -- is the law here).
   drop = {
     title = "The Drop", kind = "drop", seed = 101, cols = 64, rows = 96,
-    crowd = false, traffic = false, vehicles = false, night = true,
+    crowdScale = 0.6, police = false, traffic = false, vehicles = false, night = true,
   },
   market = {
     title = "The Market", kind = "market", seed = 102, cols = 56, rows = 56,

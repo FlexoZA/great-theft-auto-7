@@ -38,6 +38,7 @@
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
 --   map.droids            { route } the assassin droids' beat (the Drop), a loop of { x, y }, world px
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
+--   map.crowdClothes      { shirts, pants } what the Drop's crowd wears (pedestrians reads it)
 -- render_cyber_feud.lua draws them.
 
 local CyberFeud = {}
@@ -302,6 +303,15 @@ local function buildDrop(map, rng, T)
   local g = grid(map, T)
   local X, Y = g.X, g.Y
   map.nests = {}
+  -- The crowd out late: dark coats, now and then a jacket in somebody's neon
+  -- or a yellow raincoat.
+  map.crowdClothes = {
+    shirts = {
+      { 0.16, 0.16, 0.19 }, { 0.22, 0.20, 0.24 }, { 0.28, 0.13, 0.18 }, { 0.12, 0.18, 0.24 },
+      { 0.30, 0.30, 0.32 }, { 0.85, 0.22, 0.65 }, { 0.20, 0.72, 0.85 }, { 0.92, 0.82, 0.22 },
+    },
+    pants = { { 0.10, 0.10, 0.12 }, { 0.18, 0.18, 0.20 }, { 0.14, 0.12, 0.16 } },
+  }
   local avenues, streets = CyberFeud.DROP_AVENUES, CyberFeud.DROP_STREETS
   local first, last = avenues[1][1], avenues[#avenues][2]
   local top, bottom = streets[1][1], streets[#streets][2]

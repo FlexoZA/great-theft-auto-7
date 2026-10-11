@@ -32,6 +32,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   lights in the dark.
 - Flying machines cross the sky over the Drop now and then: Halcyon's aerodyne sweeping its searchlight, a cargo
   hauler with a container slung under it, and an ad drone towing a holo billboard. You hear each one coming.
+- People on the Drop's streets: a thin crowd out late in the rain, who scatter when the shooting starts.
 - The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
   tunnel.
 
