@@ -26,6 +26,8 @@
 -- walking their blocks, at war with each other. They stay calm until
 -- someone takes the Shard (or a player hurts one of them), then come for
 -- whoever is nearest, a player or the other side.
+-- The tunnel end is Halcyon's alone, guarded by its assassin droids
+-- (droids.lua): the Hunters' brain, quicker, dodging every round.
 -- Each level is still only the way through: the first player to reach the
 -- map's far end (`map.exitX`, `map.exitY`), with the Shard taken on the
 -- Drop, finishes it, and an EXIT star comes up there leading on to the next
@@ -46,6 +48,7 @@ local Face = require("src.features.cyber-feud.face")
 local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
+local Droids = require("src.features.cyber-feud.droids")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
 local Audio = require("src.audio")
 
@@ -210,6 +213,11 @@ CyberFeud.serverMessages = {
 
 function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+end
+
+--- A player's or a bot's gun went off: the assassin droids hear it.
+function CyberFeud:serverShotFired(_server, player, x, y)
+  Droids.serverShotFired(player, x, y)
 end
 
 function CyberFeud:serverFreezeArea(_server, x, y, radius, seconds)

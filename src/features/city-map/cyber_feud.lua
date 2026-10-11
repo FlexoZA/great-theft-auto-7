@@ -31,12 +31,12 @@
 --   map.helipad           { x, y, r } the Roof's helipad
 --   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
 --   map.troops            { halcyon = side, static = side } the factions' troops (the Drop), each side
---                         { posts = { x, y, watch, at, hold, refill }, patrols = { route } }, world px;
---                         `at` groups the posts of one place (they chat), `refill` { x, y } is where
---                         someone new comes from when the post's soldier is down, a route is a loop of { x, y };
+--                         { posts = { x, y, watch, at, hold }, patrols = { route } }, world px;
+--                         `at` groups the posts of one place (they chat), a route is a loop of { x, y };
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
 --                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest and its crew's posts
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
+--   map.droids            { route } the assassin droids' beat (the Drop), a loop of { x, y }, world px
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
 -- render_cyber_feud.lua draws them.
 
@@ -403,11 +403,12 @@ local function buildDrop(map, rng, T)
   -- Who holds the streets (cyber-feud/troops.lua puts them there): Halcyon's
   -- officers on every roadblock, watching back down the avenue, and squads
   -- on beats round the blocks in the east; the Static's gangers on corners
-  -- in the west and packs walking round their blocks, one of them out
-  -- through the middle into a roadblock. At the tunnel both sides hold
-  -- their ground, either side of the big roadblock, and send someone new
-  -- to each place lost there (Halcyon out of the tunnel, the Static along
-  -- the top street from the west) for as long as the level lasts.
+  -- in the west and packs walking round their blocks, two of them out
+  -- through the middle into roadblocks. The last stretch before the tunnel
+  -- (the Tunnel zone) is Halcyon's alone, so it is still standing when you
+  -- get there: the big roadblock, a guard station, a squad, and the
+  -- assassin droids walking the last crossings (`map.droids`,
+  -- cyber-feud/droids.lua). No Static post or beat comes up past street 3.
   local function cross(i, j) -- the middle of avenue i's crossing with street j
     return { x = X((avenues[i][1] + avenues[i][2] + 1) / 2), y = Y((streets[j][1] + streets[j][2] + 1) / 2) }
   end
@@ -423,31 +424,25 @@ local function buildDrop(map, rng, T)
     end
   end
   local mw = (mid[2] - mid[1] + 1) * T
-  local fromTunnel = { x = X(mid[1]) + mw / 2, y = Y(1) }
-  local fromWest = { x = X(mid[1]) - 6 * T, y = Y(top + 1.5) }
   for n = 1, 3 do
     halcyon.posts[#halcyon.posts + 1] = {
       x = X(mid[1]) + mw * n / 4, y = Y(top) - 100, watch = math.pi / 2, at = #blocks + 1, hold = true,
-      refill = fromTunnel,
-    }
-    static.posts[#static.posts + 1] = {
-      x = X(mid[1]) + mw * n / 4, y = Y(top + 2) + 10, watch = -math.pi / 2, at = 100, hold = true,
-      refill = fromWest,
     }
   end
   halcyon.patrols = { loop(4, 5, 2, 4), loop(4, 5, 5, 7), loop(3, 4, 1, 2), loop(3, 4, 6, 7) }
-  for k, c in ipairs({ { 1, 2 }, { 2, 3 }, { 1, 4 }, { 2, 5 }, { 1, 6 } }) do
+  for k, c in ipairs({ { 1, 3 }, { 2, 3 }, { 1, 4 }, { 2, 5 }, { 1, 6 } }) do
     local a, s = avenues[c[1]], streets[c[2]]
     static.posts[#static.posts + 1] = { x = X(a[2] + 1) - 30, y = Y(s[2] + 1) - 30, watch = math.pi / 2 + 0.5, at = k }
     static.posts[#static.posts + 1] = { x = X(a[1]) + 30, y = Y(s[1]) + 30, watch = -math.pi / 2 - 0.5, at = k }
   end
-  static.patrols = { loop(1, 2, 2, 3), loop(1, 2, 4, 5), loop(1, 2, 5, 6), loop(2, 3, 4, 5), loop(2, 3, 1, 2) }
+  static.patrols = { loop(1, 2, 3, 4), loop(1, 2, 4, 5), loop(1, 2, 5, 6), loop(2, 3, 4, 5), loop(2, 3, 6, 7) }
   halcyon.stations, static.stations = {}, {}
   for _, st in ipairs(stations) do
     local list = st.side == "halcyon" and halcyon.stations or static.stations
     list[#list + 1] = st
   end
   map.troops = { halcyon = halcyon, static = static }
+  map.droids = { route = loop(2, 4, 1, 2) } -- round the last two crossings before the tunnel
 
   -- The tunnel mouth at the top, the way on.
   cover(map, "tunnel", X(mid[1]), Y(0), (mid[2] - mid[1] + 1) * T, 3 * T, false)

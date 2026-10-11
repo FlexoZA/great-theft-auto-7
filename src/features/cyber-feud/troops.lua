@@ -21,10 +21,6 @@
 -- street is awake, the first time a player comes within its `reach` they
 -- come out of the door one after another and go for where that player is.
 --
--- A post the map marks `refill` (the Drop's tunnel) is never empty for
--- long: REFILL seconds after its soldier goes down, someone new walks in
--- from the post's `refill` point to take his place.
---
 -- They are calm (they see nobody) until someone takes the Shard, or a
 -- player hurts one of them: then the whole street wakes at once.
 --
@@ -54,6 +50,7 @@ local Corpses = require("src.features.corpses")
 local Story = require("src.features.cyber-feud.story")
 local Bosses = require("src.features.bosses")
 local Nests = require("src.features.a-man.nests")
+local Droids = require("src.features.cyber-feud.droids")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -101,7 +98,6 @@ Troops.callAnswer = 3 -- how many of them come at most, nearest first
 Troops.callEvery = 15 -- seconds before the same soldier calls in again
 Troops.downHeard = 700 -- px; his own side this near one who goes down goes to look
 Troops.downAnswer = 4 -- of them at most, nearest first
-Troops.refill = 14 -- seconds before someone new walks in to a refill post whose soldier is down
 -- A station's MG: rounds at `damage`, `cooldown` apart, in bursts of `burst` then `pause` seconds.
 Troops.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range = 700 }
 Troops.manGunWithin = 15 -- seconds the crewman going to a dead gunner's gun has before he is simply on it
@@ -207,7 +203,7 @@ function Troops.serverStart(server, map, name, calm)
       troops:navigate(bounds)
       nav = troops.nav
     end
-    local side = { conf = conf, troops = troops, groups = {}, refills = {}, nests = {}, garrisons = {} }
+    local side = { conf = conf, troops = troops, groups = {}, nests = {}, garrisons = {} }
     sv.sides[key] = side
     -- Who chats together: the soldiers at one place, or one squad.
     local at = {}
@@ -222,9 +218,6 @@ function Troops.serverStart(server, map, name, calm)
       local s = troops:add("guard", x, y, p.watch)
       s.hold = p.hold
       g.members[#g.members + 1] = s
-      if p.refill then
-        side.refills[#side.refills + 1] = { post = p, x = x, y = y, s = s, group = g, wait = Troops.refill }
-      end
     end
     for _, route in ipairs(spec and spec.patrols or {}) do
       local squad = troops:addSquad(route, conf.squad)
@@ -242,6 +235,7 @@ function Troops.serverStart(server, map, name, calm)
     local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
     h.rivals, s.rivals = { s }, { h }
   end
+  Droids.serverStart(server, map, nav, calm) -- Halcyon's assassin droids, on the same walking grid
 end
 
 --- `s` takes the gun of `nest`: its arc, its sight and its rounds.
@@ -359,6 +353,7 @@ end
 
 --- Over: nothing left to step or draw.
 function Troops.serverStop(server)
+  Droids.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -370,6 +365,7 @@ function Troops.serverWake()
   for _, side in pairs(sv and sv.sides or {}) do
     side.troops.calm = false
   end
+  Droids.serverWake()
 end
 
 --- Every soldier, to everyone, unreliably.
@@ -538,37 +534,17 @@ local function runOver(server)
   end
 end
 
---- Someone new for each refill post whose soldier has been down long
---- enough: from the post's `refill` point, walking to it before anything else.
-local function stepRefills(dt)
-  for key, side in pairs(sv.sides) do
-    for _, r in ipairs(side.refills) do
-      if r.s.hp <= 0 then
-        r.wait = r.wait - dt
-        if r.wait <= 0 then
-          local from = r.post.refill
-          local s = side.troops:add("guard", from.x, from.y, r.post.watch)
-          s.hold, s.post, s.faction = r.post.hold, { x = r.x, y = r.y }, key
-          side.troops:arm(s, pickArms(side.conf.loadout))
-          r.group.members[#r.group.members + 1] = s
-          r.s, r.wait = s, Troops.refill
-        end
-      end
-    end
-  end
-end
-
 function Troops.serverStep(server, dt)
   if not sv then
     return
   end
-  stepRefills(dt)
   for _, key in ipairs(Troops.SIDES) do
     local side = sv.sides[key]
     side.troops:update(server, dt)
     stepNests(side, dt)
     stepGarrisons(server, side, dt)
   end
+  Droids.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   sync(server)
@@ -597,19 +573,21 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
       return true
     end
   end
-  return false
+  return Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function Troops.serverFreezeArea(x, y, radius, seconds)
   for _, side in pairs(sv and sv.sides or {}) do
     side.troops:freeze(x, y, radius, seconds)
   end
+  Droids.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
   for _, side in pairs(sv and sv.sides or {}) do
     side.troops:scare(x, y, radius, 0.5)
   end
+  Droids.serverPanicArea(x, y, radius)
 end
 
 --- For tests.
@@ -665,6 +643,7 @@ end
 function Troops.clear()
   troops, lastTick = {}, 0
   Corpses.clear()
+  Droids.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -686,6 +665,7 @@ end
 
 function Troops.update(dt)
   time = time + dt
+  Droids.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -715,6 +695,7 @@ end
 --- Their cones of sight, on the ground under everything, in their side's
 --- colour (unless the sight-cones toggle hides them).
 function Troops.drawBelowCars()
+  Droids.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -773,6 +754,7 @@ function Troops.drawAboveCars()
   if mapNests() then
     Nests.draw(city().map, troops)
   end
+  Droids.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -787,6 +769,7 @@ function Troops.drawNightLights(glow)
   for _, s in pairs(troops) do
     glow(s.dx, s.dy, 46, Troops.side[s.side].color, s.alert and 0.7 or 0.45)
   end
+  Droids.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -794,6 +777,9 @@ function Troops.walkers()
   local list = {}
   for id, s in pairs(troops) do
     list[#list + 1] = { key = "cf" .. id, x = s.dx, y = s.dy, size = "person" }
+  end
+  for _, w in ipairs(Droids.walkers()) do
+    list[#list + 1] = w
   end
   return list
 end
@@ -857,5 +843,8 @@ Troops.clientMessages = {
     end
   end,
 }
+for kind, handler in pairs(Droids.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
 
 return Troops

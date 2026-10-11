@@ -25,6 +25,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   They ignore you until the Shard is taken, then come for you and for each other.
 - Guard stations on the Drop: each faction holds a few yards on the avenues with an MG nest out front and a
   garrison inside that comes out when you get close.
+- Halcyon's assassin droids guard the tunnel at the end of the Drop: cloaked robots with rail pistols that dodge
+  your shots and line up a rail shot you can see coming. Two of them, one more for each extra player.
+- The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
 - The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
   tunnel.
 

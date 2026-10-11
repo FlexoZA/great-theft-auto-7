@@ -24,9 +24,13 @@ branch off `feature/cyber-feud`):
   officers on the roadblocks and squads in the east, Static gangers on the
   western corners and packs walking their blocks, both on the Combine's brain
   (`a-man/combine.lua`, which now takes `rivals`, a `from` on its rounds and
-  a `calm` switch). The two sides shoot each other on sight, stay calm until
-  someone takes the Shard, and keep refilling the tunnel's roadblock, so that
-  fight is still going when you arrive. Guard stations (three Halcyon, two
+  a `calm` switch). The two sides shoot each other on sight and stay calm
+  until someone takes the Shard. The last stretch before the tunnel is
+  Halcyon's alone (when both held it, they had wiped each other out long
+  before anyone got there): the big roadblock, a station, a squad and the
+  assassin droids (`src/features/cyber-feud/droids.lua`, drawn by
+  `droid_render.lua`), on the Hunters' brain (`hunters/brain.lua`, which
+  now takes a pace, a dodge cooldown and a locked-aim heavy shot). Guard stations (three Halcyon, two
   Static, `CyberFeud.DROP_STATIONS`): a yard on the avenue with a station
   house, an MG nest crewed as A-Man's Coast's are, cover either side, and a
   garrison that comes out of the house when a player gets near. Still to
@@ -346,6 +350,7 @@ have to shoot your way through.
 | **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol over walls. Seeing you sets off an alarm that calls the nearest squad. Breach it to blind it. |
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |
+| **Assassin droid** | A lean white-plated robot, magenta visor band, rail pistol and a mono-blade; cloaked until it has you | 240 | Rail pistol bursts (`bullet`); a charged rail shot down a magenta sightline | The Drop's tunnel end. The Hunters' brain, quicker: keeps you at range, strafes, and dodges every round it sees coming (again 1.3 s later). Step off the sightline to dodge the rail shot. Two for one player, one more per extra human. |
 | **Interceptor** | A grey sedan with a magenta and blue light bar | car | Rams; an officer leans out and shoots | The Drop and the Overpass. Tries to box you in and spin you out. Breach it parked and it stays dead. |
 
 #### The Static
