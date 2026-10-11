@@ -5,7 +5,13 @@ board, five maps chained by each quest's `next`, an intro screen, chatter, and
 a boss at the end. The look is cyberpunk, neon on grey, in that style rather
 than a parody of any one game.
 
-Status: story and structure agreed. Characters, maps and tuning come next.
+Status: story, characters, troops and maps designed. Built so far (each a
+branch off `feature/cyber-feud`):
+
+- `feature/cyber-feud-skeleton`: the five maps (city-map's `drop`, `market`,
+  `overpass`, `tower`, `roof`, in `city-map/cyber_feud.lua`), their quests and
+  HOME stars, the `cyber-feud` feature finishing each level when someone
+  reaches its far end, and night (the `night` feature) on all five.
 
 ## Decisions
 

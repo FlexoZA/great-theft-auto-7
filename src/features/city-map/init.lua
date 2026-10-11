@@ -28,6 +28,8 @@
 --     behind its wheel. It stands in as their own car while they are there
 --     (`player.car`: respawns and wrecks bring them back in it) and is gone,
 --     their own back in its place, on the next switch.
+--   A map with `night` is played in the dark: the night feature darkens
+--     the world and lights it from `map.lights`, cars and players.
 --
 -- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
@@ -129,6 +131,30 @@ CityMap.maps = {
     title = "The Citadel", kind = "citadel", seed = 18, cols = 84, rows = 112,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- Grey City, the Cyber Feud quest line's five maps (cyber_feud.lua), all at
+  -- night (the night feature reads `night`). The Drop and the Overpass are
+  -- driven; anyone without a car of their own is lent a red sedan. The Market,
+  -- Halcyon Tower and its Roof are walked. Nobody about but the factions.
+  drop = {
+    title = "The Drop", kind = "drop", seed = 101, cols = 64, rows = 96,
+    crowd = false, traffic = false, loaner = "sedan-red", night = true,
+  },
+  market = {
+    title = "The Market", kind = "market", seed = 102, cols = 56, rows = 56,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
+  overpass = {
+    title = "The Overpass", kind = "overpass", seed = 103, cols = 32, rows = 200,
+    crowd = false, traffic = false, loaner = "sedan-red", night = true,
+  },
+  tower = {
+    title = "Halcyon Tower", kind = "tower", seed = 104, cols = 48, rows = 112,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
+  roof = {
+    title = "The Roof", kind = "roof", seed = 105, cols = 36, rows = 36,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 
@@ -142,7 +168,7 @@ local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas sh
 local function generate(name)
   local spec = CityMap.maps[name]
   local map = Layout.generate(spec)
-  map.name, map.title, map.loaner = name, spec.title, spec.loaner
+  map.name, map.title, map.loaner, map.night = name, spec.title, spec.loaner, spec.night
   return map
 end
 

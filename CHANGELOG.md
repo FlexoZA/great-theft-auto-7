@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new job on the board, "Courier wanted": the start of the Cyber Feud quest line in Grey City. Five maps so far,
+  driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
+  still to come.
+- Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
+
 ## [0.26.15] - 2026-10-09
 
 The FPS counter is back top left and coloured by how smooth it runs; the ping sits in the top middle.

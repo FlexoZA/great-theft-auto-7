@@ -297,6 +297,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
+| `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
 | `menuOpen(client)` | weapons and abilities ask | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone and abilities cast nothing. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
@@ -1476,6 +1477,32 @@ the one with a plot.
   a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
   half-time drums, a chorus with a harmonised lead, a breakdown under the
   Combine's alarm).
+- Night: `src/features/night`. A map whose city-map spec says `night =
+  true` (Grey City's five) is played in the dark: in `drawLens`, under the
+  HUD, it draws a light map the size of the window (a dim blue ambient,
+  `Night.ambient`) and multiplies the world by it. Added onto it: the map's
+  `lights` ({ x, y, r, color, a }, world px: neon, lamps, screens), every
+  driven car's headlights and tail lights, a pool round everyone on foot
+  with a torch beam where they face, and whatever features draw in
+  `drawNightLights`. Draw a night map's own colours as if by day; the night
+  takes them down. Local only: nothing sent.
+- Cyber Feud: `src/features/cyber-feud` and quests' "cyber-feud" job
+  ("Courier wanted", on the board), design in `docs/cyber-feud.md`. Five
+  maps in Grey City, all at night, chained by EXIT stars like A-Man's:
+  the Drop (`drop`, driven, 64x96), the Market (`market`, walked, 56x56),
+  the Overpass (`overpass`, driven, 32x200), Halcyon Tower (`tower`, walked,
+  48x112) and the Roof (`roof`, walked, 36x36), quests "cyber-feud",
+  "cyber-feud-market", "-overpass", "-tower" and "-roof", each with a HOME
+  star at its `map.cx, map.cy`. City-map builds them all in
+  `city-map/cyber_feud.lua` (what each leaves on the map is in its header:
+  `exitX, exitY`, `zones`, `roads`, `cover`, `signs`, `lights`, the Drop's
+  `pickupX, pickupY` and `vexY`, the tower's `floors`, the Roof's `helipad`)
+  and draws them in `render_cyber_feud.lua`. On the driven maps anyone
+  without a car is lent a red sedan. So far each level is the way through
+  only: the first player within 160 px of the map's `exitX, exitY` finishes
+  it (`quests:serverComplete`), and the star there leads on to the next,
+  or home from the Roof. VEX, the factions, the breach and the bosses
+  follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
