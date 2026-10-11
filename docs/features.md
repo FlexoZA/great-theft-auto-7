@@ -1498,11 +1498,27 @@ the one with a plot.
   `exitX, exitY`, `zones`, `roads`, `cover`, `signs`, `lights`, the Drop's
   `pickupX, pickupY` and `vexY`, the tower's `floors`, the Roof's `helipad`)
   and draws them in `render_cyber_feud.lua`. On the driven maps anyone
-  without a car is lent a red sedan. So far each level is the way through
-  only: the first player within 160 px of the map's `exitX, exitY` finishes
-  it (`quests:serverComplete`), and the star there leads on to the next,
-  or home from the Roof. VEX, the factions, the breach and the bosses
-  follow.
+  without a car is lent a red sedan. Each level is the way through: the
+  first player within 160 px of the map's `exitX, exitY` finishes it
+  (`quests:serverComplete`), and the star there leads on to the next, or
+  home from the Roof. On the Drop the package comes first: the first player
+  to press the action key (F, `actionTaken`, on foot or from the car)
+  within 110 px of the vending machine (`map.pickupX, pickupY`) takes the
+  Shard (`CF_TAKE`, checked on the host) and carries it for the rest of the
+  line, a green diamond over them (`CF_SHARD`; if they leave it passes to
+  another human), and the Drop can't be finished without it.
+  The story (`cyber-feud/story.lua` holds every word): arriving on a map
+  puts up its banner (GREY CITY, n / 5, the name, a tagline), after VEX's
+  intro screen (`cyber-feud/screen.lua`, her 64x72 face in `face.lua`) on
+  every map but the Drop, where it waits until someone with the Shard is
+  past `map.vexY` (she boots up in the dash). The host raises story beats
+  once a level each (`CF_BEAT <key>`, `Story.beats`): walking into a part
+  of the map (`map.zones`), the Overpass's dead end (`map.knot`), the far
+  end; each is a line of hers on the comms (`cyber-feud/hud.lua`: her small
+  portrait, the words typed out, one at a time off a queue). Every machine
+  also names the part of the map you walk into (the tower's floors as
+  FLOOR n OF 6) and keeps an objective line with the distance to its
+  point. The factions, the breach and the bosses follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

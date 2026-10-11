@@ -218,7 +218,6 @@ Quests.list = {
     label = "CYBER FEUD",
     color = { 1, 0.24, 0.78 },
     banner = "%s took the courier job. Welcome to Grey City.",
-    introLine = 1,
     exitText = "You're through the roadblock. The tunnel runs on under the city to the Market. Keep moving.",
     exitTitle = "Into the tunnel",
     exitLabel = "MARKET",

@@ -1,0 +1,94 @@
+-- The words of the Cyber Feud quest line (docs/cyber-feud.md), in one place:
+-- each map's banner, VEX's intro screen lines, the story beats she talks
+-- through, and the objective line. Data only; init.lua and hud.lua use it.
+
+local Story = {}
+
+Story.LEVELS = 5
+
+-- The banner that comes up on arriving on each map: where in the line it
+-- is, its name and a tagline.
+Story.banners = {
+  drop = { n = 1, title = "THE DROP", tagline = "Downtown. Somebody's package." },
+  market = { n = 2, title = "THE MARKET", tagline = "Everybody's market. Nobody's friend." },
+  overpass = { n = 3, title = "THE OVERPASS", tagline = "The long way up." },
+  tower = { n = 4, title = "HALCYON TOWER", tagline = "Visitors by appointment only." },
+  roof = { n = 5, title = "THE ROOF", tagline = "Nowhere left to go but down." },
+}
+
+-- What VEX says on her intro screen, one line per level (quests'
+-- `introLine` picks it on arrival; on the Drop the "drop.boot" beat does,
+-- when she boots up halfway up the map).
+Story.lines = {
+  "Hey, courier. Nice car. I'm in it now. Drive.",
+  "Crowded in there. Good. Crowds are safe. Usually.",
+  "I found you a shortcut. You're going to love it.",
+  "Their security is a mess. I'll get you in. Getting out is on you.",
+  "Funny thing about the receipts, courier. My name's on them too.",
+}
+
+-- Story beats: the host raises each once per level (CF_BEAT), so every
+-- screen shows the same. `screen` puts up her intro screen with that line,
+-- `say` is what she says over the comms after it. Keys are "<map>.<what>":
+-- a zone's name (city-map's `map.zones`) for walking into it, "boot" (the
+-- Drop's halfway line, once someone has the Shard), "knot" (the Overpass's
+-- dead end), "end" (the level's far end reached).
+Story.beats = {
+  ["drop.boot"] = {
+    screen = 1,
+    say = "Tunnel's at the top of the middle avenue. Ignore the roadblock. It's decorative.",
+  },
+  ["drop.The Tunnel"] = { say = "Big roadblock, huh. Halcyon's very proud of it. Go round." },
+  ["drop.end"] = { say = "See? Easy. Into the tunnel, courier. Market's on the other side." },
+
+  ["market.The Lanes"] = {
+    say = "Halcyon has the east side, the Static have the west. You have the middle. Lucky you.",
+  },
+  ["market.Noodle Square"] = { say = "Smile, courier. You're on my screen." },
+  ["market.The Dock"] = { say = "Cars at the dock. I may have borrowed them. Don't scratch anything." },
+  ["market.end"] = { say = "Nicely done. Five stars. The Overpass is right there." },
+
+  ["overpass.The Overpass"] = { say = "Long road, nobody on it. Probably. Keep it in the middle lanes." },
+  ["overpass.The Roadworks"] = { say = "Roadworks ahead. Take the off-ramp on the right. Trust me." },
+  ["overpass.knot"] = { say = "Huh. Dead end. Must be the wrong exit. Back up onto the highway, quick." },
+  ["overpass.The Tower Ramp"] = { say = "Halcyon Tower. Big, isn't it. The garage is open. I opened it." },
+  ["overpass.end"] = { say = "You're in. Don't touch anything. Actually, touch everything." },
+
+  ["tower.Offices"] = { say = "Offices. Nobody works late at Halcyon. Nobody leaves, either." },
+  ["tower.Servers"] = { say = "Ooh, my favourite floor. Mind the racks. They bite." },
+  ["tower.Labs"] = { say = "Don't look in the tanks. ...You looked in the tanks." },
+  ["tower.Security"] = { say = "Security floor. They know you're coming. No idea how." },
+  ["tower.Executive"] = { say = "Saye's floor. Wipe your feet. The lift's past the boardroom." },
+  ["tower.end"] = { say = "Lift's waiting. Going up. All the way up." },
+
+  ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },
+}
+
+--- The objective line for map `name`, given whether someone has the Shard
+--- and whether the level is done. Returns the text and where it points
+--- (x, y in world px, for the distance), from `map`.
+function Story.objective(name, map, shard, done)
+  if done then
+    if name == "roof" then
+      return "Objective: take the EXIT star home"
+    end
+    return "Objective: take the star on"
+  end
+  if name == "drop" then
+    if not shard then
+      return "Objective: get the package from the vending machine by the garage", map.pickupX, map.pickupY
+    end
+    return "Objective: get the Shard to the tunnel at the top of the middle avenue", map.exitX, map.exitY
+  elseif name == "market" then
+    return "Objective: get through the Market to the loading dock", map.exitX, map.exitY
+  elseif name == "overpass" then
+    return "Objective: drive the Overpass to Halcyon Tower", map.exitX, map.exitY
+  elseif name == "tower" then
+    return "Objective: climb to the executive lift", map.exitX, map.exitY
+  elseif name == "roof" then
+    return "Objective: get to the helipad", map.exitX, map.exitY
+  end
+  return nil
+end
+
+return Story

@@ -29,6 +29,7 @@
 --   map.pickupX, pickupY  the vending machine with the Shard in it (the Drop)
 --   map.vexY              the line past which VEX boots up (the Drop)
 --   map.helipad           { x, y, r } the Roof's helipad
+--   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
 -- render_cyber_feud.lua draws them.
 
@@ -453,6 +454,7 @@ local function buildOverpass(map, rng, T)
   g.fill(k.c0, 46, k.c0 + 2, k.r0, "road")
   road(map, X(k.c0), Y(46), 3 * T, (97 - 46 + 1) * T, "ns")
   road(map, X(k.c0), Y(k.r0), (k.c1 - k.c0 + 1) * T, (k.r1 - k.r0 + 1) * T, "pad")
+  map.knot = { x = X(k.c0), y = Y(k.r0), w = (k.c1 - k.c0 + 1) * T, h = (k.r1 - k.r0 + 1) * T }
   light(map, X((k.c0 + k.c1 + 1) / 2), Y((k.r0 + k.r1 + 1) / 2), 380, CyberFeud.MAGENTA, 0.35)
   light(map, X((k.c0 + k.c1 + 1) / 2), Y((k.r0 + k.r1 + 1) / 2) + 120, 300, CyberFeud.CYAN, 0.35)
   light(map, X(b + 2), Y(95), 220, CyberFeud.GREEN, 0.7) -- VEX's sign: SHORTCUT

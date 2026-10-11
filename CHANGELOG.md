@@ -19,6 +19,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
   still to come.
 - Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
+- Cyber Feud's story: take the Shard from the vending machine on the Drop (F), meet VEX, your fixer, who talks you
+  through every map, and see each map's title card, where you are and what to do next.
 
 ## [0.26.15] - 2026-10-09
 

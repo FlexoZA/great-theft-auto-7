@@ -3,41 +3,92 @@
 -- five maps, city-map's `drop`, `market`, `overpass`, `tower` and `roof`,
 -- all at night.
 --
--- For now each level is only the way through: the first player to reach the
--- map's far end (`map.exitX`, `map.exitY`) finishes it, and an EXIT star
--- comes up there leading on to the next one (quests' `next`), or home from
--- the Roof. VEX, the factions, the breach and the bosses come later.
+-- The story so far (the words are in story.lua):
+--   - Arriving on a map, everyone gets its banner (hud.lua): GREY CITY, where
+--     in the line it is, its name and tagline; on every map but the Drop,
+--     VEX's intro screen comes first (screen.lua, her face in face.lua),
+--     with the quest's `introLine`.
+--   - On the Drop the package is in the vending machine by the garage: the
+--     first player to press the action key there (F, on foot or from the
+--     car) takes the Shard and carries it for the rest of the line (a green
+--     diamond over them). Once someone has it and is halfway up the map
+--     (`map.vexY`), VEX boots up: her intro screen, in the dash.
+--   - The host raises story beats once each per level (`Story.beats`):
+--     walking into a part of the map (`map.zones`), the Overpass's dead end
+--     (`map.knot`), the far end. Each is something VEX says on the comms.
+--   - Walking or driving into a new part of the map puts its name up.
+--   - The objective line says what to do next and how far it is.
+-- Each level is still only the way through: the first player to reach the
+-- map's far end (`map.exitX`, `map.exitY`), with the Shard taken on the
+-- Drop, finishes it, and an EXIT star comes up there leading on to the next
+-- (quests' `next`), or home from the Roof. The factions, the breach and the
+-- bosses come later.
+--
+-- Messages
+--   client -> server  CF_TAKE               (take the Shard out of the vending machine)
+--   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
+--   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 
 local Features = require("src.features")
+local Protocol = require("src.net.protocol")
+local Controls = require("src.controls")
+local Story = require("src.features.cyber-feud.story")
+local Face = require("src.features.cyber-feud.face")
+local Screen = require("src.features.cyber-feud.screen")
+local Hud = require("src.features.cyber-feud.hud")
 
 local CyberFeud = {
   name = "cyber-feud",
+  priority = 991, -- VEX's intro screen over the HUD and the ability bar (990), like A-Man's; under the inventory (995)
   questId = "cyber-feud", -- the quests that are this feature's (quests' `boss`)
 }
 
 -- Tuning ------------------------------------------------------------------
 CyberFeud.reach = 160 -- px from the far end that finishes a level
+CyberFeud.takeRadius = 110 -- px from the vending machine that takes the Shard
+CyberFeud.introTime = 9 -- seconds VEX's intro screen stays up on arrival, unless a key takes it down
+CyberFeud.bootTime = 6 -- seconds it stays up when she boots up mid-drive on the Drop
 
-local sv = nil -- { quest, reached } on the host while one of the levels is under way
+local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
+
+local function city()
+  return Features.byName["city-map"]
+end
 
 local function cityMap()
-  local city = Features.byName["city-map"]
-  return city and city.map
+  local c = city()
+  return c and c.map
 end
+
+local function dist2(ax, ay, bx, by)
+  return (ax - bx) ^ 2 + (ay - by) ^ 2
+end
+
+-- Server ------------------------------------------------------------------
+
+local run = nil -- { shard = player id or nil } on the host for the whole line
+local sv = nil -- { quest, map, reached, beats = { [key] = true } } on the host while a level is under way
 
 function CyberFeud:serverStart()
-  sv = nil
+  run, sv = nil, nil
 end
 
-function CyberFeud:serverQuestStarted(_server, quest)
-  if quest.boss == self.questId then
-    sv = { quest = quest.id, reached = false }
+function CyberFeud:serverQuestStarted(server, quest)
+  if quest.boss ~= self.questId then
+    return
   end
+  if quest.id == self.questId or not run then
+    run = { shard = nil } -- the line starts again: the Shard is back in its machine
+    server:broadcast(Protocol.encode("CF_SHARD", 0, "quiet"))
+  end
+  local c = city()
+  sv = { quest = quest.id, map = c and c.current, reached = false, beats = {} }
 end
 
-function CyberFeud:serverQuestEnded(_server, quest)
+function CyberFeud:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
-    sv = nil
+    run, sv = nil, nil
+    server:broadcast(Protocol.encode("CF_SHARD", 0, "quiet"))
   end
 end
 
@@ -46,32 +97,320 @@ function CyberFeud:mapChanged(_map, server)
   if server then
     sv = nil
   end
+  self:clearLevel()
 end
 
---- Has anyone got to the far end? The first one there finishes the level.
+--- Raise story beat `key` (one of Story.beats) if this level has not had it.
+local function beat(server, key)
+  if not Story.beats[key] or sv.beats[key] then
+    return
+  end
+  if sv.map == "drop" and key ~= "drop.boot" and not sv.beats["drop.boot"] then
+    return -- she is not in the dash yet: it waits
+  end
+  sv.beats[key] = true
+  server:broadcast(Protocol.encode("CF_BEAT", key))
+end
+
+local function zoneAt(map, y)
+  for _, z in ipairs(map.zones or {}) do
+    if y >= z.y0 and y < z.y1 then
+      return z
+    end
+  end
+  return nil
+end
+
 function CyberFeud:serverStep(server)
   local map = cityMap()
-  if not (sv and not sv.reached and map and map.exitX) then
+  if not (sv and map and map.exitX) then
     return
   end
   for _, p in pairs(server.players) do
     if not p.bot and Features.present(p) then
       local x, y = Features.bodyPose(server, p)
-      if (x - map.exitX) ^ 2 + (y - map.exitY) ^ 2 <= self.reach ^ 2 then
+      local z = zoneAt(map, y)
+      if z then
+        beat(server, sv.map .. "." .. z.name)
+      end
+      if map.vexY and run.shard and y < map.vexY then
+        beat(server, "drop.boot")
+      end
+      local k = map.knot
+      if k and x >= k.x and x < k.x + k.w and y >= k.y and y < k.y + k.h then
+        beat(server, sv.map .. ".knot")
+      end
+      local ready = not map.pickupX or run.shard ~= nil -- the Drop wants the Shard taken first
+      if ready and not sv.reached and dist2(x, y, map.exitX, map.exitY) <= self.reach ^ 2 then
         sv.reached = true
         local quests = Features.byName.quests
         if quests then
           quests:serverComplete(server, sv.quest, map.exitX, map.exitY)
         end
-        return
+        beat(server, sv.map .. ".end")
       end
     end
   end
 end
 
+function CyberFeud:serverPlayerJoined(server, player)
+  if run and run.shard and server.started and not player.bot then
+    server:send(player, Protocol.encode("CF_SHARD", run.shard, "quiet"))
+  end
+end
+
+--- The carrier left: the Shard passes to another human still here, if any.
+function CyberFeud:serverPlayerLeft(server, player)
+  if not (run and run.shard == player.id) then
+    return
+  end
+  run.shard = nil
+  for id, p in pairs(server.players) do
+    if id ~= player.id and not p.bot then
+      run.shard = id
+      break
+    end
+  end
+  server:broadcast(Protocol.encode("CF_SHARD", run.shard or 0))
+end
+
+CyberFeud.serverMessages = {
+  CF_TAKE = function(server, player)
+    local map = cityMap()
+    if not (sv and run and not run.shard and map and map.pickupX and Features.present(player)) then
+      return
+    end
+    local x, y = Features.bodyPose(server, player)
+    if dist2(x, y, map.pickupX, map.pickupY) > (CyberFeud.takeRadius + SLACK) ^ 2 then
+      return
+    end
+    run.shard = player.id
+    server:broadcast(Protocol.encode("CF_SHARD", player.id))
+  end,
+}
+
+-- Client ------------------------------------------------------------------
+
+local face = nil
+local time = 0
+local cl = {
+  level = nil, -- the map name of the level on, while one is
+  page = nil, -- { line, t, max } while VEX's intro screen is up
+  banner = nil, -- { spec, t } the map banner, waiting for the page to go or up
+  zone = nil, -- { name, kicker, t } the part of the map just entered
+  myZone = false, -- the name of the part I am in; false until the first look
+  says = {}, -- what VEX has still to say, in order
+  say = nil, -- { text, t } what she is saying
+  shardBy = nil, -- the player carrying the Shard
+  near = false, -- at the vending machine, with the Shard still in it
+}
+
+function CyberFeud:clearLevel()
+  cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
+end
+
+function CyberFeud:exitGame()
+  self:clearLevel()
+  cl.level, cl.shardBy = nil, nil
+end
+
+--- Everyone arrived on one of the maps: VEX's intro screen (not on the
+--- Drop: she isn't in the dash yet), then the map's banner.
+function CyberFeud:questStarted(_client, quest)
+  if quest.boss ~= self.questId then
+    return
+  end
+  face = face or Face.new()
+  self:clearLevel()
+  cl.level = quest.map
+  if quest.introLine then
+    cl.page = { line = Story.lines[quest.introLine] or Story.lines[1], t = 0, max = self.introTime }
+  end
+  local b = Story.banners[quest.map]
+  if b then
+    cl.banner = { spec = { n = b.n, of = Story.LEVELS, title = b.title, tagline = b.tagline }, t = 0 }
+  end
+end
+
+function CyberFeud:questEnded(_client, quest)
+  if quest.boss == self.questId then
+    self:clearLevel()
+    cl.level, cl.shardBy = nil, nil
+  end
+end
+
+local function nameOf(client, id)
+  local p = client.players[id]
+  return p and p.name or "Someone"
+end
+
+CyberFeud.clientMessages = {
+  CF_SHARD = function(client, args)
+    local id = tonumber(args[1]) or 0
+    cl.shardBy = id > 0 and id or nil
+    if cl.shardBy and args[2] ~= "quiet" then
+      cl.zone = { name = nameOf(client, id) .. " has the Shard", kicker = "THE PACKAGE", t = 0 }
+    end
+  end,
+  CF_BEAT = function(_client, args)
+    local b = Story.beats[args[1] or ""]
+    if not b then
+      return
+    end
+    face = face or Face.new()
+    if b.screen then
+      cl.page = { line = Story.lines[b.screen], t = 0, max = CyberFeud.bootTime }
+    end
+    if b.say then
+      cl.says[#cl.says + 1] = b.say
+    end
+  end,
+}
+
+--- Is the level on this screen one of ours, on the map it belongs to?
+local function onLevel()
+  local c = city()
+  return cl.level ~= nil and c ~= nil and c.current == cl.level
+end
+
+function CyberFeud:update(dt, client)
+  time = time + dt
+  if not (face and onLevel()) then
+    return
+  end
+  face:update(dt)
+  if cl.page then
+    cl.page.t = cl.page.t + dt
+    if cl.page.t >= cl.page.max then
+      cl.page = nil
+    end
+    return -- the rest waits for her screen to go
+  end
+  if cl.banner then
+    cl.banner.t = cl.banner.t + dt
+    if cl.banner.t >= Hud.BANNER_TIME then
+      cl.banner = nil
+    end
+  end
+  if cl.zone then
+    cl.zone.t = cl.zone.t + dt
+    if cl.zone.t >= Hud.ZONE_TIME then
+      cl.zone = nil
+    end
+  end
+  if cl.say then
+    cl.say.t = cl.say.t + dt
+    if cl.say.t >= #cl.say.text / Screen.TYPE_RATE + Hud.SAY_HOLD then
+      cl.say = nil
+    end
+  elseif #cl.says > 0 then
+    cl.say = { text = table.remove(cl.says, 1), t = 0 }
+  end
+  -- Where I am: a new part of the map puts its name up (not the first, on
+  -- arrival: the banner says where I am), and the machine's prompt.
+  local map = cityMap()
+  local x, y = client:myPose()
+  cl.near = false
+  if not (map and x) then
+    return
+  end
+  local z = zoneAt(map, y)
+  local name = z and z.name or nil
+  if cl.myZone ~= false and name and name ~= cl.myZone and not cl.banner then
+    local kicker
+    for i, f in ipairs(map.floors or {}) do
+      if f == z then
+        kicker = ("FLOOR %d OF %d"):format(i, #map.floors)
+      end
+    end
+    cl.zone = { name = name, kicker = kicker, t = 0 }
+  end
+  if name or cl.myZone == false then
+    cl.myZone = name
+  end
+  cl.near = map.pickupX ~= nil and not cl.shardBy
+    and dist2(x, y, map.pickupX, map.pickupY) <= self.takeRadius ^ 2
+end
+
+--- The action key is ours at the vending machine (on-foot leaves the car alone).
+function CyberFeud:actionTaken()
+  return cl.near
+end
+
+function CyberFeud:keypressed(key, client)
+  if cl.page then
+    cl.page = nil -- any key takes her screen down
+    return
+  end
+  if cl.near and Controls.is("enter-exit", key) and client then
+    client:send(Protocol.encode("CF_TAKE"))
+  end
+end
+
+--- Her intro screen softens the world behind it.
+function CyberFeud:worldBlur()
+  return cl.page and onLevel() and 1 or 0
+end
+
+function CyberFeud:drawAboveCars(client)
+  if not onLevel() then
+    return
+  end
+  local map = cityMap()
+  if map and map.pickupX and not cl.shardBy then
+    Hud.drawMachine(map.pickupX, map.pickupY - 34, time)
+  end
+  if cl.shardBy then
+    local x, y = client:pose(cl.shardBy)
+    if x then
+      Hud.drawCarrier(x, y, time)
+    end
+  end
+end
+
+--- At night (the night feature), the Shard glows over whoever carries it.
+function CyberFeud:drawNightLights(client, _camera, glow)
+  if cl.shardBy and onLevel() then
+    local x, y = client:pose(cl.shardBy)
+    if x then
+      glow(x, y - 40, 70, Face.GREEN, 0.9)
+    end
+  end
+end
+
+function CyberFeud:drawHUD(client)
+  if not (face and onLevel()) then
+    return
+  end
+  if cl.page then
+    Screen.draw(face, cl.page.line, cl.page.t, time)
+    return
+  end
+  local map = cityMap()
+  local quests = Features.byName.quests
+  local done = quests and quests.done ~= nil and quests.done == quests.active
+  local text, tx, ty = Story.objective(cl.level, map, cl.shardBy ~= nil, done)
+  if text then
+    local x, y = client:myPose()
+    Hud.drawObjective(text, tx and x and math.sqrt(dist2(x, y, tx, ty)) or nil)
+  end
+  if cl.say then
+    local hold = #cl.say.text / Screen.TYPE_RATE + Hud.SAY_HOLD
+    Hud.drawComms(face, cl.say.text, cl.say.t, math.min(1, (hold - cl.say.t) / 0.5))
+  end
+  if cl.near then
+    Hud.drawPrompt(Controls.name(Controls.bindings("enter-exit")[1]))
+  end
+  if cl.banner then
+    Hud.drawBanner(cl.banner.spec, cl.banner.t)
+  elseif cl.zone then
+    Hud.drawZone(cl.zone.name, cl.zone.kicker, cl.zone.t)
+  end
+end
+
 --- For tests.
 function CyberFeud.server()
-  return sv
+  return sv, run
 end
 
 return CyberFeud

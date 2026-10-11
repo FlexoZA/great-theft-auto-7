@@ -12,6 +12,11 @@ branch off `feature/cyber-feud`):
   `overpass`, `tower`, `roof`, in `city-map/cyber_feud.lua`), their quests and
   HOME stars, the `cyber-feud` feature finishing each level when someone
   reaches its far end, and night (the `night` feature) on all five.
+- `feature/cyber-feud-story`: the story told so far. Map and zone banners,
+  VEX's intro screen and her face, her comms lines at story beats, the
+  objective line, and the Shard: taken from the vending machine on the Drop
+  and carried for the rest of the line. Every word is in
+  `src/features/cyber-feud/story.lua`.
 
 ## Decisions
 
