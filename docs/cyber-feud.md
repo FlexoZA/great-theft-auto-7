@@ -428,6 +428,129 @@ breaching VEX out of the tower's systems while the turrets fire. You beat
 her, but she escapes into the net with a parting line ("Nothing personal,
 courier."), which sets up the sequel.
 
+## Maps
+
+Five new maps in city-map, one builder each beside A-Man's
+(`city-map/outer_city.lua` and the rest), drawn by their own render file. Tiles
+are 64 px (`Layout.TILE`). For scale: City 17 is 48x76 tiles, the Outer City
+72x56, the Winding Road 76x224, the Citadel 84x112.
+
+| Map key | Title | Size (tiles) | Played | Quest |
+| --- | --- | --- | --- | --- |
+| `drop` | The Drop | 64x96 | Driven | `cyber-feud` (on the board) |
+| `market` | The Market | 56x56 | On foot | `cyber-feud-market` |
+| `overpass` | The Overpass | 32x200 | Driven | `cyber-feud-overpass` |
+| `tower` | Halcyon Tower | 48x112 | On foot | `cyber-feud-tower` |
+| `roof` | The Roof | 36x36 | On foot, the arena | `cyber-feud-roof` |
+
+Each quest's `next` is the following one, as A-Man's are; the Roof's star
+goes home. Every map is night and rain. Everyone travels north (up the
+screen), the way A-Man's trail does.
+
+### Shared look
+
+- Grey everywhere: concrete roofs in cold greys, dark wet streets.
+- Rain on every map: streaks over everything, ripples in puddles, the
+  neon reflected in the wet ground as smeared colour under the signs.
+- Neon signs on building edges in the faction colour of whoever holds that
+  block (magenta or cyan), plus a few in VEX's green where she has a screen.
+  Pun signs: NOODLZ, CHROME 4 LESS, RIPPERDOC, NO REFUNDS, SOYLENT FRIED,
+  KARMA KREDIT, MEAT (REAL*).
+- Steam from vents, holo-ads flickering, cables strung across streets.
+- A green screen anywhere means VEX can see you.
+
+### 1. The Drop (`drop`, 64x96, driven)
+
+Downtown. A grid of tall blocks with wide avenues, like the city's own, but
+taller, darker and wetter. The west third is the Static's (cyan signs,
+junk, burning drums, wrecks), the east third Halcyon's (clean, magenta signs,
+bollards), and the middle avenue is the no-man's-land where they meet.
+
+- **Arrival:** the bottom left, coming up out of a parking garage, with
+  everyone's cars.
+- **The pickup:** a vending machine in a small plaza next to the garage. The
+  first player to press F at it takes the Shard, and the chase begins: both
+  factions are quiet until then.
+- **The chase:** Halcyon roadblocks (barriers, an interceptor, officers) close
+  some intersections; Static war-rigs come out of the alleys in the west.
+  The way north changes depending on which roadblocks you dodge.
+- **VEX boots up** halfway up the map (a zone line, like City 17's
+  `map.zones`): her intro screen, in the dash.
+- **The end:** a tunnel mouth at the top middle, with the biggest roadblock
+  of all in front of it, which both factions are fighting over when you
+  arrive. Break through and the EXIT star is in the tunnel: "THE MARKET".
+
+### 2. The Market (`market`, 56x56, on foot)
+
+A huge covered market in a concrete block: narrow lanes between stalls
+(solid cover), crates and noodle carts (cover), canopies drawn over the lanes
+with gaps where the rain comes through.
+
+- **Arrival:** the south end, out of the tunnel; cars are left behind at the
+  entrance.
+- **Halcyon** has cordoned the south gate and the east side: posts at the
+  gates, squads in the lanes, watcher drones over the canopies.
+- **The Static** holds the west: their chop shop, packs roaming out of it.
+- **Noodle Square** in the middle: an open plaza under a giant screen where
+  VEX's face appears. Both sides' lanes meet here; this is where the big
+  three-way fights happen.
+- **The end:** the north gate, a loading dock with parked cars waiting. The
+  EXIT star: "THE OVERPASS".
+
+### 3. The Overpass (`overpass`, 32x200, driven)
+
+An elevated highway, long and narrow, with the city a drop away on both
+sides (the edges are solid, drawn as a long fall with lights far below).
+Four lanes, with wrecks and stalled traffic as obstacles.
+
+- **Arrival:** the bottom, onto the on-ramp. Kilowatt's war-rig is the first
+  thing you see: it roars past, he laughs, and he leaps off onto the road
+  before it crashes ahead.
+- **Gantries** cross the road every 30 tiles or so; Halcyon marksmen stand
+  on them (drawn over the cars), and sting drones strafe between them.
+- **Construction** squeezes the road to one lane in places.
+- **The shortcut:** two thirds of the way up, VEX says to take the off-ramp.
+  It loops round into the Knot, a dead-end interchange where both factions
+  wait together: the ambush. Fight out and the loop rejoins the highway.
+  Taking the main road instead also works, but it is longer and has more
+  roadblocks; VEX sells you either way.
+- **The end:** the highway runs into Halcyon Tower's garage ramp. The EXIT
+  star: "HALCYON TOWER".
+
+### 4. Halcyon Tower (`tower`, 48x112, on foot)
+
+The tower, cut through and stacked: six floors laid out as six bands up the
+map, each joined to the next by a stairwell at alternating ends, so the climb
+zigzags.
+
+| Floor | What's there |
+| --- | --- |
+| Lobby | Marble, a reception desk, the Static smashing in through the front with a war-rig. Halcyon holding the lifts. |
+| Offices | Cubicles as cover, glass walls, watcher drones. |
+| Servers | Rows of racks, breach terminals, sting drones. Dark, lit by blinking lights. |
+| Labs | Glass tanks, spare chrome bodies on racks (Saye's), turrets. |
+| Security | The guard floor: enforcers, marksmen, a lot of turrets. |
+| Executive | Carpet, a long boardroom table, Saye's office with a window wall. Saye on the screens. |
+
+- Each floor's stair door is locked. Breach the terminal beside it to open it,
+  or let VEX open it for you, which opens a room full of guards instead.
+- The Static come up from below the whole way, so the floors behind you
+  aren't safe.
+- **The end:** the executive lift up to the roof. The EXIT star: "THE ROOF".
+
+### 5. The Roof (`roof`, 36x36, the arena)
+
+The top of the tower, square, open to the rain.
+
+- A helipad in the middle (open ground).
+- AC units, vents and antenna masts as cover, spread round.
+- Four relay terminals near the corners (VEX's phase).
+- A giant holo-billboard along the north edge, where VEX's face shows.
+- The stairs at the south edge, where Static brutes come up during the fight.
+- The edges are solid: a parapet, and the city far below.
+
+**The end:** when VEX gets away, a HOME star comes up on the helipad.
+
 ## Mechanics
 
 ### Feud AI
@@ -491,6 +614,6 @@ where his jumps.
 ## Next steps
 
 1. Character design: VEX, Saye, Kilowatt and the factions' troops (done).
-2. Map design for the five levels (city-map builds and draws them).
+2. Map design for the five levels (done; city-map builds and draws them).
 3. Feud AI and breach as their own pieces, since later quests can use them
    too.
