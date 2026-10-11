@@ -25,6 +25,8 @@
 -- walking their blocks, at war with each other. They stay calm until
 -- someone takes the Shard (or a player hurts one of them), then come for
 -- whoever is nearest, a player or the other side.
+-- Over the Drop, every now and then, a flying machine crosses the sky
+-- (flyers.lua): scenery, on each screen by itself.
 -- The tunnel end is Halcyon's alone, guarded by its assassin droids
 -- (droids.lua): the Hunters' brain, quicker, dodging every round.
 -- Each level is still only the way through: the first player to reach the
@@ -48,6 +50,7 @@ local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
 local Droids = require("src.features.cyber-feud.droids")
+local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
 local Audio = require("src.audio")
 
@@ -82,6 +85,10 @@ end
 
 local run = nil -- { shard = player id or nil } on the host for the whole line
 local sv = nil -- { quest, map, reached, beats = { [key] = true } } on the host while a level is under way
+
+function CyberFeud:load()
+  Flyers.load() -- the flying machines' engines, synthesised
+end
 
 function CyberFeud:serverStart()
   run, sv = nil, nil
@@ -277,6 +284,7 @@ local cl = {
 function CyberFeud:clearLevel()
   cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
   Troops.clear()
+  Flyers.clear()
   stopChase()
 end
 
@@ -356,6 +364,9 @@ end
 function CyberFeud:update(dt, client)
   time = time + dt
   Troops.update(dt)
+  if cl.level == "drop" and onLevel() then -- machines flying over, now and then
+    Flyers.update(dt, client:myPose())
+  end
   if chase and chase:isPlaying() then
     chase:setVolume(musicVolume()) -- the slider may move
   end
@@ -447,6 +458,7 @@ function CyberFeud:drawAboveCars(client)
     return
   end
   Troops.drawAboveCars()
+  Flyers.draw() -- high over everything
   local map = cityMap()
   if map and map.pickupX and not cl.shardBy then
     Hud.drawMachine(map.pickupX, map.pickupY - 34, time)
@@ -463,6 +475,7 @@ end
 function CyberFeud:drawNightLights(client, _camera, glow)
   if onLevel() then
     Troops.drawNightLights(glow)
+    Flyers.lights(glow)
   end
   if cl.shardBy and onLevel() then
     local x, y = client:pose(cl.shardBy)

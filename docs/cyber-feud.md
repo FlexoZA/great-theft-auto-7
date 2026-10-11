@@ -490,6 +490,12 @@ screen), the way A-Man's trail does.
   `grey_city.lua`, the Drop so far): blocks of towers with neon in the
   colour of whoever holds that side of town, street lamps, traffic going
   by both ways, a haze further out; at night only its lights show.
+- Overhead, every now and then, one of three flying machines crosses the
+  sky (`cyber-feud/flyers.lua`, the Drop so far): Halcyon's aerodyne on
+  four ducted fans with its searchlight sweeping the streets, a cargo
+  hauler with a container slung under it, an ad drone towing a holo
+  billboard, each with its engine (`flyer_sounds.lua`). Scenery on each
+  screen by itself.
 
 ### 1. The Drop (`drop`, 64x96, on foot)
 

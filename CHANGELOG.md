@@ -30,6 +30,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
 - Grey City carries on past the edge of the Drop: towers and neon, street lamps and traffic going by, a sea of
   lights in the dark.
+- Flying machines cross the sky over the Drop now and then: Halcyon's aerodyne sweeping its searchlight, a cargo
+  hauler with a container slung under it, and an ad drone towing a holo billboard. You hear each one coming.
 - The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
   tunnel.
 
