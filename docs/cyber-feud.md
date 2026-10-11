@@ -56,8 +56,8 @@ staged. Now both sides want you dead, and so does the voice in your dashboard.
 
 None of them are on your side.
 
-- **VEX**, your fixer. A voice and a glitching face that lives in your car's
-  dashboard. She gave you the job, she talks you through every level, and she
+- **VEX**, your fixer. A voice and a glitching face that lives in your
+  earpiece, and later your car's dashboard. She gave you the job, she talks you through every level, and she
   sounds like she's helping. She isn't: she sells your location to whoever
   pays most, and every "helpful tip" comes just before a wave arrives. She
   fills A-Man's role in the quest: the intro screen portrait (glitching where
@@ -80,7 +80,7 @@ None of them are on your side.
 
 **Who she is.** A fixer nobody has met in person, and nobody alive ever
 will. Years ago she uploaded herself and kept the business. She lives in
-whatever is connected: your car's dashboard, the market's screens, the
+whatever is connected: your earpiece, your car's dashboard, the market's screens, the
 tower's systems, and at the end the net itself. She doesn't hate you. You
 are a job, and jobs have margins. She calls you "courier" and never by name.
 
@@ -146,7 +146,7 @@ anyone's head):
 **Intro screen lines** (one per level; the quest picks by index, like
 `a-man/screen.lua`):
 
-1. The Drop: "Hey, courier. Nice car. I'm in it now. Drive."
+1. The Drop: "Hey, courier. Nice earpiece. I'm in it now. Run."
 2. The Market: "Crowded in there. Good. Crowds are safe. Usually."
 3. The Overpass: "I found you a shortcut. You're going to love it."
 4. Halcyon Tower: "Their security is a mess. I'll get you in. Getting out is on you."
@@ -156,7 +156,7 @@ anyone's head):
 
 | Level | Where she lives | What she does |
 | --- | --- | --- |
-| 1 | Your dashboard | Boots up mid-chase, friendly. First tell at the end; few will notice. |
+| 1 | Your earpiece | Boots up mid-chase, friendly. First tell at the end; few will notice. |
 | 2 | The market's screens too | Tips, praise, tells before each wave. Her face appears on the stall screens around you. |
 | 3 | The overpass's signs | The shortcut. Her biggest lie, and the first ambush with both sides waiting together. |
 | 4 | The tower's systems | Guides you floor by floor; the doors she opens lead to rooms full of guards. She stops pretending much. |
@@ -351,7 +351,7 @@ have to shoot your way through.
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |
 | **Assassin droid** | A lean white-plated robot, magenta visor band, rail pistol and a mono-blade; cloaked until it has you | 240 | Rail pistol bursts (`bullet`); a charged rail shot down a magenta sightline | The Drop's tunnel end. The Hunters' brain, quicker: keeps you at range, strafes, and dodges every round it sees coming (again 1.3 s later). Step off the sightline to dodge the rail shot. Two for one player, one more per extra human. |
-| **Interceptor** | A grey sedan with a magenta and blue light bar | car | Rams; an officer leans out and shoots | The Drop and the Overpass. Tries to box you in and spin you out. Breach it parked and it stays dead. |
+| **Interceptor** | A grey sedan with a magenta and blue light bar | car | Rams; an officer leans out and shoots | The Overpass. Tries to box you in and spin you out. Breach it parked and it stays dead. |
 
 #### The Static
 
@@ -361,7 +361,7 @@ have to shoot your way through.
 | **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`) | Fast. Crouches for half a second, then lunges a long way (dodge it sideways). Goes for whoever is alone. |
 | **Brute** | A small Kilowatt: huge, a giant chrome arm, a cyan reactor glow | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
 | **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`) | Hangs back and lobs EMPs. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike. |
-| **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car | Rams (`impact`); the ganger shoots | The Drop and the Overpass. Built to ram you off the road, and Halcyon's interceptors too. |
+| **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car | Rams (`impact`); the ganger shoots | The Overpass. Built to ram you off the road, and Halcyon's interceptors too. |
 
 #### How they fight each other
 
@@ -396,7 +396,7 @@ click for Halcyon, a distorted shout for the Static).
 
 | Level | Halcyon | The Static |
 | --- | --- | --- |
-| 1. The Drop | Interceptors, a few officers at roadblocks | War-rigs, gangers on foot at corners |
+| 1. The Drop | Officers at roadblocks, squads, guard stations with MG nests, assassin droids at the tunnel | Gangers on corners, packs, guard stations with MG nests |
 | 2. The Market | Officers in squads, enforcers in the market's gates, watcher drones | Packs of gangers, rippers, a sparker or two |
 | 3. The Overpass | Interceptors, sting drones strafing, marksmen on the gantries | War-rigs (Kilowatt rides the first), gangers at the ambush |
 | 4. Halcyon Tower | Everything: officers, enforcers, marksmen, watchers, stings, turrets | Gangers, brutes and sparkers breaking in from below |
@@ -412,7 +412,7 @@ side against you. The game gets lonelier as the story does.
 
 | # | Map | Play | Who's after you |
 | --- | --- | --- | --- |
-| 1 | **The Drop**: downtown, night, rain | Driving chase across town with the Shard | Both sides, separately, also fighting each other |
+| 1 | **The Drop**: downtown, night, rain | On foot, a chase across town with the Shard | Both sides, separately, also fighting each other |
 | 2 | **The Market**: neon stalls, crowded, on foot | Get through a three-way firefight | Both sides; you survive by pulling them into each other |
 | 3 | **The Overpass**: elevated highway over the grey | Driving: war-rigs ram you, drones strafe | Both sides, starting to hold fire on each other. VEX "finds you a shortcut" straight into an ambush |
 | 4 | **Halcyon Tower**: on foot, stealth and hacking | Breach cameras, turrets and doors, and climb | Halcyon inside, the Static breaking in; they ignore each other now |
@@ -422,11 +422,9 @@ side against you. The game gets lonelier as the story does.
 
 The job on the board: "Courier wanted. No questions." Everyone arrives
 downtown at night in the rain. The Shard is waiting in a vending machine. Once
-someone has it, both factions come for it in cars and the level becomes a
-chase across town to the exit. VEX boots up in the dash halfway through: her
-intro screen.
-
-Unlike City 17, the quest opens with driving rather than on foot.
+someone has it, both factions come for it and the level becomes a chase
+across town to the exit, on foot: no cars on the Drop. VEX boots up in your
+earpiece halfway through: her intro screen.
 
 ### 2. The Market
 
@@ -467,7 +465,7 @@ are 64 px (`Layout.TILE`). For scale: City 17 is 48x76 tiles, the Outer City
 
 | Map key | Title | Size (tiles) | Played | Quest |
 | --- | --- | --- | --- | --- |
-| `drop` | The Drop | 64x96 | Driven | `cyber-feud` (on the board) |
+| `drop` | The Drop | 64x96 | On foot | `cyber-feud` (on the board) |
 | `market` | The Market | 56x56 | On foot | `cyber-feud-market` |
 | `overpass` | The Overpass | 32x200 | Driven | `cyber-feud-overpass` |
 | `tower` | Halcyon Tower | 48x112 | On foot | `cyber-feud-tower` |
@@ -488,27 +486,31 @@ screen), the way A-Man's trail does.
   KARMA KREDIT, MEAT (REAL*).
 - Steam from vents, holo-ads flickering, cables strung across streets.
 - A green screen anywhere means VEX can see you.
+- Past the edge the city carries on (the surroundings feature's
+  `grey_city.lua`, the Drop so far): blocks of towers with neon in the
+  colour of whoever holds that side of town, street lamps, traffic going
+  by both ways, a haze further out; at night only its lights show.
 
-### 1. The Drop (`drop`, 64x96, driven)
+### 1. The Drop (`drop`, 64x96, on foot)
 
 Downtown. A grid of tall blocks with wide avenues, like the city's own, but
 taller, darker and wetter. The west third is the Static's (cyan signs,
 junk, burning drums, wrecks), the east third Halcyon's (clean, magenta signs,
 bollards), and the middle avenue is the no-man's-land where they meet.
 
-- **Arrival:** the bottom left, coming up out of a parking garage, with
-  everyone's cars.
+- **Arrival:** the bottom left, coming up out of a parking garage on foot
+  (the cars stay below).
 - **The pickup:** a vending machine in a small plaza next to the garage. The
   first player to press F at it takes the Shard, and the chase begins: both
   factions are quiet until then.
-- **The chase:** Halcyon roadblocks (barriers, an interceptor, officers) close
-  some intersections; Static war-rigs come out of the alleys in the west.
-  The way north changes depending on which roadblocks you dodge.
+- **The chase:** Halcyon roadblocks (barriers and officers) close some
+  intersections and its guard stations hold the east; the Static's gangers
+  hold the corners and their stations in the west. The way north changes
+  depending on which roadblocks you dodge.
 - **VEX boots up** halfway up the map (a zone line, like City 17's
-  `map.zones`): her intro screen, in the dash.
+  `map.zones`): her intro screen, in your earpiece.
 - **The end:** a tunnel mouth at the top middle, with the biggest roadblock
-  of all in front of it, which both factions are fighting over when you
-  arrive. Break through and the EXIT star is in the tunnel: "THE MARKET".
+  of all in front of it, held by Halcyon alone with its assassin droids. Break through and the EXIT star is in the tunnel: "THE MARKET".
 
 ### 2. The Market (`market`, 56x56, on foot)
 

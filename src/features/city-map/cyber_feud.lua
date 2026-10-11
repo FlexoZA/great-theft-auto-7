@@ -1,6 +1,6 @@
 -- Grey City: the five maps of the Cyber Feud quest line (docs/cyber-feud.md),
 -- one builder each, all at night (the spec's `night`, the night feature):
---   drop      The Drop: downtown, a grid of tall blocks and wide avenues, driven
+--   drop      The Drop: downtown, a grid of tall blocks and wide avenues, walked
 --             from a garage in the bottom left to a tunnel at the top
 --   market    The Market: a covered market of stalls round Noodle Square, walked
 --             from the tunnel at the bottom to a loading dock at the top
@@ -376,7 +376,7 @@ local function buildDrop(map, rng, T)
   light(map, vx, vy + 10, 160, CyberFeud.GREEN, 0.9)
 
   -- Halcyon's roadblocks, at crossings in the east and the middle, each
-  -- leaving a gap to squeeze a car through, and the big one in front of the
+  -- leaving a gap to slip through, and the big one in front of the
   -- tunnel.
   local blocks = { { 4, 6, "end" }, { 4, 3, "start" }, { 3, 5, "start" }, { 3, 2, "end" }, { 2, 7, "end" } }
   for _, b in ipairs(blocks) do

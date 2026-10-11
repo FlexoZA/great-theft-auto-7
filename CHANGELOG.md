@@ -28,6 +28,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Halcyon's assassin droids guard the tunnel at the end of the Drop: cloaked robots with rail pistols that dodge
   your shots and line up a rail shot you can see coming. Two of them, one more for each extra player.
 - The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
+- Grey City carries on past the edge of the Drop: towers and neon, street lamps and traffic going by, a sea of
+  lights in the dark.
 - The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
   tunnel.
 

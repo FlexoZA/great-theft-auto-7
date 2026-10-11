@@ -9,10 +9,9 @@
 --     VEX's intro screen comes first (screen.lua, her face in face.lua),
 --     with the quest's `introLine`.
 --   - On the Drop the package is in the vending machine by the garage: the
---     first player to press the action key there (F, on foot or from the
---     car) takes the Shard and carries it for the rest of the line (a green
+--     first player to press the action key there (F) takes the Shard and carries it for the rest of the line (a green
 --     diamond over them). Once someone has it and is halfway up the map
---     (`map.vexY`), VEX boots up: her intro screen, in the dash.
+--     (`map.vexY`), VEX boots up: her intro screen, in your earpiece.
 --   - The host raises story beats once each per level (`Story.beats`):
 --     walking into a part of the map (`map.zones`), the Overpass's dead end
 --     (`map.knot`), the far end. Each is something VEX says on the comms.
@@ -62,7 +61,7 @@ local CyberFeud = {
 CyberFeud.reach = 160 -- px from the far end that finishes a level
 CyberFeud.takeRadius = 110 -- px from the vending machine that takes the Shard
 CyberFeud.introTime = 9 -- seconds VEX's intro screen stays up on arrival, unless a key takes it down
-CyberFeud.bootTime = 6 -- seconds it stays up when she boots up mid-drive on the Drop
+CyberFeud.bootTime = 6 -- seconds it stays up when she boots up mid-run on the Drop
 
 local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
 
@@ -126,7 +125,7 @@ local function beat(server, key)
     return
   end
   if sv.map == "drop" and key ~= "drop.boot" and not sv.beats["drop.boot"] then
-    return -- she is not in the dash yet: it waits
+    return -- she is not in your earpiece yet: it waits
   end
   sv.beats[key] = true
   server:broadcast(Protocol.encode("CF_BEAT", key))
@@ -287,7 +286,7 @@ function CyberFeud:exitGame()
 end
 
 --- Everyone arrived on one of the maps: VEX's intro screen (not on the
---- Drop: she isn't in the dash yet), then the map's banner.
+--- Drop: she isn't in your earpiece yet), then the map's banner.
 function CyberFeud:questStarted(_client, quest)
   if quest.boss ~= self.questId then
     return

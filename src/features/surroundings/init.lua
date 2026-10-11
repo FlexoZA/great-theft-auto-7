@@ -41,6 +41,11 @@
 -- burning, the railway, the canal and the wall running on, all under a
 -- haze (city17.lua).
 --
+-- Grey City's Drop carries on as downtown at night (grey_city.lua): blocks
+-- of grey towers with neon on their edges, street lamps, traffic going by
+-- both ways, a haze further out. The night feature darkens it like the
+-- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -49,6 +54,7 @@
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
+local GreyCity = require("src.features.surroundings.grey_city")
 
 local Surroundings = {
   name = "surroundings",
@@ -1144,7 +1150,27 @@ local DRAW = {
     City17.draw(map, camera, left, top, right, bottom, clock)
   end,
   coast = coast,
+  drop = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock)
+  end,
 }
+
+-- What glows past the edge of a map played at night, by map name.
+local LIGHTS = {
+  drop = GreyCity.lights,
+}
+
+--- At night (the night feature): what glows past the edge.
+function Surroundings:drawNightLights(_client, camera, glow)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local lights = map and LIGHTS[map.name]
+  if lights and map.tiles then
+    local left, top, right, bottom = view(camera)
+    lights(map, left, top, right, bottom, clock, glow)
+  end
+end
 
 function Surroundings:drawBelowCars(_client, camera)
   local city = Features.byName["city-map"]

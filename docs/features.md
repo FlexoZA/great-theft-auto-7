@@ -1499,12 +1499,12 @@ the one with a plot.
   `city-map/cyber_feud.lua` (what each leaves on the map is in its header:
   `exitX, exitY`, `zones`, `roads`, `cover`, `signs`, `lights`, the Drop's
   `pickupX, pickupY` and `vexY`, the tower's `floors`, the Roof's `helipad`)
-  and draws them in `render_cyber_feud.lua`. On the driven maps anyone
-  without a car is lent a red sedan. Each level is the way through: the
+  and draws them in `render_cyber_feud.lua`. On the Overpass, the one
+  driven map, anyone without a car is lent a red sedan; the rest are walked. Each level is the way through: the
   first player within 160 px of the map's `exitX, exitY` finishes it
   (`quests:serverComplete`), and the star there leads on to the next, or
   home from the Roof. On the Drop the package comes first: the first player
-  to press the action key (F, `actionTaken`, on foot or from the car)
+  to press the action key (F, `actionTaken`)
   within 110 px of the vending machine (`map.pickupX, pickupY`) takes the
   Shard (`CF_TAKE`, checked on the host) and carries it for the rest of the
   line, a green diamond over them (`CF_SHARD`; if they leave it passes to

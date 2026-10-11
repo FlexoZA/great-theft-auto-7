@@ -20,7 +20,7 @@ Story.banners = {
 -- `introLine` picks it on arrival; on the Drop the "drop.boot" beat does,
 -- when she boots up halfway up the map).
 Story.lines = {
-  "Hey, courier. Nice car. I'm in it now. Drive.",
+  "Hey, courier. Nice earpiece. I'm in it now. Run.",
   "Crowded in there. Good. Crowds are safe. Usually.",
   "I found you a shortcut. You're going to love it.",
   "Their security is a mess. I'll get you in. Getting out is on you.",
@@ -101,7 +101,7 @@ Story.troops = {
       "Quiet. I hate quiet.",
     },
     reply = { "Shut up.", "Ha! Yeah.", "Same.", "Tell Kilowatt, not me.", "Whatever, chrome-for-brains." },
-    alert = { "COURIER! Get 'em!", "There's the delivery!", "Shiny car! Mine!", "Package! Grab it!" },
+    alert = { "COURIER! Get 'em!", "There's the delivery!", "Nice shoes! Mine!", "Package! Grab it!" },
     rival = { "Grey suits! Light 'em up!", "Corp-meat at twelve!", "Suits on our street!", "Halcyon! Get some!" },
     down = { "They got Ratchet!", "Oh, that's gonna leave a mark.", "Man down! Man DOWN!", "Who's got spare parts?!" },
   },
