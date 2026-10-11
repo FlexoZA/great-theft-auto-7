@@ -163,6 +163,66 @@ function DRAW.barrier(s)
   end
 end
 
+--- A guard station's house (cyber_feud.lua's guardStation): Halcyon's a
+--- clean grey box with a white roof slab, the Static's rusted sheet metal;
+--- a strip in the side's colour and the door on the face to the avenue.
+function DRAW.station(s)
+  local halcyon = s.faction == "halcyon"
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 10, s.y + 10, s.w, s.h, 3)
+  color(halcyon and { 0.46, 0.48, 0.52 } or C.rust)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 3)
+  if halcyon then
+    color({ 0.84, 0.85, 0.88 })
+    love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, s.h - 16, 2)
+  else
+    color({ 0.30, 0.17, 0.10 }) -- the sheets' ridges
+    for x = s.x + 6, s.x + s.w - 6, 10 do
+      love.graphics.rectangle("fill", x, s.y + 4, 3, s.h - 8)
+    end
+  end
+  local front = s.face > 0 and s.x + s.w - 6 or s.x + 2
+  if halcyon then
+    love.graphics.setColor(1, 0.24, 0.78, 0.95)
+  else
+    love.graphics.setColor(0.18, 0.9, 1, 0.95)
+  end
+  love.graphics.rectangle("fill", front, s.y + 6, 4, s.h - 12)
+  color({ 0.06, 0.07, 0.08 }) -- the door
+  love.graphics.rectangle("fill", s.face > 0 and s.x + s.w - 4 or s.x, s.y + s.h / 2 - 20, 4, 40)
+end
+
+--- The emplacement round a station's MG nest (the gun is drawn live,
+--- a-man/nests.lua): Halcyon's concrete blocks striped magenta, the
+--- Static's stacked tyres.
+local function drawNestBase(n, faction)
+  local reach = n.arc + math.rad(35)
+  local steps = 8
+  for k = 0, steps do
+    local a = n.angle - reach + k * 2 * reach / steps
+    local bx, by = n.x + math.cos(a) * 30, n.y + math.sin(a) * 30
+    if faction == "halcyon" then
+      love.graphics.push()
+      love.graphics.translate(bx, by)
+      love.graphics.rotate(a + math.pi / 2)
+      color(C.shadow)
+      love.graphics.rectangle("fill", -8, -3, 16, 10, 2)
+      color({ 0.70, 0.71, 0.73 })
+      love.graphics.rectangle("fill", -10, -5, 17, 9, 2)
+      love.graphics.setColor(1, 0.24, 0.78, 0.9)
+      love.graphics.rectangle("fill", -10, -1.5, 17, 2)
+      love.graphics.pop()
+    else
+      color(C.shadow)
+      love.graphics.circle("fill", bx + 2, by + 3, 8, 12)
+      color({ 0.08, 0.08, 0.09 })
+      love.graphics.circle("fill", bx, by, 8, 12)
+      color({ 0.20, 0.20, 0.22 })
+      love.graphics.circle("fill", bx, by, 3.5, 10)
+    end
+  end
+end
+
 function DRAW.wreck(s)
   color(C.shadow)
   love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w, s.h, 8)
@@ -442,6 +502,9 @@ function RenderCyberFeud.draw(map, T)
     if draw and s.kind ~= "tunnel" and s.kind ~= "dock" and s.kind ~= "door" then
       draw(s)
     end
+  end
+  for _, n in ipairs(map.nests or {}) do
+    drawNestBase(n.nest, n.faction)
   end
   drawSigns(map)
   love.graphics.setColor(1, 1, 1)

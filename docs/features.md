@@ -659,7 +659,9 @@ couple of small conventions rather than requiring each other:
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
   An optional last argument `from` names what fired an ownerless shot
-  ("gang" for a Gang Hangout's guards); it reaches every `serverShotAt` as
+  ("gang" for a Gang Hangout's guards, "halcyon" or "static" for the Cyber
+  Feud's factions, whose rounds pass through their own side and hit the
+  other's); it reaches every `serverShotAt` as
   its last argument. Police officers ignore ownerless rounds without one
   (their own), so a round with a `from` is one that hits them.
   `police:serverOfficersAfter(id)` lists the officers on foot after player

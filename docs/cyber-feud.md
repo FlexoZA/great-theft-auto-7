@@ -17,6 +17,20 @@ branch off `feature/cyber-feud`):
   objective line, and the Shard: taken from the vending machine on the Drop
   and carried for the rest of the line. Every word is in
   `src/features/cyber-feud/story.lua`.
+- The Drop's chase theme (`src/features/cyber-feud/theme_chase.lua`): rock
+  with a synth arpeggio, 150 BPM in A minor, ~48 s, looping from the moment
+  someone takes the Shard until the map changes.
+- The factions on the Drop (`src/features/cyber-feud/troops.lua`): Halcyon
+  officers on the roadblocks and squads in the east, Static gangers on the
+  western corners and packs walking their blocks, both on the Combine's brain
+  (`a-man/combine.lua`, which now takes `rivals`, a `from` on its rounds and
+  a `calm` switch). The two sides shoot each other on sight, stay calm until
+  someone takes the Shard, and keep refilling the tunnel's roadblock, so that
+  fight is still going when you arrive. Guard stations (three Halcyon, two
+  Static, `CyberFeud.DROP_STATIONS`): a yard on the avenue with a station
+  house, an MG nest crewed as A-Man's Coast's are, cover either side, and a
+  garrison that comes out of the house when a player gets near. Still to
+  come: interceptors and war-rigs, the heavier troops, and per-faction voices.
 
 ## Decisions
 

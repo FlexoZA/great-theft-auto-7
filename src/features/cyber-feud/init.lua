@@ -18,16 +18,25 @@
 --     (`map.knot`), the far end. Each is something VEX says on the comms.
 --   - Walking or driving into a new part of the map puts its name up.
 --   - The objective line says what to do next and how far it is.
+--   - On the Drop, the chase theme (theme_chase.lua, rock) starts on every
+--     screen the moment someone takes the Shard, and plays until the map
+--     changes. It is rendered on arriving there, so the pickup doesn't stall.
+-- The factions hold the streets (troops.lua): on the Drop, Halcyon's
+-- officers on the roadblocks and the Static's gangers on the corners and
+-- walking their blocks, at war with each other. They stay calm until
+-- someone takes the Shard (or a player hurts one of them), then come for
+-- whoever is nearest, a player or the other side.
 -- Each level is still only the way through: the first player to reach the
 -- map's far end (`map.exitX`, `map.exitY`), with the Shard taken on the
 -- Drop, finishes it, and an EXIT star comes up there leading on to the next
--- (quests' `next`), or home from the Roof. The factions, the breach and the
--- bosses come later.
+-- (quests' `next`), or home from the Roof. The other maps' troops, the
+-- breach and the bosses come later.
 --
 -- Messages
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
+--   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY
 
 local Features = require("src.features")
 local Protocol = require("src.net.protocol")
@@ -36,6 +45,9 @@ local Story = require("src.features.cyber-feud.story")
 local Face = require("src.features.cyber-feud.face")
 local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
+local Troops = require("src.features.cyber-feud.troops")
+local ChaseTheme = require("src.features.cyber-feud.theme_chase")
+local Audio = require("src.audio")
 
 local CyberFeud = {
   name = "cyber-feud",
@@ -83,12 +95,16 @@ function CyberFeud:serverQuestStarted(server, quest)
   end
   local c = city()
   sv = { quest = quest.id, map = c and c.current, reached = false, beats = {} }
+  if c and c.map then
+    Troops.serverStart(server, c.map, c.current, run.shard == nil)
+  end
 end
 
 function CyberFeud:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     run, sv = nil, nil
     server:broadcast(Protocol.encode("CF_SHARD", 0, "quiet"))
+    Troops.serverStop(server)
   end
 end
 
@@ -96,6 +112,7 @@ end
 function CyberFeud:mapChanged(_map, server)
   if server then
     sv = nil
+    Troops.serverStop(server)
   end
   self:clearLevel()
 end
@@ -121,7 +138,8 @@ local function zoneAt(map, y)
   return nil
 end
 
-function CyberFeud:serverStep(server)
+function CyberFeud:serverStep(server, dt)
+  Troops.serverStep(server, dt)
   local map = cityMap()
   if not (sv and map and map.exitX) then
     return
@@ -186,10 +204,54 @@ CyberFeud.serverMessages = {
     end
     run.shard = player.id
     server:broadcast(Protocol.encode("CF_SHARD", player.id))
+    Troops.serverWake() -- both sides come for it
   end,
 }
 
+function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+end
+
+function CyberFeud:serverFreezeArea(_server, x, y, radius, seconds)
+  Troops.serverFreezeArea(x, y, radius, seconds)
+end
+
+function CyberFeud:serverPanicArea(_server, x, y, radius)
+  Troops.serverPanicArea(x, y, radius)
+end
+
 -- Client ------------------------------------------------------------------
+
+local chase = nil -- the chase theme's Source, rendered on first arriving on the Drop
+
+local function musicVolume()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+local function stopChase()
+  if chase then
+    chase:stop()
+  end
+end
+
+--- Render the chase theme, once.
+local function loadChase()
+  if not chase then
+    chase = love.audio.newSource(ChaseTheme.render(), "static")
+    chase:setLooping(true)
+    chase:setRelative(true) -- never positional: the game moves the listener around
+  end
+end
+
+--- The chase theme from the top, unless it is playing already.
+local function startChase()
+  loadChase()
+  if not chase:isPlaying() then
+    chase:setVolume(musicVolume())
+    chase:seek(0)
+    chase:play()
+  end
+end
 
 local face = nil
 local time = 0
@@ -207,6 +269,8 @@ local cl = {
 
 function CyberFeud:clearLevel()
   cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
+  Troops.clear()
+  stopChase()
 end
 
 function CyberFeud:exitGame()
@@ -223,6 +287,9 @@ function CyberFeud:questStarted(_client, quest)
   face = face or Face.new()
   self:clearLevel()
   cl.level = quest.map
+  if quest.map == "drop" then
+    loadChase() -- now, under the banner, not at the pickup
+  end
   if quest.introLine then
     cl.page = { line = Story.lines[quest.introLine] or Story.lines[1], t = 0, max = self.introTime }
   end
@@ -248,6 +315,9 @@ CyberFeud.clientMessages = {
   CF_SHARD = function(client, args)
     local id = tonumber(args[1]) or 0
     cl.shardBy = id > 0 and id or nil
+    if cl.shardBy and cl.level == "drop" then
+      startChase() -- the chase is on
+    end
     if cl.shardBy and args[2] ~= "quiet" then
       cl.zone = { name = nameOf(client, id) .. " has the Shard", kicker = "THE PACKAGE", t = 0 }
     end
@@ -266,6 +336,9 @@ CyberFeud.clientMessages = {
     end
   end,
 }
+for kind, handler in pairs(Troops.clientMessages) do
+  CyberFeud.clientMessages[kind] = handler
+end
 
 --- Is the level on this screen one of ours, on the map it belongs to?
 local function onLevel()
@@ -275,6 +348,10 @@ end
 
 function CyberFeud:update(dt, client)
   time = time + dt
+  Troops.update(dt)
+  if chase and chase:isPlaying() then
+    chase:setVolume(musicVolume()) -- the slider may move
+  end
   if not (face and onLevel()) then
     return
   end
@@ -352,10 +429,17 @@ function CyberFeud:worldBlur()
   return cl.page and onLevel() and 1 or 0
 end
 
+function CyberFeud:drawBelowCars()
+  if onLevel() then
+    Troops.drawBelowCars()
+  end
+end
+
 function CyberFeud:drawAboveCars(client)
   if not onLevel() then
     return
   end
+  Troops.drawAboveCars()
   local map = cityMap()
   if map and map.pickupX and not cl.shardBy then
     Hud.drawMachine(map.pickupX, map.pickupY - 34, time)
@@ -370,6 +454,9 @@ end
 
 --- At night (the night feature), the Shard glows over whoever carries it.
 function CyberFeud:drawNightLights(client, _camera, glow)
+  if onLevel() then
+    Troops.drawNightLights(glow)
+  end
   if cl.shardBy and onLevel() then
     local x, y = client:pose(cl.shardBy)
     if x then
@@ -406,6 +493,11 @@ function CyberFeud:drawHUD(client)
   elseif cl.zone then
     Hud.drawZone(cl.zone.name, cl.zone.kicker, cl.zone.t)
   end
+end
+
+--- The footsteps feature's hook: the factions' soldiers walking about.
+function CyberFeud:footstepWalkers()
+  return onLevel() and Troops.walkers() or {}
 end
 
 --- For tests.

@@ -21,6 +21,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
 - Cyber Feud's story: take the Shard from the vending machine on the Drop (F), meet VEX, your fixer, who talks you
   through every map, and see each map's title card, where you are and what to do next.
+- Cyber Feud's factions on the Drop: Halcyon officers hold the roadblocks and the Static's gangers roam the west.
+  They ignore you until the Shard is taken, then come for you and for each other.
+- Guard stations on the Drop: each faction holds a few yards on the avenues with an MG nest out front and a
+  garrison inside that comes out when you get close.
+- The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
+  tunnel.
 
 ## [0.26.15] - 2026-10-09
 

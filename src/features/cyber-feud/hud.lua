@@ -6,6 +6,7 @@
 --   the comms        VEX's small portrait and what she says, typed out,
 --                    one line at a time off a queue
 --   the objective    what to do next and how far it is
+--   the bubbles      what the factions' soldiers say, over their heads
 -- init.lua keeps the state and calls in here.
 
 local UI = require("src.ui")
@@ -154,6 +155,29 @@ function Hud.drawCarrier(x, y, time)
   love.graphics.polygon("fill", x, cy - 10, x + 6, cy, x, cy + 10, x - 6, cy)
   love.graphics.setColor(1, 1, 1, 0.8)
   love.graphics.polygon("fill", x, cy - 6, x + 2, cy - 1, x, cy + 1, x - 2, cy - 1)
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- In the world: what a faction's soldier says, in a bubble over (x, y) edged
+--- in his side's `color`, the tail pointing down at him.
+function Hud.drawBubble(x, y, text, alpha, color)
+  local font = UI.fonts.small
+  local maxW = 200
+  local w, wrapped = font:getWrap(text, maxW)
+  w = math.min(maxW, w) + 14
+  local h = #wrapped * font:getHeight() + 10
+  local bx, by = x - w / 2, y - h - 10
+  love.graphics.setColor(0, 0, 0, 0.45 * alpha)
+  love.graphics.rectangle("fill", bx + 2, by + 3, w, h, 4)
+  love.graphics.setColor(0.09, 0.09, 0.11, 0.92 * alpha)
+  love.graphics.rectangle("fill", bx, by, w, h, 4)
+  love.graphics.polygon("fill", x - 5, by + h - 1, x + 5, by + h - 1, x, by + h + 7)
+  love.graphics.setColor(color[1], color[2], color[3], 0.8 * alpha)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", bx, by, w, h, 4)
+  love.graphics.setFont(font)
+  love.graphics.setColor(color[1], color[2], color[3], alpha)
+  love.graphics.printf(text, bx + 7, by + 5, w - 14, "center")
   love.graphics.setColor(1, 1, 1)
 end
 

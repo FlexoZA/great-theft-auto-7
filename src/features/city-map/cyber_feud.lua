@@ -30,6 +30,13 @@
 --   map.vexY              the line past which VEX boots up (the Drop)
 --   map.helipad           { x, y, r } the Roof's helipad
 --   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
+--   map.troops            { halcyon = side, static = side } the factions' troops (the Drop), each side
+--                         { posts = { x, y, watch, at, hold, refill }, patrols = { route } }, world px;
+--                         `at` groups the posts of one place (they chat), `refill` { x, y } is where
+--                         someone new comes from when the post's soldier is down, a route is a loop of { x, y };
+--                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
+--                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest and its crew's posts
+--   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
 -- render_cyber_feud.lua draws them.
 
@@ -219,6 +226,73 @@ end
 
 -- The Drop ---------------------------------------------------------------------
 
+-- Guard stations: block (i, j) lies between avenues i and i + 1 and streets
+-- j and j + 1; `face` is the avenue side its yard opens on ("w" or "e").
+CyberFeud.DROP_STATIONS = {
+  { i = 3, j = 1, side = "halcyon", face = "w" }, -- over the middle avenue, by the tunnel
+  { i = 4, j = 3, side = "halcyon", face = "w" },
+  { i = 3, j = 5, side = "halcyon", face = "w" },
+  { i = 1, j = 3, side = "static", face = "e" },
+  { i = 2, j = 4, side = "static", face = "e" },
+}
+CyberFeud.NEST_ARC = math.rad(55) -- either side of where a station's nest faces, how far its gun turns
+CyberFeud.GARRISON = 3 -- soldiers in a station house, for one human (more humans, more)
+CyberFeud.GARRISON_REACH = 650 -- px from the house a player brings them out at
+
+--- A faction's guard station over block tiles c0..c1, r0..r1 (its ring of
+--- pavement included): buildings in the back half, and in the front half,
+--- open on the avenue, a yard with the station house, an MG nest out in
+--- front of it facing the avenue and cover either side of the nest.
+--- Returns the station for `map.troops`: { nest, posts, garrison }.
+local function guardStation(map, rng, g, st, c0, r0, c1, r1, neon)
+  local T, X, Y = g.T, g.X, g.Y
+  local half = math.floor((c1 - c0 + 1) / 2)
+  local inner = c1 - c0 - half - 1 -- tiles of buildings across the back half
+  local dir = st.face == "e" and 1 or -1 -- out of the yard, onto the avenue
+  if dir < 0 then
+    splitBlock(map, rng, g, c0 + half + 1, r0 + 1, inner, r1 - r0 - 1, neon)
+  else
+    splitBlock(map, rng, g, c0 + 1, r0 + 1, inner, r1 - r0 - 1, neon)
+  end
+  local fx = dir < 0 and X(c0) or X(c1 + 1) -- the yard's open edge
+  local depth = half * T
+  local my = Y((r0 + r1 + 1) / 2)
+  local halcyon = st.side == "halcyon"
+  local glow = halcyon and CyberFeud.MAGENTA or CyberFeud.CYAN
+  -- The house, back in the yard, its door on the face towards the avenue.
+  local hw, hh = 104, 136
+  local hx = fx - dir * depth * 0.62
+  local house = cover(map, "station", hx - hw / 2, my - hh / 2, hw, hh, true, { faction = st.side, face = dir })
+  local door = { x = math.floor(hx + dir * hw / 2), y = math.floor(my), nx = dir, ny = 0 }
+  house.door = door
+  light(map, door.x + dir * 30, door.y, 150, glow, 0.8)
+  -- The nest, a tile in from the avenue, and cover a little behind it either side.
+  local angle = dir > 0 and 0 or math.pi
+  local nest = { x = math.floor(fx - dir * T), y = math.floor(my), angle = angle, arc = CyberFeud.NEST_ARC }
+  map.nests[#map.nests + 1] = { nest = nest, faction = st.side }
+  light(map, nest.x, nest.y, 120, glow, 0.6)
+  local posts = {}
+  for _, k in ipairs({ -1, 1 }) do
+    local cx, cy = fx - dir * 1.5 * T, my + k * 1.7 * T
+    if halcyon then
+      cover(map, "barrier", cx - 8, cy - 34, 16, 68)
+    else
+      cover(map, "wreck", cx - 20, cy - 38, 40, 76, true, { color = { 0.30, 0.22, 0.18 } })
+      cover(map, "drum", cx - dir * 40 - 11, cy - 11, 22, 22, true, { round = true })
+      light(map, cx - dir * 40, cy, 110, { 1.0, 0.55, 0.20 }, 0.6)
+    end
+    posts[#posts + 1] = { x = math.floor(cx - dir * 40), y = math.floor(cy + k * 10), watch = angle }
+  end
+  posts[#posts + 1] = { x = math.floor(door.x + dir * 34), y = math.floor(my + 60), watch = angle }
+  return {
+    side = st.side,
+    nest = nest,
+    posts = posts,
+    garrison = { x = math.floor(hx), y = math.floor(my), reach = CyberFeud.GARRISON_REACH, door = door,
+      count = CyberFeud.GARRISON },
+  }
+end
+
 CyberFeud.DROP_AVENUES = { { 3, 5 }, { 16, 18 }, { 30, 33 }, { 45, 47 }, { 58, 60 } } -- columns, north-south
 CyberFeud.DROP_STREETS = { -- rows, east-west; the last is the one past the garage
   { 6, 8 }, { 18, 20 }, { 30, 32 }, { 42, 44 }, { 54, 56 }, { 66, 68 }, { 78, 80 }, { 88, 90 },
@@ -227,6 +301,7 @@ CyberFeud.DROP_STREETS = { -- rows, east-west; the last is the one past the gara
 local function buildDrop(map, rng, T)
   local g = grid(map, T)
   local X, Y = g.X, g.Y
+  map.nests = {}
   local avenues, streets = CyberFeud.DROP_AVENUES, CyberFeud.DROP_STREETS
   local first, last = avenues[1][1], avenues[#avenues][2]
   local top, bottom = streets[1][1], streets[#streets][2]
@@ -260,13 +335,23 @@ local function buildDrop(map, rng, T)
     return rng:random() < 0.5 and CyberFeud.CYAN or CyberFeud.MAGENTA
   end
 
-  -- The blocks between them: a ring of pavement, buildings inside.
+  -- The blocks between them: a ring of pavement, buildings inside; a guard
+  -- station's block (CyberFeud.DROP_STATIONS) only in its back half.
+  local stationAt, stations = {}, {}
+  for _, st in ipairs(CyberFeud.DROP_STATIONS) do
+    stationAt[st.i .. "," .. st.j] = st
+  end
   for i = 1, #avenues - 1 do
     for j = 1, #streets - 1 do
       local c0, c1 = avenues[i][2] + 1, avenues[i + 1][1] - 1
       local r0, r1 = streets[j][2] + 1, streets[j + 1][1] - 1
       g.fill(c0, r0, c1, r1, "walk")
-      splitBlock(map, rng, g, c0 + 1, r0 + 1, c1 - c0 - 1, r1 - r0 - 1, neon)
+      local st = stationAt[i .. "," .. j]
+      if st then
+        stations[#stations + 1] = guardStation(map, rng, g, st, c0, r0, c1, r1, neon)
+      else
+        splitBlock(map, rng, g, c0 + 1, r0 + 1, c1 - c0 - 1, r1 - r0 - 1, neon)
+      end
     end
   end
   -- The pavement along the outer avenues and under the top street, and the
@@ -314,6 +399,55 @@ local function buildDrop(map, rng, T)
       light(map, x + 11, Y(r) + 11, 130, { 1.0, 0.55, 0.20 }, 0.7)
     end
   end
+
+  -- Who holds the streets (cyber-feud/troops.lua puts them there): Halcyon's
+  -- officers on every roadblock, watching back down the avenue, and squads
+  -- on beats round the blocks in the east; the Static's gangers on corners
+  -- in the west and packs walking round their blocks, one of them out
+  -- through the middle into a roadblock. At the tunnel both sides hold
+  -- their ground, either side of the big roadblock, and send someone new
+  -- to each place lost there (Halcyon out of the tunnel, the Static along
+  -- the top street from the west) for as long as the level lasts.
+  local function cross(i, j) -- the middle of avenue i's crossing with street j
+    return { x = X((avenues[i][1] + avenues[i][2] + 1) / 2), y = Y((streets[j][1] + streets[j][2] + 1) / 2) }
+  end
+  local function loop(i0, i1, j0, j1)
+    return { cross(i0, j0), cross(i1, j0), cross(i1, j1), cross(i0, j1) }
+  end
+  local halcyon, static = { posts = {}, patrols = {} }, { posts = {}, patrols = {} }
+  for k, b in ipairs(blocks) do
+    local a, s = avenues[b[1]], streets[b[2]]
+    local w = (a[2] - a[1] + 1) * T
+    for n = 1, 2 do
+      halcyon.posts[#halcyon.posts + 1] = { x = X(a[1]) + w * n / 3, y = Y(s[2] + 1) - 36, watch = math.pi / 2, at = k }
+    end
+  end
+  local mw = (mid[2] - mid[1] + 1) * T
+  local fromTunnel = { x = X(mid[1]) + mw / 2, y = Y(1) }
+  local fromWest = { x = X(mid[1]) - 6 * T, y = Y(top + 1.5) }
+  for n = 1, 3 do
+    halcyon.posts[#halcyon.posts + 1] = {
+      x = X(mid[1]) + mw * n / 4, y = Y(top) - 100, watch = math.pi / 2, at = #blocks + 1, hold = true,
+      refill = fromTunnel,
+    }
+    static.posts[#static.posts + 1] = {
+      x = X(mid[1]) + mw * n / 4, y = Y(top + 2) + 10, watch = -math.pi / 2, at = 100, hold = true,
+      refill = fromWest,
+    }
+  end
+  halcyon.patrols = { loop(4, 5, 2, 4), loop(4, 5, 5, 7), loop(3, 4, 1, 2), loop(3, 4, 6, 7) }
+  for k, c in ipairs({ { 1, 2 }, { 2, 3 }, { 1, 4 }, { 2, 5 }, { 1, 6 } }) do
+    local a, s = avenues[c[1]], streets[c[2]]
+    static.posts[#static.posts + 1] = { x = X(a[2] + 1) - 30, y = Y(s[2] + 1) - 30, watch = math.pi / 2 + 0.5, at = k }
+    static.posts[#static.posts + 1] = { x = X(a[1]) + 30, y = Y(s[1]) + 30, watch = -math.pi / 2 - 0.5, at = k }
+  end
+  static.patrols = { loop(1, 2, 2, 3), loop(1, 2, 4, 5), loop(1, 2, 5, 6), loop(2, 3, 4, 5), loop(2, 3, 1, 2) }
+  halcyon.stations, static.stations = {}, {}
+  for _, st in ipairs(stations) do
+    local list = st.side == "halcyon" and halcyon.stations or static.stations
+    list[#list + 1] = st
+  end
+  map.troops = { halcyon = halcyon, static = static }
 
   -- The tunnel mouth at the top, the way on.
   cover(map, "tunnel", X(mid[1]), Y(0), (mid[2] - mid[1] + 1) * T, 3 * T, false)

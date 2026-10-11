@@ -64,6 +64,49 @@ Story.beats = {
   ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },
 }
 
+-- What the factions' troops say (troops.lua), by side and category; the
+-- host picks one by index:
+--   idle   now and then, at a post or on a beat
+--   reply  a mate answering
+--   alert  one who has just spotted a player
+--   rival  one who has just spotted the other side
+--   down   one near a mate who just went down
+Story.troops = {
+  halcyon = {
+    idle = {
+      "Roadblock holding. Logging it.",
+      "Code green, no visitors.",
+      "Reminder: overtime is not approved.",
+      "Checkpoint nominal.",
+      "Rain again. Filing a complaint.",
+      "Badge check at the barrier. Nobody.",
+    },
+    reply = { "Copy. Logged.", "Noted.", "Acknowledged.", "Understood. Carry on.", "Confirmed." },
+    alert = {
+      "Unscheduled contractor, sector four.",
+      "Visitor without a badge.",
+      "Courier sighted. Engaging.",
+      "Package carrier on the avenue.",
+    },
+    rival = { "Static on the street!", "Gang activity, engage.", "Unlicensed chrome. Remove it.", "Static incursion!" },
+    down = { "Officer down. Filing it.", "We have a casualty.", "Man down. Requesting cleanup.", "Lost one. File it." },
+  },
+  static = {
+    idle = {
+      "Bored. Somebody start something.",
+      "Who took my battery?",
+      "My arm's itching again.",
+      "Rain's getting in my ports.",
+      "Wanna go poke a suit?",
+      "Quiet. I hate quiet.",
+    },
+    reply = { "Shut up.", "Ha! Yeah.", "Same.", "Tell Kilowatt, not me.", "Whatever, chrome-for-brains." },
+    alert = { "COURIER! Get 'em!", "There's the delivery!", "Shiny car! Mine!", "Package! Grab it!" },
+    rival = { "Grey suits! Light 'em up!", "Corp-meat at twelve!", "Suits on our street!", "Halcyon! Get some!" },
+    down = { "They got Ratchet!", "Oh, that's gonna leave a mark.", "Man down! Man DOWN!", "Who's got spare parts?!" },
+  },
+}
+
 --- The objective line for map `name`, given whether someone has the Shard
 --- and whether the level is done. Returns the text and where it points
 --- (x, y in world px, for the distance), from `map`.

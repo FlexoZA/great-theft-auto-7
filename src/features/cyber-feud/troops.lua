@@ -1,0 +1,861 @@
+-- The factions' troops on the street (docs/cyber-feud.md, "The factions'
+-- troops" and "Feud AI"): Halcyon's officers and the Static's gangers, on
+-- the host, and how they look on every screen. init.lua passes its hooks on
+-- to this module.
+--
+-- Each side is a troop of A-Man's Combine soldiers (a-man/combine.lua, with
+-- D-Day's sight cones): guards on the map's posts sweeping a cone of sight,
+-- squads walking its beats (city-map's `map.troops`), each hunting whoever
+-- it spots, calling it in to the nearest few of its own side, and walking
+-- back to its place after. Where the level has a feud (`Troops.levels`),
+-- the two sides are each other's `rivals`: a soldier goes for whoever is
+-- nearest in his cone, a player or one of the other side. Their rounds
+-- carry their side's name (weapons' `from`), so a round passes through its
+-- own side and hits the other.
+--
+-- Guard stations (the map's `stations`): an MG nest crewed as A-Man's
+-- Coast's are (a-man/city17.lua): one on the gun, firing long bursts into
+-- its arc only, and riflemen on the station's posts who hold them and fight
+-- from cover. Drop the gunner and the nearest of his crew still up runs to
+-- the gun and takes over. The station house holds a garrison: once the
+-- street is awake, the first time a player comes within its `reach` they
+-- come out of the door one after another and go for where that player is.
+--
+-- A post the map marks `refill` (the Drop's tunnel) is never empty for
+-- long: REFILL seconds after its soldier goes down, someone new walks in
+-- from the post's `refill` point to take his place.
+--
+-- They are calm (they see nobody) until someone takes the Shard, or a
+-- player hurts one of them: then the whole street wakes at once.
+--
+-- Halcyon is disciplined: SMGs and pistols, a narrow cone, squads of
+-- three. The Static are noise: shotguns and pistols, a wide cone and a
+-- keen ear, packs of four. Both talk (Story.troops): idle chatter and a
+-- mate's answer, a shout on spotting a player or the other side, a call
+-- when one of their own goes down. A car at speed runs them down.
+--
+-- Messages
+--   server -> all  CF_TROOPS <tick> [<id> <side> <x> <y> <facing> <hp> <alert> <gun>]...  (unreliable, 15 Hz;
+--                  side h or s; alert 1 has somebody, 2 searching or looking into something, 0 neither)
+--   server -> all  CF_DOWN   <id> <x> <y> <angle>      a soldier went down
+--   server -> all  CF_SAY    <id> <category> <index>   a soldier says Story.troops[side][category][index]
+
+local Protocol = require("src.net.protocol")
+local Features = require("src.features")
+local Body = require("src.body")
+local UI = require("src.ui")
+local Car = require("src.car")
+local Combine = require("src.features.a-man.combine")
+local Radio = require("src.features.a-man.radio")
+local Sight = require("src.features.d-day.sight")
+local Guns = require("src.features.weapons.guns")
+local Tiers = require("src.features.tiers")
+local Corpses = require("src.features.corpses")
+local Story = require("src.features.cyber-feud.story")
+local Bosses = require("src.features.bosses")
+local Nests = require("src.features.a-man.nests")
+local Hud = require("src.features.cyber-feud.hud")
+
+local Troops = {}
+
+local MAGENTA = { 1.00, 0.24, 0.78 }
+local CYAN = { 0.18, 0.90, 1.00 }
+
+-- Tuning ------------------------------------------------------------------
+
+Troops.SIDES = { "halcyon", "static" }
+-- Each side: `code` on the wire, `firstId` its soldiers' ids start at,
+-- `health` what each takes (for scale, a Combine soldier 60), `squad` to a
+-- beat, `fov` and `alertFov` its cone calm and on edge, `aware` px all round
+-- it notices somebody in, `drops` koins each spills, `loadout` what they
+-- carry (`weight` how likely, `burst` rounds at the gun's rate then `pause`
+-- seconds).
+Troops.side = {
+  halcyon = {
+    code = "h", firstId = 1, health = 60, squad = 3, drops = 3, color = MAGENTA,
+    fov = math.rad(60), alertFov = math.rad(100), aware = 170,
+    loadout = {
+      { gun = "uzi", weight = 3, burst = 5, pause = 1.2 },
+      { gun = "pistol", weight = 2, burst = 2, pause = 0.9 },
+    },
+  },
+  static = {
+    code = "s", firstId = 5001, health = 50, squad = 4, drops = 3, color = CYAN,
+    fov = math.rad(80), alertFov = math.rad(120), aware = 230,
+    loadout = {
+      { gun = "shotgun", weight = 3, burst = 1, pause = 1.1 },
+      { gun = "pistol", weight = 2, burst = 3, pause = 0.8 },
+    },
+  },
+}
+-- The maps they hold, and whether the two sides fight each other there.
+Troops.levels = {
+  drop = { feud = true },
+}
+Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
+Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
+Troops.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
+Troops.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting
+Troops.callHeard = 800 -- px; his own side this near where one spotted somebody come when he calls it in
+Troops.callAnswer = 3 -- how many of them come at most, nearest first
+Troops.callEvery = 15 -- seconds before the same soldier calls in again
+Troops.downHeard = 700 -- px; his own side this near one who goes down goes to look
+Troops.downAnswer = 4 -- of them at most, nearest first
+Troops.refill = 14 -- seconds before someone new walks in to a refill post whose soldier is down
+-- A station's MG: rounds at `damage`, `cooldown` apart, in bursts of `burst` then `pause` seconds.
+Troops.nestGun = { burst = 14, pause = 1.4, cooldown = 0.08, damage = 12, range = 700 }
+Troops.manGunWithin = 15 -- seconds the crewman going to a dead gunner's gun has before he is simply on it
+Troops.garrisonFirst = 0.8 -- seconds from a player coming near a station to the first out of its door
+Troops.garrisonEvery = 0.7 -- seconds between one coming out and the next
+
+local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
+local SYNC_EVERY = 2 -- server ticks between CF_TROOPS
+local SMOOTHING = 14 -- per second, the easing of what is drawn
+local SNAP = 200 -- px; a jump this big is a placement, not a step
+local STALE = 1 -- seconds without word from the host before what it last sent is dropped
+
+local random = love.math.random
+
+local function between(range)
+  return range[1] + random() * (range[2] - range[1])
+end
+
+local function dist2(ax, ay, bx, by)
+  return (ax - bx) ^ 2 + (ay - by) ^ 2
+end
+
+local function city()
+  return Features.byName["city-map"]
+end
+
+-- Server --------------------------------------------------------------------
+
+local sv = nil -- { sides = { [key] = { troops, groups } }, pending, time, quietUntil, syncIn, feud }
+
+--- A gun out of `loadout`, by weight, and how he uses it.
+local function pickArms(loadout)
+  local total = 0
+  for _, l in ipairs(loadout) do
+    total = total + l.weight
+  end
+  local roll, pick = random() * total, loadout[1]
+  for _, l in ipairs(loadout) do
+    roll = roll - l.weight
+    if roll < 0 then
+      pick = l
+      break
+    end
+  end
+  local gun = Guns[pick.gun]
+  return {
+    gun = Tiers.apply(gun, Tiers.DEFAULT), -- they carry common ones
+    key = gun.key,
+    index = gun.index,
+    burst = pick.burst,
+    pause = pick.pause,
+    reach = gun.speed * (gun.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
+  }
+end
+
+--- (x, y), or the nearest spot round it a soldier fits (not in a wreck).
+local function clearSpot(x, y)
+  local c = city()
+  if not c then
+    return x, y
+  end
+  local r = Combine.RADIUS + 2
+  local function fits(px, py)
+    return not (c:blocksPoint(px, py) or c:blocksPoint(px - r, py) or c:blocksPoint(px + r, py)
+      or c:blocksPoint(px, py - r) or c:blocksPoint(px, py + r))
+  end
+  if fits(x, y) then
+    return x, y
+  end
+  for d = 16, 160, 16 do
+    for k = 0, 7 do
+      local a = k / 8 * 2 * math.pi
+      local px, py = x + math.cos(a) * d, y + math.sin(a) * d
+      if fits(px, py) then
+        return px, py
+      end
+    end
+  end
+  return x, y
+end
+
+--- Everyone arrived on map `name` (`map`): each side on its posts and
+--- beats, calm while `calm` (nobody has the Shard yet).
+function Troops.serverStart(server, map, name, calm)
+  Troops.serverStop(server)
+  local level = Troops.levels[name]
+  if not (level and map.troops) then
+    return
+  end
+  sv = { sides = {}, pending = {}, time = 0, quietUntil = 0, syncIn = 0, feud = level.feud }
+  local T = require("src.features.city-map.layout").TILE
+  local bounds = { x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T }
+  local nav = nil
+  for _, key in ipairs(Troops.SIDES) do
+    local conf, spec = Troops.side[key], map.troops[key]
+    local troops = Combine.new({
+      hunt = true, fov = conf.fov, alertFov = conf.alertFov, aware = conf.aware, health = conf.health,
+      from = key, firstId = conf.firstId, calm = calm,
+    })
+    if nav then
+      troops.nav = nav -- one walking grid for both
+    else
+      troops:navigate(bounds)
+      nav = troops.nav
+    end
+    local side = { conf = conf, troops = troops, groups = {}, refills = {}, nests = {}, garrisons = {} }
+    sv.sides[key] = side
+    -- Who chats together: the soldiers at one place, or one squad.
+    local at = {}
+    for _, p in ipairs(spec and spec.posts or {}) do
+      local g = at[p.at]
+      if not g then
+        g = { kind = "post", members = {}, chatIn = between(Troops.chatEvery) * random() }
+        at[p.at] = g
+        side.groups[#side.groups + 1] = g
+      end
+      local x, y = clearSpot(p.x, p.y)
+      local s = troops:add("guard", x, y, p.watch)
+      s.hold = p.hold
+      g.members[#g.members + 1] = s
+      if p.refill then
+        side.refills[#side.refills + 1] = { post = p, x = x, y = y, s = s, group = g, wait = Troops.refill }
+      end
+    end
+    for _, route in ipairs(spec and spec.patrols or {}) do
+      local squad = troops:addSquad(route, conf.squad)
+      side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
+    end
+    for _, s in ipairs(troops.list) do
+      s.faction = key -- (`side` is the brain's own: which way he sidesteps)
+      troops:arm(s, pickArms(conf.loadout))
+    end
+    for _, st in ipairs(spec and spec.stations or {}) do
+      Troops.addStation(server, side, key, st)
+    end
+  end
+  if level.feud then
+    local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
+    h.rivals, s.rivals = { s }, { h }
+  end
+end
+
+--- `s` takes the gun of `nest`: its arc, its sight and its rounds.
+local function manGun(side, nest, s)
+  local n, g = nest.nest, Troops.nestGun
+  local ak = Guns.ak47
+  s.watch, s.arc, s.fov, s.post = n.angle, n.arc, 2 * n.arc, nil
+  s.takesCover, s.cv, s.threat = nil, nil, nil -- the gun has no cover to go to: he stays on it
+  s.facing = n.angle
+  nest.gunner, nest.coming = s, nil
+  local gun = setmetatable({ damage = g.damage, cooldown = g.cooldown }, { __index = Tiers.apply(ak, Tiers.DEFAULT) })
+  side.troops:arm(s, { gun = gun, key = ak.key, index = ak.index, burst = g.burst, pause = g.pause, reach = g.range })
+end
+
+--- Station `st` for `side` (`key`): the gunner on its nest, the crew on its
+--- posts, and its garrison waiting in the house.
+function Troops.addStation(server, side, key, st)
+  local troops, conf = side.troops, side.conf
+  local n = st.nest
+  local gunner = troops:add("guard", n.x, n.y, n.angle)
+  gunner.hold, gunner.faction = true, key
+  local nest = { nest = n, crew = { gunner } }
+  for _, p in ipairs(st.posts) do
+    local x, y = clearSpot(p.x, p.y)
+    local s = troops:add("guard", x, y, p.watch)
+    s.hold, s.takesCover, s.faction = true, true, key
+    troops:arm(s, pickArms(conf.loadout))
+    nest.crew[#nest.crew + 1] = s
+  end
+  manGun(side, nest, gunner)
+  side.nests[#side.nests + 1] = nest
+  side.groups[#side.groups + 1] = { kind = "post", members = nest.crew, chatIn = between(Troops.chatEvery) * random() }
+  local g = st.garrison
+  side.garrisons[#side.garrisons + 1] = { g = g, out = false, left = Bosses.count(g.count, server), nextIn = 0 }
+end
+
+--- Every nest keeps its gun manned while any of its crew is up: the
+--- nearest goes to it, and is on it after `manGunWithin` however he got stuck.
+local function stepNests(side, dt)
+  for _, nest in ipairs(side.nests) do
+    local n = nest.nest
+    if nest.gunner and nest.gunner.hp <= 0 then
+      nest.gunner = nil
+    end
+    local c = nest.coming
+    if c and c.hp <= 0 then
+      nest.coming, c = nil, nil
+    end
+    if c and c.post then
+      nest.comingFor = (nest.comingFor or 0) + dt
+      if nest.comingFor > Troops.manGunWithin then
+        c.x, c.y, c.post = n.x, n.y, nil -- caught on something all this time: he gets there anyway
+      end
+    end
+    if c and not c.post then
+      nest.comingFor = nil
+      manGun(side, nest, c) -- he got there
+    elseif not nest.gunner and not c then
+      local best, bestD2 = nil, math.huge
+      for _, s in ipairs(nest.crew) do
+        local d2 = dist2(s.x, s.y, n.x, n.y)
+        if s.hp > 0 and d2 < bestD2 then
+          best, bestD2 = s, d2
+        end
+      end
+      if best then
+        nest.coming, best.post = best, { x = n.x, y = n.y }
+      end
+    end
+  end
+end
+
+--- The nearest player anyone could see within `reach` of (x, y), as a point.
+local function nearestPlayer(server, x, y, reach)
+  local best, bestD2 = nil, reach * reach
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      local d2 = dist2(px, py, x, y)
+      if d2 <= bestD2 then
+        best, bestD2 = { x = px, y = py }, d2
+      end
+    end
+  end
+  return best
+end
+
+--- The station houses: once the street is awake, a player near one brings
+--- its garrison out of the door, one by one, after where they are.
+local function stepGarrisons(server, side, dt)
+  if side.troops.calm then
+    return
+  end
+  for _, gs in ipairs(side.garrisons) do
+    local g, door = gs.g, gs.g.door
+    if not gs.out then
+      local who = nearestPlayer(server, g.x, g.y, g.reach)
+      if who then
+        gs.out, gs.target, gs.nextIn = true, who, Troops.garrisonFirst
+      end
+    elseif gs.left > 0 then
+      gs.nextIn = gs.nextIn - dt
+      if gs.nextIn <= 0 then
+        gs.left, gs.nextIn = gs.left - 1, Troops.garrisonEvery
+        gs.target = nearestPlayer(server, g.x, g.y, g.reach * 1.5) or gs.target
+        local s = side.troops:add("guard", door.x + door.nx * 22, door.y + door.ny * 22, math.atan2(door.ny, door.nx))
+        s.faction = side.troops.from
+        side.troops:arm(s, pickArms(side.conf.loadout))
+        local spread = (gs.left % 3 - 1) * 50 -- the first straight at them, the next to either side
+        side.troops:sendTo(s, gs.target.x - door.ny * spread, gs.target.y + door.nx * spread)
+      end
+    end
+  end
+end
+
+--- Over: nothing left to step or draw.
+function Troops.serverStop(server)
+  if sv then
+    sv = nil
+    server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
+  end
+end
+
+--- The street wakes: from now on they see whoever is there.
+function Troops.serverWake()
+  for _, side in pairs(sv and sv.sides or {}) do
+    side.troops.calm = false
+  end
+end
+
+--- Every soldier, to everyone, unreliably.
+local function sync(server)
+  sv.syncIn = sv.syncIn - 1
+  if sv.syncIn > 0 then
+    return
+  end
+  sv.syncIn = SYNC_EVERY
+  local parts = { server.tick }
+  for _, key in ipairs(Troops.SIDES) do
+    local side = sv.sides[key]
+    for _, s in ipairs(side.troops.list) do
+      parts[#parts + 1] = s.id
+      parts[#parts + 1] = side.conf.code
+      parts[#parts + 1] = ("%.0f"):format(s.x)
+      parts[#parts + 1] = ("%.0f"):format(s.y)
+      parts[#parts + 1] = ("%.2f"):format(s.facing)
+      parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
+      parts[#parts + 1] = s.alert and 1 or (Combine.wary(s) and 2 or 0)
+      parts[#parts + 1] = s.arms and s.arms.index or 0
+    end
+  end
+  local msg = Protocol.encode("CF_TROOPS", unpack(parts))
+  for _, player in pairs(server.players) do
+    if not player.bot then
+      server:send(player, msg, true)
+    end
+  end
+end
+
+-- Talk ----------------------------------------------------------------------
+
+local function alive(s)
+  return s.hp > 0
+end
+
+--- `s` says a line out of `category`, on every screen.
+local function say(server, s, category)
+  local lines = Story.troops[s.faction][category]
+  server:broadcast(Protocol.encode("CF_SAY", s.id, category, random(#lines)))
+end
+
+--- `s` says something out of `category` in `after` seconds, if he is still up.
+local function later(s, category, after)
+  sv.pending[#sv.pending + 1] = { s = s, category = category, t = after }
+end
+
+--- Somebody in `members` still up other than `s`, at random.
+local function mate(members, s)
+  local others = {}
+  for _, m in ipairs(members) do
+    if m ~= s and alive(m) then
+      others[#others + 1] = m
+    end
+  end
+  return others[1] and others[random(#others)] or nil
+end
+
+--- The shouts on spotting somebody (calling the nearest few of his side
+--- over), and the idle chatter and the replies.
+local function talk(server, dt)
+  sv.time = sv.time + dt
+  for _, side in pairs(sv.sides) do
+    for _, s in ipairs(side.troops.list) do
+      local fresh = s.alert and not s.wasAlert
+      if fresh and (s.quietUntil or 0) <= sv.time then
+        s.quietUntil = sv.time + Troops.shoutEvery
+        say(server, s, type(s.target) == "table" and "rival" or "alert")
+      end
+      if fresh and (s.callUntil or 0) <= sv.time and s.aimX then
+        s.callUntil = sv.time + Troops.callEvery
+        side.troops:alarm(s.aimX, s.aimY, Troops.callHeard, { from = s, most = Troops.callAnswer })
+      end
+      s.wasAlert = s.alert
+    end
+    for _, g in ipairs(side.groups) do
+      g.chatIn = g.chatIn - dt
+      if g.chatIn <= 0 and sv.time < sv.quietUntil then
+        g.chatIn = 0.5 + random() * 3 -- somebody else is talking: wait a moment
+      elseif g.chatIn <= 0 then
+        g.chatIn = between(Troops.chatEvery)
+        local busy = false
+        for _, m in ipairs(g.members) do
+          busy = busy or (alive(m) and m.alert)
+        end
+        local speaker = mate(g.members, nil)
+        if speaker and not busy then
+          sv.quietUntil = sv.time + Troops.chatGap
+          say(server, speaker, "idle")
+          local other = mate(g.members, speaker)
+          if other then
+            later(other, "reply", between(Troops.replyAfter))
+          end
+        end
+      end
+    end
+  end
+  for i = #sv.pending, 1, -1 do
+    local p = sv.pending[i]
+    p.t = p.t - dt
+    if p.t <= 0 then
+      table.remove(sv.pending, i)
+      if alive(p.s) then
+        say(server, p.s, p.category)
+      end
+    end
+  end
+end
+
+--- One of `side` down: those of his side near enough go to look, the
+--- nearest calls it in; gibs on every screen, a few koins, maybe a pickup.
+local function soldierDown(server, side, s, by, angle, cause)
+  server:broadcast(Protocol.encode("CF_DOWN", s.id, ("%.1f"):format(s.x), ("%.1f"):format(s.y),
+    ("%.3f"):format(angle or 0)))
+  local went = side.troops:alarm(s.x, s.y, Troops.downHeard, { most = Troops.downAnswer })
+  local caller = went[1]
+  if not caller then
+    local bestD2 = Troops.downHeard ^ 2
+    for _, m in ipairs(side.troops.list) do
+      local d2 = dist2(m.x, m.y, s.x, s.y)
+      if d2 < bestD2 then
+        caller, bestD2 = m, d2
+      end
+    end
+  end
+  if caller and (caller.quietUntil or 0) <= sv.time then
+    caller.quietUntil = sv.time + Troops.shoutEvery
+    later(caller, "down", 0.5)
+  end
+  local money = Features.byName.money
+  if money and money.drop then
+    money:drop(server, s.x, s.y, side.conf.drops)
+  end
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDropEnemy then
+    pickups:serverDropEnemy(server, s.x, s.y)
+  end
+  Features.call("serverKill", server, { kind = "soldier", x = s.x, y = s.y, by = by, angle = angle, cause = cause })
+end
+
+--- Cars running soldiers down: car-collisions' numbers, the driver's kill,
+--- and the street wakes.
+local function runOver(server)
+  local cc = Features.byName["car-collisions"]
+  if not cc then
+    return
+  end
+  for _, car in pairs(server.vehicles) do
+    if car.driver and not car.hidden and math.abs(car.speed) >= cc.runOverSpeed then
+      for _, side in pairs(sv.sides) do
+        local list = side.troops.list
+        for i = #list, 1, -1 do
+          local s = list[i]
+          if Car.hitTest(car, s.x, s.y, Combine.RADIUS) then
+            local amount = cc.runOverDamage * (1 + math.min(1, math.abs(car.speed) / car.maxSpeed))
+            local travel = car.speed >= 0 and car.angle or car.angle + math.pi
+            Troops.serverWake()
+            if side.troops:hurt(s, i, amount, travel) then
+              soldierDown(server, side, s, car.driver, travel, "impact")
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+--- Someone new for each refill post whose soldier has been down long
+--- enough: from the post's `refill` point, walking to it before anything else.
+local function stepRefills(dt)
+  for key, side in pairs(sv.sides) do
+    for _, r in ipairs(side.refills) do
+      if r.s.hp <= 0 then
+        r.wait = r.wait - dt
+        if r.wait <= 0 then
+          local from = r.post.refill
+          local s = side.troops:add("guard", from.x, from.y, r.post.watch)
+          s.hold, s.post, s.faction = r.post.hold, { x = r.x, y = r.y }, key
+          side.troops:arm(s, pickArms(side.conf.loadout))
+          r.group.members[#r.group.members + 1] = s
+          r.s, r.wait = s, Troops.refill
+        end
+      end
+    end
+  end
+end
+
+function Troops.serverStep(server, dt)
+  if not sv then
+    return
+  end
+  stepRefills(dt)
+  for _, key in ipairs(Troops.SIDES) do
+    local side = sv.sides[key]
+    side.troops:update(server, dt)
+    stepNests(side, dt)
+    stepGarrisons(server, side, dt)
+  end
+  runOver(server)
+  talk(server, dt)
+  sync(server)
+end
+
+--- A round through (x, y): the `serverShotAt` convention. A player's hurts
+--- either side (and wakes the street); one fired by nobody only when it
+--- carries the other side's name (`from`), so a round passes through its
+--- own side. It takes off what it carries; a blast, which carries nothing
+--- and asks a few times over, 20 a time.
+function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  if not sv then
+    return false
+  end
+  for _, key in ipairs(Troops.SIDES) do
+    local side = sv.sides[key]
+    local s, i = side.troops:at(x, y, radius)
+    local hits = s and (by ~= 0 or (from ~= nil and from ~= key and Troops.side[from] ~= nil))
+    if hits then
+      if by ~= 0 then
+        Troops.serverWake()
+      end
+      if side.troops:hurt(s, i, damage or Combine.SHOT_DAMAGE, angle) then
+        soldierDown(server, side, s, by ~= 0 and by or nil, angle, dtype)
+      end
+      return true
+    end
+  end
+  return false
+end
+
+function Troops.serverFreezeArea(x, y, radius, seconds)
+  for _, side in pairs(sv and sv.sides or {}) do
+    side.troops:freeze(x, y, radius, seconds)
+  end
+end
+
+function Troops.serverPanicArea(x, y, radius)
+  for _, side in pairs(sv and sv.sides or {}) do
+    side.troops:scare(x, y, radius, 0.5)
+  end
+end
+
+--- For tests.
+function Troops.server()
+  return sv
+end
+
+-- Client --------------------------------------------------------------------
+
+local troops = {} -- id -> { side, x, y, dx, dy, angle, hp, alert, wary, gun, fov, bob, stride, say, sayT, shout }
+local lastTick = 0
+local heardAt = 0 -- when the last CF_TROOPS came
+local time = 0
+local SIDE_OF = { h = "halcyon", s = "static" }
+
+-- How they look (src/body.lua's person). Halcyon: grey armour, a white
+-- helmet, a magenta visor strip. The Static: dark mismatched clothes, a
+-- chrome forearm, cable hair with cyan tips.
+local HALCYON = {
+  shirt = { 0.50, 0.52, 0.56 }, pants = { 0.26, 0.27, 0.30 }, vest = { 0.66, 0.68, 0.72 },
+  shoes = { 0.08, 0.08, 0.09 }, skin = { 0.80, 0.70, 0.62 }, hat = { 0.90, 0.91, 0.94 }, gun = true,
+}
+local STATIC_SHIRTS = {
+  { 0.16, 0.14, 0.18 }, { 0.26, 0.16, 0.14 }, { 0.14, 0.20, 0.18 }, { 0.22, 0.22, 0.24 }, { 0.30, 0.24, 0.12 },
+}
+local STATIC_SKINS = { { 0.78, 0.62, 0.50 }, { 0.55, 0.40, 0.30 }, { 0.42, 0.30, 0.22 }, { 0.86, 0.72, 0.62 } }
+local HELD = { pistol = 4, uzi = 8, shotgun = 14, ak47 = 15 } -- how far each gun's barrel reaches in his hands
+local looks = {} -- side .. gun index .. id variant -> look
+
+local function lookFor(s)
+  local variant = s.side == "static" and s.id % (#STATIC_SHIRTS * #STATIC_SKINS) or 0
+  local k = s.side .. ":" .. (s.gun or 0) .. ":" .. variant
+  local look = looks[k]
+  if not look then
+    look = {}
+    if s.side == "halcyon" then
+      for f, v in pairs(HALCYON) do
+        look[f] = v
+      end
+    else
+      look.shirt = STATIC_SHIRTS[variant % #STATIC_SHIRTS + 1]
+      look.skin = STATIC_SKINS[math.floor(variant / #STATIC_SHIRTS) % #STATIC_SKINS + 1]
+      look.pants, look.hair, look.shoes = { 0.12, 0.12, 0.14 }, { 0.07, 0.07, 0.09 }, { 0.05, 0.05, 0.06 }
+      look.gun = true
+    end
+    local gun = s.gun and Guns.list[s.gun]
+    look.gunLength = gun and HELD[gun.key] or 10
+    looks[k] = look
+  end
+  return look
+end
+
+function Troops.clear()
+  troops, lastTick = {}, 0
+  Corpses.clear()
+end
+
+--- The map's nests (cyber_feud.lua), as drawn.
+local function mapNests()
+  local c = city()
+  return c and c.map and c.map.nests
+end
+
+--- The arc of the nest's gun soldier `s` (as drawn) stands at, or nil.
+local function gunnersArc(s)
+  for _, b in ipairs(mapNests() or {}) do
+    local n = b.nest
+    if dist2(s.dx, s.dy, n.x, n.y) < 16 * 16 then
+      return n.arc
+    end
+  end
+  return nil
+end
+
+function Troops.update(dt)
+  time = time + dt
+  if next(troops) and love.timer.getTime() - heardAt > STALE then
+    troops = {}
+  end
+  local k = math.min(1, dt * SMOOTHING)
+  for _, s in pairs(troops) do
+    local ex, ey = s.x - s.dx, s.y - s.dy
+    if ex * ex + ey * ey > SNAP * SNAP then
+      s.dx, s.dy = s.x, s.y
+    else
+      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
+      s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
+    end
+    -- His cone opens out while he is on edge; on a nest's gun it is as wide as the gun turns.
+    local conf = Troops.side[s.side]
+    local arc = gunnersArc(s)
+    local fov = arc and 2 * arc or (s.wary and conf.alertFov or conf.fov)
+    s.fov = s.fov + (fov - s.fov) * math.min(1, dt * 4)
+    if s.say then
+      s.sayT = s.sayT - dt
+      if s.sayT <= 0 then
+        s.say = nil
+      end
+    end
+  end
+end
+
+--- Their cones of sight, on the ground under everything, in their side's
+--- colour (unless the sight-cones toggle hides them).
+function Troops.drawBelowCars()
+  if Features.any("hideSightCones") then
+    return
+  end
+  for id, s in pairs(troops) do
+    local opts = { seed = id, color = Troops.side[s.side].color }
+    Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov, opts)
+  end
+end
+
+--- One soldier: the core's person in his side's gear, its mark on him (the
+--- visor strip, the cable tips and chrome arm), a "!" over him when he has
+--- somebody, and a bar under him once he is hurt.
+local function drawSoldier(s)
+  local x, y, r = s.dx, s.dy, Body.SHOULDERS
+  local conf = Troops.side[s.side]
+  local color = conf.color
+  Body.person(x, y, s.angle, math.sin(s.stride * 0.18) * 1.2, lookFor(s))
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(s.angle)
+  if s.side == "halcyon" then
+    love.graphics.setColor(color[1], color[2], color[3], s.alert and 1 or 0.85)
+    love.graphics.setLineWidth(1.6)
+    love.graphics.line(3.6, -2.4, 3.6, 2.4)
+  else
+    love.graphics.setColor(0.72, 0.76, 0.80)
+    love.graphics.ellipse("fill", 4.5, 2.2, 3, 1.4, 8) -- the chrome forearm
+    love.graphics.setColor(color)
+    for _, c in ipairs({ { -3.4, -2.2 }, { -4.3, 0 }, { -3.4, 2.2 } }) do
+      love.graphics.circle("fill", c[1], c[2], 0.9, 6)
+    end
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+  if s.alert then
+    local bob = math.sin(time * 10 + s.bob) * 1.5
+    love.graphics.setFont(UI.fonts.heading)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf("!", x - 19, y - r - 30 + bob, 40, "center")
+    love.graphics.setColor(color)
+    love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
+  end
+  if s.hp < conf.health then
+    local bw, f = 20, math.max(0, s.hp / conf.health)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
+    love.graphics.setColor(1 - f, f, 0.2)
+    love.graphics.rectangle("fill", x - bw / 2, y + r + 4, bw * f, 2)
+  end
+end
+
+function Troops.drawAboveCars()
+  for _, s in pairs(troops) do
+    drawSoldier(s)
+  end
+  if mapNests() then
+    Nests.draw(city().map, troops)
+  end
+  for _, s in pairs(troops) do -- what they say, over all of them
+    if s.say then
+      local lift = s.alert and 34 or 8
+      Hud.drawBubble(s.dx, s.dy - Body.SHOULDERS - lift, s.say, math.min(1, s.sayT * 2), Troops.side[s.side].color)
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- At night (the night feature), each one's mark glows a little in his side's colour.
+function Troops.drawNightLights(glow)
+  for _, s in pairs(troops) do
+    glow(s.dx, s.dy, 46, Troops.side[s.side].color, s.alert and 0.7 or 0.45)
+  end
+end
+
+--- The footsteps feature's walkers.
+function Troops.walkers()
+  local list = {}
+  for id, s in pairs(troops) do
+    list[#list + 1] = { key = "cf" .. id, x = s.dx, y = s.dy, size = "person" }
+  end
+  return list
+end
+
+Troops.clientMessages = {
+  CF_TROOPS = function(_client, args)
+    local tick = tonumber(args[1])
+    if not tick or tick <= lastTick then
+      return
+    end
+    lastTick, heardAt = tick, love.timer.getTime()
+    local seen = {}
+    for i = 2, #args - 7, 8 do
+      local id, side = tonumber(args[i]), SIDE_OF[args[i + 1]]
+      local x, y = tonumber(args[i + 2]), tonumber(args[i + 3])
+      if id and side and x and y then
+        local s = troops[id]
+        if not s then
+          s = { id = id, side = side, dx = x, dy = y, bob = love.math.random() * 6, stride = 0 }
+          s.fov = Troops.side[side].fov
+          troops[id] = s
+        end
+        s.x, s.y = x, y
+        s.angle = tonumber(args[i + 4]) or s.angle or 0
+        s.hp = tonumber(args[i + 5]) or Troops.side[side].health
+        s.alert = args[i + 6] == "1"
+        s.wary = args[i + 6] ~= "0"
+        s.gun = tonumber(args[i + 7])
+        seen[id] = true
+      end
+    end
+    for id in pairs(troops) do
+      if not seen[id] then
+        troops[id] = nil
+      end
+    end
+  end,
+  CF_SAY = function(_client, args)
+    local s = troops[tonumber(args[1])]
+    local lines = s and Story.troops[s.side][args[2]]
+    local text = lines and lines[tonumber(args[3])]
+    if text then
+      s.say, s.sayT = text, Radio.sayTime(text)
+      s.shout = args[2] == "alert" or args[2] == "rival" or args[2] == "down"
+      Radio.play(text, s.x, s.y, s.shout)
+    end
+  end,
+  CF_DOWN = function(_client, args)
+    local id = tonumber(args[1])
+    local x, y, angle = tonumber(args[2]), tonumber(args[3]), tonumber(args[4]) or 0
+    local s = id and troops[id]
+    if id then
+      troops[id] = nil
+    end
+    if s and x and y then
+      -- His body, where he was drawn, knocked over the way the round went.
+      Corpses.add(s.dx, s.dy, angle, lookFor(s))
+      if Features.byName.pedestrians then
+        require("src.features.pedestrians.sounds").play("splat", x, y, 0.9 + love.math.random() * 0.2)
+      end
+    end
+  end,
+}
+
+return Troops
