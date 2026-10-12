@@ -46,6 +46,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
   will land. Get out of it, or the jolt stuns you.
 - The Overpass has its own darksynth theme, a night drive: it kicks in as Kilowatt's rig roars past.
+- The Overpass has car stations along the shoulder: lose your Courier and walk onto the nearest green pad to call
+  it back, and if you die you can come back at any pad you have passed instead of at the on-ramp.
 - A new car, the Courier: an armoured gunmetal wedge with green neon and a minigun turret on the roof that the driver
   fires. Everyone drives one on the Overpass (your own car waits for you), and the vehicle factory can build one
   (600).

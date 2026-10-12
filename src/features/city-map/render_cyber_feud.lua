@@ -421,6 +421,34 @@ end
 
 -- Signs and the rest --------------------------------------------------------------
 
+--- A car station's pad (the Overpass's `carStations`): dark concrete, VEX's
+--- green stripes round the edge, the bay and an arrow up the road, a lamp.
+local function drawStation(st)
+  local R = 44
+  local green = { 0.43, 1.00, 0.60 }
+  color(C.shadow)
+  love.graphics.rectangle("fill", st.x - R + 4, st.y - R + 5, 2 * R, 2 * R, 6, 6)
+  color(C.slab)
+  love.graphics.rectangle("fill", st.x - R, st.y - R, 2 * R, 2 * R, 6, 6)
+  color(green, 0.85)
+  for k = -R + 4, R - 8, 12 do
+    love.graphics.rectangle("fill", st.x + k, st.y - R, 5, 5)
+    love.graphics.rectangle("fill", st.x + k, st.y + R - 5, 5, 5)
+    love.graphics.rectangle("fill", st.x - R, st.y + k, 5, 5)
+    love.graphics.rectangle("fill", st.x + R - 5, st.y + k, 5, 5)
+  end
+  love.graphics.push()
+  love.graphics.translate(st.x, st.y)
+  love.graphics.rotate(st.angle)
+  color(green, 0.9)
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", -28, -16, 56, 32, 4, 4)
+  love.graphics.polygon("fill", 6, -8, 20, 0, 6, 8)
+  love.graphics.rectangle("fill", -14, -3, 20, 6)
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+end
+
 local function drawSigns(map)
   local f = signFont()
   love.graphics.setFont(f)
@@ -502,6 +530,9 @@ function RenderCyberFeud.draw(map, T)
     if draw and s.kind ~= "tunnel" and s.kind ~= "dock" and s.kind ~= "door" then
       draw(s)
     end
+  end
+  for _, st in ipairs(map.carStations or {}) do
+    drawStation(st)
   end
   for _, n in ipairs(map.nests or {}) do
     drawNestBase(n.nest, n.faction)

@@ -49,6 +49,8 @@
 --                         which it does, and the way he jumps off (the Overpass)
 --   map.stings            { x, y } where Halcyon's sting drone swarms hang, over the gantries (the Overpass)
 --   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), world px
+--   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
+--                         car-stations feature); the respawn points there too
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -779,6 +781,20 @@ local function buildOverpass(map, rng, T)
   map.interceptors = {}
   for _, p in ipairs({ { b + 0.4, 160 }, { a + 0.6, 108 }, { b + 0.4, 36 }, { a + 0.6, 134 }, { b + 0.4, 92 } }) do
     map.interceptors[#map.interceptors + 1] = { x = math.floor(X(p[1])), y = math.floor(Y(p[2])), angle = north }
+  end
+
+  -- Car stations (the car-stations feature): pads on the shoulder about
+  -- every thirty rows, clear of the posts, where anyone on foot calls their
+  -- Courier back whole. They are the map's respawn points too
+  -- (respawn-points), so a wreck doesn't send you back to the on-ramp.
+  map.carStations = {}
+  for _, st in ipairs({
+    { "the long stretch", a, 158 }, { "the overhead signs", b, 128 }, { "the off-ramp", a, 96 },
+    { "the roadworks", a, 66 }, { "the tower ramp", a, 38 },
+  }) do
+    local x = st[2] == a and X(a) + 52 or X(b + 1) - 52
+    map.carStations[#map.carStations + 1] = { name = st[1], x = math.floor(x), y = math.floor(Y(st[3])), angle = north }
+    light(map, x, Y(st[3]), 140, CyberFeud.GREEN, 0.7) -- lit at night
   end
 
   -- Halcyon's marksmen on the gantries' catwalks, an end each, looking back

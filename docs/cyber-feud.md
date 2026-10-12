@@ -95,6 +95,14 @@ branch off `feature/cyber-feud`):
   drives on the Overpass (see the Overpass's arrival): 180 health, 560
   px/s, a minigun in a roof turret. It is in the vehicle factory's catalog
   too (600).
+- Car stations on the Overpass (`feature/cyber-feud-overpass-checkpoints`,
+  `map.carStations` in `buildOverpass`): five pads on the shoulder about
+  every thirty rows (the long stretch, the overhead signs, the off-ramp,
+  the roadworks, the tower ramp), clear of the enemies' posts, drawn in
+  VEX's green and lit at night. On foot on one, the action key calls your
+  Courier back whole (the car-stations feature), and they are the map's
+  respawn points (respawn-points takes a driven map's pads), so a wreck or
+  a death doesn't send you back to the on-ramp.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
