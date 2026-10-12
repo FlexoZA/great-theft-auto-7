@@ -2,7 +2,9 @@
 --
 -- Grenades are an item ("grenade", five to a stack) carried in a quick slot
 -- of their own beside the medkits and drinks (buildings.usables; drag a
--- stack there on the inventory screen). Their key (G) readies one: the
+-- stack there on the inventory screen). The slot holds one kind at a time,
+-- plain or electric: dragging the other kind onto it swaps them. Its key
+-- (G) readies one of whatever is in it: the
 -- landing spot follows the cursor, kept within `range` of you and short of
 -- the first wall in the way, with the blast's reach drawn round it, and the
 -- fire button throws it there (weapons leaves the gun alone meanwhile: the
@@ -22,20 +24,23 @@
 -- and credits nobody, and the side that threw it is left alone.
 --
 -- Electric grenades ("grenade-electric", `Grenades.kinds`): General Volt's,
--- in a quick slot of their own (T). Never sold. The blast is shock (a stun
+-- carried in the bag and thrown from the grenade slot (a `variants` of
+-- buildings' grenade usable). The blast is shock (a stun
 -- for a player caught in it) and holds every enemy in it still for `stun`
 -- seconds, and it leaves a field crackling for a few seconds that zaps
 -- whoever stays in it (enemies, and players but the thrower). A player
 -- unlocks them by picking up the stack Volt drops (each player their own:
 -- pickups' `perPlayer`), which shows the reward screen (the rewards
--- feature); from then on enemies now and then drop more, for those who
--- have unlocked them (`serverAnyUnlocked`). The unlock is saved with the
--- player (`serverSavePlayer`).
+-- feature); from then on the shop sells them to those who have unlocked
+-- them (its `unlock` entries: `itemUnlocked`, `serverItemUnlocked`) and
+-- enemies now and then drop more while anyone has (`serverAnyUnlocked`).
+-- The unlock is saved with the player (`serverSavePlayer`) and told to their
+-- screen quietly when it comes back (no reward screen twice).
 --
 -- Messages
 --   server -> all  GRN_THROW  <id> <owner> <ox> <oy> <x> <y> <flight> [<kind>]  (one is in the air from o to (x, y))
 --   server -> all  GRN_FIELD  <x> <y> <radius> <seconds>    an electric grenade's field crackling there
---   server -> one  GRN_UNLOCK <kind>                       you've unlocked it: the reward screen
+--   server -> one  GRN_UNLOCK <kind> [quiet]               you've unlocked it: the reward screen (not when quiet)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -75,6 +80,7 @@ local NOT_IN_CAR = "Get out of the car to throw a grenade."
 Grenades.readied = false -- the item of the grenade in hand ("grenade", "grenade-electric"), or false
 Grenades.flying = {} -- id -> { ox, oy, x, y, t, flight, kind }
 Grenades.fields = {} -- { x, y, r, t, max }: electric fields crackling
+Grenades.unlocked = {} -- item -> true: the kinds I have unlocked (GRN_UNLOCK)
 local fireSpent = false -- the fire button threw one and is still down
 local camera = nil
 local lastGun = nil -- the gun in hand last frame: switching guns puts the grenade away
@@ -155,8 +161,14 @@ function Grenades:enterGame()
   self.readied, self.flying, self.fields, fireSpent, lastGun = false, {}, {}, false, nil
 end
 
+-- (GRN_UNLOCK for a saved player can come before START: only forgotten on the way out.)
 function Grenades:exitGame()
-  self.readied, self.flying, self.fields, fireSpent = false, {}, {}, false
+  self.readied, self.flying, self.fields, fireSpent, self.unlocked = false, {}, {}, false, {}
+end
+
+--- The shop's question: have I unlocked `item` (its `unlock` entries)?
+function Grenades:itemUnlocked(item)
+  return self.unlocked[item] == true
 end
 
 function Grenades:mapChanged()
@@ -172,16 +184,11 @@ function Grenades:fireTaken()
   return self.readied or (fireSpent and Controls.isDown("fire"))
 end
 
---- A grenade key readies one of its kind (or puts it away); a weapon key
---- puts it away and lets weapons take that gun out.
+--- The grenade key readies one of whatever kind is in the grenade slot (or
+--- puts it away); a weapon key puts it away and lets weapons take that gun out.
 function Grenades:keypressed(key, client)
-  local item = nil
-  for kind in pairs(Grenades.kinds) do
-    if Controls.is(kind, key) then -- (each kind's key action is named after its item)
-      item = kind
-    end
-  end
-  if not item then
+  local b = buildings()
+  if not Controls.is("grenade", key) then
     if self.readied and not Features.any("menuOpen", client) then
       local weapons = Features.byName.weapons
       for i = 1, weapons and weapons.slotCount or 0 do
@@ -192,8 +199,8 @@ function Grenades:keypressed(key, client)
     end
     return
   end
-  local b = buildings()
-  if self.readied == item then
+  local item = b and b:slotOf(b.usableByItem.grenade)
+  if self.readied then
     self.readied = false
   elseif not b or not canReady(client) then
     if b and client:myVehicle() then
@@ -283,7 +290,8 @@ local function drawAim(self, client)
     return
   end
   local item = self.readied
-  local c = buildings().usableByItem[item].color
+  local b = buildings()
+  local _, c = b.look(b.usableByItem[item], item)
   local kind = Grenades.kinds[item] or Grenades.kinds.grenade
   local hot = kind.color
   local pulse = 0.5 + 0.5 * math.sin(love.timer.getTime() * 8)
@@ -378,11 +386,12 @@ Grenades.clientMessages = {
     if args[1] ~= "grenade-electric" then
       return
     end
+    Grenades.unlocked[args[1]] = true
     local rewards = Features.byName.rewards
-    if rewards and rewards.show then
-      local key = Controls.name(Controls.bindings("grenade-electric")[1])
+    if args[2] ~= "quiet" and rewards and rewards.show then
+      local key = Controls.name(Controls.bindings("grenade")[1])
       rewards:show({
-        kicker = "UNLOCKED", title = "ELECTRIC GRENADE", color = Grenades.kinds["grenade-electric"].color,
+        kicker = "NEW GRENADE UNLOCKED", title = "ELECTRIC GRENADE", color = Grenades.kinds["grenade-electric"].color,
         icon = function(cx, cy, scale)
           Render.grenade(cx, cy, scale, true)
         end,
@@ -390,8 +399,9 @@ Grenades.clientMessages = {
           "General Volt's own. A shock blast that stuns whoever it catches, then a field that",
           "crackles for a few seconds, zapping anyone who stays in it.",
           "",
-          "In its own quick slot: " .. key .. " readies one, a click throws it.",
-          "Not sold anywhere. Enemies drop them now and then, for those who have one.",
+          "Drag them onto your grenade slot (" .. key .. ") on the inventory screen: " .. key
+            .. " readies one, a click throws it.",
+          "From now on the shop sells them, and enemies drop them now and then.",
         },
       })
     end
@@ -524,6 +534,11 @@ function Grenades:serverUnlocked(player)
   return sv ~= nil and sv.unlocked[player.id] == true
 end
 
+--- The shop's question on the host: may `player` buy `item`?
+function Grenades:serverItemUnlocked(_server, player, item)
+  return item == "grenade-electric" and self:serverUnlocked(player)
+end
+
 --- Has any human in the world unlocked `kind` (pickups' drops ask before
 --- an enemy drops one: nobody could pick it up otherwise)?
 function Grenades:serverAnyUnlocked(server, kind)
@@ -541,7 +556,8 @@ end
 --- `player` walks over a stack of electric grenades (pickups asks; `item`
 --- is the pickup: `amount`, and `unlocks` for Volt's). Only a human; only
 --- one who has unlocked them, or anyone for Volt's, which unlocks them and
---- shows the reward screen. Into their quick slot, the rest into their bag.
+--- shows the reward screen. Into their grenade slot if it is empty or holds
+--- electric ones already, the rest into their bag.
 --- True when they took it.
 function Grenades:serverTakeElectric(server, player, item)
   local b = buildings()
@@ -570,10 +586,12 @@ function Grenades:serverSavePlayer(_server, player)
   return { version = self.SAVE_VERSION, electric = true }
 end
 
---- What they had unlocked, back (nothing to show: the reward was seen).
-function Grenades:serverLoadPlayer(_server, player, data)
+--- What they had unlocked, back, and told to their screen for the shop
+--- (quietly: the reward was seen).
+function Grenades:serverLoadPlayer(server, player, data)
   if sv and type(data) == "table" and data.version == self.SAVE_VERSION and data.electric == true then
     sv.unlocked[player.id] = true
+    server:send(player, Protocol.encode("GRN_UNLOCK", "grenade-electric", "quiet"))
   end
 end
 
