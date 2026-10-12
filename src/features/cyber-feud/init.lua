@@ -41,7 +41,8 @@
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
---   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN)
+--   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
+--   and its rippers' RIP_STATE, RIP_CUT, RIP_DOWN)
 
 local Features = require("src.features")
 local Protocol = require("src.net.protocol")
@@ -91,6 +92,7 @@ local sv = nil -- { quest, map, reached, beats = { [key] = true } } on the host 
 function CyberFeud:load()
   Flyers.load() -- the flying machines' engines, synthesised
   require("src.features.cyber-feud.enforcers").load() -- the ping of a round off a riot shield
+  require("src.features.cyber-feud.rippers").load() -- the rippers' blades
 end
 
 function CyberFeud:serverStart()

@@ -51,8 +51,20 @@ branch off `feature/cyber-feud`):
   the gate). The shield stops every round coming within 70 degrees of
   straight on (a spark and a ping); blasts and fire go through. In the
   feud like the rest of Halcyon: the Static are their rivals and they are
-  the Static's. Still to come: watcher drones, rippers and sparkers;
-  interceptors and war-rigs; and per-faction voices.
+  the Static's.
+- The Static's rippers (`feature/cyber-feud-rippers`,
+  `src/features/cyber-feud/rippers.lua`, their own brain in
+  `ripper_brain.lua`): five on the Market's Static beats (`map.rippers`).
+  40 health, a run of 150 px/s (a sprint is 170), finding their way round
+  the stalls on the walking grid. Each goes for whoever is most alone
+  (anyone else within 260 px makes a target count 300 px further off),
+  crouches 0.5 s from within 200 px with a cyan line on the ground where it
+  will go, then lunges about 220 px down it (28, `melee`): the line is set
+  at the crouch, so stepping sideways dodges it. Up close it slashes twice
+  (10 each) and backs off to lunge again. In the feud they go for Halcyon
+  too; an enforcer's shield stops a cut from in front. Still to come:
+  watcher drones and sparkers; interceptors and war-rigs; and per-faction
+  voices.
 
 ## Decisions
 
@@ -376,7 +388,7 @@ have to shoot your way through.
 | Unit | Look | Health | Gun / attack | Behaviour |
 | --- | --- | --- | --- | --- |
 | **Ganger** | Dark clothes, cyan-tipped cable hair, a chrome forearm | 50 | Shotgun or pistol (`bullet`) | Packs of 3-5 that run straight at the nearest target, shooting as they go. |
-| **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`) | Fast. Crouches for half a second, then lunges a long way (dodge it sideways). Goes for whoever is alone. |
+| **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`): a lunge 28, a slash 10 | Fast. Crouches for half a second with a cyan line showing where it will go, then lunges about 220 px (dodge it sideways). Slashes twice up close, then backs off to lunge again. Goes for whoever is alone. |
 | **Brute** | A small Kilowatt: huge, a giant chrome arm, a cyan reactor glow | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
 | **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`) | Hangs back and lobs EMPs. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike. |
 | **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car | Rams (`impact`); the ganger shoots | The Overpass. Built to ram you off the road, and Halcyon's interceptors too. |
