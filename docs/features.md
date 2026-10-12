@@ -916,6 +916,18 @@ the one with a plot.
   that the shop sells it to them (`itemUnlocked` / `serverItemUnlocked`), and
   enemies drop it now and then (`pickups.drops`' `unlocked`) while any human
   in the world has it unlocked; only those who have can pick one up.
+- Weather: `src/features/weather` is rain and lightning that another
+  feature turns on from the host: `weather:serverSetRain(server, on)` (rain
+  on every screen, fading in over 3 s and out over 5, with its hiss),
+  `weather:serverSetStorm(server, on)` (a flash in the sky every 3-7 s and
+  thunder rolling in after), and `weather:serverStrike(server, x, y, opts)`
+  (a bolt marked on the ground for `opts.warn` s, then striking everyone on
+  foot and every car within `opts.radius` for `opts.damage` /
+  `opts.carDamage` shock, and a few pedestrians). Everything clears when
+  the map changes. The rain is a lens just after the night's (streaks and
+  splashes over the dark, carried along with the view); a flash lights the
+  night through `drawNightLights`. Its sounds have their own volume
+  ("weather"). General Volt's fight uses all three.
 - Rewards: `src/features/rewards` puts up the full-screen card for something
   unlocked: `Features.byName.rewards:show({ kicker, title, color, icon =
   function(cx, cy, scale), lines })`, client side, from whatever feature

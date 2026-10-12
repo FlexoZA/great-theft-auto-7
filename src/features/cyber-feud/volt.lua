@@ -14,6 +14,12 @@
 -- (volt_brain.lua). troops.lua starts, steps and stops him and passes
 -- rounds on to him.
 --
+-- The weather comes with him (the weather feature's): the moment he wakes
+-- it starts to rain, and a storm breaks over the square, flashes in the sky
+-- and lightning striking round whoever is fighting him (`STRIKE_*`, marked
+-- on the ground first), more often in phase 2. The lightning stops when he
+-- goes down; the rain keeps on until you leave the Market.
+--
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health), has the boss bar, goes for medkits when badly hurt, dodges
 -- abilities, and going down raises `serverKill` "boss" and spills koins. He
@@ -84,6 +90,13 @@ Volt.BACKUP_PACK = 3 -- gangers in a pack (and a sparker with them; more players
 Volt.SAY_EVERY = { 8, 13 }
 Volt.DROPS = 30
 Volt.CODE_REACH = 44 -- px from the pass code that picks it up
+Volt.STRIKE_EVERY = { 3.5, 6 } -- seconds between lightning strikes while he fights...
+Volt.STRIKE_EVERY_2 = { 2.2, 4 } -- ...in phase 2
+Volt.STRIKE_WARN = 1.1 -- seconds a strike is marked on the ground first
+Volt.STRIKE_RADIUS = 55 -- px
+Volt.STRIKE_DAMAGE = 20 -- shock, to someone on foot
+Volt.STRIKE_AIMED = 0.4 -- chance it comes down right on them (within 30 px)...
+Volt.STRIKE_NEAR, Volt.STRIKE_FAR = 90, 320 -- ...the rest this far off
 Volt.GRENADES_AWAY = 160 -- px from his body his electric grenades land: well clear of the pass code
 
 Volt.lines = {
@@ -151,6 +164,10 @@ end
 
 -- Server --------------------------------------------------------------------
 
+local function weather()
+  return Features.byName.weather
+end
+
 local sv = nil -- { v, spec, awake, greet, syncIn, down, code = { x, y } | nil, taken }
 
 --- Him in `map`'s `volt` square, finding his way on `nav`. Nothing on a map without him.
@@ -166,6 +183,9 @@ end
 
 function Volt.serverStop(server)
   if sv then
+    if sv.awake and not sv.down and weather() then
+      weather():serverSetStorm(server, false)
+    end
     sv = nil
     server:broadcast(Protocol.encode("VLT_STATE", server.tick))
   end
@@ -179,6 +199,12 @@ end
 local function wake(server)
   if not sv.awake then
     sv.awake = true
+    sv.strikeIn = Volt.STRIKE_EVERY[1]
+    local w = weather()
+    if w then
+      w:serverSetRain(server, true)
+      w:serverSetStorm(server, true)
+    end
     server:broadcast(Protocol.encode("VLT_SAY", Volt.LINE.intro))
     server:broadcast(Protocol.encode("CF_BEAT", "market.volt"))
   end
@@ -193,6 +219,38 @@ local function backup(server)
   local size = Bosses.plus(Volt.BACKUP_PACK, server)
   local spot = spec.backup[(v.backups - 1) % #spec.backup + 1]
   Troops.serverPack(server, "static", spot, spec.beat, size, true, tx or v.x, ty or v.y)
+end
+
+--- Lightning round whoever is fighting him: a human in the square (or the
+--- nearest one near him), on them or a little off.
+local function lightning(server, dt)
+  local w = weather()
+  sv.strikeIn = sv.strikeIn - dt
+  if not w or sv.strikeIn > 0 then
+    return
+  end
+  local e = sv.v.phase2 and Volt.STRIKE_EVERY_2 or Volt.STRIKE_EVERY
+  sv.strikeIn = e[1] + random() * (e[2] - e[1])
+  local sq, v = sv.spec.square, sv.v
+  local near = {}
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local x, y = Features.bodyPose(server, p)
+      if (x >= sq.x0 and x <= sq.x1 and y >= sq.y0 and y <= sq.y1) or dist2(x, y, v.x, v.y) <= Volt.RANGE ^ 2 then
+        near[#near + 1] = { x = x, y = y }
+      end
+    end
+  end
+  if #near == 0 then
+    return
+  end
+  local t = near[random(#near)]
+  local a, d = random() * 2 * math.pi, random() * 30
+  if random() >= Volt.STRIKE_AIMED then
+    d = Volt.STRIKE_NEAR + random() * (Volt.STRIKE_FAR - Volt.STRIKE_NEAR)
+  end
+  w:serverStrike(server, t.x + math.cos(a) * d, t.y + math.sin(a) * d,
+    { warn = Volt.STRIKE_WARN, radius = Volt.STRIKE_RADIUS, damage = Volt.STRIKE_DAMAGE })
 end
 
 local function sync(server)
@@ -253,6 +311,7 @@ function Volt.serverStep(server, dt)
     end
   end
   if sv.awake then
+    lightning(server, dt)
     for _, e in ipairs(Brain.think(sv.v, server, dt)) do
       if e[1] == "say" then
         server:broadcast(Protocol.encode("VLT_SAY", e[2]))
@@ -296,6 +355,9 @@ end
 local function down(server, by, angle)
   local v = sv.v
   sv.down = true
+  if weather() then
+    weather():serverSetStorm(server, false) -- the rain keeps on
+  end
   sv.code = { x = v.x, y = v.y }
   server:broadcast(Protocol.encode("VLT_SAY", Volt.LINE.down))
   server:broadcast(Protocol.encode("VLT_DOWN", fmt(v.x), fmt(v.y), ("%.3f"):format(angle or 0)))
