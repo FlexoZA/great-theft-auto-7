@@ -442,7 +442,7 @@ branch off `feature/cyber-feud`):
 | Parody or its own thing? | **Its own thing in the style.** Original names, no direct jokes on one game the way A-Man is on Half-Life. |
 | How long? | **Five maps**, like A-Man's trail. |
 | Does VEX die? | **No. She escapes into the net** at the end, to set up a sequel quest line. |
-| What happens to the Shard? | **Undecided.** Keep it, broadcast it, or something else. It decides the last screen's line and maybe the reward (see "Open questions"). |
+| What happens to the Shard? | **You deliver it to VEX.** It is carried through every level (dropped on death, picked up by anyone), and on the Roof, once Saye and Kilowatt are down, its carrier hands it over at VEX's uplink. Her screen says what is on it, and then she turns on you: you know too much. |
 
 ## Logline
 
@@ -848,7 +848,11 @@ they only want you.
 ### 5. The Roof
 
 Saye and Kilowatt fight together as a tag-team boss: Saye at range with
-drones and turrets, Kilowatt up close with his bulk. When they are down, VEX
+drones and turrets, Kilowatt up close with his bulk. When they are down, the
+Shard's carrier takes it to VEX's uplink by the billboard and hands it over:
+her screen comes up and says what is on it (a recording of Saye and Kilowatt
+splitting forty years of war profits; "The feud is a business, courier.
+Was. It's mine now. And you know what's on it."), and then VEX
 locks the roof and turns the tower's turrets on everyone. The last phase is
 breaching VEX out of the tower's systems while the turrets fire. You beat
 her, but she escapes into the net with a parting line ("Nothing personal,
@@ -1101,8 +1105,8 @@ where his jumps.
 
 ## Open questions
 
-- **The Shard's ending.** Keep it, broadcast it to the city, or something else.
-  It decides the last screen's line, and maybe the reward.
+- **The Shard's ending.** Settled: it goes to VEX (see Decisions). Whether
+  you get anything for it, or get it back from her in the sequel, is open.
 - **The reward.** One idea is the Shard as a legendary ability: one use per
   fight turns two enemies on each other, a small feud of your own. Whatever it
   is, it is equipment, so it has tiers (`tierStats`, read through

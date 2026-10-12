@@ -4,10 +4,12 @@
 -- grid scrolling behind her, her words typed out in a terminal box rather
 -- than a speech bubble, and the whole screen tearing now and then.
 --
---   Screen.draw(face, line, t, time)
+--   Screen.draw(face, line, t, time, opts)
 --
 -- `line` is one of Story.lines; `t` is how long the screen has been up (it
--- types her words out), `time` the clock for the grid.
+-- types her words out), `time` the clock for the grid. `opts` (optional)
+-- puts its own `kicker`, `title` and `tagline` over her words in place of
+-- YOUR FIXER, VEX and her line (the Shard's reveal: Story.revealScreen).
 
 local UI = require("src.ui")
 local Video = require("src.video")
@@ -29,7 +31,8 @@ function Screen.typed(text, t)
   return text:sub(1, math.max(0, math.floor(t * Screen.TYPE_RATE)))
 end
 
-function Screen.draw(face, line, t, time)
+function Screen.draw(face, line, t, time, opts)
+  opts = opts or {}
   local w, h = love.graphics.getDimensions()
   love.graphics.setColor(BG)
   love.graphics.rectangle("fill", 0, 0, w, h)
@@ -57,19 +60,20 @@ function Screen.draw(face, line, t, time)
   local y = math.floor(h * 0.12)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(GREEN)
-  love.graphics.print("YOUR FIXER", colX, y)
+  love.graphics.print(opts.kicker or "YOUR FIXER", colX, y)
   y = y + 26
   love.graphics.setFont(UI.fonts.title)
   love.graphics.setColor(1, 0.24, 0.78, 0.5) -- the title splits, a little, in both sides' colours
-  love.graphics.print("VEX", colX - 3, y)
+  local title = opts.title or "VEX"
+  love.graphics.print(title, colX - 3, y)
   love.graphics.setColor(0.18, 0.9, 1, 0.5)
-  love.graphics.print("VEX", colX + 3, y + 1)
+  love.graphics.print(title, colX + 3, y + 1)
   love.graphics.setColor(GREEN)
-  love.graphics.print("VEX", colX, y)
+  love.graphics.print(title, colX, y)
   y = y + UI.fonts.title:getHeight() + 6
   love.graphics.setFont(UI.fonts.heading)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print("Totally on your side.", colX, y)
+  love.graphics.print(opts.tagline or "Totally on your side.", colX, y)
   y = y + UI.fonts.heading:getHeight() + 36
 
   -- Her words, typed out in a terminal box, a cursor blinking at the end.

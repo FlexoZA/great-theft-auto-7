@@ -19,6 +19,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
   still to come.
 - Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
+- The Shard stays with you through all five levels of Cyber Feud. Whoever carries it has to reach each level's end
+  for the job to go on; if they go down, it drops where they fell (marked on the minimap and the big map) and anyone
+  can pick it up. On the Roof, once Saye and Kilowatt are down, take it to VEX's uplink by the billboard: she shows
+  you what is on it, and then she turns on you.
 - Cyber Feud's story: take the Shard from the vending machine on the Drop (F), meet VEX, your fixer, who talks you
   through every map, and see each map's title card, where you are and what to do next.
 - Cyber Feud's factions on the Drop: Halcyon officers hold the roadblocks and the Static's gangers roam the west.
