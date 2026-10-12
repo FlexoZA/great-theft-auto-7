@@ -49,6 +49,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   roadworks and the tower ramp, and both of them waiting for you together in VEX's "shortcut". Up here they hold
   fire on each other, until a stray round from one side hits the other: then they go at it until things calm
   down. Drive between them.
+- The Static's war-rigs wait on the Overpass too: rusty trucks with a spiked ram and a ganger with a shotgun on
+  the back, built to ram you off the road (and Halcyon's interceptors, once the two sides are at it).
+- Kilowatt, the Static's leader, makes an entrance on the Overpass: his war-rig roars past you with him on the back,
+  and he jumps off before it hits the barrier. You'll meet him properly later.
 - Halcyon's interceptors wait on the Overpass's shoulder: armoured grey SUVs with flashing light bars that come
   after you flat out, ram you and have an officer lean out of the window to shoot.
 - Past the Market's walls Grey City is at war: a front through the city, rubble and craters in no-man's-land,

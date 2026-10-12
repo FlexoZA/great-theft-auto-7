@@ -43,8 +43,23 @@ branch off `feature/cyber-feud`):
   back after each hit to come again, the officer firing SMG bursts
   (Halcyon's rounds) out to 520 px. It lets them go 5 s out of sight or
   past 1800 px. Wrecked, it spills 8 koins and is gone. Enemies don't
-  target them (`serverHidden`), but crossfire hits them. Still to come on
-  the Overpass: war-rigs and Kilowatt's cameo, sting drones, marksmen on
+  target them (`serverHidden`), but crossfire hits them.
+- The Static's war-rigs and Kilowatt's cameo (`feature/cyber-feud-war-rigs`,
+  `src/features/cyber-feud/war_rigs.lua`, their own brain in
+  `rig_brain.lua`): NPC trucks parked on the shoulder at `map.rigs` (two
+  for one human, one more for each extra, up to four). A rusty truck
+  tractor with a spiked chrome ram and junk plates, 380 health, 500 px/s,
+  a ganger on the back with a shotgun (the Static's rounds, out to 260
+  px). Something to hit within 850 px and in sight sets one off, straight
+  at it nose first, dropping back after each hit; while the two sides are
+  at it (the flare-up) Halcyon's interceptors are fair game too. Wrecked,
+  10 koins. Kilowatt's ride (`map.kilowatt`): 11 s after arriving, or as
+  soon as someone drives off, his rig roars up the right-hand edge from
+  behind everyone with him on the back ("THERE you are, spark!"), swerves
+  into the barrier 20 rows up; he leaps onto the road just before it goes
+  up, laughs, and 2.4 s later runs off the east edge. Drawn twice anyone's
+  size, chrome shoulders and jaw, a cyan reactor and cable mohawk, lit by
+  his own glow. Still to come on the Overpass: sting drones, marksmen on
   the gantries.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
@@ -448,7 +463,7 @@ have to shoot your way through.
 | **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`): a lunge 28, a slash 10 | Fast. Crouches for half a second with a cyan line showing where it will go, then lunges about 220 px (dodge it sideways). Slashes twice up close, then backs off to lunge again. Goes for whoever is alone. |
 | **Brute** | A small Kilowatt: huge, a giant chrome arm, a cyan reactor glow | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
 | **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`, 26 at the middle, 110 px) | Hangs back (230-400 px) and lobs EMPs, a cyan ring on the ground where each will land. Stuns a player near the middle. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike (once there are any). |
-| **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car | Rams (`impact`); the ganger shoots | The Overpass. Built to ram you off the road, and Halcyon's interceptors too. |
+| **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car, 380 | Rams (`impact`); the ganger shoots a shotgun | The Overpass. Waits on the shoulder, then comes at you nose first, dropping back after each hit to come again; rams Halcyon's interceptors too while the two sides are at it. |
 
 #### How they fight each other
 

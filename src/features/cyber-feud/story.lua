@@ -64,6 +64,14 @@ Story.beats = {
   ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },
 }
 
+-- Kilowatt's cameo on the Overpass (war_rigs.lua): riding his rig past
+-- everyone, landing on the road when it crashes, and running off the edge.
+Story.kilowatt = {
+  ride = "THERE you are, spark!",
+  land = "Ha! That tickled. Do it again.",
+  exit = "See you upstairs, spark! HA!",
+}
+
 -- What the factions' troops say (troops.lua), by side and category; the
 -- host picks one by index:
 --   idle   now and then, at a post or on a beat
