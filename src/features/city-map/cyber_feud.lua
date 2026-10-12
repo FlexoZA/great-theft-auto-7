@@ -51,6 +51,8 @@
 --                         which it does, and the way he jumps off (the Overpass)
 --   map.stings            { x, y } where Halcyon's sting drone swarms hang, over the gantries (the Overpass)
 --                         or in the aisles of the tower's server room
+--   map.turrets           { x, y, watch, arc } Halcyon's sentry turrets (the tower's labs and security
+--                         floor): bolted down at (x, y), sweeping `arc` radians in all round `watch`, world px
 --   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), or in the
 --                         far corners of the tower's security and executive floors, world px
 --   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
@@ -1073,6 +1075,23 @@ local function buildTower(map, rng, T)
     { x = math.floor(X(21)), y = math.floor(Y(servers.r0 + 8.3)) },
     { x = math.floor(X(37.5)), y = math.floor(Y(servers.r0 + 6)) },
     { x = math.floor(X(16)), y = math.floor(Y(servers.r0 + 4.3)) },
+  }
+  -- Halcyon's sentry turrets (cyber-feud/turrets.lua), each bolted down
+  -- watching `watch` and sweeping `arc` in all: three in the labs (by the
+  -- way in, in the middle between the tanks, and by the door up), and four
+  -- round the security floor, one on each wall facing in.
+  local labs = floors[4]
+  local function turret(c, r, watch, arcDeg)
+    return { x = math.floor(X(c)), y = math.floor(Y(r)), watch = watch, arc = math.rad(arcDeg) }
+  end
+  map.turrets = {
+    turret(cols - 10.5, labs.r0 + 1.3, 3 * math.pi / 4, 100),
+    turret(23, labs.r0 + 6.6, south, 140),
+    turret(9, labs.r1 - 1.5, -math.pi / 4, 100),
+    turret(2.8, sec.r0 + 7.5, east, 120),
+    turret(24, sec.r0 + 0.6, south, 140),
+    turret(24, sec.r1 + 0.3, -math.pi / 2, 140),
+    turret(cols - 2.8, sec.r0 + 8, west, 120),
   }
   -- Where the Static come in to each floor: the lobby's front doors, and
   -- above it the top of the stairwell from the floor below.

@@ -35,6 +35,20 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- Halcyon's sentry turrets (`feature/cyber-feud-tower-turrets`,
+  `src/features/cyber-feud/turrets.lua` and `turret_brain.lua`,
+  `map.turrets` in `buildTower`): three in the labs (by the way in, in the
+  middle between the tanks, by the door up) and four round the security
+  floor, one on each wall facing in. Bolted down; each sweeps its arc
+  (`arc` round `watch`) with a 50° cone out to 620 px along a clear line,
+  puts a laser on whoever it sees for 0.6 s, then fires bursts of four (8 a
+  round, Halcyon's) while it keeps them in sight, tracking at 2.2 rad/s
+  (never past its arc's ends). 80 health; only players' rounds reach it.
+  Breach: on foot next to one (60 px), hold F for 2.5 s (draining at half
+  that when let go; TUR_WORK, TUR_PROG); it fights for the breacher for
+  15 s, its lens green, going for every Halcyon and Static unit in its
+  sight, its rounds theirs. The sparkers' EMPs knock it out for 5 s. (The
+  hex-grid breach mini-game, when it comes, replaces the hold.)
 - The tower's sting drones (`feature/cyber-feud-tower-stings`,
   `map.stings` in `buildTower`): swarms in the server room's aisles (the
   middle aisle, the east end by the way up, then the west aisle: two for

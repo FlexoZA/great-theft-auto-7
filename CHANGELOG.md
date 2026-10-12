@@ -94,6 +94,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   desks but not through floors, hang over you in the aisles and call officers in until you shoot them down.
 - Halcyon's sting drones swarm Halcyon Tower's server room: two swarms of three (one more swarm for each extra
   player) making strafing runs down the aisles between the racks, slower and tighter than on the Overpass.
+- Sentry turrets in Halcyon Tower: three in the labs and four round the security floor. Each sweeps its arc, puts a
+  laser on you for a moment, then fires bursts. Get behind one and hold F for 2.5 s to breach it: it fights for
+  you for 15 s, shooting Halcyon and the Static. The sparkers' EMPs knock them out for 5 s.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

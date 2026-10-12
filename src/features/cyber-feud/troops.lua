@@ -51,6 +51,9 @@
 -- back and lob EMPs; Halcyon's watcher drones (watchers.lua) fly over
 -- the stalls and call officers to whoever they see.
 --
+-- In Halcyon Tower its sentry turrets (turrets.lua) sweep the labs and
+-- the security floor; breached, one fights for whoever breached it.
+--
 -- Halcyon is disciplined: SMGs and pistols, a narrow cone, squads of
 -- three. The Static are noise: shotguns and pistols, a wide cone and a
 -- keen ear, packs of four. Both talk (Story.troops): idle chatter and a
@@ -87,6 +90,7 @@ local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Stings = require("src.features.cyber-feud.stings")
 local Marksmen = require("src.features.cyber-feud.marksmen")
+local Turrets = require("src.features.cyber-feud.turrets")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -315,6 +319,10 @@ function Troops.serverStart(server, map, name, calm)
   Interceptors.serverStart(server, map) -- and its patrol cars, on a driven map
   WarRigs.serverStart(server, map) -- the Static's war-rigs, and Kilowatt riding one
   Stings.serverStart(server, map) -- Halcyon's sting drones over the gantries
+  Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
+    return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
+      blades or { list = {} }, emps or { list = {} } }
+  end)
 end
 
 --- `s` takes the gun of `nest`: its arc, its sight and its rounds.
@@ -447,6 +455,7 @@ function Troops.serverStop(server)
   Watchers.serverStop(server)
   Stings.serverStop(server)
   Marksmen.serverStop(server)
+  Turrets.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -468,6 +477,7 @@ function Troops.serverWake()
   Sparkers.serverWake()
   Watchers.serverWake()
   Marksmen.serverWake()
+  Turrets.serverWake()
 end
 
 --- Where the sides hold fire on each other (sv.provoked), a round of one
@@ -793,6 +803,7 @@ function Troops.serverStep(server, dt)
   Watchers.serverStep(server, dt)
   Stings.serverStep(server, dt)
   Marksmen.serverStep(server, dt)
+  Turrets.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -841,6 +852,9 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   if not hit then
     hit, byPlayer = Stings.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   end
+  if not hit then
+    hit, byPlayer = Turrets.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -861,6 +875,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Watchers.serverFreezeArea(x, y, radius, seconds)
   Stings.serverFreezeArea(x, y, radius, seconds)
   Marksmen.serverFreezeArea(x, y, radius, seconds)
+  Turrets.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -954,6 +969,7 @@ function Troops.clear()
   Watchers.clear()
   Stings.clear()
   Marksmen.clear()
+  Turrets.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -1017,6 +1033,7 @@ function Troops.drawBelowCars()
   Sparkers.drawBelowCars()
   Watchers.drawBelowCars()
   Stings.drawBelowCars()
+  Turrets.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -1082,6 +1099,7 @@ function Troops.drawAboveCars()
   Watchers.drawAboveCars()
   Stings.drawAboveCars()
   Marksmen.drawAboveCars()
+  Turrets.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1103,6 +1121,7 @@ function Troops.drawNightLights(glow)
   Watchers.drawNightLights(glow)
   Stings.drawNightLights(glow)
   Marksmen.drawNightLights(glow)
+  Turrets.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1204,6 +1223,9 @@ for kind, handler in pairs(Stings.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Marksmen.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Turrets.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 
