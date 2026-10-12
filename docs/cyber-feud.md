@@ -35,6 +35,13 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The tower's watcher drones (`feature/cyber-feud-tower-watchers`,
+  `map.watchers` in `buildTower`): two in the offices (one round the desks,
+  one up and down between them) and one in the lobby between the lifts and
+  the reception, on beats down the aisles. Indoors (the brain's `indoors`
+  and `sameRoom`, the tower's floors) one sees over the furniture but only
+  who is on its own floor, and goes round what stands on the floor, never
+  over it, so it is always where a round can reach it.
 - The tower's marksmen (`feature/cyber-feud-tower-marksmen`,
   `map.marksmen` in `buildTower`): the Overpass's marksmen on the floor, in
   the far corners, in the order they are used (three for one human, one

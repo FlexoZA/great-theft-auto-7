@@ -1,6 +1,7 @@
 -- Halcyon's watcher drones (docs/cyber-feud.md, "Halcyon"): small flying
 -- discs with a magenta eye and no gun, on beats over the Market's stalls
--- (the map's `watchers`). troops.lua starts, steps and stops them with the
+-- and down Halcyon Tower's aisles, where walls hide you from them (the
+-- brain's `indoors`) (the map's `watchers`). troops.lua starts, steps and stops them with the
 -- rest of Halcyon, and passes rounds on to them; their heads are
 -- watcher_brain.lua.
 --
@@ -78,6 +79,14 @@ function Watchers.serverStart(server, map, calm)
   end
   local brain = Brain.new({
     fov = Watchers.fov, health = Watchers.health, alarm = alarm, firstId = Watchers.firstId, calm = calm,
+    indoors = map.kind == "tower", sameRoom = map.floors and function(_x0, y0, _x1, y1)
+      for _, f in ipairs(map.floors) do
+        if y0 >= f.y0 and y0 < f.y1 then
+          return y1 >= f.y0 and y1 < f.y1
+        end
+      end
+      return false
+    end,
   })
   for _, w in ipairs(map.watchers) do
     brain:add(w.route, w.start or 1)

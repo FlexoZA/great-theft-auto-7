@@ -42,8 +42,9 @@
 --   map.rippers           { route, start } the Static's rippers (the Market), each on a beat (a loop of
 --                         { x, y }, world px) from corner `start`
 --   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
---   map.watchers          { route, start } Halcyon's watcher drones (the Market), flown straight from
---                         corner to corner (corners in the lanes, so they stay where they can be shot)
+--   map.watchers          { route, start } Halcyon's watcher drones (the Market, the tower's offices and
+--                         lobby), flown straight from corner to corner (corners in the lanes or the aisles, so
+--                         they stay where they can be shot)
 --   map.interceptors      { x, y, angle } posts Halcyon's interceptors wait on (the Overpass), world px
 --   map.rigs              { x, y, angle } posts the Static's war-rigs wait on (the Overpass), world px
 --   map.kilowatt          { x, y, startY, exitAngle } where Kilowatt's rig sets off from, the line past
@@ -1048,6 +1049,19 @@ local function buildTower(map, rng, T)
     { x = math.floor(X(cols - 2.6)), y = math.floor(Y(sec.r1 + 0.3)), watch = west },
     { x = math.floor(X(2.7)), y = math.floor(Y(sec.r0 + 0.8)), watch = east },
     { x = math.floor(X(cols - 2.6)), y = math.floor(Y(exec.r0 + 0.8)), watch = sw },
+  }
+  -- Halcyon's watcher drones (cyber-feud/watchers.lua), down the aisles,
+  -- never over the furniture: two in the offices, one round them and one
+  -- up and down between the desks, and one in the lobby between the lifts
+  -- and the reception.
+  local offices = floors[2]
+  map.watchers = {
+    { route = { P(9, offices.r0 + 3.8), P(37, offices.r0 + 3.8), P(37, offices.r0 + 9.8), P(9, offices.r0 + 9.8) },
+      start = 1 },
+    { route = { P(13, offices.r0 + 1.2), P(13, offices.r1 - 0.7), P(29, offices.r1 - 0.7), P(29, offices.r0 + 1.2) },
+      start = 3 },
+    { route = { P(11, lobby.r0 + 4.5), P(36, lobby.r0 + 4.5), P(36, lobby.r0 + 9.5), P(11, lobby.r0 + 9.5) },
+      start = 2 },
   }
   -- Where the Static come in to each floor: the lobby's front doors, and
   -- above it the top of the stairwell from the floor below.

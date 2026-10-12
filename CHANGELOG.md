@@ -90,6 +90,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Halcyon's marksmen in Halcyon Tower: three in the far corners of the security floor (more with more players,
   then the executive floor), lining up their shots along the floor. Walls hide you from them, and their sightline
   stops at the first wall.
+- Halcyon's watcher drones in Halcyon Tower: two down the offices' aisles and one over the lobby. They see over the
+  desks but not through floors, hang over you in the aisles and call officers in until you shoot them down.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

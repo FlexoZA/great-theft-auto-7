@@ -13,6 +13,11 @@
 -- flies back to its beat. Knocked out (an EMP, `stun`), it drops low and
 -- dark for that long and sees nothing.
 --
+-- Indoors (`indoors`, Halcyon Tower) it flies under the ceiling: it sees
+-- over the furniture but only who is in the same room as it (`sameRoom(x0,
+-- y0, x1, y1)`, the tower's floors), and goes round what stands on the
+-- floor (sliding along it), never over it or through a wall.
+--
 -- A `calm` brain sees nobody, until watchers.lua wakes it.
 
 local Features = require("src.features")
@@ -56,6 +61,8 @@ function Brain.new(opts)
     alarm = opts.alarm,
     nextId = opts.firstId or 1,
     calm = opts.calm == true,
+    indoors = opts.indoors == true,
+    sameRoom = opts.sameRoom,
     tick = 0,
     time = 0,
   }, Brain)
@@ -102,6 +109,9 @@ local function sees(self, server, s, who)
   if math.abs(Sight.angleDiff(math.atan2(dy, dx), s.facing)) > self.fov / 2 then
     return nil
   end
+  if self.sameRoom and not self.sameRoom(s.x, s.y, x, y) then
+    return nil
+  end
   return x, y
 end
 
@@ -123,8 +133,9 @@ function Brain:spot(server, s)
   return best
 end
 
---- `s` flies towards (x, y) at `speed`, over everything.
-local function fly(s, x, y, speed, dt)
+--- `s` flies towards (x, y) at `speed`: over everything, or `indoors`
+--- round it (along it, if only one way is in the way; not at all if both).
+local function fly(s, x, y, speed, dt, indoors)
   local dx, dy = x - s.x, y - s.y
   local d = math.sqrt(dx * dx + dy * dy)
   if d < 1 then
@@ -132,7 +143,24 @@ local function fly(s, x, y, speed, dt)
   end
   s.heading = turn(s.heading, math.atan2(dy, dx), Brain.TURN * 1.5, dt)
   local k = math.min(d, speed * dt)
-  s.x, s.y = s.x + math.cos(s.heading) * k, s.y + math.sin(s.heading) * k
+  local nx, ny = s.x + math.cos(s.heading) * k, s.y + math.sin(s.heading) * k
+  if indoors then
+    local r = Brain.RADIUS + 4
+    local function open(px, py)
+      return not (Sight.blocked(px, py) or Sight.blocked(px + r, py) or Sight.blocked(px - r, py)
+        or Sight.blocked(px, py + r) or Sight.blocked(px, py - r))
+    end
+    if not open(nx, ny) then
+      if open(nx, s.y) then
+        ny = s.y
+      elseif open(s.x, ny) then
+        nx = s.x
+      else
+        return
+      end
+    end
+  end
+  s.x, s.y = nx, ny
 end
 
 function Brain:update(server, dt)
@@ -173,11 +201,11 @@ function Brain:think(server, s, dt)
       s.facing = turn(s.facing, toThem, Brain.TURN, dt)
       local d2 = dist2(s.x, s.y, px, py)
       if Sight.blocked(s.x, s.y) then -- over a stall a round can't reach it: it doesn't hang there
-        fly(s, px, py, Brain.CHASE, dt)
+        fly(s, px, py, Brain.CHASE, dt, self.indoors)
       elseif d2 > (Brain.HOVER + 30) ^ 2 then
-        fly(s, px, py, Brain.CHASE, dt)
+        fly(s, px, py, Brain.CHASE, dt, self.indoors)
       elseif d2 < (Brain.HOVER - 40) ^ 2 then
-        fly(s, s.x - math.cos(toThem) * 40, s.y - math.sin(toThem) * 40, Brain.FLY, dt)
+        fly(s, s.x - math.cos(toThem) * 40, s.y - math.sin(toThem) * 40, Brain.FLY, dt, self.indoors)
       end
       if seen and s.alarmIn <= 0 then
         s.alarmIn = Brain.ALARM_EVERY
@@ -192,7 +220,7 @@ function Brain:think(server, s, dt)
     s.leg = s.leg % #s.route + 1
     to = s.route[s.leg]
   end
-  fly(s, to.x, to.y, Brain.FLY, dt)
+  fly(s, to.x, to.y, Brain.FLY, dt, self.indoors)
   local sweep = Brain.SWEEP * math.sin(self.time * 2 * math.pi / Brain.SWEEP_TIME + s.phase)
   s.facing = turn(s.facing, s.heading + sweep, Brain.TURN, dt)
 end
