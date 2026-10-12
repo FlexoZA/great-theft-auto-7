@@ -145,6 +145,36 @@ function Hud.drawMachine(x, y, time)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- In the world: the Shard lying where it was dropped, a green chip
+--- bobbing over a pulsing ring, calling to be picked up.
+function Hud.drawDropped(x, y, time)
+  local k = (time * 0.9) % 1
+  love.graphics.setColor(GREEN[1], GREEN[2], GREEN[3], 0.7 * (1 - k))
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", x, y, 14 + k * 46, 32)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0, 0, 0, 0.4)
+  love.graphics.ellipse("fill", x, y + 6, 10, 4)
+  local cy = y - 6 + math.sin(time * 4) * 3
+  love.graphics.setColor(GREEN)
+  love.graphics.polygon("fill", x, cy - 12, x + 8, cy, x, cy + 12, x - 8, cy)
+  love.graphics.setColor(1, 1, 1, 0.85)
+  love.graphics.polygon("fill", x, cy - 7, x + 3, cy - 1, x, cy + 2, x - 3, cy - 1)
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- A line of green text across the screen low down: what is holding the
+--- level up (the Shard's carrier still to come to its end).
+function Hud.drawNote(text)
+  local w, h = love.graphics.getDimensions()
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(text, 1, math.floor(h * 0.68) + 1, w, "center")
+  love.graphics.setColor(GREEN)
+  love.graphics.printf(text, 0, math.floor(h * 0.68), w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
 --- In the world: a small green diamond over whoever carries the Shard.
 function Hud.drawCarrier(x, y, time)
   local bob = math.sin(time * 4) * 3

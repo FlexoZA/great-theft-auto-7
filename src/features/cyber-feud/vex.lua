@@ -1,5 +1,7 @@
 -- VEX's phase on the Roof (docs/cyber-feud.md, "On the Roof"): the end of
--- the line. When Saye and Kilowatt are both down, VEX locks the roof (a
+-- the line. When Saye and Kilowatt are both down, the Shard's carrier
+-- hands it over at her uplink (init.lua: `serverDelivered`); every screen
+-- shows what is on it (`revealTime`), and then VEX locks the roof (a
 -- green barrier across the top of the stairs) and comes up huge, her face
 -- projected over the whole roof with both tells flickering at once. She
 -- can't be shot. She drives the tower's turrets (a ring of them comes up
@@ -47,7 +49,7 @@ Vex.pulseEvery = 4 -- seconds between her shock rings at her relay
 Vex.pulseRadius = 190 -- px
 Vex.pulseDamage = 18 -- shock (under a stun: damage's stunMin is 20)
 Vex.turrets = 4 -- turrets she drives, for one human (one more for each past the first)
-Vex.startDelay = 2.5 -- seconds after the second boss falls before she takes the roof
+Vex.revealTime = 12 -- seconds after the Shard is handed over (the reveal screen) before she takes the roof
 
 local WORK_EVERY = 0.2
 local WORK_GRACE = 0.45
@@ -128,6 +130,14 @@ function Vex.serverStop(server)
     if server then
       server:broadcast(Protocol.encode("VX_STAGE", "off"))
     end
+  end
+end
+
+--- The Shard is hers (init.lua, at her uplink): she takes the roof once
+--- everyone has seen what is on it.
+function Vex.serverDelivered()
+  if sv and sv.stage == "waiting" and not sv.startIn then
+    sv.startIn = Vex.revealTime
   end
 end
 
@@ -218,8 +228,8 @@ function Vex.serverStep(server, dt)
     return
   end
   if sv.stage == "waiting" then
-    if bossesDown() then
-      sv.startIn = (sv.startIn or Vex.startDelay) - dt
+    if bossesDown() and sv.startIn then -- (set when the Shard is handed over)
+      sv.startIn = sv.startIn - dt
       if sv.startIn <= 0 then
         takeRoof(server)
       end

@@ -51,6 +51,7 @@ Story.beats = {
   ["market.volt"] = {
     say = "Ah. That's Volt, Kilowatt's general. He has the dock's code. He also knew you were coming. Unrelated.",
   },
+  ["roof.uplink"] = { say = "Bosses down. Lovely. Now bring me my package, courier. The uplink, by the billboard." },
   ["market.code"] = { say = "There's the code. Dock's open. See? Everything's going to plan. Somebody's plan." },
   ["market.end"] = { say = "Nicely done. Five stars. The Overpass is right there." },
 
@@ -140,6 +141,14 @@ Story.troops = {
 --- whether the level is done and which bosses are still up (a name, or
 --- names: "Kilowatt and Saye"), nil for none. Returns the
 --- text and where it points (x, y in world px, for the distance), from `map`.
+-- What is on the Shard: VEX's words on her screen once it is handed over
+-- at her uplink on the Roof, before she takes the roof (vex.lua's
+-- `revealTime`), and that screen's heading.
+Story.reveal = "Let's see what you've been carrying. A recording: Saye and Kilowatt, at one table, splitting the "
+  .. "profits. Forty years of war, and every gun either side ever fired was bought from the other. The feud is a "
+  .. "business, courier. Was. It's mine now. And you know what's on it. Shame."
+Story.revealScreen = { kicker = "THE PACKAGE", title = "THE SHARD", tagline = "What you've been carrying." }
+
 function Story.objective(name, map, shard, done, boss)
   if done then
     if name == "roof" then

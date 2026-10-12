@@ -74,6 +74,7 @@
 --                         up and `beat` (a loop of { x, y }) the one they walk round the helipad; `lock` { x, y, w,
 --                         h } VEX's barrier across the stairs and `vexTurrets` { x, y, watch } the turrets she drives
 --   map.relays            { x, y } the middles of the Roof's relay terminals (cyber-feud/vex.lua)
+--   map.uplink            { x, y } VEX's uplink on the Roof, in front of her billboard: the Shard is handed over there
 --   map.volt              { x, y, square = { x0, y0, x1, y1 }, backup = { { x, y } }, beat, dock = { x, y, w, h } }
 --                         General Volt (the Market, cyber-feud/volt.lua): where he waits, the square that wakes
 --                         him, where his backup comes in and the beat it walks, the dock's shutter
@@ -1364,9 +1365,11 @@ local function buildRoof(map, rng, T)
     cover(map, "mast", X(p[1]) + 16, Y(p[2]) + 16, 32, 32)
     light(map, X(p[1]) + 32, Y(p[2]) + 32, 70, { 1, 0.2, 0.2 }, 0.9)
   end
-  -- VEX's billboard along the north edge.
+  -- VEX's billboard along the north edge, and her uplink in front of it,
+  -- where the Shard is handed over (cyber-feud/init.lua).
   cover(map, "billboard", X(6), Y(0) + 24, (n - 12) * T, 64, false)
   light(map, X(mid), Y(2), 520, CyberFeud.GREEN, 0.6)
+  map.uplink = { x = math.floor(X(mid)), y = math.floor(Y(2.7)) }
   map.exitX, map.exitY = math.floor(X(mid)), math.floor(Y(mid))
 
   -- Who is up here (cyber-feud/troops.lua and its bosses): Kilowatt on the

@@ -9,8 +9,18 @@
 --     VEX's intro screen comes first (screen.lua, her face in face.lua),
 --     with the quest's `introLine`.
 --   - On the Drop the package is in the vending machine by the garage: the
---     first player to press the action key there (F) takes the Shard and carries it for the rest of the line (a green
---     diamond over them). Once someone has it and is halfway up the map
+--     first player to press the action key there (F) takes the Shard and
+--     carries it for the rest of the line (a green diamond over them): it
+--     goes with them from map to map. A carrier who dies drops it where they
+--     fell (one who leaves, where they were), and the first human over it,
+--     on foot or driving, has it; a level starting with it on the ground, or
+--     its carrier gone, hands it to whoever had it last or anyone. Only its
+--     carrier finishes a level at its far end. On the Roof, once Saye and
+--     Kilowatt are down (CF_UPLINK), its carrier hands it to VEX at her
+--     uplink by the billboard (`map.uplink`, CF_DELIVER): every screen shows
+--     what is on it (her screen, Story.reveal), and then she takes the roof
+--     (vex.lua's `serverDelivered`). Dropped, it is marked on the minimap and
+--     the big map (and so is the uplink while it waits). Once someone has it and is halfway up the map
 --     (`map.vexY`), VEX boots up in your earpiece: her intro line on the
 --     comms (not her screen: you are usually fighting by then).
 --   - The host raises story beats once each per level (`Story.beats`):
@@ -44,15 +54,18 @@
 -- (flyers.lua): scenery, on each screen by itself.
 -- The tunnel end is Halcyon's alone, guarded by its assassin droids
 -- (droids.lua): the Hunters' brain, quicker, dodging every round.
--- Each level is still only the way through: the first player to reach the
--- map's far end (`map.exitX`, `map.exitY`), with the Shard taken on the
--- Drop, finishes it, and an EXIT star comes up there leading on to the next
+-- Each level is the way through: the Shard's carrier reaching the map's
+-- far end (`map.exitX`, `map.exitY`) finishes it, and an EXIT star comes up there leading on to the next
 -- (quests' `next`), or home from the Roof. The other maps' troops, the
 -- breach and the bosses come later.
 --
 -- Messages
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
---   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
+--   server -> all     CF_SHARD <id> [quiet|loud] [x y]
+--                     (who carries the Shard; 0 nobody, and with x y it lies on the ground there;
+--                     quiet: no notice, for a joiner or a new level)
+--   server -> all     CF_UPLINK             (the Roof's bosses are down: VEX's uplink wants the Shard; to a joiner too)
+--   server -> all     CF_DELIVER <id>       (they gave the Shard to VEX on the Roof: the reveal)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN, GATE_VEX, GATE_ROOM (the Overpass's roadblocks, the
 --   tower's stair doors), and troops.lua's turrets' TUR_WORK, brutes' BRT_WORK and VEX's VX_WORK
@@ -119,7 +132,10 @@ end
 
 -- Server ------------------------------------------------------------------
 
-local run = nil -- { shard = player id or nil } on the host for the whole line
+-- On the host for the whole line: who carries the Shard (a player id), or
+-- where it lies (`ground` { x, y }, dropped by `last`, who carried it last),
+-- and whether it has been `delivered` to VEX on the Roof.
+local run = nil
 local sv = nil -- { quest, map, reached, beats = { [key] = true } } on the host while a level is under way
 
 function CyberFeud:load()
@@ -138,15 +154,67 @@ function CyberFeud:serverStart()
   run, sv = nil, nil
 end
 
+CyberFeud.pickReach = 60 -- px from the Shard on the ground that picks it up (on foot or driving over it)
+CyberFeud.uplinkReach = 90 -- px from VEX's uplink on the Roof that hands it over
+
+--- Tell everyone where the Shard is now (`quiet`: no notice).
+local function shardNews(server, quiet)
+  local g = run.ground
+  if g then
+    server:broadcast(Protocol.encode("CF_SHARD", 0, quiet and "quiet" or "loud", ("%.0f"):format(g.x),
+      ("%.0f"):format(g.y)))
+  else
+    server:broadcast(Protocol.encode("CF_SHARD", run.shard or 0, quiet and "quiet" or nil))
+  end
+end
+
+--- `id` has the Shard now.
+local function carry(server, id, quiet)
+  run.shard, run.ground, run.last = id, nil, id
+  shardNews(server, quiet)
+end
+
+--- The Shard falls where its carrier was, at (x, y), for anyone to pick up.
+local function drop(server, x, y)
+  run.last, run.shard, run.ground = run.shard or run.last, nil, { x = x, y = y }
+  shardNews(server)
+end
+
+--- A human still in the game to hand the Shard to when the level changes
+--- with it on the ground or its carrier gone: whoever carried it last if
+--- they are here, else any human.
+local function someoneFor(server)
+  local last = run.last and server.players[run.last]
+  if last and not last.bot then
+    return last.id
+  end
+  for id, p in pairs(server.players) do
+    if not p.bot then
+      return id
+    end
+  end
+  return nil
+end
+
 function CyberFeud:serverQuestStarted(server, quest)
   if quest.boss ~= self.questId then
     return
   end
+  local c = city()
   if quest.id == self.questId or not run then
     run = { shard = nil } -- the line starts again: the Shard is back in its machine
     server:broadcast(Protocol.encode("CF_SHARD", 0, "quiet"))
   end
-  local c = city()
+  if not (c and c.map and c.map.pickupX) and not run.delivered then
+    -- Past the Drop the Shard comes along: whoever had it still has it; if
+    -- it was left on the ground, or they are gone, someone picks it up as
+    -- the level starts (a line started past the Drop: whoever is here).
+    if run.ground or not (run.shard and server.players[run.shard]) then
+      run.shard, run.ground = someoneFor(server), nil
+      run.last = run.shard
+    end
+    shardNews(server, true)
+  end
   sv = { quest = quest.id, map = c and c.current, reached = false, beats = {} }
   Gates.serverStart()
   if c and c.map then
@@ -202,6 +270,38 @@ function CyberFeud:serverStep(server, dt)
   if not (sv and map and map.exitX) then
     return
   end
+  -- The Shard on the ground: the first human over it (on foot, or driving
+  -- over it) has it.
+  if run.ground then
+    for id, p in pairs(server.players) do
+      if not p.bot and Features.present(p) then
+        local x, y = Features.bodyPose(server, p)
+        if dist2(x, y, run.ground.x, run.ground.y) <= self.pickReach ^ 2 then
+          carry(server, id)
+          break
+        end
+      end
+    end
+  end
+  -- The Roof: once Saye and Kilowatt are down, its carrier hands it to
+  -- VEX at her uplink; then she takes the roof.
+  local uplink = map.uplink
+  if uplink and not run.delivered and not (Kilowatt.serverUp() or Saye.serverUp()) and not sv.uplink then
+    sv.uplink = true
+    server:broadcast(Protocol.encode("CF_UPLINK"))
+    beat(server, "roof.uplink")
+  end
+  if sv.uplink and run.shard and not run.delivered then
+    local p = server.players[run.shard]
+    if p and Features.present(p) then
+      local x, y = Features.bodyPose(server, p)
+      if dist2(x, y, uplink.x, uplink.y) <= self.uplinkReach ^ 2 then
+        run.delivered, run.shard, run.last = true, nil, nil
+        server:broadcast(Protocol.encode("CF_DELIVER", p.id))
+        Vex.serverDelivered()
+      end
+    end
+  end
   if Vex.serverGone() and not sv.reached then -- she got away: the job's done, HOME on the helipad
     sv.reached = true
     local quests = Features.byName.quests
@@ -217,7 +317,7 @@ function CyberFeud:serverStep(server, dt)
       if z then
         beat(server, sv.map .. "." .. z.name)
       end
-      if map.vexY and run.shard and y < map.vexY then
+      if map.vexY and (run.shard or run.ground) and y < map.vexY then
         beat(server, "drop.boot")
       end
       local k = map.knot
@@ -227,6 +327,7 @@ function CyberFeud:serverStep(server, dt)
       local ready = not map.pickupX or run.shard ~= nil -- the Drop wants the Shard taken first
       ready = ready and not (Kilowatt.serverUp() or Saye.serverUp() or Vex.serverUp()) -- the Roof: all of them gone
       ready = ready and not Volt.serverLocked() -- the Market: the dock's pass code picked up
+      ready = ready and (run.delivered or run.shard == p.id) -- only the Shard's carrier finishes a level
       if ready and not sv.reached and dist2(x, y, map.exitX, map.exitY) <= self.reach ^ 2 then
         sv.reached = true
         local quests = Features.byName.quests
@@ -240,8 +341,18 @@ function CyberFeud:serverStep(server, dt)
 end
 
 function CyberFeud:serverPlayerJoined(server, player)
-  if run and run.shard and server.started and not player.bot then
-    server:send(player, Protocol.encode("CF_SHARD", run.shard, "quiet"))
+  if run and server.started and not player.bot then
+    if run.ground then
+      server:send(player, Protocol.encode("CF_SHARD", 0, "quiet", ("%.0f"):format(run.ground.x),
+        ("%.0f"):format(run.ground.y)))
+    elseif run.shard then
+      server:send(player, Protocol.encode("CF_SHARD", run.shard, "quiet"))
+    end
+    if run.delivered then
+      server:send(player, Protocol.encode("CF_DELIVER", 0))
+    elseif sv and sv.uplink then
+      server:send(player, Protocol.encode("CF_UPLINK"))
+    end
   end
   if Troops.serverAwake() and not player.bot then
     server:send(player, Protocol.encode("CF_WAKE")) -- the level's music, if it is on
@@ -263,33 +374,51 @@ function CyberFeud:serverHidden(_server, player)
   return Interceptors.isOne(player) or WarRigs.isOne(player)
 end
 
---- The carrier left: the Shard passes to another human still here, if any.
+--- The carrier left: the Shard falls where they were, for another to pick up.
 function CyberFeud:serverPlayerLeft(server, player)
   if not (run and run.shard == player.id) then
     return
   end
-  run.shard = nil
-  for id, p in pairs(server.players) do
-    if id ~= player.id and not p.bot then
-      run.shard = id
-      break
+  local x, y = nil, nil
+  if Features.present(player) then
+    x, y = Features.bodyPose(server, player)
+  end
+  if x and sv then
+    drop(server, x, y)
+    run.last = nil -- (they are not coming back for it)
+  else
+    run.shard = nil
+    run.last = nil
+    local id = someoneFor(server)
+    if id then
+      carry(server, id)
+    else
+      shardNews(server)
     end
   end
-  server:broadcast(Protocol.encode("CF_SHARD", run.shard or 0))
+end
+
+--- The carrier died: the Shard falls where they went down (a wreck they
+--- only bailed out of doesn't count: they still have it).
+function CyberFeud:serverKill(server, kill)
+  local p = run and run.shard and kill.victim == run.shard and server.players[run.shard]
+  if p and sv and p.body and p.body.dead and kill.x then
+    drop(server, kill.x, kill.y)
+  end
 end
 
 CyberFeud.serverMessages = {
   CF_TAKE = function(server, player)
     local map = cityMap()
-    if not (sv and run and not run.shard and map and map.pickupX and Features.present(player)) then
+    if not (sv and run and not run.shard and not run.ground and not run.delivered and map and map.pickupX
+      and Features.present(player)) then
       return
     end
     local x, y = Features.bodyPose(server, player)
     if dist2(x, y, map.pickupX, map.pickupY) > (CyberFeud.takeRadius + SLACK) ^ 2 then
       return
     end
-    run.shard = player.id
-    server:broadcast(Protocol.encode("CF_SHARD", player.id))
+    carry(server, player.id)
     Troops.serverWake() -- both sides come for it
   end,
 }
@@ -378,10 +507,15 @@ local cl = {
   says = {}, -- what VEX has still to say, in order
   say = nil, -- { text, t } what she is saying
   shardBy = nil, -- the player carrying the Shard
+  ground = nil, -- { x, y } where it lies, dropped
+  delivered = false, -- handed over to VEX on the Roof
+  uplink = false, -- VEX's uplink on the Roof wants it (the bosses are down)
   near = false, -- at the vending machine, with the Shard still in it
+  atExit = false, -- at the level's end without the Shard (only its carrier finishes)
 }
 
 function CyberFeud:clearLevel()
+  cl.uplink = false
   cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
   Troops.clear()
   Interceptors.clear()
@@ -393,7 +527,7 @@ end
 
 function CyberFeud:exitGame()
   self:clearLevel()
-  cl.level, cl.shardBy = nil, nil
+  cl.level, cl.shardBy, cl.ground, cl.delivered = nil, nil, nil, false
 end
 
 --- Everyone arrived on one of the maps: VEX's intro screen (not on the
@@ -404,6 +538,9 @@ function CyberFeud:questStarted(_client, quest)
   end
   face = face or Face.new()
   self:clearLevel()
+  if quest.id == self.questId then -- the line from the start: the Shard back in its machine
+    cl.delivered, cl.ground = false, nil
+  end
   cl.level = quest.map
   loadMusic(quest.map) -- now, under the banner, not when it starts
   if quest.map == "roof" then
@@ -421,7 +558,7 @@ end
 function CyberFeud:questEnded(_client, quest)
   if quest.boss == self.questId then
     self:clearLevel()
-    cl.level, cl.shardBy = nil, nil
+    cl.level, cl.shardBy, cl.ground, cl.delivered = nil, nil, nil, false
   end
 end
 
@@ -430,15 +567,42 @@ local function nameOf(client, id)
   return p and p.name or "Someone"
 end
 
+--- Is VEX's uplink waiting for the Shard (the Roof, Saye and Kilowatt down,
+--- not handed over yet)?
+local function uplinkOpen()
+  return cl.uplink and not cl.delivered
+end
+
 CyberFeud.clientMessages = {
   CF_SHARD = function(client, args)
     local id = tonumber(args[1]) or 0
+    local gx, gy = tonumber(args[3]), tonumber(args[4])
+    local had = cl.shardBy
     cl.shardBy = id > 0 and id or nil
+    cl.ground = (not cl.shardBy and gx and gy) and { x = gx, y = gy } or nil
+    if cl.shardBy then
+      cl.delivered = false
+    end
     if cl.shardBy and cl.level == "drop" then
       startMusic("drop") -- the chase is on
     end
-    if cl.shardBy and args[2] ~= "quiet" then
-      cl.zone = { name = nameOf(client, id) .. " has the Shard", kicker = "THE PACKAGE", t = 0 }
+    if args[2] ~= "quiet" then
+      if cl.shardBy then
+        cl.zone = { name = nameOf(client, id) .. " has the Shard", kicker = "THE PACKAGE", t = 0 }
+      elseif cl.ground then
+        local who = had and nameOf(client, had) or "Somebody"
+        cl.zone = { name = who .. " dropped the Shard", kicker = "THE PACKAGE", t = 0 }
+      end
+    end
+  end,
+  CF_UPLINK = function()
+    cl.uplink = true
+  end,
+  CF_DELIVER = function(_client, args)
+    cl.shardBy, cl.ground, cl.delivered = nil, nil, true
+    if (tonumber(args[1]) or 0) > 0 then -- (0: a joiner, who missed it)
+      face = face or Face.new()
+      cl.page = { line = Story.reveal, t = 0, max = Vex.revealTime, opts = Story.revealScreen }
     end
   end,
   CF_WAKE = function()
@@ -582,7 +746,10 @@ function CyberFeud:update(dt, client)
   if name or cl.myZone == false then
     cl.myZone = name
   end
-  cl.near = map.pickupX ~= nil and not cl.shardBy
+  cl.near = map.pickupX ~= nil and not cl.shardBy and not cl.ground and not cl.delivered
+  local px, py = client:myPose()
+  cl.atExit = px ~= nil and map.exitX ~= nil and cl.shardBy ~= nil and cl.shardBy ~= client.myId
+    and dist2(px, py, map.exitX, map.exitY) <= self.reach ^ 2
     and dist2(x, y, map.pickupX, map.pickupY) <= self.takeRadius ^ 2
 end
 
@@ -626,7 +793,7 @@ function CyberFeud:drawAboveCars(client)
   WarRigs.drawAboveCars(client)
   Flyers.draw() -- high over everything
   local map = cityMap()
-  if map and map.pickupX and not cl.shardBy then
+  if map and map.pickupX and not cl.shardBy and not cl.ground and not cl.delivered then
     Hud.drawMachine(map.pickupX, map.pickupY - 34, time)
   end
   if cl.shardBy then
@@ -634,7 +801,43 @@ function CyberFeud:drawAboveCars(client)
     if x then
       Hud.drawCarrier(x, y, time)
     end
+  elseif cl.ground then
+    Hud.drawDropped(cl.ground.x, cl.ground.y, time)
   end
+  local up = map and map.uplink
+  if up and uplinkOpen() then
+    Hud.drawMachine(up.x, up.y, time) -- VEX's uplink calling for it
+  end
+end
+
+--- A green diamond at (x, y) on the minimap or the big map, a ring pulsing
+--- out of it so it is found at a glance.
+local function mapMarker(x, y)
+  local k = (time * 1.2) % 1
+  love.graphics.setColor(Face.GREEN[1], Face.GREEN[2], Face.GREEN[3], 0.9 * (1 - k))
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", x, y, 4 + k * 12, 20)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0, 0, 0, 0.8)
+  love.graphics.polygon("fill", x, y - 7, x + 6, y, x, y + 7, x - 6, y)
+  love.graphics.setColor(Face.GREEN)
+  love.graphics.polygon("fill", x, y - 5, x + 4, y, x, y + 5, x - 4, y)
+end
+
+--- The minimap and the big map: where the Shard lies when it has been
+--- dropped, and VEX's uplink while it waits for it on the Roof.
+function CyberFeud:drawOnMinimap(_client, toMap)
+  if not onLevel() then
+    return
+  end
+  if cl.ground then
+    mapMarker(toMap(cl.ground.x, cl.ground.y))
+  end
+  local map = cityMap()
+  if map and map.uplink and uplinkOpen() then
+    mapMarker(toMap(map.uplink.x, map.uplink.y))
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 --- At night (the night feature), the Shard glows over whoever carries it.
@@ -651,6 +854,12 @@ function CyberFeud:drawNightLights(client, _camera, glow)
     if x then
       glow(x, y - 40, 70, Face.GREEN, 0.9)
     end
+  elseif cl.ground and onLevel() then
+    glow(cl.ground.x, cl.ground.y, 110, Face.GREEN, 0.6 + 0.3 * math.sin(time * 4))
+  end
+  local map = cityMap()
+  if map and map.uplink and uplinkOpen() then
+    glow(map.uplink.x, map.uplink.y, 160, Face.GREEN, 0.8)
   end
 end
 
@@ -659,7 +868,7 @@ function CyberFeud:drawHUD(client)
     return
   end
   if cl.page then
-    Screen.draw(face, cl.page.line, cl.page.t, time)
+    Screen.draw(face, cl.page.line, cl.page.t, time, cl.page.opts)
     return
   end
   local map = cityMap()
@@ -672,6 +881,17 @@ function CyberFeud:drawHUD(client)
     text, tx, ty = "Objective: take the dock's pass code off General Volt in Noodle Square", vx, vy
   elseif volt == "code" and not done then
     text, tx, ty = "Objective: pick up the pass code where Volt fell", vx, vy
+  end
+  -- The Shard comes first: on the ground, it is to be picked up; on the
+  -- Roof with the bosses down, it is to be handed over; with somebody else
+  -- carrying it, the end of the level is theirs to reach.
+  if not done and cl.ground then
+    text, tx, ty = "Objective: pick up the Shard", cl.ground.x, cl.ground.y
+  elseif not done and uplinkOpen() and map.uplink then
+    local who = cl.shardBy == client.myId and "the Shard" or (nameOf(client, cl.shardBy) .. " and the Shard")
+    text, tx, ty = "Objective: get " .. who .. " to VEX's uplink by the billboard", map.uplink.x, map.uplink.y
+  elseif text and not done and cl.shardBy and cl.shardBy ~= client.myId and tx and not bosses then
+    text = text .. "  (" .. nameOf(client, cl.shardBy) .. " has the Shard)"
   end
   local vexOn, relaysLeft = Vex.active()
   if vexOn and not done then
@@ -689,6 +909,8 @@ function CyberFeud:drawHUD(client)
   end
   if cl.near then
     Hud.drawPrompt(Controls.name(Controls.bindings("enter-exit")[1]))
+  elseif cl.atExit and not done then
+    Hud.drawNote(nameOf(client, cl.shardBy) .. " has the Shard: the job goes on when they get here")
   end
   Gates.drawHUD()
   Turrets.drawHUD()
