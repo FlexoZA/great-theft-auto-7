@@ -175,11 +175,26 @@ Buildings.usables = {
     color = { 0.55, 0.7, 0.3 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
     ready = function()
       local grenades = Features.byName.grenades
-      return grenades ~= nil and grenades.readied
+      return grenades ~= nil and grenades.readied == "grenade"
     end,
     apply = function(server, player, args)
       local grenades = Features.byName.grenades
       return grenades ~= nil and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]))
+    end,
+  },
+  {
+    -- Volt's (the grenades feature's): never sold, dropped by him, then by
+    -- enemies for whoever has had one.
+    item = "grenade-electric", action = "grenade-electric", label = "Ready an electric grenade (click throws it)",
+    key = "t", title = "electric", color = { 0.18, 0.9, 1 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
+    ready = function()
+      local grenades = Features.byName.grenades
+      return grenades ~= nil and grenades.readied == "grenade-electric"
+    end,
+    apply = function(server, player, args)
+      local grenades = Features.byName.grenades
+      return grenades ~= nil
+        and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]), "grenade-electric")
     end,
   },
 }
@@ -228,6 +243,9 @@ local REASONS = {
   nogrenade = "No grenades in your grenade slot: drag some there on the inventory screen.",
   nogrenades = "You carry no grenades.",
   grenadecool = "Pull the next pin in a moment.",
+  ["nogrenade-electric"] = "No electric grenades in their slot: drag some there on the inventory screen.",
+  ["nogrenade-electrics"] = "You carry no electric grenades.",
+  ["grenade-electriccool"] = "Pull the next pin in a moment.",
   cantthrow = "You can't throw a grenade from here.",
   stamina = "Your stamina is full.",
   quickfull = "That slot is full.",
@@ -1274,7 +1292,7 @@ local function drawUsableHud(self, u, index)
     love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.2 * pulse)
     love.graphics.circle("fill", cx, cy, r + 6 + 3 * pulse, 48)
     UI.ring(cx, cy, r, left and 1 - left / u.cooldown or 1, c, 5)
-    Render.grenade(cx, cy + 1, 1)
+    Render.grenade(cx, cy + 1, 1, u.item == "grenade-electric")
     middle = ""
   elseif count < 1 then
     UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
@@ -1291,7 +1309,7 @@ local function drawUsableHud(self, u, index)
     if u.item == "medkit" then
       love.graphics.rectangle("fill", cx - 3, cy - 11, 6, 22) -- a cross behind the key
       love.graphics.rectangle("fill", cx - 11, cy - 3, 22, 6)
-    elseif u.item == "grenade" then
+    elseif u.item == "grenade" or u.item == "grenade-electric" then
       love.graphics.ellipse("fill", cx, cy + 2, 9, 11) -- a grenade behind the key
       love.graphics.rectangle("fill", cx - 3, cy - 12, 6, 5)
     else

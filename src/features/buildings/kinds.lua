@@ -82,7 +82,8 @@ function Kinds.stack(item)
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
-  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade" then
+  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade"
+    or item == "grenade-electric" then
     return 5
   elseif item:match("^ability%-") or item:match("^armor%-") or item:match("^gear%-") then
     return 1 -- one of a kind
@@ -363,6 +364,8 @@ function Kinds.name(item, n)
       name = "energy drink" .. (n ~= 1 and "s" or "")
     elseif item == "grenade" and n ~= 1 then
       name = "grenades"
+    elseif item == "grenade-electric" then
+      name = "electric grenade" .. (n ~= 1 and "s" or "")
     end
   end
   return Tiers.named(name, tier)
@@ -452,10 +455,17 @@ function Kinds.isItem(item)
   return false
 end
 
+-- Things a player carries that no building makes: a boss's drop (Volt's
+-- electric grenades, the grenades feature's).
+Kinds.special = { ["grenade-electric"] = true }
+
 --- Can a player carry `item` in their bag: anything a building makes but a
---- car, and the abilities, armor and clothes other features put there, in
---- any tier for the things that come in tiers?
+--- car, the `special` drops, and the abilities, armor and clothes other
+--- features put there, in any tier for the things that come in tiers?
 function Kinds.carriable(item)
+  if Kinds.special[item] then
+    return true
+  end
   local tier
   item, tier = Tiers.split(item)
   if not tier or (tier ~= Tiers.DEFAULT and not Tiers.tiered(item)) then

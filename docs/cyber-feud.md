@@ -93,7 +93,9 @@ branch off `feature/cyber-feud`):
   (0.2 rad either side), 0.65 s lines, every 2.4 s; grenades in pairs. The
   bosses' standard (breath, the boss bar, a medkit when badly hurt, out
   from under abilities, `serverKill` "boss", 30 koins). Only players' rounds
-  reach him. Down, he drops the dock's pass code: the first player on foot
+  reach him. Down, he drops a stack of three electric grenades every player
+  can pick up their own of, which unlocks them (the grenades feature's, with
+  the rewards feature's screen; see docs/features.md), and the dock's pass code: the first player on foot
   over it picks it up (VLT_TAKEN) and the dock opens. Until then the dock
   is drawn shut (LOCKED - PASS CODE), reaching it doesn't finish the level,
   and the objective line points at him, then at the code. VEX has a line

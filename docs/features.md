@@ -687,8 +687,11 @@ couple of small conventions rather than requiring each other:
   `serverFillHopper(server, plotId, item, n)` → moved fill a factory's hopper.
 - `Features.byName.vehicles:serverSetModel(server, car, model)`: make a car
   already in the world (an NPC's own) a model from `vehicles.catalog.byKey`.
-- `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
-  pickup on the ground right there, gone for good once taken. `kind` is a
+- `Features.byName.pickups:serverDrop(server, kind, x, y, amount, opts)`: leave a
+  pickup on the ground right there, gone for good once taken. `opts.perPlayer`
+  makes it one every human takes once (a boss's reward): it is gone only for
+  whoever took it, and stays until the map changes; any other `opts` are kept
+  on the item for its kind's `apply` (`unlocks`). `kind` is a
   pickups kind ("health", "stamina": used on the spot, or put in the
   taker's quick slot when it would do nothing, till that is full),
   `"ammo-<gun key>"` for a box of
@@ -707,7 +710,8 @@ couple of small conventions rather than requiring each other:
   police's officers and units), and the one place the odds live: one thing
   at most, `pickups.dropChance` (65%) of anything, then one of
   `pickups.drops` by weight (an ammo box 3, a medkit, an energy drink and a
-  kevlar vest 1 each, a grenade 0.5); something with tiers then rolls its tier by
+  kevlar vest 1 each, a grenade 0.5, an electric grenade 0.3 but only while
+  its `unlocked` hook, `serverAnyUnlocked`, says somebody has it); something with tiers then rolls its tier by
   `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
   kind and its weight to `drops` and every enemy can drop it. A human with no armor on
   who runs over a vest wears it at once, whole
@@ -870,7 +874,7 @@ the one with a plot.
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
   quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
+  drinks on J, grenades on G, electric grenades on T): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
@@ -881,7 +885,7 @@ the one with a plot.
   left to the feature that owns it: its key readies it and that feature
   sends `BLD_USE <item> <x> <y>` on a click, which reaches `apply` as `args`.
 - Grenades: `src/features/grenades` throws the grenades in the grenade quick
-  slot (five at most). T readies one: the landing spot follows the cursor,
+  slot (five at most). G readies one: the landing spot follows the cursor,
   within `grenades.range` and short of the first wall (`Grenades.landing`,
   the same sum on the host), with the blast's reach drawn round it, and the
   fire button throws it (`fireTaken`). It flies in an arc for a time that
@@ -889,9 +893,27 @@ the one with a plot.
   (explosive, the thrower too). On foot only; no tiers (a consumable). The
   ammo factory makes them out of iron and sulfur and the shop sells them
   under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
-  `grenades:serverLob(server, ox, oy, x, y, owner)` throws one for an
+  `grenades:serverLob(server, ox, oy, x, y, owner, kind)` throws one for an
   enemy (owner 0: hurts any player, credits nobody); A-Man's Combine and
-  D-Day's soldiers do.
+  D-Day's soldiers do. Each kind is an entry of `grenades.kinds` by its
+  item, with its blast. The electric grenade ("grenade-electric", T, its own
+  quick slot) is General Volt's: never sold or made (`Kinds.special` lets a
+  bag carry it all the same). Its blast is shock (30, a stun) and holds every
+  enemy in it still for 1.5 s (`serverFreezeArea`), and it leaves a 110 px
+  field for 4 s that zaps whoever stays (8 shock every 0.5 s; players but the
+  thrower, and up to 3 enemies of each kind through their `serverShotAt`).
+  A player unlocks it by picking up the stack Volt drops (a `perPlayer`
+  pickup with `unlocks`: `grenades:serverTakeElectric`), which puts the
+  reward screen up (GRN_UNLOCK); the unlock is saved with them
+  (`serverSavePlayer`, `{ version, electric }`). After that enemies drop it
+  now and then (`pickups.drops`' `unlocked`), while any human in the world
+  has it unlocked; only those who have can pick one up.
+- Rewards: `src/features/rewards` puts up the full-screen card for something
+  unlocked: `Features.byName.rewards:show({ kicker, title, color, icon =
+  function(cx, cy, scale), lines })`, client side, from whatever feature
+  hears of the unlock. The world keeps going behind it; it has the mouse and
+  keys while up (`menuOpen`, `pointerTaken`) and Enter or a click puts it away
+  after 0.8 s. Cards queue.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face

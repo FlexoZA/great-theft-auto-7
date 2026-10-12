@@ -16,7 +16,9 @@
 --
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health), has the boss bar, goes for medkits when badly hurt, dodges
--- abilities, and going down raises `serverKill` "boss" and spills koins.
+-- abilities, and going down raises `serverKill` "boss" and spills koins. He
+-- also drops his electric grenades, a stack each player can pick up, which
+-- unlocks them (the grenades feature's, with the reward screen).
 -- Only players' rounds reach him (the feud's pass him by).
 --
 -- Messages
@@ -279,6 +281,13 @@ local function down(server, by, angle)
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, v.x, v.y, Volt.DROPS)
+  end
+  -- His electric grenades: a stack for every player (each takes their own),
+  -- which unlocks them (the grenades feature's).
+  local pickups, grenades = Features.byName.pickups, Features.byName.grenades
+  if pickups and pickups.serverDrop and grenades and grenades.kinds then
+    pickups:serverDrop(server, "grenade-electric", v.x + 48, v.y + 10, grenades.kinds["grenade-electric"].reward,
+      { perPlayer = true, unlocks = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = v.x, y = v.y, by = by, angle = angle })
 end
