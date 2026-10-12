@@ -33,7 +33,8 @@
 -- On the Overpass Halcyon's interceptors (interceptors.lua) wait on the
 -- shoulder to chase, ram and shoot at whoever drives by, and the Static's
 -- war-rigs (war_rigs.lua) to ram them, Kilowatt riding the first one past;
--- over the gantries Halcyon's sting drones (stings.lua) wait to strafe them.
+-- over the gantries Halcyon's sting drones (stings.lua) wait to strafe them,
+-- and on them its marksmen (marksmen.lua) draw a line on them and fire.
 --
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
 -- gates behind riot shields, in the feud with the rest of Halcyon; the
@@ -77,6 +78,7 @@ local Watchers = require("src.features.cyber-feud.watchers")
 local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Stings = require("src.features.cyber-feud.stings")
+local Marksmen = require("src.features.cyber-feud.marksmen")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -269,13 +271,17 @@ function Troops.serverStart(server, map, name, calm)
   local blades = Rippers.serverStart(server, map, nav, calm) -- the Static's rippers in the lanes
   local emps = Sparkers.serverStart(server, map, nav, calm) -- and its sparkers, hanging back
   local eyes = Watchers.serverStart(server, map, calm) -- Halcyon's watcher drones overhead
+  local rifles = Marksmen.serverStart(server, map, calm) -- Halcyon's marksmen up on the gantries
   if emps then
     emps.rivals = { eyes } -- what an EMP is for (the gangers leave the drones to them)
   end
   --- The two sides at each other's throats (`on`), or holding fire.
   function sv.setWar(on)
     local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
-    h.rivals, s.rivals = on and { s, blades, emps } or {}, on and { h, shields } or {}
+    h.rivals, s.rivals = on and { s, blades, emps } or {}, on and { h, shields, rifles } or {}
+    if rifles then
+      rifles.rivals = on and { s, blades, emps } or {}
+    end
     if shields then
       shields.rivals = on and { s, blades, emps } or {}
     end
@@ -423,6 +429,7 @@ function Troops.serverStop(server)
   Sparkers.serverStop(server)
   Watchers.serverStop(server)
   Stings.serverStop(server)
+  Marksmen.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -443,6 +450,7 @@ function Troops.serverWake()
   Rippers.serverWake()
   Sparkers.serverWake()
   Watchers.serverWake()
+  Marksmen.serverWake()
 end
 
 --- Where the sides hold fire on each other (sv.provoked), a round of one
@@ -694,6 +702,7 @@ function Troops.serverStep(server, dt)
   Sparkers.serverStep(server, dt)
   Watchers.serverStep(server, dt)
   Stings.serverStep(server, dt)
+  Marksmen.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -736,6 +745,9 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
     hit, byPlayer = Watchers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   end
   if not hit then
+    hit, byPlayer = Marksmen.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  end
+  if not hit then
     hit, byPlayer = Stings.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   end
   if hit then
@@ -757,6 +769,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Sparkers.serverFreezeArea(x, y, radius, seconds)
   Watchers.serverFreezeArea(x, y, radius, seconds)
   Stings.serverFreezeArea(x, y, radius, seconds)
+  Marksmen.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -833,6 +846,7 @@ function Troops.clear()
   Sparkers.clear()
   Watchers.clear()
   Stings.clear()
+  Marksmen.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -860,6 +874,7 @@ function Troops.update(dt)
   Sparkers.update(dt)
   Watchers.update(dt)
   Stings.update(dt)
+  Marksmen.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -959,6 +974,7 @@ function Troops.drawAboveCars()
   Sparkers.drawAboveCars()
   Watchers.drawAboveCars()
   Stings.drawAboveCars()
+  Marksmen.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -979,6 +995,7 @@ function Troops.drawNightLights(glow)
   Sparkers.drawNightLights(glow)
   Watchers.drawNightLights(glow)
   Stings.drawNightLights(glow)
+  Marksmen.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1077,6 +1094,9 @@ for kind, handler in pairs(Watchers.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Stings.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Marksmen.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

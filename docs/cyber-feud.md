@@ -71,7 +71,18 @@ branch off `feature/cyber-feud`):
   so wide at speed), firing three-round bursts (6 a round, Halcyon's)
   whenever the target is in front and within 420 px. They give up past
   1500 px. Only players' rounds reach them; an EMP knocks one out for 5 s.
-  Still to come on the Overpass: marksmen on the gantries.
+- Halcyon's marksmen (`feature/cyber-feud-marksmen`,
+  `src/features/cyber-feud/marksmen.lua`, their own brain in
+  `marksman_brain.lua`): on the gantries' catwalks at `map.marksmen`, drawn
+  over the cars (three for one human, one more for each extra, up to
+  five). 40 health. A 130-degree cone down the road out to 950 px, over
+  everything. A thin magenta line follows whoever he has for 1 s, leading
+  a car to where it will be when the round arrives, then holds still and
+  bright for 0.4 s and he fires down it: one round of 40 at 1700 px/s.
+  Drive straight on and it hits; swerve while it holds and it misses. Then
+  2.4 s on the bolt. A player's rounds or the Static's reach him; in a
+  flare-up the Static are his rivals and he theirs. That is everything the
+  design puts on the Overpass.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
@@ -459,7 +470,7 @@ have to shoot your way through.
 | --- | --- | --- | --- | --- |
 | **Officer** | Grey armour, white helmet, magenta visor strip | 60 | SMG or pistol (`bullet`) | Rank and file: posts and squads of 3, like the Combine. Calls in what they see. |
 | **Enforcer** | Darker grey, a riot shield in front with a magenta edge | 120 | Shotgun (`bullet`) | Slow. The shield stops everything from in front (within 70 degrees of straight on); flank him or blow him up (blasts and fire go through). Holds doorways and choke points: steps up on you, never more than 300 px from his post. |
-| **Marksman** | Dark helmet, long rifle | 40 | Rifle (`bullet`, hits hard) | Rooftops and catwalks. A thin magenta line shows his aim a second before he fires, like Saye's sightline but slower. |
+| **Marksman** | Dark helmet, long rifle | 40 | Rifle (`bullet`, 40) | Rooftops and catwalks (the Overpass's gantries). A thin magenta line follows you for a second, leading a car, then holds still and bright for 0.4 s before he fires down it, like Saye's sightline but slower. Swerve while it holds. |
 | **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol, seeing over walls. Seeing you, it hangs over you and calls the nearest three officers on their feet, every 6 s. Shoot it down (only players' rounds reach it) or an EMP knocks it out for 5 s. Breach it to blind it. |
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`), three-round bursts | Flies in swarms of 3: over the Overpass's gantries, making strafing runs through where you are going, faster than a car; later in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |

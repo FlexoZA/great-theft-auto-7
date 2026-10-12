@@ -53,6 +53,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the back, built to ram you off the road (and Halcyon's interceptors, once the two sides are at it).
 - Kilowatt, the Static's leader, makes an entrance on the Overpass: his war-rig roars past you with him on the back,
   and he jumps off before it hits the barrier. You'll meet him properly later.
+- Halcyon's marksmen stand on the Overpass's gantries with long rifles. A thin magenta line shows where each is aiming;
+  when it stops moving and flares, swerve, or the round finds you.
 - Halcyon's sting drones hang over the Overpass's gantries in swarms of three, then come after you in strafing runs,
   faster than your car, guns going. One or two rounds bring one down.
 - Halcyon's interceptors wait on the Overpass's shoulder: armoured grey SUVs with flashing light bars that come
