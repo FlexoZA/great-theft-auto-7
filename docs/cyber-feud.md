@@ -35,6 +35,19 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The tower's locked stair doors (`feature/cyber-feud-tower-doors`, gates
+  of `kind` "door" in `map.gates`, `src/features/cyber-feud/gates.lua`): a
+  shutter across the foot of each of the five stairwells up, solid to
+  people and rounds until opened (and shut in the troops' walking grid
+  too: `Nav:refresh` opens it there). Breach it by holding the action key
+  (F) at the terminal on the wall beside it for 4 s, quietly (no alarm),
+  draining at half that pace when let go; or press E there ("vex-door")
+  and VEX opens it at once, along with the floor's guard room, a door in
+  the middle of its north wall: four of Halcyon's officers (`Bosses.count`)
+  come out of it one after another at whoever asked
+  (`Troops.serverAmbush`, a garrison let out), and VEX says sorry
+  (`tower.vex1`..`3`). The lobby's lifts moved in to make room for its
+  door's terminal.
 - The factions on the Overpass (`feature/cyber-feud-overpass`, `overpass`
   in `Troops.levels`; placements in `city-map/cyber_feud.lua`'s
   `buildOverpass`): Static gangers in pairs on the shoulders of the long

@@ -52,7 +52,9 @@
 --   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
 --                         car-stations feature); the respawn points there too
 --   map.gates             { name, solid, frame = { x, y, w, h }, panel = { x, y } } Halcyon's roadblocks across
---                         the road (the Overpass, cyber-feud/gates.lua): `solid` is in map.solids until opened
+--                         the road (the Overpass, cyber-feud/gates.lua): `solid` is in map.solids until opened;
+--                         the tower's locked stair doors too, with `kind` "door" and `room` { x, y, nx, ny }
+--                         (the guard room VEX opens with one)
 --   map.breakIns          { x, y, beat } where the Static break in to each of the tower's floors (the lobby's
 --                         doors, then the stairwell from below) and the beat they walk there (a loop of { x, y })
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
@@ -905,8 +907,8 @@ local function buildTower(map, rng, T)
   -- The lobby: reception, the lifts, planters.
   local f = floors[1]
   cover(map, "reception", X(18), Y(f.r0 + 6), 12 * T, 48)
-  cover(map, "lift", X(6), Y(f.r0), 3 * T, 3 * T)
-  cover(map, "lift", X(cols - 9), Y(f.r0), 3 * T, 3 * T)
+  cover(map, "lift", X(12), Y(f.r0), 3 * T, 3 * T)
+  cover(map, "lift", X(cols - 15), Y(f.r0), 3 * T, 3 * T) -- (clear of the stair door up and its terminal)
   for _, c in ipairs({ 8, 14, cols - 14, cols - 8 }) do -- either side of the doors, clear of the arrival
     cover(map, "planter", X(c), Y(f.r1 - 3), 48, 48)
   end
@@ -998,10 +1000,10 @@ local function buildTower(map, rng, T)
   end
   -- The lobby's lifts, watching over the reception to the doors.
   local lobby = floors[1]
-  for _, c in ipairs({ 6.5, 8.5 }) do
+  for _, c in ipairs({ 12.5, 14.5 }) do
     post(c, lobby.r0 + 3.6, south, "lifts west")
   end
-  for _, c in ipairs({ cols - 9.5, cols - 7.5 }) do
+  for _, c in ipairs({ cols - 14.5, cols - 12.5 }) do
     post(c, lobby.r0 + 3.6, south, "lifts east")
   end
   -- A few more, floor by floor, watching across where you have to go.
@@ -1028,6 +1030,27 @@ local function buildTower(map, rng, T)
       x, y = X(c0 + 2), Y(fl.r1 + 1.5)
     end
     map.breakIns[i] = { x = math.floor(x), y = math.floor(y), beat = beats[i] }
+  end
+  -- Each stair door up is locked (cyber-feud/gates.lua, kind "door"): a
+  -- shutter across the foot of the stairwell, solid until somebody breaches
+  -- the terminal on the wall beside it, or asks VEX, who opens it at once
+  -- and the floor's guard room (`room`, a door in the middle of the north
+  -- wall) with it.
+  map.gates = {}
+  for i = 1, #floors - 1 do
+    local fl = floors[i]
+    local left = i % 2 == 0
+    local c0 = left and fl.c0 + 1 or fl.c1 - 4
+    local s = { x = X(c0), y = Y(fl.r0) - 12, w = 4 * T, h = 24 }
+    map.solids[#map.solids + 1] = s
+    local px = left and X(c0 + 4) + 30 or X(c0) - 30
+    map.gates[i] = {
+      name = "the stairs to " .. floors[i + 1].name:lower(), kind = "door", solid = s,
+      frame = { x = s.x, y = s.y, w = s.w, h = s.h },
+      panel = { x = math.floor(px), y = math.floor(Y(fl.r0) + 26) },
+      room = { x = math.floor(X(24)), y = math.floor(Y(fl.r0) + 4), nx = 0, ny = 1 },
+    }
+    light(map, px, Y(fl.r0) + 26, 90, CyberFeud.MAGENTA, 0.6)
   end
   -- Nobody is looking until somebody is past the reception: not a shot at the doors.
   map.wakeY = math.floor(Y(lobby.r1 - 5))

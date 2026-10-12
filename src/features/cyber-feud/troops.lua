@@ -873,6 +873,22 @@ function Troops.serverPanicArea(x, y, radius)
   Sparkers.serverPanicArea(x, y, radius)
 end
 
+--- A guard room opened on Halcyon (`door` { x, y, nx, ny }, a tower door
+--- VEX opened): `count` officers out of it one after another, at (x, y),
+--- and then at whoever is nearest, as a station's garrison comes out. The
+--- street wakes, if it hasn't.
+function Troops.serverAmbush(_server, door, x, y, count)
+  if not sv then
+    return
+  end
+  Troops.serverWake()
+  local side = sv.sides.halcyon
+  side.garrisons[#side.garrisons + 1] = {
+    g = { x = door.x, y = door.y, reach = 700, door = door }, out = true, target = { x = x, y = y }, left = count,
+    nextIn = Troops.garrisonFirst,
+  }
+end
+
 --- Is the street awake (for a player joining after it woke)?
 function Troops.serverAwake()
   return sv ~= nil and sv.awake == true

@@ -47,7 +47,8 @@
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
---   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN (the Overpass's roadblocks)
+--   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN, GATE_VEX, GATE_ROOM (the Overpass's roadblocks, the
+--   tower's stair doors)
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   server -> one     CF_MUSIC              (to a player joining a level whose theme is on: start it)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
@@ -113,6 +114,7 @@ function CyberFeud:load()
   require("src.features.cyber-feud.rippers").load() -- the rippers' blades
   require("src.features.cyber-feud.sparkers").load() -- the sparkers' EMPs
   require("src.features.cyber-feud.watchers").load() -- the watcher drones' call
+  Gates.load() -- the key that asks VEX to open a tower door
 end
 
 function CyberFeud:serverStart()
@@ -519,7 +521,7 @@ function CyberFeud:update(dt, client)
 end
 
 --- The action key is ours at the vending machine, and at a roadblock's
---- panel (on-foot leaves the car alone).
+--- panel or a tower door's terminal (on-foot leaves the car alone).
 function CyberFeud:actionTaken()
   return cl.near or Gates.actionTaken()
 end
@@ -531,6 +533,9 @@ function CyberFeud:keypressed(key, client)
   end
   if cl.near and Controls.is("enter-exit", key) and client then
     client:send(Protocol.encode("CF_TAKE"))
+  end
+  if client and onLevel() then
+    Gates.keypressed(key, client)
   end
 end
 

@@ -59,6 +59,10 @@ Story.beats = {
   ["tower.Labs"] = { say = "Don't look in the tanks. ...You looked in the tanks." },
   ["tower.Security"] = { say = "Security floor. They know you're coming. No idea how." },
   ["tower.Executive"] = { say = "Saye's floor. Wipe your feet. The lift's past the boardroom." },
+  -- VEX opening a stair door for you (gates.lua): and the guard room with it, every time.
+  ["tower.vex1"] = { say = "There you go, one door. ...And one guard room. Ignore them. They're on a break." },
+  ["tower.vex2"] = { say = "Open! Oh. Wrong button. Well, it's open now. All of it." },
+  ["tower.vex3"] = { say = "Door's open. So's security's break room. I'm sure they won't mind." },
   ["tower.end"] = { say = "Lift's waiting. Going up. All the way up." },
 
   ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },

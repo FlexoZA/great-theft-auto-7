@@ -82,6 +82,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Static break into Halcyon Tower behind you: a pack of gangers through the front doors, then up the
   stairwell onto the lowest floor anyone is on, about every 35 s. The two factions ignore each other in the
   tower; they only want you.
+- Halcyon Tower's stair doors are locked. Hold F at the terminal beside one for 4 s to breach it quietly, or press
+  E to have VEX open it at once, which also opens that floor's guard room: four officers come out after you (more
+  with more players).
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
