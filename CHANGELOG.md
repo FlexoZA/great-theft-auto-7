@@ -101,6 +101,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   charges down it, and punches up close. Get next to one and hold F for 1.5 s to breach his arm: for 4 s he spins,
   swinging at everyone near him, his own side included.
 - The Static's break-ins into Halcyon Tower bring sparkers from the offices up and brutes from the server room up.
+- Kilowatt waits for you on the Roof: the Static's boss, huge, with a reactor for a heart. He charges down a line
+  he marks on the floor, hops and slams a ring of shock out round him, whips lightning through you and whoever is
+  next to you, and punches up close. Every few moves he vents, cage open and steaming: hits count double then. At
+  half health he gets faster and meaner. The Roof isn't done until he is down.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

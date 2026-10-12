@@ -67,7 +67,7 @@ local CHROME = { 0.78, 0.82, 0.86 }
 local STATE_CODE = { beat = 0, run = 1, brace = 2, charge = 3, dazed = 4, wind = 5, haywire = 6 }
 local LOOK = {
   shirt = { 0.22, 0.20, 0.19 }, pants = { 0.13, 0.13, 0.15 }, skin = { 0.55, 0.40, 0.31 },
-  hair = { 0.10, 0.10, 0.12 }, shoes = { 0.06, 0.06, 0.07 },
+  hair = { 0.10, 0.10, 0.12 }, shoes = { 0.06, 0.06, 0.07 }, size = 2.0, -- (his body lies as big as he stood)
 }
 
 local random = love.math.random

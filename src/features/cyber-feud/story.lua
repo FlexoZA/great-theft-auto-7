@@ -125,10 +125,10 @@ Story.troops = {
   },
 }
 
---- The objective line for map `name`, given whether someone has the Shard
---- and whether the level is done. Returns the text and where it points
---- (x, y in world px, for the distance), from `map`.
-function Story.objective(name, map, shard, done)
+--- The objective line for map `name`, given whether someone has the Shard,
+--- whether the level is done and whether a boss is still up. Returns the
+--- text and where it points (x, y in world px, for the distance), from `map`.
+function Story.objective(name, map, shard, done, boss)
   if done then
     if name == "roof" then
       return "Objective: take the EXIT star home"
@@ -146,6 +146,8 @@ function Story.objective(name, map, shard, done)
     return "Objective: drive the Overpass to Halcyon Tower", map.exitX, map.exitY
   elseif name == "tower" then
     return "Objective: climb to the executive lift", map.exitX, map.exitY
+  elseif name == "roof" and boss then
+    return "Objective: take down Kilowatt"
   elseif name == "roof" then
     return "Objective: get to the helipad", map.exitX, map.exitY
   end

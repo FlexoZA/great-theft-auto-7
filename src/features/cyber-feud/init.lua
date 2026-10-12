@@ -74,6 +74,7 @@ local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Gates = require("src.features.cyber-feud.gates")
 local Turrets = require("src.features.cyber-feud.turrets")
 local Brutes = require("src.features.cyber-feud.brutes")
+local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
@@ -122,6 +123,7 @@ function CyberFeud:load()
   require("src.features.cyber-feud.watchers").load() -- the watcher drones' call
   Gates.load() -- the key that asks VEX to open a tower door
   Brutes.load() -- the thump of a brute's arm
+  require("src.features.cyber-feud.kilowatt").load() -- and of Kilowatt's
 end
 
 function CyberFeud:serverStart()
@@ -207,6 +209,7 @@ function CyberFeud:serverStep(server, dt)
         beat(server, sv.map .. ".knot")
       end
       local ready = not map.pickupX or run.shard ~= nil -- the Drop wants the Shard taken first
+      ready = ready and not Kilowatt.serverUp() -- the Roof wants its bosses down
       if ready and not sv.reached and dist2(x, y, map.exitX, map.exitY) <= self.reach ^ 2 then
         sv.reached = true
         local quests = Features.byName.quests
@@ -614,7 +617,7 @@ function CyberFeud:drawHUD(client)
   local map = cityMap()
   local quests = Features.byName.quests
   local done = quests and quests.done ~= nil and quests.done == quests.active
-  local text, tx, ty = Story.objective(cl.level, map, cl.shardBy ~= nil, done)
+  local text, tx, ty = Story.objective(cl.level, map, cl.shardBy ~= nil, done, Kilowatt.up())
   if text then
     local x, y = client:myPose()
     Hud.drawObjective(text, tx and x and math.sqrt(dist2(x, y, tx, ty)) or nil)
@@ -629,6 +632,7 @@ function CyberFeud:drawHUD(client)
   Gates.drawHUD()
   Turrets.drawHUD()
   Brutes.drawHUD()
+  Kilowatt.drawHUD()
   if cl.banner then
     Hud.drawBanner(cl.banner.spec, cl.banner.t)
   elseif cl.zone then

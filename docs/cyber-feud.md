@@ -35,6 +35,27 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- Kilowatt, the Roof's first boss (`feature/cyber-feud-kilowatt`,
+  `src/features/cyber-feud/kilowatt.lua` and `kilowatt_brain.lua`,
+  `map.bosses.kilowatt` in `buildRoof`; KWB_ messages, since the Overpass's
+  cameo has KW_): waits on the helipad until the roof wakes (`map.wakeY`, a
+  few rows up from the stairs, or a round into him), then comes for the
+  nearest player. 2400 health for one human (`Bosses.health`), drawn at
+  2.2x. Charge: from 130-460 px he braces 0.6 s (a cyan line on the floor)
+  and runs 540 px/s for 0.9 s down it (40 `impact` and a 140 px shove);
+  into a wall he reels for 1 s. Slam: within 170 px he hops (0.5 s) and a
+  ring of shock rolls out to 230 px at 520 px/s (26 `shock`, a stun). Whip:
+  within 380 px, after a 0.45 s crackle, lightning to whoever he sees and
+  on to the next player within 170 px, up to three (22 `shock` each).
+  Punch up close (30 `impact`). After every 4 moves he vents for 3 s (hits
+  count double). Phase 2 at half health: charges back to back (0.8 s apart,
+  a 0.45 s brace), the slam rolls to 330 px, venting every 6 moves for
+  4.5 s. The bosses' standard: breath (running at you drains it; a charge
+  costs 20, a slam 15), the boss bar, a medkit when badly hurt (heal.lua),
+  out from under abilities (dodge.lua), and going down `serverKill` "boss",
+  40 koins and two pickups. Only players' rounds reach him. While he is up
+  the Roof isn't done (the helipad doesn't finish it) and the objective
+  line says to take him down.
 - Halcyon Tower's theme (`src/features/cyber-feud/theme_tower.lua`,
   `feature/cyber-feud-tower-theme`): industrial groove metal, 132 BPM in
   C# minor, ~60 s, looping from the moment the tower wakes (CF_WAKE, a

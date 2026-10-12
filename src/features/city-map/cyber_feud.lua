@@ -63,6 +63,7 @@
 --                         (the guard room VEX opens with one)
 --   map.breakIns          { x, y, beat } where the Static break in to each of the tower's floors (the lobby's
 --                         doors, then the stairwell from below) and the beat they walk there (a loop of { x, y })
+--   map.bosses            { kilowatt = { x, y } } where the Roof's bosses wait (cyber-feud/kilowatt.lua)
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
 --                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -1171,6 +1172,13 @@ local function buildRoof(map, rng, T)
   cover(map, "billboard", X(6), Y(0) + 24, (n - 12) * T, 64, false)
   light(map, X(mid), Y(2), 520, CyberFeud.GREEN, 0.6)
   map.exitX, map.exitY = math.floor(X(mid)), math.floor(Y(mid))
+
+  -- Who is up here (cyber-feud/troops.lua and its bosses): Kilowatt on the
+  -- helipad, waiting for whoever comes up the stairs; nobody looks until
+  -- somebody is a few steps up onto the roof.
+  map.troops = { halcyon = { posts = {} }, static = { posts = {} } }
+  map.bosses = { kilowatt = { x = math.floor(X(mid)), y = math.floor(Y(mid) - 40) } }
+  map.wakeY = math.floor(Y(n - 9))
 
   map.zones = { { name = "The Roof", y0 = Y(0), y1 = Y(n) } }
   for i = 0, 11 do
