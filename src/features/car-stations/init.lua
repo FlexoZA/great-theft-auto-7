@@ -122,8 +122,11 @@ function Stations:drawHUD()
   local text = notice and notice.text
   if not text then
     local key = Controls.name(Controls.bindings("car-station")[1])
+    local city = Features.byName["city-map"]
+    local vehicles = Features.byName.vehicles
+    local model = vehicles and city and city.map and vehicles.catalog.byKey[city.map.loaner or ""]
     text = wait > 0 and ("Car station.  Next car in %d s"):format(math.ceil(wait))
-      or ("Car station.  " .. key .. ": call a Scout Car")
+      or ("Car station.  " .. key .. ": call a " .. (model and model.name or "car"))
   end
   love.graphics.setFont(UI.fonts.body)
   love.graphics.setColor(0, 0, 0, 0.6)

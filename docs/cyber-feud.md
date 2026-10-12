@@ -103,6 +103,17 @@ branch off `feature/cyber-feud`):
   Courier back whole (the car-stations feature), and they are the map's
   respawn points (respawn-points takes a driven map's pads), so a wreck or
   a death doesn't send you back to the on-ramp.
+- Halcyon's roadblocks (`feature/cyber-feud-roadblocks`,
+  `src/features/cyber-feud/gates.lua`, `map.gates` in `buildOverpass`):
+  blast gates right across the Overpass at the long stretch, the roadworks
+  and below the tower ramp, solid to cars, people and rounds (a solid in
+  the map's `solids` and `cells`, taken out of both on the host and every
+  screen when it opens). To open one, somebody gets out and holds the
+  action key at the control panel on the shoulder short of it for 3 s (it
+  drains at half that pace when they let go); working it calls up to four
+  of Halcyon's officers within 900 px, every 6 s, on top of the three
+  posted behind each gate. Open, it stays open. The Knot gets round the
+  roadworks gate; nothing gets round the other two.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's

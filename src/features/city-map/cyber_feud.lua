@@ -51,6 +51,8 @@
 --   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), world px
 --   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
 --                         car-stations feature); the respawn points there too
+--   map.gates             { name, solid, frame = { x, y, w, h }, panel = { x, y } } Halcyon's roadblocks across
+--                         the road (the Overpass, cyber-feud/gates.lua): `solid` is in map.solids until opened
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -781,6 +783,24 @@ local function buildOverpass(map, rng, T)
   map.interceptors = {}
   for _, p in ipairs({ { b + 0.4, 160 }, { a + 0.6, 108 }, { b + 0.4, 36 }, { a + 0.6, 134 }, { b + 0.4, 92 } }) do
     map.interceptors[#map.interceptors + 1] = { x = math.floor(X(p[1])), y = math.floor(Y(p[2])), angle = north }
+  end
+
+  -- Halcyon's roadblocks (cyber-feud/gates.lua): blast gates right across
+  -- the road, solid until somebody on foot works the panel on the shoulder
+  -- short of them, guarded from behind by a few officers. The one at the
+  -- roadworks the Knot gets round (VEX's shortcut does have its upside);
+  -- the others it doesn't.
+  map.gates = {}
+  for _, gt in ipairs({ { "the long stretch", 132, b }, { "the roadworks", 70, a }, { "the tower ramp", 26, b } }) do
+    local gy = Y(gt[2])
+    local s = { x = X(a), y = gy - 12, w = (b - a + 1) * T, h = 24 }
+    map.solids[#map.solids + 1] = s
+    local px = gt[3] == a and X(a) + 26 or X(b + 1) - 26
+    map.gates[#map.gates + 1] = { name = gt[1], solid = s, frame = { x = s.x, y = s.y, w = s.w, h = s.h },
+      panel = { x = math.floor(px), y = math.floor(gy + 110) } }
+    for _, c in ipairs({ a + 1.5, (a + b + 1) / 2, b - 0.5 }) do
+      post(halcyon.posts, c, gt[2] - 2, south, "gate " .. gt[2])
+    end
   end
 
   -- Car stations (the car-stations feature): pads on the shoulder about

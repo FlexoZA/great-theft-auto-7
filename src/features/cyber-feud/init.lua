@@ -47,6 +47,7 @@
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
+--   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN (the Overpass's roadblocks)
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   server -> one     CF_MUSIC              (to a player joining a level whose theme is on: start it)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
@@ -66,6 +67,7 @@ local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
 local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
+local Gates = require("src.features.cyber-feud.gates")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
@@ -127,6 +129,7 @@ function CyberFeud:serverQuestStarted(server, quest)
   end
   local c = city()
   sv = { quest = quest.id, map = c and c.current, reached = false, beats = {} }
+  Gates.serverStart()
   if c and c.map then
     -- Calm until the Shard is taken, on the map it is taken on.
     Troops.serverStart(server, c.map, c.current, run.shard == nil and c.map.pickupX ~= nil)
@@ -138,6 +141,7 @@ function CyberFeud:serverQuestEnded(server, quest)
     run, sv = nil, nil
     server:broadcast(Protocol.encode("CF_SHARD", 0, "quiet"))
     Troops.serverStop(server)
+    Gates.serverStop()
   end
 end
 
@@ -146,6 +150,7 @@ function CyberFeud:mapChanged(_map, server)
   if server then
     sv = nil
     Troops.serverStop(server)
+    Gates.serverStop()
   end
   self:clearLevel()
 end
@@ -173,6 +178,7 @@ end
 
 function CyberFeud:serverStep(server, dt)
   Troops.serverStep(server, dt)
+  Gates.serverStep(server, dt)
   local map = cityMap()
   if not (sv and map and map.exitX) then
     return
@@ -213,6 +219,7 @@ function CyberFeud:serverPlayerJoined(server, player)
   end
   Interceptors.serverPlayerJoined(server, player)
   WarRigs.serverPlayerJoined(server, player)
+  Gates.serverPlayerJoined(server, player)
   local rigs = WarRigs.server()
   if rigs and rigs.cameo and rigs.cameo.stage ~= "waiting" and not player.bot then
     server:send(player, Protocol.encode("CF_MUSIC")) -- the Overpass's theme is on
@@ -255,6 +262,9 @@ CyberFeud.serverMessages = {
     Troops.serverWake() -- both sides come for it
   end,
 }
+for kind, handler in pairs(Gates.serverMessages) do
+  CyberFeud.serverMessages[kind] = handler
+end
 
 function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
@@ -331,6 +341,7 @@ function CyberFeud:clearLevel()
   Troops.clear()
   Interceptors.clear()
   WarRigs.clear()
+  Gates.clear()
   Flyers.clear()
   stopMusic()
 end
@@ -412,6 +423,9 @@ end
 for kind, handler in pairs(WarRigs.clientMessages) do
   CyberFeud.clientMessages[kind] = handler
 end
+for kind, handler in pairs(Gates.clientMessages) do
+  CyberFeud.clientMessages[kind] = handler
+end
 do -- Kilowatt's rig roaring past is the Overpass's cue
   local ride = CyberFeud.clientMessages.KW_RIDE
   CyberFeud.clientMessages.KW_RIDE = function(client, args)
@@ -436,6 +450,9 @@ function CyberFeud:update(dt, client)
   Troops.update(dt)
   Interceptors.update(dt)
   WarRigs.update(dt, client)
+  if onLevel() then
+    Gates.update(dt, client)
+  end
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
   end
@@ -501,9 +518,10 @@ function CyberFeud:update(dt, client)
     and dist2(x, y, map.pickupX, map.pickupY) <= self.takeRadius ^ 2
 end
 
---- The action key is ours at the vending machine (on-foot leaves the car alone).
+--- The action key is ours at the vending machine, and at a roadblock's
+--- panel (on-foot leaves the car alone).
 function CyberFeud:actionTaken()
-  return cl.near
+  return cl.near or Gates.actionTaken()
 end
 
 function CyberFeud:keypressed(key, client)
@@ -523,6 +541,7 @@ end
 
 function CyberFeud:drawBelowCars()
   if onLevel() then
+    Gates.drawBelowCars()
     Troops.drawBelowCars()
   end
 end
@@ -551,6 +570,7 @@ end
 function CyberFeud:drawNightLights(client, _camera, glow)
   if onLevel() then
     Troops.drawNightLights(glow)
+    Gates.drawNightLights(glow)
     Interceptors.drawNightLights(client, glow)
     WarRigs.drawNightLights(client, glow)
     Flyers.lights(glow)
@@ -586,6 +606,7 @@ function CyberFeud:drawHUD(client)
   if cl.near then
     Hud.drawPrompt(Controls.name(Controls.bindings("enter-exit")[1]))
   end
+  Gates.drawHUD()
   if cl.banner then
     Hud.drawBanner(cl.banner.spec, cl.banner.t)
   elseif cl.zone then
