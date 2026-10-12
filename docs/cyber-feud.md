@@ -558,7 +558,10 @@ screen), the way A-Man's trail does.
   a drum alight, facing Halcyon's concrete), war-rigs and interceptors
   behind them, tracer bursts both ways, shells coming down, Halcyon's
   searchlights sweeping, and further back cyan tags over the Static's roofs
-  and Halcyon's hexagon over its own. No traffic.
+  and Halcyon's hexagon over its own. No traffic. It is heard too
+  (`surroundings/war_sounds.lua`, its own "battle" volume): each burst and
+  shell plays where it is seen, on the same clock, muffled the further off
+  it is, and now and then the war further out than anything in sight.
 - Overhead, every now and then, one of three flying machines crosses the
   sky (`cyber-feud/flyers.lua`, the Drop so far): Halcyon's aerodyne on
   four ducted fans with its searchlight sweeping the streets, a cargo

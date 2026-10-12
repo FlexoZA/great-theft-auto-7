@@ -46,7 +46,9 @@
 -- both ways, a haze further out. The night feature darkens it like the
 -- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`). Round
 -- the Market the same city is at war (turf_war.lua): a front through it,
--- no-man's-land, barricades, tracer fire, shells and fires.
+-- no-man's-land, barricades, tracer fire, shells and fires, and it is
+-- heard too (war_sounds.lua): bursts and shells where they happen, and the
+-- war further out.
 --
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
@@ -57,6 +59,7 @@ local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
 local GreyCity = require("src.features.surroundings.grey_city")
+local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
   name = "surroundings",
@@ -77,8 +80,25 @@ local BOLLARD_EVERY = 72 -- px along the wall
 
 local clock = 0
 
-function Surroundings:update(dt)
+function Surroundings:load()
+  WarSounds.load()
+end
+
+function Surroundings:update(dt, client)
+  local was = clock
   clock = clock + dt
+  -- The war past the Market's walls, heard as it is seen (war_sounds.lua).
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local x, y
+  if client and map and map.tiles and GreyCity.WAR[map.name] then
+    x, y = client:myPose()
+  end
+  if x then
+    WarSounds.update(dt, x, y, was, clock, function(_lx, ly, reach, t0, t1, fn)
+      GreyCity.events(map, ly, reach, t0, t1, fn)
+    end)
+  end
 end
 
 -- The shore ---------------------------------------------------------------

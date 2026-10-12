@@ -487,6 +487,16 @@ function GreyCity.draw(map, left, top, right, bottom, clock, camera)
   haze(map, left, top, right, bottom)
 end
 
+--- What of the war started between `t0` and `t1` (the clock) on the
+--- streets within `reach` of `y` up and down, for its sound: TurfWar.events'
+--- fn(kind, x, y) (war_sounds.lua leaves out what is too far either way).
+--- Nothing where the city is at peace.
+function GreyCity.events(map, y, reach, t0, t1, fn)
+  if GreyCity.WAR[map.name] then
+    TurfWar.events(map, streetsIn(map, y - reach, y + reach), y - reach, y + reach, t0, t1, fn)
+  end
+end
+
 --- What glows past the edge at night (the night feature's drawNightLights):
 --- the neon and the light it spills on the street, lit windows, the street
 --- lamps, and the traffic's head and tail lights.

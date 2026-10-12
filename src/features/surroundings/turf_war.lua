@@ -320,6 +320,13 @@ local function drawMachine(kind, x, y, angle, n, clock)
   love.graphics.pop()
 end
 
+--- A street's burst clock, one way (`way` 1: the Static firing east).
+local function burstClock(k, way)
+  local n = k * 13.1 + way * 3.3
+  local every = 2.2 + hash(n) * 2.5
+  return n, every, hash(n + 1) * every
+end
+
 --- Every round of tracer fire in flight on the streets: fn(x, y, dir, side)
 --- with `dir` 1 going east, -1 going west. Each street, each way, fires a
 --- burst every few seconds, at its own time.
@@ -329,9 +336,8 @@ local function tracers(map, streets, clock, fn)
   local flight = span / TRACER_SPEED
   streets(function(k, y, width)
     for way = -1, 1, 2 do
-      local n = k * 13.1 + way * 3.3
-      local every = 2.2 + hash(n) * 2.5
-      local since = (clock + hash(n + 1) * every) % every -- seconds since this burst began
+      local n, every, offset = burstClock(k, way)
+      local since = (clock + offset) % every -- seconds since this burst began
       for i = 0, BURST_ROUNDS - 1 do
         local t = since - i * BURST_GAP
         if t >= 0 and t <= flight then
@@ -347,25 +353,49 @@ local function tracers(map, streets, clock, fn)
   end)
 end
 
---- Every shell coming down in no-man's-land in the box: fn(x, y, k) with
---- k 0..1 through its burst. One block of the band at a time, each on its own clock.
-local function booms(map, top, bottom, clock, fn)
+local BOOM_CELL = 260 -- px; no-man's-land is cut into cells this big, a shell each on its own clock
+
+--- Shell cell (row, col)'s clock: how often, and how far through its own time.
+local function boomClock(row, col)
+  local n = row * 5.9 + col * 2.1
+  local every = BOOM_EVERY * (0.7 + hash(n) * 0.9)
+  return n, every, hash(n + 1) * every
+end
+
+--- Where cell (row, col)'s shell number `cycle` comes down, or nil on the Market's own roof.
+local function boomAt(map, row, col, cycle)
   local front = TurfWar.lines(map)
-  local cell = 260
-  for row = math.floor((top - map.y0) / cell) - 1, math.floor((bottom - map.y0) / cell) + 1 do
+  local n = row * 5.9 + col * 2.1
+  local x = front + col * BOOM_CELL + (hash(n + cycle) - 0.5) * BOOM_CELL
+  local y = map.y0 + row * BOOM_CELL + hash(n + 2) * BOOM_CELL
+  if y < map.top - 2 * T or y > map.top + map.h + 2 * T then
+    return x, y
+  end
+  return nil
+end
+
+--- Every shell cell in the band between `top` and `bottom`, as fn(row, col).
+local function eachBoomCell(map, top, bottom, fn)
+  for row = math.floor((top - map.y0) / BOOM_CELL) - 1, math.floor((bottom - map.y0) / BOOM_CELL) + 1 do
     for col = -2, 2 do
-      local n = row * 5.9 + col * 2.1
-      local every = BOOM_EVERY * (0.7 + hash(n) * 0.9)
-      local since = (clock + hash(n + 1) * every) % every
-      if since < BOOM_TIME then
-        local x = front + col * cell + (hash(n + math.floor((clock + hash(n + 1) * every) / every)) - 0.5) * cell
-        local y = map.y0 + row * cell + hash(n + 2) * cell
-        if y < map.top - 2 * T or y > map.top + map.h + 2 * T then -- not on the Market's own roof
-          fn(x, y, since / BOOM_TIME)
-        end
-      end
+      fn(row, col)
     end
   end
+end
+
+--- Every shell coming down in no-man's-land in the box: fn(x, y, k) with
+--- k 0..1 through its burst.
+local function booms(map, top, bottom, clock, fn)
+  eachBoomCell(map, top, bottom, function(row, col)
+    local _, every, offset = boomClock(row, col)
+    local since = (clock + offset) % every
+    if since < BOOM_TIME then
+      local x, y = boomAt(map, row, col, math.floor((clock + offset) / every))
+      if x then
+        fn(x, y, since / BOOM_TIME)
+      end
+    end
+  end)
 end
 
 --- Halcyon's searchlights, from just behind its barricade, sweeping over
@@ -389,6 +419,37 @@ function TurfWar.fires(map, streets, list)
       seed = math.floor(hash(k * 4.1) * 1000) }
   end)
   return list
+end
+
+--- What started between `t0` and `t1` (the clock), for the sound of it:
+--- fn("static" | "halcyon", x, y) for a burst opening up from a
+--- barricade, fn("shell", x, y) for a shell coming down.
+function TurfWar.events(map, streets, top, bottom, t0, t1, fn)
+  local _, west, east = TurfWar.lines(map)
+  local function started(every, offset)
+    return math.floor((t1 + offset) / every) > math.floor((t0 + offset) / every)
+  end
+  streets(function(k, y)
+    for way = -1, 1, 2 do
+      local _, every, offset = burstClock(k, way)
+      if started(every, offset) then
+        if way > 0 then
+          fn("static", west, y)
+        else
+          fn("halcyon", east, y)
+        end
+      end
+    end
+  end)
+  eachBoomCell(map, top, bottom, function(row, col)
+    local _, every, offset = boomClock(row, col)
+    if started(every, offset) then
+      local x, y = boomAt(map, row, col, math.floor((t1 + offset) / every))
+      if x then
+        fn("shell", x, y)
+      end
+    end
+  end)
 end
 
 --- Draw what moves, over the chunks: fires, the machines, the searchlight
@@ -424,9 +485,8 @@ function TurfWar.draw(map, streets, top, bottom, clock, camera, fires)
   local _, west, east = TurfWar.lines(map)
   streets(function(k, y, width) -- the muzzle flashes along the barricades while a burst is going
     for way = -1, 1, 2 do
-      local n = k * 13.1 + way * 3.3
-      local every = 2.2 + hash(n) * 2.5
-      local since = (clock + hash(n + 1) * every) % every
+      local n, every, offset = burstClock(k, way)
+      local since = (clock + offset) % every
       if since < BURST_ROUNDS * BURST_GAP and math.floor(since / BURST_GAP) % 2 == 0 then
         color(FLASH)
         love.graphics.circle("fill", way > 0 and west + 14 or east - 14, y + (hash(n) - 0.5) * width * 0.5, 5, 8)
@@ -462,9 +522,8 @@ function TurfWar.lights(map, streets, top, bottom, clock, glow, fires)
   local _, west, east = TurfWar.lines(map)
   streets(function(k, y)
     for way = -1, 1, 2 do
-      local n = k * 13.1 + way * 3.3
-      local every = 2.2 + hash(n) * 2.5
-      local since = (clock + hash(n + 1) * every) % every
+      local _, every, offset = burstClock(k, way)
+      local since = (clock + offset) % every
       if since < BURST_ROUNDS * BURST_GAP then
         glow(way > 0 and west + 14 or east - 14, y, 70, FLASH, 0.8)
       end

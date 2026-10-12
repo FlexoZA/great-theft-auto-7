@@ -47,6 +47,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   will land. Get out of it, or the jolt stuns you.
 - Past the Market's walls Grey City is at war: a front through the city, rubble and craters in no-man's-land,
   barricades facing each other across the streets, tracer fire, shells landing, burning towers and searchlights.
+  You hear it too: muffled bursts and shells beyond the walls, on their own volume slider ("the battle beyond
+  the walls").
 - The Market has its own heavy metal theme: it kicks in the moment you walk up out of the tunnel and the
   factions come for you.
 - Halcyon's watcher drones fly over the Market's lanes. One that sees you hangs over you and calls officers in
