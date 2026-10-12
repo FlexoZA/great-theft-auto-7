@@ -130,6 +130,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   crackling line before each lightning bolt strikes down it, lobs lightning grenades that leave shock fields on
   the ground, and calls in a pack of the Static each time you knock another quarter off him. He has the loading
   dock's pass code: the dock stays locked until he's down and somebody picks the code up.
+- It starts to rain the moment you step into Noodle Square, and a storm breaks over Volt's fight: flashes in the
+  sky, thunder, and lightning striking round you (watch for the flickering ring on the ground). The lightning stops
+  when he goes down; the rain keeps on until you leave the Market. Rain and thunder have their own volume slider.
 - The electric grenade: General Volt's own, and the first thing you unlock. When he goes down he drops a stack of
   three that every player can pick up their own of, with a "NEW GRENADE UNLOCKED" screen to go with it. Drag them
   onto your grenade slot and G throws them like any grenade (the grenades in there go back into your bag): a shock

@@ -100,7 +100,12 @@ branch off `feature/cyber-feud`):
   dock's pass code where he fell: the first player on foot over it picks it up (VLT_TAKEN) and the dock opens. Until then the dock
   is drawn shut (LOCKED - PASS CODE), reaching it doesn't finish the level,
   and the objective line points at him, then at the code. VEX has a line
-  for each (`market.volt`, `market.code`).
+  for each (`market.volt`, `market.code`). The weather comes with him (the
+  weather feature): the moment he wakes it rains, and a storm flashes over
+  the square while lightning strikes round whoever fights him, marked on
+  the ground for 1.1 s first (55 px, 20 shock; every 3.5-6 s, 2.2-4 s in
+  phase 2; on them 40% of the time, else 90-320 px off). The lightning stops
+  when he goes down; the rain keeps on until the map changes.
 - The Roof's themes (`src/features/cyber-feud/theme_roof.lua`,
   `feature/cyber-feud-roof-theme`). `render`, Saye and Kilowatt's, from
   the moment the roof wakes (CF_WAKE): 140 BPM in F# minor, ~45 s; a bell
