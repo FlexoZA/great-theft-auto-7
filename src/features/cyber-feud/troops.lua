@@ -45,7 +45,7 @@
 -- and on them its marksmen (marksmen.lua) draw a line on them and fire.
 --
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
--- gates behind riot shields, in the feud with the rest of Halcyon; the
+-- gates behind riot shields (and the tower's guard and executive floors), in the feud with the rest of Halcyon; the
 -- Static's rippers (rippers.lua, their own brain) lunge out of the west
 -- lanes at whoever is most alone, and its sparkers (sparkers.lua) hang
 -- back and lob EMPs; Halcyon's watcher drones (watchers.lua) fly over
@@ -806,13 +806,13 @@ end
 --- own side. It takes off what it carries; a blast, which carries nothing
 --- and asks a few times over, 20 a time.
 function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
-  if not sv then
-    return false
+  if not sv or (by == 0 and sv.allied and Troops.side[from] ~= nil) then
+    return false -- (in the tower a faction's round passes through everyone of both)
   end
   for _, key in ipairs(Troops.SIDES) do
     local side = sv.sides[key]
     local s, i = side.troops:at(x, y, radius)
-    local hits = s and (by ~= 0 or (from ~= nil and from ~= key and Troops.side[from] ~= nil and not sv.allied))
+    local hits = s and (by ~= 0 or (from ~= nil and from ~= key and Troops.side[from] ~= nil))
     if hits then
       if by ~= 0 then
         Troops.serverWake()

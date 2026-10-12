@@ -85,6 +85,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Halcyon Tower's stair doors are locked. Hold F at the terminal beside one for 4 s to breach it quietly, or press
   E to have VEX open it at once, which also opens that floor's guard room: four officers come out after you (more
   with more players).
+- Halcyon's enforcers hold Halcyon Tower's top floors: four riot shields on the security floor, two in front of the
+  stair door up and two across the way to it, and two either side of Saye's desk on the executive floor.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

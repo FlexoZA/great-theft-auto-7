@@ -37,7 +37,8 @@
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
 --                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest (or none) and its
 --                         crew's posts
---   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates), world px
+--   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates, the tower's
+--                         security and executive floors), world px
 --   map.rippers           { route, start } the Static's rippers (the Market), each on a beat (a loop of
 --                         { x, y }, world px) from corner `start`
 --   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
@@ -1018,6 +1019,20 @@ local function buildTower(map, rng, T)
   post(20.6, floors[6].r0 + 1.5, south, "saye's office")
   post(27.4, floors[6].r0 + 1.5, south, "saye's office")
   map.troops = { halcyon = halcyon, static = { posts = {} } }
+  -- Halcyon's enforcers (cyber-feud/enforcers.lua): riot shields where it
+  -- matters most. On the guard floor, a pair in front of the stair door up
+  -- and a pair across its east side, the way to that door, clear of where
+  -- its barricades fall; on the executive floor, a pair either side of
+  -- Saye's desk, between you and the lift.
+  local sec, exec = floors[5], floors[6]
+  map.enforcers = {
+    { x = math.floor(X(cols - 6.5)), y = math.floor(Y(sec.r0 + 3.5)), watch = south },
+    { x = math.floor(X(cols - 4.5)), y = math.floor(Y(sec.r0 + 3.5)), watch = south },
+    { x = math.floor(X(cols - 9.4)), y = math.floor(Y(sec.r0 + 7.5)), watch = west },
+    { x = math.floor(X(cols - 9.4)), y = math.floor(Y(sec.r0 + 10.5)), watch = west },
+    { x = math.floor(X(19)), y = math.floor(Y(exec.r0 + 3.5)), watch = south },
+    { x = math.floor(X(29)), y = math.floor(Y(exec.r0 + 3.5)), watch = south },
+  }
   -- Where the Static come in to each floor: the lobby's front doors, and
   -- above it the top of the stairwell from the floor below.
   map.breakIns = {}

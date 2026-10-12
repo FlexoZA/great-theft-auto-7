@@ -1,5 +1,6 @@
 -- Halcyon's enforcers (docs/cyber-feud.md, "Halcyon"): riot shields in the
--- Market's gates (the map's `enforcers`). troops.lua starts, steps and
+-- Market's gates and on Halcyon Tower's security and executive floors (the
+-- map's `enforcers`). troops.lua starts, steps and
 -- stops them with the rest of Halcyon, and passes rounds on to them; their
 -- heads are enforcer_brain.lua.
 --

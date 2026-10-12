@@ -35,6 +35,13 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The tower's enforcers (`feature/cyber-feud-tower-enforcers`,
+  `map.enforcers` in `buildTower`): six riot shields, all Halcyon's: on the
+  security floor a pair in front of the stair door up and a pair across its
+  east side (the way to that door, clear of where the barricades fall), and
+  on the executive floor a pair either side of Saye's desk. In the tower a
+  faction's round passes through every troop of both sides (enforcers and
+  the rest included: `Troops.serverShotAt` lets them all by).
 - The tower's locked stair doors (`feature/cyber-feud-tower-doors`, gates
   of `kind` "door" in `map.gates`, `src/features/cyber-feud/gates.lua`): a
   shutter across the foot of each of the five stairwells up, solid to
