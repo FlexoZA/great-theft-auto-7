@@ -28,14 +28,15 @@ Story.lines = {
 }
 
 -- Story beats: the host raises each once per level (CF_BEAT), so every
--- screen shows the same. `screen` puts up her intro screen with that line,
--- `say` is what she says over the comms after it. Keys are "<map>.<what>":
+-- screen shows the same. `line` is one of her intro screen's lines, said
+-- over the comms (never the screen itself: a key you press mid-fight would
+-- take it straight down), `say` is what she says over the comms after it. Keys are "<map>.<what>":
 -- a zone's name (city-map's `map.zones`) for walking into it, "boot" (the
 -- Drop's halfway line, once someone has the Shard), "knot" (the Overpass's
 -- dead end), "end" (the level's far end reached).
 Story.beats = {
   ["drop.boot"] = {
-    screen = 1,
+    line = 1,
     say = "Tunnel's at the top of the middle avenue. Ignore the roadblock. It's decorative.",
   },
   ["drop.The Tunnel"] = { say = "Big roadblock, huh. Halcyon's very proud of it. Go round." },

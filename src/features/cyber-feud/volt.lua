@@ -84,6 +84,7 @@ Volt.BACKUP_PACK = 3 -- gangers in a pack (and a sparker with them; more players
 Volt.SAY_EVERY = { 8, 13 }
 Volt.DROPS = 30
 Volt.CODE_REACH = 44 -- px from the pass code that picks it up
+Volt.GRENADES_AWAY = 160 -- px from his body his electric grenades land: well clear of the pass code
 
 Volt.lines = {
   "You want the dock code? Come and get it, courier.",
@@ -269,6 +270,28 @@ function Volt.serverStep(server, dt)
   sync(server)
 end
 
+--- Open ground `Volt.GRENADES_AWAY` from (x, y) with nothing solid on the
+--- way there (the `blocksPoint` convention), for his grenades: the first of
+--- eight directions round him that is clear, or right beside him if none is.
+local function grenadeSpot(x, y)
+  local d = Volt.GRENADES_AWAY
+  for i = 0, 7 do
+    local a = i * math.pi / 4
+    local clear = true
+    for k = 1, 8 do
+      local px, py = x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8
+      if Features.any("blocksPoint", px, py) then
+        clear = false
+        break
+      end
+    end
+    if clear then
+      return x + math.cos(a) * d, y + math.sin(a) * d
+    end
+  end
+  return x + 48, y + 10
+end
+
 --- Down: his last word, his body, koins, the kill, and the pass code on the floor.
 local function down(server, by, angle)
   local v = sv.v
@@ -283,10 +306,12 @@ local function down(server, by, angle)
     money:drop(server, v.x, v.y, Volt.DROPS)
   end
   -- His electric grenades: a stack for every player (each takes their own),
-  -- which unlocks them (the grenades feature's).
+  -- which unlocks them (the grenades feature's). Away from his body, so
+  -- going for them and their reward screen isn't mistaken for the pass code.
   local pickups, grenades = Features.byName.pickups, Features.byName.grenades
   if pickups and pickups.serverDrop and grenades and grenades.kinds then
-    pickups:serverDrop(server, "grenade-electric", v.x + 48, v.y + 10, grenades.kinds["grenade-electric"].reward,
+    local gx, gy = grenadeSpot(v.x, v.y)
+    pickups:serverDrop(server, "grenade-electric", gx, gy, grenades.kinds["grenade-electric"].reward,
       { perPlayer = true, unlocks = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = v.x, y = v.y, by = by, angle = angle })
@@ -459,16 +484,38 @@ function Volt.drawBelowCars()
     love.graphics.circle("line", l.x1, l.y1, Volt.FIELD_RADIUS * (0.4 + 0.6 * k), 32)
     love.graphics.setLineWidth(1)
   end
-  if code then -- the pass code on the floor: a cyan keycard, glinting
-    local bob = math.sin(clock * 4) * 2
-    love.graphics.setColor(0, 0, 0, 0.4)
-    love.graphics.rectangle("fill", code.x - 9, code.y - 4, 20, 13, 2)
-    love.graphics.setColor(0.12, 0.14, 0.16)
-    love.graphics.rectangle("fill", code.x - 10, code.y - 7 + bob, 20, 13, 2)
-    love.graphics.setColor(CYAN)
-    love.graphics.rectangle("fill", code.x - 7, code.y - 4 + bob, 8, 2)
-    love.graphics.rectangle("fill", code.x - 7, code.y + bob, 12, 2)
-  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+local CODE_GOLD = { 1, 0.82, 0.25 } -- not cyan: his grenades and fields are that
+
+--- The pass code on the floor, over his body, the koins and any car: a gold
+--- keycard in a pulsing ring, with a beam up from it and PASS CODE over it.
+local function drawCode()
+  local x, y = code.x, code.y
+  local pulse = 0.5 + 0.5 * math.sin(clock * 5)
+  local bob = math.sin(clock * 4) * 2
+  local g = CODE_GOLD
+  love.graphics.setColor(g[1], g[2], g[3], 0.12 + 0.12 * pulse)
+  love.graphics.circle("fill", x, y, 30 + 6 * pulse, 32)
+  love.graphics.setLineWidth(2)
+  love.graphics.setColor(g[1], g[2], g[3], 0.5 + 0.4 * pulse)
+  love.graphics.circle("line", x, y, Volt.CODE_REACH * (0.7 + 0.3 * (clock * 0.8 % 1)), 40)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(g[1], g[2], g[3], 0.18)
+  love.graphics.polygon("fill", x - 4, y, x + 4, y, x + 1, y - 60, x - 1, y - 60) -- a beam up from it
+  love.graphics.setColor(0, 0, 0, 0.4)
+  love.graphics.rectangle("fill", x - 12, y - 5, 26, 17, 3)
+  love.graphics.setColor(0.12, 0.14, 0.16)
+  love.graphics.rectangle("fill", x - 13, y - 9 + bob, 26, 17, 3)
+  love.graphics.setColor(g)
+  love.graphics.rectangle("line", x - 13, y - 9 + bob, 26, 17, 3)
+  love.graphics.rectangle("fill", x - 9, y - 5 + bob, 10, 3)
+  love.graphics.rectangle("fill", x - 9, y + bob, 16, 3)
+  local font = UI.fonts.small
+  love.graphics.setFont(font)
+  local text = "PASS CODE"
+  UI.label(text, x - math.floor(font:getWidth(text) / 2), y - 34 + bob, g)
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -491,6 +538,9 @@ local function drawLine(v)
 end
 
 function Volt.drawAboveCars()
+  if code then
+    drawCode()
+  end
   for _, b in ipairs(bolts) do
     local fade = 1 - b.t / BOLT_SHOWN
     love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.5 * fade)

@@ -95,8 +95,9 @@ branch off `feature/cyber-feud`):
   from under abilities, `serverKill` "boss", 30 koins). Only players' rounds
   reach him. Down, he drops a stack of three electric grenades every player
   can pick up their own of, which unlocks them (the grenades feature's, with
-  the rewards feature's screen; see docs/features.md), and the dock's pass code: the first player on foot
-  over it picks it up (VLT_TAKEN) and the dock opens. Until then the dock
+  the rewards feature's screen; see docs/features.md), 160 px from his body
+  on clear ground (`GRENADES_AWAY`) so it isn't taken for the code; and the
+  dock's pass code where he fell: the first player on foot over it picks it up (VLT_TAKEN) and the dock opens. Until then the dock
   is drawn shut (LOCKED - PASS CODE), reaching it doesn't finish the level,
   and the objective line points at him, then at the code. VEX has a line
   for each (`market.volt`, `market.code`).
@@ -806,7 +807,7 @@ The job on the board: "Courier wanted. No questions." Everyone arrives
 downtown at night in the rain. The Shard is waiting in a vending machine. Once
 someone has it, both factions come for it and the level becomes a chase
 across town to the exit, on foot: no cars on the Drop. VEX boots up in your
-earpiece halfway through: her intro screen.
+earpiece halfway through: her intro line over the comms.
 
 ### 2. The Market
 
@@ -910,7 +911,8 @@ bollards), and the middle avenue is the no-man's-land where they meet.
   hold the corners and their stations in the west. The way north changes
   depending on which roadblocks you dodge.
 - **VEX boots up** halfway up the map (a zone line, like City 17's
-  `map.zones`): her intro screen, in your earpiece.
+  `map.zones`): her intro line over the comms, in your earpiece (not her
+  screen: you are usually fighting by then, and any key took it down).
 - **The end:** a tunnel mouth at the top middle, with the biggest roadblock
   of all in front of it, held by Halcyon alone with its assassin droids. Break through and the EXIT star is in the tunnel: "THE MARKET".
 
