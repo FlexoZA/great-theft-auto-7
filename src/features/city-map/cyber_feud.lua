@@ -24,7 +24,10 @@
 --                         reception, lift, relay, ac, mast, gantry, door, tunnel, dock, billboard
 --   map.signs             { x, y, w, h, color, text } neon signs on building edges, world px
 --   map.lights            { x, y, r, color, a } what glows at night (the night feature draws them), world px
---   map.below             { x, y, r, color } lights far below the overpass (render only), world px
+--   map.bridge            { towers = { x, y, edge }, piers = { y } } the Overpass's bridge (render only): the
+--                         cable-stay towers beside the deck (`edge` the deck's edge x their cables run to) and
+--                         the rows its piers stand under, world px; the city far below is surroundings'
+--                         (overpass_below.lua)
 --   map.floors            { name, y0, y1 } the tower's floors (= its zones)
 --   map.pickupX, pickupY  the vending machine with the Shard in it (the Drop)
 --   map.vexY              the line past which VEX boots up (the Drop)
@@ -36,9 +39,9 @@
 --                         `at` groups the posts of one place (they chat), a route is a loop of { x, y };
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
 --                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest (or none) and its
---                         crew's posts
---   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates, the tower's
---                         security and executive floors), world px
+--                         crew's posts, and a house with its garrison (or none: the Overpass's roadblocks)
+--   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates, the Overpass's
+--                         roadblocks, the tower's security and executive floors), world px
 --   map.rippers           { route, start } the Static's rippers (the Market), each on a beat (a loop of
 --                         { x, y }, world px) from corner `start`
 --   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
@@ -701,6 +704,12 @@ end
 
 CyberFeud.OVERPASS_ROAD = { 12, 19 } -- columns of the highway
 CyberFeud.KNOT = { c0 = 21, r0 = 50, c1 = 30, r1 = 66 } -- the dead-end interchange off the ramp
+-- Halcyon's roadblocks across the highway: the row of each, and the edge its panel is on ("a" west, "b" east).
+CyberFeud.OVERPASS_GATES = {
+  { "the long stretch", 132, "b" }, { "the roadworks", 70, "a" }, { "the tower ramp", 26, "b" },
+}
+CyberFeud.BRIDGE_TOWERS = { 162, 118, 34 } -- rows of the cable-stay towers (clear of the ramp and the Knot)
+CyberFeud.GATE_GUARD = 7 -- rows short of each roadblock kept clear of wrecks: its MG nest and the shields in front
 
 local function buildOverpass(map, rng, T)
   local g = grid(map, T)
@@ -742,29 +751,40 @@ local function buildOverpass(map, rng, T)
     local x = (r < 74) and X(a + 2) or X(b - 1)
     cover(map, "barrier", x, Y(r), 16, 2 * T - 10)
   end
-  -- Stalled traffic and wrecks to weave round.
+  -- Stalled traffic and wrecks to weave round (not in front of a roadblock:
+  -- its guards have the road there).
+  local function guarded(r)
+    for _, gt in ipairs(CyberFeud.OVERPASS_GATES) do
+      if r >= gt[2] - 1 and r <= gt[2] + CyberFeud.GATE_GUARD then
+        return true
+      end
+    end
+    return false
+  end
   for _ = 1, 22 do
     local r = rng:random(8, rows - 18)
-    if r < 56 or r > 90 then
+    if (r < 56 or r > 90) and not guarded(r) then
       local lane = rng:random(0, 3)
       local x = X(a) + 30 + lane * 2 * T
       cover(map, "wreck", x, Y(r), 40, 76, true, { color = ROOFS[rng:random(#ROOFS)] })
     end
   end
 
-  -- The city far below, either side: just lights.
-  map.below = {}
-  local palette = { CyberFeud.CYAN, CyberFeud.MAGENTA, CyberFeud.LAMP, CyberFeud.WHITE, CyberFeud.LAMP }
-  for _ = 1, 900 do
-    local c = rng:random() * map.cols
-    local cc = math.floor(c)
-    if cc < a - 1 or cc > b + 1 then
-      local r = rng:random() * rows
-      if not g.at(cc, math.floor(r)) then
-        map.below[#map.below + 1] = {
-          x = X(c), y = Y(r), r = 1.5 + rng:random() * 2.5, color = palette[rng:random(#palette)],
-        }
-      end
+  -- It is a bridge: piers under the deck every dozen rows, and cable-stay
+  -- towers either side of it, their cables fanning out down the deck's
+  -- edges, a red light on top of each. (The city far below is the
+  -- surroundings feature's.)
+  map.bridge = { towers = {}, piers = {} }
+  for r = 6, rows - 6, 12 do
+    map.bridge.piers[#map.bridge.piers + 1] = Y(r)
+  end
+  for _, r in ipairs(CyberFeud.BRIDGE_TOWERS) do
+    for _, side in ipairs({ -1, 1 }) do
+      local edge = side < 0 and X(a) or X(b + 1)
+      local t = { x = math.floor(edge + side * 70), y = math.floor(Y(r)), edge = edge }
+      map.bridge.towers[#map.bridge.towers + 1] = t
+      light(map, t.x, t.y, 90, { 1, 0.15, 0.1 }, 0.9)
+      light(map, t.x, t.y, 240, CyberFeud.WHITE, 0.25)
     end
   end
 
@@ -818,19 +838,37 @@ local function buildOverpass(map, rng, T)
 
   -- Halcyon's roadblocks (cyber-feud/gates.lua): blast gates right across
   -- the road, solid until somebody on foot works the panel on the shoulder
-  -- short of them, guarded from behind by a few officers. The one at the
-  -- roadworks the Knot gets round (VEX's shortcut does have its upside);
-  -- the others it doesn't.
-  map.gates = {}
-  for _, gt in ipairs({ { "the long stretch", 132, b }, { "the roadworks", 70, a }, { "the tower ramp", 26, b } }) do
+  -- short of them, guarded from behind by a few officers. On your side of
+  -- each, a guard station: an MG nest in the middle of the road facing back
+  -- down it, two riflemen behind barriers either side (they take the gun if
+  -- its gunner goes down), and two riot shields out in front holding the
+  -- road (cyber-feud/enforcers.lua). The panel's shoulder is left open. The
+  -- one at the roadworks the Knot gets round (VEX's shortcut does have its
+  -- upside); the others it doesn't.
+  map.gates, map.nests, map.enforcers, halcyon.stations = {}, {}, {}, {}
+  local mid = (a + b + 1) / 2
+  for _, gt in ipairs(CyberFeud.OVERPASS_GATES) do
     local gy = Y(gt[2])
     local s = { x = X(a), y = gy - 12, w = (b - a + 1) * T, h = 24 }
     map.solids[#map.solids + 1] = s
-    local px = gt[3] == a and X(a) + 26 or X(b + 1) - 26
+    local px = gt[3] == "a" and X(a) + 26 or X(b + 1) - 26
     map.gates[#map.gates + 1] = { name = gt[1], solid = s, frame = { x = s.x, y = s.y, w = s.w, h = s.h },
       panel = { x = math.floor(px), y = math.floor(gy + 110) } }
-    for _, c in ipairs({ a + 1.5, (a + b + 1) / 2, b - 0.5 }) do
+    for _, c in ipairs({ a + 1.5, mid, b - 0.5 }) do
       post(halcyon.posts, c, gt[2] - 2, south, "gate " .. gt[2])
+    end
+    local nest = { x = math.floor(X(mid)), y = math.floor(gy + 1.4 * T), angle = south, arc = CyberFeud.NEST_ARC }
+    map.nests[#map.nests + 1] = { nest = nest, faction = "halcyon" }
+    light(map, nest.x, nest.y, 140, CyberFeud.MAGENTA, 0.6)
+    local crew = {}
+    for _, c in ipairs({ mid - 2, mid + 2 }) do
+      local cx, cy = X(c), gy + 2.4 * T
+      cover(map, "barrier", cx - 34, cy - 8, 68, 16)
+      crew[#crew + 1] = { x = math.floor(cx), y = math.floor(cy - 30), watch = south }
+    end
+    halcyon.stations[#halcyon.stations + 1] = { side = "halcyon", nest = nest, posts = crew }
+    for _, c in ipairs({ mid - 1.2, mid + 1.2 }) do
+      map.enforcers[#map.enforcers + 1] = { x = math.floor(X(c)), y = math.floor(gy + 4.6 * T), watch = south }
     end
   end
 

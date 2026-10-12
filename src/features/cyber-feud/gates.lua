@@ -48,6 +48,7 @@ Gates.alarmEvery = 6 -- seconds between alarms while somebody keeps at it
 Gates.doorTime = 4 -- seconds of holding the key at a tower door's terminal to breach it
 Gates.roomGuards = 4 -- officers out of the guard room VEX opens (Bosses.count: more with more players)
 
+local PULSE = 2.5 -- seconds a shut gate's panel takes to glow in and out again, so it is seen from down the road
 local WORK_EVERY = 0.2 -- seconds between a holder's GATE_WORK
 local WORK_GRACE = 0.45 -- seconds without one before the host takes it they let go
 local SLACK = 40 -- px the host allows for a worker drawn a little off
@@ -353,9 +354,24 @@ local function drawRoom(g, st)
   love.graphics.rectangle("fill", r.x - 40, r.y + 4, 80, 2)
 end
 
---- The control panel: a pillar with a screen, and how far it has got.
+--- How far through its slow glow a shut panel is: 0 (dim) to 1 (bright).
+local function pulse()
+  return 0.5 - 0.5 * math.cos(clock * 2 * math.pi / PULSE)
+end
+
+--- The control panel: a pillar with a screen, and how far it has got. A
+--- shut one glows slowly in and out round its foot.
 local function drawPanel(g, st)
   local p = g.panel
+  if not st.openT then
+    local k = pulse()
+    love.graphics.setColor(MAGENTA[1], MAGENTA[2], MAGENTA[3], 0.08 + 0.22 * k)
+    love.graphics.circle("fill", p.x, p.y, 22 + 18 * k, 32)
+    love.graphics.setColor(MAGENTA[1], MAGENTA[2], MAGENTA[3], 0.15 + 0.35 * k)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", p.x, p.y, 22 + 18 * k, 32)
+    love.graphics.setLineWidth(1)
+  end
   love.graphics.setColor(0, 0, 0, 0.4)
   love.graphics.rectangle("fill", p.x - 9, p.y - 9, 22, 22, 3)
   love.graphics.setColor(DARK)
@@ -385,8 +401,12 @@ end
 function Gates.drawNightLights(glow)
   for i, g in ipairs(gatesOf(cityMap())) do
     local st = state(i)
-    local color = st.openT and GREEN or MAGENTA
-    glow(g.panel.x, g.panel.y, 70, color, 0.7)
+    if st.openT then
+      glow(g.panel.x, g.panel.y, 70, GREEN, 0.7)
+    else -- shut: breathing slowly in and out
+      local k = pulse()
+      glow(g.panel.x, g.panel.y, 80 + 90 * k, MAGENTA, 0.4 + 0.55 * k)
+    end
     if st.roomT then
       glow(g.room.x, g.room.y + 20, 120, { 0.95, 0.9, 0.95 }, 0.5)
     end

@@ -361,7 +361,7 @@ local function manGun(side, nest, s)
 end
 
 --- Station `st` for `side` (`key`): the gunner on its nest (if it has
---- one), the crew on its posts, and its garrison waiting in the house.
+--- one), the crew on its posts, and its garrison waiting in the house (if it has one).
 function Troops.addStation(server, side, key, st)
   local troops, conf = side.troops, side.conf
   local n = st.nest
@@ -384,8 +384,10 @@ function Troops.addStation(server, side, key, st)
     side.nests[#side.nests + 1] = nest
   end
   side.groups[#side.groups + 1] = { kind = "post", members = crew, chatIn = between(Troops.chatEvery) * random() }
-  local g = st.garrison
-  side.garrisons[#side.garrisons + 1] = { g = g, out = false, left = Bosses.count(g.count, server), nextIn = 0 }
+  local g = st.garrison -- (none at the Overpass's roadblocks: no house)
+  if g then
+    side.garrisons[#side.garrisons + 1] = { g = g, out = false, left = Bosses.count(g.count, server), nextIn = 0 }
+  end
 end
 
 --- Every nest keeps its gun manned while any of its crew is up: the

@@ -342,11 +342,21 @@ branch off `feature/cyber-feud`):
   and below the tower ramp, solid to cars, people and rounds (a solid in
   the map's `solids` and `cells`, taken out of both on the host and every
   screen when it opens). To open one, somebody gets out and holds the
-  action key at the control panel on the shoulder short of it for 3 s (it
+  action key at the control panel on the shoulder short of it (a shut
+  one's glows slowly in and out, every 2.5 s, so it is seen from down the
+  road) for 3 s (it
   drains at half that pace when they let go); working it calls up to four
   of Halcyon's officers within 900 px, every 6 s, on top of the three
   posted behind each gate. Open, it stays open. The Knot gets round the
   roadworks gate; nothing gets round the other two.
+  On your side of each gate stands a Halcyon guard station
+  (`halcyon.stations`, no house: `Troops.addStation` takes one without a
+  garrison): an MG nest in the middle of the road 1.4 tiles short of the
+  gate, facing back down it (`NEST_ARC`), two riflemen behind barriers two
+  tiles either side who take the gun when its gunner drops, and two riot
+  shields (`map.enforcers`) 4.6 tiles out holding the road in front. The
+  panel's shoulder is left open, and no wrecks are dropped in the
+  `GATE_GUARD` rows short of a gate.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
@@ -944,7 +954,19 @@ with gaps where the rain comes through.
 ### 3. The Overpass (`overpass`, 32x200, driven)
 
 An elevated highway, long and narrow, with the city a drop away on both
-sides (the edges are solid, drawn as a long fall with lights far below).
+sides (the edges are solid). It is drawn as a bridge (`map.bridge`,
+render_cyber_feud.lua's `drawBridge`): a steel truss girder and a railing
+along every edge of the deck (the ramp and the Knot too), its shadow on
+the drop, expansion joints across the highway over the piers every 12
+rows with the piers' caps out either side, and cable-stay towers either
+side at rows 162, 118 and 34 (`BRIDGE_TOWERS`) with their cables fanning
+down the deck's edges and a red light on top. Off the deck the map is
+see-through, and the city far below shows (`surroundings/overpass_below.lua`):
+blocks of towers, streets with traffic and a river under the middle
+stretch, drawn at 0.45 the size and sliding by at 0.45 the speed
+(`DEPTH`) under a haze, so it sits a long way down; at night its lit
+windows, neon, street lamps, traffic and the lamps and reflections on the
+river glow, dimmed, and none of them light the deck.
 Four lanes, with wrecks and stalled traffic as obstacles.
 
 - **Arrival:** the bottom, onto the on-ramp, everyone behind the wheel of a
