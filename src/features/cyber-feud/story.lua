@@ -71,6 +71,7 @@ Story.beats = {
 --   alert  one who has just spotted a player
 --   rival  one who has just spotted the other side
 --   down   one near a mate who just went down
+--   truce  where the two sides hold fire (the Overpass), when a flare-up between them dies down
 Story.troops = {
   halcyon = {
     idle = {
@@ -90,6 +91,7 @@ Story.troops = {
     },
     rival = { "Static on the street!", "Gang activity, engage.", "Unlicensed chrome. Remove it.", "Static incursion!" },
     down = { "Officer down. Filing it.", "We have a casualty.", "Man down. Requesting cleanup.", "Lost one. File it." },
+    truce = { "Hold fire on the Static. Courier first.", "Cease fire. Priorities.", "Stand down. Paperwork later." },
   },
   static = {
     idle = {
@@ -104,6 +106,7 @@ Story.troops = {
     alert = { "COURIER! Get 'em!", "There's the delivery!", "Nice shoes! Mine!", "Package! Grab it!" },
     rival = { "Grey suits! Light 'em up!", "Corp-meat at twelve!", "Suits on our street!", "Halcyon! Get some!" },
     down = { "They got Ratchet!", "Oh, that's gonna leave a mark.", "Man down! Man DOWN!", "Who's got spare parts?!" },
+    truce = { "Easy, suit. Courier first, then you.", "Fine! Truce! For now!", "Save it for the courier!" },
   },
 }
 

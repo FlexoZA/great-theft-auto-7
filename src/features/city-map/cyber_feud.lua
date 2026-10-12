@@ -30,7 +30,8 @@
 --   map.vexY              the line past which VEX boots up (the Drop)
 --   map.helipad           { x, y, r } the Roof's helipad
 --   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
---   map.troops            { halcyon = side, static = side } the factions' troops (the Drop, the Market), each
+--   map.troops            { halcyon = side, static = side } the factions' troops (the Drop, the Market, the
+--                         Overpass), each
 --                         side { posts = { x, y, watch, at, hold }, patrols = { route } }, world px;
 --                         `at` groups the posts of one place (they chat), a route is a loop of { x, y };
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
@@ -725,6 +726,46 @@ local function buildOverpass(map, rng, T)
       end
     end
   end
+
+  -- Who is waiting on the road (cyber-feud/troops.lua puts them there).
+  -- The Static: gangers in pairs on the shoulders of the long stretch,
+  -- watching back down the road for you. Halcyon: a checkpoint where the
+  -- road forks for the ramp, posts along the roadworks, and the last
+  -- roadblock across the tower ramp with a squad on the stretch below it.
+  -- And the Knot, VEX's "shortcut": both of them waiting there together,
+  -- Halcyon along its north and east edges, the Static along its south
+  -- edge over the ramp in and a pack walking the pad.
+  local P = function(c, r)
+    return { x = math.floor(X(c)), y = math.floor(Y(r)) }
+  end
+  local function post(list, c, r, watch, at)
+    list[#list + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), watch = watch, at = at }
+  end
+  local south, north, west = math.pi / 2, -math.pi / 2, math.pi
+  local halcyon, static = { posts = {} }, { posts = {} }
+  for _, r in ipairs({ 172, 146, 120 }) do
+    post(static.posts, a + 0.5, r, south, "shoulder" .. r)
+    post(static.posts, b + 0.5, r + 1, south, "shoulder" .. r)
+  end
+  post(halcyon.posts, (a + b + 1) / 2 - 0.6, 100, south, "fork")
+  post(halcyon.posts, (a + b + 1) / 2 + 0.6, 100, south, "fork")
+  post(halcyon.posts, a + 1, 76, south, "works")
+  post(halcyon.posts, b, 62, south, "works")
+  for c = a + 0.5, b + 0.5, 2 do
+    post(halcyon.posts, c, 9, south, "ramp")
+  end
+  halcyon.patrols = { { P(a + 1, 14), P(b, 14), P(b, 40), P(a + 1, 40) } }
+  for _, c in ipairs({ k.c0 + 2, k.c0 + 5, k.c1 - 0.5 }) do
+    post(halcyon.posts, c, k.r0 + 1, south, "knot north")
+  end
+  for _, r in ipairs({ k.r0 + 6, k.r0 + 11 }) do
+    post(halcyon.posts, k.c1 + 0.5, r, west, "knot east")
+  end
+  for _, c in ipairs({ k.c0 + 3.5, k.c0 + 6, k.c1 - 0.5 }) do
+    post(static.posts, c, k.r1, north, "knot south")
+  end
+  static.patrols = { { P(k.c0 + 3, k.r0 + 3), P(k.c1 - 1, k.r0 + 3), P(k.c1 - 1, k.r1 - 3), P(k.c0 + 3, k.r1 - 3) } }
+  map.troops = { halcyon = halcyon, static = static }
 
   -- Halcyon Tower's garage ramp at the top.
   cover(map, "tunnel", X(a), Y(0), (b - a + 1) * T, 2 * T, false)

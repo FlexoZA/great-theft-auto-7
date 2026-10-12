@@ -25,6 +25,11 @@
 -- player hurts one of them, or (where the map has a `wakeY`, the Market)
 -- a player walks past that line: then the whole street wakes at once.
 --
+-- On the Overpass the two sides hold fire on each other (Troops.levels'
+-- "provoked"), until a round of one hits the other: then they are at it
+-- until things calm down (Troops.flare), and call a truce again. Getting
+-- them into each other's line of fire is the way to start it.
+--
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
 -- gates behind riot shields, in the feud with the rest of Halcyon; the
 -- Static's rippers (rippers.lua, their own brain) lunge out of the west
@@ -99,10 +104,16 @@ Troops.side = {
   },
 }
 -- The maps they hold, and whether the two sides fight each other there.
+-- `feud` true: they fight on sight; "provoked": they hold fire on each
+-- other until a round of one side hits the other (crossfire, more often than
+-- not), then fight for `Troops.flare` seconds after the last such hit and
+-- call a truce again.
 Troops.levels = {
   drop = { feud = true },
   market = { feud = true },
+  overpass = { feud = "provoked" },
 }
+Troops.flare = 25
 Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
 Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Troops.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
@@ -250,18 +261,24 @@ function Troops.serverStart(server, map, name, calm)
   local blades = Rippers.serverStart(server, map, nav, calm) -- the Static's rippers in the lanes
   local emps = Sparkers.serverStart(server, map, nav, calm) -- and its sparkers, hanging back
   local eyes = Watchers.serverStart(server, map, calm) -- Halcyon's watcher drones overhead
-  if level.feud then
+  if emps then
+    emps.rivals = { eyes } -- what an EMP is for (the gangers leave the drones to them)
+  end
+  --- The two sides at each other's throats (`on`), or holding fire.
+  function sv.setWar(on)
     local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
-    h.rivals, s.rivals = { s, blades, emps }, { h, shields }
-    if emps then
-      emps.rivals = { eyes } -- what an EMP is for (the gangers leave the drones to them)
-    end
+    h.rivals, s.rivals = on and { s, blades, emps } or {}, on and { h, shields } or {}
     if shields then
-      shields.rivals = { s, blades, emps }
+      shields.rivals = on and { s, blades, emps } or {}
     end
     if blades then
-      blades.rivals = { h, shields }
+      blades.rivals = on and { h, shields } or {}
     end
+  end
+  if level.feud == true then
+    sv.setWar(true)
+  elseif level.feud == "provoked" then
+    sv.provoked = true -- a truce, until one side's round finds the other
   end
   Droids.serverStart(server, map, nav, calm) -- Halcyon's assassin droids, on the same walking grid
 end
@@ -412,6 +429,46 @@ function Troops.serverWake()
   Rippers.serverWake()
   Sparkers.serverWake()
   Watchers.serverWake()
+end
+
+--- Where the sides hold fire on each other (sv.provoked), a round of one
+--- side has hit `s` of the other: they are at it, for Troops.flare seconds
+--- after the last such hit. `s` shouts about it.
+function Troops.flareUp(server, s)
+  sv.warUntil = sv.time + Troops.flare
+  if not sv.atWar then
+    sv.atWar = true
+    sv.setWar(true)
+    if s.hp > 0 then
+      s.quietUntil = sv.time + Troops.shoutEvery
+      server:broadcast(Protocol.encode("CF_SAY", s.id, "rival", random(#Story.troops[s.faction].rival)))
+    end
+  end
+end
+
+--- A flare-up that has run its course: they hold fire again, drop each
+--- other as targets, and one of each side says so.
+local function stepTruce(server)
+  if not (sv.atWar and sv.time > sv.warUntil) then
+    return
+  end
+  sv.atWar = false
+  sv.setWar(false)
+  for _, key in ipairs(Troops.SIDES) do
+    local speaker
+    for _, s in ipairs(sv.sides[key].troops.list) do
+      if type(s.target) == "table" then
+        s.target, s.alert = nil, false
+      end
+      if s.hp > 0 and not s.alert and (not speaker or random() < 0.3) then
+        speaker = s
+      end
+    end
+    if speaker then
+      local lines = Story.troops[key].truce
+      server:broadcast(Protocol.encode("CF_SAY", speaker.id, "truce", random(#lines)))
+    end
+  end
 end
 
 --- Every soldier, to everyone, unreliably.
@@ -622,6 +679,7 @@ function Troops.serverStep(server, dt)
   Watchers.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
+  stepTruce(server)
   sync(server)
 end
 
@@ -641,6 +699,8 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
     if hits then
       if by ~= 0 then
         Troops.serverWake()
+      elseif sv.provoked then
+        Troops.flareUp(server, s) -- the other side's round: that's it, then
       end
       if side.troops:hurt(s, i, damage or Combine.SHOT_DAMAGE, angle) then
         soldierDown(server, side, s, by ~= 0 and by or nil, angle, dtype)

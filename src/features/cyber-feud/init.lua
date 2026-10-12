@@ -118,7 +118,8 @@ function CyberFeud:serverQuestStarted(server, quest)
   local c = city()
   sv = { quest = quest.id, map = c and c.current, reached = false, beats = {} }
   if c and c.map then
-    Troops.serverStart(server, c.map, c.current, run.shard == nil)
+    -- Calm until the Shard is taken, on the map it is taken on.
+    Troops.serverStart(server, c.map, c.current, run.shard == nil and c.map.pickupX ~= nil)
   end
 end
 

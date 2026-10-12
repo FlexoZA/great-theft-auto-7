@@ -20,6 +20,20 @@ branch off `feature/cyber-feud`):
 - The Drop's chase theme (`src/features/cyber-feud/theme_chase.lua`): rock
   with a synth arpeggio, 150 BPM in A minor, ~48 s, looping from the moment
   someone takes the Shard until the map changes.
+- The factions on the Overpass (`feature/cyber-feud-overpass`, `overpass`
+  in `Troops.levels`; placements in `city-map/cyber_feud.lua`'s
+  `buildOverpass`): Static gangers in pairs on the shoulders of the long
+  stretch; Halcyon at the fork for the off-ramp, along the roadworks and
+  across the tower ramp, with a squad on the stretch below it; and both
+  waiting together in the Knot, Halcyon on its north and east edges, the
+  Static along its south edge and a pack on the pad. Here the sides hold
+  fire on each other (`feud = "provoked"`) until a round of one hits the
+  other, usually crossfire aimed at a player between them; then they fight
+  until 25 s after the last such hit (`Troops.flare`) and call a truce
+  (Story.troops' `truce` lines). The troops are calm only on the Drop now,
+  until the Shard is taken there. Still to come on the Overpass:
+  interceptors, war-rigs and Kilowatt's cameo, sting drones, marksmen on
+  the gantries.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
