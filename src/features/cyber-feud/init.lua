@@ -20,6 +20,9 @@
 --   - The Overpass's theme (theme_overpass.lua, darksynth) starts on every
 --     screen as Kilowatt's rig roars past (KW_RIDE, or CF_MUSIC for a
 --     player joining after), and plays until the map changes.
+--   - Halcyon Tower's theme (theme_tower.lua, industrial groove metal)
+--     starts on every screen the moment the tower wakes (CF_WAKE: a player
+--     walking past the reception), and plays until the map changes.
 --   - The Market's theme (theme_market.lua, heavy metal) starts on every
 --     screen the moment the Market wakes (CF_WAKE: a player walking up out
 --     of the tunnel), and plays until the map changes. Rendered on arrival.
@@ -76,6 +79,7 @@ local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
 local MarketTheme = require("src.features.cyber-feud.theme_market")
 local OverpassTheme = require("src.features.cyber-feud.theme_overpass")
+local TowerTheme = require("src.features.cyber-feud.theme_tower")
 local Audio = require("src.audio")
 
 local CyberFeud = {
@@ -297,9 +301,9 @@ end
 -- Client ------------------------------------------------------------------
 
 -- Each level's theme, and what starts it: on the Drop the Shard being
--- taken, on the Market the street waking, on the Overpass Kilowatt's rig
--- roaring past (war_rigs.lua's KW_RIDE).
-local THEMES = { drop = ChaseTheme, market = MarketTheme, overpass = OverpassTheme }
+-- taken, on the Market and in the tower the place waking, on the Overpass
+-- Kilowatt's rig roaring past (war_rigs.lua's KW_RIDE).
+local THEMES = { drop = ChaseTheme, market = MarketTheme, overpass = OverpassTheme, tower = TowerTheme }
 local music = {} -- map name -> its theme's Source, rendered on first arriving there
 
 local function musicVolume()
@@ -405,8 +409,8 @@ CyberFeud.clientMessages = {
     end
   end,
   CF_WAKE = function()
-    if cl.level == "market" then
-      startMusic("market") -- they know you're here
+    if cl.level == "market" or cl.level == "tower" then
+      startMusic(cl.level) -- they know you're here
     end
   end,
   CF_MUSIC = function()

@@ -35,6 +35,17 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- Halcyon Tower's theme (`src/features/cyber-feud/theme_tower.lua`,
+  `feature/cyber-feud-tower-theme`): industrial groove metal, 132 BPM in
+  C# minor, ~60 s, looping from the moment the tower wakes (CF_WAKE, a
+  player walking past the reception) until the map changes. A bar of the
+  lobby's muzak (electric piano, vibraphone, brushes) cut off by a tape-stop
+  glitch; a syncopated groove of low C# chugs with the kick locked to them,
+  the snare on three and synth stabs in the gaps; an industrial march (four
+  on the floor, an anvil off the beat) leaning on D and G; a chorus of open
+  chords (C# minor, A, E, B) over double kick under a lead and a cold
+  square arpeggio; a half-time breakdown ending on the lift's chime; and
+  the groove again into the top.
 - The Static's brutes (`feature/cyber-feud-tower-brutes`,
   `src/features/cyber-feud/brutes.lua` and `brute_brain.lua`): drawn at
   2x, 150 health, slow (45 px/s on a beat, 85 going in), finding their way

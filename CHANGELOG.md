@@ -101,6 +101,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   charges down it, and punches up close. Get next to one and hold F for 1.5 s to breach his arm: for 4 s he spins,
   swinging at everyone near him, his own side included.
 - The Static's break-ins into Halcyon Tower bring sparkers from the offices up and brutes from the server room up.
+- Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
+  the reception, cutting off the lobby's lift music.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
