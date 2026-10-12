@@ -80,6 +80,7 @@ Story.kilowatt = {
 --   rival  one who has just spotted the other side
 --   down   one near a mate who just went down
 --   truce  where the two sides hold fire (the Overpass), when a flare-up between them dies down
+--   breakIn  the Static's, one of a pack breaking in to a floor of the tower after you
 Story.troops = {
   halcyon = {
     idle = {
@@ -115,6 +116,8 @@ Story.troops = {
     rival = { "Grey suits! Light 'em up!", "Corp-meat at twelve!", "Suits on our street!", "Halcyon! Get some!" },
     down = { "They got Ratchet!", "Oh, that's gonna leave a mark.", "Man down! Man DOWN!", "Who's got spare parts?!" },
     truce = { "Easy, suit. Courier first, then you.", "Fine! Truce! For now!", "Save it for the courier!" },
+    breakIn = { "We're in! Up, up, UP!", "Find the courier! Every floor!", "Kilowatt wants that Shard!",
+      "Mind the suits. Or don't!" },
   },
 }
 

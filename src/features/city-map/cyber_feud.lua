@@ -31,7 +31,7 @@
 --   map.helipad           { x, y, r } the Roof's helipad
 --   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
 --   map.troops            { halcyon = side, static = side } the factions' troops (the Drop, the Market, the
---                         Overpass), each
+--                         Overpass, the tower), each
 --                         side { posts = { x, y, watch, at, hold }, patrols = { route } }, world px;
 --                         `at` groups the posts of one place (they chat), a route is a loop of { x, y };
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
@@ -53,8 +53,10 @@
 --                         car-stations feature); the respawn points there too
 --   map.gates             { name, solid, frame = { x, y, w, h }, panel = { x, y } } Halcyon's roadblocks across
 --                         the road (the Overpass, cyber-feud/gates.lua): `solid` is in map.solids until opened
---   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
---                         edge already, but nobody fires at the tunnel's mouth)
+--   map.breakIns          { x, y, beat } where the Static break in to each of the tower's floors (the lobby's
+--                         doors, then the stairwell from below) and the beat they walk there (a loop of { x, y })
+--   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
+--                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
 --   map.droids            { route } the assassin droids' beat (the Drop), a loop of { x, y }, world px
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
@@ -951,6 +953,84 @@ local function buildTower(map, rng, T)
   cover(map, "lift", X(22), Y(f.r0 - 2), 4 * T, 2 * T, false)
   light(map, X(24), Y(f.r0 + 1), 260, CyberFeud.MAGENTA, 0.6)
   map.exitX, map.exitY = math.floor(X(24)), math.floor(Y(f.r0 + 1))
+
+  -- Who is in the tower (cyber-feud/troops.lua puts them there). Halcyon
+  -- holds every floor: a pair on the stair door up (at the far end from
+  -- where you come in, so the climb is a walk across each floor past
+  -- them), a few more posts, and a squad walking a beat round the floor's
+  -- middle (no squad in the lobby: they hold the lifts). The Static aren't
+  -- in yet: they break in from below (`breakIns`), a pack at a time up the
+  -- stairwell onto the lowest floor anyone is on, and walk that floor's
+  -- beat after them.
+  local south, west, east = math.pi / 2, math.pi, 0
+  local function P(c, r)
+    return { x = math.floor(X(c)), y = math.floor(Y(r)) }
+  end
+  local halcyon = { posts = {}, patrols = {} }
+  local function post(c, r, watch, at)
+    halcyon.posts[#halcyon.posts + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), watch = watch, at = at }
+  end
+  -- Each floor's beat: a loop round what stands in the middle, on the rows
+  -- and columns it leaves clear.
+  local beats = {
+    { { 11, 103.5 }, { 36, 103.5 }, { 36, 108 }, { 11, 108 } }, -- the lobby, round the reception and planters
+    { { 8.5, 77.2 }, { 38.5, 77.2 }, { 38.5, 90.3 }, { 8.5, 90.3 } }, -- the offices, round the desks
+    { { 8.5, 62.3 }, { 34, 62.3 }, { 34, 70.6 }, { 8.5, 70.6 } }, -- the servers, down the racks' aisles
+    { { 8.5, 41.5 }, { 38, 41.5 }, { 38, 52 }, { 8.5, 52 } }, -- the labs, round the tanks
+    { { 5, 23 }, { 40, 23 }, { 40, 37.4 }, { 9, 37.4 } }, -- security, round the barricades (where they fall)
+    { { 13, 9 }, { 35, 9 }, { 35, 15 }, { 13, 15 } }, -- the executive floor, round the boardroom table
+  }
+  for i, beat in ipairs(beats) do
+    for k, p in ipairs(beat) do
+      beat[k] = P(p[1], p[2])
+    end
+    if i > 1 then
+      halcyon.patrols[#halcyon.patrols + 1] = beat
+    end
+  end
+  halcyon.patrols[#halcyon.patrols + 1] = beats[5] -- the guard floor: two squads on its beat
+  -- The stair doors up, the pair on each.
+  for i = 1, #floors - 1 do
+    local fl = floors[i]
+    local c0 = (i % 2 == 1) and fl.c1 - 4 or fl.c0 + 1
+    post(c0 + 0.6, fl.r0 + 1.6, south, "stairs " .. i)
+    post(c0 + 3.4, fl.r0 + 1.6, south, "stairs " .. i)
+  end
+  -- The lobby's lifts, watching over the reception to the doors.
+  local lobby = floors[1]
+  for _, c in ipairs({ 6.5, 8.5 }) do
+    post(c, lobby.r0 + 3.6, south, "lifts west")
+  end
+  for _, c in ipairs({ cols - 9.5, cols - 7.5 }) do
+    post(c, lobby.r0 + 3.6, south, "lifts east")
+  end
+  -- A few more, floor by floor, watching across where you have to go.
+  post(cols - 4, floors[2].r0 + 4, west, "offices east")
+  post(cols - 10, floors[3].r0 + 8, west, "racks east")
+  post(23, floors[4].r0 + 6.5, east, "tanks")
+  post(23, floors[5].r0 + 8.5, south, "checkpoint")
+  post(14, floors[5].r0 + 4, east, "checkpoint")
+  post(cols - 8, floors[5].r0 + 12, west, "security east")
+  post(14.5, floors[6].r0 + 8, south, "boardroom")
+  post(33.5, floors[6].r0 + 8, south, "boardroom")
+  post(20.6, floors[6].r0 + 1.5, south, "saye's office")
+  post(27.4, floors[6].r0 + 1.5, south, "saye's office")
+  map.troops = { halcyon = halcyon, static = { posts = {} } }
+  -- Where the Static come in to each floor: the lobby's front doors, and
+  -- above it the top of the stairwell from the floor below.
+  map.breakIns = {}
+  for i, fl in ipairs(floors) do
+    local x, y
+    if i == 1 then
+      x, y = X(24), Y(rows - 1.5)
+    else
+      local c0 = ((i - 1) % 2 == 1) and floors[i - 1].c1 - 4 or floors[i - 1].c0 + 1
+      x, y = X(c0 + 2), Y(fl.r1 + 1.5)
+    end
+    map.breakIns[i] = { x = math.floor(x), y = math.floor(y), beat = beats[i] }
+  end
+  -- Nobody is looking until somebody is past the reception: not a shot at the doors.
+  map.wakeY = math.floor(Y(lobby.r1 - 5))
 
   for i = 0, 15 do
     map.spawns[#map.spawns + 1] = {

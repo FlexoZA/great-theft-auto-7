@@ -25,6 +25,14 @@
 -- player hurts one of them, or (where the map has a `wakeY`, the Market)
 -- a player walks past that line: then the whole street wakes at once.
 --
+-- In Halcyon Tower they ignore each other (Troops.levels' false): never
+-- each other's rivals, and their rounds pass through both sides; they only
+-- want you. Halcyon holds every floor, and the Static break in from below
+-- (Troops.breakIn, the map's `breakIns`): a pack at a time, every so often,
+-- up the stairwell onto the lowest floor anyone is on (the lobby's doors
+-- for the lobby), walking that floor's beat after them, so the floors
+-- behind you aren't safe.
+--
 -- On the Overpass the two sides hold fire on each other (Troops.levels'
 -- "provoked"), until a round of one hits the other: then they are at it
 -- until things calm down (Troops.flare), and call a truce again. Getting
@@ -117,12 +125,17 @@ Troops.side = {
 -- `feud` true: they fight on sight; "provoked": they hold fire on each
 -- other until a round of one side hits the other (crossfire, more often than
 -- not), then fight for `Troops.flare` seconds after the last such hit and
--- call a truce again.
+-- call a truce again. false: never, and their rounds pass through each other.
 Troops.levels = {
   drop = { feud = true },
   market = { feud = true },
   overpass = { feud = "provoked" },
+  tower = { feud = false },
 }
+-- The Static breaking in to the tower: the first pack `first` seconds after
+-- it wakes, then one every `every`, while fewer than `most` of them (and
+-- `perHuman` more for each human past the first) are on that floor already.
+Troops.breakIn = { first = 12, every = 35, most = 8, perHuman = 4 }
 Troops.flare = 25
 Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
 Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
@@ -223,7 +236,11 @@ function Troops.serverStart(server, map, name, calm)
     return
   end
   calm = calm or map.wakeY ~= nil
-  sv = { sides = {}, pending = {}, time = 0, quietUntil = 0, syncIn = 0, feud = level.feud, wakeY = map.wakeY }
+  sv = { sides = {}, pending = {}, time = 0, quietUntil = 0, syncIn = 0, feud = level.feud, wakeY = map.wakeY,
+    allied = level.feud == false }
+  if map.breakIns and map.floors then
+    sv.breakIn = { spots = map.breakIns, floors = map.floors, nextIn = Troops.breakIn.first }
+  end
   local T = require("src.features.city-map.layout").TILE
   local bounds = { x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T }
   local nav = nil
@@ -659,6 +676,79 @@ local function runOver(server)
   end
 end
 
+--- The lowest of the tower's floors (1 the lobby) a human on foot is on,
+--- counting the stairwell up from a floor as part of it; nil for nobody.
+local function lowestFloor(server, floors)
+  local T = require("src.features.city-map.layout").TILE
+  local low = nil
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local _, y = Features.bodyPose(server, p)
+      for i, f in ipairs(floors) do
+        if y and y >= f.y0 - 2 * T and y < f.y1 and (not low or i < low) then
+          low = i
+        end
+      end
+    end
+  end
+  return low
+end
+
+--- The Static breaking in to the tower: a pack up onto the lowest floor
+--- anyone is on, every so often once it is awake, walking that floor's
+--- beat from the way in. Any of theirs left two floors behind by then are
+--- taken off (out of sight, out of the way).
+local function stepBreakIn(server, dt)
+  local b = sv.breakIn
+  if not (b and sv.awake) then
+    return
+  end
+  b.nextIn = b.nextIn - dt
+  if b.nextIn > 0 then
+    return
+  end
+  b.nextIn = Troops.breakIn.every
+  local floor = lowestFloor(server, b.floors)
+  local spot = floor and b.spots[floor]
+  if not spot then
+    return
+  end
+  local side = sv.sides.static
+  local list = side.troops.list
+  local here = 0
+  for i = #list, 1, -1 do
+    local s = list[i]
+    if s.breakIn and s.breakIn <= floor - 2 then
+      s.hp = 0 -- (so nobody counts him to talk)
+      table.remove(list, i)
+    elseif s.breakIn == floor then
+      here = here + 1
+    end
+  end
+  local most = Troops.breakIn.most + Troops.breakIn.perHuman * (Bosses.humans(server) - 1)
+  local size = math.min(side.conf.squad, most - here)
+  if size <= 0 then
+    return
+  end
+  -- Onto the beat at its corner nearest the way in, in file behind the first.
+  local beat, first, bestD2 = spot.beat, 1, math.huge
+  for k, c in ipairs(beat) do
+    local d2 = dist2(c.x, c.y, spot.x, spot.y)
+    if d2 < bestD2 then
+      first, bestD2 = k, d2
+    end
+  end
+  local squad = side.troops:addSquad(beat, size, (first - 2) % #beat + 1)
+  local heading = math.atan2(beat[first].y - spot.y, beat[first].x - spot.x)
+  for i, s in ipairs(squad.members) do
+    s.x, s.y = clearSpot(spot.x - math.cos(heading) * 30 * (i - 1), spot.y - math.sin(heading) * 30 * (i - 1))
+    s.facing, s.breakIn, s.faction = heading, floor, "static"
+    side.troops:arm(s, pickArms(side.conf.loadout))
+  end
+  side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
+  say(server, squad.members[1], "breakIn")
+end
+
 --- Anyone past the map's `wakeY` wakes the street.
 local function checkWake(server)
   local calm = false
@@ -706,6 +796,7 @@ function Troops.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
+  stepBreakIn(server, dt)
   sync(server)
 end
 
@@ -721,7 +812,7 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   for _, key in ipairs(Troops.SIDES) do
     local side = sv.sides[key]
     local s, i = side.troops:at(x, y, radius)
-    local hits = s and (by ~= 0 or (from ~= nil and from ~= key and Troops.side[from] ~= nil))
+    local hits = s and (by ~= 0 or (from ~= nil and from ~= key and Troops.side[from] ~= nil and not sv.allied))
     if hits then
       if by ~= 0 then
         Troops.serverWake()

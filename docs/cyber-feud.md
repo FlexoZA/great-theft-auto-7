@@ -20,6 +20,21 @@ branch off `feature/cyber-feud`):
 - The Drop's chase theme (`src/features/cyber-feud/theme_chase.lua`): rock
   with a synth arpeggio, 150 BPM in A minor, ~48 s, looping from the moment
   someone takes the Shard until the map changes.
+- The factions in Halcyon Tower (`feature/cyber-feud-tower-troops`, `tower`
+  in `Troops.levels`, feud `false`; placements in `buildTower`): they ignore
+  each other (never rivals, and their rounds pass through both sides).
+  Halcyon holds every floor: a pair on each stair door up, two on each of
+  the lobby's lifts, a few more posts floor by floor, and a squad of three
+  walking each floor's beat (a loop round its desks, racks, tanks,
+  barricades or table; two squads on the security floor; none in the
+  lobby). Calm until a player walks past the reception (`map.wakeY`). The
+  Static break in from below (`Troops.breakIn`, `map.breakIns`): 12 s after
+  the tower wakes, then every 35 s, a pack of four comes in onto the lowest
+  floor any human is on (the lobby's front doors, above it the top of the
+  stairwell from the floor below) and walks that floor's beat, while fewer
+  than 8 (4 more a human past the first) of them are on that floor; packs
+  left two floors behind are taken off. The first of each pack shouts as
+  they come in (`Story.troops.static.breakIn`).
 - The factions on the Overpass (`feature/cyber-feud-overpass`, `overpass`
   in `Troops.levels`; placements in `city-map/cyber_feud.lua`'s
   `buildOverpass`): Static gangers in pairs on the shoulders of the long

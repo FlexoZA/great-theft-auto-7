@@ -76,6 +76,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   factions come for you.
 - Halcyon's watcher drones fly over the Market's lanes. One that sees you hangs over you and calls officers in
   every few seconds until you shoot it down. The sparkers' EMPs knock them out for a while.
+- Halcyon Tower is held now: Halcyon officers on every floor, a pair on each stair door up, the lobby's lifts
+  guarded and a squad walking each floor (two on the security floor), so the climb is a sneak past their sight
+  cones. Nobody looks your way until you are past the reception.
+- The Static break into Halcyon Tower behind you: a pack of gangers through the front doors, then up the
+  stairwell onto the lowest floor anyone is on, about every 35 s. The two factions ignore each other in the
+  tower; they only want you.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
