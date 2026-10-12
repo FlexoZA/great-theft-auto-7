@@ -43,6 +43,7 @@
 --                  side h or s; alert 1 has somebody, 2 searching or looking into something, 0 neither)
 --   server -> all  CF_DOWN   <id> <x> <y> <angle>      a soldier went down
 --   server -> all  CF_SAY    <id> <category> <index>   a soldier says Story.troops[side][category][index]
+--   server -> all  CF_WAKE                              the street woke (init.lua's music listens)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -397,10 +398,14 @@ function Troops.serverStop(server)
   end
 end
 
---- The street wakes: from now on they see whoever is there.
+--- The street wakes: from now on they see whoever is there (and every
+--- screen hears about it, once: CF_WAKE, sent on the next step).
 function Troops.serverWake()
   for _, side in pairs(sv and sv.sides or {}) do
     side.troops.calm = false
+  end
+  if sv then
+    sv.awake = true
   end
   Droids.serverWake()
   Enforcers.serverWake()
@@ -600,6 +605,10 @@ function Troops.serverStep(server, dt)
     return
   end
   checkWake(server)
+  if sv.awake and not sv.toldAwake then
+    sv.toldAwake = true
+    server:broadcast(Protocol.encode("CF_WAKE"))
+  end
   for _, key in ipairs(Troops.SIDES) do
     local side = sv.sides[key]
     side.troops:update(server, dt)
@@ -677,6 +686,11 @@ function Troops.serverPanicArea(x, y, radius)
   Enforcers.serverPanicArea(x, y, radius)
   Rippers.serverPanicArea(x, y, radius)
   Sparkers.serverPanicArea(x, y, radius)
+end
+
+--- Is the street awake (for a player joining after it woke)?
+function Troops.serverAwake()
+  return sv ~= nil and sv.awake == true
 end
 
 --- For tests.

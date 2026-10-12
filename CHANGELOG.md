@@ -45,6 +45,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   with a cyan line on the ground showing where they will go, and lunge down it. Step off the line.
 - The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
   will land. Get out of it, or the jolt stuns you.
+- The Market has its own heavy metal theme: it kicks in the moment you walk up out of the tunnel and the
+  factions come for you.
 - Halcyon's watcher drones fly over the Market's lanes. One that sees you hangs over you and calls officers in
   every few seconds until you shoot it down. The sparkers' EMPs knock them out for a while.
 

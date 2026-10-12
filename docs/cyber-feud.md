@@ -20,6 +20,14 @@ branch off `feature/cyber-feud`):
 - The Drop's chase theme (`src/features/cyber-feud/theme_chase.lua`): rock
   with a synth arpeggio, 150 BPM in A minor, ~48 s, looping from the moment
   someone takes the Shard until the map changes.
+- The Market's theme (`src/features/cyber-feud/theme_market.lua`,
+  `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
+  E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
+  CF_WAKE, a player walking up out of the tunnel) until the map changes. A
+  low E rung out under a pinch squeal, a palm-muted gallop with chromatic
+  stabs and the tritone, a tremolo-picked riff over a thrash beat, a
+  chorus of open chords (E minor, C, D, B) over double kick under a twin
+  lead in thirds, and a half-time breakdown.
 - The factions on the Drop (`src/features/cyber-feud/troops.lua`): Halcyon
   officers on the roadblocks and squads in the east, Static gangers on the
   western corners and packs walking their blocks, both on the Combine's brain

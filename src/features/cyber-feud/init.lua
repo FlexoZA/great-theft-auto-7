@@ -17,6 +17,9 @@
 --     (`map.knot`), the far end. Each is something VEX says on the comms.
 --   - Walking or driving into a new part of the map puts its name up.
 --   - The objective line says what to do next and how far it is.
+--   - The Market's theme (theme_market.lua, heavy metal) starts on every
+--     screen the moment the Market wakes (CF_WAKE: a player walking up out
+--     of the tunnel), and plays until the map changes. Rendered on arrival.
 --   - On the Drop, the chase theme (theme_chase.lua, rock) starts on every
 --     screen the moment someone takes the Shard, and plays until the map
 --     changes. It is rendered on arriving there, so the pickup doesn't stall.
@@ -41,6 +44,7 @@
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
+--   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
 --   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN, its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN,
 --   and its watcher drones' WCH_STATE, WCH_CALL, WCH_DOWN)
@@ -56,6 +60,7 @@ local Troops = require("src.features.cyber-feud.troops")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
+local MarketTheme = require("src.features.cyber-feud.theme_market")
 local Audio = require("src.audio")
 
 local CyberFeud = {
@@ -192,6 +197,9 @@ function CyberFeud:serverPlayerJoined(server, player)
   if run and run.shard and server.started and not player.bot then
     server:send(player, Protocol.encode("CF_SHARD", run.shard, "quiet"))
   end
+  if Troops.serverAwake() and not player.bot then
+    server:send(player, Protocol.encode("CF_WAKE")) -- the level's music, if it is on
+  end
 end
 
 --- The carrier left: the Shard passes to another human still here, if any.
@@ -244,34 +252,39 @@ end
 
 -- Client ------------------------------------------------------------------
 
-local chase = nil -- the chase theme's Source, rendered on first arriving on the Drop
+-- Each level's theme, and what starts it: on the Drop the Shard being
+-- taken, on the Market the street waking.
+local THEMES = { drop = ChaseTheme, market = MarketTheme }
+local music = {} -- map name -> its theme's Source, rendered on first arriving there
 
 local function musicVolume()
   return Audio.muted and 0 or Audio.volume("music")
 end
 
-local function stopChase()
-  if chase then
-    chase:stop()
+local function stopMusic()
+  for _, source in pairs(music) do
+    source:stop()
   end
 end
 
---- Render the chase theme, once.
-local function loadChase()
-  if not chase then
-    chase = love.audio.newSource(ChaseTheme.render(), "static")
-    chase:setLooping(true)
-    chase:setRelative(true) -- never positional: the game moves the listener around
+--- Render `level`'s theme, once, if it has one.
+local function loadMusic(level)
+  if THEMES[level] and not music[level] then
+    local source = love.audio.newSource(THEMES[level].render(), "static")
+    source:setLooping(true)
+    source:setRelative(true) -- never positional: the game moves the listener around
+    music[level] = source
   end
 end
 
---- The chase theme from the top, unless it is playing already.
-local function startChase()
-  loadChase()
-  if not chase:isPlaying() then
-    chase:setVolume(musicVolume())
-    chase:seek(0)
-    chase:play()
+--- `level`'s theme from the top, unless it is playing already.
+local function startMusic(level)
+  loadMusic(level)
+  local source = music[level]
+  if source and not source:isPlaying() then
+    source:setVolume(musicVolume())
+    source:seek(0)
+    source:play()
   end
 end
 
@@ -293,7 +306,7 @@ function CyberFeud:clearLevel()
   cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
   Troops.clear()
   Flyers.clear()
-  stopChase()
+  stopMusic()
 end
 
 function CyberFeud:exitGame()
@@ -310,9 +323,7 @@ function CyberFeud:questStarted(_client, quest)
   face = face or Face.new()
   self:clearLevel()
   cl.level = quest.map
-  if quest.map == "drop" then
-    loadChase() -- now, under the banner, not at the pickup
-  end
+  loadMusic(quest.map) -- now, under the banner, not when it starts
   if quest.introLine then
     cl.page = { line = Story.lines[quest.introLine] or Story.lines[1], t = 0, max = self.introTime }
   end
@@ -339,10 +350,15 @@ CyberFeud.clientMessages = {
     local id = tonumber(args[1]) or 0
     cl.shardBy = id > 0 and id or nil
     if cl.shardBy and cl.level == "drop" then
-      startChase() -- the chase is on
+      startMusic("drop") -- the chase is on
     end
     if cl.shardBy and args[2] ~= "quiet" then
       cl.zone = { name = nameOf(client, id) .. " has the Shard", kicker = "THE PACKAGE", t = 0 }
+    end
+  end,
+  CF_WAKE = function()
+    if cl.level == "market" then
+      startMusic("market") -- they know you're here
     end
   end,
   CF_BEAT = function(_client, args)
@@ -375,8 +391,10 @@ function CyberFeud:update(dt, client)
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
   end
-  if chase and chase:isPlaying() then
-    chase:setVolume(musicVolume()) -- the slider may move
+  for _, source in pairs(music) do
+    if source:isPlaying() then
+      source:setVolume(musicVolume()) -- the slider may move
+    end
   end
   if not (face and onLevel()) then
     return
