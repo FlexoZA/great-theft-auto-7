@@ -86,6 +86,7 @@ end
 local function burst(server, x, y)
   server:broadcast(Protocol.encode("SPK_EMP", fmt(x), fmt(y)))
   require("src.features.cyber-feud.watchers").serverEmp(x, y, Sparkers.EMP.radius) -- the machines it is for
+  require("src.features.cyber-feud.stings").serverEmp(x, y, Sparkers.EMP.radius)
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverDamage) then
     return

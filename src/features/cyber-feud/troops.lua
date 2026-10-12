@@ -32,7 +32,8 @@
 --
 -- On the Overpass Halcyon's interceptors (interceptors.lua) wait on the
 -- shoulder to chase, ram and shoot at whoever drives by, and the Static's
--- war-rigs (war_rigs.lua) to ram them, Kilowatt riding the first one past.
+-- war-rigs (war_rigs.lua) to ram them, Kilowatt riding the first one past;
+-- over the gantries Halcyon's sting drones (stings.lua) wait to strafe them.
 --
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
 -- gates behind riot shields, in the feud with the rest of Halcyon; the
@@ -75,6 +76,7 @@ local Sparkers = require("src.features.cyber-feud.sparkers")
 local Watchers = require("src.features.cyber-feud.watchers")
 local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
+local Stings = require("src.features.cyber-feud.stings")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -289,6 +291,7 @@ function Troops.serverStart(server, map, name, calm)
   Droids.serverStart(server, map, nav, calm) -- Halcyon's assassin droids, on the same walking grid
   Interceptors.serverStart(server, map) -- and its patrol cars, on a driven map
   WarRigs.serverStart(server, map) -- the Static's war-rigs, and Kilowatt riding one
+  Stings.serverStart(server, map) -- Halcyon's sting drones over the gantries
 end
 
 --- `s` takes the gun of `nest`: its arc, its sight and its rounds.
@@ -419,6 +422,7 @@ function Troops.serverStop(server)
   Rippers.serverStop(server)
   Sparkers.serverStop(server)
   Watchers.serverStop(server)
+  Stings.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -689,6 +693,7 @@ function Troops.serverStep(server, dt)
   Rippers.serverStep(server, dt)
   Sparkers.serverStep(server, dt)
   Watchers.serverStep(server, dt)
+  Stings.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -730,6 +735,9 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   if not hit then
     hit, byPlayer = Watchers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   end
+  if not hit then
+    hit, byPlayer = Stings.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -748,6 +756,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Rippers.serverFreezeArea(x, y, radius, seconds)
   Sparkers.serverFreezeArea(x, y, radius, seconds)
   Watchers.serverFreezeArea(x, y, radius, seconds)
+  Stings.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -823,6 +832,7 @@ function Troops.clear()
   Rippers.clear()
   Sparkers.clear()
   Watchers.clear()
+  Stings.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -849,6 +859,7 @@ function Troops.update(dt)
   Rippers.update(dt)
   Sparkers.update(dt)
   Watchers.update(dt)
+  Stings.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -883,6 +894,7 @@ function Troops.drawBelowCars()
   Rippers.drawBelowCars()
   Sparkers.drawBelowCars()
   Watchers.drawBelowCars()
+  Stings.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -946,6 +958,7 @@ function Troops.drawAboveCars()
   Rippers.drawAboveCars()
   Sparkers.drawAboveCars()
   Watchers.drawAboveCars()
+  Stings.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -965,6 +978,7 @@ function Troops.drawNightLights(glow)
   Rippers.drawNightLights(glow)
   Sparkers.drawNightLights(glow)
   Watchers.drawNightLights(glow)
+  Stings.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1060,6 +1074,9 @@ for kind, handler in pairs(Sparkers.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Watchers.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Stings.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

@@ -47,6 +47,7 @@
 --   map.rigs              { x, y, angle } posts the Static's war-rigs wait on (the Overpass), world px
 --   map.kilowatt          { x, y, startY, exitAngle } where Kilowatt's rig sets off from, the line past
 --                         which it does, and the way he jumps off (the Overpass)
+--   map.stings            { x, y } where Halcyon's sting drone swarms hang, over the gantries (the Overpass)
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -779,6 +780,12 @@ local function buildOverpass(map, rng, T)
     map.interceptors[#map.interceptors + 1] = { x = math.floor(X(p[1])), y = math.floor(Y(p[2])), angle = north }
   end
 
+  -- Halcyon's sting drone swarms, each over a gantry (cyber-feud/stings.lua),
+  -- in the order they are used.
+  map.stings = {}
+  for _, r in ipairs({ 140, 80, 20, 110, 50 }) do
+    map.stings[#map.stings + 1] = { x = math.floor(X((a + b + 1) / 2)), y = math.floor(Y(r)) }
+  end
   -- The Static's war-rigs, parked on the shoulder between the interceptors
   -- (cyber-feud/war_rigs.lua), in the order they are used.
   map.rigs = {}

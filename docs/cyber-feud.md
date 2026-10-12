@@ -59,8 +59,19 @@ branch off `feature/cyber-feud`):
   into the barrier 20 rows up; he leaps onto the road just before it goes
   up, laughs, and 2.4 s later runs off the east edge. Drawn twice anyone's
   size, chrome shoulders and jaw, a cyan reactor and cable mohawk, lit by
-  his own glow. Still to come on the Overpass: sting drones, marksmen on
-  the gantries.
+  his own glow.
+- Halcyon's sting drones (`feature/cyber-feud-sting-drones`,
+  `src/features/cyber-feud/stings.lua`, their own brain in
+  `sting_brain.lua`): swarms of three over the Overpass's gantries
+  (`map.stings`; two swarms for one human, one more for each extra, up to
+  five). 20 health, 560 px/s, faster than a car. A player within 700 px
+  (no line of sight needed, they are up high) sets a swarm off: run after
+  run through a point a little ahead of where the target is going, each
+  drone off to its own side, on 260 px past and looping back (3.4 rad/s,
+  so wide at speed), firing three-round bursts (6 a round, Halcyon's)
+  whenever the target is in front and within 420 px. They give up past
+  1500 px. Only players' rounds reach them; an EMP knocks one out for 5 s.
+  Still to come on the Overpass: marksmen on the gantries.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
@@ -450,7 +461,7 @@ have to shoot your way through.
 | **Enforcer** | Darker grey, a riot shield in front with a magenta edge | 120 | Shotgun (`bullet`) | Slow. The shield stops everything from in front (within 70 degrees of straight on); flank him or blow him up (blasts and fire go through). Holds doorways and choke points: steps up on you, never more than 300 px from his post. |
 | **Marksman** | Dark helmet, long rifle | 40 | Rifle (`bullet`, hits hard) | Rooftops and catwalks. A thin magenta line shows his aim a second before he fires, like Saye's sightline but slower. |
 | **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol, seeing over walls. Seeing you, it hangs over you and calls the nearest three officers on their feet, every 6 s. Shoot it down (only players' rounds reach it) or an EMP knocks it out for 5 s. Breach it to blind it. |
-| **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
+| **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`), three-round bursts | Flies in swarms of 3: over the Overpass's gantries, making strafing runs through where you are going, faster than a car; later in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |
 | **Assassin droid** | A lean white-plated robot, magenta visor band, rail pistol and a mono-blade; cloaked until it has you | 240 | Rail pistol bursts (`bullet`); a charged rail shot down a magenta sightline | The Drop's tunnel end. The Hunters' brain, quicker: keeps you at range, strafes, and dodges every round it sees coming (again 1.3 s later). Step off the sightline to dodge the rail shot. Two for one player, one more per extra human. |
 | **Interceptor** | A grey SUV with a magenta and blue light bar | car, 220 | Rams; an officer leans out and shoots SMG bursts | The Overpass. Waits on the shoulder, then chases flat out, rams you once alongside and drops back to come again. Breach it parked and it stays dead. |

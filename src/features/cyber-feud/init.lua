@@ -49,7 +49,7 @@
 --   its interceptors' INT_UNITS, its war-rigs' RIG_UNITS, KW_RIDE, KW_LEAP, KW_EXIT,
 --   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN,
 --   its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN,
---   and its watcher drones' WCH_STATE, WCH_CALL, WCH_DOWN)
+--   its watcher drones' WCH_STATE, WCH_CALL, WCH_DOWN, and its sting drones' STG_STATE, STG_DOWN)
 
 local Features = require("src.features")
 local Protocol = require("src.net.protocol")
