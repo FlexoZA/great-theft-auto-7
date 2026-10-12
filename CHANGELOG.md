@@ -47,8 +47,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
   will land. Get out of it, or the jolt stuns you.
 - The Overpass has its own darksynth theme, a night drive: it kicks in as Kilowatt's rig roars past.
+- The Overpass is a bridge now: steel girders and railings along its edges, piers under it, and cable-stay towers
+  with red lights either side. Grey City lies a long way below it, sliding slowly by as you drive: streets full of
+  traffic, lit towers and a river the bridge crosses halfway up.
 - Halcyon has blast gates across the Overpass. Nothing drives through a shut one: get out, hold the action key at
   the control panel beside it while the others cover you, and the guards behind it come running.
+- Each blast gate on the Overpass is guarded on your side: an MG nest in the middle of the road, riflemen behind
+  barriers either side of it who take over the gun, and two riot shields out in front holding the road.
 - The car station prompt now names the car it calls (a Courier on the Overpass, a Scout Car on the Winding Road).
 - The Overpass has car stations along the shoulder: lose your Courier and walk onto the nearest green pad to call
   it back, and if you die you can come back at any pad you have passed instead of at the on-ramp.

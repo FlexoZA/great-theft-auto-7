@@ -11,7 +11,12 @@ local RenderCyberFeud = {}
 local C = {
   beyond = { 0.22, 0.23, 0.26 }, -- the roofs of the city past the edge
   beyondDark = { 0.17, 0.18, 0.21 },
-  abyss = { 0.03, 0.04, 0.06 }, -- the drop off the overpass
+  girder = { 0.30, 0.32, 0.35 }, -- the overpass's steel
+  girderLight = { 0.52, 0.55, 0.58 },
+  rail = { 0.70, 0.72, 0.74 },
+  pier = { 0.36, 0.36, 0.38 },
+  pierTop = { 0.46, 0.46, 0.48 },
+  cable = { 0.78, 0.80, 0.84 },
   asphalt = { 0.24, 0.25, 0.28 },
   asphaltWet = { 0.30, 0.33, 0.40 },
   lane = { 0.62, 0.56, 0.30 },
@@ -55,9 +60,10 @@ end
 -- Ground ---------------------------------------------------------------------
 
 local function drawGround(map, T)
-  local kindBeyond = map.kind == "overpass" and C.abyss or map.kind == "tower" and C.slab or C.beyond
-  color(kindBeyond)
-  love.graphics.rectangle("fill", map.left - 400, map.top - 400, map.w + 800, map.h + 800)
+  if map.kind ~= "overpass" then -- off the overpass is a long way down: left clear for surroundings' city below
+    color(map.kind == "tower" and C.slab or C.beyond)
+    love.graphics.rectangle("fill", map.left - 400, map.top - 400, map.w + 800, map.h + 800)
+  end
   local walk = map.kind == "tower" and C.floor or map.kind == "roof" and C.roof
     or map.kind == "market" and C.market or C.walk
   local line = map.kind == "tower" and C.floorLine or C.walkLine
@@ -485,6 +491,132 @@ local function drawCurtainWall(map, T)
   end
 end
 
+-- The bridge (the Overpass) ---------------------------------------------------
+
+--- Is (c, r) part of the deck?
+local function deck(map, c, r)
+  local col = map.tiles[c]
+  return col ~= nil and col[r] ~= nil
+end
+
+--- Along a deck edge from (x, y), `len` px in the direction (dx, dy), with
+--- (ox, oy) pointing off the deck: its shadow on the drop, the steel truss
+--- girder hung off it (two chords and the zigzag between), and the railing
+--- along the deck's lip. Filled shapes, not lines: the canvas is half size.
+local function bridgeEdge(x, y, len, dx, dy, ox, oy)
+  local function quad(a0, a1, o0, o1, c, alpha)
+    color(c, alpha)
+    local ax, ay, bx, by = x + dx * a0, y + dy * a0, x + dx * a1, y + dy * a1
+    love.graphics.polygon("fill", ax + ox * o0, ay + oy * o0, bx + ox * o0, by + oy * o0,
+      bx + ox * o1, by + oy * o1, ax + ox * o1, ay + oy * o1)
+  end
+  -- The shadow it throws on the drop, deeper south and east (the light is from the north west).
+  local deep = (ox + oy > 0) and 0.5 or 0.3
+  quad(0, len, 18, 60, { 0, 0, 0 }, deep * 0.5)
+  quad(0, len, 18, 34, { 0, 0, 0 }, deep * 0.5)
+  -- The girder: a dark web between two lit chords, and its diagonals.
+  quad(0, len, 0, 18, C.girder)
+  quad(0, len, 0, 3, C.girderLight)
+  quad(0, len, 15, 18, C.girderLight)
+  for k = 0, len - 16, 16 do
+    color(C.girderLight, 0.8)
+    local ax, ay = x + dx * k, y + dy * k
+    local bx, by = x + dx * (k + 16), y + dy * (k + 16)
+    local up = (k / 16) % 2 == 0
+    local o0, o1 = up and 3 or 15, up and 15 or 3
+    love.graphics.polygon("fill", ax + ox * o0, ay + oy * o0, ax + ox * o0 + dx * 3, ay + oy * o0 + dy * 3,
+      bx + ox * o1, by + oy * o1, bx + ox * o1 - dx * 3, by + oy * o1 - dy * 3)
+  end
+  -- The railing on the lip: a rail and its posts.
+  quad(0, len, -6, -3, C.rail)
+  for k = 4, len, 16 do
+    quad(k - 2, k + 2, -8, 0, C.rail)
+  end
+end
+
+--- The Overpass as a bridge: a girder and railing along every edge of the
+--- deck (the highway, the ramp and the Knot), expansion joints across the
+--- highway, the piers' caps either side of it, and the cable-stay towers.
+local function drawBridge(map, T)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if deck(map, c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        if not deck(map, c - 1, r) then
+          bridgeEdge(x, y, T, 0, 1, -1, 0)
+        end
+        if not deck(map, c + 1, r) then
+          bridgeEdge(x + T, y, T, 0, 1, 1, 0)
+        end
+        if not deck(map, c, r - 1) then
+          bridgeEdge(x, y, T, 1, 0, 0, -1)
+        end
+        if not deck(map, c, r + 1) then
+          bridgeEdge(x, y + T, T, 1, 0, 0, 1)
+        end
+      end
+    end
+  end
+  local b = map.bridge
+  for _, py in ipairs(b.piers) do
+    -- The pier's cross-head, out past the deck either side, and the
+    -- expansion joint over it: a steel strip with its teeth.
+    local r = math.floor((py - map.y0) / T)
+    local c0, c1 = nil, nil
+    for c = map.c0, map.c1 do
+      if deck(map, c, r) then
+        c0, c1 = c0 or c, c
+      end
+      if c0 and not deck(map, c + 1, r) then
+        break
+      end
+    end
+    if c0 then
+      local x0, x1 = map.x0 + c0 * T, map.x0 + (c1 + 1) * T
+      for _, side in ipairs({ { x0 - 44, -1 }, { x1 + 20, 1 } }) do
+        if not deck(map, side[2] < 0 and c0 - 1 or c1 + 1, r) then
+          color({ 0, 0, 0 }, 0.35)
+          love.graphics.rectangle("fill", side[1] + 10, py - 14, 24, 40)
+          color(C.pier)
+          love.graphics.rectangle("fill", side[1], py - 20, 24, 40)
+          color(C.pierTop)
+          love.graphics.rectangle("fill", side[1] + 3, py - 17, 18, 8)
+        end
+      end
+      color(C.steelDark)
+      love.graphics.rectangle("fill", x0, py - 3, x1 - x0, 6)
+      color(C.steel)
+      for x = x0 + 4, x1 - 8, 12 do
+        love.graphics.rectangle("fill", x, py - 2, 6, 4)
+      end
+    end
+  end
+  for _, t in ipairs(b.towers) do
+    -- Its cables first, fanning out up and down the deck's edge.
+    for k = 1, 8 do
+      for _, dir in ipairs({ -1, 1 }) do
+        local ex, ey = t.edge, t.y + dir * k * 44
+        local nx, ny = -(ey - t.y), ex - t.x
+        local n = math.sqrt(nx * nx + ny * ny)
+        nx, ny = nx / n * 1.2, ny / n * 1.2
+        color(C.cable, 0.75)
+        love.graphics.polygon("fill", t.x + nx, t.y + ny, ex + nx, ey + ny, ex - nx, ey - ny, t.x - nx, t.y - ny)
+      end
+    end
+    -- The tower: its shadow down on the drop, the concrete, the lit top.
+    color({ 0, 0, 0 }, 0.4)
+    love.graphics.rectangle("fill", t.x - 18, t.y - 14, 56, 56)
+    color(C.pier)
+    love.graphics.rectangle("fill", t.x - 26, t.y - 26, 52, 52, 4)
+    color(C.pierTop)
+    love.graphics.rectangle("fill", t.x - 20, t.y - 20, 40, 40, 3)
+    color(C.girder)
+    love.graphics.rectangle("fill", t.x - 8, t.y - 8, 16, 16)
+    love.graphics.setColor(1, 0.2, 0.15)
+    love.graphics.circle("fill", t.x, t.y, 4, 10)
+  end
+end
+
 --- The roof's parapet, round the edge.
 local function drawParapet(map, T)
   color(C.parapet)
@@ -504,9 +636,8 @@ end
 --- Draw `map` (one of cyber_feud.lua's) into the canvas, `T` the tile size.
 function RenderCyberFeud.draw(map, T)
   drawGround(map, T)
-  for _, b in ipairs(map.below or {}) do
-    love.graphics.setColor(b.color[1], b.color[2], b.color[3], 0.8)
-    love.graphics.circle("fill", b.x, b.y, b.r, 6)
+  if map.bridge then
+    drawBridge(map, T)
   end
   drawRoadLines(map, T)
   if map.kind == "tower" then

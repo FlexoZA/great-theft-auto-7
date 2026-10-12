@@ -50,6 +50,11 @@
 -- heard too (war_sounds.lua): bursts and shells where they happen, and the
 -- war further out.
 --
+-- Under the Overpass the same city lies a long way down (overpass_below.lua):
+-- blocks, streets and traffic and a river, drawn small and sliding by slow
+-- under a haze, its lights dimmed by the distance. Its map is see-through
+-- off the deck, so the city shows under the bridge too.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -59,6 +64,7 @@ local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
 local GreyCity = require("src.features.surroundings.grey_city")
+local OverpassBelow = require("src.features.surroundings.overpass_below")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1180,12 +1186,19 @@ local DRAW = {
     local left, top, right, bottom = view(camera)
     GreyCity.draw(map, left, top, right, bottom, clock, camera)
   end,
+  overpass = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock)
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
 local LIGHTS = {
   drop = GreyCity.lights,
   market = GreyCity.lights,
+  overpass = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow)
+  end,
 }
 
 --- At night (the night feature): what glows past the edge.
@@ -1195,7 +1208,7 @@ function Surroundings:drawNightLights(_client, camera, glow)
   local lights = map and LIGHTS[map.name]
   if lights and map.tiles then
     local left, top, right, bottom = view(camera)
-    lights(map, left, top, right, bottom, clock, glow)
+    lights(map, left, top, right, bottom, clock, glow, camera)
   end
 end
 
