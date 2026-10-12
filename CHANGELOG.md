@@ -26,7 +26,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Guard stations on the Drop: each faction holds a few yards on the avenues with an MG nest out front and a
   garrison inside that comes out when you get close.
 - Halcyon's assassin droids guard the tunnel at the end of the Drop: cloaked robots with rail pistols that dodge
-  your shots and line up a rail shot you can see coming. Two of them, one more for each extra player.
+  your shots (then need 3 s before they can dodge again) and line up a rail shot you can see coming. Two of them,
+  one more for each extra player.
 - The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
 - Grey City carries on past the edge of the Drop: towers and neon, street lamps and traffic going by, a sea of
   lights in the dark.

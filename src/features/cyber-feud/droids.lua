@@ -8,7 +8,7 @@
 -- where they lost you, calling each other in, and above all dodging: every
 -- round a player fires that would hit one, and every ability or grenade
 -- about to land on one, it throws itself out of the way of, and it is ready
--- to again in DODGE_COOL. They fire rail pistol bursts and, every so often,
+-- to again in `dodgeCool` (3 s). They fire rail pistol bursts and, every so often,
 -- stop and charge a rail shot: a magenta sightline shows where it will go
 -- for STUN_CHARGE, and the shot goes down that line, so stepping off it
 -- dodges it. They don't heal.
@@ -47,7 +47,7 @@ Droids.alertFov = math.rad(140) -- and while one is on edge
 Droids.aware = 200 -- px all round them they notice somebody in, any way they face
 Droids.health = 240 -- a Hunter has 180, an officer 60
 Droids.pace = 1.25 -- how much quicker than a Hunter they move
-Droids.dodgeCool = 1.3 -- seconds before one can dodge again (a Hunter's 1.1)
+Droids.dodgeCool = 3 -- seconds before one can dodge again (a Hunter's 1.1): time to land a burst or two
 Droids.damage = 14 -- a rail pistol round
 Droids.burst = 3 -- rounds at the pistol's rate...
 Droids.pause = 0.9 -- ...then this many seconds
