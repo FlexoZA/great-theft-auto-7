@@ -33,8 +33,18 @@ branch off `feature/cyber-feud`):
   now takes a pace, a dodge cooldown and a locked-aim heavy shot). Guard stations (three Halcyon, two
   Static, `CyberFeud.DROP_STATIONS`): a yard on the avenue with a station
   house, an MG nest crewed as A-Man's Coast's are, cover either side, and a
-  garrison that comes out of the house when a player gets near. Still to
-  come: interceptors and war-rigs, the heavier troops, and per-faction voices.
+  garrison that comes out of the house when a player gets near.
+- The factions in the Market (`feature/cyber-feud-market`, the same
+  `troops.lua` with `market` in `Troops.levels`; placements in
+  `city-map/cyber_feud.lua`'s `buildMarket`): Halcyon officers in the gaps
+  of the south cordon and behind the east line, a squad on the east strip
+  and one round Noodle Square; Static gangers on the western corners and at
+  the chop shop's door, packs on the west lanes (one through the square),
+  and a garrison that comes out of the shop (a station with no MG nest).
+  They wake when a player walks up out of the tunnel's mouth
+  (`map.wakeY`), so nobody is shot on arrival. Still to come: the Market's
+  enforcers, watcher drones, rippers and sparkers; interceptors and
+  war-rigs; and per-faction voices.
 
 ## Decisions
 

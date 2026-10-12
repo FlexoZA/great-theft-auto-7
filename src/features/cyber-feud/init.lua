@@ -24,7 +24,9 @@
 -- officers on the roadblocks and the Static's gangers on the corners and
 -- walking their blocks, at war with each other. They stay calm until
 -- someone takes the Shard (or a player hurts one of them), then come for
--- whoever is nearest, a player or the other side.
+-- whoever is nearest, a player or the other side. On the Market, Halcyon
+-- holds the south gate and the east side and the Static their chop shop in
+-- the west; both wake when a player walks up out of the tunnel's mouth.
 -- Over the Drop, every now and then, a flying machine crosses the sky
 -- (flyers.lua): scenery, on each screen by itself.
 -- The tunnel end is Halcyon's alone, guarded by its assassin droids

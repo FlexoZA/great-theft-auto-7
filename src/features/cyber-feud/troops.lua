@@ -13,7 +13,7 @@
 -- carry their side's name (weapons' `from`), so a round passes through its
 -- own side and hits the other.
 --
--- Guard stations (the map's `stations`): an MG nest crewed as A-Man's
+-- Guard stations (the map's `stations`; the Market's chop shop has no gun): an MG nest crewed as A-Man's
 -- Coast's are (a-man/city17.lua): one on the gun, firing long bursts into
 -- its arc only, and riflemen on the station's posts who hold them and fight
 -- from cover. Drop the gunner and the nearest of his crew still up runs to
@@ -22,7 +22,8 @@
 -- come out of the door one after another and go for where that player is.
 --
 -- They are calm (they see nobody) until someone takes the Shard, or a
--- player hurts one of them: then the whole street wakes at once.
+-- player hurts one of them, or (where the map has a `wakeY`, the Market)
+-- a player walks past that line: then the whole street wakes at once.
 --
 -- Halcyon is disciplined: SMGs and pistols, a narrow cone, squads of
 -- three. The Static are noise: shotguns and pistols, a wide cone and a
@@ -88,6 +89,7 @@ Troops.side = {
 -- The maps they hold, and whether the two sides fight each other there.
 Troops.levels = {
   drop = { feud = true },
+  market = { feud = true },
 }
 Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
 Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
@@ -187,7 +189,8 @@ function Troops.serverStart(server, map, name, calm)
   if not (level and map.troops) then
     return
   end
-  sv = { sides = {}, pending = {}, time = 0, quietUntil = 0, syncIn = 0, feud = level.feud }
+  calm = calm or map.wakeY ~= nil
+  sv = { sides = {}, pending = {}, time = 0, quietUntil = 0, syncIn = 0, feud = level.feud, wakeY = map.wakeY }
   local T = require("src.features.city-map.layout").TILE
   local bounds = { x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T }
   local nav = nil
@@ -250,24 +253,30 @@ local function manGun(side, nest, s)
   side.troops:arm(s, { gun = gun, key = ak.key, index = ak.index, burst = g.burst, pause = g.pause, reach = g.range })
 end
 
---- Station `st` for `side` (`key`): the gunner on its nest, the crew on its
---- posts, and its garrison waiting in the house.
+--- Station `st` for `side` (`key`): the gunner on its nest (if it has
+--- one), the crew on its posts, and its garrison waiting in the house.
 function Troops.addStation(server, side, key, st)
   local troops, conf = side.troops, side.conf
   local n = st.nest
-  local gunner = troops:add("guard", n.x, n.y, n.angle)
-  gunner.hold, gunner.faction = true, key
-  local nest = { nest = n, crew = { gunner } }
+  local crew = {}
+  if n then
+    local gunner = troops:add("guard", n.x, n.y, n.angle)
+    gunner.hold, gunner.faction = true, key
+    crew[1] = gunner
+  end
   for _, p in ipairs(st.posts) do
     local x, y = clearSpot(p.x, p.y)
     local s = troops:add("guard", x, y, p.watch)
     s.hold, s.takesCover, s.faction = true, true, key
     troops:arm(s, pickArms(conf.loadout))
-    nest.crew[#nest.crew + 1] = s
+    crew[#crew + 1] = s
   end
-  manGun(side, nest, gunner)
-  side.nests[#side.nests + 1] = nest
-  side.groups[#side.groups + 1] = { kind = "post", members = nest.crew, chatIn = between(Troops.chatEvery) * random() }
+  if n then
+    local nest = { nest = n, crew = crew }
+    manGun(side, nest, crew[1])
+    side.nests[#side.nests + 1] = nest
+  end
+  side.groups[#side.groups + 1] = { kind = "post", members = crew, chatIn = between(Troops.chatEvery) * random() }
   local g = st.garrison
   side.garrisons[#side.garrisons + 1] = { g = g, out = false, left = Bosses.count(g.count, server), nextIn = 0 }
 end
@@ -534,10 +543,31 @@ local function runOver(server)
   end
 end
 
+--- Anyone past the map's `wakeY` wakes the street.
+local function checkWake(server)
+  local calm = false
+  for _, side in pairs(sv.sides) do
+    calm = calm or side.troops.calm
+  end
+  if not (calm and sv.wakeY) then
+    return
+  end
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local _, y = Features.bodyPose(server, p)
+      if y and y < sv.wakeY then
+        Troops.serverWake()
+        return
+      end
+    end
+  end
+end
+
 function Troops.serverStep(server, dt)
   if not sv then
     return
   end
+  checkWake(server)
   for _, key in ipairs(Troops.SIDES) do
     local side = sv.sides[key]
     side.troops:update(server, dt)

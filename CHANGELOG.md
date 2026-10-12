@@ -35,6 +35,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - People on the Drop's streets: a thin crowd out late in the rain, who scatter when the shooting starts.
 - The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
   tunnel.
+- The Market is held now: Halcyon officers in the gaps of the south gate and behind the east line, squads walking
+  the east side and Noodle Square, and the Static's gangers on the western corners, roaming the west lanes and
+  pouring out of their chop shop. They leave you alone at the tunnel's mouth and wake the moment you walk in, and
+  they fight each other as hard as they fight you.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

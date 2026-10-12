@@ -30,11 +30,14 @@
 --   map.vexY              the line past which VEX boots up (the Drop)
 --   map.helipad           { x, y, r } the Roof's helipad
 --   map.knot              { x, y, w, h } the Overpass's dead-end interchange, world px
---   map.troops            { halcyon = side, static = side } the factions' troops (the Drop), each side
---                         { posts = { x, y, watch, at, hold }, patrols = { route } }, world px;
+--   map.troops            { halcyon = side, static = side } the factions' troops (the Drop, the Market), each
+--                         side { posts = { x, y, watch, at, hold }, patrols = { route } }, world px;
 --                         `at` groups the posts of one place (they chat), a route is a loop of { x, y };
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
---                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest and its crew's posts
+--                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest (or none) and its
+--                         crew's posts
+--   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
+--                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
 --   map.droids            { route } the assassin droids' beat (the Drop), a loop of { x, y }, world px
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
@@ -553,6 +556,59 @@ local function buildMarket(map, rng, T)
   cover(map, "wreck", X(23), Y(2) + 10, 44, 84, true, { color = { 0.36, 0.38, 0.42 } })
   cover(map, "wreck", X(32) + 10, Y(2) + 10, 44, 84, true, { color = { 0.36, 0.38, 0.42 } })
   map.exitX, map.exitY = math.floor(X(28)), math.floor(Y(3))
+
+  -- Who holds the hall (cyber-feud/troops.lua puts them there). Halcyon:
+  -- officers in the gaps of the south cordon, watching the tunnel, and
+  -- behind the east line; a squad up and down the east strip and one round
+  -- Noodle Square. The Static: their chop shop on the west side, gangers at
+  -- its door and on the western corners, a garrison inside that comes out
+  -- once a player is near, and packs walking the west lanes, one of them
+  -- through the square, where they meet Halcyon's. Stall lanes run north to
+  -- south at columns 8, 14, ... 44 (two wide) and east to west at rows 7,
+  -- 12, ... 42; a lane's middle is X(c + 1) or Y(r + 1). Everyone is calm
+  -- until a player walks past `wakeY`, out of the tunnel's mouth.
+  local P = function(c, r)
+    return { x = math.floor(X(c)), y = math.floor(Y(r)) }
+  end
+  local halcyon = { posts = {}, patrols = {} }
+  local gates = { { 26.5, 27.5 }, { 15 }, { 21 }, { 39 }, { 45 }, { 51, 52.5 } }
+  for k, gate in ipairs(gates) do
+    for _, c in ipairs(gate) do
+      halcyon.posts[#halcyon.posts + 1] = { x = math.floor(X(c)), y = math.floor(Y(45)), watch = math.pi / 2, at = k }
+    end
+  end
+  for _, r in ipairs({ 12, 22, 32 }) do
+    halcyon.posts[#halcyon.posts + 1] = { x = math.floor(X(51.5)), y = math.floor(Y(r)), watch = math.pi, at = r }
+  end
+  halcyon.patrols = {
+    { P(45, 8), P(51.5, 8), P(51.5, 43), P(45, 43) }, -- the east strip
+    { P(45, 18), P(21, 18), P(21, 38), P(45, 38) }, -- round the square
+  }
+  local static = { posts = {}, patrols = {}, stations = {} }
+  for k, corner in ipairs({ { 9, 13 }, { 15, 38 } }) do
+    local c, r = corner[1], corner[2]
+    static.posts[#static.posts + 1] = { x = math.floor(X(c - 0.5)), y = math.floor(Y(r - 0.5)), watch = 0, at = k }
+    static.posts[#static.posts + 1] = { x = math.floor(X(c + 0.5)), y = math.floor(Y(r + 0.4)), watch = 0.6, at = k }
+  end
+  static.patrols = {
+    { P(3, 8), P(27, 8), P(27, 17.4), P(3, 17.4) }, -- the north-west lanes
+    { P(13, 18), P(13, 38), P(33, 38), P(33, 18) }, -- out of the shop's front and through the square
+    { P(3, 38), P(21, 38), P(21, 43), P(3, 43) }, -- the south-west lanes, up to the cordon
+  }
+  -- The chop shop's door, on its east face: no gun out front, just the gang.
+  local door = { x = math.floor(X(shop.c1 + 1)), y = math.floor(Y(26)), nx = 1, ny = 0 }
+  light(map, door.x + 30, door.y, 150, CyberFeud.CYAN, 0.8)
+  static.stations[1] = {
+    side = "static",
+    posts = {
+      { x = door.x + 60, y = door.y - 90, watch = 0 },
+      { x = door.x + 60, y = door.y + 90, watch = 0 },
+    },
+    garrison = { x = door.x - 4 * T, y = door.y, reach = CyberFeud.GARRISON_REACH, door = door,
+      count = CyberFeud.GARRISON },
+  }
+  map.troops = { halcyon = halcyon, static = static }
+  map.wakeY = Y(n - 8)
 
   map.zones = {
     { name = "The South Gate", y0 = Y(n - 10), y1 = Y(n) },
