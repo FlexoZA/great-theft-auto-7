@@ -92,8 +92,8 @@ OnFoot.dodgeStamina = 20 -- what one costs; can't dodge on less
 OnFoot.moveQueue = 6 -- moves a walker may have waiting on the host; more and the oldest go
 
 OnFoot.breathBelow = 0.3 -- under this share of my stamina the blue halo creeps in...
-OnFoot.breathFaint = 0.2 -- ...this strong just under it...
-OnFoot.breathFull = 0.55 -- ...and this strong with none left, or winded
+OnFoot.breathFaint = 0 -- ...from nothing at the line, so hovering on it does not flicker...
+OnFoot.breathFull = 0.45 -- ...and this strong with none left, or winded
 OnFoot.breath = 0 -- how strong it is now, easing towards what my stamina says (client)
 
 -- Slots in the HUD's bottom-left row of stat bars (UI.drawStatBar): health
@@ -501,8 +501,8 @@ end
 
 function OnFoot:update(dt, client, camera)
   time = time + dt
-  -- Ease the halo in and out, slower than the health one: breath comes back gradually.
-  self.breath = self.breath + (self:breathTarget(client, self:me(client) ~= nil) - self.breath) * math.min(1, dt * 3)
+  -- Ease the halo in and out, slower than the health one: a dodge or a burst of sprint should not flash it.
+  self.breath = self.breath + (self:breathTarget(client, self:me(client) ~= nil) - self.breath) * math.min(1, dt * 1.5)
   if not Controls.isDown("dodge") then
     self.dodgeHeld = false
   end
@@ -575,7 +575,7 @@ function OnFoot:drawLens()
   end
   local w, h = love.graphics.getDimensions()
   local urgency = math.max(0, (self.breath - self.breathFaint) / (self.breathFull - self.breathFaint))
-  local pant = 0.7 + 0.3 * math.sin(time * (2.2 + 2.5 * urgency))
+  local pant = 0.88 + 0.12 * math.sin(time * (1.6 + 1.2 * urgency))
   love.graphics.setColor(0.35, 0.6, 1, self.breath * pant)
   love.graphics.draw(haloImage, 0, 0, 0, w / haloImage:getWidth(), h / haloImage:getHeight())
   love.graphics.setColor(1, 1, 1)
