@@ -83,6 +83,10 @@ branch off `feature/cyber-feud`):
   2.4 s on the bolt. A player's rounds or the Static's reach him; in a
   flare-up the Static are his rivals and he theirs. That is everything the
   design puts on the Overpass.
+- The Courier (`feature/cyber-feud-armed-car`): the armed car everyone
+  drives on the Overpass (see the Overpass's arrival): 180 health, 560
+  px/s, a minigun in a roof turret. It is in the vehicle factory's catalog
+  too (600).
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
   E minor, ~48 s, looping from the moment the Market wakes (troops.lua's
@@ -679,7 +683,11 @@ An elevated highway, long and narrow, with the city a drop away on both
 sides (the edges are solid, drawn as a long fall with lights far below).
 Four lanes, with wrecks and stalled traffic as obstacles.
 
-- **Arrival:** the bottom, onto the on-ramp. Kilowatt's war-rig is the first
+- **Arrival:** the bottom, onto the on-ramp, everyone behind the wheel of a
+  Courier (`vehicles/models/courier.lua`): VEX's armoured runner, a gunmetal
+  wedge with green neon and a minigun turret the driver fires (the model's
+  `gun`). The map lends one to everyone (city-map's `loaner` with
+  `issued`): their own car waits out of the world until they leave. Kilowatt's war-rig is the first
   thing you see: it roars past, he laughs, and he leaps off onto the road
   before it crashes ahead.
 - **Gantries** cross the road every 30 tiles or so; Halcyon marksmen stand

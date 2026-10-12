@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- The Courier, black: a low armoured wedge in gunmetal with VEX-green neon down its flanks and a gun turret on the roof. Top-down, nose to the right. -->
+<svg width="100%" height="100%" viewBox="0 0 240 120" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <g id="courier-black">
+    <!-- Tyres, tucked under the body -->
+    <rect x="38" y="13" width="32" height="10" rx="3" fill="#0b0c0e"/>
+    <rect x="38" y="97" width="32" height="10" rx="3" fill="#0b0c0e"/>
+    <rect x="164" y="14" width="30" height="10" rx="3" fill="#0b0c0e"/>
+    <rect x="164" y="96" width="30" height="10" rx="3" fill="#0b0c0e"/>
+    <!-- The body: a wedge, wide at the tail, the nose cut low and sharp; a bright edge round it -->
+    <path d="M12,28 L40,16 L176,16 L216,28 L234,48 L234,72 L216,92 L176,104 L40,104 L12,92 Z"
+      fill="#3b4049" stroke="#9aa3ae" stroke-width="2.5"/>
+    <!-- Armour plates, lighter, bolted over the flanks and the nose -->
+    <path d="M44,21 L172,21 L192,30 L44,30 Z" fill="#555c66"/>
+    <path d="M44,99 L172,99 L192,90 L44,90 Z" fill="#555c66"/>
+    <path d="M196,36 L224,50 L224,70 L196,84 Z" fill="#555c66"/>
+    <!-- Neon down both flanks and across the nose, VEX's green -->
+    <rect x="44" y="17" width="130" height="5" rx="2" fill="#6dff9a"/>
+    <rect x="44" y="98" width="130" height="5" rx="2" fill="#6dff9a"/>
+    <rect x="226" y="54" width="5" height="12" rx="2" fill="#6dff9a"/>
+    <!-- Windscreen and rear window, dark glass with a glint -->
+    <path d="M150,34 L178,40 L178,80 L150,86 Z" fill="#12383d"/>
+    <path d="M156,38 L172,42 L172,50 L156,47 Z" fill="#3d7f86"/>
+    <path d="M32,40 L48,35 L48,85 L32,80 Z" fill="#12383d"/>
+    <!-- The roof between them -->
+    <path d="M50,33 L148,33 L148,87 L50,87 Z" fill="#2f343b"/>
+    <!-- The turret: a ring, the gun's housing, and its barrels forward -->
+    <circle cx="96" cy="60" r="23" fill="#16181c"/>
+    <circle cx="96" cy="60" r="18" fill="#6a717c"/>
+    <rect x="96" y="51" width="60" height="7" rx="2" fill="#a3aab4"/>
+    <rect x="96" y="62" width="60" height="7" rx="2" fill="#a3aab4"/>
+    <rect x="152" y="49" width="9" height="22" rx="2" fill="#3a3e45"/>
+    <circle cx="96" cy="60" r="7" fill="#6dff9a"/>
+    <!-- Headlights and tail lights -->
+    <path d="M218,38 L232,50 L227,55 L213,43 Z" fill="#f2fbff"/>
+    <path d="M218,82 L232,70 L227,65 L213,77 Z" fill="#f2fbff"/>
+    <rect x="12" y="32" width="6" height="16" rx="1" fill="#ff2a3a"/>
+    <rect x="12" y="72" width="6" height="16" rx="1" fill="#ff2a3a"/>
+  </g>
+</svg>

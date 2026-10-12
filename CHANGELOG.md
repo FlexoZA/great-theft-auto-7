@@ -45,6 +45,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   with a cyan line on the ground showing where they will go, and lunge down it. Step off the line.
 - The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
   will land. Get out of it, or the jolt stuns you.
+- A new car, the Courier: an armoured gunmetal wedge with green neon and a minigun turret on the roof that the driver
+  fires. Everyone drives one on the Overpass (your own car waits for you), and the vehicle factory can build one
+  (600).
 - The Overpass is held: the Static's gangers on the shoulders of the long stretch, Halcyon at the fork, the
   roadworks and the tower ramp, and both of them waiting for you together in VEX's "shortcut". Up here they hold
   fire on each other, until a stray round from one side hits the other: then they go at it until things calm

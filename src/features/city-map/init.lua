@@ -27,7 +27,9 @@
 --     in their garage, say) is lent one of that model at their spawn point,
 --     behind its wheel. It stands in as their own car while they are there
 --     (`player.car`: respawns and wrecks bring them back in it) and is gone,
---     their own back in its place, on the next switch.
+--     their own back in its place, on the next switch. With `issued` too
+--     (the Overpass's armed Courier) everyone is lent one, car or no car:
+--     their own waits out of the world (hidden) until the next switch.
 --   A map with `night` is played in the dark: the night feature darkens
 --     the world and lights it from `map.lights`, cars and players.
 --
@@ -132,8 +134,8 @@ CityMap.maps = {
     crowd = false, traffic = false, vehicles = false,
   },
   -- Grey City, the Cyber Feud quest line's five maps (cyber_feud.lua), all at
-  -- night (the night feature reads `night`). The Overpass is driven; anyone
-  -- without a car of their own is lent a red sedan. The Drop, the Market,
+  -- night (the night feature reads `night`). The Overpass is driven; everyone
+  -- is lent an armed Courier, their own car or not. The Drop, the Market,
   -- Halcyon Tower and its Roof are walked. Nobody about but the factions,
   -- and on the Drop a thin crowd out late in the rain (no police: Halcyon
   -- is the law here).
@@ -147,7 +149,7 @@ CityMap.maps = {
   },
   overpass = {
     title = "The Overpass", kind = "overpass", seed = 103, cols = 32, rows = 200,
-    crowd = false, traffic = false, loaner = "sedan-red", night = true,
+    crowd = false, traffic = false, loaner = "courier-black", issued = true, night = true,
   },
   tower = {
     title = "Halcyon Tower", kind = "tower", seed = 104, cols = 48, rows = 112,
@@ -170,7 +172,7 @@ local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas sh
 local function generate(name)
   local spec = CityMap.maps[name]
   local map = Layout.generate(spec)
-  map.name, map.title, map.loaner, map.night = name, spec.title, spec.loaner, spec.night
+  map.name, map.title, map.loaner, map.issued, map.night = name, spec.title, spec.loaner, spec.issued, spec.night
   return map
 end
 
@@ -204,6 +206,9 @@ local function returnLoaners(self, server)
     local p = server.players[l.player]
     if p and p.car == l.car then
       p.car = l.own or nil
+    end
+    if l.own and l.hidOwn then
+      l.own.hidden = false -- back in the world, for placePlayers to seat them in
     end
     server:removeVehicle(l.car)
   end
@@ -272,7 +277,15 @@ function CityMap:placePlayers(server)
       own:stop()
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
     end
-    if self.map.loaner and not p.vehicle and not p.bot then
+    if self.map.loaner and p.vehicle and self.map.issued and not p.bot then
+      -- Everyone drives the map's car here: theirs waits out of the world.
+      local mine = p.vehicle
+      server:unseat(p)
+      local hid = not mine.hidden
+      mine.hidden = true
+      server:seat(p, lend(self, server, p, s))
+      self.loaners[#self.loaners].hidOwn = hid
+    elseif self.map.loaner and not p.vehicle and not p.bot then
       server:seat(p, lend(self, server, p, s)) -- a driven map, and theirs is in the garage: one to drive while here
     end
   end
