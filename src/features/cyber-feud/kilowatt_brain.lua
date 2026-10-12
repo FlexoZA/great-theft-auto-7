@@ -44,9 +44,19 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- The nearest player he can see, and where they are; failing that, the
---- nearest player anywhere (he goes looking), and whether he sees them.
+--- Whoever shot Saye lately (duo.lua's grudge), if they are still there:
+--- him first. Else the nearest player he can see, and where they are;
+--- failing that, the nearest player anywhere (he goes looking), and
+--- whether he sees them.
 function Brain.target(k, server)
+  local g = k.grudge
+  if g and k.time < g.untilT then
+    local p = server.players[g.id]
+    if p and Features.visible(server, p) then
+      local x, y = Features.bodyPose(server, p)
+      return p, x, y, dist2(x, y, k.x, k.y) <= k.RANGE ^ 2 and Sight.clear(k.x, k.y, x, y)
+    end
+  end
   local seen, sx, sy, seenD2
   local any, ax, ay, anyD2
   for _, p in pairs(server.players) do
@@ -180,6 +190,10 @@ local function stepAction(k, server, dt, events)
       local r = k.phase2 and k.SLAM_RADIUS_2 or k.SLAM_RADIUS
       k.rings[#k.rings + 1] = { x = k.x, y = k.y, r = 0, max = r, hit = {} }
       events[#events + 1] = { "slam", k.x, k.y, r }
+      if k.meltdown then -- and the ground where he came down crackles a while
+        k.patches[#k.patches + 1] = { x = k.x, y = k.y, left = k.PATCH_TIME, zapIn = 0 }
+        events[#events + 1] = { "patch", k.x, k.y, k.PATCH_RADIUS, k.PATCH_TIME }
+      end
       moved(k, events, 0.45)
     end
   elseif a == "whip" then
@@ -230,6 +244,28 @@ local function stepRings(k, server, dt)
   end
 end
 
+--- His meltdown patches: whoever stands in one gets a jolt every so often.
+local function stepPatches(k, server, dt)
+  for i = #k.patches, 1, -1 do
+    local p = k.patches[i]
+    p.left, p.zapIn = p.left - dt, p.zapIn - dt
+    if p.zapIn <= 0 then
+      p.zapIn = k.PATCH_EVERY
+      for _, pl in pairs(server.players) do
+        if Features.visible(server, pl) then
+          local x, y = Features.bodyPose(server, pl)
+          if dist2(x, y, p.x, p.y) <= k.PATCH_RADIUS ^ 2 then
+            hurt(server, pl, k.PATCH_DAMAGE, math.atan2(y - p.y, x - p.x), "shock")
+          end
+        end
+      end
+    end
+    if p.left <= 0 then
+      table.remove(k.patches, i)
+    end
+  end
+end
+
 --- Should he go for a medkit now? Looks once a second while he is hurt.
 local function wantsHeal(k)
   if k.medkit then
@@ -258,6 +294,7 @@ function Brain.think(k, server, dt)
   k.whipIn = k.whipIn - dt
   k.sayIn = k.sayIn - dt
   stepRings(k, server, dt)
+  stepPatches(k, server, dt)
   if not k.phase2 and k.hp <= k.max / 2 then
     k.phase2 = true
     events[#events + 1] = { "say", k.LINE.phase2 }

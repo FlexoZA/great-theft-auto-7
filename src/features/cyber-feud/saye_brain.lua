@@ -33,6 +33,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Duo = require("src.features.cyber-feud.duo")
 
 local Brain = {}
 
@@ -42,9 +43,17 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- The nearest player she can see, and where they are; failing that, the
---- nearest player anywhere, and whether she sees them.
+--- Whoever is standing next to Kilowatt that she can see (duo.lua: she
+--- covers him), first. Else the nearest player she can see, and where they
+--- are; failing that, the nearest player anywhere, and whether she sees
+--- them. The fifth: whether she is covering him.
 function Brain.target(s, server)
+  local near, nx, ny = Duo.nearKilowatt(server, function(_, x, y)
+    return dist2(x, y, s.x, s.y) <= s.RANGE ^ 2 and Sight.clear(s.x, s.y, x, y)
+  end)
+  if near then
+    return near, nx, ny, true, true
+  end
   local seen, sx, sy, seenD2
   local any, ax, ay, anyD2
   for _, p in pairs(server.players) do
@@ -101,12 +110,8 @@ local function wantsHeal(s)
   return s.medkit ~= nil
 end
 
---- The sightline under way: the line holds, then the round (or two) goes.
-local function stepAim(s, server, dt, events)
-  s.aimT = s.aimT + dt
-  if s.aimT < (s.phase2 and s.AIM_2 or s.AIM) then
-    return
-  end
+--- One shot down her line: the round (or two, in a V).
+local function shot(s, server, events)
   if s.phase2 then
     s:fire(server, s.aim - s.V)
     s:fire(server, s.aim + s.V)
@@ -114,8 +119,28 @@ local function stepAim(s, server, dt, events)
     s:fire(server, s.aim)
   end
   events[#events + 1] = { "shot" }
-  s.aiming = false
-  s.sightIn = s.phase2 and s.SIGHT_EVERY_2 or s.SIGHT_EVERY
+end
+
+--- The sightline under way: the line holds, then the shot goes (raging,
+--- RAGE_BURST of them, one after another down the same line).
+local function stepAim(s, server, dt, events)
+  s.aimT = s.aimT + dt
+  local hold = s.phase2 and s.AIM_2 or s.AIM
+  if s.aimT < hold then
+    return
+  end
+  if not s.burstLeft then
+    s.burstLeft, s.burstIn = s.rage and s.RAGE_BURST or 1, 0
+  end
+  s.burstIn = s.burstIn - dt
+  if s.burstIn <= 0 then
+    shot(s, server, events)
+    s.burstLeft, s.burstIn = s.burstLeft - 1, s.RAGE_GAP
+  end
+  if s.burstLeft <= 0 then
+    s.aiming, s.burstLeft = false, nil
+    s.sightIn = s.phase2 and s.SIGHT_EVERY_2 or s.SIGHT_EVERY
+  end
 end
 
 --- What she does this tick. Returns the events the others should hear
@@ -171,10 +196,17 @@ function Brain.think(s, server, dt)
     s.breath:step(s.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(s, server)
+  local target, tx, ty, visible, covering = Brain.target(s, server)
   if not target then
     s.breath:step(false, dt)
     return events
+  end
+  if covering and s.sightIn > 0.8 then
+    s.sightIn = 0.8 -- somebody next to Kilowatt: she hurries her line
+    if not s.coverSaid or s.time - s.coverSaid > 20 then
+      s.coverSaid = s.time
+      events[#events + 1] = { "say", s.LINE.cover }
+    end
   end
   local toward = math.atan2(ty - s.y, tx - s.x)
   local d = math.sqrt(dist2(tx, ty, s.x, s.y))

@@ -15,12 +15,14 @@
 --
 -- Messages (KWB_: the Overpass's cameo has KW_)
 --   server -> all  KWB_STATE <tick> <x> <y> <facing> <hp> <max> <action> <aim> <lift> <phase2> <stamina> <winded>
+--                  <shielded>  (shielded 1 while Saye's drones are round him venting)
 --                  (unreliable, 15 Hz; action 0 none, 1 brace, 2 charge, 3 hop, 4 whip, 5 punch, 6 vent,
 --                  7 recover; phase2 1 once he is past half health; empty (just the tick) once he is gone)
 --   server -> all  KWB_SAY   <line>                   he says Kilowatt.lines[line]
 --   server -> all  KWB_SLAM  <x> <y> <radius>         he slammed: a ring of shock rolling out to `radius`
 --   server -> all  KWB_ARC   <x> <y> <x> <y>...       his whip: from his fist through whoever it hit
 --   server -> all  KWB_THUMP                          a blow landed, or he hit a wall (the sound)
+--   server -> all  KWB_PATCH <x> <y> <radius> <seconds>  a shock patch his slam left (meltdown)
 --   server -> all  KWB_DOWN  <x> <y> <angle>          he went down
 
 local Protocol = require("src.net.protocol")
@@ -35,6 +37,7 @@ local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
+local Duo = require("src.features.cyber-feud.duo")
 
 local Kilowatt = {}
 Kilowatt.__index = Kilowatt
@@ -105,8 +108,21 @@ Kilowatt.lines = {
   "Spare parts! Don't mind if I do.",
   "C'mon, spark, I'm just getting warm!",
   "Every day I get paid for this. EVERY DAY.",
+  "You said this kid was a nobody!",
+  "It was ugly.",
+  "Sixty-forty, Saye. It was always supposed to be sixty-forty.",
+  "I AM hitting them! The building's just in the way!",
+  "MELTDOWN!",
+  "Hey! Hands off the suit, spark!",
 }
-Kilowatt.LINE = { intro = 1, taunt = { 2, 3, 4, 10, 11 }, vent = 5, phase2 = 6, down = 7, heal = { 8, 9 } }
+Kilowatt.LINE = {
+  intro = 1, taunt = { 2, 3, 4, 10, 11 }, vent = 5, phase2 = 6, down = 7, heal = { 8, 9 },
+  bicker = { 12, 13, 14, 15 }, rage = 16, grudge = 17, -- (duo.lua's: with Saye)
+}
+Kilowatt.PATCH_RADIUS = 120 -- px: a meltdown slam's shock patch (duo.lua: Saye down)...
+Kilowatt.PATCH_TIME = 4 -- ...seconds it crackles...
+Kilowatt.PATCH_DAMAGE = 8 -- ...shock, every PATCH_EVERY to whoever stands in it
+Kilowatt.PATCH_EVERY = 0.5
 
 local ACTION_CODE = { brace = 1, charge = 2, hop = 3, whip = 4, punch = 5, vent = 6, recover = 7 }
 
@@ -149,6 +165,7 @@ function Kilowatt.new(x, y, hp, nav)
     frozen = 0,
     stuck = 0,
     rings = {},
+    patches = {},
     phase2 = false,
     breath = Stamina.new(Kilowatt.BREATH),
     running = false,
@@ -231,7 +248,7 @@ local function sync(server)
   local stamina, winded = k.breath:wire()
   local msg = Protocol.encode("KWB_STATE", server.tick, ("%.0f"):format(k.x), ("%.0f"):format(k.y),
     ("%.2f"):format(k.facing), ("%.0f"):format(math.max(0, k.hp)), ("%.0f"):format(k.max), ACTION_CODE[k.action] or 0,
-    ("%.2f"):format(k.aim), ("%.0f"):format(k.lift), k.phase2 and 1 or 0, stamina, winded)
+    ("%.2f"):format(k.aim), ("%.0f"):format(k.lift), k.phase2 and 1 or 0, stamina, winded, Duo.shielding() and 1 or 0)
   for _, player in pairs(server.players) do
     if not player.bot then
       server:send(player, msg, true)
@@ -261,6 +278,8 @@ function Kilowatt.serverStep(server, dt)
         server:broadcast(Protocol.encode("KWB_ARC", unpack(parts)))
       elseif e[1] == "thump" then
         server:broadcast(Protocol.encode("KWB_THUMP"))
+      elseif e[1] == "patch" then
+        server:broadcast(Protocol.encode("KWB_PATCH", ("%.0f"):format(e[2]), ("%.0f"):format(e[3]), e[4], e[5]))
       end
     end
   end
@@ -300,7 +319,8 @@ function Kilowatt.serverShotAt(server, x, y, radius, by, angle, damage)
   if not sv.awake then
     require("src.features.cyber-feud.troops").serverWake() -- shot while he waits: that's it, then
   end
-  k.hp = k.hp - (damage or 20) * (k.action == "vent" and Kilowatt.VENT_HURT or 1)
+  local open = k.action == "vent" and not Duo.shielding() -- (Saye's drones round him: no window yet)
+  k.hp = k.hp - (damage or 20) * (open and Kilowatt.VENT_HURT or 1)
   if k.hp <= 0 then
     down(server, by, angle)
   end
@@ -323,6 +343,7 @@ end
 local shown = nil -- { x, y, dx, dy, facing, hp, max, action, aim, lift, phase2, stamina, winded }
 local say = nil -- { text, t }
 local rings = {} -- { x, y, r, max }
+local patches = {} -- { x, y, r, t, max }
 local arcs = {} -- { pts, t }
 local steam = {} -- { x, y, vx, vy, t }
 local lastTick, heardAt, clock = 0, 0, 0
@@ -351,7 +372,7 @@ local function play(x, y, pitch)
 end
 
 function Kilowatt.clear()
-  shown, say, rings, arcs, steam, lastTick = nil, nil, {}, {}, {}, 0
+  shown, say, rings, arcs, steam, patches, lastTick = nil, nil, {}, {}, {}, {}, 0
 end
 
 --- Is he up, as far as this screen knows (the objective line)?
@@ -393,6 +414,12 @@ function Kilowatt.update(dt)
       table.remove(rings, i)
     end
   end
+  for i = #patches, 1, -1 do
+    patches[i].t = patches[i].t + dt
+    if patches[i].t >= patches[i].max then
+      table.remove(patches, i)
+    end
+  end
   for i = #arcs, 1, -1 do
     arcs[i].t = arcs[i].t + dt
     if arcs[i].t > ARC_TIME then
@@ -407,8 +434,19 @@ function Kilowatt.update(dt)
   end
 end
 
---- Under everyone: a bracing charge's line, the slam's rings, his shadow.
+--- Under everyone: a bracing charge's line, the slam's rings and patches, his shadow.
 function Kilowatt.drawBelowCars()
+  for _, p in ipairs(patches) do -- crackling cyan on the ground
+    local fade = math.min(1, (p.max - p.t) / 0.5)
+    love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.16 * fade)
+    love.graphics.circle("fill", p.x, p.y, p.r, 40)
+    love.graphics.setColor(HOT[1], HOT[2], HOT[3], 0.7 * fade)
+    for _ = 1, 3 do
+      local a, d = random() * 2 * math.pi, random() * p.r
+      local x, y = p.x + math.cos(a) * d, p.y + math.sin(a) * d
+      love.graphics.line(x, y, x + (random() - 0.5) * 24, y + (random() - 0.5) * 24)
+    end
+  end
   for _, g in ipairs(rings) do
     local fade = math.max(0, 1 - g.r / (g.max + 30))
     love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.25 * fade)
@@ -544,6 +582,9 @@ function Kilowatt.drawNightLights(glow)
     local pts = a.pts
     glow(pts[#pts - 1], pts[#pts], 80, HOT, 0.8)
   end
+  for _, p in ipairs(patches) do
+    glow(p.x, p.y, p.r + 30, CYAN, 0.35 * math.min(1, (p.max - p.t) / 0.5))
+  end
 end
 
 function Kilowatt.drawHUD()
@@ -551,7 +592,8 @@ function Kilowatt.drawHUD()
     return
   end
   Bar.draw({
-    title = shown.action == 6 and "KILOWATT  -  VENTING!" or "KILOWATT", titleColor = CYAN,
+    title = shown.action == 6 and (shown.shielded and "KILOWATT  -  VENTING (SHIELDED)" or "KILOWATT  -  VENTING!")
+      or "KILOWATT", titleColor = CYAN,
     fill = shown.phase2 and { 0.75, 0.98, 1 } or CYAN, hp = shown.hp, max = shown.max,
     stamina = shown.stamina, staminaMax = 100, winded = shown.winded,
   })
@@ -582,6 +624,7 @@ Kilowatt.clientMessages = {
     k.lift = tonumber(args[9]) or 0
     k.phase2 = args[10] == "1"
     k.stamina, k.winded = Stamina.read(args, 11)
+    k.shielded = args[13] == "1"
   end,
   KWB_SAY = function(_client, args)
     local text = Kilowatt.lines[tonumber(args[1]) or 0]
@@ -603,6 +646,12 @@ Kilowatt.clientMessages = {
     end
     if #pts >= 4 then
       arcs[#arcs + 1] = { pts = pts, t = 0 }
+    end
+  end,
+  KWB_PATCH = function(_client, args)
+    local x, y, r, secs = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and r and secs then
+      patches[#patches + 1] = { x = x, y = y, r = r, t = 0, max = secs }
     end
   end,
   KWB_THUMP = function()

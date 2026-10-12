@@ -110,6 +110,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   shoot (shot down, she calls more), and she drops sentry turrets and walks away from them. At half health her skin
   cracks: the line comes faster and she fires two at once in a V. The Roof isn't done until both bosses are down,
   and their two bars sit one over the other.
+- Saye and Kilowatt fight as partners. Shoot Saye and Kilowatt comes for you; stand next to him and her line comes
+  for you, quicker. When he vents she parks her drones round him: shoot them down before his hits count double.
+  When one falls the other rages: Saye alone calls six drones and fires three shots down each line ("Hostile
+  takeover."); Kilowatt alone stays in phase 2 and his slams leave crackling shock patches ("MELTDOWN!"). And
+  they bicker about forty years of business while they're at it.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

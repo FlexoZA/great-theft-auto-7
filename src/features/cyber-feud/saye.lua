@@ -36,6 +36,7 @@ local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
 local Turrets = require("src.features.cyber-feud.turrets")
+local Duo = require("src.features.cyber-feud.duo")
 
 local Saye = {}
 Saye.__index = Saye
@@ -87,8 +88,21 @@ Saye.lines = {
   "Drones. Re-onboard.",
   "Restructuring.",
   "A minor write-down.",
+  "They are. It's a very expensive nobody.",
+  "Your people destroyed my lobby.",
+  "Noted. We'll discuss it at the review.",
+  "Try to hit them, not the building.",
+  "Hostile takeover.",
+  "Kilowatt. The contractor is standing next to you.",
 }
-Saye.LINE = { intro = 8, taunt = { 1, 2, 3, 4, 5 }, phase2 = 6, down = 7, drones = 9, turret = 10, heal = 11 }
+Saye.LINE = {
+  intro = 8, taunt = { 1, 2, 3, 4, 5 }, phase2 = 6, down = 7, drones = 9, turret = 10, heal = 11,
+  bicker = { 12, 13, 14, 15 }, rage = 16, cover = 17, -- (duo.lua's: with Kilowatt)
+}
+Saye.RAGE_DRONES = 6 -- her drones once Kilowatt is down (duo.lua)...
+Saye.RAGE_BURST = 3 -- ...and her sightline's rounds, one after another...
+Saye.RAGE_GAP = 0.15 -- ...this far apart
+Saye.SHIELD_ORBIT = 52 -- px from Kilowatt her drones circle while he vents
 
 local MAGENTA = { 1.00, 0.24, 0.78 }
 local HOT = { 1.00, 0.70, 0.92 }
@@ -160,9 +174,9 @@ function Saye:pace()
   return self.breath:pace(self.phase2 and Saye.WALK_2 or Saye.WALK, Saye.STROLL)
 end
 
---- Her drones back up to DRONES.
+--- Her drones back up to DRONES (twice that once she rages).
 function Saye:callDrones()
-  for i = #self.drones + 1, Saye.DRONES do
+  for i = #self.drones + 1, self.rage and Saye.RAGE_DRONES or Saye.DRONES do
     self.drones[i] = { hp = Saye.DRONE_HEALTH, fireIn = 1 + i * 0.4, burst = 0, x = self.x, y = self.y }
   end
 end
@@ -188,9 +202,16 @@ end
 --- it can see; lost ones come back after a while.
 function Saye:stepDrones(server, dt, events)
   local n = #self.drones
+  local k = Duo.shielding() -- Kilowatt venting: they go and circle him
+  local cx, cy, orbit = self.x, self.y, Saye.DRONE_ORBIT
+  if k then
+    cx, cy, orbit = k.x, k.y, Saye.SHIELD_ORBIT
+  end
   for i, d in ipairs(self.drones) do
     local a = self.time * 1.7 + i * 2 * math.pi / math.max(1, n)
-    d.x, d.y = self.x + math.cos(a) * Saye.DRONE_ORBIT, self.y + math.sin(a) * Saye.DRONE_ORBIT
+    local tx, ty = cx + math.cos(a) * orbit, cy + math.sin(a) * orbit
+    local step = math.min(1, dt * 6) -- (they fly over, not jump)
+    d.x, d.y = d.x + (tx - d.x) * step, d.y + (ty - d.y) * step
     d.fireIn = d.fireIn - dt
     if d.fireIn <= 0 then
       local best, bx, by, bestD2 = nil, nil, nil, Saye.DRONE_RANGE ^ 2
@@ -221,7 +242,7 @@ function Saye:stepDrones(server, dt, events)
       end
     end
   end
-  if #self.drones < Saye.DRONES then
+  if #self.drones < (self.rage and Saye.RAGE_DRONES or Saye.DRONES) then
     self.dronesIn = self.dronesIn - dt
     if self.dronesIn <= 0 then
       self:callDrones()
@@ -372,6 +393,9 @@ function Saye.serverShotAt(server, x, y, radius, by, angle, damage)
   end
   if not sv.awake then
     require("src.features.cyber-feud.troops").serverWake()
+  end
+  if Duo.grudge(by) and random() < 0.5 then -- Kilowatt saw that
+    server:broadcast(Protocol.encode("KWB_SAY", require("src.features.cyber-feud.kilowatt").LINE.grudge))
   end
   s.hp = s.hp - (damage or 20)
   if s.hp <= 0 then

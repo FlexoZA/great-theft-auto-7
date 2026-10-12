@@ -98,6 +98,7 @@ local Turrets = require("src.features.cyber-feud.turrets")
 local Brutes = require("src.features.cyber-feud.brutes")
 local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Saye = require("src.features.cyber-feud.saye")
+local Duo = require("src.features.cyber-feud.duo")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -473,6 +474,7 @@ function Troops.serverStop(server)
   Brutes.serverStop(server)
   Kilowatt.serverStop(server)
   Saye.serverStop(server)
+  Duo.serverStop()
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -851,6 +853,7 @@ function Troops.serverStep(server, dt)
   Brutes.serverStep(server, dt)
   Kilowatt.serverStep(server, dt)
   Saye.serverStep(server, dt)
+  Duo.serverStep(server, dt) -- the two of them as partners
   runOver(server)
   talk(server, dt)
   stepTruce(server)

@@ -74,6 +74,21 @@ branch off `feature/cyber-feud`):
   standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
   hers sits over his while he is up. The Roof needs both down, and the
   objective line names whoever is still up.
+- Saye and Kilowatt together (`feature/cyber-feud-roof-duo`,
+  `src/features/cyber-feud/duo.lua`, the only place either looks at the
+  other; troops.lua steps it after both). They cover each other: a
+  player's round into Saye gives Kilowatt a 6 s grudge on that player (he
+  goes for them and his next charge is ready; "Hey! Hands off the suit,
+  spark!" half the time), and a player within 200 px of Kilowatt that Saye
+  can see is her target first, her line hurried to 0.8 s at most. Shield:
+  while he vents her drones circle him at 52 px, and while any are there
+  his vent doesn't double hits (his bar says SHIELDED). When one falls the
+  other rages: Saye alone ("Hostile takeover.") six drones and her line
+  fires three rounds 0.15 s apart; Kilowatt alone ("MELTDOWN!") phase 2
+  for good, each slam leaving a 120 px shock patch for 4 s (8 `shock`
+  every 0.5 s; KWB_PATCH). They bicker every 18-30 s while both are up: one
+  line and the other's answer 2.4 s later, four exchanges in turn. (The
+  boss card with their portraits waits on the portraits.)
 - Halcyon Tower's theme (`src/features/cyber-feud/theme_tower.lua`,
   `feature/cyber-feud-tower-theme`): industrial groove metal, 132 BPM in
   C# minor, ~60 s, looping from the moment the tower wakes (CF_WAKE, a
