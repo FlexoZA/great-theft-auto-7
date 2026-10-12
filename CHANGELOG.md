@@ -97,6 +97,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Sentry turrets in Halcyon Tower: three in the labs and four round the security floor. Each sweeps its arc, puts a
   laser on you for a moment, then fires bursts. Get behind one and hold F for 2.5 s to breach it: it fights for
   you for 15 s, shooting Halcyon and the Static. The sparkers' EMPs knock them out for 5 s.
+- The Static's brutes: huge, slow, 150 health and a giant chrome arm. One braces with a cyan line on the floor, then
+  charges down it, and punches up close. Get next to one and hold F for 1.5 s to breach his arm: for 4 s he spins,
+  swinging at everyone near him, his own side included.
+- The Static's break-ins into Halcyon Tower bring sparkers from the offices up and brutes from the server room up.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

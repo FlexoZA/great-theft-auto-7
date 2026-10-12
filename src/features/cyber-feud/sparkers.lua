@@ -106,18 +106,28 @@ end
 
 function Sparkers.serverStart(server, map, nav, calm)
   Sparkers.serverStop(server)
-  if not (map.sparkers and nav) then
-    return nil
+  if not (nav and (map.sparkers or map.breakIns)) then
+    return nil -- (the tower has none to start with: they come in with the break-ins, `serverJoin`)
   end
   local brain = Brain.new({
     fov = Sparkers.fov, aware = Sparkers.aware, health = Sparkers.health, nav = nav, lob = lob,
     firstId = Sparkers.firstId, calm = calm,
   })
-  for _, r in ipairs(map.sparkers) do
+  for _, r in ipairs(map.sparkers or {}) do
     brain:add(r.route, r.start or 1)
   end
   sv = { brain = brain, syncIn = 0, emptySends = 0, flying = {} }
   return brain
+end
+
+--- One more, at (x, y), walking `route` from corner `start` (a break-in into the tower).
+function Sparkers.serverJoin(x, y, route, start)
+  if not sv then
+    return nil
+  end
+  local s = sv.brain:add(route, start)
+  s.x, s.y = x, y
+  return s
 end
 
 function Sparkers.serverWake()

@@ -31,7 +31,8 @@
 -- (Troops.breakIn, the map's `breakIns`): a pack at a time, every so often,
 -- up the stairwell onto the lowest floor anyone is on (the lobby's doors
 -- for the lobby), walking that floor's beat after them, so the floors
--- behind you aren't safe.
+-- behind you aren't safe; a sparker with them from the offices up, and a
+-- brute (brutes.lua, their own brain) from the servers up.
 --
 -- On the Overpass the two sides hold fire on each other (Troops.levels'
 -- "provoked"), until a round of one hits the other: then they are at it
@@ -91,6 +92,7 @@ local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Stings = require("src.features.cyber-feud.stings")
 local Marksmen = require("src.features.cyber-feud.marksmen")
 local Turrets = require("src.features.cyber-feud.turrets")
+local Brutes = require("src.features.cyber-feud.brutes")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -139,7 +141,10 @@ Troops.levels = {
 -- The Static breaking in to the tower: the first pack `first` seconds after
 -- it wakes, then one every `every`, while fewer than `most` of them (and
 -- `perHuman` more for each human past the first) are on that floor already.
-Troops.breakIn = { first = 12, every = 35, most = 8, perHuman = 4 }
+-- A pack is the Static's squad (four): gangers, but from floor `sparkerFrom`
+-- up one of them is a sparker (sparkers.lua), and from `bruteFrom` up one
+-- a brute (brutes.lua).
+Troops.breakIn = { first = 12, every = 35, most = 8, perHuman = 4, sparkerFrom = 2, bruteFrom = 3 }
 Troops.flare = 25
 Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
 Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
@@ -293,7 +298,8 @@ function Troops.serverStart(server, map, name, calm)
   local emps = Sparkers.serverStart(server, map, nav, calm) -- and its sparkers, hanging back
   local eyes = Watchers.serverStart(server, map, calm) -- Halcyon's watcher drones overhead
   local rifles = Marksmen.serverStart(server, map, calm) -- Halcyon's marksmen up on the gantries
-  if emps then
+  local fists = Brutes.serverStart(server, map, nav, calm) -- and its brutes (the tower's come with the break-ins)
+  if emps and not sv.allied then
     emps.rivals = { eyes } -- what an EMP is for (the gangers leave the drones to them)
   end
   --- The two sides at each other's throats (`on`), or holding fire.
@@ -321,7 +327,7 @@ function Troops.serverStart(server, map, name, calm)
   Stings.serverStart(server, map) -- Halcyon's sting drones over the gantries
   Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
     return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
-      blades or { list = {} }, emps or { list = {} } }
+      blades or { list = {} }, emps or { list = {} }, fists or { list = {} } }
   end)
 end
 
@@ -456,6 +462,7 @@ function Troops.serverStop(server)
   Stings.serverStop(server)
   Marksmen.serverStop(server)
   Turrets.serverStop(server)
+  Brutes.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -478,6 +485,7 @@ function Troops.serverWake()
   Watchers.serverWake()
   Marksmen.serverWake()
   Turrets.serverWake()
+  Brutes.serverWake()
 end
 
 --- Where the sides hold fire on each other (sv.provoked), a round of one
@@ -724,18 +732,21 @@ local function stepBreakIn(server, dt)
     return
   end
   local side = sv.sides.static
-  local list = side.troops.list
+  local sparks, fists = Sparkers.server(), Brutes.server()
   local here = 0
-  for i = #list, 1, -1 do
-    local s = list[i]
-    if s.breakIn and s.breakIn <= floor - 2 then
-      s.hp = 0 -- (so nobody counts him to talk)
-      table.remove(list, i)
-    elseif s.breakIn == floor then
-      here = here + 1
+  for _, list in ipairs({ side.troops.list, sparks and sparks.brain.list or {}, fists and fists.brain.list or {} }) do
+    for i = #list, 1, -1 do
+      local s = list[i]
+      if s.breakIn and s.breakIn <= floor - 2 then
+        s.hp = 0 -- (so nobody counts him to talk)
+        table.remove(list, i)
+      elseif s.breakIn == floor then
+        here = here + 1
+      end
     end
   end
-  local most = Troops.breakIn.most + Troops.breakIn.perHuman * (Bosses.humans(server) - 1)
+  local conf = Troops.breakIn
+  local most = conf.most + conf.perHuman * (Bosses.humans(server) - 1)
   local size = math.min(side.conf.squad, most - here)
   if size <= 0 then
     return
@@ -748,12 +759,33 @@ local function stepBreakIn(server, dt)
       first, bestD2 = k, d2
     end
   end
-  local squad = side.troops:addSquad(beat, size, (first - 2) % #beat + 1)
+  local start = (first - 2) % #beat + 1
   local heading = math.atan2(beat[first].y - spot.y, beat[first].x - spot.x)
+  --- The `n`th of the pack's place in the file behind the first.
+  local function inFile(n)
+    return clearSpot(spot.x - math.cos(heading) * 30 * (n - 1), spot.y - math.sin(heading) * 30 * (n - 1))
+  end
+  -- The specialists go at the back of the file, up front the gangers.
+  local extras = {}
+  if floor >= conf.bruteFrom and fists then
+    extras[#extras + 1] = Brutes.serverJoin
+  end
+  if floor >= conf.sparkerFrom and sparks then
+    extras[#extras + 1] = Sparkers.serverJoin
+  end
+  local gangers = math.max(1, size - #extras)
+  local squad = side.troops:addSquad(beat, gangers, start)
   for i, s in ipairs(squad.members) do
-    s.x, s.y = clearSpot(spot.x - math.cos(heading) * 30 * (i - 1), spot.y - math.sin(heading) * 30 * (i - 1))
+    s.x, s.y = inFile(i)
     s.facing, s.breakIn, s.faction = heading, floor, "static"
     side.troops:arm(s, pickArms(side.conf.loadout))
+  end
+  for k = 1, math.min(#extras, size - gangers) do
+    local x, y = inFile(gangers + k)
+    local s = extras[k](x, y, beat, start)
+    if s then
+      s.breakIn, s.facing = floor, heading
+    end
   end
   side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
   say(server, squad.members[1], "breakIn")
@@ -804,6 +836,7 @@ function Troops.serverStep(server, dt)
   Stings.serverStep(server, dt)
   Marksmen.serverStep(server, dt)
   Turrets.serverStep(server, dt)
+  Brutes.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -855,6 +888,9 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   if not hit then
     hit, byPlayer = Turrets.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   end
+  if not hit then
+    hit, byPlayer = Brutes.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -876,6 +912,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Stings.serverFreezeArea(x, y, radius, seconds)
   Marksmen.serverFreezeArea(x, y, radius, seconds)
   Turrets.serverFreezeArea(x, y, radius, seconds)
+  Brutes.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -970,6 +1007,7 @@ function Troops.clear()
   Stings.clear()
   Marksmen.clear()
   Turrets.clear()
+  Brutes.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -1034,6 +1072,7 @@ function Troops.drawBelowCars()
   Watchers.drawBelowCars()
   Stings.drawBelowCars()
   Turrets.drawBelowCars()
+  Brutes.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -1100,6 +1139,7 @@ function Troops.drawAboveCars()
   Stings.drawAboveCars()
   Marksmen.drawAboveCars()
   Turrets.drawAboveCars()
+  Brutes.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1122,6 +1162,7 @@ function Troops.drawNightLights(glow)
   Stings.drawNightLights(glow)
   Marksmen.drawNightLights(glow)
   Turrets.drawNightLights(glow)
+  Brutes.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1140,6 +1181,9 @@ function Troops.walkers()
     list[#list + 1] = w
   end
   for _, w in ipairs(Sparkers.walkers()) do
+    list[#list + 1] = w
+  end
+  for _, w in ipairs(Brutes.walkers()) do
     list[#list + 1] = w
   end
   return list
@@ -1226,6 +1270,9 @@ for kind, handler in pairs(Marksmen.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Turrets.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Brutes.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

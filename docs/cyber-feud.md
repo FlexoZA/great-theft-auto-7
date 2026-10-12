@@ -35,6 +35,25 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The Static's brutes (`feature/cyber-feud-tower-brutes`,
+  `src/features/cyber-feud/brutes.lua` and `brute_brain.lua`): drawn at
+  2x, 150 health, slow (45 px/s on a beat, 85 going in), finding their way
+  on the troops' walking grid. From 70-280 px with a clear line one braces
+  for 0.7 s (a cyan line on the floor where he will go), then charges
+  400 px/s for 0.75 s (34 `impact` to whoever he runs through); into a
+  wall he is dazed for 1.2 s. Up close he winds up (0.35 s) and punches
+  (24). His arm is a breach target: on foot within 70 px hold F for 1.5 s
+  (BRT_WORK, BRT_PROG; draining at half that when let go) and for 4 s he
+  spins, swinging every 0.45 s at whatever is just past his reach, his own
+  side, Halcyon and players alike (30 a swing, the breacher's). Placed by
+  the map's `brutes` beats (for the Roof, later) or joining a break-in.
+- The tower's break-ins (`Troops.breakIn`) bring the Static's specialists:
+  a pack is still four, but from the offices up one of them is a sparker
+  (`Sparkers.serverJoin`; the brain starts empty on the tower) and from the
+  server room up one a brute (`Brutes.serverJoin`), walking the floor's
+  beat at the back of the file. In the tower the sparkers have no rivals:
+  they don't go for Halcyon's drones, though an EMP still knocks out any
+  machine it catches.
 - Halcyon's sentry turrets (`feature/cyber-feud-tower-turrets`,
   `src/features/cyber-feud/turrets.lua` and `turret_brain.lua`,
   `map.turrets` in `buildTower`): three in the labs (by the way in, in the

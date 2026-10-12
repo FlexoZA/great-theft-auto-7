@@ -48,7 +48,7 @@
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN, GATE_VEX, GATE_ROOM (the Overpass's roadblocks, the
---   tower's stair doors), and troops.lua's turrets' TUR_WORK
+--   tower's stair doors), and troops.lua's turrets' TUR_WORK and brutes' BRT_WORK
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   server -> one     CF_MUSIC              (to a player joining a level whose theme is on: start it)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
@@ -70,6 +70,7 @@ local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Gates = require("src.features.cyber-feud.gates")
 local Turrets = require("src.features.cyber-feud.turrets")
+local Brutes = require("src.features.cyber-feud.brutes")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
@@ -116,6 +117,7 @@ function CyberFeud:load()
   require("src.features.cyber-feud.sparkers").load() -- the sparkers' EMPs
   require("src.features.cyber-feud.watchers").load() -- the watcher drones' call
   Gates.load() -- the key that asks VEX to open a tower door
+  Brutes.load() -- the thump of a brute's arm
 end
 
 function CyberFeud:serverStart()
@@ -269,6 +271,9 @@ for kind, handler in pairs(Gates.serverMessages) do
   CyberFeud.serverMessages[kind] = handler
 end
 for kind, handler in pairs(Turrets.serverMessages) do
+  CyberFeud.serverMessages[kind] = handler
+end
+for kind, handler in pairs(Brutes.serverMessages) do
   CyberFeud.serverMessages[kind] = handler
 end
 
@@ -459,6 +464,7 @@ function CyberFeud:update(dt, client)
   if onLevel() then
     Gates.update(dt, client)
     Turrets.update(dt, client)
+    Brutes.update(dt, client)
   end
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
@@ -526,9 +532,9 @@ function CyberFeud:update(dt, client)
 end
 
 --- The action key is ours at the vending machine, and at a roadblock's
---- panel, a tower door's terminal or a turret (on-foot leaves the car alone).
+--- panel, a tower door's terminal, a turret or a brute (on-foot leaves the car alone).
 function CyberFeud:actionTaken()
-  return cl.near or Gates.actionTaken() or Turrets.actionTaken()
+  return cl.near or Gates.actionTaken() or Turrets.actionTaken() or Brutes.actionTaken()
 end
 
 function CyberFeud:keypressed(key, client)
@@ -618,6 +624,7 @@ function CyberFeud:drawHUD(client)
   end
   Gates.drawHUD()
   Turrets.drawHUD()
+  Brutes.drawHUD()
   if cl.banner then
     Hud.drawBanner(cl.banner.spec, cl.banner.t)
   elseif cl.zone then
