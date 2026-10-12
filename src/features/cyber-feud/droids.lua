@@ -1,6 +1,7 @@
 -- Halcyon's assassin droids (docs/cyber-feud.md), a stronger enemy than the
--- officers: the last thing between you and the tunnel on the Drop (the
--- map's `droids`). init.lua passes its hooks on to this module; troops.lua
+-- officers: the last thing between you and the tunnel on the Drop, and up
+-- Halcyon Tower in its server room, its labs and on the executive floor
+-- (the map's `droids`: a beat each, with how many walk it). init.lua passes its hooks on to this module; troops.lua
 -- starts and stops them with the rest of the street.
 --
 -- They think as A-Man's Hunters do (hunters/brain.lua), only quicker: a
@@ -16,8 +17,9 @@
 -- Like the troops, they stand still and see nobody while the street is
 -- calm (until the Shard is taken, or a player hurts one of them).
 --
--- They walk cloaked (droid_render.lua) until they have somebody. Two for
--- one human player, one more for each human past the first. Down, one
+-- They walk cloaked (droid_render.lua) until they have somebody. On each
+-- beat, its `count` (two when it doesn't say) for one human player and
+-- `perHuman` more (one) for each human past the first. Down, one
 -- blows its core and comes apart in scrap. Rounds owned
 -- by nobody (the factions', their own) pass by them; a player's hurt them.
 --
@@ -105,9 +107,9 @@ local function settle(nav, route)
   return out
 end
 
---- Put the droids on `map`'s `droids` beat, finding their way with `nav`
---- (a walking grid, d-day/nav.lua), standing still while `calm`. Nothing
---- on a map without one.
+--- Put the droids on `map`'s `droids` beats ({ route, count, perHuman }
+--- each), finding their way with `nav` (a walking grid, d-day/nav.lua),
+--- standing still while `calm`. Nothing on a map without them.
 function Droids.serverStart(server, map, nav, calm)
   sv = nil
   local spec = map.droids
@@ -120,13 +122,14 @@ function Droids.serverStart(server, map, nav, calm)
     stunCharge = Droids.railCharge, stunEvery = Droids.railEvery, lockAim = true,
   })
   sv = { brain = brain, syncIn = 0, emptySends = 0, calm = calm }
-  local route = settle(nav, spec.route)
-  if #route < 2 then
-    return
-  end
-  local n = Droids.count + Droids.perHuman * (Bosses.humans(server) - 1)
-  for i = 1, n do
-    brain:add(route, math.floor((i - 1) * #route / n) + 1, arms())
+  for _, beat in ipairs(spec) do
+    local route = settle(nav, beat.route)
+    if #route >= 2 then
+      local n = (beat.count or Droids.count) + (beat.perHuman or Droids.perHuman) * (Bosses.humans(server) - 1)
+      for i = 1, n do
+        brain:add(route, math.floor((i - 1) * #route / n) + 1, arms())
+      end
+    end
   end
 end
 

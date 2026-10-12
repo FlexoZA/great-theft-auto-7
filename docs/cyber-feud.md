@@ -1002,6 +1002,15 @@ zigzags.
 | Security | The guard floor: enforcers, marksmen, a lot of turrets. |
 | Executive | Carpet, a long boardroom table, Saye's office with a window wall. Saye on the screens. |
 
+- Halcyon holds every floor (`buildTower`'s posts and beats): a pair on
+  each stair door up, the lobby's lifts and two behind its reception desk,
+  three more posts each in the gaps among the office desks, the server
+  racks and the labs' tanks, a squad walking each floor from the offices up
+  (two on the security floor), and the security and executive floors'
+  posts round Saye. Assassin droids (`map.droids`, a list of beats each
+  with its `count` and `perHuman`) walk three of the floors' beats
+  cloaked: one in the server room, two in the labs (one more for each
+  human past the first), two round the boardroom.
 - Each floor's stair door is locked. Breach the terminal beside it to open it,
   or let VEX open it for you, which opens a room full of guards instead.
 - How it looks (render_cyber_feud.lua, cyber_feud.lua's `dressTower`): each

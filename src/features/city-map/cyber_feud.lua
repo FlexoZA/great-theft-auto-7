@@ -80,7 +80,9 @@
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
 --                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
---   map.droids            { route } the assassin droids' beat (the Drop), a loop of { x, y }, world px
+--   map.droids            { { route, count, perHuman } } the assassin droids' beats (the Drop, the tower's
+--                         servers, labs and executive floor), each a loop of { x, y }, world px, with how many
+--                         walk it for one human and how many more for each human past the first (2 and 1 when nil)
 --   map.openKinds         { walk = true } on the walked maps: pickups and the like go on the floor
 --   map.crowdClothes      { shirts, pants } what the Drop's crowd wears (pedestrians reads it)
 -- render_cyber_feud.lua draws them.
@@ -496,7 +498,7 @@ local function buildDrop(map, rng, T)
     list[#list + 1] = st
   end
   map.troops = { halcyon = halcyon, static = static }
-  map.droids = { route = loop(2, 4, 1, 2) } -- round the last two crossings before the tunnel
+  map.droids = { { route = loop(2, 4, 1, 2) } } -- round the last two crossings before the tunnel
 
   -- The tunnel mouth at the top, the way on.
   cover(map, "tunnel", X(mid[1]), Y(0), (mid[2] - mid[1] + 1) * T, 3 * T, false)
@@ -1166,6 +1168,15 @@ local function buildTower(map, rng, T)
     end
   end
   halcyon.patrols[#halcyon.patrols + 1] = beats[5] -- the guard floor: two squads on its beat
+  -- Halcyon's assassin droids (cyber-feud/droids.lua), cloaked, walking
+  -- the floors' beats: one among the server racks, two (and one more for
+  -- each human past the first) round Saye's spare bodies in the labs, and
+  -- two round the boardroom between you and the lift up.
+  map.droids = {
+    { route = beats[3], count = 1, perHuman = 0 },
+    { route = beats[4], count = 2, perHuman = 1 },
+    { route = beats[6], count = 2, perHuman = 0 },
+  }
   -- The stair doors up, the pair on each.
   for i = 1, #floors - 1 do
     local fl = floors[i]
@@ -1192,6 +1203,23 @@ local function buildTower(map, rng, T)
   post(33.5, floors[6].r0 + 8, south, "boardroom")
   post(20.6, floors[6].r0 + 1.5, south, "saye's office")
   post(27.4, floors[6].r0 + 1.5, south, "saye's office")
+  -- More on the lower floors, in the gaps between what stands there (clear
+  -- of the beats and of dressTower's furniture): two behind the lobby's
+  -- reception desk, and three each among the office desks, the server
+  -- racks and the labs' tanks.
+  local sw2 = 3 * math.pi / 4
+  post(19.5, lobby.r0 + 4.9, south, "reception")
+  post(28.5, lobby.r0 + 4.9, south, "reception")
+  local off, srv, lab = floors[2], floors[3], floors[4]
+  post(17, off.r0 + 6.8, south, "desks")
+  post(29, off.r0 + 9.8, west, "desks")
+  post(37.5, off.r0 + 3, sw2, "desks")
+  post(6, srv.r0 + 6, east, "racks west")
+  post(15, srv.r0 + 8.3, east, "racks")
+  post(27, srv.r0 + 8.3, west, "racks")
+  post(12.7, lab.r0 + 6.2, south, "tanks west")
+  post(17.7, lab.r0 + 10.8, east, "tanks west")
+  post(40, lab.r0 + 4.5, west, "benches")
   map.troops = { halcyon = halcyon, static = { posts = {} } }
   -- Halcyon's enforcers (cyber-feud/enforcers.lua): riot shields where it
   -- matters most. On the guard floor, a pair in front of the stair door up

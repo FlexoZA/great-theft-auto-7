@@ -85,6 +85,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Halcyon Tower is held now: Halcyon officers on every floor, a pair on each stair door up, the lobby's lifts
   guarded and a squad walking each floor (two on the security floor), so the climb is a sneak past their sight
   cones. Nobody looks your way until you are past the reception.
+- Halcyon's assassin droids stalk Halcyon Tower too, cloaked: one among the server racks, two in the labs (one more
+  for each extra player) and two round the boardroom on the executive floor.
+- More of Halcyon's officers hold Halcyon Tower's lower floors: two behind the lobby's reception desk, and three
+  more each among the office desks, the server racks and the labs' tanks.
 - The Static break into Halcyon Tower behind you: a pack of gangers through the front doors, then up the
   stairwell onto the lowest floor anyone is on, about every 35 s. The two factions ignore each other in the
   tower; they only want you.
