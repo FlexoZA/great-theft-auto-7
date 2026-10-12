@@ -83,6 +83,14 @@ branch off `feature/cyber-feud`):
   2.4 s on the bolt. A player's rounds or the Static's reach him; in a
   flare-up the Static are his rivals and he theirs. That is everything the
   design puts on the Overpass.
+- The Overpass's theme (`src/features/cyber-feud/theme_overpass.lua`,
+  `feature/cyber-feud-overpass-theme`): darksynth, a night drive, 124 BPM
+  in D minor, ~58 s, looping from the moment Kilowatt's rig roars past
+  (KW_RIDE; CF_MUSIC for a player joining after) until the map changes. A
+  pad and an arpeggio over a riser, a rolling octave bass under a
+  four-on-the-floor kick and a gated snare, the arpeggio over D minor, B
+  flat, F, C, a detuned saw lead in the choruses, a break with the lead
+  echoing, and the chorus again an octave up.
 - The Courier (`feature/cyber-feud-armed-car`): the armed car everyone
   drives on the Overpass (see the Overpass's arrival): 180 health, 560
   px/s, a minigun in a roof turret. It is in the vehicle factory's catalog

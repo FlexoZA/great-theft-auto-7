@@ -17,6 +17,9 @@
 --     (`map.knot`), the far end. Each is something VEX says on the comms.
 --   - Walking or driving into a new part of the map puts its name up.
 --   - The objective line says what to do next and how far it is.
+--   - The Overpass's theme (theme_overpass.lua, darksynth) starts on every
+--     screen as Kilowatt's rig roars past (KW_RIDE, or CF_MUSIC for a
+--     player joining after), and plays until the map changes.
 --   - The Market's theme (theme_market.lua, heavy metal) starts on every
 --     screen the moment the Market wakes (CF_WAKE: a player walking up out
 --     of the tunnel), and plays until the map changes. Rendered on arrival.
@@ -45,6 +48,7 @@
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
+--   server -> one     CF_MUSIC              (to a player joining a level whose theme is on: start it)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
 --   its interceptors' INT_UNITS, its war-rigs' RIG_UNITS, KW_RIDE, KW_LEAP, KW_EXIT,
 --   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN,
@@ -66,6 +70,7 @@ local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
 local MarketTheme = require("src.features.cyber-feud.theme_market")
+local OverpassTheme = require("src.features.cyber-feud.theme_overpass")
 local Audio = require("src.audio")
 
 local CyberFeud = {
@@ -208,6 +213,10 @@ function CyberFeud:serverPlayerJoined(server, player)
   end
   Interceptors.serverPlayerJoined(server, player)
   WarRigs.serverPlayerJoined(server, player)
+  local rigs = WarRigs.server()
+  if rigs and rigs.cameo and rigs.cameo.stage ~= "waiting" and not player.bot then
+    server:send(player, Protocol.encode("CF_MUSIC")) -- the Overpass's theme is on
+  end
 end
 
 --- Halcyon's interceptors and the Static's war-rigs are drivers like
@@ -267,8 +276,9 @@ end
 -- Client ------------------------------------------------------------------
 
 -- Each level's theme, and what starts it: on the Drop the Shard being
--- taken, on the Market the street waking.
-local THEMES = { drop = ChaseTheme, market = MarketTheme }
+-- taken, on the Market the street waking, on the Overpass Kilowatt's rig
+-- roaring past (war_rigs.lua's KW_RIDE).
+local THEMES = { drop = ChaseTheme, market = MarketTheme, overpass = OverpassTheme }
 local music = {} -- map name -> its theme's Source, rendered on first arriving there
 
 local function musicVolume()
@@ -377,6 +387,11 @@ CyberFeud.clientMessages = {
       startMusic("market") -- they know you're here
     end
   end,
+  CF_MUSIC = function()
+    if cl.level and THEMES[cl.level] then
+      startMusic(cl.level) -- joining a level whose theme is on already
+    end
+  end,
   CF_BEAT = function(_client, args)
     local b = Story.beats[args[1] or ""]
     if not b then
@@ -396,6 +411,15 @@ for kind, handler in pairs(Interceptors.clientMessages) do
 end
 for kind, handler in pairs(WarRigs.clientMessages) do
   CyberFeud.clientMessages[kind] = handler
+end
+do -- Kilowatt's rig roaring past is the Overpass's cue
+  local ride = CyberFeud.clientMessages.KW_RIDE
+  CyberFeud.clientMessages.KW_RIDE = function(client, args)
+    ride(client, args)
+    if cl.level == "overpass" then
+      startMusic("overpass")
+    end
+  end
 end
 for kind, handler in pairs(Troops.clientMessages) do
   CyberFeud.clientMessages[kind] = handler
