@@ -131,10 +131,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the ground, and calls in a pack of the Static each time you knock another quarter off him. He has the loading
   dock's pass code: the dock stays locked until he's down and somebody picks the code up.
 - The electric grenade: General Volt's own, and the first thing you unlock. When he goes down he drops a stack of
-  three that every player can pick up their own of, with an "UNLOCKED" screen to go with it. It has its own slot
-  (T): a shock blast that stuns whoever it catches and holds enemies still for a moment, then a field that keeps
-  zapping anyone who stays in it for 4 s. It isn't sold anywhere: from then on enemies drop them now and then for
-  whoever has one unlocked, and the unlock is saved with you.
+  three that every player can pick up their own of, with a "NEW GRENADE UNLOCKED" screen to go with it. Drag them
+  onto your grenade slot and G throws them like any grenade (the grenades in there go back into your bag): a shock
+  blast that stuns whoever it catches and holds enemies still for a moment, then a field that keeps zapping anyone
+  who stays in it for 4 s. From then on the shop sells them to you (60 Fcks, on the Ammo shelf) and enemies drop
+  them now and then, and the unlock is saved with you.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

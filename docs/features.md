@@ -678,7 +678,7 @@ couple of small conventions rather than requiring each other:
   many went in. The other way round from `serverTake`.
   `buildings:serverQuickGive(server, player, item, n)` does the same
   straight into the quick slot for a medkit, drink or grenade (up to its
-  stack of 5); pickups stashes a medkit found at full health this way.
+  stack of 5; none while the slot holds the other kind of grenade); pickups stashes a medkit found at full health this way.
 - Freight, for moving materials between buildings with no player carrying
   them (host only): `buildings:serverBuilding(plotId)` reads the host's
   record of a building (kind, owner, product, output, hopper, hp);
@@ -874,7 +874,7 @@ the one with a plot.
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
   quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on G, electric grenades on T): a stack dragged onto its slot is what the key uses
+  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
@@ -884,6 +884,11 @@ the one with a plot.
   the circle and the key come with it. An `aimed` entry (the grenade) is
   left to the feature that owns it: its key readies it and that feature
   sends `BLD_USE <item> <x> <y>` on a click, which reaches `apply` as `args`.
+  An entry's `variants` (by item: a `title` and `color`) are other items the
+  same slot takes, one kind at a time (the grenade slot takes electric
+  grenades): dragging the other kind onto it swaps them, the old stack back
+  into the bag; `serverQuickGive` gives nothing while it holds the other
+  kind. `buildings:slotOf(u)` says what a slot holds and how many.
 - Grenades: `src/features/grenades` throws the grenades in the grenade quick
   slot (five at most). G readies one: the landing spot follows the cursor,
   within `grenades.range` and short of the first wall (`Grenades.landing`,
@@ -896,18 +901,21 @@ the one with a plot.
   `grenades:serverLob(server, ox, oy, x, y, owner, kind)` throws one for an
   enemy (owner 0: hurts any player, credits nobody); A-Man's Combine and
   D-Day's soldiers do. Each kind is an entry of `grenades.kinds` by its
-  item, with its blast. The electric grenade ("grenade-electric", T, its own
-  quick slot) is General Volt's: never sold or made (`Kinds.special` lets a
-  bag carry it all the same). Its blast is shock (30, a stun) and holds every
+  item, with its blast. The electric grenade ("grenade-electric", a variant
+  of the grenade slot: drag it there and G throws it) is General Volt's: never
+  made (`Kinds.special` lets a bag carry it all the same), and only sold to
+  those who have unlocked it (60 Fcks). Its blast is shock (30, a stun) and holds every
   enemy in it still for 1.5 s (`serverFreezeArea`), and it leaves a 110 px
   field for 4 s that zaps whoever stays (8 shock every 0.5 s; players but the
   thrower, and up to 3 enemies of each kind through their `serverShotAt`).
   A player unlocks it by picking up the stack Volt drops (a `perPlayer`
   pickup with `unlocks`: `grenades:serverTakeElectric`), which puts the
   reward screen up (GRN_UNLOCK); the unlock is saved with them
-  (`serverSavePlayer`, `{ version, electric }`). After that enemies drop it
-  now and then (`pickups.drops`' `unlocked`), while any human in the world
-  has it unlocked; only those who have can pick one up.
+  (`serverSavePlayer`, `{ version, electric }`; a returning player's screen
+  hears it as `GRN_UNLOCK grenade-electric quiet`, no reward screen). After
+  that the shop sells it to them (`itemUnlocked` / `serverItemUnlocked`), and
+  enemies drop it now and then (`pickups.drops`' `unlocked`) while any human
+  in the world has it unlocked; only those who have can pick one up.
 - Rewards: `src/features/rewards` puts up the full-screen card for something
   unlocked: `Features.byName.rewards:show({ kicker, title, color, icon =
   function(cx, cy, scale), lines })`, client side, from whatever feature
@@ -1683,7 +1691,11 @@ the one with a plot.
   draws over every other HUD piece (priority 993), under only the inventory.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
-  lists, so a new gun or model is on the shelf by itself. A click on a card
+  lists, so a new gun or model is on the shelf by itself. An entry marked
+  `unlock` (the electric grenade) is only on the shelf, and only sold, to a
+  player who has unlocked it: the feature that owns it answers
+  `itemUnlocked(item)` on their screen and `serverItemUnlocked(server,
+  player, item)` on the host. A click on a card
   shows it in a side panel on the right (`shop/details.lua`): a bigger
   picture, its `blurb`, how it is used and its numbers in the tier on show,
   those the tier improves in the tier's colour. Give a new gun, ability,

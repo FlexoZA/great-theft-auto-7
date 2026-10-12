@@ -155,6 +155,7 @@ local REASONS = {
   nosell = "The shop doesn't buy that.",
   none = "You don't have any of that left.",
   nodeliver = "That can't be delivered here right now.",
+  locked = "You haven't unlocked that yet.",
   unknown = "That isn't for sale.",
 }
 local RED, GREEN = { 1, 0.45, 0.4 }, { 0.5, 1, 0.55 }
@@ -350,7 +351,7 @@ function Shop:tryBuy(client, entry, tier, wear)
   if not Catalog.onRoad(entry) then
     local b = Features.byName.buildings
     local u = b and b.usableByItem and b.usableByItem[item]
-    local quickRoom = u and math.max(0, u.max - b:quickCount(item)) or 0 -- its quick slot takes it first
+    local quickRoom = u and b:quickRoom(item) or 0 -- its quick slot takes it first
     if b and b.inventory and quickRoom < 1 and Kinds.room(b.inventory, b.slots, item) < 1 then
       return self:refuse("full")
     end
@@ -564,8 +565,8 @@ Shop.clientMessages = {
       Shop:say(entry.bought, GREEN)
     elseif Catalog.onRoad(entry) then
       Shop:say("Your " .. entry.name .. " is parked on the road outside.", GREEN)
-    elseif Shop.quickOf(item) then
-      -- Its quick slot filled first (BLD_QUICK came just before this).
+    elseif Shop.quickOf(item) and Features.byName.buildings:quickCount(item) > 0 then
+      -- Its quick slot filled first (BLD_QUICK came just before this), unless it held the other kind.
       local u, b = Shop.quickOf(item)
       local key = Controls.name(Controls.bindings(u.action)[1])
       Shop:say(("Bought %s. Ready on %s: %d/%d."):format(Kinds.label(item, n), key, b:quickCount(item), u.max), GREEN)
@@ -654,6 +655,8 @@ function Shop:serverBuy(server, player, item, wear)
   local price = entry and Catalog.price(entry, tier, self:serverDev(player))
   if not (entry and player.body) then
     return false, "unknown"
+  elseif entry.unlock and not Features.any("serverItemUnlocked", server, player, entry.item) then
+    return false, "locked"
   end
   local shop = self:here()
   if not shop then

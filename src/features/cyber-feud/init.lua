@@ -11,7 +11,8 @@
 --   - On the Drop the package is in the vending machine by the garage: the
 --     first player to press the action key there (F) takes the Shard and carries it for the rest of the line (a green
 --     diamond over them). Once someone has it and is halfway up the map
---     (`map.vexY`), VEX boots up: her intro screen, in your earpiece.
+--     (`map.vexY`), VEX boots up in your earpiece: her intro line on the
+--     comms (not her screen: you are usually fighting by then).
 --   - The host raises story beats once each per level (`Story.beats`):
 --     walking into a part of the map (`map.zones`), the Overpass's dead end
 --     (`map.knot`), the far end. Each is something VEX says on the comms.
@@ -100,7 +101,6 @@ local CyberFeud = {
 CyberFeud.reach = 160 -- px from the far end that finishes a level
 CyberFeud.takeRadius = 110 -- px from the vending machine that takes the Shard
 CyberFeud.introTime = 9 -- seconds VEX's intro screen stays up on arrival, unless a key takes it down
-CyberFeud.bootTime = 6 -- seconds it stays up when she boots up mid-run on the Drop
 
 local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
 
@@ -457,8 +457,8 @@ CyberFeud.clientMessages = {
       return
     end
     face = face or Face.new()
-    if b.screen then
-      cl.page = { line = Story.lines[b.screen], t = 0, max = CyberFeud.bootTime }
+    if b.line then -- one of her intro screen's lines, on the comms: mid-level you're busy
+      cl.says[#cl.says + 1] = Story.lines[b.line]
     end
     if b.say then
       cl.says[#cl.says + 1] = b.say
