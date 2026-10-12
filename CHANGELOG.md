@@ -115,6 +115,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   When one falls the other rages: Saye alone calls six drones and fires three shots down each line ("Hostile
   takeover."); Kilowatt alone stays in phase 2 and his slams leave crackling shock patches ("MELTDOWN!"). And
   they bicker about forty years of business while they're at it.
+- While Kilowatt fights, the Static's brutes come up the stairs at the Roof's south edge to help him: one every
+  25 s, two at a time at most (one more for each extra player), and no more once he's down.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

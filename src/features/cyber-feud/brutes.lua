@@ -1,7 +1,8 @@
 -- The Static's brutes (docs/cyber-feud.md, "The Static"): small Kilowatts,
 -- huge, a giant chrome arm and a cyan reactor in the chest. In Halcyon
 -- Tower they come in with the break-in packs from the third floor up
--- (troops.lua's `serverJoin` calls); the map's `brutes` (beats, as the
+-- (troops.lua's `serverJoin` calls), and on the Roof up the stairs while
+-- Kilowatt fights (kilowatt.lua's); the map's `brutes` (beats, as the
 -- rippers') puts them anywhere else. troops.lua starts, steps and stops
 -- them with the rest of the Static and passes rounds on to them; init.lua
 -- passes on the breach and the prompt. Their heads are brute_brain.lua.
@@ -121,12 +122,13 @@ local function swing(server, s, x, y, angle)
   end
 end
 
---- Brutes on `map`'s `brutes` beats (none on the tower: they come in with
---- the break-ins), finding their way on `nav`, calm while `calm`. Returns
---- the brain, or nil on a map with neither.
+--- Brutes on `map`'s `brutes` beats (none on the tower or the Roof: they
+--- come in with the break-ins, or up the stairs for Kilowatt), finding
+--- their way on `nav`, calm while `calm`. Returns the brain, or nil on a
+--- map with none of those.
 function Brutes.serverStart(server, map, nav, calm)
   Brutes.serverStop(server)
-  if not (nav and (map.brutes or map.breakIns)) then
+  if not (nav and (map.brutes or map.breakIns or map.bosses)) then
     return nil
   end
   local brain = Brain.new({

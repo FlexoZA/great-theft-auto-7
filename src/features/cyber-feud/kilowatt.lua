@@ -7,6 +7,10 @@
 -- troops.lua starts, steps and stops him with the rest and passes rounds
 -- on to him; while he is up the Roof isn't done (init.lua asks `serverUp`).
 --
+-- While he fights, the Static's brutes come up the stairs at the roof's
+-- south edge to help (brutes.lua, `map.bosses.stairs`), one every
+-- HELP_EVERY, walking a beat round the helipad (`map.bosses.beat`).
+--
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health), has the boss bar, goes for medkits when badly hurt, dodges
 -- abilities, and going down raises `serverKill` "boss", spills koins and a
@@ -38,6 +42,7 @@ local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
 local Duo = require("src.features.cyber-feud.duo")
+local Brutes = require("src.features.cyber-feud.brutes")
 
 local Kilowatt = {}
 Kilowatt.__index = Kilowatt
@@ -114,11 +119,17 @@ Kilowatt.lines = {
   "I AM hitting them! The building's just in the way!",
   "MELTDOWN!",
   "Hey! Hands off the suit, spark!",
+  "Boys! Up here! Bring the big ones!",
+  "Ha! Here comes the help!",
 }
 Kilowatt.LINE = {
   intro = 1, taunt = { 2, 3, 4, 10, 11 }, vent = 5, phase2 = 6, down = 7, heal = { 8, 9 },
   bicker = { 12, 13, 14, 15 }, rage = 16, grudge = 17, -- (duo.lua's: with Saye)
+  help = { 18, 19 }, -- a brute up the stairs
 }
+Kilowatt.HELP_FIRST = 15 -- seconds into the fight before the first brute comes up the stairs...
+Kilowatt.HELP_EVERY = 25 -- ...and between one and the next, while he is up...
+Kilowatt.HELP_MOST = 2 -- ...while fewer than this of them are up (and one more for each human past the first)
 Kilowatt.PATCH_RADIUS = 120 -- px: a meltdown slam's shock patch (duo.lua: Saye down)...
 Kilowatt.PATCH_TIME = 4 -- ...seconds it crackles...
 Kilowatt.PATCH_DAMAGE = 8 -- ...shock, every PATCH_EVERY to whoever stands in it
@@ -216,7 +227,8 @@ function Kilowatt.serverStart(server, map, nav, calm)
   if not spot then
     return
   end
-  sv = { k = Kilowatt.new(spot.x, spot.y, Bosses.health(Kilowatt.HEALTH, server), nav), awake = not calm, syncIn = 0 }
+  sv = { k = Kilowatt.new(spot.x, spot.y, Bosses.health(Kilowatt.HEALTH, server), nav), awake = not calm, syncIn = 0,
+    stairs = map.bosses.stairs, beat = map.bosses.beat, helpIn = Kilowatt.HELP_FIRST, help = {} }
 end
 
 function Kilowatt.serverStop(server)
@@ -256,6 +268,34 @@ local function sync(server)
   end
 end
 
+--- His brutes up the stairs: one every HELP_EVERY while fewer than
+--- HELP_MOST of them are up, and he shouts for them.
+local function callHelp(server, dt)
+  if not (sv.stairs and sv.beat) then
+    return
+  end
+  sv.helpIn = sv.helpIn - dt
+  if sv.helpIn > 0 then
+    return
+  end
+  sv.helpIn = Kilowatt.HELP_EVERY
+  for i = #sv.help, 1, -1 do
+    if sv.help[i].hp <= 0 then
+      table.remove(sv.help, i)
+    end
+  end
+  if #sv.help >= Bosses.plus(Kilowatt.HELP_MOST, server) then
+    return
+  end
+  local b = Brutes.serverJoin(sv.stairs.x, sv.stairs.y, sv.beat, #sv.beat) -- (heading for the first corner)
+  if b then
+    b.facing = -math.pi / 2
+    sv.help[#sv.help + 1] = b
+    local lines = Kilowatt.LINE.help
+    server:broadcast(Protocol.encode("KWB_SAY", lines[random(#lines)]))
+  end
+end
+
 function Kilowatt.serverStep(server, dt)
   if not sv or sv.down then
     return
@@ -265,6 +305,7 @@ function Kilowatt.serverStep(server, dt)
     server:broadcast(Protocol.encode("KWB_SAY", Kilowatt.LINE.intro))
   end
   if sv.awake then
+    callHelp(server, dt)
     for _, e in ipairs(Brain.think(sv.k, server, dt)) do
       if e[1] == "say" then
         server:broadcast(Protocol.encode("KWB_SAY", e[2]))

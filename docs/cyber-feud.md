@@ -74,6 +74,14 @@ branch off `feature/cyber-feud`):
   standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
   hers sits over his while he is up. The Roof needs both down, and the
   objective line names whoever is still up.
+- Brutes up the Roof's stairs (`feature/cyber-feud-roof-brutes`,
+  kilowatt.lua's `callHelp`, `map.bosses.stairs` and `map.bosses.beat` in
+  `buildRoof`): while Kilowatt fights, a brute comes up the stairs at the
+  south edge 15 s into the fight and every 25 s after, while fewer than 2
+  of his are up (`Bosses.plus`: one more for each human past the first),
+  and walks a beat round the helipad until it spots somebody. He shouts
+  for them ("Boys! Up here! Bring the big ones!"). None come once he is
+  down. A breached one's swings reach the bosses too.
 - Saye and Kilowatt together (`feature/cyber-feud-roof-duo`,
   `src/features/cyber-feud/duo.lua`, the only place either looks at the
   other; troops.lua steps it after both). They cover each other: a

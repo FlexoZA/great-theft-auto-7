@@ -64,7 +64,8 @@
 --   map.breakIns          { x, y, beat } where the Static break in to each of the tower's floors (the lobby's
 --                         doors, then the stairwell from below) and the beat they walk there (a loop of { x, y })
 --   map.bosses            { kilowatt = { x, y }, saye = { x, y } } where the Roof's bosses wait
---                         (cyber-feud/kilowatt.lua, saye.lua)
+--                         (cyber-feud/kilowatt.lua, saye.lua); `stairs` { x, y } where Kilowatt's brutes come
+--                         up and `beat` (a loop of { x, y }) the one they walk round the helipad
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
 --                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -1181,6 +1182,13 @@ local function buildRoof(map, rng, T)
   map.bosses = {
     kilowatt = { x = math.floor(X(mid)), y = math.floor(Y(mid) - 40) },
     saye = { x = math.floor(X(mid)), y = math.floor(Y(5)) },
+    -- Where Kilowatt's brutes come up (the top of the stairs at the south
+    -- edge), and the beat they walk round the helipad, first corner nearest.
+    stairs = { x = math.floor(X(17.5)), y = math.floor(Y(n - 1.5)) },
+    beat = {
+      { x = math.floor(X(mid)), y = math.floor(Y(n - 8)) }, { x = math.floor(X(n - 9)), y = math.floor(Y(mid)) },
+      { x = math.floor(X(mid)), y = math.floor(Y(8)) }, { x = math.floor(X(8)), y = math.floor(Y(mid)) },
+    },
   }
   map.wakeY = math.floor(Y(n - 9))
 
