@@ -1163,6 +1163,25 @@ local function coast(map, camera)
   end)
 end
 
+--- Halcyon Tower's city below (overpass_below.lua): further down than the
+--- Overpass's, no river, and nothing shows through the tower itself.
+local function towerBelow(map)
+  local x0, x1 = map.left + Layout.TILE * 1.5, map.left + map.w - Layout.TILE * 1.5
+  return { depth = 0.3, river = false, towers = 0.6, covered = function(x)
+    return x >= x0 and x <= x1
+  end }
+end
+
+--- The Roof's: further down still, skyscrapers' tops round it, nothing
+--- showing through the roof itself (inside its parapet).
+local function roofBelow(map)
+  local T = Layout.TILE
+  local x0, y0, x1, y1 = map.left + T * 2, map.top + T * 2, map.left + map.w - T * 2, map.top + map.h - T * 2
+  return { depth = 0.25, river = false, towers = 0.55, covered = function(x, y)
+    return x >= x0 and x <= x1 and y >= y0 and y <= y1
+  end }
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -1190,6 +1209,14 @@ local DRAW = {
     local left, top, right, bottom = view(camera)
     OverpassBelow.draw(map, camera, left, top, right, bottom, clock)
   end,
+  tower = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, towerBelow(map))
+  end,
+  roof = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, roofBelow(map))
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
@@ -1198,6 +1225,12 @@ local LIGHTS = {
   market = GreyCity.lights,
   overpass = function(map, left, top, right, bottom, t, glow, camera)
     OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow)
+  end,
+  tower = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, towerBelow(map))
+  end,
+  roof = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
   end,
 }
 

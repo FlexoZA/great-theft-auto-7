@@ -11,6 +11,9 @@
 -- and tail lights, and their glimmer on the river, all dimmed by the
 -- distance.
 --
+-- Halcyon Tower uses it too, seen through its glass walls, further down
+-- still and without the river: `opts` (below) says how.
+--
 -- The blocks are worked out from where they sit, the same on every machine
 -- and never running out. Client only.
 
@@ -40,10 +43,21 @@ local LAMP = { 1.00, 0.80, 0.55 }
 local HEAD = { 1.00, 0.95, 0.82 }
 local TAIL = { 1.00, 0.15, 0.12 }
 
+local TOWER_CELL = 1600 -- px (at the towers' depth) between one skyscraper and the next, give or take
+local TOWER_ROOFS = { { 0.30, 0.31, 0.34 }, { 0.26, 0.27, 0.30 }, { 0.34, 0.33, 0.36 } }
+
 local function hash(a, b)
   local x = math.sin(a * 12.9898 + b * 78.233) * 43758.5453
   return x - math.floor(x)
 end
+
+-- What the caller may set (`opts`): `depth` (DEPTH when nil), `river`
+-- (false for none), `covered(x, y)`, true where something up here
+-- stands over a world point, so no light from below shows there (the
+-- map's tiles when nil), and `towers`: skyscrapers' tops round about, at
+-- `towers` the size (nearer than the city, further than the map), with a
+-- red light on each (Halcyon Tower and its roof are up among them).
+local opts = {}
 
 --- Where the river runs (down there): its middle, from the map.
 local function riverY(map)
@@ -51,14 +65,17 @@ local function riverY(map)
 end
 
 local function inRiver(map, y0, y1)
+  if opts.river == false then
+    return false
+  end
   local ry = riverY(map)
   return y1 > ry - RIVER_W / 2 and y0 < ry + RIVER_W / 2
 end
 
---- Push the view down there: drawn about the camera, `DEPTH` the size.
+--- Push the view down there: drawn about the camera, the depth the size.
 --- Returns the view's bounds down there.
 local function enter(camera, left, top, right, bottom)
-  local k = Below.DEPTH
+  local k = opts.depth or Below.DEPTH
   love.graphics.push()
   love.graphics.translate(camera.x, camera.y)
   love.graphics.scale(k)
@@ -142,10 +159,67 @@ local function eachCar(map, left, top, right, bottom, clock, fn)
   end
 end
 
-function Below.draw(map, camera, left, top, right, bottom, clock)
+--- The skyscrapers round about (`opts.towers`): fn(x, y, w, h, n) for each
+--- in view, in their own depth's space; none under what `covered` says is
+--- up here.
+local function eachTower(camera, l, t, r, b, k, fn)
+  for cx = math.floor(l / TOWER_CELL), math.floor(r / TOWER_CELL) do
+    for cy = math.floor(t / TOWER_CELL), math.floor(b / TOWER_CELL) do
+      local n = hash(cx * 1.7 + 0.3, cy * 2.3 + 0.7)
+      if n > 0.35 then
+        local w, h = 500 + n * 500, 500 + hash(cy, cx) * 500
+        local x = cx * TOWER_CELL + (TOWER_CELL - w) * hash(cx + 9, cy)
+        local y = cy * TOWER_CELL + (TOWER_CELL - h) * hash(cx, cy + 9)
+        local mx, my = camera.x + (x + w / 2 - camera.x) * k, camera.y + (y + h / 2 - camera.y) * k
+        if not (opts.covered and opts.covered(mx, my)) then
+          fn(x, y, w, h, n)
+        end
+      end
+    end
+  end
+end
+
+--- The view at the towers' depth: drawn about the camera, `k` the size.
+local function enterAt(camera, k, left, top, right, bottom)
+  love.graphics.push()
+  love.graphics.translate(camera.x, camera.y)
+  love.graphics.scale(k)
+  love.graphics.translate(-camera.x, -camera.y)
+  return camera.x + (left - camera.x) / k, camera.y + (top - camera.y) / k,
+    camera.x + (right - camera.x) / k, camera.y + (bottom - camera.y) / k
+end
+
+--- The skyscrapers' tops: each a roof with its plant and a helipad or a
+--- mast, a thick shadow falling off it (they are tall), a lighter haze.
+local function drawTowers(camera, left, top, right, bottom)
+  local k = opts.towers
+  local l, t, r, b = enterAt(camera, k, left, top, right, bottom)
+  eachTower(camera, l, t, r, b, k, function(x, y, w, h, n)
+    love.graphics.setColor(0, 0, 0, 0.45)
+    love.graphics.rectangle("fill", x + 70, y + 90, w, h)
+    local roof = TOWER_ROOFS[1 + math.floor(n * 7) % #TOWER_ROOFS]
+    love.graphics.setColor(roof)
+    love.graphics.rectangle("fill", x, y, w, h)
+    love.graphics.setColor(roof[1] * 1.25, roof[2] * 1.25, roof[3] * 1.25)
+    love.graphics.rectangle("fill", x, y, w, 14) -- the parapet's lit top edge
+    love.graphics.rectangle("fill", x, y, 14, h)
+    love.graphics.setColor(roof[1] * 0.75, roof[2] * 0.75, roof[3] * 0.75)
+    love.graphics.rectangle("fill", x + w * 0.15, y + h * 0.2, w * 0.3, h * 0.25) -- the plant room
+    if n > 0.7 then -- a helipad
+      love.graphics.setColor(0.8, 0.8, 0.75, 0.6)
+      love.graphics.setLineWidth(10)
+      love.graphics.circle("line", x + w * 0.62, y + h * 0.6, math.min(w, h) * 0.22, 32)
+      love.graphics.setLineWidth(1)
+    end
+  end)
+  love.graphics.pop()
+end
+
+function Below.draw(map, camera, left, top, right, bottom, clock, how)
   if not camera then
     return
   end
+  opts = how or {}
   local l, t, r, b = enter(camera, left, top, right, bottom)
   love.graphics.setColor(GROUND)
   love.graphics.rectangle("fill", l, t, r - l, b - t)
@@ -180,7 +254,7 @@ function Below.draw(map, camera, left, top, right, bottom, clock)
   -- The river, banked both sides, its surface rippling.
   local ry = riverY(map)
   local y0, y1 = ry - RIVER_W / 2, ry + RIVER_W / 2
-  if y1 > t and y0 < b then
+  if opts.river ~= false and y1 > t and y0 < b then
     love.graphics.setColor(BANK)
     love.graphics.rectangle("fill", l, y0 - 40, r - l, 40)
     love.graphics.rectangle("fill", l, y1, r - l, 40)
@@ -198,19 +272,27 @@ function Below.draw(map, camera, left, top, right, bottom, clock)
   -- The haze over all of it: it is a long way down.
   love.graphics.setColor(HAZE)
   love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  if opts.towers then
+    drawTowers(camera, left, top, right, bottom)
+    love.graphics.setColor(HAZE[1], HAZE[2], HAZE[3], HAZE[4] * 0.4)
+    love.graphics.rectangle("fill", left, top, right - left, bottom - top)
+  end
 end
 
 --- At night: what glows down there, dimmed by the distance.
-function Below.lights(map, camera, left, top, right, bottom, clock, light)
+function Below.lights(map, camera, left, top, right, bottom, clock, light, how)
   if not camera then
     return
   end
-  -- Nothing down there lights the deck up here: a light under it is left out.
-  local depth, T = Below.DEPTH, Layout.TILE
-  local function glow(x, y, rad, c, a)
-    local wx, wy = camera.x + (x - camera.x) * depth, camera.y + (y - camera.y) * depth
+  opts = how or {}
+  -- Nothing down there lights what stands up here: a light under it is left out.
+  local depth, T = opts.depth or Below.DEPTH, Layout.TILE
+  local covered = opts.covered or function(wx, wy)
     local col = map.tiles[math.floor((wx - map.x0) / T)]
-    if not (col and col[math.floor((wy - map.y0) / T)]) then
+    return col ~= nil and col[math.floor((wy - map.y0) / T)] ~= nil
+  end
+  local function glow(x, y, rad, c, a)
+    if not covered(camera.x + (x - camera.x) * depth, camera.y + (y - camera.y) * depth) then
       light(x, y, rad, c, a)
     end
   end
@@ -252,7 +334,7 @@ function Below.lights(map, camera, left, top, right, bottom, clock, light)
   -- The city's lights on the river: streaks of them glimmering on the water.
   local ry = riverY(map)
   local y0, y1 = ry - RIVER_W / 2, ry + RIVER_W / 2
-  if y1 > t and y0 < b then
+  if opts.river ~= false and y1 > t and y0 < b then
     -- Lamps along both banks' promenades, and their light on the water by them.
     for x = math.floor(l / 120) * 120, r, 120 do
       glow(x, y0 - 20, 130, LAMP, 0.8 * dim)
@@ -271,6 +353,23 @@ function Below.lights(map, camera, left, top, right, bottom, clock, light)
     end
   end
   love.graphics.pop()
+  if opts.towers then
+    -- The skyscrapers' red lights at their corners, blinking, and a sign on some.
+    local kt = opts.towers
+    local tl, tt, tr, tb = enterAt(camera, kt, left, top, right, bottom)
+    local blink = math.floor(clock * 1.2) % 2 == 0
+    eachTower(camera, tl, tt, tr, tb, kt, function(x, y, w, h, n)
+      if blink or n > 0.6 then
+        for _, p in ipairs({ { 20, 20 }, { w - 20, 20 }, { 20, h - 20 }, { w - 20, h - 20 } }) do
+          light(x + p[1], y + p[2], 160, { 1, 0.15, 0.1 }, 0.9)
+        end
+      end
+      if n > 0.55 then
+        light(x + w / 2, y + h, 420, NEON[1 + math.floor(n * 31) % #NEON], 0.5)
+      end
+    end)
+    love.graphics.pop()
+  end
 end
 
 return Below

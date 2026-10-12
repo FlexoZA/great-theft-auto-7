@@ -19,9 +19,12 @@
 --   map.exitX, map.exitY  the far end: the first player there finishes the level (cyber-feud)
 --   map.zones             { name, y0, y1 } the stretches of the map, bottom to top
 --   map.roads             { x, y, w, h, along = "ns" | "ew" } stretches of road, world px, for the lane lines
---   map.cover             { kind, x, y, w, h, solid, round, color } world px; solid ones are in the solids too.
+--   map.cover             { kind, x, y, w, h, solid, round, color, flat } world px; solid ones are in the solids
+--                         too, `flat` ones (a rug, floor paint) are drawn first, under everything that stands.
 --                         Kinds: barrier, wreck, drum, vending, stall, screen, desk, rack, tank, table,
---                         reception, lift, relay, ac, mast, gantry, door, tunnel, dock, billboard
+--                         reception, lift, relay, ac, mast, gantry, door, tunnel, dock, billboard; and the
+--                         tower's sofa, coffee, rug, logo, holo, glass, cooler, printer, plant, cables,
+--                         hazard, bench, cabinet, lockers, paint, bar, stool, shelf, art
 --   map.signs             { x, y, w, h, color, text } neon signs on building edges, world px
 --   map.lights            { x, y, r, color, a } what glows at night (the night feature draws them), world px
 --   map.bridge            { towers = { x, y, edge }, piers = { y } } the Overpass's bridge (render only): the
@@ -934,6 +937,112 @@ end
 CyberFeud.FLOORS = { "Lobby", "Offices", "Servers", "Labs", "Security", "Executive" }
 CyberFeud.FLOOR_ROWS = 16 -- open rows on each floor; two rows of slab between floors
 
+--- Something flat on a floor (a rug, paint, a glass partition seen from
+--- above): drawn first, under what stands, and nothing to bump into.
+local function deco(map, kind, x, y, w, h, extra)
+  local e = { flat = true }
+  for k, v in pairs(extra or {}) do
+    e[k] = v
+  end
+  return cover(map, kind, x, y, w, h, false, e)
+end
+
+--- Halcyon Tower's floors dressed, so they look lived in: rugs and paint
+--- on the floors, and furniture along the walls and in the corners. What
+--- stands is kept off every beat, post, turret, stair door and the way in
+--- from the floor below (see buildTower's posts and beats); what is flat
+--- can go anywhere.
+local function dressTower(map, floors, X, Y, T)
+  local cols = map.cols
+  -- The lobby: Halcyon's logo inlaid in the marble, waiting areas either
+  -- side with sofas round a low table on a rug, holo screens on the north
+  -- wall either side of the guard room's door, and plants.
+  local f = floors[1]
+  deco(map, "logo", X(24) - 1.6 * T, Y(f.r0 + 9.8) - 1.6 * T, 3.2 * T, 3.2 * T)
+  for _, x in ipairs({ X(3.1), X(cols - 6.9) }) do
+    deco(map, "rug", x - 10, Y(f.r0 + 4.7), 3.9 * T + 20, 3.2 * T, { tint = { 0.32, 0.20, 0.34 } })
+    cover(map, "sofa", x, Y(f.r0 + 5), 3.6 * T, 0.8 * T, true, { face = 1 })
+    cover(map, "coffee", x + 0.6 * T, Y(f.r0 + 6.3), 2.4 * T, 0.7 * T)
+    cover(map, "sofa", x, Y(f.r0 + 7.3), 3.6 * T, 0.8 * T, true, { face = -1 })
+  end
+  cover(map, "plant", X(4.5), Y(f.r0 + 0.3), 0.8 * T, 0.8 * T, true, { round = true }) -- (the east side is the way up)
+  for _, c in ipairs({ 16, 27 }) do
+    deco(map, "holo", X(c), Y(f.r0) + 2, 5 * T, 18)
+  end
+  -- Offices: a glass meeting room at the west end round a table, and a
+  -- copier, a water cooler and a plant along the east wall.
+  f = floors[2]
+  deco(map, "glass", X(2.2), Y(f.r0 + 5), 5.6 * T, 8.6 * T)
+  cover(map, "table", X(3.2), Y(f.r0 + 7.5), 3.6 * T, 3.2 * T)
+  cover(map, "cooler", X(44.4), Y(f.r0 + 8), 0.6 * T, 0.6 * T, true, { round = true })
+  cover(map, "printer", X(44.1), Y(f.r0 + 10), 0.9 * T, 0.8 * T)
+  cover(map, "plant", X(44.2), Y(f.r0 + 12.5), 0.8 * T, 0.8 * T, true, { round = true })
+  deco(map, "rug", X(9.2), Y(f.r0 + 1.4), 29 * T, 12.6 * T, { tint = { 0.22, 0.26, 0.33 }, border = true })
+  -- Servers: cooling units down both walls, cable runs across the floor
+  -- between the racks and the walls, and a hazard box round the way up.
+  f = floors[3]
+  for _, r in ipairs({ 1, 4, 7 }) do
+    cover(map, "ac", X(2.15), Y(f.r0 + r), 0.75 * T, 1.6 * T)
+  end
+  for _, r in ipairs({ 5, 8, 11 }) do
+    cover(map, "ac", X(cols - 2.9), Y(f.r0 + r), 0.75 * T, 1.6 * T)
+  end
+  for _, r in ipairs({ 3.6, 7.6, 11.6 }) do
+    deco(map, "cables", X(3), Y(f.r0 + r), 39 * T, 10)
+  end
+  deco(map, "hazard", X(cols - 7.2), Y(f.r0) + 4, 6 * T, 2.4 * T)
+  -- Labs: benches with their kit down both walls, specimen cabinets, and
+  -- a hazard line round the tanks.
+  f = floors[4]
+  deco(map, "hazard", X(9.2), Y(f.r0 + 2.4), 28 * T, 8.4 * T, { outline = true })
+  for _, r in ipairs({ 3, 6, 9 }) do
+    cover(map, "bench", X(cols - 4.4), Y(f.r0 + r), 2.2 * T, 1 * T)
+  end
+  for _, r in ipairs({ 4.5, 7.5, 10.5 }) do
+    cover(map, "bench", X(2.15), Y(f.r0 + r), 1 * T, 2 * T)
+  end
+  cover(map, "cabinet", X(cols - 4.4), Y(f.r0 + 0.6), 2.2 * T, 0.7 * T)
+  -- Security: lockers along the north wall either side of the guard
+  -- room's door, painted lanes and a checkpoint line on the floor.
+  f = floors[5]
+  for _, c in ipairs({ 8, 13.5, 27.5, 33 }) do
+    cover(map, "lockers", X(c), Y(f.r0) + 2, 5 * T, 26)
+  end
+  deco(map, "paint", X(3), Y(f.r0 + 13.6), 40 * T, 10)
+  deco(map, "paint", X(3), Y(f.r0 + 2.2), 40 * T, 10)
+  deco(map, "paint", X(37), Y(f.r0 + 2.2), 10, 11.4 * T)
+  deco(map, "hazard", X(cols - 7.2), Y(f.r0) + 4, 6 * T, 2.4 * T)
+  -- Executive: a rug under the boardroom table, Saye's office walled in
+  -- glass round her desk, a lounge at the west end, a bar at the east,
+  -- bookshelves and art along the north wall.
+  f = floors[6]
+  deco(map, "rug", X(14.6), Y(f.r0 + 5.8), 18.8 * T, 4.4 * T, { tint = { 0.36, 0.10, 0.22 }, border = true })
+  deco(map, "glass", X(18.4), Y(f.r0) + 4, 11.2 * T, 4.4 * T, { open = "s" })
+  deco(map, "rug", X(4), Y(f.r0 + 6.4), 6.4 * T, 6.8 * T, { tint = { 0.20, 0.22, 0.30 } })
+  cover(map, "sofa", X(4.2), Y(f.r0 + 6.7), 0.8 * T, 6 * T, true, { face = 2 })
+  cover(map, "sofa", X(5.2), Y(f.r0 + 6.7), 4.6 * T, 0.8 * T, true, { face = 1 })
+  cover(map, "coffee", X(6), Y(f.r0 + 9), 2.6 * T, 1.4 * T)
+  cover(map, "plant", X(9.6), Y(f.r0 + 12), 0.8 * T, 0.8 * T, true, { round = true })
+  cover(map, "bar", X(cols - 3.4), Y(f.r0 + 5), 0.8 * T, 5 * T) -- (down the wall, out of the corner marksman's way)
+  for r = f.r0 + 5.3, f.r0 + 9.4, 1.2 do
+    deco(map, "stool", X(cols - 4.4), Y(r), 24, 24)
+  end
+  cover(map, "shelf", X(9), Y(f.r0) + 2, 6 * T, 26)
+  cover(map, "shelf", X(33), Y(f.r0) + 2, 5 * T, 26)
+  deco(map, "art", X(3.5), Y(f.r0) + 2, 1.6 * T, 12)
+  deco(map, "art", X(15.5), Y(f.r0) + 2, 2 * T, 12)
+  deco(map, "art", X(30), Y(f.r0) + 2, 2 * T, 12)
+  -- Light where it all is.
+  light(map, X(5), Y(floors[1].r0 + 6), 220, { 0.85, 0.55, 1 }, 0.5)
+  light(map, X(cols - 5), Y(floors[1].r0 + 6), 220, { 0.85, 0.55, 1 }, 0.5)
+  for _, c in ipairs({ 18.5, 29.5 }) do
+    light(map, X(c), Y(floors[1].r0) + 12, 160, CyberFeud.CYAN, 0.6)
+  end
+  light(map, X(5), Y(floors[2].r0 + 9), 200, CyberFeud.WHITE, 0.5)
+  light(map, X(cols - 3.5), Y(floors[6].r0 + 7.5), 200, { 1, 0.6, 0.3 }, 0.6)
+  light(map, X(7), Y(floors[6].r0 + 9.5), 220, CyberFeud.LAMP, 0.5)
+end
+
 local function buildTower(map, rng, T)
   local g = grid(map, T)
   local X, Y = g.X, g.Y
@@ -1020,6 +1129,7 @@ local function buildTower(map, rng, T)
   cover(map, "lift", X(22), Y(f.r0 - 2), 4 * T, 2 * T, false)
   light(map, X(24), Y(f.r0 + 1), 260, CyberFeud.MAGENTA, 0.6)
   map.exitX, map.exitY = math.floor(X(24)), math.floor(Y(f.r0 + 1))
+  dressTower(map, floors, X, Y, T)
 
   -- Who is in the tower (cyber-feud/troops.lua puts them there). Halcyon
   -- holds every floor: a pair on the stair door up (at the far end from

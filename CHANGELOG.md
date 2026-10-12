@@ -144,6 +144,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   blast that stuns whoever it catches and holds enemies still for a moment, then a field that keeps zapping anyone
   who stays in it for 4 s. From then on the shop sells them to you (60 Fcks, on the Ammo shelf) and enemies drop
   them now and then, and the unlock is saved with you.
+- The Roof stands over Grey City: the city far below on every side, other skyscrapers' tops round it, their red
+  lights blinking.
+- The Static's brutes look like themselves now, not like small Kilowatts: rust-orange work jackets, welding masks
+  with a cyan visor slit and that giant arm, and a head shorter than Kilowatt, so the help that comes up the Roof's
+  stairs isn't mistaken for more of him.
+- Halcyon Tower is furnished: marble and Halcyon's logo in the lobby with sofas and holo screens, office chairs and
+  a glass meeting room, cooling units and cables among the server racks, lab benches, lockers on the guard floor,
+  and a lounge, a bar and Saye's glass office at the top. Each floor has its own floor, and Grey City lies far
+  below through the glass walls.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 
