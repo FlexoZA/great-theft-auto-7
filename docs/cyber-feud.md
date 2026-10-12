@@ -550,7 +550,15 @@ screen), the way A-Man's trail does.
 - Past the edge the city carries on (the surroundings feature's
   `grey_city.lua`, the Drop so far): blocks of towers with neon in the
   colour of whoever holds that side of town, street lamps, traffic going
-  by both ways, a haze further out; at night only its lights show.
+  by both ways, a haze further out; at night only its lights show. Round
+  the Market the same city is at war (`surroundings/turf_war.lua`): a front
+  north to south in line with Noodle Square, the Static's west and
+  Halcyon's east; no-man's-land either side of it in rubble, craters and
+  burning towers; barricades across every street (the Static's junk walls,
+  a drum alight, facing Halcyon's concrete), war-rigs and interceptors
+  behind them, tracer bursts both ways, shells coming down, Halcyon's
+  searchlights sweeping, and further back cyan tags over the Static's roofs
+  and Halcyon's hexagon over its own. No traffic.
 - Overhead, every now and then, one of three flying machines crosses the
   sky (`cyber-feud/flyers.lua`, the Drop so far): Halcyon's aerodyne on
   four ducted fans with its searchlight sweeping the streets, a cargo

@@ -44,7 +44,9 @@
 -- Grey City's Drop carries on as downtown at night (grey_city.lua): blocks
 -- of grey towers with neon on their edges, street lamps, traffic going by
 -- both ways, a haze further out. The night feature darkens it like the
--- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`).
+-- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`). Round
+-- the Market the same city is at war (turf_war.lua): a front through it,
+-- no-man's-land, barricades, tracer fire, shells and fires.
 --
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
@@ -1152,13 +1154,18 @@ local DRAW = {
   coast = coast,
   drop = function(map, camera)
     local left, top, right, bottom = view(camera)
-    GreyCity.draw(map, left, top, right, bottom, clock)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
+  end,
+  market = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
   end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
 local LIGHTS = {
   drop = GreyCity.lights,
+  market = GreyCity.lights,
 }
 
 --- At night (the night feature): what glows past the edge.

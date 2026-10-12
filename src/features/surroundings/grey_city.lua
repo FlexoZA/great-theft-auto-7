@@ -1,4 +1,4 @@
--- Grey City past a map's edge (surroundings' entry for the Drop): downtown
+-- Grey City past a map's edge (surroundings' entry for the Drop and the Market): downtown
 -- carries on, out of reach. A grid of wide streets and blocks of grey
 -- towers in the Drop's own colours, neon signs on their edges (the
 -- Static's cyan out west, Halcyon's magenta out east, either between, now
@@ -16,11 +16,20 @@
 -- (canvases at half resolution, a few a frame as the camera finds them,
 -- the least used thrown away past MAX_CHUNKS), as City 17's are
 -- (city17.lua). The traffic and the lights are drawn every frame.
+--
+-- Round the Market the feud is out on the streets (GreyCity.WAR,
+-- turf_war.lua): a front through the city, no-man's-land, barricades,
+-- tracer fire, shells and fires, and no traffic.
 
 local Layout = require("src.features.city-map.layout")
 local Buildings = require("src.features.city-map.buildings")
+local TurfWar = require("src.features.surroundings.turf_war")
 
 local GreyCity = {}
+
+-- The maps whose city is at war past the edge (turf_war.lua): ruins, fire,
+-- barricades and a front instead of the traffic.
+GreyCity.WAR = { market = true }
 
 local T = Layout.TILE
 local PERIOD = 13 -- tiles from one street to the next
@@ -75,11 +84,11 @@ end
 
 -- The plan ------------------------------------------------------------------
 
-local plan = nil -- { map, blocks = { ["bc,br"] = buildings } }
+local plan = nil -- { map, war, blocks = { ["bc,br"] = buildings } }
 
 local function planFor(map)
   if not (plan and plan.map == map) then
-    plan = { map = map, blocks = {} }
+    plan = { map = map, war = GreyCity.WAR[map.name] == true, blocks = {} }
   end
   return plan
 end
@@ -190,6 +199,9 @@ local function block(p, bc, br)
       sg.color = neonAt(map, b.x + b.w / 2, s)
       b.sign = sg
     end
+    if p.war then
+      TurfWar.fate(map, b, s)
+    end
     got[#got + 1] = b
   end
   return got
@@ -211,7 +223,7 @@ end
 
 -- Drawing a chunk -------------------------------------------------------------
 
-local function ground(map, c, r, kind)
+local function ground(map, c, r, kind, war)
   local x, y = map.x0 + c * T, map.y0 + r * T
   local h = hash(c * 7.1 + r * 13.7)
   if kind == "road" then
@@ -235,6 +247,24 @@ local function ground(map, c, r, kind)
   if h > 0.86 then -- a puddle, where the rain sits
     color(C.puddle, 0.9)
     love.graphics.ellipse("fill", x + 16 + h * 30, y + 14 + hash(h * 31) * 30, 14, 7, 12)
+  end
+  if war then
+    TurfWar.drawGround(map, c, r, kind, x, y)
+  end
+end
+
+--- The east-west streets with a tile between `top` and `bottom` and not
+--- through the map, as a function taking fn(k, y, width): street k, its
+--- middle y, its width in px.
+local function streetsIn(map, top, bottom)
+  local P = PERIOD * T
+  return function(fn)
+    for k = math.floor((top - map.y0) / P) - 1, math.floor((bottom - map.y0) / P) + 1 do
+      local r0 = k * PERIOD
+      if r0 + STREET - 1 < -1 or r0 > map.rows then
+        fn(k, map.y0 + k * P + STREET * T / 2, STREET * T)
+      end
+    end
   end
 end
 
@@ -260,7 +290,7 @@ local function drawChunk(p, cx, cy)
     for r = r0, r1 do
       local kind = tileKind(map, c, r)
       if kind then
-        ground(map, c, r, kind)
+        ground(map, c, r, kind, p.war)
       end
     end
   end
@@ -272,6 +302,12 @@ local function drawChunk(p, cx, cy)
     love.graphics.rectangle("fill", b.x + 14, b.y + 14, b.w, b.h)
   end)
   Buildings.draw({ kind = "drop", x0 = map.x0, y0 = map.y0, tiles = tilesOf(map), buildings = standing })
+  if p.war then
+    for _, b in ipairs(standing) do
+      TurfWar.drawBuilding(b)
+    end
+    TurfWar.drawStill(map, streetsIn(map, y0, y0 + CHUNK))
+  end
   for _, b in ipairs(standing) do
     local s = b.sign
     if s then
@@ -415,8 +451,20 @@ local function haze(map, left, top, right, bottom)
   end
 end
 
---- Draw it all over the box (left, top, right, bottom) the camera sees.
-function GreyCity.draw(map, left, top, right, bottom, clock)
+--- The fires burning in the box: on the blocks, and at the barricades.
+local function firesIn(p, left, top, right, bottom)
+  local list = {}
+  eachBlock(p, left - 300, top - 300, right + 300, bottom + 300, function(b)
+    if b.fire then
+      list[#list + 1] = b.fire
+    end
+  end)
+  return TurfWar.fires(p.map, streetsIn(p.map, top - 300, bottom + 300), list)
+end
+
+--- Draw it all over the box (left, top, right, bottom) the camera sees
+--- (`camera` for the fires, which leave out what is out of sight).
+function GreyCity.draw(map, left, top, right, bottom, clock, camera)
   local p = planFor(map)
   color(C.walk) -- under any chunk not made yet
   love.graphics.rectangle("fill", left, top, right - left, bottom - top)
@@ -430,7 +478,12 @@ function GreyCity.draw(map, left, top, right, bottom, clock)
       end
     end
   end
-  eachCar(map, left - 40, top - 40, right + 40, bottom + 40, clock, drawCar)
+  if p.war then
+    TurfWar.draw(map, streetsIn(map, top - 200, bottom + 200), top, bottom, clock, camera,
+      firesIn(p, left, top, right, bottom))
+  else
+    eachCar(map, left - 40, top - 40, right + 40, bottom + 40, clock, drawCar)
+  end
   haze(map, left, top, right, bottom)
 end
 
@@ -465,6 +518,11 @@ function GreyCity.lights(map, left, top, right, bottom, clock, glow)
         glow(map.x0 + c * T + 6, map.y0 + r * T + 6, 150, LAMP, 0.3)
       end
     end
+  end
+  if p.war then
+    TurfWar.lights(map, streetsIn(map, top - 300, bottom + 300), top, bottom, clock, glow,
+      firesIn(p, left, top, right, bottom))
+    return
   end
   eachCar(map, left - 60, top - 60, right + 60, bottom + 60, clock, function(x, y, angle)
     local cx, cy = math.cos(angle), math.sin(angle)
