@@ -117,6 +117,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   they bicker about forty years of business while they're at it.
 - While Kilowatt fights, the Static's brutes come up the stairs at the Roof's south edge to help him: one every
   25 s, two at a time at most (one more for each extra player), and no more once he's down.
+- VEX takes the Roof once Saye and Kilowatt are down: she locks the stairs, her face comes up huge over the whole
+  roof, and four turrets wake up (one more for each extra player). Breach her four relays (hold F for 5 s at each):
+  she sits at one at a time, where breaching is half as fast and a ring of shock pulses out every few seconds, and
+  she moves to whichever you're furthest into. Her face breaks up more with every relay lost. On the last one she
+  gets away into the net, "Nothing personal, courier.", and the job is done.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

@@ -74,6 +74,26 @@ branch off `feature/cyber-feud`):
   standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
   hers sits over his while he is up. The Roof needs both down, and the
   objective line names whoever is still up.
+- VEX's phase (`feature/cyber-feud-vex-phase`,
+  `src/features/cyber-feud/vex.lua`; `map.relays`, `map.bosses.lock` and
+  `map.bosses.vexTurrets` in `buildRoof`; VX_ messages): 2.5 s after both
+  bosses are down she takes the roof: a solid barrier across the top of the
+  stairs (in the map's solids and cells, on every screen, until she goes),
+  her face (face.lua, which now takes `alpha` and `broken`) projected at 16x
+  over the middle of the roof at 0.3, both tells flickering, and four
+  turrets (`Bosses.plus`; sweeping all round, `Turrets.serverJoin`). The
+  four relays: hold F within 75 px for 5 s (VX_WORK/VX_PROG; draining at
+  0.4 a second). She sits at one (VX_AT): there it goes at half pace and
+  every 4 s a shock ring pulses out 190 px (18 `shock`, VX_PULSE); every
+  11 s, or when hers falls, she moves to the relay furthest along. Each
+  relay lost breaks her face up more (slipped slices, missing frames, her
+  colour dropping) and gets a line (Story.beats `roof.vexLock`,
+  `roof.vex1`-`3`). On the last she gets away: on every screen her face
+  shrinks to a green pixel that streaks off the right edge, the barrier
+  and her turrets go, and init.lua completes the quest (the HOME star on
+  the helipad) with `roof.end`'s "Nothing personal, courier." While she is
+  up the helipad doesn't finish the level, and the objective line counts
+  the relays left, pointing at the nearest.
 - Brutes up the Roof's stairs (`feature/cyber-feud-roof-brutes`,
   kilowatt.lua's `callHelp`, `map.bosses.stairs` and `map.bosses.beat` in
   `buildRoof`): while Kilowatt fights, a brute comes up the stairs at the

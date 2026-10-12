@@ -99,6 +99,7 @@ local Brutes = require("src.features.cyber-feud.brutes")
 local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Saye = require("src.features.cyber-feud.saye")
 local Duo = require("src.features.cyber-feud.duo")
+local Vex = require("src.features.cyber-feud.vex")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -334,6 +335,7 @@ function Troops.serverStart(server, map, name, calm)
   Stings.serverStart(server, map) -- Halcyon's sting drones over the gantries
   Kilowatt.serverStart(server, map, nav, calm) -- the Roof's bosses: Kilowatt on the helipad...
   Saye.serverStart(server, map, nav, calm) -- ...and Saye by the billboard
+  Vex.serverStart(server, map) -- and VEX, once they are down
   Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
     return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
       blades or { list = {} }, emps or { list = {} }, fists or { list = {} } }
@@ -475,6 +477,7 @@ function Troops.serverStop(server)
   Kilowatt.serverStop(server)
   Saye.serverStop(server)
   Duo.serverStop()
+  Vex.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -854,6 +857,7 @@ function Troops.serverStep(server, dt)
   Kilowatt.serverStep(server, dt)
   Saye.serverStep(server, dt)
   Duo.serverStep(server, dt) -- the two of them as partners
+  Vex.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -1037,6 +1041,7 @@ function Troops.clear()
   Brutes.clear()
   Kilowatt.clear()
   Saye.clear()
+  Vex.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -1104,6 +1109,7 @@ function Troops.drawBelowCars()
   Stings.drawBelowCars()
   Turrets.drawBelowCars()
   Brutes.drawBelowCars()
+  Vex.drawBelowCars() -- (her face first, under everything)
   Kilowatt.drawBelowCars()
   if Features.any("hideSightCones") then
     return
@@ -1174,6 +1180,7 @@ function Troops.drawAboveCars()
   Brutes.drawAboveCars()
   Kilowatt.drawAboveCars()
   Saye.drawAboveCars()
+  Vex.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1199,6 +1206,7 @@ function Troops.drawNightLights(glow)
   Brutes.drawNightLights(glow)
   Kilowatt.drawNightLights(glow)
   Saye.drawNightLights(glow)
+  Vex.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1315,6 +1323,9 @@ for kind, handler in pairs(Kilowatt.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Saye.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Vex.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

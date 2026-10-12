@@ -10,9 +10,12 @@
 -- seams. Over it all a green wash, rolling scanlines and now and then a
 -- slice of her slipping sideways; while she talks, more of them.
 --
--- `face:draw(x, y, scale, tell)`: `tell` (a colour, optional) splits a ghost
--- of her off in it, her slices jittering harder: the tell, when she has just
--- sold you to someone (magenta for Halcyon, cyan for the Static).
+-- `face:draw(x, y, scale, tell, opts)`: `tell` (a colour, optional) splits a
+-- ghost of her off in it, her slices jittering harder: the tell, when she has
+-- just sold you to someone (magenta for Halcyon, cyan for the Static).
+-- `opts` (optional): `alpha` how solid she is (a projection over the Roof is
+-- faint), `broken` 0..1 how far she is coming apart (the Roof's relays going
+-- down): more slices slipping further, frames missing, her colour dropping out.
 
 local Pixel = require("src.art.pixel")
 
@@ -101,6 +104,7 @@ function Face:render()
   self.rendered = true
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
+  love.graphics.origin() -- (drawn in the world too, under the camera: the art is in canvas pixels)
   love.graphics.clear(0, 0, 0, 0)
 
   -- Shoulders and the high collar, its seams lit.
@@ -190,34 +194,44 @@ local function quad(y, h)
 end
 
 --- Draw centred at (x, y), `scale` screen pixels per art pixel; `tell` a
---- colour for the ghost that splits off her when she sells you.
-function Face:draw(x, y, scale, tell)
+--- colour for the ghost that splits off her when she sells you; `opts` how
+--- solid and how broken she is (see the top).
+function Face:draw(x, y, scale, tell, opts)
+  local alpha = opts and opts.alpha or 1
+  local broken = opts and opts.broken or 0
+  if broken > 0 and love.math.random() < broken * 0.25 then
+    return -- a frame missing
+  end
   local canvas = self:render()
   local ox, oy = x - Face.W / 2 * scale, y - Face.H / 2 * scale
   if tell then
     local j = 2 + math.floor(math.sin(self.t * 23) * 1.5 + 0.5)
-    love.graphics.setColor(tell[1], tell[2], tell[3], 0.55)
+    love.graphics.setColor(tell[1], tell[2], tell[3], 0.55 * alpha)
     love.graphics.draw(canvas, ox - j * scale, oy, 0, scale, scale)
     love.graphics.draw(canvas, ox + (j - 1) * scale, oy + scale, 0, scale, scale)
   end
-  love.graphics.setColor(0.85, 1, 0.9, 0.92)
+  local grey = broken * 0.6 -- her colour dropping out
+  local r, g, b = 0.85 + (0.7 - 0.85) * grey, 1 + (0.7 - 1) * grey, 0.9 + (0.7 - 0.9) * grey
+  love.graphics.setColor(r, g, b, 0.92 * alpha)
   love.graphics.draw(canvas, ox, oy, 0, scale, scale)
-  -- Slices slipping sideways; with the tell, a few more every frame.
+  -- Slices slipping sideways; with the tell, a few more every frame; broken, more and further.
   local slips = self.slips
-  if tell then
+  if tell or broken > 0 then
     slips = {}
-    for i = 1, 3 do
-      slips[i] = { y = love.math.random(6, Face.H - 8), h = love.math.random(1, 3), dx = love.math.random(-5, 5) }
+    for i = 1, (tell and 3 or 0) + math.floor(broken * 8 + 0.5) do
+      local reach = 5 + math.floor(broken * 10)
+      local dx = love.math.random(-reach, reach)
+      slips[i] = { y = love.math.random(6, Face.H - 8), h = love.math.random(1, 3), dx = dx }
     end
   end
   for _, s in ipairs(slips) do
-    love.graphics.setColor(0.85, 1, 0.9, 0.95)
+    love.graphics.setColor(r, g, b, 0.95 * alpha)
     love.graphics.draw(canvas, quad(s.y, s.h), ox + s.dx * scale, oy + s.y * scale, 0, scale, scale)
   end
   -- The hologram: a green wash and scanlines rolling down.
-  love.graphics.setColor(Face.GREEN[1], Face.GREEN[2], Face.GREEN[3], 0.07)
+  love.graphics.setColor(Face.GREEN[1], Face.GREEN[2], Face.GREEN[3], 0.07 * alpha)
   love.graphics.rectangle("fill", ox, oy, Face.W * scale, Face.H * scale)
-  love.graphics.setColor(0, 0, 0, 0.28)
+  love.graphics.setColor(0, 0, 0, 0.28 * alpha)
   local roll = math.floor(self.t * 20) % 4
   for sy = 0, Face.H - 1, 4 do
     love.graphics.rectangle("fill", ox, oy + (sy + roll) % Face.H * scale, Face.W * scale, scale)

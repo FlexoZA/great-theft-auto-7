@@ -65,7 +65,9 @@
 --                         doors, then the stairwell from below) and the beat they walk there (a loop of { x, y })
 --   map.bosses            { kilowatt = { x, y }, saye = { x, y } } where the Roof's bosses wait
 --                         (cyber-feud/kilowatt.lua, saye.lua); `stairs` { x, y } where Kilowatt's brutes come
---                         up and `beat` (a loop of { x, y }) the one they walk round the helipad
+--                         up and `beat` (a loop of { x, y }) the one they walk round the helipad; `lock` { x, y, w,
+--                         h } VEX's barrier across the stairs and `vexTurrets` { x, y, watch } the turrets she drives
+--   map.relays            { x, y } the middles of the Roof's relay terminals (cyber-feud/vex.lua)
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
 --                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -1189,7 +1191,23 @@ local function buildRoof(map, rng, T)
       { x = math.floor(X(mid)), y = math.floor(Y(n - 8)) }, { x = math.floor(X(n - 9)), y = math.floor(Y(mid)) },
       { x = math.floor(X(mid)), y = math.floor(Y(8)) }, { x = math.floor(X(8)), y = math.floor(Y(mid)) },
     },
+    -- VEX's phase (cyber-feud/vex.lua): the barrier she drops across the
+    -- top of the stairs, and the turrets she drives, each watching the
+    -- middle, in the order they are used.
+    lock = { x = X(15), y = Y(n - 2) - 4, w = 6 * T, h = 24 },
+    vexTurrets = {},
   }
+  for _, p in ipairs({ { 9, 9 }, { n - 9, n - 10 }, { n - 9, 9 }, { 9, n - 10 }, { mid, 4 }, { mid, n - 5 } }) do
+    local x, y = X(p[1]), Y(p[2])
+    map.bosses.vexTurrets[#map.bosses.vexTurrets + 1] = {
+      x = math.floor(x), y = math.floor(y), watch = math.atan2(Y(mid) - y, X(mid) - x),
+    }
+  end
+  -- The relay terminals near the corners, by their middles (vex.lua).
+  map.relays = {}
+  for _, p in ipairs({ { 6, 6 }, { n - 7, 6 }, { 6, n - 8 }, { n - 7, n - 8 } }) do
+    map.relays[#map.relays + 1] = { x = math.floor(X(p[1]) + T / 2), y = math.floor(Y(p[2]) + T / 2) }
+  end
   map.wakeY = math.floor(Y(n - 9))
 
   map.zones = { { name = "The Roof", y0 = Y(0), y1 = Y(n) } }

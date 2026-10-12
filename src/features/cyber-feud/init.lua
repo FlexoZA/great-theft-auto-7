@@ -51,7 +51,7 @@
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   and gates.lua's: GATE_WORK, GATE_PROG, GATE_OPEN, GATE_VEX, GATE_ROOM (the Overpass's roadblocks, the
---   tower's stair doors), and troops.lua's turrets' TUR_WORK and brutes' BRT_WORK
+--   tower's stair doors), and troops.lua's turrets' TUR_WORK, brutes' BRT_WORK and VEX's VX_WORK
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   server -> one     CF_MUSIC              (to a player joining a level whose theme is on: start it)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
@@ -76,6 +76,7 @@ local Turrets = require("src.features.cyber-feud.turrets")
 local Brutes = require("src.features.cyber-feud.brutes")
 local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Saye = require("src.features.cyber-feud.saye")
+local Vex = require("src.features.cyber-feud.vex")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
@@ -195,6 +196,14 @@ function CyberFeud:serverStep(server, dt)
   if not (sv and map and map.exitX) then
     return
   end
+  if Vex.serverGone() and not sv.reached then -- she got away: the job's done, HOME on the helipad
+    sv.reached = true
+    local quests = Features.byName.quests
+    if quests then
+      quests:serverComplete(server, sv.quest, map.exitX, map.exitY)
+    end
+    beat(server, sv.map .. ".end")
+  end
   for _, p in pairs(server.players) do
     if not p.bot and Features.present(p) then
       local x, y = Features.bodyPose(server, p)
@@ -210,7 +219,7 @@ function CyberFeud:serverStep(server, dt)
         beat(server, sv.map .. ".knot")
       end
       local ready = not map.pickupX or run.shard ~= nil -- the Drop wants the Shard taken first
-      ready = ready and not (Kilowatt.serverUp() or Saye.serverUp()) -- the Roof wants its bosses down
+      ready = ready and not (Kilowatt.serverUp() or Saye.serverUp() or Vex.serverUp()) -- the Roof: all of them gone
       if ready and not sv.reached and dist2(x, y, map.exitX, map.exitY) <= self.reach ^ 2 then
         sv.reached = true
         local quests = Features.byName.quests
@@ -233,6 +242,7 @@ function CyberFeud:serverPlayerJoined(server, player)
   Interceptors.serverPlayerJoined(server, player)
   WarRigs.serverPlayerJoined(server, player)
   Gates.serverPlayerJoined(server, player)
+  Vex.serverPlayerJoined(server, player)
   local rigs = WarRigs.server()
   if rigs and rigs.cameo and rigs.cameo.stage ~= "waiting" and not player.bot then
     server:send(player, Protocol.encode("CF_MUSIC")) -- the Overpass's theme is on
@@ -282,6 +292,9 @@ for kind, handler in pairs(Turrets.serverMessages) do
   CyberFeud.serverMessages[kind] = handler
 end
 for kind, handler in pairs(Brutes.serverMessages) do
+  CyberFeud.serverMessages[kind] = handler
+end
+for kind, handler in pairs(Vex.serverMessages) do
   CyberFeud.serverMessages[kind] = handler
 end
 
@@ -473,6 +486,7 @@ function CyberFeud:update(dt, client)
     Gates.update(dt, client)
     Turrets.update(dt, client)
     Brutes.update(dt, client)
+    Vex.update(dt, client)
   end
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
@@ -542,7 +556,7 @@ end
 --- The action key is ours at the vending machine, and at a roadblock's
 --- panel, a tower door's terminal, a turret or a brute (on-foot leaves the car alone).
 function CyberFeud:actionTaken()
-  return cl.near or Gates.actionTaken() or Turrets.actionTaken() or Brutes.actionTaken()
+  return cl.near or Gates.actionTaken() or Turrets.actionTaken() or Brutes.actionTaken() or Vex.actionTaken()
 end
 
 function CyberFeud:keypressed(key, client)
@@ -620,6 +634,12 @@ function CyberFeud:drawHUD(client)
   local done = quests and quests.done ~= nil and quests.done == quests.active
   local bosses = Kilowatt.up() and (Saye.up() and "Kilowatt and Saye" or "Kilowatt") or (Saye.up() and "Saye")
   local text, tx, ty = Story.objective(cl.level, map, cl.shardBy ~= nil, done, bosses)
+  local vexOn, relaysLeft = Vex.active()
+  if vexOn and not done then
+    local x, y = client:myPose()
+    text = ("Objective: breach VEX's relays (%d left)"):format(relaysLeft)
+    tx, ty = Vex.nearestRelay(x, y)
+  end
   if text then
     local x, y = client:myPose()
     Hud.drawObjective(text, tx and x and math.sqrt(dist2(x, y, tx, ty)) or nil)
@@ -634,6 +654,7 @@ function CyberFeud:drawHUD(client)
   Gates.drawHUD()
   Turrets.drawHUD()
   Brutes.drawHUD()
+  Vex.drawHUD()
   Kilowatt.drawHUD()
   Saye.drawHUD(Kilowatt.up() and 1 or 0) -- over his
   if cl.banner then

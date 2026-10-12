@@ -65,6 +65,11 @@ Story.beats = {
   ["tower.vex3"] = { say = "Door's open. So's security's break room. I'm sure they won't mind." },
   ["tower.end"] = { say = "Lift's waiting. Going up. All the way up." },
 
+  -- VEX's phase (vex.lua): she takes the roof, and loses it a relay at a time.
+  ["roof.vexLock"] = { say = "Sorry, courier. Roof's closed. Management's changed. It's me. I'm management." },
+  ["roof.vex1"] = { say = "Ow. That one was load-bearing." },
+  ["roof.vex2"] = { say = "Rude. I was using that. You know I'm the cameras, right?" },
+  ["roof.vex3"] = { say = "Okay. Okay. Let's talk about this. Ten percent. Twenty." },
   ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },
 }
 
