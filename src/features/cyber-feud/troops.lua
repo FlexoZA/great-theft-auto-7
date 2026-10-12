@@ -28,7 +28,8 @@
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
 -- gates behind riot shields, in the feud with the rest of Halcyon; the
 -- Static's rippers (rippers.lua, their own brain) lunge out of the west
--- lanes at whoever is most alone.
+-- lanes at whoever is most alone, and its sparkers (sparkers.lua) hang
+-- back and lob EMPs.
 --
 -- Halcyon is disciplined: SMGs and pistols, a narrow cone, squads of
 -- three. The Static are noise: shotguns and pistols, a wide cone and a
@@ -59,6 +60,7 @@ local Nests = require("src.features.a-man.nests")
 local Droids = require("src.features.cyber-feud.droids")
 local Enforcers = require("src.features.cyber-feud.enforcers")
 local Rippers = require("src.features.cyber-feud.rippers")
+local Sparkers = require("src.features.cyber-feud.sparkers")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -243,11 +245,12 @@ function Troops.serverStart(server, map, name, calm)
   end
   local shields = Enforcers.serverStart(server, map, calm) -- Halcyon's riot shields in the gates
   local blades = Rippers.serverStart(server, map, nav, calm) -- the Static's rippers in the lanes
+  local emps = Sparkers.serverStart(server, map, nav, calm) -- and its sparkers, hanging back
   if level.feud then
     local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
-    h.rivals, s.rivals = { s, blades }, { h, shields }
+    h.rivals, s.rivals = { s, blades, emps }, { h, shields }
     if shields then
-      shields.rivals = { s, blades }
+      shields.rivals = { s, blades, emps }
     end
     if blades then
       blades.rivals = { h, shields }
@@ -380,6 +383,7 @@ function Troops.serverStop(server)
   Droids.serverStop(server)
   Enforcers.serverStop(server)
   Rippers.serverStop(server)
+  Sparkers.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -394,6 +398,7 @@ function Troops.serverWake()
   Droids.serverWake()
   Enforcers.serverWake()
   Rippers.serverWake()
+  Sparkers.serverWake()
 end
 
 --- Every soldier, to everyone, unreliably.
@@ -596,6 +601,7 @@ function Troops.serverStep(server, dt)
   Droids.serverStep(server, dt)
   Enforcers.serverStep(server, dt)
   Rippers.serverStep(server, dt)
+  Sparkers.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   sync(server)
@@ -628,6 +634,9 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   if not hit then
     hit, byPlayer = Rippers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   end
+  if not hit then
+    hit, byPlayer = Sparkers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -644,6 +653,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Droids.serverFreezeArea(x, y, radius, seconds)
   Enforcers.serverFreezeArea(x, y, radius, seconds)
   Rippers.serverFreezeArea(x, y, radius, seconds)
+  Sparkers.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -653,6 +663,7 @@ function Troops.serverPanicArea(x, y, radius)
   Droids.serverPanicArea(x, y, radius)
   Enforcers.serverPanicArea(x, y, radius)
   Rippers.serverPanicArea(x, y, radius)
+  Sparkers.serverPanicArea(x, y, radius)
 end
 
 --- For tests.
@@ -711,6 +722,7 @@ function Troops.clear()
   Droids.clear()
   Enforcers.clear()
   Rippers.clear()
+  Sparkers.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -735,6 +747,7 @@ function Troops.update(dt)
   Droids.update(dt)
   Enforcers.update(dt)
   Rippers.update(dt)
+  Sparkers.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -767,6 +780,7 @@ function Troops.drawBelowCars()
   Droids.drawBelowCars()
   Enforcers.drawBelowCars()
   Rippers.drawBelowCars()
+  Sparkers.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -828,6 +842,7 @@ function Troops.drawAboveCars()
   Droids.drawAboveCars()
   Enforcers.drawAboveCars()
   Rippers.drawAboveCars()
+  Sparkers.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -845,6 +860,7 @@ function Troops.drawNightLights(glow)
   Droids.drawNightLights(glow)
   Enforcers.drawNightLights(glow)
   Rippers.drawNightLights(glow)
+  Sparkers.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -860,6 +876,9 @@ function Troops.walkers()
     list[#list + 1] = w
   end
   for _, w in ipairs(Rippers.walkers()) do
+    list[#list + 1] = w
+  end
+  for _, w in ipairs(Sparkers.walkers()) do
     list[#list + 1] = w
   end
   return list
@@ -931,6 +950,9 @@ for kind, handler in pairs(Enforcers.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Rippers.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Sparkers.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

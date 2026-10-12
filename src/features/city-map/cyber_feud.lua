@@ -39,6 +39,7 @@
 --   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates), world px
 --   map.rippers           { route, start } the Static's rippers (the Market), each on a beat (a loop of
 --                         { x, y }, world px) from corner `start`
+--   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -624,6 +625,8 @@ local function buildMarket(map, rng, T)
     { route = static.patrols[3], start = 2 }, { route = static.patrols[3], start = 4 },
     { route = static.patrols[1], start = 3 },
   }
+  -- Two sparkers hanging back on the Static's beats: the square's and the north-west's.
+  map.sparkers = { { route = static.patrols[2], start = 3 }, { route = static.patrols[1], start = 1 } }
   map.wakeY = Y(n - 8)
 
   map.zones = {

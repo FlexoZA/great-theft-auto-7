@@ -43,6 +43,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   shotgun, and slow to turn. Get round their side, or blow them up.
 - The Static's rippers stalk the Market's west lanes: blades out, they go for whoever is on their own, crouch
   with a cyan line on the ground showing where they will go, and lunge down it. Step off the line.
+- The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
+  will land. Get out of it, or the jolt stuns you.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

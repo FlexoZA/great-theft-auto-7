@@ -62,9 +62,20 @@ branch off `feature/cyber-feud`):
   will go, then lunges about 220 px down it (28, `melee`): the line is set
   at the crouch, so stepping sideways dodges it. Up close it slashes twice
   (10 each) and backs off to lunge again. In the feud they go for Halcyon
-  too; an enforcer's shield stops a cut from in front. Still to come:
-  watcher drones and sparkers; interceptors and war-rigs; and per-faction
-  voices.
+  too; an enforcer's shield stops a cut from in front.
+- The Static's sparkers (`feature/cyber-feud-sparkers`,
+  `src/features/cyber-feud/sparkers.lua`, their own brain in
+  `sparker_brain.lua`): two on the Market's Static beats (`map.sparkers`).
+  40 health. They keep 230-400 px off whoever they have, backing off and
+  closing in round the stalls, and every 3.6 s raise an EMP for 0.6 s and
+  lob it at where that player stands then. A cyan ring on the ground shows
+  where it comes down for as long as it is in the air; the burst is
+  `shock`, 26 at the middle and a third of that at the edge (110 px), so
+  near the middle it stuns. It does nothing to people of either side: it is
+  for Halcyon's machines, which are not on the street yet (watcher drones
+  will be the sparkers' `rivals`; stalling cars waits for a driven level
+  with sparkers). Still to come: watcher drones; interceptors and
+  war-rigs; and per-faction voices.
 
 ## Decisions
 
@@ -390,7 +401,7 @@ have to shoot your way through.
 | **Ganger** | Dark clothes, cyan-tipped cable hair, a chrome forearm | 50 | Shotgun or pistol (`bullet`) | Packs of 3-5 that run straight at the nearest target, shooting as they go. |
 | **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`): a lunge 28, a slash 10 | Fast. Crouches for half a second with a cyan line showing where it will go, then lunges about 220 px (dodge it sideways). Slashes twice up close, then backs off to lunge again. Goes for whoever is alone. |
 | **Brute** | A small Kilowatt: huge, a giant chrome arm, a cyan reactor glow | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
-| **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`) | Hangs back and lobs EMPs. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike. |
+| **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`, 26 at the middle, 110 px) | Hangs back (230-400 px) and lobs EMPs, a cyan ring on the ground where each will land. Stuns a player near the middle. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike (once there are any). |
 | **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car | Rams (`impact`); the ganger shoots | The Overpass. Built to ram you off the road, and Halcyon's interceptors too. |
 
 #### How they fight each other
