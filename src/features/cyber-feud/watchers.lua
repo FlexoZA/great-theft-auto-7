@@ -27,6 +27,7 @@ local Features = require("src.features")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Brain = require("src.features.cyber-feud.watcher_brain")
+local Rooms = require("src.features.cyber-feud.rooms")
 
 local Watchers = {}
 
@@ -79,14 +80,7 @@ function Watchers.serverStart(server, map, calm)
   end
   local brain = Brain.new({
     fov = Watchers.fov, health = Watchers.health, alarm = alarm, firstId = Watchers.firstId, calm = calm,
-    indoors = map.kind == "tower", sameRoom = map.floors and function(_x0, y0, _x1, y1)
-      for _, f in ipairs(map.floors) do
-        if y0 >= f.y0 and y0 < f.y1 then
-          return y1 >= f.y0 and y1 < f.y1
-        end
-      end
-      return false
-    end,
+    indoors = map.kind == "tower", sameRoom = Rooms.of(map),
   })
   for _, w in ipairs(map.watchers) do
     brain:add(w.route, w.start or 1)

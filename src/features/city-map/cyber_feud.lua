@@ -50,6 +50,7 @@
 --   map.kilowatt          { x, y, startY, exitAngle } where Kilowatt's rig sets off from, the line past
 --                         which it does, and the way he jumps off (the Overpass)
 --   map.stings            { x, y } where Halcyon's sting drone swarms hang, over the gantries (the Overpass)
+--                         or in the aisles of the tower's server room
 --   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), or in the
 --                         far corners of the tower's security and executive floors, world px
 --   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
@@ -1062,6 +1063,16 @@ local function buildTower(map, rng, T)
       start = 3 },
     { route = { P(11, lobby.r0 + 4.5), P(36, lobby.r0 + 4.5), P(36, lobby.r0 + 9.5), P(11, lobby.r0 + 9.5) },
       start = 2 },
+  }
+  -- Halcyon's sting drone swarms (cyber-feud/stings.lua) in the server
+  -- room, in the order they are used (two for one human, one more for
+  -- each human past the first): in its middle aisle, at its east end by
+  -- the way up, and down its west aisle.
+  local servers = floors[3]
+  map.stings = {
+    { x = math.floor(X(21)), y = math.floor(Y(servers.r0 + 8.3)) },
+    { x = math.floor(X(37.5)), y = math.floor(Y(servers.r0 + 6)) },
+    { x = math.floor(X(16)), y = math.floor(Y(servers.r0 + 4.3)) },
   }
   -- Where the Static come in to each floor: the lobby's front doors, and
   -- above it the top of the stairwell from the floor below.

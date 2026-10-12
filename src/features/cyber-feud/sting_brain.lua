@@ -12,6 +12,13 @@
 -- comes in again. They fly faster than a car (SPEED), so a driver can't
 -- just outrun them; they give up past GIVE_UP and fly home. Knocked out
 -- (an EMP, `stun`), one drops low and hangs there, dark, for that long.
+--
+-- Indoors (`indoors`, Halcyon Tower) the swarm keeps to its own room
+-- (`sameRoom(x0, y0, x1, y1)`, the tower's floors): it only goes for
+-- somebody in there with it, and its runs are slower and shorter
+-- (Brain.INDOORS), go round what stands on the floor (sliding along it,
+-- breaking off the run when it can't) and never out of the room; it only
+-- fires with a clear line.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
@@ -34,6 +41,8 @@ Brain.BURST = 3 -- rounds, then...
 Brain.BURST_GAP = 0.11 -- (seconds between them)...
 Brain.PAUSE = 0.7 -- ...a breather
 Brain.ORBIT = 34 -- px a hovering drone circles its slot by
+-- What changes indoors: SPEED, PAST, SPOT and GIVE_UP.
+Brain.INDOORS = { speed = 340, past = 150, spot = 560, giveUp = 1100 }
 
 local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
@@ -48,9 +57,11 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
---- A new brain. `opts`: health, firstId, and `fire(server, drone, aim)`:
---- one round from where the drone is along `aim`.
+--- A new brain. `opts`: health, firstId, `fire(server, drone, aim)`: one
+--- round from where the drone is along `aim`, and `indoors` and `sameRoom`
+--- for a swarm inside (see above).
 function Brain.new(opts)
+  local inside = opts.indoors and Brain.INDOORS
   return setmetatable({
     list = {},
     swarms = {},
@@ -58,6 +69,12 @@ function Brain.new(opts)
     fire = opts.fire,
     nextId = opts.firstId or 1,
     time = 0,
+    indoors = opts.indoors == true,
+    sameRoom = opts.sameRoom,
+    speed = inside and inside.speed or Brain.SPEED,
+    past = inside and inside.past or Brain.PAST,
+    spot = inside and inside.spot or Brain.SPOT,
+    giveUp = inside and inside.giveUp or Brain.GIVE_UP,
   }, Brain)
 end
 
@@ -91,14 +108,16 @@ function Brain:addSwarm(x, y, size)
   return swarm
 end
 
---- The nearest player within `range` of (x, y), and where they are, and their car.
-local function nearestPlayer(server, x, y, range)
+--- The nearest player within `range` of (x, y) (and in `room`'s room, a
+--- swarm's home, given `sameRoom`), and where they are, and their car.
+local function nearestPlayer(server, x, y, range, sameRoom, room)
   local best, bx, by, bc, bestD2
   for id, p in pairs(server.players) do
     if not p.bot and Features.visible(server, p) then
       local px, py = Features.bodyPose(server, p)
       local d2 = dist2(px, py, x, y)
-      if d2 <= range * range and (not bestD2 or d2 < bestD2) then
+      if d2 <= range * range and (not bestD2 or d2 < bestD2)
+        and (not sameRoom or sameRoom(room.x, room.y, px, py)) then
         best, bx, by, bestD2 = id, px, py, d2
         bc = p.vehicle and not p.vehicle.hidden and p.vehicle or nil
       end
@@ -107,15 +126,42 @@ local function nearestPlayer(server, x, y, range)
   return best, bx, by, bc
 end
 
---- `s` flies towards (x, y) at `speed`, turning at most TURN.
-local function fly(s, x, y, speed, dt)
+--- Is (x, y) somewhere `brain`'s drone `s` may be: anywhere, or indoors
+--- clear of what stands on the floor and in its swarm's room.
+local function open(brain, s, x, y)
+  if not brain.indoors then
+    return true
+  end
+  local r = Brain.RADIUS + 4
+  if Sight.blocked(x, y) or Sight.blocked(x + r, y) or Sight.blocked(x - r, y) or Sight.blocked(x, y + r)
+    or Sight.blocked(x, y - r) then
+    return false
+  end
+  return not brain.sameRoom or brain.sameRoom(s.swarm.x, s.swarm.y, x, y)
+end
+
+--- `s` (of `brain`) flies towards (x, y) at `speed`, turning at most TURN;
+--- indoors along whatever is in the way (if only one way is). Returns
+--- false when it is stuck there.
+local function fly(brain, s, x, y, speed, dt)
   s.heading = turn(s.heading, math.atan2(y - s.y, x - s.x), Brain.TURN, dt)
-  s.x, s.y = s.x + math.cos(s.heading) * speed * dt, s.y + math.sin(s.heading) * speed * dt
+  local nx, ny = s.x + math.cos(s.heading) * speed * dt, s.y + math.sin(s.heading) * speed * dt
+  if not open(brain, s, nx, ny) then
+    if open(brain, s, nx, s.y) then
+      ny = s.y
+    elseif open(brain, s, s.x, ny) then
+      nx = s.x
+    else
+      return false
+    end
+  end
+  s.x, s.y = nx, ny
+  return true
 end
 
 --- A new run for `s` at the target (at x, y, in car `c` if driving): through
---- a point a little ahead of them, off to its side, and on past it.
-local function newRun(s, x, y, c)
+--- a point a little ahead of them, off to its side, and on `past` px past it.
+local function newRun(s, x, y, c, past)
   local px, py = x, y
   if c then
     px, py = x + math.cos(c.angle) * c.speed * Brain.LEAD, y + math.sin(c.angle) * c.speed * Brain.LEAD
@@ -127,7 +173,7 @@ local function newRun(s, x, y, c)
   end
   local nx, ny = -dy / d, dx / d -- across the run
   s.run = { x = px + nx * s.side * Brain.SIDE * 0.5, y = py + ny * s.side * Brain.SIDE * 0.5 }
-  s.past = { x = s.run.x + dx / d * Brain.PAST, y = s.run.y + dy / d * Brain.PAST }
+  s.past = { x = s.run.x + dx / d * past, y = s.run.y + dy / d * past }
   s.passed = false
 end
 
@@ -143,7 +189,8 @@ function Brain:update(server, dt)
     if n > 0 then
       cx, cy = sx / n, sy / n
     end
-    local who, x, y, c = nearestPlayer(server, cx, cy, swarm.target and Brain.GIVE_UP or Brain.SPOT)
+    local who, x, y, c = nearestPlayer(server, cx, cy, swarm.target and self.giveUp or self.spot, self.sameRoom,
+      swarm)
     swarm.target, swarm.tx, swarm.ty, swarm.tc = who, x, y, c
   end
   for _, s in ipairs(self.list) do
@@ -166,25 +213,29 @@ function Brain:think(server, s, dt)
     local a = self.time * 1.4 + s.phase
     local hx = swarm.x + math.cos(s.slot * 2.1) * 50 + math.cos(a) * Brain.ORBIT
     local hy = swarm.y + math.sin(s.slot * 2.1) * 30 + math.sin(a) * Brain.ORBIT
-    fly(s, hx, hy, Brain.HOME_SPEED * (dist2(s.x, s.y, hx, hy) > 200 * 200 and 1 or 0.4), dt)
+    fly(self, s, hx, hy, Brain.HOME_SPEED * (dist2(s.x, s.y, hx, hy) > 200 * 200 and 1 or 0.4), dt)
     return
   end
   local x, y, c = swarm.tx, swarm.ty, swarm.tc
   if not s.run then
-    newRun(s, x, y, c)
+    newRun(s, x, y, c, self.past)
   end
   local goal = s.passed and s.past or s.run
-  fly(s, goal.x, goal.y, Brain.SPEED, dt)
-  if not s.passed and dist2(s.x, s.y, s.run.x, s.run.y) < 50 * 50 then
+  local going = fly(self, s, goal.x, goal.y, self.speed, dt)
+  if not going then
+    s.heading = s.heading + s.side * math.pi / 2 -- up against something: break off, away from it,
+    newRun(s, x, y, c, self.past) -- and come at them again
+  elseif not s.passed and dist2(s.x, s.y, s.run.x, s.run.y) < 50 * 50 then
     s.passed = true
   elseif s.passed and dist2(s.x, s.y, s.past.x, s.past.y) < 60 * 60 then
-    newRun(s, x, y, c) -- round again
+    newRun(s, x, y, c, self.past) -- round again
   end
   -- The gun: whenever they are in front of it and near enough.
   s.fireIn = s.fireIn - dt
   local toThem = math.atan2(y - s.y, x - s.x)
   if s.fireIn <= 0 and dist2(s.x, s.y, x, y) < Brain.RANGE ^ 2
-    and math.abs(Sight.angleDiff(toThem, s.heading)) < Brain.CONE then
+    and math.abs(Sight.angleDiff(toThem, s.heading)) < Brain.CONE
+    and (not self.indoors or Sight.clear(s.x, s.y, x, y)) then
     self.fire(server, s, toThem)
     s.fired = true
     s.burstLeft = s.burstLeft - 1

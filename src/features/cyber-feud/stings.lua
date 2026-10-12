@@ -1,5 +1,7 @@
 -- Halcyon's sting drones (docs/cyber-feud.md, "Halcyon"): small, fast and
--- armed, in swarms over the Overpass's gantries (the map's `stings`).
+-- armed, in swarms over the Overpass's gantries and in Halcyon Tower's
+-- server room, where they keep to the floor's aisles (the brain's
+-- `indoors`) (the map's `stings`).
 -- troops.lua starts, steps and stops them with the rest of Halcyon; their
 -- heads are sting_brain.lua.
 --
@@ -22,6 +24,7 @@ local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Brain = require("src.features.cyber-feud.sting_brain")
+local Rooms = require("src.features.cyber-feud.rooms")
 
 local Stings = {}
 
@@ -77,7 +80,8 @@ function Stings.serverStart(server, map)
   if not map.stings then
     return
   end
-  local brain = Brain.new({ health = Stings.health, fire = fire, firstId = Stings.firstId })
+  local brain = Brain.new({ health = Stings.health, fire = fire, firstId = Stings.firstId,
+    indoors = map.kind == "tower", sameRoom = Rooms.of(map) })
   local n = math.min(#map.stings, Stings.count + Stings.perHuman * (Bosses.humans(server) - 1))
   for i = 1, n do
     brain:addSwarm(map.stings[i].x, map.stings[i].y, Stings.size)

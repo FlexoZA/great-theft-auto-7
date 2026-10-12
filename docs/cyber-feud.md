@@ -35,6 +35,15 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The tower's sting drones (`feature/cyber-feud-tower-stings`,
+  `map.stings` in `buildTower`): swarms in the server room's aisles (the
+  middle aisle, the east end by the way up, then the west aisle: two for
+  one human). Indoors (the brain's `indoors` and `sameRoom`, the floors,
+  from `src/features/cyber-feud/rooms.lua`, which the watchers use too) a
+  swarm only goes for somebody on its own floor, never leaves it, and its
+  runs are slower and shorter (`Brain.INDOORS`: 340 px/s, 150 px past,
+  spotting within 560, giving up past 1100), go round the racks (sliding
+  along them, breaking off when stuck) and fire only with a clear line.
 - The tower's watcher drones (`feature/cyber-feud-tower-watchers`,
   `map.watchers` in `buildTower`): two in the offices (one round the desks,
   one up and down between them) and one in the lobby between the lifts and

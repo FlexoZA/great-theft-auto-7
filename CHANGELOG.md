@@ -92,6 +92,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   stops at the first wall.
 - Halcyon's watcher drones in Halcyon Tower: two down the offices' aisles and one over the lobby. They see over the
   desks but not through floors, hang over you in the aisles and call officers in until you shoot them down.
+- Halcyon's sting drones swarm Halcyon Tower's server room: two swarms of three (one more swarm for each extra
+  player) making strafing runs down the aisles between the racks, slower and tighter than on the Overpass.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
