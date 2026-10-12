@@ -39,6 +39,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the east side and Noodle Square, and the Static's gangers on the western corners, roaming the west lanes and
   pouring out of their chop shop. They leave you alone at the tunnel's mouth and wake the moment you walk in, and
   they fight each other as hard as they fight you.
+- Halcyon's enforcers hold three of the Market's gates: riot shields that stop every shot from in front, a
+  shotgun, and slow to turn. Get round their side, or blow them up.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

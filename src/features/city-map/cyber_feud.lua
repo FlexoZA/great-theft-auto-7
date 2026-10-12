@@ -36,6 +36,7 @@
 --                         and `stations` { nest = { x, y, angle, arc }, posts, garrison = { x, y, reach,
 --                         door = { x, y, nx, ny }, count } }: guard stations, an MG nest (or none) and its
 --                         crew's posts
+--   map.enforcers         { x, y, watch } Halcyon's riot shields on posts (the Market's gates), world px
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -558,7 +559,8 @@ local function buildMarket(map, rng, T)
   map.exitX, map.exitY = math.floor(X(28)), math.floor(Y(3))
 
   -- Who holds the hall (cyber-feud/troops.lua puts them there). Halcyon:
-  -- officers in the gaps of the south cordon, watching the tunnel, and
+  -- enforcers in three gaps of the south cordon and officers behind them
+  -- and in the rest, watching the tunnel, and
   -- behind the east line; a squad up and down the east strip and one round
   -- Noodle Square. The Static: their chop shop on the west side, gangers at
   -- its door and on the western corners, a garrison inside that comes out
@@ -574,7 +576,7 @@ local function buildMarket(map, rng, T)
   local gates = { { 26.5, 27.5 }, { 15 }, { 21 }, { 39 }, { 45 }, { 51, 52.5 } }
   for k, gate in ipairs(gates) do
     for _, c in ipairs(gate) do
-      halcyon.posts[#halcyon.posts + 1] = { x = math.floor(X(c)), y = math.floor(Y(45)), watch = math.pi / 2, at = k }
+      halcyon.posts[#halcyon.posts + 1] = { x = math.floor(X(c)), y = math.floor(Y(44.2)), watch = math.pi / 2, at = k }
     end
   end
   for _, r in ipairs({ 12, 22, 32 }) do
@@ -608,6 +610,11 @@ local function buildMarket(map, rng, T)
       count = CyberFeud.GARRISON },
   }
   map.troops = { halcyon = halcyon, static = static }
+  -- Enforcers' riot shields fill three of the gates, in front of the officers.
+  map.enforcers = {}
+  for _, c in ipairs({ 27, 15, 45 }) do
+    map.enforcers[#map.enforcers + 1] = { x = math.floor(X(c)), y = math.floor(Y(46.2)), watch = math.pi / 2 }
+  end
   map.wakeY = Y(n - 8)
 
   map.zones = {

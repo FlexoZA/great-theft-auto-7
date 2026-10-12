@@ -25,6 +25,9 @@
 -- player hurts one of them, or (where the map has a `wakeY`, the Market)
 -- a player walks past that line: then the whole street wakes at once.
 --
+-- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
+-- gates behind riot shields, in the feud with the rest of Halcyon.
+--
 -- Halcyon is disciplined: SMGs and pistols, a narrow cone, squads of
 -- three. The Static are noise: shotguns and pistols, a wide cone and a
 -- keen ear, packs of four. Both talk (Story.troops): idle chatter and a
@@ -52,6 +55,7 @@ local Story = require("src.features.cyber-feud.story")
 local Bosses = require("src.features.bosses")
 local Nests = require("src.features.a-man.nests")
 local Droids = require("src.features.cyber-feud.droids")
+local Enforcers = require("src.features.cyber-feud.enforcers")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -234,9 +238,13 @@ function Troops.serverStart(server, map, name, calm)
       Troops.addStation(server, side, key, st)
     end
   end
+  local shields = Enforcers.serverStart(server, map, calm) -- Halcyon's riot shields in the gates
   if level.feud then
     local h, s = sv.sides.halcyon.troops, sv.sides.static.troops
-    h.rivals, s.rivals = { s }, { h }
+    h.rivals, s.rivals = { s }, { h, shields }
+    if shields then
+      shields.rivals = { s }
+    end
   end
   Droids.serverStart(server, map, nav, calm) -- Halcyon's assassin droids, on the same walking grid
 end
@@ -363,6 +371,7 @@ end
 --- Over: nothing left to step or draw.
 function Troops.serverStop(server)
   Droids.serverStop(server)
+  Enforcers.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -375,6 +384,7 @@ function Troops.serverWake()
     side.troops.calm = false
   end
   Droids.serverWake()
+  Enforcers.serverWake()
 end
 
 --- Every soldier, to everyone, unreliably.
@@ -575,6 +585,7 @@ function Troops.serverStep(server, dt)
     stepGarrisons(server, side, dt)
   end
   Droids.serverStep(server, dt)
+  Enforcers.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   sync(server)
@@ -603,6 +614,13 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
       return true
     end
   end
+  local hit, byPlayer = Enforcers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  if hit then
+    if byPlayer then
+      Troops.serverWake()
+    end
+    return true
+  end
   return Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
@@ -611,6 +629,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
     side.troops:freeze(x, y, radius, seconds)
   end
   Droids.serverFreezeArea(x, y, radius, seconds)
+  Enforcers.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -618,6 +637,7 @@ function Troops.serverPanicArea(x, y, radius)
     side.troops:scare(x, y, radius, 0.5)
   end
   Droids.serverPanicArea(x, y, radius)
+  Enforcers.serverPanicArea(x, y, radius)
 end
 
 --- For tests.
@@ -674,6 +694,7 @@ function Troops.clear()
   troops, lastTick = {}, 0
   Corpses.clear()
   Droids.clear()
+  Enforcers.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -696,6 +717,7 @@ end
 function Troops.update(dt)
   time = time + dt
   Droids.update(dt)
+  Enforcers.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -726,6 +748,7 @@ end
 --- colour (unless the sight-cones toggle hides them).
 function Troops.drawBelowCars()
   Droids.drawBelowCars()
+  Enforcers.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -785,6 +808,7 @@ function Troops.drawAboveCars()
     Nests.draw(city().map, troops)
   end
   Droids.drawAboveCars()
+  Enforcers.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -800,6 +824,7 @@ function Troops.drawNightLights(glow)
     glow(s.dx, s.dy, 46, Troops.side[s.side].color, s.alert and 0.7 or 0.45)
   end
   Droids.drawNightLights(glow)
+  Enforcers.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -809,6 +834,9 @@ function Troops.walkers()
     list[#list + 1] = { key = "cf" .. id, x = s.dx, y = s.dy, size = "person" }
   end
   for _, w in ipairs(Droids.walkers()) do
+    list[#list + 1] = w
+  end
+  for _, w in ipairs(Enforcers.walkers()) do
     list[#list + 1] = w
   end
   return list
@@ -874,6 +902,9 @@ Troops.clientMessages = {
   end,
 }
 for kind, handler in pairs(Droids.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Enforcers.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

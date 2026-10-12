@@ -42,9 +42,17 @@ branch off `feature/cyber-feud`):
   the chop shop's door, packs on the west lanes (one through the square),
   and a garrison that comes out of the shop (a station with no MG nest).
   They wake when a player walks up out of the tunnel's mouth
-  (`map.wakeY`), so nobody is shot on arrival. Still to come: the Market's
-  enforcers, watcher drones, rippers and sparkers; interceptors and
-  war-rigs; and per-faction voices.
+  (`map.wakeY`), so nobody is shot on arrival.
+- Halcyon's enforcers (`feature/cyber-feud-enforcers`,
+  `src/features/cyber-feud/enforcers.lua`, their own brain in
+  `enforcer_brain.lua`): riot shields in three of the Market's gates
+  (`map.enforcers`), in front of the officers. 120 health, a shotgun, slow
+  to turn (1.3 rad/s) and to step up (34 px/s, never more than 300 px from
+  the gate). The shield stops every round coming within 70 degrees of
+  straight on (a spark and a ping); blasts and fire go through. In the
+  feud like the rest of Halcyon: the Static are their rivals and they are
+  the Static's. Still to come: watcher drones, rippers and sparkers;
+  interceptors and war-rigs; and per-faction voices.
 
 ## Decisions
 
@@ -355,7 +363,7 @@ have to shoot your way through.
 | Unit | Look | Health | Gun / attack | Behaviour |
 | --- | --- | --- | --- | --- |
 | **Officer** | Grey armour, white helmet, magenta visor strip | 60 | SMG or pistol (`bullet`) | Rank and file: posts and squads of 3, like the Combine. Calls in what they see. |
-| **Enforcer** | Darker grey, a riot shield in front with a magenta edge | 120 | Shotgun (`bullet`) | Slow. The shield stops everything from in front; flank him or blow him up. Holds doorways and choke points. |
+| **Enforcer** | Darker grey, a riot shield in front with a magenta edge | 120 | Shotgun (`bullet`) | Slow. The shield stops everything from in front (within 70 degrees of straight on); flank him or blow him up (blasts and fire go through). Holds doorways and choke points: steps up on you, never more than 300 px from his post. |
 | **Marksman** | Dark helmet, long rifle | 40 | Rifle (`bullet`, hits hard) | Rooftops and catwalks. A thin magenta line shows his aim a second before he fires, like Saye's sightline but slower. |
 | **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol over walls. Seeing you sets off an alarm that calls the nearest squad. Breach it to blind it. |
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
