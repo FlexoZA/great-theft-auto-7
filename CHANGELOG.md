@@ -122,6 +122,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   she sits at one at a time, where breaching is half as fast and a ring of shock pulses out every few seconds, and
   she moves to whichever you're furthest into. Her face breaks up more with every relay lost. On the last one she
   gets away into the net, "Nothing personal, courier.", and the job is done.
+- The Roof has its own music: a metal finale with a choir and a tolling bell while Saye and Kilowatt fight, each
+  getting their own half (his chugging, hers cold strings and a ticking clock) before it brings them together; and
+  VEX's own glitchy chiptune theme the moment she takes the roof, which cuts out when she gets away.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

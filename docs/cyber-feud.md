@@ -74,6 +74,20 @@ branch off `feature/cyber-feud`):
   standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
   hers sits over his while he is up. The Roof needs both down, and the
   objective line names whoever is still up.
+- The Roof's themes (`src/features/cyber-feud/theme_roof.lua`,
+  `feature/cyber-feud-roof-theme`). `render`, Saye and Kilowatt's, from
+  the moment the roof wakes (CF_WAKE): 140 BPM in F# minor, ~45 s; a bell
+  tolling over a choir and a drone, Kilowatt's half (drop-tuned gallop over
+  double kick, the flat second rung), Saye's half (staccato strings and a
+  cold square arpeggio over a ticking clock), the two together (power
+  chords, choir, strings, a lead), a half-time breakdown with the bell, and
+  together again with the lead an octave up. `renderVex`, hers (init.lua's
+  "roof-vex", rendered on arrival with the other), from VX_STAGE on until
+  she gets away, when the music stops: 150 BPM in A minor, ~32 s; her modem
+  chirp (a falling squeal) as the hook, a chiptune arpeggio that jumps an
+  octave on a few sixteenths (the glitch), two detuned square basses, a
+  breakbeat with stuttering snare rolls, and a two-bar freeze where one
+  sixteenth of everything sticks, ending on a tape-stop.
 - VEX's phase (`feature/cyber-feud-vex-phase`,
   `src/features/cyber-feud/vex.lua`; `map.relays`, `map.bosses.lock` and
   `map.bosses.vexTurrets` in `buildRoof`; VX_ messages): 2.5 s after both

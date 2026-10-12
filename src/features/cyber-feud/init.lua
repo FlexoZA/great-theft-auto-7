@@ -20,6 +20,9 @@
 --   - The Overpass's theme (theme_overpass.lua, darksynth) starts on every
 --     screen as Kilowatt's rig roars past (KW_RIDE, or CF_MUSIC for a
 --     player joining after), and plays until the map changes.
+--   - The Roof's themes (theme_roof.lua): Saye and Kilowatt's (a metal
+--     finale with a choir and a bell) from the moment the roof wakes, VEX's
+--     (glitchy chiptune) from when she takes it until she gets away.
 --   - Halcyon Tower's theme (theme_tower.lua, industrial groove metal)
 --     starts on every screen the moment the tower wakes (CF_WAKE: a player
 --     walking past the reception), and plays until the map changes.
@@ -83,6 +86,7 @@ local ChaseTheme = require("src.features.cyber-feud.theme_chase")
 local MarketTheme = require("src.features.cyber-feud.theme_market")
 local OverpassTheme = require("src.features.cyber-feud.theme_overpass")
 local TowerTheme = require("src.features.cyber-feud.theme_tower")
+local RoofTheme = require("src.features.cyber-feud.theme_roof")
 local Audio = require("src.audio")
 
 local CyberFeud = {
@@ -318,9 +322,14 @@ end
 -- Client ------------------------------------------------------------------
 
 -- Each level's theme, and what starts it: on the Drop the Shard being
--- taken, on the Market and in the tower the place waking, on the Overpass
--- Kilowatt's rig roaring past (war_rigs.lua's KW_RIDE).
-local THEMES = { drop = ChaseTheme, market = MarketTheme, overpass = OverpassTheme, tower = TowerTheme }
+-- taken, on the Market, in the tower and on the Roof the place waking, on
+-- the Overpass Kilowatt's rig roaring past (war_rigs.lua's KW_RIDE). The
+-- Roof has a second, VEX's ("roof-vex"), from when she takes the roof
+-- (vex.lua's VX_STAGE) until she gets away, when it goes quiet.
+local THEMES = {
+  drop = ChaseTheme, market = MarketTheme, overpass = OverpassTheme, tower = TowerTheme, roof = RoofTheme,
+  ["roof-vex"] = { render = RoofTheme.renderVex },
+}
 local music = {} -- map name -> its theme's Source, rendered on first arriving there
 
 local function musicVolume()
@@ -393,6 +402,9 @@ function CyberFeud:questStarted(_client, quest)
   self:clearLevel()
   cl.level = quest.map
   loadMusic(quest.map) -- now, under the banner, not when it starts
+  if quest.map == "roof" then
+    loadMusic("roof-vex") -- (and hers, so the switch to it doesn't stall)
+  end
   if quest.introLine then
     cl.page = { line = Story.lines[quest.introLine] or Story.lines[1], t = 0, max = self.introTime }
   end
@@ -426,7 +438,7 @@ CyberFeud.clientMessages = {
     end
   end,
   CF_WAKE = function()
-    if cl.level == "market" or cl.level == "tower" then
+    if cl.level == "market" or cl.level == "tower" or cl.level == "roof" then
       startMusic(cl.level) -- they know you're here
     end
   end,
@@ -469,6 +481,23 @@ do -- Kilowatt's rig roaring past is the Overpass's cue
 end
 for kind, handler in pairs(Troops.clientMessages) do
   CyberFeud.clientMessages[kind] = handler
+end
+do -- VEX taking the roof is hers: her theme over theirs, and quiet once she's gone
+  local stage = CyberFeud.clientMessages.VX_STAGE
+  CyberFeud.clientMessages.VX_STAGE = function(client, args)
+    stage(client, args)
+    if cl.level ~= "roof" then
+      return
+    end
+    if args[1] == "on" then
+      if not (music["roof-vex"] and music["roof-vex"]:isPlaying()) then
+        stopMusic()
+        startMusic("roof-vex")
+      end
+    else
+      stopMusic()
+    end
+  end
 end
 
 --- Is the level on this screen one of ours, on the map it belongs to?
