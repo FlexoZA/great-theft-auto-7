@@ -52,6 +52,10 @@
 -- back and lob EMPs; Halcyon's watcher drones (watchers.lua) fly over
 -- the stalls and call officers to whoever they see.
 --
+-- In the Market the Static's general, Volt (volt.lua, his own brain),
+-- holds Noodle Square and the dock's pass code; his backup comes in as
+-- packs (`serverPack`).
+--
 -- On the Roof the factions' bosses (kilowatt.lua and saye.lua, each their
 -- own brain) wait, on the helipad and by the billboard, for the roof to wake.
 --
@@ -100,6 +104,7 @@ local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Saye = require("src.features.cyber-feud.saye")
 local Duo = require("src.features.cyber-feud.duo")
 local Vex = require("src.features.cyber-feud.vex")
+local Volt = require("src.features.cyber-feud.volt")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -336,6 +341,7 @@ function Troops.serverStart(server, map, name, calm)
   Kilowatt.serverStart(server, map, nav, calm) -- the Roof's bosses: Kilowatt on the helipad...
   Saye.serverStart(server, map, nav, calm) -- ...and Saye by the billboard
   Vex.serverStart(server, map) -- and VEX, once they are down
+  Volt.serverStart(server, map, nav) -- the Market's general, in Noodle Square
   Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
     return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
       blades or { list = {} }, emps or { list = {} }, fists or { list = {} } }
@@ -478,6 +484,7 @@ function Troops.serverStop(server)
   Saye.serverStop(server)
   Duo.serverStop()
   Vex.serverStop(server)
+  Volt.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -808,6 +815,40 @@ local function stepBreakIn(server, dt)
   say(server, squad.members[1], "breakIn")
 end
 
+--- A pack of side `key`'s coming in at `spot` ({ x, y }) onto `beat` (a
+--- loop of { x, y }), `size` of them in file, and a sparker at the back
+--- when `sparker` (the Static's), all sent at (tx, ty) first. A boss's
+--- backup (volt.lua). Returns the pack's soldiers.
+function Troops.serverPack(server, key, spot, beat, size, sparker, tx, ty)
+  if not sv then
+    return {}
+  end
+  local side = sv.sides[key]
+  local first, bestD2 = 1, math.huge
+  for k, c in ipairs(beat) do
+    local d2 = dist2(c.x, c.y, spot.x, spot.y)
+    if d2 < bestD2 then
+      first, bestD2 = k, d2
+    end
+  end
+  local start = (first - 2) % #beat + 1
+  local heading = math.atan2(ty - spot.y, tx - spot.x)
+  local squad = side.troops:addSquad(beat, size, start)
+  for i, s in ipairs(squad.members) do
+    s.x, s.y = clearSpot(spot.x - math.cos(heading) * 30 * (i - 1), spot.y - math.sin(heading) * 30 * (i - 1))
+    s.facing, s.faction = heading, key
+    side.troops:arm(s, pickArms(side.conf.loadout))
+    side.troops:sendTo(s, tx, ty)
+  end
+  if sparker then
+    local x, y = clearSpot(spot.x - math.cos(heading) * 30 * size, spot.y - math.sin(heading) * 30 * size)
+    Sparkers.serverJoin(x, y, beat, start)
+  end
+  side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
+  say(server, squad.members[1], "alert")
+  return squad.members
+end
+
 --- Anyone past the map's `wakeY` wakes the street.
 local function checkWake(server)
   local calm = false
@@ -858,6 +899,7 @@ function Troops.serverStep(server, dt)
   Saye.serverStep(server, dt)
   Duo.serverStep(server, dt) -- the two of them as partners
   Vex.serverStep(server, dt)
+  Volt.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -920,6 +962,10 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
     hit = Saye.serverShotAt(server, x, y, radius, by, angle, damage)
     byPlayer = hit
   end
+  if not hit then
+    hit = Volt.serverShotAt(server, x, y, radius, by, angle, damage)
+    byPlayer = hit
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -944,6 +990,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Brutes.serverFreezeArea(x, y, radius, seconds)
   Kilowatt.serverFreezeArea(x, y, radius, seconds)
   Saye.serverFreezeArea(x, y, radius, seconds)
+  Volt.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -1042,6 +1089,7 @@ function Troops.clear()
   Kilowatt.clear()
   Saye.clear()
   Vex.clear()
+  Volt.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -1072,6 +1120,7 @@ function Troops.update(dt)
   Marksmen.update(dt)
   Kilowatt.update(dt)
   Saye.update(dt)
+  Volt.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -1111,6 +1160,7 @@ function Troops.drawBelowCars()
   Brutes.drawBelowCars()
   Vex.drawBelowCars() -- (her face first, under everything)
   Kilowatt.drawBelowCars()
+  Volt.drawBelowCars()
   if Features.any("hideSightCones") then
     return
   end
@@ -1181,6 +1231,7 @@ function Troops.drawAboveCars()
   Kilowatt.drawAboveCars()
   Saye.drawAboveCars()
   Vex.drawAboveCars()
+  Volt.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1207,6 +1258,7 @@ function Troops.drawNightLights(glow)
   Kilowatt.drawNightLights(glow)
   Saye.drawNightLights(glow)
   Vex.drawNightLights(glow)
+  Volt.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1326,6 +1378,9 @@ for kind, handler in pairs(Saye.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Vex.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Volt.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

@@ -126,6 +126,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Roof has its own music: a metal finale with a choir and a tolling bell while Saye and Kilowatt fight, each
   getting their own half (his chugging, hers cold strings and a ticking clock) before it brings them together; and
   VEX's own glitchy chiptune theme the moment she takes the roof, which cuts out when she gets away.
+- General Volt holds Noodle Square in the Market: the Static's general, all coils and cable. He shows you a
+  crackling line before each lightning bolt strikes down it, lobs lightning grenades that leave shock fields on
+  the ground, and calls in a pack of the Static each time you knock another quarter off him. He has the loading
+  dock's pass code: the dock stays locked until he's down and somebody picks the code up.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

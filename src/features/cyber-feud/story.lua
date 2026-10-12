@@ -46,6 +46,11 @@ Story.beats = {
   },
   ["market.Noodle Square"] = { say = "Smile, courier. You're on my screen." },
   ["market.The Dock"] = { say = "Cars at the dock. I may have borrowed them. Don't scratch anything." },
+  -- General Volt (volt.lua): the fight starting, and his pass code picked up.
+  ["market.volt"] = {
+    say = "Ah. That's Volt, Kilowatt's general. He has the dock's code. He also knew you were coming. Unrelated.",
+  },
+  ["market.code"] = { say = "There's the code. Dock's open. See? Everything's going to plan. Somebody's plan." },
   ["market.end"] = { say = "Nicely done. Five stars. The Overpass is right there." },
 
   ["overpass.The Overpass"] = { say = "Long road, nobody on it. Probably. Keep it in the middle lanes." },

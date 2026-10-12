@@ -68,6 +68,9 @@
 --                         up and `beat` (a loop of { x, y }) the one they walk round the helipad; `lock` { x, y, w,
 --                         h } VEX's barrier across the stairs and `vexTurrets` { x, y, watch } the turrets she drives
 --   map.relays            { x, y } the middles of the Roof's relay terminals (cyber-feud/vex.lua)
+--   map.volt              { x, y, square = { x0, y0, x1, y1 }, backup = { { x, y } }, beat, dock = { x, y, w, h } }
+--                         General Volt (the Market, cyber-feud/volt.lua): where he waits, the square that wakes
+--                         him, where his backup comes in and the beat it walks, the dock's shutter
 --   map.wakeY             the line a player walks past to wake the troops (the Market, the tower: they are on
 --                         edge already, but nobody fires at the way in)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -662,6 +665,19 @@ local function buildMarket(map, rng, T)
     { route = { P(45, 8), P(51.5, 8), P(51.5, 43), P(45, 43) }, start = 1 },
     { route = { P(21, 13), P(39, 13), P(39, 33), P(21, 33) }, start = 3 },
     { route = { P(9, 38), P(33, 38), P(33, 43), P(9, 43) }, start = 2 },
+  }
+  -- General Volt (cyber-feud/volt.lua) holds Noodle Square and the dock's
+  -- pass code: he waits in its middle until somebody steps into it. His
+  -- backup comes in from the west lanes (three mouths, one a call) onto a
+  -- beat round the square's inside; the dock's shutter is drawn over the
+  -- way out until the code is picked up.
+  map.volt = {
+    x = math.floor(X((sq.c0 + sq.c1 + 1) / 2)), y = math.floor(Y((sq.r0 + sq.r1 + 1) / 2)),
+    square = { x0 = X(sq.c0), y0 = Y(sq.r0), x1 = X(sq.c1 + 1), y1 = Y(sq.r1 + 1) },
+    backup = { P(15, 28), P(15, 18), P(15, 38) },
+    beat = { P(sq.c0 + 1.5, sq.r0 + 1.5), P(sq.c1 - 0.5, sq.r0 + 1.5), P(sq.c1 - 0.5, sq.r1 - 0.5),
+      P(sq.c0 + 1.5, sq.r1 - 0.5) },
+    dock = { x = X(22), y = Y(2), w = 12 * T, h = 40 },
   }
   map.wakeY = Y(n - 8)
 

@@ -74,6 +74,30 @@ branch off `feature/cyber-feud`):
   standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
   hers sits over his while he is up. The Roof needs both down, and the
   objective line names whoever is still up.
+- General Volt, the Market's boss (`feature/cyber-feud-market-boss`,
+  `src/features/cyber-feud/volt.lua` and `volt_brain.lua`, `map.volt` in
+  `buildMarket`; VLT_ messages): the Static's general, Kilowatt's right
+  hand, a long cable coat and a Tesla coil on each shoulder, drawn at
+  1.5x. He waits in the middle of Noodle Square until a player steps into
+  it (or shoots him), then fights at 320 px. 1800 health for one human.
+  Bolt: every 3.2 s a crackling line follows his target for 0.55 s then
+  holds 0.35 s, and the bolt strikes down it to 640 px or the first wall,
+  hitting every player within 20 px of the line (30 `shock`, a stun).
+  Lightning grenade: every 7 s (20 breath) a canister lobbed at where they
+  stand, a ring on the floor showing where for its 0.9 s flight; it lands as
+  a 110 px field crackling for 4 s (22 `shock` the first jolt, a stun, then
+  8 every 0.5 s while they stay). Backup at 75%, 50% and 25% of his health:
+  a pack of three gangers (`Bosses.plus`) and a sparker runs in from one of
+  the west lanes at whoever he has (`Troops.serverPack`), then walks a beat
+  round the inside of the square. Phase 2 at half: bolts fork in two
+  (0.2 rad either side), 0.65 s lines, every 2.4 s; grenades in pairs. The
+  bosses' standard (breath, the boss bar, a medkit when badly hurt, out
+  from under abilities, `serverKill` "boss", 30 koins). Only players' rounds
+  reach him. Down, he drops the dock's pass code: the first player on foot
+  over it picks it up (VLT_TAKEN) and the dock opens. Until then the dock
+  is drawn shut (LOCKED - PASS CODE), reaching it doesn't finish the level,
+  and the objective line points at him, then at the code. VEX has a line
+  for each (`market.volt`, `market.code`).
 - The Roof's themes (`src/features/cyber-feud/theme_roof.lua`,
   `feature/cyber-feud-roof-theme`). `render`, Saye and Kilowatt's, from
   the moment the roof wakes (CF_WAKE): 140 BPM in F# minor, ~45 s; a bell
@@ -902,6 +926,9 @@ with gaps where the rain comes through.
 - **Noodle Square** in the middle: an open plaza under a giant screen where
   VEX's face appears. Both sides' lanes meet here; this is where the big
   three-way fights happen.
+- **General Volt** holds Noodle Square: the Static's general, and the dock's
+  pass code. The dock stays locked until he is down and somebody picks the
+  code up where he fell (see the General Volt entry under the work done).
 - **The end:** the north gate, a loading dock with parked cars waiting. The
   EXIT star: "THE OVERPASS".
 
