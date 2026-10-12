@@ -12,6 +12,10 @@
 -- is going, so whoever drives straight on is hit, and whoever swerves
 -- while the line holds is missed. Then he works the bolt (RELOAD) and aims
 -- again, at whoever is nearest now.
+--
+-- Indoors (`indoors`, Halcyon Tower) he is on the floor with everyone
+-- else: he only spots somebody he has a clear line to, and loses whoever
+-- goes behind a wall.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
@@ -42,8 +46,8 @@ local function turn(from, to, rate, dt)
 end
 
 --- A new brain. `opts`: health, firstId, calm, roundSpeed (px/s, for the
---- lead), and `fire(server, s, aim)`: the rifle's round from where he
---- stands along `aim`.
+--- lead), `indoors` (walls hide people from him), and `fire(server, s,
+--- aim)`: the rifle's round from where he stands along `aim`.
 function Brain.new(opts)
   return setmetatable({
     list = {},
@@ -53,6 +57,7 @@ function Brain.new(opts)
     fire = opts.fire,
     nextId = opts.firstId or 1,
     calm = opts.calm == true,
+    indoors = opts.indoors == true,
     tick = 0,
   }, Brain)
 end
@@ -108,7 +113,7 @@ function Brain:spot(server, s)
     local dx, dy = x - s.x, y - s.y
     local d2 = dx * dx + dy * dy
     if d2 <= Brain.RANGE * Brain.RANGE and math.abs(Sight.angleDiff(math.atan2(dy, dx), s.watch)) <= Brain.FOV / 2
-      and (not bestD2 or d2 < bestD2) then
+      and (not bestD2 or d2 < bestD2) and (not self.indoors or Sight.clear(s.x, s.y, x, y)) then
       best, bestD2 = who, d2
     end
   end
@@ -169,7 +174,8 @@ function Brain:think(server, s, dt)
   -- Aiming: the line follows where they will be when the round gets
   -- there, and he takes the shot once it has had long enough.
   local x, y, vx, vy = poseOf(server, s.target)
-  if not x or dist2(s.x, s.y, x, y) > (Brain.RANGE * 1.2) ^ 2 then
+  if not x or dist2(s.x, s.y, x, y) > (Brain.RANGE * 1.2) ^ 2
+    or (self.indoors and not Sight.clear(s.x, s.y, x, y)) then
     s.state, s.t, s.target = "watch", 0, nil
     return
   end

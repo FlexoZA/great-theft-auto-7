@@ -49,7 +49,8 @@
 --   map.kilowatt          { x, y, startY, exitAngle } where Kilowatt's rig sets off from, the line past
 --                         which it does, and the way he jumps off (the Overpass)
 --   map.stings            { x, y } where Halcyon's sting drone swarms hang, over the gantries (the Overpass)
---   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), world px
+--   map.marksmen          { x, y, watch } Halcyon's marksmen up on the gantries (the Overpass), or in the
+--                         far corners of the tower's security and executive floors, world px
 --   map.carStations       { name, x, y, angle } pads where a Courier is called back (the Overpass, the
 --                         car-stations feature); the respawn points there too
 --   map.gates             { name, solid, frame = { x, y, w, h }, panel = { x, y } } Halcyon's roadblocks across
@@ -1032,6 +1033,21 @@ local function buildTower(map, rng, T)
     { x = math.floor(X(cols - 9.4)), y = math.floor(Y(sec.r0 + 10.5)), watch = west },
     { x = math.floor(X(19)), y = math.floor(Y(exec.r0 + 3.5)), watch = south },
     { x = math.floor(X(29)), y = math.floor(Y(exec.r0 + 3.5)), watch = south },
+  }
+  -- Halcyon's marksmen (cyber-feud/marksmen.lua), on the floor in the far
+  -- corners, where the long sightlines are, in the order they are used
+  -- (three for one human, one more for each human past the first). The
+  -- guard floor gets the first and most: one in the stair door's corner
+  -- watching back across it at you, one down its east end watching along
+  -- the bottom, and another in its west corner watching along the top; the
+  -- executive floor one over the boardroom from its west end.
+  local sw = 3 * math.pi / 4
+  map.marksmen = {
+    { x = math.floor(X(cols - 2.6)), y = math.floor(Y(sec.r0 + 0.8)), watch = sw },
+    { x = math.floor(X(2.7)), y = math.floor(Y(exec.r0 + 0.8)), watch = math.pi / 4 },
+    { x = math.floor(X(cols - 2.6)), y = math.floor(Y(sec.r1 + 0.3)), watch = west },
+    { x = math.floor(X(2.7)), y = math.floor(Y(sec.r0 + 0.8)), watch = east },
+    { x = math.floor(X(cols - 2.6)), y = math.floor(Y(exec.r0 + 0.8)), watch = sw },
   }
   -- Where the Static come in to each floor: the lobby's front doors, and
   -- above it the top of the stairwell from the floor below.

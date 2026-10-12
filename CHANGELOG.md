@@ -87,6 +87,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   with more players).
 - Halcyon's enforcers hold Halcyon Tower's top floors: four riot shields on the security floor, two in front of the
   stair door up and two across the way to it, and two either side of Saye's desk on the executive floor.
+- Halcyon's marksmen in Halcyon Tower: three in the far corners of the security floor (more with more players,
+  then the executive floor), lining up their shots along the floor. Walls hide you from them, and their sightline
+  stops at the first wall.
 
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and

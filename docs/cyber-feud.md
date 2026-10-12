@@ -35,6 +35,16 @@ branch off `feature/cyber-feud`):
   than 8 (4 more a human past the first) of them are on that floor; packs
   left two floors behind are taken off. The first of each pack shouts as
   they come in (`Story.troops.static.breakIn`).
+- The tower's marksmen (`feature/cyber-feud-tower-marksmen`,
+  `map.marksmen` in `buildTower`): the Overpass's marksmen on the floor, in
+  the far corners, in the order they are used (three for one human, one
+  more each past the first): the security floor's stair-door corner
+  watching back across it, its east end watching along the bottom, then
+  the executive floor's west end over the boardroom, the security floor's
+  west corner along the top, and the executive floor's east corner.
+  Indoors (the brain's `indoors`, set on the tower) a wall hides you from
+  them: they spot only who they have a clear line to and lose whoever goes
+  behind one. Their sightline is drawn to the first wall, everywhere.
 - The tower's enforcers (`feature/cyber-feud-tower-enforcers`,
   `map.enforcers` in `buildTower`): six riot shields, all Halcyon's: on the
   security floor a pair in front of the stair door up and a pair across its

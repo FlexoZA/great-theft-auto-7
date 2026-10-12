@@ -1,5 +1,7 @@
 -- Halcyon's marksmen (docs/cyber-feud.md, "Halcyon"): up on the Overpass's
--- gantries (the map's `marksmen`), drawn over the cars. troops.lua starts,
+-- gantries (the map's `marksmen`), drawn over the cars; in Halcyon Tower
+-- on the floor in its far corners, where walls hide you from them (the
+-- brain's `indoors`). troops.lua starts,
 -- steps and stops them with the rest of Halcyon, and passes rounds on to
 -- them; their heads are marksman_brain.lua.
 --
@@ -25,6 +27,7 @@ local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Corpses = require("src.features.corpses")
 local Brain = require("src.features.cyber-feud.marksman_brain")
+local Sight = require("src.features.d-day.sight")
 
 local Marksmen = {}
 
@@ -84,7 +87,7 @@ function Marksmen.serverStart(server, map, calm)
     return nil
   end
   local brain = Brain.new({ health = Marksmen.health, fire = fire, firstId = Marksmen.firstId, calm = calm,
-    roundSpeed = Marksmen.roundSpeed })
+    roundSpeed = Marksmen.roundSpeed, indoors = map.kind == "tower" })
   local n = math.min(#map.marksmen, Marksmen.count + Marksmen.perHuman * (Bosses.humans(server) - 1))
   for i = 1, n do
     local p = map.marksmen[i]
@@ -208,13 +211,14 @@ function Marksmen.update(dt)
 end
 
 --- His sightline while he aims: thin and faint while it follows, bright
---- and pulsing once it holds.
+--- and pulsing once it holds; it stops at the first wall.
 local function drawLine(s)
   if s.state ~= 1 and s.state ~= 2 then
     return
   end
   local x0, y0 = s.x + math.cos(s.dAim) * 20, s.y + math.sin(s.dAim) * 20
-  local x1, y1 = s.x + math.cos(s.dAim) * LINE, s.y + math.sin(s.dAim) * LINE
+  local x1, y1 = Sight.reach(s.x, s.y, s.dAim, LINE)
+  s.lineLen = math.sqrt((x1 - s.x) ^ 2 + (y1 - s.y) ^ 2)
   if s.state == 2 then
     local pulse = 0.6 + 0.4 * math.abs(math.sin(clock * 24))
     love.graphics.setColor(MAGENTA[1], MAGENTA[2], MAGENTA[3], 0.3 * pulse)
@@ -270,7 +274,7 @@ function Marksmen.drawNightLights(glow)
     glow(s.x, s.y, 30, MAGENTA, 0.5)
     if s.state == 2 then -- the line, lit along its length
       for d = 1, 5 do
-        local r = d * LINE / 6
+        local r = d * (s.lineLen or LINE) / 6
         glow(s.x + math.cos(s.dAim) * r, s.y + math.sin(s.dAim) * r, 22, MAGENTA, 0.5)
       end
     end
