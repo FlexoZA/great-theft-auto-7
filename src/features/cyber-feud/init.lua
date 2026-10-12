@@ -42,7 +42,8 @@
 --   server -> all     CF_SHARD <id> [quiet] (who carries the Shard; 0 nobody; quiet: no notice, for a joiner)
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
---   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN, and its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN)
+--   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN, its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN,
+--   and its watcher drones' WCH_STATE, WCH_CALL, WCH_DOWN)
 
 local Features = require("src.features")
 local Protocol = require("src.net.protocol")
@@ -94,6 +95,7 @@ function CyberFeud:load()
   require("src.features.cyber-feud.enforcers").load() -- the ping of a round off a riot shield
   require("src.features.cyber-feud.rippers").load() -- the rippers' blades
   require("src.features.cyber-feud.sparkers").load() -- the sparkers' EMPs
+  require("src.features.cyber-feud.watchers").load() -- the watcher drones' call
 end
 
 function CyberFeud:serverStart()

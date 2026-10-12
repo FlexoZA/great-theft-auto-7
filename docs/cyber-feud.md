@@ -72,10 +72,22 @@ branch off `feature/cyber-feud`):
   where it comes down for as long as it is in the air; the burst is
   `shock`, 26 at the middle and a third of that at the edge (110 px), so
   near the middle it stuns. It does nothing to people of either side: it is
-  for Halcyon's machines, which are not on the street yet (watcher drones
-  will be the sparkers' `rivals`; stalling cars waits for a driven level
-  with sparkers). Still to come: watcher drones; interceptors and
-  war-rigs; and per-faction voices.
+  for Halcyon's machines: a watcher drone caught in one is knocked out for
+  5 s (stalling cars waits for a driven level with sparkers).
+- Halcyon's watcher drones (`feature/cyber-feud-watchers`,
+  `src/features/cyber-feud/watchers.lua`, their own brain in
+  `watcher_brain.lua`): three flying the Market's lanes (`map.watchers`;
+  over a stall a player's rounds would stop at its wall, so their beats
+  keep to the lanes and they never hang over anything solid). 20 health,
+  no gun. A 70-degree cone out to 440 px that sees over the stalls; a
+  player in it is followed (hung over from 140 px) and called in: the
+  nearest three of Halcyon's officers not holding a post (within 1100 px)
+  go to look, again every 6 s while it still has them (a magenta ping and
+  two beeps). Only players can shoot them down: the factions' rounds pass
+  under them (the gangers shooting at them, or strays from the fights
+  below, had them all down before any player got near). The sparkers go
+  for them: an EMP knocks one out for 5 s. Still to come: interceptors and
+  war-rigs; per-faction voices; and breach (blinding a drone).
 
 ## Decisions
 
@@ -388,7 +400,7 @@ have to shoot your way through.
 | **Officer** | Grey armour, white helmet, magenta visor strip | 60 | SMG or pistol (`bullet`) | Rank and file: posts and squads of 3, like the Combine. Calls in what they see. |
 | **Enforcer** | Darker grey, a riot shield in front with a magenta edge | 120 | Shotgun (`bullet`) | Slow. The shield stops everything from in front (within 70 degrees of straight on); flank him or blow him up (blasts and fire go through). Holds doorways and choke points: steps up on you, never more than 300 px from his post. |
 | **Marksman** | Dark helmet, long rifle | 40 | Rifle (`bullet`, hits hard) | Rooftops and catwalks. A thin magenta line shows his aim a second before he fires, like Saye's sightline but slower. |
-| **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol over walls. Seeing you sets off an alarm that calls the nearest squad. Breach it to blind it. |
+| **Watcher drone** | A small flying disc with a magenta eye and a sight cone | 20 | None | Flies a patrol, seeing over walls. Seeing you, it hangs over you and calls the nearest three officers on their feet, every 6 s. Shoot it down (only players' rounds reach it) or an EMP knocks it out for 5 s. Breach it to blind it. |
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |
 | **Assassin droid** | A lean white-plated robot, magenta visor band, rail pistol and a mono-blade; cloaked until it has you | 240 | Rail pistol bursts (`bullet`); a charged rail shot down a magenta sightline | The Drop's tunnel end. The Hunters' brain, quicker: keeps you at range, strafes, and dodges every round it sees coming (again 1.3 s later). Step off the sightline to dodge the rail shot. Two for one player, one more per extra human. |

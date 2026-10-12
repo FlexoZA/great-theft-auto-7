@@ -9,8 +9,10 @@
 -- at the middle, a third of it at the edge, so a player caught near the
 -- middle is stunned too (damage's `stunMin`). It is a jolt for machines,
 -- not people: Halcyon's officers and enforcers shrug it off, and so does
--- the Static. (Halcyon's drones and turrets will be its `rivals` once they
--- are on the street; a car stalled by one waits for cars to need it.) In
+-- the Static. Halcyon's watcher drones are its `rivals`: one caught in the
+-- burst is knocked out (watchers.lua's serverEmp). (Turrets will be too,
+-- once they are on the street; a car stalled by one waits for cars to
+-- need it.) In
 -- the feud Halcyon shoots at sparkers as at the rest of the Static.
 --
 -- Messages
@@ -80,9 +82,10 @@ local function lob(server, s, x, y)
 end
 
 --- An EMP going off at (x, y): a jolt to every player on foot within its
---- radius, harder nearer the middle.
+--- radius, harder nearer the middle, and any watcher drone caught knocked out.
 local function burst(server, x, y)
   server:broadcast(Protocol.encode("SPK_EMP", fmt(x), fmt(y)))
+  require("src.features.cyber-feud.watchers").serverEmp(x, y, Sparkers.EMP.radius) -- the machines it is for
   local weapons = Features.byName.weapons
   if not (weapons and weapons.serverDamage) then
     return

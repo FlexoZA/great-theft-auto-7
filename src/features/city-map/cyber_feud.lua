@@ -40,6 +40,8 @@
 --   map.rippers           { route, start } the Static's rippers (the Market), each on a beat (a loop of
 --                         { x, y }, world px) from corner `start`
 --   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
+--   map.watchers          { route, start } Halcyon's watcher drones (the Market), flown straight from
+--                         corner to corner (corners in the lanes, so they stay where they can be shot)
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -627,6 +629,14 @@ local function buildMarket(map, rng, T)
   }
   -- Two sparkers hanging back on the Static's beats: the square's and the north-west's.
   map.sparkers = { { route = static.patrols[2], start = 3 }, { route = static.patrols[1], start = 1 } }
+  -- Halcyon's watcher drones fly the lanes (over a stall, rounds would
+  -- stop at its wall before they reached one): the east strip, round the
+  -- square and up the middle, and the lanes behind the south gate.
+  map.watchers = {
+    { route = { P(45, 8), P(51.5, 8), P(51.5, 43), P(45, 43) }, start = 1 },
+    { route = { P(21, 13), P(39, 13), P(39, 33), P(21, 33) }, start = 3 },
+    { route = { P(9, 38), P(33, 38), P(33, 43), P(9, 43) }, start = 2 },
+  }
   map.wakeY = Y(n - 8)
 
   map.zones = {
