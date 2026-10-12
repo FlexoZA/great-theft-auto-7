@@ -30,6 +30,9 @@
 -- until things calm down (Troops.flare), and call a truce again. Getting
 -- them into each other's line of fire is the way to start it.
 --
+-- On the Overpass Halcyon's interceptors (interceptors.lua) wait on the
+-- shoulder to chase, ram and shoot at whoever drives by.
+--
 -- Halcyon's enforcers (enforcers.lua, their own brain) hold the Market's
 -- gates behind riot shields, in the feud with the rest of Halcyon; the
 -- Static's rippers (rippers.lua, their own brain) lunge out of the west
@@ -69,6 +72,7 @@ local Enforcers = require("src.features.cyber-feud.enforcers")
 local Rippers = require("src.features.cyber-feud.rippers")
 local Sparkers = require("src.features.cyber-feud.sparkers")
 local Watchers = require("src.features.cyber-feud.watchers")
+local Interceptors = require("src.features.cyber-feud.interceptors")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -281,6 +285,7 @@ function Troops.serverStart(server, map, name, calm)
     sv.provoked = true -- a truce, until one side's round finds the other
   end
   Droids.serverStart(server, map, nav, calm) -- Halcyon's assassin droids, on the same walking grid
+  Interceptors.serverStart(server, map) -- and its patrol cars, on a driven map
 end
 
 --- `s` takes the gun of `nest`: its arc, its sight and its rounds.
@@ -405,6 +410,7 @@ end
 --- Over: nothing left to step or draw.
 function Troops.serverStop(server)
   Droids.serverStop(server)
+  Interceptors.serverStop(server)
   Enforcers.serverStop(server)
   Rippers.serverStop(server)
   Sparkers.serverStop(server)
@@ -674,6 +680,7 @@ function Troops.serverStep(server, dt)
   end
   Droids.serverStep(server, dt)
   Enforcers.serverStep(server, dt)
+  Interceptors.serverStep(server)
   Rippers.serverStep(server, dt)
   Sparkers.serverStep(server, dt)
   Watchers.serverStep(server, dt)

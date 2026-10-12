@@ -46,7 +46,8 @@
 --   server -> all     CF_BEAT  <key>        (a story beat: one of Story.beats)
 --   server -> all     CF_WAKE               (troops.lua's: the street woke; on the Market, its theme starts)
 --   and troops.lua's: CF_TROOPS, CF_DOWN, CF_SAY (and its enforcers' ENF_STATE, ENF_BLOCK, ENF_DOWN,
---   its rippers' RIP_STATE, RIP_CUT, RIP_DOWN, its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN,
+--   its interceptors' INT_UNITS, its rippers' RIP_STATE, RIP_CUT, RIP_DOWN,
+--   its sparkers' SPK_STATE, SPK_LOB, SPK_EMP, SPK_DOWN,
 --   and its watcher drones' WCH_STATE, WCH_CALL, WCH_DOWN)
 
 local Features = require("src.features")
@@ -57,6 +58,7 @@ local Face = require("src.features.cyber-feud.face")
 local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
+local Interceptors = require("src.features.cyber-feud.interceptors")
 local Droids = require("src.features.cyber-feud.droids")
 local Flyers = require("src.features.cyber-feud.flyers")
 local ChaseTheme = require("src.features.cyber-feud.theme_chase")
@@ -201,6 +203,12 @@ function CyberFeud:serverPlayerJoined(server, player)
   if Troops.serverAwake() and not player.bot then
     server:send(player, Protocol.encode("CF_WAKE")) -- the level's music, if it is on
   end
+  Interceptors.serverPlayerJoined(server, player)
+end
+
+--- Halcyon's interceptors are drivers like players, but no enemy goes after them.
+function CyberFeud:serverHidden(_server, player)
+  return Interceptors.isOne(player)
 end
 
 --- The carrier left: the Shard passes to another human still here, if any.
@@ -306,6 +314,7 @@ local cl = {
 function CyberFeud:clearLevel()
   cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say, cl.near = nil, nil, nil, false, {}, nil, false
   Troops.clear()
+  Interceptors.clear()
   Flyers.clear()
   stopMusic()
 end
@@ -376,6 +385,9 @@ CyberFeud.clientMessages = {
     end
   end,
 }
+for kind, handler in pairs(Interceptors.clientMessages) do
+  CyberFeud.clientMessages[kind] = handler
+end
 for kind, handler in pairs(Troops.clientMessages) do
   CyberFeud.clientMessages[kind] = handler
 end
@@ -389,6 +401,7 @@ end
 function CyberFeud:update(dt, client)
   time = time + dt
   Troops.update(dt)
+  Interceptors.update(dt)
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
   end
@@ -485,6 +498,7 @@ function CyberFeud:drawAboveCars(client)
     return
   end
   Troops.drawAboveCars()
+  Interceptors.drawAboveCars(client)
   Flyers.draw() -- high over everything
   local map = cityMap()
   if map and map.pickupX and not cl.shardBy then
@@ -502,6 +516,7 @@ end
 function CyberFeud:drawNightLights(client, _camera, glow)
   if onLevel() then
     Troops.drawNightLights(glow)
+    Interceptors.drawNightLights(client, glow)
     Flyers.lights(glow)
   end
   if cl.shardBy and onLevel() then

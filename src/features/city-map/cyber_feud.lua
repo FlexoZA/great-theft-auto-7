@@ -43,6 +43,7 @@
 --   map.sparkers          { route, start } the Static's sparkers (the Market), as `rippers`
 --   map.watchers          { route, start } Halcyon's watcher drones (the Market), flown straight from
 --                         corner to corner (corners in the lanes, so they stay where they can be shot)
+--   map.interceptors      { x, y, angle } posts Halcyon's interceptors wait on (the Overpass), world px
 --   map.wakeY             the line a player walks past to wake the troops (the Market: they are on
 --                         edge already, but nobody fires at the tunnel's mouth)
 --   map.nests             { nest, faction } every station's MG nest (a-man/nests.lua draws the guns)
@@ -766,6 +767,14 @@ local function buildOverpass(map, rng, T)
   end
   static.patrols = { { P(k.c0 + 3, k.r0 + 3), P(k.c1 - 1, k.r0 + 3), P(k.c1 - 1, k.r1 - 3), P(k.c0 + 3, k.r1 - 3) } }
   map.troops = { halcyon = halcyon, static = static }
+  -- Halcyon's interceptors, parked on the shoulder facing up the road, to
+  -- pull out after whoever drives past (cyber-feud/interceptors.lua). In
+  -- the order they are used: the first few spread over the whole run, more
+  -- with more players.
+  map.interceptors = {}
+  for _, p in ipairs({ { b + 0.4, 160 }, { a + 0.6, 108 }, { b + 0.4, 36 }, { a + 0.6, 134 }, { b + 0.4, 92 } }) do
+    map.interceptors[#map.interceptors + 1] = { x = math.floor(X(p[1])), y = math.floor(Y(p[2])), angle = north }
+  end
 
   -- Halcyon Tower's garage ramp at the top.
   cover(map, "tunnel", X(a), Y(0), (b - a + 1) * T, 2 * T, false)

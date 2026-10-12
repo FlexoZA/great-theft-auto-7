@@ -31,8 +31,20 @@ branch off `feature/cyber-feud`):
   other, usually crossfire aimed at a player between them; then they fight
   until 25 s after the last such hit (`Troops.flare`) and call a truce
   (Story.troops' `truce` lines). The troops are calm only on the Drop now,
-  until the Shard is taken there. Still to come on the Overpass:
-  interceptors, war-rigs and Kilowatt's cameo, sting drones, marksmen on
+  until the Shard is taken there.
+- Halcyon's interceptors (`feature/cyber-feud-interceptors`,
+  `src/features/cyber-feud/interceptors.lua`, their own brain in
+  `interceptor_brain.lua`): NPC drivers from the bots feature, parked on
+  the Overpass's shoulder at `map.interceptors` (three for one human, one
+  more for each extra, up to five). A grey SUV tuned to 540 px/s and
+  armoured to 220, a light bar flashing magenta and blue, an officer
+  leaning out of the window. A player within 900 px and in sight sets one
+  off: flat out at where they will be, into them once alongside, dropping
+  back after each hit to come again, the officer firing SMG bursts
+  (Halcyon's rounds) out to 520 px. It lets them go 5 s out of sight or
+  past 1800 px. Wrecked, it spills 8 koins and is gone. Enemies don't
+  target them (`serverHidden`), but crossfire hits them. Still to come on
+  the Overpass: war-rigs and Kilowatt's cameo, sting drones, marksmen on
   the gantries.
 - The Market's theme (`src/features/cyber-feud/theme_market.lua`,
   `feature/cyber-feud-market-theme`): heavy metal, thrash-fast, 170 BPM in
@@ -426,7 +438,7 @@ have to shoot your way through.
 | **Sting drone** | Smaller, faster | 20 | Light gun (`bullet`) | Flies in swarms of 3-4 in the tower and with Saye. |
 | **Sentry turret** | A grey tripod with a magenta lens | 80 | Burst fire (`bullet`) | Fixed. Breach it and it fights for you for 15 s. |
 | **Assassin droid** | A lean white-plated robot, magenta visor band, rail pistol and a mono-blade; cloaked until it has you | 240 | Rail pistol bursts (`bullet`); a charged rail shot down a magenta sightline | The Drop's tunnel end. The Hunters' brain, quicker: keeps you at range, strafes, and dodges every round it sees coming (again 1.3 s later). Step off the sightline to dodge the rail shot. Two for one player, one more per extra human. |
-| **Interceptor** | A grey sedan with a magenta and blue light bar | car | Rams; an officer leans out and shoots | The Overpass. Tries to box you in and spin you out. Breach it parked and it stays dead. |
+| **Interceptor** | A grey SUV with a magenta and blue light bar | car, 220 | Rams; an officer leans out and shoots SMG bursts | The Overpass. Waits on the shoulder, then chases flat out, rams you once alongside and drops back to come again. Breach it parked and it stays dead. |
 
 #### The Static
 
