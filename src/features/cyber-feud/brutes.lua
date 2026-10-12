@@ -1,5 +1,8 @@
--- The Static's brutes (docs/cyber-feud.md, "The Static"): small Kilowatts,
--- huge, a giant chrome arm and a cyan reactor in the chest. In Halcyon
+-- The Static's brutes (docs/cyber-feud.md, "The Static"): big men in
+-- rust-orange work jackets and welding masks with a cyan visor slit, a
+-- giant chrome arm and a cyan reactor in the chest. Drawn smaller than
+-- Kilowatt and nothing like him (no mohawk, no chrome shoulders), so on the
+-- Roof the help up the stairs isn't taken for more of him. In Halcyon
 -- Tower they come in with the break-in packs from the third floor up
 -- (troops.lua's `serverJoin` calls), and on the Roof up the stairs while
 -- Kilowatt fights (kilowatt.lua's); the map's `brutes` (beats, as the
@@ -59,16 +62,18 @@ local SMOOTHING = 14
 local SNAP = 260
 local STALE = 1
 local HURT = 0.18
-local SCALE = 2.0 -- drawn this much bigger than anyone (Kilowatt is 2.2)
+local SCALE = 1.7 -- drawn this much bigger than anyone (Kilowatt, 2.2, stands well over them)
 local LINE = Brain.CHARGE_SPEED * Brain.CHARGE_TIME
 
 local CYAN = { 0.18, 0.90, 1.00 }
 local GREEN = { 0.43, 1.00, 0.60 }
 local CHROME = { 0.78, 0.82, 0.86 }
 local STATE_CODE = { beat = 0, run = 1, brace = 2, charge = 3, dazed = 4, wind = 5, haywire = 6 }
+local RUST = { 0.62, 0.30, 0.12 } -- his work jacket
+local MASK = { 0.16, 0.17, 0.19 }
 local LOOK = {
-  shirt = { 0.22, 0.20, 0.19 }, pants = { 0.13, 0.13, 0.15 }, skin = { 0.55, 0.40, 0.31 },
-  hair = { 0.10, 0.10, 0.12 }, shoes = { 0.06, 0.06, 0.07 }, size = 2.0, -- (his body lies as big as he stood)
+  shirt = RUST, pants = { 0.20, 0.18, 0.16 }, skin = { 0.55, 0.40, 0.31 },
+  hair = MASK, shoes = { 0.06, 0.06, 0.07 }, size = 1.7, -- (his body lies as big as he stood)
 }
 
 local random = love.math.random
@@ -410,9 +415,15 @@ local function drawBrute(s)
   local walk = (s.state == 0 or s.state == 1) and math.sin(s.stride * 0.15) * 1.4 or 0
   Body.person(0, 0, angle, walk, LOOK)
   love.graphics.rotate(angle)
+  love.graphics.setColor(0.95, 0.75, 0.15) -- hi-vis strips over the jacket's shoulders
+  love.graphics.rectangle("fill", -2.5, -7.5, 1.2, 5)
+  love.graphics.rectangle("fill", -2.5, 2.5, 1.2, 5)
   love.graphics.setColor(CHROME)
-  love.graphics.ellipse("fill", 0, -7, 3, 2.3, 10) -- the shoulders
-  love.graphics.ellipse("fill", 0, 7.8, 4.2, 3.2, 10)
+  love.graphics.ellipse("fill", 0, 7.8, 4.2, 3.2, 10) -- the arm's socket
+  love.graphics.setColor(MASK) -- the welding mask, its visor a cyan slit
+  love.graphics.circle("fill", 0, 0, 3.3, 12)
+  love.graphics.setColor(CYAN)
+  love.graphics.rectangle("fill", 1.8, -1.8, 1, 3.6)
   local reach = s.state == 5 and -3 or (s.state == 3 and 6 or 2)
   local haywire = s.state == 6
   love.graphics.setColor(haywire and GREEN or CHROME)

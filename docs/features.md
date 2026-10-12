@@ -812,7 +812,8 @@ the one with a plot.
   between, a lone tree here and there, a farm and a tractor working a
   field. Under the Overpass's bridge Grey City lies a long way down
   (`overpass_below.lua`): drawn small and sliding by slowly (parallax)
-  under a haze, with a river, its lights left off the deck. Every map now has surroundings; a new one gets them with an entry
+  under a haze, with a river, its lights left off the deck; and through
+  Halcyon Tower's glass walls the same city, further down. Every map now has surroundings; a new one gets them with an entry
   in the `DRAW` table (by map name), and shows the grid until it does. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know

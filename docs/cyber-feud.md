@@ -176,7 +176,7 @@ branch off `feature/cyber-feud`):
   the groove again into the top.
 - The Static's brutes (`feature/cyber-feud-tower-brutes`,
   `src/features/cyber-feud/brutes.lua` and `brute_brain.lua`): drawn at
-  2x, 150 health, slow (45 px/s on a beat, 85 going in), finding their way
+  1.7x in their own look (work jacket, welding mask), 150 health, slow (45 px/s on a beat, 85 going in), finding their way
   on the troops' walking grid. From 70-280 px with a clear line one braces
   for 0.7 s (a cyan line on the floor where he will go), then charges
   400 px/s for 0.75 s (34 `impact` to whoever he runs through); into a
@@ -757,7 +757,7 @@ have to shoot your way through.
 | --- | --- | --- | --- | --- |
 | **Ganger** | Dark clothes, cyan-tipped cable hair, a chrome forearm | 50 | Shotgun or pistol (`bullet`) | Packs of 3-5 that run straight at the nearest target, shooting as they go. |
 | **Ripper** | Lean, with two chrome blades out from the forearms | 40 | Blades (`melee`): a lunge 28, a slash 10 | Fast. Crouches for half a second with a cyan line showing where it will go, then lunges about 220 px (dodge it sideways). Slashes twice up close, then backs off to lunge again. Goes for whoever is alone. |
-| **Brute** | A small Kilowatt: huge, a giant chrome arm, a cyan reactor glow | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
+| **Brute** | Big (1.7x, Kilowatt is 2.2x), a rust-orange work jacket with hi-vis strips, a welding mask with a cyan visor slit, a giant chrome arm, a cyan reactor glow: nothing like Kilowatt, so the Roof's help isn't taken for more of him | 150 | Punch (`impact`), a short charge | Slow, tough, soaks fire for the pack. Breach his arm and it locks up and he swings at whoever is next to him (often his own side) for 4 s. |
 | **Sparker** | Hooded, a belt of cyan-glowing EMP grenades | 40 | EMP grenade (`shock`, 26 at the middle, 110 px) | Hangs back (230-400 px) and lobs EMPs, a cyan ring on the ground where each will land. Stuns a player near the middle. An EMP knocks out drones, turrets and cars in its blast for 5 s, Halcyon's and yours alike (once there are any). |
 | **War-rig** | An armoured truck with a spiked chrome ram and a ganger on the back | car, 380 | Rams (`impact`); the ganger shoots a shotgun | The Overpass. Waits on the shoulder, then comes at you nose first, dropping back after each hit to come again; rams Halcyon's interceptors too while the two sides are at it. |
 
@@ -1004,6 +1004,21 @@ zigzags.
 
 - Each floor's stair door is locked. Breach the terminal beside it to open it,
   or let VEX open it for you, which opens a room full of guards instead.
+- How it looks (render_cyber_feud.lua, cyber_feud.lua's `dressTower`): each
+  floor has its own finish (the lobby's marble checker, the offices' carpet
+  tiles, the server room's raised floor with vented tiles, the labs' white
+  tiles, the security floor's concrete, the executive floor's planks), the
+  floors' walls against the slabs between them, and glass down both sides
+  with the city far below through it (surroundings' `overpass_below.lua`,
+  deeper than the Overpass's, no river). Dressed: Halcyon's logo in the
+  lobby's marble, waiting areas with sofas, holo screens; chairs, keyboards
+  and papers at the office desks, a glass meeting room, a copier and a
+  cooler; cooling units and cable runs among the racks; lab benches,
+  cabinets and a hazard line round the tanks; lockers and painted lanes on
+  the guard floor; a rug under the boardroom table, Saye's office walled in
+  glass, a lounge, a bar, bookshelves and art. Flat things (`flat`: rugs,
+  paint, glass) are walked over; what stands is kept off every beat, post,
+  turret, stair door and the way in from below.
 - The Static come up from below the whole way, so the floors behind you
   aren't safe.
 - **The end:** the executive lift up to the roof. The EXIT star: "THE ROOF".
@@ -1017,7 +1032,11 @@ The top of the tower, square, open to the rain.
 - Four relay terminals near the corners (VEX's phase).
 - A giant holo-billboard along the north edge, where VEX's face shows.
 - The stairs at the south edge, where Static brutes come up during the fight.
-- The edges are solid: a parapet, and the city far below.
+- The edges are solid: a parapet, and the city far below
+  (`surroundings/overpass_below.lua`, the deepest of the three, 0.25 the
+  size), with neighbouring skyscrapers' tops round it at 0.55 (`towers`:
+  plant rooms, a helipad on some, red lights blinking at their corners, a
+  neon sign on some). Halcyon Tower's glass shows them too.
 
 **The end:** when VEX gets away, a HOME star comes up on the helipad.
 
