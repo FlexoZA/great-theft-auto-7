@@ -126,7 +126,8 @@ Story.troops = {
 }
 
 --- The objective line for map `name`, given whether someone has the Shard,
---- whether the level is done and whether a boss is still up. Returns the
+--- whether the level is done and which bosses are still up (a name, or
+--- names: "Kilowatt and Saye"), nil for none. Returns the
 --- text and where it points (x, y in world px, for the distance), from `map`.
 function Story.objective(name, map, shard, done, boss)
   if done then
@@ -147,7 +148,7 @@ function Story.objective(name, map, shard, done, boss)
   elseif name == "tower" then
     return "Objective: climb to the executive lift", map.exitX, map.exitY
   elseif name == "roof" and boss then
-    return "Objective: take down Kilowatt"
+    return "Objective: take down " .. boss
   elseif name == "roof" then
     return "Objective: get to the helipad", map.exitX, map.exitY
   end

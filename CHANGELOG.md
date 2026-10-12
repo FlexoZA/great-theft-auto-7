@@ -105,6 +105,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   he marks on the floor, hops and slams a ring of shock out round him, whips lightning through you and whoever is
   next to you, and punches up close. Every few moves he vents, cage open and steaming: hits count double then. At
   half health he gets faster and meaner. The Roof isn't done until he is down.
+- Director Saye joins Kilowatt on the Roof: Halcyon's boss fights at range. A thin magenta line marks her pistol
+  shot for a second before one heavy round goes down it (step off the line), three executive drones orbit her and
+  shoot (shot down, she calls more), and she drops sentry turrets and walks away from them. At half health her skin
+  cracks: the line comes faster and she fires two at once in a V. The Roof isn't done until both bosses are down,
+  and their two bars sit one over the other.
 - Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
   the reception, cutting off the lobby's lift music.
 

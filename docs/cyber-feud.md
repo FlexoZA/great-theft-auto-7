@@ -56,6 +56,24 @@ branch off `feature/cyber-feud`):
   40 koins and two pickups. Only players' rounds reach him. While he is up
   the Roof isn't done (the helipad doesn't finish it) and the objective
   line says to take him down.
+- Director Saye, the Roof's second boss (`feature/cyber-feud-saye`,
+  `src/features/cyber-feud/saye.lua` and `saye_brain.lua`,
+  `map.bosses.saye` in `buildRoof`, by the billboard; SYE_ messages): wakes
+  with the roof. 2000 health for one human. She never runs: walks at 70
+  px/s (95 in phase 2; 38 winded), keeping 420 px from whoever she sees.
+  Sightline: every 3.2 s she holds still with a thin magenta line on where
+  they stood for 1 s (brighter for its last moment), then one 45-damage
+  round at 1800 px/s down it. Executive drones: three orbiting her at 50
+  px, each firing bursts of two (5 a round) every 1.7 s at the nearest
+  player in sight within 520 px; 30 health each, only players' rounds;
+  lost ones come back 12 s later ("Drones. Re-onboard."). Restructuring:
+  every 14 s (25 breath, at most three up) she drops a sentry turret
+  where she stands, sweeping all the way round (`Turrets.serverJoin`), and
+  walks off from it. Phase 2 at half health: the line holds 0.5 s, comes
+  every 2.4 s and fires two in a V (0.16 rad either side). The bosses'
+  standard as Kilowatt's. The boss bar takes a `row` (bosses/bar.lua):
+  hers sits over his while he is up. The Roof needs both down, and the
+  objective line names whoever is still up.
 - Halcyon Tower's theme (`src/features/cyber-feud/theme_tower.lua`,
   `feature/cyber-feud-tower-theme`): industrial groove metal, 132 BPM in
   C# minor, ~60 s, looping from the moment the tower wakes (CF_WAKE, a

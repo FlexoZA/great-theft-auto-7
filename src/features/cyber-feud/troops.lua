@@ -52,8 +52,8 @@
 -- back and lob EMPs; Halcyon's watcher drones (watchers.lua) fly over
 -- the stalls and call officers to whoever they see.
 --
--- On the Roof the factions' bosses (kilowatt.lua, his own brain) wait on
--- the helipad for the roof to wake.
+-- On the Roof the factions' bosses (kilowatt.lua and saye.lua, each their
+-- own brain) wait, on the helipad and by the billboard, for the roof to wake.
 --
 -- In Halcyon Tower its sentry turrets (turrets.lua) sweep the labs and
 -- the security floor; breached, one fights for whoever breached it.
@@ -97,6 +97,7 @@ local Marksmen = require("src.features.cyber-feud.marksmen")
 local Turrets = require("src.features.cyber-feud.turrets")
 local Brutes = require("src.features.cyber-feud.brutes")
 local Kilowatt = require("src.features.cyber-feud.kilowatt")
+local Saye = require("src.features.cyber-feud.saye")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
@@ -330,7 +331,8 @@ function Troops.serverStart(server, map, name, calm)
   Interceptors.serverStart(server, map) -- and its patrol cars, on a driven map
   WarRigs.serverStart(server, map) -- the Static's war-rigs, and Kilowatt riding one
   Stings.serverStart(server, map) -- Halcyon's sting drones over the gantries
-  Kilowatt.serverStart(server, map, nav, calm) -- the Roof's bosses, waiting on the helipad
+  Kilowatt.serverStart(server, map, nav, calm) -- the Roof's bosses: Kilowatt on the helipad...
+  Saye.serverStart(server, map, nav, calm) -- ...and Saye by the billboard
   Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
     return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
       blades or { list = {} }, emps or { list = {} }, fists or { list = {} } }
@@ -470,6 +472,7 @@ function Troops.serverStop(server)
   Turrets.serverStop(server)
   Brutes.serverStop(server)
   Kilowatt.serverStop(server)
+  Saye.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("CF_TROOPS", server.tick)) -- an empty list clears every screen
@@ -494,6 +497,7 @@ function Troops.serverWake()
   Turrets.serverWake()
   Brutes.serverWake()
   Kilowatt.serverWake()
+  Saye.serverWake()
 end
 
 --- Where the sides hold fire on each other (sv.provoked), a round of one
@@ -846,6 +850,7 @@ function Troops.serverStep(server, dt)
   Turrets.serverStep(server, dt)
   Brutes.serverStep(server, dt)
   Kilowatt.serverStep(server, dt)
+  Saye.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
   stepTruce(server)
@@ -904,6 +909,10 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
     hit = Kilowatt.serverShotAt(server, x, y, radius, by, angle, damage)
     byPlayer = hit
   end
+  if not hit then
+    hit = Saye.serverShotAt(server, x, y, radius, by, angle, damage)
+    byPlayer = hit
+  end
   if hit then
     if byPlayer then
       Troops.serverWake()
@@ -927,6 +936,7 @@ function Troops.serverFreezeArea(x, y, radius, seconds)
   Turrets.serverFreezeArea(x, y, radius, seconds)
   Brutes.serverFreezeArea(x, y, radius, seconds)
   Kilowatt.serverFreezeArea(x, y, radius, seconds)
+  Saye.serverFreezeArea(x, y, radius, seconds)
 end
 
 function Troops.serverPanicArea(x, y, radius)
@@ -1023,6 +1033,7 @@ function Troops.clear()
   Turrets.clear()
   Brutes.clear()
   Kilowatt.clear()
+  Saye.clear()
 end
 
 --- The map's nests (cyber_feud.lua), as drawn.
@@ -1052,6 +1063,7 @@ function Troops.update(dt)
   Stings.update(dt)
   Marksmen.update(dt)
   Kilowatt.update(dt)
+  Saye.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -1158,6 +1170,7 @@ function Troops.drawAboveCars()
   Turrets.drawAboveCars()
   Brutes.drawAboveCars()
   Kilowatt.drawAboveCars()
+  Saye.drawAboveCars()
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1182,6 +1195,7 @@ function Troops.drawNightLights(glow)
   Turrets.drawNightLights(glow)
   Brutes.drawNightLights(glow)
   Kilowatt.drawNightLights(glow)
+  Saye.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1295,6 +1309,9 @@ for kind, handler in pairs(Brutes.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Kilowatt.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Saye.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 

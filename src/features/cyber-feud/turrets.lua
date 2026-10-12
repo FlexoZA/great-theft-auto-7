@@ -1,6 +1,7 @@
 -- Halcyon's sentry turrets (docs/cyber-feud.md, "Halcyon"): grey tripods
 -- with a magenta lens, bolted down in Halcyon Tower's labs and on its
--- security floor (the map's `turrets`). troops.lua starts, steps and stops
+-- security floor (the map's `turrets`), and dropped by Saye on the Roof
+-- (`serverJoin`). troops.lua starts, steps and stops
 -- them with the rest of Halcyon and passes rounds on to them; init.lua
 -- passes on the breach and the prompt. Their heads are turret_brain.lua.
 --
@@ -94,16 +95,25 @@ end
 --- lists a breached one goes for. Returns the brain, or nil on a map without them.
 function Turrets.serverStart(server, map, calm, rivals)
   Turrets.serverStop(server)
-  if not map.turrets then
-    return nil
+  if not (map.turrets or map.bosses) then
+    return nil -- (the Roof has none to start with: Saye drops hers, `serverJoin`)
   end
   local brain = Brain.new({ health = Turrets.health, fire = fire, firstId = Turrets.firstId, calm = calm,
     rivals = rivals })
-  for _, p in ipairs(map.turrets) do
+  for _, p in ipairs(map.turrets or {}) do
     brain:add(p.x, p.y, p.watch, p.arc)
   end
   sv = { brain = brain, work = {}, syncIn = 0, emptySends = 0 }
   return brain
+end
+
+--- One more, bolted down at (x, y) watching `watch` over `arc` (Saye's
+--- "restructuring"). Returns it, or nil when there are no turrets here.
+function Turrets.serverJoin(x, y, watch, arc)
+  if not sv then
+    return nil
+  end
+  return sv.brain:add(x, y, watch, arc)
 end
 
 function Turrets.serverWake()
