@@ -209,6 +209,29 @@ branch off `feature/eternal-mood`):
   side streets: SOFA SALE!, HECK: NOW HIRING, MIND THE LAVA. It plays Fobos
   Base's theme for now. No Cyberdaemon yet: the gate is open.
 
+- `feature/eternal-mood-cacodaemon`: the Cacodaemon, the first of the
+  heavy demons, not a boss (`eternal-mood/cacodaemon_brain.lua`, in
+  horde.lua, kind `c` on the wire; the map's `horde.cacos`, flocks of
+  `count` for one human, Bosses.plus). A floating red ball with lumps on
+  its hide, bone horns round the back, one green eye and a mouth of teeth
+  across its front, drawn over everyone a little above its shadow. 220
+  health, 26 px across for hits. It floats, so it flies straight over
+  walls, roofs and lava (70 px/s, kept in the map); it hangs about its spot
+  until a player comes within its `wake` px, is seen across open ground
+  within 700 px, or it is hurt, and its flock comes with it ("GRAAAWRBLE!",
+  a deep wet roar). It circles its target 200-400 px off, making for open
+  ground, and every 2.6-3.8 s, with a clear line within 640 px, opens its
+  mouth for 0.5 s (the tell: the mouth gapes, fire welling up in it, the
+  eye wide) and spits a ball of fire at where you stand (fireballs.lua's
+  "spit": 260 px/s, 14 px, 24 `fire`). Shot with its mouth open it takes
+  1.5 times the damage, squeals and reels back spinning for 0.9 s without
+  spitting. Within 24 px of its edge it bites: the mouth opens for 0.3 s,
+  then 30 `melee` (every 1.2 s). Down, it bursts flat on the ground, its
+  eye shut, its tongue out; 8 koins, `serverKill` "demon". Nine on Heck on
+  Earth: one over the Suburbs' houses, three Downtown, two over the
+  Crater's lava, two over the Boulevard's towers. Over a roof it can't be
+  shot (rounds stop at walls) but can't spit either.
+
 ## Decisions
 
 | Question | Decision |

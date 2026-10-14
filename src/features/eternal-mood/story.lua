@@ -25,7 +25,8 @@ Story.lines = {
 --   cover  one of the guards ducking into cover
 --   grenade  one throwing a grenade
 --   sweep  the first of the guards going out to look where the shooting came from
--- The possessed and the interns say the words; the imps mostly growl.
+-- The possessed and the interns say the words; the imps mostly growl, the
+-- Cacodaemons roar.
 Story.horde = {
   possessed = {
     idle = {
@@ -62,6 +63,10 @@ Story.horde = {
     idle = { "Hungry...", "Grrrr...", "Smells like marine." },
     alert = { "MEAT!", "Who ordered the space marine?", "Heck yeah!", "SKREEEE!" },
     down = { "Skrk!" },
+  },
+  caco = {
+    alert = { "GRAAAWRBLE!", "MEAT! FLOATING MEAT!", "Open wide...", "BLRRRAAAGH!" },
+    down = { "Pfffffft...", "Blorp." },
   },
 }
 
