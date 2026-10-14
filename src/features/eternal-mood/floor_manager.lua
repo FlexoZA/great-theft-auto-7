@@ -176,11 +176,12 @@ end
 
 local sv = nil -- { m, spec, awake, syncIn, down }
 
---- Him on `map`'s lift (its `horde.boss`), finding his way on `nav`. Nothing on a map without him.
+--- Him on `map`'s lift (its `horde.boss` of kind "floor-manager"), finding his way on `nav`. Nothing on a
+--- map without him.
 function FloorManager.serverStart(server, map, nav)
   FloorManager.serverStop(server)
   local spec = map.horde and map.horde.boss
-  if not spec then
+  if not (spec and spec.kind == "floor-manager") then
     return
   end
   sv = { m = FloorManager.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(FloorManager.HEALTH, server),

@@ -1630,7 +1630,14 @@ the one with a plot.
   that floats over walls, spits balls of fire after a mouth-open tell and
   reels when shot in the mouth; fireballs.lua's "spit"). Past
   its edge the city burns on (surroundings' `heck_on_earth.lua`). Its boss,
-  the Cyberdaemon, and the next three maps follow.
+  the Mancouchbus (`mancubus.lua`, `mancubus_brain.lua`, `mancubus_look.lua`,
+  MC_ messages; the map's `horde.boss` with `kind` "mancubus", where the
+  Floor Manager's is "floor-manager"), sits on tank treads in front of the
+  starport's gate and keeps it closed (`serverLocked`) until he is down:
+  rockets from two launchers (the weapons feature's, ownerless, from the
+  horde) in volleys and sweeping fans, a belly bump, Cacodaemons called in
+  (horde.lua's `serverCall` "caco"), double damage in his back. The next
+  three maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
