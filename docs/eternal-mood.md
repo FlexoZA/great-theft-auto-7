@@ -189,6 +189,26 @@ branch off `feature/eternal-mood`):
   legs sprawled flat, the hull dark, the dome smashed to shards round its
   rim, smoke going up.
 
+- `feature/eternal-mood-earth`: Heck on Earth (`earth`, 40x160, on foot,
+  `city-map/eternal_mood.lua`'s `buildEarth`), quest `eternal-mood-earth`
+  (introLine 2) behind Fobos Base's lift (EXIT star "HECK ON EARTH"), its
+  HOME star by the shuttle, and the burning city past its edge
+  (surroundings' `heck_on_earth.lua`). The Depot, the Suburbs, Downtown, the
+  Crater and the Boulevard as above, the starport's gate finishing the level
+  (and, for now, going home). Floors per patch (`map.grounds`: asphalt with
+  lane markings and zebra crossings, sidewalk slabs, dead lawns, cracked
+  road) and roofs per building (`map.roofs`: pitched houses, flat tower
+  roofs with air-con and water tanks, the fallen overpass, ruins, dead
+  hedges), in the same red dark (its own ambient). Lit by street lamps
+  (some dead, some on the blink), fires on burning roofs, wrecks and the
+  side streets' barricades (flames that dance and never go out), and the
+  Crater's lava. The horde from Fobos Base fills it: 38 of the possessed
+  (25 posts, 5 patrols), 12 interns' mobs (69 for one human), imps under
+  six manholes and four cracks round the Crater (an open manhole has its
+  cover thrown aside; a crack is torn open, glowing). Billboards over the
+  side streets: SOFA SALE!, HECK: NOW HIRING, MIND THE LAVA. It plays Fobos
+  Base's theme for now. No Cyberdaemon yet: the gate is open.
+
 ## Decisions
 
 | Question | Decision |
@@ -197,6 +217,7 @@ branch off `feature/eternal-mood`):
 | Who talks you through it? | **Nobody else. Your own inner voice.** Where Cyber Feud has VEX in your earpiece, here it is the hero's thoughts: a gravelly action-movie narrator that keeps slipping into a half-asleep person on a sofa. |
 | How does it end? | **It was all a dream.** You beat the last boss, the screen goes white, an alarm clock is ringing, and you wake up on the sofa. |
 | How long? | **Five maps**, like Cyber Feud and A-Man. |
+| Any driving? | **No.** Every map is walked. Heck on Earth, first planned as a drive, is a long road fought up on foot. |
 | Is the dream hinted? | **Yes, more and more.** Each level leaks a bit more of the real world into the dream (a phone buzzing, a microwave, someone calling your name) until the last boss is the alarm clock. A player who notices gets the joke before the end; one who doesn't still gets it at the end. |
 | Does it tie to Cyber Feud? | **Lightly.** The dream is built out of whatever you did that day: a demon with Kilowatt's reactor, a voice in a vending machine that sounds a lot like VEX. Nothing in the plot needs Cyber Feud played first. |
 | Who's the enemy? | **Heck, and only Heck.** No factions and no infighting, unlike Cyber Feud: the UAC's possessed staff are Heck's lowest rank, and the whole horde works together against you. |
@@ -248,9 +269,10 @@ Each is a bit more dream than the last, the way the levels are.
   Spider Mattressmind, the bigger spider with the chaingun.
 - **The Cyberdaemon** (Heck on Earth). A huge horned demon with a rocket
   launcher for an arm and, where its heart should be, a reactor that looks
-  exactly like Kilowatt's. It stomps down the road to the starport after
-  your truck: a driven boss fight, rockets landing on the road ahead and its
-  feet shaking the screen.
+  exactly like Kilowatt's. It steps out of a burning tower on the Boulevard
+  and stomps up the road to the starport after you, on foot: rockets
+  landing round you, its feet shaking the screen, wrecks and sandbags the
+  only cover.
 - **The Baron of Heck** (The Foundry). A big horned brute with green
   fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
   throws fireballs in pairs, and roars.
@@ -303,7 +325,7 @@ standard), as Cyber Feud's do.
 | **Imp** | Brown, spiky, hunched, orange eyes | 60 | Fireball (`fire`, 14, slow enough to sidestep); a claw up close (`melee`, 10) | The common demon. Comes out of vents and walls, strafes sideways between throws, climbs over low cover. Packs of 3-5. |
 | **Pinky** | A pink muscle with legs and a huge jaw | 160 | Charge and bite (`impact` 30, a shove; `melee` 18) | Braces 0.5 s, then charges in a straight line; into a wall it reels for 1 s. Its front is armoured (rounds from in front do half); its back is soft. In the Foundry's dark some are **Spectres**, a shimmer you only see close. |
 | **Lost Sole** | A flaming boot with teeth, flying | 20 | Dive (`fire`, 12) | Floats in flocks of 3-6, over lava and walls; one at a time picks a target, hangs back for 0.4 s and dives straight at it. One round brings one down. |
-| **Cacodaemon** | A floating red tomato with one green eye and a big mouth | 220 | Spits a ball of fire (`fire`, 24); a bite up close (`melee`, 30) | Slow, flies over walls and lava. Opens its mouth for 0.5 s before it spits (a tell). Shot while its mouth is open it reels. On Earth they float over the road and spit at the truck. |
+| **Cacodaemon** | A floating red tomato with one green eye and a big mouth | 220 | Spits a ball of fire (`fire`, 24); a bite up close (`melee`, 30) | Slow, flies over walls and lava. Opens its mouth for 0.5 s before it spits (a tell). Shot while its mouth is open it reels. On Earth they float over the road and the roofs, spitting down at you. |
 | **The Shoe Rack** | A floating brown ball with a mouth full of shoes | 180 | Spits a Lost Sole every 4 s, at most 3 out | Hangs back, flies. When it dies it spits three at once. Kill it first. |
 | **Heck Knight** | The Baron's brown cousin, horned, 1.4x | 300 | Green fireball (`fire`, 20); a leap (`impact`, 30, lands 0.6 s after a shadow shows where) | Walks at you and leaps when you get far. The Foundry's north half and Heck. |
 | **Revenaunt** | A tall skeleton in a cardigan, a rocket pod on each shoulder | 200 | Two homing rockets (`explosive`, 22 each, turning slowly; dodge round a corner); a punch (`melee`, 20) | Keeps at mid range, firing its rockets in turn every 3 s. The rockets can be shot down. Says something about your posture. |
@@ -357,7 +379,7 @@ boss. Every level, the real world gets louder.
 | # | Map | Play | Boss | What leaks in |
 | --- | --- | --- | --- | --- |
 | 1 | **Fobos Base**: the moon base, red alarms | On foot: get out of the lab and through the base | The Floor Manager | Nothing yet. One line about the "humming" (it's the fridge). |
-| 2 | **Heck on Earth**: a city overrun, the road to the starport | Driven: an armoured truck through demon-filled streets | The Cyberdaemon | The radio plays the TV's adverts. A phone buzzes. |
+| 2 | **Heck on Earth**: a city overrun, the road to the starport | On foot: one long road north, fought up street by street | The Cyberdaemon | The billboards advertise sofas. A phone buzzes. |
 | 3 | **The Foundry**: the UAC's factory, half turned to Heck | On foot | The Baron of Heck | Dr. Seek's speeches turn into a cooking show. Someone calls your name. |
 | 4 | **Heck**: lava, bones, upside-down castles | On foot: down to the Snooze Gate | The Spider Mattressmind | The sky is the sofa's ceiling. A giant pizza box lies in the lava. |
 | 5 | **The Snooze Gate**: the arena | On foot, the arena | The Snoozedemon | It beeps. It beeps louder. You wake up. |
@@ -372,11 +394,13 @@ it in his loader. The Voice is pure action hero here.
 
 ### 2. Heck on Earth
 
-The portal's leaked: Earth is overrun. You drive a UAC armoured truck
-through a burning city to the starport, Pinkies ramming you and Cacodaemons
-floating over the road. The truck's radio is meant to be mission control;
-it keeps playing adverts for sofas. On the last stretch before the starport
-the Cyberdaemon steps out of a burning tower and comes after the truck.
+The portal's leaked: Earth is overrun. The shuttle down from Fobos Base
+lands at a UAC depot at the bottom of the city, and the only way on is the
+road north to the starport, on foot, Pinkies charging out of the side
+streets and Cacodaemons floating over the roofs. The billboards are meant
+to show the evacuation route; half of them advertise sofas. On the last
+stretch before the starport the Cyberdaemon steps out of a burning tower
+and comes up the road after you.
 
 ### 3. The Foundry
 
@@ -414,7 +438,7 @@ scale: the Drop is 64x96, the Market 56x56, the Overpass 32x200, the Roof
 | Map key | Title | Size (tiles) | Played | Quest |
 | --- | --- | --- | --- | --- |
 | `fobos` | Fobos Base | 56x80 | On foot | `eternal-mood` (on the board) |
-| `earth` | Heck on Earth | 36x180 | Driven | `eternal-mood-earth` |
+| `earth` | Heck on Earth | 40x160 | On foot | `eternal-mood-earth` |
 | `foundry` | The Foundry | 56x64 | On foot | `eternal-mood-foundry` |
 | `heck` | Heck | 60x96 | On foot | `eternal-mood-heck` |
 | `snooze` | The Snooze Gate | 40x40 | On foot, the arena | `eternal-mood-snooze` |
@@ -447,8 +471,8 @@ points at the boss.
   Feud's maps have theirs. Each opens in the dream (Fobos Base's on a music
   box) before the riff tears in.
 - Lava is a hazard tile: walk in it and you burn (`fire` damage over time,
-  the damage feature's DoT, like the Winding Road's poison); drive over it
-  and the car burns. Cars and players can't stop on it.
+  the damage feature's DoT, like the Winding Road's poison). Nobody can
+  stand in it for long.
 
 ### 1. Fobos Base (`fobos`, 56x80, on foot)
 
@@ -473,32 +497,40 @@ in it (a surroundings file, `fobos_moon.lua`).
 - **The end:** the hangar lift. The EXIT star, once he's down: "HECK ON
   EARTH".
 
-### 2. Heck on Earth (`earth`, 36x180, driven)
+### 2. Heck on Earth (`earth`, 40x160, on foot)
 
-One long road north through a burning city to the starport, like the
-Overpass but on the ground: a six-lane boulevard with the city's blocks
-solid either side, crossroads every 20 tiles or so where side streets run
-off (blocked a block in with wrecks and fire). Past the edges the city is
-burning (a surroundings file, `heck_on_earth.lua`: towers on fire, smoke,
-a red sky, a portal's glow over the skyline, Cacodaemons drifting over it).
+No driving on this line: every map is walked. Earth is one long road north
+through a burning city to the starport, fought up on foot (about a minute's
+sprint end to end with nobody in the way): a six-lane road with sidewalks,
+the city's buildings solid either side, crossroads where side streets run
+off a block and end at burning barricades. The wrecks in the road (cars,
+vans, buses, a police car) are cover, not vehicles. Past the edges the
+city is burning (a surroundings file, `heck_on_earth.lua`: blocks of roofs,
+a good few on fire, smoke drifting over).
 
-- **Arrival:** the bottom, at a UAC motor pool, everyone behind the wheel of
-  a **UAC Hauler**, lent by the map the way the Overpass lends the Courier
-  (city-map's `loaner` with `issued`): a squat armoured truck in hazard
-  yellow with a cannon on the roof the driver fires. The radio beat (the
-  sofa advert) on pulling out.
-- **The Suburbs:** the first stretch. Houses either side, burning, Pinkies
-  charging out of the side streets to ram you, imps on the rooftops.
-- **Downtown:** the middle stretch. Taller blocks, abandoned cars and buses
-  as obstacles, a collapsed overpass squeezing the road to two lanes,
-  Cacodaemons floating over the road spitting fireballs. A phone buzzes
-  here (the beat).
-- **The Crater:** two thirds of the way up, a portal has opened in the road.
-  The road splits round it, lava in the middle, demons pouring out of it.
-- **The Boulevard:** the last stretch, long, straight and wide, with the
-  starport's gate at the top. The Cyberdaemon steps out of a burning tower
-  at the bottom of it and walks up the road after you: you fight him from
-  the truck, out-driving his rockets and turning to fire.
+- **Arrival:** the bottom, in **the Depot**, the UAC's yard, off the
+  shuttle down from Fobos Base on its landing pad; crates, floodlights, red
+  alarm lamps over the gate out onto the road. HOME star by the shuttle.
+- **The Suburbs:** the first stretch. Houses either side behind front
+  yards, some burning, dead hedges between, a car on the drive or a burnt
+  tree; two crossroads. Possessed neighbours in the yards, a patrol up the
+  road, interns' mobs in the side streets, imps under the manholes; Pinkies
+  charging out of the side streets later.
+- **Downtown:** the middle stretch. Tower blocks flush to the sidewalks,
+  wrecks all over the road, guards behind the bus and the cars across
+  both crossroads, and the overpass that crossed it fallen in: slabs of it
+  over the road, a three-tile gap left in the middle that an overtime guy
+  holds, with a mob in front of it. A phone buzzes here (the beat).
+  Cacodaemons later.
+- **The Crater:** two thirds of the way up, a portal has opened in the road:
+  a pit of lava (solid, glowing, crust drifting on it, embers rising) with
+  the cracked road split either side of it, the blocks round it fallen in.
+  Imps climb out of the cracks round its rim; guards and mobs either side.
+- **The Boulevard:** the last stretch, long, straight and wide, planters of
+  burnt trees down the middle, the UAC's sandbags across it with guards
+  behind them, a tower on fire at the bottom of it. The Cyberdaemon steps
+  out of the burning tower and walks up the road after you (still to come).
+  An overtime guy holds the starport's gate.
 - **The end:** the starport gate. The EXIT star, once he's down: "THE
   FOUNDRY".
 
@@ -589,7 +621,7 @@ the first drafts.
 ### Intro lines (one per level)
 
 1. "They opened a door to Heck. They're about to find out I'm worse."
-2. "Earth. Home. On fire. The truck's got a full tank. So have I."
+2. "Earth. Home. On fire. One road to the starport, and Heck's standing on all of it. Good."
 3. "A factory that melts demons. Somebody's going to melt. Not me."
 4. "Heck. Hot, loud, full of demons. ...Is it hot in here, or is it the blanket?"
 5. "One big demon left. Then I'm going back to... where was I going?"
@@ -603,11 +635,11 @@ the first drafts.
   - The Floor Manager down: "Meeting's over."
   - The end, the lift: "Going up. The demons are going down."
 - **Heck on Earth**
-  - Into the truck: "Mission control on the radio. ...That's an advert for sofas."
+  - The first billboard: "Evacuation route, it says. ...No. That's an advert for sofas."
   - A phone buzzes on the road: "That's not my phone. I don't have a phone. I'm a space marine."
   - The Cyberdaemon steps out: "That's a big one. With a reactor. I've seen that reactor before. Where have I seen it?"
   - The Cyberdaemon down: "Bigger they are. Louder they land."
-  - The end, the starport: "Starport. Last shuttle to the Foundry. I'm driving."
+  - The end, the starport: "Starport. Last shuttle to the Foundry. Window seat."
 - **The Foundry**
   - Dr. Seek's speech goes wrong: "Did he just say 'a pinch of oregano'?"
   - The Baron of Heck wakes: "Big. Horns. Angry. We have so much in common."

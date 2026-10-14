@@ -288,7 +288,7 @@ Quests.list = {
   {
     -- Eternal Mood (docs/eternal-mood.md): the UAC's moon base, and it gets
     -- stranger from there. The eternal-mood feature runs the levels; so far
-    -- Fobos Base is the only one, and its lift goes home.
+    -- Fobos Base and Heck on Earth, and the starport's gate goes home.
     id = "eternal-mood",
     title = "Pest control",
     text = "Moon. Bring a shotgun. The UAC opened a door it shouldn't have, and something came through. "
@@ -300,7 +300,24 @@ Quests.list = {
     color = { 1, 0.45, 0.1 },
     banner = "%s took the pest-control job. Welcome to Fobos Base.",
     introLine = 1,
-    exitText = "The hangar lift goes up and out. That's as far as the job goes for now. Head home.",
+    exitText = "The hangar lift goes up to a shuttle, and the shuttle goes down to Earth. It's worse there.",
+    exitTitle = "Down to Earth",
+    exitLabel = "HECK ON EARTH",
+    next = "eternal-mood-earth",
+  },
+  {
+    -- On foot up the road to the starport: Fobos Base's lift star leads here.
+    id = "eternal-mood-earth",
+    title = "Heck on Earth",
+    text = "The portal leaked. Earth is overrun, and the only way on is the road north through the city to the "
+      .. "starport. On foot.",
+    map = "earth",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came down off the shuttle. Welcome to Heck on Earth.",
+    introLine = 2,
+    exitText = "The starport's gate. The last shuttle out goes to the Foundry, and that's another day. Head home.",
   },
   {
     id = "home",
@@ -478,6 +495,19 @@ Quests.list = {
     onMap = "fobos",
     x = 0, -- by the Lab's consoles: city-map's map.cx, map.cy
     y = 2112,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-earth",
+    title = "Back to the City",
+    text = "Back up the shuttle's ramp. Take everyone home.",
+    onMap = "earth",
+    x = 0, -- by the shuttle in the Depot: city-map's map.cx, map.cy
+    y = 4864,
     map = "city",
     returns = true,
     label = "HOME",

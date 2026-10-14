@@ -775,10 +775,26 @@ function Horde.drawNightLights(glow)
 end
 
 --- The open vents on `map`: a black hole where the grille was, the grille
---- bent back off it. Under everyone.
+--- bent back off it (a manhole's cover thrown aside, a crack torn open).
+--- Under everyone.
 function Horde.drawVents(map)
   for i, v in ipairs(map and map.horde and map.horde.vents or {}) do
-    if opened[i] then
+    if opened[i] and v.look == "crack" then -- a crack in the road, torn wide open, Heck glowing in it
+      love.graphics.setColor(0.08, 0.02, 0.01)
+      love.graphics.ellipse("fill", v.x, v.y, 28, 18, 16)
+      love.graphics.setColor(1, 0.35, 0.05, 0.85)
+      love.graphics.ellipse("fill", v.x, v.y, 16, 7, 12)
+      love.graphics.setColor(1, 0.8, 0.3, 0.9)
+      love.graphics.ellipse("fill", v.x, v.y, 7, 3, 10)
+    elseif opened[i] and v.look == "manhole" then -- the hole, the cover thrown aside
+      love.graphics.setColor(0.05, 0.02, 0.02)
+      love.graphics.circle("fill", v.x, v.y, 20, 20)
+      local lx, ly = v.x + math.cos(v.out + 0.7) * 38, v.y + math.sin(v.out + 0.7) * 38
+      love.graphics.setColor(0.25, 0.16, 0.15)
+      love.graphics.circle("fill", lx, ly, 19, 20)
+      love.graphics.setColor(0.40, 0.28, 0.26)
+      love.graphics.circle("line", lx, ly, 15, 20)
+    elseif opened[i] then
       love.graphics.setColor(0.05, 0.02, 0.02)
       love.graphics.rectangle("fill", v.x - 22, v.y - 16, 44, 32, 4)
       love.graphics.setColor(0.35, 0.10, 0.06, 0.8)

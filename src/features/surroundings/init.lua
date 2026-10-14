@@ -57,6 +57,8 @@
 --
 -- Fobos Base lies on the moon (fobos_moon.lua): grey dust and craters
 -- running on past the base's walls, boulders, and the UAC rovers' tracks.
+-- Heck on Earth's city runs on burning (heck_on_earth.lua): blocks of
+-- roofs between dark streets, fires on a good few, smoke drifting over.
 --
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
@@ -69,6 +71,7 @@ local City17 = require("src.features.surroundings.city17")
 local GreyCity = require("src.features.surroundings.grey_city")
 local OverpassBelow = require("src.features.surroundings.overpass_below")
 local FobosMoon = require("src.features.surroundings.fobos_moon")
+local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1224,6 +1227,10 @@ local DRAW = {
   fobos = function(map, camera)
     FobosMoon.draw(map, view(camera))
   end,
+  earth = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckOnEarth.draw(map, left, top, right, bottom, clock)
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
@@ -1239,6 +1246,7 @@ local LIGHTS = {
   roof = function(map, left, top, right, bottom, t, glow, camera)
     OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
   end,
+  earth = HeckOnEarth.lights,
 }
 
 --- At night (the night feature): what glows past the edge.

@@ -1570,8 +1570,8 @@ the one with a plot.
   point. The factions, the breach and the bosses follow.
 - Eternal Mood: `src/features/eternal-mood` and quests' "eternal-mood"
   job ("Pest control", on the board), design in `docs/eternal-mood.md`.
-  A dream of a 90s demon shooter, played in the dark. So far one map,
-  Fobos Base (`fobos`, walked, 56x80): the UAC's moon base, built by
+  A dream of a 90s demon shooter, played in the dark, every map on foot.
+  So far two maps. Fobos Base (`fobos`, 56x80): the UAC's moon base, built by
   `city-map/eternal_mood.lua` (what it leaves on the map is in its header:
   `exitX, exitY`, `base`, `zones` with an x range and a floor finish each,
   `cover`, `signs`, `lights`, `alarms`) and drawn by
@@ -1616,8 +1616,18 @@ the one with a plot.
   fireballs.lua's "plasma", with a cannon that can be shot off), waits
   on the Hangar's lift until a player walks into the Hangar, and keeps the
   lift locked (`serverLocked`, drawn OUT OF SERVICE) until he is down; he
-  follows the bosses' standard. The Voice, the other bosses and the next
-  four maps follow.
+  follows the bosses' standard. His lift's EXIT star leads on to Heck on
+  Earth (`earth`, 40x160, quest "eternal-mood-earth", "home-earth" by the
+  shuttle): one long road north through a burning city, from the UAC's
+  Depot through the Suburbs, Downtown and round the Crater, up the
+  Boulevard to the starport's gate, which finishes it. The same builder
+  and renderer: it leaves no `base` but `grounds` (a floor finish per
+  walked patch, the last one wins) and `roofs` (a building per box, drawn
+  in its `style`; nil tiles under none are burnt waste ground), wrecks,
+  lamps, fires (`flickers` with `fire`) and the Crater's lava in `cover`,
+  and the same `horde` (its vents with a `look`, manhole or crack). Past
+  its edge the city burns on (surroundings' `heck_on_earth.lua`). Its boss,
+  the Cyberdaemon, and the next three maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

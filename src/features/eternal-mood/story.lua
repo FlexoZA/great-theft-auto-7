@@ -11,7 +11,7 @@ Story.LEVELS = 5
 -- sleepier the further down the dream goes.
 Story.lines = {
   "They opened a door to Heck. They're about to find out I'm worse.",
-  "Earth. Home. On fire. The truck's got a full tank. So have I.",
+  "Earth. Home. On fire. One road to the starport, and Heck's standing on all of it. Good.",
   "A factory that melts demons. Somebody's going to melt. Not me.",
   "Heck. Hot, loud, full of demons. ...Is it hot in here, or is it the blanket?",
   "One big demon left. Then I'm going back to... where was I going?",

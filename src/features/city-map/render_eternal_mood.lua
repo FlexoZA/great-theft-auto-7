@@ -1,7 +1,9 @@
--- Drawing the Eternal Mood quest line's maps (eternal_mood.lua). Fobos Base
--- so far: the UAC's moon base cut through, steel walls, each room's own
--- floor, and outside the base's walls the moon's dust and craters, drawn
--- once into the map canvas (`draw`); and everything standing or lying
+-- Drawing the Eternal Mood quest line's maps (eternal_mood.lua). Fobos Base:
+-- the UAC's moon base cut through, steel walls, each room's own floor, and
+-- outside the base's walls the moon's dust and craters; Heck on Earth: the
+-- city's streets, sidewalks and yards, and the roofs of its buildings (houses,
+-- towers, the fallen overpass), drawn once into the map canvas (`draw`);
+-- and everything standing or lying
 -- about (`map.cover`: hazard stripes across the doorways, desks, the
 -- reactor, tipped-over bins, blood and papers), the posters and the alarm
 -- lamps, drawn every frame at full size by the eternal-mood feature
@@ -38,7 +40,31 @@ local C = {
   blanket = { 0.30, 0.36, 0.52 },
   paper = { 0.92, 0.90, 0.82 },
   shadow = { 0, 0, 0, 0.35 },
+  -- Heck on Earth
+  waste = { 0.22, 0.19, 0.16 }, -- the ground nobody built on, burnt
+  wasteDark = { 0.16, 0.14, 0.12 },
+  roofFlat = { 0.36, 0.36, 0.37 },
+  parapet = { 0.50, 0.50, 0.52 },
+  roofTin = { 0.40, 0.42, 0.44 },
+  concrete = { 0.55, 0.54, 0.52 },
+  concreteDark = { 0.38, 0.37, 0.36 },
+  hedge = { 0.22, 0.25, 0.13 },
+  hedgeDark = { 0.15, 0.17, 0.09 },
+  bark = { 0.16, 0.12, 0.10 },
+  char = { 0.10, 0.08, 0.07 },
+  paint = { 0.82, 0.80, 0.72 },
+  yellowLine = { 0.95, 0.75, 0.15 },
+  tyre = { 0.07, 0.07, 0.08 },
+  windscreen = { 0.12, 0.14, 0.18 },
+  lava = { 1.00, 0.38, 0.04 },
+  lavaHot = { 1.00, 0.80, 0.30 },
+  crust = { 0.22, 0.07, 0.04 },
 }
+
+-- Roofs and car paint, picked by seed.
+local ROOF_TILES = { { 0.48, 0.22, 0.17 }, { 0.32, 0.30, 0.33 }, { 0.42, 0.32, 0.22 } }
+local PAINT = { { 0.55, 0.12, 0.10 }, { 0.20, 0.30, 0.50 }, { 0.70, 0.68, 0.62 }, { 0.15, 0.15, 0.17 },
+  { 0.35, 0.45, 0.30 }, { 0.75, 0.55, 0.15 } }
 
 -- Each room's floor (eternal_mood.lua's `floor`): a base, a second colour,
 -- and the pattern they make.
@@ -50,12 +76,18 @@ local FLOORS = {
   grate = { { 0.18, 0.20, 0.22 }, { 0.30, 0.32, 0.35 }, "grate" },
   concrete = { { 0.44, 0.43, 0.38 }, { 0.38, 0.37, 0.32 }, "concrete" },
   hangar = { { 0.36, 0.37, 0.39 }, { 0.31, 0.32, 0.34 }, "concrete" },
+  -- Heck on Earth's (eternal_mood.lua's `map.grounds`)
+  asphalt = { { 0.22, 0.22, 0.24 }, { 0.17, 0.17, 0.19 }, "asphalt" },
+  sidewalk = { { 0.50, 0.49, 0.46 }, { 0.40, 0.39, 0.36 }, "slabs" },
+  lawn = { { 0.30, 0.27, 0.15 }, { 0.21, 0.19, 0.10 }, "lawn" },
+  cracked = { { 0.21, 0.20, 0.20 }, { 0.09, 0.07, 0.07 }, "cracked" },
 }
 
 -- Everything in this universe is evil: every colour above gets a red cast
 -- (more red, less green and blue), but for the sludge, which stays sick
 -- green, and the colours already set red by hand.
-local KEEP = { sludge = true, sludgeLight = true, green = true, glass = true, red = true, hazard = true }
+local KEEP = { sludge = true, sludgeLight = true, green = true, glass = true, red = true, hazard = true,
+  lava = true, lavaHot = true, crust = true, yellowLine = true }
 local function evil(c)
   return { math.min(1, c[1] * 1.10 + 0.05), c[2] * 0.70, c[3] * 0.62, c[4] }
 end
@@ -66,6 +98,11 @@ for k, c in pairs(C) do
 end
 for _, f in pairs(FLOORS) do
   f[1], f[2] = evil(f[1]), evil(f[2])
+end
+for _, list in ipairs({ ROOF_TILES, PAINT }) do
+  for i, c in ipairs(list) do
+    list[i] = evil(c)
+  end
 end
 
 local function color(c, a)
@@ -126,6 +163,31 @@ local function floorTile(f, x, y, T, h)
     color(C.wallSeam)
     love.graphics.rectangle("fill", x, y, T, 2)
     love.graphics.rectangle("fill", x, y, 2, T)
+  elseif kind == "asphalt" or kind == "cracked" then
+    for k = 0, 7 do -- grit
+      local hx, hy = hash(x * 0.11 + k * 1.3), hash(y * 0.19 + k * 2.7)
+      love.graphics.rectangle("fill", x + hx * (T - 3), y + hy * (T - 3), 3, 3)
+    end
+    if kind == "cracked" or h > 0.9 then -- cracks running across it
+      love.graphics.setLineWidth(kind == "cracked" and 3 or 2)
+      local px, py = x + hash(h * 31) * T, y
+      for k = 1, 4 do
+        local nx, ny = x + hash(h * 17 + k) * T, y + k * T / 4
+        love.graphics.line(px, py, nx, ny)
+        px, py = nx, ny
+      end
+      love.graphics.setLineWidth(1)
+    end
+  elseif kind == "slabs" then
+    love.graphics.rectangle("fill", x, y, T, 2)
+    love.graphics.rectangle("fill", x, y + T / 2, T, 2)
+    love.graphics.rectangle("fill", x + ((r % 2) * T / 2), y, 2, T / 2)
+    love.graphics.rectangle("fill", x + ((r + 1) % 2 * T / 2), y + T / 2, 2, T / 2)
+  elseif kind == "lawn" then
+    for k = 0, 9 do -- dead tufts
+      local hx, hy = hash(x * 0.07 + k * 3.3), hash(y * 0.13 + k * 1.9)
+      love.graphics.rectangle("fill", x + hx * (T - 6), y + hy * (T - 6), 6, 3)
+    end
   elseif kind == "grate" then
     for k = 4, T - 4, 8 do
       love.graphics.rectangle("fill", x + k, y + 2, 3, T - 4)
@@ -220,6 +282,243 @@ local function drawGround(map, T)
         love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, 12)
       end
     end
+  end
+end
+
+-- Heck on Earth's ground ---------------------------------------------------------
+
+--- The finish over (x, y): the last of `map.grounds` there.
+local function groundAt(map, x, y)
+  local list = map.grounds
+  for i = #list, 1, -1 do
+    local z = list[i]
+    if x >= z.x0 and x < z.x1 and y >= z.y0 and y < z.y1 then
+      return z
+    end
+  end
+  return nil
+end
+
+--- Burnt ground nobody built on, between the buildings.
+local function wasteTile(x, y, T, h)
+  color(h < 0.5 and C.waste or C.wasteDark)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(C.concreteDark)
+  for k = 0, 3 do
+    love.graphics.rectangle("fill", x + hash(h * 13 + k) * (T - 8), y + hash(h * 29 + k) * (T - 8), 8, 5)
+  end
+end
+
+-- The buildings' roofs, by style (eternal_mood.lua's `map.roofs`).
+local ROOFS = {}
+
+--- A house: a pitched roof, ridge across its long side, a chimney; holes
+--- burnt through it if it's on fire.
+function ROOFS.house(b)
+  local tile = ROOF_TILES[b.seed % #ROOF_TILES + 1]
+  local x, y, w, h = b.x + 6, b.y + 6, b.w - 12, b.h - 12
+  color(C.char)
+  love.graphics.rectangle("fill", x - 4, y - 4, w + 8, h + 8)
+  local alongX = (b.seed % 2 == 0)
+  color(tile)
+  love.graphics.rectangle("fill", x, y, w, h)
+  love.graphics.setColor(0, 0, 0, 0.25) -- the side away from the light
+  if alongX then
+    love.graphics.rectangle("fill", x, y + h / 2, w, h / 2)
+  else
+    love.graphics.rectangle("fill", x + w / 2, y, w / 2, h)
+  end
+  love.graphics.setColor(0, 0, 0, 0.18) -- rows of tiles
+  if alongX then
+    for ty = y + 10, y + h - 4, 12 do
+      love.graphics.rectangle("fill", x, ty, w, 2)
+    end
+  else
+    for tx = x + 10, x + w - 4, 12 do
+      love.graphics.rectangle("fill", tx, y, 2, h)
+    end
+  end
+  color(C.char)
+  if alongX then
+    love.graphics.rectangle("fill", x, y + h / 2 - 3, w, 6) -- the ridge
+  else
+    love.graphics.rectangle("fill", x + w / 2 - 3, y, 6, h)
+  end
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", x + w * 0.7, y + h * 0.18, 22, 22) -- the chimney
+  if b.burning then
+    for k = 0, 2 do
+      color(C.char)
+      local hx, hy = x + w * (0.2 + hash(b.seed + k) * 0.6), y + h * (0.2 + hash(b.seed * 3 + k) * 0.6)
+      love.graphics.ellipse("fill", hx, hy, 26 + k * 6, 20 + k * 4, 12)
+    end
+  end
+end
+
+--- A tower block: a flat roof behind a parapet, air-con units, a water
+--- tank and a hatch; scorched if it's on fire.
+function ROOFS.tower(b)
+  color(C.parapet)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  color(C.roofFlat)
+  love.graphics.rectangle("fill", b.x + 10, b.y + 10, b.w - 20, b.h - 20)
+  color(C.concreteDark)
+  for k = 0, 40 do -- gravel
+    local gx, gy = b.x + 12 + hash(b.seed + k) * (b.w - 28), b.y + 12 + hash(b.seed * 2 + k) * (b.h - 28)
+    love.graphics.rectangle("fill", gx, gy, 4, 4)
+  end
+  for k = 0, 2 + b.seed % 3 do -- air-con units
+    local ux, uy = b.x + 30 + hash(b.seed * 5 + k) * (b.w - 110), b.y + 30 + hash(b.seed * 7 + k) * (b.h - 100)
+    color(C.shadow)
+    love.graphics.rectangle("fill", ux + 6, uy + 6, 56, 40)
+    color(C.steel)
+    love.graphics.rectangle("fill", ux, uy, 56, 40)
+    color(C.steelDark)
+    love.graphics.circle("fill", ux + 28, uy + 20, 14, 12)
+  end
+  local tx, ty = b.x + b.w * (0.25 + hash(b.seed * 11) * 0.5), b.y + b.h * (0.25 + hash(b.seed * 13) * 0.5)
+  color(C.shadow)
+  love.graphics.circle("fill", tx + 8, ty + 8, 30, 20)
+  color(C.wood)
+  love.graphics.circle("fill", tx, ty, 30, 20) -- the water tank
+  color(C.crateDark)
+  love.graphics.circle("line", tx, ty, 24, 20)
+  if b.burning then
+    for k = 0, 3 do
+      love.graphics.setColor(0.04, 0.03, 0.02, 0.6)
+      love.graphics.circle("fill", b.x + b.w * hash(b.seed + k * 9), b.y + b.h * hash(b.seed * 4 + k), 50 + k * 10, 16)
+    end
+  end
+end
+
+--- A warehouse: a tin roof, corrugated, skylights down the middle.
+function ROOFS.warehouse(b)
+  color(C.roofTin)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  color(C.steelDark)
+  if b.w >= b.h then
+    for x = b.x + 8, b.x + b.w, 16 do
+      love.graphics.rectangle("fill", x, b.y, 4, b.h)
+    end
+  else
+    for y = b.y + 8, b.y + b.h, 16 do
+      love.graphics.rectangle("fill", b.x, y, b.w, 4)
+    end
+  end
+  color(C.black)
+  love.graphics.rectangle("line", b.x + 2, b.y + 2, b.w - 4, b.h - 4)
+end
+
+--- What's left of a building that fell into the Crater: broken slabs over
+--- the dark of the floors below, girders sticking out.
+function ROOFS.ruin(b)
+  color(C.char)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  for k = 0, math.floor(b.w * b.h / 9000) do
+    local px, py = b.x + hash(b.seed + k * 3) * b.w, b.y + hash(b.seed * 7 + k) * b.h
+    local s = 30 + hash(k + b.seed) * 50
+    color(k % 2 == 0 and C.concreteDark or C.roofFlat)
+    love.graphics.polygon("fill", px - s, py - s * 0.4, px + s * 0.6, py - s * 0.7, px + s, py + s * 0.5,
+      px - s * 0.3, py + s * 0.8)
+  end
+  color(C.steelDark)
+  love.graphics.setLineWidth(5)
+  for k = 0, math.floor(b.h / 200) do
+    local py = b.y + hash(b.seed * 5 + k) * b.h
+    love.graphics.line(b.x + 10, py, b.x + b.w * (0.4 + hash(k) * 0.5), py + 20)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- The overpass that crossed Downtown, standing on its pillars as far as
+--- the road, and broken off there.
+function ROOFS.overpass(b)
+  color(C.wasteDark)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  local mid = b.x + b.w / 2
+  local towardsRoad = mid < 0 and 1 or -1 -- the road's the middle of the map
+  local y0, y1 = b.y + 14, b.y + b.h - 14
+  color(C.concrete)
+  love.graphics.rectangle("fill", b.x, y0, b.w, y1 - y0)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", b.x, y0, b.w, 8) -- the railings
+  love.graphics.rectangle("fill", b.x, y1 - 8, b.w, 8)
+  color(C.paint)
+  for x = b.x + 16, b.x + b.w - 40, 72 do
+    love.graphics.rectangle("fill", x, (y0 + y1) / 2 - 2, 40, 4)
+  end
+  -- The broken end: jagged, rebar hanging off it.
+  local ex = towardsRoad > 0 and b.x + b.w or b.x
+  color(C.wasteDark)
+  local pts = {}
+  for k = 0, 6 do
+    local py = y0 + (y1 - y0) * k / 6
+    pts[#pts + 1] = ex - towardsRoad * (8 + hash(b.seed + k) * 40)
+    pts[#pts + 1] = py
+  end
+  pts[#pts + 1], pts[#pts + 2] = ex, y1
+  pts[#pts + 1], pts[#pts + 2] = ex, y0
+  love.graphics.polygon("fill", pts)
+  color(C.steelDark)
+  for k = 0, 5 do
+    local py = y0 + 10 + k * (y1 - y0 - 20) / 5
+    love.graphics.line(ex - towardsRoad * 30, py, ex + towardsRoad * 6, py + 6)
+  end
+end
+
+--- A hedge between two yards, dead.
+function ROOFS.hedge(b)
+  color(C.waste)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  for x = b.x + 14, b.x + b.w - 10, 22 do
+    local r = 14 + hash(x * 0.3) * 6
+    color(C.hedgeDark)
+    love.graphics.circle("fill", x + 3, b.y + b.h / 2 + 4, r, 10)
+    color(C.hedge)
+    love.graphics.circle("fill", x, b.y + b.h / 2, r - 3, 10)
+  end
+end
+
+--- The starport's terminal past the gate: a long roof, a hazard edge.
+function ROOFS.starport(b)
+  color(C.roofTin)
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
+  color(C.steelDark)
+  for x = b.x + 64, b.x + b.w, 128 do
+    love.graphics.rectangle("fill", x, b.y, 6, b.h)
+  end
+  color(C.hazard)
+  love.graphics.rectangle("fill", b.x, b.y + b.h - 16, b.w, 16)
+  color(C.black)
+  for x = b.x, b.x + b.w, 32 do
+    love.graphics.rectangle("fill", x, b.y + b.h - 16, 16, 16)
+  end
+end
+
+--- The city's ground: every walked tile in its finish, burnt ground
+--- elsewhere, the buildings' shadows, and their roofs over it.
+local function drawCity(map, T)
+  for c = map.c0, map.c1 do
+    local col = map.tiles[c]
+    for r = map.r0, map.r1 do
+      local x, y = map.x0 + c * T, map.y0 + r * T
+      local h = hash(c * 7.1 + r * 13.7)
+      if col and col[r] then
+        local z = groundAt(map, x + 1, y + 1)
+        floorTile(FLOORS[z and z.floor or "asphalt"], x, y, T, h)
+      else
+        wasteTile(x, y, T, h)
+      end
+    end
+  end
+  color(C.shadow)
+  for _, b in ipairs(map.roofs) do
+    if b.style ~= "hedge" then
+      love.graphics.rectangle("fill", b.x + 12, b.y + 16, b.w, b.h)
+    end
+  end
+  for _, b in ipairs(map.roofs) do
+    ROOFS[b.style](b)
   end
 end
 
@@ -717,6 +1016,409 @@ function DRAW.paint(s)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
 end
 
+-- Heck on Earth's props ----------------------------------------------------------
+
+--- Lane markings down a stretch of road: dashes between the lanes, a double
+--- yellow line down the middle unless it's `oneway`.
+function DRAW.lanes(s)
+  local n = s.oneway and 3 or 6
+  for k = 1, n - 1 do
+    local x = s.x + s.w * k / n
+    if not s.oneway and k == n / 2 then
+      color(C.yellowLine, 0.7)
+      love.graphics.rectangle("fill", x - 6, s.y, 4, s.h)
+      love.graphics.rectangle("fill", x + 2, s.y, 4, s.h)
+    else
+      color(C.paint, 0.55)
+      for y = s.y + 16, s.y + s.h - 40, 112 do
+        love.graphics.rectangle("fill", x - 2, y, 4, 56)
+      end
+    end
+  end
+end
+
+--- A zebra crossing over the road.
+function DRAW.zebra(s)
+  color(C.paint, 0.6)
+  for x = s.x + 8, s.x + s.w - 24, 40 do
+    love.graphics.rectangle("fill", x, s.y, 20, s.h)
+  end
+end
+
+--- Flames: a bed of embers and tongues of fire licking up and dying, each
+--- on its own beat, added so they brighten what's under them.
+function DRAW.fire(s, t)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  love.graphics.setColor(0.08, 0.03, 0.02, 0.5)
+  love.graphics.circle("fill", cx, cy, r * 0.9, 16)
+  love.graphics.setBlendMode("add")
+  for k = 0, 7 do
+    local phase = (t * (1.3 + hash(s.seed + k) * 0.9) + hash(s.seed * 3 + k)) % 1
+    local a = hash(s.seed * 5 + k) * 2 * math.pi
+    local d = r * 0.45 * hash(s.seed * 7 + k)
+    local fx, fy = cx + math.cos(a) * d, cy + math.sin(a) * d - phase * r * 0.5 -- rising
+    local size = r * (0.55 - phase * 0.4)
+    love.graphics.setColor(1, 0.35 + 0.3 * (1 - phase), 0.06, 0.55 * (1 - phase))
+    love.graphics.ellipse("fill", fx, fy, size * 0.7, size, 10)
+    love.graphics.setColor(1, 0.85, 0.4, 0.35 * (1 - phase))
+    love.graphics.ellipse("fill", fx, fy + size * 0.2, size * 0.3, size * 0.45, 8)
+  end
+  love.graphics.setBlendMode("alpha")
+end
+
+--- A wreck, drawn nose up in its own frame (turned for one `across`), a
+--- little skewed.
+local function vehicle(s, draw)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate((s.across and math.pi / 2 or 0) + (s.tilt or 0))
+  local w, h = s.w, s.h
+  if s.across then
+    w, h = h, w
+  end
+  color(C.shadow)
+  love.graphics.rectangle("fill", -w / 2 + 6, -h / 2 + 8, w, h, 10)
+  draw(w, h)
+  love.graphics.pop()
+end
+
+local function wheels(w, h)
+  color(C.tyre)
+  for _, y in ipairs({ -h * 0.32, h * 0.28 }) do
+    love.graphics.rectangle("fill", -w / 2 - 3, y - 10, 8, 20, 2)
+    love.graphics.rectangle("fill", w / 2 - 5, y - 10, 8, 20, 2)
+  end
+end
+
+--- A car left in the road: its paint (or the police's black and white), a
+--- windscreen, the roof; burnt to the metal if it burned.
+function DRAW.car(s)
+  vehicle(s, function(w, h)
+    wheels(w, h)
+    local paint = s.police and C.white or PAINT[s.seed % #PAINT + 1]
+    color(s.burning and C.char or paint)
+    love.graphics.rectangle("fill", -w / 2, -h / 2, w, h, 12)
+    if s.police and not s.burning then
+      color(C.black)
+      love.graphics.rectangle("fill", -w / 2, -h * 0.1, w, h * 0.35)
+    end
+    color(C.windscreen)
+    love.graphics.rectangle("fill", -w / 2 + 6, -h * 0.28, w - 12, 18, 3) -- the windscreen
+    love.graphics.rectangle("fill", -w / 2 + 7, h * 0.22, w - 14, 12, 3) -- the back window
+    color(s.burning and C.wasteDark or paint)
+    love.graphics.rectangle("fill", -w / 2 + 6, -h * 0.28 + 20, w - 12, h * 0.46, 4) -- the roof
+    love.graphics.setColor(0, 0, 0, 0.2)
+    love.graphics.rectangle("fill", -w / 2 + 6, -h * 0.28 + 20, (w - 12) / 2, h * 0.46, 4)
+    if s.police then
+      color(C.red)
+      love.graphics.rectangle("fill", -w / 2 + 10, -4, w - 20, 8) -- the light bar
+    end
+    if not s.burning then
+      color(C.paint, 0.8)
+      love.graphics.polygon("fill", -6, -h * 0.28 + 2, 4, -h * 0.28 + 6, -2, -h * 0.28 + 14) -- a crack in the glass
+    end
+  end)
+end
+
+--- A van: boxier, a long flat roof.
+function DRAW.van(s)
+  vehicle(s, function(w, h)
+    wheels(w, h)
+    color(s.burning and C.char or PAINT[s.seed % #PAINT + 1])
+    love.graphics.rectangle("fill", -w / 2, -h / 2, w, h, 6)
+    color(C.windscreen)
+    love.graphics.rectangle("fill", -w / 2 + 6, -h / 2 + 10, w - 12, 16, 3)
+    love.graphics.setColor(0, 0, 0, 0.18)
+    love.graphics.rectangle("fill", -w / 2 + 6, -h / 2 + 34, w - 12, h - 44, 3)
+  end)
+end
+
+--- A bus: long, its roof vents in a row, a strip of windows down each side.
+function DRAW.bus(s)
+  vehicle(s, function(w, h)
+    color(C.tyre)
+    for _, y in ipairs({ -h * 0.36, h * 0.3 }) do
+      love.graphics.rectangle("fill", -w / 2 - 3, y - 12, 8, 24, 2)
+      love.graphics.rectangle("fill", w / 2 - 5, y - 12, 8, 24, 2)
+    end
+    color(s.burning and C.char or C.hazard)
+    love.graphics.rectangle("fill", -w / 2, -h / 2, w, h, 8)
+    color(C.windscreen)
+    love.graphics.rectangle("fill", -w / 2 + 4, -h / 2 + 4, w - 8, 14, 3)
+    love.graphics.rectangle("fill", -w / 2 + 2, -h / 2 + 24, 6, h - 40)
+    love.graphics.rectangle("fill", w / 2 - 8, -h / 2 + 24, 6, h - 40)
+    color(s.burning and C.wasteDark or C.white)
+    for y = -h / 2 + 40, h / 2 - 40, 46 do
+      love.graphics.rectangle("fill", -10, y, 20, 24, 3) -- the roof vents
+    end
+  end)
+end
+
+--- A street lamp: its post, the arm out over the road, the lamp lit or not.
+function DRAW.lamp(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local dir = cx < 0 and 1 or -1 -- out over the road
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 4, cy + 4, 7, 8)
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, 7, 8)
+  love.graphics.setLineWidth(4)
+  love.graphics.line(cx, cy, cx + dir * 40, cy)
+  love.graphics.setLineWidth(1)
+  if s.dead then
+    color(C.steel)
+  else
+    love.graphics.setColor(1, 0.85, 0.6)
+  end
+  love.graphics.ellipse("fill", cx + dir * 40, cy, 9, 6, 10)
+end
+
+--- A tree burnt to its branches (in a planter down the Boulevard).
+function DRAW.tree(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  if s.planter then
+    color(C.concreteDark)
+    love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 4)
+    color(C.wasteDark)
+    love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12, 3)
+  end
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 10, cy + 10, r * 0.8, 12)
+  color(C.bark)
+  love.graphics.setLineWidth(4)
+  for k = 0, 6 do
+    local a = k * 0.9 + cx * 0.01
+    local ex, ey = cx + math.cos(a) * r * 1.1, cy + math.sin(a) * r * 1.1
+    love.graphics.line(cx, cy, ex, ey)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(ex, ey, ex + math.cos(a + 0.7) * 12, ey + math.sin(a + 0.7) * 12)
+    love.graphics.setLineWidth(4)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.circle("fill", cx, cy, 9, 10)
+end
+
+--- A barricade across a side street: crates, tyres and planks piled up.
+function DRAW.barricade(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 8, s.w, s.h)
+  for k = 0, 9 do
+    local px, py = s.x + hash(s.seed + k) * (s.w - 30), s.y + hash(s.seed * 3 + k) * (s.h - 30)
+    if k % 3 == 0 then
+      color(C.tyre)
+      love.graphics.circle("fill", px + 14, py + 14, 14, 12)
+      color(C.steelDark)
+      love.graphics.circle("fill", px + 14, py + 14, 6, 8)
+    elseif k % 3 == 1 then
+      color(C.crateDark)
+      love.graphics.rectangle("fill", px, py, 34, 30)
+      color(C.crate)
+      love.graphics.rectangle("fill", px + 3, py + 3, 28, 24)
+    else
+      color(C.wood)
+      love.graphics.push()
+      love.graphics.translate(px + 15, py + 15)
+      love.graphics.rotate(hash(k + s.seed) * 3)
+      love.graphics.rectangle("fill", -30, -5, 60, 10)
+      love.graphics.pop()
+    end
+  end
+end
+
+--- A slab of the fallen overpass across the road, broken, rebar out of it.
+function DRAW.deck(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 10, s.y + 14, s.w, s.h)
+  local n = math.max(2, math.floor(s.w / 120))
+  for k = 0, n - 1 do
+    local x0, x1 = s.x + s.w * k / n, s.x + s.w * (k + 1) / n
+    local j = (hash(s.seed + k) - 0.5) * 16
+    color(k % 2 == 0 and C.concrete or C.concreteDark)
+    love.graphics.polygon("fill", x0 + 4, s.y + j, x1 - 2, s.y - j, x1 + 4, s.y + s.h + j, x0 - 2, s.y + s.h - j)
+  end
+  color(C.paint, 0.6)
+  love.graphics.rectangle("fill", s.x + 20, s.y + s.h / 2 - 2, s.w - 40, 4)
+  color(C.steelDark)
+  love.graphics.setLineWidth(3)
+  for k = 0, 4 do
+    local x = s.x + hash(s.seed * 7 + k) * s.w
+    love.graphics.line(x, s.y + s.h, x + 10 - k * 4, s.y + s.h + 18)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A heap of broken concrete.
+function DRAW.rubble(s)
+  color(C.shadow)
+  love.graphics.ellipse("fill", s.x + s.w / 2 + 8, s.y + s.h / 2 + 8, s.w / 2, s.h / 2, 14)
+  for k = 0, 5 do
+    local px, py = s.x + 10 + hash(s.seed + k) * (s.w - 20), s.y + 8 + hash(s.seed * 3 + k) * (s.h - 16)
+    local r = 12 + hash(s.seed * 5 + k) * 14
+    color(k % 2 == 0 and C.concrete or C.concreteDark)
+    love.graphics.polygon("fill", px - r, py, px - r * 0.3, py - r * 0.8, px + r, py - r * 0.2,
+      px + r * 0.4, py + r * 0.7)
+  end
+end
+
+--- How hot the lava glows at `t`.
+function RenderEternalMood.lavaPulse(t)
+  return 0.8 + 0.12 * math.sin(t * 1.1) + 0.08 * math.sin(t * 4.7)
+end
+
+--- The Crater: a rim of broken road round a pit of lava, crust floating on
+--- it and bright seams opening and closing.
+function DRAW.crater(s, t)
+  local cx, cy, rx, ry = s.x + s.w / 2, s.y + s.h / 2, s.w / 2, s.h / 2
+  local pulse = RenderEternalMood.lavaPulse(t)
+  color(C.char)
+  love.graphics.ellipse("fill", cx, cy, rx, ry, 40)
+  color(C.crust)
+  love.graphics.ellipse("fill", cx, cy, rx - 18, ry - 18, 40)
+  love.graphics.setColor(1, 0.30 + 0.1 * pulse, 0.04, 0.95)
+  love.graphics.ellipse("fill", cx, cy, rx - 34, ry - 34, 40)
+  for k = 0, 9 do -- plates of crust drifting round
+    local a = k * 0.63 + t * 0.05 * (k % 2 == 0 and 1 or -1)
+    local d = 0.25 + hash(s.seed + k) * 0.45
+    local px, py = cx + math.cos(a) * (rx - 40) * d, cy + math.sin(a) * (ry - 40) * d
+    local pr = 18 + hash(s.seed * 3 + k) * 26
+    color(C.crust)
+    love.graphics.ellipse("fill", px, py, pr, pr * 0.7, 10)
+  end
+  love.graphics.setBlendMode("add")
+  love.graphics.setLineWidth(3)
+  for k = 0, 7 do -- bright seams, opening and closing
+    local glow = math.max(0, math.sin(t * (0.8 + hash(k) * 0.9) + k * 1.7))
+    local a = hash(s.seed * 5 + k) * 2 * math.pi
+    local px, py = cx + math.cos(a) * rx * 0.35, cy + math.sin(a) * ry * 0.35
+    love.graphics.setColor(1, 0.8, 0.3, 0.6 * glow)
+    love.graphics.line(px, py, px + math.cos(a + 1) * 40, py + math.sin(a + 1) * 30, px + math.cos(a) * 70,
+      py + math.sin(a) * 60)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 0.85, 0.4, 0.35 * pulse)
+  love.graphics.ellipse("fill", cx, cy, rx * 0.3, ry * 0.3, 24) -- the portal, deep in it
+  love.graphics.setBlendMode("alpha")
+end
+
+--- The heat off the Crater over everything near it: a glow breathing with
+--- the lava, embers rising out of it.
+local function drawCraterGlow(s, t)
+  local cx, cy, rx, ry = s.x + s.w / 2, s.y + s.h / 2, s.w / 2, s.h / 2
+  local pulse = RenderEternalMood.lavaPulse(t)
+  love.graphics.setBlendMode("add")
+  for k = 1, 4 do
+    local f = 0.9 + k * 0.15
+    love.graphics.setColor(1, 0.3, 0.05, 0.05 * pulse * (1 - k / 5))
+    love.graphics.ellipse("fill", cx, cy, rx * f, ry * f, 40)
+  end
+  for k = 0, 13 do -- embers drifting up off it
+    local phase = (t * (0.25 + hash(k * 3.7) * 0.2) + hash(k * 9.1)) % 1
+    local a = hash(k * 5.3) * 2 * math.pi
+    local x = cx + math.cos(a) * rx * 0.7 + math.sin(t + k) * 12
+    local y = cy + math.sin(a) * ry * 0.7 - phase * 260
+    love.graphics.setColor(1, 0.6, 0.2, 0.8 * (1 - phase))
+    love.graphics.circle("fill", x, y, 3 * (1 - phase) + 1, 6)
+  end
+  love.graphics.setBlendMode("alpha")
+end
+
+--- A crack in the road with Heck glowing in it (an imp's way out).
+function DRAW.crack(s, t)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local glow = 0.6 + 0.4 * math.sin(t * 2 + cx * 0.01)
+  color(C.char)
+  love.graphics.setLineWidth(7)
+  love.graphics.line(cx - 26, cy - 6, cx - 8, cy + 4, cx + 6, cy - 5, cx + 26, cy + 6)
+  love.graphics.setLineWidth(3)
+  love.graphics.setColor(1, 0.4, 0.05, glow)
+  love.graphics.line(cx - 24, cy - 6, cx - 8, cy + 4, cx + 6, cy - 5, cx + 24, cy + 6)
+  love.graphics.setLineWidth(1)
+end
+
+--- A manhole cover (an imp's waiting under it).
+function DRAW.manhole(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2 - 2
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, r, 20)
+  color(C.black)
+  love.graphics.circle("line", cx, cy, r - 4, 20)
+  for k = -12, 12, 6 do
+    love.graphics.line(cx - 14, cy + k, cx + 14, cy + k)
+  end
+end
+
+--- The UAC's sandbags, two rows of them.
+function DRAW.sandbags(s)
+  color(C.shadow)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 8, s.w, s.h, 8)
+  for row = 0, 1 do
+    for x = s.x + 14 + row * 14, s.x + s.w - 14, 28 do
+      color(row == 0 and C.crateDark or C.crate)
+      love.graphics.ellipse("fill", x, s.y + 9 + row * 14, 15, 9, 10)
+    end
+  end
+end
+
+--- One of the starport gate's pillars: concrete, hazard-striped, a lamp.
+function DRAW.gate(s)
+  shadow(s)
+  box(s, C.concreteDark)
+  box(s, C.concrete, 6)
+  color(C.hazard)
+  love.graphics.rectangle("fill", s.x + 6, s.y + s.h - 22, s.w - 12, 16)
+  color(C.black)
+  for x = s.x + 6, s.x + s.w - 20, 24 do
+    love.graphics.rectangle("fill", x, s.y + s.h - 22, 12, 16)
+  end
+end
+
+--- The landing pad in the Depot: a ring and an H.
+function DRAW.pad(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.hazard)
+  love.graphics.setLineWidth(10)
+  love.graphics.circle("line", cx, cy, math.min(s.w, s.h) / 2 - 20, 40)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, 10)
+  love.graphics.rectangle("fill", s.x, s.y + s.h - 10, s.w, 10)
+end
+
+--- The shuttle down from Fobos Base, nose north, on the pad: hull, wings,
+--- cockpit, engines still warm, and its ramp down on the east side.
+function DRAW.shuttle(s, t)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local w, h = s.w, s.h
+  color(C.shadow)
+  love.graphics.polygon("fill", cx + 12, s.y + 14, cx + w / 2 + 12, cy + h * 0.25 + 14, cx + 12, s.y + h + 14,
+    cx - w / 2 + 12, cy + h * 0.25 + 14)
+  color(C.steelDark) -- the wings
+  love.graphics.polygon("fill", cx, cy - h * 0.1, cx + w / 2, cy + h * 0.3, cx + w / 2, cy + h * 0.38, cx, cy + h * 0.3,
+    cx - w / 2, cy + h * 0.38, cx - w / 2, cy + h * 0.3)
+  color(C.steel) -- the hull
+  love.graphics.polygon("fill", cx, s.y, cx + w * 0.2, s.y + h * 0.22, cx + w * 0.2, s.y + h * 0.92, cx - w * 0.2,
+    s.y + h * 0.92, cx - w * 0.2, s.y + h * 0.22)
+  color(C.white)
+  love.graphics.rectangle("fill", cx - w * 0.2, s.y + h * 0.4, w * 0.4, 14)
+  color(C.windscreen) -- the cockpit
+  love.graphics.polygon("fill", cx, s.y + 30, cx + 26, s.y + 80, cx - 26, s.y + 80)
+  color(C.hazard) -- UAC markings
+  love.graphics.rectangle("fill", cx - w * 0.2, s.y + h * 0.7, w * 0.4, 10)
+  local warm = 0.5 + 0.2 * math.sin(t * 3)
+  for _, ex in ipairs({ -w * 0.12, w * 0.12 }) do -- the engines
+    color(C.black)
+    love.graphics.circle("fill", cx + ex, s.y + h * 0.92, 20, 14)
+    love.graphics.setColor(1, 0.4, 0.1, warm)
+    love.graphics.circle("fill", cx + ex, s.y + h * 0.92, 12, 14)
+  end
+  color(C.steelDark) -- the ramp, down
+  love.graphics.polygon("fill", cx + w * 0.2, cy - 30, cx + w * 0.45, cy - 20, cx + w * 0.45, cy + 50,
+    cx + w * 0.2, cy + 60)
+  color(C.hazard)
+  love.graphics.rectangle("fill", cx + w * 0.42, cy - 20, 6, 70)
+end
+
 local function drawSigns(map)
   local f = signFont()
   love.graphics.setFont(f)
@@ -755,11 +1457,15 @@ local function drawAlarms(map, t)
   end
 end
 
---- Draw `map` (one of eternal_mood.lua's) into the canvas, `T` the tile size.
---- Draw `map`'s floors and walls (one of eternal_mood.lua's) into the
---- canvas, `T` the tile size. Everything on them is `drawProps`'.
+--- Draw `map`'s floors and walls (one of eternal_mood.lua's: a base's, or
+--- a city's streets and roofs) into the canvas, `T` the tile size.
+--- Everything on them is `drawProps`'.
 function RenderEternalMood.draw(map, T)
-  drawGround(map, T)
+  if map.grounds then
+    drawCity(map, T)
+  else
+    drawGround(map, T)
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -769,7 +1475,8 @@ end
 
 --- Everything on `map`'s floor within (left, top, right, bottom), world px,
 --- at full size, at time `t`: flat things first, then what stands up, the
---- posters, the alarms, and the reactor's halo over it all.
+--- posters, the alarms, and the reactor's halo (or the Crater's heat) over
+--- it all.
 function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
   local before = love.graphics.getFont()
   for _, s in ipairs(map.cover) do
@@ -787,6 +1494,8 @@ function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
   for _, s in ipairs(map.cover) do
     if s.kind == "reactor" and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
       drawHalo(s, t)
+    elseif s.kind == "crater" and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
+      drawCraterGlow(s, t)
     end
   end
   love.graphics.setFont(before)
