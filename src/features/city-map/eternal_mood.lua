@@ -24,9 +24,11 @@
 --   map.signs             { x, y, w, h, text } posters and signs on the walls, world px
 --   map.lights            { x, y, r, color, a } what glows in the dark (the night feature draws them), world px
 --   map.alarms            { x, y } the red alarm lamps over the doors, world px
---   map.horde             { posts = { rank, x, y, watch }, vents = { x, y, out, count } } Heck's horde
+--   map.horde             { posts = { rank, x, y, watch }, patrols = { ranks, route, start },
+--                         vents = { x, y, out, count } } Heck's horde
 --                         (eternal-mood/horde.lua): the possessed at their posts (rank staffer, guard or
---                         overtime) and the vents the imps crawl out of, world px; and `boss` { x, y, facing,
+--                         overtime) and on patrol (a file of ranks walking `route`, a loop of { x, y }, from
+--                         corner `start`), and the vents the imps crawl out of, world px; and `boss` { x, y, facing,
 --                         zone, lift, doors } the level's boss (the Floor Manager): where he waits, the room
 --                         that wakes him, the lift he keeps out of service, the doorways his meetings use
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -348,6 +350,24 @@ local function buildFobos(map, rng, T)
   post("staffer", 12, 17, S)
   post("staffer", 44, 17, S)
   post("staffer", 28, 16, S)
+  -- Patrols: a file of the possessed walking a loop (corners in tiles), the
+  -- first setting off from corner `start`: up and down the Ring, round the
+  -- Offices' desks, round the Reactor's catwalk, through Toxic Storage and
+  -- round the Hangar's floor.
+  horde.patrols = {}
+  local function patrol(ranks, corners, start)
+    local route = {}
+    for _, c in ipairs(corners) do
+      route[#route + 1] = { x = math.floor(X(c[1])), y = math.floor(Y(c[2])) }
+    end
+    horde.patrols[#horde.patrols + 1] = { ranks = ranks, route = route, start = start or 1 }
+  end
+  patrol({ "guard", "staffer", "staffer" }, { { 6, 50.5 }, { 49.5, 50.5 } }) -- the Ring
+  patrol({ "staffer", "staffer" }, { { 5.6, 27.5 }, { 15.5, 27.5 }, { 15.5, 43.5 }, { 5.6, 43.5 } }) -- the Offices
+  patrol({ "guard", "staffer" }, { { 24.5, 29.5 }, { 31.5, 29.5 }, { 31.5, 42.5 }, { 24.5, 42.5 } }, 3) -- the Reactor
+  patrol({ "staffer", "staffer" }, { { 40.5, 32.5 }, { 50.5, 32.5 }, { 50.5, 44 }, { 40.5, 44 } }, 2) -- Toxic Storage
+  patrol({ "guard", "staffer", "staffer" }, { { 10, 11 }, { 46, 11 }, { 46, 17.5 }, { 10, 17.5 } }) -- the Hangar
+
   -- The Floor Manager (eternal-mood/floor_manager.lua) on the lift, facing
   -- the Hangar: he wakes when somebody walks into it, the lift is out of
   -- service until he is down, and his meetings come in through the three

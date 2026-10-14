@@ -25,6 +25,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   that drag after you (three at once below half health), stomps whoever gets close (the ring shows first), and calls
   staff in for a quick meeting at two thirds and a third of his health. Shoot his cannon off and he has to come and
   stomp you instead. The lift is out of service until he's down.
+- Patrols of the possessed walk Fobos Base: up and down the Ring, round the Offices' desks, the Reactor's catwalk,
+  Toxic Storage and the Hangar's floor, a guard leading some of them.
 
 ## [0.27.0] - 2026-10-14
 

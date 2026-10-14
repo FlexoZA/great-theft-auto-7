@@ -51,8 +51,8 @@ local Brain
 
 -- Tuning --------------------------------------------------------------------
 
-FloorManager.HEALTH = 1500 -- for one player (more humans, more: bosses/init.lua); Volt has 1800
-FloorManager.CANNON = 300 -- the cannon's own, for one player
+FloorManager.HEALTH = 2250 -- for one player (more humans, more: bosses/init.lua); Volt has 1800
+FloorManager.CANNON = 600 -- the cannon's own, for one player: a fair bit of shooting
 FloorManager.RADIUS = 34 -- px: the walker's body, legs folded in
 FloorManager.SCALE = 1.5 -- drawn this much bigger than its plan (drawWalker)
 FloorManager.WALK = 90 -- px/s, on four legs, any way he likes
