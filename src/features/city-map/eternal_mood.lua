@@ -49,7 +49,11 @@
 --                         "floor-manager" { x, y, facing, zone, lift, doors }: where he waits, the room that
 --                         wakes him, the lift he keeps out of service, the doorways his meetings use;
 --                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
---                         to, where a player wakes him, the gate he keeps closed
+--                         to, where a player wakes him, the gate he keeps closed; "baron" { x, y, facing,
+--                         zone, wake, pit, portal }: the same, the pit he calls imps out of, the portal
+--                         he keeps sealed
+--   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
+--                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
 -- Heck on Earth's also leaves (and no `base`):
 --   map.grounds           { x0, y0, x1, y1, floor } the floor finish over each walked patch, world px: a later
@@ -112,6 +116,7 @@ local function grid(map, T)
     return g.kind[c] and g.kind[c][r]
   end
   map.cover, map.zones, map.signs, map.lights, map.alarms, map.flickers = {}, {}, {}, {}, {}, {}
+  map.lows = {}
   return g
 end
 
@@ -129,7 +134,10 @@ local function light(map, x, y, r, color, a)
   map.lights[#map.lights + 1] = { x = x, y = y, r = r, color = color, a = a or 1 }
 end
 
---- Something standing on the map, in world px. Solid unless `solid` is false.
+--- Something standing on the map, in world px. Solid unless `solid` is
+--- false; `low` (in `extra`: lava) is no wall to sight, rounds or players
+--- (city-map's collision): it goes in `map.lows` too, which the horde keeps
+--- out of and which burns a player walking in it (eternal-mood/ground.lua).
 local function cover(map, kind, x, y, w, h, solid, extra)
   local s = { kind = kind, x = x, y = y, w = w, h = h, solid = solid ~= false }
   for k, v in pairs(extra or {}) do
@@ -137,7 +145,10 @@ local function cover(map, kind, x, y, w, h, solid, extra)
   end
   map.cover[#map.cover + 1] = s
   if s.solid then
-    map.solids[#map.solids + 1] = { x = x, y = y, w = w, h = h }
+    map.solids[#map.solids + 1] = { x = x, y = y, w = w, h = h, low = s.low }
+    if s.low then
+      map.lows[#map.lows + 1] = { x = x, y = y, w = w, h = h, round = s.round }
+    end
   end
   return s
 end
@@ -793,7 +804,7 @@ local function buildEarth(map, rng, T)
   block(27, 38, 32, 39, "ruin")
   block(7, 64, 12, 65, "ruin")
   block(27, 64, 32, 65, "ruin")
-  cover(map, "crater", X(15), Y(45), 10 * T, 13 * T, true, { round = true, seed = rng:random(1000) })
+  cover(map, "crater", X(15), Y(45), 10 * T, 13 * T, true, { round = true, low = true, seed = rng:random(1000) })
   light(map, X(20), Y(51.5), 600, EternalMood.LAVA, 0.6)
   for _, p in ipairs({ { 8, 44 }, { 30, 47 }, { 9, 59 }, { 29, 58 }, { 12, 53 }, { 26, 42 } }) do
     cover(map, "rubble", X(p[1]), Y(p[2]), 84, 60, true, { seed = rng:random(1000) })
@@ -1140,7 +1151,8 @@ local function buildFoundry(map, rng, T)
   z = rooms["The Smelters"]
   for _, c in ipairs({ 12, 28, 44 }) do
     for _, r in ipairs({ 25.5, 31.5 }) do
-      cover(map, "vat", X(c) - 1.5 * T, Y(r) - 1.5 * T, 3 * T, 3 * T, true, { round = true, seed = rng:random(1000) })
+      cover(map, "vat", X(c) - 1.5 * T, Y(r) - 1.5 * T, 3 * T, 3 * T, true,
+        { round = true, low = true, seed = rng:random(1000) })
       light(map, X(c), Y(r), 320, EternalMood.MOLTEN, 0.6)
     end
   end
@@ -1162,7 +1174,8 @@ local function buildFoundry(map, rng, T)
   -- behind it all, at the top.
   z = rooms["The Crucible"]
   local function lava(c0, r0, c1, r1)
-    cover(map, "lava", X(c0), Y(r0), (c1 - c0 + 1) * T, (r1 - r0 + 1) * T, true, { seed = rng:random(1000) })
+    local w, h = (c1 - c0 + 1) * T, (r1 - r0 + 1) * T
+    cover(map, "lava", X(c0), Y(r0), w, h, true, { low = true, seed = rng:random(1000) })
   end
   lava(21, 6, 26, 7) -- the moat: north (either side of its bridge)...
   lava(30, 6, 35, 7)
@@ -1176,7 +1189,7 @@ local function buildFoundry(map, rng, T)
     flat(map, "bridge", X(b[1]), Y(b[2]), (b[3] - b[1] + 1) * T, (b[4] - b[2] + 1) * T, { ns = b[2] ~= 11 })
   end
   flat(map, "ring", X(23), Y(8), 11 * T, 9 * T)
-  cover(map, "crucible", X(26), Y(10), 5 * T, 5 * T, true, { round = true, seed = rng:random(1000) })
+  cover(map, "crucible", X(26), Y(10), 5 * T, 5 * T, true, { round = true, low = true, seed = rng:random(1000) })
   light(map, X(28.5), Y(12.5), 640, EternalMood.MOLTEN, 0.8)
   for _, p in ipairs({ { 21, 6 }, { 30, 6 }, { 21, 17 }, { 30, 17 } }) do
     light(map, X(p[1] + 3), Y(p[2] + 1), 260, EternalMood.MOLTEN, 0.4)
@@ -1253,6 +1266,18 @@ local function buildFoundry(map, rng, T)
   vent(10, 18, E, 2)
   vent(45.5, 18, W, 2)
   horde.cacos[#horde.cacos + 1] = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), count = 2, wake = 620 }
+  -- The Baron of Heck (eternal-mood/baron.lua) on the ring south of the
+  -- pit, facing the south bridge: he wakes when somebody comes over a
+  -- bridge (`wake`, the moat's box), keeps to the Crucible (`zone`), calls
+  -- imps up out of the pit's lava (`pit`), and keeps the portal (`portal`)
+  -- sealed until his key is picked up.
+  horde.boss = {
+    kind = "baron", x = math.floor(X(28.5)), y = math.floor(Y(15.6)), facing = S,
+    zone = { x0 = X(8), y0 = Y(3), x1 = X(48), y1 = Y(20) },
+    wake = { x0 = X(21), y0 = Y(6), x1 = X(36), y1 = Y(19) },
+    pit = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), r = 3.3 * T },
+    portal = { x = X(26), y = Y(3), w = 5 * T, h = 2 * T },
+  }
 
   -- Everyone comes down the shuttle's ramp onto the Pad; the way home is
   -- back by the shuttle's tail.

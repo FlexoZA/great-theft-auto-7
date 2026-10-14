@@ -57,6 +57,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   Off the shuttle onto the landing pad, through the loading bay and Dr. Seek's office, across the conveyor belts
   (they carry you, and anyone else standing on them: walk against one and you go nowhere), through the smelters'
   vats of lava to the Crucible, a pit of lava ringed by a lava moat, and the portal behind it.
+- The Foundry has its boss: the Baron of Heck, a big horned brute on goat legs, waiting on the stone ring round the
+  Crucible. He throws green fireballs in pairs (one where you are, one where you're going), puts his horns down and
+  charges (dodge it and he runs into the wall and stands there dazed), claws you up close, and roars, throwing you
+  back while imps climb out of the lava. He drops the key to the Snooze Gate; the portal stays sealed until you pick
+  it up. And then somebody far away asks if you're awake.
+- Lava burns: you can walk into the Crucible's lava, the Smelters' vats or Heck on Earth's crater now, but you'll catch
+  fire. You can also shoot across lava; demons won't set foot in it.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on

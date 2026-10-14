@@ -48,6 +48,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
+local Ground = require("src.features.eternal-mood.ground")
 local Nav = require("src.features.d-day.nav")
 local Corpses = require("src.features.corpses")
 local Bosses = require("src.features.bosses")
@@ -135,6 +136,8 @@ function Horde.serverStart(server, map)
   end
   local T = require("src.features.city-map.layout").TILE
   local nav = Nav.build({ x = map.x0, y = map.y0, w = map.cols * T, h = map.rows * T })
+  Ground.use(map)
+  Ground.closeNav(nav) -- nothing walks into the lava
   local possessed
   possessed = Possessed.new({
     nav = nav, firstId = Horde.firstPossessed, from = Horde.FROM,
@@ -168,8 +171,8 @@ function Horde.serverStart(server, map)
       for _ = 1, 12 do
         local a, d = random() * 2 * math.pi, Horde.mobSpread * math.sqrt(random())
         local cx, cy = mob.x + math.cos(a) * d, mob.y + math.sin(a) * d
-        if not (Sight.blocked(cx, cy) or Sight.blocked(cx - 10, cy) or Sight.blocked(cx + 10, cy)
-          or Sight.blocked(cx, cy - 10) or Sight.blocked(cx, cy + 10)) then
+        if not (Ground.blocked(cx, cy) or Ground.blocked(cx - 10, cy) or Ground.blocked(cx + 10, cy)
+          or Ground.blocked(cx, cy - 10) or Ground.blocked(cx, cy + 10)) then
           x, y = cx, cy
           break
         end
@@ -214,9 +217,14 @@ end
 
 --- One of rank `rank` called in (a boss's meeting): at (x, y), on its way
 --- to look at (tx, ty), and back to (x, y) after if it finds nobody. A
---- "caco" comes in awake, hunting.
+--- "caco" comes in awake, hunting; an "imp" climbs out where it is.
 function Horde.serverCall(server, rank, x, y, tx, ty)
-  if sv and rank == "caco" then
+  if sv and rank == "imp" then
+    local s = sv.imps:add(x, y, math.atan2(ty - y, tx - x))
+    if random() < 0.5 then
+      say(server, s, "imp", "alert")
+    end
+  elseif sv and rank == "caco" then
     local s = sv.cacos:add(x, y, 0, nil)
     sv.cacos:wakeUp(s)
     s.woke = nil

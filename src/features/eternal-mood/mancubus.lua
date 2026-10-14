@@ -37,6 +37,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
+local Ground = require("src.features.eternal-mood.ground")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
@@ -143,9 +144,9 @@ end
 local function fits(x, y)
   local r = Mancubus.RADIUS
   local k = r * 0.7
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r) or Sight.blocked(x - k, y - k)
-    or Sight.blocked(x + k, y - k) or Sight.blocked(x - k, y + k) or Sight.blocked(x + k, y + k))
+  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
+    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - k, y - k)
+    or Ground.blocked(x + k, y - k) or Ground.blocked(x - k, y + k) or Ground.blocked(x + k, y + k))
 end
 
 --- Turn the whole thing towards `angle`, at his treads' pace.

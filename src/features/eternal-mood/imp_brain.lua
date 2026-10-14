@@ -13,6 +13,7 @@
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Ground = require("src.features.eternal-mood.ground")
 
 local Brain = {}
 Brain.__index = Brain
@@ -126,8 +127,8 @@ end
 
 local function fits(x, y)
   local r = Brain.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
+  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
+    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r))
 end
 
 local function move(s, mx, my)
@@ -146,7 +147,7 @@ end
 
 local function goTo(self, s, x, y, speed, dt)
   local gx, gy = x, y
-  if not Sight.clear(s.x, s.y, x, y) and self.nav then
+  if not Ground.clear(s.x, s.y, x, y) and self.nav then
     s.pathIn = s.pathIn - dt
     if not s.path or s.pathIn <= 0 then
       s.path, s.step, s.pathIn = self.nav:path(s.x, s.y, x, y), 1, Brain.REPATH

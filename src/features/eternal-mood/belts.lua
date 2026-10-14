@@ -9,7 +9,7 @@
 -- (on-foot eases it in); render_eternal_mood.lua draws the belts running.
 
 local Features = require("src.features")
-local Sight = require("src.features.d-day.sight")
+local Ground = require("src.features.eternal-mood.ground")
 
 local Belts = {}
 
@@ -30,7 +30,7 @@ local function carry(o, b, dt)
   local mx, my = b.vx * dt, b.vy * dt
   local ax = mx > 0 and Belts.REACH or mx < 0 and -Belts.REACH or 0
   local ay = my > 0 and Belts.REACH or my < 0 and -Belts.REACH or 0
-  if not Sight.blocked(o.x + mx + ax, o.y + my + ay) then
+  if not Ground.blocked(o.x + mx + ax, o.y + my + ay) then
     o.x, o.y = o.x + mx, o.y + my
   end
 end

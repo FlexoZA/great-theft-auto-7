@@ -315,7 +315,47 @@ branch off `feature/eternal-mood`):
   patrols of the possessed (24 for one human), six interns' mobs, imps in
   five vents (three in the Smelters, two in the Crucible), two Cacodaemons
   over the Crucible's pit. Fobos Base's theme for now; no Baron yet, so
-  the portal is open.
+  the portal was open.
+
+- `feature/eternal-mood-baron`: the Foundry's boss, the Baron of Heck
+  (`eternal-mood/baron.lua`, his brain `baron_brain.lua`, his look
+  `baron_look.lua`; BR_ messages; the map's `horde.boss` kind "baron"). A
+  big horned brute (drawn 1.35 times a person's size): pink hide above the
+  waist, shaggy brown goat legs and hooves below, two great horns curving
+  forward, the Snooze Gate's key, brass with a Zz tag, on his belt. 4200
+  health for one human (the Mancouchbus has 3400), 30 px across. He stands
+  on the stone ring south of the Crucible's pit and wakes ("KNEEL.") when
+  somebody comes over a bridge or shoots him; he keeps to the Crucible.
+  Pairs: green fire burns up in both hands for 0.6 s, then a fireball from
+  each (fireballs.lua's "baron": green, 360 px/s, 22 `fire`), the left at
+  where you stand, the right where you're going (0.55 s ahead); under half
+  his health three pairs 0.35 s apart, and the green fire catches on his
+  shoulders. Every 2-2.8 s (1.4-2 in phase 2), 14 breath. Charge (30% of
+  attacks at 220 px or more, 45% in phase 2): horns down for 0.55 s, a red
+  lane on the floor showing where, then he runs it at 400 px/s for up to
+  1.1 s: whoever he hits takes 40 `impact` and goes flying 220 px; into a
+  wall or the moat's edge he stands stunned for 1.4 s, eyes rolling, wide
+  open. Claw: within 95 px his arm goes back for 0.4 s (his reach shown),
+  then 30 `melee` to everyone in front of him. Roar, at two thirds and a
+  third of his health ("RISE, LITTLE ONES!"): everyone within 200 px is
+  thrown back 180 px and three imps (Bosses.plus) climb out of the pit's
+  lava (horde.lua's `serverCall` "imp"). The bosses' standard (breath, the
+  boss bar, a medkit when badly hurt, "...A MOMENT.", dodging abilities,
+  `serverKill` "boss", 45 koins and two pickups). Down ("The... key...
+  snooze..."), he lies face down where he fell and the key lies by him,
+  glinting; the portal behind the Crucible is SEALED (chains across it, a
+  lock) until somebody walks over the key and picks it up: a chime, the
+  portal opens, and somebody far away says, over the HUD, "...hey. Hey. Are
+  you awake?" (the beat).
+
+  Lava is a hazard now, as this doc had it: the Crucible's pit and moat,
+  the Smelters' vats and Earth's Crater are `low` on the map (city-map's
+  low solids: no wall to sight or rounds), so you can shoot across them,
+  and you can walk into them, but they set you alight (1.5 s at 30 `fire` a
+  second, kept up while you're in; `eternal-mood/ground.lua`). Nothing of
+  Heck's walks into lava: every walker's brain asks `Ground.blocked` (the
+  walls and the lava) and `Ground.clear`, and the walking grid's cells over
+  it are shut.
 
 ## Decisions
 
