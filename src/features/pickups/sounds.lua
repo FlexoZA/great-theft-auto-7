@@ -4,7 +4,7 @@
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 
-local Sounds = { volume = 0.7 }
+local Sounds = { volume = 0.6 }
 local base
 
 function Sounds.load()

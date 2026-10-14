@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Quieter default sound levels: footsteps 60% -> 25%, the Combine soldiers' radio 70% -> 40%, pickups 70% -> 60%.
+  Levels you already set in Settings stay as they are.
+
 ## [0.27.0] - 2026-10-14
 
 Cyber Feud: a new quest line through Grey City at night. Carry the Shard across five maps from the Drop to the roof
