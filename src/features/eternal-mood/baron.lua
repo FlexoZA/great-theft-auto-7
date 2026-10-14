@@ -429,7 +429,7 @@ function Baron.load()
     end
   end)
   bank.fire = make(0.4, 0.6, function(buf) -- fire catching in his hands
-    buf:noiseBurst(0, 0.38, { amp = 0.5, attack = 0.1, decay = 0.3 })
+    buf:noiseBurst(0, 0.38, { amp = 0.5, decay = 0.3 })
     buf:sweep(0, 0.35, 200, 500, { wave = "sine", amp = 0.2, decay = 0.3 })
     buf:lowpass(2200)
   end)
