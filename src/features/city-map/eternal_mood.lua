@@ -20,10 +20,16 @@
 --                         in the solids too, `flat` ones (a lift pad, sludge, paint) are drawn first.
 --                         Kinds: slab, tank, portal, console, desk, chair, cabinet, cooler, reactor, pipe,
 --                         barrel, sludge, crane, crate, loader, lift, bunk, table, counter, lockers,
---                         catwalk, paint, stripe, vent
+--                         catwalk, paint, stripe, vent; and what lies about (`clutter`, each with an
+--                         `angle` and a `seed`): bin (solid), tipped, trash, papers, blood, scorch, glass,
+--                         fallen
 --   map.signs             { x, y, w, h, text } posters and signs on the walls, world px
 --   map.lights            { x, y, r, color, a } what glows in the dark (the night feature draws them), world px
---   map.alarms            { x, y } the red alarm lamps over the doors, world px
+--   map.alarms            { x, y } the red alarm lamps over the doors, world px; they turn like beacons
+--                         (render_eternal_mood.lua's `alarmFlash`), so their light is the eternal-mood
+--                         feature's, not in `lights`
+--   map.flickers          { x, y, r, color, a, seed, dying } strip lights on the blink, not in `lights`:
+--                         the eternal-mood feature flickers them (`dying` ones are mostly out)
 --   map.horde             { posts = { rank, x, y, watch }, patrols = { ranks, route, start },
 --                         mobs = { x, y, count, wake }, vents = { x, y, out, count } } Heck's horde
 --                         (eternal-mood/horde.lua): the possessed at their posts (rank staffer, guard or
@@ -77,7 +83,10 @@ local function grid(map, T)
       end
     end
   end
-  map.cover, map.zones, map.signs, map.lights, map.alarms = {}, {}, {}, {}, {}
+  function g.at(c, r)
+    return g.kind[c] and g.kind[c][r]
+  end
+  map.cover, map.zones, map.signs, map.lights, map.alarms, map.flickers = {}, {}, {}, {}, {}, {}
   return g
 end
 
@@ -156,6 +165,78 @@ EternalMood.FOBOS_DOORS = {
   { c0 = 44, r0 = 20, c1 = 46, r1 = 25, ns = true }, -- Toxic Storage
 }
 
+-- What lies about each room (kind = how many), eternal_mood.lua's
+-- `clutter`; render_eternal_mood.lua draws them. Bins stand (solid); the
+-- rest is on the floor, walked over: a tipped bin and its rubbish, trash,
+-- papers, blood, scorch marks, glass, a chair knocked over.
+EternalMood.CLUTTER = {
+  ["The Lab"] = { blood = 2, papers = 2, glass = 2, scorch = 1 },
+  ["Crew Quarters"] = { tipped = 1, trash = 1, blood = 1, papers = 1 },
+  ["The Mess"] = { bin = 1, tipped = 2, trash = 3, blood = 1, fallen = 1 },
+  ["The Ring"] = { bin = 2, tipped = 2, trash = 2, blood = 2, scorch = 1 },
+  ["The Offices"] = { bin = 1, tipped = 1, papers = 4, fallen = 2, blood = 1 },
+  ["The Reactor"] = { scorch = 2, blood = 1, glass = 1 },
+  ["Toxic Storage"] = { tipped = 1, trash = 2, blood = 1, scorch = 1 },
+  ["The Hangar"] = { bin = 2, tipped = 2, trash = 2, blood = 2, scorch = 2, papers = 1 },
+}
+local CLUTTER_SIZE = { -- px across
+  bin = 28, tipped = 44, trash = 70, papers = 80, blood = 70, scorch = 90, glass = 50, fallen = 40,
+}
+local CLUTTER_ORDER = { "bin", "tipped", "fallen", "trash", "papers", "blood", "scorch", "glass" }
+
+--- Scatter `kinds` (kind = how many) about room `z` (tiles): each where its
+--- box is all floor, clear of everything solid already there, out of the
+--- doorways, and away from every spot in `avoid` (people, vents, routes).
+--- A bin is solid; everything else lies flat.
+local function clutter(map, rng, g, z, kinds, avoid)
+  local X, Y, T = g.X, g.Y, g.T
+  local function free(x, y, w, h, solid)
+    for _, c in ipairs({ { x, y }, { x + w, y }, { x, y + h }, { x + w, y + h }, { x + w / 2, y + h / 2 } }) do
+      local col, row = math.floor((c[1] - map.x0) / T), math.floor((c[2] - map.y0) / T)
+      if not g.at(col, row) or col < z.c0 or col > z.c1 or row < z.r0 or row > z.r1 then
+        return false
+      end
+    end
+    local m = solid and 40 or 6 -- a bin keeps a body's width from anything else that stands
+    for _, o in ipairs(map.solids) do
+      if x + w + m > o.x and x - m < o.x + o.w and y + h + m > o.y and y - m < o.y + o.h then
+        return false
+      end
+    end
+    local keep = solid and 70 or 30
+    for _, p in ipairs(avoid) do
+      if (p.x - x - w / 2) ^ 2 + (p.y - y - h / 2) ^ 2 < keep * keep then
+        return false
+      end
+    end
+    for _, d in ipairs(EternalMood.FOBOS_DOORS) do
+      if x + w > X(d.c0) - 24 and x < X(d.c1 + 1) + 24 and y + h > Y(d.r0) - 24 and y < Y(d.r1 + 1) + 24 then
+        return false
+      end
+    end
+    return true
+  end
+  for _, kind in ipairs(CLUTTER_ORDER) do
+    for _ = 1, kinds[kind] or 0 do
+      local size = CLUTTER_SIZE[kind]
+      for _ = 1, 30 do -- a few goes at somewhere it fits
+        local x = X(z.c0) + rng:random() * ((z.c1 - z.c0 + 1) * T - size)
+        local y = Y(z.r0) + rng:random() * ((z.r1 - z.r0 + 1) * T - size)
+        local solid = kind == "bin"
+        if free(x, y, size, size, solid) then
+          local extra = { angle = rng:random() * 2 * math.pi, seed = rng:random(1000) }
+          if solid then
+            cover(map, kind, x, y, size, size, true, extra)
+          else
+            flat(map, kind, x, y, size, size, extra)
+          end
+          break
+        end
+      end
+    end
+  end
+end
+
 local function buildFobos(map, rng, T)
   local g = grid(map, T)
   local X, Y = g.X, g.Y
@@ -168,10 +249,18 @@ local function buildFobos(map, rng, T)
     map.zones[#map.zones + 1] = {
       name = z.name, x0 = X(z.c0), y0 = Y(z.r0), x1 = X(z.c1 + 1), y1 = Y(z.r1 + 1), floor = z.floor,
     }
-    -- Blue strip lights down the room, a pool every few tiles.
+    -- Strip lights down the room, a pool every few tiles; one in four is
+    -- on the blink (`map.flickers`, the eternal-mood feature flickers it),
+    -- and one in twelve has all but died.
     for c = z.c0 + 2, z.c1, 6 do
       for r = z.r0 + 2, z.r1, 6 do
-        light(map, X(c), Y(r), 190, EternalMood.STRIP, 0.3)
+        local roll = rng:random()
+        if roll < 0.25 then
+          map.flickers[#map.flickers + 1] = { x = X(c), y = Y(r), r = 190, color = EternalMood.STRIP, a = 0.35,
+            seed = rng:random(1000), dying = roll < 0.08 }
+        else
+          light(map, X(c), Y(r), 190, EternalMood.STRIP, 0.3)
+        end
       end
     end
   end
@@ -187,9 +276,6 @@ local function buildFobos(map, rng, T)
       flat(map, "stripe", x1 - 32, y0, 24, y1 - y0, { across = true })
       map.alarms[#map.alarms + 1] = { x = x0, y = math.floor((y0 + y1) / 2) }
     end
-  end
-  for _, a in ipairs(map.alarms) do
-    light(map, a.x, a.y, 150, EternalMood.ALARM, 0.6)
   end
 
   -- The Lab: slabs in two rows where everyone wakes, tanks down the east
@@ -410,6 +496,27 @@ local function buildFobos(map, rng, T)
     }
   end
   map.cx, map.cy = math.floor(X(z.c0 + 10)), math.floor(Y(z.r1 - 1))
+
+  -- The mess the night left, room by room (`clutter`): kept off everyone's
+  -- spots and the doorways, and only where it fits on the floor.
+  local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY }, { x = horde.boss.x, y = horde.boss.y } }
+  for _, list in ipairs({ horde.posts, horde.vents, horde.mobs, map.spawns }) do
+    for _, p in ipairs(list) do
+      avoid[#avoid + 1] = { x = p.x, y = p.y }
+    end
+  end
+  for _, p in ipairs(horde.patrols) do
+    for _, c in ipairs(p.route) do
+      avoid[#avoid + 1] = { x = c.x, y = c.y }
+    end
+  end
+  for _, d in ipairs(horde.boss.doors) do
+    avoid[#avoid + 1] = { x = d.x, y = d.y }
+  end
+  for _, room in ipairs(EternalMood.FOBOS) do
+    clutter(map, rng, g, room, EternalMood.CLUTTER[room.name] or {}, avoid)
+  end
+
   map.openKinds = { walk = true }
   commit(map, g)
 end
