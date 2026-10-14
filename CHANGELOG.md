@@ -53,6 +53,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Heck on Earth has its own theme: faster thrash metal, galloping riffs and tremolo picking, air-raid sirens wailing
   through it and car horns in the breakdown. It starts in the dream, a sofa-sale jingle on the telly and a phone
   buzzing, until the siren drowns it out.
+- The Foundry, Eternal Mood's third map: the UAC's factory, where they melt Heck down, half of it already Heck's.
+  Off the shuttle onto the landing pad, through the loading bay and Dr. Seek's office, across the conveyor belts
+  (they carry you, and anyone else standing on them: walk against one and you go nowhere), through the smelters'
+  vats of lava to the Crucible, a pit of lava ringed by a lava moat, and the portal behind it.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
