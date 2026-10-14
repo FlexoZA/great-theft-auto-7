@@ -21,7 +21,7 @@ local Audio = require("src.audio")
 local UI = require("src.ui")
 
 local Radio = {
-  volume = 0.7, -- default of the "combine" channel
+  volume = 0.4, -- default of the "combine" channel
   nearDistance = 300, -- px; nearer than this he is heard at full volume
   farDistance = 1000, -- px; further than this he is not heard at all
 }
