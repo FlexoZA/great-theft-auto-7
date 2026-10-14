@@ -46,6 +46,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Cacodaemons float over Heck on Earth: big red one-eyed demons that fly over roofs and lava, spit balls of fire
   (watch for the mouth opening first) and bite whoever gets close. 220 health; shoot one in its open mouth and it
   takes extra damage and reels.
+- Heck on Earth has its boss: the Mancouchbus, a huge fat demon in a recliner on tank treads, a rocket launcher for
+  each arm, parked in front of the starport's gate. He fires rockets from both arms in turn and sweeps fans of them
+  across the road (look for the gap), bumps you away with his belly if you get close, and shouts for Cacodaemons.
+  He's slow to turn, and his back is the recliner: shots there do double. The gate stays closed until he's down.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on

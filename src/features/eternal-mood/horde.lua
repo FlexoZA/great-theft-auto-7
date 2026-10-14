@@ -213,9 +213,15 @@ function Horde.serverStop(server)
 end
 
 --- One of rank `rank` called in (a boss's meeting): at (x, y), on its way
---- to look at (tx, ty), and back to (x, y) after if it finds nobody.
-function Horde.serverCall(_server, rank, x, y, tx, ty)
-  if sv and rank == "intern" then
+--- to look at (tx, ty), and back to (x, y) after if it finds nobody. A
+--- "caco" comes in awake, hunting.
+function Horde.serverCall(server, rank, x, y, tx, ty)
+  if sv and rank == "caco" then
+    local s = sv.cacos:add(x, y, 0, nil)
+    sv.cacos:wakeUp(s)
+    s.woke = nil
+    say(server, s, "caco", "alert")
+  elseif sv and rank == "intern" then
     sv.interns:add(x, y, math.atan2(ty - y, tx - x), nil, true) -- awake already
   elseif sv then
     local s = sv.possessed:add(rank, x, y, math.atan2(ty - y, tx - x))

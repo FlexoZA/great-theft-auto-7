@@ -21,6 +21,7 @@ local Story = require("src.features.eternal-mood.story")
 local FobosTheme = require("src.features.eternal-mood.theme_fobos")
 local Audio = require("src.audio")
 local FloorManager = require("src.features.eternal-mood.floor_manager")
+local Mancubus = require("src.features.eternal-mood.mancubus")
 
 local EternalMood = {
   name = "eternal-mood",
@@ -109,6 +110,7 @@ end
 function EternalMood:load()
   Horde.load()
   FloorManager.load()
+  Mancubus.load()
   Screen.load()
 end
 
@@ -123,6 +125,7 @@ function EternalMood:serverQuestStarted(server, quest)
     if map then
       local nav = Horde.serverStart(server, map)
       FloorManager.serverStart(server, map, nav)
+      Mancubus.serverStart(server, map, nav)
     end
   end
 end
@@ -132,6 +135,7 @@ function EternalMood:serverQuestEnded(server, quest)
     sv = nil
     Horde.serverStop(server)
     FloorManager.serverStop(server)
+    Mancubus.serverStop(server)
   end
 end
 
@@ -141,25 +145,30 @@ function EternalMood:mapChanged(_map, server)
     sv = nil
     Horde.serverStop(server)
     FloorManager.serverStop(server)
+    Mancubus.serverStop(server)
   end
   Horde.clear()
   FloorManager.clear()
+  Mancubus.clear()
   stopMusic()
 end
 
 function EternalMood:serverPlayerJoined(server, player)
   Horde.serverPlayerJoined(server, player)
   FloorManager.serverPlayerJoined(server, player)
+  Mancubus.serverPlayerJoined(server, player)
 end
 
 function EternalMood:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
+    or Mancubus.serverShotAt(server, x, y, radius, by, angle, damage)
     or Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function EternalMood:serverFreezeArea(_server, x, y, radius, seconds)
   Horde.serverFreezeArea(x, y, radius, seconds)
   FloorManager.serverFreezeArea(x, y, radius, seconds)
+  Mancubus.serverFreezeArea(x, y, radius, seconds)
 end
 
 --- Has anyone got to the way on? The first one there finishes the level,
@@ -167,8 +176,9 @@ end
 function EternalMood:serverStep(server, dt)
   Horde.serverStep(server, dt)
   FloorManager.serverStep(server, dt)
+  Mancubus.serverStep(server, dt)
   local map = cityMap()
-  if not (sv and not sv.reached and map and map.exitX) or FloorManager.serverLocked() then
+  if not (sv and not sv.reached and map and map.exitX) or FloorManager.serverLocked() or Mancubus.serverLocked() then
     return
   end
   for _, p in pairs(server.players) do
@@ -200,6 +210,7 @@ function EternalMood:questStarted(_client, quest)
   if quest.boss == self.questId then
     Horde.clear() -- the vents shut again on a new run
     FloorManager.clear()
+    Mancubus.clear()
     if quest.introLine then
       local level = quest.introLine
       page = { line = Story.lines[level] or Story.lines[1], t = 0, level = level,
@@ -237,6 +248,7 @@ function EternalMood:questEnded(_client, quest)
   if quest.boss == self.questId then
     Horde.clear()
     FloorManager.clear()
+    Mancubus.clear()
     page = nil
     stopMusic()
   end
@@ -245,6 +257,7 @@ end
 function EternalMood:exitGame()
   Horde.clear()
   FloorManager.clear()
+  Mancubus.clear()
   page = nil
   stopMusic()
 end
@@ -272,6 +285,7 @@ function EternalMood:update(dt)
   end
   Horde.update(dt)
   FloorManager.update(dt)
+  Mancubus.update(dt)
 end
 
 --- What `camera` sees, world px, with a margin.
@@ -295,11 +309,13 @@ function EternalMood:drawBelowCars(_client, camera)
   end
   Horde.drawVents(cityMap())
   FloorManager.drawBelowCars()
+  Mancubus.drawBelowCars()
   Horde.drawBelowCars()
 end
 
 function EternalMood:drawAboveCars()
   FloorManager.drawAboveCars()
+  Mancubus.drawAboveCars()
   Horde.drawAboveCars()
 end
 
@@ -342,10 +358,12 @@ function EternalMood:drawNightLights(_client, _camera, glow)
   end
   Horde.drawNightLights(glow)
   FloorManager.drawNightLights(glow)
+  Mancubus.drawNightLights(glow)
 end
 
 function EternalMood:drawHUD()
   FloorManager.drawHUD()
+  Mancubus.drawHUD()
 end
 
 function EternalMood:footstepWalkers()
@@ -353,7 +371,7 @@ function EternalMood:footstepWalkers()
 end
 
 EternalMood.clientMessages = {}
-for _, part in ipairs({ Horde, FloorManager }) do
+for _, part in ipairs({ Horde, FloorManager, Mancubus }) do
   for kind, handler in pairs(part.clientMessages) do
     EternalMood.clientMessages[kind] = handler
   end

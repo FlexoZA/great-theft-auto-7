@@ -207,7 +207,7 @@ branch off `feature/eternal-mood`):
   six manholes and four cracks round the Crater (an open manhole has its
   cover thrown aside; a crack is torn open, glowing). Billboards over the
   side streets: SOFA SALE!, HECK: NOW HIRING, MIND THE LAVA. It plays Fobos
-  Base's theme for now. No Cyberdaemon yet: the gate is open.
+  Base's theme for now. No boss yet: the gate is open.
 
 - `feature/eternal-mood-cacodaemon`: the Cacodaemon, the first of the
   heavy demons, not a boss (`eternal-mood/cacodaemon_brain.lua`, in
@@ -232,6 +232,43 @@ branch off `feature/eternal-mood`):
   Crater's lava, two over the Boulevard's towers. Over a roof it can't be
   shot (rounds stop at walls) but can't spit either.
 
+- `feature/eternal-mood-mancubus`: Heck on Earth's boss, the Mancouchbus
+  (`eternal-mood/mancubus.lua`, his brain `mancubus_brain.lua`, his look
+  `mancubus_look.lua`; MC_ messages; the map's `horde.boss`, now with a
+  `kind`: "floor-manager" on Fobos Base, "mancubus" here), the line's
+  Mancubus with two rocket launchers. A huge fat demon in a brown leather
+  recliner leant right back on tank treads, feet up, belly first, his
+  little horned head on the headrest, a TV remote on the armrest and a can
+  in the cup holder; his arms end in rocket launchers as long as he is.
+  3400 health for one human (the Floor Manager has 2250), 46 px across. He
+  sits in front of the starport's gate, which is CLOSED (a red and white
+  boom across it) until he is down; he wakes when a player comes up the
+  Boulevard past row 30 ("Oi. You're blocking the telly.") or shoots him,
+  and never leaves the Boulevard (nobody on it, he rolls back to his spot).
+  On treads he drives only forwards and back (60 px/s, backwards at 0.6)
+  and turns slowly (0.9 rad/s), keeping 380 px off whoever he has. Volley:
+  the launchers come up whining and glowing for 0.8 s, then a rocket from
+  each arm in turn, three pairs (four in phase 2, under half), 0.28 s
+  apart, at where you stand, his body coming round after you. Sweep (35%
+  of attacks, 50% in phase 2): the launchers come up wide for 1 s, then
+  seven rockets in a fan 0.75 rad either side of his aim, 0.14 s apart,
+  one side to the other: find the gap. His rockets are the weapons
+  feature's rocket launcher with his numbers (430 px/s, a 100 px blast of
+  40 `explosive`, ownerless and the horde's, so they never hurt Heck), and
+  they stop on walls and cover. Every 2.6-3.4 s (1.8-2.5 in phase 2), 18
+  breath a go. Bump: within 130 px he leans back for 0.55 s (a ring on the
+  road in front of him) and lurches: 35 `impact` and a 170 px shove, every
+  2.4 s. At two thirds and a third of his health, "Lads! Snacks have
+  arrived!": two Cacodaemons (Bosses.plus) come in awake over the roofs
+  either side of you (horde.lua's `serverCall` "caco"). His back is the
+  recliner: a round landing behind his middle does double ("Not the
+  upholstery!"). The bosses' standard (breath: winded he crawls at 30; the
+  boss bar; a medkit when badly hurt, "Snack break."; dodging abilities;
+  `serverKill` "boss", 35 koins and two pickups). Down ("...five... more...
+  minutes..."), his recliner lies on its back smoking, the boom goes up,
+  and the gate finishes the level. The Boulevard's planters and sandbags
+  moved back off the gate to give him room.
+
 ## Decisions
 
 | Question | Decision |
@@ -244,7 +281,7 @@ branch off `feature/eternal-mood`):
 | Is the dream hinted? | **Yes, more and more.** Each level leaks a bit more of the real world into the dream (a phone buzzing, a microwave, someone calling your name) until the last boss is the alarm clock. A player who notices gets the joke before the end; one who doesn't still gets it at the end. |
 | Does it tie to Cyber Feud? | **Lightly.** The dream is built out of whatever you did that day: a demon with Kilowatt's reactor, a voice in a vending machine that sounds a lot like VEX. Nothing in the plot needs Cyber Feud played first. |
 | Who's the enemy? | **Heck, and only Heck.** No factions and no infighting, unlike Cyber Feud: the UAC's possessed staff are Heck's lowest rank, and the whole horde works together against you. |
-| Bosses? | **One on every level**, each at the level's end and in the way of its exit: the Floor Manager, the Cyberdaemon, the Baron of Heck, the Spider Mattressmind, the Snoozedemon. They follow the bosses' standard (`src/features/bosses`: breath, the boss bar, a medkit when badly hurt) and each gets its own brain module. |
+| Bosses? | **One on every level**, each at the level's end and in the way of its exit: the Floor Manager, the Mancouchbus, the Baron of Heck, the Spider Mattressmind, the Snoozedemon. They follow the bosses' standard (`src/features/bosses`: breath, the boss bar, a medkit when badly hurt) and each gets its own brain module. |
 | The reward? | **A unique shotgun, the Mood Swing** (see "The reward"). Unlocked per player, the way Volt unlocks the electric grenade. |
 
 ## Logline
@@ -290,12 +327,13 @@ Each is a bit more dream than the last, the way the levels are.
   close, and calls zombie staff in "for a quick meeting". Shoot his cannon
   off and he has to come and stomp you. Not to be confused with Heck's
   Spider Mattressmind, the bigger spider with the chaingun.
-- **The Cyberdaemon** (Heck on Earth). A huge horned demon with a rocket
-  launcher for an arm and, where its heart should be, a reactor that looks
-  exactly like Kilowatt's. It steps out of a burning tower on the Boulevard
-  and stomps up the road to the starport after you, on foot: rockets
-  landing round you, its feet shaking the screen, wrecks and sandbags the
-  only cover.
+- **The Mancouchbus** (Heck on Earth), the line's Mancubus. A huge fat
+  demon who sat down in a recliner when the world ended and never got up;
+  Heck put the recliner on tank treads and his arms into two rocket
+  launchers. He sits in front of the starport's gate and keeps it closed:
+  volleys of rockets from both arms in turn, sweeps of them in a fan, a
+  belly bump up close, Cacodaemons called in. Slow to turn, and his back
+  is the recliner. (Replaces the Cyberdaemon first planned here.)
 - **The Baron of Heck** (The Foundry). A big horned brute with green
   fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
   throws fireballs in pairs, and roars.
@@ -352,7 +390,7 @@ standard), as Cyber Feud's do.
 | **The Shoe Rack** | A floating brown ball with a mouth full of shoes | 180 | Spits a Lost Sole every 4 s, at most 3 out | Hangs back, flies. When it dies it spits three at once. Kill it first. |
 | **Heck Knight** | The Baron's brown cousin, horned, 1.4x | 300 | Green fireball (`fire`, 20); a leap (`impact`, 30, lands 0.6 s after a shadow shows where) | Walks at you and leaps when you get far. The Foundry's north half and Heck. |
 | **Revenaunt** | A tall skeleton in a cardigan, a rocket pod on each shoulder | 200 | Two homing rockets (`explosive`, 22 each, turning slowly; dodge round a corner); a punch (`melee`, 20) | Keeps at mid range, firing its rockets in turn every 3 s. The rockets can be shot down. Says something about your posture. |
-| **Mancouchbus** | A huge fat demon in a recliner on tank treads, a flame cannon for each arm | 450 | Two fireballs at once, in a V (`fire`, 26 each); a flame burst up close (`fire` DoT) | Never gets up. Rolls slowly, turning to keep you in front; its back is the recliner (rounds do double). Heck and the Snooze Gate. |
+| **Mancouchbus** | A huge fat demon in a recliner on tank treads, a flame cannon for each arm | 450 | Two fireballs at once, in a V (`fire`, 26 each); a flame burst up close (`fire` DoT) | Never gets up. Rolls slowly, turning to keep you in front; its back is the recliner (rounds do double). Heck and the Snooze Gate; Heck on Earth's boss is the big one, with rocket launchers. |
 | **Arch-Revival** | Tall, thin, grey-white, glowing hands | 250 | Fire pillar: a ring of fire on the ground under you for 1 s, then it erupts (`fire`, 50); you have to get out of sight or out of the ring | Runs away from you, fast. Every 6 s it brings back the nearest dead demon (not bosses), which gets up with half health. Kill it first. Heck only. |
 
 #### Mood kills
@@ -402,7 +440,7 @@ boss. Every level, the real world gets louder.
 | # | Map | Play | Boss | What leaks in |
 | --- | --- | --- | --- | --- |
 | 1 | **Fobos Base**: the moon base, red alarms | On foot: get out of the lab and through the base | The Floor Manager | Nothing yet. One line about the "humming" (it's the fridge). |
-| 2 | **Heck on Earth**: a city overrun, the road to the starport | On foot: one long road north, fought up street by street | The Cyberdaemon | The billboards advertise sofas. A phone buzzes. |
+| 2 | **Heck on Earth**: a city overrun, the road to the starport | On foot: one long road north, fought up street by street | The Mancouchbus | The billboards advertise sofas. A phone buzzes. |
 | 3 | **The Foundry**: the UAC's factory, half turned to Heck | On foot | The Baron of Heck | Dr. Seek's speeches turn into a cooking show. Someone calls your name. |
 | 4 | **Heck**: lava, bones, upside-down castles | On foot: down to the Snooze Gate | The Spider Mattressmind | The sky is the sofa's ceiling. A giant pizza box lies in the lava. |
 | 5 | **The Snooze Gate**: the arena | On foot, the arena | The Snoozedemon | It beeps. It beeps louder. You wake up. |
@@ -422,8 +460,8 @@ lands at a UAC depot at the bottom of the city, and the only way on is the
 road north to the starport, on foot, Pinkies charging out of the side
 streets and Cacodaemons floating over the roofs. The billboards are meant
 to show the evacuation route; half of them advertise sofas. On the last
-stretch before the starport the Cyberdaemon steps out of a burning tower
-and comes up the road after you.
+stretch, in front of the starport's gate, the Mancouchbus sits in his
+recliner, the remote on the armrest, and he isn't getting up.
 
 ### 3. The Foundry
 
@@ -551,9 +589,8 @@ a good few on fire, smoke drifting over).
   Imps climb out of the cracks round its rim; guards and mobs either side.
 - **The Boulevard:** the last stretch, long, straight and wide, planters of
   burnt trees down the middle, the UAC's sandbags across it with guards
-  behind them, a tower on fire at the bottom of it. The Cyberdaemon steps
-  out of the burning tower and walks up the road after you (still to come).
-  An overtime guy holds the starport's gate.
+  behind them, a tower on fire at the bottom of it. The Mancouchbus sits
+  in front of the starport's gate, an overtime guy beside it.
 - **The end:** the starport gate. The EXIT star, once he's down: "THE
   FOUNDRY".
 
@@ -660,8 +697,8 @@ the first drafts.
 - **Heck on Earth**
   - The first billboard: "Evacuation route, it says. ...No. That's an advert for sofas."
   - A phone buzzes on the road: "That's not my phone. I don't have a phone. I'm a space marine."
-  - The Cyberdaemon steps out: "That's a big one. With a reactor. I've seen that reactor before. Where have I seen it?"
-  - The Cyberdaemon down: "Bigger they are. Louder they land."
+  - The Mancouchbus wakes: "A demon. In a recliner. With rockets. ...That recliner looks comfy."
+  - The Mancouchbus down: "Bigger they are. Louder they land."
   - The end, the starport: "Starport. Last shuttle to the Foundry. Window seat."
 - **The Foundry**
   - Dr. Seek's speech goes wrong: "Did he just say 'a pinch of oregano'?"
@@ -690,7 +727,7 @@ Barks like Cyber Feud's troops (`Story.troops`), by side:
   "Who ordered the space marine?"
 - **The bosses**, one or two lines each as they fight:
   - The Floor Manager: "You're not on the rota.", "Let's circle back to you."
-  - The Cyberdaemon: roars only, and its reactor whines before every rocket.
+  - The Mancouchbus: "Oi. You're blocking the telly.", "Don't make me get up.", "Not the upholstery!"
   - The Baron of Heck: "KNEEL.", "THE KEY IS MINE."
   - The Spider Mattressmind: "I AM THE MIND.", "...five more minutes..."
   - The Snoozedemon: "BEEP. BEEP. BEEP." (that's all it ever says)

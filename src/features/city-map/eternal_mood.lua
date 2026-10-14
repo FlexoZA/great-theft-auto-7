@@ -41,9 +41,11 @@
 --                         corner `start`), the Interns' mobs standing about their spot until woken, and the
 --                         vents the imps crawl out of (`look` manhole or crack where they aren't vents),
 --                         and `cacos` = { x, y, count, wake } the Cacodaemons' flocks floating about their
---                         spots (over anything: they fly), world px; and `boss` { x, y, facing,
---                         zone, lift, doors } the level's boss (the Floor Manager): where he waits, the room
---                         that wakes him, the lift he keeps out of service, the doorways his meetings use
+--                         spots (over anything: they fly), world px; and `boss` the level's boss, by `kind`:
+--                         "floor-manager" { x, y, facing, zone, lift, doors }: where he waits, the room that
+--                         wakes him, the lift he keeps out of service, the doorways his meetings use;
+--                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
+--                         to, where a player wakes him, the gate he keeps closed
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
 -- Heck on Earth's also leaves (and no `base`):
 --   map.grounds           { x0, y0, x1, y1, floor } the floor finish over each walked patch, world px: a later
@@ -491,6 +493,7 @@ local function buildFobos(map, rng, T)
   -- doorways up into it.
   local hz = rooms["The Hangar"]
   horde.boss = {
+    kind = "floor-manager",
     x = math.floor(lx + 4 * T), y = math.floor(ly + 2 * T), facing = S,
     zone = { x0 = X(hz.c0), y0 = Y(hz.r0), x1 = X(hz.c1 + 1), y1 = Y(hz.r1 + 1) },
     lift = { x = lx, y = ly, w = 8 * T, h = 4 * T },
@@ -799,10 +802,10 @@ local function buildEarth(map, rng, T)
   ground(9, 6, 30, 37, "asphalt")
   lanes(9, 10, 6, 37, true)
   lanes(21, 10, 6, 37, true)
-  for r = 8, 35, 5 do
+  for r = 18, 35, 5 do -- none in front of the gate: that's his
     cover(map, "tree", X(19) + 32, Y(r), 64, 64, true, { round = true, planter = true })
   end
-  for _, p in ipairs({ { 11, 26 }, { 25, 26 }, { 14, 14 }, { 22, 14 } }) do
+  for _, p in ipairs({ { 11, 26 }, { 25, 26 }, { 10, 19 }, { 26, 19 } }) do -- clear of the gate: that's his
     cover(map, "sandbags", X(p[1]), Y(p[2]) + 16, 4 * T, 32)
   end
   wreck("car", 10, 31, false, { burning = true })
@@ -907,15 +910,15 @@ local function buildEarth(map, rng, T)
   -- The Boulevard.
   post("guard", 13, 25.6, S) -- behind the sandbags
   post("guard", 27, 25.6, S)
-  post("guard", 16, 13.6, S)
-  post("guard", 24, 13.6, S)
-  post("overtime", 20, 7.5, S) -- at the starport's gate
+  post("guard", 12, 18.6, S)
+  post("guard", 28, 18.6, S)
+  post("overtime", 12, 6.5, S) -- by the starport's gate
   post("staffer", 10, 20, E)
   post("staffer", 30, 30, W)
   patrol({ "guard", "staffer", "staffer" }, { { 11, 30 }, { 28, 30 }, { 28, 18 }, { 11, 18 } })
   mob(12, 34, 7, 420)
   mob(27.5, 21, 6, 420)
-  mob(20, 11, 6, 400)
+  mob(27.5, 9, 6, 400)
   vent(10.5, 22, E, 2, "manhole")
   vent(29.5, 11, W, 2, "manhole")
   -- The Cacodaemons (horde.lua), floating over the roofs, the road and the
@@ -933,6 +936,17 @@ local function buildEarth(map, rng, T)
   cacos(20, 51.5, 2, 640)
   cacos(4, 22, 1, 560)
   cacos(35.5, 15, 1, 560)
+
+  -- The Mancouchbus (eternal-mood/mancubus.lua) in his recliner in front
+  -- of the starport's gate, facing down the Boulevard: he wakes when
+  -- somebody comes up past the burning tower (`wake`), never leaves the
+  -- Boulevard (`zone`), and keeps the gate (`gate`) closed until he is down.
+  horde.boss = {
+    kind = "mancubus", x = math.floor(X(20)), y = math.floor(Y(10)), facing = S,
+    zone = { x0 = X(7), y0 = Y(2), x1 = X(33), y1 = Y(38) },
+    wake = { x0 = X(7), y0 = Y(2), x1 = X(33), y1 = Y(30) },
+    gate = { x = X(14), y = Y(2), w = 12 * T, h = 2 * T },
+  }
 
   -- Everyone comes down the shuttle's ramp into the Depot; the way home is
   -- back by the shuttle, well clear of where they arrive.
