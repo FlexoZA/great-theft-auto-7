@@ -59,6 +59,8 @@
 -- running on past the base's walls, boulders, and the UAC rovers' tracks.
 -- Heck on Earth's city runs on burning (heck_on_earth.lua): blocks of
 -- roofs between dark streets, fires on a good few, smoke drifting over.
+-- The Foundry stands at the starport (starport_pads.lua): tarmac, landing
+-- pads and their runway lights, the odd shuttle parked.
 --
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
@@ -72,6 +74,7 @@ local GreyCity = require("src.features.surroundings.grey_city")
 local OverpassBelow = require("src.features.surroundings.overpass_below")
 local FobosMoon = require("src.features.surroundings.fobos_moon")
 local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
+local StarportPads = require("src.features.surroundings.starport_pads")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1231,6 +1234,9 @@ local DRAW = {
     local left, top, right, bottom = view(camera)
     HeckOnEarth.draw(map, left, top, right, bottom, clock)
   end,
+  foundry = function(map, camera)
+    StarportPads.draw(map, view(camera))
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
@@ -1247,6 +1253,7 @@ local LIGHTS = {
     OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
   end,
   earth = HeckOnEarth.lights,
+  foundry = StarportPads.lights,
 }
 
 --- At night (the night feature): what glows past the edge.

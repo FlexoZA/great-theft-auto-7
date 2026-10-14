@@ -1,8 +1,9 @@
 -- Eternal Mood: the pest-control job to the moon (docs/eternal-mood.md), a
 -- dream of a 90s demon shooter that you wake up from. Its quests (quests'
 -- "eternal-mood" and the ones after it) take everyone over its maps, all
--- in the dark, all of them on foot; so far Fobos Base and Heck on Earth
--- (city-map's `fobos` and `earth`).
+-- in the dark, all of them on foot; so far Fobos Base, Heck on Earth and
+-- the Foundry (city-map's `fobos`, `earth` and `foundry`; the Foundry's
+-- conveyor belts carry whoever stands on them, belts.lua).
 --
 -- The first player to reach the map's way on (`map.exitX`, `map.exitY`,
 -- Fobos Base's hangar lift, Earth's starport gate) finishes the level, and
@@ -23,6 +24,7 @@ local EarthTheme = require("src.features.eternal-mood.theme_earth")
 local Audio = require("src.audio")
 local FloorManager = require("src.features.eternal-mood.floor_manager")
 local Mancubus = require("src.features.eternal-mood.mancubus")
+local Belts = require("src.features.eternal-mood.belts")
 
 local EternalMood = {
   name = "eternal-mood",
@@ -46,8 +48,8 @@ local page = nil -- { line, t, level, face } while the Voice's intro screen is u
 
 -- Each level's theme (by map), played from the moment the Voice's intro
 -- screen goes: its intro once, then its loop. Rendered on arriving, under
--- the intro screen.
-local THEMES = { fobos = FobosTheme, earth = EarthTheme }
+-- the intro screen. The Foundry borrows Fobos Base's until it has its own.
+local THEMES = { fobos = FobosTheme, earth = EarthTheme, foundry = FobosTheme }
 local music = {} -- map name -> { intro, loop } Sources
 local playing = nil -- the map whose theme is on
 
@@ -179,6 +181,9 @@ function EternalMood:serverStep(server, dt)
   FloorManager.serverStep(server, dt)
   Mancubus.serverStep(server, dt)
   local map = cityMap()
+  if sv then
+    Belts.serverStep(server, map, dt, Horde.server())
+  end
   if not (sv and not sv.reached and map and map.exitX) or FloorManager.serverLocked() or Mancubus.serverLocked() then
     return
   end
@@ -351,7 +356,7 @@ function EternalMood:drawNightLights(_client, _camera, glow)
       glow(a.x, a.y, 130, { 1, 0.12, 0.06 }, 0.25 + 0.75 * RenderEternalMood.alarmFlash(a, clock))
     end
     for _, s in ipairs(map.cover) do -- the reactor's core breathing, the Crater's lava too
-      if s.kind == "reactor" or s.kind == "crater" then
+      if s.kind == "reactor" or s.kind == "crater" or s.kind == "crucible" then
         local pulse = RenderEternalMood.corePulse(clock)
         glow(s.x + s.w / 2, s.y + s.h / 2, s.w * (1.8 + 0.5 * pulse), { 1, 0.45, 0.12 }, 0.5 * pulse)
       end

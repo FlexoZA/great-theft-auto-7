@@ -7,6 +7,10 @@
 --             walked from the UAC's Depot at the bottom through the Suburbs,
 --             Downtown and round the Crater, up the Boulevard to the
 --             starport's gate at the top
+--   foundry   The Foundry: the UAC's factory, half turned to Heck, walked
+--             from the Landing Pad at the bottom over the Conveyors' belts
+--             and through the Smelters to the Crucible and the portal behind
+--             it at the top
 -- Everyone travels north (up the screen), the way both quest lines before
 -- it do.
 --
@@ -56,6 +60,10 @@
 -- `burning`), lamp (`dead` ones out), tree, barricade, deck, rubble, crater, sandbags, gate, shuttle, and
 -- flat: lanes, zebra, fire, pad, manhole and crack (the imps' ways out, as Fobos Base's vents);
 -- `map.flickers` with `fire` are flames (they flicker their own way).
+-- The Foundry's also leaves `outside` "tarmac" (what's past its walls), `heckFrom` (world y: north of it
+-- the walls are Heck's rock), `belts` { x, y, w, h, vx, vy } (the moving floor: whoever stands on one is
+-- carried at vx, vy px/s, the eternal-mood feature's belts.lua) and kinds belt, vat, lava, crucible, ring,
+-- bridge, gateway (the portal), chain, growth, spire, booth (Dr. Seek's), bones (clutter).
 
 local EternalMood = {}
 
@@ -197,9 +205,9 @@ EternalMood.CLUTTER = {
   ["The Hangar"] = { bin = 2, tipped = 2, trash = 2, blood = 2, scorch = 2, papers = 1 },
 }
 local CLUTTER_SIZE = { -- px across
-  bin = 28, tipped = 44, trash = 70, papers = 80, blood = 70, scorch = 90, glass = 50, fallen = 40,
+  bin = 28, tipped = 44, trash = 70, papers = 80, blood = 70, scorch = 90, glass = 50, fallen = 40, bones = 60,
 }
-local CLUTTER_ORDER = { "bin", "tipped", "fallen", "trash", "papers", "blood", "scorch", "glass" }
+local CLUTTER_ORDER = { "bin", "tipped", "fallen", "trash", "papers", "blood", "scorch", "glass", "bones" }
 
 --- Scatter `kinds` (kind = how many) about room `z` (tiles): each where its
 --- box is all floor, clear of everything solid already there, out of the
@@ -978,9 +986,308 @@ local function buildEarth(map, rng, T)
   commit(map, g)
 end
 
+-- The Foundry -------------------------------------------------------------------
+
+EternalMood.MOLTEN = { 1.00, 0.42, 0.08 } -- lava, in the vats, the moat and the Crucible
+EternalMood.PORTAL = { 1.00, 0.20, 0.30 } -- the way down into Heck
+
+EternalMood.FOUNDRY_POSTERS = {
+  "NOW HIRING. SOULS PREFERRED.",
+  "UAC FOUNDRY: WE MELT HECK",
+  "DAYS WITHOUT A LOST SOUL: 0",
+  "HARD HATS ON. HORNS OPTIONAL.",
+  "MIND THE LAVA",
+  "DO NOT RIDE THE BELTS",
+}
+
+-- The rooms, in tiles (inclusive), bottom to top, each with its floor. The
+-- south half is still the UAC's; going north it's Heck's (`map.heckFrom`).
+EternalMood.FOUNDRY = {
+  { name = "The Landing Pad", c0 = 4, r0 = 50, c1 = 17, r1 = 59, floor = "concrete" },
+  { name = "The Loading Bay", c0 = 20, r0 = 52, c1 = 35, r1 = 57, floor = "plate" },
+  { name = "The Front Office", c0 = 38, r0 = 50, c1 = 51, r1 = 59, floor = "lino" },
+  { name = "The Conveyors", c0 = 4, r0 = 38, c1 = 51, r1 = 47, floor = "plate" },
+  { name = "The Smelters", c0 = 4, r0 = 22, c1 = 51, r1 = 35, floor = "grate" },
+  { name = "The Crucible", c0 = 8, r0 = 3, c1 = 47, r1 = 19, floor = "rock" },
+}
+
+EternalMood.FOUNDRY_DOORS = {
+  { c0 = 18, r0 = 53, c1 = 19, r1 = 56 }, -- the Pad through to the Loading Bay
+  { c0 = 36, r0 = 53, c1 = 37, r1 = 56 }, -- the Loading Bay through to the Front Office
+  { c0 = 9, r0 = 48, c1 = 11, r1 = 49, ns = true }, -- up into the Conveyors from the Pad...
+  { c0 = 26, r0 = 48, c1 = 29, r1 = 51, ns = true }, -- ...the Loading Bay...
+  { c0 = 44, r0 = 48, c1 = 46, r1 = 49, ns = true }, -- ...and the Front Office
+  { c0 = 9, r0 = 36, c1 = 11, r1 = 37, ns = true }, -- up into the Smelters
+  { c0 = 26, r0 = 36, c1 = 29, r1 = 37, ns = true },
+  { c0 = 44, r0 = 36, c1 = 46, r1 = 37, ns = true },
+  { c0 = 12, r0 = 20, c1 = 14, r1 = 21, ns = true }, -- up into the Crucible
+  { c0 = 26, r0 = 20, c1 = 29, r1 = 21, ns = true },
+  { c0 = 41, r0 = 20, c1 = 43, r1 = 21, ns = true },
+}
+
+-- The belts across the Conveyors (rows, inclusive) and which way they run.
+EternalMood.BELTS = { { r0 = 39, r1 = 40, dir = 1 }, { r0 = 42, r1 = 43, dir = -1 }, { r0 = 45, r1 = 46, dir = 1 } }
+EternalMood.BELT_SPEED = 70 -- px/s: faster than walking (45), slower than a sprint (170)
+
+EternalMood.FOUNDRY_CLUTTER = {
+  ["The Landing Pad"] = { papers = 1, scorch = 1 },
+  ["The Loading Bay"] = { bin = 1, tipped = 1, trash = 2, blood = 1, papers = 1 },
+  ["The Front Office"] = { papers = 4, fallen = 2, blood = 1, tipped = 1 },
+  ["The Conveyors"] = { scorch = 2, blood = 1, trash = 1 },
+  ["The Smelters"] = { scorch = 4, blood = 2, bones = 3, glass = 1 },
+  ["The Crucible"] = { scorch = 3, blood = 2, bones = 5 },
+}
+
+local function buildFoundry(map, rng, T)
+  local g = grid(map, T)
+  local X, Y = g.X, g.Y
+  local cols, rows = map.cols, map.rows
+  local N, E, S, W = -math.pi / 2, 0, math.pi / 2, math.pi
+  map.base = { x = X(2), y = Y(2), w = (cols - 4) * T, h = (rows - 4) * T }
+  map.outside = "tarmac" -- the starport's, past the shed's walls
+  map.heckFrom = Y(36) -- north of this the walls are Heck's rock
+  map.belts = {}
+  local rooms = {}
+  for _, z in ipairs(EternalMood.FOUNDRY) do
+    g.fill(z.c0, z.r0, z.c1, z.r1, "walk")
+    rooms[z.name] = z
+    map.zones[#map.zones + 1] = {
+      name = z.name, x0 = X(z.c0), y0 = Y(z.r0), x1 = X(z.c1 + 1), y1 = Y(z.r1 + 1), floor = z.floor,
+    }
+    if z.r0 >= 36 then -- the UAC's half: strip lights, some on the blink
+      for c = z.c0 + 2, z.c1, 6 do
+        for r = z.r0 + 2, z.r1, 6 do
+          local roll = rng:random()
+          if roll < 0.25 then
+            map.flickers[#map.flickers + 1] = { x = X(c), y = Y(r), r = 190, color = EternalMood.STRIP, a = 0.35,
+              seed = rng:random(1000), dying = roll < 0.08 }
+          else
+            light(map, X(c), Y(r), 190, EternalMood.STRIP, 0.3)
+          end
+        end
+      end
+    end
+  end
+  for _, d in ipairs(EternalMood.FOUNDRY_DOORS) do
+    g.fill(d.c0, d.r0, d.c1, d.r1, "walk")
+    local x0, y0, x1, y1 = X(d.c0), Y(d.r0), X(d.c1 + 1), Y(d.r1 + 1)
+    if d.ns then
+      flat(map, "stripe", x0, y0 + 8, x1 - x0, 24)
+      flat(map, "stripe", x0, y1 - 32, x1 - x0, 24)
+      map.alarms[#map.alarms + 1] = { x = math.floor((x0 + x1) / 2), y = y0 }
+    else
+      flat(map, "stripe", x0 + 8, y0, 24, y1 - y0, { across = true })
+      flat(map, "stripe", x1 - 32, y0, 24, y1 - y0, { across = true })
+      map.alarms[#map.alarms + 1] = { x = x0, y = math.floor((y0 + y1) / 2) }
+    end
+  end
+
+  -- The Landing Pad: the shuttle down from Earth on its pad, crates.
+  local z = rooms["The Landing Pad"]
+  flat(map, "pad", X(4), Y(50), 8 * T, 10 * T)
+  cover(map, "shuttle", X(5), Y(50) + 16, 6 * T, 8 * T)
+  for _, p in ipairs({ { 14, 58 }, { 16, 58 } }) do
+    cover(map, "crate", X(p[1]), Y(p[2]), 2 * T - 8, 2 * T - 8)
+  end
+  light(map, X(8), Y(54), 300, EternalMood.ALARM, 0.3)
+  poster(map, X(12), Y(z.r0), EternalMood.FOUNDRY_POSTERS[1])
+
+  -- The Loading Bay: crates, barrels and a parked loader.
+  z = rooms["The Loading Bay"]
+  for _, p in ipairs({ { 21, 52 }, { 23, 56 }, { 32, 52 }, { 34, 56 } }) do
+    cover(map, "crate", X(p[1]), Y(p[2]), 2 * T - 8, 2 * T - 8)
+  end
+  cover(map, "loader", X(30), Y(54), 2 * T, 3 * T)
+  for k = 0, 2 do
+    cover(map, "barrel", X(25) + k * 40, Y(56) + 16, 36, 36, true, { round = true, red = k == 1 })
+  end
+  poster(map, X(21), Y(z.r0), EternalMood.FOUNDRY_POSTERS[4])
+
+  -- The Front Office: Dr. Seek's booth, his jar on the desk in it, desks
+  -- and filing round it.
+  z = rooms["The Front Office"]
+  cover(map, "booth", X(42), Y(52), 5 * T, 3 * T)
+  light(map, X(44.5), Y(53.5), 200, EternalMood.SCREEN, 0.5)
+  for _, p in ipairs({ { 39, 57 }, { 47, 57 } }) do
+    cover(map, "desk", X(p[1]), Y(p[2]), 2 * T, 40)
+    cover(map, "chair", X(p[1]) + 44, Y(p[2]) + 46, 28, 28, false)
+    light(map, X(p[1] + 1), Y(p[2]) + 20, 90, EternalMood.SCREEN, 0.35)
+  end
+  for r = 51, 57, 3 do
+    cover(map, "cabinet", X(z.c1) + 20, Y(r), 36, 2 * T - 16)
+  end
+  cover(map, "cooler", X(z.c0) + 8, Y(z.r0) + 8, 40, 40)
+  poster(map, X(39), Y(z.r0), EternalMood.FOUNDRY_POSTERS[3])
+
+  -- The Conveyors: belts right across the hall, each running its own way,
+  -- the hoppers they feed at the walls, a walkway between each.
+  z = rooms["The Conveyors"]
+  for _, b in ipairs(EternalMood.BELTS) do
+    local x, y, w, h = X(z.c0), Y(b.r0), (z.c1 - z.c0 + 1) * T, (b.r1 - b.r0 + 1) * T
+    local belt = { x = x, y = y, w = w, h = h, vx = b.dir * EternalMood.BELT_SPEED, vy = 0 }
+    map.belts[#map.belts + 1] = belt
+    flat(map, "belt", x, y, w, h, { dir = b.dir, speed = EternalMood.BELT_SPEED, seed = rng:random(1000) })
+  end
+  for _, c in ipairs({ 6, 20, 35, 49 }) do
+    light(map, X(c), Y(z.r0) + 20, 160, EternalMood.STRIP, 0.25)
+  end
+  poster(map, X(16), Y(z.r0), EternalMood.FOUNDRY_POSTERS[6])
+  poster(map, X(33), Y(z.r0), EternalMood.FOUNDRY_POSTERS[2])
+
+  -- The Smelters: vats of lava with walkways between, chains hanging,
+  -- pipes; Heck's rock and bone coming up through the floor, more of it
+  -- further north, and spires of it.
+  z = rooms["The Smelters"]
+  for _, c in ipairs({ 12, 28, 44 }) do
+    for _, r in ipairs({ 25.5, 31.5 }) do
+      cover(map, "vat", X(c) - 1.5 * T, Y(r) - 1.5 * T, 3 * T, 3 * T, true, { round = true, seed = rng:random(1000) })
+      light(map, X(c), Y(r), 320, EternalMood.MOLTEN, 0.6)
+    end
+  end
+  for _, p in ipairs({ { 20, 24 }, { 36, 24 }, { 20, 30 }, { 36, 30 }, { 7, 28 }, { 49, 28 } }) do
+    flat(map, "chain", X(p[1]), Y(p[2]), 24, 2 * T, { seed = rng:random(1000) })
+  end
+  for k = 0, 14 do -- the growth, thicker north
+    local r = z.r0 + math.floor((rng:random() ^ 1.6) * (z.r1 - z.r0 - 1))
+    local c = z.c0 + rng:random() * (z.c1 - z.c0 - 2)
+    flat(map, "growth", X(c), Y(r), 2 * T, 2 * T, { seed = rng:random(1000) + k })
+  end
+  for _, p in ipairs({ { 6, 23 }, { 50, 24 }, { 20, 22.5 }, { 37, 22.5 } }) do
+    cover(map, "spire", X(p[1]) - 24, Y(p[2]) - 24, 48, 48, true, { round = true, seed = rng:random(1000) })
+  end
+  poster(map, X(30), Y(z.r0), EternalMood.FOUNDRY_POSTERS[5])
+
+  -- The Crucible: a pit of lava in a stone ring, a lava moat round the
+  -- ring with a bridge in from each side, and the portal down into Heck
+  -- behind it all, at the top.
+  z = rooms["The Crucible"]
+  local function lava(c0, r0, c1, r1)
+    cover(map, "lava", X(c0), Y(r0), (c1 - c0 + 1) * T, (r1 - r0 + 1) * T, true, { seed = rng:random(1000) })
+  end
+  lava(21, 6, 26, 7) -- the moat: north (either side of its bridge)...
+  lava(30, 6, 35, 7)
+  lava(21, 17, 26, 18) -- ...south...
+  lava(30, 17, 35, 18)
+  lava(21, 8, 22, 10) -- ...west...
+  lava(21, 14, 22, 16)
+  lava(34, 8, 35, 10) -- ...and east
+  lava(34, 14, 35, 16)
+  for _, b in ipairs({ { 27, 6, 29, 7 }, { 27, 17, 29, 18 }, { 21, 11, 22, 13 }, { 34, 11, 35, 13 } }) do
+    flat(map, "bridge", X(b[1]), Y(b[2]), (b[3] - b[1] + 1) * T, (b[4] - b[2] + 1) * T, { ns = b[2] ~= 11 })
+  end
+  flat(map, "ring", X(23), Y(8), 11 * T, 9 * T)
+  cover(map, "crucible", X(26), Y(10), 5 * T, 5 * T, true, { round = true, seed = rng:random(1000) })
+  light(map, X(28.5), Y(12.5), 640, EternalMood.MOLTEN, 0.8)
+  for _, p in ipairs({ { 21, 6 }, { 30, 6 }, { 21, 17 }, { 30, 17 } }) do
+    light(map, X(p[1] + 3), Y(p[2] + 1), 260, EternalMood.MOLTEN, 0.4)
+  end
+  flat(map, "gateway", X(26), Y(3), 5 * T, 2 * T)
+  light(map, X(28.5), Y(4), 360, EternalMood.PORTAL, 0.7)
+  map.exitX, map.exitY = math.floor(X(28.5)), math.floor(Y(4.5))
+  for k = 0, 10 do
+    flat(map, "growth", X(z.c0 + rng:random() * (z.c1 - z.c0 - 2)), Y(z.r0 + rng:random() * (z.r1 - z.r0 - 2)),
+      2 * T, 2 * T, { seed = rng:random(1000) + 50 + k })
+  end
+  for _, p in ipairs({ { 11, 6 }, { 15, 15 }, { 44, 6 }, { 40, 15 }, { 11, 17 } }) do
+    cover(map, "spire", X(p[1]) - 28, Y(p[2]) - 28, 56, 56, true, { round = true, seed = rng:random(1000) })
+  end
+
+  -- Heck's horde (eternal-mood/horde.lua), in tiles. The UAC's half has
+  -- its possessed staff at work, guards on the way north, interns about;
+  -- the Smelters and the Crucible are thick with imps and mobs, two
+  -- Cacodaemons over the Crucible's pit.
+  local horde = { posts = {}, vents = {}, patrols = {}, mobs = {}, cacos = {} }
+  map.horde = horde
+  local function post(rank, c, r, watch)
+    horde.posts[#horde.posts + 1] = { rank = rank, x = math.floor(X(c)), y = math.floor(Y(r)), watch = watch }
+  end
+  local function vent(c, r, out, count)
+    local x, y = math.floor(X(c)), math.floor(Y(r))
+    horde.vents[#horde.vents + 1] = { x = x, y = y, out = out, count = count }
+    flat(map, "vent", x - 22, y - 16, 44, 32)
+  end
+  local function patrol(ranks, corners, start)
+    local route = {}
+    for _, c in ipairs(corners) do
+      route[#route + 1] = { x = math.floor(X(c[1])), y = math.floor(Y(c[2])) }
+    end
+    horde.patrols[#horde.patrols + 1] = { ranks = ranks, route = route, start = start or 1 }
+  end
+  local function mob(c, r, count, wake)
+    horde.mobs[#horde.mobs + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), count = count, wake = wake }
+  end
+  -- The Loading Bay and the Front Office.
+  post("staffer", 22, 54.5, W)
+  post("staffer", 33.5, 54.5, W)
+  post("guard", 28, 52.5, S)
+  post("staffer", 40.5, 58.6, N)
+  post("staffer", 48.5, 58.6, N)
+  post("guard", 45.5, 50.6, S)
+  patrol({ "staffer", "staffer" }, { { 24.5, 53 }, { 29.5, 53 } })
+  mob(49.5, 53.5, 5, 380)
+  -- The Conveyors: guards at the doors up, staff on the belts (going round
+  -- and round), a patrol along the middle walkway.
+  post("guard", 10.5, 38.4, S)
+  post("guard", 28, 38.4, S)
+  post("guard", 45.5, 38.4, S)
+  post("staffer", 18, 42.5, S)
+  post("staffer", 38, 39.5, S)
+  post("staffer", 30, 45.5, S)
+  patrol({ "guard", "staffer" }, { { 6, 44.5 }, { 49.5, 44.5 } })
+  mob(7, 41.5, 6, 420)
+  -- The Smelters.
+  post("overtime", 28, 23.4, S)
+  post("staffer", 6, 32, E)
+  post("staffer", 20, 28, E)
+  post("staffer", 36, 28, W)
+  post("staffer", 50, 32, W)
+  patrol({ "guard", "staffer", "staffer" }, { { 7, 34.5 }, { 49, 34.5 }, { 49, 22.6 }, { 7, 22.6 } })
+  mob(20, 33.5, 6, 420)
+  mob(36, 26.5, 6, 420)
+  vent(5, 25.5, E, 3)
+  vent(50.5, 30.5, W, 3)
+  vent(28, 28.5, S, 3)
+  -- The Crucible.
+  mob(14, 8, 6, 420)
+  mob(42, 8, 6, 420)
+  vent(10, 18, E, 2)
+  vent(45.5, 18, W, 2)
+  horde.cacos[#horde.cacos + 1] = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), count = 2, wake = 620 }
+
+  -- Everyone comes down the shuttle's ramp onto the Pad; the way home is
+  -- back by the shuttle's tail.
+  for i = 0, 11 do
+    map.spawns[#map.spawns + 1] = {
+      x = math.floor(X(12.5) + (i % 3) * 96), y = math.floor(Y(51.5) + math.floor(i / 3) * 96), angle = -math.pi / 2,
+    }
+  end
+  map.cx, map.cy = math.floor(X(7.5)), math.floor(Y(59))
+
+  local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
+  for _, list in ipairs({ horde.posts, horde.vents, horde.mobs, map.spawns }) do
+    for _, p in ipairs(list) do
+      avoid[#avoid + 1] = { x = p.x, y = p.y }
+    end
+  end
+  for _, p in ipairs(horde.patrols) do
+    for _, c in ipairs(p.route) do
+      avoid[#avoid + 1] = { x = c.x, y = c.y }
+    end
+  end
+  for _, room in ipairs(EternalMood.FOUNDRY) do
+    if room.name ~= "The Conveyors" then -- nothing lies still on a belt
+      clutter(map, rng, g, room, EternalMood.FOUNDRY_CLUTTER[room.name] or {}, avoid, EternalMood.FOUNDRY_DOORS)
+    end
+  end
+
+  map.openKinds = { walk = true }
+  commit(map, g)
+end
+
 EternalMood.builders = {
   fobos = buildFobos,
   earth = buildEarth,
+  foundry = buildFoundry,
 }
 
 --- Does `kind` name one of these maps?

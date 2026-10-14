@@ -1636,8 +1636,16 @@ the one with a plot.
   starport's gate and keeps it closed (`serverLocked`) until he is down:
   rockets from two launchers (the weapons feature's, ownerless, from the
   horde) in volleys and sweeping fans, a belly bump, Cacodaemons called in
-  (horde.lua's `serverCall` "caco"), double damage in his back. The next
-  three maps follow.
+  (horde.lua's `serverCall` "caco"), double damage in his back. His gate
+  leads on to the Foundry (`foundry`, 56x64, quest "eternal-mood-foundry",
+  "home-foundry" by the shuttle): the UAC's factory, half turned to Heck,
+  from the Landing Pad over the Conveyors and through the Smelters to the
+  Crucible and the portal behind it. The same builder and renderer, with
+  `outside` "tarmac" (the starport past the walls, surroundings'
+  `starport_pads.lua`), `heckFrom` (north of it the walls are rock), and
+  `belts`: a moving floor that carries whoever stands on it (the
+  eternal-mood feature's `belts.lua`, on the host, players and the horde).
+  Its boss, the Baron of Heck, and the next two maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

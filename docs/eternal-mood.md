@@ -287,6 +287,36 @@ branch off `feature/eternal-mood`):
   car horns blaring in its gaps, a siren into the last bar; and the gallop
   again into the top. Its own riffs, none of anybody else's.
 
+- `feature/eternal-mood-foundry`: the Foundry (`foundry`, 56x64, on foot,
+  `city-map/eternal_mood.lua`'s `buildFoundry`), quest
+  `eternal-mood-foundry` (introLine 3) behind Earth's starport gate (EXIT
+  star "THE FOUNDRY"), its HOME star by the shuttle's tail, the starport
+  past its walls (surroundings' `starport_pads.lua`: tarmac, landing pads,
+  runway lights blinking round them, the odd parked shuttle). Six rooms,
+  bottom to top: the Landing Pad (the shuttle down from Earth, where
+  everyone arrives), the Loading Bay (crates, barrels, a loader), the
+  Front Office (Dr. Seek's glass booth with his brain in its jar on the
+  desk, bubbling, a light blinking as he talks; desks, filing), the
+  Conveyors, the Smelters (six vats of lava in two rows, chains hanging,
+  Heck's rock and bone growing up through the grating, thicker north,
+  rock spires) and the Crucible (a round pit of lava inside a stone ring,
+  a lava moat round the ring with a stone bridge in from each side, the
+  portal down into Heck behind it all: a ring of bones round a swirl of
+  red; reaching it finishes the level, for now going home). North of the
+  Conveyors the shed's steel walls are Heck's rock with bones in them
+  (`map.heckFrom`). The Conveyors' three belts cross the whole hall,
+  running east, west, east at 70 px/s (`map.belts`; the eternal-mood
+  feature's `belts.lua`): whoever stands on one is carried, players and
+  the possessed, interns and imps alike (the Cacodaemons float), into the
+  wall if nothing stops them; walking against one (45) gets you nowhere,
+  sprinting (170) does. Drawn running: ribs and chevrons going by, lumps of
+  glowing ore riding along. Crates riding the belts as moving cover are
+  left for later (cover is fixed in place). The horde: 17 posts and three
+  patrols of the possessed (24 for one human), six interns' mobs, imps in
+  five vents (three in the Smelters, two in the Crucible), two Cacodaemons
+  over the Crucible's pit. Fobos Base's theme for now; no Baron yet, so
+  the portal is open.
+
 ## Decisions
 
 | Question | Decision |

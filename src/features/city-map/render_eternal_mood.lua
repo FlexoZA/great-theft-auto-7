@@ -59,6 +59,17 @@ local C = {
   lava = { 1.00, 0.38, 0.04 },
   lavaHot = { 1.00, 0.80, 0.30 },
   crust = { 0.22, 0.07, 0.04 },
+  -- the Foundry
+  tarmac = { 0.16, 0.16, 0.18 }, -- the starport's, past the walls
+  tarmacDark = { 0.12, 0.12, 0.14 },
+  rockWall = { 0.24, 0.12, 0.09 }, -- Heck's rock where the shed's steel was
+  rockWallDark = { 0.15, 0.07, 0.05 },
+  bone = { 0.86, 0.80, 0.66 },
+  belt = { 0.12, 0.12, 0.13 },
+  beltLine = { 0.24, 0.24, 0.26 },
+  glassBooth = { 0.55, 0.70, 0.75, 0.35 },
+  jar = { 0.60, 0.85, 0.70, 0.55 },
+  brain = { 0.92, 0.58, 0.60 },
 }
 
 -- Roofs and car paint, picked by seed.
@@ -81,13 +92,15 @@ local FLOORS = {
   sidewalk = { { 0.50, 0.49, 0.46 }, { 0.40, 0.39, 0.36 }, "slabs" },
   lawn = { { 0.30, 0.27, 0.15 }, { 0.21, 0.19, 0.10 }, "lawn" },
   cracked = { { 0.21, 0.20, 0.20 }, { 0.09, 0.07, 0.07 }, "cracked" },
+  -- the Foundry's north half: Heck's own rock
+  rock = { { 0.30, 0.17, 0.13 }, { 0.19, 0.09, 0.07 }, "rock" },
 }
 
 -- Everything in this universe is evil: every colour above gets a red cast
 -- (more red, less green and blue), but for the sludge, which stays sick
 -- green, and the colours already set red by hand.
 local KEEP = { sludge = true, sludgeLight = true, green = true, glass = true, red = true, hazard = true,
-  lava = true, lavaHot = true, crust = true, yellowLine = true }
+  lava = true, lavaHot = true, crust = true, yellowLine = true, jar = true, brain = true, glassBooth = true }
 local function evil(c)
   return { math.min(1, c[1] * 1.10 + 0.05), c[2] * 0.70, c[3] * 0.62, c[4] }
 end
@@ -178,6 +191,18 @@ local function floorTile(f, x, y, T, h)
       end
       love.graphics.setLineWidth(1)
     end
+  elseif kind == "rock" then
+    for k = 0, 3 do -- lumps
+      local hx, hy = hash(x * 0.09 + k * 2.1), hash(y * 0.15 + k * 1.7)
+      love.graphics.ellipse("fill", x + 6 + hx * (T - 12), y + 6 + hy * (T - 12), 7, 5, 8)
+    end
+    if h > 0.7 then -- a seam of something glowing
+      love.graphics.setColor(0.85, 0.25, 0.05, 0.7)
+      love.graphics.setLineWidth(2)
+      local px, py = x, y + hash(h * 7) * T
+      love.graphics.line(px, py, x + T * 0.4, py + (hash(h * 3) - 0.5) * 30, x + T, y + hash(h * 11) * T)
+      love.graphics.setLineWidth(1)
+    end
   elseif kind == "slabs" then
     love.graphics.rectangle("fill", x, y, T, 2)
     love.graphics.rectangle("fill", x, y + T / 2, T, 2)
@@ -232,9 +257,44 @@ local function moonTile(x, y, T, h)
   end
 end
 
+--- A tile of the starport's tarmac (the Foundry's outside): dark, painted lines now and then.
+local function tarmacTile(x, y, T, h)
+  color(h < 0.5 and C.tarmac or C.tarmacDark)
+  love.graphics.rectangle("fill", x, y, T, T)
+  if h > 0.85 then
+    color(C.hazard, 0.5)
+    love.graphics.rectangle("fill", x, y + T / 2 - 3, T, 6)
+  end
+end
+
+--- A tile of wall gone to Heck's rock (the Foundry's north half): lumps, cracks, a lit edge.
+local function rockWallTile(map, c, r, x, y, T)
+  local h = hash(c * 3.7 + r * 5.3)
+  color(C.rockWall)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(C.rockWallDark)
+  for k = 0, 3 do
+    love.graphics.circle("fill", x + 8 + hash(h + k) * (T - 16), y + 8 + hash(h * 2 + k) * (T - 16), 6 + k, 8)
+  end
+  color(C.bone, 0.6)
+  if h > 0.75 then -- a bone sticking out of it
+    love.graphics.rectangle("fill", x + 10, y + T / 2, T - 20, 5, 2)
+    love.graphics.circle("fill", x + 10, y + T / 2 + 2, 4, 6)
+    love.graphics.circle("fill", x + T - 10, y + T / 2 + 2, 4, 6)
+  end
+  love.graphics.setColor(0.7, 0.2, 0.05, 0.8)
+  if isWalk(map, c, r + 1) then
+    love.graphics.rectangle("fill", x, y + T - 4, T, 4)
+  end
+end
+
 --- A tile of the base's wall: dark steel panels, its seams, and a lit trim
 --- along every side that faces a floor, a shadow cast onto the floor south.
 local function wallTile(map, c, r, x, y, T)
+  if map.heckFrom and y < map.heckFrom then
+    rockWallTile(map, c, r, x, y, T)
+    return
+  end
   color(C.wall)
   love.graphics.rectangle("fill", x, y, T, T)
   color(C.wallSeam)
@@ -269,6 +329,8 @@ local function drawGround(map, T)
         floorTile(FLOORS[z and z.floor or "plate"], x, y, T, h)
       elseif inBase(map, x, y) then
         wallTile(map, c, r, x, y, T)
+      elseif map.outside == "tarmac" then
+        tarmacTile(x, y, T, h)
       else
         moonTile(x, y, T, h)
       end
@@ -1419,6 +1481,262 @@ function DRAW.shuttle(s, t)
   love.graphics.rectangle("fill", cx + w * 0.42, cy - 20, 6, 70)
 end
 
+-- The Foundry's props -------------------------------------------------------------
+
+--- A conveyor belt running `dir` (1 east, -1 west) at `speed` px/s: dark
+--- rubber with ribs going by, rollers at its edges, chevrons showing which
+--- way, and lumps of Heck's ore riding on it.
+function DRAW.belt(s, t)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.belt)
+  love.graphics.rectangle("fill", s.x, s.y + 6, s.w, s.h - 12)
+  local shift = (t * s.speed * s.dir) % 32
+  color(C.beltLine)
+  for x = s.x - 32 + shift, s.x + s.w, 32 do
+    if x >= s.x then
+      love.graphics.rectangle("fill", x, s.y + 6, 3, s.h - 12)
+    end
+  end
+  color(C.hazard, 0.7) -- chevrons
+  local mid = s.y + s.h / 2
+  local step = 256
+  local cshift = (t * s.speed * s.dir) % step
+  for x = s.x - step + cshift, s.x + s.w, step do
+    if x > s.x + 20 and x < s.x + s.w - 20 then
+      local d = s.dir * 14
+      love.graphics.polygon("fill", x - d, mid - 18, x + d, mid, x - d, mid + 18, x - d * 0.4, mid)
+    end
+  end
+  for k = 0, math.floor(s.w / 180) do -- ore riding along
+    local base = hash(s.seed + k) * s.w
+    local x = s.x + (base + t * s.speed * s.dir) % s.w
+    local y = s.y + 16 + hash(s.seed * 3 + k) * (s.h - 40)
+    color(C.rockWallDark)
+    love.graphics.ellipse("fill", x, y, 14, 10, 8)
+    love.graphics.setColor(1, 0.4, 0.08, 0.8)
+    love.graphics.circle("fill", x + 2, y - 1, 3, 6)
+  end
+  color(C.steel) -- the rollers' edges
+  love.graphics.rectangle("fill", s.x, s.y, s.w, 6)
+  love.graphics.rectangle("fill", s.x, s.y + s.h - 6, s.w, 6)
+end
+
+--- How hot the lava is at `t`, for anything of the Foundry's lava.
+local function molten(t, seed)
+  return 0.8 + 0.12 * math.sin(t * 1.3 + seed) + 0.08 * math.sin(t * 5.1 + seed * 2)
+end
+
+--- A vat of lava: a thick steel rim, the lava in it churning, bubbles.
+function DRAW.vat(s, t)
+  shadow(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  local m = molten(t, s.seed)
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, r, 32)
+  color(C.steel)
+  love.graphics.circle("line", cx, cy, r - 4, 32)
+  for k = 0, 7 do
+    local a = k * math.pi / 4
+    color(C.wallSeam)
+    love.graphics.circle("fill", cx + math.cos(a) * (r - 8), cy + math.sin(a) * (r - 8), 3, 6)
+  end
+  love.graphics.setColor(1, 0.32 + 0.12 * m, 0.04)
+  love.graphics.circle("fill", cx, cy, r - 14, 28)
+  for k = 0, 4 do
+    local phase = (t * (0.4 + hash(s.seed + k) * 0.5) + hash(s.seed * 2 + k)) % 1
+    local bx = cx + (hash(s.seed + k * 3) - 0.5) * (r - 30) * 1.4
+    local by = cy + (hash(s.seed * 5 + k) - 0.5) * (r - 30) * 1.4
+    love.graphics.setColor(1, 0.85, 0.4, 1 - phase)
+    love.graphics.circle(phase < 0.85 and "fill" or "line", bx, by, 3 + phase * 8, 10)
+  end
+  for k = 0, 3 do -- crust drifting round on it
+    local a = t * 0.15 * (k % 2 == 0 and 1 or -1) + k * 1.6 + s.seed
+    local d = (r - 26) * (0.3 + hash(s.seed + k * 7) * 0.5)
+    color(C.crust)
+    love.graphics.ellipse("fill", cx + math.cos(a) * d, cy + math.sin(a) * d, 8 + k * 2, 5 + k, 10)
+  end
+end
+
+--- A stretch of lava: the moat round the Crucible. Crust drifting, bright seams.
+function DRAW.lava(s, t)
+  local m = molten(t, s.seed)
+  love.graphics.setColor(1, 0.30 + 0.12 * m, 0.04)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  for k = 0, math.floor(s.w * s.h / 6000) do
+    local px = s.x + (hash(s.seed + k) * s.w + t * 8 * (k % 2 == 0 and 1 or -1)) % s.w
+    local py = s.y + hash(s.seed * 3 + k) * s.h
+    color(C.crust)
+    love.graphics.ellipse("fill", px, py, 12 + hash(k) * 14, 8 + hash(k * 2) * 8, 10)
+  end
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(1, 0.8, 0.3, 0.25 * m)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12)
+  love.graphics.setBlendMode("alpha")
+  color(C.char) -- its banks
+  love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
+end
+
+--- The Crucible's pit: the Crater's lava, deeper.
+function DRAW.crucible(s, t)
+  DRAW.crater(s, t)
+end
+
+--- The stone ring round the Crucible: flagstones in a band, worn.
+function DRAW.ring(s)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 18)
+  color(C.concrete)
+  for x = s.x, s.x + s.w - 1, 48 do
+    for y = s.y, s.y + s.h - 1, 48 do
+      love.graphics.rectangle("fill", x + 3, y + 3, math.min(42, s.x + s.w - x - 6), math.min(42, s.y + s.h - y - 6), 4)
+    end
+  end
+  love.graphics.setColor(0.6, 0.15, 0.05, 0.5) -- runes scorched into it
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", s.x + 14, s.y + 14, s.w - 28, s.h - 28, 14)
+  love.graphics.setLineWidth(1)
+end
+
+--- A stone bridge over the moat: slabs across, a kerb either side.
+function DRAW.bridge(s)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.concrete)
+  if s.ns then
+    for y = s.y + 4, s.y + s.h - 20, 24 do
+      love.graphics.rectangle("fill", s.x + 10, y, s.w - 20, 18, 2)
+    end
+  else
+    for x = s.x + 4, s.x + s.w - 20, 24 do
+      love.graphics.rectangle("fill", x, s.y + 10, 18, s.h - 20, 2)
+    end
+  end
+end
+
+--- The way down into Heck: a ring of bone round a swirl of red, turning.
+function DRAW.gateway(s, t)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local rx, ry = s.w / 2, s.h / 2
+  love.graphics.setColor(0.10, 0.02, 0.03)
+  love.graphics.ellipse("fill", cx, cy, rx, ry, 32)
+  love.graphics.setBlendMode("add")
+  for k = 0, 5 do
+    local a = t * (0.8 + k * 0.2) + k
+    love.graphics.setColor(1, 0.2 + k * 0.05, 0.3, 0.18)
+    love.graphics.arc("fill", cx, cy, rx * (0.9 - k * 0.12), a, a + 2.2, 16)
+  end
+  love.graphics.setColor(1, 0.6, 0.5, 0.4 + 0.2 * math.sin(t * 3))
+  love.graphics.ellipse("fill", cx, cy, rx * 0.2, ry * 0.3, 16)
+  love.graphics.setBlendMode("alpha")
+  color(C.bone)
+  for k = 0, 13 do -- the ring of bones round it
+    local a = k / 14 * 2 * math.pi
+    love.graphics.circle("fill", cx + math.cos(a) * rx, cy + math.sin(a) * ry, 7, 8)
+  end
+end
+
+--- Chains hanging from the roof, swinging a little.
+function DRAW.chain(s, t)
+  local sway = math.sin(t * 0.9 + s.seed) * 6
+  color(C.steelDark)
+  for k = 0, math.floor(s.h / 10) do
+    local f = k / (s.h / 10)
+    love.graphics.ellipse("line", s.x + s.w / 2 + sway * f, s.y + k * 10, 3, 5, 6)
+  end
+  color(C.steel)
+  love.graphics.polygon("fill", s.x + s.w / 2 + sway - 6, s.y + s.h, s.x + s.w / 2 + sway + 6, s.y + s.h,
+    s.x + s.w / 2 + sway, s.y + s.h + 12) -- the hook
+end
+
+--- Heck coming up through the floor: a patch of rock, bones in it.
+function DRAW.growth(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.rockWall, 0.85)
+  local pts = {}
+  for k = 0, 9 do
+    local a = k / 10 * 2 * math.pi
+    local d = r * (0.6 + hash(s.seed + k) * 0.4)
+    pts[#pts + 1] = cx + math.cos(a) * d
+    pts[#pts + 1] = cy + math.sin(a) * d
+  end
+  love.graphics.polygon("fill", pts)
+  color(C.rockWallDark)
+  love.graphics.circle("fill", cx + r * 0.2, cy - r * 0.1, r * 0.3, 10)
+  color(C.bone)
+  local a = hash(s.seed * 7) * math.pi
+  love.graphics.setLineWidth(4)
+  love.graphics.line(cx - math.cos(a) * r * 0.5, cy - math.sin(a) * r * 0.5, cx + math.cos(a) * r * 0.5,
+    cy + math.sin(a) * r * 0.5)
+  love.graphics.setLineWidth(1)
+end
+
+--- A spire of Heck's rock, come up through the floor: solid, sharp.
+function DRAW.spire(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 8, cy + 10, r, 12)
+  color(C.rockWallDark)
+  love.graphics.circle("fill", cx, cy, r, 8)
+  color(C.rockWall)
+  love.graphics.polygon("fill", cx - r * 0.8, cy + r * 0.3, cx, cy - r * 0.9, cx + r * 0.6, cy + r * 0.5)
+  color(C.bone)
+  love.graphics.circle("fill", cx + 2, cy - r * 0.4, 4, 6) -- its point
+end
+
+--- Dr. Seek's booth: glass walls round a desk, his jar on it, the brain in
+--- the jar bubbling and its little light blinking as he talks.
+function DRAW.booth(s, t)
+  shadow(s)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.steel)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12)
+  color(C.wood)
+  love.graphics.rectangle("fill", s.x + s.w * 0.25, s.y + s.h * 0.35, s.w * 0.5, s.h * 0.4) -- the desk
+  local cx, cy = s.x + s.w / 2, s.y + s.h * 0.55
+  color(C.jar)
+  love.graphics.circle("fill", cx, cy, 26, 20)
+  color(C.brain)
+  love.graphics.ellipse("fill", cx, cy, 15, 12, 16)
+  love.graphics.setColor(0.7, 0.35, 0.40)
+  love.graphics.line(cx - 10, cy, cx + 10, cy)
+  love.graphics.line(cx, cy - 9, cx - 4, cy + 9)
+  for k = 0, 3 do -- bubbles
+    local phase = (t * 0.8 + k / 4) % 1
+    love.graphics.setColor(1, 1, 1, 0.6 * (1 - phase))
+    love.graphics.circle("line", cx - 12 + k * 8, cy + 18 - phase * 36, 2.5, 6)
+  end
+  local talk = math.sin(t * 9) > 0 and 1 or 0.3
+  love.graphics.setColor(0.3, 1, 0.4, talk)
+  love.graphics.circle("fill", cx + 22, cy - 18, 4, 8) -- the speaker light
+  color(C.glassBooth) -- the glass
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  love.graphics.setColor(1, 1, 1, 0.35)
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", s.x + 2, s.y + 2, s.w - 4, s.h - 4)
+  love.graphics.setLineWidth(1)
+end
+
+--- Bones lying about: a skull and a few long ones.
+function DRAW.bones(s)
+  turned(s, function()
+    color(C.bone)
+    love.graphics.circle("fill", 0, 0, 8, 10) -- the skull
+    color(C.black)
+    love.graphics.circle("fill", -3, -2, 2, 6)
+    love.graphics.circle("fill", 3, -2, 2, 6)
+    color(C.bone)
+    love.graphics.setLineWidth(4)
+    for k = 0, 2 do
+      local a = hash(s.seed + k) * math.pi
+      local ox, oy = (hash(s.seed * 2 + k) - 0.5) * s.w, (hash(s.seed * 3 + k) - 0.5) * s.h
+      love.graphics.line(ox - math.cos(a) * 12, oy - math.sin(a) * 12, ox + math.cos(a) * 12, oy + math.sin(a) * 12)
+    end
+    love.graphics.setLineWidth(1)
+  end)
+end
+
 local function drawSigns(map)
   local f = signFont()
   love.graphics.setFont(f)
@@ -1494,7 +1812,8 @@ function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
   for _, s in ipairs(map.cover) do
     if s.kind == "reactor" and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
       drawHalo(s, t)
-    elseif s.kind == "crater" and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
+    elseif (s.kind == "crater" or s.kind == "crucible")
+      and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
       drawCraterGlow(s, t)
     end
   end

@@ -162,9 +162,9 @@ CityMap.maps = {
   },
   -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
   -- (the night feature), a red dark: everything in that universe is evil.
-  -- So far Fobos Base, the UAC's moon base, and Heck on Earth, the road
-  -- through a burning city to the starport, both walked: no driving on
-  -- this line.
+  -- So far Fobos Base, the UAC's moon base, Heck on Earth, the road
+  -- through a burning city to the starport, and the Foundry, the UAC's
+  -- factory half turned to Heck, all walked: no driving on this line.
   fobos = {
     title = "Fobos Base", kind = "fobos", seed = 201, cols = 56, rows = 80,
     crowd = false, traffic = false, vehicles = false, night = { 0.50, 0.22, 0.20 },
@@ -172,6 +172,10 @@ CityMap.maps = {
   earth = {
     title = "Heck on Earth", kind = "earth", seed = 202, cols = 40, rows = 160,
     crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.22, 0.17 },
+  },
+  foundry = {
+    title = "The Foundry", kind = "foundry", seed = 203, cols = 56, rows = 64,
+    crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.22, 0.16 },
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

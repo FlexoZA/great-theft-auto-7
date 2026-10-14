@@ -288,7 +288,7 @@ Quests.list = {
   {
     -- Eternal Mood (docs/eternal-mood.md): the UAC's moon base, and it gets
     -- stranger from there. The eternal-mood feature runs the levels; so far
-    -- Fobos Base and Heck on Earth, and the starport's gate goes home.
+    -- Fobos Base, Heck on Earth and the Foundry, whose portal goes home.
     id = "eternal-mood",
     title = "Pest control",
     text = "Moon. Bring a shotgun. The UAC opened a door it shouldn't have, and something came through. "
@@ -317,7 +317,24 @@ Quests.list = {
     color = { 1, 0.45, 0.1 },
     banner = "%s came down off the shuttle. Welcome to Heck on Earth.",
     introLine = 2,
-    exitText = "The starport's gate. The last shuttle out goes to the Foundry, and that's another day. Head home.",
+    exitText = "The starport's gate is open. The last shuttle out goes to the Foundry, where they melt Heck down.",
+    exitTitle = "Last shuttle out",
+    exitLabel = "THE FOUNDRY",
+    next = "eternal-mood-foundry",
+  },
+  {
+    -- On foot through the UAC's factory: Earth's starport star leads here.
+    id = "eternal-mood-foundry",
+    title = "The Foundry",
+    text = "The UAC's foundry, where they melt Heck down for fuel. Half of it is Heck's already. The way on is "
+      .. "the portal behind the Crucible.",
+    map = "foundry",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came off the shuttle. Welcome to the Foundry.",
+    introLine = 3,
+    exitText = "The portal behind the Crucible goes down into Heck. That's as far as the job goes for now. Head home.",
   },
   {
     id = "home",
@@ -508,6 +525,19 @@ Quests.list = {
     onMap = "earth",
     x = 0, -- by the shuttle in the Depot: city-map's map.cx, map.cy
     y = 4864,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-foundry",
+    title = "Back to the City",
+    text = "Back up the shuttle's ramp. Take everyone home.",
+    onMap = "foundry",
+    x = -1312, -- by the shuttle's tail on the Pad: city-map's map.cx, map.cy
+    y = 1728,
     map = "city",
     returns = true,
     label = "HOME",
