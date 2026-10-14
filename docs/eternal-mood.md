@@ -84,9 +84,10 @@ branch off `feature/eternal-mood`):
 
 - `feature/eternal-mood-interns`: the Interns, the melee mob
   (`eternal-mood/intern_brain.lua`, in horde.lua, kind `z` on the wire;
-  the map's `horde.mobs`). 20 health, no gun: they shamble at 55 px/s and
-  lurch at 100 within 200 px, raise their arms for 0.35 s within 24 px and
-  claw (7 `melee`, once a second each), keeping 22 px apart so a mob comes
+  the map's `horde.mobs`). 20 health, no gun: they shamble at 85 px/s and
+  lurch at 140 within 200 px, raise their arms for 0.35 s within 24 px and
+  claw (7 `melee`, once a second each; 55 and 100 px/s before
+  `feature/eternal-mood-faster-interns`), keeping 22 px apart so a mob comes
   as a crowd. A mob stands about its spot, swaying, until a player comes
   within its `wake` px or within 520 px with a clear line to it, or one of
   it is hurt: then all of it comes at once and one shouts ("BRAAAINS...
@@ -241,7 +242,7 @@ standard), as Cyber Feud's do.
 
 | Unit | Look | Health | Attack | Behaviour |
 | --- | --- | --- | --- | --- |
-| **Intern** | A white shirt, a lanyard, no gun, arms reaching out in front | 20 | Claws (`melee`, 7) | The lowest rank there is, and never alone: mobs of 5-8 stand about their spot (asleep in the bunks, at lunch) until a player comes near or sees them, or one is hurt; then the whole mob shambles after the nearest player (55 px/s, a lurch at 100 once close), raises its arms for 0.35 s and claws. One is nothing; a mob is not. The old zombies. |
+| **Intern** | A white shirt, a lanyard, no gun, arms reaching out in front | 20 | Claws (`melee`, 7) | The lowest rank there is, and never alone: mobs of 5-8 stand about their spot (asleep in the bunks, at lunch) until a player comes near or sees them, or one is hurt; then the whole mob shambles after the nearest player (85 px/s, a lurch at 140 once close), raises its arms for 0.35 s and claws. One is nothing; a mob is not. The old zombies. |
 | **Zombie staffer** | A UAC jumpsuit, a lanyard, a coffee mug in the other hand | 40 | Pistol (`bullet`, 8), slow to aim | Sits at a desk or stands at a post until someone comes in sight, then shambles at them (60 px/s) firing now and then. Fodder. |
 | **Zombie guard** | UAC security armour, a cracked helmet | 60 | Shotgun (`bullet`, 6 pellets of 7); a grenade, one in three | The one that fights smart, like the Combine: sweeps its cone across the doorway it holds, fights from cover (ducks, steps out to shoot, ducks back), goes to ground when sniped and then sweeps where it came from. |
 | **Overtime guy** | Big, in a hard hat and hi-vis, a chaingun from the loading bay | 100 | Chaingun (`bullet`, 6 a round, 8 a second) | Holds his ground near his post from cover, spinning up for 0.6 s (you hear it) each time he steps out, then firing at whoever he can see, sweeping slowly. |
