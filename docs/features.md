@@ -1595,8 +1595,9 @@ the one with a plot.
   once;
   the possessed (`possessed_brain.lua`, one head for three ranks: staffers
   with pistols, guards with shotguns holding the doorways, the overtime guy
-  spinning up a chaingun by the lift) stand at their posts or walk their
-  patrols in a file until they see somebody, groan, and the possessed near them come to look; the imps
+  spinning up a chaingun by the lift; guards and the overtime guy fight
+  like City 17's Combine: cover, sieges and sweeps, grenades) stand at
+  their posts or walk their patrols as squads until they see somebody, groan, and the possessed near them come to look; the imps
   (`imp_brain.lua`) crawl out of a vent once a player comes within 420 px of
   it (Bosses.plus of its count), hunt the nearest player, strafe, and throw
   fireballs (`fireballs.lua`, flown on the host and on every screen,

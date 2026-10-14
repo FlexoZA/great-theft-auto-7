@@ -25,8 +25,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   that drag after you (three at once below half health), stomps whoever gets close (the ring shows first), and calls
   staff in for a quick meeting at two thirds and a third of his health. Shoot his cannon off and he has to come and
   stomp you instead. The lift is out of service until he's down.
-- Patrols of the possessed walk Fobos Base: up and down the Ring, round the Offices' desks, the Reactor's catwalk,
-  Toxic Storage and the Hangar's floor, a guard leading some of them.
+- Patrols of the possessed walk Fobos Base as squads: up and down the Ring, round the Offices' desks, the
+  Reactor's catwalk, Toxic Storage and the Hangar's floor. When one of a squad sees you, the whole squad comes.
+- The possessed fight smarter: guards sweep the doorways they hold, fight from cover, go to ground when shot from
+  out of sight and then come looking, and some throw grenades; the overtime guy fights from cover round his post;
+  and one of them going down brings the others near to see why.
 - The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
   you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
   the other seven. The Floor Manager's meetings bring a few in too.

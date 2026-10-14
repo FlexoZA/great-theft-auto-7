@@ -9,6 +9,9 @@ local Story = {}
 --   idle   now and then, at a post
 --   alert  one who has just spotted a player
 --   down   one going down
+--   cover  one of the guards ducking into cover
+--   grenade  one throwing a grenade
+--   sweep  the first of the guards going out to look where the shooting came from
 -- The possessed and the interns say the words; the imps mostly growl.
 Story.horde = {
   possessed = {
@@ -27,6 +30,9 @@ Story.horde = {
       "Do you have an appointment?",
     },
     down = { "Tell HR...", "Finally, a break.", "I'm clocking off." },
+    cover = { "Taking my break!", "Ducking out of this meeting!", "Going on mute!", "Hot-desking it!" },
+    grenade = { "Catch! It's a team-builder!", "Here's your severance!", "Fire in the hole! And the office!" },
+    sweep = { "Let's circle back to that.", "Somebody action that!", "Going to touch base. Over there." },
   },
   intern = {
     idle = { "Coffee?", "Is this paid?", "Brains... storming...", "Can I shadow you?" },
