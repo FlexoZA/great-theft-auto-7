@@ -1,0 +1,396 @@
+# Eternal Mood design
+
+A quest line in the shape of Cyber Feud's (`docs/cyber-feud.md`): a job on
+the board, five maps chained by each quest's `next`, a banner and tagline on
+each map, an intro screen, story beats said over the HUD, troops' barks, a
+boss on every level, and a last word. The look is a 90s demon-blasting shooter on a
+moon base and in hell, played the way A-Man plays Half-Life: a parody with
+its own names, not the real ones.
+
+Status: story, bosses and maps designed. Nothing built yet.
+
+## Decisions
+
+| Question | Decision |
+| --- | --- |
+| Parody or its own thing? | **A parody**, like A-Man. Punned names (the Mood Slayer, the UAC as the Union of Awful Choices, Heck), never the real ones. |
+| Who talks you through it? | **Nobody else. Your own inner voice.** Where Cyber Feud has VEX in your earpiece, here it is the hero's thoughts: a gravelly action-movie narrator that keeps slipping into a half-asleep person on a sofa. |
+| How does it end? | **It was all a dream.** You beat the last boss, the screen goes white, an alarm clock is ringing, and you wake up on the sofa. |
+| How long? | **Five maps**, like Cyber Feud and A-Man. |
+| Is the dream hinted? | **Yes, more and more.** Each level leaks a bit more of the real world into the dream (a phone buzzing, a microwave, someone calling your name) until the last boss is the alarm clock. A player who notices gets the joke before the end; one who doesn't still gets it at the end. |
+| Does it tie to Cyber Feud? | **Lightly.** The dream is built out of whatever you did that day: a demon with Kilowatt's reactor, a voice in a vending machine that sounds a lot like VEX. Nothing in the plot needs Cyber Feud played first. |
+| Bosses? | **One on every level**, each at the level's end and in the way of its exit: the Floor Manager, the Cyberdaemon, the Baron of Heck, the Spider Mattressmind, the Snoozedemon. They follow the bosses' standard (`src/features/bosses`: breath, the boss bar, a medkit when badly hurt) and each gets its own brain module. |
+| The reward? | **A unique shotgun, the Mood Swing** (see "The reward"). Unlocked per player, the way Volt unlocks the electric grenade. |
+
+## Logline
+
+You've been running jobs for three days straight. You sit down on the sofa
+"for a minute". You open your eyes on a moon base, in green armour, with a
+shotgun, and a corporation has just opened a door to Heck. You are the Mood
+Slayer. You are very angry. You are also, it turns out, asleep.
+
+## The cast
+
+- **You, the Mood Slayer.** A huge silent space marine in green armour with
+  a visor. Silent out loud, anyway: everything he says is in his head. The
+  players are all Mood Slayers (everyone is dreaming the same dream; it's a
+  dream, it doesn't have to make sense).
+- **The Voice**, your inner voice. It fills VEX's role: the intro screen
+  (the Mood Slayer's visor, with a sleepy eye blinking behind it, where VEX's
+  face glitches), the story beats, and the last word. It talks like a movie
+  trailer ("In a world... of demons..."), it is very sure of itself, and it
+  keeps getting distracted by the real world it can half hear: the TV, the
+  fridge, a pizza going cold. Colour: visor green, going warm lamp-yellow as
+  you wake up.
+- **The UAC, the Union of Awful Choices.** The corporation that built a
+  portal to Heck on a moon because the paperwork was cheaper there. Its
+  staff are zombies now and still on the clock. Colour: grey and hazard
+  yellow.
+  - **Dr. Hayden Seek**, its director, a brain in a jar on a robot body,
+    who opened the portal and keeps apologising for it on the base's
+    speakers ("This was in the risk assessment. Page four hundred.").
+- **Heck's demons.** Red, loud and on fire. Imps that throw fireballs,
+  Pinkies that charge, Lost Soles (flaming shoes, one each; nobody knows
+  where the other one went) and a Cacodaemon or two floating about like
+  angry tomatoes. Colour: lava red and orange.
+### The bosses, one a level
+
+Each is a bit more dream than the last, the way the levels are.
+
+- **The Floor Manager** (Fobos Base). The UAC's shift supervisor, a zombie
+  in a yellow cargo-loader exosuit, still holding a clipboard. Guards the
+  hangar lift. Slams forklift arms, throws crates, and calls zombie staff in
+  "for a quick meeting". The most normal of the five: a dream that hasn't
+  started being silly yet.
+- **The Cyberdaemon** (Heck on Earth). A huge horned demon with a rocket
+  launcher for an arm and, where its heart should be, a reactor that looks
+  exactly like Kilowatt's. It stomps down the road to the starport after
+  your truck: a driven boss fight, rockets landing on the road ahead and its
+  feet shaking the screen.
+- **The Baron of Heck** (The Foundry). A big horned brute with green
+  fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
+  throws fireballs in pairs, and roars.
+- **The Spider Mattressmind** (Heck). A giant brain on mechanical spider
+  legs, standing on a mattress it drags with it everywhere. A chaingun
+  under its chin, and the mattress soaks up rounds from the front. Halfway
+  down it starts yawning, and its yawns pull you in.
+- **The Snoozedemon** (The Snooze Gate), the last one: a giant goat-headed
+  wall of a demon with a clock in its forehead, whose roar is an alarm clock
+  beeping. Beat it and you hit snooze on the whole of Heck.
+
+## The arc: the dream falls apart as you go
+
+The dream starts out perfectly serious and ends with the alarm clock as a
+boss. Every level, the real world gets louder.
+
+| # | Map | Play | Boss | What leaks in |
+| --- | --- | --- | --- | --- |
+| 1 | **Fobos Base**: the moon base, red alarms | On foot: get out of the lab and through the base | The Floor Manager | Nothing yet. One line about the "humming" (it's the fridge). |
+| 2 | **Heck on Earth**: a city overrun, the road to the starport | Driven: an armoured truck through demon-filled streets | The Cyberdaemon | The radio plays the TV's adverts. A phone buzzes. |
+| 3 | **The Foundry**: the UAC's factory, half turned to Heck | On foot | The Baron of Heck | Dr. Seek's speeches turn into a cooking show. Someone calls your name. |
+| 4 | **Heck**: lava, bones, upside-down castles | On foot: down to the Snooze Gate | The Spider Mattressmind | The sky is the sofa's ceiling. A giant pizza box lies in the lava. |
+| 5 | **The Snooze Gate**: the arena | On foot, the arena | The Snoozedemon | It beeps. It beeps louder. You wake up. |
+
+### 1. Fobos Base
+
+The job on the board: "Pest control. Moon. Bring a shotgun." The Mood Slayer
+wakes on a slab in a lab with red lights going round and Dr. Seek on the
+speakers apologising. Zombie staff on the clock and imps through the vents.
+The way out is the base's hangar lift, and the Floor Manager is standing on
+it in his loader. The Voice is pure action hero here.
+
+### 2. Heck on Earth
+
+The portal's leaked: Earth is overrun. You drive a UAC armoured truck
+through a burning city to the starport, Pinkies ramming you and Cacodaemons
+floating over the road. The truck's radio is meant to be mission control;
+it keeps playing adverts for sofas. On the last stretch before the starport
+the Cyberdaemon steps out of a burning tower and comes after the truck.
+
+### 3. The Foundry
+
+The UAC's factory, where they melt Heck down for fuel, half of it turned to
+bone and lava. Dr. Seek tries to talk you out of "breaking company
+property" and, mid speech, starts explaining how to make a lasagne. The
+Baron of Heck waits at the foundry's heart, holding the Snooze Gate's key.
+Somebody far away calls your name. The Voice pretends it didn't hear.
+
+### 4. Heck
+
+Down through the portal. Lava rivers, bone bridges, castles hanging upside
+down. The sky up there has a crack in it, and a lampshade. A giant pizza
+box is sinking in the lava. The Voice is starting to struggle to stay in
+character. The Spider Mattressmind sits in front of the Snooze Gate on its
+mattress, and nobody goes through until it's down.
+
+### 5. The Snooze Gate
+
+The Snoozedemon fills the far wall: a goat-skull face with a clock in its
+forehead. Its roar is BEEP BEEP BEEP, louder every phase, and the screen
+shakes with it. When it falls the screen goes white, the beeping turns into
+an ordinary alarm clock, and a last card says you wake up on the sofa. The
+Voice gets the last word, back to normal: "...Huh. Pizza's cold." The
+quest's star goes home as usual.
+
+## Maps
+
+Five new maps in city-map, one builder file for all five
+(`city-map/eternal_mood.lua`, like `cyber_feud.lua`) and their own render
+file (`render_eternal_mood.lua`). Tiles are 64 px (`Layout.TILE`). For
+scale: the Drop is 64x96, the Market 56x56, the Overpass 32x200, the Roof
+36x36.
+
+| Map key | Title | Size (tiles) | Played | Quest |
+| --- | --- | --- | --- | --- |
+| `fobos` | Fobos Base | 56x80 | On foot | `eternal-mood` (on the board) |
+| `earth` | Heck on Earth | 36x180 | Driven | `eternal-mood-earth` |
+| `foundry` | The Foundry | 56x64 | On foot | `eternal-mood-foundry` |
+| `heck` | Heck | 60x96 | On foot | `eternal-mood-heck` |
+| `snooze` | The Snooze Gate | 40x40 | On foot, the arena | `eternal-mood-snooze` |
+
+Each quest's `next` is the following one, as Cyber Feud's are; the Snooze
+Gate's star goes home. Everyone travels north (up the screen), the way both
+quest lines before it do. Every level's exit is shut until its boss is down:
+reaching it before then doesn't finish the level, and the objective line
+points at the boss.
+
+### Shared look
+
+- Two palettes, and the dream moves from one to the other. The UAC's: grey
+  steel panels, hazard stripes in yellow and black, green computer screens,
+  blue strip lights. Heck's: dark red rock, black bone, orange lava, and
+  everything lit from below.
+- Light comes in pools: the `night` feature's dark with lamps, screens,
+  fires and lava as the lights. Fobos Base's alarms sweep red over
+  everything every couple of seconds.
+- Pun signs and posters, the way Grey City has NOODLZ: UAC: WE OPENED IT SO
+  YOU DON'T HAVE TO, PORTAL SAFETY WEEK (0 DAYS SINCE LAST INCIDENT), DEMON
+  PARKING ONLY, HECK: NOW HIRING, MIND THE LAVA.
+- The dream leaking in is drawn as well as said: a sofa cushion where a
+  crate should be, a TV remote the size of a car, the corner of a lampshade
+  in the sky, more of it each level.
+- Each map gets its own theme music: heavy, fast, chugging metal, as Cyber
+  Feud's maps have theirs.
+- Lava is a hazard tile: walk in it and you burn (`fire` damage over time,
+  the damage feature's DoT, like the Winding Road's poison); drive over it
+  and the car burns. Cars and players can't stop on it.
+
+### 1. Fobos Base (`fobos`, 56x80, on foot)
+
+The UAC's base on a moon, cut through: corridors two to three tiles wide
+between rooms, steel walls, blast doors. Outside the walls the moon is grey
+dust and craters under a black sky with stars and a big red planet hanging
+in it (a surroundings file, `fobos_moon.lua`).
+
+- **Arrival:** the bottom middle, in **the Lab**: a row of slabs with
+  everyone waking up on one, glass tanks, a smashed portal ring. Dr. Seek on
+  the speakers. The first beat ("Rip. Tear.") when the lab door opens.
+- **The Offices:** the west wing. Desks and filing cabinets as cover, zombie
+  staff at their desks until someone walks in, water coolers.
+- **The Reactor:** the middle. A round room with the reactor in it (solid,
+  glowing green, humming like a fridge), catwalks round it and pipes as
+  cover. Imps come out of the vents here.
+- **Toxic Storage:** the east wing. Barrels (some explode), pools of green
+  sludge (a hazard like lava, `poison` instead of `fire`), a crane.
+- **The Hangar:** the top. A big open hall with a lift pad at the top and
+  crates and parked loaders round the walls. The Floor Manager stands on
+  the lift in his loader and wakes when someone walks in.
+- **The end:** the hangar lift. The EXIT star, once he's down: "HECK ON
+  EARTH".
+
+### 2. Heck on Earth (`earth`, 36x180, driven)
+
+One long road north through a burning city to the starport, like the
+Overpass but on the ground: a six-lane boulevard with the city's blocks
+solid either side, crossroads every 20 tiles or so where side streets run
+off (blocked a block in with wrecks and fire). Past the edges the city is
+burning (a surroundings file, `heck_on_earth.lua`: towers on fire, smoke,
+a red sky, a portal's glow over the skyline, Cacodaemons drifting over it).
+
+- **Arrival:** the bottom, at a UAC motor pool, everyone behind the wheel of
+  a **UAC Hauler**, lent by the map the way the Overpass lends the Courier
+  (city-map's `loaner` with `issued`): a squat armoured truck in hazard
+  yellow with a cannon on the roof the driver fires. The radio beat (the
+  sofa advert) on pulling out.
+- **The Suburbs:** the first stretch. Houses either side, burning, Pinkies
+  charging out of the side streets to ram you, imps on the rooftops.
+- **Downtown:** the middle stretch. Taller blocks, abandoned cars and buses
+  as obstacles, a collapsed overpass squeezing the road to two lanes,
+  Cacodaemons floating over the road spitting fireballs. A phone buzzes
+  here (the beat).
+- **The Crater:** two thirds of the way up, a portal has opened in the road.
+  The road splits round it, lava in the middle, demons pouring out of it.
+- **The Boulevard:** the last stretch, long, straight and wide, with the
+  starport's gate at the top. The Cyberdaemon steps out of a burning tower
+  at the bottom of it and walks up the road after you: you fight him from
+  the truck, out-driving his rockets and turning to fire.
+- **The end:** the starport gate. The EXIT star, once he's down: "THE
+  FOUNDRY".
+
+### 3. The Foundry (`foundry`, 56x64, on foot)
+
+The UAC's factory, where they melt Heck down for fuel: a big steel shed,
+half of it already turned to Heck. The south half is still the UAC's
+(steel, yellow stripes, conveyor belts); going north, rock and bone grow
+up through the floor until the north half is Heck's. Past the walls: the
+starport's landing pads at night, then red sky (a surroundings file).
+
+- **Arrival:** the bottom left, off a shuttle on a landing pad, the
+  shuttle's ramp down.
+- **The Conveyors:** belts running across the floor that carry anyone on
+  them sideways (a moving floor, new), with crates riding on them as cover
+  that moves.
+- **The Front Office:** the south-east corner. A glass booth with Dr. Seek's
+  jar on a desk in it, talking. Walk past and his speech turns into the
+  lasagne recipe (the beat).
+- **The Smelters:** the middle. Big vats of lava with walkways between
+  them, sparks, chains hanging from the roof. Zombie staff and imps, and
+  the first Heck Knights (the Baron's smaller, brown cousins).
+- **The Crucible:** the top. A round pit of lava with a stone ring round it
+  and four bridges in. The Baron of Heck stands on the ring and wakes when
+  someone walks onto a bridge; he holds the key to the Snooze Gate, and
+  drops it where he falls. Someone calls your name as he goes down (the
+  beat).
+- **The end:** the portal behind the Crucible, the way down into Heck. The
+  EXIT star, once the key is picked up: "HECK".
+
+### 4. Heck (`heck`, 60x96, on foot)
+
+Heck itself: dark red rock cut by rivers of lava, crossed by bone bridges,
+with black castles hanging upside down from the sky at the edges (scenery
+past the walls, in a surroundings file, `heck.lua`: lava falls, the
+castles, and high up a crack in the sky with the sofa's ceiling and a
+lampshade through it).
+
+- **Arrival:** the bottom, out of the portal, on a rock shelf.
+- **The Bone Bridges:** the south third. Lava everywhere and narrow bridges
+  over it, with Lost Soles (flaming shoes) diving at you as you cross.
+- **The Altar Fields:** the middle. Wide open rock with altars and spikes
+  as cover, fire pits, the biggest crowd of demons on the line.
+- **The Pizza Box:** a giant pizza box half sunk in a lava lake on the east
+  side. The beat walking past it. Drawn so it's obvious from the far side
+  of the map.
+- **The Mattress:** the top. A wide flat plateau in front of the Snooze
+  Gate, where the Spider Mattressmind sits on its mattress. It wakes when
+  someone walks onto the plateau.
+- **The end:** the Snooze Gate, a huge stone door with a clock face over it.
+  The EXIT star, once the Mattressmind is down: "THE SNOOZE GATE".
+
+### 5. The Snooze Gate (`snooze`, 40x40, the arena)
+
+A square arena of black rock floating in the dark, lava falls round it, a
+lot like the Roof.
+
+- The Snoozedemon fills the north edge: a wall of a demon from one side to
+  the other, the clock in its forehead, its arms reaching down on to the
+  arena. It is the wall: it doesn't walk.
+- Pillars and broken stone across the floor as cover, some knocked down as
+  the fight goes on.
+- Four lava channels run across the floor from its mouth, and when it beeps
+  they flare.
+- Past the edge: nothing but dark and the lava falls, and more of the real
+  room as it goes on: the sofa's arm, the coffee table, the TV's glow.
+- **The end:** when it falls the screen goes white, the beeping becomes an
+  alarm clock, and a last card shows the sofa: you wake up. A HOME star
+  comes up in the middle of the arena.
+
+## The Voice: what it says
+
+The internal dialog works like VEX's chatter (`cyber-feud/story.lua`): one
+intro line per level, then a line at each story beat (walking into a zone,
+a boss waking or falling, the level's end), in a bubble on the HUD. These are
+the first drafts.
+
+### Banners
+
+| Map | Title | Tagline |
+| --- | --- | --- |
+| 1 | FOBOS BASE | "Somebody opened a door." |
+| 2 | HECK ON EARTH | "Rush hour." |
+| 3 | THE FOUNDRY | "Now hiring. Souls preferred." |
+| 4 | HECK | "Mind the step." |
+| 5 | THE SNOOZE GATE | "Five more minutes." |
+
+### Intro lines (one per level)
+
+1. "They opened a door to Heck. They're about to find out I'm worse."
+2. "Earth. Home. On fire. The truck's got a full tank. So have I."
+3. "A factory that melts demons. Somebody's going to melt. Not me."
+4. "Heck. Hot, loud, full of demons. ...Is it hot in here, or is it the blanket?"
+5. "One big demon left. Then I'm going back to... where was I going?"
+
+### Story beats
+
+- **Fobos Base**
+  - The lab door opens: "Rip. Tear. In that order."
+  - The reactor room: "Reactor's humming. Weird hum. Sounds like a fridge."
+  - The Floor Manager wakes: "A manager. In a forklift. Finally, a fair fight. For him."
+  - The Floor Manager down: "Meeting's over."
+  - The end, the lift: "Going up. The demons are going down."
+- **Heck on Earth**
+  - Into the truck: "Mission control on the radio. ...That's an advert for sofas."
+  - A phone buzzes on the road: "That's not my phone. I don't have a phone. I'm a space marine."
+  - The Cyberdaemon steps out: "That's a big one. With a reactor. I've seen that reactor before. Where have I seen it?"
+  - The Cyberdaemon down: "Bigger they are. Louder they land."
+  - The end, the starport: "Starport. Last shuttle to the Foundry. I'm driving."
+- **The Foundry**
+  - Dr. Seek's speech goes wrong: "Did he just say 'a pinch of oregano'?"
+  - The Baron of Heck wakes: "Big. Horns. Angry. We have so much in common."
+  - The Baron down, the key picked up: "The key to the Snooze Gate. ...Snooze Gate. Sure."
+  - Someone calls your name: "Nobody called my name. Keep moving."
+- **Heck**
+  - Under the crack in the sky: "The sky's got a lampshade. That's... fine. Heck's like that."
+  - The pizza box in the lava: "Don't think about the pizza. There's no pizza. Focus."
+  - The Spider Mattressmind wakes: "A brain. On legs. On a mattress. ...I want that mattress."
+  - It yawns: "Don't yawn. Don't yawn. Don't... *yawn*."
+  - It falls: "Took its mattress, too. No. Focus."
+  - The end, the Snooze Gate: "Big door. Something behind it is ticking."
+- **The Snooze Gate**
+  - It wakes: "BEEP. BEEP. Oh, I hate that sound. I REALLY hate that sound."
+  - Half health: "It's getting louder. Why is it getting louder?"
+  - It falls, the end: "...Huh. Sofa. Pizza's cold. Weird dream."
+
+### What the others say
+
+Barks like Cyber Feud's troops (`Story.troops`), by side:
+
+- **UAC zombies**, still at work: "Is this overtime?", "My badge doesn't
+  work.", "Has anyone seen my legs?", "Please hold. Your call is important."
+- **Demons**: mostly roars, with the odd line: "MEAT!", "Heck yeah!",
+  "Who ordered the space marine?"
+- **The bosses**, one or two lines each as they fight:
+  - The Floor Manager: "You're not on the rota.", "Let's circle back to you."
+  - The Cyberdaemon: roars only, and its reactor whines before every rocket.
+  - The Baron of Heck: "KNEEL.", "THE KEY IS MINE."
+  - The Spider Mattressmind: "I AM THE MIND.", "...five more minutes..."
+  - The Snoozedemon: "BEEP. BEEP. BEEP." (that's all it ever says)
+- **Dr. Seek**, on the speakers: "Please don't shoot the portal. It's
+  leased.", "This was in the risk assessment.", "First you soften the
+  onions..."
+
+## The reward: the Mood Swing
+
+A unique double-barrelled shotgun, the Mood Slayer's own. Where the
+ordinary shotgun (`weapons/guns.lua`) pumps six pellets a pull, the Mood
+Swing fires both barrels at once: more pellets, a wider spread and a harder
+kick, then a break-open reload after every pull. Its trick is a hook under
+the barrels: a second button fires it at an enemy and swings you in to
+point-blank range, where the shotgun does the rest. A new gun in
+`weapons/guns.lua` beside the shotgun, not a change to it.
+
+It is unlocked per player, the way the electric grenade is (the grenades
+feature's unlock, the rewards feature's screen), and saved with them. Unique
+or not, it is equipment, so it has tiers (`tierStats`, read through
+`Tiers.apply`). Its numbers are for when it is built.
+
+## Open questions
+
+- **Where the Mood Swing comes from.** Dropped by one of the bosses, or
+  waiting on the coffee table when you wake up.
+- **The bosses' fights.** The moves above are first ideas; each gets its
+  numbers when it is built, as Cyber Feud's did.
+- **The demons.** Who stands where on each map, and each demon's moves, the
+  way Cyber Feud's "The factions' troops" does it.
+- **New pieces the maps need:** lava and sludge as hazard tiles, and the
+  Foundry's conveyor belts (a moving floor). Lava and sludge might belong
+  in their own feature, since later maps could use them too.
