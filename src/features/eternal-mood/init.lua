@@ -1,14 +1,16 @@
 -- Eternal Mood: the pest-control job to the moon (docs/eternal-mood.md), a
 -- dream of a 90s demon shooter that you wake up from. Its quests (quests'
 -- "eternal-mood" and the ones after it) take everyone over its maps, all
--- in the dark; so far only Fobos Base (city-map's `fobos`).
+-- in the dark, all of them on foot; so far Fobos Base and Heck on Earth
+-- (city-map's `fobos` and `earth`).
 --
 -- The first player to reach the map's way on (`map.exitX`, `map.exitY`,
--- Fobos Base's hangar lift) finishes the level, and an EXIT star comes up
--- there, once the level's boss is down (Fobos Base's: the Floor Manager,
--- floor_manager.lua, standing on the lift). Heck's horde holds the way
--- (horde.lua: the possessed at their posts, the imps in the vents). The
--- Voice comes later.
+-- Fobos Base's hangar lift, Earth's starport gate) finishes the level, and
+-- an EXIT star comes up there, once the level's boss is down (Fobos Base's:
+-- the Floor Manager, floor_manager.lua, standing on the lift; Earth's
+-- comes later). Heck's horde holds the way (horde.lua: the possessed at
+-- their posts, the imps in the vents and manholes, the interns' mobs). The
+-- Voice's intro screen opens every level.
 
 local Features = require("src.features")
 local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
@@ -42,8 +44,8 @@ local page = nil -- { line, t, level, face } while the Voice's intro screen is u
 
 -- Each level's theme (by map), played from the moment the Voice's intro
 -- screen goes: its intro once, then its loop. Rendered on arriving, under
--- the intro screen.
-local THEMES = { fobos = FobosTheme }
+-- the intro screen. Earth borrows Fobos Base's until it has its own.
+local THEMES = { fobos = FobosTheme, earth = FobosTheme }
 local music = {} -- map name -> { intro, loop } Sources
 local playing = nil -- the map whose theme is on
 
@@ -53,6 +55,11 @@ end
 
 local function loadMusic(level)
   local theme = THEMES[level]
+  for other, m in pairs(music) do -- rendered already for another level
+    if not music[level] and THEMES[other] == theme then
+      music[level] = m
+    end
+  end
   if theme and not music[level] then
     local loop = love.audio.newSource(theme.render(), "static")
     loop:setLooping(true)
@@ -297,8 +304,12 @@ function EternalMood:drawAboveCars()
 end
 
 --- A strip light on the blink at `t`: on, with every so often a fault, a
---- few seconds of stutter; a `dying` one is mostly out, with flashes.
+--- few seconds of stutter; a `dying` one is mostly out, with flashes. A
+--- `fire` never goes out, only dances.
 local function flicker(f, t)
+  if f.fire then
+    return 0.65 + 0.25 * love.math.noise(t * 3.1, f.seed * 0.21) + 0.1 * love.math.noise(t * 11, f.seed)
+  end
   local fault = love.math.noise(t * 0.35, f.seed * 0.13) > (f.dying and 0.25 or 0.62)
   if not fault then
     return 1
@@ -322,8 +333,8 @@ function EternalMood:drawNightLights(_client, _camera, glow)
     for _, a in ipairs(map.alarms or {}) do -- the beacons, a dim red always and a flash as each comes round
       glow(a.x, a.y, 130, { 1, 0.12, 0.06 }, 0.25 + 0.75 * RenderEternalMood.alarmFlash(a, clock))
     end
-    for _, s in ipairs(map.cover) do -- the reactor's core breathing
-      if s.kind == "reactor" then
+    for _, s in ipairs(map.cover) do -- the reactor's core breathing, the Crater's lava too
+      if s.kind == "reactor" or s.kind == "crater" then
         local pulse = RenderEternalMood.corePulse(clock)
         glow(s.x + s.w / 2, s.y + s.h / 2, s.w * (1.8 + 0.5 * pulse), { 1, 0.45, 0.12 }, 0.5 * pulse)
       end

@@ -32,7 +32,7 @@
 -- "market", "overpass", "tower" and "roof" are Grey City's five maps, the
 -- Cyber Feud quest line's (cyber_feud.lua).
 -- `kind = "fobos"` is Fobos Base, the first of the Eternal Mood quest line's
--- maps (eternal_mood.lua).
+-- maps, and `kind = "earth"` Heck on Earth, the second (eternal_mood.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.

@@ -38,6 +38,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   nodding off.
 - Fobos Base has its own theme: rip-and-tear metal, tuned way down, chugs, diving synth bass and a screaming lead.
   It starts in the dream, a lullaby on a music box over a snore, until the floor drops out.
+- Heck on Earth, Eternal Mood's second map: off the shuttle from Fobos Base and up one long road through a burning
+  city to the starport, on foot all the way (no driving on this quest line). Houses on fire in the Suburbs, wrecked
+  buses and cars to hide behind Downtown, a fallen overpass squeezing the road to one gap, a lava-filled crater where
+  the portal opened, and the Boulevard's sandbags up to the starport's gate. Possessed guards behind the wrecks,
+  mobs of interns in the side streets, imps out of the manholes and the cracks round the crater.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
