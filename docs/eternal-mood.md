@@ -397,7 +397,41 @@ branch off `feature/eternal-mood`):
   eleven cracks (four on the islands, seven over the Fields), eight
   Cacodaemons in seven flocks over the lava and the Fields (one over the
   pizza); the Mattress's plateau is quiet. The Foundry's theme for now; no
-  Spider Mattressmind yet, so the gate is open.
+  Spider Mattressmind yet, so the gate was open.
+
+- `feature/eternal-mood-mattressmind`: Heck's boss, the Spider
+  Mattressmind (`eternal-mood/mattressmind.lua`, its brain
+  `mattressmind_brain.lua`, its look `mattressmind_look.lua`; SM_
+  messages; the map's `horde.boss` kind "mattressmind"), the line's Spider
+  Mastermind. A giant brain, folded, veined and pulsing, two small red
+  eyes at its front, on a steel chassis on four long mechanical spider
+  legs, standing on a striped mattress (pillow at the back) that it drags
+  with it everywhere; a chaingun under its chin, a drum of six barrels.
+  5200 health for one human (the Baron has 4200), 56 px across. It sits
+  before the Snooze Gate, which is LOCKED (bars of sleepy blue light
+  across the doors) until it's down; it wakes ("I AM THE MIND.") when
+  somebody comes up onto the plateau or shoots it, and keeps to the
+  plateau and its ramp. It walks any way on its legs (70 px/s) and keeps
+  420 px off. Chaingun: the drum spins up for 0.8 s (whining, the barrels
+  glowing), then a 2.4 s burst, a round (the weapons feature's minigun,
+  6 a round, ownerless and the horde's) every 0.09 s, the aim dragging
+  after you at 1.25 rad/s: run across it. Every 2.4-3.2 s (1.8-2.4 in
+  phase 2), 18 breath. Slam: within 140 px its legs go up for 0.6 s (the
+  reach shown) and come down: 32 `impact` and a 160 px shove, every 2.4 s.
+  Yawn, under half its health ("...just resting my eyes..."), every 8-11 s:
+  the front of the brain splits into a vast mouth, Zs float out of it, and
+  for 2.2 s everyone within 650 px is pulled in at 95 px/s (a walk won't
+  hold it, a sprint will), then it shuts: 45 `melee` to whoever it got
+  within 140 px of its front, spat out 200 px. At two thirds and a third
+  of its health ("...five more minutes..."): three imps up at the
+  plateau's edges and a Cacodaemon in over the lava (Bosses.plus). The
+  mattress soaks up rounds from the front: a round coming at its face does
+  30% (a puff of stuffing, a dull thup); from the side or behind, all of
+  it. The bosses' standard (breath, the boss bar, a medkit when badly
+  hurt, "...comfy...", dodging abilities, `serverKill` "boss", 60 koins
+  and two pickups). Down ("Who... set... the alarm..."), its legs splay,
+  the brain slumps grey on its mattress, a last z drifts up, and the gate
+  unlocks. The map's own mattress is gone: it was this one.
 
 ## Decisions
 

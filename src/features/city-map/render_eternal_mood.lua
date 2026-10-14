@@ -1862,25 +1862,6 @@ function DRAW.pizzabox(s, t)
   love.graphics.pop()
 end
 
---- The mattress on the plateau: a big striped one, a pillow, a dent where
---- something heavy sits.
-function DRAW.mattress(s)
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.rectangle("fill", s.x + 12, s.y + 14, s.w, s.h, 20)
-  love.graphics.setColor(0.82, 0.80, 0.86)
-  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 20)
-  love.graphics.setColor(0.55, 0.62, 0.80)
-  for x = s.x + 20, s.x + s.w - 20, 40 do
-    love.graphics.rectangle("fill", x, s.y + 6, 12, s.h - 12)
-  end
-  love.graphics.setColor(0.95, 0.94, 0.96)
-  love.graphics.rectangle("fill", s.x + 20, s.y + 20, s.w * 0.25, s.h - 40, 16) -- the pillow
-  love.graphics.setColor(0, 0, 0, 0.15)
-  love.graphics.ellipse("fill", s.x + s.w * 0.6, s.y + s.h / 2, s.w * 0.25, s.h * 0.35, 24)
-  love.graphics.setColor(0.45, 0.42, 0.50)
-  love.graphics.rectangle("line", s.x + 4, s.y + 4, s.w - 8, s.h - 8, 18)
-end
-
 --- The Snooze Gate: a huge stone door, bones in its frame, a clock face
 --- over it, its hands going round too fast.
 function DRAW.snoozegate(s, t)
