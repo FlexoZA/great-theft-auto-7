@@ -159,6 +159,12 @@ CityMap.maps = {
     title = "The Roof", kind = "roof", seed = 105, cols = 36, rows = 36,
     crowd = false, traffic = false, vehicles = false, night = true,
   },
+  -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
+  -- (the night feature). So far Fobos Base, the UAC's moon base, walked.
+  fobos = {
+    title = "Fobos Base", kind = "fobos", seed = 201, cols = 56, rows = 80,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

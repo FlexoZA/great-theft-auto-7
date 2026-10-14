@@ -7,7 +7,18 @@ boss on every level, and a last word. The look is a 90s demon-blasting shooter o
 moon base and in hell, played the way A-Man plays Half-Life: a parody with
 its own names, not the real ones.
 
-Status: story, bosses, maps and the horde designed. Nothing built yet.
+Status: story, bosses, maps and the horde designed. Built so far (each a
+branch off `feature/eternal-mood`):
+
+- `feature/eternal-mood-fobos`: Fobos Base (`fobos`,
+  `city-map/eternal_mood.lua`, drawn by `render_eternal_mood.lua`), its
+  quest on the board ("Pest control") and HOME star, the moon past its edge
+  (surroundings' `fobos_moon.lua`), and the `eternal-mood` feature
+  finishing the level when someone reaches the Hangar's lift. Every room in
+  the doc's Fobos Base is there, plus two the Ring leads to: Crew Quarters
+  and the Mess. Dark (the night feature), lit by blue strip lights, green
+  screens, the reactor, the sludge and red alarm lamps over every door
+  (they don't sweep yet).
 
 ## Decisions
 

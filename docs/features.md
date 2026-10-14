@@ -1566,6 +1566,21 @@ the one with a plot.
   also names the part of the map you walk into (the tower's floors as
   FLOOR n OF 6) and keeps an objective line with the distance to its
   point. The factions, the breach and the bosses follow.
+- Eternal Mood: `src/features/eternal-mood` and quests' "eternal-mood"
+  job ("Pest control", on the board), design in `docs/eternal-mood.md`.
+  A dream of a 90s demon shooter, played in the dark. So far one map,
+  Fobos Base (`fobos`, walked, 56x80): the UAC's moon base, built by
+  `city-map/eternal_mood.lua` (what it leaves on the map is in its header:
+  `exitX, exitY`, `base`, `zones` with an x range and a floor finish each,
+  `cover`, `signs`, `lights`, `alarms`) and drawn by
+  `render_eternal_mood.lua`; nil tiles inside `map.base` are steel wall,
+  outside it the moon, which carries on past the edge (surroundings'
+  `fobos_moon.lua`). Everyone wakes in the Lab at the bottom and goes up
+  through the Ring and one of the Offices, the Reactor or Toxic Storage to
+  the Hangar's lift. For now that is the whole level: the first player
+  within 160 px of `exitX, exitY` finishes it (`quests:serverComplete`)
+  and its star goes home ("home-fobos" by the Lab's consoles). The Voice,
+  the horde, the bosses and the next four maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

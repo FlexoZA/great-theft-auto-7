@@ -5,13 +5,14 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Six jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Seven jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
 -- after Shotgun (shotgun), one by train into City 17 after A-Man (a-man),
 -- whose trail carries on over four more maps by EXIT stars, and the
--- courier job into Grey City (cyber-feud), five maps the same way. A blue
+-- courier job into Grey City (cyber-feud), five maps the same way, and
+-- the pest-control job to the UAC's moon base (eternal-mood). A blue
 -- star by the entrance of each brings everyone home again; a star comes
 -- up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
@@ -285,6 +286,22 @@ Quests.list = {
     exitText = "Saye and Kilowatt are down, and VEX is gone into the net. Nothing personal, courier. Head home.",
   },
   {
+    -- Eternal Mood (docs/eternal-mood.md): the UAC's moon base, and it gets
+    -- stranger from there. The eternal-mood feature runs the levels; so far
+    -- Fobos Base is the only one, and its lift goes home.
+    id = "eternal-mood",
+    title = "Pest control",
+    text = "Moon. Bring a shotgun. The UAC opened a door it shouldn't have, and something came through. "
+      .. "Get up to the hangar.",
+    board = true,
+    map = "fobos",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s took the pest-control job. Welcome to Fobos Base.",
+    exitText = "The hangar lift goes up and out. That's as far as the job goes for now. Head home.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -447,6 +464,19 @@ Quests.list = {
     onMap = "tower",
     x = -256, -- by the lobby doors: city-map's map.cx, map.cy
     y = 3408,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-fobos",
+    title = "Back to the City",
+    text = "Back to the Lab's consoles. Take everyone home.",
+    onMap = "fobos",
+    x = 0, -- by the Lab's consoles: city-map's map.cx, map.cy
+    y = 2112,
     map = "city",
     returns = true,
     label = "HOME",
