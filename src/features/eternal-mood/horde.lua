@@ -3,9 +3,10 @@
 -- on to this module.
 --
 -- The possessed (possessed_brain.lua: staffers, guards, the overtime guy)
--- stand at the map's posts (city-map's `map.horde.posts`) until they see
--- somebody. The imps (imp_brain.lua) wait in the vents (`map.horde.vents`):
--- the first time a player comes within a vent's `wake` px its grille bursts
+-- stand at the map's posts (city-map's `map.horde.posts`) or walk its
+-- patrols (`map.horde.patrols`, a file to each) until they see somebody.
+-- The imps (imp_brain.lua) wait in the vents (`map.horde.vents`): the
+-- first time a player comes within a vent's `wake` px its grille bursts
 -- open and its pack crawls out one after another, `count` for one human and
 -- one more for each human past the first (Bosses.plus), and hunts. What
 -- the imps throw is fireballs.lua's.
@@ -52,6 +53,7 @@ Horde.firstPossessed = 1
 Horde.firstImp = 20001
 Horde.wake = 420 -- px a player comes within to burst a vent open (a vent may say its own)
 Horde.crawlEvery = 0.7 -- seconds between imps out of one vent
+Horde.fileGap = 1.4 -- seconds between one of a patrol setting off and the next
 Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3 } -- koins each spills
 Horde.chatEvery = { 14, 32 } -- seconds between one of the possessed's idle remarks
 Horde.chatNear = 900 -- px; nobody talks to an empty room
@@ -66,7 +68,7 @@ local HURT = 0.18
 
 local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i" }
 local RANK = { s = "staffer", g = "guard", o = "overtime" }
-local POSSESSED_STATE = { post = 0, hunt = 1, search = 2, back = 2 }
+local POSSESSED_STATE = { post = 0, beat = 0, hunt = 1, search = 2, back = 2 }
 local IMP_STATE = { hunt = 0, emerge = 1, windup = 2 }
 
 local RED = { 1.00, 0.18, 0.10 }
@@ -126,6 +128,12 @@ function Horde.serverStart(server, map)
   })
   for _, p in ipairs(spec.posts or {}) do
     possessed:add(p.rank, p.x, p.y, p.watch)
+  end
+  -- Patrols: a file walking its loop, one setting off a little after another.
+  for _, p in ipairs(spec.patrols or {}) do
+    for k, rank in ipairs(p.ranks) do
+      possessed:add(rank, nil, nil, nil, p.route, p.start, (k - 1) * Horde.fileGap)
+    end
   end
   local imps = Imps.new({ nav = nav, firstId = Horde.firstImp, throw = function(srv, _imp, x, y, angle)
     Fireballs.serverThrow(srv, x, y, angle)
@@ -204,7 +212,7 @@ local function chatter(server, dt)
   sv.chatIn = between(Horde.chatEvery)
   local idle = {}
   for _, s in ipairs(sv.possessed.list) do
-    if s.state == "post" then
+    if s.state == "post" or s.state == "beat" then
       for _, p in pairs(server.players) do
         if not p.bot and Features.visible(server, p) then
           local x, y = Features.bodyPose(server, p)

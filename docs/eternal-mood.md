@@ -48,7 +48,7 @@ branch off `feature/eternal-mood`):
   placed by the map's `horde.boss`; FM_ messages), the line's Arachnotron.
   The UAC's shift supervisor, promoted out of his body: his brain in a
   glass dome on a four-legged spider walker, a plasma cannon under the
-  front, the clipboard taped on (drawn at 1.5x, 34 px across). 1500 health
+  front, the clipboard taped on (drawn at 1.5x, 34 px across). 2250 health
   for one human (Volt has 1800). He waits on the Hangar's lift, facing the
   room, until a player walks into the Hangar or shoots him ("You're not on
   the rota."). He walks any way on his legs (90 px/s), keeps 340 px off
@@ -60,7 +60,7 @@ branch off `feature/eternal-mood`):
   streams go out in a fan (0.28 rad either side); 15 breath. Stomp: within
   120 px the legs rear up for 0.6 s (a ring on the floor) and come down on
   everyone within 115 px (30 `impact`, a 140 px shove); every 2.2 s. The
-  cannon has 300 health of its own (scaled like his): a round within 18 px
+  cannon has 600 health of its own (scaled like his): a round within 18 px
   of its end hits it, and him for a quarter; shot off ("My presentation!")
   it lies smoking where it fell, he has no plasma and closes in to stomp at
   1.35 times his pace, and his bar says CANNON DOWN. Quick meetings at two
@@ -72,6 +72,17 @@ branch off `feature/eternal-mood`):
   OUT OF SERVICE while he is up (the way on doesn't finish the level);
   down, his walker lies smoking, legs splayed and the dome cracked and
   empty, and the lift works.
+
+- `feature/eternal-mood-patrols`: the Floor Manager made tougher (1500 ->
+  2250 health, his cannon 300 -> 600), and patrols of the possessed on
+  Fobos Base (the map's `horde.patrols`, possessed_brain.lua's `route`): a
+  file walking a loop, one setting off 1.4 s after another, the way the
+  posts do everything else (spot, groan, hunt, search) and then back to the
+  nearest corner of the loop and on round it. A guard on patrol has no
+  leash. Five, twelve more of the possessed: a guard and two staffers up
+  and down the Ring, two staffers round the Offices' desks, a guard and a
+  staffer round the Reactor's catwalk, two staffers through Toxic Storage,
+  and a guard and two staffers round the Hangar's floor.
 
 ## Decisions
 

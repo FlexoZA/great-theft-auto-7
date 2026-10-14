@@ -9,11 +9,14 @@
 -- post, spins his chaingun up when he sees somebody (you hear it) and keeps
 -- firing at them while he can see them, sweeping slowly after them.
 --
--- Each stands at its post facing `watch` until it sees somebody (a cone in
--- front, and a little all round) or a round hits it, when it turns to where
--- that came from. Spotting somebody, it groans for the rest of the horde
--- near it (`call`), who come and look. Lose whoever it had and it goes to
--- where it last saw them, looks about, then shambles back to its post.
+-- Each stands at its post facing `watch`, or walks a patrol (`route`, a
+-- loop of { x, y }), until it sees somebody (a cone in front, and a little
+-- all round) or a round hits it, when it turns to where that came from.
+-- Spotting somebody, it groans for the rest of the horde near it (`call`),
+-- who come and look. Lose whoever it had and it goes to where it last saw
+-- them, looks about, then shambles back to its post, or to the nearest
+-- corner of its patrol and on round it. A guard on patrol keeps to no
+-- doorway: its leash is for a post.
 --
 -- They are Heck's: their rounds carry the horde's name (weapons' `from`), and
 -- pass through the rest of it.
@@ -103,9 +106,15 @@ function Brain.new(opts)
   }, Brain)
 end
 
---- One of rank `rank` at its post (x, y), facing `watch`.
-function Brain:add(rank, x, y, watch)
+--- One of rank `rank` at its post (x, y), facing `watch`; or, given a
+--- `route` (a loop of { x, y }), walking it from corner `start` (after
+--- `wait` seconds, for one behind another in a file).
+function Brain:add(rank, x, y, watch, route, start, wait)
   local conf = Brain.RANKS[rank]
+  if route then
+    start = start or 1
+    x, y = route[start].x, route[start].y
+  end
   local s = {
     id = self.nextId,
     rank = rank,
@@ -117,7 +126,10 @@ function Brain:add(rank, x, y, watch)
     watch = watch or 0,
     facing = watch or 0,
     hp = conf.health,
-    state = "post", -- post, hunt, search, back
+    state = route and "beat" or "post", -- post or beat, hunt, search, back
+    route = route,
+    leg = route and (start % #route + 1) or nil,
+    waitFor = wait or 0,
     t = 0,
     target = nil,
     lostFor = 0,
@@ -301,8 +313,33 @@ function Brain:think(server, s, dt)
       enter(s, "back")
     end
   elseif s.state == "back" then
-    if goTo(self, s, s.postX, s.postY, conf.walk, dt) < 12 then
+    if s.route then -- to the nearest corner of its patrol, and on from there
+      if not s.backTo then
+        local best, bestD
+        for i, p in ipairs(s.route) do
+          local d2 = dist2(s.x, s.y, p.x, p.y)
+          if not bestD or d2 < bestD then
+            best, bestD = i, d2
+          end
+        end
+        s.backTo = best
+      end
+      local p = s.route[s.backTo]
+      if goTo(self, s, p.x, p.y, conf.walk, dt) < 24 then
+        s.leg, s.backTo = s.backTo % #s.route + 1, nil
+        enter(s, "beat")
+      end
+    elseif goTo(self, s, s.postX, s.postY, conf.walk, dt) < 12 then
       enter(s, "post")
+    end
+  elseif s.state == "beat" then
+    if s.waitFor > 0 then
+      s.waitFor = s.waitFor - dt
+      return
+    end
+    local p = s.route[s.leg]
+    if goTo(self, s, p.x, p.y, conf.walk, dt) < 24 then
+      s.leg = s.leg % #s.route + 1
     end
   else
     s.facing = turn(s.facing, s.watch, Brain.TURN, dt)
@@ -314,7 +351,7 @@ function Brain:fight(server, s, tx, ty, seen, dt)
   local conf = s.conf
   local aim = math.atan2(ty - s.y, tx - s.x)
   local d2 = dist2(s.x, s.y, tx, ty)
-  local leashed = conf.leash and dist2(s.x, s.y, s.postX, s.postY) > conf.leash * conf.leash
+  local leashed = conf.leash and not s.route and dist2(s.x, s.y, s.postX, s.postY) > conf.leash * conf.leash
   if not seen or d2 > conf.close * conf.close then
     if leashed then
       goTo(self, s, s.postX, s.postY, conf.walk, dt)

@@ -1584,11 +1584,12 @@ the one with a plot.
   the Hangar's lift: the first player within 160 px of `exitX, exitY`
   finishes it (`quests:serverComplete`) and its star goes home
   ("home-fobos" by the Lab's consoles). Heck's horde holds the way
-  (`eternal-mood/horde.lua`, from the map's `horde`: `posts` and `vents`):
+  (`eternal-mood/horde.lua`, from the map's `horde`: `posts`, `patrols`
+  and `vents`):
   the possessed (`possessed_brain.lua`, one head for three ranks: staffers
   with pistols, guards with shotguns holding the doorways, the overtime guy
-  spinning up a chaingun by the lift) stand at their posts until they see
-  somebody, groan, and the possessed near them come to look; the imps
+  spinning up a chaingun by the lift) stand at their posts or walk their
+  patrols in a file until they see somebody, groan, and the possessed near them come to look; the imps
   (`imp_brain.lua`) crawl out of a vent once a player comes within 420 px of
   it (Bosses.plus of its count), hunt the nearest player, strafe, and throw
   fireballs (`fireballs.lua`, flown on the host and on every screen,
