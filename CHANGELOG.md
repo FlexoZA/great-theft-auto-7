@@ -14,6 +14,156 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new job on the board, "Courier wanted": the start of the Cyber Feud quest line in Grey City. Five maps so far,
+  driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
+  still to come.
+- Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
+- The Shard stays with you through all five levels of Cyber Feud. Whoever carries it has to reach each level's end
+  for the job to go on; if they go down, it drops where they fell (marked on the minimap and the big map) and anyone
+  can pick it up. On the Roof, once Saye and Kilowatt are down, take it to VEX's uplink by the billboard: she shows
+  you what is on it, and then she turns on you.
+- Cyber Feud's story: take the Shard from the vending machine on the Drop (F), meet VEX, your fixer, who talks you
+  through every map, and see each map's title card, where you are and what to do next.
+- Cyber Feud's factions on the Drop: Halcyon officers hold the roadblocks and the Static's gangers roam the west.
+  They ignore you until the Shard is taken, then come for you and for each other.
+- Guard stations on the Drop: each faction holds a few yards on the avenues with an MG nest out front and a
+  garrison inside that comes out when you get close.
+- Halcyon's assassin droids guard the tunnel at the end of the Drop: cloaked robots with rail pistols that dodge
+  your shots (then need 3 s before they can dodge again) and line up a rail shot you can see coming. Two of them,
+  one more for each extra player.
+- The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
+- Grey City carries on past the edge of the Drop: towers and neon, street lamps and traffic going by, a sea of
+  lights in the dark.
+- Flying machines cross the sky over the Drop now and then: Halcyon's aerodyne sweeping its searchlight, a cargo
+  hauler with a container slung under it, and an ad drone towing a holo billboard. You hear each one coming.
+- People on the Drop's streets: a thin crowd out late in the rain, who scatter when the shooting starts.
+- The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
+  tunnel.
+- The Market is held now: Halcyon officers in the gaps of the south gate and behind the east line, squads walking
+  the east side and Noodle Square, and the Static's gangers on the western corners, roaming the west lanes and
+  pouring out of their chop shop. They leave you alone at the tunnel's mouth and wake the moment you walk in, and
+  they fight each other as hard as they fight you.
+- Halcyon's enforcers hold three of the Market's gates: riot shields that stop every shot from in front, a
+  shotgun, and slow to turn. Get round their side, or blow them up.
+- The Static's rippers stalk the Market's west lanes: blades out, they go for whoever is on their own, crouch
+  with a cyan line on the ground showing where they will go, and lunge down it. Step off the line.
+- The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
+  will land. Get out of it, or the jolt stuns you.
+- The Overpass has its own darksynth theme, a night drive: it kicks in as Kilowatt's rig roars past.
+- The Overpass is a bridge now: steel girders and railings along its edges, piers under it, and cable-stay towers
+  with red lights either side. Grey City lies a long way below it, sliding slowly by as you drive: streets full of
+  traffic, lit towers and a river the bridge crosses halfway up.
+- Halcyon has blast gates across the Overpass. Nothing drives through a shut one: get out, hold the action key at
+  the control panel beside it while the others cover you, and the guards behind it come running.
+- Each blast gate on the Overpass is guarded on your side: an MG nest in the middle of the road, riflemen behind
+  barriers either side of it who take over the gun, and two riot shields out in front holding the road.
+- The car station prompt now names the car it calls (a Courier on the Overpass, a Scout Car on the Winding Road).
+- The Overpass has car stations along the shoulder: lose your Courier and walk onto the nearest green pad to call
+  it back, and if you die you can come back at any pad you have passed instead of at the on-ramp.
+- A new car, the Courier: an armoured gunmetal wedge with green neon and a minigun turret on the roof that the driver
+  fires. Everyone drives one on the Overpass (your own car waits for you), and the vehicle factory can build one
+  (600).
+- The Overpass is held: the Static's gangers on the shoulders of the long stretch, Halcyon at the fork, the
+  roadworks and the tower ramp, and both of them waiting for you together in VEX's "shortcut". Up here they hold
+  fire on each other, until a stray round from one side hits the other: then they go at it until things calm
+  down. Drive between them.
+- The Static's war-rigs wait on the Overpass too: rusty trucks with a spiked ram and a ganger with a shotgun on
+  the back, built to ram you off the road (and Halcyon's interceptors, once the two sides are at it).
+- Kilowatt, the Static's leader, makes an entrance on the Overpass: his war-rig roars past you with him on the back,
+  and he jumps off before it hits the barrier. You'll meet him properly later.
+- Halcyon's marksmen stand on the Overpass's gantries with long rifles. A thin magenta line shows where each is aiming;
+  when it stops moving and flares, swerve, or the round finds you.
+- Halcyon's sting drones hang over the Overpass's gantries in swarms of three, then come after you in strafing runs,
+  faster than your car, guns going. One or two rounds bring one down.
+- Halcyon's interceptors wait on the Overpass's shoulder: armoured grey SUVs with flashing light bars that come
+  after you flat out, ram you and have an officer lean out of the window to shoot.
+- Past the Market's walls Grey City is at war: a front through the city, rubble and craters in no-man's-land,
+  barricades facing each other across the streets, tracer fire, shells landing, burning towers and searchlights.
+  You hear it too: muffled bursts and shells beyond the walls, on their own volume slider ("the battle beyond
+  the walls").
+- The Market has its own heavy metal theme: it kicks in the moment you walk up out of the tunnel and the
+  factions come for you.
+- Halcyon's watcher drones fly over the Market's lanes. One that sees you hangs over you and calls officers in
+  every few seconds until you shoot it down. The sparkers' EMPs knock them out for a while.
+- Halcyon Tower is held now: Halcyon officers on every floor, a pair on each stair door up, the lobby's lifts
+  guarded and a squad walking each floor (two on the security floor), so the climb is a sneak past their sight
+  cones. Nobody looks your way until you are past the reception.
+- Halcyon's assassin droids stalk Halcyon Tower too, cloaked: one among the server racks, two in the labs (one more
+  for each extra player) and two round the boardroom on the executive floor.
+- More of Halcyon's officers hold Halcyon Tower's lower floors: two behind the lobby's reception desk, and three
+  more each among the office desks, the server racks and the labs' tanks.
+- The Static break into Halcyon Tower behind you: a pack of gangers through the front doors, then up the
+  stairwell onto the lowest floor anyone is on, about every 35 s. The two factions ignore each other in the
+  tower; they only want you.
+- Halcyon Tower's stair doors are locked. Hold F at the terminal beside one for 4 s to breach it quietly, or press
+  E to have VEX open it at once, which also opens that floor's guard room: four officers come out after you (more
+  with more players).
+- Halcyon's enforcers hold Halcyon Tower's top floors: four riot shields on the security floor, two in front of the
+  stair door up and two across the way to it, and two either side of Saye's desk on the executive floor.
+- Halcyon's marksmen in Halcyon Tower: three in the far corners of the security floor (more with more players,
+  then the executive floor), lining up their shots along the floor. Walls hide you from them, and their sightline
+  stops at the first wall.
+- Halcyon's watcher drones in Halcyon Tower: two down the offices' aisles and one over the lobby. They see over the
+  desks but not through floors, hang over you in the aisles and call officers in until you shoot them down.
+- Halcyon's sting drones swarm Halcyon Tower's server room: two swarms of three (one more swarm for each extra
+  player) making strafing runs down the aisles between the racks, slower and tighter than on the Overpass.
+- Sentry turrets in Halcyon Tower: three in the labs and four round the security floor. Each sweeps its arc, puts a
+  laser on you for a moment, then fires bursts. Get behind one and hold F for 2.5 s to breach it: it fights for
+  you for 15 s, shooting Halcyon and the Static. The sparkers' EMPs knock them out for 5 s.
+- The Static's brutes: huge, slow, 150 health and a giant chrome arm. One braces with a cyan line on the floor, then
+  charges down it, and punches up close. Get next to one and hold F for 1.5 s to breach his arm: for 4 s he spins,
+  swinging at everyone near him, his own side included.
+- The Static's break-ins into Halcyon Tower bring sparkers from the offices up and brutes from the server room up.
+- Kilowatt waits for you on the Roof: the Static's boss, huge, with a reactor for a heart. He charges down a line
+  he marks on the floor, hops and slams a ring of shock out round him, whips lightning through you and whoever is
+  next to you, and punches up close. Every few moves he vents, cage open and steaming: hits count double then. At
+  half health he gets faster and meaner. The Roof isn't done until he is down.
+- Director Saye joins Kilowatt on the Roof: Halcyon's boss fights at range. A thin magenta line marks her pistol
+  shot for a second before one heavy round goes down it (step off the line), three executive drones orbit her and
+  shoot (shot down, she calls more), and she drops sentry turrets and walks away from them. At half health her skin
+  cracks: the line comes faster and she fires two at once in a V. The Roof isn't done until both bosses are down,
+  and their two bars sit one over the other.
+- Saye and Kilowatt fight as partners. Shoot Saye and Kilowatt comes for you; stand next to him and her line comes
+  for you, quicker. When he vents she parks her drones round him: shoot them down before his hits count double.
+  When one falls the other rages: Saye alone calls six drones and fires three shots down each line ("Hostile
+  takeover."); Kilowatt alone stays in phase 2 and his slams leave crackling shock patches ("MELTDOWN!"). And
+  they bicker about forty years of business while they're at it.
+- While Kilowatt fights, the Static's brutes come up the stairs at the Roof's south edge to help him: one every
+  25 s, two at a time at most (one more for each extra player), and no more once he's down.
+- VEX takes the Roof once Saye and Kilowatt are down: she locks the stairs, her face comes up huge over the whole
+  roof, and four turrets wake up (one more for each extra player). Breach her four relays (hold F for 5 s at each):
+  she sits at one at a time, where breaching is half as fast and a ring of shock pulses out every few seconds, and
+  she moves to whichever you're furthest into. Her face breaks up more with every relay lost. On the last one she
+  gets away into the net, "Nothing personal, courier.", and the job is done.
+- The Roof has its own music: a metal finale with a choir and a tolling bell while Saye and Kilowatt fight, each
+  getting their own half (his chugging, hers cold strings and a ticking clock) before it brings them together; and
+  VEX's own glitchy chiptune theme the moment she takes the roof, which cuts out when she gets away.
+- General Volt holds Noodle Square in the Market: the Static's general, all coils and cable. He shows you a
+  crackling line before each lightning bolt strikes down it, lobs lightning grenades that leave shock fields on
+  the ground, and calls in a pack of the Static each time you knock another quarter off him. He has the loading
+  dock's pass code: the dock stays locked until he's down and somebody picks the code up.
+- It starts to rain the moment you step into Noodle Square, and a storm breaks over Volt's fight: flashes in the
+  sky, thunder, and lightning striking round you (watch for the flickering ring on the ground). The lightning stops
+  when he goes down; the rain keeps on until you leave the Market. Rain and thunder have their own volume slider.
+- The electric grenade: General Volt's own, and the first thing you unlock. When he goes down he drops a stack of
+  three that every player can pick up their own of, with a "NEW GRENADE UNLOCKED" screen to go with it. Drag them
+  onto your grenade slot and G throws them like any grenade (the grenades in there go back into your bag): a shock
+  blast that stuns whoever it catches and holds enemies still for a moment, then a field that keeps zapping anyone
+  who stays in it for 4 s. From then on the shop sells them to you (60 Fcks, on the Ammo shelf) and enemies drop
+  them now and then, and the unlock is saved with you.
+- The Roof stands over Grey City: the city far below on every side, other skyscrapers' tops round it, their red
+  lights blinking.
+- The Static's brutes look like themselves now, not like small Kilowatts: rust-orange work jackets, welding masks
+  with a cyan visor slit and that giant arm, and a head shorter than Kilowatt, so the help that comes up the Roof's
+  stairs isn't mistaken for more of him.
+- Halcyon Tower is furnished: marble and Halcyon's logo in the lobby with sofas and holo screens, office chairs and
+  a glass meeting room, cooling units and cables among the server racks, lab benches, lockers on the guard floor,
+  and a lounge, a bar and Saye's glass office at the top. Each floor has its own floor, and Grey City lies far
+  below through the glass walls.
+- Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
+  the reception, cutting off the lobby's lift music.
+
 ### Fixed
 - The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
   breathes more slowly and softly.

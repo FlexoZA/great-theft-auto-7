@@ -33,17 +33,34 @@ function Nav.build(bounds)
   local C = Nav.CELL
   local cols, rows = math.ceil(bounds.w / C), math.ceil(bounds.h / C)
   local self = setmetatable({ x0 = bounds.x, y0 = bounds.y, cols = cols, rows = rows, open = {} }, Nav)
-  local r, d = Nav.CLEARANCE, Nav.CLEARANCE * 0.7
   for c = 0, cols - 1 do
     for row = 0, rows - 1 do
-      local x, y = self.x0 + (c + 0.5) * C, self.y0 + (row + 0.5) * C
-      local shut = blocked(x, y)
-        or blocked(x - r, y) or blocked(x + r, y) or blocked(x, y - r) or blocked(x, y + r)
-        or blocked(x - d, y - d) or blocked(x + d, y - d) or blocked(x - d, y + d) or blocked(x + d, y + d)
-      self.open[row * cols + c] = not shut
+      self:check(c, row)
     end
   end
   return self
+end
+
+--- Work out again whether cell (c, r) is open: a soldier fits at its middle.
+function Nav:check(c, row)
+  local C, r, d = Nav.CELL, Nav.CLEARANCE, Nav.CLEARANCE * 0.7
+  local x, y = self.x0 + (c + 0.5) * C, self.y0 + (row + 0.5) * C
+  local shut = blocked(x, y)
+    or blocked(x - r, y) or blocked(x + r, y) or blocked(x, y - r) or blocked(x, y + r)
+    or blocked(x - d, y - d) or blocked(x + d, y - d) or blocked(x - d, y + d) or blocked(x + d, y + d)
+  self.open[row * self.cols + c] = not shut
+end
+
+--- Something over the rect (x, y, w, h) opened or shut (a door): work its
+--- cells, and those next to it, out again.
+function Nav:refresh(x, y, w, h)
+  local c0, r0 = self:cellOf(x - Nav.CELL, y - Nav.CELL)
+  local c1, r1 = self:cellOf(x + w + Nav.CELL, y + h + Nav.CELL)
+  for c = math.max(0, c0), math.min(self.cols - 1, c1) do
+    for row = math.max(0, r0), math.min(self.rows - 1, r1) do
+      self:check(c, row)
+    end
+  end
 end
 
 function Nav:cellOf(x, y)

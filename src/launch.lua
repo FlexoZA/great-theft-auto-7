@@ -7,9 +7,11 @@
 -- come back as your saved player (the world knows you by the player key in
 -- your settings). <id> is any quest in quests' `Quests.list`, e.g. "a-man"
 -- for City 17, "a-man-2" for the Outer City, "a-man-road" for the Winding
--- Road or "a-man-citadel" for the Citadel. --name <name> plays under that
--- name instead of $USER. Unknown worlds and quests are reported and the
--- game goes to the menu (or plays on in the city).
+-- Road, "a-man-citadel" for the Citadel, or "cyber-feud" for Grey City's
+-- Drop (then "cyber-feud-market", "-overpass", "-tower" and "-roof").
+-- --name <name> plays under that name instead of $USER. Unknown worlds and
+-- quests are reported and the game goes to the menu (or plays on in the
+-- city).
 
 local State = require("src.state")
 local Net = require("src.net")

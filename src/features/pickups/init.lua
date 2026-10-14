@@ -80,7 +80,10 @@ Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says 
 -- the time, picked from `drops` by weight ("ammo" is a box for a random gun,
 -- `dropMagazines` of its magazines big; "grenade" is one hand grenade). Out
 -- of every 100 kills: 30 ammo boxes, 10 each of medkits, drinks and vests,
--- 5 grenades. Add a kind to the list and give it a weight.
+-- 5 grenades. Add a kind to the list and give it a weight. One with
+-- `unlocked` only drops while a feature says somebody can use it (that
+-- hook, asked with the kind: the electric grenade's, once anyone has had
+-- Volt's), and is left out of the draw otherwise.
 Pickups.dropChance = 0.65
 Pickups.drops = {
   { kind = "ammo", weight = 3 },
@@ -88,6 +91,7 @@ Pickups.drops = {
   { kind = "stamina", weight = 1 },
   { kind = "armor-vest", weight = 1 },
   { kind = "grenade", weight = 0.5 },
+  { kind = "grenade-electric", weight = 0.3, unlocked = "serverAnyUnlocked" },
 }
 Pickups.dropMagazines = 1
 Pickups.carriedShare = 0.5 -- of ammo boxes, the share for a gun the player it is for carries
@@ -213,6 +217,21 @@ local function kindOf(key)
   end
   return kind
 end
+
+--- A stack of electric grenades: the grenades feature decides who may
+--- take it (only those who have unlocked them, or anyone for Volt's, which
+--- unlocks them) and where it goes.
+KINDS["grenade-electric"] = {
+  apply = function(server, player, item)
+    local grenades = Features.byName.grenades
+    return grenades ~= nil and grenades.serverTakeElectric ~= nil and grenades:serverTakeElectric(server, player, item)
+  end,
+  label = function(item)
+    return "+" .. BuildingKinds.label("grenade-electric", item.amount or 1)
+  end,
+  color = { 0.18, 0.9, 1 },
+  pitch = 0.9,
+}
 
 --- Put one `item` (a medkit, a drink) into `player`'s quick slot for later,
 --- if it has room: true, item when it did.
@@ -450,7 +469,17 @@ local function drawGrenade(x, y, t)
   love.graphics.setLineWidth(1)
 end
 
-local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade }
+--- Electric grenades: Volt's canister, bobbing over a crackling cyan glow.
+local function drawElectric(x, y, t)
+  local pulse = 0.5 + 0.5 * math.sin(t * 6)
+  love.graphics.setColor(0.18, 0.9, 1, 0.14 + pulse * 0.16)
+  love.graphics.circle("fill", x, y, 22 + pulse * 5)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.ellipse("fill", x, y + 12, 9, 4)
+  Render.grenade(x, y + math.sin(t * 3 + 0.4) * 2, 1, true)
+end
+
+local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade, ["grenade-electric"] = drawElectric }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
 --- orb for any ability, a crate for a material, the vest for any armor.
@@ -572,16 +601,27 @@ end
 
 --- Drop a pickup of `kind` at (x, y) right now: an ammo box where an
 --- officer fell, say. `amount` is what an ammo box holds (ammoAmount when
---- not given). A drop never respawns once taken. Other features reach
---- this via Features.byName.pickups (police does). Returns the item's id,
---- or nil before a game.
-function Pickups:serverDrop(server, kind, x, y, amount)
+--- not given). A drop never respawns once taken. `opts` (optional):
+--- `perPlayer` for one every human takes once (a boss's reward: it stays
+--- until the map changes, gone only for whoever took it), and anything
+--- else is kept on the item for its kind's `apply` (`unlocks`, Volt's
+--- electric grenades). Other features reach this via
+--- Features.byName.pickups (police does). Returns the item's id, or nil
+--- before a game.
+function Pickups:serverDrop(server, kind, x, y, amount, opts)
   if not (sv and kindOf(kind)) then
     return nil
   end
   local id = sv.nextId
   sv.nextId = id + 1
-  sv.items[id] = { kind = kind, x = x, y = y, amount = amount, dropped = true }
+  local it = { kind = kind, x = x, y = y, amount = amount, dropped = true }
+  for k, v in pairs(opts or {}) do
+    it[k] = v
+  end
+  if it.perPlayer then
+    it.takenBy = {}
+  end
+  sv.items[id] = it
   server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
   return id
 end
@@ -684,10 +724,16 @@ end
 --- (optional) is who it is for (the killer); the nearest human otherwise.
 --- Returns the item's id, or nil when nothing dropped.
 function Pickups:serverDropEnemy(server, x, y, by)
-  if #self.drops == 0 or love.math.random() >= self.dropChance then
+  local drops = {}
+  for _, d in ipairs(self.drops) do
+    if not d.unlocked or Features.any(d.unlocked, server, d.kind) then
+      drops[#drops + 1] = d
+    end
+  end
+  if #drops == 0 or love.math.random() >= self.dropChance then
     return nil
   end
-  local kind = byWeight(self.drops).kind
+  local kind = byWeight(drops).kind
   if kind == "ammo" then
     return self:serverDropAmmo(server, x, y, self.dropMagazines, by)
   end
@@ -713,8 +759,10 @@ function Pickups:serverPlayerJoined(server, player)
     return
   end
   for id, it in pairs(sv.items) do
-    server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
-      it.amount or ""))
+    if not (it.takenBy and it.takenBy[player.id]) then
+      server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
+        it.amount or ""))
+    end
   end
 end
 
@@ -745,7 +793,7 @@ function Pickups:serverStep(server, dt)
   for id, it in pairs(sv.items) do
     for _, player in pairs(server.players) do
       local bx, by, onFoot
-      if Features.present(player) then
+      if Features.present(player) and not (it.takenBy and it.takenBy[player.id]) then
         bx, by, onFoot = Features.bodyPose(server, player)
       end
       local scale = money and money.reachOf and money:reachOf(player.id) or 1
@@ -756,7 +804,10 @@ function Pickups:serverStep(server, dt)
         if kind then
           took, stashed = kind.apply(server, player, it)
         end
-        if took then
+        if took and it.takenBy then -- one each: gone for them only
+          it.takenBy[player.id] = true
+          server:send(player, Protocol.encode("PK_TAKE", id, player.id, stashed or ""))
+        elseif took then
           self:serverTake(server, id, player.id, stashed)
           break
         end

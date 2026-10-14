@@ -20,7 +20,8 @@
 -- quick slots beside the abilities (buildings.usables; buildings:quickPut
 -- takes the stack out of the bag, quickTake puts it back); their keys (H,
 -- J) use one from there, and G readies a grenade for the fire button to
--- throw. A vest ("armor-<key>") dragged onto the armor gear slot is put
+-- throw. The grenade slot takes plain or electric grenades, one kind at a
+-- time: dragging the other kind onto it swaps them. A vest ("armor-<key>") dragged onto the armor gear slot is put
 -- on (armor:equip) and dragged back into the bag taken off
 -- (armor:unequip; a damaged one is thrown away). Clothes ("gear-<key>")
 -- go onto the head, body, pants and shoes slots the same way (gear:equip,
@@ -166,8 +167,12 @@ function Inventory:pick(x, y, client)
   end
   for _, r in ipairs(L.quick) do
     if inside(r, x, y) then
-      if b and b:quickCount(r.item) > 0 then
-        return { kind = "quick", item = r.item, from = "quick" }
+      local item, n = nil, 0
+      if b then
+        item, n = b:slotOf(r.usable)
+      end
+      if n > 0 then
+        return { kind = "quick", item = item, from = "quick" }
       end
       return nil
     end
@@ -324,16 +329,14 @@ function Inventory:dropQuick(client, d, x, y, L)
     end
   end
   if d.from == "bag" and slot then
-    if slot.item ~= d.item then
+    if slot.usable ~= u then
       self:say("That slot is for " .. slot.usable.title .. ".")
-    elseif b:quickCount(d.item) >= u.max then
-      self:say("That slot is full.")
     else
-      b:quickPut(client, d.item)
+      b:quickPut(client, d.item) -- full, or a swap with no room for the other kind: it says
     end
   elseif d.from == "quick" and inside(L.itemsArea, x, y) then
     if Kinds.room(b.inventory, b.slots, d.item) < 1 then
-      self:say("No room in your bag for the " .. u.title .. ".")
+      self:say("No room in your bag for the " .. (b.look(u, d.item)) .. ".")
     else
       b:quickTake(client, d.item)
     end

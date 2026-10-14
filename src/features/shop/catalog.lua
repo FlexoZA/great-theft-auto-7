@@ -26,10 +26,15 @@
 --   details function(entry) -> { blurb, use, rows }: the side panel's text,
 --           for a kind details.lua doesn't know
 --   bought  what the shop says once it is bought, for an `onRoad` thing
+--   unlock  true for something only on the shelf for a player who has
+--           unlocked it (Volt's electric grenade): the feature that owns it
+--           answers `itemUnlocked(item)` on their screen and
+--           `serverItemUnlocked(server, player, item)` on the host
 --
 -- The host and every client share this list, so an item on the wire is
 -- checked against `Catalog.byItem` before anything is handed over.
 
+local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local AbilityKinds = require("src.features.abilities.kinds")
 local Vehicles = require("src.features.vehicles.catalog")
@@ -69,7 +74,7 @@ local PRICES = {
   ["gun-sniper"] = 160, ["gun-rocket"] = 300, ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
   ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70,
-  medkit = 20, drink = 12, grenade = 30,
+  medkit = 20, drink = 12, grenade = 30, ["grenade-electric"] = 60,
   ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
   ["armor-ceramic-plates"] = 150,
 }
@@ -112,6 +117,8 @@ end
 add({ item = "medkit", n = 1, name = "medkit", kind = "supply" })
 add({ item = "drink", n = 1, name = "energy drink", kind = "supply" })
 add({ item = "grenade", n = 1, name = "grenade", kind = "ammo" }) -- on the Ammo shelf, with what you fire
+-- Volt's, once you have picked up his (the grenades feature's)
+add({ item = "grenade-electric", n = 1, name = "electric grenade", kind = "ammo", unlock = true })
 for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
@@ -155,13 +162,20 @@ function Catalog.lookup(item)
   return entry, tier
 end
 
---- The entries on tab `key`, in shelf order.
+--- Is `entry` on my shelf: anything but an `unlock` I haven't unlocked yet?
+function Catalog.shown(entry)
+  return not entry.unlock or Features.any("itemUnlocked", entry.item)
+end
+
+--- The entries on tab `key` I can see, in shelf order.
 function Catalog.onTab(key)
   local t = Catalog.tabByKey[key] or Catalog.tabs[1]
   local out = {}
   for _, e in ipairs(Catalog.list) do
     local on
-    if t.kinds then
+    if not Catalog.shown(e) then
+      on = false
+    elseif t.kinds then
       on = t.kinds[e.kind]
     elseif t.kind then
       on = e.kind == t.kind

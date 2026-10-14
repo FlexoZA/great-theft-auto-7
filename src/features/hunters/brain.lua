@@ -37,6 +37,10 @@
 -- it is on edge, `alertFov`), walls in the way, and anyone within `aware`
 -- whichever way it faces (d-day/sight.lua). It finds its way round walls
 -- with a walking grid (d-day/nav.lua).
+--
+-- Another enemy can think the same way with its own pace (the Cyber Feud's
+-- assassin droids, cyber-feud/droids.lua): Brain.new's `pace`, `dodgeCool`,
+-- `stunCharge`, `stunEvery` and `lockAim` (see there). Left out, a Hunter's.
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
@@ -102,12 +106,22 @@ end
 ---   there(pickup)           is it still lying there?
 ---   take(server, pickup, h) take it: returns the hp it gives and how many
 ---                           seconds of haste (quicker on its feet)
+--- and, for something quicker or slower than a Hunter (all optional):
+---   pace        how much faster it moves, dodges included (1)
+---   dodgeCool   seconds before it can dodge again (DODGE_COOL)
+---   stunCharge  seconds it charges its heavy shot (STUN_CHARGE)
+---   stunEvery   seconds between heavy shots (STUN_EVERY)
+---   lockAim     true to have the heavy shot go where it was aimed when the
+---               charge began, so stepping off the line dodges it
 function Brain.new(opts)
   return setmetatable({
     list = {}, nextId = 1, time = 0, ticks = 0, calls = {},
     fov = opts.fov, alertFov = opts.alertFov or opts.fov, aware = opts.aware or 0,
     health = opts.health, radius = opts.radius, nav = opts.nav,
     find = opts.find, there = opts.there, take = opts.take,
+    pace = opts.pace or 1, dodgeCool = opts.dodgeCool or Brain.DODGE_COOL,
+    stunCharge = opts.stunCharge or Brain.STUN_CHARGE, stunEvery = opts.stunEvery or Brain.STUN_EVERY,
+    lockAim = opts.lockAim == true,
   }, Brain)
 end
 
@@ -150,6 +164,7 @@ end
 --- A step along (ux, uy) at `speed`, each axis on its own so a wall is
 --- slid along. Returns false if it got nowhere.
 function Brain:step(h, ux, uy, speed, dt)
+  speed = speed * self.pace
   if h.haste > 0 then
     speed = speed * Brain.HASTE
   end
@@ -340,15 +355,21 @@ function Brain:stunShot(server, h, tx, ty, dt)
       return true
     end
     h.charge = nil
-    h.stunCool = Brain.STUN_EVERY * (0.85 + random() * 0.3)
-    if h.arms.stunGun and onTarget(h, tx, ty) then
-      fire(server, h, tx, ty, h.arms.stunGun)
+    h.stunCool = self.stunEvery * (0.85 + random() * 0.3)
+    local ax, ay = tx, ty
+    if h.chargeAt then -- down the line it drew when it began
+      ax, ay = h.chargeAt.x, h.chargeAt.y
+      h.chargeAt = nil
+    end
+    if h.arms.stunGun and onTarget(h, ax, ay) then
+      fire(server, h, ax, ay, h.arms.stunGun)
       h.fireIn = math.max(h.fireIn, 0.4)
     end
     return true
   end
   if h.stunCool <= 0 and h.arms.stunGun and onTarget(h, tx, ty) then
-    h.charge = Brain.STUN_CHARGE
+    h.charge = self.stunCharge
+    h.chargeAt = self.lockAim and { x = tx, y = ty } or nil
     return true
   end
   return false
@@ -414,7 +435,8 @@ function Brain:fight(server, h, tx, ty, dt)
   local dx, dy = tx - h.x, ty - h.y
   local d = math.sqrt(dx * dx + dy * dy)
   local ux, uy = dx / math.max(d, 1e-6), dy / math.max(d, 1e-6)
-  h.facing = turn(h.facing, math.atan2(dy, dx), Brain.TURN, dt)
+  local aim = h.charge and h.chargeAt -- charging a locked shot, it holds its aim
+  h.facing = turn(h.facing, aim and math.atan2(aim.y - h.y, aim.x - h.x) or math.atan2(dy, dx), Brain.TURN, dt)
   h.strafeIn = h.strafeIn - dt
   if h.strafeIn <= 0 or h.stuck > 0.3 then
     h.side, h.strafeIn, h.stuck = -h.side, between(Brain.STRAFE_TIME), 0
@@ -497,9 +519,9 @@ function Brain:dodge(h, ux, uy, far)
     return false
   end
   local left = math.max(Brain.DODGE_TIME, (far or 0) / Brain.DODGE_SPEED)
-  h.charge = nil -- a dodge spoils its aim
+  h.charge, h.chargeAt = nil, nil -- a dodge spoils its aim
   h.dodging = { x = ux, y = uy, left = left }
-  h.dodgeCool = Brain.DODGE_COOL
+  h.dodgeCool = self.dodgeCool
   return true
 end
 
@@ -640,7 +662,7 @@ function Brain:freeze(x, y, radius, seconds)
   for _, h in ipairs(self.list) do
     if dist2(h.x, h.y, x, y) <= (radius + self.radius) ^ 2 then
       h.frozen = math.max(h.frozen, seconds)
-      h.dodging, h.charge = nil, nil
+      h.dodging, h.charge, h.chargeAt = nil, nil, nil
     end
   end
 end
