@@ -13,6 +13,11 @@
 local Features = require("src.features")
 local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
 local Horde = require("src.features.eternal-mood.horde")
+local Face = require("src.features.eternal-mood.face")
+local Screen = require("src.features.eternal-mood.screen")
+local Story = require("src.features.eternal-mood.story")
+local FobosTheme = require("src.features.eternal-mood.theme_fobos")
+local Audio = require("src.audio")
 local FloorManager = require("src.features.eternal-mood.floor_manager")
 
 local EternalMood = {
@@ -23,17 +28,81 @@ local EternalMood = {
 
 -- Tuning ------------------------------------------------------------------
 EternalMood.reach = 160 -- px from the way on that finishes a level
+EternalMood.introTime = 10 -- seconds the Voice's intro screen stays up on arrival, unless a key takes it down
 
 local sv = nil -- { quest, reached } on the host while one of the levels is under way
+local clock = 0 -- seconds, on this screen: what moves on the map and the intro screen
 
 local function cityMap()
   local city = Features.byName["city-map"]
   return city and city.map
 end
 
+local page = nil -- { line, t, level, face } while the Voice's intro screen is up
+
+-- Each level's theme (by map), played from the moment the Voice's intro
+-- screen goes: its intro once, then its loop. Rendered on arriving, under
+-- the intro screen.
+local THEMES = { fobos = FobosTheme }
+local music = {} -- map name -> { intro, loop } Sources
+local playing = nil -- the map whose theme is on
+
+local function musicVolume()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+local function loadMusic(level)
+  local theme = THEMES[level]
+  if theme and not music[level] then
+    local loop = love.audio.newSource(theme.render(), "static")
+    loop:setLooping(true)
+    loop:setRelative(true) -- never positional: the game moves the listener around
+    local intro = theme.renderIntro and love.audio.newSource(theme.renderIntro(), "static")
+    if intro then
+      intro:setRelative(true)
+    end
+    music[level] = { intro = intro, loop = loop }
+  end
+end
+
+local function stopMusic()
+  for _, m in pairs(music) do
+    m.loop:stop()
+    if m.intro then
+      m.intro:stop()
+    end
+  end
+  playing = nil
+end
+
+--- `level`'s theme from the top: its intro, then the loop (update starts it).
+local function startMusic(level)
+  loadMusic(level)
+  local m = music[level]
+  if not m or playing == level then
+    return
+  end
+  stopMusic()
+  playing, m.introDone = level, nil
+  local first = m.intro or m.loop
+  first:setVolume(musicVolume())
+  first:seek(0)
+  first:play()
+end
+
+--- The intro screen is going: the level's theme comes in.
+local function closePage()
+  page = nil
+  local map = cityMap()
+  if map and map.horde and map.name then
+    startMusic(map.name)
+  end
+end
+
 function EternalMood:load()
   Horde.load()
   FloorManager.load()
+  Screen.load()
 end
 
 function EternalMood:serverStart()
@@ -68,6 +137,7 @@ function EternalMood:mapChanged(_map, server)
   end
   Horde.clear()
   FloorManager.clear()
+  stopMusic()
 end
 
 function EternalMood:serverPlayerJoined(server, player)
@@ -116,10 +186,43 @@ end
 
 -- Client --------------------------------------------------------------------
 
+
+--- Everyone arrived on one of the levels: the Voice's intro screen, the
+--- Mood Slayer drowsier the further down the dream it is.
 function EternalMood:questStarted(_client, quest)
   if quest.boss == self.questId then
     Horde.clear() -- the vents shut again on a new run
     FloorManager.clear()
+    if quest.introLine then
+      local level = quest.introLine
+      page = { line = Story.lines[level] or Story.lines[1], t = 0, level = level,
+        face = Face.new(0.2 + (level - 1) / (Story.LEVELS - 1) * 0.75) }
+      Screen.sting()
+    end
+    stopMusic()
+    loadMusic(quest.map) -- now, under the intro screen, not when it starts
+    if not page then
+      closePage()
+    end
+  end
+end
+
+--- Any key takes the intro screen down.
+function EternalMood:keypressed()
+  if page then
+    closePage()
+  end
+end
+
+--- The intro screen softens the world behind it.
+function EternalMood:worldBlur()
+  return page and 1 or 0
+end
+
+--- The intro screen, over the whole HUD.
+function EternalMood:drawScreen()
+  if page then
+    Screen.draw(page.face, page.line, page.t, clock, page.level)
   end
 end
 
@@ -127,18 +230,39 @@ function EternalMood:questEnded(_client, quest)
   if quest.boss == self.questId then
     Horde.clear()
     FloorManager.clear()
+    page = nil
+    stopMusic()
   end
 end
 
 function EternalMood:exitGame()
   Horde.clear()
   FloorManager.clear()
+  page = nil
+  stopMusic()
 end
-
-local clock = 0
 
 function EternalMood:update(dt)
   clock = clock + dt
+  if page then
+    page.t = page.t + dt
+    page.face:update(dt)
+    if page.t >= self.introTime then
+      closePage()
+    end
+  end
+  local m = playing and music[playing]
+  if m then
+    if m.intro and not m.intro:isPlaying() and not m.loop:isPlaying() and m.introDone ~= playing then
+      m.introDone = playing -- the dream is over: rip and tear
+      m.loop:seek(0)
+      m.loop:play()
+    end
+    m.loop:setVolume(musicVolume()) -- the slider may move
+    if m.intro then
+      m.intro:setVolume(musicVolume())
+    end
+  end
   Horde.update(dt)
   FloorManager.update(dt)
 end

@@ -299,6 +299,7 @@ Quests.list = {
     label = "ETERNAL MOOD",
     color = { 1, 0.45, 0.1 },
     banner = "%s took the pest-control job. Welcome to Fobos Base.",
+    introLine = 1,
     exitText = "The hangar lift goes up and out. That's as far as the job goes for now. Head home.",
   },
   {

@@ -1,8 +1,21 @@
 -- The words of the Eternal Mood quest line (docs/eternal-mood.md), in one
--- place. So far what the horde says; the Voice's lines, the banners and the
--- bosses' come with them. Data only.
+-- place: the Voice's intro screen lines and what the horde says (the bosses
+-- keep their own). Data only.
 
 local Story = {}
+
+Story.LEVELS = 5
+
+-- What the Voice says on its intro screen, one line per level (quests'
+-- `introLine` picks it on arrival). It starts out sure of itself and gets
+-- sleepier the further down the dream goes.
+Story.lines = {
+  "They opened a door to Heck. They're about to find out I'm worse.",
+  "Earth. Home. On fire. The truck's got a full tank. So have I.",
+  "A factory that melts demons. Somebody's going to melt. Not me.",
+  "Heck. Hot, loud, full of demons. ...Is it hot in here, or is it the blanket?",
+  "One big demon left. Then I'm going back to... where was I going?",
+}
 
 -- What the horde says (horde.lua), by who and category; the host picks one
 -- by index:
