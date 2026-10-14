@@ -26,7 +26,9 @@
 --   map.alarms            { x, y } the red alarm lamps over the doors, world px
 --   map.horde             { posts = { rank, x, y, watch }, vents = { x, y, out, count } } Heck's horde
 --                         (eternal-mood/horde.lua): the possessed at their posts (rank staffer, guard or
---                         overtime) and the vents the imps crawl out of, world px
+--                         overtime) and the vents the imps crawl out of, world px; and `boss` { x, y, facing,
+--                         zone, lift, doors } the level's boss (the Floor Manager): where he waits, the room
+--                         that wakes him, the lift he keeps out of service, the doorways his meetings use
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
 
 local EternalMood = {}
@@ -340,12 +342,24 @@ local function buildFobos(map, rng, T)
   post("staffer", 32, 31, W)
   post("staffer", 41, 36, E) -- Toxic Storage
   post("staffer", 49.5, 33, W)
-  post("overtime", 28, 9.5, S) -- the Hangar, round the lift
+  post("overtime", 34.5, 6.5, S) -- the Hangar, beside the lift
   post("guard", 20, 12, S)
   post("guard", 36.5, 12.5, S)
   post("staffer", 12, 17, S)
   post("staffer", 44, 17, S)
   post("staffer", 28, 16, S)
+  -- The Floor Manager (eternal-mood/floor_manager.lua) on the lift, facing
+  -- the Hangar: he wakes when somebody walks into it, the lift is out of
+  -- service until he is down, and his meetings come in through the three
+  -- doorways up into it.
+  local hz = rooms["The Hangar"]
+  horde.boss = {
+    x = math.floor(lx + 4 * T), y = math.floor(ly + 2 * T), facing = S,
+    zone = { x0 = X(hz.c0), y0 = Y(hz.r0), x1 = X(hz.c1 + 1), y1 = Y(hz.r1 + 1) },
+    lift = { x = lx, y = ly, w = 8 * T, h = 4 * T },
+    doors = { { x = math.floor(X(10.5)), y = math.floor(Y(20.5)) }, { x = math.floor(X(28)), y = math.floor(Y(20.5)) },
+      { x = math.floor(X(45.5)), y = math.floor(Y(20.5)) } },
+  }
   vent(21, 33, E, 3) -- the Reactor
   vent(35, 30, W, 3)
   vent(50.5, 38, W, 3) -- Toxic Storage

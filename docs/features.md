@@ -1592,12 +1592,20 @@ the one with a plot.
   (`imp_brain.lua`) crawl out of a vent once a player comes within 420 px of
   it (Bosses.plus of its count), hunt the nearest player, strafe, and throw
   fireballs (`fireballs.lua`, flown on the host and on every screen,
-  sidestepped at 330 px/s, 14 `fire`). The horde is one side: its rounds
+  sidestepped at 330 px/s, 14 `fire`; its `KINDS` also fly the boss's
+  plasma). The horde is one side: its rounds
   carry `from` "horde" and every ownerless round passes through it, so it
   never hurts itself; only players' rounds and blasts reach it
   (`serverShotAt`). Kills are `serverKill` "soldier" (the possessed) and
   "demon" (imps). They talk (`story.lua`'s `horde`), in a bubble. HRD_
-  messages. The Voice, the bosses and the next four maps follow.
+  messages. Its boss, the Floor Manager (`floor_manager.lua`, his brain
+  `floor_manager_brain.lua`, FM_ messages, the map's `horde.boss`; an
+  Arachnotron: a brain on a spider walker, streaming plasma that flies as
+  fireballs.lua's "plasma", with a cannon that can be shot off), waits
+  on the Hangar's lift until a player walks into the Hangar, and keeps the
+  lift locked (`serverLocked`, drawn OUT OF SERVICE) until he is down; he
+  follows the bosses' standard. The Voice, the other bosses and the next
+  four maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

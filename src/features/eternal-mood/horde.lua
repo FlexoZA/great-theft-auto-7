@@ -103,6 +103,7 @@ local function claw(server, _imp, who, damage, angle)
 end
 
 --- Put the horde on `map` (its `horde`), or nothing on a map without one.
+--- Returns the walking grid it built, for the level's boss.
 function Horde.serverStart(server, map)
   Horde.serverStop(server)
   local spec = map.horde
@@ -137,6 +138,7 @@ function Horde.serverStart(server, map)
   Fireballs.serverStart()
   sv = { possessed = possessed, imps = imps, vents = vents, syncIn = 0, emptySends = 0,
     chatIn = between(Horde.chatEvery) }
+  return nav
 end
 
 function Horde.serverStop(server)
@@ -144,6 +146,15 @@ function Horde.serverStop(server)
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("HRD_STATE", server.tick))
+  end
+end
+
+--- One of rank `rank` called in (a boss's meeting): at (x, y), on its way
+--- to look at (tx, ty), and back to (x, y) after if it finds nobody.
+function Horde.serverCall(_server, rank, x, y, tx, ty)
+  if sv then
+    local s = sv.possessed:add(rank, x, y, math.atan2(ty - y, tx - x))
+    sv.possessed:alert(s, tx, ty)
   end
 end
 
@@ -402,11 +413,21 @@ function Horde.load()
     buf:noiseBurst(0, 0.15, { amp = 0.7, decay = 0.04 })
     buf:highpass(1800)
   end)
-  Fireballs.onThrow = function(x, y)
-    Horde.play("throw", x, y)
+  -- A plasma bolt: a short falling zap, and a fizz where it lands.
+  bank.plasma = make(0.18, 0.5, function(buf)
+    buf:sweep(0, 0.16, 1400, 500, { wave = "square", amp = 0.25, decay = 0.06 })
+    buf:noiseBurst(0, 0.05, { amp = 0.2, decay = 0.02 })
+    buf:highpass(300)
+  end)
+  bank.fizz = make(0.2, 0.4, function(buf)
+    buf:noiseBurst(0, 0.18, { amp = 0.5, decay = 0.05 })
+    buf:highpass(1500)
+  end)
+  Fireballs.onThrow = function(x, y, kind)
+    Horde.play(kind == "plasma" and "plasma" or "throw", x, y)
   end
-  Fireballs.onPop = function(x, y)
-    Horde.play("pop", x, y)
+  Fireballs.onPop = function(x, y, kind)
+    Horde.play(kind == "plasma" and "fizz" or "pop", x, y)
   end
 end
 
@@ -553,13 +574,14 @@ local function healthBar(s, max, r)
   end
 end
 
-local function bubble(s, text)
+--- A speech bubble in Heck's red, its bottom edge at (cx, bottom).
+function Horde.drawBubble(cx, bottom, text)
   local font = UI.fonts.small
   love.graphics.setFont(font)
   local w = math.min(220, font:getWidth(text) + 14)
   local _, lines = font:getWrap(text, w - 10)
   local h = #lines * font:getHeight() + 8
-  local x, y = s.dx - w / 2, s.dy - Body.SHOULDERS - 14 - h
+  local x, y = cx - w / 2, bottom - h
   love.graphics.setColor(0.08, 0.02, 0.02, 0.8)
   love.graphics.rectangle("fill", x, y, w, h, 4)
   love.graphics.setColor(RED[1], RED[2], RED[3], 0.8)
@@ -593,7 +615,7 @@ function Horde.drawAboveCars()
   for id, b in pairs(said) do
     local s = shown[id]
     if s then
-      bubble(s, b.text)
+      Horde.drawBubble(s.dx, s.dy - Body.SHOULDERS - 14, b.text)
     end
   end
   love.graphics.setColor(1, 1, 1)

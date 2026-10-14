@@ -43,6 +43,35 @@ branch off `feature/eternal-mood`):
   and Toxic Storage; a guard inside each doorway up from the Ring; the
   overtime guy by the Hangar's lift with two guards and three staffers.
   No Pinky yet.
+- `feature/eternal-mood-floor-manager`: Fobos Base's boss
+  (`eternal-mood/floor_manager.lua`, his brain `floor_manager_brain.lua`,
+  placed by the map's `horde.boss`; FM_ messages), the line's Arachnotron.
+  The UAC's shift supervisor, promoted out of his body: his brain in a
+  glass dome on a four-legged spider walker, a plasma cannon under the
+  front, the clipboard taped on (drawn at 1.5x, 34 px across). 1500 health
+  for one human (Volt has 1800). He waits on the Hangar's lift, facing the
+  room, until a player walks into the Hangar or shoots him ("You're not on
+  the rota."). He walks any way on his legs (90 px/s), keeps 340 px off
+  whoever he has and side-steps. Plasma: within 700 px, facing them, the
+  cannon charges for 0.55 s (glowing, a faint green line where it points),
+  then a stream of ten bolts 0.09 s apart (fireballs.lua's "plasma", 520
+  px/s, 9 `shock` each), the aim dragging after them at 1.1 rad/s: keep
+  moving across it. Every 3.2 s, 2.4 in phase 2 (under half), when three
+  streams go out in a fan (0.28 rad either side); 15 breath. Stomp: within
+  120 px the legs rear up for 0.6 s (a ring on the floor) and come down on
+  everyone within 115 px (30 `impact`, a 140 px shove); every 2.2 s. The
+  cannon has 300 health of its own (scaled like his): a round within 18 px
+  of its end hits it, and him for a quarter; shot off ("My presentation!")
+  it lies smoking where it fell, he has no plasma and closes in to stomp at
+  1.35 times his pace, and his bar says CANNON DOWN. Quick meetings at two
+  thirds and a third of his health: two staffers (Bosses.plus) through each
+  of the Hangar's three doorways, at whoever he has (horde.lua's
+  `serverCall`). The bosses' standard (breath: winded he walks at 40; the
+  boss bar; a medkit when badly hurt, "statutory break"; dodging
+  abilities; `serverKill` "boss", 25 koins and two pickups). The lift is
+  OUT OF SERVICE while he is up (the way on doesn't finish the level);
+  down, his walker lies smoking, legs splayed and the dome cracked and
+  empty, and the lift works.
 
 ## Decisions
 
@@ -94,11 +123,13 @@ Slayer. You are very angry. You are also, it turns out, asleep.
 
 Each is a bit more dream than the last, the way the levels are.
 
-- **The Floor Manager** (Fobos Base). The UAC's shift supervisor, a zombie
-  in a yellow cargo-loader exosuit, still holding a clipboard. Guards the
-  hangar lift. Slams forklift arms, throws crates, and calls zombie staff in
-  "for a quick meeting". The most normal of the five: a dream that hasn't
-  started being silly yet.
+- **The Floor Manager** (Fobos Base), the line's Arachnotron. The UAC's
+  shift supervisor, promoted out of his body: his brain in a glass dome on
+  a four-legged spider walker with a plasma cannon, his clipboard taped to
+  the side. Guards the hangar lift. Streams plasma, stomps whoever gets
+  close, and calls zombie staff in "for a quick meeting". Shoot his cannon
+  off and he has to come and stomp you. Not to be confused with Heck's
+  Spider Mattressmind, the bigger spider with the chaingun.
 - **The Cyberdaemon** (Heck on Earth). A huge horned demon with a rocket
   launcher for an arm and, where its heart should be, a reactor that looks
   exactly like Kilowatt's. It stomps down the road to the starport after
@@ -320,7 +351,7 @@ in it (a surroundings file, `fobos_moon.lua`).
   sludge (a hazard like lava, `poison` instead of `fire`), a crane.
 - **The Hangar:** the top. A big open hall with a lift pad at the top and
   crates and parked loaders round the walls. The Floor Manager stands on
-  the lift in his loader and wakes when someone walks in.
+  the lift on his spider walker and wakes when someone walks in.
 - **The end:** the hangar lift. The EXIT star, once he's down: "HECK ON
   EARTH".
 
@@ -450,7 +481,7 @@ the first drafts.
 - **Fobos Base**
   - The lab door opens: "Rip. Tear. In that order."
   - The reactor room: "Reactor's humming. Weird hum. Sounds like a fridge."
-  - The Floor Manager wakes: "A manager. In a forklift. Finally, a fair fight. For him."
+  - The Floor Manager wakes: "A manager. A brain. On legs. With a gun. ...That's most managers."
   - The Floor Manager down: "Meeting's over."
   - The end, the lift: "Going up. The demons are going down."
 - **Heck on Earth**
