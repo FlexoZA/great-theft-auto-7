@@ -21,8 +21,8 @@ Brain.__index = Brain
 
 Brain.RADIUS = 9 -- px
 Brain.HEALTH = 20 -- a pistol round or two
-Brain.SHAMBLE = 55 -- px/s from afar (a player walks at 45, sprints at 170)
-Brain.LURCH = 100 -- px/s once close...
+Brain.SHAMBLE = 85 -- px/s from afar (a player walks at 45, sprints at 170)
+Brain.LURCH = 140 -- px/s once close...
 Brain.LURCH_FROM = 200 -- ...this close
 Brain.REACH = 24 -- px: this near, it claws
 Brain.WINDUP = 0.35 -- seconds its arms go up first
