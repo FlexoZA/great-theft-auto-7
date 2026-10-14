@@ -357,6 +357,21 @@ branch off `feature/eternal-mood`):
   walls and the lava) and `Ground.clear`, and the walking grid's cells over
   it are shut.
 
+- `feature/eternal-mood-foundry-theme`: the Foundry's own theme
+  (`eternal-mood/theme_foundry.lua`, played like the others; rendered on
+  arriving in about 2 s). A factory melting Heck down: industrial metal,
+  110 BPM in D minor, drop D, slower and heavier than Earth's. The dream
+  (~4 s, `renderIntro`): Dr. Seek's speech gone cooking show, a cheery
+  marimba jingle over a pan sizzling; somebody far away calls "hey" (two
+  notes falling, the beat); steam builds and a hydraulic press slams it
+  shut. The loop (~61 s, `render`): the machine, palm-muted chugs on the low
+  D in a mechanical pattern with a sequenced synth ticking sixteenths under
+  them, the kick on every chug, an anvil ringing on the last off-beat; the
+  press, half time, chords slammed on one and three, steam hissing between,
+  anvils on every off-beat; the chorus, open chords D minor, B flat, C, A
+  under a choir coming up out of the floor and a slow, mournful lead; and
+  the machine into the top. Its own riffs, none of anybody else's.
+
 ## Decisions
 
 | Question | Decision |

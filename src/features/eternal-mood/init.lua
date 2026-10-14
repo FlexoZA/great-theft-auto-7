@@ -21,6 +21,7 @@ local Screen = require("src.features.eternal-mood.screen")
 local Story = require("src.features.eternal-mood.story")
 local FobosTheme = require("src.features.eternal-mood.theme_fobos")
 local EarthTheme = require("src.features.eternal-mood.theme_earth")
+local FoundryTheme = require("src.features.eternal-mood.theme_foundry")
 local Audio = require("src.audio")
 local FloorManager = require("src.features.eternal-mood.floor_manager")
 local Mancubus = require("src.features.eternal-mood.mancubus")
@@ -50,8 +51,8 @@ local page = nil -- { line, t, level, face } while the Voice's intro screen is u
 
 -- Each level's theme (by map), played from the moment the Voice's intro
 -- screen goes: its intro once, then its loop. Rendered on arriving, under
--- the intro screen. The Foundry borrows Fobos Base's until it has its own.
-local THEMES = { fobos = FobosTheme, earth = EarthTheme, foundry = FobosTheme }
+-- the intro screen.
+local THEMES = { fobos = FobosTheme, earth = EarthTheme, foundry = FoundryTheme }
 local music = {} -- map name -> { intro, loop } Sources
 local playing = nil -- the map whose theme is on
 

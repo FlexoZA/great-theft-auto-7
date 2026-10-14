@@ -64,6 +64,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   it up. And then somebody far away asks if you're awake.
 - Lava burns: you can walk into the Crucible's lava, the Smelters' vats or Heck on Earth's crater now, but you'll catch
   fire. You can also shoot across lava; demons won't set foot in it.
+- The Foundry has its own theme: heavy industrial metal, guitars locked to a machine, anvils ringing, steam hissing
+  out of the press and a choir rising where the factory turns to Heck. It starts in the dream, on a cooking show,
+  until somebody far away calls and the press slams down.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
