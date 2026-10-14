@@ -30,7 +30,7 @@ local Footsteps = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Footsteps.volume = 0.6 -- default level of the "footsteps" channel
+Footsteps.volume = 0.25 -- default level of the "footsteps" channel
 Footsteps.refDistance = 70 -- px: full volume inside this radius
 Footsteps.maxDistance = 600 -- px: quietest at this distance
 Footsteps.hearing = 520 -- px: steps further away than this aren't played
