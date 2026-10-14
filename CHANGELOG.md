@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-14
+
+Cyber Feud: a new quest line through Grey City at night. Carry the Shard across five maps from the Drop to the roof
+of Halcyon Tower, caught between Halcyon and the Static, past General Volt, Saye and Kilowatt, and then VEX. It
+also brings the Courier, rain and storms, and the electric grenade, the first thing you unlock.
+
 ### Added
 - A new job on the board, "Courier wanted": the start of the Cyber Feud quest line in Grey City. Five maps so far,
   driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
