@@ -1610,7 +1610,7 @@ the one with a plot.
   messages. On arrival the Voice's intro screen (`screen.lua`, `face.lua`,
   the quest's `introLine`, drawn in `drawScreen` over the HUD) comes up
   like VEX's, and when it goes the level's theme comes in (`theme_fobos.lua`,
-  `theme_earth.lua`, `theme_foundry.lua`, by map:
+  `theme_earth.lua`, `theme_foundry.lua`, `theme_heck.lua`, by map:
   its dream intro once, then the loop). Its boss, the Floor Manager (`floor_manager.lua`, his brain
   `floor_manager_brain.lua`, FM_ messages, the map's `horde.boss`; an
   Arachnotron: a brain on a spider walker, streaming plasma that flies as

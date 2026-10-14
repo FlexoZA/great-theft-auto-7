@@ -433,6 +433,22 @@ branch off `feature/eternal-mood`):
   the brain slumps grey on its mattress, a last z drifts up, and the gate
   unlocks. The map's own mattress is gone: it was this one.
 
+- `feature/eternal-mood-heck-theme`: Heck's own theme
+  (`eternal-mood/theme_heck.lua`, played like the others; rendered on
+  arriving in under 3 s). The darkest of them: blackened, built on the
+  tritone, 140 BPM in C# minor. The dream (~3.4 s, `renderIntro`): a
+  microwave humming (the pizza, warming), its ding, a yawn, and the floor
+  going out in a long falling dive, a bell tolling at the bottom. The loop
+  (~51 s, `render`): the blast, tremolo-picked riffs leaning on the flat
+  second and the tritone (C#, D, G) over blast beats, the low string on
+  every beat, a choir holding the tritone over it; the doom, half time,
+  huge open chords, a church organ droning and a bell tolling every bar;
+  the chorus, open chords C# minor, A, B, G# under a lead and the choir,
+  double kick; the drowse, two bars where it all falls away to the organ
+  and Fobos Base's music box lullaby comes back slowed and out of tune,
+  then a yawn, a fall and a snare roll; and the blast into the top. Its own
+  riffs, none of anybody else's.
+
 ## Decisions
 
 | Question | Decision |
