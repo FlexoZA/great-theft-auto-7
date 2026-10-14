@@ -19,7 +19,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   in the dark, everything in it red: wake up in the Lab and find your way up to the Hangar's lift.
 - Heck holds Fobos Base: the possessed UAC staff at their desks and posts (staffers with pistols, guards with
   shotguns in the doorways, the overtime guy spinning up his chaingun by the lift), and imps bursting out of the floor
-  vents as you come near, throwing fireballs you can sidestep. Its boss is still to come.
+  vents as you come near, throwing fireballs you can sidestep.
+- The Floor Manager holds Fobos Base's lift: the UAC's shift supervisor, promoted out of his body, his brain in a
+  glass dome on a four-legged spider walker with a plasma cannon. He charges the cannon and sprays streams of plasma
+  that drag after you (three at once below half health), stomps whoever gets close (the ring shows first), and calls
+  staff in for a quick meeting at two thirds and a third of his health. Shoot his cannon off and he has to come and
+  stomp you instead. The lift is out of service until he's down.
 
 ## [0.27.0] - 2026-10-14
 

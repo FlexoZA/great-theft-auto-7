@@ -5,11 +5,14 @@
 --
 -- The first player to reach the map's way on (`map.exitX`, `map.exitY`,
 -- Fobos Base's hangar lift) finishes the level, and an EXIT star comes up
--- there. Heck's horde holds the way (horde.lua: the possessed at their
--- posts, the imps in the vents). The Voice and the bosses come later.
+-- there, once the level's boss is down (Fobos Base's: the Floor Manager,
+-- floor_manager.lua, standing on the lift). Heck's horde holds the way
+-- (horde.lua: the possessed at their posts, the imps in the vents). The
+-- Voice comes later.
 
 local Features = require("src.features")
 local Horde = require("src.features.eternal-mood.horde")
+local FloorManager = require("src.features.eternal-mood.floor_manager")
 
 local EternalMood = {
   name = "eternal-mood",
@@ -28,6 +31,7 @@ end
 
 function EternalMood:load()
   Horde.load()
+  FloorManager.load()
 end
 
 function EternalMood:serverStart()
@@ -39,7 +43,8 @@ function EternalMood:serverQuestStarted(server, quest)
     sv = { quest = quest.id, reached = false }
     local map = cityMap()
     if map then
-      Horde.serverStart(server, map)
+      local nav = Horde.serverStart(server, map)
+      FloorManager.serverStart(server, map, nav)
     end
   end
 end
@@ -48,6 +53,7 @@ function EternalMood:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     sv = nil
     Horde.serverStop(server)
+    FloorManager.serverStop(server)
   end
 end
 
@@ -56,27 +62,34 @@ function EternalMood:mapChanged(_map, server)
   if server then
     sv = nil
     Horde.serverStop(server)
+    FloorManager.serverStop(server)
   end
   Horde.clear()
+  FloorManager.clear()
 end
 
 function EternalMood:serverPlayerJoined(server, player)
   Horde.serverPlayerJoined(server, player)
+  FloorManager.serverPlayerJoined(server, player)
 end
 
 function EternalMood:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
-  return Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  return FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
+    or Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 function EternalMood:serverFreezeArea(_server, x, y, radius, seconds)
   Horde.serverFreezeArea(x, y, radius, seconds)
+  FloorManager.serverFreezeArea(x, y, radius, seconds)
 end
 
---- Has anyone got to the way on? The first one there finishes the level.
+--- Has anyone got to the way on? The first one there finishes the level,
+--- once its boss is down.
 function EternalMood:serverStep(server, dt)
   Horde.serverStep(server, dt)
+  FloorManager.serverStep(server, dt)
   local map = cityMap()
-  if not (sv and not sv.reached and map and map.exitX) then
+  if not (sv and not sv.reached and map and map.exitX) or FloorManager.serverLocked() then
     return
   end
   for _, p in pairs(server.players) do
@@ -104,34 +117,45 @@ end
 function EternalMood:questStarted(_client, quest)
   if quest.boss == self.questId then
     Horde.clear() -- the vents shut again on a new run
+    FloorManager.clear()
   end
 end
 
 function EternalMood:questEnded(_client, quest)
   if quest.boss == self.questId then
     Horde.clear()
+    FloorManager.clear()
   end
 end
 
 function EternalMood:exitGame()
   Horde.clear()
+  FloorManager.clear()
 end
 
 function EternalMood:update(dt)
   Horde.update(dt)
+  FloorManager.update(dt)
 end
 
 function EternalMood:drawBelowCars()
   Horde.drawVents(cityMap())
+  FloorManager.drawBelowCars()
   Horde.drawBelowCars()
 end
 
 function EternalMood:drawAboveCars()
+  FloorManager.drawAboveCars()
   Horde.drawAboveCars()
 end
 
 function EternalMood:drawNightLights(_client, _camera, glow)
   Horde.drawNightLights(glow)
+  FloorManager.drawNightLights(glow)
+end
+
+function EternalMood:drawHUD()
+  FloorManager.drawHUD()
 end
 
 function EternalMood:footstepWalkers()
@@ -139,8 +163,10 @@ function EternalMood:footstepWalkers()
 end
 
 EternalMood.clientMessages = {}
-for kind, handler in pairs(Horde.clientMessages) do
-  EternalMood.clientMessages[kind] = handler
+for _, part in ipairs({ Horde, FloorManager }) do
+  for kind, handler in pairs(part.clientMessages) do
+    EternalMood.clientMessages[kind] = handler
+  end
 end
 
 return EternalMood
