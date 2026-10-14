@@ -77,6 +77,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   it), its legs slam down if you get close, and once it's half down it starts yawning: each yawn pulls you in, then
   snaps shut. The mattress soaks up shots from the front, so get round it. The Snooze Gate stays locked until it's
   down.
+- Heck has its own theme: black metal blast beats and slow doom, a choir, a church organ and bells tolling. The dream
+  is wearing thin: it starts with a microwave warming a pizza, and halfway round everything stops for Fobos Base's
+  music box lullaby, slowed and out of tune, before a yawn and the blast tearing back in.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
