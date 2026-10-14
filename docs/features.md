@@ -1607,7 +1607,10 @@ the one with a plot.
   never hurts itself; only players' rounds and blasts reach it
   (`serverShotAt`). Kills are `serverKill` "soldier" (the possessed) and
   "demon" (imps). They talk (`story.lua`'s `horde`), in a bubble. HRD_
-  messages. Its boss, the Floor Manager (`floor_manager.lua`, his brain
+  messages. On arrival the Voice's intro screen (`screen.lua`, `face.lua`,
+  the quest's `introLine`, drawn in `drawScreen` over the HUD) comes up
+  like VEX's, and when it goes the level's theme comes in (`theme_fobos.lua`:
+  its dream intro once, then the loop). Its boss, the Floor Manager (`floor_manager.lua`, his brain
   `floor_manager_brain.lua`, FM_ messages, the map's `horde.boss`; an
   Arachnotron: a brain on a spider walker, streaming plasma that flies as
   fireballs.lua's "plasma", with a cannon that can be shot off), waits

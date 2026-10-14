@@ -33,6 +33,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
   you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
   the other seven. The Floor Manager's meetings bring a few in too.
+- Eternal Mood has its intro screen: the Mood Slayer's own voice in his head, typed out in a thought bubble beside
+  his helmet, over Heck's glow and rising embers, with a power chord. Watch his eye behind the visor: he keeps
+  nodding off.
+- Fobos Base has its own theme: rip-and-tear metal, tuned way down, chugs, diving synth bass and a screaming lead.
+  It starts in the dream, a lullaby on a music box over a snore, until the floor drops out.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on

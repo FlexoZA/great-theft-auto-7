@@ -140,6 +140,36 @@ branch off `feature/eternal-mood`):
   lines for it ("Taking my break!", "Here's your severance!", "Let's circle
   back to that.").
 
+- `feature/eternal-mood-intro`: the Voice's intro screen
+  (`eternal-mood/screen.lua`, the Mood Slayer's face in `face.lua`), up on
+  arrival for 10 s or until a key takes it down, over the whole HUD
+  (`drawScreen`) with the world softened behind it, picked by the quest's
+  `introLine` (`Story.lines`). Laid out like VEX's: ETERNAL MOOD and the
+  level's number, THE MOOD SLAYER cut from hot metal, "Rip. Tear. Five more
+  minutes.", and the line typed out in a thought bubble trailing off to
+  him (the Voice is in his head). Black going to Heck's red at the bottom,
+  embers rising, a power chord as it comes up. His face: a green helmet,
+  an amber visor and one eye behind it, heavy-lidded, blinking slowly,
+  every so often nodding off (the lid shutting, the helmet sinking) and
+  jerking awake wide-eyed; `drowsy` grows with the level (0.2 on Fobos
+  Base, 0.95 at the Snooze Gate), so he nods more the further down the
+  dream it is.
+
+- Fobos Base's theme (`eternal-mood/theme_fobos.lua`, on the same branch
+  as the intro screen): rip-and-tear metal rendered by src/audio/synth.lua,
+  128 BPM in A minor (Phrygian where it hurts), tuned down to a low A. It
+  comes in the moment the Voice's intro screen goes. First the dream, once
+  (`renderIntro`, ~2 s): a lullaby on a music box over a snore, the floor
+  dropping out in a diving synth bass. Then the loop (`render`, ~60 s):
+  riff A, low A chugs grouped three, three and two against the beat with
+  the kick locked to them and the snare on three, the synth bass diving
+  every other bar end; riff B over double kick leaning on the flat second
+  (B flat), high stabs and gated noise creeping in; the chorus, open
+  power chords A, F, G, E (B flat to turn it round) under a screaming lead;
+  a half-time breakdown on the lowest A, gated noise stuttering; riff A
+  into the top. Its own riffs, none of anybody else's. Rendered on
+  arriving, under the intro screen (about 1.4 s).
+
 ## Decisions
 
 | Question | Decision |
@@ -395,7 +425,8 @@ points at the boss.
   crate should be, a TV remote the size of a car, the corner of a lampshade
   in the sky, more of it each level.
 - Each map gets its own theme music: heavy, fast, chugging metal, as Cyber
-  Feud's maps have theirs.
+  Feud's maps have theirs. Each opens in the dream (Fobos Base's on a music
+  box) before the riff tears in.
 - Lava is a hazard tile: walk in it and you burn (`fire` damage over time,
   the damage feature's DoT, like the Winding Road's poison); drive over it
   and the car burns. Cars and players can't stop on it.
