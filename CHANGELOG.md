@@ -43,6 +43,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   buses and cars to hide behind Downtown, a fallen overpass squeezing the road to one gap, a lava-filled crater where
   the portal opened, and the Boulevard's sandbags up to the starport's gate. Possessed guards behind the wrecks,
   mobs of interns in the side streets, imps out of the manholes and the cracks round the crater.
+- Cacodaemons float over Heck on Earth: big red one-eyed demons that fly over roofs and lava, spit balls of fire
+  (watch for the mouth opening first) and bite whoever gets close. 220 health; shoot one in its open mouth and it
+  takes extra damage and reels.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on

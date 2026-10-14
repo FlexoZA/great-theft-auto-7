@@ -40,7 +40,8 @@
 --                         overtime) and on patrol (a file of ranks walking `route`, a loop of { x, y }, from
 --                         corner `start`), the Interns' mobs standing about their spot until woken, and the
 --                         vents the imps crawl out of (`look` manhole or crack where they aren't vents),
---                         world px; and `boss` { x, y, facing,
+--                         and `cacos` = { x, y, count, wake } the Cacodaemons' flocks floating about their
+--                         spots (over anything: they fly), world px; and `boss` { x, y, facing,
 --                         zone, lift, doors } the level's boss (the Floor Manager): where he waits, the room
 --                         that wakes him, the lift he keeps out of service, the doorways his meetings use
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -917,6 +918,21 @@ local function buildEarth(map, rng, T)
   mob(20, 11, 6, 400)
   vent(10.5, 22, E, 2, "manhole")
   vent(29.5, 11, W, 2, "manhole")
+  -- The Cacodaemons (horde.lua), floating over the roofs, the road and the
+  -- Crater's lava, a flock to each spot (how many for one human, how near
+  -- wakes them): one over the Suburbs, three Downtown, two over the lava,
+  -- two over the Boulevard's towers.
+  horde.cacos = {}
+  local function cacos(c, r, count, wake)
+    horde.cacos[#horde.cacos + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), count = count, wake = wake }
+  end
+  cacos(5.5, 124, 1, 520)
+  cacos(7, 102, 1, 560)
+  cacos(32, 87.5, 1, 560)
+  cacos(20, 70, 1, 520)
+  cacos(20, 51.5, 2, 640)
+  cacos(4, 22, 1, 560)
+  cacos(35.5, 15, 1, 560)
 
   -- Everyone comes down the shuttle's ramp into the Depot; the way home is
   -- back by the shuttle, well clear of where they arrive.

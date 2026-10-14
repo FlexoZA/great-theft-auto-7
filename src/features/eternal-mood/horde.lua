@@ -15,6 +15,11 @@
 -- open and its pack crawls out one after another, `count` for one human and
 -- one more for each human past the first (Bosses.plus), and hunts. What
 -- the imps throw is fireballs.lua's.
+-- The Cacodaemons (cacodaemon_brain.lua), the heavy demons, float about
+-- their spots (`map.horde.cacos`, a flock to each, `count` for one human
+-- and one more for each human past the first) over roofs and lava until a
+-- player comes near, then fly at you over everything and spit balls of
+-- fire (fireballs.lua's "spit"), mouth open first.
 --
 -- The horde is all one side: its rounds carry its name (weapons' `from`),
 -- and an ownerless round passes through every one of them, so nothing of
@@ -27,14 +32,16 @@
 --
 -- Messages
 --   server -> all  HRD_STATE <tick> [<id> <kind> <x> <y> <facing> <hp> <state> <alert>]...  (unreliable,
---                  15 Hz; kind s staffer, g guard, o overtime, z intern, i imp; state for the possessed 0 at
---                  post, 1 hunting, 2 looking; for an intern 0 standing about, 1 after somebody, 2 arms up to
---                  claw; for an imp 0 hunting, 1 crawling out, 2 winding up a throw)
+--                  15 Hz; kind s staffer, g guard, o overtime, z intern, i imp, c Cacodaemon; state for the
+--                  possessed 0 at post, 1 hunting, 2 looking; for an intern 0 standing about, 1 after somebody,
+--                  2 arms up to claw; for an imp 0 hunting, 1 crawling out, 2 winding up a throw; for a
+--                  Cacodaemon 0 waiting, 1 hunting, 2 mouth open to spit, 3 mouth open to bite, 4 reeling)
 --   server -> all  HRD_DOWN  <id> <x> <y> <angle> <kind>   one went down
 --   server -> all  HRD_SAY   <id> <category> <index>       one says Story.horde[side][category][index]
 --   server -> all  HRD_VENT  <index>                       vent `index` of the map's burst open
 --   server -> all  HRD_SPIN  <id>                          the overtime guy's chaingun winding up
---   server -> all  HRD_CLAW  <id>                          an imp or an intern clawed
+--   server -> all  HRD_CLAW  <id>                          an imp or an intern clawed, a Cacodaemon bit
+--   server -> all  HRD_REEL  <id>                          a Cacodaemon shot in the mouth
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -49,6 +56,7 @@ local Audio = require("src.audio")
 local Possessed = require("src.features.eternal-mood.possessed_brain")
 local Imps = require("src.features.eternal-mood.imp_brain")
 local Interns = require("src.features.eternal-mood.intern_brain")
+local Cacos = require("src.features.eternal-mood.cacodaemon_brain")
 local Fireballs = require("src.features.eternal-mood.fireballs")
 local Story = require("src.features.eternal-mood.story")
 
@@ -59,12 +67,13 @@ Horde.FROM = "horde" -- the name on its rounds
 Horde.firstPossessed = 1
 Horde.firstImp = 20001
 Horde.firstIntern = 30001
+Horde.firstCaco = 40001
 Horde.mobSees = 520 -- px: a player in plain sight this near wakes a mob too
 Horde.mobSpread = 110 -- px round its spot a mob stands about in
 Horde.internPickups = 0.15 -- the chance one going down drops something (a mob would bury you in them)
 Horde.wake = 420 -- px a player comes within to burst a vent open (a vent may say its own)
 Horde.crawlEvery = 0.7 -- seconds between imps out of one vent
-Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3, intern = 1 } -- koins each spills
+Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3, intern = 1, caco = 8 } -- koins each spills
 Horde.chatEvery = { 14, 32 } -- seconds between one of the possessed's idle remarks
 Horde.chatNear = 900 -- px; nobody talks to an empty room
 Horde.sayFor = 2.6 -- seconds a remark shows
@@ -76,11 +85,12 @@ local SNAP = 200
 local STALE = 1
 local HURT = 0.18
 
-local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i", intern = "z" }
+local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i", intern = "z", caco = "c" }
 local RANK = { s = "staffer", g = "guard", o = "overtime" }
 local POSSESSED_STATE = { post = 0, beat = 0, hunt = 1, search = 2, back = 2 }
 local IMP_STATE = { hunt = 0, emerge = 1, windup = 2 }
 local INTERN_STATE = { idle = 0, hunt = 1, windup = 2 }
+local CACO_STATE = { idle = 0, hunt = 1, open = 2, bite = 3, reel = 4 }
 
 local RED = { 1.00, 0.18, 0.10 }
 local ORANGE = { 1.00, 0.55, 0.12 }
@@ -167,14 +177,30 @@ function Horde.serverStart(server, map)
       interns:add(x, y, nil, i, false) -- (on the spot itself if nowhere round it was clear)
     end
   end
+  local cacos = Cacos.new({
+    firstId = Horde.firstCaco,
+    bounds = { x0 = map.x0, y0 = map.y0, x1 = map.x0 + map.cols * T, y1 = map.y0 + map.rows * T },
+    spit = function(srv, _caco, x, y, angle)
+      Fireballs.serverThrow(srv, x, y, angle, "spit")
+    end,
+    bite = claw,
+  })
+  for i, flock in ipairs(spec.cacos or {}) do
+    local n = Bosses.plus(flock.count or 1, server)
+    for k = 1, n do -- spread round the spot
+      local a = k / n * 2 * math.pi
+      local d = n > 1 and Cacos.SPACE or 0
+      cacos:add(flock.x + math.cos(a) * d, flock.y + math.sin(a) * d, flock.wake, i)
+    end
+  end
   local vents = {}
   for i, v in ipairs(spec.vents or {}) do
     vents[i] = { x = v.x, y = v.y, out = v.out or 0, count = v.count or 3, wake = v.wake or Horde.wake,
       open = false, left = 0, crawlIn = 0 }
   end
   Fireballs.serverStart()
-  sv = { possessed = possessed, imps = imps, interns = interns, mobs = mobs, vents = vents, syncIn = 0, emptySends = 0,
-    chatIn = between(Horde.chatEvery) }
+  sv = { possessed = possessed, imps = imps, interns = interns, cacos = cacos, mobs = mobs, vents = vents, syncIn = 0,
+    emptySends = 0, chatIn = between(Horde.chatEvery) }
   return nav
 end
 
@@ -300,7 +326,7 @@ local function sync(server)
     return
   end
   sv.syncIn = SYNC_EVERY
-  local count = #sv.possessed.list + #sv.imps.list + #sv.interns.list
+  local count = #sv.possessed.list + #sv.imps.list + #sv.interns.list + #sv.cacos.list
   if count == 0 then
     if sv.emptySends >= EMPTY_AFTER then
       return
@@ -329,6 +355,9 @@ local function sync(server)
   for _, s in ipairs(sv.interns.list) do
     put(s, "z", INTERN_STATE[s.state] or 0)
   end
+  for _, s in ipairs(sv.cacos.list) do
+    put(s, "c", CACO_STATE[s.state] or 0)
+  end
   local msg = Protocol.encode("HRD_STATE", unpack(parts))
   for _, player in pairs(server.players) do
     if not player.bot then
@@ -346,6 +375,7 @@ function Horde.serverStep(server, dt)
   sv.possessed:update(server, dt)
   sv.imps:update(server, dt)
   sv.interns:update(server, dt)
+  sv.cacos:update(server, dt)
   Fireballs.serverStep(server, dt)
   for _, s in ipairs(sv.possessed.list) do
     if s.spotted then
@@ -373,7 +403,19 @@ function Horde.serverStep(server, dt)
       server:broadcast(Protocol.encode("HRD_SPIN", s.id))
     end
   end
-  for _, list in ipairs({ sv.imps.list, sv.interns.list }) do
+  for _, s in ipairs(sv.cacos.list) do
+    if s.woke then
+      s.woke = nil
+      if random() < 0.7 then
+        say(server, s, "caco", "alert")
+      end
+    end
+    if s.reeled then
+      s.reeled = nil
+      server:broadcast(Protocol.encode("HRD_REEL", s.id))
+    end
+  end
+  for _, list in ipairs({ sv.imps.list, sv.interns.list, sv.cacos.list }) do
     for _, s in ipairs(list) do
       if s.clawed then
         server:broadcast(Protocol.encode("HRD_CLAW", s.id))
@@ -387,7 +429,7 @@ end
 local function down(server, s, kind, by, angle, cause)
   server:broadcast(Protocol.encode("HRD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0), KIND[kind]))
   if random() < (kind == "intern" and 0.12 or 0.35) then
-    say(server, s, (kind == "imp" or kind == "intern") and kind or "possessed", "down")
+    say(server, s, (kind == "imp" or kind == "intern" or kind == "caco") and kind or "possessed", "down")
   end
   local money = Features.byName.money
   if money and money.drop then
@@ -398,7 +440,8 @@ local function down(server, s, kind, by, angle, cause)
     pickups:serverDropEnemy(server, s.x, s.y)
   end
   Features.call("serverKill", server, {
-    kind = kind == "imp" and "demon" or "soldier", x = s.x, y = s.y, by = by, angle = angle, cause = cause,
+    kind = (kind == "imp" or kind == "caco") and "demon" or "soldier", x = s.x, y = s.y, by = by, angle = angle,
+    cause = cause,
   })
 end
 
@@ -433,6 +476,13 @@ function Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     end
     return true
   end
+  s, i = sv.cacos:at(x, y, radius)
+  if s then
+    if sv.cacos:hurt(s, i, damage or 20, angle) then
+      down(server, s, "caco", by, angle, dtype)
+    end
+    return true
+  end
   return false
 end
 
@@ -441,6 +491,7 @@ function Horde.serverFreezeArea(x, y, radius, seconds)
     sv.possessed:freeze(x, y, radius, seconds)
     sv.imps:freeze(x, y, radius, seconds)
     sv.interns:freeze(x, y, radius, seconds)
+    sv.cacos:freeze(x, y, radius, seconds)
   end
 end
 
@@ -477,6 +528,14 @@ local IMP_CORPSE = { shirt = { 0.40, 0.24, 0.14 }, pants = { 0.32, 0.18, 0.10 },
   hair = { 0.20, 0.12, 0.08 }, shoes = { 0.20, 0.12, 0.08 } }
 local IMP = { body = { 0.58, 0.36, 0.20 }, dark = { 0.36, 0.20, 0.11 }, spike = { 0.90, 0.84, 0.70 } }
 local IMP_SCALE = 1.35 -- drawn bigger than a person: a demon, hunched over
+-- A Cacodaemon: a floating red ball, a darker hide and lumps, bone horns,
+-- one green eye, and a mouth full of teeth.
+local CACO = { hide = { 0.78, 0.12, 0.10 }, dark = { 0.42, 0.05, 0.04 }, light = { 1.00, 0.42, 0.34 },
+  horn = { 0.92, 0.86, 0.72 }, eye = { 0.35, 0.95, 0.25 }, white = { 0.95, 0.92, 0.85 }, maw = { 0.18, 0.02, 0.02 },
+  tongue = { 0.85, 0.35, 0.45 } }
+local CACO_LIFT = 12 -- px it is drawn above where it is (its shadow is there): it floats
+local carcasses = {} -- { x, y, angle, seed }: dead Cacodaemons, flat on the ground
+local MAX_CARCASSES = 40
 
 function Horde.load()
   local function make(seconds, volume, build)
@@ -519,6 +578,32 @@ function Horde.load()
     buf:sweep(0, 0.65, 90, 450, { wave = "saw", amp = 0.15, decay = 2 })
     buf:lowpass(3000)
   end)
+  -- A Cacodaemon waking: a deep, wet, wobbling roar.
+  bank.roar = make(1.1, 0.8, function(buf)
+    buf:sweep(0, 1.0, 70, 52, { wave = "saw", amp = 0.45, attack = 0.05, decay = 0.8, vibRate = 7, vibDepth = 4 })
+    buf:sweep(0, 0.9, 140, 98, { wave = "square", amp = 0.18, attack = 0.08, decay = 0.6, vibRate = 9, vibDepth = 6 })
+    buf:noiseBurst(0, 0.9, { amp = 0.25, decay = 0.5 })
+    buf:drive(2)
+    buf:lowpass(700)
+  end)
+  -- Its spit: a wet hack and a roar of flame.
+  bank.spit = make(0.6, 0.7, function(buf)
+    buf:noiseBurst(0, 0.55, { amp = 0.7, decay = 0.25 })
+    buf:sweep(0, 0.4, 180, 70, { wave = "saw", amp = 0.35, decay = 0.2 })
+    buf:lowpass(1500)
+  end)
+  -- Its bite: two rows of teeth meeting.
+  bank.chomp = make(0.25, 0.7, function(buf)
+    buf:noiseBurst(0, 0.08, { amp = 0.8, decay = 0.03 })
+    buf:noiseBurst(0.1, 0.1, { amp = 0.9, decay = 0.03 })
+    buf:sweep(0.1, 0.12, 200, 80, { wave = "sine", amp = 0.5, decay = 0.05 })
+    buf:lowpass(2500)
+  end)
+  -- Shot in the mouth: a squeal.
+  bank.squeal = make(0.4, 0.6, function(buf)
+    buf:sweep(0, 0.35, 400, 900, { wave = "saw", amp = 0.3, decay = 0.2, vibRate = 20, vibDepth = 30 })
+    buf:lowpass(2200)
+  end)
   bank.claw = make(0.2, 0.6, function(buf)
     buf:noiseBurst(0, 0.15, { amp = 0.7, decay = 0.04 })
     buf:highpass(1800)
@@ -534,7 +619,7 @@ function Horde.load()
     buf:highpass(1500)
   end)
   Fireballs.onThrow = function(x, y, kind)
-    Horde.play(kind == "plasma" and "plasma" or "throw", x, y)
+    Horde.play(kind == "plasma" and "plasma" or kind == "spit" and "spit" or "throw", x, y)
   end
   Fireballs.onPop = function(x, y, kind)
     Horde.play(kind == "plasma" and "fizz" or "pop", x, y)
@@ -553,7 +638,7 @@ function Horde.play(name, x, y, pitch)
 end
 
 function Horde.clear()
-  shown, said, opened, lastTick = {}, {}, {}, 0
+  shown, said, opened, lastTick, carcasses = {}, {}, {}, 0, {}
   Fireballs.clear()
 end
 
@@ -587,8 +672,38 @@ function Horde.update(dt)
   end
 end
 
---- The possessed's cones, in Heck's red.
+--- A dead Cacodaemon on the ground: burst flat, its eye shut, its tongue out.
+local function drawCarcass(c)
+  love.graphics.push()
+  love.graphics.translate(c.x, c.y)
+  love.graphics.rotate(c.angle)
+  love.graphics.setColor(0.30, 0.03, 0.03, 0.7) -- what came out of it
+  love.graphics.ellipse("fill", 6, 4, 40, 28, 18)
+  love.graphics.setColor(CACO.dark)
+  love.graphics.ellipse("fill", 0, 0, 30, 22, 18)
+  love.graphics.setColor(CACO.hide[1] * 0.7, CACO.hide[2] * 0.7, CACO.hide[3] * 0.7)
+  love.graphics.ellipse("fill", -2, -2, 26, 18, 18)
+  love.graphics.setColor(CACO.maw)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(4, -6, 12, -2) -- its eye, shut
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(CACO.tongue)
+  love.graphics.ellipse("fill", 30, 6, 10, 5, 10)
+  love.graphics.pop()
+end
+
+--- The possessed's cones, in Heck's red; the dead Cacodaemons, and the
+--- live ones' shadows on the ground under them.
 function Horde.drawBelowCars()
+  for _, c in ipairs(carcasses) do
+    drawCarcass(c)
+  end
+  for _, s in pairs(shown) do
+    if s.kind == "c" then
+      love.graphics.setColor(0, 0, 0, 0.3)
+      love.graphics.ellipse("fill", s.dx + 6, s.dy + 8, Cacos.RADIUS * 0.9, Cacos.RADIUS * 0.7, 20)
+    end
+  end
   if Features.any("hideSightCones") then
     return
   end
@@ -675,6 +790,98 @@ local function drawImp(s)
   love.graphics.pop()
 end
 
+--- How far a Cacodaemon's mouth is open (0..1): opening over its tell, wide
+--- as it spits or bites, half shut while it reels.
+local function mouthOpen(s)
+  if s.state == 2 then
+    return math.min(1, (clock - (s.since or clock)) / Cacos.OPEN)
+  elseif s.state == 3 then
+    return math.min(1, (clock - (s.since or clock)) / Cacos.BITE_OPEN)
+  elseif s.state == 4 then
+    return 0.5
+  end
+  return 0.08 + 0.04 * math.sin(clock * 2 + s.dx * 0.01) -- breathing
+end
+
+--- A Cacodaemon, seen from above, floating a little over its shadow: a red
+--- ball, lit from the top left, lumps on its hide, horns round the back, one
+--- green eye and the mouth across its front, fire in it when it's about to
+--- spit; spinning when shot in the mouth.
+local function drawCaco(s, id)
+  local R = Cacos.RADIUS
+  local bob = math.sin(clock * 1.7 + id) * 3
+  local x, y = s.dx, s.dy - CACO_LIFT + bob
+  local reel = s.state == 4
+  local a = s.facing + (reel and math.sin(clock * 25) * 0.35 or 0)
+  local open = mouthOpen(s)
+  -- The ball: its outline, hide and shading (the light stays top left as it turns).
+  love.graphics.setColor(CACO.dark)
+  love.graphics.circle("fill", x, y, R + 2, 32)
+  love.graphics.setColor(CACO.hide)
+  love.graphics.circle("fill", x, y, R, 32)
+  love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.45)
+  love.graphics.circle("fill", x + R * 0.18, y + R * 0.2, R * 0.82, 28)
+  love.graphics.setColor(CACO.hide)
+  love.graphics.circle("fill", x - R * 0.08, y - R * 0.1, R * 0.78, 28)
+  love.graphics.setColor(CACO.light[1], CACO.light[2], CACO.light[3], 0.55)
+  love.graphics.circle("fill", x - R * 0.38, y - R * 0.4, R * 0.28, 16)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(a)
+  -- Lumps on its hide.
+  love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.6)
+  for k = 0, 6 do
+    local la = 1.8 + k * 0.42
+    love.graphics.circle("fill", math.cos(la) * R * 0.62, math.sin(la) * R * 0.62, 2.5 + (k % 3), 8)
+  end
+  -- Horns round the back half, bone, pointing out.
+  love.graphics.setColor(CACO.horn)
+  for _, ha in ipairs({ 2.2, 2.75, 3.53, 4.08 }) do
+    local bx, by = math.cos(ha) * (R - 3), math.sin(ha) * (R - 3)
+    local tx, ty = math.cos(ha) * (R + 11), math.sin(ha) * (R + 11)
+    local px, py = -math.sin(ha) * 4, math.cos(ha) * 4
+    love.graphics.polygon("fill", bx + px, by + py, bx - px, by - py, tx, ty)
+  end
+  -- The mouth across its front: a seam with teeth, or a maw.
+  local mw, md = R * 0.62, 3 + open * R * 0.42
+  local mx = R * 0.62
+  love.graphics.setColor(CACO.maw)
+  love.graphics.ellipse("fill", mx, 0, md, mw, 20)
+  if open > 0.3 then
+    if s.state == 2 then -- the fire coming up
+      local glow = 0.6 + 0.4 * math.sin(clock * 35)
+      love.graphics.setColor(1, 0.45, 0.12, 0.9 * open)
+      love.graphics.ellipse("fill", mx, 0, md * 0.7 * glow, mw * 0.6 * glow, 16)
+      love.graphics.setColor(1, 0.85, 0.5, open)
+      love.graphics.ellipse("fill", mx, 0, md * 0.35, mw * 0.3, 12)
+    else
+      love.graphics.setColor(CACO.tongue)
+      love.graphics.ellipse("fill", mx + md * 0.2, 0, md * 0.5, mw * 0.4, 12)
+    end
+  end
+  love.graphics.setColor(CACO.white) -- the teeth, two rows
+  for k = -3, 3 do
+    local ty = k * mw / 4
+    local edge = math.sqrt(math.max(0, 1 - (ty / mw) ^ 2)) * md
+    love.graphics.polygon("fill", mx - edge, ty - 2.5, mx - edge, ty + 2.5, mx - edge + 4 + open * 3, ty)
+    love.graphics.polygon("fill", mx + edge, ty - 2.5, mx + edge, ty + 2.5, mx + edge - 4 - open * 3, ty)
+  end
+  -- The eye, on top, looking ahead: wide when it's about to spit, squeezed shut reeling.
+  local ex = R * 0.05
+  local lid = reel and 0.2 or (s.state == 2 and 1.15 or 0.85)
+  love.graphics.setColor(CACO.dark)
+  love.graphics.ellipse("fill", ex, 0, 10, 11 * lid + 1, 16)
+  love.graphics.setColor(CACO.white)
+  love.graphics.ellipse("fill", ex, 0, 8, 9 * lid, 16)
+  if lid > 0.4 then
+    love.graphics.setColor(CACO.eye)
+    love.graphics.circle("fill", ex + 2, 0, 5.5 * math.min(1, lid), 14)
+    love.graphics.setColor(0, 0, 0)
+    love.graphics.rectangle("fill", ex + 1.2, -4 * lid, 1.8, 8 * lid)
+  end
+  love.graphics.pop()
+end
+
 --- An intern: a person reaching out with both arms, the way they always
 --- did for the coffee; up over its head when it is about to claw.
 local function drawIntern(s)
@@ -701,9 +908,9 @@ local function drawIntern(s)
   drawEyes(s)
 end
 
-local function healthBar(s, max, r)
+local function healthBar(s, max, r, width)
   if s.hp < max then
-    local bw, f = 20, math.max(0, s.hp / max)
+    local bw, f = width or 20, math.max(0, s.hp / max)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -742,20 +949,31 @@ function Horde.drawAboveCars()
     elseif s.kind == "z" then
       drawIntern(s)
       healthBar(s, Interns.HEALTH, Body.SHOULDERS)
-    else
+    elseif s.kind == "i" then
       drawImp(s)
       healthBar(s, Imps.HEALTH, Imps.RADIUS)
     end
-    if s.hurt > 0 then
+    if s.hurt > 0 and s.kind ~= "c" then
       love.graphics.setColor(1, 1, 1, s.hurt / HURT * 0.6)
       love.graphics.circle("fill", s.dx, s.dy, Body.SHOULDERS + 1, 12)
+    end
+  end
+  for id, s in pairs(shown) do -- the Cacodaemons float over everyone
+    if s.kind == "c" then
+      drawCaco(s, id)
+      if s.hurt > 0 then
+        love.graphics.setColor(1, 1, 1, s.hurt / HURT * 0.5)
+        love.graphics.circle("fill", s.dx, s.dy - CACO_LIFT, Cacos.RADIUS + 2, 24)
+      end
+      healthBar(s, Cacos.HEALTH, Cacos.RADIUS, 44)
     end
   end
   Fireballs.draw()
   for id, b in pairs(said) do
     local s = shown[id]
     if s then
-      Horde.drawBubble(s.dx, s.dy - Body.SHOULDERS - 14, b.text)
+      local over = s.kind == "c" and Cacos.RADIUS + CACO_LIFT + 4 or Body.SHOULDERS
+      Horde.drawBubble(s.dx, s.dy - over - 14, b.text)
     end
   end
   love.graphics.setColor(1, 1, 1)
@@ -767,6 +985,12 @@ function Horde.drawNightLights(glow)
     -- before they see you.
     if s.kind == "i" then
       glow(s.dx, s.dy, s.state == 2 and 110 or 60, ORANGE, s.state == 2 and 1 or 0.7)
+    elseif s.kind == "c" then
+      glow(s.dx, s.dy - CACO_LIFT, 120, RED, 0.7)
+      glow(s.dx, s.dy - CACO_LIFT, 30, CACO.eye, 0.6)
+      if s.state == 2 then -- the fire in its mouth
+        glow(s.dx + math.cos(s.facing) * 18, s.dy - CACO_LIFT + math.sin(s.facing) * 18, 150, ORANGE, 1)
+      end
     else
       glow(s.dx, s.dy, 52, RED, 0.75)
     end
@@ -816,7 +1040,9 @@ end
 function Horde.walkers()
   local list = {}
   for id, s in pairs(shown) do
-    list[#list + 1] = { key = "hrd" .. id, x = s.dx, y = s.dy, size = "person" }
+    if s.kind ~= "c" then -- the Cacodaemons float
+      list[#list + 1] = { key = "hrd" .. id, x = s.dx, y = s.dy, size = "person" }
+    end
   end
   return list
 end
@@ -835,7 +1061,7 @@ Horde.clientMessages = {
         local s = shown[id]
         if not s then
           local max = RANK[kind] and Possessed.RANKS[RANK[kind]].health
-            or (kind == "z" and Interns.HEALTH or Imps.HEALTH)
+            or (kind == "z" and Interns.HEALTH or kind == "c" and Cacos.HEALTH or Imps.HEALTH)
           s = { kind = kind, dx = x, dy = y, stride = 0, hurt = 0, hp = max }
           shown[id] = s
         end
@@ -846,7 +1072,11 @@ Horde.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
-        s.state = tonumber(args[i + 6]) or 0
+        local state = tonumber(args[i + 6]) or 0
+        if state ~= s.state then
+          s.since = clock
+        end
+        s.state = state
         s.alert = args[i + 7] == "1"
         seen[id] = true
       end
@@ -864,7 +1094,15 @@ Horde.clientMessages = {
     if id then
       shown[id] = nil
     end
-    if x and y then
+    if x and y and args[5] == "c" then -- a Cacodaemon comes down and bursts
+      carcasses[#carcasses + 1] = { x = s and s.dx or x, y = s and s.dy or y, angle = angle }
+      if #carcasses > MAX_CARCASSES then
+        table.remove(carcasses, 1)
+      end
+      if Features.byName.pedestrians then
+        require("src.features.pedestrians.sounds").play("splat", x, y, 0.6)
+      end
+    elseif x and y then
       local rank = RANK[args[5]]
       local look = rank and LOOK[rank] or (args[5] == "z" and INTERN or IMP_CORPSE)
       Corpses.add(s and s.dx or x, s and s.dy or y, angle, look)
@@ -879,14 +1117,15 @@ Horde.clientMessages = {
     if not s then
       return
     end
-    local side = s.kind == "i" and "imp" or s.kind == "z" and "intern" or "possessed"
+    local side = s.kind == "i" and "imp" or s.kind == "z" and "intern" or s.kind == "c" and "caco" or "possessed"
     local lines = Story.horde[side][args[2]]
     local text = lines and lines[tonumber(args[3]) or 0]
     if text then
       said[id] = { text = text, t = 0 }
     end
     if args[2] == "alert" then
-      Horde.play(side == "imp" and "screech" or "groan", s.dx, s.dy, side == "intern" and 1.25 or 1)
+      local sound = side == "imp" and "screech" or side == "caco" and "roar" or "groan"
+      Horde.play(sound, s.dx, s.dy, side == "intern" and 1.25 or 1)
     end
   end,
   HRD_VENT = function(_client, args)
@@ -905,7 +1144,13 @@ Horde.clientMessages = {
   HRD_CLAW = function(_client, args)
     local s = shown[tonumber(args[1]) or -1]
     if s then
-      Horde.play("claw", s.dx, s.dy)
+      Horde.play(s.kind == "c" and "chomp" or "claw", s.dx, s.dy)
+    end
+  end,
+  HRD_REEL = function(_client, args)
+    local s = shown[tonumber(args[1]) or -1]
+    if s then
+      Horde.play("squeal", s.dx, s.dy)
     end
   end,
 }

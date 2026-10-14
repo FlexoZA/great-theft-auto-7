@@ -1625,7 +1625,10 @@ the one with a plot.
   walked patch, the last one wins) and `roofs` (a building per box, drawn
   in its `style`; nil tiles under none are burnt waste ground), wrecks,
   lamps, fires (`flickers` with `fire`) and the Crater's lava in `cover`,
-  and the same `horde` (its vents with a `look`, manhole or crack). Past
+  and the same `horde` (its vents with a `look`, manhole or crack, and
+  `cacos`: flocks of Cacodaemons, `cacodaemon_brain.lua`, the heavy demon
+  that floats over walls, spits balls of fire after a mouth-open tell and
+  reels when shot in the mouth; fireballs.lua's "spit"). Past
   its edge the city burns on (surroundings' `heck_on_earth.lua`). Its boss,
   the Cyberdaemon, and the next three maps follow.
 - Events: `src/features/events` is something big happening in the city.
