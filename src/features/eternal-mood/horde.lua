@@ -5,6 +5,10 @@
 -- The possessed (possessed_brain.lua: staffers, guards, the overtime guy)
 -- stand at the map's posts (city-map's `map.horde.posts`) or walk its
 -- patrols (`map.horde.patrols`, a file to each) until they see somebody.
+-- The Interns (intern_brain.lua), the lowest rank, stand about in mobs
+-- (`map.horde.mobs`) until a player comes within a mob's `wake` px or sees
+-- it from across the room, or one of it is hurt; then the whole mob comes,
+-- `count` for one human and one more for each human past the first.
 -- The imps (imp_brain.lua) wait in the vents (`map.horde.vents`): the
 -- first time a player comes within a vent's `wake` px its grille bursts
 -- open and its pack crawls out one after another, `count` for one human and
@@ -22,13 +26,14 @@
 --
 -- Messages
 --   server -> all  HRD_STATE <tick> [<id> <kind> <x> <y> <facing> <hp> <state> <alert>]...  (unreliable,
---                  15 Hz; kind s staffer, g guard, o overtime, i imp; state for the possessed 0 at post,
---                  1 hunting, 2 looking; for an imp 0 hunting, 1 crawling out, 2 winding up a throw)
+--                  15 Hz; kind s staffer, g guard, o overtime, z intern, i imp; state for the possessed 0 at
+--                  post, 1 hunting, 2 looking; for an intern 0 standing about, 1 after somebody, 2 arms up to
+--                  claw; for an imp 0 hunting, 1 crawling out, 2 winding up a throw)
 --   server -> all  HRD_DOWN  <id> <x> <y> <angle> <kind>   one went down
 --   server -> all  HRD_SAY   <id> <category> <index>       one says Story.horde[side][category][index]
 --   server -> all  HRD_VENT  <index>                       vent `index` of the map's burst open
 --   server -> all  HRD_SPIN  <id>                          the overtime guy's chaingun winding up
---   server -> all  HRD_CLAW  <id>                          an imp clawed
+--   server -> all  HRD_CLAW  <id>                          an imp or an intern clawed
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -42,6 +47,7 @@ local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Possessed = require("src.features.eternal-mood.possessed_brain")
 local Imps = require("src.features.eternal-mood.imp_brain")
+local Interns = require("src.features.eternal-mood.intern_brain")
 local Fireballs = require("src.features.eternal-mood.fireballs")
 local Story = require("src.features.eternal-mood.story")
 
@@ -51,10 +57,14 @@ local Horde = {}
 Horde.FROM = "horde" -- the name on its rounds
 Horde.firstPossessed = 1
 Horde.firstImp = 20001
+Horde.firstIntern = 30001
+Horde.mobSees = 520 -- px: a player in plain sight this near wakes a mob too
+Horde.mobSpread = 110 -- px round its spot a mob stands about in
+Horde.internPickups = 0.15 -- the chance one going down drops something (a mob would bury you in them)
 Horde.wake = 420 -- px a player comes within to burst a vent open (a vent may say its own)
 Horde.crawlEvery = 0.7 -- seconds between imps out of one vent
 Horde.fileGap = 1.4 -- seconds between one of a patrol setting off and the next
-Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3 } -- koins each spills
+Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3, intern = 1 } -- koins each spills
 Horde.chatEvery = { 14, 32 } -- seconds between one of the possessed's idle remarks
 Horde.chatNear = 900 -- px; nobody talks to an empty room
 Horde.sayFor = 2.6 -- seconds a remark shows
@@ -66,10 +76,11 @@ local SNAP = 200
 local STALE = 1
 local HURT = 0.18
 
-local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i" }
+local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i", intern = "z" }
 local RANK = { s = "staffer", g = "guard", o = "overtime" }
 local POSSESSED_STATE = { post = 0, beat = 0, hunt = 1, search = 2, back = 2 }
 local IMP_STATE = { hunt = 0, emerge = 1, windup = 2 }
+local INTERN_STATE = { idle = 0, hunt = 1, windup = 2 }
 
 local RED = { 1.00, 0.18, 0.10 }
 local ORANGE = { 1.00, 0.55, 0.12 }
@@ -95,7 +106,7 @@ local function say(server, s, side, category)
   end
 end
 
---- An imp claws player `who`.
+--- An imp or an intern claws player `who`.
 local function claw(server, _imp, who, damage, angle)
   local weapons = Features.byName.weapons
   local p = server.players[who]
@@ -138,13 +149,33 @@ function Horde.serverStart(server, map)
   local imps = Imps.new({ nav = nav, firstId = Horde.firstImp, throw = function(srv, _imp, x, y, angle)
     Fireballs.serverThrow(srv, x, y, angle)
   end, claw = claw })
+  local interns = Interns.new({ nav = nav, firstId = Horde.firstIntern, claw = claw })
+  local mobs = {}
+  for i, mob in ipairs(spec.mobs or {}) do
+    mobs[i] = { x = mob.x, y = mob.y, wake = mob.wake or Horde.wake, awake = false }
+    local n = Bosses.plus(mob.count or 5, server)
+    for _ = 1, n do
+      -- Somewhere clear round the spot, standing about.
+      local x, y = mob.x, mob.y
+      for _ = 1, 12 do
+        local a, d = random() * 2 * math.pi, Horde.mobSpread * math.sqrt(random())
+        local cx, cy = mob.x + math.cos(a) * d, mob.y + math.sin(a) * d
+        if not (Sight.blocked(cx, cy) or Sight.blocked(cx - 10, cy) or Sight.blocked(cx + 10, cy)
+          or Sight.blocked(cx, cy - 10) or Sight.blocked(cx, cy + 10)) then
+          x, y = cx, cy
+          break
+        end
+      end
+      interns:add(x, y, nil, i, false) -- (on the spot itself if nowhere round it was clear)
+    end
+  end
   local vents = {}
   for i, v in ipairs(spec.vents or {}) do
     vents[i] = { x = v.x, y = v.y, out = v.out or 0, count = v.count or 3, wake = v.wake or Horde.wake,
       open = false, left = 0, crawlIn = 0 }
   end
   Fireballs.serverStart()
-  sv = { possessed = possessed, imps = imps, vents = vents, syncIn = 0, emptySends = 0,
+  sv = { possessed = possessed, imps = imps, interns = interns, mobs = mobs, vents = vents, syncIn = 0, emptySends = 0,
     chatIn = between(Horde.chatEvery) }
   return nav
 end
@@ -160,9 +191,45 @@ end
 --- One of rank `rank` called in (a boss's meeting): at (x, y), on its way
 --- to look at (tx, ty), and back to (x, y) after if it finds nobody.
 function Horde.serverCall(_server, rank, x, y, tx, ty)
-  if sv then
+  if sv and rank == "intern" then
+    sv.interns:add(x, y, math.atan2(ty - y, tx - x), nil, true) -- awake already
+  elseif sv then
     local s = sv.possessed:add(rank, x, y, math.atan2(ty - y, tx - x))
     sv.possessed:alert(s, tx, ty)
+  end
+end
+
+--- Wake mob `i`: the lot of them, and one shouts about it.
+local function wakeMob(server, i)
+  local mob = sv.mobs[i]
+  if not mob or mob.awake then
+    return
+  end
+  mob.awake = true
+  sv.interns:wake(i)
+  for _, s in ipairs(sv.interns.list) do
+    if s.mob == i then
+      say(server, s, "intern", "alert")
+      break
+    end
+  end
+end
+
+--- Wake the mobs a player has come near, or can see from across the room.
+local function stepMobs(server)
+  for i, mob in ipairs(sv.mobs) do
+    if not mob.awake then
+      for _, p in pairs(server.players) do
+        if not p.bot and Features.visible(server, p) then
+          local x, y = Features.bodyPose(server, p)
+          local d2 = (x - mob.x) ^ 2 + (y - mob.y) ^ 2
+          if d2 <= mob.wake * mob.wake or (d2 <= Horde.mobSees * Horde.mobSees and Sight.clear(x, y, mob.x, mob.y)) then
+            wakeMob(server, i)
+            break
+          end
+        end
+      end
+    end
   end
 end
 
@@ -235,7 +302,7 @@ local function sync(server)
     return
   end
   sv.syncIn = SYNC_EVERY
-  local count = #sv.possessed.list + #sv.imps.list
+  local count = #sv.possessed.list + #sv.imps.list + #sv.interns.list
   if count == 0 then
     if sv.emptySends >= EMPTY_AFTER then
       return
@@ -261,6 +328,9 @@ local function sync(server)
   for _, s in ipairs(sv.imps.list) do
     put(s, "i", IMP_STATE[s.state] or 0)
   end
+  for _, s in ipairs(sv.interns.list) do
+    put(s, "z", INTERN_STATE[s.state] or 0)
+  end
   local msg = Protocol.encode("HRD_STATE", unpack(parts))
   for _, player in pairs(server.players) do
     if not player.bot then
@@ -274,8 +344,10 @@ function Horde.serverStep(server, dt)
     return
   end
   stepVents(server, dt)
+  stepMobs(server)
   sv.possessed:update(server, dt)
   sv.imps:update(server, dt)
+  sv.interns:update(server, dt)
   Fireballs.serverStep(server, dt)
   for _, s in ipairs(sv.possessed.list) do
     if s.spotted then
@@ -288,9 +360,11 @@ function Horde.serverStep(server, dt)
       server:broadcast(Protocol.encode("HRD_SPIN", s.id))
     end
   end
-  for _, s in ipairs(sv.imps.list) do
-    if s.clawed then
-      server:broadcast(Protocol.encode("HRD_CLAW", s.id))
+  for _, list in ipairs({ sv.imps.list, sv.interns.list }) do
+    for _, s in ipairs(list) do
+      if s.clawed then
+        server:broadcast(Protocol.encode("HRD_CLAW", s.id))
+      end
     end
   end
   chatter(server, dt)
@@ -299,15 +373,15 @@ end
 
 local function down(server, s, kind, by, angle, cause)
   server:broadcast(Protocol.encode("HRD_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or 0), KIND[kind]))
-  if random() < 0.35 then
-    say(server, s, kind == "imp" and "imp" or "possessed", "down")
+  if random() < (kind == "intern" and 0.12 or 0.35) then
+    say(server, s, (kind == "imp" or kind == "intern") and kind or "possessed", "down")
   end
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, s.x, s.y, Horde.drops[kind] or 2)
   end
   local pickups = Features.byName.pickups
-  if pickups and pickups.serverDropEnemy then
+  if pickups and pickups.serverDropEnemy and (kind ~= "intern" or random() < Horde.internPickups) then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
   Features.call("serverKill", server, {
@@ -336,6 +410,16 @@ function Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     end
     return true
   end
+  s, i = sv.interns:at(x, y, radius)
+  if s then
+    if s.mob then
+      wakeMob(server, s.mob) -- hurt one, and the mob comes
+    end
+    if sv.interns:hurt(s, i, damage or 20) then
+      down(server, s, "intern", by, angle, dtype)
+    end
+    return true
+  end
   return false
 end
 
@@ -343,6 +427,7 @@ function Horde.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.possessed:freeze(x, y, radius, seconds)
     sv.imps:freeze(x, y, radius, seconds)
+    sv.interns:freeze(x, y, radius, seconds)
   end
 end
 
@@ -370,6 +455,10 @@ local LOOK = {
   overtime = { shirt = { 0.46, 0.40, 0.30 }, pants = { 0.28, 0.26, 0.22 }, skin = SKIN, vest = { 0.95, 0.75, 0.10 },
     hat = { 0.95, 0.75, 0.10 }, brim = true, gun = true, gunLength = 15 },
 }
+-- The Interns: a white shirt, a lanyard, no gun, the same grey-green skin
+-- and red eyes; their arms reach out in front of them (drawn over).
+local INTERN = { shirt = { 0.80, 0.80, 0.76 }, pants = { 0.30, 0.30, 0.34 }, skin = SKIN, hair = { 0.35, 0.25, 0.15 },
+  gun = true, gunLength = -2 }
 -- What an imp leaves behind (corpses.lua draws people).
 local IMP_CORPSE = { shirt = { 0.40, 0.24, 0.14 }, pants = { 0.32, 0.18, 0.10 }, skin = { 0.45, 0.28, 0.16 },
   hair = { 0.20, 0.12, 0.08 }, shoes = { 0.20, 0.12, 0.08 } }
@@ -572,6 +661,32 @@ local function drawImp(s)
   love.graphics.pop()
 end
 
+--- An intern: a person reaching out with both arms, the way they always
+--- did for the coffee; up over its head when it is about to claw.
+local function drawIntern(s)
+  local swing = s.state == 0 and 0 or math.sin(s.stride * 0.2) * 1.6
+  local lean = s.state == 0 and math.sin(clock * 1.3 + s.dx * 0.01) * 0.15 or 0
+  Body.person(s.dx, s.dy, s.facing + lean, swing, INTERN)
+  local a = s.facing + lean
+  local fx, fy = math.cos(a), math.sin(a)
+  local px, py = -fy, fx
+  local up = s.state == 2
+  local reach = up and 9 or 13
+  love.graphics.setColor(SKIN)
+  love.graphics.setLineWidth(2.6)
+  for _, side in ipairs({ -1, 1 }) do
+    local hx, hy = s.dx + fx * 8 + px * side * 2.2, s.dy + fy * 8 + py * side * 2.2
+    local ex = hx + fx * (reach - 8) + px * side * (up and 5 or 2)
+    local ey = hy + fy * (reach - 8) + py * side * (up and 5 or 2)
+    love.graphics.line(hx, hy, ex, ey)
+    love.graphics.circle("fill", ex, ey, up and 2.6 or 2, 8)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0.2, 0.35, 0.8) -- the lanyard
+  love.graphics.line(s.dx + px * 2, s.dy + py * 2, s.dx + fx * 4, s.dy + fy * 4, s.dx - px * 2, s.dy - py * 2)
+  drawEyes(s)
+end
+
 local function healthBar(s, max, r)
   if s.hp < max then
     local bw, f = 20, math.max(0, s.hp / max)
@@ -610,6 +725,9 @@ function Horde.drawAboveCars()
         love.graphics.circle("fill", s.dx + math.cos(s.facing) * 22, s.dy + math.sin(s.facing) * 22, 3, 8)
       end
       healthBar(s, Possessed.RANKS[rank].health, Body.SHOULDERS)
+    elseif s.kind == "z" then
+      drawIntern(s)
+      healthBar(s, Interns.HEALTH, Body.SHOULDERS)
     else
       drawImp(s)
       healthBar(s, Imps.HEALTH, Imps.RADIUS)
@@ -686,7 +804,8 @@ Horde.clientMessages = {
       if id and x and y then
         local s = shown[id]
         if not s then
-          local max = RANK[kind] and Possessed.RANKS[RANK[kind]].health or Imps.HEALTH
+          local max = RANK[kind] and Possessed.RANKS[RANK[kind]].health
+            or (kind == "z" and Interns.HEALTH or Imps.HEALTH)
           s = { kind = kind, dx = x, dy = y, stride = 0, hurt = 0, hp = max }
           shown[id] = s
         end
@@ -717,7 +836,8 @@ Horde.clientMessages = {
     end
     if x and y then
       local rank = RANK[args[5]]
-      Corpses.add(s and s.dx or x, s and s.dy or y, angle, rank and LOOK[rank] or IMP_CORPSE)
+      local look = rank and LOOK[rank] or (args[5] == "z" and INTERN or IMP_CORPSE)
+      Corpses.add(s and s.dx or x, s and s.dy or y, angle, look)
       if Features.byName.pedestrians then
         require("src.features.pedestrians.sounds").play("splat", x, y, rank and 0.9 or 1.2)
       end
@@ -729,14 +849,14 @@ Horde.clientMessages = {
     if not s then
       return
     end
-    local side = s.kind == "i" and "imp" or "possessed"
+    local side = s.kind == "i" and "imp" or s.kind == "z" and "intern" or "possessed"
     local lines = Story.horde[side][args[2]]
     local text = lines and lines[tonumber(args[3]) or 0]
     if text then
       said[id] = { text = text, t = 0 }
     end
     if args[2] == "alert" then
-      Horde.play(side == "imp" and "screech" or "groan", s.dx, s.dy)
+      Horde.play(side == "imp" and "screech" or "groan", s.dx, s.dy, side == "intern" and 1.25 or 1)
     end
   end,
   HRD_VENT = function(_client, args)

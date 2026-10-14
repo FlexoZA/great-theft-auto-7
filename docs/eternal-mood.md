@@ -84,6 +84,22 @@ branch off `feature/eternal-mood`):
   staffer round the Reactor's catwalk, two staffers through Toxic Storage,
   and a guard and two staffers round the Hangar's floor.
 
+- `feature/eternal-mood-interns`: the Interns, the melee mob
+  (`eternal-mood/intern_brain.lua`, in horde.lua, kind `z` on the wire;
+  the map's `horde.mobs`). 20 health, no gun: they shamble at 55 px/s and
+  lurch at 100 within 200 px, raise their arms for 0.35 s within 24 px and
+  claw (7 `melee`, once a second each), keeping 22 px apart so a mob comes
+  as a crowd. A mob stands about its spot, swaying, until a player comes
+  within its `wake` px or within 520 px with a clear line to it, or one of
+  it is hurt: then all of it comes at once and one shouts ("BRAAAINS...
+  storming session!"). 1 koin each, and a pickup only now and then (15%).
+  Five mobs on Fobos Base, 29 for one human (one more each for each human
+  past the first): 6 asleep in the Crew Quarters, 8 at lunch in the Mess, 5
+  at the Ring's west end, 5 in Toxic Storage, 5 in the Offices' far corner.
+  The Floor Manager's meetings bring a file of three interns (Bosses.plus)
+  in behind the staffer at each doorway (his staffers down from two to one
+  a doorway).
+
 ## Decisions
 
 | Question | Decision |
@@ -186,6 +202,7 @@ standard), as Cyber Feud's do.
 
 | Unit | Look | Health | Attack | Behaviour |
 | --- | --- | --- | --- | --- |
+| **Intern** | A white shirt, a lanyard, no gun, arms reaching out in front | 20 | Claws (`melee`, 7) | The lowest rank there is, and never alone: mobs of 5-8 stand about their spot (asleep in the bunks, at lunch) until a player comes near or sees them, or one is hurt; then the whole mob shambles after the nearest player (55 px/s, a lurch at 100 once close), raises its arms for 0.35 s and claws. One is nothing; a mob is not. The old zombies. |
 | **Zombie staffer** | A UAC jumpsuit, a lanyard, a coffee mug in the other hand | 40 | Pistol (`bullet`, 8), slow to aim | Sits at a desk or stands at a post until someone comes in sight, then shambles at them (60 px/s) firing now and then. Fodder. |
 | **Zombie guard** | UAC security armour, a cracked helmet | 60 | Shotgun (`bullet`, 6 pellets of 7) | Holds doorways and corridors, steps in to close range. |
 | **Overtime guy** | Big, in a hard hat and hi-vis, a chaingun from the loading bay | 100 | Chaingun (`bullet`, 6 a round, 8 a second) | Spins up for 0.6 s (you hear it), then keeps firing at whoever he can see, sweeping slowly. Bad in the open, easy round a corner. |

@@ -9,8 +9,8 @@
 -- He waits until a player walks into the Hangar (or shoots him), then
 -- fights: streams of plasma from his cannon, his aim dragging after you, and
 -- his legs stomped down on whoever gets close. At two thirds and a third of
--- his health he calls a quick meeting: staffers come in through the
--- Hangar's doorways (horde.lua's `serverCall`). The cannon is a weak point
+-- his health he calls a quick meeting: staffers and a file of interns come
+-- in through the Hangar's doorways (horde.lua's `serverCall`). The cannon is a weak point
 -- with health of its own (`CANNON`): rounds that land on it, at the front of
 -- him, wreck it, and then he has no plasma, but he comes at you faster to
 -- stomp. This module is the man, the wire and the lock; what he does is his
@@ -81,7 +81,8 @@ FloorManager.STOMP_DAMAGE = 30 -- impact
 FloorManager.STOMP_SHOVE = 140 -- px
 FloorManager.STOMP_EVERY = 2.2
 FloorManager.MEETING_AT = { 2 / 3, 1 / 3 } -- shares of his health he calls a meeting at
-FloorManager.MEETING = 2 -- staffers through each doorway (more players, more: Bosses.plus)
+FloorManager.MEETING = 1 -- staffers through each doorway (more players, more: Bosses.plus)...
+FloorManager.MEETING_INTERNS = 3 -- ...and interns behind them
 FloorManager.SAY_EVERY = { 8, 13 }
 FloorManager.DROPS = 25
 
@@ -213,9 +214,13 @@ local function meeting(server)
   local m = sv.m
   local _, tx, ty = Brain.target(m, server)
   local each = Bosses.plus(FloorManager.MEETING, server)
+  local mob = Bosses.plus(FloorManager.MEETING_INTERNS, server)
   for _, door in ipairs(sv.spec.doors or {}) do
     for k = 1, each do
       Horde.serverCall(server, "staffer", door.x + (k - (each + 1) / 2) * 30, door.y, tx or m.x, ty or m.y)
+    end
+    for k = 1, mob do -- the interns file in behind, down the corridor
+      Horde.serverCall(server, "intern", door.x + (k % 2 == 0 and 14 or -14), door.y + 26 * k, tx or m.x, ty or m.y)
     end
   end
 end

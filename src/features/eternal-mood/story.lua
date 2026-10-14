@@ -9,7 +9,7 @@ local Story = {}
 --   idle   now and then, at a post
 --   alert  one who has just spotted a player
 --   down   one going down
--- The possessed say the words; the imps mostly growl.
+-- The possessed and the interns say the words; the imps mostly growl.
 Story.horde = {
   possessed = {
     idle = {
@@ -27,6 +27,17 @@ Story.horde = {
       "Do you have an appointment?",
     },
     down = { "Tell HR...", "Finally, a break.", "I'm clocking off." },
+  },
+  intern = {
+    idle = { "Coffee?", "Is this paid?", "Brains... storming...", "Can I shadow you?" },
+    alert = {
+      "BRAAAINS... storming session!",
+      "Can I shadow you?!",
+      "Is that a job offer?!",
+      "Coffee! COFFEE!",
+      "Networking opportunity!",
+    },
+    down = { "Unpaid...", "Exposure...", "Great... experience..." },
   },
   imp = {
     idle = { "Hungry...", "Grrrr...", "Smells like marine." },
