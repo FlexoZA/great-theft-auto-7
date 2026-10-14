@@ -288,7 +288,7 @@ Quests.list = {
   {
     -- Eternal Mood (docs/eternal-mood.md): the UAC's moon base, and it gets
     -- stranger from there. The eternal-mood feature runs the levels; so far
-    -- Fobos Base, Heck on Earth and the Foundry, whose portal goes home.
+    -- Fobos Base, Heck on Earth, the Foundry and Heck, whose gate goes home.
     id = "eternal-mood",
     title = "Pest control",
     text = "Moon. Bring a shotgun. The UAC opened a door it shouldn't have, and something came through. "
@@ -334,8 +334,23 @@ Quests.list = {
     color = { 1, 0.45, 0.1 },
     banner = "%s came off the shuttle. Welcome to the Foundry.",
     introLine = 3,
-    exitText = "The Baron's key opens the portal behind the Crucible, down into Heck. That's as far as the job goes "
-      .. "for now. Head home.",
+    exitText = "The Baron's key opens the portal behind the Crucible. It goes down. All the way down.",
+    exitTitle = "Down into Heck",
+    exitLabel = "HECK",
+    next = "eternal-mood-heck",
+  },
+  {
+    -- On foot across Heck itself: the Foundry's portal leads here.
+    id = "eternal-mood-heck",
+    title = "Heck",
+    text = "Heck itself: rock, lava, bone bridges and every demon there is. The Snooze Gate is at the top.",
+    map = "heck",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came through the portal. Welcome to Heck.",
+    introLine = 4,
+    exitText = "The Snooze Gate. Something behind it is ticking. That's as far as the job goes for now. Head home.",
   },
   {
     id = "home",
@@ -539,6 +554,19 @@ Quests.list = {
     onMap = "foundry",
     x = -1312, -- by the shuttle's tail on the Pad: city-map's map.cx, map.cy
     y = 1728,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-heck",
+    title = "Back to the City",
+    text = "Back through the portal. Take everyone home.",
+    onMap = "heck",
+    x = 0, -- by the portal on the shelf: city-map's map.cx, map.cy
+    y = 2752,
     map = "city",
     returns = true,
     label = "HOME",

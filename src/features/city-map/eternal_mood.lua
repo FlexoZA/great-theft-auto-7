@@ -11,6 +11,10 @@
 --             from the Landing Pad at the bottom over the Conveyors' belts
 --             and through the Smelters to the Crucible and the portal behind
 --             it at the top
+--   heck      Heck: out of the portal onto a rock shelf at the bottom, over
+--             a sea of lava by its bone bridges, across the Altar Fields
+--             (the pizza box sinking in the lake to the east) and up onto
+--             the Mattress's plateau before the Snooze Gate at the top
 -- Everyone travels north (up the screen), the way both quest lines before
 -- it do.
 --
@@ -68,6 +72,9 @@
 -- the walls are Heck's rock), `belts` { x, y, w, h, vx, vy } (the moving floor: whoever stands on one is
 -- carried at vx, vy px/s, the eternal-mood feature's belts.lua) and kinds belt, vat, lava, crucible, ring,
 -- bridge, gateway (the portal), chain, growth, spire, booth (Dr. Seek's), bones (clutter).
+-- Heck's: `outside` "abyss", lava poured over whatever isn't rock or bridge (low, as `lows`), and kinds
+-- bonebridge, altar, firepit (low: it burns), pizzabox, mattress, snoozegate; `map.pizza` { x, y } where
+-- the pizza box is.
 
 local EternalMood = {}
 
@@ -1309,10 +1316,242 @@ local function buildFoundry(map, rng, T)
   commit(map, g)
 end
 
+-- Heck --------------------------------------------------------------------------
+
+-- The stretches, bottom to top (rows, inclusive), all the map's width.
+EternalMood.HECK = {
+  { name = "The Arrival Shelf", r0 = 84, r1 = 92, c0 = 21, c1 = 38, floor = "rock" },
+  { name = "The Bone Bridges", r0 = 59, r1 = 83, c0 = 3, c1 = 56, floor = "rock" },
+  { name = "The Altar Fields", r0 = 30, r1 = 58, c0 = 3, c1 = 56, floor = "rock" },
+  { name = "The Mattress", r0 = 7, r1 = 26, c0 = 10, c1 = 49, floor = "rock" },
+}
+
+-- Rock in the sea of lava across the Bone Bridges (tiles, inclusive): the
+-- islands, and the bones bridging them. Everything else in that band is
+-- lava, and burns.
+EternalMood.HECK_ISLANDS = {
+  { 24, 75, 35, 79 }, -- the south island, off the shelf
+  { 6, 66, 15, 71 }, -- west
+  { 44, 66, 53, 71 }, -- east
+  { 25, 61, 34, 65 }, -- the middle
+}
+EternalMood.HECK_BRIDGES = {
+  { 28, 80, 31, 83, ns = true }, -- the shelf up to the south island
+  { 13, 76, 23, 77 }, { 10, 72, 12, 77, ns = true }, -- west: across, then up to the west island
+  { 36, 76, 46, 77 }, { 47, 72, 49, 77, ns = true }, -- east
+  { 10, 59, 12, 65, ns = true }, { 47, 59, 49, 65, ns = true }, -- the west and east islands up to the Fields
+  { 29, 66, 30, 74, ns = true }, { 29, 59, 30, 60, ns = true }, -- the narrow way up the middle
+}
+
+EternalMood.HECK_CLUTTER = {
+  ["The Arrival Shelf"] = { bones = 2, scorch = 1 },
+  ["The Altar Fields"] = { bones = 10, scorch = 8, blood = 5 },
+  ["The Mattress"] = { bones = 3, scorch = 3 },
+}
+
+local function buildHeck(map, rng, T)
+  local g = grid(map, T)
+  local X, Y = g.X, g.Y
+  local cols, rows = map.cols, map.rows
+  local N, E, S, W = -math.pi / 2, 0, math.pi / 2, math.pi
+  map.base = { x = X(2), y = Y(2), w = (cols - 4) * T, h = (rows - 4) * T }
+  map.outside = "abyss"
+  map.heckFrom = Y(rows) -- it's all Heck's rock
+  local rooms = {}
+  for _, z in ipairs(EternalMood.HECK) do
+    g.fill(z.c0, z.r0, z.c1, z.r1, "walk")
+    rooms[z.name] = z
+    map.zones[#map.zones + 1] = {
+      name = z.name, x0 = X(z.c0), y0 = Y(z.r0), x1 = X(z.c1 + 1), y1 = Y(z.r1 + 1), floor = z.floor,
+    }
+  end
+  -- The way up from the Fields onto the Mattress's plateau: a wide ramp.
+  g.fill(22, 27, 37, 29, "walk")
+
+  --- Lava over every tile of `lava` (c -> r -> true), merged into as few
+  --- rectangles as it takes, each its own glow.
+  local function pour(lava, c0, r0, c1, r1)
+    local done = {}
+    for r = r0, r1 do
+      local c = c0
+      while c <= c1 do
+        if lava[c] and lava[c][r] and not (done[c] and done[c][r]) then
+          local e = c
+          while e + 1 <= c1 and lava[e + 1] and lava[e + 1][r] and not (done[e + 1] and done[e + 1][r]) do
+            e = e + 1
+          end
+          local b = r
+          local function rowFull(rr)
+            for cc = c, e do
+              if not (lava[cc] and lava[cc][rr]) or (done[cc] and done[cc][rr]) then
+                return false
+              end
+            end
+            return true
+          end
+          while b + 1 <= r1 and rowFull(b + 1) do
+            b = b + 1
+          end
+          for cc = c, e do
+            done[cc] = done[cc] or {}
+            for rr = r, b do
+              done[cc][rr] = true
+            end
+          end
+          local w, h = (e - c + 1) * T, (b - r + 1) * T
+          cover(map, "lava", X(c), Y(r), w, h, true, { low = true, seed = rng:random(1000) })
+          if w * h >= 4 * T * T then
+            light(map, X(c) + w / 2, Y(r) + h / 2, math.min(520, 120 + math.sqrt(w * h) * 0.8), EternalMood.MOLTEN,
+              0.55)
+          end
+          c = e + 1
+        else
+          c = c + 1
+        end
+      end
+    end
+  end
+  local function rect(list, c0, r0, c1, r1)
+    for c = c0, c1 do
+      list[c] = list[c] or {}
+      for r = r0, r1 do
+        list[c][r] = true
+      end
+    end
+  end
+
+  -- The Bone Bridges: lava from wall to wall, the islands and bridges out of it.
+  local z = rooms["The Bone Bridges"]
+  local lava = {}
+  rect(lava, z.c0, z.r0, z.c1, z.r1)
+  for _, i in ipairs(EternalMood.HECK_ISLANDS) do
+    for c = i[1], i[3] do
+      for r = i[2], i[4] do
+        lava[c][r] = nil
+      end
+    end
+  end
+  for _, b in ipairs(EternalMood.HECK_BRIDGES) do
+    for c = b[1], b[3] do
+      for r = b[2], b[4] do
+        lava[c][r] = nil
+      end
+    end
+    flat(map, "bonebridge", X(b[1]), Y(b[2]), (b[3] - b[1] + 1) * T, (b[4] - b[2] + 1) * T,
+      { ns = b.ns, seed = rng:random(1000) })
+  end
+  pour(lava, z.c0, z.r0, z.c1, z.r1)
+
+  -- The Altar Fields: open rock, altars and spikes for cover, fire pits,
+  -- and in the east a lake of lava with a pizza box sinking in it.
+  local lake = {}
+  rect(lake, 46, 34, 56, 50)
+  rect(lake, 43, 38, 45, 47)
+  pour(lake, 43, 34, 56, 50)
+  cover(map, "pizzabox", X(46) + 16, Y(37), 8 * T, 8 * T, false, { angle = 0.18 }) -- over the lava, not solid
+  map.pizza = { x = X(50), y = Y(41) }
+  for _, p in ipairs({ { 9, 36 }, { 20, 34 }, { 33, 33 }, { 13, 46 }, { 26, 42 }, { 37, 48 }, { 8, 54 }, { 22, 52 },
+    { 32, 55 } }) do
+    cover(map, "altar", X(p[1]), Y(p[2]), 2 * T, T, true, { seed = rng:random(1000) })
+    light(map, X(p[1] + 1), Y(p[2]) + 32, 140, EternalMood.FIRE, 0.45)
+  end
+  for _, p in ipairs({ { 15, 40 }, { 30, 38 }, { 6, 44 }, { 39, 41 }, { 18, 49 }, { 28, 47 }, { 41, 54 }, { 14, 56 },
+    { 26, 32 }, { 36, 31 } }) do
+    cover(map, "spire", X(p[1]) - 24, Y(p[2]) - 24, 48, 48, true, { round = true, seed = rng:random(1000) })
+  end
+  for _, p in ipairs({ { 18, 38 }, { 34, 44 }, { 10, 51 }, { 28, 57 } }) do
+    cover(map, "firepit", X(p[1]) - 40, Y(p[2]) - 40, 80, 80, true, { round = true, low = true,
+      seed = rng:random(1000) })
+    map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 260, color = EternalMood.FIRE, a = 0.7,
+      seed = rng:random(1000), fire = true }
+  end
+
+  -- The Mattress: the plateau before the Snooze Gate, the mattress on it,
+  -- waiting for its owner; the gate at the top, a clock over it.
+  flat(map, "mattress", X(24), Y(13), 12 * T, 7 * T)
+  cover(map, "snoozegate", X(22), Y(3), 16 * T, 4 * T)
+  light(map, X(30), Y(6), 420, EternalMood.PORTAL, 0.6)
+  map.exitX, map.exitY = math.floor(X(30)), math.floor(Y(8))
+  for _, p in ipairs({ { 12, 9 }, { 47, 9 }, { 12, 24 }, { 47, 24 } }) do
+    cover(map, "spire", X(p[1]) - 28, Y(p[2]) - 28, 56, 56, true, { round = true, seed = rng:random(1000) })
+  end
+  for _, c in ipairs({ 16, 43 }) do
+    map.flickers[#map.flickers + 1] = { x = X(c), y = Y(8), r = 240, color = EternalMood.FIRE, a = 0.6,
+      seed = rng:random(1000), fire = true }
+    flat(map, "fire", X(c) - 30, Y(8) - 30, 60, 60, { seed = rng:random(1000) })
+  end
+
+  -- The Arrival Shelf: out of the portal.
+  flat(map, "gateway", X(27), Y(89), 6 * T, 2 * T)
+  light(map, X(30), Y(90), 300, EternalMood.PORTAL, 0.6)
+  for _, p in ipairs({ { 23, 86 }, { 36, 86 } }) do
+    cover(map, "spire", X(p[1]) - 24, Y(p[2]) - 24, 48, 48, true, { round = true, seed = rng:random(1000) })
+  end
+
+  -- Heck's own (eternal-mood/horde.lua): demons only. Imps up out of the
+  -- cracks on the islands and all over the Fields, Cacodaemons over the
+  -- lava and the Fields.
+  local horde = { posts = {}, vents = {}, patrols = {}, mobs = {}, cacos = {} }
+  map.horde = horde
+  local function vent(c, r, out, count)
+    local x, y = math.floor(X(c)), math.floor(Y(r))
+    horde.vents[#horde.vents + 1] = { x = x, y = y, out = out, count = count, look = "crack" }
+    flat(map, "crack", x - 22, y - 22, 44, 44)
+  end
+  local function cacos(c, r, count, wake)
+    horde.cacos[#horde.cacos + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), count = count, wake = wake }
+  end
+  -- The Bone Bridges.
+  vent(26, 77, E, 2)
+  vent(10.5, 68.5, E, 3)
+  vent(48.5, 68.5, W, 3)
+  vent(29.5, 63, S, 2)
+  cacos(18, 70, 1, 560)
+  cacos(40, 70, 1, 560)
+  cacos(30, 60, 1, 520)
+  -- The Altar Fields: the biggest crowd on the line.
+  vent(7, 57, N, 3)
+  vent(52, 56, N, 2)
+  vent(16, 45, E, 3)
+  vent(31, 51, N, 3)
+  vent(24, 37, S, 3)
+  vent(38, 35, W, 3)
+  vent(9, 32, E, 3)
+  cacos(20, 44, 2, 600)
+  cacos(36, 38, 1, 600)
+  cacos(50, 44, 1, 600) -- over the pizza
+  -- The Mattress's plateau stays quiet: its owner wants it that way.
+
+  -- Everyone comes out of the portal onto the shelf; the way home is back
+  -- into it.
+  for i = 0, 11 do
+    map.spawns[#map.spawns + 1] = {
+      x = math.floor(X(24.5) + (i % 6) * 2 * T), y = math.floor(Y(85) + math.floor(i / 6) * 96), angle = N,
+    }
+  end
+  map.cx, map.cy = math.floor(X(30)), math.floor(Y(91))
+
+  local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
+  for _, list in ipairs({ horde.vents, map.spawns }) do
+    for _, p in ipairs(list) do
+      avoid[#avoid + 1] = { x = p.x, y = p.y }
+    end
+  end
+  for _, room in ipairs(EternalMood.HECK) do
+    if EternalMood.HECK_CLUTTER[room.name] then
+      clutter(map, rng, g, room, EternalMood.HECK_CLUTTER[room.name], avoid)
+    end
+  end
+
+  map.openKinds = { walk = true }
+  commit(map, g)
+end
+
 EternalMood.builders = {
   fobos = buildFobos,
   earth = buildEarth,
   foundry = buildFoundry,
+  heck = buildHeck,
 }
 
 --- Does `kind` name one of these maps?

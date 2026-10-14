@@ -267,6 +267,16 @@ local function tarmacTile(x, y, T, h)
   end
 end
 
+--- A tile of Heck's abyss past its edge: dark, a red glow far below.
+local function abyssTile(x, y, T, h)
+  love.graphics.setColor(0.10 + h * 0.04, 0.02, 0.02)
+  love.graphics.rectangle("fill", x, y, T, T)
+  if h > 0.8 then
+    love.graphics.setColor(0.45, 0.08, 0.02, 0.6)
+    love.graphics.circle("fill", x + T / 2, y + T / 2, 6 + h * 10, 10)
+  end
+end
+
 --- A tile of wall gone to Heck's rock (the Foundry's north half): lumps, cracks, a lit edge.
 local function rockWallTile(map, c, r, x, y, T)
   local h = hash(c * 3.7 + r * 5.3)
@@ -331,6 +341,8 @@ local function drawGround(map, T)
         wallTile(map, c, r, x, y, T)
       elseif map.outside == "tarmac" then
         tarmacTile(x, y, T, h)
+      elseif map.outside == "abyss" then
+        abyssTile(x, y, T, h)
       else
         moonTile(x, y, T, h)
       end
@@ -1735,6 +1747,174 @@ function DRAW.bones(s)
     end
     love.graphics.setLineWidth(1)
   end)
+end
+
+-- Heck's props -----------------------------------------------------------------
+
+--- A bridge of bones over the lava: ribs laid across, a spine down each side.
+function DRAW.bonebridge(s)
+  color(C.char, 0.6)
+  love.graphics.rectangle("fill", s.x + 4, s.y + 6, s.w, s.h)
+  if s.ns then
+    for y = s.y + 4, s.y + s.h - 8, 14 do
+      color(C.bone)
+      love.graphics.rectangle("fill", s.x + 4, y, s.w - 8, 8, 4)
+      color(C.bone, 0.7)
+      love.graphics.circle("fill", s.x + 6, y + 4, 5, 6)
+      love.graphics.circle("fill", s.x + s.w - 6, y + 4, 5, 6)
+    end
+    color(C.bone)
+    love.graphics.rectangle("fill", s.x, s.y, 6, s.h)
+    love.graphics.rectangle("fill", s.x + s.w - 6, s.y, 6, s.h)
+  else
+    for x = s.x + 4, s.x + s.w - 8, 14 do
+      color(C.bone)
+      love.graphics.rectangle("fill", x, s.y + 4, 8, s.h - 8, 4)
+      love.graphics.circle("fill", x + 4, s.y + 6, 5, 6)
+      love.graphics.circle("fill", x + 4, s.y + s.h - 6, 5, 6)
+    end
+    color(C.bone)
+    love.graphics.rectangle("fill", s.x, s.y, s.w, 6)
+    love.graphics.rectangle("fill", s.x, s.y + s.h - 6, s.w, 6)
+  end
+  if hash(s.seed) > 0.4 then -- a skull at the end of it
+    color(C.bone)
+    love.graphics.circle("fill", s.x + 10, s.y + 10, 9, 10)
+    color(C.black)
+    love.graphics.circle("fill", s.x + 7, s.y + 8, 2.5, 6)
+    love.graphics.circle("fill", s.x + 13, s.y + 8, 2.5, 6)
+  end
+end
+
+--- An altar: a slab of black stone, candles burning on it, a smear of red.
+function DRAW.altar(s, t)
+  shadow(s)
+  color(C.rockWallDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 4)
+  color(C.char)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12, 3)
+  love.graphics.setColor(0.45, 0.04, 0.03, 0.9)
+  love.graphics.ellipse("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, s.h * 0.2, 12)
+  for k = 0, 3 do
+    local cx = s.x + 12 + k * (s.w - 24) / 3
+    local cy = s.y + (k % 2 == 0 and 10 or s.h - 10)
+    color(C.bone)
+    love.graphics.circle("fill", cx, cy, 3.5, 8)
+    local f = 0.7 + 0.3 * math.sin(t * 12 + k * 2 + s.seed)
+    love.graphics.setColor(1, 0.7, 0.2, 0.9)
+    love.graphics.circle("fill", cx, cy - 4, 2.5 * f, 6)
+  end
+end
+
+--- A fire pit: a ring of stones round flames that never go out (it burns).
+function DRAW.firepit(s, t)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.rockWallDark)
+  for k = 0, 9 do
+    local a = k / 10 * 2 * math.pi
+    love.graphics.circle("fill", cx + math.cos(a) * (r - 6), cy + math.sin(a) * (r - 6), 9, 8)
+  end
+  color(C.char)
+  love.graphics.circle("fill", cx, cy, r - 12, 20)
+  DRAW.fire({ x = s.x + 10, y = s.y + 10, w = s.w - 20, h = s.h - 20, seed = s.seed }, t)
+end
+
+--- A pizza box the size of a house, half sunk in the lava, lid open: the
+--- pizza in it, a slice gone. Big enough to see from across the map.
+function DRAW.pizzabox(s, t)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(s.angle or 0)
+  local w, h = s.w, s.h
+  local sink = 0.5 + 0.5 * math.sin(t * 0.3) -- bobbing in it
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", -w / 2 + 12, -h / 2 + 14, w, h)
+  love.graphics.setColor(0.70, 0.52, 0.32) -- the box
+  love.graphics.rectangle("fill", -w / 2, -h / 2, w, h)
+  love.graphics.setColor(0.55, 0.40, 0.24)
+  love.graphics.rectangle("line", -w / 2 + 6, -h / 2 + 6, w - 12, h - 12)
+  love.graphics.setColor(0.62, 0.45, 0.28) -- the lid, open, flat behind it
+  love.graphics.rectangle("fill", -w / 2, -h / 2 - h * 0.55, w, h * 0.55)
+  love.graphics.setColor(0.85, 0.20, 0.15)
+  love.graphics.setFont(signFont())
+  love.graphics.printf("PIZZA", -w / 2, -h / 2 - h * 0.35, w, "center")
+  local r = w * 0.42 -- the pizza
+  love.graphics.setColor(0.85, 0.62, 0.30)
+  love.graphics.arc("fill", 0, 0, r, 0.6, 2 * math.pi, 40)
+  love.graphics.setColor(0.86, 0.30, 0.15)
+  love.graphics.arc("fill", 0, 0, r - 12, 0.6, 2 * math.pi, 40)
+  love.graphics.setColor(0.98, 0.88, 0.55)
+  for k = 0, 7 do -- cheese
+    local a = 0.9 + k * 0.7
+    love.graphics.circle("fill", math.cos(a) * r * 0.55, math.sin(a) * r * 0.55, r * 0.12, 12)
+  end
+  love.graphics.setColor(0.55, 0.12, 0.10) -- pepperoni
+  for k = 0, 6 do
+    local a = 1.2 + k * 0.78
+    love.graphics.circle("fill", math.cos(a) * r * 0.3, math.sin(a) * r * 0.3, r * 0.09, 12)
+  end
+  love.graphics.setColor(0.70, 0.52, 0.32) -- the slice gone: the box shows
+  love.graphics.polygon("fill", 0, 0, r, 0, math.cos(0.6) * r, math.sin(0.6) * r)
+  -- The lava lapping over its near corner.
+  love.graphics.setColor(1, 0.35, 0.05, 0.85)
+  love.graphics.polygon("fill", w / 2 - w * (0.25 + 0.05 * sink), h / 2, w / 2, h / 2 - h * (0.3 + 0.05 * sink),
+    w / 2, h / 2)
+  love.graphics.pop()
+end
+
+--- The mattress on the plateau: a big striped one, a pillow, a dent where
+--- something heavy sits.
+function DRAW.mattress(s)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", s.x + 12, s.y + 14, s.w, s.h, 20)
+  love.graphics.setColor(0.82, 0.80, 0.86)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 20)
+  love.graphics.setColor(0.55, 0.62, 0.80)
+  for x = s.x + 20, s.x + s.w - 20, 40 do
+    love.graphics.rectangle("fill", x, s.y + 6, 12, s.h - 12)
+  end
+  love.graphics.setColor(0.95, 0.94, 0.96)
+  love.graphics.rectangle("fill", s.x + 20, s.y + 20, s.w * 0.25, s.h - 40, 16) -- the pillow
+  love.graphics.setColor(0, 0, 0, 0.15)
+  love.graphics.ellipse("fill", s.x + s.w * 0.6, s.y + s.h / 2, s.w * 0.25, s.h * 0.35, 24)
+  love.graphics.setColor(0.45, 0.42, 0.50)
+  love.graphics.rectangle("line", s.x + 4, s.y + 4, s.w - 8, s.h - 8, 18)
+end
+
+--- The Snooze Gate: a huge stone door, bones in its frame, a clock face
+--- over it, its hands going round too fast.
+function DRAW.snoozegate(s, t)
+  shadow(s)
+  color(C.rockWallDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.rockWall)
+  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w - 32, s.h - 16)
+  color(C.char)
+  love.graphics.rectangle("fill", s.x + s.w * 0.3, s.y + s.h * 0.35, s.w * 0.4, s.h * 0.65) -- the doors
+  love.graphics.setColor(0.6, 0.15, 0.05)
+  love.graphics.rectangle("fill", s.x + s.w / 2 - 2, s.y + s.h * 0.35, 4, s.h * 0.65)
+  color(C.bone)
+  for k = 0, 9 do
+    love.graphics.circle("fill", s.x + 20 + k * (s.w - 40) / 9, s.y + 10, 7, 8)
+  end
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h * 0.2, s.h * 0.28
+  color(C.bone)
+  love.graphics.circle("fill", cx, cy, r + 6, 32)
+  love.graphics.setColor(0.95, 0.92, 0.80)
+  love.graphics.circle("fill", cx, cy, r, 32)
+  color(C.black)
+  for k = 0, 11 do
+    local a = k / 12 * 2 * math.pi
+    love.graphics.circle("fill", cx + math.cos(a) * r * 0.82, cy + math.sin(a) * r * 0.82, 2.5, 6)
+  end
+  love.graphics.setLineWidth(4)
+  local m = t * 1.4
+  love.graphics.line(cx, cy, cx + math.cos(m) * r * 0.75, cy + math.sin(m) * r * 0.75)
+  love.graphics.setLineWidth(6)
+  love.graphics.line(cx, cy, cx + math.cos(m / 12) * r * 0.5, cy + math.sin(m / 12) * r * 0.5)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0.8, 0.1, 0.1)
+  love.graphics.circle("fill", cx, cy, 4, 8)
 end
 
 local function drawSigns(map)

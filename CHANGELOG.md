@@ -67,6 +67,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Foundry has its own theme: heavy industrial metal, guitars locked to a machine, anvils ringing, steam hissing
   out of the press and a choir rising where the factory turns to Heck. It starts in the dream, on a cooking show,
   until somebody far away calls and the press slams down.
+- Heck, Eternal Mood's fourth map: out of the portal onto a shelf of rock, across a sea of lava by bridges of bone
+  (three ways over, one of them very narrow), over the Altar Fields with their altars, spikes and fire pits, past a
+  pizza box the size of a house sinking in a lava lake, and up to the Snooze Gate. Imps climb out of the cracks
+  and Cacodaemons float over the lava. Past the edges: lava falls, castles hanging upside down, and a crack in the
+  sky with a lampshade hanging through it.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on

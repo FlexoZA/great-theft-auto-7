@@ -1,8 +1,8 @@
 -- Eternal Mood: the pest-control job to the moon (docs/eternal-mood.md), a
 -- dream of a 90s demon shooter that you wake up from. Its quests (quests'
 -- "eternal-mood" and the ones after it) take everyone over its maps, all
--- in the dark, all of them on foot; so far Fobos Base, Heck on Earth and
--- the Foundry (city-map's `fobos`, `earth` and `foundry`; the Foundry's
+-- in the dark, all of them on foot; so far Fobos Base, Heck on Earth, the
+-- Foundry and Heck (city-map's `fobos`, `earth`, `foundry` and `heck`; the Foundry's
 -- conveyor belts carry whoever stands on them, belts.lua).
 --
 -- The first player to reach the map's way on (`map.exitX`, `map.exitY`,
@@ -51,8 +51,8 @@ local page = nil -- { line, t, level, face } while the Voice's intro screen is u
 
 -- Each level's theme (by map), played from the moment the Voice's intro
 -- screen goes: its intro once, then its loop. Rendered on arriving, under
--- the intro screen.
-local THEMES = { fobos = FobosTheme, earth = EarthTheme, foundry = FoundryTheme }
+-- the intro screen. Heck borrows the Foundry's until it has its own.
+local THEMES = { fobos = FobosTheme, earth = EarthTheme, foundry = FoundryTheme, heck = FoundryTheme }
 local music = {} -- map name -> { intro, loop } Sources
 local playing = nil -- the map whose theme is on
 
