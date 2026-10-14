@@ -27,6 +27,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   stomp you instead. The lift is out of service until he's down.
 - Patrols of the possessed walk Fobos Base: up and down the Ring, round the Offices' desks, the Reactor's catwalk,
   Toxic Storage and the Hangar's floor, a guard leading some of them.
+- The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
+  you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
+  the other seven. The Floor Manager's meetings bring a few in too.
 
 ## [0.27.0] - 2026-10-14
 

@@ -1584,8 +1584,10 @@ the one with a plot.
   the Hangar's lift: the first player within 160 px of `exitX, exitY`
   finishes it (`quests:serverComplete`) and its star goes home
   ("home-fobos" by the Lab's consoles). Heck's horde holds the way
-  (`eternal-mood/horde.lua`, from the map's `horde`: `posts`, `patrols`
-  and `vents`):
+  (`eternal-mood/horde.lua`, from the map's `horde`: `posts`, `patrols`,
+  `mobs` and `vents`): mobs of Interns (`intern_brain.lua`, melee, 20
+  health) standing about until a player comes near, then all coming at
+  once;
   the possessed (`possessed_brain.lua`, one head for three ranks: staffers
   with pistols, guards with shotguns holding the doorways, the overtime guy
   spinning up a chaingun by the lift) stand at their posts or walk their

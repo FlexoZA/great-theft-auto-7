@@ -25,10 +25,11 @@
 --   map.lights            { x, y, r, color, a } what glows in the dark (the night feature draws them), world px
 --   map.alarms            { x, y } the red alarm lamps over the doors, world px
 --   map.horde             { posts = { rank, x, y, watch }, patrols = { ranks, route, start },
---                         vents = { x, y, out, count } } Heck's horde
+--                         mobs = { x, y, count, wake }, vents = { x, y, out, count } } Heck's horde
 --                         (eternal-mood/horde.lua): the possessed at their posts (rank staffer, guard or
 --                         overtime) and on patrol (a file of ranks walking `route`, a loop of { x, y }, from
---                         corner `start`), and the vents the imps crawl out of, world px; and `boss` { x, y, facing,
+--                         corner `start`), the Interns' mobs standing about their spot until woken, and the
+--                         vents the imps crawl out of, world px; and `boss` { x, y, facing,
 --                         zone, lift, doors } the level's boss (the Floor Manager): where he waits, the room
 --                         that wakes him, the lift he keeps out of service, the doorways his meetings use
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -367,6 +368,20 @@ local function buildFobos(map, rng, T)
   patrol({ "guard", "staffer" }, { { 24.5, 29.5 }, { 31.5, 29.5 }, { 31.5, 42.5 }, { 24.5, 42.5 } }, 3) -- the Reactor
   patrol({ "staffer", "staffer" }, { { 40.5, 32.5 }, { 50.5, 32.5 }, { 50.5, 44 }, { 40.5, 44 } }, 2) -- Toxic Storage
   patrol({ "guard", "staffer", "staffer" }, { { 10, 11 }, { 46, 11 }, { 46, 17.5 }, { 10, 17.5 } }) -- the Hangar
+
+  -- The Interns' mobs (in tiles, with how many for one human and how near a
+  -- player wakes them): asleep in the Crew Quarters' bunks, on their lunch
+  -- in the Mess, loitering at the Ring's west end, in Toxic Storage and in
+  -- the Offices' far corner.
+  horde.mobs = {}
+  local function mob(c, r, count, wake)
+    horde.mobs[#horde.mobs + 1] = { x = math.floor(X(c)), y = math.floor(Y(r)), count = count, wake = wake }
+  end
+  mob(9.5, 62, 6, 380) -- Crew Quarters
+  mob(46, 62, 8, 420) -- the Mess
+  mob(8, 50.5, 5, 420) -- the Ring's west end
+  mob(45, 40.5, 5, 400) -- Toxic Storage
+  mob(14, 38.5, 5, 380) -- the Offices' far corner
 
   -- The Floor Manager (eternal-mood/floor_manager.lua) on the lift, facing
   -- the Hangar: he wakes when somebody walks into it, the lift is out of
