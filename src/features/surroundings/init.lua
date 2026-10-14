@@ -55,6 +55,9 @@
 -- under a haze, its lights dimmed by the distance. Its map is see-through
 -- off the deck, so the city shows under the bridge too.
 --
+-- Fobos Base lies on the moon (fobos_moon.lua): grey dust and craters
+-- running on past the base's walls, boulders, and the UAC rovers' tracks.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -65,6 +68,7 @@ local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
 local GreyCity = require("src.features.surroundings.grey_city")
 local OverpassBelow = require("src.features.surroundings.overpass_below")
+local FobosMoon = require("src.features.surroundings.fobos_moon")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1216,6 +1220,9 @@ local DRAW = {
   roof = function(map, camera)
     local left, top, right, bottom = view(camera)
     OverpassBelow.draw(map, camera, left, top, right, bottom, clock, roofBelow(map))
+  end,
+  fobos = function(map, camera)
+    FobosMoon.draw(map, view(camera))
   end,
 }
 

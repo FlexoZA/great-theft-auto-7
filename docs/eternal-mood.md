@@ -7,7 +7,19 @@ boss on every level, and a last word. The look is a 90s demon-blasting shooter o
 moon base and in hell, played the way A-Man plays Half-Life: a parody with
 its own names, not the real ones.
 
-Status: story, bosses, maps and the horde designed. Nothing built yet.
+Status: story, bosses, maps and the horde designed. Built so far (each a
+branch off `feature/eternal-mood`):
+
+- `feature/eternal-mood-fobos`: Fobos Base (`fobos`,
+  `city-map/eternal_mood.lua`, drawn by `render_eternal_mood.lua`), its
+  quest on the board ("Pest control") and HOME star, the moon past its edge
+  (surroundings' `fobos_moon.lua`), and the `eternal-mood` feature
+  finishing the level when someone reaches the Hangar's lift. Every room in
+  the doc's Fobos Base is there, plus two the Ring leads to: Crew Quarters
+  and the Mess. In a red dark (the night feature, with the map's own
+  ambient), lit by red-orange strip lights, red screens, the reactor's
+  orange core, the sludge's green and red alarm lamps over every door
+  (they don't sweep yet); every surface has a red cast.
 
 ## Decisions
 
@@ -244,10 +256,13 @@ points at the boss.
 
 ### Shared look
 
-- Two palettes, and the dream moves from one to the other. The UAC's: grey
-  steel panels, hazard stripes in yellow and black, green computer screens,
-  blue strip lights. Heck's: dark red rock, black bone, orange lava, and
-  everything lit from below.
+- Everything is red, because everything in this universe is evil: a red
+  dark (the night feature's ambient, per map), red-orange light, red-cast
+  steel and floors. The one other colour is the toxic sludge's sick green.
+- Two palettes inside that red, and the dream moves from one to the other.
+  The UAC's: rust-red steel panels, hazard stripes in yellow and black, red
+  computer screens, strip lights burning red-orange. Heck's: dark red rock,
+  black bone, orange lava, and everything lit from below.
 - Light comes in pools: the `night` feature's dark with lamps, screens,
   fires and lava as the lights. Fobos Base's alarms sweep red over
   everything every couple of seconds.

@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new job on the board, "Pest control": the start of the Eternal Mood quest line. Fobos Base, the UAC's moon base,
+  in the dark: wake up in the Lab and find your way up to the Hangar's lift. For now it's the way through, with its
+  demons and its boss still to come.
+
 ## [0.27.0] - 2026-10-14
 
 Cyber Feud: a new quest line through Grey City at night. Carry the Shard across five maps from the Drop to the roof
