@@ -1577,7 +1577,12 @@ the one with a plot.
   `cover`, `signs`, `lights`, `alarms`) and drawn by
   `render_eternal_mood.lua`; nil tiles inside `map.base` are steel wall,
   outside it the moon, which carries on past the edge (surroundings'
-  `fobos_moon.lua`). Everything in it is red, being evil: a red dark (the
+  `fobos_moon.lua`). Its props (`map.cover`) aren't in the canvas: the
+  eternal-mood feature (priority 27) draws them every frame at full size
+  (`drawProps`), with the reactor's halo, the turning alarm beacons
+  (`map.alarms`) and the strip lights on the blink (`map.flickers`, lit in
+  `drawNightLights`), and the clutter scattered round each room.
+  Everything in it is red, being evil: a red dark (the
   spec's `night` colour), red-orange lights, and every colour drawn passed
   through `evil` in the renderer, but for the sludge's sick green. Everyone wakes in the Lab at the bottom and goes up
   through the Ring and one of the Offices, the Reactor or Toxic Storage to

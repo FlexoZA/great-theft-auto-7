@@ -1,9 +1,14 @@
--- Drawing the Eternal Mood quest line's maps (eternal_mood.lua) into the map
--- canvas. Fobos Base so far: the UAC's moon base cut through, steel walls
--- with hazard stripes across the doorways, each room's own floor, and
--- everything standing about; outside the base's walls, the moon's grey
--- dust and craters. Drawn once, lit as if by day; the night feature
--- darkens it every frame and lights it again where `map.lights` glow.
+-- Drawing the Eternal Mood quest line's maps (eternal_mood.lua). Fobos Base
+-- so far: the UAC's moon base cut through, steel walls, each room's own
+-- floor, and outside the base's walls the moon's dust and craters, drawn
+-- once into the map canvas (`draw`); and everything standing or lying
+-- about (`map.cover`: hazard stripes across the doorways, desks, the
+-- reactor, tipped-over bins, blood and papers), the posters and the alarm
+-- lamps, drawn every frame at full size by the eternal-mood feature
+-- (`drawProps`), crisp and some of it moving: the reactor's core pulses
+-- inside a halo, the sludge bubbles, the screens scroll, the alarms turn.
+-- All lit as if by day; the night feature darkens it every frame and
+-- lights it again where `map.lights` glow.
 
 local RenderEternalMood = {}
 
@@ -294,14 +299,18 @@ function DRAW.tank(s)
   love.graphics.arc("fill", cx - 4, cy - 4, r - 10, 3.6, 4.6, 8)
 end
 
-function DRAW.console(s)
+function DRAW.console(s, t)
   shadow(s)
   box(s, C.steelDark)
   color(C.screen)
   love.graphics.rectangle("fill", s.x + 6, s.y + 4, s.w - 12, s.h - 16)
   color(C.green)
+  local row = math.floor(t * 3 + hash(s.x) * 10) -- the text scrolling
   for k = 0, 2 do
-    love.graphics.rectangle("fill", s.x + 10, s.y + 8 + k * 6, (s.w - 24) * (0.4 + hash(s.x + k) * 0.6), 2)
+    love.graphics.rectangle("fill", s.x + 10, s.y + 8 + k * 6, (s.w - 24) * (0.3 + hash(s.x + k + row) * 0.7), 2)
+  end
+  if math.floor(t * 2 + s.x) % 2 == 0 then -- the cursor blinking
+    love.graphics.rectangle("fill", s.x + 10, s.y + 26, 4, 3)
   end
 end
 
@@ -341,27 +350,69 @@ function DRAW.cooler(s)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w / 2 - 6, 16)
 end
 
-function DRAW.reactor(s)
+--- How bright the reactor's core is at `t`: a slow breath with a quicker
+--- throb in it (the halo and the night's glow follow it too).
+function RenderEternalMood.corePulse(t)
+  return 0.75 + 0.15 * math.sin(t * 1.7) + 0.1 * math.sin(t * 6.3)
+end
+
+function DRAW.reactor(s, t)
   shadow(s)
   local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  local pulse = RenderEternalMood.corePulse(t)
   color(C.steelDark)
   love.graphics.circle("fill", cx, cy, r, 40)
   color(C.steel)
   love.graphics.circle("fill", cx, cy, r - 14, 40)
+  for k = 0, 11 do -- bolts round the rim
+    local a = k * math.pi / 6
+    color(C.steelDark)
+    love.graphics.circle("fill", cx + math.cos(a) * (r - 7), cy + math.sin(a) * (r - 7), 3, 8)
+  end
   color(C.black)
   love.graphics.circle("fill", cx, cy, r * 0.55, 32)
-  love.graphics.setColor(1.0, 0.45, 0.10, 0.95) -- the core, glowing: Heck's fire
-  love.graphics.circle("fill", cx, cy, r * 0.42, 32)
+  love.graphics.setColor(1.0, 0.40 + 0.15 * pulse, 0.08, 0.95) -- the core, glowing: Heck's fire
+  love.graphics.circle("fill", cx, cy, r * (0.38 + 0.05 * pulse), 32)
   love.graphics.setColor(1.0, 0.85, 0.55, 0.95)
-  love.graphics.circle("fill", cx, cy, r * 0.18, 20)
+  love.graphics.circle("fill", cx, cy, r * (0.14 + 0.06 * pulse), 20)
   color(C.steelDark)
-  for k = 0, 7 do -- the vanes over it
-    local a = k * math.pi / 4
-    love.graphics.setLineWidth(6)
+  love.graphics.setLineWidth(6)
+  for k = 0, 7 do -- the vanes over it, turning slowly
+    local a = k * math.pi / 4 + t * 0.25
     love.graphics.line(cx + math.cos(a) * r * 0.2, cy + math.sin(a) * r * 0.2, cx + math.cos(a) * r * 0.55,
       cy + math.sin(a) * r * 0.55)
   end
   love.graphics.setLineWidth(1)
+end
+
+--- The halo round the reactor's core, added over everything near it:
+--- soft rings breathing with the core, an arc of energy running round it,
+--- and the odd spark thrown off.
+local function drawHalo(s, t)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  local pulse = RenderEternalMood.corePulse(t)
+  love.graphics.setBlendMode("add")
+  for k = 1, 6 do
+    local rr = r * (0.5 + k * 0.2) * (0.96 + 0.06 * pulse)
+    love.graphics.setColor(1.0, 0.35, 0.08, 0.065 * pulse * (1 - k / 7))
+    love.graphics.circle("fill", cx, cy, rr, 48)
+  end
+  love.graphics.setLineWidth(3)
+  for k = 0, 2 do -- energy running round it, three arcs at their own speeds
+    local a = t * (0.9 + k * 0.45) + k * 2.1
+    local rr = r * (1.25 + k * 0.22)
+    love.graphics.setColor(1.0, 0.6, 0.25, 0.35 * pulse)
+    love.graphics.arc("line", "open", cx, cy, rr, a, a + 0.9 + 0.3 * math.sin(t * 2 + k), 16)
+  end
+  love.graphics.setLineWidth(1)
+  for k = 0, 5 do -- sparks flung off, flying out and fading
+    local phase = (t * 0.8 + hash(k * 7.3)) % 1
+    local a = hash(k * 3.1 + math.floor(t * 0.8 + hash(k * 7.3))) * 2 * math.pi
+    local d = r * (0.6 + phase * 1.6)
+    love.graphics.setColor(1.0, 0.8, 0.4, 0.8 * (1 - phase))
+    love.graphics.circle("fill", cx + math.cos(a) * d, cy + math.sin(a) * d, 2.5 * (1 - phase) + 1, 6)
+  end
+  love.graphics.setBlendMode("alpha")
 end
 
 function DRAW.catwalk(s)
@@ -407,13 +458,14 @@ function DRAW.barrel(s)
   end
 end
 
-function DRAW.sludge(s)
+function DRAW.sludge(s, t)
   color(C.sludge)
   love.graphics.rectangle("fill", s.x + 8, s.y + 8, s.w - 16, s.h - 16, 18, 18)
-  color(C.sludgeLight)
-  for k = 0, 3 do
+  for k = 0, 5 do -- bubbles coming up and bursting
+    local phase = (t * (0.5 + hash(s.x + k * 3) * 0.6) + hash(s.y + k)) % 1
     local bx, by = s.x + 20 + hash(s.x + k) * (s.w - 40), s.y + 20 + hash(s.y + k * 7) * (s.h - 40)
-    love.graphics.circle("fill", bx, by, 5, 10)
+    color(C.sludgeLight, 1 - phase)
+    love.graphics.circle(phase < 0.85 and "fill" or "line", bx, by, 2 + phase * 6, 10)
   end
 end
 
@@ -516,6 +568,150 @@ function DRAW.vent(s)
   love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
 end
 
+-- The mess the night left: bins, rubbish, papers, blood, scorch marks,
+-- glass and chairs knocked over (eternal_mood.lua's `clutter`). Each
+-- carries its own `angle` and `seed`.
+
+local function turned(s, draw)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(s.angle or 0)
+  draw()
+  love.graphics.pop()
+end
+
+--- A bin, standing: a steel drum with a lid.
+function DRAW.bin(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.shadow)
+  love.graphics.circle("fill", cx + 4, cy + 4, r, 16)
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, r, 16)
+  color(C.steel)
+  love.graphics.circle("fill", cx, cy, r - 3, 16)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", cx - 5, cy - 1.5, 10, 3) -- the lid's handle
+end
+
+--- A bin knocked over on its side, its mouth to +x, rubbish spilling out.
+function DRAW.tipped(s)
+  turned(s, function()
+    local l, h = s.w * 0.6, s.h * 0.6
+    color(C.shadow)
+    love.graphics.rectangle("fill", -l / 2 + 4, -h / 2 + 4, l, h, 4)
+    color(C.steelDark)
+    love.graphics.rectangle("fill", -l / 2, -h / 2, l, h, 4)
+    color(C.steel)
+    for x = -l / 2 + 5, l / 2 - 4, 7 do -- the ribs
+      love.graphics.rectangle("fill", x, -h / 2 + 2, 2, h - 4)
+    end
+    color(C.black)
+    love.graphics.ellipse("fill", l / 2, 0, 4, h / 2 - 1, 12) -- its open mouth
+    -- what came out of it
+    for k = 0, 6 do
+      local px, py = l / 2 + 6 + hash(s.seed + k) * s.w * 0.5, (hash(s.seed * 3 + k) - 0.5) * s.h * 0.8
+      local c = k % 3 == 0 and C.paper or k % 3 == 1 and C.crate or C.steelDark
+      color(c)
+      love.graphics.rectangle("fill", px, py, 5 + hash(k + s.seed) * 6, 4 + hash(k * 2 + s.seed) * 5)
+    end
+    color(C.steelDark)
+    love.graphics.ellipse("fill", -l / 2 - 12, h / 2 + 4, 8, 3, 10) -- the lid, rolled off
+  end)
+end
+
+--- Rubbish spread across the floor.
+function DRAW.trash(s)
+  for k = 0, 9 do
+    local px, py = s.x + hash(s.seed + k) * s.w, s.y + hash(s.seed * 5 + k) * s.h
+    local c = k % 4 == 0 and C.paper or k % 4 == 1 and C.crate or k % 4 == 2 and C.steel or C.blanket
+    color(c, 0.9)
+    love.graphics.push()
+    love.graphics.translate(px, py)
+    love.graphics.rotate(hash(k * 3 + s.seed) * 3)
+    love.graphics.rectangle("fill", -3, -2, 6 + hash(k + s.seed * 2) * 6, 4)
+    love.graphics.pop()
+  end
+end
+
+--- Papers blown about: the memos nobody will read now.
+function DRAW.papers(s)
+  for k = 0, 6 do
+    local px, py = s.x + hash(s.seed + k * 1.3) * s.w, s.y + hash(s.seed * 7 + k) * s.h
+    love.graphics.push()
+    love.graphics.translate(px, py)
+    love.graphics.rotate(hash(k * 5 + s.seed) * 6)
+    color(C.shadow)
+    love.graphics.rectangle("fill", -6, -8, 13, 17)
+    color(C.paper)
+    love.graphics.rectangle("fill", -7, -9, 13, 17)
+    color(C.black, 0.35)
+    for line = -6, 4, 3 do
+      love.graphics.rectangle("fill", -5, line, 6 + hash(k + line) * 3, 1)
+    end
+    love.graphics.pop()
+  end
+end
+
+--- A blood smear: a pool and a drag mark, dried dark.
+function DRAW.blood(s)
+  turned(s, function()
+    love.graphics.setColor(0.32, 0.03, 0.03, 0.85)
+    love.graphics.ellipse("fill", 0, 0, s.w * 0.3, s.h * 0.25, 18)
+    love.graphics.setColor(0.28, 0.02, 0.02, 0.6)
+    love.graphics.polygon("fill", s.w * 0.1, -6, s.w * 0.5, -3, s.w * 0.5, 3, s.w * 0.1, 6) -- dragged off
+    for k = 0, 5 do -- spatter
+      local a = hash(s.seed + k) * 6.28
+      local d = s.w * (0.3 + hash(s.seed * 2 + k) * 0.2)
+      love.graphics.circle("fill", math.cos(a) * d, math.sin(a) * d * 0.8, 2 + hash(k) * 3, 8)
+    end
+  end)
+end
+
+--- A scorch mark, where something burned (or burst).
+function DRAW.scorch(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  for k = 3, 1, -1 do
+    love.graphics.setColor(0.05, 0.03, 0.02, 0.22 * k)
+    love.graphics.circle("fill", cx, cy, r * k / 3, 20)
+  end
+  love.graphics.setColor(0.05, 0.03, 0.02, 0.5)
+  for k = 0, 7 do -- the streaks out from it
+    local a = k * 0.785 + hash(s.seed + k) * 0.5
+    love.graphics.polygon("fill", cx, cy, cx + math.cos(a - 0.08) * r * 1.4, cy + math.sin(a - 0.08) * r * 1.4,
+      cx + math.cos(a + 0.08) * r * 1.4, cy + math.sin(a + 0.08) * r * 1.4)
+  end
+end
+
+--- Broken glass: glints on the floor.
+function DRAW.glass(s, t)
+  for k = 0, 8 do
+    local px, py = s.x + hash(s.seed + k * 2) * s.w, s.y + hash(s.seed * 3 + k) * s.h
+    local glint = 0.4 + 0.6 * math.abs(math.sin(t * 2 + k * 1.7))
+    love.graphics.setColor(0.75, 0.85, 0.85, 0.5 * glint)
+    love.graphics.polygon("fill", px, py, px + 4 + hash(k) * 4, py + 1, px + 2, py + 3 + hash(k * 2) * 3)
+  end
+end
+
+--- An office chair knocked over: the wheels' star in the air.
+function DRAW.fallen(s)
+  turned(s, function()
+    color(C.shadow)
+    love.graphics.rectangle("fill", -10, -6, 26, 18, 3)
+    color(C.black)
+    love.graphics.rectangle("fill", -12, -8, 24, 16, 3) -- the seat, on its side
+    color(C.steelDark)
+    love.graphics.rectangle("fill", 12, -10, 6, 20, 2) -- the back
+    love.graphics.setLineWidth(2)
+    for k = 0, 4 do -- the base's five legs, wheels on the end
+      local a = k * 1.2566
+      local ex, ey = -14 + math.cos(a) * 9, math.sin(a) * 9
+      love.graphics.line(-14, 0, ex, ey)
+      love.graphics.circle("fill", ex, ey, 2, 6)
+    end
+    love.graphics.setLineWidth(1)
+  end)
+end
+
 function DRAW.paint(s)
   color(C.hazard, 0.85)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
@@ -535,31 +731,65 @@ local function drawSigns(map)
   end
 end
 
-local function drawAlarms(map)
+--- How bright an alarm lamp is at `t`: a turning beacon, a sharp flash as
+--- its mirror comes round, each lamp on its own turn.
+function RenderEternalMood.alarmFlash(a, t)
+  local turn = (t * 1.6 + hash(a.x * 0.37 + a.y * 0.11)) % 1
+  return math.max(0, math.cos(turn * 2 * math.pi)) ^ 6
+end
+
+local function drawAlarms(map, t)
   for _, a in ipairs(map.alarms) do
+    local f = RenderEternalMood.alarmFlash(a, t)
     color(C.black)
     love.graphics.circle("fill", a.x, a.y, 12, 12)
-    color(C.red)
+    love.graphics.setColor(0.45 + 0.55 * f, 0.08, 0.05)
     love.graphics.circle("fill", a.x, a.y, 8, 12)
+    if f > 0.05 then -- the beam sweeping round
+      local turn = (t * 1.6 + hash(a.x * 0.37 + a.y * 0.11)) % 1 * 2 * math.pi
+      love.graphics.setBlendMode("add")
+      love.graphics.setColor(1, 0.15, 0.08, 0.35 * f)
+      love.graphics.arc("fill", a.x, a.y, 70, turn - 0.35, turn + 0.35, 10)
+      love.graphics.setBlendMode("alpha")
+    end
   end
 end
 
 --- Draw `map` (one of eternal_mood.lua's) into the canvas, `T` the tile size.
+--- Draw `map`'s floors and walls (one of eternal_mood.lua's) into the
+--- canvas, `T` the tile size. Everything on them is `drawProps`'.
 function RenderEternalMood.draw(map, T)
   drawGround(map, T)
-  -- Flat things first, then what stands up.
+  love.graphics.setColor(1, 1, 1)
+end
+
+local function inView(s, left, top, right, bottom)
+  return s.x + s.w >= left and s.x <= right and s.y + s.h >= top and s.y <= bottom
+end
+
+--- Everything on `map`'s floor within (left, top, right, bottom), world px,
+--- at full size, at time `t`: flat things first, then what stands up, the
+--- posters, the alarms, and the reactor's halo over it all.
+function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
+  local before = love.graphics.getFont()
   for _, s in ipairs(map.cover) do
-    if s.flat and DRAW[s.kind] then
-      DRAW[s.kind](s)
+    if s.flat and DRAW[s.kind] and inView(s, left, top, right, bottom) then
+      DRAW[s.kind](s, t)
     end
   end
   for _, s in ipairs(map.cover) do
-    if not s.flat and DRAW[s.kind] then
-      DRAW[s.kind](s)
+    if not s.flat and DRAW[s.kind] and inView(s, left, top, right, bottom) then
+      DRAW[s.kind](s, t)
     end
   end
   drawSigns(map)
-  drawAlarms(map)
+  drawAlarms(map, t)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "reactor" and inView(s, left - 400, top - 400, right + 400, bottom + 400) then
+      drawHalo(s, t)
+    end
+  end
+  love.graphics.setFont(before)
   love.graphics.setColor(1, 1, 1)
 end
 

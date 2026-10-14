@@ -30,6 +30,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
   you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
   the other seven. The Floor Manager's meetings bring a few in too.
+- Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
+  and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
+  everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
+  their sides.
 
 ## [0.27.0] - 2026-10-14
 

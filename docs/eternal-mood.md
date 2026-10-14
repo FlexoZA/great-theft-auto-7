@@ -100,6 +100,25 @@ branch off `feature/eternal-mood`):
   in behind the staffer at each doorway (his staffers down from two to one
   a doorway).
 
+- `feature/eternal-mood-visuals`: Fobos Base looked at again. Its props
+  are drawn every frame at full size by the eternal-mood feature
+  (render_eternal_mood.lua's `drawProps`, culled to the view; the feature's
+  priority is 27, over the map canvas and under corpses and pickups), not
+  into the half-size map canvas, which keeps only the floors and walls: no
+  more soft props, and the posters are sharp. Some of it moves: the
+  reactor's core breathes (`corePulse`) under a halo (soft rings, three arcs
+  of energy running round, sparks flung off) and its glow in the dark
+  breathes with it; its vanes turn; the sludge bubbles; the consoles'
+  screens scroll and blink. The alarm lamps over the doors turn like
+  beacons (`alarmFlash`: a dim red always, a flash and a sweeping beam as
+  each comes round). One strip light in four is on the blink
+  (`map.flickers`): on, with a stutter every so often; one in twelve has
+  all but died, with the odd flash. And the mess the night left, scattered
+  per room (eternal_mood.lua's `CLUTTER`, kept to open floor, off the
+  doorways and away from everyone's spots and routes): bins (solid),
+  tipped bins spilling rubbish, trash, memos, blood, scorch marks, glass
+  that glints, office chairs knocked over.
+
 ## Decisions
 
 | Question | Decision |
@@ -346,8 +365,8 @@ points at the boss.
   computer screens, strip lights burning red-orange. Heck's: dark red rock,
   black bone, orange lava, and everything lit from below.
 - Light comes in pools: the `night` feature's dark with lamps, screens,
-  fires and lava as the lights. Fobos Base's alarms sweep red over
-  everything every couple of seconds.
+  fires and lava as the lights. Fobos Base's alarm lamps turn like beacons,
+  and its strip lights are on the blink.
 - Pun signs and posters, the way Grey City has NOODLZ: UAC: WE OPENED IT SO
   YOU DON'T HAVE TO, PORTAL SAFETY WEEK (0 DAYS SINCE LAST INCIDENT), DEMON
   PARKING ONLY, HECK: NOW HIRING, MIND THE LAVA.
