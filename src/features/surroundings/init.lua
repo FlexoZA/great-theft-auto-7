@@ -41,6 +41,20 @@
 -- burning, the railway, the canal and the wall running on, all under a
 -- haze (city17.lua).
 --
+-- Grey City's Drop carries on as downtown at night (grey_city.lua): blocks
+-- of grey towers with neon on their edges, street lamps, traffic going by
+-- both ways, a haze further out. The night feature darkens it like the
+-- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`). Round
+-- the Market the same city is at war (turf_war.lua): a front through it,
+-- no-man's-land, barricades, tracer fire, shells and fires, and it is
+-- heard too (war_sounds.lua): bursts and shells where they happen, and the
+-- war further out.
+--
+-- Under the Overpass the same city lies a long way down (overpass_below.lua):
+-- blocks, streets and traffic and a river, drawn small and sliding by slow
+-- under a haze, its lights dimmed by the distance. Its map is see-through
+-- off the deck, so the city shows under the bridge too.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -49,6 +63,9 @@
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
+local GreyCity = require("src.features.surroundings.grey_city")
+local OverpassBelow = require("src.features.surroundings.overpass_below")
+local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
   name = "surroundings",
@@ -69,8 +86,25 @@ local BOLLARD_EVERY = 72 -- px along the wall
 
 local clock = 0
 
-function Surroundings:update(dt)
+function Surroundings:load()
+  WarSounds.load()
+end
+
+function Surroundings:update(dt, client)
+  local was = clock
   clock = clock + dt
+  -- The war past the Market's walls, heard as it is seen (war_sounds.lua).
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local x, y
+  if client and map and map.tiles and GreyCity.WAR[map.name] then
+    x, y = client:myPose()
+  end
+  if x then
+    WarSounds.update(dt, x, y, was, clock, function(_lx, ly, reach, t0, t1, fn)
+      GreyCity.events(map, ly, reach, t0, t1, fn)
+    end)
+  end
 end
 
 -- The shore ---------------------------------------------------------------
@@ -1129,6 +1163,25 @@ local function coast(map, camera)
   end)
 end
 
+--- Halcyon Tower's city below (overpass_below.lua): further down than the
+--- Overpass's, no river, and nothing shows through the tower itself.
+local function towerBelow(map)
+  local x0, x1 = map.left + Layout.TILE * 1.5, map.left + map.w - Layout.TILE * 1.5
+  return { depth = 0.3, river = false, towers = 0.6, covered = function(x)
+    return x >= x0 and x <= x1
+  end }
+end
+
+--- The Roof's: further down still, skyscrapers' tops round it, nothing
+--- showing through the roof itself (inside its parapet).
+local function roofBelow(map)
+  local T = Layout.TILE
+  local x0, y0, x1, y1 = map.left + T * 2, map.top + T * 2, map.left + map.w - T * 2, map.top + map.h - T * 2
+  return { depth = 0.25, river = false, towers = 0.55, covered = function(x, y)
+    return x >= x0 and x <= x1 and y >= y0 and y <= y1
+  end }
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -1144,7 +1197,53 @@ local DRAW = {
     City17.draw(map, camera, left, top, right, bottom, clock)
   end,
   coast = coast,
+  drop = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
+  end,
+  market = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
+  end,
+  overpass = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock)
+  end,
+  tower = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, towerBelow(map))
+  end,
+  roof = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, roofBelow(map))
+  end,
 }
+
+-- What glows past the edge of a map played at night, by map name.
+local LIGHTS = {
+  drop = GreyCity.lights,
+  market = GreyCity.lights,
+  overpass = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow)
+  end,
+  tower = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, towerBelow(map))
+  end,
+  roof = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
+  end,
+}
+
+--- At night (the night feature): what glows past the edge.
+function Surroundings:drawNightLights(_client, camera, glow)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local lights = map and LIGHTS[map.name]
+  if lights and map.tiles then
+    local left, top, right, bottom = view(camera)
+    lights(map, left, top, right, bottom, clock, glow, camera)
+  end
+end
 
 function Surroundings:drawBelowCars(_client, camera)
   local city = Features.byName["city-map"]

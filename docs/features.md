@@ -297,6 +297,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
+| `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
 | `menuOpen(client)` | weapons and abilities ask | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone and abilities cast nothing. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
 | `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
@@ -658,7 +659,9 @@ couple of small conventions rather than requiring each other:
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
   An optional last argument `from` names what fired an ownerless shot
-  ("gang" for a Gang Hangout's guards); it reaches every `serverShotAt` as
+  ("gang" for a Gang Hangout's guards, "halcyon" or "static" for the Cyber
+  Feud's factions, whose rounds pass through their own side and hit the
+  other's); it reaches every `serverShotAt` as
   its last argument. Police officers ignore ownerless rounds without one
   (their own), so a round with a `from` is one that hits them.
   `police:serverOfficersAfter(id)` lists the officers on foot after player
@@ -675,7 +678,7 @@ couple of small conventions rather than requiring each other:
   many went in. The other way round from `serverTake`.
   `buildings:serverQuickGive(server, player, item, n)` does the same
   straight into the quick slot for a medkit, drink or grenade (up to its
-  stack of 5); pickups stashes a medkit found at full health this way.
+  stack of 5; none while the slot holds the other kind of grenade); pickups stashes a medkit found at full health this way.
 - Freight, for moving materials between buildings with no player carrying
   them (host only): `buildings:serverBuilding(plotId)` reads the host's
   record of a building (kind, owner, product, output, hopper, hp);
@@ -684,8 +687,11 @@ couple of small conventions rather than requiring each other:
   `serverFillHopper(server, plotId, item, n)` → moved fill a factory's hopper.
 - `Features.byName.vehicles:serverSetModel(server, car, model)`: make a car
   already in the world (an NPC's own) a model from `vehicles.catalog.byKey`.
-- `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
-  pickup on the ground right there, gone for good once taken. `kind` is a
+- `Features.byName.pickups:serverDrop(server, kind, x, y, amount, opts)`: leave a
+  pickup on the ground right there, gone for good once taken. `opts.perPlayer`
+  makes it one every human takes once (a boss's reward): it is gone only for
+  whoever took it, and stays until the map changes; any other `opts` are kept
+  on the item for its kind's `apply` (`unlocks`). `kind` is a
   pickups kind ("health", "stamina": used on the spot, or put in the
   taker's quick slot when it would do nothing, till that is full),
   `"ammo-<gun key>"` for a box of
@@ -704,7 +710,8 @@ couple of small conventions rather than requiring each other:
   police's officers and units), and the one place the odds live: one thing
   at most, `pickups.dropChance` (65%) of anything, then one of
   `pickups.drops` by weight (an ammo box 3, a medkit, an energy drink and a
-  kevlar vest 1 each, a grenade 0.5); something with tiers then rolls its tier by
+  kevlar vest 1 each, a grenade 0.5, an electric grenade 0.3 but only while
+  its `unlocked` hook, `serverAnyUnlocked`, says somebody has it); something with tiers then rolls its tier by
   `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
   kind and its weight to `drops` and every enemy can drop it. A human with no armor on
   who runs over a vest wears it at once, whole
@@ -803,7 +810,10 @@ the one with a plot.
   the meadow gives way to woods south. The outskirts are fenced round with
   post and rail, farmland past it: a patchwork of fields with tracks
   between, a lone tree here and there, a farm and a tractor working a
-  field. Every map now has surroundings; a new one gets them with an entry
+  field. Under the Overpass's bridge Grey City lies a long way down
+  (`overpass_below.lua`): drawn small and sliding by slowly (parallax)
+  under a haze, with a river, its lights left off the deck; and through
+  Halcyon Tower's glass walls the same city, further down. Every map now has surroundings; a new one gets them with an entry
   in the `DRAW` table (by map name), and shows the grid until it does. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know
@@ -877,8 +887,13 @@ the one with a plot.
   the circle and the key come with it. An `aimed` entry (the grenade) is
   left to the feature that owns it: its key readies it and that feature
   sends `BLD_USE <item> <x> <y>` on a click, which reaches `apply` as `args`.
+  An entry's `variants` (by item: a `title` and `color`) are other items the
+  same slot takes, one kind at a time (the grenade slot takes electric
+  grenades): dragging the other kind onto it swaps them, the old stack back
+  into the bag; `serverQuickGive` gives nothing while it holds the other
+  kind. `buildings:slotOf(u)` says what a slot holds and how many.
 - Grenades: `src/features/grenades` throws the grenades in the grenade quick
-  slot (five at most). T readies one: the landing spot follows the cursor,
+  slot (five at most). G readies one: the landing spot follows the cursor,
   within `grenades.range` and short of the first wall (`Grenades.landing`,
   the same sum on the host), with the blast's reach drawn round it, and the
   fire button throws it (`fireTaken`). It flies in an arc for a time that
@@ -886,9 +901,42 @@ the one with a plot.
   (explosive, the thrower too). On foot only; no tiers (a consumable). The
   ammo factory makes them out of iron and sulfur and the shop sells them
   under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
-  `grenades:serverLob(server, ox, oy, x, y, owner)` throws one for an
+  `grenades:serverLob(server, ox, oy, x, y, owner, kind)` throws one for an
   enemy (owner 0: hurts any player, credits nobody); A-Man's Combine and
-  D-Day's soldiers do.
+  D-Day's soldiers do. Each kind is an entry of `grenades.kinds` by its
+  item, with its blast. The electric grenade ("grenade-electric", a variant
+  of the grenade slot: drag it there and G throws it) is General Volt's: never
+  made (`Kinds.special` lets a bag carry it all the same), and only sold to
+  those who have unlocked it (60 Fcks). Its blast is shock (30, a stun) and holds every
+  enemy in it still for 1.5 s (`serverFreezeArea`), and it leaves a 110 px
+  field for 4 s that zaps whoever stays (8 shock every 0.5 s; players but the
+  thrower, and up to 3 enemies of each kind through their `serverShotAt`).
+  A player unlocks it by picking up the stack Volt drops (a `perPlayer`
+  pickup with `unlocks`: `grenades:serverTakeElectric`), which puts the
+  reward screen up (GRN_UNLOCK); the unlock is saved with them
+  (`serverSavePlayer`, `{ version, electric }`; a returning player's screen
+  hears it as `GRN_UNLOCK grenade-electric quiet`, no reward screen). After
+  that the shop sells it to them (`itemUnlocked` / `serverItemUnlocked`), and
+  enemies drop it now and then (`pickups.drops`' `unlocked`) while any human
+  in the world has it unlocked; only those who have can pick one up.
+- Weather: `src/features/weather` is rain and lightning that another
+  feature turns on from the host: `weather:serverSetRain(server, on)` (rain
+  on every screen, fading in over 3 s and out over 5, with its hiss),
+  `weather:serverSetStorm(server, on)` (a flash in the sky every 3-7 s and
+  thunder rolling in after), and `weather:serverStrike(server, x, y, opts)`
+  (a bolt marked on the ground for `opts.warn` s, then striking everyone on
+  foot and every car within `opts.radius` for `opts.damage` /
+  `opts.carDamage` shock, and a few pedestrians). Everything clears when
+  the map changes. The rain is a lens just after the night's (streaks and
+  splashes over the dark, carried along with the view); a flash lights the
+  night through `drawNightLights`. Its sounds have their own volume
+  ("weather"). General Volt's fight uses all three.
+- Rewards: `src/features/rewards` puts up the full-screen card for something
+  unlocked: `Features.byName.rewards:show({ kicker, title, color, icon =
+  function(cx, cy, scale), lines })`, client side, from whatever feature
+  hears of the unlock. The world keeps going behind it; it has the mouse and
+  keys while up (`menuOpen`, `pointerTaken`) and Enter or a click puts it away
+  after 0.8 s. Cards queue.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face
@@ -1476,6 +1524,48 @@ the one with a plot.
   a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
   half-time drums, a chorus with a harmonised lead, a breakdown under the
   Combine's alarm).
+- Night: `src/features/night`. A map whose city-map spec says `night =
+  true` (Grey City's five) is played in the dark: in `drawLens`, under the
+  HUD, it draws a light map the size of the window (a dim blue ambient,
+  `Night.ambient`) and multiplies the world by it. Added onto it: the map's
+  `lights` ({ x, y, r, color, a }, world px: neon, lamps, screens), every
+  driven car's headlights and tail lights, a pool round everyone on foot
+  with a torch beam where they face, and whatever features draw in
+  `drawNightLights`. Draw a night map's own colours as if by day; the night
+  takes them down. Local only: nothing sent.
+- Cyber Feud: `src/features/cyber-feud` and quests' "cyber-feud" job
+  ("Courier wanted", on the board), design in `docs/cyber-feud.md`. Five
+  maps in Grey City, all at night, chained by EXIT stars like A-Man's:
+  the Drop (`drop`, driven, 64x96), the Market (`market`, walked, 56x56),
+  the Overpass (`overpass`, driven, 32x200), Halcyon Tower (`tower`, walked,
+  48x112) and the Roof (`roof`, walked, 36x36), quests "cyber-feud",
+  "cyber-feud-market", "-overpass", "-tower" and "-roof", each with a HOME
+  star at its `map.cx, map.cy`. City-map builds them all in
+  `city-map/cyber_feud.lua` (what each leaves on the map is in its header:
+  `exitX, exitY`, `zones`, `roads`, `cover`, `signs`, `lights`, the Drop's
+  `pickupX, pickupY` and `vexY`, the tower's `floors`, the Roof's `helipad`)
+  and draws them in `render_cyber_feud.lua`. On the Overpass, the one
+  driven map, anyone without a car is lent a red sedan; the rest are walked. Each level is the way through: the
+  first player within 160 px of the map's `exitX, exitY` finishes it
+  (`quests:serverComplete`), and the star there leads on to the next, or
+  home from the Roof. On the Drop the package comes first: the first player
+  to press the action key (F, `actionTaken`)
+  within 110 px of the vending machine (`map.pickupX, pickupY`) takes the
+  Shard (`CF_TAKE`, checked on the host) and carries it for the rest of the
+  line, a green diamond over them (`CF_SHARD`; if they leave it passes to
+  another human), and the Drop can't be finished without it.
+  The story (`cyber-feud/story.lua` holds every word): arriving on a map
+  puts up its banner (GREY CITY, n / 5, the name, a tagline), after VEX's
+  intro screen (`cyber-feud/screen.lua`, her 64x72 face in `face.lua`) on
+  every map but the Drop, where it waits until someone with the Shard is
+  past `map.vexY` (she boots up in the dash). The host raises story beats
+  once a level each (`CF_BEAT <key>`, `Story.beats`): walking into a part
+  of the map (`map.zones`), the Overpass's dead end (`map.knot`), the far
+  end; each is a line of hers on the comms (`cyber-feud/hud.lua`: her small
+  portrait, the words typed out, one at a time off a queue). Every machine
+  also names the part of the map you walk into (the tower's floors as
+  FLOOR n OF 6) and keeps an objective line with the distance to its
+  point. The factions, the breach and the bosses follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
@@ -1616,7 +1706,11 @@ the one with a plot.
   draws over every other HUD piece (priority 993), under only the inventory.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
-  lists, so a new gun or model is on the shelf by itself. A click on a card
+  lists, so a new gun or model is on the shelf by itself. An entry marked
+  `unlock` (the electric grenade) is only on the shelf, and only sold, to a
+  player who has unlocked it: the feature that owns it answers
+  `itemUnlocked(item)` on their screen and `serverItemUnlocked(server,
+  player, item)` on the host. A click on a card
   shows it in a side panel on the right (`shop/details.lua`): a bigger
   picture, its `blurb`, how it is used and its numbers in the tier on show,
   those the tier improves in the tier's colour. Give a new gun, ability,

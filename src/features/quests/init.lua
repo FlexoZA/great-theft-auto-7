@@ -5,13 +5,15 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Five jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Six jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
--- after Shotgun (shotgun), and one by train into City 17 after A-Man
--- (a-man), whose trail carries on over four more maps by EXIT stars. A blue star by the entrance of each brings
--- everyone home again; a star comes up when you drive or walk onto it, and
+-- after Shotgun (shotgun), one by train into City 17 after A-Man (a-man),
+-- whose trail carries on over four more maps by EXIT stars, and the
+-- courier job into Grey City (cyber-feud), five maps the same way. A blue
+-- star by the entrance of each brings everyone home again; a star comes
+-- up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
 -- nearest one is the one on offer. Add a quest to `Quests.list` with
 -- `board = true` and the board, the offer and the trip are all done here;
@@ -204,6 +206,85 @@ Quests.list = {
     introLine = 9,
   },
   {
+    -- Cyber Feud (docs/cyber-feud.md): five maps in Grey City, at night.
+    -- The cyber-feud feature runs the levels.
+    id = "cyber-feud",
+    title = "Courier wanted",
+    text = "No questions. A package is waiting in a vending machine downtown in Grey City. Pick it up and "
+      .. "get it across town before anyone else does.",
+    board = true,
+    map = "drop",
+    boss = "cyber-feud",
+    label = "CYBER FEUD",
+    color = { 1, 0.24, 0.78 },
+    banner = "%s took the courier job. Welcome to Grey City.",
+    exitText = "You're through the roadblock. The tunnel runs on under the city to the Market. Keep moving.",
+    exitTitle = "Into the tunnel",
+    exitLabel = "MARKET",
+    next = "cyber-feud-market",
+  },
+  {
+    -- On foot through the Market: the Drop's tunnel star leads here.
+    id = "cyber-feud-market",
+    title = "The Market",
+    text = "A covered market of stalls round Noodle Square, both sides already in it. Get through on foot.",
+    map = "market",
+    boss = "cyber-feud",
+    label = "CYBER FEUD",
+    color = { 1, 0.24, 0.78 },
+    banner = "%s came out of the tunnel. Welcome to the Market.",
+    introLine = 2,
+    exitText = "The dock's clear and there are cars waiting. The Overpass runs out over the city from here.",
+    exitTitle = "Onto the Overpass",
+    exitLabel = "OVERPASS",
+    next = "cyber-feud-overpass",
+  },
+  {
+    -- Driven along the Overpass: the Market's dock star leads here.
+    id = "cyber-feud-overpass",
+    title = "The Overpass",
+    text = "An elevated highway over the city, war-rigs and drones on it. VEX says she knows a shortcut.",
+    map = "overpass",
+    boss = "cyber-feud",
+    label = "CYBER FEUD",
+    color = { 1, 0.24, 0.78 },
+    banner = "%s took the on-ramp. Welcome to the Overpass.",
+    introLine = 3,
+    exitText = "The highway runs straight into Halcyon Tower's garage. Get inside.",
+    exitTitle = "Into the tower",
+    exitLabel = "HALCYON",
+    next = "cyber-feud-tower",
+  },
+  {
+    -- Up Halcyon Tower on foot: the Overpass's garage star leads here.
+    id = "cyber-feud-tower",
+    title = "Halcyon Tower",
+    text = "Six floors, every stair door locked, Halcyon above you and the Static coming up behind.",
+    map = "tower",
+    boss = "cyber-feud",
+    label = "CYBER FEUD",
+    color = { 1, 0.24, 0.78 },
+    banner = "%s got into the tower. Welcome to Halcyon Tower.",
+    introLine = 4,
+    exitText = "The executive lift goes all the way up. Saye and Kilowatt are waiting on the roof.",
+    exitTitle = "Up to the roof",
+    exitLabel = "ROOF",
+    next = "cyber-feud-roof",
+  },
+  {
+    -- The end of the line: the tower's lift star leads here.
+    id = "cyber-feud-roof",
+    title = "The Roof",
+    text = "The top of Halcyon Tower, in the rain. Everyone who wants you dead is up here.",
+    map = "roof",
+    boss = "cyber-feud",
+    label = "CYBER FEUD",
+    color = { 1, 0.24, 0.78 },
+    banner = "%s rode the lift up. Welcome to the Roof.",
+    introLine = 5,
+    exitText = "Saye and Kilowatt are down, and VEX is gone into the net. Nothing personal, courier. Head home.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -314,6 +395,71 @@ Quests.list = {
     onMap = "outercity",
     x = -2016, -- the left end of the arrival square: city-map's map.cx, map.cy
     y = 1408,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-drop",
+    title = "Back to the City",
+    text = "Back down into the garage. Take everyone home.",
+    onMap = "drop",
+    x = -1152, -- in the garage: city-map's map.cx, map.cy
+    y = 2912,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-market",
+    title = "Back to the City",
+    text = "Back through the tunnel. Take everyone home.",
+    onMap = "market",
+    x = -416, -- by the south gate: city-map's map.cx, map.cy
+    y = 1568,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-overpass",
+    title = "Back to the City",
+    text = "Back down the on-ramp. Take everyone home.",
+    onMap = "overpass",
+    x = 0, -- at the foot of the on-ramp: city-map's map.cx, map.cy
+    y = 6304,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-tower",
+    title = "Back to the City",
+    text = "Back out the front door. Take everyone home.",
+    onMap = "tower",
+    x = -256, -- by the lobby doors: city-map's map.cx, map.cy
+    y = 3408,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-roof",
+    title = "Back to the City",
+    text = "Back down the stairs. Take everyone home.",
+    onMap = "roof",
+    x = -224, -- at the top of the stairs: city-map's map.cx, map.cy
+    y = 992,
     map = "city",
     returns = true,
     label = "HOME",
@@ -613,6 +759,22 @@ function Quests:drawBelowCars()
   local jobs = self:jobs()
   if jobs then
     Jobs.drawBuilding(jobs, fillStar, self.doorRadius, self.atJobs, time)
+  end
+end
+
+--- At night (the night feature), every star on this map glows so it can be found.
+function Quests:drawNightLights(_client, _camera, glow)
+  local city = cityMap()
+  if not city then
+    return
+  end
+  for _, quest in ipairs(self.list) do
+    if quest.onMap == city.current then
+      glow(quest.x, quest.y, 110, quest.color, 0.9)
+    end
+  end
+  if self.exit and self.exit.onMap == city.current then
+    glow(self.exit.x, self.exit.y, 110, self.exit.color, 0.9)
   end
 end
 

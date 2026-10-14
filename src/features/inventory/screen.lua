@@ -442,24 +442,27 @@ local function drawQuick(L, buildings, lifted)
   heading("quick use", L.quickLabel.x, L.quickLabel.y)
   for _, r in ipairs(L.quick) do
     local u = r.usable
-    local n = lifted ~= r.item and buildings:quickCount(r.item) or 0
+    local item, n = buildings:slotOf(u)
+    if lifted == item then
+      n = 0
+    end
+    local title, c = buildings.look(u, item)
     box(r.x, r.y, r.w, r.h, n > 0, false)
     love.graphics.setFont(UI.fonts.small)
     local key = Controls.name(Controls.bindings(u.action)[1])
-    local c = u.color
     love.graphics.setColor(c[1], c[2], c[3], n > 0 and 1 or 0.35)
     love.graphics.rectangle("fill", r.x + 4, r.y + 4, 20, 18, 4)
     love.graphics.setColor(1, 1, 1, n > 0 and 1 or 0.5)
     love.graphics.printf(key, r.x + 4, r.y + 5, 20, "center")
     if n > 0 then
-      Render.itemIcon(r.item, r.x + r.w / 2 + 8, r.y + 30)
+      Render.itemIcon(item, r.x + r.w / 2 + 8, r.y + 30)
       love.graphics.setColor(1, 0.85, 0.3)
       love.graphics.printf(("%d/%d"):format(n, u.max), r.x, r.y + 4, r.w - 6, "right")
       love.graphics.setColor(0.85, 0.85, 0.9)
-      love.graphics.printf(u.title, r.x, r.y + r.h - 20, r.w, "center")
+      love.graphics.printf(title, r.x, r.y + r.h - 20, r.w, "center")
     else
       love.graphics.setColor(1, 1, 1, 0.2)
-      love.graphics.printf(u.title, r.x, r.y + r.h / 2 - 8, r.w, "center")
+      love.graphics.printf(title, r.x, r.y + r.h / 2 - 8, r.w, "center")
     end
   end
 end
@@ -659,8 +662,9 @@ function Screen.draw(buildings, list, drag, notice, client)
   local foot = "drag things between their slots, your gear and your bag, or into the bin   "
     .. Controls.name(Controls.bindings("inventory")[1]) .. ": close"
   for _, u in ipairs(buildings.usables) do
-    if buildings:quickCount(u.item) > 0 then
-      foot = Controls.name(Controls.bindings(u.action)[1]) .. ": " .. Kinds.name(u.item, 1) .. "   " .. foot
+    local item, n = buildings:slotOf(u)
+    if n > 0 then
+      foot = Controls.name(Controls.bindings(u.action)[1]) .. ": " .. Kinds.name(item, 1) .. "   " .. foot
     end
   end
   love.graphics.setColor(0.6, 0.6, 0.65)
@@ -850,12 +854,12 @@ function Screen.drawBag(buildings, x, y, h, selected)
   -- The quick slots, a line each, at the bottom.
   qy = qy + carryHeight(barH)
   for _, u in ipairs(buildings.usables or {}) do
-    local n = buildings:quickCount(u.item)
-    local c = u.color
+    local item, n = buildings:slotOf(u)
+    local title, c = buildings.look(u, item)
     love.graphics.setColor(c[1], c[2], c[3], n > 0 and 1 or 0.4)
     love.graphics.rectangle("fill", x + 16, qy + 4, 10, 10, 2)
     love.graphics.setColor(0.85, 0.85, 0.9, n > 0 and 1 or 0.5)
-    love.graphics.print(u.title, x + 32, qy)
+    love.graphics.print(title, x + 32, qy)
     love.graphics.setColor(1, 0.85, 0.3, n > 0 and 1 or 0.4)
     love.graphics.printf(("%d/%d"):format(n, u.max), x, qy, w - 16, "right")
     qy = qy + 20

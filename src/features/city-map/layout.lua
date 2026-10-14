@@ -28,7 +28,9 @@
 -- blocks, canals and parks round an open square (outer_city.lua). `kind =
 -- "coast"` is the Coast, one beach between the sea and green mountains,
 -- opening into coves (coast.lua). `kind = "road"` is the Winding Road, one
--- long mountain road over a river, driven (road.lua).
+-- long mountain road over a river, driven (road.lua). `kind = "drop"`,
+-- "market", "overpass", "tower" and "roof" are Grey City's five maps, the
+-- Cyber Feud quest line's (cyber_feud.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -37,6 +39,7 @@ local Citadel = require("src.features.city-map.citadel")
 local OuterCity = require("src.features.city-map.outer_city")
 local Coast = require("src.features.city-map.coast")
 local Road = require("src.features.city-map.road")
+local CyberFeud = require("src.features.city-map.cyber_feud")
 
 local Layout = {}
 
@@ -1233,8 +1236,10 @@ function Layout.generate(spec)
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
     or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" then
-    if map.kind == "forest" then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind) then
+    if CyberFeud.builds(map.kind) then
+      CyberFeud.build(map, rng, T)
+    elseif map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then
       buildBeach(map, rng)

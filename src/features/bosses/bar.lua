@@ -8,7 +8,8 @@
 --   })
 --
 -- A machine has no breath (the Hunter-Chopper): `noBreath = true` leaves
--- the thin bar off.
+-- the thin bar off. Two bosses at once (the Roof's): `row = 1` puts the
+-- second one's bar above the first's.
 
 local UI = require("src.ui")
 
@@ -18,11 +19,12 @@ Bar.width = 380
 Bar.height = 14
 Bar.bottom = 150 -- px up from the bottom edge: above the magazine line and the ability circles
 Bar.breathHeight = 5
+Bar.rowGap = 48 -- px up for each `row` past the first
 
 function Bar.draw(spec)
   local w, h = love.graphics.getDimensions()
   local bw, bh = Bar.width, Bar.height
-  local bx, by = math.floor((w - bw) / 2), h - Bar.bottom
+  local bx, by = math.floor((w - bw) / 2), h - Bar.bottom - (spec.row or 0) * Bar.rowGap
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf(spec.title, 1, by - 19, w, "center")

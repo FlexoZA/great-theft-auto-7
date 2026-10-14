@@ -6,6 +6,8 @@ local Buildings = require("src.features.city-map.buildings")
 local RenderCitadel = require("src.features.city-map.render_citadel")
 local RenderCoast = require("src.features.city-map.render_coast")
 local RenderRoad = require("src.features.city-map.render_road")
+local RenderCyberFeud = require("src.features.city-map.render_cyber_feud")
+local CyberFeud = require("src.features.city-map.cyber_feud")
 
 local Render = {}
 
@@ -1506,8 +1508,10 @@ function Render.build(map)
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
   if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" then
-    if map.kind == "beach" then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind) then
+    if CyberFeud.builds(map.kind) then
+      RenderCyberFeud.draw(map, Layout.TILE)
+    elseif map.kind == "beach" then
       drawBeach(map)
     elseif map.kind == "city17" then
       drawCity17(map)

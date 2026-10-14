@@ -88,7 +88,8 @@ Sight.RINGS = 3 -- range rings across the cone
 --- sweeping from side to side, a fading trail behind it. Cold green while
 --- scanning, a hot pulsing red with somebody in it. `fov` is how wide
 --- (Sight.FOV unless given); a wider one gets more rays. `opts.seed`
---- (optional) sets where its beam is, so a crowd's don't sweep in step.
+--- (optional) sets where its beam is, so a crowd's don't sweep in step;
+--- `opts.color` ({ r, g, b }, optional) is its colour while scanning.
 function Sight.draw(x, y, facing, range, alert, time, fov, opts)
   fov = fov or Sight.FOV
   time = time or 0
@@ -102,6 +103,10 @@ function Sight.draw(x, y, facing, range, alert, time, fov, opts)
     reached[i + 1] = math.sqrt((ex - x) ^ 2 + (ey - y) ^ 2)
   end
   local r, g, b, fill, edge = 0.45, 1, 0.65, 0.05, 0.22
+  local own = opts and opts.color
+  if own then
+    r, g, b = own[1], own[2], own[3]
+  end
   if alert then
     local pulse = 0.5 + 0.5 * math.sin(time * 12)
     r, g, b, fill, edge = 1, 0.25, 0.18, 0.10 + 0.06 * pulse, 0.45
