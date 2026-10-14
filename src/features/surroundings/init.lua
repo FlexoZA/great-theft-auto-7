@@ -61,6 +61,9 @@
 -- roofs between dark streets, fires on a good few, smoke drifting over.
 -- The Foundry stands at the starport (starport_pads.lua): tarmac, landing
 -- pads and their runway lights, the odd shuttle parked.
+-- Past Heck's edge (heck.lua): a red abyss, lava falls, upside-down castles,
+-- and off the Altar Fields' west edge a crack in the sky with the sofa's
+-- ceiling through it.
 --
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
@@ -75,6 +78,7 @@ local OverpassBelow = require("src.features.surroundings.overpass_below")
 local FobosMoon = require("src.features.surroundings.fobos_moon")
 local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
 local StarportPads = require("src.features.surroundings.starport_pads")
+local HeckBeyond = require("src.features.surroundings.heck")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1237,6 +1241,10 @@ local DRAW = {
   foundry = function(map, camera)
     StarportPads.draw(map, view(camera))
   end,
+  heck = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckBeyond.draw(map, left, top, right, bottom, clock)
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
@@ -1254,6 +1262,7 @@ local LIGHTS = {
   end,
   earth = HeckOnEarth.lights,
   foundry = StarportPads.lights,
+  heck = HeckBeyond.lights,
 }
 
 --- At night (the night feature): what glows past the edge.

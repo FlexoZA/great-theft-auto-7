@@ -1656,7 +1656,13 @@ the one with a plot.
   `low` (`map.lows`): sight and rounds pass over, a player walking in it
   burns, and the horde keeps out of it (`ground.lua`'s `Ground.blocked`
   and `Ground.clear` stand in for Sight's in every walker's brain, and it
-  shuts the walking grid's cells over the lava). The next two maps follow.
+  shuts the walking grid's cells over the lava). The Foundry's portal leads
+  on to Heck (`heck`, 60x96, quest "eternal-mood-heck", "home-heck" by the
+  portal): a sea of lava crossed by bone bridges, the Altar Fields with
+  the pizza box sinking in a lake to the east, and the Mattress's plateau
+  before the Snooze Gate. Its lava is poured from tiles into as few low
+  rectangles as it takes; `outside` "abyss" (past the edge, surroundings'
+  `heck.lua`). Its boss, the Spider Mattressmind, and the last map follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

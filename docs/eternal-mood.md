@@ -372,6 +372,33 @@ branch off `feature/eternal-mood`):
   under a choir coming up out of the floor and a slow, mournful lead; and
   the machine into the top. Its own riffs, none of anybody else's.
 
+- `feature/eternal-mood-heck`: Heck (`heck`, 60x96, on foot,
+  `city-map/eternal_mood.lua`'s `buildHeck`), quest `eternal-mood-heck`
+  (introLine 4) behind the Foundry's portal (EXIT star "HECK"), its HOME
+  star back into the portal on the shelf, and what lies past its edge
+  (surroundings' `heck.lua`: a red abyss, lava falls pouring into it,
+  black castles hanging upside down, embers drifting up, and off the Altar
+  Fields' west edge a crack across the sky with the sofa's ceiling through
+  it and a lampshade hanging down). Its walls are Heck's rock all through
+  (`heckFrom`), the void past them the abyss (`outside` "abyss"). Bottom to
+  top: the Arrival Shelf (out of the portal); the Bone Bridges, a sea of
+  lava from wall to wall (poured as few low rectangles as it takes: it
+  burns, sight and rounds cross it, the horde keeps out) with four rock
+  islands in it and bridges of bone between them, three ways across (west,
+  east, and a narrow one straight up the middle); the Altar Fields, wide
+  open rock with nine altars (candles, a smear of red) and ten spikes for
+  cover and four fire pits (low: they burn), and to the east a lake of
+  lava with a pizza box the size of a house sinking in it, lid open, a
+  slice gone, big enough to see from across the map; a ramp up onto the
+  Mattress, a plateau with a huge striped mattress on it, empty, and the
+  Snooze Gate at the top, a stone door in a frame of bones under a clock
+  whose hands go round too fast. Reaching the gate finishes the level (for
+  now going home). Demons only, from what there is so far: imps out of
+  eleven cracks (four on the islands, seven over the Fields), eight
+  Cacodaemons in seven flocks over the lava and the Fields (one over the
+  pizza); the Mattress's plateau is quiet. The Foundry's theme for now; no
+  Spider Mattressmind yet, so the gate is open.
+
 ## Decisions
 
 | Question | Decision |
