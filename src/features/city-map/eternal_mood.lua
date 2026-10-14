@@ -55,7 +55,8 @@
 --                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
 --                         to, where a player wakes him, the gate he keeps closed; "baron" { x, y, facing,
 --                         zone, wake, pit, portal }: the same, the pit he calls imps out of, the portal
---                         he keeps sealed
+--                         he keeps sealed; "mattressmind" { x, y, facing, zone, wake, gate }: the same,
+--                         the gate it keeps locked
 --   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
 --                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -73,7 +74,7 @@
 -- carried at vx, vy px/s, the eternal-mood feature's belts.lua) and kinds belt, vat, lava, crucible, ring,
 -- bridge, gateway (the portal), chain, growth, spire, booth (Dr. Seek's), bones (clutter).
 -- Heck's: `outside` "abyss", lava poured over whatever isn't rock or bridge (low, as `lows`), and kinds
--- bonebridge, altar, firepit (low: it burns), pizzabox, mattress, snoozegate; `map.pizza` { x, y } where
+-- bonebridge, altar, firepit (low: it burns), pizzabox, snoozegate; `map.pizza` { x, y } where
 -- the pizza box is.
 
 local EternalMood = {}
@@ -1466,9 +1467,8 @@ local function buildHeck(map, rng, T)
       seed = rng:random(1000), fire = true }
   end
 
-  -- The Mattress: the plateau before the Snooze Gate, the mattress on it,
-  -- waiting for its owner; the gate at the top, a clock over it.
-  flat(map, "mattress", X(24), Y(13), 12 * T, 7 * T)
+  -- The Mattress: the plateau before the Snooze Gate, worn smooth where
+  -- its owner drags its mattress about; the gate at the top, a clock over it.
   cover(map, "snoozegate", X(22), Y(3), 16 * T, 4 * T)
   light(map, X(30), Y(6), 420, EternalMood.PORTAL, 0.6)
   map.exitX, map.exitY = math.floor(X(30)), math.floor(Y(8))
@@ -1520,7 +1520,17 @@ local function buildHeck(map, rng, T)
   cacos(20, 44, 2, 600)
   cacos(36, 38, 1, 600)
   cacos(50, 44, 1, 600) -- over the pizza
-  -- The Mattress's plateau stays quiet: its owner wants it that way.
+  -- The Mattress's plateau stays quiet: its owner wants it that way. The
+  -- Spider Mattressmind (eternal-mood/mattressmind.lua) on its mattress
+  -- before the gate, facing down the ramp: it wakes when somebody comes up
+  -- onto the plateau (`wake`), keeps to it and the ramp (`zone`), and keeps
+  -- the Snooze Gate (`gate`) locked until it's down.
+  horde.boss = {
+    kind = "mattressmind", x = math.floor(X(30)), y = math.floor(Y(15)), facing = S,
+    zone = { x0 = X(10), y0 = Y(7), x1 = X(50), y1 = Y(30) },
+    wake = { x0 = X(10), y0 = Y(7), x1 = X(50), y1 = Y(27) },
+    gate = { x = X(22), y = Y(3), w = 16 * T, h = 4 * T },
+  }
 
   -- Everyone comes out of the portal onto the shelf; the way home is back
   -- into it.

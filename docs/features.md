@@ -1662,7 +1662,15 @@ the one with a plot.
   the pizza box sinking in a lake to the east, and the Mattress's plateau
   before the Snooze Gate. Its lava is poured from tiles into as few low
   rectangles as it takes; `outside` "abyss" (past the edge, surroundings'
-  `heck.lua`). Its boss, the Spider Mattressmind, and the last map follow.
+  `heck.lua`). Its boss, the Spider Mattressmind (`mattressmind.lua`,
+  `mattressmind_brain.lua`, `mattressmind_look.lua`, SM_ messages; the
+  map's `horde.boss` kind "mattressmind"), sits on its mattress before the
+  Snooze Gate and keeps it locked (`serverLocked`): a chaingun (the
+  weapons feature's minigun, ownerless, from the horde) whose aim drags
+  after you, a leg slam, a yawn that pulls players in (it moves their
+  bodies on the host, as the belts do) and snaps shut, imps and a
+  Cacodaemon called in, and its mattress soaking up rounds from the front.
+  The last map follows.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

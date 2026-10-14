@@ -72,6 +72,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   pizza box the size of a house sinking in a lava lake, and up to the Snooze Gate. Imps climb out of the cracks
   and Cacodaemons float over the lava. Past the edges: lava falls, castles hanging upside down, and a crack in the
   sky with a lampshade hanging through it.
+- Heck has its boss: the Spider Mattressmind, a giant brain on mechanical spider legs, standing on the mattress it
+  drags everywhere, in front of the Snooze Gate. Its chaingun spins up and sprays after you (keep running across
+  it), its legs slam down if you get close, and once it's half down it starts yawning: each yawn pulls you in, then
+  snaps shut. The mattress soaks up shots from the front, so get round it. The Snooze Gate stays locked until it's
+  down.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
