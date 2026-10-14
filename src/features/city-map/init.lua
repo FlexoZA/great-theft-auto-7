@@ -31,7 +31,8 @@
 --     (the Overpass's armed Courier) everyone is lent one, car or no car:
 --     their own waits out of the world (hidden) until the next switch.
 --   A map with `night` is played in the dark: the night feature darkens
---     the world and lights it from `map.lights`, cars and players.
+--     the world and lights it from `map.lights`, cars and players. A
+--     colour { r, g, b } instead of true is that map's own dark.
 --
 -- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
@@ -160,10 +161,11 @@ CityMap.maps = {
     crowd = false, traffic = false, vehicles = false, night = true,
   },
   -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
-  -- (the night feature). So far Fobos Base, the UAC's moon base, walked.
+  -- (the night feature), a red dark: everything in that universe is evil.
+  -- So far Fobos Base, the UAC's moon base, walked.
   fobos = {
     title = "Fobos Base", kind = "fobos", seed = 201, cols = 56, rows = 80,
-    crowd = false, traffic = false, vehicles = false, night = true,
+    crowd = false, traffic = false, vehicles = false, night = { 0.50, 0.22, 0.20 },
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

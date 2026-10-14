@@ -1,5 +1,5 @@
 -- The moon past Fobos Base's edge (surroundings' entry for `fobos`): the
--- same grey dust and craters as the margin round the base
+-- same red-grey dust and craters as the margin round the base
 -- (city-map's render_eternal_mood.lua), running on out of reach, with a
 -- boulder here and there and the odd set of tyre tracks from the UAC's
 -- rovers. Worked out from the cell it sits on, the same on every machine,
@@ -9,13 +9,14 @@
 local FobosMoon = {}
 
 local CELL = 128 -- px of dust in a cell; craters and boulders are placed per cell
+-- The margin's colours with the same red cast (render_eternal_mood.lua's `evil`).
 local C = {
-  dust = { 0.42, 0.42, 0.44 },
-  dustDark = { 0.36, 0.36, 0.38 },
-  crater = { 0.30, 0.30, 0.32 },
-  craterRim = { 0.52, 0.52, 0.54 },
-  rock = { 0.26, 0.26, 0.28 },
-  track = { 0.33, 0.33, 0.35 },
+  dust = { 0.51, 0.29, 0.27 },
+  dustDark = { 0.45, 0.25, 0.24 },
+  crater = { 0.38, 0.21, 0.20 },
+  craterRim = { 0.62, 0.36, 0.33 },
+  rock = { 0.34, 0.18, 0.17 },
+  track = { 0.41, 0.23, 0.22 },
 }
 
 local function hash(n)

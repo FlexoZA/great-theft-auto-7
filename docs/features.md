@@ -1532,7 +1532,9 @@ the one with a plot.
   driven car's headlights and tail lights, a pool round everyone on foot
   with a torch beam where they face, and whatever features draw in
   `drawNightLights`. Draw a night map's own colours as if by day; the night
-  takes them down. Local only: nothing sent.
+  takes them down. A spec's `night` may be a colour { r, g, b } instead of
+  true: that map's own ambient (Fobos Base's dim red). Local only: nothing
+  sent.
 - Cyber Feud: `src/features/cyber-feud` and quests' "cyber-feud" job
   ("Courier wanted", on the board), design in `docs/cyber-feud.md`. Five
   maps in Grey City, all at night, chained by EXIT stars like A-Man's:
@@ -1575,7 +1577,9 @@ the one with a plot.
   `cover`, `signs`, `lights`, `alarms`) and drawn by
   `render_eternal_mood.lua`; nil tiles inside `map.base` are steel wall,
   outside it the moon, which carries on past the edge (surroundings'
-  `fobos_moon.lua`). Everyone wakes in the Lab at the bottom and goes up
+  `fobos_moon.lua`). Everything in it is red, being evil: a red dark (the
+  spec's `night` colour), red-orange lights, and every colour drawn passed
+  through `evil` in the renderer, but for the sludge's sick green. Everyone wakes in the Lab at the bottom and goes up
   through the Ring and one of the Offices, the Reactor or Toxic Storage to
   the Hangar's lift. For now that is the whole level: the first player
   within 160 px of `exitX, exitY` finishes it (`quests:serverComplete`)

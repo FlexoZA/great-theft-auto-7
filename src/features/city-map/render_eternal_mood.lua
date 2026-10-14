@@ -22,8 +22,8 @@ local C = {
   steelDark = { 0.30, 0.32, 0.35 },
   white = { 0.84, 0.86, 0.88 },
   screen = { 0.04, 0.10, 0.05 },
-  green = { 0.35, 1.00, 0.45 },
-  glass = { 0.30, 0.55, 0.50, 0.55 },
+  green = { 1.00, 0.28, 0.10 }, -- the screens' text: red, like everything else
+  glass = { 0.55, 0.22, 0.12, 0.55 }, -- the tanks: something orange in there
   wood = { 0.40, 0.30, 0.20 },
   crate = { 0.50, 0.40, 0.24 },
   crateDark = { 0.38, 0.30, 0.17 },
@@ -46,6 +46,22 @@ local FLOORS = {
   concrete = { { 0.44, 0.43, 0.38 }, { 0.38, 0.37, 0.32 }, "concrete" },
   hangar = { { 0.36, 0.37, 0.39 }, { 0.31, 0.32, 0.34 }, "concrete" },
 }
+
+-- Everything in this universe is evil: every colour above gets a red cast
+-- (more red, less green and blue), but for the sludge, which stays sick
+-- green, and the colours already set red by hand.
+local KEEP = { sludge = true, sludgeLight = true, green = true, glass = true, red = true, hazard = true }
+local function evil(c)
+  return { math.min(1, c[1] * 1.10 + 0.05), c[2] * 0.70, c[3] * 0.62, c[4] }
+end
+for k, c in pairs(C) do
+  if not KEEP[k] and k ~= "shadow" then
+    C[k] = evil(c)
+  end
+end
+for _, f in pairs(FLOORS) do
+  f[1], f[2] = evil(f[1]), evil(f[2])
+end
 
 local function color(c, a)
   love.graphics.setColor(c[1], c[2], c[3], a or c[4] or 1)
@@ -321,7 +337,7 @@ end
 function DRAW.cooler(s)
   shadow(s)
   box(s, C.white)
-  love.graphics.setColor(0.45, 0.70, 0.95, 0.9)
+  love.graphics.setColor(0.80, 0.35, 0.30, 0.9) -- the water's not right either
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w / 2 - 6, 16)
 end
 
@@ -334,9 +350,9 @@ function DRAW.reactor(s)
   love.graphics.circle("fill", cx, cy, r - 14, 40)
   color(C.black)
   love.graphics.circle("fill", cx, cy, r * 0.55, 32)
-  love.graphics.setColor(0.35, 1.0, 0.45, 0.9) -- the core, glowing
+  love.graphics.setColor(1.0, 0.45, 0.10, 0.95) -- the core, glowing: Heck's fire
   love.graphics.circle("fill", cx, cy, r * 0.42, 32)
-  love.graphics.setColor(0.8, 1.0, 0.8, 0.9)
+  love.graphics.setColor(1.0, 0.85, 0.55, 0.95)
   love.graphics.circle("fill", cx, cy, r * 0.18, 20)
   color(C.steelDark)
   for k = 0, 7 do -- the vanes over it
@@ -436,7 +452,7 @@ function DRAW.loader(s)
   color(C.steelDark)
   love.graphics.rectangle("fill", s.x + 20, s.y, 12, 40) -- forks
   love.graphics.rectangle("fill", s.x + s.w - 32, s.y, 12, 40)
-  love.graphics.setColor(0.4, 0.55, 0.6, 0.8) -- the cab
+  love.graphics.setColor(0.45, 0.30, 0.28, 0.8) -- the cab
   love.graphics.rectangle("fill", s.x + 24, s.y + 60, s.w - 48, 50)
 end
 

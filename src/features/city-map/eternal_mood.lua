@@ -28,12 +28,14 @@
 
 local EternalMood = {}
 
--- Light, by what gives it.
-EternalMood.STRIP = { 0.55, 0.75, 1.00 } -- the base's blue strip lights
-EternalMood.SCREEN = { 0.35, 1.00, 0.45 } -- green computer screens, the reactor
+-- Light, by what gives it. Everything in this universe is evil, so nearly
+-- all of it is red: only the toxic sludge glows another colour, sick green.
+EternalMood.STRIP = { 1.00, 0.42, 0.30 } -- the base's strip lights, burning red-orange
+EternalMood.SCREEN = { 1.00, 0.30, 0.12 } -- the computer screens, red text on black
+EternalMood.CORE = { 1.00, 0.50, 0.15 } -- the reactor, running on something from Heck
 EternalMood.SLUDGE = { 0.55, 1.00, 0.20 } -- toxic sludge
-EternalMood.ALARM = { 1.00, 0.15, 0.10 } -- the alarms
-EternalMood.LAMP = { 1.00, 0.85, 0.60 } -- desk lamps, the mess
+EternalMood.ALARM = { 1.00, 0.10, 0.06 } -- the alarms
+EternalMood.LAMP = { 1.00, 0.62, 0.40 } -- desk lamps, the mess
 
 -- The posters on the walls (docs/eternal-mood.md, "Shared look").
 EternalMood.POSTERS = {
@@ -252,7 +254,7 @@ local function buildFobos(map, rng, T)
   local mx, my = (X(z.c0) + X(z.c1 + 1)) / 2, (Y(z.r0) + Y(z.r1 + 1)) / 2
   flat(map, "catwalk", mx - 4.5 * T, my - 4.5 * T, 9 * T, 9 * T)
   cover(map, "reactor", mx - 2.2 * T, my - 2.2 * T, 4.4 * T, 4.4 * T, true, { round = true })
-  light(map, mx, my, 520, EternalMood.SCREEN, 0.75)
+  light(map, mx, my, 520, EternalMood.CORE, 0.8)
   cover(map, "pipe", X(z.c0), my - 12, mx - 4.5 * T - X(z.c0), 24) -- west, under the door from the Offices
   cover(map, "pipe", mx + 4.5 * T, my - 12, X(z.c1 + 1) - mx - 4.5 * T, 24)
   for _, c in ipairs({ z.c0 + 1, z.c1 - 2 }) do
