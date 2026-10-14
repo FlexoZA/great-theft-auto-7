@@ -43,6 +43,7 @@ local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Fireballs = require("src.features.eternal-mood.fireballs")
+local Look = require("src.features.eternal-mood.floor_manager_look")
 
 local FloorManager = {}
 FloorManager.__index = FloorManager
@@ -53,8 +54,7 @@ local Brain
 
 FloorManager.HEALTH = 2250 -- for one player (more humans, more: bosses/init.lua); Volt has 1800
 FloorManager.CANNON = 600 -- the cannon's own, for one player: a fair bit of shooting
-FloorManager.RADIUS = 34 -- px: the walker's body, legs folded in
-FloorManager.SCALE = 1.5 -- drawn this much bigger than its plan (drawWalker)
+FloorManager.RADIUS = 40 -- px: the walker's hull (floor_manager_look.lua draws him)
 FloorManager.WALK = 90 -- px/s, on four legs, any way he likes
 FloorManager.STROLL = 40 -- px/s winded
 FloorManager.RAGE = 1.35 -- his pace once the cannon is gone
@@ -63,7 +63,7 @@ FloorManager.BREATH = { drain = 9, regen = 14, recovered = 50, breath = 40 }
 FloorManager.RANGE = 760 -- px he sees
 FloorManager.KEEP = 340 -- px he keeps from whoever he has, cannon and all
 FloorManager.SIDE_EVERY = { 1.5, 3 } -- seconds before he side-steps the other way
-FloorManager.MUZZLE = 52 -- px in front of his middle: the cannon's end (and where it's hit)
+FloorManager.MUZZLE = 68 -- px in front of his middle: the cannon's end (and where it's hit), as drawn
 FloorManager.CANNON_HIT = 18 -- px round the cannon a round counts as on it
 FloorManager.PLASMA_RANGE = 700 -- px
 FloorManager.PLASMA_EVERY = 3.2 -- seconds from one stream to the next...
@@ -107,7 +107,6 @@ FloorManager.LINE = {
 
 local GREEN = { 0.35, 1.00, 0.45 } -- plasma
 local RED = { 1.00, 0.18, 0.10 }
-local STEEL = { 0.36, 0.34, 0.33 }
 local STEEL_DARK = { 0.20, 0.19, 0.19 }
 local BRAIN = { 0.92, 0.58, 0.60 }
 
@@ -426,6 +425,11 @@ function FloorManager.update(dt)
       shown.dx, shown.dy = shown.dx + ex * k, shown.dy + ey * k
       shown.stride = shown.stride + math.sqrt(ex * ex + ey * ey) * k
     end
+    -- How far into a stomp's rearing, or a charge's glow, for the look.
+    local into = clock - (shown.moveAt or clock)
+    shown.rearT = into / FloorManager.STOMP_WINDUP
+    shown.chargeT = into / FloorManager.CHARGE
+    Look.update(shown.look, shown, dt)
   end
   for i = #stomps, 1, -1 do
     stomps[i].t = stomps[i].t + dt
@@ -505,116 +509,13 @@ function FloorManager.drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
---- One leg, from its hip (hx, hy) out to its foot (fx, fy) with the knee
---- raised up and out between them.
-local function leg(hx, hy, fx, fy, out, lift)
-  local kx, ky = (hx + fx) / 2 + out[1] * (6 + lift), (hy + fy) / 2 + out[2] * (6 + lift)
-  love.graphics.setColor(STEEL_DARK)
-  love.graphics.setLineWidth(4)
-  love.graphics.line(hx, hy, kx, ky, fx, fy)
-  love.graphics.setColor(STEEL)
-  love.graphics.setLineWidth(2)
-  love.graphics.line(hx, hy, kx, ky, fx, fy)
-  love.graphics.circle("fill", kx, ky, 2.4, 8)
-  love.graphics.setColor(0.12, 0.12, 0.12)
-  love.graphics.circle("fill", fx, fy, 2.8, 8) -- the foot
-end
-
---- The walker seen from above, at the origin facing +x: four legs out at the
---- corners (walking in pairs, or reared up for a stomp), the round body, the
---- glass dome with his brain in it, the cannon under the front, the
---- clipboard taped to the side.
-local function drawWalker(m)
-  local stride = m.stride or 0
-  local rear = m.move == 1 and math.min(1, (clock - (m.moveAt or clock)) / FloorManager.STOMP_WINDUP) or 0
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.circle("fill", 3, 3, 24, 24)
-  for i, c in ipairs({ { 1, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 } }) do
-    local hx, hy = c[1] * 9, c[2] * 9
-    local step = math.sin(stride * 0.12 + (i % 2) * math.pi) * 4
-    local reach = 24 - rear * 6
-    local fx, fy = c[1] * reach + step, c[2] * reach
-    leg(hx, hy, fx, fy, { c[1] * 0.7, c[2] * 0.7 }, rear * 8 + math.max(0, step))
-  end
-  -- The cannon under the front: coils along a barrel, green when it charges
-  -- and streams.
-  if m.cannon > 0 then
-    local hot = (m.move == 2 or m.move == 3) and (0.6 + 0.4 * math.abs(math.sin(clock * 20))) or 0
-    love.graphics.setColor(STEEL_DARK)
-    love.graphics.rectangle("fill", 10, -5, 26, 10, 2)
-    love.graphics.setColor(STEEL)
-    love.graphics.rectangle("fill", 14, -3.5, 22, 7, 2)
-    love.graphics.setColor(GREEN[1], GREEN[2], GREEN[3], 0.35 + 0.65 * hot)
-    for x = 16, 30, 5 do
-      love.graphics.rectangle("fill", x, -4, 2, 8)
-    end
-    love.graphics.circle("fill", 36, 0, 2.5 + 2 * hot, 10)
-  else
-    love.graphics.setColor(0.1, 0.1, 0.1)
-    love.graphics.rectangle("fill", 10, -4, 8, 8) -- the stump
-    if random() < 0.3 then
-      love.graphics.setColor(1, 0.8, 0.3)
-      love.graphics.circle("fill", 18, (random() - 0.5) * 6, 1.4, 6) -- sparks
-    end
-  end
-  -- The body: a squat round chassis with hazard stripes round the rim.
-  love.graphics.setColor(STEEL)
-  love.graphics.circle("fill", 0, 0, 15, 24)
-  love.graphics.setColor(0.95, 0.72, 0.10)
-  for k = 0, 7 do
-    local a = k * math.pi / 4
-    love.graphics.arc("fill", 0, 0, 15, a, a + 0.25, 4)
-  end
-  love.graphics.setColor(STEEL_DARK)
-  love.graphics.circle("fill", 0, 0, 11, 20)
-  -- The dome, and him in it.
-  love.graphics.setColor(0.25, 0.45, 0.42, 0.8)
-  love.graphics.circle("fill", -1, 0, 9.5, 20)
-  love.graphics.setColor(BRAIN)
-  love.graphics.ellipse("fill", -1, 0, 7, 6, 16)
-  love.graphics.setColor(0.70, 0.38, 0.42)
-  love.graphics.line(-7, 0, 5, 0) -- the fold between the halves
-  love.graphics.line(-4, -4, -2, -1, -5, 2)
-  love.graphics.line(2, -4, 0, -1, 3, 2)
-  love.graphics.setColor(RED)
-  love.graphics.circle("fill", 4.5, -2, 1.2, 6) -- an eye on a stalk, still red
-  love.graphics.setColor(1, 1, 1, 0.35)
-  love.graphics.arc("fill", -1, 0, 9, 3.6, 4.6, 8) -- the glass catching the light
-  -- The clipboard, taped to his left side.
-  love.graphics.setColor(0.55, 0.40, 0.22)
-  love.graphics.rectangle("fill", -6, -20, 10, 7)
-  love.graphics.setColor(0.92, 0.90, 0.82)
-  love.graphics.rectangle("fill", -5, -19, 8, 5)
-  love.graphics.setColor(0.8, 0.8, 0.75, 0.8)
-  love.graphics.rectangle("fill", -8, -18, 14, 2) -- the tape
-end
-
 function FloorManager.drawAboveCars()
   if wreck then
-    love.graphics.push()
-    love.graphics.translate(wreck.x, wreck.y)
-    love.graphics.rotate(wreck.angle)
-    love.graphics.scale(FloorManager.SCALE)
-    for _, c in ipairs({ { 1, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 } }) do -- legs splayed
-      leg(c[1] * 9, c[2] * 9, c[1] * 28, c[2] * 26, { c[1] * 0.4, c[2] * 0.4 }, -4)
-    end
-    love.graphics.setColor(0.16, 0.15, 0.15)
-    love.graphics.circle("fill", 0, 0, 15, 24)
-    love.graphics.setColor(0.3, 0.45, 0.42, 0.5) -- the dome, cracked and empty
-    love.graphics.circle("line", -1, 0, 9.5, 20)
-    love.graphics.line(-8, -4, 2, 3, 6, -3)
-    love.graphics.setColor(0.25, 0.22, 0.2, 0.6)
-    love.graphics.circle("fill", 0, -16 - (clock * 6) % 10, 6, 10) -- smoke
-    love.graphics.pop()
+    Look.drawWreck(wreck, clock)
   end
   local m = shown
   if m then
-    love.graphics.push()
-    love.graphics.translate(m.dx, m.dy)
-    love.graphics.rotate(m.facing)
-    love.graphics.scale(FloorManager.SCALE)
-    drawWalker(m)
-    love.graphics.pop()
+    Look.draw(m.look, m, clock)
     if m.cannon > 0 and m.cannon < 1 then -- the cannon's own health, over it
       local cx = m.dx + math.cos(m.facing) * FloorManager.MUZZLE
       local cy = m.dy + math.sin(m.facing) * FloorManager.MUZZLE - 16
@@ -672,7 +573,7 @@ FloorManager.clientMessages = {
       return
     end
     if not shown then
-      shown = { dx = x, dy = y, stride = 0 }
+      shown = { dx = x, dy = y, stride = 0, look = Look.new() }
     end
     local m = shown
     m.x, m.y = x, y

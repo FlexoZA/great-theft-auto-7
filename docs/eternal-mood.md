@@ -170,6 +170,25 @@ branch off `feature/eternal-mood`):
   into the top. Its own riffs, none of anybody else's. Rendered on
   arriving, under the intro screen (about 1.4 s).
 
+- `feature/eternal-mood-boss-look`: the Floor Manager redrawn
+  (`eternal-mood/floor_manager_look.lua`), at world size and 30% bigger
+  (his hull 40 px across for hits, the cannon's end 68 px out). Four legs
+  that walk: each foot stays planted while the body moves over it and
+  steps (0.18 s) once it is left 44 px behind its rest spot, the diagonal
+  pairs taking turns (80 px behind, it steps anyway); thigh and shin with a
+  hydraulic ram, bolted knees, three claws, the foot's shadow left on the
+  floor while it lifts; rearing for a stomp, the feet pulled in and up.
+  An armoured octagon with hazard stripes round the rim, rivets, status
+  lights blinking, two exhaust stacks puffing (more when he strains or is
+  hurt); the glass dome with the brain in it, folded, veined and pulsing,
+  an eye on a stalk; the plasma cannon under the front, twin barrels in
+  coils glowing as it charges, a ball of plasma swelling at the muzzle, a
+  flash as it streams; the clipboard taped on. The dome cracks under half
+  his health, again under a quarter, when he sparks too. Shot off, the
+  cannon leaves a stump with its cables swinging and sparking. His wreck:
+  legs sprawled flat, the hull dark, the dome smashed to shards round its
+  rim, smoke going up.
+
 ## Decisions
 
 | Question | Decision |
