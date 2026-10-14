@@ -206,8 +206,9 @@ branch off `feature/eternal-mood`):
   (25 posts, 5 patrols), 12 interns' mobs (69 for one human), imps under
   six manholes and four cracks round the Crater (an open manhole has its
   cover thrown aside; a crack is torn open, glowing). Billboards over the
-  side streets: SOFA SALE!, HECK: NOW HIRING, MIND THE LAVA. It plays Fobos
-  Base's theme for now. No boss yet: the gate is open.
+  side streets: SOFA SALE!, HECK: NOW HIRING, MIND THE LAVA. It played
+  Fobos Base's theme until `feature/eternal-mood-earth-theme`. No boss yet:
+  the gate is open.
 
 - `feature/eternal-mood-cacodaemon`: the Cacodaemon, the first of the
   heavy demons, not a boss (`eternal-mood/cacodaemon_brain.lua`, in
@@ -268,6 +269,23 @@ branch off `feature/eternal-mood`):
   minutes..."), his recliner lies on its back smoking, the boom goes up,
   and the gate finishes the level. The Boulevard's planters and sandbags
   moved back off the gate to give him room.
+
+- `feature/eternal-mood-earth-theme`: Heck on Earth's own theme
+  (`eternal-mood/theme_earth.lua`, played like Fobos Base's: the dream
+  once, then the loop; rendered on arriving in about 1.3 s). Rush hour:
+  faster than Fobos Base's, thrash where that one is heavy, 150 BPM in E
+  minor. The dream (~3 s, `renderIntro`): a cheery major-key TV jingle,
+  the sofa sale off the billboards, on bells, over a phone buzzing on a
+  table; then the jingle dragged down like a tape stopping as an air-raid
+  siren comes up and the bass drops out. The loop (~51 s, `render`): a
+  gallop on the low E (an eighth and two sixteenths, the kick locked to
+  it, the root moving E, G, E, C), a synth bass dive every four bars; a
+  tremolo-picked riff in E Phrygian (the flat second, F) over a thrash beat,
+  the low string on each beat, an air-raid siren rising behind its second
+  half; the chorus, open chords E minor, C, D, B under a lead that slides
+  up into every note like a siren; a stop-start breakdown on the lowest E,
+  car horns blaring in its gaps, a siren into the last bar; and the gallop
+  again into the top. Its own riffs, none of anybody else's.
 
 ## Decisions
 
