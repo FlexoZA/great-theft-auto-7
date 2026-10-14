@@ -505,6 +505,17 @@ function DRAW.lockers(s)
   end
 end
 
+function DRAW.vent(s)
+  -- A floor grille an imp is waiting under (eternal-mood/horde.lua bursts it).
+  box(s, C.black)
+  color(C.steelDark)
+  for x = s.x + 4, s.x + s.w - 6, 8 do
+    love.graphics.rectangle("fill", x, s.y + 3, 4, s.h - 6)
+  end
+  color(C.steel)
+  love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
+end
+
 function DRAW.paint(s)
   color(C.hazard, 0.85)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)

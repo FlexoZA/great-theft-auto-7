@@ -20,6 +20,29 @@ branch off `feature/eternal-mood`):
   ambient), lit by red-orange strip lights, red screens, the reactor's
   orange core, the sludge's green and red alarm lamps over every door
   (they don't sweep yet); every surface has a red cast.
+- `feature/eternal-mood-horde`: the possessed and the imps on Fobos Base
+  (`eternal-mood/horde.lua`, `possessed_brain.lua`, `imp_brain.lua`,
+  `fireballs.lua`, placed by the map's `horde`). The possessed are one
+  brain with three ranks (`Brain.RANKS`): staffers (40 health, a pistol,
+  8 a round), guards (60, a shotgun, six pellets of 7, kept within 560 px
+  of their doorway) and the overtime guy (100, a chaingun spinning up for
+  0.6 s, then 6 a round eight times a second, sweeping after you at 1.6
+  rad/s, within 260 px of his post). Each stands at its post facing its
+  `watch`, sees in a cone and a little all round, and on spotting somebody
+  groans: the possessed within 380 px come and look. Lost, they search
+  where they last saw you for 6 s and go back. Imps (60 health) wait in
+  five floor vents (two in the Reactor, one in Toxic Storage, two in the
+  Hangar): the first player within 420 px bursts the grille and its pack
+  crawls out, one every 0.7 s (3 or 2, one more for each human past the
+  first). They hunt the nearest player, keep 150-380 px off, strafe, and
+  every 1.8-2.8 s hold a fireball up for 0.45 s (drawn) and throw it at
+  where you stand (330 px/s, 14 `fire`); up close they claw (10 `melee`).
+  Nothing of Heck's hurts anything else of Heck's. Twenty-five of the
+  possessed on Fobos Base: none in the Lab; staffers about the Crew
+  Quarters, the Mess, the Ring, the Offices' desks, the Reactor's catwalk
+  and Toxic Storage; a guard inside each doorway up from the Ring; the
+  overtime guy by the Hangar's lift with two guards and three staffers.
+  No Pinky yet.
 
 ## Decisions
 
