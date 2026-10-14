@@ -7,7 +7,7 @@ boss on every level, and a last word. The look is a 90s demon-blasting shooter o
 moon base and in hell, played the way A-Man plays Half-Life: a parody with
 its own names, not the real ones.
 
-Status: story, bosses and maps designed. Nothing built yet.
+Status: story, bosses, maps and the horde designed. Nothing built yet.
 
 ## Decisions
 
@@ -19,6 +19,7 @@ Status: story, bosses and maps designed. Nothing built yet.
 | How long? | **Five maps**, like Cyber Feud and A-Man. |
 | Is the dream hinted? | **Yes, more and more.** Each level leaks a bit more of the real world into the dream (a phone buzzing, a microwave, someone calling your name) until the last boss is the alarm clock. A player who notices gets the joke before the end; one who doesn't still gets it at the end. |
 | Does it tie to Cyber Feud? | **Lightly.** The dream is built out of whatever you did that day: a demon with Kilowatt's reactor, a voice in a vending machine that sounds a lot like VEX. Nothing in the plot needs Cyber Feud played first. |
+| Who's the enemy? | **Heck, and only Heck.** No factions and no infighting, unlike Cyber Feud: the UAC's possessed staff are Heck's lowest rank, and the whole horde works together against you. |
 | Bosses? | **One on every level**, each at the level's end and in the way of its exit: the Floor Manager, the Cyberdaemon, the Baron of Heck, the Spider Mattressmind, the Snoozedemon. They follow the bosses' standard (`src/features/bosses`: breath, the boss bar, a medkit when badly hurt) and each gets its own brain module. |
 | The reward? | **A unique shotgun, the Mood Swing** (see "The reward"). Unlocked per player, the way Volt unlocks the electric grenade. |
 
@@ -43,13 +44,14 @@ Slayer. You are very angry. You are also, it turns out, asleep.
   fridge, a pizza going cold. Colour: visor green, going warm lamp-yellow as
   you wake up.
 - **The UAC, the Union of Awful Choices.** The corporation that built a
-  portal to Heck on a moon because the paperwork was cheaper there. Its
-  staff are zombies now and still on the clock. Colour: grey and hazard
+  portal to Heck on a moon because the paperwork was cheaper there. It is
+  not a side: Heck took its staff, who are zombies now and still on the
+  clock. Colour: grey and hazard
   yellow.
   - **Dr. Hayden Seek**, its director, a brain in a jar on a robot body,
     who opened the portal and keeps apologising for it on the base's
     speakers ("This was in the risk assessment. Page four hundred.").
-- **Heck's demons.** Red, loud and on fire. Imps that throw fireballs,
+- **Heck**, the one enemy, and its demons. Red, loud and on fire. Imps that throw fireballs,
   Pinkies that charge, Lost Soles (flaming shoes, one each; nobody knows
   where the other one went) and a Cacodaemon or two floating about like
   angry tomatoes. Colour: lava red and orange.
@@ -77,6 +79,92 @@ Each is a bit more dream than the last, the way the levels are.
 - **The Snoozedemon** (The Snooze Gate), the last one: a giant goat-headed
   wall of a demon with a clock in its forehead, whose roar is an alarm clock
   beeping. Beat it and you hit snooze on the whole of Heck.
+
+### The horde
+
+One enemy: Heck. There are no factions and no feud this time, and nobody
+fights anybody but you. The UAC's staff aren't a side of their own: the
+portal took them, and they're Heck's now, its lowest rank, the possessed.
+Drawn top down like everyone else (`src/body.lua`, 9 px radius), the horde
+bigger and stranger the further down the dream goes. All numbers are
+starting points for tuning; for scale, a Combine soldier has 60 health and
+drops 3 koins, a Halcyon officer 60, a Static brute 150.
+
+- **One side.** Every member of the horde is on the same team: their
+  rounds, fireballs, rockets and charges pass through each other and only
+  hurt players (the way Halcyon Tower's two factions ignore each other), so
+  they never fight among themselves.
+- **They work together.** The possessed hold the ground with guns while the
+  demons close in; packs mix the two. Bosses call in help.
+- **One look.** Heck's red, orange and black throughout, lit from inside.
+  The possessed keep their torn UAC grey and hazard yellow, with Heck's red
+  eyes and glowing cracks in their skin.
+- **Damage.** The possessed shoot (`bullet`); the demons burn (`fire`),
+  charge (`impact`) and claw (`melee`).
+
+Every enemy character gets its own brain module (the enemy brains
+standard), as Cyber Feud's do.
+
+#### The possessed (Heck's lowest rank)
+
+| Unit | Look | Health | Attack | Behaviour |
+| --- | --- | --- | --- | --- |
+| **Zombie staffer** | A UAC jumpsuit, a lanyard, a coffee mug in the other hand | 40 | Pistol (`bullet`, 8), slow to aim | Sits at a desk or stands at a post until someone comes in sight, then shambles at them (60 px/s) firing now and then. Fodder. |
+| **Zombie guard** | UAC security armour, a cracked helmet | 60 | Shotgun (`bullet`, 6 pellets of 7) | Holds doorways and corridors, steps in to close range. |
+| **Overtime guy** | Big, in a hard hat and hi-vis, a chaingun from the loading bay | 100 | Chaingun (`bullet`, 6 a round, 8 a second) | Spins up for 0.6 s (you hear it), then keeps firing at whoever he can see, sweeping slowly. Bad in the open, easy round a corner. |
+
+#### The demons
+
+| Unit | Look | Health | Attack | Behaviour |
+| --- | --- | --- | --- | --- |
+| **Imp** | Brown, spiky, hunched, orange eyes | 60 | Fireball (`fire`, 14, slow enough to sidestep); a claw up close (`melee`, 10) | The common demon. Comes out of vents and walls, strafes sideways between throws, climbs over low cover. Packs of 3-5. |
+| **Pinky** | A pink muscle with legs and a huge jaw | 160 | Charge and bite (`impact` 30, a shove; `melee` 18) | Braces 0.5 s, then charges in a straight line; into a wall it reels for 1 s. Its front is armoured (rounds from in front do half); its back is soft. In the Foundry's dark some are **Spectres**, a shimmer you only see close. |
+| **Lost Sole** | A flaming boot with teeth, flying | 20 | Dive (`fire`, 12) | Floats in flocks of 3-6, over lava and walls; one at a time picks a target, hangs back for 0.4 s and dives straight at it. One round brings one down. |
+| **Cacodaemon** | A floating red tomato with one green eye and a big mouth | 220 | Spits a ball of fire (`fire`, 24); a bite up close (`melee`, 30) | Slow, flies over walls and lava. Opens its mouth for 0.5 s before it spits (a tell). Shot while its mouth is open it reels. On Earth they float over the road and spit at the truck. |
+| **The Shoe Rack** | A floating brown ball with a mouth full of shoes | 180 | Spits a Lost Sole every 4 s, at most 3 out | Hangs back, flies. When it dies it spits three at once. Kill it first. |
+| **Heck Knight** | The Baron's brown cousin, horned, 1.4x | 300 | Green fireball (`fire`, 20); a leap (`impact`, 30, lands 0.6 s after a shadow shows where) | Walks at you and leaps when you get far. The Foundry's north half and Heck. |
+| **Revenaunt** | A tall skeleton in a cardigan, a rocket pod on each shoulder | 200 | Two homing rockets (`explosive`, 22 each, turning slowly; dodge round a corner); a punch (`melee`, 20) | Keeps at mid range, firing its rockets in turn every 3 s. The rockets can be shot down. Says something about your posture. |
+| **Mancouchbus** | A huge fat demon in a recliner on tank treads, a flame cannon for each arm | 450 | Two fireballs at once, in a V (`fire`, 26 each); a flame burst up close (`fire` DoT) | Never gets up. Rolls slowly, turning to keep you in front; its back is the recliner (rounds do double). Heck and the Snooze Gate. |
+| **Arch-Revival** | Tall, thin, grey-white, glowing hands | 250 | Fire pillar: a ring of fire on the ground under you for 1 s, then it erupts (`fire`, 50); you have to get out of sight or out of the ring | Runs away from you, fast. Every 6 s it brings back the nearest dead demon (not bosses), which gets up with half health. Kill it first. Heck only. |
+
+#### Mood kills
+
+The quest's own trick, as breach is Cyber Feud's. A demon brought below 20%
+of its health is staggered for 2.5 s: it stops, flashes orange and sways.
+Walk up and press F and the Mood Slayer finishes it with a single over the
+top move (a stomp, a punch, ripping a horn off), and it spills two small
+health pickups. Bosses can't be mood killed, but their help can. It is a
+reason to close in, and it pairs with the Mood Swing's hook.
+
+#### What they say
+
+The same system as Cyber Feud's (`Story.troops`, a bubble and a sound),
+but one side: the possessed say the words and the demons mostly growl.
+
+| Category | Lines |
+| --- | --- |
+| `idle` | "Is this overtime?" / "My badge doesn't work." / "Has anyone seen my legs?" / a demon's "Hungry..." |
+| `reply` | "Please hold." / "Per my last email." / "Noted." / a growl back |
+| `alert` (you) | "Visitor in the lab!" / "You're not on the rota." / "MEAT!" / "Who ordered the space marine?" / "Heck yeah!" |
+| `down` | "Tell HR..." / "Finally, a break." / a scream, or a puff of smoke and a boot falling |
+| `revive` (the Arch-Revival) | "Up. Up. Back to work." |
+
+#### Who turns up where
+
+The horde changes as you go down: mostly the possessed at the top, all
+demons at the bottom.
+
+| Level | Who |
+| --- | --- |
+| 1. Fobos Base | Staffers at their desks and posts, guards on the doors, an overtime guy in the Hangar; imps out of the vents from the Reactor on, a Pinky in Toxic Storage |
+| 2. Heck on Earth | Pinkies charging out of the side streets, imps on the roofs, Cacodaemons over the road, Lost Soles round the Crater, a few guards behind wrecks at the crossroads |
+| 3. The Foundry | Staffers, guards and overtime guys in the south half alongside imps and Pinkies; Spectres in the dark, Heck Knights in the north half, a Shoe Rack over the Crucible |
+| 4. Heck | Demons only: imps, Pinkies, Lost Soles on the bridges, Cacodaemons, Shoe Racks, Knights, Revenaunts, a Mancouchbus and an Arch-Revival on the Altar Fields |
+| 5. The Snooze Gate | Imps and Lost Soles it calls in, and a Mancouchbus in its last phase |
+
+Each drops koins when it goes down (staffers 2, imps 3, the heavier ones
+more, the Mancouchbus 15) and maybe a pickup, and every kill raises
+`serverKill`.
 
 ## The arc: the dream falls apart as you go
 
@@ -389,8 +477,9 @@ or not, it is equipment, so it has tiers (`tierStats`, read through
   waiting on the coffee table when you wake up.
 - **The bosses' fights.** The moves above are first ideas; each gets its
   numbers when it is built, as Cyber Feud's did.
-- **The demons.** Who stands where on each map, and each demon's moves, the
-  way Cyber Feud's "The factions' troops" does it.
+- **Mood kills** are a proposal: whether they're in, and whether every
+  demon can be mood killed or only the bigger ones.
+- **The bosses' help.** Which demons each boss calls in, and when.
 - **New pieces the maps need:** lava and sludge as hazard tiles, and the
   Foundry's conveyor belts (a moving floor). Lava and sludge might belong
   in their own feature, since later maps could use them too.
