@@ -4,7 +4,8 @@
 --
 -- The possessed (possessed_brain.lua: staffers, guards, the overtime guy)
 -- stand at the map's posts (city-map's `map.horde.posts`) or walk its
--- patrols (`map.horde.patrols`, a file to each) until they see somebody.
+-- patrols (`map.horde.patrols`, a squad to each) until they see somebody;
+-- the guards and the overtime guy fight like the Combine (possessed_brain.lua).
 -- The Interns (intern_brain.lua), the lowest rank, stand about in mobs
 -- (`map.horde.mobs`) until a player comes within a mob's `wake` px or sees
 -- it from across the room, or one of it is hurt; then the whole mob comes,
@@ -63,7 +64,6 @@ Horde.mobSpread = 110 -- px round its spot a mob stands about in
 Horde.internPickups = 0.15 -- the chance one going down drops something (a mob would bury you in them)
 Horde.wake = 420 -- px a player comes within to burst a vent open (a vent may say its own)
 Horde.crawlEvery = 0.7 -- seconds between imps out of one vent
-Horde.fileGap = 1.4 -- seconds between one of a patrol setting off and the next
 Horde.drops = { staffer = 2, guard = 3, overtime = 6, imp = 3, intern = 1 } -- koins each spills
 Horde.chatEvery = { 14, 32 } -- seconds between one of the possessed's idle remarks
 Horde.chatNear = 900 -- px; nobody talks to an empty room
@@ -140,11 +140,9 @@ function Horde.serverStart(server, map)
   for _, p in ipairs(spec.posts or {}) do
     possessed:add(p.rank, p.x, p.y, p.watch)
   end
-  -- Patrols: a file walking its loop, one setting off a little after another.
+  -- Patrols: a squad walking its loop, its leader in front.
   for _, p in ipairs(spec.patrols or {}) do
-    for k, rank in ipairs(p.ranks) do
-      possessed:add(rank, nil, nil, nil, p.route, p.start, (k - 1) * Horde.fileGap)
-    end
+    possessed:addSquad(p.route, p.ranks, p.start)
   end
   local imps = Imps.new({ nav = nav, firstId = Horde.firstImp, throw = function(srv, _imp, x, y, angle)
     Fireballs.serverThrow(srv, x, y, angle)
@@ -355,6 +353,21 @@ function Horde.serverStep(server, dt)
       if random() < 0.6 then
         say(server, s, "possessed", "alert")
       end
+    end
+    -- What the smart ones say: into cover, a grenade, out on a sweep.
+    if s.tookCover then
+      s.tookCover = nil
+      if random() < 0.25 then
+        say(server, s, "possessed", "cover")
+      end
+    end
+    if s.threw then
+      s.threw = nil
+      say(server, s, "possessed", "grenade")
+    end
+    if s.sentOut then
+      s.sentOut = nil
+      say(server, s, "possessed", "sweep")
     end
     if s.spinning then
       server:broadcast(Protocol.encode("HRD_SPIN", s.id))
@@ -583,7 +596,8 @@ function Horde.drawBelowCars()
     local rank = RANK[s.kind]
     if rank then
       local conf = Possessed.RANKS[rank]
-      Sight.draw(s.dx, s.dy, s.facing, conf.range, s.alert, clock, conf.fov, { seed = id, color = RED })
+      local fov = s.alert and conf.alertFov or conf.fov
+      Sight.draw(s.dx, s.dy, s.facing, conf.range, s.alert, clock, fov, { seed = id, color = RED })
     end
   end
 end

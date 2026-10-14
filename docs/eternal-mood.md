@@ -75,11 +75,9 @@ branch off `feature/eternal-mood`):
 
 - `feature/eternal-mood-patrols`: the Floor Manager made tougher (1500 ->
   2250 health, his cannon 300 -> 600), and patrols of the possessed on
-  Fobos Base (the map's `horde.patrols`, possessed_brain.lua's `route`): a
-  file walking a loop, one setting off 1.4 s after another, the way the
-  posts do everything else (spot, groan, hunt, search) and then back to the
-  nearest corner of the loop and on round it. A guard on patrol has no
-  leash. Five, twelve more of the possessed: a guard and two staffers up
+  Fobos Base (the map's `horde.patrols`): a squad walking a loop (squads
+  since `feature/eternal-mood-smarter-possessed`), doing everything else as
+  the posts do. A guard on patrol has no leash. Five, twelve more of the possessed: a guard and two staffers up
   and down the Ring, two staffers round the Offices' desks, a guard and a
   staffer round the Reactor's catwalk, two staffers through Toxic Storage,
   and a guard and two staffers round the Hangar's floor.
@@ -118,6 +116,28 @@ branch off `feature/eternal-mood`):
   doorways and away from everyone's spots and routes): bins (solid),
   tipped bins spilling rubbish, trash, memos, blood, scorch marks, glass
   that glints, office chairs knocked over.
+
+- `feature/eternal-mood-smarter-possessed`: the possessed fight like City
+  17's Combine (a-man/combine.lua, ported into possessed_brain.lua, their
+  own), each rank as much as suits it (`Brain.RANKS`' `sweeps`, `cover`,
+  `pins`, `sweepsOut`, `holds`, `grenadier`). Guards sweep their cones
+  across the doorways they hold (55 degrees either way, 6 s there and
+  back), fight from cover near where they are (hide 1.2-2.6 s, step out up
+  to 90 px to shoot for 1.4-2.2 s, duck back at once if hit), go to ground
+  when hit by somebody none of them can see (everyone who knows to within
+  400 px, a "siege"; after 8 s quiet up to three of the guards go out to
+  sweep where it came from; 30 s of quiet, or anyone spotting the shooter,
+  ends it), and one in three carries a grenade (thrown now and then at
+  whoever it has between 140 px and the grenade's range, or at where it just
+  lost somebody; never onto the horde). The overtime guy holds his ground
+  round his post from cover, spinning up each time he steps out, and goes
+  to ground but never out on a sweep. Staffers stay office zombies, but
+  everyone answers the alarm when one of them goes down (those within 520
+  px go to look where he fell), cones widen once on edge, and the patrols
+  are squads: a leader walking the beat with the rest a step behind him
+  either side, all of them going to where any one of them is shooting. New
+  lines for it ("Taking my break!", "Here's your severance!", "Let's circle
+  back to that.").
 
 ## Decisions
 
@@ -223,8 +243,8 @@ standard), as Cyber Feud's do.
 | --- | --- | --- | --- | --- |
 | **Intern** | A white shirt, a lanyard, no gun, arms reaching out in front | 20 | Claws (`melee`, 7) | The lowest rank there is, and never alone: mobs of 5-8 stand about their spot (asleep in the bunks, at lunch) until a player comes near or sees them, or one is hurt; then the whole mob shambles after the nearest player (55 px/s, a lurch at 100 once close), raises its arms for 0.35 s and claws. One is nothing; a mob is not. The old zombies. |
 | **Zombie staffer** | A UAC jumpsuit, a lanyard, a coffee mug in the other hand | 40 | Pistol (`bullet`, 8), slow to aim | Sits at a desk or stands at a post until someone comes in sight, then shambles at them (60 px/s) firing now and then. Fodder. |
-| **Zombie guard** | UAC security armour, a cracked helmet | 60 | Shotgun (`bullet`, 6 pellets of 7) | Holds doorways and corridors, steps in to close range. |
-| **Overtime guy** | Big, in a hard hat and hi-vis, a chaingun from the loading bay | 100 | Chaingun (`bullet`, 6 a round, 8 a second) | Spins up for 0.6 s (you hear it), then keeps firing at whoever he can see, sweeping slowly. Bad in the open, easy round a corner. |
+| **Zombie guard** | UAC security armour, a cracked helmet | 60 | Shotgun (`bullet`, 6 pellets of 7); a grenade, one in three | The one that fights smart, like the Combine: sweeps its cone across the doorway it holds, fights from cover (ducks, steps out to shoot, ducks back), goes to ground when sniped and then sweeps where it came from. |
+| **Overtime guy** | Big, in a hard hat and hi-vis, a chaingun from the loading bay | 100 | Chaingun (`bullet`, 6 a round, 8 a second) | Holds his ground near his post from cover, spinning up for 0.6 s (you hear it) each time he steps out, then firing at whoever he can see, sweeping slowly. |
 
 #### The demons
 
