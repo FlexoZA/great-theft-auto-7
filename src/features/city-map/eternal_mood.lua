@@ -20,10 +20,13 @@
 --                         in the solids too, `flat` ones (a lift pad, sludge, paint) are drawn first.
 --                         Kinds: slab, tank, portal, console, desk, chair, cabinet, cooler, reactor, pipe,
 --                         barrel, sludge, crane, crate, loader, lift, bunk, table, counter, lockers,
---                         catwalk, paint, stripe
+--                         catwalk, paint, stripe, vent
 --   map.signs             { x, y, w, h, text } posters and signs on the walls, world px
 --   map.lights            { x, y, r, color, a } what glows in the dark (the night feature draws them), world px
 --   map.alarms            { x, y } the red alarm lamps over the doors, world px
+--   map.horde             { posts = { rank, x, y, watch }, vents = { x, y, out, count } } Heck's horde
+--                         (eternal-mood/horde.lua): the possessed at their posts (rank staffer, guard or
+--                         overtime) and the vents the imps crawl out of, world px
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
 
 local EternalMood = {}
@@ -300,6 +303,54 @@ local function buildFobos(map, rng, T)
     flat(map, "paint", X(c), Y(12), 3 * T, 10)
   end
   poster(map, X(33), Y(z.r0), EternalMood.POSTERS[3])
+
+  -- Heck's horde (eternal-mood/horde.lua). The possessed at their posts,
+  -- in tiles (fractions for the middle of a tile) and facing `watch`: none
+  -- in the Lab, where everyone wakes; staffers about the Crew Quarters, the
+  -- Mess and the Ring; a guard just inside each doorway up from the Ring;
+  -- staffers at the Offices' desks; the overtime guy by the Hangar's lift
+  -- with guards and staffers round him. The imps wait in the vents, the
+  -- Reactor's first, each with the way they crawl out (`out`) and how many
+  -- for one human.
+  local N, E, S, W = -math.pi / 2, 0, math.pi / 2, math.pi
+  local horde = { posts = {}, vents = {} }
+  map.horde = horde
+  local function post(rank, c, r, watch)
+    horde.posts[#horde.posts + 1] = { rank = rank, x = math.floor(X(c)), y = math.floor(Y(r)), watch = watch }
+  end
+  local function vent(c, r, out, count)
+    local x, y = math.floor(X(c)), math.floor(Y(r))
+    horde.vents[#horde.vents + 1] = { x = x, y = y, out = out, count = count }
+    flat(map, "vent", x - 22, y - 16, 44, 32)
+  end
+  post("staffer", 9.5, 60, N) -- Crew Quarters
+  post("staffer", 9.5, 64.5, N)
+  post("staffer", 45.5, 58.5, W) -- the Mess
+  post("staffer", 49.5, 62.5, W)
+  post("staffer", 42.5, 66.5, N)
+  post("staffer", 20, 50.5, E) -- the Ring
+  post("staffer", 38, 50.5, W)
+  post("guard", 10.5, 44.3, S) -- inside each doorway up from the Ring
+  post("guard", 28, 44.3, S)
+  post("guard", 45.5, 44.3, S)
+  for _, d in ipairs({ { 7, 29 }, { 11, 29 }, { 11, 33 }, { 7, 37 }, { 11, 41 } }) do -- the Offices' desks
+    post("staffer", d[1] + 0.9, d[2] + 0.95, N)
+  end
+  post("staffer", 24, 37, E) -- the Reactor's catwalk
+  post("staffer", 32, 31, W)
+  post("staffer", 41, 36, E) -- Toxic Storage
+  post("staffer", 49.5, 33, W)
+  post("overtime", 28, 9.5, S) -- the Hangar, round the lift
+  post("guard", 20, 12, S)
+  post("guard", 36.5, 12.5, S)
+  post("staffer", 12, 17, S)
+  post("staffer", 44, 17, S)
+  post("staffer", 28, 16, S)
+  vent(21, 33, E, 3) -- the Reactor
+  vent(35, 30, W, 3)
+  vent(50.5, 38, W, 3) -- Toxic Storage
+  vent(7, 16, E, 2) -- the Hangar
+  vent(48.5, 15, W, 2)
 
   -- Everyone wakes up in the Lab, at the head of the slabs; the way home is
   -- by the consoles behind them, well clear of where they wake.

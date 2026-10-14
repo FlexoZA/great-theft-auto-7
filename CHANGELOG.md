@@ -16,8 +16,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ### Added
 - A new job on the board, "Pest control": the start of the Eternal Mood quest line. Fobos Base, the UAC's moon base,
-  in the dark: wake up in the Lab and find your way up to the Hangar's lift. For now it's the way through, with its
-  demons and its boss still to come.
+  in the dark, everything in it red: wake up in the Lab and find your way up to the Hangar's lift.
+- Heck holds Fobos Base: the possessed UAC staff at their desks and posts (staffers with pistols, guards with
+  shotguns in the doorways, the overtime guy spinning up his chaingun by the lift), and imps bursting out of the floor
+  vents as you come near, throwing fireballs you can sidestep. Its boss is still to come.
 
 ## [0.27.0] - 2026-10-14
 
