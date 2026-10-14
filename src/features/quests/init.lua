@@ -334,7 +334,8 @@ Quests.list = {
     color = { 1, 0.45, 0.1 },
     banner = "%s came off the shuttle. Welcome to the Foundry.",
     introLine = 3,
-    exitText = "The portal behind the Crucible goes down into Heck. That's as far as the job goes for now. Head home.",
+    exitText = "The Baron's key opens the portal behind the Crucible, down into Heck. That's as far as the job goes "
+      .. "for now. Head home.",
   },
   {
     id = "home",

@@ -30,6 +30,7 @@
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Ground = require("src.features.eternal-mood.ground")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 
@@ -195,7 +196,7 @@ function Brain:addSquad(route, ranks, start)
   for i, rank in ipairs(ranks) do
     local slot = Brain.FORMATION[(i - 1) % #Brain.FORMATION + 1]
     local x, y = from.x + slot[1] * c - slot[2] * sn, from.y + slot[1] * sn + slot[2] * c
-    if Sight.blocked(x, y) then -- (its slot in a wall: it starts on the leader's spot and falls in)
+    if Ground.blocked(x, y) then -- (its slot in a wall: it starts on the leader's spot and falls in)
       x, y = from.x, from.y
     end
     local s = self:add(rank, x, y, heading)
@@ -209,8 +210,8 @@ end
 
 local function fits(x, y)
   local r = Brain.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
+  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
+    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r))
 end
 
 local function move(s, mx, my)
@@ -233,7 +234,7 @@ end
 --- watching somebody).
 local function goTo(self, s, x, y, speed, dt, look)
   local gx, gy = x, y
-  if not Sight.clear(s.x, s.y, x, y) and self.nav then
+  if not Ground.clear(s.x, s.y, x, y) and self.nav then
     s.pathIn = s.pathIn - dt
     if not s.path or s.pathIn <= 0 then
       s.path, s.step, s.pathIn = self.nav:path(s.x, s.y, x, y), 1, Brain.REPATH
@@ -411,7 +412,7 @@ local function search(cx, cy, reach, fx, fy, pull, ok)
     for k = 1, n do
       local a = k / n * 2 * math.pi + ring * 0.4
       local x, y = cx + math.cos(a) * d, cy + math.sin(a) * d
-      if fits(x, y) and Sight.clear(fx, fy, x, y) and ok(x, y) then
+      if fits(x, y) and Ground.clear(fx, fy, x, y) and ok(x, y) then
         local score = math.sqrt(dist2(x, y, fx, fy)) + pull * d
         if not bestScore or score < bestScore then
           best, bestScore = { x = x, y = y }, score

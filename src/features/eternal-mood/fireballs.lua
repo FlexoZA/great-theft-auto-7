@@ -1,6 +1,6 @@
 -- What the horde throws and shoots that you can see coming and step out of
 -- the way of (docs/eternal-mood.md, "The demons"): the imps' fireballs, the
--- Cacodaemons' spit and the Floor Manager's plasma, each a `kind`
+-- Cacodaemons' spit, the Baron's green fire and the Floor Manager's plasma, each a `kind`
 -- (Fireballs.KINDS). The host flies
 -- them and decides what they hit; every screen flies its own copy from where
 -- and how fast it set off, and drops it when the host says it burst.
@@ -9,7 +9,7 @@
 -- wall; it never hurts the horde. It burns out after its `ttl`.
 --
 -- Messages
---   server -> all  HRD_BALL <id> <x> <y> <vx> <vy> <kind>   one set off (kind f fireball, c spit, p plasma)
+--   server -> all  HRD_BALL <id> <x> <y> <vx> <vy> <kind>   one set off (kind f fireball, c spit, b baron, p plasma)
 --   server -> all  HRD_POP  <id> <x> <y>                    one burst there
 
 local Protocol = require("src.net.protocol")
@@ -30,6 +30,10 @@ Fireballs.KINDS = {
   spit = { -- a Cacodaemon's: big, slow and hot
     code = "c", speed = 260, ttl = 2.8, radius = 14, damage = 24, dtype = "fire",
     color = { 1.00, 0.32, 0.18 }, core = { 1.00, 0.80, 0.55 }, tail = 5,
+  },
+  baron = { -- the Baron of Heck's: green, in pairs
+    code = "b", speed = 360, ttl = 2.6, radius = 11, damage = 22, dtype = "fire",
+    color = { 0.35, 1.00, 0.35 }, core = { 0.85, 1.00, 0.75 }, tail = 5,
   },
   plasma = { -- the Floor Manager's: quicker and smaller, in streams
     code = "p", speed = 520, ttl = 1.6, radius = 6, damage = 9, dtype = "shock",

@@ -1645,7 +1645,17 @@ the one with a plot.
   `starport_pads.lua`), `heckFrom` (north of it the walls are rock), and
   `belts`: a moving floor that carries whoever stands on it (the
   eternal-mood feature's `belts.lua`, on the host, players and the horde).
-  Its boss, the Baron of Heck, and the next two maps follow.
+  Its boss, the Baron of Heck (`baron.lua`, `baron_brain.lua`,
+  `baron_look.lua`, BR_ messages; the map's `horde.boss` kind "baron"),
+  stands on the Crucible's ring: green fireballs in pairs (fireballs.lua's
+  "baron"), a charge that stuns him if it ends in a wall, a claw, a roar
+  that throws you back and calls imps out of the lava (horde.lua's
+  `serverCall` "imp"). He drops the Snooze Gate's key; the portal stays
+  sealed (`serverLocked`) until somebody picks it up. Lava on these maps is
+  `low` (`map.lows`): sight and rounds pass over, a player walking in it
+  burns, and the horde keeps out of it (`ground.lua`'s `Ground.blocked`
+  and `Ground.clear` stand in for Sight's in every walker's brain, and it
+  shuts the walking grid's cells over the lava). The next two maps follow.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
