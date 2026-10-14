@@ -50,6 +50,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   each arm, parked in front of the starport's gate. He fires rockets from both arms in turn and sweeps fans of them
   across the road (look for the gap), bumps you away with his belly if you get close, and shouts for Cacodaemons.
   He's slow to turn, and his back is the recliner: shots there do double. The gate stays closed until he's down.
+- Heck on Earth has its own theme: faster thrash metal, galloping riffs and tremolo picking, air-raid sirens wailing
+  through it and car horns in the breakdown. It starts in the dream, a sofa-sale jingle on the telly and a phone
+  buzzing, until the siren drowns it out.
 - Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
   and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
   everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
