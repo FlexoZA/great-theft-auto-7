@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-14
+
+A quieter mix out of the box: footsteps, the Combine soldiers' radio and pickups start lower.
+
 ### Changed
 - Quieter default sound levels: footsteps 60% -> 25%, the Combine soldiers' radio 70% -> 40%, pickups 70% -> 60%.
   Levels you already set in Settings stay as they are.
