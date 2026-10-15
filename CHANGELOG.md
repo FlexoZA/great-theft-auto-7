@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new gun, the SMG (110 Fcks): fifteen rounds a second against the AK's nine, tighter than the uzi, but spent by
+  about 500 px (the AK reaches 1200). It fires 9mm rounds, the pistol's: 9mm is back in the shop (60 for 35 Fcks),
+  the ammo factory, enemies' drops and the ammo crates. The pistol still never runs out.
+- The Combine soldiers in City 17 carry SMGs now and then.
+
+### Fixed
+- A super shotgun in your bag (not in a weapon slot) is no longer lost when a saved world is loaded.
+
 ## [0.28.3] - 2026-10-15
 
 Ammo crates on every quest map: press F or shoot one for a dump of ammo, AK rounds most of all.

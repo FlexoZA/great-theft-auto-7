@@ -525,9 +525,14 @@ couple of small conventions rather than requiring each other:
   item, n)`. A gun marked `bottomless` (the pistol) reloads from nowhere:
   there is no ammo item for it, and the shop, the ammo factory and the
   police drops leave it out. A gun with `ammo` fires another gun's rounds
-  (the super shotgun's are `"ammo-shotgun"`): `Guns.ammoItem(gun)` is the
-  item, it has none of its own, and an enemy's ammo box counts it as
-  carrying that gun. `weapons:serverFire` counts rounds for human
+  (the super shotgun's are `"ammo-shotgun"`, the SMG's the pistol's 9mm,
+  `"ammo-pistol"`): `Guns.ammoItem(gun)` is the item, it has none of its
+  own, and an enemy's ammo box counts it as carrying that gun. Which ammo
+  items exist at all is `Guns.ammoTypes` (each `item`, its `owner` gun and
+  the `gun` whose magazine sizes a box): one per gun firing rounds from the
+  bag, so the bottomless pistol's 9mm is an item because the SMG fires it.
+  The shop, the ammo factory, enemies' boxes and the ammo crates all read
+  that list. `weapons:serverFire` counts rounds for human
   players only; a player with `bot = true` (bots, police) and
   `serverFireFrom` never run dry.
 - Ammo crates: `src/features/ammo-crates` scatters `COUNT` (5) military
