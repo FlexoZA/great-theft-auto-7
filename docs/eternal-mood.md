@@ -513,7 +513,9 @@ Each is a bit more dream than the last, the way the levels are.
   launchers. He sits in front of the starport's gate and keeps it closed:
   volleys of rockets from both arms in turn, sweeps of them in a fan, a
   belly bump up close, Cacodaemons called in. Slow to turn, and his back
-  is the recliner. (Replaces the Cyberdaemon first planned here.)
+  is the recliner. (Replaces the Cyberdaemon first planned here.) Down,
+  he drops the Mood Slayer's helmet for every player, which unlocks it in
+  the shop.
 - **The Baron of Heck** (The Foundry). A big horned brute with green
   fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
   throws fireballs in pairs, and roars.
