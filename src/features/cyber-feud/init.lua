@@ -439,6 +439,11 @@ function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, 
   return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
 end
 
+--- Every enemy of the level in the world right now, for the audit (tools/audit).
+function CyberFeud:serverEnemies(server, add)
+  Troops.serverEnemies(server, add)
+end
+
 --- A player's or a bot's gun went off: the assassin droids hear it.
 function CyberFeud:serverShotFired(_server, player, x, y)
   Droids.serverShotFired(player, x, y)

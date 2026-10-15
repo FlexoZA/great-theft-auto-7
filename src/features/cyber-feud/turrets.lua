@@ -248,6 +248,16 @@ function Turrets.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true, true
 end
 
+--- Every turret still up, for the audit (tools/audit): Halcyon's and
+--- VEX's. A breached one is its breacher's now, no enemy, and left out.
+function Turrets.serverEnemies(_server, add)
+  for _, t in ipairs(sv and sv.brain.list or {}) do
+    if not t.breachedBy then
+      add({ id = t, kind = "cyber-feud/turret", x = t.x, y = t.y, hp = t.hp, radius = Brain.RADIUS })
+    end
+  end
+end
+
 function Turrets.serverEmp(x, y, radius)
   if sv then
     sv.brain:stun(x, y, radius, Turrets.empTime)

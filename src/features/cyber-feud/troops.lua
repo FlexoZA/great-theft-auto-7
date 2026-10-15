@@ -977,6 +977,35 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   return Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+--- Everything of the level's that fights the player, for the audit
+--- (tools/audit), in `serverShotAt`'s order: both sides' soldiers (a
+--- player's round hits either, whatever the truce), the specials, the
+--- bosses, VEX, Kilowatt's cameo and the droids.
+function Troops.serverEnemies(server, add)
+  if not sv then
+    return
+  end
+  for _, key in ipairs(Troops.SIDES) do
+    for _, s in ipairs(sv.sides[key].troops.list) do
+      add({ id = s, kind = "cyber-feud/" .. key .. "-soldier", x = s.x, y = s.y, hp = s.hp, radius = Combine.RADIUS })
+    end
+  end
+  Enforcers.serverEnemies(server, add)
+  Rippers.serverEnemies(server, add)
+  Sparkers.serverEnemies(server, add)
+  Watchers.serverEnemies(server, add)
+  Marksmen.serverEnemies(server, add)
+  Stings.serverEnemies(server, add)
+  Turrets.serverEnemies(server, add)
+  Brutes.serverEnemies(server, add)
+  Kilowatt.serverEnemies(server, add)
+  Saye.serverEnemies(server, add)
+  Volt.serverEnemies(server, add)
+  Vex.serverEnemies(server, add)
+  WarRigs.serverEnemies(server, add)
+  Droids.serverEnemies(server, add)
+end
+
 function Troops.serverFreezeArea(x, y, radius, seconds)
   for _, side in pairs(sv and sv.sides or {}) do
     side.troops:freeze(x, y, radius, seconds)

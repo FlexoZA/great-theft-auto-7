@@ -427,6 +427,30 @@ function Dday:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   return true
 end
 
+--- Every enemy on the beach right now, for the audit (tools/audit): each
+--- soldier, and the Major, who can only be hurt once his fight has begun
+--- (as `serverShotAt` has it).
+function Dday:serverEnemies(_server, add)
+  if not (sv and sv.troops) then
+    return
+  end
+  for _, s in ipairs(sv.troops.list) do
+    add({ id = s, kind = "d-day/soldier", x = s.x, y = s.y, hp = s.hp, radius = Soldiers.RADIUS })
+  end
+  local m = sv.major
+  if m then
+    add({
+      id = m,
+      kind = "d-day/major",
+      x = m.x,
+      y = m.y,
+      hp = m.hp,
+      radius = Major.RADIUS,
+      immune = sv.stage ~= "boss",
+    })
+  end
+end
+
 --- For tests.
 function Dday.server()
   return sv

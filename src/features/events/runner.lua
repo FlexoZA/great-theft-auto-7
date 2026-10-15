@@ -283,6 +283,14 @@ function Runner.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, for the audit (tools/audit).
+function Runner.serverEnemies(_server, add)
+  local r = sv and sv.r
+  if r and r.hp > 0 then
+    add({ id = r, kind = "events/runner", x = r.x, y = r.y, hp = r.hp, radius = Runner.radius })
+  end
+end
+
 --- Something stinks at (x, y): he turns round.
 function Runner.serverPanicArea(_server, x, y, radius)
   local r = sv and sv.r

@@ -489,6 +489,31 @@ function Bigfoot.serverShotAt(server, x, y, radius, by, angle)
   return false
 end
 
+--- Him and his squirrels, for the audit (tools/audit). In the air he is
+--- over the walls and nothing hits him (as `serverShotAt` has it).
+function Bigfoot.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local f = sv.foot
+  if f and f.hp > 0 then
+    local air = f.mode == "air"
+    add({
+      id = f,
+      kind = "events/bigfoot",
+      x = f.x,
+      y = f.y,
+      hp = f.hp,
+      radius = Bigfoot.radius,
+      immune = air,
+      flying = air,
+    })
+  end
+  for _, s in pairs(sv.squirrels) do
+    add({ id = s, kind = "events/squirrel", x = s.x, y = s.y, hp = s.hp, radius = Bigfoot.squirrelRadius })
+  end
+end
+
 --- Something stinks at (x, y): he (on the ground) and his squirrels run
 --- from it for a moment.
 function Bigfoot.serverPanicArea(_server, x, y, radius)

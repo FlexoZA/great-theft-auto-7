@@ -187,6 +187,13 @@ function Rippers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fr
   return true, by ~= 0
 end
 
+--- Every ripper standing, for the audit (tools/audit).
+function Rippers.serverEnemies(_server, add)
+  for _, s in ipairs(sv and sv.brain.list or {}) do
+    add({ id = s, kind = "cyber-feud/ripper", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS })
+  end
+end
+
 function Rippers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

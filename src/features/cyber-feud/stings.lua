@@ -168,6 +168,15 @@ function Stings.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every sting in the air, for the audit (tools/audit). Outdoors it flies
+--- over everything; indoors (the tower) it goes round what stands there.
+function Stings.serverEnemies(_server, add)
+  for _, s in ipairs(sv and sv.brain.list or {}) do
+    add({ id = s, kind = "cyber-feud/sting", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS,
+      flying = not sv.brain.indoors })
+  end
+end
+
 function Stings.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

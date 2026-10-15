@@ -162,6 +162,14 @@ function Turrets.hit(set, server, x, y, radius)
   return false
 end
 
+--- Every one standing, for the audit (tools/audit): `kind` names whose
+--- they are. One round of anything knocks one over, so no hp.
+function Turrets.enemies(set, kind, add)
+  for _, t in pairs(set.list) do
+    add({ id = t, kind = kind, x = t.x, y = t.y, radius = Turrets.radius })
+  end
+end
+
 --- A freeze at (x, y): the ones inside stand still, guns and all.
 function Turrets.freeze(set, x, y, radius, seconds)
   for _, t in pairs(set.list) do

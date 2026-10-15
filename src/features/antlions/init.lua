@@ -213,6 +213,25 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Every antlion in the world right now, for the audit (tools/audit): the
+--- ones still under the sand can't be hit till they come up. The guard too.
+function Antlions:serverEnemies(server, add)
+  if sv then
+    for _, a in ipairs(sv.brain.list) do
+      add({
+        id = a,
+        kind = "antlions/antlion",
+        x = a.x,
+        y = a.y,
+        hp = a.hp,
+        radius = Brain.RADIUS,
+        immune = a.mode == "under",
+      })
+    end
+  end
+  Guard.serverEnemies(server, add)
+end
+
 function Antlions:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

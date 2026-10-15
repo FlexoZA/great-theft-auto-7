@@ -301,6 +301,13 @@ function Brutes.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
   return true, by ~= 0
 end
 
+--- Every brute standing, for the audit (tools/audit).
+function Brutes.serverEnemies(_server, add)
+  for _, s in ipairs(sv and sv.brain.list or {}) do
+    add({ id = s, kind = "cyber-feud/brute", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS })
+  end
+end
+
 function Brutes.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

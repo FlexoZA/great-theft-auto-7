@@ -185,6 +185,15 @@ function Watchers.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true, true
 end
 
+--- Every watcher in the air, for the audit (tools/audit). Outdoors it flies
+--- over the stalls; indoors (the tower) it goes round what stands there.
+function Watchers.serverEnemies(_server, add)
+  for _, s in ipairs(sv and sv.brain.list or {}) do
+    add({ id = s, kind = "cyber-feud/watcher", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS,
+      flying = not sv.brain.indoors })
+  end
+end
+
 function Watchers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

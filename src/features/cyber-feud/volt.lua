@@ -397,6 +397,14 @@ function Volt.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, until he is down, for the audit (tools/audit).
+function Volt.serverEnemies(_server, add)
+  if sv and not sv.down then
+    local v = sv.v
+    add({ id = v, kind = "cyber-feud/volt", x = v.x, y = v.y, hp = v.hp, radius = Volt.RADIUS })
+  end
+end
+
 function Volt.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.v.x, sv.v.y) <= radius * radius then
     sv.v.frozen = math.max(sv.v.frozen, seconds)
