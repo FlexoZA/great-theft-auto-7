@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Baron of Heck drops the super shotgun, the Mood Slayer's own, one for every player: 12 pellets a pull instead
+  of 6, twice a shotgun's reach and 10 shells a magazine instead of 6. It fires ordinary shotgun shells. Pick it up
+  and it's yours with a magazine's worth of shells, and the shop sells it to you from then on (260 Fcks).
+
 ## [0.28.1] - 2026-10-15
 
 The Mancouchbus drops the Mood Slayer's helmet, and a boss's reward you haven't unlocked yet now stands out on the road.

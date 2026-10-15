@@ -524,9 +524,21 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. A gun marked `bottomless` (the pistol) reloads from nowhere:
   there is no ammo item for it, and the shop, the ammo factory and the
-  police drops leave it out. `weapons:serverFire` counts rounds for human
+  police drops leave it out. A gun with `ammo` fires another gun's rounds
+  (the super shotgun's are `"ammo-shotgun"`): `Guns.ammoItem(gun)` is the
+  item, it has none of its own, and an enemy's ammo box counts it as
+  carrying that gun. `weapons:serverFire` counts rounds for human
   players only; a player with `bot = true` (bots, police) and
   `serverFireFrom` never run dry.
+- Won guns: a gun marked `unlock` (the super shotgun: 12 pellets, double a
+  shotgun's reach, a 10-shell magazine) is never made by a factory, never
+  in an enemy's hands (City 17's loadout leaves it out unless it is
+  listed), and only on the shop's shelf once you have one. The Baron of
+  Heck drops one for every player (pickups' `perPlayer`, kind
+  `"gun-<key>"`); walking over it calls `weapons:serverTakeFound`: into the
+  bag with a magazine's worth of its rounds (or an empty weapon slot when
+  the bag is full), and the first time `WPN_UNLOCK <key>` to that player,
+  the reward card. Saved with the player (weapons' `unlocked`).
 - Tiers: everything a player equips (guns, abilities, armor, clothes) comes
   in a tier, `src/features/tiers`: common (grey, base stats), uncommon
   (green, its first stat better), rare (blue, its first two, by more) and
@@ -1668,7 +1680,9 @@ the one with a plot.
   "baron"), a charge that stuns him if it ends in a wall, a claw, a roar
   that throws you back and calls imps out of the lava (horde.lua's
   `serverCall` "imp"). He drops the Snooze Gate's key; the portal stays
-  sealed (`serverLocked`) until somebody picks it up. Lava on these maps is
+  sealed (`serverLocked`) until somebody picks it up. He also drops the
+  super shotgun for every player (`Baron.GUN`, a won gun), clear of the key
+  and the lava. Lava on these maps is
   `low` (`map.lows`): sight and rounds pass over, a player walking in it
   burns, and the horde keeps out of it (`ground.lua`'s `Ground.blocked`
   and `Ground.clear` stand in for Sight's in every walker's brain, and it
@@ -1828,7 +1842,7 @@ the one with a plot.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. An entry marked
-  `unlock` (the electric grenade, the Mood Slayer's helmet) is only on the shelf, and only sold, to a
+  `unlock` (the electric grenade, the Mood Slayer's helmet, the super shotgun) is only on the shelf, and only sold, to a
   player who has unlocked it: the feature that owns it answers
   `itemUnlocked(item)` on their screen and `serverItemUnlocked(server,
   player, item)` on the host. A click on a card

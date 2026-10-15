@@ -71,7 +71,7 @@ local Catalog = {
 -- CAR_MARKUP. The shop always asks more than it pays a factory's owner for
 -- the same thing (buildings/kinds.lua, Kinds.worth).
 local PRICES = {
-  ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-shotgun"] = 100,
+  ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-shotgun"] = 100, ["gun-super-shotgun"] = 260,
   ["gun-sniper"] = 160, ["gun-rocket"] = 300, ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
   ["ammo-uzi"] = 40, ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70,
@@ -100,10 +100,12 @@ local function add(entry)
 end
 
 for _, gun in ipairs(Guns.list) do
-  add({ item = "gun-" .. gun.key, n = 1, name = gun.name, kind = "gun" })
+  -- A won gun (the super shotgun) only once you have picked one up (the weapons feature's)
+  add({ item = "gun-" .. gun.key, n = 1, name = gun.name, kind = "gun", unlock = gun.unlock })
 end
 for _, gun in ipairs(Guns.list) do
-  if not gun.bottomless then -- the pistol never runs out: nothing to sell for it
+  -- Nothing to sell for the pistol, or for a gun firing another's rounds (the super shotgun's are shells)
+  if not (gun.bottomless or gun.ammo) then -- the pistol never runs out: nothing to sell for it
     local n = boxOf(gun)
     add({ item = "ammo-" .. gun.key, n = n, name = Kinds.label("ammo-" .. gun.key, n), kind = "ammo" })
   end

@@ -77,7 +77,7 @@ local function gun(entry, tier)
   if g.scope then
     row("scope", ("x%d"):format(g.scope))
   end
-  row("ammo", g.bottomless and "never runs out" or Kinds.name("ammo-" .. g.key, 2))
+  row("ammo", g.bottomless and "never runs out" or Kinds.name(Guns.ammoItem(g), 2))
   return { blurb = g.blurb, use = "Drag it into a weapon slot; its number key picks it.", rows = rows }
 end
 
