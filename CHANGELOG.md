@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.4] - 2026-10-15
+
+The Baron of Heck comes after you wherever you hide, leaps over the lava, dodges your rounds, and has guns for hands.
+
 ### Added
 - The Baron of Heck leaps. At anyone a fair way off (300 px or more), and always at anyone across the lava from him,
   he crouches with a red ring on the floor where he'll land, sails over the lava and comes down on you: 45 damage and
