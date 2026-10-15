@@ -17,6 +17,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Added
 - Three quests get their own music: an eerie whistle in the woods of Whispering Pines (the alien hunt), a snare-drum
   march with brass for the beach landing (D-Day), and a twangy spaghetti-western standoff on Shotgun's Bluff.
+- The Outer City, the Winding Road and the Citadel no longer end in a bare grid: City 17's outskirts run on past
+  the Outer City's wall, mountains, forest, the river and snow round the Winding Road, and the Citadel's abyss
+  (girders, pods on their rails, far-off platforms) all round its catwalk.
 
 ### Changed
 - A leap's landing hits enemies as hard as it hits players: 20 -> 45 for the leap, 20 -> 70 for Bigfoot's leap, and a
