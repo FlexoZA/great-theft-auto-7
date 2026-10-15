@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Ammo crates on every quest map, five of them: walk up and press F, or shoot one, and it breaks open into four
+  boxes of ammo, a magazine and a half each. AK rounds come out of them more often than off enemies.
+
 ## [0.28.2] - 2026-10-15
 
 The Baron of Heck drops the super shotgun, the Mood Slayer's own: twice the pellets and the reach of a shotgun.
