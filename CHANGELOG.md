@@ -14,6 +14,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- The game no longer freezes when you leap or teleport right on top of a Hunter or an assassin droid.
+
 ## [0.28.4] - 2026-10-15
 
 The SMG, won off the Hunter-Chopper: faster than the AK, shorter reach, firing 9mm, which is back.

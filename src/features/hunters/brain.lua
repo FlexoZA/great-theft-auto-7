@@ -448,7 +448,9 @@ function Brain:fight(server, h, tx, ty, dt)
     mx, my, speed = -ux * 0.85 - uy * h.side * 0.5, -uy * 0.85 + ux * h.side * 0.5, Brain.RUN -- back off
   end
   local len = math.sqrt(mx * mx + my * my)
-  mx, my = mx / len, my / len
+  if len > 0 then -- zero with its target right on top of it (a leap landing there): 0/0 would make it NaN
+    mx, my = mx / len, my / len
+  end
   local home = h.home
   if home and dist2(h.x + mx * 40, h.y + my * 40, home.x, home.y) > Brain.LEASH * Brain.LEASH then
     mx, my = -uy * h.side, ux * h.side -- at the end of its leash: only across
