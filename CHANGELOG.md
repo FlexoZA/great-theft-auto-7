@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Outer City, the Winding Road and the Citadel no longer end in a bare grid: City 17's outskirts run on past
+  the Outer City's wall, mountains, forest, the river and snow round the Winding Road, and the Citadel's abyss
+  (girders, pods on their rails, far-off platforms) all round its catwalk.
+
 ## [0.28.4] - 2026-10-15
 
 The SMG, won off the Hunter-Chopper: faster than the AK, shorter reach, firing 9mm, which is back.

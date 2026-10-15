@@ -65,6 +65,19 @@
 -- and off the Altar Fields' west edge a crack in the sky with the sofa's
 -- ceiling through it.
 --
+-- A-Man's trail past City 17: the Outer City carries on as City 17's
+-- outskirts (outer_city.lua): rows of decayed blocks, fallen, holed, grown
+-- over and burning, a square or a park here and there, the map's waterways
+-- and more canals running on, City 17's wall round the map (grilles where
+-- the water goes under) and across the north, and the haze. The Winding
+-- Road runs on as mountains (winding_road.lua): the map's own relief,
+-- forest thinning higher up, the road and the river on down their valley
+-- out of both ends, the snow lower and lower further north. The Citadel's
+-- drop runs on all round its shaft (citadel_abyss.lua): the dark, haze,
+-- lights far below, girders, pillars, the map's pod rails carrying on and
+-- more with pods gliding along them, and other platforms lit far off.
+-- The first two are drawn once into chunks (chunks.lua).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -80,6 +93,9 @@ local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
 local StarportPads = require("src.features.surroundings.starport_pads")
 local HeckBeyond = require("src.features.surroundings.heck")
 local WarSounds = require("src.features.surroundings.war_sounds")
+local OuterCity = require("src.features.surroundings.outer_city")
+local WindingRoad = require("src.features.surroundings.winding_road")
+local CitadelAbyss = require("src.features.surroundings.citadel_abyss")
 
 local Surroundings = {
   name = "surroundings",
@@ -1244,6 +1260,17 @@ local DRAW = {
   heck = function(map, camera)
     local left, top, right, bottom = view(camera)
     HeckBeyond.draw(map, left, top, right, bottom, clock)
+  end,
+  outercity = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OuterCity.draw(map, camera, left, top, right, bottom, clock)
+  end,
+  road = function(map, camera)
+    WindingRoad.draw(map, view(camera))
+  end,
+  citadel = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    CitadelAbyss.draw(map, left, top, right, bottom, clock)
   end,
 }
 
