@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Fixed
+- Soldiers on the Market and in Halcyon Tower, and a staffer on Heck on Earth, no longer start stuck inside a wall where nothing could reach them.
+
+### Fixed
 - The game no longer freezes when you leap or teleport right on top of a Hunter or an assassin droid.
 
 ## [0.28.4] - 2026-10-15
