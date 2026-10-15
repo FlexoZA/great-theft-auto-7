@@ -545,7 +545,7 @@ couple of small conventions rather than requiring each other:
   other (AMC_ messages). Broken open, by the action key at one (F, through
   `actionTaken`; AMC_OPEN, the host checks you are on foot and near) or by
   any player's round or blast (`serverShotAt`, `serverBlast`; Heck's and
-  the Combine's rounds fly on), it spills `BOXES` (4) ammo boxes round it
+  the Combine's rounds fly on), it spills `BOXES` (2) ammo boxes round it
   through pickups' `serverDrop`, each 1.5 magazines for a gun picked by
   the guns' `dropWeight` with the AK's at 5 instead of 3 (`weights`). It
   stays open and empty until the map changes. Rounds a gun borrows
