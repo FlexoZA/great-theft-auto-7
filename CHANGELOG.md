@@ -14,6 +14,23 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Baron of Heck leaps. At anyone a fair way off (300 px or more), and always at anyone across the lava from him,
+  he crouches with a red ring on the floor where he'll land, sails over the lava and comes down on you: 45 damage and
+  a big shove. He's slow to get up after.
+- The Baron of Heck dodges. A round about to hit him and he throws himself aside, if he has the breath for it (a
+  fifth of his bar each time, and only while he has more than half). His breath shows as a bar under him once he's
+  spent some, throbbing red while he's winded: wind him and he can't dodge.
+
+### Changed
+- The Baron of Heck comes after you. Hanging back in the Smelters no longer keeps him on his spot by the pit: he
+  follows you anywhere on the map, and he notices you as soon as he can see you instead of only when you step onto a
+  bridge.
+- The Baron of Heck gets his breath back while circling you; before, he could stay stuck short of breath for the
+  whole fight.
+- The Baron of Heck has a new look: broad horned shoulders, guns for hands (his green fireballs come out of the
+  barrels), a goat's skull with glowing eyes, a tail.
+
 ## [0.29.3] - 2026-10-15
 
 The Hunters tire: run them ragged and they can only walk, with a breath bar under each to show it.

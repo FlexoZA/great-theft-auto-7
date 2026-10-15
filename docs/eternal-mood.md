@@ -320,14 +320,20 @@ branch off `feature/eternal-mood`):
 - `feature/eternal-mood-baron`: the Foundry's boss, the Baron of Heck
   (`eternal-mood/baron.lua`, his brain `baron_brain.lua`, his look
   `baron_look.lua`; BR_ messages; the map's `horde.boss` kind "baron"). A
-  big horned brute (drawn 1.35 times a person's size): pink hide above the
-  waist, shaggy brown goat legs and hooves below, two great horns curving
-  forward, the Snooze Gate's key, brass with a Zz tag, on his belt. 4200
+  big horned brute (drawn 1.35 times a person's size), outlined dark: a
+  wedge of a back, pink hide, broad knotted shoulders tapering to the
+  waist and bone spikes down the spine; long jointed arms ending in guns
+  (twin barrels, a green cell glowing in each; no hands, the flesh grown
+  over the steel at the wrist); shaggy brown goat legs, cloven hooves and a tail below; a long
+  goat's skull with glowing green eyes and two great ridged horns sweeping
+  out and forward; the Snooze Gate's key, brass with a Zz tag, on his belt. 4200
   health for one human (the Mancouchbus has 3400), 30 px across. He stands
   on the stone ring south of the Crucible's pit and wakes ("KNEEL.") when
-  somebody comes over a bridge or shoots him; he keeps to the Crucible.
-  Pairs: green fire burns up in both hands for 0.6 s, then a fireball from
-  each (fireballs.lua's "baron": green, 360 px/s, 22 `fire`), the left at
+  somebody comes over a bridge, into his sight (900 px, no wall between)
+  or shoots him. Awake, he goes after whoever is nearest anywhere on the
+  map: hang back in the Smelters and he comes down after you.
+  Pairs: green fire burns up at both muzzles for 0.6 s, then a fireball
+  from each gun (fireballs.lua's "baron": green, 360 px/s, 22 `fire`), the left at
   where you stand, the right where you're going (0.55 s ahead); under half
   his health three pairs 0.35 s apart, and the green fire catches on his
   shoulders. Every 2-2.8 s (1.4-2 in phase 2), 14 breath. Charge (30% of
@@ -335,11 +341,25 @@ branch off `feature/eternal-mood`):
   lane on the floor showing where, then he runs it at 400 px/s for up to
   1.1 s: whoever he hits takes 40 `impact` and goes flying 220 px; into a
   wall or the moat's edge he stands stunned for 1.4 s, eyes rolling, wide
-  open. Claw: within 95 px his arm goes back for 0.4 s (his reach shown),
+  open. Leap (30% of attacks at 300 px or more, 45% in phase 2, and always
+  at whoever is across the lava from him; 5 s at least apart, 26 breath):
+  he crouches for 0.6 s, a red ring on the floor where he'll come down
+  (as near you as 560 px allows, never through a wall or onto lava), sails
+  0.75 s over anything low, the moat too, and lands: 45 `impact` and a
+  200 px shove to whoever is within 80 px; he gets up slowly (0.6 s), wide
+  open. Dodge: a player's round 0.35 s off and on course for him, and he
+  throws himself aside off its line (420 px/s for 0.25 s, onto clear
+  ground, a smear of himself left behind); an ability about to land on
+  him, and he dashes out from under it. 20 breath, 1.8 s at least apart,
+  and only with 60 breath or more in him (what's under that is for his
+  attacks); winded, he takes the rounds. His breath shows as a bar under
+  him once he has spent some (throbbing red winded), as well as under his
+  boss bar. Claw: within 95 px his gun arm goes back for 0.4 s (his reach shown),
   then 30 `melee` to everyone in front of him. Roar, at two thirds and a
   third of his health ("RISE, LITTLE ONES!"): everyone within 200 px is
   thrown back 180 px and three imps (Bosses.plus) climb out of the pit's
-  lava (horde.lua's `serverCall` "imp"). The bosses' standard (breath, the
+  lava (horde.lua's `serverCall` "imp"), or up through the floor round him
+  when he is away from the Crucible. The bosses' standard (breath, the
   boss bar, a medkit when badly hurt, "...A MOMENT.", dodging abilities,
   `serverKill` "boss", 45 koins and two pickups). Down ("The... key...
   snooze..."), he lies face down where he fell and the key lies by him,
@@ -518,7 +538,8 @@ Each is a bit more dream than the last, the way the levels are.
   the shop.
 - **The Baron of Heck** (The Foundry). A big horned brute with green
   fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
-  throws fireballs in pairs, and roars. Down, he drops the super shotgun
+  leaps, throws fireballs in pairs, and roars, and comes after you if you
+  hang back. Down, he drops the super shotgun
   for every player, which unlocks it in the shop.
 - **The Spider Mattressmind** (Heck). A giant brain on mechanical spider
   legs, standing on a mattress it drags with it everywhere. A chaingun

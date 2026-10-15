@@ -54,9 +54,10 @@
 --                         wakes him, the lift he keeps out of service, the doorways his meetings use;
 --                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
 --                         to, where a player wakes him, the gate he keeps closed; "baron" { x, y, facing,
---                         zone, wake, pit, portal }: the same, the pit he calls imps out of, the portal
---                         he keeps sealed; "mattressmind" { x, y, facing, zone, wake, gate }: the same,
---                         the gate it keeps locked
+--                         wake, pit, portal }: where he stands, where a player wakes him (he goes anywhere
+--                         once awake), the pit he calls imps out of, the portal he keeps sealed;
+--                         "mattressmind" { x, y, facing, zone, wake, gate }: the same as the Mancouchbus, the
+--                         gate it keeps locked
 --   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
 --                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -1276,12 +1277,11 @@ local function buildFoundry(map, rng, T)
   horde.cacos[#horde.cacos + 1] = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), count = 2, wake = 620 }
   -- The Baron of Heck (eternal-mood/baron.lua) on the ring south of the
   -- pit, facing the south bridge: he wakes when somebody comes over a
-  -- bridge (`wake`, the moat's box), keeps to the Crucible (`zone`), calls
-  -- imps up out of the pit's lava (`pit`), and keeps the portal (`portal`)
-  -- sealed until his key is picked up.
+  -- bridge (`wake`, the moat's box) or into his sight, then goes after
+  -- them wherever they are, calls imps up out of the pit's lava (`pit`),
+  -- and keeps the portal (`portal`) sealed until his key is picked up.
   horde.boss = {
     kind = "baron", x = math.floor(X(28.5)), y = math.floor(Y(15.6)), facing = S,
-    zone = { x0 = X(8), y0 = Y(3), x1 = X(48), y1 = Y(20) },
     wake = { x0 = X(21), y0 = Y(6), x1 = X(36), y1 = Y(19) },
     pit = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), r = 3.3 * T },
     portal = { x = X(26), y = Y(3), w = 5 * T, h = 2 * T },
