@@ -60,6 +60,7 @@ local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
 local BuildingKinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
+local GearKinds = require("src.features.gear.kinds")
 local Render = require("src.features.buildings.render")
 
 local Pickups = {
@@ -198,8 +199,30 @@ local function armorKind(key)
   }
 end
 
+--- A piece of clothing on the road: kind "gear-<key>[@tier]" (a boss's
+--- drop: the Mood Slayer's helmet). Only a human takes it; the gear
+--- feature decides where it goes and unlocks a won piece
+--- (gear:serverTakeFound).
+local function gearKind(key)
+  local base, tier = Tiers.split(key)
+  local piece = tier and GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
+  if not piece then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local gear = Features.byName.gear
+      return gear ~= nil and gear.serverTakeFound ~= nil and gear:serverTakeFound(server, player, key:sub(6))
+    end,
+    label = "+" .. Tiers.named(piece.title, tier),
+    color = piece.color,
+    pitch = 0.7,
+  }
+end
+
 --- The kind record for a kind key: the fixed ones, or an ammo box, an
---- ability, a material crate or a vest made (and kept) on first sight.
+--- ability, a material crate, a vest or a piece of clothing made (and kept)
+--- on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -213,6 +236,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and key:match("^armor%-") then
     kind = armorKind(key)
+    KINDS[key] = kind
+  elseif not kind and key:match("^gear%-") then
+    kind = gearKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -421,11 +447,11 @@ local function drawMaterial(x, y, t, key)
   Render.itemIcon(key, x, y)
 end
 
---- A vest on the road: the bag's picture of it, bobbing a little over a
---- soft glow in the vest's colour, ringed in its tier's.
+--- A vest (or a piece of clothing) on the road: the bag's picture of it,
+--- bobbing a little over a soft glow in its colour, ringed in its tier's.
 local function drawVest(x, y, t, key)
   local base, tier = Tiers.split(key)
-  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""]
+  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""] or GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
   local c = vest and vest.color or { 0.5, 0.6, 0.9 }
   local tc = Tiers.color(tier)
   local pulse = 0.5 + 0.5 * math.sin(t * 4)
@@ -482,11 +508,12 @@ end
 local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade, ["grenade-electric"] = drawElectric }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
---- orb for any ability, a crate for a material, the vest for any armor.
+--- orb for any ability, a crate for a material, the vest for any armor or
+--- clothing.
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
     or ((BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) and drawMaterial)
-    or (key:match("^armor%-") and drawVest) or nil
+    or ((key:match("^armor%-") or key:match("^gear%-")) and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.

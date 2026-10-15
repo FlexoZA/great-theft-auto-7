@@ -21,7 +21,9 @@
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health, the Cacodaemons), has the boss bar, goes for medkits when
 -- badly hurt, dodges abilities, and going down raises `serverKill` "boss"
--- and spills koins. He is Heck's: only players' rounds reach him.
+-- and spills koins. He is Heck's: only players' rounds reach him. He also
+-- drops the Mood Slayer's helmet, one each player can pick up, which
+-- unlocks it in the shop (the gear feature's, with the reward screen).
 --
 -- Messages
 --   server -> all  MC_STATE <tick> <x> <y> <facing> <hp> <max> <move> <aim> <phase2> <awake> <stamina> <winded>
@@ -88,6 +90,8 @@ Mancubus.CALL_AT = { 2 / 3, 1 / 3 } -- shares of his health he shouts for the la
 Mancubus.CALL = 2 -- Cacodaemons each time (more players, more: Bosses.plus)
 Mancubus.SAY_EVERY = { 8, 13 }
 Mancubus.DROPS = 35
+Mancubus.HELMET = "gear-slayer-helmet" -- his drop, one for every player (gear/kinds.lua)
+Mancubus.HELMET_AWAY = 90 -- px from his wreck it lands, clear of the koins
 
 -- His rocket launchers: the weapons feature's, slower, a smaller blast.
 Mancubus.GUN = {
@@ -311,7 +315,27 @@ function Mancubus.serverStep(server, dt)
   sync(server)
 end
 
---- Down: his last word, his wreck, koins, the kill, and the gate open.
+--- Where the helmet lands: HELMET_AWAY from (x, y), the first way round
+--- with nothing solid in between (in front of him first), else on him.
+local function helmetSpot(x, y, facing)
+  local d = Mancubus.HELMET_AWAY
+  for i = 0, 7 do
+    local a = facing + i * math.pi / 4
+    local clear = true
+    for k = 1, 8 do
+      if Features.any("blocksPoint", x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8) then
+        clear = false
+        break
+      end
+    end
+    if clear then
+      return x + math.cos(a) * d, y + math.sin(a) * d
+    end
+  end
+  return x, y
+end
+
+--- Down: his last word, his wreck, koins, the helmet, the kill, and the gate open.
 local function down(server, by, angle)
   local m = sv.m
   sv.down = true
@@ -326,6 +350,10 @@ local function down(server, by, angle)
   if pickups and pickups.serverDropEnemy then
     pickups:serverDropEnemy(server, m.x, m.y)
     pickups:serverDropEnemy(server, m.x + 50, m.y)
+  end
+  if pickups and pickups.serverDrop then
+    local hx, hy = helmetSpot(m.x, m.y, m.facing)
+    pickups:serverDrop(server, Mancubus.HELMET, hx, hy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = m.x, y = m.y, by = by, angle = angle })
 end

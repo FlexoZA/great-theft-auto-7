@@ -856,6 +856,16 @@ the one with a plot.
   Each slot has five pieces; most resist one or two types, and the list is
   in `docs/damage-types.md`. A drawback (x0.95 speed) stays out of
   `tierStats`, or a tier would grow it.
+  A piece marked `unlock` is only won: the Mood Slayer's helmet (head,
+  explosive 0.3, fire 0.2), which the Mancouchbus drops for every player
+  (pickups' `perPlayer`, kind `"gear-<key>[@tier]"`, drawn like a vest).
+  Walking over it calls `gear:serverTakeFound`: into the bag, or straight
+  on when the bag is full and the slot free, and the first time
+  `GEAR_UNLOCK <key>` to that player (the reward card; `quiet` when a saved
+  world brings it back). From then on the shop sells it to them (its
+  `unlock` entries, through `itemUnlocked` / `serverItemUnlocked`). The
+  unlocks are saved with the player beside what they wear (`unlocked`, a
+  list of keys).
 - Open borders: `src/features/open-borders` is the horde behind the "open
   borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
   lets 25 simps out round the caster (the `serverOpenBorders` event); for
@@ -1637,7 +1647,9 @@ the one with a plot.
   starport's gate and keeps it closed (`serverLocked`) until he is down:
   rockets from two launchers (the weapons feature's, ownerless, from the
   horde) in volleys and sweeping fans, a belly bump, Cacodaemons called in
-  (horde.lua's `serverCall` "caco"), double damage in his back. His gate
+  (horde.lua's `serverCall` "caco"), double damage in his back. Down, he
+  drops the Mood Slayer's helmet for every player (`Mancubus.HELMET`, the
+  gear feature's won piece, which unlocks it in the shop). His gate
   leads on to the Foundry (`foundry`, 56x64, quest "eternal-mood-foundry",
   "home-foundry" by the shuttle): the UAC's factory, half turned to Heck,
   from the Landing Pad over the Conveyors and through the Smelters to the
@@ -1812,7 +1824,7 @@ the one with a plot.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
   lists, so a new gun or model is on the shelf by itself. An entry marked
-  `unlock` (the electric grenade) is only on the shelf, and only sold, to a
+  `unlock` (the electric grenade, the Mood Slayer's helmet) is only on the shelf, and only sold, to a
   player who has unlocked it: the feature that owns it answers
   `itemUnlocked(item)` on their screen and `serverItemUnlocked(server,
   player, item)` on the host. A click on a card

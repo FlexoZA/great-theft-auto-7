@@ -27,16 +27,27 @@
 -- (1 - its resistance) of a hit of that type. A tier that improves a
 -- resistance grows it by the tier's `bonus`, as it would a clothes bonus.
 --
+-- Some pieces are only won (`unlock` in kinds.lua: the Mood Slayer's
+-- helmet, the Mancouchbus' drop). The boss drops one for every player
+-- (pickups' `perPlayer`, kind "gear-<key>[@tier]"), and walking over it
+-- puts it in your bag (or on your head when the bag is full and the slot
+-- is free) and unlocks it: the reward screen, and from then on the shop
+-- sells it to you (its `unlock` entries: `itemUnlocked`,
+-- `serverItemUnlocked`). The unlock is saved with the player and told to
+-- their screen quietly when it comes back.
+--
 -- Messages
 --   client -> server  GEAR_EQUIP   <key[@tier]>
 --   client -> server  GEAR_UNEQUIP <slot>
 --   server -> all     GEAR_STATE   <id> <head> <body> <pants> <shoes>   (each key[@tier]; "-" = nothing there)
+--   server -> one     GEAR_UNLOCK  <key> [quiet]   you've unlocked it: the reward screen (not when quiet)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Kinds = require("src.features.gear.kinds")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
+local Icons = require("src.features.gear.icons")
 
 local Gear = {
   name = "gear",
@@ -123,9 +134,15 @@ end
 -- Client --------------------------------------------------------------------
 
 Gear.worn = {} -- player id -> slot -> key with its tier ("running-shoes@rare"), as the host told us
+Gear.unlocked = {} -- key -> true: the won pieces I have unlocked (GEAR_UNLOCK)
 
 function Gear:exitGame()
-  self.worn = {}
+  self.worn, self.unlocked = {}, {}
+end
+
+--- The shop's question: have I unlocked `item` ("gear-slayer-helmet")?
+function Gear:itemUnlocked(item)
+  return self.unlocked[(item or ""):match("^gear%-(.+)$") or ""] == true
 end
 
 --- What I wear: slot -> key (an empty table with nothing on).
@@ -174,11 +191,29 @@ Gear.clientMessages = {
     end
     Gear.worn[id] = worn
   end,
+  GEAR_UNLOCK = function(_client, args)
+    local key = args[1]
+    local g = Kinds.byKey[key or ""]
+    if not (g and g.unlock) then
+      return
+    end
+    Gear.unlocked[key] = true
+    local rewards = Features.byName.rewards
+    if args[2] ~= "quiet" and rewards and rewards.show then
+      rewards:show({
+        kicker = "NEW GEAR UNLOCKED", title = g.title:upper(), color = g.color,
+        icon = function(cx, cy, size)
+          Icons.draw(key, cx, cy, size * 0.8)
+        end,
+        lines = { g.blurb:sub(1, 1):upper() .. g.blurb:sub(2) .. ".", "Worn on your head. The shop sells it now." },
+      })
+    end
+  end,
 }
 
 -- Server --------------------------------------------------------------------
 
-Gear.sv = nil -- { worn = { player id -> slot -> key } }
+Gear.sv = nil -- { worn = { player id -> slot -> key }, unlocked = { player id -> key -> true } }
 
 local function stateOf(id, worn)
   local list = {}
@@ -194,7 +229,7 @@ local function changed(server, player, worn)
 end
 
 function Gear:serverStart()
-  self.sv = { worn = {} }
+  self.sv = { worn = {}, unlocked = {} }
 end
 
 function Gear:serverPlayerJoined(server, player)
@@ -210,7 +245,7 @@ end
 
 function Gear:serverPlayerLeft(_server, player)
   if self.sv then
-    self.sv.worn[player.id] = nil
+    self.sv.worn[player.id], self.sv.unlocked[player.id] = nil, nil
   end
 end
 
@@ -293,29 +328,87 @@ function Gear:serverUnequip(server, player, slot)
   return true
 end
 
+-- Won pieces --------------------------------------------------------------------
+
+--- The shop's question on the host: may `player` buy `item` (a won piece)?
+function Gear:serverItemUnlocked(_server, player, item)
+  local key = (item or ""):match("^gear%-(.+)$")
+  local mine = self.sv and self.sv.unlocked[player.id]
+  return key ~= nil and mine ~= nil and mine[key] == true
+end
+
+local function unlock(server, player, key, quiet)
+  local mine = Gear.sv.unlocked[player.id] or {}
+  Gear.sv.unlocked[player.id] = mine
+  mine[key] = true
+  if quiet then
+    server:send(player, Protocol.encode("GEAR_UNLOCK", key, "quiet"))
+  else
+    server:send(player, Protocol.encode("GEAR_UNLOCK", key))
+  end
+end
+
+--- `player` walks over piece `key` ("slayer-helmet@common") lying on the
+--- road (pickups asks). Only a human: into their bag, or straight on if
+--- the bag is full and its slot is free; a won piece is unlocked for them
+--- the first time. True when they took it (else it stays lying there).
+function Gear:serverTakeFound(server, player, key)
+  local g = pieceOf(key)
+  local buildings = Features.byName.buildings
+  if not (self.sv and g and buildings and buildings.serverGive) or player.bot then
+    return false
+  end
+  if buildings:serverGive(server, player, "gear-" .. key, 1) < 1 then
+    local worn = self:serverWorn(player)
+    if worn[g.slot] or not Features.present(player) then
+      return false -- no room: it waits for them
+    end
+    worn[g.slot] = key
+    changed(server, player, worn)
+  end
+  if g.unlock and not self:serverItemUnlocked(server, player, "gear-" .. g.key) then
+    unlock(server, player, g.key)
+  end
+  return true
+end
+
 -- Saved worlds (docs/persistence.md) ----------------------------------------
 
 local SAVE_VERSION = 1
 
---- `player`'s part of a saved world: what they wear, slot -> key, or nil
---- with nothing on.
+--- `player`'s part of a saved world: what they wear, slot -> key, and the
+--- won pieces they have unlocked, or nil with neither.
 function Gear:serverSavePlayer(_server, player)
   local worn = self.sv and self.sv.worn[player.id]
-  if not (worn and next(worn)) then
+  local mine = self.sv and self.sv.unlocked[player.id]
+  if not ((worn and next(worn)) or (mine and next(mine))) then
     return nil
   end
-  local out = {}
-  for slot, key in pairs(worn) do
+  local out, won = {}, {}
+  for slot, key in pairs(worn or {}) do
     out[slot] = key
   end
-  return { version = SAVE_VERSION, worn = out }
+  for key in pairs(mine or {}) do
+    won[#won + 1] = key
+  end
+  table.sort(won)
+  return { version = SAVE_VERSION, worn = out, unlocked = won }
 end
 
 --- Put the saved clothes back on; a piece no longer sold (kinds.lua) or in
---- the wrong slot is dropped.
+--- the wrong slot is dropped. Won pieces come back unlocked, told to their
+--- screen quietly (the reward was seen).
 function Gear:serverLoadPlayer(server, player, data)
   if not self.sv or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
     return
+  end
+  if type(data.unlocked) == "table" then
+    for _, key in ipairs(data.unlocked) do
+      local g = Kinds.byKey[key]
+      if g and g.unlock then
+        unlock(server, player, key, true)
+      end
+    end
   end
   if type(data.worn) ~= "table" then
     return

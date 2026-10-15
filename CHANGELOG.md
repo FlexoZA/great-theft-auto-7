@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Mancouchbus drops the Mood Slayer's helmet, one for every player: rockets and blasts hurt 30% less and fire a
+  fifth less. Pick it up and it's yours, and the shop sells it to you from then on (120 Fcks).
+
 ## [0.28.0] - 2026-10-15
 
 Eternal Mood: a new quest line, on foot all the way. Take the pest-control job up to Fobos Base, then down through
