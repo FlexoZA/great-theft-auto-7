@@ -691,8 +691,10 @@ couple of small conventions rather than requiring each other:
   pickup on the ground right there, gone for good once taken. `opts.perPlayer`
   makes it one every human takes once (a boss's reward): it is gone only for
   whoever took it, and stays until the map changes. It is drawn as a reward
-  (PK_SPAWN's `reward`): gold rings rippling out from it, a NEW tag over it,
-  and at night its own light. Any other `opts` are kept
+  (PK_SPAWN's `reward`) to a player who hasn't unlocked it yet (the shop's
+  `itemUnlocked`): gold rings rippling out from it, a NEW tag over it, and at
+  night its own light; once they have, like any other pickup. Any other
+  `opts` are kept
   on the item for its kind's `apply` (`unlocks`). `kind` is a
   pickups kind ("health", "stamina": used on the spot, or put in the
   taker's quick slot when it would do nothing, till that is full),

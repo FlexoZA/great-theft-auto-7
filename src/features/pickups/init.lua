@@ -529,6 +529,13 @@ local function labelOf(kind, item)
   return kind.label
 end
 
+--- Is `it` a boss's reward I haven't unlocked yet (the shop's
+--- `itemUnlocked`)? Only then is it drawn as new; once I have one, the
+--- next is drawn like any other pickup.
+local function isNew(it)
+  return it.reward and not Features.any("itemUnlocked", Tiers.base(it.kind))
+end
+
 --- A boss's reward (a `perPlayer` drop: Volt's grenades, the Mood
 --- Slayer's helmet), under its picture: a gold glow breathing and rings
 --- rippling out from it, so nobody walks past something new.
@@ -565,7 +572,7 @@ function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
     local draw = drawerOf(it.kind)
     if draw then
-      if it.reward then
+      if isNew(it) then
         drawRewardRings(it.x, it.y, time)
       end
       draw(it.x, it.y, time, it.kind)
@@ -578,7 +585,7 @@ end
 --- its rings, so it shows as plainly in the dark.
 function Pickups:drawNightLights(_client, _camera, glow)
   for _, it in pairs(self.items) do
-    if it.reward then
+    if isNew(it) then
       local pulse = 0.5 + 0.5 * math.sin(time * 5)
       glow(it.x, it.y, 90 + pulse * 20, GOLD, 0.6 + pulse * 0.3)
       drawRewardRings(it.x, it.y, time)
@@ -589,7 +596,7 @@ end
 
 function Pickups:drawAboveCars()
   for _, it in pairs(self.items) do
-    if it.reward then
+    if isNew(it) then
       drawRewardTag(it.x, it.y, time)
     end
   end
