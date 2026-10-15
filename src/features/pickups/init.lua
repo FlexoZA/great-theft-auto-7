@@ -47,7 +47,8 @@
 -- upgrades sells (Money:reachOf). Without money it is 1.
 --
 -- Messages
---   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box, a crate's material)
+--   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>] [reward]   (amount: rounds in an ammo box, a crate's
+--                  material; reward: a boss's `perPlayer` drop, drawn with rings rippling out and NEW over it)
 --   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
@@ -306,6 +307,10 @@ KINDS.stamina = {
 Pickups.items = {} -- id -> { kind, x, y }
 Pickups.floats = {} -- { x, y, text, t }
 local time = 0
+local GOLD = { 1, 0.84, 0.3 } -- a reward's rings and tag
+local REWARD_RINGS = 3 -- rings rippling out at once
+local REWARD_RIPPLE = 1.4 -- seconds one takes to ripple out
+local REWARD_REACH = 46 -- px past the glow a ring gets before it is gone
 
 function Pickups:load()
   Sounds.load()
@@ -524,17 +529,70 @@ local function labelOf(kind, item)
   return kind.label
 end
 
+--- A boss's reward (a `perPlayer` drop: Volt's grenades, the Mood
+--- Slayer's helmet), under its picture: a gold glow breathing and rings
+--- rippling out from it, so nobody walks past something new.
+local function drawRewardRings(x, y, t)
+  local pulse = 0.5 + 0.5 * math.sin(t * 5)
+  love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.1 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 30 + pulse * 6)
+  love.graphics.setLineWidth(3)
+  for k = 0, REWARD_RINGS - 1 do
+    local f = (t / REWARD_RIPPLE + k / REWARD_RINGS) % 1 -- 0 just out, 1 gone
+    love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.85 * (1 - f))
+    love.graphics.circle("line", x, y, 26 + f * REWARD_REACH)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- NEW over a reward, bobbing, over the cars so it is never hidden.
+local function drawRewardTag(x, y, t)
+  local font = UI.fonts.small
+  local w, h = font:getWidth("NEW") + 12, font:getHeight() + 4
+  local ty = y - 50 + math.sin(t * 3) * 3
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setColor(GOLD)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.rectangle("line", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(font)
+  love.graphics.printf("NEW", x - w / 2, ty - font:getHeight() / 2, w, "center")
+  love.graphics.polygon("fill", x - 4, ty + h / 2, x + 4, ty + h / 2, x, ty + h / 2 + 5) -- pointing down at it
+end
+
 function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
     local draw = drawerOf(it.kind)
     if draw then
+      if it.reward then
+        drawRewardRings(it.x, it.y, time)
+      end
       draw(it.x, it.y, time, it.kind)
     end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
+--- At night (the night feature) a reward lights its own patch of road and
+--- its rings, so it shows as plainly in the dark.
+function Pickups:drawNightLights(_client, _camera, glow)
+  for _, it in pairs(self.items) do
+    if it.reward then
+      local pulse = 0.5 + 0.5 * math.sin(time * 5)
+      glow(it.x, it.y, 90 + pulse * 20, GOLD, 0.6 + pulse * 0.3)
+      drawRewardRings(it.x, it.y, time)
+      glow(it.x, it.y - 50, 40, GOLD, 0.8) -- and its NEW
+    end
+  end
+end
+
 function Pickups:drawAboveCars()
+  for _, it in pairs(self.items) do
+    if it.reward then
+      drawRewardTag(it.x, it.y, time)
+    end
+  end
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
     local c = f.color
@@ -549,7 +607,7 @@ Pickups.clientMessages = {
     local id, kind = tonumber(args[1]), args[2]
     local x, y = tonumber(args[3]), tonumber(args[4])
     if id and kind and x and y then
-      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]) }
+      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]), reward = args[6] == "reward" }
     end
   end,
   PK_CLEAR = function()
@@ -649,7 +707,8 @@ function Pickups:serverDrop(server, kind, x, y, amount, opts)
     it.takenBy = {}
   end
   sv.items[id] = it
-  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
+  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or "",
+    it.perPlayer and "reward" or ""))
   return id
 end
 
@@ -788,7 +847,7 @@ function Pickups:serverPlayerJoined(server, player)
   for id, it in pairs(sv.items) do
     if not (it.takenBy and it.takenBy[player.id]) then
       server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
-        it.amount or ""))
+        it.amount or "", it.perPlayer and "reward" or ""))
     end
   end
 end
