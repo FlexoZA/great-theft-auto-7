@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-15
+
+New music on three quests, the A-Man trail's last maps no longer end in a bare grid, a leap that hits enemies as
+hard as it hits players, and a freeze and some stuck soldiers fixed.
+
 ### Added
 - Three quests get their own music: an eerie whistle in the woods of Whispering Pines (the alien hunt), a snare-drum
   march with brass for the beach landing (D-Day), and a twangy spaghetti-western standoff on Shotgun's Bluff.
