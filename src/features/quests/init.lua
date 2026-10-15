@@ -5,13 +5,14 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Six jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Seven jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
 -- after Shotgun (shotgun), one by train into City 17 after A-Man (a-man),
 -- whose trail carries on over four more maps by EXIT stars, and the
--- courier job into Grey City (cyber-feud), five maps the same way. A blue
+-- courier job into Grey City (cyber-feud), five maps the same way, and
+-- the pest-control job to the UAC's moon base (eternal-mood). A blue
 -- star by the entrance of each brings everyone home again; a star comes
 -- up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
@@ -285,6 +286,73 @@ Quests.list = {
     exitText = "Saye and Kilowatt are down, and VEX is gone into the net. Nothing personal, courier. Head home.",
   },
   {
+    -- Eternal Mood (docs/eternal-mood.md): the UAC's moon base, and it gets
+    -- stranger from there. The eternal-mood feature runs the levels; so far
+    -- Fobos Base, Heck on Earth, the Foundry and Heck, whose gate goes home.
+    id = "eternal-mood",
+    title = "Pest control",
+    text = "Moon. Bring a shotgun. The UAC opened a door it shouldn't have, and something came through. "
+      .. "Get up to the hangar.",
+    board = true,
+    map = "fobos",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s took the pest-control job. Welcome to Fobos Base.",
+    introLine = 1,
+    exitText = "The hangar lift goes up to a shuttle, and the shuttle goes down to Earth. It's worse there.",
+    exitTitle = "Down to Earth",
+    exitLabel = "HECK ON EARTH",
+    next = "eternal-mood-earth",
+  },
+  {
+    -- On foot up the road to the starport: Fobos Base's lift star leads here.
+    id = "eternal-mood-earth",
+    title = "Heck on Earth",
+    text = "The portal leaked. Earth is overrun, and the only way on is the road north through the city to the "
+      .. "starport. On foot.",
+    map = "earth",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came down off the shuttle. Welcome to Heck on Earth.",
+    introLine = 2,
+    exitText = "The starport's gate is open. The last shuttle out goes to the Foundry, where they melt Heck down.",
+    exitTitle = "Last shuttle out",
+    exitLabel = "THE FOUNDRY",
+    next = "eternal-mood-foundry",
+  },
+  {
+    -- On foot through the UAC's factory: Earth's starport star leads here.
+    id = "eternal-mood-foundry",
+    title = "The Foundry",
+    text = "The UAC's foundry, where they melt Heck down for fuel. Half of it is Heck's already. The way on is "
+      .. "the portal behind the Crucible.",
+    map = "foundry",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came off the shuttle. Welcome to the Foundry.",
+    introLine = 3,
+    exitText = "The Baron's key opens the portal behind the Crucible. It goes down. All the way down.",
+    exitTitle = "Down into Heck",
+    exitLabel = "HECK",
+    next = "eternal-mood-heck",
+  },
+  {
+    -- On foot across Heck itself: the Foundry's portal leads here.
+    id = "eternal-mood-heck",
+    title = "Heck",
+    text = "Heck itself: rock, lava, bone bridges and every demon there is. The Snooze Gate is at the top.",
+    map = "heck",
+    boss = "eternal-mood",
+    label = "ETERNAL MOOD",
+    color = { 1, 0.45, 0.1 },
+    banner = "%s came through the portal. Welcome to Heck.",
+    introLine = 4,
+    exitText = "The Snooze Gate. Something behind it is ticking. That's as far as the job goes for now. Head home.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -447,6 +515,58 @@ Quests.list = {
     onMap = "tower",
     x = -256, -- by the lobby doors: city-map's map.cx, map.cy
     y = 3408,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-fobos",
+    title = "Back to the City",
+    text = "Back to the Lab's consoles. Take everyone home.",
+    onMap = "fobos",
+    x = 0, -- by the Lab's consoles: city-map's map.cx, map.cy
+    y = 2112,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-earth",
+    title = "Back to the City",
+    text = "Back up the shuttle's ramp. Take everyone home.",
+    onMap = "earth",
+    x = 0, -- by the shuttle in the Depot: city-map's map.cx, map.cy
+    y = 4864,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-foundry",
+    title = "Back to the City",
+    text = "Back up the shuttle's ramp. Take everyone home.",
+    onMap = "foundry",
+    x = -1312, -- by the shuttle's tail on the Pad: city-map's map.cx, map.cy
+    y = 1728,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-heck",
+    title = "Back to the City",
+    text = "Back through the portal. Take everyone home.",
+    onMap = "heck",
+    x = 0, -- by the portal on the shelf: city-map's map.cx, map.cy
+    y = 2752,
     map = "city",
     returns = true,
     label = "HOME",

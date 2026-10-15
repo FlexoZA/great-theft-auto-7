@@ -55,6 +55,16 @@
 -- under a haze, its lights dimmed by the distance. Its map is see-through
 -- off the deck, so the city shows under the bridge too.
 --
+-- Fobos Base lies on the moon (fobos_moon.lua): grey dust and craters
+-- running on past the base's walls, boulders, and the UAC rovers' tracks.
+-- Heck on Earth's city runs on burning (heck_on_earth.lua): blocks of
+-- roofs between dark streets, fires on a good few, smoke drifting over.
+-- The Foundry stands at the starport (starport_pads.lua): tarmac, landing
+-- pads and their runway lights, the odd shuttle parked.
+-- Past Heck's edge (heck.lua): a red abyss, lava falls, upside-down castles,
+-- and off the Altar Fields' west edge a crack in the sky with the sofa's
+-- ceiling through it.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -65,6 +75,10 @@ local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
 local GreyCity = require("src.features.surroundings.grey_city")
 local OverpassBelow = require("src.features.surroundings.overpass_below")
+local FobosMoon = require("src.features.surroundings.fobos_moon")
+local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
+local StarportPads = require("src.features.surroundings.starport_pads")
+local HeckBeyond = require("src.features.surroundings.heck")
 local WarSounds = require("src.features.surroundings.war_sounds")
 
 local Surroundings = {
@@ -1217,6 +1231,20 @@ local DRAW = {
     local left, top, right, bottom = view(camera)
     OverpassBelow.draw(map, camera, left, top, right, bottom, clock, roofBelow(map))
   end,
+  fobos = function(map, camera)
+    FobosMoon.draw(map, view(camera))
+  end,
+  earth = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckOnEarth.draw(map, left, top, right, bottom, clock)
+  end,
+  foundry = function(map, camera)
+    StarportPads.draw(map, view(camera))
+  end,
+  heck = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckBeyond.draw(map, left, top, right, bottom, clock)
+  end,
 }
 
 -- What glows past the edge of a map played at night, by map name.
@@ -1232,6 +1260,9 @@ local LIGHTS = {
   roof = function(map, left, top, right, bottom, t, glow, camera)
     OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
   end,
+  earth = HeckOnEarth.lights,
+  foundry = StarportPads.lights,
+  heck = HeckBeyond.lights,
 }
 
 --- At night (the night feature): what glows past the edge.

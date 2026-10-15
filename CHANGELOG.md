@@ -14,6 +14,77 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new job on the board, "Pest control": the start of the Eternal Mood quest line. Fobos Base, the UAC's moon base,
+  in the dark, everything in it red: wake up in the Lab and find your way up to the Hangar's lift.
+- Heck holds Fobos Base: the possessed UAC staff at their desks and posts (staffers with pistols, guards with
+  shotguns in the doorways, the overtime guy spinning up his chaingun by the lift), and imps bursting out of the floor
+  vents as you come near, throwing fireballs you can sidestep.
+- The Floor Manager holds Fobos Base's lift: the UAC's shift supervisor, promoted out of his body, his brain in a
+  glass dome on a four-legged spider walker with a plasma cannon. He charges the cannon and sprays streams of plasma
+  that drag after you (three at once below half health), stomps whoever gets close (the ring shows first), and calls
+  staff in for a quick meeting at two thirds and a third of his health. Shoot his cannon off and he has to come and
+  stomp you instead. The lift is out of service until he's down.
+- Patrols of the possessed walk Fobos Base as squads: up and down the Ring, round the Offices' desks, the
+  Reactor's catwalk, Toxic Storage and the Hangar's floor. When one of a squad sees you, the whole squad comes.
+- The possessed fight smarter: guards sweep the doorways they hold, fight from cover, go to ground when shot from
+  out of sight and then come looking, and some throw grenades; the overtime guy fights from cover round his post;
+  and one of them going down brings the others near to see why.
+- The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
+  you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
+  the other seven. The Floor Manager's meetings bring a few in too.
+- Eternal Mood has its intro screen: the Mood Slayer's own voice in his head, typed out in a thought bubble beside
+  his helmet, over Heck's glow and rising embers, with a power chord. Watch his eye behind the visor: he keeps
+  nodding off.
+- Fobos Base has its own theme: rip-and-tear metal, tuned way down, chugs, diving synth bass and a screaming lead.
+  It starts in the dream, a lullaby on a music box over a snore, until the floor drops out.
+- Heck on Earth, Eternal Mood's second map: off the shuttle from Fobos Base and up one long road through a burning
+  city to the starport, on foot all the way (no driving on this quest line). Houses on fire in the Suburbs, wrecked
+  buses and cars to hide behind Downtown, a fallen overpass squeezing the road to one gap, a lava-filled crater where
+  the portal opened, and the Boulevard's sandbags up to the starport's gate. Possessed guards behind the wrecks,
+  mobs of interns in the side streets, imps out of the manholes and the cracks round the crater.
+- Cacodaemons float over Heck on Earth: big red one-eyed demons that fly over roofs and lava, spit balls of fire
+  (watch for the mouth opening first) and bite whoever gets close. 220 health; shoot one in its open mouth and it
+  takes extra damage and reels.
+- Heck on Earth has its boss: the Mancouchbus, a huge fat demon in a recliner on tank treads, a rocket launcher for
+  each arm, parked in front of the starport's gate. He fires rockets from both arms in turn and sweeps fans of them
+  across the road (look for the gap), bumps you away with his belly if you get close, and shouts for Cacodaemons.
+  He's slow to turn, and his back is the recliner: shots there do double. The gate stays closed until he's down.
+- Heck on Earth has its own theme: faster thrash metal, galloping riffs and tremolo picking, air-raid sirens wailing
+  through it and car horns in the breakdown. It starts in the dream, a sofa-sale jingle on the telly and a phone
+  buzzing, until the siren drowns it out.
+- The Foundry, Eternal Mood's third map: the UAC's factory, where they melt Heck down, half of it already Heck's.
+  Off the shuttle onto the landing pad, through the loading bay and Dr. Seek's office, across the conveyor belts
+  (they carry you, and anyone else standing on them: walk against one and you go nowhere), through the smelters'
+  vats of lava to the Crucible, a pit of lava ringed by a lava moat, and the portal behind it.
+- The Foundry has its boss: the Baron of Heck, a big horned brute on goat legs, waiting on the stone ring round the
+  Crucible. He throws green fireballs in pairs (one where you are, one where you're going), puts his horns down and
+  charges (dodge it and he runs into the wall and stands there dazed), claws you up close, and roars, throwing you
+  back while imps climb out of the lava. He drops the key to the Snooze Gate; the portal stays sealed until you pick
+  it up. And then somebody far away asks if you're awake.
+- Lava burns: you can walk into the Crucible's lava, the Smelters' vats or Heck on Earth's crater now, but you'll catch
+  fire. You can also shoot across lava; demons won't set foot in it.
+- The Foundry has its own theme: heavy industrial metal, guitars locked to a machine, anvils ringing, steam hissing
+  out of the press and a choir rising where the factory turns to Heck. It starts in the dream, on a cooking show,
+  until somebody far away calls and the press slams down.
+- Heck, Eternal Mood's fourth map: out of the portal onto a shelf of rock, across a sea of lava by bridges of bone
+  (three ways over, one of them very narrow), over the Altar Fields with their altars, spikes and fire pits, past a
+  pizza box the size of a house sinking in a lava lake, and up to the Snooze Gate. Imps climb out of the cracks
+  and Cacodaemons float over the lava. Past the edges: lava falls, castles hanging upside down, and a crack in the
+  sky with a lampshade hanging through it.
+- Heck has its boss: the Spider Mattressmind, a giant brain on mechanical spider legs, standing on the mattress it
+  drags everywhere, in front of the Snooze Gate. Its chaingun spins up and sprays after you (keep running across
+  it), its legs slam down if you get close, and once it's half down it starts yawning: each yawn pulls you in, then
+  snaps shut. The mattress soaks up shots from the front, so get round it. The Snooze Gate stays locked until it's
+  down.
+- Heck has its own theme: black metal blast beats and slow doom, a choir, a church organ and bells tolling. The dream
+  is wearing thin: it starts with a microwave warming a pizza, and halfway round everything stops for Fobos Base's
+  music box lullaby, slowed and out of tune, before a yawn and the blast tearing back in.
+- Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
+  and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
+  everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
+  their sides.
+
 ## [0.27.1] - 2026-10-14
 
 A quieter mix out of the box: footsteps, the Combine soldiers' radio and pickups start lower.

@@ -7,6 +7,9 @@
 -- then multiplied by it, under the HUD, so what is lit shows in its own
 -- colours and the rest falls away into the dark.
 --
+-- A map's `night` may be a colour { r, g, b } instead of true: that map's
+-- own ambient, what its dark leaves of the world (Fobos Base's is red).
+--
 -- Another feature lights something with `drawNightLights(client, camera,
 -- glow)`: called in world space while the light map is drawn, additive;
 -- `glow(x, y, r, color, a)` puts a soft round light there (quests lights
@@ -83,7 +86,7 @@ end
 --- Is the map in play dark?
 function Night:dark()
   local m = map()
-  return m ~= nil and m.night == true
+  return m ~= nil and (m.night == true or type(m.night) == "table")
 end
 
 function Night:update(_dt, _client, cam)
@@ -165,7 +168,9 @@ function Night:drawLens(client)
   end
   love.graphics.push("all")
   love.graphics.setCanvas(canvas)
-  love.graphics.clear(Night.ambient[1], Night.ambient[2], Night.ambient[3], 1)
+  local own = map().night
+  local ambient = type(own) == "table" and own or Night.ambient
+  love.graphics.clear(ambient[1], ambient[2], ambient[3], 1)
   love.graphics.setBlendMode("add")
   love.graphics.origin()
   love.graphics.translate(math.floor(w / 2), math.floor(h / 2))

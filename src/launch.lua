@@ -8,7 +8,8 @@
 -- your settings). <id> is any quest in quests' `Quests.list`, e.g. "a-man"
 -- for City 17, "a-man-2" for the Outer City, "a-man-road" for the Winding
 -- Road, "a-man-citadel" for the Citadel, or "cyber-feud" for Grey City's
--- Drop (then "cyber-feud-market", "-overpass", "-tower" and "-roof").
+-- Drop (then "cyber-feud-market", "-overpass", "-tower" and "-roof"), or
+-- "eternal-mood" for Fobos Base (then "eternal-mood-earth", "-foundry", "-heck").
 -- --name <name> plays under that name instead of $USER. Unknown worlds and
 -- quests are reported and the game goes to the menu (or plays on in the
 -- city).
