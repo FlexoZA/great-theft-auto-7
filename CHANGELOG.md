@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-10-15
+
+The AR, a faster and straighter rifle than the AK, firing the same rounds, which are 7.62 rounds now.
+
 ### Added
 - A new gun, the AR: an assault rifle firing about twelve rounds a second against the AK's nine, 15 damage a round
   against its 18, with half its scatter and faster rounds. It fires the AK's 7.62 rounds. 140 Fcks in the shop.
