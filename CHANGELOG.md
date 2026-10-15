@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.28.4] - 2026-10-15
+
+The SMG, won off the Hunter-Chopper: faster than the AK, shorter reach, firing 9mm, which is back.
+
 ### Added
 - A new gun, the SMG: fifteen rounds a second against the AK's nine, tighter than the uzi, but spent by about 500 px
   (the AK reaches 1200). The Hunter-Chopper drops one for every player in the Outer City; pick it up and the shop
