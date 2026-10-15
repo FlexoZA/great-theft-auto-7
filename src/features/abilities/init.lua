@@ -841,7 +841,7 @@ Abilities.clientMessages = {
     end
     for i = 8, #args do
       local id = tonumber(args[i])
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         Abilities.heldUntil[id] = Abilities.time + seconds
       end
     end
@@ -881,7 +881,7 @@ Abilities.clientMessages = {
     end
     for i = 2, #args do
       local id = tonumber(args[i])
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         Abilities.heldUntil[id] = Abilities.time + seconds
       end
     end

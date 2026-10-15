@@ -220,7 +220,7 @@ Interceptors.clientMessages = {
     units = {}
     for _, a in ipairs(args) do
       local id = tonumber(a)
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         units[id] = true
       end
     end

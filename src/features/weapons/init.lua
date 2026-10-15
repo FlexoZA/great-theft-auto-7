@@ -1241,6 +1241,16 @@ function Weapons:drawHUD(client)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- An id off the wire: a number, never NaN (LuaJIT's tonumber reads "nan"
+--- as one, and NaN can't be a table key).
+local function idOf(field)
+  local n = tonumber(field)
+  if n == n then
+    return n
+  end
+  return nil
+end
+
 local function playerName(client, id)
   return client:nameOf(id) or ("#" .. tostring(id)) -- a shot can land after its owner left
 end
@@ -1399,7 +1409,7 @@ Weapons.clientMessages = {
     end
   end,
   WPN_HIT = function(client, args)
-    local pid, victim, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local pid, victim, hp = idOf(args[1]), idOf(args[2]), tonumber(args[3])
     local dtype, amount = args[4], tonumber(args[5])
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
@@ -1419,7 +1429,7 @@ Weapons.clientMessages = {
     end
   end,
   WPN_CARHIT = function(client, args)
-    local pid, vid, hp = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local pid, vid, hp = idOf(args[1]), idOf(args[2]), tonumber(args[3])
     local dtype, amount = args[4], tonumber(args[5])
     local v = vid and client.vehicles[vid]
     local at = (pid and Weapons.projectiles[pid]) or (v and { x = v.dx, y = v.dy })
@@ -1485,7 +1495,7 @@ Weapons.clientMessages = {
     end
   end,
   WPN_KILL = function(client, args)
-    local pid, killer, victim, kills = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    local pid, killer, victim, kills = idOf(args[1]), idOf(args[2]), idOf(args[3]), tonumber(args[4])
     local deathTime = tonumber(args[5]) or DEATH_TIME
     local at = (pid and Weapons.projectiles[pid]) or (victim and poseOf(client, victim))
     if at then
