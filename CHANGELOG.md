@@ -14,16 +14,19 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Three quests get their own music: an eerie whistle in the woods of Whispering Pines (the alien hunt), a snare-drum
+  march with brass for the beach landing (D-Day), and a twangy spaghetti-western standoff on Shotgun's Bluff.
+
 ### Changed
-- A leap's landing hits enemies as hard as it hits players: 20 -> 45 for the leap, 20 -> 70 for Bigfoot's leap, and a better tier hits harder still. Enemies that always take a set amount per hit (Karen, the D-Day troops, police officers) are unchanged.
+- A leap's landing hits enemies as hard as it hits players: 20 -> 45 for the leap, 20 -> 70 for Bigfoot's leap, and a
+  better tier hits harder still. Enemies that always take a set amount per hit (Karen, the D-Day troops, police
+  officers) are unchanged.
 
 ### Fixed
 - The leap now hurts the Hunter-Chopper.
-
-### Fixed
-- Soldiers on the Market and in Halcyon Tower, and a staffer on Heck on Earth, no longer start stuck inside a wall where nothing could reach them.
-
-### Fixed
+- Soldiers on the Market and in Halcyon Tower, and a staffer on Heck on Earth, no longer start stuck inside a wall
+  where nothing could reach them.
 - The game no longer freezes when you leap or teleport right on top of a Hunter or an assassin droid.
 
 ## [0.28.4] - 2026-10-15

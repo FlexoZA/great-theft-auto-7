@@ -25,7 +25,8 @@
 --
 -- The quests feature brings everyone to the beach and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
--- "d-day". The host owns all of it: the stage, every soldier, the mortars,
+-- "d-day"; every client starts the beach's march (theme.lua) until the
+-- quest ends. The host owns all of it: the stage, every soldier, the mortars,
 -- the Major. Clients hear the stage reliably and positions at 15 Hz, and
 -- draw. Bullets reach the soldiers and the Major through `serverShotAt`;
 -- their own rounds (owner 0) fly through each other.
@@ -44,6 +45,7 @@
 --   server -> all  DD_MAJOR_DOWN <x> <y> <angle>     the Major went down
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local Soldiers = require("src.features.d-day.brain")
 local Major = require("src.features.d-day.major")
@@ -53,6 +55,7 @@ local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
 local Corpses = require("src.features.corpses")
 local Sounds = require("src.features.d-day.sounds")
+local Theme = require("src.features.d-day.theme")
 
 local Dday = {
   name = "d-day",
@@ -467,6 +470,35 @@ Dday.stains = {} -- { x, y, angle, big } or { x, y, r, crater = true }
 Dday.page = nil -- { line, t } while his portrait is up
 local face = nil
 local time, lastTick, lastMajorTick = 0, 0, 0
+local march = nil -- the beach's theme, made the first time anyone lands
+
+--- The march at the music slider's level (silent while muted).
+local function marchVolume()
+  if march then
+    march:setVolume(Audio.muted and 0 or Audio.volume("music"))
+  end
+end
+
+local function startMarch()
+  if march == nil then
+    local t0 = love.timer.getTime()
+    march = love.audio.newSource(Theme.render(), "static")
+    march:setLooping(true)
+    march:setRelative(true) -- heard the same wherever you are on the beach
+    -- The render time on the console, the way every theme reports it.
+    local took = love.timer.getTime() - t0
+    print(("d-day theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+  end
+  marchVolume()
+  march:seek(0)
+  march:play()
+end
+
+local function stopMarch()
+  if march ~= nil then
+    march:stop()
+  end
+end
 
 local function clear()
   Dday.stage, Dday.major, Dday.page = nil, nil, nil
@@ -487,18 +519,21 @@ end
 function Dday:exitGame()
   clear()
   lastTick, lastMajorTick = 0, 0
+  stopMarch()
 end
 
 function Dday:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
     clear()
+    startMarch()
   end
 end
 
 function Dday:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    stopMarch()
   end
 end
 
@@ -513,6 +548,7 @@ end
 
 function Dday:update(dt)
   time = time + dt
+  marchVolume()
   if self.page then
     face:update(dt)
     self.page.t = self.page.t - dt
