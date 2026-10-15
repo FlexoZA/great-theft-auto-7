@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.28.3] - 2026-10-15
+
+Ammo crates on every quest map: press F or shoot one for a dump of ammo, AK rounds most of all.
+
 ### Added
 - Ammo crates on every quest map, five of them: walk up and press F, or shoot one, and it breaks open into four
   boxes of ammo, a magazine and a half each. AK rounds come out of them more often than off enemies.
