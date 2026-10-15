@@ -71,8 +71,9 @@ local Catalog = {
 -- CAR_MARKUP. The shop always asks more than it pays a factory's owner for
 -- the same thing (buildings/kinds.lua, Kinds.worth).
 local PRICES = {
-  ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-shotgun"] = 100, ["gun-super-shotgun"] = 260,
-  ["gun-smg"] = 110, ["gun-sniper"] = 160, ["gun-rocket"] = 300, ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
+  ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-ar"] = 140, ["gun-shotgun"] = 100,
+  ["gun-super-shotgun"] = 260, ["gun-smg"] = 110, ["gun-sniper"] = 160, ["gun-rocket"] = 300,
+  ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
   ["ammo-uzi"] = 40, ["ammo-pistol"] = 35,
   ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70,

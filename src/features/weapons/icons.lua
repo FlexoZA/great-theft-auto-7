@@ -136,6 +136,35 @@ local function ak47()
   line(DARK, 0.5, 1, 34.5, -2, 34.5, 2)
 end
 
+local function ar()
+  -- The collapsible stock on its buffer tube.
+  poly(BLACK, -37, -6, -27, -5, -27, 3, -37, 8)
+  box(-38, -6.5, 2.5, 13.5, DARK, 0.4) -- butt pad
+  strokes(BLACK, 0.7, 3, -34, -4.5, 2.2, 1.6, true) -- the stock's grip ribs
+  box(-27, -5, 6, 5, DARK, 0.5) -- buffer tube
+  poly(BLACK, -15, 3, -9, 3, -11.5, 14, -17.5, 13) -- pistol grip, behind the trigger
+  strokes(BLACK, 0.75, 3, -15.5, 6, 3, 2.5) -- its texture
+  -- The magazine, nearly straight with a slight curve.
+  poly(DARK, -2, 3, 6, 3, 7.5, 16, -0.5, 16)
+  strokes(DARK, 0.65, 3, -1, 6, 3.5, 7.5)
+  triggerGuard(-4, 4, 3.5)
+  line(STEEL, 0.8, 1.5, -4.5, 4, -5, 7.5) -- trigger
+  box(-21, -2, 28, 5.5, BLACK, 1) -- lower receiver
+  box(-21, -8, 28, 6, BLACK, 1) -- upper receiver
+  box(-3, -6.5, 4, 3, DARK, 0.3) -- ejection port
+  set(STEEL, 1.1)
+  love.graphics.circle("fill", -12, 0.5, 1) -- selector
+  box(-21, -10.5, 47, 2.5, DARK, 0.4) -- the flat-top rail, receiver to handguard
+  strokes(DARK, 0.6, 12, -20, -10.2, 3.9, 1.8, true) -- its slots
+  box(-17, -14, 5, 3.5, BLACK, 0.3) -- rear sight
+  box(7, -7.5, 20, 7.5, BLACK, 1.5) -- the handguard
+  strokes(BLACK, 0.7, 4, 9.5, -5, 4.5, 2.5, true) -- its slots
+  box(27, -3.5, 7, 3, STEEL, 0.5) -- barrel
+  poly(BLACK, 22.5, -8, 26, -8, 25.5, -14, 23.5, -14) -- the A-frame front sight
+  box(33, -4.5, 5, 5, DARK, 0.6) -- flash hider
+  strokes(DARK, 0.5, 2, 34.5, -4, 1.5, 4)
+end
+
 local function shotgun()
   poly(WOOD, -36, -4, -22, -6, -22, 5, -38, 8) -- stock
   grain(-35, -1, -23, -2.5)
@@ -303,7 +332,7 @@ local function turret()
 end
 
 local DRAW = {
-  pistol = pistol, uzi = uzi, smg = smg, rocket = rocket, ak47 = ak47, shotgun = shotgun,
+  pistol = pistol, uzi = uzi, smg = smg, rocket = rocket, ak47 = ak47, ar = ar, shotgun = shotgun,
   ["super-shotgun"] = superShotgun, sniper = sniper,
   flamethrower = flamethrower, minigun = minigun, turret = turret,
 }
