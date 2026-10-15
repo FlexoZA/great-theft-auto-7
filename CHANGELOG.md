@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.5] - 2026-10-15
+
+The shuttle you land in on Eternal Mood is drawn in full: lit portholes, blinking nav lights, glowing engines and its ramp down.
+
 ### Changed
 - Eternal Mood's shuttle (on Earth and in the Foundry) is drawn in full: a rounded hull with panels, rivets and lit
   portholes, a framed canopy, delta wings with flaps and blinking red and green nav lights, a tail fin, three engines
