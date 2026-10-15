@@ -15,3 +15,6 @@ Thumbs.db
 .luarc.local.json
 luac.out
 /scripts/
+
+# Claude Code worktrees
+.claude/worktrees/
