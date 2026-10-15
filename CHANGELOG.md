@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- A leap's landing hits enemies as hard as it hits players: 20 -> 45 for the leap, 20 -> 70 for Bigfoot's leap, and a better tier hits harder still. Enemies that always take a set amount per hit (Karen, the D-Day troops, police officers) are unchanged.
+
+### Fixed
+- The leap now hurts the Hunter-Chopper.
+
 ### Fixed
 - The game no longer freezes when you leap or teleport right on top of a Hunter or an assassin droid.
 

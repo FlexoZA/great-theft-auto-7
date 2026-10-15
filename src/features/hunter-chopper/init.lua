@@ -245,9 +245,11 @@ end
 --- A missile went off at (x, y): within its reach, it takes the blast's
 --- damage, falling to a third at the edge as for anyone. Its own bombs
 --- (owner 0) don't touch it.
-function HunterChopper:serverBlast(_server, x, y, radius, damage, owner)
+function HunterChopper:serverBlast(_server, x, y, radius, damage, owner, dtype)
   local f = sv and sv.flight
-  if not f or sv.down or owner == 0 or not damage then
+  -- A heavy leap's landing (impact) raises a blast for the walls under it;
+  -- it reaches the chopper as a round carrying its damage instead.
+  if not f or sv.down or owner == 0 or not damage or dtype == "impact" then
     return
   end
   local d = math.sqrt((f.x - x) ^ 2 + (f.y - y) ^ 2)
