@@ -103,6 +103,21 @@ luajit tools/audit/run.lua [--base <ref>] [--full] [--quest <id>]... [--no-base]
 working on one). `--no-base` skips the base run (everything counts as new);
 `--no-game` runs only the line checks.
 
+## The rules on GitHub
+
+Two rulesets (Settings -> Rules -> Rulesets) hold the branches to this:
+
+- **staging-audit** on `staging`: the `audit` check must pass before a pull
+  request merges; no force-pushes, no deleting the branch.
+- **main-release** on `main`: only a repository admin (Christiaan, @FlexoZA)
+  may change it, at a release; no force-pushes, no deleting it. A pull
+  request into `main` must come from `staging`: the `from-staging` check
+  (`.github/workflows/release-source.yml`) fails for any other branch.
+
+A pull request into `staging` must name `staging` as its base: GitHub
+offers `main`, the default branch, and a pull request into `main` is never
+audited.
+
 ## Changing the rules
 
 Thresholds, core paths and the list of features that answer `serverShotAt`
