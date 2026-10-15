@@ -83,6 +83,17 @@ function OpenBorders:serverShotAt(server, x, y, radius, by, angle, _damage, dtyp
   return true
 end
 
+--- Every simp loose, for the audit (tools/audit): an enemy of everybody,
+--- whoever let him in.
+function OpenBorders:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, s in ipairs(sv.horde.simps) do
+    add({ id = s, kind = "open-borders/simp", x = s.x, y = s.y, hp = s.hp, radius = Horde.RADIUS })
+  end
+end
+
 --- Something froze the world around (x, y): simps inside stand still.
 function OpenBorders:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then

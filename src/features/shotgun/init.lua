@@ -241,6 +241,23 @@ function Shotgun:serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, if he is about, for the audit (tools/audit): he can only be hurt
+--- once the hunt is on (as `serverShotAt` has it).
+function Shotgun:serverEnemies(_server, add)
+  local b = sv and sv.boss
+  if b then
+    add({
+      id = b,
+      kind = "shotgun/boss",
+      x = b.x,
+      y = b.y,
+      hp = b.hp,
+      radius = Boss.RADIUS,
+      immune = sv.stage ~= "hunt",
+    })
+  end
+end
+
 --- For tests.
 function Shotgun.server()
   return sv

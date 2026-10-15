@@ -538,6 +538,16 @@ function Police:serverShotAt(server, x, y, radius, by, angle, _damage, _dtype, f
   return true
 end
 
+--- Every officer on foot, for the audit (tools/audit). The units in cars
+--- are players (server.players), not these.
+function Police:serverEnemies(_server, add)
+  local of = sv and sv.officers
+  for i = 1, of and of.n or 0 do
+    local o = of.list[i]
+    add({ id = o, kind = "police/officer", x = o.x, y = o.y, hp = o.hp, radius = Officers.RADIUS })
+  end
+end
+
 --- The officers on foot after player `id` right now (after anybody, for no
 --- `id`), on the host: { id, x, y } each. For something that stands up to
 --- them (a Gang Hangout's guards).

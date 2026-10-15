@@ -217,6 +217,17 @@ function Suppressors:serverShotAt(srv, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every Suppressor in the world right now, for the audit (tools/audit):
+--- what it can still take is its shield and its health together.
+function Suppressors:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, u in ipairs(sv.brain.list) do
+    add({ id = u, kind = "suppressors/suppressor", x = u.x, y = u.y, hp = u.hp + u.shield, radius = sv.brain.radius })
+  end
+end
+
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
 --- bot's is heard by any within earshot.
 function Suppressors:serverShotFired(_server, player, x, y)

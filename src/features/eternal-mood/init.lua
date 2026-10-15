@@ -187,6 +187,15 @@ function EternalMood:serverShotAt(server, x, y, radius, by, angle, damage, dtype
     or Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+--- Every enemy of the level in the world right now, for the audit (tools/audit).
+function EternalMood:serverEnemies(server, add)
+  FloorManager.serverEnemies(server, add)
+  Mancubus.serverEnemies(server, add)
+  Baron.serverEnemies(server, add)
+  Mattressmind.serverEnemies(server, add)
+  Horde.serverEnemies(server, add)
+end
+
 function EternalMood:serverFreezeArea(_server, x, y, radius, seconds)
   Horde.serverFreezeArea(x, y, radius, seconds)
   FloorManager.serverFreezeArea(x, y, radius, seconds)

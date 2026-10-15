@@ -406,6 +406,27 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every enemy of his in the world right now, for the audit (tools/audit):
+--- his turrets, and him once he has come (nothing hits him mid-blink).
+function Finale.serverEnemies(_server, add)
+  if not sv or sv.done then
+    return
+  end
+  Turrets.enemies(sv.turrets, "a-man/finale-turret", add)
+  local a = sv.a
+  if a then
+    add({
+      id = a,
+      kind = "a-man/finale",
+      x = a.x,
+      y = a.y,
+      hp = a.hp,
+      radius = Finale.radius,
+      immune = sv.blinking == true,
+    })
+  end
+end
+
 --- A stink at (x, y) throws him off the blink he was aiming.
 function Finale.serverPanicArea(x, y, radius)
   local a = sv and not sv.done and sv.a

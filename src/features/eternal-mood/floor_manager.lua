@@ -334,6 +334,15 @@ function FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, until he is down, for the audit (tools/audit). His cannon is part
+--- of him (a round on it reaches him too).
+function FloorManager.serverEnemies(_server, add)
+  if sv and not sv.down then
+    local m = sv.m
+    add({ id = m, kind = "eternal-mood/floor-manager", x = m.x, y = m.y, hp = m.hp, radius = FloorManager.RADIUS })
+  end
+end
+
 function FloorManager.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.m.x, sv.m.y) <= radius * radius then
     sv.m.frozen = math.max(sv.m.frozen, seconds)

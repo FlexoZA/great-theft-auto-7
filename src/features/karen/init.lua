@@ -337,6 +337,22 @@ function Karen:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   return true
 end
 
+--- Every enemy of hers in the world right now, for the audit (tools/audit):
+--- her while she stands, and each simp.
+function Karen:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local b = sv.boss
+  if b then
+    add({ id = b, kind = "karen/boss", x = b.x, y = b.y, hp = b.hp, radius = self.radius })
+  end
+  for i = 1, sv.simps.n do
+    local s = sv.simps.list[i]
+    add({ id = s, kind = "karen/simp", x = s.x, y = s.y, hp = s.hp, radius = Simps.RADIUS })
+  end
+end
+
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
 --- slower they only shove her a little.
 function Karen:rams(server, b, dt)

@@ -630,6 +630,33 @@ function Hunt:serverShotAt(server, x, y, radius, by, angle)
   return false
 end
 
+--- Every enemy of the hunt in the world right now, for the audit
+--- (tools/audit): the squirrel, and Bigfoot, who can only be hurt in the
+--- fight and on the ground (as `serverShotAt` has it). Wendell is no enemy.
+function Hunt:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local s = sv.squirrel
+  if s then
+    add({ id = s, kind = "alien-hunt/squirrel", x = s.x, y = s.y, hp = s.hp, radius = self.squirrelRadius })
+  end
+  local f = sv.foot
+  if f then
+    local air = f.mode == "air"
+    add({
+      id = f,
+      kind = "alien-hunt/bigfoot",
+      x = f.x,
+      y = f.y,
+      hp = f.hp,
+      radius = self.footRadius,
+      immune = sv.stage ~= "fight" or air,
+      flying = air,
+    })
+  end
+end
+
 --- For tests.
 function Hunt.server()
   return sv

@@ -225,6 +225,23 @@ function HunterChopper:serverShotAt(_server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- It while it is up, for the audit (tools/audit): over the walls, and
+--- coming down it is beaten already.
+function HunterChopper:serverEnemies(_server, add)
+  local f = sv and sv.flight
+  if f and not sv.down then
+    add({
+      id = sv,
+      kind = "hunter-chopper/chopper",
+      x = f.x,
+      y = f.y,
+      hp = sv.hp,
+      radius = Render.RADIUS,
+      flying = true,
+    })
+  end
+end
+
 --- A missile went off at (x, y): within its reach, it takes the blast's
 --- damage, falling to a third at the edge as for anyone. Its own bombs
 --- (owner 0) don't touch it.

@@ -146,6 +146,13 @@ function AMan:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     or Citadel.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+--- Every enemy of his trail in the world right now, for the audit
+--- (tools/audit). His city event's are the events feature's to list.
+function AMan:serverEnemies(server, add)
+  City17.serverEnemies(server, add)
+  Citadel.serverEnemies(server, add)
+end
+
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)
   City17.serverFreezeArea(x, y, radius, seconds)
   Citadel.serverFreezeArea(x, y, radius, seconds)

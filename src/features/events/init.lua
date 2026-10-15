@@ -188,6 +188,15 @@ function Events:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return event.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+--- The audit's list of enemies (tools/audit): the boss of the event that
+--- is on, and whatever he brought, if his module says (A-Man's included).
+function Events:serverEnemies(server, add)
+  local event = self:serverActive()
+  if event and event.serverEnemies then
+    event.serverEnemies(server, add)
+  end
+end
+
 function Events:serverPanicArea(server, x, y, radius)
   local event = self:serverActive()
   if event and event.serverPanicArea then

@@ -822,6 +822,18 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every enemy of the level in the world right now, for the audit
+--- (tools/audit): each soldier still up, and A-Man's visits (cameo.lua).
+function Level.serverEnemies(server, add)
+  if not sv then
+    return
+  end
+  for _, s in ipairs(sv.troops.list) do
+    add({ id = s, kind = "a-man/combine", x = s.x, y = s.y, hp = s.hp, radius = Combine.RADIUS })
+  end
+  Cameo.serverEnemies(server, add)
+end
+
 function Level.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.troops:freeze(x, y, radius, seconds)

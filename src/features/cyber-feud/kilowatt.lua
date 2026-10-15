@@ -368,6 +368,14 @@ function Kilowatt.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, until he is down, for the audit (tools/audit).
+function Kilowatt.serverEnemies(_server, add)
+  if sv and not sv.down then
+    local k = sv.k
+    add({ id = k, kind = "cyber-feud/kilowatt", x = k.x, y = k.y, hp = k.hp, radius = Kilowatt.RADIUS })
+  end
+end
+
 function Kilowatt.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.k.x, sv.k.y) <= radius * radius then
     sv.k.frozen = math.max(sv.k.frozen, seconds)

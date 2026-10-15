@@ -216,6 +216,19 @@ function Cameo.serverShotAt(server, x, y, radius, by)
   return sv ~= nil and by ~= 0 and Turrets.hit(sv.turrets, server, x, y, radius)
 end
 
+--- Every enemy of his visits in the world right now, for the audit
+--- (tools/audit): his turrets, and him while he is here (never hit).
+function Cameo.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  Turrets.enemies(sv.turrets, "a-man/cameo-turret", add)
+  local him = sv.him
+  if him then
+    add({ id = him, kind = "a-man/cameo", x = him.x, y = him.y, radius = Event.radius, immune = true })
+  end
+end
+
 function Cameo.serverFreezeArea(x, y, radius, seconds)
   if sv then
     Turrets.freeze(sv.turrets, x, y, radius, seconds)

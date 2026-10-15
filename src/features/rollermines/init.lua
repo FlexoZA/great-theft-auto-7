@@ -215,6 +215,25 @@ function Rollermines:serverShotAt(_server, x, y, radius, by, _angle, damage)
   return true
 end
 
+--- Every rollermine in the world right now, for the audit (tools/audit).
+--- One whose fuse is lit is going off whatever hits it.
+function Rollermines:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, m in ipairs(sv.brain.list) do
+    add({
+      id = m,
+      kind = "rollermines/rollermine",
+      x = m.x,
+      y = m.y,
+      hp = m.hp,
+      radius = Brain.RADIUS,
+      immune = m.fuse ~= nil,
+    })
+  end
+end
+
 function Rollermines:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

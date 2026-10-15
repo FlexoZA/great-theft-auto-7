@@ -371,6 +371,31 @@ function Zombie:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every enemy of his in the world right now, for the audit (tools/audit):
+--- him till he falls, and his headcrabs, over everything while thrown.
+function Zombie:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local z = not sv.done and sv.z
+  if z then
+    add({ id = z, kind = "poison-zombie/zombie", x = z.x, y = z.y, hp = z.hp, radius = Zombie.radius })
+  end
+  for _, c in ipairs(sv.crabs.list) do
+    if not c.dead then
+      add({
+        id = c,
+        kind = "poison-zombie/headcrab",
+        x = c.x,
+        y = c.y,
+        hp = c.hp,
+        radius = Crabs.RADIUS,
+        flying = c.mode == "fly",
+      })
+    end
+  end
+end
+
 function Zombie:serverFreezeArea(_server, x, y, radius, seconds)
   if not sv then
     return

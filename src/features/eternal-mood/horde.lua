@@ -500,6 +500,27 @@ function Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return false
 end
 
+--- Every one of the horde out in the level, for the audit (tools/audit):
+--- the possessed (by rank), the interns, the imps (not those still in the
+--- vents) and the Cacodaemons, which float over everything.
+function Horde.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, s in ipairs(sv.possessed.list) do
+    add({ id = s, kind = "eternal-mood/" .. s.rank, x = s.x, y = s.y, hp = s.hp, radius = Possessed.RADIUS })
+  end
+  for _, s in ipairs(sv.imps.list) do
+    add({ id = s, kind = "eternal-mood/imp", x = s.x, y = s.y, hp = s.hp, radius = Imps.RADIUS })
+  end
+  for _, s in ipairs(sv.interns.list) do
+    add({ id = s, kind = "eternal-mood/intern", x = s.x, y = s.y, hp = s.hp, radius = Interns.RADIUS })
+  end
+  for _, s in ipairs(sv.cacos.list) do
+    add({ id = s, kind = "eternal-mood/cacodaemon", x = s.x, y = s.y, hp = s.hp, radius = Cacos.RADIUS, flying = true })
+  end
+end
+
 function Horde.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.possessed:freeze(x, y, radius, seconds)

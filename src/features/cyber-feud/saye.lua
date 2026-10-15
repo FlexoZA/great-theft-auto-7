@@ -404,6 +404,19 @@ function Saye.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Her and her drones, until she is down, for the audit (tools/audit).
+--- The drones circle over whatever is in the way.
+function Saye.serverEnemies(_server, add)
+  if not sv or sv.down then
+    return
+  end
+  local s = sv.s
+  add({ id = s, kind = "cyber-feud/saye", x = s.x, y = s.y, hp = s.hp, radius = Saye.RADIUS })
+  for _, d in ipairs(s.drones) do
+    add({ id = d, kind = "cyber-feud/saye-drone", x = d.x, y = d.y, hp = d.hp, radius = 8, flying = true })
+  end
+end
+
 function Saye.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.s.x, sv.s.y) <= radius * radius then
     sv.s.frozen = math.max(sv.s.frozen, seconds)
