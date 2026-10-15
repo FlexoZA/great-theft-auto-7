@@ -48,7 +48,8 @@
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   ammo      the key of another gun whose rounds it fires (the super
---             shotgun takes the shotgun's shells, the SMG the pistol's 9mm):
+--             shotgun takes the shotgun's shells, the SMG the pistol's 9mm,
+--             the AR the AK's 7.62):
 --             it has no ammo item of its own. A `bottomless` gun's rounds
 --             are an item all the same once another gun fires them
 --             (`Guns.ammoTypes`): the pistol's 9mm, for the SMG
@@ -137,7 +138,7 @@ Guns.list = {
   {
     key = "ak47",
     dropWeight = 3, -- as often as the uzi's: the gun most soldiers carry
-    blurb = "A rifle: nine rounds a second with hardly any scatter.",
+    blurb = "A rifle: nine 7.62 rounds a second with hardly any scatter.",
     name = "AK-47",
     damage = 18, -- between the pistol and the uzi per round...
     cooldown = 0.11, -- ...nine of them a second
@@ -150,7 +151,26 @@ Guns.list = {
     reload = 2.0,
     reloadSound = "reload-ak47",
     stack = 300, -- ten magazines a slot
-    ammoName = "AK-47 round",
+    ammoName = "7.62 round", -- the AR's too ("ammo-ak47")
+  },
+  {
+    -- The AK's younger, sharper cousin: lighter rounds, faster and
+    -- straighter, on the same 7.62.
+    key = "ar",
+    blurb = "An assault rifle: twelve 7.62 rounds a second, the straightest-shooting rifle there is. "
+      .. "Fires the AK's 7.62 rounds.",
+    name = "AR",
+    damage = 15, -- a little lighter than the AK's 18...
+    cooldown = 0.085, -- ...but about twelve of them a second against its nine
+    spread = 0.02, -- half the AK's scatter
+    speed = 1150, -- and quicker to get there
+    streak = 11,
+    sound = "ak47",
+    pitch = 1.12, -- a tighter crack than the AK's
+    magazine = 30,
+    reload = 1.7,
+    reloadSound = "reload-ak47",
+    ammo = "ak47", -- 7.62
   },
   {
     key = "shotgun",

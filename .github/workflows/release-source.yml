@@ -1,0 +1,24 @@
+# Only staging goes into main (CLAUDE.md, docs/audit.md): a pull request
+# into main from any other branch fails this check, which the "main-release"
+# ruleset requires.
+name: Release source
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  from-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only staging may be merged into main
+        if: github.head_ref != 'staging'
+        run: |
+          echo "::error::Only staging may be merged into main; this pull request comes from ${{ github.head_ref }}."
+          exit 1
+      - name: Comes from staging
+        if: github.head_ref == 'staging'
+        run: echo "From staging. Good."
