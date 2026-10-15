@@ -31,6 +31,9 @@
 -- long mountain road over a river, driven (road.lua). `kind = "drop"`,
 -- "market", "overpass", "tower" and "roof" are Grey City's five maps, the
 -- Cyber Feud quest line's (cyber_feud.lua).
+-- `kind = "fobos"` is Fobos Base, the first of the Eternal Mood quest line's
+-- maps, `kind = "earth"` Heck on Earth, the second, `kind = "foundry"` the
+-- Foundry, the third, and `kind = "heck"` Heck, the fourth (eternal_mood.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -40,6 +43,7 @@ local OuterCity = require("src.features.city-map.outer_city")
 local Coast = require("src.features.city-map.coast")
 local Road = require("src.features.city-map.road")
 local CyberFeud = require("src.features.city-map.cyber_feud")
+local EternalMood = require("src.features.city-map.eternal_mood")
 
 local Layout = {}
 
@@ -1236,9 +1240,12 @@ function Layout.generate(spec)
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
     or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind) then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
+    or EternalMood.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       CyberFeud.build(map, rng, T)
+    elseif EternalMood.builds(map.kind) then
+      EternalMood.build(map, rng, T)
     elseif map.kind == "forest" then
       buildForest(map, rng)
     elseif map.kind == "beach" then

@@ -31,7 +31,8 @@
 --     (the Overpass's armed Courier) everyone is lent one, car or no car:
 --     their own waits out of the world (hidden) until the next switch.
 --   A map with `night` is played in the dark: the night feature darkens
---     the world and lights it from `map.lights`, cars and players.
+--     the world and lights it from `map.lights`, cars and players. A
+--     colour { r, g, b } instead of true is that map's own dark.
 --
 -- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
@@ -158,6 +159,28 @@ CityMap.maps = {
   roof = {
     title = "The Roof", kind = "roof", seed = 105, cols = 36, rows = 36,
     crowd = false, traffic = false, vehicles = false, night = true,
+  },
+  -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
+  -- (the night feature), a red dark: everything in that universe is evil.
+  -- So far Fobos Base, the UAC's moon base, Heck on Earth, the road
+  -- through a burning city to the starport, the Foundry, the UAC's factory
+  -- half turned to Heck, and Heck itself, all walked: no driving on this
+  -- line.
+  fobos = {
+    title = "Fobos Base", kind = "fobos", seed = 201, cols = 56, rows = 80,
+    crowd = false, traffic = false, vehicles = false, night = { 0.50, 0.22, 0.20 },
+  },
+  earth = {
+    title = "Heck on Earth", kind = "earth", seed = 202, cols = 40, rows = 160,
+    crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.22, 0.17 },
+  },
+  foundry = {
+    title = "The Foundry", kind = "foundry", seed = 203, cols = 56, rows = 64,
+    crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.22, 0.16 },
+  },
+  heck = {
+    title = "Heck", kind = "heck", seed = 204, cols = 60, rows = 96,
+    crowd = false, traffic = false, vehicles = false, night = { 0.60, 0.20, 0.14 },
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

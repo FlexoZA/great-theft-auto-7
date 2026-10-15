@@ -1532,7 +1532,9 @@ the one with a plot.
   driven car's headlights and tail lights, a pool round everyone on foot
   with a torch beam where they face, and whatever features draw in
   `drawNightLights`. Draw a night map's own colours as if by day; the night
-  takes them down. Local only: nothing sent.
+  takes them down. A spec's `night` may be a colour { r, g, b } instead of
+  true: that map's own ambient (Fobos Base's dim red). Local only: nothing
+  sent.
 - Cyber Feud: `src/features/cyber-feud` and quests' "cyber-feud" job
   ("Courier wanted", on the board), design in `docs/cyber-feud.md`. Five
   maps in Grey City, all at night, chained by EXIT stars like A-Man's:
@@ -1566,6 +1568,109 @@ the one with a plot.
   also names the part of the map you walk into (the tower's floors as
   FLOOR n OF 6) and keeps an objective line with the distance to its
   point. The factions, the breach and the bosses follow.
+- Eternal Mood: `src/features/eternal-mood` and quests' "eternal-mood"
+  job ("Pest control", on the board), design in `docs/eternal-mood.md`.
+  A dream of a 90s demon shooter, played in the dark, every map on foot.
+  So far two maps. Fobos Base (`fobos`, 56x80): the UAC's moon base, built by
+  `city-map/eternal_mood.lua` (what it leaves on the map is in its header:
+  `exitX, exitY`, `base`, `zones` with an x range and a floor finish each,
+  `cover`, `signs`, `lights`, `alarms`) and drawn by
+  `render_eternal_mood.lua`; nil tiles inside `map.base` are steel wall,
+  outside it the moon, which carries on past the edge (surroundings'
+  `fobos_moon.lua`). Its props (`map.cover`) aren't in the canvas: the
+  eternal-mood feature (priority 27) draws them every frame at full size
+  (`drawProps`), with the reactor's halo, the turning alarm beacons
+  (`map.alarms`) and the strip lights on the blink (`map.flickers`, lit in
+  `drawNightLights`), and the clutter scattered round each room.
+  Everything in it is red, being evil: a red dark (the
+  spec's `night` colour), red-orange lights, and every colour drawn passed
+  through `evil` in the renderer, but for the sludge's sick green. Everyone wakes in the Lab at the bottom and goes up
+  through the Ring and one of the Offices, the Reactor or Toxic Storage to
+  the Hangar's lift: the first player within 160 px of `exitX, exitY`
+  finishes it (`quests:serverComplete`) and its star goes home
+  ("home-fobos" by the Lab's consoles). Heck's horde holds the way
+  (`eternal-mood/horde.lua`, from the map's `horde`: `posts`, `patrols`,
+  `mobs` and `vents`): mobs of Interns (`intern_brain.lua`, melee, 20
+  health) standing about until a player comes near, then all coming at
+  once;
+  the possessed (`possessed_brain.lua`, one head for three ranks: staffers
+  with pistols, guards with shotguns holding the doorways, the overtime guy
+  spinning up a chaingun by the lift; guards and the overtime guy fight
+  like City 17's Combine: cover, sieges and sweeps, grenades) stand at
+  their posts or walk their patrols as squads until they see somebody, groan, and the possessed near them come to look; the imps
+  (`imp_brain.lua`) crawl out of a vent once a player comes within 420 px of
+  it (Bosses.plus of its count), hunt the nearest player, strafe, and throw
+  fireballs (`fireballs.lua`, flown on the host and on every screen,
+  sidestepped at 330 px/s, 14 `fire`; its `KINDS` also fly the boss's
+  plasma). The horde is one side: its rounds
+  carry `from` "horde" and every ownerless round passes through it, so it
+  never hurts itself; only players' rounds and blasts reach it
+  (`serverShotAt`). Kills are `serverKill` "soldier" (the possessed) and
+  "demon" (imps). They talk (`story.lua`'s `horde`), in a bubble. HRD_
+  messages. On arrival the Voice's intro screen (`screen.lua`, `face.lua`,
+  the quest's `introLine`, drawn in `drawScreen` over the HUD) comes up
+  like VEX's, and when it goes the level's theme comes in (`theme_fobos.lua`,
+  `theme_earth.lua`, `theme_foundry.lua`, `theme_heck.lua`, by map:
+  its dream intro once, then the loop). Its boss, the Floor Manager (`floor_manager.lua`, his brain
+  `floor_manager_brain.lua`, FM_ messages, the map's `horde.boss`; an
+  Arachnotron: a brain on a spider walker, streaming plasma that flies as
+  fireballs.lua's "plasma", with a cannon that can be shot off), waits
+  on the Hangar's lift until a player walks into the Hangar, and keeps the
+  lift locked (`serverLocked`, drawn OUT OF SERVICE) until he is down; he
+  follows the bosses' standard. His lift's EXIT star leads on to Heck on
+  Earth (`earth`, 40x160, quest "eternal-mood-earth", "home-earth" by the
+  shuttle): one long road north through a burning city, from the UAC's
+  Depot through the Suburbs, Downtown and round the Crater, up the
+  Boulevard to the starport's gate, which finishes it. The same builder
+  and renderer: it leaves no `base` but `grounds` (a floor finish per
+  walked patch, the last one wins) and `roofs` (a building per box, drawn
+  in its `style`; nil tiles under none are burnt waste ground), wrecks,
+  lamps, fires (`flickers` with `fire`) and the Crater's lava in `cover`,
+  and the same `horde` (its vents with a `look`, manhole or crack, and
+  `cacos`: flocks of Cacodaemons, `cacodaemon_brain.lua`, the heavy demon
+  that floats over walls, spits balls of fire after a mouth-open tell and
+  reels when shot in the mouth; fireballs.lua's "spit"). Past
+  its edge the city burns on (surroundings' `heck_on_earth.lua`). Its boss,
+  the Mancouchbus (`mancubus.lua`, `mancubus_brain.lua`, `mancubus_look.lua`,
+  MC_ messages; the map's `horde.boss` with `kind` "mancubus", where the
+  Floor Manager's is "floor-manager"), sits on tank treads in front of the
+  starport's gate and keeps it closed (`serverLocked`) until he is down:
+  rockets from two launchers (the weapons feature's, ownerless, from the
+  horde) in volleys and sweeping fans, a belly bump, Cacodaemons called in
+  (horde.lua's `serverCall` "caco"), double damage in his back. His gate
+  leads on to the Foundry (`foundry`, 56x64, quest "eternal-mood-foundry",
+  "home-foundry" by the shuttle): the UAC's factory, half turned to Heck,
+  from the Landing Pad over the Conveyors and through the Smelters to the
+  Crucible and the portal behind it. The same builder and renderer, with
+  `outside` "tarmac" (the starport past the walls, surroundings'
+  `starport_pads.lua`), `heckFrom` (north of it the walls are rock), and
+  `belts`: a moving floor that carries whoever stands on it (the
+  eternal-mood feature's `belts.lua`, on the host, players and the horde).
+  Its boss, the Baron of Heck (`baron.lua`, `baron_brain.lua`,
+  `baron_look.lua`, BR_ messages; the map's `horde.boss` kind "baron"),
+  stands on the Crucible's ring: green fireballs in pairs (fireballs.lua's
+  "baron"), a charge that stuns him if it ends in a wall, a claw, a roar
+  that throws you back and calls imps out of the lava (horde.lua's
+  `serverCall` "imp"). He drops the Snooze Gate's key; the portal stays
+  sealed (`serverLocked`) until somebody picks it up. Lava on these maps is
+  `low` (`map.lows`): sight and rounds pass over, a player walking in it
+  burns, and the horde keeps out of it (`ground.lua`'s `Ground.blocked`
+  and `Ground.clear` stand in for Sight's in every walker's brain, and it
+  shuts the walking grid's cells over the lava). The Foundry's portal leads
+  on to Heck (`heck`, 60x96, quest "eternal-mood-heck", "home-heck" by the
+  portal): a sea of lava crossed by bone bridges, the Altar Fields with
+  the pizza box sinking in a lake to the east, and the Mattress's plateau
+  before the Snooze Gate. Its lava is poured from tiles into as few low
+  rectangles as it takes; `outside` "abyss" (past the edge, surroundings'
+  `heck.lua`). Its boss, the Spider Mattressmind (`mattressmind.lua`,
+  `mattressmind_brain.lua`, `mattressmind_look.lua`, SM_ messages; the
+  map's `horde.boss` kind "mattressmind"), sits on its mattress before the
+  Snooze Gate and keeps it locked (`serverLocked`): a chaingun (the
+  weapons feature's minigun, ownerless, from the horde) whose aim drags
+  after you, a leg slam, a yawn that pulls players in (it moves their
+  bodies on the host, as the belts do) and snaps shut, imps and a
+  Cacodaemon called in, and its mattress soaking up rounds from the front.
+  The last map follows.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
