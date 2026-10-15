@@ -20,7 +20,14 @@
 --   dodge    something is about to hit it (Brain.threatLine, a round on
 --            its way; Brain.threatArea, an ability about to land): a quick
 --            dash out of the way, then on with the rest. It can't dodge
---            again straight away (DODGE_COOL)
+--            again straight away (DODGE_COOL), nor without the breath
+--
+-- It has breath, as a player on foot does (bosses/stamina.lua): anything
+-- quicker than its patrol walk spends it (closing in, strafing, backing
+-- off, running for a pickup), a dodge costs DODGE_COST, walking or
+-- standing lets it come back after a pause. Run dry, it is winded: it can
+-- only walk (WINDED) and can't dodge until it has `recovered` again. An
+-- energy drink puts the breath back.
 --
 -- It doesn't need to see you to know you are there. A round of yours that
 -- flies close by or hits it, from any side, and it whips round on whoever
@@ -44,6 +51,7 @@
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Stamina = require("src.features.bosses.stamina")
 
 local Brain = {}
 Brain.__index = Brain
@@ -80,6 +88,11 @@ Brain.CALL_EVERY = 6 -- seconds before the same one calls again
 Brain.STUN_EVERY = 8 -- seconds between its stun shots
 Brain.STUN_FIRST = { 2, 5 } -- seconds into its first fight before the first one
 Brain.STUN_CHARGE = 0.6 -- seconds it charges before the shot, glowing
+-- Its breath (bosses/stamina.lua): about eight seconds on the move before
+-- it is blown, a dodge a quarter of a bar, back in a few seconds' walk.
+Brain.BREATH = { drain = 12, regen = 20, regenDelay = 1, recovered = 45, breath = 25 }
+Brain.DODGE_COST = 25
+Brain.WINDED = 60 -- px/s winded: a walk, slower than its patrol
 
 local random = love.math.random
 
@@ -104,8 +117,9 @@ end
 --- walking grid, d-day/nav.lua, or nil to walk straight), and for healing:
 ---   find(x, y, range)       the nearest pickup to heal with, { x, y, ... }, or nil
 ---   there(pickup)           is it still lying there?
----   take(server, pickup, h) take it: returns the hp it gives and how many
----                           seconds of haste (quicker on its feet)
+---   take(server, pickup, h) take it: returns the hp it gives, how many
+---                           seconds of haste (quicker on its feet) and how
+---                           much breath (an energy drink's)
 --- and, for something quicker or slower than a Hunter (all optional):
 ---   pace        how much faster it moves, dodges included (1)
 ---   dodgeCool   seconds before it can dodge again (DODGE_COOL)
@@ -135,6 +149,7 @@ function Brain:add(route, start, arms)
     arms = arms, burstLeft = arms.burst, fireIn = 0, pod = 1, side = random() < 0.5 and -1 or 1,
     strafeIn = between(Brain.STRAFE_TIME), dodgeCool = 0, frozen = 0, stuck = 0, fired = false, haste = 0,
     callCool = 0, stunCool = between(Brain.STUN_FIRST),
+    breath = Stamina.new(Brain.BREATH), running = false,
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = h
@@ -164,6 +179,13 @@ end
 --- A step along (ux, uy) at `speed`, each axis on its own so a wall is
 --- slid along. Returns false if it got nowhere.
 function Brain:step(h, ux, uy, speed, dt)
+  if not h.dodging then
+    if h.breath:winded() then
+      speed = math.min(speed, Brain.WINDED) -- blown: it can only walk
+    elseif speed > Brain.PATROL then
+      h.running = true -- quicker than a walk: it costs breath
+    end
+  end
   speed = speed * self.pace
   if h.haste > 0 then
     speed = speed * Brain.HASTE
@@ -484,12 +506,13 @@ function Brain:heal(server, h, dt)
   h.facing = turn(h.facing, heading, Brain.TURN, dt)
   h.moving = true
   if there or dist2(h.x, h.y, p.x, p.y) < 24 * 24 then
-    local hp, haste = 0, 0
+    local hp, haste, breath = 0, 0, 0
     if self.take then
-      hp, haste = self.take(server, p, h)
+      hp, haste, breath = self.take(server, p, h)
     end
     h.hp = math.min(h.max, h.hp + (hp or 0))
     h.haste = math.max(h.haste, haste or 0)
+    h.breath:refill(breath or 0)
     h.pickup, h.goal = nil, nil
     h.mode = Brain.after(h)
   end
@@ -517,9 +540,10 @@ end
 --- `h` throws itself along (ux, uy), if it can dodge now: far enough to
 --- clear `far` px if given, otherwise a quick sidestep.
 function Brain:dodge(h, ux, uy, far)
-  if h.dodging or h.dodgeCool > 0 or h.frozen > 0 then
+  if h.dodging or h.dodgeCool > 0 or h.frozen > 0 or not h.breath:has(Brain.DODGE_COST) then
     return false
   end
+  h.breath:spend(Brain.DODGE_COST)
   local left = math.max(Brain.DODGE_TIME, (far or 0) / Brain.DODGE_SPEED)
   h.charge, h.chargeAt = nil, nil -- a dodge spoils its aim
   h.dodging = { x = ux, y = uy, left = left }
@@ -571,7 +595,8 @@ end
 -- Every tick --------------------------------------------------------------------
 
 function Brain:think(server, h, dt)
-  h.fired, h.moving = false, false
+  h.breath:step(h.running, dt) -- what it did last tick
+  h.fired, h.moving, h.running = false, false, false
   h.dodgeCool = math.max(0, h.dodgeCool - dt)
   h.callCool = math.max(0, h.callCool - dt)
   h.stunCool = h.stunCool - dt
