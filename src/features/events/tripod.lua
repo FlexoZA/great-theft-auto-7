@@ -431,6 +431,25 @@ function Tripod.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- It, for the audit (tools/audit). It stands taller than the buildings
+--- and steps over them, and nothing hurts it while its storm is on (as
+--- `serverShotAt` has it).
+function Tripod.serverEnemies(_server, add)
+  local t = sv and sv.t
+  if t and t.hp > 0 then
+    add({
+      id = t,
+      kind = "events/tripod",
+      x = t.x,
+      y = t.y,
+      hp = t.hp,
+      radius = Tripod.radius,
+      immune = sv.storm ~= nil,
+      flying = true,
+    })
+  end
+end
+
 --- A freeze landed on it: it stands still, the ray and tentacles with it.
 function Tripod.serverFreezeArea(_server, x, y, radius, seconds)
   local t = sv and not sv.storm and sv.t

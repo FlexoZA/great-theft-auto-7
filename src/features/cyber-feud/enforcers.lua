@@ -185,6 +185,14 @@ function Enforcers.serverShotAt(server, x, y, radius, by, angle, damage, dtype, 
   return true, by ~= 0
 end
 
+--- Every enforcer standing, for the audit (tools/audit). The shield only
+--- stops rounds from in front, so he is never out of reach.
+function Enforcers.serverEnemies(_server, add)
+  for _, s in ipairs(sv and sv.brain.list or {}) do
+    add({ id = s, kind = "cyber-feud/enforcer", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS })
+  end
+end
+
 function Enforcers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

@@ -46,6 +46,10 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+function Level.serverEnemies(server, add)
+  Finale.serverEnemies(server, add)
+end
+
 function Level.serverFreezeArea(x, y, radius, seconds)
   Finale.serverFreezeArea(x, y, radius, seconds)
 end

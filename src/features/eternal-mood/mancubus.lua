@@ -380,6 +380,14 @@ function Mancubus.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, until he is down, for the audit (tools/audit).
+function Mancubus.serverEnemies(_server, add)
+  if sv and not sv.down then
+    local m = sv.m
+    add({ id = m, kind = "eternal-mood/mancubus", x = m.x, y = m.y, hp = m.hp, radius = Mancubus.RADIUS + 6 })
+  end
+end
+
 function Mancubus.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.m.x, sv.m.y) <= radius * radius then
     sv.m.frozen = math.max(sv.m.frozen, seconds)

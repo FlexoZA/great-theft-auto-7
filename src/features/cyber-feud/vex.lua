@@ -151,6 +151,16 @@ function Vex.serverGone()
   return sv ~= nil and sv.stage == "gone"
 end
 
+--- Her, while she has the roof, for the audit (tools/audit): at the relay
+--- she sits at. She is a projection, so she can't be shot and stands over
+--- whatever is there. Her turrets are turrets.lua's.
+function Vex.serverEnemies(_server, add)
+  if sv and sv.stage == "on" and sv.relays[sv.at] then
+    local r = sv.relays[sv.at]
+    add({ id = sv, kind = "cyber-feud/vex", x = r.x, y = r.y, radius = 0, immune = true, flying = true })
+  end
+end
+
 local function left()
   local out = {}
   for i, r in ipairs(sv.relays) do

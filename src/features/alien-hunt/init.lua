@@ -29,7 +29,8 @@
 -- The quests feature brings everyone to the forest and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "alien-hunt": the host starts the walk, and every client puts up the
--- wild man's title screen. Everything goes away when the group leaves.
+-- wild man's title screen and starts the forest's theme (theme.lua), which
+-- plays until the quest ends. Everything goes away when the group leaves.
 --
 -- The host owns all of it: the stage, the wild man, the squirrel, Bigfoot.
 -- Clients hear the stage reliably and positions at 15 Hz, and draw.
@@ -48,6 +49,7 @@
 --   server -> all  HNT_DOWN  <x> <y> <angle> <playerId>    Bigfoot went down (0 = nobody's kill)
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local UI = require("src.ui")
 local WildFace = require("src.features.alien-hunt.wildman_face")
@@ -59,6 +61,7 @@ local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.alien-hunt.render")
 local FootBrain = require("src.features.alien-hunt.bigfoot_brain")
+local Theme = require("src.features.alien-hunt.theme")
 
 local Hunt = {
   name = "alien-hunt",
@@ -630,6 +633,33 @@ function Hunt:serverShotAt(server, x, y, radius, by, angle)
   return false
 end
 
+--- Every enemy of the hunt in the world right now, for the audit
+--- (tools/audit): the squirrel, and Bigfoot, who can only be hurt in the
+--- fight and on the ground (as `serverShotAt` has it). Wendell is no enemy.
+function Hunt:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local s = sv.squirrel
+  if s then
+    add({ id = s, kind = "alien-hunt/squirrel", x = s.x, y = s.y, hp = s.hp, radius = self.squirrelRadius })
+  end
+  local f = sv.foot
+  if f then
+    local air = f.mode == "air"
+    add({
+      id = f,
+      kind = "alien-hunt/bigfoot",
+      x = f.x,
+      y = f.y,
+      hp = f.hp,
+      radius = self.footRadius,
+      immune = sv.stage ~= "fight" or air,
+      flying = air,
+    })
+  end
+end
+
 --- For tests.
 function Hunt.server()
   return sv
@@ -650,6 +680,27 @@ Hunt.stain = nil -- { x, y, angle } where Bigfoot went down
 Hunt.shake = 0 -- seconds of camera shake left
 local wildFace, footFace = nil, nil
 local time, lastTick = 0, 0
+local theme = nil -- the forest's theme, rendered the first time the hunt starts
+
+local function themeLevel()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+--- The forest's theme from the top.
+local function playTheme()
+  if not theme then
+    local began = love.timer.getTime()
+    local sound = Theme.render()
+    theme = love.audio.newSource(sound, "static")
+    theme:setLooping(true)
+    theme:setRelative(true) -- never positional: the game moves the listener around
+    local seconds = love.timer.getTime() - began -- logged like every theme's render time
+    print(("alien-hunt theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), seconds)) -- audit: allow
+  end
+  theme:setVolume(themeLevel())
+  theme:seek(0)
+  theme:play()
+end
 
 local function clear()
   Hunt.stage, Hunt.wp = nil, 0
@@ -665,6 +716,9 @@ end
 function Hunt:exitGame()
   clear()
   lastTick = 0
+  if theme then
+    theme:stop()
+  end
 end
 
 local function page(face, spec, look, seconds, roar, keep)
@@ -680,11 +734,15 @@ function Hunt:questStarted(_client, quest)
   footFace = footFace or FootFace.new()
   clear()
   page(wildFace, INTRO, WILD_LOOK, self.introTime)
+  playTheme()
 end
 
 function Hunt:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    if theme then
+      theme:stop()
+    end
   end
 end
 
@@ -699,6 +757,9 @@ end
 
 function Hunt:update(dt, _client, camera)
   time = time + dt
+  if theme and theme:isPlaying() then
+    theme:setVolume(themeLevel()) -- the slider may have moved
+  end
   local p = self.pages[1]
   if p then
     if p.roar then

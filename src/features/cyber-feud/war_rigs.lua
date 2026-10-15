@@ -240,6 +240,23 @@ function WarRigs.isOne(player)
   return player.warRig == true
 end
 
+--- Kilowatt on his cameo, for the audit (tools/audit): riding his rig, then
+--- on the road after the leap until he runs off the edge. He is not fought
+--- here (nothing of his takes a round), so he can't be hurt. The rigs
+--- themselves are bots, players' business, and left out.
+function WarRigs.serverEnemies(_server, add)
+  local c = sv and sv.cameo
+  if not c or (c.stage ~= "riding" and c.stage ~= "leaping") then
+    return
+  end
+  local x, y = c.landX, c.landY
+  if c.stage == "riding" then
+    x, y = c.rig.car.x, c.rig.car.y
+  end
+  local radius = require("src.features.cyber-feud.kilowatt").RADIUS
+  add({ id = c, kind = "cyber-feud/kilowatt-cameo", x = x, y = y, radius = radius, immune = true })
+end
+
 --- For tests.
 function WarRigs.server()
   return sv
@@ -388,7 +405,7 @@ WarRigs.clientMessages = {
     units = {}
     for _, a in ipairs(args) do
       local id = tonumber(a)
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         units[id] = true
       end
     end

@@ -330,6 +330,16 @@ function Hunters:serverShotAt(srv, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Every Hunter in the world right now, for the audit (tools/audit).
+function Hunters:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, h in ipairs(sv.brain.list) do
+    add({ id = h, kind = "hunters/hunter", x = h.x, y = h.y, hp = h.hp, radius = sv.brain.radius })
+  end
+end
+
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
 --- bot's is heard by any within earshot. Their own side's (owned by
 --- nobody) is just noise.

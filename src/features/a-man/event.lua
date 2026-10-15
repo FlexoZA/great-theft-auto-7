@@ -328,6 +328,27 @@ function AMan.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Every enemy of the event in the world right now, for the audit
+--- (tools/audit): his turrets, and him (nothing hits him mid-blink).
+function AMan.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  Turrets.enemies(sv.turrets, "a-man/event-turret", add)
+  local a = sv.a
+  if a.hp > 0 then
+    add({
+      id = a,
+      kind = "a-man/event",
+      x = a.x,
+      y = a.y,
+      hp = a.hp,
+      radius = AMan.radius,
+      immune = sv.blinking == true,
+    })
+  end
+end
+
 --- Something stinks at (x, y): it throws him off whatever he was aiming at.
 function AMan.serverPanicArea(_server, x, y, radius)
   local a = sv and sv.a

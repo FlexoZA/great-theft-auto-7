@@ -128,6 +128,30 @@ end
 
 --- Put the horde on `map` (its `horde`), or nothing on a map without one.
 --- Returns the walking grid it built, for the level's boss.
+--- Can one of the horde stand at (x, y): clear ground all round its feet?
+local function standable(x, y)
+  return not (Ground.blocked(x, y) or Ground.blocked(x - 10, y) or Ground.blocked(x + 10, y)
+    or Ground.blocked(x, y - 10) or Ground.blocked(x, y + 10))
+end
+
+--- (x, y) if one can stand there, else the nearest spot round it that is
+--- clear: a post drawn under a wreck stands beside it rather than inside.
+local function clearSpot(x, y)
+  if standable(x, y) then
+    return x, y
+  end
+  for d = 16, 160, 16 do
+    for k = 0, 7 do
+      local a = k / 8 * 2 * math.pi
+      local cx, cy = x + math.cos(a) * d, y + math.sin(a) * d
+      if standable(cx, cy) then
+        return cx, cy
+      end
+    end
+  end
+  return x, y
+end
+
 function Horde.serverStart(server, map)
   Horde.serverStop(server)
   local spec = map.horde
@@ -151,7 +175,8 @@ function Horde.serverStart(server, map)
     end,
   })
   for _, p in ipairs(spec.posts or {}) do
-    possessed:add(p.rank, p.x, p.y, p.watch)
+    local x, y = clearSpot(p.x, p.y)
+    possessed:add(p.rank, x, y, p.watch)
   end
   -- Patrols: a squad walking its loop, its leader in front.
   for _, p in ipairs(spec.patrols or {}) do
@@ -171,8 +196,7 @@ function Horde.serverStart(server, map)
       for _ = 1, 12 do
         local a, d = random() * 2 * math.pi, Horde.mobSpread * math.sqrt(random())
         local cx, cy = mob.x + math.cos(a) * d, mob.y + math.sin(a) * d
-        if not (Ground.blocked(cx, cy) or Ground.blocked(cx - 10, cy) or Ground.blocked(cx + 10, cy)
-          or Ground.blocked(cx, cy - 10) or Ground.blocked(cx, cy + 10)) then
+        if standable(cx, cy) then
           x, y = cx, cy
           break
         end
@@ -498,6 +522,27 @@ function Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return true
   end
   return false
+end
+
+--- Every one of the horde out in the level, for the audit (tools/audit):
+--- the possessed (by rank), the interns, the imps (not those still in the
+--- vents) and the Cacodaemons, which float over everything.
+function Horde.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, s in ipairs(sv.possessed.list) do
+    add({ id = s, kind = "eternal-mood/" .. s.rank, x = s.x, y = s.y, hp = s.hp, radius = Possessed.RADIUS })
+  end
+  for _, s in ipairs(sv.imps.list) do
+    add({ id = s, kind = "eternal-mood/imp", x = s.x, y = s.y, hp = s.hp, radius = Imps.RADIUS })
+  end
+  for _, s in ipairs(sv.interns.list) do
+    add({ id = s, kind = "eternal-mood/intern", x = s.x, y = s.y, hp = s.hp, radius = Interns.RADIUS })
+  end
+  for _, s in ipairs(sv.cacos.list) do
+    add({ id = s, kind = "eternal-mood/cacodaemon", x = s.x, y = s.y, hp = s.hp, radius = Cacos.RADIUS, flying = true })
+  end
 end
 
 function Horde.serverFreezeArea(x, y, radius, seconds)

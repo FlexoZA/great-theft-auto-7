@@ -208,6 +208,8 @@ function Combine:add(kind, x, y, watch)
   return s
 end
 
+local blockedAt -- solid ground under a soldier (Walking, below)
+
 --- A squad of `size` walking `route` (a loop of { x, y }), starting at
 --- corner `start` (one picked at random when nil), heading for the next.
 function Combine:addSquad(route, size, start)
@@ -220,7 +222,15 @@ function Combine:addSquad(route, size, start)
   for i = 1, size do
     local slot = Combine.FORMATION[(i - 1) % #Combine.FORMATION + 1]
     local c, sn = math.cos(heading), math.sin(heading)
-    local s = self:add("patrol", from.x + slot[1] * c - slot[2] * sn, from.y + slot[1] * sn + slot[2] * c, heading)
+    local ox, oy = slot[1] * c - slot[2] * sn, slot[1] * sn + slot[2] * c
+    -- A slot behind the leader can land in a wall when the corner is near
+    -- one (a map's edge): pulled in towards the corner, which is clear,
+    -- until it stands free, or he would stand stuck in it all game.
+    local t = 1
+    while t > 0 and blockedAt(from.x + ox * t, from.y + oy * t) do
+      t = t - 0.125
+    end
+    local s = self:add("patrol", from.x + ox * t, from.y + oy * t, heading)
     s.squad = squad
     squad.members[i] = s
   end
@@ -241,7 +251,7 @@ end
 
 --- Solid ground, through the `blocksPoint` convention, at the four extremes
 --- of the body.
-local function blockedAt(x, y)
+function blockedAt(x, y)
   local r = Combine.RADIUS
   for _, f in ipairs(Features.list) do
     if f.blocksPoint then

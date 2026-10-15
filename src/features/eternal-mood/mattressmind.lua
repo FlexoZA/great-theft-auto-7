@@ -370,6 +370,14 @@ function Mattressmind.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- It, until it is down, for the audit (tools/audit).
+function Mattressmind.serverEnemies(_server, add)
+  if sv and not sv.down then
+    local m = sv.m
+    add({ id = m, kind = "eternal-mood/mattressmind", x = m.x, y = m.y, hp = m.hp, radius = Mattressmind.RADIUS })
+  end
+end
+
 function Mattressmind.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.m.x, sv.m.y) <= radius * radius then
     sv.m.frozen = math.max(sv.m.frozen, seconds)

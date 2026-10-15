@@ -650,7 +650,7 @@ OnFoot.clientMessages = {
     local stamina = {}
     for i = 2, #args - 1, 2 do
       local id, s = tonumber(args[i]), tonumber(args[i + 1])
-      if id and s then
+      if id and s and id == id then -- never NaN: it can't be a key
         stamina[id] = s
       end
     end

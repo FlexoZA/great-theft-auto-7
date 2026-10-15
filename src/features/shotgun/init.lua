@@ -21,7 +21,8 @@
 --
 -- The quests feature brings everyone to the bluff and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
--- "shotgun". The host owns all of it; clients hear the stage reliably and
+-- "shotgun", and every client strikes up the bluff's theme (theme.lua) till
+-- the quest ends. The host owns all of it; clients hear the stage reliably and
 -- where he is at 15 Hz, and draw. Bullets reach him through `serverShotAt`
 -- (with the round's own damage, so a sniper round hurts like one); his own
 -- rounds (owner 0) fly through him.
@@ -39,6 +40,7 @@
 --   server -> all  SG_DOWN  <x> <y> <angle>       he went down
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local Boss = require("src.features.shotgun.boss")
 local Nav = require("src.features.d-day.nav")
@@ -47,6 +49,7 @@ local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.shotgun.render")
 local Sounds = require("src.features.shotgun.sounds")
+local Theme = require("src.features.shotgun.theme")
 
 local Shotgun = {
   name = "shotgun",
@@ -241,6 +244,23 @@ function Shotgun:serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, if he is about, for the audit (tools/audit): he can only be hurt
+--- once the hunt is on (as `serverShotAt` has it).
+function Shotgun:serverEnemies(_server, add)
+  local b = sv and sv.boss
+  if b then
+    add({
+      id = b,
+      kind = "shotgun/boss",
+      x = b.x,
+      y = b.y,
+      hp = b.hp,
+      radius = Boss.RADIUS,
+      immune = sv.stage ~= "hunt",
+    })
+  end
+end
+
 --- For tests.
 function Shotgun.server()
   return sv
@@ -256,6 +276,17 @@ Shotgun.stains = {} -- { x, y, angle }
 Shotgun.page = nil -- { line, t } while his portrait is up
 local face = nil
 local time, lastTick = 0, 0
+local tune = nil -- the bluff's theme: a Source made on the first standoff, then kept
+
+local function tuneGain()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+local function silence()
+  if tune then
+    tune:stop()
+  end
+end
 
 local function clear()
   Shotgun.stage, Shotgun.boss, Shotgun.aim, Shotgun.page = nil, nil, nil, nil
@@ -269,23 +300,40 @@ end
 function Shotgun:exitGame()
   clear()
   lastTick = 0
+  silence()
 end
 
 function Shotgun:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
     clear()
+    if not tune then
+      local clock = love.timer.getTime()
+      tune = love.audio.newSource(Theme.render(), "static")
+      tune:setLooping(true)
+      tune:setRelative(true) -- music, not a sound on the map
+      -- The render time on the console, as every theme logs it.
+      local took = love.timer.getTime() - clock
+      print(("shotgun theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+    end
+    tune:setVolume(tuneGain())
+    tune:seek(0)
+    tune:play()
   end
 end
 
 function Shotgun:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    silence()
   end
 end
 
 function Shotgun:update(dt)
   time = time + dt
+  if tune and tune:isPlaying() then
+    tune:setVolume(tuneGain())
+  end
   if self.page then
     face:update(dt)
     self.page.t = self.page.t - dt

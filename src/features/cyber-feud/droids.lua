@@ -262,6 +262,13 @@ function Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- Every assassin droid standing, for the audit (tools/audit).
+function Droids.serverEnemies(_server, add)
+  for _, h in ipairs(sv and sv.brain.list or {}) do
+    add({ id = h, kind = "cyber-feud/droid", x = h.x, y = h.y, hp = h.hp, radius = sv.brain.radius })
+  end
+end
+
 --- A player's or a bot's gun went off at (x, y): any within earshot look.
 function Droids.serverShotFired(player, x, y)
   if sv and player then

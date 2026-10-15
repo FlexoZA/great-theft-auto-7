@@ -523,6 +523,16 @@ function Gang:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
   return true
 end
 
+--- Every guard standing, for the audit (tools/audit).
+function Gang:serverEnemies(_server, add)
+  if not (sv and cityMap()) then
+    return
+  end
+  for _, g in ipairs(sv.guards.list) do
+    add({ id = g, kind = "gang-hangout/guard", x = g.x, y = g.y, hp = g.hp, radius = Guards.RADIUS })
+  end
+end
+
 function Gang:serverFreezeArea(_server, x, y, radius, seconds)
   if sv and cityMap() then
     sv.guards:freeze(x, y, radius, seconds)

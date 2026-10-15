@@ -236,6 +236,14 @@ function Guard.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The guard while it is up, for the audit (tools/audit).
+function Guard.serverEnemies(_server, add)
+  local g = sv and not sv.done and sv.g
+  if g then
+    add({ id = g, kind = "antlions/guard", x = g.x, y = g.y, hp = g.hp, radius = Guard.radius })
+  end
+end
+
 function Guard.serverFreezeArea(x, y, radius, seconds)
   local g = sv and not sv.done and sv.g
   if g and (g.x - x) ^ 2 + (g.y - y) ^ 2 <= (radius + Guard.radius) ^ 2 then
