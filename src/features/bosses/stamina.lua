@@ -8,6 +8,7 @@
 --   st:winded()                  -- true while it is walking it off
 --   st:has(cost)                 -- breath for an ability that needs `cost`?
 --   st:spend(cost)               -- the ability went: pay for it
+--   st:refill(amount)            -- breath from outside (an energy drink)
 --   st:wire()                    -- <stamina> <winded> for a state message
 --   Stamina.read(args, i)        -- the two back off the wire (client)
 --
@@ -75,6 +76,15 @@ end
 function Stamina:spend(cost)
   self.stamina = math.max(0, self.stamina - (cost or 0))
   self.regenIn = self.regenDelay
+end
+
+--- Breath from outside (an energy drink): `amount` back at once, and no
+--- longer winded once that is enough.
+function Stamina:refill(amount)
+  self.stamina = math.min(self.max, self.stamina + amount)
+  if self.spent and self.stamina >= self.recovered then
+    self.spent = false
+  end
 end
 
 --- The two fields a state message ends with.

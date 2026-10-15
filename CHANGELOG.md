@@ -14,6 +14,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.3] - 2026-10-15
+
+The Hunters tire: run them ragged and they can only walk, with a breath bar under each to show it.
+
+### Changed
+- The Hunters tire now. Closing in, strafing and backing off wear them out (about ten seconds of it), and each dodge
+  costs a quarter of their breath. A blown Hunter can only walk and can't dodge until it gets its breath back (a few
+  seconds), and an energy drink it finds puts it all back. A thin bar under each one shows its breath once it has
+  spent some, throbbing red while it is winded. Cyber Feud's assassin droids think the same way and tire too.
+
 ## [0.29.2] - 2026-10-15
 
 Halcyon's soldiers carry the new AR, and ammo crates hold half as much.

@@ -371,7 +371,7 @@ function Static.run(report, ctx)
 
         -- Reaching into another feature's files.
         local other = code:match('require%("src%.features%.([%w%-_]+)%.')
-        if feature and other and other ~= feature then
+        if feature and other and other ~= feature and not Config.sharedFeatures[other] then
           add({ severity = "minor", category = "structure", key = lineKey("reach"), file = path, line = n,
             title = ("Reaches into another feature's files (%s)"):format(other),
             detail = "Features talk through hooks and Features.byName; a shared helper belongs in one place." })

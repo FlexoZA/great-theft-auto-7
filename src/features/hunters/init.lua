@@ -29,9 +29,14 @@
 -- whine on every screen).
 --
 -- What they heal with: a medkit (pickups' "health") puts back
--- `medkitHealth`; an energy drink ("stamina") `drinkHealth`, and makes it
--- quicker on its feet for `drinkHaste` seconds. They take it off the
--- ground as a player would (pickups' serverTake).
+-- `medkitHealth`; an energy drink ("stamina") `drinkHealth` and
+-- `drinkBreath` of its breath, and makes it quicker on its feet for
+-- `drinkHaste` seconds. They take it off the ground as a player would
+-- (pickups' serverTake).
+--
+-- They tire (brain.lua: running and dodging spend breath, a blown one only
+-- walks and can't dodge). Every screen shows each one's breath as a thin
+-- blue bar under it once it has spent some, throbbing red while winded.
 --
 -- Another feature puts them on the map (City 17 has three round the
 -- Citadel; the Winding Road and the Citadel walk their `hunterBeats`; the
@@ -44,7 +49,7 @@
 -- The host owns them; clients hear where they are at 15 Hz.
 --
 -- Messages
---   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
+--   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging> <stamina> <winded>)...
 --                  (firing 1 just fired, 2 charging its stun shot)
 --                  (unreliable, 15 Hz; alert 1 has somebody, 2 searching, 0 neither)
 --   server -> all  HTR_DOWN  <id> <x> <y> <angle>     one went down
@@ -62,6 +67,7 @@ local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Brain = require("src.features.hunters.brain")
+local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.hunters.render")
 local Sounds = require("src.features.hunters.sounds")
 
@@ -85,6 +91,7 @@ Hunters.drops = 8 -- koins one spills
 Hunters.medkitHealth = 70 -- what a medkit puts back
 Hunters.drinkHealth = 30 -- what an energy drink puts back...
 Hunters.drinkHaste = 6 -- ...and seconds it is quicker on its feet after
+Hunters.drinkBreath = 100 -- ...and its breath back, all of it
 
 local SYNC_EVERY = 2 -- server ticks between HTR_STATE
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -96,6 +103,7 @@ local HURT = 0.18 -- seconds one flashes white after a hit
 local DODGE_SHOWN = 0.3 -- seconds a dodge's smear shows
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
 local HEALS = { health = true, stamina = true }
+local BREATH_MAX = Stamina.defaults.max -- a full breath, as the bar shows it
 
 local function fmt(v)
   return ("%.1f"):format(v)
@@ -144,9 +152,9 @@ local function takeHeal(srv, p)
     return 0, 0
   end
   if it.kind == "health" then
-    return Hunters.medkitHealth, 0
+    return Hunters.medkitHealth, 0, 0
   end
-  return Hunters.drinkHealth, Hunters.drinkHaste
+  return Hunters.drinkHealth, Hunters.drinkHaste, Hunters.drinkBreath
 end
 
 --- The host's set, with a walking grid over the map in play.
@@ -272,6 +280,9 @@ local function sync(srv)
     parts[#parts + 1] = h.target and 1 or (Brain.wary(h) and 2 or 0)
     parts[#parts + 1] = h.charge and 2 or (h.shotSince and 1 or 0)
     parts[#parts + 1] = h.dodgedSince and 1 or 0
+    local stamina, winded = h.breath:wire()
+    parts[#parts + 1] = stamina
+    parts[#parts + 1] = winded
     h.shotSince, h.dodgedSince = false, false
   end
   local msg = Protocol.encode("HTR_STATE", unpack(parts))
@@ -442,12 +453,26 @@ function Hunters:drawAboveCars()
       cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7, charging = h.charging,
       dodge = h.dodge / DODGE_SHOWN, dodgeX = h.dodgeX, dodgeY = h.dodgeY,
     }, clock)
+    local bw, by = 30, h.dy + Render.RADIUS + 6
     if h.hp < Hunters.health then -- a bar under it once it is hurt
-      local bw, f = 30, math.max(0, h.hp / Hunters.health)
+      local f = math.max(0, h.hp / Hunters.health)
       love.graphics.setColor(0, 0, 0, 0.6)
-      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, h.dy + Render.RADIUS + 6, bw + 2, 5)
+      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, by, bw + 2, 5)
       love.graphics.setColor(1 - f, f, 0.2)
-      love.graphics.rectangle("fill", h.dx - bw / 2, h.dy + Render.RADIUS + 7, bw * f, 3)
+      love.graphics.rectangle("fill", h.dx - bw / 2, by + 1, bw * f, 3)
+    end
+    if h.winded or h.stamina < BREATH_MAX then -- and its breath under that once it has spent some
+      local f = math.max(0, math.min(1, h.stamina / BREATH_MAX))
+      love.graphics.setColor(0, 0, 0, 0.6)
+      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, by + 5, bw + 2, 4)
+      if h.winded then -- blown: the whole bar throbs red (the boss bar's red, bosses/bar.lua)
+        love.graphics.setColor(0.9, 0.3, 0.3, 0.35 + 0.25 * math.sin(clock * 8))
+        love.graphics.rectangle("fill", h.dx - bw / 2, by + 6, bw, 2)
+        love.graphics.setColor(1, 0.5, 0.45)
+      else
+        love.graphics.setColor(0.45, 0.75, 1)
+      end
+      love.graphics.rectangle("fill", h.dx - bw / 2, by + 6, bw * f, 2)
     end
   end
   love.graphics.setColor(1, 1, 1)
@@ -461,13 +486,13 @@ Hunters.clientMessages = {
     end
     lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
-    for i = 2, #args - 7, 8 do
+    for i = 2, #args - 9, 10 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and x and y then
         local h = shown[id]
         if not h then
           h = { dx = x, dy = y, x = x, y = y, cycle = love.math.random(), stride = 0, fov = Hunters.fov, flash = 0,
-            hurt = 0, dodge = 0, hp = Hunters.health }
+            hurt = 0, dodge = 0, hp = Hunters.health, stamina = BREATH_MAX }
           shown[id] = h
         end
         if args[i + 7] == "1" then -- dodging: its smear trails back the way it came
@@ -490,6 +515,8 @@ Hunters.clientMessages = {
           h.flash = FLASH
         end
         h.charging = args[i + 6] == "2"
+        h.stamina, h.winded = Stamina.read(args, i + 8)
+        h.stamina = h.stamina or BREATH_MAX
         seen[id] = true
       end
     end

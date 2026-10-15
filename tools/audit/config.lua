@@ -25,6 +25,13 @@ return {
     ["ammo-crates"] = true, -- crates break open
   },
 
+  -- Features whose modules every other feature is meant to use: requiring
+  -- them is following the standard, not reaching into someone's files.
+  sharedFeatures = {
+    ["bosses"] = true, -- every boss's (and tiring enemy's) stamina, bar, heal, dodge
+    ["tiers"] = true, -- equipment's numbers go through Tiers.apply (CLAUDE.md)
+  },
+
   -- Maps the map checks leave out: not quest maps, or not built yet.
   notQuestMaps = {
     ["city"] = true,
