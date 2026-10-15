@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Three quests get their own music: an eerie whistle in the woods of Whispering Pines (the alien hunt), a snare-drum
+  march with brass for the beach landing (D-Day), and a twangy spaghetti-western standoff on Shotgun's Bluff.
+
 ## [0.28.4] - 2026-10-15
 
 The SMG, won off the Hunter-Chopper: faster than the AK, shorter reach, firing 9mm, which is back.
