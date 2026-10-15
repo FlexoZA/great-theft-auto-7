@@ -15,9 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
-- A new gun, the SMG (110 Fcks): fifteen rounds a second against the AK's nine, tighter than the uzi, but spent by
-  about 500 px (the AK reaches 1200). It fires 9mm rounds, the pistol's: 9mm is back in the shop (60 for 35 Fcks),
-  the ammo factory, enemies' drops and the ammo crates. The pistol still never runs out.
+- A new gun, the SMG: fifteen rounds a second against the AK's nine, tighter than the uzi, but spent by about 500 px
+  (the AK reaches 1200). The Hunter-Chopper drops one for every player in the Outer City; pick it up and the shop
+  sells it to you from then on (110 Fcks). It fires 9mm rounds, the pistol's: 9mm is back in the shop (60 for 35
+  Fcks), the ammo factory, enemies' drops and the ammo crates. The pistol still never runs out.
 - The Combine soldiers in City 17 carry SMGs now and then.
 
 ### Fixed

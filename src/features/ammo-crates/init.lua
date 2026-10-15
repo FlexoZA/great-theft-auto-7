@@ -279,11 +279,9 @@ end
 local function pickAmmo()
   local list, total = {}, 0
   for _, t in ipairs(Guns.ammoTypes) do
-    if not t.gun.unlock then
-      local w = Crates.weights[t.owner.key] or t.gun.dropWeight or 1
-      list[#list + 1] = { t = t, w = w }
-      total = total + w
-    end
+    local w = Crates.weights[t.owner.key] or t.gun.dropWeight or 1
+    list[#list + 1] = { t = t, w = w }
+    total = total + w
   end
   local roll = love.math.random() * total
   for _, e in ipairs(list) do

@@ -114,7 +114,9 @@ Guns.list = {
     stack = 300, -- ten magazines a slot
   },
   {
+    -- The Hunter-Chopper drops it in the Outer City (hunter-chopper/init.lua).
     key = "smg",
+    unlock = true,
     dropWeight = 2,
     blurb = "Fifteen 9mm rounds a second, tight and quick to reload, but spent by about 500 px. "
       .. "Fires the pistol's 9mm rounds.",
