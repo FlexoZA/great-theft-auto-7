@@ -274,25 +274,23 @@ function Crates:serverPlayerJoined(server, player)
   end
 end
 
---- A gun for a box, by `weights`: one that has rounds of its own (not the
---- pistol, not one borrowing another's).
-local function pickGun()
+--- An ammo type for a box (guns.lua's `ammoTypes`: its item, and the gun
+--- that sizes it), by `weights`, else its gun's `dropWeight`.
+local function pickAmmo()
   local list, total = {}, 0
-  for _, gun in ipairs(Guns.list) do
-    if not (gun.bottomless or gun.ammo or gun.unlock) then
-      local w = Crates.weights[gun.key] or gun.dropWeight or 1
-      list[#list + 1] = { gun = gun, w = w }
-      total = total + w
-    end
+  for _, t in ipairs(Guns.ammoTypes) do
+    local w = Crates.weights[t.owner.key] or t.gun.dropWeight or 1
+    list[#list + 1] = { t = t, w = w }
+    total = total + w
   end
   local roll = love.math.random() * total
   for _, e in ipairs(list) do
     roll = roll - e.w
     if roll < 0 then
-      return e.gun
+      return e.t
     end
   end
-  return list[#list] and list[#list].gun
+  return list[#list] and list[#list].t
 end
 
 --- Break crate `id` open: everyone hears it, and the boxes spill out round
@@ -310,11 +308,11 @@ local function open(server, id)
   end
   local a0 = love.math.random() * 2 * math.pi
   for k = 1, Crates.BOXES do
-    local gun = pickGun()
-    if gun then
+    local t = pickAmmo()
+    if t then
       local a = a0 + k * 2 * math.pi / Crates.BOXES
-      local n = gun.tank and 1 or math.max(1, math.floor(Crates.MAGAZINES * gun.magazine + 0.5))
-      pickups:serverDrop(server, "ammo-" .. gun.key, c.x + math.cos(a) * Crates.SPILL,
+      local n = t.gun.tank and 1 or math.max(1, math.floor(Crates.MAGAZINES * t.gun.magazine + 0.5))
+      pickups:serverDrop(server, t.item, c.x + math.cos(a) * Crates.SPILL,
         c.y + math.sin(a) * Crates.SPILL, n)
     end
   end

@@ -16,7 +16,9 @@
 -- where it hits the ground it goes up in a blast of its own (`crash`), spills
 -- koins, raises `serverKill` with kind "boss" and finishes the level
 -- (quests' `serverComplete`): the EXIT star comes up by the wreck, which
--- burns there for as long as everyone stays.
+-- burns there for as long as everyone stays. It also drops the SMG, one
+-- each player can pick up beside the wreck, which unlocks it in the shop
+-- (the weapons feature's, with the reward screen).
 --
 -- It calls for help as it takes damage (`waves`): at 80% health Combine
 -- soldiers are set down under it, three sets of three 8 s apart (the a-man
@@ -64,6 +66,8 @@ HunterChopper.map = "outercity" -- the map it flies over
 HunterChopper.health = 3600 -- 180 pistol rounds, for one player (more humans, more: bosses/init.lua)
 HunterChopper.blastReach = 40 -- px past a blast's radius its hull still feels it (it is big)
 HunterChopper.drops = 40 -- koins it spills where it comes down
+HunterChopper.GUN = "gun-smg" -- its drop, one for every player (weapons/guns.lua)
+HunterChopper.GUN_AWAY = { 110, 160, 220, 300 } -- px from the wreck it may land, nearest first
 HunterChopper.crashRadius = 150 -- px the blast where it hits the ground reaches
 HunterChopper.crashDamage = 60 -- at the middle of that, a third of it at the edge
 -- Who it calls in, once each, as its health falls to `at` of the most it had.
@@ -154,7 +158,32 @@ local function hurt(amount, by, angle)
   end
 end
 
---- It has hit the ground: the blast, the koins, the kill and the level done.
+--- Where the SMG lands: GUN_AWAY from (x, y), the nearest ring with a spot
+--- somebody can walk to (not in a wall, the canal or off limits); else
+--- open floor near by, else the wreck itself. Away from the wreck, so it
+--- isn't under the EXIT star there.
+local function gunSpot(x, y)
+  local city = Features.byName["city-map"]
+  for _, d in ipairs(HunterChopper.GUN_AWAY) do
+    for i = 0, 7 do
+      local a = i * math.pi / 4 + 0.4
+      local gx, gy = x + math.cos(a) * d, y + math.sin(a) * d
+      if not (Features.any("blocksPoint", gx, gy) or (city and city.outOfReach and city:outOfReach(gx, gy))) then
+        return gx, gy
+      end
+    end
+  end
+  if city and city.randomRoadPoint then
+    local gx, gy = city:randomRoadPoint(x, y, 500)
+    if gx then
+      return gx, gy
+    end
+  end
+  return x, y
+end
+
+--- It has hit the ground: the blast, the koins, the SMG, the kill and the
+--- level done.
 local function crash(server)
   local f, down = sv.flight, sv.down
   local x, y = f.x, f.y
@@ -167,6 +196,11 @@ local function crash(server)
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, x, y, HunterChopper.drops)
+  end
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local gx, gy = gunSpot(x, y)
+    pickups:serverDrop(server, HunterChopper.GUN, gx, gy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = down.by, angle = down.angle })
   local quests = Features.byName.quests

@@ -765,26 +765,27 @@ local function recipient(server, x, y, by)
   return best
 end
 
---- Does `player` carry a gun that fires `gun`'s rounds: `gun` itself, or
---- one that borrows them (`ammo`: the super shotgun, the shotgun's shells)?
-local function firesRoundsOf(weapons, player, gun)
+--- Does `player` carry a gun that fires ammo type `t`'s rounds from the
+--- bag: its owner, or one that borrows them (`ammo`: the super shotgun the
+--- shotgun's shells, the SMG the pistol's 9mm)? Never the bottomless pistol.
+local function firesRoundsOf(weapons, player, t)
   for _, g in ipairs(Guns.list) do
-    if (g == gun or g.ammo == gun.key) and weapons:serverOwns(player, g.index) then
+    if not g.bottomless and (g.ammo or g.key) == t.owner.key and weapons:serverOwns(player, g.index) then
       return true
     end
   end
   return false
 end
 
---- One of the guns that take ammo, by `dropWeight`; only those whose rounds
---- `player` fires from a weapon slot when `player` is given. Nil if there
---- is none.
+--- One of the ammo types (guns.lua's `ammoTypes`), by its gun's
+--- `dropWeight`; only those whose rounds `player` fires from a weapon slot
+--- when `player` is given. Nil if there is none.
 local function ammoGun(player)
   local weapons = player and Features.byName.weapons
   local list = {}
-  for _, gun in ipairs(Guns.list) do
-    if not (gun.bottomless or gun.ammo) and (not player or (weapons and firesRoundsOf(weapons, player, gun))) then
-      list[#list + 1] = { gun = gun, weight = gun.dropWeight or 1 }
+  for _, t in ipairs(Guns.ammoTypes) do
+    if not player or (weapons and firesRoundsOf(weapons, player, t)) then
+      list[#list + 1] = { gun = t, weight = t.gun.dropWeight or 1 }
     end
   end
   if #list == 0 then
@@ -816,12 +817,12 @@ function Pickups:serverDropAmmo(server, x, y, magazines, by)
   if love.math.random() < self.carriedShare then
     gun = ammoGun(recipient(server, x, y, by)) -- nil for somebody with only the pistol
   end
-  gun = gun or ammoGun(nil)
-  if not gun then
+  local t = gun or ammoGun(nil) -- an ammo type: its item, and the gun that sizes it
+  if not t then
     return nil
   end
-  local n = gun.tank and 1 or math.floor(magazines * gun.magazine + 0.5) -- one fuel can fills a tank
-  return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, n))
+  local n = t.gun.tank and 1 or math.floor(magazines * t.gun.magazine + 0.5) -- one fuel can fills a tank
+  return self:serverDrop(server, t.item, x, y, math.max(1, n))
 end
 
 --- One entry of `list` ({ weight = n, ... }), picked by weight; nil for

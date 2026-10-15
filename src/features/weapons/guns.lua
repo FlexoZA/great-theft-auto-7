@@ -48,8 +48,10 @@
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   ammo      the key of another gun whose rounds it fires (the super
---             shotgun takes the shotgun's shells): it has no ammo item of
---             its own, so nothing sells, makes or drops one
+--             shotgun takes the shotgun's shells, the SMG the pistol's 9mm):
+--             it has no ammo item of its own. A `bottomless` gun's rounds
+--             are an item all the same once another gun fires them
+--             (`Guns.ammoTypes`): the pistol's 9mm, for the SMG
 --   unlock    true for a gun only won, never on the shelf or out of a
 --             factory until you have picked one up (a boss's drop): from
 --             then on the shop sells it to you (weapons/init.lua). Enemies
@@ -66,9 +68,8 @@
 --             it can be bought)
 --   bottomless true: its reserve never runs out (the pistol). It still
 --             holds a magazine and reloads, but a reload takes nothing
---             from the inventory, and there is no "ammo-<key>" item at
---             all: the shop, the ammo factory and the police drops leave
---             it out.
+--             from the inventory. Its "ammo-<key>" item is only there for
+--             a gun that borrows its rounds (`ammo`: the SMG's 9mm).
 --
 -- Rounds come out of the player's inventory (the buildings feature keeps
 -- it: "ammo-<key>"), a magazine at a time. The gun itself is an item too
@@ -92,6 +93,8 @@ Guns.list = {
     reload = 1.2,
     reloadSound = "reload-pistol",
     bottomless = true, -- never out of rounds, so nobody is ever left unarmed
+    ammoName = "9mm round", -- the SMG's ("ammo-pistol"); the pistol itself never takes any
+    stack = 300, -- ten SMG magazines a slot
   },
   {
     key = "uzi",
@@ -109,6 +112,27 @@ Guns.list = {
     reload = 1.8,
     reloadSound = "reload-uzi",
     stack = 300, -- ten magazines a slot
+  },
+  {
+    -- The Hunter-Chopper drops it in the Outer City (hunter-chopper/init.lua).
+    key = "smg",
+    unlock = true,
+    dropWeight = 2,
+    blurb = "Fifteen 9mm rounds a second, tight and quick to reload, but spent by about 500 px. "
+      .. "Fires the pistol's 9mm rounds.",
+    name = "SMG",
+    damage = 13,
+    cooldown = 0.065, -- fifteen a second: faster than the AK's nine
+    spread = 0.05, -- tighter than the uzi's spray
+    speed = 900,
+    streak = 8,
+    ttl = 0.55, -- about 500 px, against the AK's 1200
+    sound = "uzi",
+    pitch = 1.15, -- a lighter crack than the uzi's
+    magazine = 30,
+    reload = 1.5,
+    reloadSound = "reload-uzi",
+    ammo = "pistol", -- 9mm
   },
   {
     key = "ak47",
@@ -270,6 +294,24 @@ for i, gun in ipairs(Guns.list) do
   gun.index = i
   gun.tierStats = gun.tierStats or Guns.tierStats
   Guns[gun.key] = gun
+end
+
+-- Every ammo item there is, in guns.lua's order: one per gun that fires
+-- rounds from the bag, the rounds of its own or of the gun it borrows them
+-- from (`ammo`), once each. `item` is "ammo-<owner key>"; `owner` the gun
+-- they belong to (the pistol, for 9mm); `gun` the first gun that fires them
+-- from the bag, whose magazine sizes a box and whose `dropWeight` says how
+-- often one drops. The shop, the ammo factory, enemies' boxes and the ammo
+-- crates sell, make and drop these, and nothing else.
+Guns.ammoTypes, Guns.ammoTypeOf = {}, {}
+for _, gun in ipairs(Guns.list) do
+  local owner = gun.ammo and Guns[gun.ammo] or gun
+  local item = "ammo-" .. owner.key
+  if not gun.bottomless and not Guns.ammoTypeOf[item] then
+    local t = { item = item, owner = owner, gun = gun }
+    Guns.ammoTypes[#Guns.ammoTypes + 1] = t
+    Guns.ammoTypeOf[item] = t
+  end
 end
 
 --- The inventory item gun `gun`'s rounds are: "ammo-<key>", or the gun's it

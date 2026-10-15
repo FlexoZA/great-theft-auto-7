@@ -125,6 +125,7 @@ Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 Level.loadout = {
   ak47 = { weight = 4, burst = 3, pause = 1.1 },
   uzi = { weight = 2, burst = 5, pause = 1.2 },
+  smg = { weight = 1.5, burst = 6, pause = 1.1 },
   shotgun = { weight = 2, burst = 1, pause = 1.3 },
   pistol = { weight = 1, burst = 2, pause = 0.9 },
   flamethrower = { weight = 1, burst = 10, pause = 1.0 },
@@ -938,6 +939,7 @@ end
 local HELD = {
   pistol = { gunLength = 4 },
   uzi = { gunLength = 8 },
+  smg = { gunLength = 10 },
   ak47 = { gunLength = 15 },
   shotgun = { gunLength = 14 },
   sniper = { gunLength = 21 },
