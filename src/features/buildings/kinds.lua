@@ -116,10 +116,12 @@ end
 
 local gunAmmo, gunItems = {}, {}
 for _, gun in ipairs(Guns.list) do
-  if not gun.bottomless then
+  if not (gun.bottomless or gun.ammo) then
     gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
   end
-  gunItems[#gunItems + 1] = "gun-" .. gun.key
+  if not gun.unlock then -- a won gun is never made
+    gunItems[#gunItems + 1] = "gun-" .. gun.key
+  end
 end
 gunAmmo[#gunAmmo + 1] = "grenade"
 

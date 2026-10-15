@@ -316,20 +316,14 @@ function Mancubus.serverStep(server, dt)
 end
 
 --- Where the helmet lands: HELMET_AWAY from (x, y), the first way round
---- with nothing solid in between (in front of him first), else on him.
+--- with no wall or lava in between (in front of him first), else on him.
 local function helmetSpot(x, y, facing)
   local d = Mancubus.HELMET_AWAY
   for i = 0, 7 do
     local a = facing + i * math.pi / 4
-    local clear = true
-    for k = 1, 8 do
-      if Features.any("blocksPoint", x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8) then
-        clear = false
-        break
-      end
-    end
-    if clear then
-      return x + math.cos(a) * d, y + math.sin(a) * d
+    local hx, hy = x + math.cos(a) * d, y + math.sin(a) * d
+    if Ground.clear(x, y, hx, hy) then
+      return hx, hy
     end
   end
   return x, y

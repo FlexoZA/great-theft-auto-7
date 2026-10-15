@@ -107,6 +107,7 @@ Pickups.dropTiers = {
 }
 
 local KINDS = {} -- kind key -> { apply, label, color, pitch }; see kindOf
+local WON_GUN = { 0.95, 0.5, 0.12 } -- a won gun's glow on the road
 
 --- An ammo box for one gun: kind "ammo-<gun key>", the same key the
 --- inventory uses for the rounds. It goes into the inventory of whoever
@@ -221,11 +222,36 @@ local function gearKind(key)
   }
 end
 
+--- A won gun on the road: kind "gun-<key>[@tier]" for a gun with `unlock`
+--- (a boss's drop: the super shotgun). Only a human takes it; the weapons
+--- feature decides where it goes and unlocks it (weapons:serverTakeFound).
+--- Any other gun lying about is a factory's crate (materialKind).
+local function wonGunKind(key)
+  local base, tier = Tiers.split(key)
+  local gun = tier and Guns[base:match("^gun%-(.+)$") or ""]
+  if type(gun) ~= "table" or not gun.unlock then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local weapons = Features.byName.weapons
+      return weapons ~= nil and weapons.serverTakeFound ~= nil and weapons:serverTakeFound(server, player, key)
+    end,
+    label = "+" .. Tiers.named(gun.name, tier),
+    color = WON_GUN,
+    pitch = 0.6,
+  }
+end
+
 --- The kind record for a kind key: the fixed ones, or an ammo box, an
 --- ability, a material crate, a vest or a piece of clothing made (and kept)
 --- on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
+  if not kind and key:match("^gun%-") then
+    kind = wonGunKind(key) -- nil for an ordinary gun: a crate, below
+    KINDS[key] = kind
+  end
   if not kind and key:match("^ammo%-") then
     kind = ammoKind(key)
     KINDS[key] = kind
@@ -457,7 +483,7 @@ end
 local function drawVest(x, y, t, key)
   local base, tier = Tiers.split(key)
   local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""] or GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
-  local c = vest and vest.color or { 0.5, 0.6, 0.9 }
+  local c = vest and vest.color or (base:match("^gun%-") and WON_GUN) or { 0.5, 0.6, 0.9 }
   local tc = Tiers.color(tier)
   local pulse = 0.5 + 0.5 * math.sin(t * 4)
   love.graphics.setColor(c[1], c[2], c[3], 0.12 + pulse * 0.12)
@@ -518,7 +544,7 @@ local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
     or ((BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) and drawMaterial)
-    or ((key:match("^armor%-") or key:match("^gear%-")) and drawVest) or nil
+    or ((key:match("^armor%-") or key:match("^gear%-") or key:match("^gun%-")) and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -739,13 +765,25 @@ local function recipient(server, x, y, by)
   return best
 end
 
---- One of the guns that take ammo, by `dropWeight`; only those `player`
---- carries in a weapon slot when `player` is given. Nil if there is none.
+--- Does `player` carry a gun that fires `gun`'s rounds: `gun` itself, or
+--- one that borrows them (`ammo`: the super shotgun, the shotgun's shells)?
+local function firesRoundsOf(weapons, player, gun)
+  for _, g in ipairs(Guns.list) do
+    if (g == gun or g.ammo == gun.key) and weapons:serverOwns(player, g.index) then
+      return true
+    end
+  end
+  return false
+end
+
+--- One of the guns that take ammo, by `dropWeight`; only those whose rounds
+--- `player` fires from a weapon slot when `player` is given. Nil if there
+--- is none.
 local function ammoGun(player)
   local weapons = player and Features.byName.weapons
   local list = {}
   for _, gun in ipairs(Guns.list) do
-    if not gun.bottomless and (not player or (weapons and weapons:serverOwns(player, gun.index))) then
+    if not (gun.bottomless or gun.ammo) and (not player or (weapons and firesRoundsOf(weapons, player, gun))) then
       list[#list + 1] = { gun = gun, weight = gun.dropWeight or 1 }
     end
   end

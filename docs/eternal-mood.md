@@ -518,7 +518,8 @@ Each is a bit more dream than the last, the way the levels are.
   the shop.
 - **The Baron of Heck** (The Foundry). A big horned brute with green
   fireballs at the foundry's heart, holding the Snooze Gate's key. Charges,
-  throws fireballs in pairs, and roars.
+  throws fireballs in pairs, and roars. Down, he drops the super shotgun
+  for every player, which unlocks it in the shop.
 - **The Spider Mattressmind** (Heck). A giant brain on mechanical spider
   legs, standing on a mattress it drags with it everywhere. A chaingun
   under its chin, and the mattress soaks up rounds from the front. Halfway
