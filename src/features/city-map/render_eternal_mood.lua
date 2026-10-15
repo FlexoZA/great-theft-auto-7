@@ -1459,38 +1459,331 @@ function DRAW.pad(s)
   love.graphics.rectangle("fill", s.x, s.y + s.h - 10, s.w, 10)
 end
 
---- The shuttle down from Fobos Base, nose north, on the pad: hull, wings,
---- cockpit, engines still warm, and its ramp down on the east side.
-function DRAW.shuttle(s, t)
-  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
-  local w, h = s.w, s.h
-  color(C.shadow)
-  love.graphics.polygon("fill", cx + 12, s.y + 14, cx + w / 2 + 12, cy + h * 0.25 + 14, cx + 12, s.y + h + 14,
-    cx - w / 2 + 12, cy + h * 0.25 + 14)
-  color(C.steelDark) -- the wings
-  love.graphics.polygon("fill", cx, cy - h * 0.1, cx + w / 2, cy + h * 0.3, cx + w / 2, cy + h * 0.38, cx, cy + h * 0.3,
-    cx - w / 2, cy + h * 0.38, cx - w / 2, cy + h * 0.3)
-  color(C.steel) -- the hull
-  love.graphics.polygon("fill", cx, s.y, cx + w * 0.2, s.y + h * 0.22, cx + w * 0.2, s.y + h * 0.92, cx - w * 0.2,
-    s.y + h * 0.92, cx - w * 0.2, s.y + h * 0.22)
-  color(C.white)
-  love.graphics.rectangle("fill", cx - w * 0.2, s.y + h * 0.4, w * 0.4, 14)
-  color(C.windscreen) -- the cockpit
-  love.graphics.polygon("fill", cx, s.y + 30, cx + 26, s.y + 80, cx - 26, s.y + 80)
-  color(C.hazard) -- UAC markings
-  love.graphics.rectangle("fill", cx - w * 0.2, s.y + h * 0.7, w * 0.4, 10)
-  local warm = 0.5 + 0.2 * math.sin(t * 3)
-  for _, ex in ipairs({ -w * 0.12, w * 0.12 }) do -- the engines
-    color(C.black)
-    love.graphics.circle("fill", cx + ex, s.y + h * 0.92, 20, 14)
-    love.graphics.setColor(1, 0.4, 0.1, warm)
-    love.graphics.circle("fill", cx + ex, s.y + h * 0.92, 12, 14)
+-- The shuttle's outline, in its own frame (384 x 512 px, nose at the top
+-- middle): half the hull's width every so far down it, nose to tail.
+local HULL = { { 0, 6 }, { 16, 22 }, { 40, 38 }, { 75, 52 }, { 120, 62 }, { 160, 64 }, { 440, 64 }, { 480, 58 },
+  { 494, 50 } }
+
+--- The hull's outline, `k` of its width: a polygon round the middle (192).
+local function hull(k)
+  local pts = {}
+  for _, p in ipairs(HULL) do
+    pts[#pts + 1], pts[#pts + 2] = 192 + p[2] * k, p[1]
   end
-  color(C.steelDark) -- the ramp, down
-  love.graphics.polygon("fill", cx + w * 0.2, cy - 30, cx + w * 0.45, cy - 20, cx + w * 0.45, cy + 50,
-    cx + w * 0.2, cy + 60)
+  for i = #HULL, 1, -1 do
+    pts[#pts + 1], pts[#pts + 2] = 192 - HULL[i][2] * k, HULL[i][1]
+  end
+  return pts
+end
+
+--- Its half width `y` px down it.
+local function hullAt(y)
+  for i = 2, #HULL do
+    local a, b = HULL[i - 1], HULL[i]
+    if y <= b[1] then
+      return a[2] + (b[2] - a[2]) * (y - a[1]) / (b[1] - a[1])
+    end
+  end
+  return HULL[#HULL][2]
+end
+
+--- One wing, `side` 1 east, -1 west: a delta, root along the hull.
+local function wing(side)
+  local x = function(dx)
+    return 192 + dx * side
+  end
+  return { x(58), 200, x(188), 392, x(188), 440, x(58), 440 }
+end
+
+--- The shuttle down from Fobos Base (or Earth), nose north, on the pad,
+--- drawn in its own 384 x 512 frame and stretched to fit its box: a
+--- rounded hull with its panels seamed and riveted, portholes lit along its
+--- sides, a cargo bay, a hatch, a framed canopy at the nose with the light
+--- catching it; delta wings with their flaps, hazard chevrons, the UAC's
+--- name and its number, nav lights blinking red and green at the tips;
+--- canards, a tail fin and its stabilisers; three engines still warm,
+--- glowing, steaming, the pad scorched behind them; a beacon strobing on
+--- its back; and its ramp down on the east side, lit from inside.
+function DRAW.shuttle(s, t)
+  local lg = love.graphics
+  lg.push()
+  lg.translate(s.x, s.y)
+  lg.scale(s.w / 384, s.h / 512)
+  -- The pad scorched black behind the engines, and the shadow.
+  color(C.char, 0.55)
+  lg.ellipse("fill", 192, 548, 96, 46, 24)
+  color(C.char, 0.35)
+  lg.ellipse("fill", 192, 530, 130, 70, 24)
+  lg.push()
+  lg.translate(16, 16)
+  color(C.shadow)
+  lg.polygon("fill", hull(1))
+  lg.polygon("fill", wing(1))
+  lg.polygon("fill", wing(-1))
+  lg.pop()
+
+  -- The wings: a darker underside showing at the edge, the top, the
+  -- leading edge, panel lines, flaps, chevrons, the lettering.
+  for _, side in ipairs({ -1, 1 }) do
+    local x = function(dx)
+      return 192 + dx * side
+    end
+    color(C.black)
+    lg.polygon("fill", x(56), 196, x(192), 390, x(192), 444, x(56), 444)
+    color(C.steelDark)
+    lg.polygon("fill", wing(side))
+    color(C.steel)
+    lg.polygon("fill", x(70), 236, x(176), 392, x(176), 420, x(70), 420)
+    color(C.trim) -- the leading edge
+    lg.setLineWidth(6)
+    lg.line(x(60), 203, x(186), 391)
+    color(C.wallSeam) -- panels
+    lg.setLineWidth(1.5)
+    for k = 1, 3 do
+      local dx = 58 + k * 32
+      lg.line(x(dx), 200 + (dx - 58) * 1.48 + 6, x(dx), 426)
+    end
+    lg.line(x(70), 380, x(176), 380)
+    for k = 0, 3 do -- the flaps, one down a touch
+      color(k == 1 and C.wallSeam or C.steelDark)
+      lg.rectangle("fill", side == 1 and x(66 + k * 30) or x(66 + k * 30) - 26, 424, 26, 16)
+    end
+    color(C.hazard) -- chevrons near the tip
+    for k = 0, 2 do
+      local cx, cy = x(150 + k * 12), 404
+      lg.polygon("fill", cx, cy - 8, cx + 6 * side, cy, cx, cy + 8, cx - 4 * side, cy)
+    end
+    color(C.char, 0.35) -- grime off the engines
+    lg.ellipse("fill", x(84), 434, 26, 8, 10)
+    -- The nav light: red to port (west), green to starboard (east),
+    -- blinking out of step.
+    local on = (t * 1.2 + (side == 1 and 0.5 or 0)) % 1 < 0.18
+    local r, g, b = 1, 0.15, 0.1
+    if side == 1 then
+      r, g, b = 0.2, 1, 0.35
+    end
+    lg.setColor(r * 0.5, g * 0.5, b * 0.5)
+    lg.circle("fill", x(186), 416, 5, 10)
+    if on then
+      lg.setBlendMode("add")
+      lg.setColor(r, g, b, 0.5)
+      lg.circle("fill", x(186), 416, 18, 16)
+      lg.setColor(r, g, b, 1)
+      lg.circle("fill", x(186), 416, 5, 10)
+      lg.setBlendMode("alpha")
+    end
+    color(C.black) -- a thruster block at the tip
+    lg.rectangle("fill", side == 1 and x(176) or x(176) - 10, 396, 10, 8)
+    -- The canards up by the nose.
+    color(C.steelDark)
+    lg.polygon("fill", x(48), 96, x(98), 124, x(98), 134, x(46), 132)
+    color(C.trim)
+    lg.setLineWidth(3)
+    lg.line(x(49), 98, x(97), 125)
+    -- The tail's stabilisers.
+    color(C.steelDark)
+    lg.polygon("fill", x(48), 452, x(112), 486, x(112), 496, x(48), 492)
+    color(C.trim)
+    lg.line(x(50), 454, x(111), 487)
+    lg.setLineWidth(1)
+  end
+  lg.setFont(signFont())
+  color(C.paint, 0.85)
+  lg.print("UAC", 192 + 100, 352, 0, 1.2, 1.2)
+  lg.print("FB-07", 192 - 152, 334, 0, 1.0, 1.0)
+
+  -- The hull: dark at its edges, lighter up its back, a gleam down the spine.
+  color(C.wallSeam)
+  lg.polygon("fill", hull(1.04))
+  color(C.steelDark)
+  lg.polygon("fill", hull(1))
+  color(C.steel)
+  lg.polygon("fill", hull(0.82))
+  color(C.trim, 0.6)
+  lg.polygon("fill", hull(0.3))
+  color(C.white, 0.25)
+  lg.rectangle("fill", 186, 110, 6, 340)
+  -- The nose cap, scorched from coming in.
+  color(C.wallSeam)
+  lg.ellipse("fill", 192, 12, 9, 14, 12)
+  color(C.char, 0.35)
+  lg.ellipse("fill", 192, 22, 16, 20, 14)
+
+  -- Seams across it and down it, rivets along them.
+  color(C.wallSeam)
+  lg.setLineWidth(1.5)
+  for y = 150, 430, 40 do
+    local hw = hullAt(y) - 3
+    lg.line(192 - hw, y, 192 + hw, y)
+    color(C.trim)
+    for x = 192 - hw + 6, 192 + hw - 6, 12 do
+      lg.circle("fill", x, y + 4, 1, 4)
+    end
+    color(C.wallSeam)
+  end
+  for _, dx in ipairs({ -34, 34 }) do
+    lg.line(192 + dx, 120, 192 + dx, 470)
+  end
+  -- The cargo bay doors, shut, hinged down the middle.
+  lg.setLineWidth(2)
+  lg.rectangle("line", 192 - 30, 196, 60, 150, 3)
+  lg.line(192, 196, 192, 346)
+  for y = 210, 330, 40 do
+    lg.rectangle("fill", 188, y, 8, 6)
+  end
+  lg.setLineWidth(1)
+  -- Portholes down both sides, lit warm inside.
+  for _, dx in ipairs({ -50, 50 }) do
+    for y = 140, 320, 26 do
+      color(C.black)
+      lg.circle("fill", 192 + dx, y, 6, 12)
+      lg.setColor(1, 0.75, 0.4, 0.55 + 0.1 * math.sin(t * 2 + y))
+      lg.circle("fill", 192 + dx, y, 3.5, 10)
+    end
+  end
+  -- The UAC's stripes, the white band, a hatch, the sensor dome, aerials.
+  color(C.white)
+  lg.rectangle("fill", 192 - 62, 170, 124, 12)
   color(C.hazard)
-  love.graphics.rectangle("fill", cx + w * 0.42, cy - 20, 6, 70)
+  lg.rectangle("fill", 192 - 62, 400, 124, 12)
+  color(C.black)
+  for x = 192 - 62, 192 + 50, 24 do
+    lg.polygon("fill", x, 400, x + 12, 400, x + 18, 412, x + 6, 412)
+  end
+  color(C.wallSeam)
+  lg.circle("fill", 192, 372, 13, 16)
+  color(C.steelDark)
+  lg.circle("fill", 192, 372, 10, 16)
+  color(C.wallSeam)
+  lg.setLineWidth(2)
+  lg.line(184, 372, 200, 372)
+  lg.line(192, 364, 192, 380)
+  color(C.trim)
+  lg.circle("fill", 192, 128, 8, 14)
+  color(C.white, 0.6)
+  lg.circle("fill", 190, 126, 3, 8)
+  color(C.black)
+  lg.line(176, 140, 168, 160)
+  lg.line(208, 140, 216, 162)
+  lg.setLineWidth(1)
+  for _, dx in ipairs({ -1, 1 }) do -- thruster blocks at the nose
+    color(C.black)
+    lg.rectangle("fill", 192 + dx * 40 - 4, 62, 8, 10)
+  end
+
+  -- The canopy: framed panes, the light catching the glass.
+  color(C.wallSeam)
+  lg.polygon("fill", 192, 26, 226, 68, 230, 100, 154, 100, 158, 68)
+  color(C.windscreen)
+  lg.polygon("fill", 192, 32, 222, 70, 225, 95, 159, 95, 162, 70)
+  lg.setColor(0.95, 0.55, 0.35, 0.18) -- Heck's light in it
+  lg.polygon("fill", 192, 32, 222, 70, 192, 70)
+  color(C.wallSeam)
+  lg.setLineWidth(3)
+  lg.line(192, 30, 192, 96)
+  lg.line(160, 72, 224, 72)
+  lg.setLineWidth(2)
+  lg.setColor(1, 1, 1, 0.35)
+  lg.line(172, 64, 186, 44)
+  lg.line(176, 88, 182, 80)
+  lg.setLineWidth(1)
+
+  -- The tail fin, seen from above: a blade down the spine.
+  color(C.wallSeam)
+  lg.polygon("fill", 192, 392, 199, 430, 199, 500, 185, 500, 185, 430)
+  color(C.trim)
+  lg.polygon("fill", 192, 396, 196, 430, 196, 496, 192, 496)
+  color(C.red)
+  lg.rectangle("fill", 186, 470, 12, 8)
+
+  -- The engines, three bells at the tail, still glowing, still ticking.
+  local warm = 0.55 + 0.15 * math.sin(t * 3) + 0.05 * math.sin(t * 17)
+  for i, ex in ipairs({ -40, 0, 40 }) do
+    local r = i == 2 and 18 or 24
+    local y = 486 + (i == 2 and 8 or 0)
+    color(C.steelDark)
+    lg.rectangle("fill", 192 + ex - r, y - 26, r * 2, 26)
+    color(C.wallSeam)
+    lg.circle("fill", 192 + ex, y, r + 3, 20)
+    color(C.black)
+    lg.circle("fill", 192 + ex, y, r, 20)
+    lg.setColor(1, 0.4, 0.1, warm)
+    lg.circle("fill", 192 + ex, y, r * 0.6, 16)
+    lg.setColor(1, 0.85, 0.5, warm * 0.6)
+    lg.circle("fill", 192 + ex, y, r * 0.25, 12)
+    color(C.trim)
+    lg.setLineWidth(2)
+    lg.circle("line", 192 + ex, y, r, 20)
+    lg.setLineWidth(1)
+    lg.setBlendMode("add") -- the heat off it
+    lg.setColor(1, 0.35, 0.08, 0.12 * warm)
+    lg.circle("fill", 192 + ex, y + 6, r * 1.8, 20)
+    lg.setBlendMode("alpha")
+  end
+  for k = 0, 5 do -- steam curling off them
+    local ph = (t * 0.35 + k / 6) % 1
+    local ex = ({ -40, 0, 40 })[k % 3 + 1]
+    local drift = (hash(k + 3) - 0.5) * 60
+    lg.setColor(0.75, 0.72, 0.70, 0.28 * (1 - ph) * math.min(1, ph * 6))
+    lg.circle("fill", 192 + ex + drift * ph, 500 + ph * 60, 8 + ph * 26, 14)
+  end
+
+  -- The beacon on its back, strobing red.
+  local strobe = (t * 0.8) % 1 < 0.1
+  color(C.wallSeam)
+  lg.circle("fill", 192, 300, 6, 10)
+  lg.setColor(strobe and 1 or 0.4, 0.1, 0.08)
+  lg.circle("fill", 192, 300, 4, 10)
+  if strobe then
+    lg.setBlendMode("add")
+    lg.setColor(1, 0.15, 0.1, 0.45)
+    lg.circle("fill", 192, 300, 34, 20)
+    lg.setBlendMode("alpha")
+  end
+
+  -- The ramp, down on the east side: hinged at the hull, treads across it,
+  -- hazard edges, guide lights, its rams, the light from inside.
+  local hx = 192 + 64
+  lg.setBlendMode("add")
+  local spill = 0.10 + 0.02 * math.sin(t * 2)
+  for k = 1, 3 do -- fading out across the pad
+    lg.setColor(1, 0.7, 0.4, spill)
+    local reach = 86 + k * 14
+    lg.polygon("fill", hx, 232, hx + reach, 232 - k * 4, hx + reach, 330 + k * 4, hx, 330)
+  end
+  lg.setBlendMode("alpha")
+  color(C.wallSeam)
+  lg.polygon("fill", hx - 2, 222, hx + 90, 234, hx + 90, 328, hx - 2, 340)
+  color(C.steelDark)
+  lg.polygon("fill", hx, 226, hx + 86, 237, hx + 86, 325, hx, 336)
+  color(C.wallSeam)
+  lg.setLineWidth(2)
+  for x = hx + 10, hx + 80, 10 do
+    local k = (x - hx) / 86
+    lg.line(x, 226 + 11 * k + 8, x, 336 - 11 * k - 8)
+  end
+  color(C.hazard)
+  lg.setLineWidth(5)
+  lg.line(hx, 228, hx + 86, 239)
+  lg.line(hx, 334, hx + 86, 323)
+  for k = 0, 3 do -- guide lights down its edges
+    local x = hx + 12 + k * 22
+    lg.setColor(1, 0.8, 0.5, 0.6 + 0.4 * (((t * 2 - k * 0.25) % 1) < 0.3 and 1 or 0))
+    lg.circle("fill", x, 236 + k * 3, 2.5, 6)
+    lg.circle("fill", x, 326 - k * 3, 2.5, 6)
+  end
+  color(C.black) -- the rams
+  lg.setLineWidth(4)
+  lg.line(hx - 6, 246, hx + 40, 246)
+  lg.line(hx - 6, 316, hx + 40, 316)
+  color(C.trim)
+  lg.setLineWidth(2)
+  lg.line(hx - 6, 246, hx + 18, 246)
+  lg.line(hx - 6, 316, hx + 18, 316)
+  lg.setLineWidth(1)
+  color(C.black) -- the doorway
+  lg.rectangle("fill", hx - 4, 232, 6, 98)
+  lg.pop()
 end
 
 -- The Foundry's props -------------------------------------------------------------
