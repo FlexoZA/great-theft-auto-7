@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-15
+
+Eternal Mood: a new quest line, on foot all the way. Take the pest-control job up to Fobos Base, then down through
+Heck on Earth and the Foundry into Heck itself, past the Floor Manager, the Mancouchbus, the Baron of Heck and the
+Spider Mattressmind to the Snooze Gate. Each map has its own boss and its own metal theme, and lava burns.
+
 ### Added
 - A new job on the board, "Pest control": the start of the Eternal Mood quest line. Fobos Base, the UAC's moon base,
   in the dark, everything in it red: wake up in the Lab and find your way up to the Hangar's lift.
