@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-10-15
+
+The Baron of Heck drops the super shotgun, the Mood Slayer's own: twice the pellets and the reach of a shotgun.
+
 ### Added
 - The Baron of Heck drops the super shotgun, the Mood Slayer's own, one for every player: 12 pellets a pull instead
   of 6, twice a shotgun's reach and 10 shells a magazine instead of 6. It fires ordinary shotgun shells. Pick it up
