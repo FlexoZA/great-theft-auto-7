@@ -1,0 +1,47 @@
+# The audit (docs/audit.md): rates every pull request into staging out of 10.
+# Make it a required check on staging (Settings -> Branches) and nothing
+# below 7.0, or with a blocker, can be merged.
+name: Audit
+
+on:
+  pull_request:
+    branches: [staging]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the merge base with staging, and the base run's worktree
+
+      - name: Install LuaJIT and luacheck
+        run: sudo apt-get update -q && sudo apt-get install -y -q luajit lua-check
+
+      - name: Audit
+        run: luajit tools/audit/run.lua --base origin/staging --md audit.md --json audit.json
+
+      - name: Post the report on the pull request
+        if: always() && hashFiles('audit.md') != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: audit
+          path: audit.md
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: |
+            audit.md
+            audit.json
