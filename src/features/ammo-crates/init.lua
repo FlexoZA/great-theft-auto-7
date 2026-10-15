@@ -32,7 +32,7 @@ local Crates = {
 
 -- Tuning ------------------------------------------------------------------
 Crates.COUNT = 5 -- crates on a quest map
-Crates.BOXES = 4 -- ammo boxes out of one
+Crates.BOXES = 2 -- ammo boxes out of one: little enough that ammo stays worth looking for
 Crates.MAGAZINES = 1.5 -- of its gun's magazines in each box (an enemy's holds 1)
 Crates.SPILL = 70 -- px from the crate the boxes land
 Crates.REACH = 56 -- px from a crate that lets the action key open it
