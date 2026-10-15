@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Halcyon's soldiers in Grey City carry the AR now: most of them have one (in bursts of four), the rest an uzi or a
+  pistol as before. Their rifles reach further than the uzis did (about 1170 px against 920).
+
 ## [0.29.1] - 2026-10-15
 
 The AR, a faster and straighter rifle than the AK, firing the same rounds, which are 7.62 rounds now.
