@@ -2,22 +2,30 @@
 -- one a level"): a big horned brute on goat legs, the key to the Snooze
 -- Gate on his belt. He stands on the stone ring round the Crucible (the
 -- map's `horde.boss`, kind "baron") and wakes when someone crosses a bridge
--- onto it (the spec's `wake`) or shoots him; he never leaves the Crucible
--- (its `zone`).
+-- onto it (the spec's `wake`), comes into his sight (RANGE, no wall in
+-- between) or shoots him. Awake, he goes after you wherever you are: hang
+-- back in the Smelters and he comes down into them.
 --
--- He throws green fireballs in pairs (fireballs.lua's "baron"), one at you
--- and one where you're going; puts his horns down and charges (into a wall,
--- or the moat's edge, he staggers and stands stunned); claws whoever gets
--- close; and at two thirds and a third of his health he roars, throwing
--- everyone near him back, and imps climb out of the lava (horde.lua's
+-- He has guns for hands, and fires green fireballs from them in pairs
+-- (fireballs.lua's "baron"), one at you and one where you're going; puts
+-- his horns down and charges (into a wall, or the moat's edge, he staggers
+-- and stands stunned); leaps at whoever is a fair way off or across the
+-- lava, landing on them; clubs whoever gets close with a gun arm; and at
+-- two thirds and a third of his health he roars, throwing everyone near
+-- him back, and imps climb out of the lava (horde.lua's
 -- `serverCall`). Under half (phase 2) the green fire catches on his
--- shoulders and he throws three pairs at a go. This module is the man, the
+-- shoulders and he fires three pairs at a go. This module is the man, the
 -- wire, the key and the lock; what he does is his brain's
 -- (baron_brain.lua), how he looks baron_look.lua's.
 --
 -- Down, he drops the key where he falls. The portal stays SEALED
 -- (`serverLocked`) until somebody walks over the key and picks it up; then
 -- someone far away calls your name (the beat).
+--
+-- He dodges: a round about to hit him and he throws himself aside, off its
+-- line, if he has the breath (baron_brain.lua). His breath shows as a bar
+-- under him once he has spent some, throbbing red while he is winded, as
+-- well as under his boss bar.
 --
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health, the imps), has the boss bar, goes for medkits when badly
@@ -28,8 +36,10 @@
 --
 -- Messages
 --   server -> all  BR_STATE <tick> <x> <y> <facing> <hp> <max> <move> <aim> <phase2> <awake> <stamina> <winded>
---                  (unreliable, 15 Hz; move 0 none, 1 hands up with fire, 2 throwing, 3 horns down for a charge,
---                  4 charging, 5 stunned, 6 claw raised, 7 roaring; empty once he is gone)
+--                  <leap> (unreliable, 15 Hz; move 0 none, 1 fire at the muzzles, 2 firing, 3 horns down for a
+--                  charge, 4 charging, 5 stunned, 6 gun arm back to club, 7 roaring, 8 crouched for a leap,
+--                  9 in the air, 10 getting up from one, 11 dodging (along `aim`); leap: px along `aim` he
+--                  comes down, while 8 or 9; empty once he is gone)
 --   server -> all  BR_SAY  <line>            he says Baron.lines[line]
 --   server -> all  BR_HIT  <name> <x> <y>    claw, charge (it hit someone), wall (into one), roar
 --   server -> all  BR_DOWN <x> <y> <angle>   he went down: the key lies there (to a joiner too)
@@ -63,10 +73,11 @@ Baron.TURN = 4 -- rad/s
 Baron.BREATH = { drain = 9, regen = 13, recovered = 50, breath = 40 }
 Baron.RANGE = 900 -- px he sees
 Baron.KEEP = 260 -- px he likes to be from whoever he has, to throw
-Baron.HAND = 26 -- px either side of his middle: his hands (the fire in them)
+Baron.HAND = 38 -- px either side of his middle: his guns' muzzles (the fire at them)...
+Baron.MUZZLE = 56 -- ...and this far ahead of it (baron_look.lua draws the guns there)
 Baron.THROW_EVERY = { 2.0, 2.8 } -- seconds between attacks...
 Baron.THROW_EVERY_2 = { 1.4, 2.0 } -- ...in phase 2
-Baron.WINDUP = 0.6 -- seconds the fire burns in his hands first (the tell)
+Baron.WINDUP = 0.6 -- seconds the fire burns at his muzzles first (the tell)
 Baron.PAIRS = 1 -- pairs a go (phase 2: PAIRS_2)
 Baron.PAIRS_2 = 3
 Baron.PAIR_EVERY = 0.35 -- seconds between pairs
@@ -83,6 +94,24 @@ Baron.CHARGE_DAMAGE = 40 -- ...takes this (impact)...
 Baron.CHARGE_SHOVE = 220 -- ...and goes flying
 Baron.CHARGE_COST = 22
 Baron.STUN = 1.4 -- seconds he stands stunned after a charge into something
+Baron.LEAP_MIN = 300 -- px: he leaps at whoever is at least this far...
+Baron.LEAP_MAX = 560 -- ...landing no further than this off
+Baron.LEAP_CHANCE = 0.3 -- of an attack being a leap (phase 2: 0.45); always at whoever's across the lava
+Baron.LEAP_CHANCE_2 = 0.45
+Baron.LEAP_EVERY = 5 -- seconds at least between leaps
+Baron.LEAP_WINDUP = 0.6 -- seconds crouched, a ring on the floor where he'll come down
+Baron.LEAP_AIR = 0.75 -- seconds in the air
+Baron.LEAP_RECOVER = 0.6 -- seconds getting up, wide open
+Baron.LEAP_HIT = 80 -- px: whoever he lands this near...
+Baron.LEAP_DAMAGE = 45 -- ...takes this (impact)...
+Baron.LEAP_SHOVE = 200 -- ...and goes flying
+Baron.LEAP_COST = 26
+Baron.DODGE_WARN = 0.35 -- seconds' warning he needs of a round to get off its line...
+Baron.DODGE_SPEED = 420 -- ...throwing himself aside this fast...
+Baron.DODGE_TIME = 0.25 -- ...for this long (about 100 px; further from under an ability)
+Baron.DODGE_COOL = 1.8 -- seconds at least between dodges
+Baron.DODGE_COST = 20 -- breath; winded, he can't...
+Baron.DODGE_FLOOR = 60 -- ...nor with less than this in him: what's under it is for his attacks
 Baron.CLAW_REACH = 95 -- px: this near he claws...
 Baron.CLAW_ARC = 1.1 -- ...everyone within this many radians of his front...
 Baron.CLAW_WINDUP = 0.4
@@ -179,10 +208,16 @@ function Baron:pace()
   return self.breath:pace(Baron.WALK, Baron.STROLL)
 end
 
---- Where hand `side` (-1 left, 1 right) is.
+--- Where the muzzle of gun `side` (-1 left, 1 right) is, for him at (x, y)
+--- facing `facing`.
+function Baron.muzzle(x, y, facing, side)
+  local fx, fy = math.cos(facing), math.sin(facing)
+  return x + fx * Baron.MUZZLE - fy * Baron.HAND * side, y + fy * Baron.MUZZLE + fx * Baron.HAND * side
+end
+
+--- Where his gun `side` (-1 left, 1 right) fires from.
 function Baron:hand(side)
-  local fx, fy = math.cos(self.facing), math.sin(self.facing)
-  return self.x + fx * 18 - fy * Baron.HAND * side, self.y + fy * 18 + fx * Baron.HAND * side
+  return Baron.muzzle(self.x, self.y, self.facing, side)
 end
 
 -- Server --------------------------------------------------------------------
@@ -218,11 +253,6 @@ local function inBox(b, x, y)
   return b ~= nil and x >= b.x0 and x <= b.x1 and y >= b.y0 and y <= b.y1
 end
 
---- Is (x, y) on his patch (the spec's `zone`)? He never leaves it.
-function Baron.inZone(x, y)
-  return sv ~= nil and inBox(sv.spec.zone, x, y)
-end
-
 local function wake(server)
   if not sv.awake then
     sv.awake = true
@@ -230,17 +260,25 @@ local function wake(server)
   end
 end
 
---- His roar: imps climb out of the lava round the pit, at whoever he has.
+--- His roar: imps climb out of the lava round the pit, at whoever he has;
+--- away from the Crucible, up through the floor round him.
 local function callImps(server)
   local Horde = require("src.features.eternal-mood.horde")
   local m = sv.m
   local pit = sv.spec.pit
   local _, tx, ty = Brain.target(m, server)
   tx, ty = tx or m.x, ty or m.y
+  local cx, cy, r = pit.x, pit.y, pit.r
+  if dist2(m.x, m.y, pit.x, pit.y) > (pit.r + Baron.ROAR_RADIUS * 2) ^ 2 then
+    cx, cy, r = m.x, m.y, Baron.ROAR_RADIUS * 0.6
+  end
   local n = Bosses.plus(Baron.ROAR_IMPS, server)
   for k = 1, n do
     local a = k / n * 2 * math.pi + random()
-    local x, y = pit.x + math.cos(a) * pit.r, pit.y + math.sin(a) * pit.r
+    local x, y = cx + math.cos(a) * r, cy + math.sin(a) * r
+    if Ground.blocked(x, y) then
+      x, y = cx, cy
+    end
     Horde.serverCall(server, "imp", x, y, tx, ty)
   end
 end
@@ -249,7 +287,8 @@ local function fmt(n)
   return ("%.0f"):format(n)
 end
 
-local MOVE = { windup = 1, throw = 2, lower = 3, charge = 4, stunned = 5, claw = 6, roar = 7 }
+local MOVE = { windup = 1, throw = 2, lower = 3, charge = 4, stunned = 5, claw = 6, roar = 7, crouch = 8, leap = 9,
+  land = 10, dodge = 11 }
 
 local function sync(server)
   sv.syncIn = sv.syncIn - 1
@@ -259,9 +298,14 @@ local function sync(server)
   sv.syncIn = 2
   local m = sv.m
   local stamina, winded = m.breath:wire()
+  local leap, aim = 0, m.move == "dodge" and m.dodgeA or m.aim
+  if m.leapTo and (m.move == "crouch" or m.move == "leap") then
+    local f = m.leapFrom or m
+    leap, aim = math.sqrt(dist2(f.x, f.y, m.leapTo.x, m.leapTo.y)), math.atan2(m.leapTo.y - f.y, m.leapTo.x - f.x)
+  end
   local msg = Protocol.encode("BR_STATE", server.tick, fmt(m.x), fmt(m.y), ("%.2f"):format(m.facing),
-    fmt(math.max(0, m.hp)), fmt(m.max), MOVE[m.move] or 0, ("%.3f"):format(m.aim), m.phase2 and 1 or 0,
-    sv.awake and 1 or 0, stamina, winded)
+    fmt(math.max(0, m.hp)), fmt(m.max), MOVE[m.move] or 0, ("%.3f"):format(aim), m.phase2 and 1 or 0,
+    sv.awake and 1 or 0, stamina, winded, fmt(leap))
   for _, player in pairs(server.players) do
     if not player.bot then
       server:send(player, msg, true)
@@ -293,11 +337,13 @@ function Baron.serverStep(server, dt)
     end
     return
   end
-  if not sv.awake then
+  if not sv.awake then -- over a bridge, or in his sight
+    local m = sv.m
     for _, p in pairs(server.players) do
-      if not p.bot and Features.present(p) then
+      if not p.bot and Features.visible(server, p) then
         local x, y = Features.bodyPose(server, p)
-        if inBox(sv.spec.wake, x, y) then
+        if inBox(sv.spec.wake, x, y)
+          or (dist2(x, y, m.x, m.y) <= Baron.RANGE ^ 2 and Sight.clear(m.x, m.y, x, y)) then
           wake(server)
         end
       end
@@ -460,7 +506,13 @@ function Baron.load()
         sustain = 0 })
     end
   end)
-  bank.fire = make(0.4, 0.6, function(buf) -- fire catching in his hands
+  bank.dash = make(0.3, 0.6, function(buf) -- throwing himself aside: a scuff and a whoosh
+    buf:kick(0, 0.5)
+    buf:noiseBurst(0, 0.25, { amp = 0.5, decay = 0.12 })
+    buf:sweep(0, 0.22, 300, 120, { wave = "sine", amp = 0.25, decay = 0.15 })
+    buf:lowpass(1800)
+  end)
+  bank.fire = make(0.4, 0.6, function(buf) -- fire catching at his muzzles
     buf:noiseBurst(0, 0.38, { amp = 0.5, decay = 0.3 })
     buf:sweep(0, 0.35, 200, 500, { wave = "sine", amp = 0.2, decay = 0.3 })
     buf:lowpass(2200)
@@ -565,6 +617,19 @@ function Baron.drawBelowCars()
     Look.drawKey(key.x, key.y, clock)
   end
   local m = shown
+  if m and (m.move == 8 or m.move == 9) and m.leapX then -- crouched or up: where he comes down
+    local k = m.move == 8 and math.min(1, (clock - (m.moveAt or clock)) / Baron.LEAP_WINDUP)
+      or math.min(1, (clock - (m.moveAt or clock)) / Baron.LEAP_AIR)
+    love.graphics.setColor(RED[1], RED[2], RED[3], m.move == 8 and 0.12 + 0.12 * k or 0.25)
+    love.graphics.circle("fill", m.leapX, m.leapY, Baron.LEAP_HIT, 40)
+    love.graphics.setColor(RED[1], RED[2], RED[3], 0.7)
+    love.graphics.setLineWidth(3)
+    love.graphics.circle("line", m.leapX, m.leapY, Baron.LEAP_HIT, 40)
+    if m.move == 9 then -- closing in as he comes down
+      love.graphics.circle("line", m.leapX, m.leapY, Baron.LEAP_HIT * (1 - k), 40)
+    end
+    love.graphics.setLineWidth(1)
+  end
   if m and m.move == 3 then -- horns down: where he'll run
     local k = math.min(1, (clock - (m.moveAt or clock)) / Baron.CHARGE_WINDUP)
     local ex, ey = Sight.reach(m.dx, m.dy, m.aim, Baron.CHARGE_SPEED * Baron.CHARGE_FOR)
@@ -590,10 +655,35 @@ function Baron.drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+local BREATH_MAX = Stamina.defaults.max
+
+--- His breath as a thin bar under him once he has spent some, throbbing red
+--- while he is winded (the Hunters' bar, bigger: hunters/init.lua).
+local function drawBreath(m)
+  if not (m.awake and m.stamina) or (not m.winded and m.stamina >= BREATH_MAX) then
+    return
+  end
+  local bw, x, y = 70, m.dx, m.dy + Baron.RADIUS + 26
+  local f = math.max(0, math.min(1, m.stamina / BREATH_MAX))
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - bw / 2 - 1, y, bw + 2, 6)
+  if m.winded then
+    love.graphics.setColor(0.9, 0.3, 0.3, 0.35 + 0.25 * math.sin(clock * 8))
+    love.graphics.rectangle("fill", x - bw / 2, y + 1, bw, 4)
+    love.graphics.setColor(1, 0.5, 0.45)
+  else
+    love.graphics.setColor(0.45, 0.75, 1)
+  end
+  love.graphics.rectangle("fill", x - bw / 2, y + 1, bw * f, 4)
+end
+
 function Baron.drawAboveCars()
   local m = shown
   if m then
+    local k = m.move == 9 and math.min(1, (clock - (m.moveAt or clock)) / Baron.LEAP_AIR) or 0
+    m.lift = math.sin(k * math.pi) -- how high he is, 0 on the floor
     Look.draw(m, clock)
+    drawBreath(m)
     if say then
       require("src.features.eternal-mood.horde").drawBubble(m.dx, m.dy - Baron.RADIUS - 28, say.text)
     end
@@ -606,8 +696,7 @@ function Baron.drawNightLights(glow)
   if m then
     local hot = m.move == 1 or m.move == 2
     for _, side in ipairs({ -1, 1 }) do
-      local fx, fy = math.cos(m.facing), math.sin(m.facing)
-      local x, y = m.dx + fx * 18 - fy * Baron.HAND * side, m.dy + fy * 18 + fx * Baron.HAND * side
+      local x, y = Baron.muzzle(m.dx, m.dy, m.facing, side)
       glow(x, y, hot and 120 or 40, GREEN, hot and 0.9 or 0.35)
     end
     if m.phase2 then
@@ -661,8 +750,10 @@ Baron.clientMessages = {
       m.moveAt = clock
       if move == 1 then
         play("fire")
-      elseif move == 4 then
+      elseif move == 4 or move == 9 then -- off on a charge, or up off the floor
         play("hooves")
+      elseif move == 11 then
+        play("dash")
       elseif move == 7 then
         play("roar")
         rings[#rings + 1] = { x = m.dx, y = m.dy, t = 0, r = Baron.ROAR_RADIUS }
@@ -673,6 +764,12 @@ Baron.clientMessages = {
     m.phase2 = args[9] == "1"
     m.awake = args[10] == "1"
     m.stamina, m.winded = Stamina.read(args, 11)
+    local leap = tonumber(args[13]) or 0
+    if move == 8 and leap > 0 then -- where he'll come down, from where he crouches
+      m.leapX, m.leapY = x + math.cos(m.aim) * leap, y + math.sin(m.aim) * leap
+    elseif move ~= 9 then
+      m.leapX, m.leapY = nil, nil
+    end
   end,
   BR_SAY = function(_client, args)
     local line = tonumber(args[1]) or 0
@@ -696,6 +793,9 @@ Baron.clientMessages = {
       rings[#rings + 1] = { x = x, y = y, t = 0, r = 90 }
     elseif args[1] == "charge" then
       play("wall", x, y)
+    elseif args[1] == "leap" then
+      play("wall", x, y)
+      rings[#rings + 1] = { x = x, y = y, t = 0, r = Baron.LEAP_HIT * 1.6 }
     end
   end,
   BR_DOWN = function(_client, args)
