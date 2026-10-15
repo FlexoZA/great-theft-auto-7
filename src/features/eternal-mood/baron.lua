@@ -22,7 +22,9 @@
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health, the imps), has the boss bar, goes for medkits when badly
 -- hurt, dodges abilities, and going down raises `serverKill` "boss" and
--- spills koins. He is Heck's: only players' rounds reach him.
+-- spills koins. He is Heck's: only players' rounds reach him. He also
+-- drops the super shotgun, one each player can pick up, which unlocks it
+-- in the shop (the weapons feature's, with the reward screen).
 --
 -- Messages
 --   server -> all  BR_STATE <tick> <x> <y> <facing> <hp> <max> <move> <aim> <phase2> <awake> <stamina> <winded>
@@ -94,6 +96,8 @@ Baron.ROAR_IMPS = 3 -- imps out of the lava each roar (more players, more: Bosse
 Baron.SAY_EVERY = { 9, 14 }
 Baron.DROPS = 45
 Baron.KEY_REACH = 48 -- px: walk this near the key to pick it up
+Baron.GUN = "gun-super-shotgun" -- his drop, one for every player (weapons/guns.lua)
+Baron.GUN_AWAY = 100 -- px from the key it lands, so picking one up isn't picking up the other
 
 Baron.lines = {
   "KNEEL.",
@@ -315,7 +319,23 @@ function Baron.serverStep(server, dt)
   sync(server)
 end
 
---- Down: his last word, his body, the key on the floor, koins, the kill.
+--- Where the shotgun lands: GUN_AWAY from (x, y), the first way round with
+--- no wall or lava in between (behind him first: he faces whoever he was
+--- fighting), else on him.
+local function gunSpot(x, y, facing)
+  local d = Baron.GUN_AWAY
+  for i = 0, 7 do
+    local a = facing + math.pi + i * math.pi / 4
+    local gx, gy = x + math.cos(a) * d, y + math.sin(a) * d
+    if Ground.clear(x, y, gx, gy) then
+      return gx, gy
+    end
+  end
+  return x, y
+end
+
+--- Down: his last word, his body, the key on the floor, koins, the
+--- shotgun, the kill.
 local function down(server, by, angle)
   local m = sv.m
   sv.down = true
@@ -331,6 +351,10 @@ local function down(server, by, angle)
   if pickups and pickups.serverDropEnemy then
     pickups:serverDropEnemy(server, m.x + 60, m.y)
     pickups:serverDropEnemy(server, m.x - 60, m.y)
+  end
+  if pickups and pickups.serverDrop then
+    local gx, gy = gunSpot(m.x, m.y, m.facing)
+    pickups:serverDrop(server, Baron.GUN, gx, gy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = m.x, y = m.y, by = by, angle = angle })
 end

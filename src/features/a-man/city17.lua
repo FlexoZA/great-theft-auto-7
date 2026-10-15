@@ -199,13 +199,13 @@ local function pickArms()
   local total = 0
   for _, gun in ipairs(Guns.list) do
     local l = Level.loadout[gun.key]
-    total = total + (l and l.weight or 1)
+    total = total + (l and l.weight or (gun.unlock and 0 or 1)) -- never a won gun unless listed
   end
   local roll = random() * total
   local gun = Guns.list[1]
   for _, g in ipairs(Guns.list) do
     local w = Level.loadout[g.key]
-    roll = roll - (w and w.weight or 1)
+    roll = roll - (w and w.weight or (g.unlock and 0 or 1))
     if roll < 0 then
       gun = g
       break

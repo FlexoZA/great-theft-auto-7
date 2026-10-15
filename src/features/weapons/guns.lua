@@ -47,6 +47,13 @@
 --             others' (pickups' serverDropAmmo); 1 otherwise
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
+--   ammo      the key of another gun whose rounds it fires (the super
+--             shotgun takes the shotgun's shells): it has no ammo item of
+--             its own, so nothing sells, makes or drops one
+--   unlock    true for a gun only won, never on the shelf or out of a
+--             factory until you have picked one up (a boss's drop): from
+--             then on the shop sells it to you (weapons/init.lua). Enemies
+--             never carry it
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
 --             Guns.tierStats otherwise; "blast.damage" reaches into `blast`
 --   scope     how many times the scope magnifies: hold the scope button
@@ -140,6 +147,27 @@ Guns.list = {
     reloadSound = "reload-shotgun",
     ammoName = "shell",
     stack = 60, -- ten loads a slot
+  },
+  {
+    -- The Mood Slayer's: the Baron of Heck drops it (eternal-mood/baron.lua).
+    key = "super-shotgun",
+    unlock = true,
+    blurb = "The Mood Slayer's own. Twelve pellets a pull that reach twice as far as a shotgun's, "
+      .. "and ten shells between reloads. Fires shotgun shells.",
+    name = "super shotgun",
+    damage = 11, -- per pellet, as a shotgun's: there are twice as many
+    cooldown = 0.9,
+    spread = 0.16,
+    speed = 800,
+    streak = 6,
+    ttl = 0.64, -- about 500 px: twice a shotgun's reach
+    pellets = 12,
+    sound = "shotgun",
+    pitch = 0.8, -- deeper: two barrels' worth
+    magazine = 10,
+    reload = 2.8,
+    reloadSound = "reload-shotgun",
+    ammo = "shotgun",
   },
   {
     key = "rocket",
@@ -242,6 +270,12 @@ for i, gun in ipairs(Guns.list) do
   gun.index = i
   gun.tierStats = gun.tierStats or Guns.tierStats
   Guns[gun.key] = gun
+end
+
+--- The inventory item gun `gun`'s rounds are: "ammo-<key>", or the gun's it
+--- borrows them from (`ammo`).
+function Guns.ammoItem(gun)
+  return "ammo-" .. (gun.ammo or gun.key)
 end
 
 --- The gun at `index`, or the default for anything that isn't one.

@@ -103,6 +103,15 @@
 -- with `respawnHeld` keeping WASTED up on their screen): respawn-points does
 -- while they pick where to come back.
 --
+-- Some guns are only won (`unlock` in guns.lua: the super shotgun, the
+-- Baron of Heck's drop). The boss drops one for every player (pickups'
+-- `perPlayer`, kind "gun-<key>"), and walking over it puts it in your bag
+-- with a magazine's worth of its rounds (or into an empty weapon slot when
+-- the bag is full) and unlocks it: the reward screen, and from then on the
+-- shop sells it to you (its `unlock` entries: `itemUnlocked`,
+-- `serverItemUnlocked`). The unlock is saved with the player and told to
+-- their screen quietly when it comes back.
+--
 -- Messages
 --   client -> server  WPN_FIRE <aimAngle>
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
@@ -132,6 +141,7 @@
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
 --   server -> player  WPN_CARMAG <vid> <rounds>   (what is in the magazine of the gun bolted to that car)
+--   server -> player  WPN_UNLOCK <key> [quiet]     (you've unlocked a won gun: the reward screen, not when quiet)
 --
 -- Health has a ceiling per player, MAX_HEALTH to start with; another feature
 -- can raise it (upgrades buys it with koins) through Weapons:serverSetMaxHealth.
@@ -335,6 +345,12 @@ function Weapons:resetSynced()
     self.mags[i] = gun.magazine
   end
   self.infiniteAmmo = false
+  self.unlocked = {} -- gun key -> true: the won guns I have unlocked (WPN_UNLOCK)
+end
+
+--- The shop's question: have I unlocked `item` ("gun-super-shotgun")?
+function Weapons:itemUnlocked(item)
+  return self.unlocked ~= nil and self.unlocked[(item or ""):match("^gun%-(.+)$") or ""] == true
 end
 
 --- Gun `index` as I carry it: its tier's numbers (tiers/init.lua).
@@ -423,7 +439,7 @@ function Weapons:reserve(index)
   if gun.bottomless or not (buildings and buildings.inventory) then
     return math.huge
   end
-  return buildings.inventory["ammo-" .. gun.key] or 0
+  return buildings.inventory[Guns.ammoItem(gun)] or 0
 end
 
 local function notify(self, text)
@@ -631,7 +647,8 @@ function Weapons:selectGun(client, index)
   if not Guns.list[index] or index == self.gun then
     return
   elseif not self:owns(index) then
-    notify(self, "No " .. Guns.at(index).name .. ": a weapons factory makes them")
+    local gun = Guns.at(index)
+    notify(self, "No " .. gun.name .. (gun.unlock and ": a boss drops it" or ": a weapons factory makes them"))
     return
   end
   self.gun = index
@@ -1255,6 +1272,23 @@ local function poseOf(client, id)
 end
 
 Weapons.clientMessages = {
+  WPN_UNLOCK = function(_client, args)
+    local gun = Guns[args[1] or ""]
+    if type(gun) ~= "table" or not gun.unlock then
+      return
+    end
+    Weapons.unlocked[gun.key] = true
+    local rewards = Features.byName.rewards
+    if args[2] ~= "quiet" and rewards and rewards.show then
+      rewards:show({
+        kicker = "NEW GUN UNLOCKED", title = gun.name:upper(), color = { 0.95, 0.5, 0.12 },
+        icon = function(cx, cy, size)
+          Icons.draw(gun.key, cx, cy, size * 0.75)
+        end,
+        lines = { gun.blurb, "Drag it into a weapon slot. The shop sells it now." },
+      })
+    end
+  end,
   WPN_MAG = function(_client, args)
     local gun, rounds = tonumber(args[1]), tonumber(args[2])
     if Guns.list[gun] and rounds then
@@ -1512,7 +1546,7 @@ local function fullMagazines()
 end
 
 function Weapons:serverStart(server)
-  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {} }
+  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {}, unlocked = {} }
   for id, p in pairs(server.players) do
     if p.body then
       sv.players[id] = {
@@ -1561,7 +1595,7 @@ function Weapons:giveStock(server, player)
   end
   for _, gun in ipairs(Guns.list) do
     if gun.stock and gun.stock > gun.magazine then
-      buildings:serverGive(server, player, "ammo-" .. gun.key, gun.stock - gun.magazine)
+      buildings:serverGive(server, player, Guns.ammoItem(gun), gun.stock - gun.magazine)
     end
   end
 end
@@ -1643,6 +1677,7 @@ function Weapons:serverPlayerLeft(server, player)
       own:stop()
     end
     self.sv.players[player.id] = nil
+    self.sv.unlocked[player.id] = nil
   end
 end
 
@@ -1903,6 +1938,63 @@ function Weapons:serverMove(server, player, from, to)
   return true
 end
 
+-- Won guns -------------------------------------------------------------------
+
+--- The shop's question on the host: may `player` buy `item` (a won gun)?
+function Weapons:serverItemUnlocked(_server, player, item)
+  local key = (item or ""):match("^gun%-(.+)$")
+  local mine = self.sv and self.sv.unlocked[player.id]
+  return key ~= nil and mine ~= nil and mine[key] == true
+end
+
+local function unlock(self, server, player, key, quiet)
+  local mine = self.sv.unlocked[player.id] or {}
+  self.sv.unlocked[player.id] = mine
+  mine[key] = true
+  if quiet then
+    server:send(player, Protocol.encode("WPN_UNLOCK", key, "quiet"))
+  else
+    server:send(player, Protocol.encode("WPN_UNLOCK", key))
+  end
+end
+
+--- `player` walks over gun `item` ("gun-super-shotgun") lying on the road
+--- (pickups asks). Only a human: into their bag with a magazine's worth of
+--- its rounds, or into an empty weapon slot if the bag is full; a won gun
+--- is unlocked for them the first time. True when they took it (else it
+--- stays lying there).
+function Weapons:serverTakeFound(server, player, item)
+  local base, tier = Tiers.split(item or "")
+  local gun = tier and Guns[base:match("^gun%-(.+)$") or ""]
+  local st = self.sv and self.sv.players[player.id]
+  local buildings = Features.byName.buildings
+  if type(gun) ~= "table" or not (st and buildings and buildings.serverGive) or player.bot then
+    return false
+  end
+  if buildings:serverGive(server, player, item, 1) < 1 then
+    local free
+    for slot = self.slotCount, 1, -1 do
+      if not st.slots[slot] then
+        free = slot
+      end
+    end
+    if not free or slotOf(st.slots, gun.index) or not Features.present(player) then
+      return false -- no room: it waits for them
+    end
+    st.slots[free] = gun.index
+    st.tiers = st.tiers or {}
+    st.tiers[gun.index] = tier ~= Tiers.DEFAULT and tier or nil
+    self:sendGuns(server, player)
+  end
+  if not gun.bottomless then
+    buildings:serverGive(server, player, Guns.ammoItem(gun), gun.magazine)
+  end
+  if gun.unlock and not self:serverItemUnlocked(server, player, "gun-" .. gun.key) then
+    unlock(self, server, player, gun.key)
+  end
+  return true
+end
+
 -- Saved worlds (docs/persistence.md) ----------------------------------------
 
 local SAVE_VERSION = 1
@@ -1930,7 +2022,12 @@ function Weapons:serverSavePlayer(_server, player)
     local pistol = gunOf(st, Guns.DEFAULT)
     mags[pistol.key] = math.max(mags[pistol.key], pistol.magazine) -- they'd be back with it loaded
   end
-  return { version = SAVE_VERSION, slots = slots, mags = mags }
+  local won = {}
+  for key in pairs(self.sv.unlocked[player.id] or {}) do
+    won[#won + 1] = key
+  end
+  table.sort(won)
+  return { version = SAVE_VERSION, slots = slots, mags = mags, unlocked = won }
 end
 
 --- Put back what serverSavePlayer kept, over the start loadout. Guns no
@@ -1940,6 +2037,14 @@ function Weapons:serverLoadPlayer(server, player, data)
   local st = self.sv and self.sv.players[player.id]
   if not st or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
     return
+  end
+  if type(data.unlocked) == "table" and not player.bot then
+    for _, key in ipairs(data.unlocked) do
+      local gun = type(key) == "string" and Guns[key]
+      if type(gun) == "table" and gun.unlock then
+        unlock(self, server, player, gun.key, true)
+      end
+    end
   end
   if type(data.slots) == "table" then
     local slots, tiers = {}, {}
@@ -2129,7 +2234,7 @@ local function spareRounds(player, gun)
   if gun.bottomless or not (buildings and buildings.serverCount) then
     return math.huge
   end
-  return buildings:serverCount(player.id, "ammo-" .. gun.key)
+  return buildings:serverCount(player.id, Guns.ammoItem(gun))
 end
 
 --- Start reloading the gun `player` holds, if its magazine isn't full and
@@ -2240,9 +2345,9 @@ function Weapons:finishReloads(server)
       if p and buildings and buildings.serverTake and not gun.bottomless then
         if gun.tank then
           -- One can fills the tank, whatever was left in it.
-          got = buildings:serverTake(server, p, "ammo-" .. gun.key, 1) >= 1 and need or 0
+          got = buildings:serverTake(server, p, Guns.ammoItem(gun), 1) >= 1 and need or 0
         else
-          got = buildings:serverTake(server, p, "ammo-" .. gun.key, need)
+          got = buildings:serverTake(server, p, Guns.ammoItem(gun), need)
         end
       end
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got

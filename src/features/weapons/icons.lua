@@ -135,6 +135,28 @@ local function shotgun()
   strokes(WOOD, 0.6, 5, 6, -0.5, 2.3, 5.5, true) -- its grooves
 end
 
+--- The super shotgun: a sawn-down double barrel, the two barrels one over
+--- the other, a dark stock and an orange stripe, the Mood Slayer's.
+local function superShotgun()
+  local walnut = { 0.4, 0.25, 0.14 }
+  local orange = { 0.95, 0.5, 0.12 }
+  poly(walnut, -36, -3, -20, -7, -20, 5, -37, 9) -- stock
+  line(walnut, 0.75, 1, -34, 1, -22, -2.5) -- its grain
+  poly(BLACK, -38.5, -3.5, -35.5, -3.5, -35.5, 8.6, -38.5, 9.2) -- recoil pad
+  triggerGuard(-13, 4, 4.5)
+  line(STEEL, 0.8, 1.5, -13.5, 4, -14, 8) -- trigger
+  box(-22, -7.5, 17, 12, DARK, 1.5) -- the action
+  box(-19, -4, 10, 1.6, orange, 0.3) -- the stripe
+  box(-5, -7.5, 37, 4.2, STEEL, 0.8) -- upper barrel
+  box(-5, -3.3, 37, 4.2, STEEL, 0.8) -- lower barrel
+  box(31, -8, 3, 9, BLACK, 0.6) -- the muzzles
+  box(-3, 1, 17, 5, walnut, 2) -- fore end
+  set(BRASS)
+  love.graphics.circle("fill", -5, 0, 1.4) -- the hinge pin
+  love.graphics.circle("fill", 30, -8.5, 1) -- front bead
+  line(DARK, 0.6, 1.5, -18, -7.5, -14, -10.5) -- the hammer
+end
+
 local function rocket()
   box(-8, 5, 6, 12, BLACK, 1) -- pistol grip
   box(8, 5, 5, 9, BLACK, 1) -- fore grip
@@ -259,7 +281,8 @@ local function turret()
 end
 
 local DRAW = {
-  pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, sniper = sniper,
+  pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, ["super-shotgun"] = superShotgun,
+  sniper = sniper,
   flamethrower = flamethrower, minigun = minigun, turret = turret,
 }
 
