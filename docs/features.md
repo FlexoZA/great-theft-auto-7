@@ -300,7 +300,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
 | `menuOpen(client)` | weapons and abilities ask | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone and abilities cast nothing. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
-| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door, ammo-crates at a shut crate. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one; grenades while one is readied, and until the button is let go after a throw. |
 | `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it, and keeps answering for `Events.calmAfter` (5) seconds after the boss is beaten. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
@@ -530,6 +530,17 @@ couple of small conventions rather than requiring each other:
   carrying that gun. `weapons:serverFire` counts rounds for human
   players only; a player with `bot = true` (bots, police) and
   `serverFireFrom` never run dry.
+- Ammo crates: `src/features/ammo-crates` scatters `COUNT` (5) military
+  crates over every quest map (not the city) when the map changes, on open
+  floor (city-map's `randomRoadPoint`) clear of walls, everyone and each
+  other (AMC_ messages). Broken open, by the action key at one (F, through
+  `actionTaken`; AMC_OPEN, the host checks you are on foot and near) or by
+  any player's round or blast (`serverShotAt`, `serverBlast`; Heck's and
+  the Combine's rounds fly on), it spills `BOXES` (4) ammo boxes round it
+  through pickups' `serverDrop`, each 1.5 magazines for a gun picked by
+  the guns' `dropWeight` with the AK's at 5 instead of 3 (`weights`). It
+  stays open and empty until the map changes. Rounds a gun borrows
+  (`ammo`) and won guns are never in a crate.
 - Won guns: a gun marked `unlock` (the super shotgun: 12 pellets, double a
   shotgun's reach, a 10-shell magazine) is never made by a factory, never
   in an enemy's hands (City 17's loadout leaves it out unless it is
