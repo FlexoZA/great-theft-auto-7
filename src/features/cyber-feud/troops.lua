@@ -126,8 +126,9 @@ Troops.side = {
     code = "h", firstId = 1, health = 60, squad = 3, drops = 3, color = MAGENTA,
     fov = math.rad(60), alertFov = math.rad(100), aware = 170,
     loadout = {
-      { gun = "uzi", weight = 3, burst = 5, pause = 1.2 },
-      { gun = "pistol", weight = 2, burst = 2, pause = 0.9 },
+      { gun = "ar", weight = 4, burst = 4, pause = 1.0 }, -- the company's rifle: most of them
+      { gun = "uzi", weight = 2, burst = 5, pause = 1.2 },
+      { gun = "pistol", weight = 1, burst = 2, pause = 0.9 },
     },
   },
   static = {
@@ -1079,7 +1080,7 @@ local STATIC_SHIRTS = {
   { 0.16, 0.14, 0.18 }, { 0.26, 0.16, 0.14 }, { 0.14, 0.20, 0.18 }, { 0.22, 0.22, 0.24 }, { 0.30, 0.24, 0.12 },
 }
 local STATIC_SKINS = { { 0.78, 0.62, 0.50 }, { 0.55, 0.40, 0.30 }, { 0.42, 0.30, 0.22 }, { 0.86, 0.72, 0.62 } }
-local HELD = { pistol = 4, uzi = 8, shotgun = 14, ak47 = 15 } -- how far each gun's barrel reaches in his hands
+local HELD = { pistol = 4, uzi = 8, shotgun = 14, ak47 = 15, ar = 15 } -- how far each gun's barrel reaches in his hands
 local looks = {} -- side .. gun index .. id variant -> look
 
 local function lookFor(s)
