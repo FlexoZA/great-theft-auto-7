@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-10-15
+
+The Mancouchbus drops the Mood Slayer's helmet, and a boss's reward you haven't unlocked yet now stands out on the road.
+
 ### Added
 - The Mancouchbus drops the Mood Slayer's helmet, one for every player: rockets and blasts hurt 30% less and fire a
   fifth less. Pick it up and it's yours, and the shop sells it to you from then on (120 Fcks).
