@@ -74,9 +74,14 @@ function Diff.read(sha)
     end
   end
 
-  -- Untracked files are wholly new.
+  -- Untracked files are wholly new. A nested checkout (a worktree inside
+  -- this one) is listed as a folder: not a file, and not this branch's.
   for path in run("git ls-files --others --exclude-standard"):gmatch("[^\n]+") do
-    local f = io.open(path, "r")
+    local f = not path:match("/$") and io.open(path, "r")
+    if f and select(2, f:read(0)) then
+      f:close()
+      f = nil
+    end
     if f then
       local entry = file(path)
       entry.status = "A"
