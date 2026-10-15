@@ -18,39 +18,98 @@ Lua extension addon manager).
 make run        # or: love .
 ```
 
+Straight into a saved world, skipping the menus (handy for testing):
+
+```bash
+love . --world <slug>                # host the saved world <slug> and start it
+love . --world <slug> --quest <id>   # ...and take everyone straight onto quest <id>
+```
+
+`--name <name>` plays under that name instead of `$USER`. The quest ids are listed at the top
+of `src/launch.lua`.
+
 ## Controls
+
+Press **F1** in game for the full controls overview: a keyboard with every bound key lit up,
+and a list of every action, read live from your current bindings.
+
+### Driving
 
 | Key | Action |
 | --- | --- |
-| Arrows / WASD | Drive |
+| W / S (or Up / Down) | Accelerate / brake and reverse |
+| A / D (or Left / Right) | Steer |
 | Space | Handbrake (hold while turning to slide) |
-| E | Get out of the car, and back in when you are standing next to it |
-| WASD on foot | Walk (world directions; you face the cursor) |
-| Shift | Sprint while on foot, until your stamina runs out |
-| Left mouse | Fire toward the cursor |
-| Mouse at screen edge | Pan the camera (zooms out as it drifts) |
-| C | Recentre the camera on your car |
-| F1 | Show hitboxes |
-| F2 | List the cheat codes |
-| Tab | Toggle the minimap |
-| B / N | Add / remove an AI bot (host only) |
-| F | Open the job board, at the door of the Jobs building (the gold star on the minimap) |
-| Enter / Backspace | Take the picked job on the board; accept / decline the way home on a quest's star |
-| Esc | Leave the game |
+| Shift | Boost |
+| V | Horn (hold) |
+| F | Get out of the car, and back in when you are standing next to one |
 
-Every key above can be rebound under *Settings > Controls*, with a primary and a secondary
-binding per action. Volumes are under *Settings > Sound*, and display mode, window size,
-VSync, FPS counter, screen shake and menu scanlines under *Settings > Video*. All are saved to
-the LÖVE save directory.
+### On foot
+
+| Key | Action |
+| --- | --- |
+| WASD | Walk (world directions; you face the cursor) |
+| Shift | Sprint, until your stamina runs out |
+| Space | Dodge |
+| F | Action key: get in a car, open the shop, gym or job board at its door, open an ammo crate, buy a property, call a car on a car station's pad, collect a car at the impound lot, hire a park bum |
+
+### Combat
+
+| Key | Action |
+| --- | --- |
+| Left mouse | Fire toward the cursor |
+| Right mouse | Sniper scope (hold); with the scout car, the tau cannon (tap, or hold to charge); cancels a readied ability |
+| R | Reload |
+| Z / X, mouse wheel | Previous / next weapon |
+| 1 / 2 / 3 | Ability slots (also building menu options, and gym purchases 1-7 while the gym is open) |
+| G | Ready a grenade (click throws it) |
+| H | Use a medkit |
+| J | Drink an energy drink |
+
+### Menus, map and camera
+
+| Key | Action |
+| --- | --- |
+| I | Inventory |
+| P | Your vehicles |
+| M | Big map (in game) / mute the music (in the menus) |
+| Tab | Toggle the minimap |
+| Mouse at screen edge | Pan the camera (zooms out as it drifts) |
+| C | Recentre the camera |
+| ` | Hide / show sight cones |
+| Enter / Backspace | Accept / decline a quest offer; Enter also respawns at the picked point when dead |
+| E | Ask VEX to open a locked door (Halcyon Tower) |
+| Esc | Close the open panel, or pause (settings and quit are in the pause menu) |
+
+### Debug and host
+
+| Key | Action |
+| --- | --- |
+| F1 | Controls overview |
+| F2 | List the cheat codes |
+| F3 | Show hitboxes |
+| F8 | Event menu (host only) |
+| B / N | Add / remove an AI bot (host only) |
+
+Every action can be rebound under *Settings > Controls*, with a primary and a secondary
+binding each; weapon slots 1-4 have no key by default but can be bound there too. The other
+Settings tabs are *Sound* (volumes), *Video* (display mode, window size, VSync, FPS counter,
+screen shake, menu scanlines) and *Server* (bot difficulty, for when you host). Settings can be
+opened from the main menu or the pause menu, and are saved to the LÖVE save directory.
 
 *Inclusive mode*, the toggle at the top right of the main menu, gives the menu face dark skin
 and swaps the metal theme for a boom-bap hip-hop one. It is saved with everything else.
+
+Click the version label on the main menu to read *what's new* (the changelog).
 
 ## Multiplayer (LAN)
 
 One player hosts, everyone else joins. Both need to be on the same network.
 
-- **Host**: enter your name, click *Host LAN game*, wait for players, click *Start game*.
+- **Host**: enter your name, click *Host LAN game*, start a new world or continue a saved one,
+  wait for players, click *Start game*. Worlds are saved on the host's machine, so everyone
+  gets their money, loadout and upgrades back next time ([docs/persistence.md](docs/persistence.md)).
+  Players can also join a game that is already running.
 - **Join**: click *Join LAN game*. Hosts on the network appear within a second or two.
   If none show up, type the host's IP address and click *Connect*.
 - The host must allow UDP ports **22122** (game) and **22123** (discovery) through
@@ -69,6 +128,7 @@ Design and roadmap: [docs/networking.md](docs/networking.md).
 
 ```bash
 make check      # luacheck
+make audit      # rate this branch out of 10 against staging (docs/audit.md)
 make fmt        # stylua
 make build      # produces build/great-theft-auto-7.love
 ```
@@ -103,7 +163,9 @@ love .                                    # make sure it runs
    git checkout -b feature/city-map
    ```
 
-2. Commit as you go. Run `luacheck .` and make sure `love .` still starts before you push.
+2. Commit as you go. Before you push, run `luacheck .` and `make audit` (GitHub runs the audit
+   on every pull request into `staging` and it must pass), and make sure `love .` still starts.
+   Add a line for players under `## [Unreleased]` in `CHANGELOG.md` for anything noticeable.
 
 3. Push your branch and open a pull request **into `staging`** (never `main`):
 
@@ -140,12 +202,16 @@ nobody cherry-picks or pushes single commits to `main`.
 ```
 main.lua          entry point, loads features, forwards LÖVE callbacks
 conf.lua          window + module config
-src/features/     one folder per gameplay feature (yours go here)
-src/features/init.lua   the registry
+src/features/     one folder per gameplay feature (yours go here, see docs/features.md)
+src/features/init.lua   the registry (features are discovered automatically)
+src/controls.lua  rebindable key bindings
+src/settings.lua  saved settings; settings_panel.lua draws the Settings screen
+src/saves.lua     saved worlds
+src/launch.lua    --world / --quest launch options
 src/art/          pixel-art helpers, the 7 logo, the menu face and backdrop
 src/audio/        synth engine, the two menu themes, playback
 src/state.lua     scene switcher
-src/states/       menu, browser (join), lobby, game
+src/states/       menu, worlds (host), browser (join), lobby, game, settings, changelog
 src/net/          protocol, discovery, server, client, init (session)
 src/ui.lua        buttons and text fields
 src/car.lua       car physics, hitbox and drawing
