@@ -113,6 +113,24 @@ DRAW["ballistic-helmet"] = function(c)
   end
 end
 
+local VISOR = { 0.98, 0.7, 0.18 }
+local OLIVE_DARK = { 0.2, 0.27, 0.15 }
+
+DRAW["slayer-helmet"] = function(c)
+  dome(c, 13, 15)
+  box(-13, 1, 26, 10, c, 3) -- the jaw
+  box(-15.5, -4, 3.5, 10, OLIVE_DARK, 1) -- the ear pieces
+  box(12, -4, 3.5, 10, OLIVE_DARK, 1)
+  box(-1.5, -12.5, 3, 7, lit(c, 0.2), 1) -- the ridge over the crown
+  poly(VISOR, -11, -5, 11, -5, 10, 1, -10, 1) -- the visor, wide
+  poly(VISOR, -4, 1, 4, 1, 0, 4.5) -- and dipping to a point
+  set(WHITE, 1, 0.7)
+  love.graphics.polygon("fill", -9, -4, -5, -4, -8, 0) -- a glint on it
+  box(-4, 6, 8, 5, OLIVE_DARK, 1) -- the breather
+  strokes(c, 0.55, 3, -2, 7, 1.4, 4) -- vents in it
+  line(OLIVE_DARK, 1, 1, 6, -9, 9, -6) -- a scratch from something with claws
+end
+
 -- Body -------------------------------------------------------------------------
 
 DRAW["plate-carrier"] = function(c)

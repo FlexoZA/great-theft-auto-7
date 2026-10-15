@@ -47,7 +47,8 @@
 -- upgrades sells (Money:reachOf). Without money it is 1.
 --
 -- Messages
---   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box, a crate's material)
+--   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>] [reward]   (amount: rounds in an ammo box, a crate's
+--                  material; reward: a boss's `perPlayer` drop, drawn with rings rippling out and NEW over it)
 --   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
 
@@ -60,6 +61,7 @@ local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
 local BuildingKinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
+local GearKinds = require("src.features.gear.kinds")
 local Render = require("src.features.buildings.render")
 
 local Pickups = {
@@ -198,8 +200,30 @@ local function armorKind(key)
   }
 end
 
+--- A piece of clothing on the road: kind "gear-<key>[@tier]" (a boss's
+--- drop: the Mood Slayer's helmet). Only a human takes it; the gear
+--- feature decides where it goes and unlocks a won piece
+--- (gear:serverTakeFound).
+local function gearKind(key)
+  local base, tier = Tiers.split(key)
+  local piece = tier and GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
+  if not piece then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local gear = Features.byName.gear
+      return gear ~= nil and gear.serverTakeFound ~= nil and gear:serverTakeFound(server, player, key:sub(6))
+    end,
+    label = "+" .. Tiers.named(piece.title, tier),
+    color = piece.color,
+    pitch = 0.7,
+  }
+end
+
 --- The kind record for a kind key: the fixed ones, or an ammo box, an
---- ability, a material crate or a vest made (and kept) on first sight.
+--- ability, a material crate, a vest or a piece of clothing made (and kept)
+--- on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
   if not kind and key:match("^ammo%-") then
@@ -213,6 +237,9 @@ local function kindOf(key)
     KINDS[key] = kind
   elseif not kind and key:match("^armor%-") then
     kind = armorKind(key)
+    KINDS[key] = kind
+  elseif not kind and key:match("^gear%-") then
+    kind = gearKind(key)
     KINDS[key] = kind
   end
   return kind
@@ -280,6 +307,10 @@ KINDS.stamina = {
 Pickups.items = {} -- id -> { kind, x, y }
 Pickups.floats = {} -- { x, y, text, t }
 local time = 0
+local GOLD = { 1, 0.84, 0.3 } -- a reward's rings and tag
+local REWARD_RINGS = 3 -- rings rippling out at once
+local REWARD_RIPPLE = 1.4 -- seconds one takes to ripple out
+local REWARD_REACH = 46 -- px past the glow a ring gets before it is gone
 
 function Pickups:load()
   Sounds.load()
@@ -421,11 +452,11 @@ local function drawMaterial(x, y, t, key)
   Render.itemIcon(key, x, y)
 end
 
---- A vest on the road: the bag's picture of it, bobbing a little over a
---- soft glow in the vest's colour, ringed in its tier's.
+--- A vest (or a piece of clothing) on the road: the bag's picture of it,
+--- bobbing a little over a soft glow in its colour, ringed in its tier's.
 local function drawVest(x, y, t, key)
   local base, tier = Tiers.split(key)
-  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""]
+  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""] or GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
   local c = vest and vest.color or { 0.5, 0.6, 0.9 }
   local tc = Tiers.color(tier)
   local pulse = 0.5 + 0.5 * math.sin(t * 4)
@@ -482,11 +513,12 @@ end
 local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade, ["grenade-electric"] = drawElectric }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
---- orb for any ability, a crate for a material, the vest for any armor.
+--- orb for any ability, a crate for a material, the vest for any armor or
+--- clothing.
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
     or ((BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) and drawMaterial)
-    or (key:match("^armor%-") and drawVest) or nil
+    or ((key:match("^armor%-") or key:match("^gear%-")) and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -497,17 +529,77 @@ local function labelOf(kind, item)
   return kind.label
 end
 
+--- Is `it` a boss's reward I haven't unlocked yet (the shop's
+--- `itemUnlocked`)? Only then is it drawn as new; once I have one, the
+--- next is drawn like any other pickup.
+local function isNew(it)
+  return it.reward and not Features.any("itemUnlocked", Tiers.base(it.kind))
+end
+
+--- A boss's reward (a `perPlayer` drop: Volt's grenades, the Mood
+--- Slayer's helmet), under its picture: a gold glow breathing and rings
+--- rippling out from it, so nobody walks past something new.
+local function drawRewardRings(x, y, t)
+  local pulse = 0.5 + 0.5 * math.sin(t * 5)
+  love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.1 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 30 + pulse * 6)
+  love.graphics.setLineWidth(3)
+  for k = 0, REWARD_RINGS - 1 do
+    local f = (t / REWARD_RIPPLE + k / REWARD_RINGS) % 1 -- 0 just out, 1 gone
+    love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.85 * (1 - f))
+    love.graphics.circle("line", x, y, 26 + f * REWARD_REACH)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- NEW over a reward, bobbing, over the cars so it is never hidden.
+local function drawRewardTag(x, y, t)
+  local font = UI.fonts.small
+  local w, h = font:getWidth("NEW") + 12, font:getHeight() + 4
+  local ty = y - 50 + math.sin(t * 3) * 3
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setColor(GOLD)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.rectangle("line", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(font)
+  love.graphics.printf("NEW", x - w / 2, ty - font:getHeight() / 2, w, "center")
+  love.graphics.polygon("fill", x - 4, ty + h / 2, x + 4, ty + h / 2, x, ty + h / 2 + 5) -- pointing down at it
+end
+
 function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
     local draw = drawerOf(it.kind)
     if draw then
+      if isNew(it) then
+        drawRewardRings(it.x, it.y, time)
+      end
       draw(it.x, it.y, time, it.kind)
     end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
+--- At night (the night feature) a reward lights its own patch of road and
+--- its rings, so it shows as plainly in the dark.
+function Pickups:drawNightLights(_client, _camera, glow)
+  for _, it in pairs(self.items) do
+    if isNew(it) then
+      local pulse = 0.5 + 0.5 * math.sin(time * 5)
+      glow(it.x, it.y, 90 + pulse * 20, GOLD, 0.6 + pulse * 0.3)
+      drawRewardRings(it.x, it.y, time)
+      glow(it.x, it.y - 50, 40, GOLD, 0.8) -- and its NEW
+    end
+  end
+end
+
 function Pickups:drawAboveCars()
+  for _, it in pairs(self.items) do
+    if isNew(it) then
+      drawRewardTag(it.x, it.y, time)
+    end
+  end
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
     local c = f.color
@@ -522,7 +614,7 @@ Pickups.clientMessages = {
     local id, kind = tonumber(args[1]), args[2]
     local x, y = tonumber(args[3]), tonumber(args[4])
     if id and kind and x and y then
-      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]) }
+      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]), reward = args[6] == "reward" }
     end
   end,
   PK_CLEAR = function()
@@ -622,7 +714,8 @@ function Pickups:serverDrop(server, kind, x, y, amount, opts)
     it.takenBy = {}
   end
   sv.items[id] = it
-  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
+  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or "",
+    it.perPlayer and "reward" or ""))
   return id
 end
 
@@ -761,7 +854,7 @@ function Pickups:serverPlayerJoined(server, player)
   for id, it in pairs(sv.items) do
     if not (it.takenBy and it.takenBy[player.id]) then
       server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
-        it.amount or ""))
+        it.amount or "", it.perPlayer and "reward" or ""))
     end
   end
 end

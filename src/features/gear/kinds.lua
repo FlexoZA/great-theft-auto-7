@@ -22,6 +22,9 @@
 --              out, every stat and resistance it has, sorted by name.
 --              Leave out a stat that is a drawback (x0.95 speed): a
 --              tier grows it like a bonus
+--   unlock  optional: true for a piece only won, never on the shelf until
+--           you have picked one up (a boss's drop, gear/init.lua): from
+--           then on the shop sells it to you
 
 local Kinds = {
   slots = { "head", "body", "pants", "shoes" },
@@ -77,6 +80,12 @@ local Kinds = {
       key = "ballistic-helmet", slot = "head", title = "ballistic helmet", color = { 0.3, 0.38, 0.28 },
       blurb = "bullets hurt a fifth less; blasts a little less", stats = {},
       resist = { bullet = 0.2, explosive = 0.1 }, tierStats = { "resist.bullet", "resist.explosive" },
+    },
+    {
+      -- The Mancouchbus drops it in Heck on Earth (eternal-mood/mancubus.lua).
+      key = "slayer-helmet", slot = "head", title = "Mood Slayer's helmet", color = { 0.34, 0.47, 0.25 },
+      blurb = "rockets and blasts hurt 30% less; fire a fifth less", stats = {},
+      resist = { explosive = 0.3, fire = 0.2 }, tierStats = { "resist.explosive", "resist.fire" }, unlock = true,
     },
     -- Body.
     {

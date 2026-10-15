@@ -27,7 +27,8 @@
 --           for a kind details.lua doesn't know
 --   bought  what the shop says once it is bought, for an `onRoad` thing
 --   unlock  true for something only on the shelf for a player who has
---           unlocked it (Volt's electric grenade): the feature that owns it
+--           unlocked it (Volt's electric grenade, a won piece of
+--           clothing): the feature that owns it
 --           answers `itemUnlocked(item)` on their screen and
 --           `serverItemUnlocked(server, player, item)` on the host
 --
@@ -77,6 +78,7 @@ local PRICES = {
   medkit = 20, drink = 12, grenade = 30, ["grenade-electric"] = 60,
   ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
   ["armor-ceramic-plates"] = 150,
+  ["gear-slayer-helmet"] = 120,
 }
 local DEFAULT = { gun = 100, ammo = 40, ability = 80, supply = 20, armor = 60, gear = 40, car = 150 }
 local CAR_MARKUP = 1.5
@@ -123,7 +125,8 @@ for _, a in ipairs(ArmorKinds.list) do
   add({ item = "armor-" .. a.key, n = 1, name = a.title, kind = "armor" })
 end
 for _, g in ipairs(GearKinds.list) do
-  add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", badge = g.slot })
+  -- A won piece (the Mood Slayer's helmet) only once you have picked one up (the gear feature's)
+  add({ item = "gear-" .. g.key, n = 1, name = g.title, kind = "gear", badge = g.slot, unlock = g.unlock })
 end
 for _, model in ipairs(Vehicles.list) do
   local price = model.price and math.floor(model.price * CAR_MARKUP / 10 + 0.5) * 10
