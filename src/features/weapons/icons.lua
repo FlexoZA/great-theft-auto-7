@@ -55,6 +55,28 @@ local function pistol()
   box(10, -14, 2, 2.5, DARK, 0.3) -- front sight
 end
 
+--- The SMG: a compact black 9mm with a retracted stock, a curved magazine
+--- forward of the grip, a ribbed handguard and a short barrel.
+local function smg()
+  love.graphics.translate(2, -3) -- the magazine hangs low: keep the whole gun centred
+  box(-33, -7, 3, 11, BLACK, 0.5) -- the stock's butt plate
+  line(STEEL, 0.9, 1.5, -30, -5, -14, -5) -- its rails, slid in
+  line(STEEL, 0.9, 1.5, -30, 2, -14, 2)
+  poly(DARK, 1, 2, 7, 2, 12, 18, 6, 19.5) -- the curved magazine
+  strokes(DARK, 0.7, 3, 4, 6, 3, 4) -- its ribs
+  poly(BLACK, -11, 2, -4, 2, -5.5, 15, -12, 14) -- pistol grip
+  triggerGuard(-1, 3, 3.5)
+  line(STEEL, 0.8, 1.5, -1.5, 3, -2, 6.5) -- trigger
+  box(-15, -8, 32, 11, BLACK, 1.5) -- receiver
+  box(17, -7, 12, 9, DARK, 1) -- handguard
+  strokes(DARK, 0.6, 4, 19, -5.5, 2.6, 5.5, true) -- its grooves
+  box(29, -4.5, 6, 3.5, STEEL, 0.5) -- barrel
+  line(STEEL, 0.8, 1.2, -8, -9.5, 22, -9.5) -- the cocking tube along the top
+  box(25, -12, 2, 4, BLACK, 0.3) -- front sight
+  set(BLACK)
+  love.graphics.circle("fill", -10, -10.5, 2.2) -- the rear drum sight
+end
+
 local function uzi()
   love.graphics.translate(0, -4) -- the magazine hangs low: keep the whole gun centred
   box(-27, -8, 3.5, 11, DARK, 0.5) -- the folded stock's butt plate
@@ -281,8 +303,8 @@ local function turret()
 end
 
 local DRAW = {
-  pistol = pistol, uzi = uzi, rocket = rocket, ak47 = ak47, shotgun = shotgun, ["super-shotgun"] = superShotgun,
-  sniper = sniper,
+  pistol = pistol, uzi = uzi, smg = smg, rocket = rocket, ak47 = ak47, shotgun = shotgun,
+  ["super-shotgun"] = superShotgun, sniper = sniper,
   flamethrower = flamethrower, minigun = minigun, turret = turret,
 }
 

@@ -201,7 +201,8 @@ local function gear(entry, tier)
 end
 
 local function ammo(entry)
-  local g = Guns[entry.item:sub(6)]
+  local t = Guns.ammoTypeOf[entry.item]
+  local g = t and t.gun or Guns[entry.item:sub(6)]
   return {
     blurb = ("Rounds for the %s, loaded a magazine at a time when you reload."):format(g.name),
     use = "It goes into your bag; reloading takes from it.",

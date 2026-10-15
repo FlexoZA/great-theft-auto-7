@@ -525,9 +525,14 @@ couple of small conventions rather than requiring each other:
   item, n)`. A gun marked `bottomless` (the pistol) reloads from nowhere:
   there is no ammo item for it, and the shop, the ammo factory and the
   police drops leave it out. A gun with `ammo` fires another gun's rounds
-  (the super shotgun's are `"ammo-shotgun"`): `Guns.ammoItem(gun)` is the
-  item, it has none of its own, and an enemy's ammo box counts it as
-  carrying that gun. `weapons:serverFire` counts rounds for human
+  (the super shotgun's are `"ammo-shotgun"`, the SMG's the pistol's 9mm,
+  `"ammo-pistol"`): `Guns.ammoItem(gun)` is the item, it has none of its
+  own, and an enemy's ammo box counts it as carrying that gun. Which ammo
+  items exist at all is `Guns.ammoTypes` (each `item`, its `owner` gun and
+  the `gun` whose magazine sizes a box): one per gun firing rounds from the
+  bag, so the bottomless pistol's 9mm is an item because the SMG fires it.
+  The shop, the ammo factory, enemies' boxes and the ammo crates all read
+  that list. `weapons:serverFire` counts rounds for human
   players only; a player with `bot = true` (bots, police) and
   `serverFireFrom` never run dry.
 - Ammo crates: `src/features/ammo-crates` scatters `COUNT` (5) military
@@ -542,10 +547,11 @@ couple of small conventions rather than requiring each other:
   stays open and empty until the map changes. Rounds a gun borrows
   (`ammo`) and won guns are never in a crate.
 - Won guns: a gun marked `unlock` (the super shotgun: 12 pellets, double a
-  shotgun's reach, a 10-shell magazine) is never made by a factory, never
-  in an enemy's hands (City 17's loadout leaves it out unless it is
-  listed), and only on the shop's shelf once you have one. The Baron of
-  Heck drops one for every player (pickups' `perPlayer`, kind
+  shotgun's reach, a 10-shell magazine; the SMG) is never made by a
+  factory, never in an enemy's hands (City 17's loadout leaves it out
+  unless it is listed: the SMG is), and only on the shop's shelf once you
+  have one; its rounds are sold all the same. The Baron of Heck drops the
+  super shotgun and the Hunter-Chopper the SMG, one for every player (pickups' `perPlayer`, kind
   `"gun-<key>"`); walking over it calls `weapons:serverTakeFound`: into the
   bag with a magazine's worth of its rounds (or an empty weapon slot when
   the bag is full), and the first time `WPN_UNLOCK <key>` to that player,
@@ -1204,7 +1210,9 @@ the one with a plot.
   ground: a 150 px blast of its own (60 at the middle), 40 koins,
   `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
   star comes up by the wreck, which burns there (`HC_DOWN`) until the map
-  changes. It calls for help as it is hurt (`HunterChopper.waves`, each
+  changes. It drops the SMG for every player (`HunterChopper.GUN`, a won
+  gun) on the nearest reachable ring round the wreck (`GUN_AWAY`), clear
+  of the canal and the EXIT star. It calls for help as it is hurt (`HunterChopper.waves`, each
   once, checked every host tick): at 80% health Combine soldiers are set
   down on clear ground round the spot under it, 3 sets of 3 (for one
   human, more with more: `Bosses.count`) 8 s apart, each under wherever it

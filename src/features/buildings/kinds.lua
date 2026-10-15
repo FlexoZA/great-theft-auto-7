@@ -4,8 +4,9 @@
 --   iron, sulfur, minerals,  raw materials, dug out of a quarry
 --   copper
 --   oil, plastic             pumped (and refined) by an oil well
---   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi"); none
---                            for a `bottomless` gun (the pistol never runs out)
+--   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi"), one per
+--                            `Guns.ammoTypes`: "ammo-pistol" is 9mm, for the SMG (the
+--                            pistol itself never runs out)
 --   gun-<gun>                a gun ("gun-uzi")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
@@ -115,10 +116,10 @@ function Kinds.room(inventory, slots, item)
 end
 
 local gunAmmo, gunItems = {}, {}
+for _, t in ipairs(Guns.ammoTypes) do -- every ammo item there is: 9mm, not the pistol's alone
+  gunAmmo[#gunAmmo + 1] = t.item
+end
 for _, gun in ipairs(Guns.list) do
-  if not (gun.bottomless or gun.ammo) then
-    gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
-  end
   if not gun.unlock then -- a won gun is never made
     gunItems[#gunItems + 1] = "gun-" .. gun.key
   end
@@ -480,6 +481,8 @@ function Kinds.carriable(item)
     return ArmorKinds.byKey[armor] ~= nil
   elseif gear then
     return GearKinds.byKey[gear] ~= nil
+  elseif item:match("^gun%-") then
+    return type(Guns[item:sub(5)]) == "table" -- any gun, made or won (the super shotgun)
   end
   return Kinds.isItem(item) and not Kinds.isVehicle(item)
 end
