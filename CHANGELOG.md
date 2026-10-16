@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- Enemies' uzi rounds (Cyber Feud's troops, stings, turrets, interceptors and drones, the Hunters, A-Man's turrets,
+  the Bent Cops) disappeared on screen after about 360 px while they flew on and hit you from further away. They are
+  drawn all the way now. A better tier's flamethrower flame is drawn as long as it really reaches too.
+
 ## [0.29.8] - 2026-10-16
 
 Eternal Mood gets its polish: walls that look solid and cast shadows, lava that flows with ragged shores, and every level filled out; and the uzi becomes a close-range 9mm sprayer.

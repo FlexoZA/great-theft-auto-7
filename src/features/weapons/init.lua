@@ -120,11 +120,13 @@
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>]
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>] [<ttl>]
 --                                              (quiet 1: a pellet after the first, or a gun
 --                                              that makes its own noise (`quiet`); no sound;
 --                                              tint: the streak's colour as rrggbb hex, from
---                                              the gun table's `tint`, for a gun a boss carries)
+--                                              the gun table's `tint`, for a gun a boss carries;
+--                                              ttl: seconds it flies, only when that isn't its
+--                                              gun's own: an enemy's uzi, a better tier's flame)
 --   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
@@ -757,7 +759,8 @@ function Weapons:update(dt, client, camera)
     p.x = p.x + p.vx * dt
     p.y = p.y + p.vy * dt
     p.age = p.age + dt
-    local spent = p.age > (gun.ttl or PROJECTILE_TTL) or blocked(p.x, p.y)
+    local ttl = p.ttl or gun.ttl or PROJECTILE_TTL -- the host's word on how far it flies, when it gave one
+    local spent = p.age > ttl or blocked(p.x, p.y)
     if gun.blast then
       Rockets.trail(p, dt)
       -- A missile goes off when the host says so (WPN_BOOM); until then it
@@ -765,12 +768,12 @@ function Weapons:update(dt, client, camera)
       if spent then
         p.vx, p.vy = 0, 0
       end
-      if p.age > (gun.ttl or PROJECTILE_TTL) + 1 then
+      if p.age > ttl + 1 then
         self.projectiles[pid] = nil
       end
     elseif spent then
       -- A bullet into a wall chips it (one pellet a blast, and not fire).
-      if not (gun.flame or p.quiet) and p.age <= (gun.ttl or PROJECTILE_TTL) then
+      if not (gun.flame or p.quiet) and p.age <= ttl then
         Sounds.play("hit-wall", p.x, p.y, 0.9 + love.math.random() * 0.2)
       end
       self.projectiles[pid] = nil
@@ -824,7 +827,7 @@ end
 --- A tongue of fire (a flamethrower's round): small, white-hot and quick at
 --- the nozzle, swelling and reddening as it goes, a wisp of smoke at the end.
 local function drawFlame(p, gun)
-  local k = math.min(1, p.age / (gun.ttl or PROJECTILE_TTL))
+  local k = math.min(1, p.age / (p.ttl or gun.ttl or PROJECTILE_TTL))
   local r = 6 + 16 * k
   local wobble = math.sin(p.age * 40 + p.x * 0.1) * 2
   -- A puff trailing behind each tongue, so a stream of them reads as one jet.
@@ -1388,7 +1391,7 @@ Weapons.clientMessages = {
       end
       Weapons.projectiles[pid] = {
         x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
-        quiet = quiet, tint = tint,
+        quiet = quiet, tint = tint, ttl = tonumber(args[10]),
       }
       if not quiet and Sounds.loops(gun.sound) then
         Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
@@ -1837,8 +1840,13 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
     }
     local fields = { pid, ownerId, ("%.1f"):format(x), ("%.1f"):format(y), ("%.1f"):format(vx),
       ("%.1f"):format(vy), gun.index, (pellet > 1 or gun.quiet) and 1 or 0 }
-    fields[#fields + 1] = gun.tint -- only a gun with a colour of its own sends one
-    server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields)))
+    fields[9] = gun.tint or "" -- only a gun with a colour of its own sends one
+    local base = Guns.at(gun.index)
+    if (gun.ttl or PROJECTILE_TTL) ~= (base.ttl or PROJECTILE_TTL) then -- so it's drawn as far as it flies
+      fields[10] = ("%.2f"):format(gun.ttl or PROJECTILE_TTL)
+    end
+    local n = fields[10] and 10 or (gun.tint and 9 or 8) -- the plain shot as short as ever
+    server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields, 1, n)))
   end
   -- `player` is nil for an ownerless shot; features that listen must allow it.
   Features.call("serverShotFired", server, server.players[ownerId], x, y)
