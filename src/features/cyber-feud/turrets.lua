@@ -30,6 +30,8 @@ local Tiers = require("src.features.tiers")
 local Sight = require("src.features.d-day.sight")
 local Brain = require("src.features.cyber-feud.turret_brain")
 
+local UZI_TTL = 1.2 -- its uzi's rounds fly the full way (weapons' default): the player's uzi is close-range only
+
 local Turrets = {}
 
 -- Tuning ------------------------------------------------------------------
@@ -81,7 +83,8 @@ local function fire(server, t, aim)
   local tint = t.breachedBy and "6dff9a" or "ff3ec8"
   if not guns[tint] then
     local base = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-    guns[tint] = setmetatable({ damage = Turrets.damage, tint = tint, spread = 0.04 }, { __index = base })
+    guns[tint] = setmetatable({ damage = Turrets.damage, tint = tint, spread = 0.04, ttl = UZI_TTL },
+      { __index = base })
   end
   local x, y = t.x + math.cos(aim) * 22, t.y + math.sin(aim) * 22
   if t.breachedBy then

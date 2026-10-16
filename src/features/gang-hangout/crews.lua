@@ -58,10 +58,13 @@ for i, crew in ipairs(Crews.list) do
   local gun = Guns[crew.gun]
   crew.level = i
   crew.arms = Tiers.apply(gun, Tiers.DEFAULT)
+  if gun == Guns.uzi then -- the full flight: the player's uzi is close-range only, theirs isn't
+    crew.arms = setmetatable({ ttl = ROUND_TTL }, { __index = crew.arms })
+  end
   crew.gunIndex = gun.index
   crew.gunName = gun.name
   -- A little short of where its rounds give out, and never further than a cop shoots.
-  crew.reach = math.min(520, gun.speed * (gun.ttl or ROUND_TTL) * 0.85)
+  crew.reach = math.min(520, crew.arms.speed * (crew.arms.ttl or ROUND_TTL) * 0.85)
   crew.look.gun = true
   crew.look.gunLength = HELD[crew.gun] or 15
   -- Damage a second while firing, every pellet landing: what the menu shows.

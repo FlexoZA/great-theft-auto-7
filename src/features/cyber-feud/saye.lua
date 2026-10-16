@@ -38,6 +38,8 @@ local Hud = require("src.features.cyber-feud.hud")
 local Turrets = require("src.features.cyber-feud.turrets")
 local Duo = require("src.features.cyber-feud.duo")
 
+local UZI_TTL = 1.2 -- its uzi's rounds fly the full way (weapons' default): the player's uzi is close-range only
+
 local Saye = {}
 Saye.__index = Saye
 
@@ -228,7 +230,8 @@ function Saye:stepDrones(server, dt, events)
         local weapons = Features.byName.weapons
         if not droneGun then
           local base = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-          droneGun = setmetatable({ damage = Saye.DRONE_DAMAGE, tint = "ff3ec8", spread = 0.06 }, { __index = base })
+          droneGun = setmetatable({ damage = Saye.DRONE_DAMAGE, tint = "ff3ec8", spread = 0.06, ttl = UZI_TTL },
+            { __index = base })
         end
         local aim = math.atan2(by - d.y, bx - d.x)
         if weapons and weapons.serverFireFrom then
