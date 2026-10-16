@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.6] - 2026-10-16
+
+Eternal Mood's demons sharpen up: the Baron of Heck is half the size and harder to hit, the Cacodaemons look ahead with a meaner face, and the shuttle's engines point the right way.
+
 ### Changed
 - The Baron of Heck is half the size (hitbox 30 -> 15 px), so he's harder to hit and gets clear of your rounds more
   easily. His claw reach (95 -> 65 px) and charge hit (46 -> 31 px) shrink with him.
