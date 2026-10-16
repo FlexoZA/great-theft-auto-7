@@ -377,23 +377,38 @@ local function drawWall(s, t)
     return
   end
   local across = s.w >= s.h
-  if s.look == "bone" then
+  if s.look == "bone" then -- heaped bones and skulls, settling and falling apart as it opens
     local h = s.h * (1 - k)
-    love.graphics.setColor(0, 0, 0, 0.4)
-    love.graphics.rectangle("fill", s.x + 6, s.y + 8, s.w, h)
-    love.graphics.setColor(0.30, 0.10, 0.07)
-    love.graphics.rectangle("fill", s.x, s.y, s.w, h)
-    love.graphics.setColor(BONE)
-    for x = s.x + 6, s.x + s.w - 10, 14 do -- ribs and long bones, stacked
-      for y = s.y + 4, s.y + h - 8, 12 do
-        local tilt = ((x + y) / 14) % 2 < 1 and 3 or -3
-        love.graphics.setLineWidth(4)
-        love.graphics.line(x, y + 4 - tilt, x + 10, y + 4 + tilt)
+    local y0 = s.y + s.h - h
+    love.graphics.setColor(0, 0, 0, 0.45)
+    love.graphics.rectangle("fill", s.x + 6, y0 + 10, s.w, h)
+    love.graphics.setColor(0.24, 0.08, 0.06)
+    love.graphics.rectangle("fill", s.x, y0, s.w, h, 6)
+    for x = s.x + 4, s.x + s.w - 16, 18 do -- long bones heaped every which way
+      for row = 0, 2 do
+        local y = y0 + 8 + row * (h - 14) / 3
+        if y < s.y + s.h - 8 then
+          local tilt = ((x / 18 + row) % 3 - 1) * 5
+          love.graphics.setColor(BONE[1] * (0.8 + row * 0.1), BONE[2] * (0.8 + row * 0.1), BONE[3] * (0.8 + row * 0.1))
+          love.graphics.setLineWidth(5)
+          love.graphics.line(x, y - tilt, x + 16, y + tilt)
+          love.graphics.circle("fill", x, y - tilt, 3.5, 6)
+          love.graphics.circle("fill", x + 16, y + tilt, 3.5, 6)
+        end
       end
     end
     love.graphics.setLineWidth(1)
-    love.graphics.setColor(RED[1], RED[2], RED[3], 0.6 + 0.3 * math.sin(clock * 3)) -- Heck glowing through it
-    love.graphics.rectangle("fill", s.x, s.y + h - 4, s.w, 4)
+    for x = s.x + 30, s.x + s.w - 30, 74 do -- skulls set into it
+      local y = y0 + h * 0.45
+      love.graphics.setColor(BONE)
+      love.graphics.circle("fill", x, y, 9, 12)
+      love.graphics.rectangle("fill", x - 5, y + 5, 10, 6, 2)
+      love.graphics.setColor(RED[1], RED[2], RED[3], 0.6 + 0.4 * math.sin(clock * 3 + x)) -- Heck looking out of it
+      love.graphics.circle("fill", x - 3.5, y - 1, 2.2, 6)
+      love.graphics.circle("fill", x + 3.5, y - 1, 2.2, 6)
+    end
+    love.graphics.setColor(RED[1], RED[2], RED[3], 0.5 + 0.3 * math.sin(clock * 3)) -- glowing at its foot
+    love.graphics.rectangle("fill", s.x, s.y + s.h - 4, s.w, 4)
     return
   end
   -- A shutter: steel, hazard stripes at its leading edge, the lock light.
