@@ -20,6 +20,8 @@ local Traffic = require("src.features.bots.traffic")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 
+local UZI_TTL = 1.2 -- its uzi's rounds fly the full way (weapons' default): the player's uzi is close-range only
+
 local Brain = {}
 
 Brain.SPOT = 900 -- px; a player this near and in sight wakes it
@@ -51,7 +53,8 @@ local gun = nil
 --- The officer's SMG: an uzi, a little lighter, in Halcyon's magenta.
 local function smg()
   if not gun then
-    gun = setmetatable({ damage = Brain.DAMAGE, tint = "ff3ec8" }, { __index = Tiers.apply(Guns.uzi, Tiers.DEFAULT) })
+    gun = setmetatable({ damage = Brain.DAMAGE, tint = "ff3ec8", ttl = UZI_TTL },
+      { __index = Tiers.apply(Guns.uzi, Tiers.DEFAULT) })
   end
   return gun
 end

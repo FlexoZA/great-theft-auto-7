@@ -26,6 +26,8 @@ local Bosses = require("src.features.bosses")
 local Brain = require("src.features.cyber-feud.sting_brain")
 local Rooms = require("src.features.cyber-feud.rooms")
 
+local UZI_TTL = 1.2 -- its uzi's rounds fly the full way (weapons' default): the player's uzi is close-range only
+
 local Stings = {}
 
 -- Tuning ------------------------------------------------------------------
@@ -68,7 +70,7 @@ local function fire(server, s, aim)
   end
   if not gun then
     local base = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-    gun = setmetatable({ damage = Stings.damage, tint = "ff3ec8", spread = 0.05 }, { __index = base })
+    gun = setmetatable({ damage = Stings.damage, tint = "ff3ec8", spread = 0.05, ttl = UZI_TTL }, { __index = base })
   end
   local x, y = s.x + math.cos(aim) * 12, s.y + math.sin(aim) * 12
   weapons:serverFireFrom(server, 0, x, y, aim, gun, "halcyon")

@@ -254,71 +254,163 @@ local function isWalk(map, c, r)
   return col and col[r] ~= nil
 end
 
---- A tile of the moon: grey dust, a crater now and then, a rock.
-local function moonTile(x, y, T, h)
-  color(h < 0.5 and C.dust or C.dustDark)
-  love.graphics.rectangle("fill", x, y, T, T)
-  if h > 0.82 then
-    local r = 10 + (h - 0.82) * 120
-    local cx, cy = x + T / 2, y + T / 2
-    color(C.craterRim)
-    love.graphics.circle("fill", cx - 2, cy - 2, r + 3, 16)
-    color(C.crater)
-    love.graphics.circle("fill", cx, cy, r, 16)
-  elseif h < 0.1 then
-    color(C.crater)
-    love.graphics.circle("fill", x + 14 + h * 300, y + 40, 5, 8)
+-- Outside -------------------------------------------------------------------
+
+-- What lies past a map's walls is drawn in three passes so nothing in it
+-- shows a tile's edge: one colour under everything, then soft blotches of
+-- a second colour that run across the tiles (from a smooth noise), then
+-- the grain and the odd thing lying there, tile by tile.
+local OUTSIDE = {
+  moon = { base = "dust", blotch = "dustDark", grain = "crater" },
+  tarmac = { base = "tarmac", blotch = "tarmacDark", grain = "black" },
+  waste = { base = "waste", blotch = "wasteDark", grain = "concreteDark" },
+}
+
+--- A soft blotch of `c` round (x, y): rings fading out from the middle.
+local function blotch(c, x, y, r, a)
+  for k = 3, 1, -1 do
+    color(c, a * (4 - k) / 3)
+    love.graphics.circle("fill", x, y, r * k / 3, 18)
   end
 end
 
---- A tile of the starport's tarmac (the Foundry's outside): dark, painted lines now and then.
-local function tarmacTile(x, y, T, h)
-  color(h < 0.5 and C.tarmac or C.tarmacDark)
-  love.graphics.rectangle("fill", x, y, T, T)
-  if h > 0.85 then
-    color(C.hazard, 0.5)
-    love.graphics.rectangle("fill", x, y + T / 2 - 3, T, 6)
+--- The blotches over the outside tile at (x, y): wherever the noise is high.
+local function outsideBlotches(look, x, y, T)
+  local n = love.math.noise(x / 700, y / 700)
+  if n > 0.45 then
+    blotch(C[look.blotch], x + T / 2, y + T / 2, T * (0.6 + n * 0.6), 0.5 * (n - 0.45) / 0.55 + 0.25)
   end
 end
 
---- A tile of Heck's abyss past its edge: dark, a red glow far below.
-local function abyssTile(x, y, T, h)
-  love.graphics.setColor(0.10 + h * 0.04, 0.02, 0.02)
-  love.graphics.rectangle("fill", x, y, T, T)
-  if h > 0.8 then
-    love.graphics.setColor(0.45, 0.08, 0.02, 0.6)
-    love.graphics.circle("fill", x + T / 2, y + T / 2, 6 + h * 10, 10)
+--- The grain on the outside tile at (x, y), and what lies there by `look`.
+local function outsideGrain(look, kind, x, y, T, h)
+  color(C[look.grain], 0.35)
+  for k = 0, 9 do
+    local s = 2 + hash(h * 5 + k) * 3
+    love.graphics.rectangle("fill", x + hash(h * 13 + k) * (T - s), y + hash(h * 29 + k) * (T - s), s, s)
+  end
+  if kind == "moon" then -- craters now and then, a pebble
+    if h > 0.86 then
+      local r = 10 + (h - 0.86) * 160
+      local cx, cy = x + T / 2 + (hash(h * 3) - 0.5) * 20, y + T / 2 + (hash(h * 7) - 0.5) * 20
+      color(C.craterRim)
+      love.graphics.circle("fill", cx - 2, cy - 2, r + 3, 18)
+      color(C.crater)
+      love.graphics.circle("fill", cx, cy, r, 18)
+      color(C.shadow) -- the inside of the far rim, out of the light
+      love.graphics.arc("fill", cx, cy, r, math.pi * 1.1, math.pi * 1.9, 10)
+    elseif h < 0.12 then
+      color(C.craterRim)
+      love.graphics.circle("fill", x + 10 + h * 360, y + 12 + h * 300, 3, 6)
+    end
+  elseif kind == "tarmac" then -- slab joints every other tile, an oil stain now and then
+    local c, r = math.floor(x / T), math.floor(y / T)
+    color(C.black, 0.45)
+    if c % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, 2, T)
+    end
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, T, 2)
+    end
+    if h > 0.88 then
+      love.graphics.setColor(0, 0, 0, 0.22)
+      love.graphics.ellipse("fill", x + 16 + h * 30, y + 30, 14 + h * 12, 9, 12)
+    end
+  else -- waste ground: ash, rubble, a burnt stump now and then
+    if h > 0.7 then
+      color(C.concreteDark)
+      local rx, ry = x + hash(h * 17) * (T - 16), y + hash(h * 23) * (T - 12)
+      love.graphics.polygon("fill", rx, ry + 6, rx + 7, ry, rx + 14, ry + 4, rx + 10, ry + 11, rx + 2, ry + 12)
+    end
+    if h < 0.06 then
+      color(C.char)
+      love.graphics.circle("fill", x + T / 2, y + T / 2, 6, 8)
+    end
   end
 end
 
---- A tile of wall gone to Heck's rock (the Foundry's north half): lumps, cracks, a lit edge.
-local function rockWallTile(map, c, r, x, y, T)
+--- A tile of Heck's abyss past its edge: dark, a red glow far below
+--- breathing through it in soft patches.
+local function abyssTile(x, y, T)
+  love.graphics.setColor(0.09, 0.02, 0.02)
+  love.graphics.rectangle("fill", x, y, T, T)
+end
+
+local function abyssGlow(x, y, T, h)
+  local n = love.math.noise(x / 500, y / 500)
+  if n > 0.55 then
+    for k = 3, 1, -1 do
+      love.graphics.setColor(0.45, 0.08, 0.02, (n - 0.55) * 0.5 * (4 - k) / 3)
+      love.graphics.circle("fill", x + T / 2, y + T / 2, T * 0.9 * k / 3, 16)
+    end
+  end
+  if h > 0.9 then -- an ember drifting up
+    love.graphics.setColor(1, 0.4, 0.1, 0.5)
+    love.graphics.circle("fill", x + hash(h * 7) * T, y + hash(h * 11) * T, 2, 6)
+  end
+end
+
+-- Walls ----------------------------------------------------------------------
+
+-- The walls stand up out of the floor, lit from the top left as everything
+-- is: the top of a wall is its colour, darker the deeper into a thick wall
+-- it is; the side of it facing a floor to the south shows as a face
+-- (FACE px, a lit lip over it), and it throws a shadow across the floor to
+-- its south (SHADOW_S px) and east (SHADOW_E px). So a wall reads as
+-- something no round goes over.
+local FACE, SHADOW_S, SHADOW_E = 18, 36, 16
+local ROCK_FACE = 26 -- Heck's rock stands taller and rougher
+
+--- How deep into a wall tile (c, r) is: 0 next to a floor, more further in.
+local function depth(map, c, r)
+  for d = 1, 2 do
+    for dc = -d, d do
+      for dr = -d, d do
+        if isWalk(map, c + dc, r + dr) then
+          return d - 1
+        end
+      end
+    end
+  end
+  return 2
+end
+
+--- A tile of wall gone to Heck's rock: lumps and ridges, a bone now and
+--- then caught in it, every one its own way.
+local function rockWallTop(c, r, x, y, T)
   local h = hash(c * 3.7 + r * 5.3)
-  color(C.rockWall)
+  love.graphics.setColor(C.rockWall[1] * 0.72, C.rockWall[2] * 0.72, C.rockWall[3] * 0.72) -- darker than the floor
   love.graphics.rectangle("fill", x, y, T, T)
   color(C.rockWallDark)
-  for k = 0, 3 do
-    love.graphics.circle("fill", x + 8 + hash(h + k) * (T - 16), y + 8 + hash(h * 2 + k) * (T - 16), 6 + k, 8)
+  for k = 0, 4 do
+    local rx, ry = x + 6 + hash(h + k) * (T - 12), y + 6 + hash(h * 2 + k) * (T - 12)
+    love.graphics.ellipse("fill", rx, ry, 5 + hash(h * 3 + k) * 6, 4 + hash(h * 5 + k) * 4, 8)
   end
-  color(C.bone, 0.6)
-  if h > 0.75 then -- a bone sticking out of it
-    love.graphics.rectangle("fill", x + 10, y + T / 2, T - 20, 5, 2)
-    love.graphics.circle("fill", x + 10, y + T / 2 + 2, 4, 6)
-    love.graphics.circle("fill", x + T - 10, y + T / 2 + 2, 4, 6)
+  love.graphics.setColor(C.rockWall[1] * 1.25, C.rockWall[2] * 1.2, C.rockWall[3] * 1.2) -- ridges catching the light
+  love.graphics.setLineWidth(2)
+  local px, py = x + hash(h * 9) * T, y
+  for k = 1, 3 do
+    local nx, ny = x + hash(h * 13 + k) * T, y + k * T / 3
+    love.graphics.line(px, py, nx, ny)
+    px, py = nx, ny
   end
-  love.graphics.setColor(0.7, 0.2, 0.05, 0.8)
-  if isWalk(map, c, r + 1) then
-    love.graphics.rectangle("fill", x, y + T - 4, T, 4)
+  love.graphics.setLineWidth(1)
+  if h > 0.88 then -- a bone caught in it, at its own angle and length
+    local a, len = hash(h * 17) * math.pi, 18 + hash(h * 19) * 20
+    local cx, cy = x + T / 2, y + T / 2
+    local dx, dy = math.cos(a) * len / 2, math.sin(a) * len / 2
+    color(C.bone, 0.7)
+    love.graphics.setLineWidth(4)
+    love.graphics.line(cx - dx, cy - dy, cx + dx, cy + dy)
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("fill", cx - dx, cy - dy, 3.5, 6)
+    love.graphics.circle("fill", cx + dx, cy + dy, 3.5, 6)
   end
 end
 
---- A tile of the base's wall: dark steel panels, its seams, and a lit trim
---- along every side that faces a floor, a shadow cast onto the floor south.
-local function wallTile(map, c, r, x, y, T)
-  if map.heckFrom and y < map.heckFrom then
-    rockWallTile(map, c, r, x, y, T)
-    return
-  end
+--- A tile of the base's wall from above: dark steel panels, their seams,
+--- a bolt at two corners; a vent or a run of conduit now and then deep in.
+local function steelWallTop(c, r, x, y, T, d)
   color(C.wall)
   love.graphics.rectangle("fill", x, y, T, T)
   color(C.wallSeam)
@@ -327,50 +419,141 @@ local function wallTile(map, c, r, x, y, T)
   color(C.wallTop)
   love.graphics.rectangle("fill", x + 4, y + 4, 6, 6)
   love.graphics.rectangle("fill", x + T - 10, y + T - 10, 6, 6)
-  color(C.trim)
-  if isWalk(map, c, r + 1) then
-    love.graphics.rectangle("fill", x, y + T - 6, T, 6)
+  local h = hash(c * 5.9 + r * 2.3)
+  if d >= 2 and h > 0.85 then -- a vent in the roof
+    color(C.wallSeam)
+    love.graphics.rectangle("fill", x + 14, y + 18, T - 28, T - 36, 3)
+    color(C.wallTop)
+    for k = 0, 3 do
+      love.graphics.rectangle("fill", x + 17, y + 21 + k * 6, T - 34, 2)
+    end
+  elseif d >= 1 and h < 0.12 then -- conduit along it
+    color(C.steelDark)
+    love.graphics.rectangle("fill", x, y + 20, T, 8)
+    color(C.wallTop)
+    love.graphics.rectangle("fill", x, y + 20, T, 2)
   end
+end
+
+--- A tile of wall: its top, darker deeper in; a lit trim along the sides
+--- facing a floor; its face over a floor to the south.
+local function wallTile(map, c, r, x, y, T)
+  local rock = map.heckFrom and y < map.heckFrom
+  local d = depth(map, c, r)
+  if rock then
+    rockWallTop(c, r, x, y, T)
+  else
+    steelWallTop(c, r, x, y, T, d)
+  end
+  if d > 0 then -- deeper in, further from the light of the rooms
+    love.graphics.setColor(0, 0, 0, 0.12 * d)
+    love.graphics.rectangle("fill", x, y, T, T)
+  end
+  local lip = rock and { C.rockWall[1] * 1.6, C.rockWall[2] * 1.5, C.rockWall[3] * 1.5 } or C.trim
+  color(lip)
   if isWalk(map, c, r - 1) then
-    love.graphics.rectangle("fill", x, y, T, 4)
+    love.graphics.rectangle("fill", x, y, T, 3)
   end
   if isWalk(map, c - 1, r) then
-    love.graphics.rectangle("fill", x, y, 4, T)
+    love.graphics.rectangle("fill", x, y, 3, T)
   end
   if isWalk(map, c + 1, r) then
-    love.graphics.rectangle("fill", x + T - 4, y, 4, T)
+    love.graphics.setColor(0, 0, 0, 0.35)
+    love.graphics.rectangle("fill", x + T - 3, y, 3, T)
+  end
+  if isWalk(map, c, r + 1) then -- the face, down to the floor
+    if rock then
+      color(C.rockWallDark)
+    else
+      love.graphics.setColor(C.wall[1] * 0.7, C.wall[2] * 0.7, C.wall[3] * 0.7)
+    end
+    local face = rock and ROCK_FACE or FACE
+    love.graphics.rectangle("fill", x, y + T - face, T, face)
+    color(lip)
+    love.graphics.rectangle("fill", x, y + T - face - 3, T, 3)
+    if rock then
+      love.graphics.setColor(0.7, 0.2, 0.05, 0.8) -- Heck glowing at its foot
+      love.graphics.rectangle("fill", x, y + T - 3, T, 3)
+    else
+      color(C.wallSeam) -- the face's panel lines
+      for px = x + ((c % 2) * T / 2), x + T - 1, T / 2 do
+        love.graphics.rectangle("fill", px, y + T - FACE, 2, FACE)
+      end
+    end
+  end
+end
+
+--- The walls' shadows over the floor: south of a wall, and east of one.
+local function wallShadows(map, T)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if isWalk(map, c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        if not isWalk(map, c, r - 1) then
+          love.graphics.setColor(0, 0, 0, 0.4)
+          love.graphics.rectangle("fill", x, y, T, SHADOW_S * 0.55)
+          love.graphics.setColor(0, 0, 0, 0.2)
+          love.graphics.rectangle("fill", x, y + SHADOW_S * 0.55, T, SHADOW_S * 0.45)
+        end
+        if not isWalk(map, c - 1, r) then
+          love.graphics.setColor(0, 0, 0, 0.3)
+          love.graphics.rectangle("fill", x, y, SHADOW_E, T)
+        end
+      end
+    end
   end
 end
 
 local function drawGround(map, T)
+  local kind = map.outside == "tarmac" and "tarmac" or map.outside == "abyss" and "abyss" or "moon"
+  local look = OUTSIDE[kind]
+  local function outside(c, r)
+    local col = map.tiles[c]
+    local x, y = map.x0 + c * T, map.y0 + r * T
+    return not (col and col[r]) and not inBase(map, x, y), x, y
+  end
+  -- The outside: its colour, then the blotches across it, then its grain.
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local out, x, y = outside(c, r)
+      if out then
+        if look then
+          color(C[look.base])
+          love.graphics.rectangle("fill", x, y, T, T)
+        else
+          abyssTile(x, y, T)
+        end
+      end
+    end
+  end
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local out, x, y = outside(c, r)
+      if out then
+        local h = hash(c * 7.1 + r * 13.7)
+        if look then
+          outsideBlotches(look, x, y, T)
+          outsideGrain(look, kind, x, y, T, h)
+        else
+          abyssGlow(x, y, T, h)
+        end
+      end
+    end
+  end
+  -- The floors and the walls over it, then the walls' shadows.
   for c = map.c0, map.c1 do
     local col = map.tiles[c]
     for r = map.r0, map.r1 do
       local x, y = map.x0 + c * T, map.y0 + r * T
-      local h = hash(c * 7.1 + r * 13.7)
       if col and col[r] then
         local z = zoneAt(map, x + 1, y + 1)
-        floorTile(FLOORS[z and z.floor or "plate"], x, y, T, h)
+        floorTile(FLOORS[z and z.floor or "plate"], x, y, T, hash(c * 7.1 + r * 13.7))
       elseif inBase(map, x, y) then
         wallTile(map, c, r, x, y, T)
-      elseif map.outside == "tarmac" then
-        tarmacTile(x, y, T, h)
-      elseif map.outside == "abyss" then
-        abyssTile(x, y, T, h)
-      else
-        moonTile(x, y, T, h)
       end
     end
   end
-  -- The walls' shadow on the floor south of them.
-  color(C.shadow)
-  for c = map.c0, map.c1 do
-    for r = map.r0, map.r1 do
-      if isWalk(map, c, r) and not isWalk(map, c, r - 1) then
-        love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, 12)
-      end
-    end
-  end
+  wallShadows(map, T)
 end
 
 -- Heck on Earth's ground ---------------------------------------------------------
@@ -387,18 +570,12 @@ local function groundAt(map, x, y)
   return nil
 end
 
---- Burnt ground nobody built on, between the buildings.
-local function wasteTile(x, y, T, h)
-  color(h < 0.5 and C.waste or C.wasteDark)
-  love.graphics.rectangle("fill", x, y, T, T)
-  color(C.concreteDark)
-  for k = 0, 3 do
-    love.graphics.rectangle("fill", x + hash(h * 13 + k) * (T - 8), y + hash(h * 29 + k) * (T - 8), 8, 5)
-  end
-end
-
 -- The buildings' roofs, by style (eternal_mood.lua's `map.roofs`).
 local ROOFS = {}
+
+-- How tall each style stands, px: its shadow falls this far (south-east,
+-- lit from the top left). Hedges and ruins hardly stand at all.
+local ROOF_HEIGHT = { house = 26, tower = 64, warehouse = 30, overpass = 22, starport = 36, ruin = 10 }
 
 --- A house: a pitched roof, ridge across its long side, a chimney; holes
 --- burnt through it if it's on fire.
@@ -654,23 +831,45 @@ end
 --- The city's ground: every walked tile in its finish, burnt ground
 --- elsewhere, the buildings' shadows, and their roofs over it.
 local function drawCity(map, T)
-  for c = map.c0, map.c1 do
+  local look = OUTSIDE.waste
+  local function waste(c, r)
     local col = map.tiles[c]
-    for r = map.r0, map.r1 do
-      local x, y = map.x0 + c * T, map.y0 + r * T
-      local h = hash(c * 7.1 + r * 13.7)
-      if col and col[r] then
-        local z = groundAt(map, x + 1, y + 1)
-        floorTile(FLOORS[z and z.floor or "asphalt"], x, y, T, h)
-      else
-        wasteTile(x, y, T, h)
+    return not (col and col[r])
+  end
+  for pass = 1, 3 do -- the waste ground in three passes, as past a base's walls
+    for c = map.c0, map.c1 do
+      for r = map.r0, map.r1 do
+        if waste(c, r) then
+          local x, y = map.x0 + c * T, map.y0 + r * T
+          if pass == 1 then
+            color(C[look.base])
+            love.graphics.rectangle("fill", x, y, T, T)
+          elseif pass == 2 then
+            outsideBlotches(look, x, y, T)
+          else
+            outsideGrain(look, "waste", x, y, T, hash(c * 7.1 + r * 13.7))
+          end
+        end
       end
     end
   end
-  color(C.shadow)
-  for _, b in ipairs(map.roofs) do
-    if b.style ~= "hedge" then
-      love.graphics.rectangle("fill", b.x + 12, b.y + 16, b.w, b.h)
+  for c = map.c0, map.c1 do
+    local col = map.tiles[c]
+    for r = map.r0, map.r1 do
+      if col and col[r] then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        local z = groundAt(map, x + 1, y + 1)
+        floorTile(FLOORS[z and z.floor or "asphalt"], x, y, T, hash(c * 7.1 + r * 13.7))
+      end
+    end
+  end
+  for _, b in ipairs(map.roofs) do -- the shadows, as long as the building is tall
+    local tall = ROOF_HEIGHT[b.style] or 0
+    if tall > 0 then
+      love.graphics.setColor(0, 0, 0, 0.38)
+      love.graphics.rectangle("fill", b.x + tall * 0.5, b.y + tall * 0.6, b.w, b.h)
+      love.graphics.setColor(0, 0, 0, 0.18)
+      love.graphics.rectangle("fill", b.x + tall * 0.8, b.y + tall, b.w, b.h)
     end
   end
   for _, b in ipairs(map.roofs) do
@@ -2435,23 +2634,123 @@ function DRAW.vat(s, t)
   end
 end
 
---- A stretch of lava: the moat round the Crucible. Crust drifting, bright seams.
+-- A stretch of lava (the Foundry's moat, Heck's sea) is a rectangle, and
+-- several side by side make one body: only where an edge meets rock does it
+-- get a shore. Worked out once a map (`prepareLava`): each edge in SHORE_STEP
+-- px pieces, a piece a shore unless more lava lies just past it, each with
+-- how deep its crust runs in at either end.
+local SHORE_STEP = 32
+local CRUST_MIN, CRUST_MAX = 8, 26
+
+local function lavaAt(list, x, y)
+  for _, o in ipairs(list) do
+    if x >= o.x and x <= o.x + o.w and y >= o.y and y <= o.y + o.h then
+      return true
+    end
+  end
+  return false
+end
+
+--- Each stretch of `map`'s lava, its shore: { ax, ay, bx, by, nx, ny, da, db }
+--- pieces, (nx, ny) pointing into the lava, da and db the crust's depth.
+local function prepareLava(map)
+  if map.lavaShores then
+    return
+  end
+  map.lavaShores = true
+  local list = {}
+  for _, o in ipairs(map.cover) do
+    if o.kind == "lava" then
+      list[#list + 1] = o
+    end
+  end
+  local function depthAt(x, y)
+    return CRUST_MIN + hash(x * 0.37 + y * 0.71) * (CRUST_MAX - CRUST_MIN)
+  end
+  for _, o in ipairs(list) do
+    o.shore = {}
+    local edges = { -- start, end, the way in
+      { o.x, o.y, o.x + o.w, o.y, 0, 1 }, { o.x, o.y + o.h, o.x + o.w, o.y + o.h, 0, -1 },
+      { o.x, o.y, o.x, o.y + o.h, 1, 0 }, { o.x + o.w, o.y, o.x + o.w, o.y + o.h, -1, 0 },
+    }
+    for _, e in ipairs(edges) do
+      local len = math.max(math.abs(e[3] - e[1]), math.abs(e[4] - e[2]))
+      local n = math.max(1, math.floor(len / SHORE_STEP + 0.5))
+      for i = 0, n - 1 do
+        local ax, ay = e[1] + (e[3] - e[1]) * i / n, e[2] + (e[4] - e[2]) * i / n
+        local bx, by = e[1] + (e[3] - e[1]) * (i + 1) / n, e[2] + (e[4] - e[2]) * (i + 1) / n
+        local mx, my = (ax + bx) / 2 - e[5] * 4, (ay + by) / 2 - e[6] * 4 -- just past the edge
+        if not lavaAt(list, mx, my) then
+          o.shore[#o.shore + 1] = { ax, ay, bx, by, e[5], e[6], depthAt(ax, ay), depthAt(bx, by) }
+        end
+      end
+    end
+  end
+end
+
+--- A plate of crust: a lumpy polygon round (x, y), `r` across, its own shape.
+local function plate(x, y, r, seed)
+  local pts = {}
+  for k = 0, 5 do
+    local a = k / 6 * 2 * math.pi
+    local d = r * (0.7 + hash(seed + k * 1.9) * 0.5)
+    pts[#pts + 1], pts[#pts + 2] = x + math.cos(a) * d, y + math.sin(a) * d * 0.75
+  end
+  love.graphics.polygon("fill", pts)
+end
+
+--- A stretch of lava: molten, plates of crust drifting on a slow current,
+--- bright seams opening and closing; and where it meets rock a ragged
+--- shore of cooled crust with the heat showing along its edge.
 function DRAW.lava(s, t)
-  local m = molten(t, s.seed)
+  local m = molten(t, 0) -- one pulse for all of it: stretches side by side are one body
   love.graphics.setColor(1, 0.30 + 0.12 * m, 0.04)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  for k = 0, math.floor(s.w * s.h / 6000) do
-    local px = s.x + (hash(s.seed + k) * s.w + t * 8 * (k % 2 == 0 and 1 or -1)) % s.w
-    local py = s.y + hash(s.seed * 3 + k) * s.h
-    color(C.crust)
-    love.graphics.ellipse("fill", px, py, 12 + hash(k) * 14, 8 + hash(k * 2) * 8, 10)
+  local ox, oy, ow, oh = love.graphics.getScissor() -- the plates stay inside it
+  local sx, sy = love.graphics.transformPoint(s.x, s.y)
+  local ex, ey = love.graphics.transformPoint(s.x + s.w, s.y + s.h)
+  love.graphics.intersectScissor(math.floor(sx), math.floor(sy), math.ceil(ex - sx), math.ceil(ey - sy))
+  local drift = (s.seed % 2 == 0) and 1 or -1
+  for k = 0, math.floor(s.w * s.h / 5000) do
+    local speed = 5 + hash(s.seed * 7 + k) * 7
+    local px = s.x + (hash(s.seed + k) * (s.w + 80) + t * speed * drift) % (s.w + 80) - 40
+    local py = s.y + hash(s.seed * 3 + k) * s.h + math.sin(t * 0.3 + k) * 6
+    local r = 10 + hash(k * 1.7 + s.seed) * 18
+    love.graphics.setColor(C.crust[1], C.crust[2], C.crust[3], 0.75 + hash(k) * 0.25)
+    plate(px, py, r, s.seed + k)
   end
   love.graphics.setBlendMode("add")
-  love.graphics.setColor(1, 0.8, 0.3, 0.25 * m)
-  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12)
+  love.graphics.setLineWidth(2)
+  for k = 0, math.floor(s.w * s.h / 20000) do -- seams opening and closing
+    local glow = math.max(0, math.sin(t * (0.6 + hash(s.seed + k * 5) * 0.8) + k * 2.1))
+    local px, py = s.x + hash(s.seed * 11 + k) * s.w, s.y + hash(s.seed * 13 + k) * s.h
+    local a = hash(s.seed * 17 + k) * math.pi
+    love.graphics.setColor(1, 0.8, 0.3, 0.55 * glow)
+    love.graphics.line(px, py, px + math.cos(a) * 26, py + math.sin(a) * 18, px + math.cos(a + 0.6) * 50,
+      py + math.sin(a + 0.6) * 34)
+  end
+  love.graphics.setColor(1, 0.8, 0.3, 0.18 * m)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
   love.graphics.setBlendMode("alpha")
-  color(C.char) -- its banks
-  love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
+  love.graphics.setScissor(ox, oy, ow, oh)
+  -- The shore: crust in from the rock, the heat showing along its edge.
+  for _, p in ipairs(s.shore or {}) do
+    local ax, ay, bx, by, nx, ny, da, db = p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8]
+    color(C.crust)
+    love.graphics.polygon("fill", ax, ay, bx, by, bx + nx * db, by + ny * db, ax + nx * da, ay + ny * da)
+    color(C.char)
+    love.graphics.polygon("fill", ax, ay, bx, by, bx + nx * db * 0.4, by + ny * db * 0.4, ax + nx * da * 0.4,
+      ay + ny * da * 0.4)
+  end
+  love.graphics.setBlendMode("add")
+  love.graphics.setLineWidth(3)
+  for _, p in ipairs(s.shore or {}) do
+    local nx, ny, da, db = p[5], p[6], p[7], p[8]
+    love.graphics.setColor(1, 0.75, 0.25, 0.55 * m)
+    love.graphics.line(p[1] + nx * da, p[2] + ny * da, p[3] + nx * db, p[4] + ny * db)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setBlendMode("alpha")
 end
 
 --- The Crucible's pit: the Crater's lava, deeper.
@@ -2823,6 +3122,7 @@ end
 --- it all.
 function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
   local before = love.graphics.getFont()
+  prepareLava(map)
   for _, s in ipairs(map.cover) do
     if s.flat and DRAW[s.kind] and inView(s, left, top, right, bottom) then
       DRAW[s.kind](s, t)

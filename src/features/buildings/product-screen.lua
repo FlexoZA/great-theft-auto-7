@@ -32,7 +32,7 @@ local GREEN = { 0.45, 0.95, 0.6 }
 
 local inside = Build.inside
 
---- "Uzi ammo" for "ammo-uzi".
+--- "7.62 round" for "ammo-ak47".
 local function title(item)
   return (Kinds.name(item, 1):gsub("^%l", string.upper))
 end
