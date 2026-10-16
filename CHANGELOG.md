@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Eternal Mood's walls stand up: on every level a wall shows its face over the floor and casts a shadow across it, so
+  you can see what you can't shoot over. Heck's rock walls are darker than its floor, Earth's buildings cast shadows
+  as long as they are tall, and the ground outside each map (moon dust, waste ground, tarmac, the abyss) is smooth
+  instead of blocky.
+
 ## [0.29.7] - 2026-10-16
 
 Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.
