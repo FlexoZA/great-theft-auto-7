@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Heck is fuller. Braziers burn at the Altar Fields' edges among rib cages, skull piles, bone spikes and glowing rune
+  circles; gouges and skulls mark the Mattress's plateau; and the ramp up to it is steps cut into the rock instead of
+  grey slabs.
 - The Foundry is fuller. Slag spilled round the Smelters' vats, ingot moulds still glowing, stacks of ingots and pipes
   along the wall; bones, skulls, bone spikes and burning braziers across the Crucible's floor; a copier in the Front
   Office; pallets, tyres, a fuel hose and oil in the Loading Bay and on the Landing Pad.
