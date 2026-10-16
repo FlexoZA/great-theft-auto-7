@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.7] - 2026-10-16
+
+Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.
+
 ### Added
 - Dread Knights, Heck's elite: black plate, a horned helm and a blade out of each arm. Two on Earth, two in the
   Foundry's Smelters, three on Heck's Fields. They weave in, slash up close and lunge from a few steps off, each with
