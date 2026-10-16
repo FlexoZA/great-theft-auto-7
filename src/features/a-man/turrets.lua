@@ -38,6 +38,7 @@ for k, v in pairs(Guns.uzi) do
 end
 GUN.damage = Turrets.damage
 GUN.spread = 0.04
+GUN.ttl = 1.2 -- the full flight (weapons' default): the player's uzi is close-range only, theirs isn't
 
 local random = love.math.random
 

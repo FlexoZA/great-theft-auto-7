@@ -4,9 +4,9 @@
 --   iron, sulfur, minerals,  raw materials, dug out of a quarry
 --   copper
 --   oil, plastic             pumped (and refined) by an oil well
---   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi"), one per
---                            `Guns.ammoTypes`: "ammo-pistol" is 9mm, for the SMG (the
---                            pistol itself never runs out)
+--   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-ak47"), one per
+--                            `Guns.ammoTypes`: "ammo-pistol" is 9mm, for the uzi and the
+--                            SMG (the pistol itself never runs out)
 --   gun-<gun>                a gun ("gun-uzi")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
@@ -461,6 +461,15 @@ end
 -- Things a player carries that no building makes: a boss's drop (Volt's
 -- electric grenades, the grenades feature's).
 Kinds.special = { ["grenade-electric"] = true }
+
+-- Items that are something else now, old key -> new, for what a save holds
+-- from before: the uzi's own rounds became 9mm (it fires the pistol's).
+Kinds.renamed = { ["ammo-uzi"] = "ammo-pistol" }
+
+--- `item` as it is called now: what a save holds from before a rename.
+function Kinds.current(item)
+  return Kinds.renamed[item] or item
+end
 
 --- Can a player carry `item` in their bag: anything a building makes but a
 --- car, the `special` drops, and the abilities, armor and clothes other
