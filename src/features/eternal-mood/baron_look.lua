@@ -138,7 +138,7 @@ local function horn(hx, side)
   love.graphics.setLineWidth(1)
 end
 
-Look.GUN = 24 -- px from his wrist to the muzzle, in his own frame (before he's scaled up)
+Look.GUN = 24 -- px from his wrist to the muzzle, in his own frame (before he's scaled)
 
 --- A gun where a hand should be, at the wrist (x, y), pointing along `a`:
 --- a cuff where the flesh grows into it, a boxy body with a green cell
@@ -373,7 +373,7 @@ local function smear(m, s)
   local bx, by = -math.cos(m.aim or 0), -math.sin(m.aim or 0)
   for k = 3, 1, -1 do
     love.graphics.push()
-    love.graphics.translate(m.dx + bx * k * 16, m.dy + by * k * 16)
+    love.graphics.translate(m.dx + bx * k * 8, m.dy + by * k * 8)
     love.graphics.rotate(m.facing)
     love.graphics.scale(s, s)
     local a = 0.4 - k * 0.1
@@ -388,7 +388,7 @@ end
 function Look.draw(m, clock)
   local pose = POSE[m.move] or "walk"
   local lift = m.lift or 0
-  local s = 1.35 -- a head and more over a person
+  local s = 0.675 -- a head over a person
   if pose == "dodge" then
     smear(m, s)
   end
@@ -396,7 +396,7 @@ function Look.draw(m, clock)
   love.graphics.translate(m.dx, m.dy)
   color(C.shadow, 0.35 * (1 - lift * 0.5)) -- on the floor, under him even in the air
   love.graphics.ellipse("fill", 4, 6, 34 * s * (1 - lift * 0.3), 30 * s * (1 - lift * 0.3), 24)
-  love.graphics.translate(0, -lift * 26) -- up off the floor...
+  love.graphics.translate(0, -lift * 13) -- up off the floor...
   local wobble = pose == "stunned" and math.sin(clock * 9) * 0.25 or 0
   love.graphics.rotate(m.facing + wobble)
   s = s * (1 + lift * 0.3) -- ...and nearer the camera
@@ -411,7 +411,7 @@ function Look.drawBody(b, clock)
   love.graphics.push()
   love.graphics.translate(b.x, b.y)
   love.graphics.rotate(b.angle + 0.4)
-  love.graphics.scale(1.35, 1.35)
+  love.graphics.scale(0.675, 0.675)
   color(C.blood, 0.75)
   love.graphics.ellipse("fill", 8, 4, 42, 34, 24)
   body("dead", 0, clock, false)

@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+
+- The Baron of Heck is half the size (hitbox 30 -> 15 px), so he is harder to hit and slips aside from rounds more easily; his claw reach 95 -> 65 px and charge hit 46 -> 31 px shrink with him.
+
 ## [0.29.5] - 2026-10-15
 
 The shuttle you land in on Eternal Mood is drawn in full: lit portholes, blinking nav lights, glowing engines and its ramp down.
