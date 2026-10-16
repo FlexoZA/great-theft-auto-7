@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Eternal Mood's lava flows: the Foundry's moat and Heck's lava sea have ragged shores of cooled crust, glowing where
+  they meet the molten lava, lumpy crust drifting on a slow current and bright seams opening and closing. Lava next to
+  lava is one body now, not a row of squares.
 - Eternal Mood's walls stand up: on every level a wall shows its face over the floor and casts a shadow across it, so
   you can see what you can't shoot over. Heck's rock walls are darker than its floor, Earth's buildings cast shadows
   as long as they are tall, and the ground outside each map (moon dust, waste ground, tarmac, the abyss) is smooth
