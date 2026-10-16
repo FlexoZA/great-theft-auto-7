@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-16
+
+Your shots leave your gun again when you sprint and strafe.
+
+### Fixed
+- Your shots come out of your gun when you sprint and strafe. They used to start from where the host had you, behind
+  where you see yourself, and showed up a moment late where you'd been, so they seemed to come out of your side. Your
+  own shots are drawn from your gun the moment you fire now, and the host starts them where you are (within reach).
+
 ## [0.30.0] - 2026-10-16
 
 Eternal Mood is no straight run any more: every level hides terminals (Heck's are seals) that open the lift, the road's blast gates, the Crucible's doors and the bone wall to the Mattress.
