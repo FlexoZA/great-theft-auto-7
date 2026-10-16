@@ -74,7 +74,7 @@
 --
 -- Guns hold a magazine (guns.lua): the pistol 15 rounds, the uzi 30. The
 -- reload key (R) refills the one in hand from the ammo in your inventory
--- (the buildings feature keeps it, "ammo-uzi"), any time it isn't full;
+-- (the buildings feature keeps it, "ammo-pistol"), any time it isn't full;
 -- pulling the trigger on an empty magazine reloads too. A reload takes a
 -- moment, sounds for everyone near, and is lost if you switch guns or die.
 -- The pistol is `bottomless` (guns.lua): it reloads like any gun but the

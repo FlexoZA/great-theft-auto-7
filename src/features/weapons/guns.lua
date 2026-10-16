@@ -48,11 +48,11 @@
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   ammo      the key of another gun whose rounds it fires (the super
---             shotgun takes the shotgun's shells, the SMG the pistol's 9mm,
---             the AR the AK's 7.62):
+--             shotgun takes the shotgun's shells, the uzi and the SMG the
+--             pistol's 9mm, the AR the AK's 7.62):
 --             it has no ammo item of its own. A `bottomless` gun's rounds
 --             are an item all the same once another gun fires them
---             (`Guns.ammoTypes`): the pistol's 9mm, for the SMG
+--             (`Guns.ammoTypes`): the pistol's 9mm, for the uzi and the SMG
 --   unlock    true for a gun only won, never on the shelf or out of a
 --             factory until you have picked one up (a boss's drop): from
 --             then on the shop sells it to you (weapons/init.lua). Enemies
@@ -70,7 +70,7 @@
 --   bottomless true: its reserve never runs out (the pistol). It still
 --             holds a magazine and reloads, but a reload takes nothing
 --             from the inventory. Its "ammo-<key>" item is only there for
---             a gun that borrows its rounds (`ammo`: the SMG's 9mm).
+--             a gun that borrows its rounds (`ammo`: the uzi's and the SMG's 9mm).
 --
 -- Rounds come out of the player's inventory (the buildings feature keeps
 -- it: "ammo-<key>"), a magazine at a time. The gun itself is an item too
@@ -94,25 +94,27 @@ Guns.list = {
     reload = 1.2,
     reloadSound = "reload-pistol",
     bottomless = true, -- never out of rounds, so nobody is ever left unarmed
-    ammoName = "9mm round", -- the SMG's ("ammo-pistol"); the pistol itself never takes any
-    stack = 300, -- ten SMG magazines a slot
+    ammoName = "9mm round", -- the uzi's and the SMG's ("ammo-pistol"); the pistol itself never takes any
+    stack = 300, -- ten uzi or SMG magazines a slot
   },
   {
     key = "uzi",
-    dropWeight = 3, -- how often an enemy's ammo box is for it (pickups): a common gun's
-    blurb = "Sprays fourteen rounds a second: weak one at a time, deadly up close.",
+    dropWeight = 3, -- how often an enemy's 9mm box is (pickups): a common gun's, and the first to fire 9mm
+    blurb = "Sprays fourteen 9mm rounds a second, but they're spent by about 360 px: deadly up close, "
+      .. "useless far off. Fires the pistol's 9mm rounds.",
     name = "uzi",
     damage = 12, -- a little less per round...
     cooldown = 0.07, -- ...but fourteen of them a second
     spread = 0.09, -- about five degrees either way: spray, don't snipe
     speed = 900,
     streak = 7,
+    ttl = 0.4, -- about 360 px: up close only, against the SMG's 500 and the AK's 1200
     sound = "uzi",
     pitch = 1,
     magazine = 30, -- a couple of seconds of spray
     reload = 1.8,
     reloadSound = "reload-uzi",
-    stack = 300, -- ten magazines a slot
+    ammo = "pistol", -- 9mm
   },
   {
     -- The Hunter-Chopper drops it in the Outer City (hunter-chopper/init.lua).
