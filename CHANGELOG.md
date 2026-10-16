@@ -15,6 +15,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- The Foundry is fuller. Slag spilled round the Smelters' vats, ingot moulds still glowing, stacks of ingots and pipes
+  along the wall; bones, skulls, bone spikes and burning braziers across the Crucible's floor; a copier in the Front
+  Office; pallets, tyres, a fuel hose and oil in the Loading Bay and on the Landing Pad.
 - Heck on Earth is fuller. Front yards have what people left in them (trampolines, swings, burnt garden beds, lawn
   chairs, bikes, mailboxes, a kennel now and then), Downtown's sidewalks have hydrants, and debris, oil and skid marks
   are strewn down the roads and the Boulevard. Roofs have dormers, solar panels and dishes, and the towers have stair

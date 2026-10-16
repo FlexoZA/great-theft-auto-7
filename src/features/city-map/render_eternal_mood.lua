@@ -1688,6 +1688,109 @@ function DRAW.debris(s)
   love.graphics.setLineWidth(1)
 end
 
+-- The Foundry's fittings -----------------------------------------------------------
+
+--- How hot the lava is at `t`, for anything of the Foundry's lava.
+local function molten(t, seed)
+  return 0.8 + 0.12 * math.sin(t * 1.3 + seed) + 0.08 * math.sin(t * 5.1 + seed * 2)
+end
+
+--- Slag spilled from the vats, still glowing at its heart.
+function DRAW.slag(s, t)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(C.crust)
+  love.graphics.ellipse("fill", cx, cy, s.w / 2, s.h / 2.6, 14)
+  local m = molten(t, s.seed or 0)
+  love.graphics.setColor(1, 0.35 + 0.1 * m, 0.05, 0.85)
+  love.graphics.ellipse("fill", cx - 4, cy - 2, s.w * 0.22, s.h * 0.15, 10)
+  color(C.char)
+  love.graphics.ellipse("fill", cx + s.w * 0.22, cy + 4, s.w * 0.12, s.h * 0.1, 8)
+end
+
+--- A row of ingot moulds on the floor, the last ones still red hot.
+function DRAW.molds(s, t)
+  local n = math.max(2, math.floor(s.w / 34))
+  local m = molten(t, s.seed or 0)
+  for k = 0, n - 1 do
+    local x = s.x + k * (s.w / n)
+    color(C.steelDark)
+    love.graphics.rectangle("fill", x + 2, s.y, s.w / n - 4, s.h, 3)
+    if k >= n - 2 then
+      love.graphics.setColor(1, 0.3 + 0.1 * m, 0.05, 0.9)
+    else
+      color(C.steel)
+    end
+    love.graphics.rectangle("fill", x + 6, s.y + 4, s.w / n - 12, s.h - 8, 2)
+  end
+end
+
+--- A stack of ingots: bars crossed in layers.
+function DRAW.ingots(s)
+  shadow(s)
+  for k = 0, 2 do
+    color(k % 2 == 0 and C.steel or C.trim)
+    if k % 2 == 0 then
+      love.graphics.rectangle("fill", s.x + 2, s.y + 4 + k * 12, s.w - 4, 10, 2)
+    else
+      love.graphics.rectangle("fill", s.x + 6 + (k - 1) * 14, s.y + 2, 10, s.h - 4, 2)
+    end
+  end
+end
+
+--- A brazier of Heck's: a bowl of iron on legs, fire in it, flickering.
+function DRAW.brazier(s, t)
+  shadow(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, r, 16)
+  color(C.char)
+  love.graphics.circle("fill", cx, cy, r - 5, 16)
+  love.graphics.setBlendMode("add")
+  for k = 0, 3 do
+    local f = 0.7 + 0.3 * math.sin(t * (9 + k * 3) + k + (s.seed or 0))
+    love.graphics.setColor(1, 0.45 + k * 0.1, 0.1, 0.5 * f)
+    love.graphics.circle("fill", cx + math.sin(t * 4 + k) * 3, cy - k * 2, (r - 6) * (1 - k * 0.2) * f, 12)
+  end
+  love.graphics.setBlendMode("alpha")
+end
+
+--- A spike of bone driven into the floor, a skull on it.
+function DRAW.spike(s)
+  shadow(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(C.bone)
+  love.graphics.circle("fill", cx, cy, s.w / 2 - 4, 10)
+  color(C.char)
+  love.graphics.circle("fill", cx - 4, cy - 2, 3, 6)
+  love.graphics.circle("fill", cx + 4, cy - 2, 3, 6)
+  love.graphics.rectangle("fill", cx - 3, cy + 4, 6, 3)
+end
+
+--- Skulls heaped up on the floor.
+function DRAW.skulls(s)
+  for k = 0, 4 do
+    local px = s.x + 8 + hash((s.seed or 0) + k) * (s.w - 16)
+    local py = s.y + 8 + hash((s.seed or 0) * 3 + k) * (s.h - 16)
+    color(C.bone)
+    love.graphics.circle("fill", px, py, 7, 10)
+    color(C.char)
+    love.graphics.circle("fill", px - 2.5, py - 1, 1.6, 5)
+    love.graphics.circle("fill", px + 2.5, py - 1, 1.6, 5)
+  end
+end
+
+--- A copier against the wall: its lid, the paper tray, a light on.
+function DRAW.copier(s)
+  shadow(s)
+  box(s, C.white)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h * 0.45)
+  color(C.paper)
+  love.graphics.rectangle("fill", s.x + s.w - 4, s.y + s.h * 0.55, 10, s.h * 0.3)
+  love.graphics.setColor(0.3, 1, 0.3)
+  love.graphics.circle("fill", s.x + 10, s.y + s.h - 8, 2.5, 6)
+end
+
 -- Heck on Earth's props ----------------------------------------------------------
 
 --- Lane markings down a stretch of road: dashes between the lanes, a double
@@ -2434,11 +2537,6 @@ function DRAW.belt(s, t)
   color(C.steel) -- the rollers' edges
   love.graphics.rectangle("fill", s.x, s.y, s.w, 6)
   love.graphics.rectangle("fill", s.x, s.y + s.h - 6, s.w, 6)
-end
-
---- How hot the lava is at `t`, for anything of the Foundry's lava.
-local function molten(t, seed)
-  return 0.8 + 0.12 * math.sin(t * 1.3 + seed) + 0.08 * math.sin(t * 5.1 + seed * 2)
 end
 
 --- A vat of lava: a thick steel rim, the lava in it churning, bubbles.
