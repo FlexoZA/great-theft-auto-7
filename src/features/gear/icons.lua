@@ -114,21 +114,74 @@ DRAW["ballistic-helmet"] = function(c)
 end
 
 local VISOR = { 0.98, 0.7, 0.18 }
+local VISOR_DEEP = { 0.72, 0.38, 0.06 }
 local OLIVE_DARK = { 0.2, 0.27, 0.15 }
+local GUNMETAL = { 0.3, 0.32, 0.34 }
+local LAMP = { 0.45, 1, 0.4 }
 
+-- The Mood Slayer's helmet, front on: an olive shell with a ridge over the
+-- crown, gunmetal guards over the ears, a riveted brow plate, the wide
+-- amber visor dipping to a point, a breather under it and the chin; a claw
+-- has been at it. The inventory's figure wears this same drawing
+-- (`Icons.worn`), so the helmet you see on them is the one in the bag.
 DRAW["slayer-helmet"] = function(c)
-  dome(c, 13, 15)
-  box(-13, 1, 26, 10, c, 3) -- the jaw
-  box(-15.5, -4, 3.5, 10, OLIVE_DARK, 1) -- the ear pieces
-  box(12, -4, 3.5, 10, OLIVE_DARK, 1)
-  box(-1.5, -12.5, 3, 7, lit(c, 0.2), 1) -- the ridge over the crown
-  poly(VISOR, -11, -5, 11, -5, 10, 1, -10, 1) -- the visor, wide
-  poly(VISOR, -4, 1, 4, 1, 0, 4.5) -- and dipping to a point
-  set(WHITE, 1, 0.7)
-  love.graphics.polygon("fill", -9, -4, -5, -4, -8, 0) -- a glint on it
-  box(-4, 6, 8, 5, OLIVE_DARK, 1) -- the breather
-  strokes(c, 0.55, 3, -2, 7, 1.4, 4) -- vents in it
-  line(OLIVE_DARK, 1, 1, 6, -9, 9, -6) -- a scratch from something with claws
+  local dark = OLIVE_DARK
+  for _, side in ipairs({ -1, 1 }) do -- the guards over the ears, a bolt and a lamp on each
+    local x = side == 1 and 12 or -17
+    box(x, -7, 5, 13, GUNMETAL, 1.5)
+    dot(x + 2.5, -3.5, 1.1, GUNMETAL, 0.6)
+    dot(x + 2.5, -3.5, 0.5, GUNMETAL, 1.4)
+    dot(x + 2.5, 2.5, 0.7, LAMP)
+  end
+  ellipse(0, -1, 14, 16.5, c, "arc") -- the shell, round over the crown...
+  poly(c, -14, -1.5, 14, -1.5, 12.5, 9, -12.5, 9) -- ...and down over the cheeks
+  set(lit(c, 0.3), 1, 0.6) -- the light along the top of the crown
+  love.graphics.ellipse("fill", -5, -12, 5, 2.4)
+  box(-2, -17, 4, 8.5, lit(c, 0.15), 1.5) -- the ridge over the crown
+  line(dark, 1, 1, 0, -16, 0, -9.5) -- its groove
+  poly(lit(c, 0.12), -12.5, -9, 12.5, -9, 12, -5.5, -12, -5.5) -- the brow plate
+  for _, x in ipairs({ -10.5, -5, 5, 10.5 }) do -- its rivets
+    dot(x, -7.3, 0.7, dark)
+  end
+  box(-3.5, -8.6, 7, 2.2, dark, 0.5) -- a vent in the brow
+  -- The visor: amber, deeper at the bottom, the light in it.
+  poly(VISOR_DEEP, -12.5, -5.5, 12.5, -5.5, 11.5, 1.5, -11.5, 1.5)
+  poly(VISOR_DEEP, -4.5, 1.5, 4.5, 1.5, 0, 5.5)
+  set(VISOR)
+  love.graphics.polygon("fill", -11.8, -4.8, 11.8, -4.8, 11.2, -0.5, -11.2, -0.5)
+  love.graphics.polygon("fill", -3.6, 1.2, 3.6, 1.2, 0, 4.3)
+  set(lit(VISOR, 0.45))
+  love.graphics.rectangle("fill", -11.5, -4.6, 23, 1.2)
+  set(WHITE, 1, 0.75)
+  love.graphics.polygon("fill", -10, -4.2, -6.5, -4.2, -9, 0.5, -11, 0.5) -- a glint
+  set(WHITE, 1, 0.35)
+  love.graphics.polygon("fill", -5.5, -4.2, -4.3, -4.2, -6.3, 0.5, -7.3, 0.5)
+  line(dark, 1, 1.2, -12.5, -5.5, 12.5, -5.5, 11.5, 1.5, 4.5, 1.5, 0, 5.5, -4.5, 1.5, -11.5, 1.5, -12.5, -5.5)
+  -- The cheeks down to the breather, and the breather, vented.
+  poly(lit(c, 0.05), -12.5, 2, -5, 2, -6.5, 9.5, -12, 8.5)
+  poly(lit(c, 0.05), 12.5, 2, 5, 2, 6.5, 9.5, 12, 8.5)
+  box(-5.5, 5.5, 11, 6.5, GUNMETAL, 1.5)
+  strokes(GUNMETAL, 0.5, 4, -3.3, 7, 2.2, 3.6, true)
+  box(-3.5, 11.5, 7, 3, dark, 1) -- the chin
+  -- Where a claw caught it: three gouges over the left of the crown.
+  for k = 0, 2 do
+    local x = -10.5 + k * 2.3
+    line(dark, 1, 1.2, x, -14.5 + k * 0.8, x + 4, -10.5 + k * 0.6)
+    line(lit(c, 0.4), 1, 0.6, x + 0.6, -14.5 + k * 0.8, x + 4.6, -10.5 + k * 0.6)
+  end
+end
+
+--- Pieces the inventory's figure wears as their icon is drawn.
+Icons.WORN = { ["slayer-helmet"] = true }
+
+--- Draw piece `key`'s icon in colour `c` round (0, 0) at the transform in
+--- place, between a caller's Shade.begin and Shade.finish: the figure
+--- wearing it.
+function Icons.shape(key, c)
+  local draw = DRAW[key]
+  if draw then
+    draw(c)
+  end
 end
 
 -- Body -------------------------------------------------------------------------
