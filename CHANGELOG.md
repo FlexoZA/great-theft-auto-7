@@ -14,6 +14,21 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-16
+
+Eternal Mood is no straight run any more: every level hides terminals (Heck's are seals) that open the lift, the road's blast gates, the Crucible's doors and the bone wall to the Mattress.
+
+### Changed
+- Heck's ramp up to the Mattress is barred by a wall of bone until you light four seals: one on each island out in the
+  lava, one at the Altar Fields' west end and one on the pizza lake's shore.
+- The Foundry's way up into the Crucible is shut by blast doors until you've hacked four terminals: in the Front
+  Office, the Loading Bay, out on the Conveyors' far walkway and at the Smelters' west end.
+- Heck on Earth's road is shut by three blast gates. Each opens from a terminal off the road: one down a side street in
+  the Suburbs, two down Downtown's side streets, one on the Crater's far rim past the lava.
+- Fobos Base's lift won't run until you've hacked four terminals, one each in Crew Quarters, the Mess, the Offices and
+  Toxic Storage (and the Floor Manager is down). Hold F at one for 3 s; the alarm brings the horde nearby, so cover
+  each other. The HUD counts them and the minimap marks them.
+
 ## [0.29.9] - 2026-10-16
 
 Mecha Zombies guard the Intern mobs, who are busy eating, and scream the horde down on you; and enemies' uzi rounds show all the way again.

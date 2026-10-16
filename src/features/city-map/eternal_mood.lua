@@ -61,6 +61,8 @@
 --                         once awake), the pit he calls imps out of, the portal he keeps sealed;
 --                         "mattressmind" { x, y, facing, zone, wake, gate }: the same as the Mancouchbus, the
 --                         gate it keeps locked
+--   map.terminals, map.locks  what opens the way on, and what it opens (eternal-mood/terminals.lua): a terminal
+--                         { x, y, look, lock }, a lock { name, label, exit, walls }
 --   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
 --                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -128,7 +130,7 @@ local function grid(map, T)
     return g.kind[c] and g.kind[c][r]
   end
   map.cover, map.zones, map.signs, map.lights, map.alarms, map.flickers = {}, {}, {}, {}, {}, {}
-  map.lows = {}
+  map.lows, map.terminals, map.locks = {}, {}, {}
   return g
 end
 
@@ -162,6 +164,28 @@ local function cover(map, kind, x, y, w, h, solid, extra)
       map.lows[#map.lows + 1] = { x = x, y = y, w = w, h = h, round = s.round }
     end
   end
+  return s
+end
+
+--- A lock (eternal-mood/terminals.lua): `label` on the HUD ("THE LIFT"),
+--- holding the level's way on when `exit`; its terminals and walls follow.
+local function lock(map, name, label, exit)
+  local l = { name = name, label = label, exit = exit, walls = {} }
+  map.locks[#map.locks + 1] = l
+  return l
+end
+
+--- A terminal at (x, y) that opens lock `l` (`look` "terminal", or Heck's "seal").
+local function terminal(map, l, x, y, look)
+  map.terminals[#map.terminals + 1] = { x = math.floor(x), y = math.floor(y), look = look or "terminal", lock = l.name }
+end
+
+--- One of lock `l`'s walls over (x, y, w, h): solid, like any wall, until
+--- the lock opens (`look` "blast", "roadgate" or "bone": terminals.lua draws it).
+local function lockWall(map, l, x, y, w, h, look)
+  local s = { x = x, y = y, w = w, h = h, look = look }
+  map.solids[#map.solids + 1] = s
+  l.walls[#l.walls + 1] = s
   return s
 end
 
@@ -714,6 +738,19 @@ local function buildFobos(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(z.c0 + 10)), math.floor(Y(z.r1 - 1))
 
+  -- The terminals (eternal-mood/terminals.lua): one in each room off the
+  -- straight way up, and the lift stays out of service until all four are
+  -- done (and the Floor Manager is down).
+  local lift = lock(map, "lift", "THE LIFT", true)
+  for _, p in ipairs({
+    { 11.5, 67.5 }, -- Crew Quarters, at the back by the lockers
+    { 50.5, 57.6 }, -- the Mess, by the serving counter
+    { 4.6, 26.6 }, -- the Offices' far corner
+    { 50.4, 41 }, -- Toxic Storage, behind the sludge
+  }) do
+    terminal(map, lift, X(p[1]), Y(p[2]))
+  end
+
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)
 
@@ -1172,6 +1209,22 @@ local function buildEarth(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(20)), math.floor(Y(156))
 
+  -- The terminals (eternal-mood/terminals.lua): blast gates across the road
+  -- where only the road runs between the blocks, each opened from off it,
+  -- down a side street or across the Crater, so nobody just runs up the
+  -- middle.
+  local function gate(r, label)
+    local l = lock(map, "gate-" .. r, label)
+    lockWall(map, l, X(13), Y(r) + 16, 14 * T, 32, "roadgate")
+    return l
+  end
+  local toDowntown, toCrater, toBoulevard = gate(98, "GATE TO DOWNTOWN"), gate(65, "GATE TO THE CRATER"),
+    gate(38, "GATE TO THE BOULEVARD")
+  terminal(map, toDowntown, X(5.5), Y(117.3)) -- down the Suburbs' west side street
+  terminal(map, toCrater, X(33.5), Y(96.6)) -- Downtown's east side street...
+  terminal(map, toCrater, X(5), Y(78.6)) -- ...and its west one
+  terminal(map, toBoulevard, X(31.5), Y(45.2)) -- the Crater's far rim, past the lava
+
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)
 
@@ -1534,6 +1587,24 @@ local function buildFoundry(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(7.5)), math.floor(Y(59))
 
+  -- The terminals (eternal-mood/terminals.lua): blast doors across the three
+  -- doorways up into the Crucible, between their hazard stripes, and a
+  -- terminal in each part of the shed to open them.
+  local doors = lock(map, "crucible", "THE CRUCIBLE'S BLAST DOORS")
+  for _, d in ipairs(EternalMood.FOUNDRY_DOORS) do
+    if d.r0 == 20 then -- the doorways from the Smelters up into the Crucible
+      lockWall(map, doors, X(d.c0), Y(d.r0) + 48, (d.c1 - d.c0 + 1) * T, 32, "blast")
+    end
+  end
+  for _, p in ipairs({
+    { 39.2, 53.5 }, -- the Front Office, beside Dr. Seek's booth
+    { 25.5, 53.4 }, -- the Loading Bay, by the barrels
+    { 50.4, 41.5 }, -- the Conveyors' far east walkway, across the belts
+    { 5.4, 29.2 }, -- the Smelters' west end, among the vats
+  }) do
+    terminal(map, doors, X(p[1]), Y(p[2]))
+  end
+
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)
   local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
@@ -1731,6 +1802,16 @@ local function buildHeck(map, rng, T)
     map.flickers[#map.flickers + 1] = { x = X(c), y = Y(8), r = 240, color = EternalMood.FIRE, a = 0.6,
       seed = rng:random(1000), fire = true }
     flat(map, "fire", X(c) - 30, Y(8) - 30, 60, 60, { seed = rng:random(1000) })
+  end
+
+  -- The seals (eternal-mood/terminals.lua): a wall of bone across the ramp,
+  -- the only way up onto the plateau, until four seals are lit: one on each
+  -- side island out in the lava, one at the Fields' west end, one on the
+  -- pizza lake's north shore.
+  local wall = lock(map, "ramp", "THE BONE WALL")
+  lockWall(map, wall, X(22), Y(28) + 4, 16 * T, 56, "bone")
+  for _, p in ipairs({ { 13.5, 70.2 }, { 45.5, 70.2 }, { 4.2, 40.5 }, { 49.5, 32.8 } }) do
+    terminal(map, wall, X(p[1]), Y(p[2]), "seal")
   end
 
   -- The Arrival Shelf: out of the portal.
