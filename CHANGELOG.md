@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Mood Slayer's helmet is drawn in more detail (a crested shell, a riveted brow, the amber visor with depth and
+  glints, ear guards with lamps, a vented breather, claw marks), and your character in the inventory now wears that
+  same helmet instead of a different one.
+
 ## [0.29.6] - 2026-10-16
 
 Eternal Mood's demons sharpen up: the Baron of Heck is half the size and harder to hit, the Cacodaemons look ahead with a meaner face, and the shuttle's engines point the right way.
