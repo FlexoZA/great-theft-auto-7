@@ -15,6 +15,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- The Foundry's way up into the Crucible is shut by blast doors until you've hacked four terminals: in the Front
+  Office, the Loading Bay, out on the Conveyors' far walkway and at the Smelters' west end.
 - Heck on Earth's road is shut by three blast gates. Each opens from a terminal off the road: one down a side street in
   the Suburbs, two down Downtown's side streets, one on the Crater's far rim past the lava.
 - Fobos Base's lift won't run until you've hacked four terminals, one each in Crew Quarters, the Mess, the Offices and
