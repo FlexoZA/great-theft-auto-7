@@ -1587,6 +1587,24 @@ local function buildFoundry(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(7.5)), math.floor(Y(59))
 
+  -- The terminals (eternal-mood/terminals.lua): blast doors across the three
+  -- doorways up into the Crucible, between their hazard stripes, and a
+  -- terminal in each part of the shed to open them.
+  local doors = lock(map, "crucible", "THE CRUCIBLE'S BLAST DOORS")
+  for _, d in ipairs(EternalMood.FOUNDRY_DOORS) do
+    if d.r0 == 20 then -- the doorways from the Smelters up into the Crucible
+      lockWall(map, doors, X(d.c0), Y(d.r0) + 48, (d.c1 - d.c0 + 1) * T, 32, "blast")
+    end
+  end
+  for _, p in ipairs({
+    { 39.2, 53.5 }, -- the Front Office, beside Dr. Seek's booth
+    { 25.5, 53.4 }, -- the Loading Bay, by the barrels
+    { 50.4, 41.5 }, -- the Conveyors' far east walkway, across the belts
+    { 5.4, 29.2 }, -- the Smelters' west end, among the vats
+  }) do
+    terminal(map, doors, X(p[1]), Y(p[2]))
+  end
+
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)
   local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
