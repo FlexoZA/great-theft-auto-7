@@ -61,6 +61,8 @@
 --                         once awake), the pit he calls imps out of, the portal he keeps sealed;
 --                         "mattressmind" { x, y, facing, zone, wake, gate }: the same as the Mancouchbus, the
 --                         gate it keeps locked
+--   map.terminals, map.locks  what opens the way on, and what it opens (eternal-mood/terminals.lua): a terminal
+--                         { x, y, look, lock }, a lock { name, label, exit, walls }
 --   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
 --                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -128,7 +130,7 @@ local function grid(map, T)
     return g.kind[c] and g.kind[c][r]
   end
   map.cover, map.zones, map.signs, map.lights, map.alarms, map.flickers = {}, {}, {}, {}, {}, {}
-  map.lows = {}
+  map.lows, map.terminals, map.locks = {}, {}, {}
   return g
 end
 

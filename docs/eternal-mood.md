@@ -599,6 +599,26 @@ standard), as Cyber Feud's do.
 | **Mancouchbus** | A huge fat demon in a recliner on tank treads, a flame cannon for each arm | 450 | Two fireballs at once, in a V (`fire`, 26 each); a flame burst up close (`fire` DoT) | Never gets up. Rolls slowly, turning to keep you in front; its back is the recliner (rounds do double). Heck and the Snooze Gate; Heck on Earth's boss is the big one, with rocket launchers. |
 | **Arch-Revival** | Tall, thin, grey-white, glowing hands | 250 | Fire pillar: a ring of fire on the ground under you for 1 s, then it erupts (`fire`, 50); you have to get out of sight or out of the ring | Runs away from you, fast. Every 6 s it brings back the nearest dead demon (not bosses), which gets up with half health. Kill it first. Heck only. |
 
+#### Terminals
+
+No level is a straight run. Every level hides terminals (Heck: bone seals)
+off the straight way through, and its way on doesn't open until they are
+done (`eternal-mood/terminals.lua`; the map's `terminals` and `locks`). A
+lock holds the level's exit (as a boss does: both have to be dealt with) or
+walls across a doorway, the road or a ramp, which nothing gets past, not a
+person, not a round, until it opens. Stand at a terminal and hold the action
+key for 3 s; let go and it drains. Every 6 s at it an alarm wakes every mob
+and calls every one of the possessed within 700 px, so somebody covers
+whoever is at it. The HUD counts each lock's terminals, the minimap marks
+them, and done is done for everyone.
+
+| Level | Terminals | What they open |
+| --- | --- | --- |
+| Fobos Base | Crew Quarters, the Mess, the Offices, Toxic Storage | The Hangar's lift (with the Floor Manager down) |
+| Heck on Earth | a Suburbs side street; both Downtown side streets; the Crater's far rim | Three blast gates across the road |
+| The Foundry | the Front Office, the Loading Bay, the Conveyors' far walkway, the Smelters' west end | The blast doors up into the Crucible |
+| Heck | the west and east islands, the Fields' west end, the pizza lake's shore (seals) | The wall of bone across the ramp to the Mattress |
+
 #### Mood kills
 
 The quest's own trick, as breach is Cyber Feud's. A demon brought below 20%
