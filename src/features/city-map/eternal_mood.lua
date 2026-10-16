@@ -233,8 +233,11 @@ local CLUTTER_SIZE = { -- px across
   debris = 64, oil = 60, skid = 120,
   -- the Foundry's
   slag = 70, skulls = 50, spike = 34, ingots = 44,
+  -- Heck's
+  ribcage = 120, runes = 150, drag = 140,
 }
-local CLUTTER_ORDER = { "trampoline", "swing", "gardenbed", "doghouse", "bin", "ingots", "spike", "mailbox",
+local CLUTTER_ORDER = { "runes", "ribcage", "trampoline", "swing", "gardenbed", "doghouse", "bin", "ingots", "spike",
+  "drag", "mailbox",
   "hydrant", "tipped", "fallen", "lawnchair", "bike", "trash", "papers", "debris", "slag", "skulls", "blood", "scorch",
   "oil", "skid", "glass", "bones" }
 -- The ones that stand (and stop a round); the rest lie flat.
@@ -1486,9 +1489,9 @@ EternalMood.HECK_BRIDGES = {
 }
 
 EternalMood.HECK_CLUTTER = {
-  ["The Arrival Shelf"] = { bones = 2, scorch = 1 },
-  ["The Altar Fields"] = { bones = 10, scorch = 8, blood = 5 },
-  ["The Mattress"] = { bones = 3, scorch = 3 },
+  ["The Arrival Shelf"] = { bones = 2, scorch = 1, skulls = 2 },
+  ["The Altar Fields"] = { bones = 14, scorch = 8, blood = 5, skulls = 8, spike = 8, ribcage = 5, runes = 3 },
+  ["The Mattress"] = { bones = 6, scorch = 3, skulls = 3, drag = 4 }, -- flat only: its owner's arena
 }
 
 local function buildHeck(map, rng, T)
@@ -1507,8 +1510,10 @@ local function buildHeck(map, rng, T)
       name = z.name, x0 = X(z.c0), y0 = Y(z.r0), x1 = X(z.c1 + 1), y1 = Y(z.r1 + 1), floor = z.floor,
     }
   end
-  -- The way up from the Fields onto the Mattress's plateau: a wide ramp.
+  -- The way up from the Fields onto the Mattress's plateau: a wide ramp,
+  -- steps cut into the rock.
   g.fill(22, 27, 37, 29, "walk")
+  map.zones[#map.zones + 1] = { name = "The Mattress", x0 = X(22), y0 = Y(27), x1 = X(38), y1 = Y(30), floor = "steps" }
 
   --- Lava over every tile of `lava` (c -> r -> true), merged into as few
   --- rectangles as it takes, each its own glow.
@@ -1605,6 +1610,13 @@ local function buildHeck(map, rng, T)
     cover(map, "firepit", X(p[1]) - 40, Y(p[2]) - 40, 80, 80, true, { round = true, low = true,
       seed = rng:random(1000) })
     map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 260, color = EternalMood.FIRE, a = 0.7,
+      seed = rng:random(1000), fire = true }
+  end
+
+  -- Braziers at the Fields' edges, lighting them.
+  for _, p in ipairs({ { 4.5, 33 }, { 54.5, 31.5 }, { 4.5, 49 }, { 52, 53.5 } }) do
+    cover(map, "brazier", X(p[1]) - 22, Y(p[2]) - 22, 44, 44, true, { round = true, seed = rng:random(1000) })
+    map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 230, color = EternalMood.FIRE, a = 0.55,
       seed = rng:random(1000), fire = true }
   end
 

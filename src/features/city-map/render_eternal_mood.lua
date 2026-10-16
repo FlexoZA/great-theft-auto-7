@@ -94,6 +94,7 @@ local FLOORS = {
   cracked = { { 0.21, 0.20, 0.20 }, { 0.09, 0.07, 0.07 }, "cracked" },
   -- the Foundry's north half: Heck's own rock
   rock = { { 0.30, 0.17, 0.13 }, { 0.19, 0.09, 0.07 }, "rock" },
+  steps = { { 0.30, 0.17, 0.13 }, { 0.19, 0.09, 0.07 }, "steps" }, -- Heck's ramp up to the Mattress
 }
 
 -- Everything in this universe is evil: every colour above gets a red cast
@@ -201,6 +202,19 @@ local function floorTile(f, x, y, T, h)
       love.graphics.setLineWidth(2)
       local px, py = x, y + hash(h * 7) * T
       love.graphics.line(px, py, x + T * 0.4, py + (hash(h * 3) - 0.5) * 30, x + T, y + hash(h * 11) * T)
+      love.graphics.setLineWidth(1)
+    end
+  elseif kind == "steps" then -- cut into the rock: a ledge every few px, lit along its lip
+    for k = 0, 3 do
+      local sy = y + k * T / 4
+      love.graphics.rectangle("fill", x, sy + T / 4 - 5, T, 5)
+      love.graphics.setColor(base[1] * 1.3, base[2] * 1.3, base[3] * 1.3)
+      love.graphics.rectangle("fill", x, sy, T, 2)
+      color(second)
+    end
+    if h > 0.75 then -- a crack down it
+      love.graphics.setLineWidth(2)
+      love.graphics.line(x + h * T * 0.6, y, x + h * T * 0.4, y + T)
       love.graphics.setLineWidth(1)
     end
   elseif kind == "slabs" then
@@ -1789,6 +1803,56 @@ function DRAW.copier(s)
   love.graphics.rectangle("fill", s.x + s.w - 4, s.y + s.h * 0.55, 10, s.h * 0.3)
   love.graphics.setColor(0.3, 1, 0.3)
   love.graphics.circle("fill", s.x + 10, s.y + s.h - 8, 2.5, 6)
+end
+
+-- Heck's own -------------------------------------------------------------------------
+
+--- A rib cage, big, picked clean, half sunk in the rock.
+function DRAW.ribcage(s)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(s.angle or 0)
+  color(C.bone)
+  love.graphics.setLineWidth(5)
+  love.graphics.line(-s.w * 0.45, 0, s.w * 0.45, 0) -- the spine
+  love.graphics.setLineWidth(4)
+  for k = -3, 3 do
+    local x = k * s.w * 0.12
+    local reach = s.h * 0.42 * (1 - math.abs(k) * 0.12)
+    love.graphics.line(x, 0, x - 6, -reach * 0.6, x + 2, -reach)
+    love.graphics.line(x, 0, x - 6, reach * 0.6, x + 2, reach)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+end
+
+--- A circle of runes burnt into the rock, glowing and dimming.
+function DRAW.runes(s, t)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  local glow = 0.5 + 0.35 * math.sin(t * 1.4 + (s.seed or 0))
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(1, 0.25, 0.05, 0.45 * glow)
+  love.graphics.setLineWidth(4)
+  love.graphics.circle("line", cx, cy, r - 4, 32)
+  love.graphics.circle("line", cx, cy, r * 0.62, 24)
+  for k = 0, 9 do -- the marks between the rings
+    local a = k / 10 * 2 * math.pi + (s.seed or 0)
+    local ix, iy = cx + math.cos(a) * r * 0.7, cy + math.sin(a) * r * 0.7
+    love.graphics.line(ix, iy, ix + math.cos(a + 1.3) * 10, iy + math.sin(a + 1.3) * 10)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setBlendMode("alpha")
+end
+
+--- Gouges in the rock where something heavy was dragged.
+function DRAW.drag(s)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.setLineWidth(5)
+  for k = 0, 3 do
+    local y = s.y + 8 + k * (s.h - 16) / 3
+    love.graphics.line(s.x, y, s.x + s.w * 0.5, y + 4, s.x + s.w, y - 2)
+  end
+  love.graphics.setLineWidth(1)
 end
 
 -- Heck on Earth's props ----------------------------------------------------------
