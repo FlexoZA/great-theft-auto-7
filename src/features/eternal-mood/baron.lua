@@ -66,15 +66,15 @@ local Brain
 -- Tuning --------------------------------------------------------------------
 
 Baron.HEALTH = 4200 -- for one player (more humans, more: bosses/init.lua); the Mancouchbus has 3400
-Baron.RADIUS = 30 -- px: his shoulders (baron_look.lua draws him)
+Baron.RADIUS = 15 -- px: his shoulders (baron_look.lua draws him)
 Baron.WALK = 95 -- px/s
 Baron.STROLL = 45 -- px/s winded
 Baron.TURN = 4 -- rad/s
 Baron.BREATH = { drain = 9, regen = 13, recovered = 50, breath = 40 }
 Baron.RANGE = 900 -- px he sees
 Baron.KEEP = 260 -- px he likes to be from whoever he has, to throw
-Baron.HAND = 38 -- px either side of his middle: his guns' muzzles (the fire at them)...
-Baron.MUZZLE = 56 -- ...and this far ahead of it (baron_look.lua draws the guns there)
+Baron.HAND = 19 -- px either side of his middle: his guns' muzzles (the fire at them)...
+Baron.MUZZLE = 28 -- ...and this far ahead of it (baron_look.lua draws the guns there)
 Baron.THROW_EVERY = { 2.0, 2.8 } -- seconds between attacks...
 Baron.THROW_EVERY_2 = { 1.4, 2.0 } -- ...in phase 2
 Baron.WINDUP = 0.6 -- seconds the fire burns at his muzzles first (the tell)
@@ -89,7 +89,7 @@ Baron.CHARGE_MIN = 220 -- px: he charges at whoever is at least this far...
 Baron.CHARGE_WINDUP = 0.55 -- seconds horns down, a line on the floor showing where
 Baron.CHARGE_SPEED = 400 -- px/s
 Baron.CHARGE_FOR = 1.1 -- seconds at most
-Baron.CHARGE_HIT = 46 -- px: whoever he runs into this near...
+Baron.CHARGE_HIT = 31 -- px: whoever he runs into this near...
 Baron.CHARGE_DAMAGE = 40 -- ...takes this (impact)...
 Baron.CHARGE_SHOVE = 220 -- ...and goes flying
 Baron.CHARGE_COST = 22
@@ -112,7 +112,7 @@ Baron.DODGE_TIME = 0.25 -- ...for this long (about 100 px; further from under an
 Baron.DODGE_COOL = 1.8 -- seconds at least between dodges
 Baron.DODGE_COST = 20 -- breath; winded, he can't...
 Baron.DODGE_FLOOR = 60 -- ...nor with less than this in him: what's under it is for his attacks
-Baron.CLAW_REACH = 95 -- px: this near he claws...
+Baron.CLAW_REACH = 65 -- px: this near he claws...
 Baron.CLAW_ARC = 1.1 -- ...everyone within this many radians of his front...
 Baron.CLAW_WINDUP = 0.4
 Baron.CLAW_DAMAGE = 30 -- melee

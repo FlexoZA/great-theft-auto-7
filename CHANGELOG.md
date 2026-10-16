@@ -15,8 +15,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- The Baron of Heck is half the size (hitbox 30 -> 15 px), so he's harder to hit and gets clear of your rounds more
+  easily. His claw reach (95 -> 65 px) and charge hit (46 -> 31 px) shrink with him.
+- The Cacodaemons look meaner: their eye looks ahead out of their face under a heavy brow instead of straight up, and
+  they have darker veined hide, two horns curving back and yellowed teeth.
 
-- The Cacodaemons look meaner: their eye now looks ahead out of their face under a heavy brow instead of straight up, with darker veined hide, two horns curving back and yellowed teeth.
+### Fixed
+- The Eternal Mood shuttle's engines point backwards now: flared bells with oval mouths instead of round nozzles
+  facing up.
 
 ## [0.29.5] - 2026-10-15
 
