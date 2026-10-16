@@ -1321,6 +1321,71 @@ function DRAW.blood(s)
   end)
 end
 
+--- A trail of blood from (x1, y1) to (x2, y2): something was dragged this
+--- way. A smear that thins and breaks, a drip off it now and then, a hand
+--- print where it was dropped and picked up again.
+function DRAW.bloodtrail(s)
+  local x1, y1, x2, y2 = s.x1, s.y1, s.x2, s.y2
+  local dx, dy = x2 - x1, y2 - y1
+  local len = math.sqrt(dx * dx + dy * dy)
+  if len < 1 then
+    return
+  end
+  local ux, uy = dx / len, dy / len
+  local px, py = -uy, ux
+  local seed = s.seed or 0
+  for k = 0, 23 do
+    local f = k / 24
+    local wob = math.sin(f * 9 + seed) * 6
+    local x, y = x1 + dx * f + px * wob, y1 + dy * f + py * wob
+    local w = 7 + f * 9 + hash(seed + k) * 4 -- wider towards where it was eaten
+    if hash(seed * 3 + k) > 0.12 then -- breaks now and then
+      love.graphics.setColor(0.30, 0.03, 0.03, 0.55 + f * 0.3)
+      love.graphics.ellipse("fill", x, y, w, w * 0.55, 10)
+    end
+    if hash(seed * 7 + k) > 0.8 then -- a drip off to the side
+      local side = hash(seed * 11 + k) > 0.5 and 1 or -1
+      love.graphics.setColor(0.32, 0.03, 0.03, 0.8)
+      love.graphics.circle("fill", x + px * side * (w + 6), y + py * side * (w + 6), 2.5, 6)
+    end
+  end
+  local hx, hy = x1 + dx * 0.45 + px * 14, y1 + dy * 0.45 + py * 14 -- a hand, where it was dropped
+  love.graphics.setColor(0.34, 0.03, 0.03, 0.75)
+  love.graphics.ellipse("fill", hx, hy, 6, 5, 8)
+  for k = -2, 1 do
+    love.graphics.circle("fill", hx + ux * 8 + px * k * 3.5, hy + uy * 8 + py * k * 3.5, 1.8, 5)
+  end
+end
+
+--- What the mob is eating: a UAC jumpsuit on its back in a pool of blood,
+--- torn open, the ribs showing, an arm flung out.
+function DRAW.meal(s)
+  turned(s, function()
+    love.graphics.setColor(0.30, 0.03, 0.03, 0.9) -- the pool
+    love.graphics.ellipse("fill", 2, 2, s.w * 0.48, s.h * 0.36, 20)
+    love.graphics.setColor(0.36, 0.04, 0.04, 0.7)
+    love.graphics.ellipse("fill", -4, -2, s.w * 0.3, s.h * 0.22, 16)
+    color(C.steelDark) -- the legs
+    love.graphics.rectangle("fill", -26, -7, 16, 6, 2)
+    love.graphics.rectangle("fill", -26, 1, 16, 6, 2)
+    color(C.steel) -- the jumpsuit
+    love.graphics.ellipse("fill", -2, 0, 13, 11, 14)
+    color(C.hazard) -- a hi-vis band on it
+    love.graphics.rectangle("fill", -9, -10, 4, 20)
+    love.graphics.setColor(0.55, 0.08, 0.06) -- torn open
+    love.graphics.ellipse("fill", 1, 0, 8, 7, 12)
+    color(C.bone) -- the ribs
+    for k = -1, 1 do
+      love.graphics.rectangle("fill", -3 + k * 4, -5, 2, 10)
+    end
+    color(C.paper) -- the head, the arm flung out
+    love.graphics.circle("fill", 15, 0, 5, 10)
+    love.graphics.setLineWidth(3)
+    love.graphics.line(4, -9, 10, -20, 18, -22)
+    love.graphics.setLineWidth(1)
+  end)
+end
+
 --- A scorch mark, where something burned (or burst).
 function DRAW.scorch(s)
   local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2

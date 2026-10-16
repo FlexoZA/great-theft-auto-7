@@ -34,7 +34,7 @@
 --   server -> all  HRD_STATE <tick> [<id> <kind> <x> <y> <facing> <hp> <state> <alert>]...  (unreliable,
 --                  15 Hz; kind s staffer, g guard, o overtime, z intern, i imp, c Cacodaemon; state for the
 --                  possessed 0 at post, 1 hunting, 2 looking; for an intern 0 standing about, 1 after somebody,
---                  2 arms up to claw; for an imp 0 hunting, 1 crawling out, 2 winding up a throw; for a
+--                  2 arms up to claw, 3 eating; for an imp 0 hunting, 1 crawling out, 2 winding up a throw; for a
 --                  Cacodaemon 0 waiting, 1 hunting, 2 mouth open to spit, 3 mouth open to bite, 4 reeling)
 --   server -> all  HRD_DOWN  <id> <x> <y> <angle> <kind>   one went down
 --   server -> all  HRD_SAY   <id> <category> <index>       one says Story.horde[side][category][index]
@@ -65,6 +65,7 @@ local Horde = {}
 
 -- Tuning ------------------------------------------------------------------
 Horde.FROM = "horde" -- the name on its rounds
+Horde.mealRing = 30 -- px from the body a mob eating crouches round it
 Horde.firstPossessed = 1
 Horde.firstImp = 20001
 Horde.firstIntern = 30001
@@ -90,7 +91,7 @@ local KIND = { staffer = "s", guard = "g", overtime = "o", imp = "i", intern = "
 local RANK = { s = "staffer", g = "guard", o = "overtime" }
 local POSSESSED_STATE = { post = 0, beat = 0, hunt = 1, search = 2, back = 2 }
 local IMP_STATE = { hunt = 0, emerge = 1, windup = 2 }
-local INTERN_STATE = { idle = 0, hunt = 1, windup = 2 }
+local INTERN_STATE = { idle = 0, hunt = 1, windup = 2, eat = 3 }
 local CACO_STATE = { idle = 0, hunt = 1, open = 2, bite = 3, reel = 4 }
 
 local RED = { 1.00, 0.18, 0.10 }
@@ -190,18 +191,28 @@ function Horde.serverStart(server, map)
   for i, mob in ipairs(spec.mobs or {}) do
     mobs[i] = { x = mob.x, y = mob.y, wake = mob.wake or Horde.wake, awake = false }
     local n = Bosses.plus(mob.count or 5, server)
-    for _ = 1, n do
-      -- Somewhere clear round the spot, standing about.
-      local x, y = mob.x, mob.y
-      for _ = 1, 12 do
-        local a, d = random() * 2 * math.pi, Horde.mobSpread * math.sqrt(random())
-        local cx, cy = mob.x + math.cos(a) * d, mob.y + math.sin(a) * d
-        if standable(cx, cy) then
-          x, y = cx, cy
-          break
+    for k = 1, n do
+      if mob.meal then -- crouched in a ring round the body, facing it
+        local m = mob.meal
+        local a = k / n * 2 * math.pi + random() * 0.4
+        local d = Horde.mealRing + random() * 8
+        local x, y = m.x + math.cos(a) * d, m.y + math.sin(a) * d
+        if not standable(x, y) then
+          x, y = m.x + math.cos(a) * d * 1.6, m.y + math.sin(a) * d * 1.6
         end
+        interns:add(x, y, math.atan2(m.y - y, m.x - x), i, false, true)
+      else -- somewhere clear round the spot, standing about
+        local x, y = mob.x, mob.y
+        for _ = 1, 12 do
+          local a, d = random() * 2 * math.pi, Horde.mobSpread * math.sqrt(random())
+          local cx, cy = mob.x + math.cos(a) * d, mob.y + math.sin(a) * d
+          if standable(cx, cy) then
+            x, y = cx, cy
+            break
+          end
+        end
+        interns:add(x, y, nil, i, false) -- (on the spot itself if nowhere round it was clear)
       end
-      interns:add(x, y, nil, i, false) -- (on the spot itself if nowhere round it was clear)
     end
   end
   local cacos = Cacos.new({
@@ -275,6 +286,35 @@ local function wakeMob(server, i)
       break
     end
   end
+end
+
+--- A scream at (x, y) (a Mecha Zombie's, mecha_zombie.lua): every mob within
+--- `radius` px wakes, and every one of the possessed that near comes to look
+--- at (tx, ty). Returns how many it roused.
+function Horde.serverScream(server, x, y, radius, tx, ty)
+  if not sv then
+    return 0
+  end
+  local n = 0
+  for i, mob in ipairs(sv.mobs) do
+    if not mob.awake and (mob.x - x) ^ 2 + (mob.y - y) ^ 2 <= radius * radius then
+      wakeMob(server, i)
+      n = n + 1
+    end
+  end
+  for _, o in ipairs(sv.possessed.list) do
+    if (o.x - x) ^ 2 + (o.y - y) ^ 2 <= radius * radius then
+      sv.possessed:alert(o, tx, ty)
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- Is mob `i` awake (or gone)?
+function Horde.serverMobAwake(i)
+  local mob = sv and sv.mobs[i]
+  return mob == nil or mob.awake
 end
 
 --- Wake the mobs a player has come near, or can see from across the room.
@@ -1003,21 +1043,30 @@ end
 --- An intern: a person reaching out with both arms, the way they always
 --- did for the coffee; up over its head when it is about to claw.
 local function drawIntern(s)
-  local swing = s.state == 0 and 0 or math.sin(s.stride * 0.2) * 1.6
-  local lean = s.state == 0 and math.sin(clock * 1.3 + s.dx * 0.01) * 0.15 or 0
+  local eating = s.state == 3 -- bent over the meal, hands going from it to the mouth
+  local still = s.state == 0 or eating
+  local swing = still and 0 or math.sin(s.stride * 0.2) * 1.6
+  local lean = s.state == 0 and math.sin(clock * 1.3 + s.dx * 0.01) * 0.15
+    or eating and math.sin(clock * 4 + s.dx * 0.07) * 0.1 or 0
   Body.person(s.dx, s.dy, s.facing + lean, swing, INTERN)
   local a = s.facing + lean
   local fx, fy = math.cos(a), math.sin(a)
   local px, py = -fy, fx
   local up = s.state == 2
-  local reach = up and 9 or 13
-  love.graphics.setColor(SKIN)
   love.graphics.setLineWidth(2.6)
   for _, side in ipairs({ -1, 1 }) do
+    local reach = up and 9 or 13
+    if eating then -- in and out of the body, the two hands out of step
+      reach = 9 + 7 * (0.5 + 0.5 * math.sin(clock * 5 + s.dx * 0.07 + side * 1.6))
+    end
     local hx, hy = s.dx + fx * 8 + px * side * 2.2, s.dy + fy * 8 + py * side * 2.2
     local ex = hx + fx * (reach - 8) + px * side * (up and 5 or 2)
     local ey = hy + fy * (reach - 8) + py * side * (up and 5 or 2)
+    love.graphics.setColor(SKIN)
     love.graphics.line(hx, hy, ex, ey)
+    if eating then
+      love.graphics.setColor(0.45, 0.04, 0.04) -- red to the wrists
+    end
     love.graphics.circle("fill", ex, ey, up and 2.6 or 2, 8)
   end
   love.graphics.setLineWidth(1)
