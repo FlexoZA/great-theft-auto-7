@@ -231,11 +231,14 @@ local CLUTTER_SIZE = { -- px across
   -- Heck on Earth's yards and streets
   trampoline = 96, swing = 84, gardenbed = 72, doghouse = 48, lawnchair = 34, bike = 44, mailbox = 20, hydrant = 22,
   debris = 64, oil = 60, skid = 120,
+  -- the Foundry's
+  slag = 70, skulls = 50, spike = 34, ingots = 44,
 }
-local CLUTTER_ORDER = { "trampoline", "swing", "gardenbed", "doghouse", "bin", "mailbox", "hydrant", "tipped",
-  "fallen", "lawnchair", "bike", "trash", "papers", "debris", "blood", "scorch", "oil", "skid", "glass", "bones" }
+local CLUTTER_ORDER = { "trampoline", "swing", "gardenbed", "doghouse", "bin", "ingots", "spike", "mailbox",
+  "hydrant", "tipped", "fallen", "lawnchair", "bike", "trash", "papers", "debris", "slag", "skulls", "blood", "scorch",
+  "oil", "skid", "glass", "bones" }
 -- The ones that stand (and stop a round); the rest lie flat.
-local CLUTTER_SOLID = { bin = true, doghouse = true, mailbox = true, hydrant = true }
+local CLUTTER_SOLID = { bin = true, doghouse = true, mailbox = true, hydrant = true, spike = true, ingots = true }
 
 --- Scatter `kinds` (kind = how many) about room `z` (tiles): each where its
 --- box is all floor, clear of everything solid already there, out of the
@@ -1161,12 +1164,12 @@ EternalMood.BELTS = { { r0 = 39, r1 = 40, dir = 1 }, { r0 = 42, r1 = 43, dir = -
 EternalMood.BELT_SPEED = 70 -- px/s: faster than walking (45), slower than a sprint (170)
 
 EternalMood.FOUNDRY_CLUTTER = {
-  ["The Landing Pad"] = { papers = 1, scorch = 1 },
-  ["The Loading Bay"] = { bin = 1, tipped = 1, trash = 2, blood = 1, papers = 1 },
+  ["The Landing Pad"] = { papers = 1, scorch = 1, oil = 2 },
+  ["The Loading Bay"] = { bin = 1, tipped = 1, trash = 2, blood = 1, papers = 1, oil = 2, skid = 1 },
   ["The Front Office"] = { papers = 4, fallen = 2, blood = 1, tipped = 1 },
-  ["The Conveyors"] = { scorch = 2, blood = 1, trash = 1 },
-  ["The Smelters"] = { scorch = 4, blood = 2, bones = 3, glass = 1 },
-  ["The Crucible"] = { scorch = 3, blood = 2, bones = 5 },
+  ["The Conveyors"] = { scorch = 2, blood = 1, trash = 1, debris = 2 },
+  ["The Smelters"] = { scorch = 4, blood = 2, bones = 3, glass = 1, slag = 6, ingots = 3, debris = 3 },
+  ["The Crucible"] = { scorch = 3, blood = 2, bones = 10, spike = 6, skulls = 5 },
 }
 
 local function buildFoundry(map, rng, T)
@@ -1222,6 +1225,8 @@ local function buildFoundry(map, rng, T)
   end
   light(map, X(8), Y(54), 300, EternalMood.ALARM, 0.3)
   poster(map, X(12), Y(z.r0), EternalMood.FOUNDRY_POSTERS[1])
+  flat(map, "cables", X(12.2), Y(51), 24, 5 * T, { seed = rng:random(1000) }) -- the fuel hose to the shuttle
+  flat(map, "hazardbox", X(13.6), Y(57.6), 4 * T + 16, 2 * T + 16)
 
   -- The Loading Bay: crates, barrels and a parked loader.
   z = rooms["The Loading Bay"]
@@ -1229,6 +1234,8 @@ local function buildFoundry(map, rng, T)
     cover(map, "crate", X(p[1]), Y(p[2]), 2 * T - 8, 2 * T - 8)
   end
   cover(map, "loader", X(30), Y(54), 2 * T, 3 * T)
+  flat(map, "pallet", X(26.5), Y(52.2), 96, 56)
+  cover(map, "tires", X(20) + 8, Y(54.5), 56, 56, true, { round = true })
   for k = 0, 2 do
     cover(map, "barrel", X(25) + k * 40, Y(56) + 16, 36, 36, true, { round = true, red = k == 1 })
   end
@@ -1249,6 +1256,9 @@ local function buildFoundry(map, rng, T)
   end
   cover(map, "cooler", X(z.c0) + 8, Y(z.r0) + 8, 40, 40)
   poster(map, X(39), Y(z.r0), EternalMood.FOUNDRY_POSTERS[3])
+  cover(map, "copier", X(43.5), Y(z.r1 + 1) - 48, 64, 44) -- against the south wall, between the desks
+  flat(map, "cables", X(41), Y(57) + 10, 6 * T, 24, { seed = rng:random(1000) })
+  flat(map, "spill", X(40.6), Y(55.4), 44, 34, { angle = rng:random() * 6, seed = rng:random(1000) })
 
   -- The Conveyors: belts right across the hall, each running its own way,
   -- the hoppers they feed at the walls, a walkway between each.
@@ -1287,6 +1297,14 @@ local function buildFoundry(map, rng, T)
   for _, p in ipairs({ { 6, 23 }, { 50, 24 }, { 20, 22.5 }, { 37, 22.5 } }) do
     cover(map, "spire", X(p[1]) - 24, Y(p[2]) - 24, 48, 48, true, { round = true, seed = rng:random(1000) })
   end
+  -- Pipes along the south wall between the doorways down, ingot moulds by
+  -- the vats, the last of each row still hot.
+  for _, span in ipairs({ { 13, 24 }, { 31, 42 } }) do
+    cover(map, "pipe", X(span[1]), Y(z.r1 + 1) - 20, (span[2] - span[1] + 1) * T, 16)
+  end
+  for _, c in ipairs({ 12, 28, 44 }) do
+    flat(map, "molds", X(c) - 1.5 * T, Y(28.5) - 18, 3 * T, 36, { seed = rng:random(1000) })
+  end
   poster(map, X(30), Y(z.r0), EternalMood.FOUNDRY_POSTERS[5])
 
   -- The Crucible: a pit of lava in a stone ring, a lava moat round the
@@ -1323,6 +1341,12 @@ local function buildFoundry(map, rng, T)
   end
   for _, p in ipairs({ { 11, 6 }, { 15, 15 }, { 44, 6 }, { 40, 15 }, { 11, 17 } }) do
     cover(map, "spire", X(p[1]) - 28, Y(p[2]) - 28, 56, 56, true, { round = true, seed = rng:random(1000) })
+  end
+  -- Braziers burning at the flanks of the way to the portal and the bridge south.
+  for _, p in ipairs({ { 18, 4.5 }, { 38.5, 4.5 }, { 18, 18.5 }, { 38.5, 18.5 } }) do
+    cover(map, "brazier", X(p[1]) - 22, Y(p[2]) - 22, 44, 44, true, { round = true, seed = rng:random(1000) })
+    map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 230, color = EternalMood.MOLTEN, a = 0.5,
+      seed = rng:random(1000), fire = true }
   end
 
   -- Heck's horde (eternal-mood/horde.lua), in tiles. The UAC's half has
