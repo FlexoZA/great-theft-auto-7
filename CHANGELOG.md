@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Eternal Mood's lava flows: the Foundry's moat and Heck's lava sea have ragged shores of cooled crust, glowing where
+  they meet the molten lava, lumpy crust drifting on a slow current and bright seams opening and closing. Lava next to
+  lava is one body now, not a row of squares.
+
 ## [0.29.7] - 2026-10-16
 
 Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.

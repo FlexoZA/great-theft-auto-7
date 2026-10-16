@@ -1874,23 +1874,123 @@ function DRAW.vat(s, t)
   end
 end
 
---- A stretch of lava: the moat round the Crucible. Crust drifting, bright seams.
+-- A stretch of lava (the Foundry's moat, Heck's sea) is a rectangle, and
+-- several side by side make one body: only where an edge meets rock does it
+-- get a shore. Worked out once a map (`prepareLava`): each edge in SHORE_STEP
+-- px pieces, a piece a shore unless more lava lies just past it, each with
+-- how deep its crust runs in at either end.
+local SHORE_STEP = 32
+local CRUST_MIN, CRUST_MAX = 8, 26
+
+local function lavaAt(list, x, y)
+  for _, o in ipairs(list) do
+    if x >= o.x and x <= o.x + o.w and y >= o.y and y <= o.y + o.h then
+      return true
+    end
+  end
+  return false
+end
+
+--- Each stretch of `map`'s lava, its shore: { ax, ay, bx, by, nx, ny, da, db }
+--- pieces, (nx, ny) pointing into the lava, da and db the crust's depth.
+local function prepareLava(map)
+  if map.lavaShores then
+    return
+  end
+  map.lavaShores = true
+  local list = {}
+  for _, o in ipairs(map.cover) do
+    if o.kind == "lava" then
+      list[#list + 1] = o
+    end
+  end
+  local function depthAt(x, y)
+    return CRUST_MIN + hash(x * 0.37 + y * 0.71) * (CRUST_MAX - CRUST_MIN)
+  end
+  for _, o in ipairs(list) do
+    o.shore = {}
+    local edges = { -- start, end, the way in
+      { o.x, o.y, o.x + o.w, o.y, 0, 1 }, { o.x, o.y + o.h, o.x + o.w, o.y + o.h, 0, -1 },
+      { o.x, o.y, o.x, o.y + o.h, 1, 0 }, { o.x + o.w, o.y, o.x + o.w, o.y + o.h, -1, 0 },
+    }
+    for _, e in ipairs(edges) do
+      local len = math.max(math.abs(e[3] - e[1]), math.abs(e[4] - e[2]))
+      local n = math.max(1, math.floor(len / SHORE_STEP + 0.5))
+      for i = 0, n - 1 do
+        local ax, ay = e[1] + (e[3] - e[1]) * i / n, e[2] + (e[4] - e[2]) * i / n
+        local bx, by = e[1] + (e[3] - e[1]) * (i + 1) / n, e[2] + (e[4] - e[2]) * (i + 1) / n
+        local mx, my = (ax + bx) / 2 - e[5] * 4, (ay + by) / 2 - e[6] * 4 -- just past the edge
+        if not lavaAt(list, mx, my) then
+          o.shore[#o.shore + 1] = { ax, ay, bx, by, e[5], e[6], depthAt(ax, ay), depthAt(bx, by) }
+        end
+      end
+    end
+  end
+end
+
+--- A plate of crust: a lumpy polygon round (x, y), `r` across, its own shape.
+local function plate(x, y, r, seed)
+  local pts = {}
+  for k = 0, 5 do
+    local a = k / 6 * 2 * math.pi
+    local d = r * (0.7 + hash(seed + k * 1.9) * 0.5)
+    pts[#pts + 1], pts[#pts + 2] = x + math.cos(a) * d, y + math.sin(a) * d * 0.75
+  end
+  love.graphics.polygon("fill", pts)
+end
+
+--- A stretch of lava: molten, plates of crust drifting on a slow current,
+--- bright seams opening and closing; and where it meets rock a ragged
+--- shore of cooled crust with the heat showing along its edge.
 function DRAW.lava(s, t)
-  local m = molten(t, s.seed)
+  local m = molten(t, 0) -- one pulse for all of it: stretches side by side are one body
   love.graphics.setColor(1, 0.30 + 0.12 * m, 0.04)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  for k = 0, math.floor(s.w * s.h / 6000) do
-    local px = s.x + (hash(s.seed + k) * s.w + t * 8 * (k % 2 == 0 and 1 or -1)) % s.w
-    local py = s.y + hash(s.seed * 3 + k) * s.h
-    color(C.crust)
-    love.graphics.ellipse("fill", px, py, 12 + hash(k) * 14, 8 + hash(k * 2) * 8, 10)
+  local ox, oy, ow, oh = love.graphics.getScissor() -- the plates stay inside it
+  local sx, sy = love.graphics.transformPoint(s.x, s.y)
+  local ex, ey = love.graphics.transformPoint(s.x + s.w, s.y + s.h)
+  love.graphics.intersectScissor(math.floor(sx), math.floor(sy), math.ceil(ex - sx), math.ceil(ey - sy))
+  local drift = (s.seed % 2 == 0) and 1 or -1
+  for k = 0, math.floor(s.w * s.h / 5000) do
+    local speed = 5 + hash(s.seed * 7 + k) * 7
+    local px = s.x + (hash(s.seed + k) * (s.w + 80) + t * speed * drift) % (s.w + 80) - 40
+    local py = s.y + hash(s.seed * 3 + k) * s.h + math.sin(t * 0.3 + k) * 6
+    local r = 10 + hash(k * 1.7 + s.seed) * 18
+    love.graphics.setColor(C.crust[1], C.crust[2], C.crust[3], 0.75 + hash(k) * 0.25)
+    plate(px, py, r, s.seed + k)
   end
   love.graphics.setBlendMode("add")
-  love.graphics.setColor(1, 0.8, 0.3, 0.25 * m)
-  love.graphics.rectangle("fill", s.x + 6, s.y + 6, s.w - 12, s.h - 12)
+  love.graphics.setLineWidth(2)
+  for k = 0, math.floor(s.w * s.h / 20000) do -- seams opening and closing
+    local glow = math.max(0, math.sin(t * (0.6 + hash(s.seed + k * 5) * 0.8) + k * 2.1))
+    local px, py = s.x + hash(s.seed * 11 + k) * s.w, s.y + hash(s.seed * 13 + k) * s.h
+    local a = hash(s.seed * 17 + k) * math.pi
+    love.graphics.setColor(1, 0.8, 0.3, 0.55 * glow)
+    love.graphics.line(px, py, px + math.cos(a) * 26, py + math.sin(a) * 18, px + math.cos(a + 0.6) * 50,
+      py + math.sin(a + 0.6) * 34)
+  end
+  love.graphics.setColor(1, 0.8, 0.3, 0.18 * m)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
   love.graphics.setBlendMode("alpha")
-  color(C.char) -- its banks
-  love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
+  love.graphics.setScissor(ox, oy, ow, oh)
+  -- The shore: crust in from the rock, the heat showing along its edge.
+  for _, p in ipairs(s.shore or {}) do
+    local ax, ay, bx, by, nx, ny, da, db = p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8]
+    color(C.crust)
+    love.graphics.polygon("fill", ax, ay, bx, by, bx + nx * db, by + ny * db, ax + nx * da, ay + ny * da)
+    color(C.char)
+    love.graphics.polygon("fill", ax, ay, bx, by, bx + nx * db * 0.4, by + ny * db * 0.4, ax + nx * da * 0.4,
+      ay + ny * da * 0.4)
+  end
+  love.graphics.setBlendMode("add")
+  love.graphics.setLineWidth(3)
+  for _, p in ipairs(s.shore or {}) do
+    local nx, ny, da, db = p[5], p[6], p[7], p[8]
+    love.graphics.setColor(1, 0.75, 0.25, 0.55 * m)
+    love.graphics.line(p[1] + nx * da, p[2] + ny * da, p[3] + nx * db, p[4] + ny * db)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setBlendMode("alpha")
 end
 
 --- The Crucible's pit: the Crater's lava, deeper.
@@ -2262,6 +2362,7 @@ end
 --- it all.
 function RenderEternalMood.drawProps(map, left, top, right, bottom, t)
   local before = love.graphics.getFont()
+  prepareLava(map)
   for _, s in ipairs(map.cover) do
     if s.flat and DRAW[s.kind] and inView(s, left, top, right, bottom) then
       DRAW[s.kind](s, t)
