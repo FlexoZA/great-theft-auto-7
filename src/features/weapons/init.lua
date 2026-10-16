@@ -113,7 +113,9 @@
 -- their screen quietly when it comes back.
 --
 -- Messages
---   client -> server  WPN_FIRE <aimAngle>
+--   client -> server  WPN_FIRE <aimAngle> [<x> <y>]  (on foot: where my screen has me, my own movement
+--                                              predicted ahead of the host's; the host starts the shot
+--                                              there if it is near enough (FIRE_SLACK) with no wall between)
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
 --   client -> server  WPN_SPIN                       (winding up the barrels of the gun in hand)
@@ -204,6 +206,8 @@ local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
 local SHAKE_MAX = 18
 local MUZZLE_OFFSET = 26 -- px from car centre along the aim
 local FOOT_MUZZLE = 16 -- px from a body on foot (the tip of the gun in its hands), which is smaller than a car
+local FIRE_SLACK = 60 -- px a shooter's own screen may have them ahead of the host (sprinting, ping) and still fire
+-- from where they see themselves
 local FOOT_RADIUS = 10 -- px; how fat a player on foot is for hit tests (a little over Body.RADIUS: the arms)
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
@@ -251,6 +255,14 @@ end
 -- Client state (reset in enterGame and resetSynced) -------------------------
 
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
+-- My own shots on foot are drawn from my gun the moment I fire, under a
+-- local id (negative), and wait here, oldest first, for the host's WPN_SHOT
+-- to take them over (`ownShot`): otherwise they'd show up a round trip
+-- late, where I was. One the host never sends (it refused it) is dropped
+-- after OWN_WAIT seconds.
+Weapons.ownShots = {} -- { id, t }
+local OWN_WAIT = 0.6
+local ownId = 0
 Weapons.health = {} -- player id -> hp (absent = full)
 Weapons.maxHealth = {} -- player id -> ceiling (absent = MAX_HEALTH)
 Weapons.carHealth = {} -- vehicle id -> hp (absent = full)
@@ -367,6 +379,7 @@ end
 
 function Weapons:enterGame()
   self.projectiles = {}
+  self.ownShots = {}
   self.hitFlash = {}
   self.carFlash = {}
   self.hitType = {}
@@ -580,7 +593,49 @@ function Weapons:tryFire(client)
       Reloads.after(0.08, "slide-lock", client.myId) -- that was the last one
     end
   end
-  client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+  local x, y = clientPose(client, client.myId) -- where I see myself: ahead of the host when moving
+  if x then
+    client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim), ("%.1f"):format(x), ("%.1f"):format(y)))
+    self:launchOwn(client, gun, x + math.cos(aim) * FOOT_MUZZLE, y + math.sin(aim) * FOOT_MUZZLE, aim)
+  else
+    client:send(Protocol.encode("WPN_FIRE", ("%.3f"):format(aim)))
+  end
+end
+
+--- My shot from my gun at (x, y) along `aim`, drawn now: each pellet its
+--- own round under a local id, waiting for the host's (`ownShots`), its
+--- sound now (the host's message for it then says nothing).
+function Weapons:launchOwn(client, gun, x, y, aim)
+  for pellet = 1, gun.pellets or 1 do
+    local a = aim
+    if gun.spread > 0 then
+      a = a + (love.math.random() * 2 - 1) * gun.spread
+    end
+    ownId = ownId - 1
+    self.projectiles[ownId] = {
+      x = x, y = y, vx = math.cos(a) * gun.speed, vy = math.sin(a) * gun.speed, age = 0, owner = client.myId,
+      gun = gun.index, angle = a, quiet = pellet > 1 or gun.quiet, ttl = gun.ttl, own = true,
+    }
+    self.ownShots[#self.ownShots + 1] = { id = ownId, t = 0 }
+  end
+  if not gun.quiet and Sounds.loops(gun.sound) then
+    Sounds.hold(gun.sound, client.myId, x, y)
+  elseif not gun.quiet then
+    Sounds.play(gun.sound, x, y, gun.pitch * (0.9 + love.math.random() * 0.2))
+  end
+end
+
+--- The host's word on one of my shots: the oldest of mine still waiting.
+--- Returns true and that round where it has got to (nil when it has
+--- already hit something on my screen), or false when none is waiting.
+local function ownShot(self)
+  local o = table.remove(self.ownShots, 1)
+  if not o then
+    return false
+  end
+  local p = self.projectiles[o.id]
+  self.projectiles[o.id] = nil
+  return true, p
 end
 
 --- Switch to gun `index` and tell the host. The cooldown carries over, so
@@ -753,6 +808,14 @@ function Weapons:update(dt, client, camera)
     self.armed = true
   elseif self.armed then
     self:tryFire(client)
+  end
+  for i = #self.ownShots, 1, -1 do -- mine the host never sent: it refused them
+    local o = self.ownShots[i]
+    o.t = o.t + dt
+    if o.t > OWN_WAIT then
+      table.remove(self.ownShots, i)
+      self.projectiles[o.id] = nil
+    end
   end
   for pid, p in pairs(self.projectiles) do
     local gun = Guns.at(p.gun)
@@ -1378,7 +1441,7 @@ Weapons.clientMessages = {
       Weapons.projectiles[pid] = nil
     end
   end,
-  WPN_SHOT = function(_client, args)
+  WPN_SHOT = function(client, args)
     local pid, owner = tonumber(args[1]), tonumber(args[2])
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     local gun = Guns.at(tonumber(args[7]))
@@ -1389,9 +1452,20 @@ Weapons.clientMessages = {
       if r then
         tint = { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 }
       end
+      local mine = nil
+      if owner == client.myId then -- drawn from my gun already: carry on from there
+        local waiting
+        waiting, mine = ownShot(Weapons)
+        if waiting and not mine then
+          return -- it has hit something on my screen already
+        end
+      end
+      if mine then
+        x, y, quiet = mine.x, mine.y, true -- (it has made its sound)
+      end
       Weapons.projectiles[pid] = {
-        x = x, y = y, vx = vx, vy = vy, age = 0, owner = owner, gun = gun.index, angle = math.atan2(vy, vx),
-        quiet = quiet, tint = tint, ttl = tonumber(args[10]),
+        x = x, y = y, vx = vx, vy = vy, age = mine and mine.age or 0, owner = owner, gun = gun.index,
+        angle = math.atan2(vy, vx), quiet = quiet, tint = tint, ttl = tonumber(args[10]),
       }
       if not quiet and Sounds.loops(gun.sound) then
         Sounds.hold(gun.sound, owner, x, y) -- too fast to hear as shots: one roar while it fires
@@ -2156,10 +2230,31 @@ function Weapons:serverSpin(server, player)
   server:broadcast(Protocol.encode("WPN_SPIN", player.id))
 end
 
+--- Where a shot on foot starts from: where the shooter's own screen had
+--- them (seenX, seenY), ahead of where the host has them (bx, by) while
+--- they move (their steps are predicted), so a round leaves the gun they
+--- see and not the side of them; but only that near (FIRE_SLACK) and with
+--- nothing solid between, so nobody fires from where they aren't.
+local function firedFrom(bx, by, seenX, seenY)
+  local dx, dy = seenX - bx, seenY - by
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d > FIRE_SLACK then
+    return bx, by
+  end
+  for k = 1, math.ceil(d / 6) do
+    local f = k * 6 / math.max(d, 1)
+    if Features.any("blocksPoint", bx + dx * math.min(1, f), by + dy * math.min(1, f)) then
+      return bx, by
+    end
+  end
+  return seenX, seenY
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
---- cooldown. Used by WPN_FIRE and by other features (bots). Returns true if
---- a shot was fired.
-function Weapons:serverFire(server, player, aim)
+--- cooldown. Used by WPN_FIRE and by other features (bots). On foot,
+--- (seenX, seenY) is where the shooter's screen had them (`firedFrom`).
+--- Returns true if a shot was fired.
+function Weapons:serverFire(server, player, aim, seenX, seenY)
   local sv = self.sv
   local st = sv and sv.players[player.id]
   if not (st and player.body and aim) then
@@ -2199,6 +2294,9 @@ function Weapons:serverFire(server, player, aim)
   st.lastFire = sv.time
 
   local bx, by, onFoot = bodyPose(server, player)
+  if onFoot and seenX then
+    bx, by = firedFrom(bx, by, seenX, seenY)
+  end
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
   return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun)
 end
@@ -2378,7 +2476,7 @@ end
 
 Weapons.serverMessages = {
   WPN_FIRE = function(server, player, args)
-    Weapons:serverFire(server, player, tonumber(args[1]))
+    Weapons:serverFire(server, player, tonumber(args[1]), tonumber(args[2]), tonumber(args[3]))
   end,
   WPN_SPIN = function(server, player)
     Weapons:serverSpin(server, player)
