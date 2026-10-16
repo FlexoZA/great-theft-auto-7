@@ -33,8 +33,7 @@ local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
-local Synth = require("src.audio.synth")
-local Audio = require("src.audio")
+local Onscreen = require("src.features.eternal-mood.onscreen")
 local Look = require("src.features.eternal-mood.dread_knight_look")
 
 local DreadKnight = {}
@@ -334,11 +333,7 @@ local RED = { 0.95, 0.15, 0.12 }
 
 function DreadKnight.load()
   local function make(seconds, volume, build)
-    local buf = Synth.newBuffer(seconds)
-    build(buf)
-    local src = love.audio.newSource(buf:toSoundData(volume), "static")
-    src:setAttenuationDistances(250, 2200)
-    return src
+    return Onscreen.sound(seconds, volume, build, 250, 2200)
   end
   bank.growl = make(0.9, 0.8, function(buf) -- waking: a low growl through a helm
     buf:sweep(0, 0.85, 80, 55, { wave = "saw", amp = 0.5, attack = 0.05, decay = 0.7, vibRate = 11, vibDepth = 6 })
@@ -386,14 +381,7 @@ function DreadKnight.load()
 end
 
 local function play(name, x, y)
-  local base = bank[name]
-  if base then
-    local s = base:clone()
-    s:setPosition(x, 0, y)
-    s:setPitch(0.92 + random() * 0.16)
-    s:setVolume(0.8 * Audio.volume("weapons"))
-    s:play()
-  end
+  Onscreen.play(bank, name, x, y)
 end
 
 function DreadKnight.clear()
@@ -405,16 +393,7 @@ function DreadKnight.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > 1.5 then
     shown = {}
   end
-  local k = math.min(1, dt * 14)
-  for _, m in pairs(shown) do
-    local ex, ey = m.x - m.dx, m.y - m.dy
-    if ex * ex + ey * ey > 300 * 300 then
-      m.dx, m.dy = m.x, m.y
-    else
-      m.dx, m.dy = m.dx + ex * k, m.dy + ey * k
-      m.stride = m.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
-  end
+  Onscreen.ease(shown, dt)
   for id, s in pairs(said) do
     s.t = s.t - dt
     if s.t <= 0 then

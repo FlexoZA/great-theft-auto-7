@@ -5,7 +5,7 @@
 -- draws them; this is only their heads, on the host.
 --
 -- A mob stands about its spot (asleep in the bunks, at lunch in the Mess),
--- swaying, until it wakes (`Brain:wake`, a mob at a time): horde.lua wakes
+-- swaying, or crouches round a body eating it ("eat"), until it wakes (`Brain:wake`, a mob at a time): horde.lua wakes
 -- one when a player comes near it or sees it from across the room, or when
 -- one of it is hurt. Awake, each goes for the nearest player, finding its
 -- way on `nav`: a shamble from afar, a lurch once it is close (LURCH_FROM),
@@ -63,8 +63,9 @@ function Brain.new(opts)
 end
 
 --- One of mob `mob` standing at (x, y) facing `facing`, asleep until its mob
---- wakes; `awake` for one that comes in already after somebody (a meeting).
-function Brain:add(x, y, facing, mob, awake)
+--- wakes; `awake` for one that comes in already after somebody (a meeting),
+--- `eating` for one crouched over the mob's meal.
+function Brain:add(x, y, facing, mob, awake, eating)
   local s = {
     id = self.nextId,
     x = x,
@@ -72,7 +73,7 @@ function Brain:add(x, y, facing, mob, awake)
     facing = facing or random() * 2 * math.pi,
     hp = Brain.HEALTH,
     mob = mob,
-    state = awake and "hunt" or "idle", -- idle, hunt, windup
+    state = awake and "hunt" or eating and "eat" or "idle", -- idle, eat, hunt, windup
     t = 0,
     target = nil,
     clawIn = 0,
@@ -93,7 +94,7 @@ end
 function Brain:wake(mob)
   local any = false
   for _, s in ipairs(self.list) do
-    if s.mob == mob and s.state == "idle" then
+    if s.mob == mob and (s.state == "idle" or s.state == "eat") then
       s.state, s.t, any = "hunt", 0, true
       s.pathIn = random() * 0.6 -- not all on the same tick
     end
@@ -209,6 +210,8 @@ function Brain:think(server, s, dt)
   if s.state == "idle" then
     s.sway = s.sway + dt
     s.facing = s.facing + math.sin(s.sway * 0.7) * 0.3 * dt -- swaying where it stands
+    return
+  elseif s.state == "eat" then -- head down over the meal: it only looks up when its mob wakes
     return
   end
   if (self.tick + s.look) % Brain.LOOK_EVERY == 0 or not s.target then

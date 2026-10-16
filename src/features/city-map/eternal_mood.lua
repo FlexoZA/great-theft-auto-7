@@ -50,8 +50,9 @@
 --                         vents the imps crawl out of (`look` manhole or crack where they aren't vents),
 --                         and `cacos` = { x, y, count, wake } the Cacodaemons' flocks floating about their
 --                         spots (over anything: they fly), `knights` = { x, y, facing, count, wake } the Dread
---                         Knights standing at theirs (eternal-mood/dread_knight.lua), world px; and `boss` the
---                         level's boss, by `kind`:
+--                         Knights standing at theirs (eternal-mood/dread_knight.lua), `mechas` = { route, mob }
+--                         the Mecha Zombies' loops round their mobs and each mob's `meal` { x, y, angle } the
+--                         body it is eating (`feast`), world px; and `boss` the level's boss, by `kind`:
 --                         "floor-manager" { x, y, facing, zone, lift, doors }: where he waits, the room that
 --                         wakes him, the lift he keeps out of service, the doorways his meetings use;
 --                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
@@ -295,6 +296,87 @@ local function clutter(map, rng, g, z, kinds, avoid, doors)
       end
     end
   end
+end
+
+-- A feast: every Intern mob of `map.horde` crowds round a body it dragged
+-- in, eating it (horde.lua puts them round `mob.meal`): the body, a trail
+-- of blood back the way it came over open floor, spatter about. A Mecha
+-- Zombie walks a loop round each mob, guarding it (`horde.mechas`,
+-- eternal-mood/mecha_zombie.lua): its `route`, clear points in a ring,
+-- and the mob it belongs to. Returns those points, for the clutter to keep
+-- off.
+local TRAIL = 3.5 -- tiles back along the way it was dragged
+local MECHA_RINGS = { 3, 2.5, 3.5, 2 } -- tiles round the mob its loop runs at, the first that fits
+local function feast(map, rng, g)
+  local T = g.T
+  local horde = map.horde
+  local function open(x, y, margin)
+    local c, r = math.floor((x - map.x0) / T), math.floor((y - map.y0) / T)
+    if not g.at(c, r) then
+      return false
+    end
+    for _, o in ipairs(map.solids) do
+      if x > o.x - margin and x < o.x + o.w + margin and y > o.y - margin and y < o.y + o.h + margin then
+        return false
+      end
+    end
+    return true
+  end
+  horde.mechas = {}
+  local keep = {}
+  for i, mob in ipairs(horde.mobs or {}) do
+    -- The way it was dragged in: the first of eight ways round with open
+    -- floor all along it.
+    local start = rng:random() * 2 * math.pi
+    for k = 0, 7 do
+      local a = start + k * math.pi / 4
+      local ok = true
+      for f = 0.15, 1, 0.17 do
+        if not open(mob.x + math.cos(a) * TRAIL * T * f, mob.y + math.sin(a) * TRAIL * T * f, 4) then
+          ok = false
+          break
+        end
+      end
+      if ok then
+        local sx, sy = mob.x + math.cos(a) * TRAIL * T, mob.y + math.sin(a) * TRAIL * T
+        flat(map, "bloodtrail", math.min(sx, mob.x) - 16, math.min(sy, mob.y) - 16, math.abs(sx - mob.x) + 32,
+          math.abs(sy - mob.y) + 32, { x1 = sx, y1 = sy, x2 = mob.x, y2 = mob.y, seed = rng:random(1000) })
+        break
+      end
+    end
+    mob.meal = { x = mob.x, y = mob.y, angle = rng:random() * 2 * math.pi }
+    flat(map, "meal", mob.x - 34, mob.y - 34, 68, 68, { angle = mob.meal.angle, seed = rng:random(1000) })
+    for _ = 1, 3 do
+      local a, d = rng:random() * 2 * math.pi, 36 + rng:random() * 40
+      flat(map, "blood", mob.x + math.cos(a) * d - 30, mob.y + math.sin(a) * d - 30, 60, 60,
+        { angle = rng:random() * 2 * math.pi, seed = rng:random(1000) })
+    end
+    -- The guard's loop: six points in a ring, the ring that fits most.
+    local best
+    for _, ring in ipairs(MECHA_RINGS) do
+      local route = {}
+      for k = 0, 5 do
+        local a = k * math.pi / 3 + 0.3
+        local x, y = mob.x + math.cos(a) * ring * T, mob.y + math.sin(a) * ring * T
+        if open(x, y, 20) then
+          route[#route + 1] = { x = math.floor(x), y = math.floor(y) }
+        end
+      end
+      if not best or #route > #best then
+        best = route
+      end
+      if #route == 6 then
+        break
+      end
+    end
+    if best and #best >= 3 then
+      horde.mechas[#horde.mechas + 1] = { route = best, mob = i }
+      for _, p in ipairs(best) do
+        keep[#keep + 1] = p
+      end
+    end
+  end
+  return keep
 end
 
 local function buildFobos(map, rng, T)
@@ -632,9 +714,15 @@ local function buildFobos(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(z.c0 + 10)), math.floor(Y(z.r1 - 1))
 
+  -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
+  local guarded = feast(map, rng, g)
+
   -- The mess the night left, room by room (`clutter`): kept off everyone's
   -- spots and the doorways, and only where it fits on the floor.
   local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY }, { x = horde.boss.x, y = horde.boss.y } }
+  for _, p in ipairs(guarded) do
+    avoid[#avoid + 1] = p
+  end
   for _, list in ipairs({ horde.posts, horde.vents, horde.mobs, map.spawns }) do
     for _, p in ipairs(list) do
       avoid[#avoid + 1] = { x = p.x, y = p.y }
@@ -1084,8 +1172,14 @@ local function buildEarth(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(20)), math.floor(Y(156))
 
+  -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
+  local guarded = feast(map, rng, g)
+
   -- The mess, stretch by stretch, kept off everyone's spots.
   local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
+  for _, p in ipairs(guarded) do
+    avoid[#avoid + 1] = p
+  end
   for _, list in ipairs({ horde.posts, horde.vents, horde.mobs, map.spawns }) do
     for _, p in ipairs(list) do
       avoid[#avoid + 1] = { x = p.x, y = p.y }
@@ -1440,7 +1534,12 @@ local function buildFoundry(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(7.5)), math.floor(Y(59))
 
+  -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
+  local guarded = feast(map, rng, g)
   local avoid = { { x = map.cx, y = map.cy }, { x = map.exitX, y = map.exitY } }
+  for _, p in ipairs(guarded) do
+    avoid[#avoid + 1] = p
+  end
   for _, list in ipairs({ horde.posts, horde.vents, horde.mobs, map.spawns }) do
     for _, p in ipairs(list) do
       avoid[#avoid + 1] = { x = p.x, y = p.y }
