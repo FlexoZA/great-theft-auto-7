@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-16
+
+Eternal Mood is no straight run any more: every level hides terminals (Heck's are seals) that open the lift, the road's blast gates, the Crucible's doors and the bone wall to the Mattress.
+
 ### Changed
 - Heck's ramp up to the Mattress is barred by a wall of bone until you light four seals: one on each island out in the
   lava, one at the Altar Fields' west end and one on the pizza lake's shore.
