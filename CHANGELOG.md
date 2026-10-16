@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+
+- The Eternal Mood shuttle's engines now point backwards: flared bells with oval mouths instead of round nozzles facing up.
+
 ## [0.29.5] - 2026-10-15
 
 The shuttle you land in on Eternal Mood is drawn in full: lit portholes, blinking nav lights, glowing engines and its ramp down.
