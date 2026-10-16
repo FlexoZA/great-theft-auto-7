@@ -228,14 +228,20 @@ EternalMood.CLUTTER = {
 }
 local CLUTTER_SIZE = { -- px across
   bin = 28, tipped = 44, trash = 70, papers = 80, blood = 70, scorch = 90, glass = 50, fallen = 40, bones = 60,
+  -- Heck on Earth's yards and streets
+  trampoline = 96, swing = 84, gardenbed = 72, doghouse = 48, lawnchair = 34, bike = 44, mailbox = 20, hydrant = 22,
+  debris = 64, oil = 60, skid = 120,
 }
-local CLUTTER_ORDER = { "bin", "tipped", "fallen", "trash", "papers", "blood", "scorch", "glass", "bones" }
+local CLUTTER_ORDER = { "trampoline", "swing", "gardenbed", "doghouse", "bin", "mailbox", "hydrant", "tipped",
+  "fallen", "lawnchair", "bike", "trash", "papers", "debris", "blood", "scorch", "oil", "skid", "glass", "bones" }
+-- The ones that stand (and stop a round); the rest lie flat.
+local CLUTTER_SOLID = { bin = true, doghouse = true, mailbox = true, hydrant = true }
 
 --- Scatter `kinds` (kind = how many) about room `z` (tiles): each where its
 --- box is all floor, clear of everything solid already there, out of the
 --- `doors` (tile boxes), and away from every spot in `avoid` (people, vents,
 --- routes).
---- A bin is solid; everything else lies flat.
+--- The CLUTTER_SOLID kinds stand; everything else lies flat.
 local function clutter(map, rng, g, z, kinds, avoid, doors)
   local X, Y, T = g.X, g.Y, g.T
   local function free(x, y, w, h, solid)
@@ -270,7 +276,7 @@ local function clutter(map, rng, g, z, kinds, avoid, doors)
       for _ = 1, 30 do -- a few goes at somewhere it fits
         local x = X(z.c0) + rng:random() * ((z.c1 - z.c0 + 1) * T - size)
         local y = Y(z.r0) + rng:random() * ((z.r1 - z.r0 + 1) * T - size)
-        local solid = kind == "bin"
+        local solid = CLUTTER_SOLID[kind] == true
         if free(x, y, size, size, solid) then
           local extra = { angle = rng:random() * 2 * math.pi, seed = rng:random(1000) }
           if solid then
@@ -678,9 +684,11 @@ EternalMood.EARTH_CROSSROADS = { { 129, 132 }, { 115, 118 }, { 94, 97 }, { 76, 7
 EternalMood.EARTH_CLUTTER = {
   ["The Depot"] = { papers = 2, blood = 1, scorch = 2, tipped = 1 },
   ["The Suburbs"] = { bin = 3, tipped = 4, trash = 5, papers = 3, blood = 3, scorch = 4, glass = 3 },
-  ["Downtown"] = { bin = 3, tipped = 4, trash = 6, papers = 6, blood = 4, scorch = 5, glass = 5 },
+  ["Downtown"] = { bin = 3, tipped = 4, trash = 6, papers = 6, blood = 4, scorch = 5, glass = 5, debris = 6,
+    oil = 3 },
   ["The Crater"] = { scorch = 8, blood = 4, glass = 3, trash = 3 },
-  ["The Boulevard"] = { bin = 2, tipped = 3, trash = 4, papers = 4, blood = 5, scorch = 6, glass = 3 },
+  ["The Boulevard"] = { bin = 2, tipped = 3, trash = 4, papers = 4, blood = 5, scorch = 6, glass = 3, debris = 6,
+    oil = 4, skid = 3 },
 }
 
 local function buildEarth(map, rng, T)
@@ -809,6 +817,7 @@ local function buildEarth(map, rng, T)
   -- The Suburbs: houses either side behind their front yards, some of them
   -- burning, hedges between the yards.
   street(108, 141)
+  local yards = {} -- the front yards, in tiles: what was left in them goes in last
   local function houses(r0, r1)
     local r = r0
     while r + 3 <= r1 do
@@ -816,6 +825,7 @@ local function buildEarth(map, rng, T)
       for _, side in ipairs({ { 3, 8, 9, 12 }, { 31, 36, 27, 30 } }) do
         local b = block(side[1], r, side[2], r2, "house", rng:random() < 0.4)
         ground(side[3], r, side[4], r2, "lawn")
+        yards[#yards + 1] = { c0 = side[3], c1 = side[4], r0 = r, r1 = r2 }
         if b.burning then
           burn(b)
         end
@@ -1083,6 +1093,24 @@ local function buildEarth(map, rng, T)
   for _, z in ipairs(EternalMood.EARTH) do
     local room = { c0 = 0, c1 = cols - 1, r0 = z.r0, r1 = z.r1 }
     clutter(map, rng, g, room, EternalMood.EARTH_CLUTTER[z.name] or {}, avoid)
+  end
+  -- What people left in their front yards: something to play on, a garden
+  -- bed gone to ash, a chair, a bike, the mailbox, a kennel now and then;
+  -- and hydrants and debris along Downtown's sidewalks.
+  for _, y in ipairs(yards) do
+    local kinds = { gardenbed = 1, mailbox = 1, lawnchair = rng:random(0, 2) }
+    local roll = rng:random()
+    if roll < 0.3 then
+      kinds.trampoline = 1
+    elseif roll < 0.55 then
+      kinds.swing = 1
+    end
+    kinds.bike = rng:random() < 0.4 and 1 or 0
+    kinds.doghouse = rng:random() < 0.3 and 1 or 0
+    clutter(map, rng, g, y, kinds, avoid)
+  end
+  for _, c0 in ipairs({ 13, 25 }) do
+    clutter(map, rng, g, { c0 = c0, c1 = c0 + 1, r0 = 66, r1 = 107 }, { hydrant = 3, debris = 2 }, avoid)
   end
 
   map.openKinds = { walk = true }

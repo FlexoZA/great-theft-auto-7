@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Heck on Earth is fuller. Front yards have what people left in them (trampolines, swings, burnt garden beds, lawn
+  chairs, bikes, mailboxes, a kennel now and then), Downtown's sidewalks have hydrants, and debris, oil and skid marks
+  are strewn down the roads and the Boulevard. Roofs have dormers, solar panels and dishes, and the towers have stair
+  hatches, vents, skylights, aerials and the odd helipad.
 - Fobos Base is fuller. Server racks and cable runs in the Lab, footlockers, a rug and laundry in Crew Quarters,
   chairs round the Mess's tables and vending machines on its wall, cables and coffee in the Offices, hazard paint and
   leaks round the Reactor, hazmat lockers and painted hazard boxes in Toxic Storage, and a workshop round the

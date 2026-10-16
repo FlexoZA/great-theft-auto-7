@@ -420,6 +420,30 @@ function ROOFS.house(b)
   end
   color(C.concreteDark)
   love.graphics.rectangle("fill", x + w * 0.7, y + h * 0.18, 22, 22) -- the chimney
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x + w * 0.7 + 22, y + h * 0.18 + 4, 8, 22) -- its shadow
+  local extra = b.seed % 4 -- what else is up there
+  if extra == 0 then -- solar panels, on the side in the light
+    for k = 0, 2 do
+      color(C.windscreen)
+      local px, py = alongX and x + 12 + k * 34 or x + 10, alongX and y + 10 or y + 12 + k * 34
+      love.graphics.rectangle("fill", px, py, 28, 22)
+      color(C.steel, 0.5)
+      love.graphics.line(px + 14, py, px + 14, py + 22)
+    end
+  elseif extra == 1 then -- a satellite dish
+    color(C.white)
+    love.graphics.circle("fill", x + w * 0.25, y + h * 0.7, 10, 12)
+    color(C.steelDark)
+    love.graphics.circle("fill", x + w * 0.25, y + h * 0.7, 3, 6)
+  elseif extra == 2 then -- a dormer window
+    color(tile)
+    love.graphics.rectangle("fill", x + w * 0.2, y + h * 0.15, 28, 24)
+    color(C.windscreen)
+    love.graphics.rectangle("fill", x + w * 0.2 + 6, y + h * 0.15 + 4, 16, 10)
+  end
+  love.graphics.setColor(0, 0, 0, 0.35) -- the gutter round its edge
+  love.graphics.rectangle("line", x, y, w, h)
   if b.burning then
     for k = 0, 2 do
       color(C.char)
@@ -457,6 +481,50 @@ function ROOFS.tower(b)
   love.graphics.circle("fill", tx, ty, 30, 20) -- the water tank
   color(C.crateDark)
   love.graphics.circle("line", tx, ty, 24, 20)
+  -- The stair hatch, a row of vent pipes, skylights, an aerial; a helipad
+  -- on one in four.
+  local hx, hy = b.x + b.w - 90, b.y + 24
+  color(C.shadow)
+  love.graphics.rectangle("fill", hx + 8, hy + 8, 60, 44)
+  color(C.concrete)
+  love.graphics.rectangle("fill", hx, hy, 60, 44)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", hx + 6, hy + 6, 48, 10)
+  for k = 0, 3 do
+    local vx, vy = b.x + 30 + k * 26, b.y + b.h - 40
+    color(C.shadow)
+    love.graphics.circle("fill", vx + 4, vy + 4, 7, 10)
+    color(C.steel)
+    love.graphics.circle("fill", vx, vy, 7, 10)
+    color(C.black)
+    love.graphics.circle("fill", vx, vy, 3, 8)
+  end
+  if b.w > 300 and b.h > 300 and b.seed % 4 == 0 then
+    local px, py = b.x + b.w * 0.5, b.y + b.h * 0.55
+    color(C.concreteDark)
+    love.graphics.circle("fill", px, py, 70, 32)
+    color(C.paint)
+    love.graphics.setLineWidth(5)
+    love.graphics.circle("line", px, py, 62, 32)
+    love.graphics.line(px - 20, py - 28, px - 20, py + 28)
+    love.graphics.line(px + 20, py - 28, px + 20, py + 28)
+    love.graphics.line(px - 20, py, px + 20, py)
+    love.graphics.setLineWidth(1)
+  else
+    for k = 0, 1 do
+      local sx, sy = b.x + 40 + k * 90, b.y + b.h * 0.45
+      color(C.windscreen)
+      love.graphics.rectangle("fill", sx, sy, 70, 46)
+      color(C.steel, 0.6)
+      love.graphics.rectangle("line", sx, sy, 70, 46)
+      love.graphics.line(sx + 35, sy, sx + 35, sy + 46)
+    end
+  end
+  color(C.steelDark) -- the aerial
+  love.graphics.setLineWidth(3)
+  love.graphics.line(b.x + 28, b.y + 28, b.x + 28, b.y + 80)
+  love.graphics.line(b.x + 16, b.y + 44, b.x + 40, b.y + 44)
+  love.graphics.setLineWidth(1)
   if b.burning then
     for k = 0, 3 do
       love.graphics.setColor(0.04, 0.03, 0.02, 0.6)
@@ -1293,6 +1361,132 @@ function DRAW.pallet(s)
   for x = s.x + 4, s.x + s.w - 12, 16 do
     love.graphics.rectangle("fill", x, s.y + 3, 11, s.h - 6)
   end
+end
+
+-- Heck on Earth's yards and sidewalks: what people left ------------------------------
+
+--- A trampoline: the frame, the mat sagging, a tear in it.
+function DRAW.trampoline(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  love.graphics.setColor(0, 0, 0, 0.2) -- light under it
+  love.graphics.circle("fill", cx + 6, cy + 6, r, 24)
+  color(C.steel)
+  love.graphics.circle("fill", cx, cy, r, 24)
+  color(C.black)
+  love.graphics.circle("fill", cx, cy, r - 6, 24)
+  color(C.blanket, 0.6)
+  love.graphics.circle("line", cx, cy, r - 10, 24)
+  color(C.waste) -- the tear, the lawn through it
+  love.graphics.polygon("fill", cx - 8, cy - 4, cx + 10, cy - 10, cx + 4, cy + 8)
+end
+
+--- A swing frame from above: the A-frame's legs, the bar, two seats.
+function DRAW.swing(s)
+  color(C.red)
+  love.graphics.setLineWidth(5)
+  love.graphics.line(s.x + 6, s.y + s.h / 2, s.x + s.w - 6, s.y + s.h / 2)
+  love.graphics.line(s.x + 4, s.y + 6, s.x + 10, s.y + s.h / 2, s.x + 4, s.y + s.h - 6)
+  love.graphics.line(s.x + s.w - 4, s.y + 6, s.x + s.w - 10, s.y + s.h / 2, s.x + s.w - 4, s.y + s.h - 6)
+  love.graphics.setLineWidth(1)
+  color(C.black)
+  for _, f in ipairs({ 0.35, 0.65 }) do
+    love.graphics.rectangle("fill", s.x + s.w * f - 9, s.y + s.h / 2 + 8, 18, 7, 2)
+  end
+end
+
+--- A garden bed gone to ash: a border of bricks, black stalks in it.
+function DRAW.gardenbed(s)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", s.x, s.y + s.h * 0.3, s.w, s.h * 0.4, 4)
+  color(C.char)
+  love.graphics.rectangle("fill", s.x + 4, s.y + s.h * 0.3 + 4, s.w - 8, s.h * 0.4 - 8, 3)
+  color(C.wasteDark)
+  for k = 0, 5 do
+    local x = s.x + 8 + k * (s.w - 16) / 5
+    love.graphics.line(x, s.y + s.h * 0.62, x + 3, s.y + s.h * 0.36)
+  end
+end
+
+--- A dog's kennel: a pitched roof, the dark of the door. Empty.
+function DRAW.doghouse(s)
+  shadow(s)
+  color(C.wood)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  love.graphics.setColor(0, 0, 0, 0.25)
+  love.graphics.rectangle("fill", s.x + s.w / 2, s.y, s.w / 2, s.h)
+  color(C.char)
+  love.graphics.rectangle("fill", s.x + s.w / 2 - 2, s.y, 4, s.h)
+  love.graphics.ellipse("fill", s.x + s.w / 2, s.y + s.h - 4, 9, 5, 10)
+end
+
+--- A lawn chair, folded over in the grass.
+function DRAW.lawnchair(s)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(s.angle or 0)
+  color(C.white)
+  love.graphics.rectangle("fill", -s.w / 2, -s.h / 3, s.w, s.h * 0.66, 3)
+  color(C.blanket)
+  for k = -1, 1 do
+    love.graphics.rectangle("fill", -s.w / 2 + 3, k * 7 - 2, s.w - 6, 3)
+  end
+  love.graphics.pop()
+end
+
+--- A kid's bike on its side: two wheels, the frame between.
+function DRAW.bike(s)
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(s.angle or 0)
+  color(C.black)
+  love.graphics.setLineWidth(3)
+  love.graphics.circle("line", -12, 0, 9, 12)
+  love.graphics.circle("line", 12, 0, 9, 12)
+  color(C.red)
+  love.graphics.line(-12, 0, 0, -6, 12, 0, -2, 0, -12, 0)
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+end
+
+--- A mailbox on its post, the flag up: mail nobody will get.
+function DRAW.mailbox(s)
+  shadow(s)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", s.x + 3, s.y + 2, s.w - 6, s.h - 4, 5)
+  color(C.steel)
+  love.graphics.rectangle("fill", s.x + 5, s.y + 4, s.w - 10, 5, 2)
+  color(C.red)
+  love.graphics.rectangle("fill", s.x + s.w - 4, s.y + 4, 4, 9)
+end
+
+--- A fire hydrant on the sidewalk: squat, red, its caps.
+function DRAW.hydrant(s)
+  shadow(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.red)
+  love.graphics.circle("fill", cx, cy, r, 12)
+  color(C.steelDark)
+  love.graphics.circle("fill", cx, cy, r * 0.45, 10)
+  color(C.red)
+  love.graphics.rectangle("fill", cx - r - 3, cy - 3, 6, 6)
+  love.graphics.rectangle("fill", cx + r - 3, cy - 3, 6, 6)
+end
+
+--- Debris strewn about: chunks of concrete, a bent rod, grit.
+function DRAW.debris(s)
+  local seed = s.seed or 0
+  for k = 0, 4 do
+    local px, py = s.x + hash(seed + k) * (s.w - 14), s.y + hash(seed * 3 + k) * (s.h - 12)
+    local r = 5 + hash(seed * 7 + k) * 8
+    color(k % 2 == 0 and C.concreteDark or C.concrete)
+    love.graphics.polygon("fill", px, py + r * 0.6, px + r * 0.7, py, px + r * 1.6, py + r * 0.4, px + r * 1.2,
+      py + r * 1.3, px + r * 0.2, py + r * 1.2)
+  end
+  color(C.steelDark)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(s.x + s.w * 0.2, s.y + s.h * 0.7, s.x + s.w * 0.5, s.y + s.h * 0.6, s.x + s.w * 0.8,
+    s.y + s.h * 0.75)
+  love.graphics.setLineWidth(1)
 end
 
 -- Heck on Earth's props ----------------------------------------------------------
