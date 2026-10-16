@@ -6,7 +6,7 @@
 -- without touching this file.
 --
 -- Each entry:
---   item    the inventory item it hands over ("gun-uzi", "ammo-uzi",
+--   item    the inventory item it hands over ("gun-uzi", "ammo-pistol",
 --           "ability-freeze", "medkit", "car-hatchback-orange")
 --   n       how many of it one purchase gives (cars: one on the road)
 --   name    what the card says
@@ -74,7 +74,7 @@ local PRICES = {
   ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-ar"] = 140, ["gun-shotgun"] = 100,
   ["gun-super-shotgun"] = 260, ["gun-smg"] = 110, ["gun-sniper"] = 160, ["gun-rocket"] = 300,
   ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
-  ["ammo-uzi"] = 40, ["ammo-pistol"] = 35,
+  ["ammo-pistol"] = 35,
   ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
   ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70,
   medkit = 20, drink = 12, grenade = 30, ["grenade-electric"] = 60,
@@ -206,7 +206,7 @@ end
 
 Catalog.SELL_SHARE = 0.5 -- of the shop's own price it pays for a thing brought back
 
---- What the shop pays for `count` of `item` ("ammo-uzi", "gun-uzi@rare")
+--- What the shop pays for `count` of `item` ("ammo-pistol", "gun-uzi@rare")
 --- brought back: SELL_SHARE of its price in that tier, by the bundle it is
 --- sold in (60 uzi rounds for 40 Fcks: 60 back for 20), rounded down. The
 --- dev shop's free prices don't count: it pays what the real shop would.

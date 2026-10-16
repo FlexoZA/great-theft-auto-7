@@ -14,6 +14,37 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.8] - 2026-10-16
+
+Eternal Mood gets its polish: walls that look solid and cast shadows, lava that flows with ragged shores, and every level filled out; and the uzi becomes a close-range 9mm sprayer.
+
+### Changed
+- Heck is fuller. Braziers burn at the Altar Fields' edges among rib cages, skull piles, bone spikes and glowing rune
+  circles; gouges and skulls mark the Mattress's plateau; and the ramp up to it is steps cut into the rock instead of
+  grey slabs.
+- The Foundry is fuller. Slag spilled round the Smelters' vats, ingot moulds still glowing, stacks of ingots and pipes
+  along the wall; bones, skulls, bone spikes and burning braziers across the Crucible's floor; a copier in the Front
+  Office; pallets, tyres, a fuel hose and oil in the Loading Bay and on the Landing Pad.
+- Heck on Earth is fuller. Front yards have what people left in them (trampolines, swings, burnt garden beds, lawn
+  chairs, bikes, mailboxes, a kennel now and then), Downtown's sidewalks have hydrants, and debris, oil and skid marks
+  are strewn down the roads and the Boulevard. Roofs have dormers, solar panels and dishes, and the towers have stair
+  hatches, vents, skylights, aerials and the odd helipad.
+- Fobos Base is fuller. Server racks and cable runs in the Lab, footlockers, a rug and laundry in Crew Quarters,
+  chairs round the Mess's tables and vending machines on its wall, cables and coffee in the Offices, hazard paint and
+  leaks round the Reactor, hazmat lockers and painted hazard boxes in Toxic Storage, and a workshop round the
+  Hangar's walls (workbenches, tool chests, tyres, fuel drums) with oil, skid marks and pallets on its floor.
+- Eternal Mood's lava flows: the Foundry's moat and Heck's lava sea have ragged shores of cooled crust, glowing where
+  they meet the molten lava, lumpy crust drifting on a slow current and bright seams opening and closing. Lava next to
+  lava is one body now, not a row of squares.
+- Eternal Mood's walls stand up: on every level a wall shows its face over the floor and casts a shadow across it, so
+  you can see what you can't shoot over. Heck's rock walls are darker than its floor, Earth's buildings cast shadows
+  as long as they are tall, and the ground outside each map (moon dust, waste ground, tarmac, the abyss) is smooth
+  instead of blocky.
+- The uzi fires 9mm rounds, the same as the SMG (the pistol never needs any). Uzi ammo is gone: any you had becomes
+  9mm, and 9mm boxes now drop as often as uzi ammo did.
+- The uzi is a close-range gun: its rounds are spent after about 360 px (1080 -> 360). It still fires fourteen a
+  second.
+
 ## [0.29.7] - 2026-10-16
 
 Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.

@@ -228,14 +228,26 @@ EternalMood.CLUTTER = {
 }
 local CLUTTER_SIZE = { -- px across
   bin = 28, tipped = 44, trash = 70, papers = 80, blood = 70, scorch = 90, glass = 50, fallen = 40, bones = 60,
+  -- Heck on Earth's yards and streets
+  trampoline = 96, swing = 84, gardenbed = 72, doghouse = 48, lawnchair = 34, bike = 44, mailbox = 20, hydrant = 22,
+  debris = 64, oil = 60, skid = 120,
+  -- the Foundry's
+  slag = 70, skulls = 50, spike = 34, ingots = 44,
+  -- Heck's
+  ribcage = 120, runes = 150, drag = 140,
 }
-local CLUTTER_ORDER = { "bin", "tipped", "fallen", "trash", "papers", "blood", "scorch", "glass", "bones" }
+local CLUTTER_ORDER = { "runes", "ribcage", "trampoline", "swing", "gardenbed", "doghouse", "bin", "ingots", "spike",
+  "drag", "mailbox",
+  "hydrant", "tipped", "fallen", "lawnchair", "bike", "trash", "papers", "debris", "slag", "skulls", "blood", "scorch",
+  "oil", "skid", "glass", "bones" }
+-- The ones that stand (and stop a round); the rest lie flat.
+local CLUTTER_SOLID = { bin = true, doghouse = true, mailbox = true, hydrant = true, spike = true, ingots = true }
 
 --- Scatter `kinds` (kind = how many) about room `z` (tiles): each where its
 --- box is all floor, clear of everything solid already there, out of the
 --- `doors` (tile boxes), and away from every spot in `avoid` (people, vents,
 --- routes).
---- A bin is solid; everything else lies flat.
+--- The CLUTTER_SOLID kinds stand; everything else lies flat.
 local function clutter(map, rng, g, z, kinds, avoid, doors)
   local X, Y, T = g.X, g.Y, g.T
   local function free(x, y, w, h, solid)
@@ -270,7 +282,7 @@ local function clutter(map, rng, g, z, kinds, avoid, doors)
       for _ = 1, 30 do -- a few goes at somewhere it fits
         local x = X(z.c0) + rng:random() * ((z.c1 - z.c0 + 1) * T - size)
         local y = Y(z.r0) + rng:random() * ((z.r1 - z.r0 + 1) * T - size)
-        local solid = kind == "bin"
+        local solid = CLUTTER_SOLID[kind] == true
         if free(x, y, size, size, solid) then
           local extra = { angle = rng:random() * 2 * math.pi, seed = rng:random(1000) }
           if solid then
@@ -346,6 +358,14 @@ local function buildFobos(map, rng, T)
   flat(map, "portal", X(z.c0 + 1), Y(z.r0 + 1), 4 * T, 4 * T)
   light(map, X(z.c0 + 3), Y(z.r0 + 3), 220, EternalMood.ALARM, 0.5)
   poster(map, X(z.c0 + 13), Y(z.r0), EternalMood.POSTERS[2])
+  -- Server racks against the north wall either side of the way out, and
+  -- the consoles' cables run up the floor to the slabs.
+  for _, c in ipairs({ 23, 31, 33 }) do
+    cover(map, "rack", X(c) + 4, Y(z.r0) + 4, 2 * T - 8, 44)
+  end
+  for _, c in ipairs({ 23, 26, 29 }) do
+    flat(map, "cables", X(c + 1) - 12, Y(71), 24, 3 * T + 20, { seed = rng:random(1000) })
+  end
 
   -- Crew Quarters: bunks along both walls, lockers at the end.
   z = rooms["Crew Quarters"]
@@ -354,6 +374,15 @@ local function buildFobos(map, rng, T)
     cover(map, "bunk", X(z.c1 - 1), Y(r), 2 * T, 56)
   end
   cover(map, "lockers", X(z.c0 + 3), Y(z.r1) + 24, 5 * T, 40)
+  -- A footlocker at the foot of every bunk, a rug down the aisle, clothes
+  -- dropped where they were taken off.
+  for r = z.r0 + 4, z.r1 - 1, 3 do
+    cover(map, "footlocker", X(z.c0 + 2) + 4, Y(r) + 10, 30, 36)
+    cover(map, "footlocker", X(z.c1 - 1) - 34, Y(r) + 10, 30, 36)
+  end
+  flat(map, "rug", X(z.c0 + 3.25), Y(z.r0 + 1), 4.5 * T, 10 * T)
+  flat(map, "laundry", X(z.c0 + 2.3), Y(z.r0 + 2), 50, 40)
+  flat(map, "laundry", X(z.c1 - 2), Y(z.r1 - 1.5), 50, 40)
 
   -- The Mess: tables in rows, a serving counter down the east wall.
   z = rooms["The Mess"]
@@ -364,6 +393,22 @@ local function buildFobos(map, rng, T)
     end
   end
   cover(map, "counter", X(z.c1) + 16, Y(z.r0 + 3), 40, 7 * T)
+  -- Chairs pushed back from the tables, vending machines on the west wall,
+  -- lunch on the floor where it was dropped.
+  for c = z.c0 + 2, z.c1 - 3, 4 do
+    for r = z.r0 + 4, z.r1 - 2, 4 do
+      for _, dx in ipairs({ 16, 2 * T - 44 }) do
+        cover(map, "chair", X(c) + dx, Y(r) - 32, 28, 28, false)
+        cover(map, "chair", X(c) + dx, Y(r) + T + 4, 28, 28, false)
+      end
+    end
+  end
+  for _, r in ipairs({ z.r0 + 1, z.r0 + 2.2 }) do
+    cover(map, "vending", X(z.c0) + 4, Y(r), 44, 64)
+  end
+  for _, p in ipairs({ { 4.4, 6.6 }, { 7.6, 3.2 }, { 2.3, 10.5 } }) do
+    flat(map, "spill", X(z.c0 + p[1]), Y(z.r0 + p[2]), 52, 40, { angle = rng:random() * 6, seed = rng:random(1000) })
+  end
   poster(map, X(z.c0 + 1), Y(z.r1 + 2) + 4, EternalMood.POSTERS[5]) -- on the wall south of it
 
   -- The Ring: a long corridor, pipes along its south wall.
@@ -389,6 +434,13 @@ local function buildFobos(map, rng, T)
   end
   cover(map, "cooler", X(z.c1) + 8, Y(z.r0 + 1), 40, 40)
   poster(map, X(12), Y(z.r0), EternalMood.POSTERS[4]) -- clear of the door up
+  -- Cables between the desks, coffee on the carpet.
+  for _, r in ipairs({ z.r0 + 7, z.r0 + 15 }) do
+    flat(map, "cables", X(z.c0 + 5), Y(r) + 6, 2 * T, 24, { seed = rng:random(1000) })
+  end
+  for _, p in ipairs({ { 5.2, 6.4 }, { 8.6, 11.2 }, { 4.6, 17.4 } }) do
+    flat(map, "spill", X(z.c0 + p[1]), Y(z.r0 + p[2]), 44, 34, { angle = rng:random() * 6, seed = rng:random(1000) })
+  end
 
   -- The Reactor: the core in the middle (round, solid, humming), a catwalk
   -- ring round it, pipes out to the walls.
@@ -404,6 +456,12 @@ local function buildFobos(map, rng, T)
       cover(map, "crate", X(c), Y(r), 2 * T - 8, 2 * T - 8)
     end
   end
+  -- Hazard paint round the catwalk, the core's cables up to the north wall,
+  -- coolant that leaked.
+  flat(map, "hazardbox", mx - 4.5 * T - 14, my - 4.5 * T - 14, 9 * T + 28, 9 * T + 28)
+  flat(map, "cables", mx - 12, Y(z.r0), 24, my - 4.5 * T - Y(z.r0) - 16, { seed = rng:random(1000) })
+  flat(map, "oil", X(z.c0 + 3), Y(z.r1 - 4), 90, 50)
+  flat(map, "oil", X(z.c1 - 5), Y(z.r0 + 4), 70, 40)
 
   -- Toxic Storage: barrels in clumps, pools of sludge, a crane over it all.
   z = rooms["Toxic Storage"]
@@ -420,6 +478,14 @@ local function buildFobos(map, rng, T)
     light(map, x + p[3] * T / 2, y + p[4] * T / 2, 80 + p[3] * 40, EternalMood.SLUDGE, 0.7)
   end
   flat(map, "crane", X(z.c0), Y(z.r0 + 9) + 16, (z.c1 - z.c0 + 1) * T, 32)
+  -- Hazmat lockers against the north wall, clear of the way up; paint
+  -- round every clump of barrels.
+  for k = 0, 2 do
+    cover(map, "hazmat", X(z.c0) + 8 + k * 50, Y(z.r0) + 4, 44, 40)
+  end
+  for _, p in ipairs({ { 2, 3 }, { 8, 2 }, { 3, 12 }, { 9, 15 }, { 5, 8 } }) do
+    flat(map, "hazardbox", X(z.c0 + p[1]) - 12, Y(z.r0 + p[2]) - 12, 100, 100)
+  end
 
   -- The Hangar: the lift pad in the middle of the north wall, crates
   -- stacked round the walls, parked loaders, landing lines on the floor.
@@ -441,6 +507,26 @@ local function buildFobos(map, rng, T)
   for c = 13, 42, 6 do
     flat(map, "paint", X(c), Y(12), 3 * T, 10)
   end
+  -- The workshop along the walls: a workbench and tool chests, tyres
+  -- stacked, fuel drums; oil and tyre marks where the loaders have been,
+  -- pallets left out.
+  cover(map, "workbench", X(15), Y(z.r0) + 4, 3 * T, 44)
+  cover(map, "toolchest", X(18.5), Y(z.r0) + 4, 48, 40)
+  cover(map, "tires", X(37), Y(z.r0) + 6, 56, 56, true, { round = true })
+  for k = 0, 3 do
+    cover(map, "barrel", X(48) + 4 + (k % 2) * 40, Y(10.3) + math.floor(k / 2) * 40, 36, 36, true,
+      { round = true, red = k == 2 })
+  end
+  cover(map, "tires", X(14), Y(z.r1 + 1) - 62, 56, 56, true, { round = true })
+  cover(map, "toolchest", X(22), Y(z.r1 + 1) - 44, 48, 40)
+  cover(map, "workbench", X(36), Y(z.r1 + 1) - 48, 3 * T, 44)
+  for _, o in ipairs({ { 20, 9, 70, 40 }, { 30, 15, 90, 50 }, { 41.5, 15.6, 60, 36 }, { 13, 13.5, 80, 44 } }) do
+    flat(map, "oil", X(o[1]), Y(o[2]), o[3], o[4])
+  end
+  flat(map, "skid", X(15), Y(9), 140, 60)
+  flat(map, "skid", X(33), Y(12.6), 160, 70)
+  flat(map, "pallet", X(31), Y(18.2), 96, 56)
+  flat(map, "pallet", X(17), Y(18.3), 80, 52)
   poster(map, X(33), Y(z.r0), EternalMood.POSTERS[3])
 
   -- Heck's horde (eternal-mood/horde.lua). The possessed at their posts,
@@ -604,9 +690,11 @@ EternalMood.EARTH_CROSSROADS = { { 129, 132 }, { 115, 118 }, { 94, 97 }, { 76, 7
 EternalMood.EARTH_CLUTTER = {
   ["The Depot"] = { papers = 2, blood = 1, scorch = 2, tipped = 1 },
   ["The Suburbs"] = { bin = 3, tipped = 4, trash = 5, papers = 3, blood = 3, scorch = 4, glass = 3 },
-  ["Downtown"] = { bin = 3, tipped = 4, trash = 6, papers = 6, blood = 4, scorch = 5, glass = 5 },
+  ["Downtown"] = { bin = 3, tipped = 4, trash = 6, papers = 6, blood = 4, scorch = 5, glass = 5, debris = 6,
+    oil = 3 },
   ["The Crater"] = { scorch = 8, blood = 4, glass = 3, trash = 3 },
-  ["The Boulevard"] = { bin = 2, tipped = 3, trash = 4, papers = 4, blood = 5, scorch = 6, glass = 3 },
+  ["The Boulevard"] = { bin = 2, tipped = 3, trash = 4, papers = 4, blood = 5, scorch = 6, glass = 3, debris = 6,
+    oil = 4, skid = 3 },
 }
 
 local function buildEarth(map, rng, T)
@@ -735,6 +823,7 @@ local function buildEarth(map, rng, T)
   -- The Suburbs: houses either side behind their front yards, some of them
   -- burning, hedges between the yards.
   street(108, 141)
+  local yards = {} -- the front yards, in tiles: what was left in them goes in last
   local function houses(r0, r1)
     local r = r0
     while r + 3 <= r1 do
@@ -742,6 +831,7 @@ local function buildEarth(map, rng, T)
       for _, side in ipairs({ { 3, 8, 9, 12 }, { 31, 36, 27, 30 } }) do
         local b = block(side[1], r, side[2], r2, "house", rng:random() < 0.4)
         ground(side[3], r, side[4], r2, "lawn")
+        yards[#yards + 1] = { c0 = side[3], c1 = side[4], r0 = r, r1 = r2 }
         if b.burning then
           burn(b)
         end
@@ -1010,6 +1100,24 @@ local function buildEarth(map, rng, T)
     local room = { c0 = 0, c1 = cols - 1, r0 = z.r0, r1 = z.r1 }
     clutter(map, rng, g, room, EternalMood.EARTH_CLUTTER[z.name] or {}, avoid)
   end
+  -- What people left in their front yards: something to play on, a garden
+  -- bed gone to ash, a chair, a bike, the mailbox, a kennel now and then;
+  -- and hydrants and debris along Downtown's sidewalks.
+  for _, y in ipairs(yards) do
+    local kinds = { gardenbed = 1, mailbox = 1, lawnchair = rng:random(0, 2) }
+    local roll = rng:random()
+    if roll < 0.3 then
+      kinds.trampoline = 1
+    elseif roll < 0.55 then
+      kinds.swing = 1
+    end
+    kinds.bike = rng:random() < 0.4 and 1 or 0
+    kinds.doghouse = rng:random() < 0.3 and 1 or 0
+    clutter(map, rng, g, y, kinds, avoid)
+  end
+  for _, c0 in ipairs({ 13, 25 }) do
+    clutter(map, rng, g, { c0 = c0, c1 = c0 + 1, r0 = 66, r1 = 107 }, { hydrant = 3, debris = 2 }, avoid)
+  end
 
   map.openKinds = { walk = true }
   commit(map, g)
@@ -1059,12 +1167,12 @@ EternalMood.BELTS = { { r0 = 39, r1 = 40, dir = 1 }, { r0 = 42, r1 = 43, dir = -
 EternalMood.BELT_SPEED = 70 -- px/s: faster than walking (45), slower than a sprint (170)
 
 EternalMood.FOUNDRY_CLUTTER = {
-  ["The Landing Pad"] = { papers = 1, scorch = 1 },
-  ["The Loading Bay"] = { bin = 1, tipped = 1, trash = 2, blood = 1, papers = 1 },
+  ["The Landing Pad"] = { papers = 1, scorch = 1, oil = 2 },
+  ["The Loading Bay"] = { bin = 1, tipped = 1, trash = 2, blood = 1, papers = 1, oil = 2, skid = 1 },
   ["The Front Office"] = { papers = 4, fallen = 2, blood = 1, tipped = 1 },
-  ["The Conveyors"] = { scorch = 2, blood = 1, trash = 1 },
-  ["The Smelters"] = { scorch = 4, blood = 2, bones = 3, glass = 1 },
-  ["The Crucible"] = { scorch = 3, blood = 2, bones = 5 },
+  ["The Conveyors"] = { scorch = 2, blood = 1, trash = 1, debris = 2 },
+  ["The Smelters"] = { scorch = 4, blood = 2, bones = 3, glass = 1, slag = 6, ingots = 3, debris = 3 },
+  ["The Crucible"] = { scorch = 3, blood = 2, bones = 10, spike = 6, skulls = 5 },
 }
 
 local function buildFoundry(map, rng, T)
@@ -1120,6 +1228,8 @@ local function buildFoundry(map, rng, T)
   end
   light(map, X(8), Y(54), 300, EternalMood.ALARM, 0.3)
   poster(map, X(12), Y(z.r0), EternalMood.FOUNDRY_POSTERS[1])
+  flat(map, "cables", X(12.2), Y(51), 24, 5 * T, { seed = rng:random(1000) }) -- the fuel hose to the shuttle
+  flat(map, "hazardbox", X(13.6), Y(57.6), 4 * T + 16, 2 * T + 16)
 
   -- The Loading Bay: crates, barrels and a parked loader.
   z = rooms["The Loading Bay"]
@@ -1127,6 +1237,8 @@ local function buildFoundry(map, rng, T)
     cover(map, "crate", X(p[1]), Y(p[2]), 2 * T - 8, 2 * T - 8)
   end
   cover(map, "loader", X(30), Y(54), 2 * T, 3 * T)
+  flat(map, "pallet", X(26.5), Y(52.2), 96, 56)
+  cover(map, "tires", X(20) + 8, Y(54.5), 56, 56, true, { round = true })
   for k = 0, 2 do
     cover(map, "barrel", X(25) + k * 40, Y(56) + 16, 36, 36, true, { round = true, red = k == 1 })
   end
@@ -1147,6 +1259,9 @@ local function buildFoundry(map, rng, T)
   end
   cover(map, "cooler", X(z.c0) + 8, Y(z.r0) + 8, 40, 40)
   poster(map, X(39), Y(z.r0), EternalMood.FOUNDRY_POSTERS[3])
+  cover(map, "copier", X(43.5), Y(z.r1 + 1) - 48, 64, 44) -- against the south wall, between the desks
+  flat(map, "cables", X(41), Y(57) + 10, 6 * T, 24, { seed = rng:random(1000) })
+  flat(map, "spill", X(40.6), Y(55.4), 44, 34, { angle = rng:random() * 6, seed = rng:random(1000) })
 
   -- The Conveyors: belts right across the hall, each running its own way,
   -- the hoppers they feed at the walls, a walkway between each.
@@ -1185,6 +1300,14 @@ local function buildFoundry(map, rng, T)
   for _, p in ipairs({ { 6, 23 }, { 50, 24 }, { 20, 22.5 }, { 37, 22.5 } }) do
     cover(map, "spire", X(p[1]) - 24, Y(p[2]) - 24, 48, 48, true, { round = true, seed = rng:random(1000) })
   end
+  -- Pipes along the south wall between the doorways down, ingot moulds by
+  -- the vats, the last of each row still hot.
+  for _, span in ipairs({ { 13, 24 }, { 31, 42 } }) do
+    cover(map, "pipe", X(span[1]), Y(z.r1 + 1) - 20, (span[2] - span[1] + 1) * T, 16)
+  end
+  for _, c in ipairs({ 12, 28, 44 }) do
+    flat(map, "molds", X(c) - 1.5 * T, Y(28.5) - 18, 3 * T, 36, { seed = rng:random(1000) })
+  end
   poster(map, X(30), Y(z.r0), EternalMood.FOUNDRY_POSTERS[5])
 
   -- The Crucible: a pit of lava in a stone ring, a lava moat round the
@@ -1221,6 +1344,12 @@ local function buildFoundry(map, rng, T)
   end
   for _, p in ipairs({ { 11, 6 }, { 15, 15 }, { 44, 6 }, { 40, 15 }, { 11, 17 } }) do
     cover(map, "spire", X(p[1]) - 28, Y(p[2]) - 28, 56, 56, true, { round = true, seed = rng:random(1000) })
+  end
+  -- Braziers burning at the flanks of the way to the portal and the bridge south.
+  for _, p in ipairs({ { 18, 4.5 }, { 38.5, 4.5 }, { 18, 18.5 }, { 38.5, 18.5 } }) do
+    cover(map, "brazier", X(p[1]) - 22, Y(p[2]) - 22, 44, 44, true, { round = true, seed = rng:random(1000) })
+    map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 230, color = EternalMood.MOLTEN, a = 0.5,
+      seed = rng:random(1000), fire = true }
   end
 
   -- Heck's horde (eternal-mood/horde.lua), in tiles. The UAC's half has
@@ -1360,9 +1489,9 @@ EternalMood.HECK_BRIDGES = {
 }
 
 EternalMood.HECK_CLUTTER = {
-  ["The Arrival Shelf"] = { bones = 2, scorch = 1 },
-  ["The Altar Fields"] = { bones = 10, scorch = 8, blood = 5 },
-  ["The Mattress"] = { bones = 3, scorch = 3 },
+  ["The Arrival Shelf"] = { bones = 2, scorch = 1, skulls = 2 },
+  ["The Altar Fields"] = { bones = 14, scorch = 8, blood = 5, skulls = 8, spike = 8, ribcage = 5, runes = 3 },
+  ["The Mattress"] = { bones = 6, scorch = 3, skulls = 3, drag = 4 }, -- flat only: its owner's arena
 }
 
 local function buildHeck(map, rng, T)
@@ -1381,8 +1510,10 @@ local function buildHeck(map, rng, T)
       name = z.name, x0 = X(z.c0), y0 = Y(z.r0), x1 = X(z.c1 + 1), y1 = Y(z.r1 + 1), floor = z.floor,
     }
   end
-  -- The way up from the Fields onto the Mattress's plateau: a wide ramp.
+  -- The way up from the Fields onto the Mattress's plateau: a wide ramp,
+  -- steps cut into the rock.
   g.fill(22, 27, 37, 29, "walk")
+  map.zones[#map.zones + 1] = { name = "The Mattress", x0 = X(22), y0 = Y(27), x1 = X(38), y1 = Y(30), floor = "steps" }
 
   --- Lava over every tile of `lava` (c -> r -> true), merged into as few
   --- rectangles as it takes, each its own glow.
@@ -1479,6 +1610,13 @@ local function buildHeck(map, rng, T)
     cover(map, "firepit", X(p[1]) - 40, Y(p[2]) - 40, 80, 80, true, { round = true, low = true,
       seed = rng:random(1000) })
     map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 260, color = EternalMood.FIRE, a = 0.7,
+      seed = rng:random(1000), fire = true }
+  end
+
+  -- Braziers at the Fields' edges, lighting them.
+  for _, p in ipairs({ { 4.5, 33 }, { 54.5, 31.5 }, { 4.5, 49 }, { 52, 53.5 } }) do
+    cover(map, "brazier", X(p[1]) - 22, Y(p[2]) - 22, 44, 44, true, { round = true, seed = rng:random(1000) })
+    map.flickers[#map.flickers + 1] = { x = X(p[1]), y = Y(p[2]), r = 230, color = EternalMood.FIRE, a = 0.55,
       seed = rng:random(1000), fire = true }
   end
 

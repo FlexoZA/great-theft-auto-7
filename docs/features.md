@@ -810,7 +810,7 @@ the one with a plot.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`, `"armor-vest"`, `"gear-running-shoes"`), in slots of one stack
+  (`"iron"`, `"ammo-pistol"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`, `"armor-vest"`, `"gear-running-shoes"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it and
   moves guns in and out of it as items. Buildings have hit points (`hp` in

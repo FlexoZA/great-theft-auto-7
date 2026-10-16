@@ -114,7 +114,11 @@ end
 --- Can a truck carry `item`: a material, or a factory's goods on their way
 --- to the shop (anything with a `Kinds.worth`)?
 local function carried(item)
-  return type(item) == "string" and (Kinds.isMaterial(item) or Kinds.worth(item) ~= nil)
+  if type(item) ~= "string" then
+    return false
+  end
+  item = Kinds.current(item) -- from before a rename: what it is now
+  return Kinds.isMaterial(item) or Kinds.worth(item) ~= nil
 end
 
 --- The items in `items` (item -> n) a truck carries, in a fixed order:
@@ -980,11 +984,11 @@ local function cargoFrom(t, materials)
   if type(t) ~= "table" then
     return out
   end
-  for _, item in ipairs(order(t)) do
-    local n = t[item]
+  for _, saved in ipairs(order(t)) do
+    local n, item = t[saved], Kinds.current(saved) -- from before a rename: what it is now
     if type(n) == "number" and n >= 1 and (Kinds.isMaterial(item) or not materials) then
       n = math.min(math.floor(n), Kinds.room(out, Hire.slots, item))
-      out[item] = n > 0 and n or nil
+      out[item] = n > 0 and (out[item] or 0) + n or out[item]
     end
   end
   return out
