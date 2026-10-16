@@ -15,6 +15,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Heck on Earth's road is shut by three blast gates. Each opens from a terminal off the road: one down a side street in
+  the Suburbs, two down Downtown's side streets, one on the Crater's far rim past the lava.
 - Fobos Base's lift won't run until you've hacked four terminals, one each in Crew Quarters, the Mess, the Offices and
   Toxic Storage (and the Floor Manager is down). Hold F at one for 3 s; the alarm brings the horde nearby, so cover
   each other. The HUD counts them and the minimap marks them.

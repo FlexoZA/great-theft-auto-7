@@ -180,6 +180,15 @@ local function terminal(map, l, x, y, look)
   map.terminals[#map.terminals + 1] = { x = math.floor(x), y = math.floor(y), look = look or "terminal", lock = l.name }
 end
 
+--- One of lock `l`'s walls over (x, y, w, h): solid, like any wall, until
+--- the lock opens (`look` "blast", "roadgate" or "bone": terminals.lua draws it).
+local function lockWall(map, l, x, y, w, h, look)
+  local s = { x = x, y = y, w = w, h = h, look = look }
+  map.solids[#map.solids + 1] = s
+  l.walls[#l.walls + 1] = s
+  return s
+end
+
 --- A poster on the wall over (x, y), the top of the floor below it: on
 --- the wall tile itself, so it never covers the floor.
 local POSTER_W, POSTER_H = 5 * 64, 58
@@ -1199,6 +1208,22 @@ local function buildEarth(map, rng, T)
     }
   end
   map.cx, map.cy = math.floor(X(20)), math.floor(Y(156))
+
+  -- The terminals (eternal-mood/terminals.lua): blast gates across the road
+  -- where only the road runs between the blocks, each opened from off it,
+  -- down a side street or across the Crater, so nobody just runs up the
+  -- middle.
+  local function gate(r, label)
+    local l = lock(map, "gate-" .. r, label)
+    lockWall(map, l, X(13), Y(r) + 16, 14 * T, 32, "roadgate")
+    return l
+  end
+  local toDowntown, toCrater, toBoulevard = gate(98, "GATE TO DOWNTOWN"), gate(65, "GATE TO THE CRATER"),
+    gate(38, "GATE TO THE BOULEVARD")
+  terminal(map, toDowntown, X(5.5), Y(117.3)) -- down the Suburbs' west side street
+  terminal(map, toCrater, X(33.5), Y(96.6)) -- Downtown's east side street...
+  terminal(map, toCrater, X(5), Y(78.6)) -- ...and its west one
+  terminal(map, toBoulevard, X(31.5), Y(45.2)) -- the Crater's far rim, past the lava
 
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)
