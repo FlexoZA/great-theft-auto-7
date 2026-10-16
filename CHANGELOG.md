@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Eternal Mood's walls stand up: on every level a wall shows its face over the floor and casts a shadow across it, so
+  you can see what you can't shoot over. Heck's rock walls are darker than its floor, Earth's buildings cast shadows
+  as long as they are tall, and the ground outside each map (moon dust, waste ground, tarmac, the abyss) is smooth
+  instead of blocky.
 - The uzi fires 9mm rounds, the same as the SMG (the pistol never needs any). Uzi ammo is gone: any you had becomes
   9mm, and 9mm boxes now drop as often as uzi ammo did.
 - The uzi is a close-range gun: its rounds are spent after about 360 px (1080 -> 360). It still fires fourteen a
