@@ -167,6 +167,19 @@ local function cover(map, kind, x, y, w, h, solid, extra)
   return s
 end
 
+--- A lock (eternal-mood/terminals.lua): `label` on the HUD ("THE LIFT"),
+--- holding the level's way on when `exit`; its terminals and walls follow.
+local function lock(map, name, label, exit)
+  local l = { name = name, label = label, exit = exit, walls = {} }
+  map.locks[#map.locks + 1] = l
+  return l
+end
+
+--- A terminal at (x, y) that opens lock `l` (`look` "terminal", or Heck's "seal").
+local function terminal(map, l, x, y, look)
+  map.terminals[#map.terminals + 1] = { x = math.floor(x), y = math.floor(y), look = look or "terminal", lock = l.name }
+end
+
 --- A poster on the wall over (x, y), the top of the floor below it: on
 --- the wall tile itself, so it never covers the floor.
 local POSTER_W, POSTER_H = 5 * 64, 58
@@ -715,6 +728,19 @@ local function buildFobos(map, rng, T)
     }
   end
   map.cx, map.cy = math.floor(X(z.c0 + 10)), math.floor(Y(z.r1 - 1))
+
+  -- The terminals (eternal-mood/terminals.lua): one in each room off the
+  -- straight way up, and the lift stays out of service until all four are
+  -- done (and the Floor Manager is down).
+  local lift = lock(map, "lift", "THE LIFT", true)
+  for _, p in ipairs({
+    { 11.5, 67.5 }, -- Crew Quarters, at the back by the lockers
+    { 50.5, 57.6 }, -- the Mess, by the serving counter
+    { 4.6, 26.6 }, -- the Offices' far corner
+    { 50.4, 41 }, -- Toxic Storage, behind the sludge
+  }) do
+    terminal(map, lift, X(p[1]), Y(p[2]))
+  end
 
   -- Each mob at its meal, a Mecha Zombie walking round it (`feast`).
   local guarded = feast(map, rng, g)

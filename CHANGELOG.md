@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Fobos Base's lift won't run until you've hacked four terminals, one each in Crew Quarters, the Mess, the Offices and
+  Toxic Storage (and the Floor Manager is down). Hold F at one for 3 s; the alarm brings the horde nearby, so cover
+  each other. The HUD counts them and the minimap marks them.
+
 ## [0.29.9] - 2026-10-16
 
 Mecha Zombies guard the Intern mobs, who are busy eating, and scream the horde down on you; and enemies' uzi rounds show all the way again.
