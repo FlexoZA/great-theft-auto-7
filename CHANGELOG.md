@@ -14,6 +14,22 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.9] - 2026-10-16
+
+Mecha Zombies guard the Intern mobs, who are busy eating, and scream the horde down on you; and enemies' uzi rounds show all the way again.
+
+### Added
+- Mecha Zombies on Fobos Base, Earth and the Foundry: zombies the UAC rebuilt with a plasma cannon, a flamethrower and
+  talons. One walks round every Intern mob. They fire plasma from afar, flame you at mid range and slash up close, and
+  when they wake they scream: a sound wave goes out and every zombie and mob in it comes for you.
+- The Interns' mobs are eating: each crouches round a body it dragged in, a trail of blood leading to it, until
+  something wakes them.
+
+### Fixed
+- Enemies' uzi rounds (Cyber Feud's troops, stings, turrets, interceptors and drones, the Hunters, A-Man's turrets,
+  the Bent Cops) disappeared on screen after about 360 px while they flew on and hit you from further away. They are
+  drawn all the way now. A better tier's flamethrower flame is drawn as long as it really reaches too.
+
 ## [0.29.8] - 2026-10-16
 
 Eternal Mood gets its polish: walls that look solid and cast shadows, lava that flows with ragged shores, and every level filled out; and the uzi becomes a close-range 9mm sprayer.
