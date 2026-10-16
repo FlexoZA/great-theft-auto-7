@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.9] - 2026-10-16
+
+Mecha Zombies guard the Intern mobs, who are busy eating, and scream the horde down on you; and enemies' uzi rounds show all the way again.
+
 ### Added
 - Mecha Zombies on Fobos Base, Earth and the Foundry: zombies the UAC rebuilt with a plasma cannon, a flamethrower and
   talons. One walks round every Intern mob. They fire plasma from afar, flame you at mid range and slash up close, and
