@@ -2392,6 +2392,7 @@ end
 
 --- The index of `item` among `kind`'s products, or nil.
 local function productIndex(kind, item)
+  item = Kinds.current(item)
   for i, p in ipairs(kind.products or {}) do
     if p == item then
       return i
@@ -2497,8 +2498,9 @@ function Buildings:serverLoadPlayer(server, player, data)
   local stock = {}
   if type(data.stock) == "table" then
     for item, n in pairs(data.stock) do
+      item = type(item) == "string" and Kinds.current(item) or item
       if type(item) == "string" and Kinds.carriable(item) and type(n) == "number" and n >= 1 and n < 1e6 then
-        stock[item] = math.floor(n)
+        stock[item] = (stock[item] or 0) + math.floor(n) -- a renamed item joins what it is now
       end
     end
   end

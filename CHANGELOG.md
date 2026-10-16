@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The uzi fires 9mm rounds, the same as the SMG (the pistol never needs any). Uzi ammo is gone: any you had becomes
+  9mm, and 9mm boxes now drop as often as uzi ammo did.
+- The uzi is a close-range gun: its rounds are spent after about 360 px (1080 -> 360). It still fires fourteen a
+  second.
+
 ## [0.29.7] - 2026-10-16
 
 Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.
