@@ -113,16 +113,17 @@ end
 --- and the stun shot, slower and brighter, that stuns them outright.
 local function arms()
   local uzi = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock", electrify = Hunters.zap },
+  -- Both fly the full way (ROUND_TTL): the player's uzi is close-range only, theirs isn't.
+  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock", electrify = Hunters.zap, ttl = ROUND_TTL },
     { __index = uzi })
   local stunGun = setmetatable({ damage = Hunters.stunDamage, damageType = "shock", stun = Hunters.stunTime,
-    speed = 700, streak = 16 }, { __index = uzi })
+    speed = 700, streak = 16, ttl = ROUND_TTL }, { __index = uzi })
   return {
     gun = gun,
     stunGun = stunGun,
     burst = Hunters.burst,
     pause = Hunters.pause,
-    reach = uzi.speed * (uzi.ttl or ROUND_TTL) * 0.85,
+    reach = gun.speed * gun.ttl * 0.85,
   }
 end
 

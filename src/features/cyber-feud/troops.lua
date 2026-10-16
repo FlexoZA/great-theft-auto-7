@@ -214,13 +214,17 @@ local function pickArms(loadout)
     end
   end
   local gun = Guns[pick.gun]
+  local arms = Tiers.apply(gun, Tiers.DEFAULT) -- they carry common ones
+  if gun == Guns.uzi then -- the full flight: the player's uzi is close-range only, theirs isn't
+    arms = setmetatable({ ttl = ROUND_TTL }, { __index = arms })
+  end
   return {
-    gun = Tiers.apply(gun, Tiers.DEFAULT), -- they carry common ones
+    gun = arms,
     key = gun.key,
     index = gun.index,
     burst = pick.burst,
     pause = pick.pause,
-    reach = gun.speed * (gun.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
+    reach = arms.speed * (arms.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
   }
 end
 
