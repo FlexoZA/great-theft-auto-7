@@ -18,6 +18,7 @@
 
 local Shade = require("src.features.weapons.shade")
 local GearKinds = require("src.features.gear.kinds")
+local GearIcons = require("src.features.gear.icons")
 local ArmorKinds = require("src.features.armor.kinds")
 local GunIcons = require("src.features.weapons.icons")
 local Face = require("src.art.face")
@@ -43,7 +44,6 @@ local RUBBER = { 0.2, 0.2, 0.23 }
 local STEEL = { 0.78, 0.8, 0.86 }
 local GLASS = { 0.45, 0.7, 0.9 }
 local WHITE = { 0.92, 0.92, 0.94 }
-local VISOR = { 0.98, 0.7, 0.18 } -- the Mood Slayer's
 local INK = { 0.08, 0.06, 0.07 }
 
 local HEAD_Y, HEAD_R = 24, 19
@@ -162,21 +162,24 @@ local HEAD = {
     end
     line(RUBBER, 1, 2, -HEAD_R + 1, HEAD_Y - 2, -12, HEAD_Y + 18, 12, HEAD_Y + 18, HEAD_R - 1, HEAD_Y - 2)
   end,
-  ["slayer-helmet"] = function(c)
-    local dark = { 0.2, 0.27, 0.15 }
-    box(-HEAD_R - 8, HEAD_Y - 8, 6, 18, dark, 2) -- the ear pieces
-    box(HEAD_R + 2, HEAD_Y - 8, 6, 18, dark, 2)
-    ellipse(0, HEAD_Y, HEAD_R + 5, HEAD_R + 6, c) -- all of the head
-    box(-3, HEAD_Y - 25, 6, 12, lit(c, 0.2), 2) -- the ridge over the crown
-    poly(VISOR, -17, HEAD_Y - 8, 17, HEAD_Y - 8, 15, HEAD_Y + 2, -15, HEAD_Y + 2) -- the visor, wide
-    poly(VISOR, -6, HEAD_Y + 2, 6, HEAD_Y + 2, 0, HEAD_Y + 8) -- and dipping to a point
-    set(WHITE, 1, 0.7)
-    love.graphics.polygon("fill", -13, HEAD_Y - 6, -7, HEAD_Y - 6, -12, HEAD_Y)
-    box(-7, HEAD_Y + 11, 14, 9, dark, 2) -- the breather
-    strokes(c, 0.55, 3, -4, HEAD_Y + 13, 4, 5, true) -- vents in it
-  end,
 }
 local PLAIN_HEAD = HEAD["tactical-hat"]
+
+local WORN_SCALE = 1.35 -- a piece worn as its icon (gear's `Icons.WORN`): this much bigger than the icon...
+local WORN_Y = HEAD_Y - 1 -- ...its middle here, the visor over the eyes
+
+--- Piece `key` worn as its icon is drawn, on the head, outlines kept a
+--- pixel wide.
+local function wornIcon(key, c)
+  local pixel = Shade.pixel()
+  love.graphics.push()
+  love.graphics.translate(0, WORN_Y)
+  love.graphics.scale(WORN_SCALE)
+  Shade.begin(WORN_SCALE / pixel)
+  GearIcons.shape(key, c)
+  Shade.begin(1 / pixel)
+  love.graphics.pop()
+end
 
 -- A jacket: the body and full sleeves in its colour, then what makes it itself.
 local function jacket(sk, c)
@@ -450,8 +453,14 @@ function Figure.draw(cx, top, scale, dress, face)
     (ARMOR[dress.armor] or ARMOR.vest)(colorOf(ArmorKinds, dress.armor))
   end
   -- The head, and what is on it.
+  local worn = dress.head and GearIcons.WORN[dress.head]
   local wear = dress.head and (HEAD[dress.head] or PLAIN_HEAD)
-  if face then
+  if worn then
+    wear = function(c)
+      wornIcon(dress.head, c)
+    end
+  end
+  if face and not worn then -- a helmet worn as its icon hides the face: a head the body's size under it
     box(-6, 38, 12, 10, sk.skin, 2) -- neck
     bigHead(face, scale)
     if wear then
