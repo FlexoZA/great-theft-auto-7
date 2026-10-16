@@ -587,11 +587,13 @@ local IMP_CORPSE = { shirt = { 0.40, 0.24, 0.14 }, pants = { 0.32, 0.18, 0.10 },
   hair = { 0.20, 0.12, 0.08 }, shoes = { 0.20, 0.12, 0.08 } }
 local IMP = { body = { 0.58, 0.36, 0.20 }, dark = { 0.36, 0.20, 0.11 }, spike = { 0.90, 0.84, 0.70 } }
 local IMP_SCALE = 1.35 -- drawn bigger than a person: a demon, hunched over
--- A Cacodaemon: a floating red ball, a darker hide and lumps, bone horns,
--- one green eye, and a mouth full of teeth.
-local CACO = { hide = { 0.78, 0.12, 0.10 }, dark = { 0.42, 0.05, 0.04 }, light = { 1.00, 0.42, 0.34 },
-  horn = { 0.92, 0.86, 0.72 }, eye = { 0.35, 0.95, 0.25 }, white = { 0.95, 0.92, 0.85 }, maw = { 0.18, 0.02, 0.02 },
-  tongue = { 0.85, 0.35, 0.45 } }
+-- A Cacodaemon: a floating ball of red hide, veined and warted, two bone
+-- horns curving back off its crown, one green eye in its face and under it
+-- a mouth full of yellowed teeth.
+local CACO = { hide = { 0.64, 0.13, 0.11 }, dark = { 0.30, 0.05, 0.05 }, light = { 0.88, 0.42, 0.34 },
+  vein = { 0.38, 0.05, 0.10 }, horn = { 0.84, 0.78, 0.62 }, hornDark = { 0.52, 0.46, 0.34 },
+  eye = { 0.35, 0.95, 0.25 }, white = { 0.88, 0.86, 0.66 }, teeth = { 0.86, 0.80, 0.60 }, gum = { 0.45, 0.10, 0.14 },
+  maw = { 0.14, 0.02, 0.02 }, tongue = { 0.72, 0.30, 0.38 } }
 local CACO_LIFT = 12 -- px it is drawn above where it is (its shadow is there): it floats
 local carcasses = {} -- { x, y, angle, seed }: dead Cacodaemons, flat on the ground
 local MAX_CARCASSES = 40
@@ -862,10 +864,37 @@ local function mouthOpen(s)
   return 0.08 + 0.04 * math.sin(clock * 2 + s.dx * 0.01) -- breathing
 end
 
---- A Cacodaemon, seen from above, floating a little over its shadow: a red
---- ball, lit from the top left, lumps on its hide, horns round the back, one
---- green eye and the mouth across its front, fire in it when it's about to
---- spit; spinning when shot in the mouth.
+-- Where its warts sit, (angle, share of the radius, size), and the veins
+-- across its back as polylines in shares of the radius: the same on every one.
+local WARTS = { { 1.9, 0.70, 3.0 }, { 2.3, 0.45, 2.2 }, { 2.6, 0.80, 2.6 }, { 3.0, 0.55, 3.4 }, { 3.4, 0.78, 2.0 },
+  { 3.7, 0.40, 2.6 }, { 4.1, 0.68, 3.0 }, { 4.5, 0.82, 2.2 }, { 1.4, 0.82, 2.0 }, { 4.9, 0.74, 2.4 } }
+local VEINS = {
+  { 0.05, -0.30, -0.25, -0.38, -0.50, -0.30, -0.72, -0.42 },
+  { 0.00, 0.28, -0.30, 0.34, -0.48, 0.22, -0.74, 0.36 },
+  { -0.20, -0.02, -0.46, 0.05, -0.66, -0.06, -0.86, 0.02 },
+  { -0.30, -0.36, -0.40, -0.60, -0.36, -0.80 },
+}
+
+--- One horn, `side` 1 or -1: thick off the crown, curving back to a point,
+--- its underside in shadow.
+local function cacoHorn(R, side)
+  local bx, by, mx, my, tx, ty = -R * 0.1, side * R * 0.4, -R * 0.5, side * R * 0.62, -R * 0.82, side * R * 0.86
+  love.graphics.setColor(CACO.dark)
+  love.graphics.polygon("fill", bx + 4, by - side, bx - 4, by + side * 7, mx - 2, my + side * 4, mx + 3, my - side * 2)
+  love.graphics.setColor(CACO.hornDark)
+  love.graphics.polygon("fill", bx + 3, by, bx - 3, by + side * 6, mx - 1.5, my + side * 3, mx + 2, my - side * 1.5)
+  love.graphics.polygon("fill", mx - 1.5, my + side * 3, mx + 2, my - side * 1.5, tx, ty)
+  love.graphics.setColor(CACO.horn)
+  love.graphics.polygon("fill", bx + 3, by, bx, by + side * 3, mx, my + side * 1, mx + 2, my - side * 1.5)
+  love.graphics.polygon("fill", mx, my + side * 1, mx + 2, my - side * 1.5, tx, ty)
+end
+
+--- A Cacodaemon, seen from above, floating a little over its shadow: a ball
+--- of dark red hide lit from the top left, veined and warted, two horns
+--- curving back off its crown; at its front the face, seen from above as it
+--- leans forward: a heavy brow over one green eye looking ahead, and under
+--- it the mouth along its front edge, yellowed teeth, fire in it when it's
+--- about to spit; spinning when shot in the mouth.
 local function drawCaco(s, id)
   local R = Cacos.RADIUS
   local bob = math.sin(clock * 1.7 + id) * 3
@@ -873,37 +902,50 @@ local function drawCaco(s, id)
   local reel = s.state == 4
   local a = s.facing + (reel and math.sin(clock * 25) * 0.35 or 0)
   local open = mouthOpen(s)
-  -- The ball: its outline, hide and shading (the light stays top left as it turns).
+  -- The ball: its outline, hide and shading, soft (the light stays top left as it turns).
   love.graphics.setColor(CACO.dark)
-  love.graphics.circle("fill", x, y, R + 2, 32)
+  love.graphics.circle("fill", x, y, R + 1.5, 36)
   love.graphics.setColor(CACO.hide)
-  love.graphics.circle("fill", x, y, R, 32)
-  love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.45)
-  love.graphics.circle("fill", x + R * 0.18, y + R * 0.2, R * 0.82, 28)
-  love.graphics.setColor(CACO.hide)
-  love.graphics.circle("fill", x - R * 0.08, y - R * 0.1, R * 0.78, 28)
-  love.graphics.setColor(CACO.light[1], CACO.light[2], CACO.light[3], 0.55)
-  love.graphics.circle("fill", x - R * 0.38, y - R * 0.4, R * 0.28, 16)
+  love.graphics.circle("fill", x, y, R, 36)
+  for k = 1, 4 do
+    love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.16)
+    love.graphics.circle("fill", x + R * (0.1 + k * 0.04), y + R * (0.12 + k * 0.04), R * (1 - k * 0.12), 32)
+  end
+  for k = 1, 4 do
+    love.graphics.setColor(CACO.light[1], CACO.light[2], CACO.light[3], 0.12)
+    love.graphics.circle("fill", x - R * (0.1 + k * 0.06), y - R * (0.12 + k * 0.06), R * (0.7 - k * 0.13), 24)
+  end
   love.graphics.push()
   love.graphics.translate(x, y)
   love.graphics.rotate(a)
-  -- Lumps on its hide.
-  love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.6)
-  for k = 0, 6 do
-    local la = 1.8 + k * 0.42
-    love.graphics.circle("fill", math.cos(la) * R * 0.62, math.sin(la) * R * 0.62, 2.5 + (k % 3), 8)
+  -- Veins over its back, and the warts, each lit on its top left.
+  love.graphics.setColor(CACO.vein[1], CACO.vein[2], CACO.vein[3], 0.55)
+  love.graphics.setLineWidth(1.2)
+  for _, v in ipairs(VEINS) do
+    local pts = {}
+    for i = 1, #v do
+      pts[i] = v[i] * R
+    end
+    love.graphics.line(pts)
   end
-  -- Horns round the back half, bone, pointing out.
-  love.graphics.setColor(CACO.horn)
-  for _, ha in ipairs({ 2.2, 2.75, 3.53, 4.08 }) do
-    local bx, by = math.cos(ha) * (R - 3), math.sin(ha) * (R - 3)
-    local tx, ty = math.cos(ha) * (R + 11), math.sin(ha) * (R + 11)
-    local px, py = -math.sin(ha) * 4, math.cos(ha) * 4
-    love.graphics.polygon("fill", bx + px, by + py, bx - px, by - py, tx, ty)
+  love.graphics.setLineWidth(1)
+  for _, w in ipairs(WARTS) do
+    local wx, wy = math.cos(w[1]) * R * w[2], math.sin(w[1]) * R * w[2]
+    love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.7)
+    love.graphics.circle("fill", wx, wy, w[3], 8)
+    love.graphics.setColor(CACO.light[1], CACO.light[2], CACO.light[3], 0.35)
+    love.graphics.circle("fill", wx - w[3] * 0.3, wy - w[3] * 0.3, w[3] * 0.45, 6)
   end
-  -- The mouth across its front: a seam with teeth, or a maw.
-  local mw, md = R * 0.62, 3 + open * R * 0.42
-  local mx = R * 0.62
+  cacoHorn(R, 1)
+  cacoHorn(R, -1)
+  -- The mouth along its front edge, under the eye: lips, gums, a maw.
+  local mw = R * 0.56 * (0.85 + 0.15 * open)
+  local md = 2.5 + open * R * 0.36
+  local mx = R * 0.8 + open * R * 0.16
+  love.graphics.setColor(CACO.dark)
+  love.graphics.ellipse("fill", mx, 0, md + 3, mw + 3, 20)
+  love.graphics.setColor(CACO.gum)
+  love.graphics.ellipse("fill", mx, 0, md + 1, mw + 1, 20)
   love.graphics.setColor(CACO.maw)
   love.graphics.ellipse("fill", mx, 0, md, mw, 20)
   if open > 0.3 then
@@ -918,26 +960,43 @@ local function drawCaco(s, id)
       love.graphics.ellipse("fill", mx + md * 0.2, 0, md * 0.5, mw * 0.4, 12)
     end
   end
-  love.graphics.setColor(CACO.white) -- the teeth, two rows
-  for k = -3, 3 do
-    local ty = k * mw / 4
+  love.graphics.setColor(CACO.teeth) -- two uneven rows
+  for k = -4, 4 do
+    local ty = k * mw / 5
     local edge = math.sqrt(math.max(0, 1 - (ty / mw) ^ 2)) * md
-    love.graphics.polygon("fill", mx - edge, ty - 2.5, mx - edge, ty + 2.5, mx - edge + 4 + open * 3, ty)
-    love.graphics.polygon("fill", mx + edge, ty - 2.5, mx + edge, ty + 2.5, mx + edge - 4 - open * 3, ty)
+    local long = 2.5 + (k * 7 % 3) + open * 3
+    local wide = 1.6 + (k * 5 % 2) * 0.6
+    love.graphics.polygon("fill", mx - edge, ty - wide, mx - edge, ty + wide, mx - edge + long, ty + k * 0.2)
+    love.graphics.polygon("fill", mx + edge, ty - wide, mx + edge, ty + wide, mx + edge - long * 0.8, ty - k * 0.2)
   end
-  -- The eye, on top, looking ahead: wide when it's about to spit, squeezed shut reeling.
-  local ex = R * 0.05
-  local lid = reel and 0.2 or (s.state == 2 and 1.15 or 0.85)
+  -- The eye in its face, looking ahead, seen from above so foreshortened:
+  -- wide when it's about to spit, squeezed shut reeling. A heavy brow over it.
+  local ex, erx, ery = R * 0.3, R * 0.2, R * 0.42
+  local lid = reel and 0.15 or (s.state == 2 and 1.1 or 0.85)
   love.graphics.setColor(CACO.dark)
-  love.graphics.ellipse("fill", ex, 0, 10, 11 * lid + 1, 16)
+  love.graphics.ellipse("fill", ex, 0, erx + 2.5, ery * lid + 2.5, 20)
   love.graphics.setColor(CACO.white)
-  love.graphics.ellipse("fill", ex, 0, 8, 9 * lid, 16)
+  love.graphics.ellipse("fill", ex, 0, erx, ery * lid, 20)
   if lid > 0.4 then
+    local ix = ex + erx * 0.4
+    love.graphics.setColor(CACO.eye[1] * 0.5, CACO.eye[2] * 0.5, CACO.eye[3] * 0.5)
+    love.graphics.ellipse("fill", ix, 0, erx * 0.62, ery * 0.6 * math.min(1, lid), 16)
     love.graphics.setColor(CACO.eye)
-    love.graphics.circle("fill", ex + 2, 0, 5.5 * math.min(1, lid), 14)
+    love.graphics.ellipse("fill", ix + 0.6, 0, erx * 0.48, ery * 0.5 * math.min(1, lid), 16)
     love.graphics.setColor(0, 0, 0)
-    love.graphics.rectangle("fill", ex + 1.2, -4 * lid, 1.8, 8 * lid)
+    love.graphics.ellipse("fill", ix + 1, 0, 0.9, ery * 0.38 * lid, 8)
+    love.graphics.setColor(1, 1, 1, 0.7)
+    love.graphics.circle("fill", ix - 0.8, -ery * 0.2, 1.1, 6)
   end
+  love.graphics.setColor(CACO.dark[1], CACO.dark[2], CACO.dark[3], 0.6) -- the lid's shadow over its back half
+  love.graphics.arc("fill", ex, 0, erx * 1.05, math.pi * 0.5, math.pi * 1.5, 12)
+  love.graphics.setLineWidth(4) -- the brow
+  love.graphics.setColor(CACO.dark)
+  love.graphics.arc("line", "open", ex + 1, 0, ery * 1.05, math.pi * 0.62, math.pi * 1.38, 16)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.setColor(CACO.light[1], CACO.light[2], CACO.light[3], 0.6)
+  love.graphics.arc("line", "open", ex - 1, 0, ery * 1.15, math.pi * 0.66, math.pi * 1.34, 16)
+  love.graphics.setLineWidth(1)
   love.graphics.pop()
 end
 
@@ -1046,7 +1105,8 @@ function Horde.drawNightLights(glow)
       glow(s.dx, s.dy, s.state == 2 and 110 or 60, ORANGE, s.state == 2 and 1 or 0.7)
     elseif s.kind == "c" then
       glow(s.dx, s.dy - CACO_LIFT, 120, RED, 0.7)
-      glow(s.dx, s.dy - CACO_LIFT, 30, CACO.eye, 0.6)
+      local R = Cacos.RADIUS * 0.3 -- at its eye
+      glow(s.dx + math.cos(s.facing) * R, s.dy - CACO_LIFT + math.sin(s.facing) * R, 30, CACO.eye, 0.6)
       if s.state == 2 then -- the fire in its mouth
         glow(s.dx + math.cos(s.facing) * 18, s.dy - CACO_LIFT + math.sin(s.facing) * 18, 150, ORANGE, 1)
       end
