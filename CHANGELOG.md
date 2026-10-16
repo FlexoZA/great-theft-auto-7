@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+
+- The Cacodaemons look meaner: their eye now looks ahead out of their face under a heavy brow instead of straight up, with darker veined hide, two horns curving back and yellowed teeth.
+
 ## [0.29.5] - 2026-10-15
 
 The shuttle you land in on Eternal Mood is drawn in full: lit portholes, blinking nav lights, glowing engines and its ramp down.
