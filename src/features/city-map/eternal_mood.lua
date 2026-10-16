@@ -49,7 +49,9 @@
 --                         corner `start`), the Interns' mobs standing about their spot until woken, and the
 --                         vents the imps crawl out of (`look` manhole or crack where they aren't vents),
 --                         and `cacos` = { x, y, count, wake } the Cacodaemons' flocks floating about their
---                         spots (over anything: they fly), world px; and `boss` the level's boss, by `kind`:
+--                         spots (over anything: they fly), `knights` = { x, y, facing, count, wake } the Dread
+--                         Knights standing at theirs (eternal-mood/dread_knight.lua), world px; and `boss` the
+--                         level's boss, by `kind`:
 --                         "floor-manager" { x, y, facing, zone, lift, doors }: where he waits, the room that
 --                         wakes him, the lift he keeps out of service, the doorways his meetings use;
 --                         "mancubus" { x, y, facing, zone, wake, gate }: where he sits, the patch he keeps
@@ -965,6 +967,13 @@ local function buildEarth(map, rng, T)
   cacos(4, 22, 1, 560)
   cacos(35.5, 15, 1, 560)
 
+  -- The Dread Knights (eternal-mood/dread_knight.lua): one on the road past
+  -- the overpass's gap, one before the Boulevard's sandbags.
+  horde.knights = {
+    { x = math.floor(X(20)), y = math.floor(Y(72)), facing = S, count = 1, wake = 480 },
+    { x = math.floor(X(20)), y = math.floor(Y(32)), facing = S, count = 1, wake = 520 },
+  }
+
   -- The Mancouchbus (eternal-mood/mancubus.lua) in his recliner in front
   -- of the starport's gate, facing down the Boulevard: he wakes when
   -- somebody comes up past the burning tower (`wake`), never leaves the
@@ -1275,6 +1284,12 @@ local function buildFoundry(map, rng, T)
   vent(10, 18, E, 2)
   vent(45.5, 18, W, 2)
   horde.cacos[#horde.cacos + 1] = { x = math.floor(X(28.5)), y = math.floor(Y(12.5)), count = 2, wake = 620 }
+  -- The Dread Knights (eternal-mood/dread_knight.lua), on the Smelters'
+  -- walkways, one either side.
+  horde.knights = {
+    { x = math.floor(X(14)), y = math.floor(Y(31)), facing = S, count = 1, wake = 460 },
+    { x = math.floor(X(42)), y = math.floor(Y(26)), facing = S, count = 1, wake = 460 },
+  }
   -- The Baron of Heck (eternal-mood/baron.lua) on the ring south of the
   -- pit, facing the south bridge: he wakes when somebody comes over a
   -- bridge (`wake`, the moat's box) or into his sight, then goes after
@@ -1520,6 +1535,13 @@ local function buildHeck(map, rng, T)
   cacos(20, 44, 2, 600)
   cacos(36, 38, 1, 600)
   cacos(50, 44, 1, 600) -- over the pizza
+  -- The Dread Knights (eternal-mood/dread_knight.lua): three about the
+  -- Fields, between the bridges and the ramp up to the Mattress.
+  horde.knights = {
+    { x = math.floor(X(29)), y = math.floor(Y(47)), facing = S, count = 1, wake = 520 },
+    { x = math.floor(X(13)), y = math.floor(Y(38)), facing = S, count = 1, wake = 480 },
+    { x = math.floor(X(42.5)), y = math.floor(Y(40)), facing = S, count = 1, wake = 480 },
+  }
   -- The Mattress's plateau stays quiet: its owner wants it that way. The
   -- Spider Mattressmind (eternal-mood/mattressmind.lua) on its mattress
   -- before the gate, facing down the ramp: it wakes when somebody comes up

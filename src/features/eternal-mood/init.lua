@@ -27,6 +27,7 @@ local Audio = require("src.audio")
 local FloorManager = require("src.features.eternal-mood.floor_manager")
 local Mancubus = require("src.features.eternal-mood.mancubus")
 local Baron = require("src.features.eternal-mood.baron")
+local DreadKnight = require("src.features.eternal-mood.dread_knight")
 local Mattressmind = require("src.features.eternal-mood.mattressmind")
 local Belts = require("src.features.eternal-mood.belts")
 local Ground = require("src.features.eternal-mood.ground")
@@ -120,6 +121,7 @@ function EternalMood:load()
   FloorManager.load()
   Mancubus.load()
   Baron.load()
+  DreadKnight.load()
   Mattressmind.load()
   Screen.load()
 end
@@ -137,6 +139,7 @@ function EternalMood:serverQuestStarted(server, quest)
       FloorManager.serverStart(server, map, nav)
       Mancubus.serverStart(server, map, nav)
       Baron.serverStart(server, map, nav)
+      DreadKnight.serverStart(server, map, nav)
       Mattressmind.serverStart(server, map, nav)
     end
   end
@@ -149,6 +152,7 @@ function EternalMood:serverQuestEnded(server, quest)
     FloorManager.serverStop(server)
     Mancubus.serverStop(server)
     Baron.serverStop(server)
+    DreadKnight.serverStop(server)
     Mattressmind.serverStop(server)
   end
 end
@@ -161,12 +165,14 @@ function EternalMood:mapChanged(_map, server)
     FloorManager.serverStop(server)
     Mancubus.serverStop(server)
     Baron.serverStop(server)
+    DreadKnight.serverStop(server)
     Mattressmind.serverStop(server)
   end
   Horde.clear()
   FloorManager.clear()
   Mancubus.clear()
   Baron.clear()
+  DreadKnight.clear()
   Mattressmind.clear()
   stopMusic()
 end
@@ -176,6 +182,7 @@ function EternalMood:serverPlayerJoined(server, player)
   FloorManager.serverPlayerJoined(server, player)
   Mancubus.serverPlayerJoined(server, player)
   Baron.serverPlayerJoined(server, player)
+  DreadKnight.serverPlayerJoined(server, player)
   Mattressmind.serverPlayerJoined(server, player)
 end
 
@@ -183,6 +190,7 @@ function EternalMood:serverShotAt(server, x, y, radius, by, angle, damage, dtype
   return FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
     or Mancubus.serverShotAt(server, x, y, radius, by, angle, damage)
     or Baron.serverShotAt(server, x, y, radius, by, angle, damage)
+    or DreadKnight.serverShotAt(server, x, y, radius, by, angle, damage)
     or Mattressmind.serverShotAt(server, x, y, radius, by, angle, damage)
     or Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
@@ -192,6 +200,7 @@ function EternalMood:serverEnemies(server, add)
   FloorManager.serverEnemies(server, add)
   Mancubus.serverEnemies(server, add)
   Baron.serverEnemies(server, add)
+  DreadKnight.serverEnemies(server, add)
   Mattressmind.serverEnemies(server, add)
   Horde.serverEnemies(server, add)
 end
@@ -201,6 +210,7 @@ function EternalMood:serverFreezeArea(_server, x, y, radius, seconds)
   FloorManager.serverFreezeArea(x, y, radius, seconds)
   Mancubus.serverFreezeArea(x, y, radius, seconds)
   Baron.serverFreezeArea(x, y, radius, seconds)
+  DreadKnight.serverFreezeArea(x, y, radius, seconds)
   Mattressmind.serverFreezeArea(x, y, radius, seconds)
 end
 
@@ -211,6 +221,7 @@ function EternalMood:serverStep(server, dt)
   FloorManager.serverStep(server, dt)
   Mancubus.serverStep(server, dt)
   Baron.serverStep(server, dt)
+  DreadKnight.serverStep(server, dt)
   Mattressmind.serverStep(server, dt)
   local map = cityMap()
   if sv then
@@ -253,6 +264,7 @@ function EternalMood:questStarted(_client, quest)
     FloorManager.clear()
     Mancubus.clear()
     Baron.clear()
+    DreadKnight.clear()
     Mattressmind.clear()
     if quest.introLine then
       local level = quest.introLine
@@ -293,6 +305,7 @@ function EternalMood:questEnded(_client, quest)
     FloorManager.clear()
     Mancubus.clear()
     Baron.clear()
+    DreadKnight.clear()
     Mattressmind.clear()
     page = nil
     stopMusic()
@@ -304,6 +317,7 @@ function EternalMood:exitGame()
   FloorManager.clear()
   Mancubus.clear()
   Baron.clear()
+  DreadKnight.clear()
   Mattressmind.clear()
   page = nil
   stopMusic()
@@ -334,6 +348,7 @@ function EternalMood:update(dt)
   FloorManager.update(dt)
   Mancubus.update(dt)
   Baron.update(dt)
+  DreadKnight.update(dt)
   Mattressmind.update(dt)
 end
 
@@ -360,6 +375,7 @@ function EternalMood:drawBelowCars(_client, camera)
   FloorManager.drawBelowCars()
   Mancubus.drawBelowCars()
   Baron.drawBelowCars()
+  DreadKnight.drawBelowCars()
   Mattressmind.drawBelowCars()
   Horde.drawBelowCars()
 end
@@ -368,6 +384,7 @@ function EternalMood:drawAboveCars()
   FloorManager.drawAboveCars()
   Mancubus.drawAboveCars()
   Baron.drawAboveCars()
+  DreadKnight.drawAboveCars()
   Mattressmind.drawAboveCars()
   Horde.drawAboveCars()
 end
@@ -413,6 +430,7 @@ function EternalMood:drawNightLights(_client, _camera, glow)
   FloorManager.drawNightLights(glow)
   Mancubus.drawNightLights(glow)
   Baron.drawNightLights(glow)
+  DreadKnight.drawNightLights(glow)
   Mattressmind.drawNightLights(glow)
 end
 
@@ -428,7 +446,7 @@ function EternalMood:footstepWalkers()
 end
 
 EternalMood.clientMessages = {}
-for _, part in ipairs({ Horde, FloorManager, Mancubus, Baron, Mattressmind }) do
+for _, part in ipairs({ Horde, FloorManager, Mancubus, Baron, DreadKnight, Mattressmind }) do
   for kind, handler in pairs(part.clientMessages) do
     EternalMood.clientMessages[kind] = handler
   end

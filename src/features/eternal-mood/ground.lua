@@ -78,6 +78,34 @@ function Ground.blocked(x, y)
   return Sight.blocked(x, y) or low(x, y)
 end
 
+--- Does a walker `r` px across the shoulders fit at (x, y): nothing solid
+--- and no lava under its middle or round its edge?
+function Ground.fits(x, y, r)
+  local c = r * 0.7
+  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
+    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - c, y - c)
+    or Ground.blocked(x + c, y - c) or Ground.blocked(x - c, y + c) or Ground.blocked(x + c, y + c))
+end
+
+--- Move walker `w` ({ x, y, stuck }, `r` px across) along `angle` at
+--- `speed` for `dt`, sliding along walls. Returns false, counting
+--- `w.stuck` up, when it got nowhere.
+function Ground.walk(w, angle, speed, dt, r)
+  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
+  if Ground.fits(w.x + mx, w.y + my, r) then
+    w.x, w.y = w.x + mx, w.y + my
+  elseif Ground.fits(w.x + mx, w.y, r) then
+    w.x = w.x + mx
+  elseif Ground.fits(w.x, w.y + my, r) then
+    w.y = w.y + my
+  else
+    w.stuck = w.stuck + dt
+    return false
+  end
+  w.stuck = 0
+  return true
+end
+
 --- Can a walker go straight from (x0, y0) to (x1, y1)? No wall and no
 --- lava on the way (Sight.clear's, with the lava).
 function Ground.clear(x0, y0, x1, y1)
