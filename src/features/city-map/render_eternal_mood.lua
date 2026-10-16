@@ -1696,28 +1696,39 @@ function DRAW.shuttle(s, t)
   color(C.red)
   lg.rectangle("fill", 186, 470, 12, 8)
 
-  -- The engines, three bells at the tail, still glowing, still ticking.
+  -- The engines, three bells at the tail pointing aft, seen from above: each
+  -- flares out from its mount to an oval mouth, still glowing, still ticking.
+  -- The middle one sits further back, so it goes on last.
   local warm = 0.55 + 0.15 * math.sin(t * 3) + 0.05 * math.sin(t * 17)
-  for i, ex in ipairs({ -40, 0, 40 }) do
-    local r = i == 2 and 18 or 24
-    local y = 486 + (i == 2 and 8 or 0)
+  for _, ex in ipairs({ -40, 40, 0 }) do
+    local mid = ex == 0
+    local r = mid and 18 or 24
+    local x, y = 192 + ex, 492 + (mid and 10 or 0) -- the mouth's centre
+    local ry = r * 0.38
+    local top, throat = y - r * 1.5, r * 0.55
     color(C.steelDark)
-    lg.rectangle("fill", 192 + ex - r, y - 26, r * 2, 26)
+    lg.rectangle("fill", x - throat - 2, top - 14, (throat + 2) * 2, 16)
     color(C.wallSeam)
-    lg.circle("fill", 192 + ex, y, r + 3, 20)
+    lg.polygon("fill", x - throat - 2, top, x + throat + 2, top, x + r + 3, y, x - r - 3, y)
+    color(C.steelDark)
+    lg.polygon("fill", x - throat, top, x + throat, top, x + r, y, x - r, y)
+    color(C.trim, 0.5) -- the light down its curve
+    lg.polygon("fill", x - throat * 0.5, top, x - throat * 0.1, top, x - r * 0.2, y, x - r * 0.7, y)
+    color(C.wallSeam)
+    lg.ellipse("fill", x, y, r + 3, ry + 3, 20)
     color(C.black)
-    lg.circle("fill", 192 + ex, y, r, 20)
+    lg.ellipse("fill", x, y, r, ry, 20)
     lg.setColor(1, 0.4, 0.1, warm)
-    lg.circle("fill", 192 + ex, y, r * 0.6, 16)
+    lg.ellipse("fill", x, y + ry * 0.15, r * 0.65, ry * 0.6, 16)
     lg.setColor(1, 0.85, 0.5, warm * 0.6)
-    lg.circle("fill", 192 + ex, y, r * 0.25, 12)
+    lg.ellipse("fill", x, y + ry * 0.2, r * 0.3, ry * 0.3, 12)
     color(C.trim)
     lg.setLineWidth(2)
-    lg.circle("line", 192 + ex, y, r, 20)
+    lg.ellipse("line", x, y, r, ry, 20)
     lg.setLineWidth(1)
-    lg.setBlendMode("add") -- the heat off it
+    lg.setBlendMode("add") -- the heat off it, trailing aft
     lg.setColor(1, 0.35, 0.08, 0.12 * warm)
-    lg.circle("fill", 192 + ex, y + 6, r * 1.8, 20)
+    lg.ellipse("fill", x, y + r * 0.9, r * 1.2, r * 1.5, 20)
     lg.setBlendMode("alpha")
   end
   for k = 0, 5 do -- steam curling off them
