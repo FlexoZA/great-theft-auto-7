@@ -1289,6 +1289,211 @@ function DRAW.paint(s)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
 end
 
+-- Fobos Base's fittings: what fills its rooms out ---------------------------------
+
+--- A server rack against the wall: a steel cabinet, rows of drives, their
+--- lights blinking.
+function DRAW.rack(s, t)
+  shadow(s)
+  box(s, C.steelDark)
+  box(s, C.black, 4)
+  for y = s.y + 8, s.y + s.h - 10, 8 do
+    color(C.steelDark)
+    love.graphics.rectangle("fill", s.x + 8, y, s.w - 16, 5)
+    local on = (t * 2 + hash(y + s.x) * 3) % 1 < 0.6
+    love.graphics.setColor(1, 0.25, 0.1, on and 0.95 or 0.25)
+    love.graphics.rectangle("fill", s.x + s.w - 14, y + 1, 4, 3)
+  end
+end
+
+--- Cables across the floor, bundled, curving: from a console to wherever.
+function DRAW.cables(s)
+  love.graphics.setLineWidth(4)
+  local horizontal = s.w >= s.h
+  for k = 0, 2 do
+    color(k == 1 and C.red or C.black)
+    local pts = {}
+    for i = 0, 8 do
+      local f = i / 8
+      local wob = math.sin(f * 6 + k + (s.seed or 0)) * 6 + k * 5
+      if horizontal then
+        pts[#pts + 1], pts[#pts + 2] = s.x + f * s.w, s.y + s.h / 2 + wob
+      else
+        pts[#pts + 1], pts[#pts + 2] = s.x + s.w / 2 + wob, s.y + f * s.h
+      end
+    end
+    love.graphics.line(pts)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- A footlocker at the foot of a bunk: a steel trunk, its lid, a latch.
+function DRAW.footlocker(s)
+  shadow(s)
+  box(s, C.steelDark)
+  box(s, C.steel, 3)
+  color(C.steelDark)
+  love.graphics.rectangle("fill", s.x + 3, s.y + s.h / 2 - 1, s.w - 6, 3)
+  color(C.hazard)
+  love.graphics.rectangle("fill", s.x + s.w / 2 - 4, s.y + s.h / 2 - 3, 8, 7)
+end
+
+--- A rug down the aisle, worn through, a stripe round its edge.
+function DRAW.rug(s)
+  color(C.blanket, 0.85)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h, 6)
+  color(C.red, 0.6)
+  love.graphics.setLineWidth(4)
+  love.graphics.rectangle("line", s.x + 8, s.y + 8, s.w - 16, s.h - 16, 4)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(0, 0, 0, 0.2) -- worn
+  love.graphics.ellipse("fill", s.x + s.w * 0.4, s.y + s.h * 0.6, s.w * 0.25, s.h * 0.12, 12)
+end
+
+--- Clothes dropped in a heap: a jumpsuit, a towel, a sock.
+function DRAW.laundry(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(C.blanket)
+  love.graphics.ellipse("fill", cx - 6, cy, s.w * 0.35, s.h * 0.25, 10)
+  color(C.white)
+  love.graphics.ellipse("fill", cx + 8, cy - 4, s.w * 0.22, s.h * 0.18, 10)
+  color(C.hazard)
+  love.graphics.rectangle("fill", cx - 2, cy + 6, 14, 5, 2)
+end
+
+--- A vending machine against the wall: lit front, rows of snacks, the slot.
+function DRAW.vending(s, t)
+  shadow(s)
+  box(s, C.red)
+  color(C.black)
+  love.graphics.rectangle("fill", s.x + 5, s.y + 5, s.w - 10, s.h * 0.62)
+  for r = 0, 3 do
+    for c = 0, 2 do
+      love.graphics.setColor(0.9 - c * 0.2, 0.5 + r * 0.1, 0.2 + c * 0.2)
+      love.graphics.rectangle("fill", s.x + 9 + c * (s.w - 18) / 3, s.y + 9 + r * (s.h * 0.62 - 8) / 4,
+        (s.w - 24) / 3, 6)
+    end
+  end
+  love.graphics.setColor(1, 0.6, 0.4, 0.35 + 0.1 * math.sin(t * 3 + s.x)) -- its light
+  love.graphics.rectangle("fill", s.x + 5, s.y + 5, s.w - 10, s.h * 0.62)
+  color(C.black)
+  love.graphics.rectangle("fill", s.x + 8, s.y + s.h - 14, s.w - 16, 8)
+end
+
+--- Lunch on the floor: a tray, upside down, what was on it.
+function DRAW.spill(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  love.graphics.setColor(0.55, 0.42, 0.25, 0.8) -- gravy
+  love.graphics.ellipse("fill", cx + 6, cy + 4, s.w * 0.4, s.h * 0.28, 12)
+  color(C.steel)
+  love.graphics.push()
+  love.graphics.translate(cx, cy)
+  love.graphics.rotate(s.angle or 0)
+  love.graphics.rectangle("fill", -s.w * 0.28, -s.h * 0.2, s.w * 0.56, s.h * 0.4, 4)
+  love.graphics.pop()
+  love.graphics.setColor(0.9, 0.85, 0.7) -- peas, or worse
+  for k = 0, 4 do
+    love.graphics.circle("fill", cx + (hash(k + (s.seed or 0)) - 0.5) * s.w * 0.7,
+      cy + (hash(k * 3 + (s.seed or 0)) - 0.5) * s.h * 0.6, 2.5, 6)
+  end
+end
+
+--- Paint on the floor marking out a hazard: a box of yellow and black.
+function DRAW.hazardbox(s)
+  color(C.hazard, 0.85)
+  love.graphics.setLineWidth(6)
+  love.graphics.rectangle("line", s.x, s.y, s.w, s.h)
+  love.graphics.setLineWidth(1)
+  color(C.black, 0.85)
+  for x = s.x + 8, s.x + s.w - 8, 24 do
+    love.graphics.rectangle("fill", x, s.y - 3, 8, 6)
+    love.graphics.rectangle("fill", x, s.y + s.h - 3, 8, 6)
+  end
+end
+
+--- A hazmat locker: a tall cabinet in yellow, the trefoil on its door.
+function DRAW.hazmat(s)
+  shadow(s)
+  box(s, C.hazard)
+  color(C.black)
+  love.graphics.rectangle("line", s.x + 4, s.y + 4, s.w - 8, s.h - 8)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  love.graphics.circle("fill", cx, cy, 3, 8)
+  for k = 0, 2 do
+    local a = k * 2.09 - 1.57
+    love.graphics.arc("fill", cx, cy, math.min(s.w, s.h) * 0.32, a - 0.4, a + 0.4, 6)
+  end
+end
+
+--- A stain on the floor: oil, coolant, something that dripped.
+function DRAW.oil(s)
+  love.graphics.setColor(0.02, 0.02, 0.03, 0.4)
+  love.graphics.ellipse("fill", s.x + s.w / 2, s.y + s.h / 2, s.w / 2, s.h / 2, 16)
+  love.graphics.setColor(0.25, 0.2, 0.35, 0.18) -- the sheen on it
+  love.graphics.ellipse("fill", s.x + s.w * 0.4, s.y + s.h * 0.4, s.w * 0.2, s.h * 0.12, 10)
+end
+
+--- Tyre marks where a loader skidded round: two dark arcs.
+function DRAW.skid(s)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.setLineWidth(8)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h, math.min(s.w, s.h * 2) / 2
+  love.graphics.arc("line", "open", cx, cy, r, math.pi * 1.1, math.pi * 1.8, 12)
+  love.graphics.arc("line", "open", cx, cy, r - 22, math.pi * 1.1, math.pi * 1.8, 12)
+  love.graphics.setLineWidth(1)
+end
+
+--- A workbench against the wall: a vice, tools hung over it, a lamp.
+function DRAW.workbench(s)
+  shadow(s)
+  box(s, C.steelDark)
+  box(s, C.wood, 4)
+  color(C.steel) -- the vice
+  love.graphics.rectangle("fill", s.x + 10, s.y + 8, 22, 14)
+  color(C.black) -- spanners, a hammer
+  love.graphics.setLineWidth(4)
+  for k = 0, 3 do
+    local x = s.x + s.w * 0.4 + k * 18
+    love.graphics.line(x, s.y + 8, x + 4, s.y + s.h - 10)
+  end
+  love.graphics.setLineWidth(1)
+  color(C.hazard)
+  love.graphics.circle("fill", s.x + s.w - 16, s.y + 14, 6, 10)
+end
+
+--- A tool chest on castors: red drawers, steel handles.
+function DRAW.toolchest(s)
+  shadow(s)
+  box(s, C.red)
+  color(C.steel)
+  for y = s.y + 8, s.y + s.h - 8, 10 do
+    love.graphics.rectangle("fill", s.x + 6, y, s.w - 12, 3)
+  end
+end
+
+--- Tyres stacked up: rings of rubber, the top one's hole dark.
+function DRAW.tires(s)
+  shadow(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(C.tyre)
+  love.graphics.circle("fill", cx, cy, r, 20)
+  color(C.steelDark)
+  love.graphics.circle("line", cx, cy, r - 6, 20)
+  love.graphics.circle("fill", cx, cy, r * 0.45, 16)
+  color(C.black)
+  love.graphics.circle("fill", cx, cy, r * 0.32, 16)
+end
+
+--- A pallet on the floor: slats, gaps between them.
+function DRAW.pallet(s)
+  color(C.crateDark)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
+  color(C.crate)
+  for x = s.x + 4, s.x + s.w - 12, 16 do
+    love.graphics.rectangle("fill", x, s.y + 3, 11, s.h - 6)
+  end
+end
+
 -- Heck on Earth's props ----------------------------------------------------------
 
 --- Lane markings down a stretch of road: dashes between the lanes, a double

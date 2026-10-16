@@ -15,6 +15,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Fobos Base is fuller. Server racks and cable runs in the Lab, footlockers, a rug and laundry in Crew Quarters,
+  chairs round the Mess's tables and vending machines on its wall, cables and coffee in the Offices, hazard paint and
+  leaks round the Reactor, hazmat lockers and painted hazard boxes in Toxic Storage, and a workshop round the
+  Hangar's walls (workbenches, tool chests, tyres, fuel drums) with oil, skid marks and pallets on its floor.
 - Eternal Mood's lava flows: the Foundry's moat and Heck's lava sea have ragged shores of cooled crust, glowing where
   they meet the molten lava, lumpy crust drifting on a slow current and bright seams opening and closing. Lava next to
   lava is one body now, not a row of squares.

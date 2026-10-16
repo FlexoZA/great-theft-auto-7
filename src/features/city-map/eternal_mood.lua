@@ -346,6 +346,14 @@ local function buildFobos(map, rng, T)
   flat(map, "portal", X(z.c0 + 1), Y(z.r0 + 1), 4 * T, 4 * T)
   light(map, X(z.c0 + 3), Y(z.r0 + 3), 220, EternalMood.ALARM, 0.5)
   poster(map, X(z.c0 + 13), Y(z.r0), EternalMood.POSTERS[2])
+  -- Server racks against the north wall either side of the way out, and
+  -- the consoles' cables run up the floor to the slabs.
+  for _, c in ipairs({ 23, 31, 33 }) do
+    cover(map, "rack", X(c) + 4, Y(z.r0) + 4, 2 * T - 8, 44)
+  end
+  for _, c in ipairs({ 23, 26, 29 }) do
+    flat(map, "cables", X(c + 1) - 12, Y(71), 24, 3 * T + 20, { seed = rng:random(1000) })
+  end
 
   -- Crew Quarters: bunks along both walls, lockers at the end.
   z = rooms["Crew Quarters"]
@@ -354,6 +362,15 @@ local function buildFobos(map, rng, T)
     cover(map, "bunk", X(z.c1 - 1), Y(r), 2 * T, 56)
   end
   cover(map, "lockers", X(z.c0 + 3), Y(z.r1) + 24, 5 * T, 40)
+  -- A footlocker at the foot of every bunk, a rug down the aisle, clothes
+  -- dropped where they were taken off.
+  for r = z.r0 + 4, z.r1 - 1, 3 do
+    cover(map, "footlocker", X(z.c0 + 2) + 4, Y(r) + 10, 30, 36)
+    cover(map, "footlocker", X(z.c1 - 1) - 34, Y(r) + 10, 30, 36)
+  end
+  flat(map, "rug", X(z.c0 + 3.25), Y(z.r0 + 1), 4.5 * T, 10 * T)
+  flat(map, "laundry", X(z.c0 + 2.3), Y(z.r0 + 2), 50, 40)
+  flat(map, "laundry", X(z.c1 - 2), Y(z.r1 - 1.5), 50, 40)
 
   -- The Mess: tables in rows, a serving counter down the east wall.
   z = rooms["The Mess"]
@@ -364,6 +381,22 @@ local function buildFobos(map, rng, T)
     end
   end
   cover(map, "counter", X(z.c1) + 16, Y(z.r0 + 3), 40, 7 * T)
+  -- Chairs pushed back from the tables, vending machines on the west wall,
+  -- lunch on the floor where it was dropped.
+  for c = z.c0 + 2, z.c1 - 3, 4 do
+    for r = z.r0 + 4, z.r1 - 2, 4 do
+      for _, dx in ipairs({ 16, 2 * T - 44 }) do
+        cover(map, "chair", X(c) + dx, Y(r) - 32, 28, 28, false)
+        cover(map, "chair", X(c) + dx, Y(r) + T + 4, 28, 28, false)
+      end
+    end
+  end
+  for _, r in ipairs({ z.r0 + 1, z.r0 + 2.2 }) do
+    cover(map, "vending", X(z.c0) + 4, Y(r), 44, 64)
+  end
+  for _, p in ipairs({ { 4.4, 6.6 }, { 7.6, 3.2 }, { 2.3, 10.5 } }) do
+    flat(map, "spill", X(z.c0 + p[1]), Y(z.r0 + p[2]), 52, 40, { angle = rng:random() * 6, seed = rng:random(1000) })
+  end
   poster(map, X(z.c0 + 1), Y(z.r1 + 2) + 4, EternalMood.POSTERS[5]) -- on the wall south of it
 
   -- The Ring: a long corridor, pipes along its south wall.
@@ -389,6 +422,13 @@ local function buildFobos(map, rng, T)
   end
   cover(map, "cooler", X(z.c1) + 8, Y(z.r0 + 1), 40, 40)
   poster(map, X(12), Y(z.r0), EternalMood.POSTERS[4]) -- clear of the door up
+  -- Cables between the desks, coffee on the carpet.
+  for _, r in ipairs({ z.r0 + 7, z.r0 + 15 }) do
+    flat(map, "cables", X(z.c0 + 5), Y(r) + 6, 2 * T, 24, { seed = rng:random(1000) })
+  end
+  for _, p in ipairs({ { 5.2, 6.4 }, { 8.6, 11.2 }, { 4.6, 17.4 } }) do
+    flat(map, "spill", X(z.c0 + p[1]), Y(z.r0 + p[2]), 44, 34, { angle = rng:random() * 6, seed = rng:random(1000) })
+  end
 
   -- The Reactor: the core in the middle (round, solid, humming), a catwalk
   -- ring round it, pipes out to the walls.
@@ -404,6 +444,12 @@ local function buildFobos(map, rng, T)
       cover(map, "crate", X(c), Y(r), 2 * T - 8, 2 * T - 8)
     end
   end
+  -- Hazard paint round the catwalk, the core's cables up to the north wall,
+  -- coolant that leaked.
+  flat(map, "hazardbox", mx - 4.5 * T - 14, my - 4.5 * T - 14, 9 * T + 28, 9 * T + 28)
+  flat(map, "cables", mx - 12, Y(z.r0), 24, my - 4.5 * T - Y(z.r0) - 16, { seed = rng:random(1000) })
+  flat(map, "oil", X(z.c0 + 3), Y(z.r1 - 4), 90, 50)
+  flat(map, "oil", X(z.c1 - 5), Y(z.r0 + 4), 70, 40)
 
   -- Toxic Storage: barrels in clumps, pools of sludge, a crane over it all.
   z = rooms["Toxic Storage"]
@@ -420,6 +466,14 @@ local function buildFobos(map, rng, T)
     light(map, x + p[3] * T / 2, y + p[4] * T / 2, 80 + p[3] * 40, EternalMood.SLUDGE, 0.7)
   end
   flat(map, "crane", X(z.c0), Y(z.r0 + 9) + 16, (z.c1 - z.c0 + 1) * T, 32)
+  -- Hazmat lockers against the north wall, clear of the way up; paint
+  -- round every clump of barrels.
+  for k = 0, 2 do
+    cover(map, "hazmat", X(z.c0) + 8 + k * 50, Y(z.r0) + 4, 44, 40)
+  end
+  for _, p in ipairs({ { 2, 3 }, { 8, 2 }, { 3, 12 }, { 9, 15 }, { 5, 8 } }) do
+    flat(map, "hazardbox", X(z.c0 + p[1]) - 12, Y(z.r0 + p[2]) - 12, 100, 100)
+  end
 
   -- The Hangar: the lift pad in the middle of the north wall, crates
   -- stacked round the walls, parked loaders, landing lines on the floor.
@@ -441,6 +495,26 @@ local function buildFobos(map, rng, T)
   for c = 13, 42, 6 do
     flat(map, "paint", X(c), Y(12), 3 * T, 10)
   end
+  -- The workshop along the walls: a workbench and tool chests, tyres
+  -- stacked, fuel drums; oil and tyre marks where the loaders have been,
+  -- pallets left out.
+  cover(map, "workbench", X(15), Y(z.r0) + 4, 3 * T, 44)
+  cover(map, "toolchest", X(18.5), Y(z.r0) + 4, 48, 40)
+  cover(map, "tires", X(37), Y(z.r0) + 6, 56, 56, true, { round = true })
+  for k = 0, 3 do
+    cover(map, "barrel", X(48) + 4 + (k % 2) * 40, Y(10.3) + math.floor(k / 2) * 40, 36, 36, true,
+      { round = true, red = k == 2 })
+  end
+  cover(map, "tires", X(14), Y(z.r1 + 1) - 62, 56, 56, true, { round = true })
+  cover(map, "toolchest", X(22), Y(z.r1 + 1) - 44, 48, 40)
+  cover(map, "workbench", X(36), Y(z.r1 + 1) - 48, 3 * T, 44)
+  for _, o in ipairs({ { 20, 9, 70, 40 }, { 30, 15, 90, 50 }, { 41.5, 15.6, 60, 36 }, { 13, 13.5, 80, 44 } }) do
+    flat(map, "oil", X(o[1]), Y(o[2]), o[3], o[4])
+  end
+  flat(map, "skid", X(15), Y(9), 140, 60)
+  flat(map, "skid", X(33), Y(12.6), 160, 70)
+  flat(map, "pallet", X(31), Y(18.2), 96, 56)
+  flat(map, "pallet", X(17), Y(18.3), 80, 52)
   poster(map, X(33), Y(z.r0), EternalMood.POSTERS[3])
 
   -- Heck's horde (eternal-mood/horde.lua). The possessed at their posts,
