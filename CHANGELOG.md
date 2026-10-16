@@ -14,6 +14,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Dread Knights, Heck's elite: black plate, a horned helm and a blade out of each arm. Two on Earth, two in the
+  Foundry's Smelters, three on Heck's Fields. They weave in, slash up close and lunge from a few steps off, each with
+  a tell (his reach or his lane shows on the floor). A hit does 26, knocks you back and stuns you for 1.2 s, and 70%
+  of the time it's a deep wound (6 s at 6 a second; a medkit stops it). They let you get up, then lunge straight
+  away: dodge it. They dodge your rounds on their breath, back off when winded, and go for medkits when hurt.
+
 ## [0.29.6] - 2026-10-16
 
 Eternal Mood's demons sharpen up: the Baron of Heck is half the size and harder to hit, the Cacodaemons look ahead with a meaner face, and the shuttle's engines point the right way.
