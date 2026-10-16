@@ -1804,6 +1804,16 @@ local function buildHeck(map, rng, T)
     flat(map, "fire", X(c) - 30, Y(8) - 30, 60, 60, { seed = rng:random(1000) })
   end
 
+  -- The seals (eternal-mood/terminals.lua): a wall of bone across the ramp,
+  -- the only way up onto the plateau, until four seals are lit: one on each
+  -- side island out in the lava, one at the Fields' west end, one on the
+  -- pizza lake's north shore.
+  local wall = lock(map, "ramp", "THE BONE WALL")
+  lockWall(map, wall, X(22), Y(28) + 4, 16 * T, 56, "bone")
+  for _, p in ipairs({ { 13.5, 70.2 }, { 45.5, 70.2 }, { 4.2, 40.5 }, { 49.5, 32.8 } }) do
+    terminal(map, wall, X(p[1]), Y(p[2]), "seal")
+  end
+
   -- The Arrival Shelf: out of the portal.
   flat(map, "gateway", X(27), Y(89), 6 * T, 2 * T)
   light(map, X(30), Y(90), 300, EternalMood.PORTAL, 0.6)

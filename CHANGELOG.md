@@ -15,6 +15,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
+- Heck's ramp up to the Mattress is barred by a wall of bone until you light four seals: one on each island out in the
+  lava, one at the Altar Fields' west end and one on the pizza lake's shore.
 - The Foundry's way up into the Crucible is shut by blast doors until you've hacked four terminals: in the Front
   Office, the Loading Bay, out on the Conveyors' far walkway and at the Smelters' west end.
 - Heck on Earth's road is shut by three blast gates. Each opens from a terminal off the road: one down a side street in
