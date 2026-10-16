@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.29.8] - 2026-10-16
+
+Eternal Mood gets its polish: walls that look solid and cast shadows, lava that flows with ragged shores, and every level filled out; and the uzi becomes a close-range 9mm sprayer.
+
 ### Changed
 - Heck is fuller. Braziers burn at the Altar Fields' edges among rib cages, skull piles, bone spikes and glowing rune
   circles; gouges and skulls mark the Mattress's plateau; and the ramp up to it is steps cut into the rock instead of
