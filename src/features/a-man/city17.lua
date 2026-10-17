@@ -743,6 +743,17 @@ function Level.serverTroopsIn(r)
   return n
 end
 
+--- Take every soldier inside rectangle `r` ({ x, y, w, h }) off the level,
+--- quietly: no bodies, no koins (the launch's --boss, through the antlions).
+function Level.serverClearIn(r)
+  for i = #(sv and sv.troops.list or {}), 1, -1 do
+    local s = sv.troops.list[i]
+    if s.x >= r.x and s.x <= r.x + r.w and s.y >= r.y and s.y <= r.y + r.h then
+      table.remove(sv.troops.list, i)
+    end
+  end
+end
+
 --- A-Man drops in once near the player nearest (x, y), for another feature
 --- (cameo.lua's serverVisit). False while no level runs.
 function Level.serverVisit(server, x, y, opened)

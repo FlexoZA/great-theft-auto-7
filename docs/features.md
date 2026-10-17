@@ -356,6 +356,13 @@ couple of small conventions rather than requiring each other:
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
   solid: nobody walks or drives there. Every walker, brain and spawn check
   asks it.
+- `feature:serverSkipToBoss(server, quest, player)`: the launch's
+  `--boss` (`src/launch.lua`, for trying a boss out): `quest` has just
+  begun with `player` (the host) on its map; the feature that owns its
+  boss clears the way in, puts them by the boss and starts the fight, and
+  returns true. The antlions do it for the Coast (the final section's
+  swarms and soldiers gone, the Guard up). Nothing answering: the quest
+  plays from the start.
 - `feature:blocksShot(x, y)`: return true when a round or a look stops at
   the point. Weapons, grenades and every sight cone (`d-day/sight.lua`,
   `police/vision.lua`) ask it, so bullets stop at walls without knowing
@@ -935,8 +942,8 @@ the one with a plot.
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
-  quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
+  quick slots, one per entry of `buildings.usables` (medkits on Q, energy
+  drinks on E, grenades on G): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
@@ -1241,6 +1248,17 @@ the one with a plot.
   (`hunters:serverPatrol`) instead of turrets before he blinks out. The
   cameo now runs on every map the level holds; only City 17
   (`Level.maps`' `cameo`) gets his plaza visits of his own.
+  Another boss can call one in just to pass over
+  (`hunter-chopper:serverFlyover(server, x, y, target, cargo)`,
+  `flyover.lua`), on any map: no gun, no health, nothing to shoot. It
+  comes in from (x, y) already pointed at player `target` at 300 px/s,
+  turning after them at 1.2 rad/s, lets `cargo` go as it passes over
+  them (`{ feature, count, spread }`: `count` of them `spread` px apart
+  along its line, each landing 0.9 s later on a blue ring where that
+  feature's `serverSummon` sets it down) and flies on 1400 px and is gone
+  (12 s at most). `HC_PASS` (unreliable, 15 Hz: every one passing, an
+  empty list clears them) and `HC_CARGO` (one falling) draw it and what it
+  drops on every screen.
   Its rotor is a synthesised
   seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
   follows it about and carries 3200 px. The host sends `HC_STATE`
@@ -1331,26 +1349,32 @@ the one with a plot.
   north of `Coast.FINALE_ROW`, the neck and the point; each swarm knows
   if it is `finale`) and every Combine soldier inside it (the a-man
   feature's `serverTroopsIn`) is down, with a player there, it digs up at
-  `map.bossX, bossY` (the nearest spot its 34 px body fits; the map keeps
+  `map.bossX, bossY` (the nearest spot its 24 px body fits; the map keeps
   that spot clear of cover) over 2.4 s. 2400 health for one human
-  (`Bosses.health`). It hunts the nearest player: running (150 px/s,
+  (`Bosses.health`). It hunts the nearest player: running (190 px/s,
   breath spent) while they are further off than its charge reach,
-  prowling (90 px/s, none spent) closer, walking (42) winded. Within 62
-  px it swipes (60, knocked back 110 px; impact, free); 200-650 px off,
+  prowling (120 px/s, none spent) closer, walking (55) winded, turning
+  4.2 rad/s. Within 50 px it swipes (60, knocked back 110 px; impact,
+  free; lands 0.24 s in, 0.7 s between); 200-650 px off,
   with 45 breath in hand, it spends 30 to paw the sand for 0.9 s (the warning) and charge
-  down a locked line at 440 px/s for up to 1.4 s (90 and thrown 240 px to
-  the side, for everyone it runs over), reeling 2.2 s if it runs into
+  down a locked line at 480 px/s for up to 1.4 s (90 and thrown 240 px to
+  the side, for everyone it runs over), reeling 1.6 s if it runs into
   anything; within 442 px, with 45 breath in hand, it spends 35 to rear for 1 s while the cone
   it will scream down shows on every screen (520 px long, 32 degrees
   either side), then screams: everyone in the cone with nothing solid
   between takes up to 70 (impact: knocked down) and is blown back up to
   320 px, both less towards the far end (`ANT_GUARD_SCREAM`, the wave
-  drawn rolling out). Every so often (charge 5 s, scream 7 s apart).
+  drawn rolling out). Every so often (charge 4 s, scream 7 s apart).
   Under 40% it goes for a medkit (bosses/heal.lua) and it dodges
   abilities (bosses/dodge.lua); a freeze holds it half as long. Down: 60
   koins, `serverKill` "boss", and `quests:serverComplete` for
   "a-man-coast", so the EXIT star comes up by its body, which lies there
   for 40 s. `ANT_GUARD` carries its state at 15 Hz (header of guard.lua).
+  It calls for help as it is hurt (`Guard.help`, each once): at 60% and
+  again at 20% a Hunter-Chopper passes over (`serverFlyover`), in from
+  1100 px behind whoever it is after (on the line from the Guard through
+  them, so it comes at their back) to drop 3 rollermines on them (for one
+  human, more with more: `Bosses.count`), already awake, and fly off.
 - The Winding Road, on A-Man's trail after the Coast and the last stop
   before the Citadel: quests' "a-man-road" ("The Winding Road"; the
   Coast's `next`, so the EXIT star by the Antlion Guard's body leads here;

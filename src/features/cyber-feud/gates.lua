@@ -13,7 +13,7 @@
 -- across the foot of each stairwell up, opened the same way at the
 -- terminal on the wall beside it (breaching it: `doorTime` seconds, and
 -- quietly, no alarm), or at once by asking VEX there (the "vex-door" key,
--- E). She does open it, and the floor's guard room (`room`) with it: a
+-- T). She does open it, and the floor's guard room (`room`) with it: a
 -- squad of Halcyon's officers out of its door, one after another, at
 -- whoever asked (troops.lua's `serverAmbush`), and she is ever so sorry.
 -- Opening a door opens the troops' walking grid there as well.
@@ -419,7 +419,7 @@ function Gates.drawNightLights(glow)
 end
 
 function Gates.load()
-  Controls.register("vex-door", "Ask VEX to open a locked door (Halcyon Tower)", "e")
+  Controls.register("vex-door", "Ask VEX to open a locked door (Halcyon Tower)", "t")
 end
 
 --- What to do here, over the ability row: get out, or hold the key (or ask VEX).

@@ -36,6 +36,8 @@
 --   brain.lua   its brain, on the host: who it goes after, the lock, the burst, the runs
 --   bombs.lua   its bombs: falling and going off on the host, their rings on every screen
 --   sounds.lua  its rotor loop, the lock-on whine, the klaxon and the bombs' whistle
+--   flyover.lua another one just passing over to drop something, called in by
+--               another boss (`serverFlyover`: the Antlion Guard's rollermines)
 --
 -- Messages
 --   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim> <lock> <firing> <run>
@@ -43,7 +45,7 @@
 --                  lock 0..1 the gun locking on, firing 1 while it fires, run 1 on a bombing
 --                  run, down 1 going down)
 --   server -> all  HC_DOWN  <x> <y> <angle>   it hit the ground there: its wreck
---   and bombs.lua's HC_BOMB
+--   and bombs.lua's HC_BOMB, flyover.lua's HC_PASS and HC_CARGO
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -54,6 +56,7 @@ local Flight = require("src.features.hunter-chopper.flight")
 local Brain = require("src.features.hunter-chopper.brain")
 local Sounds = require("src.features.hunter-chopper.sounds")
 local Bombs = require("src.features.hunter-chopper.bombs")
+local Flyover = require("src.features.hunter-chopper.flyover")
 
 local HunterChopper = {
   name = "hunter-chopper",
@@ -101,6 +104,7 @@ end
 -- Server --------------------------------------------------------------------
 
 local sv = nil -- { flight, brain, bombs, hp, max, down, syncIn, called, drops } while it is up, or coming down
+local passes = Flyover.new() -- the ones only passing over (flyover.lua), on any map
 
 function HunterChopper:load()
   Sounds.load()
@@ -127,14 +131,29 @@ local function stop(server)
   end
 end
 
+local function stopPasses(server)
+  Flyover.stop(passes, server)
+  passes = Flyover.new()
+end
+
 function HunterChopper:serverQuestEnded(server)
   stop(server)
+  stopPasses(server)
+end
+
+--- Send one over from (x, y) at player `target` (an id), to let `cargo` go
+--- over them: `{ feature, count, spread }`, each landing where that
+--- feature's `serverSummon` sets it down (flyover.lua). No gun, no fight:
+--- it flies on and is gone.
+function HunterChopper:serverFlyover(_server, x, y, target, cargo)
+  return Flyover.start(passes, x, y, target, cargo)
 end
 
 --- A map change takes it away (on the host) and its wreck (everywhere).
 function HunterChopper:mapChanged(_map, server)
   if server then
     stop(server)
+    stopPasses(server)
   end
   HunterChopper.forgetWreck()
   HunterChopper.forgetFlight()
@@ -143,6 +162,7 @@ end
 --- A new game: no chopper carried over from the last one.
 function HunterChopper:serverStart()
   sv = nil
+  passes = Flyover.new()
 end
 
 --- Take `amount` off it. At nothing, it starts to go down; `by` and the
@@ -329,6 +349,7 @@ local function stepDrops(server, dt)
 end
 
 function HunterChopper:serverStep(server, dt)
+  Flyover.step(passes, server, dt)
   if not sv then
     return
   end
@@ -369,6 +390,11 @@ function HunterChopper.server()
   return sv
 end
 
+--- The ones passing over, for tests: { list, cargo }.
+function HunterChopper.passes()
+  return passes
+end
+
 -- Client --------------------------------------------------------------------
 
 local cl = nil -- { x, y, angle, bank, altitude, aim, lock, firing, hp, max, down, flash } as drawn, `to` from the host
@@ -392,10 +418,12 @@ end
 --- Off every screen at once (a map change: the clearing HC_STATE may not get through).
 function HunterChopper.forgetFlight()
   gone()
+  Flyover.clear()
 end
 
 function HunterChopper:exitGame()
   gone()
+  Flyover.clear()
   wreck, lastTick = nil, 0
 end
 
@@ -406,6 +434,7 @@ end
 function HunterChopper:update(dt)
   time = time + dt
   Bombs.update(dt)
+  Flyover.update(dt)
   if cl and love.timer.getTime() - heardAt > STALE then
     gone()
   end
@@ -437,10 +466,12 @@ function HunterChopper:drawBelowCars()
     Render.wreck(wreck, time)
   end
   Bombs.drawBelowCars(time)
+  Flyover.drawBelowCars(time)
 end
 
 function HunterChopper:drawAboveCars()
   Bombs.drawAboveCars(time)
+  Flyover.drawAboveCars(time)
   if cl then
     Render.chopper(cl, time)
   end
@@ -495,8 +526,10 @@ HunterChopper.clientMessages = {
     end
   end,
 }
-for kind, handler in pairs(Bombs.clientMessages) do
-  HunterChopper.clientMessages[kind] = handler
+for _, module in ipairs({ Bombs, Flyover }) do
+  for kind, handler in pairs(module.clientMessages) do
+    HunterChopper.clientMessages[kind] = handler
+  end
 end
 
 return HunterChopper

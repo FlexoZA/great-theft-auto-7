@@ -130,6 +130,11 @@ function AMan:serverDropTroops(server, x, y, count)
   return City17.serverDrop(server, x, y, count)
 end
 
+--- Take the Combine soldiers inside rectangle `r` off the level that is on, quietly.
+function AMan:serverClearIn(_server, r)
+  City17.serverClearIn(r)
+end
+
 --- Combine soldiers still up inside rectangle `r` ({ x, y, w, h }) on the level that is on.
 function AMan:serverTroopsIn(_server, r)
   return City17.serverTroopsIn(r)

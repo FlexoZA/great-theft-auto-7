@@ -10,6 +10,10 @@
 -- Road, "a-man-citadel" for the Citadel, or "cyber-feud" for Grey City's
 -- Drop (then "cyber-feud-market", "-overpass", "-tower" and "-roof"), or
 -- "eternal-mood" for Fobos Base (then "eternal-mood-earth", "-foundry", "-heck").
+-- --boss (with --quest) skips the quest's way in and starts its boss fight
+-- next to you, for trying a boss out: every feature's `serverSkipToBoss`
+-- (the Antlion Guard on the Coast). A quest with no boss to skip to plays
+-- from the start.
 -- --name <name> plays under that name instead of $USER. Unknown worlds and
 -- quests are reported and the game goes to the menu (or plays on in the
 -- city).
@@ -22,7 +26,7 @@ local Features = require("src.features")
 
 local Launch = {}
 
-local pending = nil -- { quest } until the game is under way and the quest taken
+local pending = nil -- { quest, boss } until the game is under way and the quest taken
 
 --- Read the options out of LÖVE's `args`. Returns true when it took over
 --- from the menu.
@@ -30,10 +34,13 @@ function Launch.start(args)
   local opts, i = {}, 1
   while args and args[i] do
     local key = args[i]:match("^%-%-(%a+)$")
-    if key and args[i + 1] then
+    if key and args[i + 1] and not args[i + 1]:match("^%-%-") then
       opts[key] = args[i + 1]
       i = i + 2
     else
+      if key then
+        opts[key] = true -- a flag: --boss
+      end
       i = i + 1
     end
   end
@@ -51,7 +58,7 @@ function Launch.start(args)
     print("launch: " .. tostring(hostErr))
     return false
   end
-  pending = { quest = opts.quest }
+  pending = { quest = opts.quest, boss = opts.boss == true }
   State.switch("lobby")
   return true
 end
@@ -68,7 +75,7 @@ function Launch.update()
     end
     return
   end
-  local id = pending.quest
+  local id, boss = pending.quest, pending.boss
   pending = nil
   if id then
     local quests = Features.byName.quests
@@ -76,6 +83,8 @@ function Launch.update()
     local me = server.players[1] -- the host is always id 1
     if not (quest and me and quests:serverBegin(server, quest, me)) then
       print("launch: no quest " .. id)
+    elseif boss and not Features.any("serverSkipToBoss", server, quest, me) then
+      io.stdout:write("launch: quest " .. id .. " has no boss to skip to\n") -- to the terminal it was started from
     end
   end
 end

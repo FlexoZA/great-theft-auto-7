@@ -246,6 +246,20 @@ function Antlions:serverPanicArea(_server, x, y, radius)
   Guard.serverPanicArea(x, y, radius)
 end
 
+--- The launch's --boss: on the Coast, the final section's swarms gone and
+--- the Guard up (guard.lua's `serverSkipTo`).
+function Antlions:serverSkipToBoss(server, quest, player)
+  if not (sv and quest.id == Guard.questId) then
+    return false
+  end
+  for i = #sv.brain.list, 1, -1 do
+    if sv.brain.list[i].swarm.finale then
+      table.remove(sv.brain.list, i)
+    end
+  end
+  return Guard.serverSkipTo(server, cityMap(), player)
+end
+
 --- Another feature calls a swarm up at (x, y) on any map, whether it has
 --- swarms of its own or not (A-Man's briefcase in the Citadel): `count`
 --- come up out of the ground within `r` px, a moment apart, and go for
