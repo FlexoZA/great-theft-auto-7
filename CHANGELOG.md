@@ -14,6 +14,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Antlions look like Half-Life's now: an olive shield of orange-rimmed plates on their back, a pointed tail, a wedge head and long spiked stilt legs. Their wing covers swing open outward when they fly.
+
 ## [0.30.1] - 2026-10-16
 
 Your shots leave your gun again when you sprint and strafe.
