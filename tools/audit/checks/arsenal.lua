@@ -64,7 +64,7 @@ local function clearLine(game, x0, y0, x1, y1)
   local steps = math.max(1, math.floor(math.sqrt(dx * dx + dy * dy) / 6))
   for i = 0, steps do
     local t = i / steps
-    if game:blocked(x0 + dx * t, y0 + dy * t) then
+    if game:shotBlocked(x0 + dx * t, y0 + dy * t) then
       return false
     end
   end

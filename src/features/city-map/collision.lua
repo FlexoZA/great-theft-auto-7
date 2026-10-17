@@ -38,8 +38,10 @@ end
 
 --- Is the point inside any solid? A `low` one (a bridge's railing) only
 --- stops cars and people bumping into it (resolveCar, resolveCircle): it is
---- no wall to sight or rounds, so it doesn't count here.
-function Collision.blocked(map, x, y)
+--- no wall to sight or rounds, so it doesn't count here. Water (`water`) is
+--- no place to walk or drive, so it counts, unless `rounds` asks whether a
+--- round or a look would stop there: those go over it.
+function Collision.blocked(map, x, y, rounds)
   local CELL = Layout.CELL
   local col = map.cells[math.floor(x / CELL)]
   local list = col and col[math.floor(y / CELL)]
@@ -47,7 +49,7 @@ function Collision.blocked(map, x, y)
     return false
   end
   for _, b in ipairs(list) do
-    if not b.low and x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
+    if not b.low and not (rounds and b.water) and x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
       return true
     end
   end

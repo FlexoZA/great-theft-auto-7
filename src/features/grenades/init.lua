@@ -88,14 +88,9 @@ local lastGun = nil -- the gun in hand last frame: switching guns puts the grena
 local sv = nil -- host: { flying = { { id, owner, ox, oy, x, y, t, flight, kind } }, nextId, fields, unlocked }
 
 --- Is (x, y) solid for a grenade? The same walls that stop bullets
---- (`blocksPoint`), on the host and on every client.
+--- (`blocksShot`), on the host and on every client.
 local function blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- Where a grenade thrown from (ox, oy) towards (tx, ty) comes down: the

@@ -430,6 +430,11 @@ function Buildings:blocksPoint(x, y)
   return false
 end
 
+--- The `blocksShot` convention: rounds and looks stop at the same walls.
+function Buildings:blocksShot(x, y)
+  return self:blocksPoint(x, y)
+end
+
 -- Client --------------------------------------------------------------------
 
 -- plot id -> { kind, owner, public, product, price, output, progress, running, hopper, pays, hp, hitAt }
