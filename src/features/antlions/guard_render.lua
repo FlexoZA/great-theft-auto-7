@@ -1,9 +1,12 @@
 -- The Antlion Guard, drawn from above: the Coast's boss, an antlion grown
--- huge and armoured, after Half-Life's. About four times an antlion. No
--- wings and no sickle mandibles: a great shovel of a head plate out in
--- front, ridged and scarred, two short tusks under it, a humped back of
--- overlapping plates and a heavy ribbed abdomen, on six thick legs (the
--- front pair the biggest, it leans on them).
+-- big and armoured, after Half-Life's. About three times an antlion, and
+-- built like one: the same olive plates rimmed in orange and the same long
+-- orange legs, spiked at the knee and pointed at the foot, only thicker.
+-- No wings and no mandibles: a great shovel of a head plate out in front,
+-- ridged and scarred, two short tusks under it, a humped shield of
+-- overlapping plates over its back and the pointed end of its abdomen
+-- poking out behind, on six legs (the front pair the biggest, it leans on
+-- them).
 --
 -- What it can be doing, besides walking:
 --   swipe    the head swings across in a backhand, `swipe` 0..1 through it
@@ -21,31 +24,25 @@ local Ant = require("src.features.antlions.render")
 
 local Render = {}
 
-Render.SHELL = { 0.62, 0.48, 0.26 }
-Render.SHELL_LIGHT = { 0.78, 0.64, 0.38 }
-Render.SHELL_DARK = { 0.40, 0.29, 0.14 }
-Render.PLATE = { 0.54, 0.44, 0.30 } -- the head plate: duller, older
-Render.PLATE_LIGHT = { 0.70, 0.60, 0.44 }
-Render.SEAM = { 0.24, 0.17, 0.08 }
-Render.LEG = { 0.36, 0.26, 0.13 }
-Render.CLAW = { 0.18, 0.13, 0.06 }
+-- The antlion's colours, the head plate a little duller and older.
+Render.PLATE = { 0.50, 0.50, 0.28 }
+Render.PLATE_LIGHT = { 0.66, 0.66, 0.40 }
 Render.MOUTH = { 0.45, 0.12, 0.10 }
-Render.BELLY = { 0.74, 0.64, 0.46 }
 
-Render.RADIUS = 34 -- px; the body, for hitting it
-local SCALE = 2.1 -- the model below is drawn this size
-local HEIGHT = 9 -- px its shadow falls away, down and right
-local STRIDE = 9
-local STANCE = 0.6
+Render.RADIUS = 24 -- px; the body, for hitting it
+local SCALE = 1.5 -- the model below is drawn this size
+local HEIGHT = 8 -- px its shadow falls away, down and right
+local STRIDE = 11
+local STANCE = 0.55
 
 -- Legs in the body's frame, as the antlion's: hip, planted foot, knee, gait half, thickness.
 local LEGS = {
-  { hip = { 6, -7 }, foot = { 20, -20 }, knee = 6, beat = 0, w = 4.2 }, -- front left: the big ones
-  { hip = { 6, 7 }, foot = { 20, 20 }, knee = 6, beat = 0.5, w = 4.2 },
-  { hip = { -2, -8 }, foot = { -1, -24 }, knee = 5, beat = 0.5, w = 3.2 },
-  { hip = { -2, 8 }, foot = { -1, 24 }, knee = 5, beat = 0, w = 3.2 },
-  { hip = { -8, -7 }, foot = { -20, -21 }, knee = 5, beat = 0, w = 3 },
-  { hip = { -8, 7 }, foot = { -20, 21 }, knee = 5, beat = 0.5, w = 3 },
+  { hip = { 6, -6 }, foot = { 25, -21 }, knee = 7, beat = 0, w = 3.6 }, -- front left: the big ones
+  { hip = { 6, 6 }, foot = { 25, 21 }, knee = 7, beat = 0.5, w = 3.6 },
+  { hip = { -1, -7 }, foot = { 0, -28 }, knee = 6, beat = 0.5, w = 3 },
+  { hip = { -1, 7 }, foot = { 0, 28 }, knee = 6, beat = 0, w = 3 },
+  { hip = { -7, -6 }, foot = { -22, -25 }, knee = 6, beat = 0, w = 2.8 },
+  { hip = { -7, 6 }, foot = { -22, 25 }, knee = 6, beat = 0.5, w = 2.8 },
 }
 
 local function color(c, a)
@@ -79,86 +76,106 @@ local function leg(l, cycle, stride, reach, tuck)
     nx, ny = -nx, -ny
   end
   local out = l.knee + up * stride * 3 + tuck * 3
-  return fx, fy, hx + dx * 0.45 + nx * out, hy + dy * 0.45 + ny * out
+  return fx, fy, hx + dx * 0.4 + nx * out, hy + dy * 0.4 + ny * out
 end
 
+--- A leg as the antlion's: a thick thigh up to the knee, a thorn off the
+--- back of it, and a spike of a shin tapering down to the point.
 local function drawLeg(l, fx, fy, kx, ky, hurt, sand)
-  color(tint(Render.LEG, hurt, sand))
+  local hx, hy = l.hip[1], l.hip[2]
+  color(tint(Ant.LEG_DARK, hurt, sand))
+  love.graphics.setLineWidth(l.w + 1.4)
+  love.graphics.line(hx, hy, kx, ky)
+  color(tint(Ant.LEG, hurt, sand))
   love.graphics.setLineWidth(l.w)
-  love.graphics.line(l.hip[1], l.hip[2], kx, ky)
-  love.graphics.setLineWidth(l.w * 0.7)
-  love.graphics.line(kx, ky, fx, fy)
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.circle("fill", kx, ky, l.w * 0.75, 8)
-  color(tint(Render.CLAW, hurt, sand))
+  love.graphics.line(hx, hy, kx, ky)
   local dx, dy = fx - kx, fy - ky
   local d = math.max(1, math.sqrt(dx * dx + dy * dy))
-  love.graphics.setLineWidth(l.w * 0.5)
-  love.graphics.line(fx, fy, fx + dx / d * 4, fy + dy / d * 4)
+  local ux, uy = dx / d, dy / d
+  local tx, ty = fx + ux * 4, fy + uy * 4
+  local half = l.w * 0.45
+  color(tint(Ant.LEG, hurt, sand))
+  love.graphics.polygon("fill", kx - uy * half, ky + ux * half, kx + uy * half, ky - ux * half, tx, ty)
+  color(tint(Ant.CLAW, hurt, sand))
+  love.graphics.setLineWidth(1.2)
+  love.graphics.line(fx, fy, tx, ty)
+  local bx, by = kx - hx, ky - hy
+  local bd = math.max(1, math.sqrt(bx * bx + by * by))
+  color(tint(Ant.LEG_DARK, hurt, sand))
+  love.graphics.circle("fill", kx, ky, l.w * 0.6, 8)
+  love.graphics.setLineWidth(1.6)
+  love.graphics.line(kx, ky, kx + bx / bd * 4 - 2, ky + by / bd * 4)
 end
 
+--- The body: the pointed end of the abdomen behind, and over it the humped
+--- shield of overlapping plates, each rimmed in orange, standing up (wider)
+--- when it flares.
 local function body(hurt, sand, flare)
-  -- The heavy abdomen, ribbed across.
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.ellipse("fill", -17, 0, 15, 13, 20)
-  color(tint(Render.SHELL, hurt, sand))
-  love.graphics.ellipse("fill", -17, 0, 14, 12, 20)
-  color(tint(Render.SEAM, hurt, sand), 0.7)
-  love.graphics.setLineWidth(1.2)
-  for k = 0, 4 do
-    local x = -8 - k * 4.4
-    love.graphics.arc("line", "open", x + 4, 0, 11 - math.abs(k - 1.5) * 1.3, math.pi * 0.62, math.pi * 1.38, 10)
-  end
-  -- The humped back: overlapping plates from the thorax over the abdomen,
-  -- standing up (wider) when it flares.
-  for k = 0, 3 do
-    local x = 2 - k * 6
-    local half = (10 - k * 0.6) * (1 + flare * 0.25)
-    color(tint(k % 2 == 0 and Render.SHELL or Render.SHELL_DARK, hurt, sand))
-    love.graphics.polygon("fill", x + 3, -half * 0.75, x + 4, 0, x + 3, half * 0.75, x - 3, half, x - 4.5, 0,
-      x - 3, -half)
-    color(tint(Render.SHELL_LIGHT, hurt, sand), 0.7)
+  color(tint(Ant.SHELL_DARK, hurt, sand))
+  love.graphics.ellipse("fill", -18, 0, 12, 9, 18)
+  love.graphics.polygon("fill", -25, -5.5, -36, 0, -25, 5.5)
+  color(tint(Ant.RIM, hurt, sand))
+  love.graphics.polygon("fill", -26, -3.6, -34, 0, -26, 3.6)
+  color(tint(Ant.SEAM, hurt, sand), 0.8)
+  love.graphics.setLineWidth(1)
+  love.graphics.line(-28.5, -2.4, -28.5, 2.4)
+  love.graphics.line(-31, -1.3, -31, 1.3)
+  -- The plates, back to front so each overlaps the one behind it.
+  for k = 4, 0, -1 do
+    local x = 6 - k * 6.5
+    local half = (12.5 - k * 0.9) * (1 + flare * 0.25)
+    color(tint(Ant.RIM, hurt, sand))
+    love.graphics.polygon("fill", x + 2, -half * 0.7, x + 3.5, 0, x + 2, half * 0.7, x - 4.5, half, x - 7, 0,
+      x - 4.5, -half)
+    color(tint(k == 0 and Ant.SHELL_LIGHT or (k % 2 == 0 and Ant.SHELL or Ant.SHELL_DARK), hurt, sand))
+    love.graphics.polygon("fill", x + 1, -half * 0.62, x + 2.2, 0, x + 1, half * 0.62, x - 4.5, half - 1.4,
+      x - 6.2, 0, x - 4.5, -half + 1.4)
+    color(tint(Ant.SHELL_LIGHT, hurt, sand), 0.8)
     love.graphics.setLineWidth(1)
-    love.graphics.line(x + 2.5, -half * 0.6, x + 2.5, half * 0.6)
+    love.graphics.line(x, -half * 0.5, x + 1.2, 0, x, half * 0.5)
   end
+  -- A ridge down the middle of the shield, catching the light.
+  color(tint(Ant.SHELL_LIGHT, hurt, sand), 0.7)
+  love.graphics.setLineWidth(1.4)
+  love.graphics.line(7, 0, -26, 0)
 end
 
 --- The head: a broad shovel of a plate, tusks under it, the mouth showing when it opens.
 local function head(lift, mouth, hurt, sand)
   local x = 10 + lift * 3
   -- Tusks first, under the plate.
-  color(tint(Render.CLAW, hurt, sand))
-  love.graphics.setLineWidth(2.6)
-  love.graphics.line(x + 8, -6, x + 15, -8 - mouth * 3, x + 18, -5 - mouth * 4)
-  love.graphics.line(x + 8, 6, x + 15, 8 + mouth * 3, x + 18, 5 + mouth * 4)
+  color(tint(Ant.CLAW, hurt, sand))
+  love.graphics.setLineWidth(2.4)
+  love.graphics.line(x + 8, -5, x + 14, -7 - mouth * 3, x + 17, -4 - mouth * 4)
+  love.graphics.line(x + 8, 5, x + 14, 7 + mouth * 3, x + 17, 4 + mouth * 4)
   if mouth > 0 then
     color(tint(Render.MOUTH, hurt, sand))
     love.graphics.ellipse("fill", x + 10, 0, 4 + mouth * 3, 3 + mouth * 3, 12)
-    color(Render.CLAW)
+    color(Ant.CLAW)
     for k = -1, 1 do
       love.graphics.circle("fill", x + 12 + mouth * 2, k * (2 + mouth * 2), 0.9, 4)
     end
   end
-  -- The plate: wide at the front, scalloped edge, a ridge down the middle.
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.polygon("fill", x - 4, -9, x + 6, -15, x + 13, -13, x + 16, -6, x + 16, 6, x + 13, 13,
-    x + 6, 15, x - 4, 9)
+  -- The plate: wide at the front, rimmed in orange, ridges fanning back.
+  color(tint(Ant.RIM, hurt, sand))
+  love.graphics.polygon("fill", x - 4, -8.5, x + 6, -14, x + 13, -12, x + 16, -5.5, x + 16, 5.5, x + 13, 12,
+    x + 6, 14, x - 4, 8.5)
   color(tint(Render.PLATE, hurt, sand))
-  love.graphics.polygon("fill", x - 3, -8, x + 6, -13.5, x + 12, -11.8, x + 14.6, -5.5, x + 14.6, 5.5,
-    x + 12, 11.8, x + 6, 13.5, x - 3, 8)
+  love.graphics.polygon("fill", x - 3, -7.5, x + 6, -12.6, x + 12, -10.9, x + 14.6, -5, x + 14.6, 5,
+    x + 12, 10.9, x + 6, 12.6, x - 3, 7.5)
   color(tint(Render.PLATE_LIGHT, hurt, sand))
   love.graphics.setLineWidth(1.6)
   love.graphics.line(x - 1, 0, x + 13, 0)
-  love.graphics.line(x + 3, -10, x + 11, -5)
-  love.graphics.line(x + 3, 10, x + 11, 5)
-  color(tint(Render.SEAM, hurt, sand), 0.8) -- old scars
+  love.graphics.line(x + 3, -9.5, x + 11, -4.6)
+  love.graphics.line(x + 3, 9.5, x + 11, 4.6)
+  color(tint(Ant.SEAM, hurt, sand), 0.8) -- old scars
   love.graphics.setLineWidth(1)
   love.graphics.line(x + 7, 4, x + 10, 9)
   love.graphics.line(x + 5, -6, x + 8, -3)
   -- Eyes set low and to the sides, under the plate's edge.
-  color({ 0.08, 0.06, 0.04 })
-  love.graphics.circle("fill", x + 1, -9, 1.6, 6)
-  love.graphics.circle("fill", x + 1, 9, 1.6, 6)
+  color(Ant.EYE)
+  love.graphics.circle("fill", x + 1, -8.5, 1.4, 6)
+  love.graphics.circle("fill", x + 1, 8.5, 1.4, 6)
 end
 
 --- The Guard at (x, y) facing `angle`. `g` (all optional): cycle, stride,
@@ -171,7 +188,7 @@ function Render.draw(x, y, angle, g, clock)
   if burrow > 0 then
     love.graphics.push()
     love.graphics.translate(x, y)
-    love.graphics.scale(2.4)
+    love.graphics.scale(1.8)
     Ant.mound(0, 0, math.min(1, burrow * 2), clock)
     love.graphics.pop()
   end
@@ -206,8 +223,13 @@ function Render.draw(x, y, angle, g, clock)
   love.graphics.rotate(angle + sway)
   love.graphics.scale(size)
   love.graphics.setColor(0, 0, 0, 0.25 * (1 - burrow) * (g.alpha or 1))
-  love.graphics.ellipse("fill", -15, 0, 15, 13, 18)
-  love.graphics.ellipse("fill", 8, 0, 11, 14, 16)
+  love.graphics.ellipse("fill", -14, 0, 18, 13, 18)
+  love.graphics.ellipse("fill", 14, 0, 9, 13, 16)
+  love.graphics.setLineWidth(2.5)
+  for _, l in ipairs(LEGS) do
+    local fx, fy, kx, ky = leg(l, cycle, stride, 0, tuck)
+    love.graphics.line(l.hip[1], l.hip[2], kx, ky, fx, fy)
+  end
   love.graphics.pop()
 
   love.graphics.push()
@@ -215,15 +237,16 @@ function Render.draw(x, y, angle, g, clock)
   love.graphics.rotate(angle + sway)
   love.graphics.scale(size)
   if g.dead then
-    color(Render.BELLY, g.alpha or 1)
-    love.graphics.ellipse("fill", -17, 0, 14, 12, 20)
+    color(Ant.BELLY, g.alpha or 1)
+    love.graphics.ellipse("fill", -17, 0, 12, 9, 18)
+    love.graphics.polygon("fill", -25, -5, -35, 0, -25, 5)
     love.graphics.ellipse("fill", 1, 0, 9, 9, 16)
     color(Render.PLATE, g.alpha or 1)
     love.graphics.ellipse("fill", 14, 0, 6, 12, 14)
-    color(Render.SEAM, 0.6 * (g.alpha or 1))
+    color(Ant.SEAM, 0.6 * (g.alpha or 1))
     love.graphics.setLineWidth(1.2)
-    for k = 0, 4 do
-      love.graphics.line(-8 - k * 4.4, -9, -8 - k * 4.4, 9)
+    for k = 0, 3 do
+      love.graphics.line(-10 - k * 4.4, -7, -10 - k * 4.4, 7)
     end
     for _, l in ipairs(LEGS) do
       local fx, fy, kx, ky = leg(l, 0, 0, 0, 1)
@@ -255,15 +278,15 @@ function Render.draw(x, y, angle, g, clock)
   if g.charge then -- sand thrown up behind it
     for k = 0, 5 do
       local a = angle + math.pi + (k - 2.5) * 0.25
-      local d = 40 + ((clock * 160 + k * 17) % 50)
-      color(Ant.SAND, 0.6 * (1 - ((clock * 160 + k * 17) % 50) / 50))
+      local d = 30 + ((clock * 160 + k * 17) % 40)
+      color(Ant.SAND, 0.6 * (1 - ((clock * 160 + k * 17) % 40) / 40))
       love.graphics.circle("fill", x + math.cos(a) * d, y + math.sin(a) * d, 4 + k % 3, 6)
     end
   end
   if g.stunned then -- stars wheeling over it
     for k = 0, 2 do
       local a = clock * 4 + k * 2.1
-      local sx, sy = x + math.cos(a) * 26, y - 30 + math.sin(a) * 8
+      local sx, sy = x + math.cos(a) * 20, y - 24 + math.sin(a) * 6
       love.graphics.setColor(1, 0.92, 0.4)
       love.graphics.circle("fill", sx, sy, 3, 5)
     end

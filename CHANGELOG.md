@@ -14,6 +14,17 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Antlion Guard on the Coast looks like the new antlions: olive plates rimmed in orange over its back, a pointed
+  tail and long orange spiked legs, under its shovel of a head plate. It is smaller and quicker on its feet: body
+  34 -> 24 px, running 150 -> 190 px/s, prowling 90 -> 120, walking winded 42 -> 55, turning 2.4 -> 4.2 rad/s,
+  charging 440 -> 480 px/s every 4 s (was 5), reeling 2.2 -> 1.6 s after a crash. Its swipe is quicker: reach
+  62 -> 50 px, landing 0.32 -> 0.24 s in, 0.9 -> 0.7 s between swipes.
+
+### Added
+- The Antlion Guard calls for help: at 60% and again at 20% health a Hunter-Chopper sweeps in low from behind you,
+  drops 3 rollermines on you and flies off. It doesn't shoot. Watch your back when the rotor starts up.
+
 ## [0.31.0] - 2026-10-17
 
 Walls you can't shoot past cast shadows on every map, rounds fly over water, and the antlions look like Half-Life's.
