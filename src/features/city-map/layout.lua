@@ -862,7 +862,7 @@ local function buildCity17(map, rng)
     end
     map.cover[#map.cover + 1] = s
     if not s.decor then
-      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+      map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h, water = kind == "water" or nil }
     end
     if math.max(w, h) < 400 then -- loose things keep their distance; the big set pieces are placed by hand
       placed[#placed + 1] = { x = x + w / 2, y = y + h / 2, r = math.max(w, h) / 2 }

@@ -375,6 +375,11 @@ function CityMap:blocksPoint(x, y)
   return Collision.blocked(self.map, x, y)
 end
 
+--- Where a round or a look stops: every wall, but not water (docs/features.md).
+function CityMap:blocksShot(x, y)
+  return Collision.blocked(self.map, x, y, true)
+end
+
 -- Client ----------------------------------------------------------------
 
 --- Draw the city into its canvas, again whenever it has changed.

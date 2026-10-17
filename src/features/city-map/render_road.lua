@@ -13,6 +13,7 @@
 
 local RenderCoast = require("src.features.city-map.render_coast")
 local Road = require("src.features.city-map.road")
+local Shade = require("src.features.city-map.shade")
 
 local RenderRoad = {}
 
@@ -503,6 +504,7 @@ function RenderRoad.draw(map, T)
     drawDeck(b)
   end
   drawTarmac(map, T)
+  Shade.edges(map, T) -- the mountains' shadows, under their boulders
   for _, s in ipairs(map.cover) do
     if s.kind == "rail" then
       drawRail(s)

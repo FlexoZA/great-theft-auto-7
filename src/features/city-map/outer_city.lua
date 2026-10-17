@@ -157,7 +157,7 @@ function OuterCity.build(map, rng, T)
   for _, rc in ipairs(rects("water")) do
     local s = { kind = "water", x = X(rc.c), y = Y(rc.r), w = rc.w * T, h = rc.h * T }
     map.cover[#map.cover + 1] = s
-    map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+    map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h, water = true }
   end
   for _, rc in ipairs(rects("bridge")) do
     -- A bridge's deck runs across the water: across a north-south canal it spans columns.
@@ -372,6 +372,7 @@ function OuterCity.build(map, rng, T)
   local function decor(k, x, y, w, h)
     map.cover[#map.cover + 1] = { kind = k, x = math.floor(x), y = math.floor(y), w = math.floor(w), h = math.floor(h),
       mapColor = MAP[k], decor = true, seed = rng:random(1000) }
+    return map.cover[#map.cover]
   end
   --- Is (x, y) open paving, `r` clear of anything solid and of the bridges?
   local function open(x, y, r)
@@ -405,7 +406,7 @@ function OuterCity.build(map, rng, T)
   for _, b in ipairs(map.buildings) do
     local roll = rng:random()
     if roll < 0.15 and not b.garrison then
-      decor("rubble", b.x, b.y, b.w, b.h)
+      decor("rubble", b.x, b.y, b.w, b.h).heap = true -- still solid (the building's walls), so it casts a shadow
       -- Some of it spilt out round the heap, to walk through.
       for _ = 1, 3 do
         local x = b.x + rng:random() * b.w

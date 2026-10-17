@@ -214,15 +214,10 @@ local FEED_TIME = 3
 local QUIET_HIT = 3 -- a hit smaller than this (a burn's or a bleed's bite) makes no sound
 local NO_OWNER = 0 -- projectile owner for a shot no player fired (police on foot)
 
---- Any feature may declare solid ground with a blocksPoint(x, y) hook (the
---- city map does). Bullets stop there, on both server and client.
+--- Any feature may declare where rounds stop with a blocksShot(x, y) hook
+--- (the city map does). Bullets stop there, on both server and client.
 local function blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- Everything shootable that isn't a car belongs to some other feature, so
@@ -2243,7 +2238,7 @@ local function firedFrom(bx, by, seenX, seenY)
   end
   for k = 1, math.ceil(d / 6) do
     local f = k * 6 / math.max(d, 1)
-    if Features.any("blocksPoint", bx + dx * math.min(1, f), by + dy * math.min(1, f)) then
+    if Features.any("blocksShot", bx + dx * math.min(1, f), by + dy * math.min(1, f)) then
       return bx, by
     end
   end

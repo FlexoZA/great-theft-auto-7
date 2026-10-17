@@ -5,6 +5,7 @@
 -- through.
 
 local Buildings = require("src.features.city-map.buildings")
+local Shade = require("src.features.city-map.shade")
 
 local RenderCyberFeud = {}
 
@@ -1042,6 +1043,13 @@ local function drawParapet(map, T)
   love.graphics.setLineWidth(1)
 end
 
+-- What stands up and stops a round but draws no shadow of its own, and how
+-- far (px) its shadow falls: taller things further.
+local SHADED = {
+  barrier = 6, drum = 5, vending = 8, screen = 8, rack = 8, tank = 8, table = 6, reception = 6, lift = 8,
+  planter = 6, cabinet = 6, lockers = 8, shelf = 6, relay = 8, mast = 10,
+}
+
 --- Draw `map` (one of cyber_feud.lua's) into the canvas, `T` the tile size.
 function RenderCyberFeud.draw(map, T)
   drawGround(map, T)
@@ -1054,10 +1062,26 @@ function RenderCyberFeud.draw(map, T)
   elseif map.kind == "roof" then
     drawParapet(map, T)
   end
+  if not map.bridge then -- the Overpass's edges throw their own shadows on the drop
+    Shade.edges(map, T)
+  end
   -- Flat things first, then what stands up, so shadows fall on the ground.
   for _, s in ipairs(map.cover) do
     if s.kind == "tunnel" or s.kind == "dock" or s.kind == "door" or (s.flat and DRAW[s.kind]) then
       DRAW[s.kind](s)
+    end
+  end
+  -- The shadows of what stands up and doesn't draw its own, all first so
+  -- none falls over its neighbour.
+  for _, s in ipairs(map.cover) do
+    local d = SHADED[s.kind]
+    if d and s.solid ~= false and not s.flat then
+      if s.kind == "drum" or s.kind == "tank" then
+        love.graphics.setColor(0, 0, 0, Shade.ALPHA)
+        love.graphics.circle("fill", s.x + s.w / 2 + d, s.y + s.h / 2 + d, s.w / 2, 16)
+      else
+        Shade.box(s, d)
+      end
     end
   end
   color(C.shadow)

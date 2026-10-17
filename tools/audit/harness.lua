@@ -247,9 +247,14 @@ function Harness:watchShots()
   end
 end
 
---- Is (x, y) inside something solid, as bullets see it?
+--- Is (x, y) inside something solid, as walkers and cars see it?
 function Harness:blocked(x, y)
   return self.Features.any("blocksPoint", x, y)
+end
+
+--- Does a round stop at (x, y)? Water is solid to walkers but not to rounds.
+function Harness:shotBlocked(x, y)
+  return self.Features.any("blocksShot", x, y)
 end
 
 --- Keep the host alive whatever happens to them (bosses hit hard).
