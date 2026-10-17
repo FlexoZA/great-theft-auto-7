@@ -1,9 +1,11 @@
 -- An antlion, drawn from above: the insects out of the sand, after Half-
--- Life's. A little bigger than a man. A big ribbed abdomen at the back, a
--- thorax with two wing covers folded over the abdomen, and a small head
--- with a pair of long hooked mandibles out in front. Six long spiky legs
--- splay out round it and walk in an insect's tripod gait: the front and
--- back legs of one side with the middle leg of the other.
+-- Life's. A little bigger than a man. Its back is one big shield: two wing
+-- covers of layered olive plates, rimmed in orange, folded over a small
+-- pointed abdomen that sticks out behind them. A humped thorax in front, a
+-- low wedge of a head with a pair of short hooked mandibles, and six long
+-- thin stilt legs, spiked at the knee and pointed at the foot, splayed out
+-- wide round it. They walk in an insect's tripod gait: the front and back
+-- legs of one side with the middle leg of the other.
 --
 -- What it can be doing, besides walking:
 --   bite    the mandibles spread wide and snap shut, the front legs lunging
@@ -26,15 +28,17 @@ local Render = {}
 
 -- Look ---------------------------------------------------------------------
 
-Render.SHELL = { 0.70, 0.56, 0.30 } -- the chitin: sandy tan
-Render.SHELL_LIGHT = { 0.84, 0.71, 0.42 }
-Render.SHELL_DARK = { 0.47, 0.35, 0.18 }
-Render.SEAM = { 0.28, 0.20, 0.10 }
-Render.BELLY = { 0.80, 0.70, 0.50 }
-Render.LEG = { 0.42, 0.31, 0.16 }
-Render.CLAW = { 0.22, 0.16, 0.08 }
+Render.SHELL = { 0.46, 0.48, 0.24 } -- the plates on its back: olive
+Render.SHELL_LIGHT = { 0.64, 0.65, 0.36 }
+Render.SHELL_DARK = { 0.29, 0.30, 0.14 }
+Render.RIM = { 0.72, 0.47, 0.22 } -- the orange edge round each plate
+Render.SEAM = { 0.18, 0.16, 0.08 }
+Render.BELLY = { 0.80, 0.68, 0.46 }
+Render.LEG = { 0.64, 0.38, 0.17 } -- the legs: orange-brown
+Render.LEG_DARK = { 0.40, 0.22, 0.10 }
+Render.CLAW = { 0.20, 0.12, 0.06 }
 Render.EYE = { 0.10, 0.08, 0.05 }
-Render.WING = { 0.85, 0.90, 0.80 }
+Render.WING = { 0.80, 0.88, 0.84 }
 Render.SAND = { 0.86, 0.78, 0.58 }
 Render.SAND_DARK = { 0.70, 0.62, 0.44 }
 
@@ -44,20 +48,21 @@ Render.RADIUS = 11 -- px; the body, for hitting it (a player is 9)
 local SCALE = 0.78 -- the model below is drawn this size: nose to tail about twice a player
 local HEIGHT = 5 -- px the shadow falls away from the body standing, down and right
 local FLIGHT = 28 -- px more it falls at the top of a leap
-local STRIDE = 10 -- px a foot moves in one step
+local STRIDE = 13 -- px a foot moves in one step
 local STANCE = 0.55 -- share of a step a foot spends on the ground
 local LIFT = 0.4 -- how much bigger a foot is drawn at the top of its swing
 
 -- Each leg in the body's frame (forward, side): where it meets the thorax,
--- where its foot plants when standing, how far its knee juts out, and
+-- where its foot plants when standing, how far its knee juts out (the legs
+-- stand tall, so from above the knee sits well out past the body), and
 -- which half of the gait it steps with.
 local LEGS = {
-  { hip = { 4, -4 }, foot = { 16, -19 }, knee = 5, beat = 0 }, -- front left
-  { hip = { 4, 4 }, foot = { 16, 19 }, knee = 5, beat = 0.5 }, -- front right
-  { hip = { 0, -5 }, foot = { 2, -21 }, knee = 5, beat = 0.5 }, -- middle left
-  { hip = { 0, 5 }, foot = { 2, 21 }, knee = 5, beat = 0 }, -- middle right
-  { hip = { -4, -4 }, foot = { -16, -19 }, knee = 6, beat = 0 }, -- back left
-  { hip = { -4, 4 }, foot = { -16, 19 }, knee = 6, beat = 0.5 }, -- back right
+  { hip = { 5, -3 }, foot = { 25, -17 }, knee = 7, beat = 0 }, -- front left
+  { hip = { 5, 3 }, foot = { 25, 17 }, knee = 7, beat = 0.5 }, -- front right
+  { hip = { 1, -4 }, foot = { 3, -28 }, knee = 7, beat = 0.5 }, -- middle left
+  { hip = { 1, 4 }, foot = { 3, 28 }, knee = 7, beat = 0 }, -- middle right
+  { hip = { -3, -4 }, foot = { -20, -25 }, knee = 8, beat = 0 }, -- back left
+  { hip = { -3, 4 }, foot = { -20, 25 }, knee = 8, beat = 0.5 }, -- back right
 }
 
 local function color(c, a)
@@ -92,7 +97,7 @@ local function leg(l, i, cycle, stride, bite, tuck)
   end
   local fx, fy = l.foot[1] + along * STRIDE * stride, l.foot[2]
   if i <= 2 and bite > 0 then -- the front pair stab forward and in
-    fx, fy = fx + bite * 10, fy * (1 - bite * 0.35)
+    fx, fy = fx + bite * 10, fy * (1 - bite * 0.45)
     up = math.max(up, bite)
   end
   local hx, hy = l.hip[1], l.hip[2]
@@ -106,23 +111,37 @@ local function leg(l, i, cycle, stride, bite, tuck)
     nx, ny = -nx, -ny
   end
   local out = l.knee + up * stride * 3 + tuck * 3
-  return fx, fy, up * math.max(stride, bite), hx + dx * 0.45 + nx * out, hy + dy * 0.45 + ny * out
+  return fx, fy, up * math.max(stride, bite), hx + dx * 0.4 + nx * out, hy + dy * 0.4 + ny * out
 end
 
 local function drawLeg(l, fx, fy, up, kx, ky, hurt, sand)
+  local hx, hy = l.hip[1], l.hip[2]
+  -- The thigh: a thick segment up to the knee, darker along its edge.
+  color(tint(Render.LEG_DARK, hurt, sand))
+  love.graphics.setLineWidth(3.4)
+  love.graphics.line(hx, hy, kx, ky)
   color(tint(Render.LEG, hurt, sand))
-  love.graphics.setLineWidth(2.6)
-  love.graphics.line(l.hip[1], l.hip[2], kx, ky)
-  love.graphics.setLineWidth(1.8)
-  love.graphics.line(kx, ky, fx, fy)
-  -- A spur at the knee, and the long point at the end it walks on.
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.circle("fill", kx, ky, 2, 6)
+  love.graphics.setLineWidth(2)
+  love.graphics.line(hx, hy, kx, ky)
+  -- The shin: a long spike tapering from the knee down to the point it
+  -- walks on, which reaches further while the foot is lifted.
   local dx, dy = fx - kx, fy - ky
   local d = math.max(1, math.sqrt(dx * dx + dy * dy))
+  local ux, uy = dx / d, dy / d
+  local reach = 3 + up * LIFT * 3
+  local tx, ty = fx + ux * reach, fy + uy * reach
+  color(tint(Render.LEG, hurt, sand))
+  love.graphics.polygon("fill", kx - uy * 1.3, ky + ux * 1.3, kx + uy * 1.3, ky - ux * 1.3, tx, ty)
   color(tint(Render.CLAW, hurt, sand))
+  love.graphics.setLineWidth(1)
+  love.graphics.line(fx, fy, tx, ty)
+  -- A thorn off the back of the knee.
+  local bx, by = kx - hx, ky - hy
+  local bd = math.max(1, math.sqrt(bx * bx + by * by))
+  color(tint(Render.LEG_DARK, hurt, sand))
+  love.graphics.circle("fill", kx, ky, 1.6, 6)
   love.graphics.setLineWidth(1.2)
-  love.graphics.line(fx, fy, fx + dx / d * (3 + up * LIFT * 3), fy + dy / d * (3 + up * LIFT * 3))
+  love.graphics.line(kx, ky, kx + bx / bd * 3 - 1.5, ky + by / bd * 3)
 end
 
 -- Body ---------------------------------------------------------------------
@@ -133,97 +152,110 @@ local function wings(air, clock, hurt, sand)
   local beat = math.sin(clock * 70)
   for _, side in ipairs({ -1, 1 }) do
     for k = 0, 2 do -- a blur: a few faint copies through the beat
-      local a = side * (0.75 + 0.35 * beat + k * 0.18) * air
+      local a = -side * (0.75 + 0.35 * beat + k * 0.18) * air
       love.graphics.push()
       love.graphics.translate(-2, side * 3)
       love.graphics.rotate(math.pi + a)
       color(tint(Render.WING, hurt, sand), 0.16 * air)
-      love.graphics.ellipse("fill", 13, 0, 15, 4.5, 12)
+      love.graphics.ellipse("fill", 15, 0, 17, 5, 12)
       love.graphics.pop()
     end
   end
 end
 
---- The wing covers: two shell plates folded over the abdomen, swung open by `open`.
+--- The wing covers: the shield on its back, two broad plates hinged at the
+--- thorax and folded over the abdomen, swung open by `open`. Each is laid
+--- in overlapping bands like shingles, every band rimmed in orange.
 local function covers(open, hurt, sand)
   for _, side in ipairs({ -1, 1 }) do
+    local s = side
     love.graphics.push()
-    love.graphics.translate(-1, side * 1.5)
-    love.graphics.rotate(side * open * 0.9)
+    love.graphics.translate(1, s * 1)
+    love.graphics.rotate(-s * open * 0.9)
+    color(tint(Render.RIM, hurt, sand))
+    love.graphics.polygon("fill", 1, 0, -1, s * 8.5, -9, s * 11, -19, s * 9, -25, s * 3.5, -23, 0)
     color(tint(Render.SHELL_DARK, hurt, sand))
-    love.graphics.polygon("fill", 0, 0, -6, side * 7.5, -20, side * 6.5, -24, side * 1.5, -20, 0)
-    color(tint(Render.SHELL, hurt, sand))
-    love.graphics.polygon("fill", -1, side * 0.8, -6, side * 6.3, -19, side * 5.5, -22, side * 1.6, -19, side * 0.8)
-    color(tint(Render.SHELL_LIGHT, hurt, sand), 0.8) -- a ridge along each, catching the light
+    love.graphics.polygon("fill", 0, s * 0.5, -1.5, s * 7.8, -9, s * 10, -18.5, s * 8.2, -23.5, s * 3.2, -21.5, s * 0.5)
+    -- The bands, back to front so each overlaps the one behind it.
+    for k = 2, 0, -1 do
+      local x0 = -7 * k
+      local w = 9.6 - k * 0.9
+      color(tint(Render.RIM, hurt, sand))
+      love.graphics.polygon("fill", x0, s * 0.6, x0 - 1.5, s * w, x0 - 7, s * (w + 0.4 - k * 0.6), x0 - 8, s * 0.6)
+      color(tint(k == 0 and Render.SHELL_LIGHT or Render.SHELL, hurt, sand))
+      love.graphics.polygon("fill", x0 - 0.6, s * 0.9, x0 - 2, s * (w - 1), x0 - 6.6, s * (w - 0.6 - k * 0.6),
+        x0 - 7.4, s * 0.9)
+    end
+    -- A ridge down each cover, catching the light.
+    color(tint(Render.SHELL_LIGHT, hurt, sand), 0.9)
     love.graphics.setLineWidth(1)
-    love.graphics.line(-3, side * 2.5, -18, side * 3.2)
+    love.graphics.line(-1, s * 3.5, -10, s * 5.2, -21, s * 3)
     love.graphics.pop()
   end
 end
 
+--- The abdomen: small and pointed, the end of it poking out from under the
+--- covers behind.
 local function abdomen(hurt, sand)
-  -- Big and round at the back, ribbed across.
   color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.ellipse("fill", -15, 0, 12, 10, 18)
-  color(tint(Render.SHELL, hurt, sand))
-  love.graphics.ellipse("fill", -15, 0, 11, 9, 18)
-  color(tint(Render.SEAM, hurt, sand), 0.7)
-  love.graphics.setLineWidth(1)
+  love.graphics.ellipse("fill", -16, 0, 10, 6.5, 16)
+  love.graphics.polygon("fill", -22, -4, -31, 0, -22, 4)
+  color(tint(Render.SHELL, hurt, sand)) -- banded across, seen when the covers open
+  love.graphics.setLineWidth(1.4)
   for k = 0, 3 do
-    local x = -8 - k * 4.5
-    local half = 8.5 - math.abs(k - 1.2) * 1.4
-    love.graphics.arc("line", "open", x + 4, 0, half, math.pi * 0.62, math.pi * 1.38, 8)
+    local x = -10 - k * 3.6
+    local half = 5.8 - math.abs(k - 1.2) * 0.9
+    love.graphics.line(x, -half, x - 1.2, 0, x, half)
   end
-  color(tint(Render.SHELL_DARK, hurt, sand)) -- the tip
-  love.graphics.circle("fill", -26, 0, 2.2, 8)
+  color(tint(Render.RIM, hurt, sand))
+  love.graphics.polygon("fill", -23, -2.6, -29.5, 0, -23, 2.6)
+  color(tint(Render.SEAM, hurt, sand), 0.8)
+  love.graphics.setLineWidth(1)
+  love.graphics.line(-25, -1.8, -25, 1.8)
+  love.graphics.line(-27.3, -1, -27.3, 1)
 end
 
+--- The thorax: a humped, angular plate the legs and covers hang off.
 local function thorax(hurt, sand)
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.ellipse("fill", 1, 0, 7, 6, 14)
+  color(tint(Render.RIM, hurt, sand))
+  love.graphics.polygon("fill", 8, 0, 5, -5.5, -2, -6.2, -4.5, 0, -2, 6.2, 5, 5.5)
   color(tint(Render.SHELL, hurt, sand))
-  love.graphics.ellipse("fill", 1.5, 0, 6, 5, 14)
-  color(tint(Render.SHELL_LIGHT, hurt, sand))
-  love.graphics.ellipse("fill", 2.5, -1.2, 3, 1.6, 10)
+  love.graphics.polygon("fill", 7, 0, 4.5, -4.6, -1.5, -5.2, -3.5, 0, -1.5, 5.2, 4.5, 4.6)
+  color(tint(Render.SHELL_LIGHT, hurt, sand)) -- the crest of the hump
+  love.graphics.polygon("fill", 6.5, 0, 3, -1.6, -2.5, 0, 3, 1.6)
 end
 
 --- The head and its mandibles, `open` 0 shut to 1 spread wide.
 local function head(open, hurt, sand)
   for _, side in ipairs({ -1, 1 }) do
-    -- A long sickle of a mandible: out from the side of the head, sweeping
-    -- forward and curving in to a point; shut, the two points cross.
+    -- A short hooked mandible either side of the mouth, curving in to a
+    -- point; shut, the two points meet.
     local pts = {}
-    for k = 0, 6 do
-      local t = k / 6
-      local x = 11 + t * (13 + open * 1)
-      local bow = math.sin(t * math.pi * 0.9) * (3 + open * 5) -- how far it bows out
-      local y = side * (3.2 + bow - t * (4.6 - open * 6))
+    for k = 0, 4 do
+      local t = k / 4
+      local x = 15 + t * (7 + open * 1.5)
+      local bow = math.sin(t * math.pi * 0.85) * (1.5 + open * 4)
+      local y = side * (2.6 + bow - t * (2.4 - open * 3.5))
       pts[#pts + 1], pts[#pts + 2] = x, y
     end
     color(tint(Render.CLAW, hurt, sand))
-    love.graphics.setLineWidth(2.4)
+    love.graphics.setLineWidth(2.2)
     love.graphics.line(pts)
-    color(tint(Render.SHELL_DARK, hurt, sand)) -- lighter along its back near the root
-    love.graphics.setLineWidth(1.2)
-    love.graphics.line(pts[1], pts[2], pts[3], pts[4], pts[5], pts[6], pts[7], pts[8])
-    -- Teeth on the inside edge.
-    color(tint(Render.CLAW, hurt, sand))
-    love.graphics.circle("fill", pts[7], pts[8] - side * 1.3, 0.9, 4)
-    love.graphics.circle("fill", pts[9], pts[10] - side * 1.1, 0.8, 4)
+    color(tint(Render.LEG_DARK, hurt, sand))
+    love.graphics.setLineWidth(1)
+    love.graphics.line(pts[1], pts[2], pts[3], pts[4], pts[5], pts[6])
   end
-  color(tint(Render.SHELL_DARK, hurt, sand))
-  love.graphics.ellipse("fill", 9, 0, 5, 4.6, 12)
+  -- A low wedge, wide at the neck and narrowing to the mouth.
+  color(tint(Render.RIM, hurt, sand))
+  love.graphics.polygon("fill", 5, -4.6, 12, -4.2, 17.5, -1.8, 17.5, 1.8, 12, 4.2, 5, 4.6)
   color(tint(Render.SHELL, hurt, sand))
-  love.graphics.ellipse("fill", 9.5, 0, 4, 3.8, 12)
-  -- Small dark eyes, low on each side.
+  love.graphics.polygon("fill", 6, -3.8, 12, -3.4, 16.5, -1.4, 16.5, 1.4, 12, 3.4, 6, 3.8)
+  color(tint(Render.SHELL_LIGHT, hurt, sand)) -- a plate down the middle of it
+  love.graphics.polygon("fill", 6.5, -1.4, 14.5, -0.6, 14.5, 0.6, 6.5, 1.4)
+  -- Small dark eyes, back on each side.
   color(Render.EYE)
-  love.graphics.circle("fill", 11.5, -3, 1.3, 6)
-  love.graphics.circle("fill", 11.5, 3, 1.3, 6)
-  -- Feelers.
-  color(tint(Render.SEAM, hurt, sand))
-  love.graphics.setLineWidth(1)
-  love.graphics.line(12, -1.5, 16, -4, 19, -4.5)
-  love.graphics.line(12, 1.5, 16, 4, 19, 4.5)
+  love.graphics.circle("fill", 10, -3.2, 1, 6)
+  love.graphics.circle("fill", 10, 3.2, 1, 6)
 end
 
 --- The mound of sand it is under, `k` 0 flat to 1 heaped up, spraying.
@@ -292,8 +324,8 @@ function Render.draw(x, y, angle, a, clock)
     love.graphics.rotate(angle)
     love.graphics.scale(SCALE * (1 - air * 0.15))
     love.graphics.setColor(0, 0, 0, (0.22 - air * 0.1) * alpha * (1 - burrow))
-    love.graphics.ellipse("fill", -15, 0, 12, 10, 16)
-    love.graphics.ellipse("fill", 4, 0, 9, 6, 12)
+    love.graphics.ellipse("fill", -11, 0, 14, 10, 16)
+    love.graphics.ellipse("fill", 9, 0, 9, 5, 12)
     love.graphics.setLineWidth(2)
     for i, l in ipairs(LEGS) do
       local fx, fy, _, kx, ky = leg(l, i, cycle, stride, lunge, tuck)
@@ -309,14 +341,15 @@ function Render.draw(x, y, angle, a, clock)
   if a.dead then
     -- On its back: the pale belly up, legs curled in over it.
     color(tint(Render.BELLY, hurt, 0), alpha)
-    love.graphics.ellipse("fill", -15, 0, 11, 9, 18)
-    love.graphics.ellipse("fill", 1, 0, 6.5, 5.5, 14)
+    love.graphics.ellipse("fill", -15, 0, 10, 7, 16)
+    love.graphics.polygon("fill", -22, -4, -30, 0, -22, 4)
+    love.graphics.ellipse("fill", 2, 0, 6.5, 5.5, 14)
     color(tint(Render.SHELL_DARK, hurt, 0), alpha)
-    love.graphics.ellipse("fill", 9, 0, 4.5, 4, 12)
+    love.graphics.polygon("fill", 6, -3.8, 12, -3.4, 16.5, -1.4, 16.5, 1.4, 12, 3.4, 6, 3.8)
     color(Render.SEAM, 0.6 * alpha)
     love.graphics.setLineWidth(1)
     for k = 0, 3 do
-      love.graphics.line(-8 - k * 4.5, -7, -8 - k * 4.5, 7)
+      love.graphics.line(-9 - k * 4, -5.5, -9 - k * 4, 5.5)
     end
     for i, l in ipairs(LEGS) do
       local fx, fy, up, kx, ky = leg(l, i, 0, 0, 0, 1)
@@ -335,10 +368,10 @@ function Render.draw(x, y, angle, a, clock)
   for i = 3, 6 do
     drawLeg(LEGS[i], legs[i][1], legs[i][2], legs[i][3], legs[i][4], legs[i][5], hurt, sand)
   end
+  abdomen(hurt, sand)
   if air > 0 then
     wings(air, clock, hurt, sand)
   end
-  abdomen(hurt, sand)
   covers(air, hurt, sand)
   thorax(hurt, sand)
   for i = 1, 2 do

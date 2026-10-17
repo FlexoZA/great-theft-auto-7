@@ -12,6 +12,8 @@
 -- All lit as if by day; the night feature darkens it every frame and
 -- lights it again where `map.lights` glow.
 
+local Shade = require("src.features.city-map.shade")
+
 local RenderEternalMood = {}
 
 local C = {
@@ -575,7 +577,7 @@ local ROOFS = {}
 
 -- How tall each style stands, px: its shadow falls this far (south-east,
 -- lit from the top left). Hedges and ruins hardly stand at all.
-local ROOF_HEIGHT = { house = 26, tower = 64, warehouse = 30, overpass = 22, starport = 36, ruin = 10 }
+local ROOF_HEIGHT = { house = 26, tower = 64, warehouse = 30, overpass = 22, starport = 36, ruin = 10, hedge = 12 }
 
 --- A house: a pitched roof, ridge across its long side, a chimney; holes
 --- burnt through it if it's on fire.
@@ -863,6 +865,22 @@ local function drawCity(map, T)
       end
     end
   end
+  -- The waste ground round the edge is a wall too: its shadow over the
+  -- streets. The roofs throw their own, below.
+  local roofed = {}
+  for _, b in ipairs(map.roofs) do
+    for c = math.floor((b.x - map.x0) / T), math.floor((b.x + b.w - 1 - map.x0) / T) do
+      roofed[c] = roofed[c] or {}
+      for r = math.floor((b.y - map.y0) / T), math.floor((b.y + b.h - 1 - map.y0) / T) do
+        roofed[c][r] = true
+      end
+    end
+  end
+  Shade.edges(map, T, {
+    wall = function(m, c, r)
+      return not isWalk(m, c, r) and not (roofed[c] and roofed[c][r])
+    end,
+  })
   for _, b in ipairs(map.roofs) do -- the shadows, as long as the building is tall
     local tall = ROOF_HEIGHT[b.style] or 0
     if tall > 0 then

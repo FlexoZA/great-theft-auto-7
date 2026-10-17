@@ -1,6 +1,6 @@
 -- What a defender can see: a narrow fan (`FOV`, thirty degrees) in front of
 -- them, out to a range, and only where nothing solid stands in the way.
--- Walls are every feature's `blocksPoint` (docs/features.md), the same rule
+-- Walls are every feature's `blocksShot` (docs/features.md), the same rule
 -- bullets follow, so a hedgehog or a sandbag wall that stops a round hides
 -- you too. The host decides who is seen; clients draw the same fan, clipped
 -- by the same walls, so a player can see exactly where the eyes are.
@@ -20,14 +20,9 @@ function Sight.angleDiff(a, b)
   return (a - b + math.pi) % TWO_PI - math.pi
 end
 
---- Is (x, y) inside anything solid?
+--- Is (x, y) inside anything a look stops at (`blocksShot`)?
 function Sight.blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- Is the straight line from (x0, y0) to (x1, y1) free of walls?

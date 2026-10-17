@@ -4,6 +4,8 @@
 -- each with a shadow far below it, a rail along every edge over the drop,
 -- the cover on the platforms and the shield of the MG emplacement.
 
+local Shade = require("src.features.city-map.shade")
+
 local RenderCitadel = {}
 
 local C = {
@@ -529,6 +531,7 @@ function RenderCitadel.draw(map, T)
   drawDrop(map)
   drawShadows(map, T)
   drawDecks(map, T)
+  Shade.edges(map, T) -- the rails along the catwalks' edges, standing up
   drawLifts(map)
   drawCables(map)
   drawCover(map)

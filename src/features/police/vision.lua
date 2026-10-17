@@ -1,6 +1,6 @@
 -- What the police can see: a fan `FOV` wide in front of a unit or an
 -- officer, out to a range, and only where nothing solid stands in the way.
--- Walls come from every feature's `blocksPoint` (docs/features.md), the
+-- Walls come from every feature's `blocksShot` (docs/features.md), the
 -- same rule bullets follow, so a building that stops a shot hides you too.
 --
 -- Clients draw the cone as a faint white fan, clipped by the same walls, so
@@ -25,14 +25,9 @@ local function angleDiff(a, b)
   return (a - b + math.pi) % TWO_PI - math.pi
 end
 
---- Is (x, y) inside anything solid?
+--- Is (x, y) inside anything a look stops at (`blocksShot`)?
 function Vision.blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- How far a look from (x, y) along `angle` gets before it hits a wall, at

@@ -8,6 +8,8 @@
 -- Combine's bunkers with the sandbags of their MG nests (the guns are
 -- drawn live: a-man/nests.lua) and the trees on the slopes.
 
+local Shade = require("src.features.city-map.shade")
+
 local RenderCoast = {}
 
 local C = {
@@ -473,6 +475,7 @@ function RenderCoast.draw(map, T)
   drawSea(map, T, depth)
   drawSand(map, T)
   drawFoam(map, T)
+  Shade.edges(map, T) -- the mountains' shadows over the sand, under their boulders
   drawMountains(map, T)
   for _, s in ipairs(map.cover) do
     if s.kind == "rock" then
