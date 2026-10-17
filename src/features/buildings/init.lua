@@ -154,7 +154,7 @@ Buildings.drinkStamina = 60 -- stamina an energy drink gives back
 -- name, key and cooldown; BLD_USE names the item, so `apply` knows which.
 Buildings.usables = {
   {
-    item = "medkit", action = "use-medkit", label = "Use a medkit", key = "h", title = "medkits",
+    item = "medkit", action = "use-medkit", label = "Use a medkit", key = "q", title = "medkits",
     color = { 0.95, 0.3, 0.3 }, cooldown = 8, fullReason = "healthy",
     apply = function(server, player)
       local weapons = Features.byName.weapons
@@ -166,7 +166,7 @@ Buildings.usables = {
     end,
   },
   {
-    item = "drink", action = "use-drink", label = "Drink an energy drink", key = "j", title = "drinks",
+    item = "drink", action = "use-drink", label = "Drink an energy drink", key = "e", title = "drinks",
     color = { 0.3, 0.6, 1 }, cooldown = 8, fullReason = "stamina",
     apply = function(server, player)
       local onFoot = Features.byName["on-foot"]

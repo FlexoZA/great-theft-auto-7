@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- New default keys: use a medkit on Q (was H), drink an energy drink on E (was J), and ask VEX to open a locked
+  door in Halcyon Tower on T (was E). If yours stay on the old keys (you rebound them, or reset your controls
+  before), reset the controls in the settings to get the new ones.
+
 ## [0.31.0] - 2026-10-17
 
 Walls you can't shoot past cast shadows on every map, rounds fly over water, and the antlions look like Half-Life's.

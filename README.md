@@ -63,8 +63,8 @@ and a list of every action, read live from your current bindings.
 | Z / X, mouse wheel | Previous / next weapon |
 | 1 / 2 / 3 | Ability slots (also building menu options, and gym purchases 1-7 while the gym is open) |
 | G | Ready a grenade (click throws it) |
-| H | Use a medkit |
-| J | Drink an energy drink |
+| Q | Use a medkit |
+| E | Drink an energy drink |
 
 ### Menus, map and camera
 
@@ -78,7 +78,7 @@ and a list of every action, read live from your current bindings.
 | C | Recentre the camera |
 | ` | Hide / show sight cones |
 | Enter / Backspace | Accept / decline a quest offer; Enter also respawns at the picked point when dead |
-| E | Ask VEX to open a locked door (Halcyon Tower) |
+| T | Ask VEX to open a locked door (Halcyon Tower) |
 | Esc | Close the open panel, or pause (settings and quit are in the pause menu) |
 
 ### Debug and host
