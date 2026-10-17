@@ -246,7 +246,7 @@ branch off `feature/cyber-feud`):
   people and rounds until opened (and shut in the troops' walking grid
   too: `Nav:refresh` opens it there). Breach it by holding the action key
   (F) at the terminal on the wall beside it for 4 s, quietly (no alarm),
-  draining at half that pace when let go; or press E there ("vex-door")
+  draining at half that pace when let go; or press T there ("vex-door")
   and VEX opens it at once, along with the floor's guard room, a door in
   the middle of its north wall: four of Halcyon's officers (`Bosses.count`)
   come out of it one after another at whoever asked

@@ -935,8 +935,8 @@ the one with a plot.
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
-  quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
+  quick slots, one per entry of `buildings.usables` (medkits on Q, energy
+  drinks on E, grenades on G): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
