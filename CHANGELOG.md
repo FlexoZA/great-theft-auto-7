@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Every wall casts a shadow now, on every map: the map's edges, mountains, the Tower's floors and the Roof's parapet, Earth's hedges and waste ground, the Citadel's catwalk rails, fallen-building rubble, and Cyber Feud's barriers, drums, shelves, lockers and the rest. If it has a shadow, rounds stop there.
+- Rivers, canals and the sea no longer stop rounds, sight or grenades: you can shoot across them and off the side of a bridge. You still can't walk or drive into the water.
+- Antlions look like Half-Life's now: an olive shield of orange-rimmed plates on their back, a pointed tail, a wedge head and long spiked stilt legs. Their wing covers swing open outward when they fly.
+
 ## [0.30.1] - 2026-10-16
 
 Your shots leave your gun again when you sprint and strafe.

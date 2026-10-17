@@ -281,7 +281,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverCarScrape(server, car, speed, x, y)` | city-map, buildings, car-collisions | A car is sliding along a wall or another car this tick at `speed` px/s. Crash-sounds keeps a scrape going while it lasts. |
 | `footstepWalkers(client)` → list | footsteps asks, through `Features.gather` (client) | Everyone of yours on foot that should be heard walking: `{ key, x, y, size }`, `key` unique per walker, `size` "person", "heavy", "giant" or "claw" (footsteps' `SIZES`). Footsteps paces their steps by how fast they really move. Every feature with people or creatures on foot answers it. |
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
-| `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
+| `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksShot`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
 | `serverBlast(server, x, y, radius, damage, by, type)` | weapons, leap, Bigfoot | Something hit the ground hard at (x, y): a missile going off (type "explosive"), a heavy leap landing ("impact"), Bigfoot's claws ("melee"). `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
 | `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
@@ -354,8 +354,20 @@ couple of small conventions rather than requiring each other:
   `Features.any("hideSightCones")` is true; the Hunters' alone always shows.
   It only changes the picture; who sees whom is up to the host as before.
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
-  solid. Weapons checks every feature that defines it, so bullets stop at
-  walls without knowing which feature owns them.
+  solid: nobody walks or drives there. Every walker, brain and spawn check
+  asks it.
+- `feature:blocksShot(x, y)`: return true when a round or a look stops at
+  the point. Weapons, grenades and every sight cone (`d-day/sight.lua`,
+  `police/vision.lua`) ask it, so bullets stop at walls without knowing
+  which feature owns them. Define both: the city map's `blocksShot` is its
+  `blocksPoint` less water (`water = true` on a solid: rivers, canals, the
+  sea), which no one crosses but rounds go over. A `low` solid (a bridge's
+  railing, lava) counts for neither; only cars bump into it.
+  Whatever stops a round stands up and casts a shadow, and whatever rounds
+  go over is drawn flat, so a player can tell the two apart:
+  `city-map/shade.lua` shades the ground south and east of every wall
+  (`Shade.edges`) and of standing cover (`Shade.box`). Give new cover that
+  stops rounds a shadow.
 - `feature:serverKill(server, kill)`: the host tells every feature that
   something died. The feature that owns the kill calls
   `Features.call("serverKill", server, kill)` right after it broadcasts its
@@ -1015,7 +1027,8 @@ the one with a plot.
   citizens' jumpsuits, which pedestrians dresses its crowd in), `map.offLimits` (the
   track: `randomRoadPoint` never picks a spot there, nor anywhere solid) and `map.cover` (Combine walls, barriers,
   planters, the station wings, the train, the canal's water, the Citadel,
-  the screen and rubble; rubble and the screen are drawn but not solid).
+  the screen and rubble; rubble and the screen are drawn but not solid, and
+  the canal is `water`: no way across but the bridges, but rounds go over it).
   Anything in `map.cover` with a `mapColor` is drawn on the minimap in it,
   round with `round = true`, and the minimap draws "walk", "road" and
   "water" tiles as well as "ground")
@@ -1250,7 +1263,8 @@ the one with a plot.
   Hunter-Chopper's wreck leads here; A-Man's intro line 7) on
   city-map's `coast` (`kind = "coast"`, 64 x 120 tiles), built by
   `city-map/coast.lua` and drawn by `render_coast.lua`. One beach winds
-  north between the sea (west, "water" tiles under solid `water` cover)
+  north between the sea (west, "water" tiles under `water` cover: solid,
+  but rounds go over it)
   and green mountains (east: no tiles at all, so the layout's walls make
   them solid). `Coast.SPINE` is the beach's middle and half width by row,
   eased between points, its edges wandering `Coast.RAGGED` tiles; it is
@@ -1352,15 +1366,16 @@ the one with a plot.
   a width and banks per point) are lines of points eased into curves
   (`map.path`, `map.river`); a tile near the road's line is "road",
   further out to `Road.VERGE` (4 tiles either side: room for 8 cars
-  abreast) "ground", in the river "water" (solid),
+  abreast) "ground", in the river "water" (solid, but rounds go over it),
   on its banks or in a wide spot (`Road.SPOTS`, `map.spots`: the
   arrival, the meadow, the lookout and the pass) "ground", and anything
   else is mountain (no tile: the layout's walls make it solid). Where the
   road crosses the river the water under it is decked over: six bridges
   (`map.bridges`, named in `Road.BRIDGES`, `along` the way the road runs
   over them) with railings down both sides (cover kind "rail"): solid to
-  cars and people bumping into them, but `low` (collision.lua's `blocked`
-  skips it), so sight, rounds and walking enemies go over them.
+  cars bumping into them, but `low` (collision.lua's `blocked` skips it),
+  so sight and rounds go over them; anyone on foot is stopped by the river
+  behind.
   About 32,000 px of road, about two minutes cruising in a Scout Car (one
   boosting): up the valley beside the
   river, over it into the meadow and back, up five hairpin legs, west

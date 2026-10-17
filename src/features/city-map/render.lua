@@ -2,6 +2,7 @@
 -- nearest filtering for a chunky pixel look. One draw call per frame.
 
 local Layout = require("src.features.city-map.layout")
+local Shade = require("src.features.city-map.shade")
 local Buildings = require("src.features.city-map.buildings")
 local RenderCitadel = require("src.features.city-map.render_citadel")
 local RenderCoast = require("src.features.city-map.render_coast")
@@ -593,6 +594,7 @@ end
 
 local function drawBeach(map)
   drawBeachGround(map)
+  Shade.edges(map, Layout.TILE)
   for _, c in ipairs(map.craft) do
     drawCraft(c)
   end
@@ -741,6 +743,7 @@ end
 
 local function drawCliff(map)
   drawCliffGround(map)
+  Shade.edges(map, Layout.TILE)
   for _, s in ipairs(map.cover) do
     if s.kind == "cliff" then
       drawCliffFace(s)
@@ -1139,6 +1142,7 @@ local function drawCity17(map)
   for _, b in ipairs(map.bridges or {}) do
     drawBridge(b)
   end
+  Shade.edges(map, Layout.TILE)
   drawLitter(map)
   for _, s in ipairs(map.cover) do
     if s.kind == "rubble" then
@@ -1463,7 +1467,13 @@ local function drawOuterCity(map)
     love.graphics.circle("line", map.bossX, map.bossY, r * 0.45, 48)
     love.graphics.setLineWidth(1)
   end
+  Shade.edges(map, Layout.TILE)
   drawLitter(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "rubble" and s.heap then -- a fallen building's heap still stands in the way
+      Shade.box(s, 10)
+    end
+  end
   for _, s in ipairs(map.cover) do
     if s.kind == "rubble" then
       drawRubble(s)
@@ -1540,6 +1550,7 @@ function Render.build(map)
     drawTrail(map)
   end
   drawParksAndLots(map)
+  Shade.edges(map, Layout.TILE)
   drawBuildings(map)
   if map.shrubs then
     drawShrubs(map)
