@@ -1098,7 +1098,9 @@ the one with a plot.
   counts each job's clears (`quests:serverClears(id)`, sent with
   `QST_FINISHED` as id/count pairs): every job's bosses and enemies come
   back harder each time (`Bosses.rage`, below under the boss standard), and
-  bosses' per-player drops come in better tiers. The `--quest` launch
+  bosses' per-player drops come in better tiers. The board shows each open
+  job's level (its clears + 1, "(MAX)" at `Bosses.rage.max`) and "DONE xN"
+  for a job finished more than once. The `--quest` launch
   option skips the lock.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones

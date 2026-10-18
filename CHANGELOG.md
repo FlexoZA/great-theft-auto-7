@@ -26,6 +26,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   +10% health and +10% damage. Helpers and enemy groups: +20% more of them (Karen's simps 5 -> 6 -> 7 ...). The
   boss bar shows how many times over it is ("HARDER x2"; Karen's says ANGRIER).
 - Bosses' per-player drops come in better tiers each time you beat them again, the way Karen's uzi does.
+- The job board shows the level each open job is at (LEVEL 1 the first time, one more per finish, up to LEVEL 11)
+  and how many times you finished it ("DONE x3").
 - Jobs unlock one at a time: a new game opens only Crazy Karen, and finishing a job opens the next on the board
   (Karen, the alien hunt, D-Day, Shotgun, A-Man, Cyber Feud, Eternal Mood). Finished jobs can be played again,
   and a saved world remembers how far you got.
