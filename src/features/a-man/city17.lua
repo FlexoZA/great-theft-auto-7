@@ -191,6 +191,13 @@ local sv = nil -- { troops, syncIn, reached, time, groups, pending }
 
 local random = love.math.random
 
+--- `n` grown by the clears of the job under way, as Bosses.count grows a
+--- count (+20% a time), without its humans: for the counts below that
+--- don't grow with the humans.
+local function harder(n)
+  return math.floor(n * (1 + Bosses.rage.count * Bosses.clears()) + 0.5)
+end
+
 local function between(range)
   return range[1] + random() * (range[2] - range[1])
 end
@@ -216,6 +223,14 @@ local function pickArms()
   local tuned = Tiers.apply(gun, Tiers.DEFAULT) -- they carry common ones
   if l.damage then
     tuned = setmetatable({ damage = l.damage }, { __index = tuned })
+  end
+  if tuned.blast then -- weapons grows their rounds with the clears, not a missile's blast
+    local blast = {}
+    for k, v in pairs(tuned.blast) do
+      blast[k] = v
+    end
+    blast.damage = (blast.damage or 0) * Bosses.enemyPower()
+    tuned = setmetatable({ blast = blast }, { __index = tuned })
   end
   return {
     gun = tuned,
@@ -287,7 +302,7 @@ function Level.serverQuestStarted(server, quest)
   Cameo.serverStart(conf.cameo == true) -- his plaza visits where the map has them; called-in ones anywhere
   local hunters = Features.byName.hunters
   if hunters and conf.hunters then
-    hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+    hunters:serverPatrol(server, citadelBeat(map), harder(Level.hunters))
   end
   for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
     hunters:serverPatrol(server, beat.route, Bosses.plus(beat.count, server))
@@ -311,12 +326,12 @@ function Level.serverQuestStarted(server, quest)
       posts[p.at] = g
       sv.groups[#sv.groups + 1] = g
     end
-    for i = 1, Level.guardsPerPost do
+    for i = 1, math.min(harder(Level.guardsPerPost), Level.guardsPerPost + 1) do -- a third from 3 clears
       local x, y = besidePost(p, i)
       g.members[#g.members + 1] = sv.troops:add("guard", x, y, p.watch + (i - 1) * 0.15)
     end
   end
-  local perBeat = conf.squadsPerBeat or Level.squadsPerBeat
+  local perBeat = harder(conf.squadsPerBeat or Level.squadsPerBeat)
   for _, route in ipairs(map.patrols or {}) do
     -- A lone squad starts at the corner furthest from where everyone arrives.
     local first, far = random(#route), -1
@@ -357,9 +372,10 @@ function Level.serverQuestStarted(server, quest)
       local gunner = sv.troops:add("guard", b.nest.x, b.nest.y, b.nest.angle)
       gunner.hold = true
       nest.crew[1] = gunner
-      for i = 1, Level.nestCrew - 1 do
+      for i = 1, harder(Level.nestCrew) - 1 do
         local p = b.posts[(i - 1) % #b.posts + 1]
-        local s = sv.troops:add("guard", p.x, p.y, p.watch)
+        local x, y = besidePost(p, math.floor((i - 1) / #b.posts) + 1) -- more than posts: beside them
+        local s = sv.troops:add("guard", x, y, p.watch)
         s.hold, s.takesCover = true, true
         sv.troops:arm(s, pickArms())
         nest.crew[#nest.crew + 1] = s
@@ -1009,8 +1025,8 @@ local function drawSoldier(s)
     love.graphics.setColor(1, 0.45, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Level.health then
-    local bw, f = 20, math.max(0, s.hp / Level.health)
+  if s.hp < s.max then
+    local bw, f = 20, math.max(0, s.hp / s.max)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -1061,6 +1077,7 @@ Level.clientMessages = {
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Level.health
+        s.max = math.max(s.max or Level.health, s.hp) -- tougher on a job finished before
         s.alert = args[i + 5] == "1"
         s.wary = args[i + 5] ~= "0"
         s.gun = tonumber(args[i + 6])

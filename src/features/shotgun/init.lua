@@ -46,6 +46,7 @@ local Boss = require("src.features.shotgun.boss")
 local Nav = require("src.features.d-day.nav")
 local Face = require("src.features.shotgun.face")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.shotgun.render")
 local Sounds = require("src.features.shotgun.sounds")
@@ -221,7 +222,8 @@ function Shotgun:hurt(server, amount, by, angle)
   end
   local pickups = Features.byName.pickups
   if pickups and pickups.serverDrop then
-    pickups:serverDrop(server, "ability-chicken", x + 30, y)
+    -- common the first time, a better tier the more often he has been beaten
+    pickups:serverDrop(server, Tiers.join("ability-chicken", Bosses.dropTier()), x + 30, y)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   setStage(server, "done")

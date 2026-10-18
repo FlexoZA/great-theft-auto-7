@@ -134,6 +134,7 @@ function Volt.new(x, y, hp, nav)
     x = x, y = y, facing = math.pi / 2, aim = math.pi / 2, hp = hp, max = hp, nav = nav, time = 0,
     aiming = false, aimT = 0, boltIn = 1.5, lobIn = 4, sayIn = 6, frozen = 0, stuck = 0, side = 0.5,
     phase2 = false, backups = 0, grenades = {}, breath = Stamina.new(Volt.BREATH), running = false, mode = "hunt",
+    power = Bosses.power(), -- what his hits are multiplied by: harder on a job finished before
   }, Volt)
 end
 
@@ -250,7 +251,7 @@ local function lightning(server, dt)
     d = Volt.STRIKE_NEAR + random() * (Volt.STRIKE_FAR - Volt.STRIKE_NEAR)
   end
   w:serverStrike(server, t.x + math.cos(a) * d, t.y + math.sin(a) * d,
-    { warn = Volt.STRIKE_WARN, radius = Volt.STRIKE_RADIUS, damage = Volt.STRIKE_DAMAGE })
+    { warn = Volt.STRIKE_WARN, radius = Volt.STRIKE_RADIUS, damage = Volt.STRIKE_DAMAGE * sv.v.power })
 end
 
 local function sync(server)

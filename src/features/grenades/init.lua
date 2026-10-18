@@ -44,6 +44,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Controls = require("src.controls")
 local Render = require("src.features.buildings.render")
 local Sounds = require("src.features.grenades.sounds")
@@ -468,8 +469,11 @@ function Grenades:serverStep(server, dt)
       local kind = Grenades.kinds[g.kind]
       if weapons then
         -- Weapons' blast, as a missile's: the id only tells clients which streak to drop (none).
-        weapons:explode(server, { id = 0, owner = g.owner, blast = kind.blast, vx = g.x - g.ox, vy = g.y - g.oy },
-          g.x, g.y)
+        local blast = kind.blast
+        if g.owner == 0 and blast.damage then -- an enemy's: harder on a job finished before
+          blast = setmetatable({ damage = blast.damage * Bosses.enemyPower() }, { __index = blast })
+        end
+        weapons:explode(server, { id = 0, owner = g.owner, blast = blast, vx = g.x - g.ox, vy = g.y - g.oy }, g.x, g.y)
       end
       if kind.stun then -- every enemy in it held still a moment
         Features.call("serverFreezeArea", server, g.x, g.y, kind.blast.radius, kind.stun, g.owner)

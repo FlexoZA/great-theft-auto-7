@@ -139,8 +139,9 @@ local function drawSoldier(s, time)
     love.graphics.setColor(1, 0.25, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Soldiers.HEALTH then
-    local bw, f = 20, math.max(0, s.hp / Soldiers.HEALTH)
+  local top = s.top or Soldiers.HEALTH
+  if s.hp < top then
+    local bw, f = 20, math.max(0, s.hp / top)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)

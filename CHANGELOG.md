@@ -14,6 +14,34 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-18
+
+Jobs unlock one at a time and come back harder every time you finish them, and Crazy Karen drops an uzi.
+
+### Added
+- Crazy Karen drops an uzi for every player when she goes down. The uzi is now a won gun: pick one up to unlock it
+  in the shop (factories no longer make them). The first time it is always common; beat her again for a chance at
+  uncommon, then rare, and from the fourth time legendary (up to 12%).
+- "Inventory full" now shows over a dropped item you can't pick up because your bag has no room.
+
+### Changed
+- Every job comes back harder each time you finish it, up to 10 times (Karen's rage now works on all of them).
+  Bosses: +25% health (Karen 1500 -> 1875 -> 2250 ...) and +15% damage (her slap 15 -> 17 -> 20 ...). Enemies:
+  +10% health and +10% damage. Helpers and enemy groups: +20% more of them (Karen's simps 5 -> 6 -> 7 ...). The
+  boss bar shows how many times over it is ("HARDER x2"; Karen's says ANGRIER).
+- Bosses' per-player drops come in better tiers each time you beat them again, the way Karen's uzi does.
+- The job board shows the level each open job is at (LEVEL 1 the first time, one more per finish, up to LEVEL 11)
+  and how many times you finished it ("DONE x3").
+- Jobs unlock one at a time: a new game opens only Crazy Karen, and finishing a job opens the next on the board
+  (Karen, the alien hunt, D-Day, Shotgun, A-Man, Cyber Feud, Eternal Mood). Finished jobs can be played again,
+  and a saved world remembers how far you got.
+- City events wait for their quest: Bigfoot comes to town only after the alien hunt is finished, and A-Man only
+  after his quest. The Runner and the Tripod can come any time.
+
+### Fixed
+- Finished jobs are saved as soon as you are back in the city. Before, quitting while on a job could lose every
+  job finished since the last autosave.
+
 ## [0.32.0] - 2026-10-17
 
 The Antlion Guard is redrawn, quicker and calls a Hunter-Chopper for help; medkits and drinks move next to WASD.

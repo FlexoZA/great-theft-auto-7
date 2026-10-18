@@ -367,8 +367,8 @@ function Antlions:drawAboveCars()
     for _, a in pairs(shown) do
       if (a.mode == MODES.air) == (pass == 2) then
         Render.draw(a.dx, a.dy, a.facing, pose(a), clock)
-        if a.hp < Brain.HEALTH and a.mode ~= MODES.rising then -- a bar under it once it is hurt
-          local bw, f = 22, math.max(0, a.hp / Brain.HEALTH)
+        if a.hp < a.max and a.mode ~= MODES.rising then -- a bar under it once it is hurt
+          local bw, f = 22, math.max(0, a.hp / a.max)
           love.graphics.setColor(0, 0, 0, 0.6)
           love.graphics.rectangle("fill", a.dx - bw / 2 - 1, a.dy + Render.RADIUS + 5, bw + 2, 4)
           love.graphics.setColor(1 - f, f, 0.2)
@@ -418,6 +418,7 @@ Antlions.clientMessages = {
           a.hurt = HURT
         end
         a.hp = hp
+        a.max = math.max(a.max or Brain.HEALTH, hp) -- tougher on a job finished before
         seen[id] = true
       end
     end

@@ -61,7 +61,7 @@ local function fire(m, server, aim)
   if weapons and weapons.serverFireFrom then
     aim = aim + (random() * 2 - 1) * m.SPREAD
     weapons:serverFireFrom(server, 0, m.x + math.cos(aim) * m.MUZZLE, m.y + math.sin(aim) * m.MUZZLE, aim,
-      require("src.features.weapons.guns").ak47)
+      m.bossGun(require("src.features.weapons.guns").ak47))
   end
 end
 

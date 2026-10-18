@@ -91,7 +91,7 @@ Mattressmind.SAY_EVERY = { 9, 14 }
 Mattressmind.DROPS = 60
 
 -- Its chaingun: the weapons feature's minigun, its numbers.
-Mattressmind.GUN = { damage = 6, spread = 0.07 }
+Mattressmind.GUN = { damage = 6, spread = 0.07, bossGun = true } -- a boss's: harder on a job done before (weapons)
 
 Mattressmind.lines = {
   "I AM THE MIND.",
@@ -132,6 +132,7 @@ function Mattressmind.new(x, y, facing, hp, nav, home)
     x = x, y = y, facing = facing, aim = facing, hp = hp, max = hp, nav = nav, home = home, time = 0, move = nil,
     moveT = 0, attackIn = 1.5, slamIn = 1, yawnIn = 4, sayIn = 6, frozen = 0, stuck = 0, roundIn = 0,
     phase2 = false, calls = 0, breath = Stamina.new(Mattressmind.BREATH), running = false, mode = "hunt", side = 1,
+    power = Bosses.power(), -- its hits, times this: harder on a job finished before
   }, Mattressmind)
 end
 

@@ -17,6 +17,7 @@
 -- going faster than `SQUASH` over one is the end of it.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Car = require("src.car")
 local Sight = require("src.features.d-day.sight")
 
@@ -77,7 +78,8 @@ function Crabs:throw(x, y, tx, ty)
   tx, ty = landing(x, y, tx, ty)
   local d = math.sqrt(dist2(x, y, tx, ty))
   local c = {
-    id = self.nextId, x = x, y = y, facing = math.atan2(ty - y, tx - x), hp = Crabs.HEALTH, mode = "fly", t = 0,
+    id = self.nextId, x = x, y = y, facing = math.atan2(ty - y, tx - x), mode = "fly", t = 0,
+    hp = Bosses.enemyHealth(Crabs.HEALTH), -- tougher on a job finished before
     fromX = x, fromY = y, toX = tx, toY = ty, flight = math.max(0.35, d / Crabs.THROW_SPEED), frozen = 0,
     side = random() < 0.5 and -1 or 1,
   }

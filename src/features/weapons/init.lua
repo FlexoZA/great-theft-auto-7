@@ -181,6 +181,7 @@ local Rockets = require("src.features.weapons.rockets")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
+local Bosses = require("src.features.bosses")
 local Icons = require("src.features.weapons.icons")
 local Features = require("src.features")
 local Controls = require("src.controls")
@@ -1884,6 +1885,9 @@ end
 --- no player ("gang": a Gang Hangout's guard); it reaches `serverShotAt`, so
 --- the police officers, who ignore their own ownerless rounds, can tell one
 --- that isn't theirs.
+--- An ownerless round hits harder on a job finished before in this world:
+--- `Bosses.enemyPower()`, or `Bosses.power()` for a gun marked `bossGun`
+--- (a boss's own).
 function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
   local sv = self.sv
   if not (sv and aim) then
@@ -1891,6 +1895,10 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
   end
   gun = gun or Guns.at(Guns.DEFAULT)
   ownerId = ownerId or NO_OWNER
+  local damage = gun.damage
+  if ownerId == NO_OWNER and damage then
+    damage = damage * (gun.bossGun and Bosses.power() or Bosses.enemyPower())
+  end
   -- A shotgun sends several pellets per pull, each scattered on its own;
   -- clients sound only the first (the trailing 1 marks the rest quiet).
   for pellet = 1, gun.pellets or 1 do
@@ -1903,7 +1911,7 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
     local vx = math.cos(a) * gun.speed
     local vy = math.sin(a) * gun.speed
     sv.projectiles[#sv.projectiles + 1] = {
-      id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = gun.damage,
+      id = pid, owner = ownerId, x = x, y = y, vx = vx, vy = vy, age = 0, damage = damage,
       ttl = gun.ttl or PROJECTILE_TTL, blast = gun.blast, dtype = Damage.key(gun.damageType), ignite = gun.ignite,
       electrify = gun.electrify, stun = gun.stun, from = from,
     }

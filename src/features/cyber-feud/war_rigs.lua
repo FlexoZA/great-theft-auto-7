@@ -8,7 +8,7 @@
 -- spiked chrome ram bolted on the nose, junk plates welded on, and a ganger
 -- riding on the back with a shotgun. It rams whoever comes by, and while
 -- the two sides are at it (troops.lua's flare-up) Halcyon's interceptors
--- too. `count` for one human, `perHuman` more for each extra. Wrecked, it
+-- too. `count` for one human, one more for each extra. Wrecked, it
 -- spills koins and is gone. Enemies don't go after them (`serverHidden`).
 --
 -- Kilowatt's cameo, once a level (the map's `kilowatt`): a moment after
@@ -36,8 +36,8 @@ local Brain = require("src.features.cyber-feud.rig_brain")
 local WarRigs = {}
 
 -- Tuning ------------------------------------------------------------------
-WarRigs.count = 2 -- for one human...
-WarRigs.perHuman = 1 -- ...and this many more for each human past the first
+WarRigs.count = 2 -- for one human, one more for each human past the first (Bosses.plus), and more on a job
+-- finished before
 WarRigs.model = "coe-heavy-horse-yellow"
 WarRigs.maxSpeed = 500 -- px/s
 WarRigs.health = 380 -- junk welded all over it (the truck takes 220)
@@ -98,7 +98,7 @@ local function spawn(server, B, x, y, angle, name)
   npc.car.maxSpeed = math.max(npc.car.maxSpeed, WarRigs.maxSpeed)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverSetCarMaxHealth then
-    weapons:serverSetCarMaxHealth(server, npc.car, WarRigs.health)
+    weapons:serverSetCarMaxHealth(server, npc.car, Bosses.enemyHealth(WarRigs.health))
   end
   sv.units[#sv.units + 1] = npc
   return npc
@@ -113,7 +113,7 @@ function WarRigs.serverStart(server, map)
   end
   sv = { units = {}, time = 0 }
   local posts = map.rigs or {}
-  local n = math.min(#posts, WarRigs.count + WarRigs.perHuman * (Bosses.humans(server) - 1))
+  local n = math.min(#posts, Bosses.plus(WarRigs.count, server))
   for i = 1, n do
     spawn(server, B, posts[i].x, posts[i].y, posts[i].angle, "War-rig " .. i)
   end

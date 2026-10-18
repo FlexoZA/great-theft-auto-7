@@ -96,7 +96,8 @@ Clients send intent; the server decides. Never trust a client message.
 Useful server fields: `server.players[id]` (`id name key guest peer input body
 vehicle car`; `key` is the player's lasting identity, and in a saved world
 `id` stays the same for that person game after game, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
-exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
+exceptPlayer)`, `server:send(player, msg, unreliable)`, `server:save()` (write the saved world now, not at the
+next autosave; quests does when everyone is home). See "Bodies and
 vehicles" below.
 
 ## Bodies and vehicles
@@ -570,15 +571,20 @@ couple of small conventions rather than requiring each other:
   stays open and empty until the map changes. Rounds a gun borrows
   (`ammo`) and won guns are never in a crate.
 - Won guns: a gun marked `unlock` (the super shotgun: 12 pellets, double a
-  shotgun's reach, a 10-shell magazine; the SMG) is never made by a
+  shotgun's reach, a 10-shell magazine; the SMG; the uzi) is never made by a
   factory, never in an enemy's hands (City 17's loadout leaves it out
   unless it is listed: the SMG is), and only on the shop's shelf once you
   have one; its rounds are sold all the same. The Baron of Heck drops the
-  super shotgun and the Hunter-Chopper the SMG, one for every player (pickups' `perPlayer`, kind
+  super shotgun, the Hunter-Chopper the SMG and Crazy Karen the uzi, one for every player (pickups' `perPlayer`, kind
   `"gun-<key>"`); walking over it calls `weapons:serverTakeFound`: into the
   bag with a magazine's worth of its rounds (or an empty weapon slot when
   the bag is full), and the first time `WPN_UNLOCK <key>` to that player,
   the reward card. Saved with the player (weapons' `unlocked`).
+- Inventory full: a pickup meant for the bag (pickups' kinds with `bag`:
+  ammo boxes, abilities, won guns, clothes, crates) that a human stands on
+  without room for it sends them `PK_FULL <id>` (at most every
+  `fullEvery`, 2.5 s), and "Inventory full" floats up over it. Pickups
+  asks `buildings:serverRoomFor(id, item)`.
 - Tiers: everything a player equips (guns, abilities, armor, clothes) comes
   in a tier, `src/features/tiers`: common (grey, base stats), uncommon
   (green, its first stat better), rare (blue, its first two, by more) and
@@ -1081,6 +1087,22 @@ the one with a plot.
   down, passing where it fell: an EXIT star home (`QST_EXIT <x> <y>`) comes
   up right there, so nobody has to walk back to the entrance. Leave out
   `x, y` and there is only the star by the entrance.
+  Progress: a new game opens only the first job on the board; finishing a
+  job's last map (the end of its `next` chain, `Quests.root` maps every map
+  to its board job) opens the next one, in `Quests.list` order. The world
+  remembers what is finished (`serverSaveWorld`, written with the city, so
+  it is kept once you are home), everyone hears it (`QST_FINISHED <ids>`),
+  the board greys out what is locked and the host refuses it
+  (`QST_NO locked`). Finished jobs stay open to play again. Other features
+  ask `quests:serverFinished(id)` on the host or `quests.finished[id]` on a
+  client; `Quests.unlocked(quest, finished)` is the rule. The world also
+  counts each job's clears (`quests:serverClears(id)`, sent with
+  `QST_FINISHED` as id/count pairs): every job's bosses and enemies come
+  back harder each time (`Bosses.rage`, below under the boss standard), and
+  bosses' per-player drops come in better tiers. The board shows each open
+  job's level (its clears + 1, "(MAX)" at `Bosses.rage.max`) and "DONE xN"
+  for a job finished more than once. The `--quest` launch
+  option skips the lock.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
@@ -1773,7 +1795,10 @@ the one with a plot.
   from the F8 menu (`event-menu` in Controls: a number key or a click picks
   an event, and the menu can call off the one that is on) or any feature with
   `events:serverTrigger(server, key)`, which returns false and a reason
-  ("busy", "away", "nowhere") when it can't. Each kind of event is a module
+  ("busy", "away", "nowhere", "locked") when it can't. An event whose boss
+  comes from a quest waits until that quest is finished (`Events.after`:
+  Bigfoot after the alien hunt, A-Man after A-Man's quest; the Runner and
+  the Tripod are always open), greyed out in the menu until then. Each kind of event is a module
   in that folder listed in `Events.kinds` (the header of `events/init.lua`
   says what one has); the first is Bigfoot (`events/bigfoot.lua`): he comes
   in on a road away from everyone and goes for the nearest player, or the
@@ -1872,7 +1897,19 @@ the one with a plot.
   human grown by `Bosses.perHuman` of the base for each human past the
   first (two humans, double), counted when it spawns. Hunters grow slower,
   `Bosses.plus(base, server)`: one more for each human past the first
-  (`Bosses.extra`). Badly hurt, a boss
+  (`Bosses.extra`). A job finished before in this world comes back harder
+  (`Bosses.rage`, up to 10 clears of the job under way, `Bosses.clears()`;
+  0 off a quest, so city events never change): `Bosses.health` is +25% a
+  clear, `Bosses.count` and `Bosses.plus` +20%, a boss's own hits are
+  times `Bosses.power()` (+15%), and a regular enemy takes
+  `Bosses.enemyHealth(base)` (+10%) and `Bosses.enemyPower()` on its hits
+  (+10%). Ownerless rounds (`weapons:serverFireFrom` with owner 0) are
+  multiplied there already: `Bosses.enemyPower()`, or `Bosses.power()` for
+  a gun marked `bossGun` (wrap a shared gun, never mutate it); a gun's
+  `blast` is not. A boss's per-player drop of a tiered item rolls its tier
+  with `Bosses.dropTier(rows)` (`Bosses.dropTiers`: always common the first
+  time, legendary possible from the fourth). The boss bar adds "HARDER xN"
+  (Karen's says ANGRIER). Badly hurt, a boss
   breaks off for a medkit lying near it (`bosses/heal.lua`: under 40% of
   its health, within 700 px, +200), and it gets out from under a player's
   ability about to land on it once it has had 0.2 s to see it

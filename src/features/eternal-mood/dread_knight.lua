@@ -108,6 +108,7 @@ function DreadKnight.new(id, x, y, facing, hp, nav, wake)
     home = { x = x, y = y, facing = facing }, time = 0, move = nil, moveT = 0, slashIn = 0,
     lungeIn = 1 + random(), sayIn = 3, frozen = 0, stuck = 0, side = random() < 0.5 and 1 or -1,
     breath = Stamina.new(DreadKnight.BREATH), running = false, mode = "home", awake = false,
+    power = Bosses.power(), -- its hits, times this: harder on a job finished before
   }, DreadKnight)
 end
 

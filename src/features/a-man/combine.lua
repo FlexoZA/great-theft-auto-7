@@ -81,6 +81,7 @@
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Nav = require("src.features.d-day.nav")
+local Bosses = require("src.features.bosses")
 
 local Combine = {}
 Combine.__index = Combine
@@ -190,7 +191,7 @@ function Combine:add(kind, x, y, watch)
     watch = watch,
     facing = watch,
     phase = random() * 2 * math.pi,
-    hp = self.health,
+    hp = Bosses.enemyHealth(self.health), -- tougher on a job finished before
     target = nil, -- player id he has in his sights
     fireIn = 0,
     alert = false,

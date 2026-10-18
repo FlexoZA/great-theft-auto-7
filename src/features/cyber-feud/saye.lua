@@ -143,6 +143,7 @@ function Saye.new(x, y, hp, nav)
     drones = {},
     dronesIn = 0,
     turrets = {},
+    more = 1 + Bosses.rage.count * Bosses.clears(), -- more drones on a job finished before
     breath = Stamina.new(Saye.BREATH),
     running = false,
     mode = "hunt",
@@ -176,10 +177,17 @@ function Saye:pace()
   return self.breath:pace(self.phase2 and Saye.WALK_2 or Saye.WALK, Saye.STROLL)
 end
 
---- Her drones back up to DRONES (twice that once she rages).
+--- How many drones she keeps up: DRONES (RAGE_DRONES once she rages),
+--- more on a job finished before.
+function Saye:droneCount()
+  return math.floor((self.rage and Saye.RAGE_DRONES or Saye.DRONES) * self.more + 0.5)
+end
+
+--- Her drones back up to droneCount().
 function Saye:callDrones()
-  for i = #self.drones + 1, self.rage and Saye.RAGE_DRONES or Saye.DRONES do
-    self.drones[i] = { hp = Saye.DRONE_HEALTH, fireIn = 1 + i * 0.4, burst = 0, x = self.x, y = self.y }
+  local hp = Bosses.enemyHealth(Saye.DRONE_HEALTH)
+  for i = #self.drones + 1, self:droneCount() do
+    self.drones[i] = { hp = hp, fireIn = 1 + i * 0.4, burst = 0, x = self.x, y = self.y }
   end
 end
 
@@ -195,7 +203,7 @@ function Saye:fire(server, aim)
   if not gun then
     local base = Tiers.apply(Guns.ak47, Tiers.DEFAULT)
     gun = setmetatable({ damage = Saye.SHOT_DAMAGE, speed = Saye.SHOT_SPEED, ttl = 0.6, spread = 0, streak = 34,
-      tint = "ff3ec8" }, { __index = base })
+      tint = "ff3ec8", bossGun = true }, { __index = base }) -- (a boss's: Bosses.power() on a job finished before)
   end
   weapons:serverFireFrom(server, 0, self.x + math.cos(aim) * 20, self.y + math.sin(aim) * 20, aim, gun, "halcyon")
 end
@@ -245,7 +253,7 @@ function Saye:stepDrones(server, dt, events)
       end
     end
   end
-  if #self.drones < (self.rage and Saye.RAGE_DRONES or Saye.DRONES) then
+  if #self.drones < self:droneCount() then
     self.dronesIn = self.dronesIn - dt
     if self.dronesIn <= 0 then
       self:callDrones()

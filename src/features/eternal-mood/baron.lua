@@ -51,6 +51,7 @@ local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
@@ -164,6 +165,7 @@ function Baron.new(x, y, facing, hp, nav, home)
     x = x, y = y, facing = facing, aim = facing, hp = hp, max = hp, nav = nav, home = home, time = 0, move = nil,
     moveT = 0, attackIn = 1.2, clawIn = 0, sayIn = 6, frozen = 0, stuck = 0, left = 0, pairIn = 0,
     phase2 = false, roars = 0, breath = Stamina.new(Baron.BREATH), running = false, mode = "hunt",
+    power = Bosses.power(), -- its hits, times this: harder on a job finished before
   }, Baron)
 end
 
@@ -400,7 +402,8 @@ local function down(server, by, angle)
   end
   if pickups and pickups.serverDrop then
     local gx, gy = gunSpot(m.x, m.y, m.facing)
-    pickups:serverDrop(server, Baron.GUN, gx, gy, nil, { perPlayer = true })
+    local item = Tiers.join(Baron.GUN, Bosses.dropTier()) -- its tier rolled: better on a job finished before
+    pickups:serverDrop(server, item, gx, gy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = m.x, y = m.y, by = by, angle = angle })
 end

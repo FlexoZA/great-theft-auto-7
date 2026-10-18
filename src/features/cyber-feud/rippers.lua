@@ -22,6 +22,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
 local Corpses = require("src.features.corpses")
+local Bosses = require("src.features.bosses")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Brain = require("src.features.cyber-feud.ripper_brain")
@@ -60,8 +61,9 @@ local sv = nil -- { brain, syncIn, emptySends }
 
 --- `s` cuts `who`: a player takes it as melee damage; a rival soldier as a
 --- round of the Static's through where he stands (troops.lua decides,
---- an enforcer's shield included).
+--- an enforcer's shield included). Harder on a job finished before.
 local function hit(server, _s, who, damage, angle)
+  damage = damage * Bosses.enemyPower()
   if type(who) == "table" then
     require("src.features.cyber-feud.troops").serverShotAt(server, who.x, who.y, 2, 0, angle, damage, "melee",
       "static")
@@ -83,7 +85,7 @@ function Rippers.serverStart(server, map, nav, calm)
     return nil
   end
   local brain = Brain.new({
-    fov = Rippers.fov, aware = Rippers.aware, health = Rippers.health, nav = nav, hit = hit,
+    fov = Rippers.fov, aware = Rippers.aware, health = Bosses.enemyHealth(Rippers.health), nav = nav, hit = hit,
     firstId = Rippers.firstId, calm = calm,
   })
   for _, r in ipairs(map.rippers) do
@@ -358,8 +360,8 @@ function Rippers.drawAboveCars()
       love.graphics.setColor(CYAN)
       love.graphics.printf("!", s.dx - 20, s.dy - r - 31, 40, "center")
     end
-    if s.hp < Rippers.health then
-      local bw, f = 20, math.max(0, s.hp / Rippers.health)
+    if s.hp < s.top then
+      local bw, f = 20, math.max(0, s.hp / s.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 3, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -407,6 +409,7 @@ Rippers.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Rippers.health, hp) -- (tougher on a job finished before)
         s.state = tonumber(args[i + 5]) or 0
         s.lunge = tonumber(args[i + 6]) or s.facing
         s.alert = args[i + 7] == "1"

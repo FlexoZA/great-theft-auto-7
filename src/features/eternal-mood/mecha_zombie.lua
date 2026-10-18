@@ -29,6 +29,7 @@ local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Bosses = require("src.features.bosses")
 local Onscreen = require("src.features.eternal-mood.onscreen")
 local Horde = require("src.features.eternal-mood.horde")
 local Look = require("src.features.eternal-mood.mecha_zombie_look")
@@ -98,8 +99,9 @@ end
 function Mecha.new(id, spec, nav)
   local start = spec.route[1]
   local plasma, flame = guns()
+  local hp = Bosses.enemyHealth(Mecha.HEALTH) -- tougher on a job finished before
   return setmetatable({
-    id = id, x = start.x, y = start.y, facing = random() * 2 * math.pi, hp = Mecha.HEALTH, max = Mecha.HEALTH,
+    id = id, x = start.x, y = start.y, facing = random() * 2 * math.pi, hp = hp, max = hp,
     nav = nav, route = spec.route, mob = spec.mob, leg = math.min(2, #spec.route), lookFor = 0, time = 0,
     move = nil, moveT = 0, plasmaIn = 0.5, flameCool = 0, talonIn = 0, screamIn = 0, frozen = 0, stuck = 0,
     side = random() < 0.5 and 1 or -1, awake = false, mode = "patrol",
@@ -184,7 +186,7 @@ end
 function hands.cut(server, _z, p, damage, angle)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage and p then
-    weapons:serverDamage(server, p, nil, damage, angle, "melee")
+    weapons:serverDamage(server, p, nil, damage * Bosses.enemyPower(), angle, "melee") -- harder on a job done before
   end
 end
 

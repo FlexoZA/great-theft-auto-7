@@ -114,7 +114,7 @@ local function stomp(m, server, events)
       if dist2(x, y, m.x, m.y) <= m.STOMP_RADIUS ^ 2 then
         local a = math.atan2(y - m.y, x - m.x)
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, m.STOMP_DAMAGE, a, "impact")
+          weapons:serverDamage(server, p, nil, m.STOMP_DAMAGE * m.power, a, "impact")
         end
         if onFoot and onFoot.serverShove then
           onFoot:serverShove(server, p, math.cos(a), math.sin(a), m.STOMP_SHOVE, 0.35)

@@ -177,6 +177,7 @@ local function spawn(server, x, y)
       x = x, y = y, facing = math.pi / 2, hp = max, max = max, mode = "emerge", t = 0, frozen = 0,
       breath = Stamina.new(Guard.breath), swipeIn = 0, chargeIn = 2, screamIn = 3, aim = math.pi / 2,
       side = love.math.random() < 0.5 and -1 or 1,
+      power = Bosses.power(), -- its swipes, charges and screams, times this
     },
     called = 0, -- how many of `help` have come
   }

@@ -201,14 +201,14 @@ function Brain.think(m, server, dt)
       end
     elseif m.move == "slam" then
       if m.moveT >= m.SLAM_WINDUP then
-        strike(server, m.x, m.y, m.SLAM_RADIUS, m.SLAM_DAMAGE, "impact", m.SLAM_SHOVE)
+        strike(server, m.x, m.y, m.SLAM_RADIUS, m.SLAM_DAMAGE * m.power, "impact", m.SLAM_SHOVE)
         events[#events + 1] = { "hit", "slam", m.x, m.y }
         m.move, m.slamIn = nil, m.SLAM_EVERY
       end
     elseif m.move == "yawn" then
       if m.moveT >= m.YAWN then -- shut, on whoever it got
         local fx, fy = m.x + math.cos(m.facing) * 30, m.y + math.sin(m.facing) * 30
-        strike(server, fx, fy, m.SNAP_REACH, m.SNAP_DAMAGE, "melee", m.SNAP_SHOVE)
+        strike(server, fx, fy, m.SNAP_REACH, m.SNAP_DAMAGE * m.power, "melee", m.SNAP_SHOVE)
         events[#events + 1] = { "hit", "snap", fx, fy }
         m.move, m.yawnIn = nil, between(m.YAWN_EVERY)
         nextAttack(m)

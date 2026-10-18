@@ -125,6 +125,7 @@ function FloorManager.new(x, y, facing, hp, cannon, nav)
     cannonMax = cannon, nav = nav, time = 0, move = nil, moveT = 0, stompIn = 1, plasmaIn = 1.2, sayIn = 6,
     frozen = 0, stuck = 0, side = 1, sideIn = 2, left = 0, boltIn = 0, phase2 = false, meetings = 0,
     breath = Stamina.new(FloorManager.BREATH), running = false, mode = "hunt",
+    power = Bosses.power(), -- its hits, times this: harder on a job finished before
   }, FloorManager)
 end
 

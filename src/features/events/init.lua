@@ -16,6 +16,10 @@
 -- `Events:serverTrigger(server, key)`. When and how they start by
 -- themselves is still to be decided.
 --
+-- An event whose boss comes out of a quest stays locked until that quest is
+-- finished in this world (`Events.after`, asking the quests feature): the
+-- menu greys it out and the host refuses it. The rest are always open.
+--
 -- Each kind of event is a module in this folder (A-Man's lives in his own,
 -- src/features/a-man/event.lua), listed in `Events.kinds` by key and in
 -- `Events.order` for the menu. The host owns everything; this file keeps
@@ -44,7 +48,7 @@
 -- Messages
 --   client -> server  EVT_TRIGGER <key>                 the host starts one (anyone else is ignored)
 --   client -> server  EVT_STOP                          the host calls off the one that is on
---   server -> player  EVT_NO    <reason>                it could not start: busy | away | nowhere | none
+--   server -> player  EVT_NO    <reason>                it could not start: busy | away | nowhere | none | locked
 --   server -> all  EVT_START <key> <x> <y> <fresh>   an event began at (x, y); fresh = 0 for a latecomer
 --   server -> all  EVT_END   <key> <x> <y> <won>     it is over: beaten there (won = 1) or called off
 
@@ -66,6 +70,8 @@ local Events = {
 
 Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod, ["a-man"] = AMan }
 Events.order = { "bigfoot", "runner", "tripod", "a-man" } -- as the F8 menu lists them
+-- The quest (a board job's id) each event waits on; one not listed is always open.
+Events.after = { bigfoot = "alien-hunt", ["a-man"] = "a-man" }
 
 -- Tuning ------------------------------------------------------------------
 Events.flashTime = 6 -- seconds the minimap flashes red when one starts
@@ -80,10 +86,29 @@ local REFUSED = {
   nowhere = "Nowhere for him to come in",
   nogame = "No game running",
   none = "No event is on",
+  locked = "Finish its quest first",
 }
 
 local function fmt(v)
   return ("%.1f"):format(v)
+end
+
+--- The quest event `key` still waits on, or nil once it is open. `finished`
+--- says whether a board job is done (the host's word, or this machine's copy).
+local function lockedBy(key, finished)
+  local quests = Features.byName.quests
+  local quest = quests and quests.byId[Events.after[key] or ""]
+  if quest and not finished(quests, quest.id) then
+    return quest
+  end
+end
+
+local function serverFinished(quests, id)
+  return quests:serverFinished(id)
+end
+
+local function clientFinished(quests, id)
+  return quests.finished[id] == true
 end
 
 -- Server --------------------------------------------------------------------
@@ -110,7 +135,8 @@ end
 
 --- Start event `key` now. Returns true, or false and why not (for the cheat
 --- banner): "busy" (one is on), "away" (not in the city, or on a quest),
---- "unknown" or "nowhere" (no place to bring the boss in).
+--- "locked" (its quest isn't finished yet), "unknown" or "nowhere" (no
+--- place to bring the boss in).
 function Events:serverTrigger(server, key)
   local event = self.kinds[key]
   if not (sv and server.started) then
@@ -119,6 +145,8 @@ function Events:serverTrigger(server, key)
     return false, "unknown"
   elseif sv.active then
     return false, "busy"
+  elseif lockedBy(key, serverFinished) then
+    return false, "locked"
   end
   local city = Features.byName["city-map"]
   local quests = Features.byName.quests
@@ -265,7 +293,13 @@ local function menuRows()
   local rows = {}
   for _, key in ipairs(Events.order) do
     local e = Events.kinds[key]
-    rows[#rows + 1] = { key = key, title = e.title, text = e.menu or e.subtitle, color = e.color }
+    local quest = lockedBy(key, clientFinished)
+    if quest then
+      rows[#rows + 1] = { key = key, title = e.title .. " (locked)", color = { 0.45, 0.45, 0.5 },
+        text = "Finish \"" .. quest.title .. "\" on the job board first." }
+    else
+      rows[#rows + 1] = { key = key, title = e.title, text = e.menu or e.subtitle, color = e.color }
+    end
   end
   if Events.active then
     rows[#rows + 1] = { stop = true, title = "CALL IT OFF", text = "End the event that is on now.",

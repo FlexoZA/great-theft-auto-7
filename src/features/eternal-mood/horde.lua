@@ -66,6 +66,7 @@ local Horde = {}
 -- Tuning ------------------------------------------------------------------
 Horde.FROM = "horde" -- the name on its rounds
 Horde.mealRing = 30 -- px from the body a mob eating crouches round it
+Horde.postPair = 30 -- px beside its post a second one stands, on a job finished before
 Horde.firstPossessed = 1
 Horde.firstImp = 20001
 Horde.firstIntern = 30001
@@ -123,7 +124,7 @@ local function claw(server, _imp, who, damage, angle)
   local weapons = Features.byName.weapons
   local p = server.players[who]
   if p and weapons and weapons.serverDamage then
-    weapons:serverDamage(server, p, nil, damage, angle, "melee")
+    weapons:serverDamage(server, p, nil, damage * Bosses.enemyPower(), angle, "melee") -- harder on a job done before
   end
 end
 
@@ -175,13 +176,37 @@ function Horde.serverStart(server, map)
       end
     end,
   })
-  for _, p in ipairs(spec.posts or {}) do
+  -- On a job finished before there are more of them (Bosses.rage.count a
+  -- time): a second one beside some of the posts, spread over the list
+  -- (never more than two to a post), and more to a patrol, its ranks again
+  -- at the back (never more than its formation has slots).
+  local more = 1 + Bosses.rage.count * Bosses.clears()
+  local posts = spec.posts or {}
+  local extra = math.min(math.floor(#posts * more + 0.5), 2 * #posts) - #posts
+  local paired = {}
+  for j = 1, extra do
+    paired[math.floor((j - 0.5) * #posts / extra) + 1] = true
+  end
+  for i, p in ipairs(posts) do
     local x, y = clearSpot(p.x, p.y)
     possessed:add(p.rank, x, y, p.watch)
+    if paired[i] then -- the second, a step to one side of it
+      local a = (p.watch or 0) + math.pi / 2
+      x, y = clearSpot(p.x + math.cos(a) * Horde.postPair, p.y + math.sin(a) * Horde.postPair)
+      possessed:add(p.rank, x, y, p.watch)
+    end
   end
   -- Patrols: a squad walking its loop, its leader in front.
   for _, p in ipairs(spec.patrols or {}) do
-    possessed:addSquad(p.route, p.ranks, p.start)
+    local ranks = p.ranks
+    local n = math.max(#ranks, math.min(math.floor(#ranks * more + 0.5), #Possessed.FORMATION))
+    if n > #ranks then
+      ranks = {}
+      for k = 1, n do
+        ranks[k] = p.ranks[(k - 1) % #p.ranks + 1]
+      end
+    end
+    possessed:addSquad(p.route, ranks, p.start)
   end
   local imps = Imps.new({ nav = nav, firstId = Horde.firstImp, throw = function(srv, _imp, x, y, angle)
     Fireballs.serverThrow(srv, x, y, angle)
@@ -1075,7 +1100,8 @@ local function drawIntern(s)
   drawEyes(s)
 end
 
-local function healthBar(s, max, r, width)
+local function healthBar(s, r, width)
+  local max = s.max
   if s.hp < max then
     local bw, f = width or 20, math.max(0, s.hp / max)
     love.graphics.setColor(0, 0, 0, 0.6)
@@ -1112,13 +1138,13 @@ function Horde.drawAboveCars()
         love.graphics.setColor(ORANGE[1], ORANGE[2], ORANGE[3], 0.7) -- the barrels, hot
         love.graphics.circle("fill", s.dx + math.cos(s.facing) * 22, s.dy + math.sin(s.facing) * 22, 3, 8)
       end
-      healthBar(s, Possessed.RANKS[rank].health, Body.SHOULDERS)
+      healthBar(s, Body.SHOULDERS)
     elseif s.kind == "z" then
       drawIntern(s)
-      healthBar(s, Interns.HEALTH, Body.SHOULDERS)
+      healthBar(s, Body.SHOULDERS)
     elseif s.kind == "i" then
       drawImp(s)
-      healthBar(s, Imps.HEALTH, Imps.RADIUS)
+      healthBar(s, Imps.RADIUS)
     end
     if s.hurt > 0 and s.kind ~= "c" then
       love.graphics.setColor(1, 1, 1, s.hurt / HURT * 0.6)
@@ -1132,7 +1158,7 @@ function Horde.drawAboveCars()
         love.graphics.setColor(1, 1, 1, s.hurt / HURT * 0.5)
         love.graphics.circle("fill", s.dx, s.dy - CACO_LIFT, Cacos.RADIUS + 2, 24)
       end
-      healthBar(s, Cacos.HEALTH, Cacos.RADIUS, 44)
+      healthBar(s, Cacos.RADIUS, 44)
     end
   end
   Fireballs.draw()
@@ -1230,7 +1256,7 @@ Horde.clientMessages = {
         if not s then
           local max = RANK[kind] and Possessed.RANKS[RANK[kind]].health
             or (kind == "z" and Interns.HEALTH or kind == "c" and Cacos.HEALTH or Imps.HEALTH)
-          s = { kind = kind, dx = x, dy = y, stride = 0, hurt = 0, hp = max }
+          s = { kind = kind, dx = x, dy = y, stride = 0, hurt = 0, hp = max, max = max }
           shown[id] = s
         end
         s.x, s.y = x, y
@@ -1240,6 +1266,7 @@ Horde.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.max = math.max(s.max, hp) -- tougher on a job finished before: its bar is full at what it came with
         local state = tonumber(args[i + 6]) or 0
         if state ~= s.state then
           s.since = clock
