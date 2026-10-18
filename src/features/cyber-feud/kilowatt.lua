@@ -179,6 +179,7 @@ function Kilowatt.new(x, y, hp, nav)
     patches = {},
     phase2 = false,
     breath = Stamina.new(Kilowatt.BREATH),
+    power = Bosses.power(), -- what his hits are multiplied by: harder on a job finished before
     running = false,
     mode = "hunt",
   }, Kilowatt)

@@ -12,6 +12,7 @@
 -- enough to sidestep. Caught up close, it claws.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 
@@ -79,7 +80,7 @@ function Brain:add(x, y, angle)
     y = y,
     facing = angle or 0,
     out = angle or 0,
-    hp = Brain.HEALTH,
+    hp = Bosses.enemyHealth(Brain.HEALTH), -- tougher on a job finished before
     state = "emerge", -- emerge, hunt, windup
     t = 0,
     target = nil,

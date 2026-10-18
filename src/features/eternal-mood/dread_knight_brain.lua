@@ -137,12 +137,12 @@ local function cut(k, server, reach)
       if dist2(px, py, k.x, k.y) <= reach * reach and math.abs(Sight.angleDiff(a, k.facing)) <= k.ARC then
         caught[#caught + 1] = p
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, k.SLASH_DAMAGE, a, "melee")
+          weapons:serverDamage(server, p, nil, k.SLASH_DAMAGE * k.power, a, "melee")
         end
         if Features.present(p) then -- that didn't kill them
           if damage and damage.serverAfflict then
             if random() < k.DEEP_CHANCE then
-              damage:serverAfflict(server, p, "bleed", k.DEEP_TIME, k.DEEP_DPS)
+              damage:serverAfflict(server, p, "bleed", k.DEEP_TIME, k.DEEP_DPS * k.power)
             end
             damage:serverAfflict(server, p, "stun", k.STUN * damage:serverShare(server, p, "melee"))
           end

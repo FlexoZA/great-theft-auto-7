@@ -125,7 +125,7 @@ local function swipe(G, z, server)
       local reach = G.swipeReach + (p.vehicle and G.carReach or 0) + 10 -- as far as he stopped to swipe from, and a bit
       if dist2(x, y, z.x, z.y) <= reach * reach and math.abs(wrap(a - z.facing)) < 1.3
         and weapons and weapons.serverDamage then
-        weapons:serverDamage(server, p, nil, G.swipeDamage, a, "melee")
+        weapons:serverDamage(server, p, nil, G.swipeDamage * z.power, a, "melee")
       end
     end
   end

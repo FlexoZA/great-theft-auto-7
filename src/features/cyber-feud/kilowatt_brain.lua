@@ -135,7 +135,7 @@ local function whip(k, server, first, events)
     hit[cur] = true
     local x, y = Features.bodyPose(server, cur)
     pts[#pts + 1], pts[#pts + 2] = x, y
-    hurt(server, cur, k.WHIP_DAMAGE, math.atan2(y - k.y, x - k.x), "shock")
+    hurt(server, cur, k.WHIP_DAMAGE * k.power, math.atan2(y - k.y, x - k.x), "shock")
     local nextP, bestD2 = nil, k.WHIP_CHAIN ^ 2
     for _, p in pairs(server.players) do
       if not hit[p] and Features.visible(server, p) then
@@ -168,7 +168,7 @@ local function stepAction(k, server, dt, events)
         local x, y = Features.bodyPose(server, p)
         if dist2(x, y, k.x, k.y) <= (k.RADIUS + 14) ^ 2 then
           k.struck[p] = true
-          hurt(server, p, k.CHARGE_DAMAGE, k.aim, "impact")
+          hurt(server, p, k.CHARGE_DAMAGE * k.power, k.aim, "impact")
           local onFoot = Features.byName["on-foot"]
           if onFoot and onFoot.serverShove then
             onFoot:serverShove(server, p, math.cos(k.aim), math.sin(k.aim), k.CHARGE_SHOVE, 0.4)
@@ -211,7 +211,7 @@ local function stepAction(k, server, dt, events)
       if p and Features.visible(server, p) then
         local x, y = Features.bodyPose(server, p)
         if dist2(x, y, k.x, k.y) <= (k.RADIUS + k.PUNCH_REACH) ^ 2 then
-          hurt(server, p, k.PUNCH_DAMAGE, k.facing, "impact")
+          hurt(server, p, k.PUNCH_DAMAGE * k.power, k.facing, "impact")
         end
       end
       events[#events + 1] = { "thump" }
@@ -234,7 +234,7 @@ local function stepRings(k, server, dt)
         local d = math.sqrt(dist2(x, y, g.x, g.y))
         if math.abs(d - g.r) <= 24 then
           g.hit[p] = true
-          hurt(server, p, k.SLAM_DAMAGE, math.atan2(y - g.y, x - g.x), "shock")
+          hurt(server, p, k.SLAM_DAMAGE * k.power, math.atan2(y - g.y, x - g.x), "shock")
         end
       end
     end
@@ -255,7 +255,7 @@ local function stepPatches(k, server, dt)
         if Features.visible(server, pl) then
           local x, y = Features.bodyPose(server, pl)
           if dist2(x, y, p.x, p.y) <= k.PATCH_RADIUS ^ 2 then
-            hurt(server, pl, k.PATCH_DAMAGE, math.atan2(y - p.y, x - p.x), "shock")
+            hurt(server, pl, k.PATCH_DAMAGE * k.power, math.atan2(y - p.y, x - p.x), "shock")
           end
         end
       end

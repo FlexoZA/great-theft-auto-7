@@ -25,7 +25,8 @@
 -- out at once. Every count is for one human, more with more (Bosses.count).
 --
 -- Down: the disguise is left lying there, he spills koins and his teleport
--- (a better roll than the event's, `dropTiers`), raises `serverKill` with
+-- (a better roll than the event's, `dropTiers`, better again each time the
+-- job has been finished: Bosses.dropTier), raises `serverKill` with
 -- kind "boss", and the level is done (quests' `serverComplete`): the EXIT
 -- star comes up where he fell.
 --
@@ -45,6 +46,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Teleport = require("src.features.abilities.teleport")
@@ -78,7 +80,7 @@ Finale.strikeRange = 600 -- px; a target this close gets a blink straight throug
 Finale.overshoot = 200 -- px he comes out past them
 Finale.reach = 2600 -- px; a target further than this he walks towards
 Finale.approachGap = 220 -- px from a far target he lands
-Finale.damage = 70 -- to everyone on his line
+Finale.damage = 70 -- to everyone on his line; times Bosses.power()
 Finale.width = Teleport.width
 Finale.healRange = 1600
 Finale.hordeRange = 1000 -- px; he opens the case with a player this close (the brain's name for it)
@@ -91,7 +93,16 @@ Finale.rage = 0.3 -- share of his health under which two things come out at once
 Finale.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
 Finale.drops = 150 -- koins he spills
 Finale.drop = "ability-teleport"
-Finale.dropTiers = { { "uncommon", 40 }, { "rare", 45 }, { "legendary", 15 } }
+-- His teleport's tier, one row for each time the job has been finished
+-- before (Bosses.dropTier; the last row from then on), chances in a hundred.
+Finale.dropTiers = {
+  { uncommon = 40, rare = 45, legendary = 15 }, -- the first time
+  { uncommon = 35, rare = 46, legendary = 19 },
+  { uncommon = 30, rare = 47, legendary = 23 },
+  { uncommon = 25, rare = 48, legendary = 27 },
+  { uncommon = 20, rare = 48, legendary = 32 },
+  { uncommon = 15, rare = 47, legendary = 38 }, -- the sixth time and every time after
+}
 -- What can come out of the case, how likely, and how many for one human.
 Finale.SUMMONS = {
   { kind = "soldiers", weight = 3, count = 4, say = "Some... colleagues." },
@@ -179,6 +190,7 @@ local function arrive(server, map, p)
   sv.waiting = false
   sv.a = {
     x = x, y = y, facing = math.atan2(py - y, px - x), hp = hp, max = hp, frozen = Finale.arriveTime,
+    power = Bosses.power(), -- his blinks, times this
     moving = false, breath = Stamina.new(Finale.breath), cool = Finale.arriveTime + Finale.blinkEvery,
   }
   sv.owed, sv.nextCaseAt, sv.caseIn = 0, hp * (1 - Finale.caseShare), 0
@@ -190,7 +202,7 @@ local function blink(server, a)
   local sx, sy, ex, ey = a.x, a.y, a.aimX, a.aimY
   a.aimX, a.aimY = nil, nil
   sv.blinking = true -- his own line doesn't hit him
-  Teleport.serverThrough(server, sx, sy, ex, ey, Finale.damage, Finale.width, nil, nil)
+  Teleport.serverThrough(server, sx, sy, ex, ey, Finale.damage * a.power, Finale.width, nil, nil)
   if not sv then
     return
   end
@@ -336,22 +348,6 @@ function Finale.serverStep(server, dt, map)
   sync(server)
 end
 
---- A tier from `dropTiers`, as likely as its weight.
-local function rollTier()
-  local total = 0
-  for _, t in ipairs(Finale.dropTiers) do
-    total = total + t[2]
-  end
-  local roll = random() * total
-  for _, t in ipairs(Finale.dropTiers) do
-    roll = roll - t[2]
-    if roll < 0 then
-      return t[1]
-    end
-  end
-  return Finale.dropTiers[1][1]
-end
-
 --- He goes down: the disguise, koins, his teleport, the level done.
 local function down(server, by, angle, cause)
   local a = sv.a
@@ -375,7 +371,7 @@ local function down(server, by, angle, cause)
         break
       end
     end
-    pickups:serverDrop(server, Finale.drop .. "@" .. rollTier(), dx, dy)
+    pickups:serverDrop(server, Tiers.join(Finale.drop, Bosses.dropTier(Finale.dropTiers)), dx, dy)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle, cause = cause })
   local quests = Features.byName.quests

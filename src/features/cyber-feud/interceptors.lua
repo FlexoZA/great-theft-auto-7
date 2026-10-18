@@ -7,7 +7,7 @@
 -- Each is an NPC driver from the bots feature (Bots:spawnNpc), so the
 -- core moves its car, collisions and damage treat it as any car, and
 -- wrecking it is a kill like any other. A grey SUV, tuned faster than it
--- left the factory (`maxSpeed`, `accel`) and armoured (`health`). `count` for one human, `perHuman`
+-- left the factory (`maxSpeed`, `accel`) and armoured (`health`). `count` for one human, one
 -- more for each human past the first, spread over the posts from the
 -- bottom of the map. Wrecked (weapons blows it up and takes the car out of
 -- the world), one spills koins and is taken off for good.
@@ -32,8 +32,8 @@ local Brain = require("src.features.cyber-feud.interceptor_brain")
 local Interceptors = {}
 
 -- Tuning ------------------------------------------------------------------
-Interceptors.count = 3 -- for one human...
-Interceptors.perHuman = 1 -- ...and this many more for each human past the first
+Interceptors.count = 3 -- for one human, one more for each human past the first (Bosses.plus), and more on a job
+-- finished before
 Interceptors.model = "suv-bluegrey"
 Interceptors.maxSpeed = 540 -- px/s; a stock car tops out round 500
 Interceptors.accel = 1.3 -- times the model's own
@@ -81,7 +81,7 @@ local function spawn(server, B, p, n)
   car.accel = car.accel * Interceptors.accel
   local weapons = Features.byName.weapons
   if weapons and weapons.serverSetCarMaxHealth then
-    weapons:serverSetCarMaxHealth(server, car, Interceptors.health)
+    weapons:serverSetCarMaxHealth(server, car, Bosses.enemyHealth(Interceptors.health))
   end
   return npc
 end
@@ -95,7 +95,7 @@ function Interceptors.serverStart(server, map)
   end
   sv = { units = {} }
   local posts = map.interceptors
-  local n = math.min(#posts, Interceptors.count + Interceptors.perHuman * (Bosses.humans(server) - 1))
+  local n = math.min(#posts, Bosses.plus(Interceptors.count, server))
   for i = 1, n do
     sv.units[#sv.units + 1] = spawn(server, B, posts[i], i)
   end

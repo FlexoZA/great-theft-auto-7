@@ -29,6 +29,7 @@
 -- and pass through the rest of it; so do their grenades.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Guns = require("src.features.weapons.guns")
@@ -159,7 +160,7 @@ function Brain:add(rank, x, y, watch)
     watch = watch or 0,
     facing = watch or 0,
     phase = random() * 2 * math.pi,
-    hp = conf.health,
+    hp = Bosses.enemyHealth(conf.health), -- tougher on a job finished before
     state = "post", -- post or beat, hunt, search, back
     t = 0,
     target = nil,

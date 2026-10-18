@@ -21,9 +21,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - "Inventory full" now shows over a dropped item you can't pick up because your bag has no room.
 
 ### Changed
-- Karen comes back angrier every time you finish her job: +25% health (1500 -> 1875 -> 2250 ...), +15% slap and
-  scream damage (slap 15 -> 17 -> 20 ...) and one more simp at a time (5 -> 6 -> 7 ...), up to 10 times. Her boss
-  bar shows how angry she is.
+- Every job comes back harder each time you finish it, up to 10 times (Karen's rage now works on all of them).
+  Bosses: +25% health (Karen 1500 -> 1875 -> 2250 ...) and +15% damage (her slap 15 -> 17 -> 20 ...). Enemies:
+  +10% health and +10% damage. Helpers and enemy groups: +20% more of them (Karen's simps 5 -> 6 -> 7 ...). The
+  boss bar shows how many times over it is ("HARDER x2"; Karen's says ANGRIER).
+- Bosses' per-player drops come in better tiers each time you beat them again, the way Karen's uzi does.
 - Jobs unlock one at a time: a new game opens only Crazy Karen, and finishing a job opens the next on the board
   (Karen, the alien hunt, D-Day, Shotgun, A-Man, Cyber Feud, Eternal Mood). Finished jobs can be played again,
   and a saved world remembers how far you got.

@@ -130,7 +130,7 @@ local function bump(m, server, events)
       if dist2(x, y, bx, by) <= m.BUMP_RADIUS ^ 2 then
         local a = math.atan2(y - m.y, x - m.x)
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, m.BUMP_DAMAGE, a, "impact")
+          weapons:serverDamage(server, p, nil, m.BUMP_DAMAGE * m.power, a, "impact")
         end
         if onFoot and onFoot.serverShove then
           onFoot:serverShove(server, p, math.cos(a), math.sin(a), m.BUMP_SHOVE, 0.35)

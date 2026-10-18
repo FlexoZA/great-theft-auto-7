@@ -167,10 +167,16 @@ local function blow(server, m)
   local zapped = m.zap
   if zapped and weapons and weapons.serverDamage and Features.present(zapped) then
     local px, py = Features.bodyPose(server, zapped)
-    weapons:serverDamage(server, zapped, nil, Brain.SHOCK, math.atan2(py - m.y, px - m.x), "shock")
+    local shock = Brain.SHOCK * Bosses.enemyPower()
+    weapons:serverDamage(server, zapped, nil, shock, math.atan2(py - m.y, px - m.x), "shock")
   end
   if weapons and weapons.explode then
-    weapons:explode(server, { id = 0, owner = m.by or 0, vx = m.vx, vy = m.vy + 0.01, blast = Brain.BLAST }, m.x, m.y)
+    -- Set off by itself, its blast grows with the job's clears; set off by a player, it is theirs and stays as it is.
+    local blast = Brain.BLAST
+    if not m.by or m.by == 0 then
+      blast = { radius = blast.radius, damage = blast.damage * Bosses.enemyPower(), soft = blast.soft }
+    end
+    weapons:explode(server, { id = 0, owner = m.by or 0, vx = m.vx, vy = m.vy + 0.01, blast = blast }, m.x, m.y)
   end
   if m.by and m.by ~= 0 then
     local money = Features.byName.money
@@ -211,7 +217,7 @@ function Rollermines:serverShotAt(_server, x, y, radius, by, _angle, damage)
   if by and by ~= 0 then
     m.by = by
   end
-  sv.brain:hurt(m, damage or Brain.HEALTH, damage == nil)
+  sv.brain:hurt(m, damage or m.hp, damage == nil)
   return true
 end
 
@@ -350,8 +356,8 @@ function Rollermines:drawAboveCars()
   for _, m in pairs(shown) do
     if m.mode ~= MODES.dormant then
       Render.draw(m.dx, m.dy, pose(m), clock)
-      if m.hp < Brain.HEALTH then -- a bar under it once it is hurt
-        local bw, f = 22, math.max(0, m.hp / Brain.HEALTH)
+      if m.hp < m.max then -- a bar under it once it is hurt
+        local bw, f = 22, math.max(0, m.hp / m.max)
         love.graphics.setColor(0, 0, 0, 0.6)
         love.graphics.rectangle("fill", m.dx - bw / 2 - 1, m.dy + Render.RADIUS + 9, bw + 2, 4)
         love.graphics.setColor(1 - f, f, 0.2)
@@ -390,6 +396,7 @@ Rollermines.clientMessages = {
           m.hurt = HURT
         end
         m.hp = hp or m.hp
+        m.max = math.max(m.max or Brain.HEALTH, m.hp) -- tougher on a job finished before
         local armed = args[i + 5] == "1"
         if armed and not m.armed then
           m.beepIn = 0

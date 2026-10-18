@@ -119,7 +119,7 @@ local function scream(G, g, server)
       local off = math.abs(wrap(math.atan2(y - g.y, x - g.x) - g.aim))
       if d <= G.screamRange and (off <= G.screamHalf or d < G.radius + 20) and Sight.clear(g.x, g.y, x, y) then
         local k = 1 - 0.55 * d / G.screamRange -- weaker towards the far end
-        hit(server, p, G.screamDamage * k, math.atan2(y - g.y, x - g.x), G.screamShove * k)
+        hit(server, p, G.screamDamage * k * g.power, math.atan2(y - g.y, x - g.x), G.screamShove * k)
         caught[#caught + 1] = p.id
       end
     end
@@ -193,7 +193,7 @@ function Brain.think(G, g, server, dt, time)
           g.hitIds[id] = true
           -- Thrown off the line, to whichever side of it they were.
           local side = wrap(math.atan2(y - g.y, x - g.x) - g.aim) >= 0 and 1 or -1
-          hit(server, p, G.chargeDamage, g.aim + side * 0.6, G.chargeShove)
+          hit(server, p, G.chargeDamage * g.power, g.aim + side * 0.6, G.chargeShove)
         end
       end
     end
@@ -213,7 +213,7 @@ function Brain.think(G, g, server, dt, time)
           local x, y = Features.bodyPose(server, p)
           local a = math.atan2(y - g.y, x - g.x)
           if dist2(x, y, g.x, g.y) <= (G.swipeReach + 10) ^ 2 and math.abs(wrap(a - g.facing)) < 1.4 then
-            hit(server, p, G.swipeDamage, a, G.swipeShove)
+            hit(server, p, G.swipeDamage * g.power, a, G.swipeShove)
           end
         end
       end

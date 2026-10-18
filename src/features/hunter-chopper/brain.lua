@@ -46,8 +46,9 @@ Brain.trackLock = 4 -- per second, how quickly the gun closes on its target whil
 Brain.trackFire = 1.4 -- radians a second the gun turns while firing: run across it and it can't keep up
 Brain.spread = 0.035 -- radians either way a round strays (about 17 px at 500 px out)
 -- The pulse gun: the rifle's rounds and sound, its own rate and bite, and
--- its rounds blue (weapons draws a gun's `tint` for its streak).
-Brain.gun = setmetatable({ damage = 6, cooldown = 0.075, spread = 0, speed = 1100, tint = "5ac8ff" },
+-- its rounds blue (weapons draws a gun's `tint` for its streak). A boss's
+-- gun: its rounds hit harder each time the job has been finished (`bossGun`).
+Brain.gun = setmetatable({ bossGun = true, damage = 6, cooldown = 0.075, spread = 0, speed = 1100, tint = "5ac8ff" },
   { __index = Tiers.apply(Guns.ak47 or Guns.list[2], Tiers.DEFAULT) })
 
 -- Bombing runs.

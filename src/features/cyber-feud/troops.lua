@@ -154,7 +154,8 @@ Troops.levels = {
 }
 -- The Static breaking in to the tower: the first pack `first` seconds after
 -- it wakes, then one every `every`, while fewer than `most` of them (and
--- `perHuman` more for each human past the first) are on that floor already.
+-- `perHuman` more for each human past the first, and a fifth more for each
+-- time the job has been finished before) are on that floor already.
 -- A pack is the Static's squad (four): gangers, but from floor `sparkerFrom`
 -- up one of them is a sparker (sparkers.lua), and from `bruteFrom` up one
 -- a brute (brutes.lua).
@@ -228,6 +229,12 @@ local function pickArms(loadout)
   }
 end
 
+--- `n` grown by the clears of the job under way (Bosses.rage.count each):
+--- how many hold a place, walk a beat or break in.
+local function harder(n)
+  return math.floor(n * (1 + Bosses.rage.count * Bosses.clears()) + 0.5)
+end
+
 --- (x, y), or the nearest spot round it a soldier fits (not in a wreck).
 local function clearSpot(x, y)
   local c = city()
@@ -290,7 +297,7 @@ function Troops.serverStart(server, map, name, calm)
     for _, p in ipairs(spec and spec.posts or {}) do
       local g = at[p.at]
       if not g then
-        g = { kind = "post", members = {}, chatIn = between(Troops.chatEvery) * random() }
+        g = { kind = "post", members = {}, posts = {}, chatIn = between(Troops.chatEvery) * random() }
         at[p.at] = g
         side.groups[#side.groups + 1] = g
       end
@@ -298,10 +305,30 @@ function Troops.serverStart(server, map, name, calm)
       local s = troops:add("guard", x, y, p.watch)
       s.hold = p.hold
       g.members[#g.members + 1] = s
+      g.posts[#g.posts + 1] = p
     end
+    -- On a job finished before, more at each place: beside its posts in turn.
+    for _, g in ipairs(side.groups) do
+      local n = #g.posts
+      for k = 1, harder(n) - n do
+        local p = g.posts[(k - 1) % n + 1]
+        local across = (p.watch or 0) + math.pi / 2 * (k % 2 == 0 and -1 or 1)
+        local x, y = clearSpot(p.x + math.cos(across) * 28, p.y + math.sin(across) * 28)
+        local s = troops:add("guard", x, y, p.watch)
+        s.hold = p.hold
+        g.members[#g.members + 1] = s
+      end
+      g.posts = nil
+    end
+    -- And bigger squads; past a full formation, another squad on the beat.
     for _, route in ipairs(spec and spec.patrols or {}) do
-      local squad = troops:addSquad(route, conf.squad)
-      side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
+      local left = harder(conf.squad)
+      while left > 0 do
+        local size = math.min(left, #Combine.FORMATION)
+        local squad = troops:addSquad(route, size)
+        side.groups[#side.groups + 1] = { kind = "patrol", members = squad.members, chatIn = between(Troops.chatEvery) }
+        left = left - size
+      end
     end
     for _, s in ipairs(troops.list) do
       s.faction = key -- (`side` is the brain's own: which way he sidesteps)
@@ -777,7 +804,7 @@ local function stepBreakIn(server, dt)
     end
   end
   local conf = Troops.breakIn
-  local most = conf.most + conf.perHuman * (Bosses.humans(server) - 1)
+  local most = harder(conf.most + conf.perHuman * (Bosses.humans(server) - 1))
   local size = math.min(side.conf.squad, most - here)
   if size <= 0 then
     return
@@ -1239,8 +1266,8 @@ local function drawSoldier(s)
     love.graphics.setColor(color)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < conf.health then
-    local bw, f = 20, math.max(0, s.hp / conf.health)
+  if s.hp < s.top then
+    local bw, f = 20, math.max(0, s.hp / s.top)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -1342,6 +1369,7 @@ Troops.clientMessages = {
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 4]) or s.angle or 0
         s.hp = tonumber(args[i + 5]) or Troops.side[side].health
+        s.top = math.max(s.top or Troops.side[side].health, s.hp) -- (tougher on a job finished before)
         s.alert = args[i + 6] == "1"
         s.wary = args[i + 6] ~= "0"
         s.gun = tonumber(args[i + 7])

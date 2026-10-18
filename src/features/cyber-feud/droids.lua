@@ -19,9 +19,10 @@
 --
 -- They walk cloaked (droid_render.lua) until they have somebody. On each
 -- beat, its `count` (two when it doesn't say) for one human player and
--- `perHuman` more (one) for each human past the first. Down, one
--- blows its core and comes apart in scrap. Rounds owned
--- by nobody (the factions', their own) pass by them; a player's hurt them.
+-- `perHuman` more (one) for each human past the first, and a fifth more
+-- for each time the job has been finished before. Down, one blows its
+-- core and comes apart in scrap. Rounds owned by nobody (the factions',
+-- their own) pass by them; a player's hurt them.
 --
 -- Messages
 --   server -> all  DRD_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
@@ -108,8 +109,9 @@ local function settle(nav, route)
 end
 
 --- Put the droids on `map`'s `droids` beats ({ route, count, perHuman }
---- each), finding their way with `nav` (a walking grid, d-day/nav.lua),
---- standing still while `calm`. Nothing on a map without them.
+--- each, and more on a job finished before), finding their way with `nav`
+--- (a walking grid, d-day/nav.lua), standing still while `calm`. Nothing on
+--- a map without them.
 function Droids.serverStart(server, map, nav, calm)
   sv = nil
   local spec = map.droids
@@ -117,7 +119,8 @@ function Droids.serverStart(server, map, nav, calm)
     return
   end
   local brain = Brain.new({
-    fov = Droids.fov, alertFov = Droids.alertFov, aware = Droids.aware, health = Droids.health,
+    fov = Droids.fov, alertFov = Droids.alertFov, aware = Droids.aware,
+    health = Bosses.enemyHealth(Droids.health),
     radius = Render.RADIUS, nav = nav, pace = Droids.pace, dodgeCool = Droids.dodgeCool,
     stunCharge = Droids.railCharge, stunEvery = Droids.railEvery, lockAim = true,
   })
@@ -126,6 +129,7 @@ function Droids.serverStart(server, map, nav, calm)
     local route = settle(nav, beat.route)
     if #route >= 2 then
       local n = (beat.count or Droids.count) + (beat.perHuman or Droids.perHuman) * (Bosses.humans(server) - 1)
+      n = math.floor(n * (1 + Bosses.rage.count * Bosses.clears()) + 0.5)
       for i = 1, n do
         brain:add(route, math.floor((i - 1) * #route / n) + 1, arms())
       end
@@ -398,8 +402,8 @@ function Droids.drawAboveCars()
       charging = h.charging, hurt = h.hurt / HURT * 0.7, dodge = h.dodge / DODGE_SHOWN, dodgeX = h.dodgeX,
       dodgeY = h.dodgeY,
     }, clock)
-    if h.hp < Droids.health then
-      local bw, f = 28, math.max(0, h.hp / Droids.health)
+    if h.hp < h.top then
+      local bw, f = 28, math.max(0, h.hp / h.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", h.dx - bw / 2 - 1, h.dy + Render.RADIUS + 5, bw + 2, 5)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -458,6 +462,7 @@ Droids.clientMessages = {
           h.hurt = HURT
         end
         h.hp = hp
+        h.top = math.max(h.top or Droids.health, hp) -- (tougher on a job finished before)
         h.alert = args[i + 5] == "1"
         h.wary = args[i + 5] ~= "0"
         if args[i + 6] == "1" then

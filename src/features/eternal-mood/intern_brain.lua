@@ -14,6 +14,7 @@
 -- column.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 
@@ -71,7 +72,7 @@ function Brain:add(x, y, facing, mob, awake, eating)
     x = x,
     y = y,
     facing = facing or random() * 2 * math.pi,
-    hp = Brain.HEALTH,
+    hp = Bosses.enemyHealth(Brain.HEALTH), -- tougher on a job finished before
     mob = mob,
     state = awake and "hunt" or eating and "eat" or "idle", -- idle, eat, hunt, windup
     t = 0,

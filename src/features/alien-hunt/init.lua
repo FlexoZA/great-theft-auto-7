@@ -330,8 +330,8 @@ end
 local function spawnSquirrel(server, at)
   local a = love.math.random() * math.pi * 2
   local x, y = at.x + math.cos(a) * Hunt.squirrelSpawn, at.y + math.sin(a) * Hunt.squirrelSpawn
-  sv.squirrel = { x = x, y = y, facing = a + math.pi, hp = Hunt.squirrelHealth, bite = 0.5, zig = 0, hop = 0,
-    frozen = 0 }
+  sv.squirrel = { x = x, y = y, facing = a + math.pi, hp = Bosses.enemyHealth(Hunt.squirrelHealth), bite = 0.5,
+    zig = 0, hop = 0, frozen = 0, power = Bosses.enemyPower() } -- tougher, and bites harder, each time the job is done
   server:broadcast(Protocol.encode("HNT_SQ", fmt(x), fmt(y)))
   say(server, "squirrel")
 end
@@ -413,7 +413,7 @@ function Hunt:stepSquirrel(server, dt)
   elseif s.bite <= 0 and sv.stage == "defend" then
     s.bite, s.hop = self.squirrelBiteEvery, 0.3
     s.facing = ang
-    m.hp = m.hp - self.squirrelBite
+    m.hp = m.hp - self.squirrelBite * s.power
     if m.hp <= 0 then
       m.hp = 0
       sv.timer = self.faintTime
@@ -435,6 +435,7 @@ function Hunt:startReveal(server, map)
     facing = math.pi / 2,
     hp = hp,
     max = hp,
+    power = Bosses.power(), -- his swipes and slams, times this
     mode = "idle",
     timer = 0,
     frozen = 0,
@@ -459,18 +460,19 @@ function Hunt:slam(server, f)
       local pad = onFoot and 7 or 12
       if dist2(x, y, f.x, f.y) <= (self.slamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
-        hurtPlayer(server, p, self.slamDamage, math.atan2(y - f.y, x - f.x), "impact")
+        hurtPlayer(server, p, self.slamDamage * f.power, math.atan2(y - f.y, x - f.x), "impact")
       end
     end
   end
   server:broadcast(Protocol.encode("HNT_SLAM", fmt(f.x), fmt(f.y), self.slamRadius, unpack(caught)))
 end
 
---- Bigfoot's numbers, as his brain (bigfoot_brain.lua) reads them.
-local function footTuning()
+--- Bigfoot's numbers, as his brain (bigfoot_brain.lua) reads them; his
+--- swipe hits `power` times harder.
+local function footTuning(power)
   return {
     radius = Hunt.footRadius, speed = Hunt.footSpeed, walkSpeed = Hunt.footWalkSpeed,
-    swipeReach = Hunt.swipeReach, swipeDamage = Hunt.swipeDamage, swipeEvery = Hunt.swipeEvery,
+    swipeReach = Hunt.swipeReach, swipeDamage = Hunt.swipeDamage * power, swipeEvery = Hunt.swipeEvery,
     leapEvery = Hunt.leapEvery, leapRange = Hunt.leapRange, leapStamina = Hunt.leapStamina,
     crouchTime = Hunt.crouchTime, airTime = Hunt.airTime, recoverTime = Hunt.recoverTime,
     aggroRange = Hunt.aggroRange,
@@ -483,7 +485,7 @@ end
 function Hunt:stepFoot(server, dt)
   local f = sv.foot
   sv.footTime = (sv.footTime or 0) + dt
-  sv.footTuning = sv.footTuning or footTuning()
+  sv.footTuning = sv.footTuning or footTuning(f.power)
   for _, e in ipairs(FootBrain.think(sv.footTuning, f, server, dt, sv.footTime, nil)) do
     if e[1] == "leap" then
       server:broadcast(Protocol.encode("HNT_LEAP", fmt(e[2]), fmt(e[3]), fmt(e[4]), fmt(e[5]), self.airTime,
@@ -1051,7 +1053,8 @@ end
 function Hunt:drawAboveCars()
   local s = self.squirrel
   if s then
-    Render.squirrel(s, time, self.squirrelHealth)
+    s.top = math.max(s.top or self.squirrelHealth, s.hp) -- a tougher one (the job done before) starts above the base
+    Render.squirrel(s, time, s.top)
   end
   local m = self.man
   if m then

@@ -36,6 +36,7 @@ local Controls = require("src.controls")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
 local Corpses = require("src.features.corpses")
+local Bosses = require("src.features.bosses")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Brain = require("src.features.cyber-feud.brute_brain")
@@ -97,7 +98,9 @@ local now = 0
 
 --- The arm on `who`: a player takes it as impact damage; a rival soldier as
 --- a blow of the Static's through where he stands (troops.lua decides).
+--- Harder on a job finished before.
 local function hit(server, _s, who, damage, angle)
+  damage = damage * Bosses.enemyPower()
   if type(who) == "table" then
     troops().serverShotAt(server, who.x, who.y, 2, 0, angle, damage, "impact", "static")
     return
@@ -137,8 +140,8 @@ function Brutes.serverStart(server, map, nav, calm)
     return nil
   end
   local brain = Brain.new({
-    fov = Brutes.fov, aware = Brutes.aware, health = Brutes.health, nav = nav, hit = hit, swing = swing,
-    firstId = Brutes.firstId, calm = calm,
+    fov = Brutes.fov, aware = Brutes.aware, health = Bosses.enemyHealth(Brutes.health), nav = nav, hit = hit,
+    swing = swing, firstId = Brutes.firstId, calm = calm,
   })
   for _, r in ipairs(map.brutes or {}) do
     brain:add(r.route, r.start or 1)
@@ -472,8 +475,8 @@ function Brutes.drawAboveCars()
     if s.progress and s.progress > 0 then
       UI.ring(s.dx, s.dy - r - 14, 9, s.progress, GREEN, 3)
     end
-    if s.hp < Brutes.health then
-      local bw, f = 30, math.max(0, s.hp / Brutes.health)
+    if s.hp < s.top then
+      local bw, f = 30, math.max(0, s.hp / s.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 3, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -539,6 +542,7 @@ Brutes.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Brutes.health, hp) -- (tougher on a job finished before)
         s.state = tonumber(args[i + 5]) or 0
         s.charge = tonumber(args[i + 6]) or s.facing
         s.alert = args[i + 7] == "1"

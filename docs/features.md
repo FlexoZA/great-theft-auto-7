@@ -1096,12 +1096,10 @@ the one with a plot.
   ask `quests:serverFinished(id)` on the host or `quests.finished[id]` on a
   client; `Quests.unlocked(quest, finished)` is the rule. The world also
   counts each job's clears (`quests:serverClears(id)`, sent with
-  `QST_FINISHED` as id/count pairs): Karen comes back angrier each time
-  (`Karen.rage`: +25% health, +15% slap and scream damage, one more simp
-  per clear, up to 10) and her uzi drop's tier improves (`Karen.uziTiers`:
-  always common the first time, legendary possible from the fourth).
-  The `--quest`
-  launch option skips the lock.
+  `QST_FINISHED` as id/count pairs): every job's bosses and enemies come
+  back harder each time (`Bosses.rage`, below under the boss standard), and
+  bosses' per-player drops come in better tiers. The `--quest` launch
+  option skips the lock.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
@@ -1896,7 +1894,19 @@ the one with a plot.
   human grown by `Bosses.perHuman` of the base for each human past the
   first (two humans, double), counted when it spawns. Hunters grow slower,
   `Bosses.plus(base, server)`: one more for each human past the first
-  (`Bosses.extra`). Badly hurt, a boss
+  (`Bosses.extra`). A job finished before in this world comes back harder
+  (`Bosses.rage`, up to 10 clears of the job under way, `Bosses.clears()`;
+  0 off a quest, so city events never change): `Bosses.health` is +25% a
+  clear, `Bosses.count` and `Bosses.plus` +20%, a boss's own hits are
+  times `Bosses.power()` (+15%), and a regular enemy takes
+  `Bosses.enemyHealth(base)` (+10%) and `Bosses.enemyPower()` on its hits
+  (+10%). Ownerless rounds (`weapons:serverFireFrom` with owner 0) are
+  multiplied there already: `Bosses.enemyPower()`, or `Bosses.power()` for
+  a gun marked `bossGun` (wrap a shared gun, never mutate it); a gun's
+  `blast` is not. A boss's per-player drop of a tiered item rolls its tier
+  with `Bosses.dropTier(rows)` (`Bosses.dropTiers`: always common the first
+  time, legendary possible from the fourth). The boss bar adds "HARDER xN"
+  (Karen's says ANGRIER). Badly hurt, a boss
   breaks off for a medkit lying near it (`bosses/heal.lua`: under 40% of
   its health, within 700 px, +200), and it gets out from under a player's
   ability about to land on it once it has had 0.2 s to see it
