@@ -169,7 +169,8 @@ local function server()
   local nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv = {
     brain = Brain.new({
-      fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware, health = Bosses.enemyHealth(Hunters.health),
+      fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware,
+      health = Bosses.enemyHealth(Hunters.health), -- tougher on a job finished before
       radius = Render.RADIUS, nav = nav, find = findHeal, there = stillThere, take = takeHeal,
     }),
     syncIn = 0,
