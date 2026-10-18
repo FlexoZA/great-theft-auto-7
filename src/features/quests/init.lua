@@ -41,7 +41,9 @@
 --   server -> all     QST_DONE   <questId>              (the job is done)
 --   server -> all     QST_EXIT   <x> <y>                (an EXIT star home stands here, on the map in play)
 --   server -> all     QST_HELD   <questId>              (the trip was taken but a feature holds it up: offers down)
---   server -> player  QST_NO     <reason>               (away | gone)
+--   server -> all     QST_FINISHED [<questId> <clears>]...  (every board job finished in this world so far,
+--                                                         and how many times)
+--   server -> player  QST_NO     <reason>               (away | gone | locked)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -596,6 +598,48 @@ for _, q in ipairs(Quests.list) do
   end
 end
 
+-- Progress ----------------------------------------------------------------
+-- A new game starts with only the first job on the board open. Finishing a
+-- job (its last map: the quest at the end of its `next` chain) opens the
+-- one after it on the board, and the world remembers what is finished
+-- (serverSaveWorld). A finished job stays open to play again, and the
+-- world counts how many times each has been finished (its clears): a boss
+-- may come back harder for it (karen does). Other features ask too: the
+-- events feature keeps a city event shut until its quest is finished.
+Quests.root = {} -- quest id -> the id of the board job its chain starts from
+for _, q in ipairs(Quests.board) do
+  local step, seen = q, {}
+  while step and not seen[step.id] do
+    seen[step.id] = true
+    Quests.root[step.id] = q.id
+    step = Quests.byId[step.next or ""]
+  end
+end
+
+--- Is board job `quest` open, given `finished` (a set of board job ids)?
+--- The first always is; each after it once the one before it is finished.
+--- Anything not on the board (a chain's later maps, the way home) is.
+function Quests.unlocked(quest, finished)
+  if not quest.board then
+    return true
+  end
+  for i, q in ipairs(Quests.board) do
+    if q == quest then
+      return i == 1 or finished[quest.id] == true or finished[Quests.board[i - 1].id] == true
+    end
+  end
+  return false
+end
+
+--- The board job before `quest`, the one to finish to open it.
+function Quests.before(quest)
+  for i, q in ipairs(Quests.board) do
+    if q == quest then
+      return Quests.board[i - 1]
+    end
+  end
+end
+
 -- Tuning ------------------------------------------------------------------
 Quests.starRadius = 60 -- px from the star that brings the offer up
 Quests.leaveRadius = 140 -- px from the star that takes it down again (and forgets a decline)
@@ -609,6 +653,7 @@ local PANEL_W = 560
 local REASONS = {
   away = "Get back to the star (or the Jobs door) to take it.",
   gone = "That job is off the table.",
+  locked = "Finish the job before it first.",
 }
 
 local function cityMap()
@@ -690,6 +735,8 @@ Quests.exit = nil -- the EXIT star a fallen boss left, from the host
 Quests.atJobs = false -- standing on the square by the Jobs building's door
 Quests.boardOpen = false -- the job board is up
 Quests.pick = 1 -- the job picked on the board (an index of `Quests.board`)
+Quests.finished = {} -- board job id -> true once finished in this world, from the host
+Quests.clears = {} -- board job id -> times finished in this world, from the host
 local declined = nil -- quest id turned down; forgotten once you leave its star
 local seenMap = nil -- the map the last frame was on, to notice arriving on another
 local notice, noticeTimer = nil, 0
@@ -706,7 +753,7 @@ end
 -- START, so the quest is only forgotten on the way out.
 function Quests:exitGame()
   self.active, self.done, self.prompt, self.exit, declined, seenMap = nil, nil, nil, nil, nil, nil
-  self.atJobs, self.boardOpen, self.pick = false, false, 1
+  self.atJobs, self.boardOpen, self.pick, self.finished, self.clears = false, false, 1, {}, {}
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
 end
 
@@ -731,9 +778,39 @@ function Quests:actionTaken()
 end
 
 --- Ask the host for job `quest` (the offer or the board stays up until it
---- answers).
+--- answers). A job still locked is refused here and then.
 local function accept(client, quest)
+  if not Quests.unlocked(quest, Quests.finished) then
+    notice, noticeTimer = REASONS.locked, NOTICE_TIME
+    return
+  end
   client:send(Protocol.encode("QST_ACCEPT", quest.id))
+end
+
+--- What the board shows by each job (Jobs.drawBoard's `status`): "done",
+--- or for one still locked the line saying what opens it.
+local function boardStatus()
+  local status = {}
+  for _, q in ipairs(Quests.board) do
+    if Quests.finished[q.id] then
+      status[q.id] = "done"
+    elseif not Quests.unlocked(q, Quests.finished) then
+      local before = Quests.before(q)
+      status[q.id] = "Finish \"" .. (before and before.title or "the job before") .. "\" to open this job."
+    end
+  end
+  return status
+end
+
+--- The board opens on the newest job open: the last one not locked.
+local function newestOpen()
+  local pick = 1
+  for i, q in ipairs(Quests.board) do
+    if Quests.unlocked(q, Quests.finished) then
+      pick = i
+    end
+  end
+  return pick
 end
 
 --- The quest whose star on the map I am on is nearest (x, y), if any.
@@ -787,7 +864,7 @@ function Quests:keypressed(key, client)
   end
   if self.atJobs and Controls.is("jobs", key) and not Features.any("pointerTaken", client) then
     -- (Not under another screen: the board draws over everything, the inventory too.)
-    self.boardOpen, self.pick, notice, noticeTimer = true, 1, nil, 0
+    self.boardOpen, self.pick, notice, noticeTimer = true, newestOpen(), nil, 0
     return
   end
   local quest = self.prompt
@@ -813,7 +890,7 @@ function Quests:mousepressed(x, y, button, client)
   if not self.boardOpen or button ~= 1 or covered() then
     return
   end
-  local L = Jobs.layout(self.board, self.pick)
+  local L = Jobs.layout(self.board, self.pick, boardStatus())
   for i, r in ipairs(L.rows) do
     if Jobs.inside(r, x, y) then
       self.pick = i
@@ -1042,7 +1119,8 @@ function Quests:drawScreen(client)
     local yes = Controls.name(Controls.bindings("quest-accept")[1])
     local no = Controls.name(Controls.bindings("jobs")[1])
     local shown = noticeTimer > 0 and { text = notice, alpha = math.min(1, noticeTimer * 2) } or nil
-    Jobs.drawBoard(Jobs.layout(self.board, self.pick), self.pick, places, shown, { yes, no })
+    local status = boardStatus()
+    Jobs.drawBoard(Jobs.layout(self.board, self.pick, status), self.pick, places, shown, { yes, no }, status)
     local vision = Features.byName.vision
     if vision then
       vision:drawCursor(client) -- over the board, not under it
@@ -1107,6 +1185,15 @@ Quests.clientMessages = {
       declined, Quests.prompt = args[1], nil
     end
   end,
+  QST_FINISHED = function(_client, args)
+    Quests.finished, Quests.clears = {}, {}
+    for i = 1, #args - 1, 2 do
+      local id, n = args[i], tonumber(args[i + 1])
+      if Quests.byId[id] and n and n > 0 then
+        Quests.finished[id], Quests.clears[id] = true, n
+      end
+    end
+  end,
   QST_NO = function(_client, args)
     notice = REASONS[args[1]]
     noticeTimer = notice and NOTICE_TIME or 0
@@ -1115,11 +1202,26 @@ Quests.clientMessages = {
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil, exit = EXIT star or nil }
+local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil, exit = EXIT star or nil,
+--                  finished = { [board job id] = true }, clears = { [board job id] = times finished } }
+
+Quests.SAVE_VERSION = 1
+
+--- QST_FINISHED with every board job finished and its clears, in board order.
+local function finishedMessage()
+  local parts = {}
+  for _, q in ipairs(Quests.board) do
+    if sv.finished[q.id] then
+      parts[#parts + 1] = q.id
+      parts[#parts + 1] = sv.clears[q.id] or 1
+    end
+  end
+  return Protocol.encode("QST_FINISHED", unpack(parts))
+end
 
 -- City-map (lower priority) has put the default map back by now.
 function Quests:serverStart()
-  sv = { active = nil, by = nil, done = nil }
+  sv = { active = nil, by = nil, done = nil, finished = {}, clears = {} } -- a new game: only the first job is open
 end
 
 --- The job under way is finished (the karen feature says so when she goes
@@ -1131,6 +1233,12 @@ function Quests:serverComplete(server, questId, x, y)
   end
   sv.done = questId
   server:broadcast(Protocol.encode("QST_DONE", questId))
+  local root = Quests.root[questId]
+  if root and not Quests.byId[questId].next then
+    sv.finished[root] = true -- the last map of the job: the next one on the board opens
+    sv.clears[root] = (sv.clears[root] or 0) + 1
+    server:broadcast(finishedMessage())
+  end
   local city = cityMap()
   if x and y and city then
     sv.exit = exitQuest(city.current, x, y, Quests.byId[questId])
@@ -1170,6 +1278,41 @@ function Quests:serverBegin(server, quest, player)
   return true
 end
 
+--- Has board job `id` been finished in this world (its last map done)?
+function Quests:serverFinished(id)
+  return sv ~= nil and sv.finished[id] == true
+end
+
+--- How many times board job `id` has been finished in this world (0 for never).
+function Quests:serverClears(id)
+  return sv and sv.clears[id] or 0
+end
+
+--- The world remembers which jobs are finished, and how many times.
+function Quests:serverSaveWorld()
+  if not (sv and next(sv.finished)) then
+    return nil
+  end
+  local clears = {}
+  for id in pairs(sv.finished) do
+    clears[id] = sv.clears[id] or 1
+  end
+  return { version = self.SAVE_VERSION, clears = clears }
+end
+
+function Quests:serverLoadWorld(server, data)
+  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION or type(data.clears) ~= "table" then
+    return
+  end
+  for id, n in pairs(data.clears) do
+    n = tonumber(n)
+    if Quests.byId[id] and Quests.byId[id].board and n and n >= 1 then
+      sv.finished[id], sv.clears[id] = true, math.floor(n)
+    end
+  end
+  server:broadcast(finishedMessage())
+end
+
 --- The quest under way on the host, for other features; nil between jobs.
 function Quests:serverActive()
   return sv and sv.active and self.byId[sv.active] or nil
@@ -1182,6 +1325,9 @@ function Quests:serverPlayerJoined(server, player)
   local city = cityMap()
   if not (sv and city and server.started) or player.bot then
     return
+  end
+  if next(sv.finished) then
+    server:send(player, finishedMessage())
   end
   if city.current ~= city.DEFAULT then
     server:send(player, Protocol.encode("QST_MAP", city.current))
@@ -1232,6 +1378,8 @@ Quests.serverMessages = {
       reason = "gone" -- that star is not on this map (someone else's trip already happened)
     elseif not onStar(server, player, quest) then
       reason = "away"
+    elseif not Quests.unlocked(quest, sv.finished) then
+      reason = "locked"
     else
       local trip = Quests.byId[quest.starts or ""] or quest -- an EXIT star on starts the next
       if Features.any("serverHoldTrip", server, trip, player) then

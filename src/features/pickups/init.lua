@@ -33,7 +33,7 @@
 -- delivery truck: the first human over it with room takes what fits (a
 -- grenade, medkit or drink into its quick slot first, then the bag), and
 -- the rest stays on the ground. So is a factory's goods on
--- their way to the shop ("gun-uzi", "medkit": anything with a
+-- their way to the shop ("gun-ak47", "medkit": anything with a
 -- `Kinds.worth`); rounds spill as an ammo box.
 --
 -- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
@@ -41,6 +41,11 @@
 -- armor on who walks or drives over it wears it at once, whole
 -- (armor:serverWearFound); one with a damaged vest on has theirs topped
 -- back up to full by it; anyone whose vest is whole leaves it lying.
+--
+-- Something meant for the bag (an ammo box, an ability, a won gun, a piece
+-- of clothing, a crate) that a human can't take because their bag has no
+-- room for it says so: "Inventory full" floats up over it on their screen
+-- (PK_FULL, at most every `fullEvery` seconds while they stand on it).
 --
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
@@ -51,6 +56,7 @@
 --                  material; reward: a boss's `perPlayer` drop, drawn with rings rippling out and NEW over it)
 --   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
+--   server -> player PK_FULL <id>                  (you are on it, but your bag has no room for it)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -78,6 +84,7 @@ Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
+Pickups.fullEvery = 2.5 -- seconds between "Inventory full" notices for one item and player
 -- What an enemy drops (serverDropEnemy): one thing at most, `dropChance` of
 -- the time, picked from `drops` by weight ("ammo" is a box for a random gun,
 -- `dropMagazines` of its magazines big; "grenade" is one hand grenade). Out
@@ -127,6 +134,7 @@ local function ammoKind(key)
     end,
     color = { 1, 0.85, 0.35 },
     pitch = 0.8,
+    bag = true, -- it goes into the bag: a full one says so
   }
 end
 
@@ -150,11 +158,12 @@ local function abilityKind(key)
     label = "+" .. Tiers.named(ability.title, tier),
     color = ability.color,
     pitch = 0.6,
+    bag = true,
   }
 end
 
 --- A crate of a material or of a factory's goods: kind "<item>" ("iron",
---- "gun-uzi"), the item a bag carries it as. Only a human picks it up, into their inventory through
+--- "gun-ak47"), the item a bag carries it as. Only a human picks it up, into their inventory through
 --- buildings; what doesn't fit is left on the spot as a smaller crate.
 local function materialKind(key)
   return {
@@ -176,6 +185,7 @@ local function materialKind(key)
     end,
     color = { 0.85, 0.75, 0.55 },
     pitch = 0.7,
+    bag = true,
   }
 end
 
@@ -219,6 +229,7 @@ local function gearKind(key)
     label = "+" .. Tiers.named(piece.title, tier),
     color = piece.color,
     pitch = 0.7,
+    bag = true,
   }
 end
 
@@ -240,6 +251,7 @@ local function wonGunKind(key)
     label = "+" .. Tiers.named(gun.name, tier),
     color = WON_GUN,
     pitch = 0.6,
+    bag = true,
   }
 end
 
@@ -630,7 +642,7 @@ function Pickups:drawAboveCars()
   for _, f in ipairs(self.floats) do
     local c = f.color
     love.graphics.setColor(c[1], c[2], c[3], math.min(1, f.t))
-    love.graphics.printf(f.text, f.x - 60, f.y, 120, "center")
+    love.graphics.printf(f.text, f.x - 100, f.y, 200, "center")
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -645,6 +657,13 @@ Pickups.clientMessages = {
   end,
   PK_CLEAR = function()
     Pickups.items = {}
+  end,
+  PK_FULL = function(_client, args)
+    local it = Pickups.items[tonumber(args[1]) or -1]
+    if it then
+      Pickups.floats[#Pickups.floats + 1] = { x = it.x, y = it.y - 30, text = "Inventory full",
+        color = { 1, 0.4, 0.35 }, t = 1.6 }
+    end
   end,
   PK_TAKE = function(client, args)
     local id, by = tonumber(args[1]), tonumber(args[2])
@@ -942,6 +961,8 @@ function Pickups:serverStep(server, dt)
         elseif took then
           self:serverTake(server, id, player.id, stashed)
           break
+        elseif kind and kind.bag then
+          self:serverTellFull(server, player, id, it)
         end
       end
     end
@@ -955,6 +976,22 @@ function Pickups:serverStep(server, dt)
       i = i + 1
     end
   end
+end
+
+--- `player` is on pickup `id` (`it`) and couldn't take it: if their bag
+--- has no room for it, tell them so, now and then while they stay on it.
+function Pickups:serverTellFull(server, player, id, it)
+  local buildings = Features.byName.buildings
+  if player.bot or not (buildings and buildings.serverRoomFor) or buildings:serverRoomFor(player.id, it.kind) > 0 then
+    return
+  end
+  it.fullTold = it.fullTold or {}
+  local last = it.fullTold[player.id]
+  if last and sv.time - last < self.fullEvery then
+    return
+  end
+  it.fullTold[player.id] = sv.time
+  server:send(player, Protocol.encode("PK_FULL", id))
 end
 
 --- Pickup `id` is taken by player `byId` (0 for somebody who isn't one:

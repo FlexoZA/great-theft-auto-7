@@ -29,6 +29,14 @@
 -- nearest player and punch; two pistol rounds drop one. Once she is down
 -- no more arrive, and the ones left keep swinging until they are dealt with.
 --
+-- She remembers. Every time the job is finished in this world (quests'
+-- clears) she comes back angrier: more health, harder slaps and screams,
+-- and a bigger gang (`Karen.rage`, up to `rage.max` clears). Down, she
+-- drops an uzi for every player (a won gun: picking it up unlocks it in
+-- the shop). The first time it is always a common one; the more often she
+-- has been beaten, the better the odds of an uncommon, rare or legendary
+-- one (`Karen.uziTiers`).
+--
 -- The quests feature brings everyone to her street and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "karen": the host spawns her then, and every client puts up the title
@@ -40,7 +48,8 @@
 -- bar. Bullets reach her through the `serverShotAt` convention.
 --
 -- Messages
---   server -> all  KRN_SPAWN <x> <y> <hp> <max>                    she is here (also to anyone joining)
+--   server -> all  KRN_SPAWN <x> <y> <hp> <max> <rage>             she is here (also to anyone joining);
+--                  rage: how many times she has been beaten in this world before (capped at rage.max)
 --   server -> all  KRN_STATE <tick> <x> <y> <facing> <hp> <charging> <stamina> <winded>  (unreliable, 15 Hz)
 --   server -> all  KRN_SAY   <lineIndex>                          a rant, for the speech bubble
 --   server -> all  KRN_DOWN  <x> <y> <angle> <playerId>            she went down (0 = nobody's kill)
@@ -69,6 +78,7 @@ local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
+local Tiers = require("src.features.tiers")
 
 local Karen = {
   name = "karen",
@@ -104,6 +114,28 @@ Karen.screamDelay = 1.2 -- seconds the ring shows before the scream lands
 Karen.screamRadius = 120 -- px; the area it lands on
 Karen.screamDamage = 20
 Karen.screamBlur = 3 -- seconds the screen swims for anyone caught
+
+-- Coming back angrier: per time the job has been finished in this world.
+Karen.rage = {
+  health = 0.25, -- +25% health each time (1500 -> 1875 -> 2250 ...)
+  damage = 0.15, -- +15% on her slaps and screams each time (15 -> 17 -> 20 ...)
+  simps = 1, -- one more simp at a time each time (5 -> 6 -> 7 ..., for one player)
+  max = 10, -- past this many she gets no angrier
+}
+
+-- Her drop: one uzi for every player, its tier rolled from the row for
+-- how many times she has been beaten before (the last row from then on).
+-- Chances in a hundred.
+Karen.uzi = "gun-uzi"
+Karen.uziTiers = {
+  { common = 100 }, -- the first time: the uzi unlock, always common
+  { common = 80, uncommon = 20 },
+  { common = 65, uncommon = 30, rare = 5 },
+  { common = 50, uncommon = 35, rare = 13, legendary = 2 },
+  { common = 40, uncommon = 35, rare = 18, legendary = 7 },
+  { common = 30, uncommon = 35, rare = 23, legendary = 12 }, -- the sixth time and every time after
+}
+local TIER_ORDER = { "common", "uncommon", "rare", "legendary" }
 
 -- What she is on about. None of it makes any sense; that is the point.
 Karen.lines = {
@@ -154,6 +186,30 @@ local function cityMap()
   return city, city and city.map
 end
 
+--- How many times she has been beaten in this world before, up to rage.max.
+local function rageOf()
+  local quests = Features.byName.quests
+  local clears = quests and quests.serverClears and quests:serverClears("karen") or 0
+  return math.min(clears, Karen.rage.max)
+end
+
+--- The tier of the uzi she drops after `rage` earlier defeats.
+function Karen.uziTier(rage, roll)
+  local row = Karen.uziTiers[math.min(rage + 1, #Karen.uziTiers)]
+  local total = 0
+  for _, tier in ipairs(TIER_ORDER) do
+    total = total + (row[tier] or 0)
+  end
+  roll = (roll or love.math.random()) * total
+  for _, tier in ipairs(TIER_ORDER) do
+    roll = roll - (row[tier] or 0)
+    if roll < 0 then
+      return tier
+    end
+  end
+  return TIER_ORDER[1]
+end
+
 -- Server --------------------------------------------------------------------
 
 local sv = nil -- { boss = { x, y, facing, hp, max, ... } or nil, syncIn }
@@ -185,7 +241,8 @@ function Karen:simpDown(server, kill)
 end
 
 function Karen:spawnBoss(server, x, y)
-  local hp = Bosses.health(self.maxHealth, server)
+  local rage = rageOf()
+  local hp = Bosses.health(self.maxHealth * (1 + self.rage.health * rage), server)
   local _, map = cityMap()
   sv.boss = {
     x = x,
@@ -208,10 +265,12 @@ function Karen:spawnBoss(server, x, y)
     homeY = y,
     nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h }), -- round the houses
     mode = "idle", -- what her brain is doing (brain.lua)
+    rage = rage, -- times beaten before
+    power = 1 + self.rage.damage * rage, -- her slaps and screams, times this
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
-  sv.simps.max = Bosses.count(Simps.MAX, server) -- a bigger gang for a bigger group
-  server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), hp, hp))
+  sv.simps.max = Bosses.count(Simps.MAX + self.rage.simps * rage, server) -- a bigger gang for a bigger group
+  server:broadcast(Protocol.encode("KRN_SPAWN", fmt(x), fmt(y), hp, hp, rage))
 end
 
 function Karen:removeBoss(server)
@@ -275,7 +334,7 @@ function Karen:serverPlayerJoined(server, player)
   end
   local b = sv.boss
   if b then
-    server:send(player, Protocol.encode("KRN_SPAWN", fmt(b.x), fmt(b.y), math.max(0, b.hp), b.max))
+    server:send(player, Protocol.encode("KRN_SPAWN", fmt(b.x), fmt(b.y), math.max(0, b.hp), b.max, b.rage))
   end
   for i = 1, sv.simps.n do
     local s = sv.simps.list[i]
@@ -297,12 +356,17 @@ function Karen:hurt(server, amount, by, angle)
   if b.hp > 0 then
     return false
   end
-  local x, y = b.x, b.y
+  local x, y, rage = b.x, b.y, b.rage
   sv.boss = nil
   server:broadcast(Protocol.encode("KRN_DOWN", fmt(x), fmt(y), ("%.3f"):format(angle or 0), by or 0))
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, x, y, self.drops)
+  end
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local item = Tiers.join(self.uzi, Karen.uziTier(rage))
+    pickups:serverDrop(server, item, x, y + self.radius + 16, nil, { perPlayer = true }) -- one each
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   local quests = Features.byName.quests
@@ -454,7 +518,8 @@ function Karen:scream(server, b)
       if (x - sc.x) ^ 2 + (y - sc.y) ^ 2 <= (self.screamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x), "impact")
+          weapons:serverDamage(server, p, nil, self.screamDamage * b.power, math.atan2(y - sc.y, x - sc.x),
+            "impact")
         end
       end
     end
@@ -620,6 +685,7 @@ Karen.clientMessages = {
     if x and y and hp and max then
       Karen.boss = {
         x = x, y = y, dx = x, dy = y, angle = math.pi / 2, hp = hp, max = max, charging = false,
+        rage = tonumber(args[5]) or 0,
         stamina = Stamina.defaults.max, winded = false, say = nil, sayTimer = 0, bob = love.math.random() * 6,
       }
       Karen.stain = nil
@@ -903,7 +969,8 @@ end
 --- The boss bar along the bottom of the screen.
 local function drawBossBar(b)
   BossBar.draw({
-    title = "CRAZY KAREN", titleColor = { 1, 0.55, 0.75 }, fill = { 0.9, 0.2, 0.45 },
+    title = b.rage > 0 and ("CRAZY KAREN  -  ANGRIER x" .. (b.rage + 1)) or "CRAZY KAREN",
+    titleColor = { 1, 0.55, 0.75 }, fill = { 0.9, 0.2, 0.45 },
     hp = b.hp, max = b.max, stamina = b.stamina, staminaMax = Stamina.defaults.max, winded = b.winded,
   })
 end

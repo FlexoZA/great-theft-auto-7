@@ -7,7 +7,7 @@
 --   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-ak47"), one per
 --                            `Guns.ammoTypes`: "ammo-pistol" is 9mm, for the uzi and the
 --                            SMG (the pistol itself never runs out)
---   gun-<gun>                a gun ("gun-uzi")
+--   gun-<gun>                a gun ("gun-ak47")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   drink                    an energy drink; the carrier downs it for stamina
