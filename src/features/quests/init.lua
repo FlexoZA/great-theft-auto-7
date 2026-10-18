@@ -602,7 +602,7 @@ end
 -- A new game starts with only the first job on the board open. Finishing a
 -- job (its last map: the quest at the end of its `next` chain) opens the
 -- one after it on the board, and the world remembers what is finished
--- (serverSaveWorld). A finished job stays open to play again, and the
+-- (serverSaveWorld, written as soon as everyone is home again). A finished job stays open to play again, and the
 -- world counts how many times each has been finished (its clears): a boss
 -- may come back harder for it (karen does). Other features ask too: the
 -- events feature keeps a city event shut until its quest is finished.
@@ -1288,6 +1288,12 @@ function Quests:serverBegin(server, quest, player)
   if quest.returns then
     if ended then
       Features.call("serverQuestEnded", server, ended)
+    end
+    -- The world is not written while everyone is away (city-map's
+    -- serverWorldSaveHeld), so write it now: a job finished on that trip
+    -- is kept even if the host quits on the next one before an autosave.
+    if server.save then
+      server:save()
     end
   else
     Features.call("serverQuestStarted", server, quest, player)
