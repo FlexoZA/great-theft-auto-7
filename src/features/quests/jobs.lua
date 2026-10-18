@@ -345,8 +345,11 @@ end
 --- names each job's destination; `keys` is { accept, close } for the hints.
 --- `status` (optional) maps a job id to "done" (finished, open to play
 --- again) or, for a job still locked, the line saying what opens it.
-function Jobs.drawBoard(L, selected, places, notice, keys, status)
-  status = status or {}
+--- `levels` (optional) maps an open job's id to { level, max, times }: the
+--- level it is at (how much harder it comes back) and how many times it
+--- was finished, shown at the right of its row.
+function Jobs.drawBoard(L, selected, places, notice, keys, status, levels)
+  status, levels = status or {}, levels or {}
   local w, h = love.graphics.getDimensions()
   local mx, my = love.mouse.getPosition()
   local p = L.panel
@@ -385,11 +388,18 @@ function Jobs.drawBoard(L, selected, places, notice, keys, status)
     local where = locked and "???" or (places[q.id] or q.map)
     love.graphics.print((locked and "LOCKED" or (q.label or "QUEST")) .. "  -  " .. where, r.x + 28, r.y + r.h - 8
       - UI.fonts.small:getHeight())
+    local lv = levels[q.id]
     if status[q.id] == "done" then
       love.graphics.setColor(0.5, 1, 0.55)
-      love.graphics.printf("DONE", r.x, r.y + 10, r.w - 14, "right")
+      local times = lv and lv.times or 1
+      love.graphics.printf(times > 1 and ("DONE x" .. times) or "DONE", r.x, r.y + 10, r.w - 14, "right")
     elseif locked then
       love.graphics.printf("LOCKED", r.x, r.y + 10, r.w - 14, "right")
+    end
+    if lv and not locked then
+      love.graphics.setColor(lv.level > 1 and GOLD or { 0.65, 0.65, 0.7 })
+      love.graphics.printf("LEVEL " .. lv.level .. (lv.max and " (MAX)" or ""), r.x, r.y + r.h - 8
+        - UI.fonts.small:getHeight(), r.w - 14, "right")
     end
   end
 

@@ -802,6 +802,22 @@ local function boardStatus()
   return status
 end
 
+--- The level each open job is at (Jobs.drawBoard's `levels`): 1 the first
+--- time, one more for every time it was finished in this world, as far as
+--- its bosses get harder (bosses' `rage.max`). { level, max, times } by id.
+local function boardLevels()
+  local bosses = Features.byName.bosses
+  local most = bosses and bosses.rage and bosses.rage.max or math.huge
+  local levels = {}
+  for _, q in ipairs(Quests.board) do
+    if Quests.unlocked(q, Quests.finished) then
+      local times = Quests.clears[q.id] or 0
+      levels[q.id] = { level = math.min(times, most) + 1, max = times >= most, times = times }
+    end
+  end
+  return levels
+end
+
 --- The board opens on the newest job open: the last one not locked.
 local function newestOpen()
   local pick = 1
@@ -1120,7 +1136,8 @@ function Quests:drawScreen(client)
     local no = Controls.name(Controls.bindings("jobs")[1])
     local shown = noticeTimer > 0 and { text = notice, alpha = math.min(1, noticeTimer * 2) } or nil
     local status = boardStatus()
-    Jobs.drawBoard(Jobs.layout(self.board, self.pick, status), self.pick, places, shown, { yes, no }, status)
+    Jobs.drawBoard(Jobs.layout(self.board, self.pick, status), self.pick, places, shown, { yes, no }, status,
+      boardLevels())
     local vision = Features.byName.vision
     if vision then
       vision:drawCursor(client) -- over the board, not under it
