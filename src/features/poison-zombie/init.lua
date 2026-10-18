@@ -173,6 +173,7 @@ function Zombie:serverQuestStarted(server, quest)
       x = x, y = y, homeX = x, homeY = y, facing = math.pi / 2, hp = max, max = max, mode = "wait", t = 0,
       frozen = 0, breath = Stamina.new(Zombie.breath), swipeIn = 0, throwIn = 1, crabs = Zombie.crabs,
       regrowIn = Zombie.regrow, side = love.math.random() < 0.5 and -1 or 1, rammed = {},
+      power = Bosses.power(), -- his swipes and what a ram does to the car, times this
     },
   }
 end
@@ -254,7 +255,7 @@ local function rams(server, z, dt)
         z.rammed[id] = 0.6
         local weapons = Features.byName.weapons
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, Zombie.ramDamageToCar, away, "impact")
+          weapons:serverDamage(server, p, nil, Zombie.ramDamageToCar * z.power, away, "impact")
         end
         Brain.wake(z)
         z.hp = z.hp - speed * Zombie.ramScale
@@ -330,7 +331,8 @@ function Zombie:serverStep(server, dt)
   sv.crabs:update(server, dt, function(c, q)
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, q.p, nil, q.car and Crabs.SCRATCH or Crabs.BITE, c.facing, "poison")
+      local amount = (q.car and Crabs.SCRATCH or Crabs.BITE) * Bosses.enemyPower()
+      weapons:serverDamage(server, q.p, nil, amount, c.facing, "poison")
     end
     server:broadcast(Protocol.encode("PZM_BITE", fmt(c.x), fmt(c.y)))
   end)

@@ -123,7 +123,7 @@ local function strike(v, server, events)
         local x, y = Features.bodyPose(server, p)
         local k = math.max(0, math.min(1, ((x - v.x) * dx + (y - v.y) * dy) / len2))
         if dist2(x, y, v.x + dx * k, v.y + dy * k) <= v.BOLT_WIDTH ^ 2 then
-          hurt(server, p, v.BOLT_DAMAGE, a)
+          hurt(server, p, v.BOLT_DAMAGE * v.power, a)
         end
       end
     end
@@ -151,7 +151,7 @@ local function stepGrenades(v, server, dt, events)
             if dist2(x, y, g.x, g.y) <= v.FIELD_RADIUS ^ 2 then
               local first = not g.hit[p]
               g.hit[p] = true
-              hurt(server, p, first and v.FIELD_FIRST or v.FIELD_DAMAGE, math.atan2(y - g.y, x - g.x))
+              hurt(server, p, (first and v.FIELD_FIRST or v.FIELD_DAMAGE) * v.power, math.atan2(y - g.y, x - g.x))
             end
           end
         end

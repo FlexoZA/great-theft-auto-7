@@ -270,11 +270,12 @@ function Vex.serverStep(server, dt)
     local r = sv.relays[sv.at]
     server:broadcast(Protocol.encode("VX_PULSE", ("%.0f"):format(r.x), ("%.0f"):format(r.y), Vex.pulseRadius))
     local weapons = Features.byName.weapons
+    local amount = Vex.pulseDamage * Bosses.power() -- (harder on a job finished before)
     for _, p in pairs(server.players) do
       if Features.visible(server, p) then
         local x, y = Features.bodyPose(server, p)
         if dist2(x, y, r.x, r.y) <= Vex.pulseRadius ^ 2 and weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, Vex.pulseDamage, math.atan2(y - r.y, x - r.x), "shock")
+          weapons:serverDamage(server, p, nil, amount, math.atan2(y - r.y, x - r.x), "shock")
         end
       end
     end

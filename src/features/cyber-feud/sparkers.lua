@@ -26,6 +26,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
 local Corpses = require("src.features.corpses")
+local Bosses = require("src.features.bosses")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Brain = require("src.features.cyber-feud.sparker_brain")
@@ -81,7 +82,8 @@ local function lob(server, s, x, y)
 end
 
 --- An EMP going off at (x, y): a jolt to every player on foot within its
---- radius, harder nearer the middle, and any watcher drone caught knocked out.
+--- radius, harder nearer the middle (and on a job finished before), and any
+--- watcher drone caught knocked out.
 local function burst(server, x, y)
   server:broadcast(Protocol.encode("SPK_EMP", fmt(x), fmt(y)))
   require("src.features.cyber-feud.watchers").serverEmp(x, y, Sparkers.EMP.radius) -- the machines it is for
@@ -91,13 +93,13 @@ local function burst(server, x, y)
   if not (weapons and weapons.serverDamage) then
     return
   end
-  local E = Sparkers.EMP
+  local E, power = Sparkers.EMP, Bosses.enemyPower()
   for _, p in pairs(server.players) do
     if Features.visible(server, p) and not p.vehicle then
       local px, py = Features.bodyPose(server, p)
       local d = math.sqrt(dist2(px, py, x, y))
       if d <= E.radius then
-        local amount = math.floor(E.damage * (1 - (2 / 3) * d / E.radius) + 0.5)
+        local amount = math.floor(E.damage * power * (1 - (2 / 3) * d / E.radius) + 0.5)
         weapons:serverDamage(server, p, nil, amount, math.atan2(py - y, px - x), "shock")
       end
     end
@@ -110,7 +112,7 @@ function Sparkers.serverStart(server, map, nav, calm)
     return nil -- (the tower has none to start with: they come in with the break-ins, `serverJoin`)
   end
   local brain = Brain.new({
-    fov = Sparkers.fov, aware = Sparkers.aware, health = Sparkers.health, nav = nav, lob = lob,
+    fov = Sparkers.fov, aware = Sparkers.aware, health = Bosses.enemyHealth(Sparkers.health), nav = nav, lob = lob,
     firstId = Sparkers.firstId, calm = calm,
   })
   for _, r in ipairs(map.sparkers or {}) do
@@ -419,8 +421,8 @@ function Sparkers.drawAboveCars()
       love.graphics.setColor(CYAN)
       love.graphics.printf("!", s.dx - 20, s.dy - r - 31, 40, "center")
     end
-    if s.hp < Sparkers.health then
-      local bw, f = 20, math.max(0, s.hp / Sparkers.health)
+    if s.hp < s.top then
+      local bw, f = 20, math.max(0, s.hp / s.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 3, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -497,6 +499,7 @@ Sparkers.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Sparkers.health, hp) -- (tougher on a job finished before)
         s.alert = args[i + 5] == "1"
         s.windUp = args[i + 6] == "1"
         seen[id] = true

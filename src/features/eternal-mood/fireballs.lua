@@ -15,13 +15,16 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
+local Bosses = require("src.features.bosses")
 
 local Fireballs = {}
 
 Fireballs.FOOT = 10 -- px; how fat a player on foot is to them (weapons' FOOT_RADIUS)
 
 -- Each kind: its code on the wire, speed (px/s), ttl (s), radius (px),
--- damage and its type, and its colours (outside, inside).
+-- damage and its type, `boss` for a boss's (its damage grows by
+-- Bosses.power() on a job finished before, the others' by
+-- Bosses.enemyPower()), and its colours (outside, inside).
 Fireballs.KINDS = {
   fireball = { -- an imp's: a player sprints at 170, so a step to the side does it
     code = "f", speed = 330, ttl = 2.4, radius = 9, damage = 14, dtype = "fire",
@@ -32,11 +35,11 @@ Fireballs.KINDS = {
     color = { 1.00, 0.32, 0.18 }, core = { 1.00, 0.80, 0.55 }, tail = 5,
   },
   baron = { -- the Baron of Heck's: green, in pairs
-    code = "b", speed = 360, ttl = 2.6, radius = 11, damage = 22, dtype = "fire",
+    code = "b", speed = 360, ttl = 2.6, radius = 11, damage = 22, dtype = "fire", boss = true,
     color = { 0.35, 1.00, 0.35 }, core = { 0.85, 1.00, 0.75 }, tail = 5,
   },
   plasma = { -- the Floor Manager's: quicker and smaller, in streams
-    code = "p", speed = 520, ttl = 1.6, radius = 6, damage = 9, dtype = "shock",
+    code = "p", speed = 520, ttl = 1.6, radius = 6, damage = 9, dtype = "shock", boss = true,
     color = { 0.35, 1.00, 0.45 }, core = { 0.85, 1.00, 0.85 }, tail = 3,
   },
 }
@@ -72,7 +75,7 @@ function Fireballs.serverThrow(server, x, y, angle, kind)
   end
   local k = Fireballs.KINDS[kind or "fireball"]
   local b = { id = sv.nextId, x = x, y = y, vx = math.cos(angle) * k.speed, vy = math.sin(angle) * k.speed, age = 0,
-    kind = k }
+    kind = k, damage = k.damage * (k.boss and Bosses.power() or Bosses.enemyPower()) }
   sv.nextId = sv.nextId + 1
   sv.list[#sv.list + 1] = b
   server:broadcast(Protocol.encode("HRD_BALL", b.id, fmt(x), fmt(y), fmt(b.vx), fmt(b.vy), k.code))
@@ -105,7 +108,7 @@ function Fireballs.serverStep(server, dt)
     end
     if hit then
       if weapons and weapons.serverDamage then
-        weapons:serverDamage(server, hit, nil, k.damage, math.atan2(b.vy, b.vx), k.dtype)
+        weapons:serverDamage(server, hit, nil, b.damage, math.atan2(b.vy, b.vx), k.dtype)
       end
       burst(server, b, i)
     elseif b.age >= k.ttl or Sight.blocked(b.x, b.y) then

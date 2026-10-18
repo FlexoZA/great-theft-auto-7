@@ -84,6 +84,22 @@ function Major.nestKind()
   return Features.byName.abilities and require("src.features.abilities.mgnest") or nil
 end
 
+-- A shared gun (his rifle, the nest's MG) as his own: the same gun, but
+-- marked `bossGun` so its rounds hit as hard as he does (Bosses.power,
+-- through Weapons:serverFireFrom). Made once per gun; the shared table is
+-- never touched.
+local bossGuns = setmetatable({}, { __mode = "k" })
+
+--- `gun`, as one of his.
+function Major.bossGun(gun)
+  local mine = bossGuns[gun]
+  if not mine then
+    mine = setmetatable({ bossGun = true }, { __index = gun })
+    bossGuns[gun] = mine
+  end
+  return mine
+end
+
 --- Him, at (x, y), with `hp` hit points (HEALTH when not given), finding
 --- his way round walls on `nav` (d-day/nav.lua's walking grid) if given.
 function Major.new(x, y, hp, nav)
@@ -185,7 +201,7 @@ function Major:stepNests(server)
         local t = nest.nextShot - nest.placedAt
         local aim = nest.angle + (Nest.arc / 2) * 0.9 * math.sin(2 * math.pi * t / Nest.sweep)
         local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
-        weapons:serverFireFrom(server, 0, mx, my, aim, Nest.gun)
+        weapons:serverFireFrom(server, 0, mx, my, aim, Major.bossGun(Nest.gun))
         nest.nextShot = nest.nextShot + Nest.fireEvery
       end
     end

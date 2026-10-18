@@ -40,6 +40,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Nav = require("src.features.d-day.nav")
 local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
@@ -112,9 +113,15 @@ local function server()
   return sv
 end
 
---- One standing at (x, y), watching `watch`. Returns it.
+--- One standing at (x, y), watching `watch`. Returns it. Its health and
+--- shield grow with the clears of the job under way (Bosses.enemyHealth).
 function Suppressors:serverPost(_server, x, y, watch)
-  return server().brain:add(x, y, watch or 0, minigun())
+  local u = server().brain:add(x, y, watch or 0, minigun())
+  u.hp = Bosses.enemyHealth(Suppressors.health)
+  u.max = u.hp
+  u.shield = Bosses.enemyHealth(Suppressors.shield)
+  u.shieldMax = u.shield
+  return u
 end
 
 --- Take every one away.
@@ -321,16 +328,16 @@ function Suppressors:drawAboveCars()
   for _, u in pairs(shown) do
     Render.draw(u.dx, u.dy, u.facing, {
       swing = math.sin(u.cycle * 2 * math.pi) * u.stride, turn = u.turn, flash = u.flash > 0, alert = u.alert,
-      hurt = u.hurt / HURT * 0.7, shield = u.shield / Suppressors.shield, glow = u.glow / GLOW, venting = u.venting,
+      hurt = u.hurt / HURT * 0.7, shield = u.shield / u.shieldMax, glow = u.glow / GLOW, venting = u.venting,
     }, clock)
-    if u.hp < Suppressors.health or u.shield < Suppressors.shield then -- bars under it once it is hit
+    if u.hp < u.max or u.shield < u.shieldMax then -- bars under it once it is hit
       local bw, y = 34, u.dy + Render.RADIUS + 8
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", u.dx - bw / 2 - 1, y - 1, bw + 2, 9)
-      local s = math.max(0, u.shield / Suppressors.shield)
+      local s = math.max(0, u.shield / u.shieldMax)
       love.graphics.setColor(Render.SHIELD[1], Render.SHIELD[2], Render.SHIELD[3])
       love.graphics.rectangle("fill", u.dx - bw / 2, y, bw * s, 3)
-      local f = math.max(0, u.hp / Suppressors.health)
+      local f = math.max(0, u.hp / u.max)
       love.graphics.setColor(1 - f, f, 0.2)
       love.graphics.rectangle("fill", u.dx - bw / 2, y + 4, bw * f, 3)
     end
@@ -369,6 +376,9 @@ Suppressors.clientMessages = {
           u.glow = GLOW
         end
         u.hp, u.shield = hp, shield
+        -- Tougher on a job finished before: the most it has been seen with.
+        u.max = math.max(u.max or Suppressors.health, hp)
+        u.shieldMax = math.max(u.shieldMax or Suppressors.shield, shield)
         u.alert = args[i + 6] == "1"
         u.wary = args[i + 6] ~= "0"
         local spin = (tonumber(args[i + 7]) or 0) / 9

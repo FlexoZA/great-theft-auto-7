@@ -97,7 +97,8 @@ Mancubus.HELMET_AWAY = 90 -- px from his wreck it lands, clear of the koins
 Mancubus.GUN = {
   speed = 430, -- px/s: you see them coming
   ttl = 2.2, -- about 950 px, then they go off
-  blast = { radius = 100, damage = 40, soft = 0 },
+  blast = { radius = 100, damage = 40, soft = 0 }, -- (times Bosses.power() on a job finished before: armed below)
+  bossGun = true, -- a boss's: its rockets hit harder on a job finished before (weapons' serverFireFrom)
 }
 
 Mancubus.lines = {
@@ -135,6 +136,21 @@ function Mancubus.gun()
   return gun
 end
 
+--- His launchers for this fight: their blast hits harder on a job finished
+--- before too (the weapons feature grows a boss gun's rounds, not its blast).
+local function armed()
+  local base, power = Mancubus.gun(), Bosses.power()
+  if power == 1 then
+    return base
+  end
+  local blast = {}
+  for k, v in pairs(base.blast) do
+    blast[k] = v
+  end
+  blast.damage = blast.damage * power
+  return setmetatable({ blast = blast }, { __index = base })
+end
+
 -- The man ---------------------------------------------------------------------
 
 function Mancubus.new(x, y, facing, hp, nav, home)
@@ -142,6 +158,7 @@ function Mancubus.new(x, y, facing, hp, nav, home)
     x = x, y = y, facing = facing, aim = facing, hp = hp, max = hp, nav = nav, home = home, time = 0, move = nil,
     moveT = 0, bumpIn = 1, attackIn = 1.5, sayIn = 6, frozen = 0, stuck = 0, left = 0, rocketIn = 0, arm = 1,
     phase2 = false, calls = 0, backIn = 0, breath = Stamina.new(Mancubus.BREATH), running = false, mode = "hunt",
+    power = Bosses.power(), -- its hits, times this: harder on a job finished before
   }, Mancubus)
 end
 
@@ -202,7 +219,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { m, spec, awake, syncIn, down }
+local sv = nil -- { m, spec, awake, syncIn, down, gun }
 
 --- Him in front of `map`'s gate (its `horde.boss` of kind "mancubus"),
 --- finding his way on `nav`. Nothing on a map without him.
@@ -213,7 +230,8 @@ function Mancubus.serverStart(server, map, nav)
     return
   end
   sv = { m = Mancubus.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(Mancubus.HEALTH, server), nav,
-    { x = spec.x, y = spec.y, facing = spec.facing or math.pi / 2 }), spec = spec, awake = false, syncIn = 0 }
+    { x = spec.x, y = spec.y, facing = spec.facing or math.pi / 2 }), spec = spec, awake = false, syncIn = 0,
+    gun = armed() }
 end
 
 function Mancubus.serverStop(server)
@@ -301,7 +319,7 @@ function Mancubus.serverStep(server, dt)
         local weapons = Features.byName.weapons
         if weapons and weapons.serverFireFrom then
           local Horde = require("src.features.eternal-mood.horde")
-          weapons:serverFireFrom(server, 0, e[2], e[3], e[4], Mancubus.gun(), Horde.FROM)
+          weapons:serverFireFrom(server, 0, e[2], e[3], e[4], sv.gun, Horde.FROM)
         end
       elseif e[1] == "bump" then
         server:broadcast(Protocol.encode("MC_BUMP", fmt(e[2]), fmt(e[3])))
@@ -347,7 +365,8 @@ local function down(server, by, angle)
   end
   if pickups and pickups.serverDrop then
     local hx, hy = helmetSpot(m.x, m.y, m.facing)
-    pickups:serverDrop(server, Mancubus.HELMET, hx, hy, nil, { perPlayer = true })
+    local item = Tiers.join(Mancubus.HELMET, Bosses.dropTier()) -- its tier rolled: better on a job finished before
+    pickups:serverDrop(server, item, hx, hy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = m.x, y = m.y, by = by, angle = angle })
 end

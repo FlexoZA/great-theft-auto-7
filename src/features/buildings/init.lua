@@ -1745,6 +1745,12 @@ function Buildings:serverCount(id, item)
   return sv and sv.stock[id] and sv.stock[id][item] or 0
 end
 
+--- How many more of `item` player `id` has room for, on the host (0 with
+--- no game). Pickups asks before saying a bag is full.
+function Buildings:serverRoomFor(id, item)
+  return sv and roomFor(id, item) or 0
+end
+
 --- Take up to `n` of `item` out of `player`'s inventory and tell them.
 --- Returns how many were taken. Weapons loads its magazines this way.
 function Buildings:serverTake(server, player, item, n)

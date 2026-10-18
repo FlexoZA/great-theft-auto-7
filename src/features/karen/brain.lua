@@ -232,7 +232,7 @@ function Brain.think(k, b, server, dt)
     b.slapTimer = k.slapInterval
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, target, nil, k.slapDamage, b.facing, "melee")
+      weapons:serverDamage(server, target, nil, k.slapDamage * (b.power or 1), b.facing, "melee")
     end
   end
   return false, events

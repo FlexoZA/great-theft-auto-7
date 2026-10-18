@@ -26,6 +26,7 @@
 -- No sight cones: they come up already knowing where you are.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 
 local Brain = {}
 Brain.__index = Brain
@@ -33,7 +34,7 @@ Brain.__index = Brain
 -- Tuning --------------------------------------------------------------------
 
 Brain.RADIUS = 11 -- px; its body (render.lua's RADIUS)
-Brain.HEALTH = 36 -- two pistol or AK rounds, three of the uzi's, four shotgun pellets
+Brain.HEALTH = 36 -- two pistol or AK rounds, three of the uzi's, four shotgun pellets (more per clear: Bosses)
 Brain.WAKE = 320 -- px from a buried one that brings its swarm up
 Brain.WAKE_SPREAD = 1.1 -- seconds over which a swarm's antlions come up
 Brain.RISE = 0.9 -- seconds crawling up out of the sand
@@ -42,7 +43,7 @@ Brain.CHASE = 1400 -- px it will go after somebody from
 Brain.GIVE_UP = 6 -- seconds with nobody to go after before it goes back under
 Brain.RUN = 150 -- px/s; a sprint (170) gets away, slowly
 Brain.REACH = 26 -- px between their middles that a bite reaches
-Brain.BITE = 5 -- what a bite takes off
+Brain.BITE = 5 -- what a bite takes off (more per clear: Bosses.enemyPower)
 Brain.BITE_HIT = 0.22 -- seconds into a bite that the mandibles close
 Brain.BITE_TIME = 0.38 -- seconds a bite takes
 Brain.BITE_EVERY = 0.75 -- seconds after one bite before the next can start
@@ -86,6 +87,7 @@ end
 function Brain:bury(x, y, r, count)
   local swarm = { members = {} }
   self.swarms[#self.swarms + 1] = swarm
+  local hp = Bosses.enemyHealth(Brain.HEALTH)
   for _ = 1, count do
     local ax, ay = x, y
     for _ = 1, 20 do
@@ -97,7 +99,7 @@ function Brain:bury(x, y, r, count)
       end
     end
     local a = {
-      id = self.nextId, x = ax, y = ay, facing = random() * 2 * math.pi, hp = Brain.HEALTH,
+      id = self.nextId, x = ax, y = ay, facing = random() * 2 * math.pi, hp = hp,
       mode = "under", t = 0, swarm = swarm, biteIn = 0, leapIn = random() * Brain.LEAP_EVERY, lost = 0,
       frozen = 0, side = random() < 0.5 and -1 or 1,
     }
@@ -332,7 +334,7 @@ end
 local function bite(server, a, q)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage then
-    weapons:serverDamage(server, q.p, nil, Brain.BITE, a.facing, "melee")
+    weapons:serverDamage(server, q.p, nil, Brain.BITE * Bosses.enemyPower(), a.facing, "melee")
   end
 end
 

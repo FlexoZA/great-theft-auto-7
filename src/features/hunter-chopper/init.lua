@@ -50,6 +50,7 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Bar = require("src.features.bosses.bar")
 local Render = require("src.features.hunter-chopper.render")
 local Flight = require("src.features.hunter-chopper.flight")
@@ -210,8 +211,9 @@ local function crash(server)
   server:broadcast(Protocol.encode("HC_DOWN", fmt(x), fmt(y), ("%.3f"):format(f.angle)))
   local weapons = Features.byName.weapons
   if weapons and weapons.explode then
+    local damage = HunterChopper.crashDamage * Bosses.power()
     weapons:explode(server, { id = 0, owner = 0, vx = 0, vy = 1,
-      blast = { radius = HunterChopper.crashRadius, damage = HunterChopper.crashDamage, soft = 4 } }, x, y)
+      blast = { radius = HunterChopper.crashRadius, damage = damage, soft = 4 } }, x, y)
   end
   local money = Features.byName.money
   if money and money.drop then
@@ -220,7 +222,8 @@ local function crash(server)
   local pickups = Features.byName.pickups
   if pickups and pickups.serverDrop then
     local gx, gy = gunSpot(x, y)
-    pickups:serverDrop(server, HunterChopper.GUN, gx, gy, nil, { perPlayer = true })
+    local item = Tiers.join(HunterChopper.GUN, Bosses.dropTier()) -- better the more it has been beaten
+    pickups:serverDrop(server, item, gx, gy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = down.by, angle = down.angle })
   local quests = Features.byName.quests

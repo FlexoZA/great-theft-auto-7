@@ -10,8 +10,13 @@
 -- A machine has no breath (the Hunter-Chopper): `noBreath = true` leaves
 -- the thin bar off. Two bosses at once (the Roof's): `row = 1` puts the
 -- second one's bar above the first's.
+--
+-- On a job finished before in this world the title says how many times
+-- over the boss is, from `Bosses.clientClears()`: "CRAZY KAREN  -  HARDER
+-- x2". `harder` puts a word of the boss's own in ("ANGRIER").
 
 local UI = require("src.ui")
+local Bosses = require("src.features.bosses")
 
 local Bar = {}
 
@@ -25,11 +30,16 @@ function Bar.draw(spec)
   local w, h = love.graphics.getDimensions()
   local bw, bh = Bar.width, Bar.height
   local bx, by = math.floor((w - bw) / 2), h - Bar.bottom - (spec.row or 0) * Bar.rowGap
+  local clears = Bosses.clientClears()
+  local title = spec.title
+  if clears > 0 then
+    title = title .. "  -  " .. (spec.harder or "HARDER") .. " x" .. (clears + 1)
+  end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.printf(spec.title, 1, by - 19, w, "center")
+  love.graphics.printf(title, 1, by - 19, w, "center")
   love.graphics.setColor(spec.titleColor)
-  love.graphics.printf(spec.title, 0, by - 20, w, "center")
+  love.graphics.printf(title, 0, by - 20, w, "center")
   love.graphics.setColor(0, 0, 0, 0.65)
   love.graphics.rectangle("fill", bx - 2, by - 2, bw + 4, bh + 4, 3)
   local f = math.max(0, math.min(1, (spec.hp or 0) / math.max(1, spec.max or 1)))

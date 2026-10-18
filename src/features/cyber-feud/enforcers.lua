@@ -23,6 +23,7 @@ local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Bosses = require("src.features.bosses")
 local Corpses = require("src.features.corpses")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
@@ -76,7 +77,8 @@ function Enforcers.serverStart(server, map, calm)
     return nil
   end
   local brain = Brain.new({
-    fov = Enforcers.fov, alertFov = Enforcers.alertFov, aware = Enforcers.aware, health = Enforcers.health,
+    fov = Enforcers.fov, alertFov = Enforcers.alertFov, aware = Enforcers.aware,
+    health = Bosses.enemyHealth(Enforcers.health),
     from = "halcyon", firstId = Enforcers.firstId, calm = calm,
   })
   for _, p in ipairs(map.enforcers) do
@@ -307,8 +309,8 @@ function Enforcers.drawAboveCars()
       love.graphics.setColor(MAGENTA)
       love.graphics.printf("!", s.dx - 20, s.dy - r - 31, 40, "center")
     end
-    if s.hp < Enforcers.health then
-      local bw, f = 24, math.max(0, s.hp / Enforcers.health)
+    if s.hp < s.top then
+      local bw, f = 24, math.max(0, s.hp / s.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 5, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -368,6 +370,7 @@ Enforcers.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Enforcers.health, hp) -- (tougher on a job finished before)
         s.alert = args[i + 5] == "1"
         s.wary = args[i + 5] ~= "0"
         if args[i + 6] == "1" then

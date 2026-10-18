@@ -315,7 +315,7 @@ function Brain.think(m, server, dt)
       local moved = m:walk(m.aim, m.CHARGE_SPEED, dt)
       local slid = dist2(before.x, before.y, m.x, m.y) < (m.CHARGE_SPEED * dt * 0.6) ^ 2
       m.facing = m.aim
-      if strike(server, m.x, m.y, m.CHARGE_HIT, nil, nil, m.CHARGE_DAMAGE, "impact", m.CHARGE_SHOVE) > 0 then
+      if strike(server, m.x, m.y, m.CHARGE_HIT, nil, nil, m.CHARGE_DAMAGE * m.power, "impact", m.CHARGE_SHOVE) > 0 then
         events[#events + 1] = { "hit", "charge", m.x, m.y }
         m.move = nil
         nextAttack(m)
@@ -341,7 +341,7 @@ function Brain.think(m, server, dt)
       local f, t = m.leapFrom, m.leapTo
       m.x, m.y = f.x + (t.x - f.x) * k, f.y + (t.y - f.y) * k
       if k >= 1 then
-        strike(server, m.x, m.y, m.LEAP_HIT, nil, nil, m.LEAP_DAMAGE, "impact", m.LEAP_SHOVE)
+        strike(server, m.x, m.y, m.LEAP_HIT, nil, nil, m.LEAP_DAMAGE * m.power, "impact", m.LEAP_SHOVE)
         events[#events + 1] = { "hit", "leap", m.x, m.y }
         m.move, m.moveT, m.leapFrom = "land", 0, nil
         m.goal = nil
@@ -358,7 +358,7 @@ function Brain.think(m, server, dt)
       end
     elseif m.move == "claw" then
       if m.moveT >= m.CLAW_WINDUP then
-        if strike(server, m.x, m.y, m.CLAW_REACH, m.facing, m.CLAW_ARC, m.CLAW_DAMAGE, "melee", 60) > 0 then
+        if strike(server, m.x, m.y, m.CLAW_REACH, m.facing, m.CLAW_ARC, m.CLAW_DAMAGE * m.power, "melee", 60) > 0 then
           events[#events + 1] = { "hit", "claw", m.x + math.cos(m.facing) * 40, m.y + math.sin(m.facing) * 40 }
         end
         m.move, m.clawIn = nil, m.CLAW_EVERY

@@ -123,7 +123,8 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  sv.troops = Soldiers.new({ aware = Dday.aware })
+  -- tougher each time the beach has been taken before (their rifles already hit harder: Weapons:serverFireFrom)
+  sv.troops = Soldiers.new({ aware = Dday.aware, health = Bosses.enemyHealth(Soldiers.HEALTH) })
   sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
   sv.maxRiflemen = Bosses.count(self.riflemen, server)
@@ -223,12 +224,13 @@ function Dday:mortarLands(server, m)
     return
   end
   local caught = {}
+  local full = self.mortarDamage * Bosses.enemyPower() -- the defenders' guns, harder each time the beach is taken
   for _, p in pairs(server.players) do
     if Features.present(p) then
       local x, y = Features.bodyPose(server, p)
       local d = math.max(0, math.sqrt((x - m.x) ^ 2 + (y - m.y) ^ 2) - 7)
       if d <= R then
-        local amount = math.floor(self.mortarDamage * (1 - (2 / 3) * d / R) + 0.5)
+        local amount = math.floor(full * (1 - (2 / 3) * d / R) + 0.5)
         caught[#caught + 1] = { p = p, amount = amount, angle = math.atan2(y - m.y, x - m.x) }
       end
     end
@@ -644,6 +646,7 @@ Dday.clientMessages = {
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Soldiers.HEALTH
+        s.top = math.max(s.top or Soldiers.HEALTH, s.hp) -- his bar's full: more than HEALTH once the beach is taken
         local flag = args[i + 5] or "g"
         s.kind = flag:lower() == "r" and "rifleman" or "guard"
         s.alert = flag ~= flag:lower()

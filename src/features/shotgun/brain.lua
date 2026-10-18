@@ -29,6 +29,12 @@ local Brain = {}
 
 local random = love.math.random
 
+-- His rifle and pistol: the shared guns, marked `bossGun` so their rounds
+-- hit as hard as he does (Bosses.power, through Weapons:serverFireFrom).
+-- The shared tables are never touched.
+local RIFLE = setmetatable({ bossGun = true }, { __index = Guns.sniper })
+local PISTOL = setmetatable({ bossGun = true }, { __index = Guns.pistol })
+
 local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
@@ -144,7 +150,7 @@ local function fireRifle(server, map, b, aim, reach)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverFireFrom then
     local mx, my = b.muzzle(map, b.x, b.y, aim, reach)
-    weapons:serverFireFrom(server, 0, mx, my, aim, Guns.sniper)
+    weapons:serverFireFrom(server, 0, mx, my, aim, RIFLE)
   end
 end
 
@@ -153,7 +159,7 @@ local function firePistol(server, b, aim)
   if weapons and weapons.serverFireFrom then
     aim = aim + (random() * 2 - 1) * b.PISTOL_SPREAD
     weapons:serverFireFrom(server, 0, b.x + math.cos(aim) * b.MUZZLE, b.y + math.sin(aim) * b.MUZZLE,
-      aim, Guns.pistol)
+      aim, PISTOL)
   end
 end
 

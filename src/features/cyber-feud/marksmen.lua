@@ -32,8 +32,8 @@ local Sight = require("src.features.d-day.sight")
 local Marksmen = {}
 
 -- Tuning ------------------------------------------------------------------
-Marksmen.count = 3 -- for one human...
-Marksmen.perHuman = 1 -- ...and this many more for each human past the first
+Marksmen.count = 3 -- for one human, one more for each human past the first (Bosses.plus), and more on a job
+-- finished before
 Marksmen.health = 40
 Marksmen.damage = 40 -- one round of the rifle: hits hard
 Marksmen.roundSpeed = 1700 -- px/s
@@ -86,9 +86,9 @@ function Marksmen.serverStart(server, map, calm)
   if not map.marksmen then
     return nil
   end
-  local brain = Brain.new({ health = Marksmen.health, fire = fire, firstId = Marksmen.firstId, calm = calm,
-    roundSpeed = Marksmen.roundSpeed, indoors = map.kind == "tower" })
-  local n = math.min(#map.marksmen, Marksmen.count + Marksmen.perHuman * (Bosses.humans(server) - 1))
+  local brain = Brain.new({ health = Bosses.enemyHealth(Marksmen.health), fire = fire, firstId = Marksmen.firstId,
+    calm = calm, roundSpeed = Marksmen.roundSpeed, indoors = map.kind == "tower" })
+  local n = math.min(#map.marksmen, Bosses.plus(Marksmen.count, server))
   for i = 1, n do
     local p = map.marksmen[i]
     brain:add(p.x, p.y, p.watch)
@@ -265,8 +265,8 @@ function Marksmen.drawAboveCars()
       love.graphics.setColor(1, 1, 1, s.hurt / HURT * 0.6)
       love.graphics.circle("fill", s.x, s.y, Body.SHOULDERS, 12)
     end
-    if s.hp < Marksmen.health then
-      local bw, f, r = 20, math.max(0, s.hp / Marksmen.health), Body.SHOULDERS
+    if s.hp < s.top then
+      local bw, f, r = 20, math.max(0, s.hp / s.top), Body.SHOULDERS
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", s.x - bw / 2 - 1, s.y + r + 3, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -314,6 +314,7 @@ Marksmen.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Marksmen.health, hp) -- (tougher on a job finished before)
         s.state = tonumber(args[i + 5]) or 0
         seen[id] = true
       end

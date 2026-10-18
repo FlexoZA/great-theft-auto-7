@@ -8,8 +8,8 @@
 -- A swarm hangs over its gantry until a player comes near, then strafes
 -- them: run after run straight through where they are going, a light gun
 -- firing as each comes in (Halcyon's rounds), looping round to come again,
--- faster than a car. `count` swarms of `size` for one human, `perHuman`
--- more swarms for each human past the first. 20 health each: one or two
+-- faster than a car. `count` swarms of `size` for one human, one
+-- more swarm for each human past the first. 20 health each: one or two
 -- rounds. Only players' rounds reach them (the factions' pass under), and
 -- an EMP knocks them out (`serverEmp`, the sparkers' bursts).
 --
@@ -31,8 +31,8 @@ local UZI_TTL = 1.2 -- its uzi's rounds fly the full way (weapons' default): the
 local Stings = {}
 
 -- Tuning ------------------------------------------------------------------
-Stings.count = 2 -- swarms for one human...
-Stings.perHuman = 1 -- ...and this many more for each human past the first
+Stings.count = 2 -- swarms for one human, one more for each human past the first (Bosses.plus), and more on a
+-- job finished before
 Stings.size = 3 -- drones to a swarm
 Stings.health = 20
 Stings.damage = 6 -- a round
@@ -82,9 +82,9 @@ function Stings.serverStart(server, map)
   if not map.stings then
     return
   end
-  local brain = Brain.new({ health = Stings.health, fire = fire, firstId = Stings.firstId,
+  local brain = Brain.new({ health = Bosses.enemyHealth(Stings.health), fire = fire, firstId = Stings.firstId,
     indoors = map.kind == "tower", sameRoom = Rooms.of(map) })
-  local n = math.min(#map.stings, Stings.count + Stings.perHuman * (Bosses.humans(server) - 1))
+  local n = math.min(#map.stings, Bosses.plus(Stings.count, server))
   for i = 1, n do
     brain:addSwarm(map.stings[i].x, map.stings[i].y, Stings.size)
   end

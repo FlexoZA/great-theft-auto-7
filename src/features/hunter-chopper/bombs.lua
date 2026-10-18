@@ -12,6 +12,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Render = require("src.features.hunter-chopper.render")
 local Sounds = require("src.features.hunter-chopper.sounds")
 
@@ -20,7 +21,7 @@ local Bombs = {}
 -- Tuning ------------------------------------------------------------------
 Bombs.fall = 1.0 -- seconds from letting go to the ground
 Bombs.radius = 80 -- px the blast reaches
-Bombs.damage = 40 -- at the middle, a third of it at the edge
+Bombs.damage = 40 -- at the middle, a third of it at the edge; times Bosses.power()
 Bombs.soft = 2 -- rounds' worth to the crowd and other soft targets
 
 local function fmt(v)
@@ -51,7 +52,7 @@ function Bombs.step(list, server, dt)
       if weapons and weapons.explode then
         -- A missile of nobody's that has come straight down (pid 0: no round on anyone's screen).
         weapons:explode(server, { id = 0, owner = 0, vx = 0, vy = 1,
-          blast = { radius = Bombs.radius, damage = Bombs.damage, soft = Bombs.soft } }, b.x, b.y)
+          blast = { radius = Bombs.radius, damage = Bombs.damage * Bosses.power(), soft = Bombs.soft } }, b.x, b.y)
       end
     end
   end

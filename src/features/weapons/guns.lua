@@ -98,7 +98,9 @@ Guns.list = {
     stack = 300, -- ten uzi or SMG magazines a slot
   },
   {
+    -- Crazy Karen drops it (karen/init.lua): won, then on the shelf.
     key = "uzi",
+    unlock = true,
     dropWeight = 3, -- how often an enemy's 9mm box is (pickups): a common gun's, and the first to fire 9mm
     blurb = "Sprays fourteen 9mm rounds a second, but they're spent by about 360 px: deadly up close, "
       .. "useless far off. Fires the pistol's 9mm rounds.",

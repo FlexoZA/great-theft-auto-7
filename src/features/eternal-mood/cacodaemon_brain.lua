@@ -16,6 +16,7 @@
 -- close, it bites (its mouth opening first, shorter).
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Sight = require("src.features.d-day.sight")
 
 local Brain = {}
@@ -89,7 +90,7 @@ function Brain:add(x, y, wake, flock)
     wake = wake or 520,
     flock = flock,
     facing = math.pi / 2,
-    hp = Brain.HEALTH,
+    hp = Bosses.enemyHealth(Brain.HEALTH), -- tougher on a job finished before
     state = "idle", -- idle, hunt, open, bite, reel
     t = 0,
     target = nil,

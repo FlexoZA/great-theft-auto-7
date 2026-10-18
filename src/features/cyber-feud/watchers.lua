@@ -24,6 +24,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Brain = require("src.features.cyber-feud.watcher_brain")
@@ -79,8 +80,8 @@ function Watchers.serverStart(server, map, calm)
     return nil
   end
   local brain = Brain.new({
-    fov = Watchers.fov, health = Watchers.health, alarm = alarm, firstId = Watchers.firstId, calm = calm,
-    indoors = map.kind == "tower", sameRoom = Rooms.of(map),
+    fov = Watchers.fov, health = Bosses.enemyHealth(Watchers.health), alarm = alarm, firstId = Watchers.firstId,
+    calm = calm, indoors = map.kind == "tower", sameRoom = Rooms.of(map),
   })
   for _, w in ipairs(map.watchers) do
     brain:add(w.route, w.start or 1)
@@ -310,8 +311,8 @@ local function drawDrone(s)
     love.graphics.circle("fill", ex, ey, 0.9, 6)
   end
   love.graphics.pop()
-  if s.hp < Watchers.health then
-    local bw, f = 18, math.max(0, s.hp / Watchers.health)
+  if s.hp < s.top then
+    local bw, f = 18, math.max(0, s.hp / s.top)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + 12, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -365,6 +366,7 @@ Watchers.clientMessages = {
           s.hurt = HURT
         end
         s.hp = hp
+        s.top = math.max(s.top or Watchers.health, hp) -- (tougher on a job finished before)
         s.state = tonumber(args[i + 5]) or 0
         seen[id] = true
       end

@@ -27,6 +27,7 @@ local Controls = require("src.controls")
 local UI = require("src.ui")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Bosses = require("src.features.bosses")
 local Sight = require("src.features.d-day.sight")
 local Brain = require("src.features.cyber-feud.turret_brain")
 
@@ -101,8 +102,8 @@ function Turrets.serverStart(server, map, calm, rivals)
   if not (map.turrets or map.bosses) then
     return nil -- (the Roof has none to start with: Saye drops hers, `serverJoin`)
   end
-  local brain = Brain.new({ health = Turrets.health, fire = fire, firstId = Turrets.firstId, calm = calm,
-    rivals = rivals })
+  local brain = Brain.new({ health = Bosses.enemyHealth(Turrets.health), fire = fire, firstId = Turrets.firstId,
+    calm = calm, rivals = rivals })
   for _, p in ipairs(map.turrets or {}) do
     brain:add(p.x, p.y, p.watch, p.arc)
   end
@@ -376,8 +377,8 @@ function Turrets.drawAboveCars()
     if t.progress and t.progress > 0 then
       UI.ring(t.x, t.y - 26, 9, t.progress, GREEN, 3)
     end
-    if t.hp < Turrets.health then
-      local bw, f = 24, math.max(0, t.hp / Turrets.health)
+    if t.hp < t.top then
+      local bw, f = 24, math.max(0, t.hp / t.top)
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", t.x - bw / 2 - 1, t.y + 16, bw + 2, 4)
       love.graphics.setColor(1 - f, f, 0.2)
@@ -437,6 +438,7 @@ Turrets.clientMessages = {
           t.hurt = HURT
         end
         t.hp = hp
+        t.top = math.max(t.top or Turrets.health, hp) -- (tougher on a job finished before)
         t.state = tonumber(args[i + 5]) or 0
         seen[id] = true
       end
