@@ -527,6 +527,12 @@ function Server:spawnPlayer(player, x, y, angle)
   return player
 end
 
+--- Write the saved world now (nothing for a session that is not saved),
+--- rather than at the next autosave: quests calls it when everyone is home.
+function Server:save()
+  Persistence.saveAll(self)
+end
+
 function Server:close()
   Persistence.saveAll(self)
   for _, p in pairs(self.players) do

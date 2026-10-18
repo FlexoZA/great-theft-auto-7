@@ -34,6 +34,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - City events wait for their quest: Bigfoot comes to town only after the alien hunt is finished, and A-Man only
   after his quest. The Runner and the Tripod can come any time.
 
+### Fixed
+- Finished jobs are saved as soon as you are back in the city. Before, quitting while on a job could lose every
+  job finished since the last autosave.
+
 ## [0.32.0] - 2026-10-17
 
 The Antlion Guard is redrawn, quicker and calls a Hunter-Chopper for help; medkits and drinks move next to WASD.

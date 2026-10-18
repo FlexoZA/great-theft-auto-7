@@ -96,7 +96,8 @@ Clients send intent; the server decides. Never trust a client message.
 Useful server fields: `server.players[id]` (`id name key guest peer input body
 vehicle car`; `key` is the player's lasting identity, and in a saved world
 `id` stays the same for that person game after game, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
-exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
+exceptPlayer)`, `server:send(player, msg, unreliable)`, `server:save()` (write the saved world now, not at the
+next autosave; quests does when everyone is home). See "Bodies and
 vehicles" below.
 
 ## Bodies and vehicles
