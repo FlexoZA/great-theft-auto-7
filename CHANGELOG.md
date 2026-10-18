@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-18
+
+Jobs unlock one at a time and come back harder every time you finish them, and Crazy Karen drops an uzi.
+
 ### Added
 - Crazy Karen drops an uzi for every player when she goes down. The uzi is now a won gun: pick one up to unlock it
   in the shop (factories no longer make them). The first time it is always common; beat her again for a chance at
