@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Finishing a job now shows a victory screen with how it went for you: the time it took, enemies killed, bosses
+  beaten, deaths, Fcks picked up and anything you unlocked. The star home puts it up (Enter goes home, Backspace
+  stays to pick things up), and anyone taken home by someone else sees it on arriving.
+
+### Fixed
+- The EXIT star no longer comes up on top of a fallen boss and the loot it drops: it stands at least 240 px away,
+  on open ground.
+
 ## [0.34.0] - 2026-10-19
 
 Kilowatt and the Hunters now warn you before they stun you, and VEX's relays on the Roof are easier to follow.
