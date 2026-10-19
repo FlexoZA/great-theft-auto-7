@@ -44,7 +44,7 @@ Vex.relayTime = 5 -- seconds of holding the key at a relay to breach it...
 Vex.guarded = 0.5 -- ...at this pace at the one she is at
 Vex.drain = 0.4 -- of the whole a second a relay loses while nobody works it
 Vex.reach = 75 -- px from a relay's middle that counts as at it
-Vex.moveEvery = 11 -- seconds she stays at a relay before moving to another
+Vex.moveEvery = 20 -- seconds she stays at a relay before moving to another
 Vex.pulseEvery = 4 -- seconds between her shock rings at her relay
 Vex.pulseRadius = 190 -- px
 Vex.pulseDamage = 18 -- shock (under a stun: damage's stunMin is 20)
@@ -337,6 +337,7 @@ end
 local cl = { stage = nil, relays = {}, at = nil, pulses = {}, gone = nil } -- relays [i] = { progress, done }
 local face = nil
 local near = nil
+local myX, myY = nil, nil -- where I am (update), for the marker over the relay to go for
 local sendIn, clock = 0, 0
 
 local ESCAPE = 2.2 -- seconds of her getting away: shrinking, then the pixel streaking off
@@ -370,17 +371,42 @@ function Vex.active()
   return true, n
 end
 
---- The nearest relay still up, from (x, y), for the objective line's distance.
-function Vex.nearestRelay(x, y)
+--- Which corner of the roof relay `i` is in ("top-left"...), against the
+--- middle of all of them.
+local function corner(relays, i)
+  local cx, cy = 0, 0
+  for _, r in ipairs(relays) do
+    cx, cy = cx + r.x / #relays, cy + r.y / #relays
+  end
+  local r = relays[i]
+  return (r.y < cy and "top" or "bottom") .. "-" .. (r.x < cx and "left" or "right")
+end
+
+--- The relay to go for from (x, y), for the objective line and the marker
+--- over it: one already being breached first, else the nearest; not the
+--- one she is at while any other is left. Its index, where it is, its
+--- corner ("top-left"...), and whether she is at it.
+function Vex.target(x, y)
   local map = cityMap()
-  local best, bx, by, bestD2
-  for i, r in ipairs(map and map.relays or {}) do
-    local d2 = x and dist2(x, y, r.x, r.y) or 0
-    if not relay(i).done and (not bestD2 or d2 < bestD2) then
-      best, bx, by, bestD2 = i, r.x, r.y, d2
+  local relays = map and map.relays or {}
+  local best, bestScore
+  for i, r in ipairs(relays) do
+    local st = relay(i)
+    if not st.done then
+      local score = (x and dist2(x, y, r.x, r.y) or 0) - st.progress * 1e8 -- (one under way beats any distance)
+      if i == cl.at then
+        score = score + 1e9 -- hers last
+      end
+      if not bestScore or score < bestScore then
+        best, bestScore = i, score
+      end
     end
   end
-  return best and bx, by
+  if not best then
+    return nil
+  end
+  local r = relays[best]
+  return best, r.x, r.y, corner(relays, best), best == cl.at
 end
 
 local function broken()
@@ -415,6 +441,7 @@ function Vex.update(dt, client)
     return
   end
   local x, y = client:myPose()
+  myX, myY = x, y
   if x and not client:myVehicle() then
     for i, r in ipairs(map.relays) do
       if not relay(i).done and dist2(x, y, r.x, r.y) <= Vex.reach ^ 2 then
@@ -470,11 +497,18 @@ local function drawEscape()
 end
 
 --- The relays: dead and sparking once breached, her green ring round the
---- one she is at, a breach's progress over it; her pulses; the lock.
+--- one she is at, a breach's progress over it, a white arrow bobbing over
+--- the one to go for (`Vex.target`); her pulses; the lock.
 function Vex.drawAboveCars()
   local map = cityMap()
   if not (map and map.relays) or cl.stage ~= "on" then
     return
+  end
+  local goal, gx, gy = Vex.target(myX, myY)
+  if goal and relay(goal).progress <= 0 then
+    local bob = gy - 70 - 6 * math.abs(math.sin(clock * 4))
+    love.graphics.setColor(1, 1, 1, 0.85)
+    love.graphics.polygon("fill", gx - 10, bob - 12, gx + 10, bob - 12, gx, bob)
   end
   for i, r in ipairs(map.relays) do
     local st = relay(i)

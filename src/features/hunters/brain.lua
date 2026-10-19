@@ -13,7 +13,8 @@
 --            uzi bursts at them whenever it has a clear line. Every
 --            STUN_EVERY seconds or so it charges its pods (STUN_CHARGE,
 --            standing its ground: you can see it coming) and fires one
---            stun shot instead
+--            stun shot instead (with `lockAim`, down the line it set when
+--            the charge began)
 --   heal     badly hurt (under HEAL_BELOW of its health) with a medkit or
 --            an energy drink lying within HEAL_RANGE: it breaks off and runs
 --            for it, takes it, and goes back to whatever it was doing

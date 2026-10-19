@@ -901,8 +901,14 @@ function CyberFeud:drawHUD(client)
   local vexOn, relaysLeft = Vex.active()
   if vexOn and not done then
     local x, y = client:myPose()
-    text = ("Objective: breach VEX's relays (%d left)"):format(relaysLeft)
-    tx, ty = Vex.nearestRelay(x, y)
+    local _, rx, ry, corner, guarded = Vex.target(x, y)
+    if corner then
+      text = ("Objective: breach the %s relay%s (%d left)"):format(corner, guarded and ", VEX is guarding it" or "",
+        relaysLeft)
+      tx, ty = rx, ry
+    else
+      text = ("Objective: breach VEX's relays (%d left)"):format(relaysLeft)
+    end
   end
   if text then
     local x, y = client:myPose()
