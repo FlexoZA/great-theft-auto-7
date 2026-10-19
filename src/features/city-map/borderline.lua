@@ -5,8 +5,10 @@
 --               sheds round it, three deep excavations with cranes working
 --               over them, Jerry's derailed train zig-zagging up the
 --               middle, a tunnel out at the top
---   landing     Liar's Landing: a frozen harbour, a maze of container
---               stacks, cranes on the quay, the ferry lift at the top
+--   landing     Liar's Landing: a frozen container port at dusk, a maze of
+--               stacks with painted lanes, a dry dock down the west side,
+--               gantry cranes on the quay unloading a freighter, the ferry
+--               lift at the top
 --   pit         The Bragium Pit: an open-pit mine, two rings of terraces
 --               down to the floor where the Fabricator lands, a rim at
 --               either end joined to it by one ramp each
@@ -48,11 +50,16 @@
 --                         press, booth, stairs, bay, boulder, nest, door, cannon, vent, hatch; and the
 --                         Wreck's yard: pit (a deep excavation: `water`, no walking in, rounds go over),
 --                         shed, mast (a crane's), flood (a floodlight tower), drum, and flat: tunnel,
---                         walkway, zebra, cone, paint (with `text`)
+--                         walkway, zebra, cone, paint (with `text`, `small`); Liar's Landing's: drydock
+--                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
+--                         water), laneline
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
+--   map.gantries          { x, y, span, depth, reach, period, phase } the quay's gantry cranes (Liar's
+--                         Landing): the portal `span` wide and `depth` deep round (x, y), its boom `reach`
+--                         px out north over the water, its trolley running out and in every `period` s
 --   map.lights            { x, y, r, color, a } floodlights, for a map played at dusk (the night feature)
 --   map.army              { packs, posts, squads } who of Hyperbole's army stands where (borderline/army.lua
 --                         says what each is), world px; empty where nobody is placed yet
@@ -261,14 +268,15 @@ Borderline.WRECK_SHEDS = {
   { 2, 30, 6, 8 }, { 2, 58, 5, 7 }, { 40, 8, 6, 8 }, { 41, 47, 5, 9 }, { 2, 3, 9, 6 }, { 36, 3, 10, 4 },
 }
 
---- A tower crane at corner `corner` of pit `p` (tiles), working over it.
-local function crane(map, b, p, corner)
+--- A tower crane at corner `corner` of pit `p` (tiles), working over it
+--- (over tile `at`, { c, r }, when given: a long hole has more than one).
+local function crane(map, b, p, corner, at)
   local cx = (corner == "nw" or corner == "sw") and p[1] - 0.5 or p[1] + p[3] + 0.5
   local cy = (corner == "nw" or corner == "ne") and p[2] - 0.5 or p[2] + p[4] + 0.5
   local x, y = b:x(cx), b:y(cy)
   b:put("mast", x - 22, y - 22, 44, 44, { round = true })
   -- The jib swings back and forth across the hole: from `from` through `sweep` radians.
-  local tx, ty = b:x(p[1] + p[3] / 2), b:y(p[2] + p[4] / 2)
+  local tx, ty = b:x(at and at[1] or p[1] + p[3] / 2), b:y(at and at[2] or p[2] + p[4] / 2)
   local toward = math.atan2(ty - y, tx - x)
   map.cranes[#map.cranes + 1] = { x = x, y = y, jib = math.sqrt((tx - x) ^ 2 + (ty - y) ^ 2) + 2 * b.T,
     from = toward - 0.6, sweep = 1.2, period = 14 + #map.cranes * 3, phase = #map.cranes * 2.1 }
@@ -350,37 +358,89 @@ end
 
 -- 2. Liar's Landing --------------------------------------------------------------
 
+-- The dry dock on the yard's west side (tiles: c, r, w, h): a deep basin
+-- with a frozen hull in it, a tower crane at either end working over it.
+Borderline.DRY_DOCK = { 3, 14, 7, 30 }
+-- The quay's gantry cranes (tile column of each one's middle): they stand
+-- over the quay and reach out over the freighter moored along it.
+Borderline.GANTRIES = { 11.5, 43.5 }
+
 local function buildLanding(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "harbour"
+  map.cranes, map.beacons, map.gantries = {}, {}, {}
   b:open(2, 2, map.cols - 3, map.rows - 4)
-  b:open(25, map.rows - 3, 30, map.rows - 1) -- out of the cave
+  b:open(25, map.rows - 3, 30, map.rows - 1) -- out of the tunnel
   b:ground("yard", 0, 0, map.cols - 1, map.rows - 1)
   b:ground("quay", 2, 2, map.cols - 3, 6)
-  b:place("cave", 25, map.rows - 2.5, 6, 2.5, { flat = true })
+  b:place("tunnel", 25, map.rows - 2.5, 6, 2.5, { flat = true })
+  b:place("ship", 4, -2.2, map.cols - 8, 3.9, { flat = true }) -- the freighter moored along the quay
+  -- The dry dock, and its two cranes.
+  local D = Borderline.DRY_DOCK
+  b:place("drydock", D[1], D[2], D[3], D[4], { water = true, seed = rng:random(1000) })
+  b:place("paint", D[1], D[2] + D[4] + 0.2, D[3], 0.8, { flat = true, text = "DRY DOCK 2  KEEP OUT" })
+  crane(map, b, D, "ne", { D[1] + D[3] / 2, D[2] + 7 })
+  crane(map, b, D, "se", { D[1] + D[3] / 2, D[2] + D[4] - 7 })
+  -- The painted lanes the stacks leave clear (below), and each bay's number.
+  for k = 0, 5 do
+    b:place("laneline", 11 + k * 8 - 0.06, 8, 0.12, 48, { flat = true })
+  end
+  for k = 0, 4 do
+    b:place("laneline", 3, 19 + k * 9 - 0.06, map.cols - 6, 0.12, { flat = true })
+  end
   -- The stacks: one in each cell of a grid, never filling it, so there is
-  -- always a lane round.
+  -- always a lane round (none where the dry dock is).
   for bc = 0, 5 do
     for br = 0, 4 do
       local c, r = 4 + bc * 8, 11 + br * 9
       local tall = rng:random() < 0.5
       local tw, th = tall and 2 or 4, tall and 4 or 2
       c, r = c + rng:random(0, 4 - tw + 2), r + rng:random(0, 5 - th + 2)
-      if not (c <= 30 and c + tw >= 25 and r >= 52) then -- the way in stays clear
+      local inDock = bc == 0 and br <= 3
+      if not inDock and not (c <= 30 and c + tw >= 25 and r >= 52) then -- the way in stays clear
         b:place("container", c, r, tw, th, { tint = rng:random(4), seed = rng:random(1000) })
+      end
+      if not inDock then
+        b:place("paint", 4 + bc * 8, 11 + br * 9 - 1.3, 6, 0.9,
+          { flat = true, text = string.char(65 + bc) .. (br + 1), small = true })
       end
     end
   end
-  for _, c in ipairs({ 10, 42 }) do
-    b:place("crane", c, 3, 3, 2.5)
+  -- The gantries: four feet on the quay each, the rest overhead (works.lua).
+  for _, c in ipairs(Borderline.GANTRIES) do
+    for _, f in ipairs({ { -1.8, 2.2 }, { 1.3, 2.2 }, { -1.8, 5.5 }, { 1.3, 5.5 } }) do
+      b:place("foot", c + f[1], f[2], 0.5, 0.5)
+    end
+    map.gantries[#map.gantries + 1] = { x = b:x(c), y = b:y(4), span = 3.6 * T, depth = 3.8 * T, reach = 4.5 * T,
+      period = 11 + #map.gantries * 4, phase = #map.gantries * 1.9 }
+    map.beacons[#map.beacons + 1] = { x = b:x(c - 1.55), y = b:y(2.45), color = "amber" }
+    map.beacons[#map.beacons + 1] = { x = b:x(c + 1.55), y = b:y(2.45), color = "amber" }
   end
   for c = 3, map.cols - 4, 4 do
-    if c < 24 or c > 31 then
+    if (c < 24 or c > 31) and math.abs(c + 0.5 - Borderline.GANTRIES[1]) > 2.5
+      and math.abs(c + 0.5 - Borderline.GANTRIES[2]) > 2.5 then
       b:place("bollard", c + 0.35, 2.15, 0.3, 0.3, { round = true })
     end
   end
   b:place("lift", 25, 2, 6, 3, { flat = true })
-  b:scatter(rng, "crate", 22, 48, 8, 56, { { 22, 54, 33, 63 }, { 24, 2, 32, 7 } })
+  b:place("zebra", 24, 5.3, 8, 1.2, { flat = true })
+  for _, at in ipairs({ { 25, 2 }, { 31, 2 }, { 25, 5 }, { 31, 5 } }) do -- the lift's corners
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "red" }
+  end
+  map.beacons[#map.beacons + 1] = { x = b:x(D[1]), y = b:y(D[2]), color = "red" }
+  map.beacons[#map.beacons + 1] = { x = b:x(D[1] + D[3]), y = b:y(D[2] + D[4]), color = "red" }
+  -- Floodlight towers in the corners of the lanes, where there is room.
+  for _, at in ipairs({ { 12.2, 20.2 }, { 36.2, 20.2 }, { 20.2, 29.2 }, { 44.2, 38.2 }, { 28.2, 47.2 },
+    { 52.2, 47.2 }, { 4.2, 8.2 }, { 50.2, 8.2 } }) do
+    if b:clear(b:x(at[1]), b:y(at[2]), 0.7 * T, 0.7 * T, 8) then
+      b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
+      map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 420,
+        color = { 1, 0.92, 0.75 }, a = 0.75 }
+    end
+  end
+  b:scatter(rng, "crate", 14, 48, 8, 56, { { 22, 54, 33, 63 }, { 24, 2, 32, 7 } })
+  b:scatter(rng, "drum", 12, 40, 8, 56, { { 22, 54, 33, 63 }, { 24, 2, 32, 7 } })
+  b:scatter(rng, "cone", 16, 22, 7, 56, { { 22, 54, 33, 63 } }, { flat = true })
   -- Hyperbole's gun haulers hold the yard. The stacks always leave lanes
   -- clear between the cells of their grid: down columns 10-11 (and every 8
   -- after) and across rows 18-19 (and every 9 after). Posts stand where
@@ -395,7 +455,7 @@ local function buildLanding(map, rng, T)
   b:squad({ "GUN", "GUN" }, { { 19, 28 }, { 35, 28 }, { 35, 46 }, { 19, 46 } })
   b:pack("JNK", 5, 48, 3)
   b:pack("JNK", 50, 12, 3)
-  b:post("RPG", 9, 7) -- the first rocket haulers, under the cranes
+  b:post("RPG", 9, 7) -- the first rocket haulers, under the gantries
   b:post("RPG", 46, 7)
   b:post("FIX", 12, 21) -- a pair of medic drones with the first squad
   b:post("FIX", 14, 21)

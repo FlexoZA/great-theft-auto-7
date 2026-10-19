@@ -2,9 +2,11 @@
 -- drawn every frame on every screen, moving: the tower cranes swinging
 -- their jibs back and forth over the excavations, a trolley running in and
 -- out along each jib with a load swaying under it, a red light blinking
--- at its tip; and the emergency beacons turning, amber and red, their
--- beams sweeping the ground. From the map (city-map's borderline.lua:
--- `map.cranes`, `map.beacons`). Scenery only: nothing here is on the host
+-- at its tip; the quay's gantry cranes, a trolley running out along each
+-- boom over the freighter and back with a container on its spreader; and
+-- the emergency beacons turning, amber and red, their beams sweeping the
+-- ground. From the map (city-map's borderline.lua: `map.cranes`,
+-- `map.gantries`, `map.beacons`). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -38,9 +40,23 @@ local function flash(b)
   return math.max(0, math.cos(turn * 2 * math.pi)) ^ 6, turn * 2 * math.pi
 end
 
+--- Where gantry `g`'s trolley is along its boom (px north of the portal's
+--- middle, negative over the quay), and whether it carries a container.
+local function gantryPose(g)
+  local cycle = 2 * math.pi * clock / g.period + g.phase
+  local out = -g.depth * 0.3 + (g.reach + g.depth * 0.8) * ease(cycle)
+  return out, math.sin(cycle) < 0 -- coming back in from the ship: loaded
+end
+
 --- On the ground: each crane's shadow, the jib's and its load's.
 function Works.drawBelowCars(map)
   love.graphics.setColor(0, 0, 0, 0.22)
+  for _, g in ipairs(map.gantries or {}) do
+    local x, y = g.x + LIFT, g.y + LIFT
+    love.graphics.rectangle("fill", x - g.span / 2 - 10, y - g.depth / 2, 20, g.depth)
+    love.graphics.rectangle("fill", x + g.span / 2 - 10, y - g.depth / 2, 20, g.depth)
+    love.graphics.rectangle("fill", x - 18, y - g.depth / 2 - g.reach, 36, g.reach + g.depth)
+  end
   for _, c in ipairs(map.cranes or {}) do
     local a, out = pose(c)
     local ca, sa = math.cos(a), math.sin(a)
@@ -120,6 +136,44 @@ local function drawCrane(c)
   love.graphics.circle("fill", x + ca * c.jib, y + sa * c.jib, 5, 10)
 end
 
+local function drawGantry(g)
+  local x, y = g.x, g.y - LIFT
+  local top = y - g.depth / 2
+  local out, loaded = gantryPose(g)
+  -- The portal: a leg frame each side, a beam across front and back.
+  for _, side in ipairs({ -1, 1 }) do
+    truss(x + side * g.span / 2, top, x + side * g.span / 2, top + g.depth, 16)
+  end
+  truss(x - g.span / 2 - 8, top, x + g.span / 2 + 8, top, 14)
+  truss(x - g.span / 2 - 8, top + g.depth, x + g.span / 2 + 8, top + g.depth, 14)
+  -- The load under the trolley: a container on the spreader when coming in.
+  local ty = top + g.depth / 2 - out
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", x - 30, ty - 12, 60, 24)
+  if loaded then
+    local tint = (math.floor(clock / g.period + g.phase) % 3) + 1
+    local fill = ({ { 0.80, 0.26, 0.20 }, { 0.22, 0.44, 0.72 }, { 0.28, 0.58, 0.34 } })[tint]
+    love.graphics.setColor(fill)
+    love.graphics.rectangle("fill", x - 28, ty - 10, 56, 20)
+  else
+    love.graphics.setColor(C.yellow)
+    love.graphics.rectangle("fill", x - 28, ty - 3, 56, 6) -- the empty spreader
+  end
+  -- The boom out over the water, the machinery house on the back of it.
+  truss(x, top + g.depth + 20, x, top - g.reach, 18)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", x - 22, top + g.depth - 6, 44, 34)
+  love.graphics.setColor(C.yellow)
+  love.graphics.rectangle("fill", x - 20, top + g.depth - 4, 40, 30)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", x - 12, ty - 10, 24, 20) -- the trolley
+  love.graphics.setColor(C.gunmetalLight)
+  love.graphics.rectangle("fill", x - 10, ty - 8, 20, 16)
+  local on = math.floor(clock * 1.5 + g.phase) % 2 == 0
+  love.graphics.setColor(on and 1 or 0.35, 0.1, 0.08)
+  love.graphics.circle("fill", x, top - g.reach, 5, 10)
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -141,6 +195,9 @@ function Works.drawAboveCars(map)
   for _, c in ipairs(map.cranes or {}) do
     drawCrane(c)
   end
+  for _, g in ipairs(map.gantries or {}) do
+    drawGantry(g)
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -156,6 +213,14 @@ function Works.drawNightLights(map, glow)
       glow(c.x + math.cos(a) * c.jib, c.y - LIFT + math.sin(a) * c.jib, 60, BEACON.red, 0.8)
     end
     glow(c.x, c.y - LIFT, 80, { 1, 0.9, 0.7 }, 0.4) -- the cab's lamp
+  end
+  for _, g in ipairs(map.gantries or {}) do
+    local top = g.y - LIFT - g.depth / 2
+    local out = gantryPose(g)
+    glow(g.x, top + g.depth / 2 - out, 140, { 1, 0.92, 0.75 }, 0.6) -- its floodlight on the load
+    if math.floor(clock * 1.5 + g.phase) % 2 == 0 then
+      glow(g.x, top - g.reach, 60, BEACON.red, 0.8)
+    end
   end
 end
 

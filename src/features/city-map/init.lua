@@ -191,9 +191,9 @@ CityMap.maps = {
     title = "The Frozen Wreck", kind = "wreck", seed = 301, cols = 48, rows = 72,
     crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
   },
-  landing = {
+  landing = { -- at dusk too
     title = "Liar's Landing", kind = "landing", seed = 302, cols = 56, rows = 64,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.56, 0.62, 0.80 },
   },
   pit = {
     title = "The Bragium Pit", kind = "pit", seed = 303, cols = 60, rows = 60,

@@ -324,6 +324,11 @@ its set piece is done; the objective line says what's left.
   NOW HIRING (ROBOTS ONLY), 0 DAYS WITHOUT A BANDIT INCIDENT.
 - Snow falls on maps 1, 2 and 7 (the weather feature); the rest are
   indoors or under Prosperity's dome.
+- Industrial grounds: the outdoor maps are Hyperbole's works, played at
+  dusk under floodlights, with deep excavations, cranes working over them
+  (moving: `borderline/works.lua`), emergency beacons turning, and painted
+  safety lines, walkways, zebra crossings, cones and drums. Done so far on
+  the Frozen Wreck and Liar's Landing.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -351,12 +356,23 @@ towers.
 - **Knuckle Scrapper** builds itself out of the locomotive at the top.
 - **The end:** the tunnel out at the top. EXIT: "LIAR'S LANDING".
 
-### 2. Liar's Landing (`landing`, 56x64)
+### 2. Liar's Landing (`landing`, 56x64, at dusk)
 
-A frozen harbour: stacks of shipping containers as a maze, cranes, an icy
-quay along the north edge.
+A frozen container port: stacks of shipping containers as a maze, an icy
+quay along the north edge with a freighter moored along it. Played at
+dusk under floodlight towers, like the Wreck.
 
-- **Arrival:** the south, out of the cave.
+- **Arrival:** the south, out of the tunnel.
+- **The gantries:** two gantry cranes stand on the quay (four feet each,
+  the rest overhead), their booms out over the freighter, a trolley
+  running out and back with a container on its spreader (works.lua's
+  `gantries`), beacons on their legs.
+- **The dry dock:** a deep basin down the west side, a rusting hull sat in
+  it, nobody walks in and rounds fly over; a tower crane works over each
+  end. KEEP OUT painted at its foot.
+- **Safety lines:** the lanes the stacks leave clear are painted (yellow
+  dashes) with each bay's number (A1 to F5), a zebra crossing to the lift,
+  beacons round the lift.
 - Gun haulers on the containers' corners, medic drones, two rocket haulers
   on crane platforms.
 - **The ferry lift:** a platform at the quay. Yappy hacks it (stand with

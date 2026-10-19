@@ -44,6 +44,11 @@ local C = {
   paintWhite = { 0.92, 0.92, 0.88 },
   drum = { 0.70, 0.20, 0.14 },
   cone = { 1.00, 0.45, 0.10 },
+  hull = { 0.55, 0.16, 0.12 }, -- ships' red
+  hullDark = { 0.32, 0.09, 0.08 },
+  rust = { 0.50, 0.26, 0.15 }, -- an old hull rusting in the dry dock
+  deck = { 0.40, 0.42, 0.40 },
+  dockWater = { 0.16, 0.26, 0.34 },
   yellow = { 0.95, 0.76, 0.19 }, -- Hyperbole's
   yellowDark = { 0.78, 0.58, 0.10 },
   gunmetal = { 0.23, 0.25, 0.28 },
@@ -521,12 +526,82 @@ function DRAW.zebra(s)
   end
 end
 
-local paintFont = nil
+local paintFonts = {}
 function DRAW.paint(s)
-  paintFont = paintFont or love.graphics.newFont(30)
-  love.graphics.setFont(paintFont)
+  local size = s.small and 22 or 30
+  paintFonts[size] = paintFonts[size] or love.graphics.newFont(size)
+  love.graphics.setFont(paintFonts[size])
   color(C.yellow, 0.85)
-  love.graphics.printf(s.text or "", s.x, s.y + (s.h - 30) / 2, s.w, "center")
+  love.graphics.printf(s.text or "", s.x, s.y + (s.h - size) / 2, s.w, "center")
+end
+
+--- A lane's painted line: yellow dashes.
+function DRAW.laneline(s)
+  color(C.yellow, 0.7)
+  local along = s.w >= s.h
+  for a = 0, (along and s.w or s.h) - 24, 48 do
+    if along then
+      love.graphics.rectangle("fill", s.x + a, s.y, 28, s.h)
+    else
+      love.graphics.rectangle("fill", s.x, s.y + a, s.w, 28)
+    end
+  end
+end
+
+--- A ship's hull from above, `s` its bounds, its bow at the right: red
+--- sides, a grey deck, hatches in a row, and its bridge at the stern.
+local function hullShape(s, fill, dark)
+  local nose = math.min(s.h * 0.9, s.w * 0.15)
+  local pts = { s.x, s.y, s.x + s.w - nose, s.y, s.x + s.w, s.y + s.h / 2, s.x + s.w - nose, s.y + s.h, s.x,
+    s.y + s.h }
+  color(INK)
+  love.graphics.polygon("fill", pts[1] - LINE, pts[2] - LINE, pts[3], pts[4] - LINE, pts[5] + LINE, pts[6], pts[7],
+    pts[8] + LINE, pts[9] - LINE, pts[10] + LINE)
+  color(fill)
+  love.graphics.polygon("fill", pts)
+  color(dark)
+  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w - nose - 24, s.h - 32)
+  return nose
+end
+
+--- The freighter moored along the quay: most of it past the map's top.
+function DRAW.ship(s)
+  local nose = hullShape(s, C.hull, C.deck)
+  for x = s.x + 160, s.x + s.w - nose - 120, 150 do -- hatch covers, some open
+    box(x, s.y + 40, 110, s.h - 80, hash(x) < 0.3 and INK or C.containers[1 + math.floor(hash(x * 3) * 4)])
+  end
+  box(s.x + 30, s.y + 30, 90, s.h - 60, C.paintWhite) -- the bridge
+  color(C.window)
+  love.graphics.rectangle("fill", s.x + 108, s.y + 40, 8, s.h - 80)
+end
+
+--- The dry dock: a deep basin, its stepped walls going down, a little
+--- water frozen at the bottom and a rusting hull sat on blocks in it.
+function DRAW.drydock(s)
+  box(s.x, s.y, s.w, s.h, C.pitWall)
+  for i = 1, 3 do
+    local inset = i * 18
+    color(i == 3 and C.dockWater or C.pitDeep, i == 3 and 1 or 0.5)
+    love.graphics.rectangle("fill", s.x + inset, s.y + inset, s.w - 2 * inset, s.h - 2 * inset)
+  end
+  -- The hull, bow north, rusted, on its blocks.
+  local hw, hl = s.w * 0.55, s.h * 0.82
+  love.graphics.push()
+  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
+  love.graphics.rotate(-math.pi / 2)
+  hullShape({ x = -hl / 2, y = -hw / 2, w = hl, h = hw }, C.rust, C.hullDark)
+  love.graphics.pop()
+  hazard(s.x, s.y, s.w, 12)
+  hazard(s.x, s.y + s.h - 12, s.w, 12)
+  hazard(s.x, s.y, 12, s.h)
+  hazard(s.x + s.w - 12, s.y, 12, s.h)
+end
+
+--- A gantry crane's foot on the quay (the crane is overhead: works.lua).
+function DRAW.foot(s)
+  box(s.x, s.y, s.w, s.h, C.yellow)
+  color(INK)
+  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.2, 8)
 end
 
 function DRAW.cone(s)
