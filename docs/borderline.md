@@ -26,7 +26,14 @@ shared body `chassis.lua`, put on the map by `army.lua`) with the torso
 crawl, on the Frozen Wreck (a junk pack by each carriage, a bigger one at
 the engine) and Liar's Landing (gun haulers posted where the container
 lanes cross and on the quay, two squads walking the lanes, two junk
-packs). No story, backdrops or music yet. See "Stages" at the end for the
+packs). Stage 4 and 5 done: rocket haulers (`rpg_brain.lua`, pod volleys
+through `barrage.lua`) on Liar's Landing and in Prosperity, jet haulers
+(`jet_brain.lua`, strafing runs through `barrage.lua`) in Prosperity,
+the `plasma` damage type (the damage feature's "melt" status, the armor
+feature spending two points a point while melted) and plasma haulers
+(`plz_brain.lua`, `bolts.lua`) in the Bragium Pit and Prosperity. What
+every drilled model shares (posts, squads, keeping its distance) is
+`drill.lua`. No story, backdrops or music yet. See "Stages" at the end for the
 order.
 
 ## Decisions
@@ -213,7 +220,10 @@ Bragium that powers it. Kill feed verb: "melted".
 - **Effect** on a player on foot: **melted**: for 3 s your armor's
   resistances count for half and its points drain twice as fast. The
   answer to a heavily armored player, and the reason to dodge.
-- **Puddles**: some plasma (the Smelter's mortar, a burst Bragium tank, the
+- **Built:** bolts are `borderline/bolts.lua`; "melted" is the damage
+  feature's `melt` status (its `serverShare` halves what gear stops) and
+  the armor feature's `serverAbsorbDamage` (two points a point).
+- **Puddles** (not built yet): some plasma (the Smelter's mortar, a burst Bragium tank, the
   refinery's spills) leaves a puddle that hurts while you stand in it
   (`plasma` damage over time, like the Winding Road's poison and Eternal
   Mood's lava).

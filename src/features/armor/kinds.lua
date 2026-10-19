@@ -34,8 +34,9 @@ local Kinds = {
     },
     {
       key = "insulated-suit", title = "insulated suit", points = 70, color = { 0.75, 0.7, 0.2 },
-      resist = { shock = 0.45, fire = 0.25 }, tierStats = { "resist.shock", "resist.fire", "points" },
-      blurb = "A lineman's suit, rubber through and through: lightning and fire have a hard time finding you.",
+      resist = { shock = 0.45, fire = 0.25, plasma = 0.25 },
+      tierStats = { "resist.shock", "resist.fire", "points" },
+      blurb = "A lineman's suit, rubber through and through: lightning, fire and plasma have a hard time finding you.",
     },
     {
       key = "ceramic-plates", title = "ceramic plates", points = 150, color = { 0.62, 0.64, 0.68 },

@@ -1809,13 +1809,18 @@ the one with a plot.
   `Blockout:pack/post/squad`): every hauler is one body on the host
   (`chassis.lua`: walking on d-day's Nav grid, its own sight line over
   `blocksShot`, the trigger, the torso crawl) thought for by its model's
-  brain (`junk_brain.lua`, `gun_brain.lua`; army.lua's `BRAINS` by code),
+  brain (`junk_brain.lua`, `gun_brain.lua`, `rpg_brain.lua`,
+  `plz_brain.lua`, `jet_brain.lua`; army.lua's `BRAINS` by code; what the
+  drilled ones share is `drill.lua`),
   and drawn by `hauler_look.lua` (`drone_look.lua` has the drones and the
   sentry, not placed yet). Their rounds carry "hyperbole" and ownerless
   rounds pass through them; they answer `serverShotAt`, `serverEnemies`
-  ("borderline/jnk", "borderline/gun"), `serverFreezeArea` and
-  `footstepWalkers`, and a kill raises `serverKill` kind "robot". So far
-  junk haulers on the Frozen Wreck and gun haulers on Liar's Landing; the
+  ("borderline/<code>"; a jet hauler is `flying`, and `immune` in the air),
+  `serverFreezeArea` and `footstepWalkers`, and a kill raises `serverKill`
+  kind "robot". Rockets that come down on marked rings are `barrage.lua`'s
+  (HYP_RAIN, going off through weapons' `explode`), plasma bolts
+  `bolts.lua`'s (HYP_BOLT, HYP_SPLASH; damage type "plasma"). So far the
+  first four maps are held (junk, gun, rocket, plasma and jet haulers); the
   story, the rest of the army, the bosses, backdrops and music follow in
   the stages `docs/borderline.md` lists.
 - Events: `src/features/events` is something big happening in the city.

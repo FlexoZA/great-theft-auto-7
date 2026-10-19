@@ -272,7 +272,8 @@ end
 
 --- `s`'s trigger with somebody at (tx, ty) in sight, from its conf: `aim`
 --- seconds on target first, then bursts of `burst` rounds `every` apart and
---- a `pause` between bursts.
+--- a `pause` between bursts. `gun` is a weapons gun, or a function
+--- (server, s, aim) that fires something of the brain's own (a bolt).
 function Chassis:shoot(server, s, tx, ty, gun, dt)
   local conf = s.conf
   local aim = math.atan2(ty - s.y, tx - s.x)
@@ -288,7 +289,11 @@ function Chassis:shoot(server, s, tx, ty, gun, dt)
   if s.fireIn > 0 then
     return
   end
-  self:fire(server, s, s.facing, gun)
+  if type(gun) == "function" then
+    gun(server, s, s.facing)
+  else
+    self:fire(server, s, s.facing, gun)
+  end
   s.left = s.left - 1
   if s.left > 0 then
     s.fireIn = conf.every
@@ -356,11 +361,12 @@ function Chassis:update(server, dt)
   return spent
 end
 
---- The hauler whose body covers (x, y) (within `radius` more), and its index.
+--- The hauler whose body covers (x, y) (within `radius` more), and its
+--- index. One in the air (a jet hauler's run) is out of reach.
 function Chassis:at(x, y, radius)
   for i, s in ipairs(self.list) do
     local r = s.radius + (radius or 0)
-    if Chassis.dist2(s.x, s.y, x, y) <= r * r then
+    if not s.flying and Chassis.dist2(s.x, s.y, x, y) <= r * r then
       return s, i
     end
   end

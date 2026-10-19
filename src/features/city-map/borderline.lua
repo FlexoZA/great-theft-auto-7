@@ -326,6 +326,8 @@ local function buildLanding(map, rng, T)
   b:squad({ "GUN", "GUN" }, { { 19, 28 }, { 35, 28 }, { 35, 46 }, { 19, 46 } })
   b:pack("JNK", 5, 48, 3)
   b:pack("JNK", 50, 12, 3)
+  b:post("RPG", 9, 7) -- the first rocket haulers, under the cranes
+  b:post("RPG", 46, 7)
   b:zone("The Yard", 8, map.rows - 1)
   b:zone("The Quay", 0, 7)
   b:ends(25, 56, 27, 3)
@@ -395,6 +397,18 @@ local function buildPit(map, rng, T)
     { n - 25, 28, n - 13, 31 }, { 28, 20, 31, 24 }, { 28, n - 25, 31, n - 21 } }
   b:scatter(rng, "crystal", 30, 56, 9, n - 10, keep)
   b:scatter(rng, "rock", 10, 64, 9, n - 10, keep)
+  -- Plasma haulers on the terraces' corners, gun haulers at the ramps and
+  -- walking the outer terrace, junk haulers on the floor (the Fabricator
+  -- lands there later).
+  for _, at in ipairs({ { 11, 11 }, { n - 12, 11 }, { 11, n - 12 }, { n - 12, n - 12 }, { 41, 18 }, { 18, 41 } }) do
+    b:post("PLZ", at[1], at[2])
+  end
+  b:post("GUN", 13, n / 2, 0) -- either side of the first ring's ramps, watching across
+  b:post("GUN", n - 13, n / 2, math.pi)
+  b:post("GUN", 18, 18)
+  b:post("GUN", 41, 41)
+  b:squad({ "GUN", "GUN" }, { { 11.5, 11.5 }, { n - 12, 11.5 }, { n - 12, n - 12 }, { 11.5, n - 12 } })
+  b:pack("JNK", n / 2, n / 2, 4)
   b:zone("The Rim", n - 8, n - 1)
   b:zone("The Pit", 8, n - 9)
   b:zone("The Mine Lift", 0, 7)
@@ -446,6 +460,20 @@ local function buildProsperity(map, rng, T)
   end
   local keep = { { 22, 80, 33, 87 }, { 22, 0, 33, 4 }, { 24, mr - 4, 31, mr + 4 } }
   b:scatter(rng, "crate", 18, 44, 3, map.rows - 4, keep)
+  -- Jerry's garrison: jet haulers round the plaza and up north, rocket and
+  -- plasma haulers on the cross streets, a squad walking the avenue and one
+  -- round the north district.
+  b:post("JET", 20, Borderline.PLAZA[1] + 3)
+  b:post("JET", 36, Borderline.PLAZA[1] + 3)
+  b:post("JET", 28, 18)
+  b:post("RPG", 16, 67)
+  b:post("RPG", 40, 31)
+  b:post("PLZ", 40, 67)
+  b:post("PLZ", 16, 31)
+  b:post("GUN", 22, Borderline.PLAZA[2] - 2)
+  b:post("GUN", 34, Borderline.PLAZA[2] - 2)
+  b:squad({ "GUN", "GUN", "GUN" }, { { 28, 55 }, { 28, 81 } })
+  b:squad({ "GUN", "GUN" }, { { 16, 31 }, { 40, 31 }, { 40, 18 }, { 16, 18 } })
   b:zone("South District", 53, map.rows - 1)
   b:zone("Jerry Plaza", Borderline.PLAZA[1], Borderline.PLAZA[2])
   b:zone("North District", 0, 33)

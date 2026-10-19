@@ -16,14 +16,20 @@
 --
 -- The army is all one side: its rounds carry its name (weapons' `from`),
 -- and an ownerless round or blast passes through every one of them. Only
--- players' rounds and blasts reach them.
+-- players' rounds and blasts reach them, and the one exception: a plasma
+-- hauler's tank bursting (plz_brain.lua's `burst`) splashes its own side
+-- too. What comes down out of the sky on red rings is barrage.lua's (the
+-- rocket haulers' pods, the jet haulers' runs); the plasma bolts are
+-- bolts.lua's.
 --
 -- Messages
 --   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim>]...  (unreliable, 15 Hz;
---                  state 0 calm, 1 after somebody, 2 crawling; aim 1 while it is lining up a shot)
+--                  state 0 calm, 1 after somebody, 2 crawling, 3 in the air; aim 1 while it is lining up a
+--                  shot or winding up: its coils, pods or thrusters glow)
 --   server -> all  HYP_DOWN  <id> <x> <y> <angle> <code>   one went down
 --   server -> all  HYP_ALERT <id>                          one spotted somebody (its beep)
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
+--   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -35,16 +41,21 @@ local Chassis = require("src.features.borderline.chassis")
 local Look = require("src.features.borderline.hauler_look")
 local Junk = require("src.features.borderline.junk_brain")
 local Gun = require("src.features.borderline.gun_brain")
+local Rpg = require("src.features.borderline.rpg_brain")
+local Plz = require("src.features.borderline.plz_brain")
+local Jet = require("src.features.borderline.jet_brain")
+local Barrage = require("src.features.borderline.barrage")
+local Bolts = require("src.features.borderline.bolts")
 
 local Army = {}
 
 -- Tuning ------------------------------------------------------------------
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
-Army.drops = { JNK = 1, GUN = 3 } -- koins each spills
-Army.pickupChance = { JNK = 0.2, GUN = 1 } -- the chance it drops anything at all (pickups' own odds after)
+Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4 } -- koins each spills
+Army.pickupChance = { JNK = 0.2 } -- the chance it drops anything at all (pickups' own odds after); else always
 
-local BRAINS = { JNK = Junk, GUN = Gun }
+local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet }
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -72,6 +83,7 @@ function Army.serverStart(server, map)
   end
   local nav = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   local roster = Chassis.new({ nav = nav, from = Army.FROM, firstId = 1 })
+  roster.bounds = { x0 = map.left, y0 = map.top, x1 = map.left + map.w, y1 = map.top + map.h }
   for i, pack in ipairs(spec.packs or {}) do
     local brain = BRAINS[pack.code]
     local n = Bosses.plus(pack.count or 3, server)
@@ -95,10 +107,14 @@ function Army.serverStart(server, map)
       brain.formSquad(members, squad.route, squad.start)
     end
   end
+  Barrage.serverStart()
+  Bolts.serverStart()
   sv = { roster = roster, syncIn = 0, sentEmpty = false }
 end
 
 function Army.serverStop(server)
+  Barrage.serverStop()
+  Bolts.serverStop()
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("HYP_STATE", server.tick))
@@ -118,7 +134,27 @@ local function callOut(server, s)
   end
 end
 
-local function down(server, s, by, angle, cause)
+local down
+
+--- A plasma hauler's tank bursting where `s` fell: plasma over the players
+--- near, and into its own side, credited to whoever burst it.
+local function burst(server, s, splash, by)
+  Bolts.serverSplash(server, s.x, s.y, splash.radius, splash.damage)
+  local roster = sv.roster
+  for i = #roster.list, 1, -1 do
+    local o = roster.list[i]
+    local d = math.sqrt(Chassis.dist2(o.x, o.y, s.x, s.y))
+    if not o.flying and d <= splash.radius + o.radius then
+      local amount = splash.damage * (1 - (2 / 3) * math.min(1, d / splash.radius))
+      local angle = math.atan2(o.y - s.y, o.x - s.x)
+      if roster:hurt(o, i, amount, by, angle) == "down" then
+        down(server, o, by, angle, "plasma")
+      end
+    end
+  end
+end
+
+function down(server, s, by, angle, cause)
   server:broadcast(Protocol.encode("HYP_DOWN", s.id, fmt(s.x), fmt(s.y), ("%.3f"):format(angle or s.facing), s.code))
   if s.brain.gone then
     s.brain.gone(s)
@@ -128,10 +164,14 @@ local function down(server, s, by, angle, cause)
     money:drop(server, s.x, s.y, Army.drops[s.code] or 1)
   end
   local pickups = Features.byName.pickups
-  if pickups and pickups.serverDropEnemy and random() < (Army.pickupChance[s.code] or 0.3) then
+  if pickups and pickups.serverDropEnemy and random() < (Army.pickupChance[s.code] or 1) then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
   Features.call("serverKill", server, { kind = "robot", x = s.x, y = s.y, by = by, angle = angle, cause = cause })
+  local splash = s.brain.burst and s.brain.burst(s, angle)
+  if splash then
+    burst(server, s, splash, by)
+  end
   -- The rest come to see what happened.
   for _, o in ipairs(sv.roster.list) do
     if o.brain.wake and Chassis.dist2(o.x, o.y, s.x, s.y) <= Army.CALL * Army.CALL then
@@ -159,8 +199,9 @@ local function sync(server)
     parts[#parts + 1] = ("%.0f"):format(s.y)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
-    parts[#parts + 1] = s.crawl and 2 or (s.target and 1 or 0)
-    parts[#parts + 1] = (s.target and s.aimFor > 0 and s.aimFor < s.conf.aim) and 1 or 0
+    parts[#parts + 1] = s.crawl and 2 or s.flying and 3 or (s.target and 1 or 0)
+    local lining = s.target and s.aimFor > 0 and s.aimFor < s.conf.aim
+    parts[#parts + 1] = (s.charging or lining) and 1 or 0
   end
   local msg = Protocol.encode("HYP_STATE", unpack(parts))
   for _, player in pairs(server.players) do
@@ -174,6 +215,8 @@ function Army.serverStep(server, dt)
   if not sv then
     return
   end
+  Barrage.serverStep(server, dt)
+  Bolts.serverStep(server, dt)
   for _, s in ipairs(sv.roster:update(server, dt)) do
     down(server, s, s.lastBy, s.facing + math.pi, "bullet") -- a crawl that gave out
   end
@@ -208,7 +251,8 @@ end
 --- Every robot out on the level, for the audit (tools/audit).
 function Army.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.roster.list or {}) do
-    add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp, radius = s.radius })
+    add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp, radius = s.radius,
+      flying = s.brain == Jet or nil, immune = s.flying or nil })
   end
 end
 
@@ -231,6 +275,7 @@ local lastTick, heardAt, clock = 0, 0, 0
 local bank = {}
 
 function Army.load()
+  Bolts.load()
   local function make(seconds, volume, build)
     local buf = Synth.newBuffer(seconds)
     build(buf)
@@ -270,6 +315,8 @@ end
 
 function Army.clear()
   shown, wrecks, lastTick = {}, {}, 0
+  Barrage.clear()
+  Bolts.clear()
 end
 
 --- Ease the one shown at `s` towards where the host last said it was
@@ -287,6 +334,8 @@ end
 
 function Army.update(dt)
   clock = clock + dt
+  Barrage.update(dt)
+  Bolts.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
   end
@@ -302,6 +351,7 @@ function Army.drawBelowCars()
   for _, w in ipairs(wrecks) do
     Look.drawWreck(w, clock)
   end
+  Barrage.drawBelowCars(clock)
 end
 
 local function healthBar(s)
@@ -315,12 +365,29 @@ local function healthBar(s)
   end
 end
 
-function Army.drawAboveCars()
-  for _, s in pairs(shown) do
-    Look.draw({ dx = s.dx, dy = s.dy, facing = s.facing, code = s.code, stride = s.stride, charge = s.charge,
-      flash = s.hurt / HURT, crawl = s.state == 2 }, clock)
+local function drawOne(s)
+  Look.draw({ dx = s.dx, dy = s.dy, facing = s.facing, code = s.code, stride = s.stride, charge = s.charge,
+    flash = s.hurt / HURT, crawl = s.state == 2, flying = s.state == 3 }, clock)
+  if s.state ~= 3 then
     healthBar(s)
   end
+end
+
+--- Those on the ground, the bolts, then those in the air and the rockets
+--- coming down over everything.
+function Army.drawAboveCars()
+  for _, s in pairs(shown) do
+    if s.state ~= 3 then
+      drawOne(s)
+    end
+  end
+  Bolts.draw(clock)
+  for _, s in pairs(shown) do
+    if s.state == 3 then
+      drawOne(s)
+    end
+  end
+  Barrage.drawAboveCars(clock)
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -328,7 +395,7 @@ end
 function Army.walkers()
   local list = {}
   for id, s in pairs(shown) do
-    if s.state ~= 2 then
+    if s.state ~= 2 and s.state ~= 3 then
       list[#list + 1] = { key = "arm" .. id, x = s.dx, y = s.dy, size = "heavy" }
     end
   end
@@ -398,5 +465,10 @@ Army.clientMessages = {
     end
   end,
 }
+for _, part in ipairs({ Barrage, Bolts }) do
+  for kind, handler in pairs(part.clientMessages) do
+    Army.clientMessages[kind] = handler
+  end
+end
 
 return Army

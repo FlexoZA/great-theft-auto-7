@@ -22,6 +22,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the train wreck, and gun haulers (70 health, rifle bursts and grenades) guarding Liar's Landing, keeping their
   distance, side-stepping and flanking. Knock a hauler's legs out and one time in three its torso drags itself on,
   still shooting, for 4 seconds.
+- Rocket haulers (120 health) on Liar's Landing and in Prosperity: a rocket at a time from the arm, and every
+  7-10 seconds a volley of four out of their back pods that comes down on red rings round you.
+- Jet haulers (70 health) in Prosperity fight on foot, then take off and strafe a line through you with five
+  marked rockets, untouchable until they land.
+- Plasma: a new damage type, purple. Plasma haulers (90 health) in the Bragium Pit and Prosperity fire slow
+  bolts that splash and melt your armor for 3 seconds (it stops half as much and wears out twice as fast).
+  Shoot one in the Bragium tank on its back to finish it and it bursts over everything near, robots too. The
+  insulated suit now resists plasma 25%.
 
 ## [0.36.0] - 2026-10-19
 
