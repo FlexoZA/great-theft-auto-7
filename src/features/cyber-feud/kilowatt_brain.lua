@@ -18,8 +18,11 @@
 --           turn once started, and into something solid he staggers
 --   slam    a hop and a slam: a cyan ring of shock rolls out from him
 --           (`shock`), hurting whoever it passes
---   whip    a crackling line from his fist to whoever he can see, and on
---           to the next player near them, up to three (`shock`)
+--   whip    his fist crackles and a line flickers out from it, set on
+--           whoever he can see (WHIP_WIND, the tell); then lightning goes
+--           down that line, into the first player still on it, and on to
+--           the next player near them, up to three (`shock`). Off the
+--           line, it misses
 --   punch   right up against you
 --   vent    after every few moves his chest cage opens and he stands
 --           steaming: hits on him then count double. The window.
@@ -123,12 +126,31 @@ local function moved(k, events, recover)
   end
 end
 
---- The whip: from his fist to `first`, and on to the nearest other player
---- within WHIP_CHAIN of the last, up to WHIP_HITS. The points it went through.
-local function whip(k, server, first, events)
+--- The whip: down his line (`k.aim`) to the first player within WHIP_WIDTH
+--- of it before WHIP_RANGE (or the first wall), and on from them to the
+--- nearest other player within WHIP_CHAIN of the last, up to WHIP_HITS.
+--- Nobody on the line, it crackles out to the end of it. The points it went through.
+local function whip(k, server, events)
   local hand = k.facing + 0.5
-  local pts = { k.x + math.cos(hand) * 30, k.y + math.sin(hand) * 30 }
-  local hit, cur = {}, first
+  local hx, hy = k.x + math.cos(hand) * 30, k.y + math.sin(hand) * 30
+  local pts = { hx, hy }
+  local ex, ey = Sight.reach(k.x, k.y, k.aim, k.WHIP_RANGE)
+  local dx, dy = ex - k.x, ey - k.y
+  local len2 = math.max(1, dx * dx + dy * dy)
+  local cur, nearest = nil, nil
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local x, y = Features.bodyPose(server, p)
+      local along = math.max(0, math.min(1, ((x - k.x) * dx + (y - k.y) * dy) / len2))
+      if dist2(x, y, k.x + dx * along, k.y + dy * along) <= k.WHIP_WIDTH ^ 2 and (not nearest or along < nearest) then
+        cur, nearest = p, along
+      end
+    end
+  end
+  if not cur then
+    pts[#pts + 1], pts[#pts + 2] = ex, ey
+  end
+  local hit = {}
   local n = 0
   while cur and n < k.WHIP_HITS do
     n = n + 1
@@ -198,11 +220,7 @@ local function stepAction(k, server, dt, events)
     end
   elseif a == "whip" then
     if k.t >= k.actionTime then
-      local p = k.whipAt
-      if p and Features.visible(server, p) then
-        whip(k, server, p, events)
-      end
-      k.whipAt = nil
+      whip(k, server, events)
       moved(k, events, 0.25)
     end
   elseif a == "punch" then
@@ -366,7 +384,7 @@ function Brain.think(k, server, dt)
     act(k, "brace", k.phase2 and k.BRACE_2 or k.BRACE)
   elseif d <= k.WHIP_RANGE and k.whipIn <= 0 then
     k.whipIn = k.WHIP_EVERY
-    k.whipAt = target
+    k.aim = toward -- set now: get off this line
     act(k, "whip", k.WHIP_WIND)
   elseif d <= k.RADIUS + k.PUNCH_REACH then
     k.punchAt = target

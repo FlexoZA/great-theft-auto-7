@@ -1516,7 +1516,7 @@ the one with a plot.
   degrees, 100 on edge, 170 px all round), take 180 health (nine pistol
   rounds), fire uzi bursts of 5 every 1.4 s whose rounds do 8 shock and
   zap you (8 a second for 3 s), and now and then charge a stun shot (10,
-  held 1.2 s). They dodge rounds in flight and abilities about to land,
+  held 1.2 s) down a line they show you for 0.6 s first. They dodge rounds in flight and abilities about to land,
   turn on whoever shoots at them, call the others in range, and when hurt
   go for a medkit (+70) or an energy drink (+30 and quicker for 6 s). Rounds
   owned by nobody pass them by. 8 koins each. `HTR_STATE`, `HTR_DOWN`,

@@ -11,9 +11,10 @@
 -- whichever way they face. Their rounds are shock (the damage feature)
 -- and zap whoever they hit, the shock running on through them the way a
 -- flame burns on, until it wears off or they dodge it off. Every so often
--- one charges its pods and fires a stun shot instead, which holds you
--- still. Rounds owned by nobody (the Combine's, the turrets', their own)
--- pass by them; anyone else's hurt them.
+-- one charges its pods and fires a stun shot instead, down a line it shows
+-- you while it charges (step off it), which holds you still. Rounds owned
+-- by nobody (the Combine's, the turrets', their own) pass by them; anyone
+-- else's hurt them.
 --
 -- What they dodge, read each tick on the host: every round in flight that
 -- a player or bot fired (weapons' `sv.projectiles`), a rocket with room to
@@ -103,6 +104,7 @@ local FLASH = 0.12 -- seconds a muzzle flash shows
 local HURT = 0.18 -- seconds one flashes white after a hit
 local DODGE_SHOWN = 0.3 -- seconds a dodge's smear shows
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
+local SIGHTLINE = 600 -- px a charging stun shot's line is drawn, if no wall stops it
 local HEALS = { health = true, stamina = true }
 local BREATH_MAX = Stamina.defaults.max -- a full breath, as the bar shows it
 
@@ -172,6 +174,7 @@ local function server()
       fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware,
       health = Bosses.enemyHealth(Hunters.health), -- tougher on a job finished before
       radius = Render.RADIUS, nav = nav, find = findHeal, there = stillThere, take = takeHeal,
+      lockAim = true, -- its stun shot goes down the line it shows while charging
     }),
     syncIn = 0,
     emptySends = 0,
@@ -448,6 +451,19 @@ function Hunters:drawAboveCars()
       love.graphics.setColor(Render.GLOW[1], Render.GLOW[2], Render.GLOW[3], 0.7 * (1 - kr))
       love.graphics.setLineWidth(3 - ring)
       love.graphics.circle("line", c.x, c.y, 20 + kr * 160, 40)
+    end
+  end
+  for _, h in pairs(shown) do
+    if h.charging then -- where its stun shot will go, out to the first wall: get off it
+      local mx, my = h.dx + math.cos(h.facing) * 18, h.dy + math.sin(h.facing) * 18
+      local ex, ey = Sight.reach(mx, my, h.facing, SIGHTLINE)
+      local pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 20))
+      love.graphics.setColor(Render.GLOW[1], Render.GLOW[2], Render.GLOW[3], 0.25 * pulse)
+      love.graphics.setLineWidth(5)
+      love.graphics.line(mx, my, ex, ey)
+      love.graphics.setColor(Render.SPARK[1], Render.SPARK[2], Render.SPARK[3], 0.85 * pulse)
+      love.graphics.setLineWidth(1)
+      love.graphics.line(mx, my, ex, ey)
     end
   end
   love.graphics.setLineWidth(1)
