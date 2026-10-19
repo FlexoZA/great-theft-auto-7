@@ -33,7 +33,15 @@ the `plasma` damage type (the damage feature's "melt" status, the armor
 feature spending two points a point while melted) and plasma haulers
 (`plz_brain.lua`, `bolts.lua`) in the Bragium Pit and Prosperity. What
 every drilled model shares (posts, squads, keeping its distance) is
-`drill.lua`. No story, backdrops or music yet. See "Stages" at the end for the
+`drill.lua`. Stage 6 done: kamikaze (`exp_brain.lua`), dozer
+(`dzr_brain.lua`), arc (`arc_brain.lua`, domes in `domes.lua`) and badass
+(`bad_brain.lua`) haulers, the medic and shield drones (`drone_brain.lua`,
+shields soaked up in `chassis.lua`) and the sentries (`sentry_brain.lua`),
+on every map from Liar's Landing on: the Refinery's bridges held by arc
+haulers, the Assembly Line's aisles by gun haulers with a badass and two
+sentries on the Foreman's floor, Thousand Papercuts' road by rocket and
+jet haulers with a sentry in every nest, and the Bunker's rim by eleven
+sentries on the cannon mounts. No story, backdrops or music yet. See "Stages" at the end for the
 order.
 
 ## Decisions

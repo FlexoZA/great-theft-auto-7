@@ -109,7 +109,7 @@ end
 --- `CONF`.
 function Chassis:add(brain, code, x, y, facing)
   local conf = brain.CONF
-  local r = Look.radius(code)
+  local r = brain.RADIUS or Look.radius(code)
   x, y = Chassis.clearSpot(x, y, r)
   local hp = Bosses.enemyHealth(conf.health) -- tougher on a job done before
   local s = {
@@ -178,6 +178,16 @@ function Chassis:goTo(s, x, y, speed, dt, look)
 end
 
 -- Seeing ------------------------------------------------------------------------
+
+--- Is player `p` in the game and seen (not hidden, not dead)?
+function Chassis.visible(server, p)
+  return Features.visible(server, p)
+end
+
+--- Where player `p` is (driving or walking).
+function Chassis.pose(server, p)
+  return Features.bodyPose(server, p)
+end
 
 --- Where player `who` is, if still about.
 function Chassis.poseOf(server, who)
@@ -334,7 +344,9 @@ local function crawl(self, server, s, dt)
     if Chassis.dist2(s.x, s.y, tx, ty) > 160 * 160 then
       self:goTo(s, tx, ty, s.conf.speed * Chassis.CRAWL_SPEED, dt, false)
     end
-    self:shoot(server, s, tx, ty, s.brain.gun(), dt)
+    if s.brain.gun then -- (a dozer has nothing to shoot: it just drags itself at you)
+      self:shoot(server, s, tx, ty, s.brain.gun(), dt)
+    end
   end
 end
 
@@ -362,21 +374,30 @@ function Chassis:update(server, dt)
 end
 
 --- The hauler whose body covers (x, y) (within `radius` more), and its
---- index. One in the air (a jet hauler's run) is out of reach.
+--- index. One in the air (a jet hauler's run) or sunk in the floor (a
+--- sentry, down) is out of reach.
 function Chassis:at(x, y, radius)
   for i, s in ipairs(self.list) do
     local r = s.radius + (radius or 0)
-    if not s.flying and Chassis.dist2(s.x, s.y, x, y) <= r * r then
+    if not (s.flying or s.sunk) and Chassis.dist2(s.x, s.y, x, y) <= r * r then
       return s, i
     end
   end
   return nil
 end
 
---- `amount` into `s` (index `i`) from player `by`, along `angle`. Returns
+--- `amount` into `s` (index `i`) from player `by`, along `angle` (through
+--- its bubble first, if a shield drone gave it one). Returns
 --- "down" when that finished it (it is off the list), "crawl" when it lost
 --- its legs instead, or nil.
 function Chassis:hurt(s, i, amount, by, angle)
+  if s.shield then -- a shield drone's bubble takes it first
+    local stopped = math.min(s.shield, amount)
+    s.shield, amount = s.shield - stopped, amount - stopped
+    if s.shield <= 0 then
+      s.shield = nil
+    end
+  end
   s.hp = s.hp - amount
   s.lastBy = by
   if s.hp > 0 then

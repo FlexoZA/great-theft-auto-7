@@ -65,9 +65,9 @@ Brain.gone = Drill.gone
 
 Brain.hurt = Drill.hurt
 
---- The pods: rockets up and over, coming down round (tx, ty).
-local function volley(server, s, tx, ty)
-  local conf = s.conf
+--- The pods: rockets up and over, coming down round (tx, ty). `conf`
+--- has the volley's numbers (the badass hauler's pods use it with its own).
+function Brain.volley(server, s, tx, ty, conf)
   for k = 0, conf.volley - 1 do
     local a = love.math.random() * 2 * math.pi
     local d = k == 0 and 0 or conf.volleySpread * (0.5 + 0.5 * love.math.random()) -- one right on you
@@ -88,7 +88,7 @@ function Brain.think(roster, server, s, dt)
     if s.charging <= 0 then
       s.charging = nil
       if s.lastX then
-        volley(server, s, s.lastX, s.lastY)
+        Brain.volley(server, s, s.lastX, s.lastY, conf)
       end
       s.volleyIn = Chassis.between(conf.volleyEvery)
     end

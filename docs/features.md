@@ -1810,8 +1810,11 @@ the one with a plot.
   (`chassis.lua`: walking on d-day's Nav grid, its own sight line over
   `blocksShot`, the trigger, the torso crawl) thought for by its model's
   brain (`junk_brain.lua`, `gun_brain.lua`, `rpg_brain.lua`,
-  `plz_brain.lua`, `jet_brain.lua`; army.lua's `BRAINS` by code; what the
-  drilled ones share is `drill.lua`),
+  `plz_brain.lua`, `jet_brain.lua`, `exp_brain.lua`, `dzr_brain.lua`,
+  `arc_brain.lua`, `bad_brain.lua`, `drone_brain.lua` for FIX and SHD,
+  `sentry_brain.lua`; army.lua's `BRAINS` by code; what the drilled ones
+  share is `drill.lua`; a brain may answer `blocks` (a blade), `burst`
+  (what it leaves going off) and `RADIUS`),
   and drawn by `hauler_look.lua` (`drone_look.lua` has the drones and the
   sentry, not placed yet). Their rounds carry "hyperbole" and ownerless
   rounds pass through them; they answer `serverShotAt`, `serverEnemies`
@@ -1819,8 +1822,9 @@ the one with a plot.
   `serverFreezeArea` and `footstepWalkers`, and a kill raises `serverKill`
   kind "robot". Rockets that come down on marked rings are `barrage.lua`'s
   (HYP_RAIN, going off through weapons' `explode`), plasma bolts
-  `bolts.lua`'s (HYP_BOLT, HYP_SPLASH; damage type "plasma"). So far the
-  first four maps are held (junk, gun, rocket, plasma and jet haulers); the
+  `bolts.lua`'s (HYP_BOLT, HYP_SPLASH; damage type "plasma"), the arc
+  haulers' domes `domes.lua`'s (HYP_DOME). Every map is held, the
+  Bunker by its eleven sentries; the
   story, the rest of the army, the bosses, backdrops and music follow in
   the stages `docs/borderline.md` lists.
 - Events: `src/features/events` is something big happening in the city.

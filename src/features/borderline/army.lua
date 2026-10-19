@@ -16,20 +16,25 @@
 --
 -- The army is all one side: its rounds carry its name (weapons' `from`),
 -- and an ownerless round or blast passes through every one of them. Only
--- players' rounds and blasts reach them, and the one exception: a plasma
--- hauler's tank bursting (plz_brain.lua's `burst`) splashes its own side
--- too. What comes down out of the sky on red rings is barrage.lua's (the
--- rocket haulers' pods, the jet haulers' runs); the plasma bolts are
--- bolts.lua's.
+-- players' rounds and blasts reach them, with two exceptions that hurt
+-- their own side too: a plasma hauler's tank bursting and a kamikaze
+-- hauler going off (each brain's `burst`). A dozer's blade stops rounds
+-- from in front (`blocks`), an arc hauler's dome rounds from outside it
+-- (domes.lua), a shield drone's bubble soaks hits first (chassis.lua).
+-- What comes down out of the sky on red rings is barrage.lua's (the rocket
+-- haulers' pods, the jet haulers' runs, the badass hauler's); the plasma
+-- bolts are bolts.lua's.
 --
 -- Messages
---   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim>]...  (unreliable, 15 Hz;
---                  state 0 calm, 1 after somebody, 2 crawling, 3 in the air; aim 1 while it is lining up a
---                  shot or winding up: its coils, pods or thrusters glow)
+--   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim> <link> <shield>]...
+--                  (unreliable, 15 Hz; state 0 calm, 1 after somebody, 2 crawling, 3 in the air, 4 a sentry up;
+--                  aim 1 while it is lining up a shot or winding up: its coils, pods or thrusters glow, its core
+--                  races; link the hauler a drone's beam is on (0 none); shield its bubble's points)
 --   server -> all  HYP_DOWN  <id> <x> <y> <angle> <code>   one went down
 --   server -> all  HYP_ALERT <id>                          one spotted somebody (its beep)
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
---   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH)
+--   server -> all  HYP_STOMP <id>                          a badass hauler stamped
+--   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH, domes.lua's HYP_DOME)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -44,6 +49,14 @@ local Gun = require("src.features.borderline.gun_brain")
 local Rpg = require("src.features.borderline.rpg_brain")
 local Plz = require("src.features.borderline.plz_brain")
 local Jet = require("src.features.borderline.jet_brain")
+local Exp = require("src.features.borderline.exp_brain")
+local Dzr = require("src.features.borderline.dzr_brain")
+local Arc = require("src.features.borderline.arc_brain")
+local Drone = require("src.features.borderline.drone_brain")
+local Sentry = require("src.features.borderline.sentry_brain")
+local Bad = require("src.features.borderline.bad_brain")
+local Domes = require("src.features.borderline.domes")
+local DroneLook = require("src.features.borderline.drone_look")
 local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
 
@@ -52,10 +65,14 @@ local Army = {}
 -- Tuning ------------------------------------------------------------------
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
-Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4 } -- koins each spills
-Army.pickupChance = { JNK = 0.2 } -- the chance it drops anything at all (pickups' own odds after); else always
+Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
+  BAD = 15 } -- koins each spills
+Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
+-- all (pickups' own odds after); every other model always does
 
-local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet }
+local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
+  SHD = Drone, SEN = Sentry, BAD = Bad }
+local MACHINES = { FIX = true, SHD = true, SEN = true } -- drawn by drone_look.lua, not as haulers
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -136,10 +153,19 @@ end
 
 local down
 
---- A plasma hauler's tank bursting where `s` fell: plasma over the players
---- near, and into its own side, credited to whoever burst it.
+--- What `s` leaves going off where it fell (a plasma hauler's tank, a
+--- kamikaze's core): `splash` over the players near, and into its own
+--- side, credited to whoever set it off.
 local function burst(server, s, splash, by)
-  Bolts.serverSplash(server, s.x, s.y, splash.radius, splash.damage)
+  local dtype = splash.type or "plasma"
+  local weapons = Features.byName.weapons
+  if dtype == "plasma" then
+    Bolts.serverSplash(server, s.x, s.y, splash.radius, splash.damage)
+  elseif weapons and weapons.explode then -- nobody's blast: the boom and the players (pid 0, no round)
+    weapons:explode(server, { id = 0, owner = 0, vx = 0, vy = 1,
+      blast = { radius = splash.radius, damage = splash.damage * Bosses.enemyPower(), soft = 0, type = dtype } },
+      s.x, s.y)
+  end
   local roster = sv.roster
   for i = #roster.list, 1, -1 do
     local o = roster.list[i]
@@ -148,7 +174,7 @@ local function burst(server, s, splash, by)
       local amount = splash.damage * (1 - (2 / 3) * math.min(1, d / splash.radius))
       local angle = math.atan2(o.y - s.y, o.x - s.x)
       if roster:hurt(o, i, amount, by, angle) == "down" then
-        down(server, o, by, angle, "plasma")
+        down(server, o, by, angle, dtype)
       end
     end
   end
@@ -199,9 +225,12 @@ local function sync(server)
     parts[#parts + 1] = ("%.0f"):format(s.y)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
-    parts[#parts + 1] = s.crawl and 2 or s.flying and 3 or (s.target and 1 or 0)
+    local up = s.brain == Sentry and s.rise > 0
+    parts[#parts + 1] = s.crawl and 2 or s.flying and 3 or up and 4 or (s.target and 1 or 0)
     local lining = s.target and s.aimFor > 0 and s.aimFor < s.conf.aim
     parts[#parts + 1] = (s.charging or lining) and 1 or 0
+    parts[#parts + 1] = s.beaming and s.link or 0
+    parts[#parts + 1] = ("%.0f"):format(s.shield or 0)
   end
   local msg = Protocol.encode("HYP_STATE", unpack(parts))
   for _, player in pairs(server.players) do
@@ -219,6 +248,16 @@ function Army.serverStep(server, dt)
   Bolts.serverStep(server, dt)
   for _, s in ipairs(sv.roster:update(server, dt)) do
     down(server, s, s.lastBy, s.facing + math.pi, "bullet") -- a crawl that gave out
+  end
+  Drone.fade(sv.roster, dt)
+  Domes.serverStep(server, sv.roster, dt)
+  local list = sv.roster.list
+  for i = #list, 1, -1 do
+    local s = list[i]
+    if s.detonate then -- a kamikaze reached somebody
+      table.remove(list, i)
+      down(server, s, nil, s.facing, "explosive")
+    end
   end
   for _, s in ipairs(sv.roster.list) do
     if s.spotted then
@@ -239,6 +278,9 @@ function Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if not s then
     return false
   end
+  if (s.brain.blocks and s.brain.blocks(s, angle, dtype)) or Domes.shields(server, sv.roster, s, by) then
+    return true -- stopped at the blade or the dome
+  end
   local result = sv.roster:hurt(s, i, damage or 20, by, angle)
   if result == "down" then
     down(server, s, by, angle, dtype)
@@ -251,8 +293,8 @@ end
 --- Every robot out on the level, for the audit (tools/audit).
 function Army.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.roster.list or {}) do
-    add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp, radius = s.radius,
-      flying = s.brain == Jet or nil, immune = s.flying or nil })
+    add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp + (s.shield or 0),
+      radius = s.radius, flying = (s.brain == Jet or s.brain == Drone) or nil, immune = (s.flying or s.sunk) or nil })
   end
 end
 
@@ -269,7 +311,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local shown = {} -- id -> { code, x, y, dx, dy, facing, hp, max, state, aim, stride, hurt, crawl }
+local shown = {} -- id -> { code, x, y, dx, dy, facing, hp, max, state, aim, link, shield, stride, hurt, rise }
 local wrecks = {} -- { x, y, angle, code }
 local lastTick, heardAt, clock = 0, 0, 0
 local bank = {}
@@ -294,6 +336,12 @@ function Army.load()
     buf:sweep(0, 0.6, 600, 90, { wave = "saw", amp = 0.25, decay = 0.4 })
     buf:lowpass(2600)
   end)
+  -- A badass hauler's stamp: a deep thud.
+  bank.stomp = make(0.6, 0.8, function(buf)
+    buf:sweep(0, 0.5, 120, 40, { wave = "sine", amp = 0.8, decay = 0.25 })
+    buf:noiseBurst(0, 0.2, { amp = 0.5, decay = 0.08 })
+    buf:lowpass(600)
+  end)
   -- Losing its legs: a snap and a grinding scrape.
   bank.snap = make(0.5, 0.6, function(buf)
     buf:noiseBurst(0, 0.08, { amp = 0.8, decay = 0.03 })
@@ -317,6 +365,7 @@ function Army.clear()
   shown, wrecks, lastTick = {}, {}, 0
   Barrage.clear()
   Bolts.clear()
+  Domes.clear()
 end
 
 --- Ease the one shown at `s` towards where the host last said it was
@@ -336,6 +385,7 @@ function Army.update(dt)
   clock = clock + dt
   Barrage.update(dt)
   Bolts.update(dt)
+  Domes.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
   end
@@ -344,12 +394,17 @@ function Army.update(dt)
     follow(s, k)
     s.hurt = math.max(0, s.hurt - dt)
     s.charge = s.aim and math.min(1, (s.charge or 0) + dt * 2) or 0
+    s.rise = math.max(0, math.min(1, (s.rise or 0) + (s.state == 4 and dt or -dt) * 2))
   end
 end
 
 function Army.drawBelowCars()
   for _, w in ipairs(wrecks) do
-    Look.drawWreck(w, clock)
+    if MACHINES[w.code] then
+      DroneLook.drawDebris(w.x, w.y, w.x % 5)
+    else
+      Look.drawWreck(w, clock)
+    end
   end
   Barrage.drawBelowCars(clock)
 end
@@ -366,24 +421,50 @@ local function healthBar(s)
 end
 
 local function drawOne(s)
-  Look.draw({ dx = s.dx, dy = s.dy, facing = s.facing, code = s.code, stride = s.stride, charge = s.charge,
-    flash = s.hurt / HURT, crawl = s.state == 2, flying = s.state == 3 }, clock)
-  if s.state ~= 3 then
+  local flash = s.hurt / HURT
+  if s.code == "SEN" then
+    DroneLook.drawSentry({ dx = s.dx, dy = s.dy, aim = s.facing, rise = s.rise, charge = s.charge, flash = flash },
+      clock)
+  elseif MACHINES[s.code] then
+    local ward = shown[s.link or 0]
+    DroneLook.drawDrone({ dx = s.dx, dy = s.dy, facing = s.facing, code = s.code, flash = flash,
+      beamX = ward and ward.dx, beamY = ward and ward.dy }, clock)
+  else
+    Look.draw({ dx = s.dx, dy = s.dy, facing = s.facing, code = s.code, stride = s.stride, charge = s.charge,
+      flash = flash, crawl = s.state == 2, flying = s.state == 3 }, clock)
+    if (s.shield or 0) > 0 then
+      DroneLook.drawBubble(s.dx, s.dy, Look.radius(s.code) + 10, clock, s.shield / Drone.SHIELD)
+    end
+  end
+  if s.state ~= 3 and (s.code ~= "SEN" or s.rise > 0.5) then
     healthBar(s)
   end
 end
 
---- Those on the ground, the bolts, then those in the air and the rockets
---- coming down over everything.
+--- Where hauler `id` is shown, for its dome.
+local function shownAt(id)
+  local s = shown[id]
+  if s then
+    return s.dx, s.dy
+  end
+end
+
+--- Those on the ground, the domes and the bolts, then those in the air
+--- (jets, drones) and the rockets coming down over everything.
+local function flies(s)
+  return s.state == 3 or s.code == "FIX" or s.code == "SHD"
+end
+
 function Army.drawAboveCars()
   for _, s in pairs(shown) do
-    if s.state ~= 3 then
+    if not flies(s) then
       drawOne(s)
     end
   end
+  Domes.draw(shownAt, clock)
   Bolts.draw(clock)
   for _, s in pairs(shown) do
-    if s.state == 3 then
+    if flies(s) then
       drawOne(s)
     end
   end
@@ -395,7 +476,7 @@ end
 function Army.walkers()
   local list = {}
   for id, s in pairs(shown) do
-    if s.state ~= 2 and s.state ~= 3 then
+    if s.state ~= 2 and not flies(s) and s.code ~= "SEN" then
       list[#list + 1] = { key = "arm" .. id, x = s.dx, y = s.dy, size = "heavy" }
     end
   end
@@ -410,9 +491,9 @@ Army.clientMessages = {
     end
     lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
-    for i = 2, #args - 7, 8 do
+    for i = 2, #args - 9, 10 do
       local id, code, x, y = tonumber(args[i]), args[i + 1], tonumber(args[i + 2]), tonumber(args[i + 3])
-      if id and x and y and Look.KITS[code] then
+      if id and x and y and (Look.KITS[code] or MACHINES[code]) then
         local s = shown[id]
         local hp = tonumber(args[i + 5]) or 0
         if not s then
@@ -427,6 +508,8 @@ Army.clientMessages = {
         s.facing = tonumber(args[i + 4]) or s.facing or 0
         s.state = tonumber(args[i + 6]) or 0
         s.aim = args[i + 7] == "1"
+        s.link = tonumber(args[i + 8])
+        s.shield = tonumber(args[i + 9]) or 0
         seen[id] = true
       end
     end
@@ -443,7 +526,7 @@ Army.clientMessages = {
     if id then
       shown[id] = nil
     end
-    if x and y and Look.KITS[args[5] or ""] then
+    if x and y and (Look.KITS[args[5] or ""] or MACHINES[args[5] or ""]) then
       wrecks[#wrecks + 1] = { x = s and s.dx or x, y = s and s.dy or y, angle = angle, code = args[5] }
       if #wrecks > MAX_WRECKS then
         table.remove(wrecks, 1)
@@ -457,6 +540,12 @@ Army.clientMessages = {
       play("beep", s.dx, s.dy)
     end
   end,
+  HYP_STOMP = function(_client, args)
+    local s = shown[tonumber(args[1]) or -1]
+    if s then
+      play("stomp", s.dx, s.dy)
+    end
+  end,
   HYP_CRAWL = function(_client, args)
     local s = shown[tonumber(args[1]) or -1]
     if s then
@@ -465,7 +554,7 @@ Army.clientMessages = {
     end
   end,
 }
-for _, part in ipairs({ Barrage, Bolts }) do
+for _, part in ipairs({ Barrage, Bolts, Domes }) do
   for kind, handler in pairs(part.clientMessages) do
     Army.clientMessages[kind] = handler
   end

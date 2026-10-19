@@ -30,6 +30,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   bolts that splash and melt your armor for 3 seconds (it stops half as much and wears out twice as fast).
   Shoot one in the Bragium tank on its back to finish it and it bursts over everything near, robots too. The
   insulated suit now resists plasma 25%.
+- The rest of Hyperbole's army is out, and every Borderline map but the Bunker's fight is held: kamikaze haulers
+  (40 health) that sprint at you and blow, their own side too; dozer haulers (160) whose blade stops rounds from
+  the front and that charge in a straight line; arc haulers (80) with shock bolts and a dome rounds from outside
+  can't get through (inside, it zaps you); medic drones that heal haulers and shield drones that give them an
+  80-point bubble (25 health each: shoot them first); sentries that rise out of the floor when you come near; and
+  the badass hauler (450) with twin war cannons, a six-rocket volley and a stomp.
 
 ## [0.36.0] - 2026-10-19
 

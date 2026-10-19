@@ -328,6 +328,8 @@ local function buildLanding(map, rng, T)
   b:pack("JNK", 50, 12, 3)
   b:post("RPG", 9, 7) -- the first rocket haulers, under the cranes
   b:post("RPG", 46, 7)
+  b:post("FIX", 12, 21) -- a pair of medic drones with the first squad
+  b:post("FIX", 14, 21)
   b:zone("The Yard", 8, map.rows - 1)
   b:zone("The Quay", 0, 7)
   b:ends(25, 56, 27, 3)
@@ -409,6 +411,8 @@ local function buildPit(map, rng, T)
   b:post("GUN", 41, 41)
   b:squad({ "GUN", "GUN" }, { { 11.5, 11.5 }, { n - 12, 11.5 }, { n - 12, n - 12 }, { 11.5, n - 12 } })
   b:pack("JNK", n / 2, n / 2, 4)
+  b:post("SHD", 40, 20) -- shield drones by the inner plasma haulers
+  b:post("SHD", 20, 40)
   b:zone("The Rim", n - 8, n - 1)
   b:zone("The Pit", 8, n - 9)
   b:zone("The Mine Lift", 0, 7)
@@ -474,6 +478,15 @@ local function buildProsperity(map, rng, T)
   b:post("GUN", 34, Borderline.PLAZA[2] - 2)
   b:squad({ "GUN", "GUN", "GUN" }, { { 28, 55 }, { 28, 81 } })
   b:squad({ "GUN", "GUN" }, { { 16, 31 }, { 40, 31 }, { 40, 18 }, { 16, 18 } })
+  -- And the newer models: kamikazes about the plaza and up north, dozers
+  -- across the avenue, the first badass by the statue with its drones.
+  b:pack("EXP", 16, 50, 3)
+  b:pack("EXP", 40, 18, 3)
+  b:post("DZR", 28, Borderline.PLAZA[2] + 1)
+  b:post("DZR", 28, 16)
+  b:post("BAD", 28, mr + 5)
+  b:post("FIX", 24, mr + 6)
+  b:post("SHD", 32, mr + 6)
   b:zone("South District", 53, map.rows - 1)
   b:zone("Jerry Plaza", Borderline.PLAZA[1], Borderline.PLAZA[2])
   b:zone("North District", 0, 33)
@@ -541,6 +554,24 @@ local function buildRefinery(map, rng, T)
     end
   end
   b:scatter(rng, "crate", 12, 48, 4, map.rows - 6, keep)
+  -- Arc haulers hold the far end of every bridge under their domes, plasma
+  -- haulers stand by the tanks, gun haulers walk the banks, kamikazes wait
+  -- in the middle and a dozer and a badass guard the outflow.
+  for _, run in ipairs(Borderline.RIVER) do
+    for _, c in ipairs(run.bridges) do
+      b:post("ARC", c + 1.5, run.r - 1.5)
+    end
+  end
+  b:post("PLZ", 20, 57)
+  b:post("PLZ", 30, 43)
+  b:post("PLZ", 15, 29)
+  b:squad({ "GUN", "GUN" }, { { 8, 58 }, { 40, 58 } })
+  b:squad({ "GUN", "GUN" }, { { 8, 30 }, { 40, 30 } })
+  b:pack("EXP", 24, 44, 3)
+  b:post("DZR", 24, 9)
+  b:post("BAD", 20, 6)
+  b:post("FIX", 30, 6)
+  b:post("SHD", 18, 44)
   b:zone("The Intake", 54, map.rows - 1)
   b:zone("The Smelting Floor", 13, 53)
   b:zone("The Outflow", 0, 12)
@@ -588,6 +619,23 @@ local function buildAssembly(map, rng, T)
   b:scatter(rng, "crate", 16, 48, 3, map.rows - 6,
     { { 22, map.rows - 7, 33, map.rows - 1 }, { 22, 0, 33, 4 }, { 2, 37, 8, 44 }, { w - 9, 37, w - 3, 44 },
       { 2, edge - 1, 6, edge + 1 }, { w - 6, edge - 1, w - 2, edge + 1 } })
+  -- The line's guards: gun haulers in the aisles between the belts, a squad
+  -- down the middle one, kamikazes, a dozer at the foot of the Foreman's
+  -- floor, and up on it a badass and two sentries.
+  for _, at in ipairs({ { 10, 52 }, { w - 11, 52 }, { 10, 28 }, { w - 11, 28 } }) do
+    b:post("GUN", at[1], at[2])
+  end
+  b:post("RPG", 28, 52)
+  b:post("PLZ", 28, 28)
+  b:squad({ "GUN", "GUN", "GUN" }, { { 10, 40 }, { w - 11, 40 } })
+  b:pack("EXP", 20, 50, 3)
+  b:pack("EXP", 36, 26, 3)
+  b:post("DZR", 28, edge + 3)
+  b:post("BAD", 28, 7)
+  b:post("SEN", 12, 7)
+  b:post("SEN", w - 13, 7)
+  b:post("FIX", 26, 9)
+  b:post("SHD", 30, 9)
   b:zone("The Line", edge + 1, map.rows - 1)
   b:zone("The Foreman's Floor", 0, edge)
   b:ends(25, map.rows - 7, 27, 1)
@@ -621,8 +669,31 @@ local function buildCuts(map, rng, T)
   for r = 12, map.rows - 14, 14 do
     local road = map.cutsRoad[r]
     b:place("nest", road[2] - 0.2, r, 1.2, 1.2, { flat = true, round = true })
+    b:post("SEN", road[2] + 0.4, r + 0.6) -- its sentry, flush in the rock
   end
   b:scatter(rng, "boulder", 22, 52, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
+  -- Up the road: rocket haulers on the bends, jets making runs down it,
+  -- gun haulers and kamikazes in between, and at the door everything left.
+  local function middle(r)
+    local road = map.cutsRoad[r]
+    return (road[1] + road[2] + 1) / 2, r
+  end
+  for _, r in ipairs({ 112, 84, 56, 28 }) do
+    b:post("RPG", middle(r))
+  end
+  for _, r in ipairs({ 98, 64 }) do
+    b:post("JET", middle(r))
+  end
+  for _, r in ipairs({ 120, 92, 70, 42 }) do
+    b:post("GUN", middle(r))
+  end
+  for _, r in ipairs({ 104, 50 }) do
+    local c = middle(r)
+    b:pack("EXP", c, r, 3)
+  end
+  b:post("BAD", middle(10))
+  b:post("ARC", middle(14))
+  b:post("SHD", middle(12))
   b:zone("The Foot of the Cliff", 100, map.rows - 1)
   b:zone("The Cuts", 20, 99)
   b:zone("The Bunker Door", 0, 19)
@@ -657,7 +728,8 @@ local function buildBunker(map, rng, T)
     else
       c, r = lo, hi - (d - 3 * (hi - lo))
     end
-    b:place("cannon", c - 0.4, r - 0.4, 0.8, 0.8, { round = true })
+    b:place("cannon", c - 0.6, r - 0.6, 1.2, 1.2, { round = true, flat = true }) -- its mount
+    b:post("SEN", c, r) -- and its gun, flush until you come up
   end
   b:place("pad", n / 2 - 4, n / 2 - 4, 8, 8, { flat = true, round = true }) -- the eye's hatch
   b:scatter(rng, "vent", 12, 72, 7, n - 8, { { n / 2 - 5, n / 2 - 5, n / 2 + 4, n / 2 + 4 }, { 16, n - 8, 23, n - 1 } })
