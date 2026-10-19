@@ -1349,15 +1349,25 @@ local function buildRoof(map, rng, T)
   local mid = n / 2
   map.helipad = { x = X(mid), y = Y(mid), r = 3 * T }
   light(map, X(mid), Y(mid), 300, CyberFeud.WHITE, 0.3)
-  -- The relays near the corners.
-  for _, p in ipairs({ { 6, 6 }, { n - 7, 6 }, { 6, n - 8 }, { n - 7, n - 8 } }) do
+  -- The relays round the helipad, a short run from one to the next
+  -- (cyber-feud/vex.lua: they're breached one after another).
+  local relays = { { 11, 11 }, { n - 12, 11 }, { 11, n - 13 }, { n - 12, n - 13 } }
+  for _, p in ipairs(relays) do
     cover(map, "relay", X(p[1]), Y(p[2]), T, T)
     light(map, X(p[1] + 0.5), Y(p[2] + 0.5), 160, CyberFeud.GREEN, 0.8)
+  end
+  local function nearRelay(c, r)
+    for _, p in ipairs(relays) do
+      if math.abs(c - p[1]) <= 2 and math.abs(r - p[2]) <= 2 then
+        return true
+      end
+    end
+    return false
   end
   -- AC units and vents, antenna masts.
   for _ = 1, 10 do
     local c, r = rng:random(4, n - 7), rng:random(4, n - 10)
-    if (c - mid) ^ 2 + (r - mid) ^ 2 > 25 then
+    if (c - mid) ^ 2 + (r - mid) ^ 2 > 25 and not nearRelay(c, r) then
       cover(map, "ac", X(c), Y(r), (rng:random() < 0.5 and 2 or 1) * T, T)
     end
   end
@@ -1398,9 +1408,9 @@ local function buildRoof(map, rng, T)
       x = math.floor(x), y = math.floor(y), watch = math.atan2(Y(mid) - y, X(mid) - x),
     }
   end
-  -- The relay terminals near the corners, by their middles (vex.lua).
+  -- The relay terminals, by their middles (vex.lua).
   map.relays = {}
-  for _, p in ipairs({ { 6, 6 }, { n - 7, 6 }, { 6, n - 8 }, { n - 7, n - 8 } }) do
+  for _, p in ipairs(relays) do
     map.relays[#map.relays + 1] = { x = math.floor(X(p[1]) + T / 2), y = math.floor(Y(p[2]) + T / 2) }
   end
   map.wakeY = math.floor(Y(n - 9))

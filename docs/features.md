@@ -364,7 +364,9 @@ couple of small conventions rather than requiring each other:
   begun with `player` (the host) on its map; the feature that owns its
   boss clears the way in, puts them by the boss and starts the fight, and
   returns true. The antlions do it for the Coast (the final section's
-  swarms and soldiers gone, the Guard up). Nothing answering: the quest
+  swarms and soldiers gone, the Guard up); Cyber Feud for the Roof
+  (Kilowatt and Saye down, the host at VEX's uplink with the Shard: the
+  reveal, then her relays). Nothing answering: the quest
   plays from the start.
 - `feature:blocksShot(x, y)`: return true when a round or a look stops at
   the point. Weapons, grenades and every sight cone (`d-day/sight.lua`,
