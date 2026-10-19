@@ -329,7 +329,8 @@ its set piece is done; the objective line says what's left.
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
   the Frozen Wreck, Liar's Landing, the Bragium Pit, Prosperity and the
-  Refinery and the Assembly Line (indoors, dark rather than dusk).
+  Refinery and the Assembly Line (indoors, dark rather than dusk) and
+  Thousand Papercuts.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -468,7 +469,16 @@ booths.
 - **Foreman BIG-B055** on the top floor, by the line's end.
 - **The end:** the shipping bay. EXIT: "THOUSAND PAPERCUTS".
 
-### 7. Thousand Papercuts (`cuts`, 28x140)
+### 7. Thousand Papercuts (`cuts`, 28x140, at dusk)
+
+Hyperbole's service road up the cliff: yellow lines along both edges and
+dashes down the middle, a crash barrier along the drop (render_borderline's
+`drawRoadLines`, following `cutsRoad` and stepping across the bends), an
+ore ropeway down the abyss beside it with buckets running up full and
+down empty (works.lua's `ropeway`), a tower crane at the top still
+building the bunker, lamps up the road's east edge and amber beacons on
+the bends, red ones at the door.
+
 
 A narrow road cut into a cliff, winding up the map, snow, a drop on one
 side (solid edge), the cliff on the other.

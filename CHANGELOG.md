@@ -56,6 +56,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Assembly Line is now a working factory floor under strip lights: hauler parts riding the belts, welding arms
   swinging in with sparks flying, presses stamping, a bridge crane carrying finished haulers up the line, scrap pits,
   painted aisles and beacons at the belt ends.
+- Thousand Papercuts is now Hyperbole's service road up the cliff at dusk: painted edge and centre lines, a crash
+  barrier along the drop, an ore ropeway running down the abyss beside the road, a tower crane at the top still
+  building the bunker, lamps up the road and beacons on the bends.
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.

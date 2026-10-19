@@ -16,7 +16,9 @@
 -- the Assembly Line, hauler parts riding the belts (`map.conveyors` with
 -- `cargo` "parts"), the arms swinging in to weld with sparks flying
 -- (`map.arms`), the presses stamping (`map.presses`) and a finished hauler
--- carried up the line by the bridge crane (`load` "hauler"). Scenery only: nothing here is on the host
+-- carried up the line by the bridge crane (`load` "hauler"); and the ore
+-- ropeway down Thousand Papercuts' drop, its buckets running up one rope
+-- and down the other (`map.ropeway`). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -426,6 +428,69 @@ local function drawPress(p)
   love.graphics.rectangle("fill", p.x + 9, p.y + 9 - up, p.w - 18, 8)
 end
 
+local BUCKET_GAP = 260 -- px between buckets on a rope
+local ROPE_APART = 14 -- px between the up rope and the down one
+
+--- Where along the ropeway's pylons distance `d` is (from the bottom), and
+--- which way it runs there.
+local function alongRope(points, d)
+  for i = 1, #points - 1 do
+    local a, b = points[i], points[i + 1]
+    local len = math.sqrt((b.x - a.x) ^ 2 + (b.y - a.y) ^ 2)
+    if d <= len or i == #points - 1 then
+      local k = math.min(1, d / len)
+      return a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, math.atan2(b.y - a.y, b.x - a.x)
+    end
+    d = d - len
+  end
+  return points[1].x, points[1].y, 0
+end
+
+--- The ropeway: its pylons, the two ropes, the buckets on them (ore going
+--- up full on one, coming down empty on the other), a station at each end.
+local function drawRopeway(rw)
+  local pts = rw.points
+  local total = 0
+  for i = 1, #pts - 1 do
+    total = total + math.sqrt((pts[i + 1].x - pts[i].x) ^ 2 + (pts[i + 1].y - pts[i].y) ^ 2)
+  end
+  for _, side in ipairs({ -1, 1 }) do -- the ropes
+    love.graphics.setColor(C.ink)
+    love.graphics.setLineWidth(2)
+    local line = {}
+    for _, p in ipairs(pts) do
+      line[#line + 1] = p.x + side * ROPE_APART
+      line[#line + 1] = p.y - LIFT
+    end
+    love.graphics.line(line)
+    love.graphics.setLineWidth(1)
+  end
+  for i, p in ipairs(pts) do -- the pylons, a station at either end
+    local big = i == 1 or i == #pts
+    local w = big and 60 or 34
+    love.graphics.setColor(C.ink)
+    love.graphics.rectangle("fill", p.x - w / 2 - 2, p.y - LIFT - 8, w + 4, 16)
+    love.graphics.setColor(big and C.yellow or C.gunmetalLight)
+    love.graphics.rectangle("fill", p.x - w / 2, p.y - LIFT - 6, w, 12)
+  end
+  local shift = (clock / rw.period * total) % BUCKET_GAP
+  for d = 0, total - 1, BUCKET_GAP do
+    for _, side in ipairs({ -1, 1 }) do
+      local along = side > 0 and (d + shift) % total or (total - (d + shift) % total) -- up on one side, down the other
+      local x, y = alongRope(pts, along)
+      x, y = x + side * ROPE_APART, y - LIFT + 12
+      love.graphics.setColor(C.ink)
+      love.graphics.rectangle("fill", x - 9, y - 7, 18, 14)
+      love.graphics.setColor(C.rust)
+      love.graphics.rectangle("fill", x - 7, y - 5, 14, 10)
+      if side > 0 then -- going up full
+        love.graphics.setColor(C.plasma)
+        love.graphics.circle("fill", x, y - 2, 4, 6)
+      end
+    end
+  end
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -452,6 +517,9 @@ function Works.drawAboveCars(map)
   end
   for _, h in ipairs(map.headframes or {}) do
     drawHeadframe(h)
+  end
+  if map.ropeway then
+    drawRopeway(map.ropeway)
   end
   for _, p in ipairs(map.presses or {}) do
     drawPress(p)

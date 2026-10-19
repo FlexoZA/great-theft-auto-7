@@ -23,9 +23,9 @@
 --   assembly    The Assembly Line: the factory floor, dim, conveyor belts
 --               carrying hauler parts across it, welding arms and presses
 --               at work, scrap pits, a bridge crane, the Foreman's floor
---   cuts        Thousand Papercuts: a narrow road winding up a cliff, the
---               drop on its west side, the rock on its east, the bunker's
---               door at the top
+--   cuts        Thousand Papercuts: a narrow service road winding up a cliff
+--               at dusk, the drop on its west side with an ore ropeway
+--               down it, the rock on its east, a crane at the bunker's door
 --   bunker      The Bunker: its roof, the arena, a rim of eleven cannons
 --
 -- So far each is blocked out: floors, walls, cover, the way in and the way
@@ -71,6 +71,8 @@
 --                         hauler with `load` "hauler" (the Assembly Line; works.lua)
 --   map.arms              { x, y, side, phase } assembly arms welding over a belt (the Assembly Line; works.lua)
 --   map.presses           { x, y, w, h, phase } presses stamping (the Assembly Line; works.lua)
+--   map.ropeway           { points, period } the ore ropeway down Thousand Papercuts' drop: its pylons
+--                         ({ x, y } bottom to top), buckets running the rope (works.lua)
 --   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
@@ -1001,6 +1003,7 @@ local function buildCuts(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "cliff"
   map.cutsRoad = {}
+  map.cranes, map.beacons, map.ropeway = {}, {}, nil
   for r = 0, map.rows - 1 do
     local m = Borderline.cutsMiddle(map.cols, math.max(3, math.min(r, map.rows - 9))) -- straight at both ends
     local c0 = math.floor(m - Borderline.ROAD_WIDTH / 2 + 0.5)
@@ -1011,13 +1014,43 @@ local function buildCuts(map, rng, T)
   b:ground("road", 0, 0, map.cols - 1, map.rows - 1)
   local top, bottom = map.cutsRoad[0], map.cutsRoad[map.rows - 1]
   b:place("door", top[1], 0, Borderline.ROAD_WIDTH, 2, { flat = true })
+  -- A tower crane at the top, still building the bunker, over its door.
+  crane(map, b, { top[2] + 2, 3, 0, 0 }, "nw", { top[1] + 3, 1 })
+  -- The ore ropeway down the drop beside the road: a pylon every few rows,
+  -- a station at either end (its buckets run: works.lua).
+  local points = {}
+  for r = map.rows - 3, 3, -8 do
+    local road = map.cutsRoad[r]
+    points[#points + 1] = { x = b:x(math.max(0.7, road[1] - 2)), y = b:y(r) }
+  end
+  map.ropeway = { points = points, period = 90 }
+  -- Lamps up the road's east edge, beacons on the west where it bends.
+  for r = map.rows - 6, 4, -10 do
+    local road = map.cutsRoad[r]
+    b:place("lamp", road[2] + 0.55, r, 0.3, 0.3, { flat = true, round = true })
+    map.lights[#map.lights + 1] = { x = b:x(road[2] + 0.7), y = b:y(r + 0.15), r = 300, color = { 1, 0.88, 0.6 },
+      a = 0.75 }
+  end
+  local lastBeacon = math.huge
+  for r = map.rows - 2, 2, -1 do
+    local here, before = map.cutsRoad[r], map.cutsRoad[r + 1]
+    if here[1] ~= before[1] and lastBeacon - r >= 6 then
+      map.beacons[#map.beacons + 1] = { x = b:x(here[1]) + 10, y = b:y(r), color = "amber" }
+      lastBeacon = r
+    end
+  end
+  map.beacons[#map.beacons + 1] = { x = b:x(top[1]), y = b:y(2.2), color = "red" }
+  map.beacons[#map.beacons + 1] = { x = b:x(top[2] + 1), y = b:y(2.2), color = "red" }
   -- Sentry nests cut into the cliff, on the road's east edge, every so often.
   for r = 12, map.rows - 14, 14 do
     local road = map.cutsRoad[r]
     b:place("nest", road[2] - 0.2, r, 1.2, 1.2, { flat = true, round = true })
     b:post("SEN", road[2] + 0.4, r + 0.6) -- its sentry, flush in the rock
   end
-  b:scatter(rng, "boulder", 22, 52, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
+  b:scatter(rng, "boulder", 16, 52, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
+  b:scatter(rng, "drum", 8, 40, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
+  b:scatter(rng, "cone", 14, 22, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } },
+    { flat = true })
   -- Up the road: rocket haulers on the bends, jets making runs down it,
   -- gun haulers and kamikazes in between, and at the door everything left.
   local function middle(r)

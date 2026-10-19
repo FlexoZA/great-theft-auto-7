@@ -827,6 +827,39 @@ function DRAW.flood(s)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 10)
 end
 
+--- Thousand Papercuts' road: yellow lines along both edges and dashes
+--- down the middle, a crash barrier along the drop, following each row of
+--- the road (`map.cutsRoad`) and stepping across where it bends.
+local function drawRoadLines(map, T)
+  local function at(c)
+    return map.x0 + c * T
+  end
+  for r = map.r0, map.r1 do
+    local road, prev = map.cutsRoad[r], map.cutsRoad[r - 1]
+    local y = map.y0 + r * T
+    local x0, x1 = at(road[1]), at(road[2] + 1)
+    color(C.yellow, 0.85)
+    love.graphics.rectangle("fill", x0 + 10, y, 5, T)
+    love.graphics.rectangle("fill", x1 - 15, y, 5, T)
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", (x0 + x1) / 2 - 3, y + 10, 6, T - 20)
+    end
+    color(C.gunmetalLight) -- the barrier over the drop
+    love.graphics.rectangle("fill", x0 - 8, y, 8, T)
+    color(INK)
+    love.graphics.rectangle("fill", x0 - 10, y + T / 2 - 4, 12, 8) -- a post
+    if prev and prev[1] ~= road[1] then -- the bend: lines and barrier across
+      local a, b = at(math.min(prev[1], road[1])), at(math.max(prev[1], road[1]))
+      color(C.gunmetalLight)
+      love.graphics.rectangle("fill", a - 8, y - 4, b - a + 8, 8)
+      color(C.yellow, 0.85)
+      love.graphics.rectangle("fill", a + 10, y - 2, b - a, 5)
+      a, b = at(math.min(prev[2], road[2]) + 1), at(math.max(prev[2], road[2]) + 1)
+      love.graphics.rectangle("fill", a - 15, y - 2, b - a, 5)
+    end
+  end
+end
+
 --- Map `map` into the canvas (city-map's Render.build, at half size): the
 --- outside and floors, their edges, then the flat things, the shadows and
 --- whatever stands.
@@ -839,6 +872,9 @@ function RenderBorderline.draw(map, T)
     end
   end
   drawEdges(map, T)
+  if map.cutsRoad then
+    drawRoadLines(map, T)
+  end
   color(C.shadow)
   for _, s in ipairs(map.cover) do
     if not s.flat and not s.water then

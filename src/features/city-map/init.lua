@@ -211,9 +211,9 @@ CityMap.maps = {
     title = "The Assembly Line", kind = "assembly", seed = 306, cols = 56, rows = 72,
     crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.52, 0.60 },
   },
-  cuts = {
+  cuts = { -- at dusk, up the lamps
     title = "Thousand Papercuts", kind = "cuts", seed = 307, cols = 28, rows = 140,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
   },
   bunker = {
     title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
