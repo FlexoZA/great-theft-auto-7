@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-19
+
+Kilowatt and the Hunters now warn you before they stun you, and VEX's relays on the Roof are easier to follow.
+
 ### Changed
 - Kilowatt's arc whip (Cyber Feud, the Roof) now shows a flickering line from his fist for 0.5 s (was a 0.45 s
   crackle you could barely see) and only hits whoever is still on that line: step off it and it misses.
