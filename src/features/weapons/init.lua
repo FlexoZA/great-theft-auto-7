@@ -122,13 +122,17 @@
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
---   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>] [<ttl>]
+--   server -> all     WPN_SHOT <pid> <owner> <x> <y> <vx> <vy> <gun> [<quiet>] [<tint>] [<ttl>] [<hand>]
 --                                              (quiet 1: a pellet after the first, or a gun
 --                                              that makes its own noise (`quiet`); no sound;
 --                                              tint: the streak's colour as rrggbb hex, from
 --                                              the gun table's `tint`, for a gun a boss carries;
 --                                              ttl: seconds it flies, only when that isn't its
---                                              gun's own: an enemy's uzi, a better tier's flame)
+--                                              gun's own: an enemy's uzi, a better tier's flame;
+--                                              hand 1: from the owner's own gun on foot (serverFire),
+--                                              the only rounds that take over the owner's predicted
+--                                              ones; an MG nest or a breached turret fires as its
+--                                              owner without it)
 --   server -> all     WPN_HIT  <pid> <victim> <hp> <type> <amount>   (someone on foot; amount after resistances)
 --   server -> all     WPN_KILL <pid> <killer> <victim> <killerKills> <deathTime> <type>
 --   server -> all     WPN_CARHIT <pid> <vid> <hp> <type> <amount>    (a car)
@@ -1449,7 +1453,9 @@ Weapons.clientMessages = {
         tint = { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 }
       end
       local mine = nil
-      if owner == client.myId then -- drawn from my gun already: carry on from there
+      -- Drawn from my gun already: carry on from there. Only a round from my
+      -- hand: my MG nest's fire as me too, and must not take mine over.
+      if owner == client.myId and args[11] == "1" then
         local waiting
         waiting, mine = ownShot(Weapons)
         if waiting and not mine then
@@ -1887,8 +1893,9 @@ end
 --- that isn't theirs.
 --- An ownerless round hits harder on a job finished before in this world:
 --- `Bosses.enemyPower()`, or `Bosses.power()` for a gun marked `bossGun`
---- (a boss's own).
-function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
+--- (a boss's own). `hand` is only for serverFire: the round left the
+--- owner's own gun, so their screen has drawn it already (`ownShots`).
+function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from, hand)
   local sv = self.sv
   if not (sv and aim) then
     return false
@@ -1923,6 +1930,9 @@ function Weapons:serverFireFrom(server, ownerId, x, y, aim, gun, from)
       fields[10] = ("%.2f"):format(gun.ttl or PROJECTILE_TTL)
     end
     local n = fields[10] and 10 or (gun.tint and 9 or 8) -- the plain shot as short as ever
+    if hand then
+      fields[10], fields[11], n = fields[10] or "", 1, 11
+    end
     server:broadcast(Protocol.encode("WPN_SHOT", unpack(fields, 1, n)))
   end
   -- `player` is nil for an ownerless shot; features that listen must allow it.
@@ -2302,7 +2312,8 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
     bx, by = firedFrom(bx, by, seenX, seenY)
   end
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
-  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun)
+  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun,
+    nil, true)
 end
 
 --- Turn infinite ammo on or off for `player`, for the rest of the game
