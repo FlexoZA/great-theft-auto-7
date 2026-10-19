@@ -753,6 +753,7 @@ Quests.pick = 1 -- the job picked on the board (an index of `Quests.board`)
 Quests.finished = {} -- board job id -> true once finished in this world, from the host
 Quests.clears = {} -- board job id -> times finished in this world, from the host
 Quests.stats = nil -- how the job under way went for me (QST_STATS), from the host
+Quests.doneLevel = nil -- the level the job just done was at (QST_DONE), for the victory screen
 local victory = nil -- { t } while the victory screen is up at home (someone else took us there)
 local offerT = 0 -- seconds the offer has been up
 local declined = nil -- quest id turned down; forgotten once you leave its star
@@ -1195,7 +1196,8 @@ function Quests:drawScreen(client)
         hint = notice .. "   " .. hint
       end
     end
-    Victory.draw({ title = job and job.title, color = job and job.color, stats = self.stats, hint = hint },
+    Victory.draw({ title = job and job.title, color = job and job.color, stats = self.stats, hint = hint,
+      level = self.doneLevel },
       victory and victory.t or offerT, time, fillStar)
   end
   if self.boardOpen and client then
@@ -1255,7 +1257,7 @@ Quests.clientMessages = {
       end
     else
       if quest.board then
-        Quests.stats = nil -- a new job: the host counts from nothing again
+        Quests.stats, Quests.doneLevel = nil, nil -- a new job: the host counts from nothing again
       end
       Features.call("questStarted", client, quest, by)
     end
@@ -1264,6 +1266,10 @@ Quests.clientMessages = {
     local quest = Quests.byId[args[1] or ""]
     if quest then
       Quests.done = quest.id
+      -- Its level, from the times it was finished before this one (the host's
+      -- count of this one comes after QST_DONE).
+      local bosses = Features.byName.bosses
+      Quests.doneLevel = bosses and bosses.clientClears and bosses.clientClears() + 1 or 1
       banner = { title = "JOB DONE", text = quest.title }
       bannerTimer = BANNER_TIME
     end

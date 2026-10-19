@@ -14,6 +14,17 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-19
+
+Bullets now spark and leave marks on walls, and every job level has a name, shown on the victory screen and the board.
+
+### Added
+- Bullets that hit a wall, building or rock now spark and kick up a puff of dust and grit where they strike, and
+  leave a pock mark for a few seconds. Everyone in the world sees them.
+- Every job level has a name, from Easy (level 1) through Hard, Brutal, Carnage, Rip and Tear and Nightmare up to Hell
+  on Earth (level 11, the last). The victory screen shows the level you just finished and its name, and the job board
+  shows the name next to each job's level.
+
 ## [0.35.1] - 2026-10-19
 
 A fix for your own shots bending along with your MG nest's sweep.

@@ -225,6 +225,23 @@ local function blocked(x, y)
   return Features.any("blocksShot", x, y)
 end
 
+--- Where a round going from (ax, ay), in the open, to (bx, by), in a wall,
+--- met the wall's face: halved a few times, to within a pixel or so.
+local function wallFace(ax, ay, bx, by)
+  if blocked(ax, ay) then
+    return bx, by -- it started in there (fired point blank): no face to find
+  end
+  for _ = 1, 6 do
+    local mx, my = (ax + bx) / 2, (ay + by) / 2
+    if blocked(mx, my) then
+      bx, by = mx, my
+    else
+      ax, ay = mx, my
+    end
+  end
+  return ax, ay
+end
+
 --- Everything shootable that isn't a car belongs to some other feature, so
 --- ask them: a feature with a serverShotAt hook kills whatever of its own is
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
@@ -823,7 +840,8 @@ function Weapons:update(dt, client, camera)
     p.y = p.y + p.vy * dt
     p.age = p.age + dt
     local ttl = p.ttl or gun.ttl or PROJECTILE_TTL -- the host's word on how far it flies, when it gave one
-    local spent = p.age > ttl or blocked(p.x, p.y)
+    local wall = blocked(p.x, p.y)
+    local spent = p.age > ttl or wall
     if gun.blast then
       Rockets.trail(p, dt)
       -- A missile goes off when the host says so (WPN_BOOM); until then it
@@ -838,6 +856,12 @@ function Weapons:update(dt, client, camera)
       -- A bullet into a wall chips it (one pellet a blast, and not fire).
       if not (gun.flame or p.quiet) and p.age <= ttl then
         Sounds.play("hit-wall", p.x, p.y, 0.9 + love.math.random() * 0.2)
+      end
+      -- And kicks up sparks and dust at its face, on every screen: each
+      -- one flies every round itself, so no word from the host is needed.
+      if wall and not gun.flame and p.age <= ttl then
+        local x, y = wallFace(p.x - p.vx * dt, p.y - p.vy * dt, p.x, p.y)
+        Explosions.impact(x, y, p.vx, p.vy)
       end
       self.projectiles[pid] = nil
     end
