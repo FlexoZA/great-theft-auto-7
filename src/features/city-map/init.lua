@@ -182,6 +182,43 @@ CityMap.maps = {
     title = "Heck", kind = "heck", seed = 204, cols = 60, rows = 96,
     crowd = false, traffic = false, vehicles = false, night = { 0.60, 0.20, 0.14 },
   },
+  -- The Borderline quest line's eight maps on the planet Pandoria
+  -- (borderline.lua), all walked and by day: a snowy valley with a wrecked
+  -- train, a frozen harbour, a Bragium mine, Jerry's city under its dome,
+  -- the refinery, the robot factory, the road up the cliff and the
+  -- bunker's roof. Nobody about but the robots.
+  wreck = {
+    title = "The Frozen Wreck", kind = "wreck", seed = 301, cols = 48, rows = 72,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  landing = {
+    title = "Liar's Landing", kind = "landing", seed = 302, cols = 56, rows = 64,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  pit = {
+    title = "The Bragium Pit", kind = "pit", seed = 303, cols = 60, rows = 60,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  prosperity = {
+    title = "Prosperity", kind = "prosperity", seed = 304, cols = 56, rows = 88,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  refinery = {
+    title = "The Refinery", kind = "refinery", seed = 305, cols = 48, rows = 80,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  assembly = {
+    title = "The Assembly Line", kind = "assembly", seed = 306, cols = 56, rows = 72,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  cuts = {
+    title = "Thousand Papercuts", kind = "cuts", seed = 307, cols = 28, rows = 140,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  bunker = {
+    title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 

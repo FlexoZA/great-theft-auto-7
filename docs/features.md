@@ -1789,6 +1789,23 @@ the one with a plot.
   bodies on the host, as the belts do) and snaps shut, imps and a
   Cacodaemon called in, and its mattress soaking up rounds from the front.
   The last map follows.
+- Borderline: `src/features/borderline` and quests' "borderline" job
+  ("Left for dead", on the board after Eternal Mood), design in
+  `docs/borderline.md`. Eight maps on the frozen planet Pandoria against
+  Handsome Jerry's robot army, every one on foot, built by
+  `city-map/borderline.lua` (a `Blockout` per map; what each leaves on the
+  map is in its header: `exitX, exitY`, `outside`, `grounds`, `zones`,
+  `cover` with `water` for the Refinery's molten river) and drawn by
+  `render_borderline.lua` in a cel-shaded style, a black outline round
+  every floor's edge and everything on it. The maps, bottom to top each:
+  the Frozen Wreck (`wreck`), Liar's Landing (`landing`), the Bragium Pit
+  (`pit`), Prosperity (`prosperity`), the Refinery (`refinery`), the
+  Assembly Line (`assembly`), Thousand Papercuts (`cuts`) and the Bunker
+  (`bunker`); quests "borderline", then "borderline-<map>" for the rest,
+  chained by `next`, and "home-<map>" by each way in. So far the
+  borderline feature only finishes a level when someone reaches its way on;
+  the robots, the story, the bosses, backdrops and music follow in the
+  stages `docs/borderline.md` lists.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

@@ -9,7 +9,9 @@
 -- for City 17, "a-man-2" for the Outer City, "a-man-road" for the Winding
 -- Road, "a-man-citadel" for the Citadel, or "cyber-feud" for Grey City's
 -- Drop (then "cyber-feud-market", "-overpass", "-tower" and "-roof"), or
--- "eternal-mood" for Fobos Base (then "eternal-mood-earth", "-foundry", "-heck").
+-- "eternal-mood" for Fobos Base (then "eternal-mood-earth", "-foundry", "-heck"),
+-- or "borderline" for the Frozen Wreck (then "borderline-landing", "-pit",
+-- "-prosperity", "-refinery", "-assembly", "-cuts", "-bunker").
 -- --boss (with --quest) skips the quest's way in and starts its boss fight
 -- next to you, for trying a boss out: every feature's `serverSkipToBoss`
 -- (the Antlion Guard on the Coast). A quest with no boss to skip to plays

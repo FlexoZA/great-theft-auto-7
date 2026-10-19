@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- A new job on the board once Eternal Mood is done, "Left for dead" (Borderline): eight maps on the frozen
+  planet Pandoria, all on foot, from a wrecked train to Handsome Jerry's bunker. So far the maps are walked
+  through to their far end; the robots, the story and the bosses come next.
+
 ## [0.36.0] - 2026-10-19
 
 Bullets now spark and leave marks on walls, and every job level has a name, shown on the victory screen and the board.

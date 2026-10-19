@@ -11,6 +11,8 @@ local RenderCyberFeud = require("src.features.city-map.render_cyber_feud")
 local CyberFeud = require("src.features.city-map.cyber_feud")
 local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
 local EternalMood = require("src.features.city-map.eternal_mood")
+local RenderBorderline = require("src.features.city-map.render_borderline")
+local Borderline = require("src.features.city-map.borderline")
 
 local Render = {}
 
@@ -1521,9 +1523,11 @@ function Render.build(map)
   love.graphics.translate(-map.left, -map.top)
   if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
     or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
-    or EternalMood.builds(map.kind) then
+    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       RenderCyberFeud.draw(map, Layout.TILE)
+    elseif Borderline.builds(map.kind) then
+      RenderBorderline.draw(map, Layout.TILE)
     elseif EternalMood.builds(map.kind) then
       RenderEternalMood.draw(map, Layout.TILE)
     elseif map.kind == "beach" then

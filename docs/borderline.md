@@ -14,7 +14,13 @@ loader robots, each model stencilled with a three-letter code that says
 what it does (GUN, RPG, EXP, ...), built by giant factory robots and guarded
 by a flying bunker. We keep the shape and the jokes, and our own names.
 
-Status: designed, nothing built. See "Stages" at the end for the order.
+Status: designed; stage 1 (the skeleton) built on `feature/borderline`:
+the eight maps blocked out in `city-map/borderline.lua` (floors, walls,
+cover, the way in and the way on, drawn by `render_borderline.lua` in the
+outlined look), their eight quests chained by `next` with "Left for dead"
+on the board, a HOME star by each way in, and the `borderline` feature
+finishing each level when someone reaches its way on. No robots, story,
+backdrops or music yet. See "Stages" at the end for the order.
 
 ## Decisions
 
@@ -307,8 +313,9 @@ giant statue of him, his face on four huge screens.
 Indoors, hot and dark, lit purple: a river of molten Bragium winding up
 the map, catwalks over it, smelting tanks, pipes.
 
-- The river is a hazard tile (`plasma` over time); catwalks and bridges
-  cross it.
+- The river can't be waded (a `water` solid: rounds and sight cross it,
+  feet don't), so the bridges are the way over and the places to hold.
+  Spills from it are the hazard (`plasma` puddles).
 - Arc haulers hold the bridges under their domes; plasma haulers on the
   tanks.
 - **Smelter** at the outflow, the top of the map.
