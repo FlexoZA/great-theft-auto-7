@@ -1,0 +1,402 @@
+# Borderline design
+
+A quest line in the shape of Cyber Feud's and Eternal Mood's
+(`docs/cyber-feud.md`, `docs/eternal-mood.md`): a job on the board, eight
+maps chained by each quest's `next`, a banner and tagline on each map, an
+intro screen, story beats said over the HUD, robots' barks, bosses, and a
+last word. The look is a cel-shaded loot-shooter on a frozen junk planet,
+played the way A-Man plays Half-Life: a parody with its own names, not the
+real ones. Every map is on foot; nobody drives.
+
+The source is the robot half of a famous looter-shooter's second game: a
+smug corporation, its CEO's face on every screen, and an army of yellow
+loader robots, each model stencilled with a three-letter code that says
+what it does (GUN, RPG, EXP, ...), built by giant factory robots and guarded
+by a flying bunker. We keep the shape and the jokes, and our own names.
+
+Status: designed, nothing built. See "Stages" at the end for the order.
+
+## Decisions
+
+| Question | Decision |
+| --- | --- |
+| How long? | **Eight maps**, all on foot. |
+| Enemies? | **Robots only.** One corporation's army, so no feud: every robot is on the same side. |
+| Rockets and plasma? | **Both.** Rocket robots use the rockets we have (`weapons/rockets.lua`, `explosive`). Plasma is new: a new damage type, `plasma` (see "Plasma"). |
+| Parody or its own thing? | **Parody with our own names**, like Eternal Mood. |
+| Story? | **Simple.** A villain on the screens, a sidekick in your ear, one goal: shut the robot army down. |
+
+## Logline
+
+Handsome Jerry, CEO of Hyperbole, is mining the planet Pandoria hollow for
+Bragium, the purple rock that powers his robot army. You came for the loot;
+he left you for dead in the snow. A small, loud, one-wheeled robot digs you
+out, and the two of you walk all the way to his bunker to pull the plug.
+
+## The cast
+
+- **Handsome Jerry**, CEO of Hyperbole. The villain, and he never shows up
+  in person: he is on every screen, billboard and PA, talking to you the
+  whole way, offended that you keep not dying. A perfect plastic face
+  (literally: a mask, clipped on at the jaw), a square chin, a tidy
+  quiff, a green-and-yellow suit. Colour: Hyperbole yellow `#f2c230`.
+  He fills VEX's role: the intro screen portrait, the chatter, the last
+  word. Calls you "bandit".
+- **YAP-TP ("Yappy")**, the sidekick. The last of a line of cheap
+  one-wheeled helper robots Hyperbole stopped making. A yellow box on one
+  wheel with a single blue eye and two stick arms. He found you, he has
+  decided you are his minion, and he will not stop talking. He opens doors
+  (slowly), hides when shooting starts, and takes credit afterwards. He is
+  a character on the map, not only a voice: he rolls ahead of you, stops at
+  doors, and can't be killed (shots knock him over; he gets up complaining).
+- **The Bragium**: purple crystal, glowing. The ore on the early maps, the
+  molten river in the refinery, the fuel in every plasma gun.
+- **The robots** (see "The army").
+
+### Handsome Jerry
+
+**Portrait** (64x72, primitives on a canvas scaled up with nearest
+filtering, like `cyber-feud/face.lua`): head and shoulders on a Hyperbole
+broadcast card (yellow border, a logo in the corner, a LIVE dot).
+
+- Hair: a swept brown quiff, glossy.
+- Face: a mask a shade too pale and too smooth, with the seam showing at the
+  jaw and two small clips at the temples. Behind the eye holes, one blue
+  eye and one green.
+- Mouth: a big white grin, permanent.
+- Clothes: a yellow suit jacket, a green shirt, a thin dark tie.
+- Animation: the grin never moves; he talks with his eyebrows. Now and then
+  he leans into the camera so his face fills the frame.
+
+**Voice.** Friendly, smug, hurt. He is the hero of his own story and you are
+a pest. Short lines, a joke in most of them.
+
+| Category | When | Examples |
+| --- | --- | --- |
+| `hello` | A map starts | "Oh good, you're still alive. That's... great." / "Welcome to Prosperity! You can't afford it." |
+| `taunt` | Now and then | "I built every robot you're shooting. Think about my feelings." / "Fun fact: you're not the hero. I am." |
+| `down` | A player goes down | "Ha! Did you see that? Somebody clip that." / "Respawn's on me. Literally. I own the respawn stations." |
+| `kill` | A big robot falls | "That was a prototype! Do you know what those cost?" / "Fine. FINE. I'll build ten more." |
+| `yappy` | Yappy says something | "Is that... a YAP unit? I recalled those." / "Who let that thing talk?" |
+
+### YAP-TP
+
+**Portrait** (64x72): his face, which is his whole body: a yellow box, the
+blue eye taking up most of it, a vent mouth that flickers when he talks,
+an antenna on top. Blinks with a shutter; the eye goes big when he is
+excited and squints when he lies.
+
+**Voice.** Loud, eager, cowardly, sure he is in charge. Calls you "minion".
+
+| Category | When | Examples |
+| --- | --- | --- |
+| `go` | A map starts | "Onward, minion! I'll be right behind you. Way behind." |
+| `door` | Opening a door | "Opening! Opening... Hold on, I have a lot of tabs open." |
+| `hide` | Shooting starts | "I am bravely hiding!" / "Tactical retreat! Tactical retreat!" |
+| `win` | A wave cleared | "We did it! By we I mean me." |
+| `hit` | Knocked over | "Ow! My everything!" / "I'm fine! I'm fine. Is my wheel on?" |
+
+**Intro screen lines** (one per map, Jerry's portrait, picked by index like
+`cyber-feud/screen.lua`):
+
+1. The Frozen Wreck: "Sorry about the train. And the snow. And you."
+2. Liar's Landing: "Lovely docks. All mine. Please stop walking on them."
+3. The Bragium Pit: "That glowing rock pays for everything. Don't touch it."
+4. Prosperity: "My city! Built by robots, for robots. Humans tolerated."
+5. The Refinery: "It's like a hot tub, but it melts you."
+6. The Assembly Line: "Every one of these has your name on it. Engraved."
+7. Thousand Papercuts: "Nobody gets through the Cuts. Nobody nice, anyway."
+8. The Bunker: "You found my bunker. Here's the thing: it flies."
+
+## The army
+
+Every robot is Hyperbole yellow (`#f2c230`) over gunmetal (`#3a3f47`),
+with a red eye (`#ff3030`), a black-and-yellow hazard stripe and its code
+stencilled on its chest. Drawn top down with their own look module each
+(like `eternal-mood/mancubus_look.lua`), one brain module each (the
+brains standard), and every one answers `serverEnemies` so the audit can aim
+at it. Numbers are starting points; for scale, a Combine soldier has 60
+health and drops 3 koins, Eternal Mood's possessed staffer 40.
+
+**Haulers** are the loader robots: tall, thin, two legs, two arms, a round
+red eye on the top. They all share one trick, the **torso crawl**: when a
+hauler with legs takes a killing hit, one time in three its legs give out
+and its top half drags itself on for 4 s, still shooting, before it dies
+(half its health back, at half the speed). Shoot it again to finish it.
+
+| Unit | Code | Look | Health | Attack | Behaviour |
+| --- | --- | --- | --- | --- | --- |
+| **Junk hauler** | `JNK` | Patched, missing panels, mismatched rust-red arm | 30 | Pistol (`bullet`, 6) | Weak and many. Packs of 4-6 that walk at you shooting. Fodder; first map. |
+| **Gun hauler** | `GUN` | The standard: rifle arm, grenade arm | 70 | Rifle bursts (`bullet`, 8) and now and then a grenade (`grenades:serverLob`) | Posts and squads, like the Combine: takes cover, keeps 250-450 px off, flanks in pairs. |
+| **Rocket hauler** | `RPG` | Heavier, two rocket pods on its back, a launcher arm | 120 | A rocket from the arm (`explosive`, 30, 90 px), or a volley of four from the pods | Hangs back (400-650 px). Before a volley, four red rings mark the ground where the rockets will land (1 s), then they rain in. Kill it first. Pods count as part of it. |
+| **Plasma hauler** | `PLZ` | Purple glowing coils on a cannon arm, a Bragium tank on its back | 90 | Plasma bolt (`plasma`, 22): slow (260 px/s), glowing, big, splashes 40 px | Mid range. Charges for 0.5 s (coil glows brighter), fires one bolt. Bolts are slow enough to sidestep. Shoot the tank on its back (from behind) and it bursts: a plasma splash that hurts robots too. |
+| **Kamikaze hauler** | `EXP` | Stripped, a red blinking core in its chest | 40 | Self-destruct (`explosive`, 45, 120 px) | Sprints at the nearest player beeping faster and faster; at 60 px it goes off. Kill it early and it still blows: keep it away from you, near its friends. |
+| **Dozer hauler** | `DZR` | Wide, a bulldozer blade on one arm | 160 | Blade shove (`impact`), a dozer charge | The blade stops everything from the front (70 degrees, like the Enforcer's shield); flank it or blow it up. Every 6-8 s it folds into a dozer and charges in a straight line (`impact`, 30, knocked down). |
+| **Arc hauler** | `ARC` | Blue coils on both arms, a dish on its back | 80 | Shock bolts (`shock`, 10, `electrify`) | Throws up a dome shield (180 px) over itself and anything near it for 5 s, every 12 s. Rounds from outside stop at the dome; walk inside and you are zapped every second (`shock`, 8) but your rounds hit. |
+| **Jet hauler** | `JET` | Wings folded on its back, thrusters | 70 | In the air: a strafing run of rockets in a line (`explosive`, 20 each); on the ground: a rifle | Flies over walls (drawn over everything, a shadow on the ground), makes a run along a line through you (red marks along the line 0.8 s before), lands somewhere, fights on foot, takes off again. Only shootable on the ground or while landing. |
+| **Medic drone** | `FIX` | A small yellow flying disc with a green cross light | 25 | None | Flies in pairs, hangs behind the haulers and heals the most hurt one (12 a second, a green beam). Fragile; shoot it first. |
+| **Shield drone** | `SHD` | The same disc, blue light | 25 | None | Gives one hauler a shield bubble (80 points) and keeps it topped up while the beam holds. |
+| **Sentry** | | A yellow pop-up turret | 90 | Bursts (`bullet`) | Sits flush in the floor until you are near, then rises. Creatures rule: no brain module. |
+| **Badass hauler** | `BAD` | 1.6x size, black and yellow, twin war cannons, rocket pods, a horned head | 450 | Cannon bursts (`explosive`, small blasts), pod volleys, a stomp (`impact`) | Elite. One or two per map from map 4 on. |
+
+### The bosses
+
+Every boss uses the bosses standard (`src/features/bosses`: stamina, the
+shared bar, goes for medkits when hurt), has its own brain and look, drops
+koins and a pickup, and raises `serverKill` with kind "boss".
+
+| Map | Boss | What it is | The fight |
+| --- | --- | --- | --- |
+| 1 | **Knuckle Scrapper** | A junk hauler that built itself huge out of the train wreck: a scrap pile with arms | Slow, swings (`impact`), throws scrap (`impact`). Junk haulers keep climbing out of the wreck around it. A tutorial boss. |
+| 3 | **The Fabricator** | A huge factory robot that drops out of the sky on a pad and stays there. A red eye on its front, a hatch in its belly | Can't move. Builds a hauler or a drone out of its hatch every 8 s, and while building it can't attack: hit its eye (from the front) during a build and the build fails. Between builds: an eye laser swept across the ground (`fire`), a homing rocket, and a slam that sends a ring of fire out (`fire`). |
+| 5 | **Smelter** | A squat plasma furnace on four legs, molten Bragium in its belly | All plasma: bolt fans, a plasma mortar that leaves puddles burning for 5 s, and a gush that floods a lane. Vents every few attacks: its belly glows, hits there do double. Fights by the river: the puddles and the river are the danger. |
+| 6 | **Foreman BIG-B055** | The badass hauler that runs the line: 2.2x, gold trim, a hard hat welded on | Every badass move, plus it calls the line: the conveyors start up and carry haulers in. Phase 2 (half health): it rips one cannon off and charges. |
+| 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
+
+Maps 2, 4 and 7 end on a set piece, not a boss (see each map).
+
+## Plasma
+
+Plasma is a new damage type (`plasma`, in `Damage.types` in
+`src/features/damage/init.lua`), purple (`#b44cff`), the colour of the
+Bragium that powers it. Kill feed verb: "melted".
+
+- **Shots** are big, glowing, slow bolts with a trail, so you see them coming
+  and can sidestep. They splash a small area where they land.
+- **Effect** on a player on foot: **melted**: for 3 s your armor's
+  resistances count for half and its points drain twice as fast. The
+  answer to a heavily armored player, and the reason to dodge.
+- **Puddles**: some plasma (the Smelter's mortar, a burst Bragium tank, the
+  refinery's spills) leaves a puddle that hurts while you stand in it
+  (`plasma` damage over time, like the Winding Road's poison and Eternal
+  Mood's lava).
+- **Resists**: the insulated suit gets plasma 25% (beside shock and fire).
+- **The players' plasma gun**: the reward (see "The reward").
+
+## The arc: the long walk to the bunker
+
+| # | Map | Play | Boss / set piece |
+| --- | --- | --- | --- |
+| 1 | **The Frozen Wreck** | Wake in the snow by Jerry's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
+| 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hold the dock while Yappy hacks the ferry lift |
+| 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | The Fabricator |
+| 4 | **Prosperity** | Jerry's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Jerry's four big screens; the gate opens when he storms off in a huff |
+| 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
+| 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
+| 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, jet strikes, rocket haulers on the ledges. | Hold out while Yappy opens the bunker door (very slowly) |
+| 8 | **The Bunker** | The bunker's roof. Eleven cannons, then it takes off. | BNK-9 |
+
+### The story, beat by beat
+
+1. **The Frozen Wreck.** Snow, the train wreck smoking. Jerry on a cracked
+   screen in the wreck: "Sorry about the train." Yappy rolls up, declares
+   you his minion, and says he knows the way to Jerry's bunker. Junk
+   haulers are stripping the wreck; the Knuckle Scrapper rises out of it.
+2. **Liar's Landing.** Yappy needs the ferry lift to cross the bay. He
+   hacks the controls (a timed hold, waves of gun haulers and drones, the
+   first rocket hauler) and the lift carries you over.
+3. **The Bragium Pit.** Jerry's mine. You see what the Bragium is for:
+   the plasma haulers glow with it. The Fabricator drops in at the pit's
+   floor and builds robots until you break it.
+4. **Prosperity.** Jerry's city, where his face is everywhere. Yappy's
+   idea: ruin the broadcast. Shoot the four giant screens; each one makes
+   Jerry angrier; on the last he storms off and forgets to lock the gate.
+5. **The Refinery.** Where the Bragium is melted down. Catwalks over the
+   molten river. The Smelter guards the outflow.
+6. **The Assembly Line.** Where the army is built. Yappy is upset: the line
+   once built YAP units. The Foreman runs the floor.
+7. **Thousand Papercuts.** The road up to the bunker. Yappy opens the door
+   ("I have a lot of tabs open") while everything Jerry has left comes at
+   you.
+8. **The Bunker.** On its roof, the cannons, then the bunker lifts off.
+   Bring it down and Yappy plugs into its core and shuts the army down:
+   every robot on Pandoria stops. Including Yappy, who reboots a second
+   later: "Did we win? I feel like I won." Jerry's last word, on the one
+   screen still lit: "You'll pay for this. Literally. I'm billing you."
+   HOME star on the roof.
+
+## Maps
+
+Eight new maps in city-map, one builder file for all of them
+(`city-map/borderline.lua`, like `cyber_feud.lua` and `eternal_mood.lua`)
+and their own render file (`render_borderline.lua`). Tiles are 64 px. For
+scale: the Drop is 64x96, Fobos Base 56x80, the Roof 36x36.
+
+| Map key | Title | Size (tiles) | Quest |
+| --- | --- | --- | --- |
+| `wreck` | The Frozen Wreck | 48x72 | `borderline` (on the board, "Left for dead") |
+| `landing` | Liar's Landing | 56x64 | `borderline-landing` |
+| `pit` | The Bragium Pit | 60x60 | `borderline-pit` |
+| `prosperity` | Prosperity | 56x88 | `borderline-prosperity` |
+| `refinery` | The Refinery | 48x80 | `borderline-refinery` |
+| `assembly` | The Assembly Line | 56x72 | `borderline-assembly` |
+| `cuts` | Thousand Papercuts | 28x140 | `borderline-cuts` |
+| `bunker` | The Bunker | 40x40, the arena | `borderline-bunker` |
+
+Each quest's `next` is the following one; the Bunker's star goes home.
+Everyone travels north. A level's exit is shut until its boss is down or
+its set piece is done; the objective line says what's left.
+
+### Shared look
+
+- The style: flat bright colours, hard black outlines on everything
+  (robots, crates, walls), comic-book shading in flat bands. Our first
+  outlined look: an outline pass in the render file.
+- Two palettes. Pandoria's: snow white and blue-grey, rust, scrap, sky
+  pale. Hyperbole's: clean yellow and gunmetal, hazard stripes, its logo
+  (a yellow H in a hexagon) on everything it owns, Jerry's face on screens.
+  The maps go from the first to the second as you get closer.
+- Bragium purple is the only other colour: crystals, plasma, the river.
+- Pun signs and posters: HYPERBOLE: WE'RE THE BEST (SOURCE: US),
+  PROSPERITY: NO BANDITS, NO LOITERING, NO BANDITS, JERRY LOVES YOU,
+  NOW HIRING (ROBOTS ONLY), 0 DAYS WITHOUT A BANDIT INCIDENT.
+- Snow falls on maps 1, 2 and 7 (the weather feature); the rest are
+  indoors or under Prosperity's dome.
+- Each map gets its own theme music: twangy frontier guitar over a
+  synth beat, faster the closer you get to the bunker.
+
+### 1. The Frozen Wreck (`wreck`, 48x72)
+
+A snowfield in a valley. Jerry's train lies along the middle, derailed and
+burning, carriages on their sides as cover.
+
+- **Arrival:** the bottom, half buried in snow. Yappy rolls up.
+- **The wreck:** carriages in a zig-zag up the middle, cargo spilled
+  (crates, loot chests), junk haulers in twos and threes stripping it.
+- **Knuckle Scrapper** builds itself out of the locomotive at the top.
+- **The end:** a cave mouth past the locomotive. EXIT: "LIAR'S LANDING".
+
+### 2. Liar's Landing (`landing`, 56x64)
+
+A frozen harbour: stacks of shipping containers as a maze, cranes, an icy
+quay along the north edge.
+
+- **Arrival:** the south, out of the cave.
+- Gun haulers on the containers' corners, medic drones, two rocket haulers
+  on crane platforms.
+- **The ferry lift:** a platform at the quay. Yappy hacks it (stand with
+  him: 60 s, waves come in, the timer stops while nobody is near him).
+  When it's done the lift is the EXIT: "THE BRAGIUM PIT".
+
+### 3. The Bragium Pit (`pit`, 60x60)
+
+An open-pit mine in terraces going down to a floor in the middle: ramps
+between the terraces, conveyors (cover), purple crystal clusters (they
+glow, some burst in plasma when shot).
+
+- **Arrival:** the south rim.
+- Plasma haulers on the terraces, gun haulers on the ramps.
+- **The Fabricator** drops onto the pad in the pit's floor when the first
+  player gets there.
+- **The end:** the north rim's mine lift. EXIT: "PROSPERITY".
+
+### 4. Prosperity (`prosperity`, 56x88)
+
+Jerry's city under a glass dome: clean yellow streets, a plaza with a
+giant statue of him, his face on four huge screens.
+
+- **Arrival:** the south gate (open: they let you in).
+- Every hauler type so far plus dozers, kamikazes and jet haulers; the
+  first badass at the statue.
+- **The screens:** four, one per district. Each one shot down gets Jerry
+  angrier; on the last, he storms off and the north gate opens.
+- **The end:** the north gate. EXIT: "THE REFINERY".
+
+### 5. The Refinery (`refinery`, 48x80)
+
+Indoors, hot and dark, lit purple: a river of molten Bragium winding up
+the map, catwalks over it, smelting tanks, pipes.
+
+- The river is a hazard tile (`plasma` over time); catwalks and bridges
+  cross it.
+- Arc haulers hold the bridges under their domes; plasma haulers on the
+  tanks.
+- **Smelter** at the outflow, the top of the map.
+- **The end:** a freight door past the Smelter. EXIT: "THE ASSEMBLY LINE".
+
+### 6. The Assembly Line (`assembly`, 56x72)
+
+The factory floor: conveyor belts (a moving floor, the same piece Eternal
+Mood's Foundry wants) carrying robots in pieces, assembly arms, paint
+booths.
+
+- Unfinished haulers lie on the belts and wake when a player passes.
+- A Fabricator on each side, building.
+- **Foreman BIG-B055** on the top floor, by the line's end.
+- **The end:** the shipping bay. EXIT: "THOUSAND PAPERCUTS".
+
+### 7. Thousand Papercuts (`cuts`, 28x140)
+
+A narrow road cut into a cliff, winding up the map, snow, a drop on one
+side (solid edge), the cliff on the other.
+
+- Sentry nests in the cliff, rocket haulers on the ledges above, jet
+  haulers making runs along the road.
+- **The bunker door** at the top. Yappy opens it: a long hold (90 s) while
+  waves come down the road behind you.
+- **The end:** the door. EXIT: "THE BUNKER".
+
+### 8. The Bunker (`bunker`, 40x40)
+
+The bunker's roof, square: vents and hatches as cover, a rim of
+eleven cannons.
+
+- **Part one:** the eleven cannons (sentries, 120 health each) fire from the
+  rim. Destroy all eleven.
+- **Part two:** the roof shakes, the players are thrown to a landing pad
+  next to it, and BNK-9 lifts off. It flies round the arena (drawn over
+  everything, its shadow on the ground), then parks and fights: a turret
+  on each corner (shoot them off; they come back after a while), a rocket
+  volley (red rings on the ground), mines shot onto the ground, and a big
+  charged laser from its eye (a red line, 1 s, then the beam). Its red eye
+  is the weak spot: hits there do double. Below half it flies faster and
+  parks less.
+- **The end:** BNK-9 crashes. Yappy plugs in, the army stops, the last
+  lines. HOME star on the pad.
+
+## The reward: the Bragium Bolter
+
+A plasma rifle, Hyperbole's own: fires slow purple bolts that splash and
+melt (`plasma`), with a charged shot (hold to charge, a bigger bolt). A new
+gun in `weapons/guns.lua`. Unlocked per player when BNK-9 falls, the way
+the electric grenade is unlocked (the grenades feature's unlock, the
+rewards feature's screen), saved with them. It is equipment, so it has
+tiers (`tierStats`, read through `Tiers.apply`).
+
+## Open questions
+
+- **Names.** Borderline, Hyperbole, Handsome Jerry, YAP-TP, Pandoria,
+  Bragium: all proposals.
+- **Plasma's effect.** "Melted" (armor halved for 3 s) is a proposal.
+- **The torso crawl.** In for every hauler, or only the bigger ones.
+- **Yappy on the map.** A character that rolls ahead is new (closest is
+  nothing yet); he could stay a voice only if that's too much.
+- **New pieces the maps need:** an outline pass for the look, conveyor
+  belts (shared with Eternal Mood's Foundry), the hold-the-spot objective
+  (maps 2 and 7), a flying boss drawn over everything.
+
+## Stages
+
+One branch each, off `feature/borderline` (or straight into staging,
+each a PR), in this order:
+
+1. **Skeleton.** The `borderline` feature, all eight maps blocked out in
+   `city-map/borderline.lua` (walls, floors, arrival, exits), their eight
+   quests chained by `next` with the first on the board, and the level
+   finishing at each exit.
+2. **Story.** Banners and taglines, Jerry's face and intro screen, the
+   chatter for Jerry and Yappy, the objective line.
+3. **The robots' bodies.** The hauler look (one shared body, the code and
+   kit per model) and the first two brains: junk and gun haulers, with
+   the torso crawl. Map 1 and 2 populated.
+4. **Rockets.** The rocket hauler and the jet hauler; red ground markers.
+5. **Plasma.** The `plasma` damage type, its effect and puddles, the plasma
+   hauler.
+6. **The rest of the army.** Kamikaze, dozer, arc haulers; medic and shield
+   drones; sentries; the badass.
+7. **The maps dressed.** Each map's look, one map per PR.
+8. **The bosses.** One per PR: Knuckle Scrapper, the Fabricator, Smelter,
+   Foreman, BNK-9.
+9. **Set pieces.** The ferry hold, the screens, the bunker door; Yappy on
+   the map.
+10. **Themes and the reward.** The music, the Bragium Bolter.
