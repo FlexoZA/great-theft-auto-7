@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-19
+
+VEX's relays on the Roof are closer together, warn you before they shock you, and the last one can be finished.
+
 ### Changed
 - The Roof: VEX's four relays stand round the helipad instead of in the corners, so the run from one to the next
   is about half as long (about 1450 -> 770 px).
