@@ -145,6 +145,40 @@ and its top half drags itself on for 4 s, still shooting, before it dies
 | **Sentry** | | A yellow pop-up turret | 90 | Bursts (`bullet`) | Sits flush in the floor until you are near, then rises. Creatures rule: no brain module. |
 | **Badass hauler** | `BAD` | 1.6x size, black and yellow, twin war cannons, rocket pods, a horned head | 450 | Cannon bursts (`explosive`, small blasts), pod volleys, a stomp (`impact`) | Elite. One or two per map from map 4 on. |
 
+### How they look
+
+Drawn (`borderline/hauler_look.lua`, `borderline/drone_look.lua`; the
+sheet is `docs/borderline-robots.png`) top down at world size in the
+outlined style of the maps: black outlines, flat colours.
+
+- **Haulers** are one body with a kit per model (`Look.KITS`, by code): two
+  thin legs with backward knees and pad feet stepping out wide of the
+  hull, a squat yellow hull with a hazard stripe across its back and a
+  strip of the model's trim colour up front, and the head: a gunmetal ring
+  round a big red eye that brightens as it winds up or is hit. Size
+  1x a hauler is 13 px across the middle (a player is 9); RPG 1.1, PLZ
+  1.05, DZR 1.15, EXP 0.95, BAD 1.6.
+- **Kits:** JNK a rust patch, a missing panel with wires showing, a stub
+  arm and a pistol on a rust-red arm; GUN a long rifle and a fat grenade
+  launcher; RPG a wide launcher with a red warhead and two pods of four
+  rockets on its back (they glow orange as it winds up); PLZ a cannon with
+  three purple coils that glow and a purple bloom at the muzzle, and a
+  Bragium tank on its back; EXP no panels and no arms, a red core that
+  blinks faster the closer it is to going off; DZR wider, a curved blade
+  across its front; ARC blue coils on both arms and a dish on its back;
+  JET wings folded along its back and twin thrusters, wings swept out and
+  a flame when it flies (drawn bigger, its shadow further off); BAD dark
+  grey and yellow, horns either side of its eye, twin war cannons, pods.
+- **Torso crawl:** no legs, scrape marks behind it, sparks off its hips.
+- **Wrecks:** fallen on their side, eye dark, oil under them, a spark now
+  and then.
+- **Drones:** a yellow disc on four blurred rotors, a green cross (FIX) or
+  blue dot (SHD) in the middle, a red eye at the front, a wavering beam to
+  the hauler it tends. The shield is a blue bubble with a hexagon in it,
+  flickering as it weakens.
+- **Sentry:** a hatch with a hazard rim flush in the floor; risen, a
+  yellow turret with twin barrels and a red eye between them.
+
 ### The bosses
 
 Every boss uses the bosses standard (`src/features/bosses`: stamina, the
