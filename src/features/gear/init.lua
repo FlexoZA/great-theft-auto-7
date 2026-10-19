@@ -345,6 +345,7 @@ local function unlock(server, player, key, quiet)
     server:send(player, Protocol.encode("GEAR_UNLOCK", key, "quiet"))
   else
     server:send(player, Protocol.encode("GEAR_UNLOCK", key))
+    Features.call("serverRewarded", server, player, Kinds.byKey[key] and Kinds.byKey[key].title or key)
   end
 end
 
