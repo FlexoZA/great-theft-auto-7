@@ -18,6 +18,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Bullets that hit a wall, building or rock now spark and kick up a puff of dust and grit where they strike, and
   leave a pock mark for a few seconds. Everyone in the world sees them.
 
+## [0.35.1] - 2026-10-19
+
+A fix for your own shots bending along with your MG nest's sweep.
+
+### Fixed
+- Your own shots go where you aim again while your MG nest is firing: its sweep no longer bends them (a breached
+  Cyber Feud turret did the same).
+
 ## [0.35.0] - 2026-10-19
 
 Finishing a job now ends on a victory screen with your stats, and the EXIT star keeps clear of a fallen boss's loot.
