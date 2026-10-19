@@ -26,8 +26,17 @@
 -- the job calls `quests:serverComplete(server, questId, x, y)`.
 --
 -- A boss that goes down far from the way in leaves a way out: pass where it
--- fell to `serverComplete` and an EXIT star comes up right there, taking
--- everyone home the same as the blue star by the entrance.
+-- fell to `serverComplete` and an EXIT star comes up there, taking
+-- everyone home the same as the blue star by the entrance. Never on the
+-- body itself: a star that would stand within `exitClear` of where a boss
+-- fell on this map (its koins and drops lie there) moves to the nearest
+-- open road or ground clear of it. That goes for every quest, the ones that
+-- put their star at a spot of their own too.
+--
+-- Once the last map of a job is done, the star home offers the victory
+-- screen (victory.lua) instead of the plain offer: how the job went for
+-- you, counted on the host (stats.lua), with the same keys to go home or
+-- stay. Whoever is taken home by somebody else sees it on arriving.
 --
 -- The host decides: it checks the taker's body is on the star (or at the
 -- Jobs building's door for a job on the board), that the star is on the
@@ -44,12 +53,16 @@
 --   server -> all     QST_FINISHED [<questId> <clears>]...  (every board job finished in this world so far,
 --                                                         and how many times)
 --   server -> player  QST_NO     <reason>               (away | gone | locked)
+--   server -> player  QST_STATS  <seconds> <kills> <deaths> <koins> <bosses> [<unlocked>]...
+--                                                       (how the job is going for them: stats.lua)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
 local Jobs = require("src.features.quests.jobs")
+local Stats = require("src.features.quests.stats")
+local Victory = require("src.features.quests.victory")
 
 local Quests = {
   name = "quests",
@@ -645,6 +658,8 @@ Quests.starRadius = 60 -- px from the star that brings the offer up
 Quests.leaveRadius = 140 -- px from the star that takes it down again (and forgets a decline)
 Quests.starSize = 30 -- px, outer radius of the star
 Quests.doorRadius = 60 -- px from the Jobs building's door that lets the board open
+Quests.exitClear = 240 -- px an EXIT star keeps from where a boss fell (its drops spread about 80)
+Quests.exitSearch = 700 -- px from that spot the star may move to, to be clear of it
 
 local SLACK = 60 -- px the host allows for a taker drawn a little behind where it is
 local NOTICE_TIME = 2.5 -- seconds a refusal stays on the offer
@@ -737,6 +752,9 @@ Quests.boardOpen = false -- the job board is up
 Quests.pick = 1 -- the job picked on the board (an index of `Quests.board`)
 Quests.finished = {} -- board job id -> true once finished in this world, from the host
 Quests.clears = {} -- board job id -> times finished in this world, from the host
+Quests.stats = nil -- how the job under way went for me (QST_STATS), from the host
+local victory = nil -- { t } while the victory screen is up at home (someone else took us there)
+local offerT = 0 -- seconds the offer has been up
 local declined = nil -- quest id turned down; forgotten once you leave its star
 local seenMap = nil -- the map the last frame was on, to notice arriving on another
 local notice, noticeTimer = nil, 0
@@ -753,13 +771,15 @@ end
 -- START, so the quest is only forgotten on the way out.
 function Quests:exitGame()
   self.active, self.done, self.prompt, self.exit, declined, seenMap = nil, nil, nil, nil, nil, nil
+  self.stats, victory, offerT = nil, nil, 0
   self.atJobs, self.boardOpen, self.pick, self.finished, self.clears = false, false, 1, {}, {}
   notice, noticeTimer, banner, bannerTimer = nil, 0, nil, 0
 end
 
---- The `pointerTaken` convention: the mouse is ours while the board is up.
+--- The `pointerTaken` convention: the mouse is ours while the board or the
+--- victory screen is up.
 function Quests:pointerTaken()
-  return self.boardOpen
+  return self.boardOpen or victory ~= nil
 end
 
 --- The `closeMenu` convention: Esc takes the board down.
@@ -835,8 +855,31 @@ function Quests:offered(x, y)
   return city and offeredOn(city.current, x, y, self.exit) or nil
 end
 
+--- Is `quest` the way home from a job that is done, on its last map? Then
+--- its star offers the victory screen rather than the plain offer.
+local function victoryOffer(quest)
+  local done = Quests.done and Quests.byId[Quests.done]
+  return quest ~= nil and quest.returns == true and done ~= nil and Quests.done == Quests.active and not done.next
+end
+
+--- A reward card (the rewards feature) is up over everything and has the keys.
+local function rewardUp()
+  local rewards = Features.byName.rewards
+  return rewards ~= nil and rewards.menuOpen ~= nil and rewards:menuOpen()
+end
+
+--- The job `id` belongs to, as it stands on the board (a later map's own
+--- title gives away nothing worth seeing on the victory screen).
+local function jobOf(id)
+  return Quests.byId[Quests.root[id or ""] or id or ""]
+end
+
 function Quests:update(dt, client)
   time = time + dt
+  if victory then
+    victory.t = victory.t + dt
+  end
+  offerT = self.prompt and offerT + dt or 0
   noticeTimer = math.max(0, noticeTimer - dt)
   bannerTimer = math.max(0, bannerTimer - dt)
   local x, y = client:myPose()
@@ -878,13 +921,19 @@ function Quests:keypressed(key, client)
     end
     return
   end
+  if victory then
+    if victory.t >= Victory.minTime and not rewardUp() then
+      victory = nil -- any key puts it away
+    end
+    return
+  end
   if self.atJobs and Controls.is("jobs", key) and not Features.any("pointerTaken", client) then
     -- (Not under another screen: the board draws over everything, the inventory too.)
     self.boardOpen, self.pick, notice, noticeTimer = true, newestOpen(), nil, 0
     return
   end
   local quest = self.prompt
-  if not quest then
+  if not quest or (victoryOffer(quest) and (offerT < Victory.minTime or rewardUp())) then
     return
   end
   if Controls.is("quest-accept", key) then
@@ -903,6 +952,10 @@ end
 
 --- Pick a job on the board, take it, or leave.
 function Quests:mousepressed(x, y, button, client)
+  if victory and victory.t >= Victory.minTime and not rewardUp() then
+    victory = nil
+    return
+  end
   if not self.boardOpen or button ~= 1 or covered() then
     return
   end
@@ -920,8 +973,12 @@ function Quests:mousepressed(x, y, button, client)
   end
 end
 
---- The world softens under the offer and the board.
+--- The world softens under the offer and the board, and goes behind the
+--- victory screen.
 function Quests:worldBlur()
+  if victory or (self.prompt and victoryOffer(self.prompt)) then
+    return 1
+  end
   return (self.prompt or self.boardOpen) and 0.7 or 0
 end
 
@@ -1107,7 +1164,7 @@ function Quests:drawHUD(client)
     love.graphics.setColor(1, 1, 1, a)
     love.graphics.printf(banner.text, 0, 144, w, "center")
   end
-  if self.prompt and client then
+  if self.prompt and client and not victoryOffer(self.prompt) then
     drawPrompt(self.prompt)
   end
   if self.atJobs and not self.boardOpen and client then
@@ -1126,6 +1183,21 @@ end
 --- The board goes over every HUD piece (the core's `drawScreen`): our
 --- priority (22) would put it under nearly all of them.
 function Quests:drawScreen(client)
+  local offer = self.prompt and victoryOffer(self.prompt)
+  if client and (victory or offer) then
+    local job = jobOf(victory and victory.questId or self.done)
+    local hint = "press any key"
+    if not victory then
+      local yes = Controls.name(Controls.bindings("quest-accept")[1])
+      local no = Controls.name(Controls.bindings("quest-decline")[1])
+      hint = yes .. ": go home   " .. no .. ": stay a while"
+      if noticeTimer > 0 and notice then
+        hint = notice .. "   " .. hint
+      end
+    end
+    Victory.draw({ title = job and job.title, color = job and job.color, stats = self.stats, hint = hint },
+      victory and victory.t or offerT, time, fillStar)
+  end
   if self.boardOpen and client then
     local city = cityMap()
     local places = {}
@@ -1163,6 +1235,7 @@ Quests.clientMessages = {
     end
     Quests.exit = nil -- any trip leaves the fallen boss's star behind
     local ended = Quests.active and Quests.byId[Quests.active]
+    local won = ended and Quests.done == ended.id and not ended.next
     Quests.active = not quest.returns and quest.id or nil
     Quests.done = nil
     Quests.boardOpen = false
@@ -1174,10 +1247,16 @@ Quests.clientMessages = {
     banner = { title = quest.title:upper(), text = text:format(taker or "Someone") }
     bannerTimer = BANNER_TIME
     if quest.returns then
+      if won and by ~= client.myId then
+        victory = { t = 0, questId = ended.id } -- somebody else took us home: here is how it went
+      end
       if ended then
         Features.call("questEnded", client, ended)
       end
     else
+      if quest.board then
+        Quests.stats = nil -- a new job: the host counts from nothing again
+      end
       Features.call("questStarted", client, quest, by)
     end
   end,
@@ -1215,12 +1294,24 @@ Quests.clientMessages = {
     notice = REASONS[args[1]]
     noticeTimer = notice and NOTICE_TIME or 0
   end,
+  QST_STATS = function(_client, args)
+    local n = {}
+    for i = 1, 5 do
+      n[i] = math.max(0, math.floor(tonumber(args[i]) or 0))
+    end
+    local unlocks = {}
+    for i = 6, #args do
+      unlocks[#unlocks + 1] = args[i]
+    end
+    Quests.stats = { time = n[1], kills = n[2], deaths = n[3], koins = n[4], bosses = n[5], unlocks = unlocks }
+  end,
 }
 
 -- Server --------------------------------------------------------------------
 
 local sv = nil -- { active = quest id or nil, by = player id, done = quest id or nil, exit = EXIT star or nil,
---                  finished = { [board job id] = true }, clears = { [board job id] = times finished } }
+--                  finished = { [board job id] = true }, clears = { [board job id] = times finished },
+--                  fallen = { { x, y }... } where bosses went down on the map in play }
 
 Quests.SAVE_VERSION = 1
 
@@ -1238,7 +1329,83 @@ end
 
 -- City-map (lower priority) has put the default map back by now.
 function Quests:serverStart()
-  sv = { active = nil, by = nil, done = nil, finished = {}, clears = {} } -- a new game: only the first job is open
+  sv = { active = nil, by = nil, done = nil, finished = {}, clears = {}, fallen = {} } -- a new game: the first job
+  Stats.stop()
+end
+
+--- Something died: a boss's spot is kept (the EXIT star stays clear of it),
+--- and the job's stats count it.
+function Quests:serverKill(server, kill)
+  if not sv then
+    return
+  end
+  if kill.kind == "boss" and kill.x and kill.y then
+    sv.fallen[#sv.fallen + 1] = { x = kill.x, y = kill.y }
+  end
+  Stats.kill(server, kill)
+end
+
+--- A koin went into `player`'s wallet off the ground (money).
+function Quests:serverKoinTaken(_server, player)
+  Stats.koin(player)
+end
+
+--- `player` unlocked something for good (weapons, gear, grenades).
+function Quests:serverRewarded(_server, player, title)
+  Stats.reward(player, title)
+end
+
+function Quests:serverStep(server, dt)
+  Stats.step(server, dt)
+end
+
+--- Within `exitClear` of where a boss fell on this map?
+local function nearFallen(x, y)
+  for _, f in ipairs(sv.fallen) do
+    if dist2(x, y, f.x, f.y) < Quests.exitClear ^ 2 then
+      return true
+    end
+  end
+  return false
+end
+
+--- Can a star stand at (x, y): its whole ring on ground somebody can get to?
+local function openGround(city, x, y)
+  if city:outOfReach(x, y) then
+    return false
+  end
+  for k = 0, 8 do
+    local r = k == 0 and 0 or Quests.starRadius
+    local a = k * math.pi / 4
+    if Features.any("blocksPoint", x + math.cos(a) * r, y + math.sin(a) * r) then
+      return false
+    end
+  end
+  return true
+end
+
+--- Where an EXIT star meant for (x, y) goes: there, unless a boss fell
+--- close by; then the nearest open road or ground clear of every boss that
+--- fell (nothing found: where it was meant to go after all).
+function Quests:serverExitSpot(x, y)
+  local city = cityMap()
+  if not (sv and city and city.randomRoadPoint) or not nearFallen(x, y) then
+    return x, y
+  end
+  local bx, by, bestD2
+  for _ = 1, 120 do
+    local px, py = city:randomRoadPoint(x, y, self.exitSearch)
+    if px and not nearFallen(px, py) and openGround(city, px, py) then
+      local d2 = dist2(px, py, x, y)
+      if not bestD2 or d2 < bestD2 then
+        bx, by, bestD2 = px, py, d2
+      end
+    end
+  end
+  if bx then
+    return bx, by
+  end
+  return x, y
 end
 
 --- The job under way is finished (the karen feature says so when she goes
@@ -1256,8 +1423,12 @@ function Quests:serverComplete(server, questId, x, y)
     sv.clears[root] = (sv.clears[root] or 0) + 1
     server:broadcast(finishedMessage())
   end
+  if not Quests.byId[questId].next then
+    Stats.finish(server) -- the job's last map: the clock stops
+  end
   local city = cityMap()
   if x and y and city then
+    x, y = self:serverExitSpot(x, y)
     sv.exit = exitQuest(city.current, x, y, Quests.byId[questId])
     server:broadcast(Protocol.encode("QST_EXIT", ("%.1f"):format(x), ("%.1f"):format(y)))
   end
@@ -1274,7 +1445,12 @@ function Quests:serverBegin(server, quest, player)
     return false
   end
   local ended = sv.active and Quests.byId[sv.active]
-  sv.exit = nil -- any trip leaves the fallen boss's star behind
+  sv.exit, sv.fallen = nil, {} -- any trip leaves the fallen boss and its star behind
+  if quest.returns then
+    Stats.flush(server, true) -- everyone's last numbers, before the trip home puts the victory screen up
+  elseif quest.board or not Stats.running() then
+    Stats.begin() -- a job's first map; the maps after it carry on counting
+  end
   if quest.returns then
     sv.active, sv.by, sv.done = nil, nil, nil
   else
@@ -1286,6 +1462,7 @@ function Quests:serverBegin(server, quest, player)
   city:switchTo(quest.map, server) -- moves every car; features hear mapChanged
   server:broadcast(Protocol.encode("QST_START", quest.id, player.id))
   if quest.returns then
+    Stats.stop()
     if ended then
       Features.call("serverQuestEnded", server, ended)
     end

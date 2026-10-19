@@ -2050,6 +2050,7 @@ local function unlock(self, server, player, key, quiet)
     server:send(player, Protocol.encode("WPN_UNLOCK", key, "quiet"))
   else
     server:send(player, Protocol.encode("WPN_UNLOCK", key))
+    Features.call("serverRewarded", server, player, Guns[key] and Guns[key].name or key)
   end
 end
 

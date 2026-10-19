@@ -573,6 +573,7 @@ function Grenades:serverTakeElectric(server, player, item)
   if fresh then
     sv.unlocked[player.id] = true
     server:send(player, Protocol.encode("GRN_UNLOCK", "grenade-electric"))
+    Features.call("serverRewarded", server, player, "Electric grenade")
   end
   return given > 0 or fresh
 end
