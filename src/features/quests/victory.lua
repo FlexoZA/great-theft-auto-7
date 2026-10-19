@@ -9,13 +9,15 @@
 --
 --   Victory.draw(spec, t, time, fillStar)
 --
--- `spec` is { title, color, stats, hint }: `stats` as QST_STATS left them
--- (nil before any arrived), `hint` the line at the bottom. `t` is how long
+-- `spec` is { title, color, stats, hint, level }: `stats` as QST_STATS left
+-- them (nil before any arrived), `hint` the line at the bottom, `level` the
+-- level the job was done at (named by Jobs.levelName; nil: no line). `t` is how long
 -- the screen has been up, `time` the clock for the rays; `fillStar(cx, cy, R)`
 -- is the quests feature's star.
 
 local UI = require("src.ui")
 local Video = require("src.video")
+local Jobs = require("src.features.quests.jobs")
 
 local Victory = {}
 
@@ -96,7 +98,14 @@ function Victory.draw(spec, t, time, fillStar)
   love.graphics.setColor(1, 1, 1)
   love.graphics.printf(spec.title or "", colX, y, colW, "left")
   local _, tl = UI.fonts.heading:getWrap(spec.title or "", colW)
-  y = y + #tl * UI.fonts.heading:getHeight() + 30
+  y = y + #tl * UI.fonts.heading:getHeight() + 4
+  if spec.level then -- the level it was done at, and what that level is called
+    love.graphics.setFont(UI.fonts.body)
+    love.graphics.setColor(c)
+    love.graphics.print("LEVEL " .. spec.level .. "  -  " .. Jobs.levelName(spec.level), colX, y)
+    y = y + UI.fonts.body:getHeight()
+  end
+  y = y + 26
 
   -- The numbers, one row each; what was unlocked wraps under its label.
   local font = UI.fonts.body

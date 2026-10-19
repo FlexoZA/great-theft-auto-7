@@ -25,6 +25,9 @@
 -- ny, block } (block: the block's x, y, w, h) or nil. It is worked out once
 -- per map table; a city that grows only adds plots, which are never picked.
 --
+-- `Jobs.levelName(level)` names a job's level ("HARD"), on the board and
+-- the victory screen.
+--
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
 -- hit-tests the same rectangles.
@@ -35,6 +38,19 @@ local Layout = require("src.features.city-map.layout")
 local Storefront = require("src.features.quests.storefront")
 
 local Jobs = {}
+
+-- What each level is called: 1 the first time a job is done, one more for
+-- every time it was finished in this world, up to bosses' `rage.max` + 1
+-- (it gets no harder after that, and the last name stays).
+Jobs.LEVEL_NAMES = {
+  "EASY", "NORMAL", "HARD", "BRUTAL", "SAVAGE", "MERCILESS", "CARNAGE", "RIP AND TEAR", "BLOODBATH", "NIGHTMARE",
+  "HELL ON EARTH",
+}
+
+function Jobs.levelName(level)
+  local names = Jobs.LEVEL_NAMES
+  return names[math.max(1, math.min(#names, math.floor(level or 1)))]
+end
 
 local T = Layout.TILE
 local BIG = 3 * T -- px a side a building needs to be picked when there is a choice
@@ -398,7 +414,8 @@ function Jobs.drawBoard(L, selected, places, notice, keys, status, levels)
     end
     if lv and not locked then
       love.graphics.setColor(lv.level > 1 and GOLD or { 0.65, 0.65, 0.7 })
-      love.graphics.printf("LEVEL " .. lv.level .. (lv.max and " (MAX)" or ""), r.x, r.y + r.h - 8
+      love.graphics.printf("LEVEL " .. lv.level .. "  " .. Jobs.levelName(lv.level) .. (lv.max and " (MAX)" or ""), r.x,
+        r.y + r.h - 8
         - UI.fonts.small:getHeight(), r.w - 14, "right")
     end
   end
