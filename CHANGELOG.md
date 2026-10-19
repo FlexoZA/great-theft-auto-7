@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-19
+
+Finishing a job now ends on a victory screen with your stats, and the EXIT star keeps clear of a fallen boss's loot.
+
 ### Added
 - Finishing a job now shows a victory screen with how it went for you: the time it took, enemies killed, bosses
   beaten, deaths, Fcks picked up and anything you unlocked. The star home puts it up (Enter goes home, Backspace
