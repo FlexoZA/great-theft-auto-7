@@ -152,6 +152,30 @@ branch off `feature/cyber-feud`):
   the relay to go for by its corner ("breach the top-left relay", one under
   way first, else the nearest, hers last) with the relays left and the
   distance, and a white arrow bobs over it (`Vex.target`).
+- Halcyon's dropship (`feature/cyber-feud-dropship`, `dropship.lua`,
+  DS_STATE; its engine in flyer_sounds.lua): while VEX has the roof she
+  calls it in, 12 s after she takes it and 35 s after each one leaves,
+  while fewer than 5 of what it brought are up (`Bosses.plus`). A
+  tiltrotor with a rocket in each wingtip nacelle, in military paint: a
+  matte two-tone olive-grey hull with panel lines, sponsons, a chin gun,
+  hazard stripes on the ramp (lit red over a drop), a stencilled number
+  and a small magenta Halcyon roundel on each wing; V tail. It comes in from off the roof at the relay furthest along
+  (else the one nearest a player), the spot 130 px off it towards the
+  middle ringed in magenta on the ground all the way in; slows, tilts its
+  rockets down and sinks to a hover, its jets' wash rippling out; opens
+  its ramp, and 3 officers (`Bosses.plus`; `Troops.serverPack`) rope down
+  and walk a beat 120 px round the relay. With them comes one harder unit,
+  in turn (`Dropship.specials`): an assassin droid walking their beat
+  (`Droids.serverJoin`; droids now keep an empty brain on any walkable
+  map), an enforcer planting his shield 40 px further out facing away
+  from the relay (`Enforcers.serverJoin`, making the brain where the map
+  had none), or a brute (`Brutes.serverJoin`). From the second drop on one of
+  them is an elite (`Troops.serverElite`: 3x health, a rifle hitting 1.5x
+  in bursts of 6, black armour, a gold helmet and visor, a gold diamond
+  over him; CF_TROOPS's `elite`). After 4 s it climbs, tilts flat and
+  flies on. When a relay falls with none in the air it comes at once,
+  whatever its wait and however many are up. The first one gets VEX's
+  line (`roof.dropship`). It can't be shot.
 - Brutes up the Roof's stairs (`feature/cyber-feud-roof-brutes`,
   kilowatt.lua's `callHelp`, `map.bosses.stairs` and `map.bosses.beat` in
   `buildRoof`): while Kilowatt fights, a brute comes up the stairs at the
@@ -575,7 +599,9 @@ anyone's head):
 **On the Roof.** When Saye and Kilowatt are down, VEX locks the roof and comes
 up huge: her face projected over the whole roof, in green with both tells
 flickering at once. She can't be shot. She drives the tower's turrets, and
-four relay terminals round the helipad keep her there. Players breach
+four relay terminals round the helipad keep her there. Every so often she
+calls in one of Halcyon's dropships, which hangs over the relay players are
+going for and puts a squad of officers down to guard it. Players breach
 the relays one by one while the turrets fire; she moves between the ones
 left, and her portrait breaks up more with each one lost (more slips, colour
 dropping out, frames missing). On the last relay she gets away: her face
@@ -1064,7 +1090,9 @@ The top of the tower, square, open to the rain.
   plant rooms, a helipad on some, red lights blinking at their corners, a
   neon sign on some). Halcyon Tower's glass shows them too.
 
-**The end:** when VEX gets away, a HOME star comes up on the helipad.
+**The end:** when VEX gets away, a HOME star comes up on the helipad. It is the
+only way home: the Roof has no HOME star by the stairs, so there is no
+leaving the fight half-way.
 
 ## Mechanics
 

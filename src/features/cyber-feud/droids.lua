@@ -114,8 +114,8 @@ end
 --- a map without them.
 function Droids.serverStart(server, map, nav, calm)
   sv = nil
-  local spec = map.droids
-  if not (spec and nav) then
+  local spec = map.droids or {} -- (none on the map: an empty brain, for `serverJoin`)
+  if not nav then
     return
   end
   local brain = Brain.new({
@@ -135,6 +135,19 @@ function Droids.serverStart(server, map, nav, calm)
       end
     end
   end
+end
+
+--- One more, awake, at (x, y), walking `route` (a loop of { x, y }): the
+--- Roof's dropship (dropship.lua). Returns it, or nil on a map they can't walk.
+function Droids.serverJoin(x, y, route)
+  local route2 = sv and settle(sv.brain.nav, route)
+  if not (route2 and #route2 >= 2) then
+    return nil
+  end
+  sv.calm = false
+  local h = sv.brain:add(route2, 1, arms())
+  h.x, h.y = x, y
+  return h
 end
 
 --- The street wakes: they start their beat and see whoever is there.

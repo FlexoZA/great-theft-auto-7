@@ -69,8 +69,9 @@
 -- when one of their own goes down. A car at speed runs them down.
 --
 -- Messages
---   server -> all  CF_TROOPS <tick> [<id> <side> <x> <y> <facing> <hp> <alert> <gun>]...  (unreliable, 15 Hz;
---                  side h or s; alert 1 has somebody, 2 searching or looking into something, 0 neither)
+--   server -> all  CF_TROOPS <tick> [<id> <side> <x> <y> <facing> <hp> <alert> <gun> <elite>]...  (unreliable,
+--                  15 Hz; side h or s; alert 1 has somebody, 2 searching or looking into something, 0 neither;
+--                  elite 1 for an elite (`serverElite`))
 --   server -> all  CF_DOWN   <id> <x> <y> <angle>      a soldier went down
 --   server -> all  CF_SAY    <id> <category> <index>   a soldier says Story.troops[side][category][index]
 --   server -> all  CF_WAKE                              the street woke (init.lua's music listens)
@@ -104,6 +105,7 @@ local Kilowatt = require("src.features.cyber-feud.kilowatt")
 local Saye = require("src.features.cyber-feud.saye")
 local Duo = require("src.features.cyber-feud.duo")
 local Vex = require("src.features.cyber-feud.vex")
+local Dropship = require("src.features.cyber-feud.dropship")
 local Volt = require("src.features.cyber-feud.volt")
 local Hud = require("src.features.cyber-feud.hud")
 
@@ -162,6 +164,9 @@ Troops.levels = {
 Troops.breakIn = { first = 12, every = 35, most = 8, perHuman = 4, sparkerFrom = 2, bruteFrom = 3 }
 Troops.flare = 25
 Troops.chatEvery = { 14, 28 } -- seconds between a post's or a squad's idle chatter (min, max)
+-- An elite (`serverElite`: the Roof's dropship brings one): this much more
+-- health and harm, a rifle in longer bursts, in black and gold.
+Troops.elite = { health = 3, damage = 1.5, burst = 6, pause = 0.8 }
 Troops.replyAfter = { 1.3, 2.1 } -- seconds before a mate answers
 Troops.chatGap = 4 -- seconds, map-wide, between one conversation starting and the next
 Troops.shoutEvery = 6 -- seconds a soldier keeps quiet after shouting
@@ -373,6 +378,7 @@ function Troops.serverStart(server, map, name, calm)
   Kilowatt.serverStart(server, map, nav, calm) -- the Roof's bosses: Kilowatt on the helipad...
   Saye.serverStart(server, map, nav, calm) -- ...and Saye by the billboard
   Vex.serverStart(server, map) -- and VEX, once they are down
+  Dropship.serverStart() -- and the dropship she calls in
   Volt.serverStart(server, map, nav) -- the Market's general, in Noodle Square
   Turrets.serverStart(server, map, calm, function() -- its sentry turrets; breached, they go for all of these
     return { sv.sides.halcyon.troops, sv.sides.static.troops, shields or { list = {} }, rifles or { list = {} },
@@ -518,6 +524,7 @@ function Troops.serverStop(server)
   Saye.serverStop(server)
   Duo.serverStop()
   Vex.serverStop(server)
+  Dropship.serverStop(server)
   Volt.serverStop(server)
   if sv then
     sv = nil
@@ -605,6 +612,7 @@ local function sync(server)
       parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
       parts[#parts + 1] = s.alert and 1 or (Combine.wary(s) and 2 or 0)
       parts[#parts + 1] = s.arms and s.arms.index or 0
+      parts[#parts + 1] = s.elite and 1 or 0
     end
   end
   local msg = Protocol.encode("CF_TROOPS", unpack(parts))
@@ -883,6 +891,23 @@ function Troops.serverPack(server, key, spot, beat, size, sparker, tx, ty)
   return squad.members
 end
 
+--- Make `s` (one of `serverPack`'s) an elite: `Troops.elite` more health,
+--- a harder-hitting rifle in longer bursts, and black and gold on every screen.
+function Troops.serverElite(s)
+  local side = sv and sv.sides[s.faction or "halcyon"]
+  if not side then
+    return
+  end
+  local e = Troops.elite
+  s.elite, s.hp = true, s.hp * e.health
+  local base = Tiers.apply(Guns.ar, Tiers.DEFAULT)
+  local gun = setmetatable({ damage = base.damage * e.damage }, { __index = base })
+  side.troops:arm(s, {
+    gun = gun, key = Guns.ar.key, index = Guns.ar.index, burst = e.burst, pause = e.pause,
+    reach = base.speed * (base.ttl or ROUND_TTL) * 0.85,
+  })
+end
+
 --- Anyone past the map's `wakeY` wakes the street.
 local function checkWake(server)
   local calm = false
@@ -933,6 +958,7 @@ function Troops.serverStep(server, dt)
   Saye.serverStep(server, dt)
   Duo.serverStep(server, dt) -- the two of them as partners
   Vex.serverStep(server, dt)
+  Dropship.serverStep(server, dt, Vex.server())
   Volt.serverStep(server, dt)
   runOver(server)
   talk(server, dt)
@@ -1107,6 +1133,11 @@ local HALCYON = {
   shirt = { 0.50, 0.52, 0.56 }, pants = { 0.26, 0.27, 0.30 }, vest = { 0.66, 0.68, 0.72 },
   shoes = { 0.08, 0.08, 0.09 }, skin = { 0.80, 0.70, 0.62 }, hat = { 0.90, 0.91, 0.94 }, gun = true,
 }
+local ELITE = { -- black armour, a gold helmet
+  shirt = { 0.14, 0.14, 0.16 }, pants = { 0.10, 0.10, 0.12 }, vest = { 0.22, 0.22, 0.25 },
+  shoes = { 0.05, 0.05, 0.06 }, skin = { 0.80, 0.70, 0.62 }, hat = { 0.92, 0.74, 0.22 }, gun = true,
+}
+local GOLD = { 1.00, 0.80, 0.25 }
 local STATIC_SHIRTS = {
   { 0.16, 0.14, 0.18 }, { 0.26, 0.16, 0.14 }, { 0.14, 0.20, 0.18 }, { 0.22, 0.22, 0.24 }, { 0.30, 0.24, 0.12 },
 }
@@ -1116,12 +1147,12 @@ local looks = {} -- side .. gun index .. id variant -> look
 
 local function lookFor(s)
   local variant = s.side == "static" and s.id % (#STATIC_SHIRTS * #STATIC_SKINS) or 0
-  local k = s.side .. ":" .. (s.gun or 0) .. ":" .. variant
+  local k = s.side .. ":" .. (s.gun or 0) .. ":" .. variant .. (s.elite and ":elite" or "")
   local look = looks[k]
   if not look then
     look = {}
     if s.side == "halcyon" then
-      for f, v in pairs(HALCYON) do
+      for f, v in pairs(s.elite and ELITE or HALCYON) do
         look[f] = v
       end
     else
@@ -1152,6 +1183,7 @@ function Troops.clear()
   Kilowatt.clear()
   Saye.clear()
   Vex.clear()
+  Dropship.clear()
   Volt.clear()
 end
 
@@ -1184,6 +1216,7 @@ function Troops.update(dt)
   Kilowatt.update(dt)
   Saye.update(dt)
   Volt.update(dt)
+  Dropship.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
@@ -1245,8 +1278,9 @@ local function drawSoldier(s)
   love.graphics.translate(x, y)
   love.graphics.rotate(s.angle)
   if s.side == "halcyon" then
-    love.graphics.setColor(color[1], color[2], color[3], s.alert and 1 or 0.85)
-    love.graphics.setLineWidth(1.6)
+    local visor = s.elite and GOLD or color
+    love.graphics.setColor(visor[1], visor[2], visor[3], s.alert and 1 or 0.85)
+    love.graphics.setLineWidth(s.elite and 2.2 or 1.6)
     love.graphics.line(3.6, -2.4, 3.6, 2.4)
   else
     love.graphics.setColor(0.72, 0.76, 0.80)
@@ -1258,6 +1292,13 @@ local function drawSoldier(s)
   end
   love.graphics.setLineWidth(1)
   love.graphics.pop()
+  if s.elite then -- a gold diamond over him: the one to watch
+    local top = y - r - (s.alert and 42 or 20)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.polygon("fill", x + 1, top - 5, x + 6, top + 1, x + 1, top + 7, x - 4, top + 1)
+    love.graphics.setColor(GOLD)
+    love.graphics.polygon("fill", x, top - 6, x + 5, top, x, top + 6, x - 5, top)
+  end
   if s.alert then
     local bob = math.sin(time * 10 + s.bob) * 1.5
     love.graphics.setFont(UI.fonts.heading)
@@ -1295,6 +1336,7 @@ function Troops.drawAboveCars()
   Saye.drawAboveCars()
   Vex.drawAboveCars()
   Volt.drawAboveCars()
+  Dropship.drawAboveCars() -- (in the air: over all of them)
   for _, s in pairs(troops) do -- what they say, over all of them
     if s.say then
       local lift = s.alert and 34 or 8
@@ -1307,7 +1349,7 @@ end
 --- At night (the night feature), each one's mark glows a little in his side's colour.
 function Troops.drawNightLights(glow)
   for _, s in pairs(troops) do
-    glow(s.dx, s.dy, 46, Troops.side[s.side].color, s.alert and 0.7 or 0.45)
+    glow(s.dx, s.dy, 46, s.elite and GOLD or Troops.side[s.side].color, s.alert and 0.7 or 0.45)
   end
   Droids.drawNightLights(glow)
   Enforcers.drawNightLights(glow)
@@ -1322,6 +1364,7 @@ function Troops.drawNightLights(glow)
   Saye.drawNightLights(glow)
   Vex.drawNightLights(glow)
   Volt.drawNightLights(glow)
+  Dropship.drawNightLights(glow)
 end
 
 --- The footsteps feature's walkers.
@@ -1356,7 +1399,7 @@ Troops.clientMessages = {
     end
     lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
-    for i = 2, #args - 7, 8 do
+    for i = 2, #args - 8, 9 do
       local id, side = tonumber(args[i]), SIDE_OF[args[i + 1]]
       local x, y = tonumber(args[i + 2]), tonumber(args[i + 3])
       if id and side and x and y then
@@ -1373,6 +1416,7 @@ Troops.clientMessages = {
         s.alert = args[i + 6] == "1"
         s.wary = args[i + 6] ~= "0"
         s.gun = tonumber(args[i + 7])
+        s.elite = args[i + 8] == "1"
         seen[id] = true
       end
     end
@@ -1442,6 +1486,9 @@ for kind, handler in pairs(Saye.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Vex.clientMessages) do
+  Troops.clientMessages[kind] = handler
+end
+for kind, handler in pairs(Dropship.clientMessages) do
   Troops.clientMessages[kind] = handler
 end
 for kind, handler in pairs(Volt.clientMessages) do
