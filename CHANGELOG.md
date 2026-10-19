@@ -14,6 +14,22 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Roof: VEX's four relays stand round the helipad instead of in the corners, so the run from one to the next
+  is about half as long (about 1450 -> 770 px).
+- The Roof: the relay VEX is at has a red ring breathing round it instead of a green one, and her face on its
+  screen.
+
+### Fixed
+- The Roof: VEX's relay now warns you before it shocks you. For 2 s before each pulse its reach lights up blue on
+  the ground and fills in from the middle, with static crackling in it that builds as it charges, it whines, and
+  "VEX's relay is charging - get clear!" shows while you're inside. Before, the pulse hit at once with no warning
+  and, on a job finished before, stunned you. Her pulses also come less often: every 4 -> 6 s.
+- The Roof: VEX's last relay can be breached. Her relay no longer drains from the warning until 1 s after the pulse,
+  so stepping out of it (or being stunned by it) doesn't lose what you had done. Before, the drain took back more
+  than you could put in, and the last relay, always hers, couldn't be finished alone.
+- The Roof: let go of a relay and it waits 0.45 -> 1.5 s before it starts losing what you had done.
+
 ## [0.36.0] - 2026-10-19
 
 Bullets now spark and leave marks on walls, and every job level has a name, shown on the victory screen and the board.

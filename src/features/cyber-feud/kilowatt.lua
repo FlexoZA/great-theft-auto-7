@@ -349,6 +349,15 @@ local function down(server, by, angle)
   Features.call("serverKill", server, { kind = "boss", x = k.x, y = k.y, by = by, angle = angle })
 end
 
+--- The launch's --boss (init.lua's serverSkipToBoss): down already, with
+--- no body, drops or kill, so the Roof goes straight on to VEX.
+function Kilowatt.serverSkip(server)
+  if sv then
+    sv.down = true
+    server:broadcast(Protocol.encode("KWB_STATE", server.tick + 1))
+  end
+end
+
 --- A round through (x, y): the `serverShotAt` convention. Only a player's
 --- reaches him; double while he vents. Returns true when it hit him.
 function Kilowatt.serverShotAt(server, x, y, radius, by, angle, damage)
