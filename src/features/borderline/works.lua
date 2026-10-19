@@ -4,9 +4,11 @@
 -- out along each jib with a load swaying under it, a red light blinking
 -- at its tip; the quay's gantry cranes, a trolley running out along each
 -- boom over the freighter and back with a container on its spreader; and
--- the emergency beacons turning, amber and red, their beams sweeping the
--- ground. From the map (city-map's borderline.lua: `map.cranes`,
--- `map.gantries`, `map.beacons`). Scenery only: nothing here is on the host
+-- the mine shafts' headframes, their wheels turning and a cage running up
+-- and down; ore riding the conveyors; and the emergency beacons turning,
+-- amber and red, their beams sweeping the ground. From the map (city-map's
+-- borderline.lua: `map.cranes`, `map.gantries`, `map.headframes`,
+-- `map.conveyors`, `map.beacons`). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -48,8 +50,32 @@ local function gantryPose(g)
   return out, math.sin(cycle) < 0 -- coming back in from the ship: loaded
 end
 
---- On the ground: each crane's shadow, the jib's and its load's.
+local ORE_GAP = 70 -- px between lumps of ore on a belt
+local ORE_SPEED = 60 -- px/s the belts run
+
+--- The ore riding the conveyors (on the belt, under everyone).
+local function drawOre(map)
+  for _, c in ipairs(map.conveyors or {}) do
+    local along = c.dir == "e" or c.dir == "w"
+    local len = along and c.w or c.h
+    local back = c.dir == "w" or c.dir == "n" -- running towards its start
+    local shift = (clock * ORE_SPEED) % ORE_GAP
+    for a = 0, len - 1, ORE_GAP do
+      local d = back and (a - shift) % len or (a + shift) % len
+      local x = along and c.x + d or c.x + c.w / 2
+      local y = along and c.y + c.h / 2 or c.y + d
+      local r = (along and c.h or c.w) * 0.32
+      love.graphics.setColor(C.ink)
+      love.graphics.circle("fill", x, y, r + 1.5, 6)
+      love.graphics.setColor(C.plasma)
+      love.graphics.circle("fill", x, y, r, 6)
+    end
+  end
+end
+
+--- On the ground: the ore on the belts, then each crane's shadow, the jib's and its load's.
 function Works.drawBelowCars(map)
+  drawOre(map)
   love.graphics.setColor(0, 0, 0, 0.22)
   for _, g in ipairs(map.gantries or {}) do
     local x, y = g.x + LIFT, g.y + LIFT
@@ -174,6 +200,54 @@ local function drawGantry(g)
   love.graphics.circle("fill", x, top - g.reach, 5, 10)
 end
 
+--- A headframe over a shaft: an A-frame of girders, two wheels on top
+--- turning as the cage below runs up and down, the cables off them.
+local function drawHeadframe(h)
+  local x, y = h.x, h.y - LIFT * 1.4
+  local spin = clock * 2.2 + h.phase
+  love.graphics.setColor(0, 0, 0, 0.22)
+  love.graphics.rectangle("fill", h.x - 50 + LIFT, h.y - 10 + LIFT, 100, 20)
+  -- The legs, splayed out to the shaft's corners, and the beam across the top.
+  love.graphics.setColor(C.ink)
+  love.graphics.setLineWidth(9)
+  for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+    love.graphics.line(h.x + c[1] * 70, h.y + c[2] * 70, x + c[1] * 34, y)
+  end
+  love.graphics.setColor(C.rust)
+  love.graphics.setLineWidth(5)
+  for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+    love.graphics.line(h.x + c[1] * 70, h.y + c[2] * 70, x + c[1] * 34, y)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", x - 44, y - 9, 88, 18)
+  love.graphics.setColor(C.rust)
+  love.graphics.rectangle("fill", x - 42, y - 7, 84, 14)
+  -- The two wheels, spokes turning (one each way).
+  for k, side in ipairs({ -1, 1 }) do
+    local wx = x + side * 22
+    love.graphics.setColor(C.ink)
+    love.graphics.circle("fill", wx, y, 16, 18)
+    love.graphics.setColor(C.gunmetalLight)
+    love.graphics.circle("fill", wx, y, 13, 18)
+    love.graphics.setColor(C.ink)
+    love.graphics.setLineWidth(2)
+    local a = (k == 1 and spin or -spin)
+    for sp = 0, 2 do
+      local t = a + sp * math.pi / 3
+      love.graphics.line(wx - math.cos(t) * 12, y - math.sin(t) * 12, wx + math.cos(t) * 12, y + math.sin(t) * 12)
+    end
+    love.graphics.setLineWidth(1)
+  end
+  -- The cage: a yellow box under the frame, coming up out of the shaft and going back down.
+  local up = ease(spin * 0.25)
+  local cy = h.y + 10 - up * 22
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", h.x - 16, cy - 12, 32, 24)
+  love.graphics.setColor(C.yellow[1] * (0.4 + 0.6 * up), C.yellow[2] * (0.4 + 0.6 * up), C.yellow[3] * (0.4 + 0.6 * up))
+  love.graphics.rectangle("fill", h.x - 14, cy - 10, 28, 20)
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -198,6 +272,9 @@ function Works.drawAboveCars(map)
   for _, g in ipairs(map.gantries or {}) do
     drawGantry(g)
   end
+  for _, h in ipairs(map.headframes or {}) do
+    drawHeadframe(h)
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -213,6 +290,9 @@ function Works.drawNightLights(map, glow)
       glow(c.x + math.cos(a) * c.jib, c.y - LIFT + math.sin(a) * c.jib, 60, BEACON.red, 0.8)
     end
     glow(c.x, c.y - LIFT, 80, { 1, 0.9, 0.7 }, 0.4) -- the cab's lamp
+  end
+  for _, h in ipairs(map.headframes or {}) do
+    glow(h.x, h.y - LIFT * 1.4, 110, { 1, 0.85, 0.6 }, 0.5) -- the lamps on the headframe
   end
   for _, g in ipairs(map.gantries or {}) do
     local top = g.y - LIFT - g.depth / 2

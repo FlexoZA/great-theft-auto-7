@@ -195,9 +195,9 @@ CityMap.maps = {
     title = "Liar's Landing", kind = "landing", seed = 302, cols = 56, rows = 64,
     crowd = false, traffic = false, vehicles = false, night = { 0.56, 0.62, 0.80 },
   },
-  pit = {
+  pit = { -- at dusk, the Bragium glowing
     title = "The Bragium Pit", kind = "pit", seed = 303, cols = 60, rows = 60,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.58, 0.76 },
   },
   prosperity = {
     title = "Prosperity", kind = "prosperity", seed = 304, cols = 56, rows = 88,

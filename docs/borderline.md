@@ -328,7 +328,7 @@ its set piece is done; the objective line says what's left.
   dusk under floodlights, with deep excavations, cranes working over them
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
-  the Frozen Wreck and Liar's Landing.
+  the Frozen Wreck, Liar's Landing and the Bragium Pit.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -379,7 +379,17 @@ dusk under floodlight towers, like the Wreck.
   him: 60 s, waves come in, the timer stops while nobody is near him).
   When it's done the lift is the EXIT: "THE BRAGIUM PIT".
 
-### 3. The Bragium Pit (`pit`, 60x60)
+### 3. The Bragium Pit (`pit`, 60x60, at dusk)
+
+The mine at work: two tower cranes swing over the floor from its
+corners, two shafts on the inner terrace have headframes over them
+(wheels turning, a cage running up and down: works.lua's `headframes`),
+the conveyors carry glowing ore up (works.lua's `conveyors`), haul trucks
+stand parked, floodlights on the rims and corners, beacons at the ramps
+and the shafts, the haul road's edge painted round the outer terrace,
+BLAST ZONE painted on the floor, and the Bragium glowing purple in the
+dusk.
+
 
 An open-pit mine in terraces going down to a floor in the middle: ramps
 between the terraces, conveyors (cover), purple crystal clusters (they

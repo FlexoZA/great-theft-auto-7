@@ -9,9 +9,10 @@
 --               stacks with painted lanes, a dry dock down the west side,
 --               gantry cranes on the quay unloading a freighter, the ferry
 --               lift at the top
---   pit         The Bragium Pit: an open-pit mine, two rings of terraces
---               down to the floor where the Fabricator lands, a rim at
---               either end joined to it by one ramp each
+--   pit         The Bragium Pit: an open-pit mine at dusk, two rings of
+--               terraces down to the floor where the Fabricator lands, a
+--               rim at either end joined to it by one ramp each; cranes
+--               over the floor, shafts with headframes, conveyors running
 --   prosperity  Prosperity: Jerry's city under a dome, blocks on a street
 --               grid, his statue in the plaza, a gate at either end
 --   refinery    The Refinery: indoors, a river of molten Bragium snaking
@@ -52,11 +53,13 @@
 --                         shed, mast (a crane's), flood (a floodlight tower), drum, and flat: tunnel,
 --                         walkway, zebra, cone, paint (with `text`, `small`); Liar's Landing's: drydock
 --                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
---                         water), laneline
+--                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
+--   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
+--   map.conveyors         { x, y, w, h, dir } conveyors carrying ore ("n", "e", "s" or "w"), world px (the Pit)
 --   map.gantries          { x, y, span, depth, reach, period, phase } the quay's gantry cranes (Liar's
 --                         Landing): the portal `span` wide and `depth` deep round (x, y), its boom `reach`
 --                         px out north over the water, its trolley running out and in every `period` s
@@ -474,9 +477,14 @@ Borderline.PIT_RINGS = {
   { inset = 22, gaps = { "s", "n" } },
 }
 
+-- The mine shafts on the inner terrace (tiles: c, r, w, h), each with a
+-- headframe over it winding its cage up and down (works.lua's `headframes`).
+Borderline.SHAFTS = { { 17, 34, 2.5, 2.5 }, { 40, 23, 2.5, 2.5 } }
+
 local function buildPit(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "rock"
+  map.cranes, map.beacons, map.headframes, map.conveyors = {}, {}, {}, {}
   local n = map.cols
   b:open(8, 8, n - 9, n - 9) -- the pit
   b:open(20, n - 7, 39, n - 3) -- the south rim, where everyone comes in
@@ -520,14 +528,55 @@ local function buildPit(map, rng, T)
     end
   end
   b:place("pad", 26, 26, 8, 8, { flat = true, round = true })
-  -- Conveyors along the outer terraces carrying the ore up.
-  b:place("conveyor", 10, 17, 0.8, 26)
-  b:place("conveyor", n - 11, 17, 0.8, 26)
-  b:place("conveyor", 17, 10, 26, 0.8)
+  b:place("paint", 22.5, n - 24.4, n - 45, 0.8, { flat = true, text = "BLAST ZONE  STAND CLEAR" })
+  -- The haul road's painted edge round the outer terrace.
+  b:place("laneline", 8.6, 8.6, n - 17.2, 0.12, { flat = true })
+  b:place("laneline", 8.6, n - 8.72, n - 17.2, 0.12, { flat = true })
+  b:place("laneline", 8.6, 8.6, 0.12, n - 17.2, { flat = true })
+  b:place("laneline", n - 8.72, 8.6, 0.12, n - 17.2, { flat = true })
+  -- Conveyors along the outer terraces carrying the ore up (it moves: works.lua).
+  for _, c in ipairs({ { 10, 17, 0.8, 26, "n" }, { n - 11, 17, 0.8, 26, "n" }, { 17, 10, 26, 0.8, "e" } }) do
+    b:place("conveyor", c[1], c[2], c[3], c[4])
+    map.conveyors[#map.conveyors + 1] = { x = b:x(c[1]), y = b:y(c[2]), w = c[3] * T, h = c[4] * T, dir = c[5] }
+  end
+  -- Two tower cranes over the pit's floor, from its corners.
+  local floor = { 22, 22, n - 44, n - 44 }
+  crane(map, b, floor, "nw", { 27, 27 })
+  crane(map, b, floor, "se", { n - 27, n - 27 })
+  -- The shafts, fenced, a headframe over each.
+  for _, sh in ipairs(Borderline.SHAFTS) do
+    b:place("shaft", sh[1], sh[2], sh[3], sh[4], { water = true })
+    map.headframes[#map.headframes + 1] = { x = b:x(sh[1] + sh[3] / 2), y = b:y(sh[2] + sh[4] / 2),
+      phase = #map.headframes * 2.3 }
+    map.beacons[#map.beacons + 1] = { x = b:x(sh[1]), y = b:y(sh[2]), color = "red" }
+    map.beacons[#map.beacons + 1] = { x = b:x(sh[1] + sh[3]), y = b:y(sh[2] + sh[4]), color = "red" }
+  end
+  -- Haul trucks parked on the terraces and the rim.
+  b:place("truck", 14, n - 10.8, 3.2, 1.6, { seed = rng:random(1000) })
+  b:place("truck", 34, 3, 3.2, 1.6, { seed = rng:random(1000) })
+  b:place("truck", n - 14.2, 13, 1.6, 3.2, { seed = rng:random(1000) })
+  -- Beacons at the top of each ramp, floodlights round the rims and corners.
+  for _, at in ipairs({ { 27.5, n - 8 }, { 32.5, n - 8 }, { 27.5, 8 }, { 32.5, 8 } }) do
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
+  end
+  for _, at in ipairs({ { 21, 3 }, { 38, 3 }, { 21, n - 4 }, { 38, n - 4 }, { 9, 9 }, { n - 10, 9 }, { 9, n - 10 },
+    { n - 10, n - 10 } }) do
+    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
+    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 440,
+      color = { 1, 0.92, 0.75 }, a = 0.75 }
+  end
   local keep = { { 26, 26, 33, 33 }, { 26, n - 9, 33, n - 3 }, { 26, 2, 33, 9 }, { 13, 28, 24, 31 },
     { n - 25, 28, n - 13, 31 }, { 28, 20, 31, 24 }, { 28, n - 25, 31, n - 21 } }
   b:scatter(rng, "crystal", 30, 56, 9, n - 10, keep)
   b:scatter(rng, "rock", 10, 64, 9, n - 10, keep)
+  b:scatter(rng, "drum", 10, 40, 9, n - 10, keep)
+  b:scatter(rng, "cone", 18, 22, 9, n - 10, keep, { flat = true })
+  for _, c in ipairs(map.cover) do -- the Bragium glows in the dusk
+    if c.kind == "crystal" then
+      map.lights[#map.lights + 1] = { x = c.x + c.w / 2, y = c.y + c.h / 2, r = 130, color = { 0.75, 0.35, 1 },
+        a = 0.6 }
+    end
+  end
   -- Plasma haulers on the terraces' corners, gun haulers at the ramps and
   -- walking the outer terrace, junk haulers on the floor (the Fabricator
   -- lands there later).

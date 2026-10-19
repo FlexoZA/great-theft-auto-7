@@ -45,6 +45,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Liar's Landing is now a container port at dusk: gantry cranes on the quay unloading a freighter, a deep dry dock
   with a rusting hull down the west side and two cranes over it, painted lanes and bay numbers through the stacks,
   beacons round the ferry lift and floodlights over the yard.
+- The Bragium Pit is now a working mine at dusk: two tower cranes over the floor, mine shafts with headframes
+  winding their cages, conveyors carrying glowing ore, haul trucks, floodlights, beacons and a painted haul road.
 
 ## [0.36.0] - 2026-10-19
 

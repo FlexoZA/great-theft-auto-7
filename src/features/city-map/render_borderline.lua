@@ -351,17 +351,66 @@ function DRAW.ramp(s)
   end
 end
 
+--- A conveyor's belt and rollers (the ore riding it moves: borderline/works.lua).
 function DRAW.conveyor(s)
   box(s.x, s.y, s.w, s.h, C.gunmetal)
-  color(C.purple) -- ore on the belt
+  color(C.gunmetalLight)
   local along = s.w >= s.h
-  for a = 20, (along and s.w or s.h) - 20, 70 do
+  for a = 8, (along and s.w or s.h) - 8, 24 do
     if along then
-      love.graphics.circle("fill", s.x + a, s.y + s.h / 2, s.h * 0.3)
+      love.graphics.rectangle("fill", s.x + a, s.y + 3, 4, s.h - 6)
     else
-      love.graphics.circle("fill", s.x + s.w / 2, s.y + a, s.w * 0.3)
+      love.graphics.rectangle("fill", s.x + 3, s.y + a, s.w - 6, 4)
     end
   end
+end
+
+--- A mine shaft: a square of black going straight down, a grating over
+--- part of it, hazard striped round its collar (the headframe over it is
+--- works.lua's).
+function DRAW.shaft(s)
+  box(s.x, s.y, s.w, s.h, C.gunmetal)
+  color(INK)
+  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w - 32, s.h - 32)
+  color(C.gunmetalLight)
+  for x = s.x + 16, s.x + s.w * 0.45, 10 do -- the grating over the near half
+    love.graphics.rectangle("fill", x, s.y + 16, 3, s.h - 32)
+  end
+  hazard(s.x, s.y, s.w, 10)
+  hazard(s.x, s.y + s.h - 10, s.w, 10)
+  hazard(s.x, s.y, 10, s.h)
+  hazard(s.x + s.w - 10, s.y, 10, s.h)
+end
+
+--- A haul truck, parked: a yellow bed full of purple ore, the cab to one
+--- side up front, big black wheels.
+function DRAW.truck(s)
+  local along = s.w >= s.h
+  color(INK)
+  for _, k in ipairs({ 0.15, 0.85 }) do -- the wheels
+    if along then
+      love.graphics.rectangle("fill", s.x + s.w * k - 22, s.y - 8, 44, s.h + 16, 6)
+    else
+      love.graphics.rectangle("fill", s.x - 8, s.y + s.h * k - 22, s.w + 16, 44, 6)
+    end
+  end
+  box(s.x, s.y, s.w, s.h, C.yellow)
+  local bx, by, bw, bh = s.x + 10, s.y + 10, s.w - 20, s.h - 20 -- the bed
+  if along then
+    bw = bw * 0.7
+  else
+    by, bh = by + bh * 0.3, bh * 0.7
+  end
+  box(bx, by, bw, bh, C.yellowDark)
+  color(C.purple)
+  for i = 0, 5 do
+    local h = hash((s.seed or 1) + i)
+    love.graphics.circle("fill", bx + bw * (0.15 + 0.7 * h), by + bh * (0.2 + 0.6 * hash(h + i)), 10 + h * 8, 6)
+  end
+  local cx, cy = along and s.x + s.w - 44 or s.x + 10, along and s.y + 10 or s.y + 10 -- the cab
+  box(cx, cy, 34, 30, C.gunmetal)
+  color(C.window)
+  love.graphics.rectangle("fill", cx + 6, cy + 6, 22, 10)
 end
 
 function DRAW.crystal(s)
