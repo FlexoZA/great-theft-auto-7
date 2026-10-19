@@ -199,9 +199,9 @@ CityMap.maps = {
     title = "The Bragium Pit", kind = "pit", seed = 303, cols = 60, rows = 60,
     crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.58, 0.76 },
   },
-  prosperity = {
+  prosperity = { -- at dusk under the dome, the street lamps on
     title = "Prosperity", kind = "prosperity", seed = 304, cols = 56, rows = 88,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.62, 0.58, 0.70 },
   },
   refinery = {
     title = "The Refinery", kind = "refinery", seed = 305, cols = 48, rows = 80,

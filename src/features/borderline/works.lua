@@ -8,7 +8,9 @@
 -- and down; ore riding the conveyors; and the emergency beacons turning,
 -- amber and red, their beams sweeping the ground. From the map (city-map's
 -- borderline.lua: `map.cranes`, `map.gantries`, `map.headframes`,
--- `map.conveyors`, `map.beacons`). Scenery only: nothing here is on the host
+-- `map.conveyors`, `map.beacons`); and over Prosperity, the factories'
+-- chimneys smoking (`map.stacks`) and pipe bridges across the avenue
+-- (`map.overpipes`). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -248,6 +250,43 @@ local function drawHeadframe(h)
   love.graphics.rectangle("fill", h.x - 14, cy - 10, 28, 20)
 end
 
+local SMOKE_PUFFS = 7
+local SMOKE_LIFE = 5 -- seconds a puff lasts
+local WIND = { 34, -18 } -- px/s the smoke drifts
+
+--- A chimney's smoke: puffs rising out of it, growing, drifting downwind, fading.
+local function drawSmoke(st)
+  for i = 0, SMOKE_PUFFS - 1 do
+    local age = ((clock + st.phase) / SMOKE_LIFE + i / SMOKE_PUFFS) % 1
+    local t = age * SMOKE_LIFE
+    local x, y = st.x + WIND[1] * t, st.y + WIND[2] * t - LIFT * 2 * age
+    local r = 14 + 46 * age
+    love.graphics.setColor(0.28, 0.28, 0.30, 0.42 * (1 - age))
+    love.graphics.circle("fill", x, y, r, 16)
+    love.graphics.setColor(0.45, 0.45, 0.48, 0.28 * (1 - age))
+    love.graphics.circle("fill", x - r * 0.25, y - r * 0.25, r * 0.6, 14)
+  end
+end
+
+--- A pipe bridge over a street: three pipes on a trestle, a hazard band
+--- where it crosses.
+local function drawOverpipe(p)
+  local y = p.y - LIFT
+  love.graphics.setColor(0, 0, 0, 0.2)
+  love.graphics.rectangle("fill", p.x0 + LIFT, p.y + LIFT - 18, p.x1 - p.x0, 36)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", p.x0, y - 22, p.x1 - p.x0, 44)
+  for k, col in ipairs({ C.gunmetalLight, C.rust, C.gunmetalLight }) do
+    love.graphics.setColor(col)
+    love.graphics.rectangle("fill", p.x0, y - 20 + (k - 1) * 14, p.x1 - p.x0, 11)
+  end
+  love.graphics.setColor(C.yellow)
+  local mid = (p.x0 + p.x1) / 2
+  for k = -2, 1 do
+    love.graphics.rectangle("fill", mid + k * 24, y - 22, 12, 4)
+  end
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -274,6 +313,12 @@ function Works.drawAboveCars(map)
   end
   for _, h in ipairs(map.headframes or {}) do
     drawHeadframe(h)
+  end
+  for _, p in ipairs(map.overpipes or {}) do
+    drawOverpipe(p)
+  end
+  for _, st in ipairs(map.stacks or {}) do
+    drawSmoke(st)
   end
   love.graphics.setColor(1, 1, 1)
 end

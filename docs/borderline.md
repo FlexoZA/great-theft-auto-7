@@ -328,7 +328,7 @@ its set piece is done; the objective line says what's left.
   dusk under floodlights, with deep excavations, cranes working over them
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
-  the Frozen Wreck, Liar's Landing and the Bragium Pit.
+  the Frozen Wreck, Liar's Landing, the Bragium Pit and Prosperity.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -401,7 +401,18 @@ glow, some burst in plasma when shot).
   player gets there.
 - **The end:** the north rim's mine lift. EXIT: "PROSPERITY".
 
-### 4. Prosperity (`prosperity`, 56x88)
+### 4. Prosperity (`prosperity`, 56x88, at dusk)
+
+Jerry's factory town under the dome: its blocks are factories
+(corrugated roofs, sawtooth skylights, a chimney each with its smoke
+rising and drifting: works.lua's `stacks`), loading lots with haul trucks
+and pallets, and two "Phase 2" building sites, each a deep foundation
+hole with a tower crane over it. Pipe bridges cross the avenue overhead
+(works.lua's `overpipes`); dashed centre lines down the streets, zebra
+crossings at the plaza, street lamps, floodlights on the plaza's corners
+and beacons at the gates light it at dusk. Jerry's statue and screens
+stand over it all.
+
 
 Jerry's city under a glass dome: clean yellow streets, a plaza with a
 giant statue of him, his face on four huge screens.

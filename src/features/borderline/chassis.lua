@@ -415,6 +415,16 @@ function Chassis:hurt(s, i, amount, by, angle)
   return "down"
 end
 
+--- Where `s` is in the list now, or nil once it is gone.
+function Chassis:indexOf(s)
+  for i, o in ipairs(self.list) do
+    if o == s then
+      return i
+    end
+  end
+  return nil
+end
+
 function Chassis:freeze(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
     if Chassis.dist2(s.x, s.y, x, y) <= radius * radius then

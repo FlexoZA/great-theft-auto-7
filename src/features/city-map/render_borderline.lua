@@ -432,13 +432,52 @@ function DRAW.pad(s)
   love.graphics.circle("fill", cx, cy, r * 0.8, 40)
 end
 
+--- A factory block in Jerry's town: a corrugated roof, rows of sawtooth
+--- skylights, Hyperbole yellow round the edge, plant on the roof, and its
+--- chimney (`stackX`, `stackY`; the smoke is borderline/works.lua's).
 function DRAW.tower(s)
-  box(s.x, s.y, s.w, s.h, C.white)
+  box(s.x, s.y, s.w, s.h, C.gunmetalLight)
+  color(C.gunmetal)
+  for y = s.y + 12, s.y + s.h - 8, 14 do -- the corrugations
+    love.graphics.rectangle("fill", s.x, y, s.w, 4)
+  end
+  for x = s.x + 40, s.x + s.w - 60, 90 do -- the sawtooth skylights
+    color(INK)
+    love.graphics.rectangle("fill", x, s.y + 30, 40, s.h - 60)
+    color(C.window)
+    love.graphics.rectangle("fill", x + 4, s.y + 34, 20, s.h - 68)
+  end
   color(C.yellow) -- the trim round the roof
-  love.graphics.rectangle("fill", s.x, s.y, s.w, 14)
-  love.graphics.rectangle("fill", s.x, s.y + s.h - 14, s.w, 14)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, 10)
+  love.graphics.rectangle("fill", s.x, s.y + s.h - 10, s.w, 10)
   local h = hash(s.seed or 1)
-  box(s.x + s.w * (0.2 + h * 0.3), s.y + s.h * 0.3, 70, 50, C.steel) -- plant on the roof
+  box(s.x + s.w * (0.55 + h * 0.2), s.y + s.h * 0.15, 60, 44, C.steel) -- plant on the roof
+  if s.stackX then
+    blob(s.stackX - 26, s.stackY - 26, 52, 52, C.rust)
+    color(INK)
+    love.graphics.circle("fill", s.stackX, s.stackY, 16, 16)
+    color(C.yellow) -- its warning bands
+    love.graphics.setLineWidth(4)
+    love.graphics.circle("line", s.stackX, s.stackY, 22, 18)
+    love.graphics.setLineWidth(1)
+  end
+end
+
+--- A loading lot: darker concrete, painted bays along it.
+function DRAW.lot(s)
+  box(s.x, s.y, s.w, s.h, C.quay)
+  color(C.paintWhite, 0.7)
+  for y = s.y + 20, s.y + s.h - 20, 70 do
+    love.graphics.rectangle("fill", s.x + s.w * 0.45, y, s.w * 0.5, 5)
+  end
+  hazard(s.x, s.y, s.w, 10)
+end
+
+--- A street lamp, from above: its head on the post.
+function DRAW.lamp(s)
+  blob(s.x, s.y, s.w, s.h, C.gunmetal)
+  color(C.paintWhite)
+  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
 end
 
 function DRAW.statue(s)

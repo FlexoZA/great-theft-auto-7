@@ -47,6 +47,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   beacons round the ferry lift and floodlights over the yard.
 - The Bragium Pit is now a working mine at dusk: two tower cranes over the floor, mine shafts with headframes
   winding their cages, conveyors carrying glowing ore, haul trucks, floodlights, beacons and a painted haul road.
+- Prosperity is now Jerry's factory town at dusk: factory blocks with smoking chimneys, two "Phase 2" building
+  sites with deep foundation holes and tower cranes, loading lots with haul trucks, pipe bridges over the avenue,
+  street lamps, road markings, beacons at the gates and floodlights round the plaza.
+
+### Fixed
+- A kamikaze hauler blowing up among other robots could crash the game.
 
 ## [0.36.0] - 2026-10-19
 

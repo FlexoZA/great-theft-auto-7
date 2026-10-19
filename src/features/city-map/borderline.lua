@@ -13,8 +13,10 @@
 --               terraces down to the floor where the Fabricator lands, a
 --               rim at either end joined to it by one ramp each; cranes
 --               over the floor, shafts with headframes, conveyors running
---   prosperity  Prosperity: Jerry's city under a dome, blocks on a street
---               grid, his statue in the plaza, a gate at either end
+--   prosperity  Prosperity: Jerry's factory town under a dome at dusk,
+--               factory blocks with smoking chimneys on a street grid, two
+--               building sites with cranes, his statue in the plaza, a gate
+--               at either end
 --   refinery    The Refinery: indoors, a river of molten Bragium snaking
 --               across the floor, crossed by bridges, tanks and pipes
 --   assembly    The Assembly Line: the factory floor, conveyor belts across
@@ -53,11 +55,14 @@
 --                         shed, mast (a crane's), flood (a floodlight tower), drum, and flat: tunnel,
 --                         walkway, zebra, cone, paint (with `text`, `small`); Liar's Landing's: drydock
 --                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
---                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck)
+--                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck); Prosperity's
+--                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
+--   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
+--   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
 --   map.conveyors         { x, y, w, h, dir } conveyors carrying ore ("n", "e", "s" or "w"), world px (the Pit)
 --   map.gantries          { x, y, span, depth, reach, period, phase } the quay's gantry cranes (Liar's
@@ -606,9 +611,23 @@ Borderline.PROSPERITY_COLS = { { 6, 13 }, { 18, 25 }, { 30, 37 }, { 42, 49 } }
 Borderline.PROSPERITY_ROWS = { { 6, 15 }, { 20, 29 }, { 56, 65 }, { 70, 79 } }
 Borderline.PLAZA = { 34, 52 } -- rows
 
+-- The blocks that are building sites ("Prosperity Phase 2": by index into
+-- PROSPERITY_COLS, PROSPERITY_ROWS), each a deep foundation hole with a
+-- tower crane at a corner.
+Borderline.PROSPERITY_SITES = { { 2, 2, crane = "nw" }, { 3, 3, crane = "se" } }
+
+--- A factory block over tiles (c, r, w, h), its chimney's smoke rising (works.lua's `stacks`).
+local function factory(map, b, rng, c, r, w, h)
+  local f = b:place("tower", c, r, w, h, { seed = rng:random(1000) })
+  local k1, k2 = rng:random(), rng:random()
+  f.stackX, f.stackY = f.x + f.w * (0.2 + 0.6 * k1), f.y + f.h * (0.25 + 0.5 * k2)
+  map.stacks[#map.stacks + 1] = { x = f.stackX, y = f.stackY, phase = k1 * 7 }
+end
+
 local function buildProsperity(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "dome"
+  map.cranes, map.beacons, map.stacks, map.overpipes = {}, {}, {}, {}
   b:open(2, 2, map.cols - 3, map.rows - 3)
   b:open(25, map.rows - 2, 30, map.rows - 1) -- the south gate
   b:open(25, 0, 30, 1) -- the north gate
@@ -616,22 +635,69 @@ local function buildProsperity(map, rng, T)
   b:ground("plaza", 6, Borderline.PLAZA[1], 49, Borderline.PLAZA[2])
   b:place("gate", 25, map.rows - 2, 6, 2, { flat = true })
   b:place("gate", 25, 0, 6, 2, { flat = true })
-  for _, cs in ipairs(Borderline.PROSPERITY_COLS) do
-    for _, rs in ipairs(Borderline.PROSPERITY_ROWS) do
-      if rng:random() < 0.2 then -- a little park instead
-        b:place("lawn", cs[1], rs[1], cs[2] - cs[1] + 1, rs[2] - rs[1] + 1, { flat = true })
-      else
-        -- One tower, or two side by side with an alley between.
-        local w, h = cs[2] - cs[1] + 1, rs[2] - rs[1] + 1
-        if rng:random() < 0.5 then
-          b:place("tower", cs[1], rs[1], w, h, { seed = rng:random(1000) })
-        else
-          b:place("tower", cs[1], rs[1], w, math.floor(h / 2) - 1, { seed = rng:random(1000) })
-          b:place("tower", cs[1], rs[1] + math.floor(h / 2) + 1, w, h - math.floor(h / 2) - 1,
-            { seed = rng:random(1000) })
+  for ci, cs in ipairs(Borderline.PROSPERITY_COLS) do
+    for ri, rs in ipairs(Borderline.PROSPERITY_ROWS) do
+      local w, h = cs[2] - cs[1] + 1, rs[2] - rs[1] + 1
+      local site = nil
+      for _, st in ipairs(Borderline.PROSPERITY_SITES) do
+        if st[1] == ci and st[2] == ri then
+          site = st
         end
       end
+      if site then -- Phase 2: a foundation hole, fenced, its crane over it
+        local hole = { cs[1] + 1, rs[1] + 1, w - 2, h - 2 }
+        b:place("pit", hole[1], hole[2], hole[3], hole[4], { water = true, seed = rng:random(1000) })
+        b:place("paint", cs[1], rs[2] + 0.1, w, 0.8, { flat = true, text = "PHASE 2", small = true })
+        crane(map, b, hole, site.crane)
+        map.beacons[#map.beacons + 1] = { x = b:x(hole[1]), y = b:y(hole[2] + hole[4]), color = "red" }
+        map.beacons[#map.beacons + 1] = { x = b:x(hole[1] + hole[3]), y = b:y(hole[2]), color = "red" }
+      elseif rng:random() < 0.2 then -- a loading lot: painted bays, pallets, a truck
+        b:place("lot", cs[1], rs[1], w, h, { flat = true })
+        b:place("truck", cs[1] + 1, rs[1] + 1.5, 1.6, 3.2, { seed = rng:random(1000) })
+        for k = 0, 2 do
+          b:place("crate", cs[1] + 4 + (k % 2) * 1.2, rs[1] + 2 + k * 2, 0.9, 0.9, { seed = rng:random(1000) })
+        end
+      elseif rng:random() < 0.5 then -- one factory, or two with a yard between
+        factory(map, b, rng, cs[1], rs[1], w, h)
+      else
+        factory(map, b, rng, cs[1], rs[1], w, math.floor(h / 2) - 1)
+        factory(map, b, rng, cs[1], rs[1] + math.floor(h / 2) + 1, w, h - math.floor(h / 2) - 1)
+      end
     end
+  end
+  -- The road markings: centre lines down the streets (not across the
+  -- plaza), zebra crossings where the avenue meets it.
+  local P0, P1 = Borderline.PLAZA[1], Borderline.PLAZA[2]
+  for _, c in ipairs({ 16, 28, 40 }) do
+    b:place("laneline", c - 0.06, 2, 0.12, P0 - 3, { flat = true })
+    b:place("laneline", c - 0.06, P1 + 1, 0.12, map.rows - P1 - 4, { flat = true })
+  end
+  for _, r in ipairs({ 18, 32, 54, 68 }) do
+    b:place("laneline", 2, r - 0.06, map.cols - 4, 0.12, { flat = true })
+  end
+  b:place("zebra", 25.5, P0 - 1.4, 5, 1.2, { flat = true })
+  b:place("zebra", 25.5, P1 + 0.2, 5, 1.2, { flat = true })
+  -- Street lamps down the streets, floodlights on the plaza's corners,
+  -- beacons at the gates.
+  for r = 4, map.rows - 4, 8 do
+    if r < P0 or r > P1 then
+      for _, c in ipairs({ 14.3, 41.7 }) do
+        b:place("lamp", c - 0.15, r - 0.15, 0.3, 0.3, { flat = true, round = true })
+        map.lights[#map.lights + 1] = { x = b:x(c), y = b:y(r), r = 260, color = { 1, 0.85, 0.55 }, a = 0.7 }
+      end
+    end
+  end
+  for _, at in ipairs({ { 7, P0 + 1 }, { 48, P0 + 1 }, { 7, P1 - 1.7 }, { 48, P1 - 1.7 } }) do
+    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
+    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 460,
+      color = { 1, 0.92, 0.75 }, a = 0.75 }
+  end
+  for _, at in ipairs({ { 24.5, map.rows - 2.5 }, { 31.5, map.rows - 2.5 }, { 24.5, 2.5 }, { 31.5, 2.5 } }) do
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
+  end
+  -- Pipe bridges over the avenue, block to block.
+  for _, r in ipairs({ 10.5, 74.5 }) do
+    map.overpipes[#map.overpipes + 1] = { x0 = b:x(25.6), x1 = b:x(30.4), y = b:y(r) }
   end
   -- Jerry, larger than life, in the middle of the plaza.
   local mr = (Borderline.PLAZA[1] + Borderline.PLAZA[2]) / 2
@@ -642,6 +708,8 @@ local function buildProsperity(map, rng, T)
   end
   local keep = { { 22, 80, 33, 87 }, { 22, 0, 33, 4 }, { 24, mr - 4, 31, mr + 4 } }
   b:scatter(rng, "crate", 18, 44, 3, map.rows - 4, keep)
+  b:scatter(rng, "drum", 14, 40, 3, map.rows - 4, keep)
+  b:scatter(rng, "cone", 18, 22, 3, map.rows - 4, keep, { flat = true })
   -- Jerry's garrison: jet haulers round the plaza and up north, rocket and
   -- plasma haulers on the cross streets, a squad walking the avenue and one
   -- round the north district.

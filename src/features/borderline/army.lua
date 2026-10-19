@@ -167,11 +167,17 @@ local function burst(server, s, splash, by)
       blast = { radius = splash.radius, damage = splash.damage * Bosses.enemyPower(), soft = 0, type = dtype } },
       s.x, s.y)
   end
-  local roster = sv.roster
-  for i = #roster.list, 1, -1 do
-    local o = roster.list[i]
-    local d = math.sqrt(Chassis.dist2(o.x, o.y, s.x, s.y))
-    if not o.flying and d <= splash.radius + o.radius then
+  -- Who it catches, picked out first: one going down may set off another.
+  local roster, caught = sv.roster, {}
+  for _, o in ipairs(roster.list) do
+    if not o.flying and Chassis.dist2(o.x, o.y, s.x, s.y) <= (splash.radius + o.radius) ^ 2 then
+      caught[#caught + 1] = o
+    end
+  end
+  for _, o in ipairs(caught) do
+    local i = roster:indexOf(o)
+    if i then
+      local d = math.sqrt(Chassis.dist2(o.x, o.y, s.x, s.y))
       local amount = splash.damage * (1 - (2 / 3) * math.min(1, d / splash.radius))
       local angle = math.atan2(o.y - s.y, o.x - s.x)
       if roster:hurt(o, i, amount, by, angle) == "down" then
@@ -253,11 +259,18 @@ function Army.serverStep(server, dt)
   end
   Drone.fade(sv.roster, dt)
   Domes.serverStep(server, sv.roster, dt)
-  local list = sv.roster.list
-  for i = #list, 1, -1 do
-    local s = list[i]
-    if s.detonate then -- a kamikaze reached somebody
-      table.remove(list, i)
+  -- Kamikazes that reached somebody go off: picked out first, since each
+  -- blast may take others off the list.
+  local going = {}
+  for _, s in ipairs(sv.roster.list) do
+    if s.detonate then
+      going[#going + 1] = s
+    end
+  end
+  for _, s in ipairs(going) do
+    local i = sv.roster:indexOf(s)
+    if i then
+      table.remove(sv.roster.list, i)
       down(server, s, nil, s.facing, "explosive")
     end
   end
