@@ -1102,8 +1102,10 @@ the one with a plot.
   `QST_FINISHED` as id/count pairs): every job's bosses and enemies come
   back harder each time (`Bosses.rage`, below under the boss standard), and
   bosses' per-player drops come in better tiers. The board shows each open
-  job's level (its clears + 1, "(MAX)" at `Bosses.rage.max`) and "DONE xN"
-  for a job finished more than once. The `--quest` launch
+  job's level (its clears + 1, "(MAX)" at `Bosses.rage.max`) with its name
+  (`Jobs.levelName`: EASY, NORMAL, HARD ... RIP AND TEAR ... HELL ON EARTH
+  at the last) and "DONE xN" for a job finished more than once; the victory
+  screen shows the level the job was just done at, named the same way. The `--quest` launch
   option skips the lock.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones

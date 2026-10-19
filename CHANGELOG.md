@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Every job level has a name, from Easy (level 1) through Hard, Brutal, Carnage, Rip and Tear and Nightmare up to Hell
+  on Earth (level 11, the last). The victory screen shows the level you just finished and its name, and the job board
+  shows the name next to each job's level.
+
 ## [0.35.1] - 2026-10-19
 
 A fix for your own shots bending along with your MG nest's sweep.
