@@ -26,7 +26,9 @@
 --   cuts        Thousand Papercuts: a narrow service road winding up a cliff
 --               at dusk, the drop on its west side with an ore ropeway
 --               down it, the rock on its east, a crane at the bunker's door
---   bunker      The Bunker: its roof, the arena, a rim of eleven cannons
+--   bunker      The Bunker: its roof at dusk, the arena, a rim of eleven
+--               cannons, four engine intakes with their fans turning, a
+--               radar, a gantry loading a missile
 --
 -- So far each is blocked out: floors, walls, cover, the way in and the way
 -- on. The robots, bosses and set pieces come in later stages.
@@ -59,7 +61,8 @@
 --                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
 --                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck); Prosperity's
 --                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot; the
---                         Refinery's: casting (`water`, the casting pit), and flat: grille (a steam vent)
+--                         Refinery's: casting (`water`, the casting pit), and flat: grille (a steam vent);
+--                         the Bunker's: intake (`water`, round: an engine's)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
@@ -68,11 +71,14 @@
 --   map.steam             { x, y, phase } floor vents letting off steam (the Refinery; works.lua)
 --   map.bridgecranes      { x0, x1, y0, y1, period, phase, load } overhead cranes spanning x0..x1, running up
 --                         and down y0..y1 with a ladle of molten Bragium (the Refinery), or a finished
---                         hauler with `load` "hauler" (the Assembly Line; works.lua)
+--                         hauler with `load` "hauler" (the Assembly Line) or a missile, "missile" (the
+--                         Bunker; works.lua)
 --   map.arms              { x, y, side, phase } assembly arms welding over a belt (the Assembly Line; works.lua)
 --   map.presses           { x, y, w, h, phase } presses stamping (the Assembly Line; works.lua)
 --   map.ropeway           { points, period } the ore ropeway down Thousand Papercuts' drop: its pylons
 --                         ({ x, y } bottom to top), buckets running the rope (works.lua)
+--   map.fans              { x, y, r, phase } turbine fans spinning in the bunker's intakes (works.lua)
+--   map.radars            { x, y, r } radar dishes turning (the Bunker; works.lua)
 --   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
@@ -1084,9 +1090,15 @@ end
 
 Borderline.CANNONS = 11 -- round the rim
 
+-- The bunker's engine intakes, a turbine fan spinning down in each (tile
+-- centres; radius in tiles): it flies on them.
+Borderline.INTAKES = { { 9.5, 9.5 }, { 30.5, 9.5 }, { 9.5, 30.5 }, { 30.5, 30.5 } }
+Borderline.INTAKE_R = 2.2
+
 local function buildBunker(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "sky"
+  map.beacons, map.fans, map.radars, map.bridgecranes = {}, {}, {}, {}
   local n = map.cols
   b:open(3, 3, n - 4, n - 4)
   b:open(18, n - 3, 21, n - 1) -- the hatch up from inside
@@ -1111,6 +1123,36 @@ local function buildBunker(map, rng, T)
     b:post("SEN", c, r) -- and its gun, flush until you come up
   end
   b:place("pad", n / 2 - 4, n / 2 - 4, 8, 8, { flat = true, round = true }) -- the eye's hatch
+  -- The painted walkway round the deck and across it, NO STEP by the intakes.
+  for _, k in ipairs({ 6.6, n - 6.7 }) do
+    b:place("laneline", 6.6, k, n - 13.2, 0.12, { flat = true })
+    b:place("laneline", k, 6.6, 0.12, n - 13.2, { flat = true })
+  end
+  for _, from in ipairs({ 6.6, n / 2 + 4 }) do -- the cross, stopping at the pad
+    b:place("laneline", n / 2 - 0.06, from, 0.12, n / 2 - 10.6, { flat = true })
+    b:place("laneline", from, n / 2 - 0.06, n / 2 - 10.6, 0.12, { flat = true })
+  end
+  b:place("zebra", 17.5, n - 4.6, 5, 1.2, { flat = true })
+  -- The intakes, their fans; the radar; the gantry loading a missile.
+  local R = Borderline.INTAKE_R
+  for _, at in ipairs(Borderline.INTAKES) do
+    b:place("intake", at[1] - R, at[2] - R, 2 * R, 2 * R, { water = true, round = true })
+    b:place("paint", at[1] - R, at[2] + R + 0.2, 2 * R, 0.8, { flat = true, text = "NO STEP", small = true })
+    map.fans[#map.fans + 1] = { x = b:x(at[1]), y = b:y(at[2]), r = (R - 0.35) * T, phase = #map.fans * 0.7 }
+  end
+  b:place("mast", 30.4, 19.4, 1.2, 1.2, { round = true })
+  map.radars[1] = { x = b:x(31), y = b:y(20), r = 70 }
+  map.bridgecranes[1] = { x0 = b:x(3), x1 = b:x(n - 3), y0 = b:y(6), y1 = b:y(n - 7), period = 36, phase = 0.5,
+    load = "missile" }
+  -- Floodlights in the corners, beacons on the rim and at the hatch.
+  for _, at in ipairs({ { 5.8, 5.8 }, { n - 6.5, 5.8 }, { 5.8, n - 6.5 }, { n - 7.2, n - 7.2 } }) do
+    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
+    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 460,
+      color = { 1, 0.92, 0.75 }, a = 0.75 }
+  end
+  for _, at in ipairs({ { 3, 3 }, { n - 3, 3 }, { 3, n - 3 }, { n - 3, n - 3 }, { 17.5, n - 3 }, { 22.5, n - 3 } }) do
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "red" }
+  end
   b:scatter(rng, "vent", 12, 72, 7, n - 8, { { n / 2 - 5, n / 2 - 5, n / 2 + 4, n / 2 + 4 }, { 16, n - 8, 23, n - 1 } })
   b:zone("The Bunker", 0, n - 1)
   b:ends(17, n - 9, n / 2 - 1, n / 2 - 1)

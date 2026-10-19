@@ -18,7 +18,9 @@
 -- (`map.arms`), the presses stamping (`map.presses`) and a finished hauler
 -- carried up the line by the bridge crane (`load` "hauler"); and the ore
 -- ropeway down Thousand Papercuts' drop, its buckets running up one rope
--- and down the other (`map.ropeway`). Scenery only: nothing here is on the host
+-- and down the other (`map.ropeway`); and on the Bunker, the turbine fans
+-- spinning in its intakes (`map.fans`), the radar turning (`map.radars`)
+-- and a gantry running over the deck with a missile (`load` "missile"). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -115,9 +117,31 @@ local function drawFlow(map)
   love.graphics.setBlendMode("alpha")
 end
 
---- On the ground: the river flowing, the ore on the belts, then each crane's shadow, the jib's and its load's.
+--- A turbine fan down an intake: blades turning fast, a hub, a glow
+--- from the engine under it.
+local function drawFan(f)
+  love.graphics.setColor(1, 0.55, 0.2, 0.25 + 0.1 * math.sin(clock * 9 + f.phase))
+  love.graphics.circle("fill", f.x, f.y, f.r * 0.9, 30)
+  local spin = clock * 9 + f.phase
+  for k = 0, 7 do
+    local a = spin + k * math.pi / 4
+    love.graphics.setColor(k % 2 == 0 and C.gunmetalLight or C.steel)
+    love.graphics.polygon("fill", f.x, f.y, f.x + math.cos(a) * f.r, f.y + math.sin(a) * f.r,
+      f.x + math.cos(a + 0.33) * f.r, f.y + math.sin(a + 0.33) * f.r)
+  end
+  love.graphics.setColor(C.ink)
+  love.graphics.circle("fill", f.x, f.y, f.r * 0.22, 16)
+  love.graphics.setColor(C.yellow)
+  love.graphics.circle("fill", f.x, f.y, f.r * 0.14, 16)
+end
+
+--- On the ground: the river flowing, the ore on the belts, the fans down
+--- their intakes, then each crane's shadow, the jib's and its load's.
 function Works.drawBelowCars(map)
   drawFlow(map)
+  for _, f in ipairs(map.fans or {}) do
+    drawFan(f)
+  end
   drawOre(map)
   love.graphics.setColor(0, 0, 0, 0.22)
   for _, g in ipairs(map.gantries or {}) do
@@ -355,6 +379,16 @@ local function drawBridgeCrane(c)
   -- Its load first, under the trolley: a ladle glowing, or a finished hauler.
   if c.load == "hauler" then
     Hauler.draw({ dx = tx, dy = y + 10, facing = math.pi / 2, code = "GUN", stride = 0 }, clock)
+  elseif c.load == "missile" then -- a long one, fins at the back, nose red
+    love.graphics.setColor(C.ink)
+    love.graphics.rectangle("fill", tx - 70, y - 2, 140, 20, 8)
+    love.graphics.setColor(C.white)
+    love.graphics.rectangle("fill", tx - 68, y, 136, 16, 7)
+    love.graphics.setColor(C.rocket)
+    love.graphics.rectangle("fill", tx + 46, y, 22, 16, 7)
+    love.graphics.setColor(C.gunmetal)
+    love.graphics.polygon("fill", tx - 68, y - 8, tx - 50, y + 2, tx - 68, y + 2)
+    love.graphics.polygon("fill", tx - 68, y + 24, tx - 50, y + 14, tx - 68, y + 14)
   else
     love.graphics.setColor(C.ink)
     love.graphics.circle("fill", tx, y + 6, 22, 18)
@@ -491,6 +525,25 @@ local function drawRopeway(rw)
   end
 end
 
+--- A radar dish on its mast, turning.
+local function drawRadar(rd)
+  local x, y = rd.x, rd.y - LIFT * 1.6
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(clock * 1.2)
+  love.graphics.setColor(C.ink)
+  love.graphics.ellipse("fill", 0, 0, rd.r * 0.35 + 3, rd.r + 3, 20)
+  love.graphics.setColor(C.steel)
+  love.graphics.ellipse("fill", 0, 0, rd.r * 0.35, rd.r, 20)
+  love.graphics.setColor(C.gunmetalLight)
+  love.graphics.ellipse("fill", 4, 0, rd.r * 0.2, rd.r * 0.8, 16)
+  love.graphics.setColor(C.ink)
+  love.graphics.setLineWidth(3)
+  love.graphics.line(0, 0, rd.r * 0.6, 0) -- its feed horn
+  love.graphics.setLineWidth(1)
+  love.graphics.pop()
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -520,6 +573,9 @@ function Works.drawAboveCars(map)
   end
   if map.ropeway then
     drawRopeway(map.ropeway)
+  end
+  for _, rd in ipairs(map.radars or {}) do
+    drawRadar(rd)
   end
   for _, p in ipairs(map.presses or {}) do
     drawPress(p)
@@ -564,6 +620,9 @@ function Works.drawNightLights(map, glow)
       local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
       glow(tx, y + 6, 220, C.plasma, 0.8)
     end
+  end
+  for _, f in ipairs(map.fans or {}) do -- the engines' glow up the intakes
+    glow(f.x, f.y, f.r * 1.6, { 1, 0.55, 0.2 }, 0.6)
   end
   for _, a in ipairs(map.arms or {}) do -- a weld lights up round it
     local tx, ty, welding = armPose(a)

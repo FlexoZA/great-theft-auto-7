@@ -215,9 +215,9 @@ CityMap.maps = {
     title = "Thousand Papercuts", kind = "cuts", seed = 307, cols = 28, rows = 140,
     crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
   },
-  bunker = {
+  bunker = { -- at dusk, high up
     title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.58, 0.76 },
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

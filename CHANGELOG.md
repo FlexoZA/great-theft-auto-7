@@ -59,6 +59,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Thousand Papercuts is now Hyperbole's service road up the cliff at dusk: painted edge and centre lines, a crash
   barrier along the drop, an ore ropeway running down the abyss beside the road, a tower crane at the top still
   building the bunker, lamps up the road and beacons on the bends.
+- The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
+  spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
+  floodlights and beacons.
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.

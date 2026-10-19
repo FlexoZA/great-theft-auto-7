@@ -170,6 +170,14 @@ local function drawTiles(map, T)
         if f == C.snow or f == C.road or (f == C.yard and h < 0.5) then -- drifts
           color(C.snowShade)
           love.graphics.ellipse("fill", x + h * T, y + hash(h) * T, 14 + h * 12, 5 + h * 4)
+        elseif f == C.roof then -- armour plates, riveted
+          color(INK, 0.3)
+          love.graphics.rectangle("fill", x, y, T, 3)
+          love.graphics.rectangle("fill", x, y, 3, T)
+          color(C.gunmetalLight, 0.8)
+          for _, k in ipairs({ { 8, 8 }, { T - 10, 8 }, { 8, T - 10 }, { T - 10, T - 10 } }) do
+            love.graphics.circle("fill", x + k[1], y + k[2], 2.5, 6)
+          end
         elseif f ~= C.ice and f ~= C.plaza then -- slabs and plates
           color(INK, 0.18)
           love.graphics.rectangle("fill", x, y, T, 2)
@@ -196,6 +204,9 @@ local function drawTiles(map, T)
             or open(map, c, r - 1) or open(map, c, r + 1)) then
           color(C.glass)
           love.graphics.rectangle("fill", x, y, T, T)
+        elseif o == C.sky and h < 0.22 then -- cloud far below
+          color(C.white, 0.5)
+          love.graphics.ellipse("fill", x + 32, y + 32, 40 + h * 60, 18 + h * 20, 16)
         elseif o == C.bank and h < 0.3 then -- rocks poking out of the snow
           blob(x + 8 + h * 20, y + 14, 22 + h * 40, 16 + h * 24, C.bankRock)
           color(C.snow)
@@ -807,6 +818,24 @@ function DRAW.pit(s)
   for y = s.y - 14, s.y + s.h + 14, 64 do
     love.graphics.circle("fill", s.x - 14, y, 5, 8)
     love.graphics.circle("fill", s.x + s.w + 14, y, 5, 8)
+  end
+end
+
+--- An engine intake: a round hole going deep into the bunker, rings
+--- stepping down to where its fan turns (borderline/works.lua), a hazard
+--- ring round its lip.
+function DRAW.intake(s)
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  color(INK)
+  love.graphics.circle("fill", cx, cy, r + LINE, 40)
+  for i = 0, 15 do
+    color(i % 2 == 0 and C.yellow or INK)
+    love.graphics.arc("fill", cx, cy, r, i * math.pi / 8, (i + 1) * math.pi / 8, 4)
+  end
+  for i = 1, 3 do
+    local k = i / 4
+    love.graphics.setColor(C.gunmetal[1] * (1 - k), C.gunmetal[2] * (1 - k), C.gunmetal[3] * (1 - k))
+    love.graphics.circle("fill", cx, cy, r * (0.92 - i * 0.06), 40)
   end
 end
 

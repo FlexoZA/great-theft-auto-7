@@ -329,8 +329,8 @@ its set piece is done; the objective line says what's left.
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
   the Frozen Wreck, Liar's Landing, the Bragium Pit, Prosperity and the
-  Refinery and the Assembly Line (indoors, dark rather than dusk) and
-  Thousand Papercuts.
+  Refinery and the Assembly Line (indoors, dark rather than dusk),
+  Thousand Papercuts and the Bunker: every map.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -489,7 +489,17 @@ side (solid edge), the cliff on the other.
   waves come down the road behind you.
 - **The end:** the door. EXIT: "THE BUNKER".
 
-### 8. The Bunker (`bunker`, 40x40)
+### 8. The Bunker (`bunker`, 40x40, at dusk)
+
+An armour-plated deck, riveted, with clouds far below past its edge. Four
+engine intakes, deep and hazard ringed, a turbine fan spinning down in
+each with the engine's glow under it (works.lua's `fans`; nobody walks
+in, rounds fly over, NO STEP painted by each); a radar turning on its
+mast (`radars`); a gantry running over the deck with a missile on it
+(`bridgecranes` with `load` "missile"); a walkway painted round the deck
+and across it, a zebra at the hatch, floodlights in the corners and red
+beacons on the rim.
+
 
 The bunker's roof, square: vents and hatches as cover, a rim of
 eleven cannons.
