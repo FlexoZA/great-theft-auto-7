@@ -51,9 +51,10 @@ Story.beats = {
   },
   ["wreck.fight"] = { { "yappy", "Junk bots! Stripping the train! I am bravely hiding!" } },
   ["wreck.The Wreck"] = { { "jerry", "That was a very expensive train. I'm adding it to your bill." } },
-  ["wreck.The Engine"] = { { "yappy", "The cave's past the engine. I can see it from here. Well. I can imagine it." } },
-  ["wreck.end"] = { { "yappy", "Down the cave, minion. The harbour's on the other side. "
-    .. "Mind the bats. There are no bats." } },
+  ["wreck.The Engine"] = { { "yappy", "The tunnel's past the engine."
+    .. " I can see it from here. Well. I can imagine it." } },
+  ["wreck.end"] = { { "yappy", "Into the tunnel, minion. The harbour's on the other side. Mind the bats. "
+    .. "There are no bats." } },
 
   ["landing.start"] = {
     { "yappy", "Liar's Landing! The ferry lift crosses the bay. We just need to get to it." },
@@ -167,7 +168,7 @@ function Story.objective(name, map, done)
     return "Objective: take the star on"
   end
   local where = {
-    wreck = "Objective: get past the wreck to the cave at the top of the valley",
+    wreck = "Objective: get past the wreck to the tunnel at the top of the yard",
     landing = "Objective: get through the container yard to the ferry lift on the quay",
     pit = "Objective: down through the pit and up to the mine lift on the far rim",
     prosperity = "Objective: through Jerry's city to the north gate",

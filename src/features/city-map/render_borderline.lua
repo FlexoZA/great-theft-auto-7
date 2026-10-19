@@ -36,6 +36,14 @@ local C = {
   upper = { 0.55, 0.52, 0.42 },
   road = { 0.82, 0.85, 0.89 },
   roof = { 0.48, 0.50, 0.55 },
+  ballast = { 0.46, 0.43, 0.41 }, -- the rail bed
+  works = { 0.27, 0.29, 0.33 }, -- the factory's roofs past the yard
+  worksRidge = { 0.20, 0.22, 0.25 },
+  pitWall = { 0.36, 0.31, 0.28 },
+  pitDeep = { 0.10, 0.09, 0.10 },
+  paintWhite = { 0.92, 0.92, 0.88 },
+  drum = { 0.70, 0.20, 0.14 },
+  cone = { 1.00, 0.45, 0.10 },
   yellow = { 0.95, 0.76, 0.19 }, -- Hyperbole's
   yellowDark = { 0.78, 0.58, 0.10 },
   gunmetal = { 0.23, 0.25, 0.28 },
@@ -110,7 +118,9 @@ end
 --- What the outside is at tile (c, r) on `map`.
 local function outsideAt(map, c, r)
   local o = map.outside
-  if o == "harbour" then
+  if o == "works" then
+    return C.works
+  elseif o == "harbour" then
     return r < 2 and C.sea or C.bank
   elseif o == "rock" then
     return C.rock
@@ -152,7 +162,7 @@ local function drawTiles(map, T)
         local f = floorAt(map, x + T / 2, y + T / 2)
         color(f)
         love.graphics.rectangle("fill", x, y, T, T)
-        if f == C.snow or f == C.road then -- drifts
+        if f == C.snow or f == C.road or (f == C.yard and h < 0.5) then -- drifts
           color(C.snowShade)
           love.graphics.ellipse("fill", x + h * T, y + hash(h) * T, 14 + h * 12, 5 + h * 4)
         elseif f ~= C.ice and f ~= C.plaza then -- slabs and plates
@@ -164,7 +174,15 @@ local function drawTiles(map, T)
         local o = outsideAt(map, c, r)
         color(o)
         love.graphics.rectangle("fill", x, y, T, T)
-        if o == C.rock and h < 0.4 then
+        if o == C.works then -- corrugated roofs: ridges, and a vent box now and then
+          color(C.worksRidge)
+          for k = 4, T - 4, 10 do
+            love.graphics.rectangle("fill", x, y + k, T, 3)
+          end
+          if h < 0.18 then
+            box(x + 14, y + 14, 34, 30, C.gunmetalLight)
+          end
+        elseif o == C.rock and h < 0.4 then
           color(C.rockLight)
           love.graphics.polygon("fill", x + 10, y + 50, x + 30 + h * 20, y + 14, x + 54, y + 48)
         elseif o == C.sea and h < 0.3 then
@@ -476,6 +494,129 @@ function DRAW.vent(s)
   for y = s.y + 8, s.y + s.h - 8, 12 do
     love.graphics.rectangle("fill", s.x + 8, y, s.w - 16, 4)
   end
+end
+
+function DRAW.tunnel(s)
+  box(s.x - 18, s.y, s.w + 36, s.h, C.gunmetal) -- the portal's frame
+  hazard(s.x - 18, s.y + s.h - 14, s.w + 36, 14)
+  color(INK)
+  love.graphics.rectangle("fill", s.x + 6, s.y, s.w - 12, s.h - 16)
+end
+
+--- Painted safety lines: two yellow edge lines with the walkway between.
+function DRAW.walkway(s)
+  color(C.yellow, 0.9)
+  love.graphics.rectangle("fill", s.x, s.y, 8, s.h)
+  love.graphics.rectangle("fill", s.x + s.w - 8, s.y, 8, s.h)
+  color(C.yellow, 0.55)
+  for y = s.y + 40, s.y + s.h - 40, 160 do -- arrows up it: the way out
+    love.graphics.polygon("fill", s.x + s.w / 2, y, s.x + s.w / 2 + 22, y + 30, s.x + s.w / 2 - 22, y + 30)
+  end
+end
+
+function DRAW.zebra(s)
+  for x = s.x, s.x + s.w - 20, 40 do
+    color(C.paintWhite, 0.85)
+    love.graphics.rectangle("fill", x, s.y, 20, s.h)
+  end
+end
+
+local paintFont = nil
+function DRAW.paint(s)
+  paintFont = paintFont or love.graphics.newFont(30)
+  love.graphics.setFont(paintFont)
+  color(C.yellow, 0.85)
+  love.graphics.printf(s.text or "", s.x, s.y + (s.h - 30) / 2, s.w, "center")
+end
+
+function DRAW.cone(s)
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  color(INK)
+  love.graphics.rectangle("fill", cx - 9, cy - 9, 18, 18)
+  color(C.cone)
+  love.graphics.circle("fill", cx, cy, 7, 10)
+  color(C.paintWhite)
+  love.graphics.circle("fill", cx, cy, 3, 8)
+end
+
+function DRAW.drum(s)
+  blob(s.x, s.y, s.w, s.h, C.drum)
+  color(INK, 0.6)
+  love.graphics.circle("line", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.3, 14)
+end
+
+--- A shed: a corrugated roof in Hyperbole's colours, the H on it, and a
+--- loading door on the side facing the yard.
+function DRAW.shed(s)
+  box(s.x, s.y, s.w, s.h, C.gunmetalLight)
+  color(C.gunmetal)
+  for y = s.y + 10, s.y + s.h - 6, 14 do
+    love.graphics.rectangle("fill", s.x, y, s.w, 4)
+  end
+  color(C.yellow)
+  love.graphics.rectangle("fill", s.x, s.y, s.w, 10)
+  local cx, cy, k = s.x + s.w / 2, s.y + s.h / 2, math.min(s.w, s.h) * 0.18
+  love.graphics.rectangle("fill", cx - k, cy - k, k * 0.4, 2 * k) -- the H
+  love.graphics.rectangle("fill", cx + k * 0.6, cy - k, k * 0.4, 2 * k)
+  love.graphics.rectangle("fill", cx - k, cy - k * 0.2, 2 * k, k * 0.4)
+  local west = s.x < 0 -- the yard is towards the middle of the map
+  hazard(west and s.x + s.w - 14 or s.x, s.y + s.h * 0.3, 14, s.h * 0.4)
+end
+
+--- A deep excavation: a hazard-striped lip, the walls stepping down into
+--- the dark, a puddle and rubble at the bottom, a railing round the top.
+function DRAW.pit(s)
+  box(s.x, s.y, s.w, s.h, C.pitWall)
+  for i = 1, 4 do -- the steps down, each darker and further in
+    local inset = i * 22
+    local k = i / 5
+    love.graphics.setColor(C.pitWall[1] * (1 - k) + C.pitDeep[1] * k, C.pitWall[2] * (1 - k) + C.pitDeep[2] * k,
+      C.pitWall[3] * (1 - k) + C.pitDeep[3] * k)
+    love.graphics.rectangle("fill", s.x + inset, s.y + inset, s.w - 2 * inset, s.h - 2 * inset)
+  end
+  local h = hash(s.seed or 1)
+  color(C.window, 0.7) -- a puddle down there, catching the light
+  love.graphics.ellipse("fill", s.x + s.w * (0.35 + h * 0.3), s.y + s.h * 0.6, s.w * 0.12, s.h * 0.06, 16)
+  color(C.rock)
+  for i = 1, 5 do
+    love.graphics.circle("fill", s.x + s.w * (0.3 + hash(h + i) * 0.4), s.y + s.h * (0.3 + hash(h * 3 + i) * 0.4),
+      6 + hash(i + h) * 8, 8)
+  end
+  -- The lip, hazard striped, and the railing posts round it.
+  hazard(s.x, s.y, s.w, 12)
+  hazard(s.x, s.y + s.h - 12, s.w, 12)
+  hazard(s.x, s.y, 12, s.h)
+  hazard(s.x + s.w - 12, s.y, 12, s.h)
+  color(C.yellow)
+  love.graphics.setLineWidth(4)
+  love.graphics.rectangle("line", s.x - 14, s.y - 14, s.w + 28, s.h + 28)
+  love.graphics.setLineWidth(1)
+  color(INK)
+  for x = s.x - 14, s.x + s.w + 14, 64 do
+    love.graphics.circle("fill", x, s.y - 14, 5, 8)
+    love.graphics.circle("fill", x, s.y + s.h + 14, 5, 8)
+  end
+  for y = s.y - 14, s.y + s.h + 14, 64 do
+    love.graphics.circle("fill", s.x - 14, y, 5, 8)
+    love.graphics.circle("fill", s.x + s.w + 14, y, 5, 8)
+  end
+end
+
+--- A crane's mast foot (the crane itself turns overhead: borderline/works.lua).
+function DRAW.mast(s)
+  box(s.x, s.y, s.w, s.h, C.gunmetal)
+  color(C.yellow)
+  love.graphics.setLineWidth(5)
+  love.graphics.line(s.x, s.y, s.x + s.w, s.y + s.h)
+  love.graphics.line(s.x + s.w, s.y, s.x, s.y + s.h)
+  love.graphics.setLineWidth(1)
+end
+
+--- A floodlight tower's foot.
+function DRAW.flood(s)
+  blob(s.x, s.y, s.w, s.h, C.gunmetal)
+  color(C.paintWhite)
+  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 10)
 end
 
 --- Map `map` into the canvas (city-map's Render.build, at half size): the

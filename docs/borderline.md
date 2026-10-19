@@ -327,16 +327,29 @@ its set piece is done; the objective line says what's left.
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
-### 1. The Frozen Wreck (`wreck`, 48x72)
+### 1. The Frozen Wreck (`wreck`, 48x72, at dusk)
 
-A snowfield in a valley. Jerry's train lies along the middle, derailed and
-burning, carriages on their sides as cover.
+Hyperbole's freight yard in the snow, factory grounds where Jerry's train
+came off the rails: concrete slabs under drifts, a rail line and a siding
+up the middle, sheds round the sides (corrugated roofs, the H on each, a
+loading door onto the yard), the factory's roofs running on past the
+edge. Played at dusk (`night` { 0.58, 0.62, 0.78 }) under floodlight
+towers.
 
-- **Arrival:** the bottom, half buried in snow. Yappy rolls up.
-- **The wreck:** carriages in a zig-zag up the middle, cargo spilled
+- **Arrival:** the yard gate at the bottom. Yappy rolls up.
+- **The excavations:** three deep holes in the yard, fenced and hazard
+  striped, DANGER DEEP EXCAVATION painted by each; nobody walks in, rounds
+  fly over. A tower crane works over each from a corner, its jib swinging
+  back and forth, a trolley running out and in with a load of girders
+  swaying under it, a red light blinking at its tip (`borderline/works.lua`).
+- **Emergency lights:** amber and red beacons turning on the cranes, the
+  holes' corners, the gate and the tunnel, their beams sweeping the ground.
+- **Safety lines:** a painted walkway up the west of the rails with arrows
+  pointing out, zebra crossings over the tracks, traffic cones, oil drums.
+- **The wreck:** carriages in a zig-zag up the yard, cargo spilled
   (crates, loot chests), junk haulers in twos and threes stripping it.
 - **Knuckle Scrapper** builds itself out of the locomotive at the top.
-- **The end:** a cave mouth past the locomotive. EXIT: "LIAR'S LANDING".
+- **The end:** the tunnel out at the top. EXIT: "LIAR'S LANDING".
 
 ### 2. Liar's Landing (`landing`, 56x64)
 

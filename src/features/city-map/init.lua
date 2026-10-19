@@ -183,13 +183,13 @@ CityMap.maps = {
     crowd = false, traffic = false, vehicles = false, night = { 0.60, 0.20, 0.14 },
   },
   -- The Borderline quest line's eight maps on the planet Pandoria
-  -- (borderline.lua), all walked and by day: a snowy valley with a wrecked
-  -- train, a frozen harbour, a Bragium mine, Jerry's city under its dome,
+  -- (borderline.lua), all walked: a freight yard with a wrecked train at
+  -- dusk, a frozen harbour, a Bragium mine, Jerry's city under its dome,
   -- the refinery, the robot factory, the road up the cliff and the
   -- bunker's roof. Nobody about but the robots.
-  wreck = {
+  wreck = { -- at dusk, under the floodlights
     title = "The Frozen Wreck", kind = "wreck", seed = 301, cols = 48, rows = 72,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
   },
   landing = {
     title = "Liar's Landing", kind = "landing", seed = 302, cols = 56, rows = 64,

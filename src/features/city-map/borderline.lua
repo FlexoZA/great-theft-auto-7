@@ -1,8 +1,10 @@
 -- The maps of the Borderline quest line (docs/borderline.md): eight maps on
 -- the planet Pandoria, every one walked, everyone travelling north (up the
 -- screen) from the arrival at the bottom to the way on at the top:
---   wreck       The Frozen Wreck: a snowy valley, Jerry's derailed train
---               zig-zagging up the middle, a cave mouth at the top
+--   wreck       The Frozen Wreck: Hyperbole's freight yard in the snow,
+--               sheds round it, three deep excavations with cranes working
+--               over them, Jerry's derailed train zig-zagging up the
+--               middle, a tunnel out at the top
 --   landing     Liar's Landing: a frozen harbour, a maze of container
 --               stacks, cranes on the quay, the ferry lift at the top
 --   pit         The Bragium Pit: an open-pit mine, two rings of terraces
@@ -28,21 +30,30 @@
 -- What every one leaves on the map, besides tiles, solids and spawns:
 --   map.cx, map.cy        the way home (a HOME star in quests), by the arrival
 --   map.exitX, map.exitY  the way on: the first player there finishes the level (borderline)
---   map.outside           what the nil tiles are: "snow" (a snowy valley's sides), "harbour" (the sea
---                         north of the quay, snow round the rest), "rock" (the pit's walls), "dome"
+--   map.outside           what the nil tiles are: "works" (the factory's roofs round a yard), "snow"
+--                         (snowbanks), "harbour" (the sea north of the quay, snow round the rest),
+--                         "rock" (the pit's walls), "dome"
 --                         (Prosperity's glass and the snow past it), "plant" (the factory's walls),
 --                         "cliff" (Thousand Papercuts: the drop west of the road, the rock east), "sky"
 --                         (round the bunker's roof)
 --   map.grounds           { x0, y0, x1, y1, floor } the finish of each walked patch, world px, a later one
---                         over an earlier: snow, ice, quay, yard, gravel, terrace, pitfloor, street, plaza,
---                         grate, steel, upper, road, roof
+--                         over an earlier: snow, ice, quay, yard, ballast, gravel, terrace, pitfloor, street,
+--                         plaza, grate, steel, upper, road, roof
 --   map.zones             { name, x0, y0, x1, y1 } the parts of the map, world px
 --   map.cover             { kind, x, y, w, h, solid, round, flat, tint } world px; solid ones are in the
 --                         solids too (`water` ones, the molten river, stop walking but not rounds or
 --                         sight), `flat` ones are walked over. Kinds: carriage, loco, crate, rock, chest,
 --                         rails, cave, container, crane, bollard, lift, ledge, ramp, conveyor, crystal,
 --                         pad, tower, statue, lawn, billboard, gate, river, bridge, tank, pipe, belt, arm,
---                         press, booth, stairs, bay, boulder, nest, door, cannon, vent, hatch
+--                         press, booth, stairs, bay, boulder, nest, door, cannon, vent, hatch; and the
+--                         Wreck's yard: pit (a deep excavation: `water`, no walking in, rounds go over),
+--                         shed, mast (a crane's), flood (a floodlight tower), drum, and flat: tunnel,
+--                         walkway, zebra, cone, paint (with `text`)
+--   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
+--                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
+--                         every `period` seconds (borderline/works.lua draws them, moving)
+--   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
+--   map.lights            { x, y, r, color, a } floodlights, for a map played at dusk (the night feature)
 --   map.army              { packs, posts, squads } who of Hyperbole's army stands where (borderline/army.lua
 --                         says what each is), world px; empty where nobody is placed yet
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
@@ -60,7 +71,7 @@ Blockout.__index = Blockout
 
 function Blockout.new(map, T)
   local b = setmetatable({ map = map, T = T, cells = {} }, Blockout)
-  map.cover, map.grounds, map.zones = {}, {}, {}
+  map.cover, map.grounds, map.zones, map.lights = {}, {}, {}, {}
   map.openKinds = { walk = true }
   map.army = { packs = {}, posts = {}, squads = {} }
   return b
@@ -222,8 +233,10 @@ end
 
 -- 1. The Frozen Wreck ------------------------------------------------------------
 
--- The train, bottom to top: carriages on their sides zig-zagging up the
--- valley (tiles: c, r, w, h), then the locomotive.
+-- Hyperbole's freight yard in the snow, where Jerry's train came off the
+-- rails: factory grounds walled in by sheds, the rails up the middle, the
+-- train zig-zagging across the yard in pieces (tiles: c, r, w, h), the
+-- locomotive near the top, and the tunnel out at the top.
 Borderline.TRAIN = {
   { 15, 57, 6, 1.5 },
   { 27, 50, 1.5, 5 },
@@ -235,20 +248,65 @@ Borderline.TRAIN = {
 }
 Borderline.LOCO = { 19, 9, 2, 6 }
 
+-- The excavations: deep holes in the yard (tiles: c, r, w, h), fenced off,
+-- each with a tower crane working over it from the corner (`crane`: the
+-- corner its mast stands at, "nw", "ne", "sw" or "se").
+Borderline.WRECK_PITS = {
+  { 3, 46, 8, 9, crane = "ne" },
+  { 35, 29, 9, 9, crane = "sw" },
+  { 4, 14, 8, 8, crane = "se" },
+}
+-- The sheds along the yard's sides (tiles), a loading door on each.
+Borderline.WRECK_SHEDS = {
+  { 2, 30, 6, 8 }, { 2, 58, 5, 7 }, { 40, 8, 6, 8 }, { 41, 47, 5, 9 }, { 2, 3, 9, 6 }, { 36, 3, 10, 4 },
+}
+
+--- A tower crane at corner `corner` of pit `p` (tiles), working over it.
+local function crane(map, b, p, corner)
+  local cx = (corner == "nw" or corner == "sw") and p[1] - 0.5 or p[1] + p[3] + 0.5
+  local cy = (corner == "nw" or corner == "ne") and p[2] - 0.5 or p[2] + p[4] + 0.5
+  local x, y = b:x(cx), b:y(cy)
+  b:put("mast", x - 22, y - 22, 44, 44, { round = true })
+  -- The jib swings back and forth across the hole: from `from` through `sweep` radians.
+  local tx, ty = b:x(p[1] + p[3] / 2), b:y(p[2] + p[4] / 2)
+  local toward = math.atan2(ty - y, tx - x)
+  map.cranes[#map.cranes + 1] = { x = x, y = y, jib = math.sqrt((tx - x) ^ 2 + (ty - y) ^ 2) + 2 * b.T,
+    from = toward - 0.6, sweep = 1.2, period = 14 + #map.cranes * 3, phase = #map.cranes * 2.1 }
+  map.beacons[#map.beacons + 1] = { x = x, y = y - 30, color = "amber" }
+end
+
 local function buildWreck(map, rng, T)
   local b = Blockout.new(map, T)
-  map.outside = "snow"
-  -- The valley: its sides wander in and out as it climbs.
-  for r = 3, map.rows - 3 do
-    local west = 4 + math.floor(2 * math.sin(r / 7) + 1.5 * math.sin(r / 3.1 + 1) + 1.5)
-    local east = map.cols - 5 - math.floor(2 * math.sin(r / 6 + 2) + 1.5 * math.sin(r / 2.7) + 1.5)
-    b:open(west, r, east, r)
+  map.outside = "works"
+  map.cranes, map.beacons = {}, {}
+  b:open(2, 3, map.cols - 3, map.rows - 3) -- the yard
+  b:open(21, 0, 26, 2) -- the tunnel out
+  b:open(20, map.rows - 3, 27, map.rows - 1) -- the gate in
+  b:ground("yard", 0, 0, map.cols - 1, map.rows - 1)
+  b:ground("ballast", 22, 9, 25, map.rows - 1) -- the rail bed
+  b:ground("ballast", 29, 12, 31, 60)
+  b:put("rails", b:x(23.5), b:y(9), 20, (map.rows - 9) * T, { flat = true })
+  b:put("rails", b:x(30), b:y(12), 20, 48 * T, { flat = true }) -- a siding
+  b:place("tunnel", 21, 0, 6, 2.5, { flat = true })
+  b:place("gate", 20, map.rows - 2, 8, 2, { flat = true })
+  -- The safety lines: a painted walkway up the west of the rails, zebra
+  -- crossings over them, and DANGER painted by every hole.
+  b:place("walkway", 17, 6, 3, map.rows - 10, { flat = true })
+  for _, r in ipairs({ 61, 43, 24 }) do
+    b:place("zebra", 20, r, 12, 1.4, { flat = true })
   end
-  b:open(21, 0, 26, 2) -- the cave mouth
-  b:ground("snow", 0, 0, map.cols - 1, map.rows - 1)
-  b:ground("ice", 18, 30, 29, 36) -- a frozen pond the train ran past
-  b:put("rails", b:x(23.5), b:y(10), 20, (map.rows - 12) * T, { flat = true })
-  b:place("cave", 21, 0, 6, 2.5, { flat = true })
+  for _, s in ipairs(Borderline.WRECK_SHEDS) do
+    b:place("shed", s[1], s[2], s[3], s[4], { seed = rng:random(1000) })
+  end
+  for _, p in ipairs(Borderline.WRECK_PITS) do
+    b:place("pit", p[1], p[2], p[3], p[4], { water = true, seed = rng:random(1000) })
+    b:place("paint", p[1], p[2] + p[4] + 0.2, p[3], 0.8, { flat = true, text = "DANGER  DEEP EXCAVATION" })
+    crane(map, b, p, p.crane)
+    -- A beacon on each of the hole's other corners.
+    for _, k in ipairs({ { 0, 0 }, { 1, 1 } }) do
+      map.beacons[#map.beacons + 1] = { x = b:x(p[1] + k[1] * p[3]), y = b:y(p[2] + k[2] * p[4]), color = "red" }
+    end
+  end
   for _, t in ipairs(Borderline.TRAIN) do
     b:place("carriage", t[1], t[2], t[3], t[4], { seed = rng:random(1000) })
   end
@@ -263,8 +321,19 @@ local function buildWreck(map, rng, T)
       end
     end
   end
-  local keep = { { 18, 62, 29, 69 }, { 20, 0, 27, 5 } }
-  b:scatter(rng, "rock", 26, 70, 4, 66, keep)
+  -- Floodlight towers round the yard, a beacon over the tunnel and the gate.
+  for _, at in ipairs({ { 14, 66 }, { 36, 62 }, { 15, 36 }, { 38, 22 }, { 14, 9 }, { 33, 9 }, { 37, 44 } }) do
+    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
+    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 420,
+      color = { 1, 0.92, 0.75 }, a = 0.75 }
+  end
+  for _, at in ipairs({ { 20.5, 2.6 }, { 27.5, 2.6 }, { 19.5, map.rows - 2.6 }, { 28.5, map.rows - 2.6 } }) do
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
+  end
+  local keep = { { 18, 61, 29, 69 }, { 20, 0, 27, 5 } }
+  b:scatter(rng, "drum", 22, 40, 4, 66, keep)
+  b:scatter(rng, "crate", 10, 46, 4, 66, keep)
+  b:scatter(rng, "cone", 30, 22, 4, 66, keep, { flat = true })
   -- Junk haulers picking the wreck over: a pack by every carriage past the
   -- first, and a bigger one at the engine.
   for i = 2, #Borderline.TRAIN do
@@ -272,7 +341,7 @@ local function buildWreck(map, rng, T)
     b:pack("JNK", t[1] + t[3] / 2, t[2] + t[4] + 1.5, 3)
   end
   b:pack("JNK", L[1] + 1, L[2] + L[4] + 2, 4)
-  b:zone("The Valley", 40, map.rows - 1)
+  b:zone("The Freight Yard", 40, map.rows - 1)
   b:zone("The Wreck", 16, 39)
   b:zone("The Engine", 0, 15)
   b:ends(21, 63, 23, 1)

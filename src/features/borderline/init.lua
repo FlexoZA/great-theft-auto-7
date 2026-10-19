@@ -9,11 +9,13 @@
 -- level (quests' `next`), or home from the Bunker. Hyperbole's robots hold
 -- the way (army.lua, from the map's `army`). Handsome Jerry and YAP-TP tell
 -- the story as it goes (tale.lua: Jerry's intro screen, the banners, their
--- lines over the comms, the objective line). The bosses come later.
+-- lines over the comms, the objective line). The maps' moving parts (the
+-- cranes, the beacons) are works.lua's. The bosses come later.
 
 local Features = require("src.features")
 local Army = require("src.features.borderline.army")
 local Tale = require("src.features.borderline.tale")
+local Works = require("src.features.borderline.works")
 
 local Borderline = {
   name = "borderline",
@@ -133,6 +135,7 @@ end
 
 function Borderline:update(dt, client)
   Army.update(dt)
+  Works.update(dt)
   local y = nil
   if client then
     y = select(2, client:myPose())
@@ -163,11 +166,26 @@ function Borderline:drawHUD(client)
 end
 
 function Borderline:drawBelowCars()
+  local map = cityMap()
+  if map then
+    Works.drawBelowCars(map)
+  end
   Army.drawBelowCars()
 end
 
 function Borderline:drawAboveCars()
   Army.drawAboveCars()
+  local map = cityMap()
+  if map then
+    Works.drawAboveCars(map)
+  end
+end
+
+function Borderline:drawNightLights(_client, _camera, glow)
+  local map = cityMap()
+  if map then
+    Works.drawNightLights(map, glow)
+  end
 end
 
 function Borderline:footstepWalkers()

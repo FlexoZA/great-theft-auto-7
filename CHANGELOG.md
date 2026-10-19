@@ -39,6 +39,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Borderline has its story: Handsome Jerry live on a Hyperbole broadcast as each map starts, a banner for each map
   and each part of it, Jerry and YAP-TP (the little yellow robot who dug you out) talking you through it over the
   comms, Jerry sulking when his bigger robots fall, and an objective line with how far there is to go.
+- The Frozen Wreck is now Hyperbole's freight yard at dusk: sheds round the sides, rails and a siding up the
+  middle, three deep fenced-off excavations with tower cranes swinging loads over them, emergency beacons turning,
+  floodlights, painted walkways and zebra crossings.
 
 ## [0.36.0] - 2026-10-19
 
