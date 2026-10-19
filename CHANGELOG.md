@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-10-19
+
+A fix for your own shots bending along with your MG nest's sweep.
+
 ### Fixed
 - Your own shots go where you aim again while your MG nest is firing: its sweep no longer bends them (a breached
   Cyber Feud turret did the same).
