@@ -142,6 +142,7 @@ end
 --- comes to look where it is looking.
 local function callOut(server, s)
   server:broadcast(Protocol.encode("HYP_ALERT", s.id))
+  sv.alerted = true
   local x, y = s.seenX or s.x, s.seenY or s.y
   for _, o in ipairs(sv.roster.list) do
     if o ~= s and o.brain.wake
@@ -193,7 +194,8 @@ function down(server, s, by, angle, cause)
   if pickups and pickups.serverDropEnemy and random() < (Army.pickupChance[s.code] or 1) then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
-  Features.call("serverKill", server, { kind = "robot", x = s.x, y = s.y, by = by, angle = angle, cause = cause })
+  Features.call("serverKill", server, { kind = "robot", what = s.code, x = s.x, y = s.y, by = by, angle = angle,
+    cause = cause })
   local splash = s.brain.burst and s.brain.burst(s, angle)
   if splash then
     burst(server, s, splash, by)
@@ -302,6 +304,11 @@ function Army.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.roster:freeze(x, y, radius, seconds)
   end
+end
+
+--- Has the army spotted anyone yet on this level?
+function Army.alerted()
+  return sv ~= nil and sv.alerted == true
 end
 
 --- For tests.

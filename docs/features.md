@@ -1820,7 +1820,10 @@ the one with a plot.
   rounds pass through them; they answer `serverShotAt`, `serverEnemies`
   ("borderline/<code>"; a jet hauler is `flying`, and `immune` in the air),
   `serverFreezeArea` and `footstepWalkers`, and a kill raises `serverKill`
-  kind "robot". Rockets that come down on marked rings are `barrage.lua`'s
+  kind "robot" (`what` its model's code). The story is `tale.lua`'s
+  (BRL_BEAT, BRL_CHAT; the words in `story.lua`, the HUD in `hud.lua`,
+  Jerry's and Yappy's faces in `faces.lua`; Jerry's intro screen in
+  `drawScreen`). Rockets that come down on marked rings are `barrage.lua`'s
   (HYP_RAIN, going off through weapons' `explode`), plasma bolts
   `bolts.lua`'s (HYP_BOLT, HYP_SPLASH; damage type "plasma"), the arc
   haulers' domes `domes.lua`'s (HYP_DOME). Every map is held, the

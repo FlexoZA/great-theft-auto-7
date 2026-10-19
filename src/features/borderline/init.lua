@@ -7,12 +7,13 @@
 -- The first player to walk up to the map's way on (`map.exitX`,
 -- `map.exitY`) finishes a level, and its EXIT star leads on to the next
 -- level (quests' `next`), or home from the Bunker. Hyperbole's robots hold
--- the way (army.lua, from the map's `army`); so far the junk and gun
--- haulers, on the Frozen Wreck and Liar's Landing. Jerry, Yappy, the rest
--- of the army and the bosses come in later stages.
+-- the way (army.lua, from the map's `army`). Handsome Jerry and YAP-TP tell
+-- the story as it goes (tale.lua: Jerry's intro screen, the banners, their
+-- lines over the comms, the objective line). The bosses come later.
 
 local Features = require("src.features")
 local Army = require("src.features.borderline.army")
+local Tale = require("src.features.borderline.tale")
 
 local Borderline = {
   name = "borderline",
@@ -41,6 +42,7 @@ function Borderline:serverQuestStarted(server, quest)
   if quest.boss == self.questId then
     level = { quest = quest.id, done = false }
     Army.serverStart(server, cityMap())
+    Tale.serverStart(cityMap())
   end
 end
 
@@ -48,6 +50,7 @@ function Borderline:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     level = nil
     Army.serverStop(server)
+    Tale.serverStop()
   end
 end
 
@@ -57,6 +60,7 @@ function Borderline:mapChanged(_map, server)
   if server then
     level = nil
     Army.serverStop(server)
+    Tale.serverStop()
   end
   Army.clear()
 end
@@ -94,18 +98,68 @@ function Borderline:serverStep(server, dt)
     return
   end
   local map = cityMap()
+  Tale.serverStep(server, map, Army.alerted(), dt)
   if not (map and map.exitX) or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end
   level.done = true
+  Tale.serverBeat(server, "end")
   local quests = Features.byName.quests
   if quests then
     quests:serverComplete(server, level.quest, map.exitX, map.exitY)
   end
 end
 
-function Borderline:update(dt)
+function Borderline:serverKill(server, kill)
+  Tale.serverKill(server, kill)
+end
+
+function Borderline:questStarted(_client, quest)
+  if quest.boss == self.questId then
+    Tale.questStarted(quest)
+  end
+end
+
+function Borderline:questEnded(_client, quest)
+  if quest.boss == self.questId then
+    Tale.clear()
+  end
+end
+
+function Borderline:exitGame()
+  Tale.clear()
+  Army.clear()
+end
+
+function Borderline:update(dt, client)
   Army.update(dt)
+  local y = nil
+  if client then
+    y = select(2, client:myPose())
+  end
+  Tale.update(dt, cityMap(), y)
+end
+
+--- Any key takes Jerry's intro screen down.
+function Borderline:keypressed()
+  Tale.keypressed()
+end
+
+--- Jerry's intro screen softens the world behind it.
+function Borderline:worldBlur()
+  return Tale.blurring(cityMap()) and 1 or 0
+end
+
+--- Jerry's intro screen goes over every HUD piece.
+function Borderline:drawScreen()
+  Tale.drawScreen(cityMap())
+end
+
+function Borderline:drawHUD(client)
+  local quests = Features.byName.quests
+  local done = quests ~= nil and quests.done ~= nil and quests.done == quests.active
+  local x, y = client:myPose()
+  Tale.drawHUD(cityMap(), done, x, y)
 end
 
 function Borderline:drawBelowCars()
@@ -120,7 +174,12 @@ function Borderline:footstepWalkers()
   return Army.walkers()
 end
 
-Borderline.clientMessages = Army.clientMessages
+Borderline.clientMessages = {}
+for _, part in ipairs({ Army, Tale }) do
+  for kind, handler in pairs(part.clientMessages) do
+    Borderline.clientMessages[kind] = handler
+  end
+end
 
 --- For tests: the level under way on the host.
 function Borderline.server()

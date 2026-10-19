@@ -41,7 +41,14 @@ on every map from Liar's Landing on: the Refinery's bridges held by arc
 haulers, the Assembly Line's aisles by gun haulers with a badass and two
 sentries on the Foreman's floor, Thousand Papercuts' road by rocket and
 jet haulers with a sentry in every nest, and the Bunker's rim by eleven
-sentries on the cannon mounts. No story, backdrops or music yet. See "Stages" at the end for the
+sentries on the cannon mounts. Stage 2 (the story) done too: the words
+in `story.lua`, Jerry's and Yappy's portraits in `faces.lua`, the HUD in
+`hud.lua` (Jerry's intro screen, drawn in `drawScreen`; the map and zone
+banners; the comms; the objective line), played by `tale.lua` (the host
+raises each level's beats once: start, a zone walked into, the first
+fight, the end; and the chatter: Jerry's taunts, his sulking over a big
+kill, both of them on a player going down, Yappy cheering now and then).
+Yappy is a voice so far, not on the map. No backdrops or music yet. See "Stages" at the end for the
 order.
 
 ## Decisions
