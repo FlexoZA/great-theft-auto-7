@@ -496,6 +496,8 @@ function DRAW.billboard(s)
   love.graphics.printf("JERRY LOVES YOU", s.x, s.y + (s.h - 22) / 2, s.w, "center")
 end
 
+--- The molten river: purple, a crust here and there (its flow is
+--- borderline/works.lua's), a railing along each bank with hazard stripes.
 function DRAW.river(s)
   color(C.purple)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
@@ -503,6 +505,44 @@ function DRAW.river(s)
   for i = 0, math.floor(s.w * s.h / 9000) do
     local h = hash(s.x + s.y * 3 + i * 17)
     love.graphics.ellipse("fill", s.x + h * s.w, s.y + hash(h + i) * s.h, 22, 6)
+  end
+  local along = s.w >= s.h
+  if along then
+    hazard(s.x, s.y - 10, s.w, 10)
+    hazard(s.x, s.y + s.h, s.w, 10)
+  else
+    hazard(s.x - 10, s.y, 10, s.h)
+    hazard(s.x + s.w, s.y, 10, s.h)
+  end
+end
+
+--- The casting pit: a deep box, rows of moulds in it, the fresh ones
+--- glowing with Bragium.
+function DRAW.casting(s)
+  box(s.x, s.y, s.w, s.h, C.pitWall)
+  color(C.pitDeep)
+  love.graphics.rectangle("fill", s.x + 18, s.y + 18, s.w - 36, s.h - 36)
+  local i = 0
+  for y = s.y + 34, s.y + s.h - 70, 64 do
+    for x = s.x + 34, s.x + s.w - 70, 64 do
+      i = i + 1
+      box(x, y, 40, 40, C.gunmetal)
+      color(hash((s.seed or 1) + i) < 0.5 and C.purple or C.rust)
+      love.graphics.rectangle("fill", x + 6, y + 6, 28, 28)
+    end
+  end
+  hazard(s.x, s.y, s.w, 12)
+  hazard(s.x, s.y + s.h - 12, s.w, 12)
+  hazard(s.x, s.y, 12, s.h)
+  hazard(s.x + s.w - 12, s.y, 12, s.h)
+end
+
+--- A steam vent in the floor: a grille over the dark (the steam is works.lua's).
+function DRAW.grille(s)
+  box(s.x + 6, s.y + 6, s.w - 12, s.h - 12, INK)
+  color(C.gunmetalLight)
+  for x = s.x + 12, s.x + s.w - 14, 9 do
+    love.graphics.rectangle("fill", x, s.y + 8, 3, s.h - 16)
   end
 end
 

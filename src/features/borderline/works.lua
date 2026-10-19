@@ -8,9 +8,11 @@
 -- and down; ore riding the conveyors; and the emergency beacons turning,
 -- amber and red, their beams sweeping the ground. From the map (city-map's
 -- borderline.lua: `map.cranes`, `map.gantries`, `map.headframes`,
--- `map.conveyors`, `map.beacons`); and over Prosperity, the factories'
+-- `map.conveyors`, `map.beacons`); over Prosperity, the factories'
 -- chimneys smoking (`map.stacks`) and pipe bridges across the avenue
--- (`map.overpipes`). Scenery only: nothing here is on the host
+-- (`map.overpipes`); and in the Refinery, the molten river flowing
+-- (`map.flows`), steam venting from the floor (`map.steam`) and the bridge
+-- cranes running the hall with their ladles (`map.bridgecranes`). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -75,8 +77,29 @@ local function drawOre(map)
   end
 end
 
---- On the ground: the ore on the belts, then each crane's shadow, the jib's and its load's.
+local FLOW_SPEED = 45 -- px/s the river runs
+
+--- Bright streaks riding the molten river the way it flows.
+local function drawFlow(map)
+  love.graphics.setBlendMode("add")
+  for _, f in ipairs(map.flows or {}) do
+    local along = f.w >= f.h
+    local len, wide = along and f.w or f.h, along and f.h or f.w
+    local sign = (f.dir == "w" or f.dir == "n") and -1 or 1
+    for k = 0, math.floor(len / 50) do
+      local lane = ((k * 37) % 5 + 0.5) / 5 * wide
+      local d = (k * 50 + sign * clock * FLOW_SPEED * (0.8 + (k % 3) * 0.2)) % len
+      local x, y = along and f.x + d or f.x + lane, along and f.y + lane or f.y + d
+      love.graphics.setColor(C.plasmaHot[1], C.plasmaHot[2], C.plasmaHot[3], 0.35)
+      love.graphics.ellipse("fill", x, y, along and 26 or 4, along and 4 or 26, 10)
+    end
+  end
+  love.graphics.setBlendMode("alpha")
+end
+
+--- On the ground: the river flowing, the ore on the belts, then each crane's shadow, the jib's and its load's.
 function Works.drawBelowCars(map)
+  drawFlow(map)
   drawOre(map)
   love.graphics.setColor(0, 0, 0, 0.22)
   for _, g in ipairs(map.gantries or {}) do
@@ -287,6 +310,53 @@ local function drawOverpipe(p)
   end
 end
 
+local STEAM_EVERY = 6 -- seconds between a vent's bursts...
+local STEAM_FOR = 2.2 -- ...each lasting this long
+
+--- A vent's burst of steam: white puffs rising off it and spreading.
+local function drawSteam(v)
+  local t = (clock + v.phase) % STEAM_EVERY
+  if t > STEAM_FOR then
+    return
+  end
+  for i = 0, 5 do
+    local age = (t / STEAM_FOR + i / 6) % 1
+    local r = 10 + 40 * age
+    love.graphics.setColor(0.92, 0.92, 0.96, 0.4 * (1 - age) * math.min(1, (STEAM_FOR - t) * 2))
+    love.graphics.circle("fill", v.x + math.sin(i * 2.1 + clock) * 8 * age, v.y - LIFT * 2 * age, r, 14)
+  end
+end
+
+--- A bridge crane: two girders across the hall, end carriages on the
+--- walls, the trolley running along it with a ladle of molten Bragium.
+local function drawBridgeCrane(c)
+  local y = c.y0 + (c.y1 - c.y0) * ease(2 * math.pi * clock / c.period + c.phase) - LIFT
+  local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
+  love.graphics.setColor(0, 0, 0, 0.2)
+  love.graphics.rectangle("fill", c.x0 + LIFT, y - 20 + LIFT * 2, c.x1 - c.x0, 40)
+  -- The ladle first: glowing, under the trolley.
+  love.graphics.setColor(C.ink)
+  love.graphics.circle("fill", tx, y + 6, 22, 18)
+  love.graphics.setColor(C.gunmetal)
+  love.graphics.circle("fill", tx, y + 6, 19, 18)
+  love.graphics.setColor(C.plasmaHot)
+  love.graphics.circle("fill", tx, y + 6, 13 + math.sin(clock * 6) * 1.5, 16)
+  truss(c.x0, y - 14, c.x1, y - 14, 14)
+  truss(c.x0, y + 14, c.x1, y + 14, 14)
+  for _, x in ipairs({ c.x0 + 6, c.x1 - 26 }) do -- the end carriages on their rails
+    love.graphics.setColor(C.ink)
+    love.graphics.rectangle("fill", x - 2, y - 32, 24, 64)
+    love.graphics.setColor(C.yellow)
+    love.graphics.rectangle("fill", x, y - 30, 20, 60)
+  end
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", tx - 22, y - 22, 44, 44)
+  love.graphics.setColor(C.gunmetalLight)
+  love.graphics.rectangle("fill", tx - 19, y - 19, 38, 38)
+  love.graphics.setColor(C.yellow)
+  love.graphics.rectangle("fill", tx - 19, y - 19, 38, 6)
+end
+
 local function drawBeacon(b)
   local col = BEACON[b.color] or BEACON.amber
   local f, turn = flash(b)
@@ -314,8 +384,14 @@ function Works.drawAboveCars(map)
   for _, h in ipairs(map.headframes or {}) do
     drawHeadframe(h)
   end
+  for _, v in ipairs(map.steam or {}) do
+    drawSteam(v)
+  end
   for _, p in ipairs(map.overpipes or {}) do
     drawOverpipe(p)
+  end
+  for _, c in ipairs(map.bridgecranes or {}) do
+    drawBridgeCrane(c)
   end
   for _, st in ipairs(map.stacks or {}) do
     drawSmoke(st)
@@ -338,6 +414,11 @@ function Works.drawNightLights(map, glow)
   end
   for _, h in ipairs(map.headframes or {}) do
     glow(h.x, h.y - LIFT * 1.4, 110, { 1, 0.85, 0.6 }, 0.5) -- the lamps on the headframe
+  end
+  for _, c in ipairs(map.bridgecranes or {}) do -- the ladle's glow, moving with it
+    local y = c.y0 + (c.y1 - c.y0) * ease(2 * math.pi * clock / c.period + c.phase) - LIFT
+    local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
+    glow(tx, y + 6, 220, C.plasma, 0.8)
   end
   for _, g in ipairs(map.gantries or {}) do
     local top = g.y - LIFT - g.depth / 2

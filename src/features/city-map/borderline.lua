@@ -17,8 +17,9 @@
 --               factory blocks with smoking chimneys on a street grid, two
 --               building sites with cranes, his statue in the plaza, a gate
 --               at either end
---   refinery    The Refinery: indoors, a river of molten Bragium snaking
---               across the floor, crossed by bridges, tanks and pipes
+--   refinery    The Refinery: indoors and dark, a river of molten Bragium
+--               snaking across the floor, crossed by bridges, tanks and
+--               pipes, bridge cranes overhead, a casting pit, steam vents
 --   assembly    The Assembly Line: the factory floor, conveyor belts across
 --               it, assembly arms and presses, the Foreman's floor on top
 --   cuts        Thousand Papercuts: a narrow road winding up a cliff, the
@@ -56,11 +57,16 @@
 --                         walkway, zebra, cone, paint (with `text`, `small`); Liar's Landing's: drydock
 --                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
 --                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck); Prosperity's
---                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot
+--                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot; the
+--                         Refinery's: casting (`water`, the casting pit), and flat: grille (a steam vent)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
+--   map.flows             { x, y, w, h, dir } the river's runs, flowing (the Refinery; works.lua)
+--   map.steam             { x, y, phase } floor vents letting off steam (the Refinery; works.lua)
+--   map.bridgecranes      { x0, x1, y0, y1, period, phase } overhead cranes spanning x0..x1, running up and
+--                         down y0..y1 with a ladle of molten Bragium (the Refinery; works.lua)
 --   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
@@ -752,9 +758,16 @@ Borderline.RIVER = {
   { r = 22, bend = "e", bridges = { 24 } },
 }
 
+-- The casting pit by the outflow (tiles), where the ladles pour.
+Borderline.CASTING = { 34, 3, 8, 6 }
+-- Steam vents in the floor (tiles), venting now and then.
+Borderline.REFINERY_VENTS = { { 6, 70 }, { 40, 68 }, { 14, 46 }, { 34, 54 }, { 6, 18 }, { 40, 33 }, { 28, 26 },
+  { 12, 10 } }
+
 local function buildRefinery(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "plant"
+  map.beacons, map.flows, map.steam, map.bridgecranes, map.overpipes = {}, {}, {}, {}, {}
   local w = map.cols
   b:open(2, 2, w - 3, map.rows - 3)
   b:open(21, map.rows - 2, 26, map.rows - 1) -- the way in
@@ -772,10 +785,13 @@ local function buildRefinery(map, rng, T)
     cuts[#cuts + 1] = w - 2
     for _, c in ipairs(cuts) do
       if c > from then
-        b:place("river", from, run.r, c - from, 3, { water = true })
+        local seg = b:place("river", from, run.r, c - from, 3, { water = true })
+        map.flows[#map.flows + 1] = { x = seg.x, y = seg.y, w = seg.w, h = seg.h, dir = i % 2 == 1 and "w" or "e" }
       end
       if c < w - 2 then
         b:place("bridge", c, run.r - 0.2, 3, 3.4, { flat = true })
+        map.beacons[#map.beacons + 1] = { x = b:x(c), y = b:y(run.r - 0.4), color = "amber" }
+        map.beacons[#map.beacons + 1] = { x = b:x(c + 3), y = b:y(run.r + 3.4), color = "amber" }
       end
       from = c + 3
     end
@@ -783,7 +799,8 @@ local function buildRefinery(map, rng, T)
     local nextRun = Borderline.RIVER[i + 1]
     if nextRun then
       local c = run.bend == "w" and 2 or w - 5
-      b:place("river", c, nextRun.r + 3, 3, run.r - nextRun.r - 3, { water = true })
+      local seg = b:place("river", c, nextRun.r + 3, 3, run.r - nextRun.r - 3, { water = true })
+      map.flows[#map.flows + 1] = { x = seg.x, y = seg.y, w = seg.w, h = seg.h, dir = "n" }
     end
   end
   -- Smelting tanks and the pipes between them, on the banks.
@@ -800,6 +817,46 @@ local function buildRefinery(map, rng, T)
     end
   end
   b:scatter(rng, "crate", 12, 48, 4, map.rows - 6, keep)
+  b:scatter(rng, "drum", 10, 40, 4, map.rows - 6, keep)
+  -- The casting pit, its beacons; the steam vents.
+  local K = Borderline.CASTING
+  b:place("casting", K[1], K[2], K[3], K[4], { water = true, seed = rng:random(1000) })
+  b:place("paint", K[1], K[2] + K[4] + 0.15, K[3], 0.8, { flat = true, text = "MOLTEN METAL", small = true })
+  map.beacons[#map.beacons + 1] = { x = b:x(K[1]), y = b:y(K[2] + K[4]), color = "red" }
+  map.beacons[#map.beacons + 1] = { x = b:x(K[1] + K[3]), y = b:y(K[2] + K[4]), color = "red" }
+  for i, v in ipairs(Borderline.REFINERY_VENTS) do
+    b:place("grille", v[1], v[2], 1, 1, { flat = true })
+    map.steam[#map.steam + 1] = { x = b:x(v[1] + 0.5), y = b:y(v[2] + 0.5), phase = i * 1.37 }
+  end
+  -- Two bridge cranes running the hall's length, a ladle under each.
+  map.bridgecranes[1] = { x0 = b:x(2), x1 = b:x(w - 2), y0 = b:y(14), y1 = b:y(52), period = 34, phase = 0 }
+  map.bridgecranes[2] = { x0 = b:x(2), x1 = b:x(w - 2), y0 = b:y(56), y1 = b:y(74), period = 26, phase = 2.4 }
+  -- Pipes along the walls overhead, work lamps on the walls, the river's
+  -- glow and the tanks'.
+  for _, r in ipairs({ 13, 53 }) do
+    map.overpipes[#map.overpipes + 1] = { x0 = b:x(2), x1 = b:x(w - 2), y = b:y(r) }
+  end
+  for r = 6, map.rows - 6, 8 do
+    for _, c in ipairs({ 2.3, w - 2.6 }) do
+      b:place("lamp", c, r, 0.3, 0.3, { flat = true, round = true })
+      map.lights[#map.lights + 1] = { x = b:x(c + 0.15), y = b:y(r + 0.15), r = 300, color = { 1, 0.8, 0.5 }, a = 0.7 }
+    end
+  end
+  for _, f in ipairs(map.flows) do
+    local along = f.w >= f.h
+    for k = 0.5, (along and f.w or f.h) / T, 4 do
+      local x, y = along and f.x + k * T or f.x + f.w / 2, along and f.y + f.h / 2 or f.y + k * T
+      map.lights[#map.lights + 1] = { x = x, y = y, r = 260, color = { 0.75, 0.35, 1 }, a = 0.75 }
+    end
+  end
+  for _, c in ipairs(map.cover) do
+    if c.kind == "tank" then
+      map.lights[#map.lights + 1] = { x = c.x + c.w / 2, y = c.y + c.h / 2, r = 140, color = { 0.75, 0.35, 1 },
+        a = 0.4 }
+    end
+  end
+  map.lights[#map.lights + 1] = { x = b:x(K[1] + K[3] / 2), y = b:y(K[2] + K[4] / 2), r = 380, color = { 0.8, 0.4, 1 },
+    a = 0.9 }
   -- Arc haulers hold the far end of every bridge under their domes, plasma
   -- haulers stand by the tanks, gun haulers walk the banks, kamikazes wait
   -- in the middle and a dozer and a badass guard the outflow.

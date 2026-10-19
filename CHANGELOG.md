@@ -50,6 +50,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Prosperity is now Jerry's factory town at dusk: factory blocks with smoking chimneys, two "Phase 2" building
   sites with deep foundation holes and tower cranes, loading lots with haul trucks, pipe bridges over the avenue,
   street lamps, road markings, beacons at the gates and floodlights round the plaza.
+- The Refinery is now a dark smelting hall lit by its molten river, which flows: bridge cranes run the length of it
+  carrying glowing ladles, a casting pit sits by the outflow, steam vents puff, the banks are railed and hazard
+  striped, and beacons mark every bridge.
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.

@@ -328,7 +328,8 @@ its set piece is done; the objective line says what's left.
   dusk under floodlights, with deep excavations, cranes working over them
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
-  the Frozen Wreck, Liar's Landing, the Bragium Pit and Prosperity.
+  the Frozen Wreck, Liar's Landing, the Bragium Pit, Prosperity and the
+  Refinery (indoors, dark rather than dusk).
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -424,7 +425,16 @@ giant statue of him, his face on four huge screens.
   angrier; on the last, he storms off and the north gate opens.
 - **The end:** the north gate. EXIT: "THE REFINERY".
 
-### 5. The Refinery (`refinery`, 48x80)
+### 5. The Refinery (`refinery`, 48x80, dark)
+
+A smelting hall, dark (`night` { 0.42, 0.38, 0.52 }) and lit by its
+molten river, which flows (works.lua's `flows`), and by work lamps on the
+walls. Two bridge cranes run the length of the hall, a ladle of glowing
+Bragium under each (`bridgecranes`); pipes run across it overhead; a
+casting pit with glowing moulds sits by the outflow; vents in the floor
+let off steam now and then (`steam`); the banks are railed and hazard
+striped, and beacons stand at both ends of every bridge.
+
 
 Indoors, hot and dark, lit purple: a river of molten Bragium winding up
 the map, catwalks over it, smelting tanks, pipes.
