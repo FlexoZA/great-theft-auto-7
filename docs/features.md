@@ -1802,10 +1802,22 @@ the one with a plot.
   (`pit`), Prosperity (`prosperity`), the Refinery (`refinery`), the
   Assembly Line (`assembly`), Thousand Papercuts (`cuts`) and the Bunker
   (`bunker`); quests "borderline", then "borderline-<map>" for the rest,
-  chained by `next`, and "home-<map>" by each way in. So far the
-  borderline feature only finishes a level when someone reaches its way on;
-  the robots, the story, the bosses, backdrops and music follow in the
-  stages `docs/borderline.md` lists.
+  chained by `next`, and "home-<map>" by each way in. The borderline
+  feature finishes a level when someone reaches its way on. Hyperbole's
+  army holds the way (`borderline/army.lua`, HYP_ messages, from the map's
+  `army`: `packs`, `posts`, `squads`, placed with the builder's
+  `Blockout:pack/post/squad`): every hauler is one body on the host
+  (`chassis.lua`: walking on d-day's Nav grid, its own sight line over
+  `blocksShot`, the trigger, the torso crawl) thought for by its model's
+  brain (`junk_brain.lua`, `gun_brain.lua`; army.lua's `BRAINS` by code),
+  and drawn by `hauler_look.lua` (`drone_look.lua` has the drones and the
+  sentry, not placed yet). Their rounds carry "hyperbole" and ownerless
+  rounds pass through them; they answer `serverShotAt`, `serverEnemies`
+  ("borderline/jnk", "borderline/gun"), `serverFreezeArea` and
+  `footstepWalkers`, and a kill raises `serverKill` kind "robot". So far
+  junk haulers on the Frozen Wreck and gun haulers on Liar's Landing; the
+  story, the rest of the army, the bosses, backdrops and music follow in
+  the stages `docs/borderline.md` lists.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

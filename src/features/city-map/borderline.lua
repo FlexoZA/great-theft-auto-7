@@ -43,6 +43,8 @@
 --                         rails, cave, container, crane, bollard, lift, ledge, ramp, conveyor, crystal,
 --                         pad, tower, statue, lawn, billboard, gate, river, bridge, tank, pipe, belt, arm,
 --                         press, booth, stairs, bay, boulder, nest, door, cannon, vent, hatch
+--   map.army              { packs, posts, squads } who of Hyperbole's army stands where (borderline/army.lua
+--                         says what each is), world px; empty where nobody is placed yet
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -60,6 +62,7 @@ function Blockout.new(map, T)
   local b = setmetatable({ map = map, T = T, cells = {} }, Blockout)
   map.cover, map.grounds, map.zones = {}, {}, {}
   map.openKinds = { walk = true }
+  map.army = { packs = {}, posts = {}, squads = {} }
   return b
 end
 
@@ -183,6 +186,30 @@ function Blockout:ends(c, r, ec, er, perRow)
   map.exitX, map.exitY = math.floor(self:x(ec + 0.5)), math.floor(self:y(er + 0.5))
 end
 
+--- The army (borderline/army.lua): a pack of `count` of `code` picking
+--- about tile (c, r).
+function Blockout:pack(code, c, r, count)
+  local army = self.map.army
+  army.packs[#army.packs + 1] = { code = code, x = self:x(c), y = self:y(r), count = count }
+end
+
+--- One of `code` posted at tile (c, r), watching `watch` (radians; south
+--- by default, the way everyone comes from).
+function Blockout:post(code, c, r, watch)
+  local army = self.map.army
+  army.posts[#army.posts + 1] = { code = code, x = self:x(c), y = self:y(r), watch = watch or math.pi / 2 }
+end
+
+--- A squad of `codes` walking a loop through tiles `corners` ({ c, r } each).
+function Blockout:squad(codes, corners)
+  local route = {}
+  for i, t in ipairs(corners) do
+    route[i] = { x = self:x(t[1]), y = self:y(t[2]) }
+  end
+  local army = self.map.army
+  army.squads[#army.squads + 1] = { codes = codes, route = route, start = 1 }
+end
+
 function Blockout:commit()
   local map = self.map
   for c = 0, map.cols - 1 do
@@ -238,6 +265,13 @@ local function buildWreck(map, rng, T)
   end
   local keep = { { 18, 62, 29, 69 }, { 20, 0, 27, 5 } }
   b:scatter(rng, "rock", 26, 70, 4, 66, keep)
+  -- Junk haulers picking the wreck over: a pack by every carriage past the
+  -- first, and a bigger one at the engine.
+  for i = 2, #Borderline.TRAIN do
+    local t = Borderline.TRAIN[i]
+    b:pack("JNK", t[1] + t[3] / 2, t[2] + t[4] + 1.5, 3)
+  end
+  b:pack("JNK", L[1] + 1, L[2] + L[4] + 2, 4)
   b:zone("The Valley", 40, map.rows - 1)
   b:zone("The Wreck", 16, 39)
   b:zone("The Engine", 0, 15)
@@ -278,6 +312,20 @@ local function buildLanding(map, rng, T)
   end
   b:place("lift", 25, 2, 6, 3, { flat = true })
   b:scatter(rng, "crate", 22, 48, 8, 56, { { 22, 54, 33, 63 }, { 24, 2, 32, 7 } })
+  -- Hyperbole's gun haulers hold the yard. The stacks always leave lanes
+  -- clear between the cells of their grid: down columns 10-11 (and every 8
+  -- after) and across rows 18-19 (and every 9 after). Posts stand where
+  -- lanes cross, watching the way in; two squads walk loops along the
+  -- lanes; two guard the lift; junk haulers scavenge the edges.
+  for _, at in ipairs({ { 19, 46 }, { 35, 46 }, { 11, 37 }, { 43, 37 }, { 27, 28 }, { 51, 28 }, { 19, 19 } }) do
+    b:post("GUN", at[1], at[2])
+  end
+  b:post("GUN", 23, 5.5)
+  b:post("GUN", 33, 5.5)
+  b:squad({ "GUN", "GUN", "GUN" }, { { 11, 19 }, { 43, 19 }, { 43, 37 }, { 11, 37 } })
+  b:squad({ "GUN", "GUN" }, { { 19, 28 }, { 35, 28 }, { 35, 46 }, { 19, 46 } })
+  b:pack("JNK", 5, 48, 3)
+  b:pack("JNK", 50, 12, 3)
   b:zone("The Yard", 8, map.rows - 1)
   b:zone("The Quay", 0, 7)
   b:ends(25, 56, 27, 3)

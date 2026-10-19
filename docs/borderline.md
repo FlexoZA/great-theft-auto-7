@@ -19,8 +19,15 @@ the eight maps blocked out in `city-map/borderline.lua` (floors, walls,
 cover, the way in and the way on, drawn by `render_borderline.lua` in the
 outlined look), their eight quests chained by `next` with "Left for dead"
 on the board, a HOME star by each way in, and the `borderline` feature
-finishing each level when someone reaches its way on. No robots, story,
-backdrops or music yet. See "Stages" at the end for the order.
+finishing each level when someone reaches its way on. Stage 3 started:
+the robots' looks (`hauler_look.lua`, `drone_look.lua`, every model), and
+the junk and gun haulers' brains (`junk_brain.lua`, `gun_brain.lua` on the
+shared body `chassis.lua`, put on the map by `army.lua`) with the torso
+crawl, on the Frozen Wreck (a junk pack by each carriage, a bigger one at
+the engine) and Liar's Landing (gun haulers posted where the container
+lanes cross and on the quay, two squads walking the lanes, two junk
+packs). No story, backdrops or music yet. See "Stages" at the end for the
+order.
 
 ## Decisions
 

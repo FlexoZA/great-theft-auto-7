@@ -17,7 +17,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Added
 - A new job on the board once Eternal Mood is done, "Left for dead" (Borderline): eight maps on the frozen
   planet Pandoria, all on foot, from a wrecked train to Handsome Jerry's bunker. So far the maps are walked
-  through to their far end; the robots, the story and the bosses come next.
+  through to their far end; the story and the bosses come next.
+- Hyperbole's robots on the first two Borderline maps: packs of junk haulers (30 health, pistols) picking over
+  the train wreck, and gun haulers (70 health, rifle bursts and grenades) guarding Liar's Landing, keeping their
+  distance, side-stepping and flanking. Knock a hauler's legs out and one time in three its torso drags itself on,
+  still shooting, for 4 seconds.
 
 ## [0.36.0] - 2026-10-19
 
