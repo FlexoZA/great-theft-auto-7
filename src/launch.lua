@@ -12,7 +12,7 @@
 -- "eternal-mood" for Fobos Base (then "eternal-mood-earth", "-foundry", "-heck").
 -- --boss (with --quest) skips the quest's way in and starts its boss fight
 -- next to you, for trying a boss out: every feature's `serverSkipToBoss`
--- (the Antlion Guard on the Coast). A quest with no boss to skip to plays
+-- (the Antlion Guard on the Coast; VEX on the Roof, "cyber-feud-roof"). A quest with no boss to skip to plays
 -- from the start.
 -- --name <name> plays under that name instead of $USER. Unknown worlds and
 -- quests are reported and the game goes to the menu (or plays on in the

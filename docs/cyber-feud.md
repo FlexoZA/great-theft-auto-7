@@ -131,8 +131,16 @@ branch off `feature/cyber-feud`):
   over the middle of the roof at 0.3, both tells flickering, and four
   turrets (`Bosses.plus`; sweeping all round, `Turrets.serverJoin`). The
   four relays: hold F within 75 px for 5 s (VX_WORK/VX_PROG; draining at
-  0.4 a second). She sits at one (VX_AT): there it goes at half pace and
-  every 4 s a shock ring pulses out 190 px (18 `shock`, VX_PULSE); every
+  0.4 a second, from 1.5 s after the last work on it). She sits at one (VX_AT; a red ring breathing round it, her face on its screen): there it goes at half pace and
+  every 6 s a shock ring pulses out 190 px (18 `shock`, VX_PULSE), its
+  relay charging for 2 s first (VX_CHARGE: the 190 px lit blue on the
+  ground, filling in from the middle, static bolts crackling in it more
+  often and further out as it fills (drawn only: the pulse is the hit),
+  released to the edge by the pulse, a rising whine and "get clear!" on the HUD of
+  anyone inside; a move to another relay gives the new one its full charge).
+  From the charge until 1 s after the pulse that relay doesn't drain, so
+  stepping out of it costs nothing (without that the last relay, always
+  hers, lost more to the drain than half pace could put back); every
   20 s, or when hers falls, she moves to the relay furthest along. Each
   relay lost breaks her face up more (slipped slices, missing frames, her
   colour dropping) and gets a line (Story.beats `roof.vexLock`,
@@ -567,7 +575,7 @@ anyone's head):
 **On the Roof.** When Saye and Kilowatt are down, VEX locks the roof and comes
 up huge: her face projected over the whole roof, in green with both tells
 flickering at once. She can't be shot. She drives the tower's turrets, and
-relay terminals around the edge of the roof keep her there. Players breach
+four relay terminals round the helipad keep her there. Players breach
 the relays one by one while the turrets fire; she moves between the ones
 left, and her portrait breaks up more with each one lost (more slips, colour
 dropping out, frames missing). On the last relay she gets away: her face
@@ -1047,7 +1055,7 @@ The top of the tower, square, open to the rain.
 
 - A helipad in the middle (open ground).
 - AC units, vents and antenna masts as cover, spread round.
-- Four relay terminals near the corners (VEX's phase).
+- Four relay terminals round the helipad, about 770 px apart (VEX's phase).
 - A giant holo-billboard along the north edge, where VEX's face shows.
 - The stairs at the south edge, where Static brutes come up during the fight.
 - The edges are solid: a parapet, and the city far below

@@ -12,7 +12,12 @@
 -- for `relayTime` seconds (it drains when you let go). She sits at one of
 -- the relays left (`at`) and moves between them: working the one she is at
 -- goes at half the pace, and she pulses a ring of shock out round it every
--- `pulseEvery`. Every relay lost, her face breaks up more. On the last she
+-- `pulseEvery`. For `warnTime` before each pulse the relay charges: its
+-- reach lights up blue on the ground, filling in from the middle, static
+-- crackling in it thicker and further out as it builds (only to look at:
+-- the pulse is the hit), and it whines (the tell: step out, step back in). From the tell until `holdAfter` past
+-- the pulse that relay keeps its breach with nobody at it, so stepping out
+-- costs nothing. Every relay lost, her face breaks up more. On the last she
 -- gets away: her face shrinks to a single green pixel that streaks off,
 -- the roof unlocks, her turrets go dead, and init.lua puts the HOME star
 -- up on the helipad (`serverGone`).
@@ -26,10 +31,13 @@
 --   client -> server  VX_WORK  <relay>          (I am holding the key at it; every WORK_EVERY)
 --   server -> all     VX_PROG  <relay> <0..1>   how far a relay's breach is
 --   server -> all     VX_RELAY <relay>          it's breached (to a joiner, every one that is)
+--   server -> all     VX_CHARGE <relay> <seconds>  her relay is charging: a pulse in that long
 --   server -> all     VX_PULSE <x> <y> <radius> her shock ring out round her relay
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Synth = require("src.audio.synth")
+local Audio = require("src.audio")
 local Controls = require("src.controls")
 local UI = require("src.ui")
 local Layout = require("src.features.city-map.layout")
@@ -42,21 +50,26 @@ local Vex = {}
 -- Tuning ------------------------------------------------------------------
 Vex.relayTime = 5 -- seconds of holding the key at a relay to breach it...
 Vex.guarded = 0.5 -- ...at this pace at the one she is at
-Vex.drain = 0.4 -- of the whole a second a relay loses while nobody works it
+Vex.drain = 0.4 -- of the whole a second a relay loses while nobody works it...
+Vex.drainAfter = 1.5 -- ...from this many seconds after the last of the work on it
 Vex.reach = 75 -- px from a relay's middle that counts as at it
 Vex.moveEvery = 20 -- seconds she stays at a relay before moving to another
-Vex.pulseEvery = 4 -- seconds between her shock rings at her relay
+Vex.pulseEvery = 6 -- seconds between her shock rings at her relay
+Vex.warnTime = 2 -- seconds her relay charges, its reach lit, before each one (the tell)
+Vex.holdAfter = 1 -- seconds after a pulse her relay keeps its breach without anyone at it (from the tell on)
 Vex.pulseRadius = 190 -- px
 Vex.pulseDamage = 18 -- shock (under a stun: damage's stunMin is 20)
 Vex.turrets = 4 -- turrets she drives, for one human (one more for each past the first)
 Vex.revealTime = 12 -- seconds after the Shard is handed over (the reveal screen) before she takes the roof
 
 local WORK_EVERY = 0.2
-local WORK_GRACE = 0.45
 local SLACK = 40
 local GREEN = Face.GREEN
 local MAGENTA = { 1.00, 0.24, 0.78 }
 local CYAN = { 0.18, 0.90, 1.00 }
+local BLUE = { 0.30, 0.62, 1.00 } -- her relay's charge and pulse
+local RED = { 1.00, 0.22, 0.20 } -- the ring round the relay she is at: keep off
+local SPARK = { 0.82, 0.92, 1.00 } -- the core of a bolt of its static
 
 local function cityMap()
   local c = Features.byName["city-map"]
@@ -116,7 +129,7 @@ function Vex.serverStart(_server, map)
   sv = { stage = "waiting", relays = {}, at = 1, moveIn = Vex.moveEvery, pulseIn = Vex.pulseEvery, turrets = {},
     lock = b.lock, turretSpots = b.vexTurrets or {} }
   for i, r in ipairs(map.relays) do
-    sv.relays[i] = { x = r.x, y = r.y, progress = 0, lastWork = -1, sent = 0, done = false }
+    sv.relays[i] = { x = r.x, y = r.y, progress = 0, lastWork = -1, sent = 0, done = false, holdUntil = 0 }
   end
 end
 
@@ -183,6 +196,7 @@ local function move(server)
   if best then
     sv.at = best
     server:broadcast(Protocol.encode("VX_AT", best))
+    sv.pulseIn, sv.warned = math.max(sv.pulseIn, Vex.warnTime + 0.5), false -- (the new one charges in full first)
   end
   sv.moveIn = Vex.moveEvery
 end
@@ -251,7 +265,7 @@ function Vex.serverStep(server, dt)
   end
   for i, r in ipairs(sv.relays) do
     if not r.done then
-      if now - r.lastWork > WORK_GRACE then
+      if now - r.lastWork > Vex.drainAfter and now >= r.holdUntil then
         r.progress = math.max(0, r.progress - Vex.drain * dt)
       end
       if math.abs(r.progress - r.sent) > 0.04 or (r.progress == 0 and r.sent > 0) then
@@ -265,8 +279,14 @@ function Vex.serverStep(server, dt)
     move(server)
   end
   sv.pulseIn = sv.pulseIn - dt
+  if sv.pulseIn <= Vex.warnTime and not sv.warned then
+    sv.warned = true
+    local r = sv.relays[sv.at]
+    r.holdUntil = now + math.max(0, sv.pulseIn) + Vex.holdAfter -- (step out of the tell: it keeps what you had done)
+    server:broadcast(Protocol.encode("VX_CHARGE", sv.at, ("%.2f"):format(math.max(0, sv.pulseIn))))
+  end
   if sv.pulseIn <= 0 then
-    sv.pulseIn = Vex.pulseEvery
+    sv.pulseIn, sv.warned = Vex.pulseEvery, false
     local r = sv.relays[sv.at]
     server:broadcast(Protocol.encode("VX_PULSE", ("%.0f"):format(r.x), ("%.0f"):format(r.y), Vex.pulseRadius))
     local weapons = Features.byName.weapons
@@ -335,6 +355,11 @@ end
 -- Client --------------------------------------------------------------------
 
 local cl = { stage = nil, relays = {}, at = nil, pulses = {}, gone = nil } -- relays [i] = { progress, done }
+local charge = nil -- { relay, left, max } while her relay charges for a pulse
+local inCharge = false -- am I in its reach (the HUD's warning)
+local bolts = {} -- { pts, t, life }: the static in a charge or a pulse, drawn only
+local boltIn = 0
+local whine = nil
 local face = nil
 local near = nil
 local myX, myY = nil, nil -- where I am (update), for the marker over the relay to go for
@@ -348,7 +373,28 @@ function Vex.clear()
     setSolid(map, map.bosses.lock, false)
   end
   cl = { stage = nil, relays = {}, at = nil, pulses = {}, gone = nil }
-  near = nil
+  near, charge, inCharge, bolts = nil, nil, false, {}
+end
+
+--- The whine of her relay charging: a rising buzz the length of the tell.
+function Vex.load()
+  local buf = Synth.newBuffer(Vex.warnTime)
+  buf:sweep(0, Vex.warnTime, 140, 620, { wave = "saw", amp = 0.5 })
+  buf:lowpass(2200)
+  whine = love.audio.newSource(buf:toSoundData(0.7), "static")
+  whine:setAttenuationDistances(300, 2000)
+end
+
+--- A bolt of static from (x, y) out `len` px at `angle`: a jagged line.
+local function bolt(x, y, angle, len, life)
+  local pts, steps = { x, y }, 7
+  local dx, dy = math.cos(angle), math.sin(angle)
+  for i = 1, steps do
+    local d = len * i / steps
+    local j = i < steps and (love.math.random() - 0.5) * len * 0.28 or 0
+    pts[#pts + 1], pts[#pts + 2] = x + dx * d - dy * j, y + dy * d + dx * j
+  end
+  bolts[#bolts + 1] = { pts = pts, t = 0, life = life }
 end
 
 local function relay(i)
@@ -435,13 +481,39 @@ function Vex.update(dt, client)
       table.remove(cl.pulses, i)
     end
   end
-  near = nil
+  for i = #bolts, 1, -1 do
+    local b = bolts[i]
+    b.t = b.t + dt
+    if b.t >= b.life then
+      table.remove(bolts, i)
+    end
+  end
+  if charge then
+    charge.left = charge.left - dt
+    local cm = cityMap()
+    local cr = cm and cm.relays and cm.relays[charge.relay]
+    boltIn = boltIn - dt
+    if cr and boltIn <= 0 then -- the static building: more of it, further out, as the charge fills
+      local k = 1 - math.max(0, charge.left) / charge.max
+      boltIn = 0.14 - 0.1 * k
+      for _ = 1, 1 + math.floor(k * 2.5) do
+        local reach = Vex.pulseRadius * (0.3 + 0.7 * k) * (0.6 + 0.4 * love.math.random())
+        bolt(cr.x, cr.y, love.math.random() * 2 * math.pi, reach, 0.1 + 0.06 * love.math.random())
+      end
+    end
+    if charge.left <= 0 then
+      charge = nil -- (the pulse is due: VX_PULSE)
+    end
+  end
+  near, inCharge = nil, false
   local map = cityMap()
   if cl.stage ~= "on" or not map or not map.relays then
     return
   end
   local x, y = client:myPose()
   myX, myY = x, y
+  local cr = charge and map.relays[charge.relay]
+  inCharge = cr and x and dist2(x, y, cr.x, cr.y) <= Vex.pulseRadius ^ 2 or false
   if x and not client:myVehicle() then
     for i, r in ipairs(map.relays) do
       if not relay(i).done and dist2(x, y, r.x, r.y) <= Vex.reach ^ 2 then
@@ -472,6 +544,19 @@ function Vex.drawBelowCars()
   local cx, cy = map.x0 + map.cols * Layout.TILE / 2, map.y0 + map.rows * Layout.TILE / 2
   local tell = math.floor(clock * 12) % 2 == 0 and MAGENTA or CYAN
   face:draw(cx, cy, 16, tell, { alpha = 0.3, broken = broken() })
+  local r = charge and map.relays[charge.relay]
+  if r then -- her relay charging: its reach, filling in from the middle until it goes
+    local k = 1 - math.max(0, charge.left) / charge.max
+    local flicker = 0.5 + 0.5 * math.abs(math.sin(clock * (10 + 20 * k)))
+    love.graphics.setColor(BLUE[1], BLUE[2], BLUE[3], 0.06 + 0.06 * flicker)
+    love.graphics.circle("fill", r.x, r.y, Vex.pulseRadius, 64)
+    love.graphics.setColor(BLUE[1], BLUE[2], BLUE[3], 0.15 + 0.2 * k)
+    love.graphics.circle("fill", r.x, r.y, Vex.pulseRadius * k, 64)
+    love.graphics.setColor(BLUE[1], BLUE[2], BLUE[3], 0.5 + 0.5 * flicker)
+    love.graphics.setLineWidth(3)
+    love.graphics.circle("line", r.x, r.y, Vex.pulseRadius, 64)
+    love.graphics.setLineWidth(1)
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -496,8 +581,8 @@ local function drawEscape()
   love.graphics.setColor(1, 1, 1)
 end
 
---- The relays: dead and sparking once breached, her green ring round the
---- one she is at, a breach's progress over it, a white arrow bobbing over
+--- The relays: dead and sparking once breached, a red ring breathing round
+--- the one she is at and her face on its screen, a breach's progress over it, a white arrow bobbing over
 --- the one to go for (`Vex.target`); her pulses; the lock.
 function Vex.drawAboveCars()
   local map = cityMap()
@@ -520,11 +605,20 @@ function Vex.drawAboveCars()
         love.graphics.circle("fill", r.x + math.random(-14, 14), r.y + math.random(-14, 14), 1.5, 6)
       end
     else
-      if i == cl.at then
-        love.graphics.setColor(GREEN[1], GREEN[2], GREEN[3], 0.5 + 0.4 * math.abs(math.sin(clock * 3)))
-        love.graphics.setLineWidth(3)
-        love.graphics.circle("line", r.x, r.y, 46, 32)
+      if i == cl.at then -- hers: a red ring breathing round it, her face on its screen
+        local breath = 0.5 + 0.5 * math.sin(clock * 2.2) -- slow, in and out
+        local ring = 42 + 8 * breath
+        love.graphics.setColor(RED[1], RED[2], RED[3], 0.2 * breath) -- a soft halo round it
+        love.graphics.setLineWidth(8)
+        love.graphics.circle("line", r.x, r.y, ring + 4, 40)
+        love.graphics.setColor(RED[1], RED[2], RED[3], 0.4 + 0.5 * breath)
+        love.graphics.setLineWidth(2 + 2 * breath)
+        love.graphics.circle("line", r.x, r.y, ring, 40)
         love.graphics.setLineWidth(1)
+        love.graphics.setColor(0.03, 0.07, 0.05)
+        love.graphics.rectangle("fill", r.x - 24, r.y - 26, 48, 52) -- (inside the relay's 64 px casing)
+        face = face or Face.new()
+        face:draw(r.x, r.y, 0.7, nil)
       end
       if st.progress > 0 then
         UI.ring(r.x, r.y - 52, 10, st.progress, GREEN, 3)
@@ -533,11 +627,21 @@ function Vex.drawAboveCars()
   end
   for _, p in ipairs(cl.pulses) do
     local k = p.t / 0.6
-    love.graphics.setColor(GREEN[1], GREEN[2], GREEN[3], 0.8 * (1 - k))
+    love.graphics.setColor(BLUE[1], BLUE[2], BLUE[3], 0.8 * (1 - k))
     love.graphics.setLineWidth(4)
     love.graphics.circle("line", p.x, p.y, p.r * k, 48)
     love.graphics.setLineWidth(1)
   end
+  for _, b in ipairs(bolts) do -- the static: a blue glow round a white-blue core
+    local a = 1 - b.t / b.life
+    love.graphics.setColor(BLUE[1], BLUE[2], BLUE[3], 0.4 * a)
+    love.graphics.setLineWidth(5)
+    love.graphics.line(b.pts)
+    love.graphics.setColor(SPARK[1], SPARK[2], SPARK[3], 0.95 * a)
+    love.graphics.setLineWidth(1.5)
+    love.graphics.line(b.pts)
+  end
+  love.graphics.setLineWidth(1)
   local s = map.bosses and map.bosses.lock
   if s then -- the lock: green laser bars across the stairs
     love.graphics.setColor(GREEN[1], GREEN[2], GREEN[3], 0.55 + 0.3 * math.abs(math.sin(clock * 6)))
@@ -559,7 +663,12 @@ function Vex.drawNightLights(glow)
     end
   end
   for _, p in ipairs(cl.pulses) do
-    glow(p.x, p.y, p.r * (p.t / 0.6) + 40, GREEN, 0.5 * (1 - p.t / 0.6))
+    glow(p.x, p.y, p.r * (p.t / 0.6) + 40, BLUE, 0.5 * (1 - p.t / 0.6))
+  end
+  local r = charge and map.relays[charge.relay]
+  if r then
+    local k = 1 - math.max(0, charge.left) / charge.max
+    glow(r.x, r.y, 60 + Vex.pulseRadius * k, BLUE, 0.3 + 0.5 * k)
   end
 end
 
@@ -567,15 +676,23 @@ function Vex.drawHUD()
   if cl.gone and cl.gone < ESCAPE then
     drawEscape()
   end
+  local w, h = love.graphics.getDimensions()
+  love.graphics.setFont(UI.fonts.body)
+  if inCharge then -- in her relay's reach as it charges
+    local text = "VEX's relay is charging - get clear!"
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.printf(text, 1, h - 159, w, "center")
+    love.graphics.setColor(MAGENTA[1], MAGENTA[2], MAGENTA[3], 0.6 + 0.4 * math.abs(math.sin(clock * 12)))
+    love.graphics.printf(text, 0, h - 160, w, "center")
+  end
   local st = near and relay(near)
   if not st then
+    love.graphics.setColor(1, 1, 1)
     return
   end
   local key = Controls.name(Controls.bindings("enter-exit")[1])
   local text = st.progress > 0 and ("Breaching the relay... %d%%"):format(math.floor(st.progress * 100))
     or ("VEX's relay.  Hold " .. key .. ": breach it" .. (near == cl.at and "  (she's here: slow going)" or ""))
-  local w, h = love.graphics.getDimensions()
-  love.graphics.setFont(UI.fonts.body)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf(text, 1, h - 129, w, "center")
   love.graphics.setColor(GREEN)
@@ -602,6 +719,22 @@ Vex.clientMessages = {
   end,
   VX_AT = function(_client, args)
     cl.at = tonumber(args[1])
+    charge = nil -- (she moved: any charge was the old relay's)
+  end,
+  VX_CHARGE = function(_client, args)
+    local i, secs = tonumber(args[1]), tonumber(args[2])
+    local map = cityMap()
+    local r = map and map.relays and i and map.relays[i]
+    if r and secs then
+      charge = { relay = i, left = secs, max = math.max(secs, 0.01) }
+      if whine then
+        local s = whine:clone()
+        s:setPosition(r.x, 0, r.y)
+        s:setVolume(0.7 * Audio.volume("weapons"))
+        s:seek(math.max(0, Vex.warnTime - secs))
+        s:play()
+      end
+    end
   end,
   VX_PROG = function(_client, args)
     local i, p = tonumber(args[1]), tonumber(args[2])
@@ -626,7 +759,11 @@ Vex.clientMessages = {
     local x, y, r = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
     if x and y and r then
       cl.pulses[#cl.pulses + 1] = { x = x, y = y, r = r, t = 0 }
+      for i = 1, 10 do -- the static let go, out to the edge
+        bolt(x, y, (i + love.math.random()) * 2 * math.pi / 10, r * (0.8 + 0.2 * love.math.random()), 0.25)
+      end
     end
+    charge = nil
   end,
 }
 
