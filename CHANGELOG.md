@@ -53,6 +53,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Refinery is now a dark smelting hall lit by its molten river, which flows: bridge cranes run the length of it
   carrying glowing ladles, a casting pit sits by the outflow, steam vents puff, the banks are railed and hazard
   striped, and beacons mark every bridge.
+- The Assembly Line is now a working factory floor under strip lights: hauler parts riding the belts, welding arms
+  swinging in with sparks flying, presses stamping, a bridge crane carrying finished haulers up the line, scrap pits,
+  painted aisles and beacons at the belt ends.
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.

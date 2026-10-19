@@ -580,13 +580,11 @@ function DRAW.belt(s)
   hazard(s.x, s.y + s.h, s.w, 8)
 end
 
+--- An assembly arm's base (the arm itself swings and welds: borderline/works.lua).
 function DRAW.arm(s)
   blob(s.x, s.y, s.w, s.h, C.yellow)
   color(INK)
-  love.graphics.setLineWidth(12)
-  local a = hash(s.seed or 1) * math.pi * 2
-  love.graphics.line(s.x + s.w / 2, s.y + s.h / 2, s.x + s.w / 2 + math.cos(a) * 60, s.y + s.h / 2 + math.sin(a) * 60)
-  love.graphics.setLineWidth(1)
+  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.22, 10)
 end
 
 function DRAW.press(s)
@@ -778,12 +776,19 @@ function DRAW.pit(s)
     love.graphics.rectangle("fill", s.x + inset, s.y + inset, s.w - 2 * inset, s.h - 2 * inset)
   end
   local h = hash(s.seed or 1)
-  color(C.window, 0.7) -- a puddle down there, catching the light
-  love.graphics.ellipse("fill", s.x + s.w * (0.35 + h * 0.3), s.y + s.h * 0.6, s.w * 0.12, s.h * 0.06, 16)
-  color(C.rock)
-  for i = 1, 5 do
-    love.graphics.circle("fill", s.x + s.w * (0.3 + hash(h + i) * 0.4), s.y + s.h * (0.3 + hash(h * 3 + i) * 0.4),
-      6 + hash(i + h) * 8, 8)
+  if s.scrap then -- a heap of rejected hauler parts down there
+    for i = 1, 14 do
+      local px, py = s.x + s.w * (0.2 + hash(h + i) * 0.6), s.y + s.h * (0.2 + hash(h * 3 + i) * 0.6)
+      box(px - 10, py - 7, 20 + hash(i) * 14, 14, i % 3 == 0 and C.gunmetalLight or C.yellowDark)
+    end
+  else
+    color(C.window, 0.7) -- a puddle down there, catching the light
+    love.graphics.ellipse("fill", s.x + s.w * (0.35 + h * 0.3), s.y + s.h * 0.6, s.w * 0.12, s.h * 0.06, 16)
+    color(C.rock)
+    for i = 1, 5 do
+      love.graphics.circle("fill", s.x + s.w * (0.3 + hash(h + i) * 0.4), s.y + s.h * (0.3 + hash(h * 3 + i) * 0.4),
+        6 + hash(i + h) * 8, 8)
+    end
   end
   -- The lip, hazard striped, and the railing posts round it.
   hazard(s.x, s.y, s.w, 12)

@@ -20,8 +20,9 @@
 --   refinery    The Refinery: indoors and dark, a river of molten Bragium
 --               snaking across the floor, crossed by bridges, tanks and
 --               pipes, bridge cranes overhead, a casting pit, steam vents
---   assembly    The Assembly Line: the factory floor, conveyor belts across
---               it, assembly arms and presses, the Foreman's floor on top
+--   assembly    The Assembly Line: the factory floor, dim, conveyor belts
+--               carrying hauler parts across it, welding arms and presses
+--               at work, scrap pits, a bridge crane, the Foreman's floor
 --   cuts        Thousand Papercuts: a narrow road winding up a cliff, the
 --               drop on its west side, the rock on its east, the bunker's
 --               door at the top
@@ -65,12 +66,16 @@
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
 --   map.flows             { x, y, w, h, dir } the river's runs, flowing (the Refinery; works.lua)
 --   map.steam             { x, y, phase } floor vents letting off steam (the Refinery; works.lua)
---   map.bridgecranes      { x0, x1, y0, y1, period, phase } overhead cranes spanning x0..x1, running up and
---                         down y0..y1 with a ladle of molten Bragium (the Refinery; works.lua)
+--   map.bridgecranes      { x0, x1, y0, y1, period, phase, load } overhead cranes spanning x0..x1, running up
+--                         and down y0..y1 with a ladle of molten Bragium (the Refinery), or a finished
+--                         hauler with `load` "hauler" (the Assembly Line; works.lua)
+--   map.arms              { x, y, side, phase } assembly arms welding over a belt (the Assembly Line; works.lua)
+--   map.presses           { x, y, w, h, phase } presses stamping (the Assembly Line; works.lua)
 --   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
---   map.conveyors         { x, y, w, h, dir } conveyors carrying ore ("n", "e", "s" or "w"), world px (the Pit)
+--   map.conveyors         { x, y, w, h, dir, cargo } conveyors running ("n", "e", "s" or "w"), world px,
+--                         carrying ore (the Pit) or with `cargo` "parts" hauler parts (the Assembly Line)
 --   map.gantries          { x, y, span, depth, reach, period, phase } the quay's gantry cranes (Liar's
 --                         Landing): the portal `span` wide and `depth` deep round (x, y), its boom `reach`
 --                         px out north over the water, its trolley running out and in every `period` s
@@ -889,9 +894,13 @@ end
 Borderline.BELT_ROWS = { 58, 46, 34, 22 }
 Borderline.UPPER = { 3, 12 }
 
+-- The scrap pits beside the line (tiles), where the rejects go.
+Borderline.SCRAP_PITS = { { 2.2, 49, 4.6, 6 }, { 49.4, 26, 4.6, 6 } }
+
 local function buildAssembly(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "plant"
+  map.beacons, map.conveyors, map.arms, map.presses, map.bridgecranes = {}, {}, {}, {}, {}
   local w = map.cols
   b:open(2, 2, w - 3, map.rows - 3)
   b:open(25, map.rows - 2, 30, map.rows - 1) -- the way in
@@ -904,24 +913,58 @@ local function buildAssembly(map, rng, T)
   b:place("ledge", 6, edge, w - 12, 0.4)
   b:place("stairs", 2, edge - 0.5, 4, 1.5, { flat = true })
   b:place("stairs", w - 6, edge - 0.5, 4, 1.5, { flat = true })
-  for _, r in ipairs(Borderline.BELT_ROWS) do
-    b:place("belt", 6, r, w - 12, 2, { flat = true })
-    -- Assembly arms either side of the belt, presses and booths between the belts.
+  for i, r in ipairs(Borderline.BELT_ROWS) do
+    local belt = b:place("belt", 6, r, w - 12, 2, { flat = true })
+    -- Hauler parts ride it (works.lua), each belt the other way from the last.
+    map.conveyors[#map.conveyors + 1] = { x = belt.x, y = belt.y, w = belt.w, h = belt.h,
+      dir = i % 2 == 1 and "e" or "w", cargo = "parts" }
+    map.beacons[#map.beacons + 1] = { x = b:x(5.6), y = b:y(r + 1), color = "amber" }
+    map.beacons[#map.beacons + 1] = { x = b:x(w - 5.6), y = b:y(r + 1), color = "amber" }
+    b:place("laneline", 3, r - 2.4, w - 6, 0.12, { flat = true }) -- the aisle's walkway line
+    -- Assembly arms either side of the belt, welding (they move: works.lua),
+    -- presses and booths between the belts.
     for c = 9, w - 10, 9 do
-      b:place("arm", c + rng:random() * 2, r - 1.2, 1, 1, { round = true, seed = rng:random(1000) })
-      b:place("arm", c + rng:random() * 2 + 3, r + 2.2, 1, 1, { round = true, seed = rng:random(1000) })
+      for _, side in ipairs({ -1, 1 }) do
+        local ac, ar = c + rng:random() * 2 + (side > 0 and 3 or 0), side < 0 and r - 1.2 or r + 2.2
+        local arm = b:place("arm", ac, ar, 1, 1, { round = true, seed = rng:random(1000) })
+        map.arms[#map.arms + 1] = { x = arm.x + arm.w / 2, y = arm.y + arm.h / 2, side = side,
+          phase = rng:random() * 6 }
+      end
     end
     local mid = r + 6
     if mid < map.rows - 6 then
-      b:place("press", 8 + rng:random(0, 6), mid, 3, 2)
+      local press = b:place("press", 8 + rng:random(0, 6), mid, 3, 2)
+      map.presses[#map.presses + 1] = { x = press.x, y = press.y, w = press.w, h = press.h, phase = rng:random() * 3 }
       b:place("booth", w - 18 + rng:random(0, 6), mid - 0.5, 4, 3)
     end
   end
+  -- The scrap pits, the bridge crane carrying finished haulers up the line.
+  for _, sp in ipairs(Borderline.SCRAP_PITS) do
+    b:place("pit", sp[1], sp[2], sp[3], sp[4], { water = true, seed = rng:random(1000), scrap = true })
+    b:place("paint", sp[1] - 0.5, sp[2] + sp[4] + 0.1, sp[3] + 1, 0.8, { flat = true, text = "SCRAP", small = true })
+    map.beacons[#map.beacons + 1] = { x = b:x(sp[1]), y = b:y(sp[2]), color = "red" }
+  end
+  map.bridgecranes[1] = { x0 = b:x(2), x1 = b:x(w - 2), y0 = b:y(16), y1 = b:y(62), period = 40, phase = 1,
+    load = "hauler" }
+  -- Strip lights over the aisles, lamps on the Foreman's floor, beacons at the stairs and the bay.
+  for _, r in ipairs({ 52, 40, 28, 16, 64 }) do
+    for c = 6, w - 6, 8 do
+      map.lights[#map.lights + 1] = { x = b:x(c), y = b:y(r), r = 280, color = { 0.85, 0.9, 1 }, a = 0.6 }
+    end
+  end
+  for c = 8, w - 8, 10 do
+    map.lights[#map.lights + 1] = { x = b:x(c), y = b:y(7), r = 300, color = { 1, 0.85, 0.6 }, a = 0.6 }
+  end
+  for _, at in ipairs({ { 2, edge - 0.5 }, { 6, edge - 0.5 }, { w - 6, edge - 0.5 }, { w - 2, edge - 0.5 },
+    { 23.5, 2.5 }, { 32.5, 2.5 } }) do
+    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
+  end
   b:place("pad", 3, 38, 5, 5, { flat = true, round = true }) -- the Fabricators' pads
   b:place("pad", w - 8, 38, 5, 5, { flat = true, round = true })
-  b:scatter(rng, "crate", 16, 48, 3, map.rows - 6,
-    { { 22, map.rows - 7, 33, map.rows - 1 }, { 22, 0, 33, 4 }, { 2, 37, 8, 44 }, { w - 9, 37, w - 3, 44 },
-      { 2, edge - 1, 6, edge + 1 }, { w - 6, edge - 1, w - 2, edge + 1 } })
+  local keep = { { 22, map.rows - 7, 33, map.rows - 1 }, { 22, 0, 33, 4 }, { 2, 37, 8, 44 }, { w - 9, 37, w - 3, 44 },
+    { 2, edge - 1, 6, edge + 1 }, { w - 6, edge - 1, w - 2, edge + 1 } }
+  b:scatter(rng, "crate", 16, 48, 3, map.rows - 6, keep)
+  b:scatter(rng, "drum", 10, 40, 3, map.rows - 6, keep)
   -- The line's guards: gun haulers in the aisles between the belts, a squad
   -- down the middle one, kamikazes, a dozer at the foot of the Foreman's
   -- floor, and up on it a badass and two sentries.

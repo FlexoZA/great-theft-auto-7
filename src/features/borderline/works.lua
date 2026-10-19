@@ -12,7 +12,11 @@
 -- chimneys smoking (`map.stacks`) and pipe bridges across the avenue
 -- (`map.overpipes`); and in the Refinery, the molten river flowing
 -- (`map.flows`), steam venting from the floor (`map.steam`) and the bridge
--- cranes running the hall with their ladles (`map.bridgecranes`). Scenery only: nothing here is on the host
+-- cranes running the hall with their ladles (`map.bridgecranes`); and on
+-- the Assembly Line, hauler parts riding the belts (`map.conveyors` with
+-- `cargo` "parts"), the arms swinging in to weld with sparks flying
+-- (`map.arms`), the presses stamping (`map.presses`) and a finished hauler
+-- carried up the line by the bridge crane (`load` "hauler"). Scenery only: nothing here is on the host
 -- or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
@@ -69,10 +73,22 @@ local function drawOre(map)
       local x = along and c.x + d or c.x + c.w / 2
       local y = along and c.y + c.h / 2 or c.y + d
       local r = (along and c.h or c.w) * 0.32
-      love.graphics.setColor(C.ink)
-      love.graphics.circle("fill", x, y, r + 1.5, 6)
-      love.graphics.setColor(C.plasma)
-      love.graphics.circle("fill", x, y, r, 6)
+      if c.cargo == "parts" then -- a torso, then a pair of legs, then an arm
+        local kind = math.floor(a / ORE_GAP) % 3
+        love.graphics.setColor(C.ink)
+        love.graphics.rectangle("fill", x - r - 2, y - r * 0.8 - 2, 2 * r + 4, 1.6 * r + 4, 4)
+        love.graphics.setColor(kind == 0 and C.yellow or C.gunmetalLight)
+        love.graphics.rectangle("fill", x - r, y - r * 0.8, 2 * r, 1.6 * r, 3)
+        if kind == 0 then
+          love.graphics.setColor(C.eye) -- its eye, not lit yet
+          love.graphics.circle("fill", x + r * 0.4, y, r * 0.3, 10)
+        end
+      else
+        love.graphics.setColor(C.ink)
+        love.graphics.circle("fill", x, y, r + 1.5, 6)
+        love.graphics.setColor(C.plasma)
+        love.graphics.circle("fill", x, y, r, 6)
+      end
     end
   end
 end
@@ -334,13 +350,17 @@ local function drawBridgeCrane(c)
   local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
   love.graphics.setColor(0, 0, 0, 0.2)
   love.graphics.rectangle("fill", c.x0 + LIFT, y - 20 + LIFT * 2, c.x1 - c.x0, 40)
-  -- The ladle first: glowing, under the trolley.
-  love.graphics.setColor(C.ink)
-  love.graphics.circle("fill", tx, y + 6, 22, 18)
-  love.graphics.setColor(C.gunmetal)
-  love.graphics.circle("fill", tx, y + 6, 19, 18)
-  love.graphics.setColor(C.plasmaHot)
-  love.graphics.circle("fill", tx, y + 6, 13 + math.sin(clock * 6) * 1.5, 16)
+  -- Its load first, under the trolley: a ladle glowing, or a finished hauler.
+  if c.load == "hauler" then
+    Hauler.draw({ dx = tx, dy = y + 10, facing = math.pi / 2, code = "GUN", stride = 0 }, clock)
+  else
+    love.graphics.setColor(C.ink)
+    love.graphics.circle("fill", tx, y + 6, 22, 18)
+    love.graphics.setColor(C.gunmetal)
+    love.graphics.circle("fill", tx, y + 6, 19, 18)
+    love.graphics.setColor(C.plasmaHot)
+    love.graphics.circle("fill", tx, y + 6, 13 + math.sin(clock * 6) * 1.5, 16)
+  end
   truss(c.x0, y - 14, c.x1, y - 14, 14)
   truss(c.x0, y + 14, c.x1, y + 14, 14)
   for _, x in ipairs({ c.x0 + 6, c.x1 - 26 }) do -- the end carriages on their rails
@@ -355,6 +375,55 @@ local function drawBridgeCrane(c)
   love.graphics.rectangle("fill", tx - 19, y - 19, 38, 38)
   love.graphics.setColor(C.yellow)
   love.graphics.rectangle("fill", tx - 19, y - 19, 38, 6)
+end
+
+--- Where arm `a`'s torch is now, and whether it is down on the belt welding.
+local function armPose(a)
+  local t = clock * 0.9 + a.phase
+  local reach = ease(t * 2) -- in to the belt and back out
+  local ang = (a.side < 0 and math.pi / 2 or -math.pi / 2) + math.sin(t) * 0.6
+  local len = 40 + 40 * reach
+  return a.x + math.cos(ang) * len, a.y + math.sin(ang) * len - LIFT * 0.5, reach > 0.85
+end
+
+--- An assembly arm: swinging in over the belt, welding there in a shower of sparks.
+local function drawArm(a)
+  local tx, ty, welding = armPose(a)
+  local ex, ey = (a.x + tx) / 2, (a.y + ty) / 2 - 14 -- the elbow, up
+  for pass = 1, 2 do
+    love.graphics.setColor(pass == 1 and C.ink or C.yellow)
+    love.graphics.setLineWidth(pass == 1 and 11 or 7)
+    love.graphics.line(a.x, a.y, ex, ey, tx, ty)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(C.ink)
+  love.graphics.circle("fill", ex, ey, 6, 10)
+  love.graphics.setColor(C.gunmetal)
+  love.graphics.circle("fill", tx, ty, 5, 10)
+  if welding then
+    love.graphics.setColor(C.arcHot)
+    love.graphics.circle("fill", tx, ty, 4, 8)
+    love.graphics.setColor(C.flame)
+    for k = 0, 5 do -- sparks flying off the weld
+      local sa = clock * 37 + k * 1.9 + a.phase
+      local sr = 8 + ((clock * 5 + k * 0.3) % 1) * 22
+      love.graphics.circle("fill", tx + math.cos(sa) * sr, ty + math.sin(sa) * sr, 1.6, 4)
+    end
+  end
+end
+
+--- A press: its head coming down and going back up.
+local function drawPress(p)
+  local k = math.max(0, math.sin(clock * 2.4 + p.phase)) ^ 3 -- 1 when slammed down
+  local up = (1 - k) * LIFT
+  love.graphics.setColor(0, 0, 0, 0.25 * (1 - k))
+  love.graphics.rectangle("fill", p.x + 10, p.y + 10, p.w - 20, p.h - 20)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", p.x + 6, p.y + 6 - up, p.w - 12, p.h - 12)
+  love.graphics.setColor(C.gunmetalLight)
+  love.graphics.rectangle("fill", p.x + 9, p.y + 9 - up, p.w - 18, p.h - 18)
+  love.graphics.setColor(C.yellow)
+  love.graphics.rectangle("fill", p.x + 9, p.y + 9 - up, p.w - 18, 8)
 end
 
 local function drawBeacon(b)
@@ -383,6 +452,12 @@ function Works.drawAboveCars(map)
   end
   for _, h in ipairs(map.headframes or {}) do
     drawHeadframe(h)
+  end
+  for _, p in ipairs(map.presses or {}) do
+    drawPress(p)
+  end
+  for _, a in ipairs(map.arms or {}) do
+    drawArm(a)
   end
   for _, v in ipairs(map.steam or {}) do
     drawSteam(v)
@@ -416,9 +491,17 @@ function Works.drawNightLights(map, glow)
     glow(h.x, h.y - LIFT * 1.4, 110, { 1, 0.85, 0.6 }, 0.5) -- the lamps on the headframe
   end
   for _, c in ipairs(map.bridgecranes or {}) do -- the ladle's glow, moving with it
-    local y = c.y0 + (c.y1 - c.y0) * ease(2 * math.pi * clock / c.period + c.phase) - LIFT
-    local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
-    glow(tx, y + 6, 220, C.plasma, 0.8)
+    if c.load ~= "hauler" then
+      local y = c.y0 + (c.y1 - c.y0) * ease(2 * math.pi * clock / c.period + c.phase) - LIFT
+      local tx = c.x0 + 120 + (c.x1 - c.x0 - 240) * ease(2 * math.pi * clock / (c.period * 0.37) + c.phase)
+      glow(tx, y + 6, 220, C.plasma, 0.8)
+    end
+  end
+  for _, a in ipairs(map.arms or {}) do -- a weld lights up round it
+    local tx, ty, welding = armPose(a)
+    if welding then
+      glow(tx, ty, 90, C.arcHot, 0.7 + 0.3 * math.sin(clock * 40 + a.phase))
+    end
   end
   for _, g in ipairs(map.gantries or {}) do
     local top = g.y - LIFT - g.depth / 2

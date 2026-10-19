@@ -207,9 +207,9 @@ CityMap.maps = {
     title = "The Refinery", kind = "refinery", seed = 305, cols = 48, rows = 80,
     crowd = false, traffic = false, vehicles = false, night = { 0.42, 0.38, 0.52 },
   },
-  assembly = {
+  assembly = { -- indoors under strip lights
     title = "The Assembly Line", kind = "assembly", seed = 306, cols = 56, rows = 72,
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.52, 0.60 },
   },
   cuts = {
     title = "Thousand Papercuts", kind = "cuts", seed = 307, cols = 28, rows = 140,

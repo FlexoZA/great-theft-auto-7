@@ -329,7 +329,7 @@ its set piece is done; the objective line says what's left.
   (moving: `borderline/works.lua`), emergency beacons turning, and painted
   safety lines, walkways, zebra crossings, cones and drums. Done so far on
   the Frozen Wreck, Liar's Landing, the Bragium Pit, Prosperity and the
-  Refinery (indoors, dark rather than dusk).
+  Refinery and the Assembly Line (indoors, dark rather than dusk).
 - Each map gets its own theme music: twangy frontier guitar over a
   synth beat, faster the closer you get to the bunker.
 
@@ -447,7 +447,17 @@ the map, catwalks over it, smelting tanks, pipes.
 - **Smelter** at the outflow, the top of the map.
 - **The end:** a freight door past the Smelter. EXIT: "THE ASSEMBLY LINE".
 
-### 6. The Assembly Line (`assembly`, 56x72)
+### 6. The Assembly Line (`assembly`, 56x72, under strip lights)
+
+The factory floor at work: hauler parts (torsos with their eyes not lit
+yet, legs, arms) ride the belts, each belt the other way from the last
+(works.lua's `conveyors` with `cargo` "parts"); the arms either side
+swing in to weld, sparks flying (`arms`); the presses stamp (`presses`);
+a bridge crane carries a finished hauler up and down the line
+(`bridgecranes` with `load` "hauler"). Scrap pits full of rejected parts
+on either side, a walkway line painted down each aisle, beacons at the
+belt ends, the stairs and the shipping bay.
+
 
 The factory floor: conveyor belts (a moving floor, the same piece Eternal
 Mood's Foundry wants) carrying robots in pieces, assembly arms, paint
