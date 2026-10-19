@@ -134,28 +134,21 @@ function Explosions.update(dt)
     end
   end
 
-  i = 1
-  while i <= #Explosions.impacts do
-    local e = Explosions.impacts[i]
+  for k = #Explosions.impacts, 1, -1 do -- backwards, so a removal skips nothing
+    local e = Explosions.impacts[k]
     e.t = e.t + dt
     step(e.sparks, dt)
     step(e.dust, dt)
     step(e.chips, dt)
     if #e.sparks == 0 and #e.dust == 0 and #e.chips == 0 then
-      table.remove(Explosions.impacts, i)
-    else
-      i = i + 1
+      table.remove(Explosions.impacts, k)
     end
   end
-
-  i = 1
-  while i <= #Explosions.marks do
-    local m = Explosions.marks[i]
+  for k = #Explosions.marks, 1, -1 do
+    local m = Explosions.marks[k]
     m.t = m.t - dt
     if m.t <= 0 then
-      table.remove(Explosions.marks, i)
-    else
-      i = i + 1
+      table.remove(Explosions.marks, k)
     end
   end
 
