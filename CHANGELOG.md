@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- Your own shots go where you aim again while your MG nest is firing: its sweep no longer bends them (a breached
+  Cyber Feud turret did the same).
+
 ## [0.35.0] - 2026-10-19
 
 Finishing a job now ends on a victory screen with your stats, and the EXIT star keeps clear of a fallen boss's loot.
