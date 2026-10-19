@@ -45,8 +45,10 @@ branch off `feature/cyber-feud`):
   and runs 540 px/s for 0.9 s down it (40 `impact` and a 140 px shove);
   into a wall he reels for 1 s. Slam: within 170 px he hops (0.5 s) and a
   ring of shock rolls out to 230 px at 520 px/s (26 `shock`, a stun). Whip:
-  within 380 px, after a 0.45 s crackle, lightning to whoever he sees and
-  on to the next player within 170 px, up to three (22 `shock` each).
+  within 380 px he sets a line on whoever he sees (a flickering cyan line
+  from his fist, 0.5 s), then lightning goes down it into the first player
+  within 18 px of it and on to the next player within 170 px, up to three
+  (22 `shock` each); step off the line and it misses.
   Punch up close (30 `impact`). After every 4 moves he vents for 3 s (hits
   count double). Phase 2 at half health: charges back to back (0.8 s apart,
   a 0.45 s brace), the slam rolls to 330 px, venting every 6 moves for
@@ -131,15 +133,17 @@ branch off `feature/cyber-feud`):
   four relays: hold F within 75 px for 5 s (VX_WORK/VX_PROG; draining at
   0.4 a second). She sits at one (VX_AT): there it goes at half pace and
   every 4 s a shock ring pulses out 190 px (18 `shock`, VX_PULSE); every
-  11 s, or when hers falls, she moves to the relay furthest along. Each
+  20 s, or when hers falls, she moves to the relay furthest along. Each
   relay lost breaks her face up more (slipped slices, missing frames, her
   colour dropping) and gets a line (Story.beats `roof.vexLock`,
   `roof.vex1`-`3`). On the last she gets away: on every screen her face
   shrinks to a green pixel that streaks off the right edge, the barrier
   and her turrets go, and init.lua completes the quest (the HOME star on
   the helipad) with `roof.end`'s "Nothing personal, courier." While she is
-  up the helipad doesn't finish the level, and the objective line counts
-  the relays left, pointing at the nearest.
+  up the helipad doesn't finish the level, and the objective line names
+  the relay to go for by its corner ("breach the top-left relay", one under
+  way first, else the nearest, hers last) with the relays left and the
+  distance, and a white arrow bobs over it (`Vex.target`).
 - Brutes up the Roof's stairs (`feature/cyber-feud-roof-brutes`,
   kilowatt.lua's `callHelp`, `map.bosses.stairs` and `map.bosses.beat` in
   `buildRoof`): while Kilowatt fights, a brute comes up the stairs at the
@@ -679,8 +683,9 @@ paid for it.
   line (`impact`). He can't turn once started; side-step it.
 - **Ground slam**: a hop and a slam, with a cyan ring of shock rolling out
   (`shock`; jumping it isn't a thing, so be out of reach).
-- **Arc whip**: a crackling line from his fist to a target and on to anyone
-  near them (`shock`, chains up to 3).
+- **Arc whip**: a crackling line set from his fist, then lightning down it
+  into whoever is still on it and on to anyone near them (`shock`, chains
+  up to 3).
 - **Venting**: after every few attacks his chest cage opens and he stands
   steaming for 3 s. Hits on his reactor then do double damage. This is the
   window.

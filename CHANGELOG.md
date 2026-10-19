@@ -14,6 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Kilowatt's arc whip (Cyber Feud, the Roof) now shows a flickering line from his fist for 0.5 s (was a 0.45 s
+  crackle you could barely see) and only hits whoever is still on that line: step off it and it misses.
+- Kilowatt's slam now marks how far its shock ring will roll (230 px, 330 px in phase 2) while he is in the air.
+- The Hunters' stun shot now shows a line where it will go while they charge, and goes down that line: step off it.
+- VEX on the Roof stays at a relay for 20 s before moving to another (was 11 s).
+- On the Roof the objective line now names the relay to breach ("breach the top-left relay"), steering you away from
+  the one VEX is guarding, and a white arrow hovers over it.
+
 ## [0.33.0] - 2026-10-18
 
 Jobs unlock one at a time and come back harder every time you finish them, and Crazy Karen drops an uzi.

@@ -83,7 +83,8 @@ Kilowatt.SLAM_DAMAGE = 26 -- shock: enough to stun (damage's stunMin is 20)
 Kilowatt.SLAM_EVERY = 6
 Kilowatt.SLAM_COST = 15
 Kilowatt.WHIP_RANGE = 380 -- px
-Kilowatt.WHIP_WIND = 0.45 -- seconds his fist crackles first
+Kilowatt.WHIP_WIND = 0.5 -- seconds his fist crackles and the line shows first (the tell)
+Kilowatt.WHIP_WIDTH = 18 -- px either side of the line it hits
 Kilowatt.WHIP_EVERY = 4.5
 Kilowatt.WHIP_DAMAGE = 22 -- shock, each it reaches
 Kilowatt.WHIP_HITS = 3 -- players at most down the chain
@@ -484,7 +485,7 @@ function Kilowatt.update(dt)
   end
 end
 
---- Under everyone: a bracing charge's line, the slam's rings and patches, his shadow.
+--- Under everyone: a bracing charge's line, a whip's line, the slam's reach, its rings and patches, his shadow.
 function Kilowatt.drawBelowCars()
   for _, p in ipairs(patches) do -- crackling cyan on the ground
     local fade = math.min(1, (p.max - p.t) / 0.5)
@@ -521,9 +522,24 @@ function Kilowatt.drawBelowCars()
     love.graphics.line(shown.dx, shown.dy, ex, ey)
     love.graphics.setLineWidth(1)
   end
-  if shown.action == 3 then -- where he'll come down
-    love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.35)
-    love.graphics.circle("line", shown.dx, shown.dy, Kilowatt.SLAM_REACH, 48)
+  if shown.action == 3 then -- how far the ring will roll when he comes down
+    local pulse = 0.5 + 0.5 * math.abs(math.sin(clock * 16))
+    love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.3 + 0.3 * pulse)
+    love.graphics.setLineWidth(2)
+    local r = shown.phase2 and Kilowatt.SLAM_RADIUS_2 or Kilowatt.SLAM_RADIUS
+    love.graphics.circle("line", shown.dx, shown.dy, r, 64)
+    love.graphics.setLineWidth(1)
+  end
+  if shown.action == 4 then -- the whip's line, flickering: get off it
+    local ex, ey = Sight.reach(shown.dx, shown.dy, shown.aim, Kilowatt.WHIP_RANGE)
+    local pulse = 0.5 + 0.5 * math.abs(math.sin(clock * 24))
+    love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], 0.12 + 0.18 * pulse)
+    love.graphics.setLineWidth(Kilowatt.WHIP_WIDTH * 2)
+    love.graphics.line(shown.dx, shown.dy, ex, ey)
+    love.graphics.setColor(HOT[1], HOT[2], HOT[3], 0.5 + 0.5 * pulse)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(shown.dx, shown.dy, ex, ey)
+    love.graphics.setLineWidth(1)
   end
   local lift = shown.lift or 0
   love.graphics.setColor(0, 0, 0, 0.35)
@@ -537,7 +553,7 @@ local function drawHim(k)
   love.graphics.translate(k.dx, k.dy - (k.lift or 0))
   love.graphics.scale(SCALE)
   local walk = k.action == 0 and math.sin(k.stride * 0.12) * 1.3 or 0
-  local angle = k.action == 1 and k.aim or k.facing
+  local angle = (k.action == 1 or k.action == 4) and k.aim or k.facing
   Body.person(0, 0, angle, walk, LOOK)
   love.graphics.rotate(angle)
   love.graphics.setColor(CHROME)
