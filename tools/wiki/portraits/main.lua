@@ -39,7 +39,7 @@ local Scenes = require("tools.wiki.scenes")
 local OUT = 320 -- px, a portrait's side
 local BG = { 0.86, 0.85, 0.82 }
 local SPAN = 160 -- px across at most for anything smaller than its radius says
-local INK = 0.18 -- how far from the ground a pixel's colour must be to be part of something
+local SOLID = 0.25 -- how opaque a pixel must be to be part of something (faint cones and glows aren't)
 local NEAR = 140 -- px from the enemy the player is put, so it is synced and in view
 
 local function log(fmt, ...)
@@ -50,11 +50,15 @@ end
 -- The feature's own world drawing, centred on (x, y) at `zoom`, into `canvas`.
 local BOTH, ABOVE = { "drawBelowCars", "drawAboveCars" }, { "drawAboveCars" }
 
-local function drawAt(game, feature, x, y, zoom, canvas, draw, hooks)
+local function drawAt(game, feature, x, y, zoom, canvas, draw, hooks, bg, seed)
   local w, h = canvas:getDimensions()
+  -- The same dice every time, so the same frame draws the same on any ground
+  -- (a crackling arc, sparks).
+  math.randomseed(seed)
+  love.math.setRandomSeed(seed)
   love.graphics.push("all")
   love.graphics.setCanvas(canvas)
-  love.graphics.clear(BG[1], BG[2], BG[3], 1)
+  love.graphics.clear(bg[1], bg[2], bg[3], 1)
   love.graphics.translate(w / 2, h / 2)
   love.graphics.scale(zoom)
   love.graphics.translate(-x, -y)
@@ -87,24 +91,39 @@ local function drawAt(game, feature, x, y, zoom, canvas, draw, hooks)
   love.graphics.pop()
 end
 
---- A shadow's grey (a flying thing's falls away from it): not where to start.
-local function shadowy(data, x, y)
-  local r, g, b = data:getPixel(x, y)
+--- The same drawing on black and on white, as image data, (w x h).
+local function onBlackAndWhite(w, h, msaa, paint)
+  local out = {}
+  for i, bg in ipairs({ { 0, 0, 0 }, { 1, 1, 1 } }) do
+    local canvas = love.graphics.newCanvas(w, h, { msaa = msaa })
+    paint(canvas, bg)
+    out[i] = canvas:newImageData()
+    canvas:release()
+  end
+  return out[1], out[2]
+end
+
+--- A shadow's grey (a flying thing's falls away from it), on white: not where to start.
+local function shadowy(white, x, y)
+  local r, g, b = white:getPixel(x, y)
   return math.abs(r - g) < 0.05 and math.abs(g - b) < 0.07 and r > 0.4 and r < 0.8
 end
 
-local function inked(data, x, y)
-  local r, g, b = data:getPixel(x, y)
-  -- Faint things (sight cones, glows) don't count, or they join everything up.
-  return math.abs(r - BG[1]) + math.abs(g - BG[2]) + math.abs(b - BG[3]) > INK
+--- Painted there, not a faint glow over the ground: it comes out the same on
+--- black as on white, whatever its colour (a pixel `a` opaque differs by 1 - a).
+local function inked(black, white, x, y)
+  local r0, g0, b0 = black:getPixel(x, y)
+  local r1, g1, b1 = white:getPixel(x, y)
+  return (r1 - r0) + (g1 - g0) + (b1 - b0) <= 3 * (1 - SOLID)
 end
 
---- The shape the enemy is in `data`: every drawn pixel joined (8 ways) to
---- the drawn pixel nearest the centre, looking no further than `reach` px
---- out for it. Its health bar, a speech bubble, a neighbour are other
---- shapes and are left out. Returns the set (y * w + x -> true) and its box.
-local function shape(data, reach)
-  local w, h = data:getDimensions()
+--- The shape the enemy is in a drawing (`black`, `white`): every painted
+--- pixel joined (8 ways) to the painted pixel nearest the centre, looking no
+--- further than `reach` px out for it. Its health bar, a speech bubble, a
+--- neighbour are other shapes and are left out. Returns the set
+--- (y * w + x -> true) and its box.
+local function shape(black, white, reach)
+  local w, h = black:getDimensions()
   local cx, cy = math.floor(w / 2), math.floor(h / 2)
   local sx, sy
   for r = 0, math.floor(reach) do
@@ -112,7 +131,7 @@ local function shape(data, reach)
       for dx = -r, r do
         if (math.abs(dx) == r or math.abs(dy) == r) and not sx then
           local x, y = cx + dx, cy + dy
-          if x >= 0 and y >= 0 and x < w and y < h and inked(data, x, y) and not shadowy(data, x, y) then
+          if x >= 0 and y >= 0 and x < w and y < h and inked(black, white, x, y) and not shadowy(white, x, y) then
             sx, sy = x, y
           end
         end
@@ -135,7 +154,7 @@ local function shape(data, reach)
       for dx = -1, 1 do
         local nx, ny = x + dx, y + dy
         local key = ny * w + nx
-        if nx >= 0 and ny >= 0 and nx < w and ny < h and not set[key] and inked(data, nx, ny) then
+        if nx >= 0 and ny >= 0 and nx < w and ny < h and not set[key] and inked(black, white, nx, ny) then
           set[key] = true
           stack[#stack + 1] = nx
           stack[#stack + 1] = ny
@@ -149,13 +168,14 @@ end
 local function portrait(game, entry, e, draw, hooks)
   local feature = game.Features.byName[entry.feature]
   local radius = entry.portraitReach or (e.radius or 12) * 4
+  local seed = love.math.random(1, 1e6)
   local probeZoom = math.min(3, 400 / radius)
-  local probe = love.graphics.newCanvas(1024, 1024)
-  drawAt(game, feature, e.x, e.y, probeZoom, probe, draw, hooks)
-  local data = probe:newImageData()
-  local set, x0, y0, x1, y1 = shape(data, radius * probeZoom)
-  data:release()
-  probe:release()
+  local black, white = onBlackAndWhite(1024, 1024, 0, function(canvas, bg)
+    drawAt(game, feature, e.x, e.y, probeZoom, canvas, draw, hooks, bg, seed)
+  end)
+  local set, x0, y0, x1, y1 = shape(black, white, radius * probeZoom)
+  black:release()
+  white:release()
   if not set then
     if hooks == ABOVE then
       return portrait(game, entry, e, nil, BOTH) -- drawn under cars (the police on foot)
@@ -169,11 +189,17 @@ local function portrait(game, entry, e, draw, hooks)
     -- Run into something else of its feature's (a neighbour): another time.
     return false, ("%d px across, too big"):format(span)
   end
+  local cx, cy, zoom = e.x + (x0 + x1) / 2, e.y + (y0 + y1) / 2, OUT / span
   local canvas = love.graphics.newCanvas(OUT, OUT, { msaa = 4 })
-  drawAt(game, feature, e.x + (x0 + x1) / 2, e.y + (y0 + y1) / 2, OUT / span, canvas, draw, hooks)
+  drawAt(game, feature, cx, cy, zoom, canvas, draw, hooks, BG, seed)
   local final = canvas:newImageData()
   canvas:release()
-  local keep = shape(final, OUT / 4)
+  black, white = onBlackAndWhite(OUT, OUT, 4, function(c, bg)
+    drawAt(game, feature, cx, cy, zoom, c, draw, hooks, bg, seed)
+  end)
+  local keep = shape(black, white, OUT / 4)
+  black:release()
+  white:release()
   if keep then
     -- Everything that isn't the enemy goes back to the plain ground.
     final:mapPixel(function(x, y, r, g, b, a)

@@ -6,7 +6,7 @@
 
 <img src="img/cyber-feud-kilowatt.png" alt="Kilowatt" width="240">
 
-The Static's boss: huge, loud, more machine than man, with a reactor for a heart. He fights alongside Director Saye, and comes for you up close.
+The Static's boss: huge, loud, more machine than man, plated in gunmetal with a reactor for a heart and two insulator spikes on his back, a blue arc crackling between them. He fights alongside Director Saye, and comes for you up close.
 
 | | |
 |---|---|
