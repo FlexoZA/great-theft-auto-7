@@ -195,6 +195,35 @@ function Watchers.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Watchers.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/watcher",
+    name = "Watcher drone",
+    quests = { "cyber-feud-market", "cyber-feud-tower" },
+    where = "Over the Market's stalls, and in Halcyon Tower's lobby and offices",
+    about = "A small flying disc with a magenta eye and no gun. It finds you, and Halcyon's officers come.",
+    stats = {
+      { "Health", Watchers.health },
+      { "Speed", ("%g px/s on its beat, %g following somebody"):format(Brain.FLY, Brain.CHASE) },
+      { "Sight", ("%g px, a %g degree cone, over the stalls"):format(Brain.RANGE, math.deg(Watchers.fov)) },
+    },
+    abilities = {
+      ("Sees over walls outdoors; in the tower only who is in the same room. Seeing you, it hangs %g px off you and "
+        .. "calls in up to %g of Halcyon's officers within %g px, again every %g s while it has you."):format(
+        Brain.HOVER, Watchers.callAnswer, Watchers.callHeard, Brain.ALARM_EVERY),
+      ("Out of its cone for %g s, you are gone and it flies back to its beat."):format(Brain.LOST_AFTER),
+      ("A sparker's EMP knocks it out for %g s: it sinks and goes dark."):format(Watchers.empTime),
+      "Only players' rounds reach it: the factions' pass under it.",
+    },
+    tips = {
+      "Shoot it down before it calls: it has little health.",
+      "Get out of its cone, or out of the room in the tower.",
+    },
+    drops = ("%g koins"):format(Watchers.drops),
+  })
+end
+
 function Watchers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

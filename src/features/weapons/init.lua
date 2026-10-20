@@ -271,6 +271,7 @@ end
 
 -- Client state (reset in enterGame and resetSynced) -------------------------
 
+Weapons.guns = Guns -- the catalog (guns.lua), for whoever needs a gun's numbers (the wiki's pages)
 Weapons.projectiles = {} -- pid -> { x, y, vx, vy, age, owner }
 -- My own shots on foot are drawn from my gun the moment I fire, under a
 -- local id (negative), and wait here, oldest first, for the host's WPN_SHOT

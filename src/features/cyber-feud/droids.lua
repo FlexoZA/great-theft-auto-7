@@ -286,6 +286,54 @@ function Droids.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Droids.wikiEnemies(add)
+  local a = arms()
+  add({
+    kind = "cyber-feud/droid",
+    pick = function(e)
+      return e.id.target ~= nil -- out of its cloak: it has somebody
+    end,
+    name = "Assassin droid",
+    quests = { "cyber-feud", "cyber-feud-tower", "cyber-feud-roof" },
+    where = "The Drop's last crossings before the tunnel, Halcyon Tower's server room, labs and executive floor, "
+      .. "and the Roof with the dropship",
+    about = "Halcyon's killing machine: a lean white-plated robot with a magenta visor band, walking cloaked until it "
+      .. "has you. It keeps its distance, strafes, and throws itself out of the way of your rounds.",
+    stats = {
+      { "Health", Droids.health },
+      { "Speed", ("%g px/s on its beat, %g fighting, %g strafing"):format(Brain.PATROL * Droids.pace,
+        Brain.RUN * Droids.pace, Brain.STRAFE * Droids.pace) },
+      { "Sight", ("%g px, a %g degree cone (%g on edge), and it hears anyone within %g px"):format(Brain.RANGE,
+        math.deg(Droids.fov), math.deg(Droids.alertFov), Droids.aware) },
+      { "Numbers", ("%g on a beat for one player, %g more for each human past the first"):format(Droids.count,
+        Droids.perHuman) },
+    },
+    weapons = {
+      { "Rail pistol", ("%g damage a round, in bursts of %g, then %g s, out to %g px"):format(a.gun.damage, a.burst,
+        a.pause, a.reach) },
+      { "Rail shot", ("%g damage, charged for %g s down a magenta sightline, every %g s"):format(a.stunGun.damage,
+        Droids.railCharge, Droids.railEvery) },
+    },
+    abilities = {
+      "Walks cloaked until it has somebody.",
+      ("Dodges every round a player fires that would hit it, and every ability or grenade about to land on it; then "
+        .. "it can't dodge again for %g s."):format(Droids.dodgeCool),
+      ("Keeps you between %g and %g px, backing off or closing in."):format(Brain.KEEP_MIN, Brain.KEEP_MAX),
+      ("Hears a shot within %g px, and calls the others within %g px when it finds you."):format(Brain.HEAR,
+        Brain.CALL_RANGE),
+      "Doesn't heal.",
+      "Only players' rounds hurt it: the factions' pass it by.",
+    },
+    tips = {
+      ("Make it dodge, then land a burst or two in the %g s before it can dodge again."):format(Droids.dodgeCool),
+      "Step off the magenta sightline while the rail shot charges.",
+      "Freeze it: a frozen droid can't dodge.",
+    },
+    drops = ("%g koins, maybe a pickup"):format(Droids.drops),
+  })
+end
+
 --- A player's or a bot's gun went off at (x, y): any within earshot look.
 function Droids.serverShotFired(player, x, y)
   if sv and player then

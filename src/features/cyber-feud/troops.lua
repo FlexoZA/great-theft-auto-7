@@ -110,6 +110,7 @@ local Volt = require("src.features.cyber-feud.volt")
 local Hud = require("src.features.cyber-feud.hud")
 
 local Troops = {}
+Troops.brain = Combine -- the soldiers' brain (A-Man's), for the wiki's pages on them (troops_wiki.lua)
 
 local MAGENTA = { 1.00, 0.24, 0.78 }
 local CYAN = { 0.18, 0.90, 1.00 }

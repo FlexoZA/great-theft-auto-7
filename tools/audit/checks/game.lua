@@ -9,6 +9,7 @@
 local Config = require("tools.audit.config")
 local Stages = require("tools.audit.stages")
 local Arsenal = require("tools.audit.checks.arsenal")
+local Wiki = require("tools.audit.checks.wiki")
 
 local Game = {}
 
@@ -177,11 +178,15 @@ local function playQuest(report, game, quest, ctx, soundtracks, seen)
   mapChecks(report, game, quest, since, soundtracks)
 
   local kindsHere = {}
+  local paged = Wiki.kinds(game.Features)
   local function look()
     game:godMode()
     local enemies = game:enemies()
     wallChecks(report, game, mapName, quest, enemies)
     for _, e in ipairs(enemies) do
+      if not seen[e.kind] then
+        Wiki.unpaged(report, paged, e.kind, quest.id)
+      end
       seen[e.kind] = seen[e.kind] or { quest = quest.id }
       if not e.immune then
         seen[e.kind].hittable = true
@@ -421,6 +426,7 @@ function Game.general(report, _ctx, game)
   require("tools.audit.checks.static").messages(report, game.Features)
   equipment(report, game)
   saves(report, game)
+  Wiki.pages(report, game.Features)
   fuzz(report, game)
 end
 

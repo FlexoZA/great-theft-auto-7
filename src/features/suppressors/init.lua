@@ -235,6 +235,51 @@ function Suppressors:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Suppressors:wikiEnemies(add)
+  local gun = minigun()
+  add({
+    kind = "suppressors/suppressor",
+    name = "Suppressor",
+    quests = { "a-man-citadel" },
+    where = "The Citadel, holding the gallery and the reactor deck",
+    about = "The Combine's heavy: a minigun at the hip and a blue energy shield round it. Slow on its feet and "
+      .. "slow to turn, it holds a post and hoses anyone who walks into its sights.",
+    stats = {
+      { "Health", Suppressors.health },
+      { "Shield", ("%g, soaked before the health goes"):format(Suppressors.shield) },
+      { "Speed", ("%g px/s walking, %g closing in while it fires; turns at %g rad/s"):format(Brain.WALK,
+        Brain.ADVANCE, Brain.TURN) },
+      { "Sight", ("%g px in a %g degree cone, %g px all round"):format(Brain.RANGE, math.deg(Suppressors.fov),
+        Suppressors.aware) },
+    },
+    weapons = {
+      { "Minigun", ("%g damage a round, about %g rounds a second once the barrels turn (%g s to spin up), "
+        .. "%g s of fire before it vents"):format(gun.damage, math.floor(1 / Brain.FIRE_EVERY + 0.5), Brain.SPIN_UP,
+        Brain.BURST) },
+    },
+    abilities = {
+      ("The shield soaks every hit first. It comes back %g s after the last hit, %g points a second."):format(
+        Brain.SHIELD_DELAY, Brain.SHIELD_REGEN),
+      ("After %g s of fire the gun vents for %g s: no rounds while it does."):format(Brain.BURST, Brain.VENT),
+      ("Loses you and keeps hosing where it saw you last for %g s, then walks over and searches for %g s."):format(
+        Brain.SUPPRESS, Brain.SEARCH_TIME),
+      ("Never goes more than %g px from its post, and stops closing in at %g px."):format(Brain.LEASH, Brain.KEEP),
+      ("Hears a shot within %g px, and turns towards a hit from out of sight."):format(Brain.HEAR),
+      "Too heavy to scare: a stink cloud doesn't move it.",
+    },
+    tips = {
+      "Step out of cover while it vents: the barrels wind down and nothing comes out.",
+      ("Shock tears the shield down %g times as fast."):format(Brain.SHOCK_SHIELD),
+      ("Run round it: it turns at only %g rad/s and can't keep up with a sprint."):format(Brain.TURN),
+      ("Keep hitting it: the shield only comes back after %g s without a hit."):format(Brain.SHIELD_DELAY),
+      ("A rocket or grenade takes %g off it, shield first."):format(Suppressors.blastDamage),
+      "A freeze holds it like anyone.",
+    },
+    drops = ("%g koins, and sometimes a pickup"):format(Suppressors.drops),
+  })
+end
+
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
 --- bot's is heard by any within earshot.
 function Suppressors:serverShotFired(_server, player, x, y)

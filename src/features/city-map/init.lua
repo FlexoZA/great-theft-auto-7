@@ -185,6 +185,8 @@ CityMap.maps = {
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
+-- The Cyber Feud maps' builder (cyber_feud.lua), for its numbers (the garrisons' sizes on the wiki's pages).
+CityMap.cyberFeud = require("src.features.city-map.cyber_feud")
 
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`

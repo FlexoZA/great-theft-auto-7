@@ -244,6 +244,49 @@ function Sparkers.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Sparkers.wikiEnemies(add)
+  local E = Sparkers.EMP
+  local stunMin = require("src.features.damage").stunMin
+  local stunWithin = E.radius * (1 - stunMin / E.damage) * 3 / 2 -- (burst's falloff: a third at the edge)
+  local B = require("src.features.cyber-feud.troops").breakIn
+  add({
+    kind = "cyber-feud/sparker",
+    name = "Sparker",
+    quests = { "cyber-feud-market", "cyber-feud-tower" },
+    where = "The Market's west lanes and General Volt's backup, and Halcyon Tower with the break-ins from floor "
+      .. B.sparkerFrom .. " up",
+    about = "The Static's grenadier: hooded, with a belt of cyan-glowing EMP grenades. It never gets into the thick "
+      .. "of it: it hangs back and lobs.",
+    stats = {
+      { "Health", Sparkers.health },
+      { "Speed", ("%g px/s on its beat, %g getting where it wants to be"):format(Brain.WALK, Brain.RUN) },
+      { "Sight", ("%g px, a %g degree cone, and it hears anyone within %g px"):format(Brain.RANGE,
+        math.deg(Sparkers.fov), Sparkers.aware) },
+    },
+    weapons = {
+      { "EMP grenade", ("%g shock damage at the middle down to a third of it at the edge, %g px round, thrown up to %g "
+        .. "px every %g s"):format(E.damage, E.radius, Brain.LOB_REACH, Brain.LOB_EVERY) },
+    },
+    abilities = {
+      ("Keeps its distance: backs off nearer than %g px and closes in further than %g px."):format(Brain.NEAR,
+        Brain.FAR),
+      ("Raises a grenade for %g s before it throws; a cyan ring on the ground shows where it will land."):format(
+        Brain.WIND_UP),
+      ("Caught within about %g px of the middle, the jolt stuns you. Only players on foot are hurt: a car keeps you "
+        .. "out of it."):format(math.floor(stunWithin + 0.5)),
+      ("Its EMPs knock Halcyon's watcher drones, sting drones and turrets out for %g s; it goes after the watchers in "
+        .. "the feud."):format(require("src.features.cyber-feud.watchers").empTime),
+    },
+    tips = {
+      "Move off the cyan ring before the grenade comes down.",
+      "Rush it: it backs off rather than fight up close, and has little health.",
+      "Lead it under Halcyon's drones and turrets and let it switch them off for you.",
+    },
+    drops = ("%g koins, maybe a pickup"):format(Sparkers.drops),
+  })
+end
+
 function Sparkers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

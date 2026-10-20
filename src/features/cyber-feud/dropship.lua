@@ -285,6 +285,43 @@ function Dropship.serverStep(server, dt, vex)
   end
 end
 
+--- The wiki's page on it (tools/wiki, docs/wiki.md). Not in `serverEnemies`
+--- (it can't be shot): a kind of its own, and no portrait.
+function Dropship.wikiEnemies(add)
+  local names = { droid = "an assassin droid", enforcer = "an enforcer", brute = "a brute" }
+  local specials = {}
+  for i, k in ipairs(Dropship.specials) do
+    specials[i] = names[k] or k
+  end
+  add({
+    kind = "cyber-feud/dropship",
+    portrait = false,
+    scaling = "none",
+    name = "Halcyon dropship",
+    quests = { "cyber-feud-roof" },
+    where = "Over the Roof, while VEX has it",
+    about = "A tiltrotor in Halcyon's military paint with rockets where the rotors would be. VEX calls it in to put "
+      .. "troops down by the relay you are going for. It can't be shot: it is her call, not a fight of its own.",
+    stats = {
+      { "Speed", Dropship.speed, "px/s flat out" },
+      { "Numbers", ("%g officers a drop for one player (more with more humans)"):format(Dropship.squad) },
+    },
+    abilities = {
+      ("Comes in %g s after VEX takes the roof, at the relay furthest along (else the one nearest a player), the "
+        .. "spot it sets down on ringed in magenta on the ground."):format(Dropship.firstIn),
+      ("Hangs over the drop for %g s: the officers rope down and walk a beat round the relay, and with them one of "
+        .. "%s, in turn. From the second drop on, one of the officers is an elite."):format(Dropship.hold,
+        table.concat(specials, ", ", 1, #specials - 1) .. " or " .. specials[#specials]),
+      ("Comes again %g s after it leaves, while fewer than %g of what it brought (more with more humans) are still "
+        .. "up; and at once whenever a relay falls with none in the air."):format(Dropship.every, Dropship.most),
+    },
+    tips = {
+      "Watch for the magenta ring: be ready at that relay, or work another.",
+      "Thin out each drop before the next: it stops coming while enough of them are up.",
+    },
+  })
+end
+
 --- For tests.
 function Dropship.server()
   return sv

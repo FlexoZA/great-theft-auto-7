@@ -202,18 +202,29 @@ local function between(range)
   return range[1] + random() * (range[2] - range[1])
 end
 
+--- How likely a soldier is to carry `gun` (Level.loadout's weight).
+local function weightOf(gun)
+  local l = Level.loadout[gun.key]
+  return l and l.weight or (gun.unlock and 0 or 1) -- never a won gun unless listed
+end
+
+--- How a soldier uses `gun`: rounds in a burst, seconds between bursts, and
+--- the px he must be within to fire (a little short of where its rounds give out).
+local function useOf(gun)
+  local l = Level.loadout[gun.key] or {}
+  return l.burst or (gun.cooldown < 0.15 and 4 or 1), l.pause or 1.2, gun.speed * (gun.ttl or ROUND_TTL) * 0.85
+end
+
 --- A gun for a soldier, picked by the loadout's weights, and how he uses it.
 local function pickArms()
   local total = 0
   for _, gun in ipairs(Guns.list) do
-    local l = Level.loadout[gun.key]
-    total = total + (l and l.weight or (gun.unlock and 0 or 1)) -- never a won gun unless listed
+    total = total + weightOf(gun)
   end
   local roll = random() * total
   local gun = Guns.list[1]
   for _, g in ipairs(Guns.list) do
-    local w = Level.loadout[g.key]
-    roll = roll - (w and w.weight or (g.unlock and 0 or 1))
+    roll = roll - weightOf(g)
     if roll < 0 then
       gun = g
       break
@@ -232,14 +243,8 @@ local function pickArms()
     blast.damage = (blast.damage or 0) * Bosses.enemyPower()
     tuned = setmetatable({ blast = blast }, { __index = tuned })
   end
-  return {
-    gun = tuned,
-    key = gun.key,
-    index = gun.index,
-    burst = l.burst or (gun.cooldown < 0.15 and 4 or 1),
-    pause = l.pause or 1.2,
-    reach = gun.speed * (gun.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
-  }
+  local burst, pause, reach = useOf(gun)
+  return { gun = tuned, key = gun.key, index = gun.index, burst = burst, pause = pause, reach = reach }
 end
 
 --- Where the `i`th guard at post `p` stands: the first on the post, the
@@ -859,6 +864,97 @@ function Level.serverEnemies(server, add)
     add({ id = s, kind = "a-man/combine", x = s.x, y = s.y, hp = s.hp, radius = Combine.RADIUS })
   end
   Cameo.serverEnemies(server, add)
+end
+
+--- The wiki's page on the soldiers (tools/wiki, docs/wiki.md), and A-Man's
+--- visits' (cameo.lua).
+function Level.wikiEnemies(add)
+  local Quests = require("src.features.quests")
+  local Grenades = require("src.features.grenades")
+  local quests = {}
+  for _, q in ipairs(Quests.list) do
+    if q.boss == Level.questId and Level.maps[q.map] then
+      quests[#quests + 1] = q.id
+    end
+  end
+  -- What they carry, as likely as Level.loadout says.
+  local total = 0
+  for _, gun in ipairs(Guns.list) do
+    total = total + weightOf(gun)
+  end
+  local weapons = {}
+  for _, gun in ipairs(Guns.list) do
+    local w = weightOf(gun)
+    if w > 0 then
+      local l = Level.loadout[gun.key] or {}
+      local burst, pause, reach = useOf(gun)
+      local hit
+      if gun.blast then
+        hit = ("%g explosive damage across %g px"):format(gun.blast.damage, gun.blast.radius)
+      elseif gun.flame then
+        hit = ("%g fire damage a lick, and it sets you alight"):format(gun.damage)
+      elseif gun.pellets then
+        hit = ("%g pellets of %g damage"):format(gun.pellets, gun.damage)
+      else
+        hit = ("%g damage a round"):format(l.damage or gun.damage)
+      end
+      local rate = burst > 1 and ("bursts of %g, %g s apart"):format(burst, pause)
+        or ("one every %g s"):format(pause)
+      local text = ("%d%% of them: %s, %s, once you are within %d px"):format(math.floor(w / total * 100 + 0.5), hit,
+        rate, math.floor(reach / 10 + 0.5) * 10)
+      weapons[#weapons + 1] = { (gun.name:gsub("^%l", string.upper)), text }
+    end
+  end
+  local nest = Level.nestGun
+  weapons[#weapons + 1] = { "MG nest", ("the gunner's: %g damage a round, bursts of %g then %g s, out to %g px, only "
+    .. "into the nest's arc"):format(nest.damage, nest.burst, nest.pause, nest.range) }
+  weapons[#weapons + 1] = { "Hand grenade", ("%g%% of them carry %g each: %g explosive damage across %g px, "
+    .. "thrown %g to %g px"):format(Combine.GRENADIER * 100, Combine.GRENADES, Grenades.blast.damage,
+    Grenades.blast.radius, Combine.GRENADE_MIN, Grenades.range) }
+  local pistol = Guns.pistol
+  add({
+    kind = "a-man/combine",
+    name = "Combine soldier",
+    quests = quests,
+    where = "Every map of A-Man's trail, from City 17 to the Citadel",
+    about = "Masked soldiers in grey-blue armour, each with a gun picked at random. They guard checkpoints, walk "
+      .. "beats in squads, pour out of garrisons and crew the MG nests, and talk it over on the radio.",
+    stats = {
+      { "Health", Level.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Level.health / pistol.damage)) },
+      { "Speed", ("%g px/s on a beat, %g walking, %g closing in"):format(Combine.PATROL_WALK, Combine.WALK,
+        Combine.CHASE_WALK) },
+      { "Sight", ("%g px in a %d degree cone (%d once he is on edge), and %g px all round"):format(Combine.RANGE,
+        math.floor(math.deg(Level.fov) + 0.5), math.floor(math.deg(Level.alertFov) + 0.5), Level.aware) },
+      { "Numbers", ("%g at each checkpoint, squads of %g on the beats, %g out of a garrison, a crew of %g to an MG "
+        .. "nest, more with more players"):format(Level.guardsPerPost, Level.squadSize, Level.garrison,
+        Level.nestCrew) },
+    },
+    weapons = weapons,
+    abilities = {
+      "Guards stand at the checkpoints sweeping their cones; squads walk beats through City 17 and the Outer City.",
+      "Some guard stations hold a garrison: the first time you come near, the door opens and they come out after "
+        .. "you. On the Winding Road and in the Citadel they come in waves while you stay near.",
+      ("MG nest crews hold their places: the gunner fires only into his arc, the rest fight from cover, and "
+        .. "when the gunner drops the nearest of them runs to the gun."),
+      ("Spots you, turns to follow you at %d degrees a second and fires after %g s to take aim."):format(
+        math.floor(math.deg(Combine.TURN) + 0.5), Combine.REACT),
+      ("Calls in the nearest %g within %g px when he spots you; one going down sends up to %g within %g px to "
+        .. "look."):format(Level.callAnswer, Level.callHeard, Level.downAnswer, Level.downHeard),
+      ("Comes after you when you duck out of sight (up to %g px from where he started) and searches where he "
+        .. "lost you for %g s."):format(Combine.LEASH, Combine.SEARCH_TIME),
+      "Shot at from out of sight, he and his mates take cover and wait, then send a squad to look.",
+      "The Hunter-Chopper sets more of them down, and so does A-Man's briefcase at the top of the Citadel.",
+    },
+    tips = {
+      "Keep cover between you and the cones of sight, or sprint across one faster than he can turn.",
+      "Snipe the gunner off an MG nest, then whoever runs to the gun.",
+      "On the Winding Road a car at speed runs them down.",
+      "A freeze stops them looking and shooting, and a stink sends them running.",
+    },
+    drops = ("%g koins, and sometimes something to pick up"):format(Level.soldierDrops),
+  })
+  Cameo.wikiEnemies(add)
 end
 
 function Level.serverFreezeArea(x, y, radius, seconds)

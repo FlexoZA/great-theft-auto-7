@@ -399,6 +399,59 @@ function Mancubus.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Mancubus.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local M = Mancubus
+  local g = M.gun()
+  local blastType = g.blast.type or "explosive"
+  add({
+    kind = "eternal-mood/mancubus",
+    name = "The Mancouchbus",
+    quests = { "eternal-mood-earth" },
+    boss = true,
+    where = "Heck on Earth, in his recliner in front of the starport's gate; he wakes when you come up the Boulevard",
+    about = "A huge fat demon who sat down in a recliner when the world ended and never got up again. Heck put the "
+      .. "recliner on tank treads and his arms into a pair of rocket launchers. The gate stays closed until he is "
+      .. "down.",
+    stats = {
+      { "Health", M.HEALTH },
+      { "Armour", ("his back is the recliner: rounds that land on it do %g times the damage"):format(M.BACK) },
+      { "Speed", ("%g px/s on his treads, %g winded; turns at only %g rad/s"):format(M.DRIVE, M.STROLL, M.TURN) },
+      { "Sight", M.RANGE, "px" },
+    },
+    weapons = {
+      { "Volley", ("arms up, whining, for %g s, then a rocket from each arm in turn, %g pairs (one more under half "
+        .. "health), %g s apart; every %g to %g s (%g to %g under half)"):format(M.RAISE, M.PAIRS, M.ROCKET_EVERY,
+        M.VOLLEY_EVERY[1], M.VOLLEY_EVERY[2], M.VOLLEY_EVERY_2[1], M.VOLLEY_EVERY_2[2]) },
+      { "Sweep", ("arms up wide for %g s, then %g rockets in a fan, gaps between them; %g%% of his attacks, %g%% "
+        .. "under half health"):format(M.SWEEP_RAISE, M.SWEEP, M.SWEEP_CHANCE * 100, M.SWEEP_CHANCE_2 * 100) },
+      { "Rockets", ("%g %s damage within %g px of where each goes off, flying at %g px/s for about %g px"):format(
+        g.blast.damage, blastType, g.blast.radius, g.speed, math.floor(g.speed * g.ttl + 0.5)) },
+      { "Bump", ("within %g px: he leans back for %g s (a ring on the road), then lurches forward: %g impact damage "
+        .. "to everyone within %g px of his front, knocked %g px; at most every %g s"):format(M.BUMP_REACH,
+        M.BUMP_WINDUP, M.BUMP_DAMAGE, M.BUMP_RADIUS, M.BUMP_SHOVE, M.BUMP_EVERY) },
+    },
+    abilities = {
+      ("Sits about %g px from you, rolling in or backing off, and keeps to the Boulevard."):format(M.KEEP),
+      ("At two thirds and a third of his health he shouts for the lads: %g Cacodaemons come in over the roofs (more "
+        .. "with more players)."):format(M.CALL),
+      ("Under %g%% health he rolls off for a snack break: the nearest medkit within %g px, for %g health."):format(
+        Heal.below * 100, Heal.range, Heal.amount),
+      ("Rolling at full speed costs him breath: about %d s of it and he's winded, crawling."):format(
+        math.floor(Stamina.defaults.max / M.BREATH.drain + 0.5)),
+      "Gets out from under abilities.",
+    },
+    tips = {
+      "Get behind him: he is slow to turn, and his back takes the most damage.",
+      "Keep moving across a volley, and look for the gaps in a sweep.",
+      "Off the Boulevard he won't follow: he rolls back to his spot.",
+      "A freeze holds him stiff.",
+    },
+    drops = ("%g koins, maybe a pickup or two, and the Mood Slayer's helmet for every player"):format(M.DROPS),
+  })
+end
+
 --- Him, until he is down, for the audit (tools/audit).
 function Mancubus.serverEnemies(_server, add)
   if sv and not sv.down then
