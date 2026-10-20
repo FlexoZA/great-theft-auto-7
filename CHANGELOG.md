@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-10-20
+
+Kilowatt is more machine than man now, with two spikes on his back and lightning crackling between them.
+
 ### Changed
 - Kilowatt looks more machine than man: gunmetal plating, steel arms, an armoured back plate, and two insulator
   spikes standing up off his back with a blue arc crackling between them. It runs white while he vents and forks
