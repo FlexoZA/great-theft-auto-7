@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-20
+
+The game has a wiki: a page for every enemy, with its picture, its numbers and how to beat it.
+
 ### Added
 - A wiki for the game, in `docs/wiki` on GitHub: a page for every enemy with its picture, its health, what it
   carries, what it can do and how to beat it, written from the game's own numbers.
