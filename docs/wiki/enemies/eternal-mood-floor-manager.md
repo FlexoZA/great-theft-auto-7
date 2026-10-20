@@ -6,7 +6,7 @@
 
 <img src="img/eternal-mood-floor-manager.png" alt="The Floor Manager" width="240">
 
-The UAC's shift supervisor, promoted out of his body: his brain in a glass dome on a four-legged spider walker, a plasma cannon slung under the front. The lift is out of service until he is down.
+The UAC's shift supervisor, promoted out of his body: his brain in a glass dome on an armoured hull, a plasma cannon slung under the front, floating about in his executive chair on a rocket. The lift is out of service until he is down.
 
 | | |
 |---|---|
@@ -14,14 +14,14 @@ The UAC's shift supervisor, promoted out of his body: his brain in a glass dome 
 | **Rank** | Boss |
 | **Health** | 2250 |
 | **Cannon** | 600 health of its own: rounds on it wreck it, and hurt him less |
-| **Speed** | 90 px/s, any way on four legs; 1.35 times that once his cannon is gone; 40 winded |
+| **Speed** | 90 px/s, floating any way; 1.35 times that once his cannon is gone; 40 winded |
 | **Sight** | 760 px |
 | **Drops** | 25 koins, and maybe a pickup or two |
 
 ## Weapons
 
 - **Plasma**: the cannon glows for 0.55 s, then a stream of 10 bolts, 0.09 s apart, 9 shock damage each, out to 700 px; his aim drags after you at 1.1 rad/s. One every 3.2 s, every 2.4 s under half health
-- **Stomp**: within 120 px: legs up for 0.6 s (a ring on the floor), then 30 impact damage to everyone within 115 px, shoved 140 px; at most every 2.2 s
+- **Stomp**: within 120 px: he rises for 0.6 s (a ring on the floor), then drops his chair: 30 impact damage to everyone within 115 px, shoved 140 px; at most every 2.2 s
 
 ## Abilities
 
@@ -36,7 +36,7 @@ The UAC's shift supervisor, promoted out of his body: his brain in a glass dome 
 
 - Shoot the cannon off first: no more plasma, though he comes at you faster.
 - Keep moving across a stream, not away from it: his aim is slow to follow.
-- Step out of the ring before his legs come down.
+- Step out of the ring before his chair comes down.
 - A freeze holds him stiff.
 
 ---

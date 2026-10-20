@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Floor Manager has lost his spider legs: he floats about the Hangar in an oxblood executive chair on a
+  rocket, its flames roaring behind him. For his stomp he rises on full burn and drops the chair on you.
+
 ## [0.39.1] - 2026-10-20
 
 Kilowatt is more machine than man now, with two spikes on his back and lightning crackling between them.

@@ -8,7 +8,7 @@
 --   hunt   nobody in his sights: he walks for the nearest player anywhere,
 --          round the crates on the walking grid
 --   fight  somebody he can see: with his cannon he keeps his distance
---          (KEEP), side-stepping on his four legs; with it shot off he
+--          (KEEP), side-stepping in his chair; with it shot off he
 --          closes in to stomp
 --   heal   badly hurt (bosses/heal.lua): he breaks off for the nearest
 --          medkit lying within reach ("statutory break")
