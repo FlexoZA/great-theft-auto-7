@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-10-20
+
+The Floor Manager traded his spider legs for an executive chair on a rocket.
+
 ### Changed
 - The Floor Manager has lost his spider legs: he floats about the Hangar in an oxblood executive chair on a
   rocket, its flames roaring behind him. For his stomp he rises on full burn and drops the chair on you.
