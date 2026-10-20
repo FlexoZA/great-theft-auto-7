@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-20
+
+Halcyon's dropship now flies troops in to guard VEX's relays on the Roof, and the helipad is the only way home.
+
 ### Changed
 - The Roof: there is no HOME star at the top of the stairs any more. The only way home is the one on the helipad
   once VEX gets away.
