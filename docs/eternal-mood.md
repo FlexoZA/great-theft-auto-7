@@ -47,18 +47,18 @@ branch off `feature/eternal-mood`):
   (`eternal-mood/floor_manager.lua`, his brain `floor_manager_brain.lua`,
   placed by the map's `horde.boss`; FM_ messages), the line's Arachnotron.
   The UAC's shift supervisor, promoted out of his body: his brain in a
-  glass dome on a four-legged spider walker, a plasma cannon under the
-  front, the clipboard taped on (drawn at 1.5x, 34 px across). 2250 health
+  glass dome on an armoured hull, a plasma cannon under the front,
+  floating in his executive chair on a rocket, the clipboard taped on (drawn at 1.5x, 34 px across). 2250 health
   for one human (Volt has 1800). He waits on the Hangar's lift, facing the
   room, until a player walks into the Hangar or shoots him ("You're not on
-  the rota."). He walks any way on his legs (90 px/s), keeps 340 px off
+  the rota."). He floats any way in his chair (90 px/s), keeps 340 px off
   whoever he has and side-steps. Plasma: within 700 px, facing them, the
   cannon charges for 0.55 s (glowing, a faint green line where it points),
   then a stream of ten bolts 0.09 s apart (fireballs.lua's "plasma", 520
   px/s, 9 `shock` each), the aim dragging after them at 1.1 rad/s: keep
   moving across it. Every 3.2 s, 2.4 in phase 2 (under half), when three
   streams go out in a fan (0.28 rad either side); 15 breath. Stomp: within
-  120 px the legs rear up for 0.6 s (a ring on the floor) and come down on
+  120 px he rises on his rockets for 0.6 s (a ring on the floor) and drops on
   everyone within 115 px (30 `impact`, a 140 px shove); every 2.2 s. The
   cannon has 600 health of its own (scaled like his): a round within 18 px
   of its end hits it, and him for a quarter; shot off ("My presentation!")
@@ -188,6 +188,16 @@ branch off `feature/eternal-mood`):
   cannon leaves a stump with its cables swinging and sparking. His wreck:
   legs sprawled flat, the hull dark, the dome smashed to shards round its
   rim, smoke going up.
+
+- `feature/floor-manager-chair`: the Floor Manager's legs gone (they
+  looked wrong). He floats in his executive chair on a rocket: oxblood
+  leather, the seat piped, a tufted backrest curved round behind him,
+  padded armrests on chrome posts, the clipboard taped to the left one;
+  two rocket engines out behind the backrest, banded in hazard paint, their
+  flames longer the faster he goes. He bobs 7 px off the floor (2 px up and
+  down), his shadow off to one side; for a stomp the rockets roar and he
+  rises 16 px more, then drops. Their smoke replaces the stacks'. His
+  wreck: the chair on the floor, its rockets cold. Nothing he does changed.
 
 - `feature/eternal-mood-earth`: Heck on Earth (`earth`, 40x160, on foot,
   `city-map/eternal_mood.lua`'s `buildEarth`), quest `eternal-mood-earth`
@@ -522,8 +532,8 @@ Each is a bit more dream than the last, the way the levels are.
 
 - **The Floor Manager** (Fobos Base), the line's Arachnotron. The UAC's
   shift supervisor, promoted out of his body: his brain in a glass dome on
-  a four-legged spider walker with a plasma cannon, his clipboard taped to
-  the side. Guards the hangar lift. Streams plasma, stomps whoever gets
+  an armoured hull with a plasma cannon, floating in his executive chair
+  on a rocket, his clipboard taped to its arm. Guards the hangar lift. Streams plasma, stomps whoever gets
   close, and calls zombie staff in "for a quick meeting". Shoot his cannon
   off and he has to come and stomp you. Not to be confused with Heck's
   Spider Mattressmind, the bigger spider with the chaingun.
@@ -917,7 +927,7 @@ the first drafts.
 - **Fobos Base**
   - The lab door opens: "Rip. Tear. In that order."
   - The reactor room: "Reactor's humming. Weird hum. Sounds like a fridge."
-  - The Floor Manager wakes: "A manager. A brain. On legs. With a gun. ...That's most managers."
+  - The Floor Manager wakes: "A manager. A brain. In a rocket chair. With a gun. ...That's most managers."
   - The Floor Manager down: "Meeting's over."
   - The end, the lift: "Going up. The demons are going down."
 - **Heck on Earth**

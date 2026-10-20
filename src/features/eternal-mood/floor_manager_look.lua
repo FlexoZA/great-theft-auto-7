@@ -1,21 +1,23 @@
 -- How the Floor Manager looks (floor_manager.lua's walker), on every screen:
 -- Fobos Base's Arachnotron, drawn at world size, seen from above.
 --
--- Four mechanical legs that really walk: each foot stays planted on the
--- floor while the body moves over it and steps when it has been left too
--- far behind its rest spot, the diagonal pairs taking turns, so he picks his
--- way across the Hangar like a spider. Each leg is a thigh and a shin with
--- a hydraulic ram along the thigh, bolted at the knee, three claws on the
--- foot. For a stomp the legs rear (feet pulled in and lifted, knees high).
+-- No legs: he floats about the Hangar in his executive chair, a rocket
+-- strapped under it. Oxblood leather, the seat piped round its edge, a tall
+-- tufted backrest curved round behind him, padded armrests on chrome posts,
+-- his clipboard taped to the left one. Two rocket engines poke out under
+-- the backrest, their flames licking out behind him, longer when he goes
+-- somewhere; he bobs on them, his shadow off to one side on the floor
+-- below. For a stomp the rockets roar and he rises (bigger, the shadow
+-- further off), then drops on you.
 --
--- On them an armoured octagon, hazard stripes round its rim, rivets, status
--- lights blinking, two exhaust stacks puffing; on that the glass dome and
--- the manager's brain in it, folded and pulsing, an eye on a stalk; the
--- plasma cannon under the front, twin barrels in coils that glow green
--- (brighter as it charges, a ball of plasma swelling at the muzzle, a flash
--- as it streams); his clipboard taped to the side. Hurt, it shows: the dome
--- cracks under half his health, and under a quarter he sparks and smokes.
--- Shot off, the cannon leaves a stump and dangling cables.
+-- In the chair an armoured octagon, hazard stripes round its rim, rivets,
+-- status lights blinking, two exhaust stacks puffing; on that the glass
+-- dome and the manager's brain in it, folded and pulsing, an eye on a
+-- stalk; the plasma cannon under the front, twin barrels in coils that glow
+-- green (brighter as it charges, a ball of plasma swelling at the muzzle, a
+-- flash as it streams). Hurt, it shows: the dome cracks under half his
+-- health, and under a quarter he sparks and smokes. Shot off, the cannon
+-- leaves a stump and dangling cables.
 --
 --   local look = Look.new()
 --   Look.update(look, m, dt)      -- m: floor_manager.lua's shown walker
@@ -27,13 +29,10 @@ local Look = {}
 Look.SCALE = 1.3 -- the hull, dome and cannon are drawn this much bigger than their plan below
 Look.MUZZLE = 52 -- the cannon's end, in the plan: 52 * SCALE px out in the world (floor_manager.lua's MUZZLE)
 
-local THIGH, SHIN = 54, 60 -- px, each leg's two parts
-local HIP = 23 -- px out from his middle to each hip, along the diagonals
-local REACH = 86 -- px from his middle out to where a foot rests
-local STEP_AT = 44 -- px a foot is left behind its rest spot before it steps...
-local STEP_ANYWAY = 80 -- ...and this far behind it steps whatever the other legs are doing
-local STEP_TIME = 0.18 -- seconds a step takes
-local CORNERS = { { 1, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 } } -- front left, front right, back right, back left
+local NOZZLE_X, NOZZLE_Y = -58, 15 -- the rockets' nozzles, in the plan: out behind the backrest, either side
+local HOVER = 7 -- px he floats over the floor...
+local BOB, BOB_RATE = 2, 2.4 -- ...rising and falling this much, this often (radians a second)
+local RISE = 16 -- px more at the top of a stomp's rearing
 
 local C = {
   steel = { 0.40, 0.38, 0.37 },
@@ -50,6 +49,11 @@ local C = {
   plasmaHot = { 0.85, 1.00, 0.85 },
   paper = { 0.92, 0.90, 0.82 },
   board = { 0.55, 0.40, 0.22 },
+  leather = { 0.38, 0.11, 0.10 }, -- oxblood: an executive's chair
+  leatherHi = { 0.58, 0.22, 0.19 },
+  chrome = { 0.78, 0.80, 0.84 },
+  flame = { 1.00, 0.55, 0.12 },
+  flameHot = { 1.00, 0.92, 0.55 },
 }
 
 local random = love.math.random
@@ -58,64 +62,33 @@ local function color(c, a)
   love.graphics.setColor(c[1], c[2], c[3], a or c[4] or 1)
 end
 
-local function dist(ax, ay, bx, by)
-  return math.sqrt((ax - bx) ^ 2 + (ay - by) ^ 2)
-end
-
---- Where hip `i` and its foot's rest spot are, for a body at (x, y) facing `a`.
-local function corner(x, y, a, i, reach)
-  local c = CORNERS[i]
-  local la = a + math.atan2(c[2], c[1]) -- out along the diagonal
-  return x + math.cos(la) * HIP, y + math.sin(la) * HIP, x + math.cos(la) * reach, y + math.sin(la) * reach
+--- Where a nozzle is in the world, for a chair at (x, y) facing `a` (`side` -1 or 1).
+local function nozzle(x, y, a, side)
+  local px, py = NOZZLE_X * Look.SCALE, NOZZLE_Y * Look.SCALE * side
+  return x + math.cos(a) * px - math.sin(a) * py, y + math.sin(a) * px + math.cos(a) * py
 end
 
 function Look.new()
-  return { legs = nil, puffs = {}, sparks = {}, lastX = nil, lastY = nil }
+  return { puffs = {}, sparks = {}, lastX = nil, lastY = nil, speed = 0 }
 end
 
---- Step the legs and the smoke for walker `m` (dx, dy, facing, move).
+--- The rockets' throttle and the smoke for walker `m` (dx, dy, facing, move).
 function Look.update(look, m, dt)
   local x, y, a = m.dx, m.dy, m.facing
-  local vx, vy = 0, 0
   if look.lastX then
-    vx, vy = (x - look.lastX) / math.max(dt, 1e-3), (y - look.lastY) / math.max(dt, 1e-3)
+    local v = math.sqrt((x - look.lastX) ^ 2 + (y - look.lastY) ^ 2) / math.max(dt, 1e-3)
+    look.speed = look.speed + (math.min(v, 300) - look.speed) * math.min(1, dt * 6) -- eased, so the flames don't jump
   end
   look.lastX, look.lastY = x, y
-  if not look.legs or dist(x, y, look.legs[1].x, look.legs[1].y) > 300 then
-    look.legs = {}
-    for i = 1, 4 do
-      local _, _, rx, ry = corner(x, y, a, i, REACH)
-      look.legs[i] = { x = rx, y = ry, fromX = rx, fromY = ry, toX = rx, toY = ry, t = 1 }
-    end
-  end
-  local rearing = m.move == 1
-  for i, l in ipairs(look.legs) do
-    local _, _, rx, ry = corner(x, y, a, i, rearing and REACH * 0.62 or REACH)
-    if l.t < 1 then
-      l.t = math.min(1, l.t + dt / STEP_TIME)
-      local k = l.t * l.t * (3 - 2 * l.t)
-      l.x, l.y = l.fromX + (l.toX - l.fromX) * k, l.fromY + (l.toY - l.fromY) * k
-    else
-      -- Left too far behind, and neither leg of the other diagonal pair
-      -- stepping (its own diagonal partner may step with it): step, landing a
-      -- little ahead of where the body is going.
-      local busy = look.legs[i % 4 + 1].t < 1 or look.legs[(i + 2) % 4 + 1].t < 1
-      local behind = dist(l.x, l.y, rx, ry)
-      if (behind > STEP_AT and not busy) or behind > STEP_ANYWAY or (rearing and behind > 6) then
-        l.fromX, l.fromY, l.t = l.x, l.y, 0
-        l.toX, l.toY = rx + vx * STEP_TIME * 1.5, ry + vy * STEP_TIME * 1.5
-      end
-    end
-  end
   -- Smoke from the stacks, more when he strains (a charge, a stomp) or is hurt.
   local hurt = m.max and m.max > 0 and m.hp / m.max or 1
   local rate = (m.move ~= 0 and 9 or 3) + (hurt < 0.25 and 6 or 0)
-  if random() < dt * rate then
+  if random() < dt * (rate + look.speed / 30) then -- the rockets' smoke, thicker the harder they burn
     for _, side in ipairs({ -1, 1 }) do
-      local sx = x - math.cos(a) * 31 + math.cos(a + math.pi / 2) * side * 13
-      local sy = y - math.sin(a) * 31 + math.sin(a + math.pi / 2) * side * 13
+      local sx, sy = nozzle(x, y, a, side)
+      sx, sy = sx - math.cos(a) * 14, sy - math.sin(a) * 14
       look.puffs[#look.puffs + 1] = { x = sx, y = sy, t = 0, life = 0.9 + random() * 0.6,
-        vx = -math.cos(a) * 20 + (random() - 0.5) * 16, vy = -math.sin(a) * 20 + (random() - 0.5) * 16 }
+        vx = -math.cos(a) * 40 + (random() - 0.5) * 16, vy = -math.sin(a) * 40 + (random() - 0.5) * 16 }
     end
   end
   for i = #look.puffs, 1, -1 do
@@ -139,60 +112,85 @@ function Look.update(look, m, dt)
   end
 end
 
---- One leg from its hip (hx, hy) to its foot (fx, fy), the knee bent out
---- away from his middle (cx, cy); `lift` 0..1 how high the foot is off
---- the floor (a step, or rearing).
-local function drawLeg(hx, hy, fx, fy, cx, cy, lift)
-  local d = math.min(dist(hx, hy, fx, fy), THIGH + SHIN - 1)
-  local base = math.atan2(fy - hy, fx - hx)
-  local bend = math.acos(math.max(-1, math.min(1, (THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d))))
-  -- Bend the knee to whichever side is further from his middle.
-  local k1x, k1y = hx + math.cos(base + bend) * THIGH, hy + math.sin(base + bend) * THIGH
-  local k2x, k2y = hx + math.cos(base - bend) * THIGH, hy + math.sin(base - bend) * THIGH
-  local kx, ky = k1x, k1y
-  if dist(k2x, k2y, cx, cy) > dist(k1x, k1y, cx, cy) then
-    kx, ky = k2x, k2y
+--- A rocket's flame at its nozzle (the origin, pointing -x), `burn` 0..1
+--- how hard it is going: a long orange tongue round a white-hot core,
+--- licking about.
+local function drawFlame(burn, clock, side)
+  local len = 10 + 26 * burn + random() * 6
+  local w = 4.5 + 1.5 * burn
+  local lick = math.sin(clock * 31 + side) * 1.5
+  color(C.flame, 0.85)
+  love.graphics.polygon("fill", 0, -w, -len * 0.55, -w * 0.9 + lick, -len, lick * 2, -len * 0.55, w * 0.9 + lick, 0,
+    w)
+  color(C.flameHot)
+  love.graphics.polygon("fill", 0, -w * 0.5, -len * 0.45, lick, 0, w * 0.5)
+end
+
+--- The rockets under the backrest: the engines' bells, each with its flame.
+local function drawRockets(burn, clock, cold)
+  for _, side in ipairs({ -1, 1 }) do
+    love.graphics.push()
+    love.graphics.translate(NOZZLE_X, NOZZLE_Y * side)
+    if not cold then
+      drawFlame(burn, clock, side)
+    end
+    color(C.steelDark)
+    love.graphics.polygon("fill", 8, -4, 8, 4, 0, 6.5, 0, -6.5) -- the bell, opening backwards
+    color(C.steel)
+    love.graphics.rectangle("fill", 8, -4.5, 16, 9, 1.5) -- the engine, running in under the seat
+    color(C.steelHi, 0.6)
+    love.graphics.rectangle("fill", 9, -3.5, 14, 2, 1)
+    color(C.hazard)
+    love.graphics.rectangle("fill", 12, -4.5, 2, 9) -- a band of hazard paint round it
+    color(cold and C.black or C.flameHot, cold and 1 or 0.9)
+    love.graphics.ellipse("fill", 0.5, 0, 1.2, 5, 10) -- the throat, glowing
+    love.graphics.pop()
   end
-  -- A lifted foot (and the knee over it) sits a little further out: higher, seen from above.
-  local ox, oy = (fx - cx) / math.max(1, dist(fx, fy, cx, cy)), (fy - cy) / math.max(1, dist(fx, fy, cx, cy))
-  kx, ky = kx + ox * lift * 6, ky + oy * lift * 6
-  local footX, footY = fx + ox * lift * 4, fy + oy * lift * 4
-  -- The foot's shadow, left behind on the floor when it lifts.
-  love.graphics.setColor(0, 0, 0, 0.3 * (1 - lift * 0.5))
-  love.graphics.circle("fill", fx + 3, fy + 3, 6, 10)
-  -- Thigh, its ram, the knee, the shin.
-  color(C.steelDark)
-  love.graphics.setLineWidth(9)
-  love.graphics.line(hx, hy, kx, ky)
-  color(C.steel)
-  love.graphics.setLineWidth(6)
-  love.graphics.line(hx, hy, kx, ky)
-  color(C.steelHi)
-  love.graphics.setLineWidth(2) -- the hydraulic ram along it
-  local px, py = -(ky - hy) / THIGH * 4, (kx - hx) / THIGH * 4
-  love.graphics.line(hx + px + (kx - hx) * 0.15, hy + py + (ky - hy) * 0.15, hx + px + (kx - hx) * 0.8,
-    hy + py + (ky - hy) * 0.8)
-  color(C.steelDark)
-  love.graphics.setLineWidth(7)
-  love.graphics.line(kx, ky, footX, footY)
-  color(C.steel)
-  love.graphics.setLineWidth(4)
-  love.graphics.line(kx, ky, footX, footY)
-  love.graphics.setLineWidth(1)
-  color(C.steelDark)
-  love.graphics.circle("fill", kx, ky, 6, 12)
-  color(C.steelHi)
-  love.graphics.circle("fill", kx, ky, 2.5, 8) -- the bolt
-  -- Three claws on the foot, splayed out the way the leg runs.
-  local fa = math.atan2(footY - ky, footX - kx)
-  color(C.black)
-  love.graphics.setLineWidth(3)
-  for _, off in ipairs({ -0.6, 0, 0.6 }) do
-    love.graphics.line(footX, footY, footX + math.cos(fa + off) * 9, footY + math.sin(fa + off) * 9)
+end
+
+--- An armrest along his `side` (-1 left, 1 right): a padded bar on a
+--- chrome post.
+local function drawArmrest(side)
+  local y = 35 * side
+  color(C.chrome)
+  love.graphics.rectangle("fill", -6, y - 2.5, 6, 5, 1) -- the post, peeking out under the pad
+  color(C.leather)
+  love.graphics.rectangle("fill", -24, y - 5, 40, 10, 5)
+  color(C.leatherHi)
+  love.graphics.rectangle("fill", -21, y - 3.5, 34, 3, 1.5)
+  color(C.black, 0.8)
+  love.graphics.rectangle("line", -24, y - 5, 40, 10, 5)
+end
+
+--- His chair round the origin (facing +x), under the hull: the seat, the
+--- backrest curved round behind him, the armrests.
+local function drawChair()
+  -- The seat, a rounded square a little bigger than the hull, piped round.
+  color(C.leather)
+  love.graphics.rectangle("fill", -33, -32, 62, 64, 12)
+  color(C.leatherHi, 0.7)
+  love.graphics.rectangle("line", -30, -29, 56, 58, 10)
+  -- The backrest: a thick band round behind him, tufted with buttons.
+  local pts = {}
+  for k = 0, 12 do
+    local t = math.pi * 0.62 + k * math.pi * 0.76 / 12
+    pts[#pts + 1], pts[#pts + 2] = math.cos(t) * 50, math.sin(t) * 50
   end
-  love.graphics.setLineWidth(1)
-  color(C.steelDark)
-  love.graphics.circle("fill", footX, footY, 4.5, 10)
+  for k = 12, 0, -1 do
+    local t = math.pi * 0.62 + k * math.pi * 0.76 / 12
+    pts[#pts + 1], pts[#pts + 2] = math.cos(t) * 36, math.sin(t) * 36
+  end
+  color(C.leather)
+  love.graphics.polygon("fill", pts)
+  color(C.black, 0.8)
+  love.graphics.polygon("line", pts)
+  color(C.leatherHi)
+  for k = 1, 5 do -- the buttons
+    local t = math.pi * 0.62 + k * math.pi * 0.76 / 6
+    love.graphics.circle("fill", math.cos(t) * 43, math.sin(t) * 43, 1.4, 6)
+  end
+  drawArmrest(-1)
+  drawArmrest(1)
 end
 
 --- The brain in its dome at the origin (facing +x): folds, veins, the eye
@@ -340,10 +338,10 @@ local function drawHull(clock, dead)
   end
 end
 
---- His clipboard, taped to his left flank.
+--- His clipboard, taped to his left armrest.
 local function drawClipboard()
   love.graphics.push()
-  love.graphics.translate(-4, -29)
+  love.graphics.translate(-4, -36)
   love.graphics.rotate(-0.15)
   color(C.board)
   love.graphics.rectangle("fill", -7, -5, 14, 10, 1)
@@ -358,32 +356,27 @@ local function drawClipboard()
   love.graphics.pop()
 end
 
---- Draw walker `m` (dx, dy, facing, move, cannon, hp, max) with `look`'s legs.
+--- Draw walker `m` (dx, dy, facing, move, cannon, hp, max) in his chair.
 function Look.draw(look, m, clock)
   local x, y, a = m.dx, m.dy, m.facing
-  -- The smoke under him first, then a shadow.
+  local rear = m.move == 1 and math.min(1, m.rearT or 0) or 0
+  local lift = HOVER + BOB * math.sin(clock * BOB_RATE) + RISE * rear
+  -- The smoke under him first, then his shadow on the floor, further off the higher he floats.
   for _, p in ipairs(look.puffs) do
     local k = p.t / p.life
     love.graphics.setColor(0.22, 0.2, 0.2, 0.45 * (1 - k))
     love.graphics.circle("fill", p.x, p.y, 5 + k * 14, 10)
   end
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.ellipse("fill", x + 8, y + 8, 44, 40, 24)
-  -- Legs (under the hull).
-  local rearing = m.move == 1
-  local rear = rearing and math.min(1, m.rearT or 0) or 0
-  if look.legs then
-    for i, l in ipairs(look.legs) do
-      local hx, hy = corner(x, y, a, i, REACH)
-      local step = l.t < 1 and math.sin(l.t * math.pi) or 0
-      drawLeg(hx, hy, l.x, l.y, x, y, math.max(step, rear))
-    end
-  end
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.ellipse("fill", x + 4 + lift, y + 4 + lift, 46 - lift * 0.3, 42 - lift * 0.3, 24)
+  local burn = math.min(1, 0.25 + look.speed / 160 + rear)
   local hurt = m.max and m.max > 0 and m.hp / m.max or 1
   love.graphics.push()
-  love.graphics.translate(x, y)
+  love.graphics.translate(x, y - lift * 0.4) -- up off the floor, a little toward the top of the screen
   love.graphics.rotate(a)
-  love.graphics.scale(Look.SCALE * (1 + 0.08 * rear)) -- reared up: a touch bigger, nearer the eye
+  love.graphics.scale(Look.SCALE * (1 + 0.08 * rear)) -- risen: a touch bigger, nearer the eye
+  drawRockets(burn, clock)
+  drawChair()
   if m.cannon > 0 then
     local charging = m.move == 2 and math.min(1, m.chargeT or 0) or 0
     local heat = m.move == 2 and (0.4 + 0.6 * charging) or m.move == 3 and 1 or 0.1
@@ -402,20 +395,18 @@ function Look.draw(look, m, clock)
   love.graphics.setColor(1, 1, 1)
 end
 
---- His wreck where he went down: legs splayed out flat, the hull dark, the
---- dome smashed and empty, smoke going up.
+--- His wreck where he went down: the chair on the floor, its rockets
+--- cold, the hull dark, the dome smashed and empty, smoke going up.
 function Look.drawWreck(wreck, clock)
   local x, y, a = wreck.x, wreck.y, wreck.angle
   love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.ellipse("fill", x + 8, y + 8, 44, 40, 24)
-  for i = 1, 4 do
-    local hx, hy, rx, ry = corner(x, y, a, i, REACH * 1.15)
-    drawLeg(hx, hy, rx, ry, x, y, 0)
-  end
+  love.graphics.ellipse("fill", x + 4, y + 4, 46, 42, 24)
   love.graphics.push()
   love.graphics.translate(x, y)
   love.graphics.rotate(a)
   love.graphics.scale(Look.SCALE)
+  drawRockets(0, clock, true)
+  drawChair()
   drawStump(clock)
   drawHull(clock, true)
   love.graphics.setColor(0, 0, 0, 0.55)
