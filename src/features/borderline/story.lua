@@ -158,9 +158,20 @@ Story.chatter = {
   },
 }
 
+-- The objective line while the way on is shut behind terminals (the
+-- terminals feature), by map: `%d` how many are left.
+Story.hack = {
+  wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
+}
+
 --- The objective line for map `name` on `map`, given whether the level is
---- done. Returns the text and where it points (x, y in world px).
-function Story.objective(name, map, done)
+--- done and how many terminals still hold the way on (`waiting`, the
+--- nearest of them `nearest`). Returns the text and where it points (x, y in
+--- world px).
+function Story.objective(name, map, done, waiting, nearest)
+  if not done and (waiting or 0) > 0 and nearest then
+    return (Story.hack[name] or "Objective: hack the terminals (%d left)"):format(waiting), nearest.x, nearest.y
+  end
   if done then
     if name == "bunker" then
       return "Objective: take the EXIT star home"

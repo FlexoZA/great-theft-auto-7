@@ -39,6 +39,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Borderline has its story: Handsome Jerry live on a Hyperbole broadcast as each map starts, a banner for each map
   and each part of it, Jerry and YAP-TP (the little yellow robot who dug you out) talking you through it over the
   comms, Jerry sulking when his bigger robots fall, and an objective line with how far there is to go.
+- The Frozen Wreck's tunnel is shut behind a blast door until you hack Hyperbole's three terminals round the
+  yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a
+  hauler dock (300 health): a charging bay with a plasma gun that fires bursts of three and builds a fresh junk
+  hauler every 20 seconds while you're near. Shoot the dock down, or hack its terminal to shut it off.
 - The Frozen Wreck is now Hyperbole's freight yard at dusk: sheds round the sides, rails and a siding up the
   middle, three deep fenced-off excavations with tower cranes swinging loads over them, emergency beacons turning,
   floodlights, painted walkways and zebra crossings.

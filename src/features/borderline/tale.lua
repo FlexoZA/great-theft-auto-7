@@ -22,6 +22,7 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Story = require("src.features.borderline.story")
+local Terminals = require("src.features.terminals")
 local Hud = require("src.features.borderline.hud")
 local Faces = require("src.features.borderline.faces")
 
@@ -33,7 +34,7 @@ Tale.KILL_EVERY = 15 -- seconds at least between remarks on a kill
 Tale.DOWN_EVERY = 10 -- ...and on a player going down
 Tale.CHEER = 0.15 -- the chance Yappy cheers a small kill
 Tale.INTRO_TIME = 9 -- seconds Jerry's screen stays up if nobody presses a key
-Tale.BIG = { RPG = true, PLZ = true, JET = true, DZR = true, ARC = true, BAD = true } -- Jerry notices these
+Tale.BIG = { RPG = true, PLZ = true, JET = true, DZR = true, ARC = true, BAD = true, DCK = true } -- Jerry notices these
 
 local random = love.math.random
 
@@ -232,7 +233,7 @@ function Tale.drawHUD(map, done, x, y)
   if cl.page then
     return -- his screen covers it all (`drawScreen`)
   end
-  local text, tx, ty = Story.objective(cl.level, map, done)
+  local text, tx, ty = Story.objective(cl.level, map, done, Terminals.nearestWaiting(x, y))
   if text then
     Hud.drawObjective(text, tx and x and math.sqrt((x - tx) ^ 2 + (y - ty) ^ 2) or nil)
   end

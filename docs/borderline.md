@@ -172,6 +172,7 @@ and its top half drags itself on for 4 s, still shooting, before it dies
 | **Medic drone** | `FIX` | A small yellow flying disc with a green cross light | 25 | None | Flies in pairs, hangs behind the haulers and heals the most hurt one (12 a second, a green beam). Fragile; shoot it first. |
 | **Shield drone** | `SHD` | The same disc, blue light | 25 | None | Gives one hauler a shield bubble (80 points) and keeps it topped up while the beam holds. |
 | **Sentry** | | A yellow pop-up turret | 90 | Bursts (`bullet`) | Sits flush in the floor until you are near, then rises. Creatures rule: no brain module. |
+| **Hauler dock** | `DCK` | A gunmetal pad with a hazard rim, a charging cradle open to the south (clamp arms, a cable glowing purple), a plasma gun on a turret at the back | 300 | Plasma bursts of three (`plasma`, 14 each, 32 px splash, 300 px/s) | Guards a terminal; never moves, turns all the way round. With anyone within 900 px it builds a junk hauler every 20 s and sends it out of the cradle (up to 3 of its own out). Shoot it down, or hack the terminal it runs and it shuts off (`dock_brain.lua`, `dock_look.lua`). |
 | **Badass hauler** | `BAD` | 1.6x size, black and yellow, twin war cannons, rocket pods, a horned head | 450 | Cannon bursts (`explosive`, small blasts), pod volleys, a stomp (`impact`) | Elite. One or two per map from map 4 on. |
 
 ### How they look
@@ -355,6 +356,15 @@ towers.
   pointing out, zebra crossings over the tracks, traffic cones, oil drums.
 - **The wreck:** carriages in a zig-zag up the yard, cargo spilled
   (crates, loot chests), junk haulers in twos and threes stripping it.
+- **The terminals:** a blast door shuts the tunnel until three Hyperbole
+  terminals are hacked (the `terminals` feature, shared with Eternal Mood:
+  hold F for 3 s, every 6 s an alarm brings the robots within 700 px).
+  One in each part of the yard: by the east shed in the Freight Yard, by
+  the west shed in the Wreck, between the sheds at the Engine. Each is
+  guarded by a hauler dock (`DCK`) that it runs, gun haulers posted at it
+  (one in the yard, two further up) and a few junk haulers; hacking it
+  shuts the dock down (`Borderline.WRECK_POSTS`). The objective line points
+  at the nearest one left until the tunnel opens.
 - **Knuckle Scrapper** builds itself out of the locomotive at the top.
 - **The end:** the tunnel out at the top. EXIT: "LIAR'S LANDING".
 

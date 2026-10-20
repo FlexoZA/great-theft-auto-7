@@ -90,6 +90,9 @@
 --   map.lights            { x, y, r, color, a } floodlights, for a map played at dusk (the night feature)
 --   map.army              { packs, posts, squads } who of Hyperbole's army stands where (borderline/army.lua
 --                         says what each is), world px; empty where nobody is placed yet
+--   map.terminals,        what opens the way on, and what it opens (the terminals feature): Hyperbole's
+--   map.locks             terminals and the blast door they open (the Wreck); a terminal's `dock` names the
+--                         hauler dock (a DCK post in `army`) it shuts down when hacked
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -255,6 +258,35 @@ function Blockout:squad(codes, corners)
   army.squads[#army.squads + 1] = { codes = codes, route = route, start = 1 }
 end
 
+--- A lock (the terminals feature): `label` on the HUD, holding the level's
+--- way on when `exit`; its terminals and walls follow.
+function Blockout:lock(name, label, exit)
+  local map = self.map
+  map.locks, map.terminals = map.locks or {}, map.terminals or {}
+  local l = { name = name, label = label, exit = exit, walls = {} }
+  map.locks[#map.locks + 1] = l
+  return l
+end
+
+--- A blast door of lock `l` over (x, y, w, h) px: solid, like any wall,
+--- until the lock opens.
+function Blockout:lockWall(l, x, y, w, h)
+  local s = { x = x, y = y, w = w, h = h, look = "blast" }
+  self.map.solids[#self.map.solids + 1] = s
+  l.walls[#l.walls + 1] = s
+end
+
+--- A post (borderline/army.lua): a Hyperbole terminal of lock `l` at tile
+--- (c, r), and the hauler dock it runs at tile (dc, dr), the two sharing
+--- the key `key`.
+function Blockout:dockPost(l, key, c, r, dc, dr)
+  local map = self.map
+  map.terminals[#map.terminals + 1] = { x = math.floor(self:x(c)), y = math.floor(self:y(r)), look = "hyperbole",
+    lock = l.name, warn = "Hyperbole's robots", dock = key }
+  local army = map.army
+  army.posts[#army.posts + 1] = { code = "DCK", x = self:x(dc), y = self:y(dr), watch = math.pi / 2, dock = key }
+end
+
 function Blockout:commit()
   local map = self.map
   for c = 0, map.cols - 1 do
@@ -293,6 +325,18 @@ Borderline.WRECK_PITS = {
 -- The sheds along the yard's sides (tiles), a loading door on each.
 Borderline.WRECK_SHEDS = {
   { 2, 30, 6, 8 }, { 2, 58, 5, 7 }, { 40, 8, 6, 8 }, { 41, 47, 5, 9 }, { 2, 3, 9, 6 }, { 36, 3, 10, 4 },
+}
+
+-- The terminals that open the tunnel, one in each part of the yard, each
+-- guarded by the hauler dock it runs and a few robots (tiles): `terminal`
+-- and `dock` where they stand, `guns` gun haulers posted by it, `junk` a
+-- pack of junk haulers about it ({ c, r, count }).
+Borderline.WRECK_POSTS = {
+  { key = "yard", terminal = { 40, 57 }, dock = { 37.5, 52 }, guns = { { 39.5, 59.5 } }, junk = { 35, 56, 3 } },
+  { key = "wreck", terminal = { 9.5, 36.5 }, dock = { 11.5, 32 }, guns = { { 13, 35.5 }, { 8.5, 40.5 } },
+    junk = { 12, 38, 2 } },
+  { key = "engine", terminal = { 38.5, 10.5 }, dock = { 35.5, 13.5 }, guns = { { 37.5, 12.5 }, { 33, 11.5 } },
+    junk = { 36, 17, 2 } },
 }
 
 --- A tower crane at corner `corner` of pit `p` (tiles), working over it
@@ -365,7 +409,16 @@ local function buildWreck(map, rng, T)
   for _, at in ipairs({ { 20.5, 2.6 }, { 27.5, 2.6 }, { 19.5, map.rows - 2.6 }, { 28.5, map.rows - 2.6 } }) do
     map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
   end
+  -- The tunnel shut behind a blast door until the terminals are hacked.
+  local tunnel = b:lock("tunnel", "THE TUNNEL", true)
+  b:lockWall(tunnel, b:x(21), b:y(2) + 10, 6 * T, 36)
   local keep = { { 18, 61, 29, 69 }, { 20, 0, 27, 5 } }
+  for _, post in ipairs(Borderline.WRECK_POSTS) do
+    local t, d = post.terminal, post.dock
+    b:dockPost(tunnel, post.key, t[1], t[2], d[1], d[2])
+    keep[#keep + 1] = { math.floor(t[1]) - 1, math.floor(t[2]) - 1, math.floor(t[1]) + 1, math.floor(t[2]) + 1 }
+    keep[#keep + 1] = { math.floor(d[1]) - 1, math.floor(d[2]) - 1, math.floor(d[1]) + 1, math.floor(d[2]) + 1 }
+  end
   b:scatter(rng, "drum", 22, 40, 4, 66, keep)
   b:scatter(rng, "crate", 10, 46, 4, 66, keep)
   b:scatter(rng, "cone", 30, 22, 4, 66, keep, { flat = true })
@@ -376,6 +429,12 @@ local function buildWreck(map, rng, T)
     b:pack("JNK", t[1] + t[3] / 2, t[2] + t[4] + 1.5, 3)
   end
   b:pack("JNK", L[1] + 1, L[2] + L[4] + 2, 4)
+  for _, post in ipairs(Borderline.WRECK_POSTS) do
+    for _, g in ipairs(post.guns) do
+      b:post("GUN", g[1], g[2])
+    end
+    b:pack("JNK", post.junk[1], post.junk[2], post.junk[3])
+  end
   b:zone("The Freight Yard", 40, map.rows - 1)
   b:zone("The Wreck", 16, 39)
   b:zone("The Engine", 0, 15)

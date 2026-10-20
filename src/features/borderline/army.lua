@@ -6,7 +6,9 @@
 --   packs   { code, x, y, count }  a pack picking about a spot; `count` for
 --           one human and one more for each human past the first
 --           (Bosses.plus). Seeing somebody, or hurt, one wakes the lot.
---   posts   { code, x, y, watch }  one standing watch, facing `watch`
+--   posts   { code, x, y, watch, dock }  one standing watch, facing `watch`;
+--           a hauler dock (DCK) carries its `dock` key, the terminal that
+--           shuts it down carries the same (the terminals feature)
 --   squads  { codes, route, start }  a squad walking `route` (a loop of
 --           { x, y }) from corner `start`, `codes[1]` leading
 -- Each model's brain (`BRAINS`, by code) thinks for it; the body they all
@@ -24,6 +26,9 @@
 -- What comes down out of the sky on red rings is barrage.lua's (the rocket
 -- haulers' pods, the jet haulers' runs, the badass hauler's); the plasma
 -- bolts are bolts.lua's.
+--
+-- The terminals' alarm (`serverAlarm`) brings the army near one being
+-- hacked, and a terminal done shuts down the dock it runs (`serverShutDock`).
 --
 -- Messages
 --   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim> <link> <shield>]...
@@ -54,9 +59,11 @@ local Dzr = require("src.features.borderline.dzr_brain")
 local Arc = require("src.features.borderline.arc_brain")
 local Drone = require("src.features.borderline.drone_brain")
 local Sentry = require("src.features.borderline.sentry_brain")
+local Dock = require("src.features.borderline.dock_brain")
 local Bad = require("src.features.borderline.bad_brain")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
+local DockLook = require("src.features.borderline.dock_look")
 local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
 
@@ -66,13 +73,13 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15 } -- koins each spills
+  BAD = 15, DCK = 10 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad }
-local MACHINES = { FIX = true, SHD = true, SEN = true } -- drawn by drone_look.lua, not as haulers
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock }
+local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true } -- drawn by drone_look.lua and dock_look.lua
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -111,7 +118,8 @@ function Army.serverStart(server, map)
     end
   end
   for _, post in ipairs(spec.posts or {}) do
-    roster:add(BRAINS[post.code], post.code, post.x, post.y, post.watch)
+    local s = roster:add(BRAINS[post.code], post.code, post.x, post.y, post.watch)
+    s.dock = post.dock
   end
   for _, squad in ipairs(spec.squads or {}) do
     local from = squad.route[squad.start or 1]
@@ -305,6 +313,33 @@ function Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return true
 end
 
+--- A terminal's alarm (the terminals feature) at (x, y): the army within
+--- `radius` comes to look.
+function Army.serverAlarm(_server, x, y, radius)
+  for _, o in ipairs(sv and sv.roster.list or {}) do
+    if o.brain.wake and Chassis.dist2(o.x, o.y, x, y) <= radius * radius then
+      o.brain.wake(o, x, y)
+    end
+  end
+end
+
+--- The terminal that runs dock `key` was hacked by player `by`: the dock
+--- shuts down, as good as shot (its koins, its wreck).
+function Army.serverShutDock(server, key, by)
+  for i, s in ipairs(sv and key and sv.roster.list or {}) do
+    if s.dock == key then
+      table.remove(sv.roster.list, i)
+      down(server, s, by, s.facing + math.pi, "shock")
+      return
+    end
+  end
+end
+
+--- The level's walking grid, for the terminals' walls coming down.
+function Army.nav()
+  return sv and sv.roster.nav
+end
+
 --- Every robot out on the level, for the audit (tools/audit).
 function Army.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.roster.list or {}) do
@@ -420,7 +455,9 @@ end
 
 function Army.drawBelowCars()
   for _, w in ipairs(wrecks) do
-    if MACHINES[w.code] then
+    if w.code == "DCK" then
+      DockLook.drawWreck(w.x, w.y, clock)
+    elseif MACHINES[w.code] then
       DroneLook.drawDebris(w.x, w.y, w.x % 5)
     else
       Look.drawWreck(w, clock)
@@ -431,7 +468,7 @@ end
 
 local function healthBar(s)
   if s.hp < s.max then
-    local r = Look.radius(s.code)
+    local r = s.code == "DCK" and DockLook.RADIUS or Look.radius(s.code)
     local bw, f = 24, math.max(0, s.hp / s.max)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 5, bw + 2, 4)
@@ -442,7 +479,9 @@ end
 
 local function drawOne(s)
   local flash = s.hurt / HURT
-  if s.code == "SEN" then
+  if s.code == "DCK" then
+    DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
+  elseif s.code == "SEN" then
     DroneLook.drawSentry({ dx = s.dx, dy = s.dy, aim = s.facing, rise = s.rise, charge = s.charge, flash = flash },
       clock)
   elseif MACHINES[s.code] then
@@ -496,7 +535,7 @@ end
 function Army.walkers()
   local list = {}
   for id, s in pairs(shown) do
-    if s.state ~= 2 and not flies(s) and s.code ~= "SEN" then
+    if s.state ~= 2 and not MACHINES[s.code] and not flies(s) then
       list[#list + 1] = { key = "arm" .. id, x = s.dx, y = s.dy, size = "heavy" }
     end
   end

@@ -11,11 +11,16 @@
 -- the story as it goes (tale.lua: Jerry's intro screen, the banners, their
 -- lines over the comms, the objective line). The maps' moving parts (the
 -- cranes, the beacons) are works.lua's. The bosses come later.
+--
+-- A level with terminals (the Frozen Wreck's) keeps its way on shut until
+-- they are hacked (the terminals feature); hacking one sets off an alarm
+-- the army near it hears, and shuts down the hauler dock it runs.
 
 local Features = require("src.features")
 local Army = require("src.features.borderline.army")
 local Tale = require("src.features.borderline.tale")
 local Works = require("src.features.borderline.works")
+local Terminals = require("src.features.terminals")
 
 local Borderline = {
   name = "borderline",
@@ -44,6 +49,7 @@ function Borderline:serverQuestStarted(server, quest)
   if quest.boss == self.questId then
     level = { quest = quest.id, done = false }
     Army.serverStart(server, cityMap())
+    Terminals.serverOpen(cityMap(), Army.nav(), Army.serverAlarm)
     Tale.serverStart(cityMap())
   end
 end
@@ -52,6 +58,7 @@ function Borderline:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     level = nil
     Army.serverStop(server)
+    Terminals.serverClose()
     Tale.serverStop()
   end
 end
@@ -65,6 +72,13 @@ function Borderline:mapChanged(_map, server)
     Tale.serverStop()
   end
   Army.clear()
+end
+
+--- A terminal hacked (the terminals feature): the dock it runs shuts down.
+function Borderline:serverTerminalDone(server, terminal, player)
+  if level and terminal.dock then
+    Army.serverShutDock(server, terminal.dock, player and player.id)
+  end
 end
 
 function Borderline:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
@@ -101,7 +115,8 @@ function Borderline:serverStep(server, dt)
   end
   local map = cityMap()
   Tale.serverStep(server, map, Army.alerted(), dt)
-  if not (map and map.exitX) or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
+  if not (map and map.exitX) or Terminals.serverLocked()
+    or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end
   level.done = true
