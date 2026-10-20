@@ -63,6 +63,10 @@ the Baron and it shows up.
   `serverEnemies(server, add)` (docs/features.md). The audit flags a feature
   that answers `serverShotAt` but not this, since it can't aim at what it
   can't see.
+- **Wiki** (`tools/audit/checks/wiki.lua`, docs/wiki.md): an enemy met in
+  play whose kind has no `wikiEnemies` page, a wiki entry that doesn't hold
+  together, and pages that `make wiki` would write differently now (a
+  changed number nobody wrote into the wiki) are each a minor finding.
 - **Arsenal matrix** (`tools/audit/checks/arsenal.lua`): for each kind of
   enemy met, the player stands on foot in clear sight of one and uses each
   gun (trigger held, re-aimed), each ability with damage of its own or a
