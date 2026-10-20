@@ -88,6 +88,23 @@ function Enforcers.serverStart(server, map, calm)
   return brain
 end
 
+--- One more, awake, holding (x, y) facing `watch`: the Roof's dropship
+--- (dropship.lua). Makes the brain on a map that started without any.
+--- Returns him.
+function Enforcers.serverJoin(x, y, watch)
+  if not sv then
+    sv = {
+      brain = Brain.new({
+        fov = Enforcers.fov, alertFov = Enforcers.alertFov, aware = Enforcers.aware,
+        health = Bosses.enemyHealth(Enforcers.health), from = "halcyon", firstId = Enforcers.firstId,
+      }),
+      syncIn = 0, emptySends = 0,
+    }
+  end
+  sv.brain.calm = false
+  return sv.brain:add(x, y, watch, arms())
+end
+
 function Enforcers.serverWake()
   if sv then
     sv.brain.calm = false

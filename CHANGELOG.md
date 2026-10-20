@@ -14,6 +14,18 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Roof: there is no HOME star at the top of the stairs any more. The only way home is the one on the helipad
+  once VEX gets away.
+
+### Added
+- The Roof: while VEX holds the roof she calls in Halcyon's dropship, a rocket tiltrotor. It hangs over the relay
+  you're going for, its landing spot ringed in magenta, and puts a squad of officers down to guard it, then flies
+  off. It comes back every 35 s while fewer than 5 of its officers are up, and right away whenever you breach a
+  relay. Each drop also brings one of Grey City's harder enemies, in turn: an assassin droid, a riot-shield enforcer
+  or a brute. From its second drop on, one of the officers is an elite: black armour and a gold helmet, a gold
+  diamond over him, three times the health and a harder-hitting rifle.
+
 ## [0.37.0] - 2026-10-19
 
 VEX's relays on the Roof are closer together, warn you before they shock you, and the last one can be finished.

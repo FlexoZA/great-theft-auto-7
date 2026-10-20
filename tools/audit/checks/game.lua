@@ -122,7 +122,8 @@ local function mapChecks(report, game, quest, since, soundtracks)
       title = ("%d spawn point(s) inside walls on %s"):format(inWall, where) })
   end
 
-  local home = false
+  local spec = game.Features.byName["city-map"].maps[name]
+  local home = spec and spec.noHome -- (a map that means to have none says so)
   for _, q in ipairs(game.Features.byName.quests.list) do
     if q.returns and q.onMap == name then
       home = true
@@ -131,7 +132,8 @@ local function mapChecks(report, game, quest, since, soundtracks)
   if not home then
     report:add({ severity = "minor", category = "maps", key = "home:" .. name,
       title = ("No star home on %s"):format(where),
-      detail = "A quest map has a blue star by its way in (a quest with `returns` and onMap = the map)." })
+      detail = "A quest map has a blue star by its way in (a quest with `returns` and onMap = the map), "
+        .. "or says it means to have none (`noHome` on its city-map spec)." })
   end
 end
 

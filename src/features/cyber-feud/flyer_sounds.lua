@@ -5,6 +5,8 @@
 --   aerodyne  a turbine's whine over the hum of its four fans
 --   hauler    the slow, deep thump of two big rotors over a rumble
 --   adrone    a high buzz, four small rotors a little out of tune
+--   dropship  Halcyon's dropship over the Roof (dropship.lua): two rockets'
+--             roar, a crackle in it, over a low rumble
 --
 -- Everything in a loop repeats a whole number of times a second, and the
 -- filters run round it twice, so the end leads back into the start. Their
@@ -95,6 +97,12 @@ function Sounds.load()
     end
     return v + noise() * 0.12
   end, 2600)
+  -- The dropship: two rockets roaring, a crackle running through the roar,
+  -- over a deep rumble.
+  data.dropship = render(function(_, t)
+    local crackle = noise() > 0.93 and 0.6 or 0
+    return noise() * 0.7 + crackle + saw(41, t) * 0.25 + saw(62, t) * 0.12
+  end, 900)
 end
 
 --- A new engine loop for `kind`, playing. Move it with `Sounds.place`.
