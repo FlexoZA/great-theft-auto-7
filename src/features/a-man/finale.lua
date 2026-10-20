@@ -423,6 +423,55 @@ function Finale.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Finale.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local pistol = Features.byName.weapons.guns.pistol
+  local NAMES = { soldiers = "Combine soldiers", hunters = "Hunters", rollermines = "rollermines",
+    antlions = "antlions", turrets = "sentry turrets" }
+  local summons = {}
+  for _, sm in ipairs(Finale.SUMMONS) do
+    summons[#summons + 1] = ("%g %s"):format(sm.count, NAMES[sm.kind] or sm.kind)
+  end
+  add({
+    kind = "a-man/finale",
+    name = "A-Man",
+    quests = { Finale.questId },
+    boss = true,
+    where = "The top of the Citadel, once someone steps onto the top platform",
+    about = "The end of the trail. The same man in the same joke-shop disguise, much stronger now: he blinks "
+      .. "straight through you, and his briefcase holds everything you met on the way up.",
+    stats = {
+      { "Health", Finale.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Finale.health / pistol.damage)) },
+      { "Speed", Finale.walkSpeed, "px/s, never hurrying" },
+    },
+    weapons = {
+      { "Blink", ("%g impact damage to everyone on the line he tears along, through anyone within %g px, coming "
+        .. "out %g px past them"):format(Finale.damage, Finale.strikeRange, Finale.overshoot) },
+      { "Briefcase", ("out comes one of: %s (for one player, more with more), never the same twice running")
+        :format(table.concat(summons, ", ")) },
+    },
+    abilities = {
+      ("The line of a blink shows for %g s before he goes; he blinks every %g to %g s, breath allowing."):format(
+        Finale.windup, Finale.blinkEvery, Finale.blinkEvery + Finale.blinkJitter),
+      ("Every %g%% of his health you take earns a case: he holds it up for %g s, then it snaps open."):format(
+        Finale.caseShare * 100, Finale.caseTime),
+      ("Under %g%% health two things come out of the case at once."):format(Finale.rage * 100),
+      "Nothing hits him mid-blink.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, by blink if he can, for %g health."):format(
+        Heal.below * 100, Finale.healRange, Heal.amount),
+      "Hurries out from under a player's ability about to land on him.",
+    },
+    tips = {
+      "Step off the line while it shows.",
+      "Deal with what comes out of the case before it piles up, and shoot him while he holds it up.",
+      "A freeze holds him, but only for half as long; a stink throws him off the blink he was aiming.",
+    },
+    drops = ("%g koins and his teleport ability, uncommon or better"):format(Finale.drops),
+  })
+end
+
 --- A stink at (x, y) throws him off the blink he was aiming.
 function Finale.serverPanicArea(x, y, radius)
   local a = sv and not sv.done and sv.a

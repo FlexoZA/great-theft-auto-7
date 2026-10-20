@@ -456,6 +456,94 @@ function Dday:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Dday:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local Grenades = require("src.features.grenades")
+  local Heal = require("src.features.bosses.heal")
+  local Nest = Features.byName.abilities.kinds.byKey.mgnest
+  local ak = Guns.ak47
+  add({
+    kind = "d-day/soldier",
+    name = "D-Day soldier",
+    quests = { self.questId },
+    where = "Looz'er Beach: guards in the bunkers, trenches and huts, riflemen out of the barracks",
+    about = "The Major's men. Guards sweep a cone of sight over the beach from their posts; riflemen come out "
+      .. "of the barracks doors and walk down the hill at you. Both open fire on anyone they spot.",
+    stats = {
+      { "Health", Soldiers.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(Soldiers.SHOT_DAMAGE,
+        math.ceil(Soldiers.HEALTH / Soldiers.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s walking down the hill, %g closing in"):format(Soldiers.WALK, Soldiers.CHASE_WALK) },
+      { "Sight", ("%g px in a %g degree cone, and %g px all round"):format(Soldiers.RANGE,
+        math.floor(math.deg(require("src.features.d-day.sight").FOV) + 0.5), self.aware) },
+      { "Numbers", ("%g guards and up to %g riflemen at once for one player, a rifleman every %g s"):format(
+        self.guards, self.riflemen, self.reinforceEvery) },
+    },
+    weapons = {
+      { "AK-47", ("%g damage a round, a round every %g s while he can see you, out to %g px"):format(ak.damage,
+        Soldiers.FIRE_EVERY, Soldiers.RANGE) },
+      { "Hand grenade", ("%g%% of them carry %g each: %g explosive damage across %g px, thrown %g to %g px"):format(
+        Soldiers.GRENADIER * 100, Soldiers.GRENADES, Grenades.blast.damage, Grenades.blast.radius,
+        Soldiers.GRENADE_MIN, Grenades.range) },
+    },
+    abilities = {
+      ("Spots you, turns to follow you at %d degrees a second and fires after %g s to take aim."):format(
+        math.floor(math.deg(Soldiers.TURN) + 0.5), Soldiers.REACT),
+      ("Calls in the nearest %g within %g px when he spots you; one going down brings everyone within %g px "
+        .. "to look."):format(self.callAnswer, self.callHeard, self.downHeard),
+      ("Comes after you when you duck out of sight (up to %g px from where he started) and searches where he lost you "
+        .. "for %g s."):format(Soldiers.LEASH, Soldiers.SEARCH_TIME),
+      "Shot at from out of sight, he and his mates take cover and wait, then send a squad to look.",
+      ("Behind them, mortars fall on the beach every %g to %g s: a ring shows where for %g s, then up to %g "
+        .. "explosive damage across %g px."):format(self.mortarEvery[1], self.mortarEvery[2], self.mortarDelay,
+        self.mortarDamage, self.mortarRadius),
+    },
+    tips = {
+      "Keep a tank stopper or a sandbag wall between you and the cones of sight.",
+      "Sprint across a cone: he can't turn fast enough to follow you.",
+      "A freeze stops them looking and shooting, and a stink sends them running.",
+    },
+    drops = ("%g koin, and sometimes something to pick up"):format(self.soldierDrops),
+  })
+  add({
+    kind = "d-day/major",
+    name = "Major Looz'er",
+    quests = { self.questId },
+    boss = true,
+    where = "Looz'er Beach, on the hilltop behind the flag once someone reaches it",
+    about = "Big, slow and never done talking about his country. He sees all round him, marches to rifle "
+      .. "range of the nearest player and fires bursts, and throws MG nests down in front of him.",
+    stats = {
+      { "Health", Major.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(Major.HEALTH / self.bulletDamage)) },
+      { "Speed", ("%g px/s marching, %g winded"):format(Major.SPEED, Major.WALK_SPEED) },
+      { "Sight", ("%g px, all the way round"):format(Major.RANGE) },
+    },
+    weapons = {
+      { "AK-47", ("bursts of %g rounds, %g damage each, a burst every %g s"):format(Major.BURST, ak.damage,
+        Major.BURST_EVERY) },
+      { "MG nest", ("every %g s (the first %g s in): a machine gun that sprays a %g degree arc in front of him "
+        .. "for %g s, %g damage a round"):format(Major.NEST_EVERY, Major.NEST_FIRST, math.deg(Nest.arc),
+        Nest.seconds, Nest.gun.damage) },
+    },
+    abilities = {
+      ("Keeps about %g px from whoever he is after."):format(Major.KEEP),
+      "Marching costs him breath: winded, he strolls, and has no MG nest in him until it's back.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "Can't be hurt until his portrait is gone and the fight is on.",
+    },
+    tips = {
+      "Stay out of the nest's arc: it only fires the way it faces.",
+      "Run him dry and he can't keep up, or put a nest down.",
+      "A freeze holds him still, and a stink sends him running.",
+    },
+    drops = ("%g koins"):format(Major.DROPS),
+  })
+end
+
 --- For tests.
 function Dday.server()
   return sv

@@ -221,6 +221,17 @@ function EternalMood:serverEnemies(server, add)
   Horde.serverEnemies(server, add)
 end
 
+--- The wiki's pages on the level's enemies (tools/wiki, docs/wiki.md).
+function EternalMood:wikiEnemies(add)
+  require("src.features.eternal-mood.horde_wiki").wikiEnemies(add)
+  Mecha.wikiEnemies(add)
+  DreadKnight.wikiEnemies(add)
+  FloorManager.wikiEnemies(add)
+  Mancubus.wikiEnemies(add)
+  Baron.wikiEnemies(add)
+  Mattressmind.wikiEnemies(add)
+end
+
 function EternalMood:serverFreezeArea(_server, x, y, radius, seconds)
   Horde.serverFreezeArea(x, y, radius, seconds)
   FloorManager.serverFreezeArea(x, y, radius, seconds)

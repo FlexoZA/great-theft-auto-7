@@ -662,6 +662,75 @@ function Hunt:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Hunt:wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  add({
+    kind = "alien-hunt/bigfoot",
+    name = "Bigfoot",
+    quests = { self.questId },
+    boss = true,
+    where = "Whispering Pines, in the fifth clearing at the end of Wendell's trail",
+    about = "Wendell wanted aliens. He got Bigfoot. Huge and hairy, he chases whoever is nearest, swipes at "
+      .. "them, and every few seconds leaps and comes down on them.",
+    stats = {
+      { "Health", self.footHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.footHealth / self.bulletDamage)) },
+      { "Speed", ("%g px/s chasing, %g winded"):format(self.footSpeed, self.footWalkSpeed) },
+      { "Sight", self.aggroRange, "px" },
+    },
+    weapons = {
+      { "Swipe", ("%g melee damage, one every %g s"):format(self.swipeDamage, self.swipeEvery) },
+      { "Leap", ("%g impact damage to everyone within %g px of where he lands"):format(self.slamDamage,
+        self.slamRadius) },
+    },
+    abilities = {
+      ("Every %g s he leaps at anyone within %g px: %g s crouched while a ring shows where he will land, %g s in "
+        .. "the air, %g s getting up."):format(self.leapEvery, self.leapRange, self.crouchTime, self.airTime,
+        self.recoverTime),
+      "Bullets pass under him while he is in the air.",
+      "Chasing costs him breath: winded, he lumbers along slower than you walk, with no leap in him.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, leaping onto it if he can, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+    },
+    tips = {
+      "Get out of the ring before he lands, then shoot him while he gets up.",
+      "Sprinting outruns him.",
+      "A freeze holds him still, and a stink sends him off.",
+    },
+    drops = ("%g koins"):format(self.drops),
+  })
+  add({
+    kind = "alien-hunt/squirrel",
+    name = "Squirrel",
+    quests = { self.questId },
+    where = "Whispering Pines, out of the trees at each of the first four clearings",
+    about = "An alien spy, according to Wendell. It zigzags out of the trees at him, bites and hops back, and "
+      .. "he won't go on until it is down.",
+    stats = {
+      { "Health", self.squirrelHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.squirrelHealth / self.bulletDamage)) },
+      { "Speed", self.squirrelSpeed, "px/s" },
+      { "Numbers", "One at a clearing, one after another for every player" },
+    },
+    weapons = {
+      { "Bite", ("%g damage to Wendell, one every %g s. It never bites you."):format(self.squirrelBite,
+        self.squirrelBiteEvery) },
+    },
+    abilities = {
+      ("Bites Wendell (%g health) flat and he faints for %g s, and another squirrel comes for him."):format(
+        self.manHealth, self.faintTime),
+    },
+    tips = {
+      "Stay by Wendell and shoot it on its way in: it zigzags, so lead it.",
+      "A freeze holds it still.",
+    },
+    drops = "Sometimes something to pick up",
+  })
+end
+
 --- For tests.
 function Hunt.server()
   return sv

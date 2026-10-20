@@ -464,6 +464,61 @@ function Tripod.serverHeld(_server, player)
   return c ~= nil and c.id == player.id
 end
 
+--- The wiki's page on it (tools/wiki, docs/wiki.md); init.lua passes
+--- `opens`, when the event can first happen.
+function Tripod.wikiEnemies(add, opens)
+  local Heal = require("src.features.bosses.heal")
+  local T = Tripod
+  local legendary = T.dropTiers[#T.dropTiers]
+  add({
+    kind = "events/tripod",
+    name = "The Tripod",
+    boss = true,
+    where = "The city, as an event" .. opens .. ": it rises out of a lightning storm at a crossing",
+    about = "A war machine on three long legs, taller than the buildings. It strides over them after you, burns "
+      .. "you with its heat ray and snatches you up into the cage at its back.",
+    stats = {
+      { "Health", T.health },
+      { "Armour", ("only its head can be hit, %g px round where it stands; the legs are out of reach"):format(
+        T.radius) },
+      { "Speed", ("%g px/s on the streets, %g striding after you, %g winded"):format(T.roamSpeed, T.huntSpeed,
+        T.windedSpeed) },
+      { "Sight", ("goes after you from %g px, turns the heat ray on you from %g px"):format(T.huntRange,
+        T.rayRange) },
+    },
+    weapons = {
+      { "Lightning", ("for %g s before it rises, bolts round every player: %g shock damage on foot, %g to a car, "
+        .. "%g px round each strike, marked %g s before it hits"):format(T.stormTime, T.boltDamage, T.boltCarDamage,
+        T.boltRadius, T.boltWarn) },
+      { "Heat ray", ("warms up on you for %g s, then burns the spot %g px across for %g s: %g fire damage a second "
+        .. "on foot, %g to a car"):format(T.charge, T.burnRadius * 2, T.fire, T.burnDps, T.carDps) },
+      { "Sweep", ("lights up an arc %g px out in front for %g s, then burns along it over %g s: about %g fire "
+        .. "damage on foot as it passes"):format(T.sweepRadius, T.sweepWarn, T.sweepTime, T.sweepDps / 4) },
+      { "Tentacles", ("a player on foot within %g px is lashed at, with %g s to get clear, and caged: %g melee "
+        .. "damage a second for up to %g s"):format(T.grabReach, T.grabWindup, T.cageDps, T.cageTime) },
+    },
+    abilities = {
+      ("Whoever the ray catches on foot burns on for %g s at %g a second, unless they dodge."):format(T.afterburnTime,
+        T.afterburnDps),
+      ("It lets the caged player go once it has taken %g%% of its health since the grab."):format(T.dropAfter * 100),
+      "Steps straight over buildings once it has somebody in sight.",
+      ("Under %g%% health it strides to a medkit within %g px, which puts back %g."):format(Heal.below * 100,
+        T.healRange, Heal.amount),
+      "It tires: striding, the ray and the tentacles spend its breath, and winded it only ambles and does neither.",
+      "Nothing hurts it during the storm.",
+    },
+    tips = {
+      ("The ray stops following you %g s before it fires: dash or sprint out of the ring then."):format(T.lock),
+      "Get off the lit arc before the sweep comes.",
+      "Don't stand under it on foot. If a friend is caged, shoot the head to make it let go.",
+      ("It strides after you at %g px/s: a sprint gets away, a walk doesn't."):format(T.huntSpeed),
+      "A freeze stops it, ray and tentacles with it.",
+    },
+    drops = ("%g koins, and its heat ray in a random tier (legendary %g times in a hundred)"):format(T.drops,
+      legendary[2]),
+  })
+end
+
 --- For tests.
 function Tripod.server()
   return sv

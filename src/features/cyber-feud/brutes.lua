@@ -311,6 +311,48 @@ function Brutes.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Brutes.wikiEnemies(add)
+  local B = troops().breakIn
+  add({
+    kind = "cyber-feud/brute",
+    name = "Brute",
+    quests = { "cyber-feud-tower", "cyber-feud-roof" },
+    where = ("Halcyon Tower with the Static's break-ins from floor %g up, and the Roof: up the stairs while Kilowatt "
+      .. "fights, and with the dropship"):format(B.bruteFrom),
+    about = "The Static's heavy: a big man in a rust-orange work jacket and a welding mask, with a giant chrome arm "
+      .. "and a cyan reactor in his chest. Slow, and he soaks up fire for the pack.",
+    stats = {
+      { "Health", Brutes.health },
+      { "Speed", ("%g px/s on his beat, %g going in, %g charging"):format(Brain.WALK, Brain.RUN,
+        Brain.CHARGE_SPEED) },
+      { "Sight", ("%g px, a %g degree cone, and he hears anyone within %g px"):format(Brain.RANGE,
+        math.deg(Brutes.fov), Brutes.aware) },
+    },
+    weapons = {
+      { "Charge", ("%g impact damage to whoever is on his line, about %g px long, every %g s"):format(
+        Brain.CHARGE_DAMAGE, LINE, Brain.CHARGE_EVERY) },
+      { "Punch", ("%g impact damage within %g px, wound up for %g s, every %g s"):format(Brain.PUNCH_DAMAGE,
+        Brain.PUNCH_REACH, Brain.PUNCH_WIND, Brain.PUNCH_EVERY) },
+    },
+    abilities = {
+      ("Between %g and %g px off you, braces for %g s with a cyan line on the ground showing where he will go, then "
+        .. "charges down it."):format(Brain.CHARGE_MIN, Brain.CHARGE_FROM, Brain.BRACE),
+      ("Charging into a wall dazes him for %g s."):format(Brain.DAZED),
+      ("His arm is breachable: on foot within %g px of him, hold the action key for %g s and it locks up. For %g s "
+        .. "he spins, swinging at whatever is next to him for %g impact damage every %g s, his own side and you "
+        .. "too (the blows are yours). Let go and the breach drains away."):format(Brutes.reach, Brutes.breachTime,
+        Brain.HAYWIRE, Brutes.swingDamage, Brain.SWING_EVERY),
+    },
+    tips = {
+      "Step sideways off the cyan line while he braces.",
+      "Get him to charge into a wall, then unload while he is dazed.",
+      "Breach his arm in the middle of his pack and step back.",
+    },
+    drops = ("%g koins, maybe a pickup"):format(Brutes.drops),
+  })
+end
+
 function Brutes.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

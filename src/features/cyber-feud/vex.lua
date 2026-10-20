@@ -174,6 +174,55 @@ function Vex.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on her (tools/wiki, docs/wiki.md). She has no health to
+--- scale; what grows is her pulse, said in so many words.
+function Vex.wikiEnemies(add)
+  local rage = Bosses.rage
+  local function times(n)
+    return n == 2 and "twice" or ("%g times"):format(n)
+  end
+  add({
+    kind = "cyber-feud/vex",
+    boss = true,
+    drawImmune = true,
+    scaling = "none",
+    name = "VEX",
+    quests = { "cyber-feud-roof" },
+    where = "The Roof, once Saye and Kilowatt are down and the Shard is in her uplink",
+    about = "The voice in your earpiece the whole way, and the one who wanted the Shard all along. She locks the "
+      .. "roof, comes up huge, her face projected over all of it, and turns the tower's turrets on you. She can't "
+      .. "be shot: you beat her by breaching the relays that keep her there.",
+    stats = {
+      { "Numbers", ("%g turrets for one player, %g more for each human past the first"):format(Vex.turrets,
+        Bosses.extra) },
+    },
+    weapons = {
+      { "Shock pulse", ("a ring of %g shock damage out to %g px round the relay she is at, every %g s"):format(
+        Vex.pulseDamage, Vex.pulseRadius, Vex.pulseEvery) },
+      { "Her turrets", "sentry turrets that come up round the roof when she takes it (Sentry turret's page)" },
+    },
+    abilities = {
+      ("%g s after the Shard is handed over she takes the roof: a green barrier drops across the stairs."):format(
+        Vex.revealTime),
+      ("Her relays: on foot within %g px of one, hold the action key for %g s to breach it. Let go and after %g s it "
+        .. "drains away."):format(Vex.reach, Vex.relayTime, Vex.drainAfter),
+      ("She sits at one of the relays left, moving to another every %g s; breaching the one she is at takes %s "
+        .. "as long."):format(Vex.moveEvery, times(1 / Vex.guarded)),
+      ("Before each pulse her relay charges for %g s, its reach lighting up blue and whining: the tell. From then "
+        .. "until %g s after the pulse it keeps its breach with nobody at it."):format(Vex.warnTime, Vex.holdAfter),
+      "Every relay that falls, her face breaks up more, and Halcyon's dropship comes at once if it isn't in the air.",
+      "On the last relay she gets away into the net: the roof unlocks and her turrets go dead.",
+      ("Each time the job has been finished before (up to %g), her pulse hits %g%% harder."):format(rage.max,
+        math.floor(rage.damage * 100 + 0.5)),
+    },
+    tips = {
+      "Step out of the blue ring when it lights up and back in after the pulse: you lose nothing.",
+      ("Work the relays she isn't at: they go %s as fast."):format(times(1 / Vex.guarded)),
+      "Breach or shoot her turrets first if they have the relay covered.",
+    },
+  })
+end
+
 local function left()
   local out = {}
   for i, r in ipairs(sv.relays) do

@@ -232,6 +232,47 @@ function Antlions:serverEnemies(server, add)
   Guard.serverEnemies(server, add)
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md), and the Guard's.
+function Antlions:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local pistol = Guns.pistol
+  add({
+    kind = "antlions/antlion",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Antlion",
+    quests = { "a-man-coast", "a-man-citadel" },
+    where = "The Coast, buried in swarms in the sand; A-Man's briefcase calls them up in the Citadel",
+    about = "Insects out of the sand. A swarm lies buried until you come near, then bursts up, runs you down "
+      .. "from all sides and bites.",
+    stats = {
+      { "Health", Brain.HEALTH },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Brain.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s running, %g leaping"):format(Brain.RUN, Brain.LEAP_SPEED) },
+      { "Sight", ("a swarm wakes when you come within %g px, and chases you from %g px"):format(
+        Brain.WAKE, Brain.CHASE) },
+      { "Numbers", "A swarm at each spot on the sand, bigger with more players" },
+    },
+    weapons = {
+      { "Bite", ("%g melee damage, then %g s before the next"):format(Brain.BITE, Brain.BITE_EVERY) },
+      { "Leap", ("from %g to %g px away it sometimes leaps the rest of the way, landing ready to bite"):format(
+        Brain.LEAP_NEAR, Brain.LEAP_FAR) },
+    },
+    abilities = {
+      ("Takes %g s to crawl up out of the sand, and can be shot while it does."):format(Brain.RISE),
+      "Spreads out round you rather than queueing up, and finds its way round anything in the way.",
+      ("Nobody to go after for %g s and it burrows back under, to wake again the same way."):format(Brain.GIVE_UP),
+      "The Combine's rounds pass by them, so the bunkers' guns don't thin them out for you.",
+    },
+    tips = {
+      "A sprint gets away from them, slowly.",
+      "Back off as a swarm comes up and shoot them on the way out of the sand.",
+      "A freeze stiffens one, and a stink sends it scuttling off.",
+    },
+    drops = ("%g koin, now and then something to pick up"):format(self.drops),
+  })
+  Guard.wikiEnemies(add)
+end
+
 function Antlions:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

@@ -310,6 +310,46 @@ function Runner.serverFreezeArea(_server, x, y, radius, seconds)
   end
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md); init.lua passes
+--- `opens`, when the event can first happen.
+function Runner.wikiEnemies(add, opens)
+  local Heal = require("src.features.bosses.heal")
+  local R = Runner
+  local legendary = R.dropTiers[#R.dropTiers]
+  add({
+    kind = "events/runner",
+    name = "The Runner",
+    boss = true,
+    where = "The city, as an event" .. opens .. ": he comes onto a crossing away from everyone",
+    about = "A man in a tracksuit sprinting the streets at three times your sprint. He goes after nobody, but "
+      .. "whatever is in his lane pays for it.",
+    stats = {
+      { "Health", R.health },
+      { "Speed", ("%g px/s flat out, %g winded"):format(R.speed, R.walkSpeed) },
+    },
+    weapons = {
+      { "Trample", ("%g impact damage to a player on foot in his way, once every %g s"):format(R.trample,
+        R.trampleEvery) },
+      { "Running into a car", "wrecks it on the spot, whatever the car; the driver bails out" },
+    },
+    abilities = {
+      "Keeps to the streets, in one lane or the other, picking a new street at every crossing.",
+      "Gibs any pedestrian he runs through.",
+      ("Under %g%% health he leaves the street for a medkit within %g px, which puts back %g."):format(
+        Heal.below * 100, R.healRange, Heal.amount),
+      ("He has a huge lungful, about %g s flat out, then he is winded and walks for about %g s."):format(
+        R.breath.max / R.breath.drain, math.floor(R.breath.recovered / R.breath.regen + 0.5)),
+    },
+    tips = {
+      "Catch him when he is winded: that is your window, and the boss bar says so.",
+      "Keep out of his lane, on foot or in a car.",
+      "A freeze stops him dead; a stink ahead of him turns him round.",
+    },
+    drops = ("%g koins, and his second wind in a random tier (legendary %g times in a hundred)"):format(R.drops,
+      legendary[2]),
+  })
+end
+
 --- For tests.
 function Runner.server()
   return sv

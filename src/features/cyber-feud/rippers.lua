@@ -196,6 +196,46 @@ function Rippers.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Rippers.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/ripper",
+    name = "Ripper",
+    quests = { "cyber-feud-market" },
+    where = "The Market's west lanes, walking the Static's beats",
+    about = "The Static's knife fighters: lean, with two chrome blades out of the forearms. Fast, and always after "
+      .. "whoever is most alone.",
+    stats = {
+      { "Health", Rippers.health },
+      { "Speed", ("%g px/s on its beat, %g running in, %g in a lunge"):format(Brain.WALK, Brain.RUN,
+        Brain.LUNGE_SPEED) },
+      { "Sight", ("%g px, a %g degree cone, and it hears anyone within %g px"):format(Brain.RANGE,
+        math.deg(Rippers.fov), Rippers.aware) },
+    },
+    weapons = {
+      { "Lunge", ("%g melee damage to whoever is on its line, about %g px long, every %g s"):format(Brain.LUNGE_DAMAGE,
+        LINE, Brain.LUNGE_EVERY) },
+      { "Slash", ("%g melee damage within %g px, every %g s"):format(Brain.SLASH_DAMAGE, Brain.SLASH_REACH,
+        Brain.SLASH_EVERY) },
+    },
+    abilities = {
+      ("Goes for whoever is most alone: anyone else within %g px of you makes you a worse pick."):format(Brain.CROWD),
+      ("From %g px off, crouches for %g s with a cyan line on the ground showing where it will go, then lunges down "
+        .. "it. The line is set once it crouches."):format(Brain.LUNGE_FROM, Brain.CROUCH),
+      ("Up close it slashes %g times, then backs off for %g s to lunge again."):format(Brain.SLASHES, Brain.BACK_OFF),
+      ("Gives up %g s after it last saw you and goes back to its beat."):format(Brain.LOST_AFTER),
+      "In the feud it is the Static's: it goes for Halcyon's officers and enforcers too.",
+    },
+    tips = {
+      "Step sideways off the cyan line while it crouches: the lunge goes where the line was.",
+      "Stay near your friends: it picks on whoever is alone.",
+      ("Shoot it while it catches its breath (%g s) after a lunge."):format(Brain.RECOVER),
+      "An enforcer's shield stops its blades from in front.",
+    },
+    drops = ("%g koins, maybe a pickup"):format(Rippers.drops),
+  })
+end
+
 function Rippers.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

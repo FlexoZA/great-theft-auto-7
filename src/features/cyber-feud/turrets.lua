@@ -262,6 +262,47 @@ function Turrets.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Turrets.wikiEnemies(add)
+  local Saye = require("src.features.cyber-feud.saye")
+  local Vex = require("src.features.cyber-feud.vex")
+  add({
+    kind = "cyber-feud/turret",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Sentry turret",
+    quests = { "cyber-feud-tower", "cyber-feud-roof" },
+    where = "Bolted down in Halcyon Tower's labs and round its security floor; on the Roof, dropped by Saye and "
+      .. "driven by VEX",
+    about = "A grey tripod with a magenta lens. It sweeps its arc, puts a laser on whoever it sees, and fires down "
+      .. "it. Get next to one and it can be yours.",
+    stats = {
+      { "Health", Turrets.health },
+      { "Sight", ("%g px, a %g degree cone sweeping its arc, along a clear line"):format(Brain.RANGE,
+        math.deg(Brain.FOV)) },
+      { "Numbers", ("On the Roof, up to %g of Saye's at once, and %g of VEX's for one player (%g more for each "
+        .. "human past the first)"):format(Saye.TURRETS_MAX, Vex.turrets, Bosses.extra) },
+    },
+    weapons = {
+      { "Burst fire", ("%g damage a round, in bursts of %g (%g s apart), then %g s, out to %g px"):format(
+        Turrets.damage, Brain.BURST, Brain.BURST_GAP, Brain.PAUSE, Brain.RANGE) },
+    },
+    abilities = {
+      ("Its laser is on you for %g s before the first round; it turns at %g rad/s and never past the ends of its "
+        .. "arc."):format(Brain.WARN, Brain.TURN),
+      ("Breachable: on foot within %g px of it, hold the action key for %g s and it fights for you for %g s, "
+        .. "shooting Halcyon and the Static (the kills are yours). Let go and the breach drains away."):format(
+        Turrets.reach, Turrets.breachTime, Turrets.breachFor),
+      ("A sparker's EMP knocks it out for %g s."):format(Turrets.empTime),
+      "Only players' rounds reach it.",
+    },
+    tips = {
+      "Come at it from behind, out of its arc, and breach it.",
+      ("Cross its front fast up close: at %g rad/s you outrun its turn."):format(Brain.TURN),
+    },
+    drops = ("%g koins"):format(Turrets.drops),
+  })
+end
+
 function Turrets.serverEmp(x, y, radius)
   if sv then
     sv.brain:stun(x, y, radius, Turrets.empTime)

@@ -183,6 +183,39 @@ function Marksmen.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Marksmen.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/marksman",
+    name = "Marksman",
+    quests = { "cyber-feud-overpass", "cyber-feud-tower" },
+    where = "Up on the Overpass's gantries, and in the far corners of Halcyon Tower's guard and executive floors",
+    about = "Halcyon's sharpshooter: a dark helmet and a long rifle. A thin magenta line shows where the next round "
+      .. "is going.",
+    stats = {
+      { "Health", Marksmen.health },
+      { "Sight", ("%g px, a %g degree cone; over everything from a gantry, only along a clear line in the tower")
+        :format(Brain.RANGE, math.deg(Brain.FOV)) },
+      { "Numbers", ("%g for one player, %g more for each human past the first"):format(Marksmen.count,
+        Bosses.extra) },
+    },
+    weapons = {
+      { "Rifle", ("%g damage, one round at %g px/s, out to %g px; then %g s working the bolt"):format(Marksmen.damage,
+        Marksmen.roundSpeed, Brain.RANGE, Brain.RELOAD) },
+    },
+    abilities = {
+      ("His line follows you for %g s, leading a car to where it will be, then holds still and bright for %g s "
+        .. "before he fires down it."):format(Brain.AIM, Brain.LOCK),
+      "In a flare-up on the Overpass he shoots the Static too, and they him.",
+    },
+    tips = {
+      ("Swerve or step aside the moment the line holds still: you have %g s."):format(Brain.LOCK),
+      ("Shoot back while he works the bolt (%g s)."):format(Brain.RELOAD),
+    },
+    drops = ("%g koins"):format(Marksmen.drops),
+  })
+end
+
 function Marksmen.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

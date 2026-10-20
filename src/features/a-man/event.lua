@@ -753,4 +753,53 @@ AMan.clientMessages = {
   end,
 }
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md), asked for by the
+--- events feature, which lists and draws him; `opens` says when his event
+--- opens. His turrets have the page of the ones on his jobs (cameo.lua).
+function AMan.wikiEnemies(add, opens)
+  local Heal = require("src.features.bosses.heal")
+  local A = AMan
+  local legendary = A.dropTiers[#A.dropTiers]
+  add({
+    kind = "a-man/event",
+    name = "A-Man (city event)",
+    boss = true,
+    where = "The city, as an event" .. opens .. ": he walks in from somewhere away from everyone",
+    about = "A man in a navy suit, joke-shop glasses and a stuck-on moustache. He never hurries: he teleports "
+      .. "straight through you, and unpacks sentry turrets from his briefcase.",
+    stats = {
+      { "Health", A.health },
+      { "Speed", ("%g px/s walking; the rest of the way he blinks"):format(A.walkSpeed) },
+    },
+    weapons = {
+      { "Blink", ("every %g to %g s: within %g px he goes straight through you and %g px out the far side, "
+        .. "further off he lands %g px from you; %g impact damage to everyone on the line, "
+        .. "%g px either side of it"):format(A.blinkEvery, A.blinkEvery + A.blinkJitter, A.strikeRange,
+        A.overshoot, A.approachGap, A.damage, A.width) },
+      { "Briefcase", ("with a player within %g px, he opens it on %g sentry turrets that scuttle about spraying "
+        .. "bursts of %g rounds of %g damage in random directions"):format(A.hordeRange, Turrets.count,
+        Turrets.burst, Turrets.damage) },
+    },
+    abilities = {
+      ("A line shows where he is about to blink, %g s before he goes."):format(A.windup),
+      ("A blink costs %g of his %g breath: two in a row and he walks until it is back. He never runs, so he is "
+        .. "never winded."):format(A.blinkCost, A.breath.max),
+      ("One horde of turrets at a time: %g s after the last one falls he may open the case again."):format(
+        A.hordeDelay),
+      ("Under %g%% health he goes for a medkit within %g px, blinking there when he can, and it puts back %g.")
+        :format(Heal.below * 100, A.healRange, Heal.amount),
+      "Nothing hits him mid-blink.",
+    },
+    tips = {
+      "Step off the line while it shows.",
+      "One round of anything knocks a turret over.",
+      "A freeze holds him and his wind-up waits; a stink in his face throws him off his aim.",
+    },
+    drops = ("%g koins, and his teleport in a random tier (legendary %g times in a hundred)"):format(A.drops,
+      legendary[2]),
+  })
+end
+
+--- The wiki's pages on every event's boss and whatever he brings
+--- (tools/wiki, docs/wiki.md), in the F8 menu's order.
 return AMan

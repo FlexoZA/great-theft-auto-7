@@ -548,6 +548,44 @@ function Police:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Police:wikiEnemies(add)
+  local B = require("src.features.police.officer_brain")
+  local pistol = Features.byName.weapons.guns.at(1) -- the force's (serverFireFrom's default)
+  add({
+    kind = "police/officer",
+    name = "Police officer",
+    where = "The city's streets, walking a beat near every player",
+    about = "The law on foot. Officers stroll the streets around you, see crimes the way a patrol car does, "
+      .. "and draw a pistol on anyone who is wanted.",
+    stats = {
+      { "Health", Officers.HEALTH },
+      { "Hits", ("%g a hit, whatever hits them: %g hits down one"):format(Officers.SHOT_DAMAGE,
+        math.ceil(Officers.HEALTH / Officers.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s on the beat, %g chasing"):format(Officers.WALK_SPEED, Officers.CHASE_SPEED) },
+      { "Sight", Officers.SIGHT, "px" },
+      { "On the street", ("%g per player, %g at most, %g more while anyone is wanted"):format(Officers.PER_PLAYER,
+        Officers.MAX, Officers.BACKUP) },
+    },
+    weapons = {
+      { "Pistol", ("%g damage a round, a round every %g s, out to %g px"):format(pistol.damage,
+        Officers.FIRE_INTERVAL, Officers.FIRE_RANGE) },
+    },
+    abilities = {
+      ("Witnesses crimes within %g px and makes you wanted."):format(Officers.SIGHT),
+      ("Once after you, keeps after you out to %g px, closing to %g px before standing to shoot."):format(
+        Officers.PURSUE, Officers.STANDOFF),
+      ("Calls it in over the radio: every free officer within %g px comes."):format(B.RADIO),
+      ("Loses you and searches the spot for %g s before going back to the beat."):format(B.SEARCH_TIME),
+      "Turns on whoever shoots them, wanted or not.",
+    },
+    tips = {
+      ("A car at %g px/s or more flattens an officer outright."):format(Officers.SPLAT_SPEED),
+      "Break their line of sight: they can't see through buildings, and a crime nobody sees doesn't count.",
+    },
+  })
+end
+
 --- The officers on foot after player `id` right now (after anybody, for no
 --- `id`), on the host: { id, x, y } each. For something that stands up to
 --- them (a Gang Hangout's guards).

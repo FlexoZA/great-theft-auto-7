@@ -225,6 +225,18 @@ function Events:serverEnemies(server, add)
   end
 end
 
+function Events:wikiEnemies(add)
+  local quests = Features.byName.quests
+  for _, key in ipairs(self.order) do
+    local quest = quests and quests.byId[self.after[key] or ""]
+    local opens = quest and (" once the job \"%s\" is done"):format(quest.title) or ""
+    local event = self.kinds[key]
+    if event.wikiEnemies then
+      event.wikiEnemies(add, opens)
+    end
+  end
+end
+
 function Events:serverPanicArea(server, x, y, radius)
   local event = self:serverActive()
   if event and event.serverPanicArea then
