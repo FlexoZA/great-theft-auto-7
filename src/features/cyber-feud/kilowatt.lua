@@ -41,6 +41,7 @@ local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
+local Look = require("src.features.cyber-feud.kilowatt_look")
 local Duo = require("src.features.cyber-feud.duo")
 local Brutes = require("src.features.cyber-feud.brutes")
 
@@ -140,11 +141,6 @@ local ACTION_CODE = { brace = 1, charge = 2, hop = 3, whip = 4, punch = 5, vent 
 
 local CYAN = { 0.18, 0.90, 1.00 }
 local HOT = { 0.78, 0.98, 1.00 }
-local CHROME = { 0.78, 0.82, 0.86 }
-local LOOK = {
-  shirt = { 0.20, 0.22, 0.24 }, pants = { 0.14, 0.14, 0.16 }, skin = { 0.48, 0.35, 0.27 },
-  hair = { 0.13, 0.15, 0.17 }, shoes = { 0.06, 0.06, 0.07 },
-}
 local SCALE = 2.2 -- drawn this much bigger than anyone
 
 local random = love.math.random
@@ -395,8 +391,9 @@ function Kilowatt.wikiEnemies(add)
     name = "Kilowatt",
     quests = { "cyber-feud-roof" },
     where = "The Roof, on the helipad, from the moment it wakes",
-    about = "The Static's boss: huge, loud, more machine than man, with a reactor for a heart. He fights alongside "
-      .. "Director Saye, and comes for you up close.",
+    about = "The Static's boss: huge, loud, more machine than man, plated in gunmetal with a reactor for a heart "
+      .. "and two insulator spikes on his back, a blue arc crackling between them. He fights alongside Director "
+      .. "Saye, and comes for you up close.",
     stats = {
       { "Health", Kilowatt.HEALTH },
       { "Speed", ("%g px/s coming at you, %g winded, %g charging"):format(Kilowatt.RUN, Kilowatt.WALK,
@@ -611,51 +608,22 @@ function Kilowatt.drawBelowCars()
   love.graphics.ellipse("fill", shown.dx + 5, shown.dy + 6, 22 - lift * 0.2, 16 - lift * 0.15, 16)
 end
 
---- Him: the Overpass's Kilowatt (war_rigs.lua), facing his way, the cage
---- open and steaming while he vents, sparking in phase 2.
+--- Him (kilowatt_look.lua), facing his way, the cage open and the arc
+--- between his spikes running white while he vents, sparking in phase 2.
 local function drawHim(k)
   love.graphics.push()
   love.graphics.translate(k.dx, k.dy - (k.lift or 0))
   love.graphics.scale(SCALE)
   local walk = k.action == 0 and math.sin(k.stride * 0.12) * 1.3 or 0
   local angle = (k.action == 1 or k.action == 4) and k.aim or k.facing
-  Body.person(0, 0, angle, walk, LOOK)
-  love.graphics.rotate(angle)
-  love.graphics.setColor(CHROME)
-  love.graphics.ellipse("fill", 0, -7.5, 3.2, 2.4, 10) -- the shoulders
-  love.graphics.ellipse("fill", 0, 7.5, 3.2, 2.4, 10)
-  love.graphics.rectangle("fill", 3, -2, 2, 4, 0.6) -- the jaw
   local venting = k.action == 6
   local rate = k.phase2 and 12 or 5
-  local pulse = venting and 1 or (0.55 + 0.45 * math.abs(math.sin(clock * rate)))
-  local c = venting and HOT or CYAN
-  love.graphics.setColor(c[1], c[2], c[3], pulse)
-  love.graphics.circle("fill", 2, 0, venting and 3.4 or 2.6, 10) -- the reactor
-  if venting then -- the cage swung open
-    love.graphics.setColor(CHROME)
-    love.graphics.setLineWidth(0.8)
-    love.graphics.line(4.5, -3, 6.5, -5)
-    love.graphics.line(4.5, 3, 6.5, 5)
-  end
-  love.graphics.setColor(0.13, 0.15, 0.17)
-  love.graphics.setLineWidth(1.2)
-  for i = -2, 2 do -- the mohawk's cables
-    love.graphics.line(-1, i * 1.1, -4.6 + math.abs(i) * 0.5, i * 1.6)
-  end
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(CYAN)
-  for i = -2, 2 do
-    love.graphics.circle("fill", -4.6 + math.abs(i) * 0.5, i * 1.6, 0.8, 6)
-  end
-  if k.action == 4 then -- the whip crackling in his fist
-    love.graphics.setColor(HOT)
-    love.graphics.circle("fill", 7, 6, 1.6 + random() * 1.2, 8)
-  end
-  if k.phase2 and random() < 0.4 then -- arcs off his shoulders
-    love.graphics.setColor(HOT)
-    local s = random() < 0.5 and -1 or 1
-    love.graphics.line(0, s * 7.5, -2 + random() * 4, s * (10 + random() * 3), random() * 3, s * 12)
-  end
+  Look.draw(angle, walk, {
+    pulse = venting and 1 or (0.55 + 0.45 * math.abs(math.sin(clock * rate))),
+    venting = venting,
+    phase2 = k.phase2,
+    whip = k.action == 4,
+  })
   love.graphics.pop()
 end
 
@@ -705,6 +673,8 @@ end
 function Kilowatt.drawNightLights(glow)
   if shown then
     glow(shown.dx, shown.dy - (shown.lift or 0), shown.action == 6 and 160 or 100, CYAN, shown.action == 6 and 1 or 0.7)
+    local ax, ay = Look.arcAt(shown.dx, shown.dy - (shown.lift or 0), shown.facing, SCALE)
+    glow(ax, ay, shown.action == 6 and 90 or 60, shown.action == 6 and HOT or CYAN, 0.8) -- the arc on his back
   end
   for _, g in ipairs(rings) do
     glow(g.x, g.y, g.r + 40, CYAN, 0.25 * math.max(0, 1 - g.r / (g.max + 30)))
@@ -794,7 +764,7 @@ Kilowatt.clientMessages = {
     local x, y, angle = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]) or 0
     if x and y then
       local body = { size = SCALE }
-      for key, v in pairs(LOOK) do
+      for key, v in pairs(Look.BODY) do
         body[key] = v
       end
       Corpses.add(x, y, angle, body) -- as big lying down

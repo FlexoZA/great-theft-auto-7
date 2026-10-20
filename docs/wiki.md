@@ -65,7 +65,10 @@ page and no portrait, it walks the player up to it and draws only that
 enemy's feature (its `drawAboveCars`, where bodies are, unless the entry
 says `portraitLayers = "all"`), centred on it, on a plain ground, without
 words or the flat bars over heads, and keeps only the shape the enemy is
-(what is joined to it; a neighbour or a speech bubble is wiped):
+(what is joined to it; a neighbour or a speech bubble is wiped). What is
+painted and what is ground is told by drawing the same frame on black and
+on white (the same dice for both): paint comes out the same on either,
+whatever its colour, and faint cones and glows don't:
 `docs/wiki/enemies/img/<id>.png`. Enemies the tours never
 bring out (city events, an ability's horde, a fight's late waves) get a
 scene in `tools/wiki/scenes.lua`.

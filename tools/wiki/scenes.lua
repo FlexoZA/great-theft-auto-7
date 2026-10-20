@@ -188,6 +188,13 @@ Scenes.after["a-man-citadel"] = function(game, look)
   return false, "the Citadel has no top platform"
 end
 
+-- Kilowatt riding by on the Overpass: too quick to catch where the host
+-- says he is, and he looks as he does on the Roof (kilowatt_look.lua).
+Scenes.portraits["cyber-feud-kilowatt-cameo"] = function()
+  love.graphics.scale(2.2)
+  require("src.features.cyber-feud.kilowatt_look").draw(-math.pi / 2, 0, { pulse = 1 })
+end
+
 -- VEX: her face, the way she projects it over the Roof, at full strength.
 Scenes.portraits["cyber-feud-vex"] = function()
   local face = require("src.features.cyber-feud.face").new()
