@@ -30,6 +30,7 @@ local Body = require("src.body")
 local Bosses = require("src.features.bosses")
 local Story = require("src.features.cyber-feud.story")
 local Hud = require("src.features.cyber-feud.hud")
+local KilowattLook = require("src.features.cyber-feud.kilowatt_look")
 local Radio = require("src.features.a-man.radio")
 local Brain = require("src.features.cyber-feud.rig_brain")
 
@@ -399,8 +400,8 @@ local function drawRig(c)
   love.graphics.pop()
 end
 
---- Kilowatt: huge, a mohawk of cables with glowing tips, chrome shoulders
---- and jaw, a reactor in his chest pulsing cyan. Drawn twice as big as anyone.
+--- Kilowatt (kilowatt_look.lua): drawn twice as big as anyone, as on the
+--- Roof, his spikes' arc crackling as he rides by.
 local function drawKilowatt()
   local s = 2.2 * (kw.scale or 1)
   love.graphics.push()
@@ -410,28 +411,8 @@ local function drawKilowatt()
     love.graphics.setColor(0, 0, 0, 0.3)
     love.graphics.ellipse("fill", 0, (kw.lift or 0) / s, 8, 6, 12)
   end
-  Body.person(0, 0, kw.angle or -math.pi / 2, math.sin(kw.t * 14) * (kw.stage == "exit" and 1.8 or 0), {
-    shirt = { 0.20, 0.22, 0.24 }, pants = { 0.14, 0.14, 0.16 }, skin = { 0.48, 0.35, 0.27 },
-    hair = { 0.13, 0.15, 0.17 }, shoes = { 0.06, 0.06, 0.07 },
-  })
-  love.graphics.rotate(kw.angle or -math.pi / 2)
-  love.graphics.setColor(CHROME)
-  love.graphics.ellipse("fill", 0, -7.5, 3.2, 2.4, 10) -- the shoulders
-  love.graphics.ellipse("fill", 0, 7.5, 3.2, 2.4, 10)
-  love.graphics.rectangle("fill", 3, -2, 2, 4, 0.6) -- the jaw
-  local pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 5))
-  love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], pulse)
-  love.graphics.circle("fill", 2, 0, 2.6, 10) -- the reactor, through the cage
-  love.graphics.setColor(0.13, 0.15, 0.17)
-  love.graphics.setLineWidth(1.2)
-  for i = -2, 2 do -- the cables of his mohawk, a glowing tip on each
-    love.graphics.line(-1, i * 1.1, -4.6 + math.abs(i) * 0.5, i * 1.6)
-  end
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(CYAN)
-  for i = -2, 2 do
-    love.graphics.circle("fill", -4.6 + math.abs(i) * 0.5, i * 1.6, 0.8, 6)
-  end
+  local walk = math.sin(kw.t * 14) * (kw.stage == "exit" and 1.8 or 0)
+  KilowattLook.draw(kw.angle or -math.pi / 2, walk, { pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 5)) })
   love.graphics.pop()
 end
 
@@ -460,6 +441,8 @@ function WarRigs.drawNightLights(client, glow)
   end
   if kw then -- his reactor lights him up, and the road round him
     glow(kw.x, kw.y - (kw.lift or 0), 120 * (kw.scale or 1), CYAN, 0.95)
+    local ax, ay = KilowattLook.arcAt(kw.x, kw.y - (kw.lift or 0), kw.angle or -math.pi / 2, 2.2 * (kw.scale or 1))
+    glow(ax, ay, 60 * (kw.scale or 1), CYAN, 0.8) -- the arc on his back
   end
 end
 
