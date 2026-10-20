@@ -24,7 +24,7 @@ Five categories, each starting at 10 and losing points for every finding
 | --- | --- | --- |
 | Stability | 25% | the game loads; every quest starts and plays without an error; every message handler survives rubbish from a client; the world and players save and load back |
 | Arsenal coverage | 20% | every gun, damaging ability and grenade hurts every kind of enemy; equipment has tiers that resolve and a shop blurb |
-| Map completeness | 15% | every quest map has a backdrop past its edge, a soundtrack, ammo crates, a star home; no enemy, crate or spawn point inside a wall |
+| Map completeness | 15% | every quest map has a backdrop past its edge, a soundtrack, ammo crates, a star home (unless its city-map spec says `noHome`); no enemy, crate or spawn point inside a wall |
 | Code quality | 20% | luacheck on added lines; prints, debug switches, TODOs, swallowed errors, commented-out code; assets made per frame; movement not scaled by `dt`; very long functions |
 | Structure | 20% | the feature rules of `CLAUDE.md`: gameplay in its feature folder, core files untouched or minimal, no reaching into another feature's files, raw keys, damage without a type, data fields named like hooks, copy-paste, a branch scattered over many features, the changelog, enemies the audit can't see, undocumented hooks |
 
