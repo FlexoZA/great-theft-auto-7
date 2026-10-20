@@ -299,6 +299,51 @@ function Mecha.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Mecha.wikiEnemies(add)
+  local plasma, flame = guns()
+  add({
+    kind = "eternal-mood/mecha-zombie",
+    name = "Mecha Zombie",
+    quests = { "eternal-mood", "eternal-mood-earth", "eternal-mood-foundry" },
+    where = "Fobos Base, Heck on Earth and the Foundry, walking a loop round each Intern mob",
+    about = "A zombie the UAC rebuilt: a plasma cannon for a right arm, a flamethrower and talons on the left, a red "
+      .. "optic where an eye was. It guards the Interns while they eat, and screams the horde down on you.",
+    stats = {
+      { "Health", Mecha.HEALTH },
+      { "Speed", ("%g px/s fighting, %g on its loop"):format(Mecha.WALK, Mecha.PATROL) },
+      { "Sight", ("%g px, no wall in between; awake, it hunts the nearest player within %g px"):format(Mecha.SEES,
+        Mecha.HUNTS) },
+    },
+    weapons = {
+      { "Plasma cannon", ("past %g px: the cannon glows for %g s, then %g bolts %g s apart, every %g to %g s; each "
+        .. "%g fire damage and sets you alight (%g s at %g a second), flying about %g px"):format(Mecha.PLASMA_FROM,
+        Mecha.PLASMA_WINDUP, Mecha.BURST, Mecha.PLASMA_GAP, Mecha.PLASMA_EVERY[1], Mecha.PLASMA_EVERY[2],
+        plasma.damage, plasma.ignite.seconds, plasma.ignite.dps, math.floor(plasma.speed * plasma.ttl + 0.5)) },
+      { "Flamethrower", ("at mid range: the pilot light flares for %g s, then %g s of fire, %g fire damage a lick, "
+        .. "%g licks a second, reaching about %g px and setting you alight (%g s at %g a second); then %g s off")
+        :format(Mecha.FLAME_WINDUP, Mecha.FLAME_FOR, flame.damage, math.floor(1 / flame.cooldown + 0.5),
+        math.floor(flame.speed * flame.ttl + 0.5), flame.ignite.seconds, flame.ignite.dps, Mecha.FLAME_EVERY) },
+      { "Talons", ("within %g px: claws up for %g s, then %g melee damage, one every %g s"):format(Mecha.TALON_REACH,
+        Mecha.TALON_WINDUP, Mecha.TALON_DAMAGE, Mecha.TALON_EVERY) },
+    },
+    abilities = {
+      ("Wakes when it sees you, you shoot it, or its mob wakes. Waking, it throws its head back for %g s and "
+        .. "screams: every mob, every one of the possessed and every other Mecha Zombie within %g px comes."):format(
+        Mecha.SCREAM_WINDUP, Mecha.SCREAM_RADIUS),
+      ("Screams again every %g s while it can still see somebody."):format(Mecha.SCREAM_EVERY),
+      ("Ranged fodder: it holds %g to %g px from you, side-stepping, rather than charging in."):format(Mecha.KEEP[1],
+        Mecha.KEEP[2]),
+    },
+    tips = {
+      "Kill it before it sees you, or the whole room comes when it screams.",
+      "Its plasma bolts are slow: side-step them, and keep out of its flame's reach between bursts.",
+      "A freeze holds it stiff.",
+    },
+    drops = ("%g koins, and %g%% of the time a pickup"):format(Mecha.DROPS, Mecha.PICKUP * 100),
+  })
+end
+
 function Mecha.serverFreezeArea(x, y, radius, seconds)
   for _, z in ipairs(sv and sv.list or {}) do
     if dist2(x, y, z.x, z.y) <= radius * radius then

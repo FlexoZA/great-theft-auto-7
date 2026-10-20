@@ -50,6 +50,11 @@ function Level.serverEnemies(server, add)
   Finale.serverEnemies(server, add)
 end
 
+--- The wiki's page on A-Man at the top (tools/wiki, docs/wiki.md).
+function Level.wikiEnemies(add)
+  Finale.wikiEnemies(add)
+end
+
 function Level.serverFreezeArea(x, y, radius, seconds)
   Finale.serverFreezeArea(x, y, radius, seconds)
 end

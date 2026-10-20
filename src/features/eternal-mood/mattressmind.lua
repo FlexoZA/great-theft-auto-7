@@ -371,6 +371,58 @@ function Mattressmind.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The wiki's page on it (tools/wiki, docs/wiki.md).
+function Mattressmind.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local M = Mattressmind
+  local g = M.gun()
+  add({
+    kind = "eternal-mood/mattressmind",
+    name = "The Spider Mattressmind",
+    quests = { "eternal-mood-heck" },
+    boss = true,
+    where = "Heck, on the Mattress's plateau before the Snooze Gate; it wakes when you come up onto the plateau",
+    about = "A giant brain on four mechanical spider legs with a chaingun under its chin, standing on a mattress it "
+      .. "drags everywhere. The Snooze Gate stays locked until it is down.",
+    stats = {
+      { "Health", M.HEALTH },
+      { "Armour", ("the mattress: a round from in front does only %g%% of its damage"):format(M.FRONT * 100) },
+      { "Speed", ("%g px/s, any way on its legs, %g winded"):format(M.WALK, M.STROLL) },
+      { "Sight", M.RANGE, "px" },
+    },
+    weapons = {
+      { "Chaingun", ("spins up for %g s (a whine, the barrels glowing), then %g s of fire, a round every %g s, %g "
+        .. "damage each, out to about %g px; the aim drags after you at %g rad/s. Every %g to %g s (%g to %g under "
+        .. "half health)"):format(M.SPIN, M.FIRE_FOR, M.FIRE_EVERY, g.damage, math.floor(g.speed * g.ttl + 0.5),
+        M.AIM_TURN, M.ATTACK_EVERY[1], M.ATTACK_EVERY[2], M.ATTACK_EVERY_2[1], M.ATTACK_EVERY_2[2]) },
+      { "Slam", ("within %g px: legs up for %g s (the reach shows on the floor), then %g impact damage to everyone "
+        .. "within %g px, knocked %g px; at most every %g s"):format(M.SLAM_REACH, M.SLAM_WINDUP, M.SLAM_DAMAGE,
+        M.SLAM_RADIUS, M.SLAM_SHOVE, M.SLAM_EVERY) },
+      { "Yawn", ("under half health, every %g to %g s: for %g s it pulls everyone within %g px in at %g px/s, then "
+        .. "snaps shut: %g melee damage to whoever is within %g px, spat out %g px"):format(M.YAWN_EVERY[1],
+        M.YAWN_EVERY[2], M.YAWN, M.YAWN_REACH, M.YAWN_PULL, M.SNAP_DAMAGE, M.SNAP_REACH, M.SNAP_SHOVE) },
+    },
+    abilities = {
+      ("Keeps about %g px from you, turning to face you, and keeps to the plateau."):format(M.KEEP),
+      ("At two thirds and a third of its health it murmurs \"...five more minutes...\": %g imps and %g Cacodaemon "
+        .. "come up onto the plateau (more with more players)."):format(M.CALL_IMPS, M.CALL_CACOS),
+      ("Under %g%% health it goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      ("Walking flat out costs it breath, and each burst costs more: about %d s of walking and it's winded, "
+        .. "creeping."):format(
+        math.floor(Stamina.defaults.max / M.BREATH.drain + 0.5)),
+      "Gets out from under abilities.",
+    },
+    tips = {
+      "Get round the mattress: shooting it in the face is a waste of rounds.",
+      "Run across the chaingun's aim: it can't turn fast enough to follow.",
+      "Sprint against a yawn: a walk won't hold you, a sprint will.",
+      "A freeze holds it stiff.",
+    },
+    drops = ("%g koins, and maybe a pickup or two"):format(M.DROPS),
+  })
+end
+
 --- It, until it is down, for the audit (tools/audit).
 function Mattressmind.serverEnemies(_server, add)
   if sv and not sv.down then

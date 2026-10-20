@@ -263,6 +263,53 @@ function Shotgun:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Shotgun:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local Heal = require("src.features.bosses.heal")
+  local rifle, pistol = Guns.sniper, Guns.pistol
+  add({
+    kind = "shotgun/boss",
+    name = "Shotgun",
+    quests = { "shotgun" },
+    boss = true,
+    where = "Shotgun's Bluff, on the plateau above the meadow",
+    about = "A sniper who hates debating and hates his rifle almost as much. He shoots down from the top of "
+      .. "the cliff, vanishes, and turns up somewhere else along the lip.",
+    stats = {
+      { "Health", Boss.HEALTH },
+      { "Hits", ("whatever the round does: %g sniper rounds or %g pistol rounds"):format(
+        math.ceil(Boss.HEALTH / rifle.damage), math.ceil(Boss.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s hurrying to a new spot, %g winded"):format(Boss.SPEED, Boss.WALK_SPEED) },
+      { "Sight", Boss.RANGE, "px" },
+    },
+    weapons = {
+      { "Sniper rifle", ("%g damage a round, %g rounds then a %g s reload, out to about %g px"):format(rifle.damage,
+        Boss.MAGAZINE, Boss.RELOAD, math.floor(rifle.speed * rifle.ttl / 100 + 0.5) * 100) },
+      { "Pistol", ("%g damage a round, a round every %g s, for anyone who gets within %g px"):format(pistol.damage,
+        Boss.PISTOL_EVERY, Boss.EVADE) },
+    },
+    abilities = {
+      ("Draws a bead before every shot: a laser from his rifle and a ring on the target for %g s, his aim leading "
+        .. "you until the last %g s, then the round."):format(Boss.WARN, Boss.LOCK),
+      ("Vanishes like a chicken for %g s (again %g s later) and walks to a new spot while out of sight. He can "
+        .. "still be hit while hidden."):format(Boss.STEALTH.seconds, Boss.STEALTH.cooldown),
+      ("Get within %g px and he vanishes; when he can't, he backs off firing his pistol."):format(Boss.EVADE),
+      "The cliff stops every round fired up at him from the meadow, but not his own coming down.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, out of sight if he can, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      "Running and vanishing cost him breath: winded, he walks and stays where you can see him.",
+    },
+    tips = {
+      "When the ring closes on you, stop, turn or duck behind something: the shot goes where his aim was.",
+      "Cross the meadow from cover to cover and take the ramp at the far left up to the plateau.",
+      ("After %g rounds he has a %g s reload: that's the time to move."):format(Boss.MAGAZINE, Boss.RELOAD),
+      "A freeze holds him still, and a stink sends him running.",
+    },
+    drops = ("%g koins and his chicken ability"):format(Boss.DROPS),
+  })
+end
+
 --- For tests.
 function Shotgun.server()
   return sv

@@ -335,6 +335,56 @@ function FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function FloorManager.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local F = FloorManager
+  local plasma = Fireballs.KINDS.plasma
+  add({
+    kind = "eternal-mood/floor-manager",
+    name = "The Floor Manager",
+    quests = { "eternal-mood" },
+    boss = true,
+    where = "Fobos Base, on the Hangar's lift; he wakes when you walk into the Hangar",
+    about = "The UAC's shift supervisor, promoted out of his body: his brain in a glass dome on a four-legged "
+      .. "spider walker, a plasma cannon slung under the front. The lift is out of service until he is down.",
+    stats = {
+      { "Health", F.HEALTH },
+      { "Cannon", ("%g health of its own: rounds on it wreck it, and hurt him less"):format(F.CANNON) },
+      { "Speed", ("%g px/s, any way on four legs; %g times that once his cannon is gone; %g winded"):format(F.WALK,
+        F.RAGE, F.STROLL) },
+      { "Sight", F.RANGE, "px" },
+    },
+    weapons = {
+      { "Plasma", ("the cannon glows for %g s, then a stream of %g bolts, %g s apart, %g shock damage each, out to "
+        .. "%g px; his aim drags after you at %g rad/s. One every %g s, every %g s under half health"):format(F.CHARGE,
+        F.STREAM, F.STREAM_EVERY, plasma.damage, F.PLASMA_RANGE, F.STREAM_TURN, F.PLASMA_EVERY, F.PLASMA_EVERY_2) },
+      { "Stomp", ("within %g px: legs up for %g s (a ring on the floor), then %g impact damage to everyone within %g "
+        .. "px, shoved %g px; at most every %g s"):format(F.STOMP_REACH, F.STOMP_WINDUP, F.STOMP_DAMAGE,
+        F.STOMP_RADIUS, F.STOMP_SHOVE, F.STOMP_EVERY) },
+    },
+    abilities = {
+      ("Keeps about %g px from you with his cannon, side-stepping; with it shot off he closes in to stomp."):format(
+        F.KEEP),
+      "Under half his health, three streams at once, in a fan.",
+      ("At two thirds and a third of his health he calls a quick meeting: %g staffer and %g interns come in through "
+        .. "each of the Hangar's doorways (more with more players)."):format(F.MEETING, F.MEETING_INTERNS),
+      ("Under %g%% health he takes his statutory break: off to the nearest medkit within %g px, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      ("Walking briskly costs him breath: about %d s of it and he's winded, picking his way along."):format(
+        math.floor(Stamina.defaults.max / F.BREATH.drain + 0.5)),
+      "Gets out from under abilities.",
+    },
+    tips = {
+      "Shoot the cannon off first: no more plasma, though he comes at you faster.",
+      "Keep moving across a stream, not away from it: his aim is slow to follow.",
+      "Step out of the ring before his legs come down.",
+      "A freeze holds him stiff.",
+    },
+    drops = ("%g koins, and maybe a pickup or two"):format(F.DROPS),
+  })
+end
+
 --- Him, until he is down, for the audit (tools/audit). His cannon is part
 --- of him (a round on it reaches him too).
 function FloorManager.serverEnemies(_server, add)

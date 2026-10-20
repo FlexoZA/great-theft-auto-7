@@ -426,6 +426,61 @@ function Baron.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Baron.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local B = Baron
+  local fire = Fireballs.KINDS.baron
+  add({
+    kind = "eternal-mood/baron",
+    name = "The Baron of Heck",
+    quests = { "eternal-mood-foundry" },
+    boss = true,
+    where = "The Foundry, on the stone ring round the Crucible; he wakes when you cross a bridge onto it, he sees "
+      .. "you, or you shoot him",
+    about = "A big horned brute on goat legs with guns for hands, the key to the Snooze Gate on his belt. Awake, "
+      .. "he comes after you wherever you are, leaping the lava if he has to.",
+    stats = {
+      { "Health", B.HEALTH },
+      { "Speed", ("%g px/s, %g winded"):format(B.WALK, B.STROLL) },
+      { "Sight", B.RANGE, "px" },
+    },
+    weapons = {
+      { "Green fire", ("fire burns at both muzzles for %g s, then a pair of fireballs, one at you and one where "
+        .. "you're going; %g fire damage each at %g px/s. %g pair a go (%g under half health, %g s apart), every "
+        .. "%g to %g s (%g to %g under half)"):format(B.WINDUP, fire.damage, fire.speed, B.PAIRS, B.PAIRS_2,
+        B.PAIR_EVERY, B.THROW_EVERY[1], B.THROW_EVERY[2], B.THROW_EVERY_2[1], B.THROW_EVERY_2[2]) },
+      { "Charge", ("at anyone %g px or more off: horns down for %g s (a red lane on the floor), then %g px/s for up "
+        .. "to %g s; %g impact damage and %g px of flying to whoever he hits. %g%% of his attacks, %g%% under half "
+        .. "health"):format(B.CHARGE_MIN, B.CHARGE_WINDUP, B.CHARGE_SPEED, B.CHARGE_FOR, B.CHARGE_DAMAGE,
+        B.CHARGE_SHOVE, B.CHARGE_CHANCE * 100, B.CHARGE_CHANCE_2 * 100) },
+      { "Leap", ("at anyone %g px or more off (landing no further than %g px), and always at anyone across the lava: "
+        .. "crouched for %g s (a ring where he'll land), %g s in the air, then %g impact damage within %g px and "
+        .. "%g px of flying; at most every %g s"):format(B.LEAP_MIN, B.LEAP_MAX, B.LEAP_WINDUP, B.LEAP_AIR,
+        B.LEAP_DAMAGE, B.LEAP_HIT, B.LEAP_SHOVE, B.LEAP_EVERY) },
+      { "Claw", ("within %g px: gun arm back for %g s, then %g melee damage to everyone in front of him; at most "
+        .. "every %g s"):format(B.CLAW_REACH, B.CLAW_WINDUP, B.CLAW_DAMAGE, B.CLAW_EVERY) },
+    },
+    abilities = {
+      ("At two thirds and a third of his health he roars: everyone within %g px is thrown back %g px, and %g imps "
+        .. "climb out of the lava (more with more players)."):format(B.ROAR_RADIUS, B.ROAR_SHOVE, B.ROAR_IMPS),
+      ("Dodges: a round about to hit him and he throws himself aside, at most every %g s, if he has the breath. He "
+        .. "gets out from under abilities too."):format(B.DODGE_COOL),
+      ("Charging into a wall or the moat's edge, he stands stunned for %g s."):format(B.STUN),
+      ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "Down, he drops the key: the portal stays sealed until somebody picks it up.",
+    },
+    tips = {
+      "Stand in front of a wall when he lowers his horns, then step aside: he charges into it and stands stunned.",
+      ("He comes up slow from a leap, wide open for %g s: be out of the ring, then shoot."):format(B.LEAP_RECOVER),
+      "Run him out of breath: winded, he can't dodge your rounds.",
+      "A freeze holds him stiff.",
+    },
+    drops = ("%g koins, maybe a pickup or two, the key, and a super shotgun for every player"):format(B.DROPS),
+  })
+end
+
 --- Him, until he is down, for the audit (tools/audit).
 function Baron.serverEnemies(_server, add)
   if sv and not sv.down then

@@ -179,6 +179,45 @@ function Stings.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Stings.wikiEnemies(add)
+  local I = Brain.INDOORS
+  local pistolHits = math.ceil(Stings.health / Guns.pistol.damage)
+  add({
+    kind = "cyber-feud/sting",
+    name = "Sting drone",
+    quests = { "cyber-feud-overpass", "cyber-feud-tower" },
+    where = "Swarms over the Overpass's gantries, and in Halcyon Tower's server room",
+    about = "Halcyon's attack drone: small, fast and armed, flying in swarms that make strafing runs through where "
+      .. "you are going, faster than a car.",
+    stats = {
+      { "Health", Stings.health },
+      { "Speed", ("%g px/s on a run (%g indoors), faster than a car"):format(Brain.SPEED, I.speed) },
+      { "Sight", ("A player within %g px wakes the swarm (%g indoors)"):format(Brain.SPOT, I.spot) },
+      { "Numbers", ("%g swarms of %g for one player, %g more swarm for each human past the first"):format(
+        Stings.count, Stings.size, Bosses.extra) },
+    },
+    weapons = {
+      { "Light gun", ("%g damage a round, in bursts of %g (%g s apart), then %g s, out to %g px, when you are "
+        .. "ahead of it"):format(Stings.damage, Brain.BURST, Brain.BURST_GAP, Brain.PAUSE, Brain.RANGE) },
+    },
+    abilities = {
+      ("Each run aims %g s ahead of where you are going, passes %g px to one side of you and carries on %g px past "
+        .. "before it loops back."):format(Brain.LEAD, Brain.SIDE, Brain.PAST),
+      ("Gives up past %g px (%g indoors) and flies home."):format(Brain.GIVE_UP, I.giveUp),
+      "In the tower a swarm keeps to its own room and only fires with a clear line.",
+      ("A sparker's EMP knocks one out for %g s."):format(Stings.empTime),
+      "Only players' rounds reach them.",
+    },
+    tips = {
+      "Shoot them as they come in straight at you: " .. (pistolHits == 1 and "a single pistol round drops one."
+        or ("%g pistol rounds drop one."):format(pistolHits)),
+      "Change direction as a run comes in: they aim at where you were going.",
+    },
+    drops = ("%g koins"):format(Stings.drops),
+  })
+end
+
 function Stings.serverFreezeArea(x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

@@ -158,6 +158,13 @@ function AMan:serverEnemies(server, add)
   Citadel.serverEnemies(server, add)
 end
 
+--- The wiki's pages on his trail's enemies (tools/wiki, docs/wiki.md). His
+--- city event's are the events feature's to describe.
+function AMan:wikiEnemies(add)
+  City17.wikiEnemies(add)
+  Citadel.wikiEnemies(add)
+end
+
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)
   City17.serverFreezeArea(x, y, radius, seconds)
   Citadel.serverFreezeArea(x, y, radius, seconds)

@@ -94,6 +94,49 @@ function OpenBorders:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function OpenBorders:wikiEnemies(add)
+  local cast = Features.byName.abilities.kinds.byKey.openborders
+  local money = Features.byName.money
+  add({
+    kind = "open-borders/simp",
+    name = "Simp (open borders)",
+    where = "Wherever somebody casts the open borders ability, round the one who cast it",
+    about = ("Cast open borders and %g simps pour out round you, torches in hand. They run about lighting fires and "
+      .. "punch anyone who comes close, the one who let them in included."):format(Horde.SIMPS),
+    stats = {
+      { "Health", Horde.HEALTH },
+      { "Hits", ("%g a hit, whatever hits them: %g hits down one"):format(Horde.SHOT_DAMAGE,
+        math.ceil(Horde.HEALTH / Horde.SHOT_DAMAGE)) },
+      { "Speed", ("about %g px/s"):format(Horde.RUN_SPEED) },
+      { "Sight", Horde.SIGHT, "px" },
+      { "Numbers", ("%g a cast, for %g s"):format(Horde.SIMPS, cast.seconds) },
+    },
+    weapons = {
+      { "Punch", ("%g melee damage, one every %g s, to you on foot or your car"):format(Horde.PUNCH_DAMAGE,
+        Horde.PUNCH_INTERVAL) },
+      { "Torch", ("a fire at their feet every %g to %g s; each burns for %g s and does %g fire damage every %g s "
+        .. "to anything touching it, and a player on foot burns on for %g s at %g a second"):format(
+        Horde.FIRE_EVERY_MIN, Horde.FIRE_EVERY_MAX, Horde.FIRE_SECONDS, Horde.BURN_DAMAGE, Horde.BURN_EVERY,
+        Horde.AFTERBURN_TIME, Horde.AFTERBURN_DPS) },
+    },
+    abilities = {
+      ("Chases and punches anyone within %g px, the caster too."):format(Horde.SIGHT),
+      ("After landing a punch, runs off for %g to %g s before picking on anyone again."):format(Horde.CALM_MIN,
+        Horde.CALM_MAX),
+      ("Keeps within %g px of the caster, following them about, and is gone when the %g s are up; "
+        .. "the fires burn on."):format(Horde.ROAM_MAX, cast.seconds),
+      "Their own fires don't hurt them.",
+    },
+    tips = {
+      ("A car at %g px/s or more flattens one."):format(Horde.SPLAT_SPEED),
+      "They follow the one who cast it, but on foot: a car leaves them behind.",
+      "Freezing and stink work on them.",
+    },
+    drops = money and ("%g koin each, like a pedestrian"):format(money.pedValue) or nil,
+  })
+end
+
 --- Something froze the world around (x, y): simps inside stand still.
 function OpenBorders:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then

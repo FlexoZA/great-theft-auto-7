@@ -387,6 +387,62 @@ function Kilowatt.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Kilowatt.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/kilowatt",
+    boss = true,
+    name = "Kilowatt",
+    quests = { "cyber-feud-roof" },
+    where = "The Roof, on the helipad, from the moment it wakes",
+    about = "The Static's boss: huge, loud, more machine than man, with a reactor for a heart. He fights alongside "
+      .. "Director Saye, and comes for you up close.",
+    stats = {
+      { "Health", Kilowatt.HEALTH },
+      { "Speed", ("%g px/s coming at you, %g winded, %g charging"):format(Kilowatt.RUN, Kilowatt.WALK,
+        Kilowatt.CHARGE_SPEED) },
+      { "Sight", Kilowatt.RANGE, "px" },
+    },
+    weapons = {
+      { "Charge", ("%g impact damage and a shove of %g px, about %g px long down a line he braces on for %g s (%g in "
+        .. "phase 2), from %g to %g px off you, every %g s (%g in phase 2)"):format(Kilowatt.CHARGE_DAMAGE,
+        Kilowatt.CHARGE_SHOVE, Kilowatt.CHARGE_SPEED * Kilowatt.CHARGE_TIME, Kilowatt.BRACE, Kilowatt.BRACE_2,
+        Kilowatt.CHARGE_MIN, Kilowatt.CHARGE_FROM, Kilowatt.CHARGE_EVERY, Kilowatt.CHARGE_EVERY_2) },
+      { "Slam", ("within %g px he hops for %g s and slams: a ring of shock rolls out to %g px (%g in phase 2) at %g "
+        .. "px/s, %g shock damage (a stun) to whoever it passes, every %g s"):format(Kilowatt.SLAM_REACH, Kilowatt.HOP,
+        Kilowatt.SLAM_RADIUS, Kilowatt.SLAM_RADIUS_2, Kilowatt.RING_SPEED, Kilowatt.SLAM_DAMAGE, Kilowatt.SLAM_EVERY) },
+      { "Whip", ("his fist crackles for %g s and a line flickers out, then lightning goes down it out to %g px: %g "
+        .. "shock damage to the first player on it and on to the next within %g px, %g players at most, every %g s")
+        :format(Kilowatt.WHIP_WIND, Kilowatt.WHIP_RANGE, Kilowatt.WHIP_DAMAGE, Kilowatt.WHIP_CHAIN, Kilowatt.WHIP_HITS,
+        Kilowatt.WHIP_EVERY) },
+      { "Punch", ("%g impact damage right up against you, wound up for %g s"):format(Kilowatt.PUNCH_DAMAGE,
+        Kilowatt.PUNCH_WIND) },
+    },
+    abilities = {
+      ("Vents every %g moves (%g in phase 2): his chest cage opens for %g s (%g in phase 2) and every hit on him "
+        .. "does %g times the damage, unless Saye's drones are round him."):format(Kilowatt.VENT_AFTER,
+        Kilowatt.VENT_AFTER_2, Kilowatt.VENT_TIME, Kilowatt.VENT_TIME_2, Kilowatt.VENT_HURT),
+      "Phase 2 at half health: charges back to back, a wider slam, longer vents.",
+      ("Brutes come up the stairs to help him: the first %g s into the fight, then every %g s while fewer than %g "
+        .. "(%g more for each human past the first) are up."):format(Kilowatt.HELP_FIRST, Kilowatt.HELP_EVERY,
+        Kilowatt.HELP_MOST, Bosses.extra),
+      "Shoot Saye and he holds a grudge: he goes for you, charging as soon as he can.",
+      ("With Saye down he melts down: phase 2 for good, and his slams leave shock patches %g px round for %g s "
+        .. "(%g shock damage every %g s)."):format(Kilowatt.PATCH_RADIUS, Kilowatt.PATCH_TIME, Kilowatt.PATCH_DAMAGE,
+        Kilowatt.PATCH_EVERY),
+      ("Charging into anything solid, he reels for %g s."):format(Kilowatt.STAGGER),
+      "Goes for a medkit when badly hurt, dodges abilities about to land on him, and runs out of breath.",
+      "Only players' rounds reach him.",
+    },
+    tips = {
+      "Step off his line while he braces: once he goes he can't turn.",
+      "Save your heavy hitting for his vents, and shoot Saye's drones off him first.",
+      "Keep apart from your friends: his whip jumps from one of you to the next.",
+    },
+    drops = ("%g koins and %g pickups"):format(Kilowatt.DROPS, Kilowatt.PICKUPS),
+  })
+end
+
 function Kilowatt.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.k.x, sv.k.y) <= radius * radius then
     sv.k.frozen = math.max(sv.k.frozen, seconds)

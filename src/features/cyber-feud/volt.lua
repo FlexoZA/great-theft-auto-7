@@ -406,6 +406,60 @@ function Volt.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Volt.wikiEnemies(add)
+  local function pcts(list)
+    local out = {}
+    for i, share in ipairs(list) do
+      out[i] = ("%g%%"):format(share * 100)
+    end
+    return table.concat(out, ", ")
+  end
+  add({
+    kind = "cyber-feud/volt",
+    boss = true,
+    name = "General Volt",
+    quests = { "cyber-feud-market" },
+    where = "The Market's Noodle Square, holding the loading dock's pass code",
+    about = "The Static's general and Kilowatt's right hand: a long coat of cable, a Tesla coil on each shoulder and "
+      .. "lightning for a temper. Nobody leaves the Market until he is down and somebody picks his pass code up off "
+      .. "the floor.",
+    stats = {
+      { "Health", Volt.HEALTH },
+      { "Speed", ("%g px/s, %g winded"):format(Volt.WALK, Volt.STROLL) },
+      { "Sight", Volt.RANGE, "px" },
+    },
+    weapons = {
+      { "Bolt", ("%g shock damage (a stun) to whoever is within %g px of its line, out to %g px; the line shows for "
+        .. "%g s first (%g in phase 2), set for the last %g s; every %g s (%g in phase 2)"):format(Volt.BOLT_DAMAGE,
+        Volt.BOLT_WIDTH, Volt.BOLT_RANGE, Volt.AIM, Volt.AIM_2, Volt.SET, Volt.BOLT_EVERY, Volt.BOLT_EVERY_2) },
+      { "Lightning grenade", ("thrown up to %g px every %g s, landing %g s later as a crackling field %g px round "
+        .. "for %g s: %g shock damage (a stun) on the first jolt, then %g every %g s while you stay"):format(
+        Volt.LOB_RANGE, Volt.LOB_EVERY, Volt.FLIGHT, Volt.FIELD_RADIUS, Volt.FIELD_TIME, Volt.FIELD_FIRST,
+        Volt.FIELD_DAMAGE, Volt.FIELD_EVERY) },
+      { "The storm", ("lightning strikes round whoever is fighting him every %g to %g s (%g to %g in phase 2), "
+        .. "marked on the ground %g s first: %g shock damage within %g px"):format(Volt.STRIKE_EVERY[1],
+        Volt.STRIKE_EVERY[2], Volt.STRIKE_EVERY_2[1], Volt.STRIKE_EVERY_2[2], Volt.STRIKE_WARN, Volt.STRIKE_DAMAGE,
+        Volt.STRIKE_RADIUS) },
+    },
+    abilities = {
+      "Waits in the square until a player steps into it or shoots him; then the rain starts and a storm breaks.",
+      ("Keeps %g px from whoever he has."):format(Volt.KEEP),
+      ("Shouts for backup at %s of his health: a pack of %g gangers and a sparker runs in from the lanes."):format(
+        pcts(Volt.BACKUP_AT), Volt.BACKUP_PACK),
+      "Phase 2 at half health: his bolts come in a forked pair and he throws two grenades at once.",
+      "Goes for a medkit when badly hurt, dodges abilities about to land on him, and runs out of breath.",
+      "Only players' rounds reach him.",
+    },
+    tips = {
+      "Step off his crackling line before it strikes: it holds still at the end.",
+      "Keep out of the rings where his grenades and the storm's strikes will land.",
+      "Hit him while he is winded, and thin out his backup before it gets to you.",
+    },
+    drops = ("%g koins, his pass code, and electric grenades for every player (unlocking them)"):format(Volt.DROPS),
+  })
+end
+
 function Volt.serverFreezeArea(x, y, radius, seconds)
   if sv and not sv.down and dist2(x, y, sv.v.x, sv.v.y) <= radius * radius then
     sv.v.frozen = math.max(sv.v.frozen, seconds)

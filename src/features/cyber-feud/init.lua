@@ -465,6 +465,11 @@ function CyberFeud:serverEnemies(server, add)
   Troops.serverEnemies(server, add)
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function CyberFeud:wikiEnemies(add)
+  require("src.features.cyber-feud.troops_wiki").wikiEnemies(add)
+end
+
 --- A player's or a bot's gun went off: the assassin droids hear it.
 function CyberFeud:serverShotFired(_server, player, x, y)
   Droids.serverShotFired(player, x, y)
