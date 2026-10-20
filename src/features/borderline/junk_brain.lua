@@ -17,7 +17,7 @@ Brain.LEGS = true -- it can lose them (the torso crawl)
 
 Brain.CONF = {
   health = 30,
-  speed = 70, -- px/s after somebody
+  speed = 105, -- px/s after somebody
   mill = 22, -- px/s picking about its spot
   millRange = 70, -- px round its spot it picks about in
   range = 480, -- px it sees and shoots

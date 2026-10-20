@@ -22,8 +22,8 @@ Brain.LEGS = true
 
 Brain.CONF = {
   health = 90,
-  speed = 70,
-  walk = 40,
+  speed = 105,
+  walk = 60,
   range = 600,
   aware = 160,
   fov = math.rad(80),

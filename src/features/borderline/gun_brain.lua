@@ -20,8 +20,8 @@ Brain.LEGS = true
 
 Brain.CONF = {
   health = 70,
-  speed = 80, -- px/s in a fight
-  walk = 45, -- px/s on its beat
+  speed = 120, -- px/s in a fight
+  walk = 70, -- px/s on its beat
   range = 620,
   aware = 170,
   fov = math.rad(80),
