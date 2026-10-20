@@ -265,6 +265,50 @@ function HunterChopper:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on it (tools/wiki, docs/wiki.md).
+function HunterChopper:wikiEnemies(add)
+  local gun, troops, visit = Brain.gun, self.waves[1], self.waves[2]
+  add({
+    kind = "hunter-chopper/chopper",
+    name = "Hunter-Chopper",
+    boss = true,
+    quests = { self.questId },
+    where = "The Outer City, circling the square on the island from the moment you arrive",
+    about = "The Combine's gunship. It circles the square, locks on to whoever it can see and hoses them with "
+      .. "blue rounds, and every so often dives over you on a bombing run.",
+    stats = {
+      { "Health", self.health },
+      { "Speed", ("%g px/s round the square, %g px/s on a bombing run"):format(Flight.speed, Brain.runSpeed) },
+      { "Sight", Brain.reach, "px" },
+    },
+    weapons = {
+      { "Pulse gun", ("bursts of %g rounds of %g damage, a round every %g s, after a %g s lock-on beam; "
+        .. "%g s between bursts"):format(Brain.burst, gun.damage, gun.cooldown, Brain.lockTime, Brain.rest) },
+      { "Bombs", ("on a bombing run, every %g s or so: %g pairs, one off each side, each %g explosive damage at the "
+        .. "middle, falling off to %g px, %g s after the ring shows where it lands"):format(Brain.bombEvery,
+        Brain.pairs, Bombs.damage, Bombs.radius, Bombs.fall) },
+      { "Crash", ("where it comes down it goes up: %g explosive damage at the middle, out to %g px"):format(
+        self.crashDamage, self.crashRadius) },
+    },
+    abilities = {
+      ("At %g%% health it sets down Combine soldiers under it: %g sets of %g, %g s apart."):format(troops.at * 100,
+        troops.sets, troops.troops, troops.every),
+      ("At %g%% health A-Man blinks in by whoever is nearest, opens his briefcase on %g Hunters and blinks out.")
+        :format(visit.at * 100, visit.hunters),
+      "The lock-on beam shows you where the burst is going; once it fires, the gun turns after you only slowly.",
+      "A machine: no breath, no medkits, no dodging.",
+    },
+    tips = {
+      "When the beam is on you, run across it: the burst can't keep up. Standing still or running straight away "
+        .. "gets you hit.",
+      "Cover stops its rounds, and it only fires on what it can see.",
+      "Step off the rings as the bombs come down, and keep clear of where it falls.",
+      ("Rockets hurt it: it is big, so a blast reaches it %g px further out than anyone else."):format(self.blastReach),
+    },
+    drops = ("%g koins, and an SMG for every player (unlocks it in the shop)"):format(self.drops),
+  })
+end
+
 --- A missile went off at (x, y): within its reach, it takes the blast's
 --- damage, falling to a third at the edge as for anyone. Its own bombs
 --- (owner 0) don't touch it.

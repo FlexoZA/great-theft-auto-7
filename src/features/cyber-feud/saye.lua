@@ -380,6 +380,15 @@ local function down(server, by, angle)
   Features.call("serverKill", server, { kind = "boss", x = s.x, y = s.y, by = by, angle = angle })
 end
 
+--- The launch's --boss (init.lua's serverSkipToBoss): down already, with
+--- no body, drops or kill, so the Roof goes straight on to VEX.
+function Saye.serverSkip(server)
+  if sv then
+    sv.down = true
+    server:broadcast(Protocol.encode("SYE_STATE", server.tick + 1))
+  end
+end
+
 --- A round through (x, y): the `serverShotAt` convention. Only a player's
 --- reaches her or her drones. Returns true when it hit.
 function Saye.serverShotAt(server, x, y, radius, by, angle, damage)
@@ -426,6 +435,78 @@ function Saye.serverEnemies(_server, add)
   for _, d in ipairs(s.drones) do
     add({ id = d, kind = "cyber-feud/saye-drone", x = d.x, y = d.y, hp = d.hp, radius = 8, flying = true })
   end
+end
+
+--- The wiki's pages on her and her drones (tools/wiki, docs/wiki.md).
+function Saye.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/saye",
+    boss = true,
+    name = "Director Saye",
+    quests = { "cyber-feud-roof" },
+    where = "The Roof, by the billboard, from the moment it wakes",
+    about = "Halcyon's director: calm, precise, a grey suit over the best hardware money can buy. She fights "
+      .. "alongside Kilowatt, at range, and never runs.",
+    stats = {
+      { "Health", Saye.HEALTH },
+      { "Speed", ("%g px/s walking (%g in phase 2), %g winded"):format(Saye.WALK, Saye.WALK_2, Saye.STROLL) },
+      { "Sight", Saye.RANGE, "px" },
+    },
+    weapons = {
+      { "Sightline", ("one heavy round of %g damage at %g px/s down a thin magenta line that shows for %g s first "
+        .. "(%g in phase 2), every %g s (%g in phase 2); in phase 2 two at once, in a V"):format(Saye.SHOT_DAMAGE,
+        Saye.SHOT_SPEED, Saye.AIM, Saye.AIM_2, Saye.SIGHT_EVERY, Saye.SIGHT_EVERY_2) },
+      { "Executive drones", ("%g orbit her, shooting whoever is nearest (their own page)"):format(Saye.DRONES) },
+      { "Restructuring", ("every %g s she drops a sentry turret where she stands and walks away from it, up to %g of "
+        .. "hers at once"):format(Saye.TURRET_EVERY, Saye.TURRETS_MAX) },
+    },
+    abilities = {
+      ("Keeps %g px between herself and whoever she has."):format(Saye.KEEP),
+      ("Calls her drones back up %g s after losing them."):format(Saye.DRONES_BACK),
+      ("Stand within %g px of Kilowatt and her sightline finds you, quicker."):format(Duo.NEAR),
+      "While Kilowatt vents, she parks her drones round him: while any are there, hits on him do no extra damage.",
+      ("With Kilowatt down, a hostile takeover: %g drones, and her sightline fires %g rounds, %g s apart.")
+        :format(Saye.RAGE_DRONES, Saye.RAGE_BURST, Saye.RAGE_GAP),
+      "Phase 2 at half health: her skin cracks, the sightline takes half as long and fires in a V, and she walks "
+        .. "faster.",
+      "Goes for a medkit when badly hurt, dodges abilities about to land on her, and runs out of breath.",
+      "Only players' rounds reach her.",
+    },
+    tips = {
+      "Step off the magenta line before it fires.",
+      "Close the gap: she walks, never runs, and her turrets stay where she dropped them.",
+      "Shooting her makes Kilowatt come for you: have a friend keep him busy.",
+    },
+    drops = ("%g koins and %g pickups"):format(Saye.DROPS, Saye.PICKUPS),
+  })
+  add({
+    kind = "cyber-feud/saye-drone",
+    name = "Executive drone",
+    quests = { "cyber-feud-roof" },
+    where = "The Roof, orbiting Director Saye",
+    about = "Saye's personal guard: small drones circling her, shooting at whoever is nearest, and shielding "
+      .. "Kilowatt when he needs it.",
+    stats = {
+      { "Health", Saye.DRONE_HEALTH },
+      { "Numbers", ("%g round her, %g once Kilowatt is down; more on a job finished before"):format(Saye.DRONES,
+        Saye.RAGE_DRONES) },
+    },
+    weapons = {
+      { "Light gun", ("%g damage a round, bursts of two every %g s, out to %g px"):format(Saye.DRONE_DAMAGE,
+        Saye.DRONE_EVERY, Saye.DRONE_RANGE) },
+    },
+    abilities = {
+      ("Orbits %g px from Saye; while Kilowatt vents they circle him instead, and while any are there hits on him do "
+        .. "no extra damage."):format(Saye.DRONE_ORBIT),
+      ("Shot down, Saye calls more up %g s later."):format(Saye.DRONES_BACK),
+      "Only players' rounds reach them.",
+    },
+    tips = {
+      ("Shoot them off Kilowatt when he vents: then every hit on him does %g times the damage."):format(
+        require("src.features.cyber-feud.kilowatt").VENT_HURT),
+      "Clear them, then go for Saye before she calls the rest back up.",
+    },
+  })
 end
 
 function Saye.serverFreezeArea(x, y, radius, seconds)

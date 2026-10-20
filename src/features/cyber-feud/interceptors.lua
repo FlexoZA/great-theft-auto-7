@@ -158,6 +158,44 @@ function Interceptors.isOne(player)
   return player.interceptor == true
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md). Bot cars, not in
+--- `serverEnemies`: a kind of their own, and no portrait.
+function Interceptors.wikiEnemies(add)
+  add({
+    kind = "cyber-feud/interceptor",
+    portrait = false,
+    name = "Interceptor",
+    quests = { "cyber-feud-overpass" },
+    where = "The Overpass, parked on the shoulder to pull out after whoever drives past",
+    about = "Halcyon's patrol car: a grey SUV with a magenta and blue light bar, tuned faster than it left the "
+      .. "factory, with an officer leaning out of the window shooting.",
+    stats = {
+      { "Health", Interceptors.health, "(a car's, armoured)" },
+      { "Speed", ("Up to %g px/s chasing"):format(math.min(Brain.CHASE_SPEED, Interceptors.maxSpeed)) },
+      { "Sight", ("Wakes for a player within %g px in sight"):format(Brain.SPOT) },
+      { "Numbers", ("%g for one player, %g more for each human past the first"):format(
+        Interceptors.count, Bosses.extra) },
+    },
+    weapons = {
+      { "Ram", ("drives into your side once within %g px, then drops back for %g s and comes again"):format(
+        Brain.RAM_FROM, Brain.BACK_OFF) },
+      { "Officer's SMG", ("%g damage a round, %g s apart in bursts of %g, then %g s, out to %g px"):format(Brain.DAMAGE,
+        Brain.FIRE_EVERY, Brain.BURST, Brain.BURST_PAUSE, Brain.SHOOT_RANGE) },
+    },
+    abilities = {
+      "Chases flat out at where you will be in a moment, steering round walls and wrecks.",
+      ("Lets you go after %g s out of sight or %g px away, and pulls over to wait for the next one."):format(
+        Brain.LOST_AFTER, Brain.GIVE_UP),
+      "In a flare-up between the two sides the Static's war-rigs ram it too.",
+    },
+    tips = {
+      "Wreck it like any car: the officer goes with it.",
+      "Start a flare-up between the two sides: the Static's war-rigs go for it then.",
+    },
+    drops = ("%g koins when wrecked"):format(Interceptors.drops),
+  })
+end
+
 --- For tests.
 function Interceptors.server()
   return sv

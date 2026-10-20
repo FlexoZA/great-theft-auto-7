@@ -66,6 +66,67 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.
 
+## [0.39.2] - 2026-10-20
+
+The Floor Manager traded his spider legs for an executive chair on a rocket.
+
+### Changed
+- The Floor Manager has lost his spider legs: he floats about the Hangar in an oxblood executive chair on a
+  rocket, its flames roaring behind him. For his stomp he rises on full burn and drops the chair on you.
+
+## [0.39.1] - 2026-10-20
+
+Kilowatt is more machine than man now, with two spikes on his back and lightning crackling between them.
+
+### Changed
+- Kilowatt looks more machine than man: gunmetal plating, steel arms, an armoured back plate, and two insulator
+  spikes standing up off his back with a blue arc crackling between them. It runs white while he vents and forks
+  once he's lit (phase 2).
+
+## [0.39.0] - 2026-10-20
+
+The game has a wiki: a page for every enemy, with its picture, its numbers and how to beat it.
+
+### Added
+- A wiki for the game, in `docs/wiki` on GitHub: a page for every enemy with its picture, its health, what it
+  carries, what it can do and how to beat it, written from the game's own numbers.
+
+## [0.38.0] - 2026-10-20
+
+Halcyon's dropship now flies troops in to guard VEX's relays on the Roof, and the helipad is the only way home.
+
+### Changed
+- The Roof: there is no HOME star at the top of the stairs any more. The only way home is the one on the helipad
+  once VEX gets away.
+
+### Added
+- The Roof: while VEX holds the roof she calls in Halcyon's dropship, a rocket tiltrotor. It hangs over the relay
+  you're going for, its landing spot ringed in magenta, and puts a squad of officers down to guard it, then flies
+  off. It comes back every 35 s while fewer than 5 of its officers are up, and right away whenever you breach a
+  relay. Each drop also brings one of Grey City's harder enemies, in turn: an assassin droid, a riot-shield enforcer
+  or a brute. From its second drop on, one of the officers is an elite: black armour and a gold helmet, a gold
+  diamond over him, three times the health and a harder-hitting rifle.
+
+## [0.37.0] - 2026-10-19
+
+VEX's relays on the Roof are closer together, warn you before they shock you, and the last one can be finished.
+
+### Changed
+- The Roof: VEX's four relays stand round the helipad instead of in the corners, so the run from one to the next
+  is about half as long (about 1450 -> 770 px).
+- The Roof: the relay VEX is at has a red ring breathing round it instead of a green one, and her face on its
+  screen.
+
+### Fixed
+- The Roof: VEX's relay now warns you before it shocks you. For 2 s before each pulse its reach lights up blue on
+  the ground and fills in from the middle, with static crackling in it that builds as it charges, it whines, and
+  "VEX's relay is charging - get clear!" shows while you're inside. Before, the pulse hit at once with no warning
+  and, on a job finished before, stunned you. Her pulses also come less often: every 4 -> 6 s.
+- The Roof: VEX's last relay can be breached. Her relay no longer drains from the warning until 1 s after the pulse,
+  so stepping out of it (or being stunned by it) doesn't lose what you had done. Before, the drain took back more
+  than you could put in, and the last relay, always hers, couldn't be finished alone.
+- The Roof: let go of a relay and it waits 0.45 -> 1.5 s before it starts losing what you had done.
+
 ## [0.36.0] - 2026-10-19
 
 Bullets now spark and leave marks on walls, and every job level has a name, shown on the victory screen and the board.

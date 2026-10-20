@@ -148,6 +148,7 @@ function CyberFeud:load()
   Brutes.load() -- the thump of a brute's arm
   require("src.features.cyber-feud.kilowatt").load() -- and of Kilowatt's
   Volt.load() -- General Volt's bolt
+  Vex.load() -- VEX's relay charging
 end
 
 function CyberFeud:serverStart()
@@ -221,6 +222,26 @@ function CyberFeud:serverQuestStarted(server, quest)
     -- Calm until the Shard is taken, on the map it is taken on.
     Troops.serverStart(server, c.map, c.current, run.shard == nil and c.map.pickupX ~= nil)
   end
+end
+
+--- The launch's --boss: on the Roof, Kilowatt and Saye down already and
+--- `player` at VEX's uplink with the Shard, so it is handed over on the
+--- next step (the reveal, then her phase).
+function CyberFeud:serverSkipToBoss(server, quest, player)
+  local c = city()
+  local uplink = c and c.map and c.map.uplink
+  if not (sv and run and quest.id == "cyber-feud-roof" and uplink and player and player.body) then
+    return false
+  end
+  Kilowatt.serverSkip(server)
+  Saye.serverSkip(server)
+  carry(server, player.id, true)
+  local x, y = uplink.x, uplink.y + 40
+  if player.vehicle then
+    server:unseat(player, x, y)
+  end
+  player.body.x, player.body.y, player.body.facing = x, y, -math.pi / 2
+  return true
 end
 
 function CyberFeud:serverQuestEnded(server, quest)
@@ -442,6 +463,11 @@ end
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
 function CyberFeud:serverEnemies(server, add)
   Troops.serverEnemies(server, add)
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function CyberFeud:wikiEnemies(add)
+  require("src.features.cyber-feud.troops_wiki").wikiEnemies(add)
 end
 
 --- A player's or a bot's gun went off: the assassin droids hear it.

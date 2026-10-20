@@ -299,6 +299,52 @@ function DreadKnight.serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function DreadKnight.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local K = DreadKnight
+  add({
+    kind = "eternal-mood/dread-knight",
+    name = "Dread Knight",
+    quests = { "eternal-mood-earth", "eternal-mood-foundry", "eternal-mood-heck" },
+    scaling = "boss", -- his health is Bosses.health's, like a boss's
+    where = "Heck on Earth, the Foundry and Heck, each standing at his spot until you come near",
+    about = "Heck's elite: a head taller than you in black plate cracked through with red, a horned helm and a long "
+      .. "blade grown out of each forearm. Not a boss, but the strongest and smartest thing in the horde.",
+    stats = {
+      { "Health", K.HEALTH },
+      { "Speed", ("%g px/s walking, %g running at you from well off, %g winded"):format(K.WALK, K.RUN, K.STROLL) },
+      { "Sight", ("%g px, no wall in between; he wakes within %g px; awake, he hunts the nearest player within %g px")
+        :format(K.SEES, K.WAKE, K.HUNTS) },
+    },
+    weapons = {
+      { "Slash", ("within %g px: blade back for %g s (his reach shows on the floor), then %g melee damage to "
+        .. "everyone in front of him, at most one every %g s"):format(K.SLASH_REACH, K.SLASH_WINDUP, K.SLASH_DAMAGE,
+        K.SLASH_EVERY) },
+      { "Lunge", ("from %g to %g px off: crouched for %g s (a lane on the floor), then a dash at %g px/s for up to "
+        .. "%g s, aimed where you're going, that slashes whoever he reaches; one every %g to %g s"):format(
+        K.LUNGE_MIN, K.LUNGE_MAX, K.LUNGE_WINDUP, K.LUNGE_SPEED, K.LUNGE_TIME, K.LUNGE_EVERY[1], K.LUNGE_EVERY[2]) },
+    },
+    abilities = {
+      ("Whatever lands knocks you back %g px, stuns you for %g s (less what you wear against melee) and makes you "
+        .. "bleed; %g%% of the time it's a deep wound too: %g damage a second for %g s, until a medkit."):format(
+        K.KNOCK, K.STUN, K.DEEP_CHANCE * 100, K.DEEP_DPS, K.DEEP_TIME),
+      ("He lets whoever he stunned get up, then lunges within %g s of it if he has the breath."):format(K.UP_WINDOW),
+      ("Dodges: a round about to hit him and he throws himself off its line, at most every %g s, and only with "
+        .. "breath to spare. He gets out from under abilities too."):format(K.DODGE_COOL),
+      ("Comes at you weaving, and backs off to about %g px to get his breath back when winded."):format(K.REGROUP),
+      ("Under %g%% health he goes for the nearest medkit within %g px."):format(Heal.below * 100, Heal.range),
+    },
+    tips = {
+      "Watch for the crouch: the lane on the floor is where he'll go, so step off it.",
+      "Run him dry: lunges and dodges cost breath, and winded he can't dodge your rounds.",
+      ("Hit him while he stands after a slash or a lunge: he's open for %g s."):format(K.RECOVER),
+      "A freeze holds him stiff.",
+    },
+    drops = ("%g koins, and maybe a pickup"):format(K.DROPS),
+  })
+end
+
 function DreadKnight.serverFreezeArea(x, y, radius, seconds)
   for _, k in ipairs(sv and sv.list or {}) do
     if dist2(x, y, k.x, k.y) <= radius * radius then

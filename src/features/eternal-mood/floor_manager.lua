@@ -1,14 +1,14 @@
 -- The Floor Manager, Fobos Base's boss (docs/eternal-mood.md, "The bosses,
 -- one a level"), the way Heck makes an Arachnotron: the UAC's shift
--- supervisor, promoted out of his body. His brain sits in a glass dome on a
--- four-legged spider walker with a plasma cannon slung under the front, his
--- clipboard taped to its side. He stands on the Hangar's lift (the map's
+-- supervisor, promoted out of his body. His brain sits in a glass dome in
+-- an armoured hull with a plasma cannon slung under the front, floating
+-- about in his executive chair on a rocket, his clipboard taped to its arm. He stands on the Hangar's lift (the map's
 -- `horde.boss`), and nobody leaves Fobos Base while he is up: the lift is
 -- OUT OF SERVICE (`serverLocked`) until he is down.
 --
 -- He waits until a player walks into the Hangar (or shoots him), then
 -- fights: streams of plasma from his cannon, his aim dragging after you, and
--- his legs stomped down on whoever gets close. At two thirds and a third of
+-- his chair dropped on whoever gets close. At two thirds and a third of
 -- his health he calls a quick meeting: staffers and a file of interns come
 -- in through the Hangar's doorways (horde.lua's `serverCall`). The cannon is a weak point
 -- with health of its own (`CANNON`): rounds that land on it, at the front of
@@ -25,11 +25,11 @@
 --
 -- Messages
 --   server -> all  FM_STATE <tick> <x> <y> <facing> <hp> <max> <move> <aim> <phase2> <awake> <cannon> <stamina>
---                  <winded>  (unreliable, 15 Hz; move 0 none, 1 legs up for a stomp, 2 the cannon charging, 3 the
+--                  <winded>  (unreliable, 15 Hz; move 0 none, 1 rising for a stomp, 2 the cannon charging, 3 the
 --                  stream going; cannon its share of health left, 0 shot off; empty once he is gone)
 --   server -> all  FM_SAY    <line>              he says FloorManager.lines[line]
---   server -> all  FM_STOMP  <x> <y>             his legs came down there
---   server -> all  FM_SOUND  <name>              rear (the legs going up) or charge (the cannon)
+--   server -> all  FM_STOMP  <x> <y>             his chair came down there
+--   server -> all  FM_SOUND  <name>              rear (the chair rising) or charge (the cannon)
 --   server -> all  FM_CANNON <x> <y>             his cannon was shot off there
 --   server -> all  FM_DOWN   <x> <y> <angle>     he went down: the lift works again (to a joiner too)
 
@@ -56,7 +56,7 @@ local Brain
 FloorManager.HEALTH = 2250 -- for one player (more humans, more: bosses/init.lua); Volt has 1800
 FloorManager.CANNON = 600 -- the cannon's own, for one player: a fair bit of shooting
 FloorManager.RADIUS = 40 -- px: the walker's hull (floor_manager_look.lua draws him)
-FloorManager.WALK = 90 -- px/s, on four legs, any way he likes
+FloorManager.WALK = 90 -- px/s, floating any way he likes
 FloorManager.STROLL = 40 -- px/s winded
 FloorManager.RAGE = 1.35 -- his pace once the cannon is gone
 FloorManager.TURN = 3 -- rad/s the body turns
@@ -75,7 +75,7 @@ FloorManager.STREAM = 10 -- bolts in a stream
 FloorManager.STREAM_EVERY = 0.09 -- seconds between bolts
 FloorManager.STREAM_TURN = 1.1 -- rad/s the aim drags after them while it streams
 FloorManager.FAN = 0.28 -- radians either side, phase 2's three streams
-FloorManager.STOMP_REACH = 120 -- px: this near, the legs go up...
+FloorManager.STOMP_REACH = 120 -- px: this near, he rises...
 FloorManager.STOMP_RADIUS = 115 -- ...and come down on everyone this near
 FloorManager.STOMP_WINDUP = 0.6 -- seconds up first (the ring shows)
 FloorManager.STOMP_DAMAGE = 30 -- impact
@@ -148,7 +148,7 @@ function FloorManager:turn(angle, dt)
   end
 end
 
---- Walk along `angle` at `speed`, whichever way he faces (four legs),
+--- Walk along `angle` at `speed`, whichever way he faces (he floats),
 --- sliding along walls.
 function FloorManager:walk(angle, speed, dt)
   local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
@@ -335,6 +335,58 @@ function FloorManager.serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function FloorManager.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local F = FloorManager
+  local plasma = Fireballs.KINDS.plasma
+  add({
+    kind = "eternal-mood/floor-manager",
+    name = "The Floor Manager",
+    quests = { "eternal-mood" },
+    boss = true,
+    where = "Fobos Base, on the Hangar's lift; he wakes when you walk into the Hangar",
+    about = "The UAC's shift supervisor, promoted out of his body: his brain in a glass dome on an armoured hull, a "
+      .. "plasma cannon slung under the front, floating about in his executive chair on a rocket. The lift is out "
+      .. "of service until he is down.",
+    stats = {
+      { "Health", F.HEALTH },
+      { "Cannon", ("%g health of its own: rounds on it wreck it, and hurt him less"):format(F.CANNON) },
+      { "Speed", ("%g px/s, floating any way; %g times that once his cannon is gone; %g winded"):format(F.WALK,
+        F.RAGE, F.STROLL) },
+      { "Sight", F.RANGE, "px" },
+    },
+    weapons = {
+      { "Plasma", ("the cannon glows for %g s, then a stream of %g bolts, %g s apart, %g shock damage each, out to "
+        .. "%g px; his aim drags after you at %g rad/s. One every %g s, every %g s under half health"):format(F.CHARGE,
+        F.STREAM, F.STREAM_EVERY, plasma.damage, F.PLASMA_RANGE, F.STREAM_TURN, F.PLASMA_EVERY, F.PLASMA_EVERY_2) },
+      { "Stomp", ("within %g px: he rises for %g s (a ring on the floor), then drops his chair: %g impact damage to "
+        .. "everyone within %g "
+        .. "px, shoved %g px; at most every %g s"):format(F.STOMP_REACH, F.STOMP_WINDUP, F.STOMP_DAMAGE,
+        F.STOMP_RADIUS, F.STOMP_SHOVE, F.STOMP_EVERY) },
+    },
+    abilities = {
+      ("Keeps about %g px from you with his cannon, side-stepping; with it shot off he closes in to stomp."):format(
+        F.KEEP),
+      "Under half his health, three streams at once, in a fan.",
+      ("At two thirds and a third of his health he calls a quick meeting: %g staffer and %g interns come in through "
+        .. "each of the Hangar's doorways (more with more players)."):format(F.MEETING, F.MEETING_INTERNS),
+      ("Under %g%% health he takes his statutory break: off to the nearest medkit within %g px, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      ("Walking briskly costs him breath: about %d s of it and he's winded, picking his way along."):format(
+        math.floor(Stamina.defaults.max / F.BREATH.drain + 0.5)),
+      "Gets out from under abilities.",
+    },
+    tips = {
+      "Shoot the cannon off first: no more plasma, though he comes at you faster.",
+      "Keep moving across a stream, not away from it: his aim is slow to follow.",
+      "Step out of the ring before his chair comes down.",
+      "A freeze holds him stiff.",
+    },
+    drops = ("%g koins, and maybe a pickup or two"):format(F.DROPS),
+  })
+end
+
 --- Him, until he is down, for the audit (tools/audit). His cannon is part
 --- of him (a round on it reaches him too).
 function FloorManager.serverEnemies(_server, add)
@@ -388,7 +440,7 @@ function FloorManager.load()
     buf:tone(0, 0.4, 410, { wave = "square", amp = 0.12, decay = 0.1, sustain = 0 })
     buf:lowpass(2600)
   end)
-  bank.rear = make(0.6, 0.6, function(buf) -- servos lifting the legs
+  bank.rear = make(0.6, 0.6, function(buf) -- the chair's rockets lifting him
     buf:sweep(0, 0.55, 260, 520, { wave = "saw", amp = 0.2, decay = 2 })
     buf:noiseBurst(0, 0.5, { amp = 0.1, decay = 0.4 })
     buf:lowpass(1800)
@@ -490,7 +542,7 @@ function FloorManager.drawBelowCars()
   local c = Features.byName["city-map"]
   drawLiftSign(c and c.map)
   local m = shown
-  if m and m.move == 1 then -- the legs up: how far the stomp reaches
+  if m and m.move == 1 then -- rising: how far the stomp reaches
     local k = math.min(1, (clock - (m.moveAt or clock)) / FloorManager.STOMP_WINDUP)
     love.graphics.setColor(RED[1], RED[2], RED[3], 0.12 + 0.18 * k)
     love.graphics.circle("fill", m.dx, m.dy, FloorManager.STOMP_RADIUS, 40)

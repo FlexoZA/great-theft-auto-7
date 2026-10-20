@@ -398,6 +398,83 @@ function Zombie:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on him and his crabs (tools/wiki, docs/wiki.md).
+function Zombie:wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local Damage = require("src.features.damage")
+  local pistol = Features.byName.weapons.guns.pistol
+  add({
+    kind = "poison-zombie/zombie",
+    name = "Poison Zombie",
+    quests = { self.questId },
+    boss = true,
+    where = "The Winding Road, waiting on the pass at the top",
+    about = "A man swollen and hunched under a poison headcrab, with more of them riding on his back. He "
+      .. "shuffles after you, rakes you with his claws up close and throws his crabs at you from further off.",
+    stats = {
+      { "Health", self.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(self.health / pistol.damage)) },
+      { "Speed", ("%g px/s shuffling, %g lurching, %g winded"):format(self.shuffleSpeed, self.lurchSpeed,
+        self.walkSpeed) },
+      { "Sight", ("wakes when you come within %g px, goes after you from %g px"):format(self.wake, self.sight) },
+    },
+    weapons = {
+      { "Claws", ("%g melee damage, and you bleed for %g s"):format(self.swipeDamage, Damage.bleedTime) },
+      { "Headcrab", ("thrown at you from %g to %g px away, %g on his back and one more every %g s"):format(
+        self.throwNear, self.throwFar, self.crabs, self.regrow) },
+    },
+    abilities = {
+      ("Lurches when you're more than %g px off, which costs him breath, and so does every throw."):format(
+        self.lurchFrom),
+      ("Never goes more than %g px from the pass."):format(self.leash),
+      "Solid to cars: drive into him at speed and he's hurt, but so is the car.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "Dodges what players drop on him.",
+      "The Combine's rounds pass by him and his crabs.",
+    },
+    tips = {
+      "Stay out of his claws' reach: slow as he is, one that lands hurts.",
+      "Thin his crabs out before they reach you, and carry a medkit for the poison.",
+      ("Ramming him at %g px/s or more hurts him, but the car loses %g health."):format(self.ramMinSpeed,
+        self.ramDamageToCar),
+    },
+    drops = ("%g koins"):format(self.drops),
+  })
+  add({
+    kind = "poison-zombie/headcrab",
+    name = "Poison headcrab",
+    quests = { self.questId },
+    where = "The Winding Road's pass, thrown off the Poison Zombie's back",
+    about = "What rides on the Poison Zombie. He throws them at you; they crawl after you and leap, and a bite "
+      .. "poisons you.",
+    stats = {
+      { "Health", Crabs.HEALTH },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Crabs.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s crawling, %g leaping"):format(Crabs.CRAWL, Crabs.LEAP_SPEED) },
+      { "Sight", Crabs.CHASE, "px" },
+      { "Numbers", ("%g out at once for one player, more with more"):format(self.maxOut) },
+    },
+    weapons = {
+      { "Bite", ("%g poison damage, and you're poisoned for %g s (%g damage a second)"):format(Crabs.BITE,
+        Damage.poisonTime, Damage.poisonDps) },
+      { "Scratch", ("%g damage to a car it lands on"):format(Crabs.SCRATCH) },
+    },
+    abilities = {
+      "Thrown, it bites whoever it lands on.",
+      ("On the ground it leaps at you from %g px (%g from a car's side)."):format(Crabs.LEAP, Crabs.LEAP_CAR),
+      ("Rests %g s after a leap, %g after a bite, then comes again."):format(Crabs.REST, Crabs.BITE_REST),
+    },
+    tips = {
+      "A sprint gets away from one; a walk doesn't.",
+      ("Drive over one at %g px/s or more and it's squashed."):format(Crabs.SQUASH),
+      "A medkit cures the poison.",
+      "Shoot it while it rests after a leap.",
+    },
+    drops = ("%g koin"):format(self.crabDrops),
+  })
+end
+
 function Zombie:serverFreezeArea(_server, x, y, radius, seconds)
   if not sv then
     return

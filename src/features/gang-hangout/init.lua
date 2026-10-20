@@ -533,6 +533,56 @@ function Gang:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Gang:wikiEnemies(add)
+  local first, last = Crews.list[1], Crews.list[Crews.MAX]
+  local weapons = {}
+  for _, crew in ipairs(Crews.list) do
+    local gun = crew.arms
+    local pellets = gun.pellets or 1
+    local hit = pellets > 1 and ("%g pellets of %g damage a shot"):format(pellets, gun.damage)
+      or ("%g damage a round"):format(gun.damage)
+    local pace = math.max(crew.pause, gun.cooldown)
+    local rate = crew.burst > 1 and ("in bursts of %g, %g s between bursts"):format(crew.burst, pace)
+      or ("a shot every %g s"):format(pace)
+    weapons[#weapons + 1] = {
+      ("%s (level %g)"):format(crew.name, crew.level),
+      ("%s: %s, %s, out to %g px, about %g damage a second; %g health each"):format(gun.name, hit, rate,
+        math.floor(crew.reach + 0.5), crew.dps, crew.health),
+    }
+  end
+  add({
+    kind = "gang-hangout/guard",
+    name = "Hangout guard",
+    where = "The city, on the sidewalk in front of a player's Gang Hangout",
+    about = ("Another player's hired crew. Up to %g guards stand at their posts outside a Gang Hangout and "
+      .. "go after anyone who picks a fight with their boss, the boss's buildings or the crew."):format(Gang.guards),
+    stats = {
+      { "Health", ("%g (%s) to %g (%s)"):format(first.health, first.name, last.health, last.name) },
+      { "Speed", ("%g px/s going after you, %g walking back to their posts"):format(Guards.RUN_SPEED,
+        Guards.WALK_SPEED) },
+      { "Numbers", ("%g per hangout, each replaced %g s after going down while the fund pays for it"):format(
+        Gang.guards, Gang.respawn) },
+    },
+    weapons = weapons,
+    abilities = {
+      "Each level of the hangout is a different crew with a different gun: the owner upgrades them.",
+      "Come after anyone who hurts the boss's buildings anywhere in the city, the boss on or next to the "
+        .. "hangout's block, or one of them. Police officers on foot who do it too.",
+      ("Stay after you for %g s, renewed by every new attack, then walk back to their posts."):format(Gang.chase),
+      "Hold fire while their boss or another guard is in the way.",
+      "Their rounds hit police officers, and never make their boss wanted.",
+    },
+    tips = {
+      ("A car at %g px/s or more hurts them: %g health for every px/s it is going."):format(Guards.CAR_MIN_SPEED,
+        Guards.CAR_DAMAGE),
+      "Leave the boss alone off their block and nobody comes out.",
+      "Freezing and stink work on them: a stink cloud sends them running.",
+      "An empty fund means no replacements: take the guards down and the door stays shut.",
+    },
+  })
+end
+
 function Gang:serverFreezeArea(_server, x, y, radius, seconds)
   if sv and cityMap() then
     sv.guards:freeze(x, y, radius, seconds)

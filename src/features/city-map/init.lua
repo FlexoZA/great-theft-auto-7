@@ -159,6 +159,7 @@ CityMap.maps = {
   roof = {
     title = "The Roof", kind = "roof", seed = 105, cols = 36, rows = 36,
     crowd = false, traffic = false, vehicles = false, night = true,
+    noHome = true, -- no HOME star by the stairs: the only way home is the one once VEX is gone
   },
   -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
   -- (the night feature), a red dark: everything in that universe is evil.
@@ -221,6 +222,8 @@ CityMap.maps = {
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here
+-- The Cyber Feud maps' builder (cyber_feud.lua), for its numbers (the garrisons' sizes on the wiki's pages).
+CityMap.cyberFeud = require("src.features.city-map.cyber_feud")
 
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`

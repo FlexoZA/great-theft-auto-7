@@ -345,6 +345,57 @@ function Guard.serverPanicArea(x, y, radius)
   end
 end
 
+--- The wiki's page on it (tools/wiki, docs/wiki.md).
+function Guard.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local pistol = Features.byName.weapons.guns.pistol
+  local mines = 0
+  for _, wave in ipairs(Guard.help) do
+    mines = math.max(mines, wave.mines)
+  end
+  add({
+    kind = "antlions/guard",
+    name = "Antlion Guard",
+    quests = { Guard.questId },
+    boss = true,
+    where = "The Coast's point, up out of the sand once the last section is cleared",
+    about = "The swarm's great armoured beast. It digs up out of the sand once everything in the Coast's last "
+      .. "section is down, then swipes, charges and screams.",
+    stats = {
+      { "Health", Guard.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Guard.health / pistol.damage)) },
+      { "Speed", ("%g px/s running, %g closing in, %g charging, %g winded"):format(Guard.runSpeed,
+        Guard.prowlSpeed, Guard.chargeSpeed, Guard.walkSpeed) },
+      { "Sight", Guard.sight, "px" },
+    },
+    weapons = {
+      { "Swipe", ("%g impact damage up close, knocking you %g px back"):format(Guard.swipeDamage, Guard.swipeShove) },
+      { "Charge", ("%g impact damage, and you fly %g px"):format(Guard.chargeDamage, Guard.chargeShove) },
+      { "Scream", ("up to %g impact damage down a %g degree cone %g px long, blowing you back up to %g px"):format(
+        Guard.screamDamage, math.floor(math.deg(Guard.screamHalf * 2) + 0.5), Guard.screamRange,
+        Guard.screamShove) },
+    },
+    abilities = {
+      ("Paws the sand for %g s before it charges from %g to %g px away: that's the warning."):format(Guard.pawTime,
+        Guard.chargeNear, Guard.chargeFar),
+      ("Runs into something mid-charge and it reels for %g s."):format(Guard.stunTime),
+      ("Rears up for %g s before it screams, the cone showing on the ground."):format(Guard.rearTime),
+      ("Calls for help as it is hurt: at %g%% and again at %g%% health a Hunter-Chopper sweeps in from behind you "
+        .. "and drops %g rollermines (more with more players)."):format(Guard.help[1].at * 100,
+        Guard.help[2].at * 100, mines),
+      "Running, charging and screaming cost it breath: winded, it walks, with no charge or scream in it.",
+      ("Under %g%% health it goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+    },
+    tips = {
+      "Sidestep the charge, and better still, stand in front of a wall so it runs into it.",
+      "Get out of the cone while it rears up.",
+      "A freeze holds it, but only for half as long.",
+    },
+    drops = ("%g koins"):format(Guard.drops),
+  })
+end
+
 --- For tests.
 function Guard.server()
   return sv

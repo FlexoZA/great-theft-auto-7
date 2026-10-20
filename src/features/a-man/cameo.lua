@@ -235,6 +235,72 @@ function Cameo.serverFreezeArea(x, y, radius, seconds)
   end
 end
 
+--- The wiki's pages on his visits and on his turrets (tools/wiki, docs/wiki.md).
+function Cameo.wikiEnemies(add)
+  local Finale = require("src.features.a-man.finale")
+  local finaleTurrets = 0
+  for _, sm in ipairs(Finale.SUMMONS) do
+    if sm.kind == "turrets" then
+      finaleTurrets = sm.count
+    end
+  end
+  add({
+    kind = "a-man/cameo",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "A-Man, passing through",
+    quests = { "a-man" },
+    scaling = "none", -- he can't be hurt; only the turrets grow with the players
+    drawImmune = true,
+    where = "City 17's plaza, the first time anyone walks into it",
+    about = "A man in a suit, round glasses and a very new moustache. He blinks in near you, snaps his briefcase "
+      .. "open, leaves a horde of sentry turrets and blinks out again. A warning: the fight comes later.",
+    stats = {
+      { "Health", "can't be hurt here" },
+      { "Visits", ("%g, %g s apart"):format(Cameo.visits, Cameo.gap) },
+      { "Turrets", ("%g a visit for one player, more with more"):format(Cameo.turrets) },
+    },
+    abilities = {
+      ("Lands %g to %g px from somebody in the plaza, opens the case %g s later and is gone %g s after that.")
+        :format(Cameo.distance[1], Cameo.distance[2], Cameo.openAfter, Cameo.leaveAfter),
+      "The Hunter-Chopper can call him in on any map of his trail: then his case lets out its Hunters instead.",
+    },
+    tips = {
+      "Don't waste rounds on him: knock the turrets over instead.",
+      "The fight with him is at the top of the Citadel.",
+    },
+  })
+  add({
+    kind = "a-man/cameo-turret",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Sentry turret",
+    quests = { "a-man", "a-man-citadel" },
+    scaling = "none", -- one round of anything knocks one over, however often the job has been done
+    where = "Out of A-Man's briefcase: City 17's plaza, the top of the Citadel and his city event",
+    about = "White pods on three thin legs with one red eye and a laser sight, a horde of them at a time. They "
+      .. "aren't clever: each scuttles about at random and now and then sprays a burst in any old direction.",
+    stats = {
+      { "Health", Turrets.health },
+      { "Hits", "one round of anything knocks one over" },
+      { "Speed", Turrets.speed, "px/s" },
+      { "Numbers", ("%g out of the case on each plaza visit, %g at the top of the Citadel, %g in his city event, "
+        .. "for one player (more with more)"):format(Cameo.turrets, finaleTurrets, Turrets.count) },
+    },
+    weapons = {
+      { "Uzi rounds", ("%g damage a round, bursts of %g, %g to %g s apart, in whatever direction it picks"):format(
+        Turrets.damage, Turrets.burst, Turrets.pause[1], Turrets.pause[2]) },
+    },
+    abilities = {
+      ("Falls over by itself after %g s."):format(Turrets.life),
+      "Nobody is aimed at, but the rounds are real: they hurt whoever they meet. Never the Combine, though.",
+    },
+    tips = {
+      "Anything knocks one over: spray them.",
+      "Keep out of their way until they fall over by themselves.",
+      "A freeze stops them where they stand, guns and all.",
+    },
+  })
+end
+
 --- For tests.
 function Cameo.server()
   return sv

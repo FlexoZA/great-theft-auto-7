@@ -357,6 +357,54 @@ function Hunters:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Hunters:wikiEnemies(add)
+  local a = arms()
+  add({
+    kind = "hunters/hunter",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Hunter",
+    quests = { "a-man", "a-man-2", "a-man-road", "a-man-citadel" },
+    where = "City 17 round the Citadel, the Winding Road and the Citadel; the Hunter-Chopper and A-Man's "
+      .. "finale bring more in",
+    about = "The Combine's tripod hunter: quick on three legs, it keeps its distance, zaps you with shock rounds "
+      .. "and throws itself aside from whatever you send at it.",
+    stats = {
+      { "Health", Hunters.health },
+      { "Speed", ("%g px/s on its beat, %g running, %g strafing, %g in a dodge"):format(Brain.PATROL, Brain.RUN,
+        Brain.STRAFE, Brain.DODGE_SPEED) },
+      { "Sight", ("%g px in a %g degree cone, %g px all round"):format(Brain.RANGE, math.deg(Hunters.fov),
+        Hunters.aware) },
+    },
+    weapons = {
+      { "Shock rounds", ("%g shock damage a round in bursts of %g, %g s between bursts, out to %g px; "
+        .. "the shock runs on through you for %g s at %g damage a second"):format(a.gun.damage, a.burst, a.pause,
+        math.floor(a.reach + 0.5), Hunters.zap.seconds, Hunters.zap.dps) },
+      { "Stun shot", ("%g shock damage and holds you still for %g s; it charges for %g s first, about every %g s")
+        :format(Hunters.stunDamage, Hunters.stunTime, Brain.STUN_CHARGE, Brain.STUN_EVERY) },
+    },
+    abilities = {
+      ("Keeps you between %g and %g px: backs off when you rush it, closes in when you run."):format(Brain.KEEP_MIN,
+        Brain.KEEP_MAX),
+      ("Dodges rounds and abilities it sees coming, no more than once every %g s and only with the breath for it.")
+        :format(Brain.DODGE_COOL),
+      ("Under %g%% health it runs for a medkit (%g back) or an energy drink (%g back, and quicker for "
+        .. "%g s) within %g px."):format(Brain.HEAL_BELOW * 100, Hunters.medkitHealth, Hunters.drinkHealth,
+        Hunters.drinkHaste, Brain.HEAL_RANGE),
+      ("Calls every Hunter within %g px when it starts a fight or is shot at."):format(Brain.CALL_RANGE),
+      ("Hears a shot within %g px, and turns on whoever fires a round past it or into it."):format(Brain.HEAR),
+      "It tires: running and dodging spend its breath (the blue bar under it), and a winded one can only walk.",
+    },
+    tips = {
+      "Its stun shot goes down the line it shows while charging: step off the line.",
+      "Wear it out: a winded Hunter can't dodge, and walks slower than its patrol.",
+      "Pick up the medkits and drinks near a fight before it does.",
+      "A teleport lands at once: it can't see that coming. A freeze holds it and stops a charge.",
+    },
+    drops = ("%g koins, and sometimes a pickup"):format(Hunters.drops),
+  })
+end
+
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
 --- bot's is heard by any within earshot. Their own side's (owned by
 --- nobody) is just noise.

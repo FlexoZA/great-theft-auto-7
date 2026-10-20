@@ -30,6 +30,7 @@ local Body = require("src.body")
 local Bosses = require("src.features.bosses")
 local Story = require("src.features.cyber-feud.story")
 local Hud = require("src.features.cyber-feud.hud")
+local KilowattLook = require("src.features.cyber-feud.kilowatt_look")
 local Radio = require("src.features.a-man.radio")
 local Brain = require("src.features.cyber-feud.rig_brain")
 
@@ -257,6 +258,69 @@ function WarRigs.serverEnemies(_server, add)
   add({ id = c, kind = "cyber-feud/kilowatt-cameo", x = x, y = y, radius = radius, immune = true })
 end
 
+--- The wiki's pages (tools/wiki, docs/wiki.md): the rigs (bot cars, not in
+--- `serverEnemies`: a kind of their own, and no portrait) and Kilowatt's ride.
+function WarRigs.wikiEnemies(add)
+  local shotgun = Features.byName.weapons.guns.shotgun
+  add({
+    kind = "cyber-feud/war-rig",
+    portrait = false,
+    name = "War-rig",
+    quests = { "cyber-feud-overpass" },
+    where = "The Overpass, parked on the shoulder between Halcyon's interceptors",
+    about = "The Static's battering ram: a rusty truck tractor with a spiked chrome ram on the nose, junk plates "
+      .. "welded all over it, and a ganger with a shotgun riding on the back.",
+    stats = {
+      { "Health", WarRigs.health, "(a car's, junk welded all over it)" },
+      { "Speed", ("Up to %g px/s"):format(math.min(Brain.CHASE_SPEED, WarRigs.maxSpeed)) },
+      { "Sight", ("Wakes for something to hit within %g px in sight"):format(Brain.SPOT) },
+      { "Numbers", ("%g for one player, %g more for each human past the first"):format(WarRigs.count,
+        Bosses.extra) },
+    },
+    weapons = {
+      { "Ram", ("comes at you nose first, flat out, then drops back for %g s after a hit and comes again"):format(
+        Brain.BACK_OFF) },
+      { "Ganger's shotgun", ("%g pellets of %g damage a pull, every %g s, out to %g px"):format(shotgun.pellets,
+        Brain.PELLET, Brain.FIRE_EVERY, Brain.SHOOT_RANGE) },
+    },
+    abilities = {
+      "While the two sides are at it on the Overpass, it rams Halcyon's interceptors too.",
+      ("Lets you go after %g s out of sight or %g px away, and pulls over to wait."):format(Brain.LOST_AFTER,
+        Brain.GIVE_UP),
+    },
+    tips = {
+      ("It aims at where you will be %g s on: change direction as it closes."):format(Brain.LEAD),
+      "Get it into a flare-up: it goes for the interceptors then.",
+    },
+    drops = ("%g koins when wrecked"):format(WarRigs.drops),
+  })
+  add({
+    kind = "cyber-feud/kilowatt-cameo",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    drawImmune = true,
+    scaling = "none",
+    name = "Kilowatt (on the Overpass)",
+    quests = { "cyber-feud-overpass" },
+    where = ("The Overpass, roaring past on his own rig %g s after you arrive, or once somebody drives off")
+      :format(WarRigs.cameoAfter),
+    about = "The Static's boss, standing on the back of a war-rig as it tears up the road past you, shouting. He is "
+      .. "not fought here: that is for the Roof.",
+    stats = {
+      { "Speed", WarRigs.cameoSpeed, "px/s up the road" },
+    },
+    abilities = {
+      ("Rides flat out up the road for %g s, then the rig swerves into the crash barrier and goes up."):format(
+        WarRigs.cameoFor),
+      ("He leaps off onto the road just before it does, laughs, and %g s later runs for the edge and jumps off the "
+        .. "overpass."):format(WarRigs.exitAfter),
+      "He can't be hurt here: nothing of his takes a round.",
+    },
+    tips = {
+      "Keep out of his rig's way and enjoy the show: the Overpass's music starts as he goes by.",
+    },
+  })
+end
+
 --- For tests.
 function WarRigs.server()
   return sv
@@ -336,8 +400,8 @@ local function drawRig(c)
   love.graphics.pop()
 end
 
---- Kilowatt: huge, a mohawk of cables with glowing tips, chrome shoulders
---- and jaw, a reactor in his chest pulsing cyan. Drawn twice as big as anyone.
+--- Kilowatt (kilowatt_look.lua): drawn twice as big as anyone, as on the
+--- Roof, his spikes' arc crackling as he rides by.
 local function drawKilowatt()
   local s = 2.2 * (kw.scale or 1)
   love.graphics.push()
@@ -347,28 +411,8 @@ local function drawKilowatt()
     love.graphics.setColor(0, 0, 0, 0.3)
     love.graphics.ellipse("fill", 0, (kw.lift or 0) / s, 8, 6, 12)
   end
-  Body.person(0, 0, kw.angle or -math.pi / 2, math.sin(kw.t * 14) * (kw.stage == "exit" and 1.8 or 0), {
-    shirt = { 0.20, 0.22, 0.24 }, pants = { 0.14, 0.14, 0.16 }, skin = { 0.48, 0.35, 0.27 },
-    hair = { 0.13, 0.15, 0.17 }, shoes = { 0.06, 0.06, 0.07 },
-  })
-  love.graphics.rotate(kw.angle or -math.pi / 2)
-  love.graphics.setColor(CHROME)
-  love.graphics.ellipse("fill", 0, -7.5, 3.2, 2.4, 10) -- the shoulders
-  love.graphics.ellipse("fill", 0, 7.5, 3.2, 2.4, 10)
-  love.graphics.rectangle("fill", 3, -2, 2, 4, 0.6) -- the jaw
-  local pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 5))
-  love.graphics.setColor(CYAN[1], CYAN[2], CYAN[3], pulse)
-  love.graphics.circle("fill", 2, 0, 2.6, 10) -- the reactor, through the cage
-  love.graphics.setColor(0.13, 0.15, 0.17)
-  love.graphics.setLineWidth(1.2)
-  for i = -2, 2 do -- the cables of his mohawk, a glowing tip on each
-    love.graphics.line(-1, i * 1.1, -4.6 + math.abs(i) * 0.5, i * 1.6)
-  end
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(CYAN)
-  for i = -2, 2 do
-    love.graphics.circle("fill", -4.6 + math.abs(i) * 0.5, i * 1.6, 0.8, 6)
-  end
+  local walk = math.sin(kw.t * 14) * (kw.stage == "exit" and 1.8 or 0)
+  KilowattLook.draw(kw.angle or -math.pi / 2, walk, { pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 5)) })
   love.graphics.pop()
 end
 
@@ -397,6 +441,8 @@ function WarRigs.drawNightLights(client, glow)
   end
   if kw then -- his reactor lights him up, and the road round him
     glow(kw.x, kw.y - (kw.lift or 0), 120 * (kw.scale or 1), CYAN, 0.95)
+    local ax, ay = KilowattLook.arcAt(kw.x, kw.y - (kw.lift or 0), kw.angle or -math.pi / 2, 2.2 * (kw.scale or 1))
+    glow(ax, ay, 60 * (kw.scale or 1), CYAN, 0.8) -- the arc on his back
   end
 end
 

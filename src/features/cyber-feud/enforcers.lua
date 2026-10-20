@@ -88,6 +88,23 @@ function Enforcers.serverStart(server, map, calm)
   return brain
 end
 
+--- One more, awake, holding (x, y) facing `watch`: the Roof's dropship
+--- (dropship.lua). Makes the brain on a map that started without any.
+--- Returns him.
+function Enforcers.serverJoin(x, y, watch)
+  if not sv then
+    sv = {
+      brain = Brain.new({
+        fov = Enforcers.fov, alertFov = Enforcers.alertFov, aware = Enforcers.aware,
+        health = Bosses.enemyHealth(Enforcers.health), from = "halcyon", firstId = Enforcers.firstId,
+      }),
+      syncIn = 0, emptySends = 0,
+    }
+  end
+  sv.brain.calm = false
+  return sv.brain:add(x, y, watch, arms())
+end
+
 function Enforcers.serverWake()
   if sv then
     sv.brain.calm = false
@@ -193,6 +210,46 @@ function Enforcers.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.brain.list or {}) do
     add({ id = s, kind = "cyber-feud/enforcer", x = s.x, y = s.y, hp = s.hp, radius = Brain.RADIUS })
   end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Enforcers.wikiEnemies(add)
+  local a = arms()
+  add({
+    kind = "cyber-feud/enforcer",
+    name = "Enforcer",
+    quests = { "cyber-feud-market", "cyber-feud-overpass", "cyber-feud-tower", "cyber-feud-roof" },
+    where = "The Market's south gates, in front of the Overpass's roadblocks, Halcyon Tower's guard and executive "
+      .. "floors, and the Roof with the dropship",
+    about = "Halcyon's riot police: darker grey armour behind a riot shield with a magenta edge. Slow, tough, and "
+      .. "planted in a choke point.",
+    stats = {
+      { "Health", Enforcers.health },
+      { "Armour", ("A riot shield: stops every round within %g degrees of straight on (blasts and fire go through)")
+        :format(math.deg(Brain.SHIELD)) },
+      { "Speed", ("%g px/s stepping up, %g going back; turns at %g rad/s"):format(Brain.WALK, Brain.BACK,
+        Brain.TURN) },
+      { "Sight", ("%g px, a %g degree cone (%g once he has somebody), and he hears anyone within %g px"):format(
+        Brain.RANGE, math.deg(Enforcers.fov), math.deg(Enforcers.alertFov), Enforcers.aware) },
+    },
+    weapons = {
+      { "Shotgun", ("%g pellets of %g damage a pull, a pull every %g s, out to about %g px"):format(
+        a.gun.pellets, a.gun.damage, a.pause, math.floor(a.reach + 0.5)) },
+    },
+    abilities = {
+      ("Holds his post: steps up on whoever he has, never more than %g px from it, and stops %g px off them to "
+        .. "shoot."):format(Brain.LEASH, Brain.KEEP),
+      ("Loses you and looks round where you were for %g s, then walks back to his post."):format(Brain.SEARCH),
+      "Shot from where he isn't looking, he turns that way.",
+      "In the feud he is Halcyon's: he shoots the Static, and his shield stops their rounds and blades too.",
+    },
+    tips = {
+      ("Get round his side while he turns: at %g rad/s, he is slow to face you."):format(Brain.TURN),
+      "Blow him up or burn him: explosives and fire go round the shield.",
+      "Lead a Static rush into him and let them wear each other down.",
+    },
+    drops = ("%g koins, maybe a pickup"):format(Enforcers.drops),
+  })
 end
 
 function Enforcers.serverFreezeArea(x, y, radius, seconds)

@@ -240,6 +240,45 @@ function Rollermines:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Rollermines:wikiEnemies(add)
+  local blast = Brain.BLAST
+  add({
+    kind = "rollermines/rollermine",
+    name = "Rollermine",
+    quests = { "a-man-road", "a-man-citadel" },
+    where = "Sunk in the ground on the Winding Road and in the Citadel; A-Man's finale sets more down already awake",
+    about = "The Combine's mine that hunts: a steel ball half sunk in the ground until you come near, then it "
+      .. "hops out, blades snapping open, and rolls after you faster than you can run.",
+    stats = {
+      { "Health", Brain.HEALTH },
+      { "Speed", ("up to %g px/s, picking up %g px/s every second; a car flat out gets away, slowly"):format(
+        Brain.TOP, Brain.ACCEL) },
+      { "Sight", ("wakes when you come within %g px, chases you from up to %g px"):format(Brain.WAKE, Brain.CHASE) },
+    },
+    weapons = {
+      { "Blast", ("goes off when it touches you or your car: %g explosive damage at the middle, falling off to "
+        .. "%g px; it hurts everyone and every car near it"):format(blast.damage, blast.radius) },
+      { "Shock", ("somebody on foot it touches takes %g shock damage first, enough to stun them"):format(
+        Brain.SHOCK) },
+    },
+    abilities = {
+      ("Beeps once it is within %g px of you: it is about to touch you."):format(Brain.ARM),
+      "Leads a moving target, and has momentum: it overshoots a turn, swings round and bounces off walls.",
+      ("Caught in a blast, it goes off too %g s later, so a cluster goes up in a chain."):format(Brain.CHAIN),
+      ("With nobody to chase for %g s it rolls to a stop, blades out, and wakes again when you come near."):format(
+        Brain.GIVE_UP),
+    },
+    tips = {
+      "Shoot it before it reaches you: it goes off where it is, and a blast nearby sets it off.",
+      "Sidestep at the last moment: it overshoots turns.",
+      "A freeze stops it dead; a stink cloud sends it rolling off the other way for a moment.",
+      "Drive: a car flat out pulls away from it.",
+    },
+    drops = ("%g koin when you shoot it"):format(Rollermines.drops),
+  })
+end
+
 function Rollermines:serverFreezeArea(_server, x, y, radius, seconds)
   if sv then
     sv.brain:freeze(x, y, radius, seconds)

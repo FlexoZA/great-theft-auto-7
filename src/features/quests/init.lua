@@ -14,7 +14,9 @@
 -- courier job into Grey City (cyber-feud), five maps the same way, and
 -- the pest-control job to the UAC's moon base (eternal-mood), and the
 -- long walk to Handsome Jerry's bunker on Pandoria (borderline). A blue
--- star by the entrance of each brings everyone home again; a star comes
+-- star by the entrance of each brings everyone home again (not on Cyber
+-- Feud's Roof: there the only way home is the star on the helipad once VEX
+-- is gone); a star comes
 -- up when you drive or walk onto it, and
 -- declined it waits until you come back. A map may have several stars; the
 -- nearest one is the one on offer. Add a quest to `Quests.list` with
@@ -717,19 +719,6 @@ Quests.list = {
     onMap = "heck",
     x = 0, -- by the portal on the shelf: city-map's map.cx, map.cy
     y = 2752,
-    map = "city",
-    returns = true,
-    label = "HOME",
-    color = { 0.45, 0.75, 1 },
-    banner = "%s called it a day. Welcome back to The City.",
-  },
-  {
-    id = "home-roof",
-    title = "Back to the City",
-    text = "Back down the stairs. Take everyone home.",
-    onMap = "roof",
-    x = -224, -- at the top of the stairs: city-map's map.cx, map.cy
-    y = 992,
     map = "city",
     returns = true,
     label = "HOME",

@@ -77,6 +77,7 @@ Story.beats = {
   ["roof.vex1"] = { say = "Ow. That one was load-bearing." },
   ["roof.vex2"] = { say = "Rude. I was using that. You know I'm the cameras, right?" },
   ["roof.vex3"] = { say = "Okay. Okay. Let's talk about this. Ten percent. Twenty." },
+  ["roof.dropship"] = { say = "Called in a favour. Halcyon still thinks I'm on the payroll. Say hi to the boys." },
   ["roof.end"] = { say = "Well. That's the job done, I suppose. Nothing personal, courier." },
 }
 

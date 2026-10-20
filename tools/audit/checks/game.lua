@@ -9,6 +9,7 @@
 local Config = require("tools.audit.config")
 local Stages = require("tools.audit.stages")
 local Arsenal = require("tools.audit.checks.arsenal")
+local Wiki = require("tools.audit.checks.wiki")
 
 local Game = {}
 
@@ -122,7 +123,8 @@ local function mapChecks(report, game, quest, since, soundtracks)
       title = ("%d spawn point(s) inside walls on %s"):format(inWall, where) })
   end
 
-  local home = false
+  local spec = game.Features.byName["city-map"].maps[name]
+  local home = spec and spec.noHome -- (a map that means to have none says so)
   for _, q in ipairs(game.Features.byName.quests.list) do
     if q.returns and q.onMap == name then
       home = true
@@ -131,7 +133,8 @@ local function mapChecks(report, game, quest, since, soundtracks)
   if not home then
     report:add({ severity = "minor", category = "maps", key = "home:" .. name,
       title = ("No star home on %s"):format(where),
-      detail = "A quest map has a blue star by its way in (a quest with `returns` and onMap = the map)." })
+      detail = "A quest map has a blue star by its way in (a quest with `returns` and onMap = the map), "
+        .. "or says it means to have none (`noHome` on its city-map spec)." })
   end
 end
 
@@ -175,11 +178,15 @@ local function playQuest(report, game, quest, ctx, soundtracks, seen)
   mapChecks(report, game, quest, since, soundtracks)
 
   local kindsHere = {}
+  local paged = Wiki.kinds(game.Features)
   local function look()
     game:godMode()
     local enemies = game:enemies()
     wallChecks(report, game, mapName, quest, enemies)
     for _, e in ipairs(enemies) do
+      if not seen[e.kind] then
+        Wiki.unpaged(report, paged, e.kind, quest.id)
+      end
       seen[e.kind] = seen[e.kind] or { quest = quest.id }
       if not e.immune then
         seen[e.kind].hittable = true
@@ -419,6 +426,7 @@ function Game.general(report, _ctx, game)
   require("tools.audit.checks.static").messages(report, game.Features)
   equipment(report, game)
   saves(report, game)
+  Wiki.pages(report, game.Features)
   fuzz(report, game)
 end
 

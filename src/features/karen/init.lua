@@ -372,6 +372,86 @@ function Karen:serverEnemies(_server, add)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Karen:wikiEnemies(add)
+  local SimpBrain = require("src.features.karen.simp_brain")
+  local Heal = require("src.features.bosses.heal")
+  local br = self.breath
+  add({
+    kind = "karen/boss",
+    name = "Crazy Karen",
+    quests = { "karen" },
+    boss = true,
+    where = "Karen's Cul-de-sac, in the turning circle at the end of her street",
+    about = "The first boss. She stands in her turning circle ranting about nothing, and the moment anyone "
+      .. "comes near she charges them and slaps whatever she reaches, car or walker.",
+    stats = {
+      { "Health", self.maxHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.maxHealth / self.bulletDamage)) },
+      { "Speed", ("%g px/s charging, %g winded"):format(self.chargeSpeed, self.walkSpeed) },
+      { "Sight", self.aggroRange, "px" },
+    },
+    weapons = {
+      { "Slap", ("%g melee damage, one every %g s, to whatever she reaches, car or walker"):format(self.slapDamage,
+        self.slapInterval) },
+      { "Scream", ("%g impact damage to everyone within %g px of where she aimed it, and your screen swims for %g s")
+        :format(self.screamDamage, self.screamRadius, self.screamBlur) },
+    },
+    abilities = {
+      ("Every %g s she plants her feet and screams at whoever is within %g px: a ring on the ground shows where, "
+        .. "and it lands %g s later."):format(self.screamEvery, self.screamRange, self.screamDelay),
+      ("Charging costs her breath: about %d s flat out and she is winded, down to a %g px/s walk with no breath "
+        .. "to scream."):format(math.floor(Stamina.defaults.max / br.drain + 0.5), self.walkSpeed),
+      ("Her simps turn up while she stands, up to %g at a time."):format(Simps.MAX),
+      ("Under %g%% health she marches off to the nearest medkit within %g px and gets %g health back from it.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      "Stomps back to her turning circle when nobody is about.",
+    },
+    tips = {
+      "Step out of the ring before the scream lands.",
+      "Run her dry: winded, she can't keep up with anyone sprinting.",
+      ("Ramming her at %g px/s or more hurts her (more the faster you go), but the car loses %g health and "
+        .. "bounces off."):format(self.ramMinSpeed, self.ramDamageToCar),
+      "A freeze roots her to the spot, and a stink sends her running.",
+      "Grab the medkits before she does.",
+    },
+    drops = ("%g koins, and an uzi for every player"):format(self.drops),
+  })
+  add({
+    kind = "karen/simp",
+    name = "Simp",
+    quests = { "karen" },
+    scaling = "none", -- their health and punches stay put; only the gang grows (Bosses.count)
+    where = "Karen's Cul-de-sac, turning up round her while she stands",
+    about = ("Karen's hangers-on, in grey hoodies, each with a name that starts \"%s\". They run at you from all "
+      .. "sides and punch."):format(Simps.PREFIX),
+    stats = {
+      { "Health", Simps.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(Simps.SHOT_DAMAGE,
+        math.ceil(Simps.HEALTH / Simps.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s milling about, %g chasing"):format(Simps.WALK_SPEED, Simps.CHASE_SPEED) },
+      { "Sight", Simps.SIGHT, "px" },
+      { "Numbers", ("%g at a time for one player (more for more players, and each time the job has been finished), "
+        .. "one every %g s while Karen stands"):format(Simps.MAX, Simps.SPAWN_EVERY) },
+    },
+    weapons = {
+      { "Punch", ("%g melee damage, one every %g s"):format(Simps.PUNCH_DAMAGE,
+        Simps.PUNCH_INTERVAL) },
+    },
+    abilities = {
+      ("Go for whoever shot Karen in the last %g s."):format(SimpBrain.DEFEND_TIME),
+      "Spread round you and close in from all sides rather than queueing up.",
+      "No more come once Karen is down, but the ones already out keep swinging.",
+    },
+    tips = {
+      ("A car at %g px/s or more flattens one."):format(Simps.SPLAT_SPEED),
+      "A stink sends them running.",
+    },
+    drops = "A koin like a pedestrian, and sometimes something to pick up",
+  })
+end
+
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
 --- slower they only shove her a little.
 function Karen:rams(server, b, dt)
