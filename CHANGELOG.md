@@ -30,6 +30,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   it, and the Dread Knights slash but don't lunge.
 
 ### Fixed
+- Sweeping up a big pile of drops (a boss's loot) no longer stacks the pickup chime into one ear-splitting blast:
+  at most three chimes ring at once, and ones taken in the same instant play as one.
 - Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
 - Crazy Karen only takes ways round the houses she is wide enough for and feels her way round corners, so she
   no longer catches on a corner or a gap she won't fit through.
