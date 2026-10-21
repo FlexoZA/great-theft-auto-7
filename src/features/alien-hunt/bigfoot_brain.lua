@@ -29,7 +29,8 @@
 --   heal     badly hurt (bosses/heal.lua): he goes for the nearest medkit
 --            lying within reach, leaping onto it if it is a fair way off and
 --            he has the breath (the landing slams whoever is there, as ever),
---            lumbering over if not, and takes it
+--            lumbering over if not, swiping at anyone he passes within reach
+--            of, and takes it
 --
 -- A freeze holds him still; a stink sends him lumbering away from it, and
 -- so does an ability about to land on him (bosses/dodge.lua), unless he is
@@ -43,6 +44,7 @@
 local Features = require("src.features")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -65,34 +67,27 @@ local function blocked(x, y, r)
     or Features.any("blocksPoint", x, y + r)
 end
 
---- One step along `angle`, each axis on its own so a corner or a trunk is
---- slid along; landed in something, he walks out of it. At full tilt while
---- he has the breath, which it costs him; a lumber once he is winded.
---- Wedged, he sidesteps for a moment.
+--- Where nothing of his can stand (the `blocksPoint` convention).
+local function solid(x, y)
+  return Features.any("blocksPoint", x, y)
+end
+
+--- One step along `angle`, sliding along walls and feeling round the
+--- corners and trunks he catches on (bosses/walk.lua); landed in something,
+--- he walks out of it. At full tilt while he has the breath, which it costs
+--- him; a lumber once he is winded. Wedged, he sidesteps for a moment.
 local function walk(T, f, angle, dt)
   if f.sidestep > 0 then
     f.sidestep = f.sidestep - dt
     angle = angle + f.side * math.pi / 2
   end
-  local px, py, r = f.x, f.y, T.radius
   local speed = f.breath:pace(T.speed, T.walkSpeed)
   f.running = not f.breath:winded()
-  local free = blocked(f.x, f.y, r)
-  local nx = f.x + math.cos(angle) * speed * dt
-  if free or not blocked(nx, f.y, r) then
-    f.x = nx
-  end
-  local ny = f.y + math.sin(angle) * speed * dt
-  if free or not blocked(f.x, ny, r) then
-    f.y = ny
-  end
-  if dist2(f.x, f.y, px, py) < (speed * dt * 0.4) ^ 2 then
-    f.stuck = f.stuck + dt
-    if f.stuck > 0.4 then
-      f.stuck, f.sidestep, f.side = 0, 0.6, -f.side
-    end
-  else
+  if not Walk.fits(solid, f.x, f.y, T.radius) then
+    f.x, f.y = f.x + math.cos(angle) * speed * dt, f.y + math.sin(angle) * speed * dt
     f.stuck = 0
+  elseif not Walk.step(f, solid, angle, speed, dt, T.radius) and f.stuck > 0.15 then
+    f.stuck, f.sidestep, f.side = 0, 0.6, -f.side
   end
 end
 
@@ -142,6 +137,25 @@ local function pickTarget(T, f, server, buildings)
   return best
 end
 
+--- A swipe at `target` (pickTarget's), at `angle`: claws for a player, a
+--- "claw" event for a building.
+local function swipe(T, f, server, target, angle, events)
+  f.swipeTimer, f.swipe = T.swipeEvery, 0.25
+  if target.player then
+    local weapons = Features.byName.weapons
+    if weapons and weapons.serverDamage then
+      weapons:serverDamage(server, target.player, nil, T.swipeDamage, angle, "melee")
+    end
+  else
+    events[#events + 1] = { "claw", target.x, target.y }
+  end
+end
+
+--- Within a swipe of him (`target` from pickTarget)?
+local function reach(T, target)
+  return T.radius + T.swipeReach + ((target.player and not target.onFoot) and 10 or 0)
+end
+
 --- Should he go for a medkit now? Looks once a second while he is hurt.
 local function wantsHeal(f, time)
   if f.medkit then
@@ -159,9 +173,14 @@ local function wantsHeal(f, time)
 end
 
 --- Off to the medkit: a leap onto it if it is a fair way off and he has
---- the breath, a lumber over if not; on it, he takes it.
-local function heal(T, f, server, dt)
+--- the breath, a lumber over if not; on it, he takes it. A player who
+--- comes within a swipe on the way gets one, without him turning from it.
+local function heal(T, f, server, dt, events)
   local m = f.medkit
+  local target = pickTarget(T, f, server, nil)
+  if target and f.swipeTimer <= 0 and dist2(target.x, target.y, f.x, f.y) <= reach(T, target) ^ 2 then
+    swipe(T, f, server, target, math.atan2(target.y - f.y, target.x - f.x), events)
+  end
   if Heal.within(m, f.x, f.y, T.radius) then
     f.hp = math.min(f.max, f.hp + Heal.take(server, m))
     f.medkit = nil
@@ -241,7 +260,7 @@ function Brain.think(T, f, server, dt, time, buildings)
 
   f.leapTimer = f.leapTimer - dt
   if wantsHeal(f, time) then
-    heal(T, f, server, dt)
+    heal(T, f, server, dt, events)
     return events
   end
 
@@ -253,7 +272,7 @@ function Brain.think(T, f, server, dt, time, buildings)
   f.mode = "walk"
   f.facing = math.atan2(target.y - f.y, target.x - f.x)
   local dist = math.sqrt(dist2(target.x, target.y, f.x, f.y))
-  local reach = T.radius + T.swipeReach + ((target.player and not target.onFoot) and 10 or 0)
+  local within = reach(T, target)
   -- Getting any closer? A new target starts the count again.
   local key = target.player or target.building.id
   if key ~= f.chasing or dist < (f.closest or math.huge) - 30 then
@@ -266,24 +285,16 @@ function Brain.think(T, f, server, dt, time, buildings)
   local stuck = T.stuckLeap and f.noCloser > T.stuckLeap
   local onto = f.leapTimer <= 0 and target.player and (T.leapFar or dist <= T.leapRange)
   local towards = f.leapTimer <= 0 and target.building and dist > 300
-  if (dist > reach or (T.leapClose and onto)) and (stuck or onto or towards) and f.breath:has(T.leapStamina) then
+  if (dist > within or (T.leapClose and onto)) and (stuck or onto or towards) and f.breath:has(T.leapStamina) then
     -- Onto a player in reach, towards anything further, over whatever he is stuck on.
     f.breath:spend(T.leapStamina)
     crouch(T, f, target.x, target.y, target.player and dist <= T.leapRange and target.player.id or nil)
     return events
   end
-  if dist > reach then
+  if dist > within then
     walk(T, f, f.facing, dt)
   elseif f.swipeTimer <= 0 then
-    f.swipeTimer, f.swipe = T.swipeEvery, 0.25
-    if target.player then
-      local weapons = Features.byName.weapons
-      if weapons and weapons.serverDamage then
-        weapons:serverDamage(server, target.player, nil, T.swipeDamage, f.facing, "melee")
-      end
-    else
-      events[#events + 1] = { "claw", target.x, target.y }
-    end
+    swipe(T, f, server, target, f.facing, events)
   end
   return events
 end
