@@ -9,7 +9,9 @@
 --   fight  somebody he can see: he keeps his distance (KEEP), closing in or
 --          backing off, and works through his moves (below)
 --   heal   badly hurt (bosses/heal.lua): he breaks off for the nearest
---          medkit lying within reach
+--          medkit lying within reach; somebody in his sights, he kites
+--          there (the standard's point 7): facing them and throwing on the
+--          way, his bolt only while the medkit is still far (KITE_FAR)
 --
 -- His moves, each with a tell before it lands:
 --
@@ -34,6 +36,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -73,23 +76,15 @@ local function hurt(server, p, amount, angle)
   end
 end
 
+--- Towards (x, y) at `speed`, round the stalls on his walking grid (he
+--- holds where there is no way he fits). True once he is there.
 local function goTo(v, x, y, speed, dt)
-  local g = v.goal
-  if not g or dist2(g.x, g.y, x, y) > 80 * 80 or v.time > g.replanAt or v.stuck > 0.3 then
-    local corners = v.nav and v.nav:path(v.x, v.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = v.time + 1.2 }
-    v.goal = g
+  local way, there = Walk.route(v, v.nav, x, y, v.time)
+  if not way then
+    return there
   end
-  local c = g.corners[g.at]
-  if dist2(v.x, v.y, c.x, c.y) < 18 * 18 then
-    if g.at >= #g.corners then
-      return true
-    end
-    g.at = g.at + 1
-    c = g.corners[g.at]
-  end
-  v.facing = math.atan2(c.y - v.y, c.x - v.x)
-  v:walk(v.facing, speed, dt)
+  v.facing = way
+  v:walk(way, speed, dt)
   return false
 end
 
@@ -98,14 +93,14 @@ local function wantsHeal(v)
     if Heal.there(v.medkit) then
       return true
     end
-    v.medkit, v.goal = nil, nil
+    v.medkit, v.route = nil, nil
   end
   if not Heal.wants(v.hp, v.max) or v.time < (v.healLook or 0) then
     return false
   end
   v.healLook = v.time + Heal.checkEvery
   v.medkit = Heal.find(v.x, v.y)
-  v.goal = nil
+  v.route = nil
   return v.medkit ~= nil
 end
 
@@ -175,6 +170,20 @@ local function throw(v, x, y, events)
   end
 end
 
+--- He raises his hand at `target`, along `toward`: the bolt's line goes up.
+local function bolt(v, target, toward)
+  v.aiming, v.aimT, v.aim, v.aimAt = true, 0, toward, target
+end
+
+--- A grenade at (tx, ty), `d` px off, if one is due and he has the breath.
+local function lob(v, tx, ty, d, events)
+  if v.lobIn <= 0 and d <= v.LOB_RANGE and v.breath:has(v.LOB_COST) then
+    v.breath:spend(v.LOB_COST)
+    v.lobIn = v.LOB_EVERY
+    throw(v, tx, ty, events)
+  end
+end
+
 --- What he does this tick. Returns the events the others should hear
 --- about: { "say", line }, { "bolt", x0, y0, x1, y1 }, { "lob", x0, y0, x1,
 --- y1 }, { "field", x, y }, { "backup" }.
@@ -236,12 +245,30 @@ function Brain.think(v, server, dt)
   if wantsHeal(v) then
     v.mode = "heal"
     local m = v.medkit
-    goTo(v, m.x, m.y, v:pace(), dt)
-    v.running = not v.breath:winded()
+    local target, tx, ty, visible = Brain.target(v, server)
+    if visible then -- kiting: facing them, fighting, walking backwards or aside to it
+      local toward = math.atan2(ty - v.y, tx - v.x)
+      local d = math.sqrt(dist2(tx, ty, v.x, v.y))
+      v.facing = toward
+      if v.boltIn <= 0 and d <= v.BOLT_RANGE and dist2(m.x, m.y, v.x, v.y) > v.KITE_FAR ^ 2 then
+        bolt(v, target, toward)
+        v.breath:step(false, dt)
+        return events
+      end
+      lob(v, tx, ty, d, events)
+      local way = Walk.route(v, v.nav, m.x, m.y, v.time)
+      if way then
+        v:walk(way, v:pace(), dt)
+        v.running = not v.breath:winded()
+      end
+    else
+      goTo(v, m.x, m.y, v:pace(), dt)
+      v.running = not v.breath:winded()
+    end
     if Heal.within(m, v.x, v.y, v.RADIUS) then
       local got = Heal.take(server, m)
       v.hp = math.min(v.max, v.hp + got)
-      v.medkit, v.goal = nil, nil
+      v.medkit, v.route = nil, nil
       if got > 0 then
         events[#events + 1] = { "say", v.LINE.heal }
       end
@@ -263,20 +290,20 @@ function Brain.think(v, server, dt)
     v.breath:step(v.running, dt)
     return events
   end
-  v.mode, v.goal = "fight", nil
+  v.mode = "fight"
   v.facing = toward
   if v.boltIn <= 0 and d <= v.BOLT_RANGE then
-    v.aiming, v.aimT, v.aim, v.aimAt = true, 0, toward, target
+    bolt(v, target, toward)
     v.breath:step(false, dt)
     return events
   end
-  if v.lobIn <= 0 and d <= v.LOB_RANGE and v.breath:has(v.LOB_COST) then
-    v.breath:spend(v.LOB_COST)
-    v.lobIn = v.LOB_EVERY
-    throw(v, tx, ty, events)
-  end
+  lob(v, tx, ty, d, events)
   if d > v.KEEP + 60 then
-    v:walk(toward, v:pace(), dt)
+    if Walk.wideClear(Sight.blocked, v.x, v.y, tx, ty, v.RADIUS) then
+      v:walk(toward, v:pace(), dt)
+    else -- he sees them past a stall his shoulders don't: round it
+      goTo(v, tx, ty, v:pace(), dt)
+    end
     v.running = not v.breath:winded()
   elseif d < v.KEEP - 80 then
     v:walk(toward + math.pi + v.side, v:pace(), dt)

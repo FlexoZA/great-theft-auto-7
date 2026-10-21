@@ -19,6 +19,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- General Volt no longer gets stuck on the stall corners in Noodle Square, and badly hurt he backs off to a
+  medkit still facing you, lobbing grenades on the way (bolts only while it is still far) instead of just
+  walking off.
+- Kilowatt no longer catches on the crates on the Roof, and badly hurt he walks to a medkit still facing you,
+  whipping and slamming on the way; he only charges when it carries him towards the medkit.
+- Director Saye walks round the Roof's clutter better, and badly hurt she backs off to a medkit still facing
+  you, dropping turrets on the way (her sightline only while it is still far).
 
 ## [0.39.2] - 2026-10-20
 

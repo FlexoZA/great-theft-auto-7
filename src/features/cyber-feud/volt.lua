@@ -47,6 +47,7 @@ local Sight = require("src.features.d-day.sight")
 local Corpses = require("src.features.corpses")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
@@ -67,6 +68,7 @@ Volt.STROLL = 40 -- px/s winded
 Volt.BREATH = { drain = 10, regen = 14, recovered = 50, breath = 40 }
 Volt.RANGE = 720 -- px he sees
 Volt.KEEP = 320 -- px he keeps from whoever he has
+Volt.KITE_FAR = 200 -- px: kiting to a medkit, he stops to bolt only while it is further than this
 Volt.BOLT_RANGE = 640 -- px a bolt reaches (or the first wall)
 Volt.BOLT_WIDTH = 20 -- px either side of its line it hits
 Volt.BOLT_DAMAGE = 30 -- shock: a stun
@@ -131,32 +133,18 @@ end
 
 function Volt.new(x, y, hp, nav)
   return setmetatable({
-    x = x, y = y, facing = math.pi / 2, aim = math.pi / 2, hp = hp, max = hp, nav = nav, time = 0,
+    x = x, y = y, facing = math.pi / 2, aim = math.pi / 2, hp = hp, max = hp, time = 0,
     aiming = false, aimT = 0, boltIn = 1.5, lobIn = 4, sayIn = 6, frozen = 0, stuck = 0, side = 0.5,
     phase2 = false, backups = 0, grenades = {}, breath = Stamina.new(Volt.BREATH), running = false, mode = "hunt",
     power = Bosses.power(), -- what his hits are multiplied by: harder on a job finished before
+    nav = nav and Walk.nav(nav, Sight.blocked, Volt.RADIUS), -- the walking grid as he fits through it
   }, Volt)
 end
 
-local function fits(x, y)
-  local r = Volt.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
-end
-
+--- A tick along `angle` at `speed`, round the stalls (bosses/walk.lua).
+--- False when he got nowhere.
 function Volt:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return
-  end
-  self.stuck = 0
+  return Walk.step(self, Sight.blocked, angle, speed, dt, Volt.RADIUS)
 end
 
 function Volt:pace()
