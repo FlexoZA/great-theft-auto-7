@@ -1,7 +1,9 @@
 -- Vehicle explosions: client-side particles in a chunky pixel style, plus a
 -- flash, a shockwave ring, a scorch mark that lingers and camera shake.
 -- Bullet impacts on walls are the same particles, small: a few sparks, grit
--- and dust, and a pock mark.
+-- and dust, and a pock mark. A round into a body (Explosions.hit) sprays
+-- blood out of the far side and leaves drops on the ground; into a machine,
+-- sparks.
 
 local Explosions = {
   list = {}, -- live explosions
@@ -9,6 +11,7 @@ local Explosions = {
   shake = 0, -- current shake amplitude in px
   impacts = {}, -- live bullet impacts, oldest first
   marks = {}, -- { x, y, t }: pock marks where rounds hit walls, oldest first
+  stains = {}, -- { x, y, size, color, t }: drops of blood on the ground, oldest first
 }
 
 local SCORCH_TIME = 8
@@ -16,6 +19,24 @@ local SHAKE_DECAY = 6 -- per second
 local IMPACT_MAX = 40 -- live impacts at once; the oldest goes first
 local MARK_MAX = 60
 local MARK_TIME = 4 -- seconds a pock mark lingers
+local STAIN_MAX = 80
+local STAIN_TIME = 6 -- seconds a drop of blood lingers
+
+-- What a round into a body throws up, by the material its feature answered
+-- `serverShotAt` with ("flesh" when it said true). `mist` and `drops` are
+-- the puff and the droplets' colours; "solid" is a wall's impact.
+local BODIES = {
+  flesh = {
+    mist = { 0.6, 0.06, 0.05 }, drops = { 0.72, 0.05, 0.05 }, stain = { 0.4, 0.03, 0.03 }, flash = { 1, 0.2, 0.15 },
+  },
+  goo = {
+    mist = { 0.55, 0.62, 0.12 }, drops = { 0.62, 0.78, 0.1 }, stain = { 0.36, 0.44, 0.06 }, flash = { 0.8, 1, 0.3 },
+  },
+  metal = { sparks = 7, drops = { 0.3, 0.3, 0.32 }, flash = { 1, 0.95, 0.7 } },
+}
+local SPARK = { 1, 0.95, 0.7 }
+local DUST = { 0.62, 0.58, 0.52 }
+local GRIT = { 0.35, 0.33, 0.3 }
 
 local rnd = love.math.random
 
@@ -54,6 +75,14 @@ function Explosions.spawn(x, y, color)
   Explosions.scorches[#Explosions.scorches + 1] = { x = x, y = y, t = SCORCH_TIME }
 end
 
+--- Onto the end of `list`, dropping its oldest past `max`.
+local function push(list, item, max)
+  if #list >= max then
+    table.remove(list, 1)
+  end
+  list[#list + 1] = item
+end
+
 --- A round stopped at a wall at (x, y), having flown along (dx, dy): a few
 --- sparks and chips of grit kicked back the way it came, a puff of dust
 --- and a pock mark that fades. Capped, oldest first, so a minigun into a
@@ -72,16 +101,54 @@ function Explosions.impact(x, y, dx, dy)
       p.vx, p.vy = p.vx * 0.5 + bx * s, p.vy * 0.5 + by * s
     end
   end
-  local impacts = Explosions.impacts
-  if #impacts >= IMPACT_MAX then
-    table.remove(impacts, 1)
+  push(Explosions.impacts, e, IMPACT_MAX)
+  push(Explosions.marks, { x = x + bx * 2, y = y + by * 2, t = MARK_TIME }, MARK_MAX)
+end
+
+--- A round struck a body at (x, y), flying along (dx, dy); `material` is
+--- what the body is made of (BODIES; nil is flesh, "solid" a wall's
+--- impact). Flesh sprays droplets mostly out of the far side and a little
+--- back the way the round came, puffs a red mist and drops a few spots on
+--- the ground ahead; a machine throws sparks and grit back at the shooter.
+function Explosions.hit(x, y, dx, dy, material)
+  if material == "solid" then
+    Explosions.impact(x, y, dx, dy)
+    return
   end
-  impacts[#impacts + 1] = e
-  local marks = Explosions.marks
-  if #marks >= MARK_MAX then
-    table.remove(marks, 1)
+  local body = BODIES[material] or BODIES.flesh
+  local len = math.sqrt(dx * dx + dy * dy)
+  local fx, fy = len > 0 and dx / len or 0, len > 0 and dy / len or 0 -- on through the body
+  local e = { x = x, y = y, t = 0, sparks = {}, dust = {}, chips = {}, mist = body.mist, grit = body.drops,
+    flash = body.flash }
+  if body.sparks then
+    burst(e.sparks, body.sparks, { x = x, y = y, speed = { 180, 380 }, life = { 0.08, 0.22 }, size = 2, drag = 4 })
+    burst(e.chips, 2, { x = x, y = y, speed = { 60, 140 }, life = { 0.2, 0.4 }, size = 2, drag = 5 })
+    for _, list in ipairs({ e.sparks, e.chips }) do
+      for _, p in ipairs(list) do -- back at the shooter, off the plating
+        local s = math.sqrt(p.vx * p.vx + p.vy * p.vy)
+        p.vx, p.vy = p.vx * 0.5 - fx * s, p.vy * 0.5 - fy * s
+      end
+    end
+  else
+    burst(e.dust, 3, { x = x, y = y, spread = 3, speed = { 10, 40 }, life = { 0.2, 0.35 }, size = 4, drag = 4 })
+    burst(e.chips, 10, { x = x, y = y, speed = { 90, 280 }, life = { 0.15, 0.35 }, size = 2, drag = 6 })
+    for k, p in ipairs(e.chips) do -- most out of the far side, the odd one back
+      local s = math.sqrt(p.vx * p.vx + p.vy * p.vy)
+      local way = k <= 3 and -0.6 or 1
+      p.vx, p.vy = p.vx * 0.4 + fx * s * way, p.vy * 0.4 + fy * s * way
+    end
+    for _ = 1, 2 + math.floor(rnd() * 2) do
+      local d = 14 + rnd() * 22 -- past the body, which stands over the rest
+      push(Explosions.stains, {
+        x = x + fx * d + (rnd() - 0.5) * 8,
+        y = y + fy * d + (rnd() - 0.5) * 8,
+        size = rnd() < 0.3 and 4 or 2,
+        color = body.stain,
+        t = STAIN_TIME,
+      }, STAIN_MAX)
+    end
   end
-  marks[#marks + 1] = { x = x + bx * 2, y = y + by * 2, t = MARK_TIME }
+  push(Explosions.impacts, e, IMPACT_MAX)
 end
 
 --- amount: peak shake in px (already scaled for distance by the caller).
@@ -144,11 +211,13 @@ function Explosions.update(dt)
       table.remove(Explosions.impacts, k)
     end
   end
-  for k = #Explosions.marks, 1, -1 do
-    local m = Explosions.marks[k]
-    m.t = m.t - dt
-    if m.t <= 0 then
-      table.remove(Explosions.marks, k)
+  for _, list in ipairs({ Explosions.marks, Explosions.stains }) do
+    for k = #list, 1, -1 do
+      local m = list[k]
+      m.t = m.t - dt
+      if m.t <= 0 then
+        table.remove(list, k)
+      end
     end
   end
 
@@ -171,6 +240,11 @@ function Explosions.drawBelow()
     love.graphics.setColor(0.12, 0.10, 0.09, a)
     love.graphics.ellipse("fill", snap(s.x) + 6, snap(s.y) - 4, 18, 12)
   end
+  for _, s in ipairs(Explosions.stains) do -- blood on the ground, under whoever walks through it
+    local c = s.color
+    love.graphics.setColor(c[1], c[2], c[3], 0.85 * math.min(1, s.t / 2))
+    love.graphics.rectangle("fill", snap(s.x), snap(s.y), s.size, s.size)
+  end
   love.graphics.setColor(1, 1, 1)
 end
 
@@ -187,14 +261,15 @@ local function drawImpacts()
   end
   love.graphics.setLineWidth(1)
   for _, e in ipairs(Explosions.impacts) do
+    local mist, grit = e.mist or DUST, e.grit or GRIT
     for _, p in ipairs(e.dust) do
       local f = p.life / p.maxLife
       local size = snap(p.size + (1 - f) * 8)
-      love.graphics.setColor(0.62, 0.58, 0.52, f * 0.6)
+      love.graphics.setColor(mist[1], mist[2], mist[3], f * 0.6)
       love.graphics.rectangle("fill", snap(p.x) - size / 2, snap(p.y) - size / 2, size, size)
     end
     for _, p in ipairs(e.chips) do
-      love.graphics.setColor(0.35, 0.33, 0.3, p.life / p.maxLife)
+      love.graphics.setColor(grit[1], grit[2], grit[3], p.life / p.maxLife)
       love.graphics.rectangle("fill", snap(p.x) - 1, snap(p.y) - 1, p.size, p.size)
     end
     for _, p in ipairs(e.sparks) do
@@ -202,7 +277,8 @@ local function drawImpacts()
       love.graphics.line(p.x, p.y, p.x - p.vx * 0.025, p.y - p.vy * 0.025)
     end
     if e.t < 0.05 then -- the flash of the strike itself
-      love.graphics.setColor(1, 0.95, 0.7, 1 - e.t / 0.05)
+      local c = e.flash or SPARK
+      love.graphics.setColor(c[1], c[2], c[3], 1 - e.t / 0.05)
       love.graphics.circle("fill", e.x, e.y, 4)
     end
   end
@@ -275,6 +351,7 @@ function Explosions.clear()
   Explosions.scorches = {}
   Explosions.impacts = {}
   Explosions.marks = {}
+  Explosions.stains = {}
   Explosions.shake = 0
 end
 

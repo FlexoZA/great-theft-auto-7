@@ -325,7 +325,7 @@ function Guard.serverShotAt(server, x, y, radius, by, angle, damage)
     g.hp = 0
     down(server, by, angle)
   end
-  return true
+  return "goo"
 end
 
 --- The guard while it is up, for the audit (tools/audit).

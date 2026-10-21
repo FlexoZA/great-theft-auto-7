@@ -389,7 +389,7 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return false
   end
   if Turrets.hit(sv.turrets, server, x, y, radius) then
-    return true
+    return "metal"
   end
   local a = sv.a
   if not a or dist2(a.x, a.y, x, y) >= (radius + Finale.radius) ^ 2 then

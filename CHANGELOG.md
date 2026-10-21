@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Shooting an enemy shows where the round went in: blood sprays out the far side and spots the ground
+  (green for antlions), and drones, turrets, droids, rollermines, the Tripod, the Hunter-Chopper and a
+  Suppressor's shield throw sparks.
+
 ### Changed
 - Shotgun no longer drops his guard when he goes for a medkit where you can see him: he walks to it facing you,
   firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.

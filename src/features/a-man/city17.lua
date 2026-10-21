@@ -842,7 +842,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return false
   end
   if Cameo.serverShotAt(server, x, y, radius, by) then
-    return true
+    return "metal" -- only its turrets
   end
   local s, i = sv.troops:at(x, y, radius)
   if not s then
