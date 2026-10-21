@@ -17,6 +17,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Changed
 - Shotgun no longer drops his guard when he goes for a medkit where you can see him: he walks to it facing you,
   firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.
+- Major Looz'er going for a medkit keeps throwing MG nests at you on the way, as well as firing.
 
 ### Fixed
 - Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
@@ -61,6 +62,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   whipping and slamming on the way; he only charges when it carries him towards the medkit.
 - Director Saye walks round the Roof's clutter better, and badly hurt she backs off to a medkit still facing
   you, dropping turrets on the way (her sightline only while it is still far).
+- Major Looz'er no longer catches on the corners of bunkers and hedge gaps: he feels his way round them, only
+  takes ways he fits through, and sidesteps out of a gap that pinches both his shoulders.
 
 ## [0.39.2] - 2026-10-20
 
