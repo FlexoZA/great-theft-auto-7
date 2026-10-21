@@ -16,8 +16,10 @@
 --            still there it snatches them into the cage, where they are held
 --            and hurt until it has been hurt enough or `cageTime` is up
 --   heal     badly hurt (bosses/heal.lua): it strides over everything to the
---            nearest medkit lying within `healRange`, the heat ray still at
---            work, and a tentacle snatches it up once it is within reach
+--            nearest medkit lying within `healRange`, facing whoever it can
+--            see with the heat ray and the tentacles still at work (but no
+--            sweep: that plants its legs), and a tentacle snatches it up
+--            once it is within reach
 --
 -- Frozen, it stands; winded, it ambles and keeps no ray going it hasn't
 -- already fired. Under a player's ability about to land (a freeze's
@@ -256,7 +258,7 @@ local function ray(T, server, t, dt)
     if t.phaseT < T.rest then
       return
     end
-    local canSweep = t.sweepIn <= 0 and t.breath:has(T.sweepCost) and sweepWorth(T, server, t)
+    local canSweep = t.mode ~= "heal" and t.sweepIn <= 0 and t.breath:has(T.sweepCost) and sweepWorth(T, server, t)
     if canSweep and (random() < T.sweepChance or not nearest(server, t, T.rayRange)) then
       startSweep(T, t)
       return
@@ -393,8 +395,10 @@ local function wantsHeal(T, t, time)
   return t.medkit ~= nil
 end
 
---- Over everything to the medkit; a tentacle snatches it up once it is
---- within reach. Returns whether it strode (what costs breath).
+--- Over everything to the medkit, kiting: facing the nearest player it can
+--- see (the ray and the tentacles work on as ever; a sweep, which plants its
+--- legs, waits) and only stepping its way. A tentacle snatches it up once
+--- it is within reach. Returns whether it strode (what costs breath).
 local function heal(T, server, t, dt)
   local m = t.medkit
   if Heal.within(m, t.x, t.y, T.grabReach) then
@@ -405,7 +409,8 @@ local function heal(T, server, t, dt)
   t.to, t.street = nil, nil -- off the streets now; back to the nearest crossing after
   local dx, dy = m.x - t.x, m.y - t.y
   local d = math.sqrt(dx * dx + dy * dy)
-  t.facing = math.atan2(dy, dx)
+  local prey = nearest(server, t, T.huntRange)
+  t.facing = prey and math.atan2(prey.y - t.y, prey.x - t.x) or math.atan2(dy, dx)
   t.speed = t.breath:pace(T.huntSpeed, T.windedSpeed)
   local step = math.min(t.speed * dt, d)
   t.x, t.y = t.x + dx / d * step, t.y + dy / d * step

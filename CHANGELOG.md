@@ -14,11 +14,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The Tripod going for a medkit keeps facing you with its heat ray and tentacles at work, and no longer
+  plants its legs for a sweep on the way.
+
 ### Fixed
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Runner going for a medkit behind a building runs round the block to it instead of giving up.
 
 ## [0.39.2] - 2026-10-20
 
