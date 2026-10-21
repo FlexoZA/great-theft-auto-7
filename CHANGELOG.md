@@ -51,6 +51,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   pillars in City 17, the Citadel and on the Winding Road: they only take ways their bodies fit through and feel
   their way round corners. A badly hurt one now backs off to its medkit facing you and firing, instead of turning
   its back and running.
+- The Poison Zombie no longer gets stuck at the water on the Winding Road pass when he sees you across it: he
+  walks round it, and badly hurt he backs off to a medkit facing you, still clawing and throwing crabs, instead
+  of turning his back and running.
 
 ## [0.39.2] - 2026-10-20
 
