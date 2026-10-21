@@ -35,6 +35,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
   yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
   it, and the Dread Knights slash but don't lunge.
+- A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
+  no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
+  medkit, blinking through you and opening his case as he goes.
 
 ## [0.39.2] - 2026-10-20
 
