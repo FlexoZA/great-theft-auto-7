@@ -312,7 +312,7 @@ function Brain.think(m, server, dt)
       end
     elseif m.move == "charge" then
       local before = { x = m.x, y = m.y }
-      local moved = m:walk(m.aim, m.CHARGE_SPEED, dt)
+      local moved = m:walk(m.aim, m.CHARGE_SPEED, dt, true)
       local slid = dist2(before.x, before.y, m.x, m.y) < (m.CHARGE_SPEED * dt * 0.6) ^ 2
       m.facing = m.aim
       if strike(server, m.x, m.y, m.CHARGE_HIT, nil, nil, m.CHARGE_DAMAGE * m.power, "impact", m.CHARGE_SHOVE) > 0 then
@@ -430,7 +430,7 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
-  m.mode, m.goal = "fight", nil
+  m.mode = "fight"
   m:turn(toward, dt)
   local facing = math.abs(Sight.angleDiff(toward, m.facing))
   if d <= m.CLAW_REACH and m.clawIn <= 0 then
@@ -468,8 +468,16 @@ function Brain.think(m, server, dt)
     end
   end
   -- Placing himself: at his distance, circling; round by the bridges when
-  -- the lava is between them.
-  if d > m.KEEP + 80 and not Ground.clear(m.x, m.y, tx, ty) then
+  -- the lava is between them, and round whatever his shoulders won't get
+  -- past (or have caught on) by the walking grid.
+  if m.stuck > 0.3 then
+    m.detour = m.time + m.DETOUR
+  end
+  local around = d > m.KEEP + 80 and (m.time < (m.detour or 0) or not m:straight(tx, ty))
+  if not around then
+    m.goal = nil -- a way he was on is stale once he's off it
+  end
+  if around then
     goTo(m, tx, ty, m:pace(), dt)
     m.running = not m.breath:winded()
   elseif d > m.KEEP + 80 then -- closing in: at a run only from well off, so circling doesn't keep him blown

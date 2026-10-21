@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
+  and takes the long way round what he can see you past but can't get his shoulders through.
+
 ## [0.39.2] - 2026-10-20
 
 The Floor Manager traded his spider legs for an executive chair on a rocket.
