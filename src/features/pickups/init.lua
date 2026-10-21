@@ -698,7 +698,6 @@ Pickups.clientMessages = {
 local sv = nil -- { items = { id -> { kind, x, y, amount, dropped, floor } }, nextId, pending = { { at, kind, floor } },
 -- time }
 
---- A random spot on a road tile (city map) or in a ring around the origin.
 --- Somewhere open on the map, on `floor` ({ y0, y1 }, city-map's
 --- `map.floors`) when given.
 local function roadSpot(floor)
