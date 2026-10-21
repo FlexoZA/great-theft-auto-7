@@ -21,13 +21,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Bigfoot going for a medkit swipes at anyone he passes within reach of on the way.
 - The Tripod going for a medkit keeps facing you with its heat ray and tentacles at work, and no longer
   plants its legs for a sweep on the way.
+- Crazy Karen no longer turns her back on you when she goes for a medkit: she backs off to it at a walk, still
+  glaring at you, slapping anyone who follows her in reach and screaming only while the medkit is still far off.
+- The Baron of Heck, the Floor Manager, the Mancouchbus, the Spider Mattressmind and the Dread Knights no longer
+  turn their backs on you to go for a medkit: they back or side-step to it facing you, fighting on the way. Their
+  long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
+  yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
+  it, and the Dread Knights slash but don't lunge.
 
 ### Fixed
 - Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
-- Crazy Karen no longer turns her back on you when she goes for a medkit: she backs off to it at a walk, still
-  glaring at you, slapping anyone who follows her in reach and screaming only while the medkit is still far off.
-
-### Fixed
 - Crazy Karen only takes ways round the houses she is wide enough for and feels her way round corners, so she
   no longer catches on a corner or a gap she won't fit through.
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
@@ -38,13 +41,6 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   fits through, feels his way round corners, and rolls round what he can see you past but can't get by.
 - Dread Knights no longer rock on the spot at the edge of sight while winded: they keep backing off and circling
   till they have their breath back.
-
-### Changed
-- The Baron of Heck, the Floor Manager, the Mancouchbus, the Spider Mattressmind and the Dread Knights no longer
-  turn their backs on you to go for a medkit: they back or side-step to it facing you, fighting on the way. Their
-  long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
-  yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
-  it, and the Dread Knights slash but don't lunge.
 - A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
   no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
   medkit, blinking through you and opening his case as he goes.
