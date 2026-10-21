@@ -245,7 +245,7 @@ function HunterChopper:serverShotAt(_server, x, y, radius, by, angle, damage)
     return false
   end
   hurt(damage, by, angle)
-  return true
+  return "metal"
 end
 
 --- It while it is up, for the audit (tools/audit): over the walls, and

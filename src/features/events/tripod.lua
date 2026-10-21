@@ -428,7 +428,7 @@ function Tripod.serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   hurt(server, damage or Tripod.bulletDamage, by ~= 0 and by or nil, angle)
-  return true
+  return "metal"
 end
 
 --- It, for the audit (tools/audit). It stands taller than the buildings

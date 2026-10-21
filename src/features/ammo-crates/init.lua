@@ -330,7 +330,7 @@ function Crates:serverShotAt(server, x, y, radius, by)
   local r = self.RADIUS + (radius or 0)
   for id, c in pairs(sv.crates) do
     if not c.open and (c.x - x) ^ 2 + (c.y - y) ^ 2 <= r * r then
-      return open(server, id)
+      return open(server, id) and "solid"
     end
   end
   return false

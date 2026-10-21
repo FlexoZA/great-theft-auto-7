@@ -276,7 +276,7 @@ function Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if sv.brain:hurt(server, h, i, damage or 20, angle, by) then
     down(server, h, by, angle, dtype)
   end
-  return true
+  return "metal"
 end
 
 --- Every assassin droid standing, for the audit (tools/audit).

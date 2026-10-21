@@ -221,7 +221,7 @@ function Suppressors:serverShotAt(srv, x, y, radius, by, angle, damage, dtype)
   elseif hadShield and u.shield <= 0 then
     srv:broadcast(Protocol.encode("SUP_BREAK", u.id))
   end
-  return true
+  return hadShield and "metal" or true -- the shield sparks; under it, they bleed
 end
 
 --- Every Suppressor in the world right now, for the audit (tools/audit):
