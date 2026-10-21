@@ -11,7 +11,10 @@
 --          (KEEP), side-stepping in his chair; with it shot off he
 --          closes in to stomp
 --   heal   badly hurt (bosses/heal.lua): he breaks off for the nearest
---          medkit lying within reach ("statutory break")
+--          medkit lying within reach ("statutory break"); with somebody in
+--          sight he kites there, facing them and stomping whoever comes
+--          close, and charges the cannon only while it is still far off
+--          (KITE_FAR)
 --
 -- His moves, each with a tell before it lands:
 --
@@ -36,6 +39,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -143,6 +147,62 @@ end
 --- What he does this tick. Returns the events the others should hear
 --- about: { "say", line }, { "stomp", x, y }, { "bolt", x, y, angle },
 --- { "sound", name }, { "meeting" }.
+--- A stomp or a plasma stream at `target` (at `d`, along `toward`), if one
+--- is due; true when one starts. Kiting to a medkit (`kiting`), the cannon's
+--- charge only while that is still far off.
+local function attack(m, events, target, d, toward, kiting)
+  if d <= m.STOMP_REACH and m.stompIn <= 0 then
+    m.move, m.moveT = "stomp", 0
+    events[#events + 1] = { "sound", "rear" }
+    return true
+  end
+  if m.cannon and m.plasmaIn <= 0 and d <= m.PLASMA_RANGE and m.breath:has(m.PLASMA_COST)
+    and math.abs(Sight.angleDiff(toward, m.facing)) < 0.25
+    and not (kiting and dist2(m.x, m.y, m.medkit.x, m.medkit.y) < m.KITE_FAR ^ 2) then
+    m.breath:spend(m.PLASMA_COST)
+    m.move, m.moveT, m.aim, m.aimAt = "charge", 0, toward, target
+    events[#events + 1] = { "sound", "charge" }
+    return true
+  end
+  return false
+end
+
+--- Off to the medkit he's after, picking it up there: kiting with somebody
+--- in sight (bosses/init.lua's point 7), straight for it with nobody.
+local function heal(m, server, events, dt, target, tx, ty, visible)
+  m.mode = "heal"
+  local kit = m.medkit
+  local way, there = Walk.route(m, m.nav, kit.x, kit.y, m.time)
+  if there then -- at the grid's last corner, not yet on the kit: the last step straight at it
+    way = math.atan2(kit.y - m.y, kit.x - m.x)
+  end
+  if way == nil and not there then -- no way there he fits: he fights on, and looks again in a while
+    m.medkit, m.route, m.healLook = nil, nil, m.time + Heal.noWay
+    return false
+  end
+  if visible then
+    local toward = math.atan2(ty - m.y, tx - m.x)
+    m:turn(toward, dt)
+    if attack(m, events, target, math.sqrt(dist2(tx, ty, m.x, m.y)), toward, true) then
+      return
+    end
+    if way then
+      m:walk(way, m:pace(), dt)
+    end
+  else
+    goTo(m, kit.x, kit.y, m:pace(), dt)
+  end
+  m.running = not m.breath:winded()
+  if Heal.within(kit, m.x, m.y, m.RADIUS) then
+    local got = Heal.take(server, kit)
+    m.hp = math.min(m.max, m.hp + got)
+    m.medkit, m.goal, m.route = nil, nil, nil
+    if got > 0 then
+      events[#events + 1] = { "say", m.LINE.heal }
+    end
+  end
+end
+
 function Brain.think(m, server, dt)
   local events = {}
   m.time = m.time + dt
@@ -207,23 +267,12 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
+  local target, tx, ty, visible = Brain.target(m, server)
   if wantsHeal(m) then
-    m.mode = "heal"
-    local kit = m.medkit
-    goTo(m, kit.x, kit.y, m:pace(), dt)
-    m.running = not m.breath:winded()
-    if Heal.within(kit, m.x, m.y, m.RADIUS) then
-      local got = Heal.take(server, kit)
-      m.hp = math.min(m.max, m.hp + got)
-      m.medkit, m.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", m.LINE.heal }
-      end
-    end
+    heal(m, server, events, dt, target, tx, ty, visible)
     m.breath:step(m.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(m, server)
   if not target then
     m.breath:step(false, dt)
     return events
@@ -239,17 +288,7 @@ function Brain.think(m, server, dt)
   end
   m.mode = "fight"
   m:turn(toward, dt)
-  if d <= m.STOMP_REACH and m.stompIn <= 0 then
-    m.move, m.moveT = "stomp", 0
-    events[#events + 1] = { "sound", "rear" }
-    m.breath:step(false, dt)
-    return events
-  end
-  if m.cannon and m.plasmaIn <= 0 and d <= m.PLASMA_RANGE and m.breath:has(m.PLASMA_COST)
-    and math.abs(Sight.angleDiff(toward, m.facing)) < 0.25 then
-    m.breath:spend(m.PLASMA_COST)
-    m.move, m.moveT, m.aim, m.aimAt = "charge", 0, toward, target
-    events[#events + 1] = { "sound", "charge" }
+  if attack(m, events, target, d, toward) then
     m.breath:step(false, dt)
     return events
   end

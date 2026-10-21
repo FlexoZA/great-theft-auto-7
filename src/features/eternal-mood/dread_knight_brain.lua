@@ -10,8 +10,11 @@
 --   fight   somebody he can see: in at them, weaving so he's hard to hit,
 --           and cut them down
 --   regroup winded: he backs off and circles, out of reach, till he has
---           his breath back
---   heal    badly hurt (bosses/heal.lua): off for the nearest medkit
+--           his breath back, round where he last saw them if they slip
+--           out of sight meanwhile (or he'd be in and out of a hunt)
+--   heal    badly hurt (bosses/heal.lua): off for the nearest medkit; with
+--           somebody in sight he kites there at a walk, facing them and
+--           slashing whoever comes in reach, but not lunging
 --
 -- His moves, each with a tell before it lands:
 --
@@ -45,6 +48,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -304,16 +308,42 @@ local function avoid(k, server, dt, tx, ty)
   return true, not k.breath:winded()
 end
 
---- Off to the medkit he's after, picking it up there. Returns whether he ran.
-local function heal(k, server, dt)
+--- Off to the medkit he's after, picking it up there: kiting with `target`
+--- in sight (at tx, ty; bosses/init.lua's point 7), walking there facing
+--- them and slashing whoever comes in reach, but never lunging; running for
+--- it with nobody. Returns whether he ran.
+local function heal(k, server, dt, target, tx, ty, visible)
   k.mode = "heal"
   local kit = k.medkit
-  goTo(k, kit.x, kit.y, k:pace(), dt)
+  local way, there = Walk.route(k, k.nav, kit.x, kit.y, k.time)
+  if there then -- at the grid's last corner, not yet on the kit: the last step straight at it
+    way = math.atan2(kit.y - k.y, kit.x - k.x)
+  end
+  if way == nil and not there then -- no way there he fits: he fights on, and looks again in a while
+    k.medkit, k.route, k.healLook = nil, nil, k.time + Heal.noWay
+    return false
+  end
+  local ran = false
+  if visible then
+    local toward = math.atan2(ty - k.y, tx - k.x)
+    k:turn(toward, dt)
+    if dist2(tx, ty, k.x, k.y) <= k.SLASH_REACH ^ 2 and k.slashIn <= 0
+      and math.abs(Sight.angleDiff(toward, k.facing)) < 0.6 then
+      k.move, k.moveT, k.aimAt = "windup", 0, target
+      return false
+    end
+    if way then
+      k:walk(way, k.breath:winded() and k.STROLL or k.WALK, dt)
+    end
+  else
+    goTo(k, kit.x, kit.y, k:pace(), dt)
+    ran = not k.breath:winded()
+  end
   if Heal.within(kit, k.x, k.y, k.RADIUS) then
     k.hp = math.min(k.max, k.hp + Heal.take(server, kit))
-    k.medkit, k.goal = nil, nil
+    k.medkit, k.goal, k.route = nil, nil, nil
   end
-  return not k.breath:winded()
+  return ran
 end
 
 --- Back to his spot, nobody about.
@@ -324,6 +354,17 @@ local function home(k, dt)
     goTo(k, h.x, h.y, k.WALK * 0.7, dt)
   else
     k:turn(h.facing, dt)
+  end
+end
+
+--- Winded: out of reach of (tx, ty) till he has his breath back, backing
+--- off from it, or circling it once he's far enough.
+local function regroup(k, dt, tx, ty)
+  k.mode, k.goal = "regroup", nil
+  local toward = math.atan2(ty - k.y, tx - k.x)
+  local away = dist2(tx, ty, k.x, k.y) < k.REGROUP ^ 2 and toward + math.pi or toward + k.side * math.pi / 2
+  if not k:walk(away, k.STROLL, dt) then
+    k.side = -k.side
   end
 end
 
@@ -359,12 +400,8 @@ local function fight(k, server, dt, target, tx, ty)
     lunge(k, target, tx, ty)
     return false
   end
-  if k.breath:winded() then -- out of reach till he has his breath back
-    k.mode = "regroup"
-    local away = d < k.REGROUP and toward + math.pi or toward + k.side * math.pi / 2
-    if not k:walk(away, k.STROLL, dt) then
-      k.side = -k.side
-    end
+  if k.breath:winded() then
+    regroup(k, dt, tx, ty)
     return false
   end
   -- In at them, weaving: never a straight line to shoot down.
@@ -395,9 +432,11 @@ function Brain.think(k, server, dt)
     if acted then
       running = ran
     elseif wantsHeal(k) then
-      running = heal(k, server, dt)
+      running = heal(k, server, dt, target, tx, ty, visible)
     elseif not target then
       home(k, dt)
+    elseif not visible and k.mode == "regroup" and k.breath:winded() and k.seenX then
+      regroup(k, dt, k.seenX, k.seenY) -- still blown: not back on the hunt till he has his breath
     elseif not visible then
       k.mode = "hunt"
       goTo(k, tx, ty, k:pace(), dt)

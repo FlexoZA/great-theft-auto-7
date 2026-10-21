@@ -67,6 +67,8 @@ Mancubus.BREATH = { drain = 8, regen = 12, recovered = 50, breath = 40 }
 Mancubus.RANGE = 900 -- px he sees
 Mancubus.KEEP = 380 -- px he keeps from whoever he has
 Mancubus.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+Mancubus.KITE_FAR = 250 -- px: kiting to a medkit, he only raises his arms (a stand-still volley) further off it
+Mancubus.KITE_ALONG = 0.6 -- rad: kiting, he keeps facing you while the way to the medkit is this near his line
 Mancubus.BACK = 2 -- a round in his back (the recliner) does this much more
 Mancubus.ARM = 44 -- px either side of his middle: the launchers...
 Mancubus.MUZZLE = 52 -- ...and how far forward their ends are

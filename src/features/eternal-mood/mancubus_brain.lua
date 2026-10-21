@@ -14,7 +14,11 @@
 --          sits at his distance (KEEP), rolling in or backing off on his
 --          treads, and lets fly
 --   heal   badly hurt (bosses/heal.lua): he rolls off for the nearest
---          medkit lying within reach ("Snack break.")
+--          medkit lying within reach ("Snack break."); with somebody in
+--          sight he kites there, facing them and rolling backwards or
+--          forwards to it (turning off them only when it's off to his
+--          side), bumping whoever comes close, and raising his arms only
+--          while it is still far off (KITE_FAR)
 --
 -- His moves, each with a tell before it lands:
 --
@@ -39,6 +43,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -165,6 +170,79 @@ local function aimFrom(m, server, arm)
   return m.aim, m.aim
 end
 
+--- A bump or a volley at `target` (`d` off, along `toward`), if one is due
+--- and he faces them near enough; true when one starts. Kiting to a medkit
+--- (`kiting`), the arms come up only while that is still far off.
+local function attack(m, events, target, d, toward, kiting)
+  local facing = math.abs(Sight.angleDiff(toward, m.facing))
+  if d <= m.BUMP_REACH and m.bumpIn <= 0 and facing < 0.8 then
+    m.move, m.moveT = "bump", 0
+    return true
+  end
+  if m.attackIn <= 0 and d <= m.RANGE and facing < 0.35 and m.breath:has(m.VOLLEY_COST)
+    and not (kiting and dist2(m.x, m.y, m.medkit.x, m.medkit.y) < m.KITE_FAR ^ 2) then
+    m.breath:spend(m.VOLLEY_COST)
+    m.aim, m.aimAt, m.moveT = toward, target, 0
+    if random() < (m.phase2 and m.SWEEP_CHANCE_2 or m.SWEEP_CHANCE) then
+      m.move = "sweepRaise"
+    else
+      m.move = "raise"
+    end
+    events[#events + 1] = { "sound", "whine" }
+    return true
+  end
+  return false
+end
+
+--- Off to the medkit he's after, picking it up there: kiting with somebody
+--- in sight (bosses/init.lua's point 7), straight for it with nobody. He
+--- only rolls along where he faces, so kiting he faces them and rolls
+--- forwards or backwards while the way there is near that line, and turns
+--- his line onto the way (the end nearer them) when it isn't.
+local function heal(m, server, events, dt, target, tx, ty, visible)
+  m.mode = "heal"
+  local kit = m.medkit
+  local way, there = Walk.route(m, m.nav, kit.x, kit.y, m.time)
+  if there then -- at the grid's last corner, not yet on the kit: the last step straight at it
+    way = math.atan2(kit.y - m.y, kit.x - m.x)
+  end
+  if way == nil and not there then -- no way there he fits: he fights on, and looks again in a while
+    m.medkit, m.route, m.healLook = nil, nil, m.time + Heal.noWay
+    return false
+  end
+  if visible then
+    local toward = math.atan2(ty - m.y, tx - m.x)
+    local face = toward
+    if math.abs(math.sin(Sight.angleDiff(way, toward))) > math.sin(m.KITE_ALONG) then
+      face = math.abs(Sight.angleDiff(way, toward)) < math.pi / 2 and way or way + math.pi
+    end
+    m:turn(face, dt)
+    if attack(m, events, target, math.sqrt(dist2(tx, ty, m.x, m.y)), toward, true) then
+      return
+    end
+    -- On his line near enough (a little slack, for how slowly he comes round): forwards or backwards along it.
+    local off = Sight.angleDiff(way, m.facing)
+    local onLine = math.abs(math.sin(off)) <= math.sin(m.KITE_ALONG + 0.1)
+    if onLine and math.cos(off) > 0 then
+      m:drive(m:pace(), dt)
+    elseif onLine then
+      m:drive(-m:pace() * m.REVERSE, dt)
+    end
+    m.running = onLine and math.cos(off) > 0 and not m.breath:winded()
+  else
+    local _, driving = goTo(m, kit.x, kit.y, m:pace(), dt)
+    m.running = driving and not m.breath:winded()
+  end
+  if Heal.within(kit, m.x, m.y, m.RADIUS) then
+    local got = Heal.take(server, kit)
+    m.hp = math.min(m.max, m.hp + got)
+    m.medkit, m.goal, m.route = nil, nil, nil
+    if got > 0 then
+      events[#events + 1] = { "say", m.LINE.heal }
+    end
+  end
+end
+
 local function nextAttack(m)
   m.attackIn = between(m.phase2 and m.VOLLEY_EVERY_2 or m.VOLLEY_EVERY)
 end
@@ -241,23 +319,12 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
+  local target, tx, ty, visible = Brain.target(m, server)
   if wantsHeal(m) then
-    m.mode = "heal"
-    local kit = m.medkit
-    goTo(m, kit.x, kit.y, m:pace(), dt)
-    m.running = not m.breath:winded()
-    if Heal.within(kit, m.x, m.y, m.RADIUS) then
-      local got = Heal.take(server, kit)
-      m.hp = math.min(m.max, m.hp + got)
-      m.medkit, m.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", m.LINE.heal }
-      end
-    end
+    heal(m, server, events, dt, target, tx, ty, visible)
     m.breath:step(m.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(m, server)
   if not target then
     -- Nobody on his patch: back to his spot in front of the gate, facing down the road.
     m.mode = "home"
@@ -297,24 +364,11 @@ function Brain.think(m, server, dt)
     m.goal = nil -- a way he was on is stale once he's off it
     m:turn(toward, dt)
   end
+  if attack(m, events, target, d, toward) then
+    m.breath:step(false, dt)
+    return events
+  end
   local facing = math.abs(Sight.angleDiff(toward, m.facing))
-  if d <= m.BUMP_REACH and m.bumpIn <= 0 and facing < 0.8 then
-    m.move, m.moveT = "bump", 0
-    m.breath:step(false, dt)
-    return events
-  end
-  if m.attackIn <= 0 and d <= m.RANGE and facing < 0.35 and m.breath:has(m.VOLLEY_COST) then
-    m.breath:spend(m.VOLLEY_COST)
-    m.aim, m.aimAt, m.moveT = toward, target, 0
-    if random() < (m.phase2 and m.SWEEP_CHANCE_2 or m.SWEEP_CHANCE) then
-      m.move = "sweepRaise"
-    else
-      m.move = "raise"
-    end
-    events[#events + 1] = { "sound", "whine" }
-    m.breath:step(false, dt)
-    return events
-  end
   -- Sitting at his distance: rolling in if they are far, backing off if
   -- they are near, as long as he faces them near enough to.
   if facing < 0.6 and not around then

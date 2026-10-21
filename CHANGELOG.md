@@ -21,6 +21,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
 - The Mancouchbus no longer gets stuck rolling after you down the Boulevard: he only takes ways his recliner
   fits through, feels his way round corners, and rolls round what he can see you past but can't get by.
+- Dread Knights no longer rock on the spot at the edge of sight while winded: they keep backing off and circling
+  till they have their breath back.
+
+### Changed
+- The Baron of Heck, the Floor Manager, the Mancouchbus, the Spider Mattressmind and the Dread Knights no longer
+  turn their backs on you to go for a medkit: they back or side-step to it facing you, fighting on the way. Their
+  long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
+  yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
+  it, and the Dread Knights slash but don't lunge.
 
 ## [0.39.2] - 2026-10-20
 

@@ -12,7 +12,9 @@
 --   fight  somebody he can see: he keeps about KEEP off and circles, and
 --          lets fly
 --   heal   badly hurt (bosses/heal.lua): off for the nearest medkit
---          lying within reach ("...A MOMENT.")
+--          lying within reach ("...A MOMENT."); with somebody in sight he
+--          kites there, facing them, clawing and throwing on the way,
+--          charging or leaping only that way
 --
 -- His moves, each with a tell before it lands:
 --
@@ -53,6 +55,7 @@ local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -244,6 +247,83 @@ end
 
 --- What he does this tick. Returns the events the others should hear
 --- about: { "say", line }, { "fireball", x, y, angle }, { "hit", name, x, y }, { "imps" }.
+--- A claw, a leap, a charge or a throw at `target` (at tx, ty: `d` off,
+--- along `toward`), if one is due; true when one starts. Kiting to a medkit
+--- along `way` (bosses/init.lua's point 7), a charge or a leap only when it
+--- carries him that way too.
+local function attack(m, target, tx, ty, d, toward, kiting, way)
+  local facing = math.abs(Sight.angleDiff(toward, m.facing))
+  if d <= m.CLAW_REACH and m.clawIn <= 0 then
+    m.move, m.moveT = "claw", 0
+    return true
+  end
+  if m.attackIn <= 0 and facing < 0.4 then
+    local chance = m.phase2 and m.CHARGE_CHANCE_2 or m.CHARGE_CHANCE
+    local thatWay = not kiting or (way ~= nil and math.abs(Sight.angleDiff(toward, way)) < m.KITE_WITH)
+    -- A leap: at whoever's a fair way off, sometimes; always at whoever's
+    -- across the lava from him.
+    local across = not Ground.clear(m.x, m.y, tx, ty)
+    local leapChance = across and 1 or m.phase2 and m.LEAP_CHANCE_2 or m.LEAP_CHANCE
+    local lx, ly
+    if thatWay and m.time >= (m.leapAt or 0) and d >= m.LEAP_MIN and m.breath:has(m.LEAP_COST)
+      and random() < leapChance then
+      lx, ly = landing(m, tx, ty)
+    end
+    if lx then
+      m.breath:spend(m.LEAP_COST)
+      m.move, m.moveT, m.aim = "crouch", 0, toward
+      m.leapTo, m.leapAt = { x = lx, y = ly }, m.time + m.LEAP_EVERY
+      return true
+    elseif thatWay and d >= m.CHARGE_MIN and random() < chance and m.breath:has(m.CHARGE_COST) then
+      m.breath:spend(m.CHARGE_COST)
+      m.move, m.moveT, m.aim = "lower", 0, toward
+      return true
+    elseif m.breath:has(m.THROW_COST) then
+      m.breath:spend(m.THROW_COST)
+      m.move, m.moveT, m.aimAt = "windup", 0, target
+      m.seenX, m.seenY, m.seenT, m.lastX, m.lastY = tx, ty, m.time, tx, ty
+      return true
+    end
+  end
+  return false
+end
+
+--- Off to the medkit he's after, picking it up there: kiting with somebody
+--- in sight (bosses/init.lua's point 7), straight for it with nobody.
+local function heal(m, server, events, dt, target, tx, ty, visible)
+  m.mode = "heal"
+  local kit = m.medkit
+  local way, there = Walk.route(m, m.nav, kit.x, kit.y, m.time)
+  if there then -- at the grid's last corner, not yet on the kit: the last step straight at it
+    way = math.atan2(kit.y - m.y, kit.x - m.x)
+  end
+  if way == nil and not there then -- no way there he fits: he fights on, and looks again in a while
+    m.medkit, m.route, m.healLook = nil, nil, m.time + Heal.noWay
+    return false
+  end
+  if visible then
+    local toward = math.atan2(ty - m.y, tx - m.x)
+    m:turn(toward, dt)
+    if attack(m, target, tx, ty, math.sqrt(dist2(tx, ty, m.x, m.y)), toward, true, way) then
+      return
+    end
+    if way then
+      m:walk(way, m:pace(), dt)
+    end
+  else
+    goTo(m, kit.x, kit.y, m:pace(), dt)
+  end
+  m.running = not m.breath:winded()
+  if Heal.within(kit, m.x, m.y, m.RADIUS) then
+    local got = Heal.take(server, kit)
+    m.hp = math.min(m.max, m.hp + got)
+    m.medkit, m.goal, m.route = nil, nil, nil
+    if got > 0 then
+      events[#events + 1] = { "say", m.LINE.heal }
+    end
+  end
+end
+
 function Brain.think(m, server, dt)
   local events = {}
   m.time = m.time + dt
@@ -389,23 +469,12 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
+  local target, tx, ty, visible = Brain.target(m, server)
   if wantsHeal(m) then
-    m.mode = "heal"
-    local kit = m.medkit
-    goTo(m, kit.x, kit.y, m:pace(), dt)
-    m.running = not m.breath:winded()
-    if Heal.within(kit, m.x, m.y, m.RADIUS) then
-      local got = Heal.take(server, kit)
-      m.hp = math.min(m.max, m.hp + got)
-      m.medkit, m.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", m.LINE.heal }
-      end
-    end
+    heal(m, server, events, dt, target, tx, ty, visible)
     m.breath:step(m.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(m, server)
   if not target then
     m.mode = "home"
     local h = m.home
@@ -432,40 +501,9 @@ function Brain.think(m, server, dt)
   end
   m.mode = "fight"
   m:turn(toward, dt)
-  local facing = math.abs(Sight.angleDiff(toward, m.facing))
-  if d <= m.CLAW_REACH and m.clawIn <= 0 then
-    m.move, m.moveT = "claw", 0
+  if attack(m, target, tx, ty, d, toward) then
     m.breath:step(false, dt)
     return events
-  end
-  if m.attackIn <= 0 and facing < 0.4 then
-    local chance = m.phase2 and m.CHARGE_CHANCE_2 or m.CHARGE_CHANCE
-    -- A leap: at whoever's a fair way off, sometimes; always at whoever's
-    -- across the lava from him.
-    local across = not Ground.clear(m.x, m.y, tx, ty)
-    local leapChance = across and 1 or m.phase2 and m.LEAP_CHANCE_2 or m.LEAP_CHANCE
-    local lx, ly
-    if m.time >= (m.leapAt or 0) and d >= m.LEAP_MIN and m.breath:has(m.LEAP_COST) and random() < leapChance then
-      lx, ly = landing(m, tx, ty)
-    end
-    if lx then
-      m.breath:spend(m.LEAP_COST)
-      m.move, m.moveT, m.aim = "crouch", 0, toward
-      m.leapTo, m.leapAt = { x = lx, y = ly }, m.time + m.LEAP_EVERY
-      m.breath:step(false, dt)
-      return events
-    elseif d >= m.CHARGE_MIN and random() < chance and m.breath:has(m.CHARGE_COST) then
-      m.breath:spend(m.CHARGE_COST)
-      m.move, m.moveT, m.aim = "lower", 0, toward
-      m.breath:step(false, dt)
-      return events
-    elseif m.breath:has(m.THROW_COST) then
-      m.breath:spend(m.THROW_COST)
-      m.move, m.moveT, m.aimAt = "windup", 0, target
-      m.seenX, m.seenY, m.seenT, m.lastX, m.lastY = tx, ty, m.time, tx, ty
-      m.breath:step(false, dt)
-      return events
-    end
   end
   -- Placing himself: at his distance, circling; round by the bridges when
   -- the lava is between them, and round whatever his shoulders won't get

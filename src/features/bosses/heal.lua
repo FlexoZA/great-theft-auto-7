@@ -14,6 +14,7 @@ Heal.below = 0.4 -- share of its health under which a boss goes for one
 Heal.range = 700 -- px; how far it will go for one
 Heal.reach = 30 -- px from it that it can pick one up, past its own size
 Heal.checkEvery = 1 -- seconds between looks for one
+Heal.noWay = 5 -- seconds a boss that finds no way to the nearest one fights on before it looks again
 
 local KINDS = { health = true }
 
