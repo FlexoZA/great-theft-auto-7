@@ -72,8 +72,13 @@ local function goTo(m, x, y, speed, dt)
   local g = m.goal
   if not g or dist2(g.x, g.y, x, y) > 80 * 80 or m.time > g.replanAt or m.stuck > 0.3 then
     local corners = m.nav and m.nav:path(m.x, m.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = m.time + 1.2 }
+    -- No way there he fits: he holds where he is rather than grind into a wall.
+    g = { x = x, y = y, corners = corners or (not m.nav and { { x = x, y = y } }), at = 1, replanAt = m.time + 1.2 }
     m.goal = g
+  end
+  if not g.corners then
+    m:turn(math.atan2(y - m.y, x - m.x), dt)
+    return false
   end
   local c = g.corners[g.at]
   if dist2(m.x, m.y, c.x, c.y) < 20 * 20 then
@@ -232,7 +237,7 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
-  m.mode, m.goal = "fight", nil
+  m.mode = "fight"
   m:turn(toward, dt)
   if d <= m.STOMP_REACH and m.stompIn <= 0 then
     m.move, m.moveT = "stomp", 0
@@ -252,7 +257,18 @@ function Brain.think(m, server, dt)
   -- without it.
   local keep = m.cannon and m.KEEP or 0
   local speed = m.cannon and m:pace() or m:pace() * m.RAGE
-  if d > keep + 80 then
+  if m.stuck > 0.3 then
+    m.detour = m.time + m.DETOUR
+  end
+  -- Round whatever his hull won't get past (or has caught on) by the walking grid.
+  local around = d > keep + 80 and (m.time < (m.detour or 0) or not m:straight(tx, ty))
+  if not around then
+    m.goal = nil -- a way he was on is stale once he's off it
+  end
+  if around then
+    goTo(m, tx, ty, speed, dt)
+    m.running = not m.breath:winded()
+  elseif d > keep + 80 then
     m:walk(toward, speed, dt)
     m.running = not m.breath:winded()
   elseif d < keep - 80 then

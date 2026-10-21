@@ -189,47 +189,16 @@ function Baron:turn(angle, dt, rate)
   end
 end
 
-local NONE = {}
-local FEEL = { math.pi / 4, -math.pi / 4, math.pi / 2, -math.pi / 2 } -- headings off his way he tries, nearest first
-
---- Walk along `angle` at `speed`, sliding along walls, and feeling his way
---- round a corner his shoulders catch on (a little to either side, then
---- square to it) unless `headlong` (a charge goes into the wall). Returns
---- false when he got nowhere.
+--- Walk along `angle` at `speed`, sliding along walls and feeling his
+--- way round corners (Ground.walk), unless `headlong` (a charge goes into
+--- the wall). Returns false when he got nowhere.
 function Baron:walk(angle, speed, dt, headlong)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    local moved = false
-    for _, off in ipairs(headlong and NONE or FEEL) do
-      local a = angle + off
-      local fx, fy = self.x + math.cos(a) * speed * dt, self.y + math.sin(a) * speed * dt
-      if fits(fx, fy) then
-        self.x, self.y, moved = fx, fy, true
-        break
-      end
-    end
-    if not moved then
-      self.stuck = self.stuck + dt
-      return false
-    end
-  end
-  self.stuck = 0
-  return true
+  return Ground.walk(self, angle, speed, dt, Baron.RADIUS, headlong)
 end
 
---- Can he walk straight from where he stands to (x, y): no wall and no
---- lava across the width of his shoulders, not just under his middle?
+--- Can he walk straight from where he stands to (x, y), shoulders and all?
 function Baron:straight(x, y)
-  local a = math.atan2(y - self.y, x - self.x)
-  local ox, oy = -math.sin(a) * Baron.RADIUS, math.cos(a) * Baron.RADIUS
-  return Ground.clear(self.x, self.y, x, y) and Ground.clear(self.x + ox, self.y + oy, x + ox, y + oy)
-    and Ground.clear(self.x - ox, self.y - oy, x - ox, y - oy)
+  return Ground.wideClear(self.x, self.y, x, y, Baron.RADIUS)
 end
 
 function Baron:pace()

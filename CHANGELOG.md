@@ -17,6 +17,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Fixed
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
+- The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
+  through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
 
 ## [0.39.2] - 2026-10-20
 
