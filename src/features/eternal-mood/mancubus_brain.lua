@@ -84,8 +84,13 @@ local function goTo(m, x, y, speed, dt)
   local g = m.goal
   if not g or dist2(g.x, g.y, x, y) > 80 * 80 or m.time > g.replanAt or m.stuck > 0.4 then
     local corners = m.nav and m.nav:path(m.x, m.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = m.time + 1.5 }
+    -- No way there he fits: he holds where he is rather than grind into a wall.
+    g = { x = x, y = y, corners = corners or (not m.nav and { { x = x, y = y } }), at = 1, replanAt = m.time + 1.5 }
     m.goal = g
+  end
+  if not g.corners then
+    m:turn(math.atan2(y - m.y, x - m.x), dt)
+    return false, false
   end
   local c = g.corners[g.at]
   if dist2(m.x, m.y, c.x, c.y) < 30 * 30 then
@@ -278,8 +283,20 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
-  m.mode, m.goal = "fight", nil
-  m:turn(toward, dt)
+  m.mode = "fight"
+  if m.stuck > 0.3 then
+    m.detour = m.time + m.DETOUR
+  end
+  -- Round whatever his recliner won't get past (or has caught on) by the walking grid, turning for its corners
+  -- instead of for them.
+  local around = d > m.KEEP + 120 and (m.time < (m.detour or 0) or not m:straight(tx, ty))
+  if around then
+    local _, driving = goTo(m, tx, ty, m:pace(), dt)
+    m.running = driving and not m.breath:winded()
+  else
+    m.goal = nil -- a way he was on is stale once he's off it
+    m:turn(toward, dt)
+  end
   local facing = math.abs(Sight.angleDiff(toward, m.facing))
   if d <= m.BUMP_REACH and m.bumpIn <= 0 and facing < 0.8 then
     m.move, m.moveT = "bump", 0
@@ -300,7 +317,7 @@ function Brain.think(m, server, dt)
   end
   -- Sitting at his distance: rolling in if they are far, backing off if
   -- they are near, as long as he faces them near enough to.
-  if facing < 0.6 then
+  if facing < 0.6 and not around then
     if d > m.KEEP + 120 then
       m:drive(m:pace(), dt)
       m.running = not m.breath:winded()
