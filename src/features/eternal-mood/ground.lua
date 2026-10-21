@@ -13,6 +13,7 @@
 
 local Sight = require("src.features.d-day.sight")
 local Nav = require("src.features.d-day.nav")
+local Walk = require("src.features.bosses.walk")
 
 local Features = require("src.features")
 
@@ -81,59 +82,15 @@ end
 --- Does a walker `r` px across the shoulders fit at (x, y): nothing solid
 --- and no lava under its middle or round its edge?
 function Ground.fits(x, y, r)
-  local c = r * 0.7
-  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
-    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - c, y - c)
-    or Ground.blocked(x + c, y - c) or Ground.blocked(x - c, y + c) or Ground.blocked(x + c, y + c))
+  return Walk.fits(Ground.blocked, x, y, r)
 end
 
-Ground.SLIDE = 0.3 -- of a step a slide along a wall must make, or it is no way on and the walker feels round instead
-
 --- Move walker `w` ({ x, y, stuck, feel }, `r` px across) along `angle` at
---- `speed` for `dt`, sliding along walls, and feeling its way round a
---- corner it catches on: a little to one side, then square to it, away
---- from the shoulder that is touching first (or it rocks from side to side
---- on the spot). `headlong` (a charge) only slides: it goes into the wall.
+--- `speed` for `dt`, sliding along walls and feeling its way round corners,
+--- not into the lava (bosses/walk.lua's step; `headlong` for a charge).
 --- Returns false, counting `w.stuck` up, when it got nowhere.
 function Ground.walk(w, angle, speed, dt, r, headlong)
-  local step = speed * dt
-  local mx, my = math.cos(angle) * step, math.sin(angle) * step
-  local slide = Ground.SLIDE * step
-  if Ground.fits(w.x + mx, w.y + my, r) then
-    w.x, w.y = w.x + mx, w.y + my
-  elseif math.abs(mx) >= slide and Ground.fits(w.x + mx, w.y, r) then
-    w.x = w.x + mx
-  elseif math.abs(my) >= slide and Ground.fits(w.x, w.y + my, r) then
-    w.y = w.y + my
-  else
-    local moved = false
-    if not headlong then
-      -- Feel to this side first: away from the shoulder more against
-      -- things; the side it was feeling to already when it can't tell.
-      local against = 0
-      for k = 1, 3 do
-        local d = k * math.pi / 6
-        against = against + (Ground.blocked(w.x + math.cos(angle + d) * (r + 2), w.y + math.sin(angle + d) * (r + 2))
-          and 1 or 0) - (Ground.blocked(w.x + math.cos(angle - d) * (r + 2), w.y + math.sin(angle - d) * (r + 2))
-          and 1 or 0)
-      end
-      local s = against > 0 and -1 or against < 0 and 1 or w.feel or 1
-      local q = math.pi / 4
-      for _, off in ipairs({ s * q, -s * q, s * 2 * q, -s * 2 * q }) do
-        local fx, fy = w.x + math.cos(angle + off) * step, w.y + math.sin(angle + off) * step
-        if Ground.fits(fx, fy, r) then
-          w.x, w.y, moved, w.feel = fx, fy, true, off > 0 and 1 or -1
-          break
-        end
-      end
-    end
-    if not moved then
-      w.stuck = w.stuck + dt
-      return false
-    end
-  end
-  w.stuck = 0
-  return true
+  return Walk.step(w, Ground.blocked, angle, speed, dt, r, headlong)
 end
 
 --- Can a walker go straight from (x0, y0) to (x1, y1)? No wall and no
@@ -153,10 +110,7 @@ end
 --- Can a walker `r` px across go straight from (x0, y0) to (x1, y1): no
 --- wall and no lava across its whole width, not just under its middle?
 function Ground.wideClear(x0, y0, x1, y1, r)
-  local a = math.atan2(y1 - y0, x1 - x0)
-  local ox, oy = -math.sin(a) * r, math.cos(a) * r
-  return Ground.clear(x0, y0, x1, y1) and Ground.clear(x0 + ox, y0 + oy, x1 + ox, y1 + oy)
-    and Ground.clear(x0 - ox, y0 - oy, x1 - ox, y1 - oy)
+  return Walk.wideClear(Ground.blocked, x0, y0, x1, y1, r)
 end
 
 --- Shut `nav`'s cells over the lava (and a walker's width round it).
