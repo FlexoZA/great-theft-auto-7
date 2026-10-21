@@ -55,7 +55,6 @@ local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
-local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -293,12 +292,9 @@ end
 local function heal(m, server, events, dt, target, tx, ty, visible)
   m.mode = "heal"
   local kit = m.medkit
-  local way, there = Walk.route(m, m.nav, kit.x, kit.y, m.time)
-  if there then -- at the grid's last corner, not yet on the kit: the last step straight at it
-    way = math.atan2(kit.y - m.y, kit.x - m.x)
-  end
-  if way == nil and not there then -- no way there he fits: he fights on, and looks again in a while
-    m.medkit, m.route, m.healLook = nil, nil, m.time + Heal.noWay
+  local way = Heal.way(m, m.nav, kit, m.time)
+  if not way then -- no way there he fits: he fights on, and looks again in a while
+    Heal.giveUp(m, m.time)
     return false
   end
   if visible then
@@ -314,13 +310,8 @@ local function heal(m, server, events, dt, target, tx, ty, visible)
     goTo(m, kit.x, kit.y, m:pace(), dt)
   end
   m.running = not m.breath:winded()
-  if Heal.within(kit, m.x, m.y, m.RADIUS) then
-    local got = Heal.take(server, kit)
-    m.hp = math.min(m.max, m.hp + got)
-    m.medkit, m.goal, m.route = nil, nil, nil
-    if got > 0 then
-      events[#events + 1] = { "say", m.LINE.heal }
-    end
+  if (Heal.pickUp(server, m, m.RADIUS) or 0) > 0 then
+    events[#events + 1] = { "say", m.LINE.heal }
   end
 end
 
