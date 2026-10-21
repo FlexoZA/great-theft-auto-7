@@ -33,6 +33,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
   yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
   it, and the Dread Knights slash but don't lunge.
+- The AR is now won, not bought: General Volt drops one for every player (in a better tier each time the job
+  has been finished before), and from then on the shop sells it to you. Weapons factories no longer make it.
+- Halcyon Tower has medkits on every floor: 2 a floor (12 in all, was 6 anywhere in the tower), and one taken
+  comes back on the same floor.
 
 ### Fixed
 - Sweeping up a big pile of drops (a boss's loot) no longer stacks the pickup chime into one ear-splitting blast:

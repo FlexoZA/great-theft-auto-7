@@ -76,7 +76,8 @@ local Pickups = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Pickups.count = 6 -- medkits on the map at once
+Pickups.count = 6 -- medkits on the map at once...
+Pickups.perFloor = 2 -- ...or this many on each floor of a map that has them (Halcyon Tower), each back on its own
 Pickups.staminaCount = 4 -- energy drinks on the map at once
 Pickups.respawnTime = 20 -- seconds after one is taken before a new one appears
 Pickups.radius = 34 -- px from car centre that counts as driving over it
@@ -694,11 +695,22 @@ Pickups.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { items = { id -> { kind, x, y, amount, dropped } }, nextId, pending = { { at, kind } } , time }
+local sv = nil -- { items = { id -> { kind, x, y, amount, dropped, floor } }, nextId, pending = { { at, kind, floor } },
+-- time }
 
 --- A random spot on a road tile (city map) or in a ring around the origin.
-local function roadSpot()
+--- Somewhere open on the map, on `floor` ({ y0, y1 }, city-map's
+--- `map.floors`) when given.
+local function roadSpot(floor)
   local city = Features.byName["city-map"]
+  if floor and city and city.randomRoadPoint then
+    for _ = 1, 40 do
+      local x, y = city:randomRoadPoint()
+      if x and y >= floor.y0 and y < floor.y1 then
+        return x, y
+      end
+    end
+  end
   if city and city.randomRoadPoint then
     local x, y = city:randomRoadPoint()
     if x then
@@ -722,18 +734,38 @@ local function farFromCars(server, x, y)
   return true
 end
 
-local function spawnOne(server, kind)
+local function spawnOne(server, kind, floor)
   local x, y
   for _ = 1, 20 do
-    x, y = roadSpot()
+    x, y = roadSpot(floor)
     if farFromCars(server, x, y) then
       break
     end
   end
   local id = sv.nextId
   sv.nextId = id + 1
-  sv.items[id] = { kind = kind, x = x, y = y }
+  sv.items[id] = { kind = kind, x = x, y = y, floor = floor }
   server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y)))
+end
+
+--- The map's own medkits and drinks: `count` medkits anywhere, or
+--- `perFloor` on each floor of `map` if it has floors, so no floor goes without.
+local function spawnMapItems(self, server, map)
+  local floors = map and map.floors
+  if floors and #floors > 0 then
+    for _, floor in ipairs(floors) do
+      for _ = 1, self.perFloor do
+        spawnOne(server, "health", floor)
+      end
+    end
+  else
+    for _ = 1, self.count do
+      spawnOne(server, "health")
+    end
+  end
+  for _ = 1, self.staminaCount do
+    spawnOne(server, "stamina")
+  end
 end
 
 --- Drop a pickup of `kind` at (x, y) right now: an ammo box where an
@@ -896,12 +928,8 @@ end
 
 function Pickups:serverStart(server)
   sv = { items = {}, nextId = 1, pending = {}, time = 0 }
-  for _ = 1, self.count do
-    spawnOne(server, "health")
-  end
-  for _ = 1, self.staminaCount do
-    spawnOne(server, "stamina")
-  end
+  local city = Features.byName["city-map"]
+  spawnMapItems(self, server, city and city.map)
 end
 
 --- Someone joining mid-game sees what is already lying about.
@@ -920,18 +948,13 @@ end
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
 --- passes `server`, clients get nil): what lay on the old roads is swept
 --- and a fresh set is scattered over the new map.
-function Pickups:mapChanged(_map, server)
+function Pickups:mapChanged(map, server)
   if not (server and sv) then
     return
   end
   sv.items, sv.pending = {}, {}
   server:broadcast(Protocol.encode("PK_CLEAR"))
-  for _ = 1, self.count do
-    spawnOne(server, "health")
-  end
-  for _ = 1, self.staminaCount do
-    spawnOne(server, "stamina")
-  end
+  spawnMapItems(self, server, map)
 end
 
 function Pickups:serverStep(server, dt)
@@ -971,7 +994,8 @@ function Pickups:serverStep(server, dt)
   local i = 1
   while i <= #sv.pending do
     if sv.time >= sv.pending[i].at then
-      spawnOne(server, table.remove(sv.pending, i).kind)
+      local due = table.remove(sv.pending, i)
+      spawnOne(server, due.kind, due.floor)
     else
       i = i + 1
     end
@@ -1007,7 +1031,7 @@ function Pickups:serverTake(server, id, byId, stashed)
   sv.items[id] = nil
   server:broadcast(Protocol.encode("PK_TAKE", id, byId or 0, stashed or ""))
   if not it.dropped then
-    sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
+    sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind, floor = it.floor }
   end
   return it
 end

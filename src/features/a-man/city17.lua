@@ -126,6 +126,7 @@ Level.loadout = {
   ak47 = { weight = 4, burst = 3, pause = 1.1 },
   uzi = { weight = 2, burst = 5, pause = 1.2 },
   smg = { weight = 1.5, burst = 6, pause = 1.1 },
+  ar = { weight = 1, burst = 4, pause = 1.2 }, -- won from General Volt, but they carry it all the same
   shotgun = { weight = 2, burst = 1, pause = 1.3 },
   pistol = { weight = 1, burst = 2, pause = 0.9 },
   flamethrower = { weight = 1, burst = 10, pause = 1.0 },

@@ -15,7 +15,7 @@ The Static's general and Kilowatt's right hand: a long coat of cable, a Tesla co
 | **Health** | 1800 |
 | **Speed** | 85 px/s, 40 winded |
 | **Sight** | 720 px |
-| **Drops** | 30 koins, his pass code, and electric grenades for every player (unlocking them) |
+| **Drops** | 30 koins, his pass code, and electric grenades and an AR for every player (unlocking them both) |
 
 ## Weapons
 
