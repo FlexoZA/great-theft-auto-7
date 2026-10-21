@@ -47,7 +47,7 @@ local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
-local WideNav = require("src.features.eternal-mood.wide_nav")
+local Walk = require("src.features.bosses.walk")
 local Look = require("src.features.eternal-mood.mancubus_look")
 
 local Mancubus = {}
@@ -219,7 +219,7 @@ function Mancubus.serverStart(server, map, nav)
   if not (spec and spec.kind == "mancubus") then
     return
   end
-  local wide = nav and WideNav.of(nav, Mancubus.RADIUS)
+  local wide = nav and Walk.nav(nav, Ground.blocked, Mancubus.RADIUS)
   sv = { m = Mancubus.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(Mancubus.HEALTH, server), wide,
     { x = spec.x, y = spec.y, facing = spec.facing or math.pi / 2 }), spec = spec, awake = false, syncIn = 0,
     gun = armed() }
