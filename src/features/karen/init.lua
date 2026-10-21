@@ -210,9 +210,7 @@ function Karen:spawnBoss(server, x, y)
     breath = Stamina.new(self.breath), -- winded, she walks and cannot scream
     slapTimer = 1,
     sayTimer = 1.5,
-    stuck = 0,
-    sidestep = 0,
-    side = 1,
+    stuck = 0, -- seconds her walk has got nowhere (bosses/walk.lua)
     frozen = 0, -- seconds left rooted to the spot
     screamTimer = self.screamEvery * 0.6, -- the first comes a little sooner
     scream = nil, -- { x, y, t } while she is drawing breath
