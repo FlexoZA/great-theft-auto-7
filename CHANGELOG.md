@@ -19,6 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Antlion Guard no longer gets stuck in the Coast's rocks: it finds its way round them instead of rocking
+  in a gap it doesn't fit. Badly hurt, it now backs off to a medkit facing you, swiping and screaming on the way,
+  and gives up on one it can't reach.
 
 ## [0.39.2] - 2026-10-20
 

@@ -25,15 +25,25 @@
 --            up to `screamDamage` and is blown back up to `screamShove`,
 --            both less at the far end. Then `screamRecover` to get its
 --            breath back.
---   heal     badly hurt (bosses/heal.lua): off to a medkit and takes it.
+--   heal     badly hurt (bosses/heal.lua): off to a medkit and takes it,
+--            kiting (the standard's point 7): with somebody in sight it
+--            faces them and prowls there, swiping whoever comes close,
+--            screaming while the medkit is still far, charging only when
+--            the line carries it towards the medkit; nobody in sight, it
+--            runs for it. One it can't get to, it gives up on for a while.
 --   dodge    out from under a player's ability about to land (bosses/dodge.lua).
 --
 -- Frozen, it stands stiff; a stink throws it off for a moment.
+--
+-- It gets about with the bosses' walking (bosses/walk.lua): straight at
+-- somebody only when its whole width gets there, else round on `g.nav`
+-- (the walking grid as it fits through it, guard.lua's).
 
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -56,25 +66,30 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
---- Solid ground under any edge of a body `r` across at (x, y).
-local function blockedAt(x, y, r)
-  return Features.any("blocksPoint", x, y) or Features.any("blocksPoint", x - r, y)
-    or Features.any("blocksPoint", x + r, y) or Features.any("blocksPoint", x, y - r)
-    or Features.any("blocksPoint", x, y + r)
+--- Solid ground at (x, y): what stops it.
+function Brain.blocked(x, y)
+  return Features.any("blocksPoint", x, y)
 end
 
---- A step that way, each axis on its own; true if it got anywhere.
-local function move(g, r, angle, speed, dt)
-  local px, py = g.x, g.y
-  local nx = g.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, g.y, r) then
-    g.x = nx
+--- A step that way (bosses/walk.lua), `headlong` for a charge; true if it
+--- got anywhere. Already caught in something (a charge or a shove that
+--- ended in rock), it walks free until it is clear again.
+local function move(G, g, angle, speed, dt, headlong)
+  if not Walk.fits(Brain.blocked, g.x, g.y, G.radius) then
+    g.x, g.y, g.stuck = g.x + math.cos(angle) * speed * dt, g.y + math.sin(angle) * speed * dt, 0
+    return true
   end
-  local ny = g.y + math.sin(angle) * speed * dt
-  if not blockedAt(g.x, ny, r) then
-    g.y = ny
+  return Walk.step(g, Brain.blocked, angle, speed, dt, G.radius, headlong)
+end
+
+--- Which way to walk to (x, y): straight when its whole width gets there,
+--- else round on its walking grid. Nil when there is no way (or it is there).
+local function way(G, g, x, y, time)
+  if Walk.wideClear(Brain.blocked, g.x, g.y, x, y, G.radius) then
+    g.route = nil
+    return math.atan2(y - g.y, x - g.x)
   end
-  return (g.x - px) ^ 2 + (g.y - py) ^ 2 > (speed * dt * 0.3) ^ 2
+  return Walk.route(g, g.nav, x, y, time)
 end
 
 --- The nearest player anyone could see from it, as { id, x, y, p }, within `reach`.
@@ -143,6 +158,53 @@ local function wantsHeal(g, time)
   return g.medkit ~= nil
 end
 
+--- Off to its medkit, kiting whoever it can see (the standard's point 7).
+--- Ends with it in "heal", or in whatever it cut in with.
+local function heal(G, g, server, dt, time)
+  g.mode = "heal"
+  local st, m = g.breath, g.medkit
+  if Heal.within(m, g.x, g.y, G.radius) then
+    g.hp = math.min(g.max, g.hp + Heal.take(server, m))
+    g.medkit = nil
+    return
+  end
+  local a = way(G, g, m.x, m.y, time)
+  if not a or (g.stuck or 0) > 2 then -- no way it fits there, or caught: not this one, not for a while
+    g.medkit, g.healLook, g.stuck, g.route = nil, time + 8, 0, nil
+    return
+  end
+  local q = nearest(server, g, G.sight)
+  g.target = q and q.id
+  if not q then -- nobody to watch: it runs for it
+    g.facing = turn(g.facing, a, G.turn, dt)
+    g.running = not st:winded()
+    move(G, g, a, st:pace(G.runSpeed, G.walkSpeed), dt)
+    return
+  end
+  -- Facing them, fighting on its way there at a prowl.
+  local d = math.sqrt(dist2(q.x, q.y, g.x, g.y))
+  local toward = math.atan2(q.y - g.y, q.x - g.x)
+  g.facing = turn(g.facing, toward, G.turn * (d <= G.swipeReach and 1.5 or 1), dt)
+  local facingThem = math.abs(wrap(toward - g.facing)) < 0.35
+  local clear = Sight.clear(g.x, g.y, q.x, q.y)
+  local medkitFar = math.sqrt(dist2(m.x, m.y, g.x, g.y)) > G.kiteFar
+  if d <= G.swipeReach and g.swipeIn <= 0 then
+    return setMode(g, "swipe")
+  end
+  if clear and facingThem and medkitFar and g.screamIn <= 0 and d <= G.screamRange * 0.85 and st:has(G.screamCost)
+    and random() < G.screamChance * dt then
+    g.aim = toward
+    return setMode(g, "rear")
+  end
+  -- A charge only down a line that carries it towards the medkit.
+  if clear and facingThem and g.chargeIn <= 0 and d >= G.chargeNear and d <= G.chargeFar
+    and math.abs(wrap(toward - math.atan2(m.y - g.y, m.x - g.x))) < G.kiteCharge and st:has(G.chargeCost)
+    and random() < G.chargeChance * dt then
+    return setMode(g, "paw")
+  end
+  move(G, g, a, st:winded() and G.walkSpeed or G.prowlSpeed, dt)
+end
+
 --- One tick of the Guard `g` with tuning `G`. Returns what happened worth
 --- telling everyone: "scream" (with who it caught), or nil.
 function Brain.think(G, g, server, dt, time)
@@ -185,7 +247,7 @@ function Brain.think(G, g, server, dt, time)
     return done()
   elseif g.mode == "charge" then
     g.running = true
-    local moved = move(g, G.radius * 0.8, g.aim, G.chargeSpeed, dt)
+    local moved = move(G, g, g.aim, G.chargeSpeed, dt, true)
     for id, p in pairs(server.players) do
       if not g.hitIds[id] and Features.present(p) then
         local x, y = Features.bodyPose(server, p)
@@ -244,7 +306,7 @@ function Brain.think(G, g, server, dt, time)
   if threat then
     local ux, uy = Dodge.away(threat, g.x, g.y)
     g.facing = turn(g.facing, math.atan2(uy, ux), G.turn * 2, dt)
-    g.running = move(g, G.radius, math.atan2(uy, ux), st:pace(G.runSpeed, G.walkSpeed), dt)
+    g.running = move(G, g, math.atan2(uy, ux), st:pace(G.runSpeed, G.walkSpeed), dt)
       and not st:winded()
     g.mode = "dodge"
     return done()
@@ -253,24 +315,14 @@ function Brain.think(G, g, server, dt, time)
     g.panic.left = g.panic.left - dt
     local away = math.atan2(g.y - g.panic.y, g.x - g.panic.x)
     g.facing = turn(g.facing, away, G.turn, dt)
-    move(g, G.radius, away, G.walkSpeed, dt)
+    move(G, g, away, G.walkSpeed, dt)
     if g.panic.left <= 0 then
       g.panic = nil
     end
     return done()
   end
   if wantsHeal(g, time) then
-    g.mode = "heal"
-    local m = g.medkit
-    if Heal.within(m, g.x, g.y, G.radius) then
-      g.hp = math.min(g.max, g.hp + Heal.take(server, m))
-      g.medkit = nil
-    else
-      local a = math.atan2(m.y - g.y, m.x - g.x)
-      g.facing = turn(g.facing, a, G.turn, dt)
-      g.running = not st:winded()
-      move(g, G.radius, a, st:pace(G.runSpeed, G.walkSpeed), dt)
-    end
+    heal(G, g, server, dt, time)
     return done()
   end
 
@@ -302,14 +354,14 @@ function Brain.think(G, g, server, dt, time)
     setMode(g, "paw")
     return done()
   end
-  g.facing = turn(g.facing, toward, G.turn, dt)
+  local a = way(G, g, q.x, q.y, time)
+  g.facing = turn(g.facing, a or toward, G.turn, dt)
   g.running = d > G.chargeFar and not st:winded()
   local speed = g.running and G.runSpeed or (st:winded() and G.walkSpeed or G.prowlSpeed)
-  if not move(g, G.radius, toward, speed, dt) then
-    -- Caught on something: round it the way it favours, or the other way.
-    if not move(g, G.radius, toward + g.side * math.pi / 2, G.prowlSpeed, dt) then
-      g.side = -g.side
-    end
+  if a then
+    g.running = move(G, g, a, speed, dt) and g.running
+  else
+    g.running = false
   end
   return done()
 end
