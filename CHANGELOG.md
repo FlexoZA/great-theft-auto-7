@@ -14,7 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Shotgun no longer drops his guard when he goes for a medkit where you can see him: he walks to it facing you,
+  firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.
+
 ### Fixed
+- Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
