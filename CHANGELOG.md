@@ -19,6 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Poison Zombie no longer gets stuck at the water on the Winding Road pass when he sees you across it: he
+  walks round it, and badly hurt he backs off to a medkit facing you, still clawing and throwing crabs, instead
+  of turning his back and running.
 
 ## [0.39.2] - 2026-10-20
 
