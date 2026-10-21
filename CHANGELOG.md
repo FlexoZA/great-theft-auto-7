@@ -19,6 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
+  no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
+  medkit, blinking through you and opening his case as he goes.
 
 ## [0.39.2] - 2026-10-20
 
