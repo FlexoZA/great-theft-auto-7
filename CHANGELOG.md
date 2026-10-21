@@ -20,6 +20,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ### Fixed
 - Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
+- Crazy Karen no longer turns her back on you when she goes for a medkit: she backs off to it at a walk, still
+  glaring at you, slapping anyone who follows her in reach and screaming only while the medkit is still far off.
+
+### Fixed
+- Crazy Karen only takes ways round the houses she is wide enough for and feels her way round corners, so she
+  no longer catches on a corner or a gap she won't fit through.
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
