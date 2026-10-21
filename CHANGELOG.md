@@ -14,11 +14,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Major Looz'er going for a medkit keeps throwing MG nests at you on the way, as well as firing.
+
 ### Fixed
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- Major Looz'er no longer catches on the corners of bunkers and hedge gaps: he feels his way round them, only
+  takes ways he fits through, and sidesteps out of a gap that pinches both his shoulders.
 
 ## [0.39.2] - 2026-10-20
 
