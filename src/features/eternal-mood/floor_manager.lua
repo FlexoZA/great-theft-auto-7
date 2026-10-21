@@ -44,7 +44,7 @@ local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Fireballs = require("src.features.eternal-mood.fireballs")
-local WideNav = require("src.features.eternal-mood.wide_nav")
+local Walk = require("src.features.bosses.walk")
 local Look = require("src.features.eternal-mood.floor_manager_look")
 
 local FloorManager = {}
@@ -167,14 +167,14 @@ end
 local sv = nil -- { m, spec, awake, syncIn, down }
 
 --- Him on `map`'s lift (its `horde.boss` of kind "floor-manager"), finding his way on `nav` (by the cells his
---- hull fits, wide_nav.lua). Nothing on a map without him.
+--- hull fits, bosses/walk.lua). Nothing on a map without him.
 function FloorManager.serverStart(server, map, nav)
   FloorManager.serverStop(server)
   local spec = map.horde and map.horde.boss
   if not (spec and spec.kind == "floor-manager") then
     return
   end
-  local wide = nav and WideNav.of(nav, FloorManager.RADIUS)
+  local wide = nav and Walk.nav(nav, Ground.blocked, FloorManager.RADIUS)
   sv = { m = FloorManager.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(FloorManager.HEALTH, server),
     Bosses.health(FloorManager.CANNON, server), wide), spec = spec, awake = false, syncIn = 0 }
 end
