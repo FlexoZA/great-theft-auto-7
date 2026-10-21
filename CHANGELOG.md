@@ -19,6 +19,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.
 - Major Looz'er going for a medkit keeps throwing MG nests at you on the way, as well as firing.
 - Bigfoot going for a medkit swipes at anyone he passes within reach of on the way.
+- The Tripod going for a medkit keeps facing you with its heat ray and tentacles at work, and no longer
+  plants its legs for a sweep on the way.
 
 ### Fixed
 - Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
@@ -66,6 +68,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Major Looz'er no longer catches on the corners of bunkers and hedge gaps: he feels his way round them, only
   takes ways he fits through, and sidesteps out of a gap that pinches both his shoulders.
 - Bigfoot no longer catches on corners and trunks in the forest or the city: he feels his way round them.
+- The Runner going for a medkit behind a building runs round the block to it instead of giving up.
 
 ## [0.39.2] - 2026-10-20
 
