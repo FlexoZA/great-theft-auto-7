@@ -41,6 +41,13 @@
 --      its health) it breaks off to go for a medkit lying within
 --      `Heal.range`, takes it off the ground and is `Heal.amount` better
 --      (heal.lua). The Hunters' brain (hunters/brain.lua) is the model.
+--      It kites there: while it can see somebody it keeps facing them and
+--      fighting on its way (backing or side-stepping to the medkit at its
+--      walking pace, not turning its back and sprinting): shots, throws,
+--      and a swipe at whoever comes close, yes; a charge, leap or lunge
+--      only when it carries it towards the medkit, and a long rooted
+--      wind-up only while the medkit is still far. Nobody in sight, it
+--      just runs for it. `Walk.route` gives the way without turning it.
 --   8. It dodges: a player's ability about to land on it (a freeze's
 --      warning ring, a leaper coming down, a heat ray) gets it moving out
 --      from under it once it has had `react` seconds to see it
@@ -57,12 +64,19 @@
 --      per-player drop rolls its tier with `Bosses.dropTier()`. Off a quest
 --      (a city event) the clears are 0, so nothing changes there. The boss
 --      bar says how many times over it is.
+--  10. It doesn't get stuck (walk.lua). It walks with `Walk.step` (corner
+--      feeling, no slide of next to nothing), finds its way on
+--      `Walk.nav(nav, blocked, radius)` (the walking grid as its own width
+--      fits through it) and goes straight at somebody only when
+--      `Walk.wideClear` says its whole width gets there: seeing them is
+--      not enough. A charge walks `headlong` (into the wall, and stunned).
 --
 -- Modules
 --   src/features/bosses/stamina.lua   the breath rule
 --   src/features/bosses/bar.lua       the boss bar
 --   src/features/bosses/heal.lua      going for a medkit
 --   src/features/bosses/dodge.lua     getting out from under an ability
+--   src/features/bosses/walk.lua      getting about without getting stuck
 
 local Features = require("src.features")
 
