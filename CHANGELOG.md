@@ -19,6 +19,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Hunters (and the Cyber Feud's assassin droids, who think the same way) no longer get stuck on walls and
+  pillars in City 17, the Citadel and on the Winding Road: they only take ways their bodies fit through and feel
+  their way round corners. A badly hurt one now backs off to its medkit facing you and firing, instead of turning
+  its back and running.
 
 ## [0.39.2] - 2026-10-20
 
