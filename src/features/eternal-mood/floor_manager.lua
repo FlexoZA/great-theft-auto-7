@@ -65,6 +65,7 @@ FloorManager.BREATH = { drain = 9, regen = 14, recovered = 50, breath = 40 }
 FloorManager.RANGE = 760 -- px he sees
 FloorManager.KEEP = 340 -- px he keeps from whoever he has, cannon and all
 FloorManager.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+FloorManager.KITE_FAR = 250 -- px: kiting to a medkit, he only charges the cannon (a stand-still stream) further off it
 FloorManager.SIDE_EVERY = { 1.5, 3 } -- seconds before he side-steps the other way
 FloorManager.MUZZLE = 68 -- px in front of his middle: the cannon's end (and where it's hit), as drawn
 FloorManager.CANNON_HIT = 18 -- px round the cannon a round counts as on it

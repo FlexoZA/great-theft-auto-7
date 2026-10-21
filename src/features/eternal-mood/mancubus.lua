@@ -47,6 +47,7 @@ local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Walk = require("src.features.bosses.walk")
 local Look = require("src.features.eternal-mood.mancubus_look")
 
 local Mancubus = {}
@@ -65,6 +66,9 @@ Mancubus.TURN = 0.9 -- rad/s: slow to come round, so get behind him
 Mancubus.BREATH = { drain = 8, regen = 12, recovered = 50, breath = 40 }
 Mancubus.RANGE = 900 -- px he sees
 Mancubus.KEEP = 380 -- px he keeps from whoever he has
+Mancubus.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+Mancubus.KITE_FAR = 250 -- px: kiting to a medkit, he only raises his arms (a stand-still volley) further off it
+Mancubus.KITE_ALONG = 0.6 -- rad: kiting, he keeps facing you while the way to the medkit is this near his line
 Mancubus.BACK = 2 -- a round in his back (the recliner) does this much more
 Mancubus.ARM = 44 -- px either side of his middle: the launchers...
 Mancubus.MUZZLE = 52 -- ...and how far forward their ends are
@@ -162,14 +166,6 @@ function Mancubus.new(x, y, facing, hp, nav, home)
   }, Mancubus)
 end
 
-local function fits(x, y)
-  local r = Mancubus.RADIUS
-  local k = r * 0.7
-  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
-    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - k, y - k)
-    or Ground.blocked(x + k, y - k) or Ground.blocked(x - k, y + k) or Ground.blocked(x + k, y + k))
-end
-
 --- Turn the whole thing towards `angle`, at his treads' pace.
 function Mancubus:turn(angle, dt)
   local d = Sight.angleDiff(angle, self.facing)
@@ -182,26 +178,21 @@ function Mancubus:turn(angle, dt)
 end
 
 --- Drive `speed` px/s along where he faces (backwards if `speed` < 0),
---- sliding along walls.
+--- sliding along walls and feeling his way round corners (Ground.walk).
 function Mancubus:drive(speed, dt)
-  local mx, my = math.cos(self.facing) * speed * dt, math.sin(self.facing) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return
-  end
-  self.stuck = 0
+  local angle = speed < 0 and self.facing + math.pi or self.facing
+  return Ground.walk(self, angle, math.abs(speed), dt, Mancubus.RADIUS)
+end
+
+--- Can he roll straight from where he is to (x, y), recliner and all?
+function Mancubus:straight(x, y)
+  return Ground.wideClear(self.x, self.y, x, y, Mancubus.RADIUS)
 end
 
 --- Shoved straight along `angle` (out of the way of an ability), treads or no treads.
 function Mancubus:slide(angle, speed, dt)
   local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
+  if Ground.fits(self.x + mx, self.y + my, Mancubus.RADIUS) then
     self.x, self.y = self.x + mx, self.y + my
   end
 end
@@ -222,14 +213,16 @@ end
 local sv = nil -- { m, spec, awake, syncIn, down, gun }
 
 --- Him in front of `map`'s gate (its `horde.boss` of kind "mancubus"),
---- finding his way on `nav`. Nothing on a map without him.
+--- finding his way on `nav` (by the cells his recliner fits, wide_nav.lua).
+--- Nothing on a map without him.
 function Mancubus.serverStart(server, map, nav)
   Mancubus.serverStop(server)
   local spec = map.horde and map.horde.boss
   if not (spec and spec.kind == "mancubus") then
     return
   end
-  sv = { m = Mancubus.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(Mancubus.HEALTH, server), nav,
+  local wide = nav and Walk.nav(nav, Ground.blocked, Mancubus.RADIUS)
+  sv = { m = Mancubus.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(Mancubus.HEALTH, server), wide,
     { x = spec.x, y = spec.y, facing = spec.facing or math.pi / 2 }), spec = spec, awake = false, syncIn = 0,
     gun = armed() }
 end

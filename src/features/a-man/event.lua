@@ -199,6 +199,7 @@ function AMan.serverBegin(server, events)
       x = node.x, y = node.y, facing = 0, hp = hp, max = hp, frozen = 0, moving = false,
       breath = Stamina.new(AMan.breath),
       cool = AMan.blinkEvery, -- a moment to take in the moustache before the first one
+      nav = Brain.nav({ x = city.map.left, y = city.map.top, w = city.map.w, h = city.map.h }, AMan.radius),
     },
     turrets = Turrets.new(), hordeIn = AMan.hordeFirst,
     events = events, syncIn = 0, time = 0,

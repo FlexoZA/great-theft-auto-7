@@ -75,6 +75,7 @@ Baron.BREATH = { drain = 9, regen = 13, recovered = 50, breath = 40 }
 Baron.RANGE = 900 -- px he sees
 Baron.KEEP = 260 -- px he likes to be from whoever he has, to throw
 Baron.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+Baron.KITE_WITH = 0.5 -- rad: kiting to a medkit, he charges or leaps at you only this near the way there
 Baron.HAND = 19 -- px either side of his middle: his guns' muzzles (the fire at them)...
 Baron.MUZZLE = 28 -- ...and this far ahead of it (baron_look.lua draws the guns there)
 Baron.THROW_EVERY = { 2.0, 2.8 } -- seconds between attacks...

@@ -49,6 +49,8 @@ local Bar = require("src.features.bosses.bar")
 local Brain = require("src.features.poison-zombie.brain")
 local Crabs = require("src.features.poison-zombie.crabs")
 local Car = require("src.car")
+local Nav = require("src.features.d-day.nav")
+local Walk = require("src.features.bosses.walk")
 local Render = require("src.features.poison-zombie.render")
 local Sounds = require("src.features.poison-zombie.sounds")
 
@@ -167,12 +169,14 @@ function Zombie:serverQuestStarted(server, quest)
   end
   local x, y = roomAt(map.bossX, map.bossY)
   local max = Bosses.health(Zombie.health, server)
+  local grid = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv = {
     time = 0, syncIn = 0, emptySends = 0, crabs = Crabs.new(), maxOut = Bosses.count(Zombie.maxOut, server),
     z = {
       x = x, y = y, homeX = x, homeY = y, facing = math.pi / 2, hp = max, max = max, mode = "wait", t = 0,
       frozen = 0, breath = Stamina.new(Zombie.breath), swipeIn = 0, throwIn = 1, crabs = Zombie.crabs,
-      regrowIn = Zombie.regrow, side = love.math.random() < 0.5 and -1 or 1, rammed = {},
+      regrowIn = Zombie.regrow, rammed = {},
+      nav = Walk.nav(grid, Brain.blocked, Zombie.radius), -- his walking grid, as wide as he is
       power = Bosses.power(), -- his swipes and what a ram does to the car, times this
     },
   }

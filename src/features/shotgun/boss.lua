@@ -36,6 +36,7 @@
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 local Chicken = require("src.features.abilities.chicken")
 
 local Boss = {}
@@ -151,7 +152,8 @@ function Boss.muzzle(map, x, y, aim, reach)
 end
 
 --- Him, at (x, y), with `hp` hit points (HEALTH when not given), finding
---- his way round the bluff on `nav` (d-day/nav.lua's walking grid) if given.
+--- his way round the bluff on `nav` (d-day/nav.lua's walking grid) if given,
+--- as wide as he is (Walk.nav).
 function Boss.new(x, y, hp, nav)
   hp = hp or Boss.HEALTH
   return setmetatable({
@@ -172,12 +174,10 @@ function Boss.new(x, y, hp, nav)
     sayIn = 2,
     frozen = 0,
     panic = nil,
-    stuck = 0,
-    sidestep = 0,
-    side = 1,
+    stuck = 0, -- seconds his walk has got nowhere (bosses/walk.lua)
     breath = Stamina.new(Boss.BREATH),
     running = false,
-    nav = nav,
+    nav = nav and Walk.nav(nav, Boss.blocked, Boss.RADIUS),
     mode = "hide", -- what his brain is doing (brain.lua)
   }, Boss)
 end
@@ -186,46 +186,21 @@ function Boss:hidden()
   return self.time < self.hiddenUntil
 end
 
-local function blockedAt(x, y)
-  local r = Boss.RADIUS
+--- Solid ground under (x, y), through the `blocksPoint` convention. One
+--- function for good: Walk.nav keeps his walking grid by it.
+function Boss.blocked(x, y)
   for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
+    if f.blocksPoint and f:blocksPoint(x, y) then
+      return true
     end
   end
   return false
 end
 
+--- A step along `angle` (bosses/walk.lua): slid along a wall, felt round a
+--- corner. False when he got nowhere.
 function Boss:walk(angle, speed, dt)
-  if self.sidestep > 0 then
-    self.sidestep = self.sidestep - dt
-    angle = angle + self.side * math.pi / 2
-  end
-  local px, py = self.x, self.y
-  local nx = self.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, self.y) then
-    self.x = nx
-  end
-  local ny = self.y + math.sin(angle) * speed * dt
-  if not blockedAt(self.x, ny) then
-    self.y = ny
-  end
-  if (self.x - px) ^ 2 + (self.y - py) ^ 2 < (speed * dt * 0.4) ^ 2 then
-    self.stuck = self.stuck + dt
-    if self.stuck > 0.4 then
-      self.stuck, self.sidestep, self.side = 0, 0.8, -self.side
-    end
-  else
-    self.stuck = 0
-  end
+  return Walk.step(self, Boss.blocked, angle, speed, dt, Boss.RADIUS)
 end
 
 --- His pace: a hurry with breath in him, a walk without.

@@ -47,7 +47,8 @@
 --      and a swipe at whoever comes close, yes; a charge, leap or lunge
 --      only when it carries it towards the medkit, and a long rooted
 --      wind-up only while the medkit is still far. Nobody in sight, it
---      just runs for it. `Walk.route` gives the way without turning it.
+--      just runs for it. `Heal.way` gives the way without turning it
+--      (`Heal.giveUp` when there is none it fits), `Heal.pickUp` takes it.
 --   8. It dodges: a player's ability about to land on it (a freeze's
 --      warning ring, a leaper coming down, a heat ray) gets it moving out
 --      from under it once it has had `react` seconds to see it

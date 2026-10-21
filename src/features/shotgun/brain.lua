@@ -16,7 +16,8 @@
 --   * Badly hurt (bosses/heal.lua), he goes for the nearest medkit lying
 --     within reach: out of sight first if his chicken is back, round the
 --     bluff on his walking grid, and takes it (a word about it, if anyone
---     can see him).
+--     can see him). Where he can be seen he kites there at a walk, facing
+--     the nearest player he sees: the pistol within EVADE, the rifle past it.
 -- A freeze holds him still; a stink sends him off away from it, and so
 -- does an ability about to land on him (bosses/dodge.lua).
 
@@ -24,6 +25,7 @@ local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -35,29 +37,18 @@ local random = love.math.random
 local RIFLE = setmetatable({ bossGun = true }, { __index = Guns.sniper })
 local PISTOL = setmetatable({ bossGun = true }, { __index = Guns.pistol })
 
-local function dist2(ax, ay, bx, by)
-  return (ax - bx) ^ 2 + (ay - by) ^ 2
-end
-
---- Towards (x, y) at `speed`, round the bluff on his walking grid. True
---- once he is there.
-local function goTo(b, x, y, speed, dt)
-  local g = b.path
-  if not g or dist2(g.x, g.y, x, y) > 60 * 60 or b.time > g.replanAt then
-    local corners = b.nav and b.nav:path(b.x, b.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = b.time + 1.5 }
-    b.path = g
+--- Towards (x, y) at `speed`, round the bluff on his walking grid
+--- (bosses/walk.lua). Facing `face` when given (kiting: his eyes, or his
+--- aim, on somebody), where he goes if not. True once he is there.
+local function goTo(b, x, y, speed, dt, face)
+  local angle, there = Walk.route(b, b.nav, x, y, b.time)
+  if not angle then
+    return there -- there, or no way he fits: he holds rather than grind into the rock
   end
-  local c = g.corners[g.at]
-  if dist2(b.x, b.y, c.x, c.y) < 16 * 16 then
-    if g.at >= #g.corners then
-      return true
-    end
-    g.at = g.at + 1
-    c = g.corners[g.at]
+  if not face then
+    b.facing = angle
   end
-  b.facing = math.atan2(c.y - b.y, c.x - b.x)
-  b:walk(b.facing, speed, dt)
+  b:walk(angle, speed, dt)
   return false
 end
 
@@ -67,13 +58,13 @@ local function wantsHeal(b)
     if Heal.there(b.medkit) then
       return true
     end
-    b.medkit, b.path = nil, nil -- somebody got there first
+    b.medkit, b.route = nil, nil -- somebody got there first
   end
   if not Heal.wants(b.hp, b.max) or b.time < (b.healLook or 0) then
     return false
   end
   b.healLook = b.time + Heal.checkEvery
-  b.medkit, b.path = Heal.find(b.x, b.y), nil
+  b.medkit, b.route = Heal.find(b.x, b.y), nil
   return b.medkit ~= nil
 end
 
@@ -213,8 +204,11 @@ local function stepAim(b, server, map, dt, events)
 end
 
 
---- Off to the medkit: out of sight first if he can manage it. Returns true
---- while that is what he is doing.
+--- Off to the medkit: out of sight first if he can manage it, and then he
+--- just goes. Where everyone can see him he kites there instead (the
+--- standard's point 7), at a walk, his eyes on the nearest player he sees:
+--- the pistol for anyone within EVADE, a bead kept or drawn on them past
+--- it. Returns true while that is what he is doing.
 local function heal(b, server, map, dt, events)
   local m = b.medkit
   if not b:hidden() and b:canVanish() then
@@ -223,17 +217,42 @@ local function heal(b, server, map, dt, events)
     end
     events[#events + 1] = vanish(b, server, map, m)
   end
-  if b.aim then -- no shots on the way
-    b.aim = nil
-    events[#events + 1] = { "aimoff" }
-  end
   b.mode = "heal"
-  goTo(b, m.x, m.y, b:pace(), dt)
-  b.running = not b.breath:winded()
+  local seen = not b:hidden() and players(b, server, map, true)[1]
+  if seen then
+    local toward = math.atan2(seen.y - b.y, seen.x - b.x)
+    goTo(b, m.x, m.y, b.WALK_SPEED, dt, toward)
+    if seen.d2 < b.EVADE ^ 2 then
+      if b.aim then
+        b.aim = nil
+        events[#events + 1] = { "aimoff" }
+      end
+      b.facing = toward
+      if b.pistolIn <= 0 then
+        b.pistolIn = b.PISTOL_EVERY
+        firePistol(server, b, toward)
+      end
+    elseif b.aim then
+      stepAim(b, server, map, dt, events)
+    elseif b.boltIn <= 0 and b.reloadIn <= 0 then
+      b.aim = { target = seen.p.id, t = b.WARN, vx = 0, vy = 0 }
+      b.facing = toward
+      events[#events + 1] = { "aim", seen.p.id, b.WARN }
+    else
+      b.facing = toward
+    end
+  else
+    if b.aim then -- nobody he can see: no shots on the way
+      b.aim = nil
+      events[#events + 1] = { "aimoff" }
+    end
+    goTo(b, m.x, m.y, b:pace(), dt)
+    b.running = not b.breath:winded()
+  end
   if Heal.within(m, b.x, b.y, b.RADIUS) then
     local got = Heal.take(server, m)
     b.hp = math.min(b.max, b.hp + got)
-    b.medkit, b.path = nil, nil
+    b.medkit, b.route = nil, nil
     if b.goal == m then
       b.goal = nil
     end
@@ -296,9 +315,7 @@ function Brain.think(b, server, dt)
   b.mode = b:hidden() and "hide" or "fight"
   if b:hidden() then
     local g = b.goal
-    if g and (g.x - b.x) ^ 2 + (g.y - b.y) ^ 2 > 16 * 16 then
-      b.facing = math.atan2(g.y - b.y, g.x - b.x)
-      b:walk(b.facing, b:pace(), dt)
+    if g and not goTo(b, g.x, g.y, b:pace(), dt) then
       b.running = not b.breath:winded()
     end
     return events
@@ -354,8 +371,7 @@ function Brain.think(b, server, dt)
     local tx = math.max(map.ramp.x1 + 80, math.min(map.left + map.w - 80, near.x))
     local ty = near.y < map.cliffY and near.y or map.cliffY - 60
     if (tx - b.x) ^ 2 + (ty - b.y) ^ 2 > 40 * 40 then
-      b.facing = math.atan2(ty - b.y, tx - b.x)
-      b:walk(b.facing, b:pace(0.5), dt)
+      goTo(b, tx, ty, b:pace(0.5), dt)
     end
   end
   return events

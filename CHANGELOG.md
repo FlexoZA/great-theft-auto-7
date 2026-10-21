@@ -14,11 +14,57 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Shotgun no longer drops his guard when he goes for a medkit where you can see him: he walks to it facing you,
+  firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.
+- Major Looz'er going for a medkit keeps throwing MG nests at you on the way, as well as firing.
+- Bigfoot going for a medkit swipes at anyone he passes within reach of on the way.
+- The Tripod going for a medkit keeps facing you with its heat ray and tentacles at work, and no longer
+  plants its legs for a sweep on the way.
+- Crazy Karen no longer turns her back on you when she goes for a medkit: she backs off to it at a walk, still
+  glaring at you, slapping anyone who follows her in reach and screaming only while the medkit is still far off.
+- The Baron of Heck, the Floor Manager, the Mancouchbus, the Spider Mattressmind and the Dread Knights no longer
+  turn their backs on you to go for a medkit: they back or side-step to it facing you, fighting on the way. Their
+  long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
+  yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
+  it, and the Dread Knights slash but don't lunge.
+
 ### Fixed
+- Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
+- Crazy Karen only takes ways round the houses she is wide enough for and feels her way round corners, so she
+  no longer catches on a corner or a gap she won't fit through.
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Mancouchbus no longer gets stuck rolling after you down the Boulevard: he only takes ways his recliner
+  fits through, feels his way round corners, and rolls round what he can see you past but can't get by.
+- Dread Knights no longer rock on the spot at the edge of sight while winded: they keep backing off and circling
+  till they have their breath back.
+- A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
+  no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
+  medkit, blinking through you and opening his case as he goes.
+- The Antlion Guard no longer gets stuck in the Coast's rocks: it finds its way round them instead of rocking
+  in a gap it doesn't fit. Badly hurt, it now backs off to a medkit facing you, swiping and screaming on the way,
+  and gives up on one it can't reach.
+- The Hunters (and the Cyber Feud's assassin droids, who think the same way) no longer get stuck on walls and
+  pillars in City 17, the Citadel and on the Winding Road: they only take ways their bodies fit through and feel
+  their way round corners. A badly hurt one now backs off to its medkit facing you and firing, instead of turning
+  its back and running.
+- The Poison Zombie no longer gets stuck at the water on the Winding Road pass when he sees you across it: he
+  walks round it, and badly hurt he backs off to a medkit facing you, still clawing and throwing crabs, instead
+  of turning his back and running.
+- General Volt no longer gets stuck on the stall corners in Noodle Square, and badly hurt he backs off to a
+  medkit still facing you, lobbing grenades on the way (bolts only while it is still far) instead of just
+  walking off.
+- Kilowatt no longer catches on the crates on the Roof, and badly hurt he walks to a medkit still facing you,
+  whipping and slamming on the way; he only charges when it carries him towards the medkit.
+- Director Saye walks round the Roof's clutter better, and badly hurt she backs off to a medkit still facing
+  you, dropping turrets on the way (her sightline only while it is still far).
+- Major Looz'er no longer catches on the corners of bunkers and hedge gaps: he feels his way round them, only
+  takes ways he fits through, and sidesteps out of a gap that pinches both his shoulders.
+- Bigfoot no longer catches on corners and trunks in the forest or the city: he feels his way round them.
+- The Runner going for a medkit behind a building runs round the block to it instead of giving up.
 
 ## [0.39.2] - 2026-10-20
 
