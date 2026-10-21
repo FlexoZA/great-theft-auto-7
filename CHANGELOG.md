@@ -14,11 +14,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Bigfoot going for a medkit swipes at anyone he passes within reach of on the way.
+
 ### Fixed
 - The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
   and takes the long way round what he can see you past but can't get his shoulders through.
 - The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
   through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- Bigfoot no longer catches on corners and trunks in the forest or the city: he feels his way round them.
 
 ## [0.39.2] - 2026-10-20
 
