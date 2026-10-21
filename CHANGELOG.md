@@ -47,6 +47,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Antlion Guard no longer gets stuck in the Coast's rocks: it finds its way round them instead of rocking
   in a gap it doesn't fit. Badly hurt, it now backs off to a medkit facing you, swiping and screaming on the way,
   and gives up on one it can't reach.
+- The Hunters (and the Cyber Feud's assassin droids, who think the same way) no longer get stuck on walls and
+  pillars in City 17, the Citadel and on the Winding Road: they only take ways their bodies fit through and feel
+  their way round corners. A badly hurt one now backs off to its medkit facing you and firing, instead of turning
+  its back and running.
 
 ## [0.39.2] - 2026-10-20
 
