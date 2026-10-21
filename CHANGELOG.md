@@ -54,6 +54,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Poison Zombie no longer gets stuck at the water on the Winding Road pass when he sees you across it: he
   walks round it, and badly hurt he backs off to a medkit facing you, still clawing and throwing crabs, instead
   of turning his back and running.
+- General Volt no longer gets stuck on the stall corners in Noodle Square, and badly hurt he backs off to a
+  medkit still facing you, lobbing grenades on the way (bolts only while it is still far) instead of just
+  walking off.
+- Kilowatt no longer catches on the crates on the Roof, and badly hurt he walks to a medkit still facing you,
+  whipping and slamming on the way; he only charges when it carries him towards the medkit.
+- Director Saye walks round the Roof's clutter better, and badly hurt she backs off to a medkit still facing
+  you, dropping turrets on the way (her sightline only while it is still far).
 
 ## [0.39.2] - 2026-10-20
 

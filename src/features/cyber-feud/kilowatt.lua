@@ -38,6 +38,7 @@ local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
@@ -65,6 +66,8 @@ Kilowatt.BREATH = { -- his stamina (bosses/stamina.lua has the rule)
 Kilowatt.RANGE = 700 -- px he sees
 Kilowatt.CHARGE_FROM = 460 -- px from his target he lowers his head...
 Kilowatt.CHARGE_MIN = 130 -- ...and no nearer than this (he slams instead)
+Kilowatt.KITE_CHARGE = math.rad(30) -- kiting to a medkit, he charges only down a line this near the way to it...
+Kilowatt.KITE_PUNCH = 1.5 -- ...and punches whoever is up against him once in this many seconds, walking on between
 Kilowatt.BRACE = 0.6 -- seconds braced, the line on the floor, before he goes
 Kilowatt.BRACE_2 = 0.45 -- in phase 2
 Kilowatt.CHARGE_SPEED = 540 -- px/s
@@ -160,7 +163,7 @@ function Kilowatt.new(x, y, hp, nav)
     aim = math.pi / 2,
     hp = hp,
     max = hp,
-    nav = nav,
+    nav = nav and Walk.nav(nav, Sight.blocked, Kilowatt.RADIUS), -- the walking grid as he fits through it
     time = 0,
     t = 0,
     action = nil,
@@ -182,30 +185,11 @@ function Kilowatt.new(x, y, hp, nav)
   }, Kilowatt)
 end
 
-local function fits(x, y)
-  local r = Kilowatt.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
-end
-
---- Move by (mx, my), sliding along walls. Returns false when he went nowhere.
-function Kilowatt:move(mx, my)
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + 1 / 60
-    return false
-  end
-  self.stuck = 0
-  return true
-end
-
-function Kilowatt:walk(angle, speed, dt)
-  self:move(math.cos(angle) * speed * dt, math.sin(angle) * speed * dt)
+--- A tick along `angle` at `speed`, round the clutter (bosses/walk.lua);
+--- `headlong` (a charge) only slides, into the wall. False when he got
+--- nowhere: a charge staggers off it.
+function Kilowatt:walk(angle, speed, dt, headlong)
+  return Walk.step(self, Sight.blocked, angle, speed, dt, Kilowatt.RADIUS, headlong)
 end
 
 --- How fast he may go: running, or winded.

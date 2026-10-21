@@ -10,7 +10,9 @@
 --   fight  somebody she can see: she keeps her distance (KEEP), walking in
 --          or backing off, and works through her moves (below)
 --   heal   badly hurt (bosses/heal.lua): she walks to the nearest medkit
---          lying within reach
+--          lying within reach; somebody in her sights, she kites there
+--          (the standard's point 7): facing them, dropping turrets on the
+--          way, her sightline only while the medkit is still far (KITE_FAR)
 --
 -- Her moves:
 --
@@ -33,6 +35,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 local Duo = require("src.features.cyber-feud.duo")
 
 local Brain = {}
@@ -74,23 +77,15 @@ function Brain.target(s, server)
   return any, ax, ay, false
 end
 
+--- Towards (x, y) at `speed`, round the clutter on her walking grid (she
+--- holds where there is no way she fits). True once she is there.
 local function goTo(s, x, y, speed, dt)
-  local g = s.goal
-  if not g or dist2(g.x, g.y, x, y) > 80 * 80 or s.time > g.replanAt or s.stuck > 0.3 then
-    local corners = s.nav and s.nav:path(s.x, s.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = s.time + 1.2 }
-    s.goal = g
+  local way, there = Walk.route(s, s.nav, x, y, s.time)
+  if not way then
+    return there
   end
-  local c = g.corners[g.at]
-  if dist2(s.x, s.y, c.x, c.y) < 18 * 18 then
-    if g.at >= #g.corners then
-      return true
-    end
-    g.at = g.at + 1
-    c = g.corners[g.at]
-  end
-  s.facing = math.atan2(c.y - s.y, c.x - s.x)
-  s:walk(s.facing, speed, dt)
+  s.facing = way
+  s:walk(way, speed, dt)
   return false
 end
 
@@ -99,14 +94,14 @@ local function wantsHeal(s)
     if Heal.there(s.medkit) then
       return true
     end
-    s.medkit, s.goal = nil, nil
+    s.medkit, s.route = nil, nil
   end
   if not Heal.wants(s.hp, s.max) or s.time < (s.healLook or 0) then
     return false
   end
   s.healLook = s.time + Heal.checkEvery
   s.medkit = Heal.find(s.x, s.y)
-  s.goal = nil
+  s.route = nil
   return s.medkit ~= nil
 end
 
@@ -141,6 +136,21 @@ local function stepAim(s, server, dt, events)
     s.aiming, s.burstLeft = false, nil
     s.sightIn = s.phase2 and s.SIGHT_EVERY_2 or s.SIGHT_EVERY
   end
+end
+
+--- A sentry turret where she stands, facing along `toward`, if one is due
+--- and she has the breath. True when she dropped one.
+local function turret(s, toward, events)
+  if s.turretIn > 0 or not s.breath:has(s.TURRET_COST) or s:turretsUp() >= s.TURRETS_MAX then
+    return false
+  end
+  s.breath:spend(s.TURRET_COST)
+  s.turretIn = s.TURRET_EVERY
+  events[#events + 1] = { "turret", s.x, s.y, toward }
+  if random() < 0.5 then
+    events[#events + 1] = { "say", s.LINE.turret }
+  end
+  return true
 end
 
 --- What she does this tick. Returns the events the others should hear
@@ -182,13 +192,31 @@ function Brain.think(s, server, dt)
   end
   if wantsHeal(s) then
     s.mode = "heal"
+    s.leaveFrom = nil -- the medkit is the way off from any turret
     local m = s.medkit
-    goTo(s, m.x, m.y, s:pace(), dt)
-    s.running = not s.breath:winded()
+    local _, tx, ty, visible = Brain.target(s, server)
+    if visible then -- kiting: facing them, fighting, walking backwards or aside to it
+      local toward = math.atan2(ty - s.y, tx - s.x)
+      s.facing = toward
+      if s.sightIn <= 0 and dist2(m.x, m.y, s.x, s.y) > s.KITE_FAR ^ 2 then
+        s.aiming, s.aimT, s.aim = true, 0, toward -- set now: step off this line
+        s.breath:step(false, dt)
+        return events
+      end
+      turret(s, toward, events)
+      local way = Walk.route(s, s.nav, m.x, m.y, s.time)
+      if way then
+        s:walk(way, s:pace(), dt)
+        s.running = not s.breath:winded()
+      end
+    else
+      goTo(s, m.x, m.y, s:pace(), dt)
+      s.running = not s.breath:winded()
+    end
     if Heal.within(m, s.x, s.y, s.RADIUS) then
       local got = Heal.take(server, m)
       s.hp = math.min(s.max, s.hp + got)
-      s.medkit, s.goal = nil, nil
+      s.medkit, s.route = nil, nil
       if got > 0 then
         events[#events + 1] = { "say", s.LINE.heal }
       end
@@ -217,21 +245,15 @@ function Brain.think(s, server, dt)
     s.breath:step(s.running, dt)
     return events
   end
-  s.mode, s.goal = "fight", nil
+  s.mode = "fight"
   s.facing = toward
   if s.sightIn <= 0 then
     s.aiming, s.aimT, s.aim = true, 0, toward -- set now: step off this line
     s.breath:step(false, dt)
     return events
   end
-  if s.turretIn <= 0 and s.breath:has(s.TURRET_COST) and s:turretsUp() < s.TURRETS_MAX then
-    s.breath:spend(s.TURRET_COST)
-    s.turretIn = s.TURRET_EVERY
-    events[#events + 1] = { "turret", s.x, s.y, toward }
+  if turret(s, toward, events) then
     s.leaveFrom = { x = s.x, y = s.y, left = s.LEAVE } -- and she walks off from it
-    if random() < 0.5 then
-      events[#events + 1] = { "say", s.LINE.turret }
-    end
   end
   if s.leaveFrom then
     s.leaveFrom.left = s.leaveFrom.left - dt
@@ -242,7 +264,11 @@ function Brain.think(s, server, dt)
       s.leaveFrom = nil
     end
   elseif d > s.KEEP + 60 then
-    s:walk(toward, s:pace(), dt)
+    if Walk.wideClear(Sight.blocked, s.x, s.y, tx, ty, s.RADIUS) then
+      s:walk(toward, s:pace(), dt)
+    else -- she sees them past something she doesn't get by: round it
+      goTo(s, tx, ty, s:pace(), dt)
+    end
     s.running = not s.breath:winded()
   elseif d < s.KEEP - 80 then
     s:walk(toward + math.pi + (s.side or 0.4), s:pace(), dt) -- backs off, still facing them

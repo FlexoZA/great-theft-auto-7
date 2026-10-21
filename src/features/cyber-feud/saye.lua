@@ -32,6 +32,7 @@ local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
@@ -55,6 +56,7 @@ Saye.STROLL = 38 -- px/s winded
 Saye.BREATH = { drain = 8, regen = 14, recovered = 50, breath = 40 } -- (bosses/stamina.lua)
 Saye.RANGE = 760 -- px she sees
 Saye.KEEP = 420 -- px she keeps between herself and whoever she has
+Saye.KITE_FAR = 200 -- px: kiting to a medkit, she stops for a sightline only while it is further than this
 Saye.AIM = 1.0 -- seconds her sightline shows before the shot...
 Saye.AIM_2 = 0.5 -- ...in phase 2
 Saye.SIGHT_EVERY = 3.2 -- seconds from one shot to the next line...
@@ -130,7 +132,7 @@ function Saye.new(x, y, hp, nav)
     aim = math.pi / 2,
     hp = hp,
     max = hp,
-    nav = nav,
+    nav = nav and Walk.nav(nav, Sight.blocked, Saye.RADIUS), -- the walking grid as she fits through it
     time = 0,
     aiming = false,
     aimT = 0,
@@ -152,25 +154,10 @@ function Saye.new(x, y, hp, nav)
   return s
 end
 
-local function fits(x, y)
-  local r = Saye.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
-end
-
+--- A tick along `angle` at `speed`, round the clutter (bosses/walk.lua).
+--- False when she got nowhere.
 function Saye:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return
-  end
-  self.stuck = 0
+  return Walk.step(self, Sight.blocked, angle, speed, dt, Saye.RADIUS)
 end
 
 function Saye:pace()

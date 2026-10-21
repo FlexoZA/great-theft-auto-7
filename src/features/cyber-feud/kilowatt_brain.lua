@@ -9,7 +9,10 @@
 --   fight  somebody he can see: he closes in and picks a move (below),
 --          one at a time, each with a tell before it lands
 --   heal   badly hurt (bosses/heal.lua): he breaks off for the nearest
---          medkit lying within reach and eats it
+--          medkit lying within reach and eats it; somebody in his sights,
+--          he kites there (the standard's point 7): facing them at a walk,
+--          whipping and slamming on the way, charging only down a line
+--          that carries him towards it (KITE_CHARGE)
 --
 -- His moves, each an `action` that runs its course before he thinks again:
 --
@@ -38,6 +41,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -91,27 +95,30 @@ end
 --- Towards (x, y) at `speed`: round the clutter on his walking grid when
 --- he has one. True once he is there.
 local function goTo(k, x, y, speed, dt)
-  local g = k.goal
-  if not g or dist2(g.x, g.y, x, y) > 80 * 80 or k.time > g.replanAt or k.stuck > 0.3 then
-    local corners = k.nav and k.nav:path(k.x, k.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = k.time + 1.2 }
-    k.goal = g
+  local way, there = Walk.route(k, k.nav, x, y, k.time)
+  if not way then
+    return there -- there, or no way he fits: he holds
   end
-  local c = g.corners[g.at]
-  if dist2(k.x, k.y, c.x, c.y) < 20 * 20 then
-    if g.at >= #g.corners then
-      return true
-    end
-    g.at = g.at + 1
-    c = g.corners[g.at]
-  end
-  k.facing = math.atan2(c.y - k.y, c.x - k.x)
-  k:walk(k.facing, speed, dt)
+  k.facing = way
+  k:walk(way, speed, dt)
   return false
 end
 
 local function act(k, name, seconds)
   k.action, k.t, k.actionTime = name, 0, seconds
+end
+
+--- The medkit he is going for, eaten if he is on it (a charge over it too).
+local function eat(k, server, events)
+  local m = k.medkit
+  if m and Heal.within(m, k.x, k.y, k.RADIUS) then
+    local got = Heal.take(server, m)
+    k.hp = math.min(k.max, k.hp + got)
+    k.medkit, k.route = nil, nil
+    if got > 0 then
+      events[#events + 1] = { "say", k.LINE.heal[random(#k.LINE.heal)] }
+    end
+  end
 end
 
 --- One move done: count it, and every so many, vent.
@@ -183,8 +190,8 @@ local function stepAction(k, server, dt, events)
       k.struck = {}
     end
   elseif a == "charge" then
-    local step = k.CHARGE_SPEED * dt
-    local ok = k:move(math.cos(k.aim) * step, math.sin(k.aim) * step)
+    local ok = k:walk(k.aim, k.CHARGE_SPEED, dt, true)
+    eat(k, server, events)
     for _, p in pairs(server.players) do
       if not k.struck[p] and Features.visible(server, p) then
         local x, y = Features.bodyPose(server, p)
@@ -290,15 +297,53 @@ local function wantsHeal(k)
     if Heal.there(k.medkit) then
       return true
     end
-    k.medkit, k.goal = nil, nil
+    k.medkit, k.route = nil, nil
   end
   if not Heal.wants(k.hp, k.max) or k.time < (k.healLook or 0) then
     return false
   end
   k.healLook = k.time + Heal.checkEvery
   k.medkit = Heal.find(k.x, k.y)
-  k.goal = nil
+  k.route = nil
   return k.medkit ~= nil
+end
+
+--- A charge at whoever is along `toward`, if he has one in him.
+local function charge(k, toward)
+  k.breath:spend(k.CHARGE_COST)
+  k.chargeIn = k.phase2 and k.CHARGE_EVERY_2 or k.CHARGE_EVERY
+  k.aim = toward -- set now: get off this line
+  act(k, "brace", k.phase2 and k.BRACE_2 or k.BRACE)
+end
+
+--- Can he charge at somebody `d` px off now?
+local function canCharge(k, d)
+  return d >= k.CHARGE_MIN and d <= k.CHARGE_FROM and k.chargeIn <= 0 and k.breath:has(k.CHARGE_COST)
+end
+
+--- A move at `target` (at `d` px, along `toward`) if one is due: a slam
+--- close, else a charge (`charges`: may he?), a whip, a punch right up
+--- against them (`kiting`: one every KITE_PUNCH, walking on between).
+--- True when he started one.
+local function pick(k, target, toward, d, charges, kiting)
+  if d <= k.SLAM_REACH and k.slamIn <= 0 and k.breath:has(k.SLAM_COST) then
+    k.breath:spend(k.SLAM_COST)
+    k.slamIn = k.SLAM_EVERY
+    act(k, "hop", k.HOP)
+  elseif charges and canCharge(k, d) then
+    charge(k, toward)
+  elseif d <= k.WHIP_RANGE and k.whipIn <= 0 then
+    k.whipIn = k.WHIP_EVERY
+    k.aim = toward -- set now: get off this line
+    act(k, "whip", k.WHIP_WIND)
+  elseif d <= k.RADIUS + k.PUNCH_REACH and not (kiting and k.time < (k.kitePunchAt or 0)) then
+    k.punchAt = target
+    k.kitePunchAt = k.time + k.KITE_PUNCH
+    act(k, "punch", k.PUNCH_WIND)
+  else
+    return false
+  end
+  return true
 end
 
 --- What he does this tick. Returns the events the others should hear about:
@@ -344,16 +389,27 @@ function Brain.think(k, server, dt)
   if wantsHeal(k) then
     k.mode = "heal"
     local m = k.medkit
-    goTo(k, m.x, m.y, k:pace(), dt)
-    k.running = not k.breath:winded()
-    if Heal.within(m, k.x, k.y, k.RADIUS) then
-      local got = Heal.take(server, m)
-      k.hp = math.min(k.max, k.hp + got)
-      k.medkit, k.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", k.LINE.heal[random(#k.LINE.heal)] }
+    local target, tx, ty, visible = Brain.target(k, server)
+    if visible then -- kiting: facing them at a walk, fighting on the way to it
+      local toward = math.atan2(ty - k.y, tx - k.x)
+      local d = math.sqrt(dist2(tx, ty, k.x, k.y))
+      -- A charge only down a line near the way to it, with nothing in between he'd run into.
+      local off = math.abs((math.atan2(m.y - k.y, m.x - k.x) - toward + math.pi) % (2 * math.pi) - math.pi)
+      local charges = off <= k.KITE_CHARGE and Walk.wideClear(Sight.blocked, k.x, k.y, m.x, m.y, k.RADIUS)
+      k.facing = toward
+      if pick(k, target, toward, d, charges, true) then
+        k.breath:step(false, dt)
+        return events
       end
+      local way = Walk.route(k, k.nav, m.x, m.y, k.time)
+      if way then
+        k:walk(way, k.WALK, dt)
+      end
+    else
+      goTo(k, m.x, m.y, k:pace(), dt)
+      k.running = not k.breath:winded()
     end
+    eat(k, server, events)
     k.breath:step(k.running, dt)
     return events
   end
@@ -371,26 +427,15 @@ function Brain.think(k, server, dt)
     k.breath:step(k.running, dt)
     return events
   end
-  k.mode, k.goal = "fight", nil
+  k.mode = "fight"
   k.facing = toward
-  if d <= k.SLAM_REACH and k.slamIn <= 0 and k.breath:has(k.SLAM_COST) then
-    k.breath:spend(k.SLAM_COST)
-    k.slamIn = k.SLAM_EVERY
-    act(k, "hop", k.HOP)
-  elseif d >= k.CHARGE_MIN and d <= k.CHARGE_FROM and k.chargeIn <= 0 and k.breath:has(k.CHARGE_COST) then
-    k.breath:spend(k.CHARGE_COST)
-    k.chargeIn = k.phase2 and k.CHARGE_EVERY_2 or k.CHARGE_EVERY
-    k.aim = toward -- set now: get off this line
-    act(k, "brace", k.phase2 and k.BRACE_2 or k.BRACE)
-  elseif d <= k.WHIP_RANGE and k.whipIn <= 0 then
-    k.whipIn = k.WHIP_EVERY
-    k.aim = toward -- set now: get off this line
-    act(k, "whip", k.WHIP_WIND)
-  elseif d <= k.RADIUS + k.PUNCH_REACH then
-    k.punchAt = target
-    act(k, "punch", k.PUNCH_WIND)
-  else
-    k:walk(toward, k:pace(), dt)
+  if not pick(k, target, toward, d, true) then
+    if Walk.wideClear(Sight.blocked, k.x, k.y, tx, ty, k.RADIUS) then
+      k:walk(toward, k:pace(), dt)
+    else -- he sees them past something his shoulders don't get by: round it
+      goTo(k, tx, ty, k:pace(), dt)
+      k.facing = toward
+    end
     k.running = not k.breath:winded()
   end
   k.breath:step(k.running, dt)
