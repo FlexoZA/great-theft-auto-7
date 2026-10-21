@@ -38,6 +38,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
   no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
   medkit, blinking through you and opening his case as he goes.
+- The Antlion Guard no longer gets stuck in the Coast's rocks: it finds its way round them instead of rocking
+  in a gap it doesn't fit. Badly hurt, it now backs off to a medkit facing you, swiping and screaming on the way,
+  and gives up on one it can't reach.
 
 ## [0.39.2] - 2026-10-20
 
