@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-22
+
+Every bullet now leaves a tracer, so you can follow the fight on dark and busy maps.
+
 ### Changed
 - Bullets trail a short tracer, so you can see shots on dark and busy maps: red, or the round's own colour for
   enemies whose shots have one.
