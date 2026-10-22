@@ -37,7 +37,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   80-point bubble (25 health each: shoot them first); sentries that rise out of the floor when you come near; and
   the badass hauler (450) with twin war cannons, a six-rocket volley and a stomp.
 - Borderline has its story: Handsome Jerry live on a Hyperbole broadcast as each map starts, a banner for each map
-  and each part of it, Jerry and YAP-TP (the little yellow robot who dug you out) talking you through it over the
+  and each part of it, Jerry and YAP-TP (his secretary, left for dead with you) talking you through it over the
   comms, Jerry sulking when his bigger robots fall, and an objective line with how far there is to go.
 - The Frozen Wreck's tunnel is shut behind a blast door until you hack Hyperbole's three terminals round the
   yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a

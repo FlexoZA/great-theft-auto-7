@@ -46,8 +46,9 @@ Story.lines = {
 -- first time the army spots anyone), "end" (the way on reached).
 Story.beats = {
   ["wreck.start"] = {
-    { "yappy", "Minion! You're alive! I dug you out. With my hands. I have two." },
-    { "yappy", "I am YAP-TP, and I know the way to Jerry's bunker. Probably. Follow me. Go first." },
+    { "yappy", "Minion! You're alive! I dug you out. With a clipboard. It took ages." },
+    { "yappy", "I'm YAP-TP, Jerry's secretary. Was. He put me on that train too. I know the way to his bunker. "
+      .. "Probably. Follow me. Go first." },
   },
   ["wreck.fight"] = { { "yappy", "Junk bots! Stripping the train! I am bravely hiding!" } },
   ["wreck.The Wreck"] = { { "jerry", "That was a very expensive train. I'm adding it to your bill." } },
@@ -77,7 +78,7 @@ Story.beats = {
     { "jerry", "Welcome to Prosperity! You can't afford it." },
     { "yappy", "Look at all his faces! On every screen! We should leave before he sees us. Oh. He sees us." },
   },
-  ["prosperity.fight"] = { { "yappy", "Jet haulers! They fly! That's not fair! I can't even jump!" } },
+  ["prosperity.fight"] = { { "yappy", "Jet haulers! They fly! That's not fair! I'm in heels!" } },
   ["prosperity.Jerry Plaza"] = { { "jerry", "Do you like the statue? It's me. It's life-size." } },
   ["prosperity.North District"] = { { "yappy", "The north gate! It goes down to the refinery. And it's "
     .. "open! Jerry, you idiot!" } },
@@ -89,11 +90,12 @@ Story.beats = {
   ["refinery.fight"] = { { "yappy", "Arc haulers on the bridges! Don't stand in the blue! It tingles! It kills!" } },
   ["refinery.The Smelting Floor"] = { { "jerry", "Every bridge you cross, I'm charging a toll. Retroactively." } },
   ["refinery.The Outflow"] = { { "yappy", "The freight door! Past the big ones. Of course past the big ones." } },
-  ["refinery.end"] = { { "yappy", "The factory's through there. Where they build them. Where they built... me." } },
+  ["refinery.end"] = { { "yappy", "The factory's through there. I did its paperwork. Six years. "
+    .. "Nobody said thank you." } },
 
   ["assembly.start"] = {
-    { "yappy", "This is where they made YAP units. Before they stopped. I'm fine. My eye is leaking. It's oil." },
-    { "jerry", "Is that a YAP unit? I recalled those. Every last one. Apparently not every last one." },
+    { "yappy", "I typed up the order for every robot off this line. Every one. I'm fine. It's the fumes." },
+    { "jerry", "Is that my secretary? You're fired. Again. And I want my stapler back." },
   },
   ["assembly.fight"] = { { "yappy", "They're waking up off the belts! Shoot the new ones! They're shiny!" } },
   ["assembly.The Foreman's Floor"] = { { "jerry", "That's my foreman's floor. He doesn't like visitors. Or me." } },
@@ -116,7 +118,7 @@ Story.beats = {
   },
   ["bunker.fight"] = { { "jerry", "Cannons! All of them! Every cannon!" } },
   ["bunker.end"] = {
-    { "yappy", "We did it! I'll plug in and shut the whole army down. Every robot on Pandoria. Every robot..." },
+    { "yappy", "We did it! I'm on his computer. His password's 'handsome'. Shutting down every robot on Pandoria..." },
     { "yappy", "...Did we win? I feel like I won." },
     { "jerry", "You'll pay for this. Literally. I'm billing you." },
   },

@@ -9,10 +9,11 @@
 --          jaw, one blue eye and one green behind it, a big white grin that
 --          never moves, a yellow suit, green shirt, thin dark tie. He talks
 --          with his eyebrows, and now and then leans into the camera.
---   yappy  YAP-TP, whose face is his whole body: a yellow box, a big blue
---          eye with a shutter that blinks, a vent of a mouth that flickers
---          when he talks, an antenna, two stick arms that wave about. His
---          eye goes big when he is excited.
+--   yappy  YAP-TP, a young woman on a comms headset: auburn hair with a
+--          side-swept fringe and a ponytail that swings, blue eyes that
+--          blink, a blue parka zipped up to its fur collar, the mic's light
+--          lit while she talks. Her brows go up and her mouth moves as the
+--          words type out.
 --
 --   Faces.new(who)  -> face; face:update(dt); face:draw(x, y, scale)
 --   face.talking    set while the words are still typing out
@@ -46,6 +47,18 @@ local C = {
   gunmetal = { 0.23, 0.25, 0.28 },
   eye = { 0.35, 0.75, 1.00 },
   eyeHot = { 0.85, 0.95, 1.00 },
+  hairF = { 0.62, 0.27, 0.15 },
+  hairFHi = { 0.80, 0.42, 0.24 },
+  hairShade = { 0.40, 0.16, 0.09 },
+  skinF = { 0.94, 0.78, 0.65 },
+  skinFShade = { 0.82, 0.63, 0.51 },
+  iris = { 0.25, 0.55, 0.85 },
+  lip = { 0.74, 0.34, 0.36 },
+  blush = { 0.92, 0.55, 0.52 },
+  parka = { 0.22, 0.44, 0.72 },
+  parkaDark = { 0.13, 0.28, 0.50 },
+  fur = { 0.92, 0.88, 0.80 },
+  furShade = { 0.74, 0.70, 0.62 },
 }
 
 local function color(c, a)
@@ -170,51 +183,107 @@ end
 -- Yappy ---------------------------------------------------------------------
 
 local function drawYappy(self)
-  local bob = math.floor(math.sin(self.t * (self.talking and 10 or 3)) * 1.5 + 0.5)
-  -- The antenna, a light on top.
+  local bob = math.floor(math.sin(self.t * (self.talking and 6 or 2)) * 0.8 + 0.5)
+  local sway = math.floor(math.sin(self.t * 2.5) * 1.5 + 0.5)
+  -- The ponytail behind her head, swinging.
+  color(C.hairShade)
+  rect(42 + sway, 20 + bob, 7, 22)
+  rect(44 + sway, 40 + bob, 5, 6)
+  -- The parka: blue, zipped up, a fur-lined collar.
+  color(C.parkaDark)
+  rect(6, 56 + bob, 52, 16)
+  color(C.parka)
+  rect(8, 55 + bob, 48, 17)
+  color(C.parkaDark)
+  rect(31, 58 + bob, 2, 14) -- the zip
+  rect(14, 62 + bob, 1, 10)
+  rect(49, 62 + bob, 1, 10)
+  color(C.furShade)
+  rect(17, 51 + bob, 30, 7)
+  color(C.fur)
+  rect(18, 51 + bob, 28, 5)
+  for x = 19, 44, 3 do
+    color(C.furShade)
+    rect(x, 55 + bob, 1, 2)
+  end
+  -- The neck.
+  color(C.skinFShade)
+  rect(27, 45 + bob, 10, 7)
+  -- The face, narrowing to the chin.
+  color(C.skinF)
+  rect(20, 16 + bob, 24, 28)
+  rect(22, 44 + bob, 20, 2)
+  rect(25, 46 + bob, 14, 2)
+  color(C.skinFShade)
+  rect(42, 18 + bob, 2, 25)
+  rect(31, 32 + bob, 2, 4) -- the nose's shadow
+  color(C.blush, 0.6)
+  rect(22, 35 + bob, 4, 2)
+  rect(38, 35 + bob, 4, 2)
+  -- Hair: auburn, a side-swept fringe, falling down both sides.
+  color(C.hairShade)
+  rect(17, 10 + bob, 30, 8)
+  rect(17, 16 + bob, 4, 18)
+  rect(43, 16 + bob, 4, 16)
+  color(C.hairF)
+  rect(19, 8 + bob, 26, 8)
+  rect(19, 15 + bob, 16, 4)
+  rect(19, 18 + bob, 9, 3)
+  rect(19, 20 + bob, 3, 6)
+  color(C.hairFHi)
+  rect(24, 9 + bob, 12, 2)
+  rect(21, 15 + bob, 8, 1)
+  -- The headset she talks to you through: band, ear cup, mic boom.
   color(C.ink)
-  rect(31, 4 + bob, 2, 10)
-  color(self.talking and C.eyeHot or C.eye)
-  rect(29, 2 + bob, 6, 4)
-  -- Stick arms, waving while he talks.
-  local wave = self.talking and math.floor(math.sin(self.t * 12) * 4) or 0
-  color(C.ink)
-  love.graphics.setLineWidth(2)
-  love.graphics.line(10, 40 + bob, 3, 30 + bob - wave)
-  love.graphics.line(54, 40 + bob, 61, 30 + bob + wave)
+  rect(18, 9 + bob, 28, 1)
+  rect(17, 10 + bob, 1, 16)
+  color(C.gunmetal)
+  rect(14, 24 + bob, 5, 9)
   love.graphics.setLineWidth(1)
-  -- The box.
   color(C.ink)
-  rect(9, 13 + bob, 46, 46)
-  color(C.yellow)
-  rect(10, 14 + bob, 44, 44)
-  color(C.yellowDark)
-  rect(10, 54 + bob, 44, 4)
-  -- The eye: nearly all of him.
-  local big = self.talking and 2 or 0
-  color(C.gunmetal)
-  rect(16 - big, 18 + bob - big, 32 + 2 * big, 24 + 2 * big)
-  color(C.eye)
-  rect(19 - big, 21 + bob - big, 26 + 2 * big, 18 + 2 * big)
-  color(C.eyeHot)
-  rect(28, 26 + bob, 8, 7)
-  color(C.white)
-  rect(30, 27 + bob, 3, 2)
-  if self.blink > 0 then -- the shutter
-    color(C.gunmetal)
-    rect(16 - big, 18 + bob - big, 32 + 2 * big, 24 + 2 * big)
+  love.graphics.line(17, 32 + bob, 25, 40 + bob)
+  color(self.talking and C.eyeHot or C.eye)
+  rect(25, 39 + bob, 2, 2)
+  -- Eyebrows, up while she talks.
+  local up = self.talking and math.floor(math.abs(math.sin(self.t * 7)) * 2 + 0.5) or 0
+  color(C.hairShade)
+  rect(23, 24 + bob - up, 7, 1)
+  rect(34, 24 + bob - up, 7, 1)
+  -- Eyes: blue, lashes on top.
+  if self.blink > 0 then
+    color(C.ink)
+    rect(23, 29 + bob, 7, 1)
+    rect(34, 29 + bob, 7, 1)
+  else
+    color(C.white)
+    rect(24, 27 + bob, 5, 3)
+    rect(35, 27 + bob, 5, 3)
+    color(C.iris)
+    rect(25, 27 + bob, 3, 3)
+    rect(36, 27 + bob, 3, 3)
+    color(C.ink)
+    rect(26, 28 + bob, 1, 1)
+    rect(37, 28 + bob, 1, 1)
+    rect(23, 26 + bob, 7, 1)
+    rect(34, 26 + bob, 7, 1)
+    color(C.white)
+    rect(25, 27 + bob, 1, 1)
+    rect(36, 27 + bob, 1, 1)
   end
-  -- The vent of a mouth: lit while he talks.
-  for k = 0, 3 do
-    local lit = self.talking and math.sin(self.t * 25 + k) > 0
-    color(lit and C.eye or C.ink)
-    rect(22 + k * 5, 46 + bob, 3, 5)
+  -- The mouth: a smile at rest, open and shut while she talks.
+  local open = self.talking and math.floor((math.sin(self.t * 22) + 1) * 1.5) or 0
+  if open > 0 then
+    color(C.ink)
+    rect(28, 39 + bob, 8, open + 1)
+    color(C.lip)
+    rect(28, 38 + bob, 8, 1)
+    rect(28, 40 + bob + open, 8, 1)
+  else
+    color(C.lip)
+    rect(28, 39 + bob, 8, 2)
+    rect(27, 38 + bob, 1, 1)
+    rect(36, 38 + bob, 1, 1)
   end
-  -- The wheel under him.
-  color(C.ink)
-  rect(26, 59 + bob, 12, 10)
-  color(C.gunmetal)
-  rect(27, 60 + bob, 10, 8)
 end
 
 function Faces:render()

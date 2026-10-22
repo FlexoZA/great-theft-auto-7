@@ -77,13 +77,14 @@ out, and the two of you walk all the way to his bunker to pull the plug.
   quiff, a green-and-yellow suit. Colour: Hyperbole yellow `#f2c230`.
   He fills VEX's role: the intro screen portrait, the chatter, the last
   word. Calls you "bandit".
-- **YAP-TP ("Yappy")**, the sidekick. The last of a line of cheap
-  one-wheeled helper robots Hyperbole stopped making. A yellow box on one
-  wheel with a single blue eye and two stick arms. He found you, he has
-  decided you are his minion, and he will not stop talking. He opens doors
-  (slowly), hides when shooting starts, and takes credit afterwards. He is
-  a character on the map, not only a voice: he rolls ahead of you, stops at
-  doors, and can't be killed (shots knock him over; he gets up complaining).
+- **YAP-TP ("Yappy")**, the sidekick. Jerry's secretary, an ordinary
+  woman; YAP-TP is her Hyperbole staff code, because Jerry never learned
+  anyone's name. He put her on the train too, so she is as left for dead as
+  you. She dug you out, she has decided you are her minion, and she will
+  not stop talking. She knows his codes and his passwords, opens doors
+  (slowly), hides when shooting starts, and takes credit afterwards. She is
+  a character on the map, not only a voice: she walks ahead of you, stops at
+  doors, and can't be killed (shots knock her over; she gets up complaining).
 - **The Bragium**: purple crystal, glowing. The ore on the early maps, the
   molten river in the refinery, the fuel in every plasma gun.
 - **The robots** (see "The army").
@@ -112,16 +113,16 @@ a pest. Short lines, a joke in most of them.
 | `taunt` | Now and then | "I built every robot you're shooting. Think about my feelings." / "Fun fact: you're not the hero. I am." |
 | `down` | A player goes down | "Ha! Did you see that? Somebody clip that." / "Respawn's on me. Literally. I own the respawn stations." |
 | `kill` | A big robot falls | "That was a prototype! Do you know what those cost?" / "Fine. FINE. I'll build ten more." |
-| `yappy` | Yappy says something | "Is that... a YAP unit? I recalled those." / "Who let that thing talk?" |
+| `yappy` | Yappy says something | "Is that my secretary? You're fired. Again." / "Who let her near a phone?" |
 
 ### YAP-TP
 
-**Portrait** (64x72): his face, which is his whole body: a yellow box, the
-blue eye taking up most of it, a vent mouth that flickers when he talks,
-an antenna on top. Blinks with a shutter; the eye goes big when he is
-excited and squints when he lies.
+**Portrait** (64x72): a young woman on a comms headset, auburn hair with a
+side-swept fringe and a swinging ponytail, blue eyes, a blue parka zipped
+up to its fur collar. She blinks; while she talks her brows go up, her
+mouth moves and the mic's light comes on.
 
-**Voice.** Loud, eager, cowardly, sure he is in charge. Calls you "minion".
+**Voice.** Loud, eager, cowardly, sure she is in charge. Calls you "minion".
 
 | Category | When | Examples |
 | --- | --- | --- |
@@ -129,7 +130,7 @@ excited and squints when he lies.
 | `door` | Opening a door | "Opening! Opening... Hold on, I have a lot of tabs open." |
 | `hide` | Shooting starts | "I am bravely hiding!" / "Tactical retreat! Tactical retreat!" |
 | `win` | A wave cleared | "We did it! By we I mean me." |
-| `hit` | Knocked over | "Ow! My everything!" / "I'm fine! I'm fine. Is my wheel on?" |
+| `hit` | Knocked over | "Ow! My everything!" / "I'm fine! I'm fine. Is my hair okay?" |
 
 **Intro screen lines** (one per map, Jerry's portrait, picked by index like
 `cyber-feud/screen.lua`):
@@ -262,10 +263,10 @@ Bragium that powers it. Kill feed verb: "melted".
 ### The story, beat by beat
 
 1. **The Frozen Wreck.** Snow, the train wreck smoking. Jerry on a cracked
-   screen in the wreck: "Sorry about the train." Yappy rolls up, declares
-   you his minion, and says he knows the way to Jerry's bunker. Junk
+   screen in the wreck: "Sorry about the train." Yappy digs you out,
+   declares you her minion, and says she knows the way to Jerry's bunker. Junk
    haulers are stripping the wreck; the Knuckle Scrapper rises out of it.
-2. **Liar's Landing.** Yappy needs the ferry lift to cross the bay. He
+2. **Liar's Landing.** Yappy needs the ferry lift to cross the bay. She
    hacks the controls (a timed hold, waves of gun haulers and drones, the
    first rocket hauler) and the lift carries you over.
 3. **The Bragium Pit.** Jerry's mine. You see what the Bragium is for:
@@ -276,15 +277,15 @@ Bragium that powers it. Kill feed verb: "melted".
    Jerry angrier; on the last he storms off and forgets to lock the gate.
 5. **The Refinery.** Where the Bragium is melted down. Catwalks over the
    molten river. The Smelter guards the outflow.
-6. **The Assembly Line.** Where the army is built. Yappy is upset: the line
-   once built YAP units. The Foreman runs the floor.
+6. **The Assembly Line.** Where the army is built. Yappy typed up the order
+   for every robot it ever built, and never got a thank you. The Foreman runs the floor.
 7. **Thousand Papercuts.** The road up to the bunker. Yappy opens the door
    ("I have a lot of tabs open") while everything Jerry has left comes at
    you.
 8. **The Bunker.** On its roof, the cannons, then the bunker lifts off.
-   Bring it down and Yappy plugs into its core and shuts the army down:
-   every robot on Pandoria stops. Including Yappy, who reboots a second
-   later: "Did we win? I feel like I won." Jerry's last word, on the one
+   Bring it down and Yappy logs in on Jerry's computer (the password is
+   "handsome") and shuts the army down: every robot on Pandoria stops. "Did
+   we win? I feel like I won." Jerry's last word, on the one
    screen still lit: "You'll pay for this. Literally. I'm billing you."
    HOME star on the roof.
 
@@ -344,7 +345,7 @@ loading door onto the yard), the factory's roofs running on past the
 edge. Played at dusk (`night` { 0.58, 0.62, 0.78 }) under floodlight
 towers.
 
-- **Arrival:** the yard gate at the bottom. Yappy rolls up.
+- **Arrival:** the yard gate at the bottom. Yappy catches up.
 - **The excavations:** three deep holes in the yard, fenced and hazard
   striped, DANGER DEEP EXCAVATION painted by each; nobody walks in, rounds
   fly over. A tower crane works over each from a corner, its jib swinging
@@ -388,7 +389,7 @@ dusk under floodlight towers, like the Wreck.
 - Gun haulers on the containers' corners, medic drones, two rocket haulers
   on crane platforms.
 - **The ferry lift:** a platform at the quay. Yappy hacks it (stand with
-  him: 60 s, waves come in, the timer stops while nobody is near him).
+  her: 60 s, waves come in, the timer stops while nobody is near him).
   When it's done the lift is the EXIT: "THE BRAGIUM PIT".
 
 ### 3. The Bragium Pit (`pit`, 60x60, at dusk)
@@ -524,7 +525,7 @@ eleven cannons.
   charged laser from its eye (a red line, 1 s, then the beam). Its red eye
   is the weak spot: hits there do double. Below half it flies faster and
   parks less.
-- **The end:** BNK-9 crashes. Yappy plugs in, the army stops, the last
+- **The end:** BNK-9 crashes. Yappy logs in, the army stops, the last
   lines. HOME star on the pad.
 
 ## The reward: the Bragium Bolter
@@ -542,8 +543,8 @@ tiers (`tierStats`, read through `Tiers.apply`).
   Bragium: all proposals.
 - **Plasma's effect.** "Melted" (armor halved for 3 s) is a proposal.
 - **The torso crawl.** In for every hauler, or only the bigger ones.
-- **Yappy on the map.** A character that rolls ahead is new (closest is
-  nothing yet); he could stay a voice only if that's too much.
+- **Yappy on the map.** A character that walks ahead is new (closest is
+  nothing yet); she could stay a voice only if that's too much.
 - **New pieces the maps need:** an outline pass for the look, conveyor
   belts (shared with Eternal Mood's Foundry), the hold-the-spot objective
   (maps 2 and 7), a flying boss drawn over everything.

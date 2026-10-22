@@ -6,7 +6,7 @@
 --                     tagline, on arriving
 --   the zone banner   the part of the map just walked into (city-map's
 --                     `map.zones`)
---   the comms         Jerry or Yappy's portrait and what he says, typed out
+--   the comms         Jerry or Yappy's portrait and what they say, typed out
 --   the objective     what to do next and how far it is
 -- init.lua keeps the state and calls in here.
 
