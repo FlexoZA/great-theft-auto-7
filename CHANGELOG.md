@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-22
+
+Bosses stop getting stuck and fight on while they go for medkits, shots now bleed or spark where they land,
+and the AR is a prize from General Volt.
+
 ### Added
 - Shooting an enemy shows where the round went in: blood sprays out the far side and spots the ground
   (green for antlions), and drones, turrets, droids, rollermines, the Tripod, the Hunter-Chopper and a
