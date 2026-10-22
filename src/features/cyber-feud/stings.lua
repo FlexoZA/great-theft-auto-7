@@ -167,7 +167,7 @@ function Stings.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     end
     Features.call("serverKill", server, { kind = "drone", x = s.x, y = s.y, by = by, angle = angle, cause = dtype })
   end
-  return true
+  return "metal"
 end
 
 --- Every sting in the air, for the audit (tools/audit). Outdoors it flies

@@ -24,7 +24,9 @@
 -- (his health), has the boss bar, goes for medkits when badly hurt, dodges
 -- abilities, and going down raises `serverKill` "boss" and spills koins. He
 -- also drops his electric grenades, a stack each player can pick up, which
--- unlocks them (the grenades feature's, with the reward screen).
+-- unlocks them (the grenades feature's, with the reward screen), and an AR
+-- each, in a tier that gets better every time the job is finished again,
+-- which unlocks it in the shop (weapons/guns.lua's `unlock`).
 -- Only players' rounds reach him (the feud's pass him by).
 --
 -- Messages
@@ -46,7 +48,9 @@ local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
 local Corpses = require("src.features.corpses")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 local Bar = require("src.features.bosses.bar")
 local Radio = require("src.features.a-man.radio")
 local Hud = require("src.features.cyber-feud.hud")
@@ -67,6 +71,7 @@ Volt.STROLL = 40 -- px/s winded
 Volt.BREATH = { drain = 10, regen = 14, recovered = 50, breath = 40 }
 Volt.RANGE = 720 -- px he sees
 Volt.KEEP = 320 -- px he keeps from whoever he has
+Volt.KITE_FAR = 200 -- px: kiting to a medkit, he stops to bolt only while it is further than this
 Volt.BOLT_RANGE = 640 -- px a bolt reaches (or the first wall)
 Volt.BOLT_WIDTH = 20 -- px either side of its line it hits
 Volt.BOLT_DAMAGE = 30 -- shock: a stun
@@ -97,7 +102,8 @@ Volt.STRIKE_RADIUS = 55 -- px
 Volt.STRIKE_DAMAGE = 20 -- shock, to someone on foot
 Volt.STRIKE_AIMED = 0.4 -- chance it comes down right on them (within 30 px)...
 Volt.STRIKE_NEAR, Volt.STRIKE_FAR = 90, 320 -- ...the rest this far off
-Volt.GRENADES_AWAY = 160 -- px from his body his electric grenades land: well clear of the pass code
+Volt.GRENADES_AWAY = 160 -- px from his body his electric grenades and the ARs land: well clear of the pass code
+Volt.AR = "gun-ar" -- the gun he leaves each player (and unlocks), in a tier from Bosses.dropTier
 
 Volt.lines = {
   "You want the dock code? Come and get it, courier.",
@@ -131,32 +137,18 @@ end
 
 function Volt.new(x, y, hp, nav)
   return setmetatable({
-    x = x, y = y, facing = math.pi / 2, aim = math.pi / 2, hp = hp, max = hp, nav = nav, time = 0,
+    x = x, y = y, facing = math.pi / 2, aim = math.pi / 2, hp = hp, max = hp, time = 0,
     aiming = false, aimT = 0, boltIn = 1.5, lobIn = 4, sayIn = 6, frozen = 0, stuck = 0, side = 0.5,
     phase2 = false, backups = 0, grenades = {}, breath = Stamina.new(Volt.BREATH), running = false, mode = "hunt",
     power = Bosses.power(), -- what his hits are multiplied by: harder on a job finished before
+    nav = nav and Walk.nav(nav, Sight.blocked, Volt.RADIUS), -- the walking grid as he fits through it
   }, Volt)
 end
 
-local function fits(x, y)
-  local r = Volt.RADIUS
-  return not (Sight.blocked(x, y) or Sight.blocked(x - r, y) or Sight.blocked(x + r, y)
-    or Sight.blocked(x, y - r) or Sight.blocked(x, y + r))
-end
-
+--- A tick along `angle` at `speed`, round the stalls (bosses/walk.lua).
+--- False when he got nowhere.
 function Volt:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return
-  end
-  self.stuck = 0
+  return Walk.step(self, Sight.blocked, angle, speed, dt, Volt.RADIUS)
 end
 
 function Volt:pace()
@@ -331,13 +323,17 @@ function Volt.serverStep(server, dt)
 end
 
 --- Open ground `Volt.GRENADES_AWAY` from (x, y) with nothing solid on the
---- way there (the `blocksPoint` convention), for his grenades: the first of
---- eight directions round him that is clear, or right beside him if none is.
-local function grenadeSpot(x, y)
+--- way there (the `blocksPoint` convention), for his drops: the first of
+--- eight directions round him (0 to 7) that is clear, counting on from
+--- direction `first` (0 otherwise) and never direction `taken`, or right
+--- beside him that way if none is. Returns x, y and the direction.
+local function dropSpot(x, y, first, taken)
   local d = Volt.GRENADES_AWAY
+  first = first or 0
   for i = 0, 7 do
-    local a = i * math.pi / 4
-    local clear = true
+    local dir = (i + first) % 8
+    local a = dir * math.pi / 4
+    local clear = dir ~= taken
     for k = 1, 8 do
       local px, py = x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8
       if Features.any("blocksPoint", px, py) then
@@ -346,10 +342,11 @@ local function grenadeSpot(x, y)
       end
     end
     if clear then
-      return x + math.cos(a) * d, y + math.sin(a) * d
+      return x + math.cos(a) * d, y + math.sin(a) * d, dir
     end
   end
-  return x + 48, y + 10
+  local a = first * math.pi / 4
+  return x + math.cos(a) * 48, y + math.sin(a) * 48, first
 end
 
 --- Down: his last word, his body, koins, the kill, and the pass code on the floor.
@@ -372,10 +369,16 @@ local function down(server, by, angle)
   -- which unlocks them (the grenades feature's). Away from his body, so
   -- going for them and their reward screen isn't mistaken for the pass code.
   local pickups, grenades = Features.byName.pickups, Features.byName.grenades
+  local gx, gy, gdir = dropSpot(v.x, v.y)
   if pickups and pickups.serverDrop and grenades and grenades.kinds then
-    local gx, gy = grenadeSpot(v.x, v.y)
     pickups:serverDrop(server, "grenade-electric", gx, gy, grenades.kinds["grenade-electric"].reward,
       { perPlayer = true, unlocks = true })
+  end
+  -- An AR each, on the far side of him from the grenades (never their way,
+  -- so the two never land on each other).
+  if pickups and pickups.serverDrop then
+    local ax, ay = dropSpot(v.x, v.y, (gdir + 4) % 8, gdir)
+    pickups:serverDrop(server, Tiers.join(Volt.AR, Bosses.dropTier()), ax, ay, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = v.x, y = v.y, by = by, angle = angle })
 end
@@ -456,7 +459,8 @@ function Volt.wikiEnemies(add)
       "Keep out of the rings where his grenades and the storm's strikes will land.",
       "Hit him while he is winded, and thin out his backup before it gets to you.",
     },
-    drops = ("%g koins, his pass code, and electric grenades for every player (unlocking them)"):format(Volt.DROPS),
+    drops = ("%g koins, his pass code, and electric grenades and an AR for every player (unlocking them both)")
+      :format(Volt.DROPS),
   })
 end
 

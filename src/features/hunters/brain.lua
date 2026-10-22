@@ -16,8 +16,10 @@
 --            stun shot instead (with `lockAim`, down the line it set when
 --            the charge began)
 --   heal     badly hurt (under HEAL_BELOW of its health) with a medkit or
---            an energy drink lying within HEAL_RANGE: it breaks off and runs
---            for it, takes it, and goes back to whatever it was doing
+--            an energy drink lying within HEAL_RANGE: it breaks off, takes
+--            it, and goes back to whatever it was doing. With somebody in
+--            its sights it kites there (the boss standard's point 7): walks,
+--            facing them and firing bursts (no stun shot); nobody, it runs
 --   dodge    something is about to hit it (Brain.threatLine, a round on
 --            its way; Brain.threatArea, an ability about to land): a quick
 --            dash out of the way, then on with the rest. It can't dodge
@@ -44,7 +46,8 @@
 -- Its eyes are City 17's Combine soldiers': a cone of sight (wider while
 -- it is on edge, `alertFov`), walls in the way, and anyone within `aware`
 -- whichever way it faces (d-day/sight.lua). It finds its way round walls
--- with a walking grid (d-day/nav.lua).
+-- with a walking grid (d-day/nav.lua) as its body fits through it, and
+-- walks as every boss does (bosses/walk.lua, the standard's point 10).
 --
 -- Another enemy can think the same way with its own pace (the Cyber Feud's
 -- assassin droids, cyber-feud/droids.lua): Brain.new's `pace`, `dodgeCool`,
@@ -53,6 +56,7 @@
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 Brain.__index = Brain
@@ -114,6 +118,17 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
+--- Does anything stop a walker at the point (x, y)? Any feature's
+--- `blocksPoint` (walls, the water...). Its width is Walk.fits's business.
+local function blocksPoint(x, y)
+  for _, f in ipairs(Features.list) do
+    if f.blocksPoint and f:blocksPoint(x, y) then
+      return true
+    end
+  end
+  return false
+end
+
 --- A set of hunters. `opts`: fov, alertFov, aware, health, radius, nav (a
 --- walking grid, d-day/nav.lua, or nil to walk straight), and for healing:
 ---   find(x, y, range)       the nearest pickup to heal with, { x, y, ... }, or nil
@@ -132,7 +147,7 @@ function Brain.new(opts)
   return setmetatable({
     list = {}, nextId = 1, time = 0, ticks = 0, calls = {},
     fov = opts.fov, alertFov = opts.alertFov or opts.fov, aware = opts.aware or 0,
-    health = opts.health, radius = opts.radius, nav = opts.nav,
+    health = opts.health, radius = opts.radius, nav = opts.nav and Walk.nav(opts.nav, blocksPoint, opts.radius),
     find = opts.find, there = opts.there, take = opts.take,
     pace = opts.pace or 1, dodgeCool = opts.dodgeCool or Brain.DODGE_COOL,
     stunCharge = opts.stunCharge or Brain.STUN_CHARGE, stunEvery = opts.stunEvery or Brain.STUN_EVERY,
@@ -164,21 +179,13 @@ end
 
 -- Moving --------------------------------------------------------------------
 
+--- Is there no room for one of these at (x, y)?
 function Brain:blocked(x, y)
-  local r = self.radius
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if f:blocksPoint(x, y) or f:blocksPoint(x - r, y) or f:blocksPoint(x + r, y) or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r) then
-        return true
-      end
-    end
-  end
-  return false
+  return not Walk.fits(blocksPoint, x, y, self.radius)
 end
 
---- A step along (ux, uy) at `speed`, each axis on its own so a wall is
---- slid along. Returns false if it got nowhere.
+--- A step along (ux, uy) at `speed`, sliding along walls and feeling round
+--- corners (bosses/walk.lua). Returns false if it got nowhere.
 function Brain:step(h, ux, uy, speed, dt)
   if not h.dodging then
     if h.breath:winded() then
@@ -191,33 +198,41 @@ function Brain:step(h, ux, uy, speed, dt)
   if h.haste > 0 then
     speed = speed * Brain.HASTE
   end
-  local px, py = h.x, h.y
-  local nx = h.x + ux * speed * dt
-  if not self:blocked(nx, h.y) then
-    h.x = nx
-  end
-  local ny = h.y + uy * speed * dt
-  if not self:blocked(h.x, ny) then
-    h.y = ny
-  end
-  local moved = dist2(h.x, h.y, px, py) > (speed * dt * 0.3) ^ 2
-  h.stuck = moved and 0 or h.stuck + dt
-  return moved
+  return Walk.step(h, blocksPoint, math.atan2(uy, ux), speed, dt, self.radius)
 end
 
---- Towards (x, y) at `speed`, round walls on the walking grid. Returns the
---- way it is heading, and true once it is there.
+--- Can `h` walk straight to (x, y), its whole width?
+function Brain:straight(h, x, y)
+  return Walk.wideClear(blocksPoint, h.x, h.y, x, y, self.radius)
+end
+
+--- Towards (x, y) at `speed`, round walls on the walking grid (straight
+--- when its whole width gets there). Returns the way it is heading, true
+--- once it is there, and true when there is no way it fits (it holds
+--- then, rather than grind into a wall).
 function Brain:goTo(h, x, y, speed, dt)
   local g = h.goal
-  if not g or dist2(g.x, g.y, x, y) > 64 * 64 or h.stuck > 0.8 or self.time > g.replanAt then
-    local corners = self.nav and self.nav:path(h.x, h.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = self.time + 1.5 }
-    h.goal, h.stuck = g, 0
+  if not g or dist2(g.x, g.y, x, y) > Walk.MOVED ^ 2 or self.time > g.replanAt
+    or (h.stuck > 0.3 and self.time > g.madeAt + 0.3) then
+    local corners
+    if not self.nav or self:straight(h, x, y) then
+      corners = { { x = x, y = y } }
+    else
+      corners = self.nav:path(h.x, h.y, x, y)
+    end
+    g = { x = x, y = y, corners = corners, at = 1, madeAt = self.time, replanAt = self.time + Walk.REPLAN }
+    h.goal = g
+  end
+  if not g.corners then
+    return h.facing, false, true
   end
   local c = g.corners[g.at]
   local d = math.sqrt(dist2(h.x, h.y, c.x, c.y))
-  if d < 14 then
-    if g.at >= #g.corners then
+  local last = g.at >= #g.corners
+  -- The end may be where its body doesn't quite fit (brushing a wall): near
+  -- enough, and getting no nearer, is there.
+  if d < (last and 14 or Walk.ARRIVE) or (last and d < 2 * self.radius + 10 and h.stuck > 0.2) then
+    if last then
       return h.facing, true
     end
     g.at = g.at + 1
@@ -398,9 +413,10 @@ function Brain:stunShot(server, h, tx, ty, dt)
   return false
 end
 
---- Its trigger, while it has somebody at (tx, ty) in its sights.
-function Brain:shoot(server, h, tx, ty, dt)
-  if self:stunShot(server, h, tx, ty, dt) then
+--- Its trigger, while it has somebody at (tx, ty) in its sights; `noStun`
+--- to keep to bursts.
+function Brain:shoot(server, h, tx, ty, dt, noStun)
+  if not noStun and self:stunShot(server, h, tx, ty, dt) then
     return
   end
   h.fireIn = h.fireIn - dt
@@ -425,8 +441,8 @@ end
 
 function Brain:patrol(h, dt)
   local to = h.route[h.leg]
-  local heading, there = self:goTo(h, to.x, to.y, Brain.PATROL, dt)
-  if there then
+  local heading, there, nowhere = self:goTo(h, to.x, to.y, Brain.PATROL, dt)
+  if there or nowhere then -- a corner it can't get to: on to the next
     h.leg = h.leg % #h.route + 1
     h.goal = nil
   end
@@ -436,10 +452,10 @@ end
 
 function Brain:search(h, dt)
   if not h.searchFor then
-    local heading, there = self:goTo(h, h.lastX, h.lastY, Brain.RUN, dt)
+    local heading, there, nowhere = self:goTo(h, h.lastX, h.lastY, Brain.RUN, dt)
     h.facing = turn(h.facing, heading, Brain.TURN, dt)
     h.moving = true
-    if there or h.stuck > 2 then
+    if there or nowhere or h.stuck > 2 then
       h.searchFor, h.lookFrom = Brain.SEARCH_TIME, h.facing
     end
     return
@@ -478,7 +494,13 @@ function Brain:fight(server, h, tx, ty, dt)
   if home and dist2(h.x + mx * 40, h.y + my * 40, home.x, home.y) > Brain.LEASH * Brain.LEASH then
     mx, my = -uy * h.side, ux * h.side -- at the end of its leash: only across
   end
-  if not h.charge then -- charging, it stands its ground
+  if h.charge then -- charging, it stands its ground
+    h.goal = nil
+  elseif d > Brain.KEEP_MAX and not self:straight(h, tx, ty) then
+    self:goTo(h, tx, ty, Brain.RUN, dt) -- round whatever is in the way, its whole width
+    h.moving = true
+  else
+    h.goal = nil
     self:step(h, mx, my, speed, dt)
     h.moving = true
   end
@@ -496,16 +518,26 @@ function Brain.after(h)
 end
 
 --- After the pickup it chose; back to what it was doing once it has it,
---- or if somebody else got there first.
-function Brain:heal(server, h, dt)
+--- if somebody else got there first, or if it can't get there. With
+--- somebody at (tx, ty) in its sights it kites (the boss standard's point
+--- 7): it walks there facing them and keeps firing, no stun shot; nobody in
+--- sight, it runs for it.
+function Brain:heal(server, h, tx, ty, dt)
   local p = h.pickup
   if not p or (self.there and not self.there(p)) then
     h.pickup, h.mode = nil, Brain.after(h)
     return
   end
-  local heading, there = self:goTo(h, p.x, p.y, Brain.RUN, dt)
-  h.facing = turn(h.facing, heading, Brain.TURN, dt)
+  local heading, there, nowhere = self:goTo(h, p.x, p.y, tx and Brain.PATROL or Brain.RUN, dt)
+  if nowhere then
+    h.pickup, h.goal, h.mode = nil, nil, Brain.after(h)
+    return
+  end
+  h.facing = turn(h.facing, tx and math.atan2(ty - h.y, tx - h.x) or heading, Brain.TURN, dt)
   h.moving = true
+  if tx then
+    self:shoot(server, h, tx, ty, dt, true)
+  end
   if there or dist2(h.x, h.y, p.x, p.y) < 24 * 24 then
     local hp, haste, breath = 0, 0, 0
     if self.take then
@@ -531,6 +563,7 @@ function Brain:wantsHeal(h)
   local p = self.find(h.x, h.y, Brain.HEAL_RANGE)
   if p then
     h.pickup, h.mode, h.goal = p, "heal", nil
+    h.charge, h.chargeAt = nil, nil -- no stun shot on the way
     return true
   end
   return false
@@ -631,11 +664,8 @@ function Brain:think(server, h, dt)
   end
   self:wantsHeal(h)
   if h.mode == "heal" then
-    self:heal(server, h, dt)
     local tx, ty = poseOf(server, h.target)
-    if tx and h.mode == "heal" then
-      self:shoot(server, h, tx, ty, dt) -- if it happens to face them on the way
-    end
+    self:heal(server, h, tx, ty, dt)
     return
   end
   local tx, ty = poseOf(server, h.target)

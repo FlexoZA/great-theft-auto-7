@@ -44,6 +44,7 @@ local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Fireballs = require("src.features.eternal-mood.fireballs")
+local Walk = require("src.features.bosses.walk")
 local Look = require("src.features.eternal-mood.floor_manager_look")
 
 local FloorManager = {}
@@ -63,6 +64,8 @@ FloorManager.TURN = 3 -- rad/s the body turns
 FloorManager.BREATH = { drain = 9, regen = 14, recovered = 50, breath = 40 }
 FloorManager.RANGE = 760 -- px he sees
 FloorManager.KEEP = 340 -- px he keeps from whoever he has, cannon and all
+FloorManager.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+FloorManager.KITE_FAR = 250 -- px: kiting to a medkit, he only charges the cannon (a stand-still stream) further off it
 FloorManager.SIDE_EVERY = { 1.5, 3 } -- seconds before he side-steps the other way
 FloorManager.MUZZLE = 68 -- px in front of his middle: the cannon's end (and where it's hit), as drawn
 FloorManager.CANNON_HIT = 18 -- px round the cannon a round counts as on it
@@ -129,14 +132,6 @@ function FloorManager.new(x, y, facing, hp, cannon, nav)
   }, FloorManager)
 end
 
-local function fits(x, y)
-  local r = FloorManager.RADIUS
-  local k = r * 0.7
-  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
-    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - k, y - k)
-    or Ground.blocked(x + k, y - k) or Ground.blocked(x - k, y + k) or Ground.blocked(x + k, y + k))
-end
-
 --- Turn the body towards `angle`.
 function FloorManager:turn(angle, dt)
   local d = Sight.angleDiff(angle, self.facing)
@@ -149,20 +144,14 @@ function FloorManager:turn(angle, dt)
 end
 
 --- Walk along `angle` at `speed`, whichever way he faces (he floats),
---- sliding along walls.
+--- sliding along walls and feeling his way round corners (Ground.walk).
 function FloorManager:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return
-  end
-  self.stuck = 0
+  return Ground.walk(self, angle, speed, dt, FloorManager.RADIUS)
+end
+
+--- Can he float straight from where he is to (x, y), hull and all?
+function FloorManager:straight(x, y)
+  return Ground.wideClear(self.x, self.y, x, y, FloorManager.RADIUS)
 end
 
 function FloorManager:pace()
@@ -178,16 +167,17 @@ end
 
 local sv = nil -- { m, spec, awake, syncIn, down }
 
---- Him on `map`'s lift (its `horde.boss` of kind "floor-manager"), finding his way on `nav`. Nothing on a
---- map without him.
+--- Him on `map`'s lift (its `horde.boss` of kind "floor-manager"), finding his way on `nav` (by the cells his
+--- hull fits, bosses/walk.lua). Nothing on a map without him.
 function FloorManager.serverStart(server, map, nav)
   FloorManager.serverStop(server)
   local spec = map.horde and map.horde.boss
   if not (spec and spec.kind == "floor-manager") then
     return
   end
+  local wide = nav and Walk.nav(nav, Ground.blocked, FloorManager.RADIUS)
   sv = { m = FloorManager.new(spec.x, spec.y, spec.facing or math.pi / 2, Bosses.health(FloorManager.HEALTH, server),
-    Bosses.health(FloorManager.CANNON, server), nav), spec = spec, awake = false, syncIn = 0 }
+    Bosses.health(FloorManager.CANNON, server), wide), spec = spec, awake = false, syncIn = 0 }
 end
 
 function FloorManager.serverStop(server)

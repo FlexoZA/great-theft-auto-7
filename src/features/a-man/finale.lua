@@ -192,6 +192,7 @@ local function arrive(server, map, p)
     x = x, y = y, facing = math.atan2(py - y, px - x), hp = hp, max = hp, frozen = Finale.arriveTime,
     power = Bosses.power(), -- his blinks, times this
     moving = false, breath = Stamina.new(Finale.breath), cool = Finale.arriveTime + Finale.blinkEvery,
+    nav = Brain.nav({ x = map.left, y = map.top, w = map.w, h = map.h }, Finale.radius),
   }
   sv.owed, sv.nextCaseAt, sv.caseIn = 0, hp * (1 - Finale.caseShare), 0
   server:broadcast(Protocol.encode("AMF_IN", fmt(x), fmt(y), ("%.2f"):format(sv.a.facing)))
@@ -388,7 +389,7 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return false
   end
   if Turrets.hit(sv.turrets, server, x, y, radius) then
-    return true
+    return "metal"
   end
   local a = sv.a
   if not a or dist2(a.x, a.y, x, y) >= (radius + Finale.radius) ^ 2 then

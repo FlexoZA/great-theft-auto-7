@@ -12,7 +12,10 @@
 --   fight  somebody it can see: it keeps its distance (KEEP), walking any
 --          way on its legs, turning to face them, and lets fly
 --   heal   badly hurt (bosses/heal.lua): off for the nearest medkit
---          lying within reach ("...comfy...")
+--          lying within reach ("...comfy..."); with somebody in sight it
+--          kites there, facing them and slamming whoever comes close, and
+--          spins up the chaingun or yawns only while it is still far off
+--          (KITE_FAR)
 --
 -- Its moves, each with a tell before it lands:
 --
@@ -141,6 +144,56 @@ local function nextAttack(m)
   m.attackIn = between(m.phase2 and m.ATTACK_EVERY_2 or m.ATTACK_EVERY)
 end
 
+--- A yawn, a slam or a burst at `target` (`d` off, along `toward`), if one
+--- is due; true when one starts. Kiting to a medkit (`kiting`), the
+--- stand-still ones (a yawn, the chaingun) only while that is still far off.
+local function attack(m, target, d, toward, kiting)
+  local facing = math.abs(Sight.angleDiff(toward, m.facing))
+  local far = not (kiting and dist2(m.x, m.y, m.medkit.x, m.medkit.y) < m.KITE_FAR ^ 2)
+  if m.phase2 and m.yawnIn <= 0 and far then
+    m.move, m.moveT = "yawn", 0
+    return true
+  end
+  if d <= m.SLAM_REACH and m.slamIn <= 0 then
+    m.move, m.moveT = "slam", 0
+    return true
+  end
+  if m.attackIn <= 0 and facing < 0.4 and m.breath:has(m.FIRE_COST) and far then
+    m.breath:spend(m.FIRE_COST)
+    m.move, m.moveT, m.aim, m.aimAt = "spin", 0, toward, target
+    return true
+  end
+  return false
+end
+
+--- Off to the medkit it's after, picking it up there: kiting with somebody
+--- in sight (bosses/init.lua's point 7), straight for it with nobody.
+local function heal(m, server, events, dt, target, tx, ty, visible)
+  m.mode = "heal"
+  local kit = m.medkit
+  local way = Heal.way(m, m.nav, kit, m.time)
+  if not way then -- no way there it fits: it fights on, and looks again in a while
+    Heal.giveUp(m, m.time)
+    return false
+  end
+  if visible then
+    local toward = math.atan2(ty - m.y, tx - m.x)
+    m:turn(toward, dt)
+    if attack(m, target, math.sqrt(dist2(tx, ty, m.x, m.y)), toward, true) then
+      return
+    end
+    if way then
+      m:walk(way, m:pace(), dt)
+    end
+  else
+    goTo(m, kit.x, kit.y, m:pace(), dt)
+  end
+  m.running = not m.breath:winded()
+  if (Heal.pickUp(server, m, m.RADIUS) or 0) > 0 then
+    events[#events + 1] = { "say", m.LINE.heal }
+  end
+end
+
 --- What it does this tick. Returns the events the others should hear
 --- about: { "say", line }, { "round", x, y, angle }, { "hit", name, x, y }, { "call" }.
 function Brain.think(m, server, dt)
@@ -225,23 +278,12 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
+  local target, tx, ty, visible = Brain.target(m, server)
   if wantsHeal(m) then
-    m.mode = "heal"
-    local kit = m.medkit
-    goTo(m, kit.x, kit.y, m:pace(), dt)
-    m.running = not m.breath:winded()
-    if Heal.within(kit, m.x, m.y, m.RADIUS) then
-      local got = Heal.take(server, kit)
-      m.hp = math.min(m.max, m.hp + got)
-      m.medkit, m.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", m.LINE.heal }
-      end
-    end
+    heal(m, server, events, dt, target, tx, ty, visible)
     m.breath:step(m.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(m, server)
   if not target then
     m.mode = "home"
     local h = m.home
@@ -268,20 +310,7 @@ function Brain.think(m, server, dt)
   end
   m.mode, m.goal = "fight", nil
   m:turn(toward, dt)
-  local facing = math.abs(Sight.angleDiff(toward, m.facing))
-  if m.phase2 and m.yawnIn <= 0 then
-    m.move, m.moveT = "yawn", 0
-    m.breath:step(false, dt)
-    return events
-  end
-  if d <= m.SLAM_REACH and m.slamIn <= 0 then
-    m.move, m.moveT = "slam", 0
-    m.breath:step(false, dt)
-    return events
-  end
-  if m.attackIn <= 0 and facing < 0.4 and m.breath:has(m.FIRE_COST) then
-    m.breath:spend(m.FIRE_COST)
-    m.move, m.moveT, m.aim, m.aimAt = "spin", 0, toward, target
+  if attack(m, target, d, toward) then
     m.breath:step(false, dt)
     return events
   end
