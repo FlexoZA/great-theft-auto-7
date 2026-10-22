@@ -14,6 +14,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- Players' bullets trail a short red tracer, so you can see your shots on dark and busy maps.
+
 ## [0.40.0] - 2026-10-22
 
 Bosses stop getting stuck and fight on while they go for medkits, shots now bleed or spark where they land,
