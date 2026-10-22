@@ -221,6 +221,11 @@ function Tale.keypressed()
   return false
 end
 
+--- Is this screen on one of the line's levels, the map in play?
+function Tale.onLevel(map)
+  return onLevel(map)
+end
+
 function Tale.blurring(map)
   return cl.page ~= nil and onLevel(map)
 end

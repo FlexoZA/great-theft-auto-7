@@ -48,8 +48,15 @@ banners; the comms; the objective line), played by `tale.lua` (the host
 raises each level's beats once: start, a zone walked into, the first
 fight, the end; and the chatter: Jerry's taunts, his sulking over a big
 kill, both of them on a player going down, Yappy cheering now and then).
-Yappy is a voice so far, not on the map. No backdrops or music yet. See "Stages" at the end for the
-order.
+A golden halo hangs over what the objective line is after (`halo.lua`):
+every terminal still to hack, then the way on until the level is done,
+with a ring pinging round it on the minimap and the big map. The minimap
+shows each map's layout: its floor in the map's colour
+(`Borderline.MAP_FLOOR`) and the big things on it in theirs
+(`Borderline.MAP_COLORS`: sheds, the train, pits, containers, factories,
+the river), and its areas (`map.zones`): a dashed line between each, its
+name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Music so far only on
+the Frozen Wreck. See "Stages" at the end for the order.
 
 ## Decisions
 
@@ -333,8 +340,15 @@ its set piece is done; the objective line says what's left.
   the Frozen Wreck, Liar's Landing, the Bragium Pit, Prosperity and the
   Refinery and the Assembly Line (indoors, dark rather than dusk),
   Thousand Papercuts and the Bunker: every map.
-- Each map gets its own theme music: twangy frontier guitar over a
-  synth beat, faster the closer you get to the bunker.
+- Each map gets its own theme music, metal with a frontier twang, faster
+  the closer you get to the bunker (`borderline/music.lua` plays a map's
+  theme from when Jerry's screen goes: its intro once, then its loop). So
+  far the Frozen Wreck's (`theme_wreck.lua`): freight-yard thrash at 168
+  BPM in E minor. A train horn over wheels clacking faster and faster
+  opens it once; then a galloping low-E chug over a thrash beat, a
+  tremolo riff in E Phrygian dominant with anvils on the backbeat, a
+  chorus of open chords under a twangy slide lead, and a half-time
+  breakdown where rails clang and the wheels clack (~46 s loop).
 
 ### 1. The Frozen Wreck (`wreck`, 48x72, at dusk)
 

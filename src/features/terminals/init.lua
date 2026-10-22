@@ -359,23 +359,32 @@ function Terminals:actionTaken()
   return near ~= nil
 end
 
---- On this screen: the nearest terminal to (x, y) not done yet whose lock
---- holds the way on, and how many of those are left (0 and nil once the
---- way on is open, or on a map without any).
-function Terminals.nearestWaiting(x, y)
+--- On this screen: every terminal not done yet whose lock holds the way
+--- on (empty once the way on is open, or on a map without any).
+function Terminals.waiting()
   local map = cityMap()
-  local best, bestD2, left = nil, math.huge, 0
+  local list = {}
   for i, t in ipairs(terminalsOf(map)) do
     local l = lockNamed(map, t.lock)
     if l and l.exit and not l.open and not state(i).doneT then
-      left = left + 1
-      local d2 = x and dist2(x, y, t.x, t.y) or 0
-      if d2 < bestD2 then
-        best, bestD2 = t, d2
-      end
+      list[#list + 1] = t
     end
   end
-  return left, best
+  return list
+end
+
+--- On this screen: the nearest of those to (x, y), and how many are left
+--- (0 and nil once the way on is open, or on a map without any).
+function Terminals.nearestWaiting(x, y)
+  local list = Terminals.waiting()
+  local best, bestD2 = nil, math.huge
+  for _, t in ipairs(list) do
+    local d2 = x and dist2(x, y, t.x, t.y) or 0
+    if d2 < bestD2 then
+      best, bestD2 = t, d2
+    end
+  end
+  return #list, best
 end
 
 --- How far through its slow glow a waiting terminal is: 0 (dim) to 1 (bright).

@@ -101,8 +101,50 @@
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
+--   map.mapFloor          the floor's colour on the minimap (MAP_FLOOR); the big things in `map.cover`
+--                         carry a `mapColor` (MAP_COLORS)
 
 local Borderline = {}
+
+-- The minimap (the minimap feature) --------------------------------------------
+
+-- Each map's floor on the minimap and the big map, by map kind.
+Borderline.MAP_FLOOR = {
+  wreck = { 0.66, 0.69, 0.74 }, -- snow on concrete
+  landing = { 0.62, 0.65, 0.70 },
+  pit = { 0.52, 0.44, 0.40 }, -- the pit's earth
+  prosperity = { 0.70, 0.67, 0.60 }, -- its streets
+  refinery = { 0.30, 0.31, 0.35 }, -- indoors, dark
+  assembly = { 0.34, 0.35, 0.39 },
+  cuts = { 0.66, 0.69, 0.74 },
+  bunker = { 0.44, 0.46, 0.50 }, -- the armour plate
+}
+
+-- What shows on the minimap, by cover kind (the clutter, crates and cones
+-- and drums, stays off): `mapColor`, which the minimap draws.
+local YELLOW, STEEL, DARK = { 0.95, 0.76, 0.19 }, { 0.45, 0.47, 0.51 }, { 0.30, 0.32, 0.37 }
+local HOLE = { 0.12, 0.10, 0.10 }
+Borderline.MAP_COLORS = {
+  shed = DARK, tower = DARK, billboard = DARK, booth = DARK, press = DARK, nest = DARK, cannon = DARK, arm = DARK,
+  carriage = YELLOW, loco = YELLOW, statue = YELLOW, truck = YELLOW, gate = YELLOW, door = YELLOW, lift = YELLOW,
+  bay = YELLOW, hatch = YELLOW,
+  pit = HOLE, drydock = HOLE, shaft = HOLE, casting = HOLE, intake = HOLE, tunnel = { 0.05, 0.05, 0.06 },
+  bridge = STEEL, tank = STEEL, pad = STEEL, pipe = STEEL,
+  belt = { 0.25, 0.25, 0.28 }, conveyor = { 0.25, 0.25, 0.28 },
+  ledge = { 0.36, 0.31, 0.28 }, rails = { 0.40, 0.30, 0.22 },
+  river = { 1.00, 0.45, 0.10 }, ship = { 0.55, 0.16, 0.12 },
+}
+-- Containers in their own colours, as the map draws them.
+Borderline.CONTAINER_COLORS = {
+  { 0.80, 0.26, 0.20 }, { 0.22, 0.44, 0.72 }, { 0.28, 0.58, 0.34 }, { 0.90, 0.52, 0.16 },
+}
+
+local function mapColor(s)
+  if s.kind == "container" then
+    return Borderline.CONTAINER_COLORS[s.tint or 1]
+  end
+  return Borderline.MAP_COLORS[s.kind]
+end
 
 -- Blockout ---------------------------------------------------------------------
 
@@ -172,6 +214,7 @@ function Blockout:put(kind, x, y, w, h, opts)
   for k, v in pairs(opts or {}) do
     s[k] = v
   end
+  s.mapColor = s.mapColor or mapColor(s)
   self.map.cover[#self.map.cover + 1] = s
   if s.solid then
     self.map.solids[#self.map.solids + 1] = { x = x, y = y, w = w, h = h, water = s.water }
@@ -1295,6 +1338,7 @@ end
 --- Build map `map.kind` into `map` (Layout.generate's, with tiles still empty). `T` is the tile size.
 function Borderline.build(map, rng, T)
   Borderline.builders[map.kind](map, rng, T)
+  map.mapFloor = Borderline.MAP_FLOOR[map.kind]
 end
 
 return Borderline
