@@ -457,6 +457,15 @@ function CityMap:drawBelowCars(_client, camera)
   end
 end
 
+--- What lies past the map's edges inside (left, top, right, bottom), world
+--- px, on a map that draws that itself (the Borderline maps); the
+--- surroundings feature asks, under the canvas.
+function CityMap:drawPastEdges(left, top, right, bottom)
+  if self.map and self.map.tiles then
+    Render.drawPastEdges(self.map, left, top, right, bottom)
+  end
+end
+
 --- The map's fires (City 17's), flames and smoke over everything on the ground.
 function CityMap:drawAboveCars(_client, camera)
   if self.map and self.map.fires then

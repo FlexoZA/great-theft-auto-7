@@ -46,6 +46,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Frozen Wreck is now Hyperbole's freight yard at dusk: sheds round the sides, rails and a siding up the
   middle, three deep fenced-off excavations with tower cranes swinging loads over them, emergency beacons turning,
   floodlights, painted walkways and zebra crossings.
+- The Frozen Wreck's train looks wrecked: carriages tipped on their sides with smashed windows, bogies torn out,
+  ends crumpled and the ground torn up where they slid off the rails; two still burn, and the engine smokes with
+  its headlights on. Snow lies in drifts and patches with forklift tracks through it, the sheds have pitched,
+  snowed-on roofs with skylights and bay numbers, the factory roofs round the yard have skylights, vents and
+  pipes, the tunnel has a proper mouth with the rails running in, and the yard and its roofs carry on past the
+  edge of the map instead of stopping at black.
 - Liar's Landing is now a container port at dusk: gantry cranes on the quay unloading a freighter, a deep dry dock
   with a rusting hull down the west side and two cranes over it, painted lanes and bay numbers through the stacks,
   beacons round the ferry lift and floodlights over the yard.

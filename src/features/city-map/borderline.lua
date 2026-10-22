@@ -56,8 +56,10 @@
 --                         pad, tower, statue, lawn, billboard, gate, river, bridge, tank, pipe, belt, arm,
 --                         press, booth, stairs, bay, boulder, nest, door, cannon, vent, hatch; and the
 --                         Wreck's yard: pit (a deep excavation: `water`, no walking in, rounds go over),
---                         shed, mast (a crane's), flood (a floodlight tower), drum, and flat: tunnel,
---                         walkway, zebra, cone, paint (with `text`, `small`); Liar's Landing's: drydock
+--                         shed (`bay` its number), mast (a crane's), flood (a floodlight tower), drum, and
+--                         flat: tunnel (`railsX` where rails run in), walkway, zebra, cone, scar (ground
+--                         torn up by a carriage), paint (with `text`, `small`, `snowy`); a carriage may be
+--                         `burning`; Liar's Landing's: drydock
 --                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
 --                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck); Prosperity's
 --                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot; the
@@ -79,7 +81,10 @@
 --                         ({ x, y } bottom to top), buckets running the rope (works.lua)
 --   map.fans              { x, y, r, phase } turbine fans spinning in the bunker's intakes (works.lua)
 --   map.radars            { x, y, r } radar dishes turning (the Bunker; works.lua)
---   map.stacks            { x, y, phase } factory chimneys, their smoke rising (Prosperity; works.lua)
+--   map.stacks            { x, y, phase } smoke rising: factory chimneys (Prosperity), the wrecked train
+--                         (the Wreck; works.lua)
+--   map.tracks            { { x, y }, ... } forklifts' tracks through the snow, world px (the Wreck)
+--   map.dugout            { x, y } the hollow you were dug out of, at the arrival (the Wreck)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
 --   map.conveyors         { x, y, w, h, dir, cargo } conveyors running ("n", "e", "s" or "w"), world px,
@@ -313,6 +318,11 @@ Borderline.TRAIN = {
   { 26, 20, 1.5, 5 },
 }
 Borderline.LOCO = { 19, 9, 2, 6 }
+-- The carriages still burning (by their place in TRAIN): smoke, a glow,
+-- embers in a hole in the roof.
+Borderline.BURNING = { [4] = true, [6] = true }
+-- The rail bed's tiles (c0, c1): what a carriage slid off.
+Borderline.RAIL_BED = { 22, 25 }
 
 -- The excavations: deep holes in the yard (tiles: c, r, w, h), fenced off,
 -- each with a tower crane working over it from the corner (`crane`: the
@@ -354,19 +364,65 @@ local function crane(map, b, p, corner, at)
   map.beacons[#map.beacons + 1] = { x = x, y = y - 30, color = "amber" }
 end
 
+--- What the crash left that only shows: the ground torn up between each
+--- carriage and the rail bed it slid off, smoke and a glow over the engine
+--- and the carriages still burning, the engine's headlights still on,
+--- tyre tracks through the snow, the hollow you were dug out of. Nothing
+--- here is solid, and it takes no dice, so the yard plays as before.
+local function wreckage(map, b)
+  local bed = Borderline.RAIL_BED
+  for i, t in ipairs(Borderline.TRAIN) do
+    local c, r, w, h = t[1], t[2], t[3], t[4]
+    local from, to = nil, nil
+    if c + w <= bed[1] then
+      from, to = math.max(c + w, bed[1] - 4), bed[1]
+    elseif c >= bed[2] + 1 then
+      from, to = bed[2] + 1, math.min(c, bed[2] + 5)
+    end
+    if from and to - from >= 0.5 then
+      local across = math.min(h, 1.2)
+      b:place("scar", from, r + (h - across) / 2, to - from, across, { flat = true, seed = i * 37 })
+    end
+    if Borderline.BURNING[i] then
+      local x, y = b:x(c + w / 2), b:y(r + h / 2)
+      map.stacks[#map.stacks + 1] = { x = x, y = y, phase = i * 1.3 }
+      map.lights[#map.lights + 1] = { x = x, y = y, r = 260, color = { 1, 0.5, 0.18 }, a = 0.7 }
+    end
+  end
+  local L = Borderline.LOCO
+  local lx, ly = b:x(L[1] + L[3] / 2), b:y(L[2])
+  map.stacks[#map.stacks + 1] = { x = lx, y = ly + 170, phase = 0.4 }
+  map.lights[#map.lights + 1] = { x = lx, y = ly + 170, r = 200, color = { 1, 0.5, 0.18 }, a = 0.5 }
+  map.lights[#map.lights + 1] = { x = lx, y = ly - 120, r = 300, color = { 1, 0.95, 0.8 }, a = 0.6 } -- headlights
+  -- Forklifts' tracks between the sheds and the rails, through the snow (world px).
+  local function track(points)
+    local line = {}
+    for _, p in ipairs(points) do
+      line[#line + 1] = { b:x(p[1]), b:y(p[2]) }
+    end
+    map.tracks[#map.tracks + 1] = line
+  end
+  track({ { 8.5, 34 }, { 12, 35 }, { 15, 33.5 }, { 21, 33 } })
+  track({ { 41, 51 }, { 37, 52.5 }, { 33, 51 }, { 26, 50.5 } })
+  track({ { 40, 12 }, { 36, 15 }, { 33, 19 }, { 33, 27 }, { 34, 40 }, { 36, 58 }, { 33, 66 } })
+  track({ { 7, 61 }, { 10, 62 }, { 14, 64.5 }, { 18, 66 }, { 21, 68 } })
+  local first = map.spawns[1]
+  map.dugout = first and { x = first.x, y = first.y }
+end
+
 local function buildWreck(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "works"
-  map.cranes, map.beacons = {}, {}
+  map.cranes, map.beacons, map.stacks, map.tracks = {}, {}, {}, {}
   b:open(2, 3, map.cols - 3, map.rows - 3) -- the yard
   b:open(21, 0, 26, 2) -- the tunnel out
   b:open(20, map.rows - 3, 27, map.rows - 1) -- the gate in
   b:ground("yard", 0, 0, map.cols - 1, map.rows - 1)
-  b:ground("ballast", 22, 9, 25, map.rows - 1) -- the rail bed
+  b:ground("ballast", 22, 0, 25, map.rows - 1) -- the rail bed, out of the tunnel
   b:ground("ballast", 29, 12, 31, 60)
-  b:put("rails", b:x(23.5), b:y(9), 20, (map.rows - 9) * T, { flat = true })
+  b:put("rails", b:x(23.5), b:y(0), 20, map.rows * T, { flat = true })
   b:put("rails", b:x(30), b:y(12), 20, 48 * T, { flat = true }) -- a siding
-  b:place("tunnel", 21, 0, 6, 2.5, { flat = true })
+  b:place("tunnel", 21, 0, 6, 2.5, { flat = true, railsX = b:x(23.5) })
   b:place("gate", 20, map.rows - 2, 8, 2, { flat = true })
   -- The safety lines: a painted walkway up the west of the rails, zebra
   -- crossings over them, and DANGER painted by every hole.
@@ -374,20 +430,21 @@ local function buildWreck(map, rng, T)
   for _, r in ipairs({ 61, 43, 24 }) do
     b:place("zebra", 20, r, 12, 1.4, { flat = true })
   end
-  for _, s in ipairs(Borderline.WRECK_SHEDS) do
-    b:place("shed", s[1], s[2], s[3], s[4], { seed = rng:random(1000) })
+  for i, s in ipairs(Borderline.WRECK_SHEDS) do
+    b:place("shed", s[1], s[2], s[3], s[4], { seed = rng:random(1000), bay = i })
   end
   for _, p in ipairs(Borderline.WRECK_PITS) do
     b:place("pit", p[1], p[2], p[3], p[4], { water = true, seed = rng:random(1000) })
-    b:place("paint", p[1], p[2] + p[4] + 0.2, p[3], 0.8, { flat = true, text = "DANGER  DEEP EXCAVATION" })
+    b:place("paint", p[1], p[2] + p[4] + 0.2, p[3], 0.8,
+      { flat = true, text = "DANGER  DEEP EXCAVATION", snowy = true })
     crane(map, b, p, p.crane)
     -- A beacon on each of the hole's other corners.
     for _, k in ipairs({ { 0, 0 }, { 1, 1 } }) do
       map.beacons[#map.beacons + 1] = { x = b:x(p[1] + k[1] * p[3]), y = b:y(p[2] + k[2] * p[4]), color = "red" }
     end
   end
-  for _, t in ipairs(Borderline.TRAIN) do
-    b:place("carriage", t[1], t[2], t[3], t[4], { seed = rng:random(1000) })
+  for i, t in ipairs(Borderline.TRAIN) do
+    b:place("carriage", t[1], t[2], t[3], t[4], { seed = rng:random(1000), burning = Borderline.BURNING[i] })
   end
   local L = Borderline.LOCO
   b:place("loco", L[1], L[2], L[3], L[4])
@@ -439,6 +496,7 @@ local function buildWreck(map, rng, T)
   b:zone("The Wreck", 16, 39)
   b:zone("The Engine", 0, 15)
   b:ends(21, 63, 23, 1)
+  wreckage(map, b)
   b:commit()
 end
 

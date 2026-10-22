@@ -339,11 +339,14 @@ its set piece is done; the objective line says what's left.
 ### 1. The Frozen Wreck (`wreck`, 48x72, at dusk)
 
 Hyperbole's freight yard in the snow, factory grounds where Jerry's train
-came off the rails: concrete slabs under drifts, a rail line and a siding
-up the middle, sheds round the sides (corrugated roofs, the H on each, a
-loading door onto the yard), the factory's roofs running on past the
-edge. Played at dusk (`night` { 0.58, 0.62, 0.78 }) under floodlight
-towers.
+came off the rails: concrete slabs under patches of snow (heaped against
+the walls and everything standing, forklift tracks through it), a rail
+line out of the tunnel and a siding up the middle, sheds round the sides
+(pitched corrugated roofs, skylights, turbine vents, rust and snow, the
+bay number painted on each, a loading door onto the yard), the factory's
+roofs running on past the edge (parapets, skylights some of them lit,
+pipes, vents and stacks). Played at dusk (`night` { 0.58, 0.62, 0.78 })
+under floodlight towers.
 
 - **Arrival:** the yard gate at the bottom. Yappy catches up.
 - **The excavations:** three deep holes in the yard, fenced and hazard
@@ -355,8 +358,14 @@ towers.
   holes' corners, the gate and the tunnel, their beams sweeping the ground.
 - **Safety lines:** a painted walkway up the west of the rails with arrows
   pointing out, zebra crossings over the tracks, traffic cones, oil drums.
-- **The wreck:** carriages in a zig-zag up the yard, cargo spilled
-  (crates, loot chests), junk haulers in twos and threes stripping it.
+- **The wreck:** carriages in a zig-zag up the yard, each lying its own
+  way (tipped with its windows showing, a bogie torn out beside it, an end
+  crumpled), the ground torn up between each and the rail bed; two still
+  burning (`Borderline.BURNING`: embers in a hole in the roof, smoke, a
+  glow), the locomotive smoking from its stack with its headlights on.
+  Cargo spilled (crates, loot chests), junk haulers in twos and threes
+  stripping it. A hollow in the snow at the arrival where Yappy dug you
+  out.
 - **The terminals:** a blast door shuts the tunnel until three Hyperbole
   terminals are hacked (the `terminals` feature, shared with Eternal Mood:
   hold F for 3 s, every 6 s an alarm brings the robots within 700 px).
