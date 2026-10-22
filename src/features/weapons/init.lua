@@ -916,11 +916,13 @@ function Weapons:drawBelowCars()
   Explosions.drawBelow()
 end
 
-local TRACER = 30 -- px of red trail behind a player's round, past its streak
+local TRACER = 30 -- px of trail behind a round, past its streak
 local TRACER_STEPS = 5 -- the trail fades out in this many pieces
+local TRACER_RED = { 1, 0.12, 0.08 } -- a plain round's trail; a coloured one trails its own colour
 
---- A player's round trails red behind its streak, so it shows on any map.
---- Never longer than the round has flown, so it doesn't start behind the gun.
+--- Every round trails a tracer behind its streak, so it shows on any map:
+--- red, or the round's own colour for a gun that has one. Never longer than
+--- the round has flown, so it doesn't start behind the gun.
 local function drawTracer(p, speed, streak)
   local tail = math.min(streak + TRACER, p.age * speed)
   if tail <= 0 then
@@ -929,8 +931,9 @@ local function drawTracer(p, speed, streak)
   local dx, dy = p.vx / speed, p.vy / speed
   local step = tail / TRACER_STEPS
   love.graphics.setLineWidth(3)
+  local c = p.tint or TRACER_RED
   for i = 0, TRACER_STEPS - 1 do
-    love.graphics.setColor(1, 0.12, 0.08, 0.7 * (1 - i / TRACER_STEPS))
+    love.graphics.setColor(c[1], c[2], c[3], 0.7 * (1 - i / TRACER_STEPS))
     local a, b = step * i, step * (i + 1)
     love.graphics.line(p.x - dx * a, p.y - dy * a, p.x - dx * b, p.y - dy * b)
   end
@@ -974,9 +977,7 @@ function Weapons:drawAboveCars(client)
     else
       local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
       local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
-      if p.owner and p.owner ~= NO_OWNER and not p.tint then
-        drawTracer(p, len, gun.streak)
-      end
+      drawTracer(p, len, gun.streak)
       if p.tint then
         love.graphics.setColor(p.tint[1], p.tint[2], p.tint[3], 0.35) -- a glow round a coloured round
         love.graphics.setLineWidth(5)

@@ -15,7 +15,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Changed
-- Players' bullets trail a short red tracer, so you can see your shots on dark and busy maps.
+- Bullets trail a short tracer, so you can see shots on dark and busy maps: red, or the round's own colour for
+  enemies whose shots have one.
 
 ## [0.40.0] - 2026-10-22
 
