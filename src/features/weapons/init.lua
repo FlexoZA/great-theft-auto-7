@@ -141,7 +141,8 @@
 --   server -> all     WPN_HEALTH <id> <hp>          (a heal; no hit effects)
 --   server -> all     WPN_MAX <id> <max>            (their health ceiling changed)
 --   server -> all     WPN_CARMAX <vid> <max>        (a car's health ceiling, when it isn't CAR_HEALTH)
---   server -> all     WPN_STOP <pid>                (shot swallowed by a soft target)
+--   server -> all     WPN_STOP <pid> <x> <y> <material>  (shot swallowed by a soft target there;
+--                                              material: flesh, metal, goo or solid, for its impact)
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
 --   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
@@ -247,14 +248,17 @@ end
 --- standing at (x, y) and returns true if it did (the pedestrians do). The
 --- first one to answer swallows the bullet, which is why a single shot takes
 --- one pedestrian out of a crowd rather than the whole queue. `dtype` is
---- the round's damage type (src/features/damage).
+--- the round's damage type (src/features/damage). Returns what was hit's
+--- material for the impact on every screen: the answer itself when it is a
+--- string ("metal", "goo", "solid"), else "flesh"; nil when nothing was.
 local function shotSomething(server, x, y, by, angle, damage, dtype, from)
   for _, f in ipairs(Features.list) do
-    if f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype, from) then
-      return true
+    local hit = f.serverShotAt and f:serverShotAt(server, x, y, PROJECTILE_RADIUS, by, angle, damage, dtype, from)
+    if hit then
+      return type(hit) == "string" and hit or "flesh"
     end
   end
-  return false
+  return nil
 end
 
 --- Where `player`'s body is on the host: the car they drive, or their feet.
@@ -1461,9 +1465,14 @@ Weapons.clientMessages = {
     end
   end,
   WPN_STOP = function(_client, args)
-    local pid = tonumber(args[1])
-    if pid then
+    local pid, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local p = pid and Weapons.projectiles[pid]
+    if p then
       Weapons.projectiles[pid] = nil
+      -- Where the host says it struck: mine has flown on a little by now.
+      if x and y and not Guns.at(p.gun).flame then
+        Explosions.hit(x, y, p.vx, p.vy, args[4])
+      end
     end
   end,
   WPN_SHOT = function(client, args)
@@ -1519,8 +1528,15 @@ Weapons.clientMessages = {
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
       Sounds.play(Sounds.hitName("foot", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
-    if pid and pid > 0 then
+    local p = pid and pid > 0 and Weapons.projectiles[pid]
+    if p then
       Weapons.projectiles[pid] = nil
+      -- Blood where it went in: at the edge of their body facing the round.
+      local pose = victim and poseOf(client, victim)
+      if pose and not Guns.at(p.gun).flame then
+        local len = math.max(1, math.sqrt(p.vx * p.vx + p.vy * p.vy))
+        Explosions.hit(pose.x - p.vx / len * FOOT_RADIUS, pose.y - p.vy / len * FOOT_RADIUS, p.vx, p.vy)
+      end
     end
     if victim and hp then
       Weapons.health[victim] = hp
@@ -2616,8 +2632,9 @@ function Weapons:sweep(server, p, nx, ny)
         return e, px, py
       end
     end
-    if shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype, p.from) then
-      return "soft", px, py
+    local material = shotSomething(server, px, py, p.owner, angle, p.damage, p.dtype, p.from)
+    if material then
+      return "soft", px, py, material
     end
   end
   return nil
@@ -2983,7 +3000,7 @@ function Weapons:serverStep(server, dt)
     local p = sv.projectiles[i]
     p.age = p.age + dt
     local nx, ny = p.x + p.vx * dt, p.y + p.vy * dt
-    local victim, hx, hy = self:sweep(server, p, nx, ny)
+    local victim, hx, hy, material = self:sweep(server, p, nx, ny)
     p.x, p.y = nx, ny
     if p.blast and (victim or p.age > p.ttl) then
       -- A missile goes off at whatever stopped it, or where it ran out.
@@ -2994,8 +3011,9 @@ function Weapons:serverStep(server, dt)
       Features.call("serverWallHit", server, hx, hy, p.damage or Guns.at(Guns.DEFAULT).damage, p.owner, p.dtype)
     elseif victim == "soft" then
       -- Nothing on the client predicts a pedestrian stepping into a bullet,
-      -- so the streak has to be called back explicitly.
-      server:broadcast(Protocol.encode("WPN_STOP", p.id))
+      -- so the streak has to be called back explicitly, with where it
+      -- struck and what, for the blood or sparks there.
+      server:broadcast(Protocol.encode("WPN_STOP", p.id, ("%.1f"):format(hx), ("%.1f"):format(hy), material))
       table.remove(sv.projectiles, i)
     elseif victim then
       self:hit(server, p, victim)

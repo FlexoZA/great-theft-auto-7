@@ -74,6 +74,8 @@ Baron.TURN = 4 -- rad/s
 Baron.BREATH = { drain = 9, regen = 13, recovered = 50, breath = 40 }
 Baron.RANGE = 900 -- px he sees
 Baron.KEEP = 260 -- px he likes to be from whoever he has, to throw
+Baron.DETOUR = 1.5 -- seconds he goes by the walking grid after catching on something on his way to you
+Baron.KITE_WITH = 0.5 -- rad: kiting to a medkit, he charges or leaps at you only this near the way there
 Baron.HAND = 19 -- px either side of his middle: his guns' muzzles (the fire at them)...
 Baron.MUZZLE = 28 -- ...and this far ahead of it (baron_look.lua draws the guns there)
 Baron.THROW_EVERY = { 2.0, 2.8 } -- seconds between attacks...
@@ -188,22 +190,16 @@ function Baron:turn(angle, dt, rate)
   end
 end
 
---- Walk along `angle` at `speed`, sliding along walls. Returns false when
---- he got nowhere.
-function Baron:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return false
-  end
-  self.stuck = 0
-  return true
+--- Walk along `angle` at `speed`, sliding along walls and feeling his
+--- way round corners (Ground.walk), unless `headlong` (a charge goes into
+--- the wall). Returns false when he got nowhere.
+function Baron:walk(angle, speed, dt, headlong)
+  return Ground.walk(self, angle, speed, dt, Baron.RADIUS, headlong)
+end
+
+--- Can he walk straight from where he stands to (x, y), shoulders and all?
+function Baron:straight(x, y)
+  return Ground.wideClear(self.x, self.y, x, y, Baron.RADIUS)
 end
 
 function Baron:pace()

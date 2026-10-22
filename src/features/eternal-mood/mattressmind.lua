@@ -45,6 +45,7 @@ local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
+local Walk = require("src.features.bosses.walk")
 local Look = require("src.features.eternal-mood.mattressmind_look")
 
 local Mattressmind = {}
@@ -62,6 +63,7 @@ Mattressmind.TURN = 1.6 -- rad/s
 Mattressmind.BREATH = { drain = 8, regen = 12, recovered = 50, breath = 40 }
 Mattressmind.RANGE = 950 -- px it sees
 Mattressmind.KEEP = 420 -- px it keeps from whoever it has
+Mattressmind.KITE_FAR = 250 -- px: kiting to a medkit, it only yawns or spins up the chaingun further off it
 Mattressmind.FRONT = 0.3 -- what a round coming at it from in front does, through the mattress
 Mattressmind.MUZZLE = 64 -- px ahead of its middle: the chaingun's end
 Mattressmind.ATTACK_EVERY = { 2.4, 3.2 } -- seconds between bursts...
@@ -136,14 +138,6 @@ function Mattressmind.new(x, y, facing, hp, nav, home)
   }, Mattressmind)
 end
 
-local function fits(x, y)
-  local r = Mattressmind.RADIUS
-  local k = r * 0.7
-  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
-    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - k, y - k)
-    or Ground.blocked(x + k, y - k) or Ground.blocked(x - k, y + k) or Ground.blocked(x + k, y + k))
-end
-
 function Mattressmind:turn(angle, dt, rate)
   local d = Sight.angleDiff(angle, self.facing)
   local step = (rate or Mattressmind.TURN) * dt
@@ -154,21 +148,10 @@ function Mattressmind:turn(angle, dt, rate)
   end
 end
 
---- Walk along `angle` at `speed`, whichever way it faces, sliding along walls.
+--- Walk along `angle` at `speed`, whichever way it faces, sliding along
+--- walls and feeling its way round corners (Ground.walk).
 function Mattressmind:walk(angle, speed, dt)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if fits(self.x + mx, self.y + my) then
-    self.x, self.y = self.x + mx, self.y + my
-  elseif fits(self.x + mx, self.y) then
-    self.x = self.x + mx
-  elseif fits(self.x, self.y + my) then
-    self.y = self.y + my
-  else
-    self.stuck = self.stuck + dt
-    return false
-  end
-  self.stuck = 0
-  return true
+  return Ground.walk(self, angle, speed, dt, Mattressmind.RADIUS)
 end
 
 function Mattressmind:pace()
@@ -185,7 +168,8 @@ end
 local sv = nil -- { m, spec, awake, syncIn, down }
 
 --- It on `map`'s plateau (its `horde.boss` of kind "mattressmind"), finding
---- its way on `nav`. Nothing on a map without it.
+--- its way on `nav` (by the cells its mattress fits, bosses/walk.lua).
+--- Nothing on a map without it.
 function Mattressmind.serverStart(server, map, nav)
   Mattressmind.serverStop(server)
   local spec = map.horde and map.horde.boss
@@ -193,7 +177,8 @@ function Mattressmind.serverStart(server, map, nav)
     return
   end
   local facing = spec.facing or math.pi / 2
-  sv = { m = Mattressmind.new(spec.x, spec.y, facing, Bosses.health(Mattressmind.HEALTH, server), nav,
+  local wide = nav and Walk.nav(nav, Ground.blocked, Mattressmind.RADIUS)
+  sv = { m = Mattressmind.new(spec.x, spec.y, facing, Bosses.health(Mattressmind.HEALTH, server), wide,
     { x = spec.x, y = spec.y, facing = facing }), spec = spec, awake = false, syncIn = 0 }
 end
 

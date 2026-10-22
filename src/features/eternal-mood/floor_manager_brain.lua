@@ -11,7 +11,10 @@
 --          (KEEP), side-stepping in his chair; with it shot off he
 --          closes in to stomp
 --   heal   badly hurt (bosses/heal.lua): he breaks off for the nearest
---          medkit lying within reach ("statutory break")
+--          medkit lying within reach ("statutory break"); with somebody in
+--          sight he kites there, facing them and stomping whoever comes
+--          close, and charges the cannon only while it is still far off
+--          (KITE_FAR)
 --
 -- His moves, each with a tell before it lands:
 --
@@ -72,8 +75,13 @@ local function goTo(m, x, y, speed, dt)
   local g = m.goal
   if not g or dist2(g.x, g.y, x, y) > 80 * 80 or m.time > g.replanAt or m.stuck > 0.3 then
     local corners = m.nav and m.nav:path(m.x, m.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = m.time + 1.2 }
+    -- No way there he fits: he holds where he is rather than grind into a wall.
+    g = { x = x, y = y, corners = corners or (not m.nav and { { x = x, y = y } }), at = 1, replanAt = m.time + 1.2 }
     m.goal = g
+  end
+  if not g.corners then
+    m:turn(math.atan2(y - m.y, x - m.x), dt)
+    return false
   end
   local c = g.corners[g.at]
   if dist2(m.x, m.y, c.x, c.y) < 20 * 20 then
@@ -138,6 +146,54 @@ end
 --- What he does this tick. Returns the events the others should hear
 --- about: { "say", line }, { "stomp", x, y }, { "bolt", x, y, angle },
 --- { "sound", name }, { "meeting" }.
+--- A stomp or a plasma stream at `target` (at `d`, along `toward`), if one
+--- is due; true when one starts. Kiting to a medkit (`kiting`), the cannon's
+--- charge only while that is still far off.
+local function attack(m, events, target, d, toward, kiting)
+  if d <= m.STOMP_REACH and m.stompIn <= 0 then
+    m.move, m.moveT = "stomp", 0
+    events[#events + 1] = { "sound", "rear" }
+    return true
+  end
+  if m.cannon and m.plasmaIn <= 0 and d <= m.PLASMA_RANGE and m.breath:has(m.PLASMA_COST)
+    and math.abs(Sight.angleDiff(toward, m.facing)) < 0.25
+    and not (kiting and dist2(m.x, m.y, m.medkit.x, m.medkit.y) < m.KITE_FAR ^ 2) then
+    m.breath:spend(m.PLASMA_COST)
+    m.move, m.moveT, m.aim, m.aimAt = "charge", 0, toward, target
+    events[#events + 1] = { "sound", "charge" }
+    return true
+  end
+  return false
+end
+
+--- Off to the medkit he's after, picking it up there: kiting with somebody
+--- in sight (bosses/init.lua's point 7), straight for it with nobody.
+local function heal(m, server, events, dt, target, tx, ty, visible)
+  m.mode = "heal"
+  local kit = m.medkit
+  local way = Heal.way(m, m.nav, kit, m.time)
+  if not way then -- no way there he fits: he fights on, and looks again in a while
+    Heal.giveUp(m, m.time)
+    return false
+  end
+  if visible then
+    local toward = math.atan2(ty - m.y, tx - m.x)
+    m:turn(toward, dt)
+    if attack(m, events, target, math.sqrt(dist2(tx, ty, m.x, m.y)), toward, true) then
+      return
+    end
+    if way then
+      m:walk(way, m:pace(), dt)
+    end
+  else
+    goTo(m, kit.x, kit.y, m:pace(), dt)
+  end
+  m.running = not m.breath:winded()
+  if (Heal.pickUp(server, m, m.RADIUS) or 0) > 0 then
+    events[#events + 1] = { "say", m.LINE.heal }
+  end
+end
+
 function Brain.think(m, server, dt)
   local events = {}
   m.time = m.time + dt
@@ -202,23 +258,12 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
+  local target, tx, ty, visible = Brain.target(m, server)
   if wantsHeal(m) then
-    m.mode = "heal"
-    local kit = m.medkit
-    goTo(m, kit.x, kit.y, m:pace(), dt)
-    m.running = not m.breath:winded()
-    if Heal.within(kit, m.x, m.y, m.RADIUS) then
-      local got = Heal.take(server, kit)
-      m.hp = math.min(m.max, m.hp + got)
-      m.medkit, m.goal = nil, nil
-      if got > 0 then
-        events[#events + 1] = { "say", m.LINE.heal }
-      end
-    end
+    heal(m, server, events, dt, target, tx, ty, visible)
     m.breath:step(m.running, dt)
     return events
   end
-  local target, tx, ty, visible = Brain.target(m, server)
   if not target then
     m.breath:step(false, dt)
     return events
@@ -232,19 +277,9 @@ function Brain.think(m, server, dt)
     m.breath:step(m.running, dt)
     return events
   end
-  m.mode, m.goal = "fight", nil
+  m.mode = "fight"
   m:turn(toward, dt)
-  if d <= m.STOMP_REACH and m.stompIn <= 0 then
-    m.move, m.moveT = "stomp", 0
-    events[#events + 1] = { "sound", "rear" }
-    m.breath:step(false, dt)
-    return events
-  end
-  if m.cannon and m.plasmaIn <= 0 and d <= m.PLASMA_RANGE and m.breath:has(m.PLASMA_COST)
-    and math.abs(Sight.angleDiff(toward, m.facing)) < 0.25 then
-    m.breath:spend(m.PLASMA_COST)
-    m.move, m.moveT, m.aim, m.aimAt = "charge", 0, toward, target
-    events[#events + 1] = { "sound", "charge" }
+  if attack(m, events, target, d, toward) then
     m.breath:step(false, dt)
     return events
   end
@@ -252,7 +287,18 @@ function Brain.think(m, server, dt)
   -- without it.
   local keep = m.cannon and m.KEEP or 0
   local speed = m.cannon and m:pace() or m:pace() * m.RAGE
-  if d > keep + 80 then
+  if m.stuck > 0.3 then
+    m.detour = m.time + m.DETOUR
+  end
+  -- Round whatever his hull won't get past (or has caught on) by the walking grid.
+  local around = d > keep + 80 and (m.time < (m.detour or 0) or not m:straight(tx, ty))
+  if not around then
+    m.goal = nil -- a way he was on is stale once he's off it
+  end
+  if around then
+    goTo(m, tx, ty, speed, dt)
+    m.running = not m.breath:winded()
+  elseif d > keep + 80 then
     m:walk(toward, speed, dt)
     m.running = not m.breath:winded()
   elseif d < keep - 80 then

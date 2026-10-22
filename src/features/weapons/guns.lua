@@ -159,8 +159,10 @@ Guns.list = {
   },
   {
     -- The AK's younger, sharper cousin: lighter rounds, faster and
-    -- straighter, on the same 7.62.
+    -- straighter, on the same 7.62. General Volt drops it
+    -- (cyber-feud/volt.lua): won, then on the shelf.
     key = "ar",
+    unlock = true,
     blurb = "An assault rifle: twelve 7.62 rounds a second, the straightest-shooting rifle there is. "
       .. "Fires the AK's 7.62 rounds.",
     name = "AR",

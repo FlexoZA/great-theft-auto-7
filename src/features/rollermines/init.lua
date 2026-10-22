@@ -218,7 +218,7 @@ function Rollermines:serverShotAt(_server, x, y, radius, by, _angle, damage)
     m.by = by
   end
   sv.brain:hurt(m, damage or m.hp, damage == nil)
-  return true
+  return "metal"
 end
 
 --- Every rollermine in the world right now, for the audit (tools/audit).

@@ -201,7 +201,7 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   if Guard.serverShotAt(server, x, y, radius, by, angle, damage) then
-    return true
+    return "goo"
   end
   local a, i = sv.brain:at(x, y, radius)
   if not a then
@@ -210,7 +210,7 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
   if sv.brain:hurt(a, i, damage or 20, by) then
     down(server, a, by, angle)
   end
-  return true
+  return "goo"
 end
 
 --- Every antlion in the world right now, for the audit (tools/audit): the

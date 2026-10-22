@@ -398,7 +398,11 @@ couple of small conventions rather than requiring each other:
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
-  return false and it flies on. Weapons walks its projectiles through every
+  return false and it flies on. Instead of true you may return what was hit
+  is made of, for the impact every screen draws there: `"metal"` (sparks: a
+  drone, a turret, a shield), `"goo"` (green blood: antlions) or `"solid"`
+  (a wall's dust and grit: a crate); true is `"flesh"` (red blood). A
+  feature that passes another's answer on returns it as it is. Weapons walks its projectiles through every
   feature that defines it, so a gun kills pedestrians without knowing they
   exist (police answers it too: officers on foot take a few rounds before
   they go down). `by` is the shooter's player id and `angle` the direction of

@@ -249,7 +249,7 @@ function Turrets.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     end
     Features.call("serverKill", server, { kind = "turret", x = t.x, y = t.y, by = by, angle = angle, cause = dtype })
   end
-  return true, true
+  return "metal", true
 end
 
 --- Every turret still up, for the audit (tools/audit): Halcyon's and

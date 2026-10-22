@@ -32,6 +32,7 @@ local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
 local Brain = require("src.features.antlions.guard_brain")
+local Walk = require("src.features.bosses.walk")
 local Render = require("src.features.antlions.guard_render")
 local Sounds = require("src.features.antlions.sounds")
 
@@ -80,6 +81,8 @@ Guard.screamDamage = 70 -- right in front of it; less towards the far end
 Guard.screamShove = 320 -- px it blows them back, right in front of it
 Guard.screamRecover = 0.6 -- seconds it stands after
 Guard.screamEvery = 7 -- seconds after one before the next
+Guard.kiteFar = 250 -- px a medkit must still be off for it to rear up and scream on its way there
+Guard.kiteCharge = 0.6 -- rad off the line to its medkit a charge may go, kiting
 Guard.drops = 60 -- koins it spills
 -- Who it calls in, once each, as its health falls to `at` of the most it
 -- had: a Hunter-Chopper (the hunter-chopper feature's `serverFlyover`) in
@@ -176,7 +179,6 @@ local function spawn(server, x, y)
     g = {
       x = x, y = y, facing = math.pi / 2, hp = max, max = max, mode = "emerge", t = 0, frozen = 0,
       breath = Stamina.new(Guard.breath), swipeIn = 0, chargeIn = 2, screamIn = 3, aim = math.pi / 2,
-      side = love.math.random() < 0.5 and -1 or 1,
       power = Bosses.power(), -- its swipes, charges and screams, times this
     },
     called = 0, -- how many of `help` have come
@@ -265,6 +267,9 @@ function Guard.serverStep(server, dt, map, brain)
   end
   sv.time = sv.time + dt
   local g = sv.g
+  if g.nav == nil then -- the swarms' walking grid, as its width fits through it (bosses/walk.lua)
+    g.nav = brain and brain.nav and Walk.nav(brain.nav, Brain.blocked, Guard.radius) or false
+  end
   local what, caught = Brain.think(Guard, g, server, dt, sv.time)
   if g.mode ~= "emerge" then
     callForHelp(server, g)
@@ -320,7 +325,7 @@ function Guard.serverShotAt(server, x, y, radius, by, angle, damage)
     g.hp = 0
     down(server, by, angle)
   end
-  return true
+  return "goo"
 end
 
 --- The guard while it is up, for the audit (tools/audit).

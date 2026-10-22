@@ -1031,7 +1031,7 @@ function Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, fro
     if byPlayer then
       Troops.serverWake()
     end
-    return true
+    return hit
   end
   return Droids.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end

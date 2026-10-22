@@ -213,7 +213,7 @@ end
 --- A round through (x, y): his turrets go over, he is never hit. Rounds
 --- owned by nobody (the turrets' own, the Combine's) pass by.
 function Cameo.serverShotAt(server, x, y, radius, by)
-  return sv ~= nil and by ~= 0 and Turrets.hit(sv.turrets, server, x, y, radius)
+  return sv ~= nil and by ~= 0 and Turrets.hit(sv.turrets, server, x, y, radius) and "metal"
 end
 
 --- Every enemy of his visits in the world right now, for the audit

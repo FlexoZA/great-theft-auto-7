@@ -23,6 +23,7 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
@@ -65,26 +66,15 @@ local function fire(m, server, aim)
   end
 end
 
---- Towards (x, y) at `speed`: round walls on his walking grid when he has
---- one, the path worked out again when the goal moves or he gets caught.
---- True once he is there.
+--- Towards (x, y) at `speed`, round walls on his walking grid when he has
+--- one (bosses/walk.lua). Returns the way he went (nil when he is there, or
+--- has no way he fits and holds).
 local function goTo(m, x, y, speed, dt)
-  local g = m.goal
-  if not g or dist2(g.x, g.y, x, y) > 80 * 80 or m.time > g.replanAt or m.stuck > 0.3 then
-    local corners = m.nav and m.nav:path(m.x, m.y, x, y)
-    g = { x = x, y = y, corners = corners or { { x = x, y = y } }, at = 1, replanAt = m.time + 1.5 }
-    m.goal = g
+  local way = Walk.route(m, m.nav, x, y, m.time)
+  if way then
+    m:walk(way, speed, dt)
   end
-  local c = g.corners[g.at]
-  if dist2(m.x, m.y, c.x, c.y) < 20 * 20 then
-    if g.at >= #g.corners then
-      return true
-    end
-    g.at = g.at + 1
-    c = g.corners[g.at]
-  end
-  m:walk(math.atan2(c.y - m.y, c.x - m.x), speed, dt)
-  return false
+  return way
 end
 
 --- His trigger: bursts at whoever he can see, at (tx, ty).
@@ -130,24 +120,27 @@ local function wantsHeal(m)
     if Heal.there(m.medkit) then
       return true
     end
-    m.medkit, m.goal = nil, nil -- somebody got there first
+    m.medkit, m.route = nil, nil -- somebody got there first
   end
   if not Heal.wants(m.hp, m.max) or m.time < (m.healLook or 0) then
     return false
   end
   m.healLook = m.time + Heal.checkEvery
   m.medkit = Heal.find(m.x, m.y)
-  m.goal = nil
+  m.route = nil
   return m.medkit ~= nil
 end
 
---- Off to the medkit, still firing at whoever he can see on the way.
+--- Off to the medkit, kiting: facing whoever he can see on the way and
+--- still firing bursts and throwing nests at them (a nest isn't rooted, so
+--- it goes down however far the medkit is).
 local function heal(m, server, dt, events)
   local k = m.medkit
   local _, tx, ty, visible = Brain.target(m, server)
   if visible then
     m.facing = math.atan2(ty - m.y, tx - m.x)
     shoot(m, server, tx, ty, dt)
+    nest(m, m.facing, events, dt)
   else
     m.burstLeft = 0
     m.facing = math.atan2(k.y - m.y, k.x - m.x)
@@ -157,7 +150,7 @@ local function heal(m, server, dt, events)
   if Heal.within(k, m.x, m.y, m.RADIUS) then
     local got = Heal.take(server, k)
     m.hp = math.min(m.max, m.hp + got)
-    m.medkit, m.goal = nil, nil
+    m.medkit, m.route = nil, nil
     if got > 0 then
       m.sayIn = m.SAY_EVERY[1] -- and a word about it, now
       events[#events + 1] = { "say", m.TALK + random(#m.lines - m.TALK) }
@@ -207,16 +200,21 @@ function Brain.think(m, server, dt)
   if not visible then
     -- Hunting: round the walls to wherever they are.
     m.mode, m.burstLeft = "hunt", 0
-    goTo(m, tx, ty, m:pace(), dt)
-    m.running = not m.breath:winded()
-    local g = m.goal and m.goal.corners[m.goal.at]
-    m.facing = g and math.atan2(g.y - m.y, g.x - m.x) or toward
+    local way = goTo(m, tx, ty, m:pace(), dt)
+    m.running = way ~= nil and not m.breath:winded()
+    m.facing = way or toward
     return events
   end
-  m.mode, m.goal = "fight", nil
+  m.mode = "fight"
   m.facing = toward
   if d > m.KEEP + 40 then
-    m:walk(toward, m:pace(), dt)
+    -- Straight at them only when all of him gets there, else round.
+    if Walk.wideClear(m.blocked, m.x, m.y, tx, ty, m.RADIUS) then
+      m.route = nil
+      m:walk(toward, m:pace(), dt)
+    else
+      goTo(m, tx, ty, m:pace(), dt)
+    end
     m.running = not m.breath:winded()
   elseif d < m.KEEP - 80 then
     m:walk(toward + math.pi, m:pace(0.7), dt) -- backs off, still facing them

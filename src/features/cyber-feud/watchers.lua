@@ -183,7 +183,7 @@ function Watchers.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if sv.brain:hurt(s, i, damage or 20) then
     down(server, s, by, angle, dtype)
   end
-  return true, true
+  return "metal", true
 end
 
 --- Every watcher in the air, for the audit (tools/audit). Outdoors it flies

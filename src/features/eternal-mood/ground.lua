@@ -13,6 +13,7 @@
 
 local Sight = require("src.features.d-day.sight")
 local Nav = require("src.features.d-day.nav")
+local Walk = require("src.features.bosses.walk")
 
 local Features = require("src.features")
 
@@ -81,29 +82,15 @@ end
 --- Does a walker `r` px across the shoulders fit at (x, y): nothing solid
 --- and no lava under its middle or round its edge?
 function Ground.fits(x, y, r)
-  local c = r * 0.7
-  return not (Ground.blocked(x, y) or Ground.blocked(x - r, y) or Ground.blocked(x + r, y)
-    or Ground.blocked(x, y - r) or Ground.blocked(x, y + r) or Ground.blocked(x - c, y - c)
-    or Ground.blocked(x + c, y - c) or Ground.blocked(x - c, y + c) or Ground.blocked(x + c, y + c))
+  return Walk.fits(Ground.blocked, x, y, r)
 end
 
---- Move walker `w` ({ x, y, stuck }, `r` px across) along `angle` at
---- `speed` for `dt`, sliding along walls. Returns false, counting
---- `w.stuck` up, when it got nowhere.
-function Ground.walk(w, angle, speed, dt, r)
-  local mx, my = math.cos(angle) * speed * dt, math.sin(angle) * speed * dt
-  if Ground.fits(w.x + mx, w.y + my, r) then
-    w.x, w.y = w.x + mx, w.y + my
-  elseif Ground.fits(w.x + mx, w.y, r) then
-    w.x = w.x + mx
-  elseif Ground.fits(w.x, w.y + my, r) then
-    w.y = w.y + my
-  else
-    w.stuck = w.stuck + dt
-    return false
-  end
-  w.stuck = 0
-  return true
+--- Move walker `w` ({ x, y, stuck, feel }, `r` px across) along `angle` at
+--- `speed` for `dt`, sliding along walls and feeling its way round corners,
+--- not into the lava (bosses/walk.lua's step; `headlong` for a charge).
+--- Returns false, counting `w.stuck` up, when it got nowhere.
+function Ground.walk(w, angle, speed, dt, r, headlong)
+  return Walk.step(w, Ground.blocked, angle, speed, dt, r, headlong)
 end
 
 --- Can a walker go straight from (x0, y0) to (x1, y1)? No wall and no
@@ -118,6 +105,12 @@ function Ground.clear(x0, y0, x1, y1)
     end
   end
   return true
+end
+
+--- Can a walker `r` px across go straight from (x0, y0) to (x1, y1): no
+--- wall and no lava across its whole width, not just under its middle?
+function Ground.wideClear(x0, y0, x1, y1, r)
+  return Walk.wideClear(Ground.blocked, x0, y0, x1, y1, r)
 end
 
 --- Shut `nav`'s cells over the lava (and a walker's width round it).
