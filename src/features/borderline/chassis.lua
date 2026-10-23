@@ -425,9 +425,11 @@ function Chassis:indexOf(s)
   return nil
 end
 
+--- A freeze over (x, y): everyone on the ground within `radius` stands
+--- stiff for `seconds` (one in the air, out of reach, is not caught).
 function Chassis:freeze(x, y, radius, seconds)
   for _, s in ipairs(self.list) do
-    if Chassis.dist2(s.x, s.y, x, y) <= radius * radius then
+    if not s.flying and Chassis.dist2(s.x, s.y, x, y) <= radius * radius then
       s.frozen = math.max(s.frozen, seconds)
     end
   end

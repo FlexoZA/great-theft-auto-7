@@ -66,6 +66,8 @@ local Sentry = require("src.features.borderline.sentry_brain")
 local Dock = require("src.features.borderline.dock_brain")
 local Bad = require("src.features.borderline.bad_brain")
 local Stk = require("src.features.borderline.stk_brain")
+local Wlb = require("src.features.borderline.wlb_brain")
+local WilburLook = require("src.features.borderline.wilbur_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
@@ -79,12 +81,12 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6, WLB = 40 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb }
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true } -- drawn by drone_look.lua and dock_look.lua
 
 local SYNC_EVERY = 2
@@ -216,8 +218,8 @@ function down(server, s, by, angle, cause)
   if pickups and pickups.serverDropEnemy and random() < (Army.pickupChance[s.code] or 1) then
     pickups:serverDropEnemy(server, s.x, s.y)
   end
-  Features.call("serverKill", server, { kind = "robot", what = s.code, x = s.x, y = s.y, by = by, angle = angle,
-    cause = cause })
+  Features.call("serverKill", server, { kind = s.brain.BOSS and "boss" or "robot", what = s.code, x = s.x, y = s.y,
+    by = by, angle = angle, cause = cause })
   local splash = s.brain.burst and s.brain.burst(s, angle)
   if splash then
     burst(server, s, splash, by)
@@ -372,6 +374,15 @@ function Army.serverWave(server, codes, x, y, toX, toY)
   end
 end
 
+--- One of `code` put on the level now at (x, y) facing `facing` (a boss
+--- dropping in: wilbur.lua). Returns it, or nil with no army on.
+function Army.serverSpawn(code, x, y, facing)
+  if not sv then
+    return nil
+  end
+  return sv.roster:add(BRAINS[code], code, x, y, facing)
+end
+
 --- The level's walking grid, for the terminals' walls coming down.
 function Army.nav()
   return sv and sv.roster.nav
@@ -495,7 +506,9 @@ end
 
 function Army.drawBelowCars()
   for _, w in ipairs(wrecks) do
-    if w.code == "DCK" then
+    if w.code == "WLB" then
+      WilburLook.drawWreck(w, clock)
+    elseif w.code == "DCK" then
       DockLook.drawWreck(w.x, w.y, clock)
     elseif MACHINES[w.code] then
       DroneLook.drawDebris(w.x, w.y, w.x % 5)
@@ -535,7 +548,14 @@ end
 
 local function drawOne(s)
   local flash = s.hurt / HURT
-  if s.code == "DCK" then
+  if s.code == "WLB" then
+    WilburLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, charge = s.charge, flash = flash,
+      flying = s.state == 3 }, clock)
+    if (s.shield or 0) > 0 then
+      DroneLook.drawBubble(s.dx, s.dy, Wlb.RADIUS + 12, clock, s.shield / Drone.SHIELD)
+    end
+    return -- (his bar is the boss bar: wilbur.lua)
+  elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "SEN" then
     DroneLook.drawSentry({ dx = s.dx, dy = s.dy, aim = s.facing, rise = s.rise, charge = s.charge, flash = flash },
@@ -588,6 +608,17 @@ function Army.drawAboveCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The first one of `code` shown on this screen ({ dx, dy, hp, max, breath,
+--- winded, state, ... }), or nil: a boss's bar (wilbur.lua).
+function Army.shownOf(code)
+  for _, s in pairs(shown) do
+    if s.code == code then
+      return s
+    end
+  end
+  return nil
+end
+
 --- Their clanking feet, for the footsteps feature.
 function Army.walkers()
   local list = {}
@@ -609,7 +640,7 @@ Army.clientMessages = {
     local seen = {}
     for i = 2, #args - 11, 12 do
       local id, code, x, y = tonumber(args[i]), args[i + 1], tonumber(args[i + 2]), tonumber(args[i + 3])
-      if id and x and y and (Look.KITS[code] or MACHINES[code]) then
+      if id and x and y and (Look.KITS[code] or MACHINES[code] or code == "WLB") then
         local s = shown[id]
         local hp = tonumber(args[i + 5]) or 0
         if not s then
@@ -643,7 +674,7 @@ Army.clientMessages = {
     if id then
       shown[id] = nil
     end
-    if x and y and (Look.KITS[args[5] or ""] or MACHINES[args[5] or ""]) then
+    if x and y and (Look.KITS[args[5] or ""] or MACHINES[args[5] or ""] or args[5] == "WLB") then
       wrecks[#wrecks + 1] = { x = s and s.dx or x, y = s and s.dy or y, angle = angle, code = args[5] }
       if #wrecks > MAX_WRECKS then
         table.remove(wrecks, 1)

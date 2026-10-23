@@ -132,6 +132,16 @@ Scenes.after["cyber-feud-roof"] = function(game, look)
   return true
 end
 
+-- The Bragium Pit with Wilbur down on the pad (the launch's --boss).
+Scenes.after["borderline-pit"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-pit"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Pit would not skip to Wilbur"
+  end
+  watch(game, look, 8)
+  return true
+end
+
 -- City 17's plaza: walking into it brings A-Man by with his briefcase of
 -- turrets (a-man/cameo.lua).
 Scenes.after["a-man"] = function(game, look)

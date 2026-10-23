@@ -24,6 +24,7 @@ local Features = require("src.features")
 local Story = require("src.features.borderline.story")
 local Terminals = require("src.features.terminals")
 local Hold = require("src.features.borderline.hold")
+local Wilbur = require("src.features.borderline.wilbur")
 local Hud = require("src.features.borderline.hud")
 local Faces = require("src.features.borderline.faces")
 
@@ -247,14 +248,18 @@ function Tale.drawHUD(map, done, x, y)
   if cl.page then
     return -- his screen covers it all (`drawScreen`)
   end
-  local waiting, nearest = Terminals.nearestWaiting(x, y)
-  local text, tx, ty = Story.objective(cl.level, map, done, waiting, nearest, Hold.shown())
+  local state = { done = done }
+  state.waiting, state.nearest = Terminals.nearestWaiting(x, y)
+  state.held, state.on = Hold.shown()
+  state.boss, state.bossX, state.bossY = Wilbur.objective(map)
+  local text, tx, ty = Story.objective(cl.level, map, state)
   if text then
     Hud.drawObjective(text, tx and x and math.sqrt((x - tx) ^ 2 + (y - ty) ^ 2) or nil)
   end
   if not done and Story.hold[cl.level] then
     Hold.drawHUD(Story.hold[cl.level].bar)
   end
+  Wilbur.drawHUD()
   if cl.say then
     local left = Hud.sayFor(cl.say.text) - cl.say.t
     Hud.drawComms(faces[cl.say.who], cl.say.who, cl.say.text, cl.say.t, math.min(1, left / 0.5))

@@ -56,7 +56,9 @@ shows each map's layout: its floor in the map's colour
 (`Borderline.MAP_COLORS`: sheds, the train, pits, containers, factories,
 the river), and its areas (`map.zones`): a dashed line between each, its
 name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Liar's Landing's ferry lift is held while Yappy hacks it
-(`hold.lua`, below). Music so far only on the Frozen Wreck. See "Stages" at the end for the order.
+(`hold.lua`, below). The first boss is in: Wilbur on the Bragium Pit
+(`wilbur.lua`, `wlb_brain.lua`, "The bosses"). Music so far only on the
+Frozen Wreck. See "Stages" at the end for the order.
 
 ## Decisions
 
@@ -227,7 +229,7 @@ koins and a pickup, and raises `serverKill` with kind "boss".
 | Map | Boss | What it is | The fight |
 | --- | --- | --- | --- |
 | 1 | **Knuckle Scrapper** | A junk hauler that built itself huge out of the train wreck: a scrap pile with arms | Slow, swings (`impact`), throws scrap (`impact`). Junk haulers keep climbing out of the wreck around it. A tutorial boss. |
-| 3 | **The Fabricator** | A huge factory robot that drops out of the sky on a pad and stays there. A red eye on its front, a hatch in its belly | Can't move. Builds a hauler or a drone out of its hatch every 8 s, and while building it can't attack: hit its eye (from the front) during a build and the build fails. Between builds: an eye laser swept across the ground (`fire`), a homing rocket, and a slam that sends a ring of fire out (`fire`). |
+| 3 | **Wilbur** (`WLB`, built) | Jerry's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor; the mine lift stays shut until he is down. Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Jerry pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar), `wilbur_look.lua`. |
 | 5 | **Smelter** | A squat plasma furnace on four legs, molten Bragium in its belly | All plasma: bolt fans, a plasma mortar that leaves puddles burning for 5 s, and a gush that floods a lane. Vents every few attacks: its belly glows, hits there do double. Fights by the river: the puddles and the river are the danger. |
 | 6 | **Foreman BIG-B055** | The badass hauler that runs the line: 2.2x, gold trim, a hard hat welded on | Every badass move, plus it calls the line: the conveyors start up and carry haulers in. Phase 2 (half health): it rips one cannon off and charges. |
 | 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
@@ -261,7 +263,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | --- | --- | --- | --- |
 | 1 | **The Frozen Wreck** | Wake in the snow by Jerry's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
 | 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hold the dock while Yappy hacks the ferry lift |
-| 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | The Fabricator |
+| 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Wilbur |
 | 4 | **Prosperity** | Jerry's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Jerry's four big screens; the gate opens when he storms off in a huff |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
 | 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
@@ -278,8 +280,8 @@ Bragium that powers it. Kill feed verb: "melted".
    hacks the controls (a timed hold, waves of gun haulers and drones, the
    first rocket hauler) and the lift carries you over.
 3. **The Bragium Pit.** Jerry's mine. You see what the Bragium is for:
-   the plasma haulers glow with it. The Fabricator drops in at the pit's
-   floor and builds robots until you break it.
+   the plasma haulers glow with it. Wilbur, Jerry's cyborg enforcer, drops
+   onto the pit's floor with his drones, and Jerry upgrades him halfway.
 4. **Prosperity.** Jerry's city, where his face is everywhere. Yappy's
    idea: ruin the broadcast. Shoot the four giant screens; each one makes
    Jerry angrier; on the last he storms off and forgets to lock the gate.
@@ -446,8 +448,10 @@ glow, some burst in plasma when shot).
 
 - **Arrival:** the south rim.
 - Plasma haulers on the terraces, gun haulers on the ramps.
-- **The Fabricator** drops onto the pad in the pit's floor when the first
-  player gets there.
+- **Wilbur** drops onto the pad in the pit's floor when the first player
+  sets foot on it (the map's `boss`); the mine lift stays shut until he
+  is down. The objective line points at the pad until he comes, then
+  says to take him down.
 - **The end:** the north rim's mine lift. EXIT: "PROSPERITY".
 
 ### 4. Prosperity (`prosperity`, 56x88, at dusk)
@@ -605,7 +609,7 @@ each a PR), in this order:
 6. **The rest of the army.** Kamikaze, dozer, arc haulers; medic and shield
    drones; sentries; the badass.
 7. **The maps dressed.** Each map's look, one map per PR.
-8. **The bosses.** One per PR: Knuckle Scrapper, the Fabricator, Smelter,
+8. **The bosses.** One per PR: Knuckle Scrapper, Wilbur (done), Smelter,
    Foreman, BNK-9.
 9. **Set pieces.** The ferry hold, the screens, the bunker door; Yappy on
    the map.

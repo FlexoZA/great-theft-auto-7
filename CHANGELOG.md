@@ -49,6 +49,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a
   hauler dock (300 health): a charging bay with a plasma gun that fires bursts of three and builds a fresh junk
   hauler every 20 seconds while you're near. Shoot the dock down, or hack its terminal to shut it off.
+- The Bragium Pit has its boss: Wilbur (3000 health), Jerry's cyborg enforcer, drops onto the pit's floor and the
+  mine lift stays shut until he's down. He fires a rotary gun, rains rockets on red rings, leaps at you and slams
+  down, and sends shield and medic drones out of his back that keep him going: shoot them first. At half health
+  Jerry pushes an upgrade and he gets faster and angrier.
 - Stalker haulers (140 health) on Liar's Landing: tall hunters on two legs and a wheel that keep their distance,
   throw themselves aside from your shots once they know you're there, charge you down every few seconds and back
   off to a medkit when hurt. Catch one unaware and your first shots land; keep it dodging and it runs out of

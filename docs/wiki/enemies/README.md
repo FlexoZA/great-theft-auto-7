@@ -105,3 +105,9 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 | <img src="img/eternal-mood-mancubus.png" width="48"> | **[The Mancouchbus](eternal-mood-mancubus.md)** | 3400 | Heck on Earth, in his recliner in front of the starport's gate; he wakes when you come up the Boulevard |
 | <img src="img/eternal-mood-baron.png" width="48"> | **[The Baron of Heck](eternal-mood-baron.md)** | 4200 | The Foundry, on the stone ring round the Crucible; he wakes when you cross a bridge onto it, he sees you, or you shoot him |
 | <img src="img/eternal-mood-mattressmind.png" width="48"> | **[The Spider Mattressmind](eternal-mood-mattressmind.md)** | 5200 | Heck, on the Mattress's plateau before the Snooze Gate; it wakes when you come up onto the plateau |
+
+## borderline
+
+| | Enemy | Health | Where |
+|---|---|---|---|
+| <img src="img/borderline-wlb.png" width="48"> | **[Wilbur](borderline-wlb.md)** | 3000 | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine lift stays shut until he is down |

@@ -19,7 +19,8 @@
 -- the army near it hears, and shuts down the hauler dock it runs. A level
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
--- it goes (hold.lua).
+-- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
+-- wilbur.lua, his brain wlb_brain.lua) keeps it shut until the boss is down.
 
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -29,6 +30,7 @@ local Works = require("src.features.borderline.works")
 local Music = require("src.features.borderline.music")
 local Marker = require("src.features.borderline.marker")
 local Hold = require("src.features.borderline.hold")
+local Wilbur = require("src.features.borderline.wilbur")
 local Terminals = require("src.features.terminals")
 
 local Borderline = {
@@ -54,11 +56,18 @@ local function objectives()
     return {}
   end
   local quests = Features.byName.quests
+  local boss, bx, by = Wilbur.objective(map)
+  if boss == "fight" then
+    return {} -- his bar says where he is
+  elseif boss == "pad" then
+    return { { x = bx, y = by } }
+  end
   return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
 end
 
 function Borderline:load()
   Army.load()
+  Wilbur.load()
 end
 
 function Borderline:serverStart()
@@ -71,6 +80,7 @@ function Borderline:serverQuestStarted(server, quest)
     Army.serverStart(server, cityMap())
     Terminals.serverOpen(cityMap(), Army.nav(), Army.serverAlarm)
     Hold.serverStart(cityMap())
+    Wilbur.serverStart(cityMap())
     Tale.serverStart(cityMap())
   end
 end
@@ -81,6 +91,7 @@ function Borderline:serverQuestEnded(server, quest)
     Army.serverStop(server)
     Terminals.serverClose()
     Hold.serverStop()
+    Wilbur.serverStop()
     Tale.serverStop()
   end
 end
@@ -92,14 +103,28 @@ function Borderline:mapChanged(_map, server)
     level = nil
     Army.serverStop(server)
     Hold.serverStop()
+    Wilbur.serverStop()
     Tale.serverStop()
   end
   Army.clear()
   Hold.clear()
+  Wilbur.clear()
 end
 
 function Borderline:serverPlayerJoined(server, player)
   Hold.serverPlayerJoined(server, player)
+  Wilbur.serverPlayerJoined(server, player)
+end
+
+--- The launch's --boss (src/launch.lua): on the Bragium Pit, straight to
+--- the pit's floor with Wilbur coming down.
+function Borderline:serverSkipToBoss(server, quest, player)
+  if not (level and quest.boss == self.questId) then
+    return false
+  end
+  return Wilbur.serverSkipTo(server, player, function(what)
+    Tale.serverBeat(server, what)
+  end)
 end
 
 --- A terminal hacked (the terminals feature): the dock it runs shuts down.
@@ -111,6 +136,11 @@ end
 
 function Borderline:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+end
+
+--- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): Wilbur's so far.
+function Borderline:wikiEnemies(add)
+  Wilbur.wikiEnemies(add)
 end
 
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
@@ -150,7 +180,10 @@ function Borderline:serverStep(server, dt)
   end, function(codes, x, y, toX, toY)
     Army.serverWave(server, codes, x, y, toX, toY)
   end)
-  if not (map and map.exitX) or Terminals.serverLocked() or Hold.serverLocked()
+  Wilbur.serverStep(server, dt, function(what)
+    Tale.serverBeat(server, what)
+  end)
+  if not (map and map.exitX) or Terminals.serverLocked() or Hold.serverLocked() or Wilbur.serverLocked()
     or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end
@@ -170,6 +203,7 @@ function Borderline:questStarted(_client, quest)
   if quest.boss == self.questId then
     Tale.questStarted(quest)
     Hold.clear()
+    Wilbur.clear()
   end
 end
 
@@ -177,6 +211,7 @@ function Borderline:questEnded(_client, quest)
   if quest.boss == self.questId then
     Tale.clear()
     Hold.clear()
+    Wilbur.clear()
     Music.stop()
   end
 end
@@ -184,6 +219,7 @@ end
 function Borderline:exitGame()
   Tale.clear()
   Hold.clear()
+  Wilbur.clear()
   Army.clear()
   Music.stop()
 end
@@ -200,6 +236,7 @@ function Borderline:update(dt, client)
   Music.update(map, Tale.onLevel(map), Tale.blurring(map))
   Marker.update(dt)
   Hold.update(dt)
+  Wilbur.update(dt)
 end
 
 --- Any key takes Jerry's intro screen down.
@@ -231,6 +268,7 @@ function Borderline:drawBelowCars()
   end
   if Tale.onLevel(map) then
     Hold.drawBelowCars(map)
+    Wilbur.drawBelowCars()
   end
   Army.drawBelowCars()
 end
@@ -241,6 +279,7 @@ function Borderline:drawAboveCars()
   if map then
     Works.drawAboveCars(map)
   end
+  Wilbur.drawAboveCars()
   Marker.draw(objectives())
 end
 
@@ -301,7 +340,7 @@ function Borderline:footstepWalkers()
 end
 
 Borderline.clientMessages = {}
-for _, part in ipairs({ Army, Tale, Hold }) do
+for _, part in ipairs({ Army, Tale, Hold, Wilbur }) do
   for kind, handler in pairs(part.clientMessages) do
     Borderline.clientMessages[kind] = handler
   end

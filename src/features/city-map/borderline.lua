@@ -10,7 +10,7 @@
 --               gantry cranes on the quay unloading a freighter, the ferry
 --               lift at the top
 --   pit         The Bragium Pit: an open-pit mine at dusk, two rings of
---               terraces down to the floor where the Fabricator lands, a
+--               terraces down to the floor where Wilbur lands, a
 --               rim at either end joined to it by one ramp each; cranes
 --               over the floor, shafts with headframes, conveyors running
 --   prosperity  Prosperity: Jerry's factory town under a dome at dusk,
@@ -100,6 +100,8 @@
 --                         hauler dock (a DCK post in `army`) it shuts down when hacked
 --   map.hold              { x, y, w, h, time, waves } a spot held while Yappy hacks it, the way on shut till
 --                         then (Liar's Landing's ferry lift; borderline/hold.lua says the rest)
+--   map.boss              { kind, x, y, wake } the level's boss: where it comes, and the box { x0, y0, x1,
+--                         y1 } whoever walks into first brings it (the Pit's Wilbur: borderline/wilbur.lua)
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -787,8 +789,8 @@ local function buildPit(map, rng, T)
     end
   end
   -- Plasma haulers on the terraces' corners, gun haulers at the ramps and
-  -- walking the outer terrace, junk haulers on the floor (the Fabricator
-  -- lands there later).
+  -- walking the outer terrace, junk haulers on the floor (Wilbur lands
+  -- there later).
   for _, at in ipairs({ { 11, 11 }, { n - 12, 11 }, { 11, n - 12 }, { n - 12, n - 12 }, { 41, 18 }, { 18, 41 } }) do
     b:post("PLZ", at[1], at[2])
   end
@@ -800,6 +802,10 @@ local function buildPit(map, rng, T)
   b:pack("JNK", n / 2, n / 2, 4)
   b:post("SHD", 40, 20) -- shield drones by the inner plasma haulers
   b:post("SHD", 20, 40)
+  -- Wilbur comes down onto the pad when somebody first sets foot on the
+  -- pit's floor; the mine lift stays shut until he is down.
+  map.boss = { kind = "wilbur", x = b:x(30), y = b:y(30),
+    wake = { x0 = b:x(22), y0 = b:y(22), x1 = b:x(n - 22), y1 = b:y(n - 22) } }
   b:zone("The Rim", n - 8, n - 1)
   b:zone("The Pit", 8, n - 9)
   b:zone("The Mine Lift", 0, 7)

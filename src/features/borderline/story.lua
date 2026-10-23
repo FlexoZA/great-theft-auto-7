@@ -76,6 +76,15 @@ Story.beats = {
   ["pit.fight"] = { { "yappy", "Purple bolts! They melt armour! Duck! I'm ducking! I'm very good at ducking!" } },
   ["pit.The Pit"] = { { "yappy", "Down the ramps, round the rings, up the other side. Easy. For you." } },
   ["pit.The Mine Lift"] = { { "yappy", "The mine lift comes up under Prosperity. Jerry's city. He'll love that." } },
+  ["pit.wilbur"] = {
+    { "jerry", "Wilbur! My best employee. Ninety per cent machine, ten per cent payroll. Remove them." },
+    { "yappy", "That's Wilbur. He was in accounting. Now he IS accounting. Shoot his drones first!" },
+  },
+  ["pit.upgrade"] = { { "jerry", "Upgrade authorised. Don't thank me, Wilbur. Actually, do. Out loud." } },
+  ["pit.wilbur-down"] = {
+    { "yappy", "Wilbur's down! The mine lift's open. I'll put him on gardening leave." },
+    { "jerry", "Do you know what he cost? He had a pension plan. I was never going to pay it, but still." },
+  },
   ["pit.end"] = { { "jerry", "No. No no no. Not my city. Somebody lock the... oh, it's open. Great." } },
 
   ["prosperity.start"] = {
@@ -187,24 +196,41 @@ Story.hold = {
   },
 }
 
---- The objective line for map `name` on `map`, given whether the level is
---- done, how many terminals still hold the way on (`waiting`, the nearest
---- of them `nearest`) and, on a map with a hold, how far it is (`held`, nil
---- before it starts) and whether anyone is on it (`on`). Returns the text
---- and where it points (x, y in world px).
-function Story.objective(name, map, done, waiting, nearest, held, on)
+-- The objective line while the way on waits for the level's boss, by map:
+-- before it comes (pointing where it will), and while it is up.
+Story.boss = {
+  pit = {
+    before = "Objective: get down to the pad on the pit's floor",
+    during = "Objective: take Wilbur down (shoot his drones first)",
+  },
+}
+
+--- The objective line for map `name` on `map`. `state` says what holds
+--- the way on: `done` (the level is), `waiting` terminals (the nearest
+--- `nearest`); on a map with a hold, how far it is (`held`, nil before it
+--- starts) and whether anyone is on it (`on`); on a map with a boss,
+--- `boss` "pad" (not come yet: it comes at `bossX`, `bossY`) or "fight".
+--- Returns the text and where it points (x, y in world px).
+function Story.objective(name, map, state)
+  local done, waiting, nearest = state.done, state.waiting, state.nearest
   if not done and (waiting or 0) > 0 and nearest then
     return (Story.hack[name] or "Objective: hack the terminals (%d left)"):format(waiting), nearest.x, nearest.y
   end
   local hold = Story.hold[name]
   if not done and hold and map.hold then
     local hx, hy = map.hold.x + map.hold.w / 2, map.hold.y + map.hold.h / 2
-    if not held then
+    if not state.held then
       return hold.before, hx, hy
-    elseif on then
-      return hold.during:format(math.floor(held * 100))
+    elseif state.on then
+      return hold.during:format(math.floor(state.held * 100))
     end
     return hold.paused, hx, hy
+  end
+  local boss = Story.boss[name]
+  if not done and boss and state.boss == "pad" then
+    return boss.before, state.bossX, state.bossY
+  elseif not done and boss and state.boss == "fight" then
+    return boss.during
   end
   if done then
     if name == "bunker" then
