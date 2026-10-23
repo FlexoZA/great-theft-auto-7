@@ -58,11 +58,15 @@ Story.beats = {
     .. "There are no bats." } },
 
   ["landing.start"] = {
-    { "yappy", "Liar's Landing! The ferry lift crosses the bay. We just need to get to it." },
+    { "yappy", "Liar's Landing! The ferry lift crosses the bay. Get on it and I'll hack it. From over here." },
     { "jerry", "Oh good, you're still alive. That's... great. Guards? Guards." },
   },
   ["landing.fight"] = { { "yappy", "Gun haulers! The good ones! Tactical retreat! Tactical retreat!" } },
   ["landing.The Quay"] = { { "yappy", "The lift! Up on the quay! Shoot the rocket ones first. I'll supervise." } },
+  ["landing.hold"] = {
+    { "yappy", "You're on! Hacking now. Stay on the lift. They'll come at you. That's sort of the plan." },
+  },
+  ["landing.half"] = { { "jerry", "Is somebody touching my ferry? Send everything. Send the expensive ones." } },
   ["landing.end"] = { { "yappy", "We did it! By we I mean me. The lift goes over to Jerry's mine." } },
 
   ["pit.start"] = {
@@ -153,6 +157,11 @@ Story.chatter = {
       "Minion down! Get up! I can't do this alone! I won't do this alone!",
       "Ow! That looked like it hurt. Did it hurt? Get up.",
     },
+    alone = { -- nobody on the spot she is hacking (hold.lua)
+      "Minion? The lift? I can't hack it if nobody's standing on it. That's the rule. I made the rule.",
+      "Hello? I've stopped. I'm not hacking a lift nobody's guarding. I have standards.",
+      "Back on the lift! Every second you're off it, I'm just sitting here. Typing nothing.",
+    },
     win = {
       "We did it! By we I mean me.",
       "Another one down! I'm keeping score. I'm winning.",
@@ -166,13 +175,36 @@ Story.hack = {
   wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
 }
 
+-- The objective line and the HUD bar while the way on waits for a hold
+-- (hold.lua), by map: before it starts, while it runs (`%d` the percent
+-- done), while nobody is on the spot.
+Story.hold = {
+  landing = {
+    before = "Objective: get to the ferry lift on the quay and hold it while Yappy hacks it",
+    during = "Objective: hold the ferry lift while Yappy hacks it (%d%%)",
+    paused = "Objective: get back on the ferry lift, Yappy's hack is paused",
+    bar = "YAPPY HACKING THE FERRY LIFT",
+  },
+}
+
 --- The objective line for map `name` on `map`, given whether the level is
---- done and how many terminals still hold the way on (`waiting`, the
---- nearest of them `nearest`). Returns the text and where it points (x, y in
---- world px).
-function Story.objective(name, map, done, waiting, nearest)
+--- done, how many terminals still hold the way on (`waiting`, the nearest
+--- of them `nearest`) and, on a map with a hold, how far it is (`held`, nil
+--- before it starts) and whether anyone is on it (`on`). Returns the text
+--- and where it points (x, y in world px).
+function Story.objective(name, map, done, waiting, nearest, held, on)
   if not done and (waiting or 0) > 0 and nearest then
     return (Story.hack[name] or "Objective: hack the terminals (%d left)"):format(waiting), nearest.x, nearest.y
+  end
+  local hold = Story.hold[name]
+  if not done and hold and map.hold then
+    local hx, hy = map.hold.x + map.hold.w / 2, map.hold.y + map.hold.h / 2
+    if not held then
+      return hold.before, hx, hy
+    elseif on then
+      return hold.during:format(math.floor(held * 100))
+    end
+    return hold.paused, hx, hy
   end
   if done then
     if name == "bunker" then

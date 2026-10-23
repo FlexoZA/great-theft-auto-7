@@ -55,8 +55,8 @@ shows each map's layout: its floor in the map's colour
 (`Borderline.MAP_FLOOR`) and the big things on it in theirs
 (`Borderline.MAP_COLORS`: sheds, the train, pits, containers, factories,
 the river), and its areas (`map.zones`): a dashed line between each, its
-name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Music so far only on
-the Frozen Wreck. See "Stages" at the end for the order.
+name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Liar's Landing's ferry lift is held while Yappy hacks it
+(`hold.lua`, below). Music so far only on the Frozen Wreck. See "Stages" at the end for the order.
 
 ## Decisions
 
@@ -411,9 +411,21 @@ dusk under floodlight towers, like the Wreck.
   beacons round the lift.
 - Gun haulers on the containers' corners, medic drones, two rocket haulers
   on crane platforms.
-- **The ferry lift:** a platform at the quay. Yappy hacks it (stand with
-  her: 60 s, waves come in, the timer stops while nobody is near him).
-  When it's done the lift is the EXIT: "THE BRAGIUM PIT".
+- **The ferry lift:** a platform at the quay, the way on, shut until
+  Yappy has hacked it (`hold.lua`, the map's `hold`): she does it from
+  wherever she is, but only while somebody stands on the lift; the first
+  one on starts it, and it takes 60 s of standing there
+  (`Borderline.LIFT_HOLD`). With nobody on it the hack stops (it doesn't
+  go back) and Yappy frets. Waves come at the lift as it goes, each when
+  the hack gets so far, so stepping off never piles them up: two gun
+  haulers and a medic drone off the west end of the quay at the start,
+  four junk haulers up the lanes at 20%, three gun haulers off the east
+  end at 40%, a rocket hauler and two gun haulers up the lanes at 60%,
+  three gun haulers and a medic drone at 80% (one more gun hauler in each
+  for every player past the first); what's left of each stays on the
+  lift. A bar on the lift's deck and one at the top of the screen show
+  the hack; the objective line says whether it's running. When it's done
+  the lift is the EXIT: "THE BRAGIUM PIT".
 
 ### 3. The Bragium Pit (`pit`, 60x60, at dusk)
 

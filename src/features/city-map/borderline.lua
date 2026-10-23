@@ -98,6 +98,8 @@
 --   map.terminals,        what opens the way on, and what it opens (the terminals feature): Hyperbole's
 --   map.locks             terminals and the blast door they open (the Wreck); a terminal's `dock` names the
 --                         hauler dock (a DCK post in `army`) it shuts down when hacked
+--   map.hold              { x, y, w, h, time, waves } a spot held while Yappy hacks it, the way on shut till
+--                         then (Liar's Landing's ferry lift; borderline/hold.lua says the rest)
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
@@ -304,6 +306,19 @@ function Blockout:squad(codes, corners)
   end
   local army = self.map.army
   army.squads[#army.squads + 1] = { codes = codes, route = route, start = 1 }
+end
+
+--- A spot players hold while Yappy hacks it (borderline/hold.lua): tiles
+--- (c, r, w, h), `time` seconds of standing on it.
+function Blockout:hold(c, r, w, h, time)
+  self.map.hold = { x = self:x(c), y = self:y(r), w = w * self.T, h = h * self.T, time = time, waves = {} }
+end
+
+--- A wave of `codes` coming at the hold from tile (c, r) once the hack is
+--- `at` (0..1) of the way through. Add them in order.
+function Blockout:wave(at, codes, c, r)
+  local waves = self.map.hold.waves
+  waves[#waves + 1] = { at = at, codes = codes, x = self:x(c), y = self:y(r) }
 end
 
 --- A lock (the terminals feature): `label` on the HUD, holding the level's
@@ -551,6 +566,7 @@ Borderline.DRY_DOCK = { 3, 14, 7, 30 }
 -- The quay's gantry cranes (tile column of each one's middle): they stand
 -- over the quay and reach out over the freighter moored along it.
 Borderline.GANTRIES = { 11.5, 43.5 }
+Borderline.LIFT_HOLD = 60 -- seconds the ferry lift has to be held for Yappy's hack
 
 local function buildLanding(map, rng, T)
   local b = Blockout.new(map, T)
@@ -646,6 +662,14 @@ local function buildLanding(map, rng, T)
   b:post("RPG", 46, 7)
   b:post("FIX", 12, 21) -- a pair of medic drones with the first squad
   b:post("FIX", 14, 21)
+  -- The ferry lift stays shut until it has been held for Yappy's hack, the
+  -- army coming at it off both ends of the quay and up the lanes.
+  b:hold(25, 2, 6, 3, Borderline.LIFT_HOLD)
+  b:wave(0, { "GUN", "GUN", "FIX" }, 4, 4)
+  b:wave(0.2, { "JNK", "JNK", "JNK", "JNK" }, 27, 19)
+  b:wave(0.4, { "GUN", "GUN", "GUN" }, 52, 4)
+  b:wave(0.6, { "RPG", "GUN", "GUN" }, 43, 19)
+  b:wave(0.8, { "GUN", "GUN", "GUN", "FIX" }, 11, 19)
   b:zone("The Yard", 8, map.rows - 1)
   b:zone("The Quay", 0, 7)
   b:ends(25, 56, 27, 3)

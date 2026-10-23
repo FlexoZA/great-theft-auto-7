@@ -16,7 +16,10 @@
 --
 -- A level with terminals (the Frozen Wreck's) keeps its way on shut until
 -- they are hacked (the terminals feature); hacking one sets off an alarm
--- the army near it hears, and shuts down the hauler dock it runs.
+-- the army near it hears, and shuts down the hauler dock it runs. A level
+-- with a hold (Liar's Landing's ferry lift) keeps it shut until players
+-- have stood on the spot long enough for Yappy's hack, waves coming in as
+-- it goes (hold.lua).
 
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -25,6 +28,7 @@ local Tale = require("src.features.borderline.tale")
 local Works = require("src.features.borderline.works")
 local Music = require("src.features.borderline.music")
 local Marker = require("src.features.borderline.marker")
+local Hold = require("src.features.borderline.hold")
 local Terminals = require("src.features.terminals")
 
 local Borderline = {
@@ -66,6 +70,7 @@ function Borderline:serverQuestStarted(server, quest)
     level = { quest = quest.id, done = false }
     Army.serverStart(server, cityMap())
     Terminals.serverOpen(cityMap(), Army.nav(), Army.serverAlarm)
+    Hold.serverStart(cityMap())
     Tale.serverStart(cityMap())
   end
 end
@@ -75,6 +80,7 @@ function Borderline:serverQuestEnded(server, quest)
     level = nil
     Army.serverStop(server)
     Terminals.serverClose()
+    Hold.serverStop()
     Tale.serverStop()
   end
 end
@@ -85,9 +91,15 @@ function Borderline:mapChanged(_map, server)
   if server then
     level = nil
     Army.serverStop(server)
+    Hold.serverStop()
     Tale.serverStop()
   end
   Army.clear()
+  Hold.clear()
+end
+
+function Borderline:serverPlayerJoined(server, player)
+  Hold.serverPlayerJoined(server, player)
 end
 
 --- A terminal hacked (the terminals feature): the dock it runs shuts down.
@@ -131,7 +143,14 @@ function Borderline:serverStep(server, dt)
   end
   local map = cityMap()
   Tale.serverStep(server, map, Army.alerted(), dt)
-  if not (map and map.exitX) or Terminals.serverLocked()
+  Hold.serverStep(server, dt, function(what)
+    Tale.serverBeat(server, what)
+  end, function(who, category)
+    Tale.serverChat(server, who, category)
+  end, function(codes, x, y, toX, toY)
+    Army.serverWave(server, codes, x, y, toX, toY)
+  end)
+  if not (map and map.exitX) or Terminals.serverLocked() or Hold.serverLocked()
     or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end
@@ -150,18 +169,21 @@ end
 function Borderline:questStarted(_client, quest)
   if quest.boss == self.questId then
     Tale.questStarted(quest)
+    Hold.clear()
   end
 end
 
 function Borderline:questEnded(_client, quest)
   if quest.boss == self.questId then
     Tale.clear()
+    Hold.clear()
     Music.stop()
   end
 end
 
 function Borderline:exitGame()
   Tale.clear()
+  Hold.clear()
   Army.clear()
   Music.stop()
 end
@@ -177,6 +199,7 @@ function Borderline:update(dt, client)
   Tale.update(dt, map, y)
   Music.update(map, Tale.onLevel(map), Tale.blurring(map))
   Marker.update(dt)
+  Hold.update(dt)
 end
 
 --- Any key takes Jerry's intro screen down.
@@ -205,6 +228,9 @@ function Borderline:drawBelowCars()
   local map = cityMap()
   if map then
     Works.drawBelowCars(map)
+  end
+  if Tale.onLevel(map) then
+    Hold.drawBelowCars(map)
   end
   Army.drawBelowCars()
 end
@@ -275,7 +301,7 @@ function Borderline:footstepWalkers()
 end
 
 Borderline.clientMessages = {}
-for _, part in ipairs({ Army, Tale }) do
+for _, part in ipairs({ Army, Tale, Hold }) do
   for kind, handler in pairs(part.clientMessages) do
     Borderline.clientMessages[kind] = handler
   end

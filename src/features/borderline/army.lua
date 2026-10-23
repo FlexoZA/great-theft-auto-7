@@ -335,6 +335,28 @@ function Army.serverShutDock(server, key, by)
   end
 end
 
+--- A wave of `codes` coming in from (x, y) at (toX, toY) (hold.lua): one
+--- more gun hauler for each human past the first (Bosses.plus). Each makes
+--- (toX, toY) its post, so whoever survives stays there.
+function Army.serverWave(server, codes, x, y, toX, toY)
+  if not sv then
+    return
+  end
+  local list = { unpack(codes) }
+  for _ = 1, Bosses.plus(#codes, server) - #codes do
+    list[#list + 1] = "GUN"
+  end
+  for k, code in ipairs(list) do
+    local a = k / #list * 2 * math.pi
+    local s = sv.roster:add(BRAINS[code], code, x + math.cos(a) * 50, y + math.sin(a) * 50,
+      math.atan2(toY - y, toX - x))
+    s.homeX, s.homeY = toX + math.cos(a) * 120, toY + math.sin(a) * 60
+    if s.brain.wake then
+      s.brain.wake(s, toX, toY)
+    end
+  end
+end
+
 --- The level's walking grid, for the terminals' walls coming down.
 function Army.nav()
   return sv and sv.roster.nav

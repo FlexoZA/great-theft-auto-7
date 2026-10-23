@@ -23,6 +23,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Story = require("src.features.borderline.story")
 local Terminals = require("src.features.terminals")
+local Hold = require("src.features.borderline.hold")
 local Hud = require("src.features.borderline.hud")
 local Faces = require("src.features.borderline.faces")
 
@@ -77,6 +78,13 @@ end
 local function chat(server, who, category)
   local lines = Story.chatter[who][category]
   server:broadcast(Protocol.encode("BRL_CHAT", who, category, random(#lines)))
+end
+
+--- A line of `who`'s chatter in `category`, picked now (hold.lua's fretting).
+function Tale.serverChat(server, who, category)
+  if sv then
+    chat(server, who, category)
+  end
 end
 
 function Tale.serverStep(server, map, alerted, dt)
@@ -238,9 +246,13 @@ function Tale.drawHUD(map, done, x, y)
   if cl.page then
     return -- his screen covers it all (`drawScreen`)
   end
-  local text, tx, ty = Story.objective(cl.level, map, done, Terminals.nearestWaiting(x, y))
+  local waiting, nearest = Terminals.nearestWaiting(x, y)
+  local text, tx, ty = Story.objective(cl.level, map, done, waiting, nearest, Hold.shown())
   if text then
     Hud.drawObjective(text, tx and x and math.sqrt((x - tx) ^ 2 + (y - ty) ^ 2) or nil)
+  end
+  if not done and Story.hold[cl.level] then
+    Hold.drawHUD(Story.hold[cl.level].bar)
   end
   if cl.say then
     local left = Hud.sayFor(cl.say.text) - cl.say.t
