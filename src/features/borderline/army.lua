@@ -31,10 +31,12 @@
 -- hacked, and a terminal done shuts down the dock it runs (`serverShutDock`).
 --
 -- Messages
---   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim> <link> <shield>]...
+--   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim> <link> <shield> <breath>
+--                  <winded>]...
 --                  (unreliable, 15 Hz; state 0 calm, 1 after somebody, 2 crawling, 3 in the air, 4 a sentry up;
 --                  aim 1 while it is lining up a shot or winding up: its coils, pods or thrusters glow, its core
---                  races; link the hauler a drone's beam is on (0 none); shield its bubble's points)
+--                  races; link the hauler a drone's beam is on (0 none); shield its bubble's points; breath and
+--                  winded a model with breath's (bosses/stamina.lua's wire: the stalker's), -1 and 0 for the rest)
 --   server -> all  HYP_DOWN  <id> <x> <y> <angle> <code>   one went down
 --   server -> all  HYP_ALERT <id>                          one spotted somebody (its beep)
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
@@ -46,6 +48,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
+local Stamina = require("src.features.bosses.stamina")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Chassis = require("src.features.borderline.chassis")
@@ -252,6 +255,12 @@ local function sync(server)
     parts[#parts + 1] = (s.charging or lining) and 1 or 0
     parts[#parts + 1] = s.beaming and s.link or 0
     parts[#parts + 1] = ("%.0f"):format(s.shield or 0)
+    local breath, winded = -1, 0
+    if s.breath then
+      breath, winded = s.breath:wire()
+    end
+    parts[#parts + 1] = breath
+    parts[#parts + 1] = winded
   end
   local msg = Protocol.encode("HYP_STATE", unpack(parts))
   for _, player in pairs(server.players) do
@@ -498,14 +507,29 @@ function Army.drawBelowCars()
   Darts.drawBelowCars(clock)
 end
 
+--- Its health under it once hurt, and under that its breath (a model with
+--- breath, once it has spent some): blue, throbbing red while it is winded.
 local function healthBar(s)
+  local r = s.code == "DCK" and DockLook.RADIUS or Look.radius(s.code)
+  local bw, y = 24, s.dy + r + 5
   if s.hp < s.max then
-    local r = s.code == "DCK" and DockLook.RADIUS or Look.radius(s.code)
-    local bw, f = 24, math.max(0, s.hp / s.max)
+    local f = math.max(0, s.hp / s.max)
     love.graphics.setColor(0, 0, 0, 0.6)
-    love.graphics.rectangle("fill", s.dx - bw / 2 - 1, s.dy + r + 5, bw + 2, 4)
+    love.graphics.rectangle("fill", s.dx - bw / 2 - 1, y, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
-    love.graphics.rectangle("fill", s.dx - bw / 2, s.dy + r + 6, bw * f, 2)
+    love.graphics.rectangle("fill", s.dx - bw / 2, y + 1, bw * f, 2)
+    y = y + 4
+  end
+  if s.breath and s.breath >= 0 and (s.breath < 100 or s.winded) then
+    local f = math.min(1, s.breath / 100)
+    love.graphics.setColor(0, 0, 0, 0.6)
+    love.graphics.rectangle("fill", s.dx - bw / 2 - 1, y, bw + 2, 4)
+    if s.winded then
+      love.graphics.setColor(1, 0.2, 0.15, 0.55 + 0.45 * math.sin(clock * 10))
+    else
+      love.graphics.setColor(0.35, 0.65, 1)
+    end
+    love.graphics.rectangle("fill", s.dx - bw / 2, y + 1, math.max(1, bw * f), 2)
   end
 end
 
@@ -583,7 +607,7 @@ Army.clientMessages = {
     end
     lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
-    for i = 2, #args - 9, 10 do
+    for i = 2, #args - 11, 12 do
       local id, code, x, y = tonumber(args[i]), args[i + 1], tonumber(args[i + 2]), tonumber(args[i + 3])
       if id and x and y and (Look.KITS[code] or MACHINES[code]) then
         local s = shown[id]
@@ -602,6 +626,7 @@ Army.clientMessages = {
         s.aim = args[i + 7] == "1"
         s.link = tonumber(args[i + 8])
         s.shield = tonumber(args[i + 9]) or 0
+        s.breath, s.winded = Stamina.read(args, i + 10)
         seen[id] = true
       end
     end

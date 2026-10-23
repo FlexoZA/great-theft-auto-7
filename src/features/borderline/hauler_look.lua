@@ -14,8 +14,8 @@
 --   ARC  blue coils on both arms, a dish on its back
 --   JET  wings folded on its back and thrusters; spread when it flies
 --   BAD  the badass: bigger, black and yellow, horns, twin war cannons, pods
---   STK  the stalker: tall on three long legs, one red eye slit, a flechette
---        pod on each shoulder
+--   STK  the stalker: tall on two long legs and a wheel behind, one red eye
+--        slit, a flechette pod on each shoulder
 --
 --   Look.draw(h, clock)
 --       h: { dx, dy, facing, code, stride, charge, flash, crawl, flying }
@@ -84,13 +84,12 @@ end
 --- wide of the hull so it reads as standing tall.
 local function legs(k, stride)
   if k.tripod then
-    -- Three long legs, two forward and one back, each kinked out at the
-    -- knee; they step by turns.
-    for i, leg in ipairs({ { 8, -1 }, { 8, 1 }, { -12, 0 } }) do
-      local step = math.sin(stride * 0.16 + i * 2.1) * 5
-      local hx, hy = leg[1] * 0.4, leg[2] * 5
-      local fx, fy = leg[1] + step + (leg[2] == 0 and -14 or 7), leg[2] * 23
-      local kx, ky = (hx + fx) / 2 + (leg[2] == 0 and 0 or -4), (hy + fy) / 2 + (leg[2] == 0 and 9 or leg[2] * 6)
+    -- Two long legs forward, each kinked out at the knee, stepping by
+    -- turns; behind, a strut down to a wheel whose tread rolls with it.
+    for i, side in ipairs({ -1, 1 }) do
+      local step = math.sin(stride * 0.16 + i * math.pi) * 5
+      local hx, hy, fx, fy = 3, side * 5, 15 + step, side * 23
+      local kx, ky = (hx + fx) / 2 - 4, (hy + fy) / 2 + side * 6
       for pass = 1, 2 do
         color(pass == 1 and C.ink or C.gunmetalLight)
         love.graphics.setLineWidth(pass == 1 and 4.2 or 2.4)
@@ -100,6 +99,14 @@ local function legs(k, stride)
       disc(kx, ky, 1.9, C.yellowDark)
       disc(fx, fy, 1.7, C.gunmetal) -- a spike of a foot
     end
+    plate(-19, -1.5, 12, 3, C.gunmetalLight) -- the strut
+    plate(-26, -3, 11, 6, C.black, 2) -- the wheel, seen from above: its tread
+    color(C.gunmetalLight)
+    local roll = (stride * 0.6) % 3
+    for x = -25.5 + roll, -16, 3 do
+      love.graphics.rectangle("fill", x, -2.4, 1, 4.8)
+    end
+    disc(-20.5, 0, 1.4, C.yellowDark) -- its hub
     return
   end
   local spread = k.wide and 15 or 13

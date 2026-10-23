@@ -49,9 +49,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a
   hauler dock (300 health): a charging bay with a plasma gun that fires bursts of three and builds a fresh junk
   hauler every 20 seconds while you're near. Shoot the dock down, or hack its terminal to shut it off.
-- Stalker haulers (140 health) on Liar's Landing: tall three-legged hunters that keep their distance, throw
-  themselves aside from your shots, charge you down every few seconds and back off to a medkit when hurt. They
-  fire bursts of flechettes that stick in you or the ground and blow a second later inside a red ring.
+- Stalker haulers (140 health) on Liar's Landing: tall hunters on two legs and a wheel that keep their distance,
+  throw themselves aside from your shots once they know you're there, charge you down every few seconds and back
+  off to a medkit when hurt. Catch one unaware and your first shots land; keep it dodging and it runs out of
+  breath (the bar under it turns red) and can't dodge or charge for a few seconds. They fire bursts of flechettes
+  that stick in you or the ground and blow a second later inside a red ring.
 - Liar's Landing's ferry lift is shut until Yappy hacks it: stand on it for 60 seconds while waves of gun,
   junk and rocket haulers come at it off the quay and up the lanes. Step off and the hack stops until somebody
   is back on.

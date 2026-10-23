@@ -5,9 +5,15 @@
 -- keeps its distance the same way, quicker about it. Its modes, the first
 -- that applies each tick:
 --
---   dodge   a player's round about to hit it, or an ability about to land
---           on it (bosses/dodge.lua): it throws itself aside. That costs
---           breath (bosses/stamina.lua) and it can't again straight away.
+--   dodge   once it knows somebody is about (hunting, or searching where
+--           it lost them), a player's round about to hit it or an ability
+--           about to land on it (bosses/dodge.lua): it throws itself
+--           aside. Not before: a shot from hiding lands, and only then
+--           does it turn round. A dodge spends breath as it goes
+--           (bosses/stamina.lua), and it can't again straight away; a few
+--           in a row and it is winded, walking, with no dodge or charge
+--           in it until it has its breath back (every screen sees its
+--           breath under it, red while it is winded).
 --   charge  now and then, somebody at the right distance: it crouches
 --           (`charging`, its pods and eye glow), then runs straight at
 --           where they stood and can't turn; whoever it runs into is
@@ -56,10 +62,13 @@ Brain.CONF = {
 Brain.DART = { speed = 650, ttl = 1.0, sting = 3, radius = 40, damage = 10 }
 Brain.SPREAD = 0.09 -- radians either side a dart may stray
 Brain.PODS = 9 -- px either side of its middle the pods fire from, by turns
-Brain.DODGE = { warn = 0.4, speed = 480, time = 0.22, cool = 1.2, cost = 25 }
+Brain.DODGE = { warn = 0.4, speed = 480, time = 0.22, cool = 1.2 } -- (its breath goes while it dodges)
 Brain.CHARGE = { every = { 6, 9 }, range = { 110, 380 }, windUp = 0.5, speed = 430, time = 0.6, reach = 30,
   damage = 20, cost = 30, backOff = 1.2 }
-Brain.BREATH = { drain = 0, regen = 12, recovered = 50, breath = 25 } -- only dodges and charges spend it
+-- Its breath: `drain` a second while it dodges (about a quarter of it a dodge), the charge's `cost` at once.
+Brain.BREATH = { drain = 110, regen = 14, recovered = 50, breath = 20 }
+-- Winded it only walks: its numbers then.
+Brain.WINDED = setmetatable({ speed = Brain.CONF.walk }, { __index = Brain.CONF })
 
 local random = love.math.random
 
@@ -173,8 +182,14 @@ local function heal(roster, server, s, tx, ty, dt)
   return true
 end
 
+--- Does `s` know somebody is about: hunting them, or looking where it lost them?
+local function alert(s)
+  return s.target ~= nil or s.state == "hunt" or s.state == "search"
+end
+
 function Brain.think(roster, server, s, dt)
-  s.breath:step(false, dt)
+  s.breath:step(s.dodgeFor ~= nil, dt)
+  s.conf = s.breath:winded() and Brain.WINDED or Brain.CONF
   if s.dodgeFor then
     s.dodgeFor = s.dodgeFor - dt
     Chassis.move(s, s.dodgeX * Brain.DODGE.speed * dt, s.dodgeY * Brain.DODGE.speed * dt)
@@ -198,7 +213,7 @@ function Brain.think(roster, server, s, dt)
     end
     return
   end
-  if roster.time >= s.dodgeAt and s.breath:has(Brain.DODGE.cost) then
+  if alert(s) and roster.time >= s.dodgeAt and s.breath:has() then
     local ux, uy, shooter = threat(server, s)
     if ux then
       local sx, sy = nil, nil
@@ -209,7 +224,6 @@ function Brain.think(roster, server, s, dt)
         Chassis.wake(s, sx, sy)
         s.spotted = true
       end
-      s.breath:spend(Brain.DODGE.cost)
       s.dodgeFor, s.dodgeX, s.dodgeY = Brain.DODGE.time, ux, uy
       s.dodgeAt, s.aimFor = roster.time + Brain.DODGE.cool, 0
       return
