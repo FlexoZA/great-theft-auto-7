@@ -20,7 +20,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   through to their far end; the bosses come next.
 - The Borderline maps show their layout on the minimap and the big map (the sheds, the train, the pits, the
   containers, the factories, the river) instead of a grey box, with each area's name on it and the one you're
-  in picked out in gold; and a golden halo hangs over what the objective is after: each terminal still to
+  in picked out in gold; and a gold chevron bounces over what the objective is after: each terminal still to
   hack, then the way on, with a ring pinging round it on the map.
 - The Frozen Wreck has its own theme: fast freight-yard metal, a train horn and wheels clacking into a
   galloping riff, anvils ringing, a twangy lead over the chorus.

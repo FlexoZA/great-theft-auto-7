@@ -10,8 +10,8 @@
 -- the way (army.lua, from the map's `army`). Handsome Jerry and YAP-TP tell
 -- the story as it goes (tale.lua: Jerry's intro screen, the banners, their
 -- lines over the comms, the objective line). The maps' moving parts (the
--- cranes, the beacons) are works.lua's, their themes music.lua's; a halo
--- hangs over what the objective line is after (halo.lua). The bosses come
+-- cranes, the beacons) are works.lua's, their themes music.lua's; a chevron
+-- hangs over what the objective line is after (marker.lua). The bosses come
 -- later.
 --
 -- A level with terminals (the Frozen Wreck's) keeps its way on shut until
@@ -24,7 +24,7 @@ local Army = require("src.features.borderline.army")
 local Tale = require("src.features.borderline.tale")
 local Works = require("src.features.borderline.works")
 local Music = require("src.features.borderline.music")
-local Halo = require("src.features.borderline.halo")
+local Marker = require("src.features.borderline.marker")
 local Terminals = require("src.features.terminals")
 
 local Borderline = {
@@ -43,14 +43,14 @@ local function cityMap()
 end
 
 --- What the objective line is after on this screen, while it is up: none
---- under Jerry's screen or off the line's levels (halo.lua).
+--- under Jerry's screen or off the line's levels (marker.lua).
 local function objectives()
   local map = cityMap()
   if not Tale.onLevel(map) or Tale.blurring(map) then
     return {}
   end
   local quests = Features.byName.quests
-  return Halo.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
+  return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
 end
 
 function Borderline:load()
@@ -176,7 +176,7 @@ function Borderline:update(dt, client)
   local map = cityMap()
   Tale.update(dt, map, y)
   Music.update(map, Tale.onLevel(map), Tale.blurring(map))
-  Halo.update(dt)
+  Marker.update(dt)
 end
 
 --- Any key takes Jerry's intro screen down.
@@ -215,7 +215,7 @@ function Borderline:drawAboveCars()
   if map then
     Works.drawAboveCars(map)
   end
-  Halo.draw(objectives())
+  Marker.draw(objectives())
 end
 
 function Borderline:drawNightLights(_client, _camera, glow)
@@ -223,7 +223,7 @@ function Borderline:drawNightLights(_client, _camera, glow)
   if map then
     Works.drawNightLights(map, glow)
   end
-  Halo.drawNightLights(objectives(), glow)
+  Marker.drawNightLights(objectives(), glow)
 end
 
 --- The map's areas on the minimap and the big map (`w` px wide): a dashed
@@ -260,14 +260,14 @@ local function drawAreas(client, map, toMap, w)
   love.graphics.setColor(1, 1, 1)
 end
 
---- On the minimap and the big map: the map's areas, and the halo's ring
+--- On the minimap and the big map: the map's areas, and the marker's ring
 --- round each objective.
 function Borderline:drawOnMinimap(client, toMap, w)
   local map = cityMap()
   if Tale.onLevel(map) then
     drawAreas(client, map, toMap, w)
   end
-  Halo.drawOnMinimap(objectives(), toMap)
+  Marker.drawOnMinimap(objectives(), toMap)
 end
 
 function Borderline:footstepWalkers()

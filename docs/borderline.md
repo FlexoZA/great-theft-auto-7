@@ -48,7 +48,7 @@ banners; the comms; the objective line), played by `tale.lua` (the host
 raises each level's beats once: start, a zone walked into, the first
 fight, the end; and the chatter: Jerry's taunts, his sulking over a big
 kill, both of them on a player going down, Yappy cheering now and then).
-A golden halo hangs over what the objective line is after (`halo.lua`):
+A gold chevron bounces over what the objective line is after (`marker.lua`):
 every terminal still to hack, then the way on until the level is done,
 with a ring pinging round it on the minimap and the big map. The minimap
 shows each map's layout: its floor in the map's colour
