@@ -189,7 +189,7 @@ function Borderline:exitGame()
 end
 
 function Borderline:update(dt, client)
-  Army.update(dt)
+  Army.update(dt, client)
   Works.update(dt)
   local y = nil
   if client then

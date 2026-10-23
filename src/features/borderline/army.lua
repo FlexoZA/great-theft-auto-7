@@ -25,7 +25,7 @@
 -- (domes.lua), a shield drone's bubble soaks hits first (chassis.lua).
 -- What comes down out of the sky on red rings is barrage.lua's (the rocket
 -- haulers' pods, the jet haulers' runs, the badass hauler's); the plasma
--- bolts are bolts.lua's.
+-- bolts are bolts.lua's, the stalker haulers' flechettes darts.lua's.
 --
 -- The terminals' alarm (`serverAlarm`) brings the army near one being
 -- hacked, and a terminal done shuts down the dock it runs (`serverShutDock`).
@@ -39,7 +39,8 @@
 --   server -> all  HYP_ALERT <id>                          one spotted somebody (its beep)
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
 --   server -> all  HYP_STOMP <id>                          a badass hauler stamped
---   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH, domes.lua's HYP_DOME)
+--   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH, darts.lua's HYP_DART and HYP_STICK,
+--   domes.lua's HYP_DOME)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -61,11 +62,13 @@ local Drone = require("src.features.borderline.drone_brain")
 local Sentry = require("src.features.borderline.sentry_brain")
 local Dock = require("src.features.borderline.dock_brain")
 local Bad = require("src.features.borderline.bad_brain")
+local Stk = require("src.features.borderline.stk_brain")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
 local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
+local Darts = require("src.features.borderline.darts")
 
 local Army = {}
 
@@ -73,12 +76,12 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk }
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true } -- drawn by drone_look.lua and dock_look.lua
 
 local SYNC_EVERY = 2
@@ -134,12 +137,14 @@ function Army.serverStart(server, map)
   end
   Barrage.serverStart()
   Bolts.serverStart()
+  Darts.serverStart()
   sv = { roster = roster, syncIn = 0, sentEmpty = false }
 end
 
 function Army.serverStop(server)
   Barrage.serverStop()
   Bolts.serverStop()
+  Darts.serverStop()
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("HYP_STATE", server.tick))
@@ -262,6 +267,7 @@ function Army.serverStep(server, dt)
   end
   Barrage.serverStep(server, dt)
   Bolts.serverStep(server, dt)
+  Darts.serverStep(server, dt)
   for _, s in ipairs(sv.roster:update(server, dt)) do
     down(server, s, s.lastBy, s.facing + math.pi, "bullet") -- a crawl that gave out
   end
@@ -395,6 +401,7 @@ local bank = {}
 
 function Army.load()
   Bolts.load()
+  Darts.load()
   local function make(seconds, volume, build)
     local buf = Synth.newBuffer(seconds)
     build(buf)
@@ -442,6 +449,7 @@ function Army.clear()
   shown, wrecks, lastTick = {}, {}, 0
   Barrage.clear()
   Bolts.clear()
+  Darts.clear()
   Domes.clear()
 end
 
@@ -458,10 +466,11 @@ local function follow(s, k)
   s.stride = s.stride + gap * k -- the legs step with the ground covered
 end
 
-function Army.update(dt)
+function Army.update(dt, client)
   clock = clock + dt
   Barrage.update(dt)
   Bolts.update(dt)
+  Darts.update(dt, client)
   Domes.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
@@ -486,6 +495,7 @@ function Army.drawBelowCars()
     end
   end
   Barrage.drawBelowCars(clock)
+  Darts.drawBelowCars(clock)
 end
 
 local function healthBar(s)
@@ -544,6 +554,7 @@ function Army.drawAboveCars()
   end
   Domes.draw(shownAt, clock)
   Bolts.draw(clock)
+  Darts.drawAboveCars(clock)
   for _, s in pairs(shown) do
     if flies(s) then
       drawOne(s)
@@ -635,7 +646,7 @@ Army.clientMessages = {
     end
   end,
 }
-for _, part in ipairs({ Barrage, Bolts, Domes }) do
+for _, part in ipairs({ Barrage, Bolts, Darts, Domes }) do
   for kind, handler in pairs(part.clientMessages) do
     Army.clientMessages[kind] = handler
   end

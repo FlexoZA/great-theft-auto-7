@@ -35,7 +35,8 @@ Tale.KILL_EVERY = 15 -- seconds at least between remarks on a kill
 Tale.DOWN_EVERY = 10 -- ...and on a player going down
 Tale.CHEER = 0.15 -- the chance Yappy cheers a small kill
 Tale.INTRO_TIME = 9 -- seconds Jerry's screen stays up if nobody presses a key
-Tale.BIG = { RPG = true, PLZ = true, JET = true, DZR = true, ARC = true, BAD = true, DCK = true } -- Jerry notices these
+-- Jerry notices these going down.
+Tale.BIG = { RPG = true, PLZ = true, JET = true, DZR = true, ARC = true, BAD = true, DCK = true, STK = true }
 
 local random = love.math.random
 

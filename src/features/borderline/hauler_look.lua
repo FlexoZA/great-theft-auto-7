@@ -14,6 +14,8 @@
 --   ARC  blue coils on both arms, a dish on its back
 --   JET  wings folded on its back and thrusters; spread when it flies
 --   BAD  the badass: bigger, black and yellow, horns, twin war cannons, pods
+--   STK  the stalker: tall on three long legs, one red eye slit, a flechette
+--        pod on each shoulder
 --
 --   Look.draw(h, clock)
 --       h: { dx, dy, facing, code, stride, charge, flash, crawl, flying }
@@ -81,6 +83,25 @@ end
 --- knee (they bend backwards, like a bird's) and down to a pad of a foot,
 --- wide of the hull so it reads as standing tall.
 local function legs(k, stride)
+  if k.tripod then
+    -- Three long legs, two forward and one back, each kinked out at the
+    -- knee; they step by turns.
+    for i, leg in ipairs({ { 8, -1 }, { 8, 1 }, { -12, 0 } }) do
+      local step = math.sin(stride * 0.16 + i * 2.1) * 5
+      local hx, hy = leg[1] * 0.4, leg[2] * 5
+      local fx, fy = leg[1] + step + (leg[2] == 0 and -14 or 7), leg[2] * 23
+      local kx, ky = (hx + fx) / 2 + (leg[2] == 0 and 0 or -4), (hy + fy) / 2 + (leg[2] == 0 and 9 or leg[2] * 6)
+      for pass = 1, 2 do
+        color(pass == 1 and C.ink or C.gunmetalLight)
+        love.graphics.setLineWidth(pass == 1 and 4.2 or 2.4)
+        love.graphics.line(hx, hy, kx, ky, fx, fy)
+      end
+      love.graphics.setLineWidth(1)
+      disc(kx, ky, 1.9, C.yellowDark)
+      disc(fx, fy, 1.7, C.gunmetal) -- a spike of a foot
+    end
+    return
+  end
   local spread = k.wide and 15 or 13
   for _, side in ipairs({ -1, 1 }) do
     local step = math.sin(stride * 0.18) * 6 * side
@@ -149,6 +170,17 @@ local function head(k, heat, clock)
     love.graphics.polygon("fill", hx - 3, 5, hx + 4, 11, hx + 1, 4)
   end
   local pulse = 0.75 + 0.25 * math.sin(clock * 4)
+  if k.slit then -- one narrow slit across a dark visor
+    disc(hx, 0, 6, C.black)
+    color(C.eye, pulse)
+    love.graphics.rectangle("fill", hx + 1.5, -4.6, 2.4, 9.2, 1)
+    color(C.eyeHot, 0.4 + 0.6 * heat)
+    love.graphics.rectangle("fill", hx + 2.1, -2 - heat, 1.2, 4 + 2 * heat)
+    if heat > 0 then
+      glow(C.eye, 0.4 * heat, hx + 2.5, 0, 9)
+    end
+    return
+  end
   color(C.eye, pulse)
   love.graphics.circle("fill", hx + 0.8, 0, 4.2, 16)
   color(C.eyeHot, 0.5 + 0.5 * heat)
@@ -338,6 +370,29 @@ Look.KITS.BAD = {
   end,
   back = function(charge)
     pods(charge, -17)
+  end,
+}
+
+Look.KITS.STK = {
+  trim = C.eye,
+  scale = 1.25,
+  tripod = true,
+  slit = true,
+  arms = function(charge)
+    -- A flechette pod on each shoulder, the darts' tips showing in its mouth.
+    for _, side in ipairs({ -1, 1 }) do
+      local y = side * 9
+      plate(-3, y - 3.5, 13, 7, C.gunmetal, 2)
+      color(C.ink)
+      love.graphics.rectangle("fill", 8, y - 2.8, 2.4, 5.6)
+      color(charge > 0 and C.yellow or C.steel)
+      for i = 0, 2 do
+        love.graphics.rectangle("fill", 8.6, y - 2.2 + i * 1.8, 1.8, 0.9)
+      end
+      if charge > 0 then
+        glow(C.yellow, 0.45 * charge, 10, y, 4 + 4 * charge)
+      end
+    end
   end,
 }
 

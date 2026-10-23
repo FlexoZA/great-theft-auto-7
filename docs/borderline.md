@@ -177,6 +177,7 @@ and its top half drags itself on for 4 s, still shooting, before it dies
 | **Dozer hauler** | `DZR` | Wide, a bulldozer blade on one arm | 160 | Blade shove (`impact`), a dozer charge | The blade stops everything from the front (70 degrees, like the Enforcer's shield); flank it or blow it up. Every 6-8 s it folds into a dozer and charges in a straight line (`impact`, 30, knocked down). |
 | **Arc hauler** | `ARC` | Blue coils on both arms, a dish on its back | 80 | Shock bolts (`shock`, 10, `electrify`) | Throws up a dome shield (180 px) over itself and anything near it for 5 s, every 12 s. Rounds from outside stop at the dome; walk inside and you are zapped every second (`shock`, 8) but your rounds hit. |
 | **Jet hauler** | `JET` | Wings folded on its back, thrusters | 70 | In the air: a strafing run of rockets in a line (`explosive`, 20 each); on the ground: a rifle | Flies over walls (drawn over everything, a shadow on the ground), makes a run along a line through you (red marks along the line 0.8 s before), lands somewhere, fights on foot, takes off again. Only shootable on the ground or while landing. |
+| **Stalker hauler** | `STK` | Tall on three long legs (two forward, one back), a dark visor with one red eye slit, a flechette pod on each shoulder | 140 | Bursts of six flechettes (`darts.lua`): each stings as it sticks in you (3), in a wall or in the ground where it stops, blinks inside a red ring and blows a second later (`explosive`, 10, 40 px) | Hyperbole's hunter. Hunts the stacks in a pair and keeps its distance (260-480 px) quicker than the drilled models. Throws itself aside from rounds and abilities coming at it (breath: `bosses/stamina.lua`), and turns on whoever fired. Every 6-9 s it crouches (0.5 s, its pods and eye glow) and charges where you stood (`impact`, 20, knocked down), then backs off. Badly hurt, it backs to a medkit lying near, still shooting (`bosses/heal.lua`). `stk_brain.lua`; from Liar's Landing on. |
 | **Medic drone** | `FIX` | A small yellow flying disc with a green cross light | 25 | None | Flies in pairs, hangs behind the haulers and heals the most hurt one (12 a second, a green beam). Fragile; shoot it first. |
 | **Shield drone** | `SHD` | The same disc, blue light | 25 | None | Gives one hauler a shield bubble (80 points) and keeps it topped up while the beam holds. |
 | **Sentry** | | A yellow pop-up turret | 90 | Bursts (`bullet`) | Sits flush in the floor until you are near, then rises. Creatures rule: no brain module. |
@@ -410,7 +411,7 @@ dusk under floodlight towers, like the Wreck.
   dashes) with each bay's number (A1 to F5), a zebra crossing to the lift,
   beacons round the lift.
 - Gun haulers on the containers' corners, medic drones, two rocket haulers
-  on crane platforms.
+  on crane platforms, and a pair of stalker haulers hunting the east stacks.
 - **The ferry lift:** a platform at the quay, the way on, shut until
   Yappy has hacked it (`hold.lua`, the map's `hold`): she does it from
   wherever she is, but only while somebody stands on the lift; the first
@@ -421,7 +422,7 @@ dusk under floodlight towers, like the Wreck.
   haulers and a medic drone off the west end of the quay at the start,
   four junk haulers up the lanes at 20%, three gun haulers off the east
   end at 40%, a rocket hauler and two gun haulers up the lanes at 60%,
-  three gun haulers and a medic drone at 80% (one more gun hauler in each
+  a stalker hauler, two gun haulers and a medic drone at 80% (one more gun hauler in each
   for every player past the first); what's left of each stays on the
   lift. A bar on the lift's deck and one at the top of the screen show
   the hack; the objective line says whether it's running. When it's done
