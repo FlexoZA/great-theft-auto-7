@@ -110,4 +110,18 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 
 | | Enemy | Health | Where |
 |---|---|---|---|
+| <img src="img/borderline-jnk.png" width="48"> | [Junk hauler](borderline-jnk.md) | 30 | In packs on the Frozen Wreck, Liar's Landing and the Bragium Pit, picking over whatever is lying about; a hauler dock builds more |
+| <img src="img/borderline-gun.png" width="48"> | [Gun hauler](borderline-gun.md) | 70 | Everywhere on the line: standing watch, or walking a beat in squads |
+| <img src="img/borderline-stk.png" width="48"> | [Stalker hauler](borderline-stk.md) | 140 | Liar's Landing: a pair hunting the container stacks, and one in the last wave at the ferry lift |
+| <img src="img/borderline-rpg.png" width="48"> | [Rocket hauler](borderline-rpg.md) | 120 | Standing watch from far back: under Liar's Landing's gantries, then Prosperity, the Assembly Line and Thousand Papercuts |
+| <img src="img/borderline-fix.png" width="48"> | [Medic drone](borderline-fix.md) | 25 | Hanging behind the haulers: Liar's Landing (and its lift's waves), Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-shd.png" width="48"> | [Shield drone](borderline-shd.md) | 25 | Hanging behind the haulers: the Bragium Pit, Prosperity, the Refinery, the Assembly Line and Thousand Papercuts |
+| <img src="img/borderline-plz.png" width="48"> | [Plasma hauler](borderline-plz.md) | 90 | Standing watch on the Bragium Pit's rings, then Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-exp.png" width="48"> | [Kamikaze hauler](borderline-exp.md) | 40 | In packs of three from Prosperity on |
+| <img src="img/borderline-jet.png" width="48"> | [Jet hauler](borderline-jet.md) | 70 | Standing watch in Prosperity and Thousand Papercuts |
+| <img src="img/borderline-dzr.png" width="48"> | [Dozer hauler](borderline-dzr.md) | 160 | Standing watch in Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-bad.png" width="48"> | [Badass hauler](borderline-bad.md) | 450 | One a level from Prosperity on, with drones tending it |
+| <img src="img/borderline-arc.png" width="48"> | [Arc hauler](borderline-arc.md) | 80 | Standing watch in the Refinery's tunnels and in Thousand Papercuts |
+| <img src="img/borderline-sen.png" width="48"> | [Sentry](borderline-sen.md) | 90 | Flush in the floor of the Assembly Line, Thousand Papercuts' rock and the Bunker |
+| <img src="img/borderline-dck.png" width="48"> | [Hauler dock](borderline-dck.md) | 300 | The Frozen Wreck: a charging bay at each post, guarding a terminal that opens the tunnel's blast door |
 | <img src="img/borderline-wlb.png" width="48"> | **[Wilbur](borderline-wlb.md)** | 3000 | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine lift stays shut until he is down |

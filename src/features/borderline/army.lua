@@ -87,6 +87,7 @@ Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } --
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
   SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb }
+Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true } -- drawn by drone_look.lua and dock_look.lua
 
 local SYNC_EVERY = 2

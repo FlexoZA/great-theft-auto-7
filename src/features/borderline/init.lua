@@ -31,6 +31,7 @@ local Music = require("src.features.borderline.music")
 local Marker = require("src.features.borderline.marker")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
+local Wiki = require("src.features.borderline.wiki")
 local Terminals = require("src.features.terminals")
 
 local Borderline = {
@@ -138,8 +139,9 @@ function Borderline:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
---- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): Wilbur's so far.
+--- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): the army's, and Wilbur's.
 function Borderline:wikiEnemies(add)
+  Wiki.wikiEnemies(add)
   Wilbur.wikiEnemies(add)
 end
 
