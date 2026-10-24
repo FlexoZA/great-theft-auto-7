@@ -1,5 +1,5 @@
 -- How a stalker hauler (STK) thinks (docs/borderline.md, "The army"):
--- Hyperbole's hunter, tall and quick on three long legs, two flechette
+-- Hyperbole's hunter, tall and quick on two long legs and a wheel, two flechette
 -- pods on its shoulders. It stands watch and walks its beat like the
 -- drilled models (drill.lua: posted, or hunting the stacks in a pair) and
 -- keeps its distance the same way, quicker about it. Its modes, the first

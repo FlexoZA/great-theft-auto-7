@@ -6,7 +6,7 @@
 
 <img src="img/borderline-stk.png" alt="Stalker hauler" width="240">
 
-Hyperbole's hunter: tall and quick on three long legs, with a flechette pod on each shoulder. It dodges what you shoot at it.
+Hyperbole's hunter: tall and quick, two long legs in front and a wheel behind, a flechette pod on each shoulder. It dodges what you shoot at it.
 
 | | |
 |---|---|

@@ -107,8 +107,8 @@ local function stalker(add)
     name = "Stalker hauler",
     quests = { "borderline-landing" },
     where = "Liar's Landing: a pair hunting the container stacks, and one in the last wave at the ferry lift",
-    about = "Hyperbole's hunter: tall and quick on three long legs, with a flechette pod on each shoulder. It dodges "
-      .. "what you shoot at it.",
+    about = "Hyperbole's hunter: tall and quick, two long legs in front and a wheel behind, a flechette pod on each "
+      .. "shoulder. It dodges what you shoot at it.",
     stats = {
       { "Health", C.health },
       { "Speed", ("%g px/s on its beat, %g in a fight"):format(C.walk, C.speed) },
