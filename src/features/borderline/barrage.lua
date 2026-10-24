@@ -7,9 +7,13 @@
 -- edge, cars and soft targets too), owned by nobody, so it never hurts the
 -- army. Step out of the ring.
 --
+-- A ring alone (`serverMark`, no rocket and no blast of its own) warns of
+-- something else coming down there: a gun hauler's grenade.
+--
 -- Messages
---   server -> all  HYP_RAIN <x> <y> <radius> <delay> <fromX> <fromY>
---                  a rocket set off from (fromX, fromY) lands on (x, y) in `delay` seconds
+--   server -> all  HYP_RAIN <x> <y> <radius> <delay> <fromX> <fromY> [ring]
+--                  a rocket set off from (fromX, fromY) lands on (x, y) in `delay` seconds;
+--                  `ring` 1 for the ring alone
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -49,6 +53,12 @@ function Barrage.serverFire(server, fromX, fromY, x, y, radius, damage, delay)
     fmt(fromY)))
 end
 
+--- Only the ring: (x, y) marked `radius` px round for `delay` seconds,
+--- for something that isn't a rocket landing there then.
+function Barrage.serverMark(server, x, y, radius, delay)
+  server:broadcast(Protocol.encode("HYP_RAIN", fmt(x), fmt(y), radius, ("%.2f"):format(delay), fmt(x), fmt(y), 1))
+end
+
 function Barrage.serverStep(server, dt)
   local weapons = Features.byName.weapons
   for i = #(incoming or {}), 1, -1 do
@@ -67,7 +77,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local coming = {} -- { x, y, r, t, total, fromX, fromY }
+local coming = {} -- { x, y, r, t, total, fromX, fromY, ring }
 
 function Barrage.clear()
   coming = {}
@@ -100,30 +110,36 @@ function Barrage.drawBelowCars(clock)
   love.graphics.setColor(1, 1, 1)
 end
 
---- The rockets on their way in, over everyone: from where they set off,
---- up and over, diving onto the ring.
+--- One rocket, `c`, on its way in: from where it set off, up and over,
+--- diving onto its ring.
+local function drawRocket(c, C, clock)
+  local k = 1 - c.t / c.total
+  local gx, gy = c.fromX + (c.x - c.fromX) * k, c.fromY + (c.y - c.fromY) * k -- over the ground
+  local up = Barrage.ALTITUDE * 4 * k * (1 - k) + Barrage.ALTITUDE * 0.15 * (1 - k)
+  local x, y = gx, gy - up
+  local nx, ny = c.x - c.fromX, (c.y - c.fromY) - Barrage.ALTITUDE * 4 * (1 - 2 * k) -- where it heads
+  local a = math.atan2(ny, nx)
+  love.graphics.setColor(0, 0, 0, 0.25 * k) -- its shadow, darker as it comes down
+  love.graphics.circle("fill", gx, gy, 4, 8)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(a)
+  local f = 0.7 + 0.3 * math.sin(clock * 45)
+  love.graphics.setColor(C.flame[1], C.flame[2], C.flame[3], f)
+  love.graphics.polygon("fill", -6, -2.5, -14 - 5 * f, 0, -6, 2.5)
+  love.graphics.setColor(C.ink)
+  love.graphics.rectangle("fill", -7, -3, 15, 6, 2)
+  love.graphics.setColor(C.rocket)
+  love.graphics.rectangle("fill", -6, -2, 13, 4, 2)
+  love.graphics.pop()
+end
+
+--- The rockets on their way in, over everyone (a ring alone has none).
 function Barrage.drawAboveCars(clock)
-  local C = Hauler.C
   for _, c in ipairs(coming) do
-    local k = 1 - c.t / c.total
-    local gx, gy = c.fromX + (c.x - c.fromX) * k, c.fromY + (c.y - c.fromY) * k -- over the ground
-    local up = Barrage.ALTITUDE * 4 * k * (1 - k) + Barrage.ALTITUDE * 0.15 * (1 - k)
-    local x, y = gx, gy - up
-    local nx, ny = c.x - c.fromX, (c.y - c.fromY) - Barrage.ALTITUDE * 4 * (1 - 2 * k) -- where it heads
-    local a = math.atan2(ny, nx)
-    love.graphics.setColor(0, 0, 0, 0.25 * k) -- its shadow, darker as it comes down
-    love.graphics.circle("fill", gx, gy, 4, 8)
-    love.graphics.push()
-    love.graphics.translate(x, y)
-    love.graphics.rotate(a)
-    local f = 0.7 + 0.3 * math.sin(clock * 45)
-    love.graphics.setColor(C.flame[1], C.flame[2], C.flame[3], f)
-    love.graphics.polygon("fill", -6, -2.5, -14 - 5 * f, 0, -6, 2.5)
-    love.graphics.setColor(C.ink)
-    love.graphics.rectangle("fill", -7, -3, 15, 6, 2)
-    love.graphics.setColor(C.rocket)
-    love.graphics.rectangle("fill", -6, -2, 13, 4, 2)
-    love.graphics.pop()
+    if not c.ring then
+      drawRocket(c, Hauler.C, clock)
+    end
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -133,7 +149,7 @@ Barrage.clientMessages = {
     local x, y, r, delay = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
     if x and y and r and delay and delay > 0 then
       coming[#coming + 1] = { x = x, y = y, r = r, t = delay, total = delay, fromX = tonumber(args[5]) or x,
-        fromY = tonumber(args[6]) or y }
+        fromY = tonumber(args[6]) or y, ring = args[7] == "1" }
     end
   end,
 }

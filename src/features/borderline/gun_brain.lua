@@ -5,14 +5,17 @@
 -- stepping in its band, flanking in pairs. Seeing somebody, it calls the
 -- rest near it (army.lua: `s.spotted`). It fires its rifle in bursts, and
 -- every so often lobs a grenade (the grenades feature's) at you, and one
--- at where it lost you as it goes to look. Hurt by somebody it can't see,
--- it turns and goes to look.
+-- at where it lost you as it goes to look: first a red ring where it will
+-- land (barrage.lua's, the ring alone), and it stands turned to it for
+-- `LOB_WARN` seconds before it lobs; the ring stays until the grenade
+-- comes down. Hurt by somebody it can't see, it turns and goes to look.
 --
 -- The body (walking, sight, the trigger, the torso crawl) is chassis.lua's.
 
 local Features = require("src.features")
 local Chassis = require("src.features.borderline.chassis")
 local Drill = require("src.features.borderline.drill")
+local Barrage = require("src.features.borderline.barrage")
 
 local Brain = {}
 
@@ -40,6 +43,8 @@ Brain.CONF = {
   leash = 900, -- px from its post (or its squad's leader) it will go
 }
 
+Brain.LOB_WARN = 0.6 -- seconds its grenade's ring is down before it lobs (then the flight on top)
+
 function Brain.gun()
   return Chassis.gun("GUN", "ak47", { damage = 8, spread = 0.06 })
 end
@@ -55,9 +60,22 @@ Brain.gone = Drill.gone
 
 Brain.hurt = Drill.hurt
 
+--- Standing turned to the grenade's ring; it lobs once the ring has been
+--- down `LOB_WARN` seconds.
+local function lobMarked(server, s, dt)
+  local lob = s.lob
+  s.facing = Chassis.turn(s.facing, math.atan2(lob.y - s.y, lob.x - s.x), Chassis.TURN, dt)
+  lob.t = lob.t - dt
+  if lob.t <= 0 then
+    s.lob = nil
+    Features.byName.grenades:serverLob(server, s.x, s.y, lob.x, lob.y, 0)
+  end
+end
+
+--- Time for a grenade at (tx, ty): its ring goes down where it will land.
 local function maybeLob(server, s, tx, ty, dt)
   s.lobIn = s.lobIn - dt
-  if s.lobIn > 0 then
+  if s.lobIn > 0 or s.lob then
     return
   end
   local r = s.conf.grenadeRange
@@ -67,12 +85,19 @@ local function maybeLob(server, s, tx, ty, dt)
   end
   local grenades = Features.byName.grenades
   if grenades and grenades.serverLob then
-    grenades:serverLob(server, s.x, s.y, tx, ty, 0)
+    local x, y = grenades.landing(s.x, s.y, tx, ty)
+    local flight = grenades.flightTime(s.x, s.y, x, y)
+    Barrage.serverMark(server, x, y, grenades.blast.radius, Brain.LOB_WARN + flight)
+    s.lob = { x = x, y = y, t = Brain.LOB_WARN }
   end
   s.lobIn = Chassis.between(s.conf.grenadeEvery)
 end
 
 function Brain.think(roster, server, s, dt)
+  if s.lob then
+    lobMarked(server, s, dt)
+    return
+  end
   local tx, ty = Drill.look(roster, server, s, dt)
   if tx then
     Drill.band(roster, s, tx, ty, dt)

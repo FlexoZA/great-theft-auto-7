@@ -91,6 +91,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
 
+### Changed
+- Gun haulers warn before a grenade: a red ring shows where it will land, and the hauler stands still for 0.6 s
+  before it lobs, so you have that much longer to get out of the way.
+
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.
 - Show hitboxes (F3) now outlines enemies too, not just cars and players: red, grey while they can't be hurt.

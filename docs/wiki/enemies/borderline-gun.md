@@ -19,7 +19,7 @@ Hyperbole's standard model: a rifle on one arm and a grenade launcher on the oth
 ## Weapons
 
 - **Rifle**: bursts of 3, 0.12 s apart, 1 to 1.8 s between bursts; 8 bullet damage a shot
-- **Grenade launcher**: a grenade every 9 to 14 s, at anyone 200 to 520 px off, and one where it lost you
+- **Grenade launcher**: a grenade every 9 to 14 s, at anyone 200 to 520 px off, and one where it lost you: a red ring marks where it will land, and the hauler stands still 0.6 s before it lobs
 
 ## Abilities
 
@@ -30,7 +30,7 @@ Hyperbole's standard model: a rifle on one arm and a grenade launcher on the oth
 
 ## How to beat it
 
-- Move after it lobs: the grenade lands where you stood.
+- When a red ring shows up under you and it stops shooting, get out of the ring: a grenade is coming.
 - Squads flank in pairs: keep a wall at your back.
 
 ---

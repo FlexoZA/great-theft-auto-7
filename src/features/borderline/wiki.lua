@@ -81,8 +81,9 @@ local function gun(add)
     },
     weapons = {
       { "Rifle", bursts(C, ("%g bullet damage a shot"):format(Gun.gun().damage)) },
-      { "Grenade launcher", ("a grenade every %s s, at anyone %s px off, and one where it lost you")
-        :format(range(C.grenadeEvery), range(C.grenadeRange)) },
+      { "Grenade launcher", ("a grenade every %s s, at anyone %s px off, and one where it lost you: a red ring "
+        .. "marks where it will land, and the hauler stands still %g s before it lobs")
+        :format(range(C.grenadeEvery), range(C.grenadeRange), Gun.LOB_WARN) },
     },
     abilities = {
       ("Keeps its distance: closes in past %g px, backs off inside %g, side-stepping as it shoots.")
@@ -92,7 +93,7 @@ local function gun(add)
       CRAWL,
     },
     tips = {
-      "Move after it lobs: the grenade lands where you stood.",
+      "When a red ring shows up under you and it stops shooting, get out of the ring: a grenade is coming.",
       "Squads flank in pairs: keep a wall at your back.",
     },
     drops = drops("GUN"),
