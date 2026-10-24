@@ -93,6 +93,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.
+- Show hitboxes (F3) now outlines enemies too, not just cars and players: red, grey while they can't be hurt.
+  Only the host sees them.
 
 ## [0.41.0] - 2026-10-22
 
