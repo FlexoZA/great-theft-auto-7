@@ -67,13 +67,17 @@ local function drawAt(game, feature, x, y, zoom, canvas, draw, hooks, bg, seed)
   local g = love.graphics
   local print_, printf, rectangle = g.print, g.printf, g.rectangle
   g.print, g.printf = function() end, function() end -- luacheck: ignore 122
-  -- Nor bars over heads or the boxes of speech bubbles: square to the world
-  -- (not turned with a body, the way everything of a body is drawn) and
-  -- wider than they are tall.
+  -- Nor bars over heads or the boxes of speech bubbles: drawn in the world's
+  -- own frame (not moved to a body and turned with it, the way everything
+  -- of a body is drawn: a body facing straight along an axis is square to
+  -- the world too, and a strut of it is wider than tall) and wider than
+  -- they are tall.
+  local worldX, worldY = g.transformPoint(0, 0)
   g.rectangle = function(mode, rx, ry, rw, rh, ...) -- luacheck: ignore 122
-    local _, oy = g.transformPoint(0, 0)
+    local ox, oy = g.transformPoint(0, 0)
     local _, turn = g.transformPoint(1, 0)
-    if math.abs(turn - oy) < 1e-6 and rw and rh and rw >= 2 * rh then
+    local world = math.abs(ox - worldX) < 1e-3 and math.abs(oy - worldY) < 1e-3
+    if world and math.abs(turn - oy) < 1e-6 and rw and rh and rw >= 2 * rh then
       return
     end
     return rectangle(mode, rx, ry, rw, rh, ...)
