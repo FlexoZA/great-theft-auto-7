@@ -29,7 +29,7 @@ local Mancubus = require("src.features.eternal-mood.mancubus")
 local Baron = require("src.features.eternal-mood.baron")
 local DreadKnight = require("src.features.eternal-mood.dread_knight")
 local Mecha = require("src.features.eternal-mood.mecha_zombie")
-local Terminals = require("src.features.eternal-mood.terminals")
+local Terminals = require("src.features.terminals")
 local Mattressmind = require("src.features.eternal-mood.mattressmind")
 local Belts = require("src.features.eternal-mood.belts")
 local Ground = require("src.features.eternal-mood.ground")
@@ -125,13 +125,17 @@ function EternalMood:load()
   Baron.load()
   DreadKnight.load()
   Mecha.load()
-  Terminals.load()
   Mattressmind.load()
   Screen.load()
 end
 
 function EternalMood:serverStart()
   sv = nil
+end
+
+--- A terminal's alarm (the terminals feature): the horde near it comes running.
+local function alarm(server, x, y, radius)
+  Horde.serverScream(server, x, y, radius, x, y)
 end
 
 function EternalMood:serverQuestStarted(server, quest)
@@ -145,7 +149,7 @@ function EternalMood:serverQuestStarted(server, quest)
       Baron.serverStart(server, map, nav)
       DreadKnight.serverStart(server, map, nav)
       Mecha.serverStart(server, map, nav)
-      Terminals.serverStart(server, map, nav)
+      Terminals.serverOpen(map, nav, alarm)
       Mattressmind.serverStart(server, map, nav)
     end
   end
@@ -160,7 +164,7 @@ function EternalMood:serverQuestEnded(server, quest)
     Baron.serverStop(server)
     DreadKnight.serverStop(server)
     Mecha.serverStop(server)
-    Terminals.serverStop()
+    Terminals.serverClose()
     Mattressmind.serverStop(server)
   end
 end
@@ -175,7 +179,7 @@ function EternalMood:mapChanged(_map, server)
     Baron.serverStop(server)
     DreadKnight.serverStop(server)
     Mecha.serverStop(server)
-    Terminals.serverStop()
+    Terminals.serverClose()
     Mattressmind.serverStop(server)
   end
   Horde.clear()
@@ -184,7 +188,6 @@ function EternalMood:mapChanged(_map, server)
   Baron.clear()
   DreadKnight.clear()
   Mecha.clear()
-  Terminals.clear()
   Mattressmind.clear()
   stopMusic()
 end
@@ -196,7 +199,6 @@ function EternalMood:serverPlayerJoined(server, player)
   Baron.serverPlayerJoined(server, player)
   DreadKnight.serverPlayerJoined(server, player)
   Mecha.serverPlayerJoined(server, player)
-  Terminals.serverPlayerJoined(server, player)
   Mattressmind.serverPlayerJoined(server, player)
 end
 
@@ -251,7 +253,6 @@ function EternalMood:serverStep(server, dt)
   Baron.serverStep(server, dt)
   DreadKnight.serverStep(server, dt)
   Mecha.serverStep(server, dt)
-  Terminals.serverStep(server, dt)
   Mattressmind.serverStep(server, dt)
   local map = cityMap()
   if sv then
@@ -296,7 +297,6 @@ function EternalMood:questStarted(_client, quest)
     Baron.clear()
     DreadKnight.clear()
     Mecha.clear()
-    Terminals.clear()
     Mattressmind.clear()
     if quest.introLine then
       local level = quest.introLine
@@ -339,7 +339,6 @@ function EternalMood:questEnded(_client, quest)
     Baron.clear()
     DreadKnight.clear()
     Mecha.clear()
-    Terminals.clear()
     Mattressmind.clear()
     page = nil
     stopMusic()
@@ -353,17 +352,13 @@ function EternalMood:exitGame()
   Baron.clear()
   DreadKnight.clear()
   Mecha.clear()
-  Terminals.clear()
   Mattressmind.clear()
   page = nil
   stopMusic()
 end
 
-function EternalMood:update(dt, client)
+function EternalMood:update(dt)
   clock = clock + dt
-  if client then
-    Terminals.update(dt, client)
-  end
   if page then
     page.t = page.t + dt
     page.face:update(dt)
@@ -417,7 +412,6 @@ function EternalMood:drawBelowCars(_client, camera)
   Baron.drawBelowCars()
   DreadKnight.drawBelowCars()
   Mecha.drawBelowCars()
-  Terminals.drawBelowCars()
   Mattressmind.drawBelowCars()
   Horde.drawBelowCars()
 end
@@ -475,12 +469,10 @@ function EternalMood:drawNightLights(_client, _camera, glow)
   Baron.drawNightLights(glow)
   DreadKnight.drawNightLights(glow)
   Mecha.drawNightLights(glow)
-  Terminals.drawNightLights(glow)
   Mattressmind.drawNightLights(glow)
 end
 
 function EternalMood:drawHUD()
-  Terminals.drawHUD()
   FloorManager.drawHUD()
   Mancubus.drawHUD()
   Baron.drawHUD()
@@ -491,20 +483,9 @@ function EternalMood:footstepWalkers()
   return Horde.walkers()
 end
 
---- The `actionTaken` convention: at a terminal, the action key works it.
-function EternalMood:actionTaken()
-  return Terminals.actionTaken()
-end
-
---- The terminals on the minimap.
-function EternalMood:drawOnMinimap(_client, toMap)
-  Terminals.drawOnMinimap(toMap)
-end
-
-EternalMood.serverMessages = Terminals.serverMessages
 
 EternalMood.clientMessages = {}
-for _, part in ipairs({ Horde, FloorManager, Mancubus, Baron, DreadKnight, Mecha, Terminals, Mattressmind }) do
+for _, part in ipairs({ Horde, FloorManager, Mancubus, Baron, DreadKnight, Mecha, Mattressmind }) do
   for kind, handler in pairs(part.clientMessages) do
     EternalMood.clientMessages[kind] = handler
   end

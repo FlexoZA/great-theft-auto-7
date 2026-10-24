@@ -1,23 +1,31 @@
--- The terminals that open the way on (docs/eternal-mood.md, "Terminals"):
--- every level hides a few off the straight way through, and you have to go
--- and find them. Each belongs to a lock (the map's `locks`, its terminals
--- the map's `terminals` naming it); once all of a lock's terminals are
--- done the lock opens: its walls come down (solids across a doorway or the
--- road, built into the map like any wall: nothing gets past them, not a
--- person, not a round), and a lock that holds the level's way on (`exit`)
--- lets it go (`serverLocked`, as a boss does). Heck's are seals, not
--- terminals (`look`), lit the same way.
+-- Terminals that open the way on: a quest line's levels hide a few off the
+-- straight way through, and you have to go and find them. Eternal Mood's
+-- every level (docs/eternal-mood.md, "Terminals") and Borderline's Frozen
+-- Wreck (docs/borderline.md) use them. Each belongs to a lock (the map's
+-- `locks`, its terminals the map's `terminals` naming it); once all of a
+-- lock's terminals are done the lock opens: its walls come down (solids
+-- across a doorway or the road, built into the map like any wall: nothing
+-- gets past them, not a person, not a round), and a lock that holds the
+-- level's way on (`exit`) lets it go (`serverLocked`, as a boss does).
+-- Heck's are seals, not terminals (`look`), lit the same way.
 --
 -- To do one, stand at it and hold the action key (F) for WORK_TIME
 -- seconds; let go and what was done drains away again. Working one sets
--- off an alarm every ALARM_EVERY: every mob and every one of the possessed
--- within ALARM_HEARD comes (horde.lua's `serverScream`), so the others had
+-- off an alarm every ALARM_EVERY: the quest's `alarm` (given to
+-- `serverOpen`) brings whoever is within ALARM_HEARD, so the others had
 -- better cover whoever is at it. Done is done, for everyone, until the
--- level is played again.
+-- level is played again; every feature hears of it (`serverTerminalDone`).
 --
--- The map's side (city-map/eternal_mood.lua):
---   map.terminals  { x, y, look = "terminal" | "seal", lock = name }
+-- The quest's side: `Terminals.serverOpen(map, nav, alarm)` when its level
+-- starts (`nav` its walking grid, refreshed as walls come down; `alarm(server,
+-- x, y, radius)`), `Terminals.serverClose()` when it ends, and
+-- `Terminals.serverLocked()` before it lets anyone through the way on.
+-- Drawing and the HUD go by the map alone.
+--
+-- The map's side (city-map/eternal_mood.lua, city-map/borderline.lua):
+--   map.terminals  { x, y, look = "terminal" | "seal" | "hyperbole", lock = name, warn = text | nil, dock = key | nil }
 --   map.locks      { name, label, exit = true | nil, walls = { solid, look = "blast" | "roadgate" | "bone" } }
+-- `warn` is who hears the alarm, on the HUD ("the horde" when not given).
 --
 -- Messages
 --   client -> server  TRM_WORK <terminal>         (I am holding the key at it; every WORK_EVERY)
@@ -30,17 +38,20 @@ local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
 local Layout = require("src.features.city-map.layout")
-local Horde = require("src.features.eternal-mood.horde")
-local Onscreen = require("src.features.eternal-mood.onscreen")
+local Synth = require("src.audio.synth")
+local Audio = require("src.audio")
 
-local Terminals = {}
+local Terminals = {
+  name = "terminals",
+  priority = 27, -- with the quest lines' props, over the map canvas (20)
+}
 
 -- Tuning ------------------------------------------------------------------
 Terminals.WORK_TIME = 3 -- seconds of holding the key at one to do it
 Terminals.DRAIN = 0.5 -- of the whole a second it loses while nobody holds it
 Terminals.REACH = 60 -- px from it that counts as at it
 Terminals.ALARM_EVERY = 6 -- seconds between alarms while somebody keeps at one
-Terminals.ALARM_HEARD = 700 -- px: the horde this near comes
+Terminals.ALARM_HEARD = 700 -- px: whoever is this near comes
 
 local WORK_EVERY = 0.2 -- seconds between a holder's TRM_WORK
 local WORK_GRACE = 0.45 -- seconds without one before the host takes it they let go
@@ -54,6 +65,7 @@ local FIRE = { 1.00, 0.55, 0.15 }
 local STEEL = { 0.36, 0.38, 0.42 }
 local DARK = { 0.12, 0.13, 0.15 }
 local HAZARD = { 0.92, 0.78, 0.18 }
+local YELLOW = { 0.95, 0.76, 0.19 }
 local BONE = { 0.86, 0.80, 0.66 }
 
 local function cityMap()
@@ -117,22 +129,22 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { nav, [terminal] = { progress, lastWork, alarmAt, sent, done } } while a map has terminals
+local sv = nil -- { nav, alarm, [terminal] = { progress, lastWork, alarmAt, sent, done } } while a map has terminals
 
 local now = 0
 
-function Terminals.serverStart(_server, map, nav)
+function Terminals.serverOpen(map, nav, alarm)
   sv = nil
   if #terminalsOf(map) == 0 then
     return
   end
-  sv = { nav = nav }
+  sv = { nav = nav, alarm = alarm }
   for i in ipairs(terminalsOf(map)) do
     sv[i] = { progress = 0, lastWork = -1, alarmAt = -1e9, sent = 0, done = false }
   end
 end
 
-function Terminals.serverStop()
+function Terminals.serverClose()
   sv = nil
 end
 
@@ -149,7 +161,7 @@ function Terminals.serverLocked()
   return false
 end
 
-function Terminals.serverStep(server, dt)
+function Terminals:serverStep(server, dt)
   now = now + dt
   local map = cityMap()
   if not (sv and map) then
@@ -170,7 +182,7 @@ function Terminals.serverStep(server, dt)
 end
 
 --- A joiner sees what is done and what is open.
-function Terminals.serverPlayerJoined(server, player)
+function Terminals:serverPlayerJoined(server, player)
   if not sv or player.bot then
     return
   end
@@ -187,11 +199,12 @@ function Terminals.serverPlayerJoined(server, player)
   end
 end
 
---- Terminal `i` done: and its lock, if that was the last of it.
-local function finish(server, map, i)
+--- Terminal `i` done by `player`: and its lock, if that was the last of it.
+local function finish(server, map, i, player)
   local t = terminalsOf(map)[i]
   sv[i].done, sv[i].progress = true, 1
   server:broadcast(Protocol.encode("TRM_DONE", i))
+  Features.call("serverTerminalDone", server, t, player)
   local l, li = lockNamed(map, t.lock)
   if not l or l.open then
     return
@@ -224,11 +237,13 @@ Terminals.serverMessages = {
     st.lastWork = now
     st.progress = math.min(1, st.progress + dt / Terminals.WORK_TIME)
     if now - st.alarmAt >= Terminals.ALARM_EVERY then
-      st.alarmAt = now -- it squeals: the horde near it comes running
-      Horde.serverScream(server, t.x, t.y, Terminals.ALARM_HEARD, t.x, t.y)
+      st.alarmAt = now -- it squeals: whoever is near it comes running
+      if sv.alarm then
+        sv.alarm(server, t.x, t.y, Terminals.ALARM_HEARD)
+      end
     end
     if st.progress >= 1 then
-      finish(server, map, i)
+      finish(server, map, i, player)
     end
   end,
 }
@@ -248,12 +263,32 @@ local sendIn = 0
 local clock = 0
 local bank = {}
 
-function Terminals.load()
-  bank.done = Onscreen.sound(0.5, 0.6, function(buf) -- a terminal done: two bright beeps
+--- A sound `seconds` long, `build(buf)` writing it, at `volume`, heard from
+--- `from` to `far` px off.
+local function sound(seconds, volume, build, from, far)
+  local buf = Synth.newBuffer(seconds)
+  build(buf)
+  local src = love.audio.newSource(buf:toSoundData(volume), "static")
+  src:setAttenuationDistances(from, far)
+  return src
+end
+
+local function play(name, x, y)
+  local base = bank[name]
+  if base then
+    local s = base:clone()
+    s:setPosition(x, 0, y)
+    s:setVolume(0.8 * Audio.volume("weapons"))
+    s:play()
+  end
+end
+
+function Terminals:load()
+  bank.done = sound(0.5, 0.6, function(buf) -- a terminal done: two bright beeps
     buf:tone(0, 0.12, 1320, { wave = "square", amp = 0.18, decay = 0.1, sustain = 0 })
     buf:tone(0.14, 0.2, 1760, { wave = "square", amp = 0.18, decay = 0.18, sustain = 0 })
   end, 200, 1600)
-  bank.open = Onscreen.sound(1.4, 0.9, function(buf) -- a wall coming down: a groan and a slam
+  bank.open = sound(1.4, 0.9, function(buf) -- a wall coming down: a groan and a slam
     buf:sweep(0, 1.1, 90, 40, { wave = "saw", amp = 0.4, attack = 0.05, decay = 1 })
     buf:noiseBurst(0, 1.2, { amp = 0.3, decay = 0.9 })
     buf:kick(1.1, 1)
@@ -261,8 +296,25 @@ function Terminals.load()
   end, 400, 3200)
 end
 
-function Terminals.clear()
+local function clear()
   shown, opened, news, near = {}, {}, nil, nil
+end
+
+--- A map change of any kind ends a level: the host's terminals go with it.
+function Terminals:mapChanged(_map, server)
+  if server then
+    sv = nil
+  end
+  clear()
+end
+
+function Terminals:exitGame()
+  clear()
+end
+
+--- A level starting afresh (the same map played again) starts its terminals afresh.
+function Terminals:questStarted()
+  clear()
 end
 
 local function state(i)
@@ -270,8 +322,11 @@ local function state(i)
   return shown[i]
 end
 
-function Terminals.update(dt, client)
+function Terminals:update(dt, client)
   clock = clock + dt
+  if not client then
+    return
+  end
   near = nil
   local map = cityMap()
   local x, y = client:myPose()
@@ -300,8 +355,36 @@ function Terminals.update(dt, client)
 end
 
 --- The `actionTaken` convention: at a terminal the action key works it.
-function Terminals.actionTaken()
+function Terminals:actionTaken()
   return near ~= nil
+end
+
+--- On this screen: every terminal not done yet whose lock holds the way
+--- on (empty once the way on is open, or on a map without any).
+function Terminals.waiting()
+  local map = cityMap()
+  local list = {}
+  for i, t in ipairs(terminalsOf(map)) do
+    local l = lockNamed(map, t.lock)
+    if l and l.exit and not l.open and not state(i).doneT then
+      list[#list + 1] = t
+    end
+  end
+  return list
+end
+
+--- On this screen: the nearest of those to (x, y), and how many are left
+--- (0 and nil once the way on is open, or on a map without any).
+function Terminals.nearestWaiting(x, y)
+  local list = Terminals.waiting()
+  local best, bestD2 = nil, math.huge
+  for _, t in ipairs(list) do
+    local d2 = x and dist2(x, y, t.x, t.y) or 0
+    if d2 < bestD2 then
+      best, bestD2 = t, d2
+    end
+  end
+  return #list, best
 end
 
 --- How far through its slow glow a waiting terminal is: 0 (dim) to 1 (bright).
@@ -332,6 +415,54 @@ local function drawTerminal(t, st)
   end
   love.graphics.setColor(HAZARD) -- the keys
   love.graphics.rectangle("fill", t.x - 9, t.y + 5, 18, 4)
+end
+
+--- A Hyperbole terminal (Borderline): a yellow console with a hard black
+--- outline, its screen red until it is done, then green, the H in its
+--- hexagon on the casing, hazard stripes along its foot.
+local function drawHyperbole(t, st)
+  local done = st.doneT ~= nil
+  local x, y = t.x, t.y
+  if not done then
+    local k = pulse()
+    love.graphics.setColor(RED[1], RED[2], RED[3], 0.08 + 0.2 * k)
+    love.graphics.circle("fill", x, y, 26 + 16 * k, 32)
+  end
+  love.graphics.setColor(0, 0, 0, 0.4)
+  love.graphics.rectangle("fill", x - 12, y - 10, 32, 30, 3)
+  love.graphics.setColor(0.06, 0.06, 0.07)
+  love.graphics.rectangle("fill", x - 18, y - 18, 36, 34, 5)
+  love.graphics.setColor(YELLOW)
+  love.graphics.rectangle("fill", x - 16, y - 16, 32, 30, 4)
+  love.graphics.setColor(DARK)
+  love.graphics.rectangle("fill", x - 12, y - 13, 24, 13, 2)
+  love.graphics.setColor(done and GREEN or RED)
+  love.graphics.rectangle("fill", x - 10, y - 11, 20, 9, 1)
+  love.graphics.setColor(0, 0, 0, 0.5)
+  for k = 0, 1 do -- lines of text on the screen
+    love.graphics.rectangle("fill", x - 8, y - 9 + k * 3, 6 + ((k * 5 + math.floor(clock * 3)) % 9), 1)
+  end
+  -- The H in its hexagon.
+  local hx, hy = x - 8, y + 6
+  local hex = {}
+  for k = 0, 5 do
+    local a = k * math.pi / 3
+    hex[#hex + 1] = hx + math.cos(a) * 5
+    hex[#hex + 1] = hy + math.sin(a) * 5
+  end
+  love.graphics.setColor(0.06, 0.06, 0.07)
+  love.graphics.polygon("fill", hex)
+  love.graphics.setColor(YELLOW)
+  love.graphics.rectangle("fill", hx - 2.5, hy - 2.5, 1.2, 5)
+  love.graphics.rectangle("fill", hx + 1.3, hy - 2.5, 1.2, 5)
+  love.graphics.rectangle("fill", hx - 2.5, hy - 0.5, 5, 1)
+  love.graphics.setColor(DARK) -- the keys
+  love.graphics.rectangle("fill", x - 1, y + 3, 13, 6, 1)
+  love.graphics.setColor(0.06, 0.06, 0.07) -- hazard stripes along its foot
+  for k = 0, 3 do
+    love.graphics.polygon("fill", x - 16 + k * 8, y + 14, x - 12 + k * 8, y + 14, x - 8 + k * 8, y + 10,
+      x - 12 + k * 8, y + 10)
+  end
 end
 
 --- A seal of Heck's: a ring of bone round a skull on a stake, dark until it
@@ -441,17 +572,21 @@ local function drawWall(s, t)
   love.graphics.circle("fill", x + w / 2, y + h / 2, 5, 10)
 end
 
-function Terminals.drawBelowCars()
+function Terminals:drawBelowCars()
   local map = cityMap()
   for i, l in ipairs(locksOf(map)) do
-    for _, s in ipairs(l.walls or {}) do
-      drawWall(s, opened[i])
+    if not (l.open and not opened[i]) then -- (open before we heard: nothing left to draw)
+      for _, s in ipairs(l.walls or {}) do
+        drawWall(s, opened[i])
+      end
     end
   end
   for i, t in ipairs(terminalsOf(map)) do
     local st = state(i)
     if t.look == "seal" then
       drawSeal(t, st)
+    elseif t.look == "hyperbole" then
+      drawHyperbole(t, st)
     else
       drawTerminal(t, st)
     end
@@ -462,7 +597,7 @@ function Terminals.drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
-function Terminals.drawNightLights(glow)
+function Terminals:drawNightLights(_client, _camera, glow)
   local map = cityMap()
   for i, t in ipairs(terminalsOf(map)) do
     local done = state(i).doneT ~= nil
@@ -483,7 +618,7 @@ end
 
 --- The terminals on the minimap: red until done, then green (Heck's seals
 --- orange once lit).
-function Terminals.drawOnMinimap(toMap)
+function Terminals:drawOnMinimap(_client, toMap)
   for i, t in ipairs(terminalsOf(cityMap())) do
     local x, y = toMap(t.x, t.y)
     local done = state(i).doneT ~= nil
@@ -498,7 +633,7 @@ end
 
 --- How far each lock still to open is, down the left (the free row); what
 --- to do at the terminal you are at; the news of a lock opening.
-function Terminals.drawHUD()
+function Terminals:drawHUD()
   local map = cityMap()
   local locks = locksOf(map)
   if #locks == 0 then
@@ -533,7 +668,7 @@ function Terminals.drawHUD()
     local p = state(near).progress
     local verb = t.look == "seal" and "light the seal" or "hack the terminal"
     local text = p > 0 and ("%s... %d%%"):format(t.look == "seal" and "Lighting" or "Hacking", math.floor(p * 100))
-      or ("Hold " .. key .. ": " .. verb .. " (the horde will hear)")
+      or ("Hold " .. key .. ": " .. verb .. " (" .. (t.warn or "the horde") .. " will hear)")
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.printf(text, 1, h - 129, w, "center")
     love.graphics.setColor(RED)
@@ -564,7 +699,7 @@ Terminals.clientMessages = {
       local st = state(i)
       if not st.doneT then
         st.doneT, st.progress = 0, 1
-        Onscreen.play(bank, "done", t.x, t.y)
+        play("done", t.x, t.y)
       end
     end
   end,
@@ -577,7 +712,7 @@ Terminals.clientMessages = {
       opened[i] = 0
       local s = l.walls and l.walls[1]
       if s then
-        Onscreen.play(bank, "open", s.x + s.w / 2, s.y + s.h / 2)
+        play("open", s.x + s.w / 2, s.y + s.h / 2)
       end
       news = { text = l.label .. " OPEN", t = 0 }
     end

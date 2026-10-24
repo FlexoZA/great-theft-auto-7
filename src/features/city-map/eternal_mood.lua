@@ -61,7 +61,7 @@
 --                         once awake), the pit he calls imps out of, the portal he keeps sealed;
 --                         "mattressmind" { x, y, facing, zone, wake, gate }: the same as the Mancouchbus, the
 --                         gate it keeps locked
---   map.terminals, map.locks  what opens the way on, and what it opens (eternal-mood/terminals.lua): a terminal
+--   map.terminals, map.locks  what opens the way on, and what it opens (terminals feature): a terminal
 --                         { x, y, look, lock }, a lock { name, label, exit, walls }
 --   map.lows              { x, y, w, h, round } the lava's solids, which are `low`: sight, rounds and players
 --                         pass over; a player in it burns, and the horde keeps out (eternal-mood/ground.lua)
@@ -167,7 +167,7 @@ local function cover(map, kind, x, y, w, h, solid, extra)
   return s
 end
 
---- A lock (eternal-mood/terminals.lua): `label` on the HUD ("THE LIFT"),
+--- A lock (terminals feature): `label` on the HUD ("THE LIFT"),
 --- holding the level's way on when `exit`; its terminals and walls follow.
 local function lock(map, name, label, exit)
   local l = { name = name, label = label, exit = exit, walls = {} }
@@ -738,7 +738,7 @@ local function buildFobos(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(z.c0 + 10)), math.floor(Y(z.r1 - 1))
 
-  -- The terminals (eternal-mood/terminals.lua): one in each room off the
+  -- The terminals (terminals feature): one in each room off the
   -- straight way up, and the lift stays out of service until all four are
   -- done (and the Floor Manager is down).
   local lift = lock(map, "lift", "THE LIFT", true)
@@ -1209,7 +1209,7 @@ local function buildEarth(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(20)), math.floor(Y(156))
 
-  -- The terminals (eternal-mood/terminals.lua): blast gates across the road
+  -- The terminals (terminals feature): blast gates across the road
   -- where only the road runs between the blocks, each opened from off it,
   -- down a side street or across the Crater, so nobody just runs up the
   -- middle.
@@ -1587,7 +1587,7 @@ local function buildFoundry(map, rng, T)
   end
   map.cx, map.cy = math.floor(X(7.5)), math.floor(Y(59))
 
-  -- The terminals (eternal-mood/terminals.lua): blast doors across the three
+  -- The terminals (terminals feature): blast doors across the three
   -- doorways up into the Crucible, between their hazard stripes, and a
   -- terminal in each part of the shed to open them.
   local doors = lock(map, "crucible", "THE CRUCIBLE'S BLAST DOORS")
@@ -1804,7 +1804,7 @@ local function buildHeck(map, rng, T)
     flat(map, "fire", X(c) - 30, Y(8) - 30, 60, 60, { seed = rng:random(1000) })
   end
 
-  -- The seals (eternal-mood/terminals.lua): a wall of bone across the ramp,
+  -- The seals (terminals feature): a wall of bone across the ramp,
   -- the only way up onto the plateau, until four seals are lit: one on each
   -- side island out in the lava, one at the Fields' west end, one on the
   -- pizza lake's north shore.

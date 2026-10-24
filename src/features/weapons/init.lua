@@ -314,7 +314,8 @@ Weapons.lowPrompt = nil -- "R: RELOAD" while the gun in hand is nearly out with 
 Weapons.noAmmo = 0 -- seconds left of NO AMMO across the middle of the screen
 Weapons.noAmmoTime = 1.4 -- seconds it shows for after a click on an empty gun with nothing to load
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
-Weapons.showHitboxes = false
+Weapons.showHitboxes = false -- F3: cars, players and, on the host, every enemy (`serverEnemies`)
+Weapons.hostServer = nil -- the host's own server, for the enemies' hitboxes (nil on a client)
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
 Weapons.spin = 0 -- 0..1: how far my gun's barrels have wound up (a gun with `spinUp`)
@@ -423,6 +424,7 @@ function Weapons:enterGame()
 end
 
 function Weapons:exitGame()
+  self.hostServer = nil
   self:resetSynced()
   self:enterGame()
 end
@@ -960,6 +962,28 @@ local function drawFlame(p, gun)
   love.graphics.circle("fill", p.x, p.y + wobble, r * 0.45)
 end
 
+--- Every enemy's hitbox, from where the host has it (`serverEnemies`):
+--- red, grey while nothing can hurt it, a cross for one with no radius.
+--- Only the host knows them, so a client draws none.
+local function drawEnemyHitboxes(server)
+  if not server then
+    return
+  end
+  Features.call("serverEnemies", server, function(e)
+    if e.immune then
+      love.graphics.setColor(0.6, 0.6, 0.6, 0.9)
+    else
+      love.graphics.setColor(1, 0.25, 0.25, 0.9)
+    end
+    if e.radius then
+      love.graphics.circle("line", e.x, e.y, e.radius)
+    else
+      love.graphics.line(e.x - 6, e.y - 6, e.x + 6, e.y + 6)
+      love.graphics.line(e.x - 6, e.y + 6, e.x + 6, e.y - 6)
+    end
+  end)
+end
+
 function Weapons:drawAboveCars(client)
   Rockets.drawTrail()
   Explosions.drawAbove()
@@ -1041,6 +1065,7 @@ function Weapons:drawAboveCars(client)
     for _, b in pairs(client.bodies) do
       love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS)
     end
+    drawEnemyHitboxes(self.hostServer)
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -1719,6 +1744,7 @@ function Weapons:serverStart(server)
     end
   end
   self.sv = sv
+  self.hostServer = server
   for _, p in pairs(server.players) do
     self:giveStock(server, p)
     self:sendGuns(server, p)

@@ -285,6 +285,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksShot`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
 | `serverBlast(server, x, y, radius, damage, by, type)` | weapons, leap, Bigfoot | Something hit the ground hard at (x, y): a missile going off (type "explosive"), a heavy leap landing ("impact"), Bigfoot's claws ("melee"). `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
 | `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. |
+| `serverTerminalDone(server, terminal, player)` | terminals | `player` finished working a terminal (the map's `terminals` entry). Borderline shuts down the hauler dock it runs (`terminal.dock`). |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
 | `serverKoinTaken(server, player)` | money | A koin on the ground went into `player`'s wallet (one call per koin). The quests feature counts it for the victory screen. |
 | `serverRewarded(server, player, title)` | weapons, gear, grenades | `player` unlocked something for good (a won gun, a piece of gear, the electric grenade) and has just been shown its reward card; `title` is what it is called. Anything new a player can unlock raises it too, so the victory screen lists it. |
@@ -302,7 +303,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
-| `serverEnemies(server, add)` | the audit asks (`tools/audit`, `docs/audit.md`) | Call `add({ id, kind, x, y, hp, radius, immune, flying })` for every enemy of yours in the world right now: `id` its own table (the same while it lives), `kind` a stable `"<feature>/<what>"`, `hp` what it can still take (a shield included; nil if one hit kills it), `immune` while nothing can hurt it (a stage it can't be hit in, buried, blinking), `flying` when it may be over walls. The audit aims every gun and ability at each kind and looks for enemies stuck in walls by it, so **every feature that answers `serverShotAt` for an enemy answers this too** (the audit flags one that doesn't). Bots in `server.players` are not listed. |
+| `serverEnemies(server, add)` | the audit asks (`tools/audit`, `docs/audit.md`) | Call `add({ id, kind, x, y, hp, radius, immune, flying })` for every enemy of yours in the world right now: `id` its own table (the same while it lives), `kind` a stable `"<feature>/<what>"`, `hp` what it can still take (a shield included; nil if one hit kills it), `immune` while nothing can hurt it (a stage it can't be hit in, buried, blinking), `flying` when it may be over walls. The audit aims every gun and ability at each kind and looks for enemies stuck in walls by it, so **every feature that answers `serverShotAt` for an enemy answers this too** (the audit flags one that doesn't). Bots in `server.players` are not listed. On the host, weapons' Show hitboxes (F3) draws a circle of `radius` round each. |
 | `wikiEnemies(add)` | the wiki (`tools/wiki`, `make wiki`, docs/wiki.md) and the audit ask | Call `add({ kind, name, where, about, ... })` once per enemy of yours for its page in `docs/wiki/enemies`, every number formatted in from your own constants (never a literal), so the page stays right when they change. Added by the feature that draws the enemy (the portrait is drawn with its draw hooks). The fields are in docs/wiki.md; police is the worked example. **Every feature that answers `serverEnemies` answers this too** (the audit flags an enemy met with no page, and a page out of date). |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
@@ -1796,6 +1797,50 @@ the one with a plot.
   bodies on the host, as the belts do) and snaps shut, imps and a
   Cacodaemon called in, and its mattress soaking up rounds from the front.
   The last map follows.
+- Borderline: `src/features/borderline` and quests' "borderline" job
+  ("Left for dead", on the board after Eternal Mood), design in
+  `docs/borderline.md`. Eight maps on the frozen planet Pandoria against
+  Handsome Jerry's robot army, every one on foot, built by
+  `city-map/borderline.lua` (a `Blockout` per map; what each leaves on the
+  map is in its header: `exitX, exitY`, `outside`, `grounds`, `zones`,
+  `cover` with `water` for the Refinery's molten river) and drawn by
+  `render_borderline.lua` in a cel-shaded style, a black outline round
+  every floor's edge and everything on it. The maps, bottom to top each:
+  the Frozen Wreck (`wreck`), Liar's Landing (`landing`), the Bragium Pit
+  (`pit`), Prosperity (`prosperity`), the Refinery (`refinery`), the
+  Assembly Line (`assembly`), Thousand Papercuts (`cuts`) and the Bunker
+  (`bunker`); quests "borderline", then "borderline-<map>" for the rest,
+  chained by `next`, and "home-<map>" by each way in. The borderline
+  feature finishes a level when someone reaches its way on. Hyperbole's
+  army holds the way (`borderline/army.lua`, HYP_ messages, from the map's
+  `army`: `packs`, `posts`, `squads`, placed with the builder's
+  `Blockout:pack/post/squad`): every hauler is one body on the host
+  (`chassis.lua`: walking on d-day's Nav grid, its own sight line over
+  `blocksShot`, the trigger, the torso crawl) thought for by its model's
+  brain (`junk_brain.lua`, `gun_brain.lua`, `rpg_brain.lua`,
+  `plz_brain.lua`, `jet_brain.lua`, `exp_brain.lua`, `dzr_brain.lua`,
+  `arc_brain.lua`, `bad_brain.lua`, `drone_brain.lua` for FIX and SHD,
+  `sentry_brain.lua`; army.lua's `BRAINS` by code; what the drilled ones
+  share is `drill.lua`; a brain may answer `blocks` (a blade), `burst`
+  (what it leaves going off) and `RADIUS`),
+  and drawn by `hauler_look.lua` (`drone_look.lua` has the drones and the
+  sentry, not placed yet). Their rounds carry "hyperbole" and ownerless
+  rounds pass through them; they answer `serverShotAt`, `serverEnemies`
+  ("borderline/<code>"; a jet hauler is `flying`, and `immune` in the air),
+  `serverFreezeArea` and `footstepWalkers`, and a kill raises `serverKill`
+  kind "robot" (`what` its model's code). The story is `tale.lua`'s
+  (BRL_BEAT, BRL_CHAT; the words in `story.lua`, the HUD in `hud.lua`,
+  Jerry's and Yappy's faces in `faces.lua`; Jerry's intro screen in
+  `drawScreen`). The maps' moving scenery (the Wreck's tower cranes and
+  emergency beacons, from the map's `cranes` and `beacons`) is
+  `works.lua`'s, drawn on each screen by its own clock; the Wreck is played
+  at dusk under its floodlights (`map.lights`, the night feature). Rockets that come down on marked rings are `barrage.lua`'s
+  (HYP_RAIN, going off through weapons' `explode`), plasma bolts
+  `bolts.lua`'s (HYP_BOLT, HYP_SPLASH; damage type "plasma"), the arc
+  haulers' domes `domes.lua`'s (HYP_DOME). Every map is held, the
+  Bunker by its eleven sentries; the
+  story, the rest of the army, the bosses, backdrops and music follow in
+  the stages `docs/borderline.md` lists.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the

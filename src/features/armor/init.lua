@@ -197,15 +197,18 @@ function Armor:serverResist(share, _server, player, dtype)
 end
 
 --- The `serverAbsorbDamage` convention: the vest takes what it can of
---- `amount` and what is left goes on to the body. A vest that runs out is
---- destroyed.
+--- `amount` and what is left goes on to the body (melted, at twice the
+--- points). A vest that runs out is destroyed.
 function Armor:serverAbsorbDamage(amount, server, victim)
   local w = self:serverWorn(victim)
   if not w or amount <= 0 then
     return amount
   end
-  local taken = math.min(w.points, amount)
-  w.points = w.points - taken
+  -- Melted by plasma (the damage feature's "melt"), every point it stops costs two.
+  local damage = Features.byName.damage
+  local cost = damage and damage.serverHas and damage:serverHas(victim.id, "melt") and 2 or 1
+  local taken = math.min(w.points / cost, amount)
+  w.points = w.points - taken * cost
   if w.points <= 0 then
     self.sv.worn[victim.id] = nil
     tell(server, victim, nil)
