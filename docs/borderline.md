@@ -435,9 +435,13 @@ dusk under floodlight towers, like the Wreck. Drawn in
 - **The freighter:** red hull, the bridge and its funnel (Hyperbole's
   logo) at the stern with a lifeboat each side, bay after bay of containers
   on the hatch covers with a hold open here and there, the windlass and
-  its chains at the bow. Past the quay, the harbour is frozen: plates of
-  sea ice, broken into shards and slush along the quay where the ships
-  come in.
+  its chains at the bow.
+- **The harbour:** the port stands in a frozen sea all round, quay walls
+  on every side: plates of sea ice running on past the map's edges,
+  broken into shards and slush along the walls; the tunnel in from the
+  south runs under it, its portal at the water's edge. The canvas leaves
+  the sea out and `render_borderline_beyond.lua` draws it every frame,
+  in the map and past it alike, so the ice has no seams.
 
 - **Arrival:** the south, out of the tunnel.
 - **The gantries:** two gantry cranes stand on the quay (four feet each,

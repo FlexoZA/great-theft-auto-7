@@ -8,7 +8,7 @@
 --   landing     Liar's Landing: a frozen container port at dusk, a maze of
 --               stacks with painted lanes, a dry dock down the west side,
 --               gantry cranes on the quay unloading a freighter, the ferry
---               lift at the top
+--               lift at the top; the frozen sea all round
 --   pit         The Bragium Pit: an open-pit mine at dusk, two rings of
 --               terraces down to the floor where Wilbur lands, a
 --               rim at either end joined to it by one ramp each; cranes
@@ -40,7 +40,7 @@
 --   map.cx, map.cy        the way home (a HOME star in quests), by the arrival
 --   map.exitX, map.exitY  the way on: the first player there finishes the level (borderline)
 --   map.outside           what the nil tiles are: "works" (the factory's roofs round a yard), "snow"
---                         (snowbanks), "harbour" (the sea north of the quay, snow round the rest),
+--                         (snowbanks), "harbour" (the frozen sea all round the port),
 --                         "rock" (the pit's walls), "dome"
 --                         (Prosperity's glass and the snow past it), "plant" (the factory's walls),
 --                         "cliff" (Thousand Papercuts: the drop west of the road, the rock east), "sky"
@@ -641,7 +641,14 @@ local function buildLanding(map, rng, T)
   b:open(25, map.rows - 3, 30, map.rows - 1) -- out of the tunnel
   b:ground("port", 0, 0, map.cols - 1, map.rows - 1)
   b:ground("quay", 2, 2, map.cols - 3, 6)
+  -- The quay walls all round, the sea past them: the north where the ships moor, then the west, the east,
+  -- and the south either side of the way in from the tunnel.
+  local bottom = map.rows - 3
   b:place("quayedge", 2, 2, map.cols - 4, 0.18, { flat = true })
+  b:place("quayedge", 2, 2, 0.18, bottom - 2, { flat = true, side = "w" })
+  b:place("quayedge", map.cols - 2.18, 2, 0.18, bottom - 2, { flat = true, side = "e" })
+  b:place("quayedge", 2, bottom - 0.18, 23, 0.18, { flat = true, side = "s" })
+  b:place("quayedge", 31, bottom - 0.18, map.cols - 33, 0.18, { flat = true, side = "s" })
   for _, r in ipairs({ 2.3, 5.6 }) do -- the gantries' rails, the length of the quay
     b:place("craneRail", 2, r, map.cols - 4, 0.3, { flat = true })
   end

@@ -18,7 +18,7 @@ local function outsideAt(map, c, r)
   if o == "works" then
     return C.works
   elseif o == "harbour" then
-    return r < 2 and C.sea or C.bank
+    return C.sea
   elseif o == "rock" then
     return C.rock
   elseif o == "dome" then
@@ -132,11 +132,26 @@ local function drawWorksRoof(c, r, x, y, T)
   end
 end
 
---- The frozen harbour, one tile of it: plates of sea ice with dark water
+--- The ice on the frozen harbour all round Liar's Landing, one tile of it,
+--- drawn over the water of every tile round it (its plates spill over): plates of sea ice with dark water
 --- in the leads between them, the plates smaller the nearer the quay,
 --- where the ships keep it broken up into shards and slush.
-local function drawSeaIce(c, r, x, y, T)
-  local near = math.max(0, math.min(1, (r + 4) / 5)) -- 1 at the quay, 0 far out
+local function drawSeaIce(map, c, r, x, y, T)
+  local bounds = map.openBox
+  if not bounds then -- the floors' bounds, tiles: how far out to sea a tile is goes by them
+    bounds = { c0 = math.huge, r0 = math.huge, c1 = -math.huge, r1 = -math.huge }
+    for cc = map.c0, map.c1 do
+      for rr = map.r0, map.r1 do
+        if open(map, cc, rr) then
+          bounds.c0, bounds.r0 = math.min(bounds.c0, cc), math.min(bounds.r0, rr)
+          bounds.c1, bounds.r1 = math.max(bounds.c1, cc), math.max(bounds.r1, rr)
+        end
+      end
+    end
+    map.openBox = bounds
+  end
+  local d = math.max(bounds.c0 - c, c - bounds.c1, bounds.r0 - r, r - bounds.r1, 1)
+  local near = math.max(0, math.min(1, 1 - (d - 1) / 5)) -- 1 at the quay, 0 far out
   local n = 2 + math.floor(near * 4)
   for i = 1, n do
     local h1, h2, h3 = hash(c * 3.3 + r * 7.9 + i * 1.1), hash(c * 5.1 + r * 2.3 + i * 2.7), hash(c * 9.7 + r + i)
@@ -177,7 +192,7 @@ local function drawOutside(map, c, r, x, y, T)
     color(C.rockLight)
     love.graphics.polygon("fill", x + 10, y + 50, x + 30 + h * 20, y + 14, x + 54, y + 48)
   elseif o == C.sea then
-    drawSeaIce(c, r, x, y, T)
+    return -- its ice is drawSeaIce's, over every tile's water at once
   elseif map.outside == "dome" and (open(map, c - 1, r) or open(map, c + 1, r)
       or open(map, c, r - 1) or open(map, c, r + 1)) then
     color(C.glass)
@@ -311,7 +326,9 @@ local function drawWallDrifts(map, T)
 end
 
 --- The floors, the snow on them, then the outside round them (drawn last,
---- so no lump of snow spills over a wall).
+--- so no lump of snow spills over a wall). The sea is left out: Beyond
+--- draws it every frame under the canvas, in and past the map alike, so
+--- its ice runs on without a seam.
 local function drawTiles(map, T)
   for c = map.c0, map.c1 do
     for r = map.r0, map.r1 do
@@ -334,7 +351,7 @@ local function drawTiles(map, T)
   end
   for c = map.c0, map.c1 do
     for r = map.r0, map.r1 do
-      if not open(map, c, r) then
+      if not open(map, c, r) and map.outside ~= "harbour" then
         drawOutside(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
       end
     end
@@ -440,6 +457,7 @@ end
 
 Ground.outsideAt, Ground.floorAt, Ground.open, Ground.snowAt = outsideAt, floorAt, open, snowAt
 Ground.drawOutside, Ground.drawFloor, Ground.drawYardSnow = drawOutside, drawFloor, drawYardSnow
+Ground.drawSeaIce = drawSeaIce
 Ground.drawTiles, Ground.drawEdges, Ground.drawTracks = drawTiles, drawEdges, drawTracks
 Ground.drawWallDrifts, Ground.drawCoverDrifts, Ground.drawDugout = drawWallDrifts, drawCoverDrifts, drawDugout
 

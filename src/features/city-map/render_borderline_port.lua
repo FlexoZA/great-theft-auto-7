@@ -356,12 +356,26 @@ end
 -- The quay ------------------------------------------------------------------
 
 --- The quay's edge over the water: a concrete coping painted yellow along
---- its lip, black rubber fenders hung off it every few metres.
+--- its lip, on the side (`side`: "n", "w", "e" or "s") the water is; on
+--- the north, where the ships come in, black rubber fenders hung off it
+--- every few metres.
 function DRAW.quayedge(s)
   color(C.concrete)
   love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
   color(C.yellow)
-  love.graphics.rectangle("fill", s.x, s.y + s.h - 6, s.w, 6)
+  local side = s.side or "n"
+  if side == "n" then
+    love.graphics.rectangle("fill", s.x, s.y + s.h - 6, s.w, 6)
+  elseif side == "s" then
+    love.graphics.rectangle("fill", s.x, s.y, s.w, 6)
+  elseif side == "w" then
+    love.graphics.rectangle("fill", s.x + s.w - 6, s.y, 6, s.h)
+  else
+    love.graphics.rectangle("fill", s.x, s.y, 6, s.h)
+  end
+  if side ~= "n" then
+    return
+  end
   for x = s.x + 60, s.x + s.w - 60, 190 do
     color(INK)
     love.graphics.rectangle("fill", x - 2, s.y - 16, 40, 20)

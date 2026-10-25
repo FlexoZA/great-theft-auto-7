@@ -25,7 +25,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Liar's Landing drawn properly: real shipping containers stacked two side by side (corrugated roofs, doors,
   rust, snow, Hyperbole stencils, some two high), quay concrete in big slabs with puddles, oil and tyre tracks, a
   freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
-  lift, a frozen harbour of broken ice, and a hull in the dry dock with welders sparking on it. Oil drums and
+  lift, the port standing in a frozen sea of broken ice on every side, and a hull in the dry dock with welders sparking on it. Oil drums and
   traffic cones on every Borderline map look like drums and cones now, some knocked over.
 - Liar's Landing has its own theme: swaying 6/8 shanty metal, a squeezebox singing a sailors' tune over chugging
   guitars, opening on creaking ice and a foghorn over the bay, with the gantries' winches, chains and slammed

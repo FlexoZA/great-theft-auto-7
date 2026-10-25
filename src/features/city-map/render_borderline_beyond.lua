@@ -1,11 +1,14 @@
 -- The Borderline maps past their edges (borderline.lua), drawn every frame
--- under the canvas when the surroundings feature asks (CityMap:drawPastEdges):
+-- under the canvas when the surroundings feature asks (CityMap:drawPastEdges)
+-- (and Liar's Landing's frozen sea everywhere, in the map too, the canvas
+-- leaving it out):
 -- the outside running on round the map, tile by tile, the same as the canvas
 -- draws it inside (render_borderline_ground.lua), so the Wreck's factory
--- roofs, Liar's Landing's sea and snowbanks, the cliff, the sky never stop.
+-- roofs, Liar's Landing's frozen sea, the cliff, the sky never stop.
 -- Where a floor meets the map's edge (a tunnel, a road out) it runs on,
--- into the dark for a tunnel, its rails with it; and anything the map put
--- across its own edge (Liar's Landing's freighter) is drawn whole.
+-- into the dark for a tunnel, its rails with it (not Liar's Landing's,
+-- which goes under the sea); and anything the map put across its own edge
+-- (Liar's Landing's freighter) is drawn whole.
 
 local Layout = require("src.features.city-map.layout")
 local Kit = require("src.features.city-map.render_borderline_kit")
@@ -61,12 +64,35 @@ local function runOn(map, c, r, ec, er, T)
   end
 end
 
+--- Liar's Landing's frozen sea over tiles c0..c1, r0..r1, wherever there
+--- is no floor: the water of every tile, then the ice over it, so its
+--- plates spill from one tile into the next without a seam.
+local function drawHarbour(map, c0, r0, c1, r1, T)
+  color(C.sea)
+  for c = c0, c1 do
+    for r = r0, r1 do
+      if not Ground.open(map, c, r) then
+        love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
+      end
+    end
+  end
+  for c = c0, c1 do
+    for r = r0, r1 do
+      if not Ground.open(map, c, r) then
+        Ground.drawSeaIce(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
+      end
+    end
+  end
+end
+
 --- Draw what lies past `map`'s edges inside (left, top, right, bottom), world px.
 function Beyond.draw(map, left, top, right, bottom)
   local T = Layout.TILE
   local c0, c1 = math.floor((left - map.x0) / T), math.floor((right - map.x0) / T)
   local r0, r1 = math.floor((top - map.y0) / T), math.floor((bottom - map.y0) / T)
-  if c0 >= map.c0 and c1 <= map.c1 and r0 >= map.r0 and r1 <= map.r1 then
+  if map.outside == "harbour" then -- the frozen sea, in the map as well as past it
+    drawHarbour(map, c0 - 1, r0 - 1, c1 + 1, r1 + 1, T)
+  elseif c0 >= map.c0 and c1 <= map.c1 and r0 >= map.r0 and r1 <= map.r1 then
     return
   end
   local function beyond(c, r)
@@ -77,7 +103,7 @@ function Beyond.draw(map, left, top, right, bottom)
     for r = r0, r1 do
       if beyond(c, r) then
         local ec, er = runsOn(map, c, r)
-        if ec then
+        if ec and map.outside ~= "harbour" then -- Liar's Landing's tunnel goes under the sea: just ice past it
           floors[c .. "," .. r] = true
           runOn(map, c, r, ec, er, T)
         end
@@ -86,7 +112,7 @@ function Beyond.draw(map, left, top, right, bottom)
   end
   for c = c0, c1 do
     for r = r0, r1 do
-      if beyond(c, r) and not floors[c .. "," .. r] then
+      if beyond(c, r) and not floors[c .. "," .. r] and map.outside ~= "harbour" then
         Ground.drawOutside(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
       end
     end

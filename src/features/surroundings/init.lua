@@ -79,7 +79,7 @@
 -- The first two are drawn once into chunks (chunks.lua).
 --
 -- The Borderline maps run on past their edges as they are drawn inside:
--- the Wreck's factory roofs, Liar's Landing's sea and snowbanks, the Pit's
+-- the Wreck's factory roofs, Liar's Landing's frozen sea, the Pit's
 -- rock, Prosperity's dome, the Refinery's and the Assembly Line's walls,
 -- the cliff and the drop, the sky round the Bunker; a tunnel or a road out
 -- carries on past the edge. City-map draws that itself (drawPastEdges).
