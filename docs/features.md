@@ -683,6 +683,20 @@ couple of small conventions rather than requiring each other:
   and raises `serverPanicArea` every tick. Effects carry
   `by`, the caster, and `drawEffect(e, client)` gets the client to follow
   them.
+  The shield wall (`abilities/shieldwall.lua`, `aim = "direction"`, aimed
+  and placed like the nest) puts up a quarter circle of wall `radius` (70)
+  px round its caster, centred on where they point, for its `seconds` (8;
+  30 s cooldown): a round that no human player fired (ownerless, or a
+  bot's) crossing it from outside stops there. Abilities answers
+  `serverShotAt` by asking each ability that has one, and the wall answers
+  with the "shield" material (blue sparks, `weapons/explosions.lua`).
+  Players' rounds pass both ways; shots an enemy feature flies itself,
+  blasts and blows still land. Enemies on foot don't walk through it
+  either: while a wall stands, abilities' step (last of all) asks for
+  `serverEnemies` and puts any entry whose `id` table holds its `x` / `y`
+  back on the side of the wall it was on (not `flying` ones, and never
+  into something solid). So an enemy listed with its own live table is
+  held back without its feature doing anything.
   The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
   invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
   stretch the first and shorten the second), or until they fire a gun:

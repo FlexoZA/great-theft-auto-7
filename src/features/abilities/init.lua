@@ -1240,6 +1240,20 @@ function Abilities:serverStep(server, dt)
   end
 end
 
+--- The `serverShotAt` convention, for whatever an ability leaves standing
+--- in the world that stops rounds (the shield wall's dome): each one with
+--- a `serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)`
+--- is asked in turn, and the first answer (a material) is ours.
+function Abilities:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  for _, ability in ipairs(Kinds.list) do
+    local hit = ability.serverShotAt and ability.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+    if hit then
+      return hit
+    end
+  end
+  return nil
+end
+
 --- A passive ability tells its carrier what it is up to: `phase` is
 --- "idle", "active" or "cooldown" and `seconds` how long that lasts.
 --- The `serverStat` convention: the passive in `player`'s slot may scale
