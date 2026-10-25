@@ -43,7 +43,8 @@ Story.lines = {
 -- screen says the same. Each is a list of { who, text } said over the comms
 -- in order. Keys are "<map>.<what>": "start" (just after arriving), a
 -- zone's name (city-map's `map.zones`) for walking into it, "fight" (the
--- first time the army spots anyone), "end" (the way on reached).
+-- first time the army spots anyone), "open" (the last of the map's
+-- terminals hacked, its lock open), "end" (the way on reached).
 Story.beats = {
   ["wreck.start"] = {
     { "yappy", "Minion! You're alive! I dug you out. With a clipboard. It took ages." },
@@ -58,11 +59,16 @@ Story.beats = {
     .. "There are no bats." } },
 
   ["landing.start"] = {
-    { "yappy", "Liar's Landing! The ferry lift crosses the bay. Get on it and I'll hack it. From over here." },
+    { "yappy", "Liar's Landing! The ferry lift crosses the bay, but it's shuttered. There's a control terminal "
+      .. "in every corner of the yard. Hack all four, then get on the lift and I'll do the rest. From over here." },
     { "max", "You're still alive! Fantastic! Guards? Maximum guards!" },
   },
   ["landing.fight"] = { { "yappy", "Gun haulers! The good ones! Tactical retreat! Tactical retreat!" } },
   ["landing.The Quay"] = { { "yappy", "The lift! Up on the quay! Shoot the rocket ones first. I'll supervise." } },
+  ["landing.open"] = {
+    { "yappy", "That's the last terminal! The shutters are coming off the lift. Get on it, minion!" },
+    { "max", "You opened my lift? Fantastic! That means a bigger welcome party. TO THE MAX!" },
+  },
   ["landing.hold"] = {
     { "yappy", "You're on! Hacking now. Stay on the lift. They'll come at you. That's sort of the plan." },
   },
@@ -187,6 +193,7 @@ Story.chatter = {
 -- terminals feature), by map: `%d` how many are left.
 Story.hack = {
   wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
+  landing = "Objective: hack the ferry's control terminals round the yard (%d left)",
 }
 
 -- The objective line and the HUD bar while the way on waits for a hold

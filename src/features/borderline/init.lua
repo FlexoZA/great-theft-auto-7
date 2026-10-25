@@ -185,7 +185,12 @@ function Borderline:serverStep(server, dt)
   Wilbur.serverStep(server, dt, function(what)
     Tale.serverBeat(server, what)
   end)
-  if not (map and map.exitX) or Terminals.serverLocked() or Hold.serverLocked() or Wilbur.serverLocked()
+  local locked = Terminals.serverLocked()
+  if level.locked and not locked then -- the last terminal hacked: the way on's lock is open
+    Tale.serverBeat(server, "open")
+  end
+  level.locked = locked
+  if not (map and map.exitX) or locked or Hold.serverLocked() or Wilbur.serverLocked()
     or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end

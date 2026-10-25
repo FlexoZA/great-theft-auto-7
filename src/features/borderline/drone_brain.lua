@@ -19,7 +19,7 @@ local Chassis = require("src.features.borderline.chassis")
 local Brain = {}
 
 Brain.LEGS = false
-Brain.RADIUS = 9
+Brain.RADIUS = 14 -- px: drawn 1.5 times its 9 (drone_look.lua's SCALE), easier to hit
 
 Brain.CONF = {
   health = 25,

@@ -16,6 +16,10 @@ local Hauler = require("src.features.borderline.hauler_look")
 
 local Look = {}
 
+-- How big a drone is drawn, over the 9 px round it is drawn at in here: big
+-- enough to pick out and shoot down (drone_brain.lua's RADIUS goes with it).
+Look.SCALE = 1.5
+
 local C = Hauler.C
 local LIGHT = {
   FIX = { 0.35, 1.00, 0.45 },
@@ -47,10 +51,11 @@ function Look.drawDrone(d, clock)
     love.graphics.setBlendMode("alpha")
   end
   love.graphics.setColor(0, 0, 0, 0.2) -- it flies: the shadow lies well off it
-  love.graphics.circle("fill", d.dx + 8, d.dy + 22, 9, 14)
+  love.graphics.circle("fill", d.dx + 8 * Look.SCALE, d.dy + 22 * Look.SCALE, 9 * Look.SCALE, 14)
   love.graphics.push()
   love.graphics.translate(d.dx, d.dy)
   love.graphics.rotate(d.facing or 0)
+  love.graphics.scale(Look.SCALE)
   -- Four rotors on struts, a blur where the blades turn.
   for i = 0, 3 do
     local a = math.pi / 4 + i * math.pi / 2

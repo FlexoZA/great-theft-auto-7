@@ -27,6 +27,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
   lift, the port standing in a frozen sea of broken ice on every side, and a hull in the dry dock with welders sparking on it. Oil drums and
   traffic cones on every Borderline map look like drums and cones now, some knocked over.
+- Hyperbole's medic and shield drones are half as big again and easier to hit: hit radius 9 -> 14 px.
+- Liar's Landing's ferry lift is shuttered until you hack four control terminals, one in each corner of the yard,
+  each guarded by a hauler dock that keeps building junk haulers, gun haulers and junk. More of Hyperbole's army
+  holds the port: gun hauler posts 7 -> 10 plus the terminals' guards, squads 3 -> 4, rocket haulers 2 -> 4, a
+  shield drone, and a fifth wave at the lift.
 - Liar's Landing has its own theme: swaying 6/8 shanty metal, a squeezebox singing a sailors' tune over chugging
   guitars, opening on creaking ice and a foghorn over the bay, with the gantries' winches, chains and slammed
   containers in the breakdown.

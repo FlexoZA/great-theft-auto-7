@@ -186,7 +186,7 @@ and its top half drags itself on for 4 s, still shooting, before it dies
 | **Arc hauler** | `ARC` | Blue coils on both arms, a dish on its back | 80 | Shock bolts (`shock`, 10, `electrify`) | Throws up a dome shield (180 px) over itself and anything near it for 5 s, every 12 s. Rounds from outside stop at the dome; walk inside and you are zapped every second (`shock`, 8) but your rounds hit. |
 | **Jet hauler** | `JET` | Wings folded on its back, thrusters | 70 | In the air: a strafing run of rockets in a line (`explosive`, 20 each); on the ground: a rifle | Flies over walls (drawn over everything, a shadow on the ground), makes a run along a line through you (red marks along the line 0.8 s before), lands somewhere, fights on foot, takes off again. Only shootable on the ground or while landing. |
 | **Stalker hauler** | `STK` | Tall on two long legs forward and a wheel on a strut behind, a dark visor with one red eye slit, a flechette pod on each shoulder | 140 | Bursts of six flechettes (`darts.lua`): each stings as it sticks in you (3), in a wall or in the ground where it stops, blinks inside a red ring and blows a second later (`explosive`, 10, 40 px) | Hyperbole's hunter. Hunts the stacks in a pair and keeps its distance (260-480 px) quicker than the drilled models. Once it knows somebody is about (hunting or searching), it throws itself aside from rounds and abilities coming at it and turns on whoever fired; before that a shot from hiding lands. Dodging spends breath (`bosses/stamina.lua`, about a quarter a dodge): four or five in a row and it is winded for ~5 s, walking, no dodge or charge (its breath shows under its health, throbbing red while winded). Every 6-9 s it crouches (0.5 s, its pods and eye glow) and charges where you stood (`impact`, 20, knocked down), then backs off. Badly hurt, it backs to a medkit lying near, still shooting (`bosses/heal.lua`). `stk_brain.lua`; from Liar's Landing on. |
-| **Medic drone** | `FIX` | A small yellow flying disc with a green cross light | 25 | None | Flies in pairs, hangs behind the haulers and heals the most hurt one (12 a second, a green beam). Fragile; shoot it first. |
+| **Medic drone** | `FIX` | A yellow flying disc with a green cross light, about a hauler's size (14 px round, so it can be hit) | 25 | None | Flies in pairs, hangs behind the haulers and heals the most hurt one (12 a second, a green beam). Fragile; shoot it first. |
 | **Shield drone** | `SHD` | The same disc, blue light | 25 | None | Gives one hauler a shield bubble (80 points) and keeps it topped up while the beam holds. |
 | **Sentry** | | A yellow pop-up turret | 90 | Bursts (`bullet`) | Sits flush in the floor until you are near, then rises. Creatures rule: no brain module. |
 | **Hauler dock** | `DCK` | A gunmetal pad with a hazard rim, a charging cradle open to the south (clamp arms, a cable glowing purple), a plasma gun on a turret at the back | 300 | Plasma bursts of three (`plasma`, 14 each, 32 px splash, 300 px/s) | Guards a terminal; never moves, turns all the way round. With anyone within 900 px it builds a junk hauler every 20 s and sends it out of the cradle (up to 3 of its own out). Shoot it down, or hack the terminal it runs and it shuts off (`dock_brain.lua`, `dock_look.lua`). |
@@ -268,7 +268,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | # | Map | Play | Boss / set piece |
 | --- | --- | --- | --- |
 | 1 | **The Frozen Wreck** | Wake in the snow by Max's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
-| 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hold the dock while Yappy hacks the ferry lift |
+| 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hack the four control terminals round the yard, then hold the ferry lift while Yappy hacks it |
 | 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Wilbur |
 | 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
@@ -461,20 +461,36 @@ dusk under floodlight towers, like the Wreck. Drawn in
 - **Safety lines:** the lanes the stacks leave clear are painted (yellow
   dashes) with each bay's number (A1 to F5), a zebra crossing to the lift,
   beacons round the lift.
-- Gun haulers on the containers' corners, medic drones, two rocket haulers
-  on crane platforms, and a pair of stalker haulers hunting the east stacks.
+- **The ferry's control terminals:** the lift is shuttered on its three
+  landward sides (a lock, the terminals feature, as on the Wreck) until
+  four Hyperbole terminals are hacked, one out in each corner of the yard
+  (`borderline_landing.lua`'s `POSTS`): the far south-west past the dry dock, the
+  east side, the north-west and the north-east ends of the quay. Each is
+  guarded by a hauler dock (`DCK`) building junk haulers until it is shot
+  down or its terminal hacked, a gun hauler or two and a pack of junk
+  haulers. The objective line points at the nearest one left; the last
+  one brings the shutters down ("open": Yappy calls you onto the lift, Max
+  promises a bigger welcome).
+- **The army:** gun haulers posted where the lanes cross
+  (`GUNS`, ten) and round the terminals, three squads
+  of gun haulers walking loops of the lanes, a pair of stalker haulers
+  hunting the east stacks, two gun haulers at the lift, four rocket
+  haulers (two under the gantries, two out in the yard), medic drones and
+  a shield drone with the squads, junk haulers about the edges.
 - **The ferry lift:** a platform at the quay, the way on, shut until
   Yappy has hacked it (`hold.lua`, the map's `hold`): she does it from
   wherever she is, but only while somebody stands on the lift; the first
   one on starts it, and it takes 60 s of standing there
-  (`Borderline.LIFT_HOLD`). With nobody on it the hack stops (it doesn't
+  (`LIFT_HOLD`). With nobody on it the hack stops (it doesn't
   go back) and Yappy frets. Waves come at the lift as it goes, each when
   the hack gets so far, so stepping off never piles them up: two gun
   haulers and a medic drone off the west end of the quay at the start,
   four junk haulers up the lanes at 20%, three gun haulers off the east
   end at 40%, a rocket hauler and two gun haulers up the lanes at 60%,
-  a stalker hauler, two gun haulers and a medic drone at 80% (one more gun hauler in each
-  for every player past the first); what's left of each stays on the
+  a stalker hauler, two gun haulers and a medic drone at 80%, a rocket
+  hauler, two gun haulers and a shield drone off the west end at 90% (and
+  a gun hauler with the junk at 20%; one more gun hauler in each for every
+  player past the first); what's left of each stays on the
   lift. A bar on the lift's deck and one at the top of the screen show
   the hack; the objective line says whether it's running. When it's done
   the lift is the EXIT: "THE BRAGIUM PIT".
