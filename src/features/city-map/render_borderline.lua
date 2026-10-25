@@ -12,6 +12,7 @@ local RenderBorderline = {}
 
 local Kit = require("src.features.city-map.render_borderline_kit")
 local Ground = require("src.features.city-map.render_borderline_ground")
+local Port = require("src.features.city-map.render_borderline_port")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -20,6 +21,9 @@ local box, blob, hazard, signFont = Kit.box, Kit.blob, Kit.hazard, Kit.signFont
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
+for kind, fn in pairs(Port.DRAW) do
+  DRAW[kind] = fn
+end
 
 function DRAW.rails(s)
   color(C.woodDark)
@@ -292,20 +296,6 @@ function DRAW.rock(s)
 end
 DRAW.boulder = DRAW.rock
 
-function DRAW.container(s)
-  local tint = C.containers[s.tint or 1]
-  box(s.x, s.y, s.w, s.h, tint)
-  color(INK, 0.3)
-  local along = s.w >= s.h
-  for a = 16, (along and s.w or s.h) - 8, 22 do
-    if along then
-      love.graphics.rectangle("fill", s.x + a, s.y + 6, 4, s.h - 12)
-    else
-      love.graphics.rectangle("fill", s.x + 6, s.y + a, s.w - 12, 4)
-    end
-  end
-end
-
 function DRAW.crane(s)
   box(s.x, s.y, s.w, s.h, C.yellow)
   color(INK)
@@ -315,18 +305,14 @@ function DRAW.crane(s)
   love.graphics.setLineWidth(1)
 end
 
-function DRAW.bollard(s)
-  blob(s.x, s.y, s.w, s.h, C.gunmetal)
-end
-
-function DRAW.lift(s)
+--- A steel plate in the floor, hazard striped at both ends: a door, a bay, a hatch.
+function DRAW.door(s)
   box(s.x, s.y, s.w, s.h, C.steel)
   hazard(s.x, s.y, s.w, 16)
   hazard(s.x, s.y + s.h - 16, s.w, 16)
 end
-DRAW.door = DRAW.lift
-DRAW.bay = DRAW.lift
-DRAW.hatch = DRAW.lift
+DRAW.bay = DRAW.door
+DRAW.hatch = DRAW.door
 
 function DRAW.ledge(s)
   box(s.x, s.y, s.w, s.h, C.rock)
@@ -723,76 +709,91 @@ function DRAW.laneline(s)
   end
 end
 
---- A ship's hull from above, `s` its bounds, its bow at the right: red
---- sides, a grey deck, hatches in a row, and its bridge at the stern.
-local function hullShape(s, fill, dark)
-  local nose = math.min(s.h * 0.9, s.w * 0.15)
-  local pts = { s.x, s.y, s.x + s.w - nose, s.y, s.x + s.w, s.y + s.h / 2, s.x + s.w - nose, s.y + s.h, s.x,
-    s.y + s.h }
-  color(INK)
-  love.graphics.polygon("fill", pts[1] - LINE, pts[2] - LINE, pts[3], pts[4] - LINE, pts[5] + LINE, pts[6], pts[7],
-    pts[8] + LINE, pts[9] - LINE, pts[10] + LINE)
-  color(fill)
-  love.graphics.polygon("fill", pts)
-  color(dark)
-  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w - nose - 24, s.h - 32)
-  return nose
-end
-
---- The freighter moored along the quay: most of it past the map's top.
-function DRAW.ship(s)
-  local nose = hullShape(s, C.hull, C.deck)
-  for x = s.x + 160, s.x + s.w - nose - 120, 150 do -- hatch covers, some open
-    box(x, s.y + 40, 110, s.h - 80, hash(x) < 0.3 and INK or C.containers[1 + math.floor(hash(x * 3) * 4)])
-  end
-  box(s.x + 30, s.y + 30, 90, s.h - 60, C.paintWhite) -- the bridge
-  color(C.window)
-  love.graphics.rectangle("fill", s.x + 108, s.y + 40, 8, s.h - 80)
-end
-
---- The dry dock: a deep basin, its stepped walls going down, a little
---- water frozen at the bottom and a rusting hull sat on blocks in it.
-function DRAW.drydock(s)
-  box(s.x, s.y, s.w, s.h, C.pitWall)
-  for i = 1, 3 do
-    local inset = i * 18
-    color(i == 3 and C.dockWater or C.pitDeep, i == 3 and 1 or 0.5)
-    love.graphics.rectangle("fill", s.x + inset, s.y + inset, s.w - 2 * inset, s.h - 2 * inset)
-  end
-  -- The hull, bow north, rusted, on its blocks.
-  local hw, hl = s.w * 0.55, s.h * 0.82
-  love.graphics.push()
-  love.graphics.translate(s.x + s.w / 2, s.y + s.h / 2)
-  love.graphics.rotate(-math.pi / 2)
-  hullShape({ x = -hl / 2, y = -hw / 2, w = hl, h = hw }, C.rust, C.hullDark)
-  love.graphics.pop()
-  hazard(s.x, s.y, s.w, 12)
-  hazard(s.x, s.y + s.h - 12, s.w, 12)
-  hazard(s.x, s.y, 12, s.h)
-  hazard(s.x + s.w - 12, s.y, 12, s.h)
-end
-
---- A gantry crane's foot on the quay (the crane is overhead: works.lua).
-function DRAW.foot(s)
-  box(s.x, s.y, s.w, s.h, C.yellow)
-  color(INK)
-  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.2, 8)
-end
-
+--- A traffic cone: its square rubber base, the cone with a white band
+--- round it, from above; one in four knocked over, lying on its side.
 function DRAW.cone(s)
   local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  local r = math.max(7, s.w * 0.5)
+  local h = hash(s.seed or cx)
+  if h < 0.25 then
+    love.graphics.push()
+    love.graphics.translate(cx, cy)
+    love.graphics.rotate(h * 25)
+    color(INK)
+    love.graphics.polygon("fill", -r - 3, -r * 0.7 - 3, r + 4, -2, r + 4, 2, -r - 3, r * 0.7 + 3)
+    color(C.cone)
+    love.graphics.polygon("fill", -r, -r * 0.6, r, -1, r, 1, -r, r * 0.6)
+    color(C.paintWhite)
+    love.graphics.polygon("fill", -r * 0.15, -r * 0.33, r * 0.25, -r * 0.2, r * 0.25, r * 0.2, -r * 0.15, r * 0.33)
+    color(INK)
+    love.graphics.rectangle("fill", -r - 4, -r * 0.8, 5, r * 1.6) -- the base, on its edge
+    love.graphics.pop()
+    return
+  end
   color(INK)
-  love.graphics.rectangle("fill", cx - 9, cy - 9, 18, 18)
+  love.graphics.rectangle("fill", cx - r - 2, cy - r - 2, 2 * r + 4, 2 * r + 4, 3)
+  color(C.coneDark)
+  love.graphics.rectangle("fill", cx - r, cy - r, 2 * r, 2 * r, 2)
   color(C.cone)
-  love.graphics.circle("fill", cx, cy, 7, 10)
+  love.graphics.circle("fill", cx, cy, r * 0.8, 12)
   color(C.paintWhite)
-  love.graphics.circle("fill", cx, cy, 3, 8)
+  love.graphics.circle("fill", cx, cy, r * 0.55, 12)
+  color(C.cone)
+  love.graphics.circle("fill", cx, cy, r * 0.35, 10)
+  color(INK)
+  love.graphics.circle("fill", cx, cy, r * 0.12, 6)
 end
 
+-- What a drum may be painted, and what it holds: red fuel, blue, yellow
+-- Bragium coolant, plain steel.
+local DRUMS = { C.drum, { 0.20, 0.40, 0.66 }, C.yellow, C.gunmetalLight }
+
+--- An oil drum: standing, its lid ringed and two bungs in it, a hazard
+--- diamond on the yellow ones; or knocked over, rolled on its side with its
+--- hoops showing. A few stand on a pallet.
 function DRAW.drum(s)
-  blob(s.x, s.y, s.w, s.h, C.drum)
-  color(INK, 0.6)
-  love.graphics.circle("line", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.3, 14)
+  local h = hash(s.seed or s.x)
+  local fill = DRUMS[1 + math.floor(hash(h * 7.1) * #DRUMS)]
+  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
+  if h < 0.2 then
+    love.graphics.push()
+    love.graphics.translate(cx, cy)
+    love.graphics.rotate(h * 30)
+    box(-r * 1.3, -r * 0.8, r * 2.6, r * 1.6, fill)
+    color(INK, 0.35)
+    for _, x in ipairs({ -r * 0.5, r * 0.4 }) do
+      love.graphics.rectangle("fill", x, -r * 0.8, 4, r * 1.6)
+    end
+    color(C.white, 0.25)
+    love.graphics.rectangle("fill", -r * 1.3, -r * 0.5, r * 2.6, 4)
+    blob(r * 1.2, -r * 0.8, r * 0.35, r * 1.6, fill)
+    love.graphics.pop()
+    return
+  end
+  if h > 0.8 then -- on a pallet
+    color(INK)
+    love.graphics.rectangle("fill", cx - r * 1.35, cy - r * 1.35, r * 2.7, r * 2.7)
+    color(C.wood)
+    for k = 0, 3 do
+      love.graphics.rectangle("fill", cx - r * 1.3, cy - r * 1.3 + k * r * 0.68, r * 2.6, r * 0.5)
+    end
+  end
+  blob(s.x, s.y, s.w, s.h, fill)
+  color(INK, 0.45)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", cx, cy, r * 0.82, 16)
+  love.graphics.setLineWidth(1)
+  color(C.white, 0.3)
+  love.graphics.arc("fill", cx, cy, r * 0.78, math.pi * 1.05, math.pi * 1.45, 6)
+  color(INK, 0.7)
+  love.graphics.circle("fill", cx - r * 0.4, cy - r * 0.1, r * 0.13, 6)
+  love.graphics.circle("fill", cx + r * 0.35, cy + r * 0.25, r * 0.09, 6)
+  if fill == C.yellow then
+    color(INK)
+    love.graphics.polygon("fill", cx, cy - r * 0.42, cx + r * 0.32, cy, cx, cy + r * 0.42, cx - r * 0.32, cy)
+    color(C.yellow)
+    love.graphics.polygon("fill", cx, cy - r * 0.26, cx + r * 0.18, cy, cx, cy + r * 0.26, cx - r * 0.18, cy)
+  end
 end
 
 local bayFont = nil

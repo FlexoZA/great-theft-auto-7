@@ -407,16 +407,45 @@ under floodlight towers.
 
 A frozen container port: stacks of shipping containers as a maze, an icy
 quay along the north edge with a freighter moored along it. Played at
-dusk under floodlight towers, like the Wreck.
+dusk under floodlight towers, like the Wreck. Drawn in
+`render_borderline_port.lua` (city-map):
+
+- **The yard:** quay concrete in big slabs, each poured its own shade,
+  joints and saw cuts, a crack here and there; snow in patches, the
+  straddle carriers' tracks down the lanes, frozen puddles, oil stains.
+- **The containers:** each stack two boxes side by side the long way,
+  each its own colour (red, blue, green, orange, Hyperbole yellow, old
+  grey), some two high (a deeper shadow, a lighter roof): corrugated roofs,
+  corner castings, doors with their locking bars at one end, rust run from
+  the seams, snow on some, Hyperbole's logo or a box number stencilled on
+  others. The footprints are the blockout's, so they play the same.
+- **The quay:** a yellow-painted coping along the edge with black fenders
+  hung off it, bollards with mooring lines out to the freighter, the two
+  crane rails down its length with the gantries' feet standing on them
+  (bogies, buffers, hazard-striped legs), a spare spreader and bundles of
+  lashing rods lying about.
+- **The freighter:** red hull, the bridge and its funnel (Hyperbole's
+  logo) at the stern with a lifeboat each side, bay after bay of containers
+  on the hatch covers with a hold open here and there, the windlass and
+  its chains at the bow. Past the quay, the harbour is frozen: plates of
+  sea ice, broken into shards and slush along the quay where the ships
+  come in.
 
 - **Arrival:** the south, out of the tunnel.
 - **The gantries:** two gantry cranes stand on the quay (four feet each,
   the rest overhead), their booms out over the freighter, a trolley
   running out and back with a container on its spreader (works.lua's
   `gantries`), beacons on their legs.
-- **The dry dock:** a deep basin down the west side, a rusting hull sat in
-  it, nobody walks in and rounds fly over; a tower crane works over each
-  end. KEEP OUT painted at its foot.
+- **The dry dock:** a deep basin down the west side, its stepped walls
+  going down with ladders, ice at the bottom, and a rusting hull up on its
+  keel blocks, shored to the walls: its holds open, deck plates up, patches
+  of red primer, scaffolding down one side, the propeller off its stern,
+  welders at work on it in bursts of sparks (`map.welders`, works.lua).
+  Nobody walks in and rounds fly over; a tower crane works over each end.
+  KEEP OUT painted at its foot.
+- **The ferry lift:** a tread-plate deck with railings down its sides,
+  hinges where it meets the ferry, chevrons and FERRY painted on it, a
+  control pedestal in one corner.
 - **Safety lines:** the lanes the stacks leave clear are painted (yellow
   dashes) with each bay's number (A1 to F5), a zebra crossing to the lift,
   beacons round the lift.

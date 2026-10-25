@@ -20,8 +20,9 @@
 -- ropeway down Thousand Papercuts' drop, its buckets running up one rope
 -- and down the other (`map.ropeway`); and on the Bunker, the turbine fans
 -- spinning in its intakes (`map.fans`), the radar turning (`map.radars`)
--- and a gantry running over the deck with a missile (`load` "missile"). Scenery only: nothing here is on the host
--- or touches anyone, and each screen keeps its own clock.
+-- and a gantry running over the deck with a missile (`load` "missile"); and in Liar's Landing's dry dock,
+-- welders at work on the hull in bursts, sparks showering off them (`map.welders`). Scenery only: nothing
+-- here is on the host or touches anyone, and each screen keeps its own clock.
 
 local Hauler = require("src.features.borderline.hauler_look")
 
@@ -448,6 +449,32 @@ local function drawArm(a)
   end
 end
 
+--- Whether welder `w` is at it now: bursts of a few seconds, a pause between.
+local function atWork(w)
+  return math.sin(clock * 0.8 + w.phase) > -0.1 and math.sin(clock * 23 + w.phase * 5) > -0.6
+end
+
+--- A welder on the hull: a figure in a mask at the seam, and while at it
+--- the arc's white point and a shower of sparks off it, falling away.
+local function drawWelder(w)
+  love.graphics.setColor(C.ink)
+  love.graphics.circle("fill", w.x + 10, w.y, 7, 10)
+  love.graphics.setColor(C.gunmetal)
+  love.graphics.circle("fill", w.x + 10, w.y, 5, 10)
+  if not atWork(w) then
+    return
+  end
+  love.graphics.setColor(C.arcHot)
+  love.graphics.circle("fill", w.x, w.y, 4, 8)
+  love.graphics.setColor(C.flame)
+  for k = 0, 9 do
+    local age = (clock * 2.2 + k / 10 + w.phase) % 1
+    local sa = k * 2.4 + w.phase
+    local sr = 6 + age * 34
+    love.graphics.circle("fill", w.x + math.cos(sa) * sr, w.y + math.sin(sa) * sr * 0.6 + age * age * 22, 1.8, 4)
+  end
+end
+
 --- A press: its head coming down and going back up.
 local function drawPress(p)
   local k = math.max(0, math.sin(clock * 2.4 + p.phase)) ^ 3 -- 1 when slammed down
@@ -586,6 +613,9 @@ function Works.drawAboveCars(map)
   for _, v in ipairs(map.steam or {}) do
     drawSteam(v)
   end
+  for _, w in ipairs(map.welders or {}) do
+    drawWelder(w)
+  end
   for _, p in ipairs(map.overpipes or {}) do
     drawOverpipe(p)
   end
@@ -628,6 +658,11 @@ function Works.drawNightLights(map, glow)
     local tx, ty, welding = armPose(a)
     if welding then
       glow(tx, ty, 90, C.arcHot, 0.7 + 0.3 * math.sin(clock * 40 + a.phase))
+    end
+  end
+  for _, w in ipairs(map.welders or {}) do -- the arc lights up the hull round it
+    if atWork(w) then
+      glow(w.x, w.y, 110, C.arcHot, 0.6 + 0.3 * math.sin(clock * 40 + w.phase))
     end
   end
   for _, g in ipairs(map.gantries or {}) do

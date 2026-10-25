@@ -132,6 +132,37 @@ local function drawWorksRoof(c, r, x, y, T)
   end
 end
 
+--- The frozen harbour, one tile of it: plates of sea ice with dark water
+--- in the leads between them, the plates smaller the nearer the quay,
+--- where the ships keep it broken up into shards and slush.
+local function drawSeaIce(c, r, x, y, T)
+  local near = math.max(0, math.min(1, (r + 4) / 5)) -- 1 at the quay, 0 far out
+  local n = 2 + math.floor(near * 4)
+  for i = 1, n do
+    local h1, h2, h3 = hash(c * 3.3 + r * 7.9 + i * 1.1), hash(c * 5.1 + r * 2.3 + i * 2.7), hash(c * 9.7 + r + i)
+    local size = T * (0.55 - 0.3 * near) * (0.7 + 0.6 * h3)
+    local px, py = x + T * h1, y + T * h2
+    local pts = {}
+    for k = 0, 5 do
+      local a = k * math.pi / 3 + h3 * 2
+      local rr = size * (0.6 + 0.5 * hash(h1 * 13 + k))
+      pts[#pts + 1] = px + math.cos(a) * rr
+      pts[#pts + 1] = py + math.sin(a) * rr * 0.75
+    end
+    color(C.snowShade, 0.95)
+    love.graphics.polygon("fill", pts)
+    for k = 1, #pts, 2 do
+      pts[k], pts[k + 1] = px + (pts[k] - px) * 0.85 - 2, py + (pts[k + 1] - py) * 0.85 - 2
+    end
+    color(h3 < 0.3 and C.ice or C.floe)
+    love.graphics.polygon("fill", pts)
+  end
+  if near > 0.6 then -- slush between the shards
+    color(C.white, 0.18)
+    love.graphics.ellipse("fill", x + T * hash(c + r * 3.1), y + T * hash(c * 2 + r), T * 0.3, T * 0.08, 10)
+  end
+end
+
 --- One tile of the map's outside at (c, r), (x, y) in world px.
 local function drawOutside(map, c, r, x, y, T)
   local o = outsideAt(map, c, r)
@@ -145,8 +176,8 @@ local function drawOutside(map, c, r, x, y, T)
   if o == C.rock and h < 0.4 then
     color(C.rockLight)
     love.graphics.polygon("fill", x + 10, y + 50, x + 30 + h * 20, y + 14, x + 54, y + 48)
-  elseif o == C.sea and h < 0.3 then
-    blob(x + h * 30, y + 20, 26 + h * 20, 14, C.floe)
+  elseif o == C.sea then
+    drawSeaIce(c, r, x, y, T)
   elseif map.outside == "dome" and (open(map, c - 1, r) or open(map, c + 1, r)
       or open(map, c, r - 1) or open(map, c, r + 1)) then
     color(C.glass)
@@ -161,8 +192,44 @@ local function drawOutside(map, c, r, x, y, T)
   end
 end
 
+--- One tile of quay concrete (Liar's Landing's yard and quay): slabs two
+--- tiles square, each poured its own shade, the joints between them, a
+--- saw cut across the middle, a crack now and then.
+local function drawSlab(c, r, x, y, T, f)
+  local sc, sr = math.floor(c / 2), math.floor(r / 2)
+  local k = 0.95 + 0.1 * hash(sc * 3.7 + sr * 9.1 + 0.3)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.24)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 3, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 3)
+  end
+  color(INK, 0.08)
+  if c % 2 == 1 then
+    love.graphics.rectangle("fill", x, y, 1, T)
+  end
+  if r % 2 == 1 then
+    love.graphics.rectangle("fill", x, y, T, 1)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.07 then
+    color(INK, 0.2)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(x + 6, y + T * h * 10, x + T * 0.4, y + T * 0.5, x + T * 0.6, y + T * 0.45, x + T - 4,
+      y + T * (1 - h * 8))
+    love.graphics.setLineWidth(1)
+  end
+end
+
 --- One tile of floor at (c, r), finish `f`.
 local function drawFloor(c, r, x, y, T, f)
+  if f == C.port or f == C.quay then
+    drawSlab(c, r, x, y, T, f)
+    return
+  end
   local h = hash(c * 7.1 + r * 13.7)
   color(f)
   love.graphics.rectangle("fill", x, y, T, T)
@@ -258,7 +325,8 @@ local function drawTiles(map, T)
     for c = map.c0, map.c1 do
       for r = map.r0, map.r1 do
         local x, y = map.x0 + c * T, map.y0 + r * T
-        if open(map, c, r) and floorAt(map, x + T / 2, y + T / 2) == C.yard then
+        local f = open(map, c, r) and floorAt(map, x + T / 2, y + T / 2)
+        if f == C.yard or f == C.port then
           drawYardSnow(c, r, x, y, T, shade)
         end
       end

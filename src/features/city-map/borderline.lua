@@ -46,8 +46,8 @@
 --                         "cliff" (Thousand Papercuts: the drop west of the road, the rock east), "sky"
 --                         (round the bunker's roof)
 --   map.grounds           { x0, y0, x1, y1, floor } the finish of each walked patch, world px, a later one
---                         over an earlier: snow, ice, quay, yard, ballast, gravel, terrace, pitfloor, street,
---                         plaza, grate, steel, upper, road, roof
+--                         over an earlier: snow, ice, quay, yard, port (Liar's Landing's slabs), ballast,
+--                         gravel, terrace, pitfloor, street, plaza, grate, steel, upper, road, roof
 --   map.zones             { name, x0, y0, x1, y1 } the parts of the map, world px
 --   map.cover             { kind, x, y, w, h, solid, round, flat, tint } world px; solid ones are in the
 --                         solids too (`water` ones, the molten river, stop walking but not rounds or
@@ -60,11 +60,12 @@
 --                         flat: tunnel (`railsX` where rails run in), walkway, zebra, cone, scar (ground
 --                         torn up by a carriage), paint (with `text`, `small`, `snowy`); a carriage may be
 --                         `burning`; Liar's Landing's: drydock
---                         (`water`, like a pit), foot (a gantry's), and flat: ship (the freighter in the
---                         water), laneline; the Pit's: shaft (`water`), truck (a haul truck); Prosperity's
---                         towers are factories (`stackX`, `stackY` their chimney), and flat: lamp, lot; the
---                         Refinery's: casting (`water`, the casting pit), and flat: grille (a steam vent);
---                         the Bunker's: intake (`water`, round: an engine's)
+--                         (`water`, like a pit), foot (a gantry's), bollard (`rope` the world y its mooring
+--                         line runs out to), and flat: ship (the freighter in the water), laneline, quayedge,
+--                         craneRail, puddle, stain, lashing, spreader; the Pit's: shaft (`water`), truck (a
+--                         haul truck); Prosperity's towers are factories (`stackX`, `stackY` their chimney),
+--                         and flat: lamp, lot; the Refinery's: casting (`water`, the casting pit), and flat:
+--                         grille (a steam vent); the Bunker's: intake (`water`, round: an engine's)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
@@ -83,7 +84,9 @@
 --   map.radars            { x, y, r } radar dishes turning (the Bunker; works.lua)
 --   map.stacks            { x, y, phase } smoke rising: factory chimneys (Prosperity), the wrecked train
 --                         (the Wreck; works.lua)
---   map.tracks            { { x, y }, ... } forklifts' tracks through the snow, world px (the Wreck)
+--   map.tracks            { { x, y }, ... } forklifts' tracks through the snow, world px (the Wreck, and
+--                         the straddle carriers' down Liar's Landing's lanes)
+--   map.welders           { x, y, phase } welders at work on the hull in Liar's Landing's dry dock (works.lua)
 --   map.dugout            { x, y } the hollow you were dug out of, at the arrival (the Wreck)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
 --   map.headframes        { x, y, phase } a mine shaft's headframe over (x, y), its wheels turning (the Pit)
@@ -570,14 +573,78 @@ Borderline.DRY_DOCK = { 3, 14, 7, 30 }
 Borderline.GANTRIES = { 11.5, 43.5 }
 Borderline.LIFT_HOLD = 60 -- seconds the ferry lift has to be held for Yappy's hack
 
+--- Dice of their own for what only shows (0..1 each roll, the same every
+--- time for `seed`), so dressing a map never moves what plays on it.
+local function dice(seed)
+  local state = seed
+  return function()
+    state = (state * 16807) % 2147483647
+    return state / 2147483647
+  end
+end
+
+--- What lies about Liar's Landing and only shows: the straddle carriers'
+--- tracks down the lanes, frozen puddles and oil in the lanes, lashing gear
+--- and a spare spreader on the quay, and welders at work on the hull in the
+--- dry dock (`map.welders`). Nothing here is solid, and it takes no dice
+--- from the map's, so the port plays as before.
+local function portLitter(map, b)
+  local roll = dice(302)
+  local function track(points)
+    local line = {}
+    for _, p in ipairs(points) do
+      line[#line + 1] = { b:x(p[1]), b:y(p[2]) }
+    end
+    map.tracks[#map.tracks + 1] = line
+  end
+  track({ { 27.5, 55 }, { 27, 46 }, { 27, 37 }, { 27.5, 28 }, { 27, 19 }, { 27.5, 8 } })
+  track({ { 51, 54 }, { 51, 37 }, { 50.5, 28 }, { 51, 19 }, { 45, 18.5 }, { 35, 19 } })
+  track({ { 12, 55 }, { 19, 46.5 }, { 34, 46 }, { 43, 46.5 }, { 43, 37 } })
+  track({ { 19, 8.5 }, { 19, 19 }, { 25, 28 }, { 35, 28 }, { 43, 28.5 } })
+  local keep = { { 22, 54, 33, 63 }, { 24, 1, 32, 7 } }
+  local function scatter(kind, n, tw, th, r0, r1)
+    for _ = 1, n * 12 do
+      if n <= 0 then
+        return
+      end
+      local c, r = 3 + roll() * (map.cols - 7), r0 + roll() * (r1 - r0)
+      local ok = b:clear(b:x(c), b:y(r), tw * b.T, th * b.T, 10)
+      for _, k in ipairs(keep) do
+        if c + tw > k[1] and c < k[3] and r + th > k[2] and r < k[4] then
+          ok = false
+        end
+      end
+      if ok then
+        b:place(kind, c, r, tw, th, { flat = true, seed = math.floor(roll() * 1000) })
+        n = n - 1
+      end
+    end
+  end
+  scatter("puddle", 14, 1.4, 0.8, 8, 56)
+  scatter("stain", 12, 1, 0.7, 8, 56)
+  b:place("spreader", 16.5, 3.4, 3, 0.9, { flat = true })
+  b:place("spreader", 35.5, 3.5, 3, 0.9, { flat = true })
+  b:place("lashing", 20.5, 4.0, 2, 0.6, { flat = true })
+  b:place("lashing", 48.5, 3.6, 2, 0.6, { flat = true })
+  local D = Borderline.DRY_DOCK
+  local mid, side = D[1] + D[3] / 2, D[3] * 0.55 / 2 + 0.1
+  for i, at in ipairs({ { mid + side, D[2] + 7 }, { mid - side, D[2] + 15 }, { mid + side, D[2] + 22 } }) do
+    map.welders[#map.welders + 1] = { x = b:x(at[1]), y = b:y(at[2]), phase = i * 1.7 }
+  end
+end
+
 local function buildLanding(map, rng, T)
   local b = Blockout.new(map, T)
   map.outside = "harbour"
-  map.cranes, map.beacons, map.gantries = {}, {}, {}
+  map.cranes, map.beacons, map.gantries, map.tracks, map.welders = {}, {}, {}, {}, {}
   b:open(2, 2, map.cols - 3, map.rows - 4)
   b:open(25, map.rows - 3, 30, map.rows - 1) -- out of the tunnel
-  b:ground("yard", 0, 0, map.cols - 1, map.rows - 1)
+  b:ground("port", 0, 0, map.cols - 1, map.rows - 1)
   b:ground("quay", 2, 2, map.cols - 3, 6)
+  b:place("quayedge", 2, 2, map.cols - 4, 0.18, { flat = true })
+  for _, r in ipairs({ 2.3, 5.6 }) do -- the gantries' rails, the length of the quay
+    b:place("craneRail", 2, r, map.cols - 4, 0.3, { flat = true })
+  end
   b:place("tunnel", 25, map.rows - 2.5, 6, 2.5, { flat = true })
   b:place("ship", 4, -2.2, map.cols - 8, 3.9, { flat = true }) -- the freighter moored along the quay
   -- The dry dock, and its two cranes.
@@ -624,7 +691,7 @@ local function buildLanding(map, rng, T)
   for c = 3, map.cols - 4, 4 do
     if (c < 24 or c > 31) and math.abs(c + 0.5 - Borderline.GANTRIES[1]) > 2.5
       and math.abs(c + 0.5 - Borderline.GANTRIES[2]) > 2.5 then
-      b:place("bollard", c + 0.35, 2.15, 0.3, 0.3, { round = true })
+      b:place("bollard", c + 0.35, 2.15, 0.3, 0.3, { round = true, rope = b:y(1.45) })
     end
   end
   b:place("lift", 25, 2, 6, 3, { flat = true })
@@ -676,6 +743,7 @@ local function buildLanding(map, rng, T)
   b:zone("The Yard", 8, map.rows - 1)
   b:zone("The Quay", 0, 7)
   b:ends(25, 56, 27, 3)
+  portLitter(map, b)
   b:commit()
 end
 

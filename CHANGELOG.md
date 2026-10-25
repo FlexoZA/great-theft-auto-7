@@ -22,6 +22,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   containers, the factories, the river) instead of a grey box, with each area's name on it and the one you're
   in picked out in gold; and a gold chevron bounces over what the objective is after: each terminal still to
   hack, then the way on, with a ring pinging round it on the map.
+- Liar's Landing drawn properly: real shipping containers stacked two side by side (corrugated roofs, doors,
+  rust, snow, Hyperbole stencils, some two high), quay concrete in big slabs with puddles, oil and tyre tracks, a
+  freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
+  lift, a frozen harbour of broken ice, and a hull in the dry dock with welders sparking on it. Oil drums and
+  traffic cones on every Borderline map look like drums and cones now, some knocked over.
 - The Frozen Wreck has its own theme: fast freight-yard metal, a train horn and wheels clacking into a
   galloping riff, anvils ringing, a twangy lead over the chorus.
 - Hyperbole's robots on the first two Borderline maps: packs of junk haulers (30 health, pistols) picking over

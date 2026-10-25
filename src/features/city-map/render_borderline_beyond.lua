@@ -55,7 +55,7 @@ local function runOn(map, c, r, ec, er, T)
     love.graphics.rectangle("fill", rails.x - 6, y, 5, T)
     love.graphics.rectangle("fill", rails.x + rails.w + 1, y, 5, T)
   end
-  if f == C.yard then
+  if f == C.yard or f == C.port then
     Ground.drawYardSnow(c, r, x, y, T, true)
     Ground.drawYardSnow(c, r, x, y, T, false)
   end
