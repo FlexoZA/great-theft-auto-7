@@ -1800,7 +1800,7 @@ the one with a plot.
 - Borderline: `src/features/borderline` and quests' "borderline" job
   ("Left for dead", on the board after Eternal Mood), design in
   `docs/borderline.md`. Eight maps on the frozen planet Pandoria against
-  Handsome Jerry's robot army, every one on foot, built by
+  Maximum Maximilian Max's robot army, every one on foot, built by
   `city-map/borderline.lua` (a `Blockout` per map; what each leaves on the
   map is in its header: `exitX, exitY`, `outside`, `grounds`, `zones`,
   `cover` with `water` for the Refinery's molten river) and drawn by
@@ -1830,7 +1830,7 @@ the one with a plot.
   `serverFreezeArea` and `footstepWalkers`, and a kill raises `serverKill`
   kind "robot" (`what` its model's code). The story is `tale.lua`'s
   (BRL_BEAT, BRL_CHAT; the words in `story.lua`, the HUD in `hud.lua`,
-  Jerry's and Yappy's faces in `faces.lua`; Jerry's intro screen in
+  Max's and Yappy's faces in `faces.lua`; Max's intro screen in
   `drawScreen`). The maps' moving scenery (the Wreck's tower cranes and
   emergency beacons, from the map's `cranes` and `beacons`) is
   `works.lua`'s, drawn on each screen by its own clock; the Wreck is played

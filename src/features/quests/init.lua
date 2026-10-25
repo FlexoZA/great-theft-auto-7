@@ -13,7 +13,7 @@
 -- whose trail carries on over four more maps by EXIT stars, and the
 -- courier job into Grey City (cyber-feud), five maps the same way, and
 -- the pest-control job to the UAC's moon base (eternal-mood), and the
--- long walk to Handsome Jerry's bunker on Pandoria (borderline). A blue
+-- long walk to Maximum Maximilian Max's bunker on Pandoria (borderline). A blue
 -- star by the entrance of each brings everyone home again (not on Cyber
 -- Feud's Roof: there the only way home is the star on the helipad once VEX
 -- is gone); a star comes
@@ -372,11 +372,11 @@ Quests.list = {
   },
   {
     -- Borderline (docs/borderline.md): eight maps on Pandoria, all on foot,
-    -- against Handsome Jerry's robot army. The borderline feature runs the
+    -- against Maximum Maximilian Max's robot army. The borderline feature runs the
     -- levels; each EXIT star leads on to the next, the Bunker's goes home.
     id = "borderline",
     title = "Left for dead",
-    text = "Pandoria. Handsome Jerry's train never made it, and neither did you, nearly. Climb out "
+    text = "Pandoria. Maximum Maximilian Max's train never made it, and neither did you, nearly. Climb out "
       .. "of the wreck and get moving.",
     board = true,
     map = "wreck",
@@ -385,7 +385,7 @@ Quests.list = {
     color = { 0.95, 0.76, 0.19 },
     banner = "%s crawled out of the snow. Welcome to the Frozen Wreck.",
     introLine = 1,
-    exitText = "The tunnel runs down to the harbour. Jerry's robots came up that way, so down you go.",
+    exitText = "The tunnel runs down to the harbour. Max's robots came up that way, so down you go.",
     exitTitle = "Through the tunnel",
     exitLabel = "LIAR'S LANDING",
     next = "borderline-landing",
@@ -394,7 +394,7 @@ Quests.list = {
     -- On foot through Liar's Landing: the level before leads here.
     id = "borderline-landing",
     title = "Liar's Landing",
-    text = "A frozen harbour of containers and cranes, Jerry's robots on every stack. The ferry "
+    text = "A frozen harbour of containers and cranes, Max's robots on every stack. The ferry "
       .. "lift is on the quay.",
     map = "landing",
     boss = "borderline",
@@ -402,7 +402,7 @@ Quests.list = {
     color = { 0.95, 0.76, 0.19 },
     banner = "%s came out of the tunnel. Welcome to Liar's Landing.",
     introLine = 2,
-    exitText = "The ferry lift goes across the bay to Jerry's mine.",
+    exitText = "The ferry lift goes across the bay to Max's mine.",
     exitTitle = "Across the bay",
     exitLabel = "BRAGIUM PIT",
     next = "borderline-pit",
@@ -411,7 +411,7 @@ Quests.list = {
     -- On foot through The Bragium Pit: the level before leads here.
     id = "borderline-pit",
     title = "The Bragium Pit",
-    text = "Jerry's mine: terraces down to the floor of the pit, purple rock everywhere. The mine "
+    text = "Max's mine: terraces down to the floor of the pit, purple rock everywhere. The mine "
       .. "lift is on the far rim.",
     map = "pit",
     boss = "borderline",
@@ -419,7 +419,7 @@ Quests.list = {
     color = { 0.95, 0.76, 0.19 },
     banner = "%s rode the ferry over. Welcome to the Bragium Pit.",
     introLine = 3,
-    exitText = "The mine lift comes up under Jerry's city. He's expecting you. He's not happy about it.",
+    exitText = "The mine lift comes up under Max's city. He's expecting you. He's thrilled. He's always thrilled.",
     exitTitle = "Up the mine lift",
     exitLabel = "PROSPERITY",
     next = "borderline-prosperity",
@@ -428,7 +428,7 @@ Quests.list = {
     -- On foot through Prosperity: the level before leads here.
     id = "borderline-prosperity",
     title = "Prosperity",
-    text = "Jerry's city under its dome: his statue, his streets, his face on every screen. The "
+    text = "Max's city under its dome: his statue, his streets, his face on every screen. The "
       .. "north gate leads on.",
     map = "prosperity",
     boss = "borderline",
@@ -478,7 +478,7 @@ Quests.list = {
     -- On foot through Thousand Papercuts: the level before leads here.
     id = "borderline-cuts",
     title = "Thousand Papercuts",
-    text = "One narrow road up the cliff, the drop on one side, Jerry's guns on the other. His "
+    text = "One narrow road up the cliff, the drop on one side, Max's guns on the other. His "
       .. "bunker's door is at the top.",
     map = "cuts",
     boss = "borderline",
@@ -495,7 +495,7 @@ Quests.list = {
     -- On foot through The Bunker: the level before leads here.
     id = "borderline-bunker",
     title = "The Bunker",
-    text = "The roof of Jerry's bunker. He says it flies.",
+    text = "The roof of Max's bunker. He says it flies.",
     map = "bunker",
     boss = "borderline",
     label = "BORDERLINE",

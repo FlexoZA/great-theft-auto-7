@@ -16,7 +16,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ### Added
 - A new job on the board once Eternal Mood is done, "Left for dead" (Borderline): eight maps on the frozen
-  planet Pandoria, all on foot, from a wrecked train to Handsome Jerry's bunker. So far the maps are walked
+  planet Pandoria, all on foot, from a wrecked train to Maximum Maximilian Max's bunker. So far the maps are walked
   through to their far end; the bosses come next.
 - The Borderline maps show their layout on the minimap and the big map (the sheds, the train, the pits, the
   containers, the factories, the river) instead of a grey box, with each area's name on it and the one you're
@@ -42,17 +42,17 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   can't get through (inside, it zaps you); medic drones that heal haulers and shield drones that give them an
   80-point bubble (25 health each: shoot them first); sentries that rise out of the floor when you come near; and
   the badass hauler (450) with twin war cannons, a six-rocket volley and a stomp.
-- Borderline has its story: Handsome Jerry live on a Hyperbole broadcast as each map starts, a banner for each map
-  and each part of it, Jerry and YAP-TP (his secretary, left for dead with you) talking you through it over the
-  comms, Jerry sulking when his bigger robots fall, and an objective line with how far there is to go.
+- Borderline has its story: Maximum Maximilian Max live on a Hyperbole broadcast as each map starts, a banner for each map
+  and each part of it, Max and YAP-TP (his secretary, left for dead with you) talking you through it over the
+  comms, Max promising a bigger one every time one of his robots falls, and an objective line with how far there is to go.
 - The Frozen Wreck's tunnel is shut behind a blast door until you hack Hyperbole's three terminals round the
   yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a
   hauler dock (300 health): a charging bay with a plasma gun that fires bursts of three and builds a fresh junk
   hauler every 20 seconds while you're near. Shoot the dock down, or hack its terminal to shut it off.
-- The Bragium Pit has its boss: Wilbur (3000 health), Jerry's cyborg enforcer, drops onto the pit's floor and the
+- The Bragium Pit has its boss: Wilbur (3000 health), Max's cyborg enforcer, drops onto the pit's floor and the
   mine lift stays shut until he's down. He fires a rotary gun, rains rockets on red rings, leaps at you and slams
   down, and sends shield and medic drones out of his back that keep him going: shoot them first. At half health
-  Jerry pushes an upgrade and he gets faster and angrier.
+  Max pushes an upgrade and he gets faster and angrier.
 - Stalker haulers (140 health) on Liar's Landing: tall hunters on two legs and a wheel that keep their distance,
   throw themselves aside from your shots once they know you're there, charge you down every few seconds and back
   off to a medkit when hurt. Catch one unaware and your first shots land; keep it dodging and it runs out of
@@ -75,7 +75,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   beacons round the ferry lift and floodlights over the yard.
 - The Bragium Pit is now a working mine at dusk: two tower cranes over the floor, mine shafts with headframes
   winding their cages, conveyors carrying glowing ore, haul trucks, floodlights, beacons and a painted haul road.
-- Prosperity is now Jerry's factory town at dusk: factory blocks with smoking chimneys, two "Phase 2" building
+- Prosperity is now Max's factory town at dusk: factory blocks with smoking chimneys, two "Phase 2" building
   sites with deep foundation holes and tower cranes, loading lots with haul trucks, pipe bridges over the avenue,
   street lamps, road markings, beacons at the gates and floodlights round the plaza.
 - The Refinery is now a dark smelting hall lit by its molten river, which flows: bridge cranes run the length of it

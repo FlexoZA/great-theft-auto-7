@@ -1,5 +1,5 @@
 -- Wilbur's brain (WLB), on the host: the Bragium Pit's boss (docs/
--- borderline.md, "The bosses"), Handsome Jerry's cyborg enforcer, more
+-- borderline.md, "The bosses"), Maximum Maximilian Max's cyborg enforcer, more
 -- machine than man. He is one of the army's (army.lua runs him with the
 -- rest, so the drones tend him and rounds reach him the same way), but a
 -- boss by the standard (bosses/init.lua): breath, the boss bar, medkits,
@@ -28,7 +28,7 @@
 --            tend him, so shoot them first. No more than DRONES.cap of his
 --            own out at once
 --
--- At half his health Jerry pushes an upgrade (UPGRADE): his plates glow,
+-- At half his health Max pushes an upgrade (UPGRADE): his plates glow,
 -- he moves quicker, fires sooner and sends drones twice as often.
 --
 -- An ability about to land on him and he walks out from under it
@@ -78,7 +78,7 @@ Brain.VOLLEY = { every = { 8, 11 }, everyUp = { 5, 7 }, windUp = 0.8, count = 5,
 Brain.LEAP = { min = 260, max = 560, every = 7, windUp = 0.7, air = 0.8, hit = 110, damage = 40, shove = 220,
   recover = 0.8, cost = 28 }
 Brain.DRONES = { every = 15, everyUp = 7.5, cap = 2, capUp = 3, out = 40 } -- `out`: px behind him one comes out
-Brain.UPGRADE = 0.5 -- of his health, where Jerry pushes it
+Brain.UPGRADE = 0.5 -- of his health, where Max pushes it
 
 local random = love.math.random
 

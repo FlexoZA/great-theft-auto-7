@@ -1,12 +1,12 @@
 -- The Borderline quest line on the HUD, client side, in a comic-book look:
 -- thick black outlines on yellow and white.
---   the intro screen  Handsome Jerry live on a Hyperbole broadcast: his
+--   the intro screen  Maximum Maximilian Max live on a Hyperbole broadcast: his
 --                     portrait big on the right, his line in a speech box
 --   the map banner    PANDORIA, where in the line it is, the map's name and
 --                     tagline, on arriving
 --   the zone banner   the part of the map just walked into (city-map's
 --                     `map.zones`)
---   the comms         Jerry or Yappy's portrait and what they say, typed out
+--   the comms         Max or Yappy's portrait and what they say, typed out
 --   the objective     what to do next and how far it is
 -- init.lua keeps the state and calls in here.
 
@@ -21,7 +21,7 @@ Hud.BANNER_TIME = 4.5 -- seconds the map banner stays up
 Hud.ZONE_TIME = 2.6
 Hud.SAY_HOLD = 3.5 -- seconds a line stays up once it is all typed out
 
-local YELLOW = Story.speakers.jerry.color
+local YELLOW = Story.speakers.max.color
 local INK = { 0.06, 0.06, 0.07 }
 local BG = { 0.14, 0.15, 0.17 }
 
@@ -52,7 +52,7 @@ local function inked(text, font, x, y, w, align, fill, a, thick)
   love.graphics.printf(text, x, y, w, align)
 end
 
---- Jerry's intro screen, `t` seconds up (his words type out).
+--- Max's intro screen, `t` seconds up (his words type out).
 function Hud.drawScreen(face, line, t, time)
   local w, h = love.graphics.getDimensions()
   love.graphics.setColor(BG)
@@ -77,9 +77,9 @@ function Hud.drawScreen(face, line, t, time)
   local y = math.floor(h * 0.12)
   inked("HYPERBOLE BROADCAST  ·  LIVE", UI.fonts.small, colX, y, colW, "left", YELLOW, 1, 1)
   y = y + 28
-  inked("HANDSOME JERRY", UI.fonts.title, colX, y, colW + 200, "left", YELLOW, 1, 3)
+  inked("MAXIMUM MAXIMILIAN MAX", UI.fonts.title, colX, y, colW + 200, "left", YELLOW, 1, 3)
   y = y + UI.fonts.title:getHeight() + 8
-  inked("CEO. Hero. Handsome.", UI.fonts.heading, colX, y, colW, "left", { 1, 1, 1 }, 1, 2)
+  inked("CEO. Hero. TO THE MAX.", UI.fonts.heading, colX, y, colW, "left", { 1, 1, 1 }, 1, 2)
   y = y + UI.fonts.heading:getHeight() + 36
   -- His words in a speech box, the tail pointing at him.
   local font = UI.fonts.body

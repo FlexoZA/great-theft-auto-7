@@ -6,7 +6,7 @@
 
 <img src="img/borderline-wlb.png" alt="Wilbur" width="240">
 
-Handsome Jerry's cyborg enforcer, more machine than man: a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, and drones out of his back that keep him going.
+Maximum Maximilian Max's cyborg enforcer, more machine than man: a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, and drones out of his back that keep him going.
 
 | | |
 |---|---|
@@ -26,7 +26,7 @@ Handsome Jerry's cyborg enforcer, more machine than man: a rotary gun for a righ
 ## Abilities
 
 - Every 15 s (7.5 upgraded) a drone out of his back, a shield drone and a medic drone by turns, 2 of his own out at most (3 upgraded): they heal him and shield him.
-- At 50% of his health Jerry pushes an upgrade: quicker, sooner on the trigger, drones twice as often.
+- At 50% of his health Max pushes an upgrade: quicker, sooner on the trigger, drones twice as often.
 - Under 40% health he goes for the nearest medkit within 700 px, for 200 health.
 - Coming down onto the pad, he throws everyone within 130 px flat.
 

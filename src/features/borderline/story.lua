@@ -1,6 +1,6 @@
 -- The words of the Borderline quest line (docs/borderline.md), in one
--- place: each map's banner, Handsome Jerry's intro screen lines, the story
--- beats said over the comms by Jerry and by YAP-TP ("Yappy"), their
+-- place: each map's banner, Maximum Maximilian Max's intro screen lines, the
+-- story beats said over the comms by Max and by YAP-TP ("Yappy"), their
 -- chatter, and the objective line. Data only; init.lua and hud.lua use it.
 
 local Story = {}
@@ -9,7 +9,7 @@ Story.LEVELS = 8
 
 -- Who talks over the comms: the name shown and its colour.
 Story.speakers = {
-  jerry = { name = "HANDSOME JERRY", color = { 0.95, 0.76, 0.19 } },
+  max = { name = "MAXIMUM MAXIMILIAN MAX", color = { 0.95, 0.76, 0.19 } },
   yappy = { name = "YAP-TP", color = { 0.35, 0.75, 1.00 } },
 }
 
@@ -17,7 +17,7 @@ Story.speakers = {
 -- is, its name and a tagline.
 Story.banners = {
   wreck = { n = 1, title = "THE FROZEN WRECK", tagline = "Left for dead. Not dead." },
-  landing = { n = 2, title = "LIAR'S LANDING", tagline = "Everything here belongs to Jerry. Including the ice." },
+  landing = { n = 2, title = "LIAR'S LANDING", tagline = "Everything here belongs to Max. Including the ice." },
   pit = { n = 3, title = "THE BRAGIUM PIT", tagline = "Purple rock. Expensive. Explodes." },
   prosperity = { n = 4, title = "PROSPERITY", tagline = "Built by robots, for robots. Humans tolerated." },
   refinery = { n = 5, title = "THE REFINERY", tagline = "Where the purple gets melted down." },
@@ -26,17 +26,17 @@ Story.banners = {
   bunker = { n = 8, title = "THE BUNKER", tagline = "He says it flies." },
 }
 
--- What Jerry says on his intro screen, one line per level (quests'
+-- What Max says on his intro screen, one line per level (quests'
 -- `introLine` picks it on arrival).
 Story.lines = {
-  "Sorry about the train. And the snow. And you.",
-  "Lovely docks. All mine. Please stop walking on them.",
-  "That glowing rock pays for everything. Don't touch it.",
-  "My city! Built by robots, for robots. Humans tolerated.",
-  "It's like a hot tub, but it melts you.",
-  "Every one of these has your name on it. Engraved.",
-  "Nobody gets through the Cuts. Nobody nice, anyway.",
-  "You found my bunker. Here's the thing: it flies.",
+  "That train hit the snow at maximum speed. Biggest crash on record. TO THE MAX!",
+  "The biggest docks on Pandoria. Maximum cranes. Maximum guns. Enjoy!",
+  "The deepest hole on the planet. I dug it to the max. Mind the glowing rock.",
+  "My city! The biggest statue, the biggest screens, the biggest me. TO THE MAX!",
+  "The hottest river in the galaxy. I turned it up. Then I turned it up again.",
+  "A robot every four seconds. I asked for two. Every one has your name on it.",
+  "One road, a thousand guns. I wanted a million. We're getting there.",
+  "You found my bunker! It flies. Of course it flies. TO THE MAX!",
 }
 
 -- Story beats: the host raises each once per level (BRL_BEAT), so every
@@ -47,11 +47,11 @@ Story.lines = {
 Story.beats = {
   ["wreck.start"] = {
     { "yappy", "Minion! You're alive! I dug you out. With a clipboard. It took ages." },
-    { "yappy", "I'm YAP-TP, Jerry's secretary. Was. He put me on that train too. I know the way to his bunker. "
+    { "yappy", "I'm YAP-TP, Mr. Max's secretary. Was. He put me on that train too. I know the way to his bunker. "
       .. "Probably. Follow me. Go first." },
   },
   ["wreck.fight"] = { { "yappy", "Junk bots! Stripping the train! I am bravely hiding!" } },
-  ["wreck.The Wreck"] = { { "jerry", "That was a very expensive train. I'm adding it to your bill." } },
+  ["wreck.The Wreck"] = { { "max", "Twelve carriages, one fireball. When I crash, I crash to the max." } },
   ["wreck.The Engine"] = { { "yappy", "The tunnel's past the engine."
     .. " I can see it from here. Well. I can imagine it." } },
   ["wreck.end"] = { { "yappy", "Into the tunnel, minion. The harbour's on the other side. Mind the bats. "
@@ -59,63 +59,67 @@ Story.beats = {
 
   ["landing.start"] = {
     { "yappy", "Liar's Landing! The ferry lift crosses the bay. Get on it and I'll hack it. From over here." },
-    { "jerry", "Oh good, you're still alive. That's... great. Guards? Guards." },
+    { "max", "You're still alive! Fantastic! Guards? Maximum guards!" },
   },
   ["landing.fight"] = { { "yappy", "Gun haulers! The good ones! Tactical retreat! Tactical retreat!" } },
   ["landing.The Quay"] = { { "yappy", "The lift! Up on the quay! Shoot the rocket ones first. I'll supervise." } },
   ["landing.hold"] = {
     { "yappy", "You're on! Hacking now. Stay on the lift. They'll come at you. That's sort of the plan." },
   },
-  ["landing.half"] = { { "jerry", "Is somebody touching my ferry? Send everything. Send the expensive ones." } },
-  ["landing.end"] = { { "yappy", "We did it! By we I mean me. The lift goes over to Jerry's mine." } },
+  ["landing.half"] = { { "max", "Somebody's on my ferry! Send everything. Then send more. TO THE MAX!" } },
+  ["landing.end"] = { { "yappy", "We did it! By we I mean me. The lift goes over to Mr. Max's mine." } },
 
   ["pit.start"] = {
-    { "yappy", "The Bragium Pit. All that purple is what powers his robots. And his ego." },
-    { "jerry", "Don't touch the rock. Don't touch the robots. Don't touch anything. Leave." },
+    { "yappy", "The Bragium Pit. All that purple powers his robots. His friends call him MMM. He doesn't have "
+      .. "friends. He has robots." },
+    { "max", "Welcome to the Pit! I dug it so deep the core sends me postcards." },
   },
   ["pit.fight"] = { { "yappy", "Purple bolts! They melt armour! Duck! I'm ducking! I'm very good at ducking!" } },
   ["pit.The Pit"] = { { "yappy", "Down the ramps, round the rings, up the other side. Easy. For you." } },
-  ["pit.The Mine Lift"] = { { "yappy", "The mine lift comes up under Prosperity. Jerry's city. He'll love that." } },
+  ["pit.The Mine Lift"] = { { "yappy", "The mine lift comes up under Prosperity. His city. He'll love that." } },
   ["pit.wilbur"] = {
-    { "jerry", "Wilbur! My best employee. Ninety per cent machine, ten per cent payroll. Remove them." },
+    { "max", "Wilbur! My best employee. Ninety per cent machine, ten per cent payroll, a hundred and ten per "
+      .. "cent effort!" },
     { "yappy", "That's Wilbur. He was in accounting. Now he IS accounting. Shoot his drones first!" },
   },
-  ["pit.upgrade"] = { { "jerry", "Upgrade authorised. Don't thank me, Wilbur. Actually, do. Out loud." } },
+  ["pit.upgrade"] = { { "max", "Wilbur, you're doing great. Let's go bigger. Upgrade authorised. TO THE MAX!" } },
   ["pit.wilbur-down"] = {
     { "yappy", "Wilbur's down! The mine lift's open. I'll put him on gardening leave." },
-    { "jerry", "Do you know what he cost? He had a pension plan. I was never going to pay it, but still." },
+    { "max", "What a fight! Wilbur gave it everything. The next one gets twice the everything." },
   },
-  ["pit.end"] = { { "jerry", "No. No no no. Not my city. Somebody lock the... oh, it's open. Great." } },
+  ["pit.end"] = { { "max", "Coming up to my city? Excellent! Everybody should see it. Bring friends!" } },
 
   ["prosperity.start"] = {
-    { "jerry", "Welcome to Prosperity! You can't afford it." },
+    { "max", "Welcome to Prosperity! Maximum prosperity. Mostly for me." },
     { "yappy", "Look at all his faces! On every screen! We should leave before he sees us. Oh. He sees us." },
   },
   ["prosperity.fight"] = { { "yappy", "Jet haulers! They fly! That's not fair! I'm in heels!" } },
-  ["prosperity.Jerry Plaza"] = { { "jerry", "Do you like the statue? It's me. It's life-size." } },
+  ["prosperity.Max Plaza"] = { { "max", "Like the statue? It's me. Twice life-size. I asked for three." } },
   ["prosperity.North District"] = { { "yappy", "The north gate! It goes down to the refinery. And it's "
-    .. "open! Jerry, you idiot!" } },
-  ["prosperity.end"] = { { "jerry", "Fine. Go. Go to the refinery. It's hot there. Very hot. Have fun." } },
+    .. "open! He never shuts anything. He says doors are for the timid." } },
+  ["prosperity.end"] = { { "max", "Bravo! On to the refinery. It's hotter. Maximum hot. You'll love it." } },
 
   ["refinery.start"] = {
     { "yappy", "The refinery. Don't fall in the river. You won't come out. I mean that medically." },
   },
   ["refinery.fight"] = { { "yappy", "Arc haulers on the bridges! Don't stand in the blue! It tingles! It kills!" } },
-  ["refinery.The Smelting Floor"] = { { "jerry", "Every bridge you cross, I'm charging a toll. Retroactively." } },
+  ["refinery.The Smelting Floor"] = { { "max", "Every bridge is hotter than the last. Keep going, it gets better!" } },
   ["refinery.The Outflow"] = { { "yappy", "The freight door! Past the big ones. Of course past the big ones." } },
   ["refinery.end"] = { { "yappy", "The factory's through there. I did its paperwork. Six years. "
     .. "Nobody said thank you." } },
 
   ["assembly.start"] = {
     { "yappy", "I typed up the order for every robot off this line. Every one. I'm fine. It's the fumes." },
-    { "jerry", "Is that my secretary? You're fired. Again. And I want my stapler back." },
+    { "max", "YAP-TP! Still alive? Great hustle! You're fired. Maximum fired." },
   },
   ["assembly.fight"] = { { "yappy", "They're waking up off the belts! Shoot the new ones! They're shiny!" } },
-  ["assembly.The Foreman's Floor"] = { { "jerry", "That's my foreman's floor. He doesn't like visitors. Or me." } },
+  ["assembly.The Foreman's Floor"] = {
+    { "max", "My foreman's floor! He built a robot a minute. I said: make it two." },
+  },
   ["assembly.end"] = { { "yappy", "The shipping bay! The road up to the bunker starts outside. Uphill. Of course." } },
 
   ["cuts.start"] = {
-    { "jerry", "Thousand Papercuts. Nobody makes it up. Well, nobody has so far. Statistically, you won't." },
+    { "max", "Thousand Papercuts! I counted the guns myself. Then I doubled them. TO THE MAX!" },
     { "yappy", "Stick to the road. The other side is a cliff. The other other side is also a cliff." },
   },
   ["cuts.fight"] = { { "yappy", "Rockets on the ledges! Keep moving! I'll keep moving too! Backwards!" } },
@@ -126,39 +130,40 @@ Story.beats = {
   ["cuts.end"] = { { "yappy", "Open! I did that. Remember I did that. Up onto the roof!" } },
 
   ["bunker.start"] = {
-    { "jerry", "You're on my bunker. Get off my bunker." },
+    { "max", "You're on my bunker! The biggest bunker ever built. Hold on to something." },
     { "yappy", "Eleven cannons round the rim. They come up when you get close. Like me. Less friendly." },
   },
-  ["bunker.fight"] = { { "jerry", "Cannons! All of them! Every cannon!" } },
+  ["bunker.fight"] = { { "max", "Cannons! All of them! Every cannon! TO THE MAX!" } },
   ["bunker.end"] = {
-    { "yappy", "We did it! I'm on his computer. His password's 'handsome'. Shutting down every robot on Pandoria..." },
+    { "yappy", "We did it! I'm on his computer. His password's 'TOTHEMAX'. Shutting down every robot on "
+      .. "Pandoria..." },
     { "yappy", "...Did we win? I feel like I won." },
-    { "jerry", "You'll pay for this. Literally. I'm billing you." },
+    { "max", "What a finish! The biggest loss in Hyperbole history. Next time, bandit: bigger. TO THE MAX!" },
   },
 }
 
 -- What they say now and then (BRL_CHAT <who> <category> <index>), picked
 -- by the host.
 Story.chatter = {
-  jerry = {
+  max = {
     taunt = {
-      "I built every robot you're shooting. Think about my feelings.",
-      "Fun fact: you're not the hero. I am.",
-      "Do you know what those cost? Do you? I do.",
-      "I could stop this any time. I just don't want to.",
-      "You're on every camera I own. You have a weird walk.",
-      "I've named a robot after you. It's the one that sweeps.",
+      "I built every robot you're shooting. I'll build more. I always build more.",
+      "I don't do anything halfway. I don't even know where halfway is.",
+      "My friends call me MMM. You can call me Maximum.",
+      "Twelve eggs for breakfast. Maximum protein. TO THE MAX!",
+      "You're on every camera I own. That's all of them. I own all the cameras.",
+      "I've named a robot after you. The biggest one. It's still being built.",
     },
     kill = {
-      "That was a prototype! Do you know what those cost?",
-      "Fine. FINE. I'll build ten more.",
-      "That one had a family. A product family.",
-      "I'm putting that on your tab.",
+      "A prototype! Love it. The next one's bigger.",
+      "I'll build ten more. No: a hundred. TO THE MAX!",
+      "Great shot! Now watch what I send next.",
+      "Every robot you drop, I build a bigger one. Keep going!",
     },
     down = {
-      "Ha! Did you see that? Somebody clip that.",
-      "Respawn's on me. Literally. I own the respawn stations.",
-      "Stay down. It's comfier.",
+      "Down! Did you see that? Maximum replay. Somebody clip that.",
+      "Respawn's on me. I own the respawn stations. The biggest ones.",
+      "Get up, bandit! You're not done. I'm not done. Nobody's done!",
     },
   },
   yappy = {
@@ -242,7 +247,7 @@ function Story.objective(name, map, state)
     wreck = "Objective: get past the wreck to the tunnel at the top of the yard",
     landing = "Objective: get through the container yard to the ferry lift on the quay",
     pit = "Objective: down through the pit and up to the mine lift on the far rim",
-    prosperity = "Objective: through Jerry's city to the north gate",
+    prosperity = "Objective: through Max's city to the north gate",
     refinery = "Objective: across the river to the freight door",
     assembly = "Objective: up the factory floor to the shipping bay",
     cuts = "Objective: up the road to the bunker door",

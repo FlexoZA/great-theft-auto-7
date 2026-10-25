@@ -1,14 +1,15 @@
 -- The two faces of the Borderline quest line (docs/borderline.md, "The
--- cast"), for Jerry's intro screen and the comms panel. Each is drawn with
+-- cast"), for Max's intro screen and the comms panel. Each is drawn with
 -- primitives onto a 64x72 canvas and scaled up with nearest filtering, the
 -- way VEX's (cyber-feud/face.lua) and the Mood Slayer's are.
 --
---   jerry  Handsome Jerry on a Hyperbole broadcast card: a yellow border, a
---          LIVE dot, a swept brown quiff, a mask a shade too pale and too
---          smooth clipped on at the temples with its seam showing at the
---          jaw, one blue eye and one green behind it, a big white grin that
---          never moves, a yellow suit, green shirt, thin dark tie. He talks
---          with his eyebrows, and now and then leans into the camera.
+--   max    Maximum Maximilian Max on a Hyperbole broadcast card: a yellow
+--          border, a LIVE dot, a tall blond flat-top, a red sweatband,
+--          wraparound shades a glint sweeps across, a lantern jaw with a
+--          cleft, a wide white grin, a yellow muscle shirt, a gold chain
+--          with an M on it, and one arm flexed up beside his head. Talking,
+--          his grin opens to a shout, his brows bounce and he pumps the
+--          arm; now and then he leans into the camera.
 --   yappy  YAP-TP, a young woman on a comms headset: auburn hair with a
 --          side-swept fringe and a ponytail that swings, blue eyes that
 --          blink, a blue parka zipped up to its fur collar, the mic's light
@@ -31,19 +32,19 @@ local C = {
   yellow = { 0.95, 0.76, 0.19 },
   yellowDark = { 0.74, 0.55, 0.10 },
   live = { 1.00, 0.20, 0.20 },
-  hair = { 0.42, 0.27, 0.15 },
-  hairHi = { 0.62, 0.42, 0.24 },
-  mask = { 0.93, 0.86, 0.80 },
-  maskShade = { 0.82, 0.74, 0.68 },
-  skin = { 0.78, 0.60, 0.48 },
-  clip = { 0.55, 0.58, 0.62 },
+  blond = { 0.98, 0.86, 0.45 },
+  blondHi = { 1.00, 0.95, 0.70 },
+  blondShade = { 0.78, 0.62, 0.25 },
+  tan = { 0.86, 0.60, 0.40 },
+  tanHi = { 0.96, 0.74, 0.54 },
+  tanShade = { 0.66, 0.42, 0.26 },
+  red = { 0.90, 0.18, 0.16 },
+  lens = { 0.16, 0.30, 0.42 },
+  mouth = { 0.45, 0.10, 0.12 },
+  gold = { 1.00, 0.80, 0.20 },
+  goldDark = { 0.70, 0.50, 0.08 },
   ink = { 0.08, 0.08, 0.09 },
   white = { 1, 1, 1 },
-  blue = { 0.25, 0.55, 1.00 },
-  green = { 0.30, 0.80, 0.35 },
-  brow = { 0.30, 0.19, 0.10 },
-  shirt = { 0.25, 0.55, 0.30 },
-  tie = { 0.12, 0.14, 0.16 },
   gunmetal = { 0.23, 0.25, 0.28 },
   eye = { 0.35, 0.75, 1.00 },
   eyeHot = { 0.85, 0.95, 1.00 },
@@ -75,7 +76,7 @@ function Faces.new(who)
   self.canvas = Pixel.canvas(Faces.W, Faces.H)
   self.t = 0
   self.blink, self.blinkIn = 0, 2
-  self.lean, self.leanIn = 0, 6 -- Jerry leaning into the camera
+  self.lean, self.leanIn = 0, 6 -- Max leaning into the camera
   self.talking = false
   return self
 end
@@ -94,9 +95,9 @@ function Faces:update(dt)
   self.lean = math.max(0, self.lean - dt)
 end
 
--- Jerry ---------------------------------------------------------------------
+-- Max -----------------------------------------------------------------------
 
-local function drawJerry(self)
+local function drawMax(self)
   -- The broadcast card behind him.
   color(C.card)
   rect(0, 0, 64, 72)
@@ -113,71 +114,129 @@ local function drawJerry(self)
     color(C.live)
     rect(5, 5, 3, 3)
   end
-  color(C.yellow) -- the logo: an H in the corner
-  rect(54, 4, 1, 5)
-  rect(57, 4, 1, 5)
-  rect(55, 6, 2, 1)
-  -- The suit: yellow jacket, green shirt, the tie.
+  color(C.yellow) -- the logo: an H by the LIVE dot
+  rect(10, 4, 1, 5)
+  rect(13, 4, 1, 5)
+  rect(11, 6, 2, 1)
+  -- He pumps the flexed arm while he talks.
+  local pump = self.talking and math.floor(math.abs(math.sin(self.t * 7)) * 2 + 0.5) or 0
+  -- Shoulders and traps, bare: a yellow muscle shirt cut deep.
+  color(C.tanShade)
+  rect(6, 54, 52, 18)
+  color(C.tan)
+  rect(8, 53, 48, 19)
+  rect(14, 50, 36, 4)
   color(C.yellowDark)
-  rect(6, 56, 52, 16)
+  rect(17, 56, 30, 16)
   color(C.yellow)
-  rect(8, 55, 48, 17)
-  color(C.shirt)
-  rect(26, 55, 12, 17)
-  color(C.tie)
-  rect(30, 57, 4, 15)
-  color(C.yellowDark) -- lapels
-  rect(22, 56, 4, 14)
-  rect(38, 56, 4, 14)
-  -- The neck under the mask: his own skin.
-  color(C.skin)
-  rect(26, 48, 12, 8)
-  -- The mask.
-  color(C.maskShade)
-  rect(17, 15, 30, 35)
-  color(C.mask)
-  rect(18, 14, 28, 34)
-  rect(20, 47, 24, 3) -- the square chin
-  color(C.maskShade) -- the seam at the jaw
-  rect(19, 45, 26, 1)
-  color(C.clip) -- the clips at the temples
-  rect(16, 24, 2, 4)
-  rect(46, 24, 2, 4)
-  -- The quiff, swept up and over.
-  color(C.hair)
-  rect(16, 6, 32, 10)
-  rect(20, 3, 26, 5)
-  rect(40, 1, 8, 4)
-  color(C.hairHi)
-  rect(24, 4, 14, 2)
-  rect(42, 2, 4, 1)
-  -- Eyebrows: he talks with them.
-  local up = self.talking and math.floor(math.abs(math.sin(self.t * 9)) * 2.5) or 0
-  color(C.brow)
-  rect(22, 21 - up, 8, 2)
-  rect(34, 21 - up, 8, 2)
-  -- The eye holes, and behind them one blue eye and one green.
-  color(C.ink)
-  rect(22, 25, 8, 5)
-  rect(34, 25, 8, 5)
-  if self.blink <= 0 then
-    color(C.white)
-    rect(23, 26, 6, 3)
-    rect(35, 26, 6, 3)
-    color(C.blue)
-    rect(25, 26, 3, 3)
-    color(C.green)
-    rect(37, 26, 3, 3)
+  rect(18, 57, 28, 15)
+  color(C.tan) -- the neckline, cut low
+  rect(26, 57, 12, 3)
+  rect(28, 60, 8, 2)
+  -- The flexed arm, his left, up in the frame's right: upper arm out from
+  -- the shoulder, forearm up, the fist by his ear, the bicep bulging.
+  color(C.tanShade)
+  rect(48, 47 - pump, 12, 9)
+  rect(54, 30 - pump, 7, 19)
+  color(C.tan)
+  rect(48, 48 - pump, 11, 7)
+  rect(55, 31 - pump, 5, 18)
+  rect(49, 44 - pump, 7, 5) -- the bicep
+  color(C.tanHi)
+  rect(50, 45 - pump, 4, 1)
+  color(C.tanShade) -- the fist, knuckles to him
+  rect(53, 24 - pump, 9, 8)
+  color(C.tan)
+  rect(54, 25 - pump, 7, 6)
+  color(C.tanShade)
+  for y = 26, 30, 2 do
+    rect(54, y - pump, 4, 1)
   end
-  -- The grin: big, white, never moving.
-  color(C.ink)
-  rect(22, 36, 20, 7)
+  color(C.red) -- a sweatband on the wrist
+  rect(54, 32 - pump, 7, 2)
+  -- The thick neck.
+  color(C.tanShade)
+  rect(24, 44, 16, 9)
+  color(C.tan)
+  rect(25, 44, 14, 9)
+  -- The head: a lantern jaw, wider at the bottom.
+  color(C.tanShade)
+  rect(19, 14, 26, 31)
+  rect(20, 44, 24, 4)
+  color(C.tan)
+  rect(20, 14, 24, 30)
+  rect(21, 44, 22, 3)
+  color(C.tanShade) -- the jawline, and the cleft in the chin
+  rect(21, 47, 22, 1)
+  rect(31, 45, 2, 2)
+  rect(18, 26, 2, 5) -- ears
+  rect(44, 26, 2, 5)
+  -- The flat-top: blond, tall, square, the tallest hair on Pandoria.
+  color(C.blondShade)
+  rect(18, 2, 28, 15)
+  color(C.blond)
+  rect(19, 2, 26, 14)
+  color(C.blondHi)
+  for x = 21, 43, 4 do
+    rect(x, 3, 1, 11)
+  end
+  rect(19, 2, 26, 1)
+  -- The sweatband across the brow.
+  color(C.red)
+  rect(19, 15, 26, 3)
   color(C.white)
-  rect(23, 37, 18, 4)
-  color(C.maskShade)
-  for x = 26, 38, 3 do
-    rect(x, 37, 1, 4)
+  rect(30, 16, 4, 1)
+  -- Brows over the shades: he talks with them too.
+  local up = self.talking and math.floor(math.abs(math.sin(self.t * 9)) * 2.5) or 0
+  color(C.blondShade)
+  rect(21, 21 - up, 9, 2)
+  rect(34, 21 - up, 9, 2)
+  -- Wraparound shades, a glint sweeping across them now and then.
+  color(C.ink)
+  rect(19, 24, 26, 6)
+  rect(31, 24, 2, 3)
+  color(C.lens)
+  rect(21, 25, 9, 4)
+  rect(34, 25, 9, 4)
+  local glint = math.floor((self.t * 30) % 90)
+  if glint < 26 then
+    color(C.white)
+    rect(19 + glint, 25, 2, 1)
+    rect(18 + glint, 26, 2, 1)
   end
+  -- The nose.
+  color(C.tanShade)
+  rect(31, 30, 3, 5)
+  rect(30, 34, 5, 1)
+  -- The grin, wide; it opens to a shout while he talks.
+  local open = self.talking and math.floor(self.t * 8) % 2 == 0
+  color(C.ink)
+  rect(22, 37, 20, open and 8 or 5)
+  color(C.white)
+  rect(23, 38, 18, 3)
+  if open then
+    color(C.mouth)
+    rect(25, 41, 14, 3)
+    color(C.white)
+    rect(24, 44, 16, 1)
+  end
+  color(C.tanShade)
+  rect(21, 36, 1, 2) -- dimples
+  rect(42, 36, 1, 2)
+  -- The gold chain and its medallion: an M.
+  color(C.goldDark)
+  for i = 0, 5 do
+    rect(25 + i, 53 + i, 1, 1)
+    rect(37 - i, 53 + i, 1, 1)
+  end
+  color(C.gold)
+  rect(28, 59, 7, 6)
+  color(C.goldDark)
+  rect(29, 60, 1, 4)
+  rect(33, 60, 1, 4)
+  rect(30, 61, 1, 1)
+  rect(31, 62, 1, 1)
+  rect(32, 61, 1, 1)
 end
 
 -- Yappy ---------------------------------------------------------------------
@@ -291,8 +350,8 @@ function Faces:render()
   love.graphics.setCanvas(self.canvas)
   love.graphics.origin()
   love.graphics.clear(0, 0, 0, 0)
-  if self.who == "jerry" then
-    drawJerry(self)
+  if self.who == "max" then
+    drawMax(self)
   else
     drawYappy(self)
   end
@@ -301,11 +360,11 @@ function Faces:render()
   return self.canvas
 end
 
---- Draw centred at (x, y), `scale` screen pixels per art pixel. Jerry
+--- Draw centred at (x, y), `scale` screen pixels per art pixel. Max
 --- leaning into the camera comes a little bigger for a moment.
 function Faces:draw(x, y, scale)
   local canvas = self:render()
-  local lean = self.who == "jerry" and math.sin(math.min(1, self.lean / 1.4) * math.pi) * 0.12 or 0
+  local lean = self.who == "max" and math.sin(math.min(1, self.lean / 1.4) * math.pi) * 0.12 or 0
   local s = scale * (1 + lean)
   love.graphics.setColor(1, 1, 1)
   love.graphics.draw(canvas, x - Faces.W / 2 * s, y - Faces.H / 2 * s, 0, s, s)

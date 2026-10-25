@@ -78,7 +78,7 @@ local function burnt(x, y, rx, ry, seed)
   end
 end
 
---- A carriage of Jerry's train off the rails, seen from above: a silver
+--- A carriage of Max's train off the rails, seen from above: a silver
 --- roof between Hyperbole yellow sides, panel seams and two air-con units
 --- on it, a gangway at each end. Each lies its own way (by `seed`): tipped
 --- so the windows along one side show (some smashed), a bogie torn out
@@ -163,7 +163,7 @@ function DRAW.carriage(s)
   end)
 end
 
---- Jerry's locomotive, nose to the north: a chamfered nose with hazard
+--- Max's locomotive, nose to the north: a chamfered nose with hazard
 --- chevrons and its headlights, the cab and its windscreen, then the long
 --- hood with the exhaust stack (the smoke is borderline/works.lua's), the
 --- radiator grilles and two cooling fans; a bogie torn out beside it, the
@@ -427,7 +427,7 @@ function DRAW.pad(s)
   love.graphics.circle("fill", cx, cy, r * 0.8, 40)
 end
 
---- A factory block in Jerry's town: a corrugated roof, rows of sawtooth
+--- A factory block in Max's town: a corrugated roof, rows of sawtooth
 --- skylights, Hyperbole yellow round the edge, plant on the roof, and its
 --- chimney (`stackX`, `stackY`; the smoke is borderline/works.lua's).
 function DRAW.tower(s)
@@ -477,7 +477,7 @@ end
 
 function DRAW.statue(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetalLight) -- the plinth
-  blob(s.x + s.w * 0.3, s.y + s.h * 0.3, s.w * 0.4, s.h * 0.4, C.gold) -- Jerry, from above: all hair
+  blob(s.x + s.w * 0.3, s.y + s.h * 0.3, s.w * 0.4, s.h * 0.4, C.gold) -- Max, from above: all hair
 end
 
 function DRAW.lawn(s)
@@ -488,7 +488,7 @@ function DRAW.billboard(s)
   box(s.x, s.y, s.w, s.h, INK)
   color(C.yellow)
   love.graphics.setFont(signFont())
-  love.graphics.printf("JERRY LOVES YOU", s.x, s.y + (s.h - 22) / 2, s.w, "center")
+  love.graphics.printf("MAX LOVES YOU", s.x, s.y + (s.h - 22) / 2, s.w, "center")
 end
 
 --- The molten river: purple, a crust here and there (its flow is

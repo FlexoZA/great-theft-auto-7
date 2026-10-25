@@ -42,12 +42,12 @@ haulers, the Assembly Line's aisles by gun haulers with a badass and two
 sentries on the Foreman's floor, Thousand Papercuts' road by rocket and
 jet haulers with a sentry in every nest, and the Bunker's rim by eleven
 sentries on the cannon mounts. Stage 2 (the story) done too: the words
-in `story.lua`, Jerry's and Yappy's portraits in `faces.lua`, the HUD in
-`hud.lua` (Jerry's intro screen, drawn in `drawScreen`; the map and zone
+in `story.lua`, Max's and Yappy's portraits in `faces.lua`, the HUD in
+`hud.lua` (Max's intro screen, drawn in `drawScreen`; the map and zone
 banners; the comms; the objective line), played by `tale.lua` (the host
 raises each level's beats once: start, a zone walked into, the first
-fight, the end; and the chatter: Jerry's taunts, his sulking over a big
-kill, both of them on a player going down, Yappy cheering now and then).
+fight, the end; and the chatter: Max's taunts, a bigger one promised
+for every big kill, both of them on a player going down, Yappy cheering now and then).
 A gold chevron bounces over what the objective line is after (`marker.lua`):
 every terminal still to hack, then the way on until the level is done,
 with a ring pinging round it on the minimap and the big map. The minimap
@@ -72,22 +72,23 @@ Frozen Wreck. See "Stages" at the end for the order.
 
 ## Logline
 
-Handsome Jerry, CEO of Hyperbole, is mining the planet Pandoria hollow for
+Maximum Maximilian Max, CEO of Hyperbole, is mining the planet Pandoria hollow for
 Bragium, the purple rock that powers his robot army. You came for the loot;
 he left you for dead in the snow. A small, loud, one-wheeled robot digs you
 out, and the two of you walk all the way to his bunker to pull the plug.
 
 ## The cast
 
-- **Handsome Jerry**, CEO of Hyperbole. The villain, and he never shows up
-  in person: he is on every screen, billboard and PA, talking to you the
-  whole way, offended that you keep not dying. A perfect plastic face
-  (literally: a mask, clipped on at the jaw), a square chin, a tidy
-  quiff, a green-and-yellow suit. Colour: Hyperbole yellow `#f2c230`.
+- **Maximum Maximilian Max**, CEO of Hyperbole. The villain, and he never
+  shows up in person: he is on every screen, billboard and PA, talking to
+  you the whole way. He does everything to the max, and his catchphrase is
+  "TO THE MAX!". His friends call him MMM. A tall blond
+  flat-top, a sweatband, shades, a lantern jaw, a yellow muscle shirt
+  and a gold chain, one arm always flexed. Colour: Hyperbole yellow `#f2c230`.
   He fills VEX's role: the intro screen portrait, the chatter, the last
   word. Calls you "bandit".
-- **YAP-TP ("Yappy")**, the sidekick. Jerry's secretary, an ordinary
-  woman; YAP-TP is her Hyperbole staff code, because Jerry never learned
+- **YAP-TP ("Yappy")**, the sidekick. Max's secretary, an ordinary
+  woman; YAP-TP is her Hyperbole staff code, because Max never learned
   anyone's name. He put her on the train too, so she is as left for dead as
   you. She dug you out, she has decided you are her minion, and she will
   not stop talking. She knows his codes and his passwords, opens doors
@@ -98,31 +99,36 @@ out, and the two of you walk all the way to his bunker to pull the plug.
   molten river in the refinery, the fuel in every plasma gun.
 - **The robots** (see "The army").
 
-### Handsome Jerry
+### Maximum Maximilian Max
 
 **Portrait** (64x72, primitives on a canvas scaled up with nearest
 filtering, like `cyber-feud/face.lua`): head and shoulders on a Hyperbole
 broadcast card (yellow border, a logo in the corner, a LIVE dot).
 
-- Hair: a swept brown quiff, glossy.
-- Face: a mask a shade too pale and too smooth, with the seam showing at the
-  jaw and two small clips at the temples. Behind the eye holes, one blue
-  eye and one green.
-- Mouth: a big white grin, permanent.
-- Clothes: a yellow suit jacket, a green shirt, a thin dark tie.
-- Animation: the grin never moves; he talks with his eyebrows. Now and then
-  he leans into the camera so his face fills the frame.
+- Hair: a blond flat-top, square and so tall it runs off the top of the
+  card, a red sweatband across the brow.
+- Face: tanned, a lantern jaw with a cleft chin, wraparound shades with a
+  glint sweeping across them now and then.
+- Mouth: a wide white grin.
+- Clothes: a yellow muscle shirt cut low, a gold chain with an M medallion.
+- Pose: his left arm up beside his head, flexed, a sweatband on the wrist.
+- Animation: talking, the grin opens to a shout, his brows bounce and he
+  pumps the arm. Now and then he leans into the camera so his face fills
+  the frame.
 
-**Voice.** Friendly, smug, hurt. He is the hero of his own story and you are
-a pest. Short lines, a joke in most of them.
+**Voice.** Loud, generous, unstoppable. He never complains: whatever you
+break, he builds a bigger one, and every setback is a reason to go further.
+Everything he owns is the biggest, the deepest, the hottest, and he wanted
+it bigger still. Short lines, a joke in most of them, "TO THE MAX!" in a
+few. His friends call him MMM; nobody is sure he has friends.
 
 | Category | When | Examples |
 | --- | --- | --- |
-| `hello` | A map starts | "Oh good, you're still alive. That's... great." / "Welcome to Prosperity! You can't afford it." |
-| `taunt` | Now and then | "I built every robot you're shooting. Think about my feelings." / "Fun fact: you're not the hero. I am." |
-| `down` | A player goes down | "Ha! Did you see that? Somebody clip that." / "Respawn's on me. Literally. I own the respawn stations." |
-| `kill` | A big robot falls | "That was a prototype! Do you know what those cost?" / "Fine. FINE. I'll build ten more." |
-| `yappy` | Yappy says something | "Is that my secretary? You're fired. Again." / "Who let her near a phone?" |
+| `hello` | A map starts | "You're still alive! Fantastic! Guards? Maximum guards!" / "Welcome to Prosperity! Maximum prosperity. Mostly for me." |
+| `taunt` | Now and then | "I don't do anything halfway. I don't even know where halfway is." / "My friends call me MMM. You can call me Maximum." |
+| `down` | A player goes down | "Down! Did you see that? Maximum replay." / "Get up, bandit! You're not done. I'm not done. Nobody's done!" |
+| `kill` | A big robot falls | "A prototype! Love it. The next one's bigger." / "I'll build ten more. No: a hundred. TO THE MAX!" |
+| `yappy` | Yappy says something | "YAP-TP! Still alive? Great hustle! You're fired. Maximum fired." |
 
 ### YAP-TP
 
@@ -141,17 +147,17 @@ mouth moves and the mic's light comes on.
 | `win` | A wave cleared | "We did it! By we I mean me." |
 | `hit` | Knocked over | "Ow! My everything!" / "I'm fine! I'm fine. Is my hair okay?" |
 
-**Intro screen lines** (one per map, Jerry's portrait, picked by index like
+**Intro screen lines** (one per map, Max's portrait, picked by index like
 `cyber-feud/screen.lua`):
 
-1. The Frozen Wreck: "Sorry about the train. And the snow. And you."
-2. Liar's Landing: "Lovely docks. All mine. Please stop walking on them."
-3. The Bragium Pit: "That glowing rock pays for everything. Don't touch it."
-4. Prosperity: "My city! Built by robots, for robots. Humans tolerated."
-5. The Refinery: "It's like a hot tub, but it melts you."
-6. The Assembly Line: "Every one of these has your name on it. Engraved."
-7. Thousand Papercuts: "Nobody gets through the Cuts. Nobody nice, anyway."
-8. The Bunker: "You found my bunker. Here's the thing: it flies."
+1. The Frozen Wreck: "That train hit the snow at maximum speed. Biggest crash on record. TO THE MAX!"
+2. Liar's Landing: "The biggest docks on Pandoria. Maximum cranes. Maximum guns. Enjoy!"
+3. The Bragium Pit: "The deepest hole on the planet. I dug it to the max. Mind the glowing rock."
+4. Prosperity: "My city! The biggest statue, the biggest screens, the biggest me. TO THE MAX!"
+5. The Refinery: "The hottest river in the galaxy. I turned it up. Then I turned it up again."
+6. The Assembly Line: "A robot every four seconds. I asked for two. Every one has your name on it."
+7. Thousand Papercuts: "One road, a thousand guns. I wanted a million. We're getting there."
+8. The Bunker: "You found my bunker! It flies. Of course it flies. TO THE MAX!"
 
 ## The army
 
@@ -229,7 +235,7 @@ koins and a pickup, and raises `serverKill` with kind "boss".
 | Map | Boss | What it is | The fight |
 | --- | --- | --- | --- |
 | 1 | **Knuckle Scrapper** | A junk hauler that built itself huge out of the train wreck: a scrap pile with arms | Slow, swings (`impact`), throws scrap (`impact`). Junk haulers keep climbing out of the wreck around it. A tutorial boss. |
-| 3 | **Wilbur** (`WLB`, built) | Jerry's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor; the mine lift stays shut until he is down. Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Jerry pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar), `wilbur_look.lua`. |
+| 3 | **Wilbur** (`WLB`, built) | Max's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor; the mine lift stays shut until he is down. Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Max pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar), `wilbur_look.lua`. |
 | 5 | **Smelter** | A squat plasma furnace on four legs, molten Bragium in its belly | All plasma: bolt fans, a plasma mortar that leaves puddles burning for 5 s, and a gush that floods a lane. Vents every few attacks: its belly glows, hits there do double. Fights by the river: the puddles and the river are the danger. |
 | 6 | **Foreman BIG-B055** | The badass hauler that runs the line: 2.2x, gold trim, a hard hat welded on | Every badass move, plus it calls the line: the conveyors start up and carry haulers in. Phase 2 (half health): it rips one cannon off and charges. |
 | 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
@@ -261,10 +267,10 @@ Bragium that powers it. Kill feed verb: "melted".
 
 | # | Map | Play | Boss / set piece |
 | --- | --- | --- | --- |
-| 1 | **The Frozen Wreck** | Wake in the snow by Jerry's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
+| 1 | **The Frozen Wreck** | Wake in the snow by Max's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
 | 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hold the dock while Yappy hacks the ferry lift |
 | 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Wilbur |
-| 4 | **Prosperity** | Jerry's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Jerry's four big screens; the gate opens when he storms off in a huff |
+| 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
 | 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
 | 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, jet strikes, rocket haulers on the ledges. | Hold out while Yappy opens the bunker door (very slowly) |
@@ -272,31 +278,33 @@ Bragium that powers it. Kill feed verb: "melted".
 
 ### The story, beat by beat
 
-1. **The Frozen Wreck.** Snow, the train wreck smoking. Jerry on a cracked
+1. **The Frozen Wreck.** Snow, the train wreck smoking. Max on a cracked
    screen in the wreck: "Sorry about the train." Yappy digs you out,
-   declares you her minion, and says she knows the way to Jerry's bunker. Junk
+   declares you her minion, and says she knows the way to Max's bunker. Junk
    haulers are stripping the wreck; the Knuckle Scrapper rises out of it.
 2. **Liar's Landing.** Yappy needs the ferry lift to cross the bay. She
    hacks the controls (a timed hold, waves of gun haulers and drones, the
    first rocket hauler) and the lift carries you over.
-3. **The Bragium Pit.** Jerry's mine. You see what the Bragium is for:
-   the plasma haulers glow with it. Wilbur, Jerry's cyborg enforcer, drops
-   onto the pit's floor with his drones, and Jerry upgrades him halfway.
-4. **Prosperity.** Jerry's city, where his face is everywhere. Yappy's
-   idea: ruin the broadcast. Shoot the four giant screens; each one makes
-   Jerry angrier; on the last he storms off and forgets to lock the gate.
+3. **The Bragium Pit.** Max's mine. You see what the Bragium is for:
+   the plasma haulers glow with it. Wilbur, Max's cyborg enforcer, drops
+   onto the pit's floor with his drones, and Max upgrades him halfway.
+4. **Prosperity.** Max's city, where his face is everywhere. Yappy's
+   idea: ruin the broadcast. Shoot the four giant screens; each one he
+   turns the next one up brighter; on the last he throws the north gate
+   open himself: a show this big needs a bigger stage.
 5. **The Refinery.** Where the Bragium is melted down. Catwalks over the
    molten river. The Smelter guards the outflow.
 6. **The Assembly Line.** Where the army is built. Yappy typed up the order
    for every robot it ever built, and never got a thank you. The Foreman runs the floor.
 7. **Thousand Papercuts.** The road up to the bunker. Yappy opens the door
-   ("I have a lot of tabs open") while everything Jerry has left comes at
+   ("I have a lot of tabs open") while everything Max has left comes at
    you.
 8. **The Bunker.** On its roof, the cannons, then the bunker lifts off.
-   Bring it down and Yappy logs in on Jerry's computer (the password is
-   "handsome") and shuts the army down: every robot on Pandoria stops. "Did
-   we win? I feel like I won." Jerry's last word, on the one
-   screen still lit: "You'll pay for this. Literally. I'm billing you."
+   Bring it down and Yappy logs in on Max's computer (the password is
+   "TOTHEMAX") and shuts the army down: every robot on Pandoria stops. "Did
+   we win? I feel like I won." Max's last word, on the one
+   screen still lit: "What a finish! The biggest loss in Hyperbole
+   history. Next time, bandit: bigger. TO THE MAX!"
    HOME star on the roof.
 
 ## Maps
@@ -328,11 +336,11 @@ its set piece is done; the objective line says what's left.
   outlined look: an outline pass in the render file.
 - Two palettes. Pandoria's: snow white and blue-grey, rust, scrap, sky
   pale. Hyperbole's: clean yellow and gunmetal, hazard stripes, its logo
-  (a yellow H in a hexagon) on everything it owns, Jerry's face on screens.
+  (a yellow H in a hexagon) on everything it owns, Max's face on screens.
   The maps go from the first to the second as you get closer.
 - Bragium purple is the only other colour: crystals, plasma, the river.
 - Pun signs and posters: HYPERBOLE: WE'RE THE BEST (SOURCE: US),
-  PROSPERITY: NO BANDITS, NO LOITERING, NO BANDITS, JERRY LOVES YOU,
+  PROSPERITY: NO BANDITS, NO LOITERING, NO BANDITS, MAX LOVES YOU,
   NOW HIRING (ROBOTS ONLY), 0 DAYS WITHOUT A BANDIT INCIDENT.
 - Snow falls on maps 1, 2 and 7 (the weather feature); the rest are
   indoors or under Prosperity's dome.
@@ -345,7 +353,7 @@ its set piece is done; the objective line says what's left.
   Thousand Papercuts and the Bunker: every map.
 - Each map gets its own theme music, metal with a frontier twang, faster
   the closer you get to the bunker (`borderline/music.lua` plays a map's
-  theme from when Jerry's screen goes: its intro once, then its loop). So
+  theme from when Max's screen goes: its intro once, then its loop). So
   far the Frozen Wreck's (`theme_wreck.lua`): freight-yard thrash at 168
   BPM in E minor. A train horn over wheels clacking faster and faster
   opens it once; then a galloping low-E chug over a thrash beat, a
@@ -355,7 +363,7 @@ its set piece is done; the objective line says what's left.
 
 ### 1. The Frozen Wreck (`wreck`, 48x72, at dusk)
 
-Hyperbole's freight yard in the snow, factory grounds where Jerry's train
+Hyperbole's freight yard in the snow, factory grounds where Max's train
 came off the rails: concrete slabs under patches of snow (heaped against
 the walls and everything standing, forklift tracks through it), a rail
 line out of the tunnel and a siding up the middle, sheds round the sides
@@ -456,25 +464,25 @@ glow, some burst in plasma when shot).
 
 ### 4. Prosperity (`prosperity`, 56x88, at dusk)
 
-Jerry's factory town under the dome: its blocks are factories
+Max's factory town under the dome: its blocks are factories
 (corrugated roofs, sawtooth skylights, a chimney each with its smoke
 rising and drifting: works.lua's `stacks`), loading lots with haul trucks
 and pallets, and two "Phase 2" building sites, each a deep foundation
 hole with a tower crane over it. Pipe bridges cross the avenue overhead
 (works.lua's `overpipes`); dashed centre lines down the streets, zebra
 crossings at the plaza, street lamps, floodlights on the plaza's corners
-and beacons at the gates light it at dusk. Jerry's statue and screens
+and beacons at the gates light it at dusk. Max's statue and screens
 stand over it all.
 
 
-Jerry's city under a glass dome: clean yellow streets, a plaza with a
+Max's city under a glass dome: clean yellow streets, a plaza with a
 giant statue of him, his face on four huge screens.
 
 - **Arrival:** the south gate (open: they let you in).
 - Every hauler type so far plus dozers, kamikazes and jet haulers; the
   first badass at the statue.
-- **The screens:** four, one per district. Each one shot down gets Jerry
-  angrier; on the last, he storms off and the north gate opens.
+- **The screens:** four, one per district. Each one shot down, Max turns
+  the next one up brighter; on the last, he throws the north gate open.
 - **The end:** the north gate. EXIT: "THE REFINERY".
 
 ### 5. The Refinery (`refinery`, 48x80, dark)
@@ -579,7 +587,7 @@ tiers (`tierStats`, read through `Tiers.apply`).
 
 ## Open questions
 
-- **Names.** Borderline, Hyperbole, Handsome Jerry, YAP-TP, Pandoria,
+- **Names.** Borderline, Hyperbole, Maximum Maximilian Max, YAP-TP, Pandoria,
   Bragium: all proposals.
 - **Plasma's effect.** "Melted" (armor halved for 3 s) is a proposal.
 - **The torso crawl.** In for every hauler, or only the bigger ones.
@@ -598,8 +606,8 @@ each a PR), in this order:
    `city-map/borderline.lua` (walls, floors, arrival, exits), their eight
    quests chained by `next` with the first on the board, and the level
    finishing at each exit.
-2. **Story.** Banners and taglines, Jerry's face and intro screen, the
-   chatter for Jerry and Yappy, the objective line.
+2. **Story.** Banners and taglines, Max's face and intro screen, the
+   chatter for Max and Yappy, the objective line.
 3. **The robots' bodies.** The hauler look (one shared body, the code and
    kit per model) and the first two brains: junk and gun haulers, with
    the torso crawl. Map 1 and 2 populated.

@@ -1,4 +1,4 @@
--- The Frozen Wreck's theme (music.lua plays it once Jerry's intro screen
+-- The Frozen Wreck's theme (music.lua plays it once Max's intro screen
 -- goes), rendered by src/audio/synth.lua the way Eternal Mood's level themes
 -- are. Freight-yard thrash: fast, cold and metallic, a train at full tilt.
 -- Its own riffs; none of anybody else's.

@@ -5,13 +5,14 @@
 -- On the host, once each per level, the beats (Story.beats): "start" a
 -- moment after arriving, a zone's when somebody first walks into it, "fight"
 -- the first time the army spots anyone, "end" when the way on is reached.
--- Between them, chatter (Story.chatter): Jerry taunting now and then,
--- crowing when a player goes down, sulking when one of his bigger robots
--- does; Yappy cheering a kill now and then, and fussing over the fallen.
+-- Between them, chatter (Story.chatter): Max taunting now and then,
+-- crowing when a player goes down, promising a bigger one when one of his
+-- bigger robots does; Yappy cheering a kill now and then, and fussing over
+-- the fallen.
 --
--- On every screen: Jerry's intro screen on arriving (quests' `introLine`
+-- On every screen: Max's intro screen on arriving (quests' `introLine`
 -- picks his line; any key takes it down), then the map's banner; the name
--- of each part of the map walked into; the comms, Jerry's or Yappy's
+-- of each part of the map walked into; the comms, Max's or Yappy's
 -- portrait and their words typed out, one line at a time off a queue; and
 -- the objective line.
 --
@@ -31,12 +32,12 @@ local Faces = require("src.features.borderline.faces")
 local Tale = {}
 
 Tale.START_AFTER = 1.5 -- seconds after arriving the "start" beat comes
-Tale.TAUNT_EVERY = { 35, 60 } -- seconds between Jerry's taunts
+Tale.TAUNT_EVERY = { 35, 60 } -- seconds between Max's taunts
 Tale.KILL_EVERY = 15 -- seconds at least between remarks on a kill
 Tale.DOWN_EVERY = 10 -- ...and on a player going down
 Tale.CHEER = 0.15 -- the chance Yappy cheers a small kill
-Tale.INTRO_TIME = 9 -- seconds Jerry's screen stays up if nobody presses a key
--- Jerry notices these going down.
+Tale.INTRO_TIME = 9 -- seconds Max's screen stays up if nobody presses a key
+-- Max notices these going down.
 Tale.BIG = { RPG = true, PLZ = true, JET = true, DZR = true, ARC = true, BAD = true, DCK = true, STK = true }
 
 local random = love.math.random
@@ -117,7 +118,7 @@ function Tale.serverStep(server, map, alerted, dt)
   sv.tauntIn = sv.tauntIn - dt
   if sv.tauntIn <= 0 then
     sv.tauntIn = between(Tale.TAUNT_EVERY)
-    chat(server, "jerry", "taunt")
+    chat(server, "max", "taunt")
   end
 end
 
@@ -129,24 +130,24 @@ function Tale.serverKill(server, kill)
   if kill.kind == "robot" and sv.time - sv.killAt >= Tale.KILL_EVERY then
     if Tale.BIG[kill.what] then
       sv.killAt = sv.time
-      chat(server, "jerry", "kill")
+      chat(server, "max", "kill")
     elseif random() < Tale.CHEER then
       sv.killAt = sv.time
       chat(server, "yappy", "win")
     end
   elseif kill.victim and kill.onFoot and sv.time - sv.downAt >= Tale.DOWN_EVERY then
     sv.downAt = sv.time
-    chat(server, random() < 0.5 and "jerry" or "yappy", "down")
+    chat(server, random() < 0.5 and "max" or "yappy", "down")
   end
 end
 
 -- Client --------------------------------------------------------------------
 
-local faces = nil -- { jerry, yappy }
+local faces = nil -- { max, yappy }
 local clock = 0
 local cl = {
   level = nil, -- the map name of the level on, while one is
-  page = nil, -- { line, t } while Jerry's intro screen is up
+  page = nil, -- { line, t } while Max's intro screen is up
   banner = nil, -- { spec, t }
   zone = nil, -- { name, t }
   myZone = false, -- the name of the part I am in; false until the first look
@@ -158,9 +159,9 @@ function Tale.clear()
   cl.level, cl.page, cl.banner, cl.zone, cl.myZone, cl.says, cl.say = nil, nil, nil, nil, false, {}, nil
 end
 
---- Everyone arrived on one of the maps: Jerry's screen, then the banner.
+--- Everyone arrived on one of the maps: Max's screen, then the banner.
 function Tale.questStarted(quest)
-  faces = faces or { jerry = Faces.new("jerry"), yappy = Faces.new("yappy") }
+  faces = faces or { max = Faces.new("max"), yappy = Faces.new("yappy") }
   Tale.clear()
   cl.level = quest.map
   if quest.introLine then
@@ -182,7 +183,7 @@ function Tale.update(dt, map, y)
   if not (faces and onLevel(map)) then
     return
   end
-  faces.jerry:update(dt)
+  faces.max:update(dt)
   faces.yappy:update(dt)
   if cl.page then
     cl.page.t = cl.page.t + dt
@@ -222,7 +223,7 @@ function Tale.update(dt, map, y)
   end
 end
 
---- Any key takes Jerry's screen down. Returns true when it did.
+--- Any key takes Max's screen down. Returns true when it did.
 function Tale.keypressed()
   if cl.page then
     cl.page = nil
@@ -271,10 +272,10 @@ function Tale.drawHUD(map, done, x, y)
   end
 end
 
---- Jerry's intro screen, over the whole HUD.
+--- Max's intro screen, over the whole HUD.
 function Tale.drawScreen(map)
   if cl.page and faces and onLevel(map) then
-    Hud.drawScreen(faces.jerry, cl.page.line, cl.page.t, clock)
+    Hud.drawScreen(faces.max, cl.page.line, cl.page.t, clock)
   end
 end
 

@@ -1,6 +1,6 @@
 -- How Wilbur looks (docs/borderline.md, "The bosses"), seen from above at
 -- world size, facing +x in his own frame, in the haulers' outlined style
--- (hauler_look.lua's colours): Jerry's cyborg enforcer, a broad slab of a
+-- (hauler_look.lua's colours): Max's cyborg enforcer, a broad slab of a
 -- man in Hyperbole plate. His right arm is a rotary gun, his left a steel
 -- fist; a rocket pod sits on his left shoulder; his head is half a man's
 -- (a buzz cut, a scowl) and half steel, with a red eye. Upgraded, the
@@ -11,7 +11,7 @@
 --       `charge` 0..1 the pod opening or a leap crouched for, `flash` 0..1
 --       just hit, `flying` up in a leap (drawn higher, a shadow below)
 --   Look.drawWreck(w, clock)    where he fell: w { x, y, angle }
---   Look.upgraded               set by wilbur.lua once Jerry's upgrade is in
+--   Look.upgraded               set by wilbur.lua once Max's upgrade is in
 
 local Hauler = require("src.features.borderline.hauler_look")
 

@@ -12,13 +12,13 @@
 --
 -- Every screen: the drop's ring and him falling into it, the ring where a
 -- leap of his comes down, the shockwave of each slam, his plates glowing
--- once Jerry's upgrade is in, and the boss bar.
+-- once Max's upgrade is in, and the boss bar.
 --
 -- Messages
 --   server -> all  WLB_DROP <x> <y> <radius> <seconds>   he is coming down there
 --   server -> all  WLB_LEAP <x> <y> <radius> <seconds>   a leap of his comes down there
 --   server -> all  WLB_SLAM <x> <y> <radius>             he came down there
---   server -> all  WLB_UP                                Jerry's upgrade is in (to a joiner too)
+--   server -> all  WLB_UP                                Max's upgrade is in (to a joiner too)
 --   server -> all  WLB_DOWN                              he is down: the mine lift opens (to a joiner too)
 
 local Protocol = require("src.net.protocol")
@@ -171,8 +171,8 @@ function Wilbur.wikiEnemies(add)
     boss = true,
     where = "The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine "
       .. "lift stays shut until he is down",
-    about = "Handsome Jerry's cyborg enforcer, more machine than man: a rotary gun for a right arm, a steel fist "
-      .. "for a left, a rocket pod on his shoulder, and drones out of his back that keep him going.",
+    about = "Maximum Maximilian Max's cyborg enforcer, more machine than man: a rotary gun for a right arm, a "
+      .. "steel fist for a left, a rocket pod on his shoulder, and drones out of his back that keep him going.",
     stats = {
       { "Health", B.HEALTH },
       { "Speed", ("%g px/s, %g upgraded, %g winded"):format(B.CONF.speed, B.UPGRADED.speed, B.CONF.walk) },
@@ -190,7 +190,7 @@ function Wilbur.wikiEnemies(add)
     abilities = {
       ("Every %g s (%g upgraded) a drone out of his back, a shield drone and a medic drone by turns, %d of his own "
         .. "out at most (%d upgraded): they heal him and shield him."):format(D.every, D.everyUp, D.cap, D.capUp),
-      ("At %g%% of his health Jerry pushes an upgrade: quicker, sooner on the trigger, drones twice as often.")
+      ("At %g%% of his health Max pushes an upgrade: quicker, sooner on the trigger, drones twice as often.")
         :format(B.UPGRADE * 100),
       ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
         Heal.range, Heal.amount),

@@ -1,4 +1,4 @@
--- Borderline: the long walk to Handsome Jerry's bunker on Pandoria
+-- Borderline: the long walk to Maximum Maximilian Max's bunker on Pandoria
 -- (docs/borderline.md). Its quests (quests' "borderline" and the seven
 -- after it) take everyone over eight maps, city-map's `wreck`, `landing`,
 -- `pit`, `prosperity`, `refinery`, `assembly`, `cuts` and `bunker`, all on
@@ -7,8 +7,8 @@
 -- The first player to walk up to the map's way on (`map.exitX`,
 -- `map.exitY`) finishes a level, and its EXIT star leads on to the next
 -- level (quests' `next`), or home from the Bunker. Hyperbole's robots hold
--- the way (army.lua, from the map's `army`). Handsome Jerry and YAP-TP tell
--- the story as it goes (tale.lua: Jerry's intro screen, the banners, their
+-- the way (army.lua, from the map's `army`). Maximum Maximilian Max and YAP-TP tell
+-- the story as it goes (tale.lua: Max's intro screen, the banners, their
 -- lines over the comms, the objective line). The maps' moving parts (the
 -- cranes, the beacons) are works.lua's, their themes music.lua's; a chevron
 -- hangs over what the objective line is after (marker.lua). The bosses come
@@ -50,7 +50,7 @@ local function cityMap()
 end
 
 --- What the objective line is after on this screen, while it is up: none
---- under Jerry's screen or off the line's levels (marker.lua).
+--- under Max's screen or off the line's levels (marker.lua).
 local function objectives()
   local map = cityMap()
   if not Tale.onLevel(map) or Tale.blurring(map) then
@@ -241,17 +241,17 @@ function Borderline:update(dt, client)
   Wilbur.update(dt)
 end
 
---- Any key takes Jerry's intro screen down.
+--- Any key takes Max's intro screen down.
 function Borderline:keypressed()
   Tale.keypressed()
 end
 
---- Jerry's intro screen softens the world behind it.
+--- Max's intro screen softens the world behind it.
 function Borderline:worldBlur()
   return Tale.blurring(cityMap()) and 1 or 0
 end
 
---- Jerry's intro screen goes over every HUD piece.
+--- Max's intro screen goes over every HUD piece.
 function Borderline:drawScreen()
   Tale.drawScreen(cityMap())
 end

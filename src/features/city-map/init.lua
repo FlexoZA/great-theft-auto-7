@@ -185,7 +185,7 @@ CityMap.maps = {
   },
   -- The Borderline quest line's eight maps on the planet Pandoria
   -- (borderline.lua), all walked: a freight yard with a wrecked train at
-  -- dusk, a frozen harbour, a Bragium mine, Jerry's city under its dome,
+  -- dusk, a frozen harbour, a Bragium mine, Max's city under its dome,
   -- the refinery, the robot factory, the road up the cliff and the
   -- bunker's roof. Nobody about but the robots.
   wreck = { -- at dusk, under the floodlights

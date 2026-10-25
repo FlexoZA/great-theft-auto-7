@@ -1,7 +1,7 @@
 -- Each Borderline map's theme, by map name (so far the Frozen Wreck's,
--- theme_wreck.lua), played from the moment Jerry's intro screen goes: its
+-- theme_wreck.lua), played from the moment Max's intro screen goes: its
 -- intro once, then its loop. Rendered the first time its map comes up,
--- under Jerry's screen. A map without one plays nothing.
+-- under Max's screen. A map without one plays nothing.
 
 local Audio = require("src.audio")
 local WreckTheme = require("src.features.borderline.theme_wreck")
@@ -51,7 +51,7 @@ local function start(name)
 end
 
 --- `map` the map in play, `level` whether this screen is on one of the
---- line's levels on it, `screenUp` whether Jerry's intro screen is up.
+--- line's levels on it, `screenUp` whether Max's intro screen is up.
 function Music.update(map, level, screenUp)
   local want = level and map and THEMES[map.name] and map.name or nil
   if want then

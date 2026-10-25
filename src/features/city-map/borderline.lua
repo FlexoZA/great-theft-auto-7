@@ -3,7 +3,7 @@
 -- screen) from the arrival at the bottom to the way on at the top:
 --   wreck       The Frozen Wreck: Hyperbole's freight yard in the snow,
 --               sheds round it, three deep excavations with cranes working
---               over them, Jerry's derailed train zig-zagging up the
+--               over them, Max's derailed train zig-zagging up the
 --               middle, a tunnel out at the top
 --   landing     Liar's Landing: a frozen container port at dusk, a maze of
 --               stacks with painted lanes, a dry dock down the west side,
@@ -13,7 +13,7 @@
 --               terraces down to the floor where Wilbur lands, a
 --               rim at either end joined to it by one ramp each; cranes
 --               over the floor, shafts with headframes, conveyors running
---   prosperity  Prosperity: Jerry's factory town under a dome at dusk,
+--   prosperity  Prosperity: Max's factory town under a dome at dusk,
 --               factory blocks with smoking chimneys on a street grid, two
 --               building sites with cranes, his statue in the plaza, a gate
 --               at either end
@@ -364,7 +364,7 @@ end
 
 -- 1. The Frozen Wreck ------------------------------------------------------------
 
--- Hyperbole's freight yard in the snow, where Jerry's train came off the
+-- Hyperbole's freight yard in the snow, where Max's train came off the
 -- rails: factory grounds walled in by sheds, the rails up the middle, the
 -- train zig-zagging across the yard in pieces (tiles: c, r, w, h), the
 -- locomotive near the top, and the tunnel out at the top.
@@ -909,7 +909,7 @@ local function buildProsperity(map, rng, T)
   for _, r in ipairs({ 10.5, 74.5 }) do
     map.overpipes[#map.overpipes + 1] = { x0 = b:x(25.6), x1 = b:x(30.4), y = b:y(r) }
   end
-  -- Jerry, larger than life, in the middle of the plaza.
+  -- Max, larger than life, in the middle of the plaza.
   local mr = (Borderline.PLAZA[1] + Borderline.PLAZA[2]) / 2
   b:place("statue", 26, mr - 2, 4, 4, { round = true })
   -- His four big screens, one over each district.
@@ -920,7 +920,7 @@ local function buildProsperity(map, rng, T)
   b:scatter(rng, "crate", 18, 44, 3, map.rows - 4, keep)
   b:scatter(rng, "drum", 14, 40, 3, map.rows - 4, keep)
   b:scatter(rng, "cone", 18, 22, 3, map.rows - 4, keep, { flat = true })
-  -- Jerry's garrison: jet haulers round the plaza and up north, rocket and
+  -- Max's garrison: jet haulers round the plaza and up north, rocket and
   -- plasma haulers on the cross streets, a squad walking the avenue and one
   -- round the north district.
   b:post("JET", 20, Borderline.PLAZA[1] + 3)
@@ -944,7 +944,7 @@ local function buildProsperity(map, rng, T)
   b:post("FIX", 24, mr + 6)
   b:post("SHD", 32, mr + 6)
   b:zone("South District", 53, map.rows - 1)
-  b:zone("Jerry Plaza", Borderline.PLAZA[1], Borderline.PLAZA[2])
+  b:zone("Max Plaza", Borderline.PLAZA[1], Borderline.PLAZA[2])
   b:zone("North District", 0, 33)
   b:ends(25, map.rows - 7, 27, 1)
   b:commit()
