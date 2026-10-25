@@ -109,11 +109,28 @@ Story.beats = {
   ["prosperity.start"] = {
     { "max", "Welcome to Prosperity! Maximum prosperity. Mostly for me." },
     { "yappy", "Look at all his faces! On every screen! We should leave before he sees us. Oh. He sees us." },
+    { "yappy", "The north gate's shut. Four giant screens, one in every corner of town. I say we shoot them. "
+      .. "All of them. For morale." },
+  },
+  ["prosperity.screen1"] = {
+    { "max", "You broke a screen? No problem. The others just went brighter. MAXIMUM brightness!" },
+  },
+  ["prosperity.screen2"] = {
+    { "yappy", "Two down! That's half his faces. He has more faces. He has so many faces." },
+    { "max", "Love the energy! Double brightness on the rest. TO THE MAX!" },
+  },
+  ["prosperity.screen3"] = {
+    { "max", "One screen left! Triple brightness! Wear sunglasses! I am!" },
+  },
+  ["prosperity.screens"] = {
+    { "max", "You took out every screen! Biggest audience I ever had. Open the north gate! A show this big "
+      .. "needs a bigger stage!" },
+    { "yappy", "He's opening the gate himself. Of course he is. North gate, minion! Go!" },
   },
   ["prosperity.fight"] = { { "yappy", "Jet haulers! They fly! That's not fair! I'm in heels!" } },
   ["prosperity.Max Plaza"] = { { "max", "Like the statue? It's me. Twice life-size. I asked for three." } },
-  ["prosperity.North District"] = { { "yappy", "The north gate! It goes down to the refinery. And it's "
-    .. "open! He never shuts anything. He says doors are for the timid." } },
+  ["prosperity.North District"] = { { "yappy", "The north gate! It goes down to the refinery. Shut, while "
+    .. "his screens are up. He wants us to watch the show first." } },
   ["prosperity.end"] = { { "max", "Bravo! On to the refinery. It's hotter. Maximum hot. You'll love it." } },
 
   ["refinery.start"] = {
@@ -220,6 +237,9 @@ Story.hold = {
   },
 }
 
+-- The objective line while Max's screens are up (screens.lua): `%d` how many.
+Story.screens = "Objective: shoot down Max's big screens (%d left)"
+
 -- The objective line while the way on waits for the level's boss, by map:
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
@@ -235,7 +255,8 @@ Story.boss = {
 --- the way on: `done` (the level is), `waiting` terminals (the nearest
 --- `nearest`); on a map with a hold, how far it is (`held`, nil before it
 --- starts) and whether anyone is on it (`on`); on a map with a boss,
---- `boss` "pad" (not come yet: it comes at `bossX`, `bossY`) or "fight".
+--- `boss` "pad" (not come yet: it comes at `bossX`, `bossY`) or "fight";
+--- on a map with Max's screens, those still up (`screens`, `screenNearest`).
 --- Returns the text and where it points (x, y in world px).
 function Story.objective(name, map, state)
   local done, waiting, nearest = state.done, state.waiting, state.nearest
@@ -245,6 +266,10 @@ function Story.objective(name, map, state)
   end
   if not done and (waiting or 0) > 0 and nearest then
     return (Story.hack[name] or "Objective: hack the terminals (%d left)"):format(waiting), nearest.x, nearest.y
+  end
+  if not done and #(state.screens or {}) > 0 then -- Max's screens to shoot down
+    local s = state.screenNearest
+    return Story.screens:format(#state.screens), s and s.x, s and s.y
   end
   local hold = Story.hold[name]
   if not done and hold and map.hold then

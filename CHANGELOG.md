@@ -27,6 +27,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
   lift, the port standing in a frozen sea of broken ice on every side, and a hull in the dry dock with welders sparking on it. Oil drums and
   traffic cones on every Borderline map look like drums and cones now, some knocked over.
+- Prosperity drawn properly: dark asphalt streets with pavements and kerbs round every block, a paved plaza with a
+  gold inlay round a real gold statue of Max (flat-top, flexed arm), planters, and the dome's glass wall with the
+  snowfield beyond it.
+- Max's four big screens are up in Prosperity, one in each corner district, his face live on them: shoot them all
+  down (each one guarded by a hauler dock and gun haulers; the rest get brighter as they fall) and he throws the
+  north gate open himself. More of his garrison: a fourth jet hauler, a third rocket and plasma hauler, a squad
+  round the south district, more kamikazes.
+- Prosperity has its own theme: Max's anthem, bright arena rock with a brass fanfare, a stomp-stomp-clap and the
+  crowd shouting HEY, opening on the city's PA jingle.
 - The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
   every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
   veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock

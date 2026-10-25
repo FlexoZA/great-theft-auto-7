@@ -195,11 +195,6 @@ end
 
 -- Render ----------------------------------------------------------------------
 
---- The loop's length, seconds.
-function Theme.duration()
-  return Kit.duration(SECTIONS, BAR)
-end
-
 -- Bar `b` of section `s` from `t`, by the section's kind, into `band`.
 local PLAY = {}
 
@@ -293,19 +288,8 @@ local DESK = {
   { "horn", 0.6, drive = 1.6, lowpass = 2400 },
 }
 
---- Renders `sections`, with the siren and the drill. Returns a SoundData.
-local function render(sections)
-  return Kit.render(sections, BAR, { "horn" }, PLAY, DESK)
-end
-
---- The loop (grind, crystals, drill, blasts, grind), ~64 s. Returns a SoundData.
-function Theme.render()
-  return render(SECTIONS)
-end
-
---- The blast before it, once: the siren, the beeps, the charge. Returns a SoundData.
-function Theme.renderIntro()
-  return render(INTRO)
-end
-
-return Theme
+-- The loop (grind, crystals, drill, blasts, grind: ~64 s), and the blast (the siren, the beeps,
+-- the charge) once before it.
+return Kit.theme(Theme, {
+  bar = BAR, intro = INTRO, sections = SECTIONS, extras = { "horn" }, play = PLAY, desk = DESK,
+})

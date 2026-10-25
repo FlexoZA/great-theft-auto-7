@@ -31,6 +31,7 @@ local Music = require("src.features.borderline.music")
 local Marker = require("src.features.borderline.marker")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
+local Screens = require("src.features.borderline.screens")
 local Wiki = require("src.features.borderline.wiki")
 local Terminals = require("src.features.terminals")
 
@@ -63,12 +64,17 @@ local function objectives()
   elseif boss == "card" or (boss == "pad" and #Terminals.waiting() == 0) then -- (the terminals before the pad)
     return { { x = bx, y = by } }
   end
+  local screens = Screens.remaining(map)
+  if #screens > 0 then -- Max's screens before the north gate
+    return screens
+  end
   return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
 end
 
 function Borderline:load()
   Army.load()
   Wilbur.load()
+  Screens.load()
 end
 
 function Borderline:serverStart()
@@ -82,6 +88,7 @@ function Borderline:serverQuestStarted(server, quest)
     Terminals.serverOpen(cityMap(), Army.nav(), Army.serverAlarm)
     Hold.serverStart(cityMap())
     Wilbur.serverStart(cityMap())
+    Screens.serverStart(server, cityMap())
     Tale.serverStart(cityMap())
   end
 end
@@ -93,6 +100,7 @@ function Borderline:serverQuestEnded(server, quest)
     Terminals.serverClose()
     Hold.serverStop()
     Wilbur.serverStop()
+    Screens.serverStop()
     Tale.serverStop()
   end
 end
@@ -105,16 +113,19 @@ function Borderline:mapChanged(_map, server)
     Army.serverStop(server)
     Hold.serverStop()
     Wilbur.serverStop()
+    Screens.serverStop()
     Tale.serverStop()
   end
   Army.clear()
   Hold.clear()
   Wilbur.clear()
+  Screens.clear()
 end
 
 function Borderline:serverPlayerJoined(server, player)
   Hold.serverPlayerJoined(server, player)
   Wilbur.serverPlayerJoined(server, player)
+  Screens.serverPlayerJoined(server, player)
 end
 
 --- The launch's --boss (src/launch.lua): on the Bragium Pit, straight to
@@ -136,18 +147,26 @@ function Borderline:serverTerminalDone(server, terminal, player)
 end
 
 function Borderline:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  local hit = Screens.serverShotAt(server, x, y, radius, by, damage, function(what)
+    Tale.serverBeat(server, what)
+  end)
+  if hit then
+    return hit
+  end
   return Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
---- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): the army's, and Wilbur's.
+--- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): the army's, Wilbur's, Max's screens'.
 function Borderline:wikiEnemies(add)
   Wiki.wikiEnemies(add)
   Wilbur.wikiEnemies(add)
+  Screens.wikiEnemies(add)
 end
 
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
 function Borderline:serverEnemies(server, add)
   Army.serverEnemies(server, add)
+  Screens.serverEnemies(add)
 end
 
 function Borderline:serverFreezeArea(_server, x, y, radius, seconds)
@@ -227,6 +246,7 @@ function Borderline:exitGame()
   Tale.clear()
   Hold.clear()
   Wilbur.clear()
+  Screens.clear()
   Army.clear()
   Music.stop()
 end
@@ -244,6 +264,7 @@ function Borderline:update(dt, client)
   Marker.update(dt)
   Hold.update(dt)
   Wilbur.update(dt)
+  Screens.update(dt)
 end
 
 --- Any key takes Max's intro screen down.
@@ -287,6 +308,7 @@ function Borderline:drawAboveCars()
     Works.drawAboveCars(map)
   end
   Wilbur.drawAboveCars()
+  Screens.drawAboveCars(map)
   Marker.draw(objectives())
 end
 
@@ -294,6 +316,7 @@ function Borderline:drawNightLights(_client, _camera, glow)
   local map = cityMap()
   if map then
     Works.drawNightLights(map, glow)
+    Screens.drawNightLights(map, glow)
   end
   Marker.drawNightLights(objectives(), glow)
 end
@@ -347,7 +370,7 @@ function Borderline:footstepWalkers()
 end
 
 Borderline.clientMessages = {}
-for _, part in ipairs({ Army, Tale, Hold, Wilbur }) do
+for _, part in ipairs({ Army, Tale, Hold, Wilbur, Screens }) do
   for kind, handler in pairs(part.clientMessages) do
     Borderline.clientMessages[kind] = handler
   end

@@ -14,15 +14,16 @@ local Kit = require("src.features.city-map.render_borderline_kit")
 local Ground = require("src.features.city-map.render_borderline_ground")
 local Port = require("src.features.city-map.render_borderline_port")
 local Mine = require("src.features.city-map.render_borderline_mine")
+local City = require("src.features.city-map.render_borderline_city")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
-local box, blob, hazard, signFont = Kit.box, Kit.blob, Kit.hazard, Kit.signFont
+local box, blob, hazard = Kit.box, Kit.blob, Kit.hazard
 
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for _, kit in ipairs({ Port.DRAW, Mine.DRAW }) do
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW }) do
   for kind, fn in pairs(kit) do
     DRAW[kind] = fn
   end
@@ -356,22 +357,6 @@ function DRAW.lamp(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetal)
   color(C.paintWhite)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
-end
-
-function DRAW.statue(s)
-  blob(s.x, s.y, s.w, s.h, C.gunmetalLight) -- the plinth
-  blob(s.x + s.w * 0.3, s.y + s.h * 0.3, s.w * 0.4, s.h * 0.4, C.gold) -- Max, from above: all hair
-end
-
-function DRAW.lawn(s)
-  box(s.x, s.y, s.w, s.h, C.green)
-end
-
-function DRAW.billboard(s)
-  box(s.x, s.y, s.w, s.h, INK)
-  color(C.yellow)
-  love.graphics.setFont(signFont())
-  love.graphics.printf("MAX LOVES YOU", s.x, s.y + (s.h - 22) / 2, s.w, "center")
 end
 
 --- The molten river: purple, a crust here and there (its flow is

@@ -142,4 +142,21 @@ function Kit.render(sections, bar, extras, play, desk)
   return Kit.mixdown(band, total, desk)
 end
 
+--- Give `theme` its music.lua side from `spec` { bar, intro, sections,
+--- extras, play, desk } (as Kit.render takes them): `duration()` the loop's
+--- length, `render()` the loop, `renderIntro()` the intro before it, each a
+--- SoundData.
+function Kit.theme(theme, spec)
+  function theme.duration()
+    return Kit.duration(spec.sections, spec.bar)
+  end
+  function theme.render()
+    return Kit.render(spec.sections, spec.bar, spec.extras, spec.play, spec.desk)
+  end
+  function theme.renderIntro()
+    return Kit.render(spec.intro, spec.bar, spec.extras, spec.play, spec.desk)
+  end
+  return theme
+end
+
 return Kit

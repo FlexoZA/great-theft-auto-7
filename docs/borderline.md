@@ -564,6 +564,37 @@ glow, some burst in plasma when shot).
 
 ### 4. Prosperity (`prosperity`, 56x88, at dusk)
 
+Built in `borderline_prosperity.lua`, drawn in `render_borderline_city.lua`
+and the ground's module: dark asphalt streets (grit, cracks, patches,
+manholes) with the yellow centre lines, pale paving round every block
+with its kerb, the plaza paved cream and gold with a gold ring and rays
+set round the statue, planters round its edges. Max's statue is gold on a
+stepped plinth, seen from above: the flat-top, his shoulders and chain,
+one arm flexed up, MAX on its plaque. Past the streets, the dome's glass
+wall (ribs, panes, the shine on it) and the snowfield beyond it (wind
+ripples, drifts, a rock here and there), drawn every frame like the
+Landing's sea (`Ground.LIVE`).
+
+**Max's screens** (`screens.lua`): in each corner district a block is a
+paved square with a giant screen up on two legs in the middle, his face
+live on it (faces.lua's portrait, talking), his name beside it, TO THE
+MAX running along the bottom, a LIVE dot; a hauler dock and two gun
+haulers guard each. Anything a player fires that touches a panel hurts it
+(450 health each for one player, `Bosses.health`; a blast takes 40);
+every one down, the rest turn up brighter, and Max has something to say
+("screen1" .. "screen3"); the last one down, he throws the north gate
+open (the lock `THE NORTH GATE`, a lock of the terminals feature with no
+terminals, opened by `Terminals.serverUnlock`: "screens"). The objective
+line and the markers point at the nearest screen still up. A screen down
+is shattered glass in its frame, sparking, smoking a while.
+
+The theme (`theme_prosperity.lua`): Max's own anthem, bright cheesy arena
+rock at 132 BPM in E major. The PA opens it once (the chime, Hyperbole's
+jingle on synth brass, the crowd); then two stomps and a clap under
+chugged E, a brass fanfare over E, B, C#m, A, a chorus of lead guitar and
+brass with the crowd shouting HEY, and a half-time stretch of presses
+stamping with the jingle on a music box (~51 s loop).
+
 Max's factory town under the dome: its blocks are factories
 (corrugated roofs, sawtooth skylights, a chimney each with its smoke
 rising and drifting: works.lua's `stacks`), loading lots with haul trucks
@@ -581,8 +612,9 @@ giant statue of him, his face on four huge screens.
 - **Arrival:** the south gate (open: they let you in).
 - Every hauler type so far plus dozers, kamikazes and jet haulers; the
   first badass at the statue.
-- **The screens:** four, one per district. Each one shot down, Max turns
-  the next one up brighter; on the last, he throws the north gate open.
+- **The screens:** four, one in each corner district. Each one shot down,
+  Max turns the rest up brighter; on the last, he throws the north gate
+  open.
 - **The end:** the north gate. EXIT: "THE REFINERY".
 
 ### 5. The Refinery (`refinery`, 48x80, dark)

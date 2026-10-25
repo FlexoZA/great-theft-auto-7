@@ -16,6 +16,9 @@
 -- better cover whoever is at it. Done is done, for everyone, until the
 -- level is played again; every feature hears of it (`serverTerminalDone`).
 --
+-- A lock may have no terminals at all: the quest opens it itself
+-- (`Terminals.serverUnlock(server, name)`) when its own goal is met.
+--
 -- The quest's side: `Terminals.serverOpen(map, nav, alarm)` when its level
 -- starts (`nav` its walking grid, refreshed as walls come down; `alarm(server,
 -- x, y, radius)`), `Terminals.serverClose()` when it ends, and
@@ -135,7 +138,7 @@ local now = 0
 
 function Terminals.serverOpen(map, nav, alarm)
   sv = nil
-  if #terminalsOf(map) == 0 then
+  if #terminalsOf(map) == 0 and #locksOf(map) == 0 then
     return
   end
   sv = { nav = nav, alarm = alarm }
@@ -197,6 +200,20 @@ function Terminals:serverPlayerJoined(server, player)
       server:send(player, Protocol.encode("TRM_OPEN", i))
     end
   end
+end
+
+--- Open lock `name` of the map in play by something other than its
+--- terminals (a quest's own goal: Prosperity's screens shot down, the
+--- borderline feature): its walls come down for everyone, as when its last
+--- terminal is done.
+function Terminals.serverUnlock(server, name)
+  local map = cityMap()
+  local l, li = lockNamed(map, name)
+  if not (sv and l) or l.open then
+    return
+  end
+  unblock(map, l, sv.nav)
+  server:broadcast(Protocol.encode("TRM_OPEN", li))
 end
 
 --- Terminal `i` done by `player`: and its lock, if that was the last of it.
@@ -653,13 +670,15 @@ function Terminals:drawHUD()
           end
         end
       end
-      local seal = terminalsOf(map)[1] and terminalsOf(map)[1].look == "seal"
-      local text = ("%s: %d/%d %s"):format(l.label, done, of, seal and "seals lit" or "terminals")
-      love.graphics.setColor(0, 0, 0, 0.6)
-      love.graphics.print(text, 13, y + 1)
-      love.graphics.setColor(RED)
-      love.graphics.print(text, 12, y)
-      y = y + 18
+      if of > 0 then -- (a lock with none is opened some other way, which says so itself)
+        local seal = terminalsOf(map)[1] and terminalsOf(map)[1].look == "seal"
+        local text = ("%s: %d/%d %s"):format(l.label, done, of, seal and "seals lit" or "terminals")
+        love.graphics.setColor(0, 0, 0, 0.6)
+        love.graphics.print(text, 13, y + 1)
+        love.graphics.setColor(RED)
+        love.graphics.print(text, 12, y)
+        y = y + 18
+      end
     end
   end
   if near then

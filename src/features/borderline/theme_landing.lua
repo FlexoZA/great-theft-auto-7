@@ -195,11 +195,6 @@ end
 
 -- Render ----------------------------------------------------------------------
 
---- The loop's length, seconds.
-function Theme.duration()
-  return Kit.duration(SECTIONS, BAR)
-end
-
 --- Plays `tune` (a bar of { note|false, eighths }) from `t` through `voice(t, dur, note)`.
 local function play(tune, t, voice)
   Kit.play(tune, t, 2 * STEP, voice)
@@ -308,19 +303,8 @@ local DESK = {
   { "horn", 0.7, drive = 1.8, lowpass = 900 },
 }
 
---- Renders `sections`, with the squeezebox, the foghorn and the winches. Returns a SoundData.
-local function render(sections)
-  return Kit.render(sections, BAR, { "box", "horn" }, PLAY, DESK)
-end
-
---- The loop (stomp, shanty, chorus, cranes, stomp), ~38 s. Returns a SoundData.
-function Theme.render()
-  return render(SECTIONS)
-end
-
---- The harbour before it, once: the ice, the foghorn, the winch, the slam. Returns a SoundData.
-function Theme.renderIntro()
-  return render(INTRO)
-end
-
-return Theme
+-- The loop (stomp, shanty, chorus, cranes, stomp: ~38 s), and the harbour (the ice, the foghorn,
+-- the winch, the slam) once before it.
+return Kit.theme(Theme, {
+  bar = BAR, intro = INTRO, sections = SECTIONS, extras = { "box", "horn" }, play = PLAY, desk = DESK,
+})

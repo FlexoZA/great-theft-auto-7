@@ -261,10 +261,6 @@ local function drawOutside(map, c, r, x, y, T)
     drawRockSnow(c, r, x, y, T, false)
   elseif o == C.sea then
     return -- its ice is drawSeaIce's, over every tile's water at once
-  elseif map.outside == "dome" and (open(map, c - 1, r) or open(map, c + 1, r)
-      or open(map, c, r - 1) or open(map, c, r + 1)) then
-    color(C.glass)
-    love.graphics.rectangle("fill", x, y, T, T)
   elseif o == C.sky and h < 0.22 then -- cloud far below
     color(C.white, 0.5)
     love.graphics.ellipse("fill", x + 32, y + 32, 40 + h * 60, 18 + h * 20, 16)
@@ -347,10 +343,61 @@ local function drawDirt(c, r, x, y, T, f)
   end
 end
 
+--- One tile of Prosperity's asphalt: shaded in broad patches, grit in it,
+--- a crack, a patch of newer tar or a manhole cover now and then.
+local function drawAsphalt(c, r, x, y, T, f)
+  local k = 0.96 + 0.08 * noise(c / 4 + 5, r / 4 + 1)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  for i = 0, 4 do
+    local h = hash(c * 4.3 + r * 6.1 + i * 1.9)
+    color(i % 2 == 0 and C.white or INK, 0.08)
+    love.graphics.circle("fill", x + T * hash(h * 3), y + T * hash(h * 7), 1.5 + 2 * h, 6)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.06 then -- a crack
+    color(INK, 0.3)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(x + 8, y + T * (0.3 + h * 4), x + T * 0.5, y + T * 0.55, x + T - 10, y + T * 0.4)
+    love.graphics.setLineWidth(1)
+  elseif h < 0.1 then -- a patch of newer tar
+    color(INK, 0.18)
+    love.graphics.rectangle("fill", x + 10, y + 14, T * 0.55, T * 0.4)
+  elseif h > 0.985 then -- a manhole
+    color(INK)
+    love.graphics.circle("fill", x + T / 2, y + T / 2, 15, 16)
+    color(C.gunmetalLight)
+    love.graphics.circle("fill", x + T / 2, y + T / 2, 12, 16)
+    color(INK, 0.5)
+    for a = -8, 8, 4 do
+      love.graphics.rectangle("fill", x + T / 2 + a - 1, y + T / 2 - 9, 2, 18)
+    end
+  end
+end
+
+--- One tile of paving (Prosperity's plaza and its screens' squares): a
+--- slab each tile, every other one a shade lighter, the joints between.
+local function drawPaving(c, r, x, y, T, f)
+  local k = (c + r) % 2 == 0 and 1.03 or 0.96
+  love.graphics.setColor(math.min(1, f[1] * k), math.min(1, f[2] * k), math.min(1, f[3] * k))
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.14)
+  love.graphics.rectangle("fill", x, y, T, 2)
+  love.graphics.rectangle("fill", x, y, 2, T)
+  color(C.white, 0.12)
+  love.graphics.rectangle("fill", x + 2, y + 2, T - 4, 2)
+end
+
 --- One tile of floor at (c, r), finish `f`.
 local function drawFloor(c, r, x, y, T, f)
   if f == C.port or f == C.quay then
     drawSlab(c, r, x, y, T, f)
+    return
+  elseif f == C.street then
+    drawAsphalt(c, r, x, y, T, f)
+    return
+  elseif f == C.plaza or f == C.square then
+    drawPaving(c, r, x, y, T, f)
     return
   elseif DIRT[f] then
     drawDirt(c, r, x, y, T, f)
@@ -370,7 +417,7 @@ local function drawFloor(c, r, x, y, T, f)
     for _, k in ipairs({ { 8, 8 }, { T - 10, 8 }, { 8, T - 10 }, { T - 10, T - 10 } }) do
       love.graphics.circle("fill", x + k[1], y + k[2], 2.5, 6)
     end
-  elseif f ~= C.ice and f ~= C.plaza then -- slabs and plates
+  elseif f ~= C.ice then -- slabs and plates
     color(INK, 0.18)
     love.graphics.rectangle("fill", x, y, T, 2)
     love.graphics.rectangle("fill", x, y, 2, T)
@@ -439,34 +486,100 @@ end
 -- The outsides drawn every frame, in the map and past it alike (drawLive),
 -- not into the canvas: what lies on them spills from tile to tile, and so
 -- runs on without a seam at the tiles or at the map's edge.
-local LIVE = { harbour = true, rock = true }
+--- Next to a floor (any of its eight neighbours open)?
+local function byFloor(map, c, r)
+  for dc = -1, 1 do
+    for dr = -1, 1 do
+      if open(map, c + dc, r + dr) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- The detail on one tile of Prosperity's dome wall (`glass`) or of the
+--- snowfield past it: the wall's ribs and frame and the sky's shine on it;
+--- the snow's wind ripples, a rock poking out of it.
+local function drawDomeDetail(map, c, r, x, y, T)
+  local h = hash(c * 7.1 + r * 13.7)
+  if byFloor(map, c, r) then
+    color(C.white, 0.25) -- the shine, in long streaks
+    love.graphics.polygon("fill", x + T * 0.1, y + T, x + T * 0.35, y + T, x + T * 0.9, y, x + T * 0.65, y)
+    color(C.gunmetal) -- the ribs, every half tile, and the frame round each pane
+    love.graphics.rectangle("fill", x, y, 4, T)
+    love.graphics.rectangle("fill", x + T / 2 - 2, y, 4, T)
+    love.graphics.rectangle("fill", x, y, T, 4)
+    love.graphics.rectangle("fill", x, y + T / 2 - 2, T, 4)
+    return
+  end
+  color(C.snowShade, 0.7) -- wind ripples
+  love.graphics.setLineWidth(2)
+  for i = 0, 2 do
+    local sy = y + T * (0.2 + 0.3 * i) + h * 8
+    love.graphics.line(x + 4, sy, x + T * 0.35, sy - 4, x + T * 0.7, sy + 2, x + T - 4, sy - 3)
+  end
+  love.graphics.setLineWidth(1)
+  if h > 0.975 then -- a rock poking out
+    Mine.DRAW.rock({ x = x + T * 0.2, y = y + T * 0.25, w = 30 + h * 14, h = 24 + h * 10, seed = h * 50 })
+  end
+end
+
+-- The outsides drawn every frame, in the map and past it alike (drawLive),
+-- not into the canvas: what lies on them spills from tile to tile, and so
+-- runs on without a seam at the tiles or at the map's edge. Each: the bare
+-- colour of a tile, and the passes over every tile after.
+local LIVE = {
+  harbour = { base = function()
+    return C.sea
+  end, passes = { drawSeaIce } },
+  rock = { base = function()
+    return C.rock
+  end, passes = {
+    function(_, c, r, x, y, T)
+      drawRockDetail(c, r, x, y, T)
+    end,
+    function(_, c, r, x, y, T)
+      drawRockSnow(c, r, x, y, T, true)
+    end,
+    function(_, c, r, x, y, T)
+      drawRockSnow(c, r, x, y, T, false)
+    end,
+  } },
+  dome = { base = function(map, c, r)
+    return byFloor(map, c, r) and C.glass or C.bank
+  end, passes = {
+    drawDomeDetail,
+    function(map, c, r, x, y, T)
+      if not byFloor(map, c, r) then
+        drawRockSnow(c, r, x, y, T, true)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if not byFloor(map, c, r) then
+        drawRockSnow(c, r, x, y, T, false)
+      end
+    end,
+  } },
+}
 
 --- A LIVE outside over tiles c0..c1, r0..r1, wherever there is no floor:
---- the bare sea or rock of every tile first, then what lies on each.
+--- the bare colour of every tile first, then each of its passes over them all.
 local function drawLive(map, c0, r0, c1, r1, T)
-  local sea = map.outside == "harbour"
-  color(sea and C.sea or C.rock)
+  local live = LIVE[map.outside]
   for c = c0, c1 do
     for r = r0, r1 do
       if not open(map, c, r) then
+        color(live.base(map, c, r))
         love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
       end
     end
   end
-  local passes = sea and { drawSeaIce } or { drawRockDetail, function(c, r, x, y)
-    drawRockSnow(c, r, x, y, T, true)
-  end, function(c, r, x, y)
-    drawRockSnow(c, r, x, y, T, false)
-  end }
-  for _, pass in ipairs(passes) do
+  for _, pass in ipairs(live.passes) do
     for c = c0, c1 do
       for r = r0, r1 do
         if not open(map, c, r) then
-          if sea then
-            pass(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
-          else
-            pass(c, r, map.x0 + c * T, map.y0 + r * T, T)
-          end
+          pass(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
         end
       end
     end

@@ -1,7 +1,8 @@
 -- The Borderline maps past their edges (borderline.lua), drawn every frame
 -- under the canvas when the surroundings feature asks (CityMap:drawPastEdges)
--- (and Liar's Landing's frozen sea and the Bragium Pit's rock everywhere,
--- in the map too, the canvas leaving them out: Ground.LIVE):
+-- (and Liar's Landing's frozen sea, the Bragium Pit's rock and Prosperity's
+-- dome and the snow past it everywhere, in the map too, the canvas leaving
+-- them out: Ground.LIVE):
 -- the outside running on round the map, tile by tile, the same as the canvas
 -- draws it inside (render_borderline_ground.lua), so the Wreck's factory
 -- roofs, Liar's Landing's frozen sea, the cliff, the sky never stop.
@@ -82,7 +83,7 @@ function Beyond.draw(map, left, top, right, bottom)
     for r = r0, r1 do
       if beyond(c, r) then
         local ec, er = runsOn(map, c, r)
-        if ec and not Ground.LIVE[map.outside] then -- (Liar's Landing's tunnel goes under the sea: ice past it)
+        if ec and map.outside ~= "harbour" then -- (Liar's Landing's tunnel goes under the sea: ice past it)
           floors[c .. "," .. r] = true
           runOn(map, c, r, ec, er, T)
         end
