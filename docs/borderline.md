@@ -235,7 +235,7 @@ koins and a pickup, and raises `serverKill` with kind "boss".
 | Map | Boss | What it is | The fight |
 | --- | --- | --- | --- |
 | 1 | **Knuckle Scrapper** | A junk hauler that built itself huge out of the train wreck: a scrap pile with arms | Slow, swings (`impact`), throws scrap (`impact`). Junk haulers keep climbing out of the wreck around it. A tutorial boss. |
-| 3 | **Wilbur** (`WLB`, built) | Max's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor; the mine lift stays shut until he is down. Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Max pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar), `wilbur_look.lua`. |
+| 3 | **Wilbur** (`WLB`, built) | Max's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor (gated until the four power terminals are hacked); the mine lift stays shut until the keycard he drops where he falls is picked up. Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Max pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar, the keycard), `wilbur_look.lua`. |
 | 5 | **Smelter** | A squat plasma furnace on four legs, molten Bragium in its belly | All plasma: bolt fans, a plasma mortar that leaves puddles burning for 5 s, and a gush that floods a lane. Vents every few attacks: its belly glows, hits there do double. Fights by the river: the puddles and the river are the danger. |
 | 6 | **Foreman BIG-B055** | The badass hauler that runs the line: 2.2x, gold trim, a hard hat welded on | Every badass move, plus it calls the line: the conveyors start up and carry haulers in. Phase 2 (half health): it rips one cannon off and charges. |
 | 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
@@ -269,7 +269,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | --- | --- | --- | --- |
 | 1 | **The Frozen Wreck** | Wake in the snow by Max's wrecked train. Yappy digs you out. Junk haulers scavenge the wreck. | Knuckle Scrapper |
 | 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hack the four control terminals round the yard, then hold the ferry lift while Yappy hacks it |
-| 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Wilbur |
+| 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Hack the four power terminals to open the pit's floor, take Wilbur down, pick up his keycard for the mine lift |
 | 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
 | 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
@@ -497,6 +497,48 @@ dusk under floodlight towers, like the Wreck. Drawn in
 
 ### 3. The Bragium Pit (`pit`, 60x60, at dusk)
 
+How it's drawn (`render_borderline_mine.lua`, and the ground's in
+`render_borderline_ground.lua`): four levels going down, each a shade
+darker, the gravel rims, the terraces, the bench and the pit's floor
+(Bragium veins and ore lying on it), each worked earth with grit and
+stones, no joints. Every terrace wall has a berm of rocks along its top
+and a rock face dropping inward to the level below (strata, cracks,
+scree at its foot); the pit's outer wall drops the same from the rock
+round it. Haul ramps between the levels go dark as they go down, ruts and
+berms along them; the haul trucks' tracks run round the terraces. The
+crystals are clusters of faceted purple shards glowing on the ground,
+the trucks have treaded tyres, a ribbed bed heaped with ore and a ladder
+up to the cab, the conveyors a steel frame on legs and a belt dusty with
+Bragium, the boulders faceted with snow on them. The pad has Hyperbole's
+logo on it. The ferry's top station is a lift on the south rim, where
+you arrive; the mine lift up to Prosperity one on the north rim. The
+rock round the pit (`Ground.LIVE`, like Liar's Landing's sea) is drawn
+every frame in and past the map alike: paler slabs, strata, cracks,
+stones, boulders, snow lying in the hollows, with no seams.
+
+The two ramps down onto the pit's floor are gated (a lock, `THE PIT'S
+FLOOR`) until four power terminals are hacked (`borderline_pit.lua`'s
+`POSTS`): two on the outer terrace's west and east sides, two on the
+bench's north-west and south-east corners, each guarded by a hauler dock
+(`DCK`), a gun hauler and junk haulers. The last terminal opens the
+gates ("open": Yappy, then Max), and the first one down onto the floor
+brings Wilbur. He carries the mine lift's code: down, he drops his
+keycard where he falls (glowing, bobbing), and the mine lift stays shut
+until somebody picks it up ("keycard"). The objective line and the
+markers go terminals, then the pad, then him, then his keycard, then the
+mine lift. The army: plasma
+haulers on the terraces' corners, gun haulers at the ramps and round the
+terminals, a pair walking the outer terrace and three the bench, a pair
+of stalker haulers going the other way, rocket haulers over the way out,
+shield and medic drones, junk haulers on the floor.
+
+The theme (`theme_pit.lua`): slow, drop-tuned groove metal at 120 BPM in
+C minor. A blast opens it once (the siren, three beeps, the charge going
+off, rubble raining down); then a lurching low-C grind with pick slides,
+a chime of glass bells (the Bragium) over Cm, Ab, Bb, G with pickaxes on
+the offbeats, a wailing lead over a double kick and a rock drill, and a
+half-time stretch of blasts under the siren (~64 s loop).
+
 The mine at work: two tower cranes swing over the floor from its
 corners, two shafts on the inner terrace have headframes over them
 (wheels turning, a cage running up and down: works.lua's `headframes`),
@@ -514,9 +556,10 @@ glow, some burst in plasma when shot).
 - **Arrival:** the south rim.
 - Plasma haulers on the terraces, gun haulers on the ramps.
 - **Wilbur** drops onto the pad in the pit's floor when the first player
-  sets foot on it (the map's `boss`); the mine lift stays shut until he
-  is down. The objective line points at the pad until he comes, then
-  says to take him down.
+  sets foot on it (the map's `boss`), once the power terminals have
+  opened the way down; the mine lift stays shut until the keycard he
+  drops is picked up. The objective line points at the pad until he
+  comes, says to take him down, then points at his keycard.
 - **The end:** the north rim's mine lift. EXIT: "PROSPERITY".
 
 ### 4. Prosperity (`prosperity`, 56x88, at dusk)

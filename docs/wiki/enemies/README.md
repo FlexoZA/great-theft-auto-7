@@ -124,4 +124,4 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 | <img src="img/borderline-arc.png" width="48"> | [Arc hauler](borderline-arc.md) | 80 | Standing watch in the Refinery's tunnels and in Thousand Papercuts |
 | <img src="img/borderline-sen.png" width="48"> | [Sentry](borderline-sen.md) | 90 | Flush in the floor of the Assembly Line, Thousand Papercuts' rock and the Bunker |
 | <img src="img/borderline-dck.png" width="48"> | [Hauler dock](borderline-dck.md) | 300 | The Frozen Wreck: a charging bay at each post, guarding a terminal that opens the tunnel's blast door |
-| <img src="img/borderline-wlb.png" width="48"> | **[Wilbur](borderline-wlb.md)** | 3000 | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine lift stays shut until he is down |
+| <img src="img/borderline-wlb.png" width="48"> | **[Wilbur](borderline-wlb.md)** | 3000 | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor (open once the four power terminals are hacked), and the mine lift stays shut until his keycard is picked up |

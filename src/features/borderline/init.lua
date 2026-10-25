@@ -60,7 +60,7 @@ local function objectives()
   local boss, bx, by = Wilbur.objective(map)
   if boss == "fight" then
     return {} -- his bar says where he is
-  elseif boss == "pad" then
+  elseif boss == "card" or (boss == "pad" and #Terminals.waiting() == 0) then -- (the terminals before the pad)
     return { { x = bx, y = by } }
   end
   return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)

@@ -27,6 +27,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
   lift, the port standing in a frozen sea of broken ice on every side, and a hull in the dry dock with welders sparking on it. Oil drums and
   traffic cones on every Borderline map look like drums and cones now, some knocked over.
+- The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
+  every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
+  veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock
+  with snow drifts all round instead of a pattern.
+- The Bragium Pit has its own theme: slow, heavy groove metal opening on a mine blast, glass-bell chimes for the
+  Bragium, pickaxes, a rock drill and charges going off in the breakdown.
+- The Bragium Pit's floor, where Wilbur lands, is gated until you hack four power terminals round the terraces,
+  each guarded by a hauler dock; Wilbur now carries the mine lift's code and drops his keycard when he goes down:
+  pick it up to open the lift; more of the army holds the pit: a gun squad on the bench, a pair of stalker haulers, two rocket
+  haulers, two medic drones, and gun haulers at the gated ramp.
 - Hyperbole's medic and shield drones are half as big again and easier to hit: hit radius 9 -> 14 px.
 - Liar's Landing's ferry lift is shuttered until you hack four control terminals, one in each corner of the yard,
   each guarded by a hauler dock that keeps building junk haulers, gun haulers and junk. More of Hyperbole's army

@@ -47,7 +47,8 @@
 --                         (round the bunker's roof)
 --   map.grounds           { x0, y0, x1, y1, floor } the finish of each walked patch, world px, a later one
 --                         over an earlier: snow, ice, quay, yard, port (Liar's Landing's slabs), ballast,
---                         gravel, terrace, pitfloor, street, plaza, grate, steel, upper, road, roof
+--                         gravel, terrace, bench, pitfloor (the Pit's levels, rim to floor), street, plaza,
+--                         grate, steel, upper, road, roof
 --   map.zones             { name, x0, y0, x1, y1 } the parts of the map, world px
 --   map.cover             { kind, x, y, w, h, solid, round, flat, tint } world px; solid ones are in the
 --                         solids too (`water` ones, the molten river, stop walking but not rounds or
@@ -63,7 +64,9 @@
 --                         (`water`, like a pit), foot (a gantry's), bollard (`rope` the world y its mooring
 --                         line runs out to), and flat: ship (the freighter in the water), laneline, quayedge,
 --                         craneRail, puddle, stain, lashing, spreader; the Pit's: shaft (`water`), truck (a
---                         haul truck); Prosperity's towers are factories (`stackX`, `stackY` their chimney),
+--                         haul truck), a ledge with `face` (a terrace's wall, its rock face dropping that way:
+--                         "n", "s", "e", "w"), and flat: ramp (`down` the way down), lift (`text` its name);
+--                         Prosperity's towers are factories (`stackX`, `stackY` their chimney),
 --                         and flat: lamp, lot; the Refinery's: casting (`water`, the casting pit), and flat:
 --                         grille (a steam vent); the Bunker's: intake (`water`, round: an engine's)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
@@ -85,7 +88,7 @@
 --   map.stacks            { x, y, phase } smoke rising: factory chimneys (Prosperity), the wrecked train
 --                         (the Wreck; works.lua)
 --   map.tracks            { { x, y }, ... } forklifts' tracks through the snow, world px (the Wreck, and
---                         the straddle carriers' down Liar's Landing's lanes)
+--                         the straddle carriers' down Liar's Landing's lanes, the haul trucks' round the Pit)
 --   map.welders           { x, y, phase } welders at work on the hull in Liar's Landing's dry dock (works.lua)
 --   map.dugout            { x, y } the hollow you were dug out of, at the arrival (the Wreck)
 --   map.overpipes         { x0, x1, y } pipe bridges overhead across a street (Prosperity; works.lua)
@@ -113,6 +116,7 @@
 
 local Borderline = {}
 local Landing = require("src.features.city-map.borderline_landing")
+local Pit = require("src.features.city-map.borderline_pit")
 
 -- The minimap (the minimap feature) --------------------------------------------
 
@@ -270,6 +274,19 @@ function Blockout:scatter(rng, kind, n, size, r0, r1, keep, opts)
       end
       self:put(kind, x, y, s, s, o)
       got = got + 1
+    end
+  end
+end
+
+--- Add the tiles round every post and pack of the army so far to `keep`
+--- (tile rects, as `scatter` takes), so nothing scattered after lands on
+--- one.
+function Blockout:keepArmy(keep)
+  local army = self.map.army
+  for _, list in ipairs({ army.posts, army.packs }) do
+    for _, p in ipairs(list) do
+      local c, r = math.floor((p.x - self.map.x0) / self.T), math.floor((p.y - self.map.y0) / self.T)
+      keep[#keep + 1] = { c - 1, r - 1, c + 1, r + 1 }
     end
   end
 end
@@ -561,140 +578,6 @@ local function buildWreck(map, rng, T)
   b:zone("The Engine", 0, 15)
   b:ends(21, 63, 23, 1)
   wreckage(map, b)
-  b:commit()
-end
-
--- 3. The Bragium Pit -------------------------------------------------------------
-
--- The rings of terraces, by how far in from the map's edge they stand
--- (tiles), and where each ring's ledge is cut for a ramp down.
-Borderline.PIT_RINGS = {
-  { inset = 15, gaps = { "w", "e" } },
-  { inset = 22, gaps = { "s", "n" } },
-}
-
--- The mine shafts on the inner terrace (tiles: c, r, w, h), each with a
--- headframe over it winding its cage up and down (works.lua's `headframes`).
-Borderline.SHAFTS = { { 17, 34, 2.5, 2.5 }, { 40, 23, 2.5, 2.5 } }
-
-local function buildPit(map, rng, T)
-  local b = Blockout.new(map, T)
-  map.outside = "rock"
-  map.cranes, map.beacons, map.headframes, map.conveyors = {}, {}, {}, {}
-  local n = map.cols
-  b:open(8, 8, n - 9, n - 9) -- the pit
-  b:open(20, n - 7, 39, n - 3) -- the south rim, where everyone comes in
-  b:open(20, 2, 39, 6) -- the north rim and the mine lift
-  b:open(28, n - 8, 31, n - 8) -- the ramp down off the south rim
-  b:open(28, 7, 31, 7) -- the ramp up to the north rim
-  b:ground("gravel", 0, 0, n - 1, n - 1)
-  b:ground("terrace", 8, 8, n - 9, n - 9)
-  b:ground("pitfloor", 22, 22, n - 23, n - 23)
-  b:place("ramp", 28, n - 8, 4, 1, { flat = true })
-  b:place("ramp", 28, 7, 4, 1, { flat = true })
-  -- Each ring's ledge: four walls, cut in the middle of a side for its ramps.
-  local thick = 0.4
-  for _, ring in ipairs(Borderline.PIT_RINGS) do
-    local d = ring.inset
-    local cut = {}
-    for _, g in ipairs(ring.gaps) do
-      cut[g] = true
-    end
-    local lo, hi, mid0, mid1 = d, n - d, n / 2 - 2, n / 2 + 2
-    local sides = {
-      n = { lo, lo, hi - lo, thick, true },
-      s = { lo, hi - thick, hi - lo, thick, true },
-      w = { lo, lo, thick, hi - lo, false },
-      e = { hi - thick, lo, thick, hi - lo, false },
-    }
-    for name, s in pairs(sides) do
-      if cut[name] then
-        if s[5] then -- along the top or bottom: the cut is a gap across it
-          b:place("ledge", s[1], s[2], mid0 - s[1], s[4])
-          b:place("ledge", mid1, s[2], s[1] + s[3] - mid1, s[4])
-          b:place("ramp", mid0, s[2] - 0.3, 4, 1, { flat = true })
-        else
-          b:place("ledge", s[1], s[2], s[3], mid0 - s[2])
-          b:place("ledge", s[1], mid1, s[3], s[2] + s[4] - mid1)
-          b:place("ramp", s[1] - 0.3, mid0, 1, 4, { flat = true })
-        end
-      else
-        b:place("ledge", s[1], s[2], s[3], s[4])
-      end
-    end
-  end
-  b:place("pad", 26, 26, 8, 8, { flat = true, round = true })
-  b:place("paint", 22.5, n - 24.4, n - 45, 0.8, { flat = true, text = "BLAST ZONE  STAND CLEAR" })
-  -- The haul road's painted edge round the outer terrace.
-  b:place("laneline", 8.6, 8.6, n - 17.2, 0.12, { flat = true })
-  b:place("laneline", 8.6, n - 8.72, n - 17.2, 0.12, { flat = true })
-  b:place("laneline", 8.6, 8.6, 0.12, n - 17.2, { flat = true })
-  b:place("laneline", n - 8.72, 8.6, 0.12, n - 17.2, { flat = true })
-  -- Conveyors along the outer terraces carrying the ore up (it moves: works.lua).
-  for _, c in ipairs({ { 10, 17, 0.8, 26, "n" }, { n - 11, 17, 0.8, 26, "n" }, { 17, 10, 26, 0.8, "e" } }) do
-    b:place("conveyor", c[1], c[2], c[3], c[4])
-    map.conveyors[#map.conveyors + 1] = { x = b:x(c[1]), y = b:y(c[2]), w = c[3] * T, h = c[4] * T, dir = c[5] }
-  end
-  -- Two tower cranes over the pit's floor, from its corners.
-  local floor = { 22, 22, n - 44, n - 44 }
-  crane(map, b, floor, "nw", { 27, 27 })
-  crane(map, b, floor, "se", { n - 27, n - 27 })
-  -- The shafts, fenced, a headframe over each.
-  for _, sh in ipairs(Borderline.SHAFTS) do
-    b:place("shaft", sh[1], sh[2], sh[3], sh[4], { water = true })
-    map.headframes[#map.headframes + 1] = { x = b:x(sh[1] + sh[3] / 2), y = b:y(sh[2] + sh[4] / 2),
-      phase = #map.headframes * 2.3 }
-    map.beacons[#map.beacons + 1] = { x = b:x(sh[1]), y = b:y(sh[2]), color = "red" }
-    map.beacons[#map.beacons + 1] = { x = b:x(sh[1] + sh[3]), y = b:y(sh[2] + sh[4]), color = "red" }
-  end
-  -- Haul trucks parked on the terraces and the rim.
-  b:place("truck", 14, n - 10.8, 3.2, 1.6, { seed = rng:random(1000) })
-  b:place("truck", 34, 3, 3.2, 1.6, { seed = rng:random(1000) })
-  b:place("truck", n - 14.2, 13, 1.6, 3.2, { seed = rng:random(1000) })
-  -- Beacons at the top of each ramp, floodlights round the rims and corners.
-  for _, at in ipairs({ { 27.5, n - 8 }, { 32.5, n - 8 }, { 27.5, 8 }, { 32.5, 8 } }) do
-    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
-  end
-  for _, at in ipairs({ { 21, 3 }, { 38, 3 }, { 21, n - 4 }, { 38, n - 4 }, { 9, 9 }, { n - 10, 9 }, { 9, n - 10 },
-    { n - 10, n - 10 } }) do
-    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
-    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 440,
-      color = { 1, 0.92, 0.75 }, a = 0.75 }
-  end
-  local keep = { { 26, 26, 33, 33 }, { 26, n - 9, 33, n - 3 }, { 26, 2, 33, 9 }, { 13, 28, 24, 31 },
-    { n - 25, 28, n - 13, 31 }, { 28, 20, 31, 24 }, { 28, n - 25, 31, n - 21 } }
-  b:scatter(rng, "crystal", 30, 56, 9, n - 10, keep)
-  b:scatter(rng, "rock", 10, 64, 9, n - 10, keep)
-  b:scatter(rng, "drum", 10, 40, 9, n - 10, keep)
-  b:scatter(rng, "cone", 18, 22, 9, n - 10, keep, { flat = true })
-  for _, c in ipairs(map.cover) do -- the Bragium glows in the dusk
-    if c.kind == "crystal" then
-      map.lights[#map.lights + 1] = { x = c.x + c.w / 2, y = c.y + c.h / 2, r = 130, color = { 0.75, 0.35, 1 },
-        a = 0.6 }
-    end
-  end
-  -- Plasma haulers on the terraces' corners, gun haulers at the ramps and
-  -- walking the outer terrace, junk haulers on the floor (Wilbur lands
-  -- there later).
-  for _, at in ipairs({ { 11, 11 }, { n - 12, 11 }, { 11, n - 12 }, { n - 12, n - 12 }, { 41, 18 }, { 18, 41 } }) do
-    b:post("PLZ", at[1], at[2])
-  end
-  b:post("GUN", 13, n / 2, 0) -- either side of the first ring's ramps, watching across
-  b:post("GUN", n - 13, n / 2, math.pi)
-  b:post("GUN", 18, 18)
-  b:post("GUN", 41, 41)
-  b:squad({ "GUN", "GUN" }, { { 11.5, 11.5 }, { n - 12, 11.5 }, { n - 12, n - 12 }, { 11.5, n - 12 } })
-  b:pack("JNK", n / 2, n / 2, 4)
-  b:post("SHD", 40, 20) -- shield drones by the inner plasma haulers
-  b:post("SHD", 20, 40)
-  -- Wilbur comes down onto the pad when somebody first sets foot on the
-  -- pit's floor; the mine lift stays shut until he is down.
-  map.boss = { kind = "wilbur", x = b:x(30), y = b:y(30),
-    wake = { x0 = b:x(22), y0 = b:y(22), x1 = b:x(n - 22), y1 = b:y(n - 22) } }
-  b:zone("The Rim", n - 8, n - 1)
-  b:zone("The Pit", 8, n - 9)
-  b:zone("The Mine Lift", 0, 7)
-  b:ends(27, n - 6, 29, 3)
   b:commit()
 end
 
@@ -1240,7 +1123,9 @@ Borderline.builders = {
   landing = function(map, rng, T)
     Landing.build(map, rng, Blockout.new(map, T), crane)
   end,
-  pit = buildPit,
+  pit = function(map, rng, T)
+    Pit.build(map, rng, Blockout.new(map, T), crane)
+  end,
   prosperity = buildProsperity,
   refinery = buildRefinery,
   assembly = buildAssembly,

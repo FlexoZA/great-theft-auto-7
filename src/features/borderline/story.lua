@@ -79,6 +79,13 @@ Story.beats = {
     { "yappy", "The Bragium Pit. All that purple powers his robots. His friends call him MMM. He doesn't have "
       .. "friends. He has robots." },
     { "max", "Welcome to the Pit! I dug it so deep the core sends me postcards." },
+    { "yappy", "The pit's floor is gated off. Four power terminals round the terraces: hack them all to get down "
+      .. "there. Wilbur has the mine lift's code. Probably. He has everything." },
+  },
+  ["pit.open"] = {
+    { "yappy", "Power's on! The gates to the floor are open. Something big's waiting down there. It's Wilbur. "
+      .. "It's always Wilbur." },
+    { "max", "You opened the floor? Fantastic! Wilbur's been waiting all day. TO THE MAX!" },
   },
   ["pit.fight"] = { { "yappy", "Purple bolts! They melt armour! Duck! I'm ducking! I'm very good at ducking!" } },
   ["pit.The Pit"] = { { "yappy", "Down the ramps, round the rings, up the other side. Easy. For you." } },
@@ -90,8 +97,12 @@ Story.beats = {
   },
   ["pit.upgrade"] = { { "max", "Wilbur, you're doing great. Let's go bigger. Upgrade authorised. TO THE MAX!" } },
   ["pit.wilbur-down"] = {
-    { "yappy", "Wilbur's down! The mine lift's open. I'll put him on gardening leave." },
+    { "yappy", "Wilbur's down! He dropped something. His keycard! That's the mine lift's code. Grab it, minion!" },
     { "max", "What a fight! Wilbur gave it everything. The next one gets twice the everything." },
+  },
+  ["pit.keycard"] = {
+    { "yappy", "Got it! The mine lift's open. I'll put Wilbur on gardening leave." },
+    { "max", "Keep the card, bandit. Consider it a promotion. TO THE MAX!" },
   },
   ["pit.end"] = { { "max", "Coming up to my city? Excellent! Everybody should see it. Bring friends!" } },
 
@@ -194,6 +205,7 @@ Story.chatter = {
 Story.hack = {
   wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
   landing = "Objective: hack the ferry's control terminals round the yard (%d left)",
+  pit = "Objective: hack the power terminals round the terraces to open the pit's floor (%d left)",
 }
 
 -- The objective line and the HUD bar while the way on waits for a hold
@@ -209,11 +221,13 @@ Story.hold = {
 }
 
 -- The objective line while the way on waits for the level's boss, by map:
--- before it comes (pointing where it will), and while it is up.
+-- before it comes (pointing where it will), while it is up, and while
+-- what it dropped waits to be picked up (`card`).
 Story.boss = {
   pit = {
     before = "Objective: get down to the pad on the pit's floor",
     during = "Objective: take Wilbur down (shoot his drones first)",
+    card = "Objective: pick up Wilbur's keycard, the mine lift's code",
   },
 }
 
@@ -225,6 +239,10 @@ Story.boss = {
 --- Returns the text and where it points (x, y in world px).
 function Story.objective(name, map, state)
   local done, waiting, nearest = state.done, state.waiting, state.nearest
+  local boss = Story.boss[name]
+  if not done and boss and state.boss == "fight" then -- the boss first, while it is up
+    return boss.during
+  end
   if not done and (waiting or 0) > 0 and nearest then
     return (Story.hack[name] or "Objective: hack the terminals (%d left)"):format(waiting), nearest.x, nearest.y
   end
@@ -238,11 +256,8 @@ function Story.objective(name, map, state)
     end
     return hold.paused, hx, hy
   end
-  local boss = Story.boss[name]
-  if not done and boss and state.boss == "pad" then
-    return boss.before, state.bossX, state.bossY
-  elseif not done and boss and state.boss == "fight" then
-    return boss.during
+  if not done and boss and (state.boss == "pad" or state.boss == "card") then
+    return state.boss == "card" and boss.card or boss.before, state.bossX, state.bossY
   end
   if done then
     if name == "bunker" then

@@ -114,4 +114,32 @@ function Kit.mixdown(band, total, desk)
   return master:toSoundData(0.9)
 end
 
+--- Plays `tune` (a bar of { note|false, units }) from `t`, a unit `unit`
+--- seconds, through `voice(t, dur, note)`.
+function Kit.play(tune, t, unit, voice)
+  for _, n in ipairs(tune) do
+    if n[1] then
+      voice(t, n[2] * unit, n[1])
+    end
+    t = t + n[2] * unit
+  end
+end
+
+--- Renders `sections` ({ bars, kind } each) at `bar` seconds a bar: a band
+--- (Kit.band, with `extras`), each bar of each section played into it by
+--- `play[kind](band, t, b, section)`, then mixed down at `desk`. Returns a
+--- SoundData.
+function Kit.render(sections, bar, extras, play, desk)
+  local total = Kit.duration(sections, bar)
+  local band = Kit.band(total, extras)
+  local t = 0
+  for _, s in ipairs(sections) do
+    for b = 1, s.bars do
+      play[s.kind](band, t, b, s)
+      t = t + bar
+    end
+  end
+  return Kit.mixdown(band, total, desk)
+end
+
 return Kit

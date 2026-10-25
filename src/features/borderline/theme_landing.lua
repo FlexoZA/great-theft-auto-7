@@ -202,12 +202,7 @@ end
 
 --- Plays `tune` (a bar of { note|false, eighths }) from `t` through `voice(t, dur, note)`.
 local function play(tune, t, voice)
-  for _, n in ipairs(tune) do
-    if n[1] then
-      voice(t, n[2] * 2 * STEP, n[1])
-    end
-    t = t + n[2] * 2 * STEP
-  end
+  Kit.play(tune, t, 2 * STEP, voice)
 end
 
 -- Bar `b` of section `s` from `t`, by the section's kind, into `band`.
@@ -299,29 +294,23 @@ function PLAY.cranes(band, t, b, s) -- the winches, the chains, the boxes coming
   end
 end
 
---- Renders `sections`. Returns a SoundData.
+-- The desk: each part's level, drive and filters.
+local DESK = {
+  { "rhythm", 0.42, drive = 11, lowpass = 3000 },
+  { "chug", 0.55, drive = 12, lowpass = 1500 },
+  { "bass", 0.45, drive = 3, lowpass = 450 },
+  { "sub", 0.45, drive = 2.5, lowpass = 700 },
+  { "lead", 0.34, drive = 4, lowpass = 4200 },
+  { "box", 0.5, drive = 1.5, lowpass = 3500 },
+  { "drums", 0.8, drive = 1.6, highpass = 30 },
+  { "verb", 0.25, lowpass = 1300 },
+  { "metal", 0.5, highpass = 150 },
+  { "horn", 0.7, drive = 1.8, lowpass = 900 },
+}
+
+--- Renders `sections`, with the squeezebox, the foghorn and the winches. Returns a SoundData.
 local function render(sections)
-  local total = Kit.duration(sections, BAR)
-  local band = Kit.band(total, { "box", "horn" }) -- and the squeezebox, the foghorn and the winches
-  local t = 0
-  for _, s in ipairs(sections) do
-    for b = 1, s.bars do
-      PLAY[s.kind](band, t, b, s)
-      t = t + BAR
-    end
-  end
-  return Kit.mixdown(band, total, {
-    { "rhythm", 0.42, drive = 11, lowpass = 3000 },
-    { "chug", 0.55, drive = 12, lowpass = 1500 },
-    { "bass", 0.45, drive = 3, lowpass = 450 },
-    { "sub", 0.45, drive = 2.5, lowpass = 700 },
-    { "lead", 0.34, drive = 4, lowpass = 4200 },
-    { "box", 0.5, drive = 1.5, lowpass = 3500 },
-    { "drums", 0.8, drive = 1.6, highpass = 30 },
-    { "verb", 0.25, lowpass = 1300 },
-    { "metal", 0.5, highpass = 150 },
-    { "horn", 0.7, drive = 1.8, lowpass = 900 },
-  })
+  return Kit.render(sections, BAR, { "box", "horn" }, PLAY, DESK)
 end
 
 --- The loop (stomp, shanty, chorus, cranes, stomp), ~38 s. Returns a SoundData.

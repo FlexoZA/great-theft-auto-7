@@ -8,18 +8,22 @@
 -- out of the sky onto (x, y), the pad; a red ring shows where for `DROP`
 -- seconds, then he lands, and whoever is in the ring is thrown flat. His
 -- health is a boss's (Bosses.health: more humans, more; tougher on a job
--- done before). The mine lift stays shut (`serverLocked`) until he is down.
+-- done before). He carries the mine lift's code: down, he drops his keycard
+-- where he falls, and the mine lift stays shut (`serverLocked`) until a
+-- player walks over it and picks it up.
 --
 -- Every screen: the drop's ring and him falling into it, the ring where a
 -- leap of his comes down, the shockwave of each slam, his plates glowing
--- once Max's upgrade is in, and the boss bar.
+-- once Max's upgrade is in, the boss bar, and his keycard lying where he
+-- fell, glowing, until it is picked up.
 --
 -- Messages
 --   server -> all  WLB_DROP <x> <y> <radius> <seconds>   he is coming down there
 --   server -> all  WLB_LEAP <x> <y> <radius> <seconds>   a leap of his comes down there
 --   server -> all  WLB_SLAM <x> <y> <radius>             he came down there
 --   server -> all  WLB_UP                                Max's upgrade is in (to a joiner too)
---   server -> all  WLB_DOWN                              he is down: the mine lift opens (to a joiner too)
+--   server -> all  WLB_CARD <x> <y>                      he is down: his keycard lies there (to a joiner too)
+--   server -> all  WLB_DOWN                              his keycard is picked up, the mine lift open (to a joiner too)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -39,6 +43,7 @@ Wilbur.DROP_HIT = 130 -- px: whoever he lands this near...
 Wilbur.DROP_DAMAGE = 30 -- ...takes this (impact)...
 Wilbur.DROP_SHOVE = 240 -- ...and goes flying
 Wilbur.FALL = 520 -- px up he is drawn as he starts to fall
+Wilbur.CARD_REACH = 60 -- px from his keycard that picks it up
 
 local RED = { 1, 0.2, 0.12 }
 local TITLE = { 0.95, 0.76, 0.19 }
@@ -51,7 +56,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { spec, phase = "waiting" | "dropping" | "up" | "down", dropIn, s, upgraded }
+local sv = nil -- { spec, phase = "waiting" | "dropping" | "up" | "card" | "down", dropIn, s, upgraded, card }
 
 --- A level starts on `map`: Wilbur waiting, if it has him.
 function Wilbur.serverStart(map)
@@ -110,7 +115,7 @@ local function tell(server, s, beat)
 end
 
 --- `beat(what)` raises a story beat: "wilbur" as he comes, "upgrade",
---- "wilbur-down".
+--- "wilbur-down", "keycard" when his card is picked up.
 function Wilbur.serverStep(server, dt, beat)
   if not sv then
     return
@@ -130,9 +135,21 @@ function Wilbur.serverStep(server, dt, beat)
   elseif sv.phase == "up" then
     tell(server, sv.s, beat)
     if sv.s.dead then
-      sv.phase = "down"
-      server:broadcast(Protocol.encode("WLB_DOWN"))
+      sv.phase, sv.card = "card", { x = sv.s.x, y = sv.s.y }
+      server:broadcast(Protocol.encode("WLB_CARD", fmt(sv.card.x), fmt(sv.card.y)))
       beat("wilbur-down")
+    end
+  elseif sv.phase == "card" then
+    for _, p in pairs(server.players) do
+      if not p.bot and Features.present(p) then
+        local x, y = Features.bodyPose(server, p)
+        if (x - sv.card.x) ^ 2 + (y - sv.card.y) ^ 2 <= Wilbur.CARD_REACH ^ 2 then
+          sv.phase = "down"
+          server:broadcast(Protocol.encode("WLB_DOWN"))
+          beat("keycard")
+          break
+        end
+      end
     end
   end
 end
@@ -141,7 +158,9 @@ function Wilbur.serverPlayerJoined(server, player)
   if sv and sv.upgraded then
     server:send(player, Protocol.encode("WLB_UP"))
   end
-  if sv and sv.phase == "down" then
+  if sv and sv.phase == "card" then
+    server:send(player, Protocol.encode("WLB_CARD", fmt(sv.card.x), fmt(sv.card.y)))
+  elseif sv and sv.phase == "down" then
     server:send(player, Protocol.encode("WLB_DOWN"))
   end
 end
@@ -169,8 +188,8 @@ function Wilbur.wikiEnemies(add)
     name = "Wilbur",
     quests = { "borderline-pit" },
     boss = true,
-    where = "The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine "
-      .. "lift stays shut until he is down",
+    where = "The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor (open once "
+      .. "the four power terminals are hacked), and the mine lift stays shut until his keycard is picked up",
     about = "Maximum Maximilian Max's cyborg enforcer, more machine than man: a rotary gun for a right arm, a "
       .. "steel fist for a left, a rocket pod on his shoulder, and drones out of his back that keep him going.",
     stats = {
@@ -212,7 +231,7 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local cl = { falling = nil, rings = {}, waves = {}, started = false, down = false }
+local cl = { falling = nil, rings = {}, waves = {}, started = false, down = false, card = nil }
 local clock = 0
 local bank = {}
 
@@ -260,7 +279,7 @@ local function play(name, x, y)
 end
 
 function Wilbur.clear()
-  cl = { falling = nil, rings = {}, waves = {}, started = false, down = false }
+  cl = { falling = nil, rings = {}, waves = {}, started = false, down = false, card = nil }
   Look.upgraded = false
 end
 
@@ -288,12 +307,16 @@ function Wilbur.update(dt)
 end
 
 --- What the objective line should be after on `map` now: "pad" (get down
---- to where he'll come) and where, "fight" while he is coming or up, or
---- nil (no Wilbur here, or he is down).
+--- to where he'll come) and where, "fight" while he is coming or up,
+--- "card" (his keycard to pick up) and where, or nil (no Wilbur here, or
+--- his card is picked up).
 function Wilbur.objective(map)
   local spec = map and map.boss
   if not (spec and spec.kind == "wilbur") or cl.down then
     return nil
+  end
+  if cl.card then
+    return "card", cl.card.x, cl.card.y
   end
   if cl.started or Army.shownOf("WLB") then
     return "fight"
@@ -327,8 +350,41 @@ function Wilbur.drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
---- Him coming down out of the sky onto the pad, over everyone.
+--- His keycard lying where he fell: Hyperbole yellow, a magnetic stripe and
+--- an H on it, bobbing, a light round it pulsing to catch the eye.
+local function drawCard(c)
+  local bob = math.sin(clock * 3) * 3
+  local k = 0.5 + 0.5 * math.sin(clock * 4)
+  love.graphics.setColor(TITLE[1], TITLE[2], TITLE[3], 0.15 + 0.2 * k)
+  love.graphics.circle("fill", c.x, c.y, 34 + 8 * k, 28)
+  love.graphics.setColor(TITLE[1], TITLE[2], TITLE[3], 0.6 + 0.3 * k)
+  love.graphics.setLineWidth(2)
+  love.graphics.circle("line", c.x, c.y, 30 + 10 * k, 28)
+  love.graphics.setLineWidth(1)
+  love.graphics.push()
+  love.graphics.translate(c.x, c.y + bob)
+  love.graphics.rotate(math.sin(clock * 1.3) * 0.25)
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", -12, -6 + 10 - bob, 26, 18, 3)
+  love.graphics.setColor(0.07, 0.07, 0.09)
+  love.graphics.rectangle("fill", -15, -10, 30, 20, 4)
+  love.graphics.setColor(TITLE)
+  love.graphics.rectangle("fill", -13, -8, 26, 16, 3)
+  love.graphics.setColor(0.07, 0.07, 0.09)
+  love.graphics.rectangle("fill", -13, -4, 26, 4) -- the stripe
+  love.graphics.rectangle("fill", 2, 2, 2, 5) -- the H
+  love.graphics.rectangle("fill", 8, 2, 2, 5)
+  love.graphics.rectangle("fill", 4, 4, 4, 1)
+  love.graphics.pop()
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- Him coming down out of the sky onto the pad, over everyone; his keycard
+--- once he is down.
 function Wilbur.drawAboveCars()
+  if cl.card then
+    drawCard(cl.card)
+  end
   local f = cl.falling
   if not f then
     return
@@ -379,8 +435,14 @@ Wilbur.clientMessages = {
       play("upgrade")
     end
   end,
+  WLB_CARD = function(_client, args)
+    local x, y = tonumber(args[1]), tonumber(args[2])
+    if x and y then
+      cl.card, cl.started = { x = x, y = y }, true
+    end
+  end,
   WLB_DOWN = function()
-    cl.down, cl.started = true, true
+    cl.down, cl.started, cl.card = true, true, nil
   end,
 }
 

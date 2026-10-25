@@ -13,6 +13,7 @@ local RenderBorderline = {}
 local Kit = require("src.features.city-map.render_borderline_kit")
 local Ground = require("src.features.city-map.render_borderline_ground")
 local Port = require("src.features.city-map.render_borderline_port")
+local Mine = require("src.features.city-map.render_borderline_mine")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -21,8 +22,10 @@ local box, blob, hazard, signFont = Kit.box, Kit.blob, Kit.hazard, Kit.signFont
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for kind, fn in pairs(Port.DRAW) do
-  DRAW[kind] = fn
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW }) do
+  for kind, fn in pairs(kit) do
+    DRAW[kind] = fn
+  end
 end
 
 function DRAW.rails(s)
@@ -289,13 +292,6 @@ function DRAW.chest(s)
   love.graphics.rectangle("fill", s.x, s.y + s.h * 0.35, s.w, s.h * 0.15)
 end
 
-function DRAW.rock(s)
-  blob(s.x, s.y, s.w, s.h * 0.85, C.rockLight)
-  color(C.snow) -- snow on top
-  love.graphics.ellipse("fill", s.x + s.w * 0.45, s.y + s.h * 0.3, s.w * 0.3, s.h * 0.16)
-end
-DRAW.boulder = DRAW.rock
-
 function DRAW.crane(s)
   box(s.x, s.y, s.w, s.h, C.yellow)
   color(INK)
@@ -313,105 +309,6 @@ function DRAW.door(s)
 end
 DRAW.bay = DRAW.door
 DRAW.hatch = DRAW.door
-
-function DRAW.ledge(s)
-  box(s.x, s.y, s.w, s.h, C.rock)
-end
-
-function DRAW.ramp(s)
-  color(C.gravel)
-  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  color(INK, 0.25)
-  local along = s.w >= s.h
-  for a = 0, (along and s.h or s.w), 14 do
-    if along then
-      love.graphics.rectangle("fill", s.x, s.y + a, s.w, 3)
-    else
-      love.graphics.rectangle("fill", s.x + a, s.y, 3, s.h)
-    end
-  end
-end
-
---- A conveyor's belt and rollers (the ore riding it moves: borderline/works.lua).
-function DRAW.conveyor(s)
-  box(s.x, s.y, s.w, s.h, C.gunmetal)
-  color(C.gunmetalLight)
-  local along = s.w >= s.h
-  for a = 8, (along and s.w or s.h) - 8, 24 do
-    if along then
-      love.graphics.rectangle("fill", s.x + a, s.y + 3, 4, s.h - 6)
-    else
-      love.graphics.rectangle("fill", s.x + 3, s.y + a, s.w - 6, 4)
-    end
-  end
-end
-
---- A mine shaft: a square of black going straight down, a grating over
---- part of it, hazard striped round its collar (the headframe over it is
---- works.lua's).
-function DRAW.shaft(s)
-  box(s.x, s.y, s.w, s.h, C.gunmetal)
-  color(INK)
-  love.graphics.rectangle("fill", s.x + 16, s.y + 16, s.w - 32, s.h - 32)
-  color(C.gunmetalLight)
-  for x = s.x + 16, s.x + s.w * 0.45, 10 do -- the grating over the near half
-    love.graphics.rectangle("fill", x, s.y + 16, 3, s.h - 32)
-  end
-  hazard(s.x, s.y, s.w, 10)
-  hazard(s.x, s.y + s.h - 10, s.w, 10)
-  hazard(s.x, s.y, 10, s.h)
-  hazard(s.x + s.w - 10, s.y, 10, s.h)
-end
-
---- A haul truck, parked: a yellow bed full of purple ore, the cab to one
---- side up front, big black wheels.
-function DRAW.truck(s)
-  local along = s.w >= s.h
-  color(INK)
-  for _, k in ipairs({ 0.15, 0.85 }) do -- the wheels
-    if along then
-      love.graphics.rectangle("fill", s.x + s.w * k - 22, s.y - 8, 44, s.h + 16, 6)
-    else
-      love.graphics.rectangle("fill", s.x - 8, s.y + s.h * k - 22, s.w + 16, 44, 6)
-    end
-  end
-  box(s.x, s.y, s.w, s.h, C.yellow)
-  local bx, by, bw, bh = s.x + 10, s.y + 10, s.w - 20, s.h - 20 -- the bed
-  if along then
-    bw = bw * 0.7
-  else
-    by, bh = by + bh * 0.3, bh * 0.7
-  end
-  box(bx, by, bw, bh, C.yellowDark)
-  color(C.purple)
-  for i = 0, 5 do
-    local h = hash((s.seed or 1) + i)
-    love.graphics.circle("fill", bx + bw * (0.15 + 0.7 * h), by + bh * (0.2 + 0.6 * hash(h + i)), 10 + h * 8, 6)
-  end
-  local cx, cy = along and s.x + s.w - 44 or s.x + 10, along and s.y + 10 or s.y + 10 -- the cab
-  box(cx, cy, 34, 30, C.gunmetal)
-  color(C.window)
-  love.graphics.rectangle("fill", cx + 6, cy + 6, 22, 10)
-end
-
-function DRAW.crystal(s)
-  blob(s.x, s.y, s.w, s.h, C.purple)
-  color(C.purpleLight)
-  love.graphics.polygon("fill", s.x + s.w * 0.3, s.y + s.h * 0.6, s.x + s.w * 0.45, s.y + s.h * 0.15,
-    s.x + s.w * 0.6, s.y + s.h * 0.6)
-end
-
-function DRAW.pad(s)
-  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
-  color(INK)
-  love.graphics.circle("fill", cx, cy, r + LINE, 40)
-  for i = 0, 15 do
-    color(i % 2 == 0 and C.yellow or INK)
-    love.graphics.arc("fill", cx, cy, r, i * math.pi / 8, (i + 1) * math.pi / 8)
-  end
-  color(C.steel)
-  love.graphics.circle("fill", cx, cy, r * 0.8, 40)
-end
 
 --- A factory block in Max's town: a corrugated roof, rows of sawtooth
 --- skylights, Hyperbole yellow round the edge, plant on the roof, and its

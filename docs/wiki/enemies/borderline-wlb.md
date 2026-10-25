@@ -10,7 +10,7 @@ Maximum Maximilian Max's cyborg enforcer, more machine than man: a rotary gun fo
 
 | | |
 |---|---|
-| **Where** | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor, and the mine lift stays shut until he is down |
+| **Where** | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor (open once the four power terminals are hacked), and the mine lift stays shut until his keycard is picked up |
 | **Rank** | Boss |
 | **Health** | 3000 |
 | **Speed** | 95 px/s, 125 upgraded, 45 winded |

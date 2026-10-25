@@ -448,10 +448,10 @@ function DRAW.foot(s)
   love.graphics.circle("fill", cx, cy, s.w * 0.14, 8)
 end
 
---- The ferry lift: a steel deck in tread plate, hazard bands at both ends,
---- railings down its sides, the hinges along its north end where it meets
---- the ferry, chevrons painted pointing out to it, and a control pedestal
---- in one corner.
+--- A lift (Liar's Landing's ferry lift, the Bragium Pit's): a steel deck in
+--- tread plate, hazard bands at both ends, railings down its sides, the
+--- hinges along its north end, chevrons painted pointing north and its
+--- name (`text`, FERRY if not given), a control pedestal in one corner.
 function DRAW.lift(s)
   box(s.x, s.y, s.w, s.h, C.steel)
   color(INK, 0.18) -- the tread plate
@@ -492,7 +492,7 @@ function DRAW.lift(s)
   end
   love.graphics.setFont(signFont())
   color(C.paintWhite, 0.8)
-  love.graphics.printf("FERRY", s.x, s.y + s.h - 50, s.w, "center")
+  love.graphics.printf(s.text or "FERRY", s.x, s.y + s.h - 50, s.w, "center")
   box(s.x + s.w - 54, s.y + s.h - 62, 30, 24, C.gunmetal) -- the pedestal
   color(C.green)
   love.graphics.circle("fill", s.x + s.w - 46, s.y + s.h - 50, 4, 8)
