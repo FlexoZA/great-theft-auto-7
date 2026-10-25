@@ -359,7 +359,15 @@ its set piece is done; the objective line says what's left.
   opens it once; then a galloping low-E chug over a thrash beat, a
   tremolo riff in E Phrygian dominant with anvils on the backbeat, a
   chorus of open chords under a twangy slide lead, and a half-time
-  breakdown where rails clang and the wheels clack (~46 s loop).
+  breakdown where rails clang and the wheels clack (~46 s loop). Liar's
+  Landing's (`theme_landing.lua`): shanty metal in 6/8, 100 dotted
+  crotchets in D minor. The ice creaking, a bell buoy and the foghorn open
+  it once, then a gantry's winch and a container slammed down; then a
+  rolling low-D stomp, a sailors' tune on a squeezebox over Dm, C, Bb, A,
+  a chorus with the tune up an octave on a lead guitar in thirds over
+  driving drums, and a half-time stretch of winches, chains and slamming
+  containers with the foghorn over it (~38 s loop). The voices they share
+  are `theme_kit.lua`'s.
 
 ### 1. The Frozen Wreck (`wreck`, 48x72, at dusk)
 

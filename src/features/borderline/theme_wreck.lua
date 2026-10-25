@@ -15,17 +15,14 @@
 -- top. 168 BPM in E minor: the rails ~3 s once (`renderIntro`), then the
 -- loop ~46 s (`render`).
 
-local Synth = require("src.audio.synth")
+local Kit = require("src.features.borderline.theme_kit")
 
 local Theme = {}
 
 local BPM = 168
 local SIXTEENTH = 60 / BPM / 4
 local BAR = SIXTEENTH * 16
-
-local function freq(note, semis)
-  return Synth.midiFreq(Synth.midi(note) + (semis or 0))
-end
+local freq, clang = Kit.freq, Kit.clang
 
 -- The gallop: a bar of sixteenths, `x` a chug on the low E, `o` the next of
 -- the bar's `ring` notes rung out, `-` silence.
@@ -75,38 +72,6 @@ local SECTIONS = {
 }
 
 -- Voices ------------------------------------------------------------------------
-
---- A power chord on `root` (root, fifth, octave), detuned wide, with the
---- low string an octave under it. Muted: a short thump; open: rung out.
-local function powerChord(buf, t, dur, root, muted)
-  local f = freq(root)
-  local o = muted and { amp = 0.38, decay = 0.045, sustain = 0 } or { amp = 0.26, decay = 0.9, sustain = 0.6 }
-  o.wave = "saw"
-  for _, d in ipairs({ -14, 14 }) do
-    o.detune = d
-    buf:tone(t, dur, f, o)
-    buf:tone(t, dur, f * 1.5, o)
-  end
-  o.detune = 0
-  o.amp = o.amp * 0.7
-  buf:tone(t, dur, f / 2, o)
-  o.amp = o.amp * 0.5
-  buf:tone(t, dur, f * 2, o)
-end
-
-local function bassNote(buf, t, dur, root, muted)
-  buf:tone(t, dur, freq(root) / 2, { wave = "square", amp = 0.5, decay = muted and 0.08 or 0.6,
-    sustain = muted and 0 or 0.6 })
-end
-
---- Struck metal: partials that don't line up (an anvil, a rail, a girder),
---- ringing on after the hit. `f` the lowest, `ring` how long it sings.
-local function clang(buf, t, f, amp, ring)
-  for i, k in ipairs({ 1, 2.32, 4.25, 6.63, 9.1 }) do
-    buf:tone(t, ring, f * k, { wave = "sine", amp = amp / i, attack = 0.001, decay = ring / (i * 0.8), sustain = 0 })
-  end
-  buf:noiseBurst(t, 0.02, { amp = amp * 0.6, decay = 0.006 })
-end
 
 --- A wheel over a rail joint: a click and a short metal knock.
 local function clack(buf, t, amp)
@@ -189,40 +154,17 @@ end
 
 -- Render ----------------------------------------------------------------------
 
-local function duration(sections)
-  local bars = 0
-  for _, s in ipairs(sections) do
-    bars = bars + s.bars
-  end
-  return bars * BAR
-end
-
 --- The loop's length, seconds.
 function Theme.duration()
-  return duration(SECTIONS)
+  return Kit.duration(SECTIONS, BAR)
 end
 
 --- Renders `sections`. Returns a SoundData.
 local function render(sections)
-  local total = duration(sections)
-  local rhythm = Synth.newBuffer(total + 1) -- open chords
-  local chug = Synth.newBuffer(total + 1) -- palm-muted, darker
-  local bass = Synth.newBuffer(total + 1)
-  local sub = Synth.newBuffer(total + 1)
-  local lead = Synth.newBuffer(total + 1)
-  local drums = Synth.newBuffer(total + 1)
-  local verb = Synth.newBuffer(total + 1) -- the snare's room
-  local metal = Synth.newBuffer(total + 1) -- anvils, rails, wheels: never driven
-  local reeds = Synth.newBuffer(total + 1) -- the horn
-
-  local function mute(ti, len, note)
-    powerChord(chug, ti, len, note, true)
-    bassNote(bass, ti, len, note, true)
-  end
-  local function ring(ti, len, note)
-    powerChord(rhythm, ti, len, note, false)
-    bassNote(bass, ti, len, note, false)
-  end
+  local total = Kit.duration(sections, BAR)
+  local band = Kit.band(total, { "reeds" }) -- and the horn
+  local sub, lead, drums, verb, metal, reeds = band.sub, band.lead, band.drums, band.verb, band.metal, band.reeds
+  local mute, ring = band.mute, band.ring
 
   local t = 0
   for _, s in ipairs(sections) do
@@ -297,15 +239,7 @@ local function render(sections)
           drums:hat(t, 0.65, true)
         end
       else -- the breakdown: the yard's metal rings out
-        local pattern = BREAKDOWN[b]
-        for i = 1, 16 do
-          if pattern:sub(i, i) == "x" then
-            local ti = t + (i - 1) * SIXTEENTH
-            mute(ti, SIXTEENTH * 0.9, "E2")
-            sub:tone(ti, SIXTEENTH * 1.5, freq("E1"), { wave = "sine", amp = 0.6, decay = 0.2, sustain = 0 })
-            drums:kick(ti, 1)
-          end
-        end
+        Kit.chugs(band, t, BREAKDOWN[b], SIXTEENTH, "E2", "E1")
         for _, i in ipairs(CLACKS) do
           clack(metal, t + i * SIXTEENTH, 0.3)
         end
@@ -320,35 +254,17 @@ local function render(sections)
     end
   end
 
-  rhythm:drive(12)
-  rhythm:lowpass(3200)
-  chug:drive(12)
-  chug:lowpass(1700)
-  bass:drive(3)
-  bass:lowpass(500)
-  sub:drive(3)
-  sub:lowpass(800)
-  lead:drive(3)
-  lead:lowpass(5000)
-  drums:drive(1.6)
-  drums:highpass(30)
-  verb:lowpass(1400)
-  metal:highpass(200)
-  reeds:drive(2)
-  reeds:lowpass(2500)
-
-  local master = Synth.newBuffer(total) -- exactly the loop length so it wraps cleanly
-  rhythm:mixInto(master, 0.42)
-  chug:mixInto(master, 0.56)
-  bass:mixInto(master, 0.45)
-  sub:mixInto(master, 0.4)
-  lead:mixInto(master, 0.36)
-  drums:mixInto(master, 0.8)
-  verb:mixInto(master, 0.25)
-  metal:mixInto(master, 0.55)
-  reeds:mixInto(master, 0.7)
-  master:drive(0.7 / math.max(master:peak(), 1e-6)) -- a gentle squeeze of the peaks, as loud as the others
-  return master:toSoundData(0.9)
+  return Kit.mixdown(band, total, {
+    { "rhythm", 0.42, drive = 12, lowpass = 3200 },
+    { "chug", 0.56, drive = 12, lowpass = 1700 },
+    { "bass", 0.45, drive = 3, lowpass = 500 },
+    { "sub", 0.4, drive = 3, lowpass = 800 },
+    { "lead", 0.36, drive = 3, lowpass = 5000 },
+    { "drums", 0.8, drive = 1.6, highpass = 30 },
+    { "verb", 0.25, lowpass = 1400 },
+    { "metal", 0.55, highpass = 200 },
+    { "reeds", 0.7, drive = 2, lowpass = 2500 },
+  })
 end
 
 --- The loop (gallop, tremolo riff, chorus, breakdown, gallop), ~46 s. Returns a SoundData.

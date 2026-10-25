@@ -27,6 +27,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
   lift, a frozen harbour of broken ice, and a hull in the dry dock with welders sparking on it. Oil drums and
   traffic cones on every Borderline map look like drums and cones now, some knocked over.
+- Liar's Landing has its own theme: swaying 6/8 shanty metal, a squeezebox singing a sailors' tune over chugging
+  guitars, opening on creaking ice and a foghorn over the bay, with the gantries' winches, chains and slammed
+  containers in the breakdown.
 - The Frozen Wreck has its own theme: fast freight-yard metal, a train horn and wheels clacking into a
   galloping riff, anvils ringing, a twangy lead over the chorus.
 - Hyperbole's robots on the first two Borderline maps: packs of junk haulers (30 health, pistols) picking over
