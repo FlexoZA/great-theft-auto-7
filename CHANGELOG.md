@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-10-26
+
+A new ability: the jet run, a strafing run over walls with rockets falling on everything under it.
+
 ### Added
 - Jet run, a new ability in the shop: aim it and click, your thrusters light for half a second, and you fly a
   straight strafing run over walls through the spot you picked and on past it, dropping five rockets on red rings
