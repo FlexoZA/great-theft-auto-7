@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-26
+
+A new ability: the shield wall, a curved wall of light that stops enemy fire and holds enemies back.
+
 ### Added
 - Shield wall, a new ability in the shop: aim it and click to put up a curved wall of light in front of you for 8
   seconds (30 s cooldown). Enemy fire stops on it and enemies on foot can't walk through it; your rounds and other
