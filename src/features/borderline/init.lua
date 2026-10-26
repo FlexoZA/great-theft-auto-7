@@ -21,7 +21,9 @@
 -- lock). The Refinery's lower its bridges, one run after the next
 -- (bridges.lua draws them coming down). The Assembly Line's Fabricators
 -- (fabricators.lua) build haulers until both are shot down, which opens
--- the stairs; its belts carry whoever stands on them (belts.lua). A level
+-- the stairs; its belts carry whoever stands on them (belts.lua). On
+-- Thousand Papercuts the army comes up the road behind you and Max's
+-- barrage creeps after you (pursuit.lua), until the hold at the door. A level
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
 -- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
@@ -40,6 +42,7 @@ local Screens = require("src.features.borderline.screens")
 local Bridges = require("src.features.borderline.bridges")
 local Belts = require("src.features.borderline.belts")
 local Fabricators = require("src.features.borderline.fabricators")
+local Pursuit = require("src.features.borderline.pursuit")
 local Wiki = require("src.features.borderline.wiki")
 local Terminals = require("src.features.terminals")
 
@@ -103,6 +106,7 @@ function Borderline:serverQuestStarted(server, quest)
     Wilbur.serverStart(cityMap())
     Screens.serverStart(server, cityMap())
     Fabricators.serverStart(server, cityMap())
+    Pursuit.serverStart(cityMap())
     Tale.serverStart(cityMap())
   end
 end
@@ -116,6 +120,7 @@ function Borderline:serverQuestEnded(server, quest)
     Wilbur.serverStop()
     Screens.serverStop()
     Fabricators.serverStop()
+    Pursuit.serverStop()
     Tale.serverStop()
   end
 end
@@ -130,6 +135,7 @@ function Borderline:mapChanged(_map, server)
     Wilbur.serverStop()
     Screens.serverStop()
     Fabricators.serverStop()
+    Pursuit.serverStop()
     Tale.serverStop()
   end
   Army.clear()
@@ -237,6 +243,9 @@ function Borderline:serverStep(server, dt)
     Army.serverWave(server, codes, x, y, toX, toY)
   end)
   Wilbur.serverStep(server, dt, function(what)
+    Tale.serverBeat(server, what)
+  end)
+  Pursuit.serverStep(server, dt, function(what)
     Tale.serverBeat(server, what)
   end)
   local locked = Terminals.serverLocked()

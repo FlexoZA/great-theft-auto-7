@@ -54,6 +54,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   line: gun haulers round the Fabricators, a gun and stalker pair, a plasma hauler, rocket haulers by the stairs.
 - The Assembly Line has its own theme: 180 BPM thrash, a klaxon and the PA's robot voice counting the shift in,
   a shredding solo, rivet guns in the breakdown.
+- Thousand Papercuts chases you up the road: waves of Hyperbole's army come up from behind whoever is furthest
+  back (quicker the longer you stop), and Max's rocket barrage creeps up the road after you and lands on anyone
+  who stands still. Less waits ahead: the sentries and three rocket haulers.
+- Thousand Papercuts ends at the bunker door: hold it for 60 seconds while Yappy opens it, five waves coming up
+  the road at you, the last a badass.
+- Thousand Papercuts drawn properly: dark asphalt with snow packed into it, the cliff and the drop drawn without
+  seams (cloud far below, a rock face falling away from the road), an armoured bunker door, sentry nests in the rock.
+- Thousand Papercuts has its own theme: chase metal at 172 BPM, a ticking clock and a siren, climbing a key
+  every section.
 - The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
   every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
   veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock

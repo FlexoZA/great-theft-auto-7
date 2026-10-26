@@ -273,7 +273,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Lower the bridges one run at a time from each bank's control, then the Smelter |
 | 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Shoot down the two Fabricators to open the Foreman's floor, then Foreman BIG-B055 |
-| 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, jet strikes, rocket haulers on the ledges. | Hold out while Yappy opens the bunker door (very slowly) |
+| 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, rocket haulers on the ledges, the army and a barrage coming up behind you. | Hold out while Yappy opens the bunker door (very slowly) |
 | 8 | **The Bunker** | The bunker's roof. Eleven cannons, then it takes off. | BNK-9 |
 
 ### The story, beat by beat
@@ -752,6 +752,46 @@ booths.
 
 ### 7. Thousand Papercuts (`cuts`, 28x140, at dusk)
 
+Built in `borderline_cuts.lua`, drawn in `render_borderline_cliff.lua` and
+the ground's module: the road is dark asphalt with snow packed into it in
+patches and faint tyre ruts; the cliff past it is drawn every frame
+(`Ground.LIVE`, in and past the map alike): the rock east of the road
+(slabs, strata, cracks, snow in the hollows, boulders), the drop west of
+it going dark forever with cloud drifting far below, a rock face falling
+away from the road's edge into it. The bunker's door is two armoured
+leaves in a concrete frame, chevrons down their seam, Hyperbole's H over
+it, red lamps; the sentries' nests are holes in the rock with a concrete
+collar.
+
+**The pursuit** (`pursuit.lua`): everything Max has left comes up the road
+behind you, so you keep climbing. 8 s after you arrive, waves of the army
+(junk, gun, kamikaze, stalker and rocket haulers in turn) come up the road
+from 760 px below whoever is furthest back and go straight for them:
+every 13 s while they keep climbing, down to every 5 s once they have
+stopped 10 s, 12 of them out at most. And Max's barrage creeps up the road
+behind them: rockets on red rings (`barrage.lua`, 22 at the middle of an
+80 px blast, owned by nobody, so it never hurts the army) every 0.45 s
+along a line that climbs 34 px a second on its own (you walk at 45), jumps
+up to 420 px behind the rearmost when they get ahead, stops on them when
+they stand and follows them back down if they retreat; it never climbs
+past row 22, below the door. Yappy and Max have something to say when it
+starts ("pursuit") and the first time the rearmost stands still long
+enough ("stall"). Up the road ahead there's little: the sentries in the
+rock and three rocket haulers on the bends.
+
+**The door:** a hold (`hold.lua`, the same as Liar's Landing's lift):
+60 s of standing at it while Yappy opens it, five waves up the road at you
+as the hack goes (the last a badass); the barrage keeps shelling the road
+below.
+
+The theme (`theme_cuts.lua`): chase metal at 172 BPM. The alarm once (an
+air-raid siren winding up, a clock ticking, a heartbeat); then the chase,
+low D chugged in driving sixteenths with the hi-hat ticking every
+sixteenth like a clock, again a whole step up in E; the climb up in F#,
+rung chords and a soaring lead over a double kick; a short bridge, the
+band dropping out to a heartbeat and the siren over a drone; and back
+down to D (~39 s loop).
+
 Hyperbole's service road up the cliff: yellow lines along both edges and
 dashes down the middle, a crash barrier along the drop (render_borderline's
 `drawRoadLines`, following `cutsRoad` and stepping across the bends), an
@@ -764,10 +804,11 @@ the bends, red ones at the door.
 A narrow road cut into a cliff, winding up the map, snow, a drop on one
 side (solid edge), the cliff on the other.
 
-- Sentry nests in the cliff, rocket haulers on the ledges above, jet
-  haulers making runs along the road.
-- **The bunker door** at the top. Yappy opens it: a long hold (90 s) while
-  waves come down the road behind you.
+- Sentry nests in the cliff, rocket haulers on the ledges above.
+- Everything else comes up the road behind you, with Max's barrage
+  creeping after you: you keep climbing.
+- **The bunker door** at the top. Yappy opens it: a hold (60 s) while
+  waves come up the road behind you.
 - **The end:** the door. EXIT: "THE BUNKER".
 
 ### 8. The Bunker (`bunker`, 40x40, at dusk)

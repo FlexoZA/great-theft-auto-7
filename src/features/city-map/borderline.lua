@@ -28,7 +28,8 @@
 --               haulers, the Foreman's floor up its shuttered stairs
 --   cuts        Thousand Papercuts: a narrow service road winding up a cliff
 --               at dusk, the drop on its west side with an ore ropeway
---               down it, the rock on its east, a crane at the bunker's door
+--               down it, the rock on its east, a crane at the bunker's door;
+--               the army comes up it behind you, and you hold the door
 --   bunker      The Bunker: its roof at dusk, the arena, a rim of eleven
 --               cannons, four engine intakes with their fans turning, a
 --               radar, a gantry loading a missile
@@ -80,7 +81,8 @@
 --                         intake (`water`, round: an engine's); the Assembly Line's: belt (flat, `dir` the way
 --                         it runs), arm (a welding arm's base), press, booth (a paint booth), step (the edge of
 --                         the Foreman's floor), rack (parts on shelves), cart, pit (`scrap`: a scrap pit), and
---                         flat: stairs, fabpad (a Fabricator's pad, `n` its number)
+--                         flat: stairs, fabpad (a Fabricator's pad, `n` its number); Thousand Papercuts':
+--                         nest (flat: a sentry's hole in the rock), and flat: bunkerdoor
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
@@ -132,6 +134,10 @@
 --                         y1 } whoever walks into first brings it (the Pit's Wilbur: borderline/wilbur.lua)
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
+--   map.pursuit           { tile, y0, bottom, stop, rows = { [r] = { x, half } } } what comes up the road
+--                         behind you needs of it (Thousand Papercuts: the borderline feature's pursuit.lua):
+--                         its middle and half its width on each row, where it starts, where the barrage
+--                         stops, world px
 --   map.openKinds         { walk = true }: pickups and the like go on the floor
 --   map.mapFloor          the floor's colour on the minimap (MAP_FLOOR); the big things in `map.cover`
 --                         carry a `mapColor` (MAP_COLORS)
@@ -142,6 +148,7 @@ local Pit = require("src.features.city-map.borderline_pit")
 local Prosperity = require("src.features.city-map.borderline_prosperity")
 local Refinery = require("src.features.city-map.borderline_refinery")
 local Assembly = require("src.features.city-map.borderline_assembly")
+local Cuts = require("src.features.city-map.borderline_cuts")
 
 -- The minimap (the minimap feature) --------------------------------------------
 
@@ -164,7 +171,7 @@ local HOLE = { 0.12, 0.10, 0.10 }
 Borderline.MAP_COLORS = {
   shed = DARK, tower = DARK, billboard = DARK, booth = DARK, press = DARK, nest = DARK, cannon = DARK, arm = DARK,
   carriage = YELLOW, loco = YELLOW, statue = YELLOW, truck = YELLOW, gate = YELLOW, door = YELLOW, lift = YELLOW,
-  bay = YELLOW, hatch = YELLOW,
+  bay = YELLOW, hatch = YELLOW, bunkerdoor = YELLOW,
   pit = HOLE, drydock = HOLE, shaft = HOLE, casting = HOLE, intake = HOLE, tunnel = { 0.05, 0.05, 0.06 },
   bridge = STEEL, tank = STEEL, pad = STEEL, pipe = STEEL,
   belt = { 0.25, 0.25, 0.28 }, conveyor = { 0.25, 0.25, 0.28 },
@@ -612,95 +619,7 @@ end
 
 -- 6. The Assembly Line: borderline_assembly.lua -------------------------------------
 
--- 7. Thousand Papercuts ---------------------------------------------------------------
-
-Borderline.ROAD_WIDTH = 6 -- tiles
-
---- The middle of the road on row r, in tiles: it winds as it climbs.
-function Borderline.cutsMiddle(cols, r)
-  return cols / 2 + 7 * math.sin(r / 11) + 2 * math.sin(r / 4.3)
-end
-
-local function buildCuts(map, rng, T)
-  local b = Blockout.new(map, T)
-  map.outside = "cliff"
-  map.cutsRoad = {}
-  map.cranes, map.beacons, map.ropeway = {}, {}, nil
-  for r = 0, map.rows - 1 do
-    local m = Borderline.cutsMiddle(map.cols, math.max(3, math.min(r, map.rows - 9))) -- straight at both ends
-    local c0 = math.floor(m - Borderline.ROAD_WIDTH / 2 + 0.5)
-    local c1 = c0 + Borderline.ROAD_WIDTH - 1
-    map.cutsRoad[r] = { c0, c1 }
-    b:open(c0, r, c1, r)
-  end
-  b:ground("road", 0, 0, map.cols - 1, map.rows - 1)
-  local top, bottom = map.cutsRoad[0], map.cutsRoad[map.rows - 1]
-  b:place("door", top[1], 0, Borderline.ROAD_WIDTH, 2, { flat = true })
-  -- A tower crane at the top, still building the bunker, over its door.
-  crane(map, b, { top[2] + 2, 3, 0, 0 }, "nw", { top[1] + 3, 1 })
-  -- The ore ropeway down the drop beside the road: a pylon every few rows,
-  -- a station at either end (its buckets run: works.lua).
-  local points = {}
-  for r = map.rows - 3, 3, -8 do
-    local road = map.cutsRoad[r]
-    points[#points + 1] = { x = b:x(math.max(0.7, road[1] - 2)), y = b:y(r) }
-  end
-  map.ropeway = { points = points, period = 90 }
-  -- Lamps up the road's east edge, beacons on the west where it bends.
-  for r = map.rows - 6, 4, -10 do
-    local road = map.cutsRoad[r]
-    b:place("lamp", road[2] + 0.55, r, 0.3, 0.3, { flat = true, round = true })
-    map.lights[#map.lights + 1] = { x = b:x(road[2] + 0.7), y = b:y(r + 0.15), r = 300, color = { 1, 0.88, 0.6 },
-      a = 0.75 }
-  end
-  local lastBeacon = math.huge
-  for r = map.rows - 2, 2, -1 do
-    local here, before = map.cutsRoad[r], map.cutsRoad[r + 1]
-    if here[1] ~= before[1] and lastBeacon - r >= 6 then
-      map.beacons[#map.beacons + 1] = { x = b:x(here[1]) + 10, y = b:y(r), color = "amber" }
-      lastBeacon = r
-    end
-  end
-  map.beacons[#map.beacons + 1] = { x = b:x(top[1]), y = b:y(2.2), color = "red" }
-  map.beacons[#map.beacons + 1] = { x = b:x(top[2] + 1), y = b:y(2.2), color = "red" }
-  -- Sentry nests cut into the cliff, on the road's east edge, every so often.
-  for r = 12, map.rows - 14, 14 do
-    local road = map.cutsRoad[r]
-    b:place("nest", road[2] - 0.2, r, 1.2, 1.2, { flat = true, round = true })
-    b:post("SEN", road[2] + 0.4, r + 0.6) -- its sentry, flush in the rock
-  end
-  b:scatter(rng, "boulder", 16, 52, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
-  b:scatter(rng, "drum", 8, 40, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } })
-  b:scatter(rng, "cone", 14, 22, 6, map.rows - 8, { { bottom[1], map.rows - 7, bottom[2], map.rows - 1 } },
-    { flat = true })
-  -- Up the road: rocket haulers on the bends, jets making runs down it,
-  -- gun haulers and kamikazes in between, and at the door everything left.
-  local function middle(r)
-    local road = map.cutsRoad[r]
-    return (road[1] + road[2] + 1) / 2, r
-  end
-  for _, r in ipairs({ 112, 84, 56, 28 }) do
-    b:post("RPG", middle(r))
-  end
-  for _, r in ipairs({ 98, 64 }) do
-    b:post("JET", middle(r))
-  end
-  for _, r in ipairs({ 120, 92, 70, 42 }) do
-    b:post("GUN", middle(r))
-  end
-  for _, r in ipairs({ 104, 50 }) do
-    local c = middle(r)
-    b:pack("EXP", c, r, 3)
-  end
-  b:post("BAD", middle(10))
-  b:post("ARC", middle(14))
-  b:post("SHD", middle(12))
-  b:zone("The Foot of the Cliff", 100, map.rows - 1)
-  b:zone("The Cuts", 20, 99)
-  b:zone("The Bunker Door", 0, 19)
-  b:ends(bottom[1], map.rows - 6, top[1] + 2, 1, 4)
-  b:commit()
-end
+-- 7. Thousand Papercuts: borderline_cuts.lua ----------------------------------------
 
 -- 8. The Bunker ---------------------------------------------------------------------
 
@@ -792,7 +711,9 @@ Borderline.builders = {
   assembly = function(map, rng, T)
     Assembly.build(map, rng, Blockout.new(map, T))
   end,
-  cuts = buildCuts,
+  cuts = function(map, rng, T)
+    Cuts.build(map, rng, Blockout.new(map, T), crane)
+  end,
   bunker = buildBunker,
 }
 

@@ -26,8 +26,8 @@ local function outsideAt(map, c, r)
     return C.bank
   elseif o == "plant" or o == "hall" then
     return C.wall
-  elseif o == "cliff" then
-    local road = map.cutsRoad[r]
+  elseif o == "cliff" then -- (past the map's ends, the road runs on as it ends)
+    local road = map.cutsRoad[math.max(map.r0, math.min(map.r1, r))]
     return road and c < road[1] and C.abyss or C.rock
   elseif o == "sky" then
     return C.sky
@@ -643,6 +643,17 @@ local function drawFloor(c, r, x, y, T, f)
   elseif f == C.street then
     drawAsphalt(c, r, x, y, T, f)
     return
+  elseif f == C.road then -- Thousand Papercuts' road: asphalt with the snow packed into it
+    drawAsphalt(c, r, x, y, T, f)
+    local n = noise(c / 1.8 + 13, r / 2.4 + 5)
+    if n > 0.62 then -- a patch of packed snow
+      color(C.snow, (n - 0.62) * 0.9)
+      love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.55, T * 0.3, 16)
+    end
+    color(C.snow, 0.07) -- the tyre ruts down it
+    love.graphics.rectangle("fill", x + T * 0.3, y, 5, T)
+    love.graphics.rectangle("fill", x + T * 0.7, y, 5, T)
+    return
   elseif f == C.plaza or f == C.square then
     drawPaving(c, r, x, y, T, f)
     return
@@ -665,7 +676,7 @@ local function drawFloor(c, r, x, y, T, f)
   local h = hash(c * 7.1 + r * 13.7)
   color(f)
   love.graphics.rectangle("fill", x, y, T, T)
-  if f == C.snow or f == C.road then -- drifts
+  if f == C.snow then -- drifts
     color(C.snowShade)
     love.graphics.ellipse("fill", x + h * T, y + hash(h) * T, 14 + h * 12, 5 + h * 4)
   elseif f == C.roof then -- armour plates, riveted
@@ -769,6 +780,32 @@ local function drawDomeDetail(map, c, r, x, y, T)
   end
 end
 
+--- The drop at tile (c, r) of Thousand Papercuts: dark going down forever,
+--- cloud drifting far below in long pale banks, a ledge of rock jutting
+--- out of the dark now and then.
+local function drawAbyss(c, r, x, y, T)
+  local n = noise(c / 2.6 + 7, r / 3.4 + 2)
+  if n > 0.5 then
+    love.graphics.setColor(0.55, 0.6, 0.72, (n - 0.5) * 0.35)
+    love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 1.1, T * 0.45, 18)
+  end
+  local h = hash(c * 5.3 + r * 9.7)
+  if h < 0.04 then
+    color(C.bankRock, 0.5)
+    love.graphics.polygon("fill", x + 6, y + T * 0.6, x + T * 0.4, y + T * 0.3, x + T * 0.7, y + T * 0.55, x + T * 0.5,
+      y + T * 0.8)
+  end
+end
+
+--- Where the road meets the drop, the rock face falling away from its edge
+--- into the dark (on the drop's tile just west of the road).
+local function drawDrop(map, c, r, x, y, T)
+  local rr = math.max(map.r0, math.min(map.r1, r))
+  if open(map, c + 1, rr) and outsideAt(map, c, r) == C.abyss then
+    Mine.face(x + T, y, T, "w", c * 3.1 + r * 7.7)
+  end
+end
+
 -- The outsides drawn every frame, in the map and past it alike (drawLive),
 -- not into the canvas: what lies on them spills from tile to tile, and so
 -- runs on without a seam at the tiles or at the map's edge. Each: the bare
@@ -789,6 +826,28 @@ local LIVE = {
     function(_, c, r, x, y, T)
       drawRockSnow(c, r, x, y, T, false)
     end,
+  } },
+  cliff = { base = function(map, c, r)
+    return outsideAt(map, c, r)
+  end, passes = {
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.abyss then
+        drawAbyss(c, r, x, y, T)
+      else
+        drawRockDetail(c, r, x, y, T)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.rock then
+        drawRockSnow(c, r, x, y, T, true)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.rock then
+        drawRockSnow(c, r, x, y, T, false)
+      end
+    end,
+    drawDrop,
   } },
   dome = { base = function(map, c, r)
     return byFloor(map, c, r) and C.glass or C.bank

@@ -183,6 +183,17 @@ Story.beats = {
     { "max", "Thousand Papercuts! I counted the guns myself. Then I doubled them. TO THE MAX!" },
     { "yappy", "Stick to the road. The other side is a cliff. The other other side is also a cliff." },
   },
+  ["cuts.pursuit"] = {
+    { "max", "Everything I've got left is coming up that road behind you. And the artillery. Run, bandit! RUN!" },
+    { "yappy", "He's shelling the road behind us! Up, minion! Up, up, up! Don't stop!" },
+  },
+  ["cuts.stall"] = {
+    { "yappy", "Why are we stopping?! The road is exploding! Behind us! Which is where we are!" },
+  },
+  ["cuts.hold"] = {
+    { "yappy", "The door! I'm in. Sort of. Stand by me, they're all coming up the road. Every single one." },
+  },
+  ["cuts.half"] = { { "max", "You're knocking on my door? RUDE. Everybody, up the road. Bring the big one!" } },
   ["cuts.fight"] = { { "yappy", "Rockets on the ledges! Keep moving! I'll keep moving too! Backwards!" } },
   ["cuts.The Cuts"] = { { "yappy", "Every hole in the rock has a gun in it. Every one. I "
     .. "counted. I stopped counting." } },
@@ -257,6 +268,12 @@ Story.hack = {
 -- (hold.lua), by map: before it starts, while it runs (`%d` the percent
 -- done), while nobody is on the spot.
 Story.hold = {
+  cuts = {
+    before = "Objective: up the road to the bunker door, and hold it while Yappy opens it",
+    during = "Objective: hold the bunker door while Yappy opens it (%d%%)",
+    paused = "Objective: get back to the bunker door, Yappy's hack is paused",
+    bar = "YAPPY OPENING THE BUNKER DOOR",
+  },
   landing = {
     before = "Objective: get to the ferry lift on the quay and hold it while Yappy hacks it",
     during = "Objective: hold the ferry lift while Yappy hacks it (%d%%)",

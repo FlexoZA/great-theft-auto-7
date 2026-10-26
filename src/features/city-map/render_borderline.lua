@@ -17,6 +17,7 @@ local Mine = require("src.features.city-map.render_borderline_mine")
 local City = require("src.features.city-map.render_borderline_city")
 local Hall = require("src.features.city-map.render_borderline_hall")
 local Line = require("src.features.city-map.render_borderline_line")
+local Cliff = require("src.features.city-map.render_borderline_cliff")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -25,7 +26,7 @@ local box, blob, hazard = Kit.box, Kit.blob, Kit.hazard
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW, Line.DRAW }) do
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW, Line.DRAW, Cliff.DRAW }) do
   for kind, fn in pairs(kit) do
     DRAW[kind] = fn
   end
@@ -359,12 +360,6 @@ function DRAW.lamp(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetal)
   color(C.paintWhite)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
-end
-
-function DRAW.nest(s)
-  blob(s.x, s.y, s.w, s.h, C.yellow)
-  color(INK)
-  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.32)
 end
 
 function DRAW.cannon(s)
