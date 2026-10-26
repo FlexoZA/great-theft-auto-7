@@ -97,6 +97,9 @@ function Leap.serverLeaping(id)
   return leaps[id] ~= nil
 end
 
+--- The same, as abilities asks every ability that flies its caster.
+Leap.serverAirborne = Leap.serverLeaping
+
 --- Up they go on leap `A` (in the caster's tier), towards (x, y): pulled back towards the caster
 --- until the landing is clear of walls. Nobody is held; the landing spot
 --- and the way the leap goes out with ABL_FIRED, and how long it flies if

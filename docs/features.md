@@ -426,6 +426,9 @@ couple of small conventions rather than requiring each other:
   `serverKill` with `angle`, `onFoot` and `cause`. Nobody is hurt during
   their spawn protection. `weapons:damageCar(server, car, byId, amount,
   pid, angle, type)` is the same for a car (`pid` 0 when it wasn't a round).
+  `weapons:serverProtect(server, player, seconds)` gives a player that
+  protection for `seconds` more (the jet run's flight): rounds pass
+  through them, and nothing hurts them.
 - Damage types: every hit says what kind of hit it is (`src/features/damage`,
   design and plan in `docs/damage-types.md`): "bullet", "explosive",
   "fire", "impact", "shock" or "melee", in `Damage.types` with each one's
@@ -700,6 +703,25 @@ couple of small conventions rather than requiring each other:
   anything; one moved by a later feature (cyber-feud, d-day, shotgun) may
   lean into the wall for a tick before it is put back. Walls come down
   when the map changes.
+  The jet run (`abilities/jetrun.lua`, `aim = "point"`, on foot, 25 s
+  cooldown) is the jet hauler's strafing run for a player: the thrusters
+  light for 0.5 s (standing, shootable), then the caster flies a straight
+  line at 340 px/s over walls through the rings' middle (the cursor,
+  within 420 px) and 300 px on past it, landing where there is room and
+  standing 0.4 s. Five rockets fall on red rings 90 px apart along the
+  line, each as the caster passes over it: 40 at the middle of a 70 px
+  blast, falling off to a third at the edge, to cars nobody drives and
+  through `serverShotAt` (3 rounds' worth), never to players; it raises
+  `serverBlast` as a missile does (walls, crates, the Hunter-Chopper). A
+  rocket dropping with a `flying` enemy within 160 px of its ring goes for
+  that instead and follows it down (ABL_JETSEEK tells clients where), so
+  the chopper can't fly out from under. An ability module may bring its
+  own `clientMessages`; abilities registers them as its own. The host
+  flies them as leap.lua does; abilities asks each ability's
+  `serverAirborne(id)` (the leap's and the jet run's) for who it holds and
+  who a freeze misses, and weapons protects the flier for the flight
+  (`serverProtect`). ABL_FIRED carries the rings' middle as its spot and
+  the whole run as its seconds, so clients draw the same line.
   The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
   invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
   stretch the first and shorten the second), or until they fire a gun:
