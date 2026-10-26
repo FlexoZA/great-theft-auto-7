@@ -31,6 +31,7 @@ local Kinds = {
     require("src.features.abilities.overclock"),
     require("src.features.abilities.heatray"),
     require("src.features.abilities.teleport"),
+    require("src.features.abilities.shieldwall"),
   },
   byKey = {},
 }

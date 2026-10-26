@@ -288,7 +288,27 @@ local function teleport(c, a)
   love.graphics.setLineWidth(1)
 end
 
+-- A figure behind a curved wall of light, a round stopped on its face.
+local function shieldwall(c, a)
+  color(WHITE, a * 0.85)
+  love.graphics.circle("fill", -6, 7, 3.5, 12) -- the figure, low on the left
+  love.graphics.rectangle("fill", -9, 11, 6, 4, 1)
+  color(c, a * 0.35)
+  love.graphics.setLineWidth(6)
+  love.graphics.arc("line", "open", -6, 7, 14, -math.pi * 0.75, -math.pi * 0.25 + 0.3, 16)
+  color(c, a)
+  love.graphics.setLineWidth(2.6)
+  love.graphics.arc("line", "open", -6, 7, 17, -math.pi * 0.75, -math.pi * 0.25 + 0.3, 16)
+  color(WHITE, a)
+  love.graphics.setLineWidth(1.6)
+  love.graphics.line(15, -13, 8, -6) -- a round coming in, stopped on the wall
+  love.graphics.line(8, -6, 11, -3)
+  love.graphics.line(8, -6, 5, -9)
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
+  shieldwall = shieldwall,
   heatray = heatray,
   ["heatray-beam"] = heatrayBeam,
   ["heatray-sweep"] = heatraySweep,

@@ -33,6 +33,7 @@ local BODIES = {
     mist = { 0.55, 0.62, 0.12 }, drops = { 0.62, 0.78, 0.1 }, stain = { 0.36, 0.44, 0.06 }, flash = { 0.8, 1, 0.3 },
   },
   metal = { sparks = 7, drops = { 0.3, 0.3, 0.32 }, flash = { 1, 0.95, 0.7 } },
+  shield = { sparks = 6, drops = { 0.45, 0.75, 1 }, flash = { 0.6, 0.85, 1 } }, -- the shield wall's dome
 }
 local SPARK = { 1, 0.95, 0.7 }
 local DUST = { 0.62, 0.58, 0.52 }
