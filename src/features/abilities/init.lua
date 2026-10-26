@@ -912,6 +912,14 @@ Abilities.clientMessages = {
   end,
 }
 
+-- An ability may bring messages of its own (`clientMessages` in its module:
+-- the jet run's ABL_JETSEEK), handled here like the rest.
+for _, ability in ipairs(Kinds.list) do
+  for kind, handler in pairs(ability.clientMessages or {}) do
+    Abilities.clientMessages[kind] = handler
+  end
+end
+
 -- Server --------------------------------------------------------------------
 
 Abilities.sv = nil

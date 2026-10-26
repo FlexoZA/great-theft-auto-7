@@ -712,7 +712,11 @@ couple of small conventions rather than requiring each other:
   line, each as the caster passes over it: 40 at the middle of a 70 px
   blast, falling off to a third at the edge, to cars nobody drives and
   through `serverShotAt` (3 rounds' worth), never to players; it raises
-  `serverBlast` as a missile does (walls, crates, the Hunter-Chopper). The host
+  `serverBlast` as a missile does (walls, crates, the Hunter-Chopper). A
+  rocket dropping with a `flying` enemy within 160 px of its ring goes for
+  that instead and follows it down (ABL_JETSEEK tells clients where), so
+  the chopper can't fly out from under. An ability module may bring its
+  own `clientMessages`; abilities registers them as its own. The host
   flies them as leap.lua does; abilities asks each ability's
   `serverAirborne(id)` (the leap's and the jet run's) for who it holds and
   who a freeze misses, and weapons protects the flier for the flight

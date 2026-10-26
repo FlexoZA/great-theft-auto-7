@@ -13,7 +13,10 @@
 -- `serverShotAt` convention, as many rounds' worth as `soft`) and cars
 -- nobody drives. Players, you and your friends, are never hurt by them.
 -- Anything else that listens for a blast (`serverBlast`: walls, crates,
--- the Hunter-Chopper overhead) takes one as from a rocket launcher's.
+-- the Hunter-Chopper overhead) takes one as from a rocket launcher's. A
+-- rocket that drops with something flying near its ring (a `serverEnemies`
+-- entry that says `flying`, within `seek`) goes for that instead, follows
+-- it down and goes off on it, so the chopper can't fly out from under.
 --
 -- The host flies the jet the way leap.lua flies a leaper: every tick, after
 -- everything else has moved them, it puts them on the line, and abilities
@@ -22,7 +25,12 @@
 -- flight weapons protects them (`serverProtect`, as after a respawn). The
 -- ring centre goes out with ABL_FIRED as its spot and the whole run as its
 -- `seconds`, so every client works out the same line, rings and landing.
+--
+-- Messages (abilities registers them)
+--   server -> all  ABL_JETSEEK <by> <ring> <x> <y>  that jet's rocket for ring <ring> (1 first)
+--                                                  goes for something flying at (x, y) instead
 
+local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Car = require("src.car")
 local Body = require("src.body")
@@ -51,6 +59,7 @@ Jet.radius = 70 -- px; each rocket's blast
 Jet.damage = 40 -- to an enemy right where it lands
 Jet.soft = 3 -- soft targets each rocket can drop
 Jet.fall = 0.35 -- seconds from passing over a ring to its rocket landing
+Jet.seek = 160 -- px from its ring a rocket goes for something flying instead
 Jet.cooldown = 25 -- seconds before the next
 Jet.afterglow = 0.8 -- seconds the last blast and the scorch marks linger
 Jet.seconds = 2 -- a full run's length, for the HUD; each cast sends its own
@@ -64,7 +73,7 @@ local LOST = 64
 local ALTITUDE = 120 -- px up a rocket is drawn when it drops
 
 local runs = {} -- player id -> { ability, sx, sy, ux, uy, length, flyAt, landAt, endT, lastX, lastY, up }
-local rockets = {} -- { x, y, at, castT, radius, damage, soft, by }
+local rockets = {} -- { x, y, at, castT, radius, damage, soft, seek, by, ring, dropped, target }
 
 local function dist2(ax, ay, bx, by)
   local dx, dy = ax - bx, ay - by
@@ -139,7 +148,8 @@ function Jet.serverCast(server, caster, x, y, abilities, A)
     local along = ringAlong(A, d, k)
     rockets[#rockets + 1] = {
       x = ox + ux * along, y = oy + uy * along, at = now + landsAfter(A, d, k), castT = now,
-      radius = A.radius, damage = A.damage, soft = A.soft, by = caster.id,
+      radius = A.radius, damage = A.damage, soft = A.soft, seek = A.seek, by = caster.id, ring = k + 1,
+      dropAt = now + landsAfter(A, d, k) - A.fall,
     }
   end
   return {}, angle, ox + ux * d, oy + uy * d, run.endT - now
@@ -176,6 +186,50 @@ local function boom(server, r)
   end
 end
 
+--- Rockets on their way down: one dropping now goes for the nearest thing
+--- flying within its `seek` of its ring, if anything is (every screen hears
+--- where), and one going for something follows it till it lands.
+local function aim(server, now)
+  local dropping, following = false, false
+  for _, r in ipairs(rockets) do
+    if now >= r.dropAt then
+      dropping = dropping or not r.dropped
+      following = following or r.target ~= nil
+    end
+  end
+  if not (dropping or following) then
+    return
+  end
+  local fliers = {}
+  Features.call("serverEnemies", server, function(e)
+    if e.flying and not e.immune then
+      fliers[#fliers + 1] = e
+    end
+  end)
+  for _, r in ipairs(rockets) do
+    if now >= r.dropAt and not r.dropped then
+      r.dropped = true
+      local best, bestD = nil, r.seek * r.seek
+      for _, e in ipairs(fliers) do
+        local d = dist2(e.x, e.y, r.x, r.y)
+        if d <= bestD then
+          best, bestD = e, d
+        end
+      end
+      if best then
+        r.target, r.x, r.y = best.id, best.x, best.y
+        server:broadcast(Protocol.encode("ABL_JETSEEK", r.by, r.ring, ("%.1f"):format(r.x), ("%.1f"):format(r.y)))
+      end
+    elseif r.target then
+      for _, e in ipairs(fliers) do
+        if e.id == r.target then
+          r.x, r.y = e.x, e.y
+        end
+      end
+    end
+  end
+end
+
 --- Fly every jet along their line, protected from takeoff to landing, and
 --- set off every rocket whose time has come.
 function Jet.serverStep(server, _dt, abilities)
@@ -203,6 +257,7 @@ function Jet.serverStep(server, _dt, abilities)
       end
     end
   end
+  aim(server, now)
   for i = #rockets, 1, -1 do
     local r = rockets[i]
     if now >= r.at then
@@ -290,6 +345,28 @@ function Jet.updateEffect(e, client, camera)
   body.dx, body.dy = x, y
 end
 
+Jet.clientMessages = {
+  --- That jet's rocket for a ring is going for something flying instead:
+  --- it dives and goes off there.
+  ABL_JETSEEK = function(_client, args)
+    local by, k, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    local abilities = Features.byName.abilities
+    if not (by and k and x and y and abilities) then
+      return
+    end
+    for i = #abilities.effects, 1, -1 do
+      local e = abilities.effects[i]
+      if e.by == by and (e.ability.base or e.ability) == Jet and e.rings then
+        local r = e.rings[k]
+        if r then
+          r.x, r.y, r.seek = x, y, true
+        end
+        return
+      end
+    end
+  end,
+}
+
 --- A red ring on the ground, filling in as its rocket comes (`k` 0..1).
 local function ring(x, y, r, k, alpha)
   love.graphics.setColor(1, 0.25, 0.15, (0.1 + 0.25 * k) * alpha)
@@ -306,7 +383,9 @@ function Jet.drawBelow(e)
   local A = e.ability
   local fade = math.max(0, math.min(1, (e.seconds + A.afterglow - e.t) / A.afterglow))
   for _, r in ipairs(e.rings) do
-    if e.t < r.at then
+    if r.seek then -- luacheck: ignore 542
+      -- Gone for something flying: nothing to mark on the ground.
+    elseif e.t < r.at then
       ring(r.x, r.y, A.radius, math.min(1, e.t / r.at), 1)
     else
       love.graphics.setColor(0.08, 0.06, 0.05, 0.45 * fade)
