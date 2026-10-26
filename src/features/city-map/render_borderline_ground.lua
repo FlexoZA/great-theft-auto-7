@@ -306,14 +306,45 @@ local function drawHallWall(map, c, r, x, y, T)
   end
 end
 
+--- One tile of the Assembly Line's wall, next to its floor: corrugated
+--- steel cladding, its ribs lit along one side, a steel column every four
+--- tiles along the floor's side, Hyperbole yellow round its foot.
+local function drawPlantWall(map, c, r, x, y, T)
+  local k = 0.9 + 0.12 * noise(c / 3 + 5, r / 3 + 1)
+  love.graphics.setColor(C.wall[1] * k * 1.5, C.wall[2] * k * 1.5, C.wall[3] * k * 1.5)
+  love.graphics.rectangle("fill", x, y, T, T)
+  local across = open(map, c, r + 1) or open(map, c, r - 1) -- ribs run up a wall along the top or bottom
+  for a = 0, T - 1, 12 do
+    color(INK, 0.3)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 3, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 3)
+    end
+    color(C.white, 0.08)
+    if across then
+      love.graphics.rectangle("fill", x + a + 3, y, 2, T)
+    else
+      love.graphics.rectangle("fill", x, y + a + 3, T, 2)
+    end
+  end
+  if (across and c % 4 == 0) or (not across and r % 4 == 0) then
+    box(x + T / 2 - 12, y + T / 2 - 12, 24, 24, C.gunmetal)
+    color(C.yellow)
+    love.graphics.rectangle("fill", x + T / 2 - 12, y + T / 2 - 3, 24, 6)
+  end
+end
+
 --- One tile of the map's outside at (c, r), (x, y) in world px.
 local function drawOutside(map, c, r, x, y, T)
   local o = outsideAt(map, c, r)
-  if map.outside == "hall" then -- the Refinery's walls, the plant's roofs past them
-    if byFloor(map, c, r) then
+  if map.outside == "hall" or map.outside == "plant" then -- the factory's walls, its roofs past them
+    if not byFloor(map, c, r) then
+      drawWorksRoof(c, r, x, y, T)
+    elseif map.outside == "hall" then
       drawHallWall(map, c, r, x, y, T)
     else
-      drawWorksRoof(c, r, x, y, T)
+      drawPlantWall(map, c, r, x, y, T)
     end
     return
   end
@@ -551,6 +582,59 @@ local function drawOutflow(c, r, x, y, T, f)
   end
 end
 
+--- One tile of the Assembly Line's floor: sealed concrete in big slabs,
+--- each its own shade, the saw-cut joints between them, worn paler where
+--- the forklifts run, an oil stain now and then.
+local function drawFactory(c, r, x, y, T, f)
+  local sc, sr = math.floor(c / 3), math.floor(r / 3)
+  local k = 0.94 + 0.1 * hash(sc * 2.9 + sr * 6.7) + 0.04 * noise(c / 2 + 3, r / 2 + 8)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.3)
+  if c % 3 == 0 then
+    love.graphics.rectangle("fill", x, y, 2, T)
+  end
+  if r % 3 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 2)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.07 then -- oil
+    color(INK, 0.22)
+    love.graphics.ellipse("fill", x + T * (0.3 + h * 5), y + T * 0.5, T * 0.26, T * 0.16, 14)
+  elseif h > 0.93 then -- scuffs
+    color(C.white, 0.08)
+    love.graphics.rectangle("fill", x + 6, y + T * 0.4, T - 12, 5)
+  end
+end
+
+--- One tile of checker plate (the Foreman's floor): raised lozenges in
+--- rows, each lit along one side, a plate's seam every two tiles.
+local function drawChecker(c, r, x, y, T, f)
+  love.graphics.setColor(f[1], f[2], f[3])
+  love.graphics.rectangle("fill", x, y, T, T)
+  for row = 0, 3 do
+    for col = 0, 3 do
+      local cx, cy = x + 8 + col * 16, y + 8 + row * 16
+      local a = (row + col) % 2 == 0 and 0.6 or -0.6
+      love.graphics.push()
+      love.graphics.translate(cx, cy)
+      love.graphics.rotate(a)
+      color(INK, 0.25)
+      love.graphics.rectangle("fill", -5, -1, 10, 3)
+      color(C.white, 0.18)
+      love.graphics.rectangle("fill", -5, -2, 10, 1)
+      love.graphics.pop()
+    end
+  end
+  color(INK, 0.35)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 2, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 2)
+  end
+end
+
 --- One tile of floor at (c, r), finish `f`.
 local function drawFloor(c, r, x, y, T, f)
   if f == C.port or f == C.quay then
@@ -570,6 +654,12 @@ local function drawFloor(c, r, x, y, T, f)
     return
   elseif f == C.outflow then
     drawOutflow(c, r, x, y, T, f)
+    return
+  elseif f == C.steel then
+    drawFactory(c, r, x, y, T, f)
+    return
+  elseif f == C.upper then
+    drawChecker(c, r, x, y, T, f)
     return
   end
   local h = hash(c * 7.1 + r * 13.7)

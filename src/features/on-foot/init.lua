@@ -950,7 +950,8 @@ end
 
 --- One walker's step, the same on the host and in my own prediction:
 --- spend or regain stamina, then walk `pos` (x, y) by `move` ({ x, y,
---- sprint }) for `dt`, or let a dodge under way carry it. Leaning on the
+--- sprint }) for `dt`, or let a dodge under way carry it; then the floor
+--- carries it too, if it moves (`floorDrift`: the Assembly Line's belts). Leaning on the
 --- sprint key with an empty bar keeps it empty; you get your breath back by
 --- letting go, not by running on. `st` holds stamina, max, regen, regenIn,
 --- spent and dash; `scales` is what serverScales gives.
@@ -993,6 +994,10 @@ function OnFoot:advance(st, pos, move, dt, scales)
     local walk = self.walkSpeed * scales.walk -- the gym's
     local speed = (sprinting and self.sprintSpeed or walk) * speedScale
     pos.x, pos.y = step(pos.x, pos.y, mx / len, my / len, speed, dt)
+  end
+  local drift = Features.reduce("floorDrift", nil, pos.x, pos.y)
+  if drift then
+    pos.x, pos.y = step(pos.x, pos.y, drift.x, drift.y, 1, dt)
   end
   return sprinting
 end

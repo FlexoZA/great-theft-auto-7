@@ -163,6 +163,15 @@ Story.beats = {
   ["assembly.start"] = {
     { "yappy", "I typed up the order for every robot off this line. Every one. I'm fine. It's the fumes." },
     { "max", "YAP-TP! Still alive? Great hustle! You're fired. Maximum fired." },
+    { "yappy", "The stairs up are shuttered while the Fabricators run. Two of them, one each side. Break "
+      .. "them and the line stops. Mind the belts, they go places. Without asking." },
+  },
+  ["assembly.fabricator"] = {
+    { "max", "You broke a Fabricator? It cost more than your planet. Good thing I have another one." },
+  },
+  ["assembly.fabricators"] = {
+    { "yappy", "The line's stopped! The shutters are up! Stairs, minion! The Foreman's up there. Bring snacks." },
+    { "max", "My Fabricators! Both! You know what? Respect. The Foreman will see you now." },
   },
   ["assembly.fight"] = { { "yappy", "They're waking up off the belts! Shoot the new ones! They're shiny!" } },
   ["assembly.The Foreman's Floor"] = {
@@ -259,6 +268,9 @@ Story.hold = {
 -- The objective line while Max's screens are up (screens.lua): `%d` how many.
 Story.screens = "Objective: shoot down Max's big screens (%d left)"
 
+-- The objective line while the Fabricators stand (fabricators.lua): `%d` how many.
+Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%d left)"
+
 -- The objective line while the way on waits for the level's boss, by map:
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
@@ -275,7 +287,8 @@ Story.boss = {
 --- `nearest`); on a map with a hold, how far it is (`held`, nil before it
 --- starts) and whether anyone is on it (`on`); on a map with a boss,
 --- `boss` "pad" (not come yet: it comes at `bossX`, `bossY`) or "fight";
---- on a map with Max's screens, those still up (`screens`, `screenNearest`).
+--- on a map with Max's screens, those still up (`screens`, `screenNearest`);
+--- on a map with Fabricators, those still up (`fabricators`, `fabricatorNearest`).
 --- Returns the text and where it points (x, y in world px).
 function Story.objective(name, map, state)
   local done, waiting, nearest = state.done, state.waiting, state.nearest
@@ -289,6 +302,10 @@ function Story.objective(name, map, state)
   if not done and #(state.screens or {}) > 0 then -- Max's screens to shoot down
     local s = state.screenNearest
     return Story.screens:format(#state.screens), s and s.x, s and s.y
+  end
+  if not done and #(state.fabricators or {}) > 0 then -- the Fabricators to shoot down
+    local f = state.fabricatorNearest
+    return Story.fabricators:format(#state.fabricators), f and f.x, f and f.y
   end
   local hold = Story.hold[name]
   if not done and hold and map.hold then

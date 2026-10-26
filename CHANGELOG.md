@@ -44,6 +44,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   hauler, a gun and stalker pair, junk haulers at the intake, more drones, and rocket haulers over the last bridge.
 - The Refinery has its own theme: industrial metal, a steam whistle and the furnace roaring alight, machine-tight
   riffs, forge hammers and steam hissing out of the floor.
+- The Assembly Line drawn properly: belts with cleats and drive motors, welding arms on bolted pedestals,
+  stamping presses, paint booths with half-painted haulers, racks of parts, a concrete factory floor, checker plate
+  on the Foreman's floor and steel-clad walls.
+- The Assembly Line's belts carry you: stand on one and it takes you the way it runs (a little slower than you
+  walk), robots too.
+- Two Fabricators on the Assembly Line build haulers while you're near (one every 14 seconds, up to three each);
+  shoot both down (900 health each) to open the stairs up to the Foreman's floor. More of the army holds the
+  line: gun haulers round the Fabricators, a gun and stalker pair, a plasma hauler, rocket haulers by the stairs.
+- The Assembly Line has its own theme: 180 BPM thrash, a klaxon and the PA's robot voice counting the shift in,
+  a shredding solo, rivet guns in the breakdown.
 - The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
   every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
   veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock

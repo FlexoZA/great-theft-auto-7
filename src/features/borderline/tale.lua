@@ -27,6 +27,7 @@ local Terminals = require("src.features.terminals")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
 local Screens = require("src.features.borderline.screens")
+local Fabricators = require("src.features.borderline.fabricators")
 local Hud = require("src.features.borderline.hud")
 local Faces = require("src.features.borderline.faces")
 
@@ -259,6 +260,13 @@ function Tale.drawHUD(map, done, x, y)
     if not state.screenNearest or (x and (sc.x - x) ^ 2 + (sc.y - y) ^ 2
       < (state.screenNearest.x - x) ^ 2 + (state.screenNearest.y - y) ^ 2) then
       state.screenNearest = sc
+    end
+  end
+  state.fabricators = Fabricators.remaining(map)
+  for _, f in ipairs(state.fabricators) do -- the nearest of them
+    if not state.fabricatorNearest or (x and (f.x - x) ^ 2 + (f.y - y) ^ 2
+      < (state.fabricatorNearest.x - x) ^ 2 + (state.fabricatorNearest.y - y) ^ 2) then
+      state.fabricatorNearest = f
     end
   end
   local text, tx, ty = Story.objective(cl.level, map, state)

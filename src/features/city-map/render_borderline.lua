@@ -16,6 +16,7 @@ local Port = require("src.features.city-map.render_borderline_port")
 local Mine = require("src.features.city-map.render_borderline_mine")
 local City = require("src.features.city-map.render_borderline_city")
 local Hall = require("src.features.city-map.render_borderline_hall")
+local Line = require("src.features.city-map.render_borderline_line")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -24,7 +25,7 @@ local box, blob, hazard = Kit.box, Kit.blob, Kit.hazard
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW }) do
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW, Line.DRAW }) do
   for kind, fn in pairs(kit) do
     DRAW[kind] = fn
   end
@@ -358,44 +359,6 @@ function DRAW.lamp(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetal)
   color(C.paintWhite)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
-end
-
-function DRAW.belt(s)
-  color(C.gunmetal)
-  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  color(C.gunmetalLight)
-  for a = 10, s.w - 30, 40 do -- chevrons: which way it runs
-    love.graphics.polygon("fill", s.x + a, s.y + 10, s.x + a + 20, s.y + s.h / 2, s.x + a, s.y + s.h - 10)
-  end
-  hazard(s.x, s.y - 8, s.w, 8)
-  hazard(s.x, s.y + s.h, s.w, 8)
-end
-
---- An assembly arm's base (the arm itself swings and welds: borderline/works.lua).
-function DRAW.arm(s)
-  blob(s.x, s.y, s.w, s.h, C.yellow)
-  color(INK)
-  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.22, 10)
-end
-
-function DRAW.press(s)
-  box(s.x, s.y, s.w, s.h, C.steel)
-  hazard(s.x, s.y, s.w, 18)
-end
-
-function DRAW.booth(s)
-  box(s.x, s.y, s.w, s.h, C.white)
-  color(C.yellow, 0.6) -- overspray
-  love.graphics.ellipse("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.3, s.h * 0.25)
-end
-
-function DRAW.stairs(s)
-  color(C.steel)
-  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  color(INK, 0.4)
-  for y = s.y, s.y + s.h, 16 do
-    love.graphics.rectangle("fill", s.x, y, s.w, 4)
-  end
 end
 
 function DRAW.nest(s)

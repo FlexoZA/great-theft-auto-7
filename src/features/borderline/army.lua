@@ -384,6 +384,23 @@ function Army.serverSpawn(code, x, y, facing)
   return sv.roster:add(BRAINS[code], code, x, y, facing)
 end
 
+--- Is `s` (one of the army, as `serverSpawn` gave it) still on the level?
+function Army.serverAlive(s)
+  return sv ~= nil and sv.roster:indexOf(s) ~= nil
+end
+
+--- Every robot of the army walking about on the ground now (not the drones,
+--- the docks, the sentries; not one in the air), for the belts (belts.lua).
+function Army.serverWalkers()
+  local list = {}
+  for _, s in ipairs(sv and sv.roster.list or {}) do
+    if not MACHINES[s.code] and not s.flying then
+      list[#list + 1] = s
+    end
+  end
+  return list
+end
+
 --- The level's walking grid, for the terminals' walls coming down.
 function Army.nav()
   return sv and sv.roster.nav

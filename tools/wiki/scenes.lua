@@ -205,6 +205,12 @@ Scenes.portraits["cyber-feud-kilowatt-cameo"] = function()
   require("src.features.cyber-feud.kilowatt_look").draw(-math.pi / 2, 0, { pulse = 1 })
 end
 
+-- A Fabricator: a machine of separate parts (legs, beams, a cradle) under
+-- the Assembly Line's bridge crane, which a crop round it can't tell apart.
+Scenes.portraits["borderline-fabricator"] = function()
+  require("src.features.borderline.fabricators").drawAt(0, 0)
+end
+
 -- VEX: her face, the way she projects it over the Roof, at full strength.
 Scenes.portraits["cyber-feud-vex"] = function()
   local face = require("src.features.cyber-feud.face").new()

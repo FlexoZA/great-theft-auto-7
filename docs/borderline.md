@@ -272,7 +272,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Hack the four power terminals to open the pit's floor, take Wilbur down, pick up his keycard for the mine lift |
 | 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
 | 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Lower the bridges one run at a time from each bank's control, then the Smelter |
-| 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
+| 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Shoot down the two Fabricators to open the Foreman's floor, then Foreman BIG-B055 |
 | 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, jet strikes, rocket haulers on the ledges. | Hold out while Yappy opens the bunker door (very slowly) |
 | 8 | **The Bunker** | The bunker's roof. Eleven cannons, then it takes off. | BNK-9 |
 
@@ -297,7 +297,9 @@ Bragium that powers it. Kill feed verb: "melted".
    a time from each bank's control, Max promising every one hotter than
    the last. The Smelter guards the outflow.
 6. **The Assembly Line.** Where the army is built. Yappy typed up the order
-   for every robot it ever built, and never got a thank you. The Foreman runs the floor.
+   for every robot it ever built, and never got a thank you. Two Fabricators
+   keep building haulers and the stairs stay shuttered while they run:
+   break them both. The Foreman runs the floor.
 7. **Thousand Papercuts.** The road up to the bunker. Yappy opens the door
    ("I have a lot of tabs open") while everything Max has left comes at
    you.
@@ -686,6 +688,48 @@ the map, catwalks over it, smelting tanks, pipes.
 
 ### 6. The Assembly Line (`assembly`, 56x72, under strip lights)
 
+Built in `borderline_assembly.lua`, drawn in `render_borderline_line.lua`
+and the ground's module: the floor is sealed concrete in big slabs with
+saw-cut joints and oil stains (`steel`), the Foreman's floor checker plate
+(`upper`) behind a steel step with its handrail, steel stairs up at either
+end; the walls (`plant`) corrugated steel cladding with a column every
+four tiles, the plant's roofs past them. The belts have steel frames with
+hazard paint, dark rubber with cleats pointing the way each runs, end
+rollers and a drive motor; the welding arms stand on bolted yellow
+pedestals; the presses have four columns, a die on the bed and red light
+curtains; the paint booths white panels, a hauler shell half painted,
+overspray, an extractor fan; racks of hauler parts line the walls, parts
+carts stand about.
+
+**The belts carry you** (`belts.lua`): each one moves whoever stands on it
+the way it runs, at 40 px/s (you walk at 45, so you can just about walk
+against one), through on-foot's `floorDrift` (the host's step and your own
+prediction alike), and the host carries the army's robots on the ground
+the same way. The parts riding them go at the same speed (the map's
+`speed`).
+
+**The Fabricators** (`fabricators.lua`): one on a pad each side of the
+floor (`FAB 1`, `FAB 2`), a gantry on four yellow legs with welding arms
+sweeping in over a cradle with a hauler half built in it, a door on the
+side facing the middle. While anyone is within 1100 px, every 14 s a
+finished hauler walks out of the door (gun, junk, gun, kamikaze in turn),
+up to three of its own out at once. Each has a boss's health (900 for one
+player, `Bosses.health`; a blast takes 50); a `water` solid, so nobody
+walks through it and rounds fly to it. The first one down, Max has a line
+("fabricator"); the last one down opens the shutters over both stairs
+(the lock `THE FOREMAN'S FLOOR`, opened by `Terminals.serverUnlock`:
+"fabricators"). The objective line and the markers point at the nearest
+one still up. Down, its beam falls across the cradle, sparking and
+smoking.
+
+The theme (`theme_assembly.lua`): thrash at 180 BPM in E minor, faster
+than any other map's. The shift starts once (the line's klaxon, the PA's
+robot voice counting it in, a rivet gun); then the gallop over a d-beat,
+the riff (chromatic runs round low E, the kick doubling it), the solo (a
+lead shredding sixteenth arpeggios over Em, C, D, B on a double kick), the
+breakdown (half-time chugs, rivet guns, the robot voice chanting), and the
+gallop again (~43 s loop).
+
 The factory floor at work: hauler parts (torsos with their eyes not lit
 yet, legs, arms) ride the belts, each belt the other way from the last
 (works.lua's `conveyors` with `cargo` "parts"); the arms either side
@@ -701,7 +745,8 @@ Mood's Foundry wants) carrying robots in pieces, assembly arms, paint
 booths.
 
 - Unfinished haulers lie on the belts and wake when a player passes.
-- A Fabricator on each side, building.
+- A Fabricator on each side, building; both down open the stairs up to
+  the Foreman's floor. The belts carry whoever stands on them.
 - **Foreman BIG-B055** on the top floor, by the line's end.
 - **The end:** the shipping bay. EXIT: "THOUSAND PAPERCUTS".
 

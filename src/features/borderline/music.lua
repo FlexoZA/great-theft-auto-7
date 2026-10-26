@@ -1,7 +1,7 @@
 -- Each Borderline map's theme, by map name (so far the Frozen Wreck's,
 -- theme_wreck.lua, Liar's Landing's, theme_landing.lua, the Bragium Pit's,
--- theme_pit.lua, Prosperity's, theme_prosperity.lua, and the Refinery's,
--- theme_refinery.lua), played from the moment Max's intro screen goes: its
+-- theme_pit.lua, Prosperity's, theme_prosperity.lua, the Refinery's,
+-- theme_refinery.lua, and the Assembly Line's, theme_assembly.lua), played from the moment Max's intro screen goes: its
 -- intro once, then its loop. Rendered the first time its map comes up,
 -- under Max's screen. A map without one plays nothing.
 
@@ -11,11 +11,13 @@ local LandingTheme = require("src.features.borderline.theme_landing")
 local PitTheme = require("src.features.borderline.theme_pit")
 local ProsperityTheme = require("src.features.borderline.theme_prosperity")
 local RefineryTheme = require("src.features.borderline.theme_refinery")
+local AssemblyTheme = require("src.features.borderline.theme_assembly")
 
 local Music = {}
 
 local THEMES = {
   wreck = WreckTheme, landing = LandingTheme, pit = PitTheme, prosperity = ProsperityTheme, refinery = RefineryTheme,
+  assembly = AssemblyTheme,
 }
 local music = {} -- map name -> { intro, loop } Sources
 local playing = nil -- the map whose theme is on

@@ -19,7 +19,9 @@
 -- the army near it hears, and shuts down the hauler dock it runs, and
 -- Max or Yappy may have something to say about it (a beat named after its
 -- lock). The Refinery's lower its bridges, one run after the next
--- (bridges.lua draws them coming down). A level
+-- (bridges.lua draws them coming down). The Assembly Line's Fabricators
+-- (fabricators.lua) build haulers until both are shot down, which opens
+-- the stairs; its belts carry whoever stands on them (belts.lua). A level
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
 -- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
@@ -36,6 +38,8 @@ local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
 local Screens = require("src.features.borderline.screens")
 local Bridges = require("src.features.borderline.bridges")
+local Belts = require("src.features.borderline.belts")
+local Fabricators = require("src.features.borderline.fabricators")
 local Wiki = require("src.features.borderline.wiki")
 local Terminals = require("src.features.terminals")
 
@@ -72,6 +76,10 @@ local function objectives()
   if #screens > 0 then -- Max's screens before the north gate
     return screens
   end
+  local fabricators = Fabricators.remaining(map)
+  if #fabricators > 0 then -- the Fabricators before the Foreman's floor
+    return fabricators
+  end
   return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
 end
 
@@ -79,6 +87,7 @@ function Borderline:load()
   Army.load()
   Wilbur.load()
   Screens.load()
+  Fabricators.load()
 end
 
 function Borderline:serverStart()
@@ -93,6 +102,7 @@ function Borderline:serverQuestStarted(server, quest)
     Hold.serverStart(cityMap())
     Wilbur.serverStart(cityMap())
     Screens.serverStart(server, cityMap())
+    Fabricators.serverStart(server, cityMap())
     Tale.serverStart(cityMap())
   end
 end
@@ -105,6 +115,7 @@ function Borderline:serverQuestEnded(server, quest)
     Hold.serverStop()
     Wilbur.serverStop()
     Screens.serverStop()
+    Fabricators.serverStop()
     Tale.serverStop()
   end
 end
@@ -118,18 +129,21 @@ function Borderline:mapChanged(_map, server)
     Hold.serverStop()
     Wilbur.serverStop()
     Screens.serverStop()
+    Fabricators.serverStop()
     Tale.serverStop()
   end
   Army.clear()
   Hold.clear()
   Wilbur.clear()
   Screens.clear()
+  Fabricators.clear()
 end
 
 function Borderline:serverPlayerJoined(server, player)
   Hold.serverPlayerJoined(server, player)
   Wilbur.serverPlayerJoined(server, player)
   Screens.serverPlayerJoined(server, player)
+  Fabricators.serverPlayerJoined(server, player)
 end
 
 --- The launch's --boss (src/launch.lua): on the Bragium Pit, straight to
@@ -156,26 +170,31 @@ function Borderline:serverTerminalDone(server, terminal, player)
 end
 
 function Borderline:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
-  local hit = Screens.serverShotAt(server, x, y, radius, by, damage, function(what)
+  local function beat(what)
     Tale.serverBeat(server, what)
-  end)
+  end
+  local hit = Screens.serverShotAt(server, x, y, radius, by, damage, beat)
+    or Fabricators.serverShotAt(server, x, y, radius, by, damage, beat)
   if hit then
     return hit
   end
   return Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
---- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): the army's, Wilbur's, Max's screens'.
+--- The wiki's pages on the line's enemies (tools/wiki, docs/wiki.md): the army's, Wilbur's, Max's screens',
+--- the Fabricators'.
 function Borderline:wikiEnemies(add)
   Wiki.wikiEnemies(add)
   Wilbur.wikiEnemies(add)
   Screens.wikiEnemies(add)
+  Fabricators.wikiEnemies(add)
 end
 
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
 function Borderline:serverEnemies(server, add)
   Army.serverEnemies(server, add)
   Screens.serverEnemies(add)
+  Fabricators.serverEnemies(add)
 end
 
 function Borderline:serverFreezeArea(_server, x, y, radius, seconds)
@@ -196,8 +215,15 @@ local function arrivedAt(server, x, y, reach)
   return nil
 end
 
+--- The `floorDrift` convention (on-foot's step): the Assembly Line's belts carry walkers.
+function Borderline:floorDrift(drift, x, y)
+  return drift or Belts.drift(cityMap(), x, y)
+end
+
 function Borderline:serverStep(server, dt)
   Army.serverStep(server, dt)
+  Belts.serverCarry(cityMap(), Army.serverWalkers(), dt) -- the belts carry the robots on them too
+  Fabricators.serverStep(server, dt)
   if not level or level.done then
     return
   end
@@ -256,6 +282,7 @@ function Borderline:exitGame()
   Hold.clear()
   Wilbur.clear()
   Screens.clear()
+  Fabricators.clear()
   Army.clear()
   Music.stop()
 end
@@ -275,6 +302,7 @@ function Borderline:update(dt, client)
   Hold.update(dt)
   Wilbur.update(dt)
   Screens.update(dt)
+  Fabricators.update(dt)
 end
 
 --- Any key takes Max's intro screen down.
@@ -320,6 +348,7 @@ function Borderline:drawAboveCars()
   end
   Wilbur.drawAboveCars()
   Screens.drawAboveCars(map)
+  Fabricators.drawAboveCars(map)
   Marker.draw(objectives())
 end
 
@@ -329,6 +358,7 @@ function Borderline:drawNightLights(_client, _camera, glow)
     Works.drawNightLights(map, glow)
     Bridges.drawNightLights(map, glow)
     Screens.drawNightLights(map, glow)
+    Fabricators.drawNightLights(map, glow)
   end
   Marker.drawNightLights(objectives(), glow)
 end
@@ -383,7 +413,7 @@ function Borderline:footstepWalkers()
 end
 
 Borderline.clientMessages = {}
-for _, part in ipairs({ Army, Tale, Hold, Wilbur, Screens }) do
+for _, part in ipairs({ Army, Tale, Hold, Wilbur, Screens, Fabricators }) do
   for kind, handler in pairs(part.clientMessages) do
     Borderline.clientMessages[kind] = handler
   end

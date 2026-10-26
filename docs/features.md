@@ -361,6 +361,12 @@ couple of small conventions rather than requiring each other:
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
   solid: nobody walks or drives there. Every walker, brain and spawn check
   asks it.
+- `feature:floorDrift(drift, x, y)`: through `Features.reduce`, from nil:
+  return `drift` when it isn't nil, else `{ x, y }` (px/s) if the floor at
+  the point moves whoever stands on it, else nil. On-foot's step adds it
+  (sliding along walls), the same on the host and in your own prediction,
+  so a moving floor never rubber-bands. The Assembly Line's belts
+  (borderline/belts.lua) carry walkers this way, and the army the same.
 - `feature:serverSkipToBoss(server, quest, player)`: the launch's
   `--boss` (`src/launch.lua`, for trying a boss out): `quest` has just
   begun with `player` (the host) on its map; the feature that owns its

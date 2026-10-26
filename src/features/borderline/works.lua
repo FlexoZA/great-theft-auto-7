@@ -64,7 +64,7 @@ local function gantryPose(g)
 end
 
 local ORE_GAP = 70 -- px between lumps of ore on a belt
-local ORE_SPEED = 60 -- px/s the belts run
+local ORE_SPEED = 60 -- px/s the belts run, unless the map says (`speed`)
 
 --- The ore riding the conveyors (on the belt, under everyone).
 local function drawOre(map)
@@ -72,7 +72,7 @@ local function drawOre(map)
     local along = c.dir == "e" or c.dir == "w"
     local len = along and c.w or c.h
     local back = c.dir == "w" or c.dir == "n" -- running towards its start
-    local shift = (clock * ORE_SPEED) % ORE_GAP
+    local shift = (clock * (c.speed or ORE_SPEED)) % ORE_GAP
     for a = 0, len - 1, ORE_GAP do
       local d = back and (a - shift) % len or (a + shift) % len
       local x = along and c.x + d or c.x + c.w / 2
