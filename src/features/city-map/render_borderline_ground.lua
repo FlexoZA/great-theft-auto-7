@@ -24,7 +24,7 @@ local function outsideAt(map, c, r)
     return C.rock
   elseif o == "dome" then
     return C.bank
-  elseif o == "plant" then
+  elseif o == "plant" or o == "hall" then
     return C.wall
   elseif o == "cliff" then
     local road = map.cutsRoad[r]
@@ -245,9 +245,78 @@ local function drawRockSnow(c, r, x, y, T, shade)
   end
 end
 
+--- Next to a floor (any of its eight neighbours open)?
+local function byFloor(map, c, r)
+  for dc = -1, 1 do
+    for dr = -1, 1 do
+      if open(map, c + dc, r + dr) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- One tile of the Refinery's wall, next to its floor: firebrick in
+--- courses, the joints staggered, scorched darker low down; a steel column
+--- every four tiles along it, an I-beam seen from above on the floor's side.
+local function drawHallWall(map, c, r, x, y, T)
+  local k = 0.9 + 0.15 * noise(c / 3 + 1, r / 3 + 4)
+  love.graphics.setColor(C.firebrick[1] * k, C.firebrick[2] * k, C.firebrick[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.35) -- the courses and their joints
+  for row = 0, 3 do
+    local by = y + row * 16
+    love.graphics.rectangle("fill", x, by, T, 2)
+    for a = (row % 2) * 16, T - 1, 32 do
+      love.graphics.rectangle("fill", x + a, by, 2, 16)
+    end
+  end
+  color(C.white, 0.06)
+  for row = 0, 3 do
+    love.graphics.rectangle("fill", x, y + row * 16 + 2, T, 2)
+  end
+  -- Which way the floor is, for the column's face.
+  local dc, dr = 0, 0
+  if open(map, c + 1, r) then
+    dc = 1
+  elseif open(map, c - 1, r) then
+    dc = -1
+  elseif open(map, c, r + 1) then
+    dr = 1
+  elseif open(map, c, r - 1) then
+    dr = -1
+  end
+  if (dc ~= 0 and r % 4 == 0) or (dr ~= 0 and c % 4 == 0) then
+    local cx, cy = x + T / 2 + dc * T * 0.28, y + T / 2 + dr * T * 0.28
+    box(cx - 14, cy - 14, 28, 28, C.gunmetal)
+    color(C.gunmetalLight) -- the I: two flanges and the web between
+    if dc ~= 0 then
+      love.graphics.rectangle("fill", cx - 14, cy - 14, 28, 6)
+      love.graphics.rectangle("fill", cx - 14, cy + 8, 28, 6)
+      love.graphics.rectangle("fill", cx - 3, cy - 8, 6, 16)
+    else
+      love.graphics.rectangle("fill", cx - 14, cy - 14, 6, 28)
+      love.graphics.rectangle("fill", cx + 8, cy - 14, 6, 28)
+      love.graphics.rectangle("fill", cx - 8, cy - 3, 16, 6)
+    end
+    color(C.yellow) -- a hazard band round its foot
+    local bw, bh = 28 - math.abs(dc) * 20, 28 - math.abs(dr) * 20
+    love.graphics.rectangle("fill", cx - 14 + dc * 10, cy - 14 + dr * 10, bw, bh)
+  end
+end
+
 --- One tile of the map's outside at (c, r), (x, y) in world px.
 local function drawOutside(map, c, r, x, y, T)
   local o = outsideAt(map, c, r)
+  if map.outside == "hall" then -- the Refinery's walls, the plant's roofs past them
+    if byFloor(map, c, r) then
+      drawHallWall(map, c, r, x, y, T)
+    else
+      drawWorksRoof(c, r, x, y, T)
+    end
+    return
+  end
   if o == C.works then
     drawWorksRoof(c, r, x, y, T)
     return
@@ -388,6 +457,100 @@ local function drawPaving(c, r, x, y, T, f)
   love.graphics.rectangle("fill", x + 2, y + 2, T - 4, 2)
 end
 
+--- One tile of the Refinery's floor: bar grating in panels two tiles
+--- square, each laid the other way to the next, its flat bars lit along
+--- one edge, the dark under them, a frame round each panel, rods across;
+--- a stain of slag or rust now and then.
+local function drawGrate(c, r, x, y, T, f)
+  local pc, pr = math.floor(c / 2), math.floor(r / 2)
+  local k = 0.92 + 0.12 * hash(pc * 5.3 + pr * 2.9)
+  love.graphics.setColor(0.12, 0.12, 0.14)
+  love.graphics.rectangle("fill", x, y, T, T)
+  local across = (pc + pr) % 2 == 0
+  for a = 2, T - 4, 8 do
+    love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 4, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 4)
+    end
+    love.graphics.setColor(f[1] * k * 1.35, f[2] * k * 1.35, f[3] * k * 1.35)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 1, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 1)
+    end
+  end
+  love.graphics.setColor(f[1] * k * 0.8, f[2] * k * 0.8, f[3] * k * 0.8) -- the rods across the bars
+  for a = 16, T - 1, 32 do
+    if across then
+      love.graphics.rectangle("fill", x, y + a, T, 2)
+    else
+      love.graphics.rectangle("fill", x + a, y, 2, T)
+    end
+  end
+  color(C.gunmetalLight) -- the panel's frame
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 4, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 4)
+  end
+  color(INK, 0.35)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x + 4, y, 1, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y + 4, T, 1)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.06 then
+    color(C.slag, 0.75)
+    love.graphics.ellipse("fill", x + T * (0.3 + h * 5), y + T * 0.5, T * 0.28, T * 0.18, 14)
+  elseif h < 0.1 then
+    color(C.rust, 0.4)
+    love.graphics.ellipse("fill", x + T * 0.5, y + T * (0.3 + h * 3), T * 0.22, T * 0.3, 14)
+  end
+end
+
+--- One tile of the plates by the outflow: steel plates two tiles square,
+--- riveted round, each gone a little blue-purple where the heat got to it,
+--- soot in streaks.
+local function drawOutflow(c, r, x, y, T, f)
+  local k = 0.95 + 0.08 * noise(c / 3 + 7, r / 3 + 2)
+  local heat = 0.25 * hash(math.floor(c / 2) * 4.7 + math.floor(r / 2) * 8.3) -- a plate's temper
+  love.graphics.setColor(f[1] * k * (1 - heat * 0.3), f[2] * k * (1 - heat * 0.5), f[3] * k * (1 + heat * 0.3))
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.3)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 3, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 3)
+  end
+  color(C.white, 0.18)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x + 3, y, 1, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y + 3, T, 1)
+  end
+  color(C.gunmetalLight) -- rivets round the plate
+  for a = 10, T - 6, 18 do
+    if c % 2 == 0 then
+      love.graphics.circle("fill", x + 9, y + a, 2.2, 6)
+    end
+    if r % 2 == 0 then
+      love.graphics.circle("fill", x + a, y + 9, 2.2, 6)
+    end
+  end
+  local h = hash(c * 3.3 + r * 8.9)
+  if h < 0.18 then -- soot
+    color(INK, 0.16)
+    love.graphics.ellipse("fill", x + T * h * 4, y + T * 0.6, T * 0.4, T * 0.12, 12)
+  end
+end
+
 --- One tile of floor at (c, r), finish `f`.
 local function drawFloor(c, r, x, y, T, f)
   if f == C.port or f == C.quay then
@@ -401,6 +564,12 @@ local function drawFloor(c, r, x, y, T, f)
     return
   elseif DIRT[f] then
     drawDirt(c, r, x, y, T, f)
+    return
+  elseif f == C.grate then
+    drawGrate(c, r, x, y, T, f)
+    return
+  elseif f == C.outflow then
+    drawOutflow(c, r, x, y, T, f)
     return
   end
   local h = hash(c * 7.1 + r * 13.7)
@@ -481,21 +650,6 @@ local function drawWallDrifts(map, T)
       end
     end
   end
-end
-
--- The outsides drawn every frame, in the map and past it alike (drawLive),
--- not into the canvas: what lies on them spills from tile to tile, and so
--- runs on without a seam at the tiles or at the map's edge.
---- Next to a floor (any of its eight neighbours open)?
-local function byFloor(map, c, r)
-  for dc = -1, 1 do
-    for dr = -1, 1 do
-      if open(map, c + dc, r + dr) then
-        return true
-      end
-    end
-  end
-  return false
 end
 
 --- The detail on one tile of Prosperity's dome wall (`glass`) or of the

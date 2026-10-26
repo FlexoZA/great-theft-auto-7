@@ -17,7 +17,10 @@
 -- level is played again; every feature hears of it (`serverTerminalDone`).
 --
 -- A lock may have no terminals at all: the quest opens it itself
--- (`Terminals.serverUnlock(server, name)`) when its own goal is met.
+-- (`Terminals.serverUnlock(server, name)`) when its own goal is met. A
+-- lock may come `after` another: its terminals can't be worked, and aren't
+-- waiting, until that one is open (the Refinery's bridges, one after the
+-- next up the hall).
 --
 -- The quest's side: `Terminals.serverOpen(map, nav, alarm)` when its level
 -- starts (`nav` its walking grid, refreshed as walls come down; `alarm(server,
@@ -27,8 +30,12 @@
 --
 -- The map's side (city-map/eternal_mood.lua, city-map/borderline.lua):
 --   map.terminals  { x, y, look = "terminal" | "seal" | "hyperbole", lock = name, warn = text | nil, dock = key | nil }
---   map.locks      { name, label, exit = true | nil, walls = { solid, look = "blast" | "roadgate" | "bone" } }
+--   map.locks      { name, label, exit = true | nil, after = name | nil,
+--                    walls = { solid, look = "blast" | "roadgate" | "bone" | "drawbridge" } }
 -- `warn` is who hears the alarm, on the HUD ("the horde" when not given).
+-- A wall's solid may be `water` (it stops walking, not rounds or sight: a
+-- raised bridge's gap over the Refinery's river); a "drawbridge" is drawn
+-- by its quest line (borderline/bridges.lua), not here.
 --
 -- Messages
 --   client -> server  TRM_WORK <terminal>         (I am holding the key at it; every WORK_EVERY)
@@ -96,6 +103,13 @@ local function lockNamed(map, name)
     end
   end
   return nil
+end
+
+--- Can lock `l`'s terminals be worked yet: is the lock it comes `after`
+--- (if any) open?
+local function ready(map, l)
+  local before = l and l.after and lockNamed(map, l.after)
+  return not (before and not before.open)
 end
 
 --- Take lock `l`'s walls out of `map` (its solids, `fixed` and its cells) and out of
@@ -242,7 +256,7 @@ Terminals.serverMessages = {
     local t = map and i and terminalsOf(map)[i]
     local st = sv and i and sv[i]
     if not (t and st) or st.done or player.vehicle or not Features.present(player)
-      or Features.any("serverHeld", server, player) then
+      or Features.any("serverHeld", server, player) or not ready(map, lockNamed(map, t.lock)) then
       return
     end
     local x, y = Features.bodyPose(server, player)
@@ -351,7 +365,8 @@ function Terminals:update(dt, client)
     local st = state(i)
     if st.doneT then
       st.doneT = st.doneT + dt
-    elseif x and not client:myVehicle() and dist2(x, y, t.x, t.y) <= Terminals.REACH ^ 2 then
+    elseif x and not client:myVehicle() and dist2(x, y, t.x, t.y) <= Terminals.REACH ^ 2
+      and ready(map, lockNamed(map, t.lock)) then
       near = i
     end
   end
@@ -377,13 +392,14 @@ function Terminals:actionTaken()
 end
 
 --- On this screen: every terminal not done yet whose lock holds the way
---- on (empty once the way on is open, or on a map without any).
+--- on and can be worked now (empty once the way on is open, or on a map
+--- without any).
 function Terminals.waiting()
   local map = cityMap()
   local list = {}
   for i, t in ipairs(terminalsOf(map)) do
     local l = lockNamed(map, t.lock)
-    if l and l.exit and not l.open and not state(i).doneT then
+    if l and l.exit and not l.open and not state(i).doneT and ready(map, l) then
       list[#list + 1] = t
     end
   end
@@ -521,8 +537,8 @@ end
 --- road doing the same, or a wall of Heck's bone crumbling.
 local function drawWall(s, t)
   local k = t and math.min(1, t / OPEN_FOR) or 0
-  if k >= 1 then
-    return
+  if k >= 1 or s.look == "drawbridge" then
+    return -- (a drawbridge is its quest line's to draw)
   end
   local across = s.w >= s.h
   if s.look == "bone" then -- heaped bones and skulls, settling and falling apart as it opens
@@ -648,8 +664,9 @@ function Terminals:drawOnMinimap(_client, toMap)
   love.graphics.setColor(1, 1, 1)
 end
 
---- How far each lock still to open is, down the left (the free row); what
---- to do at the terminal you are at; the news of a lock opening.
+--- How far each lock still to open (and ready to be) is, down the left (the
+--- free row); what to do at the terminal you are at; the news of a lock
+--- opening.
 function Terminals:drawHUD()
   local map = cityMap()
   local locks = locksOf(map)
@@ -660,7 +677,7 @@ function Terminals:drawHUD()
   love.graphics.setFont(UI.fonts.body)
   local y = 118
   for _, l in ipairs(locks) do
-    if not l.open then
+    if not l.open and ready(map, l) then
       local done, of = 0, 0
       for i, t in ipairs(terminalsOf(map)) do
         if t.lock == l.name then

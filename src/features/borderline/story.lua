@@ -135,6 +135,24 @@ Story.beats = {
 
   ["refinery.start"] = {
     { "yappy", "The refinery. Don't fall in the river. You won't come out. I mean that medically." },
+    { "yappy", "Every bridge is up. Of course it is. There's a bridge control on each bank. Hack one, the next "
+      .. "bridge comes down. I'll do the waving." },
+  },
+  ["refinery.bridge1"] = {
+    { "yappy", "It's coming down! First crossing, minion. Don't look down. Don't look at the arc haulers either." },
+    { "max", "You lowered a bridge? Ha! I've got three more. Every one hotter than the last. TO THE MAX!" },
+  },
+  ["refinery.bridge2"] = {
+    { "yappy", "Two down! I mean two lowered. That's the opposite of down. You know what I mean. Cross!" },
+  },
+  ["refinery.bridge3"] = {
+    { "max", "Bandit, you're halfway across my river! Nobody gets halfway! I'm turning the river up." },
+    { "yappy", "He can't turn the river up. Can he? Hurry." },
+  },
+  ["refinery.open"] = {
+    { "yappy", "That's the last bridge! The outflow's across it, and the freight door. And the big ones. "
+      .. "Of course the big ones." },
+    { "max", "Every bridge down? Magnificent! The outflow team is VERY excited to meet you." },
   },
   ["refinery.fight"] = { { "yappy", "Arc haulers on the bridges! Don't stand in the blue! It tingles! It kills!" } },
   ["refinery.The Smelting Floor"] = { { "max", "Every bridge is hotter than the last. Keep going, it gets better!" } },
@@ -223,6 +241,7 @@ Story.hack = {
   wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
   landing = "Objective: hack the ferry's control terminals round the yard (%d left)",
   pit = "Objective: hack the power terminals round the terraces to open the pit's floor (%d left)",
+  refinery = "Objective: hack the bridge control on this bank to lower the next bridge",
 }
 
 -- The objective line and the HUD bar while the way on waits for a hold

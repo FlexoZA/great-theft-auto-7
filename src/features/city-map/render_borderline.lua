@@ -15,6 +15,7 @@ local Ground = require("src.features.city-map.render_borderline_ground")
 local Port = require("src.features.city-map.render_borderline_port")
 local Mine = require("src.features.city-map.render_borderline_mine")
 local City = require("src.features.city-map.render_borderline_city")
+local Hall = require("src.features.city-map.render_borderline_hall")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -23,7 +24,7 @@ local box, blob, hazard = Kit.box, Kit.blob, Kit.hazard
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW }) do
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW }) do
   for kind, fn in pairs(kit) do
     DRAW[kind] = fn
   end
@@ -357,79 +358,6 @@ function DRAW.lamp(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetal)
   color(C.paintWhite)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
-end
-
---- The molten river: purple, a crust here and there (its flow is
---- borderline/works.lua's), a railing along each bank with hazard stripes.
-function DRAW.river(s)
-  color(C.purple)
-  love.graphics.rectangle("fill", s.x, s.y, s.w, s.h)
-  color(C.purpleLight)
-  for i = 0, math.floor(s.w * s.h / 9000) do
-    local h = hash(s.x + s.y * 3 + i * 17)
-    love.graphics.ellipse("fill", s.x + h * s.w, s.y + hash(h + i) * s.h, 22, 6)
-  end
-  local along = s.w >= s.h
-  if along then
-    hazard(s.x, s.y - 10, s.w, 10)
-    hazard(s.x, s.y + s.h, s.w, 10)
-  else
-    hazard(s.x - 10, s.y, 10, s.h)
-    hazard(s.x + s.w, s.y, 10, s.h)
-  end
-end
-
---- The casting pit: a deep box, rows of moulds in it, the fresh ones
---- glowing with Bragium.
-function DRAW.casting(s)
-  box(s.x, s.y, s.w, s.h, C.pitWall)
-  color(C.pitDeep)
-  love.graphics.rectangle("fill", s.x + 18, s.y + 18, s.w - 36, s.h - 36)
-  local i = 0
-  for y = s.y + 34, s.y + s.h - 70, 64 do
-    for x = s.x + 34, s.x + s.w - 70, 64 do
-      i = i + 1
-      box(x, y, 40, 40, C.gunmetal)
-      color(hash((s.seed or 1) + i) < 0.5 and C.purple or C.rust)
-      love.graphics.rectangle("fill", x + 6, y + 6, 28, 28)
-    end
-  end
-  hazard(s.x, s.y, s.w, 12)
-  hazard(s.x, s.y + s.h - 12, s.w, 12)
-  hazard(s.x, s.y, 12, s.h)
-  hazard(s.x + s.w - 12, s.y, 12, s.h)
-end
-
---- A steam vent in the floor: a grille over the dark (the steam is works.lua's).
-function DRAW.grille(s)
-  box(s.x + 6, s.y + 6, s.w - 12, s.h - 12, INK)
-  color(C.gunmetalLight)
-  for x = s.x + 12, s.x + s.w - 14, 9 do
-    love.graphics.rectangle("fill", x, s.y + 8, 3, s.h - 16)
-  end
-end
-
-function DRAW.bridge(s)
-  box(s.x, s.y, s.w, s.h, C.grate)
-  color(C.yellow) -- the rails
-  love.graphics.rectangle("fill", s.x, s.y, 10, s.h)
-  love.graphics.rectangle("fill", s.x + s.w - 10, s.y, 10, s.h)
-end
-
-function DRAW.tank(s)
-  blob(s.x, s.y, s.w, s.h, C.steel)
-  color(C.yellow)
-  love.graphics.setLineWidth(10)
-  love.graphics.circle("line", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.3)
-  love.graphics.setLineWidth(1)
-end
-
-function DRAW.pipe(s)
-  box(s.x, s.y, s.w, s.h, C.gunmetalLight)
-  color(C.yellowDark)
-  for a = 30, s.w - 20, 90 do
-    love.graphics.rectangle("fill", s.x + a, s.y, 10, s.h)
-  end
 end
 
 function DRAW.belt(s)

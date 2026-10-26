@@ -18,8 +18,9 @@
 --               building sites with cranes, his statue in the plaza, a gate
 --               at either end
 --   refinery    The Refinery: indoors and dark, a river of molten Bragium
---               snaking across the floor, crossed by bridges, tanks and
---               pipes, bridge cranes overhead, a casting pit, steam vents
+--               snaking across the floor, its bridges drawn up until the
+--               bridge controls lower them, tanks, pipes, ingots and ladles,
+--               bridge cranes overhead, a casting pit, steam vents
 --   assembly    The Assembly Line: the factory floor, dim, conveyor belts
 --               carrying hauler parts across it, welding arms and presses
 --               at work, scrap pits, a bridge crane, the Foreman's floor
@@ -43,12 +44,14 @@
 --                         (snowbanks), "harbour" (the frozen sea all round the port),
 --                         "rock" (the pit's walls), "dome"
 --                         (Prosperity's glass and the snow past it), "plant" (the factory's walls),
+--                         "hall" (the Refinery's walls, the roofs past them),
 --                         "cliff" (Thousand Papercuts: the drop west of the road, the rock east), "sky"
 --                         (round the bunker's roof)
 --   map.grounds           { x0, y0, x1, y1, floor } the finish of each walked patch, world px, a later one
 --                         over an earlier: snow, ice, quay, yard, port (Liar's Landing's slabs), ballast,
 --                         gravel, terrace, bench, pitfloor (the Pit's levels, rim to floor), street, plaza,
---                         square (Prosperity's screens' squares), grate, steel, upper, road, roof
+--                         square (Prosperity's screens' squares), grate (the Refinery's floor), outflow
+--                         (its scorched plates by the outflow), steel, upper, road, roof
 --   map.zones             { name, x0, y0, x1, y1 } the parts of the map, world px
 --   map.cover             { kind, x, y, w, h, solid, round, flat, tint } world px; solid ones are in the
 --                         solids too (`water` ones, the molten river, stop walking but not rounds or
@@ -69,13 +72,17 @@
 --                         Prosperity's towers are factories (`stackX`, `stackY` their chimney), statue,
 --                         planter, pylon (a leg of a screen), and flat: lamp, lot, sidewalk (a pavement round
 --                         a block), inlay (the gold round the statue); the Refinery's: casting (`water`, the
---                         casting pit), and flat:
---                         grille (a steam vent); the Bunker's: intake (`water`, round: an engine's)
+--                         casting pit), ladle (one parked), ingots (a stack of them), and flat: river (a run
+--                         or a bend drawn whole: its `water` solids are separate, so a bridge's gap can
+--                         be a lock's), grille (a steam vent), slag (a spill gone hard); the Bunker's:
+--                         intake (`water`, round: an engine's)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
 --   map.beacons           { x, y, color } emergency beacons turning ("amber" or "red"; works.lua)
 --   map.flows             { x, y, w, h, dir } the river's runs, flowing (the Refinery; works.lua)
+--   map.drawbridges       { x, y, w, h, lock } the Refinery's bridges: the deck over the river, world px,
+--                         drawn up until lock `lock` opens (the borderline feature's bridges.lua draws them)
 --   map.steam             { x, y, phase } floor vents letting off steam (the Refinery; works.lua)
 --   map.bridgecranes      { x0, x1, y0, y1, period, phase, load } overhead cranes spanning x0..x1, running up
 --                         and down y0..y1 with a ladle of molten Bragium (the Refinery), or a finished
@@ -106,8 +113,9 @@
 --   map.army              { packs, posts, squads } who of Hyperbole's army stands where (borderline/army.lua
 --                         says what each is), world px; empty where nobody is placed yet
 --   map.terminals,        what opens the way on, and what it opens (the terminals feature): Hyperbole's
---   map.locks             terminals and the blast door they open (the Wreck); a terminal's `dock` names the
---                         hauler dock (a DCK post in `army`) it shuts down when hacked
+--   map.locks             terminals and the blast door they open (the Wreck), the bridges they lower one
+--                         after the next (the Refinery); a terminal's `dock` names the hauler dock (a DCK
+--                         post in `army`) it shuts down when hacked
 --   map.hold              { x, y, w, h, time, waves } a spot held while Yappy hacks it, the way on shut till
 --                         then (Liar's Landing's ferry lift; borderline/hold.lua says the rest)
 --   map.boss              { kind, x, y, wake } the level's boss: where it comes, and the box { x0, y0, x1,
@@ -122,6 +130,7 @@ local Borderline = {}
 local Landing = require("src.features.city-map.borderline_landing")
 local Pit = require("src.features.city-map.borderline_pit")
 local Prosperity = require("src.features.city-map.borderline_prosperity")
+local Refinery = require("src.features.city-map.borderline_refinery")
 
 -- The minimap (the minimap feature) --------------------------------------------
 
@@ -350,19 +359,21 @@ function Blockout:wave(at, codes, c, r)
 end
 
 --- A lock (the terminals feature): `label` on the HUD, holding the level's
---- way on when `exit`; its terminals and walls follow.
-function Blockout:lock(name, label, exit)
+--- way on when `exit`, its terminals only workable once lock `after` (if
+--- given) is open; its terminals and walls follow.
+function Blockout:lock(name, label, exit, after)
   local map = self.map
   map.locks, map.terminals = map.locks or {}, map.terminals or {}
-  local l = { name = name, label = label, exit = exit, walls = {} }
+  local l = { name = name, label = label, exit = exit, after = after, walls = {} }
   map.locks[#map.locks + 1] = l
   return l
 end
 
 --- A blast door of lock `l` over (x, y, w, h) px: solid, like any wall,
---- until the lock opens.
-function Blockout:lockWall(l, x, y, w, h)
-  local s = { x = x, y = y, w = w, h = h, look = "blast" }
+--- until the lock opens. `look` another look ("drawbridge"); `water` one
+--- that stops walking only (a raised bridge's gap over the river).
+function Blockout:lockWall(l, x, y, w, h, look, water)
+  local s = { x = x, y = y, w = w, h = h, look = look or "blast", water = water }
   self.map.solids[#self.map.solids + 1] = s
   l.walls[#l.walls + 1] = s
 end
@@ -586,141 +597,7 @@ local function buildWreck(map, rng, T)
   b:commit()
 end
 
--- 5. The Refinery ---------------------------------------------------------------------
-
--- The river's runs across the floor, bottom to top (the row of each run's
--- top; each is three tiles deep), the side it bends round on the way to
--- the next, and the columns its two bridges cross at.
-Borderline.RIVER = {
-  { r = 64, bend = "w", bridges = { 10, 34 } },
-  { r = 50, bend = "e", bridges = { 22 } },
-  { r = 36, bend = "w", bridges = { 8, 36 } },
-  { r = 22, bend = "e", bridges = { 24 } },
-}
-
--- The casting pit by the outflow (tiles), where the ladles pour.
-Borderline.CASTING = { 34, 3, 8, 6 }
--- Steam vents in the floor (tiles), venting now and then.
-Borderline.REFINERY_VENTS = { { 6, 70 }, { 40, 68 }, { 14, 46 }, { 34, 54 }, { 6, 18 }, { 40, 33 }, { 28, 26 },
-  { 12, 10 } }
-
-local function buildRefinery(map, rng, T)
-  local b = Blockout.new(map, T)
-  map.outside = "plant"
-  map.beacons, map.flows, map.steam, map.bridgecranes, map.overpipes = {}, {}, {}, {}, {}
-  local w = map.cols
-  b:open(2, 2, w - 3, map.rows - 3)
-  b:open(21, map.rows - 2, 26, map.rows - 1) -- the way in
-  b:open(20, 0, 27, 1) -- the freight door
-  b:ground("grate", 0, 0, w - 1, map.rows - 1)
-  b:ground("steel", 2, 2, w - 3, 12) -- the outflow, where the Smelter waits
-  b:place("door", 20, 0, 8, 2, { flat = true })
-  for i, run in ipairs(Borderline.RIVER) do
-    -- Across the floor, cut for its bridges.
-    local from = 2
-    local cuts = {}
-    for _, c in ipairs(run.bridges) do
-      cuts[#cuts + 1] = c
-    end
-    cuts[#cuts + 1] = w - 2
-    for _, c in ipairs(cuts) do
-      if c > from then
-        local seg = b:place("river", from, run.r, c - from, 3, { water = true })
-        map.flows[#map.flows + 1] = { x = seg.x, y = seg.y, w = seg.w, h = seg.h, dir = i % 2 == 1 and "w" or "e" }
-      end
-      if c < w - 2 then
-        b:place("bridge", c, run.r - 0.2, 3, 3.4, { flat = true })
-        map.beacons[#map.beacons + 1] = { x = b:x(c), y = b:y(run.r - 0.4), color = "amber" }
-        map.beacons[#map.beacons + 1] = { x = b:x(c + 3), y = b:y(run.r + 3.4), color = "amber" }
-      end
-      from = c + 3
-    end
-    -- The bend round to the next run, along the wall.
-    local nextRun = Borderline.RIVER[i + 1]
-    if nextRun then
-      local c = run.bend == "w" and 2 or w - 5
-      local seg = b:place("river", c, nextRun.r + 3, 3, run.r - nextRun.r - 3, { water = true })
-      map.flows[#map.flows + 1] = { x = seg.x, y = seg.y, w = seg.w, h = seg.h, dir = "n" }
-    end
-  end
-  -- Smelting tanks and the pipes between them, on the banks.
-  local keep = { { 18, map.rows - 6, 29, map.rows - 1 }, { 18, 0, 29, 4 } }
-  for _, run in ipairs(Borderline.RIVER) do
-    for _, c in ipairs(run.bridges) do
-      keep[#keep + 1] = { c - 1, run.r - 3, c + 3, run.r + 5 }
-    end
-  end
-  b:scatter(rng, "tank", 14, 110, 4, map.rows - 6, keep)
-  for _, at in ipairs({ { 6, 58 }, { 30, 44 }, { 12, 30 }, { 32, 16 } }) do
-    if b:clear(b:x(at[1]), b:y(at[2]), 8 * T, 0.5 * T, 24) then
-      b:place("pipe", at[1], at[2], 8, 0.5)
-    end
-  end
-  b:scatter(rng, "crate", 12, 48, 4, map.rows - 6, keep)
-  b:scatter(rng, "drum", 10, 40, 4, map.rows - 6, keep)
-  -- The casting pit, its beacons; the steam vents.
-  local K = Borderline.CASTING
-  b:place("casting", K[1], K[2], K[3], K[4], { water = true, seed = rng:random(1000) })
-  b:place("paint", K[1], K[2] + K[4] + 0.15, K[3], 0.8, { flat = true, text = "MOLTEN METAL", small = true })
-  map.beacons[#map.beacons + 1] = { x = b:x(K[1]), y = b:y(K[2] + K[4]), color = "red" }
-  map.beacons[#map.beacons + 1] = { x = b:x(K[1] + K[3]), y = b:y(K[2] + K[4]), color = "red" }
-  for i, v in ipairs(Borderline.REFINERY_VENTS) do
-    b:place("grille", v[1], v[2], 1, 1, { flat = true })
-    map.steam[#map.steam + 1] = { x = b:x(v[1] + 0.5), y = b:y(v[2] + 0.5), phase = i * 1.37 }
-  end
-  -- Two bridge cranes running the hall's length, a ladle under each.
-  map.bridgecranes[1] = { x0 = b:x(2), x1 = b:x(w - 2), y0 = b:y(14), y1 = b:y(52), period = 34, phase = 0 }
-  map.bridgecranes[2] = { x0 = b:x(2), x1 = b:x(w - 2), y0 = b:y(56), y1 = b:y(74), period = 26, phase = 2.4 }
-  -- Pipes along the walls overhead, work lamps on the walls, the river's
-  -- glow and the tanks'.
-  for _, r in ipairs({ 13, 53 }) do
-    map.overpipes[#map.overpipes + 1] = { x0 = b:x(2), x1 = b:x(w - 2), y = b:y(r) }
-  end
-  for r = 6, map.rows - 6, 8 do
-    for _, c in ipairs({ 2.3, w - 2.6 }) do
-      b:place("lamp", c, r, 0.3, 0.3, { flat = true, round = true })
-      map.lights[#map.lights + 1] = { x = b:x(c + 0.15), y = b:y(r + 0.15), r = 300, color = { 1, 0.8, 0.5 }, a = 0.7 }
-    end
-  end
-  for _, f in ipairs(map.flows) do
-    local along = f.w >= f.h
-    for k = 0.5, (along and f.w or f.h) / T, 4 do
-      local x, y = along and f.x + k * T or f.x + f.w / 2, along and f.y + f.h / 2 or f.y + k * T
-      map.lights[#map.lights + 1] = { x = x, y = y, r = 260, color = { 0.75, 0.35, 1 }, a = 0.75 }
-    end
-  end
-  for _, c in ipairs(map.cover) do
-    if c.kind == "tank" then
-      map.lights[#map.lights + 1] = { x = c.x + c.w / 2, y = c.y + c.h / 2, r = 140, color = { 0.75, 0.35, 1 },
-        a = 0.4 }
-    end
-  end
-  map.lights[#map.lights + 1] = { x = b:x(K[1] + K[3] / 2), y = b:y(K[2] + K[4] / 2), r = 380, color = { 0.8, 0.4, 1 },
-    a = 0.9 }
-  -- Arc haulers hold the far end of every bridge under their domes, plasma
-  -- haulers stand by the tanks, gun haulers walk the banks, kamikazes wait
-  -- in the middle and a dozer and a badass guard the outflow.
-  for _, run in ipairs(Borderline.RIVER) do
-    for _, c in ipairs(run.bridges) do
-      b:post("ARC", c + 1.5, run.r - 1.5)
-    end
-  end
-  b:post("PLZ", 20, 57)
-  b:post("PLZ", 30, 43)
-  b:post("PLZ", 15, 29)
-  b:squad({ "GUN", "GUN" }, { { 8, 58 }, { 40, 58 } })
-  b:squad({ "GUN", "GUN" }, { { 8, 30 }, { 40, 30 } })
-  b:pack("EXP", 24, 44, 3)
-  b:post("DZR", 24, 9)
-  b:post("BAD", 20, 6)
-  b:post("FIX", 30, 6)
-  b:post("SHD", 18, 44)
-  b:zone("The Intake", 54, map.rows - 1)
-  b:zone("The Smelting Floor", 13, 53)
-  b:zone("The Outflow", 0, 12)
-  b:ends(21, map.rows - 7, 23, 1)
-  b:commit()
-end
+-- 5. The Refinery: borderline_refinery.lua -------------------------------------------
 
 -- 6. The Assembly Line ----------------------------------------------------------------
 
@@ -997,7 +874,9 @@ Borderline.builders = {
   prosperity = function(map, rng, T)
     Prosperity.build(map, rng, Blockout.new(map, T), crane)
   end,
-  refinery = buildRefinery,
+  refinery = function(map, rng, T)
+    Refinery.build(map, rng, Blockout.new(map, T))
+  end,
   assembly = buildAssembly,
   cuts = buildCuts,
   bunker = buildBunker,

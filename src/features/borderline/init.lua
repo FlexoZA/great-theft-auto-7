@@ -16,7 +16,10 @@
 --
 -- A level with terminals (the Frozen Wreck's) keeps its way on shut until
 -- they are hacked (the terminals feature); hacking one sets off an alarm
--- the army near it hears, and shuts down the hauler dock it runs. A level
+-- the army near it hears, and shuts down the hauler dock it runs, and
+-- Max or Yappy may have something to say about it (a beat named after its
+-- lock). The Refinery's lower its bridges, one run after the next
+-- (bridges.lua draws them coming down). A level
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
 -- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
@@ -32,6 +35,7 @@ local Marker = require("src.features.borderline.marker")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
 local Screens = require("src.features.borderline.screens")
+local Bridges = require("src.features.borderline.bridges")
 local Wiki = require("src.features.borderline.wiki")
 local Terminals = require("src.features.terminals")
 
@@ -139,10 +143,15 @@ function Borderline:serverSkipToBoss(server, quest, player)
   end)
 end
 
---- A terminal hacked (the terminals feature): the dock it runs shuts down.
+--- A terminal hacked (the terminals feature): the dock it runs shuts down,
+--- and the story's beat named after its lock, if it has one, plays (the
+--- Refinery's bridges: one terminal each, so done is open).
 function Borderline:serverTerminalDone(server, terminal, player)
   if level and terminal.dock then
     Army.serverShutDock(server, terminal.dock, player and player.id)
+  end
+  if level then
+    Tale.serverBeat(server, terminal.lock)
   end
 end
 
@@ -254,6 +263,7 @@ end
 function Borderline:update(dt, client)
   Army.update(dt, client)
   Works.update(dt)
+  Bridges.update(dt)
   local y = nil
   if client then
     y = select(2, client:myPose())
@@ -293,6 +303,7 @@ function Borderline:drawBelowCars()
   local map = cityMap()
   if map then
     Works.drawBelowCars(map)
+    Bridges.drawBelowCars(map)
   end
   if Tale.onLevel(map) then
     Hold.drawBelowCars(map)
@@ -316,6 +327,7 @@ function Borderline:drawNightLights(_client, _camera, glow)
   local map = cityMap()
   if map then
     Works.drawNightLights(map, glow)
+    Bridges.drawNightLights(map, glow)
     Screens.drawNightLights(map, glow)
   end
   Marker.drawNightLights(objectives(), glow)
@@ -362,6 +374,7 @@ function Borderline:drawOnMinimap(client, toMap, w)
   if Tale.onLevel(map) then
     drawAreas(client, map, toMap, w)
   end
+  Bridges.drawOnMinimap(map, toMap)
   Marker.drawOnMinimap(objectives(), toMap)
 end
 

@@ -36,6 +36,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   round the south district, more kamikazes.
 - Prosperity has its own theme: Max's anthem, bright arena rock with a brass fanfare, a stomp-stomp-clap and the
   crowd shouting HEY, opening on the city's PA jingle.
+- The Refinery drawn properly: bar grating underfoot, the molten river glowing with crust floating on it between
+  railed steel kerbs, riveted smelting tanks with glowing ports, pipe racks, a casting pit full of moulds, ladles,
+  stacks of ingots and spilled slag, firebrick walls with steel columns.
+- The Refinery's bridges are all drawn up: hack the bridge control on each bank (each guarded by a hauler dock
+  and gun haulers) to lower the next one, run by run up the hall. More of the army holds it: a fourth plasma
+  hauler, a gun and stalker pair, junk haulers at the intake, more drones, and rocket haulers over the last bridge.
+- The Refinery has its own theme: industrial metal, a steam whistle and the furnace roaring alight, machine-tight
+  riffs, forge hammers and steam hissing out of the floor.
 - The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
   every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
   veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock

@@ -271,7 +271,7 @@ Bragium that powers it. Kill feed verb: "melted".
 | 2 | **Liar's Landing** | A frozen harbour of containers and cranes. Gun haulers, drones, the first rocket hauler. | Hack the four control terminals round the yard, then hold the ferry lift while Yappy hacks it |
 | 3 | **The Bragium Pit** | An open-pit mine, purple crystals, conveyors. Plasma haulers first show up. | Hack the four power terminals to open the pit's floor, take Wilbur down, pick up his keycard for the mine lift |
 | 4 | **Prosperity** | Max's shiny city: a giant statue of him, his face on every screen. Dozers, kamikazes, jets, the first badass. | Shoot down Max's four big screens; on the last he throws the gate open for a bigger show |
-| 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Smelter |
+| 5 | **The Refinery** | Rivers of molten Bragium, catwalks, arc haulers' domes. | Lower the bridges one run at a time from each bank's control, then the Smelter |
 | 6 | **The Assembly Line** | The robot factory: conveyors carry unfinished haulers that wake as you pass. | Foreman BIG-B055 |
 | 7 | **Thousand Papercuts** | A narrow cliff road up to the bunker: turret nests, jet strikes, rocket haulers on the ledges. | Hold out while Yappy opens the bunker door (very slowly) |
 | 8 | **The Bunker** | The bunker's roof. Eleven cannons, then it takes off. | BNK-9 |
@@ -293,7 +293,9 @@ Bragium that powers it. Kill feed verb: "melted".
    turns the next one up brighter; on the last he throws the north gate
    open himself: a show this big needs a bigger stage.
 5. **The Refinery.** Where the Bragium is melted down. Catwalks over the
-   molten river. The Smelter guards the outflow.
+   molten river, every bridge drawn up: Yappy hacks them down one run at
+   a time from each bank's control, Max promising every one hotter than
+   the last. The Smelter guards the outflow.
 6. **The Assembly Line.** Where the army is built. Yappy typed up the order
    for every robot it ever built, and never got a thank you. The Foreman runs the floor.
 7. **Thousand Papercuts.** The road up to the bunker. Yappy opens the door
@@ -619,6 +621,44 @@ giant statue of him, his face on four huge screens.
 
 ### 5. The Refinery (`refinery`, 48x80, dark)
 
+Built in `borderline_refinery.lua`, drawn in `render_borderline_hall.lua`
+and the ground's module: the floor is bar grating in panels laid crosswise
+(`grate`), scorched steel plates by the outflow (`outflow`); the river runs
+across the hall in four runs joined by bends along the walls, each drawn
+whole (deep purple, a hot core wandering down it, crust floes riding near
+the banks, bubbles) between steel kerbs with hazard paint and railing
+posts. The smelting tanks have riveted jackets, a yellow band, a domed top
+with its charging hatch, ports glowing round them, a ladder and pipes; the
+pipe racks run on supports with flanges and a valve wheel; the casting pit
+has a runner across it feeding rows of moulds, some still glowing; ladles
+stand parked for the cranes (crust on top, glowing cracks), ingots stacked
+on pallets, slag gone hard where the river spilled. The hall's walls
+(`hall`) are firebrick with a steel column every four tiles, the plant's
+roofs past them.
+
+**The bridges** (`bridges.lua`): every one stands drawn up, a bascule leaf
+hinged on the south bank with its rams and a red lamp blinking, until the
+bridge control on the bank below is hacked; then it swings down (1.6 s)
+and lies across, a deck of grating between yellow girders. Each run's
+bridges are a lock (`bridge1` .. `bridge4`, "THE FIRST BRIDGES" .. "THE
+LAST BRIDGE") whose wall over each gap is `water` (rounds and sight cross,
+feet don't), and each comes `after` the one below it, so its terminal
+can't be worked, and the marker doesn't point at it, until that one is
+down (`borderline_refinery.lua`'s `POSTS`): the intake's on its west
+side, the next bank's at its east end, then west, then east, each away
+from the bridges and guarded by a hauler dock (`DCK`) and two gun
+haulers. Yappy and Max have a line for each bridge ("bridge1" ..
+"bridge3", then "open"). On the minimap a bridge down shows across the
+river, one up as a red bar on its bank.
+
+The theme (`theme_refinery.lua`): mechanical industrial metal at 128 BPM
+in D minor. The shift starts once (a steam whistle, the furnace catching,
+a hammer blow); then the press, a clipped sixteenth riff on low D with the
+kick on every chug and a forge hammer each bar; the pour, a lead singing
+over Dm, Bb, F, C and Dm, Bb, Gm, A with anvils on the backbeat; the
+vent, half-time chugs with steam hissing out of the floor; and the press
+again (~53 s loop).
+
 A smelting hall, dark (`night` { 0.42, 0.38, 0.52 }) and lit by its
 molten river, which flows (works.lua's `flows`), and by work lamps on the
 walls. Two bridge cranes run the length of the hall, a ladle of glowing
@@ -634,8 +674,13 @@ the map, catwalks over it, smelting tanks, pipes.
 - The river can't be waded (a `water` solid: rounds and sight cross it,
   feet don't), so the bridges are the way over and the places to hold.
   Spills from it are the hazard (`plasma` puddles).
-- Arc haulers hold the bridges under their domes; plasma haulers on the
-  tanks.
+- Every bridge is drawn up; the bridge control on each bank lowers the
+  next run's, one run at a time up the hall.
+- Arc haulers hold the far end of every bridge under their domes; plasma
+  haulers by the tanks; gun haulers walking the banks and a gun and
+  stalker pair across the middle one; junk haulers at the intake,
+  kamikazes in the middle, medic and shield drones; a dozer and the
+  badass at the outflow, rocket haulers watching the last bridge.
 - **Smelter** at the outflow, the top of the map.
 - **The end:** a freight door past the Smelter. EXIT: "THE ASSEMBLY LINE".
 
