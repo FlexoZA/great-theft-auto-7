@@ -11,7 +11,8 @@
 -- pour, the chorus, a lead singing over rung-out chords (Dm, Bb, F, C;
 -- Dm, Bb, Gm, A) with anvils on the backbeat; the vent, half-time, chugs
 -- on the lowest D, steam hissing out of the floor and the big hammer on
--- the one; and the press again into the top. 128 BPM in D minor: the
+-- the one, a chord rung out from it (D, then the Eb a semitone
+-- over it); and the press again into the top. 128 BPM in D minor: the
 -- whistle and the furnace ~4 s once (`renderIntro`), then the loop
 -- ~53 s (`render`).
 
@@ -84,7 +85,7 @@ end
 --- A forge hammer on the anvil: struck metal ringing on, a thump under it.
 local function hammer(metal, sub, t, amp)
   clang(metal, t, freq("D4"), 0.16 * amp, 0.5)
-  sub:sweep(t, 0.15, 110, 45, { wave = "sine", amp = 0.5 * amp, decay = 0.06 })
+  sub:sweep(t, 0.15, 110, 45, { wave = "sine", amp = 0.25 * amp, decay = 0.06 })
 end
 
 --- Steam out of a vent in the floor: a hiss, rising and gone.
@@ -203,6 +204,7 @@ end
 
 function PLAY.vent(band, t, b, s)
   Kit.chugs(band, t, VENT[(b - 1) % #VENT + 1], STEP, "D2", "D1")
+  Kit.powerChord(band.rhythm, t, BEAT * 1.8, b % 2 == 1 and "D2" or "D#2") -- rung out from the one
   hammer(band.metal, band.sub, t, 1)
   hiss(band.steam, t + 8 * STEP, BEAT * 1.5, b % 2 == 0 and 1 or 0.6)
   drums(band, t, "half", b == s.bars)
@@ -213,15 +215,15 @@ end
 
 -- The desk: each part's level, drive and filters.
 local DESK = {
-  { "rhythm", 0.42, drive = 13, lowpass = 2800 },
-  { "chug", 0.62, drive = 15, lowpass = 1400 },
-  { "bass", 0.5, drive = 3, lowpass = 420 },
-  { "sub", 0.5, drive = 2.5, lowpass = 600 },
-  { "lead", 0.34, drive = 2.2, lowpass = 6000 },
-  { "drums", 0.85, drive = 1.6, highpass = 30 },
+  { "rhythm", 0.58, drive = 13, lowpass = 3200 },
+  { "chug", 0.8, drive = 15, lowpass = 1800 },
+  { "bass", 0.45, drive = 3, lowpass = 420 },
+  { "sub", 0.28, drive = 2.5, lowpass = 600 },
+  { "lead", 0.48, drive = 2.2, lowpass = 6000 },
+  { "drums", 0.6, drive = 1.8, highpass = 40 },
   { "verb", 0.26, lowpass = 1200 },
-  { "metal", 0.5, highpass = 250 },
-  { "steam", 0.35, highpass = 2500 },
+  { "metal", 0.55, highpass = 250 },
+  { "steam", 0.4, highpass = 2500 },
 }
 
 -- The loop (press, pour, vent, press: ~53 s), and the shift starting (the
