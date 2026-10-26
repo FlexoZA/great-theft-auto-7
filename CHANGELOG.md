@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Jet run, a new ability in the shop: aim it and click, your thrusters light for half a second, and you fly a
+  straight strafing run over walls through the spot you picked and on past it, dropping five rockets on red rings
+  along the way (40 damage each to enemies, 25 s cooldown). Nothing can hit you in the air; the rockets never hurt
+  you or other players.
+
 ## [0.42.0] - 2026-10-26
 
 A new ability: the shield wall, a curved wall of light that stops enemy fire and holds enemies back.
