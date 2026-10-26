@@ -11,8 +11,9 @@
 --
 -- The rockets only hurt enemies: the crowd, every enemy (the
 -- `serverShotAt` convention, as many rounds' worth as `soft`) and cars
--- nobody drives. Players, you and your friends, are never hurt by them,
--- and they leave buildings alone.
+-- nobody drives. Players, you and your friends, are never hurt by them.
+-- Anything else that listens for a blast (`serverBlast`: walls, crates,
+-- the Hunter-Chopper overhead) takes one as from a rocket launcher's.
 --
 -- The host flies the jet the way leap.lua flies a leaper: every tick, after
 -- everything else has moved them, it puts them on the line, and abilities
@@ -145,7 +146,8 @@ function Jet.serverCast(server, caster, x, y, abilities, A)
 end
 
 --- A rocket goes off: parked cars and soft targets round it are hurt, more
---- towards the middle; players never.
+--- towards the middle, and whatever answers `serverBlast` feels it;
+--- players never.
 local function boom(server, r)
   local function amount(d)
     return math.floor(r.damage * (1 - (2 / 3) * math.min(1, d / r.radius)) + 0.5)
@@ -161,6 +163,7 @@ local function boom(server, r)
       end
     end
   end
+  Features.call("serverBlast", server, r.x, r.y, r.radius, r.damage, r.by, "explosive")
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, r.soft do

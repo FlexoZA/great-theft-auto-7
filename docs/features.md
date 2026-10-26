@@ -711,7 +711,8 @@ couple of small conventions rather than requiring each other:
   standing 0.4 s. Five rockets fall on red rings 90 px apart along the
   line, each as the caster passes over it: 40 at the middle of a 70 px
   blast, falling off to a third at the edge, to cars nobody drives and
-  through `serverShotAt` (3 rounds' worth), never to players. The host
+  through `serverShotAt` (3 rounds' worth), never to players; it raises
+  `serverBlast` as a missile does (walls, crates, the Hunter-Chopper). The host
   flies them as leap.lua does; abilities asks each ability's
   `serverAirborne(id)` (the leap's and the jet run's) for who it holds and
   who a freeze misses, and weapons protects the flier for the flight
