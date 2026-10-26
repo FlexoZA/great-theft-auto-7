@@ -302,7 +302,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
-| `serverEnemies(server, add)` | the audit asks (`tools/audit`, `docs/audit.md`) | Call `add({ id, kind, x, y, hp, radius, immune, flying })` for every enemy of yours in the world right now: `id` its own table (the same while it lives), `kind` a stable `"<feature>/<what>"`, `hp` what it can still take (a shield included; nil if one hit kills it), `immune` while nothing can hurt it (a stage it can't be hit in, buried, blinking), `flying` when it may be over walls. The audit aims every gun and ability at each kind and looks for enemies stuck in walls by it, so **every feature that answers `serverShotAt` for an enemy answers this too** (the audit flags one that doesn't). Bots in `server.players` are not listed. |
+| `serverEnemies(server, add)` | the audit asks (`tools/audit`, `docs/audit.md`) | Call `add({ id, kind, x, y, hp, radius, immune, flying, fixed })` for every enemy of yours in the world right now: `id` its own table (the same while it lives), `kind` a stable `"<feature>/<what>"`, `hp` what it can still take (a shield included; nil if one hit kills it), `immune` while nothing can hurt it (a stage it can't be hit in, buried, blinking), `flying` when it may be over walls, `fixed` when it never moves (a turret: the shield wall leaves it where it is). The audit aims every gun and ability at each kind and looks for enemies stuck in walls by it, so **every feature that answers `serverShotAt` for an enemy answers this too** (the audit flags one that doesn't). Bots in `server.players` are not listed. |
 | `wikiEnemies(add)` | the wiki (`tools/wiki`, `make wiki`, docs/wiki.md) and the audit ask | Call `add({ kind, name, where, about, ... })` once per enemy of yours for its page in `docs/wiki/enemies`, every number formatted in from your own constants (never a literal), so the page stays right when they change. Added by the feature that draws the enemy (the portrait is drawn with its draw hooks). The fields are in docs/wiki.md; police is the worked example. **Every feature that answers `serverEnemies` answers this too** (the audit flags an enemy met with no page, and a page out of date). |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
 | `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
@@ -692,11 +692,14 @@ couple of small conventions rather than requiring each other:
   with the "shield" material (blue sparks, `weapons/explosions.lua`).
   Players' rounds pass both ways; shots an enemy feature flies itself,
   blasts and blows still land. Enemies on foot don't walk through it
-  either: while a wall stands, abilities' step (last of all) asks for
-  `serverEnemies` and puts any entry whose `id` table holds its `x` / `y`
-  back on the side of the wall it was on (not `flying` ones, and never
-  into something solid). So an enemy listed with its own live table is
-  held back without its feature doing anything.
+  either: while a wall stands, abilities' step (priority 990, after most
+  movers) asks for `serverEnemies` and puts any entry whose `id` table
+  holds its `x` / `y` back on the side of the wall it was on (not `flying`
+  or `fixed` ones, and never into something solid). So an enemy listed
+  with its own live table is held back without its feature doing
+  anything; one moved by a later feature (cyber-feud, d-day, shotgun) may
+  lean into the wall for a tick before it is put back. Walls come down
+  when the map changes.
   The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
   invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
   stretch the first and shorten the second), or until they fire a gun:

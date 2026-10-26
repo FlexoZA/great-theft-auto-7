@@ -167,7 +167,7 @@ end
 --- they are. One round of anything knocks one over, so no hp.
 function Turrets.enemies(set, kind, add)
   for _, t in pairs(set.list) do
-    add({ id = t, kind = kind, x = t.x, y = t.y, radius = Turrets.radius })
+    add({ id = t, kind = kind, x = t.x, y = t.y, radius = Turrets.radius, fixed = true })
   end
 end
 

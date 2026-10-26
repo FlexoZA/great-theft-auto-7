@@ -21,7 +21,8 @@
 -- ring: point at one and let go of the key (or click it) to switch. The
 -- mode it is on is named under its ring, goes up with the cast (ABL_CAST)
 -- and out with ABL_FIRED, and the ability's `serverCast` gets it as its
--- last argument, its `drawAim` and effects as `mode` / `e.mode`.
+-- last argument, its `drawAim` and effects as `mode` / `e.mode`. `drawAim`
+-- gets the ability in its tier after that, as `serverCast` does.
 --
 -- An ability may fly something about (leap.lua flies its caster to the
 -- landing spot): its `onFired(e, client)` hears the cast, its
@@ -110,6 +111,7 @@ local Kinds = require("src.features.abilities.kinds")
 local Icons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Freeze = require("src.features.abilities.freeze")
+local Shield = require("src.features.abilities.shieldwall")
 local Leap = require("src.features.abilities.leap")
 local Chicken = require("src.features.abilities.chicken")
 
@@ -603,7 +605,7 @@ function Abilities:drawAboveCars(client)
     local x, y = self:target(client, ability)
     if x and placed(ability) and ability.drawAim then
       local mode = self:modeOf(ability)
-      ability.drawAim(ox, oy, x, y, self.time, mode and mode.key)
+      ability.drawAim(ox, oy, x, y, self.time, mode and mode.key, ability)
     elseif x then
       local c = ability.color
       love.graphics.setLineWidth(1)
@@ -1120,6 +1122,7 @@ function Abilities:mapChanged(_map, server)
   if server and self.sv then
     self.sv.players, self.sv.bodies, self.sv.cars = {}, {}, {}
     Freeze.serverReset() -- a warning on the old map lands nowhere
+    Shield.serverReset() -- nor does a wall stand there
   end
 end
 

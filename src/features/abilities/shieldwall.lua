@@ -16,9 +16,11 @@
 -- path, and a round that isn't a human player's, crossing the wall from the
 -- outside, is swallowed there and sparks blue on every screen (the
 -- "shield" material, weapons/explosions.lua). Enemies are kept back the
--- same way the audit finds them: every tick, after everything else has
--- moved, the wall asks for them (`serverEnemies`) and puts any that walked
--- into it back on the side they were on. Only rounds weapons flies are
+-- same way the audit finds them: every tick, after nearly everything else
+-- has moved (abilities steps at 990; the few later features' enemies lean
+-- in for a tick), the wall asks for them (`serverEnemies`) and puts any
+-- that walked into it back on the side they were on. Turrets (`fixed`)
+-- stay put. Only rounds weapons flies are
 -- stopped: an enemy whose feature flies its own shots, a blast's reach and
 -- a blow up close still land.
 
@@ -86,8 +88,8 @@ end
 --- something solid.
 local function hold(w, e)
   local body = e.id
-  if e.flying or type(body) ~= "table" or body.x ~= e.x or body.y ~= e.y then
-    return -- over the wall, or a list entry that isn't where it lives: nothing to move
+  if e.flying or e.fixed or type(body) ~= "table" or body.x ~= e.x or body.y ~= e.y then
+    return -- over the wall, bolted down, or a list entry that isn't where it lives: nothing to move
   end
   local dx, dy = e.x - w.x, e.y - w.y
   local d = math.sqrt(dx * dx + dy * dy)
@@ -115,7 +117,8 @@ local function hold(w, e)
 end
 
 --- Take down the walls that have run out, and keep enemies from walking
---- through the rest (this runs after every other feature has moved its own).
+--- through the rest (this runs after nearly every other feature has moved
+--- its own).
 function Shield.serverStep(server, _dt, abilities)
   local now = abilities.sv.time
   for i = #walls, 1, -1 do
@@ -202,15 +205,17 @@ local function drawWall(x, y, angle, r, width, alpha, pulse)
 end
 
 --- While the ability is selected: the wall as a ghost round me, on the
---- side of the cursor, and an arrow out to it.
-function Shield.drawAim(ox, oy, x, y, time)
+--- side of the cursor, and an arrow out to it. `A` is the shield in the
+--- tier I carry, so the ghost is the size the wall will be.
+function Shield.drawAim(ox, oy, x, y, time, _mode, A)
+  A = A or Shield
   local c = Shield.color
   local angle = math.atan2(y - oy, x - ox)
   local pulse = 0.5 + 0.5 * math.sin(time * 6)
-  drawWall(ox, oy, angle, Shield.radius, Shield.arc, 0.45 + 0.15 * pulse, pulse)
+  drawWall(ox, oy, angle, A.radius, Shield.arc, 0.45 + 0.15 * pulse, pulse)
   love.graphics.setLineWidth(2)
   love.graphics.setColor(c[1], c[2], c[3], 0.7)
-  local from, to = 14, Shield.radius - 14
+  local from, to = 14, A.radius - 14
   local hx, hy = ox + math.cos(angle) * to, oy + math.sin(angle) * to
   love.graphics.line(ox + math.cos(angle) * from, oy + math.sin(angle) * from, hx, hy)
   local left, right = angle + 2.5, angle - 2.5
