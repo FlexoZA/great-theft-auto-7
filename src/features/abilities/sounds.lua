@@ -112,6 +112,26 @@ function Sounds.load()
     buf:lowpass(5000)
   end)
 
+  -- Jet run: thrusters spooling up into a roaring burn as you take off.
+  bank.jetrun = make(1.4, function(buf)
+    buf:sweep(0, 0.5, 90, 420, { wave = "saw", amp = 0.3, decay = 0.6 })
+    buf:noiseBurst(0, 0.45, { amp = 0.12, decay = 0.4 })
+    buf:noiseBurst(0.45, 0.9, { amp = 0.6, decay = 0.7 })
+    buf:tone(0.45, 0.9, 140, { wave = "square", amp = 0.12, attack = 0.02, decay = 0.3, sustain = 0.6, release = 0.3,
+      vibRate = 40, vibDepth = 0.4 })
+    buf:drive(1.8)
+    buf:lowpass(3000)
+  end)
+
+  -- A jet run's rocket landing: a whistle in and a sharp blast.
+  bank.jetrunboom = make(0.9, function(buf)
+    buf:sweep(0, 0.12, 2200, 900, { wave = "sine", amp = 0.15, decay = 0.1 })
+    buf:sweep(0.1, 0.4, 120, 35, { wave = "sine", amp = 1.0, decay = 0.2 })
+    buf:noiseBurst(0.1, 0.7, { amp = 0.8, decay = 0.25 })
+    buf:drive(2.4)
+    buf:lowpass(2800)
+  end)
+
   -- MG nest: sandbags thumping down and the gun's tripod clanking open.
   bank.mgnest = make(0.7, function(buf)
     buf:sweep(0, 0.2, 180, 50, { wave = "sine", amp = 0.9, decay = 0.09 })

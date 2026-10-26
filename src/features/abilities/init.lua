@@ -112,7 +112,7 @@ local Icons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Freeze = require("src.features.abilities.freeze")
 local Shield = require("src.features.abilities.shieldwall")
-local Leap = require("src.features.abilities.leap")
+local JetRun = require("src.features.abilities.jetrun")
 local Chicken = require("src.features.abilities.chicken")
 
 local Abilities = {
@@ -912,6 +912,14 @@ Abilities.clientMessages = {
   end,
 }
 
+-- An ability may bring messages of its own (`clientMessages` in its module:
+-- the jet run's ABL_JETSEEK), handled here like the rest.
+for _, ability in ipairs(Kinds.list) do
+  for kind, handler in pairs(ability.clientMessages or {}) do
+    Abilities.clientMessages[kind] = handler
+  end
+end
+
 -- Server --------------------------------------------------------------------
 
 Abilities.sv = nil
@@ -1123,6 +1131,7 @@ function Abilities:mapChanged(_map, server)
     self.sv.players, self.sv.bodies, self.sv.cars = {}, {}, {}
     Freeze.serverReset() -- a warning on the old map lands nowhere
     Shield.serverReset() -- nor does a wall stand there
+    JetRun.serverReset() -- nor a run fly on, or its rockets land
   end
 end
 
@@ -1140,11 +1149,22 @@ function Abilities:serverIncoming()
   return list
 end
 
+--- Is player `id` flown by an ability on the host (a leap, a jet run)?
+--- Each that flies its caster answers `serverAirborne(id)`.
+local function airborne(id)
+  for _, ability in ipairs(Kinds.list) do
+    if ability.serverAirborne and ability.serverAirborne(id) then
+      return true
+    end
+  end
+  return false
+end
+
 --- The `serverHeld` convention: is this player held still on the host
 --- (frozen, or in the air)?
 function Abilities:serverHeld(_server, player)
   local sv = self.sv
-  return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or Leap.serverLeaping(player.id))
+  return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or airborne(player.id))
 end
 
 --- The `serverHidden` convention (`Features.visible` asks): is this player
@@ -1180,8 +1200,8 @@ end
 --- this via Features.byName.abilities.
 function Abilities:serverHold(server, player, seconds)
   local sv = self.sv
-  if not (sv and Features.present(player)) or Leap.serverLeaping(player.id) then
-    return false -- nobody to hold, or in the air: nothing holds a leaper
+  if not (sv and Features.present(player)) or airborne(player.id) then
+    return false -- nobody to hold, or in the air: nothing holds a leaper or a jet
   end
   sv.players[player.id] = math.max(sv.players[player.id] or 0, sv.time + seconds)
   if player.vehicle then

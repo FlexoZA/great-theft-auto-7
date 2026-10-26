@@ -2973,6 +2973,17 @@ function Weapons:serverRestoreCar(server, car, x, y, angle)
   end
 end
 
+--- Public: keep `player` out of harm's way for `seconds` from now, the way
+--- spawn protection does (rounds pass through them, blasts and blows miss),
+--- or for longer if they are protected longer already. The jet run
+--- (abilities/jetrun.lua) protects its flier for the flight.
+function Weapons:serverProtect(_server, player, seconds)
+  local st = self.sv and self.sv.players[player.id]
+  if st and type(seconds) == "number" and seconds > 0 then
+    st.protectedUntil = math.max(st.protectedUntil, self.sv.time + seconds)
+  end
+end
+
 --- Public: damage from something that isn't a bullet (a car running you
 --- over, Karen's slap). Lands on the car they are driving, or on them.
 --- `dtype` is its damage type (src/features/damage): say it, or it counts

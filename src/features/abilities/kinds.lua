@@ -32,6 +32,7 @@ local Kinds = {
     require("src.features.abilities.heatray"),
     require("src.features.abilities.teleport"),
     require("src.features.abilities.shieldwall"),
+    require("src.features.abilities.jetrun"),
   },
   byKey = {},
 }
