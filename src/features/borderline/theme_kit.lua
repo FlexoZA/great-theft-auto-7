@@ -91,6 +91,25 @@ function Kit.chugs(band, t, pattern, step, note, low)
   end
 end
 
+--- A bar of drums from `t`, sixteenths `step` apart: `fill` a roll over
+--- its last beat (the snare climbing, the kick under it); every other
+--- sixteenth `hit(kit, room, i, at, beat, sub)` plays, `i` 0..15 into the
+--- bar, `beat` 0..3 and `sub` 0..3 into the beat, on the band's drums and
+--- the snare's room.
+function Kit.drumBar(band, t, step, fill, hit)
+  local kit, room = band.drums, band.verb
+  for i = 0, 15 do
+    local at = t + i * step
+    local beat, sub = math.floor(i / 4), i % 4
+    if fill and beat == 3 then
+      kit:snare(at, 0.6 + sub * 0.12)
+      kit:kick(at, 0.8)
+    else
+      hit(kit, room, i, at, beat, sub)
+    end
+  end
+end
+
 --- The desk: each of `desk`'s { name, gain, drive, lowpass, highpass } in
 --- turn, the band's buffer by that name driven and filtered and mixed
 --- down into exactly `total` seconds (so a loop wraps cleanly), its peaks

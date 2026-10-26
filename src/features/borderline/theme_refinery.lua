@@ -112,14 +112,8 @@ end
 --- ride on the beats), "half" (the kick on one, the snare on three); `fill`
 --- a roll over the last beat.
 local function drums(band, t, style, fill, pattern)
-  local kit, room = band.drums, band.verb
-  for i = 0, 15 do
-    local at = t + i * STEP
-    local beat, sub = math.floor(i / 4), i % 4
-    if fill and beat == 3 then
-      kit:snare(at, 0.6 + sub * 0.12)
-      kit:kick(at, 0.8)
-    elseif style == "press" then
+  Kit.drumBar(band, t, STEP, fill, function(kit, room, i, at, beat, sub)
+    if style == "press" then
       if pattern and pattern:sub(i + 1, i + 1) == "x" then
         kit:kick(at, sub == 0 and 1 or 0.7)
       end
@@ -152,7 +146,7 @@ local function drums(band, t, style, fill, pattern)
         kit:hat(at, 0.3, true)
       end
     end
-  end
+  end)
 end
 
 -- Render ----------------------------------------------------------------------
