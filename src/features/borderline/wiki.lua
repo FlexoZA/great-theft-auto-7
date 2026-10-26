@@ -6,7 +6,7 @@ local Chassis = require("src.features.borderline.chassis")
 local Brains = Army.BRAINS
 local Junk, Gun, Rpg, Plz, Jet = Brains.JNK, Brains.GUN, Brains.RPG, Brains.PLZ, Brains.JET
 local Exp, Dzr, Arc, Drone, Sentry = Brains.EXP, Brains.DZR, Brains.ARC, Brains.FIX, Brains.SEN
-local Dock, Bad, Stk = Brains.DCK, Brains.BAD, Brains.STK
+local Dock, Bad, Stk, Can = Brains.DCK, Brains.BAD, Brains.STK, Brains.CAN
 local Heal = require("src.features.bosses.heal")
 
 local Wiki = {}
@@ -424,8 +424,8 @@ local function sentry(add)
   add({
     kind = "borderline/sen",
     name = "Sentry",
-    quests = { "borderline-assembly", "borderline-cuts", "borderline-bunker" },
-    where = "Flush in the floor of the Assembly Line, Thousand Papercuts' rock and the Bunker",
+    quests = { "borderline-assembly", "borderline-cuts" },
+    where = "Flush in the floor of the Assembly Line and in Thousand Papercuts' rock",
     about = "A yellow turret in a hatch, out of reach until it comes up.",
     stats = {
       { "Health", C.health },
@@ -475,7 +475,35 @@ local function dock(add)
   })
 end
 
-local PAGES = { junk, gun, stalker, rocket, drones, plasma, kamikaze, jet, dozer, badass, arc, sentry, dock }
+local function cannon(add)
+  local C, S = Can.CONF, Can.SHELL
+  add({
+    kind = "borderline/can",
+    name = "Rim cannon",
+    quests = { "borderline-bunker" },
+    where = "The Bunker: eleven round the rim of its roof; the way on stays shut until every one is down",
+    about = "A heavy twin-barrelled gun on a turret, bolted to the Bunker's rim.",
+    stats = {
+      { "Health", C.health },
+      { "Reach", ("%g px, all the way round, over anything in the way"):format(C.range) },
+    },
+    weapons = {
+      { "Shell", ("lobbed at the nearest player every %s s, landing %g s later on a red ring within %g px of "
+        .. "where they stood: %g explosive damage, %g px blast"):format(range(C.pause), S.delay, S.scatter,
+        S.damage, S.radius) },
+    },
+    abilities = {
+      ("Its muzzle glows for %g s before a shell goes. It turns slowly and never moves."):format(C.aim),
+    },
+    tips = {
+      "Watch for the red rings and keep moving: standing still is how a shell finds you.",
+      "Work round the rim: the further one is, the longer you have to step out of its ring.",
+    },
+    drops = drops("CAN"),
+  })
+end
+
+local PAGES = { junk, gun, stalker, rocket, drones, plasma, kamikaze, jet, dozer, badass, arc, sentry, dock, cannon }
 
 --- Every model's page, in the order you meet them.
 function Wiki.wikiEnemies(add)

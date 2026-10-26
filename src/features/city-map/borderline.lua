@@ -31,7 +31,8 @@
 --               down it, the rock on its east, a crane at the bunker's door;
 --               the army comes up it behind you, and you hold the door
 --   bunker      The Bunker: its roof at dusk, the arena, a rim of eleven
---               cannons, four engine intakes with their fans turning, a
+--               cannons lobbing shells (the way on shut till they're all
+--               down), four engine intakes with their fans turning, a
 --               radar, a gantry loading a missile
 --
 -- So far each is blocked out: floors, walls, cover, the way in and the way
@@ -82,7 +83,8 @@
 --                         it runs), arm (a welding arm's base), press, booth (a paint booth), step (the edge of
 --                         the Foreman's floor), rack (parts on shelves), cart, pit (`scrap`: a scrap pit), and
 --                         flat: stairs, fabpad (a Fabricator's pad, `n` its number); Thousand Papercuts':
---                         nest (flat: a sentry's hole in the rock), and flat: bunkerdoor
+--                         nest (flat: a sentry's hole in the rock), and flat: bunkerdoor; the Bunker's: flat:
+--                         cannon (a rim cannon's mount), eyehatch (the way on, in the middle)
 --   map.cranes            { x, y, jib, from, sweep, period, phase } tower cranes working (the Wreck): the mast
 --                         at (x, y), the jib `jib` px long swinging from angle `from` through `sweep` and back
 --                         every `period` seconds (borderline/works.lua draws them, moving)
@@ -149,6 +151,7 @@ local Prosperity = require("src.features.city-map.borderline_prosperity")
 local Refinery = require("src.features.city-map.borderline_refinery")
 local Assembly = require("src.features.city-map.borderline_assembly")
 local Cuts = require("src.features.city-map.borderline_cuts")
+local Bunker = require("src.features.city-map.borderline_bunker")
 
 -- The minimap (the minimap feature) --------------------------------------------
 
@@ -171,7 +174,7 @@ local HOLE = { 0.12, 0.10, 0.10 }
 Borderline.MAP_COLORS = {
   shed = DARK, tower = DARK, billboard = DARK, booth = DARK, press = DARK, nest = DARK, cannon = DARK, arm = DARK,
   carriage = YELLOW, loco = YELLOW, statue = YELLOW, truck = YELLOW, gate = YELLOW, door = YELLOW, lift = YELLOW,
-  bay = YELLOW, hatch = YELLOW, bunkerdoor = YELLOW,
+  bay = YELLOW, hatch = YELLOW, bunkerdoor = YELLOW, eyehatch = YELLOW,
   pit = HOLE, drydock = HOLE, shaft = HOLE, casting = HOLE, intake = HOLE, tunnel = { 0.05, 0.05, 0.06 },
   bridge = STEEL, tank = STEEL, pad = STEEL, pipe = STEEL,
   belt = { 0.25, 0.25, 0.28 }, conveyor = { 0.25, 0.25, 0.28 },
@@ -621,78 +624,7 @@ end
 
 -- 7. Thousand Papercuts: borderline_cuts.lua ----------------------------------------
 
--- 8. The Bunker ---------------------------------------------------------------------
-
-Borderline.CANNONS = 11 -- round the rim
-
--- The bunker's engine intakes, a turbine fan spinning down in each (tile
--- centres; radius in tiles): it flies on them.
-Borderline.INTAKES = { { 9.5, 9.5 }, { 30.5, 9.5 }, { 9.5, 30.5 }, { 30.5, 30.5 } }
-Borderline.INTAKE_R = 2.2
-
-local function buildBunker(map, rng, T)
-  local b = Blockout.new(map, T)
-  map.outside = "sky"
-  map.beacons, map.fans, map.radars, map.bridgecranes = {}, {}, {}, {}
-  local n = map.cols
-  b:open(3, 3, n - 4, n - 4)
-  b:open(18, n - 3, 21, n - 1) -- the hatch up from inside
-  b:ground("roof", 0, 0, n - 1, n - 1)
-  b:place("hatch", 18, n - 3, 4, 3, { flat = true })
-  -- The cannons, evenly round a square just inside the rim.
-  local lo, hi = 4.2, n - 5.2
-  local per = 4 * (hi - lo)
-  for i = 0, Borderline.CANNONS - 1 do
-    local d = (i + 0.5) * per / Borderline.CANNONS
-    local c, r
-    if d < hi - lo then
-      c, r = lo + d, lo
-    elseif d < 2 * (hi - lo) then
-      c, r = hi, lo + d - (hi - lo)
-    elseif d < 3 * (hi - lo) then
-      c, r = hi - (d - 2 * (hi - lo)), hi
-    else
-      c, r = lo, hi - (d - 3 * (hi - lo))
-    end
-    b:place("cannon", c - 0.6, r - 0.6, 1.2, 1.2, { round = true, flat = true }) -- its mount
-    b:post("SEN", c, r) -- and its gun, flush until you come up
-  end
-  b:place("pad", n / 2 - 4, n / 2 - 4, 8, 8, { flat = true, round = true }) -- the eye's hatch
-  -- The painted walkway round the deck and across it, NO STEP by the intakes.
-  for _, k in ipairs({ 6.6, n - 6.7 }) do
-    b:place("laneline", 6.6, k, n - 13.2, 0.12, { flat = true })
-    b:place("laneline", k, 6.6, 0.12, n - 13.2, { flat = true })
-  end
-  for _, from in ipairs({ 6.6, n / 2 + 4 }) do -- the cross, stopping at the pad
-    b:place("laneline", n / 2 - 0.06, from, 0.12, n / 2 - 10.6, { flat = true })
-    b:place("laneline", from, n / 2 - 0.06, n / 2 - 10.6, 0.12, { flat = true })
-  end
-  b:place("zebra", 17.5, n - 4.6, 5, 1.2, { flat = true })
-  -- The intakes, their fans; the radar; the gantry loading a missile.
-  local R = Borderline.INTAKE_R
-  for _, at in ipairs(Borderline.INTAKES) do
-    b:place("intake", at[1] - R, at[2] - R, 2 * R, 2 * R, { water = true, round = true })
-    b:place("paint", at[1] - R, at[2] + R + 0.2, 2 * R, 0.8, { flat = true, text = "NO STEP", small = true })
-    map.fans[#map.fans + 1] = { x = b:x(at[1]), y = b:y(at[2]), r = (R - 0.35) * T, phase = #map.fans * 0.7 }
-  end
-  b:place("mast", 30.4, 19.4, 1.2, 1.2, { round = true })
-  map.radars[1] = { x = b:x(31), y = b:y(20), r = 70 }
-  map.bridgecranes[1] = { x0 = b:x(3), x1 = b:x(n - 3), y0 = b:y(6), y1 = b:y(n - 7), period = 36, phase = 0.5,
-    load = "missile" }
-  -- Floodlights in the corners, beacons on the rim and at the hatch.
-  for _, at in ipairs({ { 5.8, 5.8 }, { n - 6.5, 5.8 }, { 5.8, n - 6.5 }, { n - 7.2, n - 7.2 } }) do
-    b:place("flood", at[1], at[2], 0.7, 0.7, { round = true })
-    map.lights[#map.lights + 1] = { x = b:x(at[1] + 0.35), y = b:y(at[2] + 0.35), r = 460,
-      color = { 1, 0.92, 0.75 }, a = 0.75 }
-  end
-  for _, at in ipairs({ { 3, 3 }, { n - 3, 3 }, { 3, n - 3 }, { n - 3, n - 3 }, { 17.5, n - 3 }, { 22.5, n - 3 } }) do
-    map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "red" }
-  end
-  b:scatter(rng, "vent", 12, 72, 7, n - 8, { { n / 2 - 5, n / 2 - 5, n / 2 + 4, n / 2 + 4 }, { 16, n - 8, 23, n - 1 } })
-  b:zone("The Bunker", 0, n - 1)
-  b:ends(17, n - 9, n / 2 - 1, n / 2 - 1)
-  b:commit()
-end
+-- 8. The Bunker: borderline_bunker.lua ----------------------------------------------
 
 Borderline.builders = {
   wreck = buildWreck,
@@ -714,7 +646,9 @@ Borderline.builders = {
   cuts = function(map, rng, T)
     Cuts.build(map, rng, Blockout.new(map, T), crane)
   end,
-  bunker = buildBunker,
+  bunker = function(map, rng, T)
+    Bunker.build(map, rng, Blockout.new(map, T))
+  end,
 }
 
 --- Does `kind` name one of these maps?

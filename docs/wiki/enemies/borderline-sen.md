@@ -10,7 +10,7 @@ A yellow turret in a hatch, out of reach until it comes up.
 
 | | |
 |---|---|
-| **Where** | Flush in the floor of the Assembly Line, Thousand Papercuts' rock and the Bunker |
+| **Where** | Flush in the floor of the Assembly Line and in Thousand Papercuts' rock |
 | **Health** | 90 |
 | **Sight** | 560 px, all the way round |
 | **Drops** | 2 koins, maybe a pickup |

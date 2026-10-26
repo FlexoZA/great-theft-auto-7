@@ -245,6 +245,44 @@ local function drawRockSnow(c, r, x, y, T, shade)
   end
 end
 
+--- The sky round the Bunker's roof at tile (c, r): banks of cloud far
+--- below, lit pale on top and shaded under, drifting in long rafts.
+local function drawClouds(c, r, x, y, T)
+  local n = noise(c / 3.6 + 41, r / 2.2 + 13)
+  if n > 0.48 then
+    local h = hash(c * 3.7 + r * 6.1)
+    local rx = T * (0.6 + (n - 0.48) * 1.6)
+    love.graphics.setColor(0.55, 0.62, 0.74, 0.55)
+    love.graphics.ellipse("fill", x + T * h, y + T * 0.6, rx, rx * 0.4, 18)
+    color(C.white, 0.7)
+    love.graphics.ellipse("fill", x + T * h - 4, y + T * 0.5, rx * 0.9, rx * 0.32, 18)
+  end
+end
+
+--- The Bunker's armoured side, falling away from its roof's south and
+--- east edges into the sky: steel plates going darker as they go down,
+--- rivets in rows, a hazard band along the lip.
+local function drawBunkerSide(map, c, r, x, y, T)
+  if open(map, c, r - 1) and not open(map, c, r) then -- under the south edge
+    for i, k in ipairs({ 0.75, 0.6, 0.45 }) do
+      love.graphics.setColor(C.roof[1] * k, C.roof[2] * k, C.roof[3] * k)
+      love.graphics.rectangle("fill", x, y + (i - 1) * 16, T, 17)
+    end
+    color(INK, 0.5)
+    for a = 6, T - 4, 16 do
+      love.graphics.circle("fill", x + a, y + 8, 1.8, 6)
+      love.graphics.circle("fill", x + a, y + 28, 1.8, 6)
+    end
+    Kit.hazard(x, y, T, 6)
+  elseif open(map, c - 1, r) and not open(map, c, r) then -- off the east edge
+    for i, k in ipairs({ 0.7, 0.55 }) do
+      love.graphics.setColor(C.roof[1] * k, C.roof[2] * k, C.roof[3] * k)
+      love.graphics.rectangle("fill", x + (i - 1) * 10, y, 11, T)
+    end
+    Kit.hazard(x, y, 5, T)
+  end
+end
+
 --- Next to a floor (any of its eight neighbours open)?
 local function byFloor(map, c, r)
   for dc = -1, 1 do
@@ -361,9 +399,6 @@ local function drawOutside(map, c, r, x, y, T)
     drawRockSnow(c, r, x, y, T, false)
   elseif o == C.sea then
     return -- its ice is drawSeaIce's, over every tile's water at once
-  elseif o == C.sky and h < 0.22 then -- cloud far below
-    color(C.white, 0.5)
-    love.graphics.ellipse("fill", x + 32, y + 32, 40 + h * 60, 18 + h * 20, 16)
   elseif o == C.bank and h < 0.3 then -- rocks poking out of the snow
     blob(x + 8 + h * 20, y + 14, 22 + h * 40, 16 + h * 24, C.bankRock)
     color(C.snow)
@@ -679,13 +714,31 @@ local function drawFloor(c, r, x, y, T, f)
   if f == C.snow then -- drifts
     color(C.snowShade)
     love.graphics.ellipse("fill", x + h * T, y + hash(h) * T, 14 + h * 12, 5 + h * 4)
-  elseif f == C.roof then -- armour plates, riveted
-    color(INK, 0.3)
-    love.graphics.rectangle("fill", x, y, T, 3)
-    love.graphics.rectangle("fill", x, y, 3, T)
+  elseif f == C.roof then -- armour plates two tiles square, each its own shade, welded, riveted
+    local k = 0.93 + 0.12 * hash(math.floor(c / 2) * 3.3 + math.floor(r / 2) * 7.9)
+    love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+    love.graphics.rectangle("fill", x, y, T, T)
+    color(INK, 0.35)
+    if c % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, 3, T)
+    end
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, T, 3)
+    end
+    color(C.white, 0.12) -- the weld bead beside each seam
+    if c % 2 == 0 then
+      love.graphics.rectangle("fill", x + 3, y, 2, T)
+    end
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", x, y + 3, T, 2)
+    end
     color(C.gunmetalLight, 0.8)
-    for _, k in ipairs({ { 8, 8 }, { T - 10, 8 }, { 8, T - 10 }, { T - 10, T - 10 } }) do
-      love.graphics.circle("fill", x + k[1], y + k[2], 2.5, 6)
+    for _, p in ipairs({ { 9, 9 }, { T - 9, 9 }, { 9, T - 9 }, { T - 9, T - 9 } }) do
+      love.graphics.circle("fill", x + p[1], y + p[2], 2.5, 6)
+    end
+    if h < 0.06 then -- scorch
+      color(INK, 0.18)
+      love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.4, T * 0.25, 14)
     end
   elseif f ~= C.ice then -- slabs and plates
     color(INK, 0.18)
@@ -826,6 +879,14 @@ local LIVE = {
     function(_, c, r, x, y, T)
       drawRockSnow(c, r, x, y, T, false)
     end,
+  } },
+  sky = { base = function()
+    return C.sky
+  end, passes = {
+    function(_, c, r, x, y, T)
+      drawClouds(c, r, x, y, T)
+    end,
+    drawBunkerSide,
   } },
   cliff = { base = function(map, c, r)
     return outsideAt(map, c, r)

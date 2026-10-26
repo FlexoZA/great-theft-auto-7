@@ -203,7 +203,18 @@ Story.beats = {
 
   ["bunker.start"] = {
     { "max", "You're on my bunker! The biggest bunker ever built. Hold on to something." },
-    { "yappy", "Eleven cannons round the rim. They come up when you get close. Like me. Less friendly." },
+    { "yappy", "Eleven cannons round the rim. They lob shells. Watch for the red rings and don't stand in them. "
+      .. "That's most of my advice. Also: shoot the cannons." },
+  },
+  ["bunker.cannon"] = {
+    { "max", "You broke a cannon! I have ten more. I counted them myself. Twice." },
+  },
+  ["bunker.cannons"] = {
+    { "yappy", "Half of them down! The roof's getting quieter. I don't trust quiet. It's usually Max planning." },
+  },
+  ["bunker.open"] = {
+    { "yappy", "That's the last cannon! The hatch in the middle, minion! His computer's down there!" },
+    { "max", "No more cannons? Fine. FINE. The hatch is open. But the bunker isn't done with you. TO THE MAX!" },
   },
   ["bunker.fight"] = { { "max", "Cannons! All of them! Every cannon! TO THE MAX!" } },
   ["bunker.end"] = {
@@ -285,6 +296,9 @@ Story.hold = {
 -- The objective line while Max's screens are up (screens.lua): `%d` how many.
 Story.screens = "Objective: shoot down Max's big screens (%d left)"
 
+-- The objective line while the Bunker's rim cannons stand (the army's CAN): `%d` how many.
+Story.cannons = "Objective: shoot down the cannons round the rim (%d left)"
+
 -- The objective line while the Fabricators stand (fabricators.lua): `%d` how many.
 Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%d left)"
 
@@ -305,7 +319,8 @@ Story.boss = {
 --- starts) and whether anyone is on it (`on`); on a map with a boss,
 --- `boss` "pad" (not come yet: it comes at `bossX`, `bossY`) or "fight";
 --- on a map with Max's screens, those still up (`screens`, `screenNearest`);
---- on a map with Fabricators, those still up (`fabricators`, `fabricatorNearest`).
+--- on a map with Fabricators, those still up (`fabricators`, `fabricatorNearest`);
+--- on the Bunker, its rim cannons still up (`cannons`, `cannonNearest`).
 --- Returns the text and where it points (x, y in world px).
 function Story.objective(name, map, state)
   local done, waiting, nearest = state.done, state.waiting, state.nearest
@@ -319,6 +334,10 @@ function Story.objective(name, map, state)
   if not done and #(state.screens or {}) > 0 then -- Max's screens to shoot down
     local s = state.screenNearest
     return Story.screens:format(#state.screens), s and s.x, s and s.y
+  end
+  if not done and #(state.cannons or {}) > 0 then -- the rim cannons to shoot down
+    local c = state.cannonNearest
+    return Story.cannons:format(#state.cannons), c and c.x, c and c.y
   end
   if not done and #(state.fabricators or {}) > 0 then -- the Fabricators to shoot down
     local f = state.fabricatorNearest

@@ -63,6 +63,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   seams (cloud far below, a rock face falling away from the road), an armoured bunker door, sentry nests in the rock.
 - Thousand Papercuts has its own theme: chase metal at 172 BPM, a ticking clock and a siren, climbing a key
   every section.
+- The Bunker's eleven rim cannons are real cannons now: each turns to the nearest player and lobs a shell that
+  lands on a red ring a moment later (26 damage), wherever you stand on the roof. Shoot all eleven down (120
+  health each) to open the eye's hatch in the middle.
+- The Bunker drawn properly: an armour-plated deck, the cannons' mounts, an iris hatch over a red eye in the
+  middle, the bunker's armoured sides dropping away into a sky of drifting cloud.
+- The Bunker has its own theme: a final-boss epic, a bell and a church organ, a choir over war drums, a hero's
+  tune and a last-stand solo.
 - The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
   every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
   veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock

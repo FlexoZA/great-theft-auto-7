@@ -813,6 +813,41 @@ side (solid edge), the cliff on the other.
 
 ### 8. The Bunker (`bunker`, 40x40, at dusk)
 
+Built in `borderline_bunker.lua`, drawn in `render_borderline_roof.lua`
+and the ground's module: the deck is armour plate in panels two tiles
+square, each its own shade, a weld bead beside every seam, rivets at the
+corners, scorch here and there; the sky round it is drawn every frame
+(`Ground.LIVE`, in and past the map alike), banks of cloud drifting far
+below, and the bunker's armoured side falling away from the roof's south
+and east edges into it. The intakes have a hazard lip, the duct stepping
+down dark to the fan, a guard's struts across it; the vents are louvred
+housings, sooty round the foot; the eye's hatch in the middle, the way on,
+is an iris of armoured blades shut over a red glass eye.
+
+**The rim cannons** (`CAN`, `can_brain.lua`, `cannon_look.lua`): eleven,
+round the rim on hazard-ringed mounts, each an army model (so the army
+draws them, syncs them, takes the shots at them and leaves their wrecks):
+a twin-barrelled gun on a turret that needs no line of sight. It turns
+slowly to the nearest player within 1600 px, its muzzles glow for 0.9 s,
+and it lobs a shell at where they stand: it comes down 1.5 s later on a
+red ring within 45 px of them (`barrage.lua`: 26 at the middle of a 75 px
+blast, owned by nobody). Each fires every 4.5-7.5 s, the first shots
+staggered, so a few are always in the air. 120 health each. The way on
+waits for all eleven (the lock `THE EYE'S HATCH`, no terminals, no walls,
+opened by the borderline feature once none is left); Max and Yappy have
+a line for the first one down ("cannon"), half of them ("cannons") and
+the last ("open"). The objective line and the markers point at the
+nearest cannon still up.
+
+The theme (`theme_bunker.lua`): a final-boss epic at 104 BPM in A minor.
+A bell tolls once while the organ swells; then the march (war drums, a
+choir singing Am, F, G, Em over a chord rung out and chugged under it),
+the anthem (a hero's tune in A minor over the organ and Am, F, C, G, the
+double kick under it), the last stand (a solo racing over Am, Dm, E, Am),
+and the march again (~74 s loop).
+
+BNK-9 lifting off (below) is its own step, still to come.
+
 An armour-plated deck, riveted, with clouds far below past its edge. Four
 engine intakes, deep and hazard ringed, a turbine fan spinning down in
 each with the engine's glow under it (works.lua's `fans`; nobody walks
@@ -826,8 +861,8 @@ beacons on the rim.
 The bunker's roof, square: vents and hatches as cover, a rim of
 eleven cannons.
 
-- **Part one:** the eleven cannons (sentries, 120 health each) fire from the
-  rim. Destroy all eleven.
+- **Part one:** the eleven cannons (120 health each) lob shells from the
+  rim onto red rings. Destroy all eleven.
 - **Part two:** the roof shakes, the players are thrown to a landing pad
   next to it, and BNK-9 lifts off. It flies round the arena (drawn over
   everything, its shadow on the ground), then parks and fights: a turret

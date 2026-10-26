@@ -64,6 +64,7 @@ local Arc = require("src.features.borderline.arc_brain")
 local Drone = require("src.features.borderline.drone_brain")
 local Sentry = require("src.features.borderline.sentry_brain")
 local Dock = require("src.features.borderline.dock_brain")
+local Can = require("src.features.borderline.can_brain")
 local Bad = require("src.features.borderline.bad_brain")
 local Stk = require("src.features.borderline.stk_brain")
 local Wlb = require("src.features.borderline.wlb_brain")
@@ -71,6 +72,7 @@ local WilburLook = require("src.features.borderline.wilbur_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
+local CannonLook = require("src.features.borderline.cannon_look")
 local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
 local Darts = require("src.features.borderline.darts")
@@ -81,14 +83,14 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6, WLB = 40 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6, WLB = 40, CAN = 8 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, CAN = Can }
 Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
-local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true } -- drawn by drone_look.lua and dock_look.lua
+local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true, CAN = true } -- drone_look, dock_look, cannon_look
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -384,6 +386,17 @@ function Army.serverSpawn(code, x, y, facing)
   return sv.roster:add(BRAINS[code], code, x, y, facing)
 end
 
+--- How many of `code` are on the level now (the Bunker's rim cannons left).
+function Army.serverCount(code)
+  local n = 0
+  for _, s in ipairs(sv and sv.roster.list or {}) do
+    if s.code == code then
+      n = n + 1
+    end
+  end
+  return n
+end
+
 --- Is `s` (one of the army, as `serverSpawn` gave it) still on the level?
 function Army.serverAlive(s)
   return sv ~= nil and sv.roster:indexOf(s) ~= nil
@@ -407,12 +420,12 @@ function Army.nav()
 end
 
 --- Every robot out on the level, for the audit (tools/audit). Sentries and
---- docks never move (`fixed`: the shield wall leaves them be).
+--- docks and rim cannons never move (`fixed`: the shield wall leaves them be).
 function Army.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.roster.list or {}) do
     add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp + (s.shield or 0),
       radius = s.radius, flying = (s.brain == Jet or s.brain == Drone) or nil, immune = (s.flying or s.sunk) or nil,
-      fixed = (s.brain == Sentry or s.brain == Dock) or nil })
+      fixed = (s.brain == Sentry or s.brain == Dock or s.brain == Can) or nil })
   end
 end
 
@@ -530,6 +543,8 @@ function Army.drawBelowCars()
       WilburLook.drawWreck(w, clock)
     elseif w.code == "DCK" then
       DockLook.drawWreck(w.x, w.y, clock)
+    elseif w.code == "CAN" then
+      CannonLook.drawWreck(w.x, w.y, clock)
     elseif MACHINES[w.code] then
       DroneLook.drawDebris(w.x, w.y, w.x % 5)
     else
@@ -543,7 +558,7 @@ end
 --- Its health under it once hurt, and under that its breath (a model with
 --- breath, once it has spent some): blue, throbbing red while it is winded.
 local function healthBar(s)
-  local r = s.code == "DCK" and DockLook.RADIUS or Look.radius(s.code)
+  local r = s.code == "DCK" and DockLook.RADIUS or s.code == "CAN" and CannonLook.RADIUS or Look.radius(s.code)
   local bw, y = 24, s.dy + r + 5
   if s.hp < s.max then
     local f = math.max(0, s.hp / s.max)
@@ -577,6 +592,8 @@ local function drawOne(s)
     return -- (his bar is the boss bar: wilbur.lua)
   elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
+  elseif s.code == "CAN" then
+    CannonLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "SEN" then
     DroneLook.drawSentry({ dx = s.dx, dy = s.dy, aim = s.facing, rise = s.rise, charge = s.charge, flash = flash },
       clock)
@@ -637,6 +654,18 @@ function Army.shownOf(code)
     end
   end
   return nil
+end
+
+--- Where every one of `code` shown on this screen is ({ x, y } each): the
+--- Bunker's rim cannons, for the objective line and its markers.
+function Army.shownWhere(code)
+  local list = {}
+  for _, s in pairs(shown) do
+    if s.code == code then
+      list[#list + 1] = { x = s.dx, y = s.dy }
+    end
+  end
+  return list
 end
 
 --- Their clanking feet, for the footsteps feature.

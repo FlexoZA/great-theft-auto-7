@@ -18,6 +18,7 @@ local City = require("src.features.city-map.render_borderline_city")
 local Hall = require("src.features.city-map.render_borderline_hall")
 local Line = require("src.features.city-map.render_borderline_line")
 local Cliff = require("src.features.city-map.render_borderline_cliff")
+local Roof = require("src.features.city-map.render_borderline_roof")
 
 local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
 local color, hash, lengthwise, drift = Kit.color, Kit.hash, Kit.lengthwise, Kit.drift
@@ -26,7 +27,7 @@ local box, blob, hazard = Kit.box, Kit.blob, Kit.hazard
 -- What lies and stands about ------------------------------------------------------------
 
 local DRAW = {}
-for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW, Line.DRAW, Cliff.DRAW }) do
+for _, kit in ipairs({ Port.DRAW, Mine.DRAW, City.DRAW, Hall.DRAW, Line.DRAW, Cliff.DRAW, Roof.DRAW }) do
   for kind, fn in pairs(kit) do
     DRAW[kind] = fn
   end
@@ -305,14 +306,13 @@ function DRAW.crane(s)
   love.graphics.setLineWidth(1)
 end
 
---- A steel plate in the floor, hazard striped at both ends: a door, a bay, a hatch.
+--- A steel plate in the floor, hazard striped at both ends: a door, a bay.
 function DRAW.door(s)
   box(s.x, s.y, s.w, s.h, C.steel)
   hazard(s.x, s.y, s.w, 16)
   hazard(s.x, s.y + s.h - 16, s.w, 16)
 end
 DRAW.bay = DRAW.door
-DRAW.hatch = DRAW.door
 
 --- A factory block in Max's town: a corrugated roof, rows of sawtooth
 --- skylights, Hyperbole yellow round the edge, plant on the roof, and its
@@ -360,20 +360,6 @@ function DRAW.lamp(s)
   blob(s.x, s.y, s.w, s.h, C.gunmetal)
   color(C.paintWhite)
   love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.25, 8)
-end
-
-function DRAW.cannon(s)
-  blob(s.x, s.y, s.w, s.h, C.gunmetal)
-  color(C.yellow)
-  love.graphics.circle("fill", s.x + s.w / 2, s.y + s.h / 2, s.w * 0.18)
-end
-
-function DRAW.vent(s)
-  box(s.x, s.y, s.w, s.h, C.gunmetalLight)
-  color(INK, 0.5)
-  for y = s.y + 8, s.y + s.h - 8, 12 do
-    love.graphics.rectangle("fill", s.x + 8, y, s.w - 16, 4)
-  end
 end
 
 --- A tunnel's mouth, opening towards the middle of the map: a concrete
@@ -696,24 +682,6 @@ function DRAW.pit(s)
   for y = s.y - 14, s.y + s.h + 14, 64 do
     love.graphics.circle("fill", s.x - 14, y, 5, 8)
     love.graphics.circle("fill", s.x + s.w + 14, y, 5, 8)
-  end
-end
-
---- An engine intake: a round hole going deep into the bunker, rings
---- stepping down to where its fan turns (borderline/works.lua), a hazard
---- ring round its lip.
-function DRAW.intake(s)
-  local cx, cy, r = s.x + s.w / 2, s.y + s.h / 2, s.w / 2
-  color(INK)
-  love.graphics.circle("fill", cx, cy, r + LINE, 40)
-  for i = 0, 15 do
-    color(i % 2 == 0 and C.yellow or INK)
-    love.graphics.arc("fill", cx, cy, r, i * math.pi / 8, (i + 1) * math.pi / 8, 4)
-  end
-  for i = 1, 3 do
-    local k = i / 4
-    love.graphics.setColor(C.gunmetal[1] * (1 - k), C.gunmetal[2] * (1 - k), C.gunmetal[3] * (1 - k))
-    love.graphics.circle("fill", cx, cy, r * (0.92 - i * 0.06), 40)
   end
 end
 

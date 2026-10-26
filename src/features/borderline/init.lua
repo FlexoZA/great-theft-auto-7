@@ -23,7 +23,9 @@
 -- (fabricators.lua) build haulers until both are shot down, which opens
 -- the stairs; its belts carry whoever stands on them (belts.lua). On
 -- Thousand Papercuts the army comes up the road behind you and Max's
--- barrage creeps after you (pursuit.lua), until the hold at the door. A level
+-- barrage creeps after you (pursuit.lua), until the hold at the door. On
+-- the Bunker the way on waits for every one of its rim cannons (the
+-- army's CAN, can_brain.lua) to be shot down. A level
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
 -- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
@@ -82,6 +84,10 @@ local function objectives()
   local fabricators = Fabricators.remaining(map)
   if #fabricators > 0 then -- the Fabricators before the Foreman's floor
     return fabricators
+  end
+  local cannons = Army.shownWhere("CAN")
+  if #cannons > 0 then -- the Bunker's rim cannons before the eye's hatch
+    return cannons
   end
   return Marker.objectives(map, quests ~= nil and quests.done ~= nil and quests.done == quests.active)
 end
@@ -226,6 +232,30 @@ function Borderline:floorDrift(drift, x, y)
   return drift or Belts.drift(cityMap(), x, y)
 end
 
+--- The Bunker's rim cannons (the army's CANs): Max has something to say
+--- when the first goes down ("cannon") and at half ("cannons"); the last
+--- one down opens the eye's hatch (the lock "rim"), and "open" follows.
+local function rimCannons(server)
+  local left = Army.serverCount("CAN")
+  if not level.cannons then
+    level.cannons, level.cannonsAt = left, left -- (none on most maps: nothing to do)
+    return
+  end
+  if left >= level.cannons or level.cannonsAt == 0 then
+    return
+  end
+  if level.cannons == level.cannonsAt then
+    Tale.serverBeat(server, "cannon")
+  end
+  if left <= level.cannonsAt / 2 and level.cannons > level.cannonsAt / 2 then
+    Tale.serverBeat(server, "cannons")
+  end
+  level.cannons = left
+  if left == 0 then
+    Terminals.serverUnlock(server, "rim")
+  end
+end
+
 function Borderline:serverStep(server, dt)
   Army.serverStep(server, dt)
   Belts.serverCarry(cityMap(), Army.serverWalkers(), dt) -- the belts carry the robots on them too
@@ -248,6 +278,7 @@ function Borderline:serverStep(server, dt)
   Pursuit.serverStep(server, dt, function(what)
     Tale.serverBeat(server, what)
   end)
+  rimCannons(server)
   local locked = Terminals.serverLocked()
   if level.locked and not locked then -- the last terminal hacked: the way on's lock is open
     Tale.serverBeat(server, "open")
