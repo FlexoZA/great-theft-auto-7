@@ -132,6 +132,15 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Show hitboxes (F3) now outlines enemies too, not just cars and players: red, grey while they can't be hurt.
   Only the host sees them.
 
+## [0.42.0] - 2026-10-26
+
+A new ability: the shield wall, a curved wall of light that stops enemy fire and holds enemies back.
+
+### Added
+- Shield wall, a new ability in the shop: aim it and click to put up a curved wall of light in front of you for 8
+  seconds (30 s cooldown). Enemy fire stops on it and enemies on foot can't walk through it; your rounds and other
+  players' go straight through.
+
 ## [0.41.0] - 2026-10-22
 
 Every bullet now leaves a tracer, so you can follow the fight on dark and busy maps.

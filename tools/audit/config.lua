@@ -23,6 +23,7 @@ return {
     ["pedestrians"] = true, -- the crowd
     ["park-bums"] = true, -- hired help, not foes
     ["ammo-crates"] = true, -- crates break open
+    ["abilities"] = true, -- the shield wall's dome stops enemy rounds
   },
 
   -- Features whose modules every other feature is meant to use: requiring

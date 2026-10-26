@@ -257,7 +257,7 @@ end
 function Turrets.serverEnemies(_server, add)
   for _, t in ipairs(sv and sv.brain.list or {}) do
     if not t.breachedBy then
-      add({ id = t, kind = "cyber-feud/turret", x = t.x, y = t.y, hp = t.hp, radius = Brain.RADIUS })
+      add({ id = t, kind = "cyber-feud/turret", x = t.x, y = t.y, hp = t.hp, radius = Brain.RADIUS, fixed = true })
     end
   end
 end

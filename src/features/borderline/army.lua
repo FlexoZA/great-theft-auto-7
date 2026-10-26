@@ -389,11 +389,13 @@ function Army.nav()
   return sv and sv.roster.nav
 end
 
---- Every robot out on the level, for the audit (tools/audit).
+--- Every robot out on the level, for the audit (tools/audit). Sentries and
+--- docks never move (`fixed`: the shield wall leaves them be).
 function Army.serverEnemies(_server, add)
   for _, s in ipairs(sv and sv.roster.list or {}) do
     add({ id = s, kind = "borderline/" .. s.code:lower(), x = s.x, y = s.y, hp = s.hp + (s.shield or 0),
-      radius = s.radius, flying = (s.brain == Jet or s.brain == Drone) or nil, immune = (s.flying or s.sunk) or nil })
+      radius = s.radius, flying = (s.brain == Jet or s.brain == Drone) or nil, immune = (s.flying or s.sunk) or nil,
+      fixed = (s.brain == Sentry or s.brain == Dock) or nil })
   end
 end
 
