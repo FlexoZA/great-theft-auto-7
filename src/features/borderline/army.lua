@@ -75,6 +75,8 @@ local Knk = require("src.features.borderline.knk_brain")
 local ScrapperLook = require("src.features.borderline.scrapper_look")
 local Sml = require("src.features.borderline.sml_brain")
 local SmelterLook = require("src.features.borderline.smelter_look")
+local Fmn = require("src.features.borderline.fmn_brain")
+local ForemanLook = require("src.features.borderline.foreman_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
@@ -90,17 +92,17 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, SML = 45, CAN = 8 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, SML = 45, FMN = 50, CAN = 8 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, SML = Sml, CAN = Can }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, SML = Sml, FMN = Fmn, CAN = Can }
 Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true, CAN = true } -- drone_look, dock_look, cannon_look
 -- The bosses that are one of the army, each with a look of its own (its bar
--- is the boss bar: wilbur.lua, scrapper.lua, smelter.lua).
-local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook, SML = SmelterLook }
+-- is the boss bar: wilbur.lua, scrapper.lua, smelter.lua, foreman.lua).
+local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook, SML = SmelterLook, FMN = ForemanLook }
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -623,6 +625,13 @@ local function drawOne(s)
     SmelterLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, charge = s.charge, flash = flash },
       clock)
     return -- (its bar is the boss bar: smelter.lua)
+  elseif s.code == "FMN" then
+    ForemanLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, charge = s.charge, flash = flash },
+      clock)
+    if (s.shield or 0) > 0 then
+      DroneLook.drawBubble(s.dx, s.dy, Fmn.RADIUS + 12, clock, s.shield / Drone.SHIELD)
+    end
+    return -- (its bar is the boss bar: foreman.lua)
   elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "CAN" then

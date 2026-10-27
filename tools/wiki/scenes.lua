@@ -152,6 +152,16 @@ Scenes.after["borderline-refinery"] = function(game, look)
   return true
 end
 
+-- The Assembly Line with the stairs open and the Foreman woken on its floor (the launch's --boss).
+Scenes.after["borderline-assembly"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-assembly"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Assembly Line would not skip to the Foreman"
+  end
+  watch(game, look, 8)
+  return true
+end
+
 -- The Bragium Pit with Wilbur down on the pad (the launch's --boss).
 Scenes.after["borderline-pit"] = function(game, look)
   local quest = game.Features.byName.quests.byId["borderline-pit"]

@@ -95,7 +95,8 @@ local function army(b, w, edge)
   -- a squad down the middle aisle, a gun and stalker pair the other way,
   -- kamikazes, rocket and plasma haulers on the line, shield drones by the
   -- Fabricators; a dozer at the foot of the Foreman's floor, and up on it
-  -- a badass and two sentries, rocket haulers watching the stairs.
+  -- two sentries and the drones that tend the Foreman (foreman.lua puts it
+  -- there), rocket haulers watching the stairs.
   for _, at in ipairs({ { 10, 52 }, { w - 11, 52 }, { 10, 28 }, { w - 11, 28 }, { 10, 37 }, { 10, 44 }, { w - 11, 37 },
     { w - 11, 44 } }) do
     b:post("GUN", at[1], at[2])
@@ -113,7 +114,6 @@ local function army(b, w, edge)
   b:post("DZR", 28, edge + 3)
   b:post("RPG", 4, edge + 3)
   b:post("RPG", w - 5, edge + 3)
-  b:post("BAD", 28, 7)
   b:post("SEN", 12, 7)
   b:post("SEN", w - 13, 7)
   b:post("FIX", 26, 9)
@@ -138,6 +138,13 @@ function Assembly.build(map, rng, b)
   b:place("stairs", w - 6, edge - 0.5, 4, 1.5, { flat = true })
   line(map, rng, b, w)
   fabricators(map, b, w, edge)
+  -- The shipping bay stays shut until the Foreman is down (borderline/foreman.lua opens it).
+  local bay = b:lock("bay", "THE SHIPPING BAY", true)
+  b:lockWall(bay, b:x(24), b:y(1.2), 8 * b.T, 0.5 * b.T)
+  -- Foreman BIG-B055 stands its post on its floor, overseeing the line; the
+  -- first one up onto the floor wakes it.
+  map.boss = { kind = "foreman", x = b:x(28), y = b:y(7), unlocks = "bay",
+    floor = { x0 = b:x(2), y0 = b:y(2), x1 = b:x(w - 2), y1 = b:y(edge - 0.3) } }
   for _, at in ipairs({ { 2, edge - 0.5 }, { 6, edge - 0.5 }, { w - 6, edge - 0.5 }, { w - 2, edge - 0.5 },
     { 23.5, 2.5 }, { 32.5, 2.5 } }) do
     map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }

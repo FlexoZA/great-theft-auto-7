@@ -179,12 +179,23 @@ end
 
 -- Hitting -----------------------------------------------------------------------
 
---- A boss's slam (Wilbur's landing, the Knuckle Scrapper's swing and its
---- scrap): everyone within `radius` of (x, y) takes `damage` (`impact`) and is
---- thrown `shove` px out from it. With `facing` and `half`, only those
---- within `half` radians of `facing` (a swing's arc). Returns how many it caught.
-function Chassis.slam(server, x, y, radius, damage, shove, facing, half)
+--- Player `p` takes `damage` (`impact`) and is thrown `shove` px along
+--- `angle` (a boss's charge running through them).
+function Chassis.knock(server, p, angle, damage, shove)
   local weapons, onFoot = Features.byName.weapons, Features.byName["on-foot"]
+  if weapons and weapons.serverDamage then
+    weapons:serverDamage(server, p, nil, math.floor(damage + 0.5), angle, "impact")
+  end
+  if onFoot and onFoot.serverShove then
+    onFoot:serverShove(server, p, math.cos(angle), math.sin(angle), shove, 0.35)
+  end
+end
+
+--- A boss's slam (Wilbur's landing, the Knuckle Scrapper's swing and its
+--- scrap): everyone within `radius` of (x, y) is knocked out from it
+--- (`knock`). With `facing` and `half`, only those within `half` radians of
+--- `facing` (a swing's arc). Returns how many it caught.
+function Chassis.slam(server, x, y, radius, damage, shove, facing, half)
   local caught = 0
   for _, p in pairs(server.players) do
     if Features.visible(server, p) then
@@ -193,12 +204,7 @@ function Chassis.slam(server, x, y, radius, damage, shove, facing, half)
       if Chassis.dist2(px, py, x, y) <= radius * radius
         and not (facing and math.abs(Chassis.turnBetween(facing, a)) > half) then
         caught = caught + 1
-        if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, math.floor(damage + 0.5), a, "impact")
-        end
-        if onFoot and onFoot.serverShove then
-          onFoot:serverShove(server, p, math.cos(a), math.sin(a), shove, 0.35)
-        end
+        Chassis.knock(server, p, a, damage, shove)
       end
     end
   end

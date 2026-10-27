@@ -6,6 +6,7 @@ local List = {
   require("src.features.borderline.scrapper"), -- the Frozen Wreck's Knuckle Scrapper
   require("src.features.borderline.wilbur"), -- the Bragium Pit's Wilbur
   require("src.features.borderline.smelter"), -- the Refinery's Smelter
+  require("src.features.borderline.foreman"), -- the Assembly Line's Foreman BIG-B055
 }
 
 --- Hook `name` of every one that has it, with `...`.

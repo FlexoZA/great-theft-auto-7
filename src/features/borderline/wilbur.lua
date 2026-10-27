@@ -32,9 +32,8 @@ local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Tiers = require("src.features.tiers")
 local Bar = require("src.features.bosses.bar")
-local Synth = require("src.audio.synth")
-local Audio = require("src.audio")
 local Army = require("src.features.borderline.army")
+local Sound = require("src.features.borderline.boss_sound")
 local Chassis = require("src.features.borderline.chassis")
 local Brain = require("src.features.borderline.wlb_brain")
 local Look = require("src.features.borderline.wilbur_look")
@@ -273,13 +272,7 @@ local clock = 0
 local bank = {}
 
 function Wilbur.load()
-  local function make(seconds, volume, build)
-    local buf = Synth.newBuffer(seconds)
-    build(buf)
-    local src = love.audio.newSource(buf:toSoundData(volume), "static")
-    src:setAttenuationDistances(300, 2600)
-    return src
-  end
+  local make = Sound.make
   -- Coming down: a falling whistle.
   bank.fall = make(1.6, 0.6, function(buf)
     buf:sweep(0, 1.55, 1400, 300, { wave = "sine", amp = 0.25, attack = 0.2, decay = 1.3 })
@@ -302,17 +295,7 @@ function Wilbur.load()
 end
 
 local function play(name, x, y)
-  local base = bank[name]
-  if base then
-    local s = base:clone()
-    if x then
-      s:setPosition(x, 0, y)
-    else
-      s:setRelative(true)
-    end
-    s:setVolume(0.8 * Audio.volume("weapons"))
-    s:play()
-  end
+  Sound.play(bank[name], x, y)
 end
 
 function Wilbur.clear()

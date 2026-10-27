@@ -37,10 +37,9 @@
 local Protocol = require("src.net.protocol")
 local Bosses = require("src.features.bosses")
 local Bar = require("src.features.bosses.bar")
-local Synth = require("src.audio.synth")
-local Audio = require("src.audio")
 local Terminals = require("src.features.terminals")
 local Army = require("src.features.borderline.army")
+local Sound = require("src.features.borderline.boss_sound")
 local Chassis = require("src.features.borderline.chassis")
 local Barrage = require("src.features.borderline.barrage")
 local Brain = require("src.features.borderline.knk_brain")
@@ -285,13 +284,7 @@ end
 local cl = fresh()
 
 function Scrapper.load()
-  local function make(seconds, volume, synth)
-    local buf = Synth.newBuffer(seconds)
-    synth(buf)
-    local src = love.audio.newSource(buf:toSoundData(volume), "static")
-    src:setAttenuationDistances(300, 2600)
-    return src
-  end
+  local make = Sound.make
   -- Building itself: metal grinding and dragging, climbing, then a clang.
   bank.build = make(2.8, 0.7, function(buf)
     buf:noiseBurst(0, 2.5, { amp = 0.4, attack = 1.6, decay = 0.6 })
@@ -342,14 +335,7 @@ function Scrapper.load()
 end
 
 local function play(name, x, y)
-  local base = bank[name]
-  if base then
-    local s = base:clone()
-    s:setPosition(x, 0, y)
-    s:setPitch(0.9 + random() * 0.2)
-    s:setVolume(0.8 * Audio.volume("weapons"))
-    s:play()
-  end
+  Sound.play(bank[name], x, y, 0.1)
 end
 
 function Scrapper.clear()

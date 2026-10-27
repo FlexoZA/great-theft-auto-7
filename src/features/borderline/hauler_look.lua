@@ -16,6 +16,9 @@
 --   BAD  the badass: bigger, black and yellow, horns, twin war cannons, pods
 --   STK  the stalker: tall on two long legs and a wheel behind, one red eye
 --        slit, a flechette pod on each shoulder
+--   FMN  Foreman BIG-B055, the badass that runs the line: bigger still,
+--        gold trim, a hard hat welded on; `ripped` (in `h`) once it has
+--        torn a cannon off (foreman_look.lua draws it at boss size)
 --
 --   Look.draw(h, clock)
 --       h: { dx, dy, facing, code, stride, charge, flash, crawl, flying }
@@ -48,6 +51,7 @@ Look.C = {
   rocket = { 0.85, 0.18, 0.12 },
   flame = { 1.00, 0.60, 0.15 },
   white = { 1, 1, 1 },
+  gold = { 1.00, 0.80, 0.25 },
 }
 local C = Look.C
 
@@ -175,6 +179,19 @@ local function head(k, heat, clock)
     color(C.ink)
     love.graphics.polygon("fill", hx - 3, -5, hx + 4, -11, hx + 1, -4)
     love.graphics.polygon("fill", hx - 3, 5, hx + 4, 11, hx + 1, 4)
+  end
+  if k.hat then -- a hard hat welded on over the back of its head, its brim just short of the eye
+    color(C.ink)
+    love.graphics.arc("fill", hx - 3, 0, 7.6, math.pi * 0.5, math.pi * 1.5, 14)
+    color(C.yellow)
+    love.graphics.arc("fill", hx - 3, 0, 6.4, math.pi * 0.5, math.pi * 1.5, 14)
+    color(C.yellowDark)
+    love.graphics.rectangle("fill", hx - 9, -0.8, 6, 1.6) -- the ridge down its crown
+    color(C.ink)
+    love.graphics.rectangle("fill", hx - 3.6, -7.6, 1.2, 15.2) -- the brim's edge
+    for _, y in ipairs({ -4.5, 4.5 }) do -- the welds
+      love.graphics.circle("fill", hx - 7, y, 0.9, 6)
+    end
   end
   local pulse = 0.75 + 0.25 * math.sin(clock * 4)
   if k.slit then -- one narrow slit across a dark visor
@@ -380,6 +397,33 @@ Look.KITS.BAD = {
   end,
 }
 
+Look.KITS.FMN = {
+  scale = 2.2,
+  body = { 0.20, 0.20, 0.22 },
+  trim = C.gold,
+  hat = true,
+  arms = function(charge, _clock, h)
+    for _, side in ipairs({ -1, 1 }) do
+      if side == 1 and h.ripped then -- torn off at the shoulder: a stump, wires out
+        plate(-3, side * 8 - 2, 5, 4, C.gunmetal)
+        color(C.eye, 0.8)
+        love.graphics.line(2, side * 8 - 1, 5, side * 8 + 1)
+        love.graphics.line(2, side * 8 + 1, 4.5, side * 8 + 2.5)
+      else
+        gunArm(side, 16, 7, C.gunmetal, C.gold) -- the war cannons, gold at the muzzle
+        color(C.ink)
+        love.graphics.rectangle("fill", 14, side * 8 - 1, 5, 2)
+      end
+    end
+    if charge > 0 then
+      glow(C.flame, 0.4 * charge, 19, 0, 10)
+    end
+  end,
+  back = function(charge)
+    pods(charge, -17)
+  end,
+}
+
 Look.KITS.STK = {
   trim = C.eye,
   scale = 1.25,
@@ -455,7 +499,7 @@ function Look.draw(h, clock)
     k.back(charge, clock, h.flying)
   end
   hull(k)
-  k.arms(charge, clock)
+  k.arms(charge, clock, h)
   head(k, math.max(charge, flash), clock)
   if flash > 0 then -- the hit: everything goes white for a moment
     love.graphics.setColor(1, 1, 1, 0.55 * flash)
@@ -476,7 +520,7 @@ function Look.drawWreck(w, clock)
   love.graphics.ellipse("fill", 1, 2, 18, 13, 18)
   legs(k, 0)
   hull(k)
-  k.arms(0, 0)
+  k.arms(0, 0, w)
   disc(8, 0, 6, C.gunmetal)
   color(C.rustDark) -- the eye, out
   love.graphics.circle("fill", 8.8, 0, 4.2, 16)

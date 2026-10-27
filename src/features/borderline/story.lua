@@ -197,6 +197,20 @@ Story.beats = {
   ["assembly.The Foreman's Floor"] = {
     { "max", "My foreman's floor! He built a robot a minute. I said: make it two." },
   },
+  ["assembly.foreman"] = {
+    { "max", "Foreman BIG-B055! My best manager. Never takes a break. I took them away." },
+    { "yappy", "It's awake! It blows that whistle, the crane brings it another robot. Shoot the new ones before "
+      .. "they gang up. Or after. I'm not your boss. He is." },
+  },
+  ["assembly.rip"] = {
+    { "yappy", "It tore its own cannon off! That's a safety violation! It's going to charge. Get a wall behind "
+      .. "you and step aside!" },
+    { "max", "Overtime, Foreman! No breaks, no cannons, no brakes! TO THE MAX!" },
+  },
+  ["assembly.foreman-down"] = {
+    { "yappy", "The Foreman's down! The shipping bay's opening. I'm writing it a reference. It'll be short." },
+    { "max", "My Foreman! Who's going to tell the robots what to do now? Me? I don't know how robots work!" },
+  },
   ["assembly.end"] = { { "yappy", "The shipping bay! The road up to the bunker starts outside. Uphill. Of course." } },
 
   ["cuts.start"] = {
@@ -326,6 +340,9 @@ Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
 Story.boss = {
+  assembly = {
+    during = "Objective: take Foreman BIG-B055 down (shoot what the crane brings, dodge its charge)",
+  },
   refinery = {
     during = "Objective: put the Smelter out (out of its lane when it gushes, shoot it when it vents)",
   },

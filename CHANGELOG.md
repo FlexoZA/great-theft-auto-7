@@ -156,6 +156,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- The Assembly Line has its boss, Foreman BIG-B055: the badass hauler that runs the line stands over it on its floor
+  and wakes when you come up the stairs. Cannons, rocket pods and a stomp, and its whistle brings the crane, which
+  drops a fresh hauler on a red ring next to you. At half health it tears a cannon off and starts charging: get a
+  wall behind you and step aside, and it knocks itself silly. The shipping bay opens when it's down.
 - The Refinery has its boss, the Smelter: lower the last bridge and it climbs out of the casting pit, a plasma
   furnace on four legs. It fires plasma bolts, and every few seconds its belly opens, lights up a lane in front of it
   and pours molten Bragium down it, leaving puddles that burn and melt your armor. Every third move it has to vent:

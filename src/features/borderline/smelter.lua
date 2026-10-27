@@ -27,11 +27,11 @@
 local Protocol = require("src.net.protocol")
 local Bosses = require("src.features.bosses")
 local Bar = require("src.features.bosses.bar")
-local Synth = require("src.audio.synth")
-local Audio = require("src.audio")
 local Terminals = require("src.features.terminals")
 local Army = require("src.features.borderline.army")
+local Sound = require("src.features.borderline.boss_sound")
 local Hauler = require("src.features.borderline.hauler_look")
+local Paint = require("src.features.borderline.boss_paint")
 local Brain = require("src.features.borderline.sml_brain")
 local Look = require("src.features.borderline.smelter_look")
 
@@ -208,13 +208,7 @@ end
 local cl = fresh()
 
 function Smelter.load()
-  local function make(seconds, volume, synth)
-    local buf = Synth.newBuffer(seconds)
-    synth(buf)
-    local src = love.audio.newSource(buf:toSoundData(volume), "static")
-    src:setAttenuationDistances(300, 2600)
-    return src
-  end
+  local make = Sound.make
   -- Climbing out of the pit: a deep bubbling roar, rising, and a clank as it stands.
   bank.rise = make(2.6, 0.8, function(buf)
     buf:noiseBurst(0, 2.3, { amp = 0.45, attack = 1.4, decay = 0.6 })
@@ -242,17 +236,7 @@ function Smelter.load()
 end
 
 local function play(name, x, y)
-  local base = bank[name]
-  if base then
-    local s = base:clone()
-    if x then
-      s:setPosition(x, 0, y)
-    else
-      s:setRelative(true)
-    end
-    s:setVolume(0.8 * Audio.volume("weapons"))
-    s:play()
-  end
+  Sound.play(bank[name], x, y)
 end
 
 function Smelter.clear()
@@ -297,43 +281,34 @@ function Smelter.objective(map)
   return nil
 end
 
---- A gush's lane on the floor: lit, its edges throbbing, while it lines up;
---- the molten stream running down it once it pours.
+--- A gush's lane on the floor: lit while it lines up (boss_paint.lua's
+--- lane); the molten stream running down it once it pours.
 local function drawLane(l)
+  if not l.pour then
+    Paint.lane(l.x, l.y, l.angle, l.length, l.width, l.t / l.total, clock)
+    return
+  end
   local C = Hauler.C
   love.graphics.push()
   love.graphics.translate(l.x, l.y)
   love.graphics.rotate(l.angle)
   local hw = l.width / 2
-  if not l.pour then
-    local k = l.t / l.total
-    love.graphics.setColor(1, 0.25, 0.15, 0.1 + 0.15 * k)
-    love.graphics.rectangle("fill", 0, -hw, l.length, l.width)
-    love.graphics.setColor(1, 0.25, 0.15, 0.5 + 0.4 * math.sin(clock * (8 + 20 * k)))
-    love.graphics.setLineWidth(3)
-    love.graphics.rectangle("line", 0, -hw, l.length, l.width)
-    love.graphics.setLineWidth(1)
-    love.graphics.setColor(1, 0.25, 0.15, 0.4)
-    for a = 40, l.length - 20, 60 do -- arrows down it
-      love.graphics.polygon("fill", a, -hw * 0.4, a + 22, 0, a, hw * 0.4)
-    end
-  else
-    local fade = math.max(0, math.min(1, (l.total + 0.5 - l.t) / 0.5))
-    local reach = l.length * math.min(1, l.t / 0.5)
-    love.graphics.setColor(0.16, 0.08, 0.22, 0.8 * fade)
-    love.graphics.rectangle("fill", 0, -hw * 0.75, reach, hw * 1.5, hw * 0.5)
-    love.graphics.setColor(C.plasma[1], C.plasma[2], C.plasma[3], 0.9 * fade)
-    love.graphics.rectangle("fill", 0, -hw * 0.55, reach, hw * 1.1, hw * 0.4)
-    love.graphics.setColor(C.plasmaHot[1], C.plasmaHot[2], C.plasmaHot[3], 0.8 * fade)
-    for k = 0, 5 do -- streaks racing down it
-      local p = ((clock * 2.4 + k / 6) % 1) * reach
-      love.graphics.rectangle("fill", p, -hw * 0.3 + (k % 3) * hw * 0.25, 40, 3)
-    end
-    love.graphics.setBlendMode("add")
-    love.graphics.setColor(C.plasma[1], C.plasma[2], C.plasma[3], 0.25 * fade)
-    love.graphics.rectangle("fill", 0, -hw * 1.1, reach, hw * 2.2, hw)
-    love.graphics.setBlendMode("alpha")
+  -- Pouring: the molten stream running down it, fading once it stops.
+  local fade = math.max(0, math.min(1, (l.total + 0.5 - l.t) / 0.5))
+  local reach = l.length * math.min(1, l.t / 0.5)
+  love.graphics.setColor(0.16, 0.08, 0.22, 0.8 * fade)
+  love.graphics.rectangle("fill", 0, -hw * 0.75, reach, hw * 1.5, hw * 0.5)
+  love.graphics.setColor(C.plasma[1], C.plasma[2], C.plasma[3], 0.9 * fade)
+  love.graphics.rectangle("fill", 0, -hw * 0.55, reach, hw * 1.1, hw * 0.4)
+  love.graphics.setColor(C.plasmaHot[1], C.plasmaHot[2], C.plasmaHot[3], 0.8 * fade)
+  for k = 0, 5 do -- streaks racing down it
+    local p = ((clock * 2.4 + k / 6) % 1) * reach
+    love.graphics.rectangle("fill", p, -hw * 0.3 + (k % 3) * hw * 0.25, 40, 3)
   end
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(C.plasma[1], C.plasma[2], C.plasma[3], 0.25 * fade)
+  love.graphics.rectangle("fill", 0, -hw * 1.1, reach, hw * 2.2, hw)
+  love.graphics.setBlendMode("alpha")
   love.graphics.pop()
 end
 
