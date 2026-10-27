@@ -160,10 +160,19 @@ Story.beats = {
     { "max", "Bandit, you're halfway across my river! Nobody gets halfway! I'm turning the river up." },
     { "yappy", "He can't turn the river up. Can he? Hurry." },
   },
-  ["refinery.open"] = {
+  ["refinery.bridge4"] = {
     { "yappy", "That's the last bridge! The outflow's across it, and the freight door. And the big ones. "
       .. "Of course the big ones." },
     { "max", "Every bridge down? Magnificent! The outflow team is VERY excited to meet you." },
+  },
+  ["refinery.smelter"] = {
+    { "max", "Bandit, meet the Smelter! It melts down everything I don't need anymore. You, for example." },
+    { "yappy", "It's climbing out of the casting pit! Don't stand in front of it when its belly opens. "
+      .. "And when it vents, shoot it! That's the soft bit. Softer bit." },
+  },
+  ["refinery.smelter-down"] = {
+    { "yappy", "It's gone out! The freight door's opening. I'm putting that down as a team win." },
+    { "max", "My Smelter! Do you know what a furnace like that costs? Neither do I. I've never looked." },
   },
   ["refinery.fight"] = { { "yappy", "Arc haulers on the bridges! Don't stand in the blue! It tingles! It kills!" } },
   ["refinery.The Smelting Floor"] = { { "max", "Every bridge is hotter than the last. Keep going, it gets better!" } },
@@ -317,6 +326,9 @@ Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
 Story.boss = {
+  refinery = {
+    during = "Objective: put the Smelter out (out of its lane when it gushes, shoot it when it vents)",
+  },
   wreck = {
     during = "Objective: take the Knuckle Scrapper down (shoot the junk carrying it scrap)",
   },

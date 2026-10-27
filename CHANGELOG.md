@@ -156,6 +156,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- The Refinery has its boss, the Smelter: lower the last bridge and it climbs out of the casting pit, a plasma
+  furnace on four legs. It fires plasma bolts, and every few seconds its belly opens, lights up a lane in front of it
+  and pours molten Bragium down it, leaving puddles that burn and melt your armor. Every third move it has to vent:
+  hit it then for double damage. The freight door opens when it goes out.
 - The Frozen Wreck has its boss, the Knuckle Scrapper: hack the yard's three terminals and it builds itself out of
   the wrecked engine in front of the tunnel. It swings its bogie fists at you up close and lobs lumps of itself onto
   red rings further off, and junk bots climb out of the wreck carrying it scrap: every one that reaches it heals it,

@@ -415,10 +415,14 @@ function Chassis:at(x, y, radius)
 end
 
 --- `amount` into `s` (index `i`) from player `by`, along `angle` (through
---- its bubble first, if a shield drone gave it one). Returns
+--- its bubble first, if a shield drone gave it one; times its brain's
+--- `taken(s)`, if it has one: the Smelter venting). Returns
 --- "down" when that finished it (it is off the list), "crawl" when it lost
 --- its legs instead, or nil.
 function Chassis:hurt(s, i, amount, by, angle)
+  if s.brain.taken then
+    amount = amount * s.brain.taken(s)
+  end
   if s.shield then -- a shield drone's bubble takes it first
     local stopped = math.min(s.shield, amount)
     s.shield, amount = s.shield - stopped, amount - stopped

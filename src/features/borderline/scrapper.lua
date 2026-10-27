@@ -67,15 +67,6 @@ local function fmt(v)
   return ("%.1f"):format(v)
 end
 
-local function lockOpen(map, name)
-  for _, l in ipairs(map and map.locks or {}) do
-    if l.name == name then
-      return l.open == true
-    end
-  end
-  return false
-end
-
 -- Server --------------------------------------------------------------------
 
 local sv = nil -- { map, spec, phase = "waiting" | "building" | "up" | "down", buildIn, s, feeders, feedIn, lumps }
@@ -184,7 +175,7 @@ function Scrapper.serverStep(server, dt, beat)
     return
   end
   if sv.phase == "waiting" then
-    if lockOpen(sv.map, sv.spec.after) then
+    if Terminals.opened(sv.spec.after) then
       build(server, beat)
     end
   elseif sv.phase == "building" then

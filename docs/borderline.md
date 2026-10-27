@@ -56,9 +56,10 @@ shows each map's layout: its floor in the map's colour
 (`Borderline.MAP_COLORS`: sheds, the train, pits, containers, factories,
 the river), and its areas (`map.zones`): a dashed line between each, its
 name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Liar's Landing's ferry lift is held while Yappy hacks it
-(`hold.lua`, below). Two bosses are in: the Knuckle Scrapper on the Frozen
-Wreck (`scrapper.lua`, `knk_brain.lua`) and Wilbur on the Bragium Pit
-(`wilbur.lua`, `wlb_brain.lua`, "The bosses"). Every map has its theme
+(`hold.lua`, below). Three bosses are in (`boss_list.lua`): the Knuckle
+Scrapper on the Frozen Wreck (`scrapper.lua`, `knk_brain.lua`), Wilbur on
+the Bragium Pit (`wilbur.lua`, `wlb_brain.lua`) and the Smelter on the
+Refinery (`smelter.lua`, `sml_brain.lua`, "The bosses"). Every map has its theme
 music. See "Stages" at the end for the order.
 
 ## Decisions
@@ -237,7 +238,7 @@ koins and a pickup, and raises `serverKill` with kind "boss".
 | --- | --- | --- | --- |
 | 1 | **Knuckle Scrapper** (`KNK`, built) | A junk hauler that built itself huge out of the train wreck: a heap of rusted scrap with a carriage panel on its back, the engine's headlight for an eye, the smokestack puffing, two girder arms with bogies for fists | The tutorial boss. 1500 health for one player (`Bosses.health`). Builds itself out of the engine (2.6 s of scrap dragging together) onto the rails in front of the tunnel the moment the yard's three terminals are hacked (the `power` lock); the tunnel's blast door (the `tunnel` lock, no terminals) opens only when it falls apart. Lumbers at you at 60 px/s. Close up its fist goes back (0.75 s, its eye goes red) and swings round in front of it (150 px, 25 `impact`, thrown 260 px). Further off, every 4-6 s it lifts a lump of itself (0.9 s) and lobs it onto a red ring (30 `impact` within 75 px, thrown). Every 9 s two junk haulers climb out of the carriages nearest the engine and make straight for it carrying scrap (a dashed line from each to it), five out at most: one that reaches it is pulled in and heals it 90, so shoot them first. Its plates come off as its health goes. Boss standard: breath (walking after you, the throw; winded it shuffles, no throws), medkits, walks out from under abilities, the boss bar. `knk_brain.lua` (it is one of the army's), `scrapper.lua` (the build, the feeders, the tunnel, the bar), `scrapper_look.lua`. |
 | 3 | **Wilbur** (`WLB`, built) | Max's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor (gated until the four power terminals are hacked); the mine lift stays shut until the keycard he drops where he falls is picked up. He also leaves a plasma rifle for every player (`weapons/guns.lua`, `unlock`: picking it up puts it on the shop's shelf). Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Max pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar, the keycard), `wilbur_look.lua`. |
-| 5 | **Smelter** | A squat plasma furnace on four legs, molten Bragium in its belly | All plasma: bolt fans, a plasma mortar that leaves puddles burning for 5 s, and a gush that floods a lane. Vents every few attacks: its belly glows, hits there do double. Fights by the river: the puddles and the river are the danger. |
+| 5 | **The Smelter** (`SML`, built) | A squat plasma furnace on four jointed legs: a riveted shell in Hyperbole's yellow band, the charging hatch glowing on top, two stacks smoking at the back, purple coils down its flanks, a belly door over a spout at its front | 3500 health for one player (`Bosses.health`). Climbs out of the casting pit (2.4 s) at the outflow the moment the last bridge comes down (lock `bridge4`); the freight door (the `door` lock, no terminals) opens only when it goes out. Keeps ~280 px off at 50 px/s, edging round you. Between its big moves its coils glow (0.6 s) and it fires one plasma bolt (`bolts.lua`: 18, splashing 40 px) every 1.6-2.3 s. Every 7-9 s the gush: its belly door opens and a lane 520 px long lights up in front of it (1 s, arrows down it), then it pours molten Bragium down it for 2.2 s, 40 `plasma` a second to whoever is in it, leaving plasma puddles burning 5 s along it (`puddles.lua`). After every three moves it vents for 3 s: it stands still, belly open and glowing, the boss bar white-hot, and every hit on it does double (`taken`). Boss standard: breath (walking, the gush; winded it shuffles, no gush), medkits, walks out from under abilities, the boss bar. The medic drone posted at the outflow tends it too. `sml_brain.lua`, `smelter.lua` (the climb, the lanes, the vent, the door, the bar), `smelter_look.lua`. |
 | 6 | **Foreman BIG-B055** | The badass hauler that runs the line: 2.2x, gold trim, a hard hat welded on | Every badass move, plus it calls the line: the conveyors start up and carry haulers in. Phase 2 (half health): it rips one cannon off and charges. |
 | 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
 
@@ -257,10 +258,10 @@ Bragium that powers it. Kill feed verb: "melted".
 - **Built:** bolts are `borderline/bolts.lua`; "melted" is the damage
   feature's `melt` status (its `serverShare` halves what gear stops) and
   the armor feature's `serverAbsorbDamage` (two points a point).
-- **Puddles** (not built yet): some plasma (the Smelter's mortar, a burst Bragium tank, the
-  refinery's spills) leaves a puddle that hurts while you stand in it
-  (`plasma` damage over time, like the Winding Road's poison and Eternal
-  Mood's lava).
+- **Puddles** (`puddles.lua`): the Smelter's gush leaves molten Bragium
+  burning on the floor; standing in a puddle bites `plasma` every 0.25 s
+  while it lasts (and melts your armor), never the army. A burst Bragium
+  tank or the refinery's spills could leave them too (not yet).
 - **Resists**: the insulated suit gets plasma 25% (beside shock and fire).
 - **The players' plasma gun**: the reward (see "The reward").
 
@@ -688,8 +689,10 @@ the map, catwalks over it, smelting tanks, pipes.
   stalker pair across the middle one; junk haulers at the intake,
   kamikazes in the middle, medic and shield drones; a dozer and the
   badass at the outflow, rocket haulers watching the last bridge.
-- **Smelter** at the outflow, the top of the map.
-- **The end:** a freight door past the Smelter. EXIT: "THE ASSEMBLY LINE".
+- **The Smelter** climbs out of the casting pit at the outflow, the top of
+  the map, when the last bridge comes down.
+- **The end:** a freight door past the Smelter, shut until it goes out.
+  EXIT: "THE ASSEMBLY LINE".
 
 ### 6. The Assembly Line (`assembly`, 56x72, under strip lights)
 
@@ -920,7 +923,7 @@ each a PR), in this order:
 6. **The rest of the army.** Kamikaze, dozer, arc haulers; medic and shield
    drones; sentries; the badass.
 7. **The maps dressed.** Each map's look, one map per PR.
-8. **The bosses.** One per PR: Knuckle Scrapper (done), Wilbur (done), Smelter,
+8. **The bosses.** One per PR: Knuckle Scrapper (done), Wilbur (done), Smelter (done),
    Foreman, BNK-9.
 9. **Set pieces.** The ferry hold, the screens, the bunker door; Yappy on
    the map.

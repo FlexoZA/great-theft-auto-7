@@ -25,8 +25,7 @@ local Features = require("src.features")
 local Story = require("src.features.borderline.story")
 local Terminals = require("src.features.terminals")
 local Hold = require("src.features.borderline.hold")
-local Wilbur = require("src.features.borderline.wilbur")
-local Scrapper = require("src.features.borderline.scrapper")
+local BossList = require("src.features.borderline.boss_list")
 local Screens = require("src.features.borderline.screens")
 local Fabricators = require("src.features.borderline.fabricators")
 local Army = require("src.features.borderline.army")
@@ -242,13 +241,9 @@ function Tale.onLevel(map)
 end
 
 --- What the objective line should be after for `map`'s boss now, and
---- where (wilbur.lua's and scrapper.lua's `objective`), or nil.
+--- where (each boss's `objective`: boss_list.lua), or nil.
 function Tale.bossObjective(map)
-  local what, x, y = Wilbur.objective(map)
-  if what then
-    return what, x, y
-  end
-  return Scrapper.objective(map)
+  return BossList.first("objective", map)
 end
 
 function Tale.blurring(map)
@@ -295,8 +290,7 @@ function Tale.drawHUD(map, done, x, y)
   if not done and Story.hold[cl.level] then
     Hold.drawHUD(Story.hold[cl.level].bar)
   end
-  Wilbur.drawHUD()
-  Scrapper.drawHUD()
+  BossList.call("drawHUD")
   if cl.say then
     local left = Hud.sayFor(cl.say.text) - cl.say.t
     Hud.drawComms(faces[cl.say.who], cl.say.who, cl.say.text, cl.say.t, math.min(1, left / 0.5))

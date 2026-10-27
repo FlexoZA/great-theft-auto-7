@@ -37,8 +37,6 @@ local Chassis = require("src.features.borderline.chassis")
 local Kit = require("src.features.borderline.boss_kit")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
-local Heal = require("src.features.bosses.heal")
-local Dodge = require("src.features.bosses.dodge")
 
 local Brain = {}
 
@@ -79,7 +77,7 @@ function Brain.gone(s)
   s.dead = true
 end
 
-local target, step, walkTo = Kit.target, Kit.step, Kit.walkTo
+local step, walkTo = Kit.step, Kit.walkTo
 
 --- A move under way (its tell, then what it does). Returns true while one is.
 local function moving(server, s, dt)
@@ -136,35 +134,6 @@ local function attack(s, who, tx, ty, d)
   return false
 end
 
---- Badly hurt and a medkit in reach: off for it. Returns true while that
---- is what it is doing.
-local function heal(roster, server, s, dt)
-  if not Heal.wants(s.hp, s.max) then
-    s.medkit = nil
-    return false
-  end
-  if s.medkit and not Heal.there(s.medkit) then
-    s.medkit = nil
-  end
-  if not s.medkit and roster.time >= (s.healLook or 0) then
-    s.medkit, s.healLook = Heal.find(s.x, s.y), roster.time + Heal.checkEvery
-  end
-  if not s.medkit then
-    return false
-  end
-  local way = Heal.way(s, Kit.nav(roster, s), s.medkit, roster.time)
-  if not way then
-    Heal.giveUp(s, roster.time)
-    s.medkit = nil
-    return false
-  end
-  s.facing = Chassis.turn(s.facing, way, Chassis.TURN, dt)
-  step(s, way, s.conf.speed, dt)
-  s.running = true
-  Heal.pickUp(server, s, s.radius)
-  return true
-end
-
 function Brain.think(roster, server, s, dt)
   s.running = false
   s.conf = s.breath:winded() and Brain.WINDED or Brain.CONF
@@ -173,25 +142,8 @@ function Brain.think(roster, server, s, dt)
     s.breath:step(false, dt)
     return
   end
-  local threat = Dodge.threat(s.x, s.y, s.radius)
-  if threat then -- out from under it, as fast as it goes
-    local ux, uy = Dodge.away(threat, s.x, s.y)
-    step(s, math.atan2(uy, ux), s.conf.speed, dt)
-    s.breath:step(not s.breath:winded(), dt)
-    return
-  end
-  local who, tx, ty, visible = target(server, s)
+  local who, tx, ty = Kit.before(roster, server, s, dt)
   if not who then
-    s.breath:step(false, dt)
-    return
-  end
-  if heal(roster, server, s, dt) then
-    s.breath:step(s.running, dt)
-    return
-  end
-  if not visible then
-    walkTo(roster, s, tx, ty, s.conf.speed, dt)
-    s.breath:step(not s.breath:winded(), dt)
     return
   end
   local d = math.sqrt(Chassis.dist2(s.x, s.y, tx, ty))

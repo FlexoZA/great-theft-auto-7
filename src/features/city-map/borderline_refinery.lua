@@ -204,6 +204,10 @@ function Refinery.build(map, rng, b)
     keep[#keep + 1] = { math.floor(t[1]) - 1, math.floor(t[2]) - 1, math.floor(t[1]) + 1, math.floor(t[2]) + 1 }
     keep[#keep + 1] = { math.floor(d[1]) - 1, math.floor(d[2]) - 1, math.floor(d[1]) + 1, math.floor(d[2]) + 1 }
   end
+  -- The freight door, shut until the Smelter is out (borderline/smelter.lua
+  -- opens it): after the bridges', whose terminals go by their place in `locks`.
+  local door = b:lock("door", "THE FREIGHT DOOR", true)
+  b:lockWall(door, b:x(20), b:y(1.2), 8 * T, 0.5 * T)
   for _, at in ipairs(Refinery.LADLES) do
     keep[#keep + 1] = { at[1] - 1, at[2] - 1, at[1] + 2, at[2] + 2 }
   end
@@ -229,6 +233,11 @@ function Refinery.build(map, rng, b)
         a = 0.4 }
     end
   end
+  -- The Smelter climbs out of the casting pit when the last bridge comes
+  -- down, and stands beside it at the outflow, clear of the dozer and the
+  -- badass posted there.
+  map.boss = { kind = "smelter", x = b:x(28), y = b:y(6), fromX = b:x(K[1] + K[3] / 2),
+    fromY = b:y(K[2] + K[4] / 2), after = "bridge" .. #Refinery.RIVER, unlocks = "door" }
   b:zone("The Intake", 54, map.rows - 1)
   b:zone("The Smelting Floor", 13, 53)
   b:zone("The Outflow", 0, 12)

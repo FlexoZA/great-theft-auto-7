@@ -142,6 +142,16 @@ Scenes.after["borderline"] = function(game, look)
   return true
 end
 
+-- The Refinery with every bridge down and the Smelter climbed out (the launch's --boss).
+Scenes.after["borderline-refinery"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-refinery"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Refinery would not skip to the Smelter"
+  end
+  watch(game, look, 8)
+  return true
+end
+
 -- The Bragium Pit with Wilbur down on the pad (the launch's --boss).
 Scenes.after["borderline-pit"] = function(game, look)
   local quest = game.Features.byName.quests.byId["borderline-pit"]

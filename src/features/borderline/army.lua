@@ -25,7 +25,8 @@
 -- (domes.lua), a shield drone's bubble soaks hits first (chassis.lua).
 -- What comes down out of the sky on red rings is barrage.lua's (the rocket
 -- haulers' pods, the jet haulers' runs, the badass hauler's); the plasma
--- bolts are bolts.lua's, the stalker haulers' flechettes darts.lua's.
+-- bolts are bolts.lua's, the stalker haulers' flechettes darts.lua's, the
+-- plasma puddles puddles.lua's.
 --
 -- The terminals' alarm (`serverAlarm`) brings the army near one being
 -- hacked, and a terminal done shuts down the dock it runs (`serverShutDock`).
@@ -43,7 +44,7 @@
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
 --   server -> all  HYP_STOMP <id>                          a badass hauler stamped
 --   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH, darts.lua's HYP_DART and HYP_STICK,
---   domes.lua's HYP_DOME)
+--   domes.lua's HYP_DOME, puddles.lua's HYP_POOL)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -72,6 +73,8 @@ local Wlb = require("src.features.borderline.wlb_brain")
 local WilburLook = require("src.features.borderline.wilbur_look")
 local Knk = require("src.features.borderline.knk_brain")
 local ScrapperLook = require("src.features.borderline.scrapper_look")
+local Sml = require("src.features.borderline.sml_brain")
+local SmelterLook = require("src.features.borderline.smelter_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
@@ -79,6 +82,7 @@ local CannonLook = require("src.features.borderline.cannon_look")
 local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
 local Darts = require("src.features.borderline.darts")
+local Puddles = require("src.features.borderline.puddles")
 
 local Army = {}
 
@@ -86,17 +90,17 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, CAN = 8 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, SML = 45, CAN = 8 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, CAN = Can }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, SML = Sml, CAN = Can }
 Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true, CAN = true } -- drone_look, dock_look, cannon_look
 -- The bosses that are one of the army, each with a look of its own (its bar
--- is the boss bar: wilbur.lua, scrapper.lua).
-local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook }
+-- is the boss bar: wilbur.lua, scrapper.lua, smelter.lua).
+local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook, SML = SmelterLook }
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -152,6 +156,7 @@ function Army.serverStart(server, map)
   Barrage.serverStart()
   Bolts.serverStart()
   Darts.serverStart()
+  Puddles.serverStart()
   sv = { roster = roster, syncIn = 0, sentEmpty = false }
 end
 
@@ -159,6 +164,7 @@ function Army.serverStop(server)
   Barrage.serverStop()
   Bolts.serverStop()
   Darts.serverStop()
+  Puddles.serverStop()
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("HYP_STATE", server.tick))
@@ -288,6 +294,7 @@ function Army.serverStep(server, dt)
   Barrage.serverStep(server, dt)
   Bolts.serverStep(server, dt)
   Darts.serverStep(server, dt)
+  Puddles.serverStep(server, dt)
   for _, s in ipairs(sv.roster:update(server, dt)) do
     down(server, s, s.lastBy, s.facing + math.pi, "bullet") -- a crawl that gave out
   end
@@ -519,6 +526,7 @@ function Army.clear()
   Bolts.clear()
   Darts.clear()
   Domes.clear()
+  Puddles.clear()
 end
 
 --- Ease the one shown at `s` towards where the host last said it was
@@ -540,6 +548,7 @@ function Army.update(dt, client)
   Bolts.update(dt)
   Darts.update(dt, client)
   Domes.update(dt)
+  Puddles.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
   end
@@ -553,6 +562,7 @@ function Army.update(dt, client)
 end
 
 function Army.drawBelowCars()
+  Puddles.draw(clock)
   for _, w in ipairs(wrecks) do
     if BOSS_LOOKS[w.code] then
       BOSS_LOOKS[w.code].drawWreck(w, clock)
@@ -609,6 +619,10 @@ local function drawOne(s)
     ScrapperLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, flash = flash,
       plates = s.hp / math.max(1, s.max) }, clock)
     return -- (its bar is the boss bar: scrapper.lua)
+  elseif s.code == "SML" then
+    SmelterLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, charge = s.charge, flash = flash },
+      clock)
+    return -- (its bar is the boss bar: smelter.lua)
   elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "CAN" then
@@ -782,7 +796,7 @@ Army.clientMessages = {
     end
   end,
 }
-for _, part in ipairs({ Barrage, Bolts, Darts, Domes }) do
+for _, part in ipairs({ Barrage, Bolts, Darts, Domes, Puddles }) do
   for kind, handler in pairs(part.clientMessages) do
     Army.clientMessages[kind] = handler
   end

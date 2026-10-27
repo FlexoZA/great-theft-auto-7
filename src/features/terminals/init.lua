@@ -166,6 +166,13 @@ function Terminals.serverClose()
   sv = nil
 end
 
+--- Is lock `name` of the map in play open (its terminals done, or opened
+--- by its quest: `serverUnlock`)? What wakes a Borderline boss.
+function Terminals.opened(name)
+  local l = lockNamed(cityMap(), name)
+  return l ~= nil and l.open == true
+end
+
 --- Does a lock that holds the way on still hold it?
 function Terminals.serverLocked()
   if not sv then
