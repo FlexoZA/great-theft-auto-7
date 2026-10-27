@@ -36,7 +36,7 @@ local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Bar = require("src.features.bosses.bar")
-local Terminals = require("src.features.terminals")
+local Entry = require("src.features.borderline.boss_entry")
 local Army = require("src.features.borderline.army")
 local Sound = require("src.features.borderline.boss_sound")
 local Chassis = require("src.features.borderline.chassis")
@@ -92,7 +92,7 @@ local function post(server)
   local s = Army.serverSpawn("FMN", spec.x, spec.y, math.pi / 2) -- looking down the line
   if not s then
     sv.phase = "down" -- no army on: nothing to hold the bay
-    Terminals.serverUnlock(server, spec.unlocks)
+    Entry.open(server, sv)
     return
   end
   s.hp = Bosses.health(Brain.HEALTH, server)
@@ -224,7 +224,7 @@ function Foreman.serverStep(server, dt, beat)
     end
     if sv.s.dead then
       sv.phase = "down"
-      Terminals.serverUnlock(server, sv.spec.unlocks)
+      Entry.open(server, sv)
       server:broadcast(Protocol.encode("FMN_DOWN"))
       beat("foreman-down")
     end
@@ -258,11 +258,7 @@ function Foreman.serverSkipTo(server, player, beat)
     post(server)
   end
   local spec = sv.spec
-  for _, l in ipairs(Features.byName["city-map"].map.locks or {}) do
-    if l.name ~= spec.unlocks then
-      Terminals.serverUnlock(server, l.name)
-    end
-  end
+  Entry.skip(server, sv)
   if player and player.body then
     player.body.x, player.body.y = spec.x, spec.y + 300
   end

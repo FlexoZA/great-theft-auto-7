@@ -26,7 +26,7 @@
 -- What comes down out of the sky on red rings is barrage.lua's (the rocket
 -- haulers' pods, the jet haulers' runs, the badass hauler's); the plasma
 -- bolts are bolts.lua's, the stalker haulers' flechettes darts.lua's, the
--- plasma puddles puddles.lua's.
+-- plasma puddles puddles.lua's, BNK-9's mines mines.lua's.
 --
 -- The terminals' alarm (`serverAlarm`) brings the army near one being
 -- hacked, and a terminal done shuts down the dock it runs (`serverShutDock`).
@@ -44,7 +44,7 @@
 --   server -> all  HYP_CRAWL <id>                          one lost its legs and fights on
 --   server -> all  HYP_STOMP <id>                          a badass hauler stamped
 --   (and barrage.lua's HYP_RAIN, bolts.lua's HYP_BOLT and HYP_SPLASH, darts.lua's HYP_DART and HYP_STICK,
---   domes.lua's HYP_DOME, puddles.lua's HYP_POOL)
+--   domes.lua's HYP_DOME, puddles.lua's HYP_POOL, mines.lua's HYP_MINE, HYP_TRIP and HYP_GONE)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -77,6 +77,9 @@ local Sml = require("src.features.borderline.sml_brain")
 local SmelterLook = require("src.features.borderline.smelter_look")
 local Fmn = require("src.features.borderline.fmn_brain")
 local ForemanLook = require("src.features.borderline.foreman_look")
+local Bnk = require("src.features.borderline.bnk_brain")
+local Bnt = require("src.features.borderline.bnt_brain")
+local BnkLook = require("src.features.borderline.bnk_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
@@ -85,6 +88,7 @@ local Barrage = require("src.features.borderline.barrage")
 local Bolts = require("src.features.borderline.bolts")
 local Darts = require("src.features.borderline.darts")
 local Puddles = require("src.features.borderline.puddles")
+local Mines = require("src.features.borderline.mines")
 
 local Army = {}
 
@@ -92,17 +96,20 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, SML = 45, FMN = 50, CAN = 8 } -- koins each spills
-Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
--- all (pickups' own odds after); every other model always does
+  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, SML = 45, FMN = 50, BNK = 80, BNT = 3, CAN = 8 } -- koins each spills
+-- The chance it drops anything at all (pickups' own odds after); every other model always does.
+Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3, BNT = 0.3 }
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, SML = Sml, FMN = Fmn, CAN = Can }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, SML = Sml, FMN = Fmn, BNK = Bnk,
+  BNT = Bnt, CAN = Can }
 Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true, CAN = true } -- drone_look, dock_look, cannon_look
 -- The bosses that are one of the army, each with a look of its own (its bar
 -- is the boss bar: wilbur.lua, scrapper.lua, smelter.lua, foreman.lua).
-local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook, SML = SmelterLook, FMN = ForemanLook }
+local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook, SML = SmelterLook, FMN = ForemanLook, BNK = BnkLook,
+  BNT = BnkLook.turret }
+local HOVER = { BNK = true, BNT = true } -- up over the roof: drawn over everyone, BNK-9 under its own turrets
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -159,6 +166,7 @@ function Army.serverStart(server, map)
   Bolts.serverStart()
   Darts.serverStart()
   Puddles.serverStart()
+  Mines.serverStart()
   sv = { roster = roster, syncIn = 0, sentEmpty = false }
 end
 
@@ -167,6 +175,7 @@ function Army.serverStop(server)
   Bolts.serverStop()
   Darts.serverStop()
   Puddles.serverStop()
+  Mines.serverStop()
   if sv then
     sv = nil
     server:broadcast(Protocol.encode("HYP_STATE", server.tick))
@@ -297,6 +306,7 @@ function Army.serverStep(server, dt)
   Bolts.serverStep(server, dt)
   Darts.serverStep(server, dt)
   Puddles.serverStep(server, dt)
+  Mines.serverStep(server, dt)
   for _, s in ipairs(sv.roster:update(server, dt)) do
     down(server, s, s.lastBy, s.facing + math.pi, "bullet") -- a crawl that gave out
   end
@@ -339,7 +349,7 @@ function Army.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   if (s.brain.blocks and s.brain.blocks(s, angle, dtype)) or Domes.shields(server, sv.roster, s, by) then
     return true -- stopped at the blade or the dome
   end
-  local result = sv.roster:hurt(s, i, damage or 20, by, angle)
+  local result = sv.roster:hurt(s, i, damage or 20, by, angle, x, y)
   if result == "down" then
     down(server, s, by, angle, dtype)
   elseif result == "crawl" then
@@ -407,6 +417,16 @@ function Army.serverTake(s)
   local i = sv and sv.roster:indexOf(s)
   if i then
     table.remove(sv.roster.list, i)
+  end
+end
+
+--- Every one of `code` off the level without a fight (the launch's --boss
+--- skipping the Bunker's rim cannons: bnk9.lua).
+function Army.serverClear(code)
+  for i = #(sv and sv.roster.list or {}), 1, -1 do
+    if sv.roster.list[i].code == code then
+      table.remove(sv.roster.list, i)
+    end
   end
 end
 
@@ -479,6 +499,7 @@ local bank = {}
 function Army.load()
   Bolts.load()
   Darts.load()
+  Mines.load()
   local function make(seconds, volume, build)
     local buf = Synth.newBuffer(seconds)
     build(buf)
@@ -529,6 +550,7 @@ function Army.clear()
   Darts.clear()
   Domes.clear()
   Puddles.clear()
+  Mines.clear()
 end
 
 --- Ease the one shown at `s` towards where the host last said it was
@@ -551,6 +573,7 @@ function Army.update(dt, client)
   Darts.update(dt, client)
   Domes.update(dt)
   Puddles.update(dt)
+  Mines.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
   end
@@ -565,6 +588,7 @@ end
 
 function Army.drawBelowCars()
   Puddles.draw(clock)
+  Mines.draw(clock)
   for _, w in ipairs(wrecks) do
     if BOSS_LOOKS[w.code] then
       BOSS_LOOKS[w.code].drawWreck(w, clock)
@@ -632,6 +656,11 @@ local function drawOne(s)
       DroneLook.drawBubble(s.dx, s.dy, Fmn.RADIUS + 12, clock, s.shield / Drone.SHIELD)
     end
     return -- (its bar is the boss bar: foreman.lua)
+  elseif s.code == "BNK" then
+    BnkLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, charge = s.charge, flash = flash }, clock)
+    return -- (its bar is the boss bar: bnk9.lua)
+  elseif s.code == "BNT" then
+    BnkLook.turret.draw({ dx = s.dx, dy = s.dy, facing = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "CAN" then
@@ -666,7 +695,7 @@ end
 --- Those on the ground, the domes and the bolts, then those in the air
 --- (jets, drones) and the rockets coming down over everything.
 local function flies(s)
-  return s.state == 3 or s.code == "FIX" or s.code == "SHD"
+  return s.state == 3 or s.code == "FIX" or s.code == "SHD" or HOVER[s.code]
 end
 
 function Army.drawAboveCars()
@@ -679,7 +708,12 @@ function Army.drawAboveCars()
   Bolts.draw(clock)
   Darts.drawAboveCars(clock)
   for _, s in pairs(shown) do
-    if flies(s) then
+    if s.code == "BNK" then
+      drawOne(s)
+    end
+  end
+  for _, s in pairs(shown) do
+    if flies(s) and s.code ~= "BNK" then
       drawOne(s)
     end
   end
@@ -805,7 +839,7 @@ Army.clientMessages = {
     end
   end,
 }
-for _, part in ipairs({ Barrage, Bolts, Darts, Domes, Puddles }) do
+for _, part in ipairs({ Barrage, Bolts, Darts, Domes, Puddles, Mines }) do
   for kind, handler in pairs(part.clientMessages) do
     Army.clientMessages[kind] = handler
   end

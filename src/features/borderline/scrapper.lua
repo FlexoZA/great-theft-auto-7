@@ -37,7 +37,7 @@
 local Protocol = require("src.net.protocol")
 local Bosses = require("src.features.bosses")
 local Bar = require("src.features.bosses.bar")
-local Terminals = require("src.features.terminals")
+local Entry = require("src.features.borderline.boss_entry")
 local Army = require("src.features.borderline.army")
 local Sound = require("src.features.borderline.boss_sound")
 local Chassis = require("src.features.borderline.chassis")
@@ -68,7 +68,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { map, spec, phase = "waiting" | "building" | "up" | "down", buildIn, s, feeders, feedIn, lumps }
+local sv = nil -- { map, spec, phase = "waiting" | "coming" | "up" | "down", comeIn, s, feeders, feedIn, lumps }
 
 --- A level starts on `map`: the Scrapper waiting in the engine, if it has one.
 function Scrapper.serverStart(map)
@@ -83,7 +83,7 @@ end
 
 local function build(server, beat)
   local spec = sv.spec
-  sv.phase, sv.buildIn = "building", Scrapper.BUILD
+  Entry.come(sv, Scrapper.BUILD)
   server:broadcast(Protocol.encode("KNK_BUILD", fmt(spec.fromX), fmt(spec.fromY), fmt(spec.x), fmt(spec.y),
     ("%.2f"):format(Scrapper.BUILD)))
   beat("scrapper")
@@ -94,7 +94,7 @@ local function stand(server)
   local s = Army.serverSpawn("KNK", spec.x, spec.y, math.pi / 2) -- facing down the yard, the way everyone comes
   if not s then
     sv.phase = "down" -- no army on: nothing to hold the tunnel
-    Terminals.serverUnlock(server, spec.unlocks)
+    Entry.open(server, sv)
     return
   end
   s.hp = Bosses.health(Brain.HEALTH, server)
@@ -173,15 +173,13 @@ function Scrapper.serverStep(server, dt, beat)
   if not sv then
     return
   end
-  if sv.phase == "waiting" then
-    if Terminals.opened(sv.spec.after) then
-      build(server, beat)
-    end
-  elseif sv.phase == "building" then
-    sv.buildIn = sv.buildIn - dt
-    if sv.buildIn <= 0 then
-      stand(server)
-    end
+  if Entry.step(sv, dt, function()
+    build(server, beat)
+  end, function()
+    stand(server)
+  end) then -- (waiting for its lock, or coming in)
+    lumps(server, dt)
+    return
   elseif sv.phase == "up" then
     tell(server, sv.s)
     if sv.s.dead then
@@ -190,7 +188,7 @@ function Scrapper.serverStep(server, dt, beat)
         f.feed = nil -- nothing left to feed: they're just junk again
       end
       sv.feeders = {}
-      Terminals.serverUnlock(server, sv.spec.unlocks)
+      Entry.open(server, sv)
       server:broadcast(Protocol.encode("KNK_DOWN"))
       beat("scrapper-down")
     else
@@ -201,10 +199,10 @@ function Scrapper.serverStep(server, dt, beat)
 end
 
 function Scrapper.serverPlayerJoined(server, player)
-  if sv and sv.phase == "building" then
+  if sv and sv.phase == "coming" then
     local spec = sv.spec
     server:send(player, Protocol.encode("KNK_BUILD", fmt(spec.fromX), fmt(spec.fromY), fmt(spec.x), fmt(spec.y),
-      ("%.2f"):format(sv.buildIn)))
+      ("%.2f"):format(sv.comeIn)))
   elseif sv and sv.phase == "down" then
     server:send(player, Protocol.encode("KNK_DOWN"))
   end
@@ -218,7 +216,7 @@ function Scrapper.serverSkipTo(server, player, beat)
     return false
   end
   local spec = sv.spec
-  Terminals.serverUnlock(server, spec.after)
+  Entry.skip(server, sv)
   if player and player.body then
     player.body.x, player.body.y = spec.x, spec.y + 520
   end

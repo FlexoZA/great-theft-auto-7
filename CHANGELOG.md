@@ -156,6 +156,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- The Bunker has its boss, BNK-9: bring down the last rim cannon and the eye's hatch opens, and the bunker's flying
+  core rises out of it. It flies about over the roof, firing mines down round you and charging its eye for a laser
+  (get out of the red line), while the turrets on its corners shoot at you; shoot one off and it grows back. Aim
+  for the eye: hits there do double. When it crashes, the way home is open.
 - The Assembly Line has its boss, Foreman BIG-B055: the badass hauler that runs the line stands over it on its floor
   and wakes when you come up the stairs. Cannons, rocket pods and a stomp, and its whistle brings the crane, which
   drops a fresh hauler on a red ring next to you. At half health it tears a cannon off and starts charging: get a

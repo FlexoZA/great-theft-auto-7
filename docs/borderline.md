@@ -56,11 +56,12 @@ shows each map's layout: its floor in the map's colour
 (`Borderline.MAP_COLORS`: sheds, the train, pits, containers, factories,
 the river), and its areas (`map.zones`): a dashed line between each, its
 name, the one you're in tinted gold. Yappy is a voice so far, not on the map. Liar's Landing's ferry lift is held while Yappy hacks it
-(`hold.lua`, below). Four bosses are in (`boss_list.lua`): the Knuckle
+(`hold.lua`, below). All five bosses are in (`boss_list.lua`): the Knuckle
 Scrapper on the Frozen Wreck (`scrapper.lua`, `knk_brain.lua`), Wilbur on
 the Bragium Pit (`wilbur.lua`, `wlb_brain.lua`), the Smelter on the
-Refinery (`smelter.lua`, `sml_brain.lua`) and Foreman BIG-B055 on the
-Assembly Line (`foreman.lua`, `fmn_brain.lua`, "The bosses"). Every map has its theme
+Refinery (`smelter.lua`, `sml_brain.lua`), Foreman BIG-B055 on the
+Assembly Line (`foreman.lua`, `fmn_brain.lua`) and BNK-9 on the Bunker
+(`bnk9.lua`, `bnk_brain.lua`, "The bosses"). Every map has its theme
 music. See "Stages" at the end for the order.
 
 ## Decisions
@@ -241,7 +242,7 @@ koins and a pickup, and raises `serverKill` with kind "boss".
 | 3 | **Wilbur** (`WLB`, built) | Max's cyborg enforcer, more machine than man: a broad slab in Hyperbole plate, a rotary gun for a right arm, a steel fist for a left, a rocket pod on his shoulder, half his head steel with a red eye | 3000 health for one player (`Bosses.health`). Drops onto the pad (a red ring for 1.6 s; landing throws everyone within 130 px flat, 30 `impact`) when somebody first sets foot on the pit's floor (gated until the four power terminals are hacked); the mine lift stays shut until the keycard he drops where he falls is picked up. He also leaves a plasma rifle for every player (`weapons/guns.lua`, `unlock`: picking it up puts it on the shop's shelf). Keeps ~300 px off, circling, firing his rotary gun in bursts of ten (`bullet`, 9 each). Every 8-11 s his pod glows (0.8 s) and five rockets come down on red rings round you (`explosive`, 30). At anyone 260 px or more off he leaps: a red ring where he'll land, 0.8 s in the air out of reach, a slam (40 `impact`, 110 px, thrown flat), slow to get up. Every 15 s a drone out of his back, shield and medic by turns, 2 of his own at most: they heal and shield him, so shoot them first. At half health Max pushes an upgrade: his plates glow, he moves quicker, fires sooner, rockets every 5-7 s, drones twice as often (3 at most). Boss standard: breath (running, rockets and leaps; winded he walks, no leap or rockets), medkits, walks out from under abilities, the boss bar. `wlb_brain.lua` (he is one of the army's, so the drones tend him), `wilbur.lua` (the drop, the lock, the bar, the keycard), `wilbur_look.lua`. |
 | 5 | **The Smelter** (`SML`, built) | A squat plasma furnace on four jointed legs: a riveted shell in Hyperbole's yellow band, the charging hatch glowing on top, two stacks smoking at the back, purple coils down its flanks, a belly door over a spout at its front | 3500 health for one player (`Bosses.health`). Climbs out of the casting pit (2.4 s) at the outflow the moment the last bridge comes down (lock `bridge4`); the freight door (the `door` lock, no terminals) opens only when it goes out. Keeps ~280 px off at 50 px/s, edging round you. Between its big moves its coils glow (0.6 s) and it fires one plasma bolt (`bolts.lua`: 18, splashing 40 px) every 1.6-2.3 s. Every 7-9 s the gush: its belly door opens and a lane 520 px long lights up in front of it (1 s, arrows down it), then it pours molten Bragium down it for 2.2 s, 40 `plasma` a second to whoever is in it, leaving plasma puddles burning 5 s along it (`puddles.lua`). After every three moves it vents for 3 s: it stands still, belly open and glowing, the boss bar white-hot, and every hit on it does double (`taken`). Boss standard: breath (walking, the gush; winded it shuffles, no gush), medkits, walks out from under abilities, the boss bar. The medic drone posted at the outflow tends it too. `sml_brain.lua`, `smelter.lua` (the climb, the lanes, the vent, the door, the bar), `smelter_look.lua`. |
 | 6 | **Foreman BIG-B055** (`FMN`, built) | The badass hauler that runs the line: the haulers' body in its own kit (`hauler_look.lua`'s FMN), 2.2x, black and gold, a hard hat welded on, twin war cannons, rocket pods | 4000 health for one player (`Bosses.health`). Stands its post on the Foreman's floor from the start, overseeing the line, in place of the badass hauler that stood there; the first player up the stairs (or a hit) wakes it; the shipping bay (the `bay` lock, no terminals) opens only when it is down. Every badass move: cannon bursts (small blasts, 16 explosive), pod volleys (7 rockets on red rings, 28 each, every 9-12 s), a stomp at anyone close (30 `impact`, thrown). Every 14 s it blows its whistle and the crane brings a hauler down on its cable onto a red ring by whoever is up there (20 `impact` within 60 px): gun, gun, rocket, kamikaze in turn, three out at most. At half health it tears one cannon off and flings it across the floor (half the burst from then on), whistles every 10 s, and charges: a lane lights up from it to you (0.8 s), then it runs down it at 520 px/s (35 `impact`, thrown aside); run into a wall and it reels for 1.6 s, stars round its head. Boss standard: breath (walking, volleys, charges; winded it walks, neither), medkits, walks out from under abilities, the boss bar. The medic and shield drones on its floor tend it. `fmn_brain.lua`, `foreman.lua` (the post, the crane, the bay, the bar), `foreman_look.lua`. |
-| 8 | **BNK-9, the Bunker** | The bunker, which flies. A slab of armour with four engines, a huge red eye, turrets round its rim | See "The Bunker". |
+| 8 | **BNK-9** (`BNK`, built) | The bunker's flying core: a slab of dark armour plate on four engines, hazard stripes along its back, Hyperbole's H on top, a turret on each corner, the huge red eye at its front | 6000 health for one player (`Bosses.health`). Rises out of the eye's hatch (3 s) once all eleven rim cannons are down; the way home (the `core` lock, no terminals or walls) opens when it crashes. See "The Bunker". |
 
 Maps 2, 4 and 7 end on a set piece, not a boss (see each map).
 
@@ -857,7 +858,21 @@ the anthem (a hero's tune in A minor over the organ and Am, F, C, G, the
 double kick under it), the last stand (a solo racing over Am, Dm, E, Am),
 and the march again (~74 s loop).
 
-BNK-9 lifting off (below) is its own step, still to come.
+**BNK-9** (`bnk9.lua`, `bnk_brain.lua`, `bnk_look.lua`): the last cannon
+down opens the eye's hatch (`rim`), and BNK-9 rises out of it, its four
+corner turrets on. It hovers over the roof (`hover`: drawn over everyone,
+its shadow on the deck, every round reaches it), flying from spot to spot
+(150 px/s) and parking 7 s to fight: three mines fired down round you
+(`mines.lua`: they arm on landing, beep when you step within 55 px, and
+blow 0.6 s later, 34 explosive within 85 px, owned by nobody), then its
+eye laser (the eye charges 1 s, a red line that follows you for 0.6 s and
+sets, then a 1.2 s beam, 70 `fire` a second, up to the first thing
+solid). Its corner turrets (`BNT`, `bnt_brain.lua`, army models it
+carries: 300 health, bursts of five) shoot whoever they see; one shot off
+grows back 16 s later. A hit on its eye does double. Below half it flies
+at 215 px/s, parks 4.5 s and grows its turrets back in 10. A machine: no
+breath, no medkits. Down, it crashes onto the deck, its turrets with it,
+and the way home opens ("BNK-9 IS DOWN").
 
 An armour-plated deck, riveted, with clouds far below past its edge. Four
 engine intakes, deep and hazard ringed, a turbine fan spinning down in
@@ -874,14 +889,13 @@ eleven cannons.
 
 - **Part one:** the eleven cannons (120 health each) lob shells from the
   rim onto red rings. Destroy all eleven.
-- **Part two:** the roof shakes, the players are thrown to a landing pad
-  next to it, and BNK-9 lifts off. It flies round the arena (drawn over
-  everything, its shadow on the ground), then parks and fights: a turret
-  on each corner (shoot them off; they come back after a while), a rocket
-  volley (red rings on the ground), mines shot onto the ground, and a big
-  charged laser from its eye (a red line, 1 s, then the beam). Its red eye
-  is the weak spot: hits there do double. Below half it flies faster and
-  parks less.
+- **Part two:** the eye's hatch opens and BNK-9 rises out of it (built:
+  above; the landing pad and the rocket volley were left out). It flies
+  round the roof, then parks and fights: a turret on each corner (shoot
+  them off; they come back after a while), mines shot onto the deck, and
+  a big charged laser from its eye (a red line, 1 s, then the beam). Its
+  red eye is the weak spot: hits there do double. Below half it flies
+  faster and parks less.
 - **The end:** BNK-9 crashes. Yappy logs in, the army stops, the last
   lines. HOME star on the pad.
 
@@ -927,7 +941,7 @@ each a PR), in this order:
    drones; sentries; the badass.
 7. **The maps dressed.** Each map's look, one map per PR.
 8. **The bosses.** One per PR: Knuckle Scrapper (done), Wilbur (done), Smelter (done),
-   Foreman (done), BNK-9.
+   Foreman (done), BNK-9 (done).
 9. **Set pieces.** The ferry hold, the screens, the bunker door; Yappy on
    the map.
 10. **Themes and the reward.** The music, the Bragium Bolter.

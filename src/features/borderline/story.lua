@@ -246,9 +246,19 @@ Story.beats = {
   ["bunker.cannons"] = {
     { "yappy", "Half of them down! The roof's getting quieter. I don't trust quiet. It's usually Max planning." },
   },
-  ["bunker.open"] = {
-    { "yappy", "That's the last cannon! The hatch in the middle, minion! His computer's down there!" },
-    { "max", "No more cannons? Fine. FINE. The hatch is open. But the bunker isn't done with you. TO THE MAX!" },
+  ["bunker.bnk"] = {
+    { "yappy", "That's the last cannon! The hatch is opening, his computer's down th... no. No no no. Something's "
+      .. "coming up." },
+    { "max", "Meet BNK-9! The bunker's brain, the bunker's heart, the bunker's FLYING PART. TO THE MAX!" },
+    { "yappy", "Shoot the eye! The big red one! It's always the eye!" },
+  },
+  ["bunker.fury"] = {
+    { "max", "You've made BNK-9 angry. I didn't know it could be angry. I'm a little bit proud." },
+    { "yappy", "It's faster! It's smoking! That's good smoking! Keep going!" },
+  },
+  ["bunker.bnk-down"] = {
+    { "yappy", "It's down! BNK-9 is down! The hatch is clear. His computer's right there, minion!" },
+    { "max", "No. No no no. That was my BEST thing. I'm going to have to think of a new best thing." },
   },
   ["bunker.fight"] = { { "max", "Cannons! All of them! Every cannon! TO THE MAX!" } },
   ["bunker.end"] = {
@@ -340,6 +350,9 @@ Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
 Story.boss = {
+  bunker = {
+    during = "Objective: bring BNK-9 down (shoot its eye, get out of the red line)",
+  },
   assembly = {
     during = "Objective: take Foreman BIG-B055 down (shoot what the crane brings, dodge its charge)",
   },
@@ -413,7 +426,7 @@ function Story.objective(name, map, state)
     refinery = "Objective: across the river to the freight door",
     assembly = "Objective: up the factory floor to the shipping bay",
     cuts = "Objective: up the road to the bunker door",
-    bunker = "Objective: take the bunker's roof",
+    bunker = "Objective: down the eye's hatch to his computer",
   }
   if where[name] then
     return where[name], map.exitX, map.exitY

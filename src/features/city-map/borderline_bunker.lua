@@ -83,6 +83,12 @@ function Bunker.build(map, rng, b)
   b:place("eyehatch", n / 2 - 4, n / 2 - 4, 8, 8, { flat = true, round = true })
   cannons(b, n)
   b:lock("rim", "THE EYE'S HATCH", true) -- no terminals, no walls: every cannon down opens it
+  -- BNK-9 rises out of the hatch once it opens, and flies over the roof;
+  -- the way home (no terminals, no walls) opens when it crashes
+  -- (borderline/bnk9.lua).
+  b:lock("core", "THE WAY HOME", true, nil, "BNK-9 IS DOWN")
+  map.boss = { kind = "bnk", x = b:x(n / 2), y = b:y(n / 2), after = "rim", unlocks = "core",
+    bounds = { x0 = b:x(7), y0 = b:y(7), x1 = b:x(n - 7), y1 = b:y(n - 7) } }
   deck(map, b, n)
   local keep = { { n / 2 - 5, n / 2 - 5, n / 2 + 4, n / 2 + 4 }, { 16, n - 8, 23, n - 1 } }
   b:keepArmy(keep) -- no vent on a cannon

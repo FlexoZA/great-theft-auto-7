@@ -408,26 +408,29 @@ function Chassis:update(server, dt)
 end
 
 --- The hauler whose body covers (x, y) (within `radius` more), and its
---- index. One in the air (a jet hauler's run) or sunk in the floor (a
+--- index; of several, the smallest (a turret riding on BNK-9, a drone over
+--- a hauler). One in the air (a jet hauler's run) or sunk in the floor (a
 --- sentry, down) is out of reach.
 function Chassis:at(x, y, radius)
+  local best, bi
   for i, s in ipairs(self.list) do
     local r = s.radius + (radius or 0)
-    if not (s.flying or s.sunk) and Chassis.dist2(s.x, s.y, x, y) <= r * r then
-      return s, i
+    if not (s.flying or s.sunk) and Chassis.dist2(s.x, s.y, x, y) <= r * r and (not best or s.radius < best.radius) then
+      best, bi = s, i
     end
   end
-  return nil
+  return best, bi
 end
 
 --- `amount` into `s` (index `i`) from player `by`, along `angle` (through
 --- its bubble first, if a shield drone gave it one; times its brain's
---- `taken(s)`, if it has one: the Smelter venting). Returns
+--- `taken(s, x, y)`, if it has one, (x, y) where the round struck: the
+--- Smelter venting, BNK-9's eye). Returns
 --- "down" when that finished it (it is off the list), "crawl" when it lost
 --- its legs instead, or nil.
-function Chassis:hurt(s, i, amount, by, angle)
+function Chassis:hurt(s, i, amount, by, angle, x, y)
   if s.brain.taken then
-    amount = amount * s.brain.taken(s)
+    amount = amount * s.brain.taken(s, x, y)
   end
   if s.shield then -- a shield drone's bubble takes it first
     local stopped = math.min(s.shield, amount)
