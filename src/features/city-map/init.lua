@@ -486,12 +486,19 @@ function CityMap:serverStep(server, dt)
   Fires.step(self.map, server, dt, self.fireCheck)
 end
 
---- Is (x, y) somewhere nobody can get to: inside something solid, or in
---- one of the map's `offLimits` ({ x, y, w, h }: City 17's track, behind
---- the train)? Pedestrians ask it (`CityMap:outOfReach`) before spawning one.
+--- Is (x, y) somewhere nobody can get to: inside something solid, in the
+--- lava (`map.lows`: Eternal Mood's, which you can walk into but nothing
+--- should turn up in), or in one of the map's `offLimits` ({ x, y, w, h }:
+--- City 17's track, behind the train)? Pedestrians ask it
+--- (`CityMap:outOfReach`) before spawning one.
 local function outOfReach(map, x, y)
   if Collision.blocked(map, x, y) then
     return true
+  end
+  for _, o in ipairs(map.lows or {}) do
+    if x >= o.x and x <= o.x + o.w and y >= o.y and y <= o.y + o.h then
+      return true
+    end
   end
   for _, o in ipairs(map.offLimits or {}) do
     if x >= o.x and x < o.x + o.w and y >= o.y and y < o.y + o.h then

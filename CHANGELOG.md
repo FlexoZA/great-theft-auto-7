@@ -14,6 +14,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- Eternal Mood: medkits, drinks, ammo crates and other things that turn up on the map no longer appear in the lava (Heck on Earth, the Foundry and Heck).
+
 ## [0.43.0] - 2026-10-26
 
 A new ability: the jet run, a strafing run over walls with rockets falling on everything under it.
