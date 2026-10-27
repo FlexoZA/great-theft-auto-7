@@ -33,7 +33,8 @@
 -- Messages
 --   server -> all  HYP_STATE <tick> [<id> <code> <x> <y> <facing> <hp> <state> <aim> <link> <shield> <breath>
 --                  <winded>]...
---                  (unreliable, 15 Hz; state 0 calm, 1 after somebody, 2 crawling, 3 in the air, 4 a sentry up;
+--                  (unreliable, 15 Hz; state 0 calm, 1 after somebody, 2 crawling, 3 in the air, 4 a sentry up,
+--                  5 junk carrying scrap to the Knuckle Scrapper;
 --                  aim 1 while it is lining up a shot or winding up: its coils, pods or thrusters glow, its core
 --                  races; link the hauler a drone's beam is on (0 none); shield its bubble's points; breath and
 --                  winded a model with breath's (bosses/stamina.lua's wire: the stalker's), -1 and 0 for the rest)
@@ -69,6 +70,8 @@ local Bad = require("src.features.borderline.bad_brain")
 local Stk = require("src.features.borderline.stk_brain")
 local Wlb = require("src.features.borderline.wlb_brain")
 local WilburLook = require("src.features.borderline.wilbur_look")
+local Knk = require("src.features.borderline.knk_brain")
+local ScrapperLook = require("src.features.borderline.scrapper_look")
 local Domes = require("src.features.borderline.domes")
 local DroneLook = require("src.features.borderline.drone_look")
 local DockLook = require("src.features.borderline.dock_look")
@@ -83,14 +86,17 @@ local Army = {}
 Army.FROM = "hyperbole" -- the name on its rounds
 Army.CALL = 520 -- px; the army this near one that spots somebody comes to look
 Army.drops = { JNK = 1, GUN = 3, RPG = 5, PLZ = 4, JET = 4, EXP = 2, DZR = 6, ARC = 4, FIX = 1, SHD = 1, SEN = 2,
-  BAD = 15, DCK = 10, STK = 6, WLB = 40, CAN = 8 } -- koins each spills
+  BAD = 15, DCK = 10, STK = 6, WLB = 40, KNK = 30, CAN = 8 } -- koins each spills
 Army.pickupChance = { JNK = 0.2, EXP = 0.2, FIX = 0.3, SHD = 0.3, SEN = 0.3 } -- the chance it drops anything at
 -- all (pickups' own odds after); every other model always does
 
 local BRAINS = { JNK = Junk, GUN = Gun, RPG = Rpg, PLZ = Plz, JET = Jet, EXP = Exp, DZR = Dzr, ARC = Arc, FIX = Drone,
-  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, CAN = Can }
+  SHD = Drone, SEN = Sentry, BAD = Bad, DCK = Dock, STK = Stk, WLB = Wlb, KNK = Knk, CAN = Can }
 Army.BRAINS = BRAINS -- (the wiki reads their numbers, wiki.lua)
 local MACHINES = { FIX = true, SHD = true, SEN = true, DCK = true, CAN = true } -- drone_look, dock_look, cannon_look
+-- The bosses that are one of the army, each with a look of its own (its bar
+-- is the boss bar: wilbur.lua, scrapper.lua).
+local BOSS_LOOKS = { WLB = WilburLook, KNK = ScrapperLook }
 
 local SYNC_EVERY = 2
 local SMOOTHING = 14
@@ -255,7 +261,7 @@ local function sync(server)
     parts[#parts + 1] = ("%.2f"):format(s.facing)
     parts[#parts + 1] = ("%.0f"):format(math.max(0, s.hp))
     local up = s.brain == Sentry and s.rise > 0
-    parts[#parts + 1] = s.crawl and 2 or s.flying and 3 or up and 4 or (s.target and 1 or 0)
+    parts[#parts + 1] = s.crawl and 2 or s.flying and 3 or up and 4 or s.feed and 5 or (s.target and 1 or 0)
     local lining = s.target and s.aimFor > 0 and s.aimFor < s.conf.aim
     parts[#parts + 1] = (s.charging or lining) and 1 or 0
     parts[#parts + 1] = s.beaming and s.link or 0
@@ -384,6 +390,15 @@ function Army.serverSpawn(code, x, y, facing)
     return nil
   end
   return sv.roster:add(BRAINS[code], code, x, y, facing)
+end
+
+--- `s` off the level without a fight: no wreck, no koins, no kill (junk
+--- the Knuckle Scrapper pulled into itself: scrapper.lua).
+function Army.serverTake(s)
+  local i = sv and sv.roster:indexOf(s)
+  if i then
+    table.remove(sv.roster.list, i)
+  end
 end
 
 --- How many of `code` are on the level now (the Bunker's rim cannons left).
@@ -539,8 +554,8 @@ end
 
 function Army.drawBelowCars()
   for _, w in ipairs(wrecks) do
-    if w.code == "WLB" then
-      WilburLook.drawWreck(w, clock)
+    if BOSS_LOOKS[w.code] then
+      BOSS_LOOKS[w.code].drawWreck(w, clock)
     elseif w.code == "DCK" then
       DockLook.drawWreck(w.x, w.y, clock)
     elseif w.code == "CAN" then
@@ -590,6 +605,10 @@ local function drawOne(s)
       DroneLook.drawBubble(s.dx, s.dy, Wlb.RADIUS + 12, clock, s.shield / Drone.SHIELD)
     end
     return -- (his bar is the boss bar: wilbur.lua)
+  elseif s.code == "KNK" then
+    ScrapperLook.draw({ dx = s.dx, dy = s.dy, facing = s.facing, stride = s.stride, flash = flash,
+      plates = s.hp / math.max(1, s.max) }, clock)
+    return -- (its bar is the boss bar: scrapper.lua)
   elseif s.code == "DCK" then
     DockLook.draw({ dx = s.dx, dy = s.dy, aim = s.facing, charge = s.charge, flash = flash }, clock)
   elseif s.code == "CAN" then
@@ -668,6 +687,18 @@ function Army.shownWhere(code)
   return list
 end
 
+--- Where every junk hauler carrying scrap to the Knuckle Scrapper is shown
+--- on this screen ({ x, y } each), for the scrap over it (scrapper.lua).
+function Army.shownFeeding()
+  local list = {}
+  for _, s in pairs(shown) do
+    if s.state == 5 then
+      list[#list + 1] = { x = s.dx, y = s.dy }
+    end
+  end
+  return list
+end
+
 --- Their clanking feet, for the footsteps feature.
 function Army.walkers()
   local list = {}
@@ -689,7 +720,7 @@ Army.clientMessages = {
     local seen = {}
     for i = 2, #args - 11, 12 do
       local id, code, x, y = tonumber(args[i]), args[i + 1], tonumber(args[i + 2]), tonumber(args[i + 3])
-      if id and x and y and (Look.KITS[code] or MACHINES[code] or code == "WLB") then
+      if id and x and y and (Look.KITS[code] or MACHINES[code] or BOSS_LOOKS[code]) then
         local s = shown[id]
         local hp = tonumber(args[i + 5]) or 0
         if not s then
@@ -723,7 +754,7 @@ Army.clientMessages = {
     if id then
       shown[id] = nil
     end
-    if x and y and (Look.KITS[args[5] or ""] or MACHINES[args[5] or ""] or args[5] == "WLB") then
+    if x and y and (Look.KITS[args[5] or ""] or MACHINES[args[5] or ""] or BOSS_LOOKS[args[5] or ""]) then
       wrecks[#wrecks + 1] = { x = s and s.dx or x, y = s and s.dy or y, angle = angle, code = args[5] }
       if #wrecks > MAX_WRECKS then
         table.remove(wrecks, 1)

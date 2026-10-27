@@ -7,6 +7,10 @@
 -- were, mill about, and settle there. Hurt by somebody they can't see, they
 -- turn and go that way.
 --
+-- One climbing out of the wreck to feed the Knuckle Scrapper (`feed`, set
+-- by scrapper.lua) does nothing else: it carries its scrap straight to it,
+-- whoever shoots at it, until it is pulled in or the Scrapper is gone.
+--
 -- The body (walking, sight, the trigger, the torso crawl) is chassis.lua's.
 
 local Chassis = require("src.features.borderline.chassis")
@@ -48,6 +52,13 @@ end
 
 function Brain.think(roster, server, s, dt)
   local conf = s.conf
+  if s.feed and s.feed.dead then
+    s.feed = nil
+  end
+  if s.feed then
+    roster:goTo(s, s.feed.x, s.feed.y, conf.speed, dt)
+    return
+  end
   local tx, ty, fresh = roster:track(server, s, conf.fov, dt)
   if fresh then
     s.spotted = true

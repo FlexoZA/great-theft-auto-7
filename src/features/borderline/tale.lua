@@ -26,6 +26,7 @@ local Story = require("src.features.borderline.story")
 local Terminals = require("src.features.terminals")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
+local Scrapper = require("src.features.borderline.scrapper")
 local Screens = require("src.features.borderline.screens")
 local Fabricators = require("src.features.borderline.fabricators")
 local Army = require("src.features.borderline.army")
@@ -240,6 +241,16 @@ function Tale.onLevel(map)
   return onLevel(map)
 end
 
+--- What the objective line should be after for `map`'s boss now, and
+--- where (wilbur.lua's and scrapper.lua's `objective`), or nil.
+function Tale.bossObjective(map)
+  local what, x, y = Wilbur.objective(map)
+  if what then
+    return what, x, y
+  end
+  return Scrapper.objective(map)
+end
+
 function Tale.blurring(map)
   return cl.page ~= nil and onLevel(map)
 end
@@ -255,7 +266,7 @@ function Tale.drawHUD(map, done, x, y)
   local state = { done = done }
   state.waiting, state.nearest = Terminals.nearestWaiting(x, y)
   state.held, state.on = Hold.shown()
-  state.boss, state.bossX, state.bossY = Wilbur.objective(map)
+  state.boss, state.bossX, state.bossY = Tale.bossObjective(map)
   state.screens = Screens.remaining(map)
   for _, sc in ipairs(state.screens) do -- the nearest of them
     if not state.screenNearest or (x and (sc.x - x) ^ 2 + (sc.y - y) ^ 2
@@ -285,6 +296,7 @@ function Tale.drawHUD(map, done, x, y)
     Hold.drawHUD(Story.hold[cl.level].bar)
   end
   Wilbur.drawHUD()
+  Scrapper.drawHUD()
   if cl.say then
     local left = Hud.sayFor(cl.say.text) - cl.say.t
     Hud.drawComms(faces[cl.say.who], cl.say.who, cl.say.text, cl.say.t, math.min(1, left / 0.5))

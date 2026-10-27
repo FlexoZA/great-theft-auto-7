@@ -35,6 +35,7 @@ local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
 local Army = require("src.features.borderline.army")
+local Chassis = require("src.features.borderline.chassis")
 local Brain = require("src.features.borderline.wlb_brain")
 local Look = require("src.features.borderline.wilbur_look")
 
@@ -129,7 +130,7 @@ local function land(server)
   s.hp = Bosses.health(Brain.HEALTH, server)
   s.max = s.hp
   sv.s, sv.phase = s, "up"
-  Brain.slam(server, spec.x, spec.y, Wilbur.DROP_HIT, Wilbur.DROP_DAMAGE * Bosses.power(), Wilbur.DROP_SHOVE)
+  Chassis.slam(server, spec.x, spec.y, Wilbur.DROP_HIT, Wilbur.DROP_DAMAGE * Bosses.power(), Wilbur.DROP_SHOVE)
   server:broadcast(Protocol.encode("WLB_SLAM", fmt(spec.x), fmt(spec.y), Wilbur.DROP_HIT))
 end
 

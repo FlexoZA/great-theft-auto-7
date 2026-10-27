@@ -132,6 +132,16 @@ Scenes.after["cyber-feud-roof"] = function(game, look)
   return true
 end
 
+-- The Frozen Wreck with the Knuckle Scrapper built out of the engine (the launch's --boss).
+Scenes.after["borderline"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Wreck would not skip to the Knuckle Scrapper"
+  end
+  watch(game, look, 8)
+  return true
+end
+
 -- The Bragium Pit with Wilbur down on the pad (the launch's --boss).
 Scenes.after["borderline-pit"] = function(game, look)
   local quest = game.Features.byName.quests.byId["borderline-pit"]

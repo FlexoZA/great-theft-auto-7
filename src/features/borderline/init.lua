@@ -29,7 +29,8 @@
 -- with a hold (Liar's Landing's ferry lift) keeps it shut until players
 -- have stood on the spot long enough for Yappy's hack, waves coming in as
 -- it goes (hold.lua). A level with a boss (the Bragium Pit's Wilbur:
--- wilbur.lua, his brain wlb_brain.lua) keeps it shut until the boss is down.
+-- wilbur.lua, his brain wlb_brain.lua; the Frozen Wreck's Knuckle Scrapper:
+-- scrapper.lua, its brain knk_brain.lua) keeps it shut until the boss is down.
 
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -40,6 +41,7 @@ local Music = require("src.features.borderline.music")
 local Marker = require("src.features.borderline.marker")
 local Hold = require("src.features.borderline.hold")
 local Wilbur = require("src.features.borderline.wilbur")
+local Scrapper = require("src.features.borderline.scrapper")
 local Screens = require("src.features.borderline.screens")
 local Bridges = require("src.features.borderline.bridges")
 local Belts = require("src.features.borderline.belts")
@@ -71,7 +73,7 @@ local function objectives()
     return {}
   end
   local quests = Features.byName.quests
-  local boss, bx, by = Wilbur.objective(map)
+  local boss, bx, by = Tale.bossObjective(map)
   if boss == "fight" then
     return {} -- his bar says where he is
   elseif boss == "card" or (boss == "pad" and #Terminals.waiting() == 0) then -- (the terminals before the pad)
@@ -95,6 +97,7 @@ end
 function Borderline:load()
   Army.load()
   Wilbur.load()
+  Scrapper.load()
   Screens.load()
   Fabricators.load()
 end
@@ -110,6 +113,7 @@ function Borderline:serverQuestStarted(server, quest)
     Terminals.serverOpen(cityMap(), Army.nav(), Army.serverAlarm)
     Hold.serverStart(cityMap())
     Wilbur.serverStart(cityMap())
+    Scrapper.serverStart(cityMap())
     Screens.serverStart(server, cityMap())
     Fabricators.serverStart(server, cityMap())
     Pursuit.serverStart(cityMap())
@@ -124,6 +128,7 @@ function Borderline:serverQuestEnded(server, quest)
     Terminals.serverClose()
     Hold.serverStop()
     Wilbur.serverStop()
+    Scrapper.serverStop()
     Screens.serverStop()
     Fabricators.serverStop()
     Pursuit.serverStop()
@@ -139,6 +144,7 @@ function Borderline:mapChanged(_map, server)
     Army.serverStop(server)
     Hold.serverStop()
     Wilbur.serverStop()
+    Scrapper.serverStop()
     Screens.serverStop()
     Fabricators.serverStop()
     Pursuit.serverStop()
@@ -147,6 +153,7 @@ function Borderline:mapChanged(_map, server)
   Army.clear()
   Hold.clear()
   Wilbur.clear()
+  Scrapper.clear()
   Screens.clear()
   Fabricators.clear()
 end
@@ -154,19 +161,22 @@ end
 function Borderline:serverPlayerJoined(server, player)
   Hold.serverPlayerJoined(server, player)
   Wilbur.serverPlayerJoined(server, player)
+  Scrapper.serverPlayerJoined(server, player)
   Screens.serverPlayerJoined(server, player)
   Fabricators.serverPlayerJoined(server, player)
 end
 
 --- The launch's --boss (src/launch.lua): on the Bragium Pit, straight to
---- the pit's floor with Wilbur coming down.
+--- the pit's floor with Wilbur coming down; on the Frozen Wreck, up by the
+--- engine with the Knuckle Scrapper building itself.
 function Borderline:serverSkipToBoss(server, quest, player)
   if not (level and quest.boss == self.questId) then
     return false
   end
-  return Wilbur.serverSkipTo(server, player, function(what)
+  local function beat(what)
     Tale.serverBeat(server, what)
-  end)
+  end
+  return Wilbur.serverSkipTo(server, player, beat) or Scrapper.serverSkipTo(server, player, beat)
 end
 
 --- A terminal hacked (the terminals feature): the dock it runs shuts down,
@@ -198,6 +208,7 @@ end
 function Borderline:wikiEnemies(add)
   Wiki.wikiEnemies(add)
   Wilbur.wikiEnemies(add)
+  Scrapper.wikiEnemies(add)
   Screens.wikiEnemies(add)
   Fabricators.wikiEnemies(add)
 end
@@ -275,6 +286,9 @@ function Borderline:serverStep(server, dt)
   Wilbur.serverStep(server, dt, function(what)
     Tale.serverBeat(server, what)
   end)
+  Scrapper.serverStep(server, dt, function(what)
+    Tale.serverBeat(server, what)
+  end)
   Pursuit.serverStep(server, dt, function(what)
     Tale.serverBeat(server, what)
   end)
@@ -305,6 +319,7 @@ function Borderline:questStarted(_client, quest)
     Tale.questStarted(quest)
     Hold.clear()
     Wilbur.clear()
+    Scrapper.clear()
   end
 end
 
@@ -313,6 +328,7 @@ function Borderline:questEnded(_client, quest)
     Tale.clear()
     Hold.clear()
     Wilbur.clear()
+    Scrapper.clear()
     Music.stop()
   end
 end
@@ -321,6 +337,7 @@ function Borderline:exitGame()
   Tale.clear()
   Hold.clear()
   Wilbur.clear()
+  Scrapper.clear()
   Screens.clear()
   Fabricators.clear()
   Army.clear()
@@ -341,6 +358,7 @@ function Borderline:update(dt, client)
   Marker.update(dt)
   Hold.update(dt)
   Wilbur.update(dt)
+  Scrapper.update(dt)
   Screens.update(dt)
   Fabricators.update(dt)
 end
@@ -376,6 +394,7 @@ function Borderline:drawBelowCars()
   if Tale.onLevel(map) then
     Hold.drawBelowCars(map)
     Wilbur.drawBelowCars()
+    Scrapper.drawBelowCars()
   end
   Army.drawBelowCars()
 end
@@ -387,6 +406,7 @@ function Borderline:drawAboveCars()
     Works.drawAboveCars(map)
   end
   Wilbur.drawAboveCars()
+  Scrapper.drawAboveCars()
   Screens.drawAboveCars(map)
   Fabricators.drawAboveCars(map)
   Marker.draw(objectives())
@@ -453,7 +473,7 @@ function Borderline:footstepWalkers()
 end
 
 Borderline.clientMessages = {}
-for _, part in ipairs({ Army, Tale, Hold, Wilbur, Screens, Fabricators }) do
+for _, part in ipairs({ Army, Tale, Hold, Wilbur, Scrapper, Screens, Fabricators }) do
   for kind, handler in pairs(part.clientMessages) do
     Borderline.clientMessages[kind] = handler
   end

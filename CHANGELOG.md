@@ -156,6 +156,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- The Frozen Wreck has its boss, the Knuckle Scrapper: hack the yard's three terminals and it builds itself out of
+  the wrecked engine in front of the tunnel. It swings its bogie fists at you up close and lobs lumps of itself onto
+  red rings further off, and junk bots climb out of the wreck carrying it scrap: every one that reaches it heals it,
+  so shoot them first. The tunnel opens when it falls apart.
 - A new gun, the plasma rifle, won from Wilbur in the Bragium Pit (one each), then sold in the shop for 180
   Fcks: an assault rifle firing small balls of plasma at the AK's nine a second, 16 damage a round and 45 to a
   magazine. Plasma melts armor, so what they wear stops half as much.

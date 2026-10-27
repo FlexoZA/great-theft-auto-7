@@ -133,7 +133,10 @@
 --   map.hold              { x, y, w, h, time, waves } a spot held while Yappy hacks it, the way on shut till
 --                         then (Liar's Landing's ferry lift; borderline/hold.lua says the rest)
 --   map.boss              { kind, x, y, wake } the level's boss: where it comes, and the box { x0, y0, x1,
---                         y1 } whoever walks into first brings it (the Pit's Wilbur: borderline/wilbur.lua)
+--                         y1 } whoever walks into first brings it (the Pit's Wilbur: borderline/wilbur.lua);
+--                         or { kind = "scrapper", x, y, fromX, fromY, after, unlocks, climb } the Wreck's
+--                         Knuckle Scrapper, woken by lock `after`, opening lock `unlocks`, fed from `climb`
+--                         (borderline/scrapper.lua)
 --   map.cutsRoad          [row] = { c0, c1 } the road's tiles across each row (Thousand Papercuts),
 --                         so the render knows which side of it is the drop
 --   map.pursuit           { tile, y0, bottom, stop, rows = { [r] = { x, half } } } what comes up the road
@@ -382,10 +385,10 @@ end
 --- A lock (the terminals feature): `label` on the HUD, holding the level's
 --- way on when `exit`, its terminals only workable once lock `after` (if
 --- given) is open; its terminals and walls follow.
-function Blockout:lock(name, label, exit, after)
+function Blockout:lock(name, label, exit, after, news)
   local map = self.map
   map.locks, map.terminals = map.locks or {}, map.terminals or {}
-  local l = { name = name, label = label, exit = exit, after = after, walls = {} }
+  local l = { name = name, label = label, exit = exit, after = after, news = news, walls = {} }
   map.locks[#map.locks + 1] = l
   return l
 end
@@ -455,7 +458,11 @@ Borderline.WRECK_SHEDS = {
   { 2, 30, 6, 8 }, { 2, 58, 5, 7 }, { 40, 8, 6, 8 }, { 41, 47, 5, 9 }, { 2, 3, 9, 6 }, { 36, 3, 10, 4 },
 }
 
--- The terminals that open the tunnel, one in each part of the yard, each
+-- Where junk haulers climb out of the wreck to feed the Knuckle Scrapper
+-- (by their carriage's place in TRAIN): the three nearest the engine.
+Borderline.WRECK_CLIMB = { 5, 6, 7 }
+
+-- The terminals that wake the Knuckle Scrapper, one in each part of the yard, each
 -- guarded by the hauler dock it runs and a few robots (tiles): `terminal`
 -- and `dock` where they stand, `guns` gun haulers posted by it, `junk` a
 -- pack of junk haulers about it ({ c, r, count }).
@@ -584,13 +591,16 @@ local function buildWreck(map, rng, T)
   for _, at in ipairs({ { 20.5, 2.6 }, { 27.5, 2.6 }, { 19.5, map.rows - 2.6 }, { 28.5, map.rows - 2.6 } }) do
     map.beacons[#map.beacons + 1] = { x = b:x(at[1]), y = b:y(at[2]), color = "amber" }
   end
-  -- The tunnel shut behind a blast door until the terminals are hacked.
+  -- The yard's terminals put the power back on (no walls of their own),
+  -- which wakes the Knuckle Scrapper; the tunnel stays shut behind its
+  -- blast door until the Scrapper is down (borderline/scrapper.lua opens it).
+  local power = b:lock("power", "THE TUNNEL'S POWER", false, nil, "POWER'S ON")
   local tunnel = b:lock("tunnel", "THE TUNNEL", true)
   b:lockWall(tunnel, b:x(21), b:y(2) + 10, 6 * T, 36)
   local keep = { { 18, 61, 29, 69 }, { 20, 0, 27, 5 } }
   for _, post in ipairs(Borderline.WRECK_POSTS) do
     local t, d = post.terminal, post.dock
-    b:dockPost(tunnel, post.key, t[1], t[2], d[1], d[2])
+    b:dockPost(power, post.key, t[1], t[2], d[1], d[2])
     keep[#keep + 1] = { math.floor(t[1]) - 1, math.floor(t[2]) - 1, math.floor(t[1]) + 1, math.floor(t[2]) + 1 }
     keep[#keep + 1] = { math.floor(d[1]) - 1, math.floor(d[2]) - 1, math.floor(d[1]) + 1, math.floor(d[2]) + 1 }
   end
@@ -610,6 +620,15 @@ local function buildWreck(map, rng, T)
     end
     b:pack("JNK", post.junk[1], post.junk[2], post.junk[3])
   end
+  -- The Knuckle Scrapper builds itself out of the engine onto the rails in
+  -- front of the tunnel; junk climbs out of the carriages nearest it.
+  local climb = {}
+  for _, i in ipairs(Borderline.WRECK_CLIMB) do
+    local t = Borderline.TRAIN[i]
+    climb[#climb + 1] = { x = b:x(t[1] + t[3] + 0.8), y = b:y(t[2] + t[4] / 2) }
+  end
+  map.boss = { kind = "scrapper", x = b:x(24), y = b:y(6.5), fromX = b:x(L[1] + L[3] / 2),
+    fromY = b:y(L[2] + L[4] / 2), after = "power", unlocks = "tunnel", climb = climb }
   b:zone("The Freight Yard", 40, map.rows - 1)
   b:zone("The Wreck", 16, 39)
   b:zone("The Engine", 0, 15)

@@ -30,8 +30,9 @@
 --
 -- The map's side (city-map/eternal_mood.lua, city-map/borderline.lua):
 --   map.terminals  { x, y, look = "terminal" | "seal" | "hyperbole", lock = name, warn = text | nil, dock = key | nil }
---   map.locks      { name, label, exit = true | nil, after = name | nil,
+--   map.locks      { name, label, exit = true | nil, after = name | nil, news = text | nil,
 --                    walls = { solid, look = "blast" | "roadgate" | "bone" | "drawbridge" } }
+-- `news` is what the HUD says as it opens ("<label> OPEN" when not given).
 -- `warn` is who hears the alarm, on the HUD ("the horde" when not given).
 -- A wall's solid may be `water` (it stops walking, not rounds or sight: a
 -- raised bridge's gap over the Refinery's river); a "drawbridge" is drawn
@@ -750,7 +751,7 @@ Terminals.clientMessages = {
       if s then
         play("open", s.x + s.w / 2, s.y + s.h / 2)
       end
-      news = { text = l.label .. " OPEN", t = 0 }
+      news = { text = l.news or (l.label .. " OPEN"), t = 0 }
     end
   end,
 }

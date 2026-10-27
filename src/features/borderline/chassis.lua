@@ -177,6 +177,34 @@ function Chassis:goTo(s, x, y, speed, dt, look)
   return math.sqrt(Chassis.dist2(s.x, s.y, x, y))
 end
 
+-- Hitting -----------------------------------------------------------------------
+
+--- A boss's slam (Wilbur's landing, the Knuckle Scrapper's swing and its
+--- scrap): everyone within `radius` of (x, y) takes `damage` (`impact`) and is
+--- thrown `shove` px out from it. With `facing` and `half`, only those
+--- within `half` radians of `facing` (a swing's arc). Returns how many it caught.
+function Chassis.slam(server, x, y, radius, damage, shove, facing, half)
+  local weapons, onFoot = Features.byName.weapons, Features.byName["on-foot"]
+  local caught = 0
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      local a = math.atan2(py - y, px - x)
+      if Chassis.dist2(px, py, x, y) <= radius * radius
+        and not (facing and math.abs(Chassis.turnBetween(facing, a)) > half) then
+        caught = caught + 1
+        if weapons and weapons.serverDamage then
+          weapons:serverDamage(server, p, nil, math.floor(damage + 0.5), a, "impact")
+        end
+        if onFoot and onFoot.serverShove then
+          onFoot:serverShove(server, p, math.cos(a), math.sin(a), shove, 0.35)
+        end
+      end
+    end
+  end
+  return caught
+end
+
 -- Seeing ------------------------------------------------------------------------
 
 --- Is player `p` in the game and seen (not hidden, not dead)?

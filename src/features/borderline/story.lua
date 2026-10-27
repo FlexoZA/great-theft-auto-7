@@ -55,6 +55,17 @@ Story.beats = {
   ["wreck.The Wreck"] = { { "max", "Twelve carriages, one fireball. When I crash, I crash to the max." } },
   ["wreck.The Engine"] = { { "yappy", "The tunnel's past the engine."
     .. " I can see it from here. Well. I can imagine it." } },
+  ["wreck.scrapper"] = {
+    { "yappy", "Power's on! Wait. Why is the engine moving? Minion, the train is getting UP. It's building "
+      .. "itself out of the wreck!" },
+    { "max", "Oh, that's the Knuckle Scrapper! A junk hauler that wanted to be bigger. I respect that. "
+      .. "TO THE MAX!" },
+    { "yappy", "The little junk bots are carrying it scrap! Shoot them before they get there, or it heals!" },
+  },
+  ["wreck.scrapper-down"] = {
+    { "yappy", "It fell apart! The blast door's opening. I'd like to say I helped. I'm going to say it anyway." },
+    { "max", "My train! Twice in one day! Fine. The next thing I build out of it will be bigger." },
+  },
   ["wreck.end"] = { { "yappy", "Into the tunnel, minion. The harbour's on the other side. Mind the bats. "
     .. "There are no bats." } },
 
@@ -269,7 +280,7 @@ Story.chatter = {
 -- The objective line while the way on is shut behind terminals (the
 -- terminals feature), by map: `%d` how many are left.
 Story.hack = {
-  wreck = "Objective: hack Hyperbole's terminals to open the tunnel (%d left)",
+  wreck = "Objective: hack Hyperbole's terminals to get the tunnel's power back on (%d left)",
   landing = "Objective: hack the ferry's control terminals round the yard (%d left)",
   pit = "Objective: hack the power terminals round the terraces to open the pit's floor (%d left)",
   refinery = "Objective: hack the bridge control on this bank to lower the next bridge",
@@ -306,6 +317,9 @@ Story.fabricators = "Objective: shoot down the Fabricators to open the stairs (%
 -- before it comes (pointing where it will), while it is up, and while
 -- what it dropped waits to be picked up (`card`).
 Story.boss = {
+  wreck = {
+    during = "Objective: take the Knuckle Scrapper down (shoot the junk carrying it scrap)",
+  },
   pit = {
     before = "Objective: get down to the pad on the pit's floor",
     during = "Objective: take Wilbur down (shoot his drones first)",

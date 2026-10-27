@@ -14,6 +14,7 @@
 --   Look.upgraded               set by wilbur.lua once Max's upgrade is in
 
 local Hauler = require("src.features.borderline.hauler_look")
+local Paint = require("src.features.borderline.boss_paint")
 
 local Look = {}
 
@@ -25,31 +26,7 @@ local SKIN_DARK = { 0.62, 0.44, 0.36 }
 local HAIR = { 0.28, 0.24, 0.22 }
 local GLOW = { 1.00, 0.55, 0.15 }
 
-local function color(c, a)
-  love.graphics.setColor(c[1], c[2], c[3], a or c[4] or 1)
-end
-
---- A filled rounded box with the black outline round it.
-local function plate(x, y, w, h, fill, r)
-  color(C.ink)
-  love.graphics.rectangle("fill", x - 1.5, y - 1.5, w + 3, h + 3, (r or 2) + 1.5)
-  color(fill)
-  love.graphics.rectangle("fill", x, y, w, h, r or 2)
-end
-
-local function disc(x, y, r, fill)
-  color(C.ink)
-  love.graphics.circle("fill", x, y, r + 1.5, 20)
-  color(fill)
-  love.graphics.circle("fill", x, y, r, 20)
-end
-
-local function glow(c, a, x, y, r)
-  love.graphics.setBlendMode("add")
-  love.graphics.setColor(c[1], c[2], c[3], a)
-  love.graphics.circle("fill", x, y, r, 18)
-  love.graphics.setBlendMode("alpha")
-end
+local color, plate, disc, glow = Paint.color, Paint.plate, Paint.disc, Paint.glow
 
 --- His feet, stepping by `stride`: one ahead as the other goes back.
 local function feet(stride)
