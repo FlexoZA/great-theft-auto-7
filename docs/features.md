@@ -764,6 +764,12 @@ couple of small conventions rather than requiring each other:
   `serverStat` / `stat` for "speed", which on-foot asks.
   City 17's soldiers never carry it (`Level.loadout` weight 0); the
   Suppressors do.
+  A gun with a `ball` (the plasma rifle: 16 plasma a round, the AK's nine a
+  second, 45 a magazine, 180 Fcks at the shop) fires balls of plasma that
+  size in px, drawn as the plasma haulers' bolts are (`weapons/plasma.lua`:
+  a glow, a fading trail, a splash ring where each one ends) instead of
+  streaks. `damageType = "plasma"` melts armor (the damage feature). City
+  17's soldiers never carry it either.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when

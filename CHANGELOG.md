@@ -156,6 +156,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- A new gun in the shop, the plasma rifle (180 Fcks): an assault rifle firing small balls of plasma at the AK's
+  nine a second, 16 damage a round and 45 to a magazine. Plasma melts armor, so what they wear stops half as much.
 
 ### Changed
 - Gun haulers warn before a grenade: a red ring shows where it will land, and the hauler stands still for 0.6 s

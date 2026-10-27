@@ -31,6 +31,9 @@
 -- takes one fuel can and fills it whole. A gun's rounds can zap whoever
 -- they catch on foot (`electrify` = { seconds, dps }: shock that runs on
 -- through them) or stun them outright (`stun`, seconds): the Hunters'.
+-- A gun's rounds can be balls of plasma (`ball`, px: the plasma rifle),
+-- drawn as the plasma haulers' bolts are, small, splashing where they end
+-- (plasma.lua).
 -- Every hit has a damage type (src/features/damage, docs/damage-types.md):
 -- a gun's `damageType` or its blast's `type`, the last argument of
 -- serverDamage and damageCar, passed on to every damage hook and carried
@@ -183,6 +186,7 @@ local Sounds = require("src.features.weapons.sounds")
 local Reloads = require("src.features.weapons.reloads")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
+local Plasma = require("src.features.weapons.plasma")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
@@ -419,6 +423,7 @@ function Weapons:enterGame()
   self.spin, self.spinIdle = 0, 0
   Explosions.clear()
   Rockets.clear()
+  Plasma.clear()
   Sounds.stopAll()
   Reloads.clear()
 end
@@ -866,7 +871,10 @@ function Weapons:update(dt, client, camera)
       end
       -- And kicks up sparks and dust at its face, on every screen: each
       -- one flies every round itself, so no word from the host is needed.
-      if wall and not gun.flame and p.age <= ttl then
+      -- A ball of plasma splashes instead, wall or not.
+      if gun.ball then
+        Plasma.splash(p.x, p.y, gun.ball)
+      elseif wall and not gun.flame and p.age <= ttl then
         local x, y = wallFace(p.x - p.vx * dt, p.y - p.vy * dt, p.x, p.y)
         Explosions.impact(x, y, p.vx, p.vy)
       end
@@ -874,6 +882,7 @@ function Weapons:update(dt, client, camera)
     end
   end
   Rockets.update(dt)
+  Plasma.update(dt)
   for _, flashes in ipairs({ self.hitFlash, self.carFlash }) do
     for id, t in pairs(flashes) do
       if t - dt <= 0 then
@@ -998,6 +1007,8 @@ function Weapons:drawAboveCars(client)
       Rockets.drawMissile(p, now)
     elseif gun.flame then
       drawFlame(p, gun)
+    elseif gun.ball then
+      Plasma.drawBall(p, gun.ball, now)
     else
       local len = math.sqrt(p.vx * p.vx + p.vy * p.vy)
       local nx, ny = p.vx / len * gun.streak, p.vy / len * gun.streak
@@ -1015,6 +1026,7 @@ function Weapons:drawAboveCars(client)
     end
   end
   love.graphics.setLineWidth(1)
+  Plasma.drawSplashes()
 
   local function bar(px, py, hp, max, bw, dy)
     local bh = 4
@@ -1520,7 +1532,10 @@ Weapons.clientMessages = {
     if p then
       Weapons.projectiles[pid] = nil
       -- Where the host says it struck: mine has flown on a little by now.
-      if x and y and not Guns.at(p.gun).flame then
+      local gun = Guns.at(p.gun)
+      if x and y and gun.ball then
+        Plasma.splash(x, y, gun.ball)
+      elseif x and y and not gun.flame then
         Explosions.hit(x, y, p.vx, p.vy, args[4])
       end
     end
@@ -1583,8 +1598,11 @@ Weapons.clientMessages = {
       Weapons.projectiles[pid] = nil
       -- Blood where it went in: at the edge of their body facing the round.
       local pose = victim and poseOf(client, victim)
-      if pose and not Guns.at(p.gun).flame then
-        local len = math.max(1, math.sqrt(p.vx * p.vx + p.vy * p.vy))
+      local gun = Guns.at(p.gun)
+      local len = math.max(1, math.sqrt(p.vx * p.vx + p.vy * p.vy))
+      if pose and gun.ball then
+        Plasma.splash(pose.x - p.vx / len * FOOT_RADIUS, pose.y - p.vy / len * FOOT_RADIUS, gun.ball)
+      elseif pose and not gun.flame then
         Explosions.hit(pose.x - p.vx / len * FOOT_RADIUS, pose.y - p.vy / len * FOOT_RADIUS, p.vx, p.vy)
       end
     end
@@ -1606,8 +1624,12 @@ Weapons.clientMessages = {
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
       Sounds.play(Sounds.hitName("car", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
-    if pid and pid > 0 then
+    local p = pid and pid > 0 and Weapons.projectiles[pid]
+    if p then
       Weapons.projectiles[pid] = nil
+      if Guns.at(p.gun).ball then
+        Plasma.splash(p.x, p.y, Guns.at(p.gun).ball)
+      end
     end
     if vid and hp then
       Weapons.carHealth[vid] = hp

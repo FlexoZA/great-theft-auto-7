@@ -28,6 +28,9 @@
 --             alight (the damage feature's burning) for `seconds` at `dps`
 --   flame     true: its rounds are drawn as tongues of fire that swell and
 --             darken as they go, not as streaks (the flamethrower)
+--   ball      px: its rounds are drawn as balls of plasma that size, with a
+--             trail, splashing where they end, not as streaks (the plasma
+--             rifle: weapons/plasma.lua)
 --   tank      true: the magazine is a tank, and one ammo item fills it
 --             whole, however much is left in it or however big a tier
 --             makes it (a fuel can). A box, a drop or a stock is counted in
@@ -308,6 +311,29 @@ Guns.list = {
     ammoName = "minigun round",
     stack = 1500, -- ten belts a slot
     tierStats = { "damage", "spinUp", "magazine", "reload" },
+  },
+  {
+    -- The AK's rate of fire, but small balls of the plasma haulers' plasma
+    -- (borderline/bolts.lua) that melt armor, and half again the magazine.
+    key = "plasma-rifle",
+    dropWeight = 0.5, -- rarely
+    blurb = "An assault rifle firing balls of plasma, nine a second, 45 to a magazine. "
+      .. "Plasma melts armor: what they wear stops half as much.",
+    name = "plasma rifle",
+    damageType = "plasma",
+    damage = 16, -- under the AK's 18: the melt makes up for it
+    cooldown = 0.11, -- the AK's nine a second
+    spread = 0.04,
+    speed = 800, -- slower than a bullet, so you see the balls fly
+    streak = 0,
+    ball = 3, -- px; a plasma hauler's bolt is 9
+    sound = "plasma",
+    pitch = 1,
+    magazine = 45,
+    reload = 2.2,
+    reloadSound = "reload-ak47",
+    ammoName = "plasma round",
+    stack = 450, -- ten magazines a slot
   },
 }
 

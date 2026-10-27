@@ -133,6 +133,7 @@ Level.loadout = {
   rocket = { weight = 0.5, burst = 1, pause = 3.0 },
   sniper = { weight = 0.5, burst = 1, pause = 2.5, damage = 60 },
   minigun = { weight = 0, burst = 1, pause = 1 }, -- the Suppressors' (the suppressors feature), not theirs
+  ["plasma-rifle"] = { weight = 0, burst = 4, pause = 1.2 }, -- Hyperbole's plasma (borderline), not theirs
 }
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
 Level.chatEvery = { 12, 26 } -- seconds between a checkpoint's or a squad's idle chatter (min, max)
