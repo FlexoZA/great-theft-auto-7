@@ -57,7 +57,7 @@
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   ammo      the key of another gun whose rounds it fires (the super
 --             shotgun takes the shotgun's shells, the uzi and the SMG the
---             pistol's 9mm, the AR the AK's 7.62):
+--             pistol's 9mm, the AR and the plasma rifle the AK's 7.62):
 --             it has no ammo item of its own. A `bottomless` gun's rounds
 --             are an item all the same once another gun fires them
 --             (`Guns.ammoTypes`): the pistol's 9mm, for the uzi and the SMG
@@ -163,7 +163,7 @@ Guns.list = {
     reload = 2.0,
     reloadSound = "reload-ak47",
     stack = 300, -- ten magazines a slot
-    ammoName = "7.62 round", -- the AR's too ("ammo-ak47")
+    ammoName = "7.62 round", -- the AR's and the plasma rifle's too ("ammo-ak47")
   },
   {
     -- The AK's younger, sharper cousin: lighter rounds, faster and
@@ -318,14 +318,14 @@ Guns.list = {
     tierStats = { "damage", "spinUp", "magazine", "reload" },
   },
   {
-    -- The AK's rate of fire, but small balls of the plasma haulers' plasma
-    -- (borderline/bolts.lua) that melt armor, and half again the magazine.
+    -- The AK's rate of fire and its 7.62, but fired as small balls of the
+    -- plasma haulers' plasma (borderline/bolts.lua) that melt armor, and
+    -- half again the magazine.
     -- Wilbur drops it (borderline/wilbur.lua): won, then on the shelf.
     key = "plasma-rifle",
     unlock = true,
-    dropWeight = 0.5, -- rarely
     blurb = "An assault rifle firing balls of plasma, nine a second, 45 to a magazine. "
-      .. "Plasma melts armor: what they wear stops half as much.",
+      .. "Plasma melts armor: what they wear stops half as much. Fires the AK's 7.62 rounds.",
     name = "plasma rifle",
     damageType = "plasma",
     damage = 16, -- under the AK's 18: the melt makes up for it
@@ -339,8 +339,7 @@ Guns.list = {
     magazine = 45,
     reload = 2.2,
     reloadSound = "reload-ak47",
-    ammoName = "plasma round",
-    stack = 450, -- ten magazines a slot
+    ammo = "ak47", -- 7.62
   },
   {
     -- Hyperbole's own heavy plasma gun: BNK-9 drops it (borderline/bnk9.lua),
