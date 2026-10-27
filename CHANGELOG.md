@@ -187,6 +187,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - A kamikaze hauler blowing up among other robots could crash the game.
 - Show hitboxes (F3) now outlines enemies too, not just cars and players: red, grey while they can't be hurt.
   Only the host sees them.
+- Eternal Mood: medkits, drinks, ammo crates and other things that turn up on the map no longer appear in the lava (Heck on Earth, the Foundry and Heck).
 
 ## [0.43.0] - 2026-10-26
 
