@@ -315,7 +315,9 @@ Guns.list = {
   {
     -- The AK's rate of fire, but small balls of the plasma haulers' plasma
     -- (borderline/bolts.lua) that melt armor, and half again the magazine.
+    -- Wilbur drops it (borderline/wilbur.lua): won, then on the shelf.
     key = "plasma-rifle",
+    unlock = true,
     dropWeight = 0.5, -- rarely
     blurb = "An assault rifle firing balls of plasma, nine a second, 45 to a magazine. "
       .. "Plasma melts armor: what they wear stops half as much.",

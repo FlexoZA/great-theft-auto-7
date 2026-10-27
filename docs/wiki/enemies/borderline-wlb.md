@@ -15,7 +15,7 @@ Maximum Maximilian Max's cyborg enforcer, more machine than man: a rotary gun fo
 | **Health** | 3000 |
 | **Speed** | 95 px/s, 125 upgraded, 45 winded |
 | **Sight** | 900 px |
-| **Drops** | 40 koins and a pickup |
+| **Drops** | 40 koins, a pickup, his keycard, and a plasma rifle for every player (unlocking it) |
 
 ## Weapons
 

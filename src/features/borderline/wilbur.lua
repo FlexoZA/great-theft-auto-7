@@ -10,7 +10,9 @@
 -- health is a boss's (Bosses.health: more humans, more; tougher on a job
 -- done before). He carries the mine lift's code: down, he drops his keycard
 -- where he falls, and the mine lift stays shut (`serverLocked`) until a
--- player walks over it and picks it up.
+-- player walks over it and picks it up. He also leaves a plasma rifle for
+-- every player, off to one side of the card, which unlocks it in the shop
+-- (weapons/guns.lua's `unlock`), its tier rolled by Bosses.dropTier.
 --
 -- Every screen: the drop's ring and him falling into it, the ring where a
 -- leap of his comes down, the shockwave of each slam, his plates glowing
@@ -28,6 +30,7 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Bar = require("src.features.bosses.bar")
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
@@ -44,6 +47,8 @@ Wilbur.DROP_DAMAGE = 30 -- ...takes this (impact)...
 Wilbur.DROP_SHOVE = 240 -- ...and goes flying
 Wilbur.FALL = 520 -- px up he is drawn as he starts to fall
 Wilbur.CARD_REACH = 60 -- px from his keycard that picks it up
+Wilbur.GUN = "gun-plasma-rifle" -- his drop, one for every player (and unlocked)
+Wilbur.GUN_AWAY = 110 -- px from his keycard it lands, so picking one up isn't the other
 
 local RED = { 1, 0.2, 0.12 }
 local TITLE = { 0.95, 0.76, 0.19 }
@@ -66,6 +71,36 @@ end
 
 function Wilbur.serverStop()
   sv = nil
+end
+
+--- Open ground `Wilbur.GUN_AWAY` from (x, y) with nothing solid on the way
+--- (the `blocksPoint` convention): the first of eight directions round it
+--- that is clear, or right beside it if none is.
+local function gunSpot(x, y)
+  local d = Wilbur.GUN_AWAY
+  for dir = 0, 7 do
+    local a = dir * math.pi / 4
+    local clear = true
+    for k = 1, 8 do
+      if Features.any("blocksPoint", x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8) then
+        clear = false
+        break
+      end
+    end
+    if clear then
+      return x + math.cos(a) * d, y + math.sin(a) * d
+    end
+  end
+  return x + 48, y
+end
+
+--- His plasma rifle, a common one or better (Bosses.dropTier), for everyone.
+local function dropGun(server, x, y)
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local gx, gy = gunSpot(x, y)
+    pickups:serverDrop(server, Tiers.join(Wilbur.GUN, Bosses.dropTier()), gx, gy, nil, { perPlayer = true })
+  end
 end
 
 --- Is the way on still shut (he hasn't come, or is still up)?
@@ -137,6 +172,7 @@ function Wilbur.serverStep(server, dt, beat)
     if sv.s.dead then
       sv.phase, sv.card = "card", { x = sv.s.x, y = sv.s.y }
       server:broadcast(Protocol.encode("WLB_CARD", fmt(sv.card.x), fmt(sv.card.y)))
+      dropGun(server, sv.card.x, sv.card.y)
       beat("wilbur-down")
     end
   elseif sv.phase == "card" then
@@ -220,7 +256,7 @@ function Wilbur.wikiEnemies(add)
       "Get out of the red ring when he crouches; he comes up slow from a leap.",
       "Keep him running and he's winded: no leaps, no rockets.",
     },
-    drops = "40 koins and a pickup",
+    drops = "40 koins, a pickup, his keycard, and a plasma rifle for every player (unlocking it)",
   })
 end
 
