@@ -15,7 +15,7 @@ The bunker's flying core and the line's last boss: a slab of armour on four engi
 | **Health** | 6000 |
 | **Speed** | 150 px/s in the air, 215 below half |
 | **Sight** | 1400 px |
-| **Drops** | 80 koins and a pickup |
+| **Drops** | 80 koins, a pickup, and a Bragium Bolter for every player (unlocking it) |
 
 ## Weapons
 

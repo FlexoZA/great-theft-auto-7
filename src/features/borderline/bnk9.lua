@@ -10,8 +10,9 @@
 -- (RISE seconds), its turrets on. It flies over the roof inside `bounds`.
 -- Its health is a boss's (Bosses.health: more humans, more; tougher on a
 -- job done before). Down, it crashes onto the deck, its turrets with it,
--- and opens lock `unlocks` (the way home: a lock of the terminals feature
--- with no terminals or walls, `serverUnlock`).
+-- opens lock `unlocks` (the way home: a lock of the terminals feature with
+-- no terminals or walls, `serverUnlock`) and leaves a Bragium Bolter for
+-- every player (`GUN`), which unlocks it in the shop.
 --
 -- Every screen: the hatch opening and it rising out, its laser's red line
 -- and then the beam, a turret growing back, its crash, the boss bar.
@@ -40,6 +41,8 @@ local Bnk = {}
 Bnk.RISE = 3 -- seconds it takes to rise out of the hatch
 Bnk.CRASH = 1.6 -- seconds its crash takes on screen
 Bnk.HATCH = 120 -- px across the hatch's open shaft
+Bnk.GUN = "gun-bolter" -- its drop, one for every player (and unlocked)
+Bnk.GUN_AWAY = 140 -- px from where it crashed
 
 local TITLE = { 1.00, 0.25, 0.20 }
 local FILL = { 0.85, 0.15, 0.12 }
@@ -124,6 +127,7 @@ function Bnk.serverStep(server, dt, beat)
         Army.serverTake(t) -- down with it
       end
       Entry.open(server, sv)
+      Entry.drop(server, sv.crash.x, sv.crash.y, Bnk.GUN, Bnk.GUN_AWAY)
       server:broadcast(Protocol.encode("BNK_CRASH", fmt(sv.crash.x), fmt(sv.crash.y)))
       beat("bnk-down")
     end
@@ -203,7 +207,7 @@ function Bnk.wikiEnemies(add)
       "Get out of the red line before the beam, and put something solid between you and it.",
       "Shoot its turrets off when it parks, then the eye while they grow back.",
     },
-    drops = ("%g koins and a pickup"):format(Army.drops.BNK),
+    drops = ("%g koins, a pickup, and a Bragium Bolter for every player (unlocking it)"):format(Army.drops.BNK),
   })
 end
 

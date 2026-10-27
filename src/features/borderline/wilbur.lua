@@ -30,9 +30,9 @@
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
-local Tiers = require("src.features.tiers")
 local Bar = require("src.features.bosses.bar")
 local Army = require("src.features.borderline.army")
+local Entry = require("src.features.borderline.boss_entry")
 local Sound = require("src.features.borderline.boss_sound")
 local Chassis = require("src.features.borderline.chassis")
 local Brain = require("src.features.borderline.wlb_brain")
@@ -71,36 +71,6 @@ end
 
 function Wilbur.serverStop()
   sv = nil
-end
-
---- Open ground `Wilbur.GUN_AWAY` from (x, y) with nothing solid on the way
---- (the `blocksPoint` convention): the first of eight directions round it
---- that is clear, or right beside it if none is.
-local function gunSpot(x, y)
-  local d = Wilbur.GUN_AWAY
-  for dir = 0, 7 do
-    local a = dir * math.pi / 4
-    local clear = true
-    for k = 1, 8 do
-      if Features.any("blocksPoint", x + math.cos(a) * d * k / 8, y + math.sin(a) * d * k / 8) then
-        clear = false
-        break
-      end
-    end
-    if clear then
-      return x + math.cos(a) * d, y + math.sin(a) * d
-    end
-  end
-  return x + 48, y
-end
-
---- His plasma rifle, a common one or better (Bosses.dropTier), for everyone.
-local function dropGun(server, x, y)
-  local pickups = Features.byName.pickups
-  if pickups and pickups.serverDrop then
-    local gx, gy = gunSpot(x, y)
-    pickups:serverDrop(server, Tiers.join(Wilbur.GUN, Bosses.dropTier()), gx, gy, nil, { perPlayer = true })
-  end
 end
 
 --- Is the way on still shut (he hasn't come, or is still up)?
@@ -172,7 +142,7 @@ function Wilbur.serverStep(server, dt, beat)
     if sv.s.dead then
       sv.phase, sv.card = "card", { x = sv.s.x, y = sv.s.y }
       server:broadcast(Protocol.encode("WLB_CARD", fmt(sv.card.x), fmt(sv.card.y)))
-      dropGun(server, sv.card.x, sv.card.y)
+      Entry.drop(server, sv.card.x, sv.card.y, Wilbur.GUN, Wilbur.GUN_AWAY)
       beat("wilbur-down")
     end
   elseif sv.phase == "card" then

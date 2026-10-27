@@ -31,6 +31,11 @@
 --   ball      px: its rounds are drawn as balls of plasma that size, with a
 --             trail, splashing where they end, not as streaks (the plasma
 --             rifle: weapons/plasma.lua)
+--   charge    { time, min }: hold fire to charge it and let go to fire
+--             (the Bragium Bolter): one round whose `damage` (and its
+--             blast's damage) is `min` of the whole at a tap, all of it
+--             after `time` seconds of holding. The host times the charge
+--             itself (WPN_CHARGE), never trusting the shooter's word
 --   tank      true: the magazine is a tank, and one ammo item fills it
 --             whole, however much is left in it or however big a tier
 --             makes it (a fuel can). A box, a drop or a stock is counted in
@@ -336,6 +341,34 @@ Guns.list = {
     reloadSound = "reload-ak47",
     ammoName = "plasma round",
     stack = 450, -- ten magazines a slot
+  },
+  {
+    -- Hyperbole's own heavy plasma gun: BNK-9 drops it (borderline/bnk9.lua),
+    -- won, then on the shelf. Not a second plasma rifle: one charged bolt.
+    key = "bolter",
+    unlock = true,
+    dropWeight = 0.3, -- cells rarely
+    blurb = "The Bragium Bolter: hold fire to charge, let go for one big ball of plasma that bursts where it lands "
+      .. "and melts armor. Charged all the way, nothing on foot walks away.",
+    name = "Bragium Bolter",
+    damageType = "plasma",
+    damage = 120, -- the ball itself, at a full charge (a tap: a third)
+    cooldown = 0.6,
+    spread = 0,
+    speed = 520, -- slow, like the haulers' bolts
+    streak = 0,
+    ttl = 1.6, -- about 830 px, then it bursts in mid-air
+    ball = 8,
+    blast = { radius = 90, damage = 70, soft = 4, type = "plasma" },
+    charge = { time = 1.4, min = 0.3 },
+    sound = "bolter",
+    pitch = 1,
+    magazine = 4,
+    reload = 2.8,
+    reloadSound = "reload-rocket",
+    ammoName = "Bragium cell",
+    stack = 40, -- ten loads a slot
+    tierStats = { "damage", "blast.damage", "reload", "magazine" },
   },
 }
 

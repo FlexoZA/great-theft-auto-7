@@ -61,6 +61,25 @@ function Plasma.drawBall(p, radius, clock)
   love.graphics.circle("fill", p.x, p.y, radius * 0.5, 8)
 end
 
+--- A gun charging at (x, y): a ball of plasma swelling there as `k` (0..1)
+--- fills, crackling.
+function Plasma.drawCharge(x, y, k, clock)
+  local C = purple()
+  local r = 3 + 7 * k
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(C[1], C[2], C[3], 0.25 + 0.25 * k)
+  love.graphics.circle("fill", x, y, r * 2.2 + math.sin(clock * 25) * (1 + k), 14)
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(C)
+  love.graphics.circle("fill", x, y, r, 12)
+  love.graphics.setColor(Plasma.HOT)
+  love.graphics.circle("fill", x, y, r * 0.5, 10)
+  if k >= 1 then -- full: a ring pulsing round it
+    love.graphics.setColor(Plasma.HOT[1], Plasma.HOT[2], Plasma.HOT[3], 0.5 + 0.5 * math.sin(clock * 12))
+    love.graphics.circle("line", x, y, r * 2.6, 16)
+  end
+end
+
 --- The splashes, over everyone.
 function Plasma.drawSplashes()
   local C, H = purple(), Plasma.HOT

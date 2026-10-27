@@ -156,6 +156,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
   spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
   floodlights and beacons.
+- A new gun, the Bragium Bolter, won from BNK-9 (one each), then sold in the shop for 380 Fcks: hold fire to charge
+  it, let go for one big ball of plasma that bursts where it lands. 120 damage and a 70 plasma blast at a full
+  charge (1.4 s), 30% of that at a tap; four shots a load.
 - The Bunker has its boss, BNK-9: bring down the last rim cannon and the eye's hatch opens, and the bunker's flying
   core rises out of it. It flies about over the roof, firing mines down round you and charging its eye for a laser
   (get out of the red line), while the turrets on its corners shoot at you; shoot one off and it grows back. Aim

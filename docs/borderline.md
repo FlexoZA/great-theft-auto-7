@@ -869,7 +869,8 @@ eye laser (the eye charges 1 s, a red line that follows you for 0.6 s and
 sets, then a 1.2 s beam, 70 `fire` a second, up to the first thing
 solid). Its corner turrets (`BNT`, `bnt_brain.lua`, army models it
 carries: 300 health, bursts of five) shoot whoever they see; one shot off
-grows back 16 s later. A hit on its eye does double. Below half it flies
+grows back 16 s later. Down, it leaves a Bragium Bolter for every player
+("The reward"). A hit on its eye does double. Below half it flies
 at 215 px/s, parks 4.5 s and grows its turrets back in 10. A machine: no
 breath, no medkits. Down, it crashes onto the deck, its turrets with it,
 and the way home opens ("BNK-9 IS DOWN").
@@ -899,14 +900,20 @@ eleven cannons.
 - **The end:** BNK-9 crashes. Yappy logs in, the army stops, the last
   lines. HOME star on the pad.
 
-## The reward: the Bragium Bolter
+## The reward: the Bragium Bolter (built)
 
-A plasma rifle, Hyperbole's own: fires slow purple bolts that splash and
-melt (`plasma`), with a charged shot (hold to charge, a bigger bolt). A new
-gun in `weapons/guns.lua`. Unlocked per player when BNK-9 falls, the way
-the electric grenade is unlocked (the grenades feature's unlock, the
-rewards feature's screen), saved with them. It is equipment, so it has
-tiers (`tierStats`, read through `Tiers.apply`).
+Hyperbole's own heavy plasma gun (`weapons/guns.lua`'s `bolter`), not a
+second plasma rifle (Wilbur drops that one): hold fire to charge it (a
+ball of plasma swelling at the muzzle, a whine climbing), let go and one
+big slow ball (520 px/s) flies and bursts where it lands, `plasma` all of
+it: 120 to whoever it strikes and a 70 blast 90 px round at a full charge
+(1.4 s), 30% of each at a tap. Four to a cell load. The host times the
+charge itself (the weapons feature's `charge` and WPN_CHARGE). BNK-9 leaves
+one for every player where it crashes; picking it up unlocks it in the
+shop (380 Fcks, 80 a box), as Wilbur's rifle does (`boss_entry.lua`'s
+`drop`). It has tiers. Its puddle (a burst leaving plasma burning) is left
+out: puddles burn players, not the army, so a player's would need its own
+rule.
 
 ## Open questions
 

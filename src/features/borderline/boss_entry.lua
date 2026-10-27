@@ -5,10 +5,14 @@
 -- then spends a few seconds coming in ("coming": building itself,
 -- climbing out, rising), then stands up and fights (its own phases from
 -- there). Down, it opens lock `spec.unlocks`, the level's way on (a lock of
--- the terminals feature with no terminals). `sv` is the boss's own state.
+-- the terminals feature with no terminals), and one that drops a gun
+-- (Wilbur's plasma rifle, BNK-9's Bolter) leaves one for every player
+-- (`drop`). `sv` is the boss's own state.
 
 local Features = require("src.features")
 local Terminals = require("src.features.terminals")
+local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 
 local Entry = {}
 
@@ -49,6 +53,37 @@ function Entry.skip(server, sv)
     if l.name ~= sv.spec.unlocks then
       Terminals.serverUnlock(server, l.name)
     end
+  end
+end
+
+--- Open ground `away` px from (x, y) with nothing solid on the way (the
+--- `blocksPoint` convention): the first of eight directions round it that
+--- is clear, or right beside it if none is.
+local function spot(x, y, away)
+  for dir = 0, 7 do
+    local a = dir * math.pi / 4
+    local clear = true
+    for k = 1, 8 do
+      if Features.any("blocksPoint", x + math.cos(a) * away * k / 8, y + math.sin(a) * away * k / 8) then
+        clear = false
+        break
+      end
+    end
+    if clear then
+      return x + math.cos(a) * away, y + math.sin(a) * away
+    end
+  end
+  return x + 48, y
+end
+
+--- Gun `item` ("gun-<key>") for every player, `away` px from (x, y), in a
+--- tier from Bosses.dropTier (better on a job finished before); picking
+--- it up unlocks it (weapons/guns.lua's `unlock`).
+function Entry.drop(server, x, y, item, away)
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local gx, gy = spot(x, y, away)
+    pickups:serverDrop(server, Tiers.join(item, Bosses.dropTier()), gx, gy, nil, { perPlayer = true })
   end
 end
 

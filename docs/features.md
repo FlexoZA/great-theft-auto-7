@@ -770,6 +770,14 @@ couple of small conventions rather than requiring each other:
   a glow, a fading trail, a splash ring where each one ends) instead of
   streaks. `damageType = "plasma"` melts armor (the damage feature). City
   17's soldiers never carry it either.
+  A gun with a `charge` (the Bragium Bolter: `{ time = 1.4, min = 0.3 }`)
+  charges while fire is held and fires one round when it is let go. The
+  client starts the charge (`Weapons:chargeShot`) and sends `WPN_CHARGE`;
+  the host stamps it, passes it on to everyone (the whine, the glow), and
+  scales the round's `damage` and its `blast.damage` by how long it saw it
+  charge, `min` of them at a tap, all after `time`. A round fired with no
+  charge it saw start is dropped. A `ball` gun with a `blast` bursts in a
+  plasma splash (`WPN_BOOM`), drawn as a ball and not a missile.
 - `Features.byName.weapons:serverFireFrom(server, ownerId, x, y, aim, gun)`: put a
   bullet into the world from something that is not a player behind the wheel.
   `gun` is a table from `src/features/weapons/guns.lua` (the pistol when
