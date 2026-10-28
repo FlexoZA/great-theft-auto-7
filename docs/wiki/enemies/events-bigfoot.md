@@ -15,7 +15,7 @@ The forest's Bigfoot loose in the streets. He goes for the nearest player, or th
 | **Health** | 2500 |
 | **Hits** | 20 a hit, whatever hits him: 125 hits bring him down |
 | **Speed** | 120 px/s chasing, 40 winded |
-| **Drops** | 60 koins, and a legendary bigfoot leap |
+| **Drops** | 60 koins, and a legendary bigfoot leap ([bigfoot leap](../abilities/bigleap.md)) |
 
 ## Weapons
 

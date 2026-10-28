@@ -65,6 +65,7 @@ Shotgun.bulletDamage = 20 -- what a round takes off him when it doesn't say (a p
 local SYNC_EVERY = 2 -- server ticks between SG_BOSS packets
 local SMOOTHING = 10 -- per second, the easing of what is drawn
 local SNAP = 150 -- px; a jump this big is a teleport, not a step
+local CHICKEN = "ability-chicken" -- what he drops when he goes down (abilities/chicken.lua)
 
 local random = love.math.random
 
@@ -223,7 +224,7 @@ function Shotgun:hurt(server, amount, by, angle)
   local pickups = Features.byName.pickups
   if pickups and pickups.serverDrop then
     -- common the first time, a better tier the more often he has been beaten
-    pickups:serverDrop(server, Tiers.join("ability-chicken", Bosses.dropTier()), x + 30, y)
+    pickups:serverDrop(server, Tiers.join(CHICKEN, Bosses.dropTier()), x + 30, y)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   setStage(server, "done")
@@ -306,6 +307,7 @@ function Shotgun:wikiEnemies(add)
       ("After %g rounds he has a %g s reload: that's the time to move."):format(Boss.MAGAZINE, Boss.RELOAD),
       "A freeze holds him still, and a stink sends him running.",
     },
+    dropsItems = { CHICKEN }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins and his chicken ability"):format(Boss.DROPS),
   })
 end

@@ -473,6 +473,7 @@ function Baron.wikiEnemies(add)
       "Run him out of breath: winded, he can't dodge your rounds.",
       "A freeze holds him stiff.",
     },
+    dropsItems = { B.GUN }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, maybe a pickup or two, the key, and a super shotgun for every player"):format(B.DROPS),
   })
 end

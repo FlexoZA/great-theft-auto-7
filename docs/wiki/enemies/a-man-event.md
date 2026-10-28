@@ -14,7 +14,7 @@ A man in a navy suit, joke-shop glasses and a stuck-on moustache. He never hurri
 | **Rank** | Boss |
 | **Health** | 1400 |
 | **Speed** | 55 px/s walking; the rest of the way he blinks |
-| **Drops** | 50 koins, and his teleport in a random tier (legendary 3 times in a hundred) |
+| **Drops** | 50 koins, and his teleport in a random tier (legendary 3 times in a hundred) ([teleport](../abilities/teleport.md)) |
 
 ## Weapons
 

@@ -796,6 +796,7 @@ function AMan.wikiEnemies(add, opens)
       "One round of anything knocks a turret over.",
       "A freeze holds him and his wind-up waits; a stink in his face throws him off his aim.",
     },
+    dropsItems = { A.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and his teleport in a random tier (legendary %g times in a hundred)"):format(A.drops,
       legendary[2]),
   })

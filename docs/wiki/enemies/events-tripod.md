@@ -16,7 +16,7 @@ A war machine on three long legs, taller than the buildings. It strides over the
 | **Armour** | only its head can be hit, 38 px round where it stands; the legs are out of reach |
 | **Speed** | 60 px/s on the streets, 95 striding after you, 35 winded |
 | **Sight** | goes after you from 900 px, turns the heat ray on you from 650 px |
-| **Drops** | 60 koins, and its heat ray in a random tier (legendary 5 times in a hundred) |
+| **Drops** | 60 koins, and its heat ray in a random tier (legendary 5 times in a hundred) ([heat ray](../abilities/heatray.md)) |
 
 ## Weapons
 

@@ -5,19 +5,21 @@ works. Its pages are written by a tool from the game's own code, so the
 numbers on them are the numbers in play, and a balance change shows up in
 the wiki the next time it is written. Nobody edits a page by hand.
 
-So far it covers the enemies: a page per enemy with its portrait, what it
+It covers the enemies (a page per enemy with its portrait, what it
 carries, what it can do and how to beat it, and an index by where you meet
-them (`docs/wiki/enemies/README.md`).
+them: `docs/wiki/enemies/README.md`), the guns (`docs/wiki/weapons`) and
+the abilities (`docs/wiki/abilities`).
 
 ## Commands
 
 - `make wiki` writes the pages (`luajit tools/wiki/run.lua`), headless, in
   a second or two. `luajit tools/wiki/run.lua --check` only says which are
   out of date.
-- `make wiki-portraits` draws the portraits that are missing, then writes
-  the pages. `WIKI_ALL=1` draws them all again; `WIKI_ONLY="city karen"`
-  only plays those (the city, and quest ids). It opens a small LÖVE window
-  for a few minutes.
+- `make wiki-portraits` draws the pictures that are missing (guns,
+  abilities, enemies), then writes the pages. `WIKI_ALL=1` draws them all
+  again; `WIKI_ONLY="icons city karen"` only does those (the guns' and
+  abilities' pictures, the city, and quest ids). It opens a small LÖVE
+  window for a few minutes; `WIKI_ONLY=icons` takes seconds.
 
 The audit (`make audit`, docs/audit.md) flags a page that is out of date
 and an enemy met in play with no page, so run `make wiki` (and
@@ -48,11 +50,24 @@ of the module. The entry is added by the feature that draws the enemy (its
 | `weapons` | `{ name, text }`: each gun or attack, its damage, type, rate and range |
 | `abilities`, `tips` | sentences: what it does, and how to beat it |
 | `drops` | what it leaves |
+| `dropsItems` | the guns and abilities it drops, as items (`{ Karen.uzi }`, "gun-uzi"): their pages say it drops them and link here |
 | `portrait` | false for something the portrait run can't meet (a bot car, the dropship) |
 | `portraitLayers` | "all" when its portrait needs what its feature draws under cars too (the portrait is drawn from `drawAboveCars` alone otherwise, so the level under it stays out) |
 | `drawImmune` | true to draw it although it is always `immune` (VEX's projection) |
 
 Write it the way CHANGELOG.md is written: for players, plain, short.
+
+## Guns and abilities
+
+Their pages need no hook: `tools/wiki/items.lua` reads every gun
+(`weapons/guns.lua`) and every ability (`abilities/kinds.lua`), and their
+numbers are the rows the shop's side panel shows (`shop/details.lua`) in
+each tier, with the shop's prices (`shop/catalog.lua`). A new gun or
+ability gets its page from `make wiki` and its picture, drawn with its
+icon from `weapons/icons.lua` or `abilities/icons.lua`, from
+`make wiki-portraits`. Where one is won comes from the enemy that drops
+it: its `wikiEnemies` entry lists it in `dropsItems`. A gun or ability
+that is only won (`unlock`, `unsold`) and that no entry drops is flagged.
 
 ## Portraits
 

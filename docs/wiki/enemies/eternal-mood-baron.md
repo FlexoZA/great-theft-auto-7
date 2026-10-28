@@ -15,7 +15,7 @@ A big horned brute on goat legs with guns for hands, the key to the Snooze Gate 
 | **Health** | 4200 |
 | **Speed** | 95 px/s, 45 winded |
 | **Sight** | 900 px |
-| **Drops** | 45 koins, maybe a pickup or two, the key, and a super shotgun for every player |
+| **Drops** | 45 koins, maybe a pickup or two, the key, and a super shotgun for every player ([super shotgun](../weapons/super-shotgun.md)) |
 
 ## Weapons
 

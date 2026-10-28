@@ -414,6 +414,7 @@ function Karen:wikiEnemies(add)
       "A freeze roots her to the spot, and a stink sends her running.",
       "Grab the medkits before she does.",
     },
+    dropsItems = { self.uzi }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and an uzi for every player"):format(self.drops),
   })
   add({
