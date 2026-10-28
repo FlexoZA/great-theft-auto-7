@@ -6,12 +6,14 @@
 -- `rollermines` and `hunterBeats`). A-Man himself waits at the top
 -- (finale.lua): the first player onto the top platform brings him, and
 -- beating him finishes the level (quests' `serverComplete`): the EXIT
--- star comes up where he fell.
+-- star comes up where he fell. Its machines tick over and repair drones
+-- fly round them meanwhile (upkeep.lua).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 
 local Features = require("src.features")
 local Finale = require("src.features.a-man.finale")
+local Upkeep = require("src.features.a-man.upkeep")
 
 local Level = {}
 
@@ -44,6 +46,15 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
+function Level.serverEnemies(server, add)
+  Finale.serverEnemies(server, add)
+end
+
+--- The wiki's page on A-Man at the top (tools/wiki, docs/wiki.md).
+function Level.wikiEnemies(add)
+  Finale.wikiEnemies(add)
+end
+
 function Level.serverFreezeArea(x, y, radius, seconds)
   Finale.serverFreezeArea(x, y, radius, seconds)
 end
@@ -52,12 +63,25 @@ function Level.serverPanicArea(x, y, radius)
   Finale.serverPanicArea(x, y, radius)
 end
 
--- Every machine: A-Man, his turrets, his boss bar.
+-- Every machine: A-Man, his turrets, his boss bar; the computers and the drones.
 Level.clientMessages = Finale.clientMessages
 Level.clear = Finale.clear
-Level.update = Finale.update
-Level.drawBelowCars = Finale.drawBelowCars
-Level.drawAboveCars = Finale.drawAboveCars
+
+function Level.update(dt)
+  Finale.update(dt)
+  Upkeep.update(dt)
+end
+
+function Level.drawBelowCars()
+  Upkeep.drawBelowCars()
+  Finale.drawBelowCars()
+end
+
+function Level.drawAboveCars()
+  Finale.drawAboveCars()
+  Upkeep.drawAboveCars()
+end
+
 Level.drawHUD = Finale.drawHUD
 Level.where = Finale.where
 

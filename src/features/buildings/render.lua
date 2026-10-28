@@ -837,6 +837,8 @@ function Render.itemIcon(item, cx, cy)
       cx, cy - 1)
   elseif item == "grenade" then
     Render.grenade(cx, cy + 2, 1)
+  elseif item == "grenade-electric" then
+    Render.grenade(cx, cy + 2, 1, true)
   elseif item == "medkit" then
     love.graphics.setColor(0.95, 0.95, 0.95)
     love.graphics.rectangle("fill", cx - 12, cy - 10, 24, 20, 3)
@@ -849,8 +851,25 @@ end
 --- A hand grenade, about 22 px tall at `scale` 1: an olive body with its
 --- ridges, the lever and the ring on top. The bag, the quick slot, the HUD
 --- and one flying through the air (grenades) all draw it with this.
-function Render.grenade(cx, cy, scale)
+function Render.grenade(cx, cy, scale, electric)
   local s = scale or 1
+  if electric then -- Volt's: a canister of blue steel, a cyan coil round its waist
+    love.graphics.setColor(0.22, 0.27, 0.33)
+    love.graphics.rectangle("fill", cx - 7 * s, cy - 7 * s, 14 * s, 19 * s, 4 * s)
+    love.graphics.setColor(0.18, 0.9, 1)
+    love.graphics.setLineWidth(math.max(1, 1.5 * s))
+    for k = 0, 2 do
+      local y = cy - 2 * s + k * 4 * s
+      love.graphics.line(cx - 7 * s, y, cx + 7 * s, y + 2 * s)
+    end
+    love.graphics.circle("fill", cx, cy + 9 * s, 2 * s, 8)
+    love.graphics.setColor(0.6, 0.6, 0.63)
+    love.graphics.rectangle("fill", cx - 3 * s, cy - 11 * s, 6 * s, 4 * s) -- the fuse
+    love.graphics.setColor(0.18, 0.9, 1)
+    love.graphics.circle("line", cx - 5 * s, cy - 11 * s, 3 * s, 12) -- the pin's ring
+    love.graphics.setLineWidth(1)
+    return
+  end
   love.graphics.setColor(0.33, 0.4, 0.22)
   love.graphics.ellipse("fill", cx, cy + 2 * s, 8 * s, 10 * s)
   love.graphics.setColor(0.24, 0.29, 0.15)

@@ -2,7 +2,9 @@
 --
 -- Grenades are an item ("grenade", five to a stack) carried in a quick slot
 -- of their own beside the medkits and drinks (buildings.usables; drag a
--- stack there on the inventory screen). Their key (G) readies one: the
+-- stack there on the inventory screen). The slot holds one kind at a time,
+-- plain or electric: dragging the other kind onto it swaps them. Its key
+-- (G) readies one of whatever is in it: the
 -- landing spot follows the cursor, kept within `range` of you and short of
 -- the first wall in the way, with the blast's reach drawn round it, and the
 -- fire button throws it there (weapons leaves the gun alone meanwhile: the
@@ -21,11 +23,28 @@
 -- the same arc and blast, owned by nobody (owner 0), so it hurts any player
 -- and credits nobody, and the side that threw it is left alone.
 --
+-- Electric grenades ("grenade-electric", `Grenades.kinds`): General Volt's,
+-- carried in the bag and thrown from the grenade slot (a `variants` of
+-- buildings' grenade usable). The blast is shock (a stun
+-- for a player caught in it) and holds every enemy in it still for `stun`
+-- seconds, and it leaves a field crackling for a few seconds that zaps
+-- whoever stays in it (enemies, and players but the thrower). A player
+-- unlocks them by picking up the stack Volt drops (each player their own:
+-- pickups' `perPlayer`), which shows the reward screen (the rewards
+-- feature); from then on the shop sells them to those who have unlocked
+-- them (its `unlock` entries: `itemUnlocked`, `serverItemUnlocked`) and
+-- enemies now and then drop more while anyone has (`serverAnyUnlocked`).
+-- The unlock is saved with the player (`serverSavePlayer`) and told to their
+-- screen quietly when it comes back (no reward screen twice).
+--
 -- Messages
---   server -> all  GRN_THROW <id> <owner> <ox> <oy> <x> <y> <flight>  (one is in the air from o to (x, y))
+--   server -> all  GRN_THROW  <id> <owner> <ox> <oy> <x> <y> <flight> [<kind>]  (one is in the air from o to (x, y))
+--   server -> all  GRN_FIELD  <x> <y> <radius> <seconds>    an electric grenade's field crackling there
+--   server -> one  GRN_UNLOCK <kind> [quiet]               you've unlocked it: the reward screen (not when quiet)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Controls = require("src.controls")
 local Render = require("src.features.buildings.render")
 local Sounds = require("src.features.grenades.sounds")
@@ -41,28 +60,38 @@ Grenades.speed = 520 -- px/s over the ground in the air
 Grenades.minFlight = 0.3 -- seconds in the air at the least (one dropped at your feet)
 Grenades.blast = { radius = 100, damage = 80, soft = 4, type = "explosive" } -- as a gun's `blast` (guns.lua)
 Grenades.arc = 0.3 -- how high it flies, as a share of the distance (drawn only)
+-- Each kind of grenade, by its item: its blast, and for an electric one how
+-- long it holds enemies still and the field it leaves.
+Grenades.kinds = {
+  grenade = { blast = Grenades.blast, color = { 1, 0.4, 0.2 } },
+  ["grenade-electric"] = {
+    blast = { radius = 110, damage = 30, soft = 2, type = "shock" }, -- 30 shock: a player caught is stunned
+    stun = 1.5, -- seconds every enemy in the blast is held still
+    field = { radius = 110, time = 4, every = 0.5, damage = 8, soft = 3 }, -- zaps, `soft` enemies a zap at most
+    color = { 0.18, 0.9, 1 },
+    reward = 3, -- how many Volt's drop gives each player
+  },
+}
+Grenades.SAVE_VERSION = 1
 
 local STEP = 6 -- px between the wall checks along the throw
 local NOT_IN_CAR = "Get out of the car to throw a grenade."
 
 -- Client state --------------------------------------------------------------
-Grenades.readied = false -- is a grenade in hand, waiting for the fire button?
-Grenades.flying = {} -- id -> { ox, oy, x, y, t, flight }
+Grenades.readied = false -- the item of the grenade in hand ("grenade", "grenade-electric"), or false
+Grenades.flying = {} -- id -> { ox, oy, x, y, t, flight, kind }
+Grenades.fields = {} -- { x, y, r, t, max }: electric fields crackling
+Grenades.unlocked = {} -- item -> true: the kinds I have unlocked (GRN_UNLOCK)
 local fireSpent = false -- the fire button threw one and is still down
 local camera = nil
 local lastGun = nil -- the gun in hand last frame: switching guns puts the grenade away
 
-local sv = nil -- host: { flying = { { id, owner, ox, oy, x, y, t, flight } }, nextId }
+local sv = nil -- host: { flying = { { id, owner, ox, oy, x, y, t, flight, kind } }, nextId, fields, unlocked }
 
 --- Is (x, y) solid for a grenade? The same walls that stop bullets
---- (`blocksPoint`), on the host and on every client.
+--- (`blocksShot`), on the host and on every client.
 local function blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- Where a grenade thrown from (ox, oy) towards (tx, ty) comes down: the
@@ -125,17 +154,23 @@ local function canReady(client)
 end
 
 function Grenades:enterGame()
-  self.readied, self.flying, fireSpent, lastGun = false, {}, false, nil
+  self.readied, self.flying, self.fields, fireSpent, lastGun = false, {}, {}, false, nil
 end
 
+-- (GRN_UNLOCK for a saved player can come before START: only forgotten on the way out.)
 function Grenades:exitGame()
-  self.readied, self.flying, fireSpent = false, {}, false
+  self.readied, self.flying, self.fields, fireSpent, self.unlocked = false, {}, {}, false, {}
+end
+
+--- The shop's question: have I unlocked `item` (its `unlock` entries)?
+function Grenades:itemUnlocked(item)
+  return self.unlocked[item] == true
 end
 
 function Grenades:mapChanged()
-  self.flying = {}
+  self.flying, self.fields = {}, {}
   if sv then
-    sv.flying = {}
+    sv.flying, sv.fields = {}, {}
   end
 end
 
@@ -145,9 +180,10 @@ function Grenades:fireTaken()
   return self.readied or (fireSpent and Controls.isDown("fire"))
 end
 
---- The grenade key readies one (or puts it away); a weapon key puts it away
---- and lets weapons take that gun out.
+--- The grenade key readies one of whatever kind is in the grenade slot (or
+--- puts it away); a weapon key puts it away and lets weapons take that gun out.
 function Grenades:keypressed(key, client)
+  local b = buildings()
   if not Controls.is("grenade", key) then
     if self.readied and not Features.any("menuOpen", client) then
       local weapons = Features.byName.weapons
@@ -159,17 +195,17 @@ function Grenades:keypressed(key, client)
     end
     return
   end
-  local b = buildings()
+  local item = b and b:slotOf(b.usableByItem.grenade)
   if self.readied then
     self.readied = false
   elseif not b or not canReady(client) then
     if b and client:myVehicle() then
       b:notice(NOT_IN_CAR)
     end
-  elseif b:quickCount("grenade") < 1 then
-    b:notice(b:unusable("grenade"))
+  elseif b:quickCount(item) < 1 then
+    b:notice(b:unusable(item))
   else
-    self.readied = true
+    self.readied = item
     local abilities = Features.byName.abilities
     if abilities and abilities.selecting and abilities:selecting() then
       abilities.aiming = nil -- one thing on the fire button at a time
@@ -184,7 +220,8 @@ function Grenades:mousepressed(_x, _y, button, client)
   end
   fireSpent = true
   local b = buildings()
-  local why = b and b:unusable("grenade")
+  local item = self.readied
+  local why = b and b:unusable(item)
   if why then
     b:notice(why)
     return
@@ -193,7 +230,7 @@ function Grenades:mousepressed(_x, _y, button, client)
   end
   local x, y = self:target(client)
   if x then
-    client:send(Protocol.encode("BLD_USE", "grenade", ("%.1f"):format(x), ("%.1f"):format(y)))
+    client:send(Protocol.encode("BLD_USE", item, ("%.1f"):format(x), ("%.1f"):format(y)))
   end
 end
 
@@ -205,12 +242,19 @@ function Grenades:update(dt, client, cam)
       self.flying[id] = nil -- weapons' WPN_BOOM shows the blast
     end
   end
+  for i = #self.fields, 1, -1 do
+    local f = self.fields[i]
+    f.t = f.t + dt
+    if f.t >= f.max then
+      table.remove(self.fields, i)
+    end
+  end
   if fireSpent and not Controls.isDown("fire") then
     fireSpent = false
   end
   local weapons, abilities, b = Features.byName.weapons, Features.byName.abilities, buildings()
   local gun = weapons and weapons.gun
-  if self.readied and (not canReady(client) or not b or b:quickCount("grenade") < 1
+  if self.readied and (not canReady(client) or not b or b:quickCount(self.readied) < 1
       or Controls.isDown("ability-cancel") or gun ~= lastGun
       or (abilities and abilities.selecting and abilities:selecting())) then
     self.readied = false -- in a car, a screen came up, none left, changed their mind or picked something else
@@ -230,7 +274,7 @@ local function drawFlying(g)
   love.graphics.push()
   love.graphics.translate(gx, gy - height)
   love.graphics.rotate(g.t * 14)
-  Render.grenade(0, 0, 0.45 + height / 160)
+  Render.grenade(0, 0, 0.45 + height / 160, g.kind == "grenade-electric")
   love.graphics.pop()
 end
 
@@ -241,7 +285,11 @@ local function drawAim(self, client)
   if not x then
     return
   end
-  local c = buildings().usableByItem.grenade.color
+  local item = self.readied
+  local b = buildings()
+  local _, c = b.look(b.usableByItem[item], item)
+  local kind = Grenades.kinds[item] or Grenades.kinds.grenade
+  local hot = kind.color
   local pulse = 0.5 + 0.5 * math.sin(love.timer.getTime() * 8)
   love.graphics.setLineWidth(1)
   love.graphics.setColor(c[1], c[2], c[3], 0.15)
@@ -256,16 +304,47 @@ local function drawAim(self, client)
     love.graphics.circle("fill", ox + (x - ox) * k, oy + (y - oy) * k - h, 2, 8)
   end
   -- Where it comes down and what goes with it.
-  local R = self.blast.radius
-  love.graphics.setColor(1, 0.35, 0.15, 0.1 + 0.06 * pulse)
+  local R = kind.blast.radius
+  love.graphics.setColor(hot[1], hot[2], hot[3], 0.1 + 0.06 * pulse)
   love.graphics.circle("fill", x, y, R, 48)
   love.graphics.setLineWidth(2)
-  love.graphics.setColor(1, 0.4, 0.2, 0.6 + 0.3 * pulse)
+  love.graphics.setColor(hot[1], hot[2], hot[3], 0.6 + 0.3 * pulse)
   love.graphics.circle("line", x, y, R, 48)
   love.graphics.setColor(1, 0.9, 0.6, 0.9)
   love.graphics.line(x - 8, y, x + 8, y)
   love.graphics.line(x, y - 8, x, y + 8)
   love.graphics.setLineWidth(1)
+end
+
+--- A jagged line from (x0, y0) to (x1, y1), in `n` steps.
+local function jagged(x0, y0, x1, y1, n, spread)
+  local pts = { x0, y0 }
+  for s = 1, n - 1 do
+    local f = s / n
+    pts[#pts + 1] = x0 + (x1 - x0) * f + (love.math.random() - 0.5) * spread
+    pts[#pts + 1] = y0 + (y1 - y0) * f + (love.math.random() - 0.5) * spread
+  end
+  pts[#pts + 1], pts[#pts + 2] = x1, y1
+  return pts
+end
+
+--- Electric fields on the ground: a cyan disc with arcs crackling across it.
+function Grenades:drawBelowCars()
+  for _, f in ipairs(self.fields) do
+    local fade = math.min(1, (f.max - f.t) / 0.4)
+    love.graphics.setColor(0.18, 0.9, 1, 0.16 * fade)
+    love.graphics.circle("fill", f.x, f.y, f.r, 40)
+    love.graphics.setColor(0.18, 0.9, 1, 0.55 * fade)
+    love.graphics.circle("line", f.x, f.y, f.r, 40)
+    love.graphics.setColor(0.8, 0.98, 1, 0.8 * fade)
+    for _ = 1, 4 do
+      local a, d = love.math.random() * 2 * math.pi, love.math.random() * f.r
+      local x, y = f.x + math.cos(a) * d, f.y + math.sin(a) * d
+      local dx, dy = (love.math.random() - 0.5) * 50, (love.math.random() - 0.5) * 50
+      love.graphics.line(jagged(x, y, x + dx, y + dy, 3, 10))
+    end
+  end
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Grenades:drawAboveCars(client)
@@ -288,8 +367,39 @@ Grenades.clientMessages = {
     local ox, oy, x, y = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     local flight = tonumber(args[7])
     if id and ox and oy and x and y and flight then
-      Grenades.flying[id] = { ox = ox, oy = oy, x = x, y = y, t = 0, flight = flight }
+      local kind = Grenades.kinds[args[8] or ""] and args[8] or "grenade"
+      Grenades.flying[id] = { ox = ox, oy = oy, x = x, y = y, t = 0, flight = flight, kind = kind }
       Sounds.play("throw", ox, oy)
+    end
+  end,
+  GRN_FIELD = function(_client, args)
+    local x, y, r, secs = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+    if x and y and r and secs then
+      Grenades.fields[#Grenades.fields + 1] = { x = x, y = y, r = r, t = 0, max = secs }
+    end
+  end,
+  GRN_UNLOCK = function(_client, args)
+    if args[1] ~= "grenade-electric" then
+      return
+    end
+    Grenades.unlocked[args[1]] = true
+    local rewards = Features.byName.rewards
+    if args[2] ~= "quiet" and rewards and rewards.show then
+      local key = Controls.name(Controls.bindings("grenade")[1])
+      rewards:show({
+        kicker = "NEW GRENADE UNLOCKED", title = "ELECTRIC GRENADE", color = Grenades.kinds["grenade-electric"].color,
+        icon = function(cx, cy, scale)
+          Render.grenade(cx, cy, scale, true)
+        end,
+        lines = {
+          "General Volt's own. A shock blast that stuns whoever it catches, then a field that",
+          "crackles for a few seconds, zapping anyone who stays in it.",
+          "",
+          "Drag them onto your grenade slot (" .. key .. ") on the inventory screen: " .. key
+            .. " readies one, a click throws it.",
+          "From now on the shop sells them, and enemies drop them now and then.",
+        },
+      })
     end
   end,
 }
@@ -297,39 +407,41 @@ Grenades.clientMessages = {
 -- Server ------------------------------------------------------------------
 
 function Grenades:serverStart()
-  sv = { flying = {}, nextId = 1 }
+  sv = { flying = {}, nextId = 1, fields = {}, unlocked = {} }
 end
 
 --- `player` throws a grenade at (x, y) (buildings has checked their slot
 --- and will take one out when this answers true). Only on foot, in the
 --- world and not held; the landing spot is worked out here again, never
 --- taken from the client.
-function Grenades:serverThrow(server, player, x, y)
+function Grenades:serverThrow(server, player, x, y, kind)
   if not (sv and x and y and math.abs(x) < 1e7 and math.abs(y) < 1e7) then
     return false -- missing, NaN or silly
   elseif player.vehicle or not Features.present(player) or Features.any("serverHeld", server, player) then
     return false
   end
   local ox, oy = Features.bodyPose(server, player)
-  return self:serverLob(server, ox, oy, x, y, player.id)
+  return self:serverLob(server, ox, oy, x, y, player.id, kind)
 end
 
---- A grenade thrown from (ox, oy) at (x, y) by `owner` (a player id; 0 or
---- nil for an enemy's, which hurts any player and credits nobody), landing
---- short of the first wall in the way. Returns true once it is in the air.
-function Grenades:serverLob(server, ox, oy, x, y, owner)
+--- A grenade (of `kind`, "grenade" when nil) thrown from (ox, oy) at (x,
+--- y) by `owner` (a player id; 0 or nil for an enemy's, which hurts any
+--- player and credits nobody), landing short of the first wall in the way.
+--- Returns true once it is in the air.
+function Grenades:serverLob(server, ox, oy, x, y, owner, kind)
   if not sv then
     return false
   end
+  kind = Grenades.kinds[kind or ""] and kind or "grenade"
   local lx, ly = Grenades.landing(ox, oy, x, y)
   local g = {
     id = sv.nextId, owner = owner or 0, ox = ox, oy = oy, x = lx, y = ly, t = 0,
-    flight = Grenades.flightTime(ox, oy, lx, ly),
+    flight = Grenades.flightTime(ox, oy, lx, ly), kind = kind,
   }
   sv.nextId = sv.nextId + 1
   sv.flying[#sv.flying + 1] = g
   server:broadcast(Protocol.encode("GRN_THROW", g.id, g.owner, ("%.1f"):format(ox), ("%.1f"):format(oy),
-    ("%.1f"):format(lx), ("%.1f"):format(ly), ("%.3f"):format(g.flight)))
+    ("%.1f"):format(lx), ("%.1f"):format(ly), ("%.3f"):format(g.flight), kind))
   return true
 end
 
@@ -338,7 +450,7 @@ end
 function Grenades:serverIncoming()
   local out = {}
   for _, g in ipairs(sv and sv.flying or {}) do
-    out[#out + 1] = { x = g.x, y = g.y, radius = self.blast.radius }
+    out[#out + 1] = { x = g.x, y = g.y, radius = Grenades.kinds[g.kind].blast.radius }
   end
   return out
 end
@@ -354,14 +466,132 @@ function Grenades:serverStep(server, dt)
     g.t = g.t + dt
     if g.t >= g.flight then
       table.remove(sv.flying, i)
+      local kind = Grenades.kinds[g.kind]
       if weapons then
         -- Weapons' blast, as a missile's: the id only tells clients which streak to drop (none).
-        weapons:explode(server, { id = 0, owner = g.owner, blast = self.blast, vx = g.x - g.ox, vy = g.y - g.oy },
-          g.x, g.y)
+        local blast = kind.blast
+        if g.owner == 0 and blast.damage then -- an enemy's: harder on a job finished before
+          blast = setmetatable({ damage = blast.damage * Bosses.enemyPower() }, { __index = blast })
+        end
+        weapons:explode(server, { id = 0, owner = g.owner, blast = blast, vx = g.x - g.ox, vy = g.y - g.oy }, g.x, g.y)
+      end
+      if kind.stun then -- every enemy in it held still a moment
+        Features.call("serverFreezeArea", server, g.x, g.y, kind.blast.radius, kind.stun, g.owner)
+      end
+      local f = kind.field
+      if f then
+        sv.fields[#sv.fields + 1] = { x = g.x, y = g.y, owner = g.owner, kind = kind, left = f.time, zapIn = f.every }
+        server:broadcast(Protocol.encode("GRN_FIELD", ("%.0f"):format(g.x), ("%.0f"):format(g.y), f.radius, f.time))
       end
     else
       i = i + 1
     end
+  end
+  self:serverStepFields(server, dt)
+end
+
+--- The electric fields: every `every` seconds each zaps whoever is in it,
+--- players but the thrower (shock, through weapons) and up to `soft`
+--- enemies of each kind (their `serverShotAt`, as a blast asks them).
+function Grenades:serverStepFields(server, dt)
+  local weapons = Features.byName.weapons
+  for i = #sv.fields, 1, -1 do
+    local fl = sv.fields[i]
+    local f = fl.kind.field
+    fl.left, fl.zapIn = fl.left - dt, fl.zapIn - dt
+    if fl.zapIn <= 0 then
+      fl.zapIn = f.every
+      local by = fl.owner ~= 0 and fl.owner or nil
+      for id, player in pairs(server.players) do
+        if id ~= fl.owner and Features.present(player) and weapons then
+          local px, py = Features.bodyPose(server, player)
+          if (px - fl.x) ^ 2 + (py - fl.y) ^ 2 <= f.radius * f.radius then
+            weapons:damage(server, player, by, f.damage, 0, math.atan2(py - fl.y, px - fl.x), "shock")
+          end
+        end
+      end
+      for _, feature in ipairs(Features.list) do
+        if feature.serverShotAt then
+          for _ = 1, f.soft do
+            if not feature:serverShotAt(server, fl.x, fl.y, f.radius, fl.owner, 0, f.damage, "shock") then
+              break
+            end
+          end
+        end
+      end
+    end
+    if fl.left <= 0 then
+      table.remove(sv.fields, i)
+    end
+  end
+end
+
+-- Unlocks ---------------------------------------------------------------------
+
+--- Has `player` unlocked electric grenades?
+function Grenades:serverUnlocked(player)
+  return sv ~= nil and sv.unlocked[player.id] == true
+end
+
+--- The shop's question on the host: may `player` buy `item`?
+function Grenades:serverItemUnlocked(_server, player, item)
+  return item == "grenade-electric" and self:serverUnlocked(player)
+end
+
+--- Has any human in the world unlocked `kind` (pickups' drops ask before
+--- an enemy drops one: nobody could pick it up otherwise)?
+function Grenades:serverAnyUnlocked(server, kind)
+  if kind ~= "grenade-electric" or not sv then
+    return false
+  end
+  for id, p in pairs(server.players) do
+    if not p.bot and sv.unlocked[id] then
+      return true
+    end
+  end
+  return false
+end
+
+--- `player` walks over a stack of electric grenades (pickups asks; `item`
+--- is the pickup: `amount`, and `unlocks` for Volt's). Only a human; only
+--- one who has unlocked them, or anyone for Volt's, which unlocks them and
+--- shows the reward screen. Into their grenade slot if it is empty or holds
+--- electric ones already, the rest into their bag.
+--- True when they took it.
+function Grenades:serverTakeElectric(server, player, item)
+  local b = buildings()
+  if not sv or player.bot or not b then
+    return false
+  end
+  local fresh = item.unlocks and not sv.unlocked[player.id]
+  if not (sv.unlocked[player.id] or fresh) then
+    return false -- not theirs to use yet
+  end
+  local n = item.amount or 1
+  local given = b:serverQuickGive(server, player, "grenade-electric", n)
+  given = given + b:serverGive(server, player, "grenade-electric", n - given)
+  if fresh then
+    sv.unlocked[player.id] = true
+    server:send(player, Protocol.encode("GRN_UNLOCK", "grenade-electric"))
+    Features.call("serverRewarded", server, player, "Electric grenade")
+  end
+  return given > 0 or fresh
+end
+
+--- A player's part of a saved world: what they have unlocked.
+function Grenades:serverSavePlayer(_server, player)
+  if not (sv and sv.unlocked[player.id]) then
+    return nil
+  end
+  return { version = self.SAVE_VERSION, electric = true }
+end
+
+--- What they had unlocked, back, and told to their screen for the shop
+--- (quietly: the reward was seen).
+function Grenades:serverLoadPlayer(server, player, data)
+  if sv and type(data) == "table" and data.version == self.SAVE_VERSION and data.electric == true then
+    sv.unlocked[player.id] = true
+    server:send(player, Protocol.encode("GRN_UNLOCK", "grenade-electric", "quiet"))
   end
 end
 

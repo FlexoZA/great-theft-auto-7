@@ -288,7 +288,46 @@ local function teleport(c, a)
   love.graphics.setLineWidth(1)
 end
 
+-- A figure behind a curved wall of light, a round stopped on its face.
+local function shieldwall(c, a)
+  color(WHITE, a * 0.85)
+  love.graphics.circle("fill", -6, 7, 3.5, 12) -- the figure, low on the left
+  love.graphics.rectangle("fill", -9, 11, 6, 4, 1)
+  color(c, a * 0.35)
+  love.graphics.setLineWidth(6)
+  love.graphics.arc("line", "open", -6, 7, 14, -math.pi * 0.75, -math.pi * 0.25 + 0.3, 16)
+  color(c, a)
+  love.graphics.setLineWidth(2.6)
+  love.graphics.arc("line", "open", -6, 7, 17, -math.pi * 0.75, -math.pi * 0.25 + 0.3, 16)
+  color(WHITE, a)
+  love.graphics.setLineWidth(1.6)
+  love.graphics.line(15, -13, 8, -6) -- a round coming in, stopped on the wall
+  love.graphics.line(8, -6, 11, -3)
+  love.graphics.line(8, -6, 5, -9)
+  love.graphics.setLineWidth(1)
+end
+
+-- A figure flying right on a flame, two rockets falling on rings behind.
+local function jetrun(c, a)
+  color(WHITE, a * 0.7)
+  for _, x in ipairs({ -12, -2 }) do
+    love.graphics.ellipse("line", x, 12, 5, 2.5, 12) -- the rings
+    love.graphics.line(x, 1, x, 7) -- a rocket coming down
+  end
+  color(c, a)
+  love.graphics.polygon("fill", 2, -8, -12, -11, -12, -5) -- the flame
+  color(WHITE, a)
+  love.graphics.circle("fill", 8, -8, 5, 14) -- the flier
+  love.graphics.rectangle("fill", 2, -10, 6, 4, 1) -- the pack
+  love.graphics.setLineWidth(1.5)
+  love.graphics.line(15, -3, 9, -3) -- speed lines
+  love.graphics.line(16, 1, 11, 1)
+  love.graphics.setLineWidth(1)
+end
+
 local DRAW = {
+  jetrun = jetrun,
+  shieldwall = shieldwall,
   heatray = heatray,
   ["heatray-beam"] = heatrayBeam,
   ["heatray-sweep"] = heatraySweep,

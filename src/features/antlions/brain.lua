@@ -6,7 +6,11 @@
 --   rising   crawling up out of the sand for `RISE` seconds; it can be shot.
 --   run      after the nearest player it can get at, within `CHASE`: at
 --            `RUN` px/s, a little short of a sprint, spreading out round
---            them rather than piling up behind each other. Close enough
+--            them rather than piling up behind each other. Straight at them
+--            when nothing is in the way; round whatever is, by the way
+--            there over the walking grid (d-day/nav.lua): a flow field from
+--            each player hunted, shared by the whole swarm, that every
+--            antlion follows downhill. Close enough
 --            (`REACH`) and ready, it bites; from `LEAP_NEAR`..`LEAP_FAR`
 --            away it now and then leaps the last of the way.
 --   bite     the mandibles open and snap shut: `BITE_HIT` seconds in, if
@@ -22,6 +26,7 @@
 -- No sight cones: they come up already knowing where you are.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 
 local Brain = {}
 Brain.__index = Brain
@@ -29,7 +34,7 @@ Brain.__index = Brain
 -- Tuning --------------------------------------------------------------------
 
 Brain.RADIUS = 11 -- px; its body (render.lua's RADIUS)
-Brain.HEALTH = 36 -- two pistol or AK rounds, three of the uzi's, four shotgun pellets
+Brain.HEALTH = 36 -- two pistol or AK rounds, three of the uzi's, four shotgun pellets (more per clear: Bosses)
 Brain.WAKE = 320 -- px from a buried one that brings its swarm up
 Brain.WAKE_SPREAD = 1.1 -- seconds over which a swarm's antlions come up
 Brain.RISE = 0.9 -- seconds crawling up out of the sand
@@ -38,7 +43,7 @@ Brain.CHASE = 1400 -- px it will go after somebody from
 Brain.GIVE_UP = 6 -- seconds with nobody to go after before it goes back under
 Brain.RUN = 150 -- px/s; a sprint (170) gets away, slowly
 Brain.REACH = 26 -- px between their middles that a bite reaches
-Brain.BITE = 5 -- what a bite takes off
+Brain.BITE = 5 -- what a bite takes off (more per clear: Bosses.enemyPower)
 Brain.BITE_HIT = 0.22 -- seconds into a bite that the mandibles close
 Brain.BITE_TIME = 0.38 -- seconds a bite takes
 Brain.BITE_EVERY = 0.75 -- seconds after one bite before the next can start
@@ -50,6 +55,9 @@ Brain.LEAP_CHANCE = 0.6 -- per second, the chance it leaps while it may
 Brain.SPACE = 30 -- px it keeps from the others of its kind
 Brain.FLANK = 0.6 -- radians it curves round to its own side of whoever it is after, close in
 Brain.PANIC = 1.2 -- seconds a stink sends it off for
+Brain.FLOW_EVERY = 0.4 -- seconds between working out the way to a player again (if they moved)
+Brain.FLOW_MOVED = 24 -- px a player must have moved for that
+Brain.FLOW_AHEAD = 4 -- cells down the flow it looks for the furthest one in plain sight
 
 local random = love.math.random
 
@@ -70,14 +78,16 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
-function Brain.new()
-  return setmetatable({ list = {}, swarms = {}, nextId = 1, time = 0, bites = {} }, Brain)
+--- `nav`: a walking grid over the map (d-day/nav.lua), or nil to run straight at them.
+function Brain.new(nav)
+  return setmetatable({ list = {}, swarms = {}, nextId = 1, time = 0, bites = {}, nav = nav, flows = {} }, Brain)
 end
 
 --- A swarm of `count` buried within `r` of (x, y), on open ground.
 function Brain:bury(x, y, r, count)
   local swarm = { members = {} }
   self.swarms[#self.swarms + 1] = swarm
+  local hp = Bosses.enemyHealth(Brain.HEALTH)
   for _ = 1, count do
     local ax, ay = x, y
     for _ = 1, 20 do
@@ -89,7 +99,7 @@ function Brain:bury(x, y, r, count)
       end
     end
     local a = {
-      id = self.nextId, x = ax, y = ay, facing = random() * 2 * math.pi, hp = Brain.HEALTH,
+      id = self.nextId, x = ax, y = ay, facing = random() * 2 * math.pi, hp = hp,
       mode = "under", t = 0, swarm = swarm, biteIn = 0, leapIn = random() * Brain.LEAP_EVERY, lost = 0,
       frozen = 0, side = random() < 0.5 and -1 or 1,
     }
@@ -164,11 +174,12 @@ local function wake(a)
 end
 
 --- Which way to go for (tx, ty): straight at it from afar, curving round to
---- its own side close in, and away from the others near it.
-function Brain:steer(a, tx, ty)
+--- its own side close in (not for a point on the way: `onTheWay`), and away
+--- from the others near it.
+function Brain:steer(a, tx, ty, onTheWay)
   local d = math.sqrt(dist2(a.x, a.y, tx, ty))
   local angle = math.atan2(ty - a.y, tx - a.x)
-  if d < 160 then
+  if d < 160 and not onTheWay then
     angle = angle + a.side * Brain.FLANK * (1 - d / 160)
   end
   local sx, sy = math.cos(angle), math.sin(angle)
@@ -184,10 +195,146 @@ function Brain:steer(a, tx, ty)
   return math.atan2(sy, sx)
 end
 
+-- The way to a player ----------------------------------------------------------
+
+-- A binary heap of { cost, key } for the flow's open set.
+local function push(heap, f, key)
+  local i = #heap + 1
+  heap[i] = { f, key }
+  while i > 1 do
+    local p = math.floor(i / 2)
+    if heap[p][1] <= heap[i][1] then
+      break
+    end
+    heap[p], heap[i] = heap[i], heap[p]
+    i = p
+  end
+end
+
+local function pop(heap)
+  local top = heap[1]
+  local last = table.remove(heap)
+  if #heap > 0 then
+    heap[1] = last
+    local i = 1
+    while true do
+      local l, r, m = i * 2, i * 2 + 1, i
+      if heap[l] and heap[l][1] < heap[m][1] then
+        m = l
+      end
+      if heap[r] and heap[r][1] < heap[m][1] then
+        m = r
+      end
+      if m == i then
+        break
+      end
+      heap[m], heap[i] = heap[i], heap[m]
+      i = m
+    end
+  end
+  return top
+end
+
+local SQRT2 = math.sqrt(2)
+local STEPS = { { 1, 0, 1 }, { -1, 0, 1 }, { 0, 1, 1 }, { 0, -1, 1 },
+  { 1, 1, SQRT2 }, { 1, -1, SQRT2 }, { -1, 1, SQRT2 }, { -1, -1, SQRT2 } }
+
+--- From cell (c, r), the way on that `nav` lets it take: no cutting the
+--- corner of something solid.
+local function canStep(nav, c, r, st)
+  local nc, nr = c + st[1], r + st[2]
+  return nav:isOpen(nc, nr) and (st[3] == 1 or (nav:isOpen(nc, r) and nav:isOpen(c, nr)))
+end
+
+--- How far every cell within `CHASE` of player `id` (at q) is from them on
+--- foot, worked out again when they have moved and it has gone stale.
+--- `cost[key]` in cells; nil where they can't be got at from.
+function Brain:flow(id, q)
+  local f = self.flows[id]
+  local stale = not f or self.time - f.t >= Brain.FLOW_EVERY and dist2(f.x, f.y, q.x, q.y) > Brain.FLOW_MOVED ^ 2
+  if f and not stale then
+    return f
+  end
+  local nav = self.nav
+  local gc, gr = nav:nearestOpen(q.x, q.y)
+  f = { t = self.time, x = q.x, y = q.y, cost = {} }
+  self.flows[id] = f
+  if not gc then
+    return f
+  end
+  local cols, cost = nav.cols, f.cost
+  local limit = Brain.CHASE / nav.CELL * 1.4 -- round about, the long way to one within reach
+  local start = gr * cols + gc
+  cost[start] = 0
+  local heap = { { 0, start } }
+  while #heap > 0 do
+    local top = pop(heap)
+    local g, key = top[1], top[2]
+    if g <= cost[key] and g < limit then
+      local c, r = key % cols, math.floor(key / cols)
+      for _, st in ipairs(STEPS) do
+        if canStep(nav, c, r, st) then
+          local nk = (r + st[2]) * cols + c + st[1]
+          local ng = g + st[3]
+          if not cost[nk] or ng < cost[nk] then
+            cost[nk] = ng
+            push(heap, ng, nk)
+          end
+        end
+      end
+    end
+  end
+  return f
+end
+
+--- Where `a` should run for to get to player `id` (at q) round whatever is
+--- in the way: a few cells down the flow, the furthest of them it can see
+--- from where it is. Nil when there is no way (or no grid).
+function Brain:onTheWay(a, id, q)
+  local nav = self.nav
+  if not nav then
+    return nil
+  end
+  local f = self:flow(id, q)
+  local c, r = nav:nearestOpen(a.x, a.y)
+  if not c or not f.cost[r * nav.cols + c] then
+    return nil
+  end
+  local cols, cost = nav.cols, f.cost
+  local bx, by
+  for _ = 1, Brain.FLOW_AHEAD do
+    local here = cost[r * cols + c]
+    local best, bestCost = nil, here
+    for _, st in ipairs(STEPS) do
+      if canStep(nav, c, r, st) then
+        local k = cost[(r + st[2]) * cols + c + st[1]]
+        if k and k < bestCost then
+          best, bestCost = st, k
+        end
+      end
+    end
+    if not best then
+      break -- there: their own cell
+    end
+    c, r = c + best[1], r + best[2]
+    local x, y = nav:centre(c, r)
+    if bx and not nav:clear(a.x, a.y, x, y) then
+      break
+    end
+    bx, by = x, y
+  end
+  return bx, by
+end
+
+--- Nothing in the way between `a` and (x, y)?
+function Brain:inReach(a, x, y)
+  return not self.nav or self.nav:clear(a.x, a.y, x, y)
+end
+
 local function bite(server, a, q)
   local weapons = Features.byName.weapons
   if weapons and weapons.serverDamage then
-    weapons:serverDamage(server, q.p, nil, Brain.BITE, a.facing, "melee")
+    weapons:serverDamage(server, q.p, nil, Brain.BITE * Bosses.enemyPower(), a.facing, "melee")
   end
 end
 
@@ -290,14 +437,24 @@ function Brain:think(server, a, people, dt)
     end
     return
   end
-  if d >= Brain.LEAP_NEAR and d <= Brain.LEAP_FAR and a.leapIn <= 0 and random() < Brain.LEAP_CHANCE * dt then
+  local open = self:inReach(a, q.x, q.y)
+  if open and d >= Brain.LEAP_NEAR and d <= Brain.LEAP_FAR and a.leapIn <= 0 and random() < Brain.LEAP_CHANCE * dt then
     a.leapIn = Brain.LEAP_EVERY + random() * 2
     a.leapAngle = toward
     a.facing = toward
     setMode(a, "air")
     return
   end
-  local way = self:steer(a, q.x, q.y)
+  local way
+  local wx, wy
+  if not open then
+    wx, wy = self:onTheWay(a, id, q)
+  end
+  if wx then
+    way = self:steer(a, wx, wy, true) -- round whatever is in the way
+  else
+    way = self:steer(a, q.x, q.y)
+  end
   a.facing = turn(a.facing, way, 7, dt)
   if not move(a, way, Brain.RUN, dt) then
     -- Stuck on something: try round it, the way it favours.

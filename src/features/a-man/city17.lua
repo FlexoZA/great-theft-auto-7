@@ -72,7 +72,9 @@
 -- (the map's `nests`, crewed as the Winding Road's), Hunters on the
 -- beats round the gallery and the top (its `hunterBeats`) and two
 -- Suppressors (the suppressors feature), heavies with a minigun and a
--- shield, holding the gallery and the reactor deck (its `suppressors`).
+-- shield, holding the gallery and the reactor deck (its `suppressors`),
+-- and a bunker on each wide platform but the top whose garrison comes in
+-- waves, as the Winding Road's do (its `garrisons`).
 --
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
@@ -114,7 +116,7 @@ Level.hunters = 3 -- Hunters (the hunters feature) patrolling round the Citadel
 Level.hunterRing = 230 -- px out from the Citadel's wall that they walk
 Level.fov = math.rad(60) -- how wide their cone of sight is (D-Day's guards see 30 degrees)
 Level.alertFov = math.rad(100) -- how wide it is while one is on edge: has somebody, searching, investigating
-Level.aware = 170 -- px all round them they notice somebody in, any way they face (not drawn)
+Level.aware = 170 -- px all round them they notice somebody in, any way they face
 Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 -- What they carry, by gun key: `weight` how likely, `burst` rounds at the
 -- gun's own rate then `pause` seconds; `damage` per round instead of the
@@ -123,6 +125,8 @@ Level.health = 60 -- three rounds (D-Day's soldiers take 40, two)
 Level.loadout = {
   ak47 = { weight = 4, burst = 3, pause = 1.1 },
   uzi = { weight = 2, burst = 5, pause = 1.2 },
+  smg = { weight = 1.5, burst = 6, pause = 1.1 },
+  ar = { weight = 1, burst = 4, pause = 1.2 }, -- won from General Volt, but they carry it all the same
   shotgun = { weight = 2, burst = 1, pause = 1.3 },
   pistol = { weight = 1, burst = 2, pause = 0.9 },
   flamethrower = { weight = 1, burst = 10, pause = 1.0 },
@@ -188,22 +192,40 @@ local sv = nil -- { troops, syncIn, reached, time, groups, pending }
 
 local random = love.math.random
 
+--- `n` grown by the clears of the job under way, as Bosses.count grows a
+--- count (+20% a time), without its humans: for the counts below that
+--- don't grow with the humans.
+local function harder(n)
+  return math.floor(n * (1 + Bosses.rage.count * Bosses.clears()) + 0.5)
+end
+
 local function between(range)
   return range[1] + random() * (range[2] - range[1])
+end
+
+--- How likely a soldier is to carry `gun` (Level.loadout's weight).
+local function weightOf(gun)
+  local l = Level.loadout[gun.key]
+  return l and l.weight or (gun.unlock and 0 or 1) -- never a won gun unless listed
+end
+
+--- How a soldier uses `gun`: rounds in a burst, seconds between bursts, and
+--- the px he must be within to fire (a little short of where its rounds give out).
+local function useOf(gun)
+  local l = Level.loadout[gun.key] or {}
+  return l.burst or (gun.cooldown < 0.15 and 4 or 1), l.pause or 1.2, gun.speed * (gun.ttl or ROUND_TTL) * 0.85
 end
 
 --- A gun for a soldier, picked by the loadout's weights, and how he uses it.
 local function pickArms()
   local total = 0
   for _, gun in ipairs(Guns.list) do
-    local l = Level.loadout[gun.key]
-    total = total + (l and l.weight or 1)
+    total = total + weightOf(gun)
   end
   local roll = random() * total
   local gun = Guns.list[1]
   for _, g in ipairs(Guns.list) do
-    local w = Level.loadout[g.key]
-    roll = roll - (w and w.weight or 1)
+    roll = roll - weightOf(g)
     if roll < 0 then
       gun = g
       break
@@ -214,14 +236,16 @@ local function pickArms()
   if l.damage then
     tuned = setmetatable({ damage = l.damage }, { __index = tuned })
   end
-  return {
-    gun = tuned,
-    key = gun.key,
-    index = gun.index,
-    burst = l.burst or (gun.cooldown < 0.15 and 4 or 1),
-    pause = l.pause or 1.2,
-    reach = gun.speed * (gun.ttl or ROUND_TTL) * 0.85, -- a little short of where its rounds give out
-  }
+  if tuned.blast then -- weapons grows their rounds with the clears, not a missile's blast
+    local blast = {}
+    for k, v in pairs(tuned.blast) do
+      blast[k] = v
+    end
+    blast.damage = (blast.damage or 0) * Bosses.enemyPower()
+    tuned = setmetatable({ blast = blast }, { __index = tuned })
+  end
+  local burst, pause, reach = useOf(gun)
+  return { gun = tuned, key = gun.key, index = gun.index, burst = burst, pause = pause, reach = reach }
 end
 
 --- Where the `i`th guard at post `p` stands: the first on the post, the
@@ -284,7 +308,7 @@ function Level.serverQuestStarted(server, quest)
   Cameo.serverStart(conf.cameo == true) -- his plaza visits where the map has them; called-in ones anywhere
   local hunters = Features.byName.hunters
   if hunters and conf.hunters then
-    hunters:serverPatrol(server, citadelBeat(map), Level.hunters)
+    hunters:serverPatrol(server, citadelBeat(map), harder(Level.hunters))
   end
   for _, beat in ipairs(hunters and map.hunterBeats or {}) do -- the Winding Road's open stretches
     hunters:serverPatrol(server, beat.route, Bosses.plus(beat.count, server))
@@ -308,12 +332,12 @@ function Level.serverQuestStarted(server, quest)
       posts[p.at] = g
       sv.groups[#sv.groups + 1] = g
     end
-    for i = 1, Level.guardsPerPost do
+    for i = 1, math.min(harder(Level.guardsPerPost), Level.guardsPerPost + 1) do -- a third from 3 clears
       local x, y = besidePost(p, i)
       g.members[#g.members + 1] = sv.troops:add("guard", x, y, p.watch + (i - 1) * 0.15)
     end
   end
-  local perBeat = conf.squadsPerBeat or Level.squadsPerBeat
+  local perBeat = harder(conf.squadsPerBeat or Level.squadsPerBeat)
   for _, route in ipairs(map.patrols or {}) do
     -- A lone squad starts at the corner furthest from where everyone arrives.
     local first, far = random(#route), -1
@@ -354,9 +378,10 @@ function Level.serverQuestStarted(server, quest)
       local gunner = sv.troops:add("guard", b.nest.x, b.nest.y, b.nest.angle)
       gunner.hold = true
       nest.crew[1] = gunner
-      for i = 1, Level.nestCrew - 1 do
+      for i = 1, harder(Level.nestCrew) - 1 do
         local p = b.posts[(i - 1) % #b.posts + 1]
-        local s = sv.troops:add("guard", p.x, p.y, p.watch)
+        local x, y = besidePost(p, math.floor((i - 1) / #b.posts) + 1) -- more than posts: beside them
+        local s = sv.troops:add("guard", x, y, p.watch)
         s.hold, s.takesCover = true, true
         sv.troops:arm(s, pickArms())
         nest.crew[#nest.crew + 1] = s
@@ -740,6 +765,17 @@ function Level.serverTroopsIn(r)
   return n
 end
 
+--- Take every soldier inside rectangle `r` ({ x, y, w, h }) off the level,
+--- quietly: no bodies, no koins (the launch's --boss, through the antlions).
+function Level.serverClearIn(r)
+  for i = #(sv and sv.troops.list or {}), 1, -1 do
+    local s = sv.troops.list[i]
+    if s.x >= r.x and s.x <= r.x + r.w and s.y >= r.y and s.y <= r.y + r.h then
+      table.remove(sv.troops.list, i)
+    end
+  end
+end
+
 --- A-Man drops in once near the player nearest (x, y), for another feature
 --- (cameo.lua's serverVisit). False while no level runs.
 function Level.serverVisit(server, x, y, opened)
@@ -807,7 +843,7 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return false
   end
   if Cameo.serverShotAt(server, x, y, radius, by) then
-    return true
+    return "metal" -- only its turrets
   end
   local s, i = sv.troops:at(x, y, radius)
   if not s then
@@ -817,6 +853,109 @@ function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     soldierDown(server, s, by, angle, dtype)
   end
   return true
+end
+
+--- Every enemy of the level in the world right now, for the audit
+--- (tools/audit): each soldier still up, and A-Man's visits (cameo.lua).
+function Level.serverEnemies(server, add)
+  if not sv then
+    return
+  end
+  for _, s in ipairs(sv.troops.list) do
+    add({ id = s, kind = "a-man/combine", x = s.x, y = s.y, hp = s.hp, radius = Combine.RADIUS })
+  end
+  Cameo.serverEnemies(server, add)
+end
+
+--- The wiki's page on the soldiers (tools/wiki, docs/wiki.md), and A-Man's
+--- visits' (cameo.lua).
+function Level.wikiEnemies(add)
+  local Quests = require("src.features.quests")
+  local Grenades = require("src.features.grenades")
+  local quests = {}
+  for _, q in ipairs(Quests.list) do
+    if q.boss == Level.questId and Level.maps[q.map] then
+      quests[#quests + 1] = q.id
+    end
+  end
+  -- What they carry, as likely as Level.loadout says.
+  local total = 0
+  for _, gun in ipairs(Guns.list) do
+    total = total + weightOf(gun)
+  end
+  local weapons = {}
+  for _, gun in ipairs(Guns.list) do
+    local w = weightOf(gun)
+    if w > 0 then
+      local l = Level.loadout[gun.key] or {}
+      local burst, pause, reach = useOf(gun)
+      local hit
+      if gun.blast then
+        hit = ("%g explosive damage across %g px"):format(gun.blast.damage, gun.blast.radius)
+      elseif gun.flame then
+        hit = ("%g fire damage a lick, and it sets you alight"):format(gun.damage)
+      elseif gun.pellets then
+        hit = ("%g pellets of %g damage"):format(gun.pellets, gun.damage)
+      else
+        hit = ("%g damage a round"):format(l.damage or gun.damage)
+      end
+      local rate = burst > 1 and ("bursts of %g, %g s apart"):format(burst, pause)
+        or ("one every %g s"):format(pause)
+      local text = ("%d%% of them: %s, %s, once you are within %d px"):format(math.floor(w / total * 100 + 0.5), hit,
+        rate, math.floor(reach / 10 + 0.5) * 10)
+      weapons[#weapons + 1] = { (gun.name:gsub("^%l", string.upper)), text }
+    end
+  end
+  local nest = Level.nestGun
+  weapons[#weapons + 1] = { "MG nest", ("the gunner's: %g damage a round, bursts of %g then %g s, out to %g px, only "
+    .. "into the nest's arc"):format(nest.damage, nest.burst, nest.pause, nest.range) }
+  weapons[#weapons + 1] = { "Hand grenade", ("%g%% of them carry %g each: %g explosive damage across %g px, "
+    .. "thrown %g to %g px"):format(Combine.GRENADIER * 100, Combine.GRENADES, Grenades.blast.damage,
+    Grenades.blast.radius, Combine.GRENADE_MIN, Grenades.range) }
+  local pistol = Guns.pistol
+  add({
+    kind = "a-man/combine",
+    name = "Combine soldier",
+    quests = quests,
+    where = "Every map of A-Man's trail, from City 17 to the Citadel",
+    about = "Masked soldiers in grey-blue armour, each with a gun picked at random. They guard checkpoints, walk "
+      .. "beats in squads, pour out of garrisons and crew the MG nests, and talk it over on the radio.",
+    stats = {
+      { "Health", Level.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Level.health / pistol.damage)) },
+      { "Speed", ("%g px/s on a beat, %g walking, %g closing in"):format(Combine.PATROL_WALK, Combine.WALK,
+        Combine.CHASE_WALK) },
+      { "Sight", ("%g px in a %d degree cone (%d once he is on edge), and %g px all round"):format(Combine.RANGE,
+        math.floor(math.deg(Level.fov) + 0.5), math.floor(math.deg(Level.alertFov) + 0.5), Level.aware) },
+      { "Numbers", ("%g at each checkpoint, squads of %g on the beats, %g out of a garrison, a crew of %g to an MG "
+        .. "nest, more with more players"):format(Level.guardsPerPost, Level.squadSize, Level.garrison,
+        Level.nestCrew) },
+    },
+    weapons = weapons,
+    abilities = {
+      "Guards stand at the checkpoints sweeping their cones; squads walk beats through City 17 and the Outer City.",
+      "Some guard stations hold a garrison: the first time you come near, the door opens and they come out after "
+        .. "you. On the Winding Road and in the Citadel they come in waves while you stay near.",
+      ("MG nest crews hold their places: the gunner fires only into his arc, the rest fight from cover, and "
+        .. "when the gunner drops the nearest of them runs to the gun."),
+      ("Spots you, turns to follow you at %d degrees a second and fires after %g s to take aim."):format(
+        math.floor(math.deg(Combine.TURN) + 0.5), Combine.REACT),
+      ("Calls in the nearest %g within %g px when he spots you; one going down sends up to %g within %g px to "
+        .. "look."):format(Level.callAnswer, Level.callHeard, Level.downAnswer, Level.downHeard),
+      ("Comes after you when you duck out of sight (up to %g px from where he started) and searches where he "
+        .. "lost you for %g s."):format(Combine.LEASH, Combine.SEARCH_TIME),
+      "Shot at from out of sight, he and his mates take cover and wait, then send a squad to look.",
+      "The Hunter-Chopper sets more of them down, and so does A-Man's briefcase at the top of the Citadel.",
+    },
+    tips = {
+      "Keep cover between you and the cones of sight, or sprint across one faster than he can turn.",
+      "Snipe the gunner off an MG nest, then whoever runs to the gun.",
+      "On the Winding Road a car at speed runs them down.",
+      "A freeze stops them looking and shooting, and a stink sends them running.",
+    },
+    drops = ("%g koins, and sometimes something to pick up"):format(Level.soldierDrops),
+  })
+  Cameo.wikiEnemies(add)
 end
 
 function Level.serverFreezeArea(x, y, radius, seconds)
@@ -924,8 +1063,8 @@ function Level.drawBelowCars()
     drawDoor(d)
   end
   if not Features.any("hideSightCones") then -- the ` key (sight-cones)
-    for _, s in pairs(troops) do
-      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov)
+    for id, s in pairs(troops) do
+      Sight.draw(s.dx, s.dy, s.angle, Combine.RANGE, s.alert, time, s.fov, { seed = id })
     end
   end
   Cameo.drawBelowCars()
@@ -936,6 +1075,7 @@ end
 local HELD = {
   pistol = { gunLength = 4 },
   uzi = { gunLength = 8 },
+  smg = { gunLength = 10 },
   ak47 = { gunLength = 15 },
   shotgun = { gunLength = 14 },
   sniper = { gunLength = 21 },
@@ -982,8 +1122,8 @@ local function drawSoldier(s)
     love.graphics.setColor(1, 0.45, 0.2)
     love.graphics.printf("!", x - 20, y - r - 31 + bob, 40, "center")
   end
-  if s.hp < Level.health then
-    local bw, f = 20, math.max(0, s.hp / Level.health)
+  if s.hp < s.max then
+    local bw, f = 20, math.max(0, s.hp / s.max)
     love.graphics.setColor(0, 0, 0, 0.6)
     love.graphics.rectangle("fill", x - bw / 2 - 1, y + r + 3, bw + 2, 4)
     love.graphics.setColor(1 - f, f, 0.2)
@@ -1034,6 +1174,7 @@ Level.clientMessages = {
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Level.health
+        s.max = math.max(s.max or Level.health, s.hp) -- tougher on a job finished before
         s.alert = args[i + 5] == "1"
         s.wary = args[i + 5] ~= "0"
         s.gun = tonumber(args[i + 6])

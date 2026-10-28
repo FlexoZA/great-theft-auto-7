@@ -1,5 +1,6 @@
--- Pursuit: how a patrol car goes after someone wanted (the police brain in
--- init.lua hands it who). It is doing one of three things:
+-- Pursuit: how an NPC car goes after someone it is fighting: a patrol car
+-- after someone wanted (the police brain hands it who), a civilian bot that
+-- fights back (bots' init.lua). It is doing one of three things:
 --
 --   * standing: they are in sight within `standRange`. It stops, sliding
 --     round side-on with the handbrake if it comes in fast, and shoots
@@ -10,7 +11,8 @@
 --     steering off walls with the reckless drivers' feelers and braking in
 --     time for them, and pulls the handbrake to swing round a sharp turn
 --     at speed. It shoots whenever it has them in sight and in range.
---   * backing off: shot by the one it is after (Pursuit.shotBy), it gets
+--   * backing off: shot by the one it is after (Pursuit.shotBy: the caller
+--     says it was them), it gets
 --     away for `retreatTime` seconds, in reverse if they are in front of
 --     it and there is room behind, then stops and stands where it got to.
 --     Not again for `retreatEvery` seconds, so a stream of fire doesn't
@@ -18,7 +20,6 @@
 
 local Features = require("src.features")
 local Traffic = require("src.features.bots.traffic")
-local Vision = require("src.features.police.vision")
 
 local Pursuit = {}
 
@@ -88,13 +89,18 @@ local function backOff(unit, tx, ty)
 end
 
 --- One tick of `unit` going after `target` (a player). `B` is the bots
---- feature (shooting, getting unstuck), `now` the police clock.
+--- feature (shooting, getting unstuck), `now` the caller's clock.
 function Pursuit.drive(server, B, unit, target, now, dt)
-  local ai, car = unit.ai, unit.car
   local tx, ty, onFoot = Features.bodyPose(server, target)
-  local tc = not onFoot and target.vehicle or nil
+  Pursuit.driveAt(server, B, unit, tx, ty, not onFoot and target.vehicle or nil, now, dt)
+end
+
+--- The same, after whatever is at (tx, ty): `tc` the car there, if it is
+--- one, for leading the shots.
+function Pursuit.driveAt(server, B, unit, tx, ty, tc, now, dt)
+  local ai, car = unit.ai, unit.car
   local d2 = (tx - car.x) ^ 2 + (ty - car.y) ^ 2
-  local seen = Vision.clear(car.x, car.y, tx, ty)
+  local seen = Traffic.inSight(car.x, car.y, tx, ty)
 
   if ai.backOffUntil then
     if now < ai.backOffUntil then
@@ -141,11 +147,11 @@ function Pursuit.drive(server, B, unit, target, now, dt)
   end
 end
 
---- `unit` was shot by player `byId`: if that is who it is after, it backs
---- off for a moment (not again until `retreatEvery` has passed).
-function Pursuit.shotBy(unit, byId, now)
+--- `unit` was shot by who it is after (the caller knows who that is): it
+--- backs off for a moment (not again until `retreatEvery` has passed).
+function Pursuit.shotBy(unit, now)
   local ai = unit.ai
-  if ai.chasing and ai.lastSeen == byId and now >= (ai.backOffReady or 0) then
+  if now >= (ai.backOffReady or 0) then
     ai.backOffUntil = now + Pursuit.retreatTime
     ai.backOffReady = now + Pursuit.retreatEvery
     ai.standing = false

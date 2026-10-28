@@ -96,7 +96,8 @@ Clients send intent; the server decides. Never trust a client message.
 Useful server fields: `server.players[id]` (`id name key guest peer input body
 vehicle car`; `key` is the player's lasting identity, and in a saved world
 `id` stays the same for that person game after game, see `persistence.md`), `server.vehicles[vid]`, `server.tick`, `server:broadcast(msg,
-exceptPlayer)`, `server:send(player, msg, unreliable)`. See "Bodies and
+exceptPlayer)`, `server:send(player, msg, unreliable)`, `server:save()` (write the saved world now, not at the
+next autosave; quests does when everyone is home). See "Bodies and
 vehicles" below.
 
 ## Bodies and vehicles
@@ -277,11 +278,16 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | --- | --- | --- |
 | `serverPlayerDamaged(server, victim, attacker, amount, type, angle)` | weapons | A player (or the car they drive) was hurt, by anything: a round, a blast, a boss. `attacker` may be nil (nobody did it, or they left); `amount` is before armor; `type` is the damage type ("Damage types" under conventions); `angle` the way the blow travelled, when known. The damage feature puts the type's status on a player on foot (bleeding, a stun, a knock). |
 | `serverCarsCollided(server, rammer, rammed, closingSpeed)` | car-collisions | Two cars touched while closing. `rammer` was moving into the other faster. |
+| `serverCarImpact(server, car, speed, x, y, what)` | city-map, buildings, car-collisions | A car hit something hard enough to hear, at (x, y), at `speed` px/s: `what` is "wall" (the map's walls, a building's) or "car" (another car). Crash-sounds plays the crash from it. |
+| `serverCarScrape(server, car, speed, x, y)` | city-map, buildings, car-collisions | A car is sliding along a wall or another car this tick at `speed` px/s. Crash-sounds keeps a scrape going while it lasts. |
+| `footstepWalkers(client)` → list | footsteps asks, through `Features.gather` (client) | Everyone of yours on foot that should be heard walking: `{ key, x, y, size }`, `key` unique per walker, `size` "person", "heavy", "giant" or "claw" (footsteps' `SIZES`). Footsteps paces their steps by how fast they really move. Every feature with people or creatures on foot answers it. |
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
-| `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksPoint`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
+| `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksShot`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
 | `serverBlast(server, x, y, radius, damage, by, type)` | weapons, leap, Bigfoot | Something hit the ground hard at (x, y): a missile going off (type "explosive"), a heavy leap landing ("impact"), Bigfoot's claws ("melee"). `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
 | `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
+| `serverKoinTaken(server, player)` | money | A koin on the ground went into `player`'s wallet (one call per koin). The quests feature counts it for the victory screen. |
+| `serverRewarded(server, player, title)` | weapons, gear, grenades | `player` unlocked something for good (a won gun, a piece of gear, the electric grenade) and has just been shown its reward card; `title` is what it is called. Anything new a player can unlock raises it too, so the victory screen lists it. |
 | `serverQuestStarted(server, quest, player)` / `serverQuestEnded(server, quest)` | quests | A quest began (everyone is already on its map) or the group took the star home. `quest.boss` names the feature that owns the fight; karen spawns herself on the first and leaves on the second, alien-hunt starts the wild man's walk, d-day puts the defenders on their posts. |
 | `questStarted(client, quest, byId)` / `questEnded(client, quest)` | quests | The same on every machine, after the map switched. Karen puts up her title screen and starts her theme here. |
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
@@ -296,10 +302,13 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverStat(value, server, player, name)` / `stat(value, client, id, name)` | on-foot, abilities, armor, buildings ask, through `Features.reduce` | What a player's clothes do to `name`: "speed" and "stamina" (on-foot's pace and sprint cost), "cooldown" (abilities), "armor" (a vest's points), "ammo" (a bundle of rounds going into a bag). Start from 1; gear multiplies by each piece worn, and abilities by the `stats` of the passive ability carried (overclock: "cooldown" x0.8). `serverStatsChanged(server, player)` follows a change of clothes, for anything that keeps a number derived from them (armor rescales the vest). |
 | `serverResist(share, server, player, type)` / `resist(share, client, id, type)` | the damage feature asks, through `Features.reduce` | How much of a hit of damage type `type` gets through what a player wears. Start from 1; each feature that dresses them multiplies by (1 - what it stops): armor for the vest, gear for every piece worn (`resist` in their kinds). The damage feature caps the total at `Damage.maxResist` (80%), takes it off every hit to a body before the vest soaks up the rest, and shortens a stun, knockdown, daze or knock by the same share. The inventory's resist strip and the shop's cards show it. |
 | `serverAbsorbDamage(amount, server, victim, type)` | weapons asks, through `Features.reduce` | A body is about to take `amount` of damage type `type`; answer what is left of it. Armor takes its share off the top and returns the rest; the hit still counts for everyone listening even when nothing gets through. |
+| `serverEnemies(server, add)` | the audit asks (`tools/audit`, `docs/audit.md`) | Call `add({ id, kind, x, y, hp, radius, immune, flying, fixed })` for every enemy of yours in the world right now: `id` its own table (the same while it lives), `kind` a stable `"<feature>/<what>"`, `hp` what it can still take (a shield included; nil if one hit kills it), `immune` while nothing can hurt it (a stage it can't be hit in, buried, blinking), `flying` when it may be over walls, `fixed` when it never moves (a turret: the shield wall leaves it where it is). The audit aims every gun and ability at each kind and looks for enemies stuck in walls by it, so **every feature that answers `serverShotAt` for an enemy answers this too** (the audit flags one that doesn't). Bots in `server.players` are not listed. |
+| `wikiEnemies(add)` | the wiki (`tools/wiki`, `make wiki`, docs/wiki.md) and the audit ask | Call `add({ kind, name, where, about, ... })` once per enemy of yours for its page in `docs/wiki/enemies`, every number formatted in from your own constants (never a literal), so the page stays right when they change. Added by the feature that draws the enemy (the portrait is drawn with its draw hooks). The fields are in docs/wiki.md; police is the worked example. An enemy that drops a gun or an ability lists it in `dropsItems`, so that item's page says who drops it. **Every feature that answers `serverEnemies` answers this too** (the audit flags an enemy met with no page, and a page out of date). |
 | `serverWalkers(server, add)` | bots asks, every host tick | Call `add(x, y)` for each person of yours on foot, and cars on patrol stop for them. Pedestrians and police (officers) answer it; players out of their cars are added by bots itself. |
+| `drawNightLights(client, camera, glow)` | night, every frame on a map marked `night` | World space, additive, while the night feature draws its light map: whatever you draw here lights the dark. `glow(x, y, r, color, a)` puts a soft round light at (x, y). Quests lights its stars this way; the map's own lights (`map.lights`), cars and walkers are lit already. |
 | `menuOpen(client)` | weapons and abilities ask | Answer true while a menu of yours has the number keys, and weapons leaves the gun alone and abilities cast nothing. The gym's upgrade panel, the building menu, the inventory screen, the cheat list (F2) and the controls overview (F1) answer it. |
 | `closeMenu(client)` | the game screen and the inventory ask | Esc was pressed in the game, or the inventory is opening: if a panel of yours is up, take it down and answer true (Esc then doesn't pause). Answer false when nothing of yours was open. The inventory, the shop, the gym's upgrade panel, the building menu, the vehicles screen and the controls overview (F1) answer it; the inventory raises it on every feature before it opens, so I goes straight from the shop to the bag. |
-| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door. |
+| `actionTaken(client)` | on-foot asks | Answer true while the action key (F) is yours: a prompt of yours is up for it. On-foot then leaves getting in or out of a car alone. Real-estate answers it on a plot for sale, buildings on an owned plot's square, the shop on its bag, the gym (upgrades) at its door, quests at the Jobs door, ammo-crates at a shut crate. |
 | `fireTaken(client)` | weapons asks | Answer true while the fire button is yours: weapons then neither fires nor clicks on it. Abilities answers it while a direction ability (the MG nest) is selected, and until the button is let go after placing one; grenades while one is readied, and until the button is let go after a throw. |
 | `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it, and keeps answering for `Events.calmAfter` (5) seconds after the boss is beaten. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
@@ -344,12 +353,34 @@ couple of small conventions rather than requiring each other:
   be saved (city-map: while everyone is away on a quest map). Players are
   still saved.
 - `feature:hideSightCones()`: return true while cones of sight should not be
-  drawn (sight-cones: the player pressed `` ` ``). Anything that draws a cone
-  (police, d-day) skips it when `Features.any("hideSightCones")` is true. It
-  only changes the picture; who sees whom is up to the host as before.
+  drawn (sight-cones: hidden until the player presses `` ` ``). Anything that
+  draws a cone (police, d-day, the Combine, the Suppressors) skips it when
+  `Features.any("hideSightCones")` is true; the Hunters' alone always shows.
+  It only changes the picture; who sees whom is up to the host as before.
 - `feature:blocksPoint(x, y)`: return true when a point is inside something
-  solid. Weapons checks every feature that defines it, so bullets stop at
-  walls without knowing which feature owns them.
+  solid: nobody walks or drives there. Every walker, brain and spawn check
+  asks it.
+- `feature:serverSkipToBoss(server, quest, player)`: the launch's
+  `--boss` (`src/launch.lua`, for trying a boss out): `quest` has just
+  begun with `player` (the host) on its map; the feature that owns its
+  boss clears the way in, puts them by the boss and starts the fight, and
+  returns true. The antlions do it for the Coast (the final section's
+  swarms and soldiers gone, the Guard up); Cyber Feud for the Roof
+  (Kilowatt and Saye down, the host at VEX's uplink with the Shard: the
+  reveal, then her relays). Nothing answering: the quest
+  plays from the start.
+- `feature:blocksShot(x, y)`: return true when a round or a look stops at
+  the point. Weapons, grenades and every sight cone (`d-day/sight.lua`,
+  `police/vision.lua`) ask it, so bullets stop at walls without knowing
+  which feature owns them. Define both: the city map's `blocksShot` is its
+  `blocksPoint` less water (`water = true` on a solid: rivers, canals, the
+  sea), which no one crosses but rounds go over. A `low` solid (a bridge's
+  railing, lava) counts for neither; only cars bump into it.
+  Whatever stops a round stands up and casts a shadow, and whatever rounds
+  go over is drawn flat, so a player can tell the two apart:
+  `city-map/shade.lua` shades the ground south and east of every wall
+  (`Shade.edges`) and of standing cover (`Shade.box`). Give new cover that
+  stops rounds a shadow.
 - `feature:serverKill(server, kill)`: the host tells every feature that
   something died. The feature that owns the kill calls
   `Features.call("serverKill", server, kill)` right after it broadcasts its
@@ -367,7 +398,11 @@ couple of small conventions rather than requiring each other:
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
-  return false and it flies on. Weapons walks its projectiles through every
+  return false and it flies on. Instead of true you may return what was hit
+  is made of, for the impact every screen draws there: `"metal"` (sparks: a
+  drone, a turret, a shield), `"goo"` (green blood: antlions) or `"solid"`
+  (a wall's dust and grit: a crate); true is `"flesh"` (red blood). A
+  feature that passes another's answer on returns it as it is. Weapons walks its projectiles through every
   feature that defines it, so a gun kills pedestrians without knowing they
   exist (police answers it too: officers on foot take a few rounds before
   they go down). `by` is the shooter's player id and `angle` the direction of
@@ -391,6 +426,9 @@ couple of small conventions rather than requiring each other:
   `serverKill` with `angle`, `onFoot` and `cause`. Nobody is hurt during
   their spawn protection. `weapons:damageCar(server, car, byId, amount,
   pid, angle, type)` is the same for a car (`pid` 0 when it wasn't a round).
+  `weapons:serverProtect(server, player, seconds)` gives a player that
+  protection for `seconds` more (the jet run's flight): rounds pass
+  through them, and nothing hurts them.
 - Damage types: every hit says what kind of hit it is (`src/features/damage`,
   design and plan in `docs/damage-types.md`): "bullet", "explosive",
   "fire", "impact", "shock" or "melee", in `Damage.types` with each one's
@@ -522,9 +560,43 @@ couple of small conventions rather than requiring each other:
   `buildings:serverCount(id, item)` and `buildings:serverTake(server, player,
   item, n)`. A gun marked `bottomless` (the pistol) reloads from nowhere:
   there is no ammo item for it, and the shop, the ammo factory and the
-  police drops leave it out. `weapons:serverFire` counts rounds for human
+  police drops leave it out. A gun with `ammo` fires another gun's rounds
+  (the super shotgun's are `"ammo-shotgun"`, the SMG's the pistol's 9mm,
+  `"ammo-pistol"`): `Guns.ammoItem(gun)` is the item, it has none of its
+  own, and an enemy's ammo box counts it as carrying that gun. Which ammo
+  items exist at all is `Guns.ammoTypes` (each `item`, its `owner` gun and
+  the `gun` whose magazine sizes a box): one per gun firing rounds from the
+  bag, so the bottomless pistol's 9mm is an item because the SMG fires it.
+  The shop, the ammo factory, enemies' boxes and the ammo crates all read
+  that list. `weapons:serverFire` counts rounds for human
   players only; a player with `bot = true` (bots, police) and
   `serverFireFrom` never run dry.
+- Ammo crates: `src/features/ammo-crates` scatters `COUNT` (5) military
+  crates over every quest map (not the city) when the map changes, on open
+  floor (city-map's `randomRoadPoint`) clear of walls, everyone and each
+  other (AMC_ messages). Broken open, by the action key at one (F, through
+  `actionTaken`; AMC_OPEN, the host checks you are on foot and near) or by
+  any player's round or blast (`serverShotAt`, `serverBlast`; Heck's and
+  the Combine's rounds fly on), it spills `BOXES` (2) ammo boxes round it
+  through pickups' `serverDrop`, each 1.5 magazines for a gun picked by
+  the guns' `dropWeight` with the AK's at 5 instead of 3 (`weights`). It
+  stays open and empty until the map changes. Rounds a gun borrows
+  (`ammo`) and won guns are never in a crate.
+- Won guns: a gun marked `unlock` (the super shotgun: 12 pellets, double a
+  shotgun's reach, a 10-shell magazine; the SMG; the uzi) is never made by a
+  factory, never in an enemy's hands (City 17's loadout leaves it out
+  unless it is listed: the SMG is), and only on the shop's shelf once you
+  have one; its rounds are sold all the same. The Baron of Heck drops the
+  super shotgun, the Hunter-Chopper the SMG and Crazy Karen the uzi, one for every player (pickups' `perPlayer`, kind
+  `"gun-<key>"`); walking over it calls `weapons:serverTakeFound`: into the
+  bag with a magazine's worth of its rounds (or an empty weapon slot when
+  the bag is full), and the first time `WPN_UNLOCK <key>` to that player,
+  the reward card. Saved with the player (weapons' `unlocked`).
+- Inventory full: a pickup meant for the bag (pickups' kinds with `bag`:
+  ammo boxes, abilities, won guns, clothes, crates) that a human stands on
+  without room for it sends them `PK_FULL <id>` (at most every
+  `fullEvery`, 2.5 s), and "Inventory full" floats up over it. Pickups
+  asks `buildings:serverRoomFor(id, item)`.
 - Tiers: everything a player equips (guns, abilities, armor, clothes) comes
   in a tier, `src/features/tiers`: common (grey, base stats), uncommon
   (green, its first stat better), rare (blue, its first two, by more) and
@@ -614,6 +686,42 @@ couple of small conventions rather than requiring each other:
   and raises `serverPanicArea` every tick. Effects carry
   `by`, the caster, and `drawEffect(e, client)` gets the client to follow
   them.
+  The shield wall (`abilities/shieldwall.lua`, `aim = "direction"`, aimed
+  and placed like the nest) puts up a quarter circle of wall `radius` (70)
+  px round its caster, centred on where they point, for its `seconds` (8;
+  30 s cooldown): a round that no human player fired (ownerless, or a
+  bot's) crossing it from outside stops there. Abilities answers
+  `serverShotAt` by asking each ability that has one, and the wall answers
+  with the "shield" material (blue sparks, `weapons/explosions.lua`).
+  Players' rounds pass both ways; shots an enemy feature flies itself,
+  blasts and blows still land. Enemies on foot don't walk through it
+  either: while a wall stands, abilities' step (priority 990, after most
+  movers) asks for `serverEnemies` and puts any entry whose `id` table
+  holds its `x` / `y` back on the side of the wall it was on (not `flying`
+  or `fixed` ones, and never into something solid). So an enemy listed
+  with its own live table is held back without its feature doing
+  anything; one moved by a later feature (cyber-feud, d-day, shotgun) may
+  lean into the wall for a tick before it is put back. Walls come down
+  when the map changes.
+  The jet run (`abilities/jetrun.lua`, `aim = "point"`, on foot, 25 s
+  cooldown) is the jet hauler's strafing run for a player: the thrusters
+  light for 0.5 s (standing, shootable), then the caster flies a straight
+  line at 340 px/s over walls through the rings' middle (the cursor,
+  within 420 px) and 300 px on past it, landing where there is room and
+  standing 0.4 s. Five rockets fall on red rings 90 px apart along the
+  line, each as the caster passes over it: 40 at the middle of a 70 px
+  blast, falling off to a third at the edge, to cars nobody drives and
+  through `serverShotAt` (3 rounds' worth), never to players; it raises
+  `serverBlast` as a missile does (walls, crates, the Hunter-Chopper). A
+  rocket dropping with a `flying` enemy within 160 px of its ring goes for
+  that instead and follows it down (ABL_JETSEEK tells clients where), so
+  the chopper can't fly out from under. An ability module may bring its
+  own `clientMessages`; abilities registers them as its own. The host
+  flies them as leap.lua does; abilities asks each ability's
+  `serverAirborne(id)` (the leap's and the jet run's) for who it holds and
+  who a freeze misses, and weapons protects the flier for the flight
+  (`serverProtect`). ABL_FIRED carries the rings' middle as its spot and
+  the whole run as its seconds, so clients draw the same line.
   The chicken (`abilities/chicken.lua`, `aim = "self"`) makes its caster
   invisible for its `seconds` (20, 50 s cooldown for a common one; tiers
   stretch the first and shorten the second), or until they fire a gun:
@@ -657,7 +765,9 @@ couple of small conventions rather than requiring each other:
   anyone, and its kills credit no scoreboard; the police officers on foot
   shoot this way. No cooldown is applied, so the caller paces its own fire.
   An optional last argument `from` names what fired an ownerless shot
-  ("gang" for a Gang Hangout's guards); it reaches every `serverShotAt` as
+  ("gang" for a Gang Hangout's guards, "halcyon" or "static" for the Cyber
+  Feud's factions, whose rounds pass through their own side and hit the
+  other's); it reaches every `serverShotAt` as
   its last argument. Police officers ignore ownerless rounds without one
   (their own), so a round with a `from` is one that hits them.
   `police:serverOfficersAfter(id)` lists the officers on foot after player
@@ -674,7 +784,7 @@ couple of small conventions rather than requiring each other:
   many went in. The other way round from `serverTake`.
   `buildings:serverQuickGive(server, player, item, n)` does the same
   straight into the quick slot for a medkit, drink or grenade (up to its
-  stack of 5); pickups stashes a medkit found at full health this way.
+  stack of 5; none while the slot holds the other kind of grenade); pickups stashes a medkit found at full health this way.
 - Freight, for moving materials between buildings with no player carrying
   them (host only): `buildings:serverBuilding(plotId)` reads the host's
   record of a building (kind, owner, product, output, hopper, hp);
@@ -683,8 +793,15 @@ couple of small conventions rather than requiring each other:
   `serverFillHopper(server, plotId, item, n)` → moved fill a factory's hopper.
 - `Features.byName.vehicles:serverSetModel(server, car, model)`: make a car
   already in the world (an NPC's own) a model from `vehicles.catalog.byKey`.
-- `Features.byName.pickups:serverDrop(server, kind, x, y, amount)`: leave a
-  pickup on the ground right there, gone for good once taken. `kind` is a
+- `Features.byName.pickups:serverDrop(server, kind, x, y, amount, opts)`: leave a
+  pickup on the ground right there, gone for good once taken. `opts.perPlayer`
+  makes it one every human takes once (a boss's reward): it is gone only for
+  whoever took it, and stays until the map changes. It is drawn as a reward
+  (PK_SPAWN's `reward`) to a player who hasn't unlocked it yet (the shop's
+  `itemUnlocked`): gold rings rippling out from it, a NEW tag over it, and at
+  night its own light; once they have, like any other pickup. Any other
+  `opts` are kept
+  on the item for its kind's `apply` (`unlocks`). `kind` is a
   pickups kind ("health", "stamina": used on the spot, or put in the
   taker's quick slot when it would do nothing, till that is full),
   `"ammo-<gun key>"` for a box of
@@ -703,7 +820,8 @@ couple of small conventions rather than requiring each other:
   police's officers and units), and the one place the odds live: one thing
   at most, `pickups.dropChance` (65%) of anything, then one of
   `pickups.drops` by weight (an ammo box 3, a medkit, an energy drink and a
-  kevlar vest 1 each, a grenade 0.5); something with tiers then rolls its tier by
+  kevlar vest 1 each, a grenade 0.5, an electric grenade 0.3 but only while
+  its `unlocked` hook, `serverAnyUnlocked`, says somebody has it); something with tiers then rolls its tier by
   `pickups.dropTiers` (80, 14, 5 and 1 in every 100 from common up). Add a
   kind and its weight to `drops` and every enemy can drop it. A human with no armor on
   who runs over a vest wears it at once, whole
@@ -765,7 +883,7 @@ the one with a plot.
   add a material to `Kinds.materials` and `BLD_STATE` carries it. Buildings are solid (all but the parking lot): buildings pushes
   cars and pedestrians out itself and answers `blocksPoint` for everything
   else. The inventory lives there too, on the host, keyed by item
-  (`"iron"`, `"ammo-uzi"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`, `"armor-vest"`, `"gear-running-shoes"`), in slots of one stack
+  (`"iron"`, `"ammo-pistol"`, `"gun-uzi"`, `"ability-freeze"`, `"medkit"`, `"drink"`, `"armor-vest"`, `"gear-running-shoes"`), in slots of one stack
   each; `buildings:serverSetSlots(server, player, n)` changes how many a
   player has (upgrades sells them). Weapons reloads from the ammo in it and
   moves guns in and out of it as items. Buildings have hit points (`hp` in
@@ -802,7 +920,10 @@ the one with a plot.
   the meadow gives way to woods south. The outskirts are fenced round with
   post and rail, farmland past it: a patchwork of fields with tracks
   between, a lone tree here and there, a farm and a tractor working a
-  field. Every map now has surroundings; a new one gets them with an entry
+  field. Under the Overpass's bridge Grey City lies a long way down
+  (`overpass_below.lua`): drawn small and sliding by slowly (parallax)
+  under a haze, with a river, its lights left off the deck; and through
+  Halcyon Tower's glass walls the same city, further down. Every map now has surroundings; a new one gets them with an entry
   in the `DRAW` table (by map name), and shows the grid until it does. The crowd spawns only on the map's land.
 - Car tags: `src/features/car-tags` writes the owner's name over a parked
   car, the way the core writes the driver's over a moving one, so you know
@@ -845,6 +966,16 @@ the one with a plot.
   Each slot has five pieces; most resist one or two types, and the list is
   in `docs/damage-types.md`. A drawback (x0.95 speed) stays out of
   `tierStats`, or a tier would grow it.
+  A piece marked `unlock` is only won: the Mood Slayer's helmet (head,
+  explosive 0.3, fire 0.2), which the Mancouchbus drops for every player
+  (pickups' `perPlayer`, kind `"gear-<key>[@tier]"`, drawn like a vest).
+  Walking over it calls `gear:serverTakeFound`: into the bag, or straight
+  on when the bag is full and the slot free, and the first time
+  `GEAR_UNLOCK <key>` to that player (the reward card; `quiet` when a saved
+  world brings it back). From then on the shop sells it to them (its
+  `unlock` entries, through `itemUnlocked` / `serverItemUnlocked`). The
+  unlocks are saved with the player beside what they wear (`unlocked`, a
+  list of keys).
 - Open borders: `src/features/open-borders` is the horde behind the "open
   borders" ability (`abilities/openborders.lua`, sold by the shop). Cast, it
   lets 25 simps out round the caster (the `serverOpenBorders` event); for
@@ -865,8 +996,8 @@ the one with a plot.
   (`menuOpen`); drag a gun or ability from the bag onto a slot to put it on
   that key, out of its slot into the bag to put it down, or between slots to
   swap (weapons and abilities do the moving). Beside the abilities are the
-  quick slots, one per entry of `buildings.usables` (medkits on H, energy
-  drinks on J, grenades on G): a stack dragged onto its slot is what the key uses
+  quick slots, one per entry of `buildings.usables` (medkits on Q, energy
+  drinks on E, grenades on G): a stack dragged onto its slot is what the key uses
   (`BLD_QUICK_PUT <item>` / `BLD_QUICK_TAKE <item>`; buildings keeps the
   slots and says `BLD_QUICK <item> <n>`); stacks left in the bag are just
   carried. Each usable has a circle at the end of the abilities row on the
@@ -876,8 +1007,13 @@ the one with a plot.
   the circle and the key come with it. An `aimed` entry (the grenade) is
   left to the feature that owns it: its key readies it and that feature
   sends `BLD_USE <item> <x> <y>` on a click, which reaches `apply` as `args`.
+  An entry's `variants` (by item: a `title` and `color`) are other items the
+  same slot takes, one kind at a time (the grenade slot takes electric
+  grenades): dragging the other kind onto it swaps them, the old stack back
+  into the bag; `serverQuickGive` gives nothing while it holds the other
+  kind. `buildings:slotOf(u)` says what a slot holds and how many.
 - Grenades: `src/features/grenades` throws the grenades in the grenade quick
-  slot (five at most). T readies one: the landing spot follows the cursor,
+  slot (five at most). G readies one: the landing spot follows the cursor,
   within `grenades.range` and short of the first wall (`Grenades.landing`,
   the same sum on the host), with the blast's reach drawn round it, and the
   fire button throws it (`fireTaken`). It flies in an arc for a time that
@@ -885,9 +1021,42 @@ the one with a plot.
   (explosive, the thrower too). On foot only; no tiers (a consumable). The
   ammo factory makes them out of iron and sulfur and the shop sells them
   under Supplies. Hunters get out of the way (`grenades:serverIncoming()`).
-  `grenades:serverLob(server, ox, oy, x, y, owner)` throws one for an
+  `grenades:serverLob(server, ox, oy, x, y, owner, kind)` throws one for an
   enemy (owner 0: hurts any player, credits nobody); A-Man's Combine and
-  D-Day's soldiers do.
+  D-Day's soldiers do. Each kind is an entry of `grenades.kinds` by its
+  item, with its blast. The electric grenade ("grenade-electric", a variant
+  of the grenade slot: drag it there and G throws it) is General Volt's: never
+  made (`Kinds.special` lets a bag carry it all the same), and only sold to
+  those who have unlocked it (60 Fcks). Its blast is shock (30, a stun) and holds every
+  enemy in it still for 1.5 s (`serverFreezeArea`), and it leaves a 110 px
+  field for 4 s that zaps whoever stays (8 shock every 0.5 s; players but the
+  thrower, and up to 3 enemies of each kind through their `serverShotAt`).
+  A player unlocks it by picking up the stack Volt drops (a `perPlayer`
+  pickup with `unlocks`: `grenades:serverTakeElectric`), which puts the
+  reward screen up (GRN_UNLOCK); the unlock is saved with them
+  (`serverSavePlayer`, `{ version, electric }`; a returning player's screen
+  hears it as `GRN_UNLOCK grenade-electric quiet`, no reward screen). After
+  that the shop sells it to them (`itemUnlocked` / `serverItemUnlocked`), and
+  enemies drop it now and then (`pickups.drops`' `unlocked`) while any human
+  in the world has it unlocked; only those who have can pick one up.
+- Weather: `src/features/weather` is rain and lightning that another
+  feature turns on from the host: `weather:serverSetRain(server, on)` (rain
+  on every screen, fading in over 3 s and out over 5, with its hiss),
+  `weather:serverSetStorm(server, on)` (a flash in the sky every 3-7 s and
+  thunder rolling in after), and `weather:serverStrike(server, x, y, opts)`
+  (a bolt marked on the ground for `opts.warn` s, then striking everyone on
+  foot and every car within `opts.radius` for `opts.damage` /
+  `opts.carDamage` shock, and a few pedestrians). Everything clears when
+  the map changes. The rain is a lens just after the night's (streaks and
+  splashes over the dark, carried along with the view); a flash lights the
+  night through `drawNightLights`. Its sounds have their own volume
+  ("weather"). General Volt's fight uses all three.
+- Rewards: `src/features/rewards` puts up the full-screen card for something
+  unlocked: `Features.byName.rewards:show({ kicker, title, color, icon =
+  function(cx, cy, scale), lines })`, client side, from whatever feature
+  hears of the unlock. The world keeps going behind it; it has the mouse and
+  keys while up (`menuOpen`, `pointerTaken`) and Enter or a click puts it away
+  after 0.8 s. Cards queue.
   `screen.lua` lays out every box (`Screen.layout()`), so dragging anything
   else later hit-tests the same rectangles.
   The picture of you (`inventory/figure.lua`), with the menu's crazy face
@@ -919,7 +1088,8 @@ the one with a plot.
   citizens' jumpsuits, which pedestrians dresses its crowd in), `map.offLimits` (the
   track: `randomRoadPoint` never picks a spot there, nor anywhere solid) and `map.cover` (Combine walls, barriers,
   planters, the station wings, the train, the canal's water, the Citadel,
-  the screen and rubble; rubble and the screen are drawn but not solid).
+  the screen and rubble; rubble and the screen are drawn but not solid, and
+  the canal is `water`: no way across but the bridges, but rounds go over it).
   Anything in `map.cover` with a `mapColor` is drawn on the minimap in it,
   round with `round = true`, and the minimap draws "walk", "road" and
   "water" tiles as well as "ground")
@@ -965,6 +1135,24 @@ the one with a plot.
   down, passing where it fell: an EXIT star home (`QST_EXIT <x> <y>`) comes
   up right there, so nobody has to walk back to the entrance. Leave out
   `x, y` and there is only the star by the entrance.
+  Progress: a new game opens only the first job on the board; finishing a
+  job's last map (the end of its `next` chain, `Quests.root` maps every map
+  to its board job) opens the next one, in `Quests.list` order. The world
+  remembers what is finished (`serverSaveWorld`, written with the city, so
+  it is kept once you are home), everyone hears it (`QST_FINISHED <ids>`),
+  the board greys out what is locked and the host refuses it
+  (`QST_NO locked`). Finished jobs stay open to play again. Other features
+  ask `quests:serverFinished(id)` on the host or `quests.finished[id]` on a
+  client; `Quests.unlocked(quest, finished)` is the rule. The world also
+  counts each job's clears (`quests:serverClears(id)`, sent with
+  `QST_FINISHED` as id/count pairs): every job's bosses and enemies come
+  back harder each time (`Bosses.rage`, below under the boss standard), and
+  bosses' per-player drops come in better tiers. The board shows each open
+  job's level (its clears + 1, "(MAX)" at `Bosses.rage.max`) with its name
+  (`Jobs.levelName`: EASY, NORMAL, HARD ... RIP AND TEAR ... HELL ON EARTH
+  at the last) and "DONE xN" for a job finished more than once; the victory
+  screen shows the level the job was just done at, named the same way. The `--quest` launch
+  option skips the lock.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
@@ -1118,7 +1306,9 @@ the one with a plot.
   ground: a 150 px blast of its own (60 at the middle), 40 koins,
   `serverKill` with kind "boss", and `quests:serverComplete`, so the EXIT
   star comes up by the wreck, which burns there (`HC_DOWN`) until the map
-  changes. It calls for help as it is hurt (`HunterChopper.waves`, each
+  changes. It drops the SMG for every player (`HunterChopper.GUN`, a won
+  gun) on the nearest reachable ring round the wreck (`GUN_AWAY`), clear
+  of the canal and the EXIT star. It calls for help as it is hurt (`HunterChopper.waves`, each
   once, checked every host tick): at 80% health Combine soldiers are set
   down on clear ground round the spot under it, 3 sets of 3 (for one
   human, more with more: `Bosses.count`) 8 s apart, each under wherever it
@@ -1130,6 +1320,17 @@ the one with a plot.
   (`hunters:serverPatrol`) instead of turrets before he blinks out. The
   cameo now runs on every map the level holds; only City 17
   (`Level.maps`' `cameo`) gets his plaza visits of his own.
+  Another boss can call one in just to pass over
+  (`hunter-chopper:serverFlyover(server, x, y, target, cargo)`,
+  `flyover.lua`), on any map: no gun, no health, nothing to shoot. It
+  comes in from (x, y) already pointed at player `target` at 300 px/s,
+  turning after them at 1.2 rad/s, lets `cargo` go as it passes over
+  them (`{ feature, count, spread }`: `count` of them `spread` px apart
+  along its line, each landing 0.9 s later on a blue ring where that
+  feature's `serverSummon` sets it down) and flies on 1400 px and is gone
+  (12 s at most). `HC_PASS` (unreliable, 15 Hz: every one passing, an
+  empty list clears them) and `HC_CARGO` (one falling) draw it and what it
+  drops on every screen.
   Its rotor is a synthesised
   seamless loop (`sounds.lua`, the "hunter-chopper" volume channel) that
   follows it about and carries 3200 px. The host sends `HC_STATE`
@@ -1152,7 +1353,8 @@ the one with a plot.
   Hunter-Chopper's wreck leads here; A-Man's intro line 7) on
   city-map's `coast` (`kind = "coast"`, 64 x 120 tiles), built by
   `city-map/coast.lua` and drawn by `render_coast.lua`. One beach winds
-  north between the sea (west, "water" tiles under solid `water` cover)
+  north between the sea (west, "water" tiles under `water` cover: solid,
+  but rounds go over it)
   and green mountains (east: no tiles at all, so the layout's walls make
   them solid). `Coast.SPINE` is the beach's middle and half width by row,
   eased between points, its edges wandering `Coast.RAGGED` tiles; it is
@@ -1219,26 +1421,32 @@ the one with a plot.
   north of `Coast.FINALE_ROW`, the neck and the point; each swarm knows
   if it is `finale`) and every Combine soldier inside it (the a-man
   feature's `serverTroopsIn`) is down, with a player there, it digs up at
-  `map.bossX, bossY` (the nearest spot its 34 px body fits; the map keeps
+  `map.bossX, bossY` (the nearest spot its 24 px body fits; the map keeps
   that spot clear of cover) over 2.4 s. 2400 health for one human
-  (`Bosses.health`). It hunts the nearest player: running (150 px/s,
+  (`Bosses.health`). It hunts the nearest player: running (190 px/s,
   breath spent) while they are further off than its charge reach,
-  prowling (90 px/s, none spent) closer, walking (42) winded. Within 62
-  px it swipes (60, knocked back 110 px; impact, free); 200-650 px off,
+  prowling (120 px/s, none spent) closer, walking (55) winded, turning
+  4.2 rad/s. Within 50 px it swipes (60, knocked back 110 px; impact,
+  free; lands 0.24 s in, 0.7 s between); 200-650 px off,
   with 45 breath in hand, it spends 30 to paw the sand for 0.9 s (the warning) and charge
-  down a locked line at 440 px/s for up to 1.4 s (90 and thrown 240 px to
-  the side, for everyone it runs over), reeling 2.2 s if it runs into
+  down a locked line at 480 px/s for up to 1.4 s (90 and thrown 240 px to
+  the side, for everyone it runs over), reeling 1.6 s if it runs into
   anything; within 442 px, with 45 breath in hand, it spends 35 to rear for 1 s while the cone
   it will scream down shows on every screen (520 px long, 32 degrees
   either side), then screams: everyone in the cone with nothing solid
   between takes up to 70 (impact: knocked down) and is blown back up to
   320 px, both less towards the far end (`ANT_GUARD_SCREAM`, the wave
-  drawn rolling out). Every so often (charge 5 s, scream 7 s apart).
+  drawn rolling out). Every so often (charge 4 s, scream 7 s apart).
   Under 40% it goes for a medkit (bosses/heal.lua) and it dodges
   abilities (bosses/dodge.lua); a freeze holds it half as long. Down: 60
   koins, `serverKill` "boss", and `quests:serverComplete` for
   "a-man-coast", so the EXIT star comes up by its body, which lies there
   for 40 s. `ANT_GUARD` carries its state at 15 Hz (header of guard.lua).
+  It calls for help as it is hurt (`Guard.help`, each once): at 60% and
+  again at 20% a Hunter-Chopper passes over (`serverFlyover`), in from
+  1100 px behind whoever it is after (on the line from the Guard through
+  them, so it comes at their back) to drop 3 rollermines on them (for one
+  human, more with more: `Bosses.count`), already awake, and fly off.
 - The Winding Road, on A-Man's trail after the Coast and the last stop
   before the Citadel: quests' "a-man-road" ("The Winding Road"; the
   Coast's `next`, so the EXIT star by the Antlion Guard's body leads here;
@@ -1254,15 +1462,16 @@ the one with a plot.
   a width and banks per point) are lines of points eased into curves
   (`map.path`, `map.river`); a tile near the road's line is "road",
   further out to `Road.VERGE` (4 tiles either side: room for 8 cars
-  abreast) "ground", in the river "water" (solid),
+  abreast) "ground", in the river "water" (solid, but rounds go over it),
   on its banks or in a wide spot (`Road.SPOTS`, `map.spots`: the
   arrival, the meadow, the lookout and the pass) "ground", and anything
   else is mountain (no tile: the layout's walls make it solid). Where the
   road crosses the river the water under it is decked over: six bridges
   (`map.bridges`, named in `Road.BRIDGES`, `along` the way the road runs
   over them) with railings down both sides (cover kind "rail"): solid to
-  cars and people bumping into them, but `low` (collision.lua's `blocked`
-  skips it), so sight, rounds and walking enemies go over them.
+  cars bumping into them, but `low` (collision.lua's `blocked` skips it),
+  so sight and rounds go over them; anyone on foot is stopped by the river
+  behind.
   About 32,000 px of road, about two minutes cruising in a Scout Car (one
   boosting): up the valley beside the
   river, over it into the meadow and back, up five hairpin legs, west
@@ -1355,7 +1564,7 @@ the one with a plot.
   degrees, 100 on edge, 170 px all round), take 180 health (nine pistol
   rounds), fire uzi bursts of 5 every 1.4 s whose rounds do 8 shock and
   zap you (8 a second for 3 s), and now and then charge a stun shot (10,
-  held 1.2 s). They dodge rounds in flight and abilities about to land,
+  held 1.2 s) down a line they show you for 0.6 s first. They dodge rounds in flight and abilities about to land,
   turn on whoever shoots at them, call the others in range, and when hurt
   go for a medkit (+70) or an energy drink (+30 and quicker for 6 s). Rounds
   owned by nobody pass them by. 8 koins each. `HTR_STATE`, `HTR_DOWN`,
@@ -1475,6 +1684,157 @@ the one with a plot.
   a cold synth arpeggio and metal clanks, a syncopated drop-D riff with
   half-time drums, a chorus with a harmonised lead, a breakdown under the
   Combine's alarm).
+- Night: `src/features/night`. A map whose city-map spec says `night =
+  true` (Grey City's five) is played in the dark: in `drawLens`, under the
+  HUD, it draws a light map the size of the window (a dim blue ambient,
+  `Night.ambient`) and multiplies the world by it. Added onto it: the map's
+  `lights` ({ x, y, r, color, a }, world px: neon, lamps, screens), every
+  driven car's headlights and tail lights, a pool round everyone on foot
+  with a torch beam where they face, and whatever features draw in
+  `drawNightLights`. Draw a night map's own colours as if by day; the night
+  takes them down. A spec's `night` may be a colour { r, g, b } instead of
+  true: that map's own ambient (Fobos Base's dim red). Local only: nothing
+  sent.
+- Cyber Feud: `src/features/cyber-feud` and quests' "cyber-feud" job
+  ("Courier wanted", on the board), design in `docs/cyber-feud.md`. Five
+  maps in Grey City, all at night, chained by EXIT stars like A-Man's:
+  the Drop (`drop`, driven, 64x96), the Market (`market`, walked, 56x56),
+  the Overpass (`overpass`, driven, 32x200), Halcyon Tower (`tower`, walked,
+  48x112) and the Roof (`roof`, walked, 36x36), quests "cyber-feud",
+  "cyber-feud-market", "-overpass", "-tower" and "-roof", each with a HOME
+  star at its `map.cx, map.cy`. City-map builds them all in
+  `city-map/cyber_feud.lua` (what each leaves on the map is in its header:
+  `exitX, exitY`, `zones`, `roads`, `cover`, `signs`, `lights`, the Drop's
+  `pickupX, pickupY` and `vexY`, the tower's `floors`, the Roof's `helipad`)
+  and draws them in `render_cyber_feud.lua`. On the Overpass, the one
+  driven map, anyone without a car is lent a red sedan; the rest are walked. Each level is the way through: the
+  first player within 160 px of the map's `exitX, exitY` finishes it
+  (`quests:serverComplete`), and the star there leads on to the next, or
+  home from the Roof. On the Drop the package comes first: the first player
+  to press the action key (F, `actionTaken`)
+  within 110 px of the vending machine (`map.pickupX, pickupY`) takes the
+  Shard (`CF_TAKE`, checked on the host) and carries it for the rest of the
+  line, a green diamond over them (`CF_SHARD`; if they leave it passes to
+  another human), and the Drop can't be finished without it.
+  The story (`cyber-feud/story.lua` holds every word): arriving on a map
+  puts up its banner (GREY CITY, n / 5, the name, a tagline), after VEX's
+  intro screen (`cyber-feud/screen.lua`, her 64x72 face in `face.lua`) on
+  every map but the Drop, where it waits until someone with the Shard is
+  past `map.vexY` (she boots up in the dash). The host raises story beats
+  once a level each (`CF_BEAT <key>`, `Story.beats`): walking into a part
+  of the map (`map.zones`), the Overpass's dead end (`map.knot`), the far
+  end; each is a line of hers on the comms (`cyber-feud/hud.lua`: her small
+  portrait, the words typed out, one at a time off a queue). Every machine
+  also names the part of the map you walk into (the tower's floors as
+  FLOOR n OF 6) and keeps an objective line with the distance to its
+  point. The factions, the breach and the bosses follow.
+- Eternal Mood: `src/features/eternal-mood` and quests' "eternal-mood"
+  job ("Pest control", on the board), design in `docs/eternal-mood.md`.
+  A dream of a 90s demon shooter, played in the dark, every map on foot.
+  So far two maps. Fobos Base (`fobos`, 56x80): the UAC's moon base, built by
+  `city-map/eternal_mood.lua` (what it leaves on the map is in its header:
+  `exitX, exitY`, `base`, `zones` with an x range and a floor finish each,
+  `cover`, `signs`, `lights`, `alarms`) and drawn by
+  `render_eternal_mood.lua`; nil tiles inside `map.base` are steel wall,
+  outside it the moon, which carries on past the edge (surroundings'
+  `fobos_moon.lua`). Its props (`map.cover`) aren't in the canvas: the
+  eternal-mood feature (priority 27) draws them every frame at full size
+  (`drawProps`), with the reactor's halo, the turning alarm beacons
+  (`map.alarms`) and the strip lights on the blink (`map.flickers`, lit in
+  `drawNightLights`), and the clutter scattered round each room.
+  Everything in it is red, being evil: a red dark (the
+  spec's `night` colour), red-orange lights, and every colour drawn passed
+  through `evil` in the renderer, but for the sludge's sick green. Everyone wakes in the Lab at the bottom and goes up
+  through the Ring and one of the Offices, the Reactor or Toxic Storage to
+  the Hangar's lift: the first player within 160 px of `exitX, exitY`
+  finishes it (`quests:serverComplete`) and its star goes home
+  ("home-fobos" by the Lab's consoles). Heck's horde holds the way
+  (`eternal-mood/horde.lua`, from the map's `horde`: `posts`, `patrols`,
+  `mobs` and `vents`): mobs of Interns (`intern_brain.lua`, melee, 20
+  health) standing about until a player comes near, then all coming at
+  once;
+  the possessed (`possessed_brain.lua`, one head for three ranks: staffers
+  with pistols, guards with shotguns holding the doorways, the overtime guy
+  spinning up a chaingun by the lift; guards and the overtime guy fight
+  like City 17's Combine: cover, sieges and sweeps, grenades) stand at
+  their posts or walk their patrols as squads until they see somebody, groan, and the possessed near them come to look; the imps
+  (`imp_brain.lua`) crawl out of a vent once a player comes within 420 px of
+  it (Bosses.plus of its count), hunt the nearest player, strafe, and throw
+  fireballs (`fireballs.lua`, flown on the host and on every screen,
+  sidestepped at 330 px/s, 14 `fire`; its `KINDS` also fly the boss's
+  plasma). The horde is one side: its rounds
+  carry `from` "horde" and every ownerless round passes through it, so it
+  never hurts itself; only players' rounds and blasts reach it
+  (`serverShotAt`). Kills are `serverKill` "soldier" (the possessed) and
+  "demon" (imps). They talk (`story.lua`'s `horde`), in a bubble. HRD_
+  messages. On arrival the Voice's intro screen (`screen.lua`, `face.lua`,
+  the quest's `introLine`, drawn in `drawScreen` over the HUD) comes up
+  like VEX's, and when it goes the level's theme comes in (`theme_fobos.lua`,
+  `theme_earth.lua`, `theme_foundry.lua`, `theme_heck.lua`, by map:
+  its dream intro once, then the loop). Its boss, the Floor Manager (`floor_manager.lua`, his brain
+  `floor_manager_brain.lua`, FM_ messages, the map's `horde.boss`; an
+  Arachnotron: a brain on a spider walker, streaming plasma that flies as
+  fireballs.lua's "plasma", with a cannon that can be shot off), waits
+  on the Hangar's lift until a player walks into the Hangar, and keeps the
+  lift locked (`serverLocked`, drawn OUT OF SERVICE) until he is down; he
+  follows the bosses' standard. His lift's EXIT star leads on to Heck on
+  Earth (`earth`, 40x160, quest "eternal-mood-earth", "home-earth" by the
+  shuttle): one long road north through a burning city, from the UAC's
+  Depot through the Suburbs, Downtown and round the Crater, up the
+  Boulevard to the starport's gate, which finishes it. The same builder
+  and renderer: it leaves no `base` but `grounds` (a floor finish per
+  walked patch, the last one wins) and `roofs` (a building per box, drawn
+  in its `style`; nil tiles under none are burnt waste ground), wrecks,
+  lamps, fires (`flickers` with `fire`) and the Crater's lava in `cover`,
+  and the same `horde` (its vents with a `look`, manhole or crack, and
+  `cacos`: flocks of Cacodaemons, `cacodaemon_brain.lua`, the heavy demon
+  that floats over walls, spits balls of fire after a mouth-open tell and
+  reels when shot in the mouth; fireballs.lua's "spit"). Past
+  its edge the city burns on (surroundings' `heck_on_earth.lua`). Its boss,
+  the Mancouchbus (`mancubus.lua`, `mancubus_brain.lua`, `mancubus_look.lua`,
+  MC_ messages; the map's `horde.boss` with `kind` "mancubus", where the
+  Floor Manager's is "floor-manager"), sits on tank treads in front of the
+  starport's gate and keeps it closed (`serverLocked`) until he is down:
+  rockets from two launchers (the weapons feature's, ownerless, from the
+  horde) in volleys and sweeping fans, a belly bump, Cacodaemons called in
+  (horde.lua's `serverCall` "caco"), double damage in his back. Down, he
+  drops the Mood Slayer's helmet for every player (`Mancubus.HELMET`, the
+  gear feature's won piece, which unlocks it in the shop). His gate
+  leads on to the Foundry (`foundry`, 56x64, quest "eternal-mood-foundry",
+  "home-foundry" by the shuttle): the UAC's factory, half turned to Heck,
+  from the Landing Pad over the Conveyors and through the Smelters to the
+  Crucible and the portal behind it. The same builder and renderer, with
+  `outside` "tarmac" (the starport past the walls, surroundings'
+  `starport_pads.lua`), `heckFrom` (north of it the walls are rock), and
+  `belts`: a moving floor that carries whoever stands on it (the
+  eternal-mood feature's `belts.lua`, on the host, players and the horde).
+  Its boss, the Baron of Heck (`baron.lua`, `baron_brain.lua`,
+  `baron_look.lua`, BR_ messages; the map's `horde.boss` kind "baron"),
+  stands on the Crucible's ring: green fireballs in pairs (fireballs.lua's
+  "baron"), a charge that stuns him if it ends in a wall, a claw, a roar
+  that throws you back and calls imps out of the lava (horde.lua's
+  `serverCall` "imp"). He drops the Snooze Gate's key; the portal stays
+  sealed (`serverLocked`) until somebody picks it up. He also drops the
+  super shotgun for every player (`Baron.GUN`, a won gun), clear of the key
+  and the lava. Lava on these maps is
+  `low` (`map.lows`): sight and rounds pass over, a player walking in it
+  burns, and the horde keeps out of it (`ground.lua`'s `Ground.blocked`
+  and `Ground.clear` stand in for Sight's in every walker's brain, and it
+  shuts the walking grid's cells over the lava). The Foundry's portal leads
+  on to Heck (`heck`, 60x96, quest "eternal-mood-heck", "home-heck" by the
+  portal): a sea of lava crossed by bone bridges, the Altar Fields with
+  the pizza box sinking in a lake to the east, and the Mattress's plateau
+  before the Snooze Gate. Its lava is poured from tiles into as few low
+  rectangles as it takes; `outside` "abyss" (past the edge, surroundings'
+  `heck.lua`). Its boss, the Spider Mattressmind (`mattressmind.lua`,
+  `mattressmind_brain.lua`, `mattressmind_look.lua`, SM_ messages; the
+  map's `horde.boss` kind "mattressmind"), sits on its mattress before the
+  Snooze Gate and keeps it locked (`serverLocked`): a chaingun (the
+  weapons feature's minigun, ownerless, from the horde) whose aim drags
+  after you, a leg slam, a yawn that pulls players in (it moves their
+  bodies on the host, as the belts do) and snaps shut, imps and a
+  Cacodaemon called in, and its mattress soaking up rounds from the front.
+  The last map follows.
 - Events: `src/features/events` is something big happening in the city.
   One event at a time, only on the default city map and off a quest; a map
   change calls it off. When one starts every minimap flashes red where the
@@ -1485,7 +1845,10 @@ the one with a plot.
   from the F8 menu (`event-menu` in Controls: a number key or a click picks
   an event, and the menu can call off the one that is on) or any feature with
   `events:serverTrigger(server, key)`, which returns false and a reason
-  ("busy", "away", "nowhere") when it can't. Each kind of event is a module
+  ("busy", "away", "nowhere", "locked") when it can't. An event whose boss
+  comes from a quest waits until that quest is finished (`Events.after`:
+  Bigfoot after the alien hunt, A-Man after A-Man's quest; the Runner and
+  the Tripod are always open), greyed out in the menu until then. Each kind of event is a module
   in that folder listed in `Events.kinds` (the header of `events/init.lua`
   says what one has); the first is Bigfoot (`events/bigfoot.lua`): he comes
   in on a road away from everyone and goes for the nearest player, or the
@@ -1584,7 +1947,19 @@ the one with a plot.
   human grown by `Bosses.perHuman` of the base for each human past the
   first (two humans, double), counted when it spawns. Hunters grow slower,
   `Bosses.plus(base, server)`: one more for each human past the first
-  (`Bosses.extra`). Badly hurt, a boss
+  (`Bosses.extra`). A job finished before in this world comes back harder
+  (`Bosses.rage`, up to 10 clears of the job under way, `Bosses.clears()`;
+  0 off a quest, so city events never change): `Bosses.health` is +25% a
+  clear, `Bosses.count` and `Bosses.plus` +20%, a boss's own hits are
+  times `Bosses.power()` (+15%), and a regular enemy takes
+  `Bosses.enemyHealth(base)` (+10%) and `Bosses.enemyPower()` on its hits
+  (+10%). Ownerless rounds (`weapons:serverFireFrom` with owner 0) are
+  multiplied there already: `Bosses.enemyPower()`, or `Bosses.power()` for
+  a gun marked `bossGun` (wrap a shared gun, never mutate it); a gun's
+  `blast` is not. A boss's per-player drop of a tiered item rolls its tier
+  with `Bosses.dropTier(rows)` (`Bosses.dropTiers`: always common the first
+  time, legendary possible from the fourth). The boss bar adds "HARDER xN"
+  (Karen's says ANGRIER). Badly hurt, a boss
   breaks off for a medkit lying near it (`bosses/heal.lua`: under 40% of
   its health, within 700 px, +200), and it gets out from under a player's
   ability about to land on it once it has had 0.2 s to see it
@@ -1615,7 +1990,11 @@ the one with a plot.
   draws over every other HUD piece (priority 993), under only the inventory.
   On sale: every gun and a box of its rounds, every ability, a medkit, an
   energy drink and a grenade (the Supplies tab), armor and clothes (the Gear tab) and every car model, built into `shop/catalog.lua` from the other features'
-  lists, so a new gun or model is on the shelf by itself. A click on a card
+  lists, so a new gun or model is on the shelf by itself. An entry marked
+  `unlock` (the electric grenade, the Mood Slayer's helmet, the super shotgun) is only on the shelf, and only sold, to a
+  player who has unlocked it: the feature that owns it answers
+  `itemUnlocked(item)` on their screen and `serverItemUnlocked(server,
+  player, item)` on the host. A click on a card
   shows it in a side panel on the right (`shop/details.lua`): a bigger
   picture, its `blurb`, how it is used and its numbers in the tier on show,
   those the tier improves in the tier's colour. Give a new gun, ability,

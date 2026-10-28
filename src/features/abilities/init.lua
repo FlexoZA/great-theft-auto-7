@@ -21,7 +21,8 @@
 -- ring: point at one and let go of the key (or click it) to switch. The
 -- mode it is on is named under its ring, goes up with the cast (ABL_CAST)
 -- and out with ABL_FIRED, and the ability's `serverCast` gets it as its
--- last argument, its `drawAim` and effects as `mode` / `e.mode`.
+-- last argument, its `drawAim` and effects as `mode` / `e.mode`. `drawAim`
+-- gets the ability in its tier after that, as `serverCast` does.
 --
 -- An ability may fly something about (leap.lua flies its caster to the
 -- landing spot): its `onFired(e, client)` hears the cast, its
@@ -110,7 +111,8 @@ local Kinds = require("src.features.abilities.kinds")
 local Icons = require("src.features.abilities.icons")
 local Tiers = require("src.features.tiers")
 local Freeze = require("src.features.abilities.freeze")
-local Leap = require("src.features.abilities.leap")
+local Shield = require("src.features.abilities.shieldwall")
+local JetRun = require("src.features.abilities.jetrun")
 local Chicken = require("src.features.abilities.chicken")
 
 local Abilities = {
@@ -603,7 +605,7 @@ function Abilities:drawAboveCars(client)
     local x, y = self:target(client, ability)
     if x and placed(ability) and ability.drawAim then
       local mode = self:modeOf(ability)
-      ability.drawAim(ox, oy, x, y, self.time, mode and mode.key)
+      ability.drawAim(ox, oy, x, y, self.time, mode and mode.key, ability)
     elseif x then
       local c = ability.color
       love.graphics.setLineWidth(1)
@@ -841,7 +843,7 @@ Abilities.clientMessages = {
     end
     for i = 8, #args do
       local id = tonumber(args[i])
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         Abilities.heldUntil[id] = Abilities.time + seconds
       end
     end
@@ -881,7 +883,7 @@ Abilities.clientMessages = {
     end
     for i = 2, #args do
       local id = tonumber(args[i])
-      if id then
+      if id and id == id then -- never NaN: it can't be a key
         Abilities.heldUntil[id] = Abilities.time + seconds
       end
     end
@@ -909,6 +911,14 @@ Abilities.clientMessages = {
     end
   end,
 }
+
+-- An ability may bring messages of its own (`clientMessages` in its module:
+-- the jet run's ABL_JETSEEK), handled here like the rest.
+for _, ability in ipairs(Kinds.list) do
+  for kind, handler in pairs(ability.clientMessages or {}) do
+    Abilities.clientMessages[kind] = handler
+  end
+end
 
 -- Server --------------------------------------------------------------------
 
@@ -1120,6 +1130,8 @@ function Abilities:mapChanged(_map, server)
   if server and self.sv then
     self.sv.players, self.sv.bodies, self.sv.cars = {}, {}, {}
     Freeze.serverReset() -- a warning on the old map lands nowhere
+    Shield.serverReset() -- nor does a wall stand there
+    JetRun.serverReset() -- nor a run fly on, or its rockets land
   end
 end
 
@@ -1137,11 +1149,22 @@ function Abilities:serverIncoming()
   return list
 end
 
+--- Is player `id` flown by an ability on the host (a leap, a jet run)?
+--- Each that flies its caster answers `serverAirborne(id)`.
+local function airborne(id)
+  for _, ability in ipairs(Kinds.list) do
+    if ability.serverAirborne and ability.serverAirborne(id) then
+      return true
+    end
+  end
+  return false
+end
+
 --- The `serverHeld` convention: is this player held still on the host
 --- (frozen, or in the air)?
 function Abilities:serverHeld(_server, player)
   local sv = self.sv
-  return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or Leap.serverLeaping(player.id))
+  return sv ~= nil and ((sv.players[player.id] or 0) > sv.time or airborne(player.id))
 end
 
 --- The `serverHidden` convention (`Features.visible` asks): is this player
@@ -1177,8 +1200,8 @@ end
 --- this via Features.byName.abilities.
 function Abilities:serverHold(server, player, seconds)
   local sv = self.sv
-  if not (sv and Features.present(player)) or Leap.serverLeaping(player.id) then
-    return false -- nobody to hold, or in the air: nothing holds a leaper
+  if not (sv and Features.present(player)) or airborne(player.id) then
+    return false -- nobody to hold, or in the air: nothing holds a leaper or a jet
   end
   sv.players[player.id] = math.max(sv.players[player.id] or 0, sv.time + seconds)
   if player.vehicle then
@@ -1238,6 +1261,20 @@ function Abilities:serverStep(server, dt)
       ability.serverTick(server, player, dt, self, ability)
     end
   end
+end
+
+--- The `serverShotAt` convention, for whatever an ability leaves standing
+--- in the world that stops rounds (the shield wall's dome): each one with
+--- a `serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)`
+--- is asked in turn, and the first answer (a material) is ours.
+function Abilities:serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+  for _, ability in ipairs(Kinds.list) do
+    local hit = ability.serverShotAt and ability.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
+    if hit then
+      return hit
+    end
+  end
+  return nil
 end
 
 --- A passive ability tells its carrier what it is up to: `phase` is

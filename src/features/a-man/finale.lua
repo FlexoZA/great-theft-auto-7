@@ -25,7 +25,8 @@
 -- out at once. Every count is for one human, more with more (Bosses.count).
 --
 -- Down: the disguise is left lying there, he spills koins and his teleport
--- (a better roll than the event's, `dropTiers`), raises `serverKill` with
+-- (a better roll than the event's, `dropTiers`, better again each time the
+-- job has been finished: Bosses.dropTier), raises `serverKill` with
 -- kind "boss", and the level is done (quests' `serverComplete`): the EXIT
 -- star comes up where he fell.
 --
@@ -45,6 +46,7 @@ local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Teleport = require("src.features.abilities.teleport")
@@ -78,7 +80,7 @@ Finale.strikeRange = 600 -- px; a target this close gets a blink straight throug
 Finale.overshoot = 200 -- px he comes out past them
 Finale.reach = 2600 -- px; a target further than this he walks towards
 Finale.approachGap = 220 -- px from a far target he lands
-Finale.damage = 70 -- to everyone on his line
+Finale.damage = 70 -- to everyone on his line; times Bosses.power()
 Finale.width = Teleport.width
 Finale.healRange = 1600
 Finale.hordeRange = 1000 -- px; he opens the case with a player this close (the brain's name for it)
@@ -91,7 +93,16 @@ Finale.rage = 0.3 -- share of his health under which two things come out at once
 Finale.bulletDamage = 20 -- what a round takes off him when it doesn't say (a blast)
 Finale.drops = 150 -- koins he spills
 Finale.drop = "ability-teleport"
-Finale.dropTiers = { { "uncommon", 40 }, { "rare", 45 }, { "legendary", 15 } }
+-- His teleport's tier, one row for each time the job has been finished
+-- before (Bosses.dropTier; the last row from then on), chances in a hundred.
+Finale.dropTiers = {
+  { uncommon = 40, rare = 45, legendary = 15 }, -- the first time
+  { uncommon = 35, rare = 46, legendary = 19 },
+  { uncommon = 30, rare = 47, legendary = 23 },
+  { uncommon = 25, rare = 48, legendary = 27 },
+  { uncommon = 20, rare = 48, legendary = 32 },
+  { uncommon = 15, rare = 47, legendary = 38 }, -- the sixth time and every time after
+}
 -- What can come out of the case, how likely, and how many for one human.
 Finale.SUMMONS = {
   { kind = "soldiers", weight = 3, count = 4, say = "Some... colleagues." },
@@ -179,7 +190,9 @@ local function arrive(server, map, p)
   sv.waiting = false
   sv.a = {
     x = x, y = y, facing = math.atan2(py - y, px - x), hp = hp, max = hp, frozen = Finale.arriveTime,
+    power = Bosses.power(), -- his blinks, times this
     moving = false, breath = Stamina.new(Finale.breath), cool = Finale.arriveTime + Finale.blinkEvery,
+    nav = Brain.nav({ x = map.left, y = map.top, w = map.w, h = map.h }, Finale.radius),
   }
   sv.owed, sv.nextCaseAt, sv.caseIn = 0, hp * (1 - Finale.caseShare), 0
   server:broadcast(Protocol.encode("AMF_IN", fmt(x), fmt(y), ("%.2f"):format(sv.a.facing)))
@@ -190,7 +203,7 @@ local function blink(server, a)
   local sx, sy, ex, ey = a.x, a.y, a.aimX, a.aimY
   a.aimX, a.aimY = nil, nil
   sv.blinking = true -- his own line doesn't hit him
-  Teleport.serverThrough(server, sx, sy, ex, ey, Finale.damage, Finale.width, nil, nil)
+  Teleport.serverThrough(server, sx, sy, ex, ey, Finale.damage * a.power, Finale.width, nil, nil)
   if not sv then
     return
   end
@@ -336,22 +349,6 @@ function Finale.serverStep(server, dt, map)
   sync(server)
 end
 
---- A tier from `dropTiers`, as likely as its weight.
-local function rollTier()
-  local total = 0
-  for _, t in ipairs(Finale.dropTiers) do
-    total = total + t[2]
-  end
-  local roll = random() * total
-  for _, t in ipairs(Finale.dropTiers) do
-    roll = roll - t[2]
-    if roll < 0 then
-      return t[1]
-    end
-  end
-  return Finale.dropTiers[1][1]
-end
-
 --- He goes down: the disguise, koins, his teleport, the level done.
 local function down(server, by, angle, cause)
   local a = sv.a
@@ -375,7 +372,7 @@ local function down(server, by, angle, cause)
         break
       end
     end
-    pickups:serverDrop(server, Finale.drop .. "@" .. rollTier(), dx, dy)
+    pickups:serverDrop(server, Tiers.join(Finale.drop, Bosses.dropTier(Finale.dropTiers)), dx, dy)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle, cause = cause })
   local quests = Features.byName.quests
@@ -392,7 +389,7 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     return false
   end
   if Turrets.hit(sv.turrets, server, x, y, radius) then
-    return true
+    return "metal"
   end
   local a = sv.a
   if not a or dist2(a.x, a.y, x, y) >= (radius + Finale.radius) ^ 2 then
@@ -404,6 +401,77 @@ function Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     down(server, by, angle, dtype)
   end
   return true
+end
+
+--- Every enemy of his in the world right now, for the audit (tools/audit):
+--- his turrets, and him once he has come (nothing hits him mid-blink).
+function Finale.serverEnemies(_server, add)
+  if not sv or sv.done then
+    return
+  end
+  Turrets.enemies(sv.turrets, "a-man/finale-turret", add)
+  local a = sv.a
+  if a then
+    add({
+      id = a,
+      kind = "a-man/finale",
+      x = a.x,
+      y = a.y,
+      hp = a.hp,
+      radius = Finale.radius,
+      immune = sv.blinking == true,
+    })
+  end
+end
+
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Finale.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local pistol = Features.byName.weapons.guns.pistol
+  local NAMES = { soldiers = "Combine soldiers", hunters = "Hunters", rollermines = "rollermines",
+    antlions = "antlions", turrets = "sentry turrets" }
+  local summons = {}
+  for _, sm in ipairs(Finale.SUMMONS) do
+    summons[#summons + 1] = ("%g %s"):format(sm.count, NAMES[sm.kind] or sm.kind)
+  end
+  add({
+    kind = "a-man/finale",
+    name = "A-Man",
+    quests = { Finale.questId },
+    boss = true,
+    where = "The top of the Citadel, once someone steps onto the top platform",
+    about = "The end of the trail. The same man in the same joke-shop disguise, much stronger now: he blinks "
+      .. "straight through you, and his briefcase holds everything you met on the way up.",
+    stats = {
+      { "Health", Finale.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Finale.health / pistol.damage)) },
+      { "Speed", Finale.walkSpeed, "px/s, never hurrying" },
+    },
+    weapons = {
+      { "Blink", ("%g impact damage to everyone on the line he tears along, through anyone within %g px, coming "
+        .. "out %g px past them"):format(Finale.damage, Finale.strikeRange, Finale.overshoot) },
+      { "Briefcase", ("out comes one of: %s (for one player, more with more), never the same twice running")
+        :format(table.concat(summons, ", ")) },
+    },
+    abilities = {
+      ("The line of a blink shows for %g s before he goes; he blinks every %g to %g s, breath allowing."):format(
+        Finale.windup, Finale.blinkEvery, Finale.blinkEvery + Finale.blinkJitter),
+      ("Every %g%% of his health you take earns a case: he holds it up for %g s, then it snaps open."):format(
+        Finale.caseShare * 100, Finale.caseTime),
+      ("Under %g%% health two things come out of the case at once."):format(Finale.rage * 100),
+      "Nothing hits him mid-blink.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, by blink if he can, for %g health."):format(
+        Heal.below * 100, Finale.healRange, Heal.amount),
+      "Hurries out from under a player's ability about to land on him.",
+    },
+    tips = {
+      "Step off the line while it shows.",
+      "Deal with what comes out of the case before it piles up, and shoot him while he holds it up.",
+      "A freeze holds him, but only for half as long; a stink throws him off the blink he was aiming.",
+    },
+    dropsItems = { Finale.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
+    drops = ("%g koins and his teleport ability, uncommon or better"):format(Finale.drops),
+  })
 end
 
 --- A stink at (x, y) throws him off the blink he was aiming.

@@ -147,10 +147,14 @@ Buildings.drinkStamina = 60 -- stamina an energy drink gives back
 -- BLD_USE's, the item first). Each slot holds one stack (`max`). One that
 -- is `aimed` (the grenade) isn't used by its key: the feature that owns it
 -- readies it on the key and sends BLD_USE with a target on a click, and
--- `ready()` says whether it is readied, for its HUD circle.
+-- `ready()` says whether it is readied, for its HUD circle. A slot may take
+-- other `variants` of its item too (the grenade slot: Volt's electric
+-- grenades), one kind at a time: each by its item, with the title and
+-- colour it shows while it holds them. The slot keeps its first item's
+-- name, key and cooldown; BLD_USE names the item, so `apply` knows which.
 Buildings.usables = {
   {
-    item = "medkit", action = "use-medkit", label = "Use a medkit", key = "h", title = "medkits",
+    item = "medkit", action = "use-medkit", label = "Use a medkit", key = "q", title = "medkits",
     color = { 0.95, 0.3, 0.3 }, cooldown = 8, fullReason = "healthy",
     apply = function(server, player)
       local weapons = Features.byName.weapons
@@ -162,7 +166,7 @@ Buildings.usables = {
     end,
   },
   {
-    item = "drink", action = "use-drink", label = "Drink an energy drink", key = "j", title = "drinks",
+    item = "drink", action = "use-drink", label = "Drink an energy drink", key = "e", title = "drinks",
     color = { 0.3, 0.6, 1 }, cooldown = 8, fullReason = "stamina",
     apply = function(server, player)
       local onFoot = Features.byName["on-foot"]
@@ -173,20 +177,38 @@ Buildings.usables = {
   {
     item = "grenade", action = "grenade", label = "Ready a grenade (click throws it)", key = "g", title = "grenades",
     color = { 0.55, 0.7, 0.3 }, cooldown = 1, fullReason = "cantthrow", aimed = true,
+    -- Volt's (the grenades feature's): dropped by him, then sold and dropped
+    -- by enemies for whoever has had one.
+    variants = { ["grenade-electric"] = { title = "electric", color = { 0.18, 0.9, 1 } } },
     ready = function()
       local grenades = Features.byName.grenades
-      return grenades ~= nil and grenades.readied
+      return grenades ~= nil and grenades.readied ~= false
     end,
     apply = function(server, player, args)
       local grenades = Features.byName.grenades
-      return grenades ~= nil and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]))
+      return grenades ~= nil and grenades:serverThrow(server, player, tonumber(args[2]), tonumber(args[3]), args[1])
     end,
   },
 }
 Buildings.usableByItem = {}
 for _, u in ipairs(Buildings.usables) do
   u.max = Kinds.stack(u.item)
-  Buildings.usableByItem[u.item] = u
+  u.items = { u.item } -- the slot's own item first, then its variants
+  for item in pairs(u.variants or {}) do
+    u.items[#u.items + 1] = item
+  end
+  table.sort(u.items, function(a, b)
+    return (a == u.item) or (b ~= u.item and a < b)
+  end)
+  for _, item in ipairs(u.items) do
+    Buildings.usableByItem[item] = u
+  end
+end
+
+--- What a quick slot looks like while it holds `item`: its title and colour.
+function Buildings.look(u, item)
+  local v = u.variants and u.variants[item]
+  return v and v.title or u.title, v and v.color or u.color
 end
 Buildings.menuKeys = 8 -- menu rows, each on its own key (1..8 by default)
 Buildings.padSize = 40 -- px; the square on the sidewalk you use a building from
@@ -228,6 +250,8 @@ local REASONS = {
   nogrenade = "No grenades in your grenade slot: drag some there on the inventory screen.",
   nogrenades = "You carry no grenades.",
   grenadecool = "Pull the next pin in a moment.",
+  ["nogrenade-electric"] = "No electric grenades in your grenade slot: drag some there on the inventory screen.",
+  ["nogrenade-electrics"] = "You carry no electric grenades.",
   cantthrow = "You can't throw a grenade from here.",
   stamina = "Your stamina is full.",
   quickfull = "That slot is full.",
@@ -406,6 +430,11 @@ function Buildings:blocksPoint(x, y)
   return false
 end
 
+--- The `blocksShot` convention: rounds and looks stop at the same walls.
+function Buildings:blocksShot(x, y)
+  return self:blocksPoint(x, y)
+end
+
 -- Client --------------------------------------------------------------------
 
 -- plot id -> { kind, owner, public, product, price, output, progress, running, hopper, pays, hp, hitAt }
@@ -413,7 +442,7 @@ Buildings.buildings = {}
 Buildings.inventory = {} -- item -> count, mine
 Buildings.slots = Kinds.SLOTS -- how many inventory slots I have
 Buildings.quick = {} -- item -> how many are in its quick slot (the host says: BLD_QUICK)
-Buildings.useLeft = {} -- item -> seconds until it may be used again (BLD_USED)
+Buildings.useLeft = {} -- a slot's item -> seconds until it may be used again (BLD_USED)
 Buildings.menu = false -- is the building menu open?
 -- nil for the menu's main page, "prices" for the owner's prices, "sell" for
 -- its selling price, "offer" for one material's, "product" to pick what it makes
@@ -810,10 +839,11 @@ end
 --- Why `item` can't be used from its quick slot right now (nothing in it,
 --- still cooling down) as a line to show, or nil when it can.
 function Buildings:unusable(item)
+  local u = self.usableByItem[item]
   if self:quickCount(item) < 1 then
     return REASONS["no" .. item]
-  elseif self.useLeft[item] then
-    return REASONS[item .. "cool"]
+  elseif u and self.useLeft[u.item] then
+    return REASONS[u.item .. "cool"]
   end
   return nil
 end
@@ -1262,10 +1292,11 @@ local function drawUsableHud(self, u, index)
     cx = math.floor(w / 2) + (2 + index) * step
   end
   local cy = h - bottom
-  local c = u.color
   local small, body = UI.fonts.small, UI.fonts.body
   local key = Controls.name(Controls.bindings(u.action)[1])
-  local count, left = self:quickCount(u.item), self.useLeft[u.item]
+  local item, count = self:slotOf(u)
+  local title, c = Buildings.look(u, item)
+  local left = self.useLeft[u.item]
   local ready = u.ready and u.ready()
   local middle, middleColor
   if ready then
@@ -1274,7 +1305,7 @@ local function drawUsableHud(self, u, index)
     love.graphics.setColor(c[1], c[2], c[3], 0.25 + 0.2 * pulse)
     love.graphics.circle("fill", cx, cy, r + 6 + 3 * pulse, 48)
     UI.ring(cx, cy, r, left and 1 - left / u.cooldown or 1, c, 5)
-    Render.grenade(cx, cy + 1, 1)
+    Render.grenade(cx, cy + 1, 1, item == "grenade-electric")
     middle = ""
   elseif count < 1 then
     UI.ring(cx, cy, r, 0, { 1, 1, 1 }, 4)
@@ -1302,7 +1333,7 @@ local function drawUsableHud(self, u, index)
   love.graphics.setFont(body)
   UI.label(middle, cx - math.floor(body:getWidth(middle) / 2), cy - math.floor(body:getHeight() / 2), middleColor)
   love.graphics.setFont(small)
-  local title = ready and "click: throw" or u.title
+  title = ready and "click: throw" or title
   UI.label(title, cx - math.floor(small:getWidth(title) / 2), cy + r + 4,
     ready and c or count > 0 and { 0.9, 0.9, 0.95 } or { 0.6, 0.6, 0.65 })
   if count > 0 then
@@ -1533,6 +1564,30 @@ function Buildings:quickCount(item)
   return self.quick[item] or 0
 end
 
+--- What my quick slot `u` holds: the item (its own when empty) and how many.
+function Buildings:slotOf(u)
+  for _, item in ipairs(u.items) do
+    if (self.quick[item] or 0) > 0 then
+      return item, self.quick[item]
+    end
+  end
+  return u.item, 0
+end
+
+--- How many more of `item` its quick slot takes: none while it holds another
+--- kind (dragging them there swaps, but a pickup or the shop leaves it be).
+function Buildings:quickRoom(item)
+  local u = self.usableByItem[item]
+  if not u then
+    return 0
+  end
+  local held, n = self:slotOf(u)
+  if n > 0 and held ~= item then
+    return 0
+  end
+  return u.max - n
+end
+
 --- Ask to move the `item`s I carry out of the bag into their quick slot,
 --- as many as fit (the inventory screen does, on a drag).
 --- Ask the host to destroy `n` of `item` from the bag (the inventory
@@ -1547,10 +1602,14 @@ function Buildings:quickPut(client, item)
   local u = self.usableByItem[item]
   if not u then
     return
-  elseif (self.inventory[item] or 0) < 1 then
+  end
+  local held, n = self:slotOf(u)
+  if (self.inventory[item] or 0) < 1 then
     say(REASONS["no" .. item .. "s"])
-  elseif self:quickCount(item) >= u.max then
+  elseif held == item and n >= u.max then
     say(REASONS.quickfull)
+  elseif held ~= item and n > 0 and Kinds.room(self.inventory, self.slots, held) < n then
+    say(REASONS.quickroom) -- what is in it now goes back into the bag
   else
     send(client, "BLD_QUICK_PUT", item)
   end
@@ -1670,9 +1729,26 @@ function Buildings:serverQuick(id, item)
   return q and q[item] or 0
 end
 
+--- What `id`'s quick slot `u` holds on the host: the item (nil when empty) and how many.
+local function serverSlot(id, u)
+  for _, item in ipairs(u.items) do
+    local n = Buildings:serverQuick(id, item)
+    if n > 0 then
+      return item, n
+    end
+  end
+  return nil, 0
+end
+
 --- How many of `item` player `id` carries, on the host.
 function Buildings:serverCount(id, item)
   return sv and sv.stock[id] and sv.stock[id][item] or 0
+end
+
+--- How many more of `item` player `id` has room for, on the host (0 with
+--- no game). Pickups asks before saying a bag is full.
+function Buildings:serverRoomFor(id, item)
+  return sv and roomFor(id, item) or 0
 end
 
 --- Take up to `n` of `item` out of `player`'s inventory and tell them.
@@ -1708,14 +1784,17 @@ end
 
 --- Put up to `n` of `item` straight into `player`'s quick slot for it, as
 --- many as fit, and tell them. Returns how many went in (0 when it has no
---- quick slot, the slot is full or there is no game). Pickups stashes a
+--- quick slot, the slot is full or holds another kind, or there is no game). Pickups stashes a
 --- medkit found at full health this way.
 function Buildings:serverQuickGive(server, player, item, n)
   local u = sv and player.body and self.usableByItem[item]
   if not u then
     return 0
   end
-  local slot = self:serverQuick(player.id, item)
+  local held, slot = serverSlot(player.id, u)
+  if held and held ~= item then
+    return 0 -- it holds the other kind: into the bag instead
+  end
   local given = math.max(0, math.min(n, u.max - slot))
   if given > 0 then
     setQuick(server, player, item, slot + given)
@@ -2159,20 +2238,21 @@ Buildings.serverMessages = {
   end),
 
   BLD_USE = refusing(function(server, player, args)
-    local u = sv and Buildings.usableByItem[args[1] or ""]
+    local item = args[1] or ""
+    local u = sv and Buildings.usableByItem[item]
     if not u then
       return
     end
     local used = sv.usedAt[player.id] or {}
     sv.usedAt[player.id] = used
-    if Buildings:serverQuick(player.id, u.item) < 1 then
-      return "no" .. u.item
+    if Buildings:serverQuick(player.id, item) < 1 then
+      return "no" .. item
     elseif sv.time - (used[u.item] or -math.huge) < u.cooldown then
       return u.item .. "cool"
     elseif not u.apply(server, player, args) then
       return u.fullReason
     end
-    setQuick(server, player, u.item, Buildings:serverQuick(player.id, u.item) - 1)
+    setQuick(server, player, item, Buildings:serverQuick(player.id, item) - 1)
     used[u.item] = sv.time
     server:send(player, Protocol.encode("BLD_USED", u.item, u.cooldown))
   end),
@@ -2186,36 +2266,48 @@ Buildings.serverMessages = {
     addStock(server, player, item, -math.min(have, math.max(1, math.floor(n))))
   end,
 
+  -- Into a slot that holds the other kind (grenades for electric ones), a
+  -- swap: what is in it goes back into the bag first, all of it or nothing.
   BLD_QUICK_PUT = refusing(function(server, player, args)
-    local u = sv and player.body and Buildings.usableByItem[args[1] or ""]
+    local item = args[1] or ""
+    local u = sv and player.body and Buildings.usableByItem[item]
     if not u then
       return
     end
-    local have, slot = stockOf(player.id)[u.item] or 0, Buildings:serverQuick(player.id, u.item)
+    local have = stockOf(player.id)[item] or 0
+    local held, slot = serverSlot(player.id, u)
     if have < 1 then
-      return "no" .. u.item .. "s"
-    elseif slot >= u.max then
+      return "no" .. item .. "s"
+    elseif held == item and slot >= u.max then
       return "quickfull"
+    elseif held and held ~= item then
+      if roomFor(player.id, held) < slot then
+        return "quickroom"
+      end
+      setQuick(server, player, held, 0)
+      addStock(server, player, held, slot)
+      slot = 0
     end
-    local n = math.min(have, u.max - slot)
-    addStock(server, player, u.item, -n)
-    setQuick(server, player, u.item, slot + n)
+    local n = math.min(stockOf(player.id)[item] or 0, u.max - slot)
+    addStock(server, player, item, -n)
+    setQuick(server, player, item, slot + n)
   end),
   BLD_QUICK_TAKE = refusing(function(server, player, args)
-    local u = sv and player.body and Buildings.usableByItem[args[1] or ""]
+    local item = args[1] or ""
+    local u = sv and player.body and Buildings.usableByItem[item]
     if not u then
       return
     end
-    local slot = Buildings:serverQuick(player.id, u.item)
+    local slot = Buildings:serverQuick(player.id, item)
     if slot < 1 then
       return "quickempty"
     end
-    local n = math.min(slot, roomFor(player.id, u.item))
+    local n = math.min(slot, roomFor(player.id, item))
     if n < 1 then
       return "quickroom"
     end
-    setQuick(server, player, u.item, slot - n)
-    addStock(server, player, u.item, n)
+    setQuick(server, player, item, slot - n)
+    addStock(server, player, item, n)
   end),
 }
 
@@ -2311,6 +2403,7 @@ end
 
 --- The index of `item` among `kind`'s products, or nil.
 local function productIndex(kind, item)
+  item = Kinds.current(item)
   for i, p in ipairs(kind.products or {}) do
     if p == item then
       return i
@@ -2416,8 +2509,9 @@ function Buildings:serverLoadPlayer(server, player, data)
   local stock = {}
   if type(data.stock) == "table" then
     for item, n in pairs(data.stock) do
+      item = type(item) == "string" and Kinds.current(item) or item
       if type(item) == "string" and Kinds.carriable(item) and type(n) == "number" and n >= 1 and n < 1e6 then
-        stock[item] = math.floor(n)
+        stock[item] = (stock[item] or 0) + math.floor(n) -- a renamed item joins what it is now
       end
     end
   end
@@ -2435,9 +2529,21 @@ function Buildings:serverLoadPlayer(server, player, data)
   for _, item in ipairs(items) do
     server:send(player, Protocol.encode("BLD_INV", item, stock[item]))
   end
+  -- One kind to a slot: a second kind saved in it (from before slots took
+  -- variants) goes into the bag.
   local quick = type(data.quick) == "table" and data.quick or {}
   for _, u in ipairs(Buildings.usables) do
-    setQuick(server, player, u.item, math.floor(bounded(quick[u.item], 0, u.max, 0)))
+    local held = nil
+    for _, item in ipairs(u.items) do
+      local n = math.floor(bounded(quick[item], 0, u.max, 0))
+      if n > 0 and held then
+        stock[item] = (stock[item] or 0) + n
+        server:send(player, Protocol.encode("BLD_INV", item, stock[item]))
+        n = 0
+      end
+      held = held or (n > 0 and item)
+      setQuick(server, player, item, n)
+    end
   end
 end
 

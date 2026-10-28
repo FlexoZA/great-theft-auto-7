@@ -2,10 +2,15 @@
 -- nearest filtering for a chunky pixel look. One draw call per frame.
 
 local Layout = require("src.features.city-map.layout")
+local Shade = require("src.features.city-map.shade")
 local Buildings = require("src.features.city-map.buildings")
 local RenderCitadel = require("src.features.city-map.render_citadel")
 local RenderCoast = require("src.features.city-map.render_coast")
 local RenderRoad = require("src.features.city-map.render_road")
+local RenderCyberFeud = require("src.features.city-map.render_cyber_feud")
+local CyberFeud = require("src.features.city-map.cyber_feud")
+local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
+local EternalMood = require("src.features.city-map.eternal_mood")
 
 local Render = {}
 
@@ -589,6 +594,7 @@ end
 
 local function drawBeach(map)
   drawBeachGround(map)
+  Shade.edges(map, Layout.TILE)
   for _, c in ipairs(map.craft) do
     drawCraft(c)
   end
@@ -737,6 +743,7 @@ end
 
 local function drawCliff(map)
   drawCliffGround(map)
+  Shade.edges(map, Layout.TILE)
   for _, s in ipairs(map.cover) do
     if s.kind == "cliff" then
       drawCliffFace(s)
@@ -1135,6 +1142,7 @@ local function drawCity17(map)
   for _, b in ipairs(map.bridges or {}) do
     drawBridge(b)
   end
+  Shade.edges(map, Layout.TILE)
   drawLitter(map)
   for _, s in ipairs(map.cover) do
     if s.kind == "rubble" then
@@ -1459,7 +1467,13 @@ local function drawOuterCity(map)
     love.graphics.circle("line", map.bossX, map.bossY, r * 0.45, 48)
     love.graphics.setLineWidth(1)
   end
+  Shade.edges(map, Layout.TILE)
   drawLitter(map)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "rubble" and s.heap then -- a fallen building's heap still stands in the way
+      Shade.box(s, 10)
+    end
+  end
   for _, s in ipairs(map.cover) do
     if s.kind == "rubble" then
       drawRubble(s)
@@ -1506,8 +1520,13 @@ function Render.build(map)
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
   if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" then
-    if map.kind == "beach" then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
+    or EternalMood.builds(map.kind) then
+    if CyberFeud.builds(map.kind) then
+      RenderCyberFeud.draw(map, Layout.TILE)
+    elseif EternalMood.builds(map.kind) then
+      RenderEternalMood.draw(map, Layout.TILE)
+    elseif map.kind == "beach" then
       drawBeach(map)
     elseif map.kind == "city17" then
       drawCity17(map)
@@ -1531,6 +1550,7 @@ function Render.build(map)
     drawTrail(map)
   end
   drawParksAndLots(map)
+  Shade.edges(map, Layout.TILE)
   drawBuildings(map)
   if map.shrubs then
     drawShrubs(map)

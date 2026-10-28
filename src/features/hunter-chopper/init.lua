@@ -16,7 +16,9 @@
 -- where it hits the ground it goes up in a blast of its own (`crash`), spills
 -- koins, raises `serverKill` with kind "boss" and finishes the level
 -- (quests' `serverComplete`): the EXIT star comes up by the wreck, which
--- burns there for as long as everyone stays.
+-- burns there for as long as everyone stays. It also drops the SMG, one
+-- each player can pick up beside the wreck, which unlocks it in the shop
+-- (the weapons feature's, with the reward screen).
 --
 -- It calls for help as it takes damage (`waves`): at 80% health Combine
 -- soldiers are set down under it, three sets of three 8 s apart (the a-man
@@ -34,6 +36,8 @@
 --   brain.lua   its brain, on the host: who it goes after, the lock, the burst, the runs
 --   bombs.lua   its bombs: falling and going off on the host, their rings on every screen
 --   sounds.lua  its rotor loop, the lock-on whine, the klaxon and the bombs' whistle
+--   flyover.lua another one just passing over to drop something, called in by
+--               another boss (`serverFlyover`: the Antlion Guard's rollermines)
 --
 -- Messages
 --   server -> all  HC_STATE <tick> [<x> <y> <angle> <bank> <altitude> <aim> <lock> <firing> <run>
@@ -41,17 +45,19 @@
 --                  lock 0..1 the gun locking on, firing 1 while it fires, run 1 on a bombing
 --                  run, down 1 going down)
 --   server -> all  HC_DOWN  <x> <y> <angle>   it hit the ground there: its wreck
---   and bombs.lua's HC_BOMB
+--   and bombs.lua's HC_BOMB, flyover.lua's HC_PASS and HC_CARGO
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Bar = require("src.features.bosses.bar")
 local Render = require("src.features.hunter-chopper.render")
 local Flight = require("src.features.hunter-chopper.flight")
 local Brain = require("src.features.hunter-chopper.brain")
 local Sounds = require("src.features.hunter-chopper.sounds")
 local Bombs = require("src.features.hunter-chopper.bombs")
+local Flyover = require("src.features.hunter-chopper.flyover")
 
 local HunterChopper = {
   name = "hunter-chopper",
@@ -64,6 +70,8 @@ HunterChopper.map = "outercity" -- the map it flies over
 HunterChopper.health = 3600 -- 180 pistol rounds, for one player (more humans, more: bosses/init.lua)
 HunterChopper.blastReach = 40 -- px past a blast's radius its hull still feels it (it is big)
 HunterChopper.drops = 40 -- koins it spills where it comes down
+HunterChopper.GUN = "gun-smg" -- its drop, one for every player (weapons/guns.lua)
+HunterChopper.GUN_AWAY = { 110, 160, 220, 300 } -- px from the wreck it may land, nearest first
 HunterChopper.crashRadius = 150 -- px the blast where it hits the ground reaches
 HunterChopper.crashDamage = 60 -- at the middle of that, a third of it at the edge
 -- Who it calls in, once each, as its health falls to `at` of the most it had.
@@ -97,6 +105,7 @@ end
 -- Server --------------------------------------------------------------------
 
 local sv = nil -- { flight, brain, bombs, hp, max, down, syncIn, called, drops } while it is up, or coming down
+local passes = Flyover.new() -- the ones only passing over (flyover.lua), on any map
 
 function HunterChopper:load()
   Sounds.load()
@@ -123,14 +132,29 @@ local function stop(server)
   end
 end
 
+local function stopPasses(server)
+  Flyover.stop(passes, server)
+  passes = Flyover.new()
+end
+
 function HunterChopper:serverQuestEnded(server)
   stop(server)
+  stopPasses(server)
+end
+
+--- Send one over from (x, y) at player `target` (an id), to let `cargo` go
+--- over them: `{ feature, count, spread }`, each landing where that
+--- feature's `serverSummon` sets it down (flyover.lua). No gun, no fight:
+--- it flies on and is gone.
+function HunterChopper:serverFlyover(_server, x, y, target, cargo)
+  return Flyover.start(passes, x, y, target, cargo)
 end
 
 --- A map change takes it away (on the host) and its wreck (everywhere).
 function HunterChopper:mapChanged(_map, server)
   if server then
     stop(server)
+    stopPasses(server)
   end
   HunterChopper.forgetWreck()
   HunterChopper.forgetFlight()
@@ -139,6 +163,7 @@ end
 --- A new game: no chopper carried over from the last one.
 function HunterChopper:serverStart()
   sv = nil
+  passes = Flyover.new()
 end
 
 --- Take `amount` off it. At nothing, it starts to go down; `by` and the
@@ -154,19 +179,51 @@ local function hurt(amount, by, angle)
   end
 end
 
---- It has hit the ground: the blast, the koins, the kill and the level done.
+--- Where the SMG lands: GUN_AWAY from (x, y), the nearest ring with a spot
+--- somebody can walk to (not in a wall, the canal or off limits); else
+--- open floor near by, else the wreck itself. Away from the wreck, so it
+--- isn't under the EXIT star there.
+local function gunSpot(x, y)
+  local city = Features.byName["city-map"]
+  for _, d in ipairs(HunterChopper.GUN_AWAY) do
+    for i = 0, 7 do
+      local a = i * math.pi / 4 + 0.4
+      local gx, gy = x + math.cos(a) * d, y + math.sin(a) * d
+      if not (Features.any("blocksPoint", gx, gy) or (city and city.outOfReach and city:outOfReach(gx, gy))) then
+        return gx, gy
+      end
+    end
+  end
+  if city and city.randomRoadPoint then
+    local gx, gy = city:randomRoadPoint(x, y, 500)
+    if gx then
+      return gx, gy
+    end
+  end
+  return x, y
+end
+
+--- It has hit the ground: the blast, the koins, the SMG, the kill and the
+--- level done.
 local function crash(server)
   local f, down = sv.flight, sv.down
   local x, y = f.x, f.y
   server:broadcast(Protocol.encode("HC_DOWN", fmt(x), fmt(y), ("%.3f"):format(f.angle)))
   local weapons = Features.byName.weapons
   if weapons and weapons.explode then
+    local damage = HunterChopper.crashDamage * Bosses.power()
     weapons:explode(server, { id = 0, owner = 0, vx = 0, vy = 1,
-      blast = { radius = HunterChopper.crashRadius, damage = HunterChopper.crashDamage, soft = 4 } }, x, y)
+      blast = { radius = HunterChopper.crashRadius, damage = damage, soft = 4 } }, x, y)
   end
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, x, y, HunterChopper.drops)
+  end
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local gx, gy = gunSpot(x, y)
+    local item = Tiers.join(HunterChopper.GUN, Bosses.dropTier()) -- better the more it has been beaten
+    pickups:serverDrop(server, item, gx, gy, nil, { perPlayer = true })
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = down.by, angle = down.angle })
   local quests = Features.byName.quests
@@ -188,15 +245,79 @@ function HunterChopper:serverShotAt(_server, x, y, radius, by, angle, damage)
     return false
   end
   hurt(damage, by, angle)
-  return true
+  return "metal"
+end
+
+--- It while it is up, for the audit (tools/audit): over the walls, and
+--- coming down it is beaten already.
+function HunterChopper:serverEnemies(_server, add)
+  local f = sv and sv.flight
+  if f and not sv.down then
+    add({
+      id = sv,
+      kind = "hunter-chopper/chopper",
+      x = f.x,
+      y = f.y,
+      hp = sv.hp,
+      radius = Render.RADIUS,
+      flying = true,
+    })
+  end
+end
+
+--- The wiki's page on it (tools/wiki, docs/wiki.md).
+function HunterChopper:wikiEnemies(add)
+  local gun, troops, visit = Brain.gun, self.waves[1], self.waves[2]
+  add({
+    kind = "hunter-chopper/chopper",
+    name = "Hunter-Chopper",
+    boss = true,
+    quests = { self.questId },
+    where = "The Outer City, circling the square on the island from the moment you arrive",
+    about = "The Combine's gunship. It circles the square, locks on to whoever it can see and hoses them with "
+      .. "blue rounds, and every so often dives over you on a bombing run.",
+    stats = {
+      { "Health", self.health },
+      { "Speed", ("%g px/s round the square, %g px/s on a bombing run"):format(Flight.speed, Brain.runSpeed) },
+      { "Sight", Brain.reach, "px" },
+    },
+    weapons = {
+      { "Pulse gun", ("bursts of %g rounds of %g damage, a round every %g s, after a %g s lock-on beam; "
+        .. "%g s between bursts"):format(Brain.burst, gun.damage, gun.cooldown, Brain.lockTime, Brain.rest) },
+      { "Bombs", ("on a bombing run, every %g s or so: %g pairs, one off each side, each %g explosive damage at the "
+        .. "middle, falling off to %g px, %g s after the ring shows where it lands"):format(Brain.bombEvery,
+        Brain.pairs, Bombs.damage, Bombs.radius, Bombs.fall) },
+      { "Crash", ("where it comes down it goes up: %g explosive damage at the middle, out to %g px"):format(
+        self.crashDamage, self.crashRadius) },
+    },
+    abilities = {
+      ("At %g%% health it sets down Combine soldiers under it: %g sets of %g, %g s apart."):format(troops.at * 100,
+        troops.sets, troops.troops, troops.every),
+      ("At %g%% health A-Man blinks in by whoever is nearest, opens his briefcase on %g Hunters and blinks out.")
+        :format(visit.at * 100, visit.hunters),
+      "The lock-on beam shows you where the burst is going; once it fires, the gun turns after you only slowly.",
+      "A machine: no breath, no medkits, no dodging.",
+    },
+    tips = {
+      "When the beam is on you, run across it: the burst can't keep up. Standing still or running straight away "
+        .. "gets you hit.",
+      "Cover stops its rounds, and it only fires on what it can see.",
+      "Step off the rings as the bombs come down, and keep clear of where it falls.",
+      ("Rockets hurt it: it is big, so a blast reaches it %g px further out than anyone else."):format(self.blastReach),
+    },
+    dropsItems = { self.GUN }, -- its items' wiki pages link back here (tools/wiki/items.lua)
+    drops = ("%g koins, and an SMG for every player (unlocks it in the shop)"):format(self.drops),
+  })
 end
 
 --- A missile went off at (x, y): within its reach, it takes the blast's
 --- damage, falling to a third at the edge as for anyone. Its own bombs
 --- (owner 0) don't touch it.
-function HunterChopper:serverBlast(_server, x, y, radius, damage, owner)
+function HunterChopper:serverBlast(_server, x, y, radius, damage, owner, dtype)
   local f = sv and sv.flight
-  if not f or sv.down or owner == 0 or not damage then
+  -- A heavy leap's landing (impact) raises a blast for the walls under it;
+  -- it reaches the chopper as a round carrying its damage instead.
+  if not f or sv.down or owner == 0 or not damage or dtype == "impact" then
     return
   end
   local d = math.sqrt((f.x - x) ^ 2 + (f.y - y) ^ 2)
@@ -276,6 +397,7 @@ local function stepDrops(server, dt)
 end
 
 function HunterChopper:serverStep(server, dt)
+  Flyover.step(passes, server, dt)
   if not sv then
     return
   end
@@ -316,6 +438,11 @@ function HunterChopper.server()
   return sv
 end
 
+--- The ones passing over, for tests: { list, cargo }.
+function HunterChopper.passes()
+  return passes
+end
+
 -- Client --------------------------------------------------------------------
 
 local cl = nil -- { x, y, angle, bank, altitude, aim, lock, firing, hp, max, down, flash } as drawn, `to` from the host
@@ -339,10 +466,12 @@ end
 --- Off every screen at once (a map change: the clearing HC_STATE may not get through).
 function HunterChopper.forgetFlight()
   gone()
+  Flyover.clear()
 end
 
 function HunterChopper:exitGame()
   gone()
+  Flyover.clear()
   wreck, lastTick = nil, 0
 end
 
@@ -353,6 +482,7 @@ end
 function HunterChopper:update(dt)
   time = time + dt
   Bombs.update(dt)
+  Flyover.update(dt)
   if cl and love.timer.getTime() - heardAt > STALE then
     gone()
   end
@@ -384,10 +514,12 @@ function HunterChopper:drawBelowCars()
     Render.wreck(wreck, time)
   end
   Bombs.drawBelowCars(time)
+  Flyover.drawBelowCars(time)
 end
 
 function HunterChopper:drawAboveCars()
   Bombs.drawAboveCars(time)
+  Flyover.drawAboveCars(time)
   if cl then
     Render.chopper(cl, time)
   end
@@ -442,8 +574,10 @@ HunterChopper.clientMessages = {
     end
   end,
 }
-for kind, handler in pairs(Bombs.clientMessages) do
-  HunterChopper.clientMessages[kind] = handler
+for _, module in ipairs({ Bombs, Flyover }) do
+  for kind, handler in pairs(module.clientMessages) do
+    HunterChopper.clientMessages[kind] = handler
+  end
 end
 
 return HunterChopper

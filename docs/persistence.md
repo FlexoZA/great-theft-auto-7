@@ -130,10 +130,12 @@ Rules for features:
 | `real-estate` | the blocks the city grew, in order, and plot owners by block (world) |
 | `vehicles` | model per car id (world) |
 | `garage` | every car kept off the road (world): its id, whether it is in a garage (and wrecked), destroyed or impounded, and a parked car's health |
+| `quests` | every board job finished and how many times (world) |
 
 **Not saved:** pedestrians, police and wanted level, bots, projectiles, coins
-lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
-`alien-hunt`). Unowned parked cars respawn as the map does today.
+lying on the ground, pickups, skidmarks, a job under way (`quests`, `d-day`,
+`alien-hunt`): which jobs are finished is saved (`quests`). Unowned parked
+cars respawn as the map does today.
 
 ## Save and load moments
 
@@ -141,8 +143,10 @@ lying on the ground, pickups, skidmarks, quest progress (`quests`, `d-day`,
 - **Autosave** every 5 minutes (host setting in `server_settings`).
 - **Host quits** the game or the app (`love.quit`): everything is written.
 - **Quests:** on a quest map the world is not the city, so world autosaves
-  pause until everyone is back; player files are still written. A world is
-  always continued in the city.
+  pause until everyone is back; player files are still written. Coming home
+  from a job writes the world straight away (`server:save()`), so finished
+  jobs are kept even when the host quits on the next one. A world is always
+  continued in the city.
 - **Loading a player:** returning players start behind the wheel of their
   own car, where they parked it. If someone else is driving it they stand
   beside it. A player new to this world gets a starter car as today.

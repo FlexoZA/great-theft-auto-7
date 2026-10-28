@@ -77,7 +77,7 @@ local function gun(entry, tier)
   if g.scope then
     row("scope", ("x%d"):format(g.scope))
   end
-  row("ammo", g.bottomless and "never runs out" or Kinds.name("ammo-" .. g.key, 2))
+  row("ammo", g.bottomless and "never runs out" or Kinds.name(Guns.ammoItem(g), 2))
   return { blurb = g.blurb, use = "Drag it into a weapon slot; its number key picks it.", rows = rows }
 end
 
@@ -201,7 +201,8 @@ local function gear(entry, tier)
 end
 
 local function ammo(entry)
-  local g = Guns[entry.item:sub(6)]
+  local t = Guns.ammoTypeOf[entry.item]
+  local g = t and t.gun or Guns[entry.item:sub(6)]
   return {
     blurb = ("Rounds for the %s, loaded a magazine at a time when you reload."):format(g.name),
     use = "It goes into your bag; reloading takes from it.",
@@ -227,6 +228,16 @@ local function supply(entry)
       rows[#rows + 1] = { label = "radius", value = ("%d px"):format(g.blast.radius) }
       rows[#rows + 1] = { label = "throw", value = ("%d px"):format(g.range) }
     end
+  elseif entry.item == "grenade-electric" then
+    local g = Features.byName.grenades
+    local k = g and g.kinds[entry.item]
+    if k then
+      rows[#rows + 1] = { label = "blast", value = ("%d shock, stuns"):format(k.blast.damage) }
+      rows[#rows + 1] = { label = "holds enemies", value = secs(k.stun) }
+      rows[#rows + 1] = { label = "field", value = ("%d every %s for %s"):format(k.field.damage,
+        secs(k.field.every), secs(k.field.time)) }
+      rows[#rows + 1] = { label = "radius", value = ("%d px"):format(k.blast.radius) }
+    end
   end
   if u then
     rows[#rows + 1] = { label = "between uses", value = secs(u.cooldown) }
@@ -235,16 +246,29 @@ local function supply(entry)
     medkit = "Patches you up on the spot.",
     drink = "A can of get-up-and-go for your legs.",
     grenade = "Goes off where it lands. Mind the blast: it hurts you too.",
+    ["grenade-electric"] = "General Volt's own: a shock blast that stuns, then a field that keeps zapping.",
   }
   local key = u and Controls.name(Controls.bindings(u.action)[1]) or "its key"
-  local use = ("Drag it to its quick slot and press %s."):format(key)
+  local use = ("It goes straight into its quick slot: press %s."):format(key)
   if entry.item == "grenade" then
-    use = ("Drag it to its quick slot, press %s to ready one and click to throw it."):format(key)
+    use = ("It goes straight into its quick slot: press %s to ready one and click to throw it."):format(key)
+  elseif entry.item == "grenade-electric" then
+    use = ("Into the grenade slot (%s) if it's empty or holds electric ones, the bag otherwise:"
+      .. " drag them onto the slot to swap."):format(key)
   end
   return { blurb = blurbs[entry.item] or "", use = use, rows = rows }
 end
 
-local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo = ammo, supply = supply }
+--- The Ammo shelf holds a gun's rounds and the grenade, which is told about
+--- as a supply is (what it does, its quick slot).
+local function onAmmoShelf(entry)
+  if Guns[entry.item:match("^ammo%-(.+)$") or ""] then
+    return ammo(entry)
+  end
+  return supply(entry)
+end
+
+local BY_KIND = { gun = gun, ability = ability, armor = armor, gear = gear, ammo = onAmmoShelf, supply = supply }
 
 --- The side panel's contents for `entry` in tier `tier`, or nil (cars).
 function Details.of(entry, tier)

@@ -20,6 +20,7 @@
 --   road.lua     the Winding Road: the drive up to the pass
 --   citadel.lua  the end of the trail: the catwalk up through the Citadel
 --   finale.lua   A-Man himself at the top of it, the last fight: his case holds the trail's enemies
+--   upkeep.lua   the Citadel's computers ticking over and its repair drones flying round
 --   radio.lua    the soldiers' radio chatter: their lines, its sound, the bubble
 --   cameo.lua    his visits to City 17's plaza (in, a horde of turrets, out), and called-in
 --                ones on any level (the Hunter-Chopper's Hunters)
@@ -129,6 +130,11 @@ function AMan:serverDropTroops(server, x, y, count)
   return City17.serverDrop(server, x, y, count)
 end
 
+--- Take the Combine soldiers inside rectangle `r` off the level that is on, quietly.
+function AMan:serverClearIn(_server, r)
+  City17.serverClearIn(r)
+end
+
 --- Combine soldiers still up inside rectangle `r` ({ x, y, w, h }) on the level that is on.
 function AMan:serverTroopsIn(_server, r)
   return City17.serverTroopsIn(r)
@@ -143,6 +149,20 @@ end
 function AMan:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return City17.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     or Citadel.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+end
+
+--- Every enemy of his trail in the world right now, for the audit
+--- (tools/audit). His city event's are the events feature's to list.
+function AMan:serverEnemies(server, add)
+  City17.serverEnemies(server, add)
+  Citadel.serverEnemies(server, add)
+end
+
+--- The wiki's pages on his trail's enemies (tools/wiki, docs/wiki.md). His
+--- city event's are the events feature's to describe.
+function AMan:wikiEnemies(add)
+  City17.wikiEnemies(add)
+  Citadel.wikiEnemies(add)
 end
 
 function AMan:serverFreezeArea(_server, x, y, radius, seconds)

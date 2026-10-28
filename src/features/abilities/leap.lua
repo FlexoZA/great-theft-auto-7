@@ -10,8 +10,9 @@
 -- The landing hurts everything around it: other players and cars nobody
 -- is driving take `damage` at the centre down to half at the edge of
 -- `radius` (weapons' serverDamage, so it is your kill), and a few soft
--- targets (pedestrians, officers, Karen's simps) go down through the
--- `serverShotAt` convention. The caster is never hurt by their own slam.
+-- targets (pedestrians, officers, Karen's simps, every enemy) are hit for
+-- `damage` through the `serverShotAt` convention. The caster is never hurt
+-- by their own slam.
 --
 -- The host flies the leaper: from the cast on it puts them on the line to
 -- the landing spot every tick, after everything else has moved them (the
@@ -96,6 +97,9 @@ function Leap.serverLeaping(id)
   return leaps[id] ~= nil
 end
 
+--- The same, as abilities asks every ability that flies its caster.
+Leap.serverAirborne = Leap.serverLeaping
+
 --- Up they go on leap `A` (in the caster's tier), towards (x, y): pulled back towards the caster
 --- until the landing is clear of walls. Nobody is held; the landing spot
 --- and the way the leap goes out with ABL_FIRED, and how long it flies if
@@ -159,10 +163,13 @@ local function slam(A, server, caster, x, y)
     -- A leap heavy enough cracks buildings too, the way a rocket does.
     Features.call("serverBlast", server, x, y, R, A.walls, caster.id, "impact")
   end
+  -- The soft targets take the slam's own damage, as a player in the middle
+  -- would (so a better tier hits them harder, and the Hunter-Chopper, which
+  -- only takes rounds that say what they carry, feels it too).
   for _, f in ipairs(Features.list) do
     if f.serverShotAt then
       for _ = 1, A.soft do
-        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi, nil, "impact") then
+        if not f:serverShotAt(server, x, y, R * 0.75, caster.id, math.random() * 2 * math.pi, amount(0), "impact") then
           break
         end
       end

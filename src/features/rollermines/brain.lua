@@ -23,6 +23,7 @@
 -- Frozen, one stops dead; a stink sends it rolling off the other way for a moment.
 
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Car = require("src.car")
 
 local Brain = {}
@@ -68,7 +69,8 @@ function Brain:place(x, y)
     x, y = x + (random() - 0.5) * 60, y + (random() - 0.5) * 60
   end
   local m = {
-    id = self.nextId, x = x, y = y, vx = 0, vy = 0, hp = Brain.HEALTH, mode = "dormant", t = 0, lost = 0,
+    id = self.nextId, x = x, y = y, vx = 0, vy = 0, mode = "dormant", t = 0, lost = 0,
+    hp = Bosses.enemyHealth(Brain.HEALTH), -- tougher on a job finished before
     frozen = 0, side = random() < 0.5 and -1 or 1, spin = random() * 2 * math.pi,
   }
   self.nextId = self.nextId + 1

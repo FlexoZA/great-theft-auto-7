@@ -21,7 +21,8 @@
 --
 -- The quests feature brings everyone to the bluff and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
--- "shotgun". The host owns all of it; clients hear the stage reliably and
+-- "shotgun", and every client strikes up the bluff's theme (theme.lua) till
+-- the quest ends. The host owns all of it; clients hear the stage reliably and
 -- where he is at 15 Hz, and draw. Bullets reach him through `serverShotAt`
 -- (with the round's own damage, so a sniper round hurts like one); his own
 -- rounds (owner 0) fly through him.
@@ -39,14 +40,17 @@
 --   server -> all  SG_DOWN  <x> <y> <angle>       he went down
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local Boss = require("src.features.shotgun.boss")
 local Nav = require("src.features.d-day.nav")
 local Face = require("src.features.shotgun.face")
 local Bosses = require("src.features.bosses")
+local Tiers = require("src.features.tiers")
 local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.shotgun.render")
 local Sounds = require("src.features.shotgun.sounds")
+local Theme = require("src.features.shotgun.theme")
 
 local Shotgun = {
   name = "shotgun",
@@ -61,6 +65,7 @@ Shotgun.bulletDamage = 20 -- what a round takes off him when it doesn't say (a p
 local SYNC_EVERY = 2 -- server ticks between SG_BOSS packets
 local SMOOTHING = 10 -- per second, the easing of what is drawn
 local SNAP = 150 -- px; a jump this big is a teleport, not a step
+local CHICKEN = "ability-chicken" -- what he drops when he goes down (abilities/chicken.lua)
 
 local random = love.math.random
 
@@ -218,7 +223,8 @@ function Shotgun:hurt(server, amount, by, angle)
   end
   local pickups = Features.byName.pickups
   if pickups and pickups.serverDrop then
-    pickups:serverDrop(server, "ability-chicken", x + 30, y)
+    -- common the first time, a better tier the more often he has been beaten
+    pickups:serverDrop(server, Tiers.join(CHICKEN, Bosses.dropTier()), x + 30, y)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   setStage(server, "done")
@@ -241,6 +247,71 @@ function Shotgun:serverShotAt(server, x, y, radius, by, angle, damage)
   return true
 end
 
+--- Him, if he is about, for the audit (tools/audit): he can only be hurt
+--- once the hunt is on (as `serverShotAt` has it).
+function Shotgun:serverEnemies(_server, add)
+  local b = sv and sv.boss
+  if b then
+    add({
+      id = b,
+      kind = "shotgun/boss",
+      x = b.x,
+      y = b.y,
+      hp = b.hp,
+      radius = Boss.RADIUS,
+      immune = sv.stage ~= "hunt",
+    })
+  end
+end
+
+--- The wiki's page on him (tools/wiki, docs/wiki.md).
+function Shotgun:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local Heal = require("src.features.bosses.heal")
+  local rifle, pistol = Guns.sniper, Guns.pistol
+  add({
+    kind = "shotgun/boss",
+    name = "Shotgun",
+    quests = { "shotgun" },
+    boss = true,
+    where = "Shotgun's Bluff, on the plateau above the meadow",
+    about = "A sniper who hates debating and hates his rifle almost as much. He shoots down from the top of "
+      .. "the cliff, vanishes, and turns up somewhere else along the lip.",
+    stats = {
+      { "Health", Boss.HEALTH },
+      { "Hits", ("whatever the round does: %g sniper rounds or %g pistol rounds"):format(
+        math.ceil(Boss.HEALTH / rifle.damage), math.ceil(Boss.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s hurrying to a new spot, %g winded"):format(Boss.SPEED, Boss.WALK_SPEED) },
+      { "Sight", Boss.RANGE, "px" },
+    },
+    weapons = {
+      { "Sniper rifle", ("%g damage a round, %g rounds then a %g s reload, out to about %g px"):format(rifle.damage,
+        Boss.MAGAZINE, Boss.RELOAD, math.floor(rifle.speed * rifle.ttl / 100 + 0.5) * 100) },
+      { "Pistol", ("%g damage a round, a round every %g s, for anyone who gets within %g px"):format(pistol.damage,
+        Boss.PISTOL_EVERY, Boss.EVADE) },
+    },
+    abilities = {
+      ("Draws a bead before every shot: a laser from his rifle and a ring on the target for %g s, his aim leading "
+        .. "you until the last %g s, then the round."):format(Boss.WARN, Boss.LOCK),
+      ("Vanishes like a chicken for %g s (again %g s later) and walks to a new spot while out of sight. He can "
+        .. "still be hit while hidden."):format(Boss.STEALTH.seconds, Boss.STEALTH.cooldown),
+      ("Get within %g px and he vanishes; when he can't, he backs off firing his pistol."):format(Boss.EVADE),
+      "The cliff stops every round fired up at him from the meadow, but not his own coming down.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, out of sight if he can, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      "Running and vanishing cost him breath: winded, he walks and stays where you can see him.",
+    },
+    tips = {
+      "When the ring closes on you, stop, turn or duck behind something: the shot goes where his aim was.",
+      "Cross the meadow from cover to cover and take the ramp at the far left up to the plateau.",
+      ("After %g rounds he has a %g s reload: that's the time to move."):format(Boss.MAGAZINE, Boss.RELOAD),
+      "A freeze holds him still, and a stink sends him running.",
+    },
+    dropsItems = { CHICKEN }, -- its items' wiki pages link back here (tools/wiki/items.lua)
+    drops = ("%g koins and his chicken ability"):format(Boss.DROPS),
+  })
+end
+
 --- For tests.
 function Shotgun.server()
   return sv
@@ -256,6 +327,17 @@ Shotgun.stains = {} -- { x, y, angle }
 Shotgun.page = nil -- { line, t } while his portrait is up
 local face = nil
 local time, lastTick = 0, 0
+local tune = nil -- the bluff's theme: a Source made on the first standoff, then kept
+
+local function tuneGain()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+local function silence()
+  if tune then
+    tune:stop()
+  end
+end
 
 local function clear()
   Shotgun.stage, Shotgun.boss, Shotgun.aim, Shotgun.page = nil, nil, nil, nil
@@ -269,23 +351,40 @@ end
 function Shotgun:exitGame()
   clear()
   lastTick = 0
+  silence()
 end
 
 function Shotgun:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
     clear()
+    if not tune then
+      local clock = love.timer.getTime()
+      tune = love.audio.newSource(Theme.render(), "static")
+      tune:setLooping(true)
+      tune:setRelative(true) -- music, not a sound on the map
+      -- The render time on the console, as every theme logs it.
+      local took = love.timer.getTime() - clock
+      print(("shotgun theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+    end
+    tune:setVolume(tuneGain())
+    tune:seek(0)
+    tune:play()
   end
 end
 
 function Shotgun:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    silence()
   end
 end
 
 function Shotgun:update(dt)
   time = time + dt
+  if tune and tune:isPlaying() then
+    tune:setVolume(tuneGain())
+  end
   if self.page then
     face:update(dt)
     self.page.t = self.page.t - dt

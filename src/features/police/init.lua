@@ -12,7 +12,7 @@
 -- Units are NPCs from the bots feature with a police brain. On a chase
 -- they stop and shoot once they are near and have you in sight, drive
 -- after you by the streets when you are not, and back off for a moment
--- when you shoot back (pursuit.lua). Clients draw
+-- when you shoot back (bots/pursuit.lua). Clients draw
 -- the livery and flashing lights over the car and play the siren.
 --
 -- The force also walks a beat: officers on foot (officers.lua) patrol the
@@ -54,7 +54,7 @@ local Sounds = require("src.features.police.sounds")
 local Officers = require("src.features.police.officers")
 local Render = require("src.features.police.render")
 local Vision = require("src.features.police.vision")
-local Pursuit = require("src.features.police.pursuit")
+local Pursuit = require("src.features.bots.pursuit")
 local Face = require("src.art.face")
 
 local Police = {
@@ -474,11 +474,19 @@ function Police:serverCarsCollided(server, rammer, _rammed, closing)
   end
 end
 
---- Shooting a police car is always noticed by that car.
+--- Shooting a police car is always noticed by that car: a unit after
+--- nobody turns on whoever shot it (a player or a bot fighting it), and one
+--- already after them backs off a moment (pursuit.lua).
 function Police:serverPlayerDamaged(server, victim, attacker)
   if victim.police and attacker then
     self:setWanted(server, attacker)
-    Pursuit.shotBy(victim, attacker.id, sv and sv.time or 0) -- shot by who it is after: it backs off a moment
+    local ai = victim.ai
+    if ai.chasing and ai.lastSeen == attacker.id then
+      Pursuit.shotBy(victim, sv and sv.time or 0) -- shot by who it is after: it backs off a moment
+    elseif not ai.chasing and sv and sv.wanted[attacker.id] then
+      ai.chasing, ai.lastSeen, ai.lostFor = true, attacker.id, 0 -- watching all round from now, onto them
+      server:broadcast(Protocol.encode("POL_SIREN", victim.id, 1))
+    end
   end
 end
 
@@ -528,6 +536,54 @@ function Police:serverShotAt(server, x, y, radius, by, angle, _damage, _dtype, f
     sv.officers:shotAt(server, o, by, angle) -- they turn on whoever it was
   end
   return true
+end
+
+--- Every officer on foot, for the audit (tools/audit). The units in cars
+--- are players (server.players), not these.
+function Police:serverEnemies(_server, add)
+  local of = sv and sv.officers
+  for i = 1, of and of.n or 0 do
+    local o = of.list[i]
+    add({ id = o, kind = "police/officer", x = o.x, y = o.y, hp = o.hp, radius = Officers.RADIUS })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Police:wikiEnemies(add)
+  local B = require("src.features.police.officer_brain")
+  local pistol = Features.byName.weapons.guns.at(1) -- the force's (serverFireFrom's default)
+  add({
+    kind = "police/officer",
+    name = "Police officer",
+    where = "The city's streets, walking a beat near every player",
+    about = "The law on foot. Officers stroll the streets around you, see crimes the way a patrol car does, "
+      .. "and draw a pistol on anyone who is wanted.",
+    stats = {
+      { "Health", Officers.HEALTH },
+      { "Hits", ("%g a hit, whatever hits them: %g hits down one"):format(Officers.SHOT_DAMAGE,
+        math.ceil(Officers.HEALTH / Officers.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s on the beat, %g chasing"):format(Officers.WALK_SPEED, Officers.CHASE_SPEED) },
+      { "Sight", Officers.SIGHT, "px" },
+      { "On the street", ("%g per player, %g at most, %g more while anyone is wanted"):format(Officers.PER_PLAYER,
+        Officers.MAX, Officers.BACKUP) },
+    },
+    weapons = {
+      { "Pistol", ("%g damage a round, a round every %g s, out to %g px"):format(pistol.damage,
+        Officers.FIRE_INTERVAL, Officers.FIRE_RANGE) },
+    },
+    abilities = {
+      ("Witnesses crimes within %g px and makes you wanted."):format(Officers.SIGHT),
+      ("Once after you, keeps after you out to %g px, closing to %g px before standing to shoot."):format(
+        Officers.PURSUE, Officers.STANDOFF),
+      ("Calls it in over the radio: every free officer within %g px comes."):format(B.RADIO),
+      ("Loses you and searches the spot for %g s before going back to the beat."):format(B.SEARCH_TIME),
+      "Turns on whoever shoots them, wanted or not.",
+    },
+    tips = {
+      ("A car at %g px/s or more flattens an officer outright."):format(Officers.SPLAT_SPEED),
+      "Break their line of sight: they can't see through buildings, and a crime nobody sees doesn't count.",
+    },
+  })
 end
 
 --- The officers on foot after player `id` right now (after anybody, for no

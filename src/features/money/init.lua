@@ -577,6 +577,7 @@ function Money:serverStep(server, dt)
           sv.coins[id] = nil
           sv.n = sv.n - 1
           server:broadcast(Protocol.encode("FCK_TAKE", id, player.id, total))
+          Features.call("serverKoinTaken", server, player)
           break
         end
       end

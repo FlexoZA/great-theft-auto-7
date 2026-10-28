@@ -5,8 +5,9 @@
 -- Any map that marks `map.swarms` ({ x, y, r, count }: the Coast does)
 -- gets them buried there when everyone arrives on a quest: `count` to a
 -- swarm for one human, more with more (Bosses.count). What each does is
--- its brain's (brain.lua): buried, coming up, running, biting, leaping,
--- going back under when there is nobody left to go after. A quest's end or
+-- its brain's (brain.lua): buried, coming up, running (round anything in
+-- the way, over a walking grid), biting, leaping, going back under when
+-- there is nobody left to go after. A quest's end or
 -- a map change takes them all away.
 --
 -- They take whatever a round carries (`Brain.HEALTH`, 36: two pistol
@@ -45,6 +46,7 @@ local Brain = require("src.features.antlions.brain")
 local Render = require("src.features.antlions.render")
 local Sounds = require("src.features.antlions.sounds")
 local Guard = require("src.features.antlions.guard")
+local Nav = require("src.features.d-day.nav")
 
 local Antlions = {
   name = "antlions",
@@ -82,6 +84,14 @@ local function cityMap()
   return city and city.map
 end
 
+--- The host's swarms, with a walking grid over the map in play to find
+--- their way round things by (d-day/nav.lua).
+local function newState()
+  local map = cityMap()
+  local nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
+  return { brain = Brain.new(nav), syncIn = 0, emptySends = 0 }
+end
+
 --- Everyone arrived on a quest: a swarm buried at each of the map's spots.
 function Antlions:serverQuestStarted(server)
   local map = cityMap()
@@ -90,7 +100,7 @@ function Antlions:serverQuestStarted(server)
   if not (map and map.swarms) then
     return
   end
-  sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+  sv = newState()
   local f = map.finale
   for _, s in ipairs(map.swarms) do
     local swarm = sv.brain:bury(s.x, s.y, s.r, Bosses.count(s.count, server))
@@ -191,7 +201,7 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
     return false
   end
   if Guard.serverShotAt(server, x, y, radius, by, angle, damage) then
-    return true
+    return "goo"
   end
   local a, i = sv.brain:at(x, y, radius)
   if not a then
@@ -200,7 +210,67 @@ function Antlions:serverShotAt(server, x, y, radius, by, angle, damage)
   if sv.brain:hurt(a, i, damage or 20, by) then
     down(server, a, by, angle)
   end
-  return true
+  return "goo"
+end
+
+--- Every antlion in the world right now, for the audit (tools/audit): the
+--- ones still under the sand can't be hit till they come up. The guard too.
+function Antlions:serverEnemies(server, add)
+  if sv then
+    for _, a in ipairs(sv.brain.list) do
+      add({
+        id = a,
+        kind = "antlions/antlion",
+        x = a.x,
+        y = a.y,
+        hp = a.hp,
+        radius = Brain.RADIUS,
+        immune = a.mode == "under",
+      })
+    end
+  end
+  Guard.serverEnemies(server, add)
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md), and the Guard's.
+function Antlions:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local pistol = Guns.pistol
+  add({
+    kind = "antlions/antlion",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Antlion",
+    quests = { "a-man-coast", "a-man-citadel" },
+    where = "The Coast, buried in swarms in the sand; A-Man's briefcase calls them up in the Citadel",
+    about = "Insects out of the sand. A swarm lies buried until you come near, then bursts up, runs you down "
+      .. "from all sides and bites.",
+    stats = {
+      { "Health", Brain.HEALTH },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Brain.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s running, %g leaping"):format(Brain.RUN, Brain.LEAP_SPEED) },
+      { "Sight", ("a swarm wakes when you come within %g px, and chases you from %g px"):format(
+        Brain.WAKE, Brain.CHASE) },
+      { "Numbers", "A swarm at each spot on the sand, bigger with more players" },
+    },
+    weapons = {
+      { "Bite", ("%g melee damage, then %g s before the next"):format(Brain.BITE, Brain.BITE_EVERY) },
+      { "Leap", ("from %g to %g px away it sometimes leaps the rest of the way, landing ready to bite"):format(
+        Brain.LEAP_NEAR, Brain.LEAP_FAR) },
+    },
+    abilities = {
+      ("Takes %g s to crawl up out of the sand, and can be shot while it does."):format(Brain.RISE),
+      "Spreads out round you rather than queueing up, and finds its way round anything in the way.",
+      ("Nobody to go after for %g s and it burrows back under, to wake again the same way."):format(Brain.GIVE_UP),
+      "The Combine's rounds pass by them, so the bunkers' guns don't thin them out for you.",
+    },
+    tips = {
+      "A sprint gets away from them, slowly.",
+      "Back off as a swarm comes up and shoot them on the way out of the sand.",
+      "A freeze stiffens one, and a stink sends it scuttling off.",
+    },
+    drops = ("%g koin, now and then something to pick up"):format(self.drops),
+  })
+  Guard.wikiEnemies(add)
 end
 
 function Antlions:serverFreezeArea(_server, x, y, radius, seconds)
@@ -217,13 +287,27 @@ function Antlions:serverPanicArea(_server, x, y, radius)
   Guard.serverPanicArea(x, y, radius)
 end
 
+--- The launch's --boss: on the Coast, the final section's swarms gone and
+--- the Guard up (guard.lua's `serverSkipTo`).
+function Antlions:serverSkipToBoss(server, quest, player)
+  if not (sv and quest.id == Guard.questId) then
+    return false
+  end
+  for i = #sv.brain.list, 1, -1 do
+    if sv.brain.list[i].swarm.finale then
+      table.remove(sv.brain.list, i)
+    end
+  end
+  return Guard.serverSkipTo(server, cityMap(), player)
+end
+
 --- Another feature calls a swarm up at (x, y) on any map, whether it has
 --- swarms of its own or not (A-Man's briefcase in the Citadel): `count`
 --- come up out of the ground within `r` px, a moment apart, and go for
 --- whoever is nearest. Returns how many.
 function Antlions:serverSummon(_server, x, y, count, r)
   if not sv then
-    sv = { brain = Brain.new(), syncIn = 0, emptySends = 0 }
+    sv = newState()
   end
   local swarm = sv.brain:bury(x, y, r or 80, count)
   for i, a in ipairs(swarm.members) do
@@ -324,8 +408,8 @@ function Antlions:drawAboveCars()
     for _, a in pairs(shown) do
       if (a.mode == MODES.air) == (pass == 2) then
         Render.draw(a.dx, a.dy, a.facing, pose(a), clock)
-        if a.hp < Brain.HEALTH and a.mode ~= MODES.rising then -- a bar under it once it is hurt
-          local bw, f = 22, math.max(0, a.hp / Brain.HEALTH)
+        if a.hp < a.max and a.mode ~= MODES.rising then -- a bar under it once it is hurt
+          local bw, f = 22, math.max(0, a.hp / a.max)
           love.graphics.setColor(0, 0, 0, 0.6)
           love.graphics.rectangle("fill", a.dx - bw / 2 - 1, a.dy + Render.RADIUS + 5, bw + 2, 4)
           love.graphics.setColor(1 - f, f, 0.2)
@@ -375,6 +459,7 @@ Antlions.clientMessages = {
           a.hurt = HURT
         end
         a.hp = hp
+        a.max = math.max(a.max or Brain.HEALTH, hp) -- tougher on a job finished before
         seen[id] = true
       end
     end

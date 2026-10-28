@@ -4,9 +4,10 @@
 --   iron, sulfur, minerals,  raw materials, dug out of a quarry
 --   copper
 --   oil, plastic             pumped (and refined) by an oil well
---   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-uzi"); none
---                            for a `bottomless` gun (the pistol never runs out)
---   gun-<gun>                a gun ("gun-uzi")
+--   ammo-<gun>               rounds for a gun in weapons/guns.lua ("ammo-ak47"), one per
+--                            `Guns.ammoTypes`: "ammo-pistol" is 9mm, for the uzi and the
+--                            SMG (the pistol itself never runs out)
+--   gun-<gun>                a gun ("gun-ak47")
 --   ability-<ability>        an ability (abilities/kinds.lua) put down in the bag ("ability-freeze")
 --   medkit                   a health pack; the carrier can use it to heal
 --   drink                    an energy drink; the carrier downs it for stamina
@@ -82,7 +83,8 @@ function Kinds.stack(item)
   local gun = item:match("^ammo%-(.+)$")
   if gun then
     return Guns[gun] and Guns[gun].stack or 100
-  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade" then
+  elseif item:match("^gun%-") or item == "medkit" or item == "drink" or item == "grenade"
+    or item == "grenade-electric" then
     return 5
   elseif item:match("^ability%-") or item:match("^armor%-") or item:match("^gear%-") then
     return 1 -- one of a kind
@@ -114,11 +116,13 @@ function Kinds.room(inventory, slots, item)
 end
 
 local gunAmmo, gunItems = {}, {}
+for _, t in ipairs(Guns.ammoTypes) do -- every ammo item there is: 9mm, not the pistol's alone
+  gunAmmo[#gunAmmo + 1] = t.item
+end
 for _, gun in ipairs(Guns.list) do
-  if not gun.bottomless then
-    gunAmmo[#gunAmmo + 1] = "ammo-" .. gun.key
+  if not gun.unlock then -- a won gun is never made
+    gunItems[#gunItems + 1] = "gun-" .. gun.key
   end
-  gunItems[#gunItems + 1] = "gun-" .. gun.key
 end
 gunAmmo[#gunAmmo + 1] = "grenade"
 
@@ -363,6 +367,8 @@ function Kinds.name(item, n)
       name = "energy drink" .. (n ~= 1 and "s" or "")
     elseif item == "grenade" and n ~= 1 then
       name = "grenades"
+    elseif item == "grenade-electric" then
+      name = "electric grenade" .. (n ~= 1 and "s" or "")
     end
   end
   return Tiers.named(name, tier)
@@ -452,10 +458,26 @@ function Kinds.isItem(item)
   return false
 end
 
+-- Things a player carries that no building makes: a boss's drop (Volt's
+-- electric grenades, the grenades feature's).
+Kinds.special = { ["grenade-electric"] = true }
+
+-- Items that are something else now, old key -> new, for what a save holds
+-- from before: the uzi's own rounds became 9mm (it fires the pistol's).
+Kinds.renamed = { ["ammo-uzi"] = "ammo-pistol" }
+
+--- `item` as it is called now: what a save holds from before a rename.
+function Kinds.current(item)
+  return Kinds.renamed[item] or item
+end
+
 --- Can a player carry `item` in their bag: anything a building makes but a
---- car, and the abilities, armor and clothes other features put there, in
---- any tier for the things that come in tiers?
+--- car, the `special` drops, and the abilities, armor and clothes other
+--- features put there, in any tier for the things that come in tiers?
 function Kinds.carriable(item)
+  if Kinds.special[item] then
+    return true
+  end
   local tier
   item, tier = Tiers.split(item)
   if not tier or (tier ~= Tiers.DEFAULT and not Tiers.tiered(item)) then
@@ -468,6 +490,8 @@ function Kinds.carriable(item)
     return ArmorKinds.byKey[armor] ~= nil
   elseif gear then
     return GearKinds.byKey[gear] ~= nil
+  elseif item:match("^gun%-") then
+    return type(Guns[item:sub(5)]) == "table" -- any gun, made or won (the super shotgun)
   end
   return Kinds.isItem(item) and not Kinds.isVehicle(item)
 end

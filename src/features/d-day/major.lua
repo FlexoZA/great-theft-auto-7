@@ -19,6 +19,7 @@
 
 local Features = require("src.features")
 local Stamina = require("src.features.bosses.stamina")
+local Walk = require("src.features.bosses.walk")
 
 local Major = {}
 Major.__index = Major
@@ -37,6 +38,9 @@ Major.BREATH = { -- his stamina (bosses/stamina.lua has the rule and the default
   recovered = 50, -- back before a winded Major marches again
   breath = 50, -- in him before he throws a nest down
 }
+Major.WEDGED = 0.15 -- seconds getting nowhere before he sidesteps
+Major.SIDESTEP = 0.5 -- seconds of it
+Major.WATCH = 0.6 -- seconds between his looks at whether walking got him anywhere (a quarter of his pace)
 Major.NEST_STAMINA = 25 -- what an MG nest costs him
 Major.RANGE = 760 -- px he sees (all the way round)
 Major.KEEP = 260 -- px he likes to keep between himself and his target
@@ -84,8 +88,25 @@ function Major.nestKind()
   return Features.byName.abilities and require("src.features.abilities.mgnest") or nil
 end
 
+-- A shared gun (his rifle, the nest's MG) as his own: the same gun, but
+-- marked `bossGun` so its rounds hit as hard as he does (Bosses.power,
+-- through Weapons:serverFireFrom). Made once per gun; the shared table is
+-- never touched.
+local bossGuns = setmetatable({}, { __mode = "k" })
+
+--- `gun`, as one of his.
+function Major.bossGun(gun)
+  local mine = bossGuns[gun]
+  if not mine then
+    mine = setmetatable({ bossGun = true }, { __index = gun })
+    bossGuns[gun] = mine
+  end
+  return mine
+end
+
 --- Him, at (x, y), with `hp` hit points (HEALTH when not given), finding
---- his way round walls on `nav` (d-day/nav.lua's walking grid) if given.
+--- his way round walls on `nav` (d-day/nav.lua's walking grid) if given,
+--- kept to the cells his width fits through.
 function Major.new(x, y, hp, nav)
   hp = hp or Major.HEALTH
   return setmetatable({
@@ -107,50 +128,51 @@ function Major.new(x, y, hp, nav)
     time = 0,
     breath = Stamina.new(Major.BREATH), -- winded, he strolls and throws no nest
     running = false, -- at full tilt this tick, for his breath
-    nav = nav,
+    nav = nav and Walk.nav(nav, Major.blocked, Major.RADIUS),
     mode = "hunt", -- what his brain is doing: "fight", "hunt" or "heal"
   }, Major)
 end
 
-local function blockedAt(x, y)
-  local r = Major.RADIUS
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint then
-      if
-        f:blocksPoint(x, y)
-        or f:blocksPoint(x - r, y)
-        or f:blocksPoint(x + r, y)
-        or f:blocksPoint(x, y - r)
-        or f:blocksPoint(x, y + r)
-      then
-        return true
-      end
-    end
-  end
-  return false
+--- Where nothing of his can stand: anything that blocks a point (walls,
+--- bunkers, huts). Shared with his walking grid (Walk.nav), so one table.
+function Major.blocked(x, y)
+  return Features.any("blocksPoint", x, y)
 end
 
+--- A tick along `angle`: sliding along walls and feeling round the corners
+--- he catches on (bosses/walk.lua). Wedged (nowhere to go), or rocking on
+--- the spot at a gap's mouth that pinches both shoulders (each tick goes
+--- somewhere, the next comes back), he sidesteps a moment: away from the
+--- shoulder that is against something, or the other way from last time.
 function Major:walk(angle, speed, dt)
+  local heading = angle
   if self.sidestep > 0 then
     self.sidestep = self.sidestep - dt
-    angle = angle + self.side * math.pi / 2
+    heading = angle + self.side * math.pi / 2
   end
-  local px, py = self.x, self.y
-  local nx = self.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, self.y) then
-    self.x = nx
+  local moved = Walk.step(self, Major.blocked, heading, speed, dt, Major.RADIUS)
+  if not moved and heading ~= angle then
+    self.side = -self.side -- that side is shut too: the other, for what is left of it
+    return
   end
-  local ny = self.y + math.sin(angle) * speed * dt
-  if not blockedAt(self.x, ny) then
-    self.y = ny
+  local wedged = not moved and self.stuck > Major.WEDGED
+  local watch = self.watch
+  if not watch or self.time - watch.t > Major.WATCH then
+    -- A while since he last looked: did he get anywhere? (Not if he stood
+    -- still in between: then he only starts watching again.)
+    local near = watch and (self.x - watch.x) ^ 2 + (self.y - watch.y) ^ 2 < (speed * Major.WATCH * 0.25) ^ 2
+    wedged = wedged or (near and self.time - watch.t < 2 * Major.WATCH)
+    self.watch = { x = self.x, y = self.y, t = self.time }
   end
-  if (self.x - px) ^ 2 + (self.y - py) ^ 2 < (speed * dt * 0.4) ^ 2 then
-    self.stuck = self.stuck + dt
-    if self.stuck > 0.4 then
-      self.stuck, self.sidestep, self.side = 0, 0.7, -self.side
+  if wedged and self.sidestep <= 0 then
+    local r = Major.RADIUS + 4
+    local function against(side)
+      local a = angle + side * math.pi / 3
+      return Major.blocked(self.x + math.cos(a) * r, self.y + math.sin(a) * r)
     end
-  else
-    self.stuck = 0
+    local left, right = against(-1), against(1)
+    local side = left ~= right and (left and 1 or -1) or -self.side
+    self.stuck, self.sidestep, self.side, self.route = 0, Major.SIDESTEP, side, nil
   end
 end
 
@@ -185,7 +207,7 @@ function Major:stepNests(server)
         local t = nest.nextShot - nest.placedAt
         local aim = nest.angle + (Nest.arc / 2) * 0.9 * math.sin(2 * math.pi * t / Nest.sweep)
         local mx, my = nest.x + math.cos(aim) * Nest.barrel, nest.y + math.sin(aim) * Nest.barrel
-        weapons:serverFireFrom(server, 0, mx, my, aim, Nest.gun)
+        weapons:serverFireFrom(server, 0, mx, my, aim, Major.bossGun(Nest.gun))
         nest.nextShot = nest.nextShot + Nest.fireEvery
       end
     end

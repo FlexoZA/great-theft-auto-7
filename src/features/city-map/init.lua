@@ -27,7 +27,12 @@
 --     in their garage, say) is lent one of that model at their spawn point,
 --     behind its wheel. It stands in as their own car while they are there
 --     (`player.car`: respawns and wrecks bring them back in it) and is gone,
---     their own back in its place, on the next switch.
+--     their own back in its place, on the next switch. With `issued` too
+--     (the Overpass's armed Courier) everyone is lent one, car or no car:
+--     their own waits out of the world (hidden) until the next switch.
+--   A map with `night` is played in the dark: the night feature darkens
+--     the world and lights it from `map.lights`, cars and players. A
+--     colour { r, g, b } instead of true is that map's own dark.
 --
 -- A map's `fires` (City 17's, the Outer City's) burn for good: fires.lua draws them over
 -- everything on the ground, and on the host sets anyone on foot who walks
@@ -129,8 +134,59 @@ CityMap.maps = {
     title = "The Citadel", kind = "citadel", seed = 18, cols = 84, rows = 112,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- Grey City, the Cyber Feud quest line's five maps (cyber_feud.lua), all at
+  -- night (the night feature reads `night`). The Overpass is driven; everyone
+  -- is lent an armed Courier, their own car or not. The Drop, the Market,
+  -- Halcyon Tower and its Roof are walked. Nobody about but the factions,
+  -- and on the Drop a thin crowd out late in the rain (no police: Halcyon
+  -- is the law here).
+  drop = {
+    title = "The Drop", kind = "drop", seed = 101, cols = 64, rows = 96,
+    crowdScale = 0.6, police = false, traffic = false, vehicles = false, night = true,
+  },
+  market = {
+    title = "The Market", kind = "market", seed = 102, cols = 56, rows = 56,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
+  overpass = {
+    title = "The Overpass", kind = "overpass", seed = 103, cols = 32, rows = 200,
+    crowd = false, traffic = false, loaner = "courier-black", issued = true, night = true,
+  },
+  tower = {
+    title = "Halcyon Tower", kind = "tower", seed = 104, cols = 48, rows = 112,
+    crowd = false, traffic = false, vehicles = false, night = true,
+  },
+  roof = {
+    title = "The Roof", kind = "roof", seed = 105, cols = 36, rows = 36,
+    crowd = false, traffic = false, vehicles = false, night = true,
+    noHome = true, -- no HOME star by the stairs: the only way home is the one once VEX is gone
+  },
+  -- The Eternal Mood quest line's maps (eternal_mood.lua), all in the dark
+  -- (the night feature), a red dark: everything in that universe is evil.
+  -- So far Fobos Base, the UAC's moon base, Heck on Earth, the road
+  -- through a burning city to the starport, the Foundry, the UAC's factory
+  -- half turned to Heck, and Heck itself, all walked: no driving on this
+  -- line.
+  fobos = {
+    title = "Fobos Base", kind = "fobos", seed = 201, cols = 56, rows = 80,
+    crowd = false, traffic = false, vehicles = false, night = { 0.50, 0.22, 0.20 },
+  },
+  earth = {
+    title = "Heck on Earth", kind = "earth", seed = 202, cols = 40, rows = 160,
+    crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.22, 0.17 },
+  },
+  foundry = {
+    title = "The Foundry", kind = "foundry", seed = 203, cols = 56, rows = 64,
+    crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.22, 0.16 },
+  },
+  heck = {
+    title = "Heck", kind = "heck", seed = 204, cols = 60, rows = 96,
+    crowd = false, traffic = false, vehicles = false, night = { 0.60, 0.20, 0.14 },
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
+-- The Cyber Feud maps' builder (cyber_feud.lua), for its numbers (the garrisons' sizes on the wiki's pages).
+CityMap.cyberFeud = require("src.features.city-map.cyber_feud")
 
 CityMap.map = nil
 CityMap.current = nil -- name of the map in `map`
@@ -142,7 +198,7 @@ local drawnMap, drawnVersion = nil, nil -- the map and map.version the canvas sh
 local function generate(name)
   local spec = CityMap.maps[name]
   local map = Layout.generate(spec)
-  map.name, map.title, map.loaner = name, spec.title, spec.loaner
+  map.name, map.title, map.loaner, map.issued, map.night = name, spec.title, spec.loaner, spec.issued, spec.night
   return map
 end
 
@@ -176,6 +232,9 @@ local function returnLoaners(self, server)
     local p = server.players[l.player]
     if p and p.car == l.car then
       p.car = l.own or nil
+    end
+    if l.own and l.hidOwn then
+      l.own.hidden = false -- back in the world, for placePlayers to seat them in
     end
     server:removeVehicle(l.car)
   end
@@ -244,7 +303,15 @@ function CityMap:placePlayers(server)
       own:stop()
       server:seat(p, own) -- a hidden one too: a parked NPC or a wreck stays out of the world in it
     end
-    if self.map.loaner and not p.vehicle and not p.bot then
+    if self.map.loaner and p.vehicle and self.map.issued and not p.bot then
+      -- Everyone drives the map's car here: theirs waits out of the world.
+      local mine = p.vehicle
+      server:unseat(p)
+      local hid = not mine.hidden
+      mine.hidden = true
+      server:seat(p, lend(self, server, p, s))
+      self.loaners[#self.loaners].hidOwn = hid
+    elseif self.map.loaner and not p.vehicle and not p.bot then
       server:seat(p, lend(self, server, p, s)) -- a driven map, and theirs is in the garage: one to drive while here
     end
   end
@@ -309,6 +376,11 @@ end
 
 function CityMap:blocksPoint(x, y)
   return Collision.blocked(self.map, x, y)
+end
+
+--- Where a round or a look stops: every wall, but not water (docs/features.md).
+function CityMap:blocksShot(x, y)
+  return Collision.blocked(self.map, x, y, true)
 end
 
 -- Client ----------------------------------------------------------------
@@ -414,12 +486,19 @@ function CityMap:serverStep(server, dt)
   Fires.step(self.map, server, dt, self.fireCheck)
 end
 
---- Is (x, y) somewhere nobody can get to: inside something solid, or in
---- one of the map's `offLimits` ({ x, y, w, h }: City 17's track, behind
---- the train)? Pedestrians ask it (`CityMap:outOfReach`) before spawning one.
+--- Is (x, y) somewhere nobody can get to: inside something solid, in the
+--- lava (`map.lows`: Eternal Mood's, which you can walk into but nothing
+--- should turn up in), or in one of the map's `offLimits` ({ x, y, w, h }:
+--- City 17's track, behind the train)? Pedestrians ask it
+--- (`CityMap:outOfReach`) before spawning one.
 local function outOfReach(map, x, y)
   if Collision.blocked(map, x, y) then
     return true
+  end
+  for _, o in ipairs(map.lows or {}) do
+    if x >= o.x and x <= o.x + o.w and y >= o.y and y <= o.y + o.h then
+      return true
+    end
   end
   for _, o in ipairs(map.offLimits or {}) do
     if x >= o.x and x < o.x + o.w and y >= o.y and y < o.y + o.h then

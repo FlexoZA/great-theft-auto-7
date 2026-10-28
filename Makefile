@@ -5,7 +5,7 @@ SOURCES := main.lua conf.lua CHANGELOG.md src lib assets
 WORLD   ?= world
 IMAGE   ?= gta7-server
 
-.PHONY: run server check fmt build docker clean
+.PHONY: run server check audit wiki wiki-portraits fmt build docker clean
 
 run:            ## Run the game
 	$(LOVE) .
@@ -15,6 +15,19 @@ server:         ## Run a headless dedicated server (docs/dedicated-server.md)
 
 check:          ## Lint with luacheck
 	luacheck .
+
+audit:          ## Rate this branch out of 10 against origin/staging (docs/audit.md)
+	luajit tools/audit/run.lua --md build/audit/report.md
+
+wiki:           ## Write the wiki's pages in docs/wiki from the game's code (docs/wiki.md)
+	luajit tools/wiki/run.lua
+
+wiki-portraits: ## Draw the wiki's missing pictures: guns, abilities, enemies (WIKI_ALL=1 for all, WIKI_ONLY="icons city karen" for some)
+	rm -rf $(BUILD)/wiki-love && mkdir -p $(BUILD)/wiki-love
+	ln -s ../../tools/wiki/portraits/main.lua ../../tools/wiki/portraits/conf.lua ../../src ../../lib ../../assets \
+		$(BUILD)/wiki-love/
+	$(LOVE) $(BUILD)/wiki-love
+	luajit tools/wiki/run.lua
 
 fmt:            ## Format with stylua (if installed)
 	stylua .

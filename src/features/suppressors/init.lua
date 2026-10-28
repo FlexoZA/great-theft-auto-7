@@ -40,6 +40,7 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
+local Bosses = require("src.features.bosses")
 local Nav = require("src.features.d-day.nav")
 local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
@@ -112,9 +113,15 @@ local function server()
   return sv
 end
 
---- One standing at (x, y), watching `watch`. Returns it.
+--- One standing at (x, y), watching `watch`. Returns it. Its health and
+--- shield grow with the clears of the job under way (Bosses.enemyHealth).
 function Suppressors:serverPost(_server, x, y, watch)
-  return server().brain:add(x, y, watch or 0, minigun())
+  local u = server().brain:add(x, y, watch or 0, minigun())
+  u.hp = Bosses.enemyHealth(Suppressors.health)
+  u.max = u.hp
+  u.shield = Bosses.enemyHealth(Suppressors.shield)
+  u.shieldMax = u.shield
+  return u
 end
 
 --- Take every one away.
@@ -214,7 +221,63 @@ function Suppressors:serverShotAt(srv, x, y, radius, by, angle, damage, dtype)
   elseif hadShield and u.shield <= 0 then
     srv:broadcast(Protocol.encode("SUP_BREAK", u.id))
   end
-  return true
+  return hadShield and "metal" or true -- the shield sparks; under it, they bleed
+end
+
+--- Every Suppressor in the world right now, for the audit (tools/audit):
+--- what it can still take is its shield and its health together.
+function Suppressors:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, u in ipairs(sv.brain.list) do
+    add({ id = u, kind = "suppressors/suppressor", x = u.x, y = u.y, hp = u.hp + u.shield, radius = sv.brain.radius })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Suppressors:wikiEnemies(add)
+  local gun = minigun()
+  add({
+    kind = "suppressors/suppressor",
+    name = "Suppressor",
+    quests = { "a-man-citadel" },
+    where = "The Citadel, holding the gallery and the reactor deck",
+    about = "The Combine's heavy: a minigun at the hip and a blue energy shield round it. Slow on its feet and "
+      .. "slow to turn, it holds a post and hoses anyone who walks into its sights.",
+    stats = {
+      { "Health", Suppressors.health },
+      { "Shield", ("%g, soaked before the health goes"):format(Suppressors.shield) },
+      { "Speed", ("%g px/s walking, %g closing in while it fires; turns at %g rad/s"):format(Brain.WALK,
+        Brain.ADVANCE, Brain.TURN) },
+      { "Sight", ("%g px in a %g degree cone, %g px all round"):format(Brain.RANGE, math.deg(Suppressors.fov),
+        Suppressors.aware) },
+    },
+    weapons = {
+      { "Minigun", ("%g damage a round, about %g rounds a second once the barrels turn (%g s to spin up), "
+        .. "%g s of fire before it vents"):format(gun.damage, math.floor(1 / Brain.FIRE_EVERY + 0.5), Brain.SPIN_UP,
+        Brain.BURST) },
+    },
+    abilities = {
+      ("The shield soaks every hit first. It comes back %g s after the last hit, %g points a second."):format(
+        Brain.SHIELD_DELAY, Brain.SHIELD_REGEN),
+      ("After %g s of fire the gun vents for %g s: no rounds while it does."):format(Brain.BURST, Brain.VENT),
+      ("Loses you and keeps hosing where it saw you last for %g s, then walks over and searches for %g s."):format(
+        Brain.SUPPRESS, Brain.SEARCH_TIME),
+      ("Never goes more than %g px from its post, and stops closing in at %g px."):format(Brain.LEASH, Brain.KEEP),
+      ("Hears a shot within %g px, and turns towards a hit from out of sight."):format(Brain.HEAR),
+      "Too heavy to scare: a stink cloud doesn't move it.",
+    },
+    tips = {
+      "Step out of cover while it vents: the barrels wind down and nothing comes out.",
+      ("Shock tears the shield down %g times as fast."):format(Brain.SHOCK_SHIELD),
+      ("Run round it: it turns at only %g rad/s and can't keep up with a sprint."):format(Brain.TURN),
+      ("Keep hitting it: the shield only comes back after %g s without a hit."):format(Brain.SHIELD_DELAY),
+      ("A rocket or grenade takes %g off it, shield first."):format(Suppressors.blastDamage),
+      "A freeze holds it like anyone.",
+    },
+    drops = ("%g koins, and sometimes a pickup"):format(Suppressors.drops),
+  })
 end
 
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
@@ -295,10 +358,14 @@ function Suppressors:update(dt)
   end
 end
 
---- Their cones of sight, on the ground under everything, as the Combine's are.
+--- Their cones of sight, on the ground under everything, as the Combine's
+--- are (unless the sight-cones toggle hides them, as it does by default).
 function Suppressors:drawBelowCars()
-  for _, u in pairs(shown) do
-    Sight.draw(u.dx, u.dy, u.facing, Brain.RANGE, u.alert, clock, u.fov)
+  if Features.any("hideSightCones") then -- the ` key (sight-cones)
+    return
+  end
+  for id, u in pairs(shown) do
+    Sight.draw(u.dx, u.dy, u.facing, Brain.RANGE, u.alert, clock, u.fov, { seed = id })
   end
 end
 
@@ -306,16 +373,16 @@ function Suppressors:drawAboveCars()
   for _, u in pairs(shown) do
     Render.draw(u.dx, u.dy, u.facing, {
       swing = math.sin(u.cycle * 2 * math.pi) * u.stride, turn = u.turn, flash = u.flash > 0, alert = u.alert,
-      hurt = u.hurt / HURT * 0.7, shield = u.shield / Suppressors.shield, glow = u.glow / GLOW, venting = u.venting,
+      hurt = u.hurt / HURT * 0.7, shield = u.shield / u.shieldMax, glow = u.glow / GLOW, venting = u.venting,
     }, clock)
-    if u.hp < Suppressors.health or u.shield < Suppressors.shield then -- bars under it once it is hit
+    if u.hp < u.max or u.shield < u.shieldMax then -- bars under it once it is hit
       local bw, y = 34, u.dy + Render.RADIUS + 8
       love.graphics.setColor(0, 0, 0, 0.6)
       love.graphics.rectangle("fill", u.dx - bw / 2 - 1, y - 1, bw + 2, 9)
-      local s = math.max(0, u.shield / Suppressors.shield)
+      local s = math.max(0, u.shield / u.shieldMax)
       love.graphics.setColor(Render.SHIELD[1], Render.SHIELD[2], Render.SHIELD[3])
       love.graphics.rectangle("fill", u.dx - bw / 2, y, bw * s, 3)
-      local f = math.max(0, u.hp / Suppressors.health)
+      local f = math.max(0, u.hp / u.max)
       love.graphics.setColor(1 - f, f, 0.2)
       love.graphics.rectangle("fill", u.dx - bw / 2, y + 4, bw * f, 3)
     end
@@ -354,6 +421,9 @@ Suppressors.clientMessages = {
           u.glow = GLOW
         end
         u.hp, u.shield = hp, shield
+        -- Tougher on a job finished before: the most it has been seen with.
+        u.max = math.max(u.max or Suppressors.health, hp)
+        u.shieldMax = math.max(u.shieldMax or Suppressors.shield, shield)
         u.alert = args[i + 6] == "1"
         u.wary = args[i + 6] ~= "0"
         local spin = (tonumber(args[i + 7]) or 0) / 9

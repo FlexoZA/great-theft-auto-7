@@ -29,6 +29,14 @@
 -- nearest player and punch; two pistol rounds drop one. Once she is down
 -- no more arrive, and the ones left keep swinging until they are dealt with.
 --
+-- She remembers. Every time the job is finished in this world (quests'
+-- clears) she comes back angrier, like every boss (`Bosses.rage`): more
+-- health, harder slaps and screams, and a bigger gang. Down, she drops an
+-- uzi for every player (a won gun: picking it up unlocks it in the shop).
+-- The first time it is always a common one; the more often she has been
+-- beaten, the better the odds of an uncommon, rare or legendary one
+-- (`Bosses.dropTier`).
+--
 -- The quests feature brings everyone to her street and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "karen": the host spawns her then, and every client puts up the title
@@ -69,6 +77,7 @@ local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
+local Tiers = require("src.features.tiers")
 
 local Karen = {
   name = "karen",
@@ -104,6 +113,10 @@ Karen.screamDelay = 1.2 -- seconds the ring shows before the scream lands
 Karen.screamRadius = 120 -- px; the area it lands on
 Karen.screamDamage = 20
 Karen.screamBlur = 3 -- seconds the screen swims for anyone caught
+
+-- Her drop: one uzi for every player, its tier better the more often she
+-- has been beaten (Bosses.dropTier).
+Karen.uzi = "gun-uzi"
 
 -- What she is on about. None of it makes any sense; that is the point.
 Karen.lines = {
@@ -197,9 +210,7 @@ function Karen:spawnBoss(server, x, y)
     breath = Stamina.new(self.breath), -- winded, she walks and cannot scream
     slapTimer = 1,
     sayTimer = 1.5,
-    stuck = 0,
-    sidestep = 0,
-    side = 1,
+    stuck = 0, -- seconds her walk has got nowhere (bosses/walk.lua)
     frozen = 0, -- seconds left rooted to the spot
     screamTimer = self.screamEvery * 0.6, -- the first comes a little sooner
     scream = nil, -- { x, y, t } while she is drawing breath
@@ -208,6 +219,7 @@ function Karen:spawnBoss(server, x, y)
     homeY = y,
     nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h }), -- round the houses
     mode = "idle", -- what her brain is doing (brain.lua)
+    power = Bosses.power(), -- her slaps and screams, times this
   }
   self:clearSimps(server) -- a fresh gang for a fresh fight
   sv.simps.max = Bosses.count(Simps.MAX, server) -- a bigger gang for a bigger group
@@ -304,6 +316,11 @@ function Karen:hurt(server, amount, by, angle)
   if money and money.drop then
     money:drop(server, x, y, self.drops)
   end
+  local pickups = Features.byName.pickups
+  if pickups and pickups.serverDrop then
+    local item = Tiers.join(self.uzi, Bosses.dropTier())
+    pickups:serverDrop(server, item, x, y + self.radius + 16, nil, { perPlayer = true }) -- one each
+  end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
@@ -335,6 +352,103 @@ function Karen:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
     self:simpDown(server, kill)
   end
   return true
+end
+
+--- Every enemy of hers in the world right now, for the audit (tools/audit):
+--- her while she stands, and each simp.
+function Karen:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local b = sv.boss
+  if b then
+    add({ id = b, kind = "karen/boss", x = b.x, y = b.y, hp = b.hp, radius = self.radius })
+  end
+  for i = 1, sv.simps.n do
+    local s = sv.simps.list[i]
+    add({ id = s, kind = "karen/simp", x = s.x, y = s.y, hp = s.hp, radius = Simps.RADIUS })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Karen:wikiEnemies(add)
+  local SimpBrain = require("src.features.karen.simp_brain")
+  local Heal = require("src.features.bosses.heal")
+  local br = self.breath
+  add({
+    kind = "karen/boss",
+    name = "Crazy Karen",
+    quests = { "karen" },
+    boss = true,
+    where = "Karen's Cul-de-sac, in the turning circle at the end of her street",
+    about = "The first boss. She stands in her turning circle ranting about nothing, and the moment anyone "
+      .. "comes near she charges them and slaps whatever she reaches, car or walker.",
+    stats = {
+      { "Health", self.maxHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.maxHealth / self.bulletDamage)) },
+      { "Speed", ("%g px/s charging, %g winded"):format(self.chargeSpeed, self.walkSpeed) },
+      { "Sight", self.aggroRange, "px" },
+    },
+    weapons = {
+      { "Slap", ("%g melee damage, one every %g s, to whatever she reaches, car or walker"):format(self.slapDamage,
+        self.slapInterval) },
+      { "Scream", ("%g impact damage to everyone within %g px of where she aimed it, and your screen swims for %g s")
+        :format(self.screamDamage, self.screamRadius, self.screamBlur) },
+    },
+    abilities = {
+      ("Every %g s she plants her feet and screams at whoever is within %g px: a ring on the ground shows where, "
+        .. "and it lands %g s later."):format(self.screamEvery, self.screamRange, self.screamDelay),
+      ("Charging costs her breath: about %d s flat out and she is winded, down to a %g px/s walk with no breath "
+        .. "to scream."):format(math.floor(Stamina.defaults.max / br.drain + 0.5), self.walkSpeed),
+      ("Her simps turn up while she stands, up to %g at a time."):format(Simps.MAX),
+      ("Under %g%% health she marches off to the nearest medkit within %g px and gets %g health back from it.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+      "Stomps back to her turning circle when nobody is about.",
+    },
+    tips = {
+      "Step out of the ring before the scream lands.",
+      "Run her dry: winded, she can't keep up with anyone sprinting.",
+      ("Ramming her at %g px/s or more hurts her (more the faster you go), but the car loses %g health and "
+        .. "bounces off."):format(self.ramMinSpeed, self.ramDamageToCar),
+      "A freeze roots her to the spot, and a stink sends her running.",
+      "Grab the medkits before she does.",
+    },
+    dropsItems = { self.uzi }, -- its items' wiki pages link back here (tools/wiki/items.lua)
+    drops = ("%g koins, and an uzi for every player"):format(self.drops),
+  })
+  add({
+    kind = "karen/simp",
+    name = "Simp",
+    quests = { "karen" },
+    scaling = "none", -- their health and punches stay put; only the gang grows (Bosses.count)
+    where = "Karen's Cul-de-sac, turning up round her while she stands",
+    about = ("Karen's hangers-on, in grey hoodies, each with a name that starts \"%s\". They run at you from all "
+      .. "sides and punch."):format(Simps.PREFIX),
+    stats = {
+      { "Health", Simps.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(Simps.SHOT_DAMAGE,
+        math.ceil(Simps.HEALTH / Simps.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s milling about, %g chasing"):format(Simps.WALK_SPEED, Simps.CHASE_SPEED) },
+      { "Sight", Simps.SIGHT, "px" },
+      { "Numbers", ("%g at a time for one player (more for more players, and each time the job has been finished), "
+        .. "one every %g s while Karen stands"):format(Simps.MAX, Simps.SPAWN_EVERY) },
+    },
+    weapons = {
+      { "Punch", ("%g melee damage, one every %g s"):format(Simps.PUNCH_DAMAGE,
+        Simps.PUNCH_INTERVAL) },
+    },
+    abilities = {
+      ("Go for whoever shot Karen in the last %g s."):format(SimpBrain.DEFEND_TIME),
+      "Spread round you and close in from all sides rather than queueing up.",
+      "No more come once Karen is down, but the ones already out keep swinging.",
+    },
+    tips = {
+      ("A car at %g px/s or more flattens one."):format(Simps.SPLAT_SPEED),
+      "A stink sends them running.",
+    },
+    drops = "A koin like a pedestrian, and sometimes something to pick up",
+  })
 end
 
 --- Cars driving into her: at speed they hurt her, get hurt and bounce off;
@@ -438,7 +552,8 @@ function Karen:scream(server, b)
       if (x - sc.x) ^ 2 + (y - sc.y) ^ 2 <= (self.screamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, self.screamDamage, math.atan2(y - sc.y, x - sc.x), "impact")
+          weapons:serverDamage(server, p, nil, self.screamDamage * b.power, math.atan2(y - sc.y, x - sc.x),
+            "impact")
         end
       end
     end
@@ -887,7 +1002,8 @@ end
 --- The boss bar along the bottom of the screen.
 local function drawBossBar(b)
   BossBar.draw({
-    title = "CRAZY KAREN", titleColor = { 1, 0.55, 0.75 }, fill = { 0.9, 0.2, 0.45 },
+    title = "CRAZY KAREN", harder = "ANGRIER",
+    titleColor = { 1, 0.55, 0.75 }, fill = { 0.9, 0.2, 0.45 },
     hp = b.hp, max = b.max, stamina = b.stamina, staminaMax = Stamina.defaults.max, winded = b.winded,
   })
 end

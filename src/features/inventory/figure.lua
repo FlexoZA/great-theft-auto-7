@@ -18,6 +18,7 @@
 
 local Shade = require("src.features.weapons.shade")
 local GearKinds = require("src.features.gear.kinds")
+local GearIcons = require("src.features.gear.icons")
 local ArmorKinds = require("src.features.armor.kinds")
 local GunIcons = require("src.features.weapons.icons")
 local Face = require("src.art.face")
@@ -163,6 +164,22 @@ local HEAD = {
   end,
 }
 local PLAIN_HEAD = HEAD["tactical-hat"]
+
+local WORN_SCALE = 1.35 -- a piece worn as its icon (gear's `Icons.WORN`): this much bigger than the icon...
+local WORN_Y = HEAD_Y - 1 -- ...its middle here, the visor over the eyes
+
+--- Piece `key` worn as its icon is drawn, on the head, outlines kept a
+--- pixel wide.
+local function wornIcon(key, c)
+  local pixel = Shade.pixel()
+  love.graphics.push()
+  love.graphics.translate(0, WORN_Y)
+  love.graphics.scale(WORN_SCALE)
+  Shade.begin(WORN_SCALE / pixel)
+  GearIcons.shape(key, c)
+  Shade.begin(1 / pixel)
+  love.graphics.pop()
+end
 
 -- A jacket: the body and full sleeves in its colour, then what makes it itself.
 local function jacket(sk, c)
@@ -436,8 +453,14 @@ function Figure.draw(cx, top, scale, dress, face)
     (ARMOR[dress.armor] or ARMOR.vest)(colorOf(ArmorKinds, dress.armor))
   end
   -- The head, and what is on it.
+  local worn = dress.head and GearIcons.WORN[dress.head]
   local wear = dress.head and (HEAD[dress.head] or PLAIN_HEAD)
-  if face then
+  if worn then
+    wear = function(c)
+      wornIcon(dress.head, c)
+    end
+  end
+  if face and not worn then -- a helmet worn as its icon hides the face: a head the body's size under it
     box(-6, 38, 12, 10, sk.skin, 2) -- neck
     bigHead(face, scale)
     if wear then
@@ -454,7 +477,7 @@ function Figure.draw(cx, top, scale, dress, face)
     end
   else
     head(sk)
-    local covered = dress.head == "crash-helmet" or dress.head == "welding-mask"
+    local covered = dress.head == "crash-helmet" or dress.head == "welding-mask" or dress.head == "slayer-helmet"
     if not covered then
       drawFace()
     end

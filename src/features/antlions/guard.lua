@@ -13,6 +13,9 @@
 -- none for a charge or a scream while it is winded.
 --
 -- `health` for one human, more with more (Bosses.health), on the boss bar.
+-- It calls for help as it is hurt (`help`): at 60% and again at 20% a
+-- Hunter-Chopper sweeps in low from behind whoever it is after, drops
+-- rollermines on them and flies off.
 -- Down, it spills koins, raises `serverKill` with kind "boss" and finishes
 -- the level (quests' `serverComplete`): the EXIT star comes up by it.
 --
@@ -29,6 +32,7 @@ local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local Bar = require("src.features.bosses.bar")
 local Brain = require("src.features.antlions.guard_brain")
+local Walk = require("src.features.bosses.walk")
 local Render = require("src.features.antlions.guard_render")
 local Sounds = require("src.features.antlions.sounds")
 
@@ -48,26 +52,26 @@ Guard.breath = { -- its stamina (bosses/stamina.lua has the rule and the default
 }
 Guard.rise = 2.4 -- seconds digging its way up
 Guard.sight = 1600 -- px it goes after somebody from
-Guard.runSpeed = 150 -- px/s while it has the breath
-Guard.prowlSpeed = 90 -- px/s closing in on somebody near: no breath spent
-Guard.walkSpeed = 42 -- px/s winded: about a player's walk
-Guard.turn = 2.4 -- rad/s it turns
-Guard.swipeReach = 62 -- px from its middle to whoever it swipes at
-Guard.swipeDamage = 60 -- slow and easy to hit, so every blow that lands hurts: two finish a fresh player
+Guard.runSpeed = 190 -- px/s while it has the breath
+Guard.prowlSpeed = 120 -- px/s closing in on somebody near: no breath spent
+Guard.walkSpeed = 55 -- px/s winded: a little over a player's walk
+Guard.turn = 4.2 -- rad/s it turns
+Guard.swipeReach = 50 -- px from its middle to whoever it swipes at
+Guard.swipeDamage = 60 -- every blow that lands hurts: two finish a fresh player
 Guard.swipeShove = 110 -- px it knocks them back
-Guard.swipeHit = 0.32 -- seconds into a swipe that it lands
-Guard.swipeTime = 0.6
-Guard.swipeEvery = 0.9 -- seconds after one before the next
+Guard.swipeHit = 0.24 -- seconds into a swipe that it lands
+Guard.swipeTime = 0.45
+Guard.swipeEvery = 0.7 -- seconds after one before the next
 Guard.chargeNear, Guard.chargeFar = 200, 650 -- px off it may charge from
 Guard.chargeCost = 30 -- breath a charge takes
 Guard.chargeChance = 0.8 -- per second, while it may
 Guard.pawTime = 0.9 -- seconds of pawing the sand before it goes: the warning
-Guard.chargeSpeed = 440 -- px/s
+Guard.chargeSpeed = 480 -- px/s
 Guard.chargeTime = 1.4 -- seconds at most
 Guard.chargeDamage = 90 -- nearly a fresh player's whole health
 Guard.chargeShove = 240 -- px whoever it hits flies
-Guard.chargeEvery = 5 -- seconds after one before the next
-Guard.stunTime = 2.2 -- seconds it reels after running into something
+Guard.chargeEvery = 4 -- seconds after one before the next
+Guard.stunTime = 1.6 -- seconds it reels after running into something
 Guard.screamRange = 520 -- px down the cone
 Guard.screamHalf = math.rad(32) -- either side of its line
 Guard.screamCost = 35 -- breath a scream takes
@@ -75,9 +79,21 @@ Guard.screamChance = 0.7 -- per second, while it may
 Guard.rearTime = 1.0 -- seconds rearing up, the cone showing: the time to get out of it
 Guard.screamDamage = 70 -- right in front of it; less towards the far end
 Guard.screamShove = 320 -- px it blows them back, right in front of it
-Guard.screamRecover = 0.8 -- seconds it stands after
+Guard.screamRecover = 0.6 -- seconds it stands after
 Guard.screamEvery = 7 -- seconds after one before the next
+Guard.kiteFar = 250 -- px a medkit must still be off for it to rear up and scream on its way there
+Guard.kiteCharge = 0.6 -- rad off the line to its medkit a charge may go, kiting
 Guard.drops = 60 -- koins it spills
+-- Who it calls in, once each, as its health falls to `at` of the most it
+-- had: a Hunter-Chopper (the hunter-chopper feature's `serverFlyover`) in
+-- low from behind whoever it is after, `from` px back from them on the line
+-- from the Guard through them, so it comes at their back, to drop `mines`
+-- rollermines on them (for one human, more with more) and fly off.
+Guard.help = {
+  { at = 0.6, mines = 3 },
+  { at = 0.2, mines = 3 },
+}
+Guard.helpFrom = 1100
 
 local SYNC_EVERY = 2
 local SMOOTHING = 10
@@ -163,9 +179,79 @@ local function spawn(server, x, y)
     g = {
       x = x, y = y, facing = math.pi / 2, hp = max, max = max, mode = "emerge", t = 0, frozen = 0,
       breath = Stamina.new(Guard.breath), swipeIn = 0, chargeIn = 2, screamIn = 3, aim = math.pi / 2,
-      side = love.math.random() < 0.5 and -1 or 1,
+      power = Bosses.power(), -- its swipes, charges and screams, times this
     },
+    called = 0, -- how many of `help` have come
   }
+end
+
+--- Whoever it is after, or else the nearest player there is: their id and where they are.
+local function quarry(server, g)
+  local best, bx, by, bd = nil, nil, nil, math.huge
+  for id, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local x, y = Features.bodyPose(server, p)
+      local d = (x - g.x) ^ 2 + (y - g.y) ^ 2
+      if id == g.target then
+        return id, x, y
+      end
+      if d < bd then
+        best, bx, by, bd = id, x, y, d
+      end
+    end
+  end
+  return best, bx, by
+end
+
+--- The chopper in from behind them: on the line from the Guard through
+--- them, `helpFrom` px past them, so it comes at their back.
+local function callIn(server, g, wave)
+  local chopper = Features.byName["hunter-chopper"]
+  local id, x, y = quarry(server, g)
+  if not (id and chopper and chopper.serverFlyover) then
+    return
+  end
+  local dx, dy = x - g.x, y - g.y
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d < 1 then
+    local a = love.math.random() * 2 * math.pi
+    dx, dy, d = math.cos(a), math.sin(a), 1
+  end
+  chopper:serverFlyover(server, x + dx / d * Guard.helpFrom, y + dy / d * Guard.helpFrom, id,
+    { feature = "rollermines", count = Bosses.count(wave.mines, server), spread = 45 })
+end
+
+local function callForHelp(server, g)
+  local wave = Guard.help[sv.called + 1]
+  while wave and g.hp <= g.max * wave.at do
+    sv.called = sv.called + 1
+    callIn(server, g, wave)
+    wave = Guard.help[sv.called + 1]
+  end
+end
+
+--- Straight to the fight (the launch's --boss): every Combine soldier in
+--- the final section gone (`brain`'s finale swarms are init.lua's to take),
+--- `player` set down on foot a little south of where it comes up, and it
+--- digs up there. False when it is already up.
+function Guard.serverSkipTo(server, map, player)
+  if sv or not (map and map.finale and map.bossX) then
+    return false
+  end
+  local aman = Features.byName["a-man"]
+  if aman and aman.serverClearIn then
+    aman:serverClearIn(server, map.finale)
+  end
+  spawn(server, map.bossX, map.bossY)
+  local g = sv.g
+  if player and player.body then
+    local x, y = roomAt(g.x, g.y + 320)
+    if player.vehicle then
+      server:unseat(player, x, y)
+    end
+    player.body.x, player.body.y, player.body.facing = x, y, -math.pi / 2
+  end
+  return true
 end
 
 --- Every host tick from init.lua: wait for the section to clear, then fight.
@@ -181,7 +267,13 @@ function Guard.serverStep(server, dt, map, brain)
   end
   sv.time = sv.time + dt
   local g = sv.g
+  if g.nav == nil then -- the swarms' walking grid, as its width fits through it (bosses/walk.lua)
+    g.nav = brain and brain.nav and Walk.nav(brain.nav, Brain.blocked, Guard.radius) or false
+  end
   local what, caught = Brain.think(Guard, g, server, dt, sv.time)
+  if g.mode ~= "emerge" then
+    callForHelp(server, g)
+  end
   if what == "scream" then
     local parts = { fmt(g.x), fmt(g.y), ("%.3f"):format(g.aim), Guard.screamRange, ("%.3f"):format(Guard.screamHalf) }
     for _, id in ipairs(caught) do
@@ -233,7 +325,15 @@ function Guard.serverShotAt(server, x, y, radius, by, angle, damage)
     g.hp = 0
     down(server, by, angle)
   end
-  return true
+  return "goo"
+end
+
+--- The guard while it is up, for the audit (tools/audit).
+function Guard.serverEnemies(_server, add)
+  local g = sv and not sv.done and sv.g
+  if g then
+    add({ id = g, kind = "antlions/guard", x = g.x, y = g.y, hp = g.hp, radius = Guard.radius })
+  end
 end
 
 function Guard.serverFreezeArea(x, y, radius, seconds)
@@ -248,6 +348,57 @@ function Guard.serverPanicArea(x, y, radius)
   if g and (g.x - x) ^ 2 + (g.y - y) ^ 2 <= (radius + Guard.radius) ^ 2 then
     g.panic = { x = x, y = y, left = 0.8 }
   end
+end
+
+--- The wiki's page on it (tools/wiki, docs/wiki.md).
+function Guard.wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local pistol = Features.byName.weapons.guns.pistol
+  local mines = 0
+  for _, wave in ipairs(Guard.help) do
+    mines = math.max(mines, wave.mines)
+  end
+  add({
+    kind = "antlions/guard",
+    name = "Antlion Guard",
+    quests = { Guard.questId },
+    boss = true,
+    where = "The Coast's point, up out of the sand once the last section is cleared",
+    about = "The swarm's great armoured beast. It digs up out of the sand once everything in the Coast's last "
+      .. "section is down, then swipes, charges and screams.",
+    stats = {
+      { "Health", Guard.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Guard.health / pistol.damage)) },
+      { "Speed", ("%g px/s running, %g closing in, %g charging, %g winded"):format(Guard.runSpeed,
+        Guard.prowlSpeed, Guard.chargeSpeed, Guard.walkSpeed) },
+      { "Sight", Guard.sight, "px" },
+    },
+    weapons = {
+      { "Swipe", ("%g impact damage up close, knocking you %g px back"):format(Guard.swipeDamage, Guard.swipeShove) },
+      { "Charge", ("%g impact damage, and you fly %g px"):format(Guard.chargeDamage, Guard.chargeShove) },
+      { "Scream", ("up to %g impact damage down a %g degree cone %g px long, blowing you back up to %g px"):format(
+        Guard.screamDamage, math.floor(math.deg(Guard.screamHalf * 2) + 0.5), Guard.screamRange,
+        Guard.screamShove) },
+    },
+    abilities = {
+      ("Paws the sand for %g s before it charges from %g to %g px away: that's the warning."):format(Guard.pawTime,
+        Guard.chargeNear, Guard.chargeFar),
+      ("Runs into something mid-charge and it reels for %g s."):format(Guard.stunTime),
+      ("Rears up for %g s before it screams, the cone showing on the ground."):format(Guard.rearTime),
+      ("Calls for help as it is hurt: at %g%% and again at %g%% health a Hunter-Chopper sweeps in from behind you "
+        .. "and drops %g rollermines (more with more players)."):format(Guard.help[1].at * 100,
+        Guard.help[2].at * 100, mines),
+      "Running, charging and screaming cost it breath: winded, it walks, with no charge or scream in it.",
+      ("Under %g%% health it goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+    },
+    tips = {
+      "Sidestep the charge, and better still, stand in front of a wall so it runs into it.",
+      "Get out of the cone while it rears up.",
+      "A freeze holds it, but only for half as long.",
+    },
+    drops = ("%g koins"):format(Guard.drops),
+  })
 end
 
 --- For tests.

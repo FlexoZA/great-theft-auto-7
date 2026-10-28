@@ -1,6 +1,6 @@
 -- What the police can see: a fan `FOV` wide in front of a unit or an
 -- officer, out to a range, and only where nothing solid stands in the way.
--- Walls come from every feature's `blocksPoint` (docs/features.md), the
+-- Walls come from every feature's `blocksShot` (docs/features.md), the
 -- same rule bullets follow, so a building that stops a shot hides you too.
 --
 -- Clients draw the cone as a faint white fan, clipped by the same walls, so
@@ -12,6 +12,7 @@ local Features = require("src.features")
 local Vision = {}
 
 Vision.FOV = math.rad(180) -- full width of the cone: everything in front of the windscreen
+Vision.AWARE = 150 -- px all round a unit or an officer that they notice somebody in, any way they face
 Vision.STEP = 14 -- px between line-of-sight samples
 Vision.RAYS = math.ceil(Vision.FOV / math.rad(7.5)) + 1 -- rays across the cone when drawing it
 Vision.FILL = 0.07 -- alpha of the drawn cone
@@ -24,14 +25,9 @@ local function angleDiff(a, b)
   return (a - b + math.pi) % TWO_PI - math.pi
 end
 
---- Is (x, y) inside anything solid?
+--- Is (x, y) inside anything a look stops at (`blocksShot`)?
 function Vision.blocked(x, y)
-  for _, f in ipairs(Features.list) do
-    if f.blocksPoint and f:blocksPoint(x, y) then
-      return true
-    end
-  end
-  return false
+  return Features.any("blocksShot", x, y)
 end
 
 --- How far a look from (x, y) along `angle` gets before it hits a wall, at
@@ -67,15 +63,16 @@ function Vision.clear(x0, y0, x1, y1)
 end
 
 --- Can someone at (x, y) facing `facing` see (tx, ty)? Within `range`,
---- inside the cone (unless `anyAngle`, for someone already turned to look)
---- and with nothing in between. Returns the squared distance when they can.
+--- inside the cone (unless `anyAngle`, for someone already turned to look,
+--- or it is within Vision.AWARE all round) and with nothing in between. Returns the squared distance when they can.
 function Vision.canSee(x, y, facing, tx, ty, range, anyAngle)
   local dx, dy = tx - x, ty - y
   local d2 = dx * dx + dy * dy
   if d2 > range * range then
     return nil
   end
-  if not anyAngle and math.abs(angleDiff(math.atan2(dy, dx), facing)) > Vision.FOV / 2 then
+  local behind = math.abs(angleDiff(math.atan2(dy, dx), facing)) > Vision.FOV / 2
+  if behind and not anyAngle and d2 > Vision.AWARE * Vision.AWARE then
     return nil
   end
   if not Vision.clear(x, y, tx, ty) then

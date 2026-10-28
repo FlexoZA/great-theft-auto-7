@@ -489,6 +489,31 @@ function Bigfoot.serverShotAt(server, x, y, radius, by, angle)
   return false
 end
 
+--- Him and his squirrels, for the audit (tools/audit). In the air he is
+--- over the walls and nothing hits him (as `serverShotAt` has it).
+function Bigfoot.serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local f = sv.foot
+  if f and f.hp > 0 then
+    local air = f.mode == "air"
+    add({
+      id = f,
+      kind = "events/bigfoot",
+      x = f.x,
+      y = f.y,
+      hp = f.hp,
+      radius = Bigfoot.radius,
+      immune = air,
+      flying = air,
+    })
+  end
+  for _, s in pairs(sv.squirrels) do
+    add({ id = s, kind = "events/squirrel", x = s.x, y = s.y, hp = s.hp, radius = Bigfoot.squirrelRadius })
+  end
+end
+
 --- Something stinks at (x, y): he (on the ground) and his squirrels run
 --- from it for a moment.
 function Bigfoot.serverPanicArea(_server, x, y, radius)
@@ -520,6 +545,77 @@ function Bigfoot.serverFreezeArea(_server, x, y, radius, seconds)
       s.frozen = math.max(s.frozen, seconds)
     end
   end
+end
+
+--- The wiki's pages on him and his squirrels (tools/wiki, docs/wiki.md);
+--- init.lua passes `opens`, when the event can first happen.
+function Bigfoot.wikiEnemies(add, opens)
+  local Heal = require("src.features.bosses.heal")
+  local B = Bigfoot
+  add({
+    kind = "events/bigfoot",
+    name = "Bigfoot (city event)",
+    boss = true,
+    where = "The city, as an event" .. opens .. ": he comes out onto a road away from everyone",
+    about = "The forest's Bigfoot loose in the streets. He goes for the nearest player, or their buildings when "
+      .. "nobody is close, swiping, leaping onto you, and bringing a litter of squirrels.",
+    stats = {
+      { "Health", B.health },
+      { "Hits", ("%g a hit, whatever hits him: %g hits bring him down"):format(B.bulletDamage,
+        math.ceil(B.health / B.bulletDamage)) },
+      { "Speed", ("%g px/s chasing, %g winded"):format(B.speed, B.walkSpeed) },
+    },
+    weapons = {
+      { "Swipe", ("%g melee damage, one every %g s; %g to a building"):format(B.swipeDamage, B.swipeEvery,
+        B.clawDamage) },
+      { "Leap", ("every %g s, up to %g px: %g impact damage to everyone inside %g px of where he lands, and %g to "
+        .. "the buildings under it"):format(B.leapEvery, B.leapRange, B.slamDamage, B.slamRadius, B.slamWalls) },
+    },
+    abilities = {
+      ("Players within %g px come before any building."):format(B.aggroRange),
+      ("He crouches for %g s, then a ring on the ground shows where he comes down, %g s before he lands."):format(
+        B.crouchTime, B.airTime),
+      ("Leaps over whatever he is stuck behind after %g s getting no closer."):format(B.stuckLeap),
+      ("Brings %g squirrels at a time; %g s after the last one bursts he roars up another litter."):format(B.litter,
+        B.litterDelay),
+      ("Under %g%% health he goes for a medkit within %g px, which puts back %g."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "He tires: chasing spends his breath, and winded he lumbers and can't leap.",
+    },
+    tips = {
+      "Bullets pass under him while he is in the air: shoot him as he lands.",
+      "Get out of the ring before he comes down.",
+      ("Wear him out: winded, he lumbers at %g px/s and a walk leaves him behind."):format(B.walkSpeed),
+      "A freeze holds him on the ground, and a stink cloud sends him off for a moment.",
+    },
+    dropsItems = { B.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
+    drops = ("%g koins, and a legendary bigfoot leap"):format(B.drops),
+  })
+  add({
+    kind = "events/squirrel",
+    name = "Squirrel (Bigfoot's)",
+    where = "The city, round Bigfoot's feet while his event is on",
+    about = "Bigfoot's litter. They sit a moment at his feet, then shoot off at the nearest player or building, "
+      .. "far faster than anyone runs, and burst on whatever they reach.",
+    stats = {
+      { "Health", ("%g: one hit of anything"):format(B.squirrelHealth) },
+      { "Speed", B.squirrelSpeed, "px/s" },
+      { "Sight", B.squirrelRange, "px" },
+      { "Numbers", ("%g at a time for one player, more with more players"):format(B.litter) },
+    },
+    weapons = {
+      { "Burst", ("%g melee damage to whoever it reaches, %g to a building"):format(B.squirrelDamage,
+        B.squirrelWalls) },
+    },
+    abilities = {
+      ("Swerves after you, but overshoots a sharp dodge until it is within %g px."):format(B.squirrelHoming),
+      ("Bursts on its own after %g s."):format(B.squirrelLife),
+    },
+    tips = {
+      "Dodge sideways at the last moment, or shoot it: one round does it.",
+      "Freezing and stink work on them.",
+    },
+  })
 end
 
 --- For tests.

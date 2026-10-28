@@ -25,7 +25,8 @@
 --
 -- The quests feature brings everyone to the beach and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
--- "d-day". The host owns all of it: the stage, every soldier, the mortars,
+-- "d-day"; every client starts the beach's march (theme.lua) until the
+-- quest ends. The host owns all of it: the stage, every soldier, the mortars,
 -- the Major. Clients hear the stage reliably and positions at 15 Hz, and
 -- draw. Bullets reach the soldiers and the Major through `serverShotAt`;
 -- their own rounds (owner 0) fly through each other.
@@ -44,6 +45,7 @@
 --   server -> all  DD_MAJOR_DOWN <x> <y> <angle>     the Major went down
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local Soldiers = require("src.features.d-day.brain")
 local Major = require("src.features.d-day.major")
@@ -53,6 +55,7 @@ local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.d-day.render")
 local Corpses = require("src.features.corpses")
 local Sounds = require("src.features.d-day.sounds")
+local Theme = require("src.features.d-day.theme")
 
 local Dday = {
   name = "d-day",
@@ -63,6 +66,7 @@ local Dday = {
 Dday.questId = "d-day"
 Dday.guards = 16 -- guards on their posts for one player (more humans, more: bosses/init.lua)...
 Dday.maxGuards = 26 -- ...as far as the posts go
+Dday.aware = 150 -- px all round them they notice somebody in, any way they face
 Dday.callHeard = 800 -- px; soldiers this near where one spotted somebody come when he calls it in
 Dday.callAnswer = 3 -- how many of them come at most, nearest first
 Dday.callEvery = 15 -- seconds before the same soldier calls again
@@ -119,7 +123,8 @@ function Dday:serverQuestStarted(server, quest)
   if not (sv and quest.boss == self.questId and map) then
     return
   end
-  sv.troops = Soldiers.new()
+  -- tougher each time the beach has been taken before (their rifles already hit harder: Weapons:serverFireFrom)
+  sv.troops = Soldiers.new({ aware = Dday.aware, health = Bosses.enemyHealth(Soldiers.HEALTH) })
   sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.troops:placeGuards(map, math.min(self.maxGuards, Bosses.count(self.guards, server)))
   sv.maxRiflemen = Bosses.count(self.riflemen, server)
@@ -219,12 +224,13 @@ function Dday:mortarLands(server, m)
     return
   end
   local caught = {}
+  local full = self.mortarDamage * Bosses.enemyPower() -- the defenders' guns, harder each time the beach is taken
   for _, p in pairs(server.players) do
     if Features.present(p) then
       local x, y = Features.bodyPose(server, p)
       local d = math.max(0, math.sqrt((x - m.x) ^ 2 + (y - m.y) ^ 2) - 7)
       if d <= R then
-        local amount = math.floor(self.mortarDamage * (1 - (2 / 3) * d / R) + 0.5)
+        local amount = math.floor(full * (1 - (2 / 3) * d / R) + 0.5)
         caught[#caught + 1] = { p = p, amount = amount, angle = math.atan2(y - m.y, x - m.x) }
       end
     end
@@ -426,6 +432,118 @@ function Dday:serverShotAt(server, x, y, radius, by, angle, _damage, dtype)
   return true
 end
 
+--- Every enemy on the beach right now, for the audit (tools/audit): each
+--- soldier, and the Major, who can only be hurt once his fight has begun
+--- (as `serverShotAt` has it).
+function Dday:serverEnemies(_server, add)
+  if not (sv and sv.troops) then
+    return
+  end
+  for _, s in ipairs(sv.troops.list) do
+    add({ id = s, kind = "d-day/soldier", x = s.x, y = s.y, hp = s.hp, radius = Soldiers.RADIUS })
+  end
+  local m = sv.major
+  if m then
+    add({
+      id = m,
+      kind = "d-day/major",
+      x = m.x,
+      y = m.y,
+      hp = m.hp,
+      radius = Major.RADIUS,
+      immune = sv.stage ~= "boss",
+    })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Dday:wikiEnemies(add)
+  local Guns = Features.byName.weapons.guns
+  local Grenades = require("src.features.grenades")
+  local Heal = require("src.features.bosses.heal")
+  local Nest = Features.byName.abilities.kinds.byKey.mgnest
+  local ak = Guns.ak47
+  add({
+    kind = "d-day/soldier",
+    name = "D-Day soldier",
+    quests = { self.questId },
+    where = "Looz'er Beach: guards in the bunkers, trenches and huts, riflemen out of the barracks",
+    about = "The Major's men. Guards sweep a cone of sight over the beach from their posts; riflemen come out "
+      .. "of the barracks doors and walk down the hill at you. Both open fire on anyone they spot.",
+    stats = {
+      { "Health", Soldiers.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(Soldiers.SHOT_DAMAGE,
+        math.ceil(Soldiers.HEALTH / Soldiers.SHOT_DAMAGE)) },
+      { "Speed", ("%g px/s walking down the hill, %g closing in"):format(Soldiers.WALK, Soldiers.CHASE_WALK) },
+      { "Sight", ("%g px in a %g degree cone, and %g px all round"):format(Soldiers.RANGE,
+        math.floor(math.deg(require("src.features.d-day.sight").FOV) + 0.5), self.aware) },
+      { "Numbers", ("%g guards and up to %g riflemen at once for one player, a rifleman every %g s"):format(
+        self.guards, self.riflemen, self.reinforceEvery) },
+    },
+    weapons = {
+      { "AK-47", ("%g damage a round, a round every %g s while he can see you, out to %g px"):format(ak.damage,
+        Soldiers.FIRE_EVERY, Soldiers.RANGE) },
+      { "Hand grenade", ("%g%% of them carry %g each: %g explosive damage across %g px, thrown %g to %g px"):format(
+        Soldiers.GRENADIER * 100, Soldiers.GRENADES, Grenades.blast.damage, Grenades.blast.radius,
+        Soldiers.GRENADE_MIN, Grenades.range) },
+    },
+    abilities = {
+      ("Spots you, turns to follow you at %d degrees a second and fires after %g s to take aim."):format(
+        math.floor(math.deg(Soldiers.TURN) + 0.5), Soldiers.REACT),
+      ("Calls in the nearest %g within %g px when he spots you; one going down brings everyone within %g px "
+        .. "to look."):format(self.callAnswer, self.callHeard, self.downHeard),
+      ("Comes after you when you duck out of sight (up to %g px from where he started) and searches where he lost you "
+        .. "for %g s."):format(Soldiers.LEASH, Soldiers.SEARCH_TIME),
+      "Shot at from out of sight, he and his mates take cover and wait, then send a squad to look.",
+      ("Behind them, mortars fall on the beach every %g to %g s: a ring shows where for %g s, then up to %g "
+        .. "explosive damage across %g px."):format(self.mortarEvery[1], self.mortarEvery[2], self.mortarDelay,
+        self.mortarDamage, self.mortarRadius),
+    },
+    tips = {
+      "Keep a tank stopper or a sandbag wall between you and the cones of sight.",
+      "Sprint across a cone: he can't turn fast enough to follow you.",
+      "A freeze stops them looking and shooting, and a stink sends them running.",
+    },
+    drops = ("%g koin, and sometimes something to pick up"):format(self.soldierDrops),
+  })
+  add({
+    kind = "d-day/major",
+    name = "Major Looz'er",
+    quests = { self.questId },
+    boss = true,
+    where = "Looz'er Beach, on the hilltop behind the flag once someone reaches it",
+    about = "Big, slow and never done talking about his country. He sees all round him, marches to rifle "
+      .. "range of the nearest player and fires bursts, and throws MG nests down in front of him.",
+    stats = {
+      { "Health", Major.HEALTH },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(Major.HEALTH / self.bulletDamage)) },
+      { "Speed", ("%g px/s marching, %g winded"):format(Major.SPEED, Major.WALK_SPEED) },
+      { "Sight", ("%g px, all the way round"):format(Major.RANGE) },
+    },
+    weapons = {
+      { "AK-47", ("bursts of %g rounds, %g damage each, a burst every %g s"):format(Major.BURST, ak.damage,
+        Major.BURST_EVERY) },
+      { "MG nest", ("every %g s (the first %g s in): a machine gun that sprays a %g degree arc in front of him "
+        .. "for %g s, %g damage a round"):format(Major.NEST_EVERY, Major.NEST_FIRST, math.deg(Nest.arc),
+        Nest.seconds, Nest.gun.damage) },
+    },
+    abilities = {
+      ("Keeps about %g px from whoever he is after."):format(Major.KEEP),
+      "Marching costs him breath: winded, he strolls, and has no MG nest in him until it's back.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "Can't be hurt until his portrait is gone and the fight is on.",
+    },
+    tips = {
+      "Stay out of the nest's arc: it only fires the way it faces.",
+      "Run him dry and he can't keep up, or put a nest down.",
+      "A freeze holds him still, and a stink sends him running.",
+    },
+    drops = ("%g koins"):format(Major.DROPS),
+  })
+end
+
 --- For tests.
 function Dday.server()
   return sv
@@ -442,6 +560,35 @@ Dday.stains = {} -- { x, y, angle, big } or { x, y, r, crater = true }
 Dday.page = nil -- { line, t } while his portrait is up
 local face = nil
 local time, lastTick, lastMajorTick = 0, 0, 0
+local march = nil -- the beach's theme, made the first time anyone lands
+
+--- The march at the music slider's level (silent while muted).
+local function marchVolume()
+  if march then
+    march:setVolume(Audio.muted and 0 or Audio.volume("music"))
+  end
+end
+
+local function startMarch()
+  if march == nil then
+    local t0 = love.timer.getTime()
+    march = love.audio.newSource(Theme.render(), "static")
+    march:setLooping(true)
+    march:setRelative(true) -- heard the same wherever you are on the beach
+    -- The render time on the console, the way every theme reports it.
+    local took = love.timer.getTime() - t0
+    print(("d-day theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+  end
+  marchVolume()
+  march:seek(0)
+  march:play()
+end
+
+local function stopMarch()
+  if march ~= nil then
+    march:stop()
+  end
+end
 
 local function clear()
   Dday.stage, Dday.major, Dday.page = nil, nil, nil
@@ -462,18 +609,21 @@ end
 function Dday:exitGame()
   clear()
   lastTick, lastMajorTick = 0, 0
+  stopMarch()
 end
 
 function Dday:questStarted(_client, quest)
   if quest.boss == self.questId then
     face = face or Face.new()
     clear()
+    startMarch()
   end
 end
 
 function Dday:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    stopMarch()
   end
 end
 
@@ -488,6 +638,7 @@ end
 
 function Dday:update(dt)
   time = time + dt
+  marchVolume()
   if self.page then
     face:update(dt)
     self.page.t = self.page.t - dt
@@ -583,6 +734,7 @@ Dday.clientMessages = {
         s.x, s.y = x, y
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Soldiers.HEALTH
+        s.top = math.max(s.top or Soldiers.HEALTH, s.hp) -- his bar's full: more than HEALTH once the beach is taken
         local flag = args[i + 5] or "g"
         s.kind = flag:lower() == "r" and "rifleman" or "guard"
         s.alert = flag ~= flag:lower()

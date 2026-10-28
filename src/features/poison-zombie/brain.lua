@@ -18,7 +18,15 @@
 --            shoulder for one and flings it at them (`throwRelease` seconds
 --            in). init.lua sends it flying (crabs.lua) when think() says so.
 --   heal     badly hurt (bosses/heal.lua): off to a medkit and takes it.
+--            With somebody in sight he kites there: faces them and backs or
+--            sidesteps to it at a shuffle, clawing whoever comes close and
+--            throwing a crab while the kit is still `HEAL_FAR` off.
 --   dodge    out from under a player's ability about to land (bosses/dodge.lua).
+--
+-- He walks the standard's way (bosses/walk.lua): straight at somebody only
+-- when his whole width gets there, else round on his walking grid (init.lua
+-- cuts it as wide as he is, the water counting), so the water he can see
+-- across doesn't catch him. No way round to them, he stands and throws.
 --
 -- A new crab grows on his back every `regrow` seconds while he has fewer
 -- than `crabs`. Frozen, he stands stiff; a stink throws him off for a moment.
@@ -27,10 +35,14 @@ local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Heal = require("src.features.bosses.heal")
 local Dodge = require("src.features.bosses.dodge")
+local Walk = require("src.features.bosses.walk")
 
 local Brain = {}
 
 local random = love.math.random
+
+local HEAL_FAR = 260 -- px off the medkit past which he still stops to throw a crab, kiting
+local HEAL_GIVE_UP = 5 -- seconds before he looks again for a medkit he found no way to
 
 local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
@@ -49,34 +61,40 @@ local function turn(from, to, rate, dt)
   return from + (d > 0 and step or -step)
 end
 
---- Solid ground under any edge of a body `r` across at (x, y).
-local function blockedAt(x, y, r)
-  return Features.any("blocksPoint", x, y) or Features.any("blocksPoint", x - r, y)
-    or Features.any("blocksPoint", x + r, y) or Features.any("blocksPoint", x, y - r)
-    or Features.any("blocksPoint", x, y + r)
+--- Nothing he can stand on at (x, y): walls, rock and the water alike
+--- (init.lua cuts his walking grid by it too).
+local function blocked(x, y)
+  return Features.any("blocksPoint", x, y)
+end
+Brain.blocked = blocked
+
+--- A step along `angle`, feeling round what is in the way (bosses/walk.lua);
+--- true if it got anywhere.
+local function step(G, z, angle, speed, dt)
+  return Walk.step(z, blocked, angle, speed, dt, G.radius)
 end
 
---- A step that way, each axis on its own; true if it got anywhere.
-local function move(z, r, angle, speed, dt)
-  local px, py = z.x, z.y
-  local nx = z.x + math.cos(angle) * speed * dt
-  if not blockedAt(nx, z.y, r) then
-    z.x = nx
-  end
-  local ny = z.y + math.sin(angle) * speed * dt
-  if not blockedAt(z.x, ny, r) then
-    z.y = ny
-  end
-  return (z.x - px) ^ 2 + (z.y - py) ^ 2 > (speed * dt * 0.3) ^ 2
-end
-
---- Head that way, and round whatever is in the way when it doesn't go.
-local function walk(z, r, angle, speed, dt)
-  if not move(z, r, angle, speed, dt) then
-    if not move(z, r, angle + z.side * math.pi / 2, speed, dt) then
-      z.side = -z.side
+--- Which way to walk to (x, y): straight when his whole width gets there,
+--- else along his walking grid (init.lua puts it on him). An angle; or nil
+--- and true once he is there, nil and false when there is no way.
+local function way(G, z, x, y, time)
+  if Walk.wideClear(blocked, z.x, z.y, x, y, G.radius) then
+    if (z.x - x) ^ 2 + (z.y - y) ^ 2 < 4 then
+      return nil, true
     end
+    return math.atan2(y - z.y, x - z.x)
   end
+  return Walk.route(z, z.nav, x, y, time)
+end
+
+--- Walk towards (x, y), turning to where he goes. True once he is there.
+local function goTo(G, z, x, y, speed, dt, time)
+  local a, there = way(G, z, x, y, time)
+  if a then
+    z.facing = turn(z.facing, a, G.turn, dt)
+    step(G, z, a, speed, dt)
+  end
+  return there
 end
 
 --- The nearest player he could see, as { id, x, y, p, car }, within `reach` of
@@ -125,10 +143,32 @@ local function swipe(G, z, server)
       local reach = G.swipeReach + (p.vehicle and G.carReach or 0) + 10 -- as far as he stopped to swipe from, and a bit
       if dist2(x, y, z.x, z.y) <= reach * reach and math.abs(wrap(a - z.facing)) < 1.3
         and weapons and weapons.serverDamage then
-        weapons:serverDamage(server, p, nil, G.swipeDamage, a, "melee")
+        weapons:serverDamage(server, p, nil, G.swipeDamage * z.power, a, "melee")
       end
     end
   end
+end
+
+--- Close enough to claw `q` (`d` px off, that way), or a crab to throw at
+--- them (`throwOk`: room for one, and he may stand for it)? Starts it and
+--- says true.
+local function fight(G, z, q, d, toward, throwOk, dt)
+  local reach = G.swipeReach + (q.car and G.carReach or 0) -- a car's side is further out than a man
+  if d <= reach then
+    if z.swipeIn <= 0 then
+      setMode(z, "swipe")
+      return true
+    end
+    return false
+  end
+  if z.crabs > 0 and throwOk and z.throwIn <= 0 and d >= G.throwNear and d <= G.throwFar
+    and math.abs(wrap(toward - z.facing)) < 0.6 and z.breath:has(G.throwCost) and random() < G.throwChance * dt
+    and Sight.clear(z.x, z.y, q.x, q.y) then
+    z.aimX, z.aimY = q.x, q.y
+    setMode(z, "throw")
+    return true
+  end
+  return false
 end
 
 --- Wake him (a round in him, or somebody seen): he howls first.
@@ -222,8 +262,7 @@ function Brain.think(G, z, server, dt, time, room)
   if threat then
     local ux, uy = Dodge.away(threat, z.x, z.y)
     z.facing = turn(z.facing, math.atan2(uy, ux), G.turn * 2, dt)
-    z.running = move(z, G.radius, math.atan2(uy, ux), st:pace(G.lurchSpeed, G.walkSpeed), dt)
-      and not st:winded()
+    z.running = step(G, z, math.atan2(uy, ux), st:pace(G.lurchSpeed, G.walkSpeed), dt) and not st:winded()
     z.mode = "dodge"
     return done()
   end
@@ -231,7 +270,7 @@ function Brain.think(G, z, server, dt, time, room)
     z.panic.left = z.panic.left - dt
     local away = math.atan2(z.y - z.panic.y, z.x - z.panic.x)
     z.facing = turn(z.facing, away, G.turn, dt)
-    move(z, G.radius, away, G.walkSpeed, dt)
+    step(G, z, away, G.walkSpeed, dt)
     if z.panic.left <= 0 then
       z.panic = nil
     end
@@ -243,11 +282,34 @@ function Brain.think(G, z, server, dt, time, room)
     if Heal.within(m, z.x, z.y, G.radius) then
       z.hp = math.min(z.max, z.hp + Heal.take(server, m))
       z.medkit = nil
-    else
-      local a = math.atan2(m.y - z.y, m.x - z.x)
+      return done()
+    end
+    local a, there = way(G, z, m.x, m.y, time)
+    if not a and not there then -- no way round to it: look again in a while
+      z.medkit, z.healLook = nil, time + HEAL_GIVE_UP
+      return done()
+    end
+    -- Kiting: somebody in sight, he keeps his face (and claws, and crabs)
+    -- on them and backs or sidesteps to the kit at his shuffle.
+    local q = nearest(server, z, G.sight, z, G.sight)
+    z.target = q and q.id
+    if q then
+      local d = math.sqrt(dist2(q.x, q.y, z.x, z.y))
+      local toward = math.atan2(q.y - z.y, q.x - z.x)
+      z.facing = turn(z.facing, toward, G.turn * 1.5, dt)
+      local far = dist2(m.x, m.y, z.x, z.y) > HEAL_FAR * HEAL_FAR -- a rooted throw only while the kit is a way off
+      if fight(G, z, q, d, toward, room and far, dt) then
+        return done()
+      end
+      if a then
+        step(G, z, a, st:winded() and G.walkSpeed or G.shuffleSpeed, dt)
+      end
+      return done()
+    end
+    if a then
       z.facing = turn(z.facing, a, G.turn, dt)
       z.running = not st:winded()
-      walk(z, G.radius, a, st:pace(G.lurchSpeed, G.walkSpeed), dt)
+      step(G, z, a, st:pace(G.lurchSpeed, G.walkSpeed), dt)
     end
     return done()
   end
@@ -257,37 +319,30 @@ function Brain.think(G, z, server, dt, time, room)
   z.target = q and q.id
   if not q then
     -- Nobody: back to the pass, and wait there.
-    local d2 = dist2(z.x, z.y, z.homeX, z.homeY)
-    if d2 <= 30 * 30 then
+    if dist2(z.x, z.y, z.homeX, z.homeY) <= 30 * 30 or goTo(G, z, z.homeX, z.homeY, G.shuffleSpeed, dt, time) then
       setMode(z, "wait")
-    else
-      local a = math.atan2(z.homeY - z.y, z.homeX - z.x)
-      z.facing = turn(z.facing, a, G.turn, dt)
-      walk(z, G.radius, a, G.shuffleSpeed, dt)
     end
     return done()
   end
   local d = math.sqrt(dist2(q.x, q.y, z.x, z.y))
   local toward = math.atan2(q.y - z.y, q.x - z.x)
-  local reach = G.swipeReach + (q.car and G.carReach or 0) -- a car's side is further out than a man
-  if d <= reach then
+  if fight(G, z, q, d, toward, room, dt) then
+    return done()
+  end
+  if d <= G.swipeReach + (q.car and G.carReach or 0) then
     z.facing = turn(z.facing, toward, G.turn * 1.5, dt)
-    if z.swipeIn <= 0 then
-      setMode(z, "swipe")
-    end
     return done()
   end
-  if z.crabs > 0 and room and z.throwIn <= 0 and d >= G.throwNear and d <= G.throwFar
-    and math.abs(wrap(toward - z.facing)) < 0.6 and st:has(G.throwCost) and random() < G.throwChance * dt
-    and Sight.clear(z.x, z.y, q.x, q.y) then
-    z.aimX, z.aimY = q.x, q.y
-    setMode(z, "throw")
-    return done()
-  end
-  z.facing = turn(z.facing, toward, G.turn, dt)
   z.running = d > G.lurchFrom and not st:winded()
   local speed = z.running and G.lurchSpeed or (st:winded() and G.walkSpeed or G.shuffleSpeed)
-  walk(z, G.radius, toward, speed, dt)
+  local a = way(G, z, q.x, q.y, time)
+  if a then -- no way round to them (over the water): he stands and throws
+    z.facing = turn(z.facing, a, G.turn, dt)
+    step(G, z, a, speed, dt)
+  else
+    z.running = false
+    z.facing = turn(z.facing, toward, G.turn, dt)
+  end
   return done()
 end
 

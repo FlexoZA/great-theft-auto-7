@@ -4,7 +4,8 @@
 --
 -- This feature is also the NPC toolkit for others: Bots:spawnNpc() creates
 -- a driver with a custom `brain` (police uses one), and Bots.driveTowards,
--- Bots.unstick, Bots:cruise and Bots:fight are the shared driving skills.
+-- Bots.unstick, Bots:cruise, Bots:fight and pursuit.lua (chase, stop and
+-- shoot) are the shared driving skills.
 -- The civilian bots below are just the default brain.
 --
 -- Each civilian bot drives a car picked at random from the shop's (the
@@ -21,9 +22,13 @@
 -- of their cars. On a map without a street grid they drive between random
 -- road waypoints instead, at the same speed. Shoot one or ram one and it turns hostile
 -- towards you for a while. Only `fightShare` of civilian bots fight back
--- (rolled when a fight starts): chasing, orbiting at a standoff distance and
--- shooting through the weapons feature with lead and a little spread. The
--- rest floor it away from you instead. Either way it calms down again once
+-- (rolled when a fight starts): they go after you the way the police do
+-- (pursuit.lua): by the streets while you are out of sight, stopping
+-- side-on once they have you in sight and near, shooting through the
+-- weapons feature with lead and a little spread, and backing off a moment
+-- when you hit them. The
+-- rest floor it away from you instead, by the streets, turning away from
+-- you at every crossing and sliding round the corners on the handbrake. Either way it calms down again once
 -- it has been left alone for `hostileTime` seconds, when its target stays
 -- further than `giveUpDistance` for `giveUpTime` seconds, or when it gets
 -- wrecked (it respawns peaceful).
@@ -53,6 +58,7 @@ local Net = require("src.net")
 local UI = require("src.ui")
 local Controls = require("src.controls")
 local Traffic = require("src.features.bots.traffic")
+local Pursuit = require("src.features.bots.pursuit")
 
 local Bots = {
   name = "bots",
@@ -64,9 +70,7 @@ Bots.startCount = 10 -- bots spawned when the game starts, spread over the city'
 Bots.maxBots = 20
 Bots.spawnGap = 150 -- px a bot is put down clear of every other car
 Bots.range = 650 -- px; won't shoot beyond this
-Bots.standoff = 220 -- px; closer than this it orbits instead of ramming
 Bots.fightShare = 0.1 -- chance a civilian bot fights back when provoked; the rest run away
-Bots.retargetEvery = 1.5 -- seconds
 -- How well a bot fights, by the host's bot difficulty (src/server_settings,
 -- set on the Settings screen's Server tab). Police units fight through the
 -- same code, so it is their aim too.
@@ -165,7 +169,6 @@ function Bots:spawnNpc(server, opts)
       farFor = 0, -- seconds the target has been out of range
       waypoint = nil,
       waypointUntil = 0,
-      retarget = 0,
       fireTimer = love.math.random() * self:difficulty().fireInterval,
       orbitDir = love.math.random() < 0.5 and -1 or 1,
       stuck = 0,
@@ -402,6 +405,7 @@ function Bots:fightOff(_server, bot, foe)
 end
 
 function Bots:calm(bot)
+  Pursuit.reset(bot)
   bot.ai.hostileTo, bot.ai.fights = nil, nil
   bot.ai.foe, bot.ai.foeFights = nil, nil
   bot.ai.farFor = 0
@@ -410,6 +414,9 @@ end
 
 function Bots:serverPlayerDamaged(server, victim, attacker)
   if victim.bot and attacker then
+    if not victim.brain and victim.ai.fights and victim.ai.hostileTo == attacker.id then
+      Pursuit.shotBy(victim, now) -- hit by who it is fighting: back off a moment
+    end
     self:provoke(server, victim, attacker.id)
   end
 end
@@ -507,29 +514,18 @@ function Bots:cruise(server, bot, speed, reckless)
   end
 end
 
+--- Go after `target` (a player) the way the police do: chase, then stop and
+--- shoot (pursuit.lua).
 function Bots:fight(server, bot, target)
   -- The target is where their body is: the car they drive, or their feet.
   local tx, ty, onFoot = Features.bodyPose(server, target)
   self:fightAt(server, bot, tx, ty, not onFoot and target.vehicle or nil)
 end
 
---- Drive at (tx, ty), circling it close in, and shoot at it, leading `tc`
---- (the car there, if it is one).
+--- The same, after whatever is at (tx, ty), leading `tc` (the car there, if
+--- it is one).
 function Bots:fightAt(server, bot, tx, ty, tc)
-  local ai, car = bot.ai, bot.car
-  local dx, dy = tx - car.x, ty - car.y
-  local dist = math.sqrt(dx * dx + dy * dy)
-  Bots.driveTowards(bot, tx, ty, 1, dist <= self.standoff)
-
-  ai.retarget = ai.retarget - server.dtLast
-  if ai.retarget <= 0 then
-    ai.retarget = self.retargetEvery
-    if love.math.random() < 0.3 then
-      ai.orbitDir = -ai.orbitDir
-    end
-  end
-
-  self:shootAt(server, bot, tx, ty, tc)
+  Pursuit.driveAt(server, self, bot, tx, ty, tc, now, server.dtLast or 0)
 end
 
 --- Shoot at (tx, ty) when the gun is ready and it is within range, leading
@@ -555,9 +551,21 @@ function Bots:shootAt(server, bot, tx, ty, tc)
   end
 end
 
---- Floor it straight away from (x, y): a civilian who won't fight.
-function Bots:runFrom(bot, x, y)
+--- Get away from (x, y): a civilian who won't fight. Along the streets
+--- where there are some, the turn away from them at every crossing, the
+--- handbrake round the corners (Traffic.drive's `flee`); straight away
+--- from them where there are none.
+function Bots:runFrom(server, bot, x, y)
   local car = bot.car
+  local city = Features.byName["city-map"]
+  local graph = city and Traffic.graph(city.map)
+  if graph then
+    local away = bot.ai.away or {}
+    away.x, away.y, bot.ai.away = x, y, away
+    local v = Traffic.drive(bot, graph, self.recklessSpeed, server.vehicles, walkers, server.dtLast or 0, true, away)
+    bot.input.throttle = Traffic.throttleFor(car, v)
+    return
+  end
   local dx, dy = car.x - x, car.y - y
   local d = math.sqrt(dx * dx + dy * dy)
   if d < 1 then
@@ -589,26 +597,32 @@ function Bots:think(server, bot, dt)
   local foe = ai.foe
   if foe and (truce or now > ai.foeUntil or not foe.alive()) then
     ai.foe, foe = nil, nil -- over, or forgiven
+    Pursuit.reset(bot)
   end
+  local fighting = false -- pursuit.lua gets it unstuck itself
   if target and Features.visible(server, target) then
     if ai.fights then
       self:fight(server, bot, target)
+      fighting = true
     else
-      self:runFrom(bot, Features.bodyPose(server, target))
+      self:runFrom(server, bot, Features.bodyPose(server, target))
     end
   elseif foe then
     local fx, fy = foe.pos()
     if ai.foeFights then
       self:fightAt(server, bot, fx, fy)
+      fighting = true
     else
-      self:runFrom(bot, fx, fy)
+      self:runFrom(server, bot, fx, fy)
     end
   elseif ai.recklessUntil and now < ai.recklessUntil then
     self:cruise(server, bot, self.recklessSpeed, true)
   else
     self:cruise(server, bot)
   end
-  Bots.unstick(bot, dt)
+  if not fighting then
+    Bots.unstick(bot, dt)
+  end
 end
 
 --- Something stinks at (x, y) (the `serverPanicArea` event, raised every

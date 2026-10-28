@@ -25,6 +25,9 @@
 -- ny, block } (block: the block's x, y, w, h) or nil. It is worked out once
 -- per map table; a city that grows only adds plots, which are never picked.
 --
+-- `Jobs.levelName(level)` names a job's level ("HARD"), on the board and
+-- the victory screen.
+--
 -- `Jobs.layout(list, selected)` works out every rectangle of the board for
 -- the window as it is now and `Jobs.drawBoard` paints them; init.lua
 -- hit-tests the same rectangles.
@@ -35,6 +38,19 @@ local Layout = require("src.features.city-map.layout")
 local Storefront = require("src.features.quests.storefront")
 
 local Jobs = {}
+
+-- What each level is called: 1 the first time a job is done, one more for
+-- every time it was finished in this world, up to bosses' `rage.max` + 1
+-- (it gets no harder after that, and the last name stays).
+Jobs.LEVEL_NAMES = {
+  "EASY", "NORMAL", "HARD", "BRUTAL", "SAVAGE", "MERCILESS", "CARNAGE", "RIP AND TEAR", "BLOODBATH", "NIGHTMARE",
+  "HELL ON EARTH",
+}
+
+function Jobs.levelName(level)
+  local names = Jobs.LEVEL_NAMES
+  return names[math.max(1, math.min(#names, math.floor(level or 1)))]
+end
 
 local T = Layout.TILE
 local BIG = 3 * T -- px a side a building needs to be picked when there is a choice
@@ -217,6 +233,7 @@ end
 -- Drawing -------------------------------------------------------------------
 
 local GOLD = { 1, 0.85, 0.3 }
+local LOCKED = { 0.45, 0.45, 0.5 } -- a job not open yet, greyed out on the board
 
 --- Pieces of paper pinned on the notice board, as (x, y, colour index).
 local NOTES = { { -20, -9, 1 }, { -6, -11, 2 }, { 8, -8, 3 }, { -14, 3, 2 }, { 2, 4, 1 }, { 15, 2, 3 } }
@@ -295,15 +312,22 @@ local function inside(r, x, y)
 end
 Jobs.inside = inside
 
+--- What the board says about the picked job: its own text, or for a job
+--- still locked what opens it (`status`, see drawBoard).
+local function about(quest, status)
+  local s = quest and status and status[quest.id]
+  return s and s ~= "done" and s or (quest and quest.text or "")
+end
+
 --- Every rectangle of the board for `list` (the jobs on offer) with job
 --- number `selected` picked: { panel, rows = { { x, y, w, h, quest } },
 --- text = { x, y, w }, accept, close }.
-function Jobs.layout(list, selected)
+function Jobs.layout(list, selected, status)
   local w, h = love.graphics.getDimensions()
   local pw = math.min(Jobs.width, w - 16)
   local inner = pw - 2 * PAD
   local quest = list[selected]
-  local _, lines = UI.fonts.body:getWrap(quest and quest.text or "", inner)
+  local _, lines = UI.fonts.body:getWrap(about(quest, status), inner)
   local textH = #lines * UI.fonts.body:getHeight()
   local ph = TITLE_H + #list * (ROW_H + GAP) + 12 + textH + 20 + UI.fonts.small:getHeight() + 12 + BUTTON_H + PAD
   local px, py = math.floor((w - pw) / 2), math.max(8, math.floor((h - ph) / 2))
@@ -335,7 +359,13 @@ end
 --- The board: a row per job (its star's colour, its title, where it
 --- takes you), what the picked one is about, and the buttons. `places`
 --- names each job's destination; `keys` is { accept, close } for the hints.
-function Jobs.drawBoard(L, selected, places, notice, keys)
+--- `status` (optional) maps a job id to "done" (finished, open to play
+--- again) or, for a job still locked, the line saying what opens it.
+--- `levels` (optional) maps an open job's id to { level, max, times }: the
+--- level it is at (how much harder it comes back) and how many times it
+--- was finished, shown at the right of its row.
+function Jobs.drawBoard(L, selected, places, notice, keys, status, levels)
+  status, levels = status or {}, levels or {}
   local w, h = love.graphics.getDimensions()
   local mx, my = love.mouse.getPosition()
   local p = L.panel
@@ -355,7 +385,8 @@ function Jobs.drawBoard(L, selected, places, notice, keys)
 
   for i, r in ipairs(L.rows) do
     local q = r.quest
-    local c = q.color or GOLD
+    local locked = status[q.id] and status[q.id] ~= "done"
+    local c = locked and LOCKED or (q.color or GOLD)
     local picked, hot = i == selected, inside(r, mx, my)
     love.graphics.setColor(c[1], c[2], c[3], picked and 0.22 or (hot and 0.12 or 0.06))
     love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 6)
@@ -366,27 +397,43 @@ function Jobs.drawBoard(L, selected, places, notice, keys)
     love.graphics.setColor(c)
     love.graphics.rectangle("fill", r.x + 10, r.y + 10, 6, r.h - 20, 3)
     love.graphics.setFont(UI.fonts.body)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print(UI.fit(q.title, UI.fonts.body, r.w - 40), r.x + 28, r.y + 8)
+    love.graphics.setColor(locked and LOCKED or { 1, 1, 1 })
+    love.graphics.print(UI.fit(q.title, UI.fonts.body, r.w - 120), r.x + 28, r.y + 8)
     love.graphics.setFont(UI.fonts.small)
     love.graphics.setColor(0.65, 0.65, 0.7)
-    love.graphics.print((q.label or "QUEST") .. "  -  " .. (places[q.id] or q.map), r.x + 28, r.y + r.h - 8
+    local where = locked and "???" or (places[q.id] or q.map)
+    love.graphics.print((locked and "LOCKED" or (q.label or "QUEST")) .. "  -  " .. where, r.x + 28, r.y + r.h - 8
       - UI.fonts.small:getHeight())
+    local lv = levels[q.id]
+    if status[q.id] == "done" then
+      love.graphics.setColor(0.5, 1, 0.55)
+      local times = lv and lv.times or 1
+      love.graphics.printf(times > 1 and ("DONE x" .. times) or "DONE", r.x, r.y + 10, r.w - 14, "right")
+    elseif locked then
+      love.graphics.printf("LOCKED", r.x, r.y + 10, r.w - 14, "right")
+    end
+    if lv and not locked then
+      love.graphics.setColor(lv.level > 1 and GOLD or { 0.65, 0.65, 0.7 })
+      love.graphics.printf("LEVEL " .. lv.level .. "  " .. Jobs.levelName(lv.level) .. (lv.max and " (MAX)" or ""), r.x,
+        r.y + r.h - 8
+        - UI.fonts.small:getHeight(), r.w - 14, "right")
+    end
   end
 
   local q = L.rows[selected] and L.rows[selected].quest
+  local open = q and not (status[q.id] and status[q.id] ~= "done")
   if q then
     love.graphics.setFont(UI.fonts.body)
     love.graphics.setColor(0.85, 0.85, 0.88)
-    love.graphics.printf(q.text, L.text.x, L.text.y, L.text.w, "center")
+    love.graphics.printf(about(q, status), L.text.x, L.text.y, L.text.w, "center")
   end
   if notice then
     love.graphics.setFont(UI.fonts.small)
     love.graphics.setColor(1, 0.45, 0.4, notice.alpha)
     love.graphics.printf(notice.text, L.notice.x, L.notice.y, L.notice.w, "center")
   end
-  button(L.accept, "Take the job (" .. keys[1] .. ")", q and inside(L.accept, mx, my), q and { 0.5, 1, 0.55 }
-    or { 0.5, 0.5, 0.5 })
+  button(L.accept, "Take the job (" .. keys[1] .. ")", open and inside(L.accept, mx, my),
+    open and { 0.5, 1, 0.55 } or { 0.5, 0.5, 0.5 })
   button(L.close, "Leave (" .. keys[2] .. ")", inside(L.close, mx, my), { 0.85, 0.85, 0.88 })
   love.graphics.setColor(1, 1, 1)
 end

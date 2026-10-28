@@ -12,6 +12,9 @@
 -- With `Screen.dev` set (the dev shop, init.lua) the title says so and every
 -- price reads FREE.
 --
+-- Beside it on the left, when the window is wide enough, the inventory
+-- draws what I carry (`bagWidth`, `drawBag`), so I can see what fits.
+--
 -- `Screen.layout(tab, page)` works out every rectangle for the window as it
 -- is now and `Screen.draw` paints them; init.lua hit-tests the same
 -- rectangles. There is no scrolling: a shelf that doesn't fit is paged,
@@ -71,6 +74,7 @@ local function amount(n)
   end
   return ("%d Fcks"):format(n)
 end
+Screen.amount = amount
 
 --- "FREE", or "30 Fcks": what `entry` costs in tier `tier`.
 function Screen.priceText(entry, tier)
@@ -105,6 +109,18 @@ local function cardsWidth(windowW)
   return math.max(2 * Screen.pad + CARD_W, math.min(Screen.width, windowW - 2 * MARGIN - Screen.detailWidth))
 end
 
+--- Room for the bag beside the shop (the inventory's, on the left): its
+--- width and the gap after it, or 0 when the window is too narrow for it
+--- and still three cards across.
+local function bagRoom(windowW)
+  local inventory = Features.byName.inventory
+  local bagW = inventory and inventory.bagWidth and inventory:bagWidth() or 0
+  if bagW == 0 or cardsWidth(windowW - bagW - GAP) < 2 * Screen.pad + 3 * (CARD_W + GAP) then
+    return 0
+  end
+  return bagW + GAP
+end
+
 --- How a shelf fits: columns, rows per page and cards per page.
 local function grid(tab, windowH, areaW)
   local cw, ch = cardSize(tab)
@@ -124,10 +140,14 @@ end
 ---   notice / foot    y of the text lines under the cards
 ---   detail           { x, y, w, h }, the side panel
 ---   buy              { x, y, w, h }, its Buy button, when something is picked
+---   wear             { x, y, w, h }, its Buy & wear button, beside Buy, for armor and clothes
+---   sell / sellAll   { x, y, w, h }, SELL (a bundle) and SELL ALL, when `selling` (an item in my bag) is picked
+---   bag              { x, y, w, h }, where the inventory draws my bag, when there is room for it
 --- `picked` is the entry in the side panel, or nil.
-function Screen.layout(tab, page, picked)
+function Screen.layout(tab, page, picked, selling)
   local w, h = love.graphics.getDimensions()
-  local areaW = cardsWidth(w)
+  local bag = bagRoom(w)
+  local areaW = cardsWidth(w - bag)
   local entries = Catalog.onTab(tab)
   local cw, ch, cols, rowsFit = grid(tab, h, areaW)
   local perPage = cols * rowsFit
@@ -145,16 +165,31 @@ function Screen.layout(tab, page, picked)
   end
   local ph = TITLE_H + TABS_H + TIERS_H + gridH + FOOT_H + Screen.pad
   local pw = areaW + Screen.detailWidth
-  local px = math.floor((w - pw) / 2)
+  local px = math.floor((w - pw - bag) / 2) + bag -- the bag and the shop centred together
   local py = math.max(MARGIN, math.floor((h - ph) / 2))
   local L = {
     panel = { x = px, y = py, w = pw, h = ph }, tabs = {}, tiers = {}, cards = {}, page = page, pages = pages,
   }
+  if bag > 0 then
+    L.bag = { x = px - bag, y = py, w = bag - GAP, h = ph }
+  end
   local dy = py + TITLE_H
   L.detail = { x = px + areaW, y = dy, w = Screen.detailWidth - Screen.pad, h = py + ph - 44 - dy }
-  if picked then
+  if selling then
+    -- Something of mine picked in the bag: SELL a bundle and SELL ALL.
+    local d = L.detail
+    local half = math.floor((d.w - 24 - GAP) / 2)
+    L.sell = { x = d.x + 12, y = d.y + d.h - BUY_H - 12, w = half, h = BUY_H }
+    L.sellAll = { x = d.x + 12 + half + GAP, y = L.sell.y, w = d.w - 24 - half - GAP, h = BUY_H }
+  elseif picked then
     local d = L.detail
     L.buy = { x = d.x + 12, y = d.y + d.h - BUY_H - 12, w = d.w - 24, h = BUY_H }
+    if Catalog.wearable(picked) then
+      -- Armor and clothes: Buy and Buy & wear side by side.
+      local half = math.floor((L.buy.w - GAP) / 2)
+      L.wear = { x = L.buy.x + half + GAP, y = L.buy.y, w = L.buy.w - half - GAP, h = BUY_H }
+      L.buy.w = half
+    end
   end
 
   -- Tabs across the top, under the title.
@@ -307,19 +342,84 @@ local function para(text, x, y, w)
   return y + #lines * font:getHeight()
 end
 
+--- A Buy button at `b` reading `label` (in `font`, the body font when left
+--- out): green when the wallet covers it (`can`), red when not, brighter
+--- under the mouse (`over`).
+local function button(b, label, can, over, font)
+  if can then
+    love.graphics.setColor(0.45, 0.95, 0.6, over and 0.4 or 0.25)
+  else
+    love.graphics.setColor(1, 0.45, 0.4, 0.15)
+  end
+  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setColor(can and { 0.45, 0.95, 0.6 } or { 1, 0.45, 0.4, 0.7 })
+  love.graphics.setLineWidth(over and can and 2 or 1)
+  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
+  love.graphics.setLineWidth(1)
+  font = font or UI.fonts.body
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
+  love.graphics.printf(label, b.x, b.y + b.h / 2 - font:getHeight() / 2, b.w, "center")
+end
+
+--- The side panel selling `item` from my bag: its picture and name, how
+--- many I have, what the shop pays, and SELL / SELL ALL.
+local function drawSell(L, item, mx, my)
+  local d = L.detail
+  local x, w = d.x + 14, d.w - 28
+  local y = d.y + 12
+  local tier = Tiers.of(item)
+  local tiered = Tiers.tiered(item)
+  if tiered then
+    Tiers.drawFrame(tier, d.x + d.w / 2 - 36, y, 72, 64, 0.9)
+  end
+  love.graphics.push()
+  love.graphics.translate(d.x + d.w / 2, y + 32)
+  love.graphics.scale(1.8)
+  Render.itemIcon(Tiers.base(item), 0, 0)
+  love.graphics.pop()
+  y = y + 72
+  local buildings = Features.byName.buildings
+  local have = buildings and buildings.inventory and buildings.inventory[item] or 0
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(tiered and Tiers.color(tier) or { 1, 1, 1 })
+  local name = Kinds.name(Tiers.base(item), 2)
+  love.graphics.printf(tiered and Tiers.named(name, tier) or name, d.x, y, d.w, "center")
+  y = y + UI.fonts.body:getHeight() + 8
+  love.graphics.setFont(UI.fonts.small)
+  love.graphics.setColor(0.85, 0.85, 0.9)
+  y = para(("You have %d."):format(have), x, y, w) + 6
+  local unit = math.min(Catalog.sellUnit(item), have)
+  local one, all = Catalog.sellPrice(item, unit), Catalog.sellPrice(item, have)
+  if not one then
+    love.graphics.setColor(1, 0.45, 0.4)
+    para("The shop doesn't buy that.", x, y, w)
+    return
+  end
+  love.graphics.setColor(0.7, 0.7, 0.75)
+  para(("The shop pays %d%% of its own price: %s for %d, %s for all %d."):format(
+    math.floor(Catalog.SELL_SHARE * 100 + 0.5), amount(one), unit, amount(all), have), x, y, w)
+  local can = have > 0
+  button(L.sell, ("SELL %d"):format(unit), can, inside(L.sell, mx, my), UI.fonts.small)
+  button(L.sellAll, "SELL ALL", can, inside(L.sellAll, mx, my), UI.fonts.small)
+end
+
 --- The side panel: `picked` in tier `tier` (a bigger picture, its name,
 --- what it does, its numbers and the Buy button), or how to fill it.
-local function drawDetail(L, picked, purse, mx, my, tier)
+local function drawDetail(L, picked, purse, mx, my, tier, selling)
   local d = L.detail
   love.graphics.setColor(1, 1, 1, 0.05)
   love.graphics.rectangle("fill", d.x, d.y, d.w, d.h, 8)
   love.graphics.setColor(1, 1, 1, 0.14)
   love.graphics.rectangle("line", d.x, d.y, d.w, d.h, 8)
   love.graphics.setFont(UI.fonts.small)
-  if not picked then
+  if selling then
+    return drawSell(L, selling, mx, my)
+  elseif not picked then
     love.graphics.setColor(0.7, 0.7, 0.75)
-    love.graphics.printf("Click a card to see what it does, then buy it here.", d.x + 20, d.y + d.h / 2 - 20,
-      d.w - 40, "center")
+    local hint = L.bag and "Click a card to see what it does, then buy it here. Click something in your bag to sell it."
+      or "Click a card to see what it does, then buy it here."
+    love.graphics.printf(hint, d.x + 20, d.y + d.h / 2 - 30, d.w - 40, "center")
     return
   end
   local tiered = picked.tiered
@@ -379,38 +479,38 @@ local function drawDetail(L, picked, purse, mx, my, tier)
     end
   end
 
-  -- The Buy button: its price on it, gold when the wallet covers it.
-  local b = L.buy
+  -- The Buy button: its price on it, gold when the wallet covers it; for
+  -- armor and clothes the price goes over the pair and Buy & wear beside it.
   local cost = Catalog.price(picked, tiered and tier or nil, Screen.dev)
   local can = cost <= purse
-  local over = inside(b, mx, my)
-  if can then
-    love.graphics.setColor(0.45, 0.95, 0.6, over and 0.4 or 0.25)
+  local priceLabel = Screen.priceText(picked, tiered and tier or nil)
+  if L.wear then
+    love.graphics.setFont(UI.fonts.small)
+    love.graphics.setColor(can and { 1, 0.85, 0.3 } or { 1, 0.45, 0.4 })
+    love.graphics.printf(priceLabel, L.buy.x, L.buy.y - 20, L.wear.x + L.wear.w - L.buy.x, "center")
+    button(L.buy, "BUY", can, inside(L.buy, mx, my), UI.fonts.small)
+    button(L.wear, "BUY & WEAR", can, inside(L.wear, mx, my), UI.fonts.small)
   else
-    love.graphics.setColor(1, 0.45, 0.4, 0.15)
+    button(L.buy, "BUY   " .. priceLabel, can, inside(L.buy, mx, my))
   end
-  love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setColor(can and { 0.45, 0.95, 0.6 } or { 1, 0.45, 0.4, 0.7 })
-  love.graphics.setLineWidth(over and can and 2 or 1)
-  love.graphics.rectangle("line", b.x, b.y, b.w, b.h, 6)
-  love.graphics.setLineWidth(1)
-  love.graphics.setFont(UI.fonts.body)
-  love.graphics.setColor(1, 1, 1, can and 1 or 0.6)
-  local label = "BUY   " .. Screen.priceText(picked, tiered and tier or nil)
-  love.graphics.printf(label, b.x, b.y + b.h / 2 - UI.fonts.body:getHeight() / 2, b.w, "center")
 end
 
 --- The whole screen. `tab` and `page` are what is up, `purse` my wallet,
 --- (mx, my) the mouse, `flash` { item, t } a card lit after a purchase and
 --- `notice` a line to show instead of the usual hint, `tier` the tier
 --- equipment is shown and sold in, `picked` the entry in the side panel.
-function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
-  local L = Screen.layout(tab, page, picked)
+function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked, selling)
+  local L = Screen.layout(tab, page, picked, selling)
   local p = L.panel
   local w, h = love.graphics.getDimensions()
 
   love.graphics.setColor(0, 0, 0, 0.45)
   love.graphics.rectangle("fill", 0, 0, w, h)
+  -- What I carry, beside it (the inventory draws it), so I see what fits.
+  local inventory = Features.byName.inventory
+  if L.bag and inventory and inventory.drawBag then
+    inventory:drawBag(L.bag.x, L.bag.y, L.bag.h, selling)
+  end
   love.graphics.setColor(0.10, 0.10, 0.13, 0.96)
   love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 10)
   love.graphics.setColor(0.45, 0.95, 0.6, 0.8)
@@ -458,7 +558,7 @@ function Screen.draw(tab, page, purse, mx, my, flash, notice, tier, picked)
       drawItemCard(r, e, purse, lit, glow, tier)
     end
   end
-  drawDetail(L, picked, purse, mx, my, tier)
+  drawDetail(L, picked, purse, mx, my, tier, selling)
 
   for _, t in ipairs(L.tiers) do
     -- A tier button: its colour, lit when it is the one up.

@@ -167,10 +167,16 @@ local function blow(server, m)
   local zapped = m.zap
   if zapped and weapons and weapons.serverDamage and Features.present(zapped) then
     local px, py = Features.bodyPose(server, zapped)
-    weapons:serverDamage(server, zapped, nil, Brain.SHOCK, math.atan2(py - m.y, px - m.x), "shock")
+    local shock = Brain.SHOCK * Bosses.enemyPower()
+    weapons:serverDamage(server, zapped, nil, shock, math.atan2(py - m.y, px - m.x), "shock")
   end
   if weapons and weapons.explode then
-    weapons:explode(server, { id = 0, owner = m.by or 0, vx = m.vx, vy = m.vy + 0.01, blast = Brain.BLAST }, m.x, m.y)
+    -- Set off by itself, its blast grows with the job's clears; set off by a player, it is theirs and stays as it is.
+    local blast = Brain.BLAST
+    if not m.by or m.by == 0 then
+      blast = { radius = blast.radius, damage = blast.damage * Bosses.enemyPower(), soft = blast.soft }
+    end
+    weapons:explode(server, { id = 0, owner = m.by or 0, vx = m.vx, vy = m.vy + 0.01, blast = blast }, m.x, m.y)
   end
   if m.by and m.by ~= 0 then
     local money = Features.byName.money
@@ -211,8 +217,66 @@ function Rollermines:serverShotAt(_server, x, y, radius, by, _angle, damage)
   if by and by ~= 0 then
     m.by = by
   end
-  sv.brain:hurt(m, damage or Brain.HEALTH, damage == nil)
-  return true
+  sv.brain:hurt(m, damage or m.hp, damage == nil)
+  return "metal"
+end
+
+--- Every rollermine in the world right now, for the audit (tools/audit).
+--- One whose fuse is lit is going off whatever hits it.
+function Rollermines:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, m in ipairs(sv.brain.list) do
+    add({
+      id = m,
+      kind = "rollermines/rollermine",
+      x = m.x,
+      y = m.y,
+      hp = m.hp,
+      radius = Brain.RADIUS,
+      immune = m.fuse ~= nil,
+    })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Rollermines:wikiEnemies(add)
+  local blast = Brain.BLAST
+  add({
+    kind = "rollermines/rollermine",
+    name = "Rollermine",
+    quests = { "a-man-road", "a-man-citadel" },
+    where = "Sunk in the ground on the Winding Road and in the Citadel; A-Man's finale sets more down already awake",
+    about = "The Combine's mine that hunts: a steel ball half sunk in the ground until you come near, then it "
+      .. "hops out, blades snapping open, and rolls after you faster than you can run.",
+    stats = {
+      { "Health", Brain.HEALTH },
+      { "Speed", ("up to %g px/s, picking up %g px/s every second; a car flat out gets away, slowly"):format(
+        Brain.TOP, Brain.ACCEL) },
+      { "Sight", ("wakes when you come within %g px, chases you from up to %g px"):format(Brain.WAKE, Brain.CHASE) },
+    },
+    weapons = {
+      { "Blast", ("goes off when it touches you or your car: %g explosive damage at the middle, falling off to "
+        .. "%g px; it hurts everyone and every car near it"):format(blast.damage, blast.radius) },
+      { "Shock", ("somebody on foot it touches takes %g shock damage first, enough to stun them"):format(
+        Brain.SHOCK) },
+    },
+    abilities = {
+      ("Beeps once it is within %g px of you: it is about to touch you."):format(Brain.ARM),
+      "Leads a moving target, and has momentum: it overshoots a turn, swings round and bounces off walls.",
+      ("Caught in a blast, it goes off too %g s later, so a cluster goes up in a chain."):format(Brain.CHAIN),
+      ("With nobody to chase for %g s it rolls to a stop, blades out, and wakes again when you come near."):format(
+        Brain.GIVE_UP),
+    },
+    tips = {
+      "Shoot it before it reaches you: it goes off where it is, and a blast nearby sets it off.",
+      "Sidestep at the last moment: it overshoots turns.",
+      "A freeze stops it dead; a stink cloud sends it rolling off the other way for a moment.",
+      "Drive: a car flat out pulls away from it.",
+    },
+    drops = ("%g koin when you shoot it"):format(Rollermines.drops),
+  })
 end
 
 function Rollermines:serverFreezeArea(_server, x, y, radius, seconds)
@@ -331,8 +395,8 @@ function Rollermines:drawAboveCars()
   for _, m in pairs(shown) do
     if m.mode ~= MODES.dormant then
       Render.draw(m.dx, m.dy, pose(m), clock)
-      if m.hp < Brain.HEALTH then -- a bar under it once it is hurt
-        local bw, f = 22, math.max(0, m.hp / Brain.HEALTH)
+      if m.hp < m.max then -- a bar under it once it is hurt
+        local bw, f = 22, math.max(0, m.hp / m.max)
         love.graphics.setColor(0, 0, 0, 0.6)
         love.graphics.rectangle("fill", m.dx - bw / 2 - 1, m.dy + Render.RADIUS + 9, bw + 2, 4)
         love.graphics.setColor(1 - f, f, 0.2)
@@ -371,6 +435,7 @@ Rollermines.clientMessages = {
           m.hurt = HURT
         end
         m.hp = hp or m.hp
+        m.max = math.max(m.max or Brain.HEALTH, m.hp) -- tougher on a job finished before
         local armed = args[i + 5] == "1"
         if armed and not m.armed then
           m.beepIn = 0

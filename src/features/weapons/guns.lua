@@ -47,6 +47,16 @@
 --             others' (pickups' serverDropAmmo); 1 otherwise
 --   stack     rounds that fit in one inventory slot (100 otherwise)
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
+--   ammo      the key of another gun whose rounds it fires (the super
+--             shotgun takes the shotgun's shells, the uzi and the SMG the
+--             pistol's 9mm, the AR the AK's 7.62):
+--             it has no ammo item of its own. A `bottomless` gun's rounds
+--             are an item all the same once another gun fires them
+--             (`Guns.ammoTypes`): the pistol's 9mm, for the uzi and the SMG
+--   unlock    true for a gun only won, never on the shelf or out of a
+--             factory until you have picked one up (a boss's drop): from
+--             then on the shop sells it to you (weapons/init.lua). Enemies
+--             never carry it
 --   tierStats the stats a better tier improves, in order (tiers/init.lua):
 --             Guns.tierStats otherwise; "blast.damage" reaches into `blast`
 --   scope     how many times the scope magnifies: hold the scope button
@@ -59,9 +69,8 @@
 --             it can be bought)
 --   bottomless true: its reserve never runs out (the pistol). It still
 --             holds a magazine and reloads, but a reload takes nothing
---             from the inventory, and there is no "ammo-<key>" item at
---             all: the shop, the ammo factory and the police drops leave
---             it out.
+--             from the inventory. Its "ammo-<key>" item is only there for
+--             a gun that borrows its rounds (`ammo`: the uzi's and the SMG's 9mm).
 --
 -- Rounds come out of the player's inventory (the buildings feature keeps
 -- it: "ammo-<key>"), a magazine at a time. The gun itself is an item too
@@ -85,27 +94,55 @@ Guns.list = {
     reload = 1.2,
     reloadSound = "reload-pistol",
     bottomless = true, -- never out of rounds, so nobody is ever left unarmed
+    ammoName = "9mm round", -- the uzi's and the SMG's ("ammo-pistol"); the pistol itself never takes any
+    stack = 300, -- ten uzi or SMG magazines a slot
   },
   {
+    -- Crazy Karen drops it (karen/init.lua): won, then on the shelf.
     key = "uzi",
-    dropWeight = 3, -- how often an enemy's ammo box is for it (pickups): a common gun's
-    blurb = "Sprays fourteen rounds a second: weak one at a time, deadly up close.",
+    unlock = true,
+    dropWeight = 3, -- how often an enemy's 9mm box is (pickups): a common gun's, and the first to fire 9mm
+    blurb = "Sprays fourteen 9mm rounds a second, but they're spent by about 360 px: deadly up close, "
+      .. "useless far off. Fires the pistol's 9mm rounds.",
     name = "uzi",
     damage = 12, -- a little less per round...
     cooldown = 0.07, -- ...but fourteen of them a second
     spread = 0.09, -- about five degrees either way: spray, don't snipe
     speed = 900,
     streak = 7,
+    ttl = 0.4, -- about 360 px: up close only, against the SMG's 500 and the AK's 1200
     sound = "uzi",
     pitch = 1,
     magazine = 30, -- a couple of seconds of spray
     reload = 1.8,
     reloadSound = "reload-uzi",
+    ammo = "pistol", -- 9mm
+  },
+  {
+    -- The Hunter-Chopper drops it in the Outer City (hunter-chopper/init.lua).
+    key = "smg",
+    unlock = true,
+    dropWeight = 2,
+    blurb = "Fifteen 9mm rounds a second, tight and quick to reload, but spent by about 500 px. "
+      .. "Fires the pistol's 9mm rounds.",
+    name = "SMG",
+    damage = 13,
+    cooldown = 0.065, -- fifteen a second: faster than the AK's nine
+    spread = 0.05, -- tighter than the uzi's spray
+    speed = 900,
+    streak = 8,
+    ttl = 0.55, -- about 500 px, against the AK's 1200
+    sound = "uzi",
+    pitch = 1.15, -- a lighter crack than the uzi's
+    magazine = 30,
+    reload = 1.5,
+    reloadSound = "reload-uzi",
+    ammo = "pistol", -- 9mm
   },
   {
     key = "ak47",
     dropWeight = 3, -- as often as the uzi's: the gun most soldiers carry
-    blurb = "A rifle: nine rounds a second with hardly any scatter.",
+    blurb = "A rifle: nine 7.62 rounds a second with hardly any scatter.",
     name = "AK-47",
     damage = 18, -- between the pistol and the uzi per round...
     cooldown = 0.11, -- ...nine of them a second
@@ -117,7 +154,29 @@ Guns.list = {
     magazine = 30,
     reload = 2.0,
     reloadSound = "reload-ak47",
-    ammoName = "AK-47 round",
+    stack = 300, -- ten magazines a slot
+    ammoName = "7.62 round", -- the AR's too ("ammo-ak47")
+  },
+  {
+    -- The AK's younger, sharper cousin: lighter rounds, faster and
+    -- straighter, on the same 7.62. General Volt drops it
+    -- (cyber-feud/volt.lua): won, then on the shelf.
+    key = "ar",
+    unlock = true,
+    blurb = "An assault rifle: twelve 7.62 rounds a second, the straightest-shooting rifle there is. "
+      .. "Fires the AK's 7.62 rounds.",
+    name = "AR",
+    damage = 15, -- a little lighter than the AK's 18...
+    cooldown = 0.085, -- ...but about twelve of them a second against its nine
+    spread = 0.02, -- half the AK's scatter
+    speed = 1150, -- and quicker to get there
+    streak = 11,
+    sound = "ak47",
+    pitch = 1.12, -- a tighter crack than the AK's
+    magazine = 30,
+    reload = 1.7,
+    reloadSound = "reload-ak47",
+    ammo = "ak47", -- 7.62
   },
   {
     key = "shotgun",
@@ -137,7 +196,28 @@ Guns.list = {
     reload = 2.4,
     reloadSound = "reload-shotgun",
     ammoName = "shell",
-    stack = 50,
+    stack = 60, -- ten loads a slot
+  },
+  {
+    -- The Mood Slayer's: the Baron of Heck drops it (eternal-mood/baron.lua).
+    key = "super-shotgun",
+    unlock = true,
+    blurb = "The Mood Slayer's own. Twelve pellets a pull that reach twice as far as a shotgun's, "
+      .. "and ten shells between reloads. Fires shotgun shells.",
+    name = "super shotgun",
+    damage = 11, -- per pellet, as a shotgun's: there are twice as many
+    cooldown = 0.9,
+    spread = 0.16,
+    speed = 800,
+    streak = 6,
+    ttl = 0.64, -- about 500 px: twice a shotgun's reach
+    pellets = 12,
+    sound = "shotgun",
+    pitch = 0.8, -- deeper: two barrels' worth
+    magazine = 10,
+    reload = 2.8,
+    reloadSound = "reload-shotgun",
+    ammo = "shotgun",
   },
   {
     key = "rocket",
@@ -156,7 +236,7 @@ Guns.list = {
     magazine = 1,
     reload = 2.2,
     reloadSound = "reload-rocket",
-    stack = 20,
+    stack = 30, -- thirty rockets a slot
     ammoName = "rocket",
     tierStats = { "blast.damage", "reload", "blast.radius" }, -- one round a magazine whatever the tier
   },
@@ -180,7 +260,7 @@ Guns.list = {
     reload = 5,
     reloadSound = "reload-sniper",
     ammoName = "sniper round",
-    stack = 50,
+    stack = 60, -- twelve magazines a slot
     scope = 4,
   },
   {
@@ -204,7 +284,7 @@ Guns.list = {
     reload = 2.5,
     reloadSound = "reload-flamethrower",
     ammoName = "fuel can",
-    stack = 10,
+    stack = 20, -- twenty tanks a slot
     tierStats = { "damage", "ttl", "magazine", "ignite.dps" },
   },
   {
@@ -226,7 +306,7 @@ Guns.list = {
     reload = 4.5, -- a new belt box: slow
     reloadSound = "reload-minigun",
     ammoName = "minigun round",
-    stack = 300,
+    stack = 1500, -- ten belts a slot
     tierStats = { "damage", "spinUp", "magazine", "reload" },
   },
 }
@@ -240,6 +320,30 @@ for i, gun in ipairs(Guns.list) do
   gun.index = i
   gun.tierStats = gun.tierStats or Guns.tierStats
   Guns[gun.key] = gun
+end
+
+-- Every ammo item there is, in guns.lua's order: one per gun that fires
+-- rounds from the bag, the rounds of its own or of the gun it borrows them
+-- from (`ammo`), once each. `item` is "ammo-<owner key>"; `owner` the gun
+-- they belong to (the pistol, for 9mm); `gun` the first gun that fires them
+-- from the bag, whose magazine sizes a box and whose `dropWeight` says how
+-- often one drops. The shop, the ammo factory, enemies' boxes and the ammo
+-- crates sell, make and drop these, and nothing else.
+Guns.ammoTypes, Guns.ammoTypeOf = {}, {}
+for _, gun in ipairs(Guns.list) do
+  local owner = gun.ammo and Guns[gun.ammo] or gun
+  local item = "ammo-" .. owner.key
+  if not gun.bottomless and not Guns.ammoTypeOf[item] then
+    local t = { item = item, owner = owner, gun = gun }
+    Guns.ammoTypes[#Guns.ammoTypes + 1] = t
+    Guns.ammoTypeOf[item] = t
+  end
+end
+
+--- The inventory item gun `gun`'s rounds are: "ammo-<key>", or the gun's it
+--- borrows them from (`ammo`).
+function Guns.ammoItem(gun)
+  return "ammo-" .. (gun.ammo or gun.key)
 end
 
 --- The gun at `index`, or the default for anything that isn't one.

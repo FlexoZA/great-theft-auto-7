@@ -271,7 +271,7 @@ function Coast.build(map, rng, T)
     return sea[c][r]
   end, "water")) do
     map.cover[#map.cover + 1] = s
-    map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h }
+    map.solids[#map.solids + 1] = { x = s.x, y = s.y, w = s.w, h = s.h, water = true }
   end
   for _, s in ipairs(Coast.rects(cols, rows, T, map.x0, map.y0, function(c, r)
     return map.tiles[c][r] == nil

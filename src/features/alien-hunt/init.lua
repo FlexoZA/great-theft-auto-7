@@ -29,7 +29,8 @@
 -- The quests feature brings everyone to the forest and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "alien-hunt": the host starts the walk, and every client puts up the
--- wild man's title screen. Everything goes away when the group leaves.
+-- wild man's title screen and starts the forest's theme (theme.lua), which
+-- plays until the quest ends. Everything goes away when the group leaves.
 --
 -- The host owns all of it: the stage, the wild man, the squirrel, Bigfoot.
 -- Clients hear the stage reliably and positions at 15 Hz, and draw.
@@ -48,6 +49,7 @@
 --   server -> all  HNT_DOWN  <x> <y> <angle> <playerId>    Bigfoot went down (0 = nobody's kill)
 
 local Protocol = require("src.net.protocol")
+local Audio = require("src.audio")
 local Features = require("src.features")
 local UI = require("src.ui")
 local WildFace = require("src.features.alien-hunt.wildman_face")
@@ -59,6 +61,7 @@ local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Render = require("src.features.alien-hunt.render")
 local FootBrain = require("src.features.alien-hunt.bigfoot_brain")
+local Theme = require("src.features.alien-hunt.theme")
 
 local Hunt = {
   name = "alien-hunt",
@@ -327,8 +330,8 @@ end
 local function spawnSquirrel(server, at)
   local a = love.math.random() * math.pi * 2
   local x, y = at.x + math.cos(a) * Hunt.squirrelSpawn, at.y + math.sin(a) * Hunt.squirrelSpawn
-  sv.squirrel = { x = x, y = y, facing = a + math.pi, hp = Hunt.squirrelHealth, bite = 0.5, zig = 0, hop = 0,
-    frozen = 0 }
+  sv.squirrel = { x = x, y = y, facing = a + math.pi, hp = Bosses.enemyHealth(Hunt.squirrelHealth), bite = 0.5,
+    zig = 0, hop = 0, frozen = 0, power = Bosses.enemyPower() } -- tougher, and bites harder, each time the job is done
   server:broadcast(Protocol.encode("HNT_SQ", fmt(x), fmt(y)))
   say(server, "squirrel")
 end
@@ -410,7 +413,7 @@ function Hunt:stepSquirrel(server, dt)
   elseif s.bite <= 0 and sv.stage == "defend" then
     s.bite, s.hop = self.squirrelBiteEvery, 0.3
     s.facing = ang
-    m.hp = m.hp - self.squirrelBite
+    m.hp = m.hp - self.squirrelBite * s.power
     if m.hp <= 0 then
       m.hp = 0
       sv.timer = self.faintTime
@@ -432,6 +435,7 @@ function Hunt:startReveal(server, map)
     facing = math.pi / 2,
     hp = hp,
     max = hp,
+    power = Bosses.power(), -- his swipes and slams, times this
     mode = "idle",
     timer = 0,
     frozen = 0,
@@ -456,18 +460,19 @@ function Hunt:slam(server, f)
       local pad = onFoot and 7 or 12
       if dist2(x, y, f.x, f.y) <= (self.slamRadius + pad) ^ 2 then
         caught[#caught + 1] = id
-        hurtPlayer(server, p, self.slamDamage, math.atan2(y - f.y, x - f.x), "impact")
+        hurtPlayer(server, p, self.slamDamage * f.power, math.atan2(y - f.y, x - f.x), "impact")
       end
     end
   end
   server:broadcast(Protocol.encode("HNT_SLAM", fmt(f.x), fmt(f.y), self.slamRadius, unpack(caught)))
 end
 
---- Bigfoot's numbers, as his brain (bigfoot_brain.lua) reads them.
-local function footTuning()
+--- Bigfoot's numbers, as his brain (bigfoot_brain.lua) reads them; his
+--- swipe hits `power` times harder.
+local function footTuning(power)
   return {
     radius = Hunt.footRadius, speed = Hunt.footSpeed, walkSpeed = Hunt.footWalkSpeed,
-    swipeReach = Hunt.swipeReach, swipeDamage = Hunt.swipeDamage, swipeEvery = Hunt.swipeEvery,
+    swipeReach = Hunt.swipeReach, swipeDamage = Hunt.swipeDamage * power, swipeEvery = Hunt.swipeEvery,
     leapEvery = Hunt.leapEvery, leapRange = Hunt.leapRange, leapStamina = Hunt.leapStamina,
     crouchTime = Hunt.crouchTime, airTime = Hunt.airTime, recoverTime = Hunt.recoverTime,
     aggroRange = Hunt.aggroRange,
@@ -480,7 +485,7 @@ end
 function Hunt:stepFoot(server, dt)
   local f = sv.foot
   sv.footTime = (sv.footTime or 0) + dt
-  sv.footTuning = sv.footTuning or footTuning()
+  sv.footTuning = sv.footTuning or footTuning(f.power)
   for _, e in ipairs(FootBrain.think(sv.footTuning, f, server, dt, sv.footTime, nil)) do
     if e[1] == "leap" then
       server:broadcast(Protocol.encode("HNT_LEAP", fmt(e[2]), fmt(e[3]), fmt(e[4]), fmt(e[5]), self.airTime,
@@ -630,6 +635,102 @@ function Hunt:serverShotAt(server, x, y, radius, by, angle)
   return false
 end
 
+--- Every enemy of the hunt in the world right now, for the audit
+--- (tools/audit): the squirrel, and Bigfoot, who can only be hurt in the
+--- fight and on the ground (as `serverShotAt` has it). Wendell is no enemy.
+function Hunt:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local s = sv.squirrel
+  if s then
+    add({ id = s, kind = "alien-hunt/squirrel", x = s.x, y = s.y, hp = s.hp, radius = self.squirrelRadius })
+  end
+  local f = sv.foot
+  if f then
+    local air = f.mode == "air"
+    add({
+      id = f,
+      kind = "alien-hunt/bigfoot",
+      x = f.x,
+      y = f.y,
+      hp = f.hp,
+      radius = self.footRadius,
+      immune = sv.stage ~= "fight" or air,
+      flying = air,
+    })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Hunt:wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  add({
+    kind = "alien-hunt/bigfoot",
+    name = "Bigfoot",
+    quests = { self.questId },
+    boss = true,
+    where = "Whispering Pines, in the fifth clearing at the end of Wendell's trail",
+    about = "Wendell wanted aliens. He got Bigfoot. Huge and hairy, he chases whoever is nearest, swipes at "
+      .. "them, and every few seconds leaps and comes down on them.",
+    stats = {
+      { "Health", self.footHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.footHealth / self.bulletDamage)) },
+      { "Speed", ("%g px/s chasing, %g winded"):format(self.footSpeed, self.footWalkSpeed) },
+      { "Sight", self.aggroRange, "px" },
+    },
+    weapons = {
+      { "Swipe", ("%g melee damage, one every %g s"):format(self.swipeDamage, self.swipeEvery) },
+      { "Leap", ("%g impact damage to everyone within %g px of where he lands"):format(self.slamDamage,
+        self.slamRadius) },
+    },
+    abilities = {
+      ("Every %g s he leaps at anyone within %g px: %g s crouched while a ring shows where he will land, %g s in "
+        .. "the air, %g s getting up."):format(self.leapEvery, self.leapRange, self.crouchTime, self.airTime,
+        self.recoverTime),
+      "Bullets pass under him while he is in the air.",
+      "Chasing costs him breath: winded, he lumbers along slower than you walk, with no leap in him.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, leaping onto it if he can, for %g health.")
+        :format(Heal.below * 100, Heal.range, Heal.amount),
+    },
+    tips = {
+      "Get out of the ring before he lands, then shoot him while he gets up.",
+      "Sprinting outruns him.",
+      "A freeze holds him still, and a stink sends him off.",
+    },
+    drops = ("%g koins"):format(self.drops),
+  })
+  add({
+    kind = "alien-hunt/squirrel",
+    name = "Squirrel",
+    quests = { self.questId },
+    where = "Whispering Pines, out of the trees at each of the first four clearings",
+    about = "An alien spy, according to Wendell. It zigzags out of the trees at him, bites and hops back, and "
+      .. "he won't go on until it is down.",
+    stats = {
+      { "Health", self.squirrelHealth },
+      { "Hits", ("%g a hit, whatever the gun: %g hits"):format(self.bulletDamage,
+        math.ceil(self.squirrelHealth / self.bulletDamage)) },
+      { "Speed", self.squirrelSpeed, "px/s" },
+      { "Numbers", "One at a clearing, one after another for every player" },
+    },
+    weapons = {
+      { "Bite", ("%g damage to Wendell, one every %g s. It never bites you."):format(self.squirrelBite,
+        self.squirrelBiteEvery) },
+    },
+    abilities = {
+      ("Bites Wendell (%g health) flat and he faints for %g s, and another squirrel comes for him."):format(
+        self.manHealth, self.faintTime),
+    },
+    tips = {
+      "Stay by Wendell and shoot it on its way in: it zigzags, so lead it.",
+      "A freeze holds it still.",
+    },
+    drops = "Sometimes something to pick up",
+  })
+end
+
 --- For tests.
 function Hunt.server()
   return sv
@@ -650,6 +751,27 @@ Hunt.stain = nil -- { x, y, angle } where Bigfoot went down
 Hunt.shake = 0 -- seconds of camera shake left
 local wildFace, footFace = nil, nil
 local time, lastTick = 0, 0
+local theme = nil -- the forest's theme, rendered the first time the hunt starts
+
+local function themeLevel()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+--- The forest's theme from the top.
+local function playTheme()
+  if not theme then
+    local began = love.timer.getTime()
+    local sound = Theme.render()
+    theme = love.audio.newSource(sound, "static")
+    theme:setLooping(true)
+    theme:setRelative(true) -- never positional: the game moves the listener around
+    local seconds = love.timer.getTime() - began -- logged like every theme's render time
+    print(("alien-hunt theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), seconds)) -- audit: allow
+  end
+  theme:setVolume(themeLevel())
+  theme:seek(0)
+  theme:play()
+end
 
 local function clear()
   Hunt.stage, Hunt.wp = nil, 0
@@ -665,6 +787,9 @@ end
 function Hunt:exitGame()
   clear()
   lastTick = 0
+  if theme then
+    theme:stop()
+  end
 end
 
 local function page(face, spec, look, seconds, roar, keep)
@@ -680,11 +805,15 @@ function Hunt:questStarted(_client, quest)
   footFace = footFace or FootFace.new()
   clear()
   page(wildFace, INTRO, WILD_LOOK, self.introTime)
+  playTheme()
 end
 
 function Hunt:questEnded(_client, quest)
   if quest.boss == self.questId then
     clear()
+    if theme then
+      theme:stop()
+    end
   end
 end
 
@@ -699,6 +828,9 @@ end
 
 function Hunt:update(dt, _client, camera)
   time = time + dt
+  if theme and theme:isPlaying() then
+    theme:setVolume(themeLevel()) -- the slider may have moved
+  end
   local p = self.pages[1]
   if p then
     if p.roar then
@@ -990,7 +1122,8 @@ end
 function Hunt:drawAboveCars()
   local s = self.squirrel
   if s then
-    Render.squirrel(s, time, self.squirrelHealth)
+    s.top = math.max(s.top or self.squirrelHealth, s.hp) -- a tougher one (the job done before) starts above the base
+    Render.squirrel(s, time, s.top)
   end
   local m = self.man
   if m then

@@ -52,6 +52,13 @@
 -- D-Day's soldiers think the same way, in a brain of their own
 -- (d-day/brain.lua).
 --
+-- Two troops can be set on each other (the Cyber Feud's factions,
+-- cyber-feud/troops.lua): each names the other among its `rivals`, and its
+-- soldiers then pick whoever is nearest in their cone, a player or one of
+-- the rivals' soldiers (`target` is a player id or that soldier). Their
+-- rounds carry the troop's `from`, so whoever counts hits can tell whose
+-- they are. A `calm` troop sees nobody at all until it is woken.
+--
 -- One soldier can be told apart from the rest (fields on him, set by
 -- whoever adds him):
 --   hold    he holds his place even when the others hunt: never chases,
@@ -74,6 +81,7 @@
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Nav = require("src.features.d-day.nav")
+local Bosses = require("src.features.bosses")
 
 local Combine = {}
 Combine.__index = Combine
@@ -140,10 +148,14 @@ end
 ---   health  what each one can take (Combine.HEALTH)
 ---   alertFov  how wide his cone is while he is on edge: has somebody, or
 ---           is searching or looking into something (`fov` throughout)
+---   from    what their rounds carry as `from` (weapons' serverFireFrom), nil for nothing
+---   firstId the first soldier's id (1), so two troops' ids don't meet
+---   calm    true to have them see nobody until `calm` is set false
 function Combine.new(opts)
   opts = opts or {}
-  local t = { list = {}, nextId = 1, time = 0, ticks = 0, hunt = opts.hunt ~= false, fov = opts.fov,
-    aware = opts.aware or 0, health = opts.health or Combine.HEALTH, alertFov = opts.alertFov, sieges = {} }
+  local t = { list = {}, nextId = opts.firstId or 1, time = 0, ticks = 0, hunt = opts.hunt ~= false, fov = opts.fov,
+    aware = opts.aware or 0, health = opts.health or Combine.HEALTH, alertFov = opts.alertFov, sieges = {},
+    from = opts.from, calm = opts.calm == true, rivals = {} }
   return setmetatable(t, Combine)
 end
 
@@ -179,7 +191,7 @@ function Combine:add(kind, x, y, watch)
     watch = watch,
     facing = watch,
     phase = random() * 2 * math.pi,
-    hp = self.health,
+    hp = Bosses.enemyHealth(self.health), -- tougher on a job finished before
     target = nil, -- player id he has in his sights
     fireIn = 0,
     alert = false,
@@ -190,11 +202,14 @@ function Combine:add(kind, x, y, watch)
     side = random() < 0.5 and -1 or 1,
     home = { x = x, y = y }, -- his place, for one who comes back to it (takesCover)
     grenades = random() < Combine.GRENADIER and Combine.GRENADES or 0,
+    from = self.from, -- on his rounds
   }
   self.nextId = self.nextId + 1
   self.list[#self.list + 1] = s
   return s
 end
+
+local blockedAt -- solid ground under a soldier (Walking, below)
 
 --- A squad of `size` walking `route` (a loop of { x, y }), starting at
 --- corner `start` (one picked at random when nil), heading for the next.
@@ -208,7 +223,15 @@ function Combine:addSquad(route, size, start)
   for i = 1, size do
     local slot = Combine.FORMATION[(i - 1) % #Combine.FORMATION + 1]
     local c, sn = math.cos(heading), math.sin(heading)
-    local s = self:add("patrol", from.x + slot[1] * c - slot[2] * sn, from.y + slot[1] * sn + slot[2] * c, heading)
+    local ox, oy = slot[1] * c - slot[2] * sn, slot[1] * sn + slot[2] * c
+    -- A slot behind the leader can land in a wall when the corner is near
+    -- one (a map's edge): pulled in towards the corner, which is clear,
+    -- until it stands free, or he would stand stuck in it all game.
+    local t = 1
+    while t > 0 and blockedAt(from.x + ox * t, from.y + oy * t) do
+      t = t - 0.125
+    end
+    local s = self:add("patrol", from.x + ox * t, from.y + oy * t, heading)
     s.squad = squad
     squad.members[i] = s
   end
@@ -229,7 +252,7 @@ end
 
 --- Solid ground, through the `blocksPoint` convention, at the four extremes
 --- of the body.
-local function blockedAt(x, y)
+function blockedAt(x, y)
   local r = Combine.RADIUS
   for _, f in ipairs(Features.list) do
     if f.blocksPoint then
@@ -505,8 +528,15 @@ end
 
 -- Seeing --------------------------------------------------------------------
 
---- Where `player` is, if they are there to be shot at.
+--- Where `id` is, if they are there to be shot at: a player, or a rival
+--- troop's soldier still up.
 local function poseOf(server, id)
+  if type(id) == "table" then
+    if id.hp > 0 then
+      return id.x, id.y
+    end
+    return nil
+  end
   local p = server.players[id]
   if p and Features.visible(server, p) then
     local x, y = Features.bodyPose(server, p)
@@ -515,16 +545,31 @@ local function poseOf(server, id)
   return nil
 end
 
---- The nearest player inside this soldier's cone right now, if any.
-local function spot(server, s, fov, aware)
+--- The nearest player, or rival troop's soldier, inside this soldier's
+--- cone right now, if any; nobody while the troop is calm.
+local function spot(self, server, s, fov)
+  if self.calm then
+    return nil
+  end
+  local aware = self.aware
   local best, bestD2
+  local function consider(who, x, y)
+    local d2 = Sight.canSee(s.x, s.y, s.facing, x, y, Combine.RANGE, fov)
+      or (aware > 0 and Sight.canSee(s.x, s.y, s.facing, x, y, aware, 2 * math.pi))
+    if d2 and (not bestD2 or d2 < bestD2) then
+      best, bestD2 = who, d2
+    end
+  end
   for id, p in pairs(server.players) do
     if Features.visible(server, p) then
       local x, y = Features.bodyPose(server, p)
-      local d2 = Sight.canSee(s.x, s.y, s.facing, x, y, Combine.RANGE, fov)
-        or (aware > 0 and Sight.canSee(s.x, s.y, s.facing, x, y, aware, 2 * math.pi))
-      if d2 and (not bestD2 or d2 < bestD2) then
-        best, bestD2 = id, d2
+      consider(id, x, y)
+    end
+  end
+  for _, rival in ipairs(self.rivals) do
+    for _, r in ipairs(rival.list) do
+      if (r.x - s.x) ^ 2 + (r.y - s.y) ^ 2 <= Combine.RANGE * Combine.RANGE then
+        consider(r, r.x, r.y)
       end
     end
   end
@@ -550,7 +595,7 @@ local function fire(server, s, tx, ty)
   local aim = math.atan2(ty - s.y, tx - s.x) + (random() * 2 - 1) * Combine.SPREAD
   local mx, my = s.x + math.cos(aim) * Combine.MUZZLE, s.y + math.sin(aim) * Combine.MUZZLE
   local gun = s.arms and s.arms.gun or require("src.features.weapons.guns").ak47
-  weapons:serverFireFrom(server, 0, mx, my, aim, gun)
+  weapons:serverFireFrom(server, 0, mx, my, aim, gun, s.from)
 end
 
 --- His trigger, while he has somebody at (tx, ty) in his sights.
@@ -623,7 +668,7 @@ function Combine:think(server, s, dt)
       and (Sight.canSee(s.x, s.y, s.facing, tx, ty, Combine.RANGE, track)
         or (self.aware > 0 and Sight.canSee(s.x, s.y, s.facing, tx, ty, self.aware, 2 * math.pi)))
     if not kept then
-      s.target = spot(server, s, fov, self.aware)
+      s.target = spot(self, server, s, fov)
       if s.target then
         -- A moment to take aim, and longer if he has to turn round first.
         local px, py = poseOf(server, s.target)

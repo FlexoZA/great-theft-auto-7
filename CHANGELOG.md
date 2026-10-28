@@ -14,6 +14,884 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The wiki (`docs/wiki` on GitHub) has a page for every gun and every ability: its picture, what it does, its
+  numbers in each tier with what a tier improves, what it costs, and who drops it, linked to their page.
+
+### Fixed
+- Eternal Mood: medkits, drinks, ammo crates and other things that turn up on the map no longer appear in the lava (Heck on Earth, the Foundry and Heck).
+
+## [0.43.0] - 2026-10-26
+
+A new ability: the jet run, a strafing run over walls with rockets falling on everything under it.
+
+### Added
+- Jet run, a new ability in the shop: aim it and click, your thrusters light for half a second, and you fly a
+  straight strafing run over walls through the spot you picked and on past it, dropping five rockets on red rings
+  along the way (40 damage each to enemies, 25 s cooldown). Nothing can hit you in the air; the rockets never hurt
+  you or other players.
+
+## [0.42.0] - 2026-10-26
+
+A new ability: the shield wall, a curved wall of light that stops enemy fire and holds enemies back.
+
+### Added
+- Shield wall, a new ability in the shop: aim it and click to put up a curved wall of light in front of you for 8
+  seconds (30 s cooldown). Enemy fire stops on it and enemies on foot can't walk through it; your rounds and other
+  players' go straight through.
+
+## [0.41.0] - 2026-10-22
+
+Every bullet now leaves a tracer, so you can follow the fight on dark and busy maps.
+
+### Changed
+- Bullets trail a short tracer, so you can see shots on dark and busy maps: red, or the round's own colour for
+  enemies whose shots have one.
+
+## [0.40.0] - 2026-10-22
+
+Bosses stop getting stuck and fight on while they go for medkits, shots now bleed or spark where they land,
+and the AR is a prize from General Volt.
+
+### Added
+- Shooting an enemy shows where the round went in: blood sprays out the far side and spots the ground
+  (green for antlions), and drones, turrets, droids, rollermines, the Tripod, the Hunter-Chopper and a
+  Suppressor's shield throw sparks.
+
+### Changed
+- Shotgun no longer drops his guard when he goes for a medkit where you can see him: he walks to it facing you,
+  firing his pistol at anyone within 320 px and drawing beads with the rifle on anyone further off.
+- Major Looz'er going for a medkit keeps throwing MG nests at you on the way, as well as firing.
+- Bigfoot going for a medkit swipes at anyone he passes within reach of on the way.
+- The Tripod going for a medkit keeps facing you with its heat ray and tentacles at work, and no longer
+  plants its legs for a sweep on the way.
+- Crazy Karen no longer turns her back on you when she goes for a medkit: she backs off to it at a walk, still
+  glaring at you, slapping anyone who follows her in reach and screaming only while the medkit is still far off.
+- The Baron of Heck, the Floor Manager, the Mancouchbus, the Spider Mattressmind and the Dread Knights no longer
+  turn their backs on you to go for a medkit: they back or side-step to it facing you, fighting on the way. Their
+  long stand-still attacks (the Floor Manager's plasma, the Mancouchbus's volleys, the Mattressmind's chaingun and
+  yawn) only come while the medkit is still a way off, the Baron only charges or leaps when it takes him towards
+  it, and the Dread Knights slash but don't lunge.
+- The AR is now won, not bought: General Volt drops one for every player (in a better tier each time the job
+  has been finished before), and from then on the shop sells it to you. Weapons factories no longer make it.
+- Halcyon Tower has medkits on every floor: 2 a floor (12 in all, was 6 anywhere in the tower), and one taken
+  comes back on the same floor.
+
+### Fixed
+- Sweeping up a big pile of drops (a boss's loot) no longer stacks the pickup chime into one ear-splitting blast:
+  at most three chimes ring at once, and ones taken in the same instant play as one.
+- Shotgun feels his way round corners and takes his walking grid to every new spot, not a straight line.
+- Crazy Karen only takes ways round the houses she is wide enough for and feels her way round corners, so she
+  no longer catches on a corner or a gap she won't fit through.
+- The Baron of Heck no longer gets stuck on corners and low walls in the Foundry: he feels his way round them,
+  and takes the long way round what he can see you past but can't get his shoulders through.
+- The Floor Manager no longer gets stuck going after you round Fobos Base: he only takes ways his chair fits
+  through, feels his way round corners, and no longer rocks on the spot at a corridor's mouth.
+- The Mancouchbus no longer gets stuck rolling after you down the Boulevard: he only takes ways his recliner
+  fits through, feels his way round corners, and rolls round what he can see you past but can't get by.
+- Dread Knights no longer rock on the spot at the edge of sight while winded: they keep backing off and circling
+  till they have their breath back.
+- A-Man no longer grinds against buildings in the city or the edge of the Citadel's top: he walks round them, and
+  no longer "blinks" onto his own spot when a wall is in the way. Badly hurt, he keeps facing you on his way to a
+  medkit, blinking through you and opening his case as he goes.
+- The Antlion Guard no longer gets stuck in the Coast's rocks: it finds its way round them instead of rocking
+  in a gap it doesn't fit. Badly hurt, it now backs off to a medkit facing you, swiping and screaming on the way,
+  and gives up on one it can't reach.
+- The Hunters (and the Cyber Feud's assassin droids, who think the same way) no longer get stuck on walls and
+  pillars in City 17, the Citadel and on the Winding Road: they only take ways their bodies fit through and feel
+  their way round corners. A badly hurt one now backs off to its medkit facing you and firing, instead of turning
+  its back and running.
+- The Poison Zombie no longer gets stuck at the water on the Winding Road pass when he sees you across it: he
+  walks round it, and badly hurt he backs off to a medkit facing you, still clawing and throwing crabs, instead
+  of turning his back and running.
+- General Volt no longer gets stuck on the stall corners in Noodle Square, and badly hurt he backs off to a
+  medkit still facing you, lobbing grenades on the way (bolts only while it is still far) instead of just
+  walking off.
+- Kilowatt no longer catches on the crates on the Roof, and badly hurt he walks to a medkit still facing you,
+  whipping and slamming on the way; he only charges when it carries him towards the medkit.
+- Director Saye walks round the Roof's clutter better, and badly hurt she backs off to a medkit still facing
+  you, dropping turrets on the way (her sightline only while it is still far).
+- Major Looz'er no longer catches on the corners of bunkers and hedge gaps: he feels his way round them, only
+  takes ways he fits through, and sidesteps out of a gap that pinches both his shoulders.
+- Bigfoot no longer catches on corners and trunks in the forest or the city: he feels his way round them.
+- The Runner going for a medkit behind a building runs round the block to it instead of giving up.
+
+## [0.39.2] - 2026-10-20
+
+The Floor Manager traded his spider legs for an executive chair on a rocket.
+
+### Changed
+- The Floor Manager has lost his spider legs: he floats about the Hangar in an oxblood executive chair on a
+  rocket, its flames roaring behind him. For his stomp he rises on full burn and drops the chair on you.
+
+## [0.39.1] - 2026-10-20
+
+Kilowatt is more machine than man now, with two spikes on his back and lightning crackling between them.
+
+### Changed
+- Kilowatt looks more machine than man: gunmetal plating, steel arms, an armoured back plate, and two insulator
+  spikes standing up off his back with a blue arc crackling between them. It runs white while he vents and forks
+  once he's lit (phase 2).
+
+## [0.39.0] - 2026-10-20
+
+The game has a wiki: a page for every enemy, with its picture, its numbers and how to beat it.
+
+### Added
+- A wiki for the game, in `docs/wiki` on GitHub: a page for every enemy with its picture, its health, what it
+  carries, what it can do and how to beat it, written from the game's own numbers.
+
+## [0.38.0] - 2026-10-20
+
+Halcyon's dropship now flies troops in to guard VEX's relays on the Roof, and the helipad is the only way home.
+
+### Changed
+- The Roof: there is no HOME star at the top of the stairs any more. The only way home is the one on the helipad
+  once VEX gets away.
+
+### Added
+- The Roof: while VEX holds the roof she calls in Halcyon's dropship, a rocket tiltrotor. It hangs over the relay
+  you're going for, its landing spot ringed in magenta, and puts a squad of officers down to guard it, then flies
+  off. It comes back every 35 s while fewer than 5 of its officers are up, and right away whenever you breach a
+  relay. Each drop also brings one of Grey City's harder enemies, in turn: an assassin droid, a riot-shield enforcer
+  or a brute. From its second drop on, one of the officers is an elite: black armour and a gold helmet, a gold
+  diamond over him, three times the health and a harder-hitting rifle.
+
+## [0.37.0] - 2026-10-19
+
+VEX's relays on the Roof are closer together, warn you before they shock you, and the last one can be finished.
+
+### Changed
+- The Roof: VEX's four relays stand round the helipad instead of in the corners, so the run from one to the next
+  is about half as long (about 1450 -> 770 px).
+- The Roof: the relay VEX is at has a red ring breathing round it instead of a green one, and her face on its
+  screen.
+
+### Fixed
+- The Roof: VEX's relay now warns you before it shocks you. For 2 s before each pulse its reach lights up blue on
+  the ground and fills in from the middle, with static crackling in it that builds as it charges, it whines, and
+  "VEX's relay is charging - get clear!" shows while you're inside. Before, the pulse hit at once with no warning
+  and, on a job finished before, stunned you. Her pulses also come less often: every 4 -> 6 s.
+- The Roof: VEX's last relay can be breached. Her relay no longer drains from the warning until 1 s after the pulse,
+  so stepping out of it (or being stunned by it) doesn't lose what you had done. Before, the drain took back more
+  than you could put in, and the last relay, always hers, couldn't be finished alone.
+- The Roof: let go of a relay and it waits 0.45 -> 1.5 s before it starts losing what you had done.
+
+## [0.36.0] - 2026-10-19
+
+Bullets now spark and leave marks on walls, and every job level has a name, shown on the victory screen and the board.
+
+### Added
+- Bullets that hit a wall, building or rock now spark and kick up a puff of dust and grit where they strike, and
+  leave a pock mark for a few seconds. Everyone in the world sees them.
+- Every job level has a name, from Easy (level 1) through Hard, Brutal, Carnage, Rip and Tear and Nightmare up to Hell
+  on Earth (level 11, the last). The victory screen shows the level you just finished and its name, and the job board
+  shows the name next to each job's level.
+
+## [0.35.1] - 2026-10-19
+
+A fix for your own shots bending along with your MG nest's sweep.
+
+### Fixed
+- Your own shots go where you aim again while your MG nest is firing: its sweep no longer bends them (a breached
+  Cyber Feud turret did the same).
+
+## [0.35.0] - 2026-10-19
+
+Finishing a job now ends on a victory screen with your stats, and the EXIT star keeps clear of a fallen boss's loot.
+
+### Added
+- Finishing a job now shows a victory screen with how it went for you: the time it took, enemies killed, bosses
+  beaten, deaths, Fcks picked up and anything you unlocked. The star home puts it up (Enter goes home, Backspace
+  stays to pick things up), and anyone taken home by someone else sees it on arriving.
+
+### Fixed
+- The EXIT star no longer comes up on top of a fallen boss and the loot it drops: it stands at least 240 px away,
+  on open ground.
+
+## [0.34.0] - 2026-10-19
+
+Kilowatt and the Hunters now warn you before they stun you, and VEX's relays on the Roof are easier to follow.
+
+### Changed
+- Kilowatt's arc whip (Cyber Feud, the Roof) now shows a flickering line from his fist for 0.5 s (was a 0.45 s
+  crackle you could barely see) and only hits whoever is still on that line: step off it and it misses.
+- Kilowatt's slam now marks how far its shock ring will roll (230 px, 330 px in phase 2) while he is in the air.
+- The Hunters' stun shot now shows a line where it will go while they charge, and goes down that line: step off it.
+- VEX on the Roof stays at a relay for 20 s before moving to another (was 11 s).
+- On the Roof the objective line now names the relay to breach ("breach the top-left relay"), steering you away from
+  the one VEX is guarding, and a white arrow hovers over it.
+
+## [0.33.0] - 2026-10-18
+
+Jobs unlock one at a time and come back harder every time you finish them, and Crazy Karen drops an uzi.
+
+### Added
+- Crazy Karen drops an uzi for every player when she goes down. The uzi is now a won gun: pick one up to unlock it
+  in the shop (factories no longer make them). The first time it is always common; beat her again for a chance at
+  uncommon, then rare, and from the fourth time legendary (up to 12%).
+- "Inventory full" now shows over a dropped item you can't pick up because your bag has no room.
+
+### Changed
+- Every job comes back harder each time you finish it, up to 10 times (Karen's rage now works on all of them).
+  Bosses: +25% health (Karen 1500 -> 1875 -> 2250 ...) and +15% damage (her slap 15 -> 17 -> 20 ...). Enemies:
+  +10% health and +10% damage. Helpers and enemy groups: +20% more of them (Karen's simps 5 -> 6 -> 7 ...). The
+  boss bar shows how many times over it is ("HARDER x2"; Karen's says ANGRIER).
+- Bosses' per-player drops come in better tiers each time you beat them again, the way Karen's uzi does.
+- The job board shows the level each open job is at (LEVEL 1 the first time, one more per finish, up to LEVEL 11)
+  and how many times you finished it ("DONE x3").
+- Jobs unlock one at a time: a new game opens only Crazy Karen, and finishing a job opens the next on the board
+  (Karen, the alien hunt, D-Day, Shotgun, A-Man, Cyber Feud, Eternal Mood). Finished jobs can be played again,
+  and a saved world remembers how far you got.
+- City events wait for their quest: Bigfoot comes to town only after the alien hunt is finished, and A-Man only
+  after his quest. The Runner and the Tripod can come any time.
+
+### Fixed
+- Finished jobs are saved as soon as you are back in the city. Before, quitting while on a job could lose every
+  job finished since the last autosave.
+
+## [0.32.0] - 2026-10-17
+
+The Antlion Guard is redrawn, quicker and calls a Hunter-Chopper for help; medkits and drinks move next to WASD.
+
+### Added
+- The Antlion Guard calls for help: at 60% and again at 20% health a Hunter-Chopper sweeps in low from behind you,
+  drops 3 rollermines on you and flies off. It doesn't shoot. Watch your back when the rotor starts up.
+
+### Changed
+- The Antlion Guard on the Coast looks like the new antlions: olive plates rimmed in orange over its back, a pointed
+  tail and long orange spiked legs, under its shovel of a head plate. It is smaller and quicker on its feet: body
+  34 -> 24 px, running 150 -> 190 px/s, prowling 90 -> 120, walking winded 42 -> 55, turning 2.4 -> 4.2 rad/s,
+  charging 440 -> 480 px/s every 4 s (was 5), reeling 2.2 -> 1.6 s after a crash. Its swipe is quicker: reach
+  62 -> 50 px, landing 0.32 -> 0.24 s in, 0.9 -> 0.7 s between swipes.
+- New default keys: use a medkit on Q (was H), drink an energy drink on E (was J), and ask VEX to open a locked
+  door in Halcyon Tower on T (was E). If yours stay on the old keys (you rebound them, or reset your controls
+  before), reset the controls in the settings to get the new ones.
+
+## [0.31.0] - 2026-10-17
+
+Walls you can't shoot past cast shadows on every map, rounds fly over water, and the antlions look like Half-Life's.
+
+### Changed
+- Every wall casts a shadow now, on every map: the map's edges, mountains, the Tower's floors and the Roof's parapet,
+  Earth's hedges and waste ground, the Citadel's catwalk rails, fallen-building rubble, and Cyber Feud's barriers,
+  drums, shelves, lockers and the rest. If it has a shadow, rounds stop there.
+- Rivers, canals and the sea no longer stop rounds, sight or grenades: you can shoot across them and off the side of a
+  bridge. You still can't walk or drive into the water.
+- Antlions look like Half-Life's now: an olive shield of orange-rimmed plates on their back, a pointed tail, a wedge
+  head and long spiked stilt legs. Their wing covers swing open outward when they fly.
+
+## [0.30.1] - 2026-10-16
+
+Your shots leave your gun again when you sprint and strafe.
+
+### Fixed
+- Your shots come out of your gun when you sprint and strafe. They used to start from where the host had you, behind
+  where you see yourself, and showed up a moment late where you'd been, so they seemed to come out of your side. Your
+  own shots are drawn from your gun the moment you fire now, and the host starts them where you are (within reach).
+
+## [0.30.0] - 2026-10-16
+
+Eternal Mood is no straight run any more: every level hides terminals (Heck's are seals) that open the lift, the road's blast gates, the Crucible's doors and the bone wall to the Mattress.
+
+### Changed
+- Heck's ramp up to the Mattress is barred by a wall of bone until you light four seals: one on each island out in the
+  lava, one at the Altar Fields' west end and one on the pizza lake's shore.
+- The Foundry's way up into the Crucible is shut by blast doors until you've hacked four terminals: in the Front
+  Office, the Loading Bay, out on the Conveyors' far walkway and at the Smelters' west end.
+- Heck on Earth's road is shut by three blast gates. Each opens from a terminal off the road: one down a side street in
+  the Suburbs, two down Downtown's side streets, one on the Crater's far rim past the lava.
+- Fobos Base's lift won't run until you've hacked four terminals, one each in Crew Quarters, the Mess, the Offices and
+  Toxic Storage (and the Floor Manager is down). Hold F at one for 3 s; the alarm brings the horde nearby, so cover
+  each other. The HUD counts them and the minimap marks them.
+
+## [0.29.9] - 2026-10-16
+
+Mecha Zombies guard the Intern mobs, who are busy eating, and scream the horde down on you; and enemies' uzi rounds show all the way again.
+
+### Added
+- Mecha Zombies on Fobos Base, Earth and the Foundry: zombies the UAC rebuilt with a plasma cannon, a flamethrower and
+  talons. One walks round every Intern mob. They fire plasma from afar, flame you at mid range and slash up close, and
+  when they wake they scream: a sound wave goes out and every zombie and mob in it comes for you.
+- The Interns' mobs are eating: each crouches round a body it dragged in, a trail of blood leading to it, until
+  something wakes them.
+
+### Fixed
+- Enemies' uzi rounds (Cyber Feud's troops, stings, turrets, interceptors and drones, the Hunters, A-Man's turrets,
+  the Bent Cops) disappeared on screen after about 360 px while they flew on and hit you from further away. They are
+  drawn all the way now. A better tier's flamethrower flame is drawn as long as it really reaches too.
+
+## [0.29.8] - 2026-10-16
+
+Eternal Mood gets its polish: walls that look solid and cast shadows, lava that flows with ragged shores, and every level filled out; and the uzi becomes a close-range 9mm sprayer.
+
+### Changed
+- Heck is fuller. Braziers burn at the Altar Fields' edges among rib cages, skull piles, bone spikes and glowing rune
+  circles; gouges and skulls mark the Mattress's plateau; and the ramp up to it is steps cut into the rock instead of
+  grey slabs.
+- The Foundry is fuller. Slag spilled round the Smelters' vats, ingot moulds still glowing, stacks of ingots and pipes
+  along the wall; bones, skulls, bone spikes and burning braziers across the Crucible's floor; a copier in the Front
+  Office; pallets, tyres, a fuel hose and oil in the Loading Bay and on the Landing Pad.
+- Heck on Earth is fuller. Front yards have what people left in them (trampolines, swings, burnt garden beds, lawn
+  chairs, bikes, mailboxes, a kennel now and then), Downtown's sidewalks have hydrants, and debris, oil and skid marks
+  are strewn down the roads and the Boulevard. Roofs have dormers, solar panels and dishes, and the towers have stair
+  hatches, vents, skylights, aerials and the odd helipad.
+- Fobos Base is fuller. Server racks and cable runs in the Lab, footlockers, a rug and laundry in Crew Quarters,
+  chairs round the Mess's tables and vending machines on its wall, cables and coffee in the Offices, hazard paint and
+  leaks round the Reactor, hazmat lockers and painted hazard boxes in Toxic Storage, and a workshop round the
+  Hangar's walls (workbenches, tool chests, tyres, fuel drums) with oil, skid marks and pallets on its floor.
+- Eternal Mood's lava flows: the Foundry's moat and Heck's lava sea have ragged shores of cooled crust, glowing where
+  they meet the molten lava, lumpy crust drifting on a slow current and bright seams opening and closing. Lava next to
+  lava is one body now, not a row of squares.
+- Eternal Mood's walls stand up: on every level a wall shows its face over the floor and casts a shadow across it, so
+  you can see what you can't shoot over. Heck's rock walls are darker than its floor, Earth's buildings cast shadows
+  as long as they are tall, and the ground outside each map (moon dust, waste ground, tarmac, the abyss) is smooth
+  instead of blocky.
+- The uzi fires 9mm rounds, the same as the SMG (the pistol never needs any). Uzi ammo is gone: any you had becomes
+  9mm, and 9mm boxes now drop as often as uzi ammo did.
+- The uzi is a close-range gun: its rounds are spent after about 360 px (1080 -> 360). It still fires fourteen a
+  second.
+
+## [0.29.7] - 2026-10-16
+
+Dread Knights stalk Earth, the Foundry and Heck, blades out; and the Mood Slayer's helmet gets its detail, the same on you as in the bag.
+
+### Added
+- Dread Knights, Heck's elite: black plate, a horned helm and a blade out of each arm. Two on Earth, two in the
+  Foundry's Smelters, three on Heck's Fields. They weave in, slash up close and lunge from a few steps off, each with
+  a tell (his reach or his lane shows on the floor). A hit does 26, knocks you back and stuns you for 1.2 s, and 70%
+  of the time it's a deep wound (6 s at 6 a second; a medkit stops it). They let you get up, then lunge straight
+  away: dodge it. They dodge your rounds on their breath, back off when winded, and go for medkits when hurt.
+
+### Changed
+- The Mood Slayer's helmet is drawn in more detail (a crested shell, a riveted brow, the amber visor with depth and
+  glints, ear guards with lamps, a vented breather, claw marks), and your character in the inventory now wears that
+  same helmet instead of a different one.
+
+## [0.29.6] - 2026-10-16
+
+Eternal Mood's demons sharpen up: the Baron of Heck is half the size and harder to hit, the Cacodaemons look ahead with a meaner face, and the shuttle's engines point the right way.
+
+### Changed
+- The Baron of Heck is half the size (hitbox 30 -> 15 px), so he's harder to hit and gets clear of your rounds more
+  easily. His claw reach (95 -> 65 px) and charge hit (46 -> 31 px) shrink with him.
+- The Cacodaemons look meaner: their eye looks ahead out of their face under a heavy brow instead of straight up, and
+  they have darker veined hide, two horns curving back and yellowed teeth.
+
+### Fixed
+- The Eternal Mood shuttle's engines point backwards now: flared bells with oval mouths instead of round nozzles
+  facing up.
+
+## [0.29.5] - 2026-10-15
+
+The shuttle you land in on Eternal Mood is drawn in full: lit portholes, blinking nav lights, glowing engines and its ramp down.
+
+### Changed
+- Eternal Mood's shuttle (on Earth and in the Foundry) is drawn in full: a rounded hull with panels, rivets and lit
+  portholes, a framed canopy, delta wings with flaps and blinking red and green nav lights, a tail fin, three engines
+  still glowing and steaming over a scorched pad, a strobing beacon, and its ramp down and lit from inside.
+
+## [0.29.4] - 2026-10-15
+
+The Baron of Heck comes after you wherever you hide, leaps over the lava, dodges your rounds, and has guns for hands.
+
+### Added
+- The Baron of Heck leaps. At anyone a fair way off (300 px or more), and always at anyone across the lava from him,
+  he crouches with a red ring on the floor where he'll land, sails over the lava and comes down on you: 45 damage and
+  a big shove. He's slow to get up after.
+- The Baron of Heck dodges. A round about to hit him and he throws himself aside, if he has the breath for it (a
+  fifth of his bar each time, and only while he has more than half). His breath shows as a bar under him once he's
+  spent some, throbbing red while he's winded: wind him and he can't dodge.
+
+### Changed
+- The Baron of Heck comes after you. Hanging back in the Smelters no longer keeps him on his spot by the pit: he
+  follows you anywhere on the map, and he notices you as soon as he can see you instead of only when you step onto a
+  bridge.
+- The Baron of Heck gets his breath back while circling you; before, he could stay stuck short of breath for the
+  whole fight.
+- The Baron of Heck has a new look: broad horned shoulders, guns for hands (his green fireballs come out of the
+  barrels), a goat's skull with glowing eyes, a tail.
+
+## [0.29.3] - 2026-10-15
+
+The Hunters tire: run them ragged and they can only walk, with a breath bar under each to show it.
+
+### Changed
+- The Hunters tire now. Closing in, strafing and backing off wear them out (about ten seconds of it), and each dodge
+  costs a quarter of their breath. A blown Hunter can only walk and can't dodge until it gets its breath back (a few
+  seconds), and an energy drink it finds puts it all back. A thin bar under each one shows its breath once it has
+  spent some, throbbing red while it is winded. Cyber Feud's assassin droids think the same way and tire too.
+
+## [0.29.2] - 2026-10-15
+
+Halcyon's soldiers carry the new AR, and ammo crates hold half as much.
+
+### Changed
+- Ammo crates on quest maps hold less: a crate spills 4 -> 2 ammo boxes. There are still 5 crates on every map.
+- Halcyon's soldiers in Grey City carry the AR now: most of them have one (in bursts of four), the rest an uzi or a
+  pistol as before. Their rifles reach further than the uzis did (about 1170 px against 920).
+
+## [0.29.1] - 2026-10-15
+
+The AR, a faster and straighter rifle than the AK, firing the same rounds, which are 7.62 rounds now.
+
+### Added
+- A new gun, the AR: an assault rifle firing about twelve rounds a second against the AK's nine, 15 damage a round
+  against its 18, with half its scatter and faster rounds. It fires the AK's 7.62 rounds. 140 Fcks in the shop.
+
+### Changed
+- The AK-47's rounds are 7.62 rounds now (they were "AK-47 rounds"); the ones you have keep working, in the AK and
+  the new AR.
+
+## [0.29.0] - 2026-10-15
+
+New music on three quests, the A-Man trail's last maps no longer end in a bare grid, a leap that hits enemies as
+hard as it hits players, and a freeze and some stuck soldiers fixed.
+
+### Added
+- Three quests get their own music: an eerie whistle in the woods of Whispering Pines (the alien hunt), a snare-drum
+  march with brass for the beach landing (D-Day), and a twangy spaghetti-western standoff on Shotgun's Bluff.
+- The Outer City, the Winding Road and the Citadel no longer end in a bare grid: City 17's outskirts run on past
+  the Outer City's wall, mountains, forest, the river and snow round the Winding Road, and the Citadel's abyss
+  (girders, pods on their rails, far-off platforms) all round its catwalk.
+
+### Changed
+- A leap's landing hits enemies as hard as it hits players: 20 -> 45 for the leap, 20 -> 70 for Bigfoot's leap, and a
+  better tier hits harder still. Enemies that always take a set amount per hit (Karen, the D-Day troops, police
+  officers) are unchanged.
+
+### Fixed
+- The leap now hurts the Hunter-Chopper.
+- Soldiers on the Market and in Halcyon Tower, and a staffer on Heck on Earth, no longer start stuck inside a wall
+  where nothing could reach them.
+- The game no longer freezes when you leap or teleport right on top of a Hunter or an assassin droid.
+
+## [0.28.4] - 2026-10-15
+
+The SMG, won off the Hunter-Chopper: faster than the AK, shorter reach, firing 9mm, which is back.
+
+### Added
+- A new gun, the SMG: fifteen rounds a second against the AK's nine, tighter than the uzi, but spent by about 500 px
+  (the AK reaches 1200). The Hunter-Chopper drops one for every player in the Outer City; pick it up and the shop
+  sells it to you from then on (110 Fcks). It fires 9mm rounds, the pistol's: 9mm is back in the shop (60 for 35
+  Fcks), the ammo factory, enemies' drops and the ammo crates. The pistol still never runs out.
+- The Combine soldiers in City 17 carry SMGs now and then.
+
+### Fixed
+- A super shotgun in your bag (not in a weapon slot) is no longer lost when a saved world is loaded.
+
+## [0.28.3] - 2026-10-15
+
+Ammo crates on every quest map: press F or shoot one for a dump of ammo, AK rounds most of all.
+
+### Added
+- Ammo crates on every quest map, five of them: walk up and press F, or shoot one, and it breaks open into four
+  boxes of ammo, a magazine and a half each. AK rounds come out of them more often than off enemies.
+
+## [0.28.2] - 2026-10-15
+
+The Baron of Heck drops the super shotgun, the Mood Slayer's own: twice the pellets and the reach of a shotgun.
+
+### Added
+- The Baron of Heck drops the super shotgun, the Mood Slayer's own, one for every player: 12 pellets a pull instead
+  of 6, twice a shotgun's reach and 10 shells a magazine instead of 6. It fires ordinary shotgun shells. Pick it up
+  and it's yours with a magazine's worth of shells, and the shop sells it to you from then on (260 Fcks).
+
+## [0.28.1] - 2026-10-15
+
+The Mancouchbus drops the Mood Slayer's helmet, and a boss's reward you haven't unlocked yet now stands out on the road.
+
+### Added
+- The Mancouchbus drops the Mood Slayer's helmet, one for every player: rockets and blasts hurt 30% less and fire a
+  fifth less. Pick it up and it's yours, and the shop sells it to you from then on (120 Fcks).
+
+### Changed
+- A boss's reward on the ground you haven't unlocked yet (the Mood Slayer's helmet, Volt's electric grenades) stands
+  out: gold rings ripple out from it, NEW bobs over it, and it lights up in the dark.
+
+## [0.28.0] - 2026-10-15
+
+Eternal Mood: a new quest line, on foot all the way. Take the pest-control job up to Fobos Base, then down through
+Heck on Earth and the Foundry into Heck itself, past the Floor Manager, the Mancouchbus, the Baron of Heck and the
+Spider Mattressmind to the Snooze Gate. Each map has its own boss and its own metal theme, and lava burns.
+
+### Added
+- A new job on the board, "Pest control": the start of the Eternal Mood quest line. Fobos Base, the UAC's moon base,
+  in the dark, everything in it red: wake up in the Lab and find your way up to the Hangar's lift.
+- Heck holds Fobos Base: the possessed UAC staff at their desks and posts (staffers with pistols, guards with
+  shotguns in the doorways, the overtime guy spinning up his chaingun by the lift), and imps bursting out of the floor
+  vents as you come near, throwing fireballs you can sidestep.
+- The Floor Manager holds Fobos Base's lift: the UAC's shift supervisor, promoted out of his body, his brain in a
+  glass dome on a four-legged spider walker with a plasma cannon. He charges the cannon and sprays streams of plasma
+  that drag after you (three at once below half health), stomps whoever gets close (the ring shows first), and calls
+  staff in for a quick meeting at two thirds and a third of his health. Shoot his cannon off and he has to come and
+  stomp you instead. The lift is out of service until he's down.
+- Patrols of the possessed walk Fobos Base as squads: up and down the Ring, round the Offices' desks, the
+  Reactor's catwalk, Toxic Storage and the Hangar's floor. When one of a squad sees you, the whole squad comes.
+- The possessed fight smarter: guards sweep the doorways they hold, fight from cover, go to ground when shot from
+  out of sight and then come looking, and some throw grenades; the overtime guy fights from cover round his post;
+  and one of them going down brings the others near to see why.
+- The Interns: the UAC's unpaid interns, possessed and unarmed, in mobs all over Fobos Base. They stand about until
+  you come near, then the whole mob shambles after you, arms out, and claws. One shot drops one; the trouble is
+  the other seven. The Floor Manager's meetings bring a few in too.
+- Eternal Mood has its intro screen: the Mood Slayer's own voice in his head, typed out in a thought bubble beside
+  his helmet, over Heck's glow and rising embers, with a power chord. Watch his eye behind the visor: he keeps
+  nodding off.
+- Fobos Base has its own theme: rip-and-tear metal, tuned way down, chugs, diving synth bass and a screaming lead.
+  It starts in the dream, a lullaby on a music box over a snore, until the floor drops out.
+- Heck on Earth, Eternal Mood's second map: off the shuttle from Fobos Base and up one long road through a burning
+  city to the starport, on foot all the way (no driving on this quest line). Houses on fire in the Suburbs, wrecked
+  buses and cars to hide behind Downtown, a fallen overpass squeezing the road to one gap, a lava-filled crater where
+  the portal opened, and the Boulevard's sandbags up to the starport's gate. Possessed guards behind the wrecks,
+  mobs of interns in the side streets, imps out of the manholes and the cracks round the crater.
+- Cacodaemons float over Heck on Earth: big red one-eyed demons that fly over roofs and lava, spit balls of fire
+  (watch for the mouth opening first) and bite whoever gets close. 220 health; shoot one in its open mouth and it
+  takes extra damage and reels.
+- Heck on Earth has its boss: the Mancouchbus, a huge fat demon in a recliner on tank treads, a rocket launcher for
+  each arm, parked in front of the starport's gate. He fires rockets from both arms in turn and sweeps fans of them
+  across the road (look for the gap), bumps you away with his belly if you get close, and shouts for Cacodaemons.
+  He's slow to turn, and his back is the recliner: shots there do double. The gate stays closed until he's down.
+- Heck on Earth has its own theme: faster thrash metal, galloping riffs and tremolo picking, air-raid sirens wailing
+  through it and car horns in the breakdown. It starts in the dream, a sofa-sale jingle on the telly and a phone
+  buzzing, until the siren drowns it out.
+- The Foundry, Eternal Mood's third map: the UAC's factory, where they melt Heck down, half of it already Heck's.
+  Off the shuttle onto the landing pad, through the loading bay and Dr. Seek's office, across the conveyor belts
+  (they carry you, and anyone else standing on them: walk against one and you go nowhere), through the smelters'
+  vats of lava to the Crucible, a pit of lava ringed by a lava moat, and the portal behind it.
+- The Foundry has its boss: the Baron of Heck, a big horned brute on goat legs, waiting on the stone ring round the
+  Crucible. He throws green fireballs in pairs (one where you are, one where you're going), puts his horns down and
+  charges (dodge it and he runs into the wall and stands there dazed), claws you up close, and roars, throwing you
+  back while imps climb out of the lava. He drops the key to the Snooze Gate; the portal stays sealed until you pick
+  it up. And then somebody far away asks if you're awake.
+- Lava burns: you can walk into the Crucible's lava, the Smelters' vats or Heck on Earth's crater now, but you'll catch
+  fire. You can also shoot across lava; demons won't set foot in it.
+- The Foundry has its own theme: heavy industrial metal, guitars locked to a machine, anvils ringing, steam hissing
+  out of the press and a choir rising where the factory turns to Heck. It starts in the dream, on a cooking show,
+  until somebody far away calls and the press slams down.
+- Heck, Eternal Mood's fourth map: out of the portal onto a shelf of rock, across a sea of lava by bridges of bone
+  (three ways over, one of them very narrow), over the Altar Fields with their altars, spikes and fire pits, past a
+  pizza box the size of a house sinking in a lava lake, and up to the Snooze Gate. Imps climb out of the cracks
+  and Cacodaemons float over the lava. Past the edges: lava falls, castles hanging upside down, and a crack in the
+  sky with a lampshade hanging through it.
+- Heck has its boss: the Spider Mattressmind, a giant brain on mechanical spider legs, standing on the mattress it
+  drags everywhere, in front of the Snooze Gate. Its chaingun spins up and sprays after you (keep running across
+  it), its legs slam down if you get close, and once it's half down it starts yawning: each yawn pulls you in, then
+  snaps shut. The mattress soaks up shots from the front, so get round it. The Snooze Gate stays locked until it's
+  down.
+- Heck has its own theme: black metal blast beats and slow doom, a choir, a church organ and bells tolling. The dream
+  is wearing thin: it starts with a microwave warming a pizza, and halfway round everything stops for Fobos Base's
+  music box lullaby, slowed and out of tune, before a yawn and the blast tearing back in.
+- Fobos Base looks the part: sharper desks, crates and posters, the reactor's core pulsing inside a halo of light
+  and sparks, alarm lamps turning like beacons over the doors, strip lights on the blink, and the mess of the night
+  everywhere: knocked-over bins spilling rubbish, scattered memos, blood, scorch marks, broken glass, chairs on
+  their sides.
+
+## [0.27.1] - 2026-10-14
+
+A quieter mix out of the box: footsteps, the Combine soldiers' radio and pickups start lower.
+
+### Changed
+- Quieter default sound levels: footsteps 60% -> 25%, the Combine soldiers' radio 70% -> 40%, pickups 70% -> 60%.
+  Levels you already set in Settings stay as they are.
+
+## [0.27.0] - 2026-10-14
+
+Cyber Feud: a new quest line through Grey City at night. Carry the Shard across five maps from the Drop to the roof
+of Halcyon Tower, caught between Halcyon and the Static, past General Volt, Saye and Kilowatt, and then VEX. It
+also brings the Courier, rain and storms, and the electric grenade, the first thing you unlock.
+
+### Added
+- A new job on the board, "Courier wanted": the start of the Cyber Feud quest line in Grey City. Five maps so far,
+  driven and on foot, from downtown to the roof of Halcyon Tower; for now each is the way through, with its fights
+  still to come.
+- Night: Grey City is played in the dark, lit by neon, street lamps, your headlights and a torch on foot.
+- The Shard stays with you through all five levels of Cyber Feud. Whoever carries it has to reach each level's end
+  for the job to go on; if they go down, it drops where they fell (marked on the minimap and the big map) and anyone
+  can pick it up. On the Roof, once Saye and Kilowatt are down, take it to VEX's uplink by the billboard: she shows
+  you what is on it, and then she turns on you.
+- Cyber Feud's story: take the Shard from the vending machine on the Drop (F), meet VEX, your fixer, who talks you
+  through every map, and see each map's title card, where you are and what to do next.
+- Cyber Feud's factions on the Drop: Halcyon officers hold the roadblocks and the Static's gangers roam the west.
+  They ignore you until the Shard is taken, then come for you and for each other.
+- Guard stations on the Drop: each faction holds a few yards on the avenues with an MG nest out front and a
+  garrison inside that comes out when you get close.
+- Halcyon's assassin droids guard the tunnel at the end of the Drop: cloaked robots with rail pistols that dodge
+  your shots (then need 3 s before they can dodge again) and line up a rail shot you can see coming. Two of them,
+  one more for each extra player.
+- The tunnel end of the Drop is held by Halcyon alone, so its roadblock is still standing when you get there.
+- Grey City carries on past the edge of the Drop: towers and neon, street lamps and traffic going by, a sea of
+  lights in the dark.
+- Flying machines cross the sky over the Drop now and then: Halcyon's aerodyne sweeping its searchlight, a cargo
+  hauler with a container slung under it, and an ad drone towing a holo billboard. You hear each one coming.
+- People on the Drop's streets: a thin crowd out late in the rain, who scatter when the shooting starts.
+- The Drop has its own rock theme: it kicks in the moment someone takes the Shard and carries the chase to the
+  tunnel.
+- The Market is held now: Halcyon officers in the gaps of the south gate and behind the east line, squads walking
+  the east side and Noodle Square, and the Static's gangers on the western corners, roaming the west lanes and
+  pouring out of their chop shop. They leave you alone at the tunnel's mouth and wake the moment you walk in, and
+  they fight each other as hard as they fight you.
+- Halcyon's enforcers hold three of the Market's gates: riot shields that stop every shot from in front, a
+  shotgun, and slow to turn. Get round their side, or blow them up.
+- The Static's rippers stalk the Market's west lanes: blades out, they go for whoever is on their own, crouch
+  with a cyan line on the ground showing where they will go, and lunge down it. Step off the line.
+- The Static's sparkers hang back in the Market and lob EMP grenades: a cyan ring on the ground shows where each
+  will land. Get out of it, or the jolt stuns you.
+- The Overpass has its own darksynth theme, a night drive: it kicks in as Kilowatt's rig roars past.
+- The Overpass is a bridge now: steel girders and railings along its edges, piers under it, and cable-stay towers
+  with red lights either side. Grey City lies a long way below it, sliding slowly by as you drive: streets full of
+  traffic, lit towers and a river the bridge crosses halfway up.
+- Halcyon has blast gates across the Overpass. Nothing drives through a shut one: get out, hold the action key at
+  the control panel beside it while the others cover you, and the guards behind it come running.
+- Each blast gate on the Overpass is guarded on your side: an MG nest in the middle of the road, riflemen behind
+  barriers either side of it who take over the gun, and two riot shields out in front holding the road.
+- The car station prompt now names the car it calls (a Courier on the Overpass, a Scout Car on the Winding Road).
+- The Overpass has car stations along the shoulder: lose your Courier and walk onto the nearest green pad to call
+  it back, and if you die you can come back at any pad you have passed instead of at the on-ramp.
+- A new car, the Courier: an armoured gunmetal wedge with green neon and a minigun turret on the roof that the driver
+  fires. Everyone drives one on the Overpass (your own car waits for you), and the vehicle factory can build one
+  (600).
+- The Overpass is held: the Static's gangers on the shoulders of the long stretch, Halcyon at the fork, the
+  roadworks and the tower ramp, and both of them waiting for you together in VEX's "shortcut". Up here they hold
+  fire on each other, until a stray round from one side hits the other: then they go at it until things calm
+  down. Drive between them.
+- The Static's war-rigs wait on the Overpass too: rusty trucks with a spiked ram and a ganger with a shotgun on
+  the back, built to ram you off the road (and Halcyon's interceptors, once the two sides are at it).
+- Kilowatt, the Static's leader, makes an entrance on the Overpass: his war-rig roars past you with him on the back,
+  and he jumps off before it hits the barrier. You'll meet him properly later.
+- Halcyon's marksmen stand on the Overpass's gantries with long rifles. A thin magenta line shows where each is aiming;
+  when it stops moving and flares, swerve, or the round finds you.
+- Halcyon's sting drones hang over the Overpass's gantries in swarms of three, then come after you in strafing runs,
+  faster than your car, guns going. One or two rounds bring one down.
+- Halcyon's interceptors wait on the Overpass's shoulder: armoured grey SUVs with flashing light bars that come
+  after you flat out, ram you and have an officer lean out of the window to shoot.
+- Past the Market's walls Grey City is at war: a front through the city, rubble and craters in no-man's-land,
+  barricades facing each other across the streets, tracer fire, shells landing, burning towers and searchlights.
+  You hear it too: muffled bursts and shells beyond the walls, on their own volume slider ("the battle beyond
+  the walls").
+- The Market has its own heavy metal theme: it kicks in the moment you walk up out of the tunnel and the
+  factions come for you.
+- Halcyon's watcher drones fly over the Market's lanes. One that sees you hangs over you and calls officers in
+  every few seconds until you shoot it down. The sparkers' EMPs knock them out for a while.
+- Halcyon Tower is held now: Halcyon officers on every floor, a pair on each stair door up, the lobby's lifts
+  guarded and a squad walking each floor (two on the security floor), so the climb is a sneak past their sight
+  cones. Nobody looks your way until you are past the reception.
+- Halcyon's assassin droids stalk Halcyon Tower too, cloaked: one among the server racks, two in the labs (one more
+  for each extra player) and two round the boardroom on the executive floor.
+- More of Halcyon's officers hold Halcyon Tower's lower floors: two behind the lobby's reception desk, and three
+  more each among the office desks, the server racks and the labs' tanks.
+- The Static break into Halcyon Tower behind you: a pack of gangers through the front doors, then up the
+  stairwell onto the lowest floor anyone is on, about every 35 s. The two factions ignore each other in the
+  tower; they only want you.
+- Halcyon Tower's stair doors are locked. Hold F at the terminal beside one for 4 s to breach it quietly, or press
+  E to have VEX open it at once, which also opens that floor's guard room: four officers come out after you (more
+  with more players).
+- Halcyon's enforcers hold Halcyon Tower's top floors: four riot shields on the security floor, two in front of the
+  stair door up and two across the way to it, and two either side of Saye's desk on the executive floor.
+- Halcyon's marksmen in Halcyon Tower: three in the far corners of the security floor (more with more players,
+  then the executive floor), lining up their shots along the floor. Walls hide you from them, and their sightline
+  stops at the first wall.
+- Halcyon's watcher drones in Halcyon Tower: two down the offices' aisles and one over the lobby. They see over the
+  desks but not through floors, hang over you in the aisles and call officers in until you shoot them down.
+- Halcyon's sting drones swarm Halcyon Tower's server room: two swarms of three (one more swarm for each extra
+  player) making strafing runs down the aisles between the racks, slower and tighter than on the Overpass.
+- Sentry turrets in Halcyon Tower: three in the labs and four round the security floor. Each sweeps its arc, puts a
+  laser on you for a moment, then fires bursts. Get behind one and hold F for 2.5 s to breach it: it fights for
+  you for 15 s, shooting Halcyon and the Static. The sparkers' EMPs knock them out for 5 s.
+- The Static's brutes: huge, slow, 150 health and a giant chrome arm. One braces with a cyan line on the floor, then
+  charges down it, and punches up close. Get next to one and hold F for 1.5 s to breach his arm: for 4 s he spins,
+  swinging at everyone near him, his own side included.
+- The Static's break-ins into Halcyon Tower bring sparkers from the offices up and brutes from the server room up.
+- Kilowatt waits for you on the Roof: the Static's boss, huge, with a reactor for a heart. He charges down a line
+  he marks on the floor, hops and slams a ring of shock out round him, whips lightning through you and whoever is
+  next to you, and punches up close. Every few moves he vents, cage open and steaming: hits count double then. At
+  half health he gets faster and meaner. The Roof isn't done until he is down.
+- Director Saye joins Kilowatt on the Roof: Halcyon's boss fights at range. A thin magenta line marks her pistol
+  shot for a second before one heavy round goes down it (step off the line), three executive drones orbit her and
+  shoot (shot down, she calls more), and she drops sentry turrets and walks away from them. At half health her skin
+  cracks: the line comes faster and she fires two at once in a V. The Roof isn't done until both bosses are down,
+  and their two bars sit one over the other.
+- Saye and Kilowatt fight as partners. Shoot Saye and Kilowatt comes for you; stand next to him and her line comes
+  for you, quicker. When he vents she parks her drones round him: shoot them down before his hits count double.
+  When one falls the other rages: Saye alone calls six drones and fires three shots down each line ("Hostile
+  takeover."); Kilowatt alone stays in phase 2 and his slams leave crackling shock patches ("MELTDOWN!"). And
+  they bicker about forty years of business while they're at it.
+- While Kilowatt fights, the Static's brutes come up the stairs at the Roof's south edge to help him: one every
+  25 s, two at a time at most (one more for each extra player), and no more once he's down.
+- VEX takes the Roof once Saye and Kilowatt are down: she locks the stairs, her face comes up huge over the whole
+  roof, and four turrets wake up (one more for each extra player). Breach her four relays (hold F for 5 s at each):
+  she sits at one at a time, where breaching is half as fast and a ring of shock pulses out every few seconds, and
+  she moves to whichever you're furthest into. Her face breaks up more with every relay lost. On the last one she
+  gets away into the net, "Nothing personal, courier.", and the job is done.
+- The Roof has its own music: a metal finale with a choir and a tolling bell while Saye and Kilowatt fight, each
+  getting their own half (his chugging, hers cold strings and a ticking clock) before it brings them together; and
+  VEX's own glitchy chiptune theme the moment she takes the roof, which cuts out when she gets away.
+- General Volt holds Noodle Square in the Market: the Static's general, all coils and cable. He shows you a
+  crackling line before each lightning bolt strikes down it, lobs lightning grenades that leave shock fields on
+  the ground, and calls in a pack of the Static each time you knock another quarter off him. He has the loading
+  dock's pass code: the dock stays locked until he's down and somebody picks the code up.
+- It starts to rain the moment you step into Noodle Square, and a storm breaks over Volt's fight: flashes in the
+  sky, thunder, and lightning striking round you (watch for the flickering ring on the ground). The lightning stops
+  when he goes down; the rain keeps on until you leave the Market. Rain and thunder have their own volume slider.
+- The electric grenade: General Volt's own, and the first thing you unlock. When he goes down he drops a stack of
+  three that every player can pick up their own of, with a "NEW GRENADE UNLOCKED" screen to go with it. Drag them
+  onto your grenade slot and G throws them like any grenade (the grenades in there go back into your bag): a shock
+  blast that stuns whoever it catches and holds enemies still for a moment, then a field that keeps zapping anyone
+  who stays in it for 4 s. From then on the shop sells them to you (60 Fcks, on the Ammo shelf) and enemies drop
+  them now and then, and the unlock is saved with you.
+- The Roof stands over Grey City: the city far below on every side, other skyscrapers' tops round it, their red
+  lights blinking.
+- The Static's brutes look like themselves now, not like small Kilowatts: rust-orange work jackets, welding masks
+  with a cyan visor slit and that giant arm, and a head shorter than Kilowatt, so the help that comes up the Roof's
+  stairs isn't mistaken for more of him.
+- Halcyon Tower is furnished: marble and Halcyon's logo in the lobby with sofas and holo screens, office chairs and
+  a glass meeting room, cooling units and cables among the server racks, lab benches, lockers on the guard floor,
+  and a lounge, a bar and Saye's glass office at the top. Each floor has its own floor, and Grey City lies far
+  below through the glass walls.
+- Halcyon Tower has its own metal theme, heavier and slower than the Market's: it kicks in the moment you walk past
+  the reception, cutting off the lobby's lift music.
+
+### Fixed
+- The blue low-stamina glow no longer flashes: it fades in gently from 30% stamina instead of popping on, and
+  breathes more slowly and softly.
+
+## [0.26.15] - 2026-10-09
+
+The FPS counter is back top left and coloured by how smooth it runs; the ping sits in the top middle.
+
+### Changed
+- The FPS counter is back in the top-left corner, a size bigger and green, amber or red by how smooth it is; the
+  ping moves to the top middle.
+
+## [0.26.14] - 2026-10-09
+
+On fire, bleeding, poisoned and the rest now show in big letters in the middle of the screen.
+
+### Changed
+- On fire, bleeding, poisoned, electrified, stunned or knocked down now shows in big letters in the middle of the
+  screen, in the status's colour, with what gets rid of it underneath (it was a small line top left).
+
+## [0.26.13] - 2026-10-09
+
+Antlions find their way round bunkers, rocks and walls to get at you.
+
+### Fixed
+- Antlions no longer get stuck behind bunkers, rocks and walls: they find their way round to you, and only leap
+  when nothing is in the way.
+
+## [0.26.12] - 2026-10-09
+
+Bots that fight back stop and shoot like the police, and bots and the police back off from each other when hit.
+
+### Changed
+- Bots that fight back go after you the way the police do: they chase you by the streets, stop side-on to shoot
+  once they have you in sight and near, and back off a moment when you hit them (they used to circle you).
+- Bots and the police fight each other the same way, backing off when hit; a police car that is shot while it
+  is after nobody turns on whoever shot it.
+
+## [0.26.11] - 2026-10-09
+
+Bots running from you take to the streets and slide round the corners on the handbrake.
+
+### Changed
+- Bots running from you keep to the streets: they turn away from you at every crossing, turn round when you are
+  ahead of them, and slide round the corners on the handbrake. Reckless drivers use the handbrake on sharp corners
+  too.
+
+## [0.26.10] - 2026-10-09
+
+A big R: RELOAD in the middle of the screen when your magazine runs low.
+
+### Added
+- R: RELOAD flashes in big letters in the middle of the screen when the magazine is nearly out and there is ammo
+  to load, as it does over the gun.
+
+## [0.26.9] - 2026-10-09
+
+The Citadel fights back harder: bunkers sending out squads, more soldiers and rollermines. Enemies' cones of sight
+are hidden now, all but the Hunters', who sweep a radar and see wider.
+
+### Added
+- The Citadel has a Combine bunker on the pens, the processing floor, the gallery and the reactor deck: get near
+  and squads of 3 come out of its door, 6 soldiers from each.
+
+### Changed
+- More Combine in the Citadel: soldiers on guard 36 -> 48, rollermines waiting on the catwalks 6 -> 17 (for one
+  player; more with more).
+- Enemies' cones of sight start hidden (` shows them); only the Hunters' always show, now as a radar: range rings,
+  a beam sweeping across.
+- Hunters see wider: 60 -> 90 degrees, 100 -> 130 while on edge.
+- D-Day's soldiers and the police now notice you close by whichever way they face (150 px all round), as the
+  Combine, the Hunters and the Suppressors already did.
+
+## [0.26.8] - 2026-10-09
+
+The Citadel comes alive: computers along its platforms and repair drones flying round fixing things.
+
+### Changed
+- The Citadel is busier: banks of computers line the platforms' rails, cabled to terminals with live screens, and
+  repair drones fly round welding the machines, the struts and the pillars down in the drop.
+
+## [0.26.7] - 2026-10-09
+
+A big RELOADING across the middle of the screen while a gun reloads.
+
+### Added
+- RELOADING shows in big letters in the middle of the screen while a gun reloads, with a bar filling as it goes.
+
+## [0.26.6] - 2026-10-09
+
+The bag beside the shop lists your guns and abilities too, grenades are on the Ammo shelf, and clicking one
+no longer crashes the game.
+
+### Added
+- The bag beside the shop also lists the guns and abilities you carry, a row each at the bottom (the gun in
+  hand lit, an ability ready or cooling down), taller on a bigger window. It shows only the slots you have, as
+  big as fit, and hovering a small one names it.
+
+### Changed
+- Grenades are on the shop's Ammo shelf now, not Supplies.
+
+### Fixed
+- Clicking the grenade in the shop crashed the game since it moved to the Ammo shelf; it shows what it does again.
+
+## [0.26.5] - 2026-10-09
+
+Sell things back to the shop from your bag, for half what it asks.
+
+### Added
+- Sell things back to the shop: click something in your bag beside the shop and sell a bundle or all of it
+  for half of what the shop asks (60 uzi rounds: 20 Fcks). It only buys what it sells itself, not materials.
+
+## [0.26.4] - 2026-10-09
+
+Armor and clothes can be bought and put straight on in the shop.
+
+### Added
+- Armor and clothes in the shop have a Buy & wear button beside Buy: it puts the piece straight on, and
+  whatever you had on in that slot goes into your bag. If your bag has no room for it, nothing is bought.
+
+## [0.26.3] - 2026-10-09
+
+The shop shows your bag beside it, and medkits, drinks and grenades you buy go straight into their quick slot.
+
+### Added
+- The shop shows your bag beside it: every slot with what is in it and how many, and your medkits, drinks
+  and grenades, so you can see what fits before you buy. On a narrow window it is left out.
+
+### Changed
+- Medkits, energy drinks and grenades you buy go straight into their quick slot, ready on their key, until
+  it is full (5); only the rest go into your bag. A full bag no longer stops you buying one while the slot has room.
+
+## [0.26.2] - 2026-10-08
+
+Ammo stacks to about ten magazines a slot, and freeze is aimed with the key and cast with a click.
+
+### Changed
+- Ammo stacks much higher in your inventory, about ten magazines a slot: uzi and AK-47 100 -> 300 rounds,
+  minigun 300 -> 1500, shotgun 50 -> 60, sniper 50 -> 60, rockets 20 -> 30, fuel cans 10 -> 20.
+- Freeze is cast like the leap now: press its key to show the area, click to cast it there (the key again or
+  right-click to put it away). It used to be hold the key and let go.
+
 ## [0.26.1] - 2026-10-08
 
 Walking, sprinting and dodging answer the keys at once on a laggy connection too, like the car.

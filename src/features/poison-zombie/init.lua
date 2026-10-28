@@ -49,6 +49,8 @@ local Bar = require("src.features.bosses.bar")
 local Brain = require("src.features.poison-zombie.brain")
 local Crabs = require("src.features.poison-zombie.crabs")
 local Car = require("src.car")
+local Nav = require("src.features.d-day.nav")
+local Walk = require("src.features.bosses.walk")
 local Render = require("src.features.poison-zombie.render")
 local Sounds = require("src.features.poison-zombie.sounds")
 
@@ -167,12 +169,15 @@ function Zombie:serverQuestStarted(server, quest)
   end
   local x, y = roomAt(map.bossX, map.bossY)
   local max = Bosses.health(Zombie.health, server)
+  local grid = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv = {
     time = 0, syncIn = 0, emptySends = 0, crabs = Crabs.new(), maxOut = Bosses.count(Zombie.maxOut, server),
     z = {
       x = x, y = y, homeX = x, homeY = y, facing = math.pi / 2, hp = max, max = max, mode = "wait", t = 0,
       frozen = 0, breath = Stamina.new(Zombie.breath), swipeIn = 0, throwIn = 1, crabs = Zombie.crabs,
-      regrowIn = Zombie.regrow, side = love.math.random() < 0.5 and -1 or 1, rammed = {},
+      regrowIn = Zombie.regrow, rammed = {},
+      nav = Walk.nav(grid, Brain.blocked, Zombie.radius), -- his walking grid, as wide as he is
+      power = Bosses.power(), -- his swipes and what a ram does to the car, times this
     },
   }
 end
@@ -254,7 +259,7 @@ local function rams(server, z, dt)
         z.rammed[id] = 0.6
         local weapons = Features.byName.weapons
         if weapons and weapons.serverDamage then
-          weapons:serverDamage(server, p, nil, Zombie.ramDamageToCar, away, "impact")
+          weapons:serverDamage(server, p, nil, Zombie.ramDamageToCar * z.power, away, "impact")
         end
         Brain.wake(z)
         z.hp = z.hp - speed * Zombie.ramScale
@@ -330,7 +335,8 @@ function Zombie:serverStep(server, dt)
   sv.crabs:update(server, dt, function(c, q)
     local weapons = Features.byName.weapons
     if weapons and weapons.serverDamage then
-      weapons:serverDamage(server, q.p, nil, q.car and Crabs.SCRATCH or Crabs.BITE, c.facing, "poison")
+      local amount = (q.car and Crabs.SCRATCH or Crabs.BITE) * Bosses.enemyPower()
+      weapons:serverDamage(server, q.p, nil, amount, c.facing, "poison")
     end
     server:broadcast(Protocol.encode("PZM_BITE", fmt(c.x), fmt(c.y)))
   end)
@@ -369,6 +375,108 @@ function Zombie:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
     crabDown(server, c, by, angle, dtype)
   end
   return true
+end
+
+--- Every enemy of his in the world right now, for the audit (tools/audit):
+--- him till he falls, and his headcrabs, over everything while thrown.
+function Zombie:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  local z = not sv.done and sv.z
+  if z then
+    add({ id = z, kind = "poison-zombie/zombie", x = z.x, y = z.y, hp = z.hp, radius = Zombie.radius })
+  end
+  for _, c in ipairs(sv.crabs.list) do
+    if not c.dead then
+      add({
+        id = c,
+        kind = "poison-zombie/headcrab",
+        x = c.x,
+        y = c.y,
+        hp = c.hp,
+        radius = Crabs.RADIUS,
+        flying = c.mode == "fly",
+      })
+    end
+  end
+end
+
+--- The wiki's page on him and his crabs (tools/wiki, docs/wiki.md).
+function Zombie:wikiEnemies(add)
+  local Heal = require("src.features.bosses.heal")
+  local Damage = require("src.features.damage")
+  local pistol = Features.byName.weapons.guns.pistol
+  add({
+    kind = "poison-zombie/zombie",
+    name = "Poison Zombie",
+    quests = { self.questId },
+    boss = true,
+    where = "The Winding Road, waiting on the pass at the top",
+    about = "A man swollen and hunched under a poison headcrab, with more of them riding on his back. He "
+      .. "shuffles after you, rakes you with his claws up close and throws his crabs at you from further off.",
+    stats = {
+      { "Health", self.health },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(self.health / pistol.damage)) },
+      { "Speed", ("%g px/s shuffling, %g lurching, %g winded"):format(self.shuffleSpeed, self.lurchSpeed,
+        self.walkSpeed) },
+      { "Sight", ("wakes when you come within %g px, goes after you from %g px"):format(self.wake, self.sight) },
+    },
+    weapons = {
+      { "Claws", ("%g melee damage, and you bleed for %g s"):format(self.swipeDamage, Damage.bleedTime) },
+      { "Headcrab", ("thrown at you from %g to %g px away, %g on his back and one more every %g s"):format(
+        self.throwNear, self.throwFar, self.crabs, self.regrow) },
+    },
+    abilities = {
+      ("Lurches when you're more than %g px off, which costs him breath, and so does every throw."):format(
+        self.lurchFrom),
+      ("Never goes more than %g px from the pass."):format(self.leash),
+      "Solid to cars: drive into him at speed and he's hurt, but so is the car.",
+      ("Under %g%% health he goes for the nearest medkit within %g px, for %g health."):format(Heal.below * 100,
+        Heal.range, Heal.amount),
+      "Dodges what players drop on him.",
+      "The Combine's rounds pass by him and his crabs.",
+    },
+    tips = {
+      "Stay out of his claws' reach: slow as he is, one that lands hurts.",
+      "Thin his crabs out before they reach you, and carry a medkit for the poison.",
+      ("Ramming him at %g px/s or more hurts him, but the car loses %g health."):format(self.ramMinSpeed,
+        self.ramDamageToCar),
+    },
+    drops = ("%g koins"):format(self.drops),
+  })
+  add({
+    kind = "poison-zombie/headcrab",
+    name = "Poison headcrab",
+    quests = { self.questId },
+    where = "The Winding Road's pass, thrown off the Poison Zombie's back",
+    about = "What rides on the Poison Zombie. He throws them at you; they crawl after you and leap, and a bite "
+      .. "poisons you.",
+    stats = {
+      { "Health", Crabs.HEALTH },
+      { "Hits", ("whatever the round does: %g pistol rounds"):format(math.ceil(Crabs.HEALTH / pistol.damage)) },
+      { "Speed", ("%g px/s crawling, %g leaping"):format(Crabs.CRAWL, Crabs.LEAP_SPEED) },
+      { "Sight", Crabs.CHASE, "px" },
+      { "Numbers", ("%g out at once for one player, more with more"):format(self.maxOut) },
+    },
+    weapons = {
+      { "Bite", ("%g poison damage, and you're poisoned for %g s (%g damage a second)"):format(Crabs.BITE,
+        Damage.poisonTime, Damage.poisonDps) },
+      { "Scratch", ("%g damage to a car it lands on"):format(Crabs.SCRATCH) },
+    },
+    abilities = {
+      "Thrown, it bites whoever it lands on.",
+      ("On the ground it leaps at you from %g px (%g from a car's side)."):format(Crabs.LEAP, Crabs.LEAP_CAR),
+      ("Rests %g s after a leap, %g after a bite, then comes again."):format(Crabs.REST, Crabs.BITE_REST),
+    },
+    tips = {
+      "A sprint gets away from one; a walk doesn't.",
+      ("Drive over one at %g px/s or more and it's squashed."):format(Crabs.SQUASH),
+      "A medkit cures the poison.",
+      "Shoot it while it rests after a leap.",
+    },
+    drops = ("%g koin"):format(self.crabDrops),
+  })
 end
 
 function Zombie:serverFreezeArea(_server, x, y, radius, seconds)

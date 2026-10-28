@@ -38,6 +38,7 @@ for k, v in pairs(Guns.uzi) do
 end
 GUN.damage = Turrets.damage
 GUN.spread = 0.04
+GUN.ttl = 1.2 -- the full flight (weapons' default): the player's uzi is close-range only, theirs isn't
 
 local random = love.math.random
 
@@ -160,6 +161,14 @@ function Turrets.hit(set, server, x, y, radius)
     end
   end
   return false
+end
+
+--- Every one standing, for the audit (tools/audit): `kind` names whose
+--- they are. One round of anything knocks one over, so no hp.
+function Turrets.enemies(set, kind, add)
+  for _, t in pairs(set.list) do
+    add({ id = t, kind = kind, x = t.x, y = t.y, radius = Turrets.radius, fixed = true })
+  end
 end
 
 --- A freeze at (x, y): the ones inside stand still, guns and all.

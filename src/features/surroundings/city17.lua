@@ -3,7 +3,8 @@
 -- colours, some bombed down to rubble, some burning; the railway, the
 -- canal, the Combine's wall and the cross street run on out of both sides.
 -- A haze hangs over all of it, thicker further out, and a Combine wall runs
--- round the map's edge where nobody gets past.
+-- round the map's edge where nobody gets past. The Outer City's
+-- surroundings (outer_city.lua) borrow the wall, the haze and the perimeter.
 --
 -- The streets and blocks are worked out from the tile they sit on, so they
 -- are the same on every machine and never run out. They are drawn once
@@ -258,6 +259,22 @@ local function ground(p, c, r, kind)
   end
 end
 
+--- The Combine's wall running east-west across (x0, x1), `h` px deep from
+--- `y`: dark panels and a glowing seam. The Outer City's surroundings
+--- draw City 17's with it too.
+function City17.wall(x0, x1, y, h)
+  color(C.shadow)
+  love.graphics.rectangle("fill", x0, y + 12, x1 - x0, h)
+  color(C.metal)
+  love.graphics.rectangle("fill", x0, y, x1 - x0, h)
+  for x = math.floor(x0 / 48) * 48, x1, 48 do
+    color(math.floor(x / 48) % 2 == 0 and C.panel or C.panelLight)
+    love.graphics.rectangle("fill", x + 4, y + 4, 40, h - 8)
+  end
+  color(C.glow)
+  love.graphics.rectangle("fill", x0, y + h / 2 - 2, x1 - x0, 4)
+end
+
 --- The bands' long features across (x0, x1): the rails and sleepers, the
 --- canal's lips, the Combine's wall. Each is anchored in the world.
 local function bands(p, x0, x1)
@@ -277,17 +294,7 @@ local function bands(p, x0, x1)
     love.graphics.rectangle("fill", x0, p.water1, x1 - x0, 8)
   end
   if p.wallY then
-    local y, h = p.wallY, p.wallH
-    color(C.shadow)
-    love.graphics.rectangle("fill", x0, y + 12, x1 - x0, h)
-    color(C.metal)
-    love.graphics.rectangle("fill", x0, y, x1 - x0, h)
-    for x = math.floor(x0 / 48) * 48, x1, 48 do
-      color(math.floor(x / 48) % 2 == 0 and C.panel or C.panelLight)
-      love.graphics.rectangle("fill", x + 4, y + 4, 40, h - 8)
-    end
-    color(C.glow)
-    love.graphics.rectangle("fill", x0, y + h / 2 - 2, x1 - x0, 4)
+    City17.wall(x0, x1, p.wallY, p.wallH)
   end
 end
 
@@ -434,7 +441,7 @@ end
 
 --- The haze over everything past the map: thin by the wall, thicker and
 --- thicker further out, in thin layers so it has no edges to see.
-local function haze(map, left, top, right, bottom)
+function City17.haze(map, left, top, right, bottom)
   local mx0, my0, mx1, my1 = map.left, map.top, map.left + map.w, map.top + map.h
   for i = 0, HAZE_LAYERS - 1 do
     local d = i * HAZE_STEP
@@ -448,7 +455,7 @@ local function haze(map, left, top, right, bottom)
 end
 
 --- The Combine's wall round the map, panels and a glowing seam, just past the edge.
-local function perimeter(map)
+function City17.perimeter(map)
   local x0, y0 = map.left - WALL, map.top - WALL
   local w, h = map.w + 2 * WALL, map.h + 2 * WALL
   local sides = {
@@ -497,7 +504,7 @@ function City17.draw(map, camera, left, top, right, bottom, clock)
       end
     end
   end
-  haze(map, left, top, right, bottom)
+  City17.haze(map, left, top, right, bottom)
   local fires = {}
   eachBlock(p, left - 300, top - 300, right + 300, bottom + 300, function(b)
     if b.fire then
@@ -505,7 +512,7 @@ function City17.draw(map, camera, left, top, right, bottom, clock)
     end
   end)
   Fires.draw({ fires = fires }, camera, clock)
-  perimeter(map)
+  City17.perimeter(map)
 end
 
 return City17

@@ -2,6 +2,9 @@
 -- Players on foot or behind a wheel, cars nobody is driving, and whatever
 -- else lives in the world (pedestrians, officers, Karen) through the
 -- `serverFreezeArea` event. The caster is never caught in their own cast.
+-- A press of its key shows the area under the cursor, kept within `range`;
+-- the fire button (left click) casts it there, the key again or right-click
+-- thinks better of it (`aim = "point"`, like the leap).
 --
 -- It does not land at once: for `windup` seconds a warning ring shows on
 -- every screen where it is coming down, frost filling it in from the
@@ -23,6 +26,7 @@ local Freeze = {
     .. "the crowd. Never you.",
   sound = "freeze-warn", -- on the cast; "freeze" itself when it lands
   color = { 0.55, 0.85, 1.0 }, -- ice
+  aim = "point", -- a press shows the area, a click casts it
 }
 
 -- Tuning ------------------------------------------------------------------

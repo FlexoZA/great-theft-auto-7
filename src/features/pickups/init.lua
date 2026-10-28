@@ -33,7 +33,7 @@
 -- delivery truck: the first human over it with room takes what fits (a
 -- grenade, medkit or drink into its quick slot first, then the bag), and
 -- the rest stays on the ground. So is a factory's goods on
--- their way to the shop ("gun-uzi", "medkit": anything with a
+-- their way to the shop ("gun-ak47", "medkit": anything with a
 -- `Kinds.worth`); rounds spill as an ammo box.
 --
 -- "armor-<key>" is a vest lying on the road (armor/kinds.lua; "armor-vest"
@@ -42,14 +42,21 @@
 -- (armor:serverWearFound); one with a damaged vest on has theirs topped
 -- back up to full by it; anyone whose vest is whole leaves it lying.
 --
+-- Something meant for the bag (an ammo box, an ability, a won gun, a piece
+-- of clothing, a crate) that a human can't take because their bag has no
+-- room for it says so: "Inventory full" floats up over it on their screen
+-- (PK_FULL, at most every `fullEvery` seconds while they stand on it).
+--
 -- How close you have to get is `radius` from a car or `footRadius` on foot,
 -- times the player's pickup reach: the one money keeps for koins, which
 -- upgrades sells (Money:reachOf). Without money it is 1.
 --
 -- Messages
---   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>]   (amount: rounds in an ammo box, a crate's material)
+--   server -> all  PK_SPAWN <id> <kind> <x> <y> [<amount>] [reward]   (amount: rounds in an ammo box, a crate's
+--                  material; reward: a boss's `perPlayer` drop, drawn with rings rippling out and NEW over it)
 --   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
+--   server -> player PK_FULL <id>                  (you are on it, but your bag has no room for it)
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
@@ -60,6 +67,7 @@ local Tiers = require("src.features.tiers")
 local Guns = require("src.features.weapons.guns")
 local BuildingKinds = require("src.features.buildings.kinds")
 local ArmorKinds = require("src.features.armor.kinds")
+local GearKinds = require("src.features.gear.kinds")
 local Render = require("src.features.buildings.render")
 
 local Pickups = {
@@ -68,7 +76,8 @@ local Pickups = {
 }
 
 -- Tuning ------------------------------------------------------------------
-Pickups.count = 6 -- medkits on the map at once
+Pickups.count = 6 -- medkits on the map at once...
+Pickups.perFloor = 2 -- ...or this many on each floor of a map that has them (Halcyon Tower), each back on its own
 Pickups.staminaCount = 4 -- energy drinks on the map at once
 Pickups.respawnTime = 20 -- seconds after one is taken before a new one appears
 Pickups.radius = 34 -- px from car centre that counts as driving over it
@@ -76,11 +85,15 @@ Pickups.footRadius = 20 -- px from a body on foot that counts as picking it up
 Pickups.healAmount = 50
 Pickups.staminaAmount = 60
 Pickups.ammoAmount = 10 -- rounds in a dropped ammo box unless the dropper says otherwise
+Pickups.fullEvery = 2.5 -- seconds between "Inventory full" notices for one item and player
 -- What an enemy drops (serverDropEnemy): one thing at most, `dropChance` of
 -- the time, picked from `drops` by weight ("ammo" is a box for a random gun,
 -- `dropMagazines` of its magazines big; "grenade" is one hand grenade). Out
 -- of every 100 kills: 30 ammo boxes, 10 each of medkits, drinks and vests,
--- 5 grenades. Add a kind to the list and give it a weight.
+-- 5 grenades. Add a kind to the list and give it a weight. One with
+-- `unlocked` only drops while a feature says somebody can use it (that
+-- hook, asked with the kind: the electric grenade's, once anyone has had
+-- Volt's), and is left out of the draw otherwise.
 Pickups.dropChance = 0.65
 Pickups.drops = {
   { kind = "ammo", weight = 3 },
@@ -88,6 +101,7 @@ Pickups.drops = {
   { kind = "stamina", weight = 1 },
   { kind = "armor-vest", weight = 1 },
   { kind = "grenade", weight = 0.5 },
+  { kind = "grenade-electric", weight = 0.3, unlocked = "serverAnyUnlocked" },
 }
 Pickups.dropMagazines = 1
 Pickups.carriedShare = 0.5 -- of ammo boxes, the share for a gun the player it is for carries
@@ -101,6 +115,7 @@ Pickups.dropTiers = {
 }
 
 local KINDS = {} -- kind key -> { apply, label, color, pitch }; see kindOf
+local WON_GUN = { 0.95, 0.5, 0.12 } -- a won gun's glow on the road
 
 --- An ammo box for one gun: kind "ammo-<gun key>", the same key the
 --- inventory uses for the rounds. It goes into the inventory of whoever
@@ -120,6 +135,7 @@ local function ammoKind(key)
     end,
     color = { 1, 0.85, 0.35 },
     pitch = 0.8,
+    bag = true, -- it goes into the bag: a full one says so
   }
 end
 
@@ -143,11 +159,12 @@ local function abilityKind(key)
     label = "+" .. Tiers.named(ability.title, tier),
     color = ability.color,
     pitch = 0.6,
+    bag = true,
   }
 end
 
 --- A crate of a material or of a factory's goods: kind "<item>" ("iron",
---- "gun-uzi"), the item a bag carries it as. Only a human picks it up, into their inventory through
+--- "gun-ak47"), the item a bag carries it as. Only a human picks it up, into their inventory through
 --- buildings; what doesn't fit is left on the spot as a smaller crate.
 local function materialKind(key)
   return {
@@ -169,6 +186,7 @@ local function materialKind(key)
     end,
     color = { 0.85, 0.75, 0.55 },
     pitch = 0.7,
+    bag = true,
   }
 end
 
@@ -194,10 +212,59 @@ local function armorKind(key)
   }
 end
 
+--- A piece of clothing on the road: kind "gear-<key>[@tier]" (a boss's
+--- drop: the Mood Slayer's helmet). Only a human takes it; the gear
+--- feature decides where it goes and unlocks a won piece
+--- (gear:serverTakeFound).
+local function gearKind(key)
+  local base, tier = Tiers.split(key)
+  local piece = tier and GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
+  if not piece then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local gear = Features.byName.gear
+      return gear ~= nil and gear.serverTakeFound ~= nil and gear:serverTakeFound(server, player, key:sub(6))
+    end,
+    label = "+" .. Tiers.named(piece.title, tier),
+    color = piece.color,
+    pitch = 0.7,
+    bag = true,
+  }
+end
+
+--- A won gun on the road: kind "gun-<key>[@tier]" for a gun with `unlock`
+--- (a boss's drop: the super shotgun). Only a human takes it; the weapons
+--- feature decides where it goes and unlocks it (weapons:serverTakeFound).
+--- Any other gun lying about is a factory's crate (materialKind).
+local function wonGunKind(key)
+  local base, tier = Tiers.split(key)
+  local gun = tier and Guns[base:match("^gun%-(.+)$") or ""]
+  if type(gun) ~= "table" or not gun.unlock then
+    return nil
+  end
+  return {
+    apply = function(server, player)
+      local weapons = Features.byName.weapons
+      return weapons ~= nil and weapons.serverTakeFound ~= nil and weapons:serverTakeFound(server, player, key)
+    end,
+    label = "+" .. Tiers.named(gun.name, tier),
+    color = WON_GUN,
+    pitch = 0.6,
+    bag = true,
+  }
+end
+
 --- The kind record for a kind key: the fixed ones, or an ammo box, an
---- ability, a material crate or a vest made (and kept) on first sight.
+--- ability, a material crate, a vest or a piece of clothing made (and kept)
+--- on first sight.
 local function kindOf(key)
   local kind = KINDS[key]
+  if not kind and key:match("^gun%-") then
+    kind = wonGunKind(key) -- nil for an ordinary gun: a crate, below
+    KINDS[key] = kind
+  end
   if not kind and key:match("^ammo%-") then
     kind = ammoKind(key)
     KINDS[key] = kind
@@ -210,9 +277,27 @@ local function kindOf(key)
   elseif not kind and key:match("^armor%-") then
     kind = armorKind(key)
     KINDS[key] = kind
+  elseif not kind and key:match("^gear%-") then
+    kind = gearKind(key)
+    KINDS[key] = kind
   end
   return kind
 end
+
+--- A stack of electric grenades: the grenades feature decides who may
+--- take it (only those who have unlocked them, or anyone for Volt's, which
+--- unlocks them) and where it goes.
+KINDS["grenade-electric"] = {
+  apply = function(server, player, item)
+    local grenades = Features.byName.grenades
+    return grenades ~= nil and grenades.serverTakeElectric ~= nil and grenades:serverTakeElectric(server, player, item)
+  end,
+  label = function(item)
+    return "+" .. BuildingKinds.label("grenade-electric", item.amount or 1)
+  end,
+  color = { 0.18, 0.9, 1 },
+  pitch = 0.9,
+}
 
 --- Put one `item` (a medkit, a drink) into `player`'s quick slot for later,
 --- if it has room: true, item when it did.
@@ -261,6 +346,10 @@ KINDS.stamina = {
 Pickups.items = {} -- id -> { kind, x, y }
 Pickups.floats = {} -- { x, y, text, t }
 local time = 0
+local GOLD = { 1, 0.84, 0.3 } -- a reward's rings and tag
+local REWARD_RINGS = 3 -- rings rippling out at once
+local REWARD_RIPPLE = 1.4 -- seconds one takes to ripple out
+local REWARD_REACH = 46 -- px past the glow a ring gets before it is gone
 
 function Pickups:load()
   Sounds.load()
@@ -402,12 +491,12 @@ local function drawMaterial(x, y, t, key)
   Render.itemIcon(key, x, y)
 end
 
---- A vest on the road: the bag's picture of it, bobbing a little over a
---- soft glow in the vest's colour, ringed in its tier's.
+--- A vest (or a piece of clothing) on the road: the bag's picture of it,
+--- bobbing a little over a soft glow in its colour, ringed in its tier's.
 local function drawVest(x, y, t, key)
   local base, tier = Tiers.split(key)
-  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""]
-  local c = vest and vest.color or { 0.5, 0.6, 0.9 }
+  local vest = ArmorKinds.byKey[base:match("^armor%-(.+)$") or ""] or GearKinds.byKey[base:match("^gear%-(.+)$") or ""]
+  local c = vest and vest.color or (base:match("^gun%-") and WON_GUN) or { 0.5, 0.6, 0.9 }
   local tc = Tiers.color(tier)
   local pulse = 0.5 + 0.5 * math.sin(t * 4)
   love.graphics.setColor(c[1], c[2], c[3], 0.12 + pulse * 0.12)
@@ -450,14 +539,25 @@ local function drawGrenade(x, y, t)
   love.graphics.setLineWidth(1)
 end
 
-local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade }
+--- Electric grenades: Volt's canister, bobbing over a crackling cyan glow.
+local function drawElectric(x, y, t)
+  local pulse = 0.5 + 0.5 * math.sin(t * 6)
+  love.graphics.setColor(0.18, 0.9, 1, 0.14 + pulse * 0.16)
+  love.graphics.circle("fill", x, y, 22 + pulse * 5)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.ellipse("fill", x, y + 12, 9, 4)
+  Render.grenade(x, y + math.sin(t * 3 + 0.4) * 2, 1, true)
+end
+
+local DRAW = { health = drawHealth, stamina = drawStamina, grenade = drawGrenade, ["grenade-electric"] = drawElectric }
 
 --- How a kind is drawn: its own picture, the ammo box for any ammo, the
---- orb for any ability, a crate for a material, the vest for any armor.
+--- orb for any ability, a crate for a material, the vest for any armor or
+--- clothing.
 local function drawerOf(key)
   return DRAW[key] or (key:match("^ammo%-") and drawAmmo) or (key:match("^ability%-") and drawAbility)
     or ((BuildingKinds.isMaterial(key) or BuildingKinds.worth(key)) and drawMaterial)
-    or (key:match("^armor%-") and drawVest) or nil
+    or ((key:match("^armor%-") or key:match("^gear%-") or key:match("^gun%-")) and drawVest) or nil
 end
 
 --- What floats up when a kind is taken.
@@ -468,22 +568,82 @@ local function labelOf(kind, item)
   return kind.label
 end
 
+--- Is `it` a boss's reward I haven't unlocked yet (the shop's
+--- `itemUnlocked`)? Only then is it drawn as new; once I have one, the
+--- next is drawn like any other pickup.
+local function isNew(it)
+  return it.reward and not Features.any("itemUnlocked", Tiers.base(it.kind))
+end
+
+--- A boss's reward (a `perPlayer` drop: Volt's grenades, the Mood
+--- Slayer's helmet), under its picture: a gold glow breathing and rings
+--- rippling out from it, so nobody walks past something new.
+local function drawRewardRings(x, y, t)
+  local pulse = 0.5 + 0.5 * math.sin(t * 5)
+  love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.1 + pulse * 0.12)
+  love.graphics.circle("fill", x, y, 30 + pulse * 6)
+  love.graphics.setLineWidth(3)
+  for k = 0, REWARD_RINGS - 1 do
+    local f = (t / REWARD_RIPPLE + k / REWARD_RINGS) % 1 -- 0 just out, 1 gone
+    love.graphics.setColor(GOLD[1], GOLD[2], GOLD[3], 0.85 * (1 - f))
+    love.graphics.circle("line", x, y, 26 + f * REWARD_REACH)
+  end
+  love.graphics.setLineWidth(1)
+end
+
+--- NEW over a reward, bobbing, over the cars so it is never hidden.
+local function drawRewardTag(x, y, t)
+  local font = UI.fonts.small
+  local w, h = font:getWidth("NEW") + 12, font:getHeight() + 4
+  local ty = y - 50 + math.sin(t * 3) * 3
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setColor(GOLD)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.rectangle("line", x - w / 2, ty - h / 2, w, h, 4)
+  love.graphics.setLineWidth(1)
+  love.graphics.setFont(font)
+  love.graphics.printf("NEW", x - w / 2, ty - font:getHeight() / 2, w, "center")
+  love.graphics.polygon("fill", x - 4, ty + h / 2, x + 4, ty + h / 2, x, ty + h / 2 + 5) -- pointing down at it
+end
+
 function Pickups:drawBelowCars()
   for _, it in pairs(self.items) do
     local draw = drawerOf(it.kind)
     if draw then
+      if isNew(it) then
+        drawRewardRings(it.x, it.y, time)
+      end
       draw(it.x, it.y, time, it.kind)
     end
   end
   love.graphics.setColor(1, 1, 1)
 end
 
+--- At night (the night feature) a reward lights its own patch of road and
+--- its rings, so it shows as plainly in the dark.
+function Pickups:drawNightLights(_client, _camera, glow)
+  for _, it in pairs(self.items) do
+    if isNew(it) then
+      local pulse = 0.5 + 0.5 * math.sin(time * 5)
+      glow(it.x, it.y, 90 + pulse * 20, GOLD, 0.6 + pulse * 0.3)
+      drawRewardRings(it.x, it.y, time)
+      glow(it.x, it.y - 50, 40, GOLD, 0.8) -- and its NEW
+    end
+  end
+end
+
 function Pickups:drawAboveCars()
+  for _, it in pairs(self.items) do
+    if isNew(it) then
+      drawRewardTag(it.x, it.y, time)
+    end
+  end
   love.graphics.setFont(UI.fonts.body)
   for _, f in ipairs(self.floats) do
     local c = f.color
     love.graphics.setColor(c[1], c[2], c[3], math.min(1, f.t))
-    love.graphics.printf(f.text, f.x - 60, f.y, 120, "center")
+    love.graphics.printf(f.text, f.x - 100, f.y, 200, "center")
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -493,11 +653,18 @@ Pickups.clientMessages = {
     local id, kind = tonumber(args[1]), args[2]
     local x, y = tonumber(args[3]), tonumber(args[4])
     if id and kind and x and y then
-      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]) }
+      Pickups.items[id] = { kind = kind, x = x, y = y, amount = tonumber(args[5]), reward = args[6] == "reward" }
     end
   end,
   PK_CLEAR = function()
     Pickups.items = {}
+  end,
+  PK_FULL = function(_client, args)
+    local it = Pickups.items[tonumber(args[1]) or -1]
+    if it then
+      Pickups.floats[#Pickups.floats + 1] = { x = it.x, y = it.y - 30, text = "Inventory full",
+        color = { 1, 0.4, 0.35 }, t = 1.6 }
+    end
   end,
   PK_TAKE = function(client, args)
     local id, by = tonumber(args[1]), tonumber(args[2])
@@ -528,11 +695,21 @@ Pickups.clientMessages = {
 
 -- Server ----------------------------------------------------------------
 
-local sv = nil -- { items = { id -> { kind, x, y, amount, dropped } }, nextId, pending = { { at, kind } } , time }
+local sv = nil -- { items = { id -> { kind, x, y, amount, dropped, floor } }, nextId, pending = { { at, kind, floor } },
+-- time }
 
---- A random spot on a road tile (city map) or in a ring around the origin.
-local function roadSpot()
+--- Somewhere open on the map, on `floor` ({ y0, y1 }, city-map's
+--- `map.floors`) when given.
+local function roadSpot(floor)
   local city = Features.byName["city-map"]
+  if floor and city and city.randomRoadPoint then
+    for _ = 1, 40 do
+      local x, y = city:randomRoadPoint()
+      if x and y >= floor.y0 and y < floor.y1 then
+        return x, y
+      end
+    end
+  end
   if city and city.randomRoadPoint then
     local x, y = city:randomRoadPoint()
     if x then
@@ -556,33 +733,65 @@ local function farFromCars(server, x, y)
   return true
 end
 
-local function spawnOne(server, kind)
+local function spawnOne(server, kind, floor)
   local x, y
   for _ = 1, 20 do
-    x, y = roadSpot()
+    x, y = roadSpot(floor)
     if farFromCars(server, x, y) then
       break
     end
   end
   local id = sv.nextId
   sv.nextId = id + 1
-  sv.items[id] = { kind = kind, x = x, y = y }
+  sv.items[id] = { kind = kind, x = x, y = y, floor = floor }
   server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y)))
+end
+
+--- The map's own medkits and drinks: `count` medkits anywhere, or
+--- `perFloor` on each floor of `map` if it has floors, so no floor goes without.
+local function spawnMapItems(self, server, map)
+  local floors = map and map.floors
+  if floors and #floors > 0 then
+    for _, floor in ipairs(floors) do
+      for _ = 1, self.perFloor do
+        spawnOne(server, "health", floor)
+      end
+    end
+  else
+    for _ = 1, self.count do
+      spawnOne(server, "health")
+    end
+  end
+  for _ = 1, self.staminaCount do
+    spawnOne(server, "stamina")
+  end
 end
 
 --- Drop a pickup of `kind` at (x, y) right now: an ammo box where an
 --- officer fell, say. `amount` is what an ammo box holds (ammoAmount when
---- not given). A drop never respawns once taken. Other features reach
---- this via Features.byName.pickups (police does). Returns the item's id,
---- or nil before a game.
-function Pickups:serverDrop(server, kind, x, y, amount)
+--- not given). A drop never respawns once taken. `opts` (optional):
+--- `perPlayer` for one every human takes once (a boss's reward: it stays
+--- until the map changes, gone only for whoever took it), and anything
+--- else is kept on the item for its kind's `apply` (`unlocks`, Volt's
+--- electric grenades). Other features reach this via
+--- Features.byName.pickups (police does). Returns the item's id, or nil
+--- before a game.
+function Pickups:serverDrop(server, kind, x, y, amount, opts)
   if not (sv and kindOf(kind)) then
     return nil
   end
   local id = sv.nextId
   sv.nextId = id + 1
-  sv.items[id] = { kind = kind, x = x, y = y, amount = amount, dropped = true }
-  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or ""))
+  local it = { kind = kind, x = x, y = y, amount = amount, dropped = true }
+  for k, v in pairs(opts or {}) do
+    it[k] = v
+  end
+  if it.perPlayer then
+    it.takenBy = {}
+  end
+  sv.items[id] = it
+  server:broadcast(Protocol.encode("PK_SPAWN", id, kind, ("%.0f"):format(x), ("%.0f"):format(y), amount or "",
+    it.perPlayer and "reward" or ""))
   return id
 end
 
@@ -606,14 +815,27 @@ local function recipient(server, x, y, by)
   return best
 end
 
---- One of the guns that take ammo, by `dropWeight`; only those `player`
---- carries in a weapon slot when `player` is given. Nil if there is none.
+--- Does `player` carry a gun that fires ammo type `t`'s rounds from the
+--- bag: its owner, or one that borrows them (`ammo`: the super shotgun the
+--- shotgun's shells, the SMG the pistol's 9mm)? Never the bottomless pistol.
+local function firesRoundsOf(weapons, player, t)
+  for _, g in ipairs(Guns.list) do
+    if not g.bottomless and (g.ammo or g.key) == t.owner.key and weapons:serverOwns(player, g.index) then
+      return true
+    end
+  end
+  return false
+end
+
+--- One of the ammo types (guns.lua's `ammoTypes`), by its gun's
+--- `dropWeight`; only those whose rounds `player` fires from a weapon slot
+--- when `player` is given. Nil if there is none.
 local function ammoGun(player)
   local weapons = player and Features.byName.weapons
   local list = {}
-  for _, gun in ipairs(Guns.list) do
-    if not gun.bottomless and (not player or (weapons and weapons:serverOwns(player, gun.index))) then
-      list[#list + 1] = { gun = gun, weight = gun.dropWeight or 1 }
+  for _, t in ipairs(Guns.ammoTypes) do
+    if not player or (weapons and firesRoundsOf(weapons, player, t)) then
+      list[#list + 1] = { gun = t, weight = t.gun.dropWeight or 1 }
     end
   end
   if #list == 0 then
@@ -645,12 +867,12 @@ function Pickups:serverDropAmmo(server, x, y, magazines, by)
   if love.math.random() < self.carriedShare then
     gun = ammoGun(recipient(server, x, y, by)) -- nil for somebody with only the pistol
   end
-  gun = gun or ammoGun(nil)
-  if not gun then
+  local t = gun or ammoGun(nil) -- an ammo type: its item, and the gun that sizes it
+  if not t then
     return nil
   end
-  local n = gun.tank and 1 or math.floor(magazines * gun.magazine + 0.5) -- one fuel can fills a tank
-  return self:serverDrop(server, "ammo-" .. gun.key, x, y, math.max(1, n))
+  local n = t.gun.tank and 1 or math.floor(magazines * t.gun.magazine + 0.5) -- one fuel can fills a tank
+  return self:serverDrop(server, t.item, x, y, math.max(1, n))
 end
 
 --- One entry of `list` ({ weight = n, ... }), picked by weight; nil for
@@ -684,10 +906,16 @@ end
 --- (optional) is who it is for (the killer); the nearest human otherwise.
 --- Returns the item's id, or nil when nothing dropped.
 function Pickups:serverDropEnemy(server, x, y, by)
-  if #self.drops == 0 or love.math.random() >= self.dropChance then
+  local drops = {}
+  for _, d in ipairs(self.drops) do
+    if not d.unlocked or Features.any(d.unlocked, server, d.kind) then
+      drops[#drops + 1] = d
+    end
+  end
+  if #drops == 0 or love.math.random() >= self.dropChance then
     return nil
   end
-  local kind = byWeight(self.drops).kind
+  local kind = byWeight(drops).kind
   if kind == "ammo" then
     return self:serverDropAmmo(server, x, y, self.dropMagazines, by)
   end
@@ -699,12 +927,8 @@ end
 
 function Pickups:serverStart(server)
   sv = { items = {}, nextId = 1, pending = {}, time = 0 }
-  for _ = 1, self.count do
-    spawnOne(server, "health")
-  end
-  for _ = 1, self.staminaCount do
-    spawnOne(server, "stamina")
-  end
+  local city = Features.byName["city-map"]
+  spawnMapItems(self, server, city and city.map)
 end
 
 --- Someone joining mid-game sees what is already lying about.
@@ -713,26 +937,23 @@ function Pickups:serverPlayerJoined(server, player)
     return
   end
   for id, it in pairs(sv.items) do
-    server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
-      it.amount or ""))
+    if not (it.takenBy and it.takenBy[player.id]) then
+      server:send(player, Protocol.encode("PK_SPAWN", id, it.kind, ("%.0f"):format(it.x), ("%.0f"):format(it.y),
+        it.amount or "", it.perPlayer and "reward" or ""))
+    end
   end
 end
 
 --- Everyone was moved to another map (city-map's `mapChanged`; the host
 --- passes `server`, clients get nil): what lay on the old roads is swept
 --- and a fresh set is scattered over the new map.
-function Pickups:mapChanged(_map, server)
+function Pickups:mapChanged(map, server)
   if not (server and sv) then
     return
   end
   sv.items, sv.pending = {}, {}
   server:broadcast(Protocol.encode("PK_CLEAR"))
-  for _ = 1, self.count do
-    spawnOne(server, "health")
-  end
-  for _ = 1, self.staminaCount do
-    spawnOne(server, "stamina")
-  end
+  spawnMapItems(self, server, map)
 end
 
 function Pickups:serverStep(server, dt)
@@ -745,7 +966,7 @@ function Pickups:serverStep(server, dt)
   for id, it in pairs(sv.items) do
     for _, player in pairs(server.players) do
       local bx, by, onFoot
-      if Features.present(player) then
+      if Features.present(player) and not (it.takenBy and it.takenBy[player.id]) then
         bx, by, onFoot = Features.bodyPose(server, player)
       end
       local scale = money and money.reachOf and money:reachOf(player.id) or 1
@@ -756,9 +977,14 @@ function Pickups:serverStep(server, dt)
         if kind then
           took, stashed = kind.apply(server, player, it)
         end
-        if took then
+        if took and it.takenBy then -- one each: gone for them only
+          it.takenBy[player.id] = true
+          server:send(player, Protocol.encode("PK_TAKE", id, player.id, stashed or ""))
+        elseif took then
           self:serverTake(server, id, player.id, stashed)
           break
+        elseif kind and kind.bag then
+          self:serverTellFull(server, player, id, it)
         end
       end
     end
@@ -767,11 +993,28 @@ function Pickups:serverStep(server, dt)
   local i = 1
   while i <= #sv.pending do
     if sv.time >= sv.pending[i].at then
-      spawnOne(server, table.remove(sv.pending, i).kind)
+      local due = table.remove(sv.pending, i)
+      spawnOne(server, due.kind, due.floor)
     else
       i = i + 1
     end
   end
+end
+
+--- `player` is on pickup `id` (`it`) and couldn't take it: if their bag
+--- has no room for it, tell them so, now and then while they stay on it.
+function Pickups:serverTellFull(server, player, id, it)
+  local buildings = Features.byName.buildings
+  if player.bot or not (buildings and buildings.serverRoomFor) or buildings:serverRoomFor(player.id, it.kind) > 0 then
+    return
+  end
+  it.fullTold = it.fullTold or {}
+  local last = it.fullTold[player.id]
+  if last and sv.time - last < self.fullEvery then
+    return
+  end
+  it.fullTold[player.id] = sv.time
+  server:send(player, Protocol.encode("PK_FULL", id))
 end
 
 --- Pickup `id` is taken by player `byId` (0 for somebody who isn't one:
@@ -787,7 +1030,7 @@ function Pickups:serverTake(server, id, byId, stashed)
   sv.items[id] = nil
   server:broadcast(Protocol.encode("PK_TAKE", id, byId or 0, stashed or ""))
   if not it.dropped then
-    sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind }
+    sv.pending[#sv.pending + 1] = { at = sv.time + self.respawnTime, kind = it.kind, floor = it.floor }
   end
   return it
 end

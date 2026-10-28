@@ -41,6 +41,43 @@
 -- burning, the railway, the canal and the wall running on, all under a
 -- haze (city17.lua).
 --
+-- Grey City's Drop carries on as downtown at night (grey_city.lua): blocks
+-- of grey towers with neon on their edges, street lamps, traffic going by
+-- both ways, a haze further out. The night feature darkens it like the
+-- map, so its lights are lit here too (`drawNightLights`, `LIGHTS`). Round
+-- the Market the same city is at war (turf_war.lua): a front through it,
+-- no-man's-land, barricades, tracer fire, shells and fires, and it is
+-- heard too (war_sounds.lua): bursts and shells where they happen, and the
+-- war further out.
+--
+-- Under the Overpass the same city lies a long way down (overpass_below.lua):
+-- blocks, streets and traffic and a river, drawn small and sliding by slow
+-- under a haze, its lights dimmed by the distance. Its map is see-through
+-- off the deck, so the city shows under the bridge too.
+--
+-- Fobos Base lies on the moon (fobos_moon.lua): grey dust and craters
+-- running on past the base's walls, boulders, and the UAC rovers' tracks.
+-- Heck on Earth's city runs on burning (heck_on_earth.lua): blocks of
+-- roofs between dark streets, fires on a good few, smoke drifting over.
+-- The Foundry stands at the starport (starport_pads.lua): tarmac, landing
+-- pads and their runway lights, the odd shuttle parked.
+-- Past Heck's edge (heck.lua): a red abyss, lava falls, upside-down castles,
+-- and off the Altar Fields' west edge a crack in the sky with the sofa's
+-- ceiling through it.
+--
+-- A-Man's trail past City 17: the Outer City carries on as City 17's
+-- outskirts (outer_city.lua): rows of decayed blocks, fallen, holed, grown
+-- over and burning, a square or a park here and there, the map's waterways
+-- and more canals running on, City 17's wall round the map (grilles where
+-- the water goes under) and across the north, and the haze. The Winding
+-- Road runs on as mountains (winding_road.lua): the map's own relief,
+-- forest thinning higher up, the road and the river on down their valley
+-- out of both ends, the snow lower and lower further north. The Citadel's
+-- drop runs on all round its shaft (citadel_abyss.lua): the dark, haze,
+-- lights far below, girders, pillars, the map's pod rails carrying on and
+-- more with pods gliding along them, and other platforms lit far off.
+-- The first two are drawn once into chunks (chunks.lua).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -49,6 +86,16 @@
 local Features = require("src.features")
 local Layout = require("src.features.city-map.layout")
 local City17 = require("src.features.surroundings.city17")
+local GreyCity = require("src.features.surroundings.grey_city")
+local OverpassBelow = require("src.features.surroundings.overpass_below")
+local FobosMoon = require("src.features.surroundings.fobos_moon")
+local HeckOnEarth = require("src.features.surroundings.heck_on_earth")
+local StarportPads = require("src.features.surroundings.starport_pads")
+local HeckBeyond = require("src.features.surroundings.heck")
+local WarSounds = require("src.features.surroundings.war_sounds")
+local OuterCity = require("src.features.surroundings.outer_city")
+local WindingRoad = require("src.features.surroundings.winding_road")
+local CitadelAbyss = require("src.features.surroundings.citadel_abyss")
 
 local Surroundings = {
   name = "surroundings",
@@ -69,8 +116,25 @@ local BOLLARD_EVERY = 72 -- px along the wall
 
 local clock = 0
 
-function Surroundings:update(dt)
+function Surroundings:load()
+  WarSounds.load()
+end
+
+function Surroundings:update(dt, client)
+  local was = clock
   clock = clock + dt
+  -- The war past the Market's walls, heard as it is seen (war_sounds.lua).
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local x, y
+  if client and map and map.tiles and GreyCity.WAR[map.name] then
+    x, y = client:myPose()
+  end
+  if x then
+    WarSounds.update(dt, x, y, was, clock, function(_lx, ly, reach, t0, t1, fn)
+      GreyCity.events(map, ly, reach, t0, t1, fn)
+    end)
+  end
 end
 
 -- The shore ---------------------------------------------------------------
@@ -1129,6 +1193,25 @@ local function coast(map, camera)
   end)
 end
 
+--- Halcyon Tower's city below (overpass_below.lua): further down than the
+--- Overpass's, no river, and nothing shows through the tower itself.
+local function towerBelow(map)
+  local x0, x1 = map.left + Layout.TILE * 1.5, map.left + map.w - Layout.TILE * 1.5
+  return { depth = 0.3, river = false, towers = 0.6, covered = function(x)
+    return x >= x0 and x <= x1
+  end }
+end
+
+--- The Roof's: further down still, skyscrapers' tops round it, nothing
+--- showing through the roof itself (inside its parapet).
+local function roofBelow(map)
+  local T = Layout.TILE
+  local x0, y0, x1, y1 = map.left + T * 2, map.top + T * 2, map.left + map.w - T * 2, map.top + map.h - T * 2
+  return { depth = 0.25, river = false, towers = 0.55, covered = function(x, y)
+    return x >= x0 and x <= x1 and y >= y0 and y <= y1
+  end }
+end
+
 local DRAW = {
   city = function(map, camera)
     sea(map, camera)
@@ -1144,7 +1227,81 @@ local DRAW = {
     City17.draw(map, camera, left, top, right, bottom, clock)
   end,
   coast = coast,
+  drop = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
+  end,
+  market = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    GreyCity.draw(map, left, top, right, bottom, clock, camera)
+  end,
+  overpass = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock)
+  end,
+  tower = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, towerBelow(map))
+  end,
+  roof = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OverpassBelow.draw(map, camera, left, top, right, bottom, clock, roofBelow(map))
+  end,
+  fobos = function(map, camera)
+    FobosMoon.draw(map, view(camera))
+  end,
+  earth = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckOnEarth.draw(map, left, top, right, bottom, clock)
+  end,
+  foundry = function(map, camera)
+    StarportPads.draw(map, view(camera))
+  end,
+  heck = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    HeckBeyond.draw(map, left, top, right, bottom, clock)
+  end,
+  outercity = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    OuterCity.draw(map, camera, left, top, right, bottom, clock)
+  end,
+  road = function(map, camera)
+    WindingRoad.draw(map, view(camera))
+  end,
+  citadel = function(map, camera)
+    local left, top, right, bottom = view(camera)
+    CitadelAbyss.draw(map, left, top, right, bottom, clock)
+  end,
 }
+
+-- What glows past the edge of a map played at night, by map name.
+local LIGHTS = {
+  drop = GreyCity.lights,
+  market = GreyCity.lights,
+  overpass = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow)
+  end,
+  tower = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, towerBelow(map))
+  end,
+  roof = function(map, left, top, right, bottom, t, glow, camera)
+    OverpassBelow.lights(map, camera, left, top, right, bottom, t, glow, roofBelow(map))
+  end,
+  earth = HeckOnEarth.lights,
+  foundry = StarportPads.lights,
+  heck = HeckBeyond.lights,
+}
+
+--- At night (the night feature): what glows past the edge.
+function Surroundings:drawNightLights(_client, camera, glow)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  local lights = map and LIGHTS[map.name]
+  if lights and map.tiles then
+    local left, top, right, bottom = view(camera)
+    lights(map, left, top, right, bottom, clock, glow, camera)
+  end
+end
 
 function Surroundings:drawBelowCars(_client, camera)
   local city = Features.byName["city-map"]

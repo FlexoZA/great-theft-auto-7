@@ -11,9 +11,10 @@
 -- whichever way they face. Their rounds are shock (the damage feature)
 -- and zap whoever they hit, the shock running on through them the way a
 -- flame burns on, until it wears off or they dodge it off. Every so often
--- one charges its pods and fires a stun shot instead, which holds you
--- still. Rounds owned by nobody (the Combine's, the turrets', their own)
--- pass by them; anyone else's hurt them.
+-- one charges its pods and fires a stun shot instead, down a line it shows
+-- you while it charges (step off it), which holds you still. Rounds owned
+-- by nobody (the Combine's, the turrets', their own) pass by them; anyone
+-- else's hurt them.
 --
 -- What they dodge, read each tick on the host: every round in flight that
 -- a player or bot fired (weapons' `sv.projectiles`), a rocket with room to
@@ -29,9 +30,14 @@
 -- whine on every screen).
 --
 -- What they heal with: a medkit (pickups' "health") puts back
--- `medkitHealth`; an energy drink ("stamina") `drinkHealth`, and makes it
--- quicker on its feet for `drinkHaste` seconds. They take it off the
--- ground as a player would (pickups' serverTake).
+-- `medkitHealth`; an energy drink ("stamina") `drinkHealth` and
+-- `drinkBreath` of its breath, and makes it quicker on its feet for
+-- `drinkHaste` seconds. They take it off the ground as a player would
+-- (pickups' serverTake).
+--
+-- They tire (brain.lua: running and dodging spend breath, a blown one only
+-- walks and can't dodge). Every screen shows each one's breath as a thin
+-- blue bar under it once it has spent some, throbbing red while winded.
 --
 -- Another feature puts them on the map (City 17 has three round the
 -- Citadel; the Winding Road and the Citadel walk their `hunterBeats`; the
@@ -44,7 +50,7 @@
 -- The host owns them; clients hear where they are at 15 Hz.
 --
 -- Messages
---   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging>)...
+--   server -> all  HTR_STATE <tick> (<id> <x> <y> <facing> <hp> <alert> <firing> <dodging> <stamina> <winded>)...
 --                  (firing 1 just fired, 2 charging its stun shot)
 --                  (unreliable, 15 Hz; alert 1 has somebody, 2 searching, 0 neither)
 --   server -> all  HTR_DOWN  <id> <x> <y> <angle>     one went down
@@ -62,6 +68,8 @@ local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Brain = require("src.features.hunters.brain")
+local Bosses = require("src.features.bosses")
+local Stamina = require("src.features.bosses.stamina")
 local Render = require("src.features.hunters.render")
 local Sounds = require("src.features.hunters.sounds")
 
@@ -71,8 +79,8 @@ local Hunters = {
 
 -- Tuning ------------------------------------------------------------------
 -- Their eyes: City 17's Combine soldiers' (a-man/city17.lua).
-Hunters.fov = math.rad(60) -- how wide their cone of sight is
-Hunters.alertFov = math.rad(100) -- and while one is on edge
+Hunters.fov = math.rad(90) -- how wide their cone of sight is
+Hunters.alertFov = math.rad(130) -- and while one is on edge
 Hunters.aware = 170 -- px all round them they notice somebody in, any way they face
 Hunters.health = 180 -- three times a Combine soldier's: nine pistol rounds
 Hunters.damage = 8 -- a round (an uzi's is 12)...
@@ -85,6 +93,7 @@ Hunters.drops = 8 -- koins one spills
 Hunters.medkitHealth = 70 -- what a medkit puts back
 Hunters.drinkHealth = 30 -- what an energy drink puts back...
 Hunters.drinkHaste = 6 -- ...and seconds it is quicker on its feet after
+Hunters.drinkBreath = 100 -- ...and its breath back, all of it
 
 local SYNC_EVERY = 2 -- server ticks between HTR_STATE
 local SMOOTHING = 14 -- per second, the easing of what is drawn
@@ -95,7 +104,9 @@ local FLASH = 0.12 -- seconds a muzzle flash shows
 local HURT = 0.18 -- seconds one flashes white after a hit
 local DODGE_SHOWN = 0.3 -- seconds a dodge's smear shows
 local ROUND_TTL = 1.2 -- seconds a round flies when its gun doesn't say (weapons' default)
+local SIGHTLINE = 600 -- px a charging stun shot's line is drawn, if no wall stops it
 local HEALS = { health = true, stamina = true }
+local BREATH_MAX = Stamina.defaults.max -- a full breath, as the bar shows it
 
 local function fmt(v)
   return ("%.1f"):format(v)
@@ -105,16 +116,17 @@ end
 --- and the stun shot, slower and brighter, that stuns them outright.
 local function arms()
   local uzi = Tiers.apply(Guns.uzi, Tiers.DEFAULT)
-  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock", electrify = Hunters.zap },
+  -- Both fly the full way (ROUND_TTL): the player's uzi is close-range only, theirs isn't.
+  local gun = setmetatable({ damage = Hunters.damage, damageType = "shock", electrify = Hunters.zap, ttl = ROUND_TTL },
     { __index = uzi })
   local stunGun = setmetatable({ damage = Hunters.stunDamage, damageType = "shock", stun = Hunters.stunTime,
-    speed = 700, streak = 16 }, { __index = uzi })
+    speed = 700, streak = 16, ttl = ROUND_TTL }, { __index = uzi })
   return {
     gun = gun,
     stunGun = stunGun,
     burst = Hunters.burst,
     pause = Hunters.pause,
-    reach = uzi.speed * (uzi.ttl or ROUND_TTL) * 0.85,
+    reach = gun.speed * gun.ttl * 0.85,
   }
 end
 
@@ -144,9 +156,9 @@ local function takeHeal(srv, p)
     return 0, 0
   end
   if it.kind == "health" then
-    return Hunters.medkitHealth, 0
+    return Hunters.medkitHealth, 0, 0
   end
-  return Hunters.drinkHealth, Hunters.drinkHaste
+  return Hunters.drinkHealth, Hunters.drinkHaste, Hunters.drinkBreath
 end
 
 --- The host's set, with a walking grid over the map in play.
@@ -159,8 +171,10 @@ local function server()
   local nav = map and Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv = {
     brain = Brain.new({
-      fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware, health = Hunters.health,
+      fov = Hunters.fov, alertFov = Hunters.alertFov, aware = Hunters.aware,
+      health = Bosses.enemyHealth(Hunters.health), -- tougher on a job finished before
       radius = Render.RADIUS, nav = nav, find = findHeal, there = stillThere, take = takeHeal,
+      lockAim = true, -- its stun shot goes down the line it shows while charging
     }),
     syncIn = 0,
     emptySends = 0,
@@ -272,6 +286,9 @@ local function sync(srv)
     parts[#parts + 1] = h.target and 1 or (Brain.wary(h) and 2 or 0)
     parts[#parts + 1] = h.charge and 2 or (h.shotSince and 1 or 0)
     parts[#parts + 1] = h.dodgedSince and 1 or 0
+    local stamina, winded = h.breath:wire()
+    parts[#parts + 1] = stamina
+    parts[#parts + 1] = winded
     h.shotSince, h.dodgedSince = false, false
   end
   local msg = Protocol.encode("HTR_STATE", unpack(parts))
@@ -328,6 +345,64 @@ function Hunters:serverShotAt(srv, x, y, radius, by, angle, damage)
     down(srv, h, by, angle)
   end
   return true
+end
+
+--- Every Hunter in the world right now, for the audit (tools/audit).
+function Hunters:serverEnemies(_server, add)
+  if not sv then
+    return
+  end
+  for _, h in ipairs(sv.brain.list) do
+    add({ id = h, kind = "hunters/hunter", x = h.x, y = h.y, hp = h.hp, radius = sv.brain.radius })
+  end
+end
+
+--- The wiki's page on them (tools/wiki, docs/wiki.md).
+function Hunters:wikiEnemies(add)
+  local a = arms()
+  add({
+    kind = "hunters/hunter",
+    portraitLayers = "all", -- (its portrait wants what it draws under cars too)
+    name = "Hunter",
+    quests = { "a-man", "a-man-2", "a-man-road", "a-man-citadel" },
+    where = "City 17 round the Citadel, the Winding Road and the Citadel; the Hunter-Chopper and A-Man's "
+      .. "finale bring more in",
+    about = "The Combine's tripod hunter: quick on three legs, it keeps its distance, zaps you with shock rounds "
+      .. "and throws itself aside from whatever you send at it.",
+    stats = {
+      { "Health", Hunters.health },
+      { "Speed", ("%g px/s on its beat, %g running, %g strafing, %g in a dodge"):format(Brain.PATROL, Brain.RUN,
+        Brain.STRAFE, Brain.DODGE_SPEED) },
+      { "Sight", ("%g px in a %g degree cone, %g px all round"):format(Brain.RANGE, math.deg(Hunters.fov),
+        Hunters.aware) },
+    },
+    weapons = {
+      { "Shock rounds", ("%g shock damage a round in bursts of %g, %g s between bursts, out to %g px; "
+        .. "the shock runs on through you for %g s at %g damage a second"):format(a.gun.damage, a.burst, a.pause,
+        math.floor(a.reach + 0.5), Hunters.zap.seconds, Hunters.zap.dps) },
+      { "Stun shot", ("%g shock damage and holds you still for %g s; it charges for %g s first, about every %g s")
+        :format(Hunters.stunDamage, Hunters.stunTime, Brain.STUN_CHARGE, Brain.STUN_EVERY) },
+    },
+    abilities = {
+      ("Keeps you between %g and %g px: backs off when you rush it, closes in when you run."):format(Brain.KEEP_MIN,
+        Brain.KEEP_MAX),
+      ("Dodges rounds and abilities it sees coming, no more than once every %g s and only with the breath for it.")
+        :format(Brain.DODGE_COOL),
+      ("Under %g%% health it runs for a medkit (%g back) or an energy drink (%g back, and quicker for "
+        .. "%g s) within %g px."):format(Brain.HEAL_BELOW * 100, Hunters.medkitHealth, Hunters.drinkHealth,
+        Hunters.drinkHaste, Brain.HEAL_RANGE),
+      ("Calls every Hunter within %g px when it starts a fight or is shot at."):format(Brain.CALL_RANGE),
+      ("Hears a shot within %g px, and turns on whoever fires a round past it or into it."):format(Brain.HEAR),
+      "It tires: running and dodging spend its breath (the blue bar under it), and a winded one can only walk.",
+    },
+    tips = {
+      "Its stun shot goes down the line it shows while charging: step off the line.",
+      "Wear it out: a winded Hunter can't dodge, and walks slower than its patrol.",
+      "Pick up the medkits and drinks near a fight before it does.",
+      "A teleport lands at once: it can't see that coming. A freeze holds it and stops a charge.",
+    },
+    drops = ("%g koins, and sometimes a pickup"):format(Hunters.drops),
+  })
 end
 
 --- A gun went off at (x, y) (weapons' `serverShotFired`): a player's or a
@@ -406,10 +481,12 @@ function Hunters:update(dt)
   end
 end
 
---- Their cones of sight, on the ground under everything, as the Combine's are.
+--- Their cones of sight, on the ground under everything: a radar sweeping.
+--- Always shown, sight-cones or
+--- not: the one enemy whose eyes you get to see.
 function Hunters:drawBelowCars()
-  for _, h in pairs(shown) do
-    Sight.draw(h.dx, h.dy, h.facing, Brain.RANGE, h.alert, clock, h.fov)
+  for id, h in pairs(shown) do
+    Sight.draw(h.dx, h.dy, h.facing, Brain.RANGE, h.alert, clock, h.fov, { seed = id })
   end
 end
 
@@ -424,18 +501,45 @@ function Hunters:drawAboveCars()
       love.graphics.circle("line", c.x, c.y, 20 + kr * 160, 40)
     end
   end
+  for _, h in pairs(shown) do
+    if h.charging then -- where its stun shot will go, out to the first wall: get off it
+      local mx, my = h.dx + math.cos(h.facing) * 18, h.dy + math.sin(h.facing) * 18
+      local ex, ey = Sight.reach(mx, my, h.facing, SIGHTLINE)
+      local pulse = 0.55 + 0.45 * math.abs(math.sin(clock * 20))
+      love.graphics.setColor(Render.GLOW[1], Render.GLOW[2], Render.GLOW[3], 0.25 * pulse)
+      love.graphics.setLineWidth(5)
+      love.graphics.line(mx, my, ex, ey)
+      love.graphics.setColor(Render.SPARK[1], Render.SPARK[2], Render.SPARK[3], 0.85 * pulse)
+      love.graphics.setLineWidth(1)
+      love.graphics.line(mx, my, ex, ey)
+    end
+  end
   love.graphics.setLineWidth(1)
   for _, h in pairs(shown) do
     Render.draw(h.dx, h.dy, h.facing, {
       cycle = h.cycle, stride = h.stride, firing = h.flash > 0, hurt = h.hurt / HURT * 0.7, charging = h.charging,
       dodge = h.dodge / DODGE_SHOWN, dodgeX = h.dodgeX, dodgeY = h.dodgeY,
     }, clock)
+    local bw, by = 30, h.dy + Render.RADIUS + 6
     if h.hp < Hunters.health then -- a bar under it once it is hurt
-      local bw, f = 30, math.max(0, h.hp / Hunters.health)
+      local f = math.max(0, h.hp / Hunters.health)
       love.graphics.setColor(0, 0, 0, 0.6)
-      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, h.dy + Render.RADIUS + 6, bw + 2, 5)
+      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, by, bw + 2, 5)
       love.graphics.setColor(1 - f, f, 0.2)
-      love.graphics.rectangle("fill", h.dx - bw / 2, h.dy + Render.RADIUS + 7, bw * f, 3)
+      love.graphics.rectangle("fill", h.dx - bw / 2, by + 1, bw * f, 3)
+    end
+    if h.winded or h.stamina < BREATH_MAX then -- and its breath under that once it has spent some
+      local f = math.max(0, math.min(1, h.stamina / BREATH_MAX))
+      love.graphics.setColor(0, 0, 0, 0.6)
+      love.graphics.rectangle("fill", h.dx - bw / 2 - 1, by + 5, bw + 2, 4)
+      if h.winded then -- blown: the whole bar throbs red (the boss bar's red, bosses/bar.lua)
+        love.graphics.setColor(0.9, 0.3, 0.3, 0.35 + 0.25 * math.sin(clock * 8))
+        love.graphics.rectangle("fill", h.dx - bw / 2, by + 6, bw, 2)
+        love.graphics.setColor(1, 0.5, 0.45)
+      else
+        love.graphics.setColor(0.45, 0.75, 1)
+      end
+      love.graphics.rectangle("fill", h.dx - bw / 2, by + 6, bw * f, 2)
     end
   end
   love.graphics.setColor(1, 1, 1)
@@ -449,13 +553,13 @@ Hunters.clientMessages = {
     end
     lastTick, heardAt = tick, love.timer.getTime()
     local seen = {}
-    for i = 2, #args - 7, 8 do
+    for i = 2, #args - 9, 10 do
       local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and x and y then
         local h = shown[id]
         if not h then
           h = { dx = x, dy = y, x = x, y = y, cycle = love.math.random(), stride = 0, fov = Hunters.fov, flash = 0,
-            hurt = 0, dodge = 0, hp = Hunters.health }
+            hurt = 0, dodge = 0, hp = Hunters.health, stamina = BREATH_MAX }
           shown[id] = h
         end
         if args[i + 7] == "1" then -- dodging: its smear trails back the way it came
@@ -478,6 +582,8 @@ Hunters.clientMessages = {
           h.flash = FLASH
         end
         h.charging = args[i + 6] == "2"
+        h.stamina, h.winded = Stamina.read(args, i + 8)
+        h.stamina = h.stamina or BREATH_MAX
         seen[id] = true
       end
     end
