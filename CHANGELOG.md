@@ -176,7 +176,7 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   red rings further off, and junk bots climb out of the wreck carrying it scrap: every one that reaches it heals it,
   so shoot them first. The tunnel opens when it falls apart.
 - A new gun, the plasma rifle, won from Wilbur in the Bragium Pit (one each), then sold in the shop for 180
-  Fcks: an assault rifle firing small balls of plasma at the AK's nine a second, 16 damage a round and 45 to a
+  Fcks: an assault rifle firing small balls of plasma at the AK's nine a second, 25 damage a round and 45 to a
   magazine. Plasma melts armor, so what they wear stops half as much. It fires the AK's 7.62 rounds, like the AR.
 
 ### Changed

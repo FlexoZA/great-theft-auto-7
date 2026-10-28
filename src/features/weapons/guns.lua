@@ -328,7 +328,7 @@ Guns.list = {
       .. "Plasma melts armor: what they wear stops half as much. Fires the AK's 7.62 rounds.",
     name = "plasma rifle",
     damageType = "plasma",
-    damage = 16, -- under the AK's 18: the melt makes up for it
+    damage = 25, -- over the AK's 18, and the melt on top
     cooldown = 0.11, -- the AK's nine a second
     spread = 0.04,
     speed = 800, -- slower than a bullet, so you see the balls fly
