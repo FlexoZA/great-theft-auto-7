@@ -8,7 +8,9 @@
 -- (docs/features.md) with one entry per enemy, its numbers read off the
 -- feature's own constants. Their portraits come from tools/wiki/portraits
 -- (`make wiki-portraits`), which draws each enemy with its feature's own
--- drawing code. See docs/wiki.md.
+-- drawing code. Guns and abilities are read off their own lists
+-- (tools/wiki/items.lua), their pictures drawn by the same run from the
+-- game's icons. See docs/wiki.md.
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -74,16 +76,18 @@ for _, file in ipairs(files) do
   end
 end
 
--- Pages of enemies that are gone.
+-- Pages of enemies, guns and abilities that are gone.
 local wanted = {}
 for _, file in ipairs(files) do
   wanted[file.path] = true
 end
-for path in io.popen("ls " .. Pages.ENEMIES .. "/*.md 2>/dev/null"):lines() do
-  if not wanted[path] then
-    stale[#stale + 1] = path .. " (no such enemy any more)"
-    if not check then
-      os.remove(path)
+for _, dir in ipairs(Pages.DIRS) do
+  for path in io.popen("ls " .. dir .. "/*.md 2>/dev/null"):lines() do
+    if not wanted[path] then
+      stale[#stale + 1] = path .. " (not in the game any more)"
+      if not check then
+        os.remove(path)
+      end
     end
   end
 end
@@ -100,7 +104,7 @@ if check then
 else
   print(("wiki: %d pages, %d written"):format(#files, #stale))
   for _, missing in ipairs(Pages.missingPortraits(files)) do
-    print("wiki: no portrait yet for " .. missing .. " (make wiki-portraits)")
+    print("wiki: no picture yet for " .. missing .. " (make wiki-portraits)")
   end
 end
 os.exit(0)

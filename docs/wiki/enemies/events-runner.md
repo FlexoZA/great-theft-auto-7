@@ -14,7 +14,7 @@ A man in a tracksuit sprinting the streets at three times your sprint. He goes a
 | **Rank** | Boss |
 | **Health** | 1200 |
 | **Speed** | 510 px/s flat out, 45 winded |
-| **Drops** | 40 koins, and his second wind in a random tier (legendary 3 times in a hundred) |
+| **Drops** | 40 koins, and his second wind in a random tier (legendary 3 times in a hundred) ([second wind](../abilities/secondwind.md)) |
 
 ## Weapons
 

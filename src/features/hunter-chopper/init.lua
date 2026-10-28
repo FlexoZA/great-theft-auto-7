@@ -305,6 +305,7 @@ function HunterChopper:wikiEnemies(add)
       "Step off the rings as the bombs come down, and keep clear of where it falls.",
       ("Rockets hurt it: it is big, so a blast reaches it %g px further out than anyone else."):format(self.blastReach),
     },
+    dropsItems = { self.GUN }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and an SMG for every player (unlocks it in the shop)"):format(self.drops),
   })
 end

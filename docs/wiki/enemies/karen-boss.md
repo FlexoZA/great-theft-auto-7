@@ -16,7 +16,7 @@ The first boss. She stands in her turning circle ranting about nothing, and the 
 | **Hits** | 20 a hit, whatever the gun: 75 hits |
 | **Speed** | 165 px/s charging, 55 winded |
 | **Sight** | 650 px |
-| **Drops** | 30 koins, and an uzi for every player |
+| **Drops** | 30 koins, and an uzi for every player ([uzi](../weapons/uzi.md)) |
 
 ## Weapons
 

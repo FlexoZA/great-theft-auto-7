@@ -588,6 +588,7 @@ function Bigfoot.wikiEnemies(add, opens)
       ("Wear him out: winded, he lumbers at %g px/s and a walk leaves him behind."):format(B.walkSpeed),
       "A freeze holds him on the ground, and a stink cloud sends him off for a moment.",
     },
+    dropsItems = { B.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and a legendary bigfoot leap"):format(B.drops),
   })
   add({
