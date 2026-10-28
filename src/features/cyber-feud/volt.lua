@@ -459,6 +459,7 @@ function Volt.wikiEnemies(add)
       "Keep out of the rings where his grenades and the storm's strikes will land.",
       "Hit him while he is winded, and thin out his backup before it gets to you.",
     },
+    dropsItems = { Volt.AR }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, his pass code, and electric grenades and an AR for every player (unlocking them both)")
       :format(Volt.DROPS),
   })

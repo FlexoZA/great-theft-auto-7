@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The wiki (`docs/wiki` on GitHub) has a page for every gun and every ability: its picture, what it does, its
+  numbers in each tier with what a tier improves, what it costs, and who drops it, linked to their page.
+
 ### Fixed
 - Eternal Mood: medkits, drinks, ammo crates and other things that turn up on the map no longer appear in the lava (Heck on Earth, the Foundry and Heck).
 

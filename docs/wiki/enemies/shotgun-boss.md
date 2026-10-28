@@ -16,7 +16,7 @@ A sniper who hates debating and hates his rifle almost as much. He shoots down f
 | **Hits** | whatever the round does: 8 sniper rounds or 80 pistol rounds |
 | **Speed** | 105 px/s hurrying to a new spot, 42 winded |
 | **Sight** | 1800 px |
-| **Drops** | 35 koins and his chicken ability |
+| **Drops** | 35 koins and his chicken ability ([chicken](../abilities/chicken.md)) |
 
 ## Weapons
 

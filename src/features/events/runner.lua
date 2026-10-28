@@ -345,6 +345,7 @@ function Runner.wikiEnemies(add, opens)
       "Keep out of his lane, on foot or in a car.",
       "A freeze stops him dead; a stink ahead of him turns him round.",
     },
+    dropsItems = { R.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and his second wind in a random tier (legendary %g times in a hundred)"):format(R.drops,
       legendary[2]),
   })

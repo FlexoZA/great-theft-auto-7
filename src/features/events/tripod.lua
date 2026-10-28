@@ -514,6 +514,7 @@ function Tripod.wikiEnemies(add, opens)
       ("It strides after you at %g px/s: a sprint gets away, a walk doesn't."):format(T.huntSpeed),
       "A freeze stops it, ray and tentacles with it.",
     },
+    dropsItems = { T.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins, and its heat ray in a random tier (legendary %g times in a hundred)"):format(T.drops,
       legendary[2]),
   })

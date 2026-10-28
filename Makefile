@@ -17,7 +17,7 @@ audit:          ## Rate this branch out of 10 against origin/staging (docs/audit
 wiki:           ## Write the wiki's pages in docs/wiki from the game's code (docs/wiki.md)
 	luajit tools/wiki/run.lua
 
-wiki-portraits: ## Draw the wiki's missing enemy portraits (WIKI_ALL=1 for all, WIKI_ONLY="city karen" for some)
+wiki-portraits: ## Draw the wiki's missing pictures: guns, abilities, enemies (WIKI_ALL=1 for all, WIKI_ONLY="icons city karen" for some)
 	rm -rf $(BUILD)/wiki-love && mkdir -p $(BUILD)/wiki-love
 	ln -s ../../tools/wiki/portraits/main.lua ../../tools/wiki/portraits/conf.lua ../../src ../../lib ../../assets \
 		$(BUILD)/wiki-love/

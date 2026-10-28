@@ -1,11 +1,14 @@
 -- What tools/wiki/run.lua writes: the wiki's pages, as text, from the
--- features' `wikiEnemies` entries (docs/features.md, docs/wiki.md).
+-- features' `wikiEnemies` entries (docs/features.md, docs/wiki.md), and the
+-- guns' and abilities' pages (tools/wiki/items.lua).
 
 local Pages = {}
 
 Pages.ROOT = "docs/wiki"
 Pages.ENEMIES = "docs/wiki/enemies"
 Pages.IMAGES = "docs/wiki/enemies/img"
+
+local Items = require("tools.wiki.items")
 
 local NOTICE = "<!-- Written by tools/wiki/run.lua from the game's code (`make wiki`): "
   .. "change the game, not this page. -->"
@@ -22,6 +25,12 @@ local ARCS = {
   ["eternal-mood"] = "Eternal Mood",
 }
 local CITY = "The city"
+
+-- Every folder of pages, for run.lua to clear out pages of things that are gone.
+Pages.DIRS = { Pages.ENEMIES }
+for _, s in ipairs(Items.SECTIONS) do
+  Pages.DIRS[#Pages.DIRS + 1] = s.dir
+end
 
 --- An entry's page name: its own `id`, or its kind with the slash a dash.
 function Pages.id(entry)
@@ -167,7 +176,15 @@ local function page(entry, arc)
     add(("| **%s** | %s |"):format(stat[1], value))
   end
   if entry.drops then
-    add(("| **Drops** | %s |"):format(entry.drops))
+    local links = {}
+    for _, item in ipairs(entry.dropsItems or {}) do
+      local path, name = Items.link(item)
+      if path then
+        links[#links + 1] = ("[%s](%s)"):format(name, path)
+      end
+    end
+    local also = #links > 0 and (" (%s)"):format(table.concat(links, ", ")) or ""
+    add(("| **Drops** | %s%s |"):format(entry.drops, also))
   end
   add()
   if entry.weapons and #entry.weapons > 0 then
@@ -259,6 +276,8 @@ local function home()
     "What's in the game, written from the game's own code, so the numbers here are the numbers in play.",
     "",
     "- [Enemies](enemies/README.md): everyone who fights back, with what they carry and what they can do.",
+    "- [Weapons](weapons/README.md): every gun, its numbers in each tier, its price and who drops it.",
+    "- [Abilities](abilities/README.md): every ability, its numbers in each tier, its price and who drops it.",
     "",
   }, "\n")
 end
@@ -286,15 +305,29 @@ function Pages.build(Features)
     files[#files + 1] = { path = ("%s/%s.md"):format(Pages.ENEMIES, Pages.id(e)), text = page(e, arcOf(e, questArc)),
       entry = e }
   end
+  local itemFiles, itemProblems = Items.build(entries, {
+    notice = NOTICE,
+    arcOf = function(e)
+      return arcOf(e, questArc)
+    end,
+  }, Pages.id)
+  for _, f in ipairs(itemFiles) do
+    files[#files + 1] = f
+  end
+  for _, p in ipairs(itemProblems) do
+    problems[#problems + 1] = p
+  end
   return files, problems
 end
 
---- The enemies among `files` that have no portrait yet.
+--- The enemies and items among `files` that have no picture yet.
 function Pages.missingPortraits(files)
   local missing = {}
   for _, f in ipairs(files) do
     if f.entry and f.entry.portrait ~= false and not fileExists(portrait(f.entry)) then
       missing[#missing + 1] = Pages.id(f.entry)
+    elseif f.item and not fileExists(f.item.image) then
+      missing[#missing + 1] = f.item.item
     end
   end
   return missing

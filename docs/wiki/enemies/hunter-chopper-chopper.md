@@ -15,7 +15,7 @@ The Combine's gunship. It circles the square, locks on to whoever it can see and
 | **Health** | 3600 |
 | **Speed** | 210 px/s round the square, 300 px/s on a bombing run |
 | **Sight** | 700 px |
-| **Drops** | 40 koins, and an SMG for every player (unlocks it in the shop) |
+| **Drops** | 40 koins, and an SMG for every player (unlocks it in the shop) ([SMG](../weapons/smg.md)) |
 
 ## Weapons
 

@@ -15,7 +15,7 @@ The end of the trail. The same man in the same joke-shop disguise, much stronger
 | **Health** | 5000 |
 | **Hits** | whatever the round does: 250 pistol rounds |
 | **Speed** | 60 px/s, never hurrying |
-| **Drops** | 150 koins and his teleport ability, uncommon or better |
+| **Drops** | 150 koins and his teleport ability, uncommon or better ([teleport](../abilities/teleport.md)) |
 
 ## Weapons
 
