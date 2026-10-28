@@ -469,6 +469,7 @@ function Finale.wikiEnemies(add)
       "Deal with what comes out of the case before it piles up, and shoot him while he holds it up.",
       "A freeze holds him, but only for half as long; a stink throws him off the blink he was aiming.",
     },
+    dropsItems = { Finale.drop }, -- its items' wiki pages link back here (tools/wiki/items.lua)
     drops = ("%g koins and his teleport ability, uncommon or better"):format(Finale.drops),
   })
 end

@@ -182,6 +182,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ### Changed
 - Gun haulers warn before a grenade: a red ring shows where it will land, and the hauler stands still for 0.6 s
   before it lobs, so you have that much longer to get out of the way.
+- The wiki (`docs/wiki` on GitHub) has a page for every gun and every ability: its picture, what it does, its
+  numbers in each tier with what a tier improves, what it costs, and who drops it, linked to their page.
 
 ### Fixed
 - A kamikaze hauler blowing up among other robots could crash the game.

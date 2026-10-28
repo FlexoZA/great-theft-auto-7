@@ -9,10 +9,13 @@
 -- meets an enemy the wiki has a page for, it walks the player up to it and
 -- draws it: only its own feature's drawing, centred on it, on a plain
 -- ground, cropped to what was drawn round it. One PNG per page, in
--- docs/wiki/enemies/img.
+-- docs/wiki/enemies/img. First it draws every gun's and ability's picture
+-- (tools/wiki/items.lua) with the game's own icons, as the inventory shows
+-- them: docs/wiki/weapons/img, docs/wiki/abilities/img.
 --
--- WIKI_ONLY="city a-man karen" plays only those (the city, and quest ids).
--- WIKI_ALL=1 draws every portrait again; otherwise only missing ones.
+-- WIKI_ONLY="icons city a-man karen" plays only those (the icons, the city,
+-- and quest ids). WIKI_ALL=1 draws every picture again; otherwise only
+-- missing ones.
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -34,6 +37,7 @@ Stub.install = function() end -- the harness installs it again otherwise
 local Harness = require("tools.audit.harness")
 local Stages = require("tools.audit.stages")
 local Pages = require("tools.wiki.pages")
+local Items = require("tools.wiki.items")
 local Scenes = require("tools.wiki.scenes")
 
 local OUT = 320 -- px, a portrait's side
@@ -221,6 +225,48 @@ local function portrait(game, entry, e, draw, hooks)
   return true
 end
 
+-- A gun is drawn side on at GUN_SCALE times its icon's size (about 60 x 30),
+-- on the portraits' ground; an ability as its slot shows it, on a dark
+-- disc with a ring in its colour, ICON_R px across the middle.
+local GUN_W, GUN_H, GUN_SCALE = 320, 160, 3.4
+local ICON_SIDE, ICON_R = 160, 64
+
+local function save(canvas, path)
+  local data = canvas:newImageData()
+  local f = assert(io.open(path, "wb"))
+  f:write(data:encode("png"):getString())
+  f:close()
+  data:release()
+end
+
+local function itemPicture(it)
+  local GunIcons = require("src.features.weapons.icons")
+  local AbilityIcons = require("src.features.abilities.icons")
+  local UI = require("src.ui")
+  local gun = it.section.key == "weapons"
+  local w, h = gun and GUN_W or ICON_SIDE, gun and GUN_H or ICON_SIDE
+  local canvas = love.graphics.newCanvas(w, h, { msaa = 4 })
+  love.graphics.push("all")
+  love.graphics.setCanvas(canvas)
+  if gun then
+    love.graphics.clear(BG[1], BG[2], BG[3], 1)
+    GunIcons.draw(it.key, w / 2, h / 2, GUN_SCALE)
+  else
+    love.graphics.clear(0, 0, 0, 0)
+    local c, cx, cy = it.base.color, w / 2, h / 2
+    love.graphics.setColor(0.08, 0.08, 0.1, 1)
+    love.graphics.circle("fill", cx, cy, ICON_R + 12, 64)
+    love.graphics.setColor(c[1], c[2], c[3], 0.2)
+    love.graphics.circle("fill", cx, cy, ICON_R + 12, 64)
+    UI.ring(cx, cy, ICON_R, 1, c, 10)
+    AbilityIcons.draw(it.key, cx, cy, ICON_R - 14)
+  end
+  love.graphics.pop()
+  os.execute("mkdir -p " .. it.section.images)
+  save(canvas, it.image)
+  canvas:release()
+end
+
 local function exists(path)
   local f = io.open(path, "rb")
   if f then
@@ -246,8 +292,29 @@ local function main()
     end
   end
 
-  -- What a scene draws itself (Scenes.portraits).
-  for i = #wanted, 1, -1 do
+  local only = {}
+  for id in (os.getenv("WIKI_ONLY") or ""):gmatch("%S+") do
+    only[id] = true
+  end
+  local function playing(id)
+    return next(only) == nil or only[id]
+  end
+
+  if playing("icons") then
+    for _, it in ipairs(Items.all()) do
+      if all or not exists(it.image) then
+        itemPicture(it)
+        log("drew %s", it.item)
+      end
+    end
+  end
+
+  -- What a scene draws itself (Scenes.portraits): not when only the icons are wanted.
+  local enemiesToo = next(only) == nil
+  for id in pairs(only) do
+    enemiesToo = enemiesToo or id ~= "icons"
+  end
+  for i = (enemiesToo and #wanted or 0), 1, -1 do
     local entry = wanted[i]
     local draw = Scenes.portraits[Pages.id(entry)]
     if draw then
@@ -292,13 +359,6 @@ local function main()
     end
   end
 
-  local only = {}
-  for id in (os.getenv("WIKI_ONLY") or ""):gmatch("%S+") do
-    only[id] = true
-  end
-  local function playing(id)
-    return next(only) == nil or only[id]
-  end
 
   if playing("city") then
     game:godMode()
