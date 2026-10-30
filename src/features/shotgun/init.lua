@@ -19,6 +19,13 @@
 -- chicken (an "ability-chicken" orb), the quest is done, and quests puts
 -- an EXIT star home where he fell.
 --
+-- The Colosseum's waves bring him onto its sand too (`serverArenaSend`,
+-- colosseum/waves.lua): no portrait, the hunt on at once. His brain wants
+-- the bluff's perches, lip and ramp, so there he is handed the arena dressed
+-- as one (`arenaBluff`): a perch on every side of each piece of cover and
+-- round the sand, and nobody below a cliff (everyone is "up top" with him),
+-- so he keeps his distance from whoever is nearest and snipes from there.
+--
 -- The quests feature brings everyone to the bluff and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "shotgun", and every client strikes up the bluff's theme (theme.lua) till
@@ -82,7 +89,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { stage, boss, revealT, syncIn }
+local sv = nil -- { stage, boss, revealT, syncIn, arena (true on the Colosseum's sand) }
 
 function Shotgun:serverStart()
   sv = { stage = nil }
@@ -122,10 +129,61 @@ function Shotgun:serverQuestStarted(server, quest)
   setStage(server, "reveal", random(Boss.TALK))
 end
 
+--- The Colosseum's arena dressed as his bluff, for his brain: its own map
+--- underneath (solids, edges), and perches round each piece of cover and
+--- round the sand. Its cliff is below everything, so everyone counts as up
+--- top with him, and the way along the lip is the whole width.
+local function arenaBluff(map)
+  local o = map.oval
+  local perches = {}
+  local function add(x, y)
+    if not Boss.blocked(x, y) and ((x - o.x) / o.rx) ^ 2 + ((y - o.y) / o.ry) ^ 2 < 0.85 then
+      perches[#perches + 1] = { x = x, y = y, edge = true }
+    end
+  end
+  for _, c in ipairs(map.cover or {}) do
+    local cx, cy, gap = c.x + c.w / 2, c.y + c.h / 2, 40
+    add(c.x - gap, cy)
+    add(c.x + c.w + gap, cy)
+    add(cx, c.y - gap)
+    add(cx, c.y + c.h + gap)
+  end
+  for k = 0, 15 do
+    local a = k * math.pi / 8
+    add(o.x + math.cos(a) * o.rx * 0.75, o.y + math.sin(a) * o.ry * 0.75)
+  end
+  return setmetatable({ perches = perches, cliffY = math.huge, ramp = { x1 = map.left } }, { __index = map })
+end
+
+--- The Colosseum's waves (colosseum/waves.lua): he stands at (x, y) on the
+--- sand and the hunt is on (`kind` "boss"). Returns how many came.
+function Shotgun:serverArenaSend(server, kind, _count, x, y)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  if not (sv and kind == "boss" and map and map.oval) or sv.boss then
+    return 0
+  end
+  local bluff = arenaBluff(map)
+  local nav = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
+  sv.boss = Boss.new(x, y, Bosses.health(Boss.HEALTH, server), nav)
+  sv.boss.cliffMap = function()
+    return bluff
+  end
+  sv.arena, sv.syncIn = true, 0
+  setStage(server, "hunt")
+  server:broadcast(Protocol.encode("SG_SAY", random(Boss.TALK)))
+  return 1
+end
+
+--- Whether he is still up on the sand.
+function Shotgun:serverArenaLeft()
+  return sv and sv.arena and sv.boss and 1 or 0
+end
+
 --- Everyone off the bluff: nothing left to draw on any screen.
 function Shotgun:stop(server)
   if sv and sv.stage then
-    sv.stage, sv.boss = nil, nil
+    sv.stage, sv.boss, sv.arena = nil, nil, nil
     server:broadcast(Protocol.encode("SG_STAGE", "none", 0))
   end
 end
@@ -227,7 +285,7 @@ function Shotgun:hurt(server, amount, by, angle)
     pickups:serverDrop(server, Tiers.join(CHICKEN, Bosses.dropTier()), x + 30, y)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
-  setStage(server, "done")
+  setStage(server, sv.arena and "arena" or "done") -- no EXIT star in the Colosseum
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
     quests:serverComplete(server, self.questId, x, y) -- an EXIT star home where he fell
@@ -272,9 +330,9 @@ function Shotgun:wikiEnemies(add)
   add({
     kind = "shotgun/boss",
     name = "Shotgun",
-    quests = { "shotgun" },
+    quests = { "shotgun", "colosseum" },
     boss = true,
-    where = "Shotgun's Bluff, on the plateau above the meadow",
+    where = "Shotgun's Bluff, on the plateau above the meadow; and the Colosseum's thirteenth wave",
     about = "A sniper who hates debating and hates his rifle almost as much. He shoots down from the top of "
       .. "the cliff, vanishes, and turns up somewhere else along the lip.",
     stats = {
@@ -443,7 +501,8 @@ function Shotgun:drawHUD(client)
   end
   local map = cliffMap()
   local _, y = client:myPose()
-  Render.hud(self, face, client.myId, map and y and y < map.cliffY, time)
+  -- Off the bluff (the Colosseum) there is no cliff to climb: just stop him.
+  Render.hud(self, face, client.myId, not map or (y and y < map.cliffY), time)
 end
 
 Shotgun.clientMessages = {

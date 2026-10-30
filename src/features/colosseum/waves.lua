@@ -38,6 +38,7 @@ Waves.LIST = {
   { title = "More Riflemen", feature = "d-day", kind = "soldier", count = 9 },
   { title = "The Landing Party", feature = "d-day", kind = "soldier", count = 12 },
   { title = "Major Looz'er", feature = "d-day", kind = "major", count = 1, exact = true, spots = { { 0, -0.3 } } },
+  { title = "Shotgun", feature = "shotgun", kind = "boss", count = 1, exact = true, spots = { { 0, -0.6 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

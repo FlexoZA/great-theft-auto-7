@@ -415,8 +415,9 @@ couple of small conventions rather than requiring each other:
   through the events feature (kinds "squirrels" and "bigfoot": his city
   event's module, run on the sand); D-Day's riflemen the next three and
   Major Looz'er the twelfth (`d-day`, kinds "soldier" and "major", mortars
-  falling all the while). Add your enemy to the list and answer both to put
-  it in the arena.
+  falling all the while); Shotgun the thirteenth (`shotgun`, kind "boss":
+  his brain is handed the arena dressed as his bluff). Add your enemy to
+  the list and answer both to put it in the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
