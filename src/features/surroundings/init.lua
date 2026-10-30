@@ -84,6 +84,9 @@
 -- the cliff and the drop, the sky round the Bunker; a tunnel or a road out
 -- carries on past the edge. City-map draws that itself (drawPastEdges).
 --
+-- The Colosseum's arena is ringed by its stands, full and cheering, up to
+-- the outer wall: the colosseum feature draws them (`drawStands`).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -1277,6 +1280,11 @@ local DRAW = {
   citadel = function(map, camera)
     local left, top, right, bottom = view(camera)
     CitadelAbyss.draw(map, left, top, right, bottom, clock)
+  end,  colosseum = function(map, camera) -- the stands round the arena: the colosseum feature's
+    local colosseum = Features.byName.colosseum
+    if colosseum then
+      colosseum:drawStands(map, camera, view(camera))
+    end
   end,
 }
 for _, name in ipairs({ "wreck", "landing", "pit", "prosperity", "refinery", "assembly", "cuts", "bunker" }) do

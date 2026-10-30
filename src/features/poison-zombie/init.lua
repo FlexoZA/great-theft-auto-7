@@ -25,6 +25,11 @@
 -- the level (quests' `serverComplete`): the EXIT star comes up by him. The
 -- Combine's rounds (owned by nobody) pass by him and his crabs.
 --
+-- The Colosseum's waves bring him onto its sand too (`serverArenaSend`,
+-- colosseum/waves.lua): he howls at once and goes after anyone, however far
+-- (`sv.tune`: his numbers with no wake, sight or leash), and the wave is his
+-- crabs as well as him. No EXIT star when he falls there.
+--
 -- Messages
 --   server -> all     PZM_BOSS <tick> [<x> <y> <facing> <hp> <max> <mode> <crabs> <stamina> <winded>]
 --                     (unreliable, 15 Hz; nothing after the tick: no zombie; mode 1 waiting,
@@ -129,7 +134,7 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { z, crabs, maxOut, syncIn, emptySends, time, done }
+local sv = nil -- { z, crabs, maxOut, syncIn, emptySends, time, done, tune (the arena's numbers) }
 
 -- On every machine (the Client section), declared here for mapChanged.
 local cl = nil -- him: { x, y, dx, dy, facing, hp, max, mode, crabs, stamina, winded, t, cycle, stride, hurt }
@@ -161,13 +166,9 @@ local function roomAt(x, y)
   return x, y
 end
 
-function Zombie:serverQuestStarted(server, quest)
-  local map = cityMap()
-  sv = nil
-  if not (quest.id == Zombie.questId and map and map.bossX) then
-    return
-  end
-  local x, y = roomAt(map.bossX, map.bossY)
+--- Him, standing at (x, y) on `map`, waiting.
+local function newState(server, map, x, y)
+  x, y = roomAt(x, y)
   local max = Bosses.health(Zombie.health, server)
   local grid = Nav.build({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv = {
@@ -180,6 +181,36 @@ function Zombie:serverQuestStarted(server, quest)
       power = Bosses.power(), -- his swipes and what a ram does to the car, times this
     },
   }
+end
+
+function Zombie:serverQuestStarted(server, quest)
+  local map = cityMap()
+  sv = nil
+  if not (quest.id == Zombie.questId and map and map.bossX) then
+    return
+  end
+  newState(server, map, map.bossX, map.bossY)
+end
+
+--- The Colosseum's waves: he stands at (x, y) on the sand and howls (`kind`
+--- "zombie"). Returns how many came.
+function Zombie:serverArenaSend(server, kind, _count, x, y)
+  local map = cityMap()
+  if kind ~= "zombie" or not (map and map.oval) or (sv and not sv.done) then
+    return 0
+  end
+  newState(server, map, x, y)
+  sv.tune = setmetatable({ wake = math.huge, sight = math.huge, leash = math.huge }, { __index = Zombie })
+  Brain.wake(sv.z)
+  return 1
+end
+
+--- Him while he stands, and his crabs about.
+function Zombie:serverArenaLeft()
+  if not (sv and sv.tune) then
+    return 0
+  end
+  return (sv.done and 0 or 1) + sv.crabs:alive()
 end
 
 local function clear(server)
@@ -323,7 +354,7 @@ function Zombie:serverStep(server, dt)
   sv.time = sv.time + dt
   if not sv.done then
     local z = sv.z
-    local what, at = Brain.think(Zombie, z, server, dt, sv.time, sv.crabs:alive() < sv.maxOut)
+    local what, at = Brain.think(sv.tune or Zombie, z, server, dt, sv.time, sv.crabs:alive() < sv.maxOut)
     if what == "throw" then
       sv.crabs:throw(at.x, at.y, at.tx, at.ty)
     end
@@ -412,7 +443,7 @@ function Zombie:wikiEnemies(add)
     name = "Poison Zombie",
     quests = { self.questId },
     boss = true,
-    where = "The Winding Road, waiting on the pass at the top",
+    where = "The Winding Road, waiting on the pass at the top; and the Colosseum's twenty-first wave",
     about = "A man swollen and hunched under a poison headcrab, with more of them riding on his back. He "
       .. "shuffles after you, rakes you with his claws up close and throws his crabs at you from further off.",
     stats = {

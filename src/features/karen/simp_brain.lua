@@ -81,15 +81,17 @@ function Brain.walk(S, s, angle, speed, dt)
 end
 
 --- Who he goes after: whoever shot Karen lately, if he can see them;
---- otherwise the nearest player in sight. `bodies` is the gang's list of
+--- otherwise the nearest player in sight (his own `sight` when he has one:
+--- the Colosseum's know where everyone is). `bodies` is the gang's list of
 --- everyone this tick ({ id, player, x, y, onFoot }).
 local function pickTarget(S, s, bodies, nbodies, boss, time)
   local best, bestD2
   local avenge = boss and boss.lastHitBy and time - (boss.lastHitT or -99) < Brain.DEFEND_TIME and boss.lastHitBy
+  local sight = s.sight or S.SIGHT
   for i = 1, nbodies do
     local e = bodies[i]
     local d2 = dist2(e.x, e.y, s.x, s.y)
-    if d2 <= S.SIGHT * S.SIGHT then
+    if d2 <= sight * sight then
       if e.id == avenge then
         return e, d2, "defend"
       end

@@ -76,6 +76,12 @@
 -- and a bunker on each wide platform but the top whose garrison comes in
 -- waves, as the Winding Road's do (its `garrisons`).
 --
+-- The Colosseum's waves (colosseum/waves.lua) bring the soldiers onto its
+-- sand too: a bare level there (`Level.maps.colosseum`: no posts, no beats,
+-- no nests), soldiers set down at the far end that go for the nearest
+-- player (`Level.serverArenaDrop`), and the Hunter-Chopper's calls for help
+-- land in it as on the Outer City.
+--
 -- The a-man feature (init.lua) passes its hooks on to this module.
 --
 -- Messages
@@ -157,6 +163,7 @@ Level.maps = {
   coast = { squadsPerBeat = 0, nests = true }, -- the bunkers' crews, for now
   road = { squadsPerBeat = 0, nests = true }, -- the bridges' checkpoints: nests and bunkers' waves
   citadel = { squadsPerBeat = 0, nests = true }, -- guards on every platform, the emplacement over the span
+  colosseum = { squadsPerBeat = 0 }, -- the Colosseum's waves: only who they set down (serverArenaDrop)
 }
 Level.nestCrew = 4 -- soldiers to an MG nest: one on the gun, the rest on the bunker's posts
 Level.manGunWithin = 15 -- seconds the crewman going to a dead gunner's gun has before he is simply on it
@@ -724,16 +731,24 @@ local function stepGarrisons(server, dt)
   end
 end
 
---- Reinforcements, for another feature (the Hunter-Chopper's): `count`
---- soldiers (more with more humans: Bosses.count) set down on clear ground
---- round (x, y), who go for the nearest player and stand guard where they
---- end up. Returns how many came, 0 while no level runs.
-function Level.serverDrop(server, x, y, count)
-  if not sv then
-    return 0
+--- The bare level in the Colosseum (its sand is in `Level.maps`), if none
+--- runs yet: nobody about until they are set down.
+local function arenaLevel()
+  local map = cityMap()
+  if sv or not (map and map.oval) then
+    return
   end
+  sv = { troops = Combine.new({
+    hunt = true, fov = Level.fov, alertFov = Level.alertFov, aware = Level.aware, health = Level.health,
+  }), syncIn = 0, reached = true, time = 0, garrisons = {}, nests = {}, groups = {}, pending = {}, quietUntil = 0 }
+  Cameo.serverStart(false) -- no visits of his own; called-in ones (the Hunter-Chopper's) still come
+  sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
+end
+
+--- `n` soldiers set down on clear ground round (x, y), going for the
+--- nearest player. Returns how many came.
+local function drop(server, x, y, n)
   local city = Features.byName["city-map"]
-  local n = Bosses.count(count, server)
   local target = nearestPlayer(server, x, y, 1e5) or { x = x, y = y }
   local came = 0
   for i = 1, n do
@@ -753,6 +768,30 @@ function Level.serverDrop(server, x, y, count)
     end
   end
   return came
+end
+
+--- Reinforcements, for another feature (the Hunter-Chopper's): `count`
+--- soldiers (more with more humans: Bosses.count) set down on clear ground
+--- round (x, y), who go for the nearest player and stand guard where they
+--- end up. Returns how many came, 0 while no level runs (in the Colosseum,
+--- the bare level starts).
+function Level.serverDrop(server, x, y, count)
+  arenaLevel()
+  if not sv then
+    return 0
+  end
+  return drop(server, x, y, Bosses.count(count, server))
+end
+
+--- The Colosseum's waves: exactly `count` soldiers set down round (x, y).
+function Level.serverArenaDrop(server, x, y, count)
+  arenaLevel()
+  return sv and drop(server, x, y, count) or 0
+end
+
+--- How many soldiers are still up.
+function Level.serverUp()
+  return sv and #sv.troops.list or 0
 end
 
 --- How many soldiers are still up inside { x, y, w, h }, for another
@@ -919,7 +958,8 @@ function Level.wikiEnemies(add)
     kind = "a-man/combine",
     name = "Combine soldier",
     quests = quests,
-    where = "Every map of A-Man's trail, from City 17 to the Citadel",
+    where = "Every map of A-Man's trail, from City 17 to the Citadel; and the Colosseum's fourteenth to sixteenth "
+      .. "waves",
     about = "Masked soldiers in grey-blue armour, each with a gun picked at random. They guard checkpoints, walk "
       .. "beats in squads, pour out of garrisons and crew the MG nests, and talk it over on the radio.",
     stats = {

@@ -254,6 +254,21 @@ function Guard.serverSkipTo(server, map, player)
   return true
 end
 
+--- The Colosseum's waves: it digs up at (x, y) on the sand, whatever is
+--- left of the antlions about it. Returns how many came.
+function Guard.serverArenaSpawn(server, x, y)
+  if sv and not sv.done then
+    return 0
+  end
+  spawn(server, x, y)
+  return 1
+end
+
+--- Whether it is still up.
+function Guard.serverArenaLeft()
+  return sv and not sv.done and 1 or 0
+end
+
 --- Every host tick from init.lua: wait for the section to clear, then fight.
 function Guard.serverStep(server, dt, map, brain)
   if not sv then
@@ -363,7 +378,8 @@ function Guard.wikiEnemies(add)
     name = "Antlion Guard",
     quests = { Guard.questId },
     boss = true,
-    where = "The Coast's point, up out of the sand once the last section is cleared",
+    where = "The Coast's point, up out of the sand once the last section is cleared; and the Colosseum's twentieth "
+      .. "wave",
     about = "The swarm's great armoured beast. It digs up out of the sand once everything in the Coast's last "
       .. "section is down, then swipes, charges and screams.",
     stats = {

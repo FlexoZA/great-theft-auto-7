@@ -36,11 +36,21 @@ function Level.serverStop(server)
 end
 
 function Level.serverStep(server, dt)
-  local map = cityMap()
+  local city = Features.byName["city-map"]
+  local map = cityMap() or (city and city.map and city.map.oval and city.map) -- the Colosseum's waves too
   if map then
     Finale.serverStep(server, dt, map)
   end
 end
+
+--- The Colosseum's waves: A-Man himself at (x, y) on its sand (finale.lua).
+function Level.serverArena(server, x, y)
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  return map and map.oval and Finale.serverArena(server, map, x, y) or 0
+end
+
+Level.serverArenaLeft = Finale.serverArenaLeft
 
 function Level.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
   return Finale.serverShotAt(server, x, y, radius, by, angle, damage, dtype)

@@ -60,7 +60,10 @@ local CityMap = {
 -- Layout.generate plus a title for the HUD. Add one here and a quest (or
 -- anything else) can send everyone there by name.
 CityMap.maps = {
-  city = { title = "The City", seed = Layout.SEED, cols = Layout.COLS, rows = Layout.ROWS, plots = Layout.PLOTS },
+  city = {
+    title = "The City", seed = Layout.SEED, cols = Layout.COLS, rows = Layout.ROWS, plots = Layout.PLOTS,
+    colosseum = Layout.COLOSSEUM,
+  },
   -- Open ground out past the city: nothing built, nothing for sale, nobody
   -- about and no traffic, walls around it. Quests go here and come back.
   outskirts = {
@@ -219,6 +222,12 @@ CityMap.maps = {
   bunker = { -- at dusk, high up
     title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
     crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.58, 0.76 },
+  },  -- Inside the Colosseum (the colosseum feature): one big oval of open
+  -- sand walled round, the stands past the wall (arena.lua). Walked, in
+  -- through the gate from the city once every job is done; nobody about.
+  colosseum = {
+    title = "The Colosseum", kind = "arena", seed = 401, cols = 60, rows = 42,
+    crowd = false, traffic = false, vehicles = false,
   },
 }
 CityMap.DEFAULT = "city" -- every game starts here

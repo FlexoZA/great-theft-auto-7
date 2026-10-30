@@ -214,6 +214,12 @@ function Hunters:serverPatrol(_server, route, count)
 end
 
 --- Take every hunter away.
+--- How many Hunters are up, for the Colosseum's waves (the Hunter-Chopper's
+--- wave is not over while the ones A-Man let out are about).
+function Hunters:serverArenaLeft()
+  return sv and #sv.brain.list or 0
+end
+
 function Hunters:serverClear()
   if sv then
     sv.brain.list = {}

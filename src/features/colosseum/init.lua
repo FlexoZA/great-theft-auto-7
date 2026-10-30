@@ -1,0 +1,382 @@
+-- The Colosseum: the endgame, going up on a whole block in the middle of
+-- the city (city-map's `map.colosseum`, the block north of the spawn road;
+-- layout.lua clears it and fences it off solid). Until every job on the
+-- board is finished it is a building site, and nobody gets in.
+--
+-- How far it has got is how many board jobs are finished in this world:
+-- the quests feature's `finished`, which the host decides, sends everyone
+-- (QST_FINISHED) and keeps with the saved world, so every screen shows the
+-- same stage and it is still there next time. Each job puts up more of the
+-- ring (look.lua): the three tiers of arches over the first six jobs, the
+-- attic on the seventh while the scaffolding starts coming down, and the
+-- last finishes it: the scaffolding and cranes gone, the yard paved, flags
+-- at the corners and the gate standing open.
+--
+-- Then a star comes up at the gate (quests' "colosseum", `afterBoard`: shut
+-- until every job is done, on the host too) and takes everyone inside:
+-- city-map's `colosseum` map, one big oval of sand walled round (arena.lua
+-- builds it, render_arena.lua draws it), a HOME star just inside the gate.
+-- Past the wall are the stands, full and cheering (stands.lua, drawn past
+-- the map's edge for surroundings through `Colosseum:drawStands`), and a
+-- gladiators' march plays (theme.lua). Then the waves (waves.lua, on the
+-- host): every enemy in the game in order, so far Karen's simps. The HUD
+-- shows the wave, how many are left and the countdowns between.
+--
+-- The cranes are borderline's tower cranes (works.lua, the Bragium Pit's),
+-- drawn through `Borderline:drawSiteCranes`: two while the tiers go up,
+-- one for the attic, none once it is done.
+--
+-- Walk or drive up to the gate (the sidewalk in the middle of the block's
+-- south side) while it is still going up and it says so: locked, and how
+-- many jobs are done of how many. Once it is finished the star there says
+-- the rest. It is on the minimap and the big map as an oval, the built part
+-- of the ring lit up; inside, the arena's sand is drawn over the minimap's
+-- tiles.
+--
+-- Outside, nothing here is on the host: the world is the quests feature's
+-- and the block's walls are city-map's.
+--
+-- Messages
+--   server -> all     ARN_WAVE <index> <total> <phase> <left> <seconds>
+--                     (phase: countdown | fight | cleared | done; seconds to the next thing)
+
+local Features = require("src.features")
+local UI = require("src.ui")
+local Audio = require("src.audio")
+local Look = require("src.features.colosseum.look")
+local Stands = require("src.features.colosseum.stands")
+local Theme = require("src.features.colosseum.theme")
+local Waves = require("src.features.colosseum.waves")
+
+local Colosseum = {
+  name = "colosseum",
+  priority = 27, -- over the map canvas (20), under skidmarks (30), pedestrians and cars
+  questId = "colosseum", -- quests' `boss` on the arena trip
+}
+
+-- Tuning ------------------------------------------------------------------
+Colosseum.gateReach = 110 -- px from the gate that shows what is going on
+
+local canvas = nil -- the stage drawn once (look.lua), redrawn when it changes
+local baked = nil -- { site, done, total } the canvas shows
+local plan = nil -- look.lua's plan for the stage shown
+local cranes = {} -- borderline-style tower cranes for the stage shown
+local time = 0
+local atGate = false
+local tune = nil -- the arena's theme: a Source made the first time in, then kept
+
+Colosseum.wave = nil -- { index, total, phase, left, timer } while in the arena, from the host
+
+local function tuneGain()
+  return Audio.muted and 0 or Audio.volume("music")
+end
+
+--- The building site on the map in play, or nil (off the city).
+local function site()
+  local city = Features.byName["city-map"]
+  return city and city.map and city.map.colosseum or nil
+end
+
+--- How many board jobs are finished in this world, and how many there are.
+local function progress()
+  local quests = Features.byName.quests
+  if not (quests and quests.board) then
+    return 0, 1
+  end
+  local done = 0
+  for _, job in ipairs(quests.board) do
+    if quests.finished and quests.finished[job.id] then
+      done = done + 1
+    end
+  end
+  return done, math.max(1, #quests.board)
+end
+
+--- Where the gate is, world px: on the sidewalk outside it.
+local function gate(s)
+  return s.x + s.w / 2, s.y + s.h + 30
+end
+
+function Colosseum:exitGame()
+  baked, plan, cranes, atGate = nil, nil, {}, false
+  self.wave = nil
+  if tune then
+    tune:stop()
+  end
+end
+
+function Colosseum:questStarted(_client, quest)
+  if quest.boss ~= self.questId then
+    return
+  end
+  if not tune then
+    local clock = love.timer.getTime()
+    tune = love.audio.newSource(Theme.render(), "static")
+    tune:setLooping(true)
+    tune:setRelative(true) -- music, not a sound on the map
+    -- The render time on the console, as every theme logs it.
+    local took = love.timer.getTime() - clock
+    print(("colosseum theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+  end
+  tune:setVolume(tuneGain())
+  tune:seek(0)
+  tune:play()
+end
+
+function Colosseum:questEnded(_client, quest)
+  if quest.boss == self.questId then
+    self.wave = nil
+    if tune then
+      tune:stop()
+    end
+  end
+end
+
+-- Server --------------------------------------------------------------------
+
+function Colosseum:serverStart()
+  Waves.stop()
+end
+
+--- Everyone walked in: the countdown to the first wave starts.
+function Colosseum:serverQuestStarted(server, quest)
+  if quest.boss == self.questId then
+    Waves.start(server)
+  end
+end
+
+function Colosseum:serverQuestEnded()
+  Waves.stop()
+end
+
+function Colosseum:serverStep(server, dt)
+  local city = Features.byName["city-map"]
+  local oval = city and city.map and city.map.oval
+  if oval and Waves.running() then
+    Waves.step(server, dt, oval)
+  end
+end
+
+function Colosseum:serverPlayerJoined(server, player)
+  if not player.bot then
+    Waves.joined(server, player)
+  end
+end
+
+Colosseum.clientMessages = {
+  ARN_WAVE = function(_client, args)
+    local index, total, left, seconds = tonumber(args[1]), tonumber(args[2]), tonumber(args[4]), tonumber(args[5])
+    if index and total and left and seconds then
+      Colosseum.wave = { index = index, total = total, phase = args[3], left = left, timer = seconds }
+    end
+  end,
+}
+
+--- The stands past the arena's wall, for surroundings: over (left, top,
+--- right, bottom), world px, seen through `camera`.
+function Colosseum:drawStands(map, camera, left, top, right, bottom)
+  if map.oval then
+    Stands.draw(map.oval, left, top, right, bottom, time, camera.scale)
+  end
+end
+
+--- The stage the site is at now; the canvas and the cranes follow it.
+local function refresh(s)
+  local done, total = progress()
+  if baked and baked.site == s and baked.done == done and baked.total == total then
+    return
+  end
+  plan = Look.plan(done, total)
+  cranes = Look.cranes(s, plan.cranes)
+  if not canvas and love.graphics and love.graphics.newCanvas then -- once: the site, and room for shadows round it
+    canvas = love.graphics.newCanvas(s.w + 2 * Look.MARGIN, s.h + 2 * Look.MARGIN)
+  end
+  if canvas then
+    Look.bake(canvas, s, plan)
+  end
+  baked = { site = s, done = done, total = total }
+end
+
+function Colosseum:update(dt, client)
+  time = time + dt
+  if self.wave then
+    self.wave.timer = math.max(0, self.wave.timer - dt)
+  end
+  if tune and tune:isPlaying() then
+    tune:setVolume(tuneGain())
+  end
+  local s = site()
+  atGate = false
+  if not s then
+    return
+  end
+  refresh(s)
+  local x, y = client:myPose()
+  if x then
+    local gx, gy = gate(s)
+    atGate = not plan.finished and (x - gx) ^ 2 + (y - gy) ^ 2 < self.gateReach ^ 2 -- finished: the star speaks
+  end
+end
+
+--- Is the site within `camera`'s view (true without one)?
+local function inView(s, camera)
+  if not camera then
+    return true
+  end
+  local k = camera.scale or 1
+  local vw, vh = love.graphics.getWidth() / 2 / k + 400, love.graphics.getHeight() / 2 / k + 400
+  local cx, cy = s.x + s.w / 2, s.y + s.h / 2
+  return math.abs(cx - camera.x) < vw + s.w / 2 and math.abs(cy - camera.y) < vh + s.h / 2
+end
+
+local function borderline()
+  local b = Features.byName.borderline
+  return b and b.drawSiteCranes and b or nil
+end
+
+function Colosseum:drawBelowCars(_client, camera)
+  local s = site()
+  if not (s and plan and inView(s, camera)) then
+    return
+  end
+  if canvas then
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.draw(canvas, Look.origin(s))
+  end
+  local b = borderline()
+  if b and #cranes > 0 then
+    b:drawSiteCranes(cranes, true)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+function Colosseum:drawAboveCars(_client, camera)
+  local s = site()
+  if not (s and plan and inView(s, camera)) then
+    return
+  end
+  local b = borderline()
+  if b and #cranes > 0 then
+    b:drawSiteCranes(cranes, false)
+  end
+  if plan.finished then
+    Look.drawFlags(s, time)
+  end
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- The wave in the arena, top middle: its number and name, then how many
+--- are left, or the countdown to it, or that it is cleared.
+local function drawWave(wave)
+  local w = love.graphics.getWidth()
+  local def = Waves.LIST[wave.index]
+  local title = ("WAVE %d/%d  %s"):format(wave.index, wave.total, def and def.title:upper() or "")
+  local line, color
+  if wave.phase == "countdown" then
+    line, color = ("Starts in %d"):format(math.ceil(wave.timer)), { 1, 0.85, 0.3 }
+  elseif wave.phase == "fight" then
+    line, color = ("%d left"):format(wave.left), { 1, 0.45, 0.35 }
+  elseif wave.phase == "cleared" then
+    line, color = ("Wave cleared! Next in %d"):format(math.ceil(wave.timer)), { 0.5, 1, 0.6 }
+  else
+    title = "ARENA CLEARED"
+    line, color = "More waves are coming. The star by the gate takes you home.", { 0.5, 1, 0.6 }
+  end
+  love.graphics.setFont(UI.fonts.heading)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(title, 2, 50, w, "center")
+  love.graphics.setColor(color)
+  love.graphics.printf(title, 0, 48, w, "center")
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(line, 1, 83, w, "center")
+  love.graphics.setColor(0.95, 0.95, 0.95)
+  love.graphics.printf(line, 0, 82, w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
+function Colosseum:drawHUD()
+  if self.wave then
+    drawWave(self.wave)
+  end
+  if not (atGate and plan) then
+    return
+  end
+  local w, h = love.graphics.getDimensions()
+  local title = "THE COLOSSEUM - UNDER CONSTRUCTION"
+  local line = ("Locked. It opens when every job is done (%d/%d)."):format(plan.done, plan.total)
+  local color = { 1, 0.6, 0.35 }
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(title, 1, h - 151, w, "center")
+  love.graphics.printf(line, 1, h - 129, w, "center")
+  love.graphics.setColor(color)
+  love.graphics.printf(title, 0, h - 152, w, "center")
+  love.graphics.setColor(0.9, 0.9, 0.9)
+  love.graphics.printf(line, 0, h - 130, w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
+--- In the arena: the sand and the wall round it, over the ground's tiles,
+--- and the cover on it.
+local function arenaOnMap(oval, cover, toMap)
+  local cx, cy = toMap(oval.x, oval.y)
+  local k = (toMap(oval.x + oval.rx, oval.y) - cx) / oval.rx -- map px per world px
+  love.graphics.setColor(0.78, 0.72, 0.60)
+  love.graphics.ellipse("fill", cx, cy, (oval.rx + 64) * k, (oval.ry + 64) * k, 48)
+  love.graphics.setColor(0.84, 0.73, 0.50)
+  love.graphics.ellipse("fill", cx, cy, oval.rx * k, oval.ry * k, 48)
+  love.graphics.setColor(0.12, 0.10, 0.09)
+  local gx, gy = toMap(oval.x, oval.y + oval.ry)
+  love.graphics.rectangle("fill", gx - 70 * k, gy, 140 * k, 64 * k) -- the gate
+  for _, c in ipairs(cover or {}) do -- the cover on the sand
+    if c.mapColor then
+      love.graphics.setColor(c.mapColor)
+      local x, y = toMap(c.x, c.y)
+      love.graphics.rectangle("fill", x, y, math.max(1, c.w * k), math.max(1, c.h * k))
+    end
+  end
+end
+
+--- An oval where it stands, the built part of the ring lit up (all of it
+--- once finished), so it can be found on both maps; in the arena, its sand.
+function Colosseum:drawOnMinimap(_client, toMap)
+  local city = Features.byName["city-map"]
+  local oval = city and city.map and city.map.oval
+  if oval then
+    arenaOnMap(oval, city.map.cover, toMap)
+    love.graphics.setColor(1, 1, 1)
+    return
+  end
+  local s = site()
+  if not (s and plan) then
+    return
+  end
+  local cx, cy = toMap(s.x + s.w / 2, s.y + s.h / 2)
+  local ex = toMap(s.x + s.w / 2 + Look.OUTER[1], s.y + s.h / 2)
+  local k = (ex - cx) / Look.OUTER[1] -- map px per world px
+  local rx, ry = Look.OUTER[1] * k, Look.OUTER[2] * k
+  local width = math.max(2, (Look.OUTER[2] - Look.INNER[2]) * k * 0.7)
+  love.graphics.setColor(0, 0, 0, 0.8)
+  love.graphics.setLineWidth(width + 2)
+  love.graphics.ellipse("line", cx, cy, rx - width / 2, ry - width / 2, 32)
+  love.graphics.setLineWidth(width)
+  love.graphics.setColor(0.45, 0.42, 0.38)
+  love.graphics.ellipse("line", cx, cy, rx - width / 2, ry - width / 2, 32)
+  local f = plan.finished and 1 or plan.levels / Look.LEVELS
+  if f > 0 then
+    love.graphics.setColor(0.92, 0.80, 0.55)
+    local points = {}
+    local n = math.max(2, math.floor(32 * f))
+    for i = 0, n do
+      local a = -math.pi / 2 + 2 * math.pi * f * i / n
+      points[#points + 1] = cx + math.cos(a) * (rx - width / 2)
+      points[#points + 1] = cy + math.sin(a) * (ry - width / 2)
+    end
+    love.graphics.line(points)
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 1, 1)
+end
+
+return Colosseum

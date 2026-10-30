@@ -402,6 +402,33 @@ couple of small conventions rather than requiring each other:
   wallet and nothing at all if it was empty, so fill in `victim` for
   anything a player was driving. Ignore kinds you don't care about; new
   kinds may appear.
+- `feature:serverArenaSend(server, kind, count, x, y)` and
+  `feature:serverArenaLeft(server, kind)`: the Colosseum's waves
+  (`src/features/colosseum/waves.lua`, `Waves.LIST`) fight every enemy in
+  the game in order. A wave names your feature and a `kind` of yours; the
+  first call puts `count` of them down round (x, y), hunting everyone on the
+  sand however far off, and returns how many came; the second says how many
+  are still up (0 clears the wave). Everything else about them stays yours:
+  brains, look, `serverShotAt`, `serverEnemies`, drops. Karen's simps are
+  the first three waves (`karen`, kind "simp") and Karen the fourth (kind
+  "karen"); Bigfoot's squirrels the next three and Bigfoot the eighth,
+  through the events feature (kinds "squirrels" and "bigfoot": his city
+  event's module, run on the sand); D-Day's riflemen the next three and
+  Major Looz'er the twelfth (`d-day`, kinds "soldier" and "major", mortars
+  falling all the while); Shotgun the thirteenth (`shotgun`, kind "boss":
+  his brain is handed the arena dressed as his bluff); the Combine the next
+  three (`a-man`, kind "combine": a bare level on the sand) and the
+  Hunter-Chopper the seventeenth (`hunter-chopper`, kind "chopper"). A
+  wave's `also` counts the help a boss calls in as part of it (the
+  chopper's soldiers, and the Hunters out of A-Man's case: `hunters`
+  answers `serverArenaLeft`); antlions the next two and the Antlion Guard
+  the twentieth (`antlions`, kinds "antlion" and "guard"; the rollermines
+  its chopper drops count, `rollermines` answering `serverArenaLeft`);
+  the Poison Zombie the twenty-first (`poison-zombie`, kind "zombie", his
+  crabs in his count) and A-Man the twenty-second (`a-man`, kind "a-man":
+  the Citadel's finale on the sand, whatever comes out of his case in his
+  wave's `also`). Add your enemy to the list and answer both to put it in
+  the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
