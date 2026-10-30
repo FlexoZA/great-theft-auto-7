@@ -14,6 +14,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Colosseum is going up on the block north of the spawn road, cranes and all. Every job you finish on the board
+  builds more of it, and it stays locked until all of them are done. It's on the minimap and the big map too.
+
 ## [0.44.0] - 2026-10-30
 
 Borderline, a new eight-map quest line on the frozen planet Pandoria against Maximum Maximilian Max's robot army,

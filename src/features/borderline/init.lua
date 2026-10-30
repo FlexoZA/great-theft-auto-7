@@ -395,6 +395,19 @@ function Borderline:drawAboveCars()
   Marker.draw(objectives())
 end
 
+--- Tower cranes on another feature's building site (the Colosseum's),
+--- drawn and swung by works.lua the same as the Bragium Pit's: `cranes` is
+--- a list like `map.cranes`. Their shadows when `below` (under the cars),
+--- else the cranes themselves (over everyone).
+function Borderline:drawSiteCranes(cranes, below)
+  local site = { cranes = cranes }
+  if below then
+    Works.drawBelowCars(site)
+  else
+    Works.drawAboveCars(site)
+  end
+end
+
 function Borderline:drawNightLights(_client, _camera, glow)
   local map = cityMap()
   if map then

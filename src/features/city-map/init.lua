@@ -60,7 +60,10 @@ local CityMap = {
 -- Layout.generate plus a title for the HUD. Add one here and a quest (or
 -- anything else) can send everyone there by name.
 CityMap.maps = {
-  city = { title = "The City", seed = Layout.SEED, cols = Layout.COLS, rows = Layout.ROWS, plots = Layout.PLOTS },
+  city = {
+    title = "The City", seed = Layout.SEED, cols = Layout.COLS, rows = Layout.ROWS, plots = Layout.PLOTS,
+    colosseum = Layout.COLOSSEUM,
+  },
   -- Open ground out past the city: nothing built, nothing for sale, nobody
   -- about and no traffic, walls around it. Quests go here and come back.
   outskirts = {
