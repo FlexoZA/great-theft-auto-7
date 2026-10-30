@@ -8,7 +8,9 @@
 -- A wave is a row of `Waves.LIST`: its title, the feature whose enemies it
 -- is (`feature`), what of theirs (`kind`) and how many for one player
 -- (`count`, grown for a bigger group the way the bosses' gangs are:
--- Bosses.count). That feature answers two calls, through Features.byName:
+-- Bosses.count, unless `exact`: a boss comes alone and grows her own
+-- health). It comes in at `Waves.SPOTS`, or its own `spots`. That feature
+-- answers two calls, through Features.byName:
 --   feature:serverArenaSend(server, kind, count, x, y)  `count` of `kind` turn up round (x, y) and hunt
 --                                                        everyone, however far; returns how many came
 --   feature:serverArenaLeft(server, kind)                how many of `kind` are still up
@@ -25,6 +27,9 @@ local Waves = {}
 
 Waves.LIST = {
   { title = "Karen's Simps", feature = "karen", kind = "simp", count = 8 },
+  { title = "More Simps", feature = "karen", kind = "simp", count = 10 },
+  { title = "Simp Swarm", feature = "karen", kind = "simp", count = 12 },
+  { title = "Crazy Karen", feature = "karen", kind = "karen", count = 1, exact = true, spots = { { 0, -0.3 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave
@@ -64,11 +69,12 @@ end
 local function send(server, oval)
   local wave = Waves.LIST[sv.index]
   local f = Features.byName[wave.feature]
-  local count = Bosses.count(wave.count, server)
+  local count = wave.exact and wave.count or Bosses.count(wave.count, server)
+  local spots = wave.spots or Waves.SPOTS
   local came = 0
   if f and f.serverArenaSend then
-    for k, spot in ipairs(Waves.SPOTS) do
-      local share = math.floor(count / #Waves.SPOTS) + (k <= count % #Waves.SPOTS and 1 or 0)
+    for k, spot in ipairs(spots) do
+      local share = math.floor(count / #spots) + (k <= count % #spots and 1 or 0)
       came = came + f:serverArenaSend(server, wave.kind, share, oval.x + spot[1] * oval.rx, oval.y + spot[2] * oval.ry)
     end
   end

@@ -410,8 +410,9 @@ couple of small conventions rather than requiring each other:
   sand however far off, and returns how many came; the second says how many
   are still up (0 clears the wave). Everything else about them stays yours:
   brains, look, `serverShotAt`, `serverEnemies`, drops. Karen's simps are
-  the first (`karen`, kind "simp"); add your enemy to the list and answer
-  both to put it in the arena.
+  the first three waves (`karen`, kind "simp") and Karen the fourth (kind
+  "karen"); add your enemy to the list and answer both to put it in the
+  arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

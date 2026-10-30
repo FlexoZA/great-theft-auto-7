@@ -20,8 +20,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Once every job is done, a star at the Colosseum's gate takes everyone inside: a big open arena of sand, walled
   round, with packed stands cheering and a march of its own, and cover on the sand: sandbag walls, concrete
   barriers, shipping containers, crates and oil drums.
-- The Colosseum's first wave: walk in, a countdown starts, and 8 of Karen's simps (more for a bigger group) pour
-  in from the far end of the sand. Clear them for a pile of koins in the middle. More waves are coming.
+- The Colosseum's waves: walk in, a countdown starts, and Karen's simps pour in from the far end of the sand, 8,
+  then 10, then 12 (more for a bigger group), and then Crazy Karen herself with her gang. Each wave cleared drops a
+  pile of koins in the middle. More waves are coming.
 
 ## [0.44.0] - 2026-10-30
 

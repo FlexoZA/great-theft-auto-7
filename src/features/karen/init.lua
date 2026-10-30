@@ -185,9 +185,14 @@ end
 
 --- The Colosseum's waves (colosseum/waves.lua): `count` simps turn up
 --- round (x, y), Karen or no Karen, and go for whoever is nearest however
---- far off. Simps are all she sends (`kind` "simp"). Returns how many came
---- (a spot may be walled in).
+--- far off (`kind` "simp"); or Karen herself stands there (`kind` "karen"),
+--- the fight as on her street, her gang turning up while she stands.
+--- Returns how many came (a spot may be walled in).
 function Karen:serverArenaSend(server, kind, count, x, y)
+  if sv and kind == "karen" then
+    self:spawnBoss(server, x, y)
+    return 1
+  end
   if not (sv and kind == "simp") then
     return 0
   end
@@ -204,9 +209,16 @@ function Karen:serverArenaSend(server, kind, count, x, y)
   return came
 end
 
---- How many simps are out right now (the waves' other call).
+--- How many are still up (the waves' other call): the simps out, and
+--- Karen with them while she stands.
 function Karen:serverArenaLeft(_server, kind)
-  return sv and kind == "simp" and sv.simps.n or 0
+  if not sv then
+    return 0
+  end
+  if kind == "karen" then
+    return (sv.boss and 1 or 0) + sv.simps.n
+  end
+  return kind == "simp" and sv.simps.n or 0
 end
 
 --- One simp down: his body on every screen (gibs under a car or in a
@@ -404,9 +416,9 @@ function Karen:wikiEnemies(add)
   add({
     kind = "karen/boss",
     name = "Crazy Karen",
-    quests = { "karen" },
+    quests = { "karen", "colosseum" },
     boss = true,
-    where = "Karen's Cul-de-sac, in the turning circle at the end of her street",
+    where = "Karen's Cul-de-sac, in the turning circle at the end of her street; and the Colosseum's fourth wave",
     about = "The first boss. She stands in her turning circle ranting about nothing, and the moment anyone "
       .. "comes near she charges them and slaps whatever she reaches, car or walker.",
     stats = {
@@ -448,7 +460,7 @@ function Karen:wikiEnemies(add)
     name = "Simp",
     quests = { "karen", "colosseum" },
     scaling = "none", -- their health and punches stay put; only the gang grows (Bosses.count)
-    where = "Karen's Cul-de-sac, turning up round her while she stands; and the Colosseum's first wave",
+    where = "Karen's Cul-de-sac, turning up round her while she stands; and the Colosseum's first three waves",
     about = ("Karen's hangers-on, in grey hoodies, each with a name that starts \"%s\". They run at you from all "
       .. "sides and punch."):format(Simps.PREFIX),
     stats = {
