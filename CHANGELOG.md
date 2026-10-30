@@ -14,10 +14,14 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-10-30
+
+Borderline, a new eight-map quest line on the frozen planet Pandoria against Maximum Maximilian Max's robot army,
+with five bosses, plasma as a new damage type, and two plasma guns: the plasma rifle and the Bragium Bolter.
+
 ### Added
 - A new job on the board once Eternal Mood is done, "Left for dead" (Borderline): eight maps on the frozen
-  planet Pandoria, all on foot, from a wrecked train to Maximum Maximilian Max's bunker. So far the maps are walked
-  through to their far end; the bosses come next.
+  planet Pandoria, all on foot, from a wrecked train to Maximum Maximilian Max's bunker.
 - The Borderline maps show their layout on the minimap and the big map (the sheds, the train, the pits, the
   containers, the factories, the river) instead of a grey box, with each area's name on it and the one you're
   in picked out in gold; and a gold chevron bounces over what the objective is after: each terminal still to
