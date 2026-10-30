@@ -18,7 +18,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The Colosseum is going up on the block north of the spawn road, cranes and all. Every job you finish on the board
   builds more of it, and it stays locked until all of them are done. It's on the minimap and the big map too.
 - Once every job is done, a star at the Colosseum's gate takes everyone inside: a big open arena of sand, walled
-  round, with packed stands cheering and a march of its own. Nothing to fight there yet.
+  round, with packed stands cheering and a march of its own, and cover on the sand: sandbag walls, concrete
+  barriers, shipping containers, crates and oil drums. Nothing to fight there yet.
 
 ## [0.44.0] - 2026-10-30
 

@@ -1,10 +1,12 @@
 -- Draws the Colosseum's arena (arena.lua) into the map canvas: the raked
--- sand, the podium wall round it with its shadow on the sand and the gate
--- in the south wall. Past the wall the canvas stays clear: the stands are
+-- sand, the podium wall round it with its shadow on the sand, the gate in
+-- the south wall and the cover about the sand (other maps' pieces). Past
+-- the wall the canvas stays clear: the stands are
 -- the colosseum feature's, drawn past the map's edge by surroundings, and
 -- they show through.
 
 local Arena = require("src.features.city-map.arena")
+local RenderBorderline = require("src.features.city-map.render_borderline")
 
 local RenderArena = {}
 
@@ -103,10 +105,38 @@ local function drawGate(map, W)
   end
 end
 
-function RenderArena.draw(map, _T)
+-- The kinds Borderline draws (render_borderline.lua); they leave their shadows to the map.
+local BORDERLINE = { container = true, crate = true, drum = true }
+
+--- The cover on the sand: the shadows of Borderline's pieces first, then
+--- every piece, Borderline's its way and the rest by `props` (render.lua's
+--- own: D-Day's sandbags, the Outer City's barriers, each with its shadow).
+local function drawCover(map, props)
+  local font = love.graphics.getFont()
+  color(C.shadow)
+  for _, s in ipairs(map.cover) do
+    if s.kind == "drum" then
+      love.graphics.ellipse("fill", s.x + s.w / 2 + 10, s.y + s.h / 2 + 10, s.w / 2, s.h / 2, 16)
+    elseif BORDERLINE[s.kind] then
+      love.graphics.rectangle("fill", s.x + 12, s.y + 12, s.w, s.h)
+    end
+  end
+  for _, s in ipairs(map.cover) do
+    if BORDERLINE[s.kind] then
+      RenderBorderline.drawCover(s)
+    elseif props[s.kind] then
+      props[s.kind](s)
+    end
+  end
+  love.graphics.setFont(font)
+end
+
+--- `props` draws the pieces render.lua owns, by kind.
+function RenderArena.draw(map, _T, props)
   drawSand(map.oval)
   drawWall(map.oval, Arena.WALL)
   drawGate(map, Arena.WALL)
+  drawCover(map, props or {})
 end
 
 return RenderArena

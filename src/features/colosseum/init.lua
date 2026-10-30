@@ -229,8 +229,9 @@ function Colosseum:drawHUD()
   love.graphics.setColor(1, 1, 1)
 end
 
---- In the arena: the sand and the wall round it, over the ground's tiles.
-local function arenaOnMap(oval, toMap)
+--- In the arena: the sand and the wall round it, over the ground's tiles,
+--- and the cover on it.
+local function arenaOnMap(oval, cover, toMap)
   local cx, cy = toMap(oval.x, oval.y)
   local k = (toMap(oval.x + oval.rx, oval.y) - cx) / oval.rx -- map px per world px
   love.graphics.setColor(0.78, 0.72, 0.60)
@@ -240,6 +241,13 @@ local function arenaOnMap(oval, toMap)
   love.graphics.setColor(0.12, 0.10, 0.09)
   local gx, gy = toMap(oval.x, oval.y + oval.ry)
   love.graphics.rectangle("fill", gx - 70 * k, gy, 140 * k, 64 * k) -- the gate
+  for _, c in ipairs(cover or {}) do -- the cover on the sand
+    if c.mapColor then
+      love.graphics.setColor(c.mapColor)
+      local x, y = toMap(c.x, c.y)
+      love.graphics.rectangle("fill", x, y, math.max(1, c.w * k), math.max(1, c.h * k))
+    end
+  end
 end
 
 --- An oval where it stands, the built part of the ring lit up (all of it
@@ -248,7 +256,7 @@ function Colosseum:drawOnMinimap(_client, toMap)
   local city = Features.byName["city-map"]
   local oval = city and city.map and city.map.oval
   if oval then
-    arenaOnMap(oval, toMap)
+    arenaOnMap(oval, city.map.cover, toMap)
     love.graphics.setColor(1, 1, 1)
     return
   end

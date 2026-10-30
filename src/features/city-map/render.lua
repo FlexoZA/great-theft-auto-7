@@ -1529,7 +1529,7 @@ function Render.build(map)
     if CyberFeud.builds(map.kind) then
       RenderCyberFeud.draw(map, Layout.TILE)
     elseif map.kind == "arena" then
-      RenderArena.draw(map, Layout.TILE)
+      RenderArena.draw(map, Layout.TILE, { sandbag = drawSandbags, barrier = drawBarrier })
     elseif Borderline.builds(map.kind) then
       RenderBorderline.draw(map, Layout.TILE)
     elseif EternalMood.builds(map.kind) then
