@@ -14,7 +14,9 @@
 --   feature:serverArenaSend(server, kind, count, x, y)  `count` of `kind` turn up round (x, y) and hunt
 --                                                        everyone, however far; returns how many came
 --   feature:serverArenaLeft(server, kind)                how many of `kind` are still up
--- and everything else about them stays its own: their brains, how they
+-- A wave's `also` lists { feature, kind } more to count as its own: the help
+-- a boss calls in (the Hunter-Chopper's soldiers and Hunters).
+-- Everything else about them stays its own: their brains, how they
 -- look, getting shot (`serverShotAt`, `serverEnemies`), what they drop.
 --
 -- The host decides it all and tells everyone (ARN_WAVE); clients draw.
@@ -39,6 +41,12 @@ Waves.LIST = {
   { title = "The Landing Party", feature = "d-day", kind = "soldier", count = 12 },
   { title = "Major Looz'er", feature = "d-day", kind = "major", count = 1, exact = true, spots = { { 0, -0.3 } } },
   { title = "Shotgun", feature = "shotgun", kind = "boss", count = 1, exact = true, spots = { { 0, -0.6 } } },
+  { title = "The Combine", feature = "a-man", kind = "combine", count = 6 },
+  { title = "Combine Patrol", feature = "a-man", kind = "combine", count = 9 },
+  { title = "Overwatch", feature = "a-man", kind = "combine", count = 12 },
+  { title = "The Hunter-Chopper", feature = "hunter-chopper", kind = "chopper", count = 1, exact = true,
+    spots = { { 0, 0 } }, -- round the middle; the soldiers and Hunters it calls in count too
+    also = { { feature = "a-man", kind = "combine" }, { feature = "hunters", kind = "hunter" } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave
@@ -93,8 +101,12 @@ end
 --- How many of the wave in play are still up.
 local function left(server)
   local wave = Waves.LIST[sv.index]
-  local f = Features.byName[wave.feature]
-  return f and f.serverArenaLeft and f:serverArenaLeft(server, wave.kind) or 0
+  local n = 0
+  for _, part in ipairs({ wave, unpack(wave.also or {}) }) do
+    local f = Features.byName[part.feature]
+    n = n + (f and f.serverArenaLeft and f:serverArenaLeft(server, part.kind) or 0)
+  end
+  return n
 end
 
 --- One tick on the host, in the arena `oval`.

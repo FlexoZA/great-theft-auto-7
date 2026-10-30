@@ -130,6 +130,17 @@ function AMan:serverDropTroops(server, x, y, count)
   return City17.serverDrop(server, x, y, count)
 end
 
+--- The Colosseum's waves (colosseum/waves.lua): `count` Combine soldiers
+--- set down round (x, y) on its sand (`kind` "combine"). Returns how many came.
+function AMan:serverArenaSend(server, kind, count, x, y)
+  return kind == "combine" and City17.serverArenaDrop(server, x, y, count) or 0
+end
+
+--- How many Combine soldiers are still up.
+function AMan:serverArenaLeft(_server, kind)
+  return kind == "combine" and City17.serverUp() or 0
+end
+
 --- Take the Combine soldiers inside rectangle `r` off the level that is on, quietly.
 function AMan:serverClearIn(_server, r)
   City17.serverClearIn(r)

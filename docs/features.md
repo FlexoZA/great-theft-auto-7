@@ -416,8 +416,13 @@ couple of small conventions rather than requiring each other:
   event's module, run on the sand); D-Day's riflemen the next three and
   Major Looz'er the twelfth (`d-day`, kinds "soldier" and "major", mortars
   falling all the while); Shotgun the thirteenth (`shotgun`, kind "boss":
-  his brain is handed the arena dressed as his bluff). Add your enemy to
-  the list and answer both to put it in the arena.
+  his brain is handed the arena dressed as his bluff); the Combine the next
+  three (`a-man`, kind "combine": a bare level on the sand) and the
+  Hunter-Chopper the seventeenth (`hunter-chopper`, kind "chopper"). A
+  wave's `also` counts the help a boss calls in as part of it (the
+  chopper's soldiers, and the Hunters out of A-Man's case: `hunters`
+  answers `serverArenaLeft`). Add your enemy to the list and answer both
+  to put it in the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

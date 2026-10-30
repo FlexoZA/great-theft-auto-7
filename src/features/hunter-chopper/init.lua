@@ -27,6 +27,10 @@
 -- in by the player nearest it, opens his briefcase on three Hunters (the
 -- hunters feature) and blinks out again (the a-man feature's `serverVisit`).
 --
+-- The Colosseum's waves bring it over its sand too (`serverArenaSend`,
+-- colosseum/waves.lua): flying round the middle of the arena, calling for
+-- help the same; no EXIT star when it comes down there.
+--
 -- The host flies it and tells everyone where it is; every machine eases
 -- what it draws towards that and draws it over everything on the ground.
 --
@@ -123,6 +127,24 @@ function HunterChopper:serverQuestStarted(server, quest)
       drops = {}, -- { troops, left, nextIn }: sets of soldiers still to come
     }
   end
+end
+
+--- The Colosseum's waves: up and flying round (x, y) (`kind` "chopper").
+--- Returns how many came.
+function HunterChopper:serverArenaSend(server, kind, _count, x, y)
+  if kind ~= "chopper" or sv then
+    return 0
+  end
+  local flight = Flight.new(x, y, math.pi / 2)
+  local max = Bosses.health(self.health, server)
+  sv = { flight = flight, brain = Brain.new(flight.angle), bombs = Bombs.new(), hp = max, max = max, syncIn = 0,
+    called = 0, drops = {} }
+  return 1
+end
+
+--- Whether it is still up (or coming down).
+function HunterChopper:serverArenaLeft()
+  return sv and 1 or 0
 end
 
 local function stop(server)
@@ -273,7 +295,8 @@ function HunterChopper:wikiEnemies(add)
     name = "Hunter-Chopper",
     boss = true,
     quests = { self.questId },
-    where = "The Outer City, circling the square on the island from the moment you arrive",
+    where = "The Outer City, circling the square on the island from the moment you arrive; and the Colosseum's "
+      .. "seventeenth wave",
     about = "The Combine's gunship. It circles the square, locks on to whoever it can see and hoses them with "
       .. "blue rounds, and every so often dives over you on a bombing run.",
     stats = {
