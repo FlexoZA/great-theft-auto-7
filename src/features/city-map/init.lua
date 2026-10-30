@@ -183,6 +183,43 @@ CityMap.maps = {
     title = "Heck", kind = "heck", seed = 204, cols = 60, rows = 96,
     crowd = false, traffic = false, vehicles = false, night = { 0.60, 0.20, 0.14 },
   },
+  -- The Borderline quest line's eight maps on the planet Pandoria
+  -- (borderline.lua), all walked: a freight yard with a wrecked train at
+  -- dusk, a frozen harbour, a Bragium mine, Max's city under its dome,
+  -- the refinery, the robot factory, the road up the cliff and the
+  -- bunker's roof. Nobody about but the robots.
+  wreck = { -- at dusk, under the floodlights
+    title = "The Frozen Wreck", kind = "wreck", seed = 301, cols = 48, rows = 72,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
+  },
+  landing = { -- at dusk too
+    title = "Liar's Landing", kind = "landing", seed = 302, cols = 56, rows = 64,
+    crowd = false, traffic = false, vehicles = false, night = { 0.56, 0.62, 0.80 },
+  },
+  pit = { -- at dusk, the Bragium glowing
+    title = "The Bragium Pit", kind = "pit", seed = 303, cols = 60, rows = 60,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.58, 0.76 },
+  },
+  prosperity = { -- at dusk under the dome, the street lamps on
+    title = "Prosperity", kind = "prosperity", seed = 304, cols = 56, rows = 88,
+    crowd = false, traffic = false, vehicles = false, night = { 0.62, 0.58, 0.70 },
+  },
+  refinery = { -- indoors and dark: the molten Bragium lights it
+    title = "The Refinery", kind = "refinery", seed = 305, cols = 48, rows = 80,
+    crowd = false, traffic = false, vehicles = false, night = { 0.42, 0.38, 0.52 },
+  },
+  assembly = { -- indoors under strip lights
+    title = "The Assembly Line", kind = "assembly", seed = 306, cols = 56, rows = 72,
+    crowd = false, traffic = false, vehicles = false, night = { 0.52, 0.52, 0.60 },
+  },
+  cuts = { -- at dusk, up the lamps
+    title = "Thousand Papercuts", kind = "cuts", seed = 307, cols = 28, rows = 140,
+    crowd = false, traffic = false, vehicles = false, night = { 0.58, 0.62, 0.78 },
+  },
+  bunker = { -- at dusk, high up
+    title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
+    crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.58, 0.76 },
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 -- The Cyber Feud maps' builder (cyber_feud.lua), for its numbers (the garrisons' sizes on the wiki's pages).
@@ -417,6 +454,15 @@ function CityMap:drawBelowCars(_client, camera)
   if self.canvas then
     Render.draw(self.map, self.canvas)
     Render.drawFountains(self.map, love.timer.getTime(), camera)
+  end
+end
+
+--- What lies past the map's edges inside (left, top, right, bottom), world
+--- px, on a map that draws that itself (the Borderline maps); the
+--- surroundings feature asks, under the canvas.
+function CityMap:drawPastEdges(left, top, right, bottom)
+  if self.map and self.map.tiles then
+    Render.drawPastEdges(self.map, left, top, right, bottom)
   end
 end
 

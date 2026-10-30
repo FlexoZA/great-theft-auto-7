@@ -28,6 +28,14 @@
 --             alight (the damage feature's burning) for `seconds` at `dps`
 --   flame     true: its rounds are drawn as tongues of fire that swell and
 --             darken as they go, not as streaks (the flamethrower)
+--   ball      px: its rounds are drawn as balls of plasma that size, with a
+--             trail, splashing where they end, not as streaks (the plasma
+--             rifle: weapons/plasma.lua)
+--   charge    { time, min }: hold fire to charge it and let go to fire
+--             (the Bragium Bolter): one round whose `damage` (and its
+--             blast's damage) is `min` of the whole at a tap, all of it
+--             after `time` seconds of holding. The host times the charge
+--             itself (WPN_CHARGE), never trusting the shooter's word
 --   tank      true: the magazine is a tank, and one ammo item fills it
 --             whole, however much is left in it or however big a tier
 --             makes it (a fuel can). A box, a drop or a stock is counted in
@@ -49,7 +57,7 @@
 --   ammoName  what one of its rounds is called ("rocket"; "<key> ammo" otherwise)
 --   ammo      the key of another gun whose rounds it fires (the super
 --             shotgun takes the shotgun's shells, the uzi and the SMG the
---             pistol's 9mm, the AR the AK's 7.62):
+--             pistol's 9mm, the AR and the plasma rifle the AK's 7.62):
 --             it has no ammo item of its own. A `bottomless` gun's rounds
 --             are an item all the same once another gun fires them
 --             (`Guns.ammoTypes`): the pistol's 9mm, for the uzi and the SMG
@@ -155,7 +163,7 @@ Guns.list = {
     reload = 2.0,
     reloadSound = "reload-ak47",
     stack = 300, -- ten magazines a slot
-    ammoName = "7.62 round", -- the AR's too ("ammo-ak47")
+    ammoName = "7.62 round", -- the AR's and the plasma rifle's too ("ammo-ak47")
   },
   {
     -- The AK's younger, sharper cousin: lighter rounds, faster and
@@ -308,6 +316,58 @@ Guns.list = {
     ammoName = "minigun round",
     stack = 1500, -- ten belts a slot
     tierStats = { "damage", "spinUp", "magazine", "reload" },
+  },
+  {
+    -- The AK's rate of fire and its 7.62, but fired as small balls of the
+    -- plasma haulers' plasma (borderline/bolts.lua) that melt armor, and
+    -- half again the magazine.
+    -- Wilbur drops it (borderline/wilbur.lua): won, then on the shelf.
+    key = "plasma-rifle",
+    unlock = true,
+    blurb = "An assault rifle firing balls of plasma, nine a second, 45 to a magazine. "
+      .. "Plasma melts armor: what they wear stops half as much. Fires the AK's 7.62 rounds.",
+    name = "plasma rifle",
+    damageType = "plasma",
+    damage = 25, -- over the AK's 18, and the melt on top
+    cooldown = 0.11, -- the AK's nine a second
+    spread = 0.04,
+    speed = 800, -- slower than a bullet, so you see the balls fly
+    streak = 0,
+    ball = 3, -- px; a plasma hauler's bolt is 9
+    sound = "plasma",
+    pitch = 1,
+    magazine = 45,
+    reload = 2.2,
+    reloadSound = "reload-ak47",
+    ammo = "ak47", -- 7.62
+  },
+  {
+    -- Hyperbole's own heavy plasma gun: BNK-9 drops it (borderline/bnk9.lua),
+    -- won, then on the shelf. Not a second plasma rifle: one charged bolt.
+    key = "bolter",
+    unlock = true,
+    dropWeight = 0.3, -- cells rarely
+    blurb = "The Bragium Bolter: hold fire to charge, let go for one big ball of plasma that bursts where it lands "
+      .. "and melts armor. Charged all the way, nothing on foot walks away.",
+    name = "Bragium Bolter",
+    damageType = "plasma",
+    damage = 120, -- the ball itself, at a full charge (a tap: a third)
+    cooldown = 0.6,
+    spread = 0,
+    speed = 520, -- slow, like the haulers' bolts
+    streak = 0,
+    ttl = 1.6, -- about 830 px, then it bursts in mid-air
+    ball = 8,
+    blast = { radius = 90, damage = 70, soft = 4, type = "plasma" },
+    charge = { time = 1.4, min = 0.3 },
+    sound = "bolter",
+    pitch = 1,
+    magazine = 4,
+    reload = 2.8,
+    reloadSound = "reload-rocket",
+    ammoName = "Bragium cell",
+    stack = 40, -- ten loads a slot
+    tierStats = { "damage", "blast.damage", "reload", "magazine" },
   },
 }
 

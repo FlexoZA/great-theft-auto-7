@@ -356,6 +356,29 @@ function Sounds.load()
     buf:lowpass(2800)
   end)
 
+  -- Plasma rifle: the plasma haulers' wobbling zap (borderline/bolts.lua),
+  -- shorter and higher, so nine a second read as a stutter of zaps.
+  bank.plasma = make(0.18, function(buf)
+    buf:sweep(0, 0.16, 1400, 380, { wave = "saw", amp = 0.32, decay = 0.06, vibRate = 40, vibDepth = 60 })
+    buf:sweep(0, 0.1, 2600, 900, { wave = "square", amp = 0.08, decay = 0.03 })
+    buf:noiseBurst(0, 0.03, { amp = 0.25, decay = 0.01 })
+    buf:lowpass(4200)
+  end)
+
+  -- Bragium Bolter: a deep wet whoomp and the zap under it.
+  bank.bolter = make(0.6, function(buf)
+    buf:sweep(0, 0.5, 300, 60, { wave = "saw", amp = 0.5, decay = 0.2, vibRate = 20, vibDepth = 30 })
+    buf:sweep(0, 0.3, 1200, 300, { wave = "square", amp = 0.12, decay = 0.1 })
+    buf:noiseBurst(0, 0.15, { amp = 0.4, decay = 0.05 })
+    buf:lowpass(2600)
+  end)
+  -- Charging it: a hum climbing to a whine over its 1.4 s.
+  bank["bolter-charge"] = make(1.5, function(buf)
+    buf:sweep(0, 1.4, 120, 900, { wave = "saw", amp = 0.18, attack = 0.1, decay = 3, vibRate = 16, vibDepth = 12 })
+    buf:sweep(0, 1.4, 240, 1800, { wave = "sine", amp = 0.08, attack = 0.1, decay = 3 })
+    buf:lowpass(3000)
+  end, 0.7)
+
   -- Flamethrower: a steady roar while the trigger is held, one loop per
   -- shooter, lit with a whoomp.
   loops.flame = { source = flameRoar(), start = "flame-light" }

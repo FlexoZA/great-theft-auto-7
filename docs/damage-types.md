@@ -1,7 +1,7 @@
 # Damage types
 
 Every hit in the game says what kind of hit it is: a bullet, a blast, a
-flame, a crash, a bolt of lightning, a fist or a poison bite. Equipment can then resist
+flame, a crash, a bolt of lightning, a fist, a poison bite or a plasma bolt. Equipment can then resist
 some kinds and not others, fire can keep burning after the hit, and the
 kill feed and death effects can say what happened.
 
@@ -16,6 +16,7 @@ kill feed and death effects can say what happened.
 | `shock`     | the Tripod's lightning, the Hunters' rounds and their stun shot, the tau cannon, a rollermine's blades                                                                                                             | fried          |
 | `melee`     | punches, slaps, swipes and bites (simps, Karen, Bigfoot, squirrels, park bums, the open-borders horde, antlions, the Poison Zombie's claws), the Tripod's cage                                                     | beat down      |
 | `poison`    | the poison headcrabs' bites (the Poison Zombie's)                                                                                                                                                                  | poisoned       |
+| `plasma`    | Hyperbole's plasma haulers' bolts and a Bragium tank bursting (Borderline)                                                                                                                                         | melted         |
 
 The list lives in `src/features/damage/init.lua` (`Damage.types`), one
 entry per type with its name, colour and kill feed words. A new type is a
@@ -36,6 +37,7 @@ Besides the damage, each type does something to a player on foot:
 | `fire`      | a fire that means it sets you alight: you burn on (3-4 s) after you are out of it           |
 | `melee`     | bleeding: 3 a second for 4 s; a dodge or a medkit stops it                                  |
 | `poison`    | poisoned: 4 a second for 6 s; a dodge or a medkit cures it                                  |
+| `plasma`    | melted: 3 s with what you wear stopping half its share; a vest loses 2 points a point       |
 | `shock`     | a hit of 20 or more stuns: held still for 1 s (no walking, shooting or dodging); a live round zaps you: shock runs on (3 s, 8 a second) after the hit |
 | `impact`    | knocked back 36 px and down for 0.6 s                                                       |
 | `explosive` | blown back from the blast, 1.5 px per point of damage up to 110 px, and dazed (screen swims) |
@@ -52,7 +54,7 @@ cures poison too. A round can carry a zap (`electrify`) or a stun
 | kevlar vest        | armor | bullet 30%; 100 points                           |
 | bomb suit          | armor | explosive 50%, impact 30%, fire 15%; 60 points   |
 | riot armor         | armor | melee 45%, impact 20%; 80 points                 |
-| insulated suit     | armor | shock 45%, fire 25%; 70 points                   |
+| insulated suit     | armor | shock 45%, fire 25%, plasma 25%; 70 points       |
 | ceramic plates     | armor | bullet 35%, explosive 15%; 150 points            |
 | tactical hat       | head  | none (ammo bundles x1.5)                         |
 | crash helmet       | head  | impact 35%, explosive 10%                        |

@@ -91,8 +91,9 @@ local function buildCanvas(map, width, smooth)
   love.graphics.scale(s)
   love.graphics.translate(-map.left, -map.top)
   -- Every tile in its colour (an empty map has no blocks to draw; a map
-  -- drawn its own way, like City 17, has paving, roads and water too).
-  local tileColor = { ground = C.ground, walk = C.walk, road = C.asphalt, water = C.water }
+  -- drawn its own way, like City 17, has paving, roads and water too; a map
+  -- may give its floor its own colour, `map.mapFloor`: Borderline's snow).
+  local tileColor = { ground = C.ground, walk = map.mapFloor or C.walk, road = C.asphalt, water = C.water }
   for tc = map.c0, map.c1 do
     local col = map.tiles[tc]
     for tr = map.r0, map.r1 do

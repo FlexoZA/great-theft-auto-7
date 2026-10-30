@@ -132,6 +132,56 @@ Scenes.after["cyber-feud-roof"] = function(game, look)
   return true
 end
 
+-- The Frozen Wreck with the Knuckle Scrapper built out of the engine (the launch's --boss).
+Scenes.after["borderline"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Wreck would not skip to the Knuckle Scrapper"
+  end
+  watch(game, look, 8)
+  return true
+end
+
+-- The Refinery with every bridge down and the Smelter climbed out (the launch's --boss).
+Scenes.after["borderline-refinery"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-refinery"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Refinery would not skip to the Smelter"
+  end
+  watch(game, look, 8)
+  return true
+end
+
+-- The Assembly Line with the stairs open and the Foreman woken on its floor (the launch's --boss).
+Scenes.after["borderline-assembly"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-assembly"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Assembly Line would not skip to the Foreman"
+  end
+  watch(game, look, 8)
+  return true
+end
+
+-- The Bunker with the rim cannons gone and BNK-9 risen out of the hatch (the launch's --boss).
+Scenes.after["borderline-bunker"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-bunker"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Bunker would not skip to BNK-9"
+  end
+  watch(game, look, 8)
+  return true
+end
+
+-- The Bragium Pit with Wilbur down on the pad (the launch's --boss).
+Scenes.after["borderline-pit"] = function(game, look)
+  local quest = game.Features.byName.quests.byId["borderline-pit"]
+  if not game.Features.any("serverSkipToBoss", game.server, quest, game:me()) then
+    return false, "the Pit would not skip to Wilbur"
+  end
+  watch(game, look, 8)
+  return true
+end
+
 -- City 17's plaza: walking into it brings A-Man by with his briefcase of
 -- turrets (a-man/cameo.lua).
 Scenes.after["a-man"] = function(game, look)
@@ -193,6 +243,12 @@ end
 Scenes.portraits["cyber-feud-kilowatt-cameo"] = function()
   love.graphics.scale(2.2)
   require("src.features.cyber-feud.kilowatt_look").draw(-math.pi / 2, 0, { pulse = 1 })
+end
+
+-- A Fabricator: a machine of separate parts (legs, beams, a cradle) under
+-- the Assembly Line's bridge crane, which a crop round it can't tell apart.
+Scenes.portraits["borderline-fabricator"] = function()
+  require("src.features.borderline.fabricators").drawAt(0, 0)
 end
 
 -- VEX: her face, the way she projects it over the Roof, at full strength.
