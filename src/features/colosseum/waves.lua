@@ -47,6 +47,11 @@ Waves.LIST = {
   { title = "The Hunter-Chopper", feature = "hunter-chopper", kind = "chopper", count = 1, exact = true,
     spots = { { 0, 0 } }, -- round the middle; the soldiers and Hunters it calls in count too
     also = { { feature = "a-man", kind = "combine" }, { feature = "hunters", kind = "hunter" } } },
+  { title = "Antlions", feature = "antlions", kind = "antlion", count = 12 },
+  { title = "The Swarm", feature = "antlions", kind = "antlion", count = 18 },
+  { title = "The Antlion Guard", feature = "antlions", kind = "guard", count = 1, exact = true,
+    spots = { { 0, -0.3 } }, -- the rollermines its chopper drops count too
+    also = { { feature = "rollermines", kind = "rollermine" } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

@@ -21,6 +21,10 @@
 -- Another feature can call a swarm up anywhere (`serverSummon`: A-Man's
 -- briefcase in the Citadel).
 --
+-- The Colosseum's waves (colosseum/waves.lua) call swarms up on its sand
+-- that go after anyone, however far (`serverArenaSend`, kind "antlion"),
+-- and the Guard up there (kind "guard", guard.lua's `serverArenaSpawn`).
+--
 -- Clear the Coast's final section (`map.finale`) of every antlion buried
 -- there and every Combine soldier in it, and its boss comes up out of the
 -- sand: the Antlion Guard (guard.lua).
@@ -241,7 +245,8 @@ function Antlions:wikiEnemies(add)
     portraitLayers = "all", -- (its portrait wants what it draws under cars too)
     name = "Antlion",
     quests = { "a-man-coast", "a-man-citadel" },
-    where = "The Coast, buried in swarms in the sand; A-Man's briefcase calls them up in the Citadel",
+    where = "The Coast, buried in swarms in the sand; A-Man's briefcase calls them up in the Citadel; and the "
+      .. "Colosseum's eighteenth and nineteenth waves",
     about = "Insects out of the sand. A swarm lies buried until you come near, then bursts up, runs you down "
       .. "from all sides and bites.",
     stats = {
@@ -314,6 +319,34 @@ function Antlions:serverSummon(_server, x, y, count, r)
     a.wakeIn = 0.05 + (i - 1) / #swarm.members * Brain.WAKE_SPREAD
   end
   return #swarm.members
+end
+
+--- The Colosseum's waves: `count` antlions come up round (x, y) and go
+--- after whoever is nearest, however far (`kind` "antlion"); or the Guard
+--- digs up there (`kind` "guard"). Returns how many came.
+function Antlions:serverArenaSend(server, kind, count, x, y)
+  if not sv then
+    sv = newState()
+  end
+  if kind == "guard" then
+    return Guard.serverArenaSpawn(server, x, y)
+  elseif kind ~= "antlion" then
+    return 0
+  end
+  local swarm = sv.brain:bury(x, y, 200, count)
+  swarm.chase = math.huge
+  for i, a in ipairs(swarm.members) do
+    a.wakeIn = 0.05 + (i - 1) / #swarm.members * Brain.WAKE_SPREAD
+  end
+  return #swarm.members
+end
+
+--- How many antlions are still about (`kind` "antlion"), or whether the Guard is (`kind` "guard").
+function Antlions:serverArenaLeft(_server, kind)
+  if kind == "guard" then
+    return Guard.serverArenaLeft()
+  end
+  return kind == "antlion" and sv and #sv.brain.list or 0
 end
 
 --- The host's antlions, for tests.

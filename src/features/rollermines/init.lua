@@ -307,6 +307,12 @@ function Rollermines:serverSummon(_server, x, y, count, r)
   return count
 end
 
+--- How many are about, for the Colosseum's waves (the Antlion Guard's wave
+--- is not over while the ones its chopper dropped still roll).
+function Rollermines:serverArenaLeft()
+  return sv and #sv.brain.list or 0
+end
+
 --- The host's rollermines, for tests.
 function Rollermines.state()
   return sv

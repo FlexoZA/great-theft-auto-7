@@ -421,8 +421,10 @@ couple of small conventions rather than requiring each other:
   Hunter-Chopper the seventeenth (`hunter-chopper`, kind "chopper"). A
   wave's `also` counts the help a boss calls in as part of it (the
   chopper's soldiers, and the Hunters out of A-Man's case: `hunters`
-  answers `serverArenaLeft`). Add your enemy to the list and answer both
-  to put it in the arena.
+  answers `serverArenaLeft`); antlions the next two and the Antlion Guard
+  the twentieth (`antlions`, kinds "antlion" and "guard"; the rollermines
+  its chopper drops count, `rollermines` answering `serverArenaLeft`).
+  Add your enemy to the list and answer both to put it in the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
