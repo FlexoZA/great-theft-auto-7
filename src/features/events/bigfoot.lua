@@ -27,13 +27,19 @@
 -- behind, with no leap in him (not even over a block he is stuck on) until
 -- a good part of it is back.
 --
+-- The Colosseum's waves bring him onto the arena's sand too (init.lua's
+-- `serverArenaSend`, `Bigfoot.serverArenaSend`): a swarm of his squirrels
+-- with no Bigfoot (`sv.foot` nil), which know where everyone is and never
+-- burst on their own, or Bigfoot himself with his litters as in the city.
+--
 -- The host owns him and his squirrels; clients hear positions at 15 Hz and
 -- draw with the alien hunt's pictures (alien-hunt/render.lua) and sounds.
 --
 -- Messages (the events feature registers them)
 --   server -> all  EBF_STATE <tick> <x> <y> <facing> <hp> <mode> <swipe> <stamina> <winded> <max>
 --                            [<id> <x> <y> <facing>]...
---                                          (unreliable, 15 Hz; the squirrels after him)
+--                                          (unreliable, 15 Hz; the squirrels after him; x and y "-"
+--                                          with no Bigfoot, an arena swarm)
 --   server -> all  EBF_LEAP  <fx> <fy> <tx> <ty> <seconds> <radius>   he took off; lands on (tx, ty)
 --   server -> all  EBF_SLAM  <x> <y> <radius>        he landed
 --   server -> all  EBF_LITTER <x> <y>                a new litter came out round him
@@ -139,7 +145,8 @@ end
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { foot, squirrels = { id -> s }, count, nextId, litterIn, syncIn, buildings, events }
+local sv = nil -- { foot (nil for an arena swarm), squirrels = { id -> s }, count, nextId, litterIn, syncIn,
+--                  buildings, events, arena }
 
 function Bigfoot.serverStop()
   sv = nil
@@ -203,22 +210,24 @@ local function spawnPoint(server)
   return best
 end
 
-function Bigfoot.serverBegin(server, events)
-  local at = spawnPoint(server)
-  if not at then
-    return nil
-  end
+--- Him, fresh, standing at (x, y).
+local function newFoot(server, x, y)
   local hp = Bosses.health(Bigfoot.health, server)
-  sv = {
+  return {
+    x = x, y = y, facing = math.pi / 2, hp = hp, max = hp, mode = "idle", timer = 0, frozen = 0,
+    swipeTimer = 1, swipe = 0, leapTimer = Bigfoot.leapEvery * 0.5, stuck = 0, sidestep = 0, side = 1,
+    closest = math.huge, noCloser = 0,
+    breath = Stamina.new(Bigfoot.breath), -- winded, he lumbers and cannot leap
+    running = false, -- at full tilt this tick, for his breath
+  }
+end
+
+--- The host's side of it, fresh: `foot` (nil for none) and his squirrels to come.
+local function fresh(server, events, foot)
+  return {
     events = events,
     litterSize = Bosses.count(Bigfoot.litter, server),
-    foot = {
-      x = at.x, y = at.y, facing = math.pi / 2, hp = hp, max = hp, mode = "idle", timer = 0, frozen = 0,
-      swipeTimer = 1, swipe = 0, leapTimer = Bigfoot.leapEvery * 0.5, stuck = 0, sidestep = 0, side = 1,
-      closest = math.huge, noCloser = 0,
-      breath = Stamina.new(Bigfoot.breath), -- winded, he lumbers and cannot leap
-      running = false, -- at full tilt this tick, for his breath
-    },
+    foot = foot,
     squirrels = {},
     count = 0,
     nextId = 1,
@@ -227,6 +236,14 @@ function Bigfoot.serverBegin(server, events)
     syncIn = 0,
     buildings = {},
   }
+end
+
+function Bigfoot.serverBegin(server, events)
+  local at = spawnPoint(server)
+  if not at then
+    return nil
+  end
+  sv = fresh(server, events, newFoot(server, at.x, at.y))
   return at.x, at.y
 end
 
@@ -273,23 +290,34 @@ local function stepFoot(server, dt)
   end
 end
 
+--- `n` squirrels round (x, y), `out` px out past the middle; not inside
+--- anything solid. An arena's never burst on their own. Returns how many.
+local function squirrelsAt(server, x, y, n, out)
+  local came = 0
+  for i = 1, n do
+    local a = (i / n) * math.pi * 2 + random() * 0.3
+    local d = out + 14 + random() * 40
+    local sx, sy = x + math.cos(a) * d, y + math.sin(a) * d
+    if not blocked(sx, sy, Bigfoot.squirrelRadius) then
+      local id = sv.nextId
+      sv.nextId = id + 1
+      sv.squirrels[id] = {
+        id = id, x = sx, y = sy, facing = a, hp = Bigfoot.squirrelHealth,
+        wait = Bigfoot.squirrelWait[1] + random() * (Bigfoot.squirrelWait[2] - Bigfoot.squirrelWait[1]),
+        life = sv.arena and not sv.foot and math.huge or Bigfoot.squirrelLife, frozen = 0,
+      }
+      came = came + 1
+    end
+  end
+  sv.count = sv.count + came
+  server:broadcast(Protocol.encode("EBF_LITTER", fmt(x), fmt(y)))
+  return came
+end
+
 --- A new litter round his feet.
 local function litter(server)
   local f = sv.foot
-  local n = sv.litterSize
-  for i = 1, n do
-    local a = (i / n) * math.pi * 2 + random() * 0.3
-    local d = Bigfoot.radius + 14 + random() * 40
-    local id = sv.nextId
-    sv.nextId = id + 1
-    sv.squirrels[id] = {
-      id = id, x = f.x + math.cos(a) * d, y = f.y + math.sin(a) * d, facing = a, hp = Bigfoot.squirrelHealth,
-      wait = Bigfoot.squirrelWait[1] + random() * (Bigfoot.squirrelWait[2] - Bigfoot.squirrelWait[1]),
-      life = Bigfoot.squirrelLife, frozen = 0,
-    }
-  end
-  sv.count = n
-  server:broadcast(Protocol.encode("EBF_LITTER", fmt(f.x), fmt(f.y)))
+  squirrelsAt(server, f.x, f.y, sv.litterSize, Bigfoot.radius)
 end
 
 --- Squirrel `s` bursts where it is.
@@ -308,7 +336,8 @@ end
 --- What squirrel `s` makes for: the nearest player in range, or the nearest
 --- building of a player's in range; nil for neither.
 local function squirrelTarget(s, people)
-  local best, bestD2 = nil, Bigfoot.squirrelRange ^ 2
+  local range = sv.arena and math.huge or Bigfoot.squirrelRange -- the arena's know where everyone is
+  local best, bestD2 = nil, range ^ 2
   for _, h in ipairs(people) do
     local d2 = dist2(h.x, h.y, s.x, s.y)
     if d2 < bestD2 then
@@ -362,8 +391,8 @@ local function stepSquirrels(server, dt)
         local d = math.sqrt(dist2(t.x, t.y, s.x, s.y))
         turnRate = Bigfoot.squirrelTurn * (1 + 3 * math.max(0, 1 - d / Bigfoot.squirrelHoming))
       else
-        -- Nothing about: circle him, slower.
-        want = math.atan2(f.y - s.y, f.x - s.x) + math.pi / 2
+        -- Nothing about: circle him (or where it is, with no Bigfoot), slower.
+        want = f and math.atan2(f.y - s.y, f.x - s.x) + math.pi / 2 or s.facing + 0.5
         speed = speed * 0.4
       end
       s.facing = turn(s.facing, want, turnRate * dt)
@@ -394,9 +423,14 @@ local function sync(server)
   end
   sv.syncIn = SYNC_EVERY
   local f = sv.foot
-  local stamina, winded = f.breath:wire()
-  local parts = { server.tick, fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)),
-    MODES[f.mode], f.swipe > 0 and 1 or 0, stamina, winded, f.max }
+  local parts
+  if f then
+    local stamina, winded = f.breath:wire()
+    parts = { server.tick, fmt(f.x), fmt(f.y), ("%.2f"):format(f.facing), math.max(0, math.floor(f.hp)),
+      MODES[f.mode], f.swipe > 0 and 1 or 0, stamina, winded, f.max }
+  else
+    parts = { server.tick, "-", "-", 0, 0, MODES.idle, 0, 0, 0, 0 } -- an arena swarm: no Bigfoot
+  end
   for id, s in pairs(sv.squirrels) do
     parts[#parts + 1] = id
     parts[#parts + 1] = fmt(s.x)
@@ -417,12 +451,14 @@ function Bigfoot.serverStep(server, dt)
   end
   sv.time = sv.time + dt
   sv.buildings = buildings()
-  stepFoot(server, dt)
-  if not sv then
-    return
+  if sv.foot then
+    stepFoot(server, dt)
+    if not sv then
+      return
+    end
+    sv.foot.breath:step(sv.foot.running, dt)
   end
-  sv.foot.breath:step(sv.foot.running, dt)
-  if sv.count <= 0 then
+  if sv.foot and sv.count <= 0 then
     sv.litterIn = sv.litterIn - dt
     if sv.litterIn <= 0 and sv.foot.mode ~= "air" then
       litter(server)
@@ -464,6 +500,39 @@ local function hurtFoot(server, amount, by, angle)
   sv.events:serverFinish(server, x, y)
 end
 
+--- The Colosseum's waves (init.lua passes them on): `kind` "squirrels" puts
+--- `count` of them round (x, y) with no Bigfoot, more of them if a swarm is
+--- already out; "bigfoot" brings him in at (x, y) with his litters. Returns
+--- how many came, and whether it is new (the event starts).
+function Bigfoot.serverArenaSend(server, events, kind, count, x, y)
+  if kind == "bigfoot" then
+    if sv then
+      return 0, false
+    end
+    sv = fresh(server, events, newFoot(server, x, y))
+    sv.arena = true
+    return 1, true
+  elseif kind == "squirrels" then
+    local new = sv == nil
+    if new then
+      sv = fresh(server, events, nil)
+      sv.arena = true
+    elseif sv.foot then
+      return 0, false
+    end
+    return squirrelsAt(server, x, y, count, 0), new
+  end
+  return 0, false
+end
+
+--- How many are still up on the sand: him while he stands, and his squirrels.
+function Bigfoot.serverArenaLeft()
+  if not (sv and sv.arena) then
+    return 0
+  end
+  return (sv.foot and sv.foot.hp > 0 and 1 or 0) + sv.count
+end
+
 --- A bullet passing through (x, y): the `serverShotAt` convention. It
 --- bursts a squirrel, or hits him while he is on the ground.
 function Bigfoot.serverShotAt(server, x, y, radius, by, angle)
@@ -482,7 +551,7 @@ function Bigfoot.serverShotAt(server, x, y, radius, by, angle)
     end
   end
   local f = sv.foot
-  if f.mode ~= "air" and dist2(f.x, f.y, x, y) < (radius + Bigfoot.radius) ^ 2 then
+  if f and f.mode ~= "air" and dist2(f.x, f.y, x, y) < (radius + Bigfoot.radius) ^ 2 then
     hurtFoot(server, Bigfoot.bulletDamage, by ~= 0 and by or nil, angle)
     return true
   end
@@ -521,7 +590,7 @@ function Bigfoot.serverPanicArea(_server, x, y, radius)
     return
   end
   local f = sv.foot
-  if f.mode ~= "air" and f.mode ~= "crouch" and dist2(f.x, f.y, x, y) <= (radius + Bigfoot.radius) ^ 2 then
+  if f and f.mode ~= "air" and f.mode ~= "crouch" and dist2(f.x, f.y, x, y) <= (radius + Bigfoot.radius) ^ 2 then
     f.panic = { x = x, y = y, left = 0.5 }
   end
   for _, s in pairs(sv.squirrels) do
@@ -537,7 +606,7 @@ function Bigfoot.serverFreezeArea(_server, x, y, radius, seconds)
     return
   end
   local f = sv.foot
-  if f.mode ~= "air" and dist2(f.x, f.y, x, y) <= (radius + Bigfoot.radius) ^ 2 then
+  if f and f.mode ~= "air" and dist2(f.x, f.y, x, y) <= (radius + Bigfoot.radius) ^ 2 then
     f.frozen = math.max(f.frozen, seconds)
   end
   for _, s in pairs(sv.squirrels) do
@@ -556,7 +625,8 @@ function Bigfoot.wikiEnemies(add, opens)
     kind = "events/bigfoot",
     name = "Bigfoot (city event)",
     boss = true,
-    where = "The city, as an event" .. opens .. ": he comes out onto a road away from everyone",
+    where = "The city, as an event" .. opens .. ": he comes out onto a road away from everyone; and the "
+      .. "Colosseum's eighth wave",
     about = "The forest's Bigfoot loose in the streets. He goes for the nearest player, or their buildings when "
       .. "nobody is close, swiping, leaping onto you, and bringing a litter of squirrels.",
     stats = {
@@ -594,7 +664,8 @@ function Bigfoot.wikiEnemies(add, opens)
   add({
     kind = "events/squirrel",
     name = "Squirrel (Bigfoot's)",
-    where = "The city, round Bigfoot's feet while his event is on",
+    where = "The city, round Bigfoot's feet while his event is on; and swarms of them in the Colosseum's fifth to "
+      .. "seventh waves",
     about = "Bigfoot's litter. They sit a moment at his feet, then shoot off at the nearest player or building, "
       .. "far faster than anyone runs, and burst on whatever they reach.",
     stats = {
@@ -784,6 +855,20 @@ local function splat(x, y, angle, pitch)
   end
 end
 
+--- Bigfoot's part of an EBF_STATE (`args`), at (x, y).
+local function readFoot(args, x, y)
+  local f = cl.foot or { dx = x, dy = y, bob = random() * 6 }
+  f.x, f.y = x, y
+  f.angle = tonumber(args[4]) or f.angle or 0
+  f.hp = tonumber(args[5]) or f.hp or Bigfoot.health
+  f.mode = MODE_NAMES[args[6]] or "idle"
+  f.swipe = args[7] == "1"
+  local stamina, winded = Stamina.read(args, 8)
+  f.stamina, f.winded = stamina or f.stamina, winded
+  f.max = tonumber(args[10]) or f.max or Bigfoot.health
+  cl.foot = f
+end
+
 Bigfoot.clientMessages = {
   EBF_STATE = function(_client, args)
     local tick = tonumber(args[1])
@@ -792,19 +877,11 @@ Bigfoot.clientMessages = {
     end
     cl.lastTick = tick
     local x, y = tonumber(args[2]), tonumber(args[3])
-    if not (x and y) then
-      return
+    if x and y then
+      readFoot(args, x, y)
+    else
+      cl.foot = nil -- an arena swarm: no Bigfoot
     end
-    local f = cl.foot or { dx = x, dy = y, bob = random() * 6 }
-    f.x, f.y = x, y
-    f.angle = tonumber(args[4]) or f.angle or 0
-    f.hp = tonumber(args[5]) or f.hp or Bigfoot.health
-    f.mode = MODE_NAMES[args[6]] or "idle"
-    f.swipe = args[7] == "1"
-    local stamina, winded = Stamina.read(args, 8)
-    f.stamina, f.winded = stamina or f.stamina, winded
-    f.max = tonumber(args[10]) or f.max or Bigfoot.health
-    cl.foot = f
     local seen = {}
     for i = 11, #args - 3, 4 do
       local id, sx, sy = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])

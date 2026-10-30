@@ -30,6 +30,10 @@ Waves.LIST = {
   { title = "More Simps", feature = "karen", kind = "simp", count = 10 },
   { title = "Simp Swarm", feature = "karen", kind = "simp", count = 12 },
   { title = "Crazy Karen", feature = "karen", kind = "karen", count = 1, exact = true, spots = { { 0, -0.3 } } },
+  { title = "Bigfoot's Squirrels", feature = "events", kind = "squirrels", count = 15 },
+  { title = "More Squirrels", feature = "events", kind = "squirrels", count = 20 },
+  { title = "Squirrel Storm", feature = "events", kind = "squirrels", count = 25 },
+  { title = "Bigfoot", feature = "events", kind = "bigfoot", count = 1, exact = true, spots = { { 0, -0.3 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave
