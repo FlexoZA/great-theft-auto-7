@@ -183,6 +183,32 @@ function Karen:clearSimps(server)
   sv.simpsOut = 0
 end
 
+--- The Colosseum's waves (colosseum/waves.lua): `count` simps turn up
+--- round (x, y), Karen or no Karen, and go for whoever is nearest however
+--- far off. Simps are all she sends (`kind` "simp"). Returns how many came
+--- (a spot may be walled in).
+function Karen:serverArenaSend(server, kind, count, x, y)
+  if not (sv and kind == "simp") then
+    return 0
+  end
+  local came = 0
+  for _ = 1, count do
+    local sx, sy = Simps.spawnSpot(x, y)
+    if sx then
+      local s = sv.simps:spawn(sx, sy)
+      s.sight = math.huge
+      server:broadcast(Protocol.encode("KRN_SIMP", s.id, s.name))
+      came = came + 1
+    end
+  end
+  return came
+end
+
+--- How many simps are out right now (the waves' other call).
+function Karen:serverArenaLeft(_server, kind)
+  return sv and kind == "simp" and sv.simps.n or 0
+end
+
 --- One simp down: his body on every screen (gibs under a car or in a
 --- blast; the corpses feature), sometimes something to pick up, and the
 --- other features price it (money drops a koin, the same as a pedestrian).
@@ -420,9 +446,9 @@ function Karen:wikiEnemies(add)
   add({
     kind = "karen/simp",
     name = "Simp",
-    quests = { "karen" },
+    quests = { "karen", "colosseum" },
     scaling = "none", -- their health and punches stay put; only the gang grows (Bosses.count)
-    where = "Karen's Cul-de-sac, turning up round her while she stands",
+    where = "Karen's Cul-de-sac, turning up round her while she stands; and the Colosseum's first wave",
     about = ("Karen's hangers-on, in grey hoodies, each with a name that starts \"%s\". They run at you from all "
       .. "sides and punch."):format(Simps.PREFIX),
     stats = {

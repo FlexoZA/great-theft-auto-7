@@ -19,7 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   builds more of it, and it stays locked until all of them are done. It's on the minimap and the big map too.
 - Once every job is done, a star at the Colosseum's gate takes everyone inside: a big open arena of sand, walled
   round, with packed stands cheering and a march of its own, and cover on the sand: sandbag walls, concrete
-  barriers, shipping containers, crates and oil drums. Nothing to fight there yet.
+  barriers, shipping containers, crates and oil drums.
+- The Colosseum's first wave: walk in, a countdown starts, and 8 of Karen's simps (more for a bigger group) pour
+  in from the far end of the sand. Clear them for a pile of koins in the middle. More waves are coming.
 
 ## [0.44.0] - 2026-10-30
 

@@ -18,8 +18,9 @@
 -- builds it, render_arena.lua draws it), a HOME star just inside the gate.
 -- Past the wall are the stands, full and cheering (stands.lua, drawn past
 -- the map's edge for surroundings through `Colosseum:drawStands`), and a
--- gladiators' march plays (theme.lua). Nothing to fight yet: the waves come
--- later.
+-- gladiators' march plays (theme.lua). Then the waves (waves.lua, on the
+-- host): every enemy in the game in order, so far Karen's simps. The HUD
+-- shows the wave, how many are left and the countdowns between.
 --
 -- The cranes are borderline's tower cranes (works.lua, the Bragium Pit's),
 -- drawn through `Borderline:drawSiteCranes`: two while the tiers go up,
@@ -32,8 +33,12 @@
 -- of the ring lit up; inside, the arena's sand is drawn over the minimap's
 -- tiles.
 --
--- Nothing here is on the host: the world is the quests feature's and the
--- block's walls are city-map's.
+-- Outside, nothing here is on the host: the world is the quests feature's
+-- and the block's walls are city-map's.
+--
+-- Messages
+--   server -> all     ARN_WAVE <index> <total> <phase> <left> <seconds>
+--                     (phase: countdown | fight | cleared | done; seconds to the next thing)
 
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -41,6 +46,7 @@ local Audio = require("src.audio")
 local Look = require("src.features.colosseum.look")
 local Stands = require("src.features.colosseum.stands")
 local Theme = require("src.features.colosseum.theme")
+local Waves = require("src.features.colosseum.waves")
 
 local Colosseum = {
   name = "colosseum",
@@ -58,6 +64,8 @@ local cranes = {} -- borderline-style tower cranes for the stage shown
 local time = 0
 local atGate = false
 local tune = nil -- the arena's theme: a Source made the first time in, then kept
+
+Colosseum.wave = nil -- { index, total, phase, left, timer } while in the arena, from the host
 
 local function tuneGain()
   return Audio.muted and 0 or Audio.volume("music")
@@ -91,6 +99,7 @@ end
 
 function Colosseum:exitGame()
   baked, plan, cranes, atGate = nil, nil, {}, false
+  self.wave = nil
   if tune then
     tune:stop()
   end
@@ -115,10 +124,53 @@ function Colosseum:questStarted(_client, quest)
 end
 
 function Colosseum:questEnded(_client, quest)
-  if quest.boss == self.questId and tune then
-    tune:stop()
+  if quest.boss == self.questId then
+    self.wave = nil
+    if tune then
+      tune:stop()
+    end
   end
 end
+
+-- Server --------------------------------------------------------------------
+
+function Colosseum:serverStart()
+  Waves.stop()
+end
+
+--- Everyone walked in: the countdown to the first wave starts.
+function Colosseum:serverQuestStarted(server, quest)
+  if quest.boss == self.questId then
+    Waves.start(server)
+  end
+end
+
+function Colosseum:serverQuestEnded()
+  Waves.stop()
+end
+
+function Colosseum:serverStep(server, dt)
+  local city = Features.byName["city-map"]
+  local oval = city and city.map and city.map.oval
+  if oval and Waves.running() then
+    Waves.step(server, dt, oval)
+  end
+end
+
+function Colosseum:serverPlayerJoined(server, player)
+  if not player.bot then
+    Waves.joined(server, player)
+  end
+end
+
+Colosseum.clientMessages = {
+  ARN_WAVE = function(_client, args)
+    local index, total, left, seconds = tonumber(args[1]), tonumber(args[2]), tonumber(args[4]), tonumber(args[5])
+    if index and total and left and seconds then
+      Colosseum.wave = { index = index, total = total, phase = args[3], left = left, timer = seconds }
+    end
+  end,
+}
 
 --- The stands past the arena's wall, for surroundings: over (left, top,
 --- right, bottom), world px, seen through `camera`.
@@ -147,6 +199,9 @@ end
 
 function Colosseum:update(dt, client)
   time = time + dt
+  if self.wave then
+    self.wave.timer = math.max(0, self.wave.timer - dt)
+  end
   if tune and tune:isPlaying() then
     tune:setVolume(tuneGain())
   end
@@ -210,7 +265,40 @@ function Colosseum:drawAboveCars(_client, camera)
   love.graphics.setColor(1, 1, 1)
 end
 
+--- The wave in the arena, top middle: its number and name, then how many
+--- are left, or the countdown to it, or that it is cleared.
+local function drawWave(wave)
+  local w = love.graphics.getWidth()
+  local def = Waves.LIST[wave.index]
+  local title = ("WAVE %d/%d  %s"):format(wave.index, wave.total, def and def.title:upper() or "")
+  local line, color
+  if wave.phase == "countdown" then
+    line, color = ("Starts in %d"):format(math.ceil(wave.timer)), { 1, 0.85, 0.3 }
+  elseif wave.phase == "fight" then
+    line, color = ("%d left"):format(wave.left), { 1, 0.45, 0.35 }
+  elseif wave.phase == "cleared" then
+    line, color = ("Wave cleared! Next in %d"):format(math.ceil(wave.timer)), { 0.5, 1, 0.6 }
+  else
+    title = "ARENA CLEARED"
+    line, color = "More waves are coming. The star by the gate takes you home.", { 0.5, 1, 0.6 }
+  end
+  love.graphics.setFont(UI.fonts.heading)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(title, 2, 50, w, "center")
+  love.graphics.setColor(color)
+  love.graphics.printf(title, 0, 48, w, "center")
+  love.graphics.setFont(UI.fonts.body)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.printf(line, 1, 83, w, "center")
+  love.graphics.setColor(0.95, 0.95, 0.95)
+  love.graphics.printf(line, 0, 82, w, "center")
+  love.graphics.setColor(1, 1, 1)
+end
+
 function Colosseum:drawHUD()
+  if self.wave then
+    drawWave(self.wave)
+  end
   if not (atGate and plan) then
     return
   end

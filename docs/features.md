@@ -402,6 +402,16 @@ couple of small conventions rather than requiring each other:
   wallet and nothing at all if it was empty, so fill in `victim` for
   anything a player was driving. Ignore kinds you don't care about; new
   kinds may appear.
+- `feature:serverArenaSend(server, kind, count, x, y)` and
+  `feature:serverArenaLeft(server, kind)`: the Colosseum's waves
+  (`src/features/colosseum/waves.lua`, `Waves.LIST`) fight every enemy in
+  the game in order. A wave names your feature and a `kind` of yours; the
+  first call puts `count` of them down round (x, y), hunting everyone on the
+  sand however far off, and returns how many came; the second says how many
+  are still up (0 clears the wave). Everything else about them stays yours:
+  brains, look, `serverShotAt`, `serverEnemies`, drops. Karen's simps are
+  the first (`karen`, kind "simp"); add your enemy to the list and answer
+  both to put it in the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;
