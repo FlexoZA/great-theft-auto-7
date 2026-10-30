@@ -34,6 +34,10 @@ Waves.LIST = {
   { title = "More Squirrels", feature = "events", kind = "squirrels", count = 20 },
   { title = "Squirrel Storm", feature = "events", kind = "squirrels", count = 25 },
   { title = "Bigfoot", feature = "events", kind = "bigfoot", count = 1, exact = true, spots = { { 0, -0.3 } } },
+  { title = "Looz'er's Riflemen", feature = "d-day", kind = "soldier", count = 6 },
+  { title = "More Riflemen", feature = "d-day", kind = "soldier", count = 9 },
+  { title = "The Landing Party", feature = "d-day", kind = "soldier", count = 12 },
+  { title = "Major Looz'er", feature = "d-day", kind = "major", count = 1, exact = true, spots = { { 0, -0.3 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

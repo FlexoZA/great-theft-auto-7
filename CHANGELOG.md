@@ -22,8 +22,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   barriers, shipping containers, crates and oil drums.
 - The Colosseum's waves: walk in, a countdown starts, and Karen's simps pour in from the far end of the sand, 8,
   then 10, then 12 (more for a bigger group), then Crazy Karen herself with her gang; then swarms of Bigfoot's
-  squirrels, 15, 20 and 25, and Bigfoot himself with his litters. Each wave cleared drops a pile of koins in the
-  middle. More waves are coming.
+  squirrels, 15, 20 and 25, and Bigfoot himself with his litters; then Major Looz'er's riflemen, 6, 9 and 12, with
+  mortars falling, and the Major himself. Each wave cleared drops a pile of koins in the middle. More waves are
+  coming.
 
 ## [0.44.0] - 2026-10-30
 

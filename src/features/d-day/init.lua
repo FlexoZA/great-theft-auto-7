@@ -23,6 +23,12 @@
 -- When he goes down he spills a pile of koins, the quest is done, the flag
 -- turns to yours, and quests puts an EXIT star home where he fell.
 --
+-- The Colosseum's waves bring them onto its sand too (`serverArenaSend`,
+-- colosseum/waves.lua): riflemen coming in at the far end and hunting
+-- everyone, with mortars falling near the players, and the Major with
+-- riflemen coming in after him while he stands. Stage "arena" there, and
+-- "boss" while he fights; no flag, no portrait.
+--
 -- The quests feature brings everyone to the beach and raises
 -- `serverQuestStarted` / `questStarted` for the quest whose `boss` is
 -- "d-day"; every client starts the beach's march (theme.lua) until the
@@ -103,9 +109,17 @@ local function beachMap()
   return map and map.kind == "beach" and map or nil
 end
 
+--- The map in play, if it is the Colosseum's arena (its sand: `map.oval`).
+local function arenaMap()
+  local city = Features.byName["city-map"]
+  local map = city and city.map
+  return map and map.oval and map or nil
+end
+
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { stage, troops, major, mortars, mortarIn, reinforceIn, maxRiflemen, revealT, syncIn }
+local sv = nil -- { stage, troops, major, mortars, mortarIn, reinforceIn, maxRiflemen, revealT, syncIn,
+--                  arena = { x, y } where reinforcements come in on the Colosseum's sand, or nil }
 
 function Dday:serverStart()
   sv = { stage = nil, mortars = {} }
@@ -137,7 +151,7 @@ end
 --- Everyone off the beach: nothing left to draw on any screen.
 function Dday:stop(server)
   if sv and sv.stage then
-    sv.stage, sv.troops, sv.major, sv.mortars = nil, nil, nil, {}
+    sv.stage, sv.troops, sv.major, sv.mortars, sv.arena = nil, nil, nil, {}, nil
     server:broadcast(Protocol.encode("DD_STAGE", "none", 0))
   end
 end
@@ -186,6 +200,25 @@ function Dday:serverPanicArea(_server, x, y, radius)
   if m and m:hitBy(x, y, radius) then
     m.panic = { x = x, y = y, left = 0.5 }
   end
+end
+
+--- Where the next mortar comes down in the arena: often close to someone,
+--- otherwise anywhere on the sand.
+local function arenaMortarSpot(server, oval)
+  local people = {}
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local x, y = Features.bodyPose(server, p)
+      people[#people + 1] = { x = x, y = y }
+    end
+  end
+  if #people > 0 and random() < Dday.mortarAimed then
+    local t = people[random(#people)]
+    local a, d = random() * 2 * math.pi, random() * Dday.mortarNear
+    return t.x + math.cos(a) * d, t.y + math.sin(a) * d
+  end
+  local a, d = random() * 2 * math.pi, math.sqrt(random()) * 0.9
+  return oval.x + math.cos(a) * oval.rx * d, oval.y + math.sin(a) * oval.ry * d
 end
 
 --- Where the next mortar comes down: often close to someone on the beach,
@@ -244,7 +277,12 @@ function Dday:stepMortars(server, map, dt)
   sv.mortarIn = sv.mortarIn - dt
   if sv.mortarIn <= 0 then
     sv.mortarIn = self.mortarEvery[1] + random() * (self.mortarEvery[2] - self.mortarEvery[1])
-    local x, y = mortarSpot(server, map)
+    local x, y
+    if sv.arena then
+      x, y = arenaMortarSpot(server, map.oval)
+    else
+      x, y = mortarSpot(server, map)
+    end
     sv.mortars[#sv.mortars + 1] = { x = x, y = y, t = self.mortarDelay }
     server:broadcast(Protocol.encode("DD_AIM", fmt(x), fmt(y), self.mortarRadius, ("%.2f"):format(self.mortarDelay)))
   end
@@ -290,8 +328,110 @@ function Dday:reveal(server, map)
   setStage(server, "reveal", random(Major.TALK))
 end
 
+--- In the Colosseum, a rifleman somewhere open round (x, y); nil if walled in.
+local function arenaRifleman(x, y)
+  for _ = 1, 10 do
+    local a, d = random() * 2 * math.pi, 40 + random() * 200
+    local sx, sy = x + math.cos(a) * d, y + math.sin(a) * d
+    if not Features.any("blocksPoint", sx, sy) then
+      return sv.troops:add("rifleman", sx, sy, math.pi / 2)
+    end
+  end
+  return nil
+end
+
+--- The fight on the Colosseum's sand starts, if it hasn't: the soldiers'
+--- side, with nobody yet, and the mortars.
+local function arenaStart(server, map)
+  if sv.arena then
+    return
+  end
+  sv.troops = Soldiers.new({ aware = Dday.aware, health = Bosses.enemyHealth(Soldiers.HEALTH) })
+  sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
+  sv.major, sv.mortars, sv.maxRiflemen = nil, {}, 0
+  sv.mortarIn, sv.reinforceIn, sv.revealT, sv.syncIn = Dday.mortarFirst, Dday.reinforceEvery, 0, 0
+  sv.arena = { x = 0, y = 0 }
+  setStage(server, "arena")
+end
+
+--- The Colosseum's waves (colosseum/waves.lua): `count` riflemen come in
+--- round (x, y) (`kind` "soldier"), or the Major stands there (`kind`
+--- "major"), riflemen coming in there after him while he stands. Returns
+--- how many came.
+function Dday:serverArenaSend(server, kind, count, x, y)
+  local map = arenaMap()
+  if not (sv and map and (kind == "soldier" or kind == "major")) then
+    return 0
+  end
+  arenaStart(server, map)
+  sv.arena.x, sv.arena.y = x, y
+  if kind == "major" then
+    if sv.major then
+      return 0
+    end
+    sv.major = Major.new(x, y, Bosses.health(Major.HEALTH, server), sv.troops.nav)
+    sv.maxRiflemen, sv.reinforceIn = Bosses.count(self.riflemen, server), self.reinforceEvery
+    setStage(server, "boss")
+    server:broadcast(Protocol.encode("DD_SAY", random(Major.TALK)))
+    return 1
+  end
+  local came = 0
+  for _ = 1, count do
+    if arenaRifleman(x, y) then
+      came = came + 1
+    end
+  end
+  return came
+end
+
+--- How many are still up on the sand: the soldiers, and the Major with them.
+function Dday:serverArenaLeft(_server, kind)
+  if not (sv and sv.arena) then
+    return 0
+  end
+  return #sv.troops.list + (kind == "major" and sv.major and 1 or 0)
+end
+
+--- The Colosseum's tick: the soldiers, the mortars, the Major and the
+--- riflemen coming in after him.
+function Dday:stepArena(server, map, dt)
+  sv.troops:update(server, dt)
+  self:callIns()
+  self:stepMortars(server, map, dt)
+  if sv.major then
+    for _, e in ipairs(sv.major:update(server, dt)) do
+      if e[1] == "say" then
+        server:broadcast(Protocol.encode("DD_SAY", e[2]))
+      elseif e[1] == "nest" then
+        server:broadcast(Protocol.encode("DD_NEST", fmt(e[2]), fmt(e[3]), ("%.3f"):format(e[4])))
+      end
+    end
+    sv.reinforceIn = sv.reinforceIn - dt
+    if sv.reinforceIn <= 0 then
+      sv.reinforceIn = self.reinforceEvery
+      if sv.troops:count("rifleman") < sv.maxRiflemen then
+        arenaRifleman(sv.arena.x, sv.arena.y)
+      end
+    end
+  end
+end
+
 function Dday:serverStep(server, dt)
   if not (sv and sv.stage) then
+    return
+  end
+  if sv.arena then
+    local arena = arenaMap()
+    if arena then
+      sv.syncIn = sv.syncIn - 1
+      if sv.syncIn < 0 then
+        sv.syncIn = SYNC_EVERY - 1
+      end
+      self:stepArena(server, arena, dt)
+      if sv.syncIn == 0 then
+        self:sync(server)
+      end
+    end
     return
   end
   local map = beachMap()
@@ -402,7 +542,7 @@ function Dday:hurtMajor(server, amount, by, angle)
     money:drop(server, x, y, Major.DROPS)
   end
   Features.call("serverKill", server, { kind = "boss", x = x, y = y, by = by, angle = angle })
-  setStage(server, "done")
+  setStage(server, sv.arena and "arena" or "done") -- no flag in the Colosseum
   local quests = Features.byName.quests
   if quests and quests.serverComplete then
     quests:serverComplete(server, self.questId, x, y) -- an EXIT star home where he fell
@@ -466,8 +606,9 @@ function Dday:wikiEnemies(add)
   add({
     kind = "d-day/soldier",
     name = "D-Day soldier",
-    quests = { self.questId },
-    where = "Looz'er Beach: guards in the bunkers, trenches and huts, riflemen out of the barracks",
+    quests = { self.questId, "colosseum" },
+    where = "Looz'er Beach: guards in the bunkers, trenches and huts, riflemen out of the barracks; and the "
+      .. "Colosseum's ninth to eleventh waves",
     about = "The Major's men. Guards sweep a cone of sight over the beach from their posts; riflemen come out "
       .. "of the barracks doors and walk down the hill at you. Both open fire on anyone they spot.",
     stats = {
@@ -683,9 +824,8 @@ function Dday:drawBelowCars(_client, camera)
 end
 
 function Dday:drawAboveCars(_client, camera)
-  local map = beachMap()
-  if self.stage and map then
-    Render.above(self, map, camera, time)
+  if self.stage then
+    Render.above(self, beachMap(), camera, time) -- the flag on the beach; none in the Colosseum
   end
 end
 
