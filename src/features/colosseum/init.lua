@@ -10,28 +10,42 @@
 -- ring (look.lua): the three tiers of arches over the first six jobs, the
 -- attic on the seventh while the scaffolding starts coming down, and the
 -- last finishes it: the scaffolding and cranes gone, the yard paved, flags
--- at the corners and the gate standing open. The arena inside comes later.
+-- at the corners and the gate standing open.
+--
+-- Then a star comes up at the gate (quests' "colosseum", `afterBoard`: shut
+-- until every job is done, on the host too) and takes everyone inside:
+-- city-map's `colosseum` map, one big oval of sand walled round (arena.lua
+-- builds it, render_arena.lua draws it), a HOME star just inside the gate.
+-- Past the wall are the stands, full and cheering (stands.lua, drawn past
+-- the map's edge for surroundings through `Colosseum:drawStands`), and a
+-- gladiators' march plays (theme.lua). Nothing to fight yet: the waves come
+-- later.
 --
 -- The cranes are borderline's tower cranes (works.lua, the Bragium Pit's),
 -- drawn through `Borderline:drawSiteCranes`: two while the tiers go up,
 -- one for the attic, none once it is done.
 --
 -- Walk or drive up to the gate (the sidewalk in the middle of the block's
--- south side) and it says what is going on: under construction, and how
--- many jobs are done of how many, or once it is finished that the games
--- begin soon. It is on the minimap and the big map as an oval, the built
--- part of the ring lit up.
+-- south side) while it is still going up and it says so: locked, and how
+-- many jobs are done of how many. Once it is finished the star there says
+-- the rest. It is on the minimap and the big map as an oval, the built part
+-- of the ring lit up; inside, the arena's sand is drawn over the minimap's
+-- tiles.
 --
 -- Nothing here is on the host: the world is the quests feature's and the
 -- block's walls are city-map's.
 
 local Features = require("src.features")
 local UI = require("src.ui")
+local Audio = require("src.audio")
 local Look = require("src.features.colosseum.look")
+local Stands = require("src.features.colosseum.stands")
+local Theme = require("src.features.colosseum.theme")
 
 local Colosseum = {
   name = "colosseum",
   priority = 27, -- over the map canvas (20), under skidmarks (30), pedestrians and cars
+  questId = "colosseum", -- quests' `boss` on the arena trip
 }
 
 -- Tuning ------------------------------------------------------------------
@@ -43,6 +57,11 @@ local plan = nil -- look.lua's plan for the stage shown
 local cranes = {} -- borderline-style tower cranes for the stage shown
 local time = 0
 local atGate = false
+local tune = nil -- the arena's theme: a Source made the first time in, then kept
+
+local function tuneGain()
+  return Audio.muted and 0 or Audio.volume("music")
+end
 
 --- The building site on the map in play, or nil (off the city).
 local function site()
@@ -72,6 +91,41 @@ end
 
 function Colosseum:exitGame()
   baked, plan, cranes, atGate = nil, nil, {}, false
+  if tune then
+    tune:stop()
+  end
+end
+
+function Colosseum:questStarted(_client, quest)
+  if quest.boss ~= self.questId then
+    return
+  end
+  if not tune then
+    local clock = love.timer.getTime()
+    tune = love.audio.newSource(Theme.render(), "static")
+    tune:setLooping(true)
+    tune:setRelative(true) -- music, not a sound on the map
+    -- The render time on the console, as every theme logs it.
+    local took = love.timer.getTime() - clock
+    print(("colosseum theme: %.1fs of audio rendered in %.2fs"):format(Theme.duration(), took)) -- audit: allow
+  end
+  tune:setVolume(tuneGain())
+  tune:seek(0)
+  tune:play()
+end
+
+function Colosseum:questEnded(_client, quest)
+  if quest.boss == self.questId and tune then
+    tune:stop()
+  end
+end
+
+--- The stands past the arena's wall, for surroundings: over (left, top,
+--- right, bottom), world px, seen through `camera`.
+function Colosseum:drawStands(map, camera, left, top, right, bottom)
+  if map.oval then
+    Stands.draw(map.oval, left, top, right, bottom, time, camera.scale)
+  end
 end
 
 --- The stage the site is at now; the canvas and the cranes follow it.
@@ -93,6 +147,9 @@ end
 
 function Colosseum:update(dt, client)
   time = time + dt
+  if tune and tune:isPlaying() then
+    tune:setVolume(tuneGain())
+  end
   local s = site()
   atGate = false
   if not s then
@@ -102,7 +159,7 @@ function Colosseum:update(dt, client)
   local x, y = client:myPose()
   if x then
     local gx, gy = gate(s)
-    atGate = (x - gx) ^ 2 + (y - gy) ^ 2 < self.gateReach ^ 2
+    atGate = not plan.finished and (x - gx) ^ 2 + (y - gy) ^ 2 < self.gateReach ^ 2 -- finished: the star speaks
   end
 end
 
@@ -158,14 +215,9 @@ function Colosseum:drawHUD()
     return
   end
   local w, h = love.graphics.getDimensions()
-  local title, line, color
-  if plan.finished then
-    title, line, color = "THE COLOSSEUM", "Finished. The games begin soon.", { 1, 0.85, 0.3 }
-  else
-    title = "THE COLOSSEUM - UNDER CONSTRUCTION"
-    line = ("Locked. It opens when every job is done (%d/%d)."):format(plan.done, plan.total)
-    color = { 1, 0.6, 0.35 }
-  end
+  local title = "THE COLOSSEUM - UNDER CONSTRUCTION"
+  local line = ("Locked. It opens when every job is done (%d/%d)."):format(plan.done, plan.total)
+  local color = { 1, 0.6, 0.35 }
   love.graphics.setFont(UI.fonts.body)
   love.graphics.setColor(0, 0, 0, 0.6)
   love.graphics.printf(title, 1, h - 151, w, "center")
@@ -177,9 +229,29 @@ function Colosseum:drawHUD()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- In the arena: the sand and the wall round it, over the ground's tiles.
+local function arenaOnMap(oval, toMap)
+  local cx, cy = toMap(oval.x, oval.y)
+  local k = (toMap(oval.x + oval.rx, oval.y) - cx) / oval.rx -- map px per world px
+  love.graphics.setColor(0.78, 0.72, 0.60)
+  love.graphics.ellipse("fill", cx, cy, (oval.rx + 64) * k, (oval.ry + 64) * k, 48)
+  love.graphics.setColor(0.84, 0.73, 0.50)
+  love.graphics.ellipse("fill", cx, cy, oval.rx * k, oval.ry * k, 48)
+  love.graphics.setColor(0.12, 0.10, 0.09)
+  local gx, gy = toMap(oval.x, oval.y + oval.ry)
+  love.graphics.rectangle("fill", gx - 70 * k, gy, 140 * k, 64 * k) -- the gate
+end
+
 --- An oval where it stands, the built part of the ring lit up (all of it
---- once finished), so it can be found on both maps.
+--- once finished), so it can be found on both maps; in the arena, its sand.
 function Colosseum:drawOnMinimap(_client, toMap)
+  local city = Features.byName["city-map"]
+  local oval = city and city.map and city.map.oval
+  if oval then
+    arenaOnMap(oval, toMap)
+    love.graphics.setColor(1, 1, 1)
+    return
+  end
   local s = site()
   if not (s and plan) then
     return

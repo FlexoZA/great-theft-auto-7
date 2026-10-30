@@ -390,7 +390,7 @@ local function drawSign(plan, half)
   end
   love.graphics.setFont(UI.fonts.small)
   color(C.ink)
-  local line = plan.finished and "OPENING SOON" or ("%d/%d JOBS DONE"):format(plan.done, plan.total)
+  local line = plan.finished and "NOW OPEN" or ("%d/%d JOBS DONE"):format(plan.done, plan.total)
   love.graphics.printf("COLOSSEUM", x, y + 3, w / 0.7, "center", 0, 0.7, 0.7)
   love.graphics.printf(line, x, y + 13, w / 0.7, "center", 0, 0.7, 0.7)
 end

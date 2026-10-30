@@ -89,7 +89,9 @@ local Quests = {
 -- quest's map and starts it, instead of home. A feature may hold that trip
 -- up (`serverHoldTrip(server, quest, player)` returning true, e.g. A-Man
 -- turning up first) and make it itself later with `quests:serverBegin`. A quest only reached that way
--- has no `board` and no `onMap`. `introLine` is for the boss feature (A-Man
+-- has no `board` and no `onMap`. `afterBoard` keeps a star shut (not drawn,
+-- not offered, refused) until every board job is finished (the Colosseum's
+-- gate). `introLine` is for the boss feature (A-Man
 -- says that line of his on his intro screen).
 Quests.list = {
   {
@@ -828,6 +830,32 @@ Quests.list = {
     label = "HOME",
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
+  },  {
+    id = "colosseum",
+    title = "The Colosseum",
+    text = "It's finished, and the stands are full. Take everyone in through the gate and onto the sand.",
+    onMap = "city",
+    x = 0, -- on the sidewalk outside the Colosseum's gate (city-map's map.colosseum, the colosseum feature)
+    y = -98,
+    map = "colosseum",
+    afterBoard = true,
+    boss = "colosseum",
+    label = "ARENA",
+    color = { 0.95, 0.75, 0.30 },
+    banner = "%s led everyone into the Colosseum.",
+  },
+  {
+    id = "home-colosseum",
+    title = "Back to the City",
+    text = "Back out through the gate. Take everyone home.",
+    onMap = "colosseum",
+    x = 0, -- just inside the gate: city-map's map.cx, map.cy
+    y = 690,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
   },
 }
 Quests.byId = {}
@@ -859,8 +887,17 @@ end
 
 --- Is board job `quest` open, given `finished` (a set of board job ids)?
 --- The first always is; each after it once the one before it is finished.
---- Anything not on the board (a chain's later maps, the way home) is.
+--- Anything not on the board (a chain's later maps, the way home) is, but
+--- an `afterBoard` star, open once every board job is finished.
 function Quests.unlocked(quest, finished)
+  if quest.afterBoard then
+    for _, q in ipairs(Quests.board) do
+      if not finished[q.id] then
+        return false
+      end
+    end
+    return true
+  end
   if not quest.board then
     return true
   end
@@ -959,7 +996,7 @@ local function offeredOn(current, x, y, extra)
   local best, bestD2
   for i = 1, #Quests.list + 1 do
     local q = Quests.list[i] or extra
-    if q and q.onMap == current then
+    if q and q.onMap == current and Quests.unlocked(q, Quests.finished) then
       local d2 = x and dist2(x, y, q.x, q.y) or 0
       if not bestD2 or d2 < bestD2 then
         best, bestD2 = q, d2
@@ -1248,7 +1285,7 @@ end
 function Quests:drawBelowCars()
   local city = cityMap()
   for _, quest in ipairs(self.list) do
-    if city and quest.onMap == city.current then
+    if city and quest.onMap == city.current and Quests.unlocked(quest, Quests.finished) then
       self:drawStar(quest)
     end
   end
@@ -1268,7 +1305,7 @@ function Quests:drawNightLights(_client, _camera, glow)
     return
   end
   for _, quest in ipairs(self.list) do
-    if quest.onMap == city.current then
+    if quest.onMap == city.current and Quests.unlocked(quest, Quests.finished) then
       glow(quest.x, quest.y, 110, quest.color, 0.9)
     end
   end

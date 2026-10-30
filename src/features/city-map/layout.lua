@@ -36,7 +36,8 @@
 -- Foundry, the third, and `kind = "heck"` Heck, the fourth (eternal_mood.lua).
 -- `kind = "wreck"`, "landing", "pit", "prosperity", "refinery", "assembly",
 -- "cuts" and "bunker" are Pandoria's eight maps, the Borderline quest line's
--- (borderline.lua).
+-- (borderline.lua). `kind = "arena"` is the Colosseum's arena, one big oval
+-- of sand walled round (arena.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -48,6 +49,7 @@ local Road = require("src.features.city-map.road")
 local CyberFeud = require("src.features.city-map.cyber_feud")
 local EternalMood = require("src.features.city-map.eternal_mood")
 local Borderline = require("src.features.city-map.borderline")
+local Arena = require("src.features.city-map.arena")
 
 local Layout = {}
 
@@ -1261,10 +1263,12 @@ function Layout.generate(spec)
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
     or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
-    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or map.kind == "arena"
+    or CyberFeud.builds(map.kind) or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       CyberFeud.build(map, rng, T)
+    elseif map.kind == "arena" then
+      Arena.build(map, rng, T)
     elseif Borderline.builds(map.kind) then
       Borderline.build(map, rng, T)
     elseif EternalMood.builds(map.kind) then
