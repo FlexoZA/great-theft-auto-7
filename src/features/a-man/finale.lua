@@ -24,6 +24,10 @@
 -- none of the last lot are standing). Under `rage` of his health two come
 -- out at once. Every count is for one human, more with more (Bosses.count).
 --
+-- The Colosseum's waves bring him onto its sand too (`Finale.serverArena`):
+-- he blinks in at a spot there, facing the nearest player, and the fight is
+-- on as at the top, his case and all. No EXIT star when he falls there.
+--
 -- Down: the disguise is left lying there, he spills koins and his teleport
 -- (a better roll than the event's, `dropTiers`, better again each time the
 -- job has been finished: Bosses.dropTier), raises `serverKill` with
@@ -176,14 +180,15 @@ local function someoneOnTop(server, top)
   end
 end
 
---- He blinks in by the lift up, facing whoever came.
-local function arrive(server, map, p)
-  local x, y = map.exitX, map.exitY
+--- He blinks in by the lift up (or at (ax, ay)), facing whoever came.
+local function arrive(server, map, p, ax, ay)
+  ax, ay = ax or map.exitX, ay or map.exitY
+  local x, y = ax, ay
   for _ = 1, 30 do
     if not Features.any("blocksPoint", x, y) then
       break
     end
-    x, y = map.exitX + (random() - 0.5) * 160, map.exitY + random() * 120
+    x, y = ax + (random() - 0.5) * 160, ay + random() * 120
   end
   local px, py = Features.bodyPose(server, p)
   local hp = Bosses.health(Finale.health, server)
@@ -302,6 +307,38 @@ local function sync(server)
       server:send(player, turrets, true)
     end
   end
+end
+
+--- The Colosseum's waves: he blinks in at (x, y) on `map`'s sand, facing
+--- the nearest player. Returns how many came.
+function Finale.serverArena(server, map, x, y)
+  if sv and not sv.done then
+    return 0
+  end
+  local near, best = nil, math.huge
+  for _, p in pairs(server.players) do
+    if Features.visible(server, p) then
+      local px, py = Features.bodyPose(server, p)
+      if dist2(px, py, x, y) < best then
+        near, best = p, dist2(px, py, x, y)
+      end
+    end
+  end
+  if not near then
+    return 0
+  end
+  Finale.serverStart()
+  sv.arena = true
+  arrive(server, map, near, x, y)
+  return 1
+end
+
+--- Him while he stands, and his turrets still standing.
+function Finale.serverArenaLeft()
+  if not (sv and sv.arena) then
+    return 0
+  end
+  return (sv.done and 0 or 1) + Turrets.standing(sv.turrets)
 end
 
 function Finale.serverStep(server, dt, map)
@@ -439,7 +476,8 @@ function Finale.wikiEnemies(add)
     name = "A-Man",
     quests = { Finale.questId },
     boss = true,
-    where = "The top of the Citadel, once someone steps onto the top platform",
+    where = "The top of the Citadel, once someone steps onto the top platform; and the Colosseum's twenty-second "
+      .. "wave",
     about = "The end of the trail. The same man in the same joke-shop disguise, much stronger now: he blinks "
       .. "straight through you, and his briefcase holds everything you met on the way up.",
     stats = {

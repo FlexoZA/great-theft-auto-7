@@ -423,8 +423,12 @@ couple of small conventions rather than requiring each other:
   chopper's soldiers, and the Hunters out of A-Man's case: `hunters`
   answers `serverArenaLeft`); antlions the next two and the Antlion Guard
   the twentieth (`antlions`, kinds "antlion" and "guard"; the rollermines
-  its chopper drops count, `rollermines` answering `serverArenaLeft`).
-  Add your enemy to the list and answer both to put it in the arena.
+  its chopper drops count, `rollermines` answering `serverArenaLeft`);
+  the Poison Zombie the twenty-first (`poison-zombie`, kind "zombie", his
+  crabs in his count) and A-Man the twenty-second (`a-man`, kind "a-man":
+  the Citadel's finale on the sand, whatever comes out of his case in his
+  wave's `also`). Add your enemy to the list and answer both to put it in
+  the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

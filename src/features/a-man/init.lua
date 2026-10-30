@@ -131,13 +131,20 @@ function AMan:serverDropTroops(server, x, y, count)
 end
 
 --- The Colosseum's waves (colosseum/waves.lua): `count` Combine soldiers
---- set down round (x, y) on its sand (`kind` "combine"). Returns how many came.
+--- set down round (x, y) on its sand (`kind` "combine"), or A-Man himself
+--- there (`kind` "a-man", the Citadel's finale). Returns how many came.
 function AMan:serverArenaSend(server, kind, count, x, y)
+  if kind == "a-man" then
+    return Citadel.serverArena(server, x, y)
+  end
   return kind == "combine" and City17.serverArenaDrop(server, x, y, count) or 0
 end
 
---- How many Combine soldiers are still up.
+--- How many Combine soldiers are still up, or whether he is (and his turrets).
 function AMan:serverArenaLeft(_server, kind)
+  if kind == "a-man" then
+    return Citadel.serverArenaLeft()
+  end
   return kind == "combine" and City17.serverUp() or 0
 end
 

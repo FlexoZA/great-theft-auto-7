@@ -52,6 +52,13 @@ Waves.LIST = {
   { title = "The Antlion Guard", feature = "antlions", kind = "guard", count = 1, exact = true,
     spots = { { 0, -0.3 } }, -- the rollermines its chopper drops count too
     also = { { feature = "rollermines", kind = "rollermine" } } },
+  { title = "The Poison Zombie", feature = "poison-zombie", kind = "zombie", count = 1, exact = true,
+    spots = { { 0, -0.3 } } }, -- his crabs are his own count
+  { title = "A-Man", feature = "a-man", kind = "a-man", count = 1, exact = true, spots = { { 0, -0.3 } },
+    also = { -- whatever comes out of his case
+      { feature = "a-man", kind = "combine" }, { feature = "hunters", kind = "hunter" },
+      { feature = "rollermines", kind = "rollermine" }, { feature = "antlions", kind = "antlion" },
+    } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

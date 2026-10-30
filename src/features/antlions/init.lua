@@ -315,6 +315,10 @@ function Antlions:serverSummon(_server, x, y, count, r)
     sv = newState()
   end
   local swarm = sv.brain:bury(x, y, r or 80, count)
+  local map = cityMap()
+  if map and map.oval then
+    swarm.chase = math.huge -- on the Colosseum's sand (A-Man's case there) they go after anyone, as its waves'
+  end
   for i, a in ipairs(swarm.members) do
     a.wakeIn = 0.05 + (i - 1) / #swarm.members * Brain.WAKE_SPREAD
   end

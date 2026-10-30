@@ -25,8 +25,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   squirrels, 15, 20 and 25, and Bigfoot himself with his litters; then Major Looz'er's riflemen, 6, 9 and 12, with
   mortars falling, and the Major himself; then Shotgun, sniping from behind the cover and vanishing; then the
   Combine, 6, 9 and 12, and the Hunter-Chopper, calling in soldiers and A-Man's Hunters as it goes down; then
-  antlions, 12 and 18, out of the sand, and the Antlion Guard with its rollermines. Each wave cleared drops a pile of
-  koins in the middle. More waves are coming.
+  antlions, 12 and 18, out of the sand, and the Antlion Guard with its rollermines; then the Poison Zombie throwing
+  his crabs, and A-Man himself with everything in his briefcase. Each wave cleared drops a pile of koins in the
+  middle. More waves are coming.
 
 ## [0.44.0] - 2026-10-30
 
