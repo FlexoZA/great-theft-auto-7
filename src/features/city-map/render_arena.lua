@@ -48,10 +48,11 @@ local function drawSand(o)
     love.graphics.ellipse("fill", x, y, 18 + hash(k + 9) * 40, 8 + hash(k + 3) * 16, 12)
   end
   -- The emblem in the middle: a ring and a cross of darker sand.
+  local ex, ey = o.rx * 0.125, o.ry * 0.125 -- its size goes with the sand's
   love.graphics.setLineWidth(10)
-  love.graphics.ellipse("line", o.x, o.y, 150, 100, 64)
-  love.graphics.line(o.x - 110, o.y, o.x + 110, o.y)
-  love.graphics.line(o.x, o.y - 72, o.x, o.y + 72)
+  love.graphics.ellipse("line", o.x, o.y, ex, ey, 64)
+  love.graphics.line(o.x - ex * 0.73, o.y, o.x + ex * 0.73, o.y)
+  love.graphics.line(o.x, o.y - ey * 0.72, o.x, o.y + ey * 0.72)
   love.graphics.setLineWidth(1)
 end
 

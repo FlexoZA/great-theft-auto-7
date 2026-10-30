@@ -226,7 +226,7 @@ CityMap.maps = {
   -- sand walled round, the stands past the wall (arena.lua). Walked, in
   -- through the gate from the city once every job is done; nobody about.
   colosseum = {
-    title = "The Colosseum", kind = "arena", seed = 401, cols = 44, rows = 32,
+    title = "The Colosseum", kind = "arena", seed = 401, cols = 60, rows = 42,
     crowd = false, traffic = false, vehicles = false,
   },
 }

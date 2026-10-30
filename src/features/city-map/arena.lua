@@ -17,7 +17,7 @@
 
 local Arena = {}
 
-Arena.RX, Arena.RY = 1200, 800 -- px radii of the sand
+Arena.RX, Arena.RY = 1800, 1200 -- px radii of the sand
 Arena.WALL = 64 -- px thick, the podium wall round it
 Arena.STRIP = 16 -- px high, each band of the wall's solid strips
 Arena.HOME = 110 -- px in from the gate, the star home
