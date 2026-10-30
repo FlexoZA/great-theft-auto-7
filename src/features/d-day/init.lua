@@ -81,6 +81,7 @@ Dday.riflemen = 4 -- most riflemen out at once for one player (more humans, more
 Dday.reinforceEvery = 7 -- seconds between riflemen coming out of the barracks
 Dday.mortarEvery = { 1.4, 3.0 } -- seconds between mortars, at random in this range
 Dday.mortarFirst = 4 -- seconds after landing before the first
+Dday.arenaMortarEvery = { 6, 10 } -- seconds between mortars in the Colosseum: far less cover than the beach
 Dday.mortarDelay = 1.3 -- seconds the ring shows before it lands
 Dday.mortarRadius = 95 -- px
 Dday.mortarDamage = 45 -- at the centre, falling to a third at the edge
@@ -276,7 +277,8 @@ end
 function Dday:stepMortars(server, map, dt)
   sv.mortarIn = sv.mortarIn - dt
   if sv.mortarIn <= 0 then
-    sv.mortarIn = self.mortarEvery[1] + random() * (self.mortarEvery[2] - self.mortarEvery[1])
+    local every = sv.arena and self.arenaMortarEvery or self.mortarEvery
+    sv.mortarIn = every[1] + random() * (every[2] - every[1])
     local x, y
     if sv.arena then
       x, y = arenaMortarSpot(server, map.oval)
@@ -349,7 +351,7 @@ local function arenaStart(server, map)
   sv.troops = Soldiers.new({ aware = Dday.aware, health = Bosses.enemyHealth(Soldiers.HEALTH) })
   sv.troops:navigate({ x = map.left, y = map.top, w = map.w, h = map.h })
   sv.major, sv.mortars, sv.maxRiflemen = nil, {}, 0
-  sv.mortarIn, sv.reinforceIn, sv.revealT, sv.syncIn = Dday.mortarFirst, Dday.reinforceEvery, 0, 0
+  sv.mortarIn, sv.reinforceIn, sv.revealT, sv.syncIn = Dday.arenaMortarEvery[1], Dday.reinforceEvery, 0, 0
   sv.arena = { x = 0, y = 0 }
   setStage(server, "arena")
 end

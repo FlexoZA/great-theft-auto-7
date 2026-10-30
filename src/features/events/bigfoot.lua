@@ -101,6 +101,7 @@ Bigfoot.drop = "ability-bigleap@legendary" -- the pickup he leaves
 
 Bigfoot.litter = 15 -- squirrels at a time, for one player (more humans, more)
 Bigfoot.litterDelay = 4 -- seconds after the last one burst before the next litter
+Bigfoot.arenaLitterDelay = 12 -- the same on the Colosseum's sand, where there is nowhere else for them to go
 Bigfoot.squirrelHealth = 10 -- one round
 Bigfoot.squirrelRadius = 7
 Bigfoot.squirrelSpeed = 340 -- px/s; faster than any car off the line
@@ -328,7 +329,7 @@ local function pop(server, s)
   sv.squirrels[s.id] = nil
   sv.count = sv.count - 1
   if sv.count <= 0 then
-    sv.litterIn = Bigfoot.litterDelay
+    sv.litterIn = sv.arena and Bigfoot.arenaLitterDelay or Bigfoot.litterDelay
   end
   server:broadcast(Protocol.encode("EBF_POP", fmt(s.x), fmt(s.y), ("%.2f"):format(s.facing)))
 end
@@ -510,7 +511,7 @@ function Bigfoot.serverArenaSend(server, events, kind, count, x, y)
       return 0, false
     end
     sv = fresh(server, events, newFoot(server, x, y))
-    sv.arena = true
+    sv.arena, sv.litterIn = true, Bigfoot.arenaLitterDelay / 2
     return 1, true
   elseif kind == "squirrels" then
     local new = sv == nil
