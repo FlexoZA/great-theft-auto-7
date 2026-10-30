@@ -613,7 +613,7 @@ standard), as Cyber Feud's do.
 
 No level is a straight run. Every level hides terminals (Heck: bone seals)
 off the straight way through, and its way on doesn't open until they are
-done (`eternal-mood/terminals.lua`; the map's `terminals` and `locks`). A
+done (the `terminals` feature, `src/features/terminals`, shared with Borderline; the map's `terminals` and `locks`). A
 lock holds the level's exit (as a boss does: both have to be dealt with) or
 walls across a doorway, the road or a ramp, which nothing gets past, not a
 person, not a round, until it opens. Stand at a terminal and hold the action

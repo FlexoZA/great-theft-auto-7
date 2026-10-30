@@ -21,6 +21,9 @@ local OLIVE = { 0.38, 0.45, 0.32 }
 local RED = { 0.85, 0.2, 0.15 }
 local WOOD = { 0.55, 0.36, 0.2 }
 local BRASS = { 0.85, 0.66, 0.25 }
+local PLASMA = { 0.71, 0.30, 1.00 } -- the plasma haulers' purple (borderline)
+local PLASMA_HOT = { 0.92, 0.75, 1.00 }
+local GOLD = { 1.00, 0.80, 0.25 }
 
 local set, box, poly, line, strokes = Shade.set, Shade.box, Shade.poly, Shade.line, Shade.strokes
 
@@ -163,6 +166,52 @@ local function ar()
   poly(BLACK, 22.5, -8, 26, -8, 25.5, -14, 23.5, -14) -- the A-frame front sight
   box(33, -4.5, 5, 5, DARK, 0.6) -- flash hider
   strokes(DARK, 0.5, 2, 34.5, -4, 1.5, 4)
+end
+
+--- The plasma rifle: a smooth dark body, a glowing cell of plasma where a
+--- magazine would be, purple coils down the barrel and a ring at the muzzle.
+local function plasmaRifle()
+  love.graphics.translate(0, -2)
+  poly(BLACK, -37, -6, -25, -6, -25, 4, -37, 8) -- the stock
+  box(-38, -6.5, 2.5, 14.5, DARK, 0.4) -- butt pad
+  poly(BLACK, -14, 3, -8, 3, -10.5, 14, -16.5, 13) -- pistol grip
+  triggerGuard(-4, 4, 3.5)
+  line(STEEL, 0.8, 1.5, -4.5, 4, -5, 7.5) -- trigger
+  box(1, 3, 9, 11, DARK, 1) -- the cell's housing
+  box(2.5, 4.5, 6, 8, PLASMA, 0.8) -- the cell, glowing through it
+  box(4, 6, 3, 5, PLASMA_HOT, 0.4)
+  box(-25, -9, 37, 12, DARK, 2.5) -- the body
+  line(DARK, 0.65, 1, -23, -3, 10, -3) -- a panel seam
+  box(-14, -12, 18, 3, BLACK, 0.5) -- the sight rail
+  box(12, -6, 20, 6, BLACK, 1) -- the barrel
+  for i = 0, 3 do -- its coils
+    box(14 + i * 4.5, -7.5, 2, 9, PLASMA, 0.4)
+  end
+  box(31, -8, 4, 10, STEEL, 0.8) -- the muzzle ring
+  set(PLASMA_HOT)
+  love.graphics.circle("fill", 35.5, -3, 1.4) -- the glow in it
+end
+
+--- The Bragium Bolter: a heavy launcher, a glowing Bragium core in a cage
+--- over the grip, purple coils round a fat barrel, a wide muzzle ring.
+local function bolter()
+  love.graphics.translate(0, -1)
+  poly(BLACK, -36, -7, -24, -8, -24, 6, -36, 9) -- the stock
+  box(-37, -7.5, 2.5, 17, DARK, 0.4) -- butt pad
+  poly(BLACK, -12, 4, -6, 4, -8.5, 15, -14.5, 14) -- the grip
+  triggerGuard(-3, 5, 3.5)
+  box(-24, -10, 30, 15, DARK, 3) -- the body
+  box(-20, -14, 14, 5, BLACK, 0.5) -- the core's cage
+  box(-18, -13, 10, 3, PLASMA, 0.6) -- the core, glowing through it
+  box(-15, -12.5, 4, 2, PLASMA_HOT, 0.3)
+  box(6, -8, 22, 11, BLACK, 2) -- the barrel
+  for i = 0, 3 do -- its coils
+    box(8 + i * 5, -9.5, 2.5, 14, PLASMA, 0.4)
+  end
+  box(27, -11, 6, 17, STEEL, 1) -- the muzzle ring
+  box(28.5, -8, 3, 11, GOLD, 0.6)
+  set(PLASMA_HOT)
+  love.graphics.circle("fill", 33.5, -2.5, 2.2) -- the glow in it
 end
 
 local function shotgun()
@@ -334,7 +383,8 @@ end
 local DRAW = {
   pistol = pistol, uzi = uzi, smg = smg, rocket = rocket, ak47 = ak47, ar = ar, shotgun = shotgun,
   ["super-shotgun"] = superShotgun, sniper = sniper,
-  flamethrower = flamethrower, minigun = minigun, turret = turret,
+  flamethrower = flamethrower, minigun = minigun, turret = turret, ["plasma-rifle"] = plasmaRifle,
+  bolter = bolter,
 }
 
 --- Draw the icon for gun `key` centred on (cx, cy), `scale` times its

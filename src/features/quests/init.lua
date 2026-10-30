@@ -5,14 +5,15 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Seven jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- Eight jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
 -- after Shotgun (shotgun), one by train into City 17 after A-Man (a-man),
 -- whose trail carries on over four more maps by EXIT stars, and the
 -- courier job into Grey City (cyber-feud), five maps the same way, and
--- the pest-control job to the UAC's moon base (eternal-mood). A blue
+-- the pest-control job to the UAC's moon base (eternal-mood), and the
+-- long walk to Maximum Maximilian Max's bunker on Pandoria (borderline). A blue
 -- star by the entrance of each brings everyone home again (not on Cyber
 -- Feud's Roof: there the only way home is the star on the helipad once VEX
 -- is gone); a star comes
@@ -370,6 +371,140 @@ Quests.list = {
     exitText = "The Snooze Gate. Something behind it is ticking. That's as far as the job goes for now. Head home.",
   },
   {
+    -- Borderline (docs/borderline.md): eight maps on Pandoria, all on foot,
+    -- against Maximum Maximilian Max's robot army. The borderline feature runs the
+    -- levels; each EXIT star leads on to the next, the Bunker's goes home.
+    id = "borderline",
+    title = "Left for dead",
+    text = "Pandoria. Maximum Maximilian Max's train never made it, and neither did you, nearly. Climb out "
+      .. "of the wreck and get moving.",
+    board = true,
+    map = "wreck",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s crawled out of the snow. Welcome to the Frozen Wreck.",
+    introLine = 1,
+    exitText = "The tunnel runs down to the harbour. Max's robots came up that way, so down you go.",
+    exitTitle = "Through the tunnel",
+    exitLabel = "LIAR'S LANDING",
+    next = "borderline-landing",
+  },
+  {
+    -- On foot through Liar's Landing: the level before leads here.
+    id = "borderline-landing",
+    title = "Liar's Landing",
+    text = "A frozen harbour of containers and cranes, Max's robots on every stack. The ferry "
+      .. "lift is on the quay.",
+    map = "landing",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s came out of the tunnel. Welcome to Liar's Landing.",
+    introLine = 2,
+    exitText = "The ferry lift goes across the bay to Max's mine.",
+    exitTitle = "Across the bay",
+    exitLabel = "BRAGIUM PIT",
+    next = "borderline-pit",
+  },
+  {
+    -- On foot through The Bragium Pit: the level before leads here.
+    id = "borderline-pit",
+    title = "The Bragium Pit",
+    text = "Max's mine: terraces down to the floor of the pit, purple rock everywhere. The mine "
+      .. "lift is on the far rim.",
+    map = "pit",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s rode the ferry over. Welcome to the Bragium Pit.",
+    introLine = 3,
+    exitText = "The mine lift comes up under Max's city. He's expecting you. He's thrilled. He's always thrilled.",
+    exitTitle = "Up the mine lift",
+    exitLabel = "PROSPERITY",
+    next = "borderline-prosperity",
+  },
+  {
+    -- On foot through Prosperity: the level before leads here.
+    id = "borderline-prosperity",
+    title = "Prosperity",
+    text = "Max's city under its dome: his statue, his streets, his face on every screen. The "
+      .. "north gate leads on.",
+    map = "prosperity",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s walked in the south gate. Welcome to Prosperity.",
+    introLine = 4,
+    exitText = "Past the north gate the road goes down to the refinery, where the Bragium is melted down.",
+    exitTitle = "Out the north gate",
+    exitLabel = "THE REFINERY",
+    next = "borderline-refinery",
+  },
+  {
+    -- On foot through The Refinery: the level before leads here.
+    id = "borderline-refinery",
+    title = "The Refinery",
+    text = "Rivers of molten Bragium and the bridges over them. The freight door is at the far end.",
+    map = "refinery",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s came in through the intake. Welcome to the Refinery.",
+    introLine = 5,
+    exitText = "The freight door opens onto the factory floor, where the army is built.",
+    exitTitle = "Through the freight door",
+    exitLabel = "ASSEMBLY LINE",
+    next = "borderline-assembly",
+  },
+  {
+    -- On foot through The Assembly Line: the level before leads here.
+    id = "borderline-assembly",
+    title = "The Assembly Line",
+    text = "The robot factory: belts, arms and presses, and the Foreman's floor at the top. Out "
+      .. "through the shipping bay.",
+    map = "assembly",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s walked onto the factory floor. Welcome to the Assembly Line.",
+    introLine = 6,
+    exitText = "The shipping bay opens onto the road up the cliff. The bunker is at the top.",
+    exitTitle = "Out the shipping bay",
+    exitLabel = "PAPERCUTS",
+    next = "borderline-cuts",
+  },
+  {
+    -- On foot through Thousand Papercuts: the level before leads here.
+    id = "borderline-cuts",
+    title = "Thousand Papercuts",
+    text = "One narrow road up the cliff, the drop on one side, Max's guns on the other. His "
+      .. "bunker's door is at the top.",
+    map = "cuts",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s started up the road. Welcome to Thousand Papercuts.",
+    introLine = 7,
+    exitText = "The bunker's door is open. Up onto the roof.",
+    exitTitle = "Into the bunker",
+    exitLabel = "THE BUNKER",
+    next = "borderline-bunker",
+  },
+  {
+    -- On foot through The Bunker: the level before leads here.
+    id = "borderline-bunker",
+    title = "The Bunker",
+    text = "The roof of Max's bunker. He says it flies.",
+    map = "bunker",
+    boss = "borderline",
+    label = "BORDERLINE",
+    color = { 0.95, 0.76, 0.19 },
+    banner = "%s climbed out onto the roof. Welcome to the Bunker.",
+    introLine = 8,
+    exitText = "That's the bunker done, and that's as far as the job goes for now. Head home.",
+  },
+  {
     id = "home",
     title = "Back to the City",
     text = "Done here. Call it a day and take everyone back into town.",
@@ -584,6 +719,110 @@ Quests.list = {
     onMap = "heck",
     x = 0, -- by the portal on the shelf: city-map's map.cx, map.cy
     y = 2752,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-wreck",
+    title = "Back to the City",
+    text = "Back out the yard gate. Take everyone home.",
+    onMap = "wreck",
+    x = 48, -- where you woke: city-map's map.cx, map.cy
+    y = 1948,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-landing",
+    title = "Back to the City",
+    text = "Back into the cave. Take everyone home.",
+    onMap = "landing",
+    x = 48, -- by the cave: city-map's map.cx, map.cy
+    y = 1756,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-pit",
+    title = "Back to the City",
+    text = "Back along the south rim. Take everyone home.",
+    onMap = "pit",
+    x = 48, -- on the south rim: city-map's map.cx, map.cy
+    y = 1756,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-prosperity",
+    title = "Back to the City",
+    text = "Back out the south gate. Take everyone home.",
+    onMap = "prosperity",
+    x = 48, -- by the south gate: city-map's map.cx, map.cy
+    y = 2588,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-refinery",
+    title = "Back to the City",
+    text = "Back out through the intake. Take everyone home.",
+    onMap = "refinery",
+    x = 48, -- by the intake: city-map's map.cx, map.cy
+    y = 2332,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-assembly",
+    title = "Back to the City",
+    text = "Back out the way you came. Take everyone home.",
+    onMap = "assembly",
+    x = 48, -- by the way in: city-map's map.cx, map.cy
+    y = 2076,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-cuts",
+    title = "Back to the City",
+    text = "Back down to the foot of the cliff. Take everyone home.",
+    onMap = "cuts",
+    x = -416, -- at the foot of the cliff: city-map's map.cx, map.cy
+    y = 4396,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
+  {
+    id = "home-bunker",
+    title = "Back to the City",
+    text = "Back down the hatch. Take everyone home.",
+    onMap = "bunker",
+    x = 48, -- by the hatch: city-map's map.cx, map.cy
+    y = 924,
     map = "city",
     returns = true,
     label = "HOME",

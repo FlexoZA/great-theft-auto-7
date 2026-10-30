@@ -25,6 +25,9 @@
 --              dazed: your screen swims
 --   poison     you are poisoned for a while: it hurts on after the hit,
 --              until it runs out, you dodge or a medkit cures it
+--   plasma     melted (`meltTime`): what you wear stops half the share of
+--              every type it would, and your vest's points go twice as fast
+--              (armor reads `serverHas(id, "melt")`)
 --
 -- Burning, being zapped, bleeding and being poisoned hurt a little every
 -- quarter second until they run out. Another dose while one is on tops its
@@ -82,6 +85,7 @@ Damage.types = {
   shock = { name = "Shock", color = { 0.5, 0.8, 1 }, killed = "fried", died = "was fried" },
   melee = { name = "Melee", color = { 0.9, 0.4, 0.4 }, killed = "beat down", died = "was beaten down" },
   poison = { name = "Poison", color = { 0.55, 0.9, 0.3 }, killed = "poisoned", died = "was poisoned" },
+  plasma = { name = "Plasma", color = { 0.71, 0.3, 1 }, killed = "melted", died = "was melted" },
 }
 
 -- Tuning ------------------------------------------------------------------
@@ -91,6 +95,7 @@ Damage.bleedTime = 4 -- seconds a melee hit leaves you bleeding
 Damage.bleedDps = 3 -- melee damage a second while you do
 Damage.poisonTime = 6 -- seconds a poison hit leaves you poisoned
 Damage.poisonDps = 4 -- poison damage a second while you are
+Damage.meltTime = 3 -- seconds a plasma hit leaves your armor melted
 Damage.stunTime = 1 -- seconds a shock holds you still
 Damage.stunMin = 20 -- damage a single shock hit must do to stun you by itself
 Damage.zapTime = 3 -- seconds a zap runs on through you when it doesn't say
@@ -109,7 +114,8 @@ local TICK = 0.25 -- seconds between bites of a burn, a zap or a bleed
 
 --- The statuses there are, and the type the ones that hurt deal.
 local HURTS = { burn = "fire", zap = "shock", bleed = "melee", poison = "poison" }
-local STATUSES = { burn = true, zap = true, bleed = true, poison = true, stun = true, down = true, daze = true }
+local STATUSES = { burn = true, zap = true, bleed = true, poison = true, stun = true, down = true, daze = true,
+  melt = true }
 
 --- The entry for type `dtype`, the default's for nil or anything unknown.
 function Damage.of(dtype)
@@ -122,7 +128,7 @@ function Damage.key(dtype)
 end
 
 --- The types in the order everything lists them (cards, the inventory).
-Damage.order = { "bullet", "explosive", "fire", "impact", "shock", "melee", "poison" }
+Damage.order = { "bullet", "explosive", "fire", "impact", "shock", "melee", "poison", "plasma" }
 
 --- One piece's resistance `r` as it counts: a number from 0 to maxResist.
 function Damage.clampResist(r)
@@ -135,10 +141,17 @@ local function through(share)
   return math.max(1 - Damage.maxResist, math.min(1, share))
 end
 
+--- What gets through to someone melted (plasma): their gear stops half
+--- what it would.
+local function melted(share)
+  return 1 - (1 - share) / 2
+end
+
 --- The share of a `dtype` hit that gets through to player `id` on this
 --- screen (1: nothing stopped), from what they wear.
 function Damage:share(client, id, dtype)
-  return through(Features.reduce("resist", 1, client, id, dtype))
+  local share = through(Features.reduce("resist", 1, client, id, dtype))
+  return self:has(id, "melt") and melted(share) or share
 end
 
 -- Client --------------------------------------------------------------------
@@ -207,7 +220,7 @@ end
 --- around), a crash harder than a bullet.
 function Damage:deathAt(x, y, angle, cause)
   angle = angle or 0
-  if cause == "fire" or cause == "shock" then
+  if cause == "fire" or cause == "shock" or cause == "plasma" then
     Effects.leave("ash", x, y, angle)
     return
   end
@@ -285,6 +298,9 @@ function Damage:drawHUD(client)
   if self:has(me, "poison") then
     say("POISONED", "dodge or " .. medkit .. " cures it", "poison")
   end
+  if self:has(me, "melt") then
+    say("MELTED", "your armor is half as good", "plasma")
+  end
   if self:has(me, "stun") then
     say("STUNNED", nil, "shock")
   elseif self:has(me, "down") then
@@ -355,7 +371,8 @@ end
 
 --- The share of a `dtype` hit that gets through to `player` on the host.
 function Damage:serverShare(server, player, dtype)
-  return through(Features.reduce("serverResist", 1, server, player, Damage.key(dtype)))
+  local share = through(Features.reduce("serverResist", 1, server, player, Damage.key(dtype)))
+  return self:serverHas(player.id, "melt") and melted(share) or share
 end
 
 --- The `serverAbsorbDamage` convention, first in line: what `victim` wears
@@ -497,6 +514,8 @@ function Damage:serverPlayerDamaged(server, victim, attacker, amount, dtype, ang
     self:serverAfflict(server, victim, "bleed", self.bleedTime, self.bleedDps, attacker and attacker.id)
   elseif dtype == "poison" then
     self:serverAfflict(server, victim, "poison", self.poisonTime, self.poisonDps, attacker and attacker.id)
+  elseif dtype == "plasma" then
+    self:serverAfflict(server, victim, "melt", self.meltTime)
   elseif dtype == "shock" and amount >= self.stunMin then
     self:serverAfflict(server, victim, "stun", self.stunTime * share)
   elseif dtype == "impact" then

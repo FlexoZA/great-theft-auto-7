@@ -1,0 +1,1116 @@
+-- The Borderline maps' floors and what lies round them (render_borderline.lua
+-- draws them into the map's canvas; surroundings/borderline.lua the same past
+-- its edges): the floors' finishes and the snow on them, the outside tile by
+-- tile, the outline where they meet, snow heaped against the walls and
+-- whatever stands, forklifts' tracks, the hollow at the Wreck's arrival.
+
+local Kit = require("src.features.city-map.render_borderline_kit")
+local Mine = require("src.features.city-map.render_borderline_mine")
+
+local Ground = {}
+
+local INK, LINE, C = Kit.INK, Kit.LINE, Kit.C
+local color, hash, noise, drift, blob, box = Kit.color, Kit.hash, Kit.noise, Kit.drift, Kit.blob, Kit.box
+
+
+--- What the outside is at tile (c, r) on `map`.
+local function outsideAt(map, c, r)
+  local o = map.outside
+  if o == "works" then
+    return C.works
+  elseif o == "harbour" then
+    return C.sea
+  elseif o == "rock" then
+    return C.rock
+  elseif o == "dome" then
+    return C.bank
+  elseif o == "plant" or o == "hall" then
+    return C.wall
+  elseif o == "cliff" then -- (past the map's ends, the road runs on as it ends)
+    local road = map.cutsRoad[math.max(map.r0, math.min(map.r1, r))]
+    return road and c < road[1] and C.abyss or C.rock
+  elseif o == "sky" then
+    return C.sky
+  end
+  return C.bank
+end
+
+local function floorAt(map, x, y)
+  local floor = nil
+  for _, g in ipairs(map.grounds) do
+    if x >= g.x0 and x < g.x1 and y >= g.y0 and y < g.y1 then
+      floor = g.floor
+    end
+  end
+  return C[floor] or C.yard
+end
+
+local function open(map, c, r)
+  return map.tiles[c] ~= nil and map.tiles[c][r] ~= nil
+end
+
+--- How deep the snow lies on a yard at tile (c, r): 0 bare .. 1 deep.
+local function snowAt(c, r)
+  return noise(c / 4.5, r / 4.5) * 0.75 + noise(c / 1.7 + 40, r / 1.7) * 0.25
+end
+
+--- The factory's roofs round the Wreck's yard, one tile of them: buildings
+--- 6 x 4 tiles, each its own shade with its corrugations one way or the
+--- other, parapets between them; skylights down some (lit where the night
+--- shift is on), pipes along others, turbine vents, extractors and stacks
+--- here and there, snow lying in patches. Tiles past the map's edge are
+--- drawn the same, so the roofs run on.
+local function drawWorksRoof(c, r, x, y, T)
+  local bc, br = math.floor(c / 6), math.floor(r / 4)
+  local lc, lr = c - bc * 6, r - br * 4
+  local bh = hash(bc * 3.3 + br * 7.7 + 0.5)
+  local h = hash(c * 7.1 + r * 13.7)
+  local k = 0.85 + 0.3 * bh
+  love.graphics.setColor(C.works[1] * k, C.works[2] * k, C.works[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  love.graphics.setColor(C.worksRidge[1] * k, C.worksRidge[2] * k, C.worksRidge[3] * k)
+  for a = 4, T - 4, 10 do
+    if bh < 0.5 then
+      love.graphics.rectangle("fill", x, y + a, T, 3)
+    else
+      love.graphics.rectangle("fill", x + a, y, 3, T)
+    end
+  end
+  if bh > 0.25 and bh < 0.7 and lr == 2 then -- a skylight down the building
+    color(INK)
+    love.graphics.rectangle("fill", x, y + 14, T, 32)
+    local lit = bh > 0.45
+    color(lit and C.skylightLit or C.window, lit and 0.85 or 1)
+    love.graphics.rectangle("fill", x, y + 17, T, 26)
+    color(INK)
+    for a = 0, T - 1, 16 do
+      love.graphics.rectangle("fill", x + a, y + 17, 3, 26)
+    end
+  elseif bh > 0.75 and lr == 1 then -- pipes along it
+    for _, py in ipairs({ y + 18, y + 38 }) do
+      color(INK)
+      love.graphics.rectangle("fill", x, py, T, 12)
+      color(C.gunmetalLight)
+      love.graphics.rectangle("fill", x, py + 3, T, 5)
+    end
+  elseif lc > 0 and lr > 0 then
+    if h < 0.08 then -- a turbine vent
+      blob(x + 18, y + 18, 28, 28, C.gunmetalLight)
+      color(INK)
+      love.graphics.rectangle("fill", x + 22, y + 31, 20, 3)
+      love.graphics.rectangle("fill", x + 31, y + 22, 3, 20)
+    elseif h < 0.12 then -- an extractor, its fan
+      box(x + 10, y + 14, 44, 34, C.gunmetalLight)
+      color(INK)
+      love.graphics.circle("fill", x + 32, y + 31, 12, 14)
+      color(C.gunmetal)
+      love.graphics.rectangle("fill", x + 21, y + 29, 22, 4)
+    elseif h < 0.14 then -- a stack
+      blob(x + 18, y + 18, 28, 28, C.rust)
+      color(INK)
+      love.graphics.circle("fill", x + 32, y + 32, 8, 10)
+    end
+  end
+  if lc == 0 then -- the parapets between buildings
+    color(INK)
+    love.graphics.rectangle("fill", x, y, 5, T)
+    color(C.gunmetalLight, 0.8)
+    love.graphics.rectangle("fill", x + 5, y, 3, T)
+  end
+  if lr == 0 then
+    color(INK)
+    love.graphics.rectangle("fill", x, y, T, 5)
+    color(C.gunmetalLight, 0.8)
+    love.graphics.rectangle("fill", x, y + 5, T, 3)
+  end
+  local n = noise(c / 3 + 11, r / 3 + 5)
+  if n > 0.66 then -- snow lying in the corrugations
+    color(C.snow, 0.9)
+    for i = 0, 1 do
+      local sx, sy = x + T * 0.5 * hash(h * 3 + i), y + T * (0.25 + 0.5 * hash(h * 5 + i))
+      love.graphics.rectangle("fill", sx, sy, T * (0.3 + 0.4 * hash(h * 7 + i)), 4)
+    end
+  end
+end
+
+--- The ice on the frozen harbour all round Liar's Landing, one tile of it,
+--- drawn over the water of every tile round it (its plates spill over): plates of sea ice with dark water
+--- in the leads between them, the plates smaller the nearer the quay,
+--- where the ships keep it broken up into shards and slush.
+local function drawSeaIce(map, c, r, x, y, T)
+  local bounds = map.openBox
+  if not bounds then -- the floors' bounds, tiles: how far out to sea a tile is goes by them
+    bounds = { c0 = math.huge, r0 = math.huge, c1 = -math.huge, r1 = -math.huge }
+    for cc = map.c0, map.c1 do
+      for rr = map.r0, map.r1 do
+        if open(map, cc, rr) then
+          bounds.c0, bounds.r0 = math.min(bounds.c0, cc), math.min(bounds.r0, rr)
+          bounds.c1, bounds.r1 = math.max(bounds.c1, cc), math.max(bounds.r1, rr)
+        end
+      end
+    end
+    map.openBox = bounds
+  end
+  local d = math.max(bounds.c0 - c, c - bounds.c1, bounds.r0 - r, r - bounds.r1, 1)
+  local near = math.max(0, math.min(1, 1 - (d - 1) / 5)) -- 1 at the quay, 0 far out
+  local n = 2 + math.floor(near * 4)
+  for i = 1, n do
+    local h1, h2, h3 = hash(c * 3.3 + r * 7.9 + i * 1.1), hash(c * 5.1 + r * 2.3 + i * 2.7), hash(c * 9.7 + r + i)
+    local size = T * (0.55 - 0.3 * near) * (0.7 + 0.6 * h3)
+    local px, py = x + T * h1, y + T * h2
+    local pts = {}
+    for k = 0, 5 do
+      local a = k * math.pi / 3 + h3 * 2
+      local rr = size * (0.6 + 0.5 * hash(h1 * 13 + k))
+      pts[#pts + 1] = px + math.cos(a) * rr
+      pts[#pts + 1] = py + math.sin(a) * rr * 0.75
+    end
+    color(C.snowShade, 0.95)
+    love.graphics.polygon("fill", pts)
+    for k = 1, #pts, 2 do
+      pts[k], pts[k + 1] = px + (pts[k] - px) * 0.85 - 2, py + (pts[k + 1] - py) * 0.85 - 2
+    end
+    color(h3 < 0.3 and C.ice or C.floe)
+    love.graphics.polygon("fill", pts)
+  end
+  if near > 0.6 then -- slush between the shards
+    color(C.white, 0.18)
+    love.graphics.ellipse("fill", x + T * hash(c + r * 3.1), y + T * hash(c * 2 + r), T * 0.3, T * 0.08, 10)
+  end
+end
+
+--- The detail on one tile of bare rock (the ground round the Bragium Pit,
+--- the cliff on Thousand Papercuts), over the bare rock of every tile round
+--- it (its slabs and boulders spill over): paler slabs of it showing, its
+--- strata, cracks, loose stones, a boulder now and then.
+local function drawRockDetail(c, r, x, y, T)
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.55 then -- a paler slab
+    local px, py, rad = x + T * (0.3 + 0.4 * hash(h * 3)), y + T * (0.3 + 0.4 * hash(h * 5)), T * (0.4 + 0.35 * h)
+    local pts = {}
+    for k = 0, 5 do
+      local a = k * math.pi / 3 + h * 4
+      local rr = rad * (0.7 + 0.4 * hash(h * 13 + k))
+      pts[#pts + 1] = px + math.cos(a) * rr
+      pts[#pts + 1] = py + math.sin(a) * rr * 0.7
+    end
+    color(C.rockLight, 0.3)
+    love.graphics.polygon("fill", pts)
+  elseif h > 0.75 then -- a hollow in shade
+    color(INK, 0.1)
+    love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.5, T * 0.3, 14)
+  end
+  color(C.rockLight, 0.35) -- the strata
+  for i = 0, 1 do
+    local sx, sy = x + T * hash(h * 7 + i), y + T * hash(h * 11 + i)
+    love.graphics.rectangle("fill", sx - 14, sy, 18 + 22 * hash(h + i * 3), 3)
+  end
+  if h < 0.25 then -- a crack
+    color(INK, 0.25)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(x + T * h * 2, y + 6, x + T * 0.5, y + T * 0.45, x + T * (0.3 + h), y + T - 6)
+    love.graphics.setLineWidth(1)
+  end
+  for i = 0, 2 do -- loose stones
+    local sx, sy = x + T * hash(h * 5 + i), y + T * hash(h * 9 + i * 1.3)
+    color(i == 0 and C.rockLight or INK, i == 0 and 0.9 or 0.2)
+    love.graphics.circle("fill", sx, sy, 2 + 3 * hash(h + i), 6)
+  end
+  local b = hash(c * 3.9 + r * 8.3 + 0.7)
+  if b < 0.05 then -- a boulder
+    local size = 34 + 30 * hash(b * 17)
+    Mine.DRAW.rock({ x = x + (T - size) * hash(b * 5), y = y + (T - size) * hash(b * 7), w = size, h = size * 0.8,
+      seed = b * 100 })
+  end
+end
+
+--- Snow in the hollows of bare rock at tile (c, r): where it lies, a couple
+--- of wide flat lumps running into the next tile's (`shade` the grey rim
+--- under them all first, then again without it for the snow on top).
+local function drawRockSnow(c, r, x, y, T, shade)
+  local n = noise(c / 3.2 + 31, r / 3.2 + 17)
+  if n < 0.66 then
+    return
+  end
+  for i = 0, 1 do
+    local hx, hy = hash(c * 2.1 + r * 6.3 + i), hash(c * 8.7 + r * 1.9 + i * 1.3)
+    local rx = T * (0.5 + (n - 0.66) * 2)
+    if shade then
+      color(C.snowShade)
+      love.graphics.ellipse("fill", x + hx * T, y + hy * T + 4, rx + 2, rx * 0.5, 16)
+    else
+      color(C.snow)
+      love.graphics.ellipse("fill", x + hx * T, y + hy * T, rx, rx * 0.46, 16)
+    end
+  end
+end
+
+--- The sky round the Bunker's roof at tile (c, r): banks of cloud far
+--- below, lit pale on top and shaded under, drifting in long rafts.
+local function drawClouds(c, r, x, y, T)
+  local n = noise(c / 3.6 + 41, r / 2.2 + 13)
+  if n > 0.48 then
+    local h = hash(c * 3.7 + r * 6.1)
+    local rx = T * (0.6 + (n - 0.48) * 1.6)
+    love.graphics.setColor(0.55, 0.62, 0.74, 0.55)
+    love.graphics.ellipse("fill", x + T * h, y + T * 0.6, rx, rx * 0.4, 18)
+    color(C.white, 0.7)
+    love.graphics.ellipse("fill", x + T * h - 4, y + T * 0.5, rx * 0.9, rx * 0.32, 18)
+  end
+end
+
+--- The Bunker's armoured side, falling away from its roof's south and
+--- east edges into the sky: steel plates going darker as they go down,
+--- rivets in rows, a hazard band along the lip.
+local function drawBunkerSide(map, c, r, x, y, T)
+  if open(map, c, r - 1) and not open(map, c, r) then -- under the south edge
+    for i, k in ipairs({ 0.75, 0.6, 0.45 }) do
+      love.graphics.setColor(C.roof[1] * k, C.roof[2] * k, C.roof[3] * k)
+      love.graphics.rectangle("fill", x, y + (i - 1) * 16, T, 17)
+    end
+    color(INK, 0.5)
+    for a = 6, T - 4, 16 do
+      love.graphics.circle("fill", x + a, y + 8, 1.8, 6)
+      love.graphics.circle("fill", x + a, y + 28, 1.8, 6)
+    end
+    Kit.hazard(x, y, T, 6)
+  elseif open(map, c - 1, r) and not open(map, c, r) then -- off the east edge
+    for i, k in ipairs({ 0.7, 0.55 }) do
+      love.graphics.setColor(C.roof[1] * k, C.roof[2] * k, C.roof[3] * k)
+      love.graphics.rectangle("fill", x + (i - 1) * 10, y, 11, T)
+    end
+    Kit.hazard(x, y, 5, T)
+  end
+end
+
+--- Next to a floor (any of its eight neighbours open)?
+local function byFloor(map, c, r)
+  for dc = -1, 1 do
+    for dr = -1, 1 do
+      if open(map, c + dc, r + dr) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- One tile of the Refinery's wall, next to its floor: firebrick in
+--- courses, the joints staggered, scorched darker low down; a steel column
+--- every four tiles along it, an I-beam seen from above on the floor's side.
+local function drawHallWall(map, c, r, x, y, T)
+  local k = 0.9 + 0.15 * noise(c / 3 + 1, r / 3 + 4)
+  love.graphics.setColor(C.firebrick[1] * k, C.firebrick[2] * k, C.firebrick[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.35) -- the courses and their joints
+  for row = 0, 3 do
+    local by = y + row * 16
+    love.graphics.rectangle("fill", x, by, T, 2)
+    for a = (row % 2) * 16, T - 1, 32 do
+      love.graphics.rectangle("fill", x + a, by, 2, 16)
+    end
+  end
+  color(C.white, 0.06)
+  for row = 0, 3 do
+    love.graphics.rectangle("fill", x, y + row * 16 + 2, T, 2)
+  end
+  -- Which way the floor is, for the column's face.
+  local dc, dr = 0, 0
+  if open(map, c + 1, r) then
+    dc = 1
+  elseif open(map, c - 1, r) then
+    dc = -1
+  elseif open(map, c, r + 1) then
+    dr = 1
+  elseif open(map, c, r - 1) then
+    dr = -1
+  end
+  if (dc ~= 0 and r % 4 == 0) or (dr ~= 0 and c % 4 == 0) then
+    local cx, cy = x + T / 2 + dc * T * 0.28, y + T / 2 + dr * T * 0.28
+    box(cx - 14, cy - 14, 28, 28, C.gunmetal)
+    color(C.gunmetalLight) -- the I: two flanges and the web between
+    if dc ~= 0 then
+      love.graphics.rectangle("fill", cx - 14, cy - 14, 28, 6)
+      love.graphics.rectangle("fill", cx - 14, cy + 8, 28, 6)
+      love.graphics.rectangle("fill", cx - 3, cy - 8, 6, 16)
+    else
+      love.graphics.rectangle("fill", cx - 14, cy - 14, 6, 28)
+      love.graphics.rectangle("fill", cx + 8, cy - 14, 6, 28)
+      love.graphics.rectangle("fill", cx - 8, cy - 3, 16, 6)
+    end
+    color(C.yellow) -- a hazard band round its foot
+    local bw, bh = 28 - math.abs(dc) * 20, 28 - math.abs(dr) * 20
+    love.graphics.rectangle("fill", cx - 14 + dc * 10, cy - 14 + dr * 10, bw, bh)
+  end
+end
+
+--- One tile of the Assembly Line's wall, next to its floor: corrugated
+--- steel cladding, its ribs lit along one side, a steel column every four
+--- tiles along the floor's side, Hyperbole yellow round its foot.
+local function drawPlantWall(map, c, r, x, y, T)
+  local k = 0.9 + 0.12 * noise(c / 3 + 5, r / 3 + 1)
+  love.graphics.setColor(C.wall[1] * k * 1.5, C.wall[2] * k * 1.5, C.wall[3] * k * 1.5)
+  love.graphics.rectangle("fill", x, y, T, T)
+  local across = open(map, c, r + 1) or open(map, c, r - 1) -- ribs run up a wall along the top or bottom
+  for a = 0, T - 1, 12 do
+    color(INK, 0.3)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 3, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 3)
+    end
+    color(C.white, 0.08)
+    if across then
+      love.graphics.rectangle("fill", x + a + 3, y, 2, T)
+    else
+      love.graphics.rectangle("fill", x, y + a + 3, T, 2)
+    end
+  end
+  if (across and c % 4 == 0) or (not across and r % 4 == 0) then
+    box(x + T / 2 - 12, y + T / 2 - 12, 24, 24, C.gunmetal)
+    color(C.yellow)
+    love.graphics.rectangle("fill", x + T / 2 - 12, y + T / 2 - 3, 24, 6)
+  end
+end
+
+--- One tile of the map's outside at (c, r), (x, y) in world px.
+local function drawOutside(map, c, r, x, y, T)
+  local o = outsideAt(map, c, r)
+  if map.outside == "hall" or map.outside == "plant" then -- the factory's walls, its roofs past them
+    if not byFloor(map, c, r) then
+      drawWorksRoof(c, r, x, y, T)
+    elseif map.outside == "hall" then
+      drawHallWall(map, c, r, x, y, T)
+    else
+      drawPlantWall(map, c, r, x, y, T)
+    end
+    return
+  end
+  if o == C.works then
+    drawWorksRoof(c, r, x, y, T)
+    return
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  color(o)
+  love.graphics.rectangle("fill", x, y, T, T)
+  if o == C.rock then
+    drawRockDetail(c, r, x, y, T)
+    drawRockSnow(c, r, x, y, T, true)
+    drawRockSnow(c, r, x, y, T, false)
+  elseif o == C.sea then
+    return -- its ice is drawSeaIce's, over every tile's water at once
+  elseif o == C.bank and h < 0.3 then -- rocks poking out of the snow
+    blob(x + 8 + h * 20, y + 14, 22 + h * 40, 16 + h * 24, C.bankRock)
+    color(C.snow)
+    love.graphics.ellipse("fill", x + 20 + h * 30, y + 18, 8 + h * 12, 4 + h * 6)
+  end
+end
+
+--- One tile of quay concrete (Liar's Landing's yard and quay): slabs two
+--- tiles square, each poured its own shade, the joints between them, a
+--- saw cut across the middle, a crack now and then.
+local function drawSlab(c, r, x, y, T, f)
+  local sc, sr = math.floor(c / 2), math.floor(r / 2)
+  local k = 0.95 + 0.1 * hash(sc * 3.7 + sr * 9.1 + 0.3)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.24)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 3, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 3)
+  end
+  color(INK, 0.08)
+  if c % 2 == 1 then
+    love.graphics.rectangle("fill", x, y, 1, T)
+  end
+  if r % 2 == 1 then
+    love.graphics.rectangle("fill", x, y, T, 1)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.07 then
+    color(INK, 0.2)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(x + 6, y + T * h * 10, x + T * 0.4, y + T * 0.5, x + T * 0.6, y + T * 0.45, x + T - 4,
+      y + T * (1 - h * 8))
+    love.graphics.setLineWidth(1)
+  end
+end
+
+-- The mine's floors, down from the rim: gravel at the top, then the
+-- terraces, the bench, the pit's floor; each with no joints, just stones.
+local DIRT = { [C.gravel] = true, [C.terrace] = true, [C.bench] = true, [C.pitfloor] = true }
+
+--- One tile of a mine's floor at (c, r), finish `f`: worked earth shaded
+--- in broad patches, stones and grit, and on the pit's floor the Bragium
+--- showing through in purple veins and ore lying about.
+local function drawDirt(c, r, x, y, T, f)
+  local k = 0.97 + 0.06 * noise(c / 3.5 + 3, r / 3.5 + 9)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  for i = 0, 5 do -- grit and stones
+    local h = hash(c * 3.7 + r * 5.9 + i * 1.7)
+    local sx, sy = x + T * hash(h * 3), y + T * hash(h * 7)
+    if i % 2 == 0 then
+      love.graphics.setColor(f[1] * 1.15, f[2] * 1.15, f[3] * 1.15)
+    else
+      love.graphics.setColor(f[1] * 0.75, f[2] * 0.75, f[3] * 0.75)
+    end
+    love.graphics.circle("fill", sx, sy, 1.5 + 2.5 * h, 6)
+  end
+  if f == C.pitfloor then
+    local h = hash(c * 9.1 + r * 2.3)
+    if h < 0.3 then -- a vein of Bragium
+      color(C.purple, 0.45)
+      love.graphics.setLineWidth(3)
+      love.graphics.line(x, y + T * h * 3, x + T * 0.4, y + T * 0.5, x + T, y + T * (1 - h * 2))
+      love.graphics.setLineWidth(1)
+    elseif h < 0.42 then -- a chunk of ore
+      color(C.purple)
+      love.graphics.polygon("fill", x + 20, y + 30, x + 28, y + 20, x + 38, y + 26, x + 34, y + 38)
+      color(C.purpleLight)
+      love.graphics.polygon("fill", x + 20, y + 30, x + 28, y + 20, x + 30, y + 30)
+    elseif h > 0.9 then -- a puddle, frozen
+      love.graphics.setColor(0.36, 0.34, 0.44, 0.8)
+      love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.3, T * 0.16, 14)
+    end
+  end
+end
+
+--- One tile of Prosperity's asphalt: shaded in broad patches, grit in it,
+--- a crack, a patch of newer tar or a manhole cover now and then.
+local function drawAsphalt(c, r, x, y, T, f)
+  local k = 0.96 + 0.08 * noise(c / 4 + 5, r / 4 + 1)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  for i = 0, 4 do
+    local h = hash(c * 4.3 + r * 6.1 + i * 1.9)
+    color(i % 2 == 0 and C.white or INK, 0.08)
+    love.graphics.circle("fill", x + T * hash(h * 3), y + T * hash(h * 7), 1.5 + 2 * h, 6)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.06 then -- a crack
+    color(INK, 0.3)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(x + 8, y + T * (0.3 + h * 4), x + T * 0.5, y + T * 0.55, x + T - 10, y + T * 0.4)
+    love.graphics.setLineWidth(1)
+  elseif h < 0.1 then -- a patch of newer tar
+    color(INK, 0.18)
+    love.graphics.rectangle("fill", x + 10, y + 14, T * 0.55, T * 0.4)
+  elseif h > 0.985 then -- a manhole
+    color(INK)
+    love.graphics.circle("fill", x + T / 2, y + T / 2, 15, 16)
+    color(C.gunmetalLight)
+    love.graphics.circle("fill", x + T / 2, y + T / 2, 12, 16)
+    color(INK, 0.5)
+    for a = -8, 8, 4 do
+      love.graphics.rectangle("fill", x + T / 2 + a - 1, y + T / 2 - 9, 2, 18)
+    end
+  end
+end
+
+--- One tile of paving (Prosperity's plaza and its screens' squares): a
+--- slab each tile, every other one a shade lighter, the joints between.
+local function drawPaving(c, r, x, y, T, f)
+  local k = (c + r) % 2 == 0 and 1.03 or 0.96
+  love.graphics.setColor(math.min(1, f[1] * k), math.min(1, f[2] * k), math.min(1, f[3] * k))
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.14)
+  love.graphics.rectangle("fill", x, y, T, 2)
+  love.graphics.rectangle("fill", x, y, 2, T)
+  color(C.white, 0.12)
+  love.graphics.rectangle("fill", x + 2, y + 2, T - 4, 2)
+end
+
+--- One tile of the Refinery's floor: bar grating in panels two tiles
+--- square, each laid the other way to the next, its flat bars lit along
+--- one edge, the dark under them, a frame round each panel, rods across;
+--- a stain of slag or rust now and then.
+local function drawGrate(c, r, x, y, T, f)
+  local pc, pr = math.floor(c / 2), math.floor(r / 2)
+  local k = 0.92 + 0.12 * hash(pc * 5.3 + pr * 2.9)
+  love.graphics.setColor(0.12, 0.12, 0.14)
+  love.graphics.rectangle("fill", x, y, T, T)
+  local across = (pc + pr) % 2 == 0
+  for a = 2, T - 4, 8 do
+    love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 4, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 4)
+    end
+    love.graphics.setColor(f[1] * k * 1.35, f[2] * k * 1.35, f[3] * k * 1.35)
+    if across then
+      love.graphics.rectangle("fill", x + a, y, 1, T)
+    else
+      love.graphics.rectangle("fill", x, y + a, T, 1)
+    end
+  end
+  love.graphics.setColor(f[1] * k * 0.8, f[2] * k * 0.8, f[3] * k * 0.8) -- the rods across the bars
+  for a = 16, T - 1, 32 do
+    if across then
+      love.graphics.rectangle("fill", x, y + a, T, 2)
+    else
+      love.graphics.rectangle("fill", x + a, y, 2, T)
+    end
+  end
+  color(C.gunmetalLight) -- the panel's frame
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 4, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 4)
+  end
+  color(INK, 0.35)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x + 4, y, 1, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y + 4, T, 1)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.06 then
+    color(C.slag, 0.75)
+    love.graphics.ellipse("fill", x + T * (0.3 + h * 5), y + T * 0.5, T * 0.28, T * 0.18, 14)
+  elseif h < 0.1 then
+    color(C.rust, 0.4)
+    love.graphics.ellipse("fill", x + T * 0.5, y + T * (0.3 + h * 3), T * 0.22, T * 0.3, 14)
+  end
+end
+
+--- One tile of the plates by the outflow: steel plates two tiles square,
+--- riveted round, each gone a little blue-purple where the heat got to it,
+--- soot in streaks.
+local function drawOutflow(c, r, x, y, T, f)
+  local k = 0.95 + 0.08 * noise(c / 3 + 7, r / 3 + 2)
+  local heat = 0.25 * hash(math.floor(c / 2) * 4.7 + math.floor(r / 2) * 8.3) -- a plate's temper
+  love.graphics.setColor(f[1] * k * (1 - heat * 0.3), f[2] * k * (1 - heat * 0.5), f[3] * k * (1 + heat * 0.3))
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.3)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 3, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 3)
+  end
+  color(C.white, 0.18)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x + 3, y, 1, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y + 3, T, 1)
+  end
+  color(C.gunmetalLight) -- rivets round the plate
+  for a = 10, T - 6, 18 do
+    if c % 2 == 0 then
+      love.graphics.circle("fill", x + 9, y + a, 2.2, 6)
+    end
+    if r % 2 == 0 then
+      love.graphics.circle("fill", x + a, y + 9, 2.2, 6)
+    end
+  end
+  local h = hash(c * 3.3 + r * 8.9)
+  if h < 0.18 then -- soot
+    color(INK, 0.16)
+    love.graphics.ellipse("fill", x + T * h * 4, y + T * 0.6, T * 0.4, T * 0.12, 12)
+  end
+end
+
+--- One tile of the Assembly Line's floor: sealed concrete in big slabs,
+--- each its own shade, the saw-cut joints between them, worn paler where
+--- the forklifts run, an oil stain now and then.
+local function drawFactory(c, r, x, y, T, f)
+  local sc, sr = math.floor(c / 3), math.floor(r / 3)
+  local k = 0.94 + 0.1 * hash(sc * 2.9 + sr * 6.7) + 0.04 * noise(c / 2 + 3, r / 2 + 8)
+  love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+  love.graphics.rectangle("fill", x, y, T, T)
+  color(INK, 0.3)
+  if c % 3 == 0 then
+    love.graphics.rectangle("fill", x, y, 2, T)
+  end
+  if r % 3 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 2)
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  if h < 0.07 then -- oil
+    color(INK, 0.22)
+    love.graphics.ellipse("fill", x + T * (0.3 + h * 5), y + T * 0.5, T * 0.26, T * 0.16, 14)
+  elseif h > 0.93 then -- scuffs
+    color(C.white, 0.08)
+    love.graphics.rectangle("fill", x + 6, y + T * 0.4, T - 12, 5)
+  end
+end
+
+--- One tile of checker plate (the Foreman's floor): raised lozenges in
+--- rows, each lit along one side, a plate's seam every two tiles.
+local function drawChecker(c, r, x, y, T, f)
+  love.graphics.setColor(f[1], f[2], f[3])
+  love.graphics.rectangle("fill", x, y, T, T)
+  for row = 0, 3 do
+    for col = 0, 3 do
+      local cx, cy = x + 8 + col * 16, y + 8 + row * 16
+      local a = (row + col) % 2 == 0 and 0.6 or -0.6
+      love.graphics.push()
+      love.graphics.translate(cx, cy)
+      love.graphics.rotate(a)
+      color(INK, 0.25)
+      love.graphics.rectangle("fill", -5, -1, 10, 3)
+      color(C.white, 0.18)
+      love.graphics.rectangle("fill", -5, -2, 10, 1)
+      love.graphics.pop()
+    end
+  end
+  color(INK, 0.35)
+  if c % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, 2, T)
+  end
+  if r % 2 == 0 then
+    love.graphics.rectangle("fill", x, y, T, 2)
+  end
+end
+
+--- One tile of floor at (c, r), finish `f`.
+local function drawFloor(c, r, x, y, T, f)
+  if f == C.port or f == C.quay then
+    drawSlab(c, r, x, y, T, f)
+    return
+  elseif f == C.street then
+    drawAsphalt(c, r, x, y, T, f)
+    return
+  elseif f == C.road then -- Thousand Papercuts' road: asphalt with the snow packed into it
+    drawAsphalt(c, r, x, y, T, f)
+    local n = noise(c / 1.8 + 13, r / 2.4 + 5)
+    if n > 0.62 then -- a patch of packed snow
+      color(C.snow, (n - 0.62) * 0.9)
+      love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.55, T * 0.3, 16)
+    end
+    color(C.snow, 0.07) -- the tyre ruts down it
+    love.graphics.rectangle("fill", x + T * 0.3, y, 5, T)
+    love.graphics.rectangle("fill", x + T * 0.7, y, 5, T)
+    return
+  elseif f == C.plaza or f == C.square then
+    drawPaving(c, r, x, y, T, f)
+    return
+  elseif DIRT[f] then
+    drawDirt(c, r, x, y, T, f)
+    return
+  elseif f == C.grate then
+    drawGrate(c, r, x, y, T, f)
+    return
+  elseif f == C.outflow then
+    drawOutflow(c, r, x, y, T, f)
+    return
+  elseif f == C.steel then
+    drawFactory(c, r, x, y, T, f)
+    return
+  elseif f == C.upper then
+    drawChecker(c, r, x, y, T, f)
+    return
+  end
+  local h = hash(c * 7.1 + r * 13.7)
+  color(f)
+  love.graphics.rectangle("fill", x, y, T, T)
+  if f == C.snow then -- drifts
+    color(C.snowShade)
+    love.graphics.ellipse("fill", x + h * T, y + hash(h) * T, 14 + h * 12, 5 + h * 4)
+  elseif f == C.roof then -- armour plates two tiles square, each its own shade, welded, riveted
+    local k = 0.93 + 0.12 * hash(math.floor(c / 2) * 3.3 + math.floor(r / 2) * 7.9)
+    love.graphics.setColor(f[1] * k, f[2] * k, f[3] * k)
+    love.graphics.rectangle("fill", x, y, T, T)
+    color(INK, 0.35)
+    if c % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, 3, T)
+    end
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", x, y, T, 3)
+    end
+    color(C.white, 0.12) -- the weld bead beside each seam
+    if c % 2 == 0 then
+      love.graphics.rectangle("fill", x + 3, y, 2, T)
+    end
+    if r % 2 == 0 then
+      love.graphics.rectangle("fill", x, y + 3, T, 2)
+    end
+    color(C.gunmetalLight, 0.8)
+    for _, p in ipairs({ { 9, 9 }, { T - 9, 9 }, { 9, T - 9 }, { T - 9, T - 9 } }) do
+      love.graphics.circle("fill", x + p[1], y + p[2], 2.5, 6)
+    end
+    if h < 0.06 then -- scorch
+      color(INK, 0.18)
+      love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 0.4, T * 0.25, 14)
+    end
+  elseif f ~= C.ice then -- slabs and plates
+    color(INK, 0.18)
+    love.graphics.rectangle("fill", x, y, T, 2)
+    love.graphics.rectangle("fill", x, y, 2, T)
+  end
+end
+
+--- The snow on a yard's tile: where it lies deep, a couple of wide flat
+--- lumps running into the next tile's, so the patches join up into one
+--- shape (`shade` draws the grey rim under them all first, then again
+--- without it for the snow on top); where it is thin, a few flecks.
+local function drawYardSnow(c, r, x, y, T, shade)
+  local n = snowAt(c, r)
+  if n > 0.58 then
+    for i = 0, 1 do
+      local hx, hy = hash(c * 3.1 + r * 5.3 + i), hash(c * 7.7 + r * 2.9 + i * 1.3)
+      local rx = T * (0.62 + 0.2 * hash(c + r * 0.7 + i * 3.3))
+      if shade then
+        color(C.snowShade)
+        love.graphics.ellipse("fill", x + hx * T, y + hy * T + 5, rx + 2, rx * 0.58, 18)
+      else
+        color(C.snow)
+        love.graphics.ellipse("fill", x + hx * T, y + hy * T, rx, rx * 0.55, 18)
+      end
+    end
+  elseif n > 0.46 and not shade then
+    for i = 0, 2 do
+      local hx, hy = hash(c * 5.9 + r * 3.7 + i), hash(c * 2.3 + r * 9.1 + i * 1.7)
+      local k = hash(c * 1.3 + r * 4.1 + i)
+      color(C.snow, 0.7)
+      love.graphics.ellipse("fill", x + hx * T, y + hy * T, 3 + 8 * k, 2 + 3 * k, 10)
+    end
+  end
+end
+
+--- Snow heaped against the walls round a yard: lumps along each edge
+--- where it meets the outside, on the yard's side of it.
+local function drawWallDrifts(map, T)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if open(map, c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        local edges = {
+          { not open(map, c - 1, r) and c > map.c0, x, y, 0, 1, -math.pi / 2, math.pi / 2 },
+          { not open(map, c + 1, r) and c < map.c1, x + T, y, 0, 1, math.pi / 2, math.pi * 1.5 },
+          { not open(map, c, r - 1) and r > map.r0, x, y, 1, 0, 0, math.pi },
+          { not open(map, c, r + 1) and r < map.r1, x, y + T, 1, 0, math.pi, math.pi * 2 },
+        }
+        for i, e in ipairs(edges) do
+          if e[1] then
+            for k = 0, 2 do
+              local seed = c * 3.7 + r * 1.9 + i * 5.1 + k
+              local rad = 12 + 14 * hash(seed)
+              local px, py = e[2] + e[4] * T * (k + 0.5) / 3, e[3] + e[5] * T * (k + 0.5) / 3
+              color(C.snowShade, 0.95)
+              love.graphics.arc("fill", px, py, rad, e[6], e[7], 10)
+              color(C.snow)
+              love.graphics.arc("fill", px, py, rad * 0.8, e[6], e[7], 10)
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+--- The detail on one tile of Prosperity's dome wall (`glass`) or of the
+--- snowfield past it: the wall's ribs and frame and the sky's shine on it;
+--- the snow's wind ripples, a rock poking out of it.
+local function drawDomeDetail(map, c, r, x, y, T)
+  local h = hash(c * 7.1 + r * 13.7)
+  if byFloor(map, c, r) then
+    color(C.white, 0.25) -- the shine, in long streaks
+    love.graphics.polygon("fill", x + T * 0.1, y + T, x + T * 0.35, y + T, x + T * 0.9, y, x + T * 0.65, y)
+    color(C.gunmetal) -- the ribs, every half tile, and the frame round each pane
+    love.graphics.rectangle("fill", x, y, 4, T)
+    love.graphics.rectangle("fill", x + T / 2 - 2, y, 4, T)
+    love.graphics.rectangle("fill", x, y, T, 4)
+    love.graphics.rectangle("fill", x, y + T / 2 - 2, T, 4)
+    return
+  end
+  color(C.snowShade, 0.7) -- wind ripples
+  love.graphics.setLineWidth(2)
+  for i = 0, 2 do
+    local sy = y + T * (0.2 + 0.3 * i) + h * 8
+    love.graphics.line(x + 4, sy, x + T * 0.35, sy - 4, x + T * 0.7, sy + 2, x + T - 4, sy - 3)
+  end
+  love.graphics.setLineWidth(1)
+  if h > 0.975 then -- a rock poking out
+    Mine.DRAW.rock({ x = x + T * 0.2, y = y + T * 0.25, w = 30 + h * 14, h = 24 + h * 10, seed = h * 50 })
+  end
+end
+
+--- The drop at tile (c, r) of Thousand Papercuts: dark going down forever,
+--- cloud drifting far below in long pale banks, a ledge of rock jutting
+--- out of the dark now and then.
+local function drawAbyss(c, r, x, y, T)
+  local n = noise(c / 2.6 + 7, r / 3.4 + 2)
+  if n > 0.5 then
+    love.graphics.setColor(0.55, 0.6, 0.72, (n - 0.5) * 0.35)
+    love.graphics.ellipse("fill", x + T * 0.5, y + T * 0.5, T * 1.1, T * 0.45, 18)
+  end
+  local h = hash(c * 5.3 + r * 9.7)
+  if h < 0.04 then
+    color(C.bankRock, 0.5)
+    love.graphics.polygon("fill", x + 6, y + T * 0.6, x + T * 0.4, y + T * 0.3, x + T * 0.7, y + T * 0.55, x + T * 0.5,
+      y + T * 0.8)
+  end
+end
+
+--- Where the road meets the drop, the rock face falling away from its edge
+--- into the dark (on the drop's tile just west of the road).
+local function drawDrop(map, c, r, x, y, T)
+  local rr = math.max(map.r0, math.min(map.r1, r))
+  if open(map, c + 1, rr) and outsideAt(map, c, r) == C.abyss then
+    Mine.face(x + T, y, T, "w", c * 3.1 + r * 7.7)
+  end
+end
+
+-- The outsides drawn every frame, in the map and past it alike (drawLive),
+-- not into the canvas: what lies on them spills from tile to tile, and so
+-- runs on without a seam at the tiles or at the map's edge. Each: the bare
+-- colour of a tile, and the passes over every tile after.
+local LIVE = {
+  harbour = { base = function()
+    return C.sea
+  end, passes = { drawSeaIce } },
+  rock = { base = function()
+    return C.rock
+  end, passes = {
+    function(_, c, r, x, y, T)
+      drawRockDetail(c, r, x, y, T)
+    end,
+    function(_, c, r, x, y, T)
+      drawRockSnow(c, r, x, y, T, true)
+    end,
+    function(_, c, r, x, y, T)
+      drawRockSnow(c, r, x, y, T, false)
+    end,
+  } },
+  sky = { base = function()
+    return C.sky
+  end, passes = {
+    function(_, c, r, x, y, T)
+      drawClouds(c, r, x, y, T)
+    end,
+    drawBunkerSide,
+  } },
+  cliff = { base = function(map, c, r)
+    return outsideAt(map, c, r)
+  end, passes = {
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.abyss then
+        drawAbyss(c, r, x, y, T)
+      else
+        drawRockDetail(c, r, x, y, T)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.rock then
+        drawRockSnow(c, r, x, y, T, true)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if outsideAt(map, c, r) == C.rock then
+        drawRockSnow(c, r, x, y, T, false)
+      end
+    end,
+    drawDrop,
+  } },
+  dome = { base = function(map, c, r)
+    return byFloor(map, c, r) and C.glass or C.bank
+  end, passes = {
+    drawDomeDetail,
+    function(map, c, r, x, y, T)
+      if not byFloor(map, c, r) then
+        drawRockSnow(c, r, x, y, T, true)
+      end
+    end,
+    function(map, c, r, x, y, T)
+      if not byFloor(map, c, r) then
+        drawRockSnow(c, r, x, y, T, false)
+      end
+    end,
+  } },
+}
+
+--- A LIVE outside over tiles c0..c1, r0..r1, wherever there is no floor:
+--- the bare colour of every tile first, then each of its passes over them all.
+local function drawLive(map, c0, r0, c1, r1, T)
+  local live = LIVE[map.outside]
+  for c = c0, c1 do
+    for r = r0, r1 do
+      if not open(map, c, r) then
+        color(live.base(map, c, r))
+        love.graphics.rectangle("fill", map.x0 + c * T, map.y0 + r * T, T, T)
+      end
+    end
+  end
+  for _, pass in ipairs(live.passes) do
+    for c = c0, c1 do
+      for r = r0, r1 do
+        if not open(map, c, r) then
+          pass(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
+        end
+      end
+    end
+  end
+end
+
+--- The Bragium Pit's outer wall: a rock face dropping from the rock round
+--- it onto every floor tile below it (not the rims, which are level with it).
+local function drawPitWall(map, T)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      local x, y = map.x0 + c * T, map.y0 + r * T
+      if open(map, c, r) and floorAt(map, x + T / 2, y + T / 2) ~= C.gravel then
+        local seed = c * 7.3 + r * 3.1
+        if not open(map, c, r - 1) then
+          Mine.face(x, y, T, "s", seed)
+        end
+        if not open(map, c, r + 1) then
+          Mine.face(x, y + T, T, "n", seed)
+        end
+        if not open(map, c - 1, r) then
+          Mine.face(x, y, T, "e", seed)
+        end
+        if not open(map, c + 1, r) then
+          Mine.face(x + T, y, T, "w", seed)
+        end
+      end
+    end
+  end
+end
+
+--- The floors, the snow on them, then the outside round them (drawn last,
+--- so no lump of snow spills over a wall). A `LIVE` outside is left out:
+--- Beyond draws it every frame under the canvas, in and past the map alike.
+local function drawTiles(map, T)
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if open(map, c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        drawFloor(c, r, x, y, T, floorAt(map, x + T / 2, y + T / 2))
+      end
+    end
+  end
+  for _, shade in ipairs({ true, false }) do
+    for c = map.c0, map.c1 do
+      for r = map.r0, map.r1 do
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        local f = open(map, c, r) and floorAt(map, x + T / 2, y + T / 2)
+        if f == C.yard or f == C.port then
+          drawYardSnow(c, r, x, y, T, shade)
+        end
+      end
+    end
+  end
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if not open(map, c, r) and not LIVE[map.outside] then
+        drawOutside(map, c, r, map.x0 + c * T, map.y0 + r * T, T)
+      end
+    end
+  end
+  if map.outside == "rock" then -- the pit's wall, dropping from the rock round it to the terraces
+    drawPitWall(map, T)
+  end
+end
+
+--- The comic outline along every edge where a floor meets the outside
+--- (not along the map's own edge, where the floor runs on past it).
+local function drawEdges(map, T)
+  color(INK)
+  local function shut(c, r)
+    return not open(map, c, r) and c >= map.c0 and c <= map.c1 and r >= map.r0 and r <= map.r1
+  end
+  for c = map.c0, map.c1 do
+    for r = map.r0, map.r1 do
+      if open(map, c, r) then
+        local x, y = map.x0 + c * T, map.y0 + r * T
+        if shut(c - 1, r) then
+          love.graphics.rectangle("fill", x - LINE, y - LINE, LINE, T + 2 * LINE)
+        end
+        if shut(c + 1, r) then
+          love.graphics.rectangle("fill", x + T, y - LINE, LINE, T + 2 * LINE)
+        end
+        if shut(c, r - 1) then
+          love.graphics.rectangle("fill", x - LINE, y - LINE, T + 2 * LINE, LINE)
+        end
+        if shut(c, r + 1) then
+          love.graphics.rectangle("fill", x - LINE, y + T, T + 2 * LINE, LINE)
+        end
+      end
+    end
+  end
+end
+
+--- Forklifts' tracks through the snow (`map.tracks`, lines of world
+--- points): two rows of tread, smoothed through the points, pressed grey
+--- into the snow and fainter where the yard is bare.
+local function drawTracks(map, T)
+  local function tread(x, y)
+    local c, r = math.floor((x - map.x0) / T), math.floor((y - map.y0) / T)
+    if snowAt(c, r) > 0.44 then
+      love.graphics.setColor(0.60, 0.66, 0.76, 0.9)
+    else
+      color(INK, 0.12)
+    end
+    love.graphics.rectangle("fill", x - 3, y - 3, 6, 6)
+  end
+  for _, line in ipairs(map.tracks or {}) do
+    for i = 1, #line - 1 do
+      local p0, p1, p2, p3 = line[math.max(1, i - 1)], line[i], line[i + 1], line[math.min(#line, i + 2)]
+      local len = math.sqrt((p2[1] - p1[1]) ^ 2 + (p2[2] - p1[2]) ^ 2)
+      local steps = math.max(2, math.floor(len / 9))
+      for j = 0, steps - 1 do
+        local t = j / steps
+        local t2, t3 = t * t, t * t * t
+        local function at(k)
+          return 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2
+            + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)
+        end
+        local x, y = at(1), at(2)
+        local dx, dy = p2[1] - p1[1], p2[2] - p1[2]
+        local d = math.max(1, math.sqrt(dx * dx + dy * dy))
+        local nx, ny = -dy / d * 13, dx / d * 13
+        tread(x + nx, y + ny)
+        tread(x - nx, y - ny)
+      end
+    end
+  end
+end
+
+--- Snow heaped against the sides of what stands in the Wreck's yard: the
+--- sheds, the carriages and the engine.
+local DRIFTS = { shed = true, carriage = true, loco = true }
+
+local function drawCoverDrifts(map)
+  for i, s in ipairs(map.cover) do
+    if DRIFTS[s.kind] then
+      drift(s.x + 10, s.y + s.h + 4, s.w - 20, 0, 13, i * 7.3, 0.95) -- south
+      drift(s.x - 4, s.y + 14, 0, s.h - 28, 12, i * 3.1, 0.95) -- west
+    end
+  end
+end
+
+--- Where you were dug out of the snow (`map.dugout`): a hollow with the
+--- snow thrown up round it, and footprints leading off north.
+local function drawDugout(map)
+  local d = map.dugout
+  if not d then
+    return
+  end
+  for i = 0, 9 do
+    local a = i / 10 * math.pi * 2
+    drift(d.x + math.cos(a) * 34, d.y + math.sin(a) * 22, 0, 0, 14, i * 1.7, 0.95)
+  end
+  love.graphics.setColor(0.56, 0.62, 0.72)
+  love.graphics.ellipse("fill", d.x, d.y, 30, 18, 16)
+  color(INK, 0.25)
+  for i = 1, 9 do
+    local side = i % 2 == 0 and 1 or -1
+    love.graphics.ellipse("fill", d.x - 30 - i * 6 + side * 7, d.y - 30 - i * 28, 5, 8, 8)
+  end
+end
+
+Ground.outsideAt, Ground.floorAt, Ground.open, Ground.snowAt = outsideAt, floorAt, open, snowAt
+Ground.drawOutside, Ground.drawFloor, Ground.drawYardSnow = drawOutside, drawFloor, drawYardSnow
+Ground.LIVE, Ground.drawLive = LIVE, drawLive
+Ground.drawTiles, Ground.drawEdges, Ground.drawTracks = drawTiles, drawEdges, drawTracks
+Ground.drawWallDrifts, Ground.drawCoverDrifts, Ground.drawDugout = drawWallDrifts, drawCoverDrifts, drawDugout
+
+return Ground

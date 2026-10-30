@@ -73,10 +73,10 @@ local Catalog = {
 local PRICES = {
   ["gun-pistol"] = 40, ["gun-uzi"] = 90, ["gun-ak47"] = 120, ["gun-ar"] = 140, ["gun-shotgun"] = 100,
   ["gun-super-shotgun"] = 260, ["gun-smg"] = 110, ["gun-sniper"] = 160, ["gun-rocket"] = 300,
-  ["gun-flamethrower"] = 220, ["gun-minigun"] = 420,
+  ["gun-flamethrower"] = 220, ["gun-minigun"] = 420, ["gun-plasma-rifle"] = 180, ["gun-bolter"] = 380,
   ["ammo-pistol"] = 35,
   ["ammo-ak47"] = 45, ["ammo-shotgun"] = 25, ["ammo-sniper"] = 30, ["ammo-rocket"] = 60,
-  ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70,
+  ["ammo-flamethrower"] = 50, ["ammo-minigun"] = 70, ["ammo-bolter"] = 80,
   medkit = 20, drink = 12, grenade = 30, ["grenade-electric"] = 60,
   ["armor-bomb-suit"] = 90, ["armor-riot-armor"] = 80, ["armor-insulated-suit"] = 80,
   ["armor-ceramic-plates"] = 150,

@@ -105,3 +105,30 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 | <img src="img/eternal-mood-mancubus.png" width="48"> | **[The Mancouchbus](eternal-mood-mancubus.md)** | 3400 | Heck on Earth, in his recliner in front of the starport's gate; he wakes when you come up the Boulevard |
 | <img src="img/eternal-mood-baron.png" width="48"> | **[The Baron of Heck](eternal-mood-baron.md)** | 4200 | The Foundry, on the stone ring round the Crucible; he wakes when you cross a bridge onto it, he sees you, or you shoot him |
 | <img src="img/eternal-mood-mattressmind.png" width="48"> | **[The Spider Mattressmind](eternal-mood-mattressmind.md)** | 5200 | Heck, on the Mattress's plateau before the Snooze Gate; it wakes when you come up onto the plateau |
+
+## borderline
+
+| | Enemy | Health | Where |
+|---|---|---|---|
+| <img src="img/borderline-jnk.png" width="48"> | [Junk hauler](borderline-jnk.md) | 30 | In packs on the Frozen Wreck, Liar's Landing and the Bragium Pit, picking over whatever is lying about; a hauler dock builds more |
+| <img src="img/borderline-gun.png" width="48"> | [Gun hauler](borderline-gun.md) | 70 | Everywhere on the line: standing watch, or walking a beat in squads |
+| <img src="img/borderline-stk.png" width="48"> | [Stalker hauler](borderline-stk.md) | 140 | Liar's Landing: a pair hunting the container stacks, and one in the last wave at the ferry lift |
+| <img src="img/borderline-rpg.png" width="48"> | [Rocket hauler](borderline-rpg.md) | 120 | Standing watch from far back: under Liar's Landing's gantries, then Prosperity, the Assembly Line and Thousand Papercuts |
+| <img src="img/borderline-fix.png" width="48"> | [Medic drone](borderline-fix.md) | 25 | Hanging behind the haulers: Liar's Landing (and its lift's waves), Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-shd.png" width="48"> | [Shield drone](borderline-shd.md) | 25 | Hanging behind the haulers: the Bragium Pit, Prosperity, the Refinery, the Assembly Line and Thousand Papercuts |
+| <img src="img/borderline-plz.png" width="48"> | [Plasma hauler](borderline-plz.md) | 90 | Standing watch on the Bragium Pit's rings, then Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-exp.png" width="48"> | [Kamikaze hauler](borderline-exp.md) | 40 | In packs of three from Prosperity on |
+| <img src="img/borderline-jet.png" width="48"> | [Jet hauler](borderline-jet.md) | 70 | Standing watch in Prosperity and Thousand Papercuts |
+| <img src="img/borderline-dzr.png" width="48"> | [Dozer hauler](borderline-dzr.md) | 160 | Standing watch in Prosperity, the Refinery and the Assembly Line |
+| <img src="img/borderline-bad.png" width="48"> | [Badass hauler](borderline-bad.md) | 450 | One a level from Prosperity on, with drones tending it |
+| <img src="img/borderline-arc.png" width="48"> | [Arc hauler](borderline-arc.md) | 80 | Standing watch in the Refinery's tunnels and in Thousand Papercuts |
+| <img src="img/borderline-sen.png" width="48"> | [Sentry](borderline-sen.md) | 90 | Flush in the floor of the Assembly Line and in Thousand Papercuts' rock |
+| <img src="img/borderline-dck.png" width="48"> | [Hauler dock](borderline-dck.md) | 300 | The Frozen Wreck: a charging bay at each post, guarding a terminal that opens the tunnel's blast door |
+| <img src="img/borderline-can.png" width="48"> | [Rim cannon](borderline-can.md) | 120 | The Bunker: eleven round the rim of its roof; the way on stays shut until every one is down |
+| <img src="img/borderline-knk.png" width="48"> | **[Knuckle Scrapper](borderline-knk.md)** | 1500 | The Frozen Wreck: it builds itself out of the engine in front of the tunnel once the yard's three terminals are hacked, and the tunnel's blast door stays shut until it falls apart |
+| <img src="img/borderline-wlb.png" width="48"> | **[Wilbur](borderline-wlb.md)** | 3000 | The Bragium Pit: he comes down onto the pad when you first set foot on the pit's floor (open once the four power terminals are hacked), and the mine lift stays shut until his keycard is picked up |
+| <img src="img/borderline-sml.png" width="48"> | **[The Smelter](borderline-sml.md)** | 3500 | The Refinery: it climbs out of the casting pit at the outflow when the last bridge comes down, and the freight door stays shut until it goes out |
+| <img src="img/borderline-fmn.png" width="48"> | **[Foreman BIG-B055](borderline-fmn.md)** | 4000 | The Assembly Line: on the Foreman's floor up the stairs (open once both Fabricators are down), woken by the first player up there; the shipping bay stays shut until it is down |
+| <img src="img/borderline-bnk.png" width="48"> | **[BNK-9](borderline-bnk.md)** | 6000 | The Bunker: it rises out of the eye's hatch once all eleven rim cannons are down, and flies over the roof; the way home opens when it crashes |
+| <img src="img/borderline-screen.png" width="48"> | [Max's screen](borderline-screen.md) | 450 | Prosperity: one in each corner district's square, up on two legs, a hauler dock guarding it; the north gate stays shut until all four are down |
+| <img src="img/borderline-fabricator.png" width="48"> | [Fabricator](borderline-fabricator.md) | 900 | The Assembly Line: one on a pad either side of the floor; the stairs up to the Foreman's floor stay shut until both are down |

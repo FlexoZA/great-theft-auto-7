@@ -15,10 +15,180 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- A new job on the board once Eternal Mood is done, "Left for dead" (Borderline): eight maps on the frozen
+  planet Pandoria, all on foot, from a wrecked train to Maximum Maximilian Max's bunker. So far the maps are walked
+  through to their far end; the bosses come next.
+- The Borderline maps show their layout on the minimap and the big map (the sheds, the train, the pits, the
+  containers, the factories, the river) instead of a grey box, with each area's name on it and the one you're
+  in picked out in gold; and a gold chevron bounces over what the objective is after: each terminal still to
+  hack, then the way on, with a ring pinging round it on the map.
+- Liar's Landing drawn properly: real shipping containers stacked two side by side (corrugated roofs, doors,
+  rust, snow, Hyperbole stencils, some two high), quay concrete in big slabs with puddles, oil and tyre tracks, a
+  freighter loaded with containers and moored to the bollards, the gantries' feet on their rails, a proper ferry
+  lift, the port standing in a frozen sea of broken ice on every side, and a hull in the dry dock with welders sparking on it. Oil drums and
+  traffic cones on every Borderline map look like drums and cones now, some knocked over.
+- Prosperity drawn properly: dark asphalt streets with pavements and kerbs round every block, a paved plaza with a
+  gold inlay round a real gold statue of Max (flat-top, flexed arm), planters, and the dome's glass wall with the
+  snowfield beyond it.
+- Max's four big screens are up in Prosperity, one in each corner district, his face live on them: shoot them all
+  down (each one guarded by a hauler dock and gun haulers; the rest get brighter as they fall) and he throws the
+  north gate open himself. More of his garrison: a fourth jet hauler, a third rocket and plasma hauler, a squad
+  round the south district, more kamikazes.
+- Prosperity has its own theme: Max's anthem, bright arena rock with a brass fanfare, a stomp-stomp-clap and the
+  crowd shouting HEY, opening on the city's PA jingle.
+- The Refinery drawn properly: bar grating underfoot, the molten river glowing with crust floating on it between
+  railed steel kerbs, riveted smelting tanks with glowing ports, pipe racks, a casting pit full of moulds, ladles,
+  stacks of ingots and spilled slag, firebrick walls with steel columns.
+- The Refinery's bridges are all drawn up: hack the bridge control on each bank (each guarded by a hauler dock
+  and gun haulers) to lower the next one, run by run up the hall. More of the army holds it: a fourth plasma
+  hauler, a gun and stalker pair, junk haulers at the intake, more drones, and rocket haulers over the last bridge.
+- The Refinery has its own theme: industrial metal, a steam whistle and the furnace roaring alight, machine-tight
+  riffs, forge hammers and steam hissing out of the floor.
+- The Assembly Line drawn properly: belts with cleats and drive motors, welding arms on bolted pedestals,
+  stamping presses, paint booths with half-painted haulers, racks of parts, a concrete factory floor, checker plate
+  on the Foreman's floor and steel-clad walls.
+- The Assembly Line's belts carry you: stand on one and it takes you the way it runs (a little slower than you
+  walk), robots too.
+- Two Fabricators on the Assembly Line build haulers while you're near (one every 14 seconds, up to three each);
+  shoot both down (900 health each) to open the stairs up to the Foreman's floor. More of the army holds the
+  line: gun haulers round the Fabricators, a gun and stalker pair, a plasma hauler, rocket haulers by the stairs.
+- The Assembly Line has its own theme: 180 BPM thrash, a klaxon and the PA's robot voice counting the shift in,
+  a shredding solo, rivet guns in the breakdown.
+- Thousand Papercuts chases you up the road: waves of Hyperbole's army come up from behind whoever is furthest
+  back (quicker the longer you stop), and Max's rocket barrage creeps up the road after you and lands on anyone
+  who stands still. Less waits ahead: the sentries and three rocket haulers.
+- Thousand Papercuts ends at the bunker door: hold it for 60 seconds while Yappy opens it, five waves coming up
+  the road at you, the last a badass.
+- Thousand Papercuts drawn properly: dark asphalt with snow packed into it, the cliff and the drop drawn without
+  seams (cloud far below, a rock face falling away from the road), an armoured bunker door, sentry nests in the rock.
+- Thousand Papercuts has its own theme: chase metal at 172 BPM, a ticking clock and a siren, climbing a key
+  every section.
+- The Bunker's eleven rim cannons are real cannons now: each turns to the nearest player and lobs a shell that
+  lands on a red ring a moment later (26 damage), wherever you stand on the roof. Shoot all eleven down (120
+  health each) to open the eye's hatch in the middle.
+- The Bunker drawn properly: an armour-plated deck, the cannons' mounts, an iris hatch over a red eye in the
+  middle, the bunker's armoured sides dropping away into a sky of drifting cloud.
+- The Bunker has its own theme: a final-boss epic, a bell and a church organ, a choir over war drums, a hero's
+  tune and a last-stand solo.
+- The Bragium Pit drawn properly: four levels going down into the mine, each darker, rock faces dropping from
+  every terrace wall, haul ramps, tyre tracks round the terraces, faceted Bragium crystals glowing on the ground,
+  veins of it in the pit's floor, proper haul trucks, conveyors and boulders, lifts on both rims, and rough rock
+  with snow drifts all round instead of a pattern.
+- The Bragium Pit has its own theme: slow, heavy groove metal opening on a mine blast, glass-bell chimes for the
+  Bragium, pickaxes, a rock drill and charges going off in the breakdown.
+- The Bragium Pit's floor, where Wilbur lands, is gated until you hack four power terminals round the terraces,
+  each guarded by a hauler dock; Wilbur now carries the mine lift's code and drops his keycard when he goes down:
+  pick it up to open the lift; more of the army holds the pit: a gun squad on the bench, a pair of stalker haulers, two rocket
+  haulers, two medic drones, and gun haulers at the gated ramp.
+- Hyperbole's medic and shield drones are half as big again and easier to hit: hit radius 9 -> 14 px.
+- Liar's Landing's ferry lift is shuttered until you hack four control terminals, one in each corner of the yard,
+  each guarded by a hauler dock that keeps building junk haulers, gun haulers and junk. More of Hyperbole's army
+  holds the port: gun hauler posts 7 -> 10 plus the terminals' guards, squads 3 -> 4, rocket haulers 2 -> 4, a
+  shield drone, and a fifth wave at the lift.
+- Liar's Landing has its own theme: swaying 6/8 shanty metal, a squeezebox singing a sailors' tune over chugging
+  guitars, opening on creaking ice and a foghorn over the bay, with the gantries' winches, chains and slammed
+  containers in the breakdown.
+- The Frozen Wreck has its own theme: fast freight-yard metal, a train horn and wheels clacking into a
+  galloping riff, anvils ringing, a twangy lead over the chorus.
+- Hyperbole's robots on the first two Borderline maps: packs of junk haulers (30 health, pistols) picking over
+  the train wreck, and gun haulers (70 health, rifle bursts and grenades) guarding Liar's Landing, keeping their
+  distance, side-stepping and flanking. Knock a hauler's legs out and one time in three its torso drags itself on,
+  still shooting, for 4 seconds.
+- Rocket haulers (120 health) on Liar's Landing and in Prosperity: a rocket at a time from the arm, and every
+  7-10 seconds a volley of four out of their back pods that comes down on red rings round you.
+- Jet haulers (70 health) in Prosperity fight on foot, then take off and strafe a line through you with five
+  marked rockets, untouchable until they land.
+- Plasma: a new damage type, purple. Plasma haulers (90 health) in the Bragium Pit and Prosperity fire slow
+  bolts that splash and melt your armor for 3 seconds (it stops half as much and wears out twice as fast).
+  Shoot one in the Bragium tank on its back to finish it and it bursts over everything near, robots too. The
+  insulated suit now resists plasma 25%.
+- The rest of Hyperbole's army is out, and every Borderline map but the Bunker's fight is held: kamikaze haulers
+  (40 health) that sprint at you and blow, their own side too; dozer haulers (160) whose blade stops rounds from
+  the front and that charge in a straight line; arc haulers (80) with shock bolts and a dome rounds from outside
+  can't get through (inside, it zaps you); medic drones that heal haulers and shield drones that give them an
+  80-point bubble (25 health each: shoot them first); sentries that rise out of the floor when you come near; and
+  the badass hauler (450) with twin war cannons, a six-rocket volley and a stomp.
+- Borderline has its story: Maximum Maximilian Max live on a Hyperbole broadcast as each map starts, a banner for each map
+  and each part of it, Max and YAP-TP (his secretary, left for dead with you) talking you through it over the
+  comms, Max promising a bigger one every time one of his robots falls, and an objective line with how far there is to go.
+- The Frozen Wreck's tunnel is shut behind a blast door until you hack Hyperbole's three terminals round the
+  yard (hold F; each alarm brings the robots near it). Each terminal is guarded by gun haulers, junk haulers and a
+  hauler dock (300 health): a charging bay with a plasma gun that fires bursts of three and builds a fresh junk
+  hauler every 20 seconds while you're near. Shoot the dock down, or hack its terminal to shut it off.
+- The Bragium Pit has its boss: Wilbur (3000 health), Max's cyborg enforcer, drops onto the pit's floor and the
+  mine lift stays shut until he's down. He fires a rotary gun, rains rockets on red rings, leaps at you and slams
+  down, and sends shield and medic drones out of his back that keep him going: shoot them first. At half health
+  Max pushes an upgrade and he gets faster and angrier.
+- Stalker haulers (140 health) on Liar's Landing: tall hunters on two legs and a wheel that keep their distance,
+  throw themselves aside from your shots once they know you're there, charge you down every few seconds and back
+  off to a medkit when hurt. Catch one unaware and your first shots land; keep it dodging and it runs out of
+  breath (the bar under it turns red) and can't dodge or charge for a few seconds. They fire bursts of flechettes
+  that stick in you or the ground and blow a second later inside a red ring.
+- Liar's Landing's ferry lift is shut until Yappy hacks it: stand on it for 60 seconds while waves of gun,
+  junk and rocket haulers come at it off the quay and up the lanes. Step off and the hack stops until somebody
+  is back on.
+- The Frozen Wreck is now Hyperbole's freight yard at dusk: sheds round the sides, rails and a siding up the
+  middle, three deep fenced-off excavations with tower cranes swinging loads over them, emergency beacons turning,
+  floodlights, painted walkways and zebra crossings.
+- The Frozen Wreck's train looks wrecked: carriages tipped on their sides with smashed windows, bogies torn out,
+  ends crumpled and the ground torn up where they slid off the rails; two still burn, and the engine smokes with
+  its headlights on. Snow lies in drifts and patches with forklift tracks through it, the sheds have pitched,
+  snowed-on roofs with skylights and bay numbers, the factory roofs round the yard have skylights, vents and
+  pipes, the tunnel has a proper mouth with the rails running in, and the yard and its roofs carry on past the
+  edge of the map instead of stopping at black.
+- Liar's Landing is now a container port at dusk: gantry cranes on the quay unloading a freighter, a deep dry dock
+  with a rusting hull down the west side and two cranes over it, painted lanes and bay numbers through the stacks,
+  beacons round the ferry lift and floodlights over the yard.
+- The Bragium Pit is now a working mine at dusk: two tower cranes over the floor, mine shafts with headframes
+  winding their cages, conveyors carrying glowing ore, haul trucks, floodlights, beacons and a painted haul road.
+- Prosperity is now Max's factory town at dusk: factory blocks with smoking chimneys, two "Phase 2" building
+  sites with deep foundation holes and tower cranes, loading lots with haul trucks, pipe bridges over the avenue,
+  street lamps, road markings, beacons at the gates and floodlights round the plaza.
+- The Refinery is now a dark smelting hall lit by its molten river, which flows: bridge cranes run the length of it
+  carrying glowing ladles, a casting pit sits by the outflow, steam vents puff, the banks are railed and hazard
+  striped, and beacons mark every bridge.
+- The Assembly Line is now a working factory floor under strip lights: hauler parts riding the belts, welding arms
+  swinging in with sparks flying, presses stamping, a bridge crane carrying finished haulers up the line, scrap pits,
+  painted aisles and beacons at the belt ends.
+- Thousand Papercuts is now Hyperbole's service road up the cliff at dusk: painted edge and centre lines, a crash
+  barrier along the drop, an ore ropeway running down the abyss beside the road, a tower crane at the top still
+  building the bunker, lamps up the road and beacons on the bends.
+- The Bunker's roof is now an armour-plated deck at dusk above the clouds: four engine intakes with turbine fans
+  spinning down in them, a radar turning, a gantry running over the deck with a missile, painted walkways,
+  floodlights and beacons.
+- A new gun, the Bragium Bolter, won from BNK-9 (one each), then sold in the shop for 380 Fcks: hold fire to charge
+  it, let go for one big ball of plasma that bursts where it lands. 120 damage and a 70 plasma blast at a full
+  charge (1.4 s), 30% of that at a tap; four shots a load.
+- The Bunker has its boss, BNK-9: bring down the last rim cannon and the eye's hatch opens, and the bunker's flying
+  core rises out of it. It flies about over the roof, firing mines down round you and charging its eye for a laser
+  (get out of the red line), while the turrets on its corners shoot at you; shoot one off and it grows back. Aim
+  for the eye: hits there do double. When it crashes, the way home is open.
+- The Assembly Line has its boss, Foreman BIG-B055: the badass hauler that runs the line stands over it on its floor
+  and wakes when you come up the stairs. Cannons, rocket pods and a stomp, and its whistle brings the crane, which
+  drops a fresh hauler on a red ring next to you. At half health it tears a cannon off and starts charging: get a
+  wall behind you and step aside, and it knocks itself silly. The shipping bay opens when it's down.
+- The Refinery has its boss, the Smelter: lower the last bridge and it climbs out of the casting pit, a plasma
+  furnace on four legs. It fires plasma bolts, and every few seconds its belly opens, lights up a lane in front of it
+  and pours molten Bragium down it, leaving puddles that burn and melt your armor. Every third move it has to vent:
+  hit it then for double damage. The freight door opens when it goes out.
+- The Frozen Wreck has its boss, the Knuckle Scrapper: hack the yard's three terminals and it builds itself out of
+  the wrecked engine in front of the tunnel. It swings its bogie fists at you up close and lobs lumps of itself onto
+  red rings further off, and junk bots climb out of the wreck carrying it scrap: every one that reaches it heals it,
+  so shoot them first. The tunnel opens when it falls apart.
+- A new gun, the plasma rifle, won from Wilbur in the Bragium Pit (one each), then sold in the shop for 180
+  Fcks: an assault rifle firing small balls of plasma at the AK's nine a second, 25 damage a round and 45 to a
+  magazine. Plasma melts armor, so what they wear stops half as much. It fires the AK's 7.62 rounds, like the AR.
+
+### Changed
+- Gun haulers warn before a grenade: a red ring shows where it will land, and the hauler stands still for 0.6 s
+  before it lobs, so you have that much longer to get out of the way.
 - The wiki (`docs/wiki` on GitHub) has a page for every gun and every ability: its picture, what it does, its
   numbers in each tier with what a tier improves, what it costs, and who drops it, linked to their page.
 
 ### Fixed
+- A kamikaze hauler blowing up among other robots could crash the game.
+- Show hitboxes (F3) now outlines enemies too, not just cars and players: red, grey while they can't be hurt.
+  Only the host sees them.
 - Eternal Mood: medkits, drinks, ammo crates and other things that turn up on the map no longer appear in the lava (Heck on Earth, the Foundry and Heck).
 
 ## [0.43.0] - 2026-10-26

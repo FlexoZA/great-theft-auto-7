@@ -25,12 +25,21 @@
 -- The host checks it too: a round from cold barrels that didn't spin long
 -- enough is dropped.
 --
+-- A gun with a `charge` (the Bragium Bolter) charges while fire is held
+-- and fires one round when it is let go: the host stamps when the charging
+-- began (WPN_CHARGE, passed on to everyone for the whine and the glow) and
+-- scales the round's damage and its blast's by how long it charged, from
+-- the gun's `min` share at a tap to all of it at its `time`.
+--
 -- The flamethrower sprays short-lived tongues of fire (`flame`), each a
 -- "fire" round that sets whoever it catches on foot alight (`ignite`: the
 -- damage feature's burning). Its magazine is a tank (`tank`): a reload
 -- takes one fuel can and fills it whole. A gun's rounds can zap whoever
 -- they catch on foot (`electrify` = { seconds, dps }: shock that runs on
 -- through them) or stun them outright (`stun`, seconds): the Hunters'.
+-- A gun's rounds can be balls of plasma (`ball`, px: the plasma rifle),
+-- drawn as the plasma haulers' bolts are, small, splashing where they end
+-- (plasma.lua).
 -- Every hit has a damage type (src/features/damage, docs/damage-types.md):
 -- a gun's `damageType` or its blast's `type`, the last argument of
 -- serverDamage and damageCar, passed on to every damage hook and carried
@@ -119,6 +128,7 @@
 --   client -> server  WPN_SELECT <gun>                 (index into guns.lua)
 --   client -> server  WPN_RELOAD
 --   client -> server  WPN_SPIN                       (winding up the barrels of the gun in hand)
+--   client -> server  WPN_CHARGE                     (charging the gun in hand: a `charge` gun)
 --   client -> server  WPN_EQUIP <gun>[@<tier>] <slot>  (the gun item I carry, into that slot)
 --   client -> server  WPN_UNEQUIP <slot>               (the gun in that slot, into my bag)
 --   client -> server  WPN_MOVE <slot> <slot>           (swap two slots)
@@ -146,6 +156,7 @@
 --   server -> all     WPN_BOOM <pid> <x> <y> <radius>  (a missile went off there)
 --   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
 --   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
+--   server -> all     WPN_CHARGE <id>               (they are charging a `charge` gun: its whine and glow)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
@@ -183,6 +194,7 @@ local Sounds = require("src.features.weapons.sounds")
 local Reloads = require("src.features.weapons.reloads")
 local Explosions = require("src.features.weapons.explosions")
 local Rockets = require("src.features.weapons.rockets")
+local Plasma = require("src.features.weapons.plasma")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
 local Damage = require("src.features.damage")
@@ -206,6 +218,8 @@ local CAR_HEALTH = 100
 local SPAWN_PROTECTION = 1.5 -- seconds of invulnerability after respawn
 local SPIN_KEEP = 0.4 -- seconds a spun-up gun keeps turning after the last round or the trigger let go
 local SPIN_SLACK = 0.75 -- share of a spin-up the host waits for, for the trip the WPN_SPIN took
+local CHARGE_FORGET = 4 -- seconds another's charging glow is drawn without hearing the shot
+local CHARGE_SLACK = 0.1 -- seconds of a charge the host takes off, for the trip the WPN_CHARGE took
 local DEATH_TIME = 2.5 -- seconds a wreck stays gone before respawning
 local RELOAD_GRACE = 1 -- seconds past a reload's end the client waits for the host's WPN_MAG before giving up
 local SHAKE_RADIUS = 1100 -- px; explosions further away don't shake the screen
@@ -314,11 +328,14 @@ Weapons.lowPrompt = nil -- "R: RELOAD" while the gun in hand is nearly out with 
 Weapons.noAmmo = 0 -- seconds left of NO AMMO across the middle of the screen
 Weapons.noAmmoTime = 1.4 -- seconds it shows for after a click on an empty gun with nothing to load
 Weapons.infiniteAmmo = false -- my magazines never empty (the host says so: WPN_INFINITE)
-Weapons.showHitboxes = false
+Weapons.showHitboxes = false -- F3: cars, players and, on the host, every enemy (`serverEnemies`)
+Weapons.hostServer = nil -- the host's own server, for the enemies' hitboxes (nil on a client)
 Weapons.deadTimer = 0 -- seconds until my own car respawns (client)
 Weapons.armed = false -- held fire only counts once the button has been seen released in-game
 Weapons.spin = 0 -- 0..1: how far my gun's barrels have wound up (a gun with `spinUp`)
 Weapons.spinIdle = 0 -- seconds since they last had a reason to turn
+Weapons.charging = nil -- seconds my `charge` gun has been charging while fire is held, or nil
+Weapons.othersCharging = {} -- id -> seconds someone else's `charge` gun has been charging (WPN_CHARGE)
 Weapons.camera = nil -- last camera seen in update; needed to aim through pans and zoom
 Weapons.lensSize = 0.24 -- the scope's lens: its radius as a share of the window's shorter side
 Weapons.haloBelow = 0.2 -- under this share of my health a red halo creeps in from the screen's edges...
@@ -416,13 +433,16 @@ function Weapons:enterGame()
   self.halo = 0
   self.armed = false -- the click on "Start game" is still held on the first frame
   self.spin, self.spinIdle = 0, 0
+  self.charging, self.othersCharging = nil, {}
   Explosions.clear()
   Rockets.clear()
+  Plasma.clear()
   Sounds.stopAll()
   Reloads.clear()
 end
 
 function Weapons:exitGame()
+  self.hostServer = nil
   self:resetSynced()
   self:enterGame()
 end
@@ -573,6 +593,41 @@ function Weapons:windBarrels(client, dt, held)
     if self.spinIdle > SPIN_KEEP then
       self.spin = 0
     end
+  end
+end
+
+--- A gun with a `charge`, a tick of it: a pull starts charging it (the host
+--- hears, WPN_CHARGE) while it has a round and is ready; held, it charges
+--- (no more than its `time`); let go, it fires (`tryFire`, the host timing
+--- the charge itself). Empty, a pull clicks as any gun does.
+function Weapons:chargeShot(client, dt, held)
+  if not held then
+    self.armed = true
+    if self.charging then
+      self.charging = nil
+      self:tryFire(client)
+    end
+    return
+  end
+  if self.charging then
+    self.charging = math.min(self:gunAt(self.gun).charge.time, self.charging + dt)
+    return
+  end
+  if not self.armed then
+    return
+  end
+  self.armed = false
+  if (self.mags[self.gun] or 0) < 1 or self.cooldown > 0 or self.reloading
+    or Features.any("held", client, client.myId) or Features.any("pointerTaken", client)
+    or Features.any("fireTaken", client) then
+    self:tryFire(client) -- (the click, the reload, or nothing)
+    return
+  end
+  self.charging = 0
+  client:send(Protocol.encode("WPN_CHARGE"))
+  local x, y = clientPose(client, client.myId)
+  if x then
+    Sounds.play("bolter-charge", x, y, 1)
   end
 end
 
@@ -826,7 +881,12 @@ function Weapons:update(dt, client, camera)
   end
   local held = Controls.isDown("fire")
   self:windBarrels(client, dt, held)
-  if not held then
+  for id, t in pairs(self.othersCharging) do
+    self.othersCharging[id] = t + dt < CHARGE_FORGET and t + dt or nil
+  end
+  if self:gunAt(self.gun).charge and not self:myMount(client) then
+    self:chargeShot(client, dt, held)
+  elseif not held then
     self.armed = true
   elseif self.armed then
     self:tryFire(client)
@@ -848,7 +908,9 @@ function Weapons:update(dt, client, camera)
     local wall = blocked(p.x, p.y)
     local spent = p.age > ttl or wall
     if gun.blast then
-      Rockets.trail(p, dt)
+      if not gun.ball then -- (a ball of plasma leaves no smoke)
+        Rockets.trail(p, dt)
+      end
       -- A missile goes off when the host says so (WPN_BOOM); until then it
       -- sits where it struck. Dropped only if that message never comes.
       if spent then
@@ -864,7 +926,10 @@ function Weapons:update(dt, client, camera)
       end
       -- And kicks up sparks and dust at its face, on every screen: each
       -- one flies every round itself, so no word from the host is needed.
-      if wall and not gun.flame and p.age <= ttl then
+      -- A ball of plasma splashes instead, wall or not.
+      if gun.ball then
+        Plasma.splash(p.x, p.y, gun.ball)
+      elseif wall and not gun.flame and p.age <= ttl then
         local x, y = wallFace(p.x - p.vx * dt, p.y - p.vy * dt, p.x, p.y)
         Explosions.impact(x, y, p.vx, p.vy)
       end
@@ -872,6 +937,7 @@ function Weapons:update(dt, client, camera)
     end
   end
   Rockets.update(dt)
+  Plasma.update(dt)
   for _, flashes in ipairs({ self.hitFlash, self.carFlash }) do
     for id, t in pairs(flashes) do
       if t - dt <= 0 then
@@ -960,6 +1026,28 @@ local function drawFlame(p, gun)
   love.graphics.circle("fill", p.x, p.y + wobble, r * 0.45)
 end
 
+--- Every enemy's hitbox, from where the host has it (`serverEnemies`):
+--- red, grey while nothing can hurt it, a cross for one with no radius.
+--- Only the host knows them, so a client draws none.
+local function drawEnemyHitboxes(server)
+  if not server then
+    return
+  end
+  Features.call("serverEnemies", server, function(e)
+    if e.immune then
+      love.graphics.setColor(0.6, 0.6, 0.6, 0.9)
+    else
+      love.graphics.setColor(1, 0.25, 0.25, 0.9)
+    end
+    if e.radius then
+      love.graphics.circle("line", e.x, e.y, e.radius)
+    else
+      love.graphics.line(e.x - 6, e.y - 6, e.x + 6, e.y + 6)
+      love.graphics.line(e.x - 6, e.y + 6, e.x + 6, e.y - 6)
+    end
+  end)
+end
+
 function Weapons:drawAboveCars(client)
   Rockets.drawTrail()
   Explosions.drawAbove()
@@ -970,7 +1058,9 @@ function Weapons:drawAboveCars(client)
   local now = love.timer.getTime()
   for _, p in pairs(self.projectiles) do
     local gun = Guns.at(p.gun)
-    if gun.blast then
+    if gun.ball then
+      Plasma.drawBall(p, gun.ball, now)
+    elseif gun.blast then
       Rockets.drawMissile(p, now)
     elseif gun.flame then
       drawFlame(p, gun)
@@ -991,6 +1081,22 @@ function Weapons:drawAboveCars(client)
     end
   end
   love.graphics.setLineWidth(1)
+  Plasma.drawSplashes()
+  -- A `charge` gun charging: mine swelling at my muzzle, another's glowing on them.
+  local me = self.charging and self:gunAt(self.gun).charge
+  if me then
+    local x, y = clientPose(client, client.myId)
+    local aim = self:aimAngle(client)
+    if x and aim then
+      Plasma.drawCharge(x + math.cos(aim) * FOOT_MUZZLE, y + math.sin(aim) * FOOT_MUZZLE, self.charging / me.time, now)
+    end
+  end
+  for id, t in pairs(self.othersCharging) do
+    local x, y = clientPose(client, id)
+    if x then
+      Plasma.drawCharge(x, y, math.min(1, t / 1.4), now)
+    end
+  end
 
   local function bar(px, py, hp, max, bw, dy)
     local bh = 4
@@ -1041,6 +1147,7 @@ function Weapons:drawAboveCars(client)
     for _, b in pairs(client.bodies) do
       love.graphics.circle("line", b.dx, b.dy, FOOT_RADIUS)
     end
+    drawEnemyHitboxes(self.hostServer)
   end
   love.graphics.setColor(1, 1, 1)
 end
@@ -1446,6 +1553,16 @@ Weapons.clientMessages = {
       Weapons.reloading, Weapons.ammoNotice, Weapons.noAmmo = nil, nil, 0
     end
   end,
+  WPN_CHARGE = function(client, args)
+    local id = idOf(args[1])
+    if id and id ~= client.myId then
+      Weapons.othersCharging[id] = 0
+      local x, y = clientPose(client, id)
+      if x then
+        Sounds.play("bolter-charge", x, y, 1)
+      end
+    end
+  end,
   WPN_SPIN = function(client, args)
     local id = tonumber(args[1])
     if id and id ~= client.myId then -- mine I heard as I pulled the trigger
@@ -1495,7 +1612,10 @@ Weapons.clientMessages = {
     if p then
       Weapons.projectiles[pid] = nil
       -- Where the host says it struck: mine has flown on a little by now.
-      if x and y and not Guns.at(p.gun).flame then
+      local gun = Guns.at(p.gun)
+      if x and y and gun.ball then
+        Plasma.splash(x, y, gun.ball)
+      elseif x and y and not gun.flame then
         Explosions.hit(x, y, p.vx, p.vy, args[4])
       end
     end
@@ -1505,6 +1625,10 @@ Weapons.clientMessages = {
     local x, y, vx, vy = tonumber(args[3]), tonumber(args[4]), tonumber(args[5]), tonumber(args[6])
     local gun = Guns.at(tonumber(args[7]))
     local quiet = args[8] == "1"
+    local who = idOf(args[2])
+    if who then
+      Weapons.othersCharging[who] = nil -- (its charge let go)
+    end
     if pid and x and y and vx and vy then
       local tint = nil
       local r, g, b = (args[9] or ""):match("^(%x%x)(%x%x)(%x%x)$")
@@ -1539,10 +1663,15 @@ Weapons.clientMessages = {
   --- and wrecks.
   WPN_BOOM = function(client, args)
     local pid, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+    local p = pid and Weapons.projectiles[pid]
+    local gun = p and Guns.at(p.gun)
     if pid then
       Weapons.projectiles[pid] = nil
     end
-    if x and y then
+    if x and y and gun and gun.ball and gun.blast then -- a ball of plasma bursting: purple, a splash ring
+      Plasma.splash(x, y, gun.blast.radius / 4)
+      boom(client, x, y, Damage.of("plasma").color)
+    elseif x and y then
       boom(client, x, y, { 0.35, 0.38, 0.3 })
     end
   end,
@@ -1558,8 +1687,11 @@ Weapons.clientMessages = {
       Weapons.projectiles[pid] = nil
       -- Blood where it went in: at the edge of their body facing the round.
       local pose = victim and poseOf(client, victim)
-      if pose and not Guns.at(p.gun).flame then
-        local len = math.max(1, math.sqrt(p.vx * p.vx + p.vy * p.vy))
+      local gun = Guns.at(p.gun)
+      local len = math.max(1, math.sqrt(p.vx * p.vx + p.vy * p.vy))
+      if pose and gun.ball then
+        Plasma.splash(pose.x - p.vx / len * FOOT_RADIUS, pose.y - p.vy / len * FOOT_RADIUS, gun.ball)
+      elseif pose and not gun.flame then
         Explosions.hit(pose.x - p.vx / len * FOOT_RADIUS, pose.y - p.vy / len * FOOT_RADIUS, p.vx, p.vy)
       end
     end
@@ -1581,8 +1713,12 @@ Weapons.clientMessages = {
     if at and (amount or QUIET_HIT) >= QUIET_HIT then
       Sounds.play(Sounds.hitName("car", dtype), at.x, at.y, 0.9 + love.math.random() * 0.2)
     end
-    if pid and pid > 0 then
+    local p = pid and pid > 0 and Weapons.projectiles[pid]
+    if p then
       Weapons.projectiles[pid] = nil
+      if Guns.at(p.gun).ball then
+        Plasma.splash(p.x, p.y, Guns.at(p.gun).ball)
+      end
     end
     if vid and hp then
       Weapons.carHealth[vid] = hp
@@ -1719,6 +1855,7 @@ function Weapons:serverStart(server)
     end
   end
   self.sv = sv
+  self.hostServer = server
   for _, p in pairs(server.players) do
     self:giveStock(server, p)
     self:sendGuns(server, p)
@@ -2310,6 +2447,31 @@ function Weapons:serverSpin(server, player)
   server:broadcast(Protocol.encode("WPN_SPIN", player.id))
 end
 
+--- `player` is charging the gun in hand (WPN_CHARGE): from now the host
+--- times the charge (serverFire), and everyone hears it.
+function Weapons:serverCharge(server, player)
+  local sv = self.sv
+  local st = sv and sv.players[player.id]
+  if not (st and player.body) or player.vehicle then
+    return
+  end
+  local gun = gunOf(st, heldGun(self, player, st))
+  if not gun.charge or (st.chargeAt and sv.time - st.chargeAt < 0.2) then
+    return
+  end
+  st.chargeAt = sv.time
+  server:broadcast(Protocol.encode("WPN_CHARGE", player.id))
+end
+
+--- `gun` as charged for `held` seconds (a `charge` gun): its round's damage
+--- and its blast's, from its `min` share to all of it at its `time`.
+local function charged(gun, held)
+  local c = gun.charge
+  local k = c.min + (1 - c.min) * math.max(0, math.min(1, held / c.time))
+  local blast = gun.blast and setmetatable({ damage = gun.blast.damage * k }, { __index = gun.blast })
+  return setmetatable({ damage = gun.damage * k, blast = blast }, { __index = gun })
+end
+
 --- Where a shot on foot starts from: where the shooter's own screen had
 --- them (seenX, seenY), ahead of where the host has them (bx, by) while
 --- they move (their steps are predicted), so a round leaves the gun they
@@ -2360,6 +2522,16 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
       server:send(player, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun] or 0))
       return false
     end
+  end
+  if gun.charge then
+    -- Only a charge the host saw start (WPN_CHARGE), timed by the host; a
+    -- bot fires it charged all the way.
+    if not (player.bot or st.chargeAt) then
+      server:send(player, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun] or 0))
+      return false
+    end
+    gun = charged(gun, player.bot and gun.charge.time or sv.time - st.chargeAt - CHARGE_SLACK)
+    st.chargeAt = nil
   end
   local counted = not (player.bot or st.infiniteAmmo) -- bots, police and cheaters never run dry
   if counted and (st.reloadUntil or (st.mags[st.gun] or 0) < 1) then
@@ -2561,6 +2733,9 @@ Weapons.serverMessages = {
   end,
   WPN_SPIN = function(server, player)
     Weapons:serverSpin(server, player)
+  end,
+  WPN_CHARGE = function(server, player)
+    Weapons:serverCharge(server, player)
   end,
   WPN_SELECT = function(server, player, args)
     Weapons:serverSelectGun(server, player, tonumber(args[1]))

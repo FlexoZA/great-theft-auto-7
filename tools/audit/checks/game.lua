@@ -138,14 +138,22 @@ local function mapChecks(report, game, quest, since, soundtracks)
   end
 end
 
---- Every enemy in a wall, by kind: once per kind per map.
+--- Every enemy in a wall, by kind: once per kind per map. One that never
+--- moves (`fixed`: a turret, a Fabricator standing in the way of walking
+--- itself) only counts where rounds can't reach it.
 local function wallChecks(report, game, mapName, quest, enemies)
   for _, e in ipairs(enemies) do
     if not e.flying then
       local r = (e.radius or 8) * Config.wallTolerance
-      local stuck = game:blocked(e.x, e.y)
-        and game:blocked(e.x + r, e.y) and game:blocked(e.x - r, e.y)
-        and game:blocked(e.x, e.y + r) and game:blocked(e.x, e.y - r)
+      local function blocked(x, y)
+        if e.fixed then
+          return game:shotBlocked(x, y)
+        end
+        return game:blocked(x, y)
+      end
+      local stuck = blocked(e.x, e.y)
+        and blocked(e.x + r, e.y) and blocked(e.x - r, e.y)
+        and blocked(e.x, e.y + r) and blocked(e.x, e.y - r)
       if stuck then
         report:add({ severity = "major", category = "maps", key = "enemy-wall:" .. mapName .. ":" .. e.kind,
           title = ("%s stuck inside a wall on %s (%s)"):format(e.kind, mapName, quest.id),

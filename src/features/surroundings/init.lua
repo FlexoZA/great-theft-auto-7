@@ -78,6 +78,12 @@
 -- more with pods gliding along them, and other platforms lit far off.
 -- The first two are drawn once into chunks (chunks.lua).
 --
+-- The Borderline maps run on past their edges as they are drawn inside:
+-- the Wreck's factory roofs, Liar's Landing's frozen sea, the Pit's
+-- rock, Prosperity's dome, the Refinery's and the Assembly Line's walls,
+-- the cliff and the drop, the sky round the Bunker; a tunnel or a road out
+-- carries on past the edge. City-map draws that itself (drawPastEdges).
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -1273,6 +1279,11 @@ local DRAW = {
     CitadelAbyss.draw(map, left, top, right, bottom, clock)
   end,
 }
+for _, name in ipairs({ "wreck", "landing", "pit", "prosperity", "refinery", "assembly", "cuts", "bunker" }) do
+  DRAW[name] = function(_map, camera)
+    Features.byName["city-map"]:drawPastEdges(view(camera))
+  end
+end
 
 -- What glows past the edge of a map played at night, by map name.
 local LIGHTS = {
