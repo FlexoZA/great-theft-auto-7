@@ -18,6 +18,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Enemies, bosses, pedestrians and officers are drawn where the host has them, not a few steps behind: a round
   aimed at a moving one used to pass straight through its picture and land nothing, worst on a boss mid-dodge.
   Every screen now carries each body on at the pace the host last gave, so what you shoot at is where it is.
+- Shots no longer pass through enemies when you hold the trigger: the host threw away up to half the rounds of some
+  fast guns (a legendary pistol or SMG) as fired too soon, though your screen still showed them flying on.
 
 ## [0.44.0] - 2026-10-30
 
