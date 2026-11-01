@@ -5,6 +5,7 @@
 
 local Synth = require("src.audio.synth")
 local Audio = require("src.audio")
+local Drawn = require("src.features.drawn")
 
 local Onscreen = {}
 
@@ -34,18 +35,13 @@ function Onscreen.play(bank, name, x, y)
 end
 
 --- Ease every one in `shown` ({ x, y, dx, dy, stride }) towards where the
---- host last put it, snapping when it is far off; `stride` counts the
---- distance its legs have covered.
+--- host has it now (src/features/drawn: its last word carried on at its
+--- pace), snapping when it is far off; `stride` counts the distance its
+--- legs have covered.
 function Onscreen.ease(shown, dt)
-  local k = math.min(1, dt * 14)
   for _, m in pairs(shown) do
-    local ex, ey = m.x - m.dx, m.y - m.dy
-    if ex * ex + ey * ey > 300 * 300 then
-      m.dx, m.dy = m.x, m.y
-    else
-      m.dx, m.dy = m.dx + ex * k, m.dy + ey * k
-      m.stride = m.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
+    local mx, my = Drawn.step(m, dt, 14, 300)
+    m.stride = m.stride + math.sqrt(mx * mx + my * my)
   end
 end
 

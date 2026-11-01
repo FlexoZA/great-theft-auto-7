@@ -42,6 +42,7 @@
 --   server -> all  VLT_TAKEN <player>                    somebody picked it up: the dock is open (to a joiner too)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
@@ -547,9 +548,8 @@ function Volt.update(dt)
     shown = nil
   end
   if shown then
-    local k = math.min(1, dt * 14)
-    shown.dx, shown.dy = shown.dx + (shown.x - shown.dx) * k, shown.dy + (shown.y - shown.dy) * k
-    shown.stride = shown.stride + math.sqrt((shown.x - shown.dx) ^ 2 + (shown.y - shown.dy) ^ 2) * k
+    local mx, my = Drawn.step(shown, dt, 14, 300)
+    shown.stride = shown.stride + math.sqrt(mx * mx + my * my)
   end
   for _, list in ipairs({ bolts, lobs, fields }) do
     for i = #list, 1, -1 do
@@ -778,7 +778,7 @@ Volt.clientMessages = {
       shown = { dx = x, dy = y, stride = 0 }
     end
     local v = shown
-    v.x, v.y = x, y
+    Drawn.heard(v, x, y, tick)
     v.facing = tonumber(args[4]) or v.facing or 0
     local hp, max = tonumber(args[5]), tonumber(args[6])
     v.awake = v.awake or (hp and max and hp < max) or (tonumber(args[7]) or 0) > 0

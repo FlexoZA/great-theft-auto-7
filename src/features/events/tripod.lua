@@ -71,6 +71,7 @@
 --   server -> all  ETR_DOWN <x> <y> <angle>     it went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Car = require("src.car")
 local Traffic = require("src.features.bots.traffic")
@@ -614,18 +615,9 @@ function Tripod.update(dt, client, camera)
   if not t then
     return
   end
-  -- It keeps walking between packets: the server's point moves on with it.
-  t.x, t.y = t.x + math.cos(t.facing) * t.speed * dt, t.y + math.sin(t.facing) * t.speed * dt
   t.phaseT = t.phaseT + dt
-  local ex, ey = t.x - t.dx, t.y - t.dy
-  local moved = 0
-  if ex * ex + ey * ey > SNAP * SNAP then
-    t.dx, t.dy = t.x, t.y
-  else
-    local k = math.min(1, dt * SMOOTHING)
-    moved = math.sqrt(ex * ex + ey * ey) * k
-    t.dx, t.dy = t.dx + ex * k, t.dy + ey * k
-  end
+  local mx, my = Drawn.step(t, dt, SMOOTHING, SNAP)
+  local moved = math.sqrt(mx * mx + my * my)
   t.angle = turnToward(t.angle, t.facing, TURN * dt)
   t.cycle = t.cycle + moved / Render.STEP
   t.walk = math.min(1, (t.walk or 0) + ((moved > 0.01 and 1 or 0) - (t.walk or 0)) * math.min(1, dt * 3))
@@ -912,7 +904,8 @@ Tripod.clientMessages = {
     local facing = tonumber(args[4]) or 0
     local t = cl.t or { dx = x, dy = y, angle = facing, aim = facing, cycle = 0, phase = 0, grab = 0 }
     local was, wasGrab = t.phase, t.grab
-    t.x, t.y, t.facing = x, y, facing
+    Drawn.heard(t, x, y, tick)
+    t.facing = facing
     t.speed = tonumber(args[5]) or 0
     t.hp = tonumber(args[6]) or t.hp or Tripod.health
     t.max = tonumber(args[7]) or t.max or Tripod.health

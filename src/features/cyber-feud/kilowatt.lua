@@ -30,6 +30,7 @@
 --   server -> all  KWB_DOWN  <x> <y> <angle>          he went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
@@ -483,14 +484,8 @@ function Kilowatt.update(dt)
     shown = nil
   end
   if shown then
-    local k = math.min(1, dt * 14)
-    local ex, ey = shown.x - shown.dx, shown.y - shown.dy
-    if ex * ex + ey * ey > 300 * 300 then
-      shown.dx, shown.dy = shown.x, shown.y
-    else
-      shown.dx, shown.dy = shown.dx + ex * k, shown.dy + ey * k
-      shown.stride = shown.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
+    local mx, my = Drawn.step(shown, dt, 14, 300)
+    shown.stride = shown.stride + math.sqrt(mx * mx + my * my)
     if shown.action == 6 and random() < dt * 30 then -- steam out of the open cage
       local a = random() * 2 * math.pi
       steam[#steam + 1] = { x = shown.dx, y = shown.dy, vx = math.cos(a) * 40, vy = math.sin(a) * 40 - 30, t = 0 }
@@ -700,7 +695,7 @@ Kilowatt.clientMessages = {
       shown = { dx = x, dy = y, stride = 0 }
     end
     local k = shown
-    k.x, k.y = x, y
+    Drawn.heard(k, x, y, tick)
     k.facing = tonumber(args[4]) or k.facing or 0
     k.hp = tonumber(args[5]) or k.hp
     k.max = tonumber(args[6]) or k.max

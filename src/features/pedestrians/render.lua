@@ -3,6 +3,7 @@
 -- a look of their own picked by id). Nothing here changes the world.
 
 local Body = require("src.body")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 
 local Render = {
@@ -84,6 +85,7 @@ end
 
 --- Apply a PED_SYNC payload: args[1] is the tick, then groups of four.
 function Render.sync(args)
+  local tick = tonumber(args[1])
   local peds = Render.peds
   local seen = {}
   Render.panickedN = 0
@@ -108,7 +110,8 @@ function Render.sync(args)
         slot.id, slot.x, slot.y = id, x, y
         Render.panickedN = n
       end
-      p.x, p.y, p.flee, p.frozen = x, y, flee, args[i + 3] == "2"
+      Drawn.heard(p, x, y, tick)
+      p.flee, p.frozen = flee, args[i + 3] == "2"
       seen[id] = true
     end
   end
@@ -133,17 +136,10 @@ end
 
 function Render.update(dt)
   Render.time = Render.time + dt
-  local k = math.min(1, dt * SMOOTHING)
   for _, p in pairs(Render.peds) do
-    local ex, ey = p.x - p.dx, p.y - p.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      p.dx, p.dy = p.x, p.y
-    else
-      local mx, my = ex * k, ey * k
-      p.dx, p.dy = p.dx + mx, p.dy + my
-      if mx * mx + my * my > 0.01 then
-        p.angle = math.atan2(my, mx) -- face where you are walking
-      end
+    local mx, my = Drawn.step(p, dt, SMOOTHING, SNAP)
+    if mx * mx + my * my > 0.01 then
+      p.angle = math.atan2(my, mx) -- face where you are walking
     end
   end
 end

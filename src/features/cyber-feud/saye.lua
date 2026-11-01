@@ -24,6 +24,7 @@
 --   server -> all  SYE_DOWN  <x> <y> <angle>     she went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
@@ -528,14 +529,8 @@ function Saye.update(dt)
     shown = nil
   end
   if shown then
-    local k = math.min(1, dt * 14)
-    local ex, ey = shown.x - shown.dx, shown.y - shown.dy
-    if ex * ex + ey * ey > 300 * 300 then
-      shown.dx, shown.dy = shown.x, shown.y
-    else
-      shown.dx, shown.dy = shown.dx + ex * k, shown.dy + ey * k
-      shown.stride = shown.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
+    local mx, my = Drawn.step(shown, dt, 14, 300)
+    shown.stride = shown.stride + math.sqrt(mx * mx + my * my)
     shown.flash = math.max(0, (shown.flash or 0) - dt)
   end
   if say then
@@ -657,7 +652,7 @@ Saye.clientMessages = {
       shown = { dx = x, dy = y, stride = 0, flash = 0 }
     end
     local s = shown
-    s.x, s.y = x, y
+    Drawn.heard(s, x, y, tick)
     s.facing = tonumber(args[4]) or s.facing or 0
     s.hp = tonumber(args[5]) or s.hp
     s.max = tonumber(args[6]) or s.max

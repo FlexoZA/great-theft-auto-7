@@ -77,6 +77,7 @@
 --   server -> all  CF_WAKE                              the street woke (init.lua's music listens)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
@@ -1221,15 +1222,9 @@ function Troops.update(dt)
   if next(troops) and love.timer.getTime() - heardAt > STALE then
     troops = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-      s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
-    end
+    local mx, my = Drawn.step(s, dt, SMOOTHING, SNAP)
+    s.stride = s.stride + math.sqrt(mx * mx + my * my) -- how far he has walked, for his legs
     -- His cone opens out while he is on edge; on a nest's gun it is as wide as the gun turns.
     local conf = Troops.side[s.side]
     local arc = gunnersArc(s)
@@ -1410,7 +1405,7 @@ Troops.clientMessages = {
           s.fov = Troops.side[side].fov
           troops[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.angle = tonumber(args[i + 4]) or s.angle or 0
         s.hp = tonumber(args[i + 5]) or Troops.side[side].health
         s.top = math.max(s.top or Troops.side[side].health, s.hp) -- (tougher on a job finished before)

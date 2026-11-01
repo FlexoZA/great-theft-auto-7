@@ -3,6 +3,7 @@
 -- every officer stands and what they are aiming at (officers.lua).
 
 local Body = require("src.body")
+local Drawn = require("src.features.drawn")
 local Officers = require("src.features.police.officers")
 
 local Render = {
@@ -66,7 +67,8 @@ function Render.sync(args)
         slot.id, slot.x, slot.y = id, x, y
         Render.alertedN = n
       end
-      o.x, o.y, o.angle, o.alert = x, y, facing, alert
+      Drawn.heard(o, x, y, tick)
+      o.angle, o.alert = facing, alert
       o.hp = tonumber(args[i + 5]) or MAX_HEALTH
       seen[id] = true
     end
@@ -80,16 +82,9 @@ end
 
 function Render.update(dt)
   Render.time = Render.time + dt
-  local k = math.min(1, dt * SMOOTHING)
   for _, o in pairs(Render.officers) do
-    local ex, ey = o.x - o.dx, o.y - o.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      o.dx, o.dy = o.x, o.y
-    else
-      local mx, my = ex * k, ey * k
-      o.dx, o.dy = o.dx + mx, o.dy + my
-      o.running = mx * mx + my * my > (dt * 90) ^ 2
-    end
+    local mx, my = Drawn.step(o, dt, SMOOTHING, SNAP)
+    o.running = mx * mx + my * my > (dt * 90) ^ 2
   end
 end
 

@@ -40,6 +40,7 @@
 --   guard_render.lua  it drawn from above, and its scream's cone
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Brain = require("src.features.antlions.brain")
@@ -344,17 +345,11 @@ function Antlions:update(dt)
     shown = {}
   end
   Guard.update(dt)
-  local k = math.min(1, dt * SMOOTHING)
   for _, a in pairs(shown) do
     a.t = a.t + dt
-    local ex, ey = a.x - a.dx, a.y - a.dy
-    local moved = math.sqrt(ex * ex + ey * ey) * k
-    if ex * ex + ey * ey > SNAP * SNAP then
-      a.dx, a.dy = a.x, a.y
-    else
-      a.dx, a.dy = a.dx + ex * k, a.dy + ey * k
-      a.cycle = a.cycle + moved / STEP
-    end
+    local mx, my = Drawn.step(a, dt, SMOOTHING, SNAP)
+    local moved = math.sqrt(mx * mx + my * my)
+    a.cycle = a.cycle + moved / STEP
     local speed = moved / math.max(dt, 1e-6)
     a.stride = a.stride + (math.min(1, speed / 60) - a.stride) * math.min(1, dt * 8)
     a.hurt = math.max(0, a.hurt - dt)
@@ -452,7 +447,7 @@ Antlions.clientMessages = {
             Sounds.play("emerge", x, y, 1.2)
           end
         end
-        a.x, a.y = x, y
+        Drawn.heard(a, x, y, tick)
         a.facing = tonumber(args[i + 3]) or a.facing or 0
         local hp = tonumber(args[i + 4]) or a.hp
         if hp < a.hp then
