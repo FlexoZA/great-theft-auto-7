@@ -27,6 +27,7 @@
 --   server -> all  ANT_GUARD_DOWN <x> <y> <angle>   it fell there
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
@@ -442,15 +443,9 @@ function Guard.update(dt)
     return
   end
   cl.t = cl.t + dt
-  local k = math.min(1, dt * SMOOTHING)
-  local ex, ey = cl.x - cl.dx, cl.y - cl.dy
-  local moved = math.sqrt(ex * ex + ey * ey) * k
-  if ex * ex + ey * ey > SNAP * SNAP then
-    cl.dx, cl.dy = cl.x, cl.y
-  else
-    cl.dx, cl.dy = cl.dx + ex * k, cl.dy + ey * k
-    cl.cycle = cl.cycle + moved / STEP
-  end
+  local mx, my = Drawn.step(cl, dt, SMOOTHING, SNAP)
+  local moved = math.sqrt(mx * mx + my * my)
+  cl.cycle = cl.cycle + moved / STEP
   cl.stride = cl.stride + (math.min(1, moved / math.max(dt, 1e-6) / 80) - cl.stride) * math.min(1, dt * 6)
   cl.hurt = math.max(0, cl.hurt - dt)
 end
@@ -522,7 +517,8 @@ Guard.clientMessages = {
     if cl.hp and hp and hp < cl.hp then
       cl.hurt = HURT
     end
-    cl.x, cl.y, cl.facing, cl.hp, cl.max = x, y, tonumber(args[4]) or 0, hp, tonumber(args[6])
+    Drawn.heard(cl, x, y, tick)
+    cl.facing, cl.hp, cl.max = tonumber(args[4]) or 0, hp, tonumber(args[6])
     cl.aim = tonumber(args[8]) or cl.facing
     cl.stamina, cl.winded = Stamina.read(args, 9)
   end,

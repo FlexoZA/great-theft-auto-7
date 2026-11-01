@@ -34,6 +34,7 @@
 --   server -> all  FM_DOWN   <x> <y> <angle>     he went down: the lift works again (to a joiner too)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Sight = require("src.features.d-day.sight")
@@ -471,14 +472,8 @@ function FloorManager.update(dt)
     shown = nil
   end
   if shown then
-    local k = math.min(1, dt * 14)
-    local ex, ey = shown.x - shown.dx, shown.y - shown.dy
-    if ex * ex + ey * ey > 300 * 300 then
-      shown.dx, shown.dy = shown.x, shown.y
-    else
-      shown.dx, shown.dy = shown.dx + ex * k, shown.dy + ey * k
-      shown.stride = shown.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
+    local mx, my = Drawn.step(shown, dt, 14, 300)
+    shown.stride = shown.stride + math.sqrt(mx * mx + my * my)
     -- How far into a stomp's rearing, or a charge's glow, for the look.
     local into = clock - (shown.moveAt or clock)
     shown.rearT = into / FloorManager.STOMP_WINDUP
@@ -630,7 +625,7 @@ FloorManager.clientMessages = {
       shown = { dx = x, dy = y, stride = 0, look = Look.new() }
     end
     local m = shown
-    m.x, m.y = x, y
+    Drawn.heard(m, x, y, tick)
     m.facing = tonumber(args[4]) or m.facing or 0
     m.hp, m.max = tonumber(args[5]) or m.hp, tonumber(args[6]) or m.max
     local move = tonumber(args[7]) or 0

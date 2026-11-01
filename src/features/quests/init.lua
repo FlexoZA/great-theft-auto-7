@@ -829,6 +829,29 @@ Quests.list = {
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
   },
+  {
+    -- For trying things out (the test-range feature): reached from the launch options, never in play.
+    id = "test-range",
+    title = "The Test Range",
+    text = "Nothing out here but what you came to test.",
+    map = "testrange",
+    boss = "test-range",
+    label = "TEST",
+    banner = "%s is on the test range.",
+  },
+  {
+    id = "home-testrange",
+    title = "Back to the City",
+    text = "Testing done. Take everyone back into town.",
+    onMap = "testrange",
+    x = 0, -- just south of where everyone arrives
+    y = 300,
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s called it a day. Welcome back to The City.",
+  },
 }
 Quests.byId = {}
 Quests.board = {} -- the jobs on the Jobs building's board, in list order

@@ -49,6 +49,7 @@
 --   server -> all  HNT_DOWN  <x> <y> <angle> <playerId>    Bigfoot went down (0 = nobody's kill)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Audio = require("src.audio")
 local Features = require("src.features")
 local UI = require("src.ui")
@@ -817,15 +818,6 @@ function Hunt:questEnded(_client, quest)
   end
 end
 
-local function ease(e, k)
-  local ex, ey = e.x - e.dx, e.y - e.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    e.dx, e.dy = e.x, e.y
-  else
-    e.dx, e.dy = e.dx + ex * k, e.dy + ey * k
-  end
-end
-
 function Hunt:update(dt, _client, camera)
   time = time + dt
   if theme and theme:isPlaying() then
@@ -844,9 +836,8 @@ function Hunt:update(dt, _client, camera)
       table.remove(self.pages, 1)
     end
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, e in pairs({ man = self.man, squirrel = self.squirrel, foot = self.foot }) do
-    ease(e, k)
+    Drawn.step(e, dt, SMOOTHING, SNAP)
   end
   if self.man then
     self.man.sayTimer = math.max(0, self.man.sayTimer - dt)
@@ -887,14 +878,14 @@ function Hunt:worldBlur()
   return self.pages[1] and 1 or 0
 end
 
---- Update `e` (or make it) from a state group starting at args[i].
-local function track(e, args, i)
+--- Update `e` (or make it) from a state group starting at args[i], heard at `tick`.
+local function track(e, args, i, tick)
   local x, y = tonumber(args[i]), tonumber(args[i + 1])
   if not (x and y) then
     return e
   end
   e = e or { dx = x, dy = y, bob = love.math.random() * 6, sayTimer = 0 }
-  e.x, e.y = x, y
+  Drawn.heard(e, x, y, tick)
   e.angle = tonumber(args[i + 2]) or e.angle or 0
   e.hp = tonumber(args[i + 3]) or e.hp or 0
   return e
@@ -927,13 +918,13 @@ Hunt.clientMessages = {
     while i <= #args do
       local tag = args[i]
       if tag == "m" then
-        Hunt.man = track(Hunt.man, args, i + 1)
+        Hunt.man = track(Hunt.man, args, i + 1, tick)
         seen.m, i = true, i + 5
       elseif tag == "s" then
-        Hunt.squirrel = track(Hunt.squirrel, args, i + 1)
+        Hunt.squirrel = track(Hunt.squirrel, args, i + 1, tick)
         seen.s, i = true, i + 5
       elseif tag == "b" then
-        local f = track(Hunt.foot, args, i + 1)
+        local f = track(Hunt.foot, args, i + 1, tick)
         f.mode = MODE_NAMES[args[i + 5]] or "idle"
         f.swipe = args[i + 6] == "1"
         local stamina, winded = Stamina.read(args, i + 7)

@@ -42,6 +42,7 @@
 --   server -> all  AMF_DOWN  <x> <y>                he went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
@@ -555,13 +556,7 @@ function Finale.update(dt)
   if not a then
     return
   end
-  local ex, ey = a.x - a.dx, a.y - a.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    a.dx, a.dy = a.x, a.y
-  else
-    local k = math.min(1, dt * SMOOTHING)
-    a.dx, a.dy = a.dx + ex * k, a.dy + ey * k
-  end
+  Drawn.step(a, dt, SMOOTHING, SNAP)
   if a.moving then
     a.stride = a.stride + dt * 6
   end
@@ -641,7 +636,7 @@ Finale.clientMessages = {
       return
     end
     local a = c.a or { dx = x, dy = y, stride = 0 }
-    a.x, a.y = x, y
+    Drawn.heard(a, x, y, tick)
     a.angle = tonumber(args[4]) or a.angle or 0
     a.moving = args[5] == "1"
     a.hp = tonumber(args[6]) or a.hp or Finale.health
@@ -677,6 +672,7 @@ Finale.clientMessages = {
     local a = c.a
     if a then
       a.x, a.y, a.dx, a.dy, a.aimX, a.aimY = ex, ey, ex, ey, nil, nil
+      Drawn.reset(a)
     end
     Sounds.play("vanish", sx, sy)
     Sounds.play("appear", ex, ey, 1.6)

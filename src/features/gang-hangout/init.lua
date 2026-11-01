@@ -49,6 +49,7 @@
 --   server -> player  GANG_NO       <reason>
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local UI = require("src.ui")
 local Layout = require("src.features.city-map.layout")
@@ -777,14 +778,8 @@ end
 
 function Gang:update(dt)
   time = time + dt
-  local k = math.min(1, dt * SMOOTHING)
   for _, g in pairs(self.units) do
-    local ex, ey = g.x - g.dx, g.y - g.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      g.dx, g.dy = g.x, g.y
-    else
-      g.dx, g.dy = g.dx + ex * k, g.dy + ey * k
-    end
+    Drawn.step(g, dt, SMOOTHING, SNAP)
   end
   if self.notice then
     self.notice.t = self.notice.t - dt
@@ -941,7 +936,8 @@ Gang.clientMessages = {
           Gang.units[id] = g
         end
         local h = Gang.hangouts[plot or -1]
-        g.x, g.y, g.plot, g.owner = x, y, plot, h and h.owner
+        Drawn.heard(g, x, y, tick)
+        g.plot, g.owner = plot, h and h.owner
         g.angle = tonumber(args[i + 4]) or 0
         g.level = tonumber(args[i + 5]) or 1
         g.hp = tonumber(args[i + 6]) or 1

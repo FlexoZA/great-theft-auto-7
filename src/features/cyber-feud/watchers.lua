@@ -23,6 +23,7 @@
 --   server -> all  WCH_DOWN  <id> <x> <y>    one was shot down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Synth = require("src.audio.synth")
@@ -261,14 +262,8 @@ function Watchers.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(shown) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-    end
+    Drawn.step(s, dt, SMOOTHING, SNAP)
     s.hurt = math.max(0, s.hurt - dt)
     local sink = s.state == 2 and 1 or 0 -- knocked out, it drops low
     s.sink = s.sink + (sink - s.sink) * math.min(1, dt * 3)
@@ -388,7 +383,7 @@ Watchers.clientMessages = {
           s = { dx = x, dy = y, hurt = 0, sink = 0, hp = Watchers.health }
           shown[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.facing = tonumber(args[i + 3]) or s.facing or 0
         local hp = tonumber(args[i + 4]) or s.hp
         if hp < s.hp then
