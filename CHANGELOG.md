@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-01
+
+Your shots land: holding the trigger no longer sends rounds through enemies, and enemies are drawn where they really
+are.
+
 ### Fixed
 - Enemies, bosses, pedestrians and officers are drawn where the host has them, not a few steps behind: a round
   aimed at a moving one used to pass straight through its picture and land nothing, worst on a boss mid-dodge.
