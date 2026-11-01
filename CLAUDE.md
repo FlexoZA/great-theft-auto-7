@@ -5,6 +5,7 @@ Top-down driving game in Lua using LÖVE 11.5.
 ## Commands
 - Run: `love .` (or `make run`)
 - Run straight into a saved world, optionally on a quest, optionally straight to its boss: `love . --world <slug> [--quest <id> [--boss]]` (`src/launch.lua`; `--boss` works where a feature answers `serverSkipToBoss`, so far the Coast and Cyber Feud's Roof)
+- Test map, for trying enemies out: `love . --world <slug> --quest test-range` (`src/features/test-range`, "The test range" in `docs/features.md`)
 - Lint: `luacheck .`
 - Audit (rates the branch out of 10; GitHub runs it on every pull request into `staging` and it must pass): `make audit`, or `/audit` in Claude Code for the audit plus a code review. See `docs/audit.md`.
 - Wiki: `make wiki` writes `docs/wiki` from the game's code; `make wiki-portraits` draws missing pictures (guns, abilities, enemies). See `docs/wiki.md`.

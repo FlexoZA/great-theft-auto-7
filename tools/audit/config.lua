@@ -36,6 +36,7 @@ return {
   -- Maps the map checks leave out: not quest maps, or not built yet.
   notQuestMaps = {
     ["city"] = true,
+    ["testrange"] = true, -- a developer's test map, no quest leads there: no music, nothing to rate
   },
 
   longFunction = 150, -- lines; longer new functions are flagged

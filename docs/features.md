@@ -2205,6 +2205,22 @@ the one with a plot.
   `Features.byName.pedestrians.crowd`). Check for nil: the other feature
   may have been deleted.
 
+## The test range
+
+A walled field to try enemies out on, one thing at a time, without playing up
+to them. Nothing in the game leads there:
+
+```bash
+love . --world <slug> --quest test-range
+```
+
+The feature is `src/features/test-range`. What stands on the field is its
+`ARMY`, the same table a Borderline map gives `map.army`, so a robot of
+Hyperbole's behaves here as on its own map, without Borderline's story. So far
+that is one hauler dock: the plasma turret, and the junk haulers it builds. A
+new post is one line; an enemy from another feature needs that feature's own
+way of being put down. The blue star south of the arrival goes home.
+
 ## When the hooks aren't enough
 
 Add a hook to the core rather than reaching into it from a feature. Keep the

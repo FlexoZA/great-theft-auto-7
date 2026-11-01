@@ -1228,6 +1228,7 @@ local DRAW = {
   beach = beach,
   cliff = bluff,
   outskirts = outskirts,
+  testrange = outskirts,
   city17 = function(map, camera)
     local left, top, right, bottom = view(camera)
     City17.draw(map, camera, left, top, right, bottom, clock)
