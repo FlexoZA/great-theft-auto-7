@@ -32,6 +32,7 @@
 --   server -> all  DRD_CALL  <id> <x> <y>            one called the others
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Guns = require("src.features.weapons.guns")
@@ -378,16 +379,10 @@ function Droids.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, h in pairs(shown) do
-    local ex, ey = h.x - h.dx, h.y - h.dy
-    local moved = math.sqrt(ex * ex + ey * ey) * k
-    if ex * ex + ey * ey > SNAP * SNAP then
-      h.dx, h.dy = h.x, h.y
-    else
-      h.dx, h.dy = h.dx + ex * k, h.dy + ey * k
-      h.cycle = h.cycle + moved / STEP
-    end
+    local mx, my = Drawn.step(h, dt, SMOOTHING, SNAP)
+    local moved = math.sqrt(mx * mx + my * my)
+    h.cycle = h.cycle + moved / STEP
     local speed = moved / math.max(dt, 1e-6)
     h.stride = h.stride + (math.min(1, speed / 50) - h.stride) * math.min(1, dt * 6)
     -- The cloak drops at once when it has somebody and comes back slowly.
@@ -516,7 +511,7 @@ Droids.clientMessages = {
             h.dodgeX, h.dodgeY, h.dodge = mx / len, my / len, DODGE_SHOWN
           end
         end
-        h.x, h.y = x, y
+        Drawn.heard(h, x, y, tick)
         h.facing = tonumber(args[i + 3]) or h.facing or 0
         local hp = tonumber(args[i + 4]) or h.hp
         if hp < h.hp then

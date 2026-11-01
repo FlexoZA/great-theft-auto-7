@@ -24,6 +24,7 @@
 --   server -> all  MZ_DOWN   <id> <x> <y> <angle>    one went down (to a joiner too, for the bodies)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Sight = require("src.features.d-day.sight")
 local Ground = require("src.features.eternal-mood.ground")
@@ -493,7 +494,7 @@ Mecha.clientMessages = {
           m = { dx = x, dy = y, stride = 0 }
           shown[id] = m
         end
-        m.x, m.y = x, y
+        Drawn.heard(m, x, y, tick)
         m.facing = tonumber(args[i + 3]) or m.facing or 0
         m.hp, m.max = tonumber(args[i + 4]) or m.hp, tonumber(args[i + 5]) or m.max
         local move = tonumber(args[i + 6]) or 0

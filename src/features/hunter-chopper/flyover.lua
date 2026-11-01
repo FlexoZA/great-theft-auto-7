@@ -18,6 +18,7 @@
 --   server -> all  HC_CARGO <x> <y> <fall>                    one of its cargo falling onto (x, y)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Render = require("src.features.hunter-chopper.render")
 local Sounds = require("src.features.hunter-chopper.sounds")
@@ -173,11 +174,8 @@ function Flyover.update(dt)
   local k = math.min(1, dt * SMOOTHING)
   for _, p in pairs(passes) do
     local to = p.to
-    if (to.x - p.x) ^ 2 + (to.y - p.y) ^ 2 > SNAP * SNAP then
-      p.x, p.y = to.x, to.y
-    else
-      p.x, p.y = p.x + (to.x - p.x) * k, p.y + (to.y - p.y) * k
-    end
+    Drawn.step(p.body, dt, SMOOTHING, SNAP)
+    p.x, p.y = p.body.dx, p.body.dy
     p.angle = p.angle + wrap(to.angle - p.angle) * k
     p.rotor = p.rotor or Sounds.rotor(p.x, p.y)
     if p.rotor then
@@ -259,11 +257,12 @@ Flyover.clientMessages = {
         seen[id] = true
         local p = passes[id]
         if not p then
-          p = { x = x, y = y, angle = angle }
+          p = { x = x, y = y, angle = angle, body = {} }
           passes[id] = p
           Sounds.play("dive", x, y)
         end
         p.to = { x = x, y = y, angle = angle }
+        Drawn.heard(p.body, x, y, tick) -- where it is drawn comes from this (src/features/drawn)
       end
     end
     for id, p in pairs(passes) do

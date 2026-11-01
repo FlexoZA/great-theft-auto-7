@@ -19,6 +19,7 @@
 --   server -> all  STG_DOWN  <id> <x> <y>    one was shot down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 local Tiers = require("src.features.tiers")
@@ -243,14 +244,8 @@ function Stings.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(shown) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-    end
+    Drawn.step(s, dt, SMOOTHING, SNAP)
     s.flash = math.max(0, s.flash - dt)
     s.hurt = math.max(0, s.hurt - dt)
     s.sink = s.sink + ((s.state == 2 and 1 or 0) - s.sink) * math.min(1, dt * 3)
@@ -335,7 +330,7 @@ Stings.clientMessages = {
           s = { dx = x, dy = y, flash = 0, hurt = 0, sink = 0, trail = {}, hp = Stings.health }
           shown[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.heading = tonumber(args[i + 3]) or s.heading or 0
         local hp = tonumber(args[i + 4]) or s.hp
         if hp < s.hp then

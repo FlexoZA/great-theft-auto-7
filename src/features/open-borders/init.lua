@@ -18,6 +18,7 @@
 --   server -> all  OB_CLEAR                                       every simp and fire gone (a new map)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Body = require("src.body")
 local Features = require("src.features")
 local Corpses = require("src.features.corpses")
@@ -234,14 +235,8 @@ end
 
 function OpenBorders:update(dt)
   time = time + dt
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(self.simps) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-    end
+    Drawn.step(s, dt, SMOOTHING, SNAP)
   end
   for i = #self.fires, 1, -1 do
     local f = self.fires[i]
@@ -277,7 +272,7 @@ OpenBorders.clientMessages = {
           s = { dx = x, dy = y, bob = love.math.random() * 6 }
           OpenBorders.simps[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.swing = args[i + 4] == "1"
         s.look = tonumber(args[i + 5]) or 1

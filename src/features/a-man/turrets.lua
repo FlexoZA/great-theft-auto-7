@@ -12,6 +12,7 @@
 -- own (`Turrets.clientNew()`) fed by the boss's messages and draw it.
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Guns = require("src.features.weapons.guns")
 
@@ -196,6 +197,7 @@ end
 -- Client --------------------------------------------------------------------
 
 local SMOOTHING = 14 -- per second, the easing of what is drawn
+local SNAP = 200 -- px; a jump this big is a placement, not a step
 local DOWN_TIME = 2 -- seconds a toppled one lies there
 
 function Turrets.clientNew()
@@ -210,7 +212,7 @@ function Turrets.read(cset, args, i)
     local id, x, y = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
     if id and x and y then
       local t = cset.list[id] or { dx = x, dy = y, legs = random() * 6 }
-      t.x, t.y = x, y
+      Drawn.heard(t, x, y, nil) -- the tick stays with the caller
       t.facing = tonumber(args[i + 3]) or 0
       t.firing = args[i + 4] == "1"
       cset.list[id] = t
@@ -232,11 +234,9 @@ function Turrets.pop(cset, id, x, y, facing)
 end
 
 function Turrets.update(cset, dt)
-  local k = math.min(1, dt * SMOOTHING)
   for _, t in pairs(cset.list) do
-    local ex, ey = t.x - t.dx, t.y - t.dy
-    t.dx, t.dy = t.dx + ex * k, t.dy + ey * k
-    if ex * ex + ey * ey > 0.5 then
+    local mx, my = Drawn.step(t, dt, SMOOTHING, SNAP)
+    if mx * mx + my * my > (10 * dt) ^ 2 then -- walking, not settling
       t.legs = t.legs + dt * 22
     end
   end

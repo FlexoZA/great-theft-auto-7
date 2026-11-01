@@ -118,6 +118,11 @@ function Borderline:serverQuestStarted(server, quest)
   end
 end
 
+--- The army on a map that isn't one of the line's (the test range): `map.army`, without the story.
+function Borderline:serverStartArmy(server, map)
+  Army.serverStart(server, map)
+end
+
 function Borderline:serverQuestEnded(server, quest)
   if quest.boss == self.questId then
     level = nil
