@@ -87,6 +87,7 @@
 --   and cameo.lua's: C17_AMAN_IN, C17_AMAN_CASE, C17_AMAN_OUT, C17_TURRETS, C17_POP
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local UI = require("src.ui")
@@ -1018,15 +1019,9 @@ function Level.update(dt)
       table.remove(doors, i)
     end
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(troops) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-      s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k -- how far he has walked, for his legs
-    end
+    local mx, my = Drawn.step(s, dt, SMOOTHING, SNAP)
+    s.stride = s.stride + math.sqrt(mx * mx + my * my) -- how far he has walked, for his legs
     -- His cone opens out while he is on edge and closes again after; on an
     -- MG nest's gun it is as wide as the gun turns, the way the host sees it.
     local arc = gunnersArc(s)
@@ -1173,7 +1168,7 @@ Level.clientMessages = {
           s = { dx = x, dy = y, bob = love.math.random() * 6, stride = 0, fov = Level.fov }
           troops[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Level.health
         s.max = math.max(s.max or Level.health, s.hp) -- tougher on a job finished before

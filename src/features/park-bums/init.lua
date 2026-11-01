@@ -29,6 +29,7 @@
 --   server -> hirer   BUM_NO    <reason>            broke | busy | away | target | gone | nogame
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Controls = require("src.controls")
 local UI = require("src.ui")
@@ -277,14 +278,8 @@ end
 
 function ParkBums:update(dt, client)
   time = time + dt
-  local k = math.min(1, dt * SMOOTHING)
   for _, b in pairs(self.bums) do
-    local ex, ey = b.x - b.dx, b.y - b.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      b.dx, b.dy = b.x, b.y
-    else
-      b.dx, b.dy = b.dx + ex * k, b.dy + ey * k
-    end
+    Drawn.step(b, dt, SMOOTHING, SNAP)
     if b.say then
       b.say.t = b.say.t - dt
       if b.say.t <= 0 then
@@ -406,7 +401,7 @@ ParkBums.clientMessages = {
           b = { dx = x, dy = y, bob = love.math.random() * 6 }
           ParkBums.bums[id] = b
         end
-        b.x, b.y = x, y
+        Drawn.heard(b, x, y, tick)
         b.angle = tonumber(args[i + 3]) or b.angle or 0
         b.mode = MODES[args[i + 4]] or "sit"
         b.punch = args[i + 5] == "1"

@@ -47,6 +47,7 @@
 --   server -> all  EAM_POP   <id> <x> <y> <facing>        a turret fell over
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local Audio = require("src.audio")
@@ -485,13 +486,7 @@ function AMan.update(dt)
   if not a then
     return
   end
-  local ex, ey = a.x - a.dx, a.y - a.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    a.dx, a.dy = a.x, a.y
-  else
-    local k = math.min(1, dt * SMOOTHING)
-    a.dx, a.dy = a.dx + ex * k, a.dy + ey * k
-  end
+  Drawn.step(a, dt, SMOOTHING, SNAP)
   if a.moving then
     a.stride = a.stride + dt * 6
   end
@@ -698,7 +693,7 @@ AMan.clientMessages = {
       return
     end
     local a = cl.a or { dx = x, dy = y, stride = 0 }
-    a.x, a.y = x, y
+    Drawn.heard(a, x, y, tick)
     a.angle = tonumber(args[4]) or a.angle or 0
     a.moving = args[5] == "1"
     a.hp = tonumber(args[6]) or a.hp or AMan.health
@@ -716,7 +711,8 @@ AMan.clientMessages = {
     cl.tears[#cl.tears + 1] = { sx = sx, sy = sy, ex = ex, ey = ey, t = 0 }
     local a = cl.a
     if a then
-      a.x, a.y, a.dx, a.dy, a.aimX, a.aimY = ex, ey, ex, ey, nil, nil -- no easing across a blink
+      a.x, a.y, a.dx, a.dy, a.aimX, a.aimY = ex, ey, ex, ey, nil, nil
+      Drawn.reset(a) -- no easing across a blink
     end
     Sounds.play("vanish", sx, sy)
     Sounds.play("appear", ex, ey, 1.6) -- quicker than his entrance

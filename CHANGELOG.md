@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Fixed
+- Enemies, bosses, pedestrians and officers are drawn where the host has them, not a few steps behind: a round
+  aimed at a moving one used to pass straight through its picture and land nothing, worst on a boss mid-dodge.
+  Every screen now carries each body on at the pace the host last gave, so what you shoot at is where it is.
+
 ## [0.44.0] - 2026-10-30
 
 Borderline, a new eight-map quest line on the frozen planet Pandoria against Maximum Maximilian Max's robot army,

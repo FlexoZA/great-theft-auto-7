@@ -18,6 +18,7 @@
 --   server -> all  RIP_DOWN  <id> <x> <y> <angle>
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Body = require("src.body")
 local Sight = require("src.features.d-day.sight")
@@ -307,15 +308,9 @@ function Rippers.update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(shown) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-      s.stride = s.stride + math.sqrt(ex * ex + ey * ey) * k
-    end
+    local mx, my = Drawn.step(s, dt, SMOOTHING, SNAP)
+    s.stride = s.stride + math.sqrt(mx * mx + my * my)
     s.hurt = math.max(0, s.hurt - dt)
     for i = #s.trail, 1, -1 do
       s.trail[i].t = s.trail[i].t + dt
@@ -442,7 +437,7 @@ Rippers.clientMessages = {
           s = { dx = x, dy = y, stride = 0, hurt = 0, hp = Rippers.health, trail = {} }
           shown[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.facing = tonumber(args[i + 3]) or s.facing or 0
         local hp = tonumber(args[i + 4]) or s.hp
         if hp < s.hp then

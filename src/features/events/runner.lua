@@ -29,6 +29,7 @@
 --   server -> all  ERN_DOWN  <x> <y> <angle>        he went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Car = require("src.car")
 local Body = require("src.body")
@@ -397,15 +398,7 @@ function Runner.update(dt)
     return
   end
   local r = cl.r
-  -- He keeps running between packets: the server's point moves on with him.
-  r.x, r.y = r.x + math.cos(r.angle) * r.speed * dt, r.y + math.sin(r.angle) * r.speed * dt
-  local ex, ey = r.x - r.dx, r.y - r.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    r.dx, r.dy = r.x, r.y
-  else
-    local k = math.min(1, dt * SMOOTHING)
-    r.dx, r.dy = r.dx + ex * k, r.dy + ey * k
-  end
+  Drawn.step(r, dt, SMOOTHING, SNAP)
   r.stride = r.stride + dt * (r.speed > 100 and 16 or 5)
   -- Dust behind him at full tilt.
   cl.puffIn = cl.puffIn - dt
@@ -536,7 +529,7 @@ Runner.clientMessages = {
       return
     end
     local r = cl.r or { dx = x, dy = y, stride = 0 }
-    r.x, r.y = x, y
+    Drawn.heard(r, x, y, tick)
     r.angle = tonumber(args[4]) or r.angle or 0
     r.speed = tonumber(args[5]) or 0
     r.hp = tonumber(args[6]) or r.hp or Runner.health

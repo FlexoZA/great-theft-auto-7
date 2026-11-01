@@ -34,6 +34,7 @@
 --                  0 coming in, 1 dropping, 2 leaving; (sx, sy) the spot it sets down on)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Sounds = require("src.features.cyber-feud.flyer_sounds")
@@ -350,12 +351,7 @@ function Dropship.update(dt)
     return
   end
   local k = math.min(1, dt * SMOOTHING)
-  local ex, ey = shown.x - shown.dx, shown.y - shown.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    shown.dx, shown.dy = shown.x, shown.y
-  else
-    shown.dx, shown.dy = shown.dx + ex * k, shown.dy + ey * k
-  end
+  Drawn.step(shown, dt, SMOOTHING, SNAP)
   shown.da = shown.da + wrap(shown.angle - shown.da) * k
   shown.dalt = shown.dalt + (shown.alt - shown.dalt) * k
   shown.dtilt = shown.dtilt + (shown.tilt - shown.dtilt) * k
@@ -541,7 +537,8 @@ Dropship.clientMessages = {
     if not shown then
       shown = { dx = x, dy = y, da = a, dalt = alt, dtilt = tilt }
     end
-    shown.x, shown.y, shown.angle, shown.alt, shown.tilt = x, y, a, alt, tilt
+    Drawn.heard(shown, x, y, tick)
+    shown.angle, shown.alt, shown.tilt = a, alt, tilt
     shown.phase, shown.sx, shown.sy = phase, sx, sy
   end,
 }

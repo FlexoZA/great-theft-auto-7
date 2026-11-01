@@ -367,6 +367,18 @@ couple of small conventions rather than requiring each other:
   (sliding along walls), the same on the host and in your own prediction,
   so a moving floor never rubber-bands. The Assembly Line's belts
   (borderline/belts.lua) carry walkers this way, and the army the same.
+- `src/features/drawn`: where a synced body is drawn. A feature that
+  draws anything the host moves (an enemy, a boss, a pedestrian) keeps the
+  host's last word on it in `x, y` and eases a drawn `dx, dy` toward it.
+  Eased toward a stale word the picture trails the body, by the message's
+  age and by the easing's own lag (speed / rate), and a round aimed at the
+  picture misses the body on the host: it looks like it went through. So
+  every such feature calls `Drawn.heard(s, x, y, tick)` where its sync
+  handler used to set `s.x, s.y`, and `Drawn.step(s, dt, rate, snap)` in
+  place of its ease: the word is carried on at the pace the words before
+  gave, for the time since plus the easing's lag, and the picture sits on
+  the body. `step` returns how far the picture moved, for a stride or a
+  facing. `Drawn.reset(s)` after a body is put somewhere else (a respawn).
 - `feature:serverSkipToBoss(server, quest, player)`: the launch's
   `--boss` (`src/launch.lua`, for trying a boss out): `quest` has just
   begun with `player` (the host) on its map; the feature that owns its

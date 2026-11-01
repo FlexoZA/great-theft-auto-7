@@ -45,6 +45,7 @@
 --   server -> all  DD_MAJOR_DOWN <x> <y> <angle>     the Major went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Audio = require("src.audio")
 local Features = require("src.features")
 local Soldiers = require("src.features.d-day.brain")
@@ -627,15 +628,6 @@ function Dday:questEnded(_client, quest)
   end
 end
 
-local function ease(e, k)
-  local ex, ey = e.x - e.dx, e.y - e.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    e.dx, e.dy = e.x, e.y
-  else
-    e.dx, e.dy = e.dx + ex * k, e.dy + ey * k
-  end
-end
-
 function Dday:update(dt)
   time = time + dt
   marchVolume()
@@ -646,13 +638,12 @@ function Dday:update(dt)
       self.page = nil
     end
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(self.troops) do
-    ease(s, k)
+    Drawn.step(s, dt, SMOOTHING, SNAP)
   end
   local m = self.major
   if m then
-    ease(m, k)
+    Drawn.step(m, dt, SMOOTHING, SNAP)
     m.sayTimer = math.max(0, m.sayTimer - dt)
   end
   for i = #self.aims, 1, -1 do
@@ -731,7 +722,7 @@ Dday.clientMessages = {
           s = { dx = x, dy = y, bob = random() * 6 }
           Dday.troops[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Soldiers.HEALTH
         s.top = math.max(s.top or Soldiers.HEALTH, s.hp) -- his bar's full: more than HEALTH once the beach is taken
@@ -798,7 +789,7 @@ Dday.clientMessages = {
       m = { dx = x, dy = y, bob = random() * 6, sayTimer = 0 }
       Dday.major = m
     end
-    m.x, m.y = x, y
+    Drawn.heard(m, x, y, tick)
     m.angle = tonumber(args[4]) or m.angle or math.pi / 2
     m.hp = tonumber(args[5]) or m.hp or Major.HEALTH
     m.max = tonumber(args[6]) or m.max or Major.HEALTH

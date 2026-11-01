@@ -39,6 +39,7 @@
 --   sounds.lua   the barrels, the rounds, the vent, the shield going
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Nav = require("src.features.d-day.nav")
@@ -319,16 +320,10 @@ function Suppressors:update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, u in pairs(shown) do
-    local ex, ey = u.x - u.dx, u.y - u.dy
-    local moved = math.sqrt(ex * ex + ey * ey) * k
-    if ex * ex + ey * ey > SNAP * SNAP then
-      u.dx, u.dy = u.x, u.y
-    else
-      u.dx, u.dy = u.dx + ex * k, u.dy + ey * k
-      u.cycle = u.cycle + moved / STEP
-    end
+    local mx, my = Drawn.step(u, dt, SMOOTHING, SNAP)
+    local moved = math.sqrt(mx * mx + my * my)
+    u.cycle = u.cycle + moved / STEP
     local speed = moved / math.max(dt, 1e-6)
     u.stride = u.stride + (math.min(1, speed / 30) - u.stride) * math.min(1, dt * 6)
     local fov = u.wary and Suppressors.alertFov or Suppressors.fov
@@ -411,7 +406,7 @@ Suppressors.clientMessages = {
             glow = 0, flash = 0, venting = 0, firingFor = 0, roundIn = 0 }
           shown[id] = u
         end
-        u.x, u.y = x, y
+        Drawn.heard(u, x, y, tick)
         u.facing = tonumber(args[i + 3]) or u.facing or 0
         local hp, shield = tonumber(args[i + 4]) or u.hp, tonumber(args[i + 5]) or u.shield
         if hp < u.hp then
