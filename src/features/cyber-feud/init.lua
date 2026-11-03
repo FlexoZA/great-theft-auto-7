@@ -59,6 +59,8 @@
 -- (quests' `next`), or home from the Roof. The other maps' troops, the
 -- breach and the bosses come later.
 --
+-- The Colosseum's waves bring the factions onto its sand (arena.lua).
+--
 -- Messages
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet|loud] [x y]
@@ -86,6 +88,7 @@ local Face = require("src.features.cyber-feud.face")
 local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
+local Arena = require("src.features.cyber-feud.arena")
 local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Gates = require("src.features.cyber-feud.gates")
@@ -464,12 +467,12 @@ end
 --- troops come in round (x, y) (`kind` "static", "halcyon" or "feud": both,
 --- at each other too). Returns how many came.
 function CyberFeud:serverArenaSend(server, kind, count, x, y)
-  return Troops.serverArenaSend(server, kind, count, x, y)
+  return Arena.serverSend(server, kind, count, x, y)
 end
 
 --- How many of them are still up.
 function CyberFeud:serverArenaLeft(server)
-  return Troops.serverArenaLeft(server)
+  return Arena.serverLeft(server)
 end
 
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
