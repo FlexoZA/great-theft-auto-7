@@ -447,7 +447,10 @@ couple of small conventions rather than requiring each other:
   both to put it in the arena. An enemy drawn only on its own maps must be
   drawn on the sand too (cyber-feud's `inArena`). Eternal Mood's horde
   comes next (`eternal-mood`, kinds "possessed", "imps" and "demons":
-  eternal-mood/arena.lua, horde.lua's `serverCall` on a bare horde).
+  eternal-mood/arena.lua, horde.lua's `serverCall` on a bare horde), then
+  its four bosses in order (kinds "floor-manager", "mancubus", "baron" and
+  "mattressmind", each off a spec as its map's `horde.boss`, the sand for
+  every box in it, `arena` set).
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

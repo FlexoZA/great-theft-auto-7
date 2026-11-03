@@ -67,6 +67,14 @@ Waves.LIST = {
   { title = "The Possessed", feature = "eternal-mood", kind = "possessed", count = 8 },
   { title = "Imps", feature = "eternal-mood", kind = "imps", count = 12 },
   { title = "Heck's Heavies", feature = "eternal-mood", kind = "demons", count = 14 },
+  { title = "The Floor Manager", feature = "eternal-mood", kind = "floor-manager", count = 1, exact = true,
+    spots = { { 0, -0.3 } } },
+  { title = "The Mancouchbus", feature = "eternal-mood", kind = "mancubus", count = 1, exact = true,
+    spots = { { 0, -0.3 } } },
+  { title = "The Baron of Heck", feature = "eternal-mood", kind = "baron", count = 1, exact = true,
+    spots = { { 0, -0.3 } } },
+  { title = "The Spider Mattressmind", feature = "eternal-mood", kind = "mattressmind", count = 1, exact = true,
+    spots = { { 0, -0.3 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

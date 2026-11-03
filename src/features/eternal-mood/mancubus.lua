@@ -404,7 +404,8 @@ function Mancubus.wikiEnemies(add)
     name = "The Mancouchbus",
     quests = { "eternal-mood-earth" },
     boss = true,
-    where = "Heck on Earth, in his recliner in front of the starport's gate; he wakes when you come up the Boulevard",
+    where = "Heck on Earth, in his recliner in front of the starport's gate; he wakes when you come up the Boulevard; "
+      .. "and the Colosseum's thirty-second wave",
     about = "A huge fat demon who sat down in a recliner when the world ended and never got up again. Heck put the "
       .. "recliner on tank treads and his arms into a pair of rocket launchers. The gate stays closed until he is "
       .. "down.",

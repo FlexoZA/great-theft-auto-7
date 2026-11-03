@@ -336,7 +336,8 @@ function FloorManager.wikiEnemies(add)
     name = "The Floor Manager",
     quests = { "eternal-mood" },
     boss = true,
-    where = "Fobos Base, on the Hangar's lift; he wakes when you walk into the Hangar",
+    where = "Fobos Base, on the Hangar's lift; he wakes when you walk into the Hangar; and the Colosseum's "
+      .. "thirty-first wave",
     about = "The UAC's shift supervisor, promoted out of his body: his brain in a glass dome on an armoured hull, a "
       .. "plasma cannon slung under the front, floating about in his executive chair on a rocket. The lift is out "
       .. "of service until he is down.",

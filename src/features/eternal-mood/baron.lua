@@ -18,6 +18,8 @@
 -- wire, the key and the lock; what he does is his brain's
 -- (baron_brain.lua), how he looks baron_look.lua's.
 --
+-- In the Colosseum (a spec with `arena`, eternal-mood/arena.lua) there is
+-- no portal: the key is taken at once, quietly.
 -- Down, he drops the key where he falls. The portal stays SEALED
 -- (`serverLocked`) until somebody walks over the key and picks it up; then
 -- someone far away calls your name (the beat).
@@ -384,9 +386,14 @@ end
 local function down(server, by, angle)
   local m = sv.m
   sv.down = true
-  sv.key = { x = m.x, y = m.y }
   server:broadcast(Protocol.encode("BR_SAY", Baron.LINE.down))
   server:broadcast(Protocol.encode("BR_DOWN", fmt(m.x), fmt(m.y), ("%.3f"):format(m.facing)))
+  if sv.spec.arena then -- no portal in the Colosseum: nothing to pick up
+    sv.keyTaken = true
+    server:broadcast(Protocol.encode("BR_KEY", ""))
+  else
+    sv.key = { x = m.x, y = m.y }
+  end
   server:broadcast(Protocol.encode("BR_STATE", server.tick + 1))
   local money = Features.byName.money
   if money and money.drop then
@@ -434,7 +441,7 @@ function Baron.wikiEnemies(add)
     quests = { "eternal-mood-foundry" },
     boss = true,
     where = "The Foundry, on the stone ring round the Crucible; he wakes when you cross a bridge onto it, he sees "
-      .. "you, or you shoot him",
+      .. "you, or you shoot him; and the Colosseum's thirty-third wave",
     about = "A big horned brute on goat legs with guns for hands, the key to the Snooze Gate on his belt. Awake, "
       .. "he comes after you wherever you are, leaping the lava if he has to.",
     stats = {

@@ -30,8 +30,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   rippers, sparkers), Halcyon (officers, an enforcer holding the middle behind his shield, a watcher drone), then
   both at once, at war with each other as well as you; then General Volt and his storm, and Director Saye and
   Kilowatt together; then Heck's horde: the possessed (8, the overtime guy and his chaingun with them), imps and
-  interns (12), and Heck's heavies (14: Cacodaemons, a Dread Knight and a Mecha Zombie). Each wave cleared drops a
-  pile of koins in the middle. More waves are coming.
+  interns (12), and Heck's heavies (14: Cacodaemons, a Dread Knight and a Mecha Zombie); then Heck's four bosses
+  in order: the Floor Manager, the Mancouchbus, the Baron of Heck and the Spider Mattressmind. Each wave cleared
+  drops a pile of koins in the middle. More waves are coming.
 
 ## [0.44.1] - 2026-11-01
 
