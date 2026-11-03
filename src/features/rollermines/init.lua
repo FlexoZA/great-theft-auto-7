@@ -35,6 +35,7 @@
 --   sounds.lua   their noises: popping out, the whirr of it rolling, the beep
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Brain = require("src.features.rollermines.brain")
@@ -337,23 +338,15 @@ function Rollermines:update(dt)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {}
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, m in pairs(shown) do
     m.t = m.t + dt
-    local ex, ey = m.x - m.dx, m.y - m.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      m.dx, m.dy = m.x, m.y
-    else
-      local px, py = m.dx, m.dy
-      m.dx, m.dy = m.dx + ex * k, m.dy + ey * k
-      local mx, my = m.dx - px, m.dy - py
-      local moved = math.sqrt(mx * mx + my * my)
-      if moved > 0.05 then
-        m.heading = math.atan2(my, mx)
-      end
-      m.spin = m.spin + moved / Render.RADIUS
-      m.speed = m.speed + (moved / math.max(dt, 1e-6) - m.speed) * math.min(1, dt * 6)
+    local mx, my = Drawn.step(m, dt, SMOOTHING, SNAP)
+    local moved = math.sqrt(mx * mx + my * my)
+    if moved > 0.05 then
+      m.heading = math.atan2(my, mx)
     end
+    m.spin = m.spin + moved / Render.RADIUS
+    m.speed = m.speed + (moved / math.max(dt, 1e-6) - m.speed) * math.min(1, dt * 6)
     m.hurt = math.max(0, m.hurt - dt)
     if m.mode == MODES.roll and m.speed > 60 then
       m.whirrIn = m.whirrIn - dt
@@ -436,7 +429,7 @@ Rollermines.clientMessages = {
             Sounds.play("pop", x, y, 0.9 + love.math.random() * 0.2)
           end
         end
-        m.x, m.y = x, y
+        Drawn.heard(m, x, y, tick)
         if hp and hp < m.hp then
           m.hurt = HURT
         end

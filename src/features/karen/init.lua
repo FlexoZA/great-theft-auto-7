@@ -61,6 +61,7 @@
 --                  cause: the damage type)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Body = require("src.body")
 local Features = require("src.features")
 local Corpses = require("src.features.corpses")
@@ -701,13 +702,7 @@ function Karen:update(dt)
   end
   local b = self.boss
   if b then
-    local ex, ey = b.x - b.dx, b.y - b.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      b.dx, b.dy = b.x, b.y
-    else
-      local k = math.min(1, dt * SMOOTHING)
-      b.dx, b.dy = b.dx + ex * k, b.dy + ey * k
-    end
+    Drawn.step(b, dt, SMOOTHING, SNAP)
     b.sayTimer = math.max(0, b.sayTimer - dt)
   end
   if self.screamAim then
@@ -724,14 +719,8 @@ function Karen:update(dt)
     end
   end
   self.screamed = math.max(0, self.screamed - dt)
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(self.simps) do
-    local ex, ey = s.x - s.dx, s.y - s.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      s.dx, s.dy = s.x, s.y
-    else
-      s.dx, s.dy = s.dx + ex * k, s.dy + ey * k
-    end
+    Drawn.step(s, dt, SMOOTHING, SNAP)
   end
 end
 
@@ -769,7 +758,7 @@ Karen.clientMessages = {
       return
     end
     lastTick = tick
-    b.x, b.y = tonumber(args[2]) or b.x, tonumber(args[3]) or b.y
+    Drawn.heard(b, tonumber(args[2]) or b.x, tonumber(args[3]) or b.y, tick)
     b.angle = tonumber(args[4]) or b.angle
     b.hp = tonumber(args[5]) or b.hp
     b.charging = args[6] == "1"
@@ -840,7 +829,7 @@ Karen.clientMessages = {
           s = { name = Karen.simpNames[id] or Simps.PREFIX, dx = x, dy = y, bob = love.math.random() * 6 }
           Karen.simps[id] = s
         end
-        s.x, s.y = x, y
+        Drawn.heard(s, x, y, tick)
         s.angle = tonumber(args[i + 3]) or s.angle or 0
         s.hp = tonumber(args[i + 4]) or Simps.HEALTH
         s.swing = args[i + 5] == "1"

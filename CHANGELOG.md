@@ -29,6 +29,18 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   his crabs, and A-Man himself with everything in his briefcase. Each wave cleared drops a pile of koins in the
   middle. More waves are coming.
 
+## [0.44.1] - 2026-11-01
+
+Your shots land: holding the trigger no longer sends rounds through enemies, and enemies are drawn where they really
+are.
+
+### Fixed
+- Enemies, bosses, pedestrians and officers are drawn where the host has them, not a few steps behind: a round
+  aimed at a moving one used to pass straight through its picture and land nothing, worst on a boss mid-dodge.
+  Every screen now carries each body on at the pace the host last gave, so what you shoot at is where it is.
+- Shots no longer pass through enemies when you hold the trigger: the host threw away up to half the rounds of some
+  fast guns (a legendary pistol or SMG) as fired too soon, though your screen still showed them flying on.
+
 ## [0.44.0] - 2026-10-30
 
 Borderline, a new eight-map quest line on the frozen planet Pandoria against Maximum Maximilian Max's robot army,

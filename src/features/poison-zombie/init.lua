@@ -47,6 +47,7 @@
 --   sounds.lua   his breathing, his howl, the crabs' rattle and bite
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
@@ -569,16 +570,10 @@ function Zombie:update(dt)
       table.remove(bodies, i)
     end
   end
-  local k = math.min(1, dt * CRAB_SMOOTHING)
   for _, c in pairs(shown) do
     c.t = c.t + dt
-    local ex, ey = c.x - c.dx, c.y - c.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      c.dx, c.dy = c.x, c.y
-    else
-      c.dx, c.dy = c.dx + ex * k, c.dy + ey * k
-      c.cycle = c.cycle + math.sqrt(ex * ex + ey * ey) * k / CRAB_STEP
-    end
+    local mx, my = Drawn.step(c, dt, CRAB_SMOOTHING, SNAP)
+    c.cycle = c.cycle + math.sqrt(mx * mx + my * my) / CRAB_STEP
     c.hurt = math.max(0, c.hurt - dt)
     if c.mode == CRAB_MODES.crawl then
       c.chitterIn = c.chitterIn - dt
@@ -592,15 +587,9 @@ function Zombie:update(dt)
     return
   end
   cl.t = cl.t + dt
-  k = math.min(1, dt * SMOOTHING)
-  local ex, ey = cl.x - cl.dx, cl.y - cl.dy
-  local moved = math.sqrt(ex * ex + ey * ey) * k
-  if ex * ex + ey * ey > SNAP * SNAP then
-    cl.dx, cl.dy = cl.x, cl.y
-  else
-    cl.dx, cl.dy = cl.dx + ex * k, cl.dy + ey * k
-    cl.cycle = cl.cycle + moved / STEP
-  end
+  local mx, my = Drawn.step(cl, dt, SMOOTHING, SNAP)
+  local moved = math.sqrt(mx * mx + my * my)
+  cl.cycle = cl.cycle + moved / STEP
   cl.stride = cl.stride + (math.min(1, moved / math.max(dt, 1e-6) / 50) - cl.stride) * math.min(1, dt * 6)
   cl.hurt = math.max(0, cl.hurt - dt)
   breathIn = breathIn - dt
@@ -675,7 +664,8 @@ Zombie.clientMessages = {
     if cl.hp and hp and hp < cl.hp then
       cl.hurt = HURT
     end
-    cl.x, cl.y, cl.facing, cl.hp, cl.max = x, y, tonumber(args[4]) or 0, hp, tonumber(args[6])
+    Drawn.heard(cl, x, y, tick)
+    cl.facing, cl.hp, cl.max = tonumber(args[4]) or 0, hp, tonumber(args[6])
     cl.crabs = tonumber(args[8]) or 0
     cl.stamina, cl.winded = Stamina.read(args, 9)
   end,
@@ -704,7 +694,8 @@ Zombie.clientMessages = {
         if hp < c.hp then
           c.hurt = HURT
         end
-        c.x, c.y, c.hp = x, y, hp
+        Drawn.heard(c, x, y, tick)
+        c.hp = hp
         c.facing = tonumber(args[i + 3]) or 0
         c.air = tonumber(args[i + 6]) or 0
         seen[id] = true

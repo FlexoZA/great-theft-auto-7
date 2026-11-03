@@ -47,6 +47,7 @@
 --   server -> all  SG_DOWN  <x> <y> <angle>       he went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Audio = require("src.audio")
 local Features = require("src.features")
 local Boss = require("src.features.shotgun.boss")
@@ -452,13 +453,7 @@ function Shotgun:update(dt)
   end
   local b = self.boss
   if b then
-    local ex, ey = b.x - b.dx, b.y - b.dy
-    if ex * ex + ey * ey > SNAP * SNAP then
-      b.dx, b.dy = b.x, b.y
-    else
-      local k = math.min(1, dt * SMOOTHING)
-      b.dx, b.dy = b.dx + ex * k, b.dy + ey * k
-    end
+    Drawn.step(b, dt, SMOOTHING, SNAP)
     b.sayTimer = math.max(0, b.sayTimer - dt)
   end
   if self.aim then
@@ -535,7 +530,7 @@ Shotgun.clientMessages = {
       b = { dx = x, dy = y, bob = random() * 6, sayTimer = 0 }
       Shotgun.boss = b
     end
-    b.x, b.y = x, y
+    Drawn.heard(b, x, y, tick)
     b.angle = tonumber(args[4]) or b.angle or math.pi / 2
     b.hp = tonumber(args[5]) or b.hp or Boss.HEALTH
     b.max = tonumber(args[6]) or b.max or Boss.HEALTH

@@ -229,6 +229,12 @@ CityMap.maps = {
     title = "The Colosseum", kind = "arena", seed = 401, cols = 60, rows = 42,
     crowd = false, traffic = false, vehicles = false,
   },
+  -- The test range (the test-range feature): an open walled field to try
+  -- enemies out on, walked, nobody about but what stands on it.
+  testrange = {
+    title = "The Test Range", seed = 901, cols = 40, rows = 40, empty = true,
+    crowd = false, traffic = false, vehicles = false,
+  },
 }
 CityMap.DEFAULT = "city" -- every game starts here
 -- The Cyber Feud maps' builder (cyber_feud.lua), for its numbers (the garrisons' sizes on the wiki's pages).

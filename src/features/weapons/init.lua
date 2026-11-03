@@ -228,6 +228,7 @@ local MUZZLE_OFFSET = 26 -- px from car centre along the aim
 local FOOT_MUZZLE = 16 -- px from a body on foot (the tip of the gun in its hands), which is smaller than a car
 local FIRE_SLACK = 60 -- px a shooter's own screen may have them ahead of the host (sprinting, ping) and still fire
 -- from where they see themselves
+local FIRE_JITTER = 0.1 -- seconds a round may reach the host ahead of its gun's pace: ticks and the network bunch them
 local FOOT_RADIUS = 10 -- px; how fat a player on foot is for hit tests (a little over Body.RADIUS: the arms)
 local SWEEP_STEP = 6 -- px between hit samples along a projectile's path per tick
 local FEED_TIME = 3
@@ -2492,6 +2493,19 @@ local function firedFrom(bx, by, seenX, seenY)
   return seenX, seenY
 end
 
+--- Has the gun held in `state` (a player's, a car's) cooled down by `time`?
+--- The host counts in ticks and shots reach it bunched up, so two in a row
+--- may look too close together when they were not: a gun is held to its pace
+--- over time, not shot by shot (`serverFired` books each one).
+local function cooledDown(state, time)
+  return time >= (state.nextFire or -math.huge)
+end
+
+--- `state`'s gun fired at `time`, with `cooldown` to wait.
+local function serverFired(state, time, cooldown)
+  state.nextFire = math.max(state.nextFire or -math.huge, time - FIRE_JITTER) + cooldown
+end
+
 --- Fire a projectile for `player` toward `aim` (radians), subject to the
 --- cooldown. Used by WPN_FIRE and by other features (bots). On foot,
 --- (seenX, seenY) is where the shooter's screen had them (`firedFrom`).
@@ -2506,7 +2520,7 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
     return self:serverFireMounted(server, player, aim) -- behind the wheel: the car's gun or nothing
   end
   local gun = gunOf(st, heldGun(self, player, st))
-  if sv.time - st.lastFire < gun.cooldown * 0.9 then
+  if not cooledDown(st, sv.time) then
     return false -- firing faster than allowed; drop it
   end
   if Features.any("serverHeld", server, player) then
@@ -2544,6 +2558,7 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
     st.mags[st.gun] = st.mags[st.gun] - 1
   end
   st.lastFire = sv.time
+  serverFired(st, sv.time, gun.cooldown)
 
   local bx, by, onFoot = bodyPose(server, player)
   if onFoot and seenX then
@@ -2641,10 +2656,11 @@ function Weapons:serverFireMounted(server, player, aim)
     server:send(player, Protocol.encode("WPN_CARMAG", car.id, cs.mag)) -- put their count right
     return false
   end
-  if sv.time - (cs.lastFire or -math.huge) < gun.cooldown * 0.9 then
+  if not cooledDown(cs, sv.time) then
     return false -- faster than the gun fires; drop it
   end
-  cs.mag, cs.lastFire = cs.mag - 1, sv.time
+  cs.mag = cs.mag - 1
+  serverFired(cs, sv.time, gun.cooldown)
   return self:serverFireFrom(server, player.id, car.x + math.cos(aim) * MUZZLE_OFFSET,
     car.y + math.sin(aim) * MUZZLE_OFFSET, aim, gun)
 end

@@ -47,6 +47,7 @@
 --   server -> all  EBF_DOWN  <x> <y> <angle>         he went down
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Car = require("src.car")
 local Body = require("src.body")
@@ -726,26 +727,16 @@ function Bigfoot.where()
   return nil
 end
 
-local function ease(e, k)
-  local ex, ey = e.x - e.dx, e.y - e.dy
-  if ex * ex + ey * ey > SNAP * SNAP then
-    e.dx, e.dy = e.x, e.y
-  else
-    e.dx, e.dy = e.dx + ex * k, e.dy + ey * k
-  end
-end
-
 function Bigfoot.update(dt, _client, camera)
   time = time + dt
   if not cl then
     return
   end
-  local k = math.min(1, dt * SMOOTHING)
   if cl.foot then
-    ease(cl.foot, k)
+    Drawn.step(cl.foot, dt, SMOOTHING, SNAP)
   end
   for _, s in pairs(cl.squirrels) do
-    ease(s, math.min(1, k * 1.5)) -- they are quick: less lag
+    Drawn.step(s, dt, SMOOTHING * 1.5, SNAP) -- they are quick: less lag
   end
   local leap = cl.leap
   if leap then
@@ -857,9 +848,9 @@ local function splat(x, y, angle, pitch)
 end
 
 --- Bigfoot's part of an EBF_STATE (`args`), at (x, y).
-local function readFoot(args, x, y)
+local function readFoot(args, x, y, tick)
   local f = cl.foot or { dx = x, dy = y, bob = random() * 6 }
-  f.x, f.y = x, y
+  Drawn.heard(f, x, y, tick)
   f.angle = tonumber(args[4]) or f.angle or 0
   f.hp = tonumber(args[5]) or f.hp or Bigfoot.health
   f.mode = MODE_NAMES[args[6]] or "idle"
@@ -879,7 +870,7 @@ Bigfoot.clientMessages = {
     cl.lastTick = tick
     local x, y = tonumber(args[2]), tonumber(args[3])
     if x and y then
-      readFoot(args, x, y)
+      readFoot(args, x, y, tick)
     else
       cl.foot = nil -- an arena swarm: no Bigfoot
     end
@@ -888,7 +879,8 @@ Bigfoot.clientMessages = {
       local id, sx, sy = tonumber(args[i]), tonumber(args[i + 1]), tonumber(args[i + 2])
       if id and sx and sy then
         local s = cl.squirrels[id] or { dx = sx, dy = sy, bob = random() * 6 }
-        s.x, s.y, s.angle = sx, sy, tonumber(args[i + 3]) or s.angle or 0
+        Drawn.heard(s, sx, sy, tick)
+        s.angle = tonumber(args[i + 3]) or s.angle or 0
         cl.squirrels[id] = s
         seen[id] = true
       end

@@ -47,6 +47,7 @@
 --   domes.lua's HYP_DOME, puddles.lua's HYP_POOL, mines.lua's HYP_MINE, HYP_TRIP and HYP_GONE)
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Nav = require("src.features.d-day.nav")
 local Bosses = require("src.features.bosses")
@@ -553,17 +554,11 @@ function Army.clear()
   Mines.clear()
 end
 
---- Ease the one shown at `s` towards where the host last said it was
---- (`k` of the way this frame), jumping there when it is far off.
-local function follow(s, k)
-  local gapX, gapY = s.x - s.dx, s.y - s.dy
-  local gap = math.sqrt(gapX * gapX + gapY * gapY)
-  if gap > SNAP then
-    s.dx, s.dy = s.x, s.y
-    return
-  end
-  s.dx, s.dy = s.dx + gapX * k, s.dy + gapY * k
-  s.stride = s.stride + gap * k -- the legs step with the ground covered
+--- Ease the one shown at `s` towards where the host has it this frame,
+--- jumping there when it is far off.
+local function follow(s, dt)
+  local mx, my = Drawn.step(s, dt, SMOOTHING, SNAP)
+  s.stride = s.stride + math.sqrt(mx * mx + my * my) -- the legs step with the ground covered
 end
 
 function Army.update(dt, client)
@@ -577,9 +572,8 @@ function Army.update(dt, client)
   if next(shown) and love.timer.getTime() - heardAt > STALE then
     shown = {} -- nothing heard for a while: they are gone
   end
-  local k = math.min(1, dt * SMOOTHING)
   for _, s in pairs(shown) do
-    follow(s, k)
+    follow(s, dt)
     s.hurt = math.max(0, s.hurt - dt)
     s.charge = s.aim and math.min(1, (s.charge or 0) + dt * 2) or 0
     s.rise = math.max(0, math.min(1, (s.rise or 0) + (s.state == 4 and dt or -dt) * 2))
@@ -787,7 +781,8 @@ Army.clientMessages = {
         if hp < s.hp then
           s.hurt = HURT
         end
-        s.x, s.y, s.hp = x, y, hp
+        Drawn.heard(s, x, y, tick)
+        s.hp = hp
         s.max = math.max(s.max, hp)
         s.facing = tonumber(args[i + 4]) or s.facing or 0
         s.state = tonumber(args[i + 6]) or 0

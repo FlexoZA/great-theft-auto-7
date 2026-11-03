@@ -52,6 +52,7 @@
 --   and bombs.lua's HC_BOMB, flyover.lua's HC_PASS and HC_CARGO
 
 local Protocol = require("src.net.protocol")
+local Drawn = require("src.features.drawn")
 local Features = require("src.features")
 local Bosses = require("src.features.bosses")
 local Tiers = require("src.features.tiers")
@@ -514,11 +515,8 @@ function HunterChopper:update(dt)
   end
   local k = math.min(1, dt * SMOOTHING)
   local to = cl.to
-  if (to.x - cl.x) ^ 2 + (to.y - cl.y) ^ 2 > SNAP * SNAP then
-    cl.x, cl.y = to.x, to.y
-  else
-    cl.x, cl.y = cl.x + (to.x - cl.x) * k, cl.y + (to.y - cl.y) * k
-  end
+  Drawn.step(cl.body, dt, SMOOTHING, SNAP)
+  cl.x, cl.y = cl.body.dx, cl.body.dy
   cl.angle = cl.angle + wrap(to.angle - cl.angle) * k
   cl.aim = cl.aim + wrap(to.aim - cl.aim) * k
   cl.bank = cl.bank + (to.bank - cl.bank) * k
@@ -581,8 +579,9 @@ HunterChopper.clientMessages = {
       Sounds.play("lock", x, y) -- it has just locked on to somebody
     end
     if not cl then
-      cl = { x = to.x, y = to.y, angle = to.angle, bank = to.bank, altitude = to.altitude, aim = to.aim }
+      cl = { x = to.x, y = to.y, angle = to.angle, bank = to.bank, altitude = to.altitude, aim = to.aim, body = {} }
     end
+    Drawn.heard(cl.body, x, y, tick) -- where it is drawn comes from this (src/features/drawn)
     if cl.hp and to.hp and to.hp < cl.hp then
       cl.flash = FLASH -- hit since the last word
     end
