@@ -720,6 +720,13 @@ local function onLevel()
   return cl.level ~= nil and c ~= nil and c.current == cl.level
 end
 
+--- On the Colosseum's sand, where the waves bring the factions and their
+--- bosses (arena.lua): they are drawn there too, without Grey City's story.
+local function inArena()
+  local c = city()
+  return c ~= nil and c.map ~= nil and c.map.oval ~= nil
+end
+
 function CyberFeud:update(dt, client)
   time = time + dt
   Troops.update(dt)
@@ -728,8 +735,10 @@ function CyberFeud:update(dt, client)
   if onLevel() then
     Gates.update(dt, client)
     Turrets.update(dt, client)
-    Brutes.update(dt, client)
     Vex.update(dt, client)
+  end
+  if onLevel() or inArena() then
+    Brutes.update(dt, client)
   end
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
@@ -826,11 +835,17 @@ end
 function CyberFeud:drawBelowCars()
   if onLevel() then
     Gates.drawBelowCars()
+  end
+  if onLevel() or inArena() then
     Troops.drawBelowCars()
   end
 end
 
 function CyberFeud:drawAboveCars(client)
+  if inArena() then
+    Troops.drawAboveCars() -- the factions and their bosses on the sand
+    return
+  end
   if not onLevel() then
     return
   end
@@ -910,6 +925,13 @@ function CyberFeud:drawNightLights(client, _camera, glow)
 end
 
 function CyberFeud:drawHUD(client)
+  if inArena() then -- only the bosses' bars on the sand
+    Brutes.drawHUD()
+    Volt.drawHUD()
+    Kilowatt.drawHUD()
+    Saye.drawHUD(Kilowatt.up() and 1 or 0)
+    return
+  end
   if not (face and onLevel()) then
     return
   end
@@ -980,7 +1002,7 @@ end
 
 --- The footsteps feature's hook: the factions' soldiers walking about.
 function CyberFeud:footstepWalkers()
-  return onLevel() and Troops.walkers() or {}
+  return (onLevel() or inArena()) and Troops.walkers() or {}
 end
 
 --- For tests.
