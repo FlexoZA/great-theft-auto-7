@@ -442,8 +442,10 @@ couple of small conventions rather than requiring each other:
   wave's `also`); Cyber Feud's factions the next three (`cyber-feud`, kinds
   "static", "halcyon" and "feud": a bare level of troops.lua's on the sand,
   each pack with its specials; rippers and watcher drones gained a
-  `serverJoin` for it). Add your enemy to the list and answer both to put it
-  in the arena.
+  `serverJoin` for it), then General Volt and Saye & Kilowatt (kinds "volt"
+  and "duo", cyber-feud/arena.lua). Add your enemy to the list and answer
+  both to put it in the arena. An enemy drawn only on its own maps must be
+  drawn on the sand too (cyber-feud's `inArena`).
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

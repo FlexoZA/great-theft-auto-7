@@ -7,7 +7,11 @@
 -- six. An enforcer holds a post, so his is out towards the middle of the
 -- sand, between the gate and where they came in: get round his shield there.
 -- A "feud" wave is both, the Static left of the middle and Halcyon right of
--- it, at each other as much as at you. init.lua passes the waves' calls on.
+-- it, at each other as much as at you. Then the bosses: General Volt (kind
+-- "volt", volt.lua's `serverArena`: the whole sand his square, his backup
+-- coming in at the far end), and Saye and Kilowatt together (kind "duo":
+-- each on a spot of the sand as on the Roof, his brutes coming in at the far
+-- end and walking a beat round the sand). init.lua passes the waves' calls on.
 
 local Features = require("src.features")
 local Troops = require("src.features.cyber-feud.troops")
@@ -15,6 +19,9 @@ local Enforcers = require("src.features.cyber-feud.enforcers")
 local Rippers = require("src.features.cyber-feud.rippers")
 local Sparkers = require("src.features.cyber-feud.sparkers")
 local Watchers = require("src.features.cyber-feud.watchers")
+local Volt = require("src.features.cyber-feud.volt")
+local Kilowatt = require("src.features.cyber-feud.kilowatt")
+local Saye = require("src.features.cyber-feud.saye")
 
 local Arena = {}
 
@@ -84,13 +91,45 @@ local function specials(faction, n, beat, oval, target)
   return list
 end
 
+--- Where the waves come in at the far end of the sand (colosseum/waves.lua's spots).
+local function farEnd(oval)
+  return { { x = oval.x - oval.rx * 0.45, y = oval.y - oval.ry * 0.55 },
+    { x = oval.x + oval.rx * 0.45, y = oval.y - oval.ry * 0.55 } }
+end
+
+--- A boss wave: Volt at (x, y), or Saye and Kilowatt (him at (x, y), her
+--- further back). Returns how many came.
+local function bosses(server, kind, x, y, oval)
+  local nav = Troops.server().sides.static.troops.nav
+  if kind == "volt" then
+    local spec = {
+      arena = true, x = x, y = y, beat = ring(oval, 0.55), backup = farEnd(oval),
+      square = { x0 = oval.x - oval.rx, y0 = oval.y - oval.ry, x1 = oval.x + oval.rx, y1 = oval.y + oval.ry },
+    }
+    return Volt.serverArena(server, x, y, spec, nav)
+  end
+  if Kilowatt.serverUp() or Saye.serverUp() then
+    return 0
+  end
+  local roof = { bosses = {
+    kilowatt = { x = x, y = y }, saye = { x = x, y = oval.y - oval.ry * 0.7 },
+    stairs = farEnd(oval)[1], beat = ring(oval, 0.55),
+  } }
+  Kilowatt.serverStart(server, roof, nav, false)
+  Saye.serverStart(server, roof, nav, false)
+  return 2
+end
+
 --- The Colosseum's waves: `count` of `kind` ("static", "halcyon", or
 --- "feud": the Static left of the middle, Halcyon right of it) come in round
---- (x, y). Returns how many came.
+--- (x, y); or a boss wave ("volt", "duo"). Returns how many came.
 function Arena.serverSend(server, kind, count, x, y)
   local oval = sand()
   if not (oval and level(server)) then
     return 0
+  end
+  if kind == "volt" or kind == "duo" then
+    return bosses(server, kind, x, y, oval)
   end
   local faction = kind
   if kind == "feud" then

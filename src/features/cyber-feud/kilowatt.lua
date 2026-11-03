@@ -375,7 +375,7 @@ function Kilowatt.wikiEnemies(add)
     boss = true,
     name = "Kilowatt",
     quests = { "cyber-feud-roof" },
-    where = "The Roof, on the helipad, from the moment it wakes",
+    where = "The Roof, on the helipad, from the moment it wakes; and the Colosseum's twenty-seventh wave",
     about = "The Static's boss: huge, loud, more machine than man, plated in gunmetal with a reactor for a heart "
       .. "and two insulator spikes on his back, a blue arc crackling between them. He fights alongside Director "
       .. "Saye, and comes for you up close.",

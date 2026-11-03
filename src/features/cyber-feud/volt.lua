@@ -20,6 +20,10 @@
 -- on the ground first), more often in phase 2. The lightning stops when he
 -- goes down; the rain keeps on until you leave the Market.
 --
+-- The Colosseum's waves bring him onto its sand too (`Volt.serverArena`,
+-- arena.lua): awake at once, the whole sand his square, his backup coming in
+-- where the waves do; no pass code, and nothing said about the Market.
+--
 -- Like every boss (bosses/init.lua) he has breath, scales with the humans
 -- (his health), has the boss bar, goes for medkits when badly hurt, dodges
 -- abilities, and going down raises `serverKill` "boss" and spills koins. He
@@ -200,8 +204,21 @@ local function wake(server)
       w:serverSetStorm(server, true)
     end
     server:broadcast(Protocol.encode("VLT_SAY", Volt.LINE.intro))
-    server:broadcast(Protocol.encode("CF_BEAT", "market.volt"))
+    if not sv.spec.arena then
+      server:broadcast(Protocol.encode("CF_BEAT", "market.volt"))
+    end
   end
+end
+
+--- The Colosseum's waves: him at (x, y), awake, on `spec` (as the map's
+--- `volt`, with `arena` set: no pass code), finding his way on `nav`.
+function Volt.serverArena(server, x, y, spec, nav)
+  if sv and not sv.down then
+    return 0
+  end
+  sv = { v = Volt.new(x, y, Bosses.health(Volt.HEALTH, server), nav), spec = spec, awake = false, syncIn = 0 }
+  wake(server)
+  return 1
 end
 
 --- His backup: a pack of the Static's from each lane he has, running at
@@ -357,11 +374,13 @@ local function down(server, by, angle)
   if weather() then
     weather():serverSetStorm(server, false) -- the rain keeps on
   end
-  sv.code = { x = v.x, y = v.y }
   server:broadcast(Protocol.encode("VLT_SAY", Volt.LINE.down))
   server:broadcast(Protocol.encode("VLT_DOWN", fmt(v.x), fmt(v.y), ("%.3f"):format(angle or 0)))
   server:broadcast(Protocol.encode("VLT_STATE", server.tick + 1))
-  server:broadcast(Protocol.encode("VLT_CODE", fmt(v.x), fmt(v.y)))
+  if not sv.spec.arena then -- (no dock to open in the Colosseum)
+    sv.code = { x = v.x, y = v.y }
+    server:broadcast(Protocol.encode("VLT_CODE", fmt(v.x), fmt(v.y)))
+  end
   local money = Features.byName.money
   if money and money.drop then
     money:drop(server, v.x, v.y, Volt.DROPS)
@@ -424,7 +443,7 @@ function Volt.wikiEnemies(add)
     boss = true,
     name = "General Volt",
     quests = { "cyber-feud-market" },
-    where = "The Market's Noodle Square, holding the loading dock's pass code",
+    where = "The Market's Noodle Square, holding the loading dock's pass code; and the Colosseum's twenty-sixth wave",
     about = "The Static's general and Kilowatt's right hand: a long coat of cable, a Tesla coil on each shoulder and "
       .. "lightning for a temper. Nobody leaves the Market until he is down and somebody picks his pass code up off "
       .. "the floor.",

@@ -28,8 +28,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   antlions, 12 and 18, out of the sand, and the Antlion Guard with its rollermines; then the Poison Zombie throwing
   his crabs, and A-Man himself with everything in his briefcase; then Grey City's factions: the Static (gangers,
   rippers, sparkers), Halcyon (officers, an enforcer holding the middle behind his shield, a watcher drone), then
-  both at once, at war with each other as well as you. Each wave cleared drops a pile of koins in the middle. More
-  waves are coming.
+  both at once, at war with each other as well as you; then General Volt and his storm, and Director Saye and
+  Kilowatt together. Each wave cleared drops a pile of koins in the middle. More waves are coming.
 
 ## [0.44.1] - 2026-11-01
 

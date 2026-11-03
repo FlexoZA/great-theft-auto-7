@@ -62,6 +62,8 @@ Waves.LIST = {
   { title = "The Static", feature = "cyber-feud", kind = "static", count = 6 },
   { title = "Halcyon Security", feature = "cyber-feud", kind = "halcyon", count = 9 },
   { title = "The Feud", feature = "cyber-feud", kind = "feud", count = 12 }, -- both sides, at each other too
+  { title = "General Volt", feature = "cyber-feud", kind = "volt", count = 1, exact = true, spots = { { 0, -0.3 } } },
+  { title = "Saye & Kilowatt", feature = "cyber-feud", kind = "duo", count = 1, exact = true, spots = { { 0, -0.3 } } },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave
