@@ -11,7 +11,8 @@
 -- the Floor Manager, floor_manager.lua, standing on the lift; Earth's
 -- comes later). Heck's horde holds the way (horde.lua: the possessed at
 -- their posts, the imps in the vents and manholes, the interns' mobs). The
--- Voice's intro screen opens every level.
+-- Voice's intro screen opens every level. The Colosseum's waves bring the
+-- horde and the bosses onto its sand too (arena.lua).
 
 local Features = require("src.features")
 local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
@@ -33,6 +34,7 @@ local Terminals = require("src.features.terminals")
 local Mattressmind = require("src.features.eternal-mood.mattressmind")
 local Belts = require("src.features.eternal-mood.belts")
 local Ground = require("src.features.eternal-mood.ground")
+local Arena = require("src.features.eternal-mood.arena")
 
 local EternalMood = {
   name = "eternal-mood",
@@ -210,6 +212,17 @@ function EternalMood:serverShotAt(server, x, y, radius, by, angle, damage, dtype
     or Mecha.serverShotAt(server, x, y, radius, by, angle, damage)
     or Mattressmind.serverShotAt(server, x, y, radius, by, angle, damage)
     or Horde.serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+end
+
+--- The Colosseum's waves (colosseum/waves.lua): `count` of `kind` come in
+--- round (x, y) (arena.lua). Returns how many came.
+function EternalMood:serverArenaSend(server, kind, count, x, y)
+  return Arena.serverSend(server, kind, count, x, y)
+end
+
+--- How many of them are still up.
+function EternalMood:serverArenaLeft(server)
+  return Arena.serverLeft(server, self)
 end
 
 --- Every enemy of the level in the world right now, for the audit (tools/audit).

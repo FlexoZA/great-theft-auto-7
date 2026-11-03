@@ -307,7 +307,8 @@ function Mecha.wikiEnemies(add)
     kind = "eternal-mood/mecha-zombie",
     name = "Mecha Zombie",
     quests = { "eternal-mood", "eternal-mood-earth", "eternal-mood-foundry" },
-    where = "Fobos Base, Heck on Earth and the Foundry, walking a loop round each Intern mob",
+    where = "Fobos Base, Heck on Earth and the Foundry, walking a loop round each Intern mob; and the Colosseum's "
+      .. "waves",
     about = "A zombie the UAC rebuilt: a plasma cannon for a right arm, a flamethrower and talons on the left, a red "
       .. "optic where an eye was. It guards the Interns while they eat, and screams the horde down on you.",
     stats = {

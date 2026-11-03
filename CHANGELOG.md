@@ -29,7 +29,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   his crabs, and A-Man himself with everything in his briefcase; then Grey City's factions: the Static (gangers,
   rippers, sparkers), Halcyon (officers, an enforcer holding the middle behind his shield, a watcher drone), then
   both at once, at war with each other as well as you; then General Volt and his storm, and Director Saye and
-  Kilowatt together. Each wave cleared drops a pile of koins in the middle. More waves are coming.
+  Kilowatt together; then Heck's horde: the possessed (8, the overtime guy and his chaingun with them), imps and
+  interns (12), and Heck's heavies (14: Cacodaemons, a Dread Knight and a Mecha Zombie). Each wave cleared drops a
+  pile of koins in the middle. More waves are coming.
 
 ## [0.44.1] - 2026-11-01
 

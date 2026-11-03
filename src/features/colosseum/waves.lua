@@ -64,6 +64,9 @@ Waves.LIST = {
   { title = "The Feud", feature = "cyber-feud", kind = "feud", count = 12 }, -- both sides, at each other too
   { title = "General Volt", feature = "cyber-feud", kind = "volt", count = 1, exact = true, spots = { { 0, -0.3 } } },
   { title = "Saye & Kilowatt", feature = "cyber-feud", kind = "duo", count = 1, exact = true, spots = { { 0, -0.3 } } },
+  { title = "The Possessed", feature = "eternal-mood", kind = "possessed", count = 8 },
+  { title = "Imps", feature = "eternal-mood", kind = "imps", count = 12 },
+  { title = "Heck's Heavies", feature = "eternal-mood", kind = "demons", count = 14 },
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave
