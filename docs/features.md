@@ -439,8 +439,11 @@ couple of small conventions rather than requiring each other:
   the Poison Zombie the twenty-first (`poison-zombie`, kind "zombie", his
   crabs in his count) and A-Man the twenty-second (`a-man`, kind "a-man":
   the Citadel's finale on the sand, whatever comes out of his case in his
-  wave's `also`). Add your enemy to the list and answer both to put it in
-  the arena.
+  wave's `also`); Cyber Feud's factions the next three (`cyber-feud`, kinds
+  "static", "halcyon" and "feud": a bare level of troops.lua's on the sand,
+  each pack with its specials; rippers and watcher drones gained a
+  `serverJoin` for it). Add your enemy to the list and answer both to put it
+  in the arena.
 - `feature:serverShotAt(server, x, y, radius, by, angle, damage, type)`: a bullet is
   passing through this point on the host. Kill whatever of your own is
   standing within `radius` of it and return true, and the shot stops there;

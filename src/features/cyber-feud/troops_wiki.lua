@@ -115,7 +115,7 @@ function Wiki.wikiEnemies(add)
     name = "Halcyon officer",
     quests = { "cyber-feud", "cyber-feud-market", "cyber-feud-overpass", "cyber-feud-tower", "cyber-feud-roof" },
     where = "Every map: roadblocks and squads on the Drop, the Market's east side, the Overpass's checkpoints, "
-      .. "every floor of the tower, the Roof's dropship",
+      .. "every floor of the tower, the Roof's dropship; and the Colosseum's waves",
     about = "Halcyon's rank and file: grey armour, a white helmet and a magenta visor strip. Disciplined: they hold "
       .. "posts, walk beats in squads and call in what they see.",
     numbers = ("Squads of %g; more on a job finished before"):format(Troops.side.halcyon.squad),
@@ -163,7 +163,7 @@ function Wiki.wikiEnemies(add)
     name = "Static ganger",
     quests = { "cyber-feud", "cyber-feud-market", "cyber-feud-overpass", "cyber-feud-tower" },
     where = "The Drop's corners and blocks, the Market's west and its chop shop, the Overpass's shoulders and the "
-      .. "Knot, Halcyon Tower breaking in from below",
+      .. "Knot, Halcyon Tower breaking in from below; and the Colosseum's waves",
     about = "The Static's street gang: dark mismatched clothes, cyan-tipped cable hair, a chrome forearm. All noise: "
       .. "a wide cone, a keen ear and packs that rush.",
     numbers = ("Packs of %g; more on a job finished before"):format(Troops.side.static.squad),

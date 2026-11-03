@@ -59,6 +59,9 @@ Waves.LIST = {
       { feature = "a-man", kind = "combine" }, { feature = "hunters", kind = "hunter" },
       { feature = "rollermines", kind = "rollermine" }, { feature = "antlions", kind = "antlion" },
     } },
+  { title = "The Static", feature = "cyber-feud", kind = "static", count = 6 },
+  { title = "Halcyon Security", feature = "cyber-feud", kind = "halcyon", count = 9 },
+  { title = "The Feud", feature = "cyber-feud", kind = "feud", count = 12 }, -- both sides, at each other too
 }
 
 Waves.COUNTDOWN = 10 -- seconds from walking in to the first wave

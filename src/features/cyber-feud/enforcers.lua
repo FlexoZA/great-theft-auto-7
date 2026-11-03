@@ -221,7 +221,7 @@ function Enforcers.wikiEnemies(add)
     name = "Enforcer",
     quests = { "cyber-feud-market", "cyber-feud-overpass", "cyber-feud-tower", "cyber-feud-roof" },
     where = "The Market's south gates, in front of the Overpass's roadblocks, Halcyon Tower's guard and executive "
-      .. "floors, and the Roof with the dropship",
+      .. "floors, and the Roof with the dropship; and the Colosseum's waves",
     about = "Halcyon's riot police: darker grey armour behind a riot shield with a magenta edge. Slow, tough, and "
       .. "planted in a choke point.",
     stats = {

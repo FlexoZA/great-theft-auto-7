@@ -91,6 +91,17 @@ function Watchers.serverStart(server, map, calm)
   return brain
 end
 
+--- One more, at (x, y), flying `route` from corner `start` (the
+--- Colosseum's waves). Returns it, or nil with no drones on the level.
+function Watchers.serverJoin(x, y, route, start)
+  if not sv then
+    return nil
+  end
+  local w = sv.brain:add(route, start)
+  w.x, w.y = x, y
+  return w
+end
+
 function Watchers.serverWake()
   if sv then
     sv.brain.calm = false
@@ -202,7 +213,7 @@ function Watchers.wikiEnemies(add)
     kind = "cyber-feud/watcher",
     name = "Watcher drone",
     quests = { "cyber-feud-market", "cyber-feud-tower" },
-    where = "Over the Market's stalls, and in Halcyon Tower's lobby and offices",
+    where = "Over the Market's stalls, and in Halcyon Tower's lobby and offices; and the Colosseum's waves",
     about = "A small flying disc with a magenta eye and no gun. It finds you, and Halcyon's officers come.",
     stats = {
       { "Health", Watchers.health },

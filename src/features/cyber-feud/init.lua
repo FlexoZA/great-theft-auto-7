@@ -460,6 +460,18 @@ function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, 
   return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
 end
 
+--- The Colosseum's waves (colosseum/waves.lua): `count` of the factions'
+--- troops come in round (x, y) (`kind` "static", "halcyon" or "feud": both,
+--- at each other too). Returns how many came.
+function CyberFeud:serverArenaSend(server, kind, count, x, y)
+  return Troops.serverArenaSend(server, kind, count, x, y)
+end
+
+--- How many of them are still up.
+function CyberFeud:serverArenaLeft(server)
+  return Troops.serverArenaLeft(server)
+end
+
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
 function CyberFeud:serverEnemies(server, add)
   Troops.serverEnemies(server, add)
