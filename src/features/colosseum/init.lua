@@ -18,7 +18,8 @@
 -- builds it, render_arena.lua draws it), a HOME star just inside the gate.
 -- Past the wall are the stands, full and cheering (stands.lua, drawn past
 -- the map's edge for surroundings through `Colosseum:drawStands`), and a
--- gladiators' march plays (theme.lua). Then the waves (waves.lua, on the
+-- gladiators' march plays (theme.lua). The streams on the sand run and the
+-- braziers on the wall burn (water.lua). Then the waves (waves.lua, on the
 -- host): every enemy in the game in order, so far Karen's simps. The HUD
 -- shows the wave, how many are left and the countdowns between.
 --
@@ -46,6 +47,7 @@ local Audio = require("src.audio")
 local Look = require("src.features.colosseum.look")
 local Stands = require("src.features.colosseum.stands")
 local Theme = require("src.features.colosseum.theme")
+local Water = require("src.features.colosseum.water")
 local Waves = require("src.features.colosseum.waves")
 
 local Colosseum = {
@@ -234,7 +236,20 @@ local function borderline()
   return b and b.drawSiteCranes and b or nil
 end
 
+--- What the camera sees, world px: { left, top, right, bottom }.
+local function view(camera)
+  local w, h = love.graphics.getDimensions()
+  local k = camera and camera.scale or 1
+  local cx, cy = camera and camera.x or 0, camera and camera.y or 0
+  return { cx - w / 2 / k, cy - h / 2 / k, cx + w / 2 / k, cy + h / 2 / k }
+end
+
 function Colosseum:drawBelowCars(_client, camera)
+  local city = Features.byName["city-map"]
+  if city and city.map and city.map.oval then -- in the arena: the water running, the braziers burning
+    Water.draw(city.map, time, view(camera))
+    return
+  end
   local s = site()
   if not (s and plan and inView(s, camera)) then
     return
@@ -318,8 +333,9 @@ function Colosseum:drawHUD()
 end
 
 --- In the arena: the sand and the wall round it, over the ground's tiles,
---- and the cover on it.
-local function arenaOnMap(oval, cover, toMap)
+--- the streams and their bridges, and the cover on it.
+local function arenaOnMap(map, toMap)
+  local oval, cover = map.oval, map.cover
   local cx, cy = toMap(oval.x, oval.y)
   local k = (toMap(oval.x + oval.rx, oval.y) - cx) / oval.rx -- map px per world px
   love.graphics.setColor(0.78, 0.72, 0.60)
@@ -329,6 +345,25 @@ local function arenaOnMap(oval, cover, toMap)
   love.graphics.setColor(0.12, 0.10, 0.09)
   local gx, gy = toMap(oval.x, oval.y + oval.ry)
   love.graphics.rectangle("fill", gx - 70 * k, gy, 140 * k, 64 * k) -- the gate
+  love.graphics.setColor(0.25, 0.50, 0.58)
+  for _, st in ipairs(map.streams or {}) do
+    local line = {}
+    for i = 1, #st.pts, 4 do
+      line[#line + 1], line[#line + 2] = toMap(st.pts[i].x, st.pts[i].y)
+    end
+    love.graphics.setLineWidth(math.max(1, 2 * st.half * k))
+    love.graphics.line(line)
+  end
+  love.graphics.setLineWidth(1)
+  for _, b in ipairs(map.basins or {}) do
+    local x, y = toMap(b.x, b.y)
+    love.graphics.circle("fill", x, y, b.r * k, 16)
+  end
+  love.graphics.setColor(0.86, 0.82, 0.72)
+  for _, d in ipairs(map.footbridges or {}) do
+    local x, y = toMap(d.x, d.y)
+    love.graphics.rectangle("fill", x, y, d.w * k, d.h * k)
+  end
   for _, c in ipairs(cover or {}) do -- the cover on the sand
     if c.mapColor then
       love.graphics.setColor(c.mapColor)
@@ -344,7 +379,7 @@ function Colosseum:drawOnMinimap(_client, toMap)
   local city = Features.byName["city-map"]
   local oval = city and city.map and city.map.oval
   if oval then
-    arenaOnMap(oval, city.map.cover, toMap)
+    arenaOnMap(city.map, toMap)
     love.graphics.setColor(1, 1, 1)
     return
   end

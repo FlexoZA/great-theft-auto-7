@@ -19,7 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   builds more of it, and it stays locked until all of them are done. It's on the minimap and the big map too.
 - Once every job is done, a star at the Colosseum's gate takes everyone inside: a big open arena of sand, walled
   round, with packed stands cheering and a march of its own, and cover on the sand: sandbag walls, concrete
-  barriers, shipping containers, crates and oil drums.
+  barriers, shipping containers, crates and oil drums. Two streams wind down the sides of the sand from golden
+  lions' heads in the wall, in stone channels you cross on arched bridges (you can't wade them, but you can shoot
+  over them), into basins with a bronze gladiator in each; braziers burn along the top of the wall.
 - The Colosseum's waves: walk in, a countdown starts, and Karen's simps pour in from the far end of the sand, 8,
   then 10, then 12 (more for a bigger group), then Crazy Karen herself with her gang; then swarms of Bigfoot's
   squirrels, 15, 20 and 25, and Bigfoot himself with his litters; then Major Looz'er's riflemen, 6, 9 and 12, with
