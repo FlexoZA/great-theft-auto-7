@@ -4,7 +4,8 @@
 --            anyone the game shows) within `WAKE` of one wakes its whole
 --            swarm: each comes up a moment after the last (`WAKE_SPREAD`).
 --   rising   crawling up out of the sand for `RISE` seconds; it can be shot.
---   run      after the nearest player it can get at, within `CHASE`: at
+--   run      after the nearest player it can get at, within `CHASE` (or its
+--            swarm's own `chase`: the Colosseum's go after anyone): at
 --            `RUN` px/s, a little short of a sprint, spreading out round
 --            them rather than piling up behind each other. Straight at them
 --            when nothing is in the way; round whatever is, by the way
@@ -367,7 +368,7 @@ function Brain:think(server, a, people, dt)
     return
   end
   if a.mode == "rising" then
-    local id = nearest(people, a.x, a.y, Brain.CHASE)
+    local id = nearest(people, a.x, a.y, a.swarm.chase or Brain.CHASE)
     if id then
       a.facing = turn(a.facing, math.atan2(people[id].y - a.y, people[id].x - a.x), 4, dt)
     end
@@ -417,7 +418,7 @@ function Brain:think(server, a, people, dt)
   end
 
   -- Running: after the nearest it can reach.
-  local id, d2 = nearest(people, a.x, a.y, Brain.CHASE)
+  local id, d2 = nearest(people, a.x, a.y, a.swarm.chase or Brain.CHASE)
   a.target = id
   if not id then
     a.lost = a.lost + dt

@@ -7,6 +7,7 @@ local Buildings = require("src.features.city-map.buildings")
 local RenderCitadel = require("src.features.city-map.render_citadel")
 local RenderCoast = require("src.features.city-map.render_coast")
 local RenderRoad = require("src.features.city-map.render_road")
+local RenderArena = require("src.features.city-map.render_arena")
 local RenderCyberFeud = require("src.features.city-map.render_cyber_feud")
 local CyberFeud = require("src.features.city-map.cyber_feud")
 local RenderEternalMood = require("src.features.city-map.render_eternal_mood")
@@ -1523,10 +1524,12 @@ function Render.build(map)
   love.graphics.scale(0.5)
   love.graphics.translate(-map.left, -map.top)
   if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
-    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or map.kind == "arena"
+    or CyberFeud.builds(map.kind) or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       RenderCyberFeud.draw(map, Layout.TILE)
+    elseif map.kind == "arena" then
+      RenderArena.draw(map, Layout.TILE, { sandbag = drawSandbags, barrier = drawBarrier })
     elseif Borderline.builds(map.kind) then
       RenderBorderline.draw(map, Layout.TILE)
     elseif EternalMood.builds(map.kind) then

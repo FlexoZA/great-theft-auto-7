@@ -309,7 +309,8 @@ function DreadKnight.wikiEnemies(add)
     name = "Dread Knight",
     quests = { "eternal-mood-earth", "eternal-mood-foundry", "eternal-mood-heck" },
     scaling = "boss", -- his health is Bosses.health's, like a boss's
-    where = "Heck on Earth, the Foundry and Heck, each standing at his spot until you come near",
+    where = "Heck on Earth, the Foundry and Heck, each standing at his spot until you come near; and the "
+      .. "Colosseum's waves",
     about = "Heck's elite: a head taller than you in black plate cracked through with red, a horned helm and a long "
       .. "blade grown out of each forearm. Not a boss, but the strongest and smartest thing in the horde.",
     stats = {

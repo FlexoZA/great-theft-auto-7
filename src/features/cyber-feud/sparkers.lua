@@ -256,7 +256,7 @@ function Sparkers.wikiEnemies(add)
     name = "Sparker",
     quests = { "cyber-feud-market", "cyber-feud-tower" },
     where = "The Market's west lanes and General Volt's backup, and Halcyon Tower with the break-ins from floor "
-      .. B.sparkerFrom .. " up",
+      .. B.sparkerFrom .. " up; and the Colosseum's waves",
     about = "The Static's grenadier: hooded, with a belt of cyan-glowing EMP grenades. It never gets into the thick "
       .. "of it: it hangs back and lobs.",
     stats = {

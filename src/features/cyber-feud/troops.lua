@@ -155,6 +155,7 @@ Troops.levels = {
   overpass = { feud = "provoked" },
   tower = { feud = false },
   roof = { feud = false },
+  colosseum = { feud = true }, -- the Colosseum's waves (arena.lua)
 }
 -- The Static breaking in to the tower: the first pack `first` seconds after
 -- it wakes, then one every `every`, while fewer than `most` of them (and
@@ -892,6 +893,8 @@ function Troops.serverPack(server, key, spot, beat, size, sparker, tx, ty)
   say(server, squad.members[1], "alert")
   return squad.members
 end
+
+Troops.clearSpot, Troops.nearestPlayer = clearSpot, nearestPlayer -- for the Colosseum's (arena.lua)
 
 --- Make `s` (one of `serverPack`'s) an elite: `Troops.elite` more health,
 --- a harder-hitting rifle in longer bursts, and black and gold on every screen.

@@ -120,8 +120,8 @@ local function band(pts, width, every)
   end
 end
 
---- `pts` moved `off` px to the left of the way they run.
-local function offset(pts, off)
+--- `pts` moved `off` px to the left of the way they run (render_arena.lua's streams use it too).
+function RenderRoad.offset(pts, off)
   local out = {}
   for i = 1, #pts do
     local a, b = pts[math.max(1, i - 1)], pts[math.min(#pts, i + 1)]
@@ -216,12 +216,12 @@ local function drawTarmac(map, T)
   -- Wear down the lanes, where the wheels go.
   color(C.asphaltLight, 0.5)
   for _, side in ipairs({ -1, 1 }) do
-    band(offset(path, side * half * 0.5), 22, 2)
+    band(RenderRoad.offset(path, side * half * 0.5), 22, 2)
   end
   -- The edge lines.
   color(C.edge)
   for _, side in ipairs({ -1, 1 }) do
-    local line = offset(path, side * (half - 8))
+    local line = RenderRoad.offset(path, side * (half - 8))
     local flat = {}
     for i = 1, #line do
       flat[#flat + 1], flat[#flat + 2] = line[i].x, line[i].y

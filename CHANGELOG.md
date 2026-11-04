@@ -14,6 +14,28 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- The Colosseum is going up on the block north of the spawn road, cranes and all. Every job you finish on the board
+  builds more of it, and it stays locked until all of them are done. It's on the minimap and the big map too.
+- Once every job is done, a star at the Colosseum's gate takes everyone inside: a big open arena of sand, walled
+  round, with packed stands cheering and a march of its own, and cover on the sand: sandbag walls, concrete
+  barriers, shipping containers, crates and oil drums. Two streams wind down the sides of the sand from golden
+  lions' heads in the wall, in stone channels you cross on arched bridges (you can't wade them, but you can shoot
+  over them), into basins with a bronze gladiator in each; braziers burn along the top of the wall.
+- The Colosseum's waves: walk in, a countdown starts, and Karen's simps pour in from the far end of the sand, 8,
+  then 10, then 12 (more for a bigger group), then Crazy Karen herself with her gang; then swarms of Bigfoot's
+  squirrels, 15, 20 and 25, and Bigfoot himself with his litters; then Major Looz'er's riflemen, 6, 9 and 12, with
+  mortars falling, and the Major himself; then Shotgun, sniping from behind the cover and vanishing; then the
+  Combine, 6, 9 and 12, and the Hunter-Chopper, calling in soldiers and A-Man's Hunters as it goes down; then
+  antlions, 12 and 18, out of the sand, and the Antlion Guard with its rollermines; then the Poison Zombie throwing
+  his crabs, and A-Man himself with everything in his briefcase; then Grey City's factions: the Static (gangers,
+  rippers, sparkers), Halcyon (officers, an enforcer holding the middle behind his shield, a watcher drone), then
+  both at once, at war with each other as well as you; then General Volt and his storm, and Director Saye and
+  Kilowatt together; then Heck's horde: the possessed (8, the overtime guy and his chaingun with them), imps and
+  interns (12), and Heck's heavies (14: Cacodaemons, a Dread Knight and a Mecha Zombie); then Heck's four bosses
+  in order: the Floor Manager, the Mancouchbus, the Baron of Heck and the Spider Mattressmind. Each wave cleared
+  drops a pile of koins in the middle. More waves are coming.
+
 ## [0.44.1] - 2026-11-01
 
 Your shots land: holding the trigger no longer sends rounds through enemies, and enemies are drawn where they really

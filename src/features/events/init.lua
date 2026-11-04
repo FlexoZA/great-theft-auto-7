@@ -179,6 +179,41 @@ function Events:serverEnd(server, x, y, won)
   server:broadcast(Protocol.encode("EVT_END", key, fmt(x or sv.x), fmt(y or sv.y), won and 1 or 0))
 end
 
+-- The Colosseum's waves (colosseum/waves.lua): which event brings each
+-- kind of wave onto the arena's sand.
+local ARENA = { squirrels = "bigfoot", bigfoot = "bigfoot" }
+
+--- A wave in the Colosseum: `count` of `kind` round (x, y), through the
+--- event that owns them (its `serverArenaSend`). It is that event, on the
+--- sand: no banner and no flash (the arena says what is coming), over when
+--- they are all down. Returns how many came.
+function Events:serverArenaSend(server, kind, count, x, y)
+  local key = ARENA[kind]
+  local event = key and self.kinds[key]
+  if not (sv and event and event.serverArenaSend) or (sv.active and sv.active ~= key) then
+    return 0
+  end
+  local came, new = event.serverArenaSend(server, self, kind, count, x, y)
+  if new then
+    sv.active, sv.x, sv.y = key, x, y
+    server:broadcast(Protocol.encode("EVT_START", key, fmt(x), fmt(y), 0))
+  end
+  return came
+end
+
+--- How many of the wave are still up; none, and the event is over.
+function Events:serverArenaLeft(server, kind)
+  local event = self:serverActive()
+  if not (event and sv.active == ARENA[kind] and event.serverArenaLeft) then
+    return 0
+  end
+  local left = event.serverArenaLeft()
+  if left == 0 then
+    self:serverEnd(server, nil, nil, false)
+  end
+  return left
+end
+
 --- Any map change calls it off: the boss belongs to the city.
 function Events:mapChanged(_map, server)
   if server then

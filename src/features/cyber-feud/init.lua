@@ -59,6 +59,8 @@
 -- (quests' `next`), or home from the Roof. The other maps' troops, the
 -- breach and the bosses come later.
 --
+-- The Colosseum's waves bring the factions onto its sand (arena.lua).
+--
 -- Messages
 --   client -> server  CF_TAKE               (take the Shard out of the vending machine)
 --   server -> all     CF_SHARD <id> [quiet|loud] [x y]
@@ -86,6 +88,7 @@ local Face = require("src.features.cyber-feud.face")
 local Screen = require("src.features.cyber-feud.screen")
 local Hud = require("src.features.cyber-feud.hud")
 local Troops = require("src.features.cyber-feud.troops")
+local Arena = require("src.features.cyber-feud.arena")
 local Interceptors = require("src.features.cyber-feud.interceptors")
 local WarRigs = require("src.features.cyber-feud.war_rigs")
 local Gates = require("src.features.cyber-feud.gates")
@@ -460,6 +463,18 @@ function CyberFeud:serverShotAt(server, x, y, radius, by, angle, damage, dtype, 
   return Troops.serverShotAt(server, x, y, radius, by, angle, damage, dtype, from)
 end
 
+--- The Colosseum's waves (colosseum/waves.lua): `count` of the factions'
+--- troops come in round (x, y) (`kind` "static", "halcyon" or "feud": both,
+--- at each other too). Returns how many came.
+function CyberFeud:serverArenaSend(server, kind, count, x, y)
+  return Arena.serverSend(server, kind, count, x, y)
+end
+
+--- How many of them are still up.
+function CyberFeud:serverArenaLeft(server)
+  return Arena.serverLeft(server)
+end
+
 --- Every enemy of the level in the world right now, for the audit (tools/audit).
 function CyberFeud:serverEnemies(server, add)
   Troops.serverEnemies(server, add)
@@ -705,6 +720,13 @@ local function onLevel()
   return cl.level ~= nil and c ~= nil and c.current == cl.level
 end
 
+--- On the Colosseum's sand, where the waves bring the factions and their
+--- bosses (arena.lua): they are drawn there too, without Grey City's story.
+local function inArena()
+  local c = city()
+  return c ~= nil and c.map ~= nil and c.map.oval ~= nil
+end
+
 function CyberFeud:update(dt, client)
   time = time + dt
   Troops.update(dt)
@@ -713,8 +735,10 @@ function CyberFeud:update(dt, client)
   if onLevel() then
     Gates.update(dt, client)
     Turrets.update(dt, client)
-    Brutes.update(dt, client)
     Vex.update(dt, client)
+  end
+  if onLevel() or inArena() then
+    Brutes.update(dt, client)
   end
   if cl.level == "drop" and onLevel() then -- machines flying over, now and then
     Flyers.update(dt, client:myPose())
@@ -811,11 +835,17 @@ end
 function CyberFeud:drawBelowCars()
   if onLevel() then
     Gates.drawBelowCars()
+  end
+  if onLevel() or inArena() then
     Troops.drawBelowCars()
   end
 end
 
 function CyberFeud:drawAboveCars(client)
+  if inArena() then
+    Troops.drawAboveCars() -- the factions and their bosses on the sand
+    return
+  end
   if not onLevel() then
     return
   end
@@ -895,6 +925,13 @@ function CyberFeud:drawNightLights(client, _camera, glow)
 end
 
 function CyberFeud:drawHUD(client)
+  if inArena() then -- only the bosses' bars on the sand
+    Brutes.drawHUD()
+    Volt.drawHUD()
+    Kilowatt.drawHUD()
+    Saye.drawHUD(Kilowatt.up() and 1 or 0)
+    return
+  end
   if not (face and onLevel()) then
     return
   end
@@ -965,7 +1002,7 @@ end
 
 --- The footsteps feature's hook: the factions' soldiers walking about.
 function CyberFeud:footstepWalkers()
-  return onLevel() and Troops.walkers() or {}
+  return (onLevel() or inArena()) and Troops.walkers() or {}
 end
 
 --- For tests.

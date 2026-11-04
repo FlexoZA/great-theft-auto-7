@@ -432,7 +432,7 @@ function Saye.wikiEnemies(add)
     boss = true,
     name = "Director Saye",
     quests = { "cyber-feud-roof" },
-    where = "The Roof, by the billboard, from the moment it wakes",
+    where = "The Roof, by the billboard, from the moment it wakes; and the Colosseum's twenty-seventh wave",
     about = "Halcyon's director: calm, precise, a grey suit over the best hardware money can buy. She fights "
       .. "alongside Kilowatt, at range, and never runs.",
     stats = {
@@ -471,7 +471,7 @@ function Saye.wikiEnemies(add)
     kind = "cyber-feud/saye-drone",
     name = "Executive drone",
     quests = { "cyber-feud-roof" },
-    where = "The Roof, orbiting Director Saye",
+    where = "The Roof, orbiting Director Saye; and the Colosseum's twenty-seventh wave",
     about = "Saye's personal guard: small drones circling her, shooting at whoever is nearest, and shielding "
       .. "Kilowatt when he needs it.",
     stats = {

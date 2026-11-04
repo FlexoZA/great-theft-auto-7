@@ -52,7 +52,8 @@ local function possessedPages(add)
     kind = "eternal-mood/staffer",
     name = "Zombie staffer",
     quests = possessedMaps,
-    where = "Fobos Base, Heck on Earth and the Foundry, at desks and posts and on patrol",
+    where = "Fobos Base, Heck on Earth and the Foundry, at desks and posts and on patrol; and the Colosseum's "
+      .. "waves",
     about = "The UAC's office staff, Heck's now, still mostly at work. A staffer shambles at whoever it sees and "
       .. "fires its pistol now and then: no cover, no tactics.",
     stats = {
@@ -84,7 +85,8 @@ local function possessedPages(add)
     kind = "eternal-mood/guard",
     name = "Zombie guard",
     quests = possessedMaps,
-    where = "Fobos Base, Heck on Earth and the Foundry, watching doorways and walking patrols",
+    where = "Fobos Base, Heck on Earth and the Foundry, watching doorways and walking patrols; and the Colosseum's "
+      .. "waves",
     about = "The UAC's security, possessed, and the one that fights smart. Posted, it sweeps its gaze across the "
       .. "doorway it watches; in a fight it ducks behind something solid, steps out to shoot and ducks back.",
     stats = {
@@ -123,7 +125,8 @@ local function possessedPages(add)
     kind = "eternal-mood/overtime",
     name = "Overtime guy",
     quests = possessedMaps,
-    where = "Fobos Base by the hangar lift, Heck on Earth's overpass and starport gate, and the Foundry",
+    where = "Fobos Base by the hangar lift, Heck on Earth's overpass and starport gate, and the Foundry; and the "
+      .. "Colosseum's waves",
     about = "The big man with the chaingun, who never went home. He holds his ground near his post and fights from "
       .. "cover, spinning up each time he steps out.",
     stats = {
@@ -162,7 +165,7 @@ local function hordePages(add)
     name = "Intern",
     quests = possessedMaps,
     where = "Fobos Base, Heck on Earth and the Foundry, in mobs crouched round a meal; the Floor Manager's meetings "
-      .. "bring more",
+      .. "bring more; and the Colosseum's waves",
     about = "The UAC's unpaid interns, possessed and unarmed, the lowest rank there is. Never one at a time: they come "
       .. "in mobs, crouched round a body they dragged in until something wakes them.",
     stats = {
@@ -194,7 +197,8 @@ local function hordePages(add)
     kind = "eternal-mood/imp",
     name = "Imp",
     quests = { "eternal-mood", "eternal-mood-earth", "eternal-mood-foundry", "eternal-mood-heck" },
-    where = "Every Eternal Mood level, bursting out of vents, manholes and cracks as you come near",
+    where = "Every Eternal Mood level, bursting out of vents, manholes and cracks as you come near; and the "
+      .. "Colosseum's waves",
     about = "The common demon, brown and spiky. A pack crawls out of a vent one after another, keeps its distance, "
       .. "strafes, and throws fireballs at you.",
     stats = {
@@ -230,7 +234,7 @@ local function hordePages(add)
     name = "Cacodaemon",
     quests = { "eternal-mood-earth", "eternal-mood-foundry", "eternal-mood-heck" },
     where = "Heck on Earth, the Foundry and Heck, floating over roofs and lava; the Mancouchbus and the Spider "
-      .. "Mattressmind call more",
+      .. "Mattressmind call more; and the Colosseum's waves",
     about = "A floating red tomato with one green eye and a big mouth: the heaviest thing in the horde. It drifts "
       .. "round you at a distance, flies straight over walls and lava, and spits big balls of fire.",
     stats = {

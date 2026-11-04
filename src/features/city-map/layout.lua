@@ -5,7 +5,7 @@
 -- (with alleys), parks (with trees) or parking lots. Everything solid ends
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
--- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
+-- `Layout.generate` takes a spec ({ seed, cols, rows, plots, colosseum, empty, crowd,
 -- crowdScale, police, traffic, vehicles, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
@@ -36,7 +36,8 @@
 -- Foundry, the third, and `kind = "heck"` Heck, the fourth (eternal_mood.lua).
 -- `kind = "wreck"`, "landing", "pit", "prosperity", "refinery", "assembly",
 -- "cuts" and "bunker" are Pandoria's eight maps, the Borderline quest line's
--- (borderline.lua).
+-- (borderline.lua). `kind = "arena"` is the Colosseum's arena, one big oval
+-- of sand walled round (arena.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -48,6 +49,7 @@ local Road = require("src.features.city-map.road")
 local CyberFeud = require("src.features.city-map.cyber_feud")
 local EternalMood = require("src.features.city-map.eternal_mood")
 local Borderline = require("src.features.city-map.borderline")
+local Arena = require("src.features.city-map.arena")
 
 local Layout = {}
 
@@ -59,6 +61,10 @@ Layout.CELL = 256 -- collision bucket size, px
 -- Blocks (column, row of blocks) left empty as plots for sale: the four
 -- corners of the city, each ringed by four streets. A spec may list its own.
 Layout.PLOTS = { { 0, 0 }, { 4, 0 }, { 0, 3 }, { 4, 3 } }
+-- The block the Colosseum is going up on (the colosseum feature draws it):
+-- the middle one north of the spawn road. Cleared like a plot, then fenced
+-- off whole: `map.colosseum` is { x, y, w, h, bi, bj } in world px.
+Layout.COLOSSEUM = { 2, 1 }
 -- How many blocks the city may grow past its original edge on each side.
 -- Keeps the drawn map within a texture every graphics card can hold.
 Layout.GROW = 3
@@ -127,8 +133,9 @@ local function splitCore(rng, cx, cy, cw, ch, out)
   end
 end
 
---- Empty the plot blocks. Done after the whole city is generated so the
---- random stream, and with it every other block, is the same as without them.
+--- Empty the plot blocks and the Colosseum's. Done after the whole city is
+--- generated so the random stream, and with it every other block, is the
+--- same as without them.
 local function clearPlots(map)
   local T = Layout.TILE
   -- Keep what lies outside the block; a tile of margin catches trees whose
@@ -143,16 +150,27 @@ local function clearPlots(map)
     end
     return kept
   end
+  local function clear(block, kind)
+    block.kind = kind
+    local x0, y0 = map.x0 + block.tx * T, map.y0 + block.ty * T
+    local x1, y1 = x0 + block.tw * T, y0 + block.th * T
+    map.buildings = outside(map.buildings, x0, y0, x1, y1)
+    map.trees = outside(map.trees, x0, y0, x1, y1)
+    map.solids = outside(map.solids, x0, y0, x1, y1)
+  end
   for _, block in ipairs(map.blocks) do
     for _, p in ipairs(map.plots) do
       if block.bi == p[1] and block.bj == p[2] then
-        block.kind = "plot"
-        local x0, y0 = map.x0 + block.tx * T, map.y0 + block.ty * T
-        local x1, y1 = x0 + block.tw * T, y0 + block.th * T
-        map.buildings = outside(map.buildings, x0, y0, x1, y1)
-        map.trees = outside(map.trees, x0, y0, x1, y1)
-        map.solids = outside(map.solids, x0, y0, x1, y1)
+        clear(block, "plot")
       end
+    end
+    local c = map.colosseumBlock
+    if c and block.bi == c[1] and block.bj == c[2] then
+      clear(block, "colosseum")
+      local site = { x = map.x0 + block.tx * T, y = map.y0 + block.ty * T, w = block.tw * T, h = block.th * T }
+      site.bi, site.bj = block.bi, block.bj
+      map.colosseum = site
+      map.solids[#map.solids + 1] = { x = site.x, y = site.y, w = site.w, h = site.h } -- the site hoarding
     end
   end
 end
@@ -1196,7 +1214,7 @@ local function buildCity17(map, rng)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty, crowd,
+--- Build a map. `spec` is { seed, cols, rows, plots, colosseum, empty, crowd,
 --- crowdScale, police, traffic, vehicles, kind } (every field optional,
 --- defaulting to the city above: the header says what each does) or just a seed.
 function Layout.generate(spec)
@@ -1219,6 +1237,7 @@ function Layout.generate(spec)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
     plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
+    colosseumBlock = spec.colosseum, -- { bi, bj } the Colosseum goes up on, or nil (clearPlots)
     x0 = -W / 2, -- world x of tile column 0 (the original left edge)
     y0 = -H / 2,
     -- Tile bounds of the city (inclusive) and the same in world px. They
@@ -1233,7 +1252,7 @@ function Layout.generate(spec)
     h = H,
     version = 1, -- bumped on every change, so drawings know to redo themselves
     tiles = {}, -- [c][r] = "road" | "walk" | "core" (block interior) | "ground" (open field); nil outside the city
-    blocks = {}, -- { tx, ty, tw, th, bi, bj, kind = "buildings"|"park"|"lot"|"plot" }
+    blocks = {}, -- { tx, ty, tw, th, bi, bj, kind = "buildings"|"park"|"lot"|"plot"|"colosseum" }
     blockAt = {}, -- "bi,bj" -> block
     grown = {}, -- { bi, bj } in the order the city grew
     buildings = {}, -- { x, y, w, h, color, style } in world px
@@ -1244,10 +1263,12 @@ function Layout.generate(spec)
 
   if map.kind == "culdesac" or map.kind == "forest" or map.kind == "beach" or map.kind == "cliff"
     or map.kind == "city17" or map.kind == "citadel"
-    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
-    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
+    or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or map.kind == "arena"
+    or CyberFeud.builds(map.kind) or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       CyberFeud.build(map, rng, T)
+    elseif map.kind == "arena" then
+      Arena.build(map, rng, T)
     elseif Borderline.builds(map.kind) then
       Borderline.build(map, rng, T)
     elseif EternalMood.builds(map.kind) then

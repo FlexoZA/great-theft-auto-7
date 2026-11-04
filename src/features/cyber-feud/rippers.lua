@@ -96,6 +96,17 @@ function Rippers.serverStart(server, map, nav, calm)
   return brain
 end
 
+--- One more, at (x, y), walking `route` from corner `start` (the
+--- Colosseum's waves). Returns it, or nil with no rippers on the level.
+function Rippers.serverJoin(x, y, route, start)
+  if not sv then
+    return nil
+  end
+  local r = sv.brain:add(route, start)
+  r.x, r.y = x, y
+  return r
+end
+
 function Rippers.serverWake()
   if sv then
     sv.brain.calm = false
@@ -203,7 +214,7 @@ function Rippers.wikiEnemies(add)
     kind = "cyber-feud/ripper",
     name = "Ripper",
     quests = { "cyber-feud-market" },
-    where = "The Market's west lanes, walking the Static's beats",
+    where = "The Market's west lanes, walking the Static's beats; and the Colosseum's waves",
     about = "The Static's knife fighters: lean, with two chrome blades out of the forearms. Fast, and always after "
       .. "whoever is most alone.",
     stats = {

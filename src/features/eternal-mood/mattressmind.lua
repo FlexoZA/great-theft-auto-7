@@ -367,7 +367,8 @@ function Mattressmind.wikiEnemies(add)
     name = "The Spider Mattressmind",
     quests = { "eternal-mood-heck" },
     boss = true,
-    where = "Heck, on the Mattress's plateau before the Snooze Gate; it wakes when you come up onto the plateau",
+    where = "Heck, on the Mattress's plateau before the Snooze Gate; it wakes when you come up onto the plateau; and "
+      .. "the Colosseum's thirty-fourth wave",
     about = "A giant brain on four mechanical spider legs with a chaingun under its chin, standing on a mattress it "
       .. "drags everywhere. The Snooze Gate stays locked until it is down.",
     stats = {
