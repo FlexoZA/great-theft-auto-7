@@ -1894,6 +1894,64 @@ local function clearFootprint(server, plot)
   end
 end
 
+--- The keys of every kind of building, in menu order, and of the sources
+--- among them: the kinds that make materials out of nothing (quarry, oil well).
+function Buildings:kindKeys()
+  local keys, sources = {}, {}
+  for i, kind in ipairs(Kinds.list) do
+    keys[i] = kind.key
+    if kind.products and not next(kind.inputs or {}) then
+      sources[#sources + 1] = kind.key
+    end
+  end
+  return keys, sources
+end
+
+--- Put up a new building of kind `key` for `ownerId` on plot `id` and tell
+--- everyone. No checks: BLD_BUILD makes them (and takes the money) first;
+--- the stress test (a cheat) places them for free. `opts` (optional):
+--- `product`, the index of what it makes (1 by default, "random" for any),
+--- and `stocked`, a factory's hopper full of everything it takes and a
+--- quarry or oil well full of what it digs or pumps, so it works and hired drivers have work at once.
+--- Returns the building, or nil if the plot or kind is unknown or something
+--- stands there.
+function Buildings:serverPlace(server, id, key, ownerId, opts)
+  local plot, kind = plotById(id), Kinds.byKey[key]
+  if not (sv and plot and kind) or sv.buildings[id] then
+    return nil
+  end
+  opts = opts or {}
+  local products = kind.products and #kind.products or 1
+  local product = opts.product == "random" and math.random(products)
+    or math.max(1, math.min(opts.product or 1, products))
+  local b = {
+    kind = kind.key,
+    owner = ownerId,
+    public = false,
+    product = product,
+    price = Kinds.recipe(kind, product).price or 0,
+    pays = {}, -- material -> Fcks it pays for one; absent = not buying
+    output = 0,
+    progress = 0,
+    hopper = {},
+    hp = kind.hp,
+  }
+  if opts.stocked and kind.hopper and next(kind.hopper) then
+    for item in pairs(kind.hopper) do
+      b.hopper[item] = Kinds.HOPPER
+    end
+  elseif opts.stocked and kind.products and not next(kind.inputs or {}) then
+    b.output = recipeOf(b, kind).cap or 0
+  end
+  sv.buildings[id] = b
+  markWalls()
+  if not kind.walkable then
+    clearFootprint(server, plot)
+  end
+  publish(server, id, b)
+  return b
+end
+
 --- Run `handler(server, player, args)` and send back whatever reason it
 --- refuses with.
 local function refusing(handler)
@@ -1928,24 +1986,7 @@ Buildings.serverMessages = {
     if money and not money:spend(server, player.id, kind.cost, kind.name:lower()) then
       return "broke"
     end
-    local b = {
-      kind = kind.key,
-      owner = player.id,
-      public = false,
-      product = 1,
-      price = Kinds.recipe(kind, 1).price or 0,
-      pays = {}, -- material -> Fcks it pays for one; absent = not buying
-      output = 0,
-      progress = 0,
-      hopper = {},
-      hp = kind.hp,
-    }
-    sv.buildings[plot.id] = b
-    markWalls()
-    if not kind.walkable then
-      clearFootprint(server, plot)
-    end
-    publish(server, plot.id, b)
+    Buildings:serverPlace(server, plot.id, kind.key, player.id)
   end),
 
   BLD_COLLECT = refusing(function(server, player, args)
@@ -2562,6 +2603,15 @@ local function damage(server, id, b, hits)
   b.output, b.progress, b.hopper = 0, 0, {}
   markWalls()
   publish(server, id, b)
+end
+
+--- Take `hits` off the building on plot `id` (host only), as a round or a
+--- blast would: down to a ruin at 0. The stress test's wrecking ball.
+function Buildings:serverBatter(server, id, hits)
+  local b = sv and sv.buildings[id]
+  if b then
+    damage(server, id, b, math.floor(hits))
+  end
 end
 
 --- A round stopped at a wall (weapons' event): if the wall is one of ours,

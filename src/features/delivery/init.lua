@@ -835,6 +835,27 @@ local function hire(server, owner, x, y, angle, cargo)
   return d
 end
 
+--- Put a driver for `player` somewhere in the city's traffic (by them when
+--- there are no lanes), carrying `cargo`.
+local function hireInTraffic(server, player, cargo)
+  local g = graph()
+  local x, y, angle
+  if g then
+    x, y, angle = Traffic.randomLanePoint(g, server.vehicles, 150)
+  end
+  if not x then
+    x, y, angle = Features.bodyPose(server, player)
+    y = (y or 0) + 120
+  end
+  return hire(server, player, x or 0, y, angle or 0, cargo)
+end
+
+--- Hire a driver for `owner` on the host, free and past `Hire.maxPerPlayer`,
+--- somewhere in the traffic: the stress test (a cheat). Returns it, or nil.
+function Delivery:serverHire(server, owner)
+  return sv and hireInTraffic(server, owner) or nil
+end
+
 --- Take a driver off the road for good.
 local function dismiss(server, d)
   sv.drivers[d.npc.id] = nil
@@ -1018,16 +1039,7 @@ function Delivery:serverLoadPlayer(server, player, data)
     if i > Hire.maxPerPlayer or #driversOf(player.id) >= Hire.maxPerPlayer then
       break
     end
-    local g = graph()
-    local x, y, angle
-    if g then
-      x, y, angle = Traffic.randomLanePoint(g, server.vehicles, 150)
-    end
-    if not x then
-      x, y, angle = Features.bodyPose(server, player)
-      y = (y or 0) + 120
-    end
-    hire(server, player, x or 0, y, angle or 0, cargoFrom(type(rec) == "table" and rec.cargo))
+    hireInTraffic(server, player, cargoFrom(type(rec) == "table" and rec.cargo))
   end
 end
 

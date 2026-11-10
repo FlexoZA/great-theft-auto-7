@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Cheat codes for testing performance in a full game: `concretejungle` fills the city with 15 more working buildings,
+  out from the centre, `wreckingball` keeps damaging them, `hiringspree` hires one more delivery driver and Handsy Man
+  for every player and bot, and `fpslog` writes the frame rate at each step to `perf-stress.csv`.
+
 ## [0.44.1] - 2026-11-01
 
 Your shots land: holding the trigger no longer sends rounds through enemies, and enemies are drawn where they really
