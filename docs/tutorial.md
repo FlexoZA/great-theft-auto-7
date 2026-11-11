@@ -61,13 +61,46 @@ with no gun and no ability; existing saved players keep their pistol and
 freeze; a newcomer to a world past the tutorial is handed the pistol and
 openborders; nothing fires or crashes with empty slots; a body with empty
 hands is drawn without a gun on every screen. `make audit` 8.6, pass.
-Next: stage 4, first box (level 1's map), on a new branch
-`feature/tutorial-road` from `feature/tutorial-start-gear`.
+Stage 4 under way on `feature/tutorial-road`, branched from
+`feature/tutorial-start-gear` (not pushed or merged yet): box 1 done,
+Shoeman's Road built and drawn (four two-way streets, tunnel mouths, safe
+strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
+HOME star and way on moved onto it. Next: stage 4, box 2 (`traffic.lua`).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
+
+- Shoeman's Road (stage 4 box 1): `city-map/tutorial_maps.lua` builds it
+  (`kind = "tutorial-road"`, 24x44 tiles, `TutorialMaps.ROAD` holds the
+  rows: lawn 6, streets 4 rows each with 3-row pavement strips between,
+  the yard the rest; 2 columns of embankment each side), and
+  `city-map/render_tutorial.lua` draws it. `TutorialMaps.builds(kind)` /
+  `build` are wired into `layout.lua` and `render.lua` like Borderline's;
+  the park, yard and town can be added to its `BUILDERS` table. For
+  `traffic.lua`: `map.lanes` = { y, dir (1 east, -1 west), street (1
+  bottom, slowest, to 4 top), lane (1 by the centre line, 2 by the kerb),
+  angle, fromX, toX }, 16 lanes, drive on the right (south half east);
+  `fromX`/`toX` are inside the tunnels (±736), out of sight. `map.streets`
+  = { n, y0, y1 } (street 1 is y 320..576, 4 is -1024..-768). Checked in
+  a scripted run: no lane end or middle is blocked, cars spawned at both
+  ends sit still and unpushed. Read lanes from `Features.byName["city-map"].map`.
+- The tunnels: `map.tunnels` roofs (grass and a concrete headwall with
+  wing walls) are drawn over the cars by a new `Render.drawAbove`, called
+  from `CityMap:drawAboveCars`. What other features draw over cars still
+  shows: a car's health bar shows over the roof (box 2 may want traffic
+  cars without one). Players can walk into a tunnel (its road tiles are
+  open, under the roof); traffic kills them there anyway.
+- Level 1's spots now come from the road (the numbers are copied, the
+  map also leaves them as `map.cx, cy` (start, checkpoint: 0, 768),
+  `map.shoemanX, Y` (160, 888), `map.homeX, Y` (0, 1008: quests'
+  `home-tutorial-road`), `map.exitX, Y` (0, -1216: `Tutorial.EXITS`)).
+  Change them together if `TutorialMaps.ROAD` changes. Box 5 ("Way on at
+  the top") only needs checking: the WAY ON ring already shows on the lawn.
+- Pickups (medkits, drinks, ammo crates) scatter on the streets too
+  (`randomRoadPoint` takes any road tile). Funny bait; stage 11 may move
+  them onto the pavement.
 
 - No gun at the start (`weapons/init.lua`): `Weapons:startSlots()` holds
   only `stock` guns now (none have one), so a new human has four empty
@@ -264,11 +297,10 @@ a history.
   coroutine script in `main.lua`. Taking a board job needs the player at
   `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
   offer that ignores the accept key for its first seconds.
-- The maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
-  `tutorial-road` 24x56 tiles, `tutorial-park` 44x44, `tutorial-yard`
-  and `tutorial-city` 40x40, all `empty = true` (open walled ground, like
-  `testrange`), walked, nobody about. Everyone arrives on the middle row
-  (`map.cy`: 192, -64, 64, 64). One HOME star per map (`home-tutorial-*`
+- The other maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
+  `tutorial-park` 44x44, `tutorial-yard` and `tutorial-city` 40x40, all
+  `empty = true` (open walled ground, like `testrange`), walked, nobody
+  about. Everyone arrives on the middle row (`map.cy`: -64, 64, 64). One HOME star per map (`home-tutorial-*`
   in `Quests.list`) 240 px south of that. Backdrops are the outskirts'
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
@@ -500,7 +532,7 @@ notice.
 
 ### 4. Level 1: cross the road (`feature/tutorial-road`)
 
-- [ ] Map: four two-way streets, tunnel mouths, safe strips, renderer
+- [x] Map: four two-way streets, tunnel mouths, safe strips, renderer
 - [ ] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
 - [ ] A touch kills; respawn at the checkpoint
 - [ ] Movement and stamina lines; objective "Reach the other side"

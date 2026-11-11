@@ -29,22 +29,23 @@ for i, id in ipairs(Tutorial.LEVELS) do
 end
 
 -- Each level's way on, world px, near the top of its map (city-map's
--- `tutorial-*` maps, placeholder fields for now): reaching it finishes the
+-- `tutorial-*` maps: Shoeman's Road's `map.exitX, exitY`, on the lawn past
+-- the streets; placeholder fields for the rest): reaching it finishes the
 -- level and the EXIT star comes up there. Levels 4 and 5 share the town.
 Tutorial.EXITS = {
-  ["tutorial-1"] = { x = 0, y = -1536 },
+  ["tutorial-1"] = { x = 0, y = -1216 },
   ["tutorial-2"] = { x = 0, y = -1152 },
   ["tutorial-3"] = { x = 0, y = -1024 },
   ["tutorial-4"] = { x = 0, y = -1024 },
   ["tutorial-5"] = { x = 0, y = -1024 },
 }
 
--- Where Shoeman stands on each level, world px: on the placeholder maps,
--- just south-east of the checkpoint, between it and the HOME star. Stages 4
--- to 7 move him with their maps (level 2: the middle of the park). The
--- shoes (shoe.lua) will fly from here.
+-- Where Shoeman stands on each level, world px: just south-east of the
+-- checkpoint, between it and the HOME star (Shoeman's Road's
+-- `map.shoemanX, shoemanY`). Stages 5 to 7 move him with their maps (level
+-- 2: the middle of the park). The shoes (shoe.lua) will fly from here.
 Tutorial.SHOEMAN = {
-  ["tutorial-1"] = { x = 160, y = 312 },
+  ["tutorial-1"] = { x = 160, y = 888 },
   ["tutorial-2"] = { x = 160, y = 56 },
   ["tutorial-3"] = { x = 160, y = 184 },
   ["tutorial-4"] = { x = 160, y = 184 },

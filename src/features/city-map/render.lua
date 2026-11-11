@@ -14,6 +14,8 @@ local EternalMood = require("src.features.city-map.eternal_mood")
 local RenderBorderline = require("src.features.city-map.render_borderline")
 local RenderBorderlineBeyond = require("src.features.city-map.render_borderline_beyond")
 local Borderline = require("src.features.city-map.borderline")
+local RenderTutorial = require("src.features.city-map.render_tutorial")
+local TutorialMaps = require("src.features.city-map.tutorial_maps")
 
 local Render = {}
 
@@ -1524,9 +1526,11 @@ function Render.build(map)
   love.graphics.translate(-map.left, -map.top)
   if map.kind == "beach" or map.kind == "cliff" or map.kind == "city17" or map.kind == "citadel"
     or map.kind == "outercity" or map.kind == "coast" or map.kind == "road" or CyberFeud.builds(map.kind)
-    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) then
+    or EternalMood.builds(map.kind) or Borderline.builds(map.kind) or TutorialMaps.builds(map.kind) then
     if CyberFeud.builds(map.kind) then
       RenderCyberFeud.draw(map, Layout.TILE)
+    elseif TutorialMaps.builds(map.kind) then
+      RenderTutorial.draw(map, Layout.TILE)
     elseif Borderline.builds(map.kind) then
       RenderBorderline.draw(map, Layout.TILE)
     elseif EternalMood.builds(map.kind) then
@@ -1575,6 +1579,14 @@ function Render.drawPastEdges(map, left, top, right, bottom)
     return true
   end
   return false
+end
+
+--- What the map draws over the cars, every frame (Shoeman's Road: the roofs
+--- over its tunnels).
+function Render.drawAbove(map)
+  if map.tunnels then
+    RenderTutorial.drawAbove(map)
+  end
 end
 
 function Render.draw(map, canvas)

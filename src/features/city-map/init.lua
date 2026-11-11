@@ -222,12 +222,14 @@ CityMap.maps = {
   },
   -- Shoeman's school of survival (the tutorial feature, docs/tutorial.md):
   -- the road (level 1), the park (2), the scrap yard (3) and the town
-  -- centre (4 and 5). Placeholders for now: open walled fields like the
-  -- test range, everyone arriving in the middle, the HOME star just south
-  -- of them and the way on (Tutorial.EXITS) near the top. All walked,
-  -- nobody about.
+  -- centre (4 and 5). All walked, nobody about. The road is built
+  -- (tutorial_maps.lua): four two-way streets between a school yard and a
+  -- lawn, the tutorial's own traffic on them. The rest are placeholders
+  -- for now: open walled fields like the test range, everyone arriving in
+  -- the middle, the HOME star just south of them and the way on
+  -- (Tutorial.EXITS) near the top.
   ["tutorial-road"] = {
-    title = "Shoeman's Road", seed = 401, cols = 24, rows = 56, empty = true,
+    title = "Shoeman's Road", kind = "tutorial-road", seed = 401, cols = 24, rows = 44,
     crowd = false, traffic = false, vehicles = false,
   },
   ["tutorial-park"] = {
@@ -494,10 +496,14 @@ function CityMap:drawPastEdges(left, top, right, bottom)
   end
 end
 
---- The map's fires (City 17's), flames and smoke over everything on the ground.
+--- The map's fires (City 17's), flames and smoke over everything on the
+--- ground; whatever else it draws over the cars (Shoeman's Road's tunnel roofs).
 function CityMap:drawAboveCars(_client, camera)
   if self.map and self.map.fires then
     Fires.draw(self.map, camera, love.timer.getTime())
+  end
+  if self.map then
+    Render.drawAbove(self.map)
   end
 end
 
