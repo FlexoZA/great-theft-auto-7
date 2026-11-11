@@ -68,8 +68,9 @@ strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
 HOME star and way on moved onto it. Box 2 done: `traffic.lua` runs every
 lane during level 1, each with its own speed and gap. Box 3 done: no
 health bar under traffic cars. Box 4 done: any touch of a traffic car
-kills, back at the checkpoint. Next: stage 4, box 5 (movement and stamina
-lines; objective "Reach the other side").
+kills, back at the checkpoint. Box 5 done: the movement and stamina
+lesson in beats said as it happens, "Reach the other side" ticking at the
+way on. Next: stage 4, box 6 (way on at the top: check only).
 
 ### Handoff notes
 
@@ -138,8 +139,13 @@ a history.
   map also leaves them as `map.cx, cy` (start, checkpoint: 0, 768),
   `map.shoemanX, Y` (160, 888), `map.homeX, Y` (0, 1008: quests'
   `home-tutorial-road`), `map.exitX, Y` (0, -1216: `Tutorial.EXITS`)).
-  Change them together if `TutorialMaps.ROAD` changes. Box 5 ("Way on at
-  the top") only needs checking: the WAY ON ring already shows on the lawn.
+  Change them together if `TutorialMaps.ROAD` changes. Box 6 ("Way on at
+  the top") only needs checking: the WAY ON ring already shows on the lawn,
+  and box 5's scripted run already saw `Objectives.serverOpen()` and the
+  client's `Objectives.open` true, "cross" ticked on reaching (0, -1216)
+  and `quests.done == "tutorial-1"` with the "Lesson two" offer up. Left:
+  a look at the ring on screen, the EXIT star taking everyone to the park,
+  and `make audit` plus the `CHANGELOG.md` line (the stage's last box).
 - Pickups (medkits, drinks, ammo crates) scatter on the streets too
   (`randomRoadPoint` takes any road tile). Funny bait; stage 11 may move
   them onto the pavement.
@@ -255,8 +261,17 @@ a history.
   `"<quest id>.<what>"`; a line is a string or `{ "TEXT", shout = true }`
   (red face, bigger red text, shorter hold), and `{sprint}` / `{dodge}` /
   any control name in a line becomes the player's key (`{move}` the four
-  walking keys). Only `tutorial-1.start` (the opening speech plus the
-  moving and stamina lesson) exists so far. `src/features/tutorial/comms.lua`:
+  walking keys). Level 1's beats are all there (box 5): `start` (the
+  speech, walking, the sprint key, the road), then `sprint`, `spent`,
+  `strip`, `across` raised by `src/features/tutorial/road.lua`
+  (`Road.serverStep(server, map)` from init.lua's `serverStep` with the
+  road: first stamina below max, first `spent` (on-foot's
+  `walker(player)` record; stamina itself refills in the same tick when
+  no rest delay runs), first player on a pavement strip, first past the
+  top street) and `flat` from `Tutorial:serverKill` (any `kill.victim`
+  during level 1). Every beat queues behind the 40 s opening speech, so
+  a fast player hears "EMPTY!" late; stage 11 may cut the speech or let
+  a lesson beat jump the queue. `src/features/tutorial/comms.lua`:
   host side `Comms.serverStart(questId)` (from `serverQuestStarted`; says
   the "start" beat 1.5 s later), `Comms.serverStop()`,
   `Comms.serverBeat(server, what, again)` (once per level unless `again`),
@@ -264,9 +279,7 @@ a history.
   queue (`Comms.queue`, `Comms.update`, `Comms.drawHUD` at (10, 250),
   `Comms.busy()`), cleared on a tutorial quest's start or end and on
   `exitGame`. init.lua wires all of it; later boxes only add beats to
-  `story.lua` and call `Comms.serverBeat`. Level 1's lesson lines will
-  want splitting into their own beats when stage 4 knows when the player
-  first sprints.
+  `story.lua` and call `Comms.serverBeat`.
 - Objectives: `src/features/tutorial/objectives.lua`. Lists are data in
   `Objectives.lists[questId]`: a list of sections `{ title = "Resources"
   (optional), items = { { id, text, need = n, exit = true, timer = true } } }`.
@@ -578,7 +591,7 @@ notice.
 - [x] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
 - [x] No health bar on traffic cars (it shows over the tunnel roofs)
 - [x] A touch kills; respawn at the checkpoint
-- [ ] Movement and stamina lines; objective "Reach the other side"
+- [x] Movement and stamina lines; objective "Reach the other side"
 - [ ] Way on at the top
 
 ### 5. Level 2: dodge (`feature/tutorial-dodge`)

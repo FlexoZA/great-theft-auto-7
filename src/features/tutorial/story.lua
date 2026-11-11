@@ -8,7 +8,9 @@
 -- keys), so the lessons name the player's own keys.
 --
 -- Keys are "<quest id>.<what>": "start" a moment after a level begins;
--- later stages add their own (a dodge, a wave down, a death).
+-- the rest when the host sees it happen (level 1's: road.lua, and "flat"
+-- from the tutorial's serverKill). Later stages add their own (a dodge, a
+-- wave down).
 
 local Story = {}
 
@@ -17,16 +19,39 @@ local Story = {}
 Story.speaker = { name = "SHOEMAN", color = { 0.45, 0.58, 0.95 } }
 
 Story.beats = {
-  -- Level 1, cross the road: the opening speech, then moving and stamina.
+  -- Level 1, cross the road: the opening speech, walking and running,
+  -- then the stamina lesson as it happens (road.lua).
   ["tutorial-1.start"] = {
     "You. Yes, YOU. Look at you. Soft hands. Soft head. Public school, was it? Thought so.",
     "The world out there has gone WOKE. Violent and woke. Cars, guns, robots, and nobody even says sorry.",
     "I am Shoeman. I am going to teach you to survive it. Whether you like it or not. You won't like it.",
     "Lesson one: walking. {move}. Even a public school kid can manage that. Probably.",
-    "Hold {sprint} to run. Watch the bar: running drains it, it rests a moment before it fills again,"
-      .. " and an empty bar has to come back before you can run again.",
-    "See that road? Four streets of it. Nobody brakes for you, and one touch from a car is all it takes.",
+    "Lesson two: hold {sprint} to run. Walk across that road and they'll scrape you off it.",
+    "Four streets. Nobody brakes for you, and one touch from a car is all it takes.",
     "Get to the other side. Alive, ideally. I'm not carrying you.",
+  },
+  -- Somebody's stamina went down for the first time.
+  ["tutorial-1.sprint"] = {
+    "See that green bar going down? Stamina. Running eats it. So does a dodge.",
+    "Stop running and it rests a moment, then fills up again. Pace yourself.",
+  },
+  -- Somebody ran their bar empty.
+  ["tutorial-1.spent"] = {
+    { "EMPTY!", shout = true },
+    "Now you walk until it comes back. Let go of {sprint}: leaning on it gets you nothing.",
+  },
+  -- Somebody reached the pavement between two streets.
+  ["tutorial-1.strip"] = {
+    "Pavement. Nothing drives on it. Stand here, get your breath back, then the next street.",
+  },
+  -- The first player run over.
+  ["tutorial-1.flat"] = {
+    "Flat as a pancake. Back to the checkpoint with you.",
+    "The first lane comes from the LEFT. It's painted on the kerb. They taught reading at your school, yes?",
+  },
+  -- Somebody is past the last street.
+  ["tutorial-1.across"] = {
+    "Well, well. Still in one piece. The way on is right there on the grass. Don't trip.",
   },
 }
 

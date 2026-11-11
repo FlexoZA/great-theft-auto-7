@@ -15,6 +15,7 @@ local Checkpoint = require("src.features.tutorial.checkpoint")
 local ShoemanRender = require("src.features.tutorial.shoeman_render")
 local StartGear = require("src.features.tutorial.start_gear")
 local Traffic = require("src.features.tutorial.traffic")
+local Road = require("src.features.tutorial.road")
 
 local Tutorial = {
   name = "tutorial",
@@ -130,6 +131,14 @@ local function road()
   return map and map.lanes and map or nil
 end
 
+--- A player died: on level 1 that was a car (nothing else kills there),
+--- and Shoeman has something to say about it the first time.
+function Tutorial:serverKill(server, kill)
+  if level and level.quest == "tutorial-1" and kill.victim then
+    Comms.serverBeat(server, "flat")
+  end
+end
+
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
   StartGear.serverPlayerJoined(server, player)
@@ -146,7 +155,11 @@ function Tutorial:serverStep(server, dt)
   Comms.serverStep(server, dt)
   Objectives.serverStep(server, dt)
   StartGear.serverStep(server)
-  Traffic.serverStep(server, road())
+  local map = road()
+  Traffic.serverStep(server, map)
+  if map then
+    Road.serverStep(server, map)
+  end
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
