@@ -53,8 +53,8 @@ pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
 worlds counting it as finished. Stage 2 under way on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
-the portrait and his body in the world are done. Next: stage 2, third
-box (`comms.lua` and `story.lua`).
+the portrait, his body in the world and the comms with the opening speech
+are done. Next: stage 2, fourth box (`objectives.lua`).
 
 ### Handoff notes
 
@@ -79,6 +79,22 @@ a history.
   standing. `ShoemanRender.shoe(x, y, angle, scale, alpha)` draws the
   flying shoe (the same one he holds) for `shoe.lua`. Nothing draws him
   yet; the last box of stage 2 stands him on the maps.
+- Comms: `src/features/tutorial/story.lua` holds `Story.beats`, keyed
+  `"<quest id>.<what>"`; a line is a string or `{ "TEXT", shout = true }`
+  (red face, bigger red text, shorter hold), and `{sprint}` / `{dodge}` /
+  any control name in a line becomes the player's key (`{move}` the four
+  walking keys). Only `tutorial-1.start` (the opening speech plus the
+  moving and stamina lesson) exists so far. `src/features/tutorial/comms.lua`:
+  host side `Comms.serverStart(questId)` (from `serverQuestStarted`; says
+  the "start" beat 1.5 s later), `Comms.serverStop()`,
+  `Comms.serverBeat(server, what, again)` (once per level unless `again`),
+  `Comms.serverStep(server, dt)`; message `TUT_SAY <key>`. Client side a
+  queue (`Comms.queue`, `Comms.update`, `Comms.drawHUD` at (10, 250),
+  `Comms.busy()`), cleared on a tutorial quest's start or end and on
+  `exitGame`. init.lua wires all of it; later boxes only add beats to
+  `story.lua` and call `Comms.serverBeat`. Level 1's lesson lines will
+  want splitting into their own beats when stage 4 knows when the player
+  first sprints.
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
@@ -332,7 +348,7 @@ notice.
 
 - [x] `shoeman_face.lua`: portrait, talking mouth
 - [x] `shoeman_render.lua`: body in the world, throw pose
-- [ ] `comms.lua` and `story.lua`, with the opening speech
+- [x] `comms.lua` and `story.lua`, with the opening speech
 - [ ] `objectives.lua`: tick list, sections, host-synced
 - [ ] `checkpoint.lua`: respawn at the level's checkpoint
 - [ ] Shoeman standing on each placeholder map

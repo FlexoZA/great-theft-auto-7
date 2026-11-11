@@ -9,6 +9,7 @@
 
 local Features = require("src.features")
 local UI = require("src.ui")
+local Comms = require("src.features.tutorial.comms")
 
 local Tutorial = {
   name = "tutorial",
@@ -54,6 +55,11 @@ end
 --- the start, as a new map would have.
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
+  if level then
+    Comms.serverStart(level.quest)
+  else
+    Comms.serverStop()
+  end
   local city = Features.byName["city-map"]
   if level and not arrived and city then
     city:placePlayers(server)
@@ -63,6 +69,7 @@ end
 
 function Tutorial:serverQuestEnded()
   level = nil
+  Comms.serverStop()
 end
 
 --- Leaving the map ends the level whatever the reason; the next quest
@@ -70,12 +77,14 @@ end
 function Tutorial:mapChanged(_map, server)
   if server then
     level, arrived = nil, true
+    Comms.serverStop()
   end
 end
 
 --- The first player to reach the level's way on finishes it: the quests
 --- feature puts the EXIT star there (on to the next level, or home).
-function Tutorial:serverStep(server)
+function Tutorial:serverStep(server, dt)
+  Comms.serverStep(server, dt)
   if not level or level.done then
     return
   end
@@ -88,8 +97,32 @@ function Tutorial:serverStep(server)
   quests:serverComplete(server, level.quest, exit.x, exit.y)
 end
 
+-- Client --------------------------------------------------------------------
+
+--- A tutorial level began, or one ended: whatever he was saying stops.
+function Tutorial:questStarted(_client, quest)
+  if levelOf[quest.id] then
+    Comms.clear()
+  end
+end
+
+function Tutorial:questEnded(_client, quest)
+  if levelOf[quest.id] then
+    Comms.clear()
+  end
+end
+
+function Tutorial:exitGame()
+  Comms.clear()
+end
+
 function Tutorial:update(dt)
   time = time + dt
+  Comms.update(dt)
+end
+
+function Tutorial:drawHUD()
+  Comms.drawHUD()
 end
 
 --- The way on, marked on the ground until it is reached (then the EXIT
@@ -114,5 +147,7 @@ function Tutorial:drawBelowCars()
   love.graphics.printf("WAY ON", exit.x - 60, exit.y - 8, 120, "center")
   love.graphics.setColor(1, 1, 1)
 end
+
+Tutorial.clientMessages = Comms.clientMessages
 
 return Tutorial
