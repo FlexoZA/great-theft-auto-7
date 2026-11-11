@@ -49,9 +49,10 @@ here first, then do the first of them.
 
 Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
-the feature folder, the five quests and their four placeholder maps exist;
-the levels cannot be finished yet. Next: stage 1, fourth box (each level
-completes when a player reaches the exit).
+the feature folder, the five quests and their four placeholder maps exist,
+and each level finishes when a player reaches its way on, so the chain can
+be walked end to end. Next: stage 1, fifth box (worlds saved before the
+tutorial count it as finished).
 
 ### Handoff notes
 
@@ -61,19 +62,26 @@ a history.
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
-  of its map. No hooks yet; add them as boxes need them. Default priority
-  (100); `checkpoint.lua` will need under 100 when it comes.
+  of its map. Default priority (100); `checkpoint.lua` will need under
+  100 when it comes.
+- Finishing a level (same file, copied from `borderline/init.lua`): the
+  host keeps `level = { quest, done }`, set in `serverQuestStarted`,
+  cleared in `serverQuestEnded` and `mapChanged`. `serverStep` finds a
+  present human within `Tutorial.reach` (120 px) of the exit and calls
+  `quests:serverComplete`; the EXIT star comes up there. Until then
+  `drawBelowCars` draws a pulsing green ring labelled WAY ON (the client
+  reads `quests.active` and `quests.done`). Later stages that lock the way
+  on (level 2's five dodges, level 3's waves) add their check before the
+  reach test in `serverStep`.
+- Levels 4 and 5 share `tutorial-city`, so starting level 5 changes no
+  map and nobody is moved: `serverQuestStarted` calls the city-map
+  feature's `placePlayers` itself when no `mapChanged` came since the last
+  quest start (the `arrived` flag). Without it level 5 finished at once.
+- Every finished level shows the quests feature's "JOB DONE" banner with
+  the quest title, as on every chained line. Stage 2's comms may want to
+  say more.
 - The five quests are at the top of `Quests.list`
   (`src/features/quests/init.lua`), `boss = "tutorial"`, label SHOEMAN.
-- Box 4: nothing marks the exit on the ground yet, and nothing finishes a
-  level. The plan is a `serverStep` in the tutorial feature that, while
-  `quests` has a tutorial level active and not done, finds a player body
-  within reach of `Tutorial.EXITS[active]` and calls
-  `quests:serverComplete(server, id, exit.x, exit.y)`; the EXIT star then
-  comes up on that spot (on to `next`, or home after level 5). Something
-  should draw the spot before it is reached (`drawBelowCars`) so players
-  know where to walk. Read `quests/init.lua` around `serverComplete` and
-  `serverActive` for how to ask what is active.
 - The maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
   `tutorial-road` 24x56 tiles, `tutorial-park` 44x44, `tutorial-yard`
   and `tutorial-city` 40x40, all `empty = true` (open walled ground, like
@@ -287,7 +295,7 @@ notice.
 - [x] `src/features/tutorial/init.lua` from `_template`
 - [x] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
 - [x] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
-- [ ] Each level completes when a player reaches the exit
+- [x] Each level completes when a player reaches the exit
 - [ ] Worlds saved before the tutorial count it as finished
 - [ ] New world: only the tutorial is open; finishing level 5 opens Karen
 
