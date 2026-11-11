@@ -5,7 +5,9 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Eight jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- The first job on the board is Shoeman's school of survival, the tutorial
+-- (the tutorial feature, five maps by EXIT stars). Eight more after it:
+-- one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
@@ -92,6 +94,82 @@ local Quests = {
 -- has no `board` and no `onMap`. `introLine` is for the boss feature (A-Man
 -- says that line of his on his intro screen).
 Quests.list = {
+  {
+    -- Shoeman's school of survival (docs/tutorial.md): five levels, first on
+    -- the board so a new world starts here. The tutorial feature runs them.
+    id = "tutorial-1",
+    title = "Shoeman's school of survival",
+    text = "A big bald man in a navy t-shirt says the world has gone soft and he will teach you to survive it. "
+      .. "He is holding a shoe. Lesson one: cross the road.",
+    board = true,
+    map = "tutorial-road",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s signed up for Shoeman's school. Lesson one: cross the road.",
+    exitText = "You made it across. Shoeman is waiting in the park with a shoe.",
+    exitTitle = "Lesson two",
+    exitLabel = "DODGE",
+    next = "tutorial-2",
+  },
+  {
+    -- Level 2: the EXIT star at the top of the road leads here.
+    id = "tutorial-2",
+    title = "Dodge",
+    text = "A park, and Shoeman in the middle of it with a shoe. Dodge it.",
+    map = "tutorial-park",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s walked into the park. Lesson two: dodge.",
+    exitText = "Still standing. Next: something that shoots back. The scrap yard.",
+    exitTitle = "Lesson three",
+    exitLabel = "SCRAP YARD",
+    next = "tutorial-3",
+  },
+  {
+    -- Level 3: the park's way on leads here.
+    id = "tutorial-3",
+    title = "The scrap yard",
+    text = "Car wrecks, a gate at the far end and Shoeman with a pistol he means to hand over. Learn to shoot it.",
+    map = "tutorial-yard",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s climbed into the scrap yard. Lesson three: shooting.",
+    exitText = "The yard's gate is open. Shoeman has something for you in town.",
+    exitTitle = "Lesson four",
+    exitLabel = "OPEN BORDERS",
+    next = "tutorial-4",
+  },
+  {
+    -- Level 4: the yard's gate leads here, a small copy of the city centre.
+    id = "tutorial-4",
+    title = "Open borders",
+    text = "A small town centre with a hospital. Shoeman has an ability for you and a lot to say about it.",
+    map = "tutorial-city",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s came into town. Lesson four: abilities.",
+    exitText = "The streets are clear. Last lesson: build something that makes money.",
+    exitTitle = "Lesson five",
+    exitLabel = "BUILD",
+    next = "tutorial-5",
+  },
+  {
+    -- Level 5, the last: the same town, its plots handed over free. Its
+    -- star goes home and opens the rest of the board.
+    id = "tutorial-5",
+    title = "Build",
+    text = "The same town, its empty plots yours for free. Build, trade and sell, and Shoeman lets you go.",
+    map = "tutorial-city",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s took over the empty plots. Lesson five: building.",
+    exitText = "School's out. Shoeman says you might survive after all. Head home: the job board is yours.",
+  },
   {
     id = "karen",
     title = "Crazy Karen is at it again, let's end this",

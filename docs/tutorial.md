@@ -29,16 +29,22 @@ Every stage under "Stages" is one branch and one pull request into
    surprises, decisions made on the way), and remove notes that no longer
    matter. Add newly discovered work as new boxes in the right stage.
 5. Commit the code and this file together on the stage's branch.
-6. **Stop.** Say which box is next and that the context can be cleared.
-   Do not start the next box in the same session, even a small one,
-   unless the user asks.
+6. **Stop.** Say which box is next. Do not start it in the same session,
+   even a small one, unless the user asks.
+
+Clear the context only when it is needed, not after every box. Since every
+box leaves its notes here, clearing never loses anything, but it costs a
+re-read. Keep going in the same session while it is small; clear before a
+box that needs a lot of new reading (a big file, another feature), or when
+the session has grown long.
 
 If a box turns out too big for one session, split it into smaller boxes
 here first, then do the first of them.
 
 Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
-the feature folder exists. Next: stage 1, second box (the five quests).
+the feature folder and the five quests exist, but not their maps. Next:
+stage 1, third box (four placeholder maps).
 
 ### Handoff notes
 
@@ -49,9 +55,21 @@ a history.
   quest ids in order) and `Tutorial.level(id)` (1 to 5, or nil). No hooks
   yet; add them as boxes need them. Default priority (100); `checkpoint.lua`
   will need under 100 when it comes.
-- Not added yet: no `Quests.list` entries, no maps. Read
-  `src/features/quests` for the list and `next`, and
-  `test-range/init.lua` for how a quest feature hangs off it.
+- The five quests are at the top of `Quests.list`
+  (`src/features/quests/init.lua`), `boss = "tutorial"`, label SHOEMAN.
+  Their maps are named but **do not exist yet**: `tutorial-road` (1),
+  `tutorial-park` (2), `tutorial-yard` (3), `tutorial-city` (4 and 5).
+  Until box 3 adds them to `CityMap.maps`, taking the job is refused
+  (`serverBegin` checks `city.maps[quest.map]`) and `make audit` fails on
+  them; do not push before box 3.
+- Unlocking is linear (`Quests.unlocked`): each board job opens when the
+  one before it is finished, so finishing the tutorial opens Karen only,
+  then the rest one by one as before. Finishing is recorded under the
+  root id `tutorial-1` when `tutorial-5` completes.
+- Side effect for box 5: an existing world that never finished Karen now
+  has Karen locked behind the tutorial. Box 5 must mark `tutorial-1`
+  finished on worlds saved before it (`Quests:serverLoadWorld`, saved data
+  has `clears` keyed by board id).
 
 ## Decisions
 
@@ -244,7 +262,7 @@ notice.
 ### 1. Skeleton (`feature/tutorial-skeleton`)
 
 - [x] `src/features/tutorial/init.lua` from `_template`
-- [ ] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
+- [x] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
 - [ ] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
 - [ ] Each level completes when a player reaches the exit
 - [ ] Worlds saved before the tutorial count it as finished
