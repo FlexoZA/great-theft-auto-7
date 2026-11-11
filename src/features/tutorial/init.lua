@@ -255,6 +255,16 @@ function Tutorial:drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
+--- Weapons asks which cars go without a health bar: on level 1's road
+--- every car is traffic (players' own are stowed on a walked map), and
+--- the bars would show over the tunnel roofs.
+function Tutorial:carBarHidden()
+  local quests = Features.byName.quests
+  local city = Features.byName["city-map"]
+  return quests ~= nil and quests.active == "tutorial-1" and city ~= nil and city.map ~= nil
+    and city.map.lanes ~= nil
+end
+
 --- Shoeman, standing on the level's map, with the other walkers.
 function Tutorial:drawAboveCars()
   local quests = Features.byName.quests

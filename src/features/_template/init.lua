@@ -57,6 +57,10 @@ function MyFeature:hidden(client, id) end
 --- drawn with empty hands (weapons answers it).
 function MyFeature:emptyHanded(client, id) end
 
+--- Should car `vid` go without its health bar on this screen? True and
+--- weapons draws none under it (the tutorial's traffic).
+function MyFeature:carBarHidden(client, vid) end
+
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 

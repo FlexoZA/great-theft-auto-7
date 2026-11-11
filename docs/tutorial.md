@@ -66,8 +66,9 @@ Stage 4 under way on `feature/tutorial-road`, branched from
 Shoeman's Road built and drawn (four two-way streets, tunnel mouths, safe
 strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
 HOME star and way on moved onto it. Box 2 done: `traffic.lua` runs every
-lane during level 1, each with its own speed and gap. Next: stage 4, box 3
-(no health bar on traffic cars).
+lane during level 1, each with its own speed and gap. Box 3 done: no
+health bar under traffic cars. Next: stage 4, box 4 (a touch kills;
+respawn at the checkpoint).
 
 ### Handoff notes
 
@@ -112,9 +113,14 @@ a history.
   ends sit still and unpushed. Read lanes from `Features.byName["city-map"].map`.
 - The tunnels: `map.tunnels` roofs (grass and a concrete headwall with
   wing walls) are drawn over the cars by a new `Render.drawAbove`, called
-  from `CityMap:drawAboveCars`. What other features draw over cars still
-  shows: a car's health bar shows over the roof (box 2 may want traffic
-  cars without one). Players can walk into a tunnel (its road tiles are
+  from `CityMap:drawAboveCars`. Car health bars are gone there (box 3: a
+  new client hook `carBarHidden(client, vid)`, asked through
+  `Features.any` by weapons' bar loop in `drawAboveCars`; the tutorial
+  answers true for every car while `quests.active == "tutorial-1"` and the
+  map has `lanes`, since players' own cars are stowed on a walked map. No
+  message: the client cannot tell traffic apart, `car.traffic` is host
+  only. In `_template` and the events table of `docs/features.md`).
+  Anything else other features draw over cars would still show. Players can walk into a tunnel (its road tiles are
   open, under the roof); traffic kills them there anyway.
 - Level 1's spots now come from the road (the numbers are copied, the
   map also leaves them as `map.cx, cy` (start, checkpoint: 0, 768),
@@ -558,7 +564,7 @@ notice.
 
 - [x] Map: four two-way streets, tunnel mouths, safe strips, renderer
 - [x] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
-- [ ] No health bar on traffic cars (it shows over the tunnel roofs)
+- [x] No health bar on traffic cars (it shows over the tunnel roofs)
 - [ ] A touch kills; respawn at the checkpoint
 - [ ] Movement and stamina lines; objective "Reach the other side"
 - [ ] Way on at the top

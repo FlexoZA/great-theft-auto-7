@@ -1148,8 +1148,10 @@ function Weapons:drawAboveCars(client)
     return id ~= nil and id ~= client.myId and Features.any("hidden", client, id)
   end
   -- A bar under every car in the world, driven or not: the car's own health.
+  -- Not under a car another feature keeps bare (`carBarHidden`: the
+  -- tutorial's traffic, which would show its bar over the tunnel roofs).
   for vid, v in pairs(client.vehicles) do
-    if not hidden(v.driver) then
+    if not hidden(v.driver) and not Features.any("carBarHidden", client, vid) then
       local max = self.carMax[vid] or CAR_HEALTH
       bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
       if self.carFlash[vid] then
