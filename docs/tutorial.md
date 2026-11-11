@@ -36,16 +36,22 @@ Every stage under "Stages" is one branch and one pull request into
 If a box turns out too big for one session, split it into smaller boxes
 here first, then do the first of them.
 
-Status: stage 0 done on `feature/tutorial-shoeman-plan` (the HUD's top-left
-help text removed, this plan written). No tutorial code exists yet. Next:
-stage 1, the skeleton, first box.
+Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
+Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
+the feature folder exists. Next: stage 1, second box (the five quests).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
-- Nothing yet: stage 1 starts from a clean `main` plus stage 0.
+- `src/features/tutorial/init.lua` holds only `Tutorial.LEVELS` (the five
+  quest ids in order) and `Tutorial.level(id)` (1 to 5, or nil). No hooks
+  yet; add them as boxes need them. Default priority (100); `checkpoint.lua`
+  will need under 100 when it comes.
+- Not added yet: no `Quests.list` entries, no maps. Read
+  `src/features/quests` for the list and `next`, and
+  `test-range/init.lua` for how a quest feature hangs off it.
 
 ## Decisions
 
@@ -237,7 +243,7 @@ notice.
 
 ### 1. Skeleton (`feature/tutorial-skeleton`)
 
-- [ ] `src/features/tutorial/init.lua` from `_template`
+- [x] `src/features/tutorial/init.lua` from `_template`
 - [ ] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
 - [ ] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
 - [ ] Each level completes when a player reaches the exit
