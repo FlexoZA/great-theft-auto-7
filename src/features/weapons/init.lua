@@ -159,6 +159,8 @@
 --   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
 --   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
 --   server -> all     WPN_CHARGE <id>               (they are charging a `charge` gun: its whine and glow)
+--   server -> all     WPN_HANDS <id> <0|1>          (1: they hold no gun now, 0: a gun again; their
+--                                              body is drawn so; a latecomer gets every 1)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
@@ -394,6 +396,7 @@ function Weapons:resetSynced()
   self.carHealth = {}
   self.carMax = {}
   self.kills = {}
+  self.emptyHands = {} -- player id -> true: holds no gun (WPN_HANDS)
   self.slots = self:startSlots()
   self.tiers = {}
   self.mags = {}
@@ -442,6 +445,15 @@ function Weapons:enterGame()
   Plasma.clear()
   Sounds.stopAll()
   Reloads.clear()
+end
+
+--- Does player `id` hold no gun on this screen? Mine I know at once; the
+--- others' the host tells (WPN_HANDS). The core draws their body so.
+function Weapons:emptyHanded(client, id)
+  if id == client.myId then
+    return self.gun == nil
+  end
+  return self.emptyHands[id] == true
 end
 
 function Weapons:exitGame()
@@ -1622,6 +1634,12 @@ Weapons.clientMessages = {
       Weapons.health[id] = hp
     end
   end,
+  WPN_HANDS = function(_client, args)
+    local id = tonumber(args[1])
+    if id then
+      Weapons.emptyHands[id] = args[2] == "1" or nil
+    end
+  end,
   WPN_MAX = function(_client, args)
     local id, max = tonumber(args[1]), tonumber(args[2])
     if id and max then
@@ -1878,7 +1896,16 @@ local function freshPlayer(self, player, protectedUntil)
 end
 
 function Weapons:serverStart(server)
-  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {}, unlocked = {} }
+  local sv = {
+    time = 0,
+    projectiles = {},
+    nextId = 1,
+    players = {},
+    cars = {},
+    targets = {},
+    unlocked = {},
+    emptyHands = {}, -- player id -> true: told everyone they hold no gun (WPN_HANDS)
+  }
   for id, p in pairs(server.players) do
     if p.body then
       sv.players[id] = freshPlayer(self, p, SPAWN_PROTECTION)
@@ -1931,6 +1958,9 @@ function Weapons:serverPlayerJoined(server, player)
   end
   if self.sv and player.body and not player.bot then
     self:sendHealth(server, player)
+    for id in pairs(self.sv.emptyHands) do
+      server:send(player, Protocol.encode("WPN_HANDS", id, 1))
+    end
   end
 end
 
@@ -1989,6 +2019,7 @@ function Weapons:serverPlayerLeft(server, player)
     end
     self.sv.players[player.id] = nil
     self.sv.unlocked[player.id] = nil
+    self.sv.emptyHands[player.id] = nil
   end
 end
 
@@ -3232,6 +3263,22 @@ function Weapons:updateWrecks(server)
   end
 end
 
+--- Everyone hears when a player's hands go empty or hold a gun again
+--- (WPN_HANDS), so every screen draws their body right. Asked every step
+--- rather than at each change: a gun leaves the hand by equip, unequip,
+--- load and `heldGun`'s fallback alike.
+function Weapons:tellHands(server)
+  local sv = self.sv
+  for id, st in pairs(sv.players) do
+    local p = server.players[id]
+    local empty = p ~= nil and not p.bot and heldGun(self, p, st) == nil
+    if empty ~= (sv.emptyHands[id] == true) then
+      sv.emptyHands[id] = empty or nil
+      server:broadcast(Protocol.encode("WPN_HANDS", id, empty and 1 or 0))
+    end
+  end
+end
+
 function Weapons:serverStep(server, dt)
   local sv = self.sv
   if not sv then
@@ -3241,6 +3288,7 @@ function Weapons:serverStep(server, dt)
   self:updateWrecks(server)
   self:finishReloads(server)
   self:tellNewDrivers(server)
+  self:tellHands(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]

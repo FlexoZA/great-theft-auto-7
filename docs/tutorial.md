@@ -55,14 +55,14 @@ worlds counting it as finished. Stage 2 done on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton` (not
 pushed or merged yet): the portrait, his body standing on every level,
 the comms with the opening speech, the objectives tick list and the
-checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
-from `feature/tutorial-shoeman` (not pushed yet): new players start with
-no gun and no ability; existing saved players keep their pistol and
+checkpoints. Stage 3 done on `feature/tutorial-start-gear`, branched from
+`feature/tutorial-shoeman` (not pushed or merged yet): new players start
+with no gun and no ability; existing saved players keep their pistol and
 freeze; a newcomer to a world past the tutorial is handed the pistol and
-openborders; nothing fires or crashes with empty slots (checked, the
-`CHANGELOG.md` line written). Next: stage 3, sixth box (bodies drawn with
-empty hands), found while checking the fifth; the stage's last, so rerun
-`make audit` after it.
+openborders; nothing fires or crashes with empty slots; a body with empty
+hands is drawn without a gun on every screen. `make audit` 8.6, pass.
+Next: stage 4, first box (level 1's map), on a new branch
+`feature/tutorial-road` from `feature/tutorial-start-gear`.
 
 ### Handoff notes
 
@@ -134,15 +134,20 @@ a history.
   clicked, R, Z, X, keys 1 to 4, scope, wheel, sprint, dodge, inventory
   open and shut, killed and respawned: `st.gun` and `Weapons.gun` stay
   nil, no projectile, no error. Bots all hold gun 1 (the pistol).
-- Box 6, bodies: `Game:drawBodies` (`src/states/game.lua`) calls
-  `Body.draw` (`src/body.lua`), which always passes `gun = true`, so every
-  player on foot shows a gun, empty hands or not. Clients don't know
-  anyone else's held gun (`WPN_SELECT` is client -> host only; the host
-  keeps `st.gun`). Needs: the host broadcasting each player's gun in hand
-  (or just "empty") on change and to joiners, and a minimal core change so
-  `drawBodies` can draw `gun = false` (e.g. an optional `look`/`armed`
-  argument to `Body.draw`, or a feature hook asked per body). Both core
-  files; call it out in the pull request.
+- Empty hands drawn (box 6): a new hook `emptyHanded(client, id)`,
+  asked through `Features.any` by `Game:drawBodies`, which passes it to
+  `Body.draw`'s new sixth argument (`emptyHanded`: `gun = false`). Two core
+  files (`src/body.lua`, `src/states/game.lua`), 18 lines; call it out in
+  the pull request. Weapons answers it: my own body from `Weapons.gun`,
+  everyone else's from `Weapons.emptyHands[id]`, set by `WPN_HANDS <id>
+  <0|1>`. The host's `Weapons:tellHands` (every `serverStep`) compares
+  each human's `heldGun` against `sv.emptyHands` and broadcasts changes;
+  a latecomer gets every 1 in `serverPlayerJoined`. Bots never show empty.
+  The hook is in `_template` and the events table in `docs/features.md`.
+  Checked in a scripted run: empty at start (host, client, hook all
+  agree), uzi equipped -> armed, put down -> empty again; screenshots
+  show the arms. Not run with a real second client. Shoeman's own body
+  (`shoeman_render.lua`) is separate and unaffected.
 
 - Shoeman's portrait: `src/features/tutorial/shoeman_face.lua`,
   `ShoemanFace.new()`, `face:update(dt)`, `face:draw(cx, cy, scale)`
@@ -268,15 +273,13 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.5, box 5 of stage 3) with four majors: no
+- `make audit` passes (8.6, end of stage 3) with four majors: no
   soundtrack on the four maps. Those wait for stage 11 unless a reviewer
-  wants them sooner. Minors: `src/states/game.lua` changed (stage 0's HUD
-  cleanup; call it out in the pull request) and the branch touching 10
-  features (stage 0's HUD cleanup, borderline's switch to
-  `serverArrivedAt`, weapons and abilities here). A third minor,
-  `start_gear.lua` requiring `weapons/guns.lua`, was fixed after that run
-  (it reads `Features.byName.weapons.guns` now; gift rechecked in a
-  scripted run), so the rerun after box 6 should show it gone.
+  wants them sooner. Minors: core files changed (`src/states/game.lua`
+  for stage 0's HUD cleanup and `emptyHanded`, `src/body.lua` for
+  `emptyHanded`; call both out in the pull request) and the branch
+  touching 10 features (stage 0's HUD cleanup, borderline's switch to
+  `serverArrivedAt`, weapons and abilities here).
 
 ## Decisions
 
@@ -402,7 +405,8 @@ it.
 ## Systems
 
 What exists and is reused, and what has to be added. Nothing below needs a
-change to a core file.
+change to a core file, except stage 3's `emptyHanded` hook (`src/body.lua`,
+`src/states/game.lua`).
 
 ### Inside `src/features/tutorial/`
 
@@ -492,7 +496,7 @@ notice.
 - [x] Existing saved players keep their pistol and freeze
 - [x] Joining a world with the tutorial finished gives pistol and openborders
 - [x] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
-- [ ] Bodies drawn with empty hands: a player holding no gun shows none (every client, so the held gun must be synced)
+- [x] Bodies drawn with empty hands: a player holding no gun shows none (every client, so the held gun must be synced)
 
 ### 4. Level 1: cross the road (`feature/tutorial-road`)
 

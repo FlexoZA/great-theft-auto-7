@@ -29,7 +29,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   screen (F1).
 - New players start with nothing: four empty weapon slots, empty hands and no ability (was the pistol and
   freeze); Shoeman's lessons will hand them over. Players already in a world keep what they have, and someone
-  new joining a world whose tutorial is done gets the pistol and Open Borders straight away.
+  new joining a world whose tutorial is done gets the pistol and Open Borders straight away. Someone with empty
+  hands walks with their arms at their sides instead of holding out a gun, on every player's screen.
 
 ## [0.44.1] - 2026-11-01
 

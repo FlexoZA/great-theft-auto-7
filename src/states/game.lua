@@ -316,7 +316,7 @@ function Game:drawBodies(client)
   for id, b in pairs(client.bodies) do
     if not hidden(client, id) then
       local swing = math.sin(t * (b.running and 16 or 8) + (b.bob or 0)) * (b.running and 1.5 or 0.9)
-      Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing)
+      Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing, Features.any("emptyHanded", client, id))
       drawName(client, id, b.dx, b.dy - 30)
     end
   end

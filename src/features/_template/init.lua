@@ -53,6 +53,10 @@ function MyFeature:predictCar(client, car, dt) end
 --- side of it: `Features.visible` asks, and every enemy picking a target.
 function MyFeature:hidden(client, id) end
 
+--- Does player `id` hold no gun on this screen? True and their body is
+--- drawn with empty hands (weapons answers it).
+function MyFeature:emptyHanded(client, id) end
+
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
