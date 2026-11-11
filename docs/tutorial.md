@@ -57,7 +57,8 @@ pushed or merged yet): the portrait, his body standing on every level,
 the comms with the opening speech, the objectives tick list and the
 checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
 from `feature/tutorial-shoeman` (not pushed yet): new players start with
-no gun. Next: stage 3, second box (new players start with no ability).
+no gun and no ability. Next: stage 3, third box (existing saved players
+keep their pistol and freeze).
 
 ### Handoff notes
 
@@ -84,8 +85,18 @@ a history.
   only has to confirm that and do the same for freeze. Checked in a
   scripted run: new world, equip a pistol, save, reload: slot 2 holds it,
   in hand.
+- No ability at the start (`abilities/init.lua`): `Abilities.startKeys`
+  is `{}`, so `startSlots()` gives four empty slots on the host
+  (`serverPlayerJoined`) and the client (`exitGame`). Empty slots were
+  already a normal state (unequipping leaves one): keys 1 to 3 and the
+  fire button do nothing, the HUD draws dim rings. Bots never cast, so
+  nothing else changes. `serverLoadPlayer` already restores saved slots
+  as saved (no forced freeze), so box 3 should only need to confirm an old
+  save keeps freeze in slot 1. Checked in a scripted run: new world, all
+  four slots nil on both sides, keys pressed with no error; freeze given,
+  equipped, saved, reloaded: slot 1 holds it.
 - Until box 4, a human joining any world without a saved slice (a new
-  player on an old world too) gets no gun at all.
+  player on an old world too) gets no gun and no ability at all.
 - The pistol still can't be put down once carried (`serverUnequip`,
   `serverEquip` refusing to swap it out, the inventory's "stays with
   you"). The respawn still refills the pistol's magazine whether carried
@@ -434,7 +445,7 @@ notice.
 ### 3. Starting with nothing (`feature/tutorial-start-gear`)
 
 - [x] New players start with no gun
-- [ ] New players start with no ability
+- [x] New players start with no ability
 - [ ] Existing saved players keep their pistol and freeze
 - [ ] Joining a world with the tutorial finished gives pistol and openborders
 - [ ] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
