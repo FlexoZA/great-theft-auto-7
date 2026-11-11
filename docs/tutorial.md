@@ -53,7 +53,8 @@ pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
 worlds counting it as finished. Stage 2 under way on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
-the portrait is done. Next: stage 2, second box (`shoeman_render.lua`).
+the portrait and his body in the world are done. Next: stage 2, third
+box (`comms.lua` and `story.lua`).
 
 ### Handoff notes
 
@@ -69,6 +70,15 @@ a history.
   wins over talking). He stands before a chalkboard with a chalk boot.
   Palette for the body to match: skin `0.93, 0.74, 0.62`, brows grey
   `0.70, 0.71, 0.72`, shirt navy `0.13, 0.17, 0.33`.
+- Shoeman in the world: `src/features/tutorial/shoeman_render.lua`,
+  `ShoemanRender.draw(x, y, angle, { swing, throw, alpha })`, drawn in
+  `Body.person`'s style at `SCALE` 1.5 (`RADIUS` is his size in px). Not
+  `Body.person` itself: he needs a bald head and a throwing arm. `throw`
+  runs 0 to 1: arm back with a shoe in his fist until `WIND` (0.6), the
+  shoe leaves his hand at `RELEASE` (0.68), follow-through to 1. nil is
+  standing. `ShoemanRender.shoe(x, y, angle, scale, alpha)` draws the
+  flying shoe (the same one he holds) for `shoe.lua`. Nothing draws him
+  yet; the last box of stage 2 stands him on the maps.
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
@@ -321,7 +331,7 @@ notice.
 ### 2. Shoeman and the tutorial HUD (`feature/tutorial-shoeman`)
 
 - [x] `shoeman_face.lua`: portrait, talking mouth
-- [ ] `shoeman_render.lua`: body in the world, throw pose
+- [x] `shoeman_render.lua`: body in the world, throw pose
 - [ ] `comms.lua` and `story.lua`, with the opening speech
 - [ ] `objectives.lua`: tick list, sections, host-synced
 - [ ] `checkpoint.lua`: respawn at the level's checkpoint
