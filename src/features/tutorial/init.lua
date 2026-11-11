@@ -45,20 +45,6 @@ local level = nil -- on the host: { quest = id, done = bool } while a level is b
 local arrived = false -- on the host: the map changed since the last quest started (everyone is on its start)
 local time = 0 -- on the client, for the way on's pulse
 
---- The human player standing within `reach` of (x, y), if any.
-local function arrivedAt(server, x, y, reach)
-  for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
-      local px, py = Features.bodyPose(server, p)
-      local dx, dy = px - x, py - y
-      if dx * dx + dy * dy <= reach * reach then
-        return p
-      end
-    end
-  end
-  return nil
-end
-
 function Tutorial:serverStart()
   level, arrived = nil, false
 end
@@ -94,14 +80,12 @@ function Tutorial:serverStep(server)
     return
   end
   local exit = self.EXITS[level.quest]
-  if not (exit and arrivedAt(server, exit.x, exit.y, self.reach)) then
+  local quests = Features.byName.quests
+  if not (exit and quests and quests:serverArrivedAt(server, exit.x, exit.y, self.reach)) then
     return
   end
   level.done = true
-  local quests = Features.byName.quests
-  if quests then
-    quests:serverComplete(server, level.quest, exit.x, exit.y)
-  end
+  quests:serverComplete(server, level.quest, exit.x, exit.y)
 end
 
 function Tutorial:update(dt)

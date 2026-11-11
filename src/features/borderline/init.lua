@@ -221,20 +221,6 @@ function Borderline:serverFreezeArea(_server, x, y, radius, seconds)
   Army.serverFreezeArea(x, y, radius, seconds)
 end
 
---- The human player standing within reach of (x, y), if any.
-local function arrivedAt(server, x, y, reach)
-  for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
-      local px, py = Features.bodyPose(server, p)
-      local dx, dy = px - x, py - y
-      if dx * dx + dy * dy <= reach * reach then
-        return p
-      end
-    end
-  end
-  return nil
-end
-
 --- The `floorDrift` convention (on-foot's step): the Assembly Line's belts carry walkers.
 function Borderline:floorDrift(drift, x, y)
   return drift or Belts.drift(cityMap(), x, y)
@@ -292,16 +278,14 @@ function Borderline:serverStep(server, dt)
     Tale.serverBeat(server, "open")
   end
   level.locked = locked
-  if not (map and map.exitX) or locked or Hold.serverLocked() or BossList.first("serverLocked")
-    or not arrivedAt(server, map.exitX, map.exitY, self.reach) then
+  local quests = Features.byName.quests
+  if not (quests and map and map.exitX) or locked or Hold.serverLocked() or BossList.first("serverLocked")
+    or not quests:serverArrivedAt(server, map.exitX, map.exitY, self.reach) then
     return
   end
   level.done = true
   Tale.serverBeat(server, "end")
-  local quests = Features.byName.quests
-  if quests then
-    quests:serverComplete(server, level.quest, map.exitX, map.exitY)
-  end
+  quests:serverComplete(server, level.quest, map.exitX, map.exitY)
 end
 
 function Borderline:serverKill(server, kill)

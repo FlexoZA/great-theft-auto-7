@@ -14,6 +14,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Added
+- Shoeman's school of survival, the first job on a new world's board: five short levels, each finished by walking
+  to its way on (a green WAY ON ring). Finishing it opens Crazy Karen and the rest of the board as before. For now
+  the levels are empty fields; Shoeman and his lessons come next. Worlds saved before it count it as finished, so
+  nothing you had open gets locked.
+
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
   hints (driving, sprint and dodge, the host's bot keys) are gone; every key is still listed on the controls

@@ -48,13 +48,12 @@ If a box turns out too big for one session, split it into smaller boxes
 here first, then do the first of them.
 
 Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
-Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
-the feature folder, the five quests and their four placeholder maps exist,
-each level finishes when a player reaches its way on, so the chain can be
-walked end to end, and worlds saved before the tutorial count it as
-finished. Next: stage 1, sixth and last box (new world: only the tutorial
-is open; finishing level 5 opens Karen), then `make audit` and the
-`CHANGELOG.md` line.
+Stage 1 done on `feature/tutorial-skeleton`, branched from stage 0 (not
+pushed or merged yet): five placeholder levels, each finished by walking
+to its way on, first on a new world's board, Karen opening after it, old
+worlds counting it as finished. Next: stage 2, first box
+(`shoeman_face.lua`) on a new `feature/tutorial-shoeman` branched from
+`feature/tutorial-skeleton`.
 
 ### Handoff notes
 
@@ -66,15 +65,16 @@ a history.
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
   of its map. Default priority (100); `checkpoint.lua` will need under
   100 when it comes.
-- Finishing a level (same file, copied from `borderline/init.lua`): the
-  host keeps `level = { quest, done }`, set in `serverQuestStarted`,
-  cleared in `serverQuestEnded` and `mapChanged`. `serverStep` finds a
-  present human within `Tutorial.reach` (120 px) of the exit and calls
-  `quests:serverComplete`; the EXIT star comes up there. Until then
-  `drawBelowCars` draws a pulsing green ring labelled WAY ON (the client
-  reads `quests.active` and `quests.done`). Later stages that lock the way
-  on (level 2's five dodges, level 3's waves) add their check before the
-  reach test in `serverStep`.
+- Finishing a level (same file): the host keeps `level = { quest, done }`,
+  set in `serverQuestStarted`, cleared in `serverQuestEnded` and
+  `mapChanged`. `serverStep` asks `quests:serverArrivedAt(server, x, y,
+  reach)` (shared with borderline) for a present human within
+  `Tutorial.reach` (120 px) of the exit and calls `quests:serverComplete`;
+  the EXIT star comes up there. Until then `drawBelowCars` draws a pulsing
+  green ring labelled WAY ON (the client reads `quests.active` and
+  `quests.done`). Later stages that lock the way on (level 2's five
+  dodges, level 3's waves) add their check before the reach test in
+  `serverStep`, and should hide the ring while it is locked.
 - Levels 4 and 5 share `tutorial-city`, so starting level 5 changes no
   map and nobody is moved: `serverQuestStarted` calls the city-map
   feature's `placePlayers` itself when no `mapChanged` came since the last
@@ -84,6 +84,19 @@ a history.
   say more.
 - The five quests are at the top of `Quests.list`
   (`src/features/quests/init.lua`), `boss = "tutorial"`, label SHOEMAN.
+  `Quests.TUTORIAL = "tutorial-1"` is the board id finishing is recorded
+  under (when `tutorial-5` completes); unlocking is linear, so it opens
+  Karen only, then the rest one by one.
+- Old worlds: `Quests.SAVE_VERSION` is 2 and `serverSaveWorld` always
+  writes its slice. `Quests:serverStart(server)` reads `server.saved`: a
+  world written before (`format`) with no quests slice or a version 1 one
+  gets `tutorial-1` finished with 1 clear (shows as level 2 on the board;
+  clears under 1 are dropped by the board and by `serverLoadWorld`).
+- Verifying: scripted LÖVE runs in the scratchpad with a separate
+  `t.identity` in `conf.lua` (so real saves are untouched) and a
+  coroutine script in `main.lua`. Taking a board job needs the player at
+  `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
+  offer that ignores the accept key for its first seconds.
 - The maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
   `tutorial-road` 24x56 tiles, `tutorial-park` 44x44, `tutorial-yard`
   and `tutorial-city` 40x40, all `empty = true` (open walled ground, like
@@ -93,30 +106,11 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.7) with four majors: no soundtrack on the four
-  maps. Those wait for stage 11 unless a reviewer wants them sooner.
-- Unlocking is linear (`Quests.unlocked`): each board job opens when the
-  one before it is finished, so finishing the tutorial opens Karen only,
-  then the rest one by one as before. Finishing is recorded under the
-  root id `tutorial-1` when `tutorial-5` completes.
-- Old worlds (box 5, `quests/init.lua`): `Quests.SAVE_VERSION` is now 2
-  and `serverSaveWorld` always writes its slice, even with nothing
-  finished. `Quests:serverStart(server)` reads `server.saved`: a world
-  that was written (`format`) but has no quests slice, or a version 1
-  one, gets `Quests.TUTORIAL` (`tutorial-1`) finished with 1 clear (the
-  board and `serverLoadWorld` only take clears of 1 or more, so it shows
-  as level 2 on the board). `serverLoadWorld` still reads version 1
-  slices. Tested with a scripted run per case: new world, new world saved
-  and reopened (tutorial still open, Karen locked), old world with no
-  slice, old world with a v1 slice (Karen's 2 clears kept); the re-save
-  writes v2 with `tutorial-1 = 1`. Every world saved before this branch
-  opens with the tutorial finished.
-- Box 6 is mostly checked already: the new-world case above showed only
-  the tutorial open and Karen locked, and box 4's run showed finishing
-  level 5 sets `tutorial-1` finished, which `Quests.unlocked` reads to
-  open Karen. What is left: confirm on the client's board (Karen open
-  after level 5, the board's pick), then `make audit` and the changelog
-  line, since it is the stage's last box.
+- `make audit` passes (8.6) with four majors: no soundtrack on the four
+  maps. Those wait for stage 11 unless a reviewer wants them sooner. Two
+  minors: `src/states/game.lua` changed (stage 0's HUD cleanup; call it
+  out in the pull request) and the branch touching 9 features (stage 0's
+  HUD cleanup plus borderline's switch to `serverArrivedAt`).
 
 ## Decisions
 
@@ -313,7 +307,7 @@ notice.
 - [x] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
 - [x] Each level completes when a player reaches the exit
 - [x] Worlds saved before the tutorial count it as finished
-- [ ] New world: only the tutorial is open; finishing level 5 opens Karen
+- [x] New world: only the tutorial is open; finishing level 5 opens Karen
 
 ### 2. Shoeman and the tutorial HUD (`feature/tutorial-shoeman`)
 

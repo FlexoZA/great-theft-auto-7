@@ -1817,6 +1817,20 @@ function Quests:serverExitSpot(x, y)
   return x, y
 end
 
+--- The human player standing within `reach` of (x, y), if any: who has
+--- walked up to a level's way on (borderline, tutorial).
+function Quests:serverArrivedAt(server, x, y, reach)
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local px, py = Features.bodyPose(server, p)
+      if dist2(px, py, x, y) <= reach * reach then
+        return p
+      end
+    end
+  end
+  return nil
+end
+
 --- The job under way is finished (the karen feature says so when she goes
 --- down). Everyone hears it; the star home is still the way back. Given
 --- where the boss fell (x, y), an EXIT star home comes up there too.
