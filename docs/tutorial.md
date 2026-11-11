@@ -65,13 +65,37 @@ Stage 4 under way on `feature/tutorial-road`, branched from
 `feature/tutorial-start-gear` (not pushed or merged yet): box 1 done,
 Shoeman's Road built and drawn (four two-way streets, tunnel mouths, safe
 strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
-HOME star and way on moved onto it. Next: stage 4, box 2 (`traffic.lua`).
+HOME star and way on moved onto it. Box 2 done: `traffic.lua` runs every
+lane during level 1, each with its own speed and gap. Next: stage 4, box 3
+(no health bar on traffic cars).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Traffic (stage 4 box 2): `src/features/tutorial/traffic.lua`, host
+  only. `Traffic.serverStep(server, map)` from init.lua's `serverStep`
+  with `road()` (the city-map's map while `level.quest == "tutorial-1"`
+  and it has `lanes`, else nil: then every traffic car goes).
+  `Traffic.serverClear(server)` from `serverStart` and `mapChanged`.
+  Cars are plain boxes from `server:spawnVehicle` (no owner, so never
+  saved and never parked by `placePlayers`; no model, so the hitbox is
+  what is drawn), flagged `car.traffic`. Every step each is put back on
+  its lane (`y`, `angle`) at `setSpeed(speed)`, so friction, collisions
+  and freeze change nothing; the core's `car:update` moves it. Past
+  `toX` it is removed; a new one comes out at `fromX` once the last is a
+  gap ahead. On start the lanes are filled end to end. Tuning:
+  `Traffic.STREETS[street][lane] = { speed, gap = { min, max } }` (px/s,
+  px nose to nose), 170 to 450 px/s, the centre lane faster.
+  `Traffic.tune(lane)` reads it. A wrecked traffic car is claimed
+  (`Tutorial:serverWreckClaimed` -> `Traffic.claim`, sets `car.gone`) and
+  removed next step. For box 4: `Traffic.cars()` is car -> `{ lane,
+  tune, cars }`; `CarCollisions:runOver` still deals its usual damage, the
+  kill is box 4's. Checked in a scripted run: 35 cars at the start on all
+  16 lanes, all on their line at speed on host and client, 99 seen and 66
+  removed in 10 s, min gap 323 px, a wreck gone next step, all gone when
+  the level ends.
 - Shoeman's Road (stage 4 box 1): `city-map/tutorial_maps.lua` builds it
   (`kind = "tutorial-road"`, 24x44 tiles, `TutorialMaps.ROAD` holds the
   rows: lawn 6, streets 4 rows each with 3-row pavement strips between,
@@ -533,7 +557,8 @@ notice.
 ### 4. Level 1: cross the road (`feature/tutorial-road`)
 
 - [x] Map: four two-way streets, tunnel mouths, safe strips, renderer
-- [ ] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
+- [x] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
+- [ ] No health bar on traffic cars (it shows over the tunnel roofs)
 - [ ] A touch kills; respawn at the checkpoint
 - [ ] Movement and stamina lines; objective "Reach the other side"
 - [ ] Way on at the top

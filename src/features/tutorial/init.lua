@@ -14,6 +14,7 @@ local Objectives = require("src.features.tutorial.objectives")
 local Checkpoint = require("src.features.tutorial.checkpoint")
 local ShoemanRender = require("src.features.tutorial.shoeman_render")
 local StartGear = require("src.features.tutorial.start_gear")
+local Traffic = require("src.features.tutorial.traffic")
 
 local Tutorial = {
   name = "tutorial",
@@ -68,6 +69,7 @@ local facing = -math.pi / 2 -- on the client, where Shoeman looks
 
 function Tutorial:serverStart(server)
   level, arrived = nil, false
+  Traffic.serverClear(server)
   StartGear.serverStart(server)
 end
 
@@ -101,6 +103,7 @@ end
 function Tutorial:mapChanged(_map, server)
   if server then
     level, arrived = nil, true
+    Traffic.serverClear(server)
     Comms.serverStop()
     Objectives.serverStop(server)
   end
@@ -113,6 +116,18 @@ function Tutorial:serverRespawnPoint(spot, _server, player)
     return spot
   end
   return Checkpoint.spot(level.quest, player)
+end
+
+--- Weapons asks who takes a wreck: a traffic car is simply gone.
+function Tutorial:serverWreckClaimed(_server, car)
+  return Traffic.claim(car)
+end
+
+--- The map in play when it is level 1's road with its lanes, else nil.
+local function road()
+  local city = Features.byName["city-map"]
+  local map = level and level.quest == "tutorial-1" and city and city.map
+  return map and map.lanes and map or nil
 end
 
 function Tutorial:serverPlayerJoined(server, player)
@@ -131,6 +146,7 @@ function Tutorial:serverStep(server, dt)
   Comms.serverStep(server, dt)
   Objectives.serverStep(server, dt)
   StartGear.serverStep(server)
+  Traffic.serverStep(server, road())
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
