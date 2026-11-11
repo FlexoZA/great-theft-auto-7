@@ -49,25 +49,42 @@ here first, then do the first of them.
 
 Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
-the feature folder and the five quests exist, but not their maps. Next:
-stage 1, third box (four placeholder maps).
+the feature folder, the five quests and their four placeholder maps exist;
+the levels cannot be finished yet. Next: stage 1, fourth box (each level
+completes when a player reaches the exit).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
-- `src/features/tutorial/init.lua` holds only `Tutorial.LEVELS` (the five
-  quest ids in order) and `Tutorial.level(id)` (1 to 5, or nil). No hooks
-  yet; add them as boxes need them. Default priority (100); `checkpoint.lua`
-  will need under 100 when it comes.
+- `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
+  quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
+  `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
+  of its map. No hooks yet; add them as boxes need them. Default priority
+  (100); `checkpoint.lua` will need under 100 when it comes.
 - The five quests are at the top of `Quests.list`
   (`src/features/quests/init.lua`), `boss = "tutorial"`, label SHOEMAN.
-  Their maps are named but **do not exist yet**: `tutorial-road` (1),
-  `tutorial-park` (2), `tutorial-yard` (3), `tutorial-city` (4 and 5).
-  Until box 3 adds them to `CityMap.maps`, taking the job is refused
-  (`serverBegin` checks `city.maps[quest.map]`) and `make audit` fails on
-  them; do not push before box 3.
+- Box 4: nothing marks the exit on the ground yet, and nothing finishes a
+  level. The plan is a `serverStep` in the tutorial feature that, while
+  `quests` has a tutorial level active and not done, finds a player body
+  within reach of `Tutorial.EXITS[active]` and calls
+  `quests:serverComplete(server, id, exit.x, exit.y)`; the EXIT star then
+  comes up on that spot (on to `next`, or home after level 5). Something
+  should draw the spot before it is reached (`drawBelowCars`) so players
+  know where to walk. Read `quests/init.lua` around `serverComplete` and
+  `serverActive` for how to ask what is active.
+- The maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
+  `tutorial-road` 24x56 tiles, `tutorial-park` 44x44, `tutorial-yard`
+  and `tutorial-city` 40x40, all `empty = true` (open walled ground, like
+  `testrange`), walked, nobody about. Everyone arrives on the middle row
+  (`map.cy`: 192, -64, 64, 64). One HOME star per map (`home-tutorial-*`
+  in `Quests.list`) 240 px south of that. Backdrops are the outskirts'
+  (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
+  Stages 4 to 7 replace each with a real map (a `kind` and a builder);
+  when they do, move its HOME star and its `Tutorial.EXITS` entry.
+- `make audit` passes (8.7) with four majors: no soundtrack on the four
+  maps. Those wait for stage 11 unless a reviewer wants them sooner.
 - Unlocking is linear (`Quests.unlocked`): each board job opens when the
   one before it is finished, so finishing the tutorial opens Karen only,
   then the rest one by one as before. Finishing is recorded under the
@@ -269,7 +286,7 @@ notice.
 
 - [x] `src/features/tutorial/init.lua` from `_template`
 - [x] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
-- [ ] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
+- [x] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
 - [ ] Each level completes when a player reaches the exit
 - [ ] Worlds saved before the tutorial count it as finished
 - [ ] New world: only the tutorial is open; finishing level 5 opens Karen

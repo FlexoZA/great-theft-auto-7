@@ -220,6 +220,28 @@ CityMap.maps = {
     title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
     crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.58, 0.76 },
   },
+  -- Shoeman's school of survival (the tutorial feature, docs/tutorial.md):
+  -- the road (level 1), the park (2), the scrap yard (3) and the town
+  -- centre (4 and 5). Placeholders for now: open walled fields like the
+  -- test range, everyone arriving in the middle, the HOME star just south
+  -- of them and the way on (Tutorial.EXITS) near the top. All walked,
+  -- nobody about.
+  ["tutorial-road"] = {
+    title = "Shoeman's Road", seed = 401, cols = 24, rows = 56, empty = true,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-park"] = {
+    title = "Shoeman's Park", seed = 402, cols = 44, rows = 44, empty = true,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-yard"] = {
+    title = "Shoeman's Scrap Yard", seed = 403, cols = 40, rows = 40, empty = true,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-city"] = {
+    title = "Shoeman's Town", seed = 404, cols = 40, rows = 40, empty = true,
+    crowd = false, traffic = false, vehicles = false,
+  },
   -- The test range (the test-range feature): an open walled field to try
   -- enemies out on, walked, nobody about but what stands on it.
   testrange = {

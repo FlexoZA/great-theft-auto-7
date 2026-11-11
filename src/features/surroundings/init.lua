@@ -1229,6 +1229,10 @@ local DRAW = {
   cliff = bluff,
   outskirts = outskirts,
   testrange = outskirts,
+  ["tutorial-road"] = outskirts, -- the tutorial's placeholder fields, until each has its own (docs/tutorial.md)
+  ["tutorial-park"] = outskirts,
+  ["tutorial-yard"] = outskirts,
+  ["tutorial-city"] = outskirts,
   city17 = function(map, camera)
     local left, top, right, bottom = view(camera)
     City17.draw(map, camera, left, top, right, bottom, clock)
