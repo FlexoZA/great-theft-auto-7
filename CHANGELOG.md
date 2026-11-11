@@ -22,6 +22,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Shoeman himself: a big bald man in a navy t-shirt who stands on every tutorial level and turns to watch you. He
   talks to you over the comms with his opening speech, a list of objectives in the top-left corner ticks off as
   you go, and dying on a level brings you back at its CHECKPOINT flag.
+- Lesson one is a real road now: Shoeman's Road, four two-way streets of fast traffic between the school yard and
+  a lawn, with pavement to rest on between them. The top streets are the fastest, any touch of a car kills
+  whatever you wear, and Shoeman explains running and the stamina bar as you use it.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key

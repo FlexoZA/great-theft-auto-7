@@ -61,16 +61,16 @@ with no gun and no ability; existing saved players keep their pistol and
 freeze; a newcomer to a world past the tutorial is handed the pistol and
 openborders; nothing fires or crashes with empty slots; a body with empty
 hands is drawn without a gun on every screen. `make audit` 8.6, pass.
-Stage 4 under way on `feature/tutorial-road`, branched from
-`feature/tutorial-start-gear` (not pushed or merged yet): box 1 done,
-Shoeman's Road built and drawn (four two-way streets, tunnel mouths, safe
-strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
-HOME star and way on moved onto it. Box 2 done: `traffic.lua` runs every
-lane during level 1, each with its own speed and gap. Box 3 done: no
-health bar under traffic cars. Box 4 done: any touch of a traffic car
-kills, back at the checkpoint. Box 5 done: the movement and stamina
-lesson in beats said as it happens, "Reach the other side" ticking at the
-way on. Next: stage 4, box 6 (way on at the top: check only).
+Stage 4 done on `feature/tutorial-road`, branched from
+`feature/tutorial-start-gear` (not pushed or merged yet): Shoeman's Road
+(four two-way streets, tunnel mouths, safe strips, the school yard and
+the lawn), its traffic with a speed and gap per lane and no health bars,
+any touch of a car kills and brings you back at the checkpoint, the
+movement and stamina lesson said as it happens, "Reach the other side"
+ticking at the way on, the EXIT star on to the park. `make audit` 8.6,
+pass; `CHANGELOG.md` line added. Next: stage 5, box 1 (park map and
+renderer) on a new `feature/tutorial-dodge` branched from
+`feature/tutorial-road`.
 
 ### Handoff notes
 
@@ -139,13 +139,15 @@ a history.
   map also leaves them as `map.cx, cy` (start, checkpoint: 0, 768),
   `map.shoemanX, Y` (160, 888), `map.homeX, Y` (0, 1008: quests'
   `home-tutorial-road`), `map.exitX, Y` (0, -1216: `Tutorial.EXITS`)).
-  Change them together if `TutorialMaps.ROAD` changes. Box 6 ("Way on at
-  the top") only needs checking: the WAY ON ring already shows on the lawn,
-  and box 5's scripted run already saw `Objectives.serverOpen()` and the
-  client's `Objectives.open` true, "cross" ticked on reaching (0, -1216)
-  and `quests.done == "tutorial-1"` with the "Lesson two" offer up. Left:
-  a look at the ring on screen, the EXIT star taking everyone to the park,
-  and `make audit` plus the `CHANGELOG.md` line (the stage's last box).
+  Change them together if `TutorialMaps.ROAD` changes. The way on (box 6)
+  needed no code: checked in a scripted run, the WAY ON ring shows on the
+  lawn, reaching it ticks "cross", completes the level and offers "Lesson
+  two"; accepting the EXIT star (`Features.serverMessages.QST_ACCEPT
+  .handler(server, p, { "exit" })` in a harness) puts everyone on
+  `tutorial-park` on foot with `tutorial-2` active and no traffic left.
+  The park is next: build it in `tutorial_maps.lua`'s `BUILDERS` like the
+  road, and move `Tutorial.EXITS`, `Tutorial.SHOEMAN`, `Checkpoint.SPOTS`
+  and quests' `home-tutorial-park` with it.
 - Pickups (medkits, drinks, ammo crates) scatter on the streets too
   (`randomRoadPoint` takes any road tile). Funny bait; stage 11 may move
   them onto the pavement.
@@ -360,13 +362,14 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.6, end of stage 3) with four majors: no
+- `make audit` passes (8.6, end of stage 4) with four majors: no
   soundtrack on the four maps. Those wait for stage 11 unless a reviewer
   wants them sooner. Minors: core files changed (`src/states/game.lua`
   for stage 0's HUD cleanup and `emptyHanded`, `src/body.lua` for
   `emptyHanded`; call both out in the pull request) and the branch
   touching 10 features (stage 0's HUD cleanup, borderline's switch to
-  `serverArrivedAt`, weapons and abilities here).
+  `serverArrivedAt`, weapons and abilities here). Stage 4 also changed
+  weapons (the `carBarHidden` hook, `serverKill`): no core file.
 
 ## Decisions
 
@@ -592,7 +595,7 @@ notice.
 - [x] No health bar on traffic cars (it shows over the tunnel roofs)
 - [x] A touch kills; respawn at the checkpoint
 - [x] Movement and stamina lines; objective "Reach the other side"
-- [ ] Way on at the top
+- [x] Way on at the top
 
 ### 5. Level 2: dodge (`feature/tutorial-dodge`)
 
