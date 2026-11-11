@@ -67,8 +67,9 @@ Shoeman's Road built and drawn (four two-way streets, tunnel mouths, safe
 strips, the school yard and the lawn), level 1's checkpoint, Shoeman,
 HOME star and way on moved onto it. Box 2 done: `traffic.lua` runs every
 lane during level 1, each with its own speed and gap. Box 3 done: no
-health bar under traffic cars. Next: stage 4, box 4 (a touch kills;
-respawn at the checkpoint).
+health bar under traffic cars. Box 4 done: any touch of a traffic car
+kills, back at the checkpoint. Next: stage 4, box 5 (movement and stamina
+lines; objective "Reach the other side").
 
 ### Handoff notes
 
@@ -91,9 +92,20 @@ a history.
   px nose to nose), 170 to 450 px/s, the centre lane faster.
   `Traffic.tune(lane)` reads it. A wrecked traffic car is claimed
   (`Tutorial:serverWreckClaimed` -> `Traffic.claim`, sets `car.gone`) and
-  removed next step. For box 4: `Traffic.cars()` is car -> `{ lane,
-  tune, cars }`; `CarCollisions:runOver` still deals its usual damage, the
-  kill is box 4's. Checked in a scripted run: 35 cars at the start on all
+  removed next step. `Traffic.cars()` is car -> `{ lane, tune, cars }`.
+  The kill (box 4): after the lanes drive, `hits` tests every present
+  player on foot against every traffic car (`Car.hitTest`,
+  `Traffic.BODY_RADIUS` 8) and calls a new public
+  `Weapons:serverKill(server, victim, attacker, angle, dtype)` ("impact",
+  no attacker): `die` straight away whatever the health or armour, the
+  same players spared as by `damage` (absent, in a car, dead, spawn
+  protected); raises `serverPlayerDamaged` first, so box 5 or stage 2's
+  comms can hear a death (also `serverKill` from `die`, `victim` set,
+  `by` nil). Listed in `docs/features.md` beside `serverDamage`. The
+  run-over damage from car-collisions still lands first; harmless.
+  Checked in a scripted run: health 5000, 3 s on a safe strip alive, in
+  street 1's kerb lane dead in 0.45 s, inside a tunnel dead in 0.6 s,
+  both times back on foot at the checkpoint (0, 768). Checked in a scripted run: 35 cars at the start on all
   16 lanes, all on their line at speed on host and client, 99 seen and 66
   removed in 10 s, min gap 323 px, a wreck gone next step, all gone when
   the level ends.
@@ -565,7 +577,7 @@ notice.
 - [x] Map: four two-way streets, tunnel mouths, safe strips, renderer
 - [x] `traffic.lua`: spawn, drive, remove; lanes with their own speed and gap
 - [x] No health bar on traffic cars (it shows over the tunnel roofs)
-- [ ] A touch kills; respawn at the checkpoint
+- [x] A touch kills; respawn at the checkpoint
 - [ ] Movement and stamina lines; objective "Reach the other side"
 - [ ] Way on at the top
 

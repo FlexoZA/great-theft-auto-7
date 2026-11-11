@@ -450,6 +450,9 @@ couple of small conventions rather than requiring each other:
   `weapons:serverProtect(server, player, seconds)` gives a player that
   protection for `seconds` more (the jet run's flight): rounds pass
   through them, and nothing hurts them.
+  `weapons:serverKill(server, victim, attacker, angle, type)` kills a
+  player on foot outright, whatever their health or armour (the
+  tutorial's traffic); the same players are spared as by `serverDamage`.
 - Damage types: every hit says what kind of hit it is (`src/features/damage`,
   design and plan in `docs/damage-types.md`): "bullet", "explosive",
   "fire", "impact", "shock" or "melee", in `Damage.types` with each one's

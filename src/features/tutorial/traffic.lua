@@ -15,12 +15,21 @@
 -- a freeze). Shot to a wreck it is simply gone (`claim`, from the
 -- tutorial's `serverWreckClaimed`): the next car comes along anyway.
 --
+-- Any touch of a traffic car kills a player on foot outright, whatever
+-- they wear (`Weapons:serverKill`); they come back at the level's
+-- checkpoint (the tutorial's `serverRespawnPoint`).
+--
 --   Traffic.serverStep(server, map)  run the lanes while `map` has some, clear them when nil
 --   Traffic.serverClear(server)      every traffic car out of the world
 --   Traffic.claim(car)               true for a traffic car (it goes next step)
---   Traffic.cars()                   car -> its lane, for the contact check (box 3)
+--   Traffic.cars()                   car -> its lane entry
+
+local Features = require("src.features")
+local Car = require("src.car")
 
 local Traffic = {}
+
+Traffic.BODY_RADIUS = 8 -- px; a walker, for the touch (car-collisions' bodyRadius)
 
 -- Per street (1 the bottom, 4 the top) and lane (1 by the centre line, 2
 -- by the kerb): `speed` px/s, and the gap from one car's nose to the next
@@ -117,6 +126,27 @@ local function drive(server, entry)
   end
 end
 
+--- Anyone on foot a traffic car touches dies, run over.
+local function hits(server)
+  local weapons = Features.byName.weapons
+  if not (weapons and weapons.serverKill) then
+    return
+  end
+  for _, player in pairs(server.players) do
+    if Features.present(player) then
+      local x, y, onFoot = Features.bodyPose(server, player)
+      if onFoot then
+        for car in pairs(owned) do
+          if Car.hitTest(car, x, y, Traffic.BODY_RADIUS) then
+            weapons:serverKill(server, player, nil, car.angle, "impact")
+            break
+          end
+        end
+      end
+    end
+  end
+end
+
 --- Run the traffic while `map` (the road, during level 1) is given; with
 --- nil every car goes.
 function Traffic.serverStep(server, map)
@@ -132,6 +162,7 @@ function Traffic.serverStep(server, map)
   for _, entry in ipairs(lanes) do
     drive(server, entry)
   end
+  hits(server)
 end
 
 --- A traffic car wrecked: it is gone at the next step instead of coming

@@ -3209,6 +3209,20 @@ function Weapons:serverDamage(server, victim, attacker, amount, angle, dtype)
   return self:damage(server, victim, attacker and attacker.id, amount, 0, angle, dtype)
 end
 
+--- Public: kill `victim` on foot outright, whatever they wear or their
+--- health (the tutorial's traffic). Who can be hit is as for damage: present,
+--- alive and not under spawn protection. Returns true if they died.
+function Weapons:serverKill(server, victim, attacker, angle, dtype)
+  local sv = self.sv
+  local st = sv and sv.players[victim.id]
+  if not st or not Features.present(victim) or victim.vehicle or st.deadUntil or sv.time < st.protectedUntil then
+    return false
+  end
+  Features.call("serverPlayerDamaged", server, victim, attacker, st.hp, Damage.key(dtype), angle)
+  self:die(server, victim, attacker and attacker.id, 0, angle, dtype)
+  return true
+end
+
 --- Keep wrecks parked at their slot and bring the dead back when their time
 --- is up: alive again at the slot, behind the wheel of their own car (on
 --- foot, if somebody drove off in it).
