@@ -13,7 +13,6 @@
 -- tutorial is not finished then (they will play it).
 
 local Features = require("src.features")
-local Guns = require("src.features.weapons.guns")
 
 local StartGear = {}
 
@@ -49,8 +48,9 @@ end
 --- slot, unless they carry them already.
 function StartGear.give(server, player)
   local weapons, abilities = Features.byName.weapons, Features.byName.abilities
-  local pistol = Guns.list[Guns.DEFAULT]
-  if weapons and weapons.sv and not weapons:serverOwns(player, pistol.index) then
+  local Guns = weapons and weapons.guns
+  local pistol = Guns and Guns.list[Guns.DEFAULT]
+  if pistol and weapons.sv and not weapons:serverOwns(player, pistol.index) then
     local st = weapons.sv.players[player.id]
     for slot = 1, weapons.slotCount do
       if st and not st.slots[slot] then

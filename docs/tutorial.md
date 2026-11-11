@@ -59,9 +59,10 @@ checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
 from `feature/tutorial-shoeman` (not pushed yet): new players start with
 no gun and no ability; existing saved players keep their pistol and
 freeze; a newcomer to a world past the tutorial is handed the pistol and
-openborders. Next: stage 3, fifth box (nothing fires or crashes with empty
-gun slots: HUD, inventory, bots, audit), the stage's last: `make audit`
-and the `CHANGELOG.md` line too.
+openborders; nothing fires or crashes with empty slots (checked, the
+`CHANGELOG.md` line written). Next: stage 3, sixth box (bodies drawn with
+empty hands), found while checking the fifth; the stage's last, so rerun
+`make audit` after it.
 
 ### Handoff notes
 
@@ -123,11 +124,25 @@ a history.
 - The pistol still can't be put down once carried (`serverUnequip`,
   `serverEquip` refusing to swap it out, the inventory's "stays with
   you"). The respawn still refills the pistol's magazine whether carried
-  or not (harmless). For box 5 to check: how other players' bodies are
-  drawn with empty hands (the body may still show a pistol), the
-  inventory screen with empty slots, grenades' `lastGun` (nil is fine),
-  and the audit's arsenal matrix, which may assume slot 1 holds the
-  pistol.
+  or not (harmless).
+- Empty hands checked (box 5), no code needed: the inventory screen
+  (`inventory/screen.lua`, empty slots read "empty", no gun on the
+  figure), the magazine HUD (draws nothing), grenades' `lastGun` (nil is
+  fine), `slotOf(slots, nil)` (pairs never yields an empty slot), the
+  audit's arsenal (fires through `serverFireFrom`, never the held gun).
+  Scripted run on a new world, in the car and on foot: fire held and
+  clicked, R, Z, X, keys 1 to 4, scope, wheel, sprint, dodge, inventory
+  open and shut, killed and respawned: `st.gun` and `Weapons.gun` stay
+  nil, no projectile, no error. Bots all hold gun 1 (the pistol).
+- Box 6, bodies: `Game:drawBodies` (`src/states/game.lua`) calls
+  `Body.draw` (`src/body.lua`), which always passes `gun = true`, so every
+  player on foot shows a gun, empty hands or not. Clients don't know
+  anyone else's held gun (`WPN_SELECT` is client -> host only; the host
+  keeps `st.gun`). Needs: the host broadcasting each player's gun in hand
+  (or just "empty") on change and to joiners, and a minimal core change so
+  `drawBodies` can draw `gun = false` (e.g. an optional `look`/`armed`
+  argument to `Body.draw`, or a feature hook asked per body). Both core
+  files; call it out in the pull request.
 
 - Shoeman's portrait: `src/features/tutorial/shoeman_face.lua`,
   `ShoemanFace.new()`, `face:update(dt)`, `face:draw(cx, cy, scale)`
@@ -253,11 +268,15 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.6, rechecked at the end of stage 2) with four majors: no soundtrack on the four
-  maps. Those wait for stage 11 unless a reviewer wants them sooner. Two
-  minors: `src/states/game.lua` changed (stage 0's HUD cleanup; call it
-  out in the pull request) and the branch touching 9 features (stage 0's
-  HUD cleanup plus borderline's switch to `serverArrivedAt`).
+- `make audit` passes (8.5, box 5 of stage 3) with four majors: no
+  soundtrack on the four maps. Those wait for stage 11 unless a reviewer
+  wants them sooner. Minors: `src/states/game.lua` changed (stage 0's HUD
+  cleanup; call it out in the pull request) and the branch touching 10
+  features (stage 0's HUD cleanup, borderline's switch to
+  `serverArrivedAt`, weapons and abilities here). A third minor,
+  `start_gear.lua` requiring `weapons/guns.lua`, was fixed after that run
+  (it reads `Features.byName.weapons.guns` now; gift rechecked in a
+  scripted run), so the rerun after box 6 should show it gone.
 
 ## Decisions
 
@@ -472,7 +491,8 @@ notice.
 - [x] New players start with no ability
 - [x] Existing saved players keep their pistol and freeze
 - [x] Joining a world with the tutorial finished gives pistol and openborders
-- [ ] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
+- [x] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
+- [ ] Bodies drawn with empty hands: a player holding no gun shows none (every client, so the held gun must be synced)
 
 ### 4. Level 1: cross the road (`feature/tutorial-road`)
 

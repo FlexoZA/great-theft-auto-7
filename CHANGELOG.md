@@ -27,6 +27,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
   hints (driving, sprint and dodge, the host's bot keys) are gone; every key is still listed on the controls
   screen (F1).
+- New players start with nothing: four empty weapon slots, empty hands and no ability (was the pistol and
+  freeze); Shoeman's lessons will hand them over. Players already in a world keep what they have, and someone
+  new joining a world whose tutorial is done gets the pistol and Open Borders straight away.
 
 ## [0.44.1] - 2026-11-01
 
