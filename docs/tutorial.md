@@ -51,15 +51,24 @@ Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 done on `feature/tutorial-skeleton`, branched from stage 0 (not
 pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
-worlds counting it as finished. Next: stage 2, first box
-(`shoeman_face.lua`) on a new `feature/tutorial-shoeman` branched from
-`feature/tutorial-skeleton`.
+worlds counting it as finished. Stage 2 under way on
+`feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
+the portrait is done. Next: stage 2, second box (`shoeman_render.lua`).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Shoeman's portrait: `src/features/tutorial/shoeman_face.lua`,
+  `ShoemanFace.new()`, `face:update(dt)`, `face:draw(cx, cy, scale)`
+  (centred; 64x72 canvas, `ShoemanFace.W/H`), same shape as
+  `borderline/faces.lua`, so `comms.lua` can copy `borderline/hud.lua`
+  `drawComms` (scale 1 there). Set `face.talking` while text types out and
+  `face.shouting` for the "DODGE!!!!" (red face, vein, wide mouth, shake;
+  wins over talking). He stands before a chalkboard with a chalk boot.
+  Palette for the body to match: skin `0.93, 0.74, 0.62`, brows grey
+  `0.70, 0.71, 0.72`, shirt navy `0.13, 0.17, 0.33`.
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
@@ -311,7 +320,7 @@ notice.
 
 ### 2. Shoeman and the tutorial HUD (`feature/tutorial-shoeman`)
 
-- [ ] `shoeman_face.lua`: portrait, talking mouth
+- [x] `shoeman_face.lua`: portrait, talking mouth
 - [ ] `shoeman_render.lua`: body in the world, throw pose
 - [ ] `comms.lua` and `story.lua`, with the opening speech
 - [ ] `objectives.lua`: tick list, sections, host-synced
