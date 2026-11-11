@@ -53,9 +53,9 @@ pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
 worlds counting it as finished. Stage 2 under way on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
-the portrait, his body in the world, the comms with the opening speech
-and the objectives tick list are done. Next: stage 2, fifth box
-(`checkpoint.lua`).
+the portrait, his body in the world, the comms with the opening speech,
+the objectives tick list and the checkpoints are done. Next: stage 2,
+last box (Shoeman standing on each placeholder map).
 
 ### Handoff notes
 
@@ -119,8 +119,21 @@ a history.
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
-  of its map. Default priority (100); `checkpoint.lua` will need under
-  100 when it comes.
+  of its map. Priority 95, so its `serverRespawnPoint` answers before
+  respawn-points (100, which places walked points on any quest map) and
+  the garage (994).
+- Checkpoints: `src/features/tutorial/checkpoint.lua`,
+  `Checkpoint.SPOTS[questId] = { x, y }` (each placeholder map's start,
+  `map.cx, map.cy`), `Checkpoint.spot(questId, player)` (a fresh
+  `{ x, y, angle }` facing up; players side by side by id, host in the
+  middle, `spread` 36 px) and `Checkpoint.draw(questId, time)` (green
+  ring and flag labelled CHECKPOINT, drawn in `drawBelowCars` the whole
+  level). init.lua's `serverRespawnPoint` answers while `level` is set;
+  they come back on foot. A level with no entry falls through to the
+  others: stage 7 removes `tutorial-4`'s for the hospital. Stages 4 to 7
+  move each spot with its map (with the HOME star and the exit); level 2's
+  must be far enough from Shoeman to dodge. Checked in a scripted run:
+  killed at (300, -600) on level 1, back at (0, 192) on foot.
 - Finishing a level (same file): the host keeps `level = { quest, done }`,
   set in `serverQuestStarted`, cleared in `serverQuestEnded` and
   `mapChanged`. `serverStep` asks `quests:serverArrivedAt(server, x, y,
@@ -373,7 +386,7 @@ notice.
 - [x] `shoeman_render.lua`: body in the world, throw pose
 - [x] `comms.lua` and `story.lua`, with the opening speech
 - [x] `objectives.lua`: tick list, sections, host-synced
-- [ ] `checkpoint.lua`: respawn at the level's checkpoint
+- [x] `checkpoint.lua`: respawn at the level's checkpoint
 - [ ] Shoeman standing on each placeholder map
 
 ### 3. Starting with nothing (`feature/tutorial-start-gear`)

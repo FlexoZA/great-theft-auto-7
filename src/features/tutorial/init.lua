@@ -11,9 +11,11 @@ local Features = require("src.features")
 local UI = require("src.ui")
 local Comms = require("src.features.tutorial.comms")
 local Objectives = require("src.features.tutorial.objectives")
+local Checkpoint = require("src.features.tutorial.checkpoint")
 
 local Tutorial = {
   name = "tutorial",
+  priority = 95, -- answers serverRespawnPoint before respawn-points (100) and the garage (994)
 }
 
 -- The levels, in order. Each is a quest of the same id in `Quests.list`.
@@ -86,6 +88,15 @@ function Tutorial:mapChanged(_map, server)
   end
 end
 
+--- Weapons asks where a dead player comes back: during a level, at its
+--- checkpoint (checkpoint.lua), on foot.
+function Tutorial:serverRespawnPoint(spot, _server, player)
+  if spot or player.bot or not level then
+    return spot
+  end
+  return Checkpoint.spot(level.quest, player)
+end
+
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
 end
@@ -146,11 +157,15 @@ function Tutorial:drawHUD()
   Comms.drawHUD()
 end
 
---- The way on, marked on the ground once the objectives open it and until
---- it is reached (then the EXIT star stands there instead).
+--- The checkpoint, on the ground the whole level; the way on, once the
+--- objectives open it and until it is reached (then the EXIT star stands
+--- there instead).
 function Tutorial:drawBelowCars()
   local quests = Features.byName.quests
   local active = quests and quests.active
+  if active and levelOf[active] then
+    Checkpoint.draw(active, time)
+  end
   local exit = active and self.EXITS[active]
   if not exit or quests.done == active or not Objectives.open(active) then
     return
