@@ -55,13 +55,45 @@ worlds counting it as finished. Stage 2 done on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton` (not
 pushed or merged yet): the portrait, his body standing on every level,
 the comms with the opening speech, the objectives tick list and the
-checkpoints. Next: stage 3, first box (new players start with no gun), on
-`feature/tutorial-start-gear` branched from `feature/tutorial-shoeman`.
+checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
+from `feature/tutorial-shoeman` (not pushed yet): new players start with
+no gun. Next: stage 3, second box (new players start with no ability).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
+
+- No gun at the start (`weapons/init.lua`): `Weapons:startSlots()` holds
+  only `stock` guns now (none have one), so a new human has four empty
+  slots and empty hands: `st.gun` on the host and `Weapons.gun` on the
+  client are nil. `fallbackGun(slots)` is the one rule both sides follow
+  when the gun in hand is no longer carried: the pistol if in a slot, else
+  the lowest slot's gun, else nil. `heldGun` uses it on the host (bots
+  always fall back to the pistol, since `serverOwns` lets bots fire
+  anything), `heldStats` returns the tuned gun or nil, and `serverFire`,
+  `serverReload`, `serverSpin`, `serverCharge` and `serverStat` do
+  nothing with empty hands; the client's `tryFire`, `tryReload`,
+  `windBarrels`, `chargeShot` and `stat` likewise. Equipping a gun into
+  empty hands puts it in hand on both sides with no WPN_SELECT. The host
+  record is built by `freshPlayer` (serverStart and serverPlayerJoined).
+  The magazine HUD already draws nothing for a nil gun.
+- `serverLoadPlayer` no longer forces the pistol into a slot: saved slots
+  come back as saved. Every save made before this branch has the pistol
+  in a slot (it was always there), so existing players keep it; box 3
+  only has to confirm that and do the same for freeze. Checked in a
+  scripted run: new world, equip a pistol, save, reload: slot 2 holds it,
+  in hand.
+- Until box 4, a human joining any world without a saved slice (a new
+  player on an old world too) gets no gun at all.
+- The pistol still can't be put down once carried (`serverUnequip`,
+  `serverEquip` refusing to swap it out, the inventory's "stays with
+  you"). The respawn still refills the pistol's magazine whether carried
+  or not (harmless). For box 5 to check: how other players' bodies are
+  drawn with empty hands (the body may still show a pistol), the
+  inventory screen with empty slots, grenades' `lastGun` (nil is fine),
+  and the audit's arsenal matrix, which may assume slot 1 holds the
+  pistol.
 
 - Shoeman's portrait: `src/features/tutorial/shoeman_face.lua`,
   `ShoemanFace.new()`, `face:update(dt)`, `face:draw(cx, cy, scale)`
@@ -401,7 +433,7 @@ notice.
 
 ### 3. Starting with nothing (`feature/tutorial-start-gear`)
 
-- [ ] New players start with no gun
+- [x] New players start with no gun
 - [ ] New players start with no ability
 - [ ] Existing saved players keep their pistol and freeze
 - [ ] Joining a world with the tutorial finished gives pistol and openborders
