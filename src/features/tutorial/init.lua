@@ -12,6 +12,7 @@ local UI = require("src.ui")
 local Comms = require("src.features.tutorial.comms")
 local Objectives = require("src.features.tutorial.objectives")
 local Checkpoint = require("src.features.tutorial.checkpoint")
+local ShoemanRender = require("src.features.tutorial.shoeman_render")
 
 local Tutorial = {
   name = "tutorial",
@@ -37,6 +38,18 @@ Tutorial.EXITS = {
   ["tutorial-5"] = { x = 0, y = -1024 },
 }
 
+-- Where Shoeman stands on each level, world px: on the placeholder maps,
+-- just south-east of the checkpoint, between it and the HOME star. Stages 4
+-- to 7 move him with their maps (level 2: the middle of the park). The
+-- shoes (shoe.lua) will fly from here.
+Tutorial.SHOEMAN = {
+  ["tutorial-1"] = { x = 160, y = 312 },
+  ["tutorial-2"] = { x = 160, y = 56 },
+  ["tutorial-3"] = { x = 160, y = 184 },
+  ["tutorial-4"] = { x = 160, y = 184 },
+  ["tutorial-5"] = { x = 160, y = 184 },
+}
+
 --- The level number (1 to 5) of quest `id`, or nil when it is not a tutorial level.
 function Tutorial.level(id)
   return levelOf[id]
@@ -44,10 +57,12 @@ end
 
 -- Tuning ------------------------------------------------------------------
 Tutorial.reach = 120 -- px from the way on that finishes a level
+Tutorial.turnRate = 4 -- radians a second Shoeman turns to keep his eye on the nearest player
 
 local level = nil -- on the host: { quest = id, done = bool } while a level is being played
 local arrived = false -- on the host: the map changed since the last quest started (everyone is on its start)
 local time = 0 -- on the client, for the way on's pulse
+local facing = -math.pi / 2 -- on the client, where Shoeman looks
 
 function Tutorial:serverStart()
   level, arrived = nil, false
@@ -145,8 +160,39 @@ function Tutorial:exitGame()
   Objectives.clear()
 end
 
-function Tutorial:update(dt)
+--- The nearest player to (x, y) on this screen: their x, y, or nil.
+local function nearest(client, x, y)
+  local bx, by, best = nil, nil, math.huge
+  for id in pairs(client.bodies or {}) do
+    local px, py = Features.clientBodyPose(client, id)
+    local d = px and (px - x) ^ 2 + (py - y) ^ 2
+    if d and d < best then
+      bx, by, best = px, py, d
+    end
+  end
+  return bx, by
+end
+
+--- Shoeman turns towards the nearest player, never faster than `turnRate`.
+local function turn(client, dt)
+  local quests = Features.byName.quests
+  local at = quests and quests.active and Tutorial.SHOEMAN[quests.active]
+  if not at then
+    return
+  end
+  local px, py = nearest(client, at.x, at.y)
+  if not px then
+    return
+  end
+  local want = math.atan2(py - at.y, px - at.x)
+  local d = (want - facing + math.pi) % (2 * math.pi) - math.pi
+  local step = Tutorial.turnRate * dt
+  facing = facing + math.max(-step, math.min(step, d))
+end
+
+function Tutorial:update(dt, client)
   time = time + dt
+  turn(client, dt)
   Comms.update(dt)
   Objectives.update(dt)
 end
@@ -182,6 +228,15 @@ function Tutorial:drawBelowCars()
   love.graphics.setColor(1, 1, 1, 0.9)
   love.graphics.printf("WAY ON", exit.x - 60, exit.y - 8, 120, "center")
   love.graphics.setColor(1, 1, 1)
+end
+
+--- Shoeman, standing on the level's map, with the other walkers.
+function Tutorial:drawAboveCars()
+  local quests = Features.byName.quests
+  local at = quests and quests.active and self.SHOEMAN[quests.active]
+  if at then
+    ShoemanRender.draw(at.x, at.y, facing)
+  end
 end
 
 Tutorial.clientMessages = {}

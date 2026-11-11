@@ -51,11 +51,12 @@ Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 done on `feature/tutorial-skeleton`, branched from stage 0 (not
 pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
-worlds counting it as finished. Stage 2 under way on
-`feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
-the portrait, his body in the world, the comms with the opening speech,
-the objectives tick list and the checkpoints are done. Next: stage 2,
-last box (Shoeman standing on each placeholder map).
+worlds counting it as finished. Stage 2 done on
+`feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton` (not
+pushed or merged yet): the portrait, his body standing on every level,
+the comms with the opening speech, the objectives tick list and the
+checkpoints. Next: stage 3, first box (new players start with no gun), on
+`feature/tutorial-start-gear` branched from `feature/tutorial-shoeman`.
 
 ### Handoff notes
 
@@ -78,8 +79,17 @@ a history.
   runs 0 to 1: arm back with a shoe in his fist until `WIND` (0.6), the
   shoe leaves his hand at `RELEASE` (0.68), follow-through to 1. nil is
   standing. `ShoemanRender.shoe(x, y, angle, scale, alpha)` draws the
-  flying shoe (the same one he holds) for `shoe.lua`. Nothing draws him
-  yet; the last box of stage 2 stands him on the maps.
+  flying shoe (the same one he holds) for `shoe.lua`.
+- Shoeman on the maps: `Tutorial.SHOEMAN[questId] = { x, y }` in init.lua
+  (160 px east and 120 px south of each checkpoint, between it and the
+  HOME star). Client only: `drawAboveCars` draws him there while the
+  quest is active, and `update` turns him (`facing`, at most
+  `Tutorial.turnRate` 4 rad/s) towards the nearest body in
+  `client.bodies`. The host has no Shoeman yet: he is not solid (players
+  walk through him), has no minimap dot, and never throws. `shoe.lua`
+  (stage 5) should throw from `Tutorial.SHOEMAN` and send the throw so
+  every screen plays the `throw` pose; the facing could then come from
+  the host too. Stages 4 to 7 move him with their maps.
 - Comms: `src/features/tutorial/story.lua` holds `Story.beats`, keyed
   `"<quest id>.<what>"`; a line is a string or `{ "TEXT", shout = true }`
   (red face, bigger red text, shorter hold), and `{sprint}` / `{dodge}` /
@@ -177,7 +187,7 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.6) with four majors: no soundtrack on the four
+- `make audit` passes (8.6, rechecked at the end of stage 2) with four majors: no soundtrack on the four
   maps. Those wait for stage 11 unless a reviewer wants them sooner. Two
   minors: `src/states/game.lua` changed (stage 0's HUD cleanup; call it
   out in the pull request) and the branch touching 9 features (stage 0's
@@ -387,7 +397,7 @@ notice.
 - [x] `comms.lua` and `story.lua`, with the opening speech
 - [x] `objectives.lua`: tick list, sections, host-synced
 - [x] `checkpoint.lua`: respawn at the level's checkpoint
-- [ ] Shoeman standing on each placeholder map
+- [x] Shoeman standing on each placeholder map
 
 ### 3. Starting with nothing (`feature/tutorial-start-gear`)
 

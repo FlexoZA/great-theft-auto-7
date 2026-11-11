@@ -19,6 +19,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   to its way on (a green WAY ON ring). Finishing it opens Crazy Karen and the rest of the board as before. For now
   the levels are empty fields; Shoeman and his lessons come next. Worlds saved before it count it as finished, so
   nothing you had open gets locked.
+- Shoeman himself: a big bald man in a navy t-shirt who stands on every tutorial level and turns to watch you. He
+  talks to you over the comms with his opening speech, a list of objectives in the top-left corner ticks off as
+  you go, and dying on a level brings you back at its CHECKPOINT flag.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
