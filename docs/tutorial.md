@@ -53,8 +53,9 @@ pushed or merged yet): five placeholder levels, each finished by walking
 to its way on, first on a new world's board, Karen opening after it, old
 worlds counting it as finished. Stage 2 under way on
 `feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton`:
-the portrait, his body in the world and the comms with the opening speech
-are done. Next: stage 2, fourth box (`objectives.lua`).
+the portrait, his body in the world, the comms with the opening speech
+and the objectives tick list are done. Next: stage 2, fifth box
+(`checkpoint.lua`).
 
 ### Handoff notes
 
@@ -95,6 +96,26 @@ a history.
   `story.lua` and call `Comms.serverBeat`. Level 1's lesson lines will
   want splitting into their own beats when stage 4 knows when the player
   first sprints.
+- Objectives: `src/features/tutorial/objectives.lua`. Lists are data in
+  `Objectives.lists[questId]`: a list of sections `{ title = "Resources"
+  (optional), items = { { id, text, need = n, exit = true, timer = true } } }`.
+  Only `tutorial-1` has one so far (`cross`, `exit = true`); each later
+  stage adds its level's list there. Host: `serverStart(server, quest)` /
+  `serverStop(server)` (wired in init.lua with Comms),
+  `serverTick(server, id, n)` (counts only items of the section on screen;
+  false if not counted), `serverTimer(server, id, seconds)` (level 2's
+  "next in n s"; nil clears), `serverSection()` (section, index; level 5's
+  wrong-building check), `serverTicked(id)`, `serverOpen()` (way on open:
+  last section up and all but `exit` items ticked; true with no list),
+  `serverPlayerJoined`. A finished section waits `NEXT_AFTER` (1.5 s)
+  then the next replaces it. One message, `TUT_OBJ <quest> <section>
+  <counts csv> [<item> <secs>]`, the whole state on every change. Client:
+  `Objectives.open(quest)` hides the WAY ON ring while shut; drawn at
+  (10, 40), 18 px rows (seven items end just above the quests feature's
+  "Quest:" line at y 197). Not built: items every present player must do
+  ("pick up", "equip", decision table); stage 6 adds that (e.g. an
+  `each = true` item counted per player against `Features.present`
+  humans).
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
@@ -108,8 +129,10 @@ a history.
   the EXIT star comes up there. Until then `drawBelowCars` draws a pulsing
   green ring labelled WAY ON (the client reads `quests.active` and
   `quests.done`). Later stages that lock the way on (level 2's five
-  dodges, level 3's waves) add their check before the reach test in
-  `serverStep`, and should hide the ring while it is locked.
+  dodges, level 3's waves) need no lock code: `serverStep` asks
+  `Objectives.serverOpen()` before the reach test, ticks the exit items on
+  arrival, and the ring hides while shut. A level only adds its list and
+  `Objectives.serverTick` calls.
 - Levels 4 and 5 share `tutorial-city`, so starting level 5 changes no
   map and nobody is moved: `serverQuestStarted` calls the city-map
   feature's `placePlayers` itself when no `mapChanged` came since the last
@@ -349,7 +372,7 @@ notice.
 - [x] `shoeman_face.lua`: portrait, talking mouth
 - [x] `shoeman_render.lua`: body in the world, throw pose
 - [x] `comms.lua` and `story.lua`, with the opening speech
-- [ ] `objectives.lua`: tick list, sections, host-synced
+- [x] `objectives.lua`: tick list, sections, host-synced
 - [ ] `checkpoint.lua`: respawn at the level's checkpoint
 - [ ] Shoeman standing on each placeholder map
 

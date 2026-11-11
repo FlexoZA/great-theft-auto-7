@@ -10,6 +10,7 @@
 local Features = require("src.features")
 local UI = require("src.ui")
 local Comms = require("src.features.tutorial.comms")
+local Objectives = require("src.features.tutorial.objectives")
 
 local Tutorial = {
   name = "tutorial",
@@ -57,8 +58,10 @@ function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
   if level then
     Comms.serverStart(level.quest)
+    Objectives.serverStart(server, level.quest)
   else
     Comms.serverStop()
+    Objectives.serverStop(server)
   end
   local city = Features.byName["city-map"]
   if level and not arrived and city then
@@ -67,9 +70,10 @@ function Tutorial:serverQuestStarted(server, quest)
   arrived = false
 end
 
-function Tutorial:serverQuestEnded()
+function Tutorial:serverQuestEnded(server)
   level = nil
   Comms.serverStop()
+  Objectives.serverStop(server)
 end
 
 --- Leaving the map ends the level whatever the reason; the next quest
@@ -78,14 +82,21 @@ function Tutorial:mapChanged(_map, server)
   if server then
     level, arrived = nil, true
     Comms.serverStop()
+    Objectives.serverStop(server)
   end
 end
 
---- The first player to reach the level's way on finishes it: the quests
+function Tutorial:serverPlayerJoined(server, player)
+  Objectives.serverPlayerJoined(server, player)
+end
+
+--- The first player to reach the level's way on finishes it, once the
+--- level's objectives have opened it: the exit items tick and the quests
 --- feature puts the EXIT star there (on to the next level, or home).
 function Tutorial:serverStep(server, dt)
   Comms.serverStep(server, dt)
-  if not level or level.done then
+  Objectives.serverStep(server, dt)
+  if not level or level.done or not Objectives.serverOpen() then
     return
   end
   local exit = self.EXITS[level.quest]
@@ -94,6 +105,12 @@ function Tutorial:serverStep(server, dt)
     return
   end
   level.done = true
+  local section = Objectives.serverSection()
+  for _, item in ipairs(section and section.items or {}) do
+    if item.exit then
+      Objectives.serverTick(server, item.id)
+    end
+  end
   quests:serverComplete(server, level.quest, exit.x, exit.y)
 end
 
@@ -114,24 +131,28 @@ end
 
 function Tutorial:exitGame()
   Comms.clear()
+  Objectives.clear()
 end
 
 function Tutorial:update(dt)
   time = time + dt
   Comms.update(dt)
+  Objectives.update(dt)
 end
 
 function Tutorial:drawHUD()
+  local quests = Features.byName.quests
+  Objectives.drawHUD(quests and quests.active)
   Comms.drawHUD()
 end
 
---- The way on, marked on the ground until it is reached (then the EXIT
---- star stands there instead).
+--- The way on, marked on the ground once the objectives open it and until
+--- it is reached (then the EXIT star stands there instead).
 function Tutorial:drawBelowCars()
   local quests = Features.byName.quests
   local active = quests and quests.active
   local exit = active and self.EXITS[active]
-  if not exit or quests.done == active then
+  if not exit or quests.done == active or not Objectives.open(active) then
     return
   end
   local pulse = 0.5 + 0.5 * math.sin(time * 3)
@@ -148,6 +169,11 @@ function Tutorial:drawBelowCars()
   love.graphics.setColor(1, 1, 1)
 end
 
-Tutorial.clientMessages = Comms.clientMessages
+Tutorial.clientMessages = {}
+for _, part in ipairs({ Comms, Objectives }) do
+  for kind, handler in pairs(part.clientMessages) do
+    Tutorial.clientMessages[kind] = handler
+  end
+end
 
 return Tutorial
