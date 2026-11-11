@@ -1425,11 +1425,8 @@ end
 function Weapons:drawHUD(client)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
-  -- Kills top left; health, the car's and the guns have their own readouts
-  -- (the bar bottom left, the one over the car, the gun in hand).
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("kills %d"):format(self.kills[client.myId] or 0), 10, 46)
+  -- Health, the car's and the guns have their own readouts (the bar bottom
+  -- left, the one over the car, the gun in hand).
   -- Health stands first in the bottom-left row of stat bars: always red,
   -- and flashing once it is down to under 30%.
   local frac = hp / max

@@ -14,6 +14,11 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 
 ## [Unreleased]
 
+### Changed
+- The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
+  hints (driving, sprint and dodge, the host's bot keys) are gone; every key is still listed on the controls
+  screen (F1).
+
 ## [0.44.1] - 2026-11-01
 
 Your shots land: holding the trigger no longer sends rounds through enemies, and enemies are drawn where they really

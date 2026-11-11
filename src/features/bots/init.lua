@@ -55,7 +55,6 @@ local ServerSettings = require("src.server_settings")
 local Features = require("src.features")
 local Car = require("src.car")
 local Net = require("src.net")
-local UI = require("src.ui")
 local Controls = require("src.controls")
 local Traffic = require("src.features.bots.traffic")
 local Pursuit = require("src.features.bots.pursuit")
@@ -766,17 +765,6 @@ function Bots:keypressed(key, client)
     client:send(Protocol.encode("BOT_ADD"))
   elseif Controls.is("bot-remove", key) then
     client:send(Protocol.encode("BOT_REMOVE"))
-  end
-end
-
-function Bots:drawHUD()
-  if Net.isHost() then
-    love.graphics.setFont(UI.fonts.small)
-    love.graphics.setColor(0.6, 0.6, 0.65)
-    local add = Controls.name(Controls.bindings("bot-add")[1])
-    local remove = Controls.name(Controls.bindings("bot-remove")[1])
-    love.graphics.print(add .. ": add bot   " .. remove .. ": remove bot", 10, 82)
-    love.graphics.setColor(1, 1, 1)
   end
 end
 
