@@ -38,6 +38,12 @@ re-read. Keep going in the same session while it is small; clear before a
 box that needs a lot of new reading (a big file, another feature), or when
 the session has grown long.
 
+When it is time to clear, end with a ready-to-paste message for the user
+to send after `/clear`, naming the file, the branch and the box, e.g.:
+
+> Read docs/tutorial.md and continue with stage 1, box 3 (four placeholder
+> maps) on `feature/tutorial-skeleton`.
+
 If a box turns out too big for one session, split it into smaller boxes
 here first, then do the first of them.
 
