@@ -57,8 +57,9 @@ pushed or merged yet): the portrait, his body standing on every level,
 the comms with the opening speech, the objectives tick list and the
 checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
 from `feature/tutorial-shoeman` (not pushed yet): new players start with
-no gun and no ability. Next: stage 3, third box (existing saved players
-keep their pistol and freeze).
+no gun and no ability; existing saved players keep their pistol and
+freeze. Next: stage 3, fourth box (joining a world with the tutorial
+finished gives pistol and openborders).
 
 ### Handoff notes
 
@@ -80,19 +81,23 @@ a history.
   record is built by `freshPlayer` (serverStart and serverPlayerJoined).
   The magazine HUD already draws nothing for a nil gun.
 - `serverLoadPlayer` no longer forces the pistol into a slot: saved slots
-  come back as saved. Every save made before this branch has the pistol
-  in a slot (it was always there), so existing players keep it; box 3
-  only has to confirm that and do the same for freeze. Checked in a
-  scripted run: new world, equip a pistol, save, reload: slot 2 holds it,
-  in hand.
+  come back as saved. Existing players keep their gear with no extra code:
+  `main` forced the pistol into a slot on every load, so every save it
+  wrote has one, and freeze is saved like any ability. Saved worlds
+  (`ce9d8aa`) and saved loadouts (`fb99077`) reached `main` in the same
+  merge, so no released player file lacks the weapons or abilities slice
+  (a missing slice would skip `serverLoadPlayer` and leave them empty).
+  Checked in scripted runs: a world created and saved by `main`'s code,
+  then loaded twice by this branch's: pistol in slot 1 and in hand, freeze
+  in slot 1, on host and client both times; on foot it fires (magazine 15
+  to 14). A player who had put freeze down on `main` stays without it.
 - No ability at the start (`abilities/init.lua`): `Abilities.startKeys`
   is `{}`, so `startSlots()` gives four empty slots on the host
   (`serverPlayerJoined`) and the client (`exitGame`). Empty slots were
   already a normal state (unequipping leaves one): keys 1 to 3 and the
   fire button do nothing, the HUD draws dim rings. Bots never cast, so
-  nothing else changes. `serverLoadPlayer` already restores saved slots
-  as saved (no forced freeze), so box 3 should only need to confirm an old
-  save keeps freeze in slot 1. Checked in a scripted run: new world, all
+  nothing else changes. `serverLoadPlayer` restores saved slots as saved
+  (it never forced freeze). Checked in a scripted run: new world, all
   four slots nil on both sides, keys pressed with no error; freeze given,
   equipped, saved, reloaded: slot 1 holds it.
 - Until box 4, a human joining any world without a saved slice (a new
@@ -446,7 +451,7 @@ notice.
 
 - [x] New players start with no gun
 - [x] New players start with no ability
-- [ ] Existing saved players keep their pistol and freeze
+- [x] Existing saved players keep their pistol and freeze
 - [ ] Joining a world with the tutorial finished gives pistol and openborders
 - [ ] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
 
