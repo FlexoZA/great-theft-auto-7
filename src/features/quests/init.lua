@@ -1702,7 +1702,10 @@ local sv = nil -- { active = quest id or nil, by = player id, done = quest id or
 --                  finished = { [board job id] = true }, clears = { [board job id] = times finished },
 --                  fallen = { { x, y }... } where bosses went down on the map in play }
 
-Quests.SAVE_VERSION = 1
+-- 2: the tutorial came in. A world saved before it (version 1, or no slice
+-- at all though the world was written) counts the tutorial as finished.
+Quests.SAVE_VERSION = 2
+Quests.TUTORIAL = "tutorial-1" -- the board job a new world starts on (the tutorial feature)
 
 --- QST_FINISHED with every board job finished and its clears, in board order.
 local function finishedMessage()
@@ -1717,9 +1720,26 @@ local function finishedMessage()
 end
 
 -- City-map (lower priority) has put the default map back by now.
-function Quests:serverStart()
+--- Was the world being opened saved before the tutorial came in? It was
+--- written (`format`), but its quests slice is missing or older than 2.
+local function savedBeforeTutorial(server)
+  local saved = server and server.saved
+  if not (saved and saved.format) then
+    return false -- a new world, or a session that is not saved
+  end
+  local slice = type(saved.features) == "table" and saved.features.quests
+  return type(slice) ~= "table" or slice.version == 1
+end
+
+function Quests:serverStart(server)
   sv = { active = nil, by = nil, done = nil, finished = {}, clears = {}, fallen = {} } -- a new game: the first job
   Stats.stop()
+  if savedBeforeTutorial(server) then
+    -- Players already past it are not sent back to school: every job
+    -- they had open stays open, and the tutorial can be replayed.
+    sv.finished[self.TUTORIAL], sv.clears[self.TUTORIAL] = true, 1
+    server:broadcast(finishedMessage())
+  end
 end
 
 --- Something died: a boss's spot is kept (the EXIT star stays clear of it),
@@ -1877,9 +1897,11 @@ function Quests:serverClears(id)
   return sv and sv.clears[id] or 0
 end
 
---- The world remembers which jobs are finished, and how many times.
+--- The world remembers which jobs are finished, and how many times. Written
+--- even with none finished, so the next load knows the world is not from
+--- before the tutorial.
 function Quests:serverSaveWorld()
-  if not (sv and next(sv.finished)) then
+  if not sv then
     return nil
   end
   local clears = {}
@@ -1890,7 +1912,8 @@ function Quests:serverSaveWorld()
 end
 
 function Quests:serverLoadWorld(server, data)
-  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION or type(data.clears) ~= "table" then
+  local known = type(data) == "table" and (data.version == 1 or data.version == self.SAVE_VERSION)
+  if not sv or not known or type(data.clears) ~= "table" then
     return
   end
   for id, n in pairs(data.clears) do

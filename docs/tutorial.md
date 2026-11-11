@@ -50,9 +50,11 @@ here first, then do the first of them.
 Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
 Stage 1 under way on `feature/tutorial-skeleton`, branched from stage 0:
 the feature folder, the five quests and their four placeholder maps exist,
-and each level finishes when a player reaches its way on, so the chain can
-be walked end to end. Next: stage 1, fifth box (worlds saved before the
-tutorial count it as finished).
+each level finishes when a player reaches its way on, so the chain can be
+walked end to end, and worlds saved before the tutorial count it as
+finished. Next: stage 1, sixth and last box (new world: only the tutorial
+is open; finishing level 5 opens Karen), then `make audit` and the
+`CHANGELOG.md` line.
 
 ### Handoff notes
 
@@ -97,10 +99,24 @@ a history.
   one before it is finished, so finishing the tutorial opens Karen only,
   then the rest one by one as before. Finishing is recorded under the
   root id `tutorial-1` when `tutorial-5` completes.
-- Side effect for box 5: an existing world that never finished Karen now
-  has Karen locked behind the tutorial. Box 5 must mark `tutorial-1`
-  finished on worlds saved before it (`Quests:serverLoadWorld`, saved data
-  has `clears` keyed by board id).
+- Old worlds (box 5, `quests/init.lua`): `Quests.SAVE_VERSION` is now 2
+  and `serverSaveWorld` always writes its slice, even with nothing
+  finished. `Quests:serverStart(server)` reads `server.saved`: a world
+  that was written (`format`) but has no quests slice, or a version 1
+  one, gets `Quests.TUTORIAL` (`tutorial-1`) finished with 1 clear (the
+  board and `serverLoadWorld` only take clears of 1 or more, so it shows
+  as level 2 on the board). `serverLoadWorld` still reads version 1
+  slices. Tested with a scripted run per case: new world, new world saved
+  and reopened (tutorial still open, Karen locked), old world with no
+  slice, old world with a v1 slice (Karen's 2 clears kept); the re-save
+  writes v2 with `tutorial-1 = 1`. Every world saved before this branch
+  opens with the tutorial finished.
+- Box 6 is mostly checked already: the new-world case above showed only
+  the tutorial open and Karen locked, and box 4's run showed finishing
+  level 5 sets `tutorial-1` finished, which `Quests.unlocked` reads to
+  open Karen. What is left: confirm on the client's board (Karen open
+  after level 5, the board's pick), then `make audit` and the changelog
+  line, since it is the stage's last box.
 
 ## Decisions
 
@@ -296,7 +312,7 @@ notice.
 - [x] Quests `tutorial-1` to `tutorial-5` chained by `next`, `tutorial-1` first on the board
 - [x] Four placeholder maps (flat ground, start, HOME star, exit) so the chain can be walked end to end
 - [x] Each level completes when a player reaches the exit
-- [ ] Worlds saved before the tutorial count it as finished
+- [x] Worlds saved before the tutorial count it as finished
 - [ ] New world: only the tutorial is open; finishing level 5 opens Karen
 
 ### 2. Shoeman and the tutorial HUD (`feature/tutorial-shoeman`)
