@@ -58,8 +58,10 @@ the comms with the opening speech, the objectives tick list and the
 checkpoints. Stage 3 under way on `feature/tutorial-start-gear`, branched
 from `feature/tutorial-shoeman` (not pushed yet): new players start with
 no gun and no ability; existing saved players keep their pistol and
-freeze. Next: stage 3, fourth box (joining a world with the tutorial
-finished gives pistol and openborders).
+freeze; a newcomer to a world past the tutorial is handed the pistol and
+openborders. Next: stage 3, fifth box (nothing fires or crashes with empty
+gun slots: HUD, inventory, bots, audit), the stage's last: `make audit`
+and the `CHANGELOG.md` line too.
 
 ### Handoff notes
 
@@ -100,8 +102,24 @@ a history.
   (it never forced freeze). Checked in a scripted run: new world, all
   four slots nil on both sides, keys pressed with no error; freeze given,
   equipped, saved, reloaded: slot 1 holds it.
-- Until box 4, a human joining any world without a saved slice (a new
-  player on an old world too) gets no gun and no ability at all.
+- Start gear for newcomers: `src/features/tutorial/start_gear.lua`,
+  wired from init.lua's `serverStart`, `serverPlayerJoined` (latecomers
+  only, `server.started`), `serverPlayerLeft` and `serverStep`. A human
+  is noted on arrival as new when `server.world:readPlayer(player.key)` is
+  nil (also a guest, or no world: an unsaved session). The gift waits for
+  the first step with them `Features.present` (after `serverLoadWorld`, so
+  `quests:serverFinished(quests.TUTORIAL)` is right) and is decided once:
+  tutorial finished -> `StartGear.give(server, player)`, else nothing.
+  `give` puts the item in the bag and calls the normal `serverEquip`
+  (pistol into the first empty weapon slot, openborders into ability slot
+  1), skipping what they carry or a taken slot; a failed equip takes the
+  item back out. Level 4 ("gives a pistol if the player has none") can
+  call `StartGear.give` or copy its pistol half. Checked in scripted runs:
+  a world marked finished with the player file deleted gives pistol (in
+  hand, fires 15 to 14 on foot) and openborders on host and client; the
+  next load (file saved, openborders put down) gives nothing again; a new
+  world gives nothing. Not run with a real second client (the latecomer
+  path is the same note and step).
 - The pistol still can't be put down once carried (`serverUnequip`,
   `serverEquip` refusing to swap it out, the inventory's "stays with
   you"). The respawn still refills the pistol's magazine whether carried
@@ -376,6 +394,7 @@ change to a core file.
 | `comms.lua` | Portrait and typed text at the usual panel spot `(10, 250)`, played from a queue the host raises. | `borderline/hud.lua` `drawComms`, `borderline/tale.lua` |
 | `objectives.lua` | Tick-box list per section, sent by the host, drawn top left; a finished section is removed. New: no quest has a tick list yet. | `borderline/hud.lua` `drawObjective` for the spot and look |
 | `checkpoint.lua` | Answers `serverRespawnPoint` with the level's checkpoint (feature priority under 100 so it answers first). | `respawn-points/init.lua` |
+| `start_gear.lua` | Hands the pistol and openborders to a newcomer (no saved file) on a world past the tutorial. | `weapons` and `abilities` `serverEquip` |
 | `shoeman_face.lua`, `shoeman_render.lua` | His portrait and his body in the world. | `src/art/face.lua`, `borderline/faces.lua`, `Body.person` |
 | `shoe.lua` | The shout, the throw and the shoe: kills players, wrecks cars and buildings, kills enemies in its path. | `Weapons:explode` (`weapons/init.lua`), which already walks players, cars, `serverBlast` and `serverShotAt` |
 | `traffic.lua` | Level 1's cars: `server:spawnVehicle`, speed set every step, removed in the far tunnel; contact check with `Car.hitTest`. | `car-collisions/init.lua` `runOver` |
@@ -452,7 +471,7 @@ notice.
 - [x] New players start with no gun
 - [x] New players start with no ability
 - [x] Existing saved players keep their pistol and freeze
-- [ ] Joining a world with the tutorial finished gives pistol and openborders
+- [x] Joining a world with the tutorial finished gives pistol and openborders
 - [ ] Nothing fires or crashes with empty gun slots (HUD, inventory, bots, audit)
 
 ### 4. Level 1: cross the road (`feature/tutorial-road`)

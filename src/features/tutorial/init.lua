@@ -13,6 +13,7 @@ local Comms = require("src.features.tutorial.comms")
 local Objectives = require("src.features.tutorial.objectives")
 local Checkpoint = require("src.features.tutorial.checkpoint")
 local ShoemanRender = require("src.features.tutorial.shoeman_render")
+local StartGear = require("src.features.tutorial.start_gear")
 
 local Tutorial = {
   name = "tutorial",
@@ -64,8 +65,9 @@ local arrived = false -- on the host: the map changed since the last quest start
 local time = 0 -- on the client, for the way on's pulse
 local facing = -math.pi / 2 -- on the client, where Shoeman looks
 
-function Tutorial:serverStart()
+function Tutorial:serverStart(server)
   level, arrived = nil, false
+  StartGear.serverStart(server)
 end
 
 --- A level begins. Levels 4 and 5 share the town, so level 5 starts with no
@@ -114,6 +116,11 @@ end
 
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
+  StartGear.serverPlayerJoined(server, player)
+end
+
+function Tutorial:serverPlayerLeft(_server, player)
+  StartGear.serverPlayerLeft(player)
 end
 
 --- The first player to reach the level's way on finishes it, once the
@@ -122,6 +129,7 @@ end
 function Tutorial:serverStep(server, dt)
   Comms.serverStep(server, dt)
   Objectives.serverStep(server, dt)
+  StartGear.serverStep(server)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
