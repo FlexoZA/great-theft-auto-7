@@ -14,11 +14,12 @@ local Checkpoint = {}
 
 -- World px, on each map's start (city-map's `map.cx, map.cy`, between the
 -- two rows of spawns; Shoeman's Road's in its school yard, the park's at
--- the bottom of its lawn). Stages 6 and 7 move the rest with their maps.
+-- the bottom of its lawn, the scrap yard's on its pad in the bottom-left
+-- corner). Stage 7 moves the town's with its map.
 Checkpoint.SPOTS = {
   ["tutorial-1"] = { x = 0, y = 768 },
   ["tutorial-2"] = { x = 0, y = 768 },
-  ["tutorial-3"] = { x = 0, y = 64 },
+  ["tutorial-3"] = { x = -896, y = 896 },
   ["tutorial-4"] = { x = 0, y = 64 },
   ["tutorial-5"] = { x = 0, y = 64 },
 }

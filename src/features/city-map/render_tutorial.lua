@@ -12,6 +12,11 @@
 -- path up the middle through his paved circle to the iron gate at the
 -- top; the chalk ring round the dodging ground with old shoes lying in
 -- the grass; the pond, beds, trees, lamps, benches and his board.
+-- Shoeman's Scrap Yard: packed dirt with tyre tracks, oil and puddles
+-- inside a corrugated fence; the concrete pad and site office in the
+-- bottom-left corner; wrecks piled along the fences, the crusher under
+-- its crane, lone wrecks and tyre heaps out in the yard, junk lying about,
+-- the squirrels' burrows, and the gate in the top fence.
 
 local TutorialMaps = require("src.features.city-map.tutorial_maps")
 
@@ -60,6 +65,21 @@ local C = {
   lamp = { 1.00, 0.93, 0.70 },
   shoe = { 0.30, 0.20, 0.13 },
   shoeSole = { 0.12, 0.10, 0.09 },
+  dirt = { 0.45, 0.39, 0.31 },
+  dirtLight = { 0.53, 0.47, 0.38 },
+  dirtDark = { 0.36, 0.31, 0.25 },
+  track = { 0.30, 0.26, 0.21, 0.55 },
+  puddle = { 0.25, 0.30, 0.33, 0.75 },
+  sheet = { 0.56, 0.58, 0.58 },
+  sheetDark = { 0.42, 0.44, 0.45 },
+  rust = { 0.55, 0.30, 0.16 },
+  rustDark = { 0.38, 0.20, 0.11 },
+  glass = { 0.55, 0.68, 0.74 },
+  tyre = { 0.10, 0.10, 0.11 },
+  tyreLight = { 0.22, 0.22, 0.23 },
+  hazard = { 0.95, 0.75, 0.15 },
+  office = { 0.86, 0.84, 0.76 },
+  officeRoof = { 0.66, 0.64, 0.58 },
 }
 
 local function color(c, a)
@@ -449,7 +469,353 @@ local function drawPark(map, T)
   end
 end
 
-local DRAW = { ["tutorial-road"] = drawRoad, ["tutorial-park"] = drawPark }
+--- A wrecked car, centred on (0, 0) and lying along x, `w` long and `h`
+--- wide: dented paint, a smashed windscreen, a door or the bonnet gone,
+--- rust; `burnt` ones black through.
+local function carWreck(w, h, c, seed, burnt)
+  color(C.shadow)
+  love.graphics.rectangle("fill", -w / 2 + 5, -h / 2 + 6, w, h, 6)
+  if burnt then
+    love.graphics.setColor(0.16, 0.14, 0.13)
+  else
+    color(c)
+  end
+  love.graphics.rectangle("fill", -w / 2, -h / 2, w, h, 6)
+  -- The cabin: roof between the windscreens.
+  love.graphics.setColor(0, 0, 0, 0.25)
+  love.graphics.rectangle("fill", -w * 0.18, -h / 2 + 3, w * 0.42, h - 6, 4)
+  color(burnt and C.ironDark or C.glass, 0.9)
+  love.graphics.polygon("fill", w * 0.24, -h / 2 + 4, w * 0.32, -h / 2 + 6, w * 0.32, h / 2 - 6, w * 0.24, h / 2 - 4)
+  love.graphics.rectangle("fill", -w * 0.26, -h / 2 + 5, w * 0.07, h - 10)
+  -- Cracks across the screen, rust patches, a dent.
+  color(C.chalk, 0.7)
+  love.graphics.setLineWidth(1)
+  love.graphics.line(w * 0.25, -h * 0.2, w * 0.31, h * 0.1, w * 0.26, h * 0.3)
+  for k = 1, 3 do
+    color(hash(seed + k) < 0.5 and C.rust or C.rustDark, burnt and 0.5 or 0.85)
+    love.graphics.circle("fill", (hash(seed * 1.7 + k) - 0.5) * w * 0.8, (hash(seed * 2.3 + k) - 0.5) * h * 0.7,
+      3 + hash(seed + k * 3.1) * 5, 8)
+  end
+  if hash(seed * 4.1) < 0.5 then -- no bonnet: the engine bay
+    color(C.ironDark)
+    love.graphics.rectangle("fill", w * 0.33, -h / 2 + 5, w * 0.14, h - 10, 2)
+    color(C.iron)
+    love.graphics.rectangle("fill", w * 0.36, -h * 0.2, w * 0.07, h * 0.4)
+  end
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("line", -w / 2, -h / 2, w, h, 6)
+end
+
+--- A lone wreck in the yard.
+local function wreck(k)
+  love.graphics.push()
+  love.graphics.translate(k.x, k.y)
+  love.graphics.rotate(k.a + (k.w < k.h and math.pi / 2 or 0) + (k.flip and math.pi or 0))
+  local long, wide = math.max(k.w, k.h), math.min(k.w, k.h)
+  carWreck(long, wide, k.color, k.seed, k.burnt)
+  love.graphics.pop()
+end
+
+--- Wrecks piled along a fence: each car in the row on top of the ones
+--- under it, a shade lighter the higher it sits.
+local function pile(p)
+  color(C.shadow)
+  love.graphics.rectangle("fill", p.x + 8, p.y + 10, p.w, p.h)
+  local across = p.along == "x" and p.h or p.w
+  local step = (p.along == "x" and p.w or p.h) / math.max(1, #p.cars)
+  for _, car in ipairs(p.cars) do
+    for level = 1, car.tall do
+      love.graphics.push()
+      local o = car.k * step + step / 2 + car.jx * level
+      local q = across / 2 + car.jy * level - (level - 1) * 3
+      if p.along == "x" then
+        love.graphics.translate(p.x + o, p.y + q)
+      else
+        love.graphics.translate(p.x + q, p.y + o)
+        love.graphics.rotate(math.pi / 2)
+      end
+      love.graphics.rotate((hash(p.seed + car.k * 7 + level) - 0.5) * 0.25)
+      carWreck(step - 6, across - 10, car.color, p.seed + car.k * 13 + level, false)
+      love.graphics.setColor(1, 1, 1, 0.07 * (level - 1))
+      love.graphics.rectangle("fill", -(step - 6) / 2, -(across - 10) / 2, step - 6, across - 10, 6)
+      love.graphics.pop()
+    end
+  end
+end
+
+--- A heap of tyres.
+local function tyres(t)
+  color(C.shadow)
+  love.graphics.circle("fill", t.x + 6, t.y + 8, 26, 16)
+  for k = 0, 4 do
+    local a = hash(t.seed + k) * math.pi * 2
+    local r = k == 4 and 0 or 12
+    local x, y = t.x + math.cos(a) * r, t.y + math.sin(a) * r
+    color(C.tyre)
+    love.graphics.circle("fill", x, y, 13, 16)
+    color(C.tyreLight)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", x, y, 10, 16)
+    color(C.dirtDark)
+    love.graphics.circle("fill", x, y, 5, 10)
+  end
+end
+
+local function yardDecor(d)
+  if d.kind == "track" then
+    color(C.track)
+    love.graphics.push()
+    love.graphics.translate(d.x, d.y)
+    love.graphics.rotate(d.a)
+    love.graphics.rectangle("fill", 0, -14, d.len, 7)
+    love.graphics.rectangle("fill", 0, 7, d.len, 7)
+    love.graphics.pop()
+  elseif d.kind == "puddle" then
+    color(C.puddle)
+    love.graphics.ellipse("fill", d.x, d.y, d.r * 1.6, d.r, 16)
+    color(C.glass, 0.35)
+    love.graphics.ellipse("fill", d.x - d.r * 0.4, d.y - d.r * 0.3, d.r * 0.5, d.r * 0.2, 10)
+  elseif d.kind == "drum" then
+    color(C.shadow)
+    love.graphics.circle("fill", d.x + 4, d.y + 5, 13, 14)
+    color(hash(d.seed) < 0.5 and C.rust or { 0.20, 0.36, 0.55 })
+    love.graphics.circle("fill", d.x, d.y, 13, 14)
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", d.x, d.y, 9, 14)
+  elseif d.kind == "part" then -- an engine block
+    love.graphics.push()
+    love.graphics.translate(d.x, d.y)
+    love.graphics.rotate(d.a)
+    color(C.ironDark)
+    love.graphics.rectangle("fill", -14, -10, 28, 20, 3)
+    color(C.iron)
+    for k = 0, 3 do
+      love.graphics.circle("fill", -9 + k * 6, 0, 2.5, 6)
+    end
+    love.graphics.pop()
+  elseif d.kind == "door" then
+    love.graphics.push()
+    love.graphics.translate(d.x, d.y)
+    love.graphics.rotate(d.a)
+    color(TutorialMaps.WRECK_COLORS[math.floor(hash(d.seed) * #TutorialMaps.WRECK_COLORS) + 1])
+    love.graphics.rectangle("fill", -18, -8, 36, 16, 3)
+    color(C.glass, 0.8)
+    love.graphics.rectangle("fill", -14, -6, 14, 12, 2)
+    color(C.rust, 0.8)
+    love.graphics.circle("fill", 8, 3, 4, 8)
+    love.graphics.pop()
+  elseif d.kind == "wheel" then
+    color(C.tyre)
+    love.graphics.circle("fill", d.x, d.y, 11, 14)
+    color(C.iron)
+    love.graphics.circle("fill", d.x, d.y, 5, 10)
+  elseif d.kind == "sign" then
+    color(C.lampPost)
+    love.graphics.rectangle("fill", d.x + 4, d.y + 50, 6, 30)
+    love.graphics.rectangle("fill", d.x + 150, d.y + 50, 6, 30)
+    color(C.hazard)
+    love.graphics.rectangle("fill", d.x, d.y, 160, 54)
+    color(C.ironDark)
+    love.graphics.setFont(font(14))
+    love.graphics.printf("SHOEMAN'S SCRAP\nNO REFUNDS", d.x, d.y + 9, 160, "center")
+  else
+    decor(d)
+  end
+end
+
+--- The site office: a portacabin with a door and a window to the yard.
+local function office(o)
+  color(C.shadow)
+  love.graphics.rectangle("fill", o.x + 10, o.y + 12, o.w, o.h)
+  color(C.office)
+  love.graphics.rectangle("fill", o.x, o.y, o.w, o.h)
+  color(C.officeRoof)
+  for k = 0, math.floor(o.h / 16) - 1 do
+    love.graphics.rectangle("fill", o.x + 4, o.y + 4 + k * 16, o.w - 8, 10)
+  end
+  color(C.hazard)
+  love.graphics.rectangle("fill", o.x, o.y + o.h - 8, o.w, 8)
+  color(C.ironDark)
+  for k = 0, math.floor(o.w / 16) - 1, 2 do
+    love.graphics.rectangle("fill", o.x + k * 16, o.y + o.h - 8, 8, 8)
+  end
+  color(C.woodDark)
+  love.graphics.rectangle("fill", o.x + o.w - 14, o.y + 40, 14, 40)
+end
+
+--- The crusher, its press open, and the crane's arm over it.
+local function crusher(c)
+  color(C.shadow)
+  love.graphics.rectangle("fill", c.x + 12, c.y + 14, c.w, c.h)
+  color(C.concreteDark)
+  love.graphics.rectangle("fill", c.x, c.y, c.w, c.h)
+  color(C.ironDark)
+  love.graphics.rectangle("fill", c.x + 16, c.y + 16, c.w - 32, c.h - 32)
+  color(C.hazard)
+  love.graphics.rectangle("fill", c.x, c.y, c.w, 12)
+  love.graphics.rectangle("fill", c.x, c.y + c.h - 12, c.w, 12)
+  color(C.ironDark)
+  for x = c.x, c.x + c.w - 12, 24 do
+    love.graphics.polygon("fill", x, c.y, x + 12, c.y, x + 4, c.y + 12, x - 8, c.y + 12)
+    love.graphics.polygon("fill", x, c.y + c.h - 12, x + 12, c.y + c.h - 12, x + 4, c.y + c.h, x - 8, c.y + c.h)
+  end
+  -- A cube of crushed car in the press.
+  love.graphics.push()
+  love.graphics.translate(c.x + c.w * 0.4, c.y + c.h / 2)
+  carWreck(c.w * 0.45, c.h * 0.35, TutorialMaps.WRECK_COLORS[2], 77, false)
+  love.graphics.pop()
+  -- The crane: its cab beside the press, the arm across it, the magnet.
+  local bx, by = c.x + c.w + 50, c.y + c.h + 40
+  local mx, my = c.x + c.w / 2, c.y + c.h / 2
+  color(C.shadow)
+  love.graphics.setLineWidth(14)
+  love.graphics.line(bx + 14, by + 18, mx + 14, my + 18)
+  color(C.hazard)
+  love.graphics.line(bx, by, mx, my)
+  color(C.ironDark)
+  love.graphics.setLineWidth(2)
+  for k = 1, 9 do
+    local t0, t1 = (k - 1) / 9, k / 9
+    love.graphics.line(bx + (mx - bx) * t0, by + (my - by) * t0 - 6, bx + (mx - bx) * t1, by + (my - by) * t1 + 6)
+  end
+  color(C.ironDark)
+  love.graphics.circle("fill", mx, my, 20, 20)
+  color(C.iron)
+  love.graphics.circle("fill", mx, my, 14, 20)
+  color(C.hazard)
+  love.graphics.rectangle("fill", bx - 22, by - 18, 44, 36, 4)
+  color(C.glass)
+  love.graphics.rectangle("fill", bx - 14, by - 12, 18, 14, 2)
+end
+
+--- A squirrel burrow: a mound of turned dirt with a dark hole and nut shells.
+local function den(dn)
+  color(C.dirtDark)
+  love.graphics.ellipse("fill", dn.x, dn.y, 46, 34, 20)
+  color(C.dirtLight)
+  love.graphics.ellipse("fill", dn.x - 6, dn.y - 6, 36, 24, 20)
+  love.graphics.setColor(0.08, 0.06, 0.05)
+  love.graphics.ellipse("fill", dn.x + 4, dn.y + 2, 16, 11, 14)
+  color(C.wood)
+  for k = 1, 6 do
+    local a = hash(dn.x + k * 3.3) * math.pi * 2
+    love.graphics.circle("fill", dn.x + math.cos(a) * 52, dn.y + math.sin(a) * 40, 3, 6)
+  end
+end
+
+--- The gate in the top fence: two chain-link leaves, shut, between posts.
+local function gate(g)
+  local x0, x1 = g.x - g.w / 2, g.x + g.w / 2
+  color(C.dirt)
+  love.graphics.rectangle("fill", x0, g.y - 64, g.w, 64)
+  color(C.lampPost)
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", x0 + 4, g.y - 40, g.w / 2 - 6, 28)
+  love.graphics.rectangle("line", g.x + 2, g.y - 40, g.w / 2 - 6, 28)
+  color(C.iron, 0.8)
+  love.graphics.setLineWidth(1)
+  for x = x0 + 8, x1 - 8, 8 do
+    love.graphics.line(x, g.y - 40, x + 8, g.y - 12)
+    love.graphics.line(x + 8, g.y - 40, x, g.y - 12)
+  end
+  color(C.hazard)
+  love.graphics.rectangle("fill", x0 - 16, g.y - 72, 16, 78)
+  love.graphics.rectangle("fill", x1, g.y - 72, 16, 78)
+  color(C.ironDark)
+  for k = 0, 3 do
+    love.graphics.rectangle("fill", x0 - 16, g.y - 66 + k * 20, 16, 8)
+    love.graphics.rectangle("fill", x1, g.y - 66 + k * 20, 16, 8)
+  end
+end
+
+--- Shoeman's Scrap Yard into the canvas.
+local function drawYard(map, T)
+  local F = TutorialMaps.YARD.fence * T
+  -- The yard inside the fence: packed dirt, speckled.
+  local x0, y0, w, h = map.left + F, map.top + F, map.w - 2 * F, map.h - 2 * F
+  color(C.dirt)
+  love.graphics.rectangle("fill", x0, y0, w, h)
+  for i = 1, math.floor(w * h / 600) do
+    color(hash(i * 1.9) < 0.5 and C.dirtLight or C.dirtDark, 0.6)
+    love.graphics.rectangle("fill", x0 + hash(i * 1.3) * (w - 6), y0 + hash(i * 2.7) * (h - 4), 3 + hash(i * 4.1) * 5,
+      3)
+  end
+  -- The pad, slabs of concrete with a hazard stripe at its edge.
+  local p = map.pad
+  color(C.concrete)
+  love.graphics.rectangle("fill", p.x, p.y, p.w, p.h)
+  color(C.concreteDark)
+  love.graphics.setLineWidth(2)
+  for x = p.x + 128, p.x + p.w - 1, 128 do
+    love.graphics.line(x, p.y, x, p.y + p.h)
+  end
+  for y = p.y + 128, p.y + p.h - 1, 128 do
+    love.graphics.line(p.x, y, p.x + p.w, y)
+  end
+  color(C.hazard)
+  love.graphics.rectangle("fill", p.x, p.y - 10, p.w, 10)
+  love.graphics.rectangle("fill", p.x + p.w, p.y - 10, 10, p.h + 10)
+  color(C.ironDark)
+  for x = p.x, p.x + p.w - 8, 20 do
+    love.graphics.rectangle("fill", x, p.y - 10, 10, 10)
+  end
+  for y = p.y, p.y + p.h - 8, 20 do
+    love.graphics.rectangle("fill", p.x + p.w, y, 10, 10)
+  end
+  for _, d in ipairs(map.decor) do
+    if d.kind == "track" or d.kind == "stain" or d.kind == "puddle" then
+      yardDecor(d)
+    end
+  end
+  -- The fence all round, over the ends of any tyre tracks: corrugated
+  -- sheets, some rusted through; its shadow on the dirt.
+  for i, s in ipairs({ { map.left, map.top, map.w, F }, { map.left, y0 + h, map.w, F }, { map.left, y0, F, h },
+    { x0 + w, y0, F, h } }) do
+    color(C.sheet)
+    love.graphics.rectangle("fill", s[1], s[2], s[3], s[4])
+    color(C.sheetDark)
+    if s[3] > s[4] then
+      for x = s[1], s[1] + s[3] - 5, 12 do
+        love.graphics.rectangle("fill", x, s[2], 5, s[4])
+      end
+    else
+      for y = s[2], s[2] + s[4] - 5, 12 do
+        love.graphics.rectangle("fill", s[1], y, s[3], 5)
+      end
+    end
+    for k = 1, 15 do
+      color(C.rust, 0.55)
+      love.graphics.circle("fill", s[1] + hash(i * 50 + k * 3.1) * s[3], s[2] + hash(i * 50 + k * 5.3) * s[4],
+        5 + hash(i * 50 + k * 7.7) * 12, 10)
+    end
+  end
+  color(C.shadow)
+  love.graphics.rectangle("fill", x0, y0, w, 10)
+  love.graphics.rectangle("fill", x0, y0, 10, h)
+  gate(map.gate)
+  for _, dn in ipairs(map.dens) do
+    den(dn)
+  end
+  for _, d in ipairs(map.decor) do
+    if not (d.kind == "track" or d.kind == "stain" or d.kind == "puddle") then
+      yardDecor(d)
+    end
+  end
+  for _, t in ipairs(map.tyres) do
+    tyres(t)
+  end
+  for _, k in ipairs(map.wrecks) do
+    wreck(k)
+  end
+  for _, s in ipairs(map.piles) do
+    pile(s)
+  end
+  office(map.office)
+  crusher(map.crusher)
+end
+
+local DRAW = { ["tutorial-road"] = drawRoad, ["tutorial-park"] = drawPark, ["tutorial-yard"] = drawYard }
 
 --- Into the map's canvas (render.lua's Render.build), in world px.
 function RenderTutorial.draw(map, T)

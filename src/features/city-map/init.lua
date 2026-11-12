@@ -222,12 +222,13 @@ CityMap.maps = {
   },
   -- Shoeman's school of survival (the tutorial feature, docs/tutorial.md):
   -- the road (level 1), the park (2), the scrap yard (3) and the town
-  -- centre (4 and 5). All walked, nobody about. The road and the park are
-  -- built (tutorial_maps.lua): four two-way streets between a school yard
-  -- and a lawn, the tutorial's own traffic on them; a hedged park with
-  -- Shoeman in the middle of an open lawn. The rest are placeholders
-  -- for now: open walled fields like the test range, everyone arriving in
-  -- the middle, the HOME star just south of them and the way on
+  -- centre (4 and 5). All walked, nobody about. The road, the park and the
+  -- scrap yard are built (tutorial_maps.lua): four two-way streets between
+  -- a school yard and a lawn, the tutorial's own traffic on them; a hedged
+  -- park with Shoeman in the middle of an open lawn; a fenced yard of
+  -- wrecks to shoot from behind. The town is a placeholder for now: an
+  -- open walled field like the test range, everyone arriving in the
+  -- middle, the HOME star just south of them and the way on
   -- (Tutorial.EXITS) near the top.
   ["tutorial-road"] = {
     title = "Shoeman's Road", kind = "tutorial-road", seed = 401, cols = 24, rows = 44,
@@ -238,7 +239,7 @@ CityMap.maps = {
     crowd = false, traffic = false, vehicles = false,
   },
   ["tutorial-yard"] = {
-    title = "Shoeman's Scrap Yard", seed = 403, cols = 40, rows = 40, empty = true,
+    title = "Shoeman's Scrap Yard", kind = "tutorial-yard", seed = 403, cols = 40, rows = 40,
     crowd = false, traffic = false, vehicles = false,
   },
   ["tutorial-city"] = {

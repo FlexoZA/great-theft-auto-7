@@ -74,14 +74,36 @@ pushed or merged yet): Shoeman's Park, a shoe every 5 s at the nearest
 player with the "DODGE!!!!" shout, everything it touches destroyed,
 dodges in the air counted to 5 with the countdown, then he stops
 throwing and the way on opens. `make audit` 8.6, pass; `CHANGELOG.md`
-line added. Next: stage 6, box 1 (scrap yard map and renderer) on
-`feature/tutorial-scrapyard`, branched from `feature/tutorial-dodge`.
+line added. Stage 6 under way on `feature/tutorial-scrapyard`, branched
+from `feature/tutorial-dodge` (not pushed or merged yet): box 1 done,
+Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it.
+Next: stage 6, box 2 (pistol pickup per player; pick up and equip
+objectives).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Shoeman's Scrap Yard (stage 6 box 1): `buildYard` in
+  `city-map/tutorial_maps.lua` (`kind = "tutorial-yard"`, 40x40 tiles,
+  tuning in `TutorialMaps.YARD`), `drawYard` in `render_tutorial.lua`.
+  The fence row round the edge is nil tiles (walls), inside is "walk".
+  The concrete pad (`map.pad`, -1216..-448 x 704..1216) in the bottom-left
+  corner: start and checkpoint (-896, 896), Shoeman (-736, 1016), HOME
+  star (-896, 1136); the site office (`map.office`) above it against the
+  west fence. The way on (832, -1056) by the shut gate (`map.gate`) in the
+  top fence. Solids: the office, the crusher (`map.crusher`, top-left),
+  four piles of wrecks along the top, east and west fences (`map.piles`;
+  not `stacks`, which Borderline's works reads as chimney smoke on any
+  map), 30 lone wrecks (`map.wrecks`, 80x40 or 40x80 boxes, their
+  `solid`), 10 tyre heaps (`map.tyres`, 44 px boxes). All stop rounds:
+  cover. `map.dens` = five squirrel burrows in the far half, kept clear
+  (-300,-900), (320,-700), (900,-220), (520,320), (-560,-320): for
+  `waves.lua`. Checked: headless build (spawns, spots and dens open, a
+  16 px flood fill from the start reaches every den and the way on) and a
+  scripted run with `--quest tutorial-3`, screenshots of the pad, the
+  middle, the gate, the crusher, the east pile and the office.
 - The fifth dodge (stage 5 box 4): `shoeEvents.dodged` in init.lua,
   when the tick makes `Objectives.serverOpen()` true, calls
   `Shoe.serverHalt()` (no new throws; one under way and shoes in the air
@@ -440,14 +462,15 @@ a history.
   coroutine script in `main.lua`. Taking a board job needs the player at
   `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
   offer that ignores the accept key for its first seconds.
-- The other maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
-  `tutorial-yard` and `tutorial-city` 40x40, both `empty = true` (open
-  walled ground, like `testrange`), walked, nobody about. Everyone arrives
+- The town is still a placeholder in `CityMap.maps` (`city-map/init.lua`):
+  `tutorial-city` 40x40, `empty = true` (open walled ground, like
+  `testrange`), walked, nobody about. Everyone arrives
   on the middle row (`map.cy`: 64). One HOME star per map
-  (`home-tutorial-*` in `Quests.list`) 240 px south of that. Backdrops are the outskirts'
-  (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
-  Stages 4 to 7 replace each with a real map (a `kind` and a builder);
-  when they do, move its HOME star and its `Tutorial.EXITS` entry.
+  (`home-tutorial-city` in `Quests.list`) 240 px south of that. Backdrops
+  are the outskirts' (`surroundings/init.lua` `DRAW`) on every tutorial
+  map. Ammo crates scatter on their own. Stage 7 replaces it with a real
+  map (a `kind` and a builder); then move its HOME star, its
+  `Tutorial.EXITS`, `SHOEMAN` and `Checkpoint.SPOTS` entries.
 - `make audit` passes (8.6, end of stage 5) with four majors: no
   soundtrack on the four maps. Those wait for stage 11 unless a reviewer
   wants them sooner. Minors: core files changed (`src/states/game.lua`
@@ -693,7 +716,7 @@ notice.
 
 ### 6. Level 3: the scrap yard (`feature/tutorial-scrapyard`)
 
-- [ ] Scrap yard map and renderer
+- [x] Scrap yard map and renderer
 - [ ] Pistol pickup per player; pick up and equip objectives
 - [ ] Magazine-emptied and reload-finished events in weapons; their objectives
 - [ ] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six

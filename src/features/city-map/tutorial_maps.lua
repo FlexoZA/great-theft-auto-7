@@ -1,6 +1,6 @@
 -- The maps of Shoeman's school of survival (the tutorial feature,
--- docs/tutorial.md). So far two are built; the scrap yard and the town
--- are still open fields (city-map/init.lua's `empty` specs):
+-- docs/tutorial.md). So far three are built; the town is still an open
+-- field (city-map/init.lua's `empty` spec):
 --   tutorial-road  Shoeman's Road (level 1): small and tall. At the bottom
 --                  the school yard, where everyone arrives: the checkpoint,
 --                  Shoeman, the HOME star. Above it four two-way streets
@@ -16,6 +16,15 @@
 --                  the HOME star, his board) up through his circle to the
 --                  gate at the top, the way on. Trees, a pond, beds and
 --                  benches in the corners, outside the ring.
+--   tutorial-yard  Shoeman's Scrap Yard (level 3): square, fenced in
+--                  corrugated sheet. Everyone arrives on a concrete pad in
+--                  the bottom-left corner (the checkpoint, Shoeman, the
+--                  HOME star, his board, the site office); the way on is
+--                  the gate in the top fence, right of the middle. Wrecks
+--                  piled along three fences and the crusher in the top-left
+--                  corner; out in the yard single wrecks and tyre heaps for
+--                  cover, room to run between them, and the squirrels'
+--                  burrows in the far half.
 --
 -- Tiles are "road" (the streets, into their tunnels) and "walk" (the
 -- pavement, the yard, the lawn); nil is the embankment either side (the
@@ -49,6 +58,21 @@
 --   map.trees     { x, y, r } every tree (a small solid box round each trunk)
 --   map.decor     as the road's, plus lamp, shoe (an old one in the grass, `a`), gate (the way on
 --                 through the top hedge, `w`) and chalk (the ring, drawn from map.ring)
+--
+-- The scrap yard leaves the same `cx, cy`, `exitX, exitY`, `homeX, homeY`,
+-- `shoemanX, shoemanY` and `openKinds` (inside the fence "walk", the fence
+-- row nil), and, all world px:
+--   map.pad       { x, y, w, h } the concrete pad everyone arrives on
+--   map.office    the site office (a solid), against the west fence above the pad
+--   map.crusher   the crusher (a solid), top-left corner; its crane is drawn over it
+--   map.gate      { x, y, w } the way on through the top fence (drawn shut; the EXIT star is the way)
+--   map.wrecks    { x, y, w, h, a, color, seed, flip, burnt } a lone wreck, centred, its `solid` the
+--                 box; `a` only tilts the drawing
+--   map.piles     the piled wrecks along the fences (each a solid), `along` "x" or "y", `cars` drawn
+--   map.tyres     { x, y, seed } a heap of tyres (a 44 px solid box each)
+--   map.dens      { x, y } the squirrels' burrows, in the far half (tutorial/waves.lua)
+--   map.decor     track (`len`, `a`), stain and puddle (`r`), drum, part, door, wheel (`a`, `seed`),
+--                 board (Shoeman's), sign (the yard's, by the office)
 
 local TutorialMaps = {}
 
@@ -292,7 +316,163 @@ local function buildPark(map, rng, T)
   end
 end
 
-local BUILDERS = { ["tutorial-road"] = buildRoad, ["tutorial-park"] = buildPark }
+-- Shoeman's Scrap Yard. `fence` tiles of corrugated fence round the
+-- edge; the start's concrete pad in the bottom-left corner (px, from the
+-- fence); the gate (the way on) in the top fence, `gate` px east of the
+-- middle; wrecks for cover on a jittered grid of `grid` px, one in a cell
+-- with chance `fill`; `stack` px deep of piled wrecks along three fences.
+TutorialMaps.YARD = { fence = 1, padW = 768, padH = 512, gate = 832, grid = 288, fill = 0.6, stack = 88 }
+
+TutorialMaps.WRECK_COLORS = { -- the paint on wrecks; the renderer picks loose doors from it too
+  { 0.55, 0.20, 0.17 }, { 0.22, 0.32, 0.50 }, { 0.62, 0.58, 0.50 }, { 0.30, 0.40, 0.28 },
+  { 0.70, 0.55, 0.22 }, { 0.36, 0.36, 0.38 }, { 0.48, 0.30, 0.42 }, { 0.80, 0.78, 0.74 },
+}
+
+local function buildYard(map, rng, T)
+  local YD = TutorialMaps.YARD
+  local paint = TutorialMaps.WRECK_COLORS
+  local cols, rows = map.cols, map.rows
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      local inside = c >= YD.fence and c < cols - YD.fence and r >= YD.fence and r < rows - YD.fence
+      map.tiles[c][r] = inside and "walk" or nil
+    end
+  end
+  map.decor, map.wrecks, map.piles, map.tyres, map.dens = {}, {}, {}, {}, {}
+  map.openKinds = { walk = true }
+  local inL, inR = map.x0 + YD.fence * T, map.x0 + (cols - YD.fence) * T
+  local inT, inB = map.y0 + YD.fence * T, map.y0 + (rows - YD.fence) * T
+  local function solid(s)
+    map.solids[#map.solids + 1] = s
+    return s
+  end
+
+  -- The bottom-left corner: the concrete pad everyone arrives on, the
+  -- site office up against the west fence above it.
+  local pad = { x = inL, y = inB - YD.padH, w = YD.padW, h = YD.padH }
+  map.pad = pad
+  map.cx, map.cy = pad.x + pad.w / 2 - 64, pad.y + 192
+  for i = 0, 11 do
+    map.spawns[#map.spawns + 1] = { x = map.cx + (i % 6 - 2.5) * 80, y = map.cy + (math.floor(i / 6) * 2 - 1) * T / 2,
+      angle = -math.pi / 2 }
+  end
+  map.shoemanX, map.shoemanY = map.cx + 160, map.cy + 120
+  map.homeX, map.homeY = map.cx, map.cy + 240
+  map.office = solid({ x = inL, y = pad.y - 200, w = 176, h = 152 })
+  map.gate = { x = YD.gate, y = inT, w = 3 * T }
+  map.exitX, map.exitY = YD.gate, inT + 2.5 * T
+
+  -- Piled wrecks along the top, east and west fences, kept clear of the
+  -- gate and the office; the crusher and its crane in the top-left corner.
+  local S = YD.stack
+  local function pile(x, y, w, h, along)
+    local p = solid({ x = x, y = y, w = w, h = h })
+    p.along, p.seed, p.cars = along, rng:random(1000), {}
+    local len = along == "x" and w or h
+    for k = 0, math.floor(len / 84) - 1 do
+      p.cars[#p.cars + 1] = { color = paint[rng:random(#paint)], tall = rng:random(1, 3),
+        jx = (rng:random() - 0.5) * 8, jy = (rng:random() - 0.5) * 8, k = k }
+    end
+    map.piles[#map.piles + 1] = p
+  end
+  local crusher = { x = inL + 40, y = inT + 40, w = 224, h = 160 }
+  map.crusher = solid(crusher)
+  local topL, topR = crusher.x + crusher.w + 120, YD.gate - 3 * T / 2 - 120
+  pile(topL, inT, topR - topL, S, "x")
+  pile(YD.gate + 3 * T / 2 + 120, inT, inR - (YD.gate + 3 * T / 2 + 120), S, "x")
+  pile(inR - S, inT + S + 160, S, inB - 320 - (inT + S + 160), "y")
+  pile(inL, crusher.y + crusher.h + 160, S, map.office.y - 160 - (crusher.y + crusher.h + 160), "y")
+
+  -- The squirrels' burrows (waves.lua brings them out here): mounds of
+  -- dirt in the far half of the yard, away from the pad.
+  for _, p in ipairs({ { -300, -900 }, { 320, -700 }, { 900, -220 }, { 520, 320 }, { -560, -320 } }) do
+    map.dens[#map.dens + 1] = { x = p[1], y = p[2] }
+  end
+
+  -- Room kept clear: the pad and a margin, the office's door, the way to
+  -- the gate, Shoeman's spot, the dens.
+  local function clear(x, y, r)
+    if x < inL + S + r + 30 or x > inR - S - r - 30 or y < inT + S + r + 30 or y > inB - r - 30 then
+      return false
+    end
+    if x < pad.x + pad.w + r + 60 and y > pad.y - r - 60 then
+      return false
+    end
+    if (x - map.exitX) ^ 2 + (y - map.exitY) ^ 2 < (240 + r) ^ 2 then
+      return false
+    end
+    for _, s in ipairs(map.solids) do
+      if x > s.x - r - 70 and x < s.x + s.w + r + 70 and y > s.y - r - 70 and y < s.y + s.h + r + 70 then
+        return false
+      end
+    end
+    for _, dn in ipairs(map.dens) do
+      if (x - dn.x) ^ 2 + (y - dn.y) ^ 2 < (100 + r) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+
+  -- Wrecks for cover: a car on its own, long side either way, on a
+  -- jittered grid so there is always a way between them. Its solid box is
+  -- the body (rounds stop on it); the drawing tilts it a touch.
+  local G = YD.grid
+  for gx = inL + G / 2, inR - G / 2, G do
+    for gy = inT + G / 2, inB - G / 2, G do
+      if rng:random() < YD.fill then
+        local x, y = gx + (rng:random() - 0.5) * G * 0.4, gy + (rng:random() - 0.5) * G * 0.4
+        local long = rng:random() < 0.5
+        local w, h = long and 80 or 40, long and 40 or 80
+        if clear(x, y, 40) then
+          local s = solid({ x = x - w / 2, y = y - h / 2, w = w, h = h })
+          map.wrecks[#map.wrecks + 1] = { x = x, y = y, w = w, h = h, solid = s, a = (rng:random() - 0.5) * 0.12,
+            color = paint[rng:random(#paint)], seed = rng:random(1000), flip = rng:random() < 0.5,
+            burnt = rng:random() < 0.2 }
+        end
+      end
+    end
+  end
+  -- Tyre heaps here and there (solid), oil drums, puddles, tyre tracks,
+  -- loose parts (not solid).
+  for _ = 1, 200 do
+    if #map.tyres >= 10 then
+      break
+    end
+    local x, y = inL + rng:random() * (inR - inL), inT + rng:random() * (inB - inT)
+    if clear(x, y, 34) then
+      map.tyres[#map.tyres + 1] = { x = x, y = y, seed = rng:random(1000) }
+      solid({ x = x - 22, y = y - 22, w = 44, h = 44 })
+    end
+  end
+  local d = map.decor
+  for _ = 1, 26 do
+    local x, y = inL + 60 + rng:random() * (inR - inL - 120), inT + 60 + rng:random() * (inB - inT - 120)
+    d[#d + 1] = { kind = "track", x = x, y = y, len = 120 + rng:random() * 260, a = rng:random() * math.pi * 2 }
+  end
+  for _ = 1, 20 do
+    d[#d + 1] = { kind = rng:random() < 0.6 and "stain" or "puddle", x = inL + rng:random() * (inR - inL),
+      y = inT + rng:random() * (inB - inT), r = 10 + rng:random() * 22 }
+  end
+  local junk = 0
+  for _ = 1, 200 do
+    if junk >= 40 then
+      break
+    end
+    local x, y = inL + rng:random() * (inR - inL), inT + rng:random() * (inB - inT)
+    if clear(x, y, 18) then
+      junk = junk + 1
+      local kinds = { "drum", "drum", "part", "part", "door", "wheel" }
+      d[#d + 1] = { kind = kinds[rng:random(#kinds)], x = x, y = y, a = rng:random() * math.pi * 2,
+        seed = rng:random(1000) }
+    end
+  end
+  d[#d + 1] = { kind = "board", x = pad.x + pad.w - 260, y = map.homeY - 30 }
+  d[#d + 1] = { kind = "sign", x = map.office.x + map.office.w + 24, y = map.office.y + 24 }
+end
+
+local BUILDERS = { ["tutorial-road"] = buildRoad, ["tutorial-park"] = buildPark, ["tutorial-yard"] = buildYard }
 
 --- Does this file build maps of `kind`?
 function TutorialMaps.builds(kind)
