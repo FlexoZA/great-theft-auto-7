@@ -44,6 +44,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   hands you, and sell the shop a pistol and some ammo. Building and repairing cost nothing in Shoeman's Town, and
   anything he didn't ask for comes straight back down. When the last sale is made, school is out: the star home
   comes up by him and the rest of the board opens.
+- A new city event, Shoeman: once you have finished his school, the host can send him into the city from the F8
+  menu. He walks the streets throwing a shoe every 5 seconds at the nearest player he can see, or at your buildings
+  when nobody is near. A shoe kills you on foot and wrecks your car, and two or three bring a building down. Dodge
+  it while it is in the air or keep a wall between you; he has 1800 health and spills koins when he goes down.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key

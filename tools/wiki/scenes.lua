@@ -103,6 +103,7 @@ Scenes.city = {
   event("runner"),
   event("tripod", 20), -- its storm comes first
   event("a-man"),
+  event("shoeman"),
   -- Loose squirrels (events/squirrels.lua, the scrap yard's waves): one
   -- out of the ground beside the host.
   function(game, look)

@@ -1948,8 +1948,10 @@ the one with a plot.
   `events:serverTrigger(server, key)`, which returns false and a reason
   ("busy", "away", "nowhere", "locked") when it can't. An event whose boss
   comes from a quest waits until that quest is finished (`Events.after`:
-  Bigfoot after the alien hunt, A-Man after A-Man's quest; the Runner and
-  the Tripod are always open), greyed out in the menu until then. Each kind of event is a module
+  Bigfoot after the alien hunt, A-Man after A-Man's quest, Shoeman after
+  his tutorial; the Runner and the Tripod are always open), greyed out in
+  the menu until then. A boss comes in at a crossing away from everyone
+  (`events:serverSpawnNode(server, near, far)`). Each kind of event is a module
   in that folder listed in `Events.kinds` (the header of `events/init.lua`
   says what one has); the first is Bigfoot (`events/bigfoot.lua`): he comes
   in on a road away from everyone and goes for the nearest player, or the
@@ -2027,6 +2029,23 @@ the one with a plot.
   30% uncommon, 17% rare, 3% legendary), and every turret falls over.
   Messages: `EAM_STATE`, `EAM_BLINK`, `EAM_DOWN`, `EAM_HORDE`,
   `EAM_TURRETS` and `EAM_POP` down. Tuning is at the top of `event.lua`.
+  The fifth is Shoeman, the tutorial's teacher, whose module is
+  `src/features/tutorial/event.lua` (his brain `event_brain.lua`): bigger
+  than a player, he goes for the nearest player he can see within 1000
+  px, humans before bots, or else the nearest building a player owns. He
+  runs (150 px/s, about 5.5 s of breath) when far off, walks (45 px/s)
+  close or winded, and keeps 260 px from a player he can hit. Every 5 s,
+  with his target within 650 px and nothing in the shoe's way (a
+  building: within 260 px of its wall), he stops and throws the
+  tutorial's shoe (`tutorial/shoe.lua`, a thrower of his own: `Shoe.new`
+  with his own message kinds) with the red "DODGE!!!!": it kills players
+  on foot, wrecks cars and kills enemies on its path, and takes 250 off
+  the wall it stops at. Badly hurt he goes for a medkit, kiting; out from
+  under a player's ability; a freeze holds him, a stink sends him
+  running. 1800 health for one human; down, he spills 60 koins. His
+  portrait (`tutorial/shoeman_face.lua`) sits beside his boss bar.
+  Messages: `ESM_STATE`, `ESM_THROW`, `ESM_SHOE` and `ESM_SHOE_END` down.
+  Tuning is at the top of `tutorial/event.lua`.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends

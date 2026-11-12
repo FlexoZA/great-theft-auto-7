@@ -16,7 +16,7 @@ local ShoemanRender = require("src.features.tutorial.shoeman_render")
 local StartGear = require("src.features.tutorial.start_gear")
 local Traffic = require("src.features.tutorial.traffic")
 local Road = require("src.features.tutorial.road")
-local Shoe = require("src.features.tutorial.shoe")
+local Shoe = require("src.features.tutorial.shoe").tutorial
 local Gift = require("src.features.tutorial.gift")
 local Waves = require("src.features.tutorial.waves")
 local Build = require("src.features.tutorial.build")
@@ -92,7 +92,7 @@ local facing = -math.pi / 2 -- on the client, where Shoeman looks
 function Tutorial:serverStart(server)
   level, arrived = nil, false
   Traffic.serverClear(server)
-  Shoe.serverStop()
+  Shoe:serverStop()
   Gift.serverStop()
   Waves.serverStop()
   StartGear.serverStart(server)
@@ -105,7 +105,7 @@ function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false, t = 0, quips = 0 } or nil
   local shoeman = level and Tutorial.SHOEMAN[level.quest]
   Build.serverStart(shoeman and shoeman.x, shoeman and shoeman.y)
-  Shoe.serverStop()
+  Shoe:serverStop()
   Gift.serverStop()
   Waves.serverStop()
   local city = Features.byName["city-map"]
@@ -113,8 +113,8 @@ function Tutorial:serverQuestStarted(server, quest)
     Comms.serverStart(level.quest)
     Objectives.serverStart(server, level.quest)
     if level.quest == "tutorial-2" then
-      Shoe.serverStart(shoeman.x, shoeman.y)
-      Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
+      Shoe:serverStart(shoeman.x, shoeman.y)
+      Objectives.serverTimer(server, "dodge", Shoe:serverNextIn())
     end
     -- The scrap yard and the town: he puts his gift down for everyone, in
     -- front of him (the yard's map says where; the town is a plain grid).
@@ -141,7 +141,7 @@ end
 
 function Tutorial:serverQuestEnded(server)
   level = nil
-  Shoe.serverStop()
+  Shoe:serverStop()
   Gift.serverStop()
   Waves.serverStop()
   Comms.serverStop()
@@ -154,7 +154,7 @@ function Tutorial:mapChanged(_map, server)
   if server then
     level, arrived = nil, true
     Traffic.serverClear(server)
-    Shoe.serverStop()
+    Shoe:serverStop()
     Gift.serverStop()
     Waves.serverStop()
     Comms.serverStop()
@@ -264,16 +264,16 @@ end
 
 --- On-foot says somebody dodged: a shoe in the air at them notes it.
 function Tutorial:serverDodged(_server, player)
-  Shoe.serverDodged(player)
+  Shoe:serverDodged(player)
 end
 
--- What the shoes tell this feature (Shoe.serverStep's `on`): the shout as
+-- What the shoes tell this feature (Shoe:serverStep's `on`): the shout as
 -- he winds up, with the countdown to the next; a dodge ticks the objective,
 -- and the fifth opens the way on and ends the throwing.
 local shoeEvents = {
   threw = function(server)
     Comms.serverBeat(server, "dodge", true)
-    Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
+    Objectives.serverTimer(server, "dodge", Shoe:serverNextIn())
   end,
   dodged = function(server)
     if not Objectives.serverTick(server, "dodge") then
@@ -281,7 +281,7 @@ local shoeEvents = {
     end
     if Objectives.serverOpen() then
       -- Five: the way on is open, and he puts the shoes down.
-      Shoe.serverHalt()
+      Shoe:serverHalt()
       Objectives.serverTimer(server, "dodge", nil)
       Comms.serverBeat(server, "open")
     else
@@ -413,7 +413,7 @@ function Tutorial:serverStep(server, dt)
   if map then
     Road.serverStep(server, map)
   end
-  Shoe.serverStep(server, dt, shoeEvents)
+  Shoe:serverStep(server, dt, shoeEvents)
   Gift.serverStep(server, dt, giftEvents)
   if level and level.quest == "tutorial-4" and level.t >= Tutorial.armAfter then
     armEveryone(server)
@@ -447,20 +447,20 @@ end
 function Tutorial:questStarted(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
-    Shoe.clear()
+    Shoe:clear()
   end
 end
 
 function Tutorial:questEnded(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
-    Shoe.clear()
+    Shoe:clear()
   end
 end
 
 function Tutorial:exitGame()
   Comms.clear()
-  Shoe.clear()
+  Shoe:clear()
   Objectives.clear()
 end
 
@@ -497,7 +497,7 @@ end
 function Tutorial:update(dt, client)
   time = time + dt
   turn(client, dt)
-  Shoe.update(dt)
+  Shoe:update(dt)
   Comms.update(dt)
   Objectives.update(dt)
 end
@@ -562,13 +562,13 @@ function Tutorial:drawAboveCars()
   local quests = Features.byName.quests
   local at = quests and quests.active and self.SHOEMAN[quests.active]
   if at then
-    local throw, angle = Shoe.pose()
+    local throw, angle = Shoe:pose()
     if angle then
       facing = angle -- and he carries on looking that way afterwards
     end
     ShoemanRender.draw(at.x, at.y, facing, { throw = throw })
   end
-  Shoe.draw(at and at.x, at and at.y)
+  Shoe:draw(at and at.x, at and at.y)
 end
 
 Tutorial.clientMessages = {}

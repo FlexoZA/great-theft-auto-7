@@ -38,7 +38,7 @@
 local Features = require("src.features")
 local Comms = require("src.features.tutorial.comms")
 local Objectives = require("src.features.tutorial.objectives")
-local Shoe = require("src.features.tutorial.shoe")
+local Shoe = require("src.features.tutorial.shoe").tutorial
 
 local Build = {}
 
@@ -140,7 +140,7 @@ end
 --- while his shoes dent nothing (one stopped short on the hospital, a
 --- passing car). After the first dent he says the section's `dent` beat.
 local function dent(server, dt, beat)
-  if Shoe.serverBusy() then
+  if Shoe:serverBusy() then
     return
   end
   local standing = Features.byName.buildings:serverStanding()
@@ -158,7 +158,7 @@ local function dent(server, dt, beat)
     return
   end
   sv.throwIn, sv.thrown, sv.tried[b.id] = Build.retryAfter, true, true
-  Shoe.serverThrowAt(server, sv.x, sv.y, b.x + b.w / 2, b.y + b.h / 2, Build.DENT)
+  Shoe:serverThrowAt(server, sv.x, sv.y, b.x + b.w / 2, b.y + b.h / 2, Build.DENT)
   Comms.serverBeat(server, "throw", true)
 end
 

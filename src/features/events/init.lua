@@ -21,13 +21,15 @@
 -- menu greys it out and the host refuses it. The rest are always open.
 --
 -- Each kind of event is a module in this folder (A-Man's lives in his own,
--- src/features/a-man/event.lua), listed in `Events.kinds` by key and in
+-- src/features/a-man/event.lua, Shoeman's in the tutorial's,
+-- src/features/tutorial/event.lua), listed in `Events.kinds` by key and in
 -- `Events.order` for the menu. The host owns everything; this file keeps
 -- which event is on and tells every machine, and the event's module runs
 -- the rest. An event
 -- module has:
 --   key, title, subtitle, wonTitle, wonSubtitle, color, menu (a line for the F8 menu)
 --   serverBegin(server, events) -> x, y   bring the boss in; nil if it can't
+--                                         (`events:serverSpawnNode` finds a crossing away from everyone)
 --   serverStep(server, dt, events)        every host tick while it is on;
 --                                         `events:serverFinish(server, x, y)`
 --                                         when the boss is beaten
@@ -67,18 +69,20 @@ local Bigfoot = require("src.features.events.bigfoot")
 local Runner = require("src.features.events.runner")
 local Tripod = require("src.features.events.tripod")
 local AMan = require("src.features.a-man.event")
+local Shoeman = require("src.features.tutorial.event")
 local HuntSounds = require("src.features.alien-hunt.sounds")
 local Squirrels = require("src.features.events.squirrels")
+local Traffic = require("src.features.bots.traffic")
 
 local Events = {
   name = "events",
   priority = 960, -- the banner over most of the HUD, under the quest portraits (970+)
 }
 
-Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod, ["a-man"] = AMan }
-Events.order = { "bigfoot", "runner", "tripod", "a-man" } -- as the F8 menu lists them
+Events.kinds = { bigfoot = Bigfoot, runner = Runner, tripod = Tripod, ["a-man"] = AMan, shoeman = Shoeman }
+Events.order = { "bigfoot", "runner", "tripod", "a-man", "shoeman" } -- as the F8 menu lists them
 -- The quest (a board job's id) each event waits on; one not listed is always open.
-Events.after = { bigfoot = "alien-hunt", ["a-man"] = "a-man" }
+Events.after = { bigfoot = "alien-hunt", ["a-man"] = "a-man", shoeman = "tutorial-1" }
 
 -- Tuning ------------------------------------------------------------------
 Events.flashTime = 6 -- seconds the minimap flashes red when one starts
@@ -140,6 +144,40 @@ end
 --- How many loose squirrels are still about.
 function Events:serverSquirrelsLoose()
   return Squirrels.serverCount()
+end
+
+--- A crossing of the city's streets (bots/traffic.lua's graph) with a
+--- street out of it, away from everyone, for a boss to come in at: about
+--- `near`..`far` px from the nearest human, the nearest thing to it
+--- otherwise. Nil when the map has no streets.
+function Events:serverSpawnNode(server, near, far)
+  local city = Features.byName["city-map"]
+  local g = city and city.map and Traffic.graph(city.map)
+  if not g then
+    return nil
+  end
+  local people = {}
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local x, y = Features.bodyPose(server, p)
+      people[#people + 1] = { x = x, y = y }
+    end
+  end
+  local best, bestScore
+  for _, node in pairs(g.nodes) do
+    if #node.exits > 0 then
+      local d = near
+      for i, h in ipairs(people) do
+        local to = math.sqrt((node.x - h.x) ^ 2 + (node.y - h.y) ^ 2)
+        d = i == 1 and to or math.min(d, to)
+      end
+      local score = -math.max(0, near - d) * 2 - math.max(0, d - far) + love.math.random() * 200
+      if not bestScore or score > bestScore then
+        best, bestScore = node, score
+      end
+    end
+  end
+  return best
 end
 
 --- The `serverEventActive` convention: is an event on, or only just won?

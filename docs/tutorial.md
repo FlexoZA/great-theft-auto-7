@@ -109,14 +109,56 @@ the building his shoe dents, the wages and a hire of each, sell a pistol
 and ammo), told through new buildings and shop events; the last sale
 finishes the tutorial with the star home by Shoeman. `make audit` 8.2,
 pass (the four soundtrack majors are stage 11's); `CHANGELOG.md` line
-added. Next: stage 10, box 1 (`event.lua` registered in `Events.kinds`,
-on the F8 menu) on `feature/tutorial-shoeman-event`, branched from
-`feature/tutorial-build`.
+added. Stage 10 done on `feature/tutorial-shoeman-event`, branched from
+`feature/tutorial-build` (not pushed or merged yet): Shoeman as a city
+event on the F8 menu, locked until the tutorial is finished; he walks the
+city throwing a shoe every 5 s at the nearest player he can see, or at
+the nearest player-owned building; the bosses' standard (breath, the
+boss bar with his portrait, health per human, koins and `serverKill`
+"boss", medkits, dodging, walk.lua); `serverEnemies` and `wikiEnemies`.
+`make audit` 7.9, pass (the four soundtrack majors are stage 11's);
+`CHANGELOG.md` line added. Next: stage 11, box 1 (a soundtrack for each
+map) on `feature/tutorial-polish`, branched from
+`feature/tutorial-shoeman-event`.
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
+
+- Shoeman's city event (stage 10, all four boxes in one session):
+  `src/features/tutorial/event.lua` (the event module: `key = "shoeman"`,
+  in `Events.kinds` and last in `Events.order`, `Events.after.shoeman =
+  "tutorial-1"`) and `event_brain.lua` (hunt, heal, panic, dodge, throw;
+  model: `a-man/brain.lua`). Tuning at the top of event.lua: health 1800,
+  run 150 / walk 45 px/s, a throw every 5 s within `throwRange` 650 with a
+  clear line (`blocksShot`), `keepAway` 260, `aggroRange` 1000 (players
+  first, then the nearest building with an owner from
+  `buildings:serverStanding()`, thrown at within `buildingRange` 260 of
+  its wall), `wallDamage` 250 to the wall the shoe stops at, 60 koins.
+  Decision: the design says the shoe destroys buildings at once; in the
+  city that wiped a building every 5 s, so the event's shoes dent walls
+  (250 x `Bosses.power()`, a quarry takes three) and still kill players
+  on foot and wreck cars outright. One number to change if that is wrong.
+  `shoe.lua` is now a class: `Shoe.new({ throw, shoe, stop })` names a
+  thrower's message kinds; `Shoe.tutorial` (kinds `TUT_*`) is the
+  tutorial's, called with colons (`Shoe:serverStart(...)` in init.lua and
+  build.lua, where `Shoe` is `require(...).tutorial`); the event's has
+  `ESM_THROW`, `ESM_SHOE`, `ESM_SHOE_END`. `serverThrowAt` takes an
+  optional `target` player (aimed where they stand at release). His own
+  shoe doesn't hit him (`sv.own` while his thrower steps). New in events:
+  `Events:serverSpawnNode(server, near, far)`, the crossing away from
+  everyone, now shared by the Runner, A-Man and Shoeman (it was copied
+  in each). The wiki scene list (`tools/wiki/scenes.lua`) has
+  `event("shoeman")`; his portrait and page are stage 11's `make wiki` /
+  `make wiki-portraits`. Checked in scripted runs (`town` copied into a
+  test identity, lock bypassed as the wiki scenes do): he comes in,
+  throws every 5 s, killed the human ("impact") and wrecked cars, ran
+  until winded; with players out of range he took a quarry 600 -> 350 ->
+  100 -> down; 72 rounds of 25 put him down and ended the event; the boss
+  bar, red-faced portrait while he shouts, the pointer and DODGE!!!! show.
+  Level 2 still throws at 10 s then every 5 s. On a world with the
+  tutorial unfinished the trigger says "locked".
 
 - The end of level 5 (stage 9 box 9): `Tutorial.EXITS["tutorial-5"]` is
   (64, 416) by Shoeman with `now = true`: `serverStep` skips the arrival
@@ -1020,7 +1062,7 @@ change to a core file, except stage 3's `emptyHanded` hook (`src/body.lua`,
 | `traffic.lua` | Level 1's cars: `server:spawnVehicle`, speed set every step, removed in the far tunnel; contact check with `Car.hitTest`. | `car-collisions/init.lua` `runOver` |
 | `waves.lua` | Level 3's squirrel waves. | `events/bigfoot.lua` `litter` and `pop` |
 | `build.lua` | Level 5's lesson: ticks from buildings' and the shop's events, removes a wrong building, the wages, his shoe's dents. | `road.lua` |
-| `event.lua` | Shoeman as a host event. | `events/bigfoot.lua`, `a-man/event.lua` |
+| `event.lua`, `event_brain.lua` | Shoeman as a host event, and his brain. | `events/bigfoot.lua`, `a-man/event.lua`, `a-man/brain.lua` |
 
 Maps: four specs in `CityMap.maps` (`city-map/init.lua`) with builders and
 renderers beside the other maps' (`city-map/borderline.lua`'s `Blockout`
@@ -1033,9 +1075,9 @@ is the builder to copy).
 | `quests` | Five entries at the top of `Quests.list`; worlds saved before the tutorial load with it marked finished. | 1 |
 | `weapons` | New players start with empty gun slots (`startSlots`, `serverLoadPlayer`, the `heldGun` fallback). Events other features can hear: magazine emptied, reload finished. | 3, 6 |
 | `abilities` | New players start with no ability (`startKeys`). | 3 |
-| `events` | Loose squirrels anyone can summon (`serverSummonSquirrels`, `serverSquirrelsLoose`; `events/squirrels.lua`). Shoeman added to `Events.kinds`. | 6, 10 |
+| `events` | Loose squirrels anyone can summon (`serverSummonSquirrels`, `serverSquirrelsLoose`; `events/squirrels.lua`). Shoeman added to `Events.kinds`, locked behind `tutorial-1`; `serverSpawnNode` shared by every boss that comes in at a crossing. | 6, 10 |
 | `pickups` | `serverTakenBy`: a one-each drop hidden from one player (the pistol from those who carry one). | 6 |
-| `open-borders` | A simp's `serverKill` says `simp = true`, so the tutorial can count the rioters; rioters die to a shoe in one hit. | 8, 10 |
+| `open-borders` | A simp's `serverKill` says `simp = true`, so the tutorial can count the rioters; rioters die to a shoe in one hit (no change needed: a shoe asks each spot up to `SOFT_MAX` times, and a simp dies to two). | 8, 10 |
 | `buildings`, `real-estate` | Plot, build and repair prices asked through the `buildCost` hook so a map can make them free; a host call to remove a building (`serverRemove`); the `serverBuildingDone` event; `hp` in `serverStanding`. | 9 |
 | `shop` | `serverBought` and `serverSold` events. | 9 |
 | `quests`, `shop`, `garage`, `handsy-man`, `delivery` | A map flag so the shop, the hospital, Handsy Men and shop sales also work on the tutorial city. Today they are default-city only. | 7 |
@@ -1152,16 +1194,16 @@ notice.
 
 ### 10. Shoeman, the city event (`feature/tutorial-shoeman-event`)
 
-- [ ] `event.lua` registered in `Events.kinds`, on the F8 menu
-- [ ] Brain: walks, picks players and buildings, a shoe every 5 seconds
-- [ ] Boss standard: stamina, the boss bar, health scaling, koins on death
-- [ ] `serverEnemies` and `wikiEnemies` for Shoeman
+- [x] `event.lua` registered in `Events.kinds`, on the F8 menu
+- [x] Brain: walks, picks players and buildings, a shoe every 5 seconds
+- [x] Boss standard: stamina, the boss bar, health scaling, koins on death
+- [x] `serverEnemies` and `wikiEnemies` for Shoeman
 
 ### 11. Polish (`feature/tutorial-polish`)
 
 - [ ] A soundtrack for each map
 - [ ] Backdrops past each map's edge; ammo crates
 - [ ] Audit tour script in `tools/audit/stages.lua`
-- [ ] Wiki pages (`make wiki`, `make wiki-portraits`)
+- [ ] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
 - [ ] Balance pass: traffic speeds, shoe speed, squirrel waves
 - [ ] `docs/features.md`: the tutorial in the feature list

@@ -14,27 +14,32 @@
 -- touching them. Dodging during the wind-up is too soon: he aims where
 -- they stand when he lets go.
 --
--- One throw at a spot instead (level 5's repair lesson):
--- `Shoe.serverThrowAt(server, x, y, tx, ty, damage)` from (x, y) at (tx,
--- ty); the wall it stops at takes `damage` (a dent in a building), and
--- nothing is thrown after it. `Shoe.serverBusy()` while a throw or a shoe
--- is under way.
+-- One throw at a spot instead (level 5's repair lesson, the city event):
+-- `shoe:serverThrowAt(server, x, y, tx, ty, damage, target)` from (x, y) at
+-- (tx, ty), or at player `target` where they stand when it leaves his hand;
+-- the wall it stops at takes `damage` (a dent in a building), and nothing
+-- is thrown after it. `shoe:serverBusy()` while a throw or a shoe is under
+-- way.
 --
--- Host: `Shoe.serverStart(x, y)` starts throwing from (x, y),
--- `Shoe.serverStop()` stops (shoes in the air vanish with the level),
--- `Shoe.serverHalt()` throws no more (the ones in the air fly on),
--- `Shoe.serverStep(server, dt, on)` with optional callbacks `on.threw(server)`
+-- A thrower is `Shoe.new(kinds)`, with its own state and its own message
+-- kinds, so two never touch each other's shoes: `Shoe.tutorial` is the
+-- tutorial's, the city event's Shoeman (event.lua) has his own.
+--
+-- Host: `shoe:serverStart(x, y)` starts throwing from (x, y),
+-- `shoe:serverStop()` stops (shoes in the air vanish with the level),
+-- `shoe:serverHalt()` throws no more (the ones in the air fly on),
+-- `shoe:serverStep(server, dt, on)` with optional callbacks `on.threw(server)`
 -- (a throw starts: time for the shout) and `on.dodged(server, playerId)`,
--- `Shoe.serverDodged(player)` (on-foot's `serverDodged`),
--- `Shoe.serverNextIn()` (seconds to the next throw: level 2's countdown),
--- `Shoe.serverShoes()` (the shoes in flight: { id, x, y, vx, vy, target =
+-- `shoe:serverDodged(player)` (on-foot's `serverDodged`),
+-- `shoe:serverNextIn()` (seconds to the next throw: level 2's countdown),
+-- `shoe:serverShoes()` (the shoes in flight: { id, x, y, vx, vy, target =
 -- player id, hit = { [player id] = true }, dodged, settled, damage }).
--- Client: `Shoe.update(dt)`, `Shoe.pose()` (throw fraction for
+-- Client: `shoe:update(dt)`, `shoe:pose()` (throw fraction for
 -- `ShoemanRender.draw`, nil standing, and the angle he throws along),
--- `Shoe.draw(x, y)` (the shoes, and the shout over him at (x, y)),
--- `Shoe.clear()`.
+-- `shoe:draw(x, y)` (the shoes, and the shout over him at (x, y)),
+-- `shoe:clear()`, and `shoe.clientMessages` to register.
 --
--- Messages
+-- Messages (the tutorial's kinds; another thrower names its own)
 --   server -> all  TUT_THROW <angle>              he winds up, facing angle
 --   server -> all  TUT_SHOE <id> <x> <y> <angle>  a shoe leaves his hand
 --   server -> all  TUT_SHOE_END <id> <x> <y>       it stopped there (a wall, its range)
@@ -46,6 +51,7 @@ local UI = require("src.ui")
 local ShoemanRender = require("src.features.tutorial.shoeman_render")
 
 local Shoe = {}
+Shoe.__index = Shoe
 
 -- Tuning ------------------------------------------------------------------
 Shoe.PERIOD = 5 -- seconds from one throw to the next
@@ -66,56 +72,72 @@ Shoe.SHOUT = "DODGE!!!!"
 
 local RELEASE = ShoemanRender.RELEASE
 
+--- A thrower of its own. `kinds` names its messages: { throw, shoe, stop }
+--- (the tutorial's are TUT_THROW, TUT_SHOE and TUT_SHOE_END).
+function Shoe.new(kinds)
+  local self = setmetatable({ kinds = kinds }, Shoe)
+  self.sv = nil -- on the host: { x, y, nextIn, throw = { t, target, angle, released, damage }, shoes, nextId, halted }
+  self.cl = {
+    throw = nil, -- { t, angle } while he throws
+    shoes = {}, -- id -> { x, y, angle, flown, spin }
+    lying = {}, -- { id, x, y, spin, t }: stopped shoes on the ground
+  }
+  self.clientMessages = Shoe.handlers(self)
+  return self
+end
+
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { x, y, nextIn, throw = { t, target, angle, released, damage }, shoes = {}, nextId, halted }
-
-function Shoe.serverStart(x, y)
-  sv = { x = x, y = y, nextIn = Shoe.FIRST_AFTER, shoes = {}, nextId = 0 }
+function Shoe:serverStart(x, y)
+  self.sv = { x = x, y = y, nextIn = Shoe.FIRST_AFTER, shoes = {}, nextId = 0 }
 end
 
 --- No more throws; a throw under way and the shoes in the air finish.
-function Shoe.serverHalt()
-  if sv then
-    sv.halted = true
+function Shoe:serverHalt()
+  if self.sv then
+    self.sv.halted = true
   end
 end
 
-function Shoe.serverStop()
-  sv = nil
+function Shoe:serverStop()
+  self.sv = nil
 end
 
---- One throw from (x, y) at the spot (tx, ty), at no player: the wall its
---- shoe stops at takes `damage` instead of KILL (what is in its path still
---- dies). Nothing is thrown after it.
-function Shoe.serverThrowAt(server, x, y, tx, ty, damage)
-  sv = sv or { nextIn = 0, shoes = {}, nextId = 0 }
+--- One throw from (x, y) at the spot (tx, ty): the wall its shoe stops at
+--- takes `damage` instead of KILL (what is in its path still dies).
+--- Nothing is thrown after it. With `target` (a player) the shoe goes
+--- where they stand when it leaves his hand, as his own throws do.
+function Shoe:serverThrowAt(server, x, y, tx, ty, damage, target)
+  local sv = self.sv or { nextIn = 0, shoes = {}, nextId = 0 }
+  self.sv = sv
   sv.x, sv.y, sv.halted = x, y, true
   local angle = math.atan2(ty - y, tx - x)
-  sv.throw = { t = 0, angle = angle, released = false, damage = damage }
-  server:broadcast(Protocol.encode("TUT_THROW", ("%.3f"):format(angle)))
+  sv.throw = { t = 0, target = target, angle = angle, released = false, damage = damage }
+  server:broadcast(Protocol.encode(self.kinds.throw, ("%.3f"):format(angle)))
 end
 
 --- Is a throw under way or a shoe in the air?
-function Shoe.serverBusy()
+function Shoe:serverBusy()
+  local sv = self.sv
   return sv ~= nil and (sv.throw ~= nil or #sv.shoes > 0)
 end
 
 --- Seconds to the next throw, or nil while not throwing.
-function Shoe.serverNextIn()
+function Shoe:serverNextIn()
+  local sv = self.sv
   return sv and not sv.halted and math.max(0, sv.nextIn) or nil
 end
 
-function Shoe.serverShoes()
-  return sv and sv.shoes or {}
+function Shoe:serverShoes()
+  return self.sv and self.sv.shoes or {}
 end
 
 local function alive(player)
   return Features.present(player) and player.body ~= nil and not player.body.dead
 end
 
---- The nearest living human within range, or nil.
-local function pick(server)
+--- The nearest living human within range of thrower state `sv`, or nil.
+local function pick(server, sv)
   local best, bestD = nil, Shoe.RANGE ^ 2
   for _, player in pairs(server.players) do
     if not player.bot and alive(player) then
@@ -129,7 +151,7 @@ local function pick(server)
   return best
 end
 
-local function aimAt(server, player, fallback)
+local function aimAt(server, sv, player, fallback)
   local px, py = nil, nil
   if player and alive(player) then
     px, py = Features.bodyPose(server, player)
@@ -202,16 +224,16 @@ local function passed(server, shoe, ux, uy)
   return (px - shoe.x) * ux + (py - shoe.y) * uy < -(Shoe.FOOT_RADIUS + Shoe.RADIUS)
 end
 
-local function land(server, i, x, y, on)
-  local shoe = table.remove(sv.shoes, i)
+local function land(self, server, i, x, y, on)
+  local shoe = table.remove(self.sv.shoes, i)
   settle(server, shoe, on)
-  server:broadcast(Protocol.encode("TUT_SHOE_END", shoe.id, ("%.1f"):format(x), ("%.1f"):format(y)))
+  server:broadcast(Protocol.encode(self.kinds.stop, shoe.id, ("%.1f"):format(x), ("%.1f"):format(y)))
 end
 
 --- One step of shoe `i`: sampled every STEP px so it can't fly through
 --- anything. Returns true if it stopped.
-local function fly(server, i, dt, on)
-  local shoe = sv.shoes[i]
+local function fly(self, server, i, dt, on)
+  local shoe = self.sv.shoes[i]
   local dist = math.min(Shoe.SPEED * dt, Shoe.RANGE - shoe.flown)
   local angle = math.atan2(shoe.vy, shoe.vx)
   local ux, uy = math.cos(angle), math.sin(angle)
@@ -221,7 +243,7 @@ local function fly(server, i, dt, on)
     local x, y = shoe.x + ux * d, shoe.y + uy * d
     if Features.any("blocksShot", x, y) then
       Features.call("serverBlast", server, x, y, Shoe.RADIUS, shoe.damage or Shoe.KILL, 0, "impact")
-      land(server, i, x, y, on)
+      land(self, server, i, x, y, on)
       return true
     end
     strike(server, shoe, x, y, angle)
@@ -232,15 +254,16 @@ local function fly(server, i, dt, on)
     settle(server, shoe, on)
   end
   if shoe.flown >= Shoe.RANGE then
-    land(server, i, shoe.x, shoe.y, on)
+    land(self, server, i, shoe.x, shoe.y, on)
     return true
   end
   return false
 end
 
 --- The shoe leaves his hand at whoever was picked, where they stand now.
-local function release(server, throw)
-  local angle = aimAt(server, throw.target, throw.angle)
+local function release(self, server, throw)
+  local sv = self.sv
+  local angle = aimAt(server, sv, throw.target, throw.angle)
   sv.nextId = sv.nextId + 1
   local x, y = sv.x + math.cos(angle) * Shoe.HAND, sv.y + math.sin(angle) * Shoe.HAND
   local shoe = {
@@ -255,13 +278,13 @@ local function release(server, throw)
     damage = throw.damage,
   }
   sv.shoes[#sv.shoes + 1] = shoe
-  server:broadcast(Protocol.encode("TUT_SHOE", shoe.id, ("%.1f"):format(x), ("%.1f"):format(y),
+  server:broadcast(Protocol.encode(self.kinds.shoe, shoe.id, ("%.1f"):format(x), ("%.1f"):format(y),
     ("%.3f"):format(angle)))
 end
 
 --- `player` started a dodge: every shoe in the air at them notes it.
-function Shoe.serverDodged(player)
-  for _, shoe in ipairs(sv and sv.shoes or {}) do
+function Shoe:serverDodged(player)
+  for _, shoe in ipairs(self:serverShoes()) do
     if shoe.target == player.id and not shoe.settled then
       shoe.dodged = true
     end
@@ -271,20 +294,21 @@ end
 --- Fly the shoes, run the throw under way, start the next when it is time.
 --- `on.threw(server)` is called when a throw starts, `on.dodged(server, id)` when
 --- a shoe was dodged (see the top).
-function Shoe.serverStep(server, dt, on)
+function Shoe:serverStep(server, dt, on)
   on = on or {}
+  local sv = self.sv
   if not sv then
     return
   end
   for i = #sv.shoes, 1, -1 do
-    fly(server, i, dt, on)
+    fly(self, server, i, dt, on)
   end
   local throw = sv.throw
   if throw then
     throw.t = throw.t + dt
     if not throw.released and throw.t >= Shoe.THROW_TIME * RELEASE then
       throw.released = true
-      release(server, throw)
+      release(self, server, throw)
     end
     if throw.t >= Shoe.THROW_TIME then
       sv.throw = nil
@@ -294,15 +318,15 @@ function Shoe.serverStep(server, dt, on)
   if sv.nextIn > 0 or sv.throw or sv.halted then
     return
   end
-  local target = pick(server)
+  local target = pick(server, sv)
   if not target then
     sv.nextIn = 0.5 -- nobody to throw at: look again shortly
     return
   end
   sv.nextIn = Shoe.PERIOD
-  local angle = aimAt(server, target, 0)
+  local angle = aimAt(server, sv, target, 0)
   sv.throw = { t = 0, target = target, angle = angle, released = false }
-  server:broadcast(Protocol.encode("TUT_THROW", ("%.3f"):format(angle)))
+  server:broadcast(Protocol.encode(self.kinds.throw, ("%.3f"):format(angle)))
   if on.threw then
     on.threw(server)
   end
@@ -310,21 +334,17 @@ end
 
 -- Client --------------------------------------------------------------------
 
-local cl = {
-  throw = nil, -- { t, angle } while he throws
-  shoes = {}, -- id -> { x, y, angle, flown, spin }
-  lying = {}, -- { id, x, y, spin, t }: stopped shoes on the ground
-}
-
-function Shoe.clear()
+function Shoe:clear()
+  local cl = self.cl
   cl.throw, cl.shoes, cl.lying = nil, {}, {}
 end
 
-local function lie(shoe, x, y)
+local function lie(cl, shoe, x, y)
   cl.lying[#cl.lying + 1] = { id = shoe.id, x = x, y = y, spin = shoe.spin, t = 0 }
 end
 
-function Shoe.update(dt)
+function Shoe:update(dt)
+  local cl = self.cl
   if cl.throw then
     cl.throw.t = cl.throw.t + dt
     if cl.throw.t >= Shoe.THROW_TIME then
@@ -340,7 +360,7 @@ function Shoe.update(dt)
     -- keep drawing it flying.
     if shoe.flown >= Shoe.RANGE or Features.any("blocksShot", shoe.x, shoe.y) then
       cl.shoes[id] = nil
-      lie(shoe, shoe.x, shoe.y)
+      lie(cl, shoe, shoe.x, shoe.y)
     end
   end
   for i = #cl.lying, 1, -1 do
@@ -354,16 +374,18 @@ end
 
 --- His throw as `ShoemanRender.draw` wants it (0 to 1, nil standing) and
 --- the angle he throws along (nil standing).
-function Shoe.pose()
-  if not cl.throw then
+function Shoe:pose()
+  local throw = self.cl.throw
+  if not throw then
     return nil, nil
   end
-  return cl.throw.t / Shoe.THROW_TIME, cl.throw.angle
+  return throw.t / Shoe.THROW_TIME, throw.angle
 end
 
 --- The shoes on the ground and in the air, and the shout over Shoeman at
 --- (x, y) while he winds up.
-function Shoe.draw(x, y)
+function Shoe:draw(x, y)
+  local cl = self.cl
   for _, l in ipairs(cl.lying) do
     ShoemanRender.shoe(l.x, l.y, l.spin, Shoe.SIZE, math.min(1, Shoe.LIE_TIME + 1 - l.t))
   end
@@ -389,34 +411,41 @@ function Shoe.draw(x, y)
   love.graphics.setColor(1, 1, 1)
 end
 
-Shoe.clientMessages = {
-  TUT_THROW = function(_client, args)
-    cl.throw = { t = 0, angle = tonumber(args[1]) or 0 }
-  end,
-  TUT_SHOE = function(_client, args)
-    local id, x, y, angle = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
-    if id and x and y and angle then
-      cl.shoes[id] = { id = id, x = x, y = y, angle = angle, flown = 0, spin = angle }
-      if cl.throw then
-        cl.throw.angle = angle -- he follows through the way it went
-      end
-    end
-  end,
-  TUT_SHOE_END = function(_client, args)
-    local id, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
-    local shoe = id and cl.shoes[id]
-    if shoe and x and y then
-      cl.shoes[id] = nil
-      lie(shoe, x, y)
-    elseif x and y then
-      -- Already stopped here (a wall it reached first on this screen): put it where the host says.
-      for _, l in ipairs(cl.lying) do
-        if l.id == id then
-          l.x, l.y = x, y
+--- Thrower `self`'s handlers, under its own kinds.
+function Shoe.handlers(self)
+  local cl, k = self.cl, self.kinds
+  return {
+    [k.throw] = function(_client, args)
+      cl.throw = { t = 0, angle = tonumber(args[1]) or 0 }
+    end,
+    [k.shoe] = function(_client, args)
+      local id, x, y, angle = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+      if id and x and y and angle then
+        cl.shoes[id] = { id = id, x = x, y = y, angle = angle, flown = 0, spin = angle }
+        if cl.throw then
+          cl.throw.angle = angle -- he follows through the way it went
         end
       end
-    end
-  end,
-}
+    end,
+    [k.stop] = function(_client, args)
+      local id, x, y = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+      local shoe = id and cl.shoes[id]
+      if shoe and x and y then
+        cl.shoes[id] = nil
+        lie(cl, shoe, x, y)
+      elseif x and y then
+        -- Already stopped here (a wall it reached first on this screen): put it where the host says.
+        for _, l in ipairs(cl.lying) do
+          if l.id == id then
+            l.x, l.y = x, y
+          end
+        end
+      end
+    end,
+  }
+end
+
+-- The tutorial's thrower (init.lua, build.lua).
+Shoe.tutorial = Shoe.new({ throw = "TUT_THROW", shoe = "TUT_SHOE", stop = "TUT_SHOE_END" })
 
 return Shoe
