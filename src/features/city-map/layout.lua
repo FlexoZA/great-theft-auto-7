@@ -5,7 +5,7 @@
 -- (with alleys), parks (with trees) or parking lots. Everything solid ends
 -- up in `solids`, bucketed into a coarse grid for fast collision queries.
 --
--- `Layout.generate` takes a spec ({ seed, cols, rows, plots, empty, crowd,
+-- `Layout.generate` takes a spec ({ seed, cols, rows, plots, blocks, empty, crowd,
 -- crowdScale, police, traffic, vehicles, kind }) so the same generator builds every map the game knows
 -- (city-map's `maps` table lists them); a bare number is the seed of a
 -- city-sized map. An `empty` map is open ground inside the same walls: every
@@ -40,6 +40,12 @@
 -- two-way streets to cross on foot, `kind = "tutorial-park"` Shoeman's
 -- Park, an open lawn to dodge his shoes on, `kind = "tutorial-yard"`
 -- Shoeman's Scrap Yard, wrecks to shoot from behind (tutorial_maps.lua).
+--
+-- A grid map's spec may fix what each block is with `blocks`: one string per
+-- row of blocks, top first, a letter per block, left first: "b" buildings,
+-- "g" a park, "l" a parking lot, "p" a plot for sale (these make the plot
+-- list, in place of `plots`). What stands in a block is still the seed's.
+-- Shoeman's Town (the tutorial's) is laid out this way.
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.
@@ -1200,7 +1206,11 @@ local function buildCity17(map, rng)
   end
 end
 
---- Build a map. `spec` is { seed, cols, rows, plots, empty, crowd,
+-- The roll each letter of a spec's `blocks` stands for (a plot is cleared
+-- whatever it rolled).
+local FIXED = { g = 0, l = 0.2, b = 1 }
+
+--- Build a map. `spec` is { seed, cols, rows, plots, blocks, empty, crowd,
 --- crowdScale, police, traffic, vehicles, kind } (every field optional,
 --- defaulting to the city above: the header says what each does) or just a seed.
 function Layout.generate(spec)
@@ -1222,7 +1232,7 @@ function Layout.generate(spec)
     police = spec.police ~= false, -- officers on foot walk the beat here, if there is a crowd (police reads it)
     traffic = spec.traffic ~= false, -- NPC cars drive here (bots parks them otherwise)
     vehicles = spec.vehicles ~= false, -- players may drive here (on-foot keeps everyone walking otherwise)
-    plots = spec.plots or ((empty or spec.kind) and {} or Layout.PLOTS), -- { bi, bj } blocks left empty for sale
+    plots = spec.plots or ((empty or spec.kind or spec.blocks) and {} or Layout.PLOTS), -- { bi, bj } blocks for sale
     x0 = -W / 2, -- world x of tile column 0 (the original left edge)
     y0 = -H / 2,
     -- Tile bounds of the city (inclusive) and the same in world px. They
@@ -1302,6 +1312,11 @@ function Layout.generate(spec)
       local cx, cy = bi * P + 3, bj * P + 3
       if cx + 6 <= cols and cy + 6 <= rows then
         local roll = rng:random()
+        local fixed = spec.blocks and (spec.blocks[bj + 1] or ""):sub(bi + 1, bi + 1)
+        roll = FIXED[fixed] or roll
+        if fixed == "p" then
+          map.plots[#map.plots + 1] = { bi, bj }
+        end
         local block = { tx = cx, ty = cy, tw = 6, th = 6, bi = bi, bj = bj }
         if roll < 0.15 then
           block.kind = "park"

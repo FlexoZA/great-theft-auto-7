@@ -80,14 +80,43 @@ Yard; a pistol put down one each, pick up and equip ticked per player;
 weapons' magazine-emptied and reloaded events tick "Empty the magazine"
 and "Reload"; loose squirrels in the events feature, three waves of six
 out of the burrows; their wiki page and portrait; the gate opens after
-wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Next: stage 7,
-box 1 (city-centre map with only the lesson's plots) on
-`feature/tutorial-city`, branched from `feature/tutorial-scrapyard`.
+wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Stage 7 under way on `feature/tutorial-city`, branched from
+`feature/tutorial-scrapyard`: box 1 done (Shoeman's Town, a 3x3-block
+city grid with the four corner plots, the hospital in the middle block).
+Next: stage 7, box 2 (map flag for city services; shop, hospital, Handsy
+Men and sales honour it).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
+
+- Shoeman's Town (stage 7 box 1): not a builder of its own but a plain
+  city grid (`map.kind == "grid"`), so `garage/places.lua`'s `Places.of`
+  and `quests/jobs.lua`'s `Jobs.of` (both grid-only) already find its
+  hospital, Jobs building, shop and gym. Its spec in `CityMap.maps`:
+  `seed = 8, cols = 32, rows = 32, blocks = { "pbp", "bbb", "pgp" }`. New
+  in `layout.lua`: a spec's `blocks` fixes each block's kind, one string
+  per row of blocks, top first ("b" buildings, "g" park, "l" lot, "p"
+  plot; the "p"s make `map.plots`), the seed still filling them. Seed 8
+  was picked by trying 3000 seeds for a big hospital and a Jobs building
+  with a shop. What comes out (checked in a scripted run, `--quest
+  tutorial-4`): 9 buildings; four plots, real-estate ids 1 (-832, -832)
+  NW, 2 (-832, 448) SW, 3 (448, -832) NE, 4 (448, 448) SE, each 384 px
+  square, FOR SALE 20 Fcks; the hospital the whole middle block (-192,
+  -192, 384x384), door (0, 224); the Jobs building in the top middle
+  block, door (0, -864) on the top street side; the shop below it in the
+  same block, door (0, -416), facing the hospital across the street; the
+  gym door (544, -224); no impound (no lot). None of these show yet:
+  every service asks `city.current == city.DEFAULT` (`Quests:jobs`,
+  garage's places, handsy-man, delivery, real-estate buying, buildings),
+  box 2's flag. Start and checkpoint (0, 320) on the road under the
+  hospital (`map.cx, cy`); Shoeman (160, 416) on the pavement over the
+  park; HOME star (0, 544) on the park's north path; the way on (-640,
+  -960) on the top street above the NW plot (clear of the Jobs door).
+  Spots and spawns all clear of solids. Ammo crates and medkits scatter
+  on their own. Bots still roam it (13 players in the run): as on every
+  tutorial map.
 
 - The way on (stage 6 box 6): no code beyond the `tutorial-3.wave3` beat
   ("the gate's at the top of the yard"): the yard's list has no exit
@@ -552,15 +581,8 @@ a history.
   coroutine script in `main.lua`. Taking a board job needs the player at
   `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
   offer that ignores the accept key for its first seconds.
-- The town is still a placeholder in `CityMap.maps` (`city-map/init.lua`):
-  `tutorial-city` 40x40, `empty = true` (open walled ground, like
-  `testrange`), walked, nobody about. Everyone arrives
-  on the middle row (`map.cy`: 64). One HOME star per map
-  (`home-tutorial-city` in `Quests.list`) 240 px south of that. Backdrops
-  are the outskirts' (`surroundings/init.lua` `DRAW`) on every tutorial
-  map. Ammo crates scatter on their own. Stage 7 replaces it with a real
-  map (a `kind` and a builder); then move its HOME star, its
-  `Tutorial.EXITS`, `SHOEMAN` and `Checkpoint.SPOTS` entries.
+- Backdrops are the outskirts' (`surroundings/init.lua` `DRAW`) on every
+  tutorial map, the town's too (the city's own is the sea: stage 11).
 - `make audit` passes (8.2, end of stage 6; 8.6 at stage 5) with four
   majors: no soundtrack on the four maps. Those wait for stage 11 unless a reviewer
   wants them sooner. Minors: core files changed (`src/states/game.lua`
@@ -824,7 +846,7 @@ notice.
 
 ### 7. The tutorial city (`feature/tutorial-city`)
 
-- [ ] City-centre map with only the lesson's plots
+- [x] City-centre map with only the lesson's plots
 - [ ] Map flag for city services; shop, hospital, Handsy Men and sales honour it
 - [ ] Respawn at the hospital on this map
 

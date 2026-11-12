@@ -226,10 +226,12 @@ CityMap.maps = {
   -- scrap yard are built (tutorial_maps.lua): four two-way streets between
   -- a school yard and a lawn, the tutorial's own traffic on them; a hedged
   -- park with Shoeman in the middle of an open lawn; a fenced yard of
-  -- wrecks to shoot from behind. The town is a placeholder for now: an
-  -- open walled field like the test range, everyone arriving in the
-  -- middle, the HOME star just south of them and the way on
-  -- (Tutorial.EXITS) near the top.
+  -- wrecks to shoot from behind. The town is a small copy of the city
+  -- centre, a grid of three by three blocks (`blocks`, layout.lua): the
+  -- four corners are the plots level 5 builds on, the middle row and the
+  -- top middle are buildings (the seed puts the hospital in the middle
+  -- one, the Jobs building and the shop above it), a park at the bottom.
+  -- Everyone arrives on the road under the hospital (map.cx, cy: 0, 320).
   ["tutorial-road"] = {
     title = "Shoeman's Road", kind = "tutorial-road", seed = 401, cols = 24, rows = 44,
     crowd = false, traffic = false, vehicles = false,
@@ -243,7 +245,7 @@ CityMap.maps = {
     crowd = false, traffic = false, vehicles = false,
   },
   ["tutorial-city"] = {
-    title = "Shoeman's Town", seed = 404, cols = 40, rows = 40, empty = true,
+    title = "Shoeman's Town", seed = 8, cols = 32, rows = 32, blocks = { "pbp", "bbb", "pgp" },
     crowd = false, traffic = false, vehicles = false,
   },
   -- The test range (the test-range feature): an open walled field to try
