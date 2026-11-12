@@ -14,6 +14,12 @@
 -- touching them. Dodging during the wind-up is too soon: he aims where
 -- they stand when he lets go.
 --
+-- One throw at a spot instead (level 5's repair lesson):
+-- `Shoe.serverThrowAt(server, x, y, tx, ty, damage)` from (x, y) at (tx,
+-- ty); the wall it stops at takes `damage` (a dent in a building), and
+-- nothing is thrown after it. `Shoe.serverBusy()` while a throw or a shoe
+-- is under way.
+--
 -- Host: `Shoe.serverStart(x, y)` starts throwing from (x, y),
 -- `Shoe.serverStop()` stops (shoes in the air vanish with the level),
 -- `Shoe.serverHalt()` throws no more (the ones in the air fly on),
@@ -22,7 +28,7 @@
 -- `Shoe.serverDodged(player)` (on-foot's `serverDodged`),
 -- `Shoe.serverNextIn()` (seconds to the next throw: level 2's countdown),
 -- `Shoe.serverShoes()` (the shoes in flight: { id, x, y, vx, vy, target =
--- player id, hit = { [player id] = true }, dodged, settled }).
+-- player id, hit = { [player id] = true }, dodged, settled, damage }).
 -- Client: `Shoe.update(dt)`, `Shoe.pose()` (throw fraction for
 -- `ShoemanRender.draw`, nil standing, and the angle he throws along),
 -- `Shoe.draw(x, y)` (the shoes, and the shout over him at (x, y)),
@@ -62,7 +68,7 @@ local RELEASE = ShoemanRender.RELEASE
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { x, y, nextIn, throw = { t, target, angle, released }, shoes = {}, nextId, halted }
+local sv = nil -- { x, y, nextIn, throw = { t, target, angle, released, damage }, shoes = {}, nextId, halted }
 
 function Shoe.serverStart(x, y)
   sv = { x = x, y = y, nextIn = Shoe.FIRST_AFTER, shoes = {}, nextId = 0 }
@@ -77,6 +83,22 @@ end
 
 function Shoe.serverStop()
   sv = nil
+end
+
+--- One throw from (x, y) at the spot (tx, ty), at no player: the wall its
+--- shoe stops at takes `damage` instead of KILL (what is in its path still
+--- dies). Nothing is thrown after it.
+function Shoe.serverThrowAt(server, x, y, tx, ty, damage)
+  sv = sv or { nextIn = 0, shoes = {}, nextId = 0 }
+  sv.x, sv.y, sv.halted = x, y, true
+  local angle = math.atan2(ty - y, tx - x)
+  sv.throw = { t = 0, angle = angle, released = false, damage = damage }
+  server:broadcast(Protocol.encode("TUT_THROW", ("%.3f"):format(angle)))
+end
+
+--- Is a throw under way or a shoe in the air?
+function Shoe.serverBusy()
+  return sv ~= nil and (sv.throw ~= nil or #sv.shoes > 0)
 end
 
 --- Seconds to the next throw, or nil while not throwing.
@@ -198,7 +220,7 @@ local function fly(server, i, dt, on)
     local d = dist * s / steps
     local x, y = shoe.x + ux * d, shoe.y + uy * d
     if Features.any("blocksShot", x, y) then
-      Features.call("serverBlast", server, x, y, Shoe.RADIUS, Shoe.KILL, 0, "impact")
+      Features.call("serverBlast", server, x, y, Shoe.RADIUS, shoe.damage or Shoe.KILL, 0, "impact")
       land(server, i, x, y, on)
       return true
     end
@@ -230,6 +252,7 @@ local function release(server, throw)
     flown = 0,
     target = throw.target and throw.target.id,
     hit = {},
+    damage = throw.damage,
   }
   sv.shoes[#sv.shoes + 1] = shoe
   server:broadcast(Protocol.encode("TUT_SHOE", shoe.id, ("%.1f"):format(x), ("%.1f"):format(y),

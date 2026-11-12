@@ -261,6 +261,21 @@ Story.beats = {
   ["tutorial-5.transport"] = {
     "Dig, carry, load. That's the whole economy. Everything else is people pretending to work.",
   },
+  -- Section 4: he throws a shoe at the nearest building (build.lua). All
+  -- shouting, so it cuts in.
+  ["tutorial-5.throw"] = {
+    { "OI! HEADS UP!", shout = true },
+  },
+  -- One of his shoes left a building damaged.
+  ["tutorial-5.dent"] = {
+    "Oops. Hole in your building. Buildings get shot, burned and rammed out there, and they don't mend themselves.",
+    "{buy} on its square and repair the damage. Free here. Out there it costs you.",
+  },
+  -- Section 4 done.
+  ["tutorial-5.repaired"] = {
+    "Good as new. Better than my shoe, anyway.",
+    "Next: staff. You can't be everywhere. Hire a driver at the shop. And a Handsy Man while you're there.",
+  },
 }
 
 return Story

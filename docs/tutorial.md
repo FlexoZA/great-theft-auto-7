@@ -104,14 +104,29 @@ under way on `feature/tutorial-build`, branched from
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
 line), box 3 (section 1: resources), box 4 (section 2: factories), box 5 (section 3:
-transport). Next: stage 9, box 6 (section 4: repair, Shoeman's shoe does
-the damage).
+transport), box 6 (section 4: repair). Next: stage 9, box 7 (section 5:
+hires).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 4 (stage 9 box 6): a section with `dent = true` makes build.lua's
+  `dent` run from `Build.serverStep(server, dt)`: `Build.throwAfter` (2 s)
+  after it is up he throws at the standing building nearest him
+  (`Build.serverStart(x, y)` gets `Tutorial.SHOEMAN`), with the shouted
+  `throw` beat; once nothing is in the air, a damaged building means
+  `dented` and the `dent` beat, else another throw `retryAfter` (3 s)
+  later at the next nearest. New in shoe.lua: `Shoe.serverThrowAt(server,
+  x, y, tx, ty, damage)` (one throw at a spot, at nobody; the wall it
+  stops at takes `damage` through `serverBlast`; what is in its path
+  still dies, and the red DODGE!!!! shows over him as on level 2) and
+  `Shoe.serverBusy()`. `Build.DENT` 300 (a quarry has 600).
+  `buildings:serverStanding()` now gives `hp` and `max` too. The item with
+  `repair = true` ticks on a "repaired" once `dented`. Checked in a
+  scripted run: the shoe hit the Weapons Factory on plot 4 (1000 -> 700),
+  `dent` said, BLD_REPAIR ticked it and said `repaired`; section 5 up.
 - Section 3 (stage 9 box 5): items `collect = "iron"` (a "collected" of
   that item from any building) and `load = kind, items = { ... }` (ticks
   once every listed material has gone into a building of that kind this
@@ -1080,7 +1095,7 @@ notice.
 - [x] Section 1: resources
 - [x] Section 2: factories
 - [x] Section 3: transport
-- [ ] Section 4: repair (Shoeman's shoe does the damage)
+- [x] Section 4: repair (Shoeman's shoe does the damage)
 - [ ] Section 5: hires
 - [ ] Section 6: selling
 - [ ] HOME star on completion; the tutorial counts as finished

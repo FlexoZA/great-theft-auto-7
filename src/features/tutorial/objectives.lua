@@ -1,7 +1,8 @@
 -- The tutorial's tick list, top left (docs/tutorial.md, "Systems"): what
 -- the level asks for, a box per item, ticked as it is done. A level's list
--- comes in sections (`title`; `beat`, what Shoeman says when one is done,
--- build.lua), shown one at a time; a finished section stays up a
+-- comes in sections (`title`; `beat`, what Shoeman says when one is done;
+-- `dent`, he damages a building while it is up: build.lua), shown one at a
+-- time; a finished section stays up a
 -- moment, all ticked, then the next one replaces it. The look follows the
 -- quests' one-line objective (borderline/hud.lua `drawObjective`).
 --
@@ -11,8 +12,8 @@
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
 -- (ticked by reaching the way on), build = kind (level 5: asks for a
 -- building of that kind, build.lua), kind and makes (level 5: asks for a
--- building of `kind` set to make `makes`), collect, load and items (level
--- 5: build.lua), timer = true (the host may show
+-- building of `kind` set to make `makes`), collect, load, items and repair
+-- (level 5: build.lua), timer = true (the host may show
 -- the seconds to something beside it), each = true (every human in the game
 -- must do it: counted per player with `serverTickPlayer`, its need the
 -- number of humans, shown "(1/2)" when there is more than one; one who
@@ -111,7 +112,13 @@ Objectives.lists = {
         },
       },
     },
-    { title = "Repair", items = { { id = "repair", text = "Repair the damaged building" } } },
+    -- Shoeman dents a building first (build.lua, `dent`).
+    {
+      title = "Repair",
+      beat = "repaired",
+      dent = true,
+      items = { { id = "repair", text = "Repair the damaged building", repair = true } },
+    },
     {
       title = "Hires",
       items = {

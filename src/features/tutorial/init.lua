@@ -101,7 +101,8 @@ end
 --- the start, as a new map would have.
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false, t = 0, quips = 0 } or nil
-  Build.serverStart()
+  local shoeman = level and Tutorial.SHOEMAN[level.quest]
+  Build.serverStart(shoeman and shoeman.x, shoeman and shoeman.y)
   Shoe.serverStop()
   Gift.serverStop()
   Waves.serverStop()
@@ -109,9 +110,8 @@ function Tutorial:serverQuestStarted(server, quest)
   if level then
     Comms.serverStart(level.quest)
     Objectives.serverStart(server, level.quest)
-    local at = level.quest == "tutorial-2" and Tutorial.SHOEMAN[level.quest]
-    if at then
-      Shoe.serverStart(at.x, at.y)
+    if level.quest == "tutorial-2" then
+      Shoe.serverStart(shoeman.x, shoeman.y)
       Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
     end
     -- The scrap yard and the town: he puts his gift down for everyone, in
@@ -402,7 +402,7 @@ function Tutorial:serverStep(server, dt)
     armEveryone(server)
   end
   Waves.serverStep(server, dt, waveEvents)
-  Build.serverStep(dt)
+  Build.serverStep(server, dt)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end

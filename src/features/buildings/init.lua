@@ -398,7 +398,8 @@ function Buildings:ofKind(kind, owner)
 end
 
 --- Every building still standing on the host, in plot order: { id, owner,
---- kind, x, y, w, h } with (x, y, w, h) the ground it covers. For something
+--- kind, x, y, w, h, hp, max } with (x, y, w, h) the ground it covers and
+--- `max` its kind's full hit points. For something
 --- that goes after players' buildings (the events feature's Bigfoot); hurt
 --- one through `serverWallHit` or `serverBlast` as a gun would.
 function Buildings:serverStanding()
@@ -407,7 +408,10 @@ function Buildings:serverStanding()
     local plot = plotById(id)
     if plot and not ruined(b) then
       local r = footprint(plot)
-      out[#out + 1] = { id = id, owner = b.owner, kind = b.kind, x = r.x, y = r.y, w = r.w, h = r.h }
+      out[#out + 1] = {
+        id = id, owner = b.owner, kind = b.kind, x = r.x, y = r.y, w = r.w, h = r.h,
+        hp = b.hp, max = Kinds.byKey[b.kind].hp,
+      }
     end
   end
   table.sort(out, function(a, b)
