@@ -91,9 +91,10 @@ Objectives.lists = {
     },
     {
       title = "Factories",
+      beat = "factories",
       items = {
         { id = "weapons", text = "Build a Weapons Factory", build = "weapons" },
-        { id = "pistols", text = "Set it to pistols" },
+        { id = "pistols", text = "Set it to pistols", kind = "weapons", makes = "gun-pistol" },
         { id = "ammo", text = "Build an Ammo Factory", build = "ammo" },
       },
     },

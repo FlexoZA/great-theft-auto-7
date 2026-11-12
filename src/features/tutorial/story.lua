@@ -225,6 +225,25 @@ Story.beats = {
     "Iron and sulfur. Raw materials. Worth nothing in the ground, worth a lot in a gun.",
     "Factories next. A Weapons Factory and an Ammo Factory, one plot each.",
   },
+  -- A Weapons Factory went up, making pistols from the start.
+  ["tutorial-5.pistols"] = {
+    "A Weapons Factory. Iron goes in, guns come out. It starts on pistols. Leave it on pistols.",
+    "Now the Ammo Factory.",
+  },
+  -- One went up and pistols were ticked already (it was set away from them).
+  ["tutorial-5.weapons"] = {
+    "A Weapons Factory. Iron goes in, guns come out. Set one to pistols.",
+  },
+  -- The Ammo Factory went up before the Weapons Factory.
+  ["tutorial-5.ammo"] = {
+    "An Ammo Factory. Iron and sulfur in, rounds out. Now the Weapons Factory.",
+  },
+  -- Section 2 done: both factories, the gun one on pistols.
+  ["tutorial-5.factories"] = {
+    "The Ammo Factory starts on 9mm. Not for your pistol: that never runs dry. The Uzi and the SMG eat 9mm.",
+    "Factories do nothing without materials, and materials don't walk over by themselves.",
+    "Neither do you, it seems. Off you go.",
+  },
 }
 
 return Story

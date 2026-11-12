@@ -103,14 +103,21 @@ under way on `feature/tutorial-build`, branched from
 `feature/tutorial-open-borders`: box 1 done (plots, building and repairs
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
-line), box 3 (section 1: resources). Next: stage 9, box 4 (section 2:
-factories).
+line), box 3 (section 1: resources), box 4 (section 2: factories). Next:
+stage 9, box 5 (section 3: transport).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 2 (stage 9 box 4): data and beats only: `pistols` is `kind =
+  "weapons", makes = "gun-pistol"` (the factory starts on it, product 1),
+  section `beat = "factories"` (the 9mm note: the pistol never runs dry,
+  9mm is the Uzi's and SMG's). Checked in a scripted run (sections 1 and 2
+  from the harness's `SECTION1`): ammo factory first says `ammo`, a third
+  quarry is wrong and comes down, the weapons factory ticks `weapons` and
+  `pistols` and says `factories`; section 3 up after.
 - Section 1 (stage 9 box 3): an item with `kind` and `makes` asks for a
   building of that kind making that item (`iron`, `sulfur` on quarries);
   it ticks on "built" (a quarry starts on iron, product 1) or "product".
@@ -1058,7 +1065,7 @@ notice.
 - [x] Free plots; build and repair cost hook
 - [x] Wrong building: the public-school insult, building removed
 - [x] Section 1: resources
-- [ ] Section 2: factories
+- [x] Section 2: factories
 - [ ] Section 3: transport
 - [ ] Section 4: repair (Shoeman's shoe does the damage)
 - [ ] Section 5: hires
