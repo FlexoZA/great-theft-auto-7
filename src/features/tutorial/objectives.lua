@@ -8,7 +8,8 @@
 -- player who joins mid-level gets the same list; clients only draw it.
 --
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
--- (ticked by reaching the way on), timer = true (the host may show the
+-- (ticked by reaching the way on), build = kind (level 5: asks for a
+-- building of that kind, build.lua), timer = true (the host may show the
 -- seconds to something beside it), each = true (every human in the game
 -- must do it: counted per player with `serverTickPlayer`, its need the
 -- number of humans, shown "(1/2)" when there is more than one; one who
@@ -69,6 +70,51 @@ Objectives.lists = {
         { id = "equip", text = "Equip it", each = true },
         { id = "use", text = "Use it" },
         { id = "rioters", text = "Destroy the rioters", need = Objectives.RIOTERS },
+      },
+    },
+  },
+  -- One section at a time, ticked from what players do at their buildings
+  -- (build.lua). An item with `build` asks for a building of that kind:
+  -- any other building comes straight down again.
+  ["tutorial-5"] = {
+    {
+      title = "Resources",
+      items = {
+        { id = "quarry1", text = "Build a Quarry Mine", build = "quarry" },
+        { id = "iron", text = "Set it to iron" },
+        { id = "quarry2", text = "Build a second Quarry Mine", build = "quarry" },
+        { id = "sulfur", text = "Set it to sulfur" },
+      },
+    },
+    {
+      title = "Factories",
+      items = {
+        { id = "weapons", text = "Build a Weapons Factory", build = "weapons" },
+        { id = "pistols", text = "Set it to pistols" },
+        { id = "ammo", text = "Build an Ammo Factory", build = "ammo" },
+      },
+    },
+    {
+      title = "Transport",
+      items = {
+        { id = "collect", text = "Collect iron from the quarry" },
+        { id = "loadWeapons", text = "Load it into the Weapons Factory" },
+        { id = "loadAmmo", text = "Load iron and sulfur into the Ammo Factory" },
+      },
+    },
+    { title = "Repair", items = { { id = "repair", text = "Repair the damaged building" } } },
+    {
+      title = "Hires",
+      items = {
+        { id = "driver", text = "Hire a driver" },
+        { id = "handsy", text = "Hire a Handsy Man" },
+      },
+    },
+    {
+      title = "Selling",
+      items = {
+        { id = "sellPistol", text = "Sell a pistol to the shop" },
+        { id = "sellAmmo", text = "Sell ammo to the shop" },
       },
     },
   },

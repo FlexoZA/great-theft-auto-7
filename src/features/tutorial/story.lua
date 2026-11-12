@@ -184,6 +184,30 @@ Story.beats = {
   ["tutorial-4.died4"] = {
     "Sorros sends his regards. He hates you too, remember.",
   },
+  -- Somebody put a building up on level 4 (build.lua): nothing is asked
+  -- for there, so it comes down again.
+  ["tutorial-4.wrong"] = {
+    "Who said anything about building? Rioters first, bricks later. Down it comes.",
+  },
+
+  -- Level 5, build: one section at a time (build.lua), a beat as each
+  -- item ticks, named after it.
+  ["tutorial-5.start"] = {
+    "Last lesson. Building. Guns don't grow on trees, and neither does ammo. You make them.",
+    "Those four empty plots are free here. Stand on one and press {buy}. Don't get used to free.",
+    "Then stand on the square in front of it and press {buy} again to build. First: a Quarry Mine.",
+  },
+  -- Somebody built what the list did not ask for: down it comes.
+  ["tutorial-5.wrong"] = {
+    "Did I ask for that? DID I? Public school. They let you build whatever you like there, didn't they.",
+    "Down it comes. Build what's on the list.",
+  },
+  ["tutorial-5.quarry1"] = {
+    "A quarry. It digs up what every factory runs on. Make sure it digs iron.",
+  },
+  ["tutorial-5.quarry2"] = {
+    "Another one. This one digs sulfur. Ammo needs both: iron for the case, sulfur for the bang.",
+  },
 }
 
 return Story

@@ -1914,6 +1914,16 @@ local function deliver(server, player, plot, item)
   return Features.any("serverDeliver", server, player, item, x, y + T, 0)
 end
 
+--- Tell every feature what `player` just did at the building on plot `id`
+--- (the `serverBuildingDone` event): "built", "product" (set what it makes),
+--- "collected" (`n` of `item`), "loaded" (`n` of `item` into its hopper,
+--- one call per material), "repaired". `kind` is its kind's key; `item`
+--- what it makes unless said otherwise. The tutorial's town lesson hears it.
+local function did(server, player, id, what, b, item, n)
+  item = item or productOf(Kinds.byKey[b.kind], b.product)
+  Features.call("serverBuildingDone", server, player, id, what, b.kind, item, n)
+end
+
 Buildings.serverMessages = {
   BLD_BUILD = refusing(function(server, player, args)
     local plot, reason = plotFor(server, player, args)
@@ -1948,6 +1958,7 @@ Buildings.serverMessages = {
       clearFootprint(server, plot)
     end
     publish(server, plot.id, b)
+    did(server, player, plot.id, "built", b)
   end),
 
   BLD_COLLECT = refusing(function(server, player, args)
@@ -1978,6 +1989,7 @@ Buildings.serverMessages = {
     addStock(server, player, item, n)
     b.output = b.output - n
     publish(server, id, b)
+    did(server, player, id, "collected", b, item, n)
     if b.output > 0 then
       return "invfull" -- took what fit; the rest waits in the building
     end
@@ -1994,7 +2006,7 @@ Buildings.serverMessages = {
       return
     end
     local s = stockOf(player.id)
-    local moved, room = false, false
+    local moved, room = {}, false
     for item in pairs(inputs) do
       local space = Kinds.HOPPER - (b.hopper[item] or 0)
       local n = math.min(space, s[item] or 0)
@@ -2002,13 +2014,16 @@ Buildings.serverMessages = {
       if n > 0 then
         b.hopper[item] = (b.hopper[item] or 0) + n
         addStock(server, player, item, -n)
-        moved = true
+        moved[item] = n
       end
     end
-    if not moved then
+    if not next(moved) then
       return room and "nomaterials" or "hopperfull"
     end
     publish(server, id, b)
+    for item, n in pairs(moved) do
+      did(server, player, id, "loaded", b, item, n)
+    end
   end),
 
   BLD_DEVFILL = refusing(function(server, player, args)
@@ -2078,6 +2093,7 @@ Buildings.serverMessages = {
       b.price = after
     end
     publish(server, id, b)
+    did(server, player, id, "product", b)
   end),
 
   BLD_PRICE = refusing(function(server, player, args)
@@ -2216,6 +2232,7 @@ Buildings.serverMessages = {
       end
     end
     publish(server, id, b)
+    did(server, player, id, "repaired", b)
   end),
 
   BLD_TAKEOVER = refusing(function(server, player, args)
@@ -2780,6 +2797,18 @@ function Buildings:serverRepair(server, id, hits)
     server:broadcast(Protocol.encode("BLD_HP", id, b.hp))
   end
   return hp
+end
+
+--- Take the building on plot `id` down on the host, back to an empty lot
+--- that stays its owner's; what was in it goes with it. The tutorial's town
+--- does it to a building the lesson did not ask for. False when there is
+--- none.
+function Buildings:serverRemove(server, id)
+  if not (sv and sv.buildings[id]) then
+    return false
+  end
+  removeBuilding(server, id)
+  return true
 end
 
 --- For tests.

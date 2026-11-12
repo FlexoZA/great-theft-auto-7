@@ -101,14 +101,38 @@ level 4's horde and fires cleared. `make audit` 8.1, pass (the four
 soundtrack majors are stage 11's); `CHANGELOG.md` line added. Stage 9
 under way on `feature/tutorial-build`, branched from
 `feature/tutorial-open-borders`: box 1 done (plots, building and repairs
-free in Shoeman's Town through the new `buildCost` hook). Next: stage 9,
-box 2 (wrong building: the public-school insult, building removed).
+free in Shoeman's Town through the new `buildCost` hook), box 2 (a
+building the list did not ask for comes down with the public-school
+line). Next: stage 9, box 3 (section 1: resources).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Level 5's lesson (stage 9 box 2): buildings raises a new event
+  `serverBuildingDone(server, player, plotId, what, kind, item, n)` (in the
+  events table of `docs/features.md`), `what` "built", "product",
+  "collected", "loaded" (one call per material), "repaired" (from the
+  menu only: a Handsy Man's `serverRepair` raises nothing), through its
+  local `did`; and a public `Buildings:serverRemove(server, id)` (empty
+  lot, owner kept). The tutorial's `serverBuildingDone` passes it on to
+  `src/features/tutorial/build.lua` (`Build.serverDone`) while a level is
+  on in town (`inTown()`: levels 4 and 5) for a human. `Objectives.lists
+  ["tutorial-5"]` holds all six sections already (ids `quarry1`, `iron`,
+  `quarry2`, `sulfur`; `weapons`, `pistols`, `ammo`; `collect`,
+  `loadWeapons`, `loadAmmo`; `repair`; `driver`, `handsy`; `sellPistol`,
+  `sellAmmo`); an item with `build = kind` asks for a building of that
+  kind. "built": the first unticked `build` item of that kind on screen
+  ticks and says the beat named after the item id; nothing asks for it
+  (level 4 asks for nothing) -> `serverRemove` and `<level>.wrong`, at
+  most every `Build.insultEvery` (6 s). A build in the 1.5 s between two
+  sections is judged against the finished one, so it comes down: rare,
+  left. Story: `tutorial-4.wrong`, `tutorial-5.start`, `.wrong`,
+  `.quarry1`, `.quarry2`. Checked in a scripted run: a weapons factory on
+  plot 1 in section 1 gone on host and client (BLD_GONE), the plot still
+  ours, `wrong` said; a second one within 6 s gone with no line; a quarry
+  stays and ticks "Build a Quarry Mine".
 - Free in town (stage 9 box 1): a new hook `buildCost(cost, what, kind)`,
   asked through `Features.reduce` on both sides (in `_template` and the
   events table of `docs/features.md`). Real-estate asks it as
@@ -1021,7 +1045,7 @@ notice.
 ### 9. Level 5: build (`feature/tutorial-build`)
 
 - [x] Free plots; build and repair cost hook
-- [ ] Wrong building: the public-school insult, building removed
+- [x] Wrong building: the public-school insult, building removed
 - [ ] Section 1: resources
 - [ ] Section 2: factories
 - [ ] Section 3: transport

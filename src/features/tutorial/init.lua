@@ -19,6 +19,7 @@ local Road = require("src.features.tutorial.road")
 local Shoe = require("src.features.tutorial.shoe")
 local Gift = require("src.features.tutorial.gift")
 local Waves = require("src.features.tutorial.waves")
+local Build = require("src.features.tutorial.build")
 
 local Tutorial = {
   name = "tutorial",
@@ -100,6 +101,7 @@ end
 --- the start, as a new map would have.
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false, t = 0, quips = 0 } or nil
+  Build.serverStart()
   Shoe.serverStop()
   Gift.serverStop()
   Waves.serverStop()
@@ -227,6 +229,20 @@ function Tutorial:serverKill(server, kill)
     if victim and not victim.bot then
       mockDeath(server)
     end
+  end
+end
+
+--- Is the level on in Shoeman's Town (levels 4 and 5)?
+local function inTown()
+  local city = Features.byName["city-map"]
+  return level ~= nil and city ~= nil and city.current == Tutorial.TOWN
+end
+
+--- Buildings says what a player did at their building: in town, the
+--- lesson hears it (build.lua), and judges what goes up.
+function Tutorial:serverBuildingDone(server, player, id, what, kind, item, n)
+  if inTown() and not player.bot then
+    Build.serverDone(server, player, id, what, kind, item, n)
   end
 end
 
@@ -386,6 +402,7 @@ function Tutorial:serverStep(server, dt)
     armEveryone(server)
   end
   Waves.serverStep(server, dt, waveEvents)
+  Build.serverStep(dt)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
