@@ -74,22 +74,27 @@ pushed or merged yet): Shoeman's Park, a shoe every 5 s at the nearest
 player with the "DODGE!!!!" shout, everything it touches destroyed,
 dodges in the air counted to 5 with the countdown, then he stops
 throwing and the way on opens. `make audit` 8.6, pass; `CHANGELOG.md`
-line added. Stage 6 under way on `feature/tutorial-scrapyard`, branched
-from `feature/tutorial-dodge` (not pushed or merged yet): box 1 done,
-Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it; box
-2 done, the pistol put down one each, pick up and equip ticked per
-player; box 3 done, weapons' magazine-emptied and reloaded events tick
-"Empty the magazine" and "Reload"; box 4 done, loose squirrels in the
-events feature and three waves of six out of the yard's burrows; box 5
-done, their wiki page and portrait. Next: stage 6, box 6 (way on at the
-gate after wave 3), the stage's last: `make audit` and the
-`CHANGELOG.md` line.
+line added. Stage 6 done on `feature/tutorial-scrapyard`, branched from
+`feature/tutorial-dodge` (not pushed or merged yet): Shoeman's Scrap
+Yard; a pistol put down one each, pick up and equip ticked per player;
+weapons' magazine-emptied and reloaded events tick "Empty the magazine"
+and "Reload"; loose squirrels in the events feature, three waves of six
+out of the burrows; their wiki page and portrait; the gate opens after
+wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Next: stage 7,
+box 1 (city-centre map with only the lesson's plots) on
+`feature/tutorial-city`, branched from `feature/tutorial-scrapyard`.
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The way on (stage 6 box 6): no code beyond the `tutorial-3.wave3` beat
+  ("the gate's at the top of the yard"): the yard's list has no exit
+  item, so the WAY ON ring at the gate (832, -1056) shows once wave 3 is
+  ticked. Checked in a scripted run: standing at the gate after the
+  reload (waves not done) did nothing; after wave 3 reaching it gave JOB
+  DONE "The scrap yard" and offered "Lesson four".
 - Their wiki page (stage 6 box 5): `Squirrels.wikiEnemies(add)` in
   `events/squirrels.lua` (kind `events/loose-squirrel`, `quests = {
   "tutorial-3" }`, `scaling = "none"`), asked by `Events:wikiEnemies`;
@@ -556,15 +561,23 @@ a history.
   map. Ammo crates scatter on their own. Stage 7 replaces it with a real
   map (a `kind` and a builder); then move its HOME star, its
   `Tutorial.EXITS`, `SHOEMAN` and `Checkpoint.SPOTS` entries.
-- `make audit` passes (8.6, end of stage 5) with four majors: no
-  soundtrack on the four maps. Those wait for stage 11 unless a reviewer
+- `make audit` passes (8.2, end of stage 6; 8.6 at stage 5) with four
+  majors: no soundtrack on the four maps. Those wait for stage 11 unless a reviewer
   wants them sooner. Minors: core files changed (`src/states/game.lua`
   for stage 0's HUD cleanup and `emptyHanded`, `src/body.lua` for
   `emptyHanded`; call both out in the pull request) and the branch
   touching 10 features (stage 0's HUD cleanup, borderline's switch to
   `serverArrivedAt`, weapons and abilities here). Stage 4 also changed
   weapons (the `carBarHidden` hook, `serverKill`): no core file. Stage 5
-  changed only the tutorial and city-map.
+  changed only the tutorial and city-map. Stage 6 changed weapons (two
+  events), pickups (`serverTakenBy`), events (loose squirrels) and the
+  wiki tool (`ARCS`, a scene); its new minors are `events/squirrels.lua`
+  requiring alien-hunt's render and sounds and pedestrians' gibs, as
+  `bigfoot.lua` already does (the gibs moved from there; Bigfoot now
+  uses `Squirrels.drawPop` and `Squirrels.splat`). One full audit run
+  showed seven "does not hurt borderline/jet" arsenal majors on
+  borderline-prosperity; not this branch's: the quest alone passed three
+  times and the next full run had none (timing under the parallel run).
 
 ## Decisions
 
@@ -807,7 +820,7 @@ notice.
 - [x] Magazine-emptied and reload-finished events in weapons; their objectives
 - [x] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
 - [x] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels
-- [ ] Way on at the gate after wave 3
+- [x] Way on at the gate after wave 3
 
 ### 7. The tutorial city (`feature/tutorial-city`)
 

@@ -292,8 +292,9 @@ function Squirrels.update(dt)
   end
 end
 
---- A squirrel bursting: a red puff swelling out and fading (as Bigfoot's).
-local function drawPop(p)
+--- A squirrel bursting at `p` ({ x, y, t } with t 0 to 0.8 s): a red puff
+--- swelling out and fading. Bigfoot's burst the same way.
+function Squirrels.drawPop(p)
   local k = p.t / 0.8
   love.graphics.setColor(0.8, 0.1, 0.08, (1 - k) * 0.7)
   love.graphics.circle("fill", p.x, p.y, 6 + 18 * math.min(1, k * 3))
@@ -306,9 +307,17 @@ function Squirrels.drawAboveCars()
     Render.squirrel(s, time)
   end
   for _, p in ipairs(cl.pops) do
-    drawPop(p)
+    Squirrels.drawPop(p)
   end
   love.graphics.setColor(1, 1, 1)
+end
+
+--- The gibs and the splat of one bursting at (x, y), going `angle`.
+function Squirrels.splat(x, y, angle, pitch)
+  if Features.byName.pedestrians then
+    require("src.features.pedestrians.gibs").splat(x, y, angle)
+    require("src.features.pedestrians.sounds").play("splat", x, y, pitch)
+  end
 end
 
 Squirrels.clientMessages = {
@@ -352,10 +361,7 @@ Squirrels.clientMessages = {
         cl.squirrels[id] = nil -- gone now, not at the next sync
       end
     end
-    if Features.byName.pedestrians then
-      require("src.features.pedestrians.gibs").splat(x, y, angle)
-      require("src.features.pedestrians.sounds").play("splat", x, y, 1.4 + random() * 0.3)
-    end
+    Squirrels.splat(x, y, angle, 1.4 + random() * 0.3)
   end,
 }
 

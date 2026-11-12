@@ -28,6 +28,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Lesson two is Shoeman's Park: he stands in the middle of the lawn and throws a shoe at the nearest player every
   5 seconds, shouting "DODGE!!!!" as he winds up. A shoe kills anyone it touches and wrecks any car. Dodge one
   while it is in the air and let it miss you five times, and the way on to the next lesson opens.
+- Lesson three is Shoeman's Scrap Yard: he puts down a pistol for each of you, and you learn to pick it up, put it
+  in a weapon slot, empty the magazine and reload. Then three waves of six squirrels come out of their burrows
+  across the yard, biting until they are shot; once the third wave is down, the yard's gate is the way on.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key

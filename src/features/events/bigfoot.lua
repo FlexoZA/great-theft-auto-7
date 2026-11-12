@@ -682,15 +682,6 @@ function Bigfoot.drawBelowCars()
   end
 end
 
---- A squirrel bursting: a red puff swelling out and fading.
-local function drawPop(p)
-  local k = p.t / 0.8
-  love.graphics.setColor(0.8, 0.1, 0.08, (1 - k) * 0.7)
-  love.graphics.circle("fill", p.x, p.y, 6 + 18 * math.min(1, k * 3))
-  love.graphics.setColor(1, 0.75, 0.4, (1 - k * 3) * 0.9)
-  love.graphics.circle("fill", p.x, p.y, 5 + 8 * k)
-end
-
 function Bigfoot.drawAboveCars()
   if not cl then
     return
@@ -699,7 +690,7 @@ function Bigfoot.drawAboveCars()
     Render.squirrel(s, time)
   end
   for _, p in ipairs(cl.pops) do
-    drawPop(p)
+    Squirrels.drawPop(p)
   end
   for _, ring in ipairs(cl.rings) do
     Render.slamRing(ring)
@@ -753,13 +744,6 @@ function Bigfoot.drawHUD(_client, camera)
     hp = f.hp, max = f.max or Bigfoot.health, stamina = f.stamina, staminaMax = Stamina.defaults.max,
     winded = f.winded,
   })
-end
-
-local function splat(x, y, angle, pitch)
-  if Features.byName.pedestrians then
-    require("src.features.pedestrians.gibs").splat(x, y, angle)
-    require("src.features.pedestrians.sounds").play("splat", x, y, pitch)
-  end
 end
 
 Bigfoot.clientMessages = {
@@ -847,7 +831,7 @@ Bigfoot.clientMessages = {
         cl.squirrels[id] = nil -- gone now, not at the next sync
       end
     end
-    splat(x, y, angle, 1.4 + random() * 0.3)
+    Squirrels.splat(x, y, angle, 1.4 + random() * 0.3)
   end,
   EBF_DOWN = function(_client, args)
     local x, y, angle = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]) or 0
@@ -855,7 +839,7 @@ Bigfoot.clientMessages = {
       return
     end
     for _ = 1, 4 do
-      splat(x + (random() - 0.5) * 30, y + (random() - 0.5) * 30, angle + (random() - 0.5) * 2, 0.7)
+      Squirrels.splat(x + (random() - 0.5) * 30, y + (random() - 0.5) * 30, angle + (random() - 0.5) * 2, 0.7)
     end
     Sounds.play("roar", x, y, 0.7)
   end,

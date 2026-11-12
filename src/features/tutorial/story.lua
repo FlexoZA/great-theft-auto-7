@@ -119,6 +119,11 @@ Story.beats = {
   ["tutorial-3.wave2"] = {
     "Last lot coming. Make it count.",
   },
+  -- The third wave down: the way on, at the gate, is open.
+  ["tutorial-3.wave3"] = {
+    "That's the lot. You can point a gun and pull a trigger. Your public school would be amazed.",
+    "The gate's at the top of the yard, right of the middle. Off you go.",
+  },
   -- The first player the squirrels got.
   ["tutorial-3.bitten"] = {
     "Eaten by squirrels. I'll put that on your headstone. Back to the checkpoint, the ones you shot stay shot.",
