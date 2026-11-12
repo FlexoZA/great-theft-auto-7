@@ -5,7 +5,11 @@
 -- answers (objectives.lua's `tutorial-5` list) and has Shoeman say the
 -- next step (story.lua's `tutorial-5.<item id>` beats).
 --
--- An item that asks for a building names its kind (`build = "quarry"`).
+-- An item that asks for a building names its kind (`build = "quarry"`);
+-- one that asks for a building set to make something names both (`kind =
+-- "quarry", makes = "iron"`), and ticks when one goes up making it or is
+-- set to it. As each step ticks he says the item's beat, or the section's
+-- (`beat`) when it was the last.
 -- A building that no unticked item on screen asks for comes straight down
 -- again, back to an empty lot that stays its owner's, with the
 -- public-school line (`<level>.wrong`): on level 4 nothing is asked, so
@@ -56,23 +60,66 @@ local function wrong(server, id)
   Comms.serverBeat(server, "wrong", true)
 end
 
---- A building went up: what the list asked for ticks and he says what
---- comes next; anything else is wrong.
-local function built(server, id, kind)
-  local item = asked(kind)
-  if not (item and Objectives.serverTick(server, item.id)) then
+--- Tick every unticked item on screen that `fits(item)`; the ids that
+--- ticked are added to `ticked`.
+local function tickWhere(server, fits, ticked)
+  local section = Objectives.serverSection()
+  for _, item in ipairs(section and section.items or {}) do
+    if fits(item) and Objectives.serverTick(server, item.id) then
+      ticked[#ticked + 1] = item.id
+    end
+  end
+end
+
+--- After `ticked` items ticked, he says what comes next: the section's
+--- own beat (`beat`) when it is all done, else the last item's.
+local function sayNext(server, ticked)
+  if #ticked == 0 then
+    return
+  end
+  local section = Objectives.serverSection()
+  for _, item in ipairs(section.items) do
+    if not Objectives.serverTicked(item.id) then
+      Comms.serverBeat(server, ticked[#ticked])
+      return
+    end
+  end
+  Comms.serverBeat(server, section.beat or ticked[#ticked])
+end
+
+--- Items that ask for a `kind` set to make `item` (`kind`, `makes`).
+local function setsTo(kind, item)
+  return function(it)
+    return it.kind == kind and it.makes == item
+  end
+end
+
+--- A building went up: what the list asked for ticks (and what it makes
+--- from the start, a quarry's iron), and he says what comes next; anything
+--- else is wrong.
+local function built(server, id, kind, item)
+  local wanted = asked(kind)
+  if not (wanted and Objectives.serverTick(server, wanted.id)) then
     wrong(server, id)
     return
   end
-  Comms.serverBeat(server, item.id)
+  local ticked = { wanted.id }
+  tickWhere(server, setsTo(kind, item), ticked)
+  sayNext(server, ticked)
 end
 
 --- What the buildings feature says `player` did at their building on plot
 --- `id` (its `serverBuildingDone` event), on a town level.
-function Build.serverDone(server, _player, id, what, kind)
+function Build.serverDone(server, _player, id, what, kind, item)
   if what == "built" then
-    built(server, id, kind)
+    built(server, id, kind, item)
+    return
   end
+  local ticked = {}
+  if what == "product" then
+    tickWhere(server, setsTo(kind, item), ticked)
+  end
+  sayNext(server, ticked)
 end
 
 return Build

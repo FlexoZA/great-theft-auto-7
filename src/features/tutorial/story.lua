@@ -202,11 +202,28 @@ Story.beats = {
     "Did I ask for that? DID I? Public school. They let you build whatever you like there, didn't they.",
     "Down it comes. Build what's on the list.",
   },
+  -- A quarry went up, digging iron from the start.
+  ["tutorial-5.iron"] = {
+    "A quarry. It digs up what every factory runs on, and it starts on iron. That's the one we want.",
+    "Now a second one. Next plot, same thing.",
+  },
+  -- A quarry went up and iron was ticked already (one set to iron, then
+  -- to sulfur): this one is for iron.
   ["tutorial-5.quarry1"] = {
-    "A quarry. It digs up what every factory runs on. Make sure it digs iron.",
+    "A quarry. It digs up what every factory runs on. Make one of them dig iron.",
   },
   ["tutorial-5.quarry2"] = {
     "Another one. This one digs sulfur. Ammo needs both: iron for the case, sulfur for the bang.",
+    "{buy} on its square, then 'Choose what to make'. Pick sulfur.",
+  },
+  -- Sulfur set before the second quarry went up.
+  ["tutorial-5.sulfur"] = {
+    "Sulfur. Smells like your school dinners. Now a second quarry, for the iron.",
+  },
+  -- Section 1 done: two quarries, iron and sulfur.
+  ["tutorial-5.resources"] = {
+    "Iron and sulfur. Raw materials. Worth nothing in the ground, worth a lot in a gun.",
+    "Factories next. A Weapons Factory and an Ammo Factory, one plot each.",
   },
 }
 

@@ -103,13 +103,24 @@ under way on `feature/tutorial-build`, branched from
 `feature/tutorial-open-borders`: box 1 done (plots, building and repairs
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
-line). Next: stage 9, box 3 (section 1: resources).
+line), box 3 (section 1: resources). Next: stage 9, box 4 (section 2:
+factories).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 1 (stage 9 box 3): an item with `kind` and `makes` asks for a
+  building of that kind making that item (`iron`, `sulfur` on quarries);
+  it ticks on "built" (a quarry starts on iron, product 1) or "product".
+  After each event `sayNext` says one beat: the section's `beat` field
+  ("resources") when the section is all ticked, else the last ticked
+  item's (`iron` covers a first quarry: built and digging iron). Checked
+  in a scripted run: two plots taken, quarry on 1 ticks 1 and 2 (`iron`
+  said), quarry on 2 ticks 3 (`quarry2`), BLD_PRODUCT 2 2 (sulfur) ticks 4
+  and `resources`; section 2 up 1.5 s later. Harness helpers: plot i's
+  middle and pad are (-640|640, -640|640) and (x, y + 224).
 - Level 5's lesson (stage 9 box 2): buildings raises a new event
   `serverBuildingDone(server, player, plotId, what, kind, item, n)` (in the
   events table of `docs/features.md`), `what` "built", "product",
@@ -1046,7 +1057,7 @@ notice.
 
 - [x] Free plots; build and repair cost hook
 - [x] Wrong building: the public-school insult, building removed
-- [ ] Section 1: resources
+- [x] Section 1: resources
 - [ ] Section 2: factories
 - [ ] Section 3: transport
 - [ ] Section 4: repair (Shoeman's shoe does the damage)

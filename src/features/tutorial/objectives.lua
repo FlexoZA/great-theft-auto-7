@@ -1,6 +1,7 @@
 -- The tutorial's tick list, top left (docs/tutorial.md, "Systems"): what
 -- the level asks for, a box per item, ticked as it is done. A level's list
--- comes in sections, shown one at a time; a finished section stays up a
+-- comes in sections (`title`; `beat`, what Shoeman says when one is done,
+-- build.lua), shown one at a time; a finished section stays up a
 -- moment, all ticked, then the next one replaces it. The look follows the
 -- quests' one-line objective (borderline/hud.lua `drawObjective`).
 --
@@ -9,8 +10,9 @@
 --
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
 -- (ticked by reaching the way on), build = kind (level 5: asks for a
--- building of that kind, build.lua), timer = true (the host may show the
--- seconds to something beside it), each = true (every human in the game
+-- building of that kind, build.lua), kind and makes (level 5: asks for a
+-- building of `kind` set to make `makes`), timer = true (the host may show
+-- the seconds to something beside it), each = true (every human in the game
 -- must do it: counted per player with `serverTickPlayer`, its need the
 -- number of humans, shown "(1/2)" when there is more than one; one who
 -- leaves stops counting, one who joins must do it too) }. The way on stays
@@ -79,11 +81,12 @@ Objectives.lists = {
   ["tutorial-5"] = {
     {
       title = "Resources",
+      beat = "resources",
       items = {
         { id = "quarry1", text = "Build a Quarry Mine", build = "quarry" },
-        { id = "iron", text = "Set it to iron" },
+        { id = "iron", text = "Set it to iron", kind = "quarry", makes = "iron" },
         { id = "quarry2", text = "Build a second Quarry Mine", build = "quarry" },
-        { id = "sulfur", text = "Set it to sulfur" },
+        { id = "sulfur", text = "Set it to sulfur", kind = "quarry", makes = "sulfur" },
       },
     },
     {
