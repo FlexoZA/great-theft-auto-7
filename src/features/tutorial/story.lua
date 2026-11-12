@@ -53,6 +53,19 @@ Story.beats = {
   ["tutorial-1.across"] = {
     "Well, well. Still in one piece. The way on is right there on the grass. Don't trip.",
   },
+
+  -- Level 2, dodge: the dodge lesson, then a shoe every five seconds
+  -- (shoe.lua), each one shouted first.
+  ["tutorial-2.start"] = {
+    "The park. Grass, trees, a pond. And me, with a bag of shoes. You can guess the rest.",
+    "Lesson three: the dodge. Press {dodge} and you jump the way you're walking. Standing still, the way you face.",
+    "Every dodge costs stamina, and you need a breath before the next one. Mash it and you'll be lying in the grass.",
+    "When I shout, you dodge. My shoes don't wound. They END. Ask the last kid.",
+  },
+  -- He winds up: the telegraph. All shouting, so it cuts in (comms.lua).
+  ["tutorial-2.dodge"] = {
+    { "DODGE!!!!", shout = true },
+  },
 }
 
 return Story

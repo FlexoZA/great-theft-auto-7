@@ -5,7 +5,8 @@
 --
 -- The host raises a beat (a key of Story.beats) and every screen says the
 -- same lines. `Comms.serverBeat` raises one once per level (the lessons);
--- with `again` it may come any number of times (mockery, the shout). The
+-- with `again` it may come any number of times (mockery, the shout). A
+-- beat that is only shouting cuts in at once (`Comms.queue`). The
 -- level's "start" beat comes by itself a moment after the level begins.
 --
 -- Messages
@@ -64,7 +65,7 @@ end
 
 local face = nil
 local cl = {
-  says = {}, -- lines still to say, in order: { text, shout }
+  says = {}, -- lines still to say, in order: { text, shout, t (how far in, for a line cut short) }
   say = nil, -- { text, shout, t } being said
 }
 
@@ -106,11 +107,38 @@ function Comms.sayFor(text, shout)
   return #text / Comms.TYPE_RATE + (shout and Comms.SHOUT_HOLD or Comms.SAY_HOLD)
 end
 
+--- Is every line of `lines` shouted? Such a beat (the "DODGE!!!!" before
+--- a throw) cuts in at once: a warning heard late is no warning.
+local function allShouted(lines)
+  for _, line in ipairs(lines) do
+    if not (type(line) == "table" and line.shout) then
+      return false
+    end
+  end
+  return true
+end
+
 --- Queue beat `key`'s lines. A repeatable beat that finds the queue full
---- is dropped rather than pile up behind the lesson.
+--- is dropped rather than pile up behind the lesson. A beat that is all
+--- shouting cuts in instead: it is said now, and the line it interrupted
+--- carries on from where it was afterwards.
 function Comms.queue(key)
   local lines = Story.beats[key]
-  if not lines or #cl.says >= Comms.QUEUE_MAX then
+  if not lines then
+    return
+  end
+  if allShouted(lines) then
+    if cl.say and not cl.say.shout then
+      table.insert(cl.says, 1, cl.say)
+    end
+    cl.say = nil
+    for i = #lines, 1, -1 do
+      local text = Comms.line(lines[i])
+      table.insert(cl.says, 1, { text = text, shout = true })
+    end
+    return
+  end
+  if #cl.says >= Comms.QUEUE_MAX then
     return
   end
   for _, line in ipairs(lines) do
@@ -140,7 +168,7 @@ function Comms.update(dt)
   end
   if not cl.say and #cl.says > 0 then
     local nextLine = table.remove(cl.says, 1)
-    cl.say = { text = nextLine.text, shout = nextLine.shout, t = 0 }
+    cl.say = { text = nextLine.text, shout = nextLine.shout, t = nextLine.t or 0 } -- t: a line cut short goes on
   end
   face.shouting = cl.say ~= nil and cl.say.shout
   face.talking = cl.say ~= nil and #Comms.typed(cl.say.text, cl.say.t) < #cl.say.text

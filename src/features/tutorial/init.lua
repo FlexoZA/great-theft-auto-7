@@ -16,6 +16,7 @@ local ShoemanRender = require("src.features.tutorial.shoeman_render")
 local StartGear = require("src.features.tutorial.start_gear")
 local Traffic = require("src.features.tutorial.traffic")
 local Road = require("src.features.tutorial.road")
+local Shoe = require("src.features.tutorial.shoe")
 
 local Tutorial = {
   name = "tutorial",
@@ -45,7 +46,8 @@ Tutorial.EXITS = {
 -- Where Shoeman stands on each level, world px: just south-east of the
 -- checkpoint, between it and the HOME star (each built map's
 -- `map.shoemanX, shoemanY`); in the park, the middle of the lawn, the
--- checkpoint 768 px south. Stages 6 and 7 move him with their maps. The shoes (shoe.lua) will fly from here.
+-- checkpoint 768 px south. Stages 6 and 7 move him with their maps. On
+-- level 2 his shoes (shoe.lua) fly from here.
 Tutorial.SHOEMAN = {
   ["tutorial-1"] = { x = 160, y = 888 },
   ["tutorial-2"] = { x = 0, y = 0 },
@@ -71,6 +73,7 @@ local facing = -math.pi / 2 -- on the client, where Shoeman looks
 function Tutorial:serverStart(server)
   level, arrived = nil, false
   Traffic.serverClear(server)
+  Shoe.serverStop()
   StartGear.serverStart(server)
 end
 
@@ -79,9 +82,14 @@ end
 --- the start, as a new map would have.
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
+  Shoe.serverStop()
   if level then
     Comms.serverStart(level.quest)
     Objectives.serverStart(server, level.quest)
+    local at = level.quest == "tutorial-2" and Tutorial.SHOEMAN[level.quest]
+    if at then
+      Shoe.serverStart(at.x, at.y)
+    end
   else
     Comms.serverStop()
     Objectives.serverStop(server)
@@ -95,6 +103,7 @@ end
 
 function Tutorial:serverQuestEnded(server)
   level = nil
+  Shoe.serverStop()
   Comms.serverStop()
   Objectives.serverStop(server)
 end
@@ -105,6 +114,7 @@ function Tutorial:mapChanged(_map, server)
   if server then
     level, arrived = nil, true
     Traffic.serverClear(server)
+    Shoe.serverStop()
     Comms.serverStop()
     Objectives.serverStop(server)
   end
@@ -160,6 +170,9 @@ function Tutorial:serverStep(server, dt)
   if map then
     Road.serverStep(server, map)
   end
+  if Shoe.serverStep(server, dt) then
+    Comms.serverBeat(server, "dodge", true)
+  end
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
@@ -184,17 +197,20 @@ end
 function Tutorial:questStarted(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
+    Shoe.clear()
   end
 end
 
 function Tutorial:questEnded(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
+    Shoe.clear()
   end
 end
 
 function Tutorial:exitGame()
   Comms.clear()
+  Shoe.clear()
   Objectives.clear()
 end
 
@@ -231,6 +247,7 @@ end
 function Tutorial:update(dt, client)
   time = time + dt
   turn(client, dt)
+  Shoe.update(dt)
   Comms.update(dt)
   Objectives.update(dt)
 end
@@ -278,17 +295,23 @@ function Tutorial:carBarHidden()
     and city.map.lanes ~= nil
 end
 
---- Shoeman, standing on the level's map, with the other walkers.
+--- Shoeman, standing on the level's map with the other walkers, or
+--- throwing (he faces the way the shoe goes), and his shoes.
 function Tutorial:drawAboveCars()
   local quests = Features.byName.quests
   local at = quests and quests.active and self.SHOEMAN[quests.active]
   if at then
-    ShoemanRender.draw(at.x, at.y, facing)
+    local throw, angle = Shoe.pose()
+    if angle then
+      facing = angle -- and he carries on looking that way afterwards
+    end
+    ShoemanRender.draw(at.x, at.y, facing, { throw = throw })
   end
+  Shoe.draw(at and at.x, at and at.y)
 end
 
 Tutorial.clientMessages = {}
-for _, part in ipairs({ Comms, Objectives }) do
+for _, part in ipairs({ Comms, Objectives, Shoe }) do
   for kind, handler in pairs(part.clientMessages) do
     Tutorial.clientMessages[kind] = handler
   end

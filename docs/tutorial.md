@@ -71,14 +71,56 @@ ticking at the way on, the EXIT star on to the park. `make audit` 8.6,
 pass; `CHANGELOG.md` line added. Stage 5 under way on
 `feature/tutorial-dodge`, branched from `feature/tutorial-road` (not
 pushed or merged yet): box 1 done, Shoeman's Park built and drawn, his
-spot, the checkpoint, the HOME star and the way on moved onto it. Next:
-stage 5, box 2 (`shoe.lua`: the shout, the throw, instant destruction).
+spot, the checkpoint, the HOME star and the way on moved onto it; box 2
+done, a shoe every 5 s at the nearest player, the "DODGE!!!!" shout cutting
+in on the comms and over his head, the throw on every screen, everything
+it touches destroyed. Next: stage 5, box 3 (dodge counting, the `n/5`
+objective with the countdown).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The shoe (stage 5 box 2): `src/features/tutorial/shoe.lua`. Host:
+  `Shoe.serverStart(x, y)` (init.lua's `serverQuestStarted` for
+  `tutorial-2`, from `Tutorial.SHOEMAN`), `Shoe.serverStop()` (quest end,
+  `mapChanged`, `serverStart`), `Shoe.serverStep(server, dt)` returns true
+  on the step a throw starts, and init.lua then raises the
+  `tutorial-2.dodge` beat. For box 3: `Shoe.serverNextIn()` (seconds to the
+  next throw, for `Objectives.serverTimer`) and `Shoe.serverShoes()` (in
+  flight: `{ id, x, y, vx, vy, flown, target = player id, hit = { [id] =
+  true } }`); a shoe stops in `land(server, i, x, y)`, the place to tell a
+  miss (target alive, not in `hit`) from a hit. Still throwing after the
+  way on is reached; box 4 decides whether he stops at 5. Timing: first
+  throw `FIRST_AFTER` 10 s into the level, then every `PERIOD` 5 s; the
+  throw lasts `THROW_TIME` 1.2 s, the target is picked (nearest living
+  human within `RANGE` 1600) at its start and the shoe aimed at where they
+  stand at `ShoemanRender.RELEASE` (0.82 s in). `SPEED` 900 px/s,
+  `RADIUS` 8. Destruction, sampled every 6 px: players on foot
+  `Weapons:serverKill` ("impact", no attacker, spawn protection still
+  spares); any car not hidden or stowed `weapons:damageCar(..., 1e6)` (a
+  human driver bails out, as war_rigs does it); every `serverShotAt` asked
+  up to 8 times at the spot with damage 1e6. It flies on through all of
+  those and stops at the first `blocksShot` (hedge, tree, pond), which
+  takes `serverBlast` radius 8, damage 1e6 (buildings fall: level 5's
+  repair section wants a dent instead, so give it a damage argument then).
+  Messages `TUT_THROW <angle>`, `TUT_SHOE <id> <x> <y> <angle>`,
+  `TUT_SHOE_END <id> <x> <y>`; clients fly the shoe themselves, tumbling,
+  stop it at a wall or the range, and leave it lying 4 s. Client:
+  `Shoe.pose()` (throw fraction, angle) drives `ShoemanRender.draw`'s
+  `throw` in init.lua's `drawAboveCars` (he faces the throw and keeps
+  looking that way), `Shoe.draw(x, y)` the shoes and the red "DODGE!!!!"
+  over him. Comms: a beat that is all shouting now cuts in at once
+  (`Comms.queue`) and the interrupted line resumes where it was. Level 2's
+  `start` beat (the dodge lesson: key, stamina, cooldown) is in
+  `story.lua`. Checked in a scripted run (`FIRST_AFTER` 4): standing still
+  at the start, killed by the first shoe and back at the checkpoint;
+  walking east through the next throw, missed; an empty car between him
+  and the player wrecked, the shoe flying on; screenshots show the shout
+  on the panel and over him, the throw pose and the shoe in flight. Not
+  tried: an enemy or a building in its path (none in the park), a real
+  second client.
 - Shoeman's Park (stage 5 box 1): `buildPark` in
   `city-map/tutorial_maps.lua` (`kind = "tutorial-park"`, 44x44 tiles,
   tuning in `TutorialMaps.PARK = { ring 640, plaza 96, path 64, start 768,
@@ -94,7 +136,7 @@ a history.
   only outside the ring. Old shoes lie in the grass as decor. `shoe.lua`
   throws from `Tutorial.SHOEMAN["tutorial-2"]` (0, 0); a shoe that flies
   past the ring may hit a tree or the pond's boxes (`map.solids`, the
-  trees flagged `tree = true`), its choice whether those stop it.
+  trees flagged `tree = true`); they all stop it.
   Checked in a scripted run (`--quest tutorial-2` on a fresh world): spots
   all open, nothing solid in the ring, walking works, standing at the way
   on finishes the level; screenshots of the start, Shoeman, the gate, the
@@ -620,7 +662,7 @@ notice.
 ### 5. Level 2: dodge (`feature/tutorial-dodge`)
 
 - [x] Park map and renderer
-- [ ] `shoe.lua`: the "DODGE!!!!" shout, the throw, instant destruction
+- [x] `shoe.lua`: the "DODGE!!!!" shout, the throw, instant destruction
 - [ ] Dodge counting, the `n/5` objective with the countdown
 - [ ] Way on appears at 5
 
