@@ -80,12 +80,16 @@ Yard; a pistol put down one each, pick up and equip ticked per player;
 weapons' magazine-emptied and reloaded events tick "Empty the magazine"
 and "Reload"; loose squirrels in the events feature, three waves of six
 out of the burrows; their wiki page and portrait; the gate opens after
-wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Stage 7 under way on `feature/tutorial-city`, branched from
-`feature/tutorial-scrapyard`: box 1 done (Shoeman's Town, a 3x3-block
-city grid with the four corner plots, the hospital in the middle block);
-box 2 done (`services = true` on the town: shop, sales, hires, hospital and
-Handsy Men work there). Next: stage 7, box 3 (respawn at the hospital on
-this map).
+wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Stage 7 done
+on `feature/tutorial-city`, branched from `feature/tutorial-scrapyard`
+(not pushed or merged yet): Shoeman's Town, a 3x3-block city grid with
+the four corner plots and the hospital in the middle block; `services =
+true` on it, so the shop, sales, hires, the hospital and Handsy Men work
+there; dying on levels 4 and 5 brings you back at the hospital's door.
+`make audit` 8.2, pass (the four soundtrack majors are stage 11's);
+`CHANGELOG.md` line added. Next: stage 8, box 1 (openborders pickup per
+player; pick up and equip objectives) on `feature/tutorial-open-borders`,
+branched from `feature/tutorial-city`.
 
 ### Handoff notes
 
@@ -112,12 +116,15 @@ a history.
   bought a medkit and pistol ammo, bought back an uzi, delivered a hired
   driver; a Handsy Man was refused "nowork" (no buildings, as it should);
   hospital and shop drawn; `jobs()` nil there; back in the city every
-  service as before. For box 3: `Garage:hospital()` gives the door
-  (0, 224). The garage's own respawn (`serverHome`) still goes through
-  `places()`, so it answers nothing on the town; `checkpoint.lua` answers
-  `serverRespawnPoint` first and today sends level 4 and 5 to (0, 320), so
-  the hospital respawn is most simply its answer there (the door from
-  `garage:hospital()`).
+  service as before.
+- Respawn at the hospital (stage 7 box 3): `checkpoint.lua`'s
+  `tutorial-4` and `tutorial-5` entries carry `hospital = true`: the spot
+  is `garage:hospital()`'s door (0, 224), facing down out of it (their
+  own x, y only without a garage). The CHECKPOINT ring is drawn there too,
+  under the EMERGENCY sign. The garage's own `serverHome` still answers
+  nothing off the default city. Checked in a scripted run: killed at
+  (640, -640) on levels 4 and 5, back at (0, 224) on foot; level 3 still
+  at its yard pad (-896, 896).
 - Shoeman's Town (stage 7 box 1): not a builder of its own but a plain
   city grid (`map.kind == "grid"`), so `garage/places.lua`'s `Places.of`
   and `quests/jobs.lua`'s `Jobs.of` (both grid-only) already find its
@@ -867,7 +874,7 @@ notice.
 
 - [x] City-centre map with only the lesson's plots
 - [x] Map flag for city services; shop, hospital, Handsy Men and sales honour it
-- [ ] Respawn at the hospital on this map
+- [x] Respawn at the hospital on this map
 
 ### 8. Level 4: open borders (`feature/tutorial-open-borders`)
 

@@ -31,6 +31,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Lesson three is Shoeman's Scrap Yard: he puts down a pistol for each of you, and you learn to pick it up, put it
   in a weapon slot, empty the magazine and reload. Then three waves of six squirrels come out of their burrows
   across the yard, biting until they are shot; once the third wave is down, the yard's gate is the way on.
+- Lessons four and five take place in Shoeman's Town, a small city centre of three by three blocks with four plots
+  for sale in the corners. Its hospital, shop and Handsy Men work as they do in the city: buy, sell back and hire
+  at the shop. If you die there, you come back at the hospital's door.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
