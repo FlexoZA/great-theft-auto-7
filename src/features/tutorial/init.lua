@@ -89,6 +89,7 @@ function Tutorial:serverQuestStarted(server, quest)
     local at = level.quest == "tutorial-2" and Tutorial.SHOEMAN[level.quest]
     if at then
       Shoe.serverStart(at.x, at.y)
+      Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
     end
   else
     Comms.serverStop()
@@ -141,13 +142,38 @@ local function road()
   return map and map.lanes and map or nil
 end
 
---- A player died: on level 1 that was a car (nothing else kills there),
---- and Shoeman has something to say about it the first time.
+--- A player died: on level 1 that was a car, on level 2 a shoe (nothing
+--- else kills there), and Shoeman has something to say about it the
+--- first time.
 function Tutorial:serverKill(server, kill)
-  if level and level.quest == "tutorial-1" and kill.victim then
+  if not (level and kill.victim) then
+    return
+  end
+  if level.quest == "tutorial-1" then
     Comms.serverBeat(server, "flat")
+  elseif level.quest == "tutorial-2" then
+    Comms.serverBeat(server, "hit")
   end
 end
+
+--- On-foot says somebody dodged: a shoe in the air at them notes it.
+function Tutorial:serverDodged(_server, player)
+  Shoe.serverDodged(player)
+end
+
+-- What the shoes tell this feature (Shoe.serverStep's `on`): the shout as
+-- he winds up, with the countdown to the next; a dodge ticks the objective.
+local shoeEvents = {
+  threw = function(server)
+    Comms.serverBeat(server, "dodge", true)
+    Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
+  end,
+  dodged = function(server)
+    if Objectives.serverTick(server, "dodge") then
+      Comms.serverBeat(server, "dodged")
+    end
+  end,
+}
 
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
@@ -170,9 +196,7 @@ function Tutorial:serverStep(server, dt)
   if map then
     Road.serverStep(server, map)
   end
-  if Shoe.serverStep(server, dt) then
-    Comms.serverBeat(server, "dodge", true)
-  end
+  Shoe.serverStep(server, dt, shoeEvents)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end

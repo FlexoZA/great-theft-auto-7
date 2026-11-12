@@ -60,7 +60,16 @@ Story.beats = {
     "The park. Grass, trees, a pond. And me, with a bag of shoes. You can guess the rest.",
     "Lesson three: the dodge. Press {dodge} and you jump the way you're walking. Standing still, the way you face.",
     "Every dodge costs stamina, and you need a breath before the next one. Mash it and you'll be lying in the grass.",
-    "When I shout, you dodge. My shoes don't wound. They END. Ask the last kid.",
+    "When I shout, watch the shoe. I aim where you stand when I let go, so dodge when it's in the air, not before.",
+    "My shoes don't wound. They END. Ask the last kid.",
+  },
+  -- The first shoe dodged.
+  ["tutorial-2.dodged"] = {
+    "Hm. Not bad. Luck, probably. Again.",
+  },
+  -- The first player a shoe went through.
+  ["tutorial-2.hit"] = {
+    "Too early, too late, or not at all. Back to the checkpoint. The shoes you dodged still count. I'm fair like that.",
   },
   -- He winds up: the telegraph. All shouting, so it cuts in (comms.lua).
   ["tutorial-2.dodge"] = {

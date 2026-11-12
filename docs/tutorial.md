@@ -74,25 +74,44 @@ pushed or merged yet): box 1 done, Shoeman's Park built and drawn, his
 spot, the checkpoint, the HOME star and the way on moved onto it; box 2
 done, a shoe every 5 s at the nearest player, the "DODGE!!!!" shout cutting
 in on the comms and over his head, the throw on every screen, everything
-it touches destroyed. Next: stage 5, box 3 (dodge counting, the `n/5`
-objective with the countdown).
+it touches destroyed; box 3 done, dodges counted, "Dodge Shoeman's shoes
+(n/5)" with the seconds to the next throw, the way on opening at 5. Next:
+stage 5, box 4 (way on appears at 5: check it, and decide what he does
+after).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Dodge counting (stage 5 box 3): a dodge counts when the player a shoe
+  was thrown at (`shoe.target`) dodges while it is in the air (init.lua's
+  new `serverDodged` hook -> `Shoe.serverDodged(player)` sets
+  `shoe.dodged`) and it then goes past them (`passed`: their pose is more
+  than 18 px behind the shoe along its line) or stops short, without
+  touching them and with them alive (`settle`, once per shoe). A dodge
+  in the wind-up does not count: he aims where they stand at release, so
+  standing after it gets them killed (the start beat says so).
+  `Shoe.serverStep(server, dt, on)` now takes callbacks instead of
+  returning true: init.lua's `shoeEvents.threw(server)` raises the shout
+  and sets the countdown (`Objectives.serverTimer(server, "dodge",
+  Shoe.serverNextIn())`, also at the level's start), `dodged(server, id)`
+  ticks `dodge` (`Objectives.lists["tutorial-2"]`: one item, `need = 5`,
+  `timer = true`, no exit item) and says `tutorial-2.dodged` the first
+  time. A death on level 2 says `tutorial-2.hit` once. Counts survive a
+  death. At 5 the label drops the timer and `serverOpen()` is true, so the
+  WAY ON ring shows. He keeps throwing after 5. Checked in a scripted run:
+  dodged in flight five times, ticked 1 to 5 and opened at the fifth (host
+  and client); walking away without dodging and dodging in the wind-up
+  did not count, the second one killed; screenshots show "(1/5)  next in
+  2 s" and "(5/5)" ticked.
 - The shoe (stage 5 box 2): `src/features/tutorial/shoe.lua`. Host:
   `Shoe.serverStart(x, y)` (init.lua's `serverQuestStarted` for
   `tutorial-2`, from `Tutorial.SHOEMAN`), `Shoe.serverStop()` (quest end,
-  `mapChanged`, `serverStart`), `Shoe.serverStep(server, dt)` returns true
-  on the step a throw starts, and init.lua then raises the
-  `tutorial-2.dodge` beat. For box 3: `Shoe.serverNextIn()` (seconds to the
-  next throw, for `Objectives.serverTimer`) and `Shoe.serverShoes()` (in
-  flight: `{ id, x, y, vx, vy, flown, target = player id, hit = { [id] =
-  true } }`); a shoe stops in `land(server, i, x, y)`, the place to tell a
-  miss (target alive, not in `hit`) from a hit. Still throwing after the
-  way on is reached; box 4 decides whether he stops at 5. Timing: first
+  `mapChanged`, `serverStart`), `Shoe.serverStep(server, dt, on)` takes the
+  callbacks (see dodge counting above). `Shoe.serverShoes()` lists the
+  shoes in flight. Still throwing after 5 and after the way on is
+  reached; box 4 decides whether he stops. Timing: first
   throw `FIRST_AFTER` 10 s into the level, then every `PERIOD` 5 s; the
   throw lasts `THROW_TIME` 1.2 s, the target is picked (nearest living
   human within `RANGE` 1600) at its start and the shoe aimed at where they
@@ -663,7 +682,7 @@ notice.
 
 - [x] Park map and renderer
 - [x] `shoe.lua`: the "DODGE!!!!" shout, the throw, instant destruction
-- [ ] Dodge counting, the `n/5` objective with the countdown
+- [x] Dodge counting, the `n/5` objective with the countdown
 - [ ] Way on appears at 5
 
 ### 6. Level 3: the scrap yard (`feature/tutorial-scrapyard`)

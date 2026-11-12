@@ -30,6 +30,11 @@ Objectives.lists = {
   ["tutorial-1"] = {
     { items = { { id = "cross", text = "Reach the other side", exit = true } } },
   },
+  -- A dodge counts when the shoe thrown at a player misses them after they
+  -- dodged it in the air (shoe.lua); the timer is the next throw.
+  ["tutorial-2"] = {
+    { items = { { id = "dodge", text = "Dodge Shoeman's shoes", need = 5, timer = true } } },
+  },
 }
 
 --- Index of item `id` in `section`, or nil.

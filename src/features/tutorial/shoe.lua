@@ -9,12 +9,19 @@
 -- pond's edge, a building), which takes a blast of KILL (`serverBlast`:
 -- players' buildings fall), or after RANGE px.
 --
+-- A dodge: the player a shoe was thrown at dodges (`Shoe.serverDodged`)
+-- while it is in the air, and it goes past them, or stops short, without
+-- touching them. Dodging during the wind-up is too soon: he aims where
+-- they stand when he lets go.
+--
 -- Host: `Shoe.serverStart(x, y)` starts throwing from (x, y),
 -- `Shoe.serverStop()` stops (shoes in the air vanish with the level),
--- `Shoe.serverStep(server, dt)` (true on the step a throw starts, for the
--- shout), `Shoe.serverNextIn()` (seconds to the next throw: level 2's
--- countdown), `Shoe.serverShoes()` (the shoes in flight: { id, x, y, vx,
--- vy, target = player id, hit = { [player id] = true } }).
+-- `Shoe.serverStep(server, dt, on)` with optional callbacks `on.threw(server)`
+-- (a throw starts: time for the shout) and `on.dodged(server, playerId)`,
+-- `Shoe.serverDodged(player)` (on-foot's `serverDodged`),
+-- `Shoe.serverNextIn()` (seconds to the next throw: level 2's countdown),
+-- `Shoe.serverShoes()` (the shoes in flight: { id, x, y, vx, vy, target =
+-- player id, hit = { [player id] = true }, dodged, settled }).
 -- Client: `Shoe.update(dt)`, `Shoe.pose()` (throw fraction for
 -- `ShoemanRender.draw`, nil standing, and the angle he throws along),
 -- `Shoe.draw(x, y)` (the shoes, and the shout over him at (x, y)),
@@ -138,14 +145,42 @@ local function strike(server, shoe, x, y, angle)
   end
 end
 
-local function land(server, i, x, y)
+--- Decide, once, whether shoe `shoe` was dodged: its target dodged while
+--- it flew, and it never touched them.
+local function settle(server, shoe, on)
+  if shoe.settled or not shoe.target then
+    return
+  end
+  shoe.settled = true
+  local target = server.players[shoe.target]
+  if shoe.dodged and not shoe.hit[shoe.target] and target and alive(target) and on.dodged then
+    on.dodged(server, shoe.target)
+  end
+end
+
+--- Has shoe `shoe` gone past its target (or is the target gone)? Then it
+--- can no longer touch them.
+local function passed(server, shoe, ux, uy)
+  local target = server.players[shoe.target]
+  if not (target and alive(target)) or shoe.hit[shoe.target] then
+    return true
+  end
+  local px, py = Features.bodyPose(server, target)
+  if not px then
+    return true
+  end
+  return (px - shoe.x) * ux + (py - shoe.y) * uy < -(Shoe.FOOT_RADIUS + Shoe.RADIUS)
+end
+
+local function land(server, i, x, y, on)
   local shoe = table.remove(sv.shoes, i)
+  settle(server, shoe, on)
   server:broadcast(Protocol.encode("TUT_SHOE_END", shoe.id, ("%.1f"):format(x), ("%.1f"):format(y)))
 end
 
 --- One step of shoe `i`: sampled every STEP px so it can't fly through
 --- anything. Returns true if it stopped.
-local function fly(server, i, dt)
+local function fly(server, i, dt, on)
   local shoe = sv.shoes[i]
   local dist = math.min(Shoe.SPEED * dt, Shoe.RANGE - shoe.flown)
   local angle = math.atan2(shoe.vy, shoe.vx)
@@ -156,15 +191,18 @@ local function fly(server, i, dt)
     local x, y = shoe.x + ux * d, shoe.y + uy * d
     if Features.any("blocksShot", x, y) then
       Features.call("serverBlast", server, x, y, Shoe.RADIUS, Shoe.KILL, 0, "impact")
-      land(server, i, x, y)
+      land(server, i, x, y, on)
       return true
     end
     strike(server, shoe, x, y, angle)
   end
   shoe.x, shoe.y = shoe.x + ux * dist, shoe.y + uy * dist
   shoe.flown = shoe.flown + dist
+  if not shoe.settled and passed(server, shoe, ux, uy) then
+    settle(server, shoe, on)
+  end
   if shoe.flown >= Shoe.RANGE then
-    land(server, i, shoe.x, shoe.y)
+    land(server, i, shoe.x, shoe.y, on)
     return true
   end
   return false
@@ -190,14 +228,25 @@ local function release(server, throw)
     ("%.3f"):format(angle)))
 end
 
+--- `player` started a dodge: every shoe in the air at them notes it.
+function Shoe.serverDodged(player)
+  for _, shoe in ipairs(sv and sv.shoes or {}) do
+    if shoe.target == player.id and not shoe.settled then
+      shoe.dodged = true
+    end
+  end
+end
+
 --- Fly the shoes, run the throw under way, start the next when it is time.
---- Returns true on the step a throw starts (time for the shout).
-function Shoe.serverStep(server, dt)
+--- `on.threw(server)` is called when a throw starts, `on.dodged(server, id)` when
+--- a shoe was dodged (see the top).
+function Shoe.serverStep(server, dt, on)
+  on = on or {}
   if not sv then
-    return false
+    return
   end
   for i = #sv.shoes, 1, -1 do
-    fly(server, i, dt)
+    fly(server, i, dt, on)
   end
   local throw = sv.throw
   if throw then
@@ -212,18 +261,20 @@ function Shoe.serverStep(server, dt)
   end
   sv.nextIn = sv.nextIn - dt
   if sv.nextIn > 0 or sv.throw then
-    return false
+    return
   end
   local target = pick(server)
   if not target then
     sv.nextIn = 0.5 -- nobody to throw at: look again shortly
-    return false
+    return
   end
   sv.nextIn = Shoe.PERIOD
   local angle = aimAt(server, target, 0)
   sv.throw = { t = 0, target = target, angle = angle, released = false }
   server:broadcast(Protocol.encode("TUT_THROW", ("%.3f"):format(angle)))
-  return true
+  if on.threw then
+    on.threw(server)
+  end
 end
 
 -- Client --------------------------------------------------------------------
