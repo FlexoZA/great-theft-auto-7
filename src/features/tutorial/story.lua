@@ -162,7 +162,11 @@ Story.beats = {
   -- The last of a horde's worth down: "Destroy the rioters" ticked.
   ["tutorial-4.cleared"] = {
     "That's the lot. The town still stands, mostly. No thanks to you.",
-    "Remember this the next time you feel like opening borders. Now get out of my sight.",
+    "Remember this the next time you feel like opening borders.",
+  },
+  -- Everything ticked, by everyone: the way on is open.
+  ["tutorial-4.open"] = {
+    "Right. School's nearly out. The way on is on the top street, above the empty plot top left. Go.",
   },
   -- The first player to die on the level (their own rioters, most likely).
   ["tutorial-4.died"] = {

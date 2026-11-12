@@ -154,13 +154,21 @@ function OpenBorders:serverPanicArea(_server, x, y, radius)
   end
 end
 
---- A new map: the horde and its fires stay behind on the old one.
-function OpenBorders:mapChanged(_map, server)
-  if server and sv then
+--- Public, host: every simp and fire gone at once, on every screen (a new
+--- map, or the tutorial's level 5 starting on level 4's town).
+function OpenBorders:serverClear(server)
+  if sv then
     sv.horde:clear()
     sv.simpsOut = 0
     server:broadcast(Protocol.encode("OB_CLEAR"))
-  elseif not server then
+  end
+end
+
+--- A new map: the horde and its fires stay behind on the old one.
+function OpenBorders:mapChanged(_map, server)
+  if server then
+    self:serverClear(server)
+  else
     self.simps, self.fires = {}, {}
   end
 end

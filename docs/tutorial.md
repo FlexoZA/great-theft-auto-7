@@ -87,19 +87,20 @@ the four corner plots and the hospital in the middle block; `services =
 true` on it, so the shop, sales, hires, the hospital and Handsy Men work
 there; dying on levels 4 and 5 brings you back at the hospital's door.
 `make audit` 8.2, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Stage 8 under way on
+`CHANGELOG.md` line added. Stage 8 done on
 `feature/tutorial-open-borders`, branched from `feature/tutorial-city`
-(not pushed or merged yet): box 1 done, openborders put down one each by
-Shoeman in town, "Pick up Open Borders" and "Equip it" ticked per player
-(the pistol's module made shared: `gift.lua`). Box 2 done: "Use it"
-ticks on the first cast by someone who has equipped theirs, he laughs at
-every cast and mocks the first (Sorros). Box 3 done: "Destroy the
-rioters (n/25)" counts every simp shot or run over on the level, across
-casts, and stays ticked. Box 4 done: a human's death on the level gets
-the full mockery the first time, then a short quip in turn, at most one
-every 15 s. Box 5 done: anyone on level 4 without a pistol is handed one
-2 s in. Next: stage 8, box 6 (way on to level 5), the stage's last: `make
-audit` and the `CHANGELOG.md` line with it.
+(not pushed or merged yet): openborders put down one each by Shoeman in
+town (the pistol's module made shared: `gift.lua`), "Pick up Open
+Borders" and "Equip it" ticked per player; "Use it" on the first cast,
+he laughs at every cast and mocks the first (Sorros); "Destroy the
+rioters (n/25)" counts simps killed across casts and stays ticked; the
+dead are mocked (in full once, then a quip at most every 15 s); anyone
+there without a pistol is handed one; once all is ticked he says where
+the way on is, and taking its EXIT star starts level 5 on the start with
+level 4's horde and fires cleared. `make audit` 8.1, pass (the four
+soundtrack majors are stage 11's); `CHANGELOG.md` line added. Next:
+stage 9, box 1 (free plots; build and repair cost hook) on
+`feature/tutorial-build`, branched from `feature/tutorial-open-borders`.
 
 ### Handoff notes
 
@@ -216,6 +217,28 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
+- The way on to level 5 (stage 8 box 6): stage 1's machinery already
+  did it (reaching `Tutorial.EXITS["tutorial-4"]`, (-640, -960) on the top
+  street above the NW plot, once `Objectives.serverOpen()`, completes the
+  quest and the EXIT star comes up there; taking it is the player's
+  choice, the client's `QST_ACCEPT exit` on the star, which starts
+  `tutorial-5` and `serverQuestStarted` puts everyone on the start). New:
+  `serverStep` says the level's `open` beat once the way on is open, if
+  it has one (`tutorial-4.open` gives directions; level 2's was already
+  said by `shoeEvents`, and a beat plays once a level). And
+  `OpenBorders:serverClear(server)` (new, public, host: horde and fires
+  gone, `OB_CLEAR`; `mapChanged` now calls it) is called when a level
+  starts with no map change, so level 4's fires do not burn round level
+  5's start (they did, 30 s, in the first run). The rioters' koins stay on
+  the ground. Checked in a scripted run: the whole of level 4 (armed at 2
+  s, pickup at 10 s, equip, cast, 25 shot, `cleared` then `open`), the
+  WAY ON ring drawn clear on the top street's crossing, standing on it
+  completes `tutorial-4`, `QST_ACCEPT exit` starts `tutorial-5` with the
+  player at (-120, 318), no simps or fires on host or client. In that run
+  the player burned to death in the horde's fires before reaching the way
+  on until moved off them: stage 11's balance pass. Harness notes: a
+  player standing on the EXIT star is not enough, send `QST_ACCEPT exit`
+  from the client; `serverArrivedAt` counts only the living.
 - A pistol on level 4 (stage 8 box 5): `start_gear.lua`'s `give` is split;
   `StartGear.givePistol(server, player)` (true when handed over) puts the
   pistol in the first empty weapon slot unless they carry one, and `give`
@@ -249,7 +272,8 @@ a history.
   "pedestrian"; documented in `docs/features.md`'s events table). The
   tutorial's `serverKill` sends those on `tutorial-4` to a local
   `rioterDown`, which ticks the shared `rioters` item (`need =
-  Horde.SIMPS`, 25, `open-borders/horde.lua` required by objectives.lua)
+  Objectives.RIOTERS`, 25, a copy of open-borders' `Horde.SIMPS`: the
+  audit flags requiring another feature's files)
   and says `tutorial-4.cleared` when that tick fills it. Decided (see
   "Decisions"): kills add up across casts and never reset; a horde that
   times out (30 s) keeps what was killed. Simps that time out or burn are
@@ -973,7 +997,7 @@ notice.
 - [x] Rioters-cleared detection, counted once
 - [x] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
 - [x] Mockery on death
-- [ ] Way on to level 5
+- [x] Way on to level 5
 
 ### 9. Level 5: build (`feature/tutorial-build`)
 

@@ -25,11 +25,11 @@
 local Protocol = require("src.net.protocol")
 local UI = require("src.ui")
 local Waves = require("src.features.tutorial.waves")
-local Horde = require("src.features.open-borders.horde")
 
 local Objectives = {}
 
 Objectives.NEXT_AFTER = 1.5 -- seconds a finished section stays up before the next one
+Objectives.RIOTERS = 25 -- simps to kill on level 4: one cast's horde (open-borders/horde.lua's `Horde.SIMPS`)
 
 -- Each level's list, in sections. Later stages add their levels' lists.
 Objectives.lists = {
@@ -68,7 +68,7 @@ Objectives.lists = {
         { id = "pickup", text = "Pick up Open Borders", each = true },
         { id = "equip", text = "Equip it", each = true },
         { id = "use", text = "Use it" },
-        { id = "rioters", text = "Destroy the rioters", need = Horde.SIMPS },
+        { id = "rioters", text = "Destroy the rioters", need = Objectives.RIOTERS },
       },
     },
   },

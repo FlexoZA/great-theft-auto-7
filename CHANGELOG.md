@@ -34,6 +34,10 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Lessons four and five take place in Shoeman's Town, a small city centre of three by three blocks with four plots
   for sale in the corners. Its hospital, shop and Handsy Men work as they do in the city: buy, sell back and hire
   at the shop. If you die there, you come back at the hospital's door.
+- Lesson four is Open Borders: Shoeman puts the ability down for each of you, and you pick it up, put it in an
+  ability slot and cast it. He laughs every time you do, and the rioters you let in burn the town and punch you
+  too. Kill 25 of them, from as many casts as it takes, and the way on to lesson five opens on the top street.
+  Anyone who arrives without a pistol is handed one, and Shoeman has something to say every time you die.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key

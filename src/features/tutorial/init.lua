@@ -125,6 +125,11 @@ function Tutorial:serverQuestStarted(server, quest)
   end
   if level and not arrived and city then
     city:placePlayers(server)
+    -- Level 4's horde and fires would burn on round the start.
+    local borders = Features.byName["open-borders"]
+    if borders then
+      borders:serverClear(server)
+    end
   end
   arrived = false
 end
@@ -383,6 +388,9 @@ function Tutorial:serverStep(server, dt)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end
+  -- The way on is open: the level's "open" beat says where, if it has one
+  -- (once a level; level 2 says its own as the fifth dodge lands).
+  Comms.serverBeat(server, "open")
   local exit = self.EXITS[level.quest]
   local quests = Features.byName.quests
   if not (exit and quests and quests:serverArrivedAt(server, exit.x, exit.y, self.reach)) then
