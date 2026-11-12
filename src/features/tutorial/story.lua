@@ -160,6 +160,22 @@ Story.beats = {
     "That's the lot. The town still stands, mostly. No thanks to you.",
     "Remember this the next time you feel like opening borders. Now get out of my sight.",
   },
+  -- The first player to die on the level (their own rioters, most likely).
+  ["tutorial-4.died"] = {
+    "HA! Dead. Burned by your own rioters, or punched by them. Either way, you let them in.",
+    "That's what Sorros does for his friends. The hospital's patched you up. Try not to waste their time again.",
+  },
+  -- Every death after that, one each in turn (at most one every
+  -- Tutorial.mockEvery seconds).
+  ["tutorial-4.died2"] = {
+    "Back from the hospital already? They must be getting quick at you.",
+  },
+  ["tutorial-4.died3"] = {
+    "Again. Your public school would be so proud.",
+  },
+  ["tutorial-4.died4"] = {
+    "Sorros sends his regards. He hates you too, remember.",
+  },
 }
 
 return Story

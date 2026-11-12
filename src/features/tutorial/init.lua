@@ -76,8 +76,10 @@ end
 -- Tuning ------------------------------------------------------------------
 Tutorial.reach = 120 -- px from the way on that finishes a level
 Tutorial.turnRate = 4 -- radians a second Shoeman turns to keep his eye on the nearest player
+Tutorial.mockEvery = 15 -- seconds at least between his quips at the dead on level 4
+Tutorial.QUIPS = { "died2", "died3", "died4" } -- level 4's quips after the first death, in turn
 
-local level = nil -- on the host: { quest = id, done = bool } while a level is being played
+local level = nil -- on the host: { quest = id, done = bool, t, mockedAt, quips } while a level is being played
 local arrived = false -- on the host: the map changed since the last quest started (everyone is on its start)
 local time = 0 -- on the client, for the way on's pulse
 local facing = -math.pi / 2 -- on the client, where Shoeman looks
@@ -95,7 +97,7 @@ end
 --- map change and everyone still on level 4's way on: put them back on
 --- the start, as a new map would have.
 function Tutorial:serverQuestStarted(server, quest)
-  level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
+  level = levelOf[quest.id] and { quest = quest.id, done = false, t = 0, quips = 0 } or nil
   Shoe.serverStop()
   Gift.serverStop()
   Waves.serverStop()
@@ -178,10 +180,27 @@ local function rioterDown(server)
   end
 end
 
+--- A human died on level 4 (their own rioters, mostly): the first time
+--- the whole mockery, then a short quip in turn, never more often than
+--- `mockEvery`, as deaths come fast in the fires.
+local function mockDeath(server)
+  if level.mockedAt and level.t - level.mockedAt < Tutorial.mockEvery then
+    return
+  end
+  level.mockedAt = level.t
+  if not level.mockedOnce then
+    level.mockedOnce = true
+    Comms.serverBeat(server, "died")
+    return
+  end
+  level.quips = level.quips % #Tutorial.QUIPS + 1
+  Comms.serverBeat(server, Tutorial.QUIPS[level.quips], true)
+end
+
 --- Something died. On level 4 a simp of the horde counts (rioterDown).
 --- A player: on level 1 that was a car, on level 2 a shoe (nothing else
 --- kills there), on level 3 the squirrels, and Shoeman has something to
---- say about it the first time.
+--- say about it the first time; on level 4 every time (mockDeath).
 function Tutorial:serverKill(server, kill)
   if level and level.quest == "tutorial-4" and kill.simp then
     rioterDown(server)
@@ -196,6 +215,11 @@ function Tutorial:serverKill(server, kill)
     Comms.serverBeat(server, "hit")
   elseif level.quest == "tutorial-3" then
     Comms.serverBeat(server, "bitten")
+  elseif level.quest == "tutorial-4" then
+    local victim = server.players[kill.victim]
+    if victim and not victim.bot then
+      mockDeath(server)
+    end
   end
 end
 
@@ -321,6 +345,9 @@ end
 --- level's objectives have opened it: the exit items tick and the quests
 --- feature puts the EXIT star there (on to the next level, or home).
 function Tutorial:serverStep(server, dt)
+  if level then
+    level.t = level.t + dt
+  end
   Comms.serverStep(server, dt)
   Objectives.serverStep(server, dt)
   StartGear.serverStep(server)

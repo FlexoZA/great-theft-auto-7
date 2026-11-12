@@ -95,7 +95,10 @@ Shoeman in town, "Pick up Open Borders" and "Equip it" ticked per player
 ticks on the first cast by someone who has equipped theirs, he laughs at
 every cast and mocks the first (Sorros). Box 3 done: "Destroy the
 rioters (n/25)" counts every simp shot or run over on the level, across
-casts, and stays ticked. Next: stage 8, box 4 (mockery on death).
+casts, and stays ticked. Box 4 done: a human's death on the level gets
+the full mockery the first time, then a short quip in turn, at most one
+every 15 s. Next: stage 8, box 5 (a pistol for anyone who reaches level 4
+without one).
 
 ### Handoff notes
 
@@ -212,6 +215,20 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
+- Mockery on death (stage 8 box 4): the tutorial's `serverKill` on
+  `tutorial-4` with a `victim` who is a human (`server.players[id]`, not
+  `.bot`; bots roam the town and die in the fires too) calls the local
+  `mockDeath`: the first time `tutorial-4.died` (the full mockery, Sorros,
+  the hospital), after that `Tutorial.QUIPS` (`died2`, `died3`, `died4`,
+  one line each) in turn with `again`, and nothing when the last was under
+  `Tutorial.mockEvery` (15 s) ago. The level table now keeps `t` (seconds
+  into it, counted in `serverStep`), `mockedAt`, `mockedOnce`, `quips`.
+  Respawn at the hospital is stage 7's (`checkpoint.lua`). Checked in a
+  scripted run: a bot's death said nothing; a real `weapons:serverKill`
+  at 3 s said `died` and the player came back at (0, 224); a death at
+  10 s said nothing; at 19, 35, 51 and 67 s `died2`, `died3`, `died4`,
+  `died2`. A harness note: a faked `serverKill` needs `x, y` (money drops
+  a koin there).
 - "Destroy the rioters" (stage 8 box 3): the open-borders feature's
   `serverKill` for a simp now carries `simp = true` (still kind
   "pedestrian"; documented in `docs/features.md`'s events table). The
@@ -940,7 +957,7 @@ notice.
 - [x] "Use it" objective; the Sorros mockery on cast
 - [x] Rioters-cleared detection, counted once
 - [ ] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
-- [ ] Mockery on death
+- [x] Mockery on death
 - [ ] Way on to level 5
 
 ### 9. Level 5: build (`feature/tutorial-build`)
