@@ -76,6 +76,7 @@ end
 -- Tuning ------------------------------------------------------------------
 Tutorial.reach = 120 -- px from the way on that finishes a level
 Tutorial.turnRate = 4 -- radians a second Shoeman turns to keep his eye on the nearest player
+Tutorial.armAfter = 2 -- seconds into level 4 a player with no pistol is handed one (after his start beat)
 Tutorial.mockEvery = 15 -- seconds at least between his quips at the dead on level 4
 Tutorial.QUIPS = { "died2", "died3", "died4" } -- level 4's quips after the first death, in turn
 
@@ -264,6 +265,23 @@ local function used(server, player)
   return true
 end
 
+--- Level 4 does not assume level 3 was played: anyone there without a
+--- pistol (`--quest tutorial-4`, a newcomer mid-tutorial) is handed one
+--- the first step they are on their feet from `armAfter` seconds in (his
+--- line then comes after the start speech), for the rioters. Each human is
+--- looked at once a level.
+local function armEveryone(server)
+  level.armed = level.armed or {}
+  for id, player in pairs(server.players) do
+    if not player.bot and not level.armed[id] and Features.present(player) then
+      level.armed[id] = true
+      if StartGear.givePistol(server, player) then
+        Comms.serverBeat(server, "armed")
+      end
+    end
+  end
+end
+
 -- What the gift tells this feature (Gift.serverStep's `on`): every human
 -- picks theirs up and equips it, each ticked for them; the first to do
 -- either hears the next step (the level's own "picked" and "equipped").
@@ -358,6 +376,9 @@ function Tutorial:serverStep(server, dt)
   end
   Shoe.serverStep(server, dt, shoeEvents)
   Gift.serverStep(server, dt, giftEvents)
+  if level and level.quest == "tutorial-4" and level.t >= Tutorial.armAfter then
+    armEveryone(server)
+  end
   Waves.serverStep(server, dt, waveEvents)
   if not level or level.done or not Objectives.serverOpen() then
     return

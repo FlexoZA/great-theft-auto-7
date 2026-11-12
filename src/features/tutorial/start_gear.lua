@@ -11,6 +11,9 @@
 -- with them on their feet, after the saved world has told the quests
 -- feature what is finished; it is given once, and not at all if the
 -- tutorial is not finished then (they will play it).
+--
+-- Level 4 hands out the pistol alone (`StartGear.givePistol`) to anyone who
+-- gets there without one: a newcomer mid-tutorial, or `--quest tutorial-4`.
 
 local Features = require("src.features")
 
@@ -33,34 +36,51 @@ local function note(server, player)
 end
 
 --- Put item `item` in `player`'s bag and equip it with `equip`; a failed
---- equip takes it back out, so nothing is left lying in the bag.
+--- equip takes it back out, so nothing is left lying in the bag. One
+--- already in the bag is equipped as it is. Returns true if it is equipped.
 local function hand(server, player, item, equip)
   local buildings = Features.byName.buildings
-  if not (buildings and buildings.serverGive) or buildings:serverGive(server, player, item, 1) < 1 then
-    return
+  if not (buildings and buildings.serverGive) then
+    return false
+  end
+  if buildings:serverCount(player.id, item) > 0 then
+    return equip()
+  end
+  if buildings:serverGive(server, player, item, 1) < 1 then
+    return false
   end
   if not equip() then
     buildings:serverTake(server, player, item, 1)
+    return false
   end
+  return true
+end
+
+--- The pistol into the first empty weapon slot, unless they carry one.
+--- Returns true if it was handed over.
+function StartGear.givePistol(server, player)
+  local weapons = Features.byName.weapons
+  local Guns = weapons and weapons.guns
+  local pistol = Guns and Guns.list[Guns.DEFAULT]
+  if not (pistol and weapons.sv) or weapons:serverOwns(player, pistol.index) then
+    return false
+  end
+  local st = weapons.sv.players[player.id]
+  for slot = 1, weapons.slotCount do
+    if st and not st.slots[slot] then
+      return hand(server, player, "gun-" .. pistol.key, function()
+        return weapons:serverEquip(server, player, pistol.index, slot)
+      end)
+    end
+  end
+  return false
 end
 
 --- The pistol into the first empty weapon slot, and openborders into its
 --- slot, unless they carry them already.
 function StartGear.give(server, player)
-  local weapons, abilities = Features.byName.weapons, Features.byName.abilities
-  local Guns = weapons and weapons.guns
-  local pistol = Guns and Guns.list[Guns.DEFAULT]
-  if pistol and weapons.sv and not weapons:serverOwns(player, pistol.index) then
-    local st = weapons.sv.players[player.id]
-    for slot = 1, weapons.slotCount do
-      if st and not st.slots[slot] then
-        hand(server, player, "gun-" .. pistol.key, function()
-          return weapons:serverEquip(server, player, pistol.index, slot)
-        end)
-        break
-      end
-    end
-  end
+  local abilities = Features.byName.abilities
+  StartGear.givePistol(server, player)
   if abilities and abilities.sv and not abilities:serverOwns(player, StartGear.ABILITY) then
     local slots = abilities.sv.slots[player.id]
     if slots and not slots[StartGear.ABILITY_SLOT] then

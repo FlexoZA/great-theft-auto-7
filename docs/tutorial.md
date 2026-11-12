@@ -97,8 +97,9 @@ every cast and mocks the first (Sorros). Box 3 done: "Destroy the
 rioters (n/25)" counts every simp shot or run over on the level, across
 casts, and stays ticked. Box 4 done: a human's death on the level gets
 the full mockery the first time, then a short quip in turn, at most one
-every 15 s. Next: stage 8, box 5 (a pistol for anyone who reaches level 4
-without one).
+every 15 s. Box 5 done: anyone on level 4 without a pistol is handed one
+2 s in. Next: stage 8, box 6 (way on to level 5), the stage's last: `make
+audit` and the `CHANGELOG.md` line with it.
 
 ### Handoff notes
 
@@ -215,6 +216,20 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
+- A pistol on level 4 (stage 8 box 5): `start_gear.lua`'s `give` is split;
+  `StartGear.givePistol(server, player)` (true when handed over) puts the
+  pistol in the first empty weapon slot unless they carry one, and `give`
+  calls it and then does openborders as before. Its `hand` now equips one
+  already in the bag instead of giving a second, and returns whether it
+  equipped. init.lua's local `armEveryone`, from `serverStep` on
+  `tutorial-4` once `level.t >= Tutorial.armAfter` (2 s, so his line comes
+  after the start beat), looks at each human once a level (`level.armed`)
+  the first step they are present; a pistol handed over says
+  `tutorial-4.armed` ("Did you skip the scrap yard?"). Someone whose slots
+  are all full of other guns gets nothing (they are armed). Checked in
+  scripted runs: no pistol at all, pistol in slot 1 at 2 s and `armed`
+  said after `start`; one in the bag, that one equipped (bag 1 -> 0);
+  carrying one already, nothing and no line.
 - Mockery on death (stage 8 box 4): the tutorial's `serverKill` on
   `tutorial-4` with a `victim` who is a human (`server.players[id]`, not
   `.bot`; bots roam the town and die in the fires too) calls the local
@@ -956,7 +971,7 @@ notice.
 - [x] Openborders pickup per player; pick up and equip objectives
 - [x] "Use it" objective; the Sorros mockery on cast
 - [x] Rioters-cleared detection, counted once
-- [ ] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
+- [x] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
 - [x] Mockery on death
 - [ ] Way on to level 5
 

@@ -136,6 +136,10 @@ Story.beats = {
     "Lesson five: abilities. Tricks you carry besides a gun. I've put one down by me. One each, again.",
     "Open Borders, it's called. Don't look at me like that, I didn't name it. Walk over it.",
   },
+  -- Somebody got here without a pistol: he put one in their hand.
+  ["tutorial-4.armed"] = {
+    "No gun? Did you skip the scrap yard? Here. A pistol. You'll want it later, trust me.",
+  },
   -- The first player with it in their bag.
   ["tutorial-4.picked"] = {
     "Same as the pistol: {inventory}, then drag it into an ability slot. An ability in a bag does nothing either.",
