@@ -38,13 +38,15 @@ end
 -- `tutorial-*` maps' `map.exitX, exitY`: on the road's lawn past the
 -- streets, at the park's gate, at the scrap yard's gate; in town, on the
 -- top street by the north-west plot): reaching it finishes the level and
--- the EXIT star comes up there. Levels 4 and 5 share the town.
+-- the EXIT star comes up there. Levels 4 and 5 share the town. Level 5
+-- has nowhere to walk to (`now`): the last section done finishes it, and
+-- the star home comes up by Shoeman.
 Tutorial.EXITS = {
   ["tutorial-1"] = { x = 0, y = -1216 },
   ["tutorial-2"] = { x = 0, y = -1184 },
   ["tutorial-3"] = { x = 832, y = -1056 },
   ["tutorial-4"] = { x = -640, y = -960 },
-  ["tutorial-5"] = { x = -640, y = -960 },
+  ["tutorial-5"] = { x = 64, y = 416, now = true },
 }
 
 -- Where Shoeman stands on each level, world px: just south-east of the
@@ -396,8 +398,9 @@ function Tutorial:serverPlayerLeft(_server, player)
 end
 
 --- The first player to reach the level's way on finishes it, once the
---- level's objectives have opened it: the exit items tick and the quests
---- feature puts the EXIT star there (on to the next level, or home).
+--- level's objectives have opened it (level 5's finishes as they do): the
+--- exit items tick and the quests feature puts the EXIT star there (on to
+--- the next level, or home).
 function Tutorial:serverStep(server, dt)
   if level then
     level.t = level.t + dt
@@ -425,7 +428,7 @@ function Tutorial:serverStep(server, dt)
   Comms.serverBeat(server, "open")
   local exit = self.EXITS[level.quest]
   local quests = Features.byName.quests
-  if not (exit and quests and quests:serverArrivedAt(server, exit.x, exit.y, self.reach)) then
+  if not (exit and quests and (exit.now or quests:serverArrivedAt(server, exit.x, exit.y, self.reach))) then
     return
   end
   level.done = true
@@ -515,7 +518,7 @@ function Tutorial:drawBelowCars()
     Checkpoint.draw(active, time)
   end
   local exit = active and self.EXITS[active]
-  if not exit or quests.done == active or not Objectives.open(active) then
+  if not exit or exit.now or quests.done == active or not Objectives.open(active) then
     return
   end
   local pulse = 0.5 + 0.5 * math.sin(time * 3)

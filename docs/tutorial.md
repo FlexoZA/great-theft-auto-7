@@ -99,20 +99,37 @@ there without a pistol is handed one; once all is ticked he says where
 the way on is, and taking its EXIT star starts level 5 on the start with
 level 4's horde and fires cleared. `make audit` 8.1, pass (the four
 soundtrack majors are stage 11's); `CHANGELOG.md` line added. Stage 9
-under way on `feature/tutorial-build`, branched from
-`feature/tutorial-open-borders`: box 1 done (plots, building and repairs
-free in Shoeman's Town through the new `buildCost` hook), box 2 (a
+done on `feature/tutorial-build`, branched from
+`feature/tutorial-open-borders` (not pushed or merged yet): plots,
+building and repairs free in Shoeman's Town (the `buildCost` hook); a
 building the list did not ask for comes down with the public-school
-line), box 3 (section 1: resources), box 4 (section 2: factories), box 5 (section 3:
-transport), box 6 (section 4: repair), box 7 (section 5: hires), box 8
-(section 6: selling). Next: stage 9, box 9 (HOME star on completion; the
-tutorial counts as finished).
+line; level 5's six sections (two quarries on iron and sulfur, the
+Weapons Factory on pistols and the Ammo Factory, collect and load, repair
+the building his shoe dents, the wages and a hire of each, sell a pistol
+and ammo), told through new buildings and shop events; the last sale
+finishes the tutorial with the star home by Shoeman. `make audit` 8.2,
+pass (the four soundtrack majors are stage 11's); `CHANGELOG.md` line
+added. Next: stage 10, box 1 (`event.lua` registered in `Events.kinds`,
+on the F8 menu) on `feature/tutorial-shoeman-event`, branched from
+`feature/tutorial-build`.
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The end of level 5 (stage 9 box 9): `Tutorial.EXITS["tutorial-5"]` is
+  (64, 416) by Shoeman with `now = true`: `serverStep` skips the arrival
+  test for it, so the step the last section is done says
+  `tutorial-5.open` (school's out) and `serverComplete`s at once; the
+  quests feature then records `tutorial-1` finished, shows the victory
+  screen and puts the star home there. `drawBelowCars` draws no WAY ON
+  ring for a `now` exit. Checked in a scripted run (fresh copy of a world
+  where the tutorial was not finished): the last sale says `sold` and
+  `open`, `done` = tutorial-5, the exit star up, `finished["tutorial-1"]`
+  nil -> true, clears nil -> 1, the victory screen shows "Shoeman's
+  school of survival"; QST_ACCEPT exit goes home (map "city", no quest).
+  `make audit` 8.2 pass, no new findings from stage 9.
 - Section 6 (stage 9 box 8): items `sell = "gun-pistol"` / `"ammo-"`, a
   prefix of the item sold (so any tier, any ammo), from `serverSold`.
   Section `beat = "sold"`. The shop pays 0 for a single round of 9mm and
@@ -1002,6 +1019,7 @@ change to a core file, except stage 3's `emptyHanded` hook (`src/body.lua`,
 | `shoe.lua` | The shout, the throw and the shoe: kills players, wrecks cars and buildings, kills enemies in its path. | `Weapons:explode` (`weapons/init.lua`), which already walks players, cars, `serverBlast` and `serverShotAt` |
 | `traffic.lua` | Level 1's cars: `server:spawnVehicle`, speed set every step, removed in the far tunnel; contact check with `Car.hitTest`. | `car-collisions/init.lua` `runOver` |
 | `waves.lua` | Level 3's squirrel waves. | `events/bigfoot.lua` `litter` and `pop` |
+| `build.lua` | Level 5's lesson: ticks from buildings' and the shop's events, removes a wrong building, the wages, his shoe's dents. | `road.lua` |
 | `event.lua` | Shoeman as a host event. | `events/bigfoot.lua`, `a-man/event.lua` |
 
 Maps: four specs in `CityMap.maps` (`city-map/init.lua`) with builders and
@@ -1018,7 +1036,8 @@ is the builder to copy).
 | `events` | Loose squirrels anyone can summon (`serverSummonSquirrels`, `serverSquirrelsLoose`; `events/squirrels.lua`). Shoeman added to `Events.kinds`. | 6, 10 |
 | `pickups` | `serverTakenBy`: a one-each drop hidden from one player (the pistol from those who carry one). | 6 |
 | `open-borders` | A simp's `serverKill` says `simp = true`, so the tutorial can count the rioters; rioters die to a shoe in one hit. | 8, 10 |
-| `buildings` | Build and repair cost asked through a hook so a map can make them free; a host call to remove a building. | 9 |
+| `buildings`, `real-estate` | Plot, build and repair prices asked through the `buildCost` hook so a map can make them free; a host call to remove a building (`serverRemove`); the `serverBuildingDone` event; `hp` in `serverStanding`. | 9 |
+| `shop` | `serverBought` and `serverSold` events. | 9 |
 | `quests`, `shop`, `garage`, `handsy-man`, `delivery` | A map flag so the shop, the hospital, Handsy Men and shop sales also work on the tutorial city. Today they are default-city only. | 7 |
 
 ### Known facts worth remembering
@@ -1129,7 +1148,7 @@ notice.
 - [x] Section 4: repair (Shoeman's shoe does the damage)
 - [x] Section 5: hires
 - [x] Section 6: selling
-- [ ] HOME star on completion; the tutorial counts as finished
+- [x] HOME star on completion; the tutorial counts as finished
 
 ### 10. Shoeman, the city event (`feature/tutorial-shoeman-event`)
 

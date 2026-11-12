@@ -308,6 +308,13 @@ Story.beats = {
   ["tutorial-5.sold"] = {
     "Dig it, make it, sell it. That's business. Better than anything they taught you at public school.",
   },
+  -- Level 5 done (the "open" beat, said as the way on opens): school's out.
+  ["tutorial-5.open"] = {
+    "That's it. School's out. You're as ready as you'll ever be, which isn't very.",
+    "The star by me takes you back to the city, and the jobs board's open to you now.",
+    "Go and get yourselves killed properly.",
+    "And if Sorros asks, you never met me.",
+  },
 }
 
 return Story

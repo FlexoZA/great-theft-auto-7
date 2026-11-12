@@ -38,6 +38,12 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   ability slot and cast it. He laughs every time you do, and the rioters you let in burn the town and punch you
   too. Kill 25 of them, from as many casts as it takes, and the way on to lesson five opens on the top street.
   Anyone who arrives without a pistol is handed one, and Shoeman has something to say every time you die.
+- Lesson five is building, the last: one section at a time, you take the town's plots (free here), build two Quarry
+  Mines for iron and sulfur, a Weapons Factory on pistols and an Ammo Factory, carry iron and sulfur over and load
+  them in, repair the building Shoeman puts a shoe through, hire a driver and a Handsy Man with the 120 Fcks he
+  hands you, and sell the shop a pistol and some ammo. Building and repairing cost nothing in Shoeman's Town, and
+  anything he didn't ask for comes straight back down. When the last sale is made, school is out: the star home
+  comes up by him and the rest of the board opens.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
