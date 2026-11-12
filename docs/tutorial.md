@@ -430,8 +430,8 @@ a history.
   "next in n s"; nil clears), `serverSection()` (section, index; level 5's
   wrong-building check), `serverTicked(id)`, `serverOpen()` (way on open:
   last section up and all but `exit` items ticked; true with no list),
-  `serverPlayerJoined`, plus the `each` calls above. A finished section waits `NEXT_AFTER` (1.5 s)
-  then the next replaces it. One message, `TUT_OBJ <quest> <section>
+  `serverPlayerJoined`, plus the `each` calls above. A finished section
+  waits `NEXT_AFTER` (1.5 s) then the next replaces it. One message, `TUT_OBJ <quest> <section>
   <counts csv> [<item> <secs>]`, the whole state on every change. Client:
   `Objectives.open(quest)` hides the WAY ON ring while shut; drawn at
   (10, 40), 18 px rows (seven items end just above the quests feature's
