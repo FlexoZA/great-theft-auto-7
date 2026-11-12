@@ -170,10 +170,23 @@ local function road()
   return map and map.lanes and map or nil
 end
 
---- A player died: on level 1 that was a car, on level 2 a shoe (nothing
---- else kills there), on level 3 the squirrels, and Shoeman has something
---- to say about it the first time.
+--- One of the open-borders horde went down on level 4: it counts towards
+--- "Destroy the rioters", and the one that ticks it opens the way on.
+local function rioterDown(server)
+  if Objectives.serverTick(server, "rioters") and Objectives.serverTicked("rioters") then
+    Comms.serverBeat(server, "cleared")
+  end
+end
+
+--- Something died. On level 4 a simp of the horde counts (rioterDown).
+--- A player: on level 1 that was a car, on level 2 a shoe (nothing else
+--- kills there), on level 3 the squirrels, and Shoeman has something to
+--- say about it the first time.
 function Tutorial:serverKill(server, kill)
+  if level and level.quest == "tutorial-4" and kill.simp then
+    rioterDown(server)
+    return
+  end
   if not (level and kill.victim) then
     return
   end

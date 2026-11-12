@@ -153,6 +153,12 @@ Story.beats = {
     "Look at them. Twenty-five rioters with torches, and they're all yours. Congratulations.",
     "Use it as a weapon and it turns on you. Every time. They'll burn the town and punch YOU while they're at it.",
     "Only a friend of Sorros opens the borders. And Sorros hates everyone. Including you. ESPECIALLY you.",
+    "Now clean up your mess. Shoot them, run them over, I don't care. All of them.",
+  },
+  -- The last of a horde's worth down: "Destroy the rioters" ticked.
+  ["tutorial-4.cleared"] = {
+    "That's the lot. The town still stands, mostly. No thanks to you.",
+    "Remember this the next time you feel like opening borders. Now get out of my sight.",
   },
 }
 

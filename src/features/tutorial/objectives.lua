@@ -25,6 +25,7 @@
 local Protocol = require("src.net.protocol")
 local UI = require("src.ui")
 local Waves = require("src.features.tutorial.waves")
+local Horde = require("src.features.open-borders.horde")
 
 local Objectives = {}
 
@@ -58,13 +59,16 @@ Objectives.lists = {
   },
   -- Everyone picks up their own openborders and puts it in an ability
   -- slot (gift.lua); then anyone who has casts it (the
-  -- `serverOpenBorders` event).
+  -- `serverOpenBorders` event); then a horde's worth of simps shot or run
+  -- over, from any casts (a horde whose time runs out is no loss: what was
+  -- killed stays counted, and ticked stays ticked).
   ["tutorial-4"] = {
     {
       items = {
         { id = "pickup", text = "Pick up Open Borders", each = true },
         { id = "equip", text = "Equip it", each = true },
         { id = "use", text = "Use it" },
+        { id = "rioters", text = "Destroy the rioters", need = Horde.SIMPS },
       },
     },
   },

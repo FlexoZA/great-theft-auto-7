@@ -59,11 +59,12 @@ end
 --- One simp down: his body on every screen (gibs under a car or in a
 --- blast; the corpses feature), and the other features price it (money
 --- drops a koin, the same as a pedestrian). `kill.cause` is the damage
---- type, a car's "impact" when not given.
+--- type, a car's "impact" when not given. The kill says `simp = true`, so
+--- a feature can tell the horde from the crowd (the tutorial counts them).
 local function simpDown(server, kill)
   server:broadcast(Protocol.encode("OB_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
     kill.by or 0, kill.cause or "impact"))
-  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
+  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by, simp = true })
 end
 
 --- A bullet passing through (x, y): the `serverShotAt` convention. A simp

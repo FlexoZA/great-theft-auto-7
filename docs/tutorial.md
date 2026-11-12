@@ -93,8 +93,9 @@ there; dying on levels 4 and 5 brings you back at the hospital's door.
 Shoeman in town, "Pick up Open Borders" and "Equip it" ticked per player
 (the pistol's module made shared: `gift.lua`). Box 2 done: "Use it"
 ticks on the first cast by someone who has equipped theirs, he laughs at
-every cast and mocks the first (Sorros). Next: stage 8, box 3
-(rioters-cleared detection, counted once).
+every cast and mocks the first (Sorros). Box 3 done: "Destroy the
+rioters (n/25)" counts every simp shot or run over on the level, across
+casts, and stays ticked. Next: stage 8, box 4 (mockery on death).
 
 ### Handoff notes
 
@@ -211,6 +212,23 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
+- "Destroy the rioters" (stage 8 box 3): the open-borders feature's
+  `serverKill` for a simp now carries `simp = true` (still kind
+  "pedestrian"; documented in `docs/features.md`'s events table). The
+  tutorial's `serverKill` sends those on `tutorial-4` to a local
+  `rioterDown`, which ticks the shared `rioters` item (`need =
+  Horde.SIMPS`, 25, `open-borders/horde.lua` required by objectives.lua)
+  and says `tutorial-4.cleared` when that tick fills it. Decided (see
+  "Decisions"): kills add up across casts and never reset; a horde that
+  times out (30 s) keeps what was killed. Simps that time out or burn are
+  not kills (they are immune to fire anyway). `.cast` now ends with "clean
+  up your mess". Checked in a scripted run: 10 killed from a cast at 3 s
+  (counted before "use" ticked: the count does not wait for it), the rest
+  timed out, still 10 at 36 s and the way on shut; a second horde, 14 and
+  then 11 more killed: 24, then 25 ticks it once (the extra kills did
+  nothing), `cleared` said, `serverOpen()` true. The caster burned to death
+  every time, and openborders' 90 s cooldown makes a timed-out horde a
+  long wait: stage 11's balance pass should look at both on this level.
 - "Use it" (stage 8 box 2): the tutorial answers abilities'
   `serverOpenBorders(server, caster, x, y, seconds)` event (every feature
   hears it; the open-borders feature lets the horde in beside it). On
@@ -249,9 +267,8 @@ a history.
   (`PK_GONE <id>` to them only) and ticks at once. init.lua's
   `giftEvents` tick `pickup` / `equip` and say the level's own
   `<level>.picked` / `.equipped`. `Objectives.lists["tutorial-4"]` so
-  far: `pickup` "Pick up Open Borders", `equip` (both `each`), `use`; box
-  3 adds "Destroy the rioters" to the same section, and until then the
-  way on is open as soon as those are ticked (`serverOpen`), with no WAY
+  far: `pickup` "Pick up Open Borders", `equip` (both `each`), `use`,
+  `rioters`; the way on opens once all are ticked (`serverOpen`); no WAY
   ON item yet (box 5). Story: `tutorial-4.start` (three lines,
   "lesson five"), `.picked`, `.equipped`. Checked in scripted runs (`--world town --quest
   tutorial-4`): stripped of openborders, the orb lands at 10 s by
@@ -680,6 +697,7 @@ a history.
 | Levels 4 and 5 map? | One map for both: a small copy of the city centre with only the plots the lesson needs. What is built there is thrown away on leaving, like every quest map. |
 | Does building cost money in level 5? | No. Plots are handed over free and build and repair costs are zero on the tutorial map. |
 | Hit by a shoe in level 2? | Dead, back to the checkpoint. Shoes already dodged stay counted. |
+| "Destroy the rioters" in level 4? | 25 simps killed (one cast's worth), added up over any casts by anyone. A horde that times out keeps what was killed; nothing resets it. Killing one whole horde inside its 30 s while burning was too hard for a lesson. |
 | Progress tracking? | This file. No other system exists; the other quest lines keep a "Status" paragraph and a "Stages" list in their design doc, and this adds tick boxes. |
 
 ## Cast
@@ -823,7 +841,7 @@ is the builder to copy).
 | `abilities` | New players start with no ability (`startKeys`). | 3 |
 | `events` | Loose squirrels anyone can summon (`serverSummonSquirrels`, `serverSquirrelsLoose`; `events/squirrels.lua`). Shoeman added to `Events.kinds`. | 6, 10 |
 | `pickups` | `serverTakenBy`: a one-each drop hidden from one player (the pistol from those who carry one). | 6 |
-| `open-borders` | A way to tell when one cast's rioters are all dead; rioters die to a shoe in one hit. | 8 |
+| `open-borders` | A simp's `serverKill` says `simp = true`, so the tutorial can count the rioters; rioters die to a shoe in one hit. | 8, 10 |
 | `buildings` | Build and repair cost asked through a hook so a map can make them free; a host call to remove a building. | 9 |
 | `quests`, `shop`, `garage`, `handsy-man`, `delivery` | A map flag so the shop, the hospital, Handsy Men and shop sales also work on the tutorial city. Today they are default-city only. | 7 |
 
@@ -920,7 +938,7 @@ notice.
 
 - [x] Openborders pickup per player; pick up and equip objectives
 - [x] "Use it" objective; the Sorros mockery on cast
-- [ ] Rioters-cleared detection, counted once
+- [x] Rioters-cleared detection, counted once
 - [ ] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
 - [ ] Mockery on death
 - [ ] Way on to level 5
