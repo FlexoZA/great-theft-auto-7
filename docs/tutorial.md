@@ -104,14 +104,25 @@ under way on `feature/tutorial-build`, branched from
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
 line), box 3 (section 1: resources), box 4 (section 2: factories), box 5 (section 3:
-transport), box 6 (section 4: repair), box 7 (section 5: hires). Next: stage
-9, box 8 (section 6: selling).
+transport), box 6 (section 4: repair), box 7 (section 5: hires), box 8
+(section 6: selling). Next: stage 9, box 9 (HOME star on completion; the
+tutorial counts as finished).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 6 (stage 9 box 8): items `sell = "gun-pistol"` / `"ammo-"`, a
+  prefix of the item sold (so any tier, any ammo), from `serverSold`.
+  Section `beat = "sold"`. The shop pays 0 for a single round of 9mm and
+  it still counts. A pistol takes the Weapons Factory 30 s from 4 iron
+  (loaded in section 3), so it is usually ready by now. Checked in a
+  scripted run (`SECTION5`, the factory's output topped up): collect a
+  pistol and ten 9mm, SHOP_SELL each at the door ticks `sellAmmo` and
+  `sellPistol`, says `sold`, `serverOpen()` true. Harness: every run must
+  start from a fresh copy of the world (`run.sh` in the scratchpad does
+  it): a saved Handsy Man from the run before made the next hire "max".
 - Section 5 (stage 9 box 7): the shop raises two new events,
   `serverBought(server, player, item, n)` (end of `Shop:serverBuy`) and
   `serverSold(server, player, item, n, paid)` (end of `serverSell`), in
@@ -1117,7 +1128,7 @@ notice.
 - [x] Section 3: transport
 - [x] Section 4: repair (Shoeman's shoe does the damage)
 - [x] Section 5: hires
-- [ ] Section 6: selling
+- [x] Section 6: selling
 - [ ] HOME star on completion; the tutorial counts as finished
 
 ### 10. Shoeman, the city event (`feature/tutorial-shoeman-event`)

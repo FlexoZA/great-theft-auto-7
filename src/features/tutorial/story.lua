@@ -296,6 +296,17 @@ Story.beats = {
   ["tutorial-5.hired"] = {
     "Staff. Look at you. A regular capitalist. Sorros would be furious.",
     "Last thing: selling. The shop buys what your factories make. Sell it a pistol, and some ammo.",
+    "Collect them from the factories first. {buy} on the square. Then {buy} at the shop's door, and sell.",
+  },
+  ["tutorial-5.sellPistol"] = {
+    "A pistol, sold. Somebody out there is armed now because of you. Feel proud. Or don't.",
+  },
+  ["tutorial-5.sellAmmo"] = {
+    "Ammo, sold. Bullets are money. Never forget it.",
+  },
+  -- Section 6 done: the last of the lesson.
+  ["tutorial-5.sold"] = {
+    "Dig it, make it, sell it. That's business. Better than anything they taught you at public school.",
   },
 }
 

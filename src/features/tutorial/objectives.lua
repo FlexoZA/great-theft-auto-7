@@ -136,11 +136,13 @@ Objectives.lists = {
         { id = "handsy", text = "Hire a Handsy Man", buy = "hire-handsy-man", dented = true },
       },
     },
+    -- What the factories made, from the bag (any tier; any ammo).
     {
       title = "Selling",
+      beat = "sold",
       items = {
-        { id = "sellPistol", text = "Sell a pistol to the shop" },
-        { id = "sellAmmo", text = "Sell ammo to the shop" },
+        { id = "sellPistol", text = "Sell a pistol to the shop", sell = "gun-pistol" },
+        { id = "sellAmmo", text = "Sell ammo to the shop", sell = "ammo-" },
       },
     },
   },
