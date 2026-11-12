@@ -105,6 +105,23 @@ Story.beats = {
   -- The first reload done after that.
   ["tutorial-3.reloaded"] = {
     "Good. The pistol never runs out, it only needs reloading. Every other gun eats ammo, and ammo costs money.",
+    "Now shut up and listen. Hear that scratching? Bigfoot came through here once. He left his squirrels.",
+    "They bite, and they don't stop biting. Shoot them before they reach you. Use the wrecks. Keep moving.",
+  },
+  -- A wave comes out of the burrows (waves.lua). All shouting: it cuts in.
+  ["tutorial-3.out"] = {
+    { "HERE THEY COME!", shout = true },
+  },
+  -- A wave shot down; the third is the way on (wave3).
+  ["tutorial-3.wave1"] = {
+    "Six. Not bad. There's more where they came from. There's always more.",
+  },
+  ["tutorial-3.wave2"] = {
+    "Last lot coming. Make it count.",
+  },
+  -- The first player the squirrels got.
+  ["tutorial-3.bitten"] = {
+    "Eaten by squirrels. I'll put that on your headstone. Back to the checkpoint, the ones you shot stay shot.",
   },
 }
 

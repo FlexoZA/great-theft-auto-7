@@ -18,6 +18,7 @@ local Traffic = require("src.features.tutorial.traffic")
 local Road = require("src.features.tutorial.road")
 local Shoe = require("src.features.tutorial.shoe")
 local Pistol = require("src.features.tutorial.pistol")
+local Waves = require("src.features.tutorial.waves")
 
 local Tutorial = {
   name = "tutorial",
@@ -78,6 +79,7 @@ function Tutorial:serverStart(server)
   Traffic.serverClear(server)
   Shoe.serverStop()
   Pistol.serverStop()
+  Waves.serverStop()
   StartGear.serverStart(server)
 end
 
@@ -88,6 +90,7 @@ function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
   Shoe.serverStop()
   Pistol.serverStop()
+  Waves.serverStop()
   local city = Features.byName["city-map"]
   if level then
     Comms.serverStart(level.quest)
@@ -116,6 +119,7 @@ function Tutorial:serverQuestEnded(server)
   level = nil
   Shoe.serverStop()
   Pistol.serverStop()
+  Waves.serverStop()
   Comms.serverStop()
   Objectives.serverStop(server)
 end
@@ -128,6 +132,7 @@ function Tutorial:mapChanged(_map, server)
     Traffic.serverClear(server)
     Shoe.serverStop()
     Pistol.serverStop()
+    Waves.serverStop()
     Comms.serverStop()
     Objectives.serverStop(server)
   end
@@ -155,8 +160,8 @@ local function road()
 end
 
 --- A player died: on level 1 that was a car, on level 2 a shoe (nothing
---- else kills there), and Shoeman has something to say about it the
---- first time.
+--- else kills there), on level 3 the squirrels, and Shoeman has something
+--- to say about it the first time.
 function Tutorial:serverKill(server, kill)
   if not (level and kill.victim) then
     return
@@ -165,6 +170,8 @@ function Tutorial:serverKill(server, kill)
     Comms.serverBeat(server, "flat")
   elseif level.quest == "tutorial-2" then
     Comms.serverBeat(server, "hit")
+  elseif level.quest == "tutorial-3" then
+    Comms.serverBeat(server, "bitten")
   end
 end
 
@@ -222,13 +229,29 @@ function Tutorial:serverMagazineEmptied(server, player)
 end
 
 --- Weapons says a reload finished: on level 3, after the magazine was
---- emptied, the one after that.
+--- emptied, the one after that; then the squirrels come (waves.lua).
 function Tutorial:serverReloaded(server)
   if level and level.quest == "tutorial-3" and Objectives.serverTicked("empty")
     and Objectives.serverTick(server, "reload") then
     Comms.serverBeat(server, "reloaded")
+    local city = Features.byName["city-map"]
+    Waves.serverStart(city and city.map and city.map.dens or {})
   end
 end
+
+-- What the squirrel waves tell this feature (Waves.serverStep's `on`):
+-- every one shot ticks its wave; a wave down, he says so.
+local waveEvents = {
+  out = function(server)
+    Comms.serverBeat(server, "out", true)
+  end,
+  killed = function(server, wave, n)
+    Objectives.serverTick(server, "wave" .. wave, n)
+  end,
+  cleared = function(server, wave)
+    Comms.serverBeat(server, "wave" .. wave)
+  end,
+}
 
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
@@ -253,6 +276,7 @@ function Tutorial:serverStep(server, dt)
   end
   Shoe.serverStep(server, dt, shoeEvents)
   Pistol.serverStep(server, dt, pistolEvents)
+  Waves.serverStep(server, dt, waveEvents)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end

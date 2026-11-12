@@ -849,6 +849,15 @@ couple of small conventions rather than requiring each other:
   (`"iron"`) for a crate of `amount` of it (a human takes what fits in
   their bag, a grenade, medkit or drink its quick slot first; the rest
   stays as a smaller crate).
+  `pickups:serverTakenBy(server, id, player)` marks a `perPlayer` drop as
+  not for `player` (taken, quietly gone from their screen: `PK_GONE`); the
+  tutorial hides its pistol from a player who carries one already.
+- `Features.byName.events:serverSummonSquirrels(server, x, y, count, r)`:
+  `count` loose squirrels (Bigfoot's, without him: events/squirrels.lua)
+  out of the ground within `r` px of (x, y), on any map. They run at the
+  nearest player in sight, bite and back off, and stay until shot (one
+  round) or the map changes. `events:serverSquirrelsLoose()` counts them.
+  The tutorial's scrap yard sends them in waves.
   `pickups:serverDropAmmo(server, x, y, magazines, by)` drops a box for one of
   the guns that take ammo, sized in that gun's magazines: half the time
   (`pickups.carriedShare`) one the player it is for carries in a weapon

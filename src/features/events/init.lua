@@ -45,6 +45,12 @@
 --   update(dt, client, camera), drawBelowCars, drawAboveCars, drawHUD(client, camera)
 --   clientMessages                        its own message kinds, merged into ours
 --
+-- Loose squirrels (squirrels.lua) are kept here too: Bigfoot's squirrels
+-- with no Bigfoot, which another feature sets down anywhere, on any map,
+-- with `Events:serverSummonSquirrels(server, x, y, count, r)` and counts
+-- with `Events:serverSquirrelsLoose()` (the tutorial's waves in the scrap
+-- yard). They run beside whichever event is on and go with a map change.
+--
 -- Messages
 --   client -> server  EVT_TRIGGER <key>                 the host starts one (anyone else is ignored)
 --   client -> server  EVT_STOP                          the host calls off the one that is on
@@ -62,6 +68,7 @@ local Runner = require("src.features.events.runner")
 local Tripod = require("src.features.events.tripod")
 local AMan = require("src.features.a-man.event")
 local HuntSounds = require("src.features.alien-hunt.sounds")
+local Squirrels = require("src.features.events.squirrels")
 
 local Events = {
   name = "events",
@@ -120,6 +127,19 @@ function Events:serverStart()
     self.kinds[sv.active].serverStop(nil)
   end
   sv = { active = nil, calm = 0 }
+  Squirrels.serverClear(nil)
+end
+
+--- Loose squirrels (squirrels.lua): `count` of them out of the ground round
+--- (x, y), within `r` px, on whatever map this is. They go for the nearest
+--- player in sight and stay until shot or the map changes.
+function Events:serverSummonSquirrels(server, x, y, count, r)
+  Squirrels.serverSummon(server, x, y, count, r)
+end
+
+--- How many loose squirrels are still about.
+function Events:serverSquirrelsLoose()
+  return Squirrels.serverCount()
 end
 
 --- The `serverEventActive` convention: is an event on, or only just won?
@@ -183,6 +203,7 @@ end
 function Events:mapChanged(_map, server)
   if server then
     self:serverEnd(server, nil, nil, false)
+    Squirrels.serverClear(server)
   end
 end
 
@@ -194,6 +215,7 @@ function Events:serverStep(server, dt)
   if event then
     event.serverStep(server, dt, self)
   end
+  Squirrels.serverStep(server, dt)
 end
 
 --- Someone joining mid-event hears it is on (no flash: it didn't just
@@ -209,6 +231,9 @@ function Events:serverPlayerJoined(server, player)
 end
 
 function Events:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
+  if Squirrels.serverShotAt(server, x, y, radius, by, angle) then
+    return true
+  end
   local event = self:serverActive()
   if not (event and event.serverShotAt) then
     return false
@@ -217,12 +242,14 @@ function Events:serverShotAt(server, x, y, radius, by, angle, damage, dtype)
 end
 
 --- The audit's list of enemies (tools/audit): the boss of the event that
---- is on, and whatever he brought, if his module says (A-Man's included).
+--- is on, and whatever he brought, if his module says (A-Man's included);
+--- the loose squirrels.
 function Events:serverEnemies(server, add)
   local event = self:serverActive()
   if event and event.serverEnemies then
     event.serverEnemies(server, add)
   end
+  Squirrels.serverEnemies(add)
 end
 
 function Events:wikiEnemies(add)
@@ -242,6 +269,7 @@ function Events:serverPanicArea(server, x, y, radius)
   if event and event.serverPanicArea then
     event.serverPanicArea(server, x, y, radius)
   end
+  Squirrels.serverPanicArea(x, y, radius)
 end
 
 function Events:serverFreezeArea(server, x, y, radius, seconds)
@@ -249,6 +277,7 @@ function Events:serverFreezeArea(server, x, y, radius, seconds)
   if event and event.serverFreezeArea then
     event.serverFreezeArea(server, x, y, radius, seconds)
   end
+  Squirrels.serverFreezeArea(x, y, radius, seconds)
 end
 
 --- The `serverHeld` convention: the boss has hold of this player.
@@ -289,6 +318,7 @@ end
 
 function Events:exitGame()
   clear()
+  Squirrels.clear()
   self.notice = nil
   self.menuUp = false
 end
@@ -456,6 +486,7 @@ function Events:update(dt, client, cam)
   if self.active then
     self.kinds[self.active.key].update(dt, client, cam)
   end
+  Squirrels.update(dt)
 end
 
 function Events:drawBelowCars(client, cam)
@@ -468,6 +499,7 @@ function Events:drawAboveCars(client, cam)
   if self.active then
     self.kinds[self.active.key].drawAboveCars(client, cam)
   end
+  Squirrels.drawAboveCars()
 end
 
 --- The minimap hook: flashing red all over while the event is fresh, with
@@ -608,6 +640,9 @@ for _, event in pairs(Events.kinds) do
   for kind, handler in pairs(event.clientMessages or {}) do
     Events.clientMessages[kind] = handler
   end
+end
+for kind, handler in pairs(Squirrels.clientMessages) do
+  Events.clientMessages[kind] = handler
 end
 
 --- The footsteps feature's hook: who of mine is walking about, and where.

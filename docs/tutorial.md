@@ -79,14 +79,45 @@ from `feature/tutorial-dodge` (not pushed or merged yet): box 1 done,
 Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it; box
 2 done, the pistol put down one each, pick up and equip ticked per
 player; box 3 done, weapons' magazine-emptied and reloaded events tick
-"Empty the magazine" and "Reload". Next: stage 6, box 4 (squirrel spawn
-callable from outside `events`; `waves.lua`, three waves of six).
+"Empty the magazine" and "Reload"; box 4 done, loose squirrels in the
+events feature and three waves of six out of the yard's burrows. Next:
+stage 6, box 5 (`serverEnemies` and `wikiEnemies` for the tutorial's
+squirrels).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The squirrels (stage 6 box 4): `src/features/events/squirrels.lua`,
+  loose squirrels, Bigfoot's with no Bigfoot, on any map. Host:
+  `Events:serverSummonSquirrels(server, x, y, count, r)`,
+  `Events:serverSquirrelsLoose()` (count). Their own tuning
+  (`Squirrels.speed` 230, slower than Bigfoot's 340; `bite` 4 "melee",
+  then `backOff` 0.7 s running off; `range` 3000; one round kills; no
+  lifetime, never burst on a player). Messages `ESQ_STATE` (15 Hz,
+  unreliable), `ESQ_OUT`, `ESQ_POP`. The events feature runs them beside
+  whatever event is on (step, shots first, panic, freeze, draw, messages)
+  and clears them on `mapChanged` and `serverStart`. Bigfoot's squirrels
+  now steer through the shared `Squirrels.chase` / `Squirrels.run` (same
+  numbers as before; checked in a scripted Bigfoot event: litters come
+  out, run, burst). They ignore walls like his (they run through wrecks
+  and the office). `serverEnemies` already lists them as kind
+  `events/loose-squirrel`; box 5 adds the wiki page.
+  `src/features/tutorial/waves.lua`: `Waves.serverStart(dens)` from
+  `serverReloaded` once "reload" ticks (with `map.dens`), stopped where
+  the pistol is. `FIRST_AFTER` 5 s, then each wave `SIZE` 6 out of `DENS`
+  2 burrows in turn (3 each), the next `GAP` 4 s after the last of one is
+  shot; `on.out` (shouted beat `tutorial-3.out`, "HERE THEY COME!"),
+  `on.killed(wave, n)` ticks `wave1..3` (`need = Waves.SIZE`, shown
+  "(2/6)"), `on.cleared(wave)` says `tutorial-3.wave1`/`.wave2`; `.wave3`
+  is box 6's. A death on level 3 says `.bitten` once. Checked in scripted
+  runs: all three waves come out in turn, 18 killed by real pistol rounds
+  (20 shots aimed at the nearest), 16 bites taken while they came in,
+  each kill ticks its wave on host and client, and after wave 3
+  `Objectives.serverOpen()` is true. Screenshot shows the seven items
+  fitting above the "Quest:" line. The beats still queue far behind the
+  start speech (the equip line was on while wave 1 bit): stage 11.
 - Empty and reload (stage 6 box 3): weapons raises two new host events
   (in the events table of `docs/features.md`):
   `serverMagazineEmptied(server, player, index)` from `serverFire` when a
@@ -123,7 +154,7 @@ a history.
   must do it too. On the wire its count is `done/need`; the label shows
   "(1/2)" only with more than one human. `serverTick` refuses `each`
   items. `Objectives.lists["tutorial-3"]` so far: `pickup`, `equip` (both
-  `each`), `empty`, `reload`; box 4 adds the waves to the same section. Checked in scripted runs: a fresh player sees the pistol at
+  `each`), `empty`, `reload`, `wave1` to `wave3`. Checked in scripted runs: a fresh player sees the pistol at
   10 s, walking onto it ticks "Pick up" (1/1) and says `picked`,
   `serverEquip` ticks "Equip it" and it is in hand (15/15); a player
   already carrying a pistol never sees the drop and both tick when it
@@ -675,7 +706,8 @@ is the builder to copy).
 | `quests` | Five entries at the top of `Quests.list`; worlds saved before the tutorial load with it marked finished. | 1 |
 | `weapons` | New players start with empty gun slots (`startSlots`, `serverLoadPlayer`, the `heldGun` fallback). Events other features can hear: magazine emptied, reload finished. | 3, 6 |
 | `abilities` | New players start with no ability (`startKeys`). | 3 |
-| `events` | The squirrel spawn made callable from outside (`serverSummon`, as antlions and rollermines have). Shoeman added to `Events.kinds`. | 6, 10 |
+| `events` | Loose squirrels anyone can summon (`serverSummonSquirrels`, `serverSquirrelsLoose`; `events/squirrels.lua`). Shoeman added to `Events.kinds`. | 6, 10 |
+| `pickups` | `serverTakenBy`: a one-each drop hidden from one player (the pistol from those who carry one). | 6 |
 | `open-borders` | A way to tell when one cast's rioters are all dead; rioters die to a shoe in one hit. | 8 |
 | `buildings` | Build and repair cost asked through a hook so a map can make them free; a host call to remove a building. | 9 |
 | `quests`, `shop`, `garage`, `handsy-man`, `delivery` | A map flag so the shop, the hospital, Handsy Men and shop sales also work on the tutorial city. Today they are default-city only. | 7 |
@@ -759,7 +791,7 @@ notice.
 - [x] Scrap yard map and renderer
 - [x] Pistol pickup per player; pick up and equip objectives
 - [x] Magazine-emptied and reload-finished events in weapons; their objectives
-- [ ] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
+- [x] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
 - [ ] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels
 - [ ] Way on at the gate after wave 3
 

@@ -51,6 +51,7 @@ local Bosses = require("src.features.bosses")
 local Stamina = require("src.features.bosses.stamina")
 local BossBar = require("src.features.bosses.bar")
 local Brain = require("src.features.alien-hunt.bigfoot_brain")
+local Squirrels = require("src.features.events.squirrels")
 
 local Bigfoot = {
   key = "bigfoot",
@@ -330,12 +331,6 @@ local function squirrelTarget(s, people)
   return best
 end
 
---- Turn `from` towards `to` by at most `step` radians.
-local function turn(from, to, step)
-  local d = (to - from + math.pi) % (2 * math.pi) - math.pi
-  return from + math.max(-step, math.min(step, d))
-end
-
 --- Every squirrel's tick: sit, then shoot off at a target and burst on it.
 local function stepSquirrels(server, dt)
   local people = humans(server, true)
@@ -351,24 +346,16 @@ local function stepSquirrels(server, dt)
     else
       local speed = Bigfoot.squirrelSpeed
       local t = not s.panic and squirrelTarget(s, people)
-      local want
-      local turnRate = Bigfoot.squirrelTurn
       if s.panic then
-        want = math.atan2(s.y - s.panic.y, s.x - s.panic.x)
+        Squirrels.run(s, math.atan2(s.y - s.panic.y, s.x - s.panic.x), dt, speed, Bigfoot.squirrelTurn)
         s.panic.left = s.panic.left - dt
         s.panic = s.panic.left > 0 and s.panic or nil
       elseif t then
-        want = math.atan2(t.y - s.y, t.x - s.x)
-        -- Close in, they turn harder, or they'd circle a player standing still.
-        local d = math.sqrt(dist2(t.x, t.y, s.x, s.y))
-        turnRate = Bigfoot.squirrelTurn * (1 + 3 * math.max(0, 1 - d / Bigfoot.squirrelHoming))
+        Squirrels.chase(s, t.x, t.y, dt, speed, Bigfoot.squirrelTurn, Bigfoot.squirrelHoming)
       else
         -- Nothing about: circle him, slower.
-        want = math.atan2(f.y - s.y, f.x - s.x) + math.pi / 2
-        speed = speed * 0.4
+        Squirrels.run(s, math.atan2(f.y - s.y, f.x - s.x) + math.pi / 2, dt, speed * 0.4, Bigfoot.squirrelTurn)
       end
-      s.facing = turn(s.facing, want, turnRate * dt)
-      s.x, s.y = s.x + math.cos(s.facing) * speed * dt, s.y + math.sin(s.facing) * speed * dt
       if t and t.player then
         local reach = Bigfoot.squirrelRadius + (t.onFoot and Body.RADIUS or Car.WIDTH / 2 + 4)
         if dist2(t.x, t.y, s.x, s.y) <= reach * reach then

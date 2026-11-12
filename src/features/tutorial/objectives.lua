@@ -24,6 +24,7 @@
 
 local Protocol = require("src.net.protocol")
 local UI = require("src.ui")
+local Waves = require("src.features.tutorial.waves")
 
 local Objectives = {}
 
@@ -40,7 +41,8 @@ Objectives.lists = {
     { items = { { id = "dodge", text = "Dodge Shoeman's shoes", need = 5, timer = true } } },
   },
   -- Everyone picks up their own pistol and equips it (pistol.lua); then
-  -- anyone empties a magazine and reloads (weapons' events).
+  -- anyone empties a magazine and reloads (weapons' events); then three
+  -- waves of six squirrels, each one shot ticking its wave (waves.lua).
   ["tutorial-3"] = {
     {
       items = {
@@ -48,6 +50,9 @@ Objectives.lists = {
         { id = "equip", text = "Equip it", each = true },
         { id = "empty", text = "Empty the magazine" },
         { id = "reload", text = "Reload" },
+        { id = "wave1", text = "Defeat wave 1", need = Waves.SIZE },
+        { id = "wave2", text = "Defeat wave 2", need = Waves.SIZE },
+        { id = "wave3", text = "Defeat wave 3", need = Waves.SIZE },
       },
     },
   },
