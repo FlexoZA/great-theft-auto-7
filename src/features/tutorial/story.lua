@@ -67,6 +67,11 @@ Story.beats = {
   ["tutorial-2.dodged"] = {
     "Hm. Not bad. Luck, probably. Again.",
   },
+  -- The fifth dodge: the way on is open and he stops throwing.
+  ["tutorial-2.open"] = {
+    "FIVE. Fine. You can move when it matters. I'm almost proud. Almost.",
+    "The gate's at the top of the park. Off you go, before I find another shoe.",
+  },
   -- The first player a shoe went through.
   ["tutorial-2.hit"] = {
     "Too early, too late, or not at all. Back to the checkpoint. The shoes you dodged still count. I'm fair like that.",

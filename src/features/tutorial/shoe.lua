@@ -16,6 +16,7 @@
 --
 -- Host: `Shoe.serverStart(x, y)` starts throwing from (x, y),
 -- `Shoe.serverStop()` stops (shoes in the air vanish with the level),
+-- `Shoe.serverHalt()` throws no more (the ones in the air fly on),
 -- `Shoe.serverStep(server, dt, on)` with optional callbacks `on.threw(server)`
 -- (a throw starts: time for the shout) and `on.dodged(server, playerId)`,
 -- `Shoe.serverDodged(player)` (on-foot's `serverDodged`),
@@ -61,10 +62,17 @@ local RELEASE = ShoemanRender.RELEASE
 
 -- Server --------------------------------------------------------------------
 
-local sv = nil -- { x, y, nextIn, throw = { t, target, angle, released }, shoes = {}, nextId }
+local sv = nil -- { x, y, nextIn, throw = { t, target, angle, released }, shoes = {}, nextId, halted }
 
 function Shoe.serverStart(x, y)
   sv = { x = x, y = y, nextIn = Shoe.FIRST_AFTER, shoes = {}, nextId = 0 }
+end
+
+--- No more throws; a throw under way and the shoes in the air finish.
+function Shoe.serverHalt()
+  if sv then
+    sv.halted = true
+  end
 end
 
 function Shoe.serverStop()
@@ -73,7 +81,7 @@ end
 
 --- Seconds to the next throw, or nil while not throwing.
 function Shoe.serverNextIn()
-  return sv and math.max(0, sv.nextIn) or nil
+  return sv and not sv.halted and math.max(0, sv.nextIn) or nil
 end
 
 function Shoe.serverShoes()
@@ -260,7 +268,7 @@ function Shoe.serverStep(server, dt, on)
     end
   end
   sv.nextIn = sv.nextIn - dt
-  if sv.nextIn > 0 or sv.throw then
+  if sv.nextIn > 0 or sv.throw or sv.halted then
     return
   end
   local target = pick(server)

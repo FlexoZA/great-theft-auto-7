@@ -162,14 +162,23 @@ function Tutorial:serverDodged(_server, player)
 end
 
 -- What the shoes tell this feature (Shoe.serverStep's `on`): the shout as
--- he winds up, with the countdown to the next; a dodge ticks the objective.
+-- he winds up, with the countdown to the next; a dodge ticks the objective,
+-- and the fifth opens the way on and ends the throwing.
 local shoeEvents = {
   threw = function(server)
     Comms.serverBeat(server, "dodge", true)
     Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
   end,
   dodged = function(server)
-    if Objectives.serverTick(server, "dodge") then
+    if not Objectives.serverTick(server, "dodge") then
+      return
+    end
+    if Objectives.serverOpen() then
+      -- Five: the way on is open, and he puts the shoes down.
+      Shoe.serverHalt()
+      Objectives.serverTimer(server, "dodge", nil)
+      Comms.serverBeat(server, "open")
+    else
       Comms.serverBeat(server, "dodged")
     end
   end,

@@ -68,22 +68,28 @@ the lawn), its traffic with a speed and gap per lane and no health bars,
 any touch of a car kills and brings you back at the checkpoint, the
 movement and stamina lesson said as it happens, "Reach the other side"
 ticking at the way on, the EXIT star on to the park. `make audit` 8.6,
-pass; `CHANGELOG.md` line added. Stage 5 under way on
+pass; `CHANGELOG.md` line added. Stage 5 done on
 `feature/tutorial-dodge`, branched from `feature/tutorial-road` (not
-pushed or merged yet): box 1 done, Shoeman's Park built and drawn, his
-spot, the checkpoint, the HOME star and the way on moved onto it; box 2
-done, a shoe every 5 s at the nearest player, the "DODGE!!!!" shout cutting
-in on the comms and over his head, the throw on every screen, everything
-it touches destroyed; box 3 done, dodges counted, "Dodge Shoeman's shoes
-(n/5)" with the seconds to the next throw, the way on opening at 5. Next:
-stage 5, box 4 (way on appears at 5: check it, and decide what he does
-after).
+pushed or merged yet): Shoeman's Park, a shoe every 5 s at the nearest
+player with the "DODGE!!!!" shout, everything it touches destroyed,
+dodges in the air counted to 5 with the countdown, then he stops
+throwing and the way on opens. `make audit` 8.6, pass; `CHANGELOG.md`
+line added. Next: stage 6, box 1 (scrap yard map and renderer) on
+`feature/tutorial-scrapyard`, branched from `feature/tutorial-dodge`.
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The fifth dodge (stage 5 box 4): `shoeEvents.dodged` in init.lua,
+  when the tick makes `Objectives.serverOpen()` true, calls
+  `Shoe.serverHalt()` (no new throws; one under way and shoes in the air
+  finish; `serverNextIn()` is nil after), clears the timer and says
+  `tutorial-2.open` (go to the gate) instead of `dodged`. Checked in a
+  scripted run: five dodges, no throw in the 8 s after, standing at the
+  gate finished `tutorial-2`. The gate is drawn shut on the map canvas and
+  stays so; the WAY ON ring is the sign. Stage 11 may open it.
 - Dodge counting (stage 5 box 3): a dodge counts when the player a shoe
   was thrown at (`shoe.target`) dodges while it is in the air (init.lua's
   new `serverDodged` hook -> `Shoe.serverDodged(player)` sets
@@ -100,7 +106,7 @@ a history.
   `timer = true`, no exit item) and says `tutorial-2.dodged` the first
   time. A death on level 2 says `tutorial-2.hit` once. Counts survive a
   death. At 5 the label drops the timer and `serverOpen()` is true, so the
-  WAY ON ring shows. He keeps throwing after 5. Checked in a scripted run:
+  WAY ON ring shows. Checked in a scripted run:
   dodged in flight five times, ticked 1 to 5 and opened at the fifth (host
   and client); walking away without dodging and dodging in the wind-up
   did not count, the second one killed; screenshots show "(1/5)  next in
@@ -110,8 +116,7 @@ a history.
   `tutorial-2`, from `Tutorial.SHOEMAN`), `Shoe.serverStop()` (quest end,
   `mapChanged`, `serverStart`), `Shoe.serverStep(server, dt, on)` takes the
   callbacks (see dodge counting above). `Shoe.serverShoes()` lists the
-  shoes in flight. Still throwing after 5 and after the way on is
-  reached; box 4 decides whether he stops. Timing: first
+  shoes in flight. Timing: first
   throw `FIRST_AFTER` 10 s into the level, then every `PERIOD` 5 s; the
   throw lasts `THROW_TIME` 1.2 s, the target is picked (nearest living
   human within `RANGE` 1600) at its start and the shoe aimed at where they
@@ -443,14 +448,15 @@ a history.
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
-- `make audit` passes (8.6, end of stage 4) with four majors: no
+- `make audit` passes (8.6, end of stage 5) with four majors: no
   soundtrack on the four maps. Those wait for stage 11 unless a reviewer
   wants them sooner. Minors: core files changed (`src/states/game.lua`
   for stage 0's HUD cleanup and `emptyHanded`, `src/body.lua` for
   `emptyHanded`; call both out in the pull request) and the branch
   touching 10 features (stage 0's HUD cleanup, borderline's switch to
   `serverArrivedAt`, weapons and abilities here). Stage 4 also changed
-  weapons (the `carBarHidden` hook, `serverKill`): no core file.
+  weapons (the `carBarHidden` hook, `serverKill`): no core file. Stage 5
+  changed only the tutorial and city-map.
 
 ## Decisions
 
@@ -683,7 +689,7 @@ notice.
 - [x] Park map and renderer
 - [x] `shoe.lua`: the "DODGE!!!!" shout, the throw, instant destruction
 - [x] Dodge counting, the `n/5` objective with the countdown
-- [ ] Way on appears at 5
+- [x] Way on appears at 5
 
 ### 6. Level 3: the scrap yard (`feature/tutorial-scrapyard`)
 

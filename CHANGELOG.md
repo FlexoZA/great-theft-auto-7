@@ -25,6 +25,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 - Lesson one is a real road now: Shoeman's Road, four two-way streets of fast traffic between the school yard and
   a lawn, with pavement to rest on between them. The top streets are the fastest, any touch of a car kills
   whatever you wear, and Shoeman explains running and the stamina bar as you use it.
+- Lesson two is Shoeman's Park: he stands in the middle of the lawn and throws a shoe at the nearest player every
+  5 seconds, shouting "DODGE!!!!" as he winds up. A shoe kills anyone it touches and wrecks any car. Dodge one
+  while it is in the air and let it miss you five times, and the way on to the next lesson opens.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
