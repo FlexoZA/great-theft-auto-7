@@ -9,14 +9,18 @@
 --
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
 -- (ticked by reaching the way on), timer = true (the host may show the
--- seconds to something beside it) }. The way on stays shut until every
--- item of every section but the exit ones is ticked.
+-- seconds to something beside it), each = true (every human in the game
+-- must do it: counted per player with `serverTickPlayer`, its need the
+-- number of humans, shown "(1/2)" when there is more than one; one who
+-- leaves stops counting, one who joins must do it too) }. The way on stays
+-- shut until every item of every section but the exit ones is ticked.
 --
 -- Messages
 --   server -> all  TUT_OBJ <quest> <section> <counts> [<item> <seconds>]
 --                  the list of level <quest> at section <section>, <counts>
---                  each item's count joined by ","; an item's timer when
---                  one is running. An empty <quest> takes the list down.
+--                  each item's count joined by "," ("<done>/<need>" for an
+--                  `each` item); an item's timer when one is running. An
+--                  empty <quest> takes the list down.
 
 local Protocol = require("src.net.protocol")
 local UI = require("src.ui")
@@ -35,6 +39,15 @@ Objectives.lists = {
   ["tutorial-2"] = {
     { items = { { id = "dodge", text = "Dodge Shoeman's shoes", need = 5, timer = true } } },
   },
+  -- Everyone picks up their own pistol and equips it (pistol.lua).
+  ["tutorial-3"] = {
+    {
+      items = {
+        { id = "pickup", text = "Pick up the pistol", each = true },
+        { id = "equip", text = "Equip it", each = true },
+      },
+    },
+  },
 }
 
 --- Index of item `id` in `section`, or nil.
@@ -47,15 +60,17 @@ local function indexOf(section, id)
   return nil
 end
 
-local function needOf(item)
-  return item.need or 1
+--- What item `i` needs: an `each` item's from `needs` (the humans in the
+--- game), else its own.
+local function needOf(item, needs, i)
+  return needs and needs[i] or item.need or 1
 end
 
---- Is every item of `section` ticked, given its `counts`? With `butExit`
---- the exit items do not count.
-local function finished(section, counts, butExit)
+--- Is every item of `section` ticked, given its `counts` (and `needs`)?
+--- With `butExit` the exit items do not count.
+local function finished(section, counts, butExit, needs)
   for i, item in ipairs(section.items) do
-    if not (butExit and item.exit) and (counts[i] or 0) < needOf(item) then
+    if not (butExit and item.exit) and (counts[i] or 0) < needOf(item, needs, i) then
       return false
     end
   end
@@ -65,7 +80,8 @@ end
 -- Server --------------------------------------------------------------------
 
 -- While a level with a list is on: { quest, list, section, counts = { [i] = n },
--- nextIn (a finished section waiting to go), timer = { i, ends } }.
+-- nextIn (a finished section waiting to go), timer = { i, ends }, done = { [i] =
+-- { [player id] = true } } and needs = { [i] = n } for `each` items }.
 local sv = nil
 local clock = 0 -- host seconds, for the timers
 
@@ -75,8 +91,8 @@ local function stateMessage()
   end
   local section = sv.list[sv.section]
   local counts = {}
-  for i in ipairs(section.items) do
-    counts[i] = sv.counts[i] or 0
+  for i, item in ipairs(section.items) do
+    counts[i] = item.each and ("%d/%d"):format(sv.counts[i] or 0, needOf(item, sv.needs, i)) or (sv.counts[i] or 0)
   end
   local timer = sv.timer
   if timer and timer.ends > clock then
@@ -94,7 +110,10 @@ end
 --- down when the level has none).
 function Objectives.serverStart(server, questId)
   local list = Objectives.lists[questId]
-  sv = list and { quest = questId, list = list, section = 1, counts = {} } or nil
+  sv = list and { quest = questId, list = list, section = 1, counts = {}, done = {}, needs = {} } or nil
+  if sv then
+    Objectives.serverRecount(server, true)
+  end
   send(server)
 end
 
@@ -116,15 +135,85 @@ function Objectives.serverTick(server, id, n)
   local section = sv.list[sv.section]
   local i = indexOf(section, id)
   local have = i and (sv.counts[i] or 0)
-  if not i or have >= needOf(section.items[i]) then
+  if not i or section.items[i].each or have >= needOf(section.items[i]) then
     return false
   end
   sv.counts[i] = math.min(needOf(section.items[i]), have + (n or 1))
-  if finished(section, sv.counts) and sv.section < #sv.list then
+  if finished(section, sv.counts, false, sv.needs) and sv.section < #sv.list then
     sv.nextIn = Objectives.NEXT_AFTER
   end
   send(server)
   return true
+end
+
+--- The humans in the game, by id.
+local function humans(server)
+  local ids = {}
+  for id, player in pairs(server.players) do
+    if not player.bot then
+      ids[id] = true
+    end
+  end
+  return ids
+end
+
+--- Count every `each` item of the section on screen again over the humans
+--- in the game now (someone joined, left, or did it). When a count or a
+--- need changed, sends the list (unless `quiet`) and returns true.
+function Objectives.serverRecount(server, quiet)
+  if not sv or sv.nextIn then
+    return false
+  end
+  local section = sv.list[sv.section]
+  local people = humans(server)
+  local changed = false
+  for i, item in ipairs(section.items) do
+    if item.each then
+      local need, n = 0, 0
+      for id in pairs(people) do
+        need = need + 1
+        if sv.done[i] and sv.done[i][id] then
+          n = n + 1
+        end
+      end
+      need = math.max(1, need)
+      if sv.counts[i] ~= n or sv.needs[i] ~= need then
+        sv.counts[i], sv.needs[i], changed = n, need, true
+      end
+    end
+  end
+  if changed and finished(section, sv.counts, false, sv.needs) and sv.section < #sv.list then
+    sv.nextIn = Objectives.NEXT_AFTER
+  end
+  if changed and not quiet then
+    send(server)
+  end
+  return changed
+end
+
+--- `player` did `each` item `id` of the section on screen. True when it
+--- was new for them.
+function Objectives.serverTickPlayer(server, id, player)
+  if not sv or sv.nextIn or player.bot then
+    return false
+  end
+  local i = indexOf(sv.list[sv.section], id)
+  if not (i and sv.list[sv.section].items[i].each) then
+    return false
+  end
+  sv.done[i] = sv.done[i] or {}
+  if sv.done[i][player.id] then
+    return false
+  end
+  sv.done[i][player.id] = true
+  Objectives.serverRecount(server)
+  return true
+end
+
+--- Has `player` done `each` item `id` of the section on screen?
+function Objectives.serverDidPlayer(id, player)
+  local i = sv and indexOf(sv.list[sv.section], id)
+  return i ~= nil and sv.done[i] ~= nil and sv.done[i][player.id] == true
 end
 
 --- Show `seconds` counting down beside item `id` (the next throw); nil
@@ -138,14 +227,18 @@ function Objectives.serverTimer(server, id, seconds)
   send(server)
 end
 
+--- Every step: the `each` counts follow whoever is in the game (someone
+--- left), and a finished section gives way to the next.
 function Objectives.serverStep(server, dt)
   clock = clock + dt
+  Objectives.serverRecount(server)
   if not (sv and sv.nextIn) then
     return
   end
   sv.nextIn = sv.nextIn - dt
   if sv.nextIn <= 0 then
-    sv.section, sv.counts, sv.nextIn, sv.timer = sv.section + 1, {}, nil, nil
+    sv.section, sv.counts, sv.nextIn, sv.timer, sv.done, sv.needs = sv.section + 1, {}, nil, nil, {}, {}
+    Objectives.serverRecount(server, true)
     send(server)
   end
 end
@@ -163,7 +256,7 @@ end
 function Objectives.serverTicked(id)
   local section = sv and sv.list[sv.section]
   local i = section and indexOf(section, id)
-  return i ~= nil and (sv.counts[i] or 0) >= needOf(section.items[i])
+  return i ~= nil and (sv.counts[i] or 0) >= needOf(section.items[i], sv.needs, i)
 end
 
 --- May the way on be taken: the last section is up and everything in it
@@ -172,18 +265,20 @@ function Objectives.serverOpen()
   if not sv then
     return true
   end
-  return sv.section == #sv.list and not sv.nextIn and finished(sv.list[sv.section], sv.counts, true)
+  return sv.section == #sv.list and not sv.nextIn and finished(sv.list[sv.section], sv.counts, true, sv.needs)
 end
 
+--- A newcomer must do the `each` items too: everyone hears the new count.
 function Objectives.serverPlayerJoined(server, player)
-  if sv then
+  if sv and not Objectives.serverRecount(server) then
     server:send(player, stateMessage())
   end
 end
 
+
 -- Client --------------------------------------------------------------------
 
--- { quest, section, counts, timer = { i, left } } as the host last sent it.
+-- { quest, section, counts, needs, timer = { i, left } } as the host last sent it.
 local cl = nil
 
 function Objectives.clear()
@@ -198,7 +293,7 @@ function Objectives.open(quest)
     return true
   end
   local section = list[cl.section]
-  return cl.section == #list and section ~= nil and finished(section, cl.counts, true)
+  return cl.section == #list and section ~= nil and finished(section, cl.counts, true, cl.needs)
 end
 
 function Objectives.update(dt)
@@ -221,13 +316,15 @@ local function shadowed(text, x, y, color, a)
   love.graphics.print(text, x, y)
 end
 
---- An item's line: its text, its count, its timer.
-function Objectives.label(item, count, timerLeft)
+--- An item's line: its text, its count (out of `need`, an `each` item's),
+--- its timer.
+function Objectives.label(item, count, timerLeft, need)
   local text = item.text
-  if item.need and item.need > 1 then
-    text = ("%s (%d/%d)"):format(text, math.min(count, item.need), item.need)
+  need = need or item.need or 1
+  if need > 1 then
+    text = ("%s (%d/%d)"):format(text, math.min(count, need), need)
   end
-  if timerLeft and count < needOf(item) then
+  if timerLeft and count < need then
     text = ("%s  next in %d s"):format(text, math.ceil(timerLeft))
   end
   return text
@@ -248,7 +345,8 @@ function Objectives.drawHUD(active)
   for i, item in ipairs(section.items) do
     local y = Y + 4 + i * ROW
     local count = cl.counts[i] or 0
-    local done = count >= needOf(item)
+    local need = needOf(item, cl.needs, i)
+    local done = count >= need
     local by = y + math.floor((fh - BOX) / 2)
     love.graphics.setColor(0, 0, 0, 0.55)
     love.graphics.rectangle("fill", X, by, BOX, BOX, 2)
@@ -262,7 +360,7 @@ function Objectives.drawHUD(active)
       love.graphics.rectangle("line", X, by, BOX, BOX, 2)
     end
     local timer = cl.timer and cl.timer.i == i and cl.timer.left or nil
-    local text = Objectives.label(item, count, timer)
+    local text = Objectives.label(item, count, timer, need)
     if done then
       shadowed(text, X + BOX + 8, y, TICK, 0.75)
     else
@@ -282,12 +380,15 @@ Objectives.clientMessages = {
       cl = nil
       return
     end
-    local counts = {}
+    local counts, needs = {}, {}
     for n in (args[3] or ""):gmatch("[^,]+") do
-      counts[#counts + 1] = tonumber(n) or 0
+      local done, need = n:match("^(%d+)/(%d+)$")
+      counts[#counts + 1] = tonumber(done or n) or 0
+      needs[#counts] = tonumber(need)
     end
     local ti, left = tonumber(args[4]), tonumber(args[5])
-    cl = { quest = quest, section = section, counts = counts, timer = (ti and left) and { i = ti, left = left } or nil }
+    cl = { quest = quest, section = section, counts = counts, needs = needs,
+      timer = (ti and left) and { i = ti, left = left } or nil }
   end,
 }
 

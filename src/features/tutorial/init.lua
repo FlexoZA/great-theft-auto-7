@@ -17,6 +17,7 @@ local StartGear = require("src.features.tutorial.start_gear")
 local Traffic = require("src.features.tutorial.traffic")
 local Road = require("src.features.tutorial.road")
 local Shoe = require("src.features.tutorial.shoe")
+local Pistol = require("src.features.tutorial.pistol")
 
 local Tutorial = {
   name = "tutorial",
@@ -76,6 +77,7 @@ function Tutorial:serverStart(server)
   level, arrived = nil, false
   Traffic.serverClear(server)
   Shoe.serverStop()
+  Pistol.serverStop()
   StartGear.serverStart(server)
 end
 
@@ -85,6 +87,8 @@ end
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
   Shoe.serverStop()
+  Pistol.serverStop()
+  local city = Features.byName["city-map"]
   if level then
     Comms.serverStart(level.quest)
     Objectives.serverStart(server, level.quest)
@@ -93,11 +97,15 @@ function Tutorial:serverQuestStarted(server, quest)
       Shoe.serverStart(at.x, at.y)
       Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
     end
+    -- The scrap yard: he puts a pistol down for everyone, in front of him.
+    local map = city and city.map
+    if level.quest == "tutorial-3" and map and map.dropX then
+      Pistol.serverStart(map.dropX, map.dropY)
+    end
   else
     Comms.serverStop()
     Objectives.serverStop(server)
   end
-  local city = Features.byName["city-map"]
   if level and not arrived and city then
     city:placePlayers(server)
   end
@@ -107,6 +115,7 @@ end
 function Tutorial:serverQuestEnded(server)
   level = nil
   Shoe.serverStop()
+  Pistol.serverStop()
   Comms.serverStop()
   Objectives.serverStop(server)
 end
@@ -118,6 +127,7 @@ function Tutorial:mapChanged(_map, server)
     level, arrived = nil, true
     Traffic.serverClear(server)
     Shoe.serverStop()
+    Pistol.serverStop()
     Comms.serverStop()
     Objectives.serverStop(server)
   end
@@ -186,6 +196,22 @@ local shoeEvents = {
   end,
 }
 
+-- What the pistol lesson tells this feature (Pistol.serverStep's `on`):
+-- every human picks theirs up and equips it, each ticked for them; the
+-- first to do either hears the next step.
+local pistolEvents = {
+  picked = function(server, player)
+    if Objectives.serverTickPlayer(server, "pickup", player) then
+      Comms.serverBeat(server, "picked")
+    end
+  end,
+  equipped = function(server, player)
+    if Objectives.serverDidPlayer("pickup", player) and Objectives.serverTickPlayer(server, "equip", player) then
+      Comms.serverBeat(server, "equipped")
+    end
+  end,
+}
+
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
   StartGear.serverPlayerJoined(server, player)
@@ -208,6 +234,7 @@ function Tutorial:serverStep(server, dt)
     Road.serverStep(server, map)
   end
   Shoe.serverStep(server, dt, shoeEvents)
+  Pistol.serverStep(server, dt, pistolEvents)
   if not level or level.done or not Objectives.serverOpen() then
     return
   end

@@ -76,15 +76,44 @@ dodges in the air counted to 5 with the countdown, then he stops
 throwing and the way on opens. `make audit` 8.6, pass; `CHANGELOG.md`
 line added. Stage 6 under way on `feature/tutorial-scrapyard`, branched
 from `feature/tutorial-dodge` (not pushed or merged yet): box 1 done,
-Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it.
-Next: stage 6, box 2 (pistol pickup per player; pick up and equip
-objectives).
+Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it; box
+2 done, the pistol put down one each, pick up and equip ticked per
+player. Next: stage 6, box 3 (magazine-emptied and reload-finished
+events in weapons; their objectives).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- The pistol (stage 6 box 2): `src/features/tutorial/pistol.lua`, host
+  only. `Pistol.serverStart(x, y)` from `serverQuestStarted` for
+  `tutorial-3` with the yard's `map.dropX, dropY` (-600, 940, in front of
+  Shoeman), stopped where the shoe is. `DROP_AFTER` 10 s in it is
+  dropped with `pickups:serverDrop(..., "gun-pistol", ..., { perPlayer =
+  true })`: one each, drawn as a crate with the gold reward rings and NEW,
+  walking over it puts a pistol item in the bag (pickups' material kind).
+  Every step after, per human: a pistol in a slot (`serverOwns`) calls
+  `on.equipped` and `on.picked`; one in the bag (`buildings:serverCount`)
+  `on.picked`. Someone who carries one already is hidden from the drop by
+  a new `Pickups:serverTakenBy(server, id, player)` (marks a perPlayer drop
+  taken for them, `PK_GONE <id>` to them only) and ticks at once.
+  init.lua's `pistolEvents` tick the objectives and say
+  `tutorial-3.picked` / `.equipped` (story.lua, with `.start`).
+- Objectives can now count per player: an item with `each = true` is
+  ticked with `Objectives.serverTickPlayer(server, id, player)` (true when
+  new for them), asked with `serverDidPlayer(id, player)`; its need is the
+  number of humans in `server.players` (bots never count), recounted every
+  `serverStep` (`serverRecount`) so a leaver stops counting and a joiner
+  must do it too. On the wire its count is `done/need`; the label shows
+  "(1/2)" only with more than one human. `serverTick` refuses `each`
+  items. `Objectives.lists["tutorial-3"]` so far: `pickup`, `equip` (both
+  `each`); boxes 3 and 4 add `empty`, `reload` and the waves to the same
+  section. Checked in scripted runs: a fresh player sees the pistol at
+  10 s, walking onto it ticks "Pick up" (1/1) and says `picked`,
+  `serverEquip` ticks "Equip it" and it is in hand (15/15); a player
+  already carrying a pistol never sees the drop and both tick when it
+  lands. Not run with a second human.
 - Shoeman's Scrap Yard (stage 6 box 1): `buildYard` in
   `city-map/tutorial_maps.lua` (`kind = "tutorial-yard"`, 40x40 tiles,
   tuning in `TutorialMaps.YARD`), `drawYard` in `render_tutorial.lua`.
@@ -401,15 +430,12 @@ a history.
   "next in n s"; nil clears), `serverSection()` (section, index; level 5's
   wrong-building check), `serverTicked(id)`, `serverOpen()` (way on open:
   last section up and all but `exit` items ticked; true with no list),
-  `serverPlayerJoined`. A finished section waits `NEXT_AFTER` (1.5 s)
+  `serverPlayerJoined`, plus the `each` calls above. A finished section waits `NEXT_AFTER` (1.5 s)
   then the next replaces it. One message, `TUT_OBJ <quest> <section>
   <counts csv> [<item> <secs>]`, the whole state on every change. Client:
   `Objectives.open(quest)` hides the WAY ON ring while shut; drawn at
   (10, 40), 18 px rows (seven items end just above the quests feature's
-  "Quest:" line at y 197). Not built: items every present player must do
-  ("pick up", "equip", decision table); stage 6 adds that (e.g. an
-  `each = true` item counted per player against `Features.present`
-  humans).
+  "Quest:" line at y 197).
 - `src/features/tutorial/init.lua` holds `Tutorial.LEVELS` (the five
   quest ids in order), `Tutorial.level(id)` (1 to 5, or nil) and
   `Tutorial.EXITS[questId] = { x, y }`, each level's way on near the top
@@ -717,7 +743,7 @@ notice.
 ### 6. Level 3: the scrap yard (`feature/tutorial-scrapyard`)
 
 - [x] Scrap yard map and renderer
-- [ ] Pistol pickup per player; pick up and equip objectives
+- [x] Pistol pickup per player; pick up and equip objectives
 - [ ] Magazine-emptied and reload-finished events in weapons; their objectives
 - [ ] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
 - [ ] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels

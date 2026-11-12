@@ -80,6 +80,22 @@ Story.beats = {
   ["tutorial-2.dodge"] = {
     { "DODGE!!!!", shout = true },
   },
+
+  -- Level 3, the scrap yard: picking up and equipping (pistol.lua drops
+  -- the pistol while he says so), then shooting.
+  ["tutorial-3.start"] = {
+    "The scrap yard. Everything in here was somebody's pride and joy once. Now it's cover.",
+    "Lesson four: guns. There's a pistol on the ground by me. One each. Don't fight over it, it's embarrassing.",
+    "Walk over it to pick it up. It goes in your bag, where it is about as dangerous as you are.",
+  },
+  -- The first player with a pistol in their bag.
+  ["tutorial-3.picked"] = {
+    "Now open your bag with {inventory} and drag the pistol into a weapon slot. A gun in a bag shoots nobody.",
+  },
+  -- The first player with it in a weapon slot.
+  ["tutorial-3.equipped"] = {
+    "There. Armed. Mostly dangerous to yourself, but armed.",
+  },
 }
 
 return Story
