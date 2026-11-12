@@ -142,7 +142,17 @@ Story.beats = {
   },
   -- The first player with it in an ability slot.
   ["tutorial-4.equipped"] = {
-    "Good. The key on the slot casts it. Not yet. I want to see your face when you do.",
+    "Good. Press {ability-1} to cast it, or the key under the slot you put it in. Go on. I want to see your face.",
+  },
+  -- Every cast: he laughs. All shouting, so it cuts in.
+  ["tutorial-4.laugh"] = {
+    { "HAHAHAHAHA!", shout = true },
+  },
+  -- The first cast: the mockery.
+  ["tutorial-4.cast"] = {
+    "Look at them. Twenty-five rioters with torches, and they're all yours. Congratulations.",
+    "Use it as a weapon and it turns on you. Every time. They'll burn the town and punch YOU while they're at it.",
+    "Only a friend of Sorros opens the borders. And Sorros hates everyone. Including you. ESPECIALLY you.",
   },
 }
 

@@ -214,6 +214,19 @@ local shoeEvents = {
   end,
 }
 
+--- Somebody who has equipped their openborders cast it: "Use it" ticks,
+--- and he laughs at them every time; the first time, the whole mockery.
+local function used(server, player)
+  if not Objectives.serverDidPlayer("equip", player) then
+    return false
+  end
+  Comms.serverBeat(server, "laugh", true)
+  if Objectives.serverTick(server, "use") then
+    Comms.serverBeat(server, "cast")
+  end
+  return true
+end
+
 -- What the gift tells this feature (Gift.serverStep's `on`): every human
 -- picks theirs up and equips it, each ticked for them; the first to do
 -- either hears the next step (the level's own "picked" and "equipped").
@@ -226,9 +239,27 @@ local giftEvents = {
   equipped = function(server, player)
     if Objectives.serverDidPlayer("pickup", player) and Objectives.serverTickPlayer(server, "equip", player) then
       Comms.serverBeat(server, "equipped")
+      -- Somebody who carried one already may have cast it before it was
+      -- ticked for them (it cools down 90 s): that cast counts now.
+      if level and level.castEarly and level.castEarly[player.id] then
+        level.castEarly[player.id] = nil
+        used(server, player)
+      end
     end
   end,
 }
+
+--- Open borders was cast (abilities' event; the open-borders feature lets
+--- the horde in): on level 4 that is the lesson's payoff.
+function Tutorial:serverOpenBorders(server, caster)
+  if not (level and level.quest == "tutorial-4" and caster and not caster.bot) then
+    return
+  end
+  if not used(server, caster) then
+    level.castEarly = level.castEarly or {}
+    level.castEarly[caster.id] = true
+  end
+end
 
 --- Weapons says somebody fired their magazine dry: on level 3, once they
 --- have equipped their pistol, that is the next lesson done.

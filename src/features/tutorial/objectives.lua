@@ -57,12 +57,14 @@ Objectives.lists = {
     },
   },
   -- Everyone picks up their own openborders and puts it in an ability
-  -- slot (gift.lua).
+  -- slot (gift.lua); then anyone who has casts it (the
+  -- `serverOpenBorders` event).
   ["tutorial-4"] = {
     {
       items = {
         { id = "pickup", text = "Pick up Open Borders", each = true },
         { id = "equip", text = "Equip it", each = true },
+        { id = "use", text = "Use it" },
       },
     },
   },

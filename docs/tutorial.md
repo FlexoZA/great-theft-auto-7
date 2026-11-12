@@ -91,8 +91,10 @@ there; dying on levels 4 and 5 brings you back at the hospital's door.
 `feature/tutorial-open-borders`, branched from `feature/tutorial-city`
 (not pushed or merged yet): box 1 done, openborders put down one each by
 Shoeman in town, "Pick up Open Borders" and "Equip it" ticked per player
-(the pistol's module made shared: `gift.lua`). Next: stage 8, box 2 ("Use
-it" objective; the Sorros mockery on cast).
+(the pistol's module made shared: `gift.lua`). Box 2 done: "Use it"
+ticks on the first cast by someone who has equipped theirs, he laughs at
+every cast and mocks the first (Sorros). Next: stage 8, box 3
+(rioters-cleared detection, counted once).
 
 ### Handoff notes
 
@@ -209,6 +211,26 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
+- "Use it" (stage 8 box 2): the tutorial answers abilities'
+  `serverOpenBorders(server, caster, x, y, seconds)` event (every feature
+  hears it; the open-borders feature lets the horde in beside it). On
+  `tutorial-4`, a human caster who has ticked "equip" (`serverDidPlayer`)
+  ticks the shared `use` item (init.lua's local `used`); every such cast
+  says `tutorial-4.laugh` (shout only, so it cuts in, `again`), the first
+  also `.cast` (the mockery: rioters are yours, it backfires, friend of
+  Sorros, Sorros hates everyone). A cast before "equip" ticked for them
+  (someone who carried one already casts before the drop lands at 10 s;
+  the cooldown is 90 s) is remembered in `level.castEarly[id]` and counts
+  when `giftEvents.equipped` ticks them. `.equipped` now names
+  `{ability-1}` and tells them to cast. The open-borders feature calls
+  its horde "simps"; the tutorial says "rioters". Checked in a scripted
+  run (`--quest tutorial-4`, openborders given and equipped at 1 s, a real
+  `abilities:cast` at 3 s): nothing ticked before the drop; at 10 s
+  `picked`, `equipped`, `laugh`, `cast` arrive on the client and all three
+  items tick; a second cast at 18 s says only `laugh`. The caster burned to
+  death in the horde's fires within seconds (box 4's mockery will be
+  heard a lot). The `.cast` lines queue behind the start speech (still on
+  at 16 s): stage 11's comms timing.
 - The gifts (stage 6 box 2, made shared in stage 8 box 1):
   `src/features/tutorial/gift.lua` (was `pistol.lua`), host only.
   `Gift.serverStart(gift, x, y)` from `serverQuestStarted`, driven by
@@ -227,12 +249,11 @@ a history.
   (`PK_GONE <id>` to them only) and ticks at once. init.lua's
   `giftEvents` tick `pickup` / `equip` and say the level's own
   `<level>.picked` / `.equipped`. `Objectives.lists["tutorial-4"]` so
-  far: `pickup` "Pick up Open Borders", `equip` (both `each`); box 2 and 3
-  add "Use it" and "Destroy the rioters" to the same section, and until
-  then the way on is open as soon as both are ticked (`serverOpen`), with
-  no WAY ON item yet (box 5). Story: `tutorial-4.start` (three lines,
-  "lesson five"), `.picked`, `.equipped` (says not to cast yet: box 2's
-  mockery is the payoff). Checked in scripted runs (`--world town --quest
+  far: `pickup` "Pick up Open Borders", `equip` (both `each`), `use`; box
+  3 adds "Destroy the rioters" to the same section, and until then the
+  way on is open as soon as those are ticked (`serverOpen`), with no WAY
+  ON item yet (box 5). Story: `tutorial-4.start` (three lines,
+  "lesson five"), `.picked`, `.equipped`. Checked in scripted runs (`--world town --quest
   tutorial-4`): stripped of openborders, the orb lands at 10 s by
   Shoeman, walking onto it ticks "Pick up Open Borders", `serverEquip`
   into slot 1 ticks "Equip it" (client's `abilities.slots[1]` shows it);
@@ -898,7 +919,7 @@ notice.
 ### 8. Level 4: open borders (`feature/tutorial-open-borders`)
 
 - [x] Openborders pickup per player; pick up and equip objectives
-- [ ] "Use it" objective; the Sorros mockery on cast
+- [x] "Use it" objective; the Sorros mockery on cast
 - [ ] Rioters-cleared detection, counted once
 - [ ] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
 - [ ] Mockery on death
