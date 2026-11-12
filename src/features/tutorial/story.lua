@@ -243,6 +243,23 @@ Story.beats = {
     "The Ammo Factory starts on 9mm. Not for your pistol: that never runs dry. The Uzi and the SMG eat 9mm.",
     "Factories do nothing without materials, and materials don't walk over by themselves.",
     "Neither do you, it seems. Off you go.",
+    "Stand on the iron quarry's square, {buy}, and collect what it dug up. It digs slowly. Wait for it.",
+  },
+  -- Somebody collected iron.
+  ["tutorial-5.collect"] = {
+    "Iron, in your bag. Now carry it to the Weapons Factory. {buy} on its square and load it in.",
+    "The Ammo Factory wants iron AND sulfur. Fetch some sulfur from the other quarry too.",
+  },
+  ["tutorial-5.loadWeapons"] = {
+    "Four iron, one pistol. It takes a while. Good things do. You wouldn't know.",
+    "It swallowed every bit of iron you carried, mind. Dig up more for the Ammo Factory.",
+  },
+  ["tutorial-5.loadAmmo"] = {
+    "Iron and sulfur in the Ammo Factory. One of each, ten rounds. Even you can do that sum.",
+  },
+  -- Section 3 done: collected and loaded.
+  ["tutorial-5.transport"] = {
+    "Dig, carry, load. That's the whole economy. Everything else is people pretending to work.",
   },
 }
 

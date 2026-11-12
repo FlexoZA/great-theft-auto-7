@@ -103,14 +103,27 @@ under way on `feature/tutorial-build`, branched from
 `feature/tutorial-open-borders`: box 1 done (plots, building and repairs
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
-line), box 3 (section 1: resources), box 4 (section 2: factories). Next:
-stage 9, box 5 (section 3: transport).
+line), box 3 (section 1: resources), box 4 (section 2: factories), box 5 (section 3:
+transport). Next: stage 9, box 6 (section 4: repair, Shoeman's shoe does
+the damage).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 3 (stage 9 box 5): items `collect = "iron"` (a "collected" of
+  that item from any building) and `load = kind, items = { ... }` (ticks
+  once every listed material has gone into a building of that kind this
+  level, in one load or several: build.lua keeps `sv.loaded[kind][item]`,
+  from the start of the level, so a load during section 2 counts).
+  BLD_LOAD puts all the iron carried into the Weapons Factory (its hopper
+  takes 10), so the Ammo Factory's iron is a second trip: the
+  `loadWeapons` beat says so. Checked in a scripted run (harness's
+  `SECTION3`, quarries' `output` topped up instead of waiting 6 s a unit):
+  collect, load weapons, collect sulfur, load ammo (sulfur only: nothing
+  ticks), collect iron, load ammo ticks the last and says `transport`;
+  section 4 up after.
 - Section 2 (stage 9 box 4): data and beats only: `pistols` is `kind =
   "weapons", makes = "gun-pistol"` (the factory starts on it, product 1),
   section `beat = "factories"` (the 9mm note: the pistol never runs dry,
@@ -1066,7 +1079,7 @@ notice.
 - [x] Wrong building: the public-school insult, building removed
 - [x] Section 1: resources
 - [x] Section 2: factories
-- [ ] Section 3: transport
+- [x] Section 3: transport
 - [ ] Section 4: repair (Shoeman's shoe does the damage)
 - [ ] Section 5: hires
 - [ ] Section 6: selling

@@ -11,7 +11,8 @@
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
 -- (ticked by reaching the way on), build = kind (level 5: asks for a
 -- building of that kind, build.lua), kind and makes (level 5: asks for a
--- building of `kind` set to make `makes`), timer = true (the host may show
+-- building of `kind` set to make `makes`), collect, load and items (level
+-- 5: build.lua), timer = true (the host may show
 -- the seconds to something beside it), each = true (every human in the game
 -- must do it: counted per player with `serverTickPlayer`, its need the
 -- number of humans, shown "(1/2)" when there is more than one; one who
@@ -100,10 +101,14 @@ Objectives.lists = {
     },
     {
       title = "Transport",
+      beat = "transport",
       items = {
-        { id = "collect", text = "Collect iron from the quarry" },
-        { id = "loadWeapons", text = "Load it into the Weapons Factory" },
-        { id = "loadAmmo", text = "Load iron and sulfur into the Ammo Factory" },
+        { id = "collect", text = "Collect iron from the quarry", collect = "iron" },
+        { id = "loadWeapons", text = "Load it into the Weapons Factory", load = "weapons", items = { "iron" } },
+        {
+          id = "loadAmmo", text = "Load iron and sulfur into the Ammo Factory",
+          load = "ammo", items = { "iron", "sulfur" },
+        },
       },
     },
     { title = "Repair", items = { { id = "repair", text = "Repair the damaged building" } } },

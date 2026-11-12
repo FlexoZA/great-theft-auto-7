@@ -8,7 +8,10 @@
 -- An item that asks for a building names its kind (`build = "quarry"`);
 -- one that asks for a building set to make something names both (`kind =
 -- "quarry", makes = "iron"`), and ticks when one goes up making it or is
--- set to it. As each step ticks he says the item's beat, or the section's
+-- set to it; `collect = item` ticks when someone collects that from a
+-- building; `load = kind, items = { ... }` when every one of those
+-- materials has gone into a building of that kind, in one load or several.
+-- As each step ticks he says the item's beat, or the section's
 -- (`beat`) when it was the last.
 -- A building that no unticked item on screen asks for comes straight down
 -- again, back to an empty lot that stays its owner's, with the
@@ -27,10 +30,13 @@ local Build = {}
 
 Build.insultEvery = 6 -- seconds at least between two public-school lines
 
-local sv = { t = 0, insultedAt = nil }
+-- t: seconds into the level; insultedAt: when the last public-school line
+-- was said; loaded: kind -> material -> true, what anyone has put in a
+-- building of that kind this level.
+local sv = { t = 0, insultedAt = nil, loaded = {} }
 
 function Build.serverStart()
-  sv = { t = 0, insultedAt = nil }
+  sv = { t = 0, insultedAt = nil, loaded = {} }
 end
 
 function Build.serverStep(dt)
@@ -94,6 +100,29 @@ local function setsTo(kind, item)
   end
 end
 
+--- Items that ask for `item` collected (`collect`).
+local function collects(item)
+  return function(it)
+    return it.collect == item
+  end
+end
+
+--- Items that ask for every one of `items` loaded into a `load` building,
+--- now that `sv.loaded` has them all.
+local function loadsDone(kind)
+  return function(it)
+    if it.load ~= kind then
+      return false
+    end
+    for _, item in ipairs(it.items) do
+      if not sv.loaded[kind][item] then
+        return false
+      end
+    end
+    return true
+  end
+end
+
 --- A building went up: what the list asked for ticks (and what it makes
 --- from the start, a quarry's iron), and he says what comes next; anything
 --- else is wrong.
@@ -118,6 +147,12 @@ function Build.serverDone(server, _player, id, what, kind, item)
   local ticked = {}
   if what == "product" then
     tickWhere(server, setsTo(kind, item), ticked)
+  elseif what == "collected" then
+    tickWhere(server, collects(item), ticked)
+  elseif what == "loaded" then
+    sv.loaded[kind] = sv.loaded[kind] or {}
+    sv.loaded[kind][item] = true
+    tickWhere(server, loadsDone(kind), ticked)
   end
   sayNext(server, ticked)
 end
