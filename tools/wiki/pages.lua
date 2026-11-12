@@ -16,6 +16,7 @@ local NOTICE = "<!-- Written by tools/wiki/run.lua from the game's code (`make w
 -- The story arcs the index is grouped by, keyed by the feature a quest
 -- names as its `boss`. Enemies on no quest are the city's.
 local ARCS = {
+  tutorial = "Shoeman's School of Survival",
   karen = "Karen's Cul-de-sac",
   ["alien-hunt"] = "Whispering Pines",
   ["d-day"] = "D-Day",

@@ -237,6 +237,38 @@ function Squirrels.serverFreezeArea(x, y, radius, seconds)
   end
 end
 
+--- The wiki's page on them (tools/wiki, docs/wiki.md); the events feature
+--- asks for it with its own.
+function Squirrels.wikiEnemies(add)
+  local S = Squirrels
+  add({
+    kind = "events/loose-squirrel",
+    name = "Squirrel (loose)",
+    quests = { "tutorial-3" },
+    scaling = "none", -- the same however often the tutorial is played
+    where = "Shoeman's Scrap Yard: three waves of six out of the burrows in the far half of the yard",
+    about = "Bigfoot's squirrels, left behind without him. They pop out of the ground, sit a moment, then run "
+      .. "at the nearest player and keep biting until somebody shoots them.",
+    stats = {
+      { "Health", ("%g: one round of anything"):format(S.health) },
+      { "Speed", S.speed, "px/s" },
+      { "Sight", S.range, "px" },
+    },
+    weapons = {
+      { "Bite", ("%g melee damage, then it runs off for %g s and comes again"):format(S.bite, S.backOff) },
+    },
+    abilities = {
+      ("Swerves after you, but overshoots a sharp dodge until it is within %g px."):format(S.homing),
+      "Never gives up and never bursts on its own: it is there until it is shot.",
+    },
+    tips = {
+      "Shoot it as it runs off after a bite: it goes in a straight line.",
+      "Keep moving and keep a wreck between you and the burrows.",
+      "Freezing and stink work on them.",
+    },
+  })
+end
+
 -- Client --------------------------------------------------------------------
 
 local cl = { squirrels = {}, pops = {}, lastTick = 0 }

@@ -262,6 +262,7 @@ function Events:wikiEnemies(add)
       event.wikiEnemies(add, opens)
     end
   end
+  Squirrels.wikiEnemies(add)
 end
 
 function Events:serverPanicArea(server, x, y, radius)

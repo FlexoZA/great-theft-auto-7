@@ -80,15 +80,29 @@ Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it; box
 2 done, the pistol put down one each, pick up and equip ticked per
 player; box 3 done, weapons' magazine-emptied and reloaded events tick
 "Empty the magazine" and "Reload"; box 4 done, loose squirrels in the
-events feature and three waves of six out of the yard's burrows. Next:
-stage 6, box 5 (`serverEnemies` and `wikiEnemies` for the tutorial's
-squirrels).
+events feature and three waves of six out of the yard's burrows; box 5
+done, their wiki page and portrait. Next: stage 6, box 6 (way on at the
+gate after wave 3), the stage's last: `make audit` and the
+`CHANGELOG.md` line.
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Their wiki page (stage 6 box 5): `Squirrels.wikiEnemies(add)` in
+  `events/squirrels.lua` (kind `events/loose-squirrel`, `quests = {
+  "tutorial-3" }`, `scaling = "none"`), asked by `Events:wikiEnemies`;
+  `serverEnemies` already listed them (box 4). `tools/wiki/pages.lua`'s
+  `ARCS` names the tutorial's index section "Shoeman's School of
+  Survival". Portrait: a city scene in `tools/wiki/scenes.lua` summons
+  one beside the host; drawn with `WIKI_ONLY=city make wiki-portraits`
+  (`docs/wiki/enemies/img/events-loose-squirrel.png`). `make wiki` fails
+  on `main` already (gun-plasma-rifle and gun-bolter: "no wikiEnemies
+  entry drops it") and then writes nothing, so the pages were written
+  with a scratch copy of `tools/wiki/run.lua` that skips that exit, and
+  only the squirrel's page and the enemies index were kept. Fixing those
+  two guns' droppers is someone else's (not the tutorial's) to do.
 - The squirrels (stage 6 box 4): `src/features/events/squirrels.lua`,
   loose squirrels, Bigfoot's with no Bigfoot, on any map. Host:
   `Events:serverSummonSquirrels(server, x, y, count, r)`,
@@ -103,7 +117,7 @@ a history.
   numbers as before; checked in a scripted Bigfoot event: litters come
   out, run, burst). They ignore walls like his (they run through wrecks
   and the office). `serverEnemies` already lists them as kind
-  `events/loose-squirrel`; box 5 adds the wiki page.
+  `events/loose-squirrel`.
   `src/features/tutorial/waves.lua`: `Waves.serverStart(dens)` from
   `serverReloaded` once "reload" ticks (with `map.dens`), stopped where
   the pistol is. `FIRST_AFTER` 5 s, then each wave `SIZE` 6 out of `DENS`
@@ -792,7 +806,7 @@ notice.
 - [x] Pistol pickup per player; pick up and equip objectives
 - [x] Magazine-emptied and reload-finished events in weapons; their objectives
 - [x] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
-- [ ] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels
+- [x] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels
 - [ ] Way on at the gate after wave 3
 
 ### 7. The tutorial city (`feature/tutorial-city`)

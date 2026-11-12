@@ -103,6 +103,13 @@ Scenes.city = {
   event("runner"),
   event("tripod", 20), -- its storm comes first
   event("a-man"),
+  -- Loose squirrels (events/squirrels.lua, the scrap yard's waves): one
+  -- out of the ground beside the host.
+  function(game, look)
+    local me = game:me()
+    game.Features.byName.events:serverSummonSquirrels(game.server, me.body.x + 260, me.body.y, 1, 0)
+    watch(game, look, 4)
+  end,
   -- Open borders: the ability's horde of simps, cast where the host stands.
   function(game, look)
     local me = game:me()
