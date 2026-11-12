@@ -185,8 +185,9 @@ local function drawCard(r, i, purse, lit, time)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.9, 0.9, 0.95)
   love.graphics.printf(r.kind.name, r.x + 4, r.y + MODEL_H + 16, r.w - 8, "center")
-  priceColor(r.kind.cost, purse)
-  love.graphics.printf(amount(r.kind.cost), r.x, r.y + r.h - 22, r.w, "center")
+  local cost = Kinds.buildPrice(r.kind)
+  priceColor(cost, purse)
+  love.graphics.printf(amount(cost), r.x, r.y + r.h - 22, r.w, "center")
 end
 
 --- `text` wrapped to `w` at (x, y) in the current font; returns the y under it.
@@ -354,7 +355,8 @@ local function drawDetail(L, picked, purse, mx, my, time)
   end
 
   -- The Build button: its price on it, gold when the wallet covers it.
-  Screen.button(L.build, "BUILD   " .. amount(picked.cost), picked.cost <= purse, inside(L.build, mx, my))
+  local cost = Kinds.buildPrice(picked)
+  Screen.button(L.build, "BUILD   " .. amount(cost), cost <= purse, inside(L.build, mx, my))
 end
 
 --- The whole screen. `picked` is the kind in the side panel, `purse` my

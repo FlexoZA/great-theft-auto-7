@@ -79,6 +79,7 @@ Tutorial.turnRate = 4 -- radians a second Shoeman turns to keep his eye on the n
 Tutorial.armAfter = 2 -- seconds into level 4 a player with no pistol is handed one (after his start beat)
 Tutorial.mockEvery = 15 -- seconds at least between his quips at the dead on level 4
 Tutorial.QUIPS = { "died2", "died3", "died4" } -- level 4's quips after the first death, in turn
+Tutorial.TOWN = "tutorial-city" -- levels 4 and 5's map, where plots, building and repairs are free
 
 local level = nil -- on the host: { quest = id, done = bool, t, mockedAt, quips } while a level is being played
 local arrived = false -- on the host: the map changed since the last quest started (everyone is on its start)
@@ -508,6 +509,17 @@ function Tutorial:carBarHidden()
   local city = Features.byName["city-map"]
   return quests ~= nil and quests.active == "tutorial-1" and city ~= nil and city.map ~= nil
     and city.map.lanes ~= nil
+end
+
+--- Real-estate and buildings ask what land and building work cost (both
+--- sides): nothing in Shoeman's Town, where building is the lesson and a
+--- new player has no Fcks.
+function Tutorial:buildCost(cost)
+  local city = Features.byName["city-map"]
+  if city and city.current == Tutorial.TOWN then
+    return 0
+  end
+  return cost
 end
 
 --- Shoeman, standing on the level's map with the other walkers, or

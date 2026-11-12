@@ -69,7 +69,8 @@
 -- `hp`); every gun hurts the walls it hits (weapons' `serverWallHit`) and a
 -- rocket's blast hurts every building it reaches, the parking lot included
 -- (`serverBlast`). A damaged building works on and shows a health bar; its
--- owner can repair it from the menu, paying for the damage (Kinds.repairCost).
+-- owner can repair it from the menu, paying for the damage (Kinds.repairCost;
+-- a map can make building and repairing free through the `buildCost` hook).
 -- At zero it is a ruin: whatever it held is lost, it stops working, and
 -- walls and bullets no longer stop at it. Then the owner pays to rebuild it
 -- (half of what it cost), or anyone else on its square can take the lot over
@@ -604,8 +605,9 @@ function Buildings:menuRows(client)
 
   if owner == client.myId and not b then
     for _, kind in ipairs(Kinds.list) do
-      row(("Build %s  (%s)"):format(kind.name, amount(kind.cost)), function()
-        if affordable(client, kind.cost) then
+      local cost = Kinds.buildPrice(kind)
+      row(("Build %s  (%s)"):format(kind.name, amount(cost)), function()
+        if affordable(client, cost) then
           send(client, "BLD_BUILD", plot.id, kind.key)
         end
       end)
@@ -619,7 +621,7 @@ function Buildings:menuRows(client)
 
   if ruined(b) then
     if owner == client.myId then
-      local cost = Kinds.repairCost(kind, b.hp)
+      local cost = Kinds.repairPrice(kind, b.hp)
       row(("Rebuild it  (%s)"):format(amount(cost)), function()
         if affordable(client, cost) then
           send(client, "BLD_REPAIR", plot.id)
@@ -636,8 +638,8 @@ function Buildings:menuRows(client)
   end
 
   if owner == client.myId then
-    local cost = Kinds.repairCost(kind, b.hp)
-    if cost > 0 and self.page == nil then
+    local cost = Kinds.repairPrice(kind, b.hp)
+    if Kinds.repairCost(kind, b.hp) > 0 and self.page == nil then
       row(("Repair the damage  (%s)"):format(amount(cost)), function()
         if affordable(client, cost) then
           send(client, "BLD_REPAIR", plot.id)
@@ -930,7 +932,7 @@ function Buildings:mousepressed(x, y, button, client)
   local L = BuildScreen.layout(self.buildPick)
   if L.build and BuildScreen.inside(L.build, x, y) then
     local pick = self.buildPick
-    if affordable(client, pick.cost) then
+    if affordable(client, Kinds.buildPrice(pick)) then
       send(client, "BLD_BUILD", herePad.id, pick.key)
     end
     return
@@ -1925,7 +1927,7 @@ Buildings.serverMessages = {
       return "built"
     end
     local money = Features.byName.money
-    if money and not money:spend(server, player.id, kind.cost, kind.name:lower()) then
+    if money and not money:spend(server, player.id, Kinds.buildPrice(kind), kind.name:lower()) then
       return "broke"
     end
     local b = {
@@ -2197,10 +2199,10 @@ Buildings.serverMessages = {
       return reason
     end
     local kind = Kinds.byKey[b.kind]
-    local cost = Kinds.repairCost(kind, b.hp)
-    if cost == 0 then
+    if Kinds.repairCost(kind, b.hp) == 0 then
       return "intact"
     end
+    local cost = Kinds.repairPrice(kind, b.hp)
     local money = Features.byName.money
     if money and not money:spend(server, player.id, cost, "repairs") then
       return "broke"

@@ -98,15 +98,34 @@ dead are mocked (in full once, then a quip at most every 15 s); anyone
 there without a pistol is handed one; once all is ticked he says where
 the way on is, and taking its EXIT star starts level 5 on the start with
 level 4's horde and fires cleared. `make audit` 8.1, pass (the four
-soundtrack majors are stage 11's); `CHANGELOG.md` line added. Next:
-stage 9, box 1 (free plots; build and repair cost hook) on
-`feature/tutorial-build`, branched from `feature/tutorial-open-borders`.
+soundtrack majors are stage 11's); `CHANGELOG.md` line added. Stage 9
+under way on `feature/tutorial-build`, branched from
+`feature/tutorial-open-borders`: box 1 done (plots, building and repairs
+free in Shoeman's Town through the new `buildCost` hook). Next: stage 9,
+box 2 (wrong building: the public-school insult, building removed).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Free in town (stage 9 box 1): a new hook `buildCost(cost, what, kind)`,
+  asked through `Features.reduce` on both sides (in `_template` and the
+  events table of `docs/features.md`). Real-estate asks it as
+  `RealEstate.plotPrice()` ("plot"; the sign then reads FREE PLOT and the
+  prompt "Free plot. F: take it"); buildings as `Kinds.buildPrice(kind)`
+  ("build": menu rows, the build screen's cards and button, BLD_BUILD)
+  and `Kinds.repairPrice(kind, hp)` ("repair": menu rows, BLD_REPAIR).
+  `Kinds.repairCost` stays the raw price: it still says whether there is
+  damage ("intact", the menu's repair row) and handsy-man's fee reads it.
+  Not asked: the ruin takeover price, Handsy Men's fees. The tutorial
+  answers 0 while `city.current == Tutorial.TOWN` ("tutorial-city"), on
+  levels 4 and 5 alike. Checked in a scripted run (`--quest tutorial-5`,
+  wallet 0): RE_BUY took plot 1, BLD_BUILD put up a quarry, BLD_REPAIR from
+  hp 100 to 600, the wallet 0 throughout; screenshots of the FREE PLOT
+  sign and the quarry's menu. Harness: a copy of the game in the
+  scratchpad with `t.identity = "gta7-build-test"` and a copy of a saved
+  world there (`--world newjob`), so real saves are untouched.
 - City services (stage 7 box 2): a spec flag `services = true` (on
   `tutorial-city` only) and `CityMap:servicesHere()` (default city, or a
   spec with the flag). Honoured by: `Quests:jobsBuilding()` (new: the Jobs
@@ -1001,7 +1020,7 @@ notice.
 
 ### 9. Level 5: build (`feature/tutorial-build`)
 
-- [ ] Free plots; build and repair cost hook
+- [x] Free plots; build and repair cost hook
 - [ ] Wrong building: the public-school insult, building removed
 - [ ] Section 1: resources
 - [ ] Section 2: factories

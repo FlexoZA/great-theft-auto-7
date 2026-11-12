@@ -61,6 +61,12 @@ function MyFeature:emptyHanded(client, id) end
 --- weapons draws none under it (the tutorial's traffic).
 function MyFeature:carBarHidden(client, vid) end
 
+--- Both sides, through `Features.reduce`: what land or building work costs
+--- here. `what` is "plot" (real-estate), "build" or "repair" (buildings;
+--- `kind` the building's kind). Return `cost` to leave it, less to cut it
+--- (the tutorial's town answers 0).
+function MyFeature:buildCost(cost, what, kind) end
+
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 
