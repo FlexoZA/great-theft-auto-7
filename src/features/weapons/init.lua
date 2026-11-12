@@ -2617,8 +2617,12 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
     bx, by = firedFrom(bx, by, seenX, seenY)
   end
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
-  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun,
-    nil, true)
+  local fired = self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim,
+    gun, nil, true)
+  if counted and st.mags[st.gun] < 1 then
+    Features.call("serverMagazineEmptied", server, player, st.gun)
+  end
+  return fired
 end
 
 --- Turn infinite ammo on or off for `player`, for the rest of the game
@@ -2790,6 +2794,9 @@ function Weapons:finishReloads(server)
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got
       if p then
         server:send(p, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun]))
+        if got > 0 then
+          Features.call("serverReloaded", server, p, st.gun)
+        end
       end
     end
   end

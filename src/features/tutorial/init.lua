@@ -212,6 +212,24 @@ local pistolEvents = {
   end,
 }
 
+--- Weapons says somebody fired their magazine dry: on level 3, once they
+--- have equipped their pistol, that is the next lesson done.
+function Tutorial:serverMagazineEmptied(server, player)
+  if level and level.quest == "tutorial-3" and Objectives.serverDidPlayer("equip", player)
+    and Objectives.serverTick(server, "empty") then
+    Comms.serverBeat(server, "emptied")
+  end
+end
+
+--- Weapons says a reload finished: on level 3, after the magazine was
+--- emptied, the one after that.
+function Tutorial:serverReloaded(server)
+  if level and level.quest == "tutorial-3" and Objectives.serverTicked("empty")
+    and Objectives.serverTick(server, "reload") then
+    Comms.serverBeat(server, "reloaded")
+  end
+end
+
 function Tutorial:serverPlayerJoined(server, player)
   Objectives.serverPlayerJoined(server, player)
   StartGear.serverPlayerJoined(server, player)

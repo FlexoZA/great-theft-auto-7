@@ -78,14 +78,29 @@ line added. Stage 6 under way on `feature/tutorial-scrapyard`, branched
 from `feature/tutorial-dodge` (not pushed or merged yet): box 1 done,
 Shoeman's Scrap Yard built and drawn, level 3's spots moved onto it; box
 2 done, the pistol put down one each, pick up and equip ticked per
-player. Next: stage 6, box 3 (magazine-emptied and reload-finished
-events in weapons; their objectives).
+player; box 3 done, weapons' magazine-emptied and reloaded events tick
+"Empty the magazine" and "Reload". Next: stage 6, box 4 (squirrel spawn
+callable from outside `events`; `waves.lua`, three waves of six).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Empty and reload (stage 6 box 3): weapons raises two new host events
+  (in the events table of `docs/features.md`):
+  `serverMagazineEmptied(server, player, index)` from `serverFire` when a
+  counted round (not a bot's, not infinite ammo) leaves the magazine at 0,
+  and `serverReloaded(server, player, index)` from `finishReloads` when an
+  on-foot reload put rounds in. The tutorial answers both on level 3:
+  "empty" ticks when the player has ticked "equip"
+  (`serverDidPlayer`), "reload" once "empty" is ticked; beats
+  `tutorial-3.emptied` and `.reloaded`, and `.equipped` now says to fire.
+  Both items are shared (anyone's counts). Checked in a scripted run: 15
+  `serverFire` calls tick "Empty the magazine", `serverReload` ticks
+  "Reload" when it finishes (mag back to 15), host and client. With all
+  four ticked the way on opens: box 4's wave items close it again. The
+  beats queue behind the long start speech, so they come late.
 - The pistol (stage 6 box 2): `src/features/tutorial/pistol.lua`, host
   only. `Pistol.serverStart(x, y)` from `serverQuestStarted` for
   `tutorial-3` with the yard's `map.dropX, dropY` (-600, 940, in front of
@@ -108,8 +123,7 @@ a history.
   must do it too. On the wire its count is `done/need`; the label shows
   "(1/2)" only with more than one human. `serverTick` refuses `each`
   items. `Objectives.lists["tutorial-3"]` so far: `pickup`, `equip` (both
-  `each`); boxes 3 and 4 add `empty`, `reload` and the waves to the same
-  section. Checked in scripted runs: a fresh player sees the pistol at
+  `each`), `empty`, `reload`; box 4 adds the waves to the same section. Checked in scripted runs: a fresh player sees the pistol at
   10 s, walking onto it ticks "Pick up" (1/1) and says `picked`,
   `serverEquip` ticks "Equip it" and it is in hand (15/15); a player
   already carrying a pistol never sees the drop and both tick when it
@@ -744,7 +758,7 @@ notice.
 
 - [x] Scrap yard map and renderer
 - [x] Pistol pickup per player; pick up and equip objectives
-- [ ] Magazine-emptied and reload-finished events in weapons; their objectives
+- [x] Magazine-emptied and reload-finished events in weapons; their objectives
 - [ ] Squirrel spawn callable from outside `events`; `waves.lua`, three waves of six
 - [ ] `serverEnemies` and `wikiEnemies` for the tutorial's squirrels
 - [ ] Way on at the gate after wave 3

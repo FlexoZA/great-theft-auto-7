@@ -39,12 +39,15 @@ Objectives.lists = {
   ["tutorial-2"] = {
     { items = { { id = "dodge", text = "Dodge Shoeman's shoes", need = 5, timer = true } } },
   },
-  -- Everyone picks up their own pistol and equips it (pistol.lua).
+  -- Everyone picks up their own pistol and equips it (pistol.lua); then
+  -- anyone empties a magazine and reloads (weapons' events).
   ["tutorial-3"] = {
     {
       items = {
         { id = "pickup", text = "Pick up the pistol", each = true },
         { id = "equip", text = "Equip it", each = true },
+        { id = "empty", text = "Empty the magazine" },
+        { id = "reload", text = "Reload" },
       },
     },
   },

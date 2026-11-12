@@ -95,6 +95,16 @@ Story.beats = {
   -- The first player with it in a weapon slot.
   ["tutorial-3.equipped"] = {
     "There. Armed. Mostly dangerous to yourself, but armed.",
+    "Now {fire} and keep firing until the magazine is empty. Shoot a wreck. Not me.",
+  },
+  -- The first magazine fired dry.
+  ["tutorial-3.emptied"] = {
+    "Click. That's the sound of you dying. Watch the count by your gun, down at the bottom.",
+    "Press {reload} to reload. Pull the trigger on an empty gun and it reloads too, slowly, while something eats you.",
+  },
+  -- The first reload done after that.
+  ["tutorial-3.reloaded"] = {
+    "Good. The pistol never runs out, it only needs reloading. Every other gun eats ammo, and ammo costs money.",
   },
 }
 
