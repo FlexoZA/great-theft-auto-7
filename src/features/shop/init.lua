@@ -701,6 +701,7 @@ function Shop:serverBuy(server, player, item, wear)
   if price > 0 and money and money.spend then
     money:spend(server, player.id, price, entry.tiered and Tiers.named(entry.name, tier) or entry.name)
   end
+  Features.call("serverBought", server, player, item, given)
   return true, given
 end
 
@@ -729,6 +730,7 @@ function Shop:serverSell(server, player, item, count)
   if paid > 0 then
     money:give(server, player.id, paid)
   end
+  Features.call("serverSold", server, player, item, count, paid)
   return true, count, paid
 end
 

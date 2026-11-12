@@ -104,14 +104,34 @@ under way on `feature/tutorial-build`, branched from
 free in Shoeman's Town through the new `buildCost` hook), box 2 (a
 building the list did not ask for comes down with the public-school
 line), box 3 (section 1: resources), box 4 (section 2: factories), box 5 (section 3:
-transport), box 6 (section 4: repair). Next: stage 9, box 7 (section 5:
-hires).
+transport), box 6 (section 4: repair), box 7 (section 5: hires). Next: stage
+9, box 8 (section 6: selling).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Section 5 (stage 9 box 7): the shop raises two new events,
+  `serverBought(server, player, item, n)` (end of `Shop:serverBuy`) and
+  `serverSold(server, player, item, n, paid)` (end of `serverSell`), in
+  the events table; the tutorial passes them to `Build.serverBought` /
+  `serverSold` in town. Items `buy = "hire-driver"` / `"hire-handsy-man"`
+  (copies of delivery's and handsy-man's `Hire.ITEM`). Hiring costs Fcks
+  and a Handsy Man only comes with damage to mend on the hirer's own
+  buildings (else HSY_NO "nowork") and a purse for some of it, so the
+  section has `wages = Objectives.WAGES` (120 to every human once, as it
+  comes up or when they join while it is up, beat `wages`) and `dent =
+  "dentAgain"`. build.lua rewritten round it: a section's `dent` names the
+  beat after the first dent, and the shoes keep a building damaged while
+  an unticked item with `dented = true` is on screen (section 4's repair,
+  section 5's Handsy Man; mended -> he throws again). Per-section state
+  resets when the section changes. Not handled: with two humans the dent
+  may land on a building the would-be hirer does not own. Checked in a
+  scripted run (`SECTION4` then the shop door (0, -416)): 120 Fcks, a
+  shoe dents the Weapons Factory, SHOP_BUY hire-driver ticks `driver`,
+  hire-handsy-man ticks `handsy` and says `hired` (wallet 120 -> 40);
+  section 6 up. The Handsy Man had not reached the dent 15 s later.
 - Section 4 (stage 9 box 6): a section with `dent = true` makes build.lua's
   `dent` run from `Build.serverStep(server, dt)`: `Build.throwAfter` (2 s)
   after it is up he throws at the standing building nearest him
@@ -1096,7 +1116,7 @@ notice.
 - [x] Section 2: factories
 - [x] Section 3: transport
 - [x] Section 4: repair (Shoeman's shoe does the damage)
-- [ ] Section 5: hires
+- [x] Section 5: hires
 - [ ] Section 6: selling
 - [ ] HOME star on completion; the tutorial counts as finished
 

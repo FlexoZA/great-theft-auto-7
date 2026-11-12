@@ -276,6 +276,27 @@ Story.beats = {
     "Good as new. Better than my shoe, anyway.",
     "Next: staff. You can't be everywhere. Hire a driver at the shop. And a Handsy Man while you're there.",
   },
+  -- Section 5 comes up: he hands everyone the wages (Objectives.WAGES).
+  ["tutorial-5.wages"] = {
+    "Here. Some Fcks. A loan. Not a gift, a loan. I know where you live.",
+    "The shop's across from the hospital. {buy} at its door, the Hire shelf.",
+  },
+  -- His shoe dented a building again: work for a Handsy Man.
+  ["tutorial-5.dentAgain"] = {
+    "Whoops. Another hole. Don't fix that one yourself. That's what a Handsy Man is for.",
+    "He drives round mending your buildings and sends you the bill. Three times the price. Worth it, when you're busy.",
+  },
+  ["tutorial-5.driver"] = {
+    "A driver. Carries from your quarries to your factories while you do something useful. Like listening to me.",
+  },
+  ["tutorial-5.handsy"] = {
+    "A Handsy Man. He'll go and mend that hole. Don't stand in his way.",
+  },
+  -- Section 5 done: both hired.
+  ["tutorial-5.hired"] = {
+    "Staff. Look at you. A regular capitalist. Sorros would be furious.",
+    "Last thing: selling. The shop buys what your factories make. Sell it a pistol, and some ammo.",
+  },
 }
 
 return Story

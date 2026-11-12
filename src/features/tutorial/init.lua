@@ -240,9 +240,23 @@ end
 
 --- Buildings says what a player did at their building: in town, the
 --- lesson hears it (build.lua), and judges what goes up.
-function Tutorial:serverBuildingDone(server, player, id, what, kind, item, n)
+function Tutorial:serverBuildingDone(server, player, id, what, kind, item)
   if inTown() and not player.bot then
-    Build.serverDone(server, player, id, what, kind, item, n)
+    Build.serverDone(server, player, id, what, kind, item)
+  end
+end
+
+--- The shop says a player bought something (a hire) or sold something:
+--- in town, the lesson hears it.
+function Tutorial:serverBought(server, player, item)
+  if inTown() and not player.bot then
+    Build.serverBought(server, player, item)
+  end
+end
+
+function Tutorial:serverSold(server, player, item)
+  if inTown() and not player.bot then
+    Build.serverSold(server, player, item)
   end
 end
 

@@ -1,7 +1,8 @@
 -- The tutorial's tick list, top left (docs/tutorial.md, "Systems"): what
 -- the level asks for, a box per item, ticked as it is done. A level's list
 -- comes in sections (`title`; `beat`, what Shoeman says when one is done;
--- `dent`, he damages a building while it is up: build.lua), shown one at a
+-- `dent`, he damages a building while it is up; `wages`, Fcks he hands
+-- everyone: build.lua), shown one at a
 -- time; a finished section stays up a
 -- moment, all ticked, then the next one replaces it. The look follows the
 -- quests' one-line objective (borderline/hud.lua `drawObjective`).
@@ -10,11 +11,10 @@
 -- player who joins mid-level gets the same list; clients only draw it.
 --
 -- An item is { id, text, need = n (a count, shown "(2/5)"), exit = true
--- (ticked by reaching the way on), build = kind (level 5: asks for a
--- building of that kind, build.lua), kind and makes (level 5: asks for a
--- building of `kind` set to make `makes`), collect, load, items and repair
--- (level 5: build.lua), timer = true (the host may show
--- the seconds to something beside it), each = true (every human in the game
+-- (ticked by reaching the way on), build, kind, makes, collect, load,
+-- items, repair, buy, sell, dented (level 5: what a player does at their
+-- buildings and the shop, listed in build.lua), timer = true (the host may
+-- show the seconds to something beside it), each = true (every human in the game
 -- must do it: counted per player with `serverTickPlayer`, its need the
 -- number of humans, shown "(1/2)" when there is more than one; one who
 -- leaves stops counting, one who joins must do it too) }. The way on stays
@@ -35,6 +35,10 @@ local Objectives = {}
 
 Objectives.NEXT_AFTER = 1.5 -- seconds a finished section stays up before the next one
 Objectives.RIOTERS = 25 -- simps to kill on level 4: one cast's horde (open-borders/horde.lua's `Horde.SIMPS`)
+-- Fcks Shoeman hands each player on level 5 for the hires: a driver (50,
+-- delivery's `Hire.price`), a Handsy Man (30, handsy-man's) and his repair
+-- of a dent (up to 3x the menu's price: 36 for the Weapons Factory's).
+Objectives.WAGES = 120
 
 -- Each level's list, in sections. Later stages add their levels' lists.
 Objectives.lists = {
@@ -116,14 +120,20 @@ Objectives.lists = {
     {
       title = "Repair",
       beat = "repaired",
-      dent = true,
-      items = { { id = "repair", text = "Repair the damaged building", repair = true } },
+      dent = "dent",
+      items = { { id = "repair", text = "Repair the damaged building", repair = true, dented = true } },
     },
+    -- He hands out the wages, and dents a building again: a Handsy Man only
+    -- comes when there is damage to mend. Items are the shop's hire items
+    -- (delivery's and handsy-man's `Hire.ITEM`).
     {
       title = "Hires",
+      beat = "hired",
+      wages = Objectives.WAGES,
+      dent = "dentAgain",
       items = {
-        { id = "driver", text = "Hire a driver" },
-        { id = "handsy", text = "Hire a Handsy Man" },
+        { id = "driver", text = "Hire a driver", buy = "hire-driver" },
+        { id = "handsy", text = "Hire a Handsy Man", buy = "hire-handsy-man", dented = true },
       },
     },
     {
