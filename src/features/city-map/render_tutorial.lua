@@ -1,5 +1,5 @@
--- Draws the tutorial's maps (tutorial_maps.lua builds them). So far
--- Shoeman's Road: into the canvas, the grass embankment down both sides
+-- Draws the tutorial's maps (tutorial_maps.lua builds them). Shoeman's
+-- Road: into the canvas, the grass embankment down both sides
 -- with its concrete retaining walls; the pavement in slabs; the four
 -- streets in tarmac, dark into their tunnels, with kerbs, edge lines,
 -- dashed lane lines, the double yellow down the middle and an arrow on
@@ -8,6 +8,10 @@
 -- Shoeman's board, and the lawn at the top. Over the cars, every frame
 -- (`drawAbove`), the embankment over each tunnel and the portal's
 -- headwall, so a car drives out of the dark and back into it.
+-- Shoeman's Park: mown lawn in stripes inside a clipped hedge; the gravel
+-- path up the middle through his paved circle to the iron gate at the
+-- top; the chalk ring round the dodging ground with old shoes lying in
+-- the grass; the pond, beds, trees, lamps, benches and his board.
 
 local TutorialMaps = require("src.features.city-map.tutorial_maps")
 
@@ -42,6 +46,20 @@ local C = {
   chalkboard = { 0.16, 0.24, 0.20 },
   chalk = { 0.92, 0.92, 0.88 },
   flowers = { { 0.92, 0.30, 0.32 }, { 0.98, 0.84, 0.30 }, { 0.70, 0.45, 0.88 }, { 0.98, 0.98, 0.95 } },
+  lawn = { 0.38, 0.58, 0.28 },
+  lawnStripe = { 0.34, 0.53, 0.25 },
+  hedge = { 0.17, 0.33, 0.15 },
+  hedgeLight = { 0.23, 0.42, 0.19 },
+  gravel = { 0.72, 0.66, 0.54 },
+  gravelDark = { 0.60, 0.55, 0.44 },
+  gravelEdge = { 0.50, 0.46, 0.37 },
+  water = { 0.22, 0.46, 0.66 },
+  waterLight = { 0.38, 0.62, 0.82 },
+  reed = { 0.40, 0.48, 0.22 },
+  lampPost = { 0.14, 0.14, 0.16 },
+  lamp = { 1.00, 0.93, 0.70 },
+  shoe = { 0.30, 0.20, 0.13 },
+  shoeSole = { 0.12, 0.10, 0.09 },
 }
 
 local function color(c, a)
@@ -242,12 +260,50 @@ local function decor(d)
     color(C.chalk)
     love.graphics.setFont(font(15))
     love.graphics.printf("SHOEMAN'S SCHOOL\nOF SURVIVAL", d.x, d.y + 14, 220, "center")
+  elseif d.kind == "lamp" then
+    color(C.shadow)
+    love.graphics.circle("fill", d.x + 5, d.y + 5, 9, 12)
+    color(C.lampPost)
+    love.graphics.circle("fill", d.x, d.y, 8, 12)
+    color(C.lamp)
+    love.graphics.circle("fill", d.x, d.y, 5, 12)
+  elseif d.kind == "shoe" then
+    love.graphics.push()
+    love.graphics.translate(d.x, d.y)
+    love.graphics.rotate(d.a)
+    color(C.shadow)
+    love.graphics.ellipse("fill", 3, 3, 14, 7, 12)
+    color(C.shoeSole)
+    love.graphics.ellipse("fill", 0, 0, 14, 7, 12)
+    color(C.shoe)
+    love.graphics.ellipse("fill", -1, 0, 12, 5.5, 12)
+    color(C.shoeSole)
+    love.graphics.ellipse("fill", -4, 0, 4, 3, 8)
+    love.graphics.pop()
+  elseif d.kind == "gate" then
+    -- Iron gates, shut, in a gap in the hedge, a post either side (the
+    -- hedge row is solid: the EXIT star is the way through).
+    local x0, x1 = d.x - d.w / 2, d.x + d.w / 2
+    color(C.gravel)
+    love.graphics.rectangle("fill", x0, d.y - 64, d.w, 64)
+    color(C.lampPost)
+    love.graphics.rectangle("fill", x0, d.y - 36, d.w, 5)
+    love.graphics.rectangle("fill", x0, d.y - 14, d.w, 4)
+    for x = x0 + 8, x1 - 4, 12 do
+      love.graphics.rectangle("fill", x, d.y - 44, 3, 36)
+    end
+    love.graphics.rectangle("fill", d.x - 2, d.y - 46, 4, 40)
+    color(C.concreteDark)
+    love.graphics.rectangle("fill", x0 - 16, d.y - 70, 16, 76)
+    love.graphics.rectangle("fill", x1, d.y - 70, 16, 76)
+    color(C.concreteLight)
+    love.graphics.rectangle("fill", x0 - 16, d.y - 70, 16, 4)
+    love.graphics.rectangle("fill", x1, d.y - 70, 16, 4)
   end
 end
 
---- Into the map's canvas (render.lua's Render.build), in world px.
-function RenderTutorial.draw(map, T)
-  local before = love.graphics.getFont()
+--- Shoeman's Road into the canvas.
+local function drawRoad(map, T)
   local verge = TutorialMaps.ROAD.verge
   local inL, inR = map.x0 + (map.c0 + verge) * T, map.x0 + (map.c1 + 1 - verge) * T
   -- The embankment everywhere; the pavement over every walked tile.
@@ -288,6 +344,117 @@ function RenderTutorial.draw(map, T)
   for _, d in ipairs(map.decor) do
     decor(d)
   end
+end
+
+--- A tree in the park, its shadow first.
+local function tree(t)
+  color(C.shadow)
+  love.graphics.circle("fill", t.x + 9, t.y + 11, t.r, 20)
+  color(C.leaf)
+  love.graphics.circle("fill", t.x, t.y, t.r, 20)
+  for k = 0, 5 do -- a ragged edge
+    local a = k / 6 * math.pi * 2 + t.r
+    love.graphics.circle("fill", t.x + math.cos(a) * t.r * 0.7, t.y + math.sin(a) * t.r * 0.7, t.r * 0.45, 12)
+  end
+  color(C.leafLight)
+  love.graphics.circle("fill", t.x - t.r * 0.25, t.y - t.r * 0.25, t.r * 0.55, 16)
+end
+
+--- Shoeman's Park into the canvas.
+local function drawPark(map, T)
+  local P = TutorialMaps.PARK
+  -- The hedge everywhere, the lawn inside it in mown stripes.
+  color(C.hedge)
+  love.graphics.rectangle("fill", map.left, map.top, map.w, map.h)
+  for i = 1, math.floor(map.w * map.h / 700) do
+    color(C.hedgeLight, 0.8)
+    love.graphics.circle("fill", map.left + hash(i * 1.3) * map.w, map.top + hash(i * 2.1) * map.h,
+      6 + hash(i * 3.7) * 8, 8)
+  end
+  local h = P.hedge * T
+  local x0, y0, w, hh = map.left + h, map.top + h, map.w - 2 * h, map.h - 2 * h
+  color(C.shadow)
+  love.graphics.rectangle("fill", x0, y0, w, hh)
+  color(C.lawn)
+  love.graphics.rectangle("fill", x0 + 6, y0 + 8, w - 6, hh - 8)
+  color(C.lawnStripe)
+  for i = 0, math.floor(w / (2 * T)) do
+    love.graphics.rectangle("fill", x0 + 6 + i * 2 * T, y0 + 8, T, hh - 8)
+  end
+  for i = 1, math.floor(w * hh / 1400) do
+    color(hash(i * 5.1) < 0.5 and C.grassLight or C.grassDark, 0.5)
+    love.graphics.rectangle("fill", x0 + hash(i * 1.7) * (w - 6), y0 + hash(i * 2.3) * (hh - 4), 4, 3)
+  end
+  -- The gravel paths, edged.
+  for _, p in ipairs(map.paths) do
+    color(C.gravelEdge)
+    love.graphics.rectangle("fill", p.x - 4, p.y - 4, p.w + 8, p.h + 8, 6)
+  end
+  for i, p in ipairs(map.paths) do
+    color(C.gravel)
+    love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 4)
+    for k = 1, math.floor(p.w * p.h / 220) do
+      color(C.gravelDark, 0.7)
+      love.graphics.rectangle("fill", p.x + hash(i * 1000 + k) * (p.w - 3), p.y + hash(i * 2000 + k * 1.3) * (p.h - 3),
+        3, 3)
+    end
+  end
+  -- His circle, paved, edged with a kerb.
+  local ring = map.ring
+  color(C.kerb)
+  love.graphics.circle("fill", ring.x, ring.y, P.plaza + 6, 40)
+  color(C.slab)
+  love.graphics.circle("fill", ring.x, ring.y, P.plaza, 40)
+  color(C.joint)
+  love.graphics.setLineWidth(2)
+  for k = 1, 2 do
+    love.graphics.circle("line", ring.x, ring.y, P.plaza * k / 3, 32)
+  end
+  for k = 0, 7 do
+    local a = k / 8 * math.pi * 2
+    love.graphics.line(ring.x + math.cos(a) * P.plaza / 3, ring.y + math.sin(a) * P.plaza / 3,
+      ring.x + math.cos(a) * P.plaza, ring.y + math.sin(a) * P.plaza)
+  end
+  -- The pond.
+  local pd = map.pond
+  color(C.soil)
+  love.graphics.ellipse("fill", pd.x, pd.y, pd.rx + 10, pd.ry + 10, 40)
+  color(C.water)
+  love.graphics.ellipse("fill", pd.x, pd.y, pd.rx, pd.ry, 40)
+  color(C.waterLight, 0.6)
+  love.graphics.ellipse("fill", pd.x - pd.rx * 0.25, pd.y - pd.ry * 0.3, pd.rx * 0.45, pd.ry * 0.25, 24)
+  color(C.reed)
+  for k = 1, 30 do
+    local a = hash(k * 4.3) * math.pi * 2
+    local rx, ry = pd.rx + 4 + hash(k * 7.7) * 10, pd.ry + 4 + hash(k * 7.7) * 10
+    love.graphics.rectangle("fill", pd.x + math.cos(a) * rx - 2, pd.y + math.sin(a) * ry - 6, 3, 12)
+  end
+  for _, d in ipairs(map.decor) do
+    if d.kind == "chalk" then
+      -- The dodging ground: a chalk ring on the grass, in dashes.
+      color(C.chalk, 0.75)
+      love.graphics.setLineWidth(6)
+      local n = 72
+      for k = 0, n - 1, 2 do
+        local a0, a1 = k / n * math.pi * 2, (k + 1) / n * math.pi * 2
+        love.graphics.line(ring.x + math.cos(a0) * ring.r, ring.y + math.sin(a0) * ring.r,
+          ring.x + math.cos(a1) * ring.r, ring.y + math.sin(a1) * ring.r)
+      end
+    else
+      decor(d)
+    end
+  end
+  for _, t in ipairs(map.trees) do
+    tree(t)
+  end
+end
+
+local DRAW = { ["tutorial-road"] = drawRoad, ["tutorial-park"] = drawPark }
+
+--- Into the map's canvas (render.lua's Render.build), in world px.
+function RenderTutorial.draw(map, T)
+  local before = love.graphics.getFont()
+  DRAW[map.kind](map, T)
   love.graphics.setLineWidth(1)
   love.graphics.setFont(before)
 end

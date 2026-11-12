@@ -13,11 +13,11 @@ local UI = require("src.ui")
 local Checkpoint = {}
 
 -- World px, on each map's start (city-map's `map.cx, map.cy`, between the
--- two rows of spawns; Shoeman's Road's in its school yard). Stages 5 to 7
--- move the rest with their maps.
+-- two rows of spawns; Shoeman's Road's in its school yard, the park's at
+-- the bottom of its lawn). Stages 6 and 7 move the rest with their maps.
 Checkpoint.SPOTS = {
   ["tutorial-1"] = { x = 0, y = 768 },
-  ["tutorial-2"] = { x = 0, y = -64 },
+  ["tutorial-2"] = { x = 0, y = 768 },
   ["tutorial-3"] = { x = 0, y = 64 },
   ["tutorial-4"] = { x = 0, y = 64 },
   ["tutorial-5"] = { x = 0, y = 64 },

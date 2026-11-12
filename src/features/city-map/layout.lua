@@ -37,7 +37,8 @@
 -- `kind = "wreck"`, "landing", "pit", "prosperity", "refinery", "assembly",
 -- "cuts" and "bunker" are Pandoria's eight maps, the Borderline quest line's
 -- (borderline.lua). `kind = "tutorial-road"` is Shoeman's Road, four
--- two-way streets to cross on foot (tutorial_maps.lua).
+-- two-way streets to cross on foot, `kind = "tutorial-park"` Shoeman's
+-- Park, an open lawn to dodge his shoes on (tutorial_maps.lua).
 --
 -- World origin is the centre of the map. The east-west road nearest the
 -- middle runs through it, and the cars spawn along that road.

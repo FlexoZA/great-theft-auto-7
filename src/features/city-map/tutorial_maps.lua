@@ -1,6 +1,6 @@
 -- The maps of Shoeman's school of survival (the tutorial feature,
--- docs/tutorial.md). So far one is built; the park, the scrap yard and the
--- town are still open fields (city-map/init.lua's `empty` specs):
+-- docs/tutorial.md). So far two are built; the scrap yard and the town
+-- are still open fields (city-map/init.lua's `empty` specs):
 --   tutorial-road  Shoeman's Road (level 1): small and tall. At the bottom
 --                  the school yard, where everyone arrives: the checkpoint,
 --                  Shoeman, the HOME star. Above it four two-way streets
@@ -8,6 +8,14 @@
 --                  of pavement between them where nothing drives; each
 --                  street runs into a tunnel under the embankment at both
 --                  edges. At the top a lawn and the way on.
+--   tutorial-park  Shoeman's Park (level 2): large and square, hedged all
+--                  round. Shoeman stands on a small paved circle in the
+--                  middle of a wide open lawn (the dodging ground, a chalk
+--                  ring round it), nothing on it to hide behind. A gravel
+--                  path runs from the start at the bottom (the checkpoint,
+--                  the HOME star, his board) up through his circle to the
+--                  gate at the top, the way on. Trees, a pond, beds and
+--                  benches in the corners, outside the ring.
 --
 -- Tiles are "road" (the streets, into their tunnels) and "walk" (the
 -- pavement, the yard, the lawn); nil is the embankment either side (the
@@ -31,6 +39,16 @@
 --                 `w`, `h`, `seed`), bench (`a` the way it faces), board (the school's sign), tree
 --                 (a small one in a bed, `r`), look (a "LOOK" warning painted on the kerb, `text`)
 --   map.openKinds { walk = true }: pickups go on the pavement too
+--
+-- The park leaves the same `cx, cy`, `exitX, exitY`, `homeX, homeY`,
+-- `shoemanX, shoemanY` and `openKinds` (every tile inside the hedge is
+-- "walk"; the hedge row round the edge is nil), and:
+--   map.ring      { x, y, r } the dodging ground round Shoeman, world px: open lawn, nothing solid
+--   map.paths     { x, y, w, h } the gravel paths, world px
+--   map.pond      { x, y, rx, ry } the pond (solid, as three boxes inside its ellipse)
+--   map.trees     { x, y, r } every tree (a small solid box round each trunk)
+--   map.decor     as the road's, plus lamp, shoe (an old one in the grass, `a`), gate (the way on
+--                 through the top hedge, `w`) and chalk (the ring, drawn from map.ring)
 
 local TutorialMaps = {}
 
@@ -155,7 +173,126 @@ local function buildRoad(map, rng, T)
   end
 end
 
-local BUILDERS = { ["tutorial-road"] = buildRoad }
+-- Shoeman's Park, in px from its middle (where Shoeman stands): the
+-- dodging ground's radius, his paved circle's, the path's width, how far
+-- south the start is (the checkpoint: a shoe needs time to dodge), and
+-- how many tiles of hedge round the edge.
+TutorialMaps.PARK = { ring = 640, plaza = 96, path = 64, start = 768, hedge = 1 }
+
+local function buildPark(map, rng, T)
+  local P = TutorialMaps.PARK
+  local cols, rows = map.cols, map.rows
+  local function Y(r)
+    return map.y0 + r * T
+  end
+  for c = 0, cols - 1 do
+    map.tiles[c] = {}
+    for r = 0, rows - 1 do
+      local inside = c >= P.hedge and c < cols - P.hedge and r >= P.hedge and r < rows - P.hedge
+      map.tiles[c][r] = inside and "walk" or nil
+    end
+  end
+  map.decor, map.paths = {}, {}
+  map.openKinds = { walk = true }
+  map.shoemanX, map.shoemanY = 0, 0
+  map.ring = { x = 0, y = 0, r = P.ring }
+  local inL, inR = map.x0 + P.hedge * T, map.x0 + (cols - P.hedge) * T
+  local inT, inB = Y(P.hedge), Y(rows - P.hedge)
+
+  -- Where everyone arrives: twelve spawns facing Shoeman, two rows of six
+  -- either side of the start, the HOME star south of it.
+  map.cx, map.cy = 0, P.start
+  for i = 0, 11 do
+    map.spawns[#map.spawns + 1] = { x = (i % 6 - 2.5) * 80, y = P.start + (math.floor(i / 6) * 2 - 1) * T / 2,
+      angle = -math.pi / 2 }
+  end
+  map.homeX, map.homeY = 0, P.start + 240
+  map.exitX, map.exitY = 0, inT + 2.5 * T
+  -- The path from the hedge at the bottom to the gate at the top, through
+  -- his circle; a wider square of gravel where everyone arrives.
+  local half = P.path / 2
+  map.paths[#map.paths + 1] = { x = -half, y = inT, w = P.path, h = inB - inT }
+  map.paths[#map.paths + 1] = { x = -560, y = P.start - 96, w = 1120, h = 192 }
+  map.paths[#map.paths + 1] = { x = -160, y = map.exitY - 112, w = 320, h = 224 }
+
+  local d = map.decor
+  d[#d + 1] = { kind = "chalk" }
+  d[#d + 1] = { kind = "gate", x = 0, y = inT, w = 3 * T }
+  d[#d + 1] = { kind = "board", x = -340, y = map.homeY - 40 }
+  -- Lamps and benches beside the path, outside the ring.
+  for _, y in ipairs({ P.start + 200, -P.ring - 80, -P.ring - 300, map.exitY + 220 }) do
+    d[#d + 1] = { kind = "lamp", x = -half - 26, y = y }
+    d[#d + 1] = { kind = "lamp", x = half + 26, y = y - 60 }
+  end
+  for _, side in ipairs({ -1, 1 }) do
+    d[#d + 1] = { kind = "bench", x = side * 620, y = P.start - 40, a = side < 0 and 0 or math.pi }
+  end
+  -- Old shoes in the grass, most of them round the ring where he has
+  -- missed before.
+  for _ = 1, 22 do
+    local a, dist = rng:random() * math.pi * 2, P.plaza + 60 + rng:random() * (P.ring + 200)
+    local x, y = math.cos(a) * dist, math.sin(a) * dist
+    if math.abs(x) > half + 20 then
+      d[#d + 1] = { kind = "shoe", x = x, y = y, a = rng:random() * math.pi * 2 }
+    end
+  end
+
+  -- The corners, outside the ring: the pond on the west side, beds, and
+  -- trees wherever there is room.
+  local pond = { x = inL + 330, y = -340, rx = 220, ry = 140 }
+  map.pond = pond
+  for _, f in ipairs({ { 1, 0.55 }, { 0.85, 0.85 }, { 0.55, 1 } }) do -- boxes inside the ellipse
+    local w, h = pond.rx * 2 * f[1], pond.ry * 2 * f[2]
+    map.solids[#map.solids + 1] = { x = pond.x - w / 2, y = pond.y - h / 2, w = w, h = h }
+  end
+  local beds = {
+    { x = inR - 420, y = -360, w = 260, h = 140 },
+    { x = inL + 160, y = 300, w = 220, h = 120 },
+    { x = inR - 380, y = 360, w = 220, h = 120 },
+  }
+  for _, b in ipairs(beds) do
+    d[#d + 1] = { kind = "bed", x = b.x, y = b.y, w = b.w, h = b.h, seed = rng:random(1000) }
+  end
+  local function clear(x, y, r)
+    if x * x + y * y < (P.ring + r + 60) ^ 2 or math.abs(x) < half + r + 40 then
+      return false
+    end
+    if x < inL + r + 20 or x > inR - r - 20 or y < inT + r + 20 or y > inB - r - 20 then
+      return false
+    end
+    if math.abs(y - P.start) < 140 + r or math.abs(y - map.exitY) < 140 + r then
+      return false
+    end
+    local px, py = (x - pond.x) / (pond.rx + r + 30), (y - pond.y) / (pond.ry + r + 30)
+    if px * px + py * py < 1 then
+      return false
+    end
+    for _, b in ipairs(beds) do
+      if x > b.x - r - 20 and x < b.x + b.w + r + 20 and y > b.y - r - 20 and y < b.y + b.h + r + 20 then
+        return false
+      end
+    end
+    for _, t in ipairs(map.trees) do
+      if (t.x - x) ^ 2 + (t.y - y) ^ 2 < (t.r + r + 30) ^ 2 then
+        return false
+      end
+    end
+    return true
+  end
+  for _ = 1, 600 do
+    if #map.trees >= 44 then
+      break
+    end
+    local r = 26 + rng:random() * 14
+    local x, y = inL + rng:random() * (inR - inL), inT + rng:random() * (inB - inT)
+    if clear(x, y, r) then
+      map.trees[#map.trees + 1] = { x = x, y = y, r = r }
+      map.solids[#map.solids + 1] = { x = x - 8, y = y - 8, w = 16, h = 16, tree = true }
+    end
+  end
+end
+
+local BUILDERS = { ["tutorial-road"] = buildRoad, ["tutorial-park"] = buildPark }
 
 --- Does this file build maps of `kind`?
 function TutorialMaps.builds(kind)

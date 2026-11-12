@@ -68,15 +68,38 @@ the lawn), its traffic with a speed and gap per lane and no health bars,
 any touch of a car kills and brings you back at the checkpoint, the
 movement and stamina lesson said as it happens, "Reach the other side"
 ticking at the way on, the EXIT star on to the park. `make audit` 8.6,
-pass; `CHANGELOG.md` line added. Next: stage 5, box 1 (park map and
-renderer) on a new `feature/tutorial-dodge` branched from
-`feature/tutorial-road`.
+pass; `CHANGELOG.md` line added. Stage 5 under way on
+`feature/tutorial-dodge`, branched from `feature/tutorial-road` (not
+pushed or merged yet): box 1 done, Shoeman's Park built and drawn, his
+spot, the checkpoint, the HOME star and the way on moved onto it. Next:
+stage 5, box 2 (`shoe.lua`: the shout, the throw, instant destruction).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- Shoeman's Park (stage 5 box 1): `buildPark` in
+  `city-map/tutorial_maps.lua` (`kind = "tutorial-park"`, 44x44 tiles,
+  tuning in `TutorialMaps.PARK = { ring 640, plaza 96, path 64, start 768,
+  hedge 1 }`), `drawPark` in `render_tutorial.lua` (its `draw` now
+  dispatches by kind through `DRAW`). Shoeman stands at (0, 0) on a paved
+  circle (`map.shoemanX, Y`); `map.ring = { x, y, r }` is the dodging
+  ground round him, open lawn with nothing solid on it (checked), a chalk
+  ring drawn at its edge. Start and checkpoint (0, 768), 768 px south of
+  him (`map.cx, cy`), on a gravel square with the twelve spawns; HOME star
+  (0, 1008); the way on (0, -1184) by a shut gate in the top hedge (the
+  hedge row round the edge is nil tiles, so walls). Trees (`map.trees`, a
+  16 px solid box each), the pond (`map.pond`, three solid boxes) and beds
+  only outside the ring. Old shoes lie in the grass as decor. `shoe.lua`
+  throws from `Tutorial.SHOEMAN["tutorial-2"]` (0, 0); a shoe that flies
+  past the ring may hit a tree or the pond's boxes (`map.solids`, the
+  trees flagged `tree = true`), its choice whether those stop it.
+  Checked in a scripted run (`--quest tutorial-2` on a fresh world): spots
+  all open, nothing solid in the ring, walking works, standing at the way
+  on finishes the level; screenshots of the start, Shoeman, the gate, the
+  pond and a corner look right. The minimap shows the park as plain grey,
+  like the road.
 - Traffic (stage 4 box 2): `src/features/tutorial/traffic.lua`, host
   only. `Traffic.serverStep(server, map)` from init.lua's `serverStep`
   with `road()` (the city-map's map while `level.quest == "tutorial-1"`
@@ -145,9 +168,6 @@ a history.
   two"; accepting the EXIT star (`Features.serverMessages.QST_ACCEPT
   .handler(server, p, { "exit" })` in a harness) puts everyone on
   `tutorial-park` on foot with `tutorial-2` active and no traffic left.
-  The park is next: build it in `tutorial_maps.lua`'s `BUILDERS` like the
-  road, and move `Tutorial.EXITS`, `Tutorial.SHOEMAN`, `Checkpoint.SPOTS`
-  and quests' `home-tutorial-park` with it.
 - Pickups (medkits, drinks, ammo crates) scatter on the streets too
   (`randomRoadPoint` takes any road tile). Funny bait; stage 11 may move
   them onto the pavement.
@@ -355,10 +375,10 @@ a history.
   `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
   offer that ignores the accept key for its first seconds.
 - The other maps are placeholders in `CityMap.maps` (`city-map/init.lua`):
-  `tutorial-park` 44x44, `tutorial-yard` and `tutorial-city` 40x40, all
-  `empty = true` (open walled ground, like `testrange`), walked, nobody
-  about. Everyone arrives on the middle row (`map.cy`: -64, 64, 64). One HOME star per map (`home-tutorial-*`
-  in `Quests.list`) 240 px south of that. Backdrops are the outskirts'
+  `tutorial-yard` and `tutorial-city` 40x40, both `empty = true` (open
+  walled ground, like `testrange`), walked, nobody about. Everyone arrives
+  on the middle row (`map.cy`: 64). One HOME star per map
+  (`home-tutorial-*` in `Quests.list`) 240 px south of that. Backdrops are the outskirts'
   (`surroundings/init.lua` `DRAW`). Ammo crates scatter on their own.
   Stages 4 to 7 replace each with a real map (a `kind` and a builder);
   when they do, move its HOME star and its `Tutorial.EXITS` entry.
@@ -599,7 +619,7 @@ notice.
 
 ### 5. Level 2: dodge (`feature/tutorial-dodge`)
 
-- [ ] Park map and renderer
+- [x] Park map and renderer
 - [ ] `shoe.lua`: the "DODGE!!!!" shout, the throw, instant destruction
 - [ ] Dodge counting, the `n/5` objective with the countdown
 - [ ] Way on appears at 5
