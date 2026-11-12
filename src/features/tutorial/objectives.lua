@@ -40,7 +40,7 @@ Objectives.lists = {
   ["tutorial-2"] = {
     { items = { { id = "dodge", text = "Dodge Shoeman's shoes", need = 5, timer = true } } },
   },
-  -- Everyone picks up their own pistol and equips it (pistol.lua); then
+  -- Everyone picks up their own pistol and equips it (gift.lua); then
   -- anyone empties a magazine and reloads (weapons' events); then three
   -- waves of six squirrels, each one shot ticking its wave (waves.lua).
   ["tutorial-3"] = {
@@ -53,6 +53,16 @@ Objectives.lists = {
         { id = "wave1", text = "Defeat wave 1", need = Waves.SIZE },
         { id = "wave2", text = "Defeat wave 2", need = Waves.SIZE },
         { id = "wave3", text = "Defeat wave 3", need = Waves.SIZE },
+      },
+    },
+  },
+  -- Everyone picks up their own openborders and puts it in an ability
+  -- slot (gift.lua).
+  ["tutorial-4"] = {
+    {
+      items = {
+        { id = "pickup", text = "Pick up Open Borders", each = true },
+        { id = "equip", text = "Equip it", each = true },
       },
     },
   },

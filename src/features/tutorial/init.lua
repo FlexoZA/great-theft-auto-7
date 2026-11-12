@@ -17,7 +17,7 @@ local StartGear = require("src.features.tutorial.start_gear")
 local Traffic = require("src.features.tutorial.traffic")
 local Road = require("src.features.tutorial.road")
 local Shoe = require("src.features.tutorial.shoe")
-local Pistol = require("src.features.tutorial.pistol")
+local Gift = require("src.features.tutorial.gift")
 local Waves = require("src.features.tutorial.waves")
 
 local Tutorial = {
@@ -60,6 +60,14 @@ Tutorial.SHOEMAN = {
   ["tutorial-5"] = { x = 160, y = 416 },
 }
 
+-- What Shoeman hands out on a level (gift.lua), and where he puts it down
+-- when the map does not say (`map.dropX, dropY`): in town, on the pavement
+-- between the start and him.
+Tutorial.GIFTS = {
+  ["tutorial-3"] = { gift = Gift.PISTOL },
+  ["tutorial-4"] = { gift = Gift.OPENBORDERS, x = 64, y = 416 },
+}
+
 --- The level number (1 to 5) of quest `id`, or nil when it is not a tutorial level.
 function Tutorial.level(id)
   return levelOf[id]
@@ -78,7 +86,7 @@ function Tutorial:serverStart(server)
   level, arrived = nil, false
   Traffic.serverClear(server)
   Shoe.serverStop()
-  Pistol.serverStop()
+  Gift.serverStop()
   Waves.serverStop()
   StartGear.serverStart(server)
 end
@@ -89,7 +97,7 @@ end
 function Tutorial:serverQuestStarted(server, quest)
   level = levelOf[quest.id] and { quest = quest.id, done = false } or nil
   Shoe.serverStop()
-  Pistol.serverStop()
+  Gift.serverStop()
   Waves.serverStop()
   local city = Features.byName["city-map"]
   if level then
@@ -100,10 +108,13 @@ function Tutorial:serverQuestStarted(server, quest)
       Shoe.serverStart(at.x, at.y)
       Objectives.serverTimer(server, "dodge", Shoe.serverNextIn())
     end
-    -- The scrap yard: he puts a pistol down for everyone, in front of him.
+    -- The scrap yard and the town: he puts his gift down for everyone, in
+    -- front of him (the yard's map says where; the town is a plain grid).
+    local gift = Tutorial.GIFTS[level.quest]
     local map = city and city.map
-    if level.quest == "tutorial-3" and map and map.dropX then
-      Pistol.serverStart(map.dropX, map.dropY)
+    local x, y = gift and gift.x or map and map.dropX, gift and gift.y or map and map.dropY
+    if gift and x then
+      Gift.serverStart(gift.gift, x, y)
     end
   else
     Comms.serverStop()
@@ -118,7 +129,7 @@ end
 function Tutorial:serverQuestEnded(server)
   level = nil
   Shoe.serverStop()
-  Pistol.serverStop()
+  Gift.serverStop()
   Waves.serverStop()
   Comms.serverStop()
   Objectives.serverStop(server)
@@ -131,7 +142,7 @@ function Tutorial:mapChanged(_map, server)
     level, arrived = nil, true
     Traffic.serverClear(server)
     Shoe.serverStop()
-    Pistol.serverStop()
+    Gift.serverStop()
     Waves.serverStop()
     Comms.serverStop()
     Objectives.serverStop(server)
@@ -203,10 +214,10 @@ local shoeEvents = {
   end,
 }
 
--- What the pistol lesson tells this feature (Pistol.serverStep's `on`):
--- every human picks theirs up and equips it, each ticked for them; the
--- first to do either hears the next step.
-local pistolEvents = {
+-- What the gift tells this feature (Gift.serverStep's `on`): every human
+-- picks theirs up and equips it, each ticked for them; the first to do
+-- either hears the next step (the level's own "picked" and "equipped").
+local giftEvents = {
   picked = function(server, player)
     if Objectives.serverTickPlayer(server, "pickup", player) then
       Comms.serverBeat(server, "picked")
@@ -275,7 +286,7 @@ function Tutorial:serverStep(server, dt)
     Road.serverStep(server, map)
   end
   Shoe.serverStep(server, dt, shoeEvents)
-  Pistol.serverStep(server, dt, pistolEvents)
+  Gift.serverStep(server, dt, giftEvents)
   Waves.serverStep(server, dt, waveEvents)
   if not level or level.done or not Objectives.serverOpen() then
     return

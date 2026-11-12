@@ -81,7 +81,7 @@ Story.beats = {
     { "DODGE!!!!", shout = true },
   },
 
-  -- Level 3, the scrap yard: picking up and equipping (pistol.lua drops
+  -- Level 3, the scrap yard: picking up and equipping (gift.lua drops
   -- the pistol while he says so), then shooting.
   ["tutorial-3.start"] = {
     "The scrap yard. Everything in here was somebody's pride and joy once. Now it's cover.",
@@ -127,6 +127,22 @@ Story.beats = {
   -- The first player the squirrels got.
   ["tutorial-3.bitten"] = {
     "Eaten by squirrels. I'll put that on your headstone. Back to the checkpoint, the ones you shot stay shot.",
+  },
+
+  -- Level 4, open borders: the ability lesson. gift.lua drops openborders
+  -- while he says so.
+  ["tutorial-4.start"] = {
+    "Town. A hospital, a shop, people. Civilisation, or what's left of it.",
+    "Lesson five: abilities. Tricks you carry besides a gun. I've put one down by me. One each, again.",
+    "Open Borders, it's called. Don't look at me like that, I didn't name it. Walk over it.",
+  },
+  -- The first player with it in their bag.
+  ["tutorial-4.picked"] = {
+    "Same as the pistol: {inventory}, then drag it into an ability slot. An ability in a bag does nothing either.",
+  },
+  -- The first player with it in an ability slot.
+  ["tutorial-4.equipped"] = {
+    "Good. The key on the slot casts it. Not yet. I want to see your face when you do.",
   },
 }
 

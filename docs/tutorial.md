@@ -87,9 +87,12 @@ the four corner plots and the hospital in the middle block; `services =
 true` on it, so the shop, sales, hires, the hospital and Handsy Men work
 there; dying on levels 4 and 5 brings you back at the hospital's door.
 `make audit` 8.2, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Next: stage 8, box 1 (openborders pickup per
-player; pick up and equip objectives) on `feature/tutorial-open-borders`,
-branched from `feature/tutorial-city`.
+`CHANGELOG.md` line added. Stage 8 under way on
+`feature/tutorial-open-borders`, branched from `feature/tutorial-city`
+(not pushed or merged yet): box 1 done, openborders put down one each by
+Shoeman in town, "Pick up Open Borders" and "Equip it" ticked per player
+(the pistol's module made shared: `gift.lua`). Next: stage 8, box 2 ("Use
+it" objective; the Sorros mockery on cast).
 
 ### Handoff notes
 
@@ -206,20 +209,36 @@ a history.
   "Reload" when it finishes (mag back to 15), host and client. With all
   four ticked the way on opens: box 4's wave items close it again. The
   beats queue behind the long start speech, so they come late.
-- The pistol (stage 6 box 2): `src/features/tutorial/pistol.lua`, host
-  only. `Pistol.serverStart(x, y)` from `serverQuestStarted` for
-  `tutorial-3` with the yard's `map.dropX, dropY` (-600, 940, in front of
-  Shoeman), stopped where the shoe is. `DROP_AFTER` 10 s in it is
-  dropped with `pickups:serverDrop(..., "gun-pistol", ..., { perPlayer =
-  true })`: one each, drawn as a crate with the gold reward rings and NEW,
-  walking over it puts a pistol item in the bag (pickups' material kind).
-  Every step after, per human: a pistol in a slot (`serverOwns`) calls
-  `on.equipped` and `on.picked`; one in the bag (`buildings:serverCount`)
-  `on.picked`. Someone who carries one already is hidden from the drop by
-  a new `Pickups:serverTakenBy(server, id, player)` (marks a perPlayer drop
-  taken for them, `PK_GONE <id>` to them only) and ticks at once.
-  init.lua's `pistolEvents` tick the objectives and say
-  `tutorial-3.picked` / `.equipped` (story.lua, with `.start`).
+- The gifts (stage 6 box 2, made shared in stage 8 box 1):
+  `src/features/tutorial/gift.lua` (was `pistol.lua`), host only.
+  `Gift.serverStart(gift, x, y)` from `serverQuestStarted`, driven by
+  `Tutorial.GIFTS` in init.lua: `tutorial-3` drops `Gift.PISTOL` at the
+  yard's `map.dropX, dropY` (-600, 940); `tutorial-4` drops
+  `Gift.OPENBORDERS` at (64, 416), the pavement between the town's start
+  and Shoeman (the town is a plain grid, no `dropX`). A gift is `{ item,
+  equipped(player) }`. `DROP_AFTER` 10 s in it is dropped with
+  `pickups:serverDrop(..., item, ..., { perPlayer = true })`: one each,
+  NEW and the gold reward rings, walking over it puts the item in the bag
+  (pickups' material kind for the pistol, ability kind for openborders).
+  Every step after, per human: equipped calls `on.equipped` and
+  `on.picked`; the item in the bag in any tier (`buildings:serverCount`
+  over `Tiers.list`) `on.picked`. Someone who carries one already is
+  hidden from the drop by `Pickups:serverTakenBy(server, id, player)`
+  (`PK_GONE <id>` to them only) and ticks at once. init.lua's
+  `giftEvents` tick `pickup` / `equip` and say the level's own
+  `<level>.picked` / `.equipped`. `Objectives.lists["tutorial-4"]` so
+  far: `pickup` "Pick up Open Borders", `equip` (both `each`); box 2 and 3
+  add "Use it" and "Destroy the rioters" to the same section, and until
+  then the way on is open as soon as both are ticked (`serverOpen`), with
+  no WAY ON item yet (box 5). Story: `tutorial-4.start` (three lines,
+  "lesson five"), `.picked`, `.equipped` (says not to cast yet: box 2's
+  mockery is the payoff). Checked in scripted runs (`--world town --quest
+  tutorial-4`): stripped of openborders, the orb lands at 10 s by
+  Shoeman, walking onto it ticks "Pick up Open Borders", `serverEquip`
+  into slot 1 ticks "Equip it" (client's `abilities.slots[1]` shows it);
+  carrying one already, both tick when it lands and the drop is hidden
+  from them. Level 3 rechecked through the new module: pistol drops, walk
+  ticks pickup, equip ticks equip. Not run with a second human.
 - Objectives can now count per player: an item with `each = true` is
   ticked with `Objectives.serverTickPlayer(server, id, player)` (true when
   new for them), asked with `serverDidPlayer(id, player)`; its need is the
@@ -878,9 +897,10 @@ notice.
 
 ### 8. Level 4: open borders (`feature/tutorial-open-borders`)
 
-- [ ] Openborders pickup per player; pick up and equip objectives
+- [x] Openborders pickup per player; pick up and equip objectives
 - [ ] "Use it" objective; the Sorros mockery on cast
 - [ ] Rioters-cleared detection, counted once
+- [ ] A pistol for anyone who reaches level 4 without one (`--quest tutorial-4`, a newcomer mid-tutorial): the rioters need shooting
 - [ ] Mockery on death
 - [ ] Way on to level 5
 

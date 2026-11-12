@@ -63,7 +63,7 @@
 -- `shoemanX, shoemanY` and `openKinds` (inside the fence "walk", the fence
 -- row nil), and, all world px:
 --   map.pad       { x, y, w, h } the concrete pad everyone arrives on
---   map.dropX, dropY  where Shoeman puts the pistol down, in front of him (tutorial/pistol.lua)
+--   map.dropX, dropY  where Shoeman puts the pistol down, in front of him (tutorial/gift.lua)
 --   map.office    the site office (a solid), against the west fence above the pad
 --   map.crusher   the crusher (a solid), top-left corner; its crane is drawn over it
 --   map.gate      { x, y, w } the way on through the top fence (drawn shut; the EXIT star is the way)
