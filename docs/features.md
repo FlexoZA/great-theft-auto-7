@@ -1156,8 +1156,13 @@ the one with a plot.
   every NPC car parked out of sight while it is in play (bots reads
   `map.traffic`), and one with `vehicles = false` is walked: on-foot turns
   everyone out beside their car and refuses to let them back in (Karen's
-  street). Pickups are scattered afresh and koins on the ground swept on
-  every switch.
+  street). One with `services = true` has the city's services on it
+  (`city:servicesHere()`, always true in the default city): the shop with
+  its sales and hires, the hospital, Handsy Men at work (the tutorial's
+  town). The Jobs board, garages, the impound lot and the city's saved
+  buildings stay the default city's (`city.current == city.DEFAULT`).
+  Pickups are scattered afresh and koins on the ground swept on every
+  switch.
 - Gym: the upgrades feature's building (`src/features/upgrades`), picked
   by `quests/jobs.lua` after the Jobs building and the shop so it never
   moves them: a third building in their block, or the nearest one to the
@@ -2075,7 +2080,8 @@ the one with a plot.
   over it with room in their bag carries it off as the item.
 - Shop: `src/features/shop` is a building in the same block as the Jobs
   building (`quests/jobs.lua` picks both from the map; `shop:here()` gives
-  it while the default city is in play) and sells everything in one place.
+  it wherever `city:servicesHere()`, through `quests:jobsBuilding()`;
+  `quests:jobs()` is the same but the default city only, where the board is) and sells everything in one place.
   It is marked on the minimap with a green bag. Stand or stop on the square
   by its door and a prompt offers the shop on the action key (F; the shop
   answers `actionTaken` there and while it is open); it opens and closes
@@ -2196,6 +2202,9 @@ the one with a plot.
   collected for koins. A dead player comes back at their garage or, with
   none, the hospital. The hospital and impound lot are buildings the city
   already had, picked from the map the same way everywhere (`garage/places.lua`).
+  `garage:hospital()` gives the hospital on any map with the city's services
+  (drawn and on the minimap there too); `garage:places()` (hospital and
+  impound lot, what garages and wrecks use) only in the default city.
   Prices are at the top of `garage/init.lua`. Messages: `GAR_PARK`,
   `GAR_TAKE`, `GAR_TOW`, `GAR_REPAIR`, `GAR_COLLECT` up; `GAR_KEPT`,
   `GAR_FREE`, `GAR_OK`, `GAR_NO` down. `weapons:serverCarHealth(car)` /

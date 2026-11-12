@@ -65,16 +65,16 @@ end
 --- Points the door must stay clear of: the spawn points, the hospital's
 --- door and the impound lot's gate (garage).
 local function taken(map)
-  local spots, hospital = {}, nil
+  local spots = {}
   for _, s in ipairs(map.spawns) do
     spots[#spots + 1] = { s.x, s.y }
   end
   local garage = Features.byName.garage
-  local places = garage and garage.places and garage:places()
-  if places and places.hospital then
-    hospital = places.hospital
+  local hospital = garage and garage.hospital and garage:hospital()
+  if hospital then
     spots[#spots + 1] = { hospital.doorX, hospital.doorY }
   end
+  local places = garage and garage.places and garage:places()
   if places and places.impound then
     spots[#spots + 1] = { places.impound.padX, places.impound.padY }
   end

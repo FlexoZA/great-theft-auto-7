@@ -82,15 +82,42 @@ and "Reload"; loose squirrels in the events feature, three waves of six
 out of the burrows; their wiki page and portrait; the gate opens after
 wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Stage 7 under way on `feature/tutorial-city`, branched from
 `feature/tutorial-scrapyard`: box 1 done (Shoeman's Town, a 3x3-block
-city grid with the four corner plots, the hospital in the middle block).
-Next: stage 7, box 2 (map flag for city services; shop, hospital, Handsy
-Men and sales honour it).
+city grid with the four corner plots, the hospital in the middle block);
+box 2 done (`services = true` on the town: shop, sales, hires, hospital and
+Handsy Men work there). Next: stage 7, box 3 (respawn at the hospital on
+this map).
 
 ### Handoff notes
 
 Short notes from the last sessions for the next one. Keep it current, not
 a history.
 
+- City services (stage 7 box 2): a spec flag `services = true` (on
+  `tutorial-city` only) and `CityMap:servicesHere()` (default city, or a
+  spec with the flag). Honoured by: `Quests:jobsBuilding()` (new: the Jobs
+  building with shop and gym, on any services map), which `Shop:here()`
+  now uses, so buying, selling and hiring drivers and Handsy Men work at
+  the town's shop; `Garage:hospital()` (new: the hospital on any services
+  map), which draws it and its minimap cross; handsy-man's `inCity()`.
+  Left default-city only on purpose: `Quests:jobs()` (the board: no jobs
+  taken mid-tutorial; it now calls `jobsBuilding` behind a DEFAULT check),
+  `Garage:places()` (garages, impound, wrecks, `serverHome`), the gym
+  (`Upgrades:here()` still asks `quests:jobs()`), delivery's `inCity()`
+  (its yards are keyed by the city's plot ids, and the town's plots 1 to 4
+  would collide and delete them), buildings' and real-estate's DEFAULT
+  checks (stage 9's). Buildings already swap the city's away off it
+  (`sv.home`), so Handsy Men only see the town's own. `quests/jobs.lua`'s
+  `taken` asks `garage:hospital()` now; the town's doors did not move.
+  Checked in a scripted run (`--quest tutorial-4`): shop door (0, -416)
+  bought a medkit and pistol ammo, bought back an uzi, delivered a hired
+  driver; a Handsy Man was refused "nowork" (no buildings, as it should);
+  hospital and shop drawn; `jobs()` nil there; back in the city every
+  service as before. For box 3: `Garage:hospital()` gives the door
+  (0, 224). The garage's own respawn (`serverHome`) still goes through
+  `places()`, so it answers nothing on the town; `checkpoint.lua` answers
+  `serverRespawnPoint` first and today sends level 4 and 5 to (0, 320), so
+  the hospital respawn is most simply its answer there (the door from
+  `garage:hospital()`).
 - Shoeman's Town (stage 7 box 1): not a builder of its own but a plain
   city grid (`map.kind == "grid"`), so `garage/places.lua`'s `Places.of`
   and `quests/jobs.lua`'s `Jobs.of` (both grid-only) already find its
@@ -108,9 +135,7 @@ a history.
   block, door (0, -864) on the top street side; the shop below it in the
   same block, door (0, -416), facing the hospital across the street; the
   gym door (544, -224); no impound (no lot). None of these show yet:
-  every service asks `city.current == city.DEFAULT` (`Quests:jobs`,
-  garage's places, handsy-man, delivery, real-estate buying, buildings),
-  box 2's flag. Start and checkpoint (0, 320) on the road under the
+  see box 2's note for which services show now. Start and checkpoint (0, 320) on the road under the
   hospital (`map.cx, cy`); Shoeman (160, 416) on the pavement over the
   park; HOME star (0, 544) on the park's north path; the way on (-640,
   -960) on the top street above the NW plot (clear of the Jobs door).
@@ -118,12 +143,6 @@ a history.
   on their own. Bots still roam it (13 players in the run): as on every
   tutorial map.
 
-- The way on (stage 6 box 6): no code beyond the `tutorial-3.wave3` beat
-  ("the gate's at the top of the yard"): the yard's list has no exit
-  item, so the WAY ON ring at the gate (832, -1056) shows once wave 3 is
-  ticked. Checked in a scripted run: standing at the gate after the
-  reload (waves not done) did nothing; after wave 3 reaching it gave JOB
-  DONE "The scrap yard" and offered "Lesson four".
 - Their wiki page (stage 6 box 5): `Squirrels.wikiEnemies(add)` in
   `events/squirrels.lua` (kind `events/loose-squirrel`, `quests = {
   "tutorial-3" }`, `scaling = "none"`), asked by `Events:wikiEnemies`;
@@ -847,7 +866,7 @@ notice.
 ### 7. The tutorial city (`feature/tutorial-city`)
 
 - [x] City-centre map with only the lesson's plots
-- [ ] Map flag for city services; shop, hospital, Handsy Men and sales honour it
+- [x] Map flag for city services; shop, hospital, Handsy Men and sales honour it
 - [ ] Respawn at the hospital on this map
 
 ### 8. Level 4: open borders (`feature/tutorial-open-borders`)

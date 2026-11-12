@@ -1098,13 +1098,24 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- The Jobs building (jobs.lua) while the default city is in play.
-function Quests:jobs()
+--- The Jobs building (jobs.lua), with the shop and gym beside it, on a map
+--- with the city's services (`CityMap:servicesHere`), or nil.
+function Quests:jobsBuilding()
   local city = cityMap()
-  if not (city and city.map and city.current == city.DEFAULT) then
+  if not (city and city.map and city:servicesHere()) then
     return nil
   end
   return Jobs.of(city.map)
+end
+
+--- The Jobs building while the default city is in play: the board is only
+--- open there (a quest map's own town has the building but no board).
+function Quests:jobs()
+  local city = cityMap()
+  if not (city and city.current == city.DEFAULT) then
+    return nil
+  end
+  return self:jobsBuilding()
 end
 
 --- The quest whose star on map `current` is nearest to (x, y), or the

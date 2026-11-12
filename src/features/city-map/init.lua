@@ -232,6 +232,8 @@ CityMap.maps = {
   -- top middle are buildings (the seed puts the hospital in the middle
   -- one, the Jobs building and the shop above it), a park at the bottom.
   -- Everyone arrives on the road under the hospital (map.cx, cy: 0, 320).
+  -- `services`: the town's shop, hospital and Handsy Men work as the
+  -- city's do (`CityMap:servicesHere`).
   ["tutorial-road"] = {
     title = "Shoeman's Road", kind = "tutorial-road", seed = 401, cols = 24, rows = 44,
     crowd = false, traffic = false, vehicles = false,
@@ -246,7 +248,7 @@ CityMap.maps = {
   },
   ["tutorial-city"] = {
     title = "Shoeman's Town", seed = 8, cols = 32, rows = 32, blocks = { "pbp", "bbb", "pgp" },
-    crowd = false, traffic = false, vehicles = false,
+    crowd = false, traffic = false, vehicles = false, services = true,
   },
   -- The test range (the test-range feature): an open walled field to try
   -- enemies out on, walked, nobody about but what stands on it.
@@ -288,6 +290,16 @@ function CityMap:reset()
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
   end
+end
+
+--- Do the city's services work on the map in play: the shop (and its
+--- sales and hires), the hospital, Handsy Men? Always in the default city;
+--- on another map only when its spec says `services = true`. What the city
+--- keeps (garages, the impound lot, the Jobs board, saved buildings) stays
+--- the default city's alone: ask `current == DEFAULT` for those.
+function CityMap:servicesHere()
+  local spec = self.maps[self.current]
+  return self.current == self.DEFAULT or (spec ~= nil and spec.services == true)
 end
 
 --- Saved worlds hold off writing the world while we are off the city
