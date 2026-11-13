@@ -51,6 +51,47 @@ Stages.byQuest["alien-hunt"] = function(game, visit)
   end
 end
 
+-- Shoeman's Scrap Yard (tutorial-3): the squirrels only come once the
+-- pistol lesson is done. Tick the pickup and the equip for the audit's
+-- player, then send the tutorial what weapons would (the magazine emptied,
+-- a reload); the first wave comes out of the burrows a few seconds later.
+-- Wait at a burrow until they are out.
+Stages.byQuest["tutorial-3"] = function(game, visit)
+  local Objectives = require("src.features.tutorial.objectives")
+  local Squirrels = require("src.features.events.squirrels")
+  local tutorial, me = game.Features.byName.tutorial, game:me()
+  Objectives.serverTickPlayer(game.server, "pickup", me)
+  Objectives.serverTickPlayer(game.server, "equip", me)
+  tutorial:serverMagazineEmptied(game.server, me)
+  tutorial:serverReloaded(game.server)
+  local den = (game:map().dens or {})[1]
+  for _ = 1, 15 do
+    local out = false
+    Squirrels.serverEnemies(function()
+      out = true
+    end)
+    if out or not den then
+      return
+    end
+    visit(den.x, den.y + 200, 1)
+  end
+end
+
+-- Shoeman's Town (tutorial-4): the rioters only come when somebody casts
+-- open borders. Tick the pickup and the equip, then cast it where the
+-- player stands, as the ability does on the host.
+Stages.byQuest["tutorial-4"] = function(game, visit)
+  local Objectives = require("src.features.tutorial.objectives")
+  local Cast = require("src.features.abilities.openborders")
+  local me = game:me()
+  game:run(3) -- past his start speech and the pistol he hands out
+  Objectives.serverTickPlayer(game.server, "pickup", me)
+  Objectives.serverTickPlayer(game.server, "equip", me)
+  local x, y = me.body.x, me.body.y
+  Cast.serverCast(game.server, me, x, y)
+  visit(x, y, 2)
+end
+
 --- Tour quest `id` on `game`: its own script if it has one, then the
 --- generic spots. `visit(x, y, seconds)` is the audit's.
 function Stages.tour(game, id, visit)

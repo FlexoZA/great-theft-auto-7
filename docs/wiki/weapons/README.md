@@ -21,3 +21,5 @@ Everything comes in four tiers. Uncommon improves its first stat by 15% and cost
 | <img src="img/sniper.png" width="96"> | [Sniper rifle](sniper.md) | 200 | 0.8 a second | 5 | 160 Fcks |
 | <img src="img/flamethrower.png" width="96"> | [Flamethrower](flamethrower.md) | 5 | 14.3 a second | 100 | 220 Fcks |
 | <img src="img/minigun.png" width="96"> | [Minigun](minigun.md) | 10 | 16.7 a second | 150 | 420 Fcks |
+| <img src="img/plasma-rifle.png" width="96"> | [Plasma rifle](plasma-rifle.md) | 25 | 9.1 a second | 45 | won, then 180 Fcks |
+| <img src="img/bolter.png" width="96"> | [Bragium Bolter](bolter.md) | 70 | 1.7 a second | 4 | won, then 380 Fcks |

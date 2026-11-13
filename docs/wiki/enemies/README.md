@@ -18,6 +18,13 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 | <img src="img/events-runner.png" width="48"> | **[The Runner](events-runner.md)** | 1200 | The city, as an event: he comes onto a crossing away from everyone |
 | <img src="img/events-tripod.png" width="48"> | **[The Tripod](events-tripod.md)** | 4000 | The city, as an event: it rises out of a lightning storm at a crossing |
 | <img src="img/a-man-event.png" width="48"> | **[A-Man (city event)](a-man-event.md)** | 1400 | The city, as an event once the job "The man with the moustache" is done: he walks in from somewhere away from everyone |
+| <img src="img/tutorial-shoeman.png" width="48"> | **[Shoeman (city event)](tutorial-shoeman.md)** | 1800 | The city, as an event once the job "Shoeman's school of survival" is done: he walks in from somewhere away from everyone |
+
+## Shoeman's School of Survival
+
+| | Enemy | Health | Where |
+|---|---|---|---|
+| <img src="img/events-loose-squirrel.png" width="48"> | [Squirrel (loose)](events-loose-squirrel.md) | 10: one round of anything | Shoeman's Scrap Yard: three waves, each bigger, out of the burrows in the far half of the yard |
 
 ## Karen's Cul-de-sac
 

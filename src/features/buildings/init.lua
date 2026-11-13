@@ -69,7 +69,8 @@
 -- `hp`); every gun hurts the walls it hits (weapons' `serverWallHit`) and a
 -- rocket's blast hurts every building it reaches, the parking lot included
 -- (`serverBlast`). A damaged building works on and shows a health bar; its
--- owner can repair it from the menu, paying for the damage (Kinds.repairCost).
+-- owner can repair it from the menu, paying for the damage (Kinds.repairCost;
+-- a map can make building and repairing free through the `buildCost` hook).
 -- At zero it is a ruin: whatever it held is lost, it stops working, and
 -- walls and bullets no longer stop at it. Then the owner pays to rebuild it
 -- (half of what it cost), or anyone else on its square can take the lot over
@@ -397,7 +398,8 @@ function Buildings:ofKind(kind, owner)
 end
 
 --- Every building still standing on the host, in plot order: { id, owner,
---- kind, x, y, w, h } with (x, y, w, h) the ground it covers. For something
+--- kind, x, y, w, h, hp, max } with (x, y, w, h) the ground it covers and
+--- `max` its kind's full hit points. For something
 --- that goes after players' buildings (the events feature's Bigfoot); hurt
 --- one through `serverWallHit` or `serverBlast` as a gun would.
 function Buildings:serverStanding()
@@ -406,7 +408,10 @@ function Buildings:serverStanding()
     local plot = plotById(id)
     if plot and not ruined(b) then
       local r = footprint(plot)
-      out[#out + 1] = { id = id, owner = b.owner, kind = b.kind, x = r.x, y = r.y, w = r.w, h = r.h }
+      out[#out + 1] = {
+        id = id, owner = b.owner, kind = b.kind, x = r.x, y = r.y, w = r.w, h = r.h,
+        hp = b.hp, max = Kinds.byKey[b.kind].hp,
+      }
     end
   end
   table.sort(out, function(a, b)
@@ -604,8 +609,9 @@ function Buildings:menuRows(client)
 
   if owner == client.myId and not b then
     for _, kind in ipairs(Kinds.list) do
-      row(("Build %s  (%s)"):format(kind.name, amount(kind.cost)), function()
-        if affordable(client, kind.cost) then
+      local cost = Kinds.buildPrice(kind)
+      row(("Build %s  (%s)"):format(kind.name, amount(cost)), function()
+        if affordable(client, cost) then
           send(client, "BLD_BUILD", plot.id, kind.key)
         end
       end)
@@ -619,7 +625,7 @@ function Buildings:menuRows(client)
 
   if ruined(b) then
     if owner == client.myId then
-      local cost = Kinds.repairCost(kind, b.hp)
+      local cost = Kinds.repairPrice(kind, b.hp)
       row(("Rebuild it  (%s)"):format(amount(cost)), function()
         if affordable(client, cost) then
           send(client, "BLD_REPAIR", plot.id)
@@ -636,8 +642,8 @@ function Buildings:menuRows(client)
   end
 
   if owner == client.myId then
-    local cost = Kinds.repairCost(kind, b.hp)
-    if cost > 0 and self.page == nil then
+    local cost = Kinds.repairPrice(kind, b.hp)
+    if Kinds.repairCost(kind, b.hp) > 0 and self.page == nil then
       row(("Repair the damage  (%s)"):format(amount(cost)), function()
         if affordable(client, cost) then
           send(client, "BLD_REPAIR", plot.id)
@@ -930,7 +936,7 @@ function Buildings:mousepressed(x, y, button, client)
   local L = BuildScreen.layout(self.buildPick)
   if L.build and BuildScreen.inside(L.build, x, y) then
     local pick = self.buildPick
-    if affordable(client, pick.cost) then
+    if affordable(client, Kinds.buildPrice(pick)) then
       send(client, "BLD_BUILD", herePad.id, pick.key)
     end
     return
@@ -1970,6 +1976,16 @@ local function deliver(server, player, plot, item)
   return Features.any("serverDeliver", server, player, item, x, y + T, 0)
 end
 
+--- Tell every feature what `player` just did at the building on plot `id`
+--- (the `serverBuildingDone` event): "built", "product" (set what it makes),
+--- "collected" (`n` of `item`), "loaded" (`n` of `item` into its hopper,
+--- one call per material), "repaired". `kind` is its kind's key; `item`
+--- what it makes unless said otherwise. The tutorial's town lesson hears it.
+local function did(server, player, id, what, b, item, n)
+  item = item or productOf(Kinds.byKey[b.kind], b.product)
+  Features.call("serverBuildingDone", server, player, id, what, b.kind, item, n)
+end
+
 Buildings.serverMessages = {
   BLD_BUILD = refusing(function(server, player, args)
     local plot, reason = plotFor(server, player, args)
@@ -1983,10 +1999,13 @@ Buildings.serverMessages = {
       return "built"
     end
     local money = Features.byName.money
-    if money and not money:spend(server, player.id, kind.cost, kind.name:lower()) then
+    if money and not money:spend(server, player.id, Kinds.buildPrice(kind), kind.name:lower()) then
       return "broke"
     end
-    Buildings:serverPlace(server, plot.id, kind.key, player.id)
+    local b = Buildings:serverPlace(server, plot.id, kind.key, player.id)
+    if b then
+      did(server, player, plot.id, "built", b)
+    end
   end),
 
   BLD_COLLECT = refusing(function(server, player, args)
@@ -2017,6 +2036,7 @@ Buildings.serverMessages = {
     addStock(server, player, item, n)
     b.output = b.output - n
     publish(server, id, b)
+    did(server, player, id, "collected", b, item, n)
     if b.output > 0 then
       return "invfull" -- took what fit; the rest waits in the building
     end
@@ -2033,7 +2053,7 @@ Buildings.serverMessages = {
       return
     end
     local s = stockOf(player.id)
-    local moved, room = false, false
+    local moved, room = {}, false
     for item in pairs(inputs) do
       local space = Kinds.HOPPER - (b.hopper[item] or 0)
       local n = math.min(space, s[item] or 0)
@@ -2041,13 +2061,16 @@ Buildings.serverMessages = {
       if n > 0 then
         b.hopper[item] = (b.hopper[item] or 0) + n
         addStock(server, player, item, -n)
-        moved = true
+        moved[item] = n
       end
     end
-    if not moved then
+    if not next(moved) then
       return room and "nomaterials" or "hopperfull"
     end
     publish(server, id, b)
+    for item, n in pairs(moved) do
+      did(server, player, id, "loaded", b, item, n)
+    end
   end),
 
   BLD_DEVFILL = refusing(function(server, player, args)
@@ -2117,6 +2140,7 @@ Buildings.serverMessages = {
       b.price = after
     end
     publish(server, id, b)
+    did(server, player, id, "product", b)
   end),
 
   BLD_PRICE = refusing(function(server, player, args)
@@ -2238,10 +2262,10 @@ Buildings.serverMessages = {
       return reason
     end
     local kind = Kinds.byKey[b.kind]
-    local cost = Kinds.repairCost(kind, b.hp)
-    if cost == 0 then
+    if Kinds.repairCost(kind, b.hp) == 0 then
       return "intact"
     end
+    local cost = Kinds.repairPrice(kind, b.hp)
     local money = Features.byName.money
     if money and not money:spend(server, player.id, cost, "repairs") then
       return "broke"
@@ -2255,6 +2279,7 @@ Buildings.serverMessages = {
       end
     end
     publish(server, id, b)
+    did(server, player, id, "repaired", b)
   end),
 
   BLD_TAKEOVER = refusing(function(server, player, args)
@@ -2828,6 +2853,18 @@ function Buildings:serverRepair(server, id, hits)
     server:broadcast(Protocol.encode("BLD_HP", id, b.hp))
   end
   return hp
+end
+
+--- Take the building on plot `id` down on the host, back to an empty lot
+--- that stays its owner's; what was in it goes with it. The tutorial's town
+--- does it to a building the lesson did not ask for. False when there is
+--- none.
+function Buildings:serverRemove(server, id)
+  if not (sv and sv.buildings[id]) then
+    return false
+  end
+  removeBuilding(server, id)
+  return true
 end
 
 --- For tests.

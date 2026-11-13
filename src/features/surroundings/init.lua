@@ -84,6 +84,11 @@
 -- the cliff and the drop, the sky round the Bunker; a tunnel or a road out
 -- carries on past the edge. City-map draws that itself (drawPastEdges).
 --
+-- Shoeman's school of survival (tutorial.lua): Shoeman's Road between
+-- railway embankments, the school south of it and woods north; the Park
+-- in a town of terraced streets; the Scrap Yard on an industrial estate.
+-- Shoeman's Town is an island like the city.
+--
 -- Other maps keep the grid for now; a map gets surroundings by an entry in
 -- `DRAW`, keyed by map name.
 --
@@ -102,6 +107,7 @@ local WarSounds = require("src.features.surroundings.war_sounds")
 local OuterCity = require("src.features.surroundings.outer_city")
 local WindingRoad = require("src.features.surroundings.winding_road")
 local CitadelAbyss = require("src.features.surroundings.citadel_abyss")
+local TutorialEdges = require("src.features.surroundings.tutorial")
 
 local Surroundings = {
   name = "surroundings",
@@ -1218,17 +1224,35 @@ local function roofBelow(map)
   end }
 end
 
+-- What tutorial.lua borrows from here.
+local KIT = { woods = woods, building = building, treePictures = treePictures, TREE_SIZE = TREE_SIZE,
+  BROADLEAF = BROADLEAF }
+
+--- One of the tutorial maps' surroundings (tutorial.lua).
+local function tutorial(draw)
+  return function(map, camera)
+    local left, top, right, bottom = view(camera)
+    draw(map, camera, left, top, right, bottom, clock, KIT)
+  end
+end
+
+local function island(map, camera)
+  sea(map, camera)
+  boats(map, camera)
+end
+
 local DRAW = {
-  city = function(map, camera)
-    sea(map, camera)
-    boats(map, camera)
-  end,
+  city = island,
   forest = forest,
   culdesac = culdesac,
   beach = beach,
   cliff = bluff,
   outskirts = outskirts,
   testrange = outskirts,
+  ["tutorial-road"] = tutorial(TutorialEdges.road),
+  ["tutorial-park"] = tutorial(TutorialEdges.park),
+  ["tutorial-yard"] = tutorial(TutorialEdges.yard),
+  ["tutorial-city"] = island, -- Shoeman's Town is an island like the city
   city17 = function(map, camera)
     local left, top, right, bottom = view(camera)
     City17.draw(map, camera, left, top, right, bottom, clock)

@@ -254,7 +254,7 @@ function Crates:mapChanged(_map, server)
   end
   for _ = 1, self.COUNT do
     for _ = 1, 40 do
-      local x, y = city:randomRoadPoint()
+      local x, y = city:randomRoadPoint(nil, nil, nil, city.map.pickupKinds)
       if x and freeSpot(server, x, y) then
         local id = sv.nextId
         sv.nextId = id + 1

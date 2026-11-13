@@ -18,7 +18,6 @@
 
 local Protocol = require("src.net.protocol")
 local Features = require("src.features")
-local UI = require("src.ui")
 local Crowd = require("src.features.pedestrians.crowd")
 local Render = require("src.features.pedestrians.render")
 local Gibs = require("src.features.pedestrians.gibs")
@@ -88,13 +87,6 @@ end
 
 function Pedestrians:drawAboveCars()
   Gibs.drawChunks()
-end
-
-function Pedestrians:drawHUD(client)
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(0.85, 0.5, 0.5)
-  love.graphics.print(("roadkill %d"):format(self.roadkill[client.myId] or 0), 10, 100)
-  love.graphics.setColor(1, 1, 1)
 end
 
 Pedestrians.clientMessages = {

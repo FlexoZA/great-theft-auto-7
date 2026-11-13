@@ -59,9 +59,10 @@
 -- middle is where the round goes.
 --
 -- You carry your guns in `slotCount` weapon slots, one per number key:
--- key 1 fires whatever is in slot 1. Everyone starts with the pistol in
--- slot 1 and any gun with a `stock` (guns.lua, for testing) in the next
--- ones. A gun is also an item ("gun-<key>", a weapons factory makes them):
+-- key 1 fires whatever is in slot 1. A new player starts with empty
+-- slots and nothing in hand (Shoeman hands out the pistol in the
+-- tutorial), apart from any gun with a `stock` (guns.lua, for testing);
+-- bots and police fire the pistol, slots or not. A gun is also an item ("gun-<key>", a weapons factory makes them):
 -- on the inventory screen you drag one from your bag onto an empty slot to
 -- carry it (WPN_EQUIP takes the item), drag a gun from its slot into the
 -- bag to put it down (WPN_UNEQUIP gives the item back and leaves the slot
@@ -69,7 +70,8 @@
 -- (WPN_MOVE, swapping with whatever was there). The host keeps the slots
 -- and tells you them (WPN_GUNS); the HUD only lists those, and the host
 -- refuses to select or fire a gun that isn't in one (serverOwns). Putting
--- down the gun in hand leaves you holding the pistol. Nothing is trusted
+-- down the gun in hand leaves you holding the pistol if you carry it, else
+-- the gun in your lowest slot, else nothing (`fallbackGun`). Nothing is trusted
 -- from the client but the ask. A saved world keeps a player's slots and
 -- magazines for next time (serverSavePlayer); health comes back full.
 --
@@ -157,6 +159,8 @@
 --   server -> all     WPN_RELOADING <id> <gun> <seconds> [<vid>]   (a reload began; vid: of that car's gun)
 --   server -> all     WPN_SPIN <id>                 (their minigun is winding up: its sound)
 --   server -> all     WPN_CHARGE <id>               (they are charging a `charge` gun: its whine and glow)
+--   server -> all     WPN_HANDS <id> <0|1>          (1: they hold no gun now, 0: a gun again; their
+--                                              body is drawn so; a latecomer gets every 1)
 --   server -> player  WPN_MAG <gun> <rounds>        (what is in a magazine now)
 --   server -> player  WPN_INFINITE <0|1>            (infinite ammo off / on)
 --   server -> player  WPN_GUNS <gun[@tier] per slot>...  (what is in each weapon slot; 0 = empty)
@@ -315,7 +319,7 @@ Weapons.hudSlot = 0 -- health's slot in the bottom-left row of stat bars (UI.dra
 Weapons.hudIconScale = 1.8 -- the gun in hand, drawn big beside the ability circles (icons are 60 x 30 at 1)
 Weapons.hudIconW, Weapons.hudIconH = 140, 54 -- room for the longest gun (the shotgun) at that scale
 Weapons.lowMagazine = 0.25 -- at or under this share of a magazine the reload key flashes over the gun
-Weapons.gun = Guns.DEFAULT -- index of the gun I hold (the host keeps its own record)
+Weapons.gun = nil -- index of the gun I hold, nil for empty hands (the host keeps its own record)
 Weapons.slotCount = 4 -- weapon slots, cycled with Z and X (a key each only if bound in Settings)
 Weapons.slots = {} -- slot -> gun index for the guns I carry (the host says: WPN_GUNS)
 Weapons.tiers = {} -- gun index -> tier key of the one I carry, when it isn't common (WPN_GUNS too)
@@ -392,6 +396,7 @@ function Weapons:resetSynced()
   self.carHealth = {}
   self.carMax = {}
   self.kills = {}
+  self.emptyHands = {} -- player id -> true: holds no gun (WPN_HANDS)
   self.slots = self:startSlots()
   self.tiers = {}
   self.mags = {}
@@ -425,7 +430,7 @@ function Weapons:enterGame()
   self.hitType = {}
   self.feed = nil
   self.cooldown = 0
-  self.gun = Guns.DEFAULT
+  self.gun = nil -- update picks up what WPN_GUNS put in my slots
   self.reloading = nil
   self.carMags, self.carReloading = {}, nil
   self.ammoNotice, self.noAmmo = nil, 0
@@ -440,6 +445,15 @@ function Weapons:enterGame()
   Plasma.clear()
   Sounds.stopAll()
   Reloads.clear()
+end
+
+--- Does player `id` hold no gun on this screen? Mine I know at once; the
+--- others' the host tells (WPN_HANDS). The core draws their body so.
+function Weapons:emptyHanded(client, id)
+  if id == client.myId then
+    return self.gun == nil
+  end
+  return self.emptyHands[id] == true
 end
 
 function Weapons:exitGame()
@@ -522,6 +536,9 @@ function Weapons:tryReload(client)
     end
     return
   end
+  if not self.gun then
+    return -- empty hands
+  end
   local gun = self:gunAt(self.gun)
   if self.reloading or self.infiniteAmmo then
     return
@@ -560,7 +577,7 @@ end
 --- The `stat` convention on a client: my own steps slow to the gun's
 --- `pace` while its barrels turn, as the host's do (serverStat).
 function Weapons:stat(value, client, id, name)
-  if name ~= "speed" or id ~= client.myId or self.spin <= 0 then
+  if name ~= "speed" or id ~= client.myId or self.spin <= 0 or not self.gun then
     return value
   end
   local gun = self:gunAt(self.gun)
@@ -571,8 +588,8 @@ end
 --- and it could fire, telling the host (and so everyone near) as they
 --- start; past SPIN_KEEP without a reason to turn they are cold again.
 function Weapons:windBarrels(client, dt, held)
-  local gun = self:gunAt(self.gun)
-  if not gun.spinUp or self:myMount(client) then
+  local gun = self.gun and self:gunAt(self.gun)
+  if not (gun and gun.spinUp) or self:myMount(client) then
     self.spin, self.spinIdle = 0, 0
     return
   end
@@ -637,7 +654,9 @@ function Weapons:tryFire(client)
   if car then
     return self:tryFireMounted(client, car, mounted)
   end
-  if self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
+  if not self.gun then
+    return -- empty hands
+  elseif self.cooldown > 0 or self.reloading or Features.any("held", client, client.myId) then
     return -- cooling down, reloading, or held still (frozen)
   elseif Features.any("pointerTaken", client) then
     return -- a screen (the inventory) has the mouse
@@ -718,13 +737,14 @@ end
 
 --- Switch to gun `index` and tell the host. The cooldown carries over, so
 --- swapping is no faster than waiting.
---- The weapon slots everyone starts with: the pistol in slot 1, then any
---- gun with a `stock`, as far as the slots go.
+--- The weapon slots a new player starts with: none but any gun with a
+--- `stock` (testing), as far as the slots go. The pistol comes from
+--- Shoeman in the tutorial.
 function Weapons:startSlots()
-  local slots = { [1] = Guns.DEFAULT }
-  local n = 1
+  local slots = {}
+  local n = 0
   for i, gun in ipairs(Guns.list) do
-    if gun.stock and i ~= Guns.DEFAULT and n < self.slotCount then
+    if gun.stock and n < self.slotCount then
       n = n + 1
       slots[n] = i
     end
@@ -740,6 +760,22 @@ local function slotOf(slots, index)
     end
   end
   return nil
+end
+
+--- What the hand holds when the gun in it is no longer carried: the pistol
+--- if it is in `slots`, else the gun in the lowest slot, else nil (empty
+--- hands). Host and client both follow it, so neither needs telling.
+local function fallbackGun(slots)
+  if slotOf(slots, Guns.DEFAULT) then
+    return Guns.DEFAULT
+  end
+  local low
+  for slot in pairs(slots) do
+    if Guns.list[slots[slot]] and (not low or slot < low) then
+      low = slot
+    end
+  end
+  return low and slots[low]
 end
 
 --- Do I carry gun `index`, as far as the host has told me?
@@ -878,14 +914,14 @@ function Weapons:update(dt, client, camera)
   -- Ease the halo in and out rather than snap it with every hit and heal.
   self.halo = self.halo + (self:haloTarget(client) - self.halo) * math.min(1, dt * 4)
   if not self:owns(self.gun) then
-    self.gun, self.reloading = Guns.DEFAULT, nil -- the host does the same when a gun is put down
+    self.gun, self.reloading = fallbackGun(self.slots), nil -- the host does the same when a gun is put down
   end
   local held = Controls.isDown("fire")
   self:windBarrels(client, dt, held)
   for id, t in pairs(self.othersCharging) do
     self.othersCharging[id] = t + dt < CHARGE_FORGET and t + dt or nil
   end
-  if self:gunAt(self.gun).charge and not self:myMount(client) then
+  if self.gun and self:gunAt(self.gun).charge and not self:myMount(client) then
     self:chargeShot(client, dt, held)
   elseif not held then
     self.armed = true
@@ -1112,8 +1148,10 @@ function Weapons:drawAboveCars(client)
     return id ~= nil and id ~= client.myId and Features.any("hidden", client, id)
   end
   -- A bar under every car in the world, driven or not: the car's own health.
+  -- Not under a car another feature keeps bare (`carBarHidden`: the
+  -- tutorial's traffic, which would show its bar over the tunnel roofs).
   for vid, v in pairs(client.vehicles) do
-    if not hidden(v.driver) then
+    if not hidden(v.driver) and not Features.any("carBarHidden", client, vid) then
       local max = self.carMax[vid] or CAR_HEALTH
       bar(v.dx, v.dy, self.carHealth[vid] or max, max, Car.WIDTH, Car.HEIGHT / 2 + 8)
       if self.carFlash[vid] then
@@ -1425,11 +1463,8 @@ end
 function Weapons:drawHUD(client)
   local max = self.maxHealth[client.myId] or MAX_HEALTH
   local hp = self.health[client.myId] or max
-  -- Kills top left; health, the car's and the guns have their own readouts
-  -- (the bar bottom left, the one over the car, the gun in hand).
-  love.graphics.setFont(UI.fonts.small)
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("kills %d"):format(self.kills[client.myId] or 0), 10, 46)
+  -- Health, the car's and the guns have their own readouts (the bar bottom
+  -- left, the one over the car, the gun in hand).
   -- Health stands first in the bottom-left row of stat bars: always red,
   -- and flashing once it is down to under 30%.
   local frac = hp / max
@@ -1599,6 +1634,12 @@ Weapons.clientMessages = {
     local id, hp = tonumber(args[1]), tonumber(args[2])
     if id and hp then
       Weapons.health[id] = hp
+    end
+  end,
+  WPN_HANDS = function(_client, args)
+    local id = tonumber(args[1])
+    if id then
+      Weapons.emptyHands[id] = args[2] == "1" or nil
     end
   end,
   WPN_MAX = function(_client, args)
@@ -1837,22 +1878,39 @@ local function fullMagazines()
   return mags
 end
 
+--- A new player's record on the host: start slots, full magazines, the
+--- pistol in a bot's hand (bots fire any gun, slots or not) and in a
+--- human's only if their slots hold it.
+local function freshPlayer(self, player, protectedUntil)
+  local slots = self:startSlots()
+  return {
+    hp = MAX_HEALTH,
+    max = MAX_HEALTH,
+    kills = 0,
+    gun = player.bot and Guns.DEFAULT or fallbackGun(slots), -- nil: empty hands
+    slots = slots,
+    tiers = {}, -- gun index -> tier key of the one in their slots, when it isn't common
+    mags = fullMagazines(),
+    spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
+    lastFire = -math.huge,
+    protectedUntil = protectedUntil,
+  }
+end
+
 function Weapons:serverStart(server)
-  local sv = { time = 0, projectiles = {}, nextId = 1, players = {}, cars = {}, targets = {}, unlocked = {} }
+  local sv = {
+    time = 0,
+    projectiles = {},
+    nextId = 1,
+    players = {},
+    cars = {},
+    targets = {},
+    unlocked = {},
+    emptyHands = {}, -- player id -> true: told everyone they hold no gun (WPN_HANDS)
+  }
   for id, p in pairs(server.players) do
     if p.body then
-      sv.players[id] = {
-        hp = MAX_HEALTH,
-        max = MAX_HEALTH,
-        kills = 0,
-        gun = Guns.DEFAULT,
-        slots = self:startSlots(),
-        tiers = {}, -- gun index -> tier key of the one in their slots, when it isn't common
-        mags = fullMagazines(),
-        spawn = { x = p.body.x, y = p.body.y, angle = p.body.facing },
-        lastFire = -math.huge,
-        protectedUntil = SPAWN_PROTECTION,
-      }
+      sv.players[id] = freshPlayer(self, p, SPAWN_PROTECTION)
     end
   end
   self.sv = sv
@@ -1896,23 +1954,15 @@ end
 --- A player (human or bot) added while the game is running.
 function Weapons:serverPlayerJoined(server, player)
   if self.sv and player.body and not self.sv.players[player.id] then
-    self.sv.players[player.id] = {
-      hp = MAX_HEALTH,
-      max = MAX_HEALTH,
-      kills = 0,
-      gun = Guns.DEFAULT,
-      slots = self:startSlots(),
-      tiers = {},
-      mags = fullMagazines(),
-      spawn = { x = player.body.x, y = player.body.y, angle = player.body.facing },
-      lastFire = -math.huge,
-      protectedUntil = self.sv.time + SPAWN_PROTECTION,
-    }
+    self.sv.players[player.id] = freshPlayer(self, player, self.sv.time + SPAWN_PROTECTION)
     self:giveStock(server, player)
     self:sendGuns(server, player)
   end
   if self.sv and player.body and not player.bot then
     self:sendHealth(server, player)
+    for id in pairs(self.sv.emptyHands) do
+      server:send(player, Protocol.encode("WPN_HANDS", id, 1))
+    end
   end
 end
 
@@ -1971,6 +2021,7 @@ function Weapons:serverPlayerLeft(server, player)
     end
     self.sv.players[player.id] = nil
     self.sv.unlocked[player.id] = nil
+    self.sv.emptyHands[player.id] = nil
   end
 end
 
@@ -2227,7 +2278,7 @@ function Weapons:serverUnequip(server, player, slot)
     st.tiers[index] = nil
   end
   if st.gun == index then
-    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+    st.gun, st.reloadUntil = fallbackGun(st.slots), nil
   end
   self:sendGuns(server, player)
   return true
@@ -2341,8 +2392,9 @@ function Weapons:serverSavePlayer(_server, player)
 end
 
 --- Put back what serverSavePlayer kept, over the start loadout. Guns no
---- longer in guns.lua, bad slots and repeats are dropped; the pistol always
---- has a slot; magazines hold 0 to their size.
+--- longer in guns.lua, bad slots and repeats are dropped; magazines hold 0
+--- to their size. Empty slots stay empty (a player saved before the
+--- tutorial had the pistol in one, so it comes back with them).
 function Weapons:serverLoadPlayer(server, player, data)
   local st = self.sv and self.sv.players[player.id]
   if not st or type(data) ~= "table" or (tonumber(data.version) or 0) > SAVE_VERSION then
@@ -2370,18 +2422,9 @@ function Weapons:serverLoadPlayer(server, player, data)
       end
     end
     st.tiers = tiers
-    if not slotOf(slots, Guns.DEFAULT) then
-      local free = 1 -- the first empty slot, or slot 1 when all are full
-      for slot = self.slotCount, 1, -1 do
-        if not slots[slot] then
-          free = slot
-        end
-      end
-      slots[free] = Guns.DEFAULT
-    end
     st.slots = slots
-    if not slotOf(slots, st.gun) then
-      st.gun, st.reloadUntil = Guns.DEFAULT, nil
+    if not player.bot and not slotOf(slots, st.gun) then
+      st.gun, st.reloadUntil = fallbackGun(slots), nil
     end
   end
   if type(data.mags) == "table" then
@@ -2400,20 +2443,27 @@ function Weapons:serverLoadPlayer(server, player, data)
   end
 end
 
---- The gun `player` holds, dropped back to the pistol if it is no longer
---- theirs. The client does the same on its own.
+--- The gun `player` holds, or nil for empty hands; one no longer theirs
+--- drops back to `fallbackGun` (a bot's to the pistol). The client does
+--- the same on its own.
 local function heldGun(self, player, st)
   if not self:serverOwns(player, st.gun) then
-    st.gun, st.reloadUntil = Guns.DEFAULT, nil
+    st.gun, st.reloadUntil = player.bot and Guns.DEFAULT or fallbackGun(st.slots), nil
   end
   return st.gun
+end
+
+--- The tuned numbers of the gun `player` holds, or nil for empty hands.
+local function heldStats(self, player, st)
+  local index = heldGun(self, player, st)
+  return index and gunOf(st, index)
 end
 
 --- Are the barrels of `player`'s gun in hand turning on the host: winding
 --- up (WPN_SPIN) or firing? Returns that gun when they are.
 local function turning(self, player, st)
-  local gun = gunOf(st, heldGun(self, player, st))
-  if not gun.spinUp or player.vehicle then
+  local gun = heldStats(self, player, st)
+  if not (gun and gun.spinUp) or player.vehicle then
     return nil
   end
   local t = self.sv.time
@@ -2440,8 +2490,8 @@ function Weapons:serverSpin(server, player)
   if not (st and player.body) or player.vehicle then
     return
   end
-  local gun = gunOf(st, heldGun(self, player, st))
-  if not gun.spinUp or (st.spinAt and sv.time - st.spinAt < SPIN_KEEP) then
+  local gun = heldStats(self, player, st)
+  if not (gun and gun.spinUp) or (st.spinAt and sv.time - st.spinAt < SPIN_KEEP) then
     return
   end
   st.spinAt = sv.time
@@ -2456,8 +2506,8 @@ function Weapons:serverCharge(server, player)
   if not (st and player.body) or player.vehicle then
     return
   end
-  local gun = gunOf(st, heldGun(self, player, st))
-  if not gun.charge or (st.chargeAt and sv.time - st.chargeAt < 0.2) then
+  local gun = heldStats(self, player, st)
+  if not (gun and gun.charge) or (st.chargeAt and sv.time - st.chargeAt < 0.2) then
     return
   end
   st.chargeAt = sv.time
@@ -2519,8 +2569,10 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
   if player.vehicle and not player.bot then
     return self:serverFireMounted(server, player, aim) -- behind the wheel: the car's gun or nothing
   end
-  local gun = gunOf(st, heldGun(self, player, st))
-  if not cooledDown(st, sv.time) then
+  local gun = heldStats(self, player, st)
+  if not gun then
+    return false -- empty hands
+  elseif not cooledDown(st, sv.time) then
     return false -- firing faster than allowed; drop it
   end
   if Features.any("serverHeld", server, player) then
@@ -2565,8 +2617,12 @@ function Weapons:serverFire(server, player, aim, seenX, seenY)
     bx, by = firedFrom(bx, by, seenX, seenY)
   end
   local muzzle = onFoot and FOOT_MUZZLE or MUZZLE_OFFSET
-  return self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim, gun,
-    nil, true)
+  local fired = self:serverFireFrom(server, player.id, bx + math.cos(aim) * muzzle, by + math.sin(aim) * muzzle, aim,
+    gun, nil, true)
+  if counted and st.mags[st.gun] < 1 then
+    Features.call("serverMagazineEmptied", server, player, st.gun)
+  end
+  return fired
 end
 
 --- Turn infinite ammo on or off for `player`, for the rest of the game
@@ -2633,8 +2689,8 @@ function Weapons:serverReload(server, player)
   if not (st and player.body and Features.present(player)) or st.reloadUntil or st.deadUntil or st.infiniteAmmo then
     return false
   end
-  local gun = gunOf(st, heldGun(self, player, st))
-  if (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
+  local gun = heldStats(self, player, st)
+  if not gun or (st.mags[st.gun] or 0) >= gun.magazine or spareRounds(player, gun) < 1 then
     return false
   end
   st.reloadUntil = sv.time + gun.reload
@@ -2738,6 +2794,9 @@ function Weapons:finishReloads(server)
       st.mags[st.gun] = (st.mags[st.gun] or 0) + got
       if p then
         server:send(p, Protocol.encode("WPN_MAG", st.gun, st.mags[st.gun]))
+        if got > 0 then
+          Features.call("serverReloaded", server, p, st.gun)
+        end
       end
     end
   end
@@ -3157,6 +3216,20 @@ function Weapons:serverDamage(server, victim, attacker, amount, angle, dtype)
   return self:damage(server, victim, attacker and attacker.id, amount, 0, angle, dtype)
 end
 
+--- Public: kill `victim` on foot outright, whatever they wear or their
+--- health (the tutorial's traffic). Who can be hit is as for damage: present,
+--- alive and not under spawn protection. Returns true if they died.
+function Weapons:serverKill(server, victim, attacker, angle, dtype)
+  local sv = self.sv
+  local st = sv and sv.players[victim.id]
+  if not st or not Features.present(victim) or victim.vehicle or st.deadUntil or sv.time < st.protectedUntil then
+    return false
+  end
+  Features.call("serverPlayerDamaged", server, victim, attacker, st.hp, Damage.key(dtype), angle)
+  self:die(server, victim, attacker and attacker.id, 0, angle, dtype)
+  return true
+end
+
 --- Keep wrecks parked at their slot and bring the dead back when their time
 --- is up: alive again at the slot, behind the wheel of their own car (on
 --- foot, if somebody drove off in it).
@@ -3213,6 +3286,22 @@ function Weapons:updateWrecks(server)
   end
 end
 
+--- Everyone hears when a player's hands go empty or hold a gun again
+--- (WPN_HANDS), so every screen draws their body right. Asked every step
+--- rather than at each change: a gun leaves the hand by equip, unequip,
+--- load and `heldGun`'s fallback alike.
+function Weapons:tellHands(server)
+  local sv = self.sv
+  for id, st in pairs(sv.players) do
+    local p = server.players[id]
+    local empty = p ~= nil and not p.bot and heldGun(self, p, st) == nil
+    if empty ~= (sv.emptyHands[id] == true) then
+      sv.emptyHands[id] = empty or nil
+      server:broadcast(Protocol.encode("WPN_HANDS", id, empty and 1 or 0))
+    end
+  end
+end
+
 function Weapons:serverStep(server, dt)
   local sv = self.sv
   if not sv then
@@ -3222,6 +3311,7 @@ function Weapons:serverStep(server, dt)
   self:updateWrecks(server)
   self:finishReloads(server)
   self:tellNewDrivers(server)
+  self:tellHands(server)
   local i = 1
   while i <= #sv.projectiles do
     local p = sv.projectiles[i]

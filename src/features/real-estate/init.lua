@@ -64,6 +64,13 @@ local function amount(n)
   return money and money.amount(n) or tostring(n)
 end
 
+--- What an empty plot costs here: `price`, unless a feature answers the
+--- `buildCost` hook (what "plot") with less: the tutorial's town gives
+--- them away. Both sides ask.
+function RealEstate.plotPrice()
+  return Features.reduce("buildCost", RealEstate.price, "plot")
+end
+
 local function cityMap()
   local city = Features.byName["city-map"]
   return city, city and city.map
@@ -247,7 +254,7 @@ function RealEstate:keypressed(key, client)
       client:send(Protocol.encode("RE_GROW", hereSite.bi, hereSite.bj))
     end
   elseif herePlot and not self.owners[herePlot.id] then
-    if affordable(client, self.price) then
+    if affordable(client, self.plotPrice()) then
       client:send(Protocol.encode("RE_BUY", herePlot.id))
     end
   end
@@ -292,7 +299,8 @@ local function drawPlot(client, plot)
     love.graphics.setColor(1, 0.82, 0.2, lit)
     love.graphics.setLineWidth(3)
     love.graphics.rectangle("line", plot.x + 4, plot.y + 4, plot.w - 8, plot.h - 8)
-    drawSign(cx, plot.y + 18, "FOR SALE  " .. amount(RealEstate.price), { 0.8, 0.15, 0.1 })
+    local price = RealEstate.plotPrice()
+    drawSign(cx, plot.y + 18, price > 0 and "FOR SALE  " .. amount(price) or "FREE PLOT", { 0.8, 0.15, 0.1 })
   end
 end
 
@@ -341,7 +349,10 @@ function RealEstate:drawHUD(client)
   elseif herePlot then
     local owner = self.owners[herePlot.id]
     if not owner then
-      text, color = ("Plot for sale: %s.  %s: buy"):format(amount(self.price), key), { 1, 0.85, 0.3 }
+      local price = self.plotPrice()
+      text = price > 0 and ("Plot for sale: %s.  %s: buy"):format(amount(price), key)
+        or ("Free plot.  %s: take it"):format(key)
+      color = { 1, 0.85, 0.3 }
     elseif Features.byName.buildings then
       text = nil -- buildings says what stands on a plot that has an owner
     elseif owner == client.myId then
@@ -483,7 +494,7 @@ RealEstate.serverMessages = {
       reason = "away"
     elseif sv.owners[plot.id] then
       reason = "taken"
-    elseif money and not money:spend(server, player.id, RealEstate.price, "plot") then
+    elseif money and not money:spend(server, player.id, RealEstate.plotPrice(), "plot") then
       reason = "broke"
     else
       sv.owners[plot.id] = player.id

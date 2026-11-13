@@ -53,6 +53,20 @@ function MyFeature:predictCar(client, car, dt) end
 --- side of it: `Features.visible` asks, and every enemy picking a target.
 function MyFeature:hidden(client, id) end
 
+--- Does player `id` hold no gun on this screen? True and their body is
+--- drawn with empty hands (weapons answers it).
+function MyFeature:emptyHanded(client, id) end
+
+--- Should car `vid` go without its health bar on this screen? True and
+--- weapons draws none under it (the tutorial's traffic).
+function MyFeature:carBarHidden(client, vid) end
+
+--- Both sides, through `Features.reduce`: what land or building work costs
+--- here. `what` is "plot" (real-estate), "build" or "repair" (buildings;
+--- `kind` the building's kind). Return `cost` to leave it, less to cut it
+--- (the tutorial's town answers 0).
+function MyFeature:buildCost(cost, what, kind) end
+
 function MyFeature:keypressed(key, client) end
 function MyFeature:mousepressed(x, y, button, client) end
 

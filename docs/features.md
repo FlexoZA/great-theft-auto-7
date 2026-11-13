@@ -284,7 +284,7 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverShotFired(server, player, x, y)` | weapons | A projectile left a gun at (x, y). `player` is nil for a shot nobody owns (a police officer on foot). |
 | `serverWallHit(server, x, y, damage, by, type)` | weapons | A round stopped at a wall (a `blocksShot`) at (x, y), carrying `damage` of damage type `type`. `by` is the shooter's id, 0 for nobody. Buildings takes the damage when the wall is one of its own. |
 | `serverBlast(server, x, y, radius, damage, by, type)` | weapons, leap, Bigfoot | Something hit the ground hard at (x, y): a missile going off (type "explosive"), a heavy leap landing ("impact"), Bigfoot's claws ("melee"). `damage` at the centre, falling to a third at `radius`. Players, cars and soft targets are already handled; buildings hurts every building it reaches. |
-| `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. |
+| `serverKill(server, { kind, x, y, by, victim, cause })` | weapons, pedestrians, police, bosses | Something died: kind is "car", "pedestrian", "police", "soldier", "boss" or "animal", `by` the killer's id, `cause` the damage type when weapons knows it. A simp of the open-borders horde is a "pedestrian" with `simp = true`. |
 | `serverTerminalDone(server, terminal, player)` | terminals | `player` finished working a terminal (the map's `terminals` entry). Borderline shuts down the hauler dock it runs (`terminal.dock`). |
 | `mapChanged(map, server)` | city-map | The game moved to another map mid-game (`city:switchTo`). Raised once per machine; `server` is set on the host and nil on a client. Every car already stands on the new map's spawn points. Drop or move anything you keep in world coordinates: weapons moves its respawn slots, on-foot puts walkers back in their cars, real-estate forgets the old plots. |
 | `serverKoinTaken(server, player)` | money | A koin on the ground went into `player`'s wallet (one call per koin). The quests feature counts it for the victory screen. |
@@ -294,8 +294,13 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverPanicArea(server, x, y, radius, by)` | abilities | Something stinks at (x, y) (a panic fart): whatever a feature owns inside `radius` should run from it. Raised every host tick while the cloud hangs, so answer with a moment of flight and let it be renewed. Bots drive every NPC car (police units too) away, pedestrians bolt, Karen and her simps and the wild man's squirrel and Bigfoot run. `by` is the caster's id. |
 | `serverFreezeArea(server, x, y, radius, seconds, by)` | abilities | A freeze landed on (x, y): whatever a feature owns inside `radius` should stand still for `seconds`. Abilities holds players and cars itself; pedestrians, police officers and Karen root their own. `by` is the caster's id. |
 | `serverDodged(server, player)` | on-foot | `player` started a dodge on the host. The damage feature puts out a player who is burning. |
+| `serverMagazineEmptied(server, player, index)` | weapons | `player` (a human, on foot) fired the last round in the magazine of gun `index` (guns.lua's list). Not for bots or infinite ammo. The tutorial's scrap yard ticks "Empty the magazine". |
+| `serverReloaded(server, player, index)` | weapons | A reload of gun `index` by `player` on foot finished and put rounds in. The tutorial's scrap yard ticks "Reload". |
 | `clientHit(client, { x, y, amount, dtype, key })` | weapons, on every machine | A player or a car on this screen was hit (`WPN_HIT` / `WPN_CARHIT`): at (x, y), for `amount` after resistances, of damage type `dtype`; `key` is the player id or `"car" .. vehicle id`. The damage feature floats a number up off it. |
+| `serverBuildingDone(server, player, plotId, what, kind, item, n)` | buildings | `player` did something at their building on plot `plotId`: `what` is "built" (it went up), "product" (they set what it makes), "collected" (took `n` of `item` out), "loaded" (put `n` of material `item` in its hopper; one call per material) or "repaired" (from the menu). `kind` is the building's kind key, `item` what it makes unless said otherwise. The tutorial's town lesson ticks its objectives from it, and takes a building it did not ask for down again with `Buildings:serverRemove(server, plotId)`. |
+| `serverBought(server, player, item, n)` / `serverSold(server, player, item, n, paid)` | shop | `player` bought `item` at the shop (`n` handed over; a hire such as `"hire-driver"` is 1), or sold it `n` of `item` for `paid` Fcks. `item` is the shop's name for it, with its tier (`"gun-pistol@rare"`). The tutorial's town lesson ticks its hires and sales from them. |
 | `serverOpenBorders(server, caster, x, y, seconds)` | abilities | Open borders was cast at (x, y): the open-borders feature lets its horde of simps in there for `seconds`. |
+| `serverSimpGone(server, { id, x, y, by })` | open-borders | A simp of the horde left because its time was up (`by` the caster's id). Not a kill: no `serverKill`, no koin, no body. The tutorial's level 4 counts it towards "Destroy the rioters" all the same. |
 | `serverRespawnPoint(spot, server, player)` → `{ x, y, angle }` or nil | weapons asks, through `Features.reduce` | Where a dead human player comes back. Start from nil; a feature that answers wins. With an answer they come back there on foot and their own car stays where it is; without one weapons puts them back at their slot in their own car. The garage answers in the city: their garage's square, or the hospital; respawn-points on a quest map where they have found a point (it rewrites the table it answered with when they pick another). |
 | `serverRespawnHeld(server, player)` / `respawnHeld(client)` | weapons asks, through `Features.any` | Keep a dead player down past their time: weapons waits while any feature answers true on the host, and keeps WASTED up (without its countdown) while any answers true on their screen. Respawn-points answers both while they pick where to come back. Hold them for a bounded time only. |
 | `serverWreckClaimed(server, car)` | weapons asks, through `Features.any` | A car was just wrecked (its driver is already out). Answer true to keep it: weapons makes it whole and leaves it to you (hide it yourself), instead of bringing it back at its owner's slot. The garage claims a person's car in the city. |
@@ -314,6 +319,9 @@ first feature whose hook returns true. `Features.reduce("hookName", value,
 | `serverEventActive(server)` | police and bots ask, through `Features.any` | Answer true while a city event is on (a boss loose in the streets). Police forgets who was wanted and sees no crimes (the units keep cruising with their lights flashing, the beat keeps walking, nobody is chased or shot); bots forgive every fight, can't be provoked and don't drive recklessly. Both are back to normal when nobody answers any more. The events feature answers it, and keeps answering for `Events.calmAfter` (5) seconds after the boss is beaten. |
 | `drawOnMinimap(client, toMap, w, h)` | minimap | Draw on the minimap: screen space, already moved to its top-left corner and clipped to it; `toMap(x, y)` turns a world point into a minimap pixel and `w, h` is its size. Only while the minimap is showing. The big map (M) calls it too, with its own `toMap` and size, so a mark shows on both. The events feature flashes it red where a boss came in and marks him while he is loose. |
 | `hidden(client, id)` / `serverHidden(server, player)` | the core, weapons, minimap, player-arrows ask / `Features.visible` asks | Is this player out of sight (the chicken ability)? Answer true and on a client they are not drawn for anyone else (body, car they drive, name, health bar, minimap dot, edge arrow); on the host `Features.visible(server, player)` (present, and nobody answers `serverHidden`) is false for them. Anything that picks a player to go after or aim at (bots, police, every boss and its helpers) asks `visible` instead of `present`; damage over an area (a blast, a slam, a scream) still asks `present`, so a hidden player caught in it is still hurt. Abilities answers both. |
+| `carBarHidden(client, vid)` | weapons asks, through `Features.any`, for every car it draws a health bar under | Should this car go without a health bar on this screen? Answer true and none is drawn. The tutorial answers it for every car on level 1's road, where the only cars are its traffic and the bars would show over the tunnel roofs. |
+| `emptyHanded(client, id)` | the core asks, through `Features.any`, for every body it draws | Does player `id` hold no gun on this screen? Answer true and their body is drawn with empty hands instead of a gun held out. Weapons answers it: your own from the gun in your hand, everyone else's from `WPN_HANDS`, which the host broadcasts when a player's hands go empty or hold a gun again (and sends a latecomer). |
+| `buildCost(cost, what, kind)` | real-estate and buildings ask, through `Features.reduce`, on both sides | What land or building work costs on this map, starting from the usual price: `what` is "plot" (an empty plot), "build" (putting up `kind`) or "repair" (mending or rebuilding one). Answer `cost` to leave it alone, less to cut it. The tutorial answers 0 on its town, where building is the lesson. Taking over someone's ruin and Handsy Men's fees are not asked. |
 | `cursorStyle(name, client)` | vision asks, through `Features.reduce` | Which of `vision/cursors.lua` to draw at the mouse, starting from the crosshair: weapons answers "scope" while a gun with a `scope` is in hand and "none" while its lens is up. |
 | `pointerTaken(client)` | weapons, abilities, vision ask | Answer true while a screen of yours owns the mouse: weapons doesn't fire, abilities don't aim (an aim in progress is dropped), vision stops edge-panning and leaves the cursor to you: call `Features.byName.vision:drawCursor(client)` at the end of your `drawHUD` and it draws an arrow there, on top of your panel. The inventory screen, the shop, the job board, the building menu (with its build and product screens) and the controls overview (F1) answer it. |
 
@@ -448,6 +456,9 @@ couple of small conventions rather than requiring each other:
   `weapons:serverProtect(server, player, seconds)` gives a player that
   protection for `seconds` more (the jet run's flight): rounds pass
   through them, and nothing hurts them.
+  `weapons:serverKill(server, victim, attacker, angle, type)` kills a
+  player on foot outright, whatever their health or armour (the
+  tutorial's traffic); the same players are spared as by `serverDamage`.
 - Damage types: every hit says what kind of hit it is (`src/features/damage`,
   design and plan in `docs/damage-types.md`): "bullet", "explosive",
   "fire", "impact", "shock" or "melee", in `Damage.types` with each one's
@@ -842,6 +853,15 @@ couple of small conventions rather than requiring each other:
   (`"iron"`) for a crate of `amount` of it (a human takes what fits in
   their bag, a grenade, medkit or drink its quick slot first; the rest
   stays as a smaller crate).
+  `pickups:serverTakenBy(server, id, player)` marks a `perPlayer` drop as
+  not for `player` (taken, quietly gone from their screen: `PK_GONE`); the
+  tutorial hides its pistol from a player who carries one already.
+- `Features.byName.events:serverSummonSquirrels(server, x, y, count, r)`:
+  `count` loose squirrels (Bigfoot's, without him: events/squirrels.lua)
+  out of the ground within `r` px of (x, y), on any map. They run at the
+  nearest player in sight, bite and back off, and stay until shot (one
+  round) or the map changes. `events:serverSquirrelsLoose()` counts them.
+  The tutorial's scrap yard sends them in waves.
   `pickups:serverDropAmmo(server, x, y, magazines, by)` drops a box for one of
   the guns that take ammo, sized in that gun's magazines: half the time
   (`pickups.carriedShare`) one the player it is for carries in a weapon
@@ -1145,8 +1165,13 @@ the one with a plot.
   every NPC car parked out of sight while it is in play (bots reads
   `map.traffic`), and one with `vehicles = false` is walked: on-foot turns
   everyone out beside their car and refuses to let them back in (Karen's
-  street). Pickups are scattered afresh and koins on the ground swept on
-  every switch.
+  street). One with `services = true` has the city's services on it
+  (`city:servicesHere()`, always true in the default city): the shop with
+  its sales and hires, the hospital, Handsy Men at work (the tutorial's
+  town). The Jobs board, garages, the impound lot and the city's saved
+  buildings stay the default city's (`city.current == city.DEFAULT`).
+  Pickups are scattered afresh and koins on the ground swept on every
+  switch.
 - Gym: the upgrades feature's building (`src/features/upgrades`), picked
   by `quests/jobs.lua` after the Jobs building and the shop so it never
   moves them: a third building in their block, or the nearest one to the
@@ -1191,6 +1216,31 @@ the one with a plot.
   at the last) and "DONE xN" for a job finished more than once; the victory
   screen shows the level the job was just done at, named the same way. The `--quest` launch
   option skips the lock.
+- Tutorial: `src/features/tutorial` is Shoeman's school of survival, the
+  first job on a new world's board: five quests (`tutorial-1` to
+  `tutorial-5`, `boss = "tutorial"`) chained by `next` over four maps
+  (city-map's `tutorial_maps.lua`: Shoeman's Road, Park and Scrap Yard,
+  and Shoeman's Town for the last two). Shoeman stands on each level and
+  teaches one thing: crossing a road of traffic that kills on touch
+  (`traffic.lua`, sprint and stamina), dodging his shoes (`shoe.lua`),
+  picking up, equipping, firing and reloading a pistol, then three waves
+  of squirrels (`waves.lua`), casting open borders on a horde of rioters,
+  and building, trading and selling (`build.lua`; building is free there,
+  through `buildCost`). He talks through a comms panel (`comms.lua`, the
+  lines in `story.lua`), each level has a tick list (`objectives.lua`) and
+  a checkpoint (`checkpoint.lua`; dying on the town levels brings you back
+  at the hospital), and the way on only opens when the list is done.
+  Finishing it opens the rest of the board; a world saved before it
+  counts it as done. New players start with no gun and no ability
+  (`start_gear.lua`); he hands over the first pistol and the first
+  ability (`gift.lua`), and a newcomer to a world past the tutorial gets
+  both. Each map has its own soundtrack (`theme.lua`, `music.lua`) and
+  backdrop (surroundings' `tutorial.lua`). Once it is finished Shoeman is
+  also a city event (`event.lua`, on the F8 menu), walking the city
+  throwing shoes at players and their buildings under the boss standard.
+  `Tutorial.level(id)` is the level number of a quest, nil off the
+  tutorial. The design, the tick list it was built from and its handoff
+  notes are `docs/tutorial.md`.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at
@@ -1929,8 +1979,10 @@ the one with a plot.
   `events:serverTrigger(server, key)`, which returns false and a reason
   ("busy", "away", "nowhere", "locked") when it can't. An event whose boss
   comes from a quest waits until that quest is finished (`Events.after`:
-  Bigfoot after the alien hunt, A-Man after A-Man's quest; the Runner and
-  the Tripod are always open), greyed out in the menu until then. Each kind of event is a module
+  Bigfoot after the alien hunt, A-Man after A-Man's quest, Shoeman after
+  his tutorial; the Runner and the Tripod are always open), greyed out in
+  the menu until then. A boss comes in at a crossing away from everyone
+  (`events:serverSpawnNode(server, near, far)`). Each kind of event is a module
   in that folder listed in `Events.kinds` (the header of `events/init.lua`
   says what one has); the first is Bigfoot (`events/bigfoot.lua`): he comes
   in on a road away from everyone and goes for the nearest player, or the
@@ -2008,6 +2060,23 @@ the one with a plot.
   30% uncommon, 17% rare, 3% legendary), and every turret falls over.
   Messages: `EAM_STATE`, `EAM_BLINK`, `EAM_DOWN`, `EAM_HORDE`,
   `EAM_TURRETS` and `EAM_POP` down. Tuning is at the top of `event.lua`.
+  The fifth is Shoeman, the tutorial's teacher, whose module is
+  `src/features/tutorial/event.lua` (his brain `event_brain.lua`): bigger
+  than a player, he goes for the nearest player he can see within 1000
+  px, humans before bots, or else the nearest building a player owns. He
+  runs (150 px/s, about 5.5 s of breath) when far off, walks (45 px/s)
+  close or winded, and keeps 260 px from a player he can hit. Every 5 s,
+  with his target within 650 px and nothing in the shoe's way (a
+  building: within 260 px of its wall), he stops and throws the
+  tutorial's shoe (`tutorial/shoe.lua`, a thrower of his own: `Shoe.new`
+  with his own message kinds) with the red "DODGE!!!!": it kills players
+  on foot, wrecks cars and kills enemies on its path, and takes 250 off
+  the wall it stops at. Badly hurt he goes for a medkit, kiting; out from
+  under a player's ability; a freeze holds him, a stink sends him
+  running. 1800 health for one human; down, he spills 60 koins. His
+  portrait (`tutorial/shoeman_face.lua`) sits beside his boss bar.
+  Messages: `ESM_STATE`, `ESM_THROW`, `ESM_SHOE` and `ESM_SHOE_END` down.
+  Tuning is at the top of `tutorial/event.lua`.
 - Bosses: `src/features/bosses` is the standard every boss follows and the
   code that keeps them alike; its header spells the standard out. A boss
   has breath like a player on foot (`bosses/stamina.lua`): running spends
@@ -2064,7 +2133,8 @@ the one with a plot.
   over it with room in their bag carries it off as the item.
 - Shop: `src/features/shop` is a building in the same block as the Jobs
   building (`quests/jobs.lua` picks both from the map; `shop:here()` gives
-  it while the default city is in play) and sells everything in one place.
+  it wherever `city:servicesHere()`, through `quests:jobsBuilding()`;
+  `quests:jobs()` is the same but the default city only, where the board is) and sells everything in one place.
   It is marked on the minimap with a green bag. Stand or stop on the square
   by its door and a prompt offers the shop on the action key (F; the shop
   answers `actionTaken` there and while it is open); it opens and closes
@@ -2187,6 +2257,9 @@ the one with a plot.
   collected for koins. A dead player comes back at their garage or, with
   none, the hospital. The hospital and impound lot are buildings the city
   already had, picked from the map the same way everywhere (`garage/places.lua`).
+  `garage:hospital()` gives the hospital on any map with the city's services
+  (drawn and on the minimap there too); `garage:places()` (hospital and
+  impound lot, what garages and wrecks use) only in the default city.
   Prices are at the top of `garage/init.lua`. Messages: `GAR_PARK`,
   `GAR_TAKE`, `GAR_TOW`, `GAR_REPAIR`, `GAR_COLLECT` up; `GAR_KEPT`,
   `GAR_FREE`, `GAR_OK`, `GAR_NO` down. `weapons:serverCarHealth(car)` /

@@ -327,6 +327,19 @@ function Kinds.repairCost(kind, hp)
   return math.max(1, math.ceil(kind.cost * Kinds.REPAIR * missing / kind.hp))
 end
 
+--- What putting up a `kind` costs here: its `cost`, unless a feature answers
+--- `buildCost` with less (the tutorial's town: nothing). Both sides ask.
+function Kinds.buildPrice(kind)
+  return Features.reduce("buildCost", kind.cost, "build", kind)
+end
+
+--- What mending a `kind` at `hp` costs here: `repairCost` through the same
+--- `buildCost` hook. 0 can mean free as well as intact: ask `repairCost`
+--- whether there is damage.
+function Kinds.repairPrice(kind, hp)
+  return Features.reduce("buildCost", Kinds.repairCost(kind, hp), "repair", kind)
+end
+
 --- A readable name for `n` of an item, without the count: "uzi ammo",
 --- "medkit", "medkits", "rare uzi". No count reads as many (a factory
 --- "sells rockets").

@@ -227,6 +227,7 @@ function Wilbur.wikiEnemies(add)
       "Keep him running and he's winded: no leaps, no rockets.",
     },
     drops = "40 koins, a pickup, his keycard, and a plasma rifle for every player (unlocking it)",
+    dropsItems = { Wilbur.GUN }, -- the plasma rifle's wiki page links back here (tools/wiki/items.lua)
   })
 end
 

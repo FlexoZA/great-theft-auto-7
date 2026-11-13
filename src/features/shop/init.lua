@@ -2,7 +2,7 @@
 -- cars, and delivery drivers and Handsy Men for hire. It stands in the same
 -- block as the Jobs building: quests/jobs.lua
 -- picks both from the map the same way on every machine, so there is nothing
--- to send (`Shop:here()`, the default city only). Stand on the square by its
+-- to send (`Shop:here()`, where the city's services are: CityMap:servicesHere). Stand on the square by its
 -- door and a prompt offers the shop on the action key (F, shared with getting
 -- in and out of cars through the `actionTaken` convention); press it and the
 -- shop screen comes up over the game (screen.lua), press it again to close
@@ -125,10 +125,10 @@ local function build(j)
   return shop
 end
 
---- The shop while the default city is in play, or nil.
+--- The shop on a map with the city's services (CityMap:servicesHere), or nil.
 function Shop:here()
   local quests = Features.byName.quests
-  local j = quests and quests.jobs and quests:jobs()
+  local j = quests and quests.jobsBuilding and quests:jobsBuilding()
   if not j then
     return nil
   end
@@ -701,6 +701,7 @@ function Shop:serverBuy(server, player, item, wear)
   if price > 0 and money and money.spend then
     money:spend(server, player.id, price, entry.tiered and Tiers.named(entry.name, tier) or entry.name)
   end
+  Features.call("serverBought", server, player, item, given)
   return true, given
 end
 
@@ -729,6 +730,7 @@ function Shop:serverSell(server, player, item, count)
   if paid > 0 then
     money:give(server, player.id, paid)
   end
+  Features.call("serverSold", server, player, item, count, paid)
   return true, count, paid
 end
 

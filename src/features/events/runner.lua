@@ -124,36 +124,8 @@ function Runner.serverStop()
   sv = nil
 end
 
---- A crossing away from everyone: about `spawnNear`..`spawnFar` px from the
---- nearest player, the nearest thing to it otherwise.
-local function spawnNode(g, server)
-  local people = {}
-  for _, p in pairs(server.players) do
-    if not p.bot and Features.present(p) then
-      local x, y = Features.bodyPose(server, p)
-      people[#people + 1] = { x = x, y = y }
-    end
-  end
-  local best, bestScore
-  for _, node in pairs(g.nodes) do
-    if #node.exits > 0 then
-      local near = Runner.spawnNear
-      for i, h in ipairs(people) do
-        local d = math.sqrt(dist2(node.x, node.y, h.x, h.y))
-        near = i == 1 and d or math.min(near, d)
-      end
-      local score = -math.max(0, Runner.spawnNear - near) * 2 - math.max(0, near - Runner.spawnFar) + random() * 200
-      if not bestScore or score > bestScore then
-        best, bestScore = node, score
-      end
-    end
-  end
-  return best
-end
-
 function Runner.serverBegin(server, events)
-  local g = Brain.graph()
-  local node = g and spawnNode(g, server)
+  local node = events:serverSpawnNode(server, Runner.spawnNear, Runner.spawnFar)
   if not node then
     return nil
   end

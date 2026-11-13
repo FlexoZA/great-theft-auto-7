@@ -15,9 +15,61 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
 ## [Unreleased]
 
 ### Added
+- Shoeman's school of survival, the first job on a new world's board: five short levels, each finished by walking
+  to its way on (a green WAY ON ring). Finishing it opens Crazy Karen and the rest of the board as before. For now
+  the levels are empty fields; Shoeman and his lessons come next. Worlds saved before it count it as finished, so
+  nothing you had open gets locked.
+- Shoeman himself: a big bald man in a navy t-shirt who stands on every tutorial level and turns to watch you. He
+  talks to you over the comms with his opening speech, a list of objectives in the top-left corner ticks off as
+  you go, and dying on a level brings you back at its CHECKPOINT flag.
+- Lesson one is a real road now: Shoeman's Road, four two-way streets of fast traffic between the school yard and
+  a lawn, with pavement to rest on between them. Each street is faster and busier than the one before, any touch
+  of a car kills whatever you wear, and Shoeman explains running and the stamina bar as you use it. The ammo crates
+  and medkits lie on the pavement, never in the traffic.
+- Lesson two is Shoeman's Park: he stands in the middle of the lawn and throws a shoe at the nearest player every
+  5 seconds, shouting "DODGE!!!!" as he winds up. A shoe kills anyone it touches and wrecks any car. Dodge one
+  while it is in the air and let it miss you five times, and the way on to the next lesson opens.
+- Lesson three is Shoeman's Scrap Yard: he puts down a pistol for each of you, and you learn to pick it up, put it
+  in a weapon slot, empty the magazine and reload. Then three waves of squirrels, 4, 6 and 8 of them, come out of
+  their burrows across the yard, biting until they are shot, with 6 seconds to catch your breath between waves;
+  once the third wave is down, the yard's gate is the way on.
+- Lessons four and five take place in Shoeman's Town, a small city centre of three by three blocks with four plots
+  for sale in the corners. Its hospital, shop and Handsy Men work as they do in the city: buy, sell back and hire
+  at the shop. If you die there, you come back at the hospital's door.
+- Lesson four is Open Borders: Shoeman puts the ability down for each of you, and you pick it up, put it in an
+  ability slot and cast it. He laughs every time you do, and the rioters you let in burn the town and punch you
+  too. Once 25 of them are gone, shot, run over or simply left when the horde's time is up, the way on to lesson
+  five opens on the top street.
+  Anyone who arrives without a pistol is handed one, and Shoeman has something to say every time you die.
+- Lesson five is building, the last: one section at a time, you take the town's plots (free here), build two Quarry
+  Mines for iron and sulfur, a Weapons Factory on pistols and an Ammo Factory, carry iron and sulfur over and load
+  them in, repair the building Shoeman puts a shoe through, hire a driver and a Handsy Man with the 120 Fcks he
+  hands you, and sell the shop a pistol and some ammo. Building and repairing cost nothing in Shoeman's Town, and
+  anything he didn't ask for comes straight back down. When the last sale is made, school is out: the star home
+  comes up by him and the rest of the board opens.
+- A new city event, Shoeman: once you have finished his school, the host can send him into the city from the F8
+  menu. He walks the streets throwing a shoe every 5 seconds at the nearest player he can see, or at your buildings
+  when nobody is near. A shoe kills you on foot and wrecks your car, and two or three bring a building down. Dodge
+  it while it is in the air or keep a wall between you; he has 1800 health and spills koins when he goes down.
+  His shoes fly faster in the city (900 px/s) than in his park lesson (750).
+- Shoeman's school has its own music, a different track on each of its four maps: a march on the road, a chase in
+  the park, a slow heavy riff in the scrap yard and a lazy groove in town. Past the edges of each map there is
+  something to see now: railway embankments and the school around the road, streets of terraced houses around
+  the park, an industrial estate around the scrap yard, and the sea around Shoeman's Town.
+- The wiki has a page for Shoeman as a city event, with his picture, and pages for the plasma rifle and the
+  Bragium Bolter, which say who drops them.
 - Cheat codes for testing performance in a full game: `concretejungle` fills the city with 15 more working buildings,
   out from the centre, `wreckingball` keeps damaging them, `hiringspree` hires one more delivery driver and Handsy Man
   for every player and bot, and `fpslog` writes the frame rate at each step to `perf-stress.csv`.
+
+### Changed
+- The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
+  hints (driving, sprint and dodge, the host's bot keys) are gone; every key is still listed on the controls
+  screen (F1).
+- New players start with nothing: four empty weapon slots, empty hands and no ability (was the pistol and
+  freeze); Shoeman's lessons will hand them over. Players already in a world keep what they have, and someone
+  new joining a world whose tutorial is done gets the pistol and Open Borders straight away. Someone with empty
+  hands walks with their arms at their sides instead of holding out a gun, on every player's screen.
 
 ## [0.44.1] - 2026-11-01
 

@@ -56,6 +56,7 @@
 --                  material; reward: a boss's `perPlayer` drop, drawn with rings rippling out and NEW over it)
 --   server -> all  PK_TAKE  <id> <playerId> [<item>]   (item: it went into their quick slot as one of these)
 --   server -> all  PK_CLEAR                       (the map changed: forget every item)
+--   server -> player PK_GONE <id>                  (a one-each drop that is not for you: forget it, quietly)
 --   server -> player PK_FULL <id>                  (you are on it, but your bag has no room for it)
 
 local Protocol = require("src.net.protocol")
@@ -659,6 +660,9 @@ Pickups.clientMessages = {
   PK_CLEAR = function()
     Pickups.items = {}
   end,
+  PK_GONE = function(_client, args)
+    Pickups.items[tonumber(args[1]) or -1] = nil
+  end,
   PK_FULL = function(_client, args)
     local it = Pickups.items[tonumber(args[1]) or -1]
     if it then
@@ -702,16 +706,17 @@ local sv = nil -- { items = { id -> { kind, x, y, amount, dropped, floor } }, ne
 --- `map.floors`) when given.
 local function roadSpot(floor)
   local city = Features.byName["city-map"]
+  local kinds = city and city.map and city.map.pickupKinds -- only these tiles, when the map says (Shoeman's Road)
   if floor and city and city.randomRoadPoint then
     for _ = 1, 40 do
-      local x, y = city:randomRoadPoint()
+      local x, y = city:randomRoadPoint(nil, nil, nil, kinds)
       if x and y >= floor.y0 and y < floor.y1 then
         return x, y
       end
     end
   end
   if city and city.randomRoadPoint then
-    local x, y = city:randomRoadPoint()
+    local x, y = city:randomRoadPoint(nil, nil, nil, kinds)
     if x then
       return x, y
     end
@@ -1046,6 +1051,19 @@ function Pickups:serverNearest(x, y, range, kinds)
     end
   end
   return bestId, best
+end
+
+--- A `perPlayer` drop `id` is not for `player` (the tutorial's pistol for
+--- one who carries a pistol already): gone from their screen only, quietly,
+--- and never theirs to take. False when there is no such drop.
+function Pickups:serverTakenBy(server, id, player)
+  local it = sv and sv.items[id]
+  if not (it and it.takenBy) or it.takenBy[player.id] then
+    return false
+  end
+  it.takenBy[player.id] = true
+  server:send(player, Protocol.encode("PK_GONE", id))
+  return true
 end
 
 --- Is pickup `id` still lying there?

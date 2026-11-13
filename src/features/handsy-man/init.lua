@@ -78,10 +78,10 @@ local function graph()
   return city and city.map and Traffic.graph(city.map)
 end
 
---- Is the city in play (not a quest map)? Buildings only stand there.
+--- Is there work here: the city, or a map with its services (the tutorial's town)?
 local function inCity()
   local city = Features.byName["city-map"]
-  return city == nil or city.current == city.DEFAULT
+  return city == nil or city:servicesHere()
 end
 
 --- The shop, while the city is in play; nil elsewhere or without it.

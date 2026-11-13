@@ -316,7 +316,7 @@ function Game:drawBodies(client)
   for id, b in pairs(client.bodies) do
     if not hidden(client, id) then
       local swing = math.sin(t * (b.running and 16 or 8) + (b.bob or 0)) * (b.running and 1.5 or 0.9)
-      Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing)
+      Body.draw(b.dx, b.dy, b.dangle, Car.colorFor(id), swing, Features.any("emptyHanded", client, id))
       drawName(client, id, b.dx, b.dy - 30)
     end
   end
@@ -406,10 +406,8 @@ function Game:draw()
   end)
   Features.call("drawHUD", client)
 
-  local me = client:myVehicle()
   -- Top left: the frame rate (when the Video settings show it), a size up
-  -- and green, amber or red by how smooth it is, then the speed beside it.
-  local speedX = 10
+  -- and green, amber or red by how smooth it is.
   if Video.get("showFps") then
     local fps = love.timer.getFPS()
     if fps >= 55 then
@@ -422,14 +420,9 @@ function Game:draw()
     local label = ("FPS %d"):format(fps)
     love.graphics.setFont(UI.fonts.body)
     love.graphics.print(label, 10, 6)
-    speedX = 10 + UI.fonts.body:getWidth(label) + 16
   end
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print(("speed %.0f"):format(me and me.speed or 0), speedX, 10)
-  local hb = require("src.controls").name(require("src.controls").bindings("handbrake")[1])
-  local help = "Arrows/WASD to drive, " .. hb .. ": handbrake, Esc to leave"
-  love.graphics.print(help, 10, 28)
 
   -- Ping, big, top middle over the kill feed: ENet's smoothed round trip to the server.
   if client:isConnected() and client.peer then

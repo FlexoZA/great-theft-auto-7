@@ -626,13 +626,9 @@ function OnFoot:drawHUD(client)
   love.graphics.setFont(UI.fonts.small)
   love.graphics.setColor(0.8, 0.8, 0.85)
   if me then
-    local sprintKey = Controls.name(Controls.bindings("sprint")[1])
-    local dodgeKey = Controls.name(Controls.bindings("dodge")[1])
-    local hint = sprintKey .. ": sprint   " .. dodgeKey .. ": dodge"
     if self:vehicleInReach(client, me) then
-      hint = key .. ": get in   " .. hint
+      love.graphics.print(key .. ": get in", 10, 136)
     end
-    love.graphics.print(hint, 10, 136)
   else
     local car = client:myVehicle()
     if car and math.abs(car.speed) <= self.exitMaxSpeed then

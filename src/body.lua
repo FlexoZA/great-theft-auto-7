@@ -183,9 +183,10 @@ function Body.person(x, y, angle, swing, look)
 end
 
 --- A player on foot at (x, y) looking along `angle`, in `color` (its fourth
---- value, if any, how solid), gun in hand; `swing` is the stride.
-function Body.draw(x, y, angle, color, swing)
-  Body.person(x, y, angle, swing, { shirt = color, gun = true, alpha = color[4] })
+--- value, if any, how solid), gun in hand unless `emptyHanded`; `swing` is
+--- the stride.
+function Body.draw(x, y, angle, color, swing, emptyHanded)
+  Body.person(x, y, angle, swing, { shirt = color, gun = not emptyHanded, alpha = color[4] })
 end
 
 return Body

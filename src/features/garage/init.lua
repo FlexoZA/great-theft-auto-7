@@ -126,6 +126,17 @@ function Garage:places()
   return Places.of(city.map)
 end
 
+--- The hospital (places.lua) on any map with the city's services
+--- (CityMap:servicesHere), or nil. Garages and the impound lot stay the
+--- default city's (`places`).
+function Garage:hospital()
+  local city = cityMap()
+  if not (city and city.map and city:servicesHere()) then
+    return nil
+  end
+  return Places.of(city.map).hospital
+end
+
 --- Player `id`'s garages: { id = plot id, building, plot, x, y, ruined }.
 local function garagesOf(id)
   local b = buildings()
@@ -474,8 +485,7 @@ end
 --- The hospital on the minimap and the big map: a red cross on white, so
 --- it can be found, as the shop has its bag and the Jobs building its star.
 function Garage:drawOnMinimap(_client, toMap)
-  local places = self:places()
-  local h = places and places.hospital
+  local h = self:hospital()
   if not h then
     return
   end
@@ -493,14 +503,12 @@ function Garage:drawOnMinimap(_client, toMap)
 end
 
 function Garage:drawBelowCars()
+  local h = self:hospital()
+  if h then
+    Places.drawHospital(h, time)
+  end
   local places = self:places()
-  if not places then
-    return
-  end
-  if places.hospital then
-    Places.drawHospital(places.hospital, time)
-  end
-  if places.impound then
+  if places and places.impound then
     Places.drawImpound(places.impound, self.atGate, time)
   end
 end

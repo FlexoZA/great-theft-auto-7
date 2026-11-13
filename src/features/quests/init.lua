@@ -5,7 +5,9 @@
 -- (city-map's `switchTo`). There is one world, so a quest is a group
 -- outing: whoever takes the job takes the whole server with them.
 --
--- Eight jobs so far: one sends everyone to Crazy Karen's cul-de-sac (the
+-- The first job on the board is Shoeman's school of survival, the tutorial
+-- (the tutorial feature, five maps by EXIT stars). Eight more after it:
+-- one sends everyone to Crazy Karen's cul-de-sac (the
 -- karen feature runs the fight), one into the forest after a wild man
 -- hunting aliens (alien-hunt), one onto a defended beach to take Major
 -- Looz'er's hill (d-day), one across a meadow under a sniper's cliff
@@ -92,6 +94,82 @@ local Quests = {
 -- has no `board` and no `onMap`. `introLine` is for the boss feature (A-Man
 -- says that line of his on his intro screen).
 Quests.list = {
+  {
+    -- Shoeman's school of survival (docs/tutorial.md): five levels, first on
+    -- the board so a new world starts here. The tutorial feature runs them.
+    id = "tutorial-1",
+    title = "Shoeman's school of survival",
+    text = "A big bald man in a navy t-shirt says the world has gone soft and he will teach you to survive it. "
+      .. "He is holding a shoe. Lesson one: cross the road.",
+    board = true,
+    map = "tutorial-road",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s signed up for Shoeman's school. Lesson one: cross the road.",
+    exitText = "You made it across. Shoeman is waiting in the park with a shoe.",
+    exitTitle = "Lesson two",
+    exitLabel = "DODGE",
+    next = "tutorial-2",
+  },
+  {
+    -- Level 2: the EXIT star at the top of the road leads here.
+    id = "tutorial-2",
+    title = "Dodge",
+    text = "A park, and Shoeman in the middle of it with a shoe. Dodge it.",
+    map = "tutorial-park",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s walked into the park. Lesson two: dodge.",
+    exitText = "Still standing. Next: something that shoots back. The scrap yard.",
+    exitTitle = "Lesson three",
+    exitLabel = "SCRAP YARD",
+    next = "tutorial-3",
+  },
+  {
+    -- Level 3: the park's way on leads here.
+    id = "tutorial-3",
+    title = "The scrap yard",
+    text = "Car wrecks, a gate at the far end and Shoeman with a pistol he means to hand over. Learn to shoot it.",
+    map = "tutorial-yard",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s climbed into the scrap yard. Lesson three: shooting.",
+    exitText = "The yard's gate is open. Shoeman has something for you in town.",
+    exitTitle = "Lesson four",
+    exitLabel = "OPEN BORDERS",
+    next = "tutorial-4",
+  },
+  {
+    -- Level 4: the yard's gate leads here, a small copy of the city centre.
+    id = "tutorial-4",
+    title = "Open borders",
+    text = "A small town centre with a hospital. Shoeman has an ability for you and a lot to say about it.",
+    map = "tutorial-city",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s came into town. Lesson four: abilities.",
+    exitText = "The streets are clear. Last lesson: build something that makes money.",
+    exitTitle = "Lesson five",
+    exitLabel = "BUILD",
+    next = "tutorial-5",
+  },
+  {
+    -- Level 5, the last: the same town, its plots handed over free. Its
+    -- star goes home and opens the rest of the board.
+    id = "tutorial-5",
+    title = "Build",
+    text = "The same town, its empty plots yours for free. Build, trade and sell, and Shoeman lets you go.",
+    map = "tutorial-city",
+    boss = "tutorial",
+    label = "SHOEMAN",
+    color = { 0.35, 0.5, 0.95 },
+    banner = "%s took over the empty plots. Lesson five: building.",
+    exitText = "School's out. Shoeman says you might survive after all. Head home: the job board is yours.",
+  },
   {
     id = "karen",
     title = "Crazy Karen is at it again, let's end this",
@@ -829,6 +907,60 @@ Quests.list = {
     color = { 0.45, 0.75, 1 },
     banner = "%s called it a day. Welcome back to The City.",
   },
+  -- The tutorial's stars home, one per map (levels 4 and 5 share the town):
+  -- just south of where everyone arrives (city-map's map.cx, map.cy).
+  {
+    id = "home-tutorial-road",
+    title = "Back to the City",
+    text = "Skip school for today. Take everyone back into town.",
+    onMap = "tutorial-road",
+    x = 0,
+    y = 1008, -- the road's map.homeX, homeY: the school yard, under the start
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s skipped school. Welcome back to The City.",
+  },
+  {
+    id = "home-tutorial-park",
+    title = "Back to the City",
+    text = "Skip school for today. Take everyone back into town.",
+    onMap = "tutorial-park",
+    x = 0,
+    y = 1008, -- the park's map.homeX, homeY: under the start
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s skipped school. Welcome back to The City.",
+  },
+  {
+    id = "home-tutorial-yard",
+    title = "Back to the City",
+    text = "Skip school for today. Take everyone back into town.",
+    onMap = "tutorial-yard",
+    x = -896,
+    y = 1136, -- the scrap yard's map.homeX, homeY: on the pad, under the start
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s skipped school. Welcome back to The City.",
+  },
+  {
+    id = "home-tutorial-city",
+    title = "Back to the City",
+    text = "Skip school for today. Take everyone back into town.",
+    onMap = "tutorial-city",
+    x = 0,
+    y = 544, -- on the path into the park, south of the start (0, 320)
+    map = "city",
+    returns = true,
+    label = "HOME",
+    color = { 0.45, 0.75, 1 },
+    banner = "%s skipped school. Welcome back to The City.",
+  },
   {
     -- For trying things out (the test-range feature): reached from the launch options, never in play.
     id = "test-range",
@@ -966,13 +1098,24 @@ local function dist2(ax, ay, bx, by)
   return (ax - bx) ^ 2 + (ay - by) ^ 2
 end
 
---- The Jobs building (jobs.lua) while the default city is in play.
-function Quests:jobs()
+--- The Jobs building (jobs.lua), with the shop and gym beside it, on a map
+--- with the city's services (`CityMap:servicesHere`), or nil.
+function Quests:jobsBuilding()
   local city = cityMap()
-  if not (city and city.map and city.current == city.DEFAULT) then
+  if not (city and city.map and city:servicesHere()) then
     return nil
   end
   return Jobs.of(city.map)
+end
+
+--- The Jobs building while the default city is in play: the board is only
+--- open there (a quest map's own town has the building but no board).
+function Quests:jobs()
+  local city = cityMap()
+  if not (city and city.current == city.DEFAULT) then
+    return nil
+  end
+  return self:jobsBuilding()
 end
 
 --- The quest whose star on map `current` is nearest to (x, y), or the
@@ -1570,7 +1713,10 @@ local sv = nil -- { active = quest id or nil, by = player id, done = quest id or
 --                  finished = { [board job id] = true }, clears = { [board job id] = times finished },
 --                  fallen = { { x, y }... } where bosses went down on the map in play }
 
-Quests.SAVE_VERSION = 1
+-- 2: the tutorial came in. A world saved before it (version 1, or no slice
+-- at all though the world was written) counts the tutorial as finished.
+Quests.SAVE_VERSION = 2
+Quests.TUTORIAL = "tutorial-1" -- the board job a new world starts on (the tutorial feature)
 
 --- QST_FINISHED with every board job finished and its clears, in board order.
 local function finishedMessage()
@@ -1585,9 +1731,26 @@ local function finishedMessage()
 end
 
 -- City-map (lower priority) has put the default map back by now.
-function Quests:serverStart()
+--- Was the world being opened saved before the tutorial came in? It was
+--- written (`format`), but its quests slice is missing or older than 2.
+local function savedBeforeTutorial(server)
+  local saved = server and server.saved
+  if not (saved and saved.format) then
+    return false -- a new world, or a session that is not saved
+  end
+  local slice = type(saved.features) == "table" and saved.features.quests
+  return type(slice) ~= "table" or slice.version == 1
+end
+
+function Quests:serverStart(server)
   sv = { active = nil, by = nil, done = nil, finished = {}, clears = {}, fallen = {} } -- a new game: the first job
   Stats.stop()
+  if savedBeforeTutorial(server) then
+    -- Players already past it are not sent back to school: every job
+    -- they had open stays open, and the tutorial can be replayed.
+    sv.finished[self.TUTORIAL], sv.clears[self.TUTORIAL] = true, 1
+    server:broadcast(finishedMessage())
+  end
 end
 
 --- Something died: a boss's spot is kept (the EXIT star stays clear of it),
@@ -1663,6 +1826,20 @@ function Quests:serverExitSpot(x, y)
     return bx, by
   end
   return x, y
+end
+
+--- The human player standing within `reach` of (x, y), if any: who has
+--- walked up to a level's way on (borderline, tutorial).
+function Quests:serverArrivedAt(server, x, y, reach)
+  for _, p in pairs(server.players) do
+    if not p.bot and Features.present(p) then
+      local px, py = Features.bodyPose(server, p)
+      if dist2(px, py, x, y) <= reach * reach then
+        return p
+      end
+    end
+  end
+  return nil
 end
 
 --- The job under way is finished (the karen feature says so when she goes
@@ -1745,9 +1922,11 @@ function Quests:serverClears(id)
   return sv and sv.clears[id] or 0
 end
 
---- The world remembers which jobs are finished, and how many times.
+--- The world remembers which jobs are finished, and how many times. Written
+--- even with none finished, so the next load knows the world is not from
+--- before the tutorial.
 function Quests:serverSaveWorld()
-  if not (sv and next(sv.finished)) then
+  if not sv then
     return nil
   end
   local clears = {}
@@ -1758,7 +1937,8 @@ function Quests:serverSaveWorld()
 end
 
 function Quests:serverLoadWorld(server, data)
-  if not sv or type(data) ~= "table" or data.version ~= self.SAVE_VERSION or type(data.clears) ~= "table" then
+  local known = type(data) == "table" and (data.version == 1 or data.version == self.SAVE_VERSION)
+  if not sv or not known or type(data.clears) ~= "table" then
     return
   end
   for id, n in pairs(data.clears) do

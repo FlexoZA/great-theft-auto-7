@@ -34,8 +34,8 @@
 -- 3; slot 1 casts whatever is in slot 1) and a fourth, `passiveSlot`, with
 -- no key, for a passive ability (`passive = true` in its module) that
 -- works by being there. Only a passive ability fits that slot and a
--- passive one fits nowhere else. Everyone starts with freeze (freeze.lua)
--- in slot 1; kinds.lua lists every ability. An ability is
+-- passive one fits nowhere else. A new player starts with every slot empty
+-- (`startKeys`); kinds.lua lists every ability. An ability is
 -- also an item ("ability-<key>" in the inventory): on the inventory screen
 -- you drag one from your bag onto a slot to carry it (ABL_EQUIP takes the
 -- item; one already there swaps into the bag), drag it from its slot into
@@ -43,7 +43,7 @@
 -- another slot to change its key (ABL_MOVE). The host keeps the slots and
 -- tells you them (ABL_SLOTS), and casts only what is in one. Cooldowns
 -- follow the ability, not the slot, so moving one doesn't reset it.
--- The shop sells ability items; what you start with is freeze. A saved
+-- The shop sells ability items; you start with none. A saved
 -- world keeps what is in each slot (serverSavePlayer), not the cooldowns.
 --
 -- A passive ability (regen.lua) has no cast: every host tick this feature
@@ -124,7 +124,10 @@ Abilities.kinds = Kinds
 Abilities.slotCount = 4 -- ability slots: the keyed ones and the passive one
 Abilities.passiveSlot = 4 -- the slot with no key, for an ability that works by being carried
 Abilities.defaultKeys = { "1", "2", "3" } -- slot i is cast with action "ability-<i>"
-Abilities.startKeys = { "freeze" } -- what everyone starts with, slot by slot
+-- What a new player starts with, slot by slot: nothing. Shoeman hands out
+-- the first ability in the tutorial (docs/tutorial.md); a saved player keeps
+-- what they had.
+Abilities.startKeys = {}
 -- The ability circles along the bottom centre of the screen, one per slot,
 -- `hudStep` apart, empty ones dim.
 Abilities.hudStep = 64

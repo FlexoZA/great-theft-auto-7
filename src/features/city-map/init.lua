@@ -220,6 +220,36 @@ CityMap.maps = {
     title = "The Bunker", kind = "bunker", seed = 308, cols = 40, rows = 40,
     crowd = false, traffic = false, vehicles = false, night = { 0.55, 0.58, 0.76 },
   },
+  -- Shoeman's school of survival (the tutorial feature, docs/tutorial.md):
+  -- the road (level 1), the park (2), the scrap yard (3) and the town
+  -- centre (4 and 5). All walked, nobody about. The road, the park and the
+  -- scrap yard are built (tutorial_maps.lua): four two-way streets between
+  -- a school yard and a lawn, the tutorial's own traffic on them; a hedged
+  -- park with Shoeman in the middle of an open lawn; a fenced yard of
+  -- wrecks to shoot from behind. The town is a small copy of the city
+  -- centre, a grid of three by three blocks (`blocks`, layout.lua): the
+  -- four corners are the plots level 5 builds on, the middle row and the
+  -- top middle are buildings (the seed puts the hospital in the middle
+  -- one, the Jobs building and the shop above it), a park at the bottom.
+  -- Everyone arrives on the road under the hospital (map.cx, cy: 0, 320).
+  -- `services`: the town's shop, hospital and Handsy Men work as the
+  -- city's do (`CityMap:servicesHere`).
+  ["tutorial-road"] = {
+    title = "Shoeman's Road", kind = "tutorial-road", seed = 401, cols = 24, rows = 44,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-park"] = {
+    title = "Shoeman's Park", kind = "tutorial-park", seed = 402, cols = 44, rows = 44,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-yard"] = {
+    title = "Shoeman's Scrap Yard", kind = "tutorial-yard", seed = 403, cols = 40, rows = 40,
+    crowd = false, traffic = false, vehicles = false,
+  },
+  ["tutorial-city"] = {
+    title = "Shoeman's Town", seed = 8, cols = 32, rows = 32, blocks = { "pbp", "bbb", "pgp" },
+    crowd = false, traffic = false, vehicles = false, services = true,
+  },
   -- The test range (the test-range feature): an open walled field to try
   -- enemies out on, walked, nobody about but what stands on it.
   testrange = {
@@ -260,6 +290,16 @@ function CityMap:reset()
     self.map = generate(self.DEFAULT)
     self.current = self.DEFAULT
   end
+end
+
+--- Do the city's services work on the map in play: the shop (and its
+--- sales and hires), the hospital, Handsy Men? Always in the default city;
+--- on another map only when its spec says `services = true`. What the city
+--- keeps (garages, the impound lot, the Jobs board, saved buildings) stays
+--- the default city's alone: ask `current == DEFAULT` for those.
+function CityMap:servicesHere()
+  local spec = self.maps[self.current]
+  return self.current == self.DEFAULT or (spec ~= nil and spec.services == true)
 end
 
 --- Saved worlds hold off writing the world while we are off the city
@@ -472,10 +512,14 @@ function CityMap:drawPastEdges(left, top, right, bottom)
   end
 end
 
---- The map's fires (City 17's), flames and smoke over everything on the ground.
+--- The map's fires (City 17's), flames and smoke over everything on the
+--- ground; whatever else it draws over the cars (Shoeman's Road's tunnel roofs).
 function CityMap:drawAboveCars(_client, camera)
   if self.map and self.map.fires then
     Fires.draw(self.map, camera, love.timer.getTime())
+  end
+  if self.map then
+    Render.drawAbove(self.map)
   end
 end
 
@@ -568,14 +612,22 @@ end
 --- can get to, optionally within `maxDist` of (nearX, nearY). A map with
 --- little road (City 17) needs a good few tries; one with none at all names
 --- the tiles that count instead (`map.openKinds`: the Citadel's catwalks).
+--- `kinds`, when given, are the only tiles that count (pickups pass
+--- `map.pickupKinds`: Shoeman's Road keeps them off its traffic).
 --- Other features reach this via Features.byName["city-map"].
-function CityMap:randomRoadPoint(nearX, nearY, maxDist)
+function CityMap:randomRoadPoint(nearX, nearY, maxDist, kinds)
   local map = self.map
   for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
-    if kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind]) then
+    local counts
+    if kinds then
+      counts = kind and kinds[kind]
+    else
+      counts = kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind])
+    end
+    if counts then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
       local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
       if near and not outOfReach(map, x, y) then

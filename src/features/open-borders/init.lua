@@ -59,11 +59,12 @@ end
 --- One simp down: his body on every screen (gibs under a car or in a
 --- blast; the corpses feature), and the other features price it (money
 --- drops a koin, the same as a pedestrian). `kill.cause` is the damage
---- type, a car's "impact" when not given.
+--- type, a car's "impact" when not given. The kill says `simp = true`, so
+--- a feature can tell the horde from the crowd (the tutorial counts them).
 local function simpDown(server, kill)
   server:broadcast(Protocol.encode("OB_SIMP_DOWN", kill.id, fmt(kill.x), fmt(kill.y), ("%.3f"):format(kill.angle),
     kill.by or 0, kill.cause or "impact"))
-  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by })
+  Features.call("serverKill", server, { kind = "pedestrian", x = kill.x, y = kill.y, by = kill.by, simp = true })
 end
 
 --- A bullet passing through (x, y): the `serverShotAt` convention. A simp
@@ -153,13 +154,21 @@ function OpenBorders:serverPanicArea(_server, x, y, radius)
   end
 end
 
---- A new map: the horde and its fires stay behind on the old one.
-function OpenBorders:mapChanged(_map, server)
-  if server and sv then
+--- Public, host: every simp and fire gone at once, on every screen (a new
+--- map, or the tutorial's level 5 starting on level 4's town).
+function OpenBorders:serverClear(server)
+  if sv then
     sv.horde:clear()
     sv.simpsOut = 0
     server:broadcast(Protocol.encode("OB_CLEAR"))
-  elseif not server then
+  end
+end
+
+--- A new map: the horde and its fires stay behind on the old one.
+function OpenBorders:mapChanged(_map, server)
+  if server then
+    self:serverClear(server)
+  else
     self.simps, self.fires = {}, {}
   end
 end
@@ -181,9 +190,13 @@ function OpenBorders:serverStep(server, dt)
     return
   end
   local horde = sv.horde
-  local kills, lit = horde:step(server, dt, self)
+  local kills, lit, gone = horde:step(server, dt, self)
   for _, kill in ipairs(kills) do
     simpDown(server, kill)
+  end
+  -- Not a kill (no koin, no body): they just leave. The tutorial counts them.
+  for _, simp in ipairs(gone) do
+    Features.call("serverSimpGone", server, simp)
   end
   for _, f in ipairs(lit) do
     server:broadcast(Protocol.encode("OB_FIRE", f.id, fmt(f.x), fmt(f.y), ("%.2f"):format(Horde.FIRE_SECONDS)))
