@@ -14,6 +14,14 @@
 --                again to stop)
 --   ulla         a legendary heat ray (the tripod's drop), put straight into
 --                an empty ability slot if there is one, else into the bag
+--   concretejungle  the next 15 buildings of the stress test, out from the
+--                   city centre (src/features/stress-test)
+--   hiringspree  one more delivery driver and Handsy Man for every player and
+--                bot, past the shop's limits, and Fcks to pay them (the stress test)
+--   wreckingball buildings keep taking damage, for the Handsy Men (type it
+--                again to stop; the stress test)
+--   fpslog       start or stop logging FPS against buildings and drivers to
+--                perf-stress.csv (type it again to stop)
 --
 -- F2 lists every code and what it does (HELP, in the same order as above);
 -- while it is up, the number keys run the code on that row (1 is the first),
@@ -79,6 +87,31 @@ local CODES = {
     end
     return "heat ray in your bag"
   end,
+  concretejungle = function(server)
+    local stress = Features.byName["stress-test"]
+    if stress then
+      local placed, why = stress:serverAdd(server, stress.BATCH)
+      return placed .. " buildings up" .. (why and ": " .. why or "")
+    end
+  end,
+  hiringspree = function(server)
+    local stress = Features.byName["stress-test"]
+    if stress then
+      return stress:serverHire(server, stress.HIRES)
+    end
+  end,
+  wreckingball = function()
+    local stress = Features.byName["stress-test"]
+    if stress then
+      return stress:serverToggleWrecking() and "wrecking ball on" or "wrecking ball off"
+    end
+  end,
+  fpslog = function(server, player)
+    local stress = Features.byName["stress-test"]
+    if stress then
+      return stress:serverToggleLog(server, player) and "fps log on" or "fps log off"
+    end
+  end,
   reachforthestars = function(server, player)
     local abilities = Features.byName.abilities
     if abilities and abilities.serverSetReach then
@@ -95,6 +128,10 @@ local HELP = {
   { code = "reachforthestars", text = "Leap lands wherever the cursor is and is ready again at once (again to stop)" },
   { code = "itisminenow", text = "The shop is the dev shop: everything free (again to stop)" },
   { code = "ulla", text = "A legendary heat ray, on an empty ability key if there is one" },
+  { code = "concretejungle", text = "Stress test: 15 more buildings, out from the city centre" },
+  { code = "hiringspree", text = "Stress test: one more driver and Handsy Man for every player and bot" },
+  { code = "wreckingball", text = "Stress test: buildings keep taking damage (again to stop)" },
+  { code = "fpslog", text = "Log FPS against buildings and drivers to perf-stress.csv (again to stop)" },
 }
 
 -- Client --------------------------------------------------------------------

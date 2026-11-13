@@ -57,6 +57,9 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   the park, an industrial estate around the scrap yard, and the sea around Shoeman's Town.
 - The wiki has a page for Shoeman as a city event, with his picture, and pages for the plasma rifle and the
   Bragium Bolter, which say who drops them.
+- Cheat codes for testing performance in a full game: `concretejungle` fills the city with 15 more working buildings,
+  out from the centre, `wreckingball` keeps damaging them, `hiringspree` hires one more delivery driver and Handsy Man
+  for every player and bot, and `fpslog` writes the frame rate at each step to `perf-stress.csv`.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key

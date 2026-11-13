@@ -922,6 +922,11 @@ the one with a plot.
   `map.blocks`; real-estate sells them and answers `real-estate:owner(plotId)`
   on the host. `real-estate:serverTransfer(server, plotId, playerId)` hands a
   plot to someone else (buildings' hostile takeover, after they have paid).
+  `real-estate:serverGrow(server, bi, bj, playerId)` grows the city by that
+  block and gives its plot to the player, and
+  `buildings:serverPlace(server, plotId, kind, ownerId)` puts a building up;
+  neither checks money or where anyone stands (the stress test);
+  `buildings:serverBatter(server, plotId, hits)` damages one.
   On the minimap and the big map every owned plot is outlined in its owner's
   colour (yours in white) and the building on it is filled in that colour
   (`Car.colorFor(owner)`, as their dot), darker for a ruin.
@@ -2220,7 +2225,9 @@ the one with a plot.
   The load shows under each truck, and the employer sees what each driver
   is doing and their trucks on the minimap. Messages: `DLV_UNIT`,
   `DLV_GONE`, `DLV_YARD`, `DLV_LOST`, `DLV_SOLD`, `DLV_NO` down. Tuning is at the top of
-  `hire.lua` and `init.lua`.
+  `hire.lua` and `init.lua`. `delivery:serverHire(server, owner)` hires one
+  for free past the limit, somewhere in the traffic (the stress test);
+  `handsy-man:serverHire(server, owner)` does the same for a Handsy Man.
 - A growing city: `city:grow(bi, bj)` adds a block past the city limits and
   `city:growthSites()` lists where one may go. The map can stop being a
   rectangle, so read its bounds from `map.c0 c1 r0 r1` (tiles) or
@@ -2304,6 +2311,50 @@ Hyperbole's behaves here as on its own map, without Borderline's story. So far
 that is one hauler dock: the plasma turret, and the junk haulers it builds. A
 new post is one line; an enemy from another feature needs that feature's own
 way of being put down. The blue star south of the arrival goes home.
+
+## The stress test
+
+How the frame rate holds up in a full game: about ten players (the human
+and the civilian bots the game starts with) on a city filled with
+buildings, factories making weapons and ammo, drivers feeding them,
+buildings taking damage and Handsy Men mending them. Four cheat codes (F2
+lists them, so the number keys work too) from `src/features/stress-test`:
+
+- `concretejungle` puts up the next 15 buildings (`BATCH`) for random
+  players, free, as a supply chain in the order of `MIX`: quarries and oil
+  wells between ammo and weapons factories, now and then anything else.
+  Every product is picked at random; sources start full of what they make
+  and factories with full hoppers, so production starts at once. They fill
+  the city in diamond rings out from its centre, taking the closest empty
+  plot first and growing the city a block at a time once its own plots are
+  taken. The default city is full at 94: its 4 plots and the 90 blocks it
+  may grow into.
+- `wreckingball` starts or stops the damage: every second a random building
+  loses 10-40% of the hit points it has left (never down to a ruin).
+- `hiringspree` hires one more delivery driver and one more Handsy Man
+  (`HIRES`) for every player, free and past the shop's limits, and tops each
+  wallet up to 100000 Fcks to pay for repairs. A source is collected by one
+  driver at a time, so past about one driver per quarry or well the rest
+  cruise. A Handsy Man with nothing of his owner's to mend goes home and is
+  gone, so turn the wrecking ball on first.
+- `fpslog` starts or stops the log on your machine. Each time the number of
+  buildings, drivers or Handsy Men changes it waits 3 seconds, measures 5,
+  and appends a row (`buildings,drivers,handymen,fps,avg_ms,worst_ms`) to
+  `perf-stress.csv` in the save directory
+  (`~/.local/share/love/great-theft-auto-7/` on Linux). Turning it on
+  measures the city as it stands first; every session starts with a `#` line
+  giving the date, window size and vsync. On the host the frame includes the
+  server's tick, so log there.
+
+A full game as the shop allows it: `fpslog`, `concretejungle` seven times,
+`wreckingball`, then `hiringspree` three times (three drivers each). Go on
+hiring past that to find where it starts to cost. "Players" are people and
+civilian bots (B adds one), not police, drivers or other NPCs with a brain
+of their own. Turn vsync off in Settings > Video first, or the FPS stops at
+the screen's rate (the panel warns), and stand in the same place for every
+batch. What the test puts up is real, so a saved world keeps the buildings
+(and a human's player file their hires, up to the shop's limits): use a
+world you can throw away.
 
 ## When the hooks aren't enough
 

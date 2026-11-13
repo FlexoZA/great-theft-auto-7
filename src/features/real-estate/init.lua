@@ -521,10 +521,7 @@ RealEstate.serverMessages = {
     elseif money and not money:spend(server, player.id, RealEstate.growPrice, "city block") then
       reason = "broke"
     else
-      local plot = grow(bi, bj)
-      sv.owners[plot.id] = player.id
-      server:broadcast(Protocol.encode("RE_EXPAND", bi, bj))
-      server:broadcast(Protocol.encode("RE_OWNER", plot.id, player.id))
+      RealEstate:serverGrow(server, bi, bj, player.id)
       return
     end
     server:send(player, Protocol.encode("RE_NO", reason))
@@ -621,6 +618,21 @@ function RealEstate:serverTransfer(server, id, playerId)
   sv.owners[id] = playerId
   server:broadcast(Protocol.encode("RE_OWNER", id, playerId))
   return true
+end
+
+--- Grow the city by block (bi, bj) on the host, give its new plot to
+--- `playerId` and tell everyone. Returns the plot, or nil if the city can't
+--- grow there. No money or standing checks: RE_GROW makes them first; the
+--- building stress test (a cheat) grows the city for free.
+function RealEstate:serverGrow(server, bi, bj, playerId)
+  if not (sv and findSite(bi, bj)) then
+    return nil
+  end
+  local plot = grow(bi, bj)
+  sv.owners[plot.id] = playerId
+  server:broadcast(Protocol.encode("RE_EXPAND", bi, bj))
+  server:broadcast(Protocol.encode("RE_OWNER", plot.id, playerId))
+  return plot
 end
 
 --- For tests.

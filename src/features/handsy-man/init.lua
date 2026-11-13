@@ -649,6 +649,29 @@ function Handsy:serverDeliver(server, player, item, x, y, angle)
   return hire(server, player, x, y, angle or 0) ~= nil
 end
 
+--- Put a Handsy Man for `player` somewhere in the city's traffic (by them
+--- when there are no lanes).
+local function hireInTraffic(server, player)
+  local g = graph()
+  local x, y, angle
+  if g then
+    x, y, angle = Traffic.randomLanePoint(g, server.vehicles, 150)
+  end
+  if not x then
+    x, y, angle = Features.bodyPose(server, player)
+    y = (y or 0) + 120
+  end
+  return hire(server, player, x or 0, y, angle or 0)
+end
+
+--- Hire a Handsy Man for `owner` on the host, free, past `Hire.maxPerPlayer`
+--- and whether or not there is work yet, somewhere in the traffic: the
+--- stress test (a cheat). With nothing to mend he heads home and is gone.
+--- Returns him, or nil.
+function Handsy:serverHire(server, owner)
+  return sv and hireInTraffic(server, owner) or nil
+end
+
 --- A wrecked pickup: he is gone, next step.
 function Handsy:serverKill(_server, kill)
   local m = sv and kill.kind == "car" and kill.victim and sv.men[kill.victim]
@@ -728,16 +751,7 @@ function Handsy:serverLoadPlayer(server, player, data)
   end
   local n = math.min(math.floor(tonumber(data.men) or 0), Hire.maxPerPlayer)
   for _ = 1, n - #menOf(player.id) do
-    local g = graph()
-    local x, y, angle
-    if g then
-      x, y, angle = Traffic.randomLanePoint(g, server.vehicles, 150)
-    end
-    if not x then
-      x, y, angle = Features.bodyPose(server, player)
-      y = (y or 0) + 120
-    end
-    hire(server, player, x or 0, y, angle or 0)
+    hireInTraffic(server, player)
   end
 end
 
