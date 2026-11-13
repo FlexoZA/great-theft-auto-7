@@ -19,7 +19,9 @@ Every stage under "Stages" is one branch and one pull request into
 1. Read "Status" and "Handoff notes" below, then the first stage with an
    open box. Check out that stage's branch (create it from `main` if it
    does not exist yet; later stages branch from the stage before while
-   that one is not merged).
+   that one is not merged). Every stage so far is done and lives on
+   `feature/tutorial-mission`: new tutorial work goes there, or on a
+   branch from it.
 2. Do the first open box of that stage, and only that box. Read only the
    code that box needs; the "Systems" tables say where to look.
 3. Verify it: `luacheck .`, and run or test what was built. When the box
@@ -47,87 +49,40 @@ to send after `/clear`, naming the file, the branch and the box, e.g.:
 If a box turns out too big for one session, split it into smaller boxes
 here first, then do the first of them.
 
-Status: stage 0 done on `feature/tutorial-shoeman-plan` (not merged yet).
-Stage 1 done on `feature/tutorial-skeleton`, branched from stage 0 (not
-pushed or merged yet): five placeholder levels, each finished by walking
-to its way on, first on a new world's board, Karen opening after it, old
-worlds counting it as finished. Stage 2 done on
-`feature/tutorial-shoeman`, branched from `feature/tutorial-skeleton` (not
-pushed or merged yet): the portrait, his body standing on every level,
-the comms with the opening speech, the objectives tick list and the
-checkpoints. Stage 3 done on `feature/tutorial-start-gear`, branched from
-`feature/tutorial-shoeman` (not pushed or merged yet): new players start
-with no gun and no ability; existing saved players keep their pistol and
-freeze; a newcomer to a world past the tutorial is handed the pistol and
-openborders; nothing fires or crashes with empty slots; a body with empty
-hands is drawn without a gun on every screen. `make audit` 8.6, pass.
-Stage 4 done on `feature/tutorial-road`, branched from
-`feature/tutorial-start-gear` (not pushed or merged yet): Shoeman's Road
-(four two-way streets, tunnel mouths, safe strips, the school yard and
-the lawn), its traffic with a speed and gap per lane and no health bars,
-any touch of a car kills and brings you back at the checkpoint, the
-movement and stamina lesson said as it happens, "Reach the other side"
-ticking at the way on, the EXIT star on to the park. `make audit` 8.6,
-pass; `CHANGELOG.md` line added. Stage 5 done on
-`feature/tutorial-dodge`, branched from `feature/tutorial-road` (not
-pushed or merged yet): Shoeman's Park, a shoe every 5 s at the nearest
-player with the "DODGE!!!!" shout, everything it touches destroyed,
-dodges in the air counted to 5 with the countdown, then he stops
-throwing and the way on opens. `make audit` 8.6, pass; `CHANGELOG.md`
-line added. Stage 6 done on `feature/tutorial-scrapyard`, branched from
-`feature/tutorial-dodge` (not pushed or merged yet): Shoeman's Scrap
-Yard; a pistol put down one each, pick up and equip ticked per player;
-weapons' magazine-emptied and reloaded events tick "Empty the magazine"
-and "Reload"; loose squirrels in the events feature, three waves of six
-out of the burrows; their wiki page and portrait; the gate opens after
-wave 3. `make audit` 8.2, pass; `CHANGELOG.md` line added. Stage 7 done
-on `feature/tutorial-city`, branched from `feature/tutorial-scrapyard`
-(not pushed or merged yet): Shoeman's Town, a 3x3-block city grid with
-the four corner plots and the hospital in the middle block; `services =
-true` on it, so the shop, sales, hires, the hospital and Handsy Men work
-there; dying on levels 4 and 5 brings you back at the hospital's door.
-`make audit` 8.2, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Stage 8 done on
-`feature/tutorial-open-borders`, branched from `feature/tutorial-city`
-(not pushed or merged yet): openborders put down one each by Shoeman in
-town (the pistol's module made shared: `gift.lua`), "Pick up Open
-Borders" and "Equip it" ticked per player; "Use it" on the first cast,
-he laughs at every cast and mocks the first (Sorros); "Destroy the
-rioters (n/25)" counts simps killed across casts and stays ticked; the
-dead are mocked (in full once, then a quip at most every 15 s); anyone
-there without a pistol is handed one; once all is ticked he says where
-the way on is, and taking its EXIT star starts level 5 on the start with
-level 4's horde and fires cleared. `make audit` 8.1, pass (the four
-soundtrack majors are stage 11's); `CHANGELOG.md` line added. Stage 9
-done on `feature/tutorial-build`, branched from
-`feature/tutorial-open-borders` (not pushed or merged yet): plots,
-building and repairs free in Shoeman's Town (the `buildCost` hook); a
-building the list did not ask for comes down with the public-school
-line; level 5's six sections (two quarries on iron and sulfur, the
-Weapons Factory on pistols and the Ammo Factory, collect and load, repair
-the building his shoe dents, the wages and a hire of each, sell a pistol
-and ammo), told through new buildings and shop events; the last sale
-finishes the tutorial with the star home by Shoeman. `make audit` 8.2,
-pass (the four soundtrack majors are stage 11's); `CHANGELOG.md` line
-added. Stage 10 done on `feature/tutorial-shoeman-event`, branched from
-`feature/tutorial-build` (not pushed or merged yet): Shoeman as a city
-event on the F8 menu, locked until the tutorial is finished; he walks the
-city throwing a shoe every 5 s at the nearest player he can see, or at
-the nearest player-owned building; the bosses' standard (breath, the
-boss bar with his portrait, health per human, koins and `serverKill`
-"boss", medkits, dodging, walk.lua); `serverEnemies` and `wikiEnemies`.
-`make audit` 7.9, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Stage 11 done on `feature/tutorial-polish`,
-branched from `feature/tutorial-shoeman-event` (not pushed or merged
-yet): a soundtrack and a backdrop of its own on each map, the road's
-pickups off its traffic, audit tours to level 3's squirrels and level
-4's rioters, the wiki written (Shoeman's event page and portrait; the
-plasma rifle's and the Bolter's droppers named), a balance pass, and the
-tutorial in `docs/features.md`. `make audit` 9.1, pass; the tutorial's
-`CHANGELOG.md` lines brought up to date. Every box of every stage is
-ticked. Left: pushing the stage branches and their pull requests into
-`staging` (stage 0 first, each later one onto the one before), and a
-person playing it through.
+Status: every stage (0 to 11) is done, every box ticked, all on one
+branch, `feature/tutorial-mission`, pushed to GitHub and merged with
+`staging` (the stress test's cheats; `Buildings:serverPlace`). The
+per-stage branches named under "Stages" were folded into it and deleted.
+`make audit` 9.1, pass; `CHANGELOG.md` and the wiki up to date. Level 4
+was played through by a person after the fix below. Left: the pull
+request from `feature/tutorial-mission` into `staging`, and a person
+playing the other levels through, the balance pass above all.
+
+What each stage built:
+- 0: the top-left HUD tidied; this plan.
+- 1: five levels chained by `next`, first on a new world's board, Karen
+  after it, old worlds counting it as finished.
+- 2: Shoeman's portrait and body on every level, the comms with the
+  opening speech, the objectives tick list, the checkpoints.
+- 3: new players start with no gun and no ability (saved players keep
+  theirs; a newcomer to a world past the tutorial gets the pistol and
+  openborders); empty hands drawn without a gun.
+- 4: Shoeman's Road: four streets of traffic that kills on touch, the
+  movement and stamina lesson.
+- 5: Shoeman's Park: a shoe every 5 s, five dodges in the air.
+- 6: Shoeman's Scrap Yard: a pistol each, pick up, equip, empty the
+  magazine, reload, then the squirrels' waves.
+- 7: Shoeman's Town, 3x3 blocks with the hospital, shop and Handsy Men;
+  dying there brings you back at the hospital.
+- 8: level 4, open borders: put down, picked up, equipped, cast; 25
+  rioters gone; the dead mocked; a pistol for anyone without one.
+- 9: level 5, building, free in town, in six sections; the last sale
+  finishes the tutorial.
+- 10: Shoeman as a city event on the F8 menu, under the boss standard.
+- 11: a soundtrack and a backdrop per map, pickups off the road's
+  traffic, audit tours, the wiki, the balance pass, `docs/features.md`.
+- After stage 11: rioters whose 30 s run out count towards the 25
+  (open-borders' `serverSimpGone`), so one cast always finishes level 4.
 
 ### Handoff notes
 
@@ -1171,6 +1126,9 @@ is the builder to copy).
 One branch and pull request each, in this order. Every stage ends with
 `luacheck .`, `make audit` and a `CHANGELOG.md` line where players would
 notice.
+The branch names below are the ones each stage was built on; they were
+folded into `feature/tutorial-mission`, which goes to `staging` as one
+pull request, and deleted.
 
 ### 0. HUD cleanup and this plan (`feature/tutorial-shoeman-plan`)
 
