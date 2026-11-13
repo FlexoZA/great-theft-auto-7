@@ -208,6 +208,7 @@ function Bnk.wikiEnemies(add)
       "Shoot its turrets off when it parks, then the eye while they grow back.",
     },
     drops = ("%g koins, a pickup, and a Bragium Bolter for every player (unlocking it)"):format(Army.drops.BNK),
+    dropsItems = { Bnk.GUN }, -- the Bolter's wiki page links back here (tools/wiki/items.lua)
   })
 end
 

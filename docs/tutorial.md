@@ -122,9 +122,10 @@ boss bar with his portrait, health per human, koins and `serverKill`
 (not pushed or merged yet): box 1 done, a soundtrack of its own on each of
 the four maps; box 2 done, a backdrop of its own past each map's edge and
 the road's pickups kept off its traffic; box 3 done, audit tours that
-bring out level 3's squirrels and level 4's rioters (the tutorial-only
-audit: 8.8, map completeness 10, 31 arsenal pairs hurt). Next: stage 11,
-box 4 (wiki pages, Shoeman's event page and portrait among them).
+bring out level 3's squirrels and level 4's rioters (31 arsenal pairs
+hurt); box 4 done, the wiki written with Shoeman's event page and
+portrait (the tutorial-only audit: 9.1, no wiki findings). Next: stage
+11, box 5 (balance pass: traffic speeds, shoe speed, squirrel waves).
 
 ### Handoff notes
 
@@ -708,6 +709,16 @@ a history.
   ticks the same two and casts open borders through the ability's own
   `serverCast`. Each level then meets its one enemy kind and the arsenal
   matrix shoots it. Levels 1, 2 and 5 have nothing to shoot.
+- Wiki (stage 11 box 4): `make wiki` stopped on two errors already on
+  staging (the plasma rifle and the Bolter are only won, and no entry
+  dropped them), so it wrote nothing. Fixed in borderline: `dropsItems =
+  { Wilbur.GUN }` (`wilbur.lua`) and `{ Bnk.GUN }` (`bnk9.lua`); say so
+  in the pull request. Then `WIKI_ONLY="icons city" make wiki-portraits`
+  drew Shoeman (city scene `event("shoeman")`, there since stage 10), the
+  plasma rifle and the Bolter. Shoeman's page is
+  `docs/wiki/enemies/tutorial-shoeman.md`. The loose squirrels and simps
+  had pages already. Rerun `make wiki` after the balance pass: the pages
+  carry the numbers.
 - Pickups (medkits, drinks, ammo crates) go on the pavement only:
   `map.pickupKinds = { walk = true }` on the road, passed by ammo-crates
   and pickups as `randomRoadPoint`'s new `kinds` argument (the tiles that
@@ -1232,6 +1243,6 @@ notice.
 - [x] A soundtrack for each map
 - [x] Backdrops past each map's edge; ammo crates
 - [x] Audit tour script in `tools/audit/stages.lua`
-- [ ] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
+- [x] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
 - [ ] Balance pass: traffic speeds, shoe speed, squirrel waves
 - [ ] `docs/features.md`: the tutorial in the feature list
