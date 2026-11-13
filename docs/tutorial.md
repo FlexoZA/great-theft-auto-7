@@ -117,16 +117,17 @@ the nearest player-owned building; the bosses' standard (breath, the
 boss bar with his portrait, health per human, koins and `serverKill`
 "boss", medkits, dodging, walk.lua); `serverEnemies` and `wikiEnemies`.
 `make audit` 7.9, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Stage 11 under way on
-`feature/tutorial-polish`, branched from `feature/tutorial-shoeman-event`
-(not pushed or merged yet): box 1 done, a soundtrack of its own on each of
-the four maps; box 2 done, a backdrop of its own past each map's edge and
-the road's pickups kept off its traffic; box 3 done, audit tours that
-bring out level 3's squirrels and level 4's rioters (31 arsenal pairs
-hurt); box 4 done, the wiki written with Shoeman's event page and
-portrait; box 5 done, the balance pass (the tutorial-only audit: 9.1).
-Next: stage 11, box 6 (the tutorial in `docs/features.md`), the stage's
-last: `make audit`, the `CHANGELOG.md` line, then the pull request.
+`CHANGELOG.md` line added. Stage 11 done on `feature/tutorial-polish`,
+branched from `feature/tutorial-shoeman-event` (not pushed or merged
+yet): a soundtrack and a backdrop of its own on each map, the road's
+pickups off its traffic, audit tours to level 3's squirrels and level
+4's rioters, the wiki written (Shoeman's event page and portrait; the
+plasma rifle's and the Bolter's droppers named), a balance pass, and the
+tutorial in `docs/features.md`. `make audit` 9.1, pass; the tutorial's
+`CHANGELOG.md` lines brought up to date. Every box of every stage is
+ticked. Left: pushing the stage branches and their pull requests into
+`staging` (stage 0 first, each later one onto the one before), and a
+person playing it through.
 
 ### Handoff notes
 
@@ -738,9 +739,8 @@ a history.
     Waves 6, 6, 6 -> 4, 6, 8 (`Waves.SIZES`, the objectives read it),
     `Waves.GAP` 4 -> 6 s. The squirrels' wiki `where` no longer types
     the numbers.
-  - For the CHANGELOG line: road gaps tighter going up (top street
-    54% -> 31% safe to sprint blind), Shoeman's tutorial shoe 900 -> 750
-    px/s, squirrel waves 6/6/6 -> 4/6/8 with 4 -> 6 s between.
+  - In `CHANGELOG.md` (stage 11 box 6) as corrections to the tutorial's
+    own unreleased lines, not old -> new: no player had the old numbers.
   - Worth a human playthrough before merging: the numbers are sound on
     paper, not felt.
 - Pickups (medkits, drinks, ammo crates) go on the pavement only:
@@ -1271,4 +1271,4 @@ notice.
 - [x] Audit tour script in `tools/audit/stages.lua`
 - [x] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
 - [x] Balance pass: traffic speeds, shoe speed, squirrel waves
-- [ ] `docs/features.md`: the tutorial in the feature list
+- [x] `docs/features.md`: the tutorial in the feature list

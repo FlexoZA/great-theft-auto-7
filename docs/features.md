@@ -1210,6 +1210,31 @@ the one with a plot.
   at the last) and "DONE xN" for a job finished more than once; the victory
   screen shows the level the job was just done at, named the same way. The `--quest` launch
   option skips the lock.
+- Tutorial: `src/features/tutorial` is Shoeman's school of survival, the
+  first job on a new world's board: five quests (`tutorial-1` to
+  `tutorial-5`, `boss = "tutorial"`) chained by `next` over four maps
+  (city-map's `tutorial_maps.lua`: Shoeman's Road, Park and Scrap Yard,
+  and Shoeman's Town for the last two). Shoeman stands on each level and
+  teaches one thing: crossing a road of traffic that kills on touch
+  (`traffic.lua`, sprint and stamina), dodging his shoes (`shoe.lua`),
+  picking up, equipping, firing and reloading a pistol, then three waves
+  of squirrels (`waves.lua`), casting open borders on a horde of rioters,
+  and building, trading and selling (`build.lua`; building is free there,
+  through `buildCost`). He talks through a comms panel (`comms.lua`, the
+  lines in `story.lua`), each level has a tick list (`objectives.lua`) and
+  a checkpoint (`checkpoint.lua`; dying on the town levels brings you back
+  at the hospital), and the way on only opens when the list is done.
+  Finishing it opens the rest of the board; a world saved before it
+  counts it as done. New players start with no gun and no ability
+  (`start_gear.lua`); he hands over the first pistol and the first
+  ability (`gift.lua`), and a newcomer to a world past the tutorial gets
+  both. Each map has its own soundtrack (`theme.lua`, `music.lua`) and
+  backdrop (surroundings' `tutorial.lua`). Once it is finished Shoeman is
+  also a city event (`event.lua`, on the F8 menu), walking the city
+  throwing shoes at players and their buildings under the boss standard.
+  `Tutorial.level(id)` is the level number of a quest, nil off the
+  tutorial. The design, the tick list it was built from and its handoff
+  notes are `docs/tutorial.md`.
 - D-Day landing: `src/features/d-day` is the third boss quest, on the
   beach map. Guards stand on the map's posts sweeping thirty-degree cones
   of sight (`sight.lua`; solid cover hides you), turn to follow and fire at

@@ -23,14 +23,16 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   talks to you over the comms with his opening speech, a list of objectives in the top-left corner ticks off as
   you go, and dying on a level brings you back at its CHECKPOINT flag.
 - Lesson one is a real road now: Shoeman's Road, four two-way streets of fast traffic between the school yard and
-  a lawn, with pavement to rest on between them. The top streets are the fastest, any touch of a car kills
-  whatever you wear, and Shoeman explains running and the stamina bar as you use it.
+  a lawn, with pavement to rest on between them. Each street is faster and busier than the one before, any touch
+  of a car kills whatever you wear, and Shoeman explains running and the stamina bar as you use it. The ammo crates
+  and medkits lie on the pavement, never in the traffic.
 - Lesson two is Shoeman's Park: he stands in the middle of the lawn and throws a shoe at the nearest player every
   5 seconds, shouting "DODGE!!!!" as he winds up. A shoe kills anyone it touches and wrecks any car. Dodge one
   while it is in the air and let it miss you five times, and the way on to the next lesson opens.
 - Lesson three is Shoeman's Scrap Yard: he puts down a pistol for each of you, and you learn to pick it up, put it
-  in a weapon slot, empty the magazine and reload. Then three waves of six squirrels come out of their burrows
-  across the yard, biting until they are shot; once the third wave is down, the yard's gate is the way on.
+  in a weapon slot, empty the magazine and reload. Then three waves of squirrels, 4, 6 and 8 of them, come out of
+  their burrows across the yard, biting until they are shot, with 6 seconds to catch your breath between waves;
+  once the third wave is down, the yard's gate is the way on.
 - Lessons four and five take place in Shoeman's Town, a small city centre of three by three blocks with four plots
   for sale in the corners. Its hospital, shop and Handsy Men work as they do in the city: buy, sell back and hire
   at the shop. If you die there, you come back at the hospital's door.
@@ -48,6 +50,13 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   menu. He walks the streets throwing a shoe every 5 seconds at the nearest player he can see, or at your buildings
   when nobody is near. A shoe kills you on foot and wrecks your car, and two or three bring a building down. Dodge
   it while it is in the air or keep a wall between you; he has 1800 health and spills koins when he goes down.
+  His shoes fly faster in the city (900 px/s) than in his park lesson (750).
+- Shoeman's school has its own music, a different track on each of its four maps: a march on the road, a chase in
+  the park, a slow heavy riff in the scrap yard and a lazy groove in town. Past the edges of each map there is
+  something to see now: railway embankments and the school around the road, streets of terraced houses around
+  the park, an industrial estate around the scrap yard, and the sea around Shoeman's Town.
+- The wiki has a page for Shoeman as a city event, with his picture, and pages for the plasma rifle and the
+  Bragium Bolter, which say who drops them.
 
 ### Changed
 - The top-left corner is tidier: only the FPS counter is left. The speed, kills and roadkill readouts and the key
