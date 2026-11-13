@@ -24,7 +24,7 @@ Everyone and everything in the game that fights back, by where you meet them. Bo
 
 | | Enemy | Health | Where |
 |---|---|---|---|
-| <img src="img/events-loose-squirrel.png" width="48"> | [Squirrel (loose)](events-loose-squirrel.md) | 10: one round of anything | Shoeman's Scrap Yard: three waves of six out of the burrows in the far half of the yard |
+| <img src="img/events-loose-squirrel.png" width="48"> | [Squirrel (loose)](events-loose-squirrel.md) | 10: one round of anything | Shoeman's Scrap Yard: three waves, each bigger, out of the burrows in the far half of the yard |
 
 ## Karen's Cul-de-sac
 

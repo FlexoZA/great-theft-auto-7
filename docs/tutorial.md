@@ -124,8 +124,9 @@ the four maps; box 2 done, a backdrop of its own past each map's edge and
 the road's pickups kept off its traffic; box 3 done, audit tours that
 bring out level 3's squirrels and level 4's rioters (31 arsenal pairs
 hurt); box 4 done, the wiki written with Shoeman's event page and
-portrait (the tutorial-only audit: 9.1, no wiki findings). Next: stage
-11, box 5 (balance pass: traffic speeds, shoe speed, squirrel waves).
+portrait; box 5 done, the balance pass (the tutorial-only audit: 9.1).
+Next: stage 11, box 6 (the tutorial in `docs/features.md`), the stage's
+last: `make audit`, the `CHANGELOG.md` line, then the pull request.
 
 ### Handoff notes
 
@@ -719,6 +720,29 @@ a history.
   `docs/wiki/enemies/tutorial-shoeman.md`. The loose squirrels and simps
   had pages already. Rerun `make wiki` after the balance pass: the pages
   carry the numbers.
+- Balance pass (stage 11 box 5), measured, not played by a person:
+  - Traffic: the gaps grew with the speed, so the fast top street was
+    the easiest to cross. A simulation (each street's lanes, the car's
+    box padded by the walker, a straight sprint across) gave 41, 46, 51,
+    54% of moments safe, bottom to top. New gaps (`Traffic.STREETS`,
+    speeds unchanged) give 50, 45, 38, 31%; anyone waiting for a gap
+    waits 0.2 s on average, about 2 s at worst; walking is 18% down to
+    1% (was 11-14% everywhere).
+  - Shoe: a dodge counts only once the shoe flies, so the window is its
+    flight time: at 900 px/s 0.40 s from 400 px, 0.81 s from the start
+    (768 px). The tutorial's thrower now flies at 750 px/s
+    (`Shoe.TUTORIAL_SPEED`, `Shoe.new(kinds, speed)`): 0.53 s and 1.02
+    s. The city event keeps `Shoe.SPEED` 900.
+  - Squirrels: one round each, a bite of 4 about every 1.4 s each, no
+    health coming back, dying cheap (the pad, the shot ones stay shot).
+    Waves 6, 6, 6 -> 4, 6, 8 (`Waves.SIZES`, the objectives read it),
+    `Waves.GAP` 4 -> 6 s. The squirrels' wiki `where` no longer types
+    the numbers.
+  - For the CHANGELOG line: road gaps tighter going up (top street
+    54% -> 31% safe to sprint blind), Shoeman's tutorial shoe 900 -> 750
+    px/s, squirrel waves 6/6/6 -> 4/6/8 with 4 -> 6 s between.
+  - Worth a human playthrough before merging: the numbers are sound on
+    paper, not felt.
 - Pickups (medkits, drinks, ammo crates) go on the pavement only:
   `map.pickupKinds = { walk = true }` on the road, passed by ammo-crates
   and pickups as `randomRoadPoint`'s new `kinds` argument (the tiles that
@@ -1008,7 +1032,8 @@ way on that only appears when the level's objectives are done.
   must recover before the next sprint).
 - **Traffic.** Fast cars in straight lines, both directions on every
   street, spawned inside one tunnel and removed inside the other. Speeds
-  and gaps differ per lane; the top streets are the fastest.
+  and gaps differ per lane; the top streets are the fastest and the
+  hardest to cross.
 - **Death.** Any touch of a moving car kills, whatever the player wears.
   Respawn at the checkpoint.
 - **Objectives.** `[ ] Reach the other side`
@@ -1032,7 +1057,8 @@ way on that only appears when the level's objectives are done.
 - **Lesson.** Picking things up, the inventory and equipping, firing,
   the magazine, reloading.
 - **Play.** He drops a pistol. Once it is equipped he says to empty the
-  magazine, then to reload. Then three waves of six Bigfoot squirrels;
+  magazine, then to reload. Then three waves of Bigfoot squirrels, 4,
+  6 and 8 (stage 11's balance pass; six each before);
   a wave starts when the one before is dead.
 - **Objectives.** Ticked one by one:
   `[ ] Pick up the pistol` `[ ] Equip it` `[ ] Empty the magazine`
@@ -1244,5 +1270,5 @@ notice.
 - [x] Backdrops past each map's edge; ammo crates
 - [x] Audit tour script in `tools/audit/stages.lua`
 - [x] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
-- [ ] Balance pass: traffic speeds, shoe speed, squirrel waves
+- [x] Balance pass: traffic speeds, shoe speed, squirrel waves
 - [ ] `docs/features.md`: the tutorial in the feature list

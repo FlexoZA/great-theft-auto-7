@@ -246,7 +246,7 @@ function Squirrels.wikiEnemies(add)
     name = "Squirrel (loose)",
     quests = { "tutorial-3" },
     scaling = "none", -- the same however often the tutorial is played
-    where = "Shoeman's Scrap Yard: three waves of six out of the burrows in the far half of the yard",
+    where = "Shoeman's Scrap Yard: three waves, each bigger, out of the burrows in the far half of the yard",
     about = "Bigfoot's squirrels, left behind without him. They pop out of the ground, sit a moment, then run "
       .. "at the nearest player and keep biting until somebody shoots them.",
     stats = {

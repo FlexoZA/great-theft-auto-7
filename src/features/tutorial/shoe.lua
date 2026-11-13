@@ -57,7 +57,8 @@ Shoe.__index = Shoe
 Shoe.PERIOD = 5 -- seconds from one throw to the next
 Shoe.FIRST_AFTER = 10 -- seconds into the level before the first (he explains the dodge first)
 Shoe.THROW_TIME = 1.2 -- seconds of the throw, the shout at its start
-Shoe.SPEED = 900 -- px/s a shoe flies
+Shoe.SPEED = 900 -- px/s a shoe flies (the city event's)
+Shoe.TUTORIAL_SPEED = 750 -- px/s the tutorial's fly: from the park's start (768 px) a dodge has ~1 s
 Shoe.RANGE = 1600 -- px it flies at most
 Shoe.RADIUS = 8 -- px, how fat it is for hit tests
 Shoe.FOOT_RADIUS = 10 -- px, how fat a player on foot is (weapons' FOOT_RADIUS)
@@ -73,9 +74,10 @@ Shoe.SHOUT = "DODGE!!!!"
 local RELEASE = ShoemanRender.RELEASE
 
 --- A thrower of its own. `kinds` names its messages: { throw, shoe, stop }
---- (the tutorial's are TUT_THROW, TUT_SHOE and TUT_SHOE_END).
-function Shoe.new(kinds)
-  local self = setmetatable({ kinds = kinds }, Shoe)
+--- (the tutorial's are TUT_THROW, TUT_SHOE and TUT_SHOE_END); its shoes fly
+--- at `speed` px/s (SPEED when not given).
+function Shoe.new(kinds, speed)
+  local self = setmetatable({ kinds = kinds, speed = speed or Shoe.SPEED }, Shoe)
   self.sv = nil -- on the host: { x, y, nextIn, throw = { t, target, angle, released, damage }, shoes, nextId, halted }
   self.cl = {
     throw = nil, -- { t, angle } while he throws
@@ -234,7 +236,7 @@ end
 --- anything. Returns true if it stopped.
 local function fly(self, server, i, dt, on)
   local shoe = self.sv.shoes[i]
-  local dist = math.min(Shoe.SPEED * dt, Shoe.RANGE - shoe.flown)
+  local dist = math.min(self.speed * dt, Shoe.RANGE - shoe.flown)
   local angle = math.atan2(shoe.vy, shoe.vx)
   local ux, uy = math.cos(angle), math.sin(angle)
   local steps = math.max(1, math.ceil(dist / Shoe.STEP))
@@ -270,8 +272,8 @@ local function release(self, server, throw)
     id = sv.nextId,
     x = x,
     y = y,
-    vx = math.cos(angle) * Shoe.SPEED,
-    vy = math.sin(angle) * Shoe.SPEED,
+    vx = math.cos(angle) * self.speed,
+    vy = math.sin(angle) * self.speed,
     flown = 0,
     target = throw.target and throw.target.id,
     hit = {},
@@ -352,7 +354,7 @@ function Shoe:update(dt)
     end
   end
   for id, shoe in pairs(cl.shoes) do
-    local d = math.min(Shoe.SPEED * dt, Shoe.RANGE - shoe.flown)
+    local d = math.min(self.speed * dt, Shoe.RANGE - shoe.flown)
     shoe.x, shoe.y = shoe.x + math.cos(shoe.angle) * d, shoe.y + math.sin(shoe.angle) * d
     shoe.flown = shoe.flown + d
     shoe.spin = shoe.spin + Shoe.SPIN * dt
@@ -446,6 +448,6 @@ function Shoe.handlers(self)
 end
 
 -- The tutorial's thrower (init.lua, build.lua).
-Shoe.tutorial = Shoe.new({ throw = "TUT_THROW", shoe = "TUT_SHOE", stop = "TUT_SHOE_END" })
+Shoe.tutorial = Shoe.new({ throw = "TUT_THROW", shoe = "TUT_SHOE", stop = "TUT_SHOE_END" }, Shoe.TUTORIAL_SPEED)
 
 return Shoe

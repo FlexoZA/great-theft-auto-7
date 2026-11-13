@@ -35,13 +35,17 @@ Traffic.BODY_RADIUS = 8 -- px; a walker, for the touch (car-collisions' bodyRadi
 -- by the kerb): `speed` px/s, and the gap from one car's nose to the next
 -- one's, px, picked at random between `gap[1]` and `gap[2]` for each car.
 -- Walking is 45 px/s and a sprint 170 (on-foot), a street 256 px across:
--- walked, a street is death; sprinted, about 1.5 s, so the gaps leave
--- about that much on the slow streets and less on the fast ones.
+-- a straight sprint set off at a random moment gets across the bottom
+-- street half the time and the top one less than a third of the time
+-- (50, 45, 38, 31%), while a walk gets across the bottom one time in five
+-- and the top hardly ever (18% down to 1%);
+-- whoever waits for a gap waits 0.2 s on average and about 2 s at worst.
+-- (Measured by simulation, cars' box padded by the walker's radius.)
 Traffic.STREETS = {
-  { { speed = 210, gap = { 340, 700 } }, { speed = 170, gap = { 300, 620 } } },
-  { { speed = 290, gap = { 460, 900 } }, { speed = 240, gap = { 400, 800 } } },
-  { { speed = 370, gap = { 600, 1150 } }, { speed = 310, gap = { 520, 1000 } } },
-  { { speed = 450, gap = { 760, 1400 } }, { speed = 390, gap = { 660, 1250 } } },
+  { { speed = 210, gap = { 420, 860 } }, { speed = 170, gap = { 360, 760 } } },
+  { { speed = 290, gap = { 440, 880 } }, { speed = 240, gap = { 380, 780 } } },
+  { { speed = 370, gap = { 440, 840 } }, { speed = 310, gap = { 380, 740 } } },
+  { { speed = 450, gap = { 440, 800 } }, { speed = 390, gap = { 380, 700 } } },
 }
 
 local lanes = nil -- on the host: { { lane, tune, cars = { car, ... } oldest first, wait = px to the next } ... }

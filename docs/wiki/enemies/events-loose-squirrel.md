@@ -10,7 +10,7 @@ Bigfoot's squirrels, left behind without him. They pop out of the ground, sit a 
 
 | | |
 |---|---|
-| **Where** | Shoeman's Scrap Yard: three waves of six out of the burrows in the far half of the yard |
+| **Where** | Shoeman's Scrap Yard: three waves, each bigger, out of the burrows in the far half of the yard |
 | **Health** | 10: one round of anything |
 | **Speed** | 230 px/s |
 | **Sight** | 3000 px |

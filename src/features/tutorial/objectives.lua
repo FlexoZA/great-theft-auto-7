@@ -52,7 +52,7 @@ Objectives.lists = {
   },
   -- Everyone picks up their own pistol and equips it (gift.lua); then
   -- anyone empties a magazine and reloads (weapons' events); then three
-  -- waves of six squirrels, each one shot ticking its wave (waves.lua).
+  -- waves of squirrels (waves.lua's SIZES), each one shot ticking its wave.
   ["tutorial-3"] = {
     {
       items = {
@@ -60,9 +60,9 @@ Objectives.lists = {
         { id = "equip", text = "Equip it", each = true },
         { id = "empty", text = "Empty the magazine" },
         { id = "reload", text = "Reload" },
-        { id = "wave1", text = "Defeat wave 1", need = Waves.SIZE },
-        { id = "wave2", text = "Defeat wave 2", need = Waves.SIZE },
-        { id = "wave3", text = "Defeat wave 3", need = Waves.SIZE },
+        { id = "wave1", text = "Defeat wave 1", need = Waves.SIZES[1] },
+        { id = "wave2", text = "Defeat wave 2", need = Waves.SIZES[2] },
+        { id = "wave3", text = "Defeat wave 3", need = Waves.SIZES[3] },
       },
     },
   },
