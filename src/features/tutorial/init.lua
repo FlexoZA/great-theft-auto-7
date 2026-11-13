@@ -20,6 +20,7 @@ local Shoe = require("src.features.tutorial.shoe").tutorial
 local Gift = require("src.features.tutorial.gift")
 local Waves = require("src.features.tutorial.waves")
 local Build = require("src.features.tutorial.build")
+local Music = require("src.features.tutorial.music")
 
 local Tutorial = {
   name = "tutorial",
@@ -443,11 +444,15 @@ end
 
 -- Client --------------------------------------------------------------------
 
---- A tutorial level began, or one ended: whatever he was saying stops.
+--- A tutorial level began, or one ended: whatever he was saying stops, and
+--- the level's map's track comes on (or the music goes when the job ends).
 function Tutorial:questStarted(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
     Shoe:clear()
+    Music.play(quest.map)
+  else
+    Music.stop()
   end
 end
 
@@ -455,6 +460,7 @@ function Tutorial:questEnded(_client, quest)
   if levelOf[quest.id] then
     Comms.clear()
     Shoe:clear()
+    Music.stop()
   end
 end
 
@@ -462,6 +468,7 @@ function Tutorial:exitGame()
   Comms.clear()
   Shoe:clear()
   Objectives.clear()
+  Music.stop()
 end
 
 --- The nearest player to (x, y) on this screen: their x, y, or nil.
@@ -500,6 +507,7 @@ function Tutorial:update(dt, client)
   Shoe:update(dt)
   Comms.update(dt)
   Objectives.update(dt)
+  Music.update()
 end
 
 function Tutorial:drawHUD()

@@ -117,9 +117,11 @@ the nearest player-owned building; the bosses' standard (breath, the
 boss bar with his portrait, health per human, koins and `serverKill`
 "boss", medkits, dodging, walk.lua); `serverEnemies` and `wikiEnemies`.
 `make audit` 7.9, pass (the four soundtrack majors are stage 11's);
-`CHANGELOG.md` line added. Next: stage 11, box 1 (a soundtrack for each
-map) on `feature/tutorial-polish`, branched from
-`feature/tutorial-shoeman-event`.
+`CHANGELOG.md` line added. Stage 11 under way on
+`feature/tutorial-polish`, branched from `feature/tutorial-shoeman-event`
+(not pushed or merged yet): box 1 done, a soundtrack of its own on each of
+the four maps (the tutorial-only audit: 8.8, map completeness 10). Next:
+stage 11, box 2 (backdrops past each map's edge; ammo crates).
 
 ### Handoff notes
 
@@ -901,9 +903,17 @@ a history.
   offer that ignores the accept key for its first seconds.
 - Backdrops are the outskirts' (`surroundings/init.lua` `DRAW`) on every
   tutorial map, the town's too (the city's own is the sea: stage 11).
-- `make audit` passes (8.2, end of stage 6; 8.6 at stage 5) with four
-  majors: no soundtrack on the four maps. Those wait for stage 11 unless a reviewer
-  wants them sooner. Minors: core files changed (`src/states/game.lua`
+- Soundtracks (stage 11 box 1): `theme.lua` holds one song per map
+  (`Theme.SONGS[map]`: chord progressions, sixteen-step patterns for bass,
+  chords and drums, tunes as "note/sixteenths" tokens, an `fx` hit per
+  song) and one renderer; `Theme.check()` asserts each tune fits its bars.
+  `music.lua` plays `quest.map`'s track from `questStarted` (the town's
+  carries on from level 4 into 5), stops on `questEnded` (going home), on
+  a non-tutorial quest and on `exitGame`, and follows the music slider in
+  `update`. Each renders in about 0.1-0.2 s. The four WAVs were listened
+  to only as numbers: whoever plays through may want to adjust the mix.
+  The stage's `CHANGELOG.md` line should mention the music.
+- `make audit` passes (8.2, end of stage 6; 8.6 at stage 5). Minors: core files changed (`src/states/game.lua`
   for stage 0's HUD cleanup and `emptyHanded`, `src/body.lua` for
   `emptyHanded`; call both out in the pull request) and the branch
   touching 10 features (stage 0's HUD cleanup, borderline's switch to
@@ -1201,7 +1211,7 @@ notice.
 
 ### 11. Polish (`feature/tutorial-polish`)
 
-- [ ] A soundtrack for each map
+- [x] A soundtrack for each map
 - [ ] Backdrops past each map's edge; ammo crates
 - [ ] Audit tour script in `tools/audit/stages.lua`
 - [ ] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
