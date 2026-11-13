@@ -120,8 +120,10 @@ boss bar with his portrait, health per human, koins and `serverKill`
 `CHANGELOG.md` line added. Stage 11 under way on
 `feature/tutorial-polish`, branched from `feature/tutorial-shoeman-event`
 (not pushed or merged yet): box 1 done, a soundtrack of its own on each of
-the four maps (the tutorial-only audit: 8.8, map completeness 10). Next:
-stage 11, box 2 (backdrops past each map's edge; ammo crates).
+the four maps; box 2 done, a backdrop of its own past each map's edge and
+the road's pickups kept off its traffic (the tutorial-only audit: 8.8,
+map completeness 10). Next: stage 11, box 3 (audit tour script in
+`tools/audit/stages.lua`).
 
 ### Handoff notes
 
@@ -698,9 +700,10 @@ a history.
   two"; accepting the EXIT star (`Features.serverMessages.QST_ACCEPT
   .handler(server, p, { "exit" })` in a harness) puts everyone on
   `tutorial-park` on foot with `tutorial-2` active and no traffic left.
-- Pickups (medkits, drinks, ammo crates) scatter on the streets too
-  (`randomRoadPoint` takes any road tile). Funny bait; stage 11 may move
-  them onto the pavement.
+- Pickups (medkits, drinks, ammo crates) go on the pavement only:
+  `map.pickupKinds = { walk = true }` on the road, passed by ammo-crates
+  and pickups as `randomRoadPoint`'s new `kinds` argument (the tiles that
+  count, when given). The other tutorial maps are all "walk" anyway.
 
 - No gun at the start (`weapons/init.lua`): `Weapons:startSlots()` holds
   only `stock` guns now (none have one), so a new human has four empty
@@ -901,8 +904,15 @@ a history.
   coroutine script in `main.lua`. Taking a board job needs the player at
   `quests:jobs()`'s `doorX, doorY`; the last EXIT star home is a victory
   offer that ignores the accept key for its first seconds.
-- Backdrops are the outskirts' (`surroundings/init.lua` `DRAW`) on every
-  tutorial map, the town's too (the city's own is the sea: stage 11).
+- Backdrops (stage 11 box 2): `surroundings/tutorial.lua`, wired in
+  `surroundings/init.lua`'s `DRAW` with a `KIT` of its helpers (woods,
+  building, treePictures). The road: woods north, a railway past each
+  side with a train now and then, the school's playground and building
+  south between them. The park: a street round it (cars going round,
+  `ringCars`) and blocks of terraced houses; the yard: the same street,
+  then warehouses and container lots (`blocks` sizes them so a whole
+  number spans the ring). The town is an island: the city's sea and
+  boats (`island`). Checked in scripted runs, screenshots at 0.3 zoom.
 - Soundtracks (stage 11 box 1): `theme.lua` holds one song per map
   (`Theme.SONGS[map]`: chord progressions, sixteen-step patterns for bass,
   chords and drums, tunes as "note/sixteenths" tokens, an `fx` hit per
@@ -1212,7 +1222,7 @@ notice.
 ### 11. Polish (`feature/tutorial-polish`)
 
 - [x] A soundtrack for each map
-- [ ] Backdrops past each map's edge; ammo crates
+- [x] Backdrops past each map's edge; ammo crates
 - [ ] Audit tour script in `tools/audit/stages.lua`
 - [ ] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
 - [ ] Balance pass: traffic speeds, shoe speed, squirrel waves

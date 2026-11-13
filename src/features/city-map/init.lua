@@ -612,14 +612,22 @@ end
 --- can get to, optionally within `maxDist` of (nearX, nearY). A map with
 --- little road (City 17) needs a good few tries; one with none at all names
 --- the tiles that count instead (`map.openKinds`: the Citadel's catwalks).
+--- `kinds`, when given, are the only tiles that count (pickups pass
+--- `map.pickupKinds`: Shoeman's Road keeps them off its traffic).
 --- Other features reach this via Features.byName["city-map"].
-function CityMap:randomRoadPoint(nearX, nearY, maxDist)
+function CityMap:randomRoadPoint(nearX, nearY, maxDist, kinds)
   local map = self.map
   for _ = 1, 300 do
     local c = love.math.random(map.c0, map.c1)
     local r = love.math.random(map.r0, map.r1)
     local kind = map.tiles[c] and map.tiles[c][r]
-    if kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind]) then
+    local counts
+    if kinds then
+      counts = kind and kinds[kind]
+    else
+      counts = kind == "road" or kind == "ground" or (kind and map.openKinds and map.openKinds[kind])
+    end
+    if counts then
       local x, y = map.x0 + (c + 0.5) * Layout.TILE, map.y0 + (r + 0.5) * Layout.TILE
       local near = not nearX or (x - nearX) ^ 2 + (y - nearY) ^ 2 <= maxDist * maxDist
       if near and not outOfReach(map, x, y) then

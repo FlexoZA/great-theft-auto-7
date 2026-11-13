@@ -706,16 +706,17 @@ local sv = nil -- { items = { id -> { kind, x, y, amount, dropped, floor } }, ne
 --- `map.floors`) when given.
 local function roadSpot(floor)
   local city = Features.byName["city-map"]
+  local kinds = city and city.map and city.map.pickupKinds -- only these tiles, when the map says (Shoeman's Road)
   if floor and city and city.randomRoadPoint then
     for _ = 1, 40 do
-      local x, y = city:randomRoadPoint()
+      local x, y = city:randomRoadPoint(nil, nil, nil, kinds)
       if x and y >= floor.y0 and y < floor.y1 then
         return x, y
       end
     end
   end
   if city and city.randomRoadPoint then
-    local x, y = city:randomRoadPoint()
+    local x, y = city:randomRoadPoint(nil, nil, nil, kinds)
     if x then
       return x, y
     end

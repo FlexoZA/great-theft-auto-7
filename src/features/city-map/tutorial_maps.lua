@@ -48,6 +48,7 @@
 --                 `w`, `h`, `seed`), bench (`a` the way it faces), board (the school's sign), tree
 --                 (a small one in a bed, `r`), look (a "LOOK" warning painted on the kerb, `text`)
 --   map.openKinds { walk = true }: pickups go on the pavement too
+--   map.pickupKinds { walk = true }: and only there (ammo-crates, pickups), out of the traffic
 --
 -- The park leaves the same `cx, cy`, `exitX, exitY`, `homeX, homeY`,
 -- `shoemanX, shoemanY` and `openKinds` (every tile inside the hedge is
@@ -102,6 +103,7 @@ local function buildRoad(map, rng, T)
   end
   map.streets, map.lanes, map.tunnels, map.decor = {}, {}, {}, {}
   map.openKinds = { walk = true }
+  map.pickupKinds = { walk = true } -- crates and medkits on the pavement, never in the traffic
 
   -- The streets, top (the fastest, 4) down to the bottom (1).
   local first = {}
