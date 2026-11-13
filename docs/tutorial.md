@@ -121,9 +121,10 @@ boss bar with his portrait, health per human, koins and `serverKill`
 `feature/tutorial-polish`, branched from `feature/tutorial-shoeman-event`
 (not pushed or merged yet): box 1 done, a soundtrack of its own on each of
 the four maps; box 2 done, a backdrop of its own past each map's edge and
-the road's pickups kept off its traffic (the tutorial-only audit: 8.8,
-map completeness 10). Next: stage 11, box 3 (audit tour script in
-`tools/audit/stages.lua`).
+the road's pickups kept off its traffic; box 3 done, audit tours that
+bring out level 3's squirrels and level 4's rioters (the tutorial-only
+audit: 8.8, map completeness 10, 31 arsenal pairs hurt). Next: stage 11,
+box 4 (wiki pages, Shoeman's event page and portrait among them).
 
 ### Handoff notes
 
@@ -700,6 +701,13 @@ a history.
   two"; accepting the EXIT star (`Features.serverMessages.QST_ACCEPT
   .handler(server, p, { "exit" })` in a harness) puts everyone on
   `tutorial-park` on foot with `tutorial-2` active and no traffic left.
+- Audit tours (stage 11 box 3, `tools/audit/stages.lua`): `tutorial-3`
+  ticks pickup and equip for the audit's player, calls the tutorial's
+  `serverMagazineEmptied` and `serverReloaded` (what weapons sends), and
+  waits by the first burrow until the squirrels are out; `tutorial-4`
+  ticks the same two and casts open borders through the ability's own
+  `serverCast`. Each level then meets its one enemy kind and the arsenal
+  matrix shoots it. Levels 1, 2 and 5 have nothing to shoot.
 - Pickups (medkits, drinks, ammo crates) go on the pavement only:
   `map.pickupKinds = { walk = true }` on the road, passed by ammo-crates
   and pickups as `randomRoadPoint`'s new `kinds` argument (the tiles that
@@ -1223,7 +1231,7 @@ notice.
 
 - [x] A soundtrack for each map
 - [x] Backdrops past each map's edge; ammo crates
-- [ ] Audit tour script in `tools/audit/stages.lua`
+- [x] Audit tour script in `tools/audit/stages.lua`
 - [ ] Wiki pages (`make wiki`, `make wiki-portraits`), Shoeman's event page and portrait among them
 - [ ] Balance pass: traffic speeds, shoe speed, squirrel waves
 - [ ] `docs/features.md`: the tutorial in the feature list
