@@ -995,7 +995,7 @@ a history.
 | Levels 4 and 5 map? | One map for both: a small copy of the city centre with only the plots the lesson needs. What is built there is thrown away on leaving, like every quest map. |
 | Does building cost money in level 5? | No. Plots are handed over free and build and repair costs are zero on the tutorial map. |
 | Hit by a shoe in level 2? | Dead, back to the checkpoint. Shoes already dodged stay counted. |
-| "Destroy the rioters" in level 4? | 25 simps killed (one cast's worth), added up over any casts by anyone. A horde that times out keeps what was killed; nothing resets it. Killing one whole horde inside its 30 s while burning was too hard for a lesson. |
+| "Destroy the rioters" in level 4? | 25 simps gone (one cast's worth), added up over any casts by anyone: killed by anything, or left when the horde's 30 s ran out (open-borders' `serverSimpGone`). Nothing resets it. Killing one whole horde inside its 30 s while burning was too hard for a lesson, and counting only kills could leave a player waiting out the 90 s cooldown for the rest; so one cast always finishes it. |
 | Progress tracking? | This file. No other system exists; the other quest lines keep a "Status" paragraph and a "Stages" list in their design doc, and this adds tick boxes. |
 
 ## Cast

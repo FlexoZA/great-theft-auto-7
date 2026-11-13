@@ -106,6 +106,7 @@ function Horde.new()
     nextFire = 1,
     burnIn = Horde.BURN_EVERY,
     kills = {}, -- this tick's dead simps: { id, x, y, angle, by }
+    gone = {}, -- this tick's simps whose time ran out: { id, x, y, by }
     lit = {}, -- this tick's new fires
   }, Horde)
 end
@@ -377,13 +378,16 @@ function Horde:burn(server, skip)
 end
 
 --- One host tick. `skip` is the open-borders feature (its own simps don't
---- burn). Returns this tick's dead simps and newly lit fires (both reused
---- lists).
+--- burn). Returns this tick's dead simps, newly lit fires and simps whose
+--- time ran out (all three reused lists).
 function Horde:step(server, dt, skip)
   self.time = self.time + dt
   local now = self.time
   for i = #self.kills, 1, -1 do
     self.kills[i] = nil
+  end
+  for i = #self.gone, 1, -1 do
+    self.gone[i] = nil
   end
   for i = #self.lit, 1, -1 do
     self.lit[i] = nil
@@ -395,6 +399,7 @@ function Horde:step(server, dt, skip)
     local s = self.simps[i]
     local kill
     if now >= s.untilT then
+      self.gone[#self.gone + 1] = { id = s.id, x = s.x, y = s.y, by = s.by }
       table.remove(self.simps, i) -- their time is up: gone
     else
       local caster = server.players[s.by]
@@ -449,7 +454,7 @@ function Horde:step(server, dt, skip)
     self.burnIn = self.burnIn + Horde.BURN_EVERY
     self:burn(server, skip)
   end
-  return self.kills, self.lit
+  return self.kills, self.lit, self.gone
 end
 
 return Horde

@@ -190,9 +190,13 @@ function OpenBorders:serverStep(server, dt)
     return
   end
   local horde = sv.horde
-  local kills, lit = horde:step(server, dt, self)
+  local kills, lit, gone = horde:step(server, dt, self)
   for _, kill in ipairs(kills) do
     simpDown(server, kill)
+  end
+  -- Not a kill (no koin, no body): they just leave. The tutorial counts them.
+  for _, simp in ipairs(gone) do
+    Features.call("serverSimpGone", server, simp)
   end
   for _, f in ipairs(lit) do
     server:broadcast(Protocol.encode("OB_FIRE", f.id, fmt(f.x), fmt(f.y), ("%.2f"):format(Horde.FIRE_SECONDS)))

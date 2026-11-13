@@ -235,6 +235,15 @@ function Tutorial:serverKill(server, kill)
   end
 end
 
+--- A simp's time ran out and it left (open-borders' `serverSimpGone`): on
+--- level 4 it counts towards "Destroy the rioters" like one killed, so the
+--- ones nobody got to before the horde's time was up are not lost.
+function Tutorial:serverSimpGone(server)
+  if level and level.quest == "tutorial-4" then
+    rioterDown(server)
+  end
+end
+
 --- Is the level on in Shoeman's Town (levels 4 and 5)?
 local function inTown()
   local city = Features.byName["city-map"]

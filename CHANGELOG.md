@@ -38,7 +38,8 @@ How to write it (details in "Changelog and versioning" in `docs/features.md`):
   at the shop. If you die there, you come back at the hospital's door.
 - Lesson four is Open Borders: Shoeman puts the ability down for each of you, and you pick it up, put it in an
   ability slot and cast it. He laughs every time you do, and the rioters you let in burn the town and punch you
-  too. Kill 25 of them, from as many casts as it takes, and the way on to lesson five opens on the top street.
+  too. Once 25 of them are gone, shot, run over or simply left when the horde's time is up, the way on to lesson
+  five opens on the top street.
   Anyone who arrives without a pistol is handed one, and Shoeman has something to say every time you die.
 - Lesson five is building, the last: one section at a time, you take the town's plots (free here), build two Quarry
   Mines for iron and sulfur, a Weapons Factory on pistols and an Ammo Factory, carry iron and sulfur over and load
